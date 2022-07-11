@@ -5,7 +5,7 @@ pragma solidity 0.8.4;
 import "./ILendingDataTypes.sol";
 
 /// @notice A lending platform. Allow to borrow a loan and repay it back.
-interface ILendingPlatformWrapper is ILendingDataTypes {
+interface ILendingPlatform is ILendingDataTypes {
 
   /// @notice Return a plan of possible most efficient borrowing strategy
   /// @notice sourceAsset An asset for collateral
@@ -14,9 +14,10 @@ interface ILendingPlatformWrapper is ILendingDataTypes {
   /// @notice amountTargetAsset Required amount of the target asset
   /// @notice lendingPeriodInBlocks Approx period of borrowing in ethereum blocks
   /// @notice params Required health factor, possible range of collateral factor and so on
-  /// @return outPlan Encoded plan of the borrow
+  /// @return outPlan Optimal pool to borrow from
   /// @return outEstimatedAmountToRepay Estimated amount of target asset to be repaid in {lendingPeriodInBlocks}
-  function getBorrowPlan(
+  /// @return outErrorMessage Possible reason why the plan wasn't built. Empty for success
+  function buildBorrowPlan(
     address sourceAsset,
     uint amountSourceAsset,
     address targetAsset,
@@ -24,7 +25,8 @@ interface ILendingPlatformWrapper is ILendingDataTypes {
     uint lendingPeriodInBlocks,
     uint params
   ) external view returns (
-    uint outPlan,
-    uint outEstimatedAmountToRepay
+    PoolData memory outPlan,
+    uint outEstimatedAmountToRepay,
+    string memory outErrorMessage
   );
 }
