@@ -2,11 +2,11 @@
 
 pragma solidity 0.8.4;
 
-import "../interfaces/ILendingDataTypes.sol";
 import "./BorrowManagerStorage.sol";
+import "./DataTypes.sol";
 import "../interfaces/ILendingPlatform.sol";
 
-/// @notice Contain list of lending pools. Allow to select most efficient pool and delegate borrow-request there
+/// @notice Contains list of lending pools. Allow to select most efficient pool and delegate borrow-request there
 contract BorrowManager is BorrowManagerStorage {
 
   /*****************************************************/
@@ -50,23 +50,12 @@ contract BorrowManager is BorrowManagerStorage {
   /*****************************************************/
 
   /// @notice Find best pool to make a loan
-  /// @param sourceToken Asset to be used as collateral
-  /// @param sourceAmount Max available amount of collateral
-  /// @param targetToken Asset to borrow
-  /// @param targetAmount Required amount to borrow
-  /// @param minHealthFactor Minimal allowed health factor, decimals 18
-  /// @param borrowDurationInBlocks Estimated duration of the borrowing in count of Ethereum blocks
   /// @return outPool A pool optimal for the borrowing. 0 if the borrowing is not possible
   /// @return outCollateralAmount Required amount of collateral <= sourceAmount
   /// @return outEstimatedAmountToRepay How much target tokens should be paid at the end of the borrowing
   /// @return outError A reason why the borrowing cannot be made; empty for success
   function getBestBorrowPool(
-    address sourceToken,
-    address sourceAmount,
-    address targetToken,
-    address targetAmount,
-    uint256 minHealthFactor,
-    uint256 borrowDurationInBlocks
+    DataTypes.BorrowParams memory params
   ) external view returns (
     address outPool,
     uint outCollateralAmount,
@@ -78,14 +67,7 @@ contract BorrowManager is BorrowManagerStorage {
      uint[] memory collateralAmount,
      uint[] memory estimatedAmountToRepays,
      string[] memory errors
-    ) = _getPoolsToBorrow(
-      sourceToken,
-      sourceAmount,
-      targetToken,
-      targetAmount,
-      minHealthFactor,
-      borrowDurationInBlocks
-    );
+    ) = _getPoolsToBorrow(params);
 
     // select a pool with minimum estimated amount to repay
     uint lenPools = pools.length;
@@ -102,23 +84,12 @@ contract BorrowManager is BorrowManagerStorage {
   }
 
   /// @notice Find best pool to make a loan
-  /// @param sourceToken Asset to be used as collateral
-  /// @param sourceAmount Max available amount of collateral
-  /// @param targetToken Asset to borrow
-  /// @param targetAmount Required amount to borrow
-  /// @param minHealthFactor Minimal allowed health factor, decimals 18
-  /// @param borrowDurationInBlocks Estimated duration of the borrowing in count of Ethereum blocks
   /// @return outPools A pool optimal for the borrowing. 0 if the borrowing is not possible
   /// @return outCollateralAmounts Required amount of collateral <= sourceAmount
   /// @return outEstimatedAmountToRepays How much target tokens should be paid at the end of the borrowing
   /// @return outErrors A reason why the borrowing cannot be made; empty for success
   function _getPoolsToBorrow (
-    address sourceToken,
-    address sourceAmount,
-    address targetToken,
-    address targetAmount,
-    uint256 minHealthFactor,
-    uint256 borrowDurationInBlocks
+    DataTypes.BorrowParams memory params
   ) internal view returns (
     address[] memory outPools,
     uint[] memory outCollateralAmounts,
@@ -128,8 +99,8 @@ contract BorrowManager is BorrowManagerStorage {
     // enumerate all available pools for the pair of the assets
     // select a pool with minimum value of {estimatedAmountToRepay}
     address[] memory pools = poolsForAssets
-      [sourceToken < targetToken ? sourceToken : targetToken]
-      [sourceToken < targetToken ? targetToken : sourceToken];
+      [params.sourceToken < params.targetToken ? params.sourceToken : params.targetToken]
+      [params.sourceToken < params.targetToken ? params.targetToken : params.sourceToken];
     uint lenPools = pools.length;
     if (lenPools != 0) {
       outPools = new address[](lenPools);
@@ -137,18 +108,15 @@ contract BorrowManager is BorrowManagerStorage {
       outEstimatedAmountToRepays = new uint[](lenPools);
       outErrors = new string[](lenPools);
 
-      for (uint i = 0; i < lenPools; ++i) {
-        address decorator = platforms[poolToPlatform[pools[i]]].decorator;
+      for (uint i = 0; i < lenPools; i = _uncheckedInc(i)) {
         (outCollateralAmounts[i],
          outEstimatedAmountToRepays[i],
          outErrors[i]
-        ) = ILendingPlatform(decorator).buildBorrowPlan(
-          sourceToken,
-          sourceAmount,
-          targetToken,
-          targetAmount,
-          minHealthFactor,
-          borrowDurationInBlocks
+        ) = ILendingPlatform(
+          platforms[poolToPlatform[pools[i]]].decorator
+        ).buildBorrowPlan(
+          pools[i],
+          params
         );
       }
     }
