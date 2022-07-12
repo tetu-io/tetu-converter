@@ -4,15 +4,7 @@ import {Logger} from "tslog";
 import logSettings from "../../log_settings";
 import {ContractFactory, utils} from "ethers";
 import {Libraries} from "hardhat-deploy/dist/types";
-import {
-  CompanyManager, DebtsManager, PaymentsManager,
-  RequestsManager, PriceOracle, Controller, ApprovalsManager, ProxyControlled__factory, ProxyControlled, BatchReader
-} from "../../typechain";
-import {CoreInstances} from "../app-model/CoreInstances";
-import {getMockUniswapV2Pair} from "../../test/baseUt/FabricUtils";
-import axios from "axios";
 import {config as dotEnvConfig} from "dotenv";
-import {DeployerUtils} from "./DeployerUtils";
 import {Misc} from "./Misc";
 import {VerifyUtils} from "./VerifyUtils";
 
@@ -95,102 +87,4 @@ export class DeployUtils {
     return _factory.attach(receipt.contractAddress);
   }
 //endregion Contract connection
-
-//region Core
-  /**
-   * Instantiate all core contracts
-   */
-  public static async deployCore(
-      governance: SignerWithAddress
-      , firstEpoch = 100
-  ) : Promise<CoreInstances>{
-    const networkTokenFabric = await ethers.getContractFactory('MockERC20');
-    const networkToken = await networkTokenFabric.deploy('MockWMATIC', 'MockWMATIC', 18);
-    console.log("Network token", networkToken.address);
-
-    const rewardTokenFabric = await ethers.getContractFactory('MockERC20');
-    const rewardToken = await rewardTokenFabric.deploy('MockTETU', 'MockTETU', 18);
-    console.log("Reward token", rewardToken.address);
-
-    const usdcTokenFabric = await ethers.getContractFactory('MockERC20');
-    const usdcToken = await usdcTokenFabric.deploy('MockUSDC', 'MockUSDC', 18);
-    console.log("USDC token", usdcToken.address);
-
-    // deploy contracts
-    let controller = (await DeployUtils.deployContract(governance, 'Controller')) as Controller;
-    let requestsManager = (await DeployUtils.deployContract(governance, 'RequestsManager')) as RequestsManager;
-    let companyManager = (await DeployUtils.deployContract(governance, 'CompanyManager')) as CompanyManager;
-    let clerk =  (await DeployUtils.deployContract(governance, 'PaymentsManager')) as PaymentsManager;
-    let debtsManager = (await DeployUtils.deployContract(governance, 'DebtsManager')) as DebtsManager
-    let priceOracle = (await DeployUtils.deployContract(governance, 'PriceOracle')) as PriceOracle;
-    let pair = (await getMockUniswapV2Pair(governance, usdcToken.address, rewardToken.address));
-    let approvalsManager = (await DeployUtils.deployContract(governance, 'ApprovalsManager')) as ApprovalsManager;
-    let batchReader = (await DeployUtils.deployContract(governance, 'BatchReader')) as BatchReader;
-
-    // deploy readers
-//    let companyManagerReader = (await Deploy.deployContract(governance, 'CompanyManagerReader')) as CompanyManagerReader;
-//    let requestsManagerReader = (await Deploy.deployContract(governance, 'RequestsManagerReader')) as RequestsManagerReader;
-//    let debtsManagerReader = (await Deploy.deployContract(governance, 'DebtsManagerReader')) as DebtsManagerReader;
-
-    // initialize deployed contracts
-    await controller.initialize(
-        companyManager.address
-        , requestsManager.address
-        , debtsManager.address
-        , priceOracle.address
-        , clerk.address
-        , approvalsManager.address
-        , batchReader.address
-    );
-
-    await clerk.initialize(controller.address);
-
-    await companyManager.initialize(
-        controller.address
-        , rewardToken.address
-    );
-    await companyManager.initRoles(
-        ["novice", "educated", "blessed", "nomarch"]
-        , [1, 1, 1, 2] // count of required approvals
-    );
-
-    await requestsManager.initialize(
-        controller.address
-    );
-
-    await debtsManager.initialize(
-        controller.address
-        , firstEpoch
-    );
-
-    await priceOracle.initialize(
-        controller.address
-        , pair.address
-        , rewardToken.address
-        , usdcToken.address
-    );
-
-    await approvalsManager.initialize(controller.address);
-
-    await batchReader.initialize(controller.address);
-
-    return new CoreInstances(
-        networkToken
-        , rewardToken
-        , usdcToken
-        , controller
-        , companyManager
-        , requestsManager
-        , clerk
-        , debtsManager
-        , priceOracle
-        , pair
-        , approvalsManager
-        , batchReader
-        // , companyManagerReader
-        // , requestsManagerReader
-        // , debtsManagerReader
-    );
-  }
-//endregion Core
 }
