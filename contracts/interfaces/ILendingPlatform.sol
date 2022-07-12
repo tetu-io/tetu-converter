@@ -7,17 +7,16 @@ import "../core/DataTypes.sol";
 /// @notice A lending platform. Allow to borrow a loan and repay it back.
 interface ILendingPlatform {
 
-  /// @notice Estimate borrowing results
-  /// @param pool A pool for source OR target assets. We need it to access comptroller.
-  /// @return outCollateralAmount Required amount of collateral <= sourceAmount
-  /// @return outEstimatedAmountToRepay How much target tokens should be paid at the end of the borrowing
-  /// @return outErrorMessage A reason why the borrowing cannot be made; empty for success
-  function buildBorrowPlan(
+  /// @notice Get normalized borrow rate per block, scaled by 1e18
+  /// @dev Normalized borrow rate can include borrow-rate-per-block + any additional fees
+  function getBorrowRate(
     address pool,
-    DataTypes.BorrowParams memory params
-  ) external view returns (
-    uint outCollateralAmount,
-    uint outEstimatedAmountToRepay,
-    string memory outErrorMessage
-  );
+    address sourceToken,
+    address targetToken
+  ) external view returns (uint);
+
+  function borrow(
+    address pool,
+    DataTypes.BorrowParams calldata params
+  ) external;
 }

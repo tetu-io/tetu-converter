@@ -5,6 +5,7 @@ pragma solidity 0.8.4;
 import "./BorrowManagerStorage.sol";
 import "./DataTypes.sol";
 import "../interfaces/ILendingPlatform.sol";
+import "../third_party/market/ICErc20.sol";
 
 /// @notice Contains list of lending pools. Allow to select most efficient pool and delegate borrow-request there
 contract BorrowManager is BorrowManagerStorage {
@@ -49,79 +50,28 @@ contract BorrowManager is BorrowManagerStorage {
   /*               Borrow logic                        */
   /*****************************************************/
 
-  /// @notice Find best pool to make a loan
-  /// @return outPool A pool optimal for the borrowing. 0 if the borrowing is not possible
-  /// @return outCollateralAmount Required amount of collateral <= sourceAmount
-  /// @return outEstimatedAmountToRepay How much target tokens should be paid at the end of the borrowing
-  /// @return outError A reason why the borrowing cannot be made; empty for success
-  function getBestBorrowPool(
-    DataTypes.BorrowParams memory params
-  ) external view returns (
-    address outPool,
-    uint outCollateralAmount,
-    uint outEstimatedAmountToRepay,
-    string memory outError
-  ) {
-    // get estimated results for all pools
-    (address[] memory pools,
-     uint[] memory collateralAmount,
-     uint[] memory estimatedAmountToRepays,
-     string[] memory errors
-    ) = _getPoolsToBorrow(params);
-
-    // select a pool with minimum estimated amount to repay
-    uint lenPools = pools.length;
-    for (uint i = 0; i < lenPools; i = _uncheckedInc(i)) {
-      if (pools[i] == address(0) || estimatedAmountToRepays[i] < outEstimatedAmountToRepay) {
-        outPool = pools[i];
-        outCollateralAmount = collateralAmount[i];
-        outEstimatedAmountToRepay = estimatedAmountToRepays[i];
-        outError = errors[i];
-      }
-    }
-
-    return (outPool, outCollateralAmount, outEstimatedAmountToRepay, outError);
-  }
-
-  /// @notice Find best pool to make a loan
-  /// @return outPools A pool optimal for the borrowing. 0 if the borrowing is not possible
-  /// @return outCollateralAmounts Required amount of collateral <= sourceAmount
-  /// @return outEstimatedAmountToRepays How much target tokens should be paid at the end of the borrowing
-  /// @return outErrors A reason why the borrowing cannot be made; empty for success
-  function _getPoolsToBorrow (
-    DataTypes.BorrowParams memory params
-  ) internal view returns (
-    address[] memory outPools,
-    uint[] memory outCollateralAmounts,
-    uint[] memory outEstimatedAmountToRepays,
-    string[] memory outErrors
-  ) {
-    // enumerate all available pools for the pair of the assets
-    // select a pool with minimum value of {estimatedAmountToRepay}
+  /// @notice Find lending pool with best normalized borrow rate per ethereum block
+  /// @dev Normalized borrow rate can include borrow-rate-per-block + any additional fees
+  function getBestLendingPool (
+    address sourceToken,
+    address targetToken
+  ) public view returns (address outPool, uint outBorrowRate) {
+    // The borrow interest rate per block, scaled by 1e18
     address[] memory pools = poolsForAssets
-      [params.sourceToken < params.targetToken ? params.sourceToken : params.targetToken]
-      [params.sourceToken < params.targetToken ? params.targetToken : params.sourceToken];
+      [sourceToken < targetToken ? sourceToken : targetToken]
+      [sourceToken < targetToken ? targetToken : sourceToken];
     uint lenPools = pools.length;
     if (lenPools != 0) {
-      outPools = new address[](lenPools);
-      outCollateralAmounts = new uint[](lenPools);
-      outEstimatedAmountToRepays = new uint[](lenPools);
-      outErrors = new string[](lenPools);
-
       for (uint i = 0; i < lenPools; i = _uncheckedInc(i)) {
-        (outCollateralAmounts[i],
-         outEstimatedAmountToRepays[i],
-         outErrors[i]
-        ) = ILendingPlatform(
-          platforms[poolToPlatform[pools[i]]].decorator
-        ).buildBorrowPlan(
-          pools[i],
-          params
-        );
+        uint rate = ICErc20(pools[i]).borrowRatePerBlock();
+        if (outPool == address(0) || rate < outBorrowRate) {
+          outPool = pools[i];
+          outBorrowRate = rate;
+        }
       }
     }
 
-    return (outPools, outCollateralAmounts, outEstimatedAmountToRepays, outErrors);
+    return (outPool, outBorrowRate);
   }
 
 //  function borrow() external;
