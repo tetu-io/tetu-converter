@@ -35,6 +35,21 @@ contract MarketDecorator is ILendingPlatform {
     uint outEstimatedAmountToRepay,
     string memory outErrorMessage
   ) {
+//    // get max allowed amount to borrow in target tokens
+//    uint amountSafeToBorrow = _getMaxSafeAmountToBorrow(pool, params);
+//    if (params.targetAmount > amountSafeToBorrow) {
+//      outErrorMessage = "Collateral is not enough";
+//    } else {
+//
+//    }
+
+    return (outCollateralAmount, outEstimatedAmountToRepay, outErrorMessage);
+  }
+
+  function _getMaxSafeAmountToBorrow(
+    address pool,
+    DataTypes.BorrowParams memory params
+  ) internal view returns (uint) {
     // get all suitable pools that can provide allowed amount
     // select a pool with best conditions
     uint targetDecimals = IERC20Extended(params.targetToken).decimals();
@@ -44,22 +59,24 @@ contract MarketDecorator is ILendingPlatform {
     uint borrowRate = ICErc20(pool).borrowRatePerBlock();
 
     // get max allowed amount to borrow [target tokens], scaled by 1e18
-    uint amountSafeToBorrow = getAmountSafeToBorrow(
-        sourceDecimals == 18
-          ? params.sourceAmount
-          : toMantissa(params.sourceAmount, sourceDecimals, 18),
-        priceOracle.getAssetPrice(params.targetToken),
-        priceOracle.getAssetPrice(params.sourceToken),
-        _getCollateralFactor(pool, params.targetToken),
-          params.minHealthFactor,
-        targetDecimals == 18
-          ? borrowRate
-          : toMantissa(borrowRate, targetDecimals, 18),
-        params.borrowDurationInBlocks,
-        0 // there is no borrow fee on Market XYZ
+    uint dest = getAmountSafeToBorrow(
+      sourceDecimals == 18
+        ? params.sourceAmount
+        : toMantissa(params.sourceAmount, sourceDecimals, 18),
+      priceOracle.getAssetPrice(params.targetToken),
+      priceOracle.getAssetPrice(params.sourceToken),
+      _getCollateralFactor(pool, params.targetToken),
+      params.minHealthFactor,
+      targetDecimals == 18
+        ? borrowRate
+        : toMantissa(borrowRate, targetDecimals, 18),
+      params.borrowDurationInBlocks,
+      0 // there is no borrow fee on Market XYZ
     );
 
-    return (outCollateralAmount, outEstimatedAmountToRepay, outErrorMessage);
+    return targetDecimals == 18
+      ? dest
+      : toMantissa(dest, 18, targetDecimals);
   }
 
   function _getCollateralFactor(address pool, address targetToken) internal view returns (uint) {

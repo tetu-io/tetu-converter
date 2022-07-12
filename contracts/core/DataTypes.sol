@@ -17,14 +17,7 @@ library DataTypes {
     address[] pools;
   }
 
-//  /// @notice Lending pool
-//  struct PoolData {
-//    /// @dev I.e. fuse pools is a cToken, it supports ICErc20
-//    address pool;
-//    /// @notice List of assets supported by the pool. Any asset can be source and any asset can be target
-//    address[] assets;
-//  }
-
+  /// @notice Input params to make a loan
   struct BorrowParams {
     /// @notice Asset to be used as collateral
     address sourceToken;
@@ -34,9 +27,15 @@ library DataTypes {
     address targetToken;
     /// @notice Required amount to borrow
     uint targetAmount;
-    /// @notice Minimal allowed health factor, decimals 18
+
+    /// @notice Minimum allowed health factor, decimals 18
     uint minHealthFactor;
+
     /// @notice Estimated duration of the borrowing in count of Ethereum blocks
     uint borrowDurationInBlocks;
+  }
+
+  struct BorrowEfficiency {
+    uint normalizedBorrowRate;
   }
 }

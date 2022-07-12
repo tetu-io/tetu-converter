@@ -49,4 +49,10 @@ interface ICErc20 {
   function transfer ( address dst, uint amount ) external returns ( bool );
   function transferFrom ( address src, address dst, uint amount ) external returns ( bool );
   function underlying (  ) external view returns ( address );
+
+  function adminFeeMantissa() external view returns (uint256);
+  function fuseFeeMantissa() external view returns (uint256);
+  function totalAdminFees() external view returns (uint256);
+  function totalFuseFees() external view returns (uint256);
+
 }
