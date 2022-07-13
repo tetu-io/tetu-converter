@@ -21,6 +21,7 @@ interface IBorrowManager {
   );
 
   /// @notice Calculate a collateral required to borrow {targetAmount} from the pool and get initial {healthFactor}
+  /// @return outSourceAmount Result source amount, decimals of sourceToken
   function estimateSourceAmount(
     address pool,
     address sourceToken,
@@ -33,6 +34,7 @@ interface IBorrowManager {
 
   /// @notice Calculate a target amount that can be borrowed from the pool using {sourceAmount} as collateral
   ///         with initial {healthFactor}
+  /// @return outTargetAmount Result target amount, decimals of targetToken
   function estimateTargetAmount(
     address pool,
     address sourceToken,
@@ -45,6 +47,7 @@ interface IBorrowManager {
 
   /// @notice Estimate result health factor after borrowing {targetAmount} from the pool
   ///         using {sourceAmount} as collateral
+  /// @return outHealthFactor Result health factor, decimals 18
   function estimateHealthFactor(
     address pool,
     address sourceToken,

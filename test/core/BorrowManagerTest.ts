@@ -2,12 +2,10 @@ import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import {ethers} from "hardhat";
 import {expect} from "chai";
 import {DeployUtils} from "../../scripts/utils/DeployUtils";
-import {BorrowManager, MockERC20, PriceOracleMock, PriceOracleMock__factory} from "../../typechain";
+import {BorrowManager, MockERC20, PriceOracleMock} from "../../typechain";
 import {TimeUtils} from "../../scripts/utils/TimeUtils";
-import {Misc} from "../../scripts/utils/Misc";
 import {BigNumber} from "ethers";
 import {BorrowManagerUtils} from "../baseUT/BorrowManagerUtils";
-import {sign} from "crypto";
 import {getBigNumberFrom} from "../../scripts/utils/NumberUtils";
 
 describe("BorrowManager", () => {
@@ -47,6 +45,54 @@ describe("BorrowManager", () => {
         await TimeUtils.rollback(snapshotForEach);
     });
 //endregion before, after
+
+//region Utils
+    async function initializeBorrowManager(
+        collateralFactors: number[],
+        pricesUSD: number[],
+        underlineDecimals: number[],
+        poolDecimals: number[]
+    ) : Promise<{
+        poolAssets: MockERC20[],
+        pool: string,
+        bm: BorrowManager
+    }> {
+        const underlines = await BorrowManagerUtils.generateAssets(underlineDecimals);
+        const cTokens = await BorrowManagerUtils.generateCTokens(signer, poolDecimals, underlines.map(x => x.address));
+        const pool = await BorrowManagerUtils.generatePool(signer, cTokens);
+        console.log("underlines", underlines.map(x => x.address));
+        console.log("cTokens", cTokens.map(x => x.address));
+        console.log("pool", pool.address);
+
+        const borrowRateInTokens = 1;
+        const availableLiquidityInTokens = 10_000;
+
+        const borrowRates = underlines.map(
+            (token, index) => getBigNumberFrom(borrowRateInTokens, underlineDecimals[index])
+        );
+        const availableLiquidities = underlines.map(
+            (token, index) => getBigNumberFrom(availableLiquidityInTokens, underlineDecimals[index])
+        );
+
+        const bm = await BorrowManagerUtils.createBorrowManagerWithMockDecorator(
+            signer,
+            pool,
+            underlines,
+            poolAddress => BorrowManagerUtils.generateDecorator(
+                signer,
+                pool,
+                underlines.map(x => x.address),
+                borrowRates,
+                collateralFactors,
+                availableLiquidities
+            ),
+            pricesUSD.map(x => BigNumber.from(10).pow(16).mul(x * 100))
+        );
+
+        return {poolAssets: underlines, pool: pool.address, bm};
+    }
+
+//endregion Utils
     describe("addPlatform", () => {
         describe("Good paths", () => {
             describe("Create two platforms", () => {
@@ -56,7 +102,16 @@ describe("BorrowManager", () => {
                     const decorator1 = ethers.Wallet.createRandom().address;
                     const decorator2 = ethers.Wallet.createRandom().address;
 
-                    const bm = (await DeployUtils.deployContract(signer, "BorrowManager")) as BorrowManager;
+                    const priceOracle = (await DeployUtils.deployContract(signer
+                        , "PriceOracleMock"
+                        , []
+                        , []
+                    )) as PriceOracleMock;
+
+                    const bm = (await DeployUtils.deployContract(signer
+                        , "BorrowManager"
+                        , priceOracle.address
+                    )) as BorrowManager;
                     await bm.addPlatform(platformTitle1, decorator1);
                     await bm.addPlatform(platformTitle2, decorator2);
 
@@ -121,7 +176,17 @@ describe("BorrowManager", () => {
                     const asset2 = poolAssets[1];
                     const asset3 = poolAssets[2];
 
-                    const bm = (await DeployUtils.deployContract(signer, "BorrowManager")) as BorrowManager;
+                    const priceOracle = (await DeployUtils.deployContract(signer
+                        , "PriceOracleMock"
+                        , []
+                        , []
+                    )) as PriceOracleMock;
+
+                    const bm = (await DeployUtils.deployContract(signer
+                        , "BorrowManager"
+                        , priceOracle.address
+                    )) as BorrowManager;
+
                     await bm.addPlatform(platformTitle, decorator);
                     const platformUid = await bm.platformsCount();
 
@@ -138,9 +203,6 @@ describe("BorrowManager", () => {
                         , await bm.poolsForAssetsLength(asset1, asset2)
                         , await bm.poolsForAssetsLength(asset1, asset3)
                         , await bm.poolsForAssetsLength(asset2, asset3)
-                        , await bm.poolsForAssets(asset2, asset1, 0)
-                        , await bm.poolsForAssets(asset3, asset1, 0)
-                        , await bm.poolsForAssets(asset3, asset2, 0)
                         , await bm.assignedPoolsForAssets(asset2, asset1, poolAddress)
                         , await bm.assignedPoolsForAssets(asset3, asset1, poolAddress)
                         , await bm.assignedPoolsForAssets(asset3, asset2, poolAddress)
@@ -151,10 +213,9 @@ describe("BorrowManager", () => {
 
                     const expected = [
                         platformUid
-                        , poolAssets, poolAssets, poolAssets
+                        , poolAddress, poolAddress, poolAddress
                         , true, true, true
                         , 1, 1, 1
-                        , "", "", ""
                         , false, false, false
                         , 0, 0, 0
                     ].join();
@@ -199,60 +260,28 @@ describe("BorrowManager", () => {
     });
 
     describe("estimateSourceAmount", () => {
-        async function initialize(
-            collateralFactors: number[],
-            pricesUSD: number[],
-            underlineDecimals: number[],
-            poolDecimals: number[]
-        ) : Promise<{
-            poolAssets: MockERC20[],
-            pool: string,
-            bm: BorrowManager
-        }> {
-            const underlines = await BorrowManagerUtils.generateAssets(underlineDecimals);
-            const cTokens = await BorrowManagerUtils.generateCTokens(signer, poolDecimals, underlines.map(x => x.address));
-            const pool = await BorrowManagerUtils.generatePool(signer, cTokens);
-            console.log("underlines", underlines.map(x => x.address));
-            console.log("cTokens", cTokens.map(x => x.address));
-            console.log("pool", pool.address);
-
-            const borrowRateInTokens = 1;
-            const availableLiquidityInTokens = 10_000;
-
-            const borrowRates = underlines.map(
-                (token, index) => getBigNumberFrom(borrowRateInTokens, underlineDecimals[index])
-            );
-            const availableLiquidities = underlines.map(
-                (token, index) => getBigNumberFrom(availableLiquidityInTokens, underlineDecimals[index])
-            );
-
-            const bm = await BorrowManagerUtils.createBorrowManagerWithMockDecorator(
-                signer,
-                pool,
-                underlines,
-                poolAddress => BorrowManagerUtils.generateDecorator(
-                    signer,
-                    pool,
-                    underlines.map(x => x.address),
-                    borrowRates,
-                    collateralFactors,
-                    availableLiquidities
-                ),
-                pricesUSD.map(x => BigNumber.from(x))
-            );
-
-            return {poolAssets: underlines, pool: pool.address, bm};
-        }
         describe("Good paths", () => {
+            interface TestTask {
+                targetCollateralFactor: number;
+                priceSourceUSD: number;
+                priceTargetUSD: number;
+                targetAmount: number;
+                healthFactor: number;
+                expectedSourceAmount: number;
+                sourceDecimals?: number;
+                targetDecimals?: number;
+            }
+            async function makeTest(tt: TestTask) : Promise<{ret: string, expected: string}> {
+                const sourceDecimals = tt.sourceDecimals || 18;
+                const targetDecimals = tt.targetDecimals || 6;
 
-            it("should be ok", async () => {
                 // source, target
-                const underlineDecimals = [18, 6];
-                const poolDecimals = [18, 6];
-                const collateralFactors = [0.6, 0.8];
-                const pricesUSD = [5, 2];
+                const underlineDecimals = [sourceDecimals, targetDecimals];
+                const poolDecimals = [sourceDecimals, targetDecimals];
+                const collateralFactors = [0.6, tt.targetCollateralFactor];
+                const pricesUSD = [tt.priceSourceUSD, tt.priceTargetUSD];
 
-                const {poolAssets, pool, bm} = await initialize(
+                const {poolAssets, pool, bm} = await initializeBorrowManager(
                     collateralFactors,
                     pricesUSD,
                     underlineDecimals,
@@ -263,20 +292,58 @@ describe("BorrowManager", () => {
 
                 const sourceToken = poolAssets[0];
                 const targetToken = poolAssets[1];
-                const targetAmount = 100;
-                const healthFactor = 2.0;
 
                 const retSourceAmount = await bm.estimateSourceAmount(
                     pool
                     , sourceToken.address
                     , targetToken.address
-                    , getBigNumberFrom(targetAmount, await targetToken.decimals())
-                    , healthFactor
+                    , getBigNumberFrom(tt.targetAmount, await targetToken.decimals())
+                    , BigNumber.from(10).pow(16).mul(tt.healthFactor * 100)
                 );
+                const sRetSourceAmount = ethers.utils.formatUnits(retSourceAmount, sourceDecimals);
 
-                // Use 2022-07-13 Conversion modes.xlsx to calculate results
-                const expectedSourceAmount = 625;
-                expect(retSourceAmount).equal(expectedSourceAmount);
+                const expectedSourceAmountCalc = tt.healthFactor * tt.targetAmount * tt.priceTargetUSD
+                    / (tt.targetCollateralFactor * tt.priceSourceUSD);
+
+                const ret = [sRetSourceAmount, sRetSourceAmount].join();
+                const expected = [
+                    ethers.utils.formatUnits(getBigNumberFrom(tt.expectedSourceAmount, sourceDecimals), sourceDecimals),
+                    ethers.utils.formatUnits(getBigNumberFrom(expectedSourceAmountCalc, sourceDecimals), sourceDecimals)
+                ].join();
+
+                return {ret, expected};
+            }
+            describe("assets are more expensive then USD", () => {
+                it("should return expected source amount", async () => {
+                    const {ret, expected} = await makeTest({
+                        targetCollateralFactor: 0.8,
+                        priceSourceUSD: 5,
+                        priceTargetUSD: 2,
+                        sourceDecimals: 18,
+                        targetDecimals: 6,
+                        targetAmount: 100,
+                        healthFactor: 1.5,
+                        expectedSourceAmount: 75 // [SA]
+                    });
+
+                    expect(ret).equal(expected);
+                });
+            });
+            describe("assets are less expensive then USD", () => {
+                it("should return expected source amount", async () => {
+                    const {ret, expected} = await makeTest({
+                        targetCollateralFactor: 0.5,
+                        priceSourceUSD: 0.5,
+                        priceTargetUSD: 0.2,
+                        sourceDecimals: 12,
+                        targetDecimals: 24,
+                        targetAmount: 100,
+                        healthFactor: 3.5,
+                        expectedSourceAmount: 280 // [SA]
+                    });
+
+                    expect(ret).equal(expected);
+                });
             });
         });
         describe("Bad paths", () => {
@@ -284,6 +351,195 @@ describe("BorrowManager", () => {
                 expect.fail();
             });
         });
+    });
 
+    describe("estimateTargetAmount", () => {
+        describe("Good paths", () => {
+            interface TestTask {
+                targetCollateralFactor: number;
+                priceSourceUSD: number;
+                sourceAmount: number;
+                priceTargetUSD: number;
+                healthFactor: number;
+                expectedTargetAmount: number;
+                sourceDecimals?: number;
+                targetDecimals?: number;
+            }
+            async function makeTest(tt: TestTask) : Promise<{ret: string, expected: string}> {
+                const sourceDecimals = tt.sourceDecimals || 18;
+                const targetDecimals = tt.targetDecimals || 6;
+
+                // source, target
+                // source, target
+                const underlineDecimals = [sourceDecimals, targetDecimals];
+                const poolDecimals = [sourceDecimals, targetDecimals];
+                const collateralFactors = [0.6, tt.targetCollateralFactor];
+                const pricesUSD = [tt.priceSourceUSD, tt.priceTargetUSD];
+
+                const {poolAssets, pool, bm} = await initializeBorrowManager(
+                    collateralFactors,
+                    pricesUSD,
+                    underlineDecimals,
+                    poolDecimals
+                );
+
+                console.log("bm is initialized");
+
+                const sourceToken = poolAssets[0];
+                const targetToken = poolAssets[1];
+
+                const retTargetAmount = await bm.estimateTargetAmount(
+                    pool
+                    , sourceToken.address
+                    , getBigNumberFrom(tt.sourceAmount, await sourceToken.decimals())
+                    , targetToken.address
+                    , BigNumber.from(10).pow(16).mul(tt.healthFactor * 100)
+                );
+                const sRetTargetAmount = ethers.utils.formatUnits(retTargetAmount, targetDecimals);
+
+                const expectedTargetAmountCalc = tt.targetCollateralFactor * tt.sourceAmount * tt.priceSourceUSD
+                    / (tt.healthFactor * tt.priceTargetUSD);
+
+                const ret = [sRetTargetAmount, sRetTargetAmount].join();
+                const expected = [
+                    ethers.utils.formatUnits(getBigNumberFrom(tt.expectedTargetAmount, targetDecimals), targetDecimals),
+                    ethers.utils.formatUnits(getBigNumberFrom(expectedTargetAmountCalc, targetDecimals), targetDecimals)
+                ].join();
+
+                return {ret, expected};
+            }
+            describe("assets are more expensive then USD", () => {
+                it("should return expected target amount", async () => {
+                    const {ret, expected} = await makeTest({
+                        targetCollateralFactor: 0.8,
+                        priceSourceUSD: 5,
+                        sourceAmount: 1000, // [SA]
+                        priceTargetUSD: 2,
+                        sourceDecimals: 18,
+                        targetDecimals: 6,
+                        healthFactor: 2.5,
+                        expectedTargetAmount: 800 // [SA]
+                    });
+
+                    expect(ret).equal(expected);
+                });
+            });
+            describe("target asset is less expensive than USD", () => {
+                it("should return expected target amount", async () => {
+                    const {ret, expected} = await makeTest({
+                        targetCollateralFactor: 0.8,
+                        priceSourceUSD: 5,
+                        sourceAmount: 1000, // [SA]
+                        priceTargetUSD: 0.2,
+                        sourceDecimals: 24,
+                        targetDecimals: 22,
+                        healthFactor: 2.5,
+                        expectedTargetAmount: 8000 // [SA]
+                    });
+
+                    expect(ret).equal(expected);
+                });
+            });
+        });
+        describe("Bad paths", () => {
+            it("should revert", async () => {
+                expect.fail();
+            });
+        });
+    });
+
+    describe("estimateHealthFactor", () => {
+        describe("Good paths", () => {
+            interface TestTask {
+                targetCollateralFactor: number;
+                priceSourceUSD: number;
+                sourceAmount: number;
+                priceTargetUSD: number;
+                targetAmount: number;
+                expectedHealthFactor: number;
+                sourceDecimals?: number;
+                targetDecimals?: number;
+            }
+            async function makeTest(tt: TestTask) : Promise<{ret: string, expected: string}> {
+                const sourceDecimals = tt.sourceDecimals || 18;
+                const targetDecimals = tt.targetDecimals || 6;
+
+                // source, target
+                // source, target
+                const underlineDecimals = [sourceDecimals, targetDecimals];
+                const poolDecimals = [sourceDecimals, targetDecimals];
+                const collateralFactors = [0.6, tt.targetCollateralFactor];
+                const pricesUSD = [tt.priceSourceUSD, tt.priceTargetUSD];
+
+                const {poolAssets, pool, bm} = await initializeBorrowManager(
+                    collateralFactors,
+                    pricesUSD,
+                    underlineDecimals,
+                    poolDecimals
+                );
+
+                console.log("bm is initialized");
+
+                const sourceToken = poolAssets[0];
+                const targetToken = poolAssets[1];
+
+                const retHealthFactor = await bm.estimateHealthFactor(
+                    pool
+                    , sourceToken.address
+                    , getBigNumberFrom(tt.sourceAmount, await sourceToken.decimals())
+                    , targetToken.address
+                    , getBigNumberFrom(tt.targetAmount, await targetToken.decimals())
+                );
+                const sRetHealthFactor = ethers.utils.formatUnits(retHealthFactor, 18);
+
+                const expectedHealthFactorCalc = tt.targetCollateralFactor * tt.sourceAmount * tt.priceSourceUSD
+                    / (tt.targetAmount * tt.priceTargetUSD);
+
+                const ret = [sRetHealthFactor, sRetHealthFactor].join();
+                const expected = [
+                    ethers.utils.formatUnits(getBigNumberFrom(tt.expectedHealthFactor, 18), 18),
+                    ethers.utils.formatUnits(getBigNumberFrom(expectedHealthFactorCalc, 18), 18)
+                ].join();
+
+                return {ret, expected};
+            }
+            describe("assets are more expensive then USD", () => {
+                it("should return expected target amount", async () => {
+                    const {ret, expected} = await makeTest({
+                        targetCollateralFactor: 0.8,
+                        priceSourceUSD: 5,
+                        sourceAmount: 3000, // [SA]
+                        targetAmount: 2000, // [TA]
+                        priceTargetUSD: 2,
+                        sourceDecimals: 18,
+                        targetDecimals: 6,
+                        expectedHealthFactor: 3 // [SA]
+                    });
+
+                    expect(ret).equal(expected);
+                });
+            });
+            describe("assets are less expensive than USD", () => {
+                it("should return expected target amount", async () => {
+                    const {ret, expected} = await makeTest({
+                        targetCollateralFactor: 0.8,
+                        priceSourceUSD: 0.5,
+                        sourceAmount: 3000, // [SA]
+                        priceTargetUSD: 0.2,
+                        targetAmount: 2000, // [TA]
+                        sourceDecimals: 24,
+                        targetDecimals: 22,
+                        expectedHealthFactor: 3 // [SA]
+                    });
+
+                    expect(ret).equal(expected);
+                });
+            });
+        });
+        describe("Bad paths", () => {
+            it("should revert", async () => {
+                expect.fail();
+            });
+        });
     });
 });
