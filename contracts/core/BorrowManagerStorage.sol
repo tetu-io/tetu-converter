@@ -3,11 +3,14 @@
 pragma solidity 0.8.4;
 
 import "./DataTypes.sol";
+import "../interfaces/IBorrowManager.sol";
+import "../interfaces/IPriceOracle.sol";
 
-contract BorrowManagerStorage {
+abstract contract BorrowManagerStorage is IBorrowManager {
   /// @notice Generator of unique ID of the lending platforms: 1, 2, 3..
   /// @dev UID of the last added platform
   uint public platformsCount;
+  IPriceOracle public priceOracle;
 
   /// @notice List of all available platforms and corresponded decorators
   /// @dev Allow to change decorator address without changing any other mappings

@@ -2,9 +2,13 @@ import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import {ethers} from "hardhat";
 import {expect} from "chai";
 import {DeployUtils} from "../../scripts/utils/DeployUtils";
-import {BorrowManager} from "../../typechain";
+import {BorrowManager, MockERC20, PriceOracleMock, PriceOracleMock__factory} from "../../typechain";
 import {TimeUtils} from "../../scripts/utils/TimeUtils";
 import {Misc} from "../../scripts/utils/Misc";
+import {BigNumber} from "ethers";
+import {BorrowManagerUtils} from "../baseUT/BorrowManagerUtils";
+import {sign} from "crypto";
+import {getBigNumberFrom} from "../../scripts/utils/NumberUtils";
 
 describe("BorrowManager", () => {
 //region Global vars for all tests
@@ -194,4 +198,92 @@ describe("BorrowManager", () => {
         });
     });
 
+    describe("estimateSourceAmount", () => {
+        async function initialize(
+            collateralFactors: number[],
+            pricesUSD: number[],
+            underlineDecimals: number[],
+            poolDecimals: number[]
+        ) : Promise<{
+            poolAssets: MockERC20[],
+            pool: string,
+            bm: BorrowManager
+        }> {
+            const underlines = await BorrowManagerUtils.generateAssets(underlineDecimals);
+            const cTokens = await BorrowManagerUtils.generateCTokens(signer, poolDecimals, underlines.map(x => x.address));
+            const pool = await BorrowManagerUtils.generatePool(signer, cTokens);
+            console.log("underlines", underlines.map(x => x.address));
+            console.log("cTokens", cTokens.map(x => x.address));
+            console.log("pool", pool.address);
+
+            const borrowRateInTokens = 1;
+            const availableLiquidityInTokens = 10_000;
+
+            const borrowRates = underlines.map(
+                (token, index) => getBigNumberFrom(borrowRateInTokens, underlineDecimals[index])
+            );
+            const availableLiquidities = underlines.map(
+                (token, index) => getBigNumberFrom(availableLiquidityInTokens, underlineDecimals[index])
+            );
+
+            const bm = await BorrowManagerUtils.createBorrowManagerWithMockDecorator(
+                signer,
+                pool,
+                underlines,
+                poolAddress => BorrowManagerUtils.generateDecorator(
+                    signer,
+                    pool,
+                    underlines.map(x => x.address),
+                    borrowRates,
+                    collateralFactors,
+                    availableLiquidities
+                ),
+                pricesUSD.map(x => BigNumber.from(x))
+            );
+
+            return {poolAssets: underlines, pool: pool.address, bm};
+        }
+        describe("Good paths", () => {
+
+            it("should be ok", async () => {
+                // source, target
+                const underlineDecimals = [18, 6];
+                const poolDecimals = [18, 6];
+                const collateralFactors = [0.6, 0.8];
+                const pricesUSD = [5, 2];
+
+                const {poolAssets, pool, bm} = await initialize(
+                    collateralFactors,
+                    pricesUSD,
+                    underlineDecimals,
+                    poolDecimals
+                );
+
+                console.log("bm is initialized");
+
+                const sourceToken = poolAssets[0];
+                const targetToken = poolAssets[1];
+                const targetAmount = 100;
+                const healthFactor = 2.0;
+
+                const retSourceAmount = await bm.estimateSourceAmount(
+                    pool
+                    , sourceToken.address
+                    , targetToken.address
+                    , getBigNumberFrom(targetAmount, await targetToken.decimals())
+                    , healthFactor
+                );
+
+                // Use 2022-07-13 Conversion modes.xlsx to calculate results
+                const expectedSourceAmount = 625;
+                expect(retSourceAmount).equal(expectedSourceAmount);
+            });
+        });
+        describe("Bad paths", () => {
+            it("should revert", async () => {
+                expect.fail();
+            });
+        });
+
+    });
 });

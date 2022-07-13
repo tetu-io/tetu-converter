@@ -30,6 +30,7 @@ export async function getInfoAboutFusePools() : Promise<string> {
         , "borrowRatePerBlockFull"
         , "collateralFactor"
         , "underlyingPrice"
+        , "liquidity"
         , "fuseFee"
         , "adminFee"
         , "decimals"
@@ -74,6 +75,8 @@ export async function getInfoAboutFusePools() : Promise<string> {
             // 18 decimals (where 1e18 is 100% and 0 is 0%).
             const adminFee = +utils.formatUnits(info.adminFee, info.underlyingDecimals);
 
+            const liquidity = +utils.formatUnits(info.liquidity, info.underlyingDecimals);
+
             const data = [
                 i
                 , pool.comptroller
@@ -86,6 +89,7 @@ export async function getInfoAboutFusePools() : Promise<string> {
                 , info.borrowRatePerBlock
                 , collateralFactor.toString()
                 , underlyingPrice.toString()
+                , liquidity.toString()
                 , fuseFee.toString()
                 , adminFee.toString()
                 , info.underlyingDecimals.toString()
