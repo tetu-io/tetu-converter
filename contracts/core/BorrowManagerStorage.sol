@@ -37,6 +37,10 @@ abstract contract BorrowManagerStorage is IBorrowManager {
   /// @notice Check if triple (source token, target token, pool) is already registered in {allPools}
   mapping(address => mapping (address => mapping (address => bool))) public assignedPoolsForAssets;
 
+  /// @notice Default health factors (HF) for assets. Default HF is used if user hasn't provided HF value, decimals 18
+  /// @dev Health factor = collateral / minimum collateral. It should be greater then 1; 1 => liquidation.
+  mapping(address => uint96) public defaultHealthFactors;
+
   function poolsForAssetsLength(address token1, address token2) public view returns (uint) {
     return poolsForAssets[token1][token2].length;
   }

@@ -288,6 +288,75 @@ describe("BorrowManager", () => {
         });
     });
 
+    describe("setHealthFactor", () => {
+        async function makeEmptyBM() : Promise<BorrowManager> {
+            const priceOracle = (await DeployUtils.deployContract(signer
+                , "PriceOracleMock"
+                , []
+                , []
+            )) as PriceOracleMock;
+
+            return (await DeployUtils.deployContract(signer
+                , "BorrowManager"
+                , priceOracle.address
+            )) as BorrowManager;
+        }
+        describe("Good paths", () => {
+            describe("Asset is not registered in BM", () => {
+                it("should save specified value to defaultHealthFactors", async () => {
+                    const asset = ethers.Wallet.createRandom().address;
+                    const value = getBigNumberFrom(1, 18).mul(2); //2e18
+
+                    const bm = await makeEmptyBM();
+
+                    const before = await bm.defaultHealthFactors(asset);
+                    await bm.setHealthFactor(asset, value);
+                    const after = await bm.defaultHealthFactors(asset);
+
+                    const ret = [
+                        ethers.utils.formatUnits(before),
+                        ethers.utils.formatUnits(after)
+                    ].join();
+
+                    const expected = [
+                        ethers.utils.formatUnits(0),
+                        ethers.utils.formatUnits(value)
+                    ].join();
+
+                    expect(ret).equal(expected);
+                });
+            });
+        });
+        describe("Bad paths", () => {
+            describe("Health factor is equal to 1e18", () => {
+                it("should revert", async () => {
+                    const asset = ethers.Wallet.createRandom().address;
+                    const value = getBigNumberFrom(1, 18); //1e18
+                    console.log(value);
+
+                    const bm = await makeEmptyBM();
+
+                    await expect(
+                        bm.setHealthFactor(asset, value)
+                    ).revertedWith("HF must be greater 1e18");
+                });
+            });
+            describe("Health factor is less then 1e18", () => {
+                it("should revert", async () => {
+                    const asset = ethers.Wallet.createRandom().address;
+                    const value = getBigNumberFrom(1, 12); // 1e12
+
+                    const bm = await makeEmptyBM();
+
+                    await expect(
+                        bm.setHealthFactor(asset, value)
+                    ).revertedWith("HF must be greater 1e18");
+                });
+            });
+        });
+
+    });
+
     describe("findPool", () => {
         interface TestTask {
             availablePools: IPoolInfo[],

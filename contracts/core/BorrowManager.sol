@@ -59,6 +59,13 @@ contract BorrowManager is BorrowManagerStorage {
     }
   }
 
+  /// @notice Set default health factor for {asset}. Default value is used only if user hasn't provided custom value
+  /// @param value Health factor must be greater then 1.
+  function setHealthFactor(address asset, uint96 value) external override {
+    require(value > 1e18, "HF must be greater 1e18"); //TODO probably we should require HF > 1.5 ?? 1 is too unsafe
+    defaultHealthFactors[asset] = value;
+  }
+
 //  function addAssetToPool() external;
 //  function removeAssetFromPool() external;
 //  function setActivePoolPairAssets() external;
@@ -107,7 +114,9 @@ contract BorrowManager is BorrowManagerStorage {
           targetToken: targetToken,
           sourceAmount18: _toMantissa(sourceAmount, uint16(IERC20Extended(sourceToken).decimals()), 18),
           targetAmount18: _toMantissa(targetAmount, targetDecimals, 18),
-          healthFactor18: healthFactorOptional,
+          healthFactor18: healthFactorOptional == 0
+            ? defaultHealthFactors[targetToken]
+            : healthFactorOptional,
           targetDecimals: IERC20Extended(targetToken).decimals(),
           priceTarget18: priceOracle.getAssetPrice(targetToken),
           priceSource18: priceOracle.getAssetPrice(sourceToken)

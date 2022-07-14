@@ -9,6 +9,10 @@ interface IBorrowManager {
   function addPlatform(string calldata title, address decorator) external;
   function addPool(uint platformUid, address poolAddress, address[] calldata assets) external;
 
+  /// @notice Set default health factor for {asset}. Default value is used only if user hasn't provided custom value
+  /// @param value Health factor must be greater then 1.
+  function setHealthFactor(address asset, uint96 value) external;
+
   /// @notice Find lending pool capable of providing {targetAmount} and having best normalized borrow rate
   /// @param sourceAmount Max possible collateral value is source tokens
   /// @param targetAmount Minimum required target amount; result outMaxTargetAmount must be greater
