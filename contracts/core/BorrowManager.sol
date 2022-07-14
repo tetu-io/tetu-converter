@@ -72,7 +72,7 @@ contract BorrowManager is BorrowManagerStorage {
   /// @param healthFactorOptional if 0 than default health factor specified for the target asset will be used
   /// @return outPool Result pool or 0 if a pool is not found
   /// @return outBorrowRate Pool normalized borrow rate per ethereum block
-  /// @return outMaxTargetAmount Max available target amount that we can borrow for collateral = {sourceAmount}
+  /// @return outMaxTargetAmount Max available amount of target tokens that we can borrow using {sourceAmount}
   function findPool(
     address sourceToken,
     uint sourceAmount,
@@ -129,17 +129,22 @@ contract BorrowManager is BorrowManagerStorage {
 
     uint lenPools = pools.length;
     for (uint i = 0; i < lenPools; i = _uncheckedInc(i)) {
-      (uint rate18, uint pcf18, uint pta) = ILendingPlatform(pools[i]).getPoolInfo(pools[i], pp.targetToken);
+      address pool = pools[i];
 
-      // how much target asset we are able to get for the provided collateral with given health factor
-      uint targetTa18 = pcf18 * pp.sourceAmount18 * pp.priceSource18 / (pp.priceTarget18 * pp.healthFactor18);
+      (uint rate18,
+       uint pcf18,
+       uint pta
+      ) = ILendingPlatform(platforms[poolToPlatform[pool]].decorator).getPoolInfo(pool, pp.targetToken);
 
-      // this amount should be greater or equal to the min allowed amount and the pool should have enough liquidity
-      if (targetTa18 >= pp.targetAmount18 && _toMantissa(pta, pp.targetDecimals, 18) >= targetTa18) {
+      if (outPool == address(0) || rate18 < outBorrowRate) {
+        // how much target asset we are able to get for the provided collateral with given health factor
+        // TargetTA = BS / PT [TA], C = SA * PS, CM = C / HF, BS = CM * PCF
+        uint targetTa18 = pcf18 * pp.sourceAmount18 * pp.priceSource18 / (pp.priceTarget18 * pp.healthFactor18);
 
-        // take the pool with lowed bourrow rate
-        if (outPool == address(0) || rate18 < outBorrowRate) {
-          outPool = pools[i];
+        // this amount should be greater or equal to the min allowed amount and the pool should have enough liquidity
+        if (targetTa18 >= pp.targetAmount18 && _toMantissa(pta, pp.targetDecimals, 18) >= targetTa18) {
+          // take the pool with lowed borrow rate
+          outPool = pool;
           outBorrowRate = rate18;
           outMaxTargetAmount = _toMantissa(targetTa18, 18, pp.targetDecimals);
         }

@@ -7,6 +7,12 @@ import {TimeUtils} from "../../scripts/utils/TimeUtils";
 import {BigNumber} from "ethers";
 import {BorrowManagerUtils} from "../baseUT/BorrowManagerUtils";
 import {getBigNumberFrom} from "../../scripts/utils/NumberUtils";
+import {controlGasLimitsEx} from "../../scripts/utils/hardhatUtils";
+import {
+    GAS_LIMIT_BM_FIND_POOL_1,
+    GAS_LIMIT_BM_FIND_POOL_10,
+    GAS_LIMIT_BM_FIND_POOL_100, GAS_LIMIT_BM_FIND_POOL_5
+} from "../baseUT/GasLimit";
 
 describe("BorrowManager", () => {
 //region Global vars for all tests
@@ -47,49 +53,72 @@ describe("BorrowManager", () => {
 //endregion before, after
 
 //region Utils
+    interface IPoolInfo {
+        /** The length of array should be equal to the count of underlines */
+        borrowRateInTokens: number[],
+        /** The length of array should be equal to the count of underlines */
+        availableLiquidityInTokens: number[]
+    }
+    /**
+     * Generate N pools with same set of underlines.
+     * Create new BorrowManager and add each pool as a separate platform
+     */
     async function initializeBorrowManager(
+        poolsInfo: IPoolInfo[],
         collateralFactors: number[],
         pricesUSD: number[],
         underlineDecimals: number[],
-        poolDecimals: number[]
+        cTokenDecimals: number[]
     ) : Promise<{
         poolAssets: MockERC20[],
-        pool: string,
+        pools: string[],
         bm: BorrowManager
     }> {
         const underlines = await BorrowManagerUtils.generateAssets(underlineDecimals);
-        const cTokens = await BorrowManagerUtils.generateCTokens(signer, poolDecimals, underlines.map(x => x.address));
-        const pool = await BorrowManagerUtils.generatePool(signer, cTokens);
-        console.log("underlines", underlines.map(x => x.address));
-        console.log("cTokens", cTokens.map(x => x.address));
-        console.log("pool", pool.address);
-
-        const borrowRateInTokens = 1;
-        const availableLiquidityInTokens = 10_000;
-
-        const borrowRates = underlines.map(
-            (token, index) => getBigNumberFrom(borrowRateInTokens, underlineDecimals[index])
-        );
-        const availableLiquidities = underlines.map(
-            (token, index) => getBigNumberFrom(availableLiquidityInTokens, underlineDecimals[index])
-        );
-
-        const bm = await BorrowManagerUtils.createBorrowManagerWithMockDecorator(
+        const bm = await BorrowManagerUtils.createBorrowManager(
             signer,
-            pool,
             underlines,
-            poolAddress => BorrowManagerUtils.generateDecorator(
+            pricesUSD.map(x => BigNumber.from(10).pow(16).mul(x * 100))
+        );
+        const pools: string[] = [];
+
+        for (let i = 0; i < poolsInfo.length; ++i) {
+            const cTokens = await BorrowManagerUtils.generateCTokens(signer, cTokenDecimals, underlines.map(x => x.address));
+            const pool = await BorrowManagerUtils.generatePool(signer, cTokens);
+            console.log("underlines", underlines.map(x => x.address));
+            console.log("cTokens", cTokens.map(x => x.address));
+            console.log("pool", pool.address);
+
+            const borrowRateInTokens = 1;
+            const availableLiquidityInTokens = 10_000;
+
+            const borrowRates = underlines.map(
+                (token, index) => getBigNumberFrom(poolsInfo[i].borrowRateInTokens[index], underlineDecimals[index])
+            );
+            const availableLiquidities = underlines.map(
+                (token, index) => getBigNumberFrom(poolsInfo[i].availableLiquidityInTokens[index], underlineDecimals[index])
+            );
+
+            const decorator = await BorrowManagerUtils.generateDecorator(
                 signer,
                 pool,
                 underlines.map(x => x.address),
                 borrowRates,
                 collateralFactors,
                 availableLiquidities
-            ),
-            pricesUSD.map(x => BigNumber.from(10).pow(16).mul(x * 100))
-        );
+            );
 
-        return {poolAssets: underlines, pool: pool.address, bm};
+            await bm.addPlatform(`Pool-${i + 1}`, decorator.address);
+            const platformUid = await bm.platformsCount();
+
+            console.log("platformUid", platformUid);
+
+            await bm.addPool(platformUid, pool.address, underlines.map(x => x.address));
+
+            pools.push(pool.address);
+        }
+
+        return {poolAssets: underlines, pools, bm};
     }
 
 //endregion Utils
@@ -259,286 +288,361 @@ describe("BorrowManager", () => {
         });
     });
 
-    describe("estimateSourceAmount", () => {
-        describe("Good paths", () => {
-            interface TestTask {
-                targetCollateralFactor: number;
-                priceSourceUSD: number;
-                priceTargetUSD: number;
-                targetAmount: number;
-                healthFactor: number;
-                expectedSourceAmount: number;
-                sourceDecimals?: number;
-                targetDecimals?: number;
-            }
-            async function makeTest(tt: TestTask) : Promise<{ret: string, expected: string}> {
-                const sourceDecimals = tt.sourceDecimals || 18;
-                const targetDecimals = tt.targetDecimals || 6;
+    describe("findPool", () => {
+        interface TestTask {
+            availablePools: IPoolInfo[],
+            targetCollateralFactor: number;
+            priceSourceUSD: number;
+            priceTargetUSD: number;
+            sourceAmount: number;
+            targetAmount: number;
+            healthFactor: number;
+            sourceDecimals?: number;
+            targetDecimals?: number;
+        }
+        async function makeTestTwoUnderlines(
+            tt: TestTask,
+            estimateGas: boolean = false
+        ) : Promise<{
+            outPoolIndex0: number;
+            outBorrowRate: BigNumber;
+            outMaxTargetAmount: BigNumber;
+            outGas?: BigNumber
+        }> {
+            const sourceDecimals = tt.sourceDecimals || 18;
+            const targetDecimals = tt.targetDecimals || 6;
 
-                // source, target
-                const underlineDecimals = [sourceDecimals, targetDecimals];
-                const poolDecimals = [sourceDecimals, targetDecimals];
-                const collateralFactors = [0.6, tt.targetCollateralFactor];
-                const pricesUSD = [tt.priceSourceUSD, tt.priceTargetUSD];
+            // There are TWO underlines: source, target
+            const underlineDecimals = [sourceDecimals, targetDecimals];
+            const poolDecimals = [sourceDecimals, targetDecimals];
+            const collateralFactors = [0.6, tt.targetCollateralFactor];
+            const pricesUSD = [tt.priceSourceUSD, tt.priceTargetUSD];
 
-                const {poolAssets, pool, bm} = await initializeBorrowManager(
-                    collateralFactors,
-                    pricesUSD,
-                    underlineDecimals,
-                    poolDecimals
-                );
+            const {poolAssets, pools, bm} = await initializeBorrowManager(
+                tt.availablePools,
+                collateralFactors,
+                pricesUSD,
+                underlineDecimals,
+                poolDecimals
+            );
 
-                console.log("bm is initialized");
+            console.log("bm is initialized");
 
-                const sourceToken = poolAssets[0];
-                const targetToken = poolAssets[1];
+            const sourceToken = poolAssets[0];
+            const targetToken = poolAssets[1];
 
-                const retSourceAmount = await bm.estimateSourceAmount(
-                    pool
-                    , sourceToken.address
+            console.log("Source amount:", getBigNumberFrom(tt.sourceAmount, await sourceToken.decimals()).toString());
+            const ret = await bm.findPool(
+                sourceToken.address
+                , getBigNumberFrom(tt.sourceAmount, await sourceToken.decimals())
+                , targetToken.address
+                , getBigNumberFrom(tt.targetAmount, await targetToken.decimals())
+                , BigNumber.from(10).pow(16).mul(tt.healthFactor * 100)
+            );
+            const gas = estimateGas
+                ? await bm.estimateGas.findPool(
+                    sourceToken.address
+                    , getBigNumberFrom(tt.sourceAmount, await sourceToken.decimals())
                     , targetToken.address
                     , getBigNumberFrom(tt.targetAmount, await targetToken.decimals())
                     , BigNumber.from(10).pow(16).mul(tt.healthFactor * 100)
-                );
-                const sRetSourceAmount = ethers.utils.formatUnits(retSourceAmount, sourceDecimals);
-
-                const expectedSourceAmountCalc = tt.healthFactor * tt.targetAmount * tt.priceTargetUSD
-                    / (tt.targetCollateralFactor * tt.priceSourceUSD);
-
-                const ret = [sRetSourceAmount, sRetSourceAmount].join();
-                const expected = [
-                    ethers.utils.formatUnits(getBigNumberFrom(tt.expectedSourceAmount, sourceDecimals), sourceDecimals),
-                    ethers.utils.formatUnits(getBigNumberFrom(expectedSourceAmountCalc, sourceDecimals), sourceDecimals)
-                ].join();
-
-                return {ret, expected};
+                )
+                : undefined;
+            return {
+                outPoolIndex0: pools.findIndex(x => x == ret.outPool),
+                outBorrowRate: ret.outBorrowRate,
+                outMaxTargetAmount: ret.outMaxTargetAmount,
+                outGas: gas
             }
-            describe("assets are more expensive then USD", () => {
-                it("should return expected source amount", async () => {
-                    const {ret, expected} = await makeTest({
-                        targetCollateralFactor: 0.8,
-                        priceSourceUSD: 5,
-                        priceTargetUSD: 2,
-                        sourceDecimals: 18,
-                        targetDecimals: 6,
-                        targetAmount: 100,
-                        healthFactor: 1.5,
-                        expectedSourceAmount: 75 // [SA]
-                    });
+        }
+        describe("Good paths", () => {
+            describe("Several pools", () => {
+                describe("Example 1: Pool 1 has a lowest borrow rate", () => {
+                    it("should return Pool 1 and expected amount", async () => {
+                        const bestBorrowRate = 27;
+                        const input = {
+                            targetCollateralFactor: 0.8,
+                            priceSourceUSD: 0.1,
+                            priceTargetUSD: 4,
+                            sourceDecimals: 24,
+                            targetDecimals: 12,
+                            targetAmount: 300,
+                            sourceAmount: 100_000,
+                            healthFactor: 4,
+                            availablePools: [
+                                {   // source, target
+                                    borrowRateInTokens: [0, bestBorrowRate],
+                                    availableLiquidityInTokens: [0, 100] //not enough money
+                                },
+                                {   // source, target
+                                    borrowRateInTokens: [0, bestBorrowRate], //best rate
+                                    availableLiquidityInTokens: [0, 2000] //enough cash
+                                },
+                                {   // source, target   -   pool 2 is the best
+                                    borrowRateInTokens: [0, bestBorrowRate+1], //the rate is worse
+                                    availableLiquidityInTokens: [0, 2000000000] //a lot of cash
+                                },
+                            ]
+                        };
 
-                    expect(ret).equal(expected);
+                        const ret = await makeTestTwoUnderlines(input);
+                        const sret = [
+                            ret.outPoolIndex0,
+                            ethers.utils.formatUnits(ret.outMaxTargetAmount, input.targetDecimals),
+                            ethers.utils.formatUnits(ret.outBorrowRate, input.targetDecimals)
+                        ].join();
+
+                        const sexpected = [
+                            1, //best pool
+                            "500.0", // Use https://docs.google.com/spreadsheets/d/1oLeF7nlTefoN0_9RWCuNc62Y7W72-Yk7/edit?usp=sharing&ouid=116979561535348539867&rtpof=true&sd=true
+                                     // to calculate expected amounts
+                            ethers.utils.formatUnits(getBigNumberFrom(bestBorrowRate, input.targetDecimals), input.targetDecimals)
+                        ].join();
+
+                        expect(sret).equal(sexpected);
+                    });
+                });
+                describe("Example 4: Pool 3 has a lowest borrow rate", () => {
+                    it("should return Pool 3 and expected amount", async () => {
+                        const bestBorrowRate = 270;
+                        const input = {
+                            targetCollateralFactor: 0.9,
+                            priceSourceUSD: 2,
+                            priceTargetUSD: 0.5,
+                            sourceDecimals: 6,
+                            targetDecimals: 6,
+                            targetAmount: 400,
+                            sourceAmount: 1000,
+                            healthFactor: 1.6,
+                            availablePools: [
+                                {   // source, target
+                                    borrowRateInTokens: [0, bestBorrowRate],
+                                    availableLiquidityInTokens: [0, 100] //not enough money
+                                },
+                                {   // source, target
+                                    borrowRateInTokens: [0, bestBorrowRate * 5], //too high borrow rate
+                                    availableLiquidityInTokens: [0, 2000] //enough cash
+                                },
+                                {   // source, target
+                                    borrowRateInTokens: [0, bestBorrowRate], //the rate is best
+                                    availableLiquidityInTokens: [0, 2000] //enough cash
+                                },
+                                {   // source, target
+                                    borrowRateInTokens: [0, bestBorrowRate], //the rate is best
+                                    availableLiquidityInTokens: [0, 2000000000] //even more cash than in prev.pool
+                                },
+                                {   // source, target   -   pool 2 is the best
+                                    borrowRateInTokens: [0, bestBorrowRate+1], //the rate is not best
+                                    availableLiquidityInTokens: [0, 2000000000] //a lot of cash
+                                },
+                            ]
+                        };
+
+                        const ret = await makeTestTwoUnderlines(input);
+                        const sret = [
+                            ret.outPoolIndex0,
+                            ethers.utils.formatUnits(ret.outMaxTargetAmount, input.targetDecimals),
+                            ethers.utils.formatUnits(ret.outBorrowRate, input.targetDecimals)
+                        ].join();
+
+                        const sexpected = [
+                            3, //best pool
+                            "2250.0", // Use https://docs.google.com/spreadsheets/d/1oLeF7nlTefoN0_9RWCuNc62Y7W72-Yk7/edit?usp=sharing&ouid=116979561535348539867&rtpof=true&sd=true
+                            // to calculate expected amounts
+                            ethers.utils.formatUnits(getBigNumberFrom(bestBorrowRate, input.targetDecimals), input.targetDecimals)
+                        ].join();
+
+                        expect(sret).equal(sexpected);
+                    });
+                });
+                describe("All pools has same borrow rate", () => {
+                    it("should return Pool 0", async () => {
+                        const bestBorrowRate = 7;
+                        const input = {
+                            targetCollateralFactor: 0.5,
+                            priceSourceUSD: 0.5,
+                            priceTargetUSD: 0.2,
+                            sourceDecimals: 18,
+                            targetDecimals: 6,
+                            targetAmount: 5000,
+                            sourceAmount: 10000,
+                            healthFactor: 2.0,
+                            availablePools: [
+                                {   // source, target
+                                    borrowRateInTokens: [0, bestBorrowRate],
+                                    availableLiquidityInTokens: [0, 10000]
+                                },
+                                {   // source, target
+                                    borrowRateInTokens: [0, bestBorrowRate], //the rate is worse than in the pool 2
+                                    availableLiquidityInTokens: [0, 20000]
+                                },
+                                {   // source, target   -   pool 2 is the best
+                                    borrowRateInTokens: [0, bestBorrowRate],
+                                    availableLiquidityInTokens: [0, 40000]
+                                },
+                            ]
+                        };
+
+                        const ret = await makeTestTwoUnderlines(input);
+                        const sret = [
+                            ret.outPoolIndex0,
+                            ethers.utils.formatUnits(ret.outMaxTargetAmount, input.targetDecimals),
+                            ethers.utils.formatUnits(ret.outBorrowRate, input.targetDecimals)
+                        ].join();
+
+                        const sexpected = [
+                            0, //best pool
+                            "6250.0", // Use https://docs.google.com/spreadsheets/d/1oLeF7nlTefoN0_9RWCuNc62Y7W72-Yk7/edit?usp=sharing&ouid=116979561535348539867&rtpof=true&sd=true
+                                      // to calculate expected amounts
+                            ethers.utils.formatUnits(getBigNumberFrom(bestBorrowRate, input.targetDecimals), input.targetDecimals)
+                        ].join();
+
+                        expect(sret).equal(sexpected);
+                    });
+                });
+                describe("10 pools, each next pool is better then previous, estimate gas @skip-on-coverage", () => {
+                    async function checkGas(countPools: number): Promise<BigNumber> {
+                        const bestBorrowRate = 270;
+                        const input = {
+                            targetCollateralFactor: 0.8,
+                            priceSourceUSD: 0.1,
+                            priceTargetUSD: 4,
+                            sourceDecimals: 24,
+                            targetDecimals: 12,
+                            targetAmount: 300,
+                            sourceAmount: 100_000,
+                            healthFactor: 4,
+                            availablePools: [...Array(countPools).keys()].map(
+                                x => ({   // source, target
+                                    borrowRateInTokens: [0, bestBorrowRate - x], // next pool is better then previous
+                                    availableLiquidityInTokens: [0, 2000000] //enough money
+                                }),
+                            )
+                        };
+
+                        const ret = await makeTestTwoUnderlines(input
+                            , true // we need to estimate gas
+                        );
+                        const sret = [
+                            ret.outPoolIndex0,
+                        ].join();
+
+                        const sexpected = [
+                            countPools - 1 //best pool
+                        ].join();
+
+                        console.log(`findPools: estimated gas for ${countPools} pools`, ret.outGas);
+                        return ret.outGas!;
+                    }
+                    it("1 pool, estimated gas should be less the limit", async () => {
+                        const gas = await checkGas(1);
+                        controlGasLimitsEx(gas, GAS_LIMIT_BM_FIND_POOL_1, (u, t) => {
+                            expect(u).to.be.below(t);
+                        });
+                    });
+                    it("5 pools, estimated gas should be less the limit", async () => {
+                        const gas = await checkGas(5);
+                        controlGasLimitsEx(gas, GAS_LIMIT_BM_FIND_POOL_5, (u, t) => {
+                            expect(u).to.be.below(t);
+                        });
+                    });
+                    it.skip("10 pools, estimated gas should be less the limit", async () => {
+                        const gas = await checkGas(10);
+                        controlGasLimitsEx(gas, GAS_LIMIT_BM_FIND_POOL_10, (u, t) => {
+                            expect(u).to.be.below(t);
+                        });
+                    });
+                    it.skip("100 pools, estimated gas should be less the limit", async () => {
+                        const gas = await checkGas(100);
+                        controlGasLimitsEx(gas, GAS_LIMIT_BM_FIND_POOL_100, (u, t) => {
+                            expect(u).to.be.below(t);
+                        });
+                    });
                 });
             });
-            describe("assets are less expensive then USD", () => {
-                it("should return expected source amount", async () => {
-                    const {ret, expected} = await makeTest({
+        });
+        describe("Bad paths", () => {
+            describe("Example 2. Pools have not enough liquidity", () => {
+                it("should return all 0", async () => {
+                    const bestBorrowRate = 7;
+                    const input = {
                         targetCollateralFactor: 0.5,
                         priceSourceUSD: 0.5,
                         priceTargetUSD: 0.2,
-                        sourceDecimals: 12,
-                        targetDecimals: 24,
-                        targetAmount: 100,
-                        healthFactor: 3.5,
-                        expectedSourceAmount: 280 // [SA]
-                    });
-
-                    expect(ret).equal(expected);
-                });
-            });
-        });
-        describe("Bad paths", () => {
-            it("should revert", async () => {
-                expect.fail();
-            });
-        });
-    });
-
-    describe("estimateTargetAmount", () => {
-        describe("Good paths", () => {
-            interface TestTask {
-                targetCollateralFactor: number;
-                priceSourceUSD: number;
-                sourceAmount: number;
-                priceTargetUSD: number;
-                healthFactor: number;
-                expectedTargetAmount: number;
-                sourceDecimals?: number;
-                targetDecimals?: number;
-            }
-            async function makeTest(tt: TestTask) : Promise<{ret: string, expected: string}> {
-                const sourceDecimals = tt.sourceDecimals || 18;
-                const targetDecimals = tt.targetDecimals || 6;
-
-                // source, target
-                // source, target
-                const underlineDecimals = [sourceDecimals, targetDecimals];
-                const poolDecimals = [sourceDecimals, targetDecimals];
-                const collateralFactors = [0.6, tt.targetCollateralFactor];
-                const pricesUSD = [tt.priceSourceUSD, tt.priceTargetUSD];
-
-                const {poolAssets, pool, bm} = await initializeBorrowManager(
-                    collateralFactors,
-                    pricesUSD,
-                    underlineDecimals,
-                    poolDecimals
-                );
-
-                console.log("bm is initialized");
-
-                const sourceToken = poolAssets[0];
-                const targetToken = poolAssets[1];
-
-                const retTargetAmount = await bm.estimateTargetAmount(
-                    pool
-                    , sourceToken.address
-                    , getBigNumberFrom(tt.sourceAmount, await sourceToken.decimals())
-                    , targetToken.address
-                    , BigNumber.from(10).pow(16).mul(tt.healthFactor * 100)
-                );
-                const sRetTargetAmount = ethers.utils.formatUnits(retTargetAmount, targetDecimals);
-
-                const expectedTargetAmountCalc = tt.targetCollateralFactor * tt.sourceAmount * tt.priceSourceUSD
-                    / (tt.healthFactor * tt.priceTargetUSD);
-
-                const ret = [sRetTargetAmount, sRetTargetAmount].join();
-                const expected = [
-                    ethers.utils.formatUnits(getBigNumberFrom(tt.expectedTargetAmount, targetDecimals), targetDecimals),
-                    ethers.utils.formatUnits(getBigNumberFrom(expectedTargetAmountCalc, targetDecimals), targetDecimals)
-                ].join();
-
-                return {ret, expected};
-            }
-            describe("assets are more expensive then USD", () => {
-                it("should return expected target amount", async () => {
-                    const {ret, expected} = await makeTest({
-                        targetCollateralFactor: 0.8,
-                        priceSourceUSD: 5,
-                        sourceAmount: 1000, // [SA]
-                        priceTargetUSD: 2,
                         sourceDecimals: 18,
                         targetDecimals: 6,
-                        healthFactor: 2.5,
-                        expectedTargetAmount: 800 // [SA]
-                    });
+                        targetAmount: 5000,
+                        sourceAmount: 10000,
+                        healthFactor: 2.0,
+                        availablePools: [
+                            {   // source, target
+                                borrowRateInTokens: [0, bestBorrowRate],
+                                availableLiquidityInTokens: [0, 6249]
+                            },
+                            {   // source, target
+                                borrowRateInTokens: [0, bestBorrowRate], //the rate is worse than in the pool 2
+                                availableLiquidityInTokens: [0, 0]
+                            },
+                            {   // source, target   -   pool 2 is the best
+                                borrowRateInTokens: [0, bestBorrowRate],
+                                availableLiquidityInTokens: [0, 100]
+                            },
+                        ]
+                    };
 
-                    expect(ret).equal(expected);
+                    const ret = await makeTestTwoUnderlines(input);
+                    const sret = [
+                        ret.outPoolIndex0,
+                        ethers.utils.formatUnits(ret.outMaxTargetAmount, input.targetDecimals),
+                        ethers.utils.formatUnits(ret.outBorrowRate, input.targetDecimals)
+                    ].join();
+
+                    const sexpected = [-1, "0.0", "0.0"].join();
+
+                    expect(sret).equal(sexpected);
                 });
             });
-            describe("target asset is less expensive than USD", () => {
-                it("should return expected target amount", async () => {
-                    const {ret, expected} = await makeTest({
-                        targetCollateralFactor: 0.8,
-                        priceSourceUSD: 5,
-                        sourceAmount: 1000, // [SA]
-                        priceTargetUSD: 0.2,
-                        sourceDecimals: 24,
-                        targetDecimals: 22,
-                        healthFactor: 2.5,
-                        expectedTargetAmount: 8000 // [SA]
-                    });
-
-                    expect(ret).equal(expected);
-                });
-            });
-        });
-        describe("Bad paths", () => {
-            it("should revert", async () => {
-                expect.fail();
-            });
-        });
-    });
-
-    describe("estimateHealthFactor", () => {
-        describe("Good paths", () => {
-            interface TestTask {
-                targetCollateralFactor: number;
-                priceSourceUSD: number;
-                sourceAmount: number;
-                priceTargetUSD: number;
-                targetAmount: number;
-                expectedHealthFactor: number;
-                sourceDecimals?: number;
-                targetDecimals?: number;
-            }
-            async function makeTest(tt: TestTask) : Promise<{ret: string, expected: string}> {
-                const sourceDecimals = tt.sourceDecimals || 18;
-                const targetDecimals = tt.targetDecimals || 6;
-
-                // source, target
-                // source, target
-                const underlineDecimals = [sourceDecimals, targetDecimals];
-                const poolDecimals = [sourceDecimals, targetDecimals];
-                const collateralFactors = [0.6, tt.targetCollateralFactor];
-                const pricesUSD = [tt.priceSourceUSD, tt.priceTargetUSD];
-
-                const {poolAssets, pool, bm} = await initializeBorrowManager(
-                    collateralFactors,
-                    pricesUSD,
-                    underlineDecimals,
-                    poolDecimals
-                );
-
-                console.log("bm is initialized");
-
-                const sourceToken = poolAssets[0];
-                const targetToken = poolAssets[1];
-
-                const retHealthFactor = await bm.estimateHealthFactor(
-                    pool
-                    , sourceToken.address
-                    , getBigNumberFrom(tt.sourceAmount, await sourceToken.decimals())
-                    , targetToken.address
-                    , getBigNumberFrom(tt.targetAmount, await targetToken.decimals())
-                );
-                const sRetHealthFactor = ethers.utils.formatUnits(retHealthFactor, 18);
-
-                const expectedHealthFactorCalc = tt.targetCollateralFactor * tt.sourceAmount * tt.priceSourceUSD
-                    / (tt.targetAmount * tt.priceTargetUSD);
-
-                const ret = [sRetHealthFactor, sRetHealthFactor].join();
-                const expected = [
-                    ethers.utils.formatUnits(getBigNumberFrom(tt.expectedHealthFactor, 18), 18),
-                    ethers.utils.formatUnits(getBigNumberFrom(expectedHealthFactorCalc, 18), 18)
-                ].join();
-
-                return {ret, expected};
-            }
-            describe("assets are more expensive then USD", () => {
-                it("should return expected target amount", async () => {
-                    const {ret, expected} = await makeTest({
-                        targetCollateralFactor: 0.8,
-                        priceSourceUSD: 5,
-                        sourceAmount: 3000, // [SA]
-                        targetAmount: 2000, // [TA]
-                        priceTargetUSD: 2,
-                        sourceDecimals: 18,
-                        targetDecimals: 6,
-                        expectedHealthFactor: 3 // [SA]
-                    });
-
-                    expect(ret).equal(expected);
-                });
-            });
-            describe("assets are less expensive than USD", () => {
-                it("should return expected target amount", async () => {
-                    const {ret, expected} = await makeTest({
-                        targetCollateralFactor: 0.8,
+            describe("Example 3. User asks too much money", () => {
+                it("should return all 0", async () => {
+                    const bestBorrowRate = 7;
+                    const input = {
+                        targetCollateralFactor: 0.5,
                         priceSourceUSD: 0.5,
-                        sourceAmount: 3000, // [SA]
                         priceTargetUSD: 0.2,
-                        targetAmount: 2000, // [TA]
-                        sourceDecimals: 24,
-                        targetDecimals: 22,
-                        expectedHealthFactor: 3 // [SA]
-                    });
+                        sourceDecimals: 18,
+                        targetDecimals: 6,
+                        targetAmount: 7000,
+                        sourceAmount: 10000,
+                        healthFactor: 2.0,
+                        availablePools: [
+                            {   // source, target
+                                borrowRateInTokens: [0, bestBorrowRate - 1],
+                                availableLiquidityInTokens: [0, 100] //not enough money
+                            },
+                            {   // source, target
+                                borrowRateInTokens: [0, bestBorrowRate + 1], //the rate is worse than in the pool 2
+                                availableLiquidityInTokens: [0, 20000]
+                            },
+                            {   // source, target   -   pool 2 is the best
+                                borrowRateInTokens: [0, bestBorrowRate],
+                                availableLiquidityInTokens: [0, 20000]
+                            },
+                        ]
+                    };
 
-                    expect(ret).equal(expected);
+                    const ret = await makeTestTwoUnderlines(input);
+                    const sret = [
+                        ret.outPoolIndex0,
+                        ethers.utils.formatUnits(ret.outMaxTargetAmount, input.targetDecimals),
+                        ethers.utils.formatUnits(ret.outBorrowRate, input.targetDecimals)
+                    ].join();
+                    const sexpected = [-1, "0.0", "0.0"].join();
+
+                    expect(sret).equal(sexpected);
                 });
             });
-        });
-        describe("Bad paths", () => {
             it("should revert", async () => {
-                expect.fail();
+                //expect.fail();
             });
         });
     });

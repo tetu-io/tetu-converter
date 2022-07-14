@@ -69,11 +69,9 @@ export class BorrowManagerUtils {
     }
 
     /** Create BorrowManager with mock as decorator */
-    public static async createBorrowManagerWithMockDecorator (
+    public static async createBorrowManager (
         signer: SignerWithAddress,
-        pool: PoolMock,
         underlines: MockERC20[],
-        decoratorFabric: (pool: string) => Promise<LendingPlatformMock>,
         prices: BigNumber[]
     ) : Promise<BorrowManager> {
         const platformTitle = "market";
@@ -88,15 +86,6 @@ export class BorrowManagerUtils {
             "BorrowManager",
             priceOracle.address
         )) as BorrowManager;
-
-        const decorator = await decoratorFabric(pool.address);
-
-        await bm.addPlatform(platformTitle, decorator.address);
-        const platformUid = await bm.platformsCount();
-
-        console.log("platformUid", platformUid);
-
-        await bm.addPool(platformUid, pool.address, underlines.map(x => x.address));
         return bm;
     }
 }

@@ -53,6 +53,7 @@ contract LendingPlatformMock is ILendingPlatform {
     uint collateralFactor,
     uint availableCash
   ) {
+    console.log("getPoolInfo pools=%s underline=%s", pool, underline);
     collateralFactor = collateralFactors[pool][underline];
     availableCash = liquidity[pool][underline];
     borrowRatePerBlock = borrowRates[pool][underline];

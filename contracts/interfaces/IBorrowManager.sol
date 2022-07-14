@@ -15,7 +15,7 @@ interface IBorrowManager {
   /// @param healthFactorOptional if 0 than default health factor specified for the target asset will be used
   /// @return outPool Result pool or 0 if a pool is not found
   /// @return outBorrowRate Pool normalized borrow rate per ethereum block
-  /// @return outMaxTargetAmount Max available target amount that we can borrow for collateral = {sourceAmount}
+  /// @return outMaxTargetAmount Max available amount of target tokens that we can borrow using {sourceAmount}
   function findPool(
     address sourceToken,
     uint sourceAmount,

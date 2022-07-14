@@ -18,7 +18,6 @@ abstract contract BorrowManagerStorage is IBorrowManager {
     uint priceSource18;
   }
 
-
   /// @notice Generator of unique ID of the lending platforms: 1, 2, 3..
   /// @dev UID of the last added platform
   uint public platformsCount;

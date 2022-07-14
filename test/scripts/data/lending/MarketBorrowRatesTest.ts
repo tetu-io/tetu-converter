@@ -2,6 +2,6 @@ import {getInfoAboutFusePools} from "../../../../scripts/data/lending/MarketBorr
 
 describe.skip("Test MaretBorrowRates", () =>{
     it("should allow to debug the script", async () => {
-        await getInfoAboutFusePools();
+        //await getInfoAboutFusePools();
     });
 });
