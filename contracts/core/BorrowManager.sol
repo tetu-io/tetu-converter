@@ -64,179 +64,95 @@ contract BorrowManager is BorrowManagerStorage {
 //  function setActivePoolPairAssets() external;
 
   /*****************************************************/
-  /*               Estimate logic                        */
+  /*           Find best pool for borrowing            */
   /*****************************************************/
-
-  /// @notice Calculate a collateral required to borrow {targetAmount} from the pool and get initial {healthFactor}
-  function estimateSourceAmount (
-    address pool,
+  /// @notice Find lending pool capable of providing {targetAmount} and having best normalized borrow rate
+  /// @param sourceAmount Max possible collateral value is source tokens
+  /// @param targetAmount Minimum required target amount; result outMaxTargetAmount must be greater or equal
+  /// @param healthFactorOptional if 0 than default health factor specified for the target asset will be used
+  /// @return outPool Result pool or 0 if a pool is not found
+  /// @return outBorrowRate Pool normalized borrow rate per ethereum block
+  /// @return outMaxTargetAmount Max available target amount that we can borrow for collateral = {sourceAmount}
+  function findPool(
     address sourceToken,
+    uint sourceAmount,
     address targetToken,
     uint targetAmount,
-    uint96 healthFactor
+    uint96 healthFactorOptional
   ) external view override returns (
-    uint outSourceAmount
+    address outPool,
+    uint outBorrowRate,
+    uint outMaxTargetAmount
   ) {
-    // Target amount = TA [TA], Health factor = HF [-], Collateral factor = CF [-]
-    // Borrow amount = BS [USD], Source amount = SA [SA], Price of source amount = PS [USD/SA] (1 [SA] = PS[USD])
-    // Price of target amount = PT [USD/TA] (1[TA] = PT[USD]), Collateral amount = C [USD]
-    // SA = C / PS,  C = CM * HF,  CM = BS / CF
-    // Example: TA = 100[TA], PT = 2[USD/TA], PS = 5[USD/SA], CF = 0.8, HF = 1.5
-    //          BS = 100 * 2 = $200, SA = (200 / 0.8) * 1.5 / 5 = 75 [SA] == $375
-    //          We can borrow 100[TA] == $200, minimal collateral is $250, collateral with HF=1.5 is $375 == 75 [SA]
+    // Input params:
+    // Min allowed target amount = TA [TA], Health factor = HF [-], Collateral amount = C [USD]
+    // Source amount that can be used for the collateral = SA [SA}, Borrow amount = BS [USD]
+    // Price of the source amount = PS [USD/SA] (1 [SA] = PS[USD])
+    // Price of the target amount = PT [USD/TA] (1[TA] = PT[USD]), Available cash in the pool = PTA[TA]
+    // Pool params: Collateral factor of the pool = PCF [-], Free cash in the pool = PTA [TA]
+    //
+    // C = SA * PS, CM = C / HF, BS = CM * PCF
+    // Max target amount capable to be borrowed: TargetTA = BS / PT [TA].
+    // We can use the pool only if TargetTA >= PTA >= TA
 
-    // take collateral factor of the pool
-    uint platformUid = poolToPlatform[pool];
-    require(platformUid != 0, "Pool not found");
-    uint cf18 = ILendingPlatform(platforms[platformUid].decorator).getPoolInfo(pool, targetToken);
-
-    // get prices of source and target assets
-    uint ps18 = priceOracle.getAssetPrice(sourceToken);
-    uint pt18 = priceOracle.getAssetPrice(targetToken);
-
-    // get target amount with decimals 18
-    uint targetDecimals = IERC20Extended(targetToken).decimals();
-    uint ta18 = targetDecimals == 18
-      ? targetAmount
-      : toMantissa(targetAmount, targetDecimals, 18);
-
-    // get required source amount
-    require(ps18 != 0, "Zero source token price");
-    require(cf18 != 0, "Zero collateral factor");
-
-    uint sa18 = (ta18 * pt18) / ps18 * healthFactor / cf18;
-    uint sourceDecimals = IERC20Extended(sourceToken).decimals();
-
-    outSourceAmount = sourceDecimals == 18
-      ? sa18
-      : toMantissa(sa18, 18, sourceDecimals);
-  }
-
-  /// @notice Calculate a target amount that can be borrowed from the pool using {sourceAmount} as collateral
-  ///         with initial {healthFactor}
-  function estimateTargetAmount (
-    address pool,
-    address sourceToken,
-    uint sourceAmount,
-    address targetToken,
-    uint96 healthFactor
-  ) external view override returns (
-    uint outTargetAmount
-  ) {
-    // Source amount = SA [SA], Health factor = HF [-], Collateral factor = CF [-]
-    // Borrow amount = BS [USD], Source amount = SA [SA], Price of source amount = PS [USD/SA] (1 [SA] = PS[USD])
-    // Price of target amount = PT [USD/TA] (1[TA] = PT[USD]), Collateral amount = C [USD]
-    // C = SA * PS, CM = C / HF, BS = CM * CF, TA = BS / PT
-    // Example:
-    //   SA = 1000[SA], PT = 2[USD/TA], PS = 5[USD/SA], CF = 0.8, HF = 2.5
-    //   C = 1000[SA] * 5[$/SA] = $5000, CM = $5000/2.5 = $2000,  BS = $2000*0.8 = $1600, TA = $1600/2[$/ST] = 800 TA
-    //   We can borrow 800[TA] == $1600, minimal collateral is $2000, collateral with HF=1.5 is $5000 == 1000 [SA]
-
-    // take collateral factor of the pool
-    uint platformUid = poolToPlatform[pool];
-    require(platformUid != 0, "Pool not found");
-    uint cf18 = ILendingPlatform(platforms[platformUid].decorator).getPoolInfo(pool, targetToken);
-
-    // get prices of source and target assets
-    uint ps18 = priceOracle.getAssetPrice(sourceToken);
-    uint pt18 = priceOracle.getAssetPrice(targetToken);
-
-    // get source amount with decimals 18
-    uint sourceDecimals = IERC20Extended(sourceToken).decimals();
-
-    uint sa18 = sourceDecimals == 18
-      ? sourceAmount
-      : toMantissa(sourceAmount, sourceDecimals, 18);
-
-    // get required source amount
-    require(pt18 != 0, "Zero target token price");
-    require(cf18 != 0, "Zero collateral factor");
-
-    uint ta18 = (sa18 * ps18) / pt18 * cf18 / healthFactor;
-
-    uint targetDecimals = IERC20Extended(targetToken).decimals();
-    outTargetAmount = targetDecimals == 18
-      ? ta18
-      : toMantissa(ta18, 18, targetDecimals);
-  }
-
-  /// @notice Estimate result health factor after borrowing {targetAmount} from the pool
-  ///         using {sourceAmount} as collateral
-  /// @return outHealthFactor Result health factor, decimals 18
-  function estimateHealthFactor (
-    address pool,
-    address sourceToken,
-    uint sourceAmount,
-    address targetToken,
-    uint targetAmount
-  ) external view override returns (
-    uint96 outHealthFactor
-  ) {
-    // Source amount = SA [SA], Target amount = TA [TA], Collateral factor = CF [-]
-    // Borrow amount = BS [USD], Source amount = SA [SA], Price of source amount = PS [USD/SA] (1 [SA] = PS[USD])
-    // Price of target amount = PT [USD/TA] (1[TA] = PT[USD]), Collateral amount = C [USD]
-    // C = SA * PS, BS = TA * PT, CM = BS / CF, HF = C / CM
-    // Example:
-    //   SA = 3000[SA], TA = 2000[TA], PT = 2[USD/TA], PS = 5[USD/SA], CF = 0.8
-    //   C=3000[SA]*5[USD/SA]=$15000, BS=2000[TA]*2[USD/TA=$4000, CM=$4000/0.8=$5000, HF=$15000/$5000=3
-    //   We can borrow 2000[TA] == $4000, minimal collateral is $5000, collateral is $15000, health factor = 3
-
-    // take collateral factor of the pool
-    uint platformUid = poolToPlatform[pool];
-    require(platformUid != 0, "Pool not found");
-    uint cf18 = ILendingPlatform(platforms[platformUid].decorator).getPoolInfo(pool, targetToken);
-
-    // get prices of source and target assets
-    uint ps18 = priceOracle.getAssetPrice(sourceToken);
-    uint pt18 = priceOracle.getAssetPrice(targetToken);
-
-    // get source amount with decimals 18
-    uint sourceDecimals = IERC20Extended(sourceToken).decimals();
-    uint sa18 = sourceDecimals == 18
-      ? sourceAmount
-      : toMantissa(sourceAmount, sourceDecimals, 18);
-
-    // get target amount with decimals 18
-    uint targetDecimals = IERC20Extended(targetToken).decimals();
-    uint ta18 = targetDecimals == 18
-      ? targetAmount
-      : toMantissa(targetAmount, targetDecimals, 18);
-
-    // get required source amount
-    require(pt18 != 0, "Zero target token price");
-    require(ta18 != 0, "Zero target amount");
-
-    return uint96(sa18 * ps18 * cf18 / (ta18 * pt18));
-  }
-
-  /*****************************************************/
-  /*               Borrow logic                        */
-  /*****************************************************/
-
-  /// @notice Find lending pool with best normalized borrow rate per ethereum block
-  /// @dev Normalized borrow rate can include borrow-rate-per-block + any additional fees
-  function getBestPool (
-    address sourceToken,
-    address targetToken
-  ) external view override returns (address outPool, uint outBorrowRate) {
-    // The borrow interest rate per block, scaled by 1e18
+    // find all available pools
     address[] memory pools = poolsForAssets
-    [sourceToken < targetToken ? sourceToken : targetToken]
-    [sourceToken < targetToken ? targetToken : sourceToken];
+      [sourceToken < targetToken ? sourceToken : targetToken]
+      [sourceToken < targetToken ? targetToken : sourceToken];
+
+    if (pools.length != 0) {
+      uint16 targetDecimals = uint16(IERC20Extended(targetToken).decimals());
+      (outPool, outBorrowRate, outMaxTargetAmount) = _findPool(pools
+        , BorrowInput({
+          targetToken: targetToken,
+          sourceAmount18: _toMantissa(sourceAmount, uint16(IERC20Extended(sourceToken).decimals()), 18),
+          targetAmount18: _toMantissa(targetAmount, targetDecimals, 18),
+          healthFactor18: healthFactorOptional,
+          targetDecimals: IERC20Extended(targetToken).decimals(),
+          priceTarget18: priceOracle.getAssetPrice(targetToken),
+          priceSource18: priceOracle.getAssetPrice(sourceToken)
+        })
+      );
+    }
+
+    return (outPool, outBorrowRate, outMaxTargetAmount);
+  }
+
+  /// @notice Enumerate all pools and select a pool suitable for borrowing with min borrow rate and enough underline
+  function _findPool(address[] memory pools, BorrowInput memory pp) internal view returns (
+    address outPool,
+    uint outBorrowRate,
+    uint outMaxTargetAmount
+  ) {
+    require(pp.healthFactor18 > 1, "wrong health factor");
+    require(pp.priceSource18 != 0, "target price is 0");
+
     uint lenPools = pools.length;
-    if (lenPools != 0) {
-      for (uint i = 0; i < lenPools; i = _uncheckedInc(i)) {
-        uint rate = ICErc20(pools[i]).borrowRatePerBlock();
-        if (outPool == address(0) || rate < outBorrowRate) {
+    for (uint i = 0; i < lenPools; i = _uncheckedInc(i)) {
+      (uint rate18, uint pcf18, uint pta) = ILendingPlatform(pools[i]).getPoolInfo(pools[i], pp.targetToken);
+
+      // how much target asset we are able to get for the provided collateral with given health factor
+      uint targetTa18 = pcf18 * pp.sourceAmount18 * pp.priceSource18 / (pp.priceTarget18 * pp.healthFactor18);
+
+      // this amount should be greater or equal to the min allowed amount and the pool should have enough liquidity
+      if (targetTa18 >= pp.targetAmount18 && _toMantissa(pta, pp.targetDecimals, 18) >= targetTa18) {
+
+        // take the pool with lowed bourrow rate
+        if (outPool == address(0) || rate18 < outBorrowRate) {
           outPool = pools[i];
-          outBorrowRate = rate;
+          outBorrowRate = rate18;
+          outMaxTargetAmount = _toMantissa(targetTa18, 18, pp.targetDecimals);
         }
       }
     }
 
-    return (outPool, outBorrowRate);
+    return (outPool, outBorrowRate, outMaxTargetAmount);
   }
 
+
+  /*****************************************************/
+  /*                   Borrow logic                    */
+  /*****************************************************/
 
   /// @notice Borrow {targetAmount} from the pool using {sourceAmount} as collateral.
   /// @dev Result health factor cannot be less the default health factor specified for the target asset by governance.
@@ -275,7 +191,10 @@ contract BorrowManager is BorrowManagerStorage {
   }
 
   /// @notice Convert {amount} with [sourceDecimals} to new amount with {targetDecimals}
-  function toMantissa(uint amount, uint sourceDecimals, uint targetDecimals) public pure returns (uint) {
-    return amount * (10 ** targetDecimals) / (10 ** sourceDecimals);
+  function _toMantissa(uint amount, uint16 sourceDecimals, uint16 targetDecimals) internal pure returns (uint) {
+    return sourceDecimals == targetDecimals
+      ? amount
+      : amount * (10 ** targetDecimals) / (10 ** sourceDecimals);
   }
+
 }

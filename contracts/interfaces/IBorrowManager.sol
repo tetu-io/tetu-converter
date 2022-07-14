@@ -9,53 +9,23 @@ interface IBorrowManager {
   function addPlatform(string calldata title, address decorator) external;
   function addPool(uint platformUid, address poolAddress, address[] calldata assets) external;
 
-  /// @notice Find lending pool with best normalized borrow rate per ethereum block
-  /// @return outPool Best pool or 0 if there is no suitable pool
-  /// @return outBorrowRate Normalized borrow rate. It can include borrow-rate-per-block, additional fees, etc
-  function getBestPool (
+  /// @notice Find lending pool capable of providing {targetAmount} and having best normalized borrow rate
+  /// @param sourceAmount Max possible collateral value is source tokens
+  /// @param targetAmount Minimum required target amount; result outMaxTargetAmount must be greater
+  /// @param healthFactorOptional if 0 than default health factor specified for the target asset will be used
+  /// @return outPool Result pool or 0 if a pool is not found
+  /// @return outBorrowRate Pool normalized borrow rate per ethereum block
+  /// @return outMaxTargetAmount Max available target amount that we can borrow for collateral = {sourceAmount}
+  function findPool(
     address sourceToken,
-    address targetToken
-  ) external view returns (
-    address outPool,
-    uint outBorrowRate
-  );
-
-  /// @notice Calculate a collateral required to borrow {targetAmount} from the pool and get initial {healthFactor}
-  /// @return outSourceAmount Result source amount, decimals of sourceToken
-  function estimateSourceAmount(
-    address pool,
-    address sourceToken,
+    uint sourceAmount,
     address targetToken,
     uint targetAmount,
-    uint96 healthFactor
+    uint96 healthFactorOptional
   ) external view returns (
-    uint outSourceAmount
-  );
-
-  /// @notice Calculate a target amount that can be borrowed from the pool using {sourceAmount} as collateral
-  ///         with initial {healthFactor}
-  /// @return outTargetAmount Result target amount, decimals of targetToken
-  function estimateTargetAmount(
-    address pool,
-    address sourceToken,
-    uint sourceAmount,
-    address targetToken,
-    uint96 healthFactor
-  ) external view returns (
-    uint outTargetAmount
-  );
-
-  /// @notice Estimate result health factor after borrowing {targetAmount} from the pool
-  ///         using {sourceAmount} as collateral
-  /// @return outHealthFactor Result health factor, decimals 18
-  function estimateHealthFactor(
-    address pool,
-    address sourceToken,
-    uint sourceAmount,
-    address targetToken,
-    uint targetAmount
-  ) external view returns (
-    uint96 outHealthFactor
+    address outPool,
+    uint outBorrowRate,
+    uint outMaxTargetAmount
   );
 
   /// @notice Borrow {targetAmount} from the pool using {sourceAmount} as collateral.

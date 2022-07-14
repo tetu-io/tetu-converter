@@ -39,14 +39,23 @@ contract LendingPlatformMock is ILendingPlatform {
     }
   }
 
-  /// @notice Get normalized borrow rate per block, scaled by 1e18
-  /// @dev Normalized borrow rate can include borrow-rate-per-block + any additional fees
-  function getBorrowRate(
-    address pool,
-    address sourceToken,
-    address targetToken
-  ) external view override returns (uint) {
-    return borrowRates[pool][targetToken];
+  /// @notice get data of the pool
+  /// @param pool = comptroller
+  /// @return borrowRatePerBlock Normalized borrow rate can include borrow-rate-per-block + any additional fees
+  /// @return collateralFactor Current collateral factor [0..1e18], where 1e18 is corresponded to CF=1
+  /// @return availableCash Available underline in the pool. 0 if the market is unlisted
+  function getPoolInfo(address pool, address underline)
+  external
+  view
+  override
+  returns (
+    uint borrowRatePerBlock,
+    uint collateralFactor,
+    uint availableCash
+  ) {
+    collateralFactor = collateralFactors[pool][underline];
+    availableCash = liquidity[pool][underline];
+    borrowRatePerBlock = borrowRates[pool][underline];
   }
 
   function borrow(
@@ -55,19 +64,4 @@ contract LendingPlatformMock is ILendingPlatform {
   ) external override {
     //TODO
   }
-
-  /// @notice get data of the pool
-  /// @return outCollateralFactor Current collateral factor [0..1e18], where 1e18 is corresponded to CF=1
-  function getPoolInfo(address pool, address underline) external view override returns (uint outCollateralFactor) {
-    console.log("LendingPlatformMock.getPoolInfo pool=%s cf=%d underline=%s", pool, collateralFactors[pool][underline], underline);
-    return collateralFactors[pool][underline];
-  }
-
-  /// @notice get data of the underline of the pool
-  /// @return outLiquidity Amount of the underlying token that is unborrowed in the pool
-  function getAssetInfo(address pool, address underline) external view override returns (uint outLiquidity) {
-    console.log("LendingPlatformMock.getAssetInfo pool=%s liquidity=%d underline=%s", pool, outLiquidity, underline);
-    return liquidity[pool][underline];
-  }
-
 }

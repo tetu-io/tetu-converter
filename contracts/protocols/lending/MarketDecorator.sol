@@ -22,36 +22,28 @@ contract MarketDecorator is ILendingPlatform {
     priceOracle = IPriceOracle(priceOracle_);
   }
 
-
-  /// @notice Get normalized borrow rate per block, scaled by 1e18
-  /// @dev Normalized borrow rate can include borrow-rate-per-block + any additional fees
-  function getBorrowRate(
-    address pool,
-    address sourceToken,
-    address targetToken
-  ) external view override returns (uint) {
-    // The borrow interest rate per block, scaled by 1e18
-    // There are no additional fees (fuseFee and adminFee are included to the borrow rate)
-    address cToken = IComptroller(pool).cTokensByUnderlying(targetToken);
-    return ICErc20(cToken).borrowRatePerBlock();
-  }
-
   /// @notice get data of the pool
-  /// @param pool = cToken
-  /// @return outCollateralFactor Current collateral factor [0..1e18], where 1e18 is corresponded to CF=1
-  function getPoolInfo(address pool, address underline) external view override returns (uint outCollateralFactor) {
+  /// @param pool = comptroller
+  /// @return borrowRatePerBlock Normalized borrow rate can include borrow-rate-per-block + any additional fees
+  /// @return collateralFactor Current collateral factor [0..1e18], where 1e18 is corresponded to CF=1
+  /// @return availableCash Available underline in the pool. 0 if the market is unlisted
+  function getPoolInfo(address pool, address underline)
+  external
+  view
+  override
+  returns (
+    uint borrowRatePerBlock,
+    uint collateralFactor,
+    uint availableCash
+  ) {
     address cToken = IComptroller(pool).cTokensByUnderlying(underline);
-    (,outCollateralFactor) = IComptroller(pool).markets(cToken);
+    (bool isListed, uint cf) = IComptroller(pool).markets(cToken);
+    availableCash = isListed
+      ? ICErc20(cToken).getCash()
+      : 0; //the marked is unlisted, no cash is available
+    borrowRatePerBlock = ICErc20(cToken).borrowRatePerBlock();
+    collateralFactor = cf;
   }
-
-  /// @notice get data of the underline of the pool
-  /// @param pool = cToken
-  /// @return outLiquidity Amount of the underlying token that is unborrowed in the pool
-  function getAssetInfo(address pool, address underline) external view override returns (uint outLiquidity) {
-    address cToken = IComptroller(pool).cTokensByUnderlying(underline);
-    return ICErc20(cToken).getCash();
-  }
-
 
   function borrow(
     address pool,
