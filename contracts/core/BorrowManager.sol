@@ -133,7 +133,7 @@ contract BorrowManager is BorrowManagerStorage {
     uint outBorrowRate,
     uint outMaxTargetAmount
   ) {
-    require(pp.healthFactor18 > 1, "wrong health factor");
+    require(pp.healthFactor18 > 1e18, "wrong health factor");
     require(pp.priceSource18 != 0, "target price is 0");
 
     uint lenPools = pools.length;
