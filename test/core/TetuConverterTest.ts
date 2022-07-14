@@ -1,10 +1,9 @@
 import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import {ethers} from "hardhat";
-import {TimeUtils} from "../../../../scripts/utils/TimeUtils";
-import {ICErc20, ICErc20__factory, IComptroller__factory, IERC20__factory} from "../../../../typechain";
+import {TimeUtils} from "../../scripts/utils/TimeUtils";
 import {expect} from "chai";
 
-describe("MarketDecorator", () => {
+describe("BorrowManager", () => {
 //region Global vars for all tests
     let snapshot: string;
     let snapshotForEach: string;
@@ -42,45 +41,66 @@ describe("MarketDecorator", () => {
     });
 //endregion before, after
 
+//region Utils
+
+//endregion Utils
+
 //region Unit tests
-    describe("buildBorrowPlan", () => {
+    describe("findBestConversionStrategy", () => {
         describe("Good paths", () => {
-            describe("Build plan", () => {
-                it("should return expected values", async () => {
-                   expect.fail();
+            describe("Lending is more efficient", () => {
+
+            });
+            describe("Swap is more efficient", () => {
+                it("TODO", async () => {
+                    expect.fail();
                 });
             });
         });
         describe("Bad paths", () => {
-            describe("Collateral is not enough", () => {
-                it("should revert", async () => {
+            describe("Unsupported source asset", () => {
+                it("TODO", async () => {
                     expect.fail();
                 });
             });
-            describe("The market is unlisted", () => {
-                it("should revert", async () => {
+        });
+    });
+
+    describe("borrow", () => {
+        describe("Good paths", () => {
+            describe("Use matic as collateral, borrow USDC", () => {
+                it("should update balance in proper way", async () => {
+                    // register MarketXYZ's pools in BorrowManager
+
+                    // find a pool
+
+                    // borrow USDC
+
+                    // check balances of USDC, Matic and cMatic
+
+
                     expect.fail();
                 });
             });
-            describe("Target amount is 0", () => {
-                it("should revert", async () => {
+            describe("Use USDC as collateral, borrow matic", () => {
+                it("should update balance in proper way", async () => {
                     expect.fail();
                 });
             });
-            describe("Price oracle has no info about source asset", () => {
-                it("should revert", async () => {
-                    expect.fail();
-                });
-            });
-            describe("Price oracle has no info about target asset", () => {
-                it("should revert", async () => {
+            describe("Use USDC as collateral, borrow USDT", () => {
+                it("should update balance in proper way", async () => {
                     expect.fail();
                 });
             });
         });
 
+        describe("Bad paths", () => {
+            describe("Unsupported source asset", () => {
+                it("TODO", async () => {
+                    expect.fail();
+                });
+            });
+        });
     });
-
 //endregion Unit tests
-
 });

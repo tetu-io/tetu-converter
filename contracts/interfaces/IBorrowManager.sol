@@ -4,7 +4,7 @@ pragma solidity 0.8.4;
 
 import "../core/DataTypes.sol";
 
-/// @notice A facade for the set of availalbe lending platforms
+/// @notice A facade for the set of available lending platforms
 interface IBorrowManager {
   function addPlatform(string calldata title, address decorator) external;
   function addPool(uint platformUid, address poolAddress, address[] calldata assets) external;
@@ -14,7 +14,7 @@ interface IBorrowManager {
   function setHealthFactor(address asset, uint96 value) external;
 
   /// @notice Find lending pool capable of providing {targetAmount} and having best normalized borrow rate
-  /// @param sourceAmount Max possible collateral value is source tokens
+  /// @param sourceAmount Max possible collateral value in source tokens
   /// @param targetAmount Minimum required target amount; result outMaxTargetAmount must be greater
   /// @param healthFactorOptional if 0 than default health factor specified for the target asset will be used
   /// @return outPool Result pool or 0 if a pool is not found

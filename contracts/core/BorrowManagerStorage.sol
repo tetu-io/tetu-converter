@@ -7,6 +7,8 @@ import "../interfaces/IBorrowManager.sol";
 import "../interfaces/IPriceOracle.sol";
 
 abstract contract BorrowManagerStorage is IBorrowManager {
+  //TODO contract version
+
   /// @dev All input params for _findPool; 18 means that decimals 18 is used
   struct BorrowInput {
     address targetToken;

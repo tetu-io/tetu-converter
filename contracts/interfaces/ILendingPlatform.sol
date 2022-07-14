@@ -9,7 +9,10 @@ interface ILendingPlatform {
 
   function borrow(
     address pool,
-    DataTypes.BorrowParams calldata params
+    address sourceToken,
+    uint sourceAmount,
+    address targetToken,
+    uint targetAmount
   ) external;
 
   /// @notice get data of the pool

@@ -33,25 +33,4 @@ library DataTypes {
     address[] pools;
   }
 
-  /// @notice Input params to make a loan
-  struct BorrowParams {
-    /// @notice Asset to be used as collateral
-    address sourceToken;
-    /// @notice Asset to borrow
-    address targetToken;
-    /// @notice Minimum allowed health factor, decimals 18
-    uint64 minHealthFactor;
-    /// @notice Estimated duration of the borrowing in count of Ethereum blocks
-    uint64 borrowDurationInBlocks;
-    BorrowMode borrowMode;
-
-    /// @notice Required amount of collateral / Max available amount of collateral
-    uint sourceAmount;
-    /// @notice Required amount to borrow / Max
-    uint targetAmount;
-  }
-
-  struct BorrowEfficiency {
-    uint normalizedBorrowRate;
-  }
 }

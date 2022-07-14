@@ -7,6 +7,7 @@ import "../../openzeppelin/IERC20.sol";
 import "../../openzeppelin/SafeERC20.sol";
 import "../../third_party/market/IComptroller.sol";
 import "../../third_party/IERC20Extended.sol";
+import "../../third_party/IWmatic.sol";
 import "../../interfaces/IPriceOracle.sol";
 import "../../core/DataTypes.sol";
 import "../../interfaces/ILendingPlatform.sol";
@@ -15,6 +16,7 @@ import "../../interfaces/ILendingPlatform.sol";
 contract MarketDecorator is ILendingPlatform {
   using SafeERC20 for IERC20;
 
+  address public constant W_MATIC = 0x0d500B1d8E8eF31E21C99d1Db9A6444d3ADf1270;
   IPriceOracle public priceOracle;
 
   constructor(address priceOracle_) {
@@ -45,19 +47,46 @@ contract MarketDecorator is ILendingPlatform {
     collateralFactor = cf;
   }
 
+  /*****************************************************/
+  /*               Borrow logic                        */
+  /*****************************************************/
   function borrow(
     address pool,
-    DataTypes.BorrowParams calldata params
+    address sourceToken,
+    uint sourceAmount,
+    address targetToken,
+    uint targetAmount
   ) external override {
+    IComptroller comptroller = IComptroller(pool);
+    //address cSourceToken = IComptroller(pool).cTokensByUnderlying(cSourceToken);
 
+    // Supply collateral
+//    _supply(sourceToken, cSourceToken, )
+
+    // Borrow
   }
 
+//  function _supply(
+//    address underlineToken_,
+//    address cToken_,
+//    uint amount_
+//  ) internal {
+//    amount_ = Math.min(IERC20(underlineToken_).balanceOf(address(this)), amount_); //TODO do we need this check?
+//    if (_isMatic()) {
+//      require(IERC20(W_MATIC).balanceOf(address(this)) >= amount, "Market: Not enough wmatic");
+//      IWmatic(W_MATIC).withdraw(amount);
+//      ICErc20(cToken_).mint{value : amount_}();
+//    } else {
+//      IERC20(underlineToken_).safeApprove(cToken_, 0);
+//      IERC20(underlineToken_).safeApprove(cToken_, amount_);
+//      require(ICErc20(cToken_).mint(amount_) == 0, "Market: Supplying failed");
+//    }
+//  }
 
   /*****************************************************/
   /*               Helper utils                        */
   /*****************************************************/
-  /// @notice Convert {amount} with [sourceDecimals} to new amount with {targetDecimals}
-  function toMantissa(uint amount, uint sourceDecimals, uint targetDecimals) public pure returns (uint) {
-    return amount * (10 ** targetDecimals) / (10 ** sourceDecimals);
+  function _isMatic(address token) internal view returns (bool) {
+    return token == W_MATIC;
   }
 }

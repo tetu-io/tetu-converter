@@ -122,6 +122,8 @@ describe("BorrowManager", () => {
     }
 
 //endregion Utils
+
+//region Unit tests
     describe("addPlatform", () => {
         describe("Good paths", () => {
             describe("Create two platforms", () => {
@@ -715,4 +717,6 @@ describe("BorrowManager", () => {
             });
         });
     });
+//endregion Unit tests
+
 });
