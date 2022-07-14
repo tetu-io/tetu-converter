@@ -95,7 +95,7 @@ contract BorrowManager is BorrowManagerStorage {
     // Max target amount capable to be borrowed: TargetTA = BS / PT [TA].
     // We can use the pool only if TargetTA >= PTA >= TA
 
-    // find all available pools
+    // get all available pools from poolsForAssets[smaller-address][higher-address]
     address[] memory pools = poolsForAssets
       [sourceToken < targetToken ? sourceToken : targetToken]
       [sourceToken < targetToken ? targetToken : sourceToken];
