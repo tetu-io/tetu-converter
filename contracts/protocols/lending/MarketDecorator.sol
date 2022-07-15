@@ -48,17 +48,66 @@ contract MarketDecorator is ILendingPlatform {
     collateralFactor = cf;
   }
 
-  /*****************************************************/
-  /*               Borrow logic                        */
-  /*****************************************************/
-  /// @notice Transfer {amount_} of {underlineToken_} from sender to pool, transfer received cTokens to the sender
-  function supply(address pool_, address underlineToken_, uint amount_) external override {
+  ///////////////////////////////////////////////////////
+  ///                   IConverter
+  ///////////////////////////////////////////////////////
+  /// @notice Convert {sourceAmount_} to {targetAmount} using borrowing
+  /// @param sourceToken_ Input asset
+  /// @param sourceAmount_ TODO requirements
+  /// @param targetToken_ Target asset
+  /// @param targetAmount_ TODO requirements
+  /// @param receiver_ Receiver of cTokens
+  function openPosition (
+    address pool_,
+    address sourceToken_,
+    uint sourceAmount_,
+    address targetToken_,
+    uint targetAmount_,
+    address receiver_
+  ) external override {
+    _supplyAndBorrow(pool_, sourceToken_, sourceAmount_, targetToken_, targetAmount_);
+    //keep CTokens on the balance, user don't need them
+    //TODO: send borrowed amount to receiver
+  }
+
+  ///////////////////////////////////////////////////////
+  ///                   Borrow logic
+  ///////////////////////////////////////////////////////
+
+  /// @notice Borrow {targetAmount} using {sourceAmount_} as collateral
+  ///         keep balance of cToken on the balance of this contract
+  /// @param sourceToken_ Asset to be used as collateral
+  /// @param sourceAmount_ Amount of collateral; it should already be transferred to the balance of the contract
+  /// @param targetToken_ Asset to borrow
+  /// @param targetAmount_ Required amount to borrow
+  function _supplyAndBorrow (
+    address pool_,
+    address sourceToken_,
+    uint sourceAmount_,
+    address targetToken_,
+    uint targetAmount_
+  ) internal {
     IComptroller comptroller = IComptroller(pool_);
+    address cTokenCollateral = comptroller.cTokensByUnderlying(sourceToken_);
+    require(cTokenCollateral != address(0), "source token is not supported");
 
-    address cToken = comptroller.cTokensByUnderlying(underlineToken_);
-    require(cToken != address(0), "token is not supported");
+    // User has transferred a collateral to balance of TetuConverter
+    uint balanceBefore = 0; //TODO
+    uint balanceSource = IERC20(sourceToken_).balanceOf(address(this));
+    uint collateral = balanceSource - balanceBefore;
 
-    amount_ = Math.min(IERC20(underlineToken_).balanceOf(address(this)), amount_); //TODO do we need this check?
+    // Supply the collateral, receive cTokens on balance of TetuConverter
+    require(collateral >= sourceAmount_, "TC: insufficient input amount");
+    _supply(cTokenCollateral, sourceToken_, collateral);
+
+    // Borrow the target amount. Receive it on balance of TetuConverter
+    // Register borrowed amount using the push-pattern
+    _borrow(comptroller, cTokenCollateral, targetToken_, targetAmount_);
+  }
+
+  /// @notice Transfer {amount_} of {underlineToken_} from sender to pool, transfer received cTokens to the sender
+  function _supply(address cTokenCollateral_, address sourceToken_, uint amount_) internal {
+    amount_ = Math.min(IERC20(sourceToken_).balanceOf(address(this)), amount_); //TODO do we need this check?
 
 // TODO: mint is not payable in ICErc20 ..
 //    if (_isMatic(underlineToken_)) {
@@ -66,52 +115,35 @@ contract MarketDecorator is ILendingPlatform {
 //      IWmatic(W_MATIC).withdraw(amount_);
 //      ICErc20(cToken).mint{value : amount_}();
 //    } else {
-      IERC20(underlineToken_).safeApprove(cToken, 0);
-      IERC20(underlineToken_).safeApprove(cToken, amount_);
-      require(ICErc20(cToken).mint(amount_) == 0, "Market: Supplying failed");
+      IERC20(sourceToken_).safeApprove(cTokenCollateral_, 0);
+      IERC20(sourceToken_).safeApprove(cTokenCollateral_, amount_);
+      require(ICErc20(cTokenCollateral_).mint(amount_) == 0, "Market: Supplying failed");
 //    }
 
-    uint cTokenAmount = IERC20(cToken).balanceOf(address(this));
-    IERC20(cToken).safeTransfer(msg.sender, cTokenAmount);
+    uint cTokenAmount = IERC20(cTokenCollateral_).balanceOf(address(this));
+    IERC20(cTokenCollateral_).safeTransfer(msg.sender, cTokenAmount);
   }
 
-  function borrow(
-    address pool,
-    address sourceToken,
-    uint sourceAmount,
-    address targetToken,
-    uint targetAmount
-  ) external override {
-    IComptroller comptroller = IComptroller(pool);
-    //address cSourceToken = IComptroller(pool).cTokensByUnderlying(cSourceToken);
+  /// @param cTokenCollateral_ cToken that should be used as a collateral
+  /// @param targetToken_ Asset that should be borrowed
+  function _borrow(IComptroller comptroller_, address cTokenCollateral_, address targetToken_, uint amount_) internal {
+    //enter to market
+    address[] memory markets = new address[](1);
+    markets[0] = cTokenCollateral_;
+    comptroller_.enterMarkets(markets);
 
-    // Supply collateral
-//    _supply(sourceToken, cSourceToken, )
+    //borrow amount
+    address cTokenBorrow = comptroller_.cTokensByUnderlying(targetToken_);
+    require(cTokenBorrow != address(0), "target token is not supported");
 
-    // Borrow
+    ICErc20(cTokenBorrow).borrow(amount_);
   }
 
-//  function _supply(
-//    address underlineToken_,
-//    address cToken_,
-//    uint amount_
-//  ) internal {
-//    amount_ = Math.min(IERC20(underlineToken_).balanceOf(address(this)), amount_); //TODO do we need this check?
-//    if (_isMatic()) {
-//      require(IERC20(W_MATIC).balanceOf(address(this)) >= amount, "Market: Not enough wmatic");
-//      IWmatic(W_MATIC).withdraw(amount);
-//      ICErc20(cToken_).mint{value : amount_}();
-//    } else {
-//      IERC20(underlineToken_).safeApprove(cToken_, 0);
-//      IERC20(underlineToken_).safeApprove(cToken_, amount_);
-//      require(ICErc20(cToken_).mint(amount_) == 0, "Market: Supplying failed");
-//    }
-//  }
 
-  /*****************************************************/
-  /*               Helper utils                        */
-  /*****************************************************/
-  function _isMatic(address token) internal view returns (bool) {
+  ///////////////////////////////////////////////////////
+  ///                   Helper utils
+  ///////////////////////////////////////////////////////
+  function _isMatic(address token) internal pure returns (bool) {
     return token == W_MATIC;
   }
 }

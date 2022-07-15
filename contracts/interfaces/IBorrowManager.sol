@@ -16,20 +16,13 @@ interface IBorrowManager {
   function setHealthFactor(address asset, uint96 value) external;
 
   /// @notice Find lending pool capable of providing {targetAmount} and having best normalized borrow rate
-  /// @param sourceAmount Max possible collateral value in source tokens
-  /// @param targetAmount Minimum required target amount; result outMaxTargetAmount must be greater
-  /// @param healthFactorOptional if 0 than default health factor specified for the target asset will be used
   /// @return outPool Result pool or 0 if a pool is not found
+  /// @return outDecorator implementation of IConverter that is able to work with outPool
   /// @return outBorrowRate Pool normalized borrow rate per ethereum block
   /// @return outMaxTargetAmount Max available amount of target tokens that we can borrow using {sourceAmount}
-  function findPool(
-    address sourceToken,
-    uint sourceAmount,
-    address targetToken,
-    uint targetAmount,
-    uint96 healthFactorOptional
-  ) external view returns (
+  function findPool(DataTypes.ExecuteFindPoolParams memory params) external view returns (
     address outPool,
+    address outDecorator,
     uint outBorrowRate,
     uint outMaxTargetAmount
   );

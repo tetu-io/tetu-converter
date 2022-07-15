@@ -111,21 +111,9 @@ contract BorrowManager is IBorrowManager {
   ///////////////////////////////////////////////////////
   ///           Find best pool for borrowing
   ///////////////////////////////////////////////////////
-  /// @notice Find lending pool capable of providing {targetAmount} and having best normalized borrow rate
-  /// @param sourceAmount Max possible collateral value is source tokens
-  /// @param targetAmount Minimum required target amount; result outMaxTargetAmount must be greater or equal
-  /// @param healthFactorOptional if 0 than default health factor specified for the target asset will be used
-  /// @return outPool Result pool or 0 if a pool is not found
-  /// @return outBorrowRate Pool normalized borrow rate per ethereum block
-  /// @return outMaxTargetAmount Max available amount of target tokens that we can borrow using {sourceAmount}
-  function findPool(
-    address sourceToken,
-    uint sourceAmount,
-    address targetToken,
-    uint targetAmount,
-    uint96 healthFactorOptional
-  ) external view override returns (
+  function findPool(DataTypes.ExecuteFindPoolParams memory p_) external view override returns (
     address outPool,
+    address outDecorator,
     uint outBorrowRate,
     uint outMaxTargetAmount
   ) {
@@ -142,32 +130,32 @@ contract BorrowManager is IBorrowManager {
 
     // get all available pools from poolsForAssets[smaller-address][higher-address]
     address[] memory pools = poolsForAssets
-      [sourceToken < targetToken ? sourceToken : targetToken]
-      [sourceToken < targetToken ? targetToken : sourceToken];
+      [p_.sourceToken < p_.targetToken ? p_.sourceToken : p_.targetToken]
+      [p_.sourceToken < p_.targetToken ? p_.targetToken : p_.sourceToken];
 
     if (pools.length != 0) {
-      uint16 targetDecimals = uint16(IERC20Extended(targetToken).decimals());
-      (outPool, outBorrowRate, outMaxTargetAmount) = _findPool(pools
+      (outPool, outDecorator, outBorrowRate, outMaxTargetAmount) = _findPool(pools
         , BorrowInput({
-          targetToken: targetToken,
-          sourceAmount18: _toMantissa(sourceAmount, uint16(IERC20Extended(sourceToken).decimals()), 18),
-          targetAmount18: _toMantissa(targetAmount, targetDecimals, 18),
-          healthFactor18: healthFactorOptional == 0
-            ? defaultHealthFactors[targetToken]
-            : healthFactorOptional,
-          targetDecimals: IERC20Extended(targetToken).decimals(),
-          priceTarget18: priceOracle.getAssetPrice(targetToken),
-          priceSource18: priceOracle.getAssetPrice(sourceToken)
+          targetToken: p_.targetToken,
+          sourceAmount18: _toMantissa(p_.sourceAmount, uint16(IERC20Extended(p_.sourceToken).decimals()), 18),
+          targetAmount18: _toMantissa(p_.targetAmount, uint16(IERC20Extended(p_.targetToken).decimals()), 18),
+          healthFactor18: p_.healthFactorOptional == 0
+            ? defaultHealthFactors[p_.targetToken]
+            : p_.healthFactorOptional,
+          targetDecimals: IERC20Extended(p_.targetToken).decimals(),
+          priceTarget18: priceOracle.getAssetPrice(p_.targetToken),
+          priceSource18: priceOracle.getAssetPrice(p_.sourceToken)
         })
       );
     }
 
-    return (outPool, outBorrowRate, outMaxTargetAmount);
+    return (outPool, outDecorator, outBorrowRate, outMaxTargetAmount);
   }
 
   /// @notice Enumerate all pools and select a pool suitable for borrowing with min borrow rate and enough underline
   function _findPool(address[] memory pools, BorrowInput memory pp) internal view returns (
     address outPool,
+    address outDecorator,
     uint outBorrowRate,
     uint outMaxTargetAmount
   ) {
@@ -177,11 +165,12 @@ contract BorrowManager is IBorrowManager {
     uint lenPools = pools.length;
     for (uint i = 0; i < lenPools; i = _uncheckedInc(i)) {
       address pool = pools[i];
+      address decorator = poolToDecorator[pool];
 
       (uint rate18,
        uint pcf18,
        uint pta
-      ) = ILendingPlatform(poolToDecorator[pool]).getPoolInfo(pool, pp.targetToken);
+      ) = ILendingPlatform(decorator).getPoolInfo(pool, pp.targetToken);
 
       if (outPool == address(0) || rate18 < outBorrowRate) {
         // how much target asset we are able to get for the provided collateral with given health factor
@@ -192,13 +181,14 @@ contract BorrowManager is IBorrowManager {
         if (resultTa18 >= pp.targetAmount18 && _toMantissa(pta, pp.targetDecimals, 18) >= resultTa18) {
           // take the pool with lowed borrow rate
           outPool = pool;
+          outDecorator = decorator;
           outBorrowRate = rate18;
           outMaxTargetAmount = _toMantissa(resultTa18, 18, pp.targetDecimals);
         }
       }
     }
 
-    return (outPool, outBorrowRate, outMaxTargetAmount);
+    return (outPool, outDecorator, outBorrowRate, outMaxTargetAmount);
   }
 
 
