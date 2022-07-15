@@ -2,12 +2,12 @@
 
 pragma solidity 0.8.4;
 
-import "../../third_party/market/ICErc20.sol";
+import "../../integrations/market/ICErc20.sol";
 import "../../openzeppelin/IERC20.sol";
 import "../../openzeppelin/SafeERC20.sol";
-import "../../third_party/market/IComptroller.sol";
-import "../../third_party/IERC20Extended.sol";
-import "../../third_party/IWmatic.sol";
+import "../../integrations/market/IComptroller.sol";
+import "../../integrations/IERC20Extended.sol";
+import "../../integrations/IWmatic.sol";
 import "../../interfaces/IPriceOracle.sol";
 import "../../core/DataTypes.sol";
 import "../../interfaces/ILendingPlatform.sol";

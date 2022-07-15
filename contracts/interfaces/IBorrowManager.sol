@@ -6,8 +6,10 @@ import "../core/DataTypes.sol";
 
 /// @notice A facade for the set of available lending platforms
 interface IBorrowManager {
-  function addPlatform(string calldata title, address decorator) external;
-  function addPool(uint platformUid, address poolAddress, address[] calldata assets) external;
+  /// @param pool_ It's comptroller
+  /// @param decorator_ Implementation of ILendingPlatform that knows how to work with the pool
+  /// @param assets_ All assets supported by the pool (duplicates are not allowed)
+  function addPool(address pool_, address decorator_, address[] calldata assets_) external;
 
   /// @notice Set default health factor for {asset}. Default value is used only if user hasn't provided custom value
   /// @param value Health factor must be greater then 1.

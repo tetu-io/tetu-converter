@@ -4,8 +4,8 @@ pragma solidity 0.8.4;
 
 import "./TetuConverterStorage.sol";
 import "../interfaces/ITetuConverter.sol";
-import "../third_party/market/ICErc20.sol";
-import "../third_party/IERC20Extended.sol";
+import "../integrations/market/ICErc20.sol";
+import "../integrations/IERC20Extended.sol";
 import "hardhat/console.sol";
 
 /// @notice Main application contract

@@ -108,12 +108,7 @@ describe("BorrowManager", () => {
                 availableLiquidities
             );
 
-            await bm.addPlatform(`Pool-${i + 1}`, decorator.address);
-            const platformUid = await bm.platformsCount();
-
-            console.log("platformUid", platformUid);
-
-            await bm.addPool(platformUid, pool.address, underlines.map(x => x.address));
+            await bm.addPool(pool.address, decorator.address, underlines.map(x => x.address));
 
             pools.push(pool.address);
         }
@@ -124,72 +119,6 @@ describe("BorrowManager", () => {
 //endregion Utils
 
 //region Unit tests
-    describe("addPlatform", () => {
-        describe("Good paths", () => {
-            describe("Create two platforms", () => {
-                it("should create two platforms with expected data", async () => {
-                    const platformTitle1 = "market XYZ";
-                    const platformTitle2 = "aave";
-                    const decorator1 = ethers.Wallet.createRandom().address;
-                    const decorator2 = ethers.Wallet.createRandom().address;
-
-                    const priceOracle = (await DeployUtils.deployContract(signer
-                        , "PriceOracleMock"
-                        , []
-                        , []
-                    )) as PriceOracleMock;
-
-                    const bm = (await DeployUtils.deployContract(signer
-                        , "BorrowManager"
-                        , priceOracle.address
-                    )) as BorrowManager;
-                    await bm.addPlatform(platformTitle1, decorator1);
-                    await bm.addPlatform(platformTitle2, decorator2);
-
-                    const countPlatforms = await bm.platformsCount();
-                    const platform1 = (await bm.platforms(1));
-                    const platform2 = (await bm.platforms(2));
-
-                    const ret = [
-                        await bm.platformsCount()
-                        , platform1.title, platform1.decorator
-                        , platform2.title, platform2.decorator
-                    ].join();
-
-                    const expected = [
-                        2
-                        , platformTitle1, decorator1
-                        , platformTitle2, decorator2
-                    ].join();
-
-                    expect(ret).equal(expected);
-                });
-            });
-        });
-        describe("Bad paths", () => {
-            describe("Not governance", () => {
-                it("should revert", async () => {
-                    expect.fail();
-                });
-            });
-            describe("Add already registered platform", () => {
-                it("should revert", async () => {
-                    expect.fail();
-                });
-            });
-            describe("Empty name", () => {
-                it("should revert", async () => {
-                    expect.fail();
-                });
-            });
-            describe("Too long name", () => {
-                it("should revert", async () => {
-                    expect.fail();
-                });
-            });
-        });
-    });
-
     describe("addPool", () => {
         describe("Good paths", () => {
             describe("Create a pool with tree assets", () => {
@@ -218,13 +147,10 @@ describe("BorrowManager", () => {
                         , priceOracle.address
                     )) as BorrowManager;
 
-                    await bm.addPlatform(platformTitle, decorator);
-                    const platformUid = await bm.platformsCount();
-
-                    await bm.addPool(platformUid, poolAddress, poolAssets);
+                    await bm.addPool(poolAddress, decorator, poolAssets);
 
                     const ret = [
-                        await bm.poolToPlatform(poolAddress)
+                        await bm.poolToDecorator(poolAddress)
                         , await bm.poolsForAssets(asset1, asset2, 0)
                         , await bm.poolsForAssets(asset1, asset3, 0)
                         , await bm.poolsForAssets(asset2, asset3, 0)
@@ -243,7 +169,7 @@ describe("BorrowManager", () => {
                     ].join();
 
                     const expected = [
-                        platformUid
+                        decorator
                         , poolAddress, poolAddress, poolAddress
                         , true, true, true
                         , 1, 1, 1
@@ -340,7 +266,7 @@ describe("BorrowManager", () => {
 
                     await expect(
                         bm.setHealthFactor(asset, value)
-                    ).revertedWith("HF must be greater 1e18");
+                    ).revertedWith("HF must be > MIN_HF");
                 });
             });
             describe("Health factor is less then 1e18", () => {
@@ -352,7 +278,7 @@ describe("BorrowManager", () => {
 
                     await expect(
                         bm.setHealthFactor(asset, value)
-                    ).revertedWith("HF must be greater 1e18");
+                    ).revertedWith("HF must be > MIN_HF");
                 });
             });
         });
