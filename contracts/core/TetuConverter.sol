@@ -80,7 +80,18 @@ contract TetuConverter is ITetuConverter {
         return (pool, decorator, mta, interest);
       }
     }
+  }
 
+
+  function supplyAndBorrow (
+    address decorator_,
+    address pool_,
+    address sourceToken_,
+    uint sourceAmount_,
+    address targetToken_,
+    uint targetAmount_
+  ) external {
+    ILendingPlatform(decorator_).openPosition(pool_, sourceToken_, sourceAmount_, targetToken_, targetAmount_, msg.sender);
   }
 }
 
