@@ -7,6 +7,9 @@ import "../core/DataTypes.sol";
 /// @notice A lending platform. Allow to borrow a loan and repay it back.
 interface ILendingPlatform {
 
+  /// @notice Transfer {amount_} of {underlineToken_} from sender to pool, transfer cTokens to sender
+  function supply(address pool_, address underlineToken_, uint amount_) external;
+
   function borrow(
     address pool,
     address sourceToken,

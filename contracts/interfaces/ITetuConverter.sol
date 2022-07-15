@@ -29,17 +29,19 @@ interface ITetuConverter {
     uint outMaxTargetAmount
   );
 
-  /// @notice Borrow {targetAmount} from the pool using {sourceAmount} as collateral.
+  /// @notice Borrow {targetAmount} from the pool using {sourceToken} as collateral
+  ///         The collateral should be transferred to the balance of the TetuConverter before calling borrow function
   /// @dev Result health factor cannot be less the default health factor specified for the target asset by governance.
-  /// @param sourceToken Asset to be used as collateral
-  /// @param sourceAmount Max available amount of collateral
-  /// @param targetToken Asset to borrow
-  /// @param targetAmount Required amount to borrow
+  /// @param sourceToken_ Asset to be used as collateral
+  /// @param targetToken_ Asset to borrow
+  /// @param targetAmount_ Required amount to borrow
+  /// @param receiver_ Receiver of cTokens
   function borrow (
-    address pool,
-    address sourceToken,
-    uint sourceAmount,
-    address targetToken,
-    uint targetAmount
+    address pool_,
+    address sourceToken_,
+    uint sourceAmount_,
+    address targetToken_,
+    uint targetAmount_,
+    address receiver_
   ) external;
 }

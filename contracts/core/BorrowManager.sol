@@ -9,9 +9,13 @@ import "../integrations/IERC20Extended.sol";
 import "../interfaces/IBorrowManager.sol";
 import "../interfaces/IPriceOracle.sol";
 import "hardhat/console.sol";
+import "../openzeppelin/IERC20.sol";
+import "../openzeppelin/SafeERC20.sol";
 
 /// @notice Contains list of lending pools. Allow to select most efficient pool and delegate borrow-request there
 contract BorrowManager is IBorrowManager {
+  using SafeERC20 for IERC20;
+
   //TODO contract version
 
   ///////////////////////////////////////////////////////
@@ -201,6 +205,13 @@ contract BorrowManager is IBorrowManager {
   ///////////////////////////////////////////////////////
   ///                   Borrow logic
   ///////////////////////////////////////////////////////
+
+  function getLendingPlatform(address pool_) external view override returns (address) {
+    address decorator = poolToDecorator[pool_];
+    require(decorator != address(0), "wrong pool");
+
+    return decorator;
+  }
 
   /// @notice Borrow {targetAmount} from the pool using {sourceAmount} as collateral.
   /// @dev Result health factor cannot be less the default health factor specified for the target asset by governance.

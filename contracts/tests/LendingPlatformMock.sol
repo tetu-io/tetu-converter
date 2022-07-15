@@ -59,6 +59,11 @@ contract LendingPlatformMock is ILendingPlatform {
     borrowRatePerBlock = borrowRates[pool][underline];
   }
 
+  /// @notice Transfer {amount_} of {underlineToken_} from sender to pool, transfer cTokens to the sender
+  function supply(address pool_, address underlineToken_, uint amount_) external override {
+    //TODO
+  }
+
   function borrow(
     address pool,
     address sourceToken,

@@ -2,20 +2,47 @@
 
 pragma solidity 0.8.4;
 
-import "./TetuConverterStorage.sol";
 import "../interfaces/ITetuConverter.sol";
 import "../integrations/market/ICErc20.sol";
 import "../integrations/IERC20Extended.sol";
+import "../interfaces/IBorrowManager.sol";
 import "hardhat/console.sol";
+import "../openzeppelin/SafeERC20.sol";
+import "../openzeppelin/IERC20.sol";
+import "../interfaces/ILendingPlatform.sol";
 
 /// @notice Main application contract
-contract TetuConverter is TetuConverterStorage {
+contract TetuConverter is ITetuConverter {
+  using SafeERC20 for IERC20;
+
+  ///////////////////////////////////////////////////////
+  ///                Members
+  ///////////////////////////////////////////////////////
+
+  uint constant public CONVERSION_WAY_NOT_FOUND = 0;
+  uint constant public CONVERSION_SWAP = 1;
+  uint constant public CONVERSION_LENDING = 2;
+
+  IBorrowManager public immutable borrowManager;
+
+  /// @notice Save asset-balance at the end of every borrow function and read them at the beginning
+  ///         The differences between stored balance and actual balanc is amount of tokens provided as collateral
+  /// @dev See explanation to swap, https://docs.uniswap.org/protocol/V2/concepts/core-concepts/swaps
+  mapping (address => uint) reserves;
+
+  ///////////////////////////////////////////////////////
+  ///                Initialization
+  ///////////////////////////////////////////////////////
 
   constructor(address borrowManager_) {
     require(borrowManager_ != address(0), "zero address");
 
     borrowManager = IBorrowManager(borrowManager_);
   }
+
+  ///////////////////////////////////////////////////////
+  ///       Find best strategy for conversion
+  ///////////////////////////////////////////////////////
 
   /// @notice Find best conversion strategy (swap or lending) and provide "cost of money" as interest for the period
   /// @param sourceAmount Amount to be converted
@@ -54,19 +81,43 @@ contract TetuConverter is TetuConverterStorage {
     }
   }
 
+
+  ///////////////////////////////////////////////////////
+  ///           Borrow logic
+  ///////////////////////////////////////////////////////
+
   /// @notice Borrow {targetAmount} from the pool using {sourceAmount} as collateral.
   /// @dev Result health factor cannot be less the default health factor specified for the target asset by governance.
-  /// @param sourceToken Asset to be used as collateral
-  /// @param sourceAmount Max available amount of collateral
-  /// @param targetToken Asset to borrow
-  /// @param targetAmount Required amount to borrow
+  /// @param sourceToken_ Asset to be used as collateral
+  /// @param sourceAmount_ Amount of collateral; it should already be transferred to the balance of the contract
+  /// @param targetToken_ Asset to borrow
+  /// @param targetAmount_ Required amount to borrow
+  /// @param receiver_ Receiver of cTokens
   function borrow (
-    address pool,
-    address sourceToken,
-    uint sourceAmount,
-    address targetToken,
-    uint targetAmount
+    address pool_,
+    address sourceToken_,
+    uint sourceAmount_,
+    address targetToken_,
+    uint targetAmount_,
+    address receiver_
   ) external override {
-    //TODO
+    // User has transferred a collateral to balance of TetuConverter
+    uint balanceBefore = 0; //TODO
+    uint balanceSource = IERC20(sourceToken_).balanceOf(address(this));
+    uint collateral = balanceSource - balanceBefore;
+
+    // Supply the collateral, receive cTokens on balance of TetuConverter
+    // Register cTokens using the push pattern
+    address decorator = borrowManager.getLendingPlatform(pool_);
+    require(collateral >= sourceAmount_, "TC: insufficient input amount");
+    IERC20(decorator).safeTransfer(decorator, collateral);
+
+    ILendingPlatform p = ILendingPlatform(decorator);
+    p.supply(pool_, sourceToken_, collateral);
+
+    // Borrow the target amount. Receive it on balance of TetuConverter
+    // Register borrowed amount using the push-pattern
+
+
   }
 }

@@ -5,6 +5,7 @@ pragma solidity 0.8.4;
 import "../../integrations/market/ICErc20.sol";
 import "../../openzeppelin/IERC20.sol";
 import "../../openzeppelin/SafeERC20.sol";
+import "../../openzeppelin/Math.sol";
 import "../../integrations/market/IComptroller.sol";
 import "../../integrations/IERC20Extended.sol";
 import "../../integrations/IWmatic.sol";
@@ -50,6 +51,30 @@ contract MarketDecorator is ILendingPlatform {
   /*****************************************************/
   /*               Borrow logic                        */
   /*****************************************************/
+  /// @notice Transfer {amount_} of {underlineToken_} from sender to pool, transfer received cTokens to the sender
+  function supply(address pool_, address underlineToken_, uint amount_) external override {
+    IComptroller comptroller = IComptroller(pool_);
+
+    address cToken = comptroller.cTokensByUnderlying(underlineToken_);
+    require(cToken != address(0), "token is not supported");
+
+    amount_ = Math.min(IERC20(underlineToken_).balanceOf(address(this)), amount_); //TODO do we need this check?
+
+// TODO: mint is not payable in ICErc20 ..
+//    if (_isMatic(underlineToken_)) {
+//      require(IERC20(W_MATIC).balanceOf(address(this)) >= amount_, "Market: Not enough wmatic");
+//      IWmatic(W_MATIC).withdraw(amount_);
+//      ICErc20(cToken).mint{value : amount_}();
+//    } else {
+      IERC20(underlineToken_).safeApprove(cToken, 0);
+      IERC20(underlineToken_).safeApprove(cToken, amount_);
+      require(ICErc20(cToken).mint(amount_) == 0, "Market: Supplying failed");
+//    }
+
+    uint cTokenAmount = IERC20(cToken).balanceOf(address(this));
+    IERC20(cToken).safeTransfer(msg.sender, cTokenAmount);
+  }
+
   function borrow(
     address pool,
     address sourceToken,
