@@ -11,3 +11,9 @@ export function getBigNumberFrom(value: any, powValue: BigNumberish = 18) {
         throw e;
     }
 }
+
+export function changeDecimals(value: BigNumber, fromDecimals: number, toDecimals: number): BigNumber {
+    return value
+        .mul(BigNumber.from(10).pow(toDecimals))
+        .div(BigNumber.from(10).pow(fromDecimals));
+}
