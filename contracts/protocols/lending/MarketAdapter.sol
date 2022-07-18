@@ -15,7 +15,7 @@ import "../../interfaces/ILendingPlatform.sol";
 import "hardhat/console.sol";
 
 /// @notice Lending Platform Market-XYZ, see https://docs.market.xyz/
-contract MarketDecorator is ILendingPlatform {
+contract MarketAdapter is ILendingPlatform {
   using SafeERC20 for IERC20;
 
   address public constant W_MATIC = 0x0d500B1d8E8eF31E21C99d1Db9A6444d3ADf1270;
@@ -102,7 +102,7 @@ contract MarketDecorator is ILendingPlatform {
     address cTokenCollateral = comptroller.cTokensByUnderlying(sourceToken_);
     require(cTokenCollateral != address(0), "MD: source token is not supported");
 
-    // User has transferred a collateral to balance of MarketDecorator
+    // User has transferred a collateral to balance of MarketAdapter
     // in this transaction, just before calling this function
     uint balanceBefore = reserves[sourceToken_];
     uint balanceSource = IERC20(sourceToken_).balanceOf(address(this));

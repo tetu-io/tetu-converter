@@ -2,7 +2,7 @@
 
 pragma solidity 0.8.4;
 
-/// @notice Converter - universal adapter/decorator for lending/dex platform
+/// @notice Converter - universal adapter for lending/dex platform
 /// @dev User make conversion through these converters
 interface IConverter {
 

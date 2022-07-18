@@ -12,7 +12,7 @@ interface ITetuConverter {
   /// @param targetAmount Minimum required amount that should be received
   /// @param healthFactorOptional For lending: min allowed health factor; 0 - use default value
   /// @return outPool Result pool or 0 if a pool is not found
-  /// @return outDecorator IConverter that should be used to use the pool for conversion
+  /// @return outAdapter IConverter that should be used to use the pool for conversion
   /// @return outMaxTargetAmount Max available amount of target tokens that we can get after conversion
   /// @return outInterest Interest on the use of {outMaxTargetAmount} during the period {approxOwnershipPeriodInBlocks}
   ///                     decimals 18
@@ -25,7 +25,7 @@ interface ITetuConverter {
     uint approxOwnershipPeriodInBlocks
   ) external view returns (
     address outPool,
-    address outDecorator,
+    address outAdapter,
     uint outMaxTargetAmount,
     uint outInterest
   );

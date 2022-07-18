@@ -5,7 +5,7 @@ import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import {BorrowManager, CTokenMock, LendingPlatformMock, MockERC20, PoolMock, PriceOracleMock} from "../../typechain";
 
 export class BorrowManagerUtils {
-    public static async generateDecorator(
+    public static async generateAdapter(
         signer: SignerWithAddress
         , pool: PoolMock
         , underlines: string[]
@@ -68,7 +68,7 @@ export class BorrowManagerUtils {
         return dest;
     }
 
-    /** Create BorrowManager with mock as decorator */
+    /** Create BorrowManager with mock as adapter */
     public static async createBorrowManager (
         signer: SignerWithAddress,
         underlines: MockERC20[],

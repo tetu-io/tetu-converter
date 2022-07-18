@@ -4,7 +4,7 @@ import {TimeUtils} from "../../../../../scripts/utils/TimeUtils";
 import {
     ICErc20,
     IERC20, IERC20Extended, IFuseFeeDistributor__factory,
-    MarketDecorator, PriceOracleMock
+    MarketAdapter, PriceOracleMock
 } from "../../../../../typechain";
 import {expect} from "chai";
 import {BigNumber} from "ethers";
@@ -107,44 +107,7 @@ describe("MarketXYZ integration tests", () => {
 //endregion before, after
 
 //region Unit tests
-    describe("findPlan", () => {
-        describe("Good paths", () => {
-            describe("Build plan", () => {
-                it("should return expected values", async () => {
-                   expect.fail();
-                });
-            });
-        });
-        describe("Bad paths", () => {
-            describe("Collateral is not enough", () => {
-                it("should revert", async () => {
-                    expect.fail();
-                });
-            });
-            describe("The market is unlisted", () => {
-                it("should revert", async () => {
-                    expect.fail();
-                });
-            });
-            describe("Target amount is 0", () => {
-                it("should revert", async () => {
-                    expect.fail();
-                });
-            });
-            describe("Price oracle has no info about source asset", () => {
-                it("should revert", async () => {
-                    expect.fail();
-                });
-            });
-            describe("Price oracle has no info about target asset", () => {
-                it("should revert", async () => {
-                    expect.fail();
-                });
-            });
-        });
-    });
-
-    describe("openPosition", () => {
+     describe("openPosition", () => {
         describe("Good paths", () => {
             async function makeTest(
                 pool: string,
@@ -186,7 +149,7 @@ describe("MarketXYZ integration tests", () => {
                 console.log("deployer", deployer.address);
                 console.log("investor", investor.address, sourceName, investorInitialSource, targetName, investorInitialTarget);
 
-                const md = (await DeployUtils.deployContract(deployer, "MarketDecorator")) as MarketDecorator;
+                const md = (await DeployUtils.deployContract(deployer, "MarketAdapter")) as MarketAdapter;
 
                 // balances before
                 const sourceMd0 = await source.balanceOf(md.address);
@@ -198,9 +161,9 @@ describe("MarketXYZ integration tests", () => {
                 const targetInvestor0 = await target.balanceOf(investor.address);
 
                 // check balances before conversion
-                console.log(`Decorator ${sourceName} before`, sourceMd0);
-                console.log(`Decorator c${sourceName} before`, cSourceMd0);
-                console.log(`Decorator ${targetName} before`, targetMd0);
+                console.log(`Adapter ${sourceName} before`, sourceMd0);
+                console.log(`Adapter c${sourceName} before`, cSourceMd0);
+                console.log(`Adapter ${targetName} before`, targetMd0);
 
                 console.log(`Investor ${sourceName} before`, sourceInvestor0);
                 console.log(`Investor c${sourceName} before`, cSourceInvestor0);
@@ -212,7 +175,7 @@ describe("MarketXYZ integration tests", () => {
                     .connect(investor)
                     .transfer(md.address, collateralSource);
                 console.log(`Transfer collateral ${sourceName}=`, collateralSource, "to investor=", investor.address);
-                console.log(`Decorator, balance ${sourceName}=`, await source.balanceOf(md.address));
+                console.log(`Adapter, balance ${sourceName}=`, await source.balanceOf(md.address));
 
                 // borrow
                 const requiredAmountTarget = getBigNumberFrom(amountToBorrowTarget, decimalsTarget);
@@ -236,9 +199,9 @@ describe("MarketXYZ integration tests", () => {
                 const targetInvestor1 = await target.balanceOf(investor.address);
                 const cTargetInvestor1 = await cTarget.balanceOf(investor.address);
 
-                console.log(`Decorator ${sourceName} after`, cSourceMd1);
-                console.log(`Decorator c${sourceName} after`, cSourceMd1);
-                console.log(`Decorator ${targetName} after`, targetMd1);
+                console.log(`Adapter ${sourceName} after`, cSourceMd1);
+                console.log(`Adapter c${sourceName} after`, cSourceMd1);
+                console.log(`Adapter ${targetName} after`, targetMd1);
 
                 console.log(`Investor ${sourceName} after`, sourceInvestor1);
                 console.log(`Investor c${sourceName} after`, cSourceInvestor1);
@@ -258,7 +221,7 @@ describe("MarketXYZ integration tests", () => {
                 );
 
                 const ret = [
-                    "decorator",
+                    "adapter",
                     sourceMd1.toString(),
                     !cSourceMd1.sub(expectedCSourceApprox).mul(100).div(expectedCSourceApprox).gt(5),
                     targetMd1.toString(),
@@ -270,11 +233,11 @@ describe("MarketXYZ integration tests", () => {
                 ].join();
 
                 const expected = [
-                    "decorator",
-                    BigNumber.from(0).toString(), // decorator has spent the entire collateral
+                    "adapter",
+                    BigNumber.from(0).toString(), // adapter has spent the entire collateral
                     // difference between real and expected number of cTokens is less, i.e. 5 %
                     true,
-                    BigNumber.from(0).toString(), // decorator has sent all borrowed amount to the investor
+                    BigNumber.from(0).toString(), // adapter has sent all borrowed amount to the investor
                     "investor",
                     investorInitialSource.sub(collateralSource).toString(),
                     BigNumber.from(0).toString(), // investor doesn't receive cSource
@@ -293,8 +256,8 @@ describe("MarketXYZ integration tests", () => {
                     it("should update balances in proper way", async () => {
                         if (!await isPolygonForkInUse()) return;
 
-                        const amountForCollateralUSDC = 1000;
-                        const amountToBorrowDai = 300;
+                        const amountForCollateralUSDC = 10000;
+                        const amountToBorrowDai = 2500;
 
                         const r = await makeTest(
                             poolMarketXYZ, cUsdcMarketXYZ, cDaiMarketXYZ,

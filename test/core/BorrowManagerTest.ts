@@ -99,7 +99,7 @@ describe("BorrowManager", () => {
                 (token, index) => getBigNumberFrom(poolsInfo[i].availableLiquidityInTokens[index], underlineDecimals[index])
             );
 
-            const decorator = await BorrowManagerUtils.generateDecorator(
+            const adapter = await BorrowManagerUtils.generateAdapter(
                 signer,
                 pool,
                 underlines.map(x => x.address),
@@ -108,7 +108,7 @@ describe("BorrowManager", () => {
                 availableLiquidities
             );
 
-            await bm.addPool(pool.address, decorator.address, underlines.map(x => x.address));
+            await bm.addPool(pool.address, adapter.address, underlines.map(x => x.address));
 
             pools.push(pool.address);
         }
@@ -124,7 +124,7 @@ describe("BorrowManager", () => {
             describe("Create a pool with tree assets", () => {
                 it("should register 3 asset pairs", async () => {
                     const platformTitle = "market XYZ";
-                    const decorator = ethers.Wallet.createRandom().address;
+                    const adapter = ethers.Wallet.createRandom().address;
                     const poolAddress = ethers.Wallet.createRandom().address;
                     const poolAssets = [
                         ethers.Wallet.createRandom().address
@@ -147,10 +147,10 @@ describe("BorrowManager", () => {
                         , priceOracle.address
                     )) as BorrowManager;
 
-                    await bm.addPool(poolAddress, decorator, poolAssets);
+                    await bm.addPool(poolAddress, adapter, poolAssets);
 
                     const ret = [
-                        await bm.poolToDecorator(poolAddress)
+                        await bm.poolToAdapter(poolAddress)
                         , await bm.poolsForAssets(asset1, asset2, 0)
                         , await bm.poolsForAssets(asset1, asset3, 0)
                         , await bm.poolsForAssets(asset2, asset3, 0)
@@ -169,7 +169,7 @@ describe("BorrowManager", () => {
                     ].join();
 
                     const expected = [
-                        decorator
+                        adapter
                         , poolAddress, poolAddress, poolAddress
                         , true, true, true
                         , 1, 1, 1
@@ -329,21 +329,21 @@ describe("BorrowManager", () => {
             const targetToken = poolAssets[1];
 
             console.log("Source amount:", getBigNumberFrom(tt.sourceAmount, await sourceToken.decimals()).toString());
-            const ret = await bm.findPool(
-                sourceToken.address
-                , getBigNumberFrom(tt.sourceAmount, await sourceToken.decimals())
-                , targetToken.address
-                , getBigNumberFrom(tt.targetAmount, await targetToken.decimals())
-                , BigNumber.from(10).pow(16).mul(tt.healthFactor * 100)
-            );
+            const ret = await bm.findPool({
+                sourceToken: sourceToken.address,
+                sourceAmount: getBigNumberFrom(tt.sourceAmount, await sourceToken.decimals()),
+                targetToken: targetToken.address,
+                targetAmount: getBigNumberFrom(tt.targetAmount, await targetToken.decimals()),
+                healthFactorOptional: BigNumber.from(10).pow(16).mul(tt.healthFactor * 100)
+            });
             const gas = estimateGas
-                ? await bm.estimateGas.findPool(
-                    sourceToken.address
-                    , getBigNumberFrom(tt.sourceAmount, await sourceToken.decimals())
-                    , targetToken.address
-                    , getBigNumberFrom(tt.targetAmount, await targetToken.decimals())
-                    , BigNumber.from(10).pow(16).mul(tt.healthFactor * 100)
-                )
+                ? await bm.estimateGas.findPool({
+                    sourceToken: sourceToken.address,
+                    sourceAmount: getBigNumberFrom(tt.sourceAmount, await sourceToken.decimals()),
+                    targetToken: targetToken.address,
+                    targetAmount: getBigNumberFrom(tt.targetAmount, await targetToken.decimals()),
+                    healthFactorOptional: BigNumber.from(10).pow(16).mul(tt.healthFactor * 100)
+                })
                 : undefined;
             return {
                 outPoolIndex0: pools.findIndex(x => x == ret.outPool),

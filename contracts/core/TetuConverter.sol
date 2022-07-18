@@ -54,7 +54,7 @@ contract TetuConverter is ITetuConverter {
     uint approxOwnershipPeriodInBlocks
   ) external view override returns (
     address outPool,
-    address outDecorator,
+    address outAdapter,
     uint outMaxTargetAmount,
     uint outInterest
   ) {
@@ -70,28 +70,28 @@ contract TetuConverter is ITetuConverter {
     }
 
     {
-      (address pool, address decorator, uint br, uint mta) = borrowManager.findPool(findPoolParams);
+      (address pool, address adapter, uint br, uint mta) = borrowManager.findPool(findPoolParams);
       if (pool == address(0)) {
         return (address(0), address(0), 0, 0);
       } else {
         //TODO: estimate cost of the money - commissions for all operations:
         //TODO: a lawn has borrow and repay, swap has direct and backward swap.
         uint interest = (br * approxOwnershipPeriodInBlocks);
-        return (pool, decorator, mta, interest);
+        return (pool, adapter, mta, interest);
       }
     }
   }
 
 
   function supplyAndBorrow (
-    address decorator_,
+    address adapter_,
     address pool_,
     address sourceToken_,
     uint sourceAmount_,
     address targetToken_,
     uint targetAmount_
   ) external {
-    ILendingPlatform(decorator_).openPosition(pool_, sourceToken_, sourceAmount_, targetToken_, targetAmount_, msg.sender);
+    ILendingPlatform(adapter_).openPosition(pool_, sourceToken_, sourceAmount_, targetToken_, targetAmount_, msg.sender);
   }
 }
 

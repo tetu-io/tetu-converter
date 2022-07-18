@@ -46,9 +46,9 @@ contract BorrowManager is IBorrowManager {
   uint public platformsCount;
   IPriceOracle public immutable priceOracle;
 
-  /// @notice Decorator is a contract that "knows" how to work with the pool correctly.
-  /// @dev 1 Decorator : N pools
-  mapping(address => address) public poolToDecorator;
+  /// @notice Adapter is a contract that "knows" how to work with the pool correctly.
+  /// @dev 1 Adapter : N pools
+  mapping(address => address) public poolToAdapter;
 
   /// @notice SourceToken => TargetToken => [all suitable pools]
   /// @dev SourceToken is always less then TargetToken
@@ -75,13 +75,13 @@ contract BorrowManager is IBorrowManager {
   ///////////////////////////////////////////////////////
 
   /// @param pool_ It's comptroller
-  /// @param decorator_ Implementation of ILendingPlatform that knows how to work with the pool
+  /// @param adapter_ Implementation of ILendingPlatform that knows how to work with the pool
   /// @param assets_ All assets supported by the pool (duplicates are not allowed)
-  function addPool(address pool_, address decorator_, address[] calldata assets_) external override {
+  function addPool(address pool_, address adapter_, address[] calldata assets_) external override {
     uint lenAssets = assets_.length;
 
-    require(poolToDecorator[pool_] == address(0), "Pool is already registered");
-    poolToDecorator[pool_] = decorator_;
+    require(poolToAdapter[pool_] == address(0), "Pool is already registered");
+    poolToAdapter[pool_] = adapter_;
 
     for (uint i = 0; i < lenAssets; i = _uncheckedInc(i)) {
       for (uint j = i + 1; j < lenAssets; j = _uncheckedInc(j)) {
@@ -113,7 +113,7 @@ contract BorrowManager is IBorrowManager {
   ///////////////////////////////////////////////////////
   function findPool(DataTypes.ExecuteFindPoolParams memory p_) external view override returns (
     address outPool,
-    address outDecorator,
+    address outAdapter,
     uint outBorrowRate,
     uint outMaxTargetAmount
   ) {
@@ -134,7 +134,7 @@ contract BorrowManager is IBorrowManager {
       [p_.sourceToken < p_.targetToken ? p_.targetToken : p_.sourceToken];
 
     if (pools.length != 0) {
-      (outPool, outDecorator, outBorrowRate, outMaxTargetAmount) = _findPool(pools
+      (outPool, outAdapter, outBorrowRate, outMaxTargetAmount) = _findPool(pools
         , BorrowInput({
           targetToken: p_.targetToken,
           sourceAmount18: _toMantissa(p_.sourceAmount, uint16(IERC20Extended(p_.sourceToken).decimals()), 18),
@@ -149,13 +149,13 @@ contract BorrowManager is IBorrowManager {
       );
     }
 
-    return (outPool, outDecorator, outBorrowRate, outMaxTargetAmount);
+    return (outPool, outAdapter, outBorrowRate, outMaxTargetAmount);
   }
 
   /// @notice Enumerate all pools and select a pool suitable for borrowing with min borrow rate and enough underline
   function _findPool(address[] memory pools, BorrowInput memory pp) internal view returns (
     address outPool,
-    address outDecorator,
+    address outAdapter,
     uint outBorrowRate,
     uint outMaxTargetAmount
   ) {
@@ -165,12 +165,12 @@ contract BorrowManager is IBorrowManager {
     uint lenPools = pools.length;
     for (uint i = 0; i < lenPools; i = _uncheckedInc(i)) {
       address pool = pools[i];
-      address decorator = poolToDecorator[pool];
+      address adapter = poolToAdapter[pool];
 
       (uint rate18,
        uint pcf18,
        uint pta
-      ) = ILendingPlatform(decorator).getPoolInfo(pool, pp.targetToken);
+      ) = ILendingPlatform(adapter).getPoolInfo(pool, pp.targetToken);
 
       if (outPool == address(0) || rate18 < outBorrowRate) {
         // how much target asset we are able to get for the provided collateral with given health factor
@@ -181,14 +181,14 @@ contract BorrowManager is IBorrowManager {
         if (resultTa18 >= pp.targetAmount18 && _toMantissa(pta, pp.targetDecimals, 18) >= resultTa18) {
           // take the pool with lowed borrow rate
           outPool = pool;
-          outDecorator = decorator;
+          outAdapter = adapter;
           outBorrowRate = rate18;
           outMaxTargetAmount = _toMantissa(resultTa18, 18, pp.targetDecimals);
         }
       }
     }
 
-    return (outPool, outDecorator, outBorrowRate, outMaxTargetAmount);
+    return (outPool, outAdapter, outBorrowRate, outMaxTargetAmount);
   }
 
 
@@ -197,10 +197,10 @@ contract BorrowManager is IBorrowManager {
   ///////////////////////////////////////////////////////
 
   function getLendingPlatform(address pool_) external view override returns (address) {
-    address decorator = poolToDecorator[pool_];
-    require(decorator != address(0), "wrong pool");
+    address adapter = poolToAdapter[pool_];
+    require(adapter != address(0), "wrong pool");
 
-    return decorator;
+    return adapter;
   }
 
   /// @notice Borrow {targetAmount} from the pool using {sourceAmount} as collateral.
@@ -217,7 +217,7 @@ contract BorrowManager is IBorrowManager {
     uint targetAmount
   ) external override {
 
-    //TODO ILendingPlatform(platforms[platform].decorator).borrow()
+    //TODO ILendingPlatform(platforms[platform].adapter).borrow()
   }
 
 //  function borrow() external;
