@@ -6,6 +6,10 @@ pragma solidity 0.8.4;
 /// @dev User make conversion through these converters
 interface IConverter {
 
+  /// @notice save current balance to reserve before sending a collateral
+  /// @dev sync(), send collateral, openPosition()
+  function sync(address sourceToken) external;
+
   /// @notice Convert {sourceAmount_} to {targetAmount} using borrowing or swapping
   /// @param sourceToken_ Input asset
   /// @param sourceAmount_ TODO requirements

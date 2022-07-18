@@ -76,4 +76,10 @@ contract LendingPlatformMock is ILendingPlatform {
     //TODO _supplyAndBorrow(pool_, sourceToken_, sourceAmount_, targetToken_, targetAmount_);
     //TODO: send borrowed amount to receiver
   }
+
+  /// @notice save current balance to reserve before sending a collateral
+  /// @dev sync(), send collateral, openPosition()
+  function sync(address sourceToken) external override {
+    //TODO
+  }
 }

@@ -188,14 +188,6 @@ describe("MarketXYZ integration tests", () => {
 
                 const md = (await DeployUtils.deployContract(deployer, "MarketDecorator")) as MarketDecorator;
 
-                // transfer collateral to the converter
-                const collateralSource = getBigNumberFrom(amountForCollateralSource, decimalsSource);
-                await source
-                    .connect(investor)
-                    .transfer(md.address, collateralSource);
-                console.log(`Transfer collateral ${sourceName}=`, collateralSource, "to investor=", investor.address);
-                console.log(`Decorator, balance ${sourceName}=`, await source.balanceOf(md.address));
-
                 // balances before
                 const sourceMd0 = await source.balanceOf(md.address);
                 const cSourceMd0 = await cSource.balanceOf(md.address);
@@ -213,6 +205,14 @@ describe("MarketXYZ integration tests", () => {
                 console.log(`Investor ${sourceName} before`, sourceInvestor0);
                 console.log(`Investor c${sourceName} before`, cSourceInvestor0);
                 console.log(`Investor ${targetName} before`, targetInvestor0);
+
+                // transfer collateral to the converter
+                const collateralSource = getBigNumberFrom(amountForCollateralSource, decimalsSource);
+                await source
+                    .connect(investor)
+                    .transfer(md.address, collateralSource);
+                console.log(`Transfer collateral ${sourceName}=`, collateralSource, "to investor=", investor.address);
+                console.log(`Decorator, balance ${sourceName}=`, await source.balanceOf(md.address));
 
                 // borrow
                 const requiredAmountTarget = getBigNumberFrom(amountToBorrowTarget, decimalsTarget);
@@ -390,9 +390,45 @@ describe("MarketXYZ integration tests", () => {
                     });
                 });
             });
-            describe("Use USDC as collateral, borrow USDT", () => {
-                it("should update balance in proper way", async () => {
-                    expect.fail();
+            describe("DAI to/from MATIC", () => {
+                const poolMarketXYZ = marketXYZPool5;
+                const cDaiMarketXYZ = cDaiAddress_Pool5;
+                const cWmaticMarketXYZ = cWmaticAddress_Pool5;
+
+                describe("dai => wmatic", () => {
+                    it("should update balances in proper way", async () => {
+                        if (!await isPolygonForkInUse()) return;
+
+                        const amountForCollateralDAI = 300;
+                        const amountToBorrowWMATIC = 100;
+
+                        const r = await makeTest(
+                            poolMarketXYZ, cWmaticMarketXYZ, cDaiMarketXYZ,
+                            "DAI", "WMATIC",
+                            dai, wmatic,
+                            amountForCollateralDAI
+                            , amountToBorrowWMATIC
+                        );
+                        expect(r.ret).equal(r.expected);
+                    });
+                });
+
+                describe("wmatic => dai", () => {
+                    it("should update balances in proper way", async () => {
+                        if (!await isPolygonForkInUse()) return;
+
+                        const amountForCollateralWMATIC = 500;
+                        const amountToBorrowDAI = 100;
+
+                        const r = await makeTest(
+                            poolMarketXYZ, cWmaticMarketXYZ, cDaiMarketXYZ,
+                            "WMATIC", "DAI",
+                            wmatic, dai,
+                            amountForCollateralWMATIC
+                            , amountToBorrowDAI
+                        );
+                        expect(r.ret).equal(r.expected);
+                    });
                 });
             });
         });

@@ -79,6 +79,12 @@ contract MarketDecorator is ILendingPlatform {
   ///                   Borrow logic
   ///////////////////////////////////////////////////////
 
+  /// @notice save current balance to reserve before sending a collateral
+  /// @dev sync(), send collateral, openPosition()
+  function sync(address sourceToken) external override {
+    reserves[sourceToken] = IERC20(sourceToken).balanceOf(address(this));
+  }
+
   /// @notice Borrow {targetAmount} using {sourceAmount_} as collateral
   ///         keep balance of cToken on the balance of this contract
   /// @param sourceToken_ Asset to be used as collateral
@@ -136,25 +142,6 @@ contract MarketDecorator is ILendingPlatform {
     address[] memory markets = new address[](1);
     markets[0] = cTokenCollateral_;
     comptroller_.enterMarkets(markets);
-
-//    // ensure that we have enough liquidity
-//    (uint256 error2, uint256 liquidity, uint256 shortfall) = comptroller_.getAccountLiquidity(address(this));
-//    console.log("liquidity", liquidity);
-//    console.log("shortfall", shortfall);
-//    console.log("error2", error2);
-//    console.log("amount_", amount_);
-//    require(liquidity >= amount_ && shortfall == 0 && error2 == 0, "MD: account liquidity is not enough"); //TODO: correct decimals //TODO: how to send the error code outside?
-//
-//    // ensure that the market has enough liquidity
-//    address cTokenBorrow = comptroller_.cTokensByUnderlying(targetToken_);
-//    require(cTokenBorrow != address(0), "MD: target token is not supported");
-//
-//    {
-//      (bool isListed, ) = comptroller_.markets(cTokenBorrow);
-//      uint cash = ICErc20(cTokenBorrow).getCash();
-//      require(isListed, "MD: marked is not listed");
-//      require(cash > amount_, "MD: market doesn't have enough liquidity");
-//    }
 
     //borrow amount
     address cTokenBorrow = comptroller_.cTokensByUnderlying(targetToken_);
