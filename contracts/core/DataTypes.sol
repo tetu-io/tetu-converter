@@ -14,7 +14,5 @@ library DataTypes {
 
     /// @notice Max possible collateral value in source tokens
     uint sourceAmount;
-    /// @notice Minimum required target amount; result outMaxTargetAmount must be greater
-    uint targetAmount;
   }
 }

@@ -28,18 +28,4 @@ interface IBorrowManager {
   );
 
   function getLendingPlatform(address pool_) external view returns (address);
-
-  /// @notice Borrow {targetAmount} from the pool using {sourceAmount} as collateral.
-  /// @dev Result health factor cannot be less the default health factor specified for the target asset by governance.
-  /// @param sourceToken Asset to be used as collateral
-  /// @param sourceAmount Max available amount of collateral
-  /// @param targetToken Asset to borrow
-  /// @param targetAmount Required amount to borrow
-  function borrow (
-    address pool,
-    address sourceToken,
-    uint sourceAmount,
-    address targetToken,
-    uint targetAmount
-  ) external;
 }

@@ -49,7 +49,6 @@ contract TetuConverter is ITetuConverter {
     address sourceToken,
     uint sourceAmount,
     address targetToken,
-    uint targetAmount,
     uint96 healthFactorOptional,
     uint approxOwnershipPeriodInBlocks
   ) external view override returns (
@@ -64,8 +63,7 @@ contract TetuConverter is ITetuConverter {
         healthFactorOptional: healthFactorOptional,
         sourceToken: sourceToken,
         targetToken: targetToken,
-        sourceAmount: sourceAmount,
-        targetAmount: targetAmount
+        sourceAmount: sourceAmount
       });
     }
 

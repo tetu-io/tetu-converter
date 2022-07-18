@@ -28,7 +28,6 @@ contract BorrowManager is IBorrowManager {
     uint96 healthFactor18;
     uint16 targetDecimals;
     uint sourceAmount18;
-    uint targetAmount18;
     uint priceTarget18;
     uint priceSource18;
   }
@@ -118,7 +117,7 @@ contract BorrowManager is IBorrowManager {
     uint outMaxTargetAmount
   ) {
     // Input params:
-    // Min allowed target amount = TA [TA], Health factor = HF [-], Collateral amount = C [USD]
+    // Health factor = HF [-], Collateral amount = C [USD]
     // Source amount that can be used for the collateral = SA [SA}, Borrow amount = BS [USD]
     // Price of the source amount = PS [USD/SA] (1 [SA] = PS[USD])
     // Price of the target amount = PT [USD/TA] (1[TA] = PT[USD]), Available cash in the pool = PTA[TA]
@@ -138,7 +137,6 @@ contract BorrowManager is IBorrowManager {
         , BorrowInput({
           targetToken: p_.targetToken,
           sourceAmount18: _toMantissa(p_.sourceAmount, uint16(IERC20Extended(p_.sourceToken).decimals()), 18),
-          targetAmount18: _toMantissa(p_.targetAmount, uint16(IERC20Extended(p_.targetToken).decimals()), 18),
           healthFactor18: p_.healthFactorOptional == 0
             ? defaultHealthFactors[p_.targetToken]
             : p_.healthFactorOptional,
@@ -177,8 +175,8 @@ contract BorrowManager is IBorrowManager {
         // TargetTA = BS / PT [TA], C = SA * PS, CM = C / HF, BS = CM * PCF
         uint resultTa18 = pcf18 * pp.sourceAmount18 * pp.priceSource18 / (pp.priceTarget18 * pp.healthFactor18);
 
-        // this amount should be greater or equal to the min allowed amount and the pool should have enough liquidity
-        if (resultTa18 >= pp.targetAmount18 && _toMantissa(pta, pp.targetDecimals, 18) >= resultTa18) {
+        // the pool should have enough liquidity
+        if (_toMantissa(pta, pp.targetDecimals, 18) >= resultTa18) {
           // take the pool with lowed borrow rate
           outPool = pool;
           outAdapter = adapter;
@@ -201,23 +199,6 @@ contract BorrowManager is IBorrowManager {
     require(adapter != address(0), "wrong pool");
 
     return adapter;
-  }
-
-  /// @notice Borrow {targetAmount} from the pool using {sourceAmount} as collateral.
-  /// @dev Result health factor cannot be less the default health factor specified for the target asset by governance.
-  /// @param sourceToken Asset to be used as collateral
-  /// @param sourceAmount Max available amount of collateral
-  /// @param targetToken Asset to borrow
-  /// @param targetAmount Required amount to borrow
-  function borrow (
-    address pool,
-    address sourceToken,
-    uint sourceAmount,
-    address targetToken,
-    uint targetAmount
-  ) external override {
-
-    //TODO ILendingPlatform(platforms[platform].adapter).borrow()
   }
 
 //  function borrow() external;

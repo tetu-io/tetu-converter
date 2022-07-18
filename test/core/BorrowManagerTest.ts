@@ -292,7 +292,6 @@ describe("BorrowManager", () => {
             priceSourceUSD: number;
             priceTargetUSD: number;
             sourceAmount: number;
-            targetAmount: number;
             healthFactor: number;
             sourceDecimals?: number;
             targetDecimals?: number;
@@ -333,7 +332,6 @@ describe("BorrowManager", () => {
                 sourceToken: sourceToken.address,
                 sourceAmount: getBigNumberFrom(tt.sourceAmount, await sourceToken.decimals()),
                 targetToken: targetToken.address,
-                targetAmount: getBigNumberFrom(tt.targetAmount, await targetToken.decimals()),
                 healthFactorOptional: BigNumber.from(10).pow(16).mul(tt.healthFactor * 100)
             });
             const gas = estimateGas
@@ -341,7 +339,6 @@ describe("BorrowManager", () => {
                     sourceToken: sourceToken.address,
                     sourceAmount: getBigNumberFrom(tt.sourceAmount, await sourceToken.decimals()),
                     targetToken: targetToken.address,
-                    targetAmount: getBigNumberFrom(tt.targetAmount, await targetToken.decimals()),
                     healthFactorOptional: BigNumber.from(10).pow(16).mul(tt.healthFactor * 100)
                 })
                 : undefined;
@@ -363,7 +360,6 @@ describe("BorrowManager", () => {
                             priceTargetUSD: 4,
                             sourceDecimals: 24,
                             targetDecimals: 12,
-                            targetAmount: 300,
                             sourceAmount: 100_000,
                             healthFactor: 4,
                             availablePools: [
@@ -408,7 +404,6 @@ describe("BorrowManager", () => {
                             priceTargetUSD: 0.5,
                             sourceDecimals: 6,
                             targetDecimals: 6,
-                            targetAmount: 400,
                             sourceAmount: 1000,
                             healthFactor: 1.6,
                             availablePools: [
@@ -461,7 +456,6 @@ describe("BorrowManager", () => {
                             priceTargetUSD: 0.2,
                             sourceDecimals: 18,
                             targetDecimals: 6,
-                            targetAmount: 5000,
                             sourceAmount: 10000,
                             healthFactor: 2.0,
                             availablePools: [
@@ -506,7 +500,6 @@ describe("BorrowManager", () => {
                             priceTargetUSD: 4,
                             sourceDecimals: 24,
                             targetDecimals: 12,
-                            targetAmount: 300,
                             sourceAmount: 100_000,
                             healthFactor: 4,
                             availablePools: [...Array(countPools).keys()].map(
@@ -568,7 +561,6 @@ describe("BorrowManager", () => {
                         priceTargetUSD: 0.2,
                         sourceDecimals: 18,
                         targetDecimals: 6,
-                        targetAmount: 5000,
                         sourceAmount: 10000,
                         healthFactor: 2.0,
                         availablePools: [
@@ -599,7 +591,7 @@ describe("BorrowManager", () => {
                     expect(sret).equal(sexpected);
                 });
             });
-            describe("Example 3. User asks too much money", () => {
+            describe("Example 3. Pools don't have enough liquidity", () => {
                 it("should return all 0", async () => {
                     const bestBorrowRate = 7;
                     const input = {
@@ -608,7 +600,6 @@ describe("BorrowManager", () => {
                         priceTargetUSD: 0.2,
                         sourceDecimals: 18,
                         targetDecimals: 6,
-                        targetAmount: 7000,
                         sourceAmount: 10000,
                         healthFactor: 2.0,
                         availablePools: [
@@ -618,11 +609,11 @@ describe("BorrowManager", () => {
                             },
                             {   // source, target
                                 borrowRateInTokens: [0, bestBorrowRate + 1], //the rate is worse than in the pool 2
-                                availableLiquidityInTokens: [0, 20000]
+                                availableLiquidityInTokens: [0, 2000]
                             },
                             {   // source, target   -   pool 2 is the best
                                 borrowRateInTokens: [0, bestBorrowRate],
-                                availableLiquidityInTokens: [0, 20000]
+                                availableLiquidityInTokens: [0, 2000]
                             },
                         ]
                     };

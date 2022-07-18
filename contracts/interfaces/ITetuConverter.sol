@@ -9,7 +9,6 @@ interface ITetuConverter {
 
   /// @notice Find best conversion strategy (swap or lending) and provide "cost of money" as interest for the period
   /// @param sourceAmount Amount to be converted
-  /// @param targetAmount Minimum required amount that should be received
   /// @param healthFactorOptional For lending: min allowed health factor; 0 - use default value
   /// @return outPool Result pool or 0 if a pool is not found
   /// @return outAdapter IConverter that should be used to use the pool for conversion
@@ -20,7 +19,6 @@ interface ITetuConverter {
     address sourceToken,
     uint sourceAmount,
     address targetToken,
-    uint targetAmount,
     uint96 healthFactorOptional,
     uint approxOwnershipPeriodInBlocks
   ) external view returns (
