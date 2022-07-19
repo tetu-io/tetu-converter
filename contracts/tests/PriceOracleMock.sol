@@ -6,6 +6,7 @@ import "../core/DataTypes.sol";
 import "../interfaces/IPriceOracle.sol";
 
 contract PriceOracleMock is IPriceOracle {
+  /// how much 1 token costs in USD, decimals 18
   mapping(address => uint256) public prices;
 
   constructor(address[] memory assets, uint[] memory pricesInUSD) {

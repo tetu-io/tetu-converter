@@ -3,8 +3,18 @@ import {BigNumber} from "ethers";
 import {DeployUtils} from "../../scripts/utils/DeployUtils";
 import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import {BorrowManager, CTokenMock, LendingPlatformMock, MockERC20, PoolMock, PriceOracleMock} from "../../typechain";
+import {getBigNumberFrom} from "../../scripts/utils/NumberUtils";
+
+
+export interface IPoolInfo {
+    /** The length of array should be equal to the count of underlines */
+    borrowRateInTokens: number[],
+    /** The length of array should be equal to the count of underlines */
+    availableLiquidityInTokens: number[]
+}
 
 export class BorrowManagerUtils {
+//region Fabrics
     public static async generateAdapter(
         signer: SignerWithAddress
         , pool: PoolMock
@@ -88,4 +98,65 @@ export class BorrowManagerUtils {
         )) as BorrowManager;
         return bm;
     }
+//endregion Fabrics
+
+//region Initialize Borrow manager
+/**
+ * Generate N pools with same set of underlines.
+ * Create new BorrowManager and add each pool as a separate platform
+ */
+public static async initializeBorrowManager(
+    signer: SignerWithAddress,
+    poolsInfo: IPoolInfo[],
+    collateralFactors: number[],
+    pricesUSD: number[],
+    underlineDecimals: number[],
+    cTokenDecimals: number[]
+) : Promise<{
+    poolAssets: MockERC20[],
+    pools: string[],
+    bm: BorrowManager
+}> {
+    const underlines = await BorrowManagerUtils.generateAssets(underlineDecimals);
+    const bm = await BorrowManagerUtils.createBorrowManager(
+        signer,
+        underlines,
+        pricesUSD.map(x => BigNumber.from(10).pow(16).mul(x * 100))
+    );
+    const pools: string[] = [];
+
+    for (let i = 0; i < poolsInfo.length; ++i) {
+        const cTokens = await BorrowManagerUtils.generateCTokens(signer, cTokenDecimals, underlines.map(x => x.address));
+        const pool = await BorrowManagerUtils.generatePool(signer, cTokens);
+        console.log("underlines", underlines.map(x => x.address));
+        console.log("cTokens", cTokens.map(x => x.address));
+        console.log("pool", pool.address);
+
+        const borrowRateInTokens = 1;
+        const availableLiquidityInTokens = 10_000;
+
+        const borrowRates = underlines.map(
+            (token, index) => getBigNumberFrom(poolsInfo[i].borrowRateInTokens[index], underlineDecimals[index])
+        );
+        const availableLiquidities = underlines.map(
+            (token, index) => getBigNumberFrom(poolsInfo[i].availableLiquidityInTokens[index], underlineDecimals[index])
+        );
+
+        const adapter = await BorrowManagerUtils.generateAdapter(
+            signer,
+            pool,
+            underlines.map(x => x.address),
+            borrowRates,
+            collateralFactors,
+            availableLiquidities
+        );
+
+        await bm.addPool(pool.address, adapter.address, underlines.map(x => x.address));
+
+        pools.push(pool.address);
+    }
+
+    return {poolAssets: underlines, pools, bm};
+}
+//endregion Initialize Borrow manager
 }

@@ -11,6 +11,7 @@ import "../openzeppelin/SafeERC20.sol";
 import "../openzeppelin/IERC20.sol";
 import "../interfaces/ILendingPlatform.sol";
 import "../core/DataTypes.sol";
+import "../interfaces/IPoolAdapter.sol";
 
 /// @notice Main application contract
 contract TetuConverter is ITetuConverter {
@@ -30,6 +31,10 @@ contract TetuConverter is ITetuConverter {
   ///         The differences between stored balance and actual balanc is amount of tokens provided as collateral
   /// @dev See explanation to swap, https://docs.uniswap.org/protocol/V2/concepts/core-concepts/swaps
   mapping (address => uint) reserves;
+
+  /// @notice user contract => pool => collateral => adapter
+  /// @dev adapter = an instance of [Protocol]PoolAdapter created using minimal proxy pattern
+  mapping (address => mapping(address => mapping(address => IPoolAdapter))) poolAdapters;
 
   ///////////////////////////////////////////////////////
   ///                Initialization
