@@ -103,7 +103,7 @@ contract DebtMonitor is IDebtMonitor{
 
   /// @notice Enumerate {count} pool adapters starting from {index0} and return true if any of them is unhealthy
   function checkUnhealthyPoolAdapterExist(uint index0, uint count) external view override returns (bool) {
-    return fasle; //TODO
+    return false; //TODO
   }
 
   /// @notice Get total count of pool adapters with opened positions
