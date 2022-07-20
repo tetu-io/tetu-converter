@@ -150,7 +150,7 @@ public static async initializeBorrowManager(
             (token, index) => getBigNumberFrom(poolsInfo[i].availableLiquidityInTokens[index], underlineDecimals[index])
         );
 
-        const adapter = await BorrowManagerUtils.generateAdapter(
+        const platformAdapter = await BorrowManagerUtils.generateAdapter(
             signer,
             pool,
             underlines.map(x => x.address),
@@ -159,7 +159,13 @@ public static async initializeBorrowManager(
             availableLiquidities
         );
 
-        await bm.addPool(pool.address, adapter.address, underlines.map(x => x.address));
+        const templatePoolAdapter = ethers.Wallet.createRandom().address; //!TODO
+
+        await bm.addPool(pool.address
+            , platformAdapter.address
+            , templatePoolAdapter
+            , underlines.map(x => x.address)
+        );
 
         pools.push(pool.address);
     }

@@ -81,10 +81,11 @@ describe("BorrowManager", () => {
                         , controller.address
                     )) as BorrowManager;
 
-                    await bm.addPool(poolAddress, platformAdapter, poolAssets);
+                    await bm.addPool(poolAddress, platformAdapter, templatePoolAdapter, poolAssets);
 
                     const ret = [
-                        await bm.poolToAdapter(poolAddress)
+                        (await bm.poolToAdapter(poolAddress)).platformAdapter
+                        , (await bm.poolToAdapter(poolAddress)).templatePoolAdapter
                         , await bm.poolsForAssets(asset1, asset2, 0)
                         , await bm.poolsForAssets(asset1, asset3, 0)
                         , await bm.poolsForAssets(asset2, asset3, 0)
@@ -104,6 +105,7 @@ describe("BorrowManager", () => {
 
                     const expected = [
                         platformAdapter
+                        , templatePoolAdapter
                         , poolAddress, poolAddress, poolAddress
                         , true, true, true
                         , 1, 1, 1
