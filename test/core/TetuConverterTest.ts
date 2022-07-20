@@ -3,7 +3,6 @@ import {ethers} from "hardhat";
 import {TimeUtils} from "../../scripts/utils/TimeUtils";
 import {expect} from "chai";
 import {BorrowManagerUtils, IPoolInfo} from "../baseUT/BorrowManagerUtils";
-import {BigNumber} from "ethers";
 import {getBigNumberFrom} from "../../scripts/utils/NumberUtils";
 import {DeployUtils} from "../../scripts/utils/DeployUtils";
 import {BorrowManager, TetuConverter} from "../../typechain";
@@ -93,10 +92,10 @@ describe("BorrowManager", () => {
 
         console.log("bm is initialized");
 
-        const sourceToken = poolAssets[0];
-        const targetToken = poolAssets[1];
+        const sourceToken = poolAssets[0].address;
+        const targetToken = poolAssets[1].address;
 
-        const tetuConveter = await DeployUtils.deployContract(signer, "TetuConveter", bm.address) as TetuConverter;
+        const tetuConveter = await DeployUtils.deployContract(signer, "TetuConverter", bm.address) as TetuConverter;
 
         return {tetuConveter, sourceToken, targetToken, borrowManager: bm, pools};
     }

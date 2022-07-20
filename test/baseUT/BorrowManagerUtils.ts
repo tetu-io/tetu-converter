@@ -2,7 +2,15 @@ import {ethers} from "hardhat";
 import {BigNumber} from "ethers";
 import {DeployUtils} from "../../scripts/utils/DeployUtils";
 import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
-import {BorrowManager, CTokenMock, LendingPlatformMock, MockERC20, PoolMock, PriceOracleMock} from "../../typechain";
+import {
+    BorrowManager,
+    Controller,
+    CTokenMock,
+    LendingPlatformMock,
+    MockERC20,
+    PoolMock,
+    PriceOracleMock
+} from "../../typechain";
 import {getBigNumberFrom} from "../../scripts/utils/NumberUtils";
 
 
@@ -84,17 +92,17 @@ export class BorrowManagerUtils {
         underlines: MockERC20[],
         prices: BigNumber[]
     ) : Promise<BorrowManager> {
-        const platformTitle = "market";
-        const priceOracle = (await DeployUtils.deployContract(signer
-            , "PriceOracleMock"
+        const controller = (await DeployUtils.deployContract(signer, "Controller")) as Controller;
+        const priceOracle = (await DeployUtils.deployContract(signer, "PriceOracleMock"
             , underlines.map(x => x.address)
             , prices
         )) as PriceOracleMock;
+        await controller.initialize([await controller.priceOracleKey()], [priceOracle.address]);
 
         const bm = (await DeployUtils.deployContract(
             signer,
             "BorrowManager",
-            priceOracle.address
+            controller.address
         )) as BorrowManager;
         return bm;
     }

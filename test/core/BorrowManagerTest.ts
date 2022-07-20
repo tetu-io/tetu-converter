@@ -2,7 +2,7 @@ import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import {ethers} from "hardhat";
 import {expect} from "chai";
 import {DeployUtils} from "../../scripts/utils/DeployUtils";
-import {BorrowManager, MockERC20, PriceOracleMock} from "../../typechain";
+import {BorrowManager, Controller, MockERC20, PriceOracleMock} from "../../typechain";
 import {TimeUtils} from "../../scripts/utils/TimeUtils";
 import {BigNumber} from "ethers";
 import {BorrowManagerUtils, IPoolInfo} from "../baseUT/BorrowManagerUtils";
@@ -70,15 +70,14 @@ describe("BorrowManager", () => {
                     const asset2 = poolAssets[1];
                     const asset3 = poolAssets[2];
 
-                    const priceOracle = (await DeployUtils.deployContract(signer
-                        , "PriceOracleMock"
-                        , []
-                        , []
-                    )) as PriceOracleMock;
+                    const controller = (await DeployUtils.deployContract(signer, "Controller")) as Controller;
+                    const priceOracle = (await DeployUtils.deployContract(signer, "PriceOracleMock"
+                        , [], [])) as PriceOracleMock;
+                    await controller.initialize([await controller.priceOracleKey()], [priceOracle.address]);
 
                     const bm = (await DeployUtils.deployContract(signer
                         , "BorrowManager"
-                        , priceOracle.address
+                        , controller.address
                     )) as BorrowManager;
 
                     await bm.addPool(poolAddress, adapter, poolAssets);
@@ -152,15 +151,14 @@ describe("BorrowManager", () => {
 
     describe("setHealthFactor", () => {
         async function makeEmptyBM() : Promise<BorrowManager> {
-            const priceOracle = (await DeployUtils.deployContract(signer
-                , "PriceOracleMock"
-                , []
-                , []
-            )) as PriceOracleMock;
+            const controller = (await DeployUtils.deployContract(signer, "Controller")) as Controller;
+            const priceOracle = (await DeployUtils.deployContract(signer, "PriceOracleMock"
+                , [], [])) as PriceOracleMock;
+            await controller.initialize([await controller.priceOracleKey()], [priceOracle.address]);
 
             return (await DeployUtils.deployContract(signer
                 , "BorrowManager"
-                , priceOracle.address
+                , controller.address
             )) as BorrowManager;
         }
         describe("Good paths", () => {

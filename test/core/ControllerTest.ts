@@ -124,11 +124,6 @@ describe("Controller", () => {
             debtMonitor: ethers.Wallet.createRandom().address,
 
             borrower: ethers.Wallet.createRandom().address,
-
-            aaveAdapter: ethers.Wallet.createRandom().address,
-            hundredFinanceAdapter: ethers.Wallet.createRandom().address,
-            dForceAdapter: ethers.Wallet.createRandom().address,
-            zeroVixAdapter: ethers.Wallet.createRandom().address
         }
     }
 //endregion Utils
