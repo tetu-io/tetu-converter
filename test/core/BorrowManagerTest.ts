@@ -5,7 +5,6 @@ import {DeployUtils} from "../../scripts/utils/DeployUtils";
 import {BorrowManager, Controller, MockERC20, PriceOracleMock} from "../../typechain";
 import {TimeUtils} from "../../scripts/utils/TimeUtils";
 import {BigNumber} from "ethers";
-import {BorrowManagerUtils, IPoolInfo} from "../baseUT/BorrowManagerUtils";
 import {getBigNumberFrom} from "../../scripts/utils/NumberUtils";
 import {controlGasLimitsEx} from "../../scripts/utils/hardhatUtils";
 import {
@@ -13,6 +12,7 @@ import {
     GAS_LIMIT_BM_FIND_POOL_10,
     GAS_LIMIT_BM_FIND_POOL_100, GAS_LIMIT_BM_FIND_POOL_5
 } from "../baseUT/GasLimit";
+import {IBmInputParams, BorrowManagerHelper} from "../baseUT/BorrowManagerHelper";
 
 describe("BorrowManager", () => {
 //region Global vars for all tests
@@ -221,18 +221,8 @@ describe("BorrowManager", () => {
     });
 
     describe("findPool", () => {
-        interface TestTask {
-            availablePools: IPoolInfo[],
-            targetCollateralFactor: number;
-            priceSourceUSD: number;
-            priceTargetUSD: number;
-            sourceAmount: number;
-            healthFactor: number;
-            sourceDecimals?: number;
-            targetDecimals?: number;
-        }
         async function makeTestTwoUnderlines(
-            tt: TestTask,
+            tt: IBmInputParams,
             estimateGas: boolean = false
         ) : Promise<{
             outPoolIndex0: number;
@@ -240,28 +230,9 @@ describe("BorrowManager", () => {
             outMaxTargetAmount: BigNumber;
             outGas?: BigNumber
         }> {
-            const sourceDecimals = tt.sourceDecimals || 18;
-            const targetDecimals = tt.targetDecimals || 6;
-
             // There are TWO underlines: source, target
-            const underlineDecimals = [sourceDecimals, targetDecimals];
-            const poolDecimals = [sourceDecimals, targetDecimals];
-            const collateralFactors = [0.6, tt.targetCollateralFactor];
-            const pricesUSD = [tt.priceSourceUSD, tt.priceTargetUSD];
-
-            const {poolAssets, pools, bm} = await BorrowManagerUtils.initializeBorrowManager(
-                signer,
-                tt.availablePools,
-                collateralFactors,
-                pricesUSD,
-                underlineDecimals,
-                poolDecimals
-            );
-
-            console.log("bm is initialized");
-
-            const sourceToken = poolAssets[0];
-            const targetToken = poolAssets[1];
+            const {bm, sourceToken, targetToken, pools}
+                = await BorrowManagerHelper.createBmTwoUnderlines(signer, tt);
 
             console.log("Source amount:", getBigNumberFrom(tt.sourceAmount, await sourceToken.decimals()).toString());
             const ret = await bm.findPool({

@@ -20,14 +20,13 @@ abstract contract BorrowManagerBase is IBorrowManager {
     address collateralUnderline;
   }
 
-
-  IController public controller;
+  IController public immutable controller;
 
   /// @notice Complete list ever created pool adapters
   /// @dev pool => user => collateralUnderline => address of the pool adapter
   mapping (address => mapping(address => mapping(address => address))) public poolAdaptersAll;
 
-  /// @notice Address of the pool adapter address => details
+  /// @notice Pool adapter address => details
   mapping (address => PoolAdapterInfo) public poolAdaptersByAddress;
 
   ///////////////////////////////////////////////////////
@@ -48,7 +47,7 @@ abstract contract BorrowManagerBase is IBorrowManager {
   /// @param user_ Address of the caller contract who borrows amounts using the pool adapter
   function registerPoolAdapter(address pool_, address user_, address collateralUnderline_) external override {
     if (poolAdaptersAll[pool_][user_][collateralUnderline_] == address(0) ) {
-      address poolAdapterTemplateContract = _getPoolAdapterForPool(pool_);
+      address poolAdapterTemplateContract = _getTemplatePoolAdapter(pool_);
       require(poolAdapterTemplateContract != address(0), "adapter not found");
 
       // create an instance of the pool adapter using minimal proxy pattern, initialize newly created contract
@@ -68,7 +67,7 @@ abstract contract BorrowManagerBase is IBorrowManager {
   ///////////////////////////////////////////////////////
   ///         Virtual functions
   ///////////////////////////////////////////////////////
-  function _getPoolAdapterForPool(address pool_) internal view virtual returns (address);
+  function _getTemplatePoolAdapter(address pool_) internal view virtual returns (address);
 
   ///////////////////////////////////////////////////////
   ///               View

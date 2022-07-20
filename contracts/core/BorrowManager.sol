@@ -207,7 +207,7 @@ contract BorrowManager is BorrowManagerBase {
     return adapter;
   }
 
-  function _getPoolAdapterForPool(address pool_) internal view override returns (address) {
+  function _getTemplatePoolAdapter(address pool_) internal view override returns (address) {
     return poolToAdapter[pool_].templatePoolAdapter;
   }
 

@@ -14,7 +14,13 @@ interface IDebtMonitor {
   function onRepay(address cToken_, uint amountBurntCTokens_, address borrowedToken_) external;
 
   /// @notice Enumerate {count} pool adapters starting from {index0} and return true if any of them is unhealthy
-  function checkUnhealthyPoolAdapterExist(uint index0, uint count) external view returns (bool);
+  /// @return countItems Count of valid items in {outPoolAdapters}. 0 means there are no problems
+  /// @return outPoolAdapters Array of pool adapters with bad health factors. The array has size {count}, but
+  ///                          only first {countItems} are valid
+  function checkUnhealthyPoolAdapterExist(uint index0, uint count) external view returns (
+      uint countItems,
+      address[] memory outPoolAdapters
+  );
 
   /// @notice Get total count of pool adapters with opened positions
   function getCountActivePoolAdapters() external view returns (uint);

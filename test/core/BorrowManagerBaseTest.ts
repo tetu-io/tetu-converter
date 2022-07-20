@@ -2,23 +2,16 @@ import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import {ethers} from "hardhat";
 import {expect} from "chai";
 import {DeployUtils} from "../../scripts/utils/DeployUtils";
-import {BorrowManager, MockERC20, PriceOracleMock} from "../../typechain";
+import {IPoolAdapter, IPoolAdapter__factory, PoolAdapterMock} from "../../typechain";
 import {TimeUtils} from "../../scripts/utils/TimeUtils";
-import {BigNumber} from "ethers";
-import {BorrowManagerUtils, IPoolInfo} from "../baseUT/BorrowManagerUtils";
-import {getBigNumberFrom} from "../../scripts/utils/NumberUtils";
-import {controlGasLimitsEx} from "../../scripts/utils/hardhatUtils";
-import {
-    GAS_LIMIT_BM_FIND_POOL_1,
-    GAS_LIMIT_BM_FIND_POOL_10,
-    GAS_LIMIT_BM_FIND_POOL_100, GAS_LIMIT_BM_FIND_POOL_5
-} from "../baseUT/GasLimit";
+import {BorrowManagerHelper} from "../baseUT/BorrowManagerHelper";
+import {DeployerUtils} from "../../scripts/utils/DeployerUtils";
 
 describe("BorrowManagerBase (IPoolAdaptersManager)", () => {
 //region Global vars for all tests
     let snapshot: string;
     let snapshotForEach: string;
-    let signer: SignerWithAddress;
+    let deployer: SignerWithAddress;
     let user1: SignerWithAddress;
     let user2: SignerWithAddress;
     let user3: SignerWithAddress;
@@ -31,7 +24,7 @@ describe("BorrowManagerBase (IPoolAdaptersManager)", () => {
         this.timeout(1200000);
         snapshot = await TimeUtils.snapshot();
         const signers = await ethers.getSigners();
-        signer = signers[0];
+        deployer = signers[0];
         user1 = signers[2];
         user2 = signers[3];
         user3 = signers[4];
@@ -55,8 +48,42 @@ describe("BorrowManagerBase (IPoolAdaptersManager)", () => {
 //region Unit tests
     describe("registerPoolAdapter", () => {
         describe("Good paths", () => {
-            it("should TODO", async () => {
-               expect.fail("TODO");
+            describe("Single platformAdapter + templatePoolAdapter", () => {
+                it("should create instance of the required template contract", async () => {
+                    //const collateralFactorToBeLostByMinimalProxyPattern = 10000000000000;
+
+                    // create borrow manager (BM) with single pool
+                    const tt = BorrowManagerHelper.getBmInputParamsSinglePool();
+                    const {bm, sourceToken, targetToken, pools, platformAdapters, templatePoolAdapters}
+                        = await BorrowManagerHelper.createBmTwoUnderlines(deployer, tt);
+
+                    // register pool adapter
+                    const pool = pools[0];
+                    const user = ethers.Wallet.createRandom().address;
+                    const collateral = sourceToken.address;
+
+                    await bm.registerPoolAdapter(pool, user, collateral);
+                    const poolAdapter = await bm.getPoolAdapter(pool, user, collateral);
+
+                    // get data from the pool adapter
+                    const pa: IPoolAdapter = IPoolAdapter__factory.connect(
+                        poolAdapter, await DeployerUtils.startImpersonate(user)
+                    );
+
+                    const ret = [
+                        await pa.pool(),
+                        (await pa.collateralFactor()).toString(),
+                        await pa.collateralToken()
+                    ].join();
+
+                    const expected = [
+                        pool,
+                        0,
+                        sourceToken.address
+                    ].join();
+
+                    expect(ret).equal(expected);
+                });
             });
         });
         describe("Bad paths", () => {

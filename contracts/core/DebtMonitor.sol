@@ -9,7 +9,7 @@ import "../interfaces/IDebtsMonitor.sol";
 
 /// @notice Collects list of registered loans. Allow to check state of the loan collaterals.
 contract DebtMonitor is IDebtMonitor{
-  IController immutable controller;
+  IController public immutable controller;
 
   /// @notice Pool adapters with active borrow positions
   /// @dev All these pool adapters should be enumerated during health-checking
@@ -101,9 +101,12 @@ contract DebtMonitor is IDebtMonitor{
   ///           Detect unhealthy positions
   ///////////////////////////////////////////////////////
 
-  /// @notice Enumerate {count} pool adapters starting from {index0} and return true if any of them is unhealthy
-  function checkUnhealthyPoolAdapterExist(uint index0, uint count) external view override returns (bool) {
-    return false; //TODO
+  function checkUnhealthyPoolAdapterExist(uint index0, uint count) external view override returns (
+    uint countItems,
+    address[] memory outPoolAdapters
+  ) {
+    //TODO
+    return (countItems, outPoolAdapters);
   }
 
   /// @notice Get total count of pool adapters with opened positions
