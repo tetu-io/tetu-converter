@@ -22,12 +22,4 @@ interface IController {
   /// @notice External instance of IBorrower to claim repay in emergency
   function borrower() external view returns (address);
 
-  ///////////////////////////////////////////////////////
-  ///        Adapters for the lending platforms
-  ///////////////////////////////////////////////////////
-
-  function aaveAdapter() external view returns (address);
-  function hundredFinanceAdapter() external view returns (address);
-  function dForceAdapter() external view returns (address);
-  function zeroVixAdapter() external view returns (address);
 }

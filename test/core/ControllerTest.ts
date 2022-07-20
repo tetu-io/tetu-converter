@@ -56,12 +56,8 @@ describe("Controller", () => {
         tetuConverter: string;
         borrowManager: string;
         debtMonitor: string;
-        borrower: string;
 
-        aaveAdapter: string;
-        hundredFinanceAdapter: string;
-        dForceAdapter: string;
-        zeroVixAdapter: string;
+        borrower: string;
     }
 
     async function getKeysArray(controller: Controller) : Promise<string[]> {
@@ -74,11 +70,6 @@ describe("Controller", () => {
             , await controller.debtMonitorKey()
 
             , await controller.borrowerKey()
-
-            , await controller.aaveAdapterKey()
-            , await controller.hundredFinanceAdapterKey()
-            , await controller.dForceAdapterKey()
-            , await controller.zeroVixAdapterKey()
         ];
     }
 
@@ -92,11 +83,6 @@ describe("Controller", () => {
             , a.debtMonitor
 
             , a.borrower
-
-            , a.aaveAdapter
-            , a.hundredFinanceAdapter
-            , a.dForceAdapter
-            , a.zeroVixAdapter
         ];
     }
 
@@ -110,11 +96,6 @@ describe("Controller", () => {
             , await controller.debtMonitor()
 
             , await controller.borrower()
-
-            , await controller.aaveAdapter()
-            , await controller.hundredFinanceAdapter()
-            , await controller.dForceAdapter()
-            , await controller.zeroVixAdapter()
         ];
     }
 

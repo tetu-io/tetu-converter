@@ -28,5 +28,4 @@ interface ITetuConverter {
     uint outInterest
   );
 
-
 }

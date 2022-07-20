@@ -13,12 +13,9 @@ contract Controller is IController, Initializable {
   bytes32 public immutable tetuConverterKey;
   bytes32 public immutable borrowManagerKey;
   bytes32 public immutable debtMonitorKey;
+
   bytes32 public immutable borrowerKey;
 
-  bytes32 public immutable aaveAdapterKey;
-  bytes32 public immutable hundredFinanceAdapterKey;
-  bytes32 public immutable dForceAdapterKey;
-  bytes32 public immutable zeroVixAdapterKey;
 
   /// @notice map: keccak256(abi.encodePacked(XXX)) => XXX
   mapping(bytes32 => address) private addressStorage;
@@ -34,10 +31,6 @@ contract Controller is IController, Initializable {
     borrowManagerKey = keccak256(abi.encodePacked("borrowManager"));
     debtMonitorKey = keccak256(abi.encodePacked("debtMonitor"));
     borrowerKey = keccak256(abi.encodePacked("borrower"));
-    aaveAdapterKey = keccak256(abi.encodePacked("aaveAdapter"));
-    hundredFinanceAdapterKey = keccak256(abi.encodePacked("hundredFinanceAdapter"));
-    dForceAdapterKey = keccak256(abi.encodePacked("dForceAdapter"));
-    zeroVixAdapterKey = keccak256(abi.encodePacked("zeroVixAdapter"));
   }
 
   function initialize(bytes32[] memory keys_, address[] calldata values_) external initializer {
@@ -93,18 +86,6 @@ contract Controller is IController, Initializable {
   }
   function borrower() external view override returns (address) {
     return addressStorage[borrowerKey];
-  }
-  function aaveAdapter() external view override returns (address) {
-    return addressStorage[aaveAdapterKey];
-  }
-  function hundredFinanceAdapter() external view override returns (address) {
-    return addressStorage[hundredFinanceAdapterKey];
-  }
-  function dForceAdapter() external view override returns (address) {
-    return addressStorage[dForceAdapterKey];
-  }
-  function zeroVixAdapter() external view override returns (address) {
-    return addressStorage[zeroVixAdapterKey];
   }
 
   ///////////////////////////////////////////////////////
