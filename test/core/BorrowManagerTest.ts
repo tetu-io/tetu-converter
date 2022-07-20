@@ -57,8 +57,9 @@ describe("BorrowManager", () => {
         describe("Good paths", () => {
             describe("Create a pool with tree assets", () => {
                 it("should register 3 asset pairs", async () => {
-                    const platformTitle = "market XYZ";
-                    const adapter = ethers.Wallet.createRandom().address;
+                    const platformAdapter = ethers.Wallet.createRandom().address;
+                    const templatePoolAdapter = ethers.Wallet.createRandom().address;
+
                     const poolAddress = ethers.Wallet.createRandom().address;
                     const poolAssets = [
                         ethers.Wallet.createRandom().address
@@ -80,7 +81,7 @@ describe("BorrowManager", () => {
                         , controller.address
                     )) as BorrowManager;
 
-                    await bm.addPool(poolAddress, adapter, poolAssets);
+                    await bm.addPool(poolAddress, platformAdapter, poolAssets);
 
                     const ret = [
                         await bm.poolToAdapter(poolAddress)
@@ -102,7 +103,7 @@ describe("BorrowManager", () => {
                     ].join();
 
                     const expected = [
-                        adapter
+                        platformAdapter
                         , poolAddress, poolAddress, poolAddress
                         , true, true, true
                         , 1, 1, 1

@@ -9,7 +9,7 @@ import "../interfaces/IBorrowManager.sol";
 import "hardhat/console.sol";
 import "../openzeppelin/SafeERC20.sol";
 import "../openzeppelin/IERC20.sol";
-import "../interfaces/ILendingPlatform.sol";
+import "../interfaces/IPlatformAdapter.sol";
 import "../core/DataTypes.sol";
 import "../interfaces/IPoolAdapter.sol";
 
@@ -94,7 +94,7 @@ contract TetuConverter is ITetuConverter {
     address targetToken_,
     uint targetAmount_
   ) external {
-    ILendingPlatform(adapter_).openPosition(pool_, sourceToken_, sourceAmount_, targetToken_, targetAmount_, msg.sender);
+    IPlatformAdapter(adapter_).openPosition(pool_, sourceToken_, sourceAmount_, targetToken_, targetAmount_, msg.sender);
   }
 }
 

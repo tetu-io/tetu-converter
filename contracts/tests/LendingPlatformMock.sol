@@ -3,10 +3,10 @@
 pragma solidity 0.8.4;
 
 import "../core/DataTypes.sol";
-import "../interfaces/ILendingPlatform.sol";
+import "../interfaces/IPlatformAdapter.sol";
 import "hardhat/console.sol";
 
-contract LendingPlatformMock is ILendingPlatform {
+contract LendingPlatformMock is IPlatformAdapter {
   /// @notice pool => underline => cf
   mapping(address => mapping(address => uint256)) public collateralFactors;
 

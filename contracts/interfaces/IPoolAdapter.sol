@@ -2,6 +2,9 @@
 
 pragma solidity 0.8.4;
 
+/// @notice Allow to work with specified pool of the platform.
+///         There is Template-Pool-Adapter contract for each platform (AAVE, HF, etc).
+///         This contract is used as a source by minimal-proxy pattern to create Pool-Adapters.
 interface IPoolAdapter {
 
   function initialize(address pool_, address user_, address collateralUnderline_) external;

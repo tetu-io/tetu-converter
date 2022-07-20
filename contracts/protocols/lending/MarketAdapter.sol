@@ -11,11 +11,11 @@ import "../../integrations/IERC20Extended.sol";
 import "../../integrations/IWmatic.sol";
 import "../../interfaces/IPriceOracle.sol";
 import "../../core/DataTypes.sol";
-import "../../interfaces/ILendingPlatform.sol";
+import "../../interfaces/IPlatformAdapter.sol";
 import "hardhat/console.sol";
 
 /// @notice Lending Platform Market-XYZ, see https://docs.market.xyz/
-contract MarketAdapter is ILendingPlatform {
+contract MarketAdapter is IPlatformAdapter {
   using SafeERC20 for IERC20;
 
   address public constant W_MATIC = 0x0d500B1d8E8eF31E21C99d1Db9A6444d3ADf1270;

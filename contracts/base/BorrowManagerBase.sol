@@ -48,11 +48,11 @@ abstract contract BorrowManagerBase is IBorrowManager {
   /// @param user_ Address of the caller contract who borrows amounts using the pool adapter
   function registerPoolAdapter(address pool_, address user_, address collateralUnderline_) external override {
     if (poolAdaptersAll[pool_][user_][collateralUnderline_] == address(0) ) {
-      address adapter = _getAdapterByPool(pool_);
-      require(adapter != address(0), "adapter not found");
+      address poolAdapterTemplateContract = _getPoolAdapterForPool(pool_);
+      require(poolAdapterTemplateContract != address(0), "adapter not found");
 
       // create an instance of the pool adapter using minimal proxy pattern, initialize newly created contract
-      address poolAdapter = adapter.clone();
+      address poolAdapter = poolAdapterTemplateContract.clone();
       IPoolAdapter(poolAdapter).initialize(pool_, user_, collateralUnderline_);
 
       // register newly created pool adapter in the list of the pool adapters forever
@@ -68,7 +68,7 @@ abstract contract BorrowManagerBase is IBorrowManager {
   ///////////////////////////////////////////////////////
   ///         Virtual functions
   ///////////////////////////////////////////////////////
-  function _getAdapterByPool(address pool_) internal view virtual returns (address);
+  function _getPoolAdapterForPool(address pool_) internal view virtual returns (address);
 
   ///////////////////////////////////////////////////////
   ///               View

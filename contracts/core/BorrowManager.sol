@@ -3,7 +3,7 @@
 pragma solidity 0.8.4;
 
 import "./DataTypes.sol";
-import "../interfaces/ILendingPlatform.sol";
+import "../interfaces/IPlatformAdapter.sol";
 import "../integrations/market/ICErc20.sol";
 import "../integrations/IERC20Extended.sol";
 import "../interfaces/IBorrowManager.sol";
@@ -31,6 +31,12 @@ contract BorrowManager is BorrowManagerBase {
     uint priceSource18;
   }
 
+  struct AdaptersForPlatform {
+    address adapter;
+    /// @notice This contract provides source code for pool adapters cloned through minimal proxy template.
+    address poolAdapterTemplateContract;
+  }
+
   ///////////////////////////////////////////////////////
   ///                    Members
   ///////////////////////////////////////////////////////
@@ -41,7 +47,7 @@ contract BorrowManager is BorrowManagerBase {
 
   /// @notice Adapter is a contract that "knows" how to work with the pool correctly.
   /// @dev 1 Adapter : N pools
-  mapping(address => address) public poolToAdapter;
+  mapping(address => AdaptersForPlatform) public poolToAdapter;
 
   /// @notice SourceToken => TargetToken => [all suitable pools]
   /// @dev SourceToken is always less then TargetToken
@@ -69,13 +75,15 @@ contract BorrowManager is BorrowManagerBase {
   ///////////////////////////////////////////////////////
 
   /// @param pool_ It's comptroller
-  /// @param adapter_ Implementation of ILendingPlatform that knows how to work with the pool
+  /// @param adapter_ Implementation of IPlatformAdapter that knows how to work with the pool
   /// @param assets_ All assets supported by the pool (duplicates are not allowed)
-  function addPool(address pool_, address adapter_, address[] calldata assets_) external override {
+  function addPool(address pool_, address adapter_, address poolAdapter_, address[] calldata assets_)
+  external override {
     uint lenAssets = assets_.length;
 
-    require(poolToAdapter[pool_] == address(0), "Pool is already registered");
-    poolToAdapter[pool_] = adapter_;
+    require(poolToAdapter[pool_].adapter == address(0), "Pool is already registered");
+    poolToAdapter[pool_].adapter = adapter_;
+    poolToAdapter[pool_].adapter = poolAdapter_;
 
     for (uint i = 0; i < lenAssets; i = _uncheckedInc(i)) {
       for (uint j = i + 1; j < lenAssets; j = _uncheckedInc(j)) {
@@ -158,12 +166,12 @@ contract BorrowManager is BorrowManagerBase {
     uint lenPools = pools.length;
     for (uint i = 0; i < lenPools; i = _uncheckedInc(i)) {
       address pool = pools[i];
-      address adapter = poolToAdapter[pool];
+      address adapter = poolToAdapter[pool].adapter;
 
       (uint rate18,
        uint pcf18,
        uint pta
-      ) = ILendingPlatform(adapter).getPoolInfo(pool, pp.targetToken);
+      ) = IPlatformAdapter(adapter).getPoolInfo(pool, pp.targetToken);
 
       if (outPool == address(0) || rate18 < outBorrowRate) {
         // how much target asset we are able to get for the provided collateral with given health factor
@@ -189,15 +197,15 @@ contract BorrowManager is BorrowManagerBase {
   ///                  Getters
   ///////////////////////////////////////////////////////
 
-  function getLendingPlatform(address pool_) external view override returns (address) {
-    address adapter = _getAdapterByPool(pool_);
+  function getPlatformAdapter(address pool_) external view override returns (address) {
+    address adapter = poolToAdapter[pool_].adapter;
     require(adapter != address(0), "wrong pool");
 
     return adapter;
   }
 
-  function _getAdapterByPool(address pool_) internal view override returns (address) {
-    return poolToAdapter[pool_];
+  function _getPoolAdapterForPool(address pool_) internal view override returns (address) {
+    return poolToAdapter[pool_].poolAdapterTemplateContract;
   }
 
 

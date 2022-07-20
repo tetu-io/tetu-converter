@@ -5,8 +5,8 @@ pragma solidity 0.8.4;
 import "../core/DataTypes.sol";
 import "./IConverter.sol";
 
-/// @notice A lending platform. Allow to borrow a loan and repay it back.
-interface ILendingPlatform is IConverter {
+/// @notice A lending platform (AAVE, HF, etc). Allow to work with comptroller and any pool of the platform.
+interface IPlatformAdapter is IConverter {
 
   /// @notice Get pool data required to select best lending pool
   /// @param pool = comptroller

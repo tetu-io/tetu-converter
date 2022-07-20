@@ -8,9 +8,10 @@ import "./IPoolAdaptersManager.sol";
 /// @notice A facade for the set of available lending platforms
 interface IBorrowManager is IPoolAdaptersManager {
   /// @param pool_ It's comptroller
-  /// @param adapter_ Implementation of ILendingPlatform that knows how to work with the pool
+  /// @param platformAdapter_ Implementation of IPlatformAdapter that knows how to work with the pool
+  /// @param poolAdapter_ Implementation of IPoolAdapter for the lending platform
   /// @param assets_ All assets supported by the pool (duplicates are not allowed)
-  function addPool(address pool_, address adapter_, address[] calldata assets_) external;
+  function addPool(address pool_, address platformAdapter_, address poolAdapter_, address[] calldata assets_) external;
 
   /// @notice Set default health factor for {asset}. Default value is used only if user hasn't provided custom value
   /// @param value Health factor must be greater then 1.
@@ -28,5 +29,5 @@ interface IBorrowManager is IPoolAdaptersManager {
     uint outMaxTargetAmount
   );
 
-  function getLendingPlatform(address pool_) external view returns (address);
+  function getPlatformAdapter(address pool_) external view returns (address);
 }
