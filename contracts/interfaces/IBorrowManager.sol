@@ -3,9 +3,10 @@
 pragma solidity 0.8.4;
 
 import "../core/DataTypes.sol";
+import "./IPoolAdaptersManager.sol";
 
 /// @notice A facade for the set of available lending platforms
-interface IBorrowManager {
+interface IBorrowManager is IPoolAdaptersManager {
   /// @param pool_ It's comptroller
   /// @param adapter_ Implementation of ILendingPlatform that knows how to work with the pool
   /// @param assets_ All assets supported by the pool (duplicates are not allowed)

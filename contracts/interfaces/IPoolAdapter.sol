@@ -4,6 +4,8 @@ pragma solidity 0.8.4;
 
 interface IPoolAdapter {
 
+  function initialize(address pool_, address user_, address collateralUnderline_) external;
+
   function collateralToken() external view returns (address);
   function collateralFactor() external view returns (uint);
   function pool() external view returns (address);

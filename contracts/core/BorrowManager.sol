@@ -11,12 +11,11 @@ import "../interfaces/IPriceOracle.sol";
 import "hardhat/console.sol";
 import "../openzeppelin/IERC20.sol";
 import "../openzeppelin/SafeERC20.sol";
+import "../base/BorrowManagerBase.sol";
 
 /// @notice Contains list of lending pools. Allow to select most efficient pool and delegate borrow-request there
-contract BorrowManager is IBorrowManager {
+contract BorrowManager is BorrowManagerBase {
   using SafeERC20 for IERC20;
-
-  //TODO contract version
 
   ///////////////////////////////////////////////////////
   ///                Structs and enums
@@ -40,11 +39,6 @@ contract BorrowManager is IBorrowManager {
   /// @dev Health factor < 1 produces liquidation immediately
   uint96 constant public MIN_HEALTH_FACTOR = 11e17; //TODO value?
 
-  /// @notice Generator of unique ID of the lending platforms: 1, 2, 3..
-  /// @dev UID of the last added platform
-  uint public platformsCount;
-  IPriceOracle public immutable priceOracle;
-
   /// @notice Adapter is a contract that "knows" how to work with the pool correctly.
   /// @dev 1 Adapter : N pools
   mapping(address => address) public poolToAdapter;
@@ -64,9 +58,10 @@ contract BorrowManager is IBorrowManager {
   ///               Initialization
   ///////////////////////////////////////////////////////
 
-  constructor(address priceOracle_) {
-    require(priceOracle_ != address(0), "price oracle not assigned");
-    priceOracle = IPriceOracle(priceOracle_);
+  constructor(address controller_)
+    BorrowManagerBase(controller_)
+  {
+
   }
 
   ///////////////////////////////////////////////////////
@@ -141,8 +136,8 @@ contract BorrowManager is IBorrowManager {
             ? defaultHealthFactors[p_.targetToken]
             : p_.healthFactorOptional,
           targetDecimals: IERC20Extended(p_.targetToken).decimals(),
-          priceTarget18: priceOracle.getAssetPrice(p_.targetToken),
-          priceSource18: priceOracle.getAssetPrice(p_.sourceToken)
+          priceTarget18: IPriceOracle(controller.priceOracle()).getAssetPrice(p_.targetToken),
+          priceSource18: IPriceOracle(controller.priceOracle()).getAssetPrice(p_.sourceToken)
         })
       );
     }
@@ -191,21 +186,19 @@ contract BorrowManager is IBorrowManager {
 
 
   ///////////////////////////////////////////////////////
-  ///                   Borrow logic
+  ///                  Getters
   ///////////////////////////////////////////////////////
 
   function getLendingPlatform(address pool_) external view override returns (address) {
-    address adapter = poolToAdapter[pool_];
+    address adapter = _getAdapterByPool(pool_);
     require(adapter != address(0), "wrong pool");
 
     return adapter;
   }
 
-//  function borrow() external;
-//  function borrowWithPool() external;
-//
-//  function getHealthFactor() external;
-//  function getCollateralFactor() external;
+  function _getAdapterByPool(address pool_) internal view override returns (address) {
+    return poolToAdapter[pool_];
+  }
 
 
   ///////////////////////////////////////////////////////
