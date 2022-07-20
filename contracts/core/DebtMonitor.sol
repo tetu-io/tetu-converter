@@ -6,7 +6,7 @@ import "./DataTypes.sol";
 import "../interfaces/IPoolAdapter.sol";
 
 /// @notice Collects list of registered loans. Allow to check state of the loan collaterals.
-contract DebtsMonitor {
+contract DebtMonitor {
 
   /// @notice Pool adapters with active borrow positions
   IPoolAdapter[] public poolAdapters;

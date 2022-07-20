@@ -1,0 +1,120 @@
+// SPDX-License-Identifier: MIT
+
+pragma solidity 0.8.4;
+
+import "./DataTypes.sol";
+import "../openzeppelin/Initializable.sol";
+import "../interfaces/IController.sol";
+
+/// @notice Keep and provide addresses of all application contracts
+contract Controller is IController, Initializable {
+  bytes32 public immutable governanceKey;
+  bytes32 public immutable priceOracleKey;
+  bytes32 public immutable tetuConverterKey;
+  bytes32 public immutable borrowManagerKey;
+  bytes32 public immutable debtMonitorKey;
+  bytes32 public immutable borrowerKey;
+
+  bytes32 public immutable aaveAdapterKey;
+  bytes32 public immutable hundredFinanceAdapterKey;
+  bytes32 public immutable dForceAdapterKey;
+  bytes32 public immutable zeroVixAdapterKey;
+
+  /// @notice map: keccak256(abi.encodePacked(XXX)) => XXX
+  mapping(bytes32 => address) private addressStorage;
+
+  ///////////////////////////////////////////////////////
+  ///        Constructor and Initialization
+  ///////////////////////////////////////////////////////
+
+  constructor() {
+    governanceKey = keccak256(abi.encodePacked("governance"));
+    priceOracleKey = keccak256(abi.encodePacked("priceOracle"));
+    tetuConverterKey = keccak256(abi.encodePacked("tetuConverter"));
+    borrowManagerKey = keccak256(abi.encodePacked("borrowManager"));
+    debtMonitorKey = keccak256(abi.encodePacked("debtMonitor"));
+    borrowerKey = keccak256(abi.encodePacked("borrower"));
+    aaveAdapterKey = keccak256(abi.encodePacked("aaveAdapter"));
+    hundredFinanceAdapterKey = keccak256(abi.encodePacked("hundredFinanceAdapter"));
+    dForceAdapterKey = keccak256(abi.encodePacked("dForceAdapter"));
+    zeroVixAdapterKey = keccak256(abi.encodePacked("zeroVixAdapter"));
+  }
+
+  function initialize(bytes32[] memory keys_, address[] calldata values_) external initializer {
+    _assignBatch(keys_, values_);
+  }
+
+  ///////////////////////////////////////////////////////
+  ///               Setters
+  ///////////////////////////////////////////////////////
+
+  /// TODO: it's very convenient to implement and test such function... what's better approach?
+  function assignBatch(bytes32[] memory keys_, address[] calldata values_) external {
+    _ensureSenderIsGovernance();
+    _assignBatch(keys_, values_);
+  }
+
+  function _assignBatch(bytes32[] memory keys_, address[] calldata values_) internal {
+    uint len = keys_.length;
+    require(len == values_.length, "wrong lengths");
+
+    for (uint i = 0; i < len; ++i) {
+      require(values_[i] != address(0), "zero address");
+      addressStorage[keys_[i]] = values_[i];
+    }
+  }
+  ///////////////////////////////////////////////////////
+  ///               Governance
+  ///////////////////////////////////////////////////////
+  function governance() external view override returns (address) {
+    return _governance();
+  }
+  function _governance() internal view returns (address) {
+    return addressStorage[governanceKey];
+  }
+  function _ensureSenderIsGovernance() internal view {
+    require (msg.sender == _governance(), "governance only");
+  }
+
+  ///////////////////////////////////////////////////////
+  ///               Getters
+  ///////////////////////////////////////////////////////
+  function priceOracle() external view override returns (address) {
+    return addressStorage[priceOracleKey];
+  }
+  function tetuConverter() external view override returns (address) {
+    return addressStorage[tetuConverterKey];
+  }
+  function borrowManager() external view override returns (address) {
+    return addressStorage[borrowManagerKey];
+  }
+  function debtMonitor() external view override returns (address) {
+    return addressStorage[debtMonitorKey];
+  }
+  function borrower() external view override returns (address) {
+    return addressStorage[borrowerKey];
+  }
+  function aaveAdapter() external view override returns (address) {
+    return addressStorage[aaveAdapterKey];
+  }
+  function hundredFinanceAdapter() external view override returns (address) {
+    return addressStorage[hundredFinanceAdapterKey];
+  }
+  function dForceAdapter() external view override returns (address) {
+    return addressStorage[dForceAdapterKey];
+  }
+  function zeroVixAdapter() external view override returns (address) {
+    return addressStorage[zeroVixAdapterKey];
+  }
+
+  ///////////////////////////////////////////////////////
+  ///               Helper utils
+  ///////////////////////////////////////////////////////
+
+  function _uncheckedInc(uint i) internal pure returns (uint) {
+    unchecked {
+      return i + 1;
+    }
+  }
+
+}
