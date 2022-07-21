@@ -88,21 +88,17 @@ contract PoolAdapterMock is IPoolAdapter {
     uint borrowedAmount_,
     address receiverBorrowedAmount_
   ) override external {
-    console.log("borrow.1");
     uint collateralBalance = IERC20(_collateralUnderline).balanceOf(address(this));
     require(collateralBalance == collateralAmount_, "wrong collateral balance");
     require(_borrowRates[borrowedToken_] != 0, "borrowed token is not supported");
-    console.log("borrow.2");
 
     // mint ctokens and keep them on our balance
     uint amountCTokens = collateralBalance; //TODO: exchange rate 1:1, it's not always true
     _cTokenMock.mint(address(this), amountCTokens);
-    console.log("borrow.3");
 
     // price of the collateral and borrowed token in USD
     uint priceCollateral = getPrice18(_collateralUnderline);
     uint priceBorrowedUSD = getPrice18(borrowedToken_);
-    console.log("borrow.4");
 
     // ensure that we can borrow allowed amount
     uint maxAmountToBorrowUSD = _collateralFactor
@@ -111,33 +107,26 @@ contract PoolAdapterMock is IPoolAdapter {
       / 1e18;
     uint claimedAmount = borrowedAmount_ * priceBorrowedUSD / 1e18;
     require(maxAmountToBorrowUSD >= claimedAmount, "borrow amount is too big");
-    console.log("borrow.5");
 
     uint borrowedTokenBalance = IERC20(borrowedToken_).balanceOf(address(this));
     require(borrowedTokenBalance > borrowedAmount_, "not enough liquidity to borrow");
-    console.log("borrow.6");
 
     IERC20(borrowedToken_).transfer(receiverBorrowedAmount_, borrowedAmount_);
-    console.log("borrow.6.1");
     _addBorrow(borrowedToken_, borrowedAmount_, amountCTokens);
-    console.log("borrow.7");
 
     _updateLastBalance(borrowedToken_);
-    console.log("borrow.8");
-
   }
 
   function _addBorrow(address borrowedToken_, uint borrowedAmount_, uint amountCTokens_) internal {
-    console.log("_addBorrow.1 this=%s msg.sender=%s", address(this), msg.sender);
     _accumulateDebt(borrowedToken_, borrowedAmount_);
-    console.log("_addBorrow.2 debtMonitor=%s", address(_debtMonitor));
     // send notification to the debt monitor
     _debtMonitor.onBorrow(address(_cTokenMock), amountCTokens_, borrowedToken_);
+    console.log("_borrowedAmounts[borrowedToken_]", _borrowedAmounts[borrowedToken_]);
   }
 
   function _accumulateDebt(address borrowedToken_, uint borrowedAmount_) internal {
     // accumulate exist debt
-    console.log("_accumulateDebt.1");
+    console.log("_accumulateDebt.1 to=%d add=%d + %d", _borrowedAmounts[borrowedToken_], _getAmountToRepay(borrowedToken_), borrowedAmount_);
     _borrowedAmounts[borrowedToken_] = _getAmountToRepay(borrowedToken_) + borrowedAmount_;
     console.log("_accumulateDebt.2");
     _blocks[borrowedToken_] = block.number;
@@ -156,6 +145,7 @@ contract PoolAdapterMock is IPoolAdapter {
     uint borrowedAmount_,
     address receiverCollateralAmount_
   ) override external {
+    require(borrowedAmount_ > 0, "nothing to repay");
     // add debts to the borrowed amount
     _accumulateDebt(borrowedToken_, 0);
     require(borrowedAmount_ <= _borrowedAmounts[borrowedToken_], "try to repay too much");
@@ -164,12 +154,17 @@ contract PoolAdapterMock is IPoolAdapter {
     uint newLastBalance = IERC20(borrowedToken_).balanceOf(address(this));
     uint amountReceivedBT = newLastBalance - _lastBalances[borrowedToken_];
     require(amountReceivedBT == borrowedAmount_, "not enough money received");
+    console.log("_borrowedAmount=%d", borrowedAmount_);
+    console.log("newLastBalance=%d to oldLastBalance=%d", newLastBalance, _lastBalances[borrowedToken_]);
 
     //return collateral
     uint collateralBalance = IERC20(_collateralUnderline).balanceOf(address(this));
     uint collateralToReturn = _borrowedAmounts[borrowedToken_] == amountReceivedBT
       ? collateralBalance
       : collateralBalance * amountReceivedBT / _borrowedAmounts[borrowedToken_];
+    console.log("_borrowedAmounts[borrowedToken_]=%d to amountReceivedBT=%d", _borrowedAmounts[borrowedToken_], amountReceivedBT);
+    console.log("collateral balance=%d to return=%d", collateralBalance, collateralToReturn);
+
     uint amountCTokens = collateralToReturn;
     _cTokenMock.burn(address(this), amountCTokens);
     IERC20(_collateralUnderline).transfer(receiverCollateralAmount_, collateralToReturn);
@@ -178,6 +173,7 @@ contract PoolAdapterMock is IPoolAdapter {
     _borrowedAmounts[borrowedToken_] -= amountReceivedBT;
     _lastBalances[borrowedToken_] = newLastBalance;
 
+    _debtMonitor.onRepay(address(_cTokenMock), amountCTokens, borrowedToken_);
   }
 
 
@@ -191,11 +187,13 @@ contract PoolAdapterMock is IPoolAdapter {
   }
 
   function _getAmountToRepay(address borrowedToken_) internal view returns (uint) {
+    console.log("_getAmountToRepay.1 %d %d", block.number, _blocks[borrowedToken_]);
     if (_blocks[borrowedToken_] != 0) {
       return _borrowedAmounts[borrowedToken_]
-      + _borrowRates[borrowedToken_]
+        + _borrowRates[borrowedToken_]
         * _borrowedAmounts[borrowedToken_]
-        * (_blocks[borrowedToken_] - block.number)
+        * (block.number - _blocks[borrowedToken_])
+        / 1e18
       ;
     } else {
       return 0;

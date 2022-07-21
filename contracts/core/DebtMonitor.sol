@@ -49,9 +49,7 @@ contract DebtMonitor is IDebtMonitor {
 
   /// @dev This function is called from a pool adapter after any borrow
   function onBorrow(address cToken_, uint amountReceivedCTokens_, address borrowedToken_) external override {
-    console.log("onBorrow.1 %s", msg.sender);
     _onlyPoolAdapter();
-    console.log("onBorrow.2");
 
     require(cToken_ != address(0) && borrowedToken_ != address(0), "zero address");
     require(amountReceivedCTokens_ != 0, "zero amount");

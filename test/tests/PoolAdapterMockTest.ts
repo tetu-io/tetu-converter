@@ -70,7 +70,7 @@ describe("PoolAdapterMock", () => {
                     const priceTargetUSD = 2;
                     const templatePoolAdapter = await MocksHelper.createPoolAdapterMock(deployer);
                     const collateralFactor18 = getBigNumberFrom(5, 17); // 0.5
-                    const borrowRatePerBlock18 = getBigNumberFrom(1, 16); // 0.01
+                    const borrowRatePerBlock18 = getBigNumberFrom(1, 10); // 0.01
                     const tt = BorrowManagerHelper.getBmInputParamsSinglePool(1
                         , priceSourceUSD, priceTargetUSD);
                     const amountCollateral = getBigNumberFrom(10000, tt.sourceDecimals);
@@ -83,8 +83,8 @@ describe("PoolAdapterMock", () => {
                         = await BorrowManagerHelper.createBmTwoUnderlines(deployer, tt, templatePoolAdapter.address);
                     const dm = await CoreContractsHelper.createDebtMonitor(deployer, controller);
                     await controller.assignBatch(
-                        [await controller.debtMonitorKey()]
-                        , [dm.address]
+                        [await controller.debtMonitorKey(), await controller.borrowManagerKey()]
+                        , [dm.address, bm.address]
                     );
 
                     // register pool adapter
@@ -145,7 +145,8 @@ describe("PoolAdapterMock", () => {
                     // repay immediately
                     // how much we should repay?
                     const amountToRepay = pa.getAmountToRepay(targetToken.address);
-                    await targetToken.transfer(user, amountToRepay);
+                    await MockERC20__factory.connect(targetToken.address, await DeployerUtils.startImpersonate(user))
+                        .transfer(pa.address, amountToRepay); // user transfers collateral to pool adapter
                     await pa.repay(targetToken.address, amountToRepay, user);
 
                     const afterRepay = [
@@ -158,7 +159,13 @@ describe("PoolAdapterMock", () => {
                         ...before.map(x => x.toString())
                         , ...afterBorrow.map(x => x.toString())
                         , ...afterRepay.map(x => x.toString())
-                    ].join();
+                    ].join("\r");
+
+                    const countPassedBlocks = 2;
+                    const expectedDebt = amountToBorrow
+                        .mul(countPassedBlocks)
+                        .mul(borrowRatePerBlock18)
+                        .div(BigNumber.from(10).pow(18));
 
                     const expectedAmounts = [
                         // before
@@ -173,10 +180,10 @@ describe("PoolAdapterMock", () => {
 
                         // afterRepay
                         amountCollateral, 0, //sourceToken
-                        amountBorrowedUserInitial, amountBorrowLiquidityInPool, //targetToken
+                        amountBorrowedUserInitial.sub(expectedDebt), amountBorrowLiquidityInPool.add(expectedDebt), //targetToken
                         0, 0, //cToken
                     ];
-                    const expected = expectedAmounts.map(x => x.toString()).join();
+                    const expected = expectedAmounts.map(x => x.toString()).join("\r");
 
                     expect(ret).equal(expected);
                 });
