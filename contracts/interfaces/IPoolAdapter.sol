@@ -12,6 +12,7 @@ interface IPoolAdapter {
   function collateralToken() external view returns (address);
   function collateralFactor() external view returns (uint);
   function pool() external view returns (address);
+  function user() external view returns (address);
 
   /// @notice Supply collateral to the pool and borrow {borrowedAmount_} in {borrowedToken_}
   function borrow(
@@ -31,10 +32,12 @@ interface IPoolAdapter {
     address receiverCollateralAmount_
   ) external;
 
+  /// @return borrowedTokens List of borrowed tokens (BT)
+  /// @return collateralAmountsCT List of summary collateral amounts [in collateral tokens]
+  /// @return amountsToPayBT List of amounts that should be repay [in borrowed tokens] to return the collaterals
   function getOpenedPositions() external view returns (
     address[] memory borrowedTokens,
-    uint[] memory collateralAmounts,
-    uint[] memory amountsToRepay,
-    uint[] memory healthFactors
+    uint[] memory collateralAmountsCT,
+    uint[] memory amountsToPayBT
   );
 }

@@ -1,13 +1,12 @@
 import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import {ethers} from "hardhat";
 import {expect} from "chai";
-import {DeployUtils} from "../../scripts/utils/DeployUtils";
-import {IPoolAdapter, IPoolAdapter__factory, PoolAdapterMock} from "../../typechain";
+import {IPoolAdapter, IPoolAdapter__factory} from "../../typechain";
 import {TimeUtils} from "../../scripts/utils/TimeUtils";
 import {BorrowManagerHelper} from "../baseUT/BorrowManagerHelper";
 import {DeployerUtils} from "../../scripts/utils/DeployerUtils";
 
-describe("BorrowManagerBase (IPoolAdaptersManager)", () => {
+describe("DebtsMonitor", () => {
 //region Global vars for all tests
     let snapshot: string;
     let snapshotForEach: string;
@@ -46,45 +45,11 @@ describe("BorrowManagerBase (IPoolAdaptersManager)", () => {
 //endregion before, after
 
 //region Unit tests
-    describe("registerPoolAdapter", () => {
+    describe("onBorrow", () => {
         describe("Good paths", () => {
             describe("Single platformAdapter + templatePoolAdapter", () => {
-                it("should create instance of the required template contract", async () => {
-                    //const collateralFactorToBeLostByMinimalProxyPattern = 10000000000000;
-
-                    // create borrow manager (BM) with single pool
-                    const tt = BorrowManagerHelper.getBmInputParamsSinglePool();
-                    const {bm, sourceToken, targetToken, pools, platformAdapters, templatePoolAdapters}
-                        = await BorrowManagerHelper.createBmTwoUnderlines(deployer, tt);
-
-                    // register pool adapter
-                    const pool = pools[0];
-                    const user = ethers.Wallet.createRandom().address;
-                    const collateral = sourceToken.address;
-
-                    await bm.registerPoolAdapter(pool, user, collateral);
-                    const poolAdapter = await bm.getPoolAdapter(pool, user, collateral);
-
-                    // get data from the pool adapter
-                    const pa: IPoolAdapter = IPoolAdapter__factory.connect(
-                        poolAdapter, await DeployerUtils.startImpersonate(user)
-                    );
-
-                    const ret = [
-                        await pa.pool(),
-                        (await pa.collateralFactor()).toString(),
-                        await pa.collateralToken(),
-                        await pa.user()
-                    ].join();
-
-                    const expected = [
-                        pool,
-                        0,
-                        sourceToken.address,
-                        user
-                    ].join();
-
-                    expect(ret).equal(expected);
+                it("should revert with template contract not found", async () => {
+                    expect.fail("TODO");
                 });
             });
         });
@@ -97,7 +62,7 @@ describe("BorrowManagerBase (IPoolAdaptersManager)", () => {
         });
     });
 
-    describe("getPoolAdapter", () => {
+    describe("onRepay", () => {
         describe("Good paths", () => {
             it("should TODO", async () => {
                 expect.fail("TODO");
@@ -110,7 +75,20 @@ describe("BorrowManagerBase (IPoolAdaptersManager)", () => {
         });
     });
 
-    describe("getInfo", () => {
+    describe("checkState", () => {
+        describe("Good paths", () => {
+            it("should TODO", async () => {
+                expect.fail("TODO");
+            });
+        });
+        describe("Bad paths", () => {
+            it("should TODO", async () => {
+                expect.fail("TODO");
+            });
+        });
+    });
+
+    describe("getCountActivePoolAdapters", () => {
         describe("Good paths", () => {
             it("should TODO", async () => {
                 expect.fail("TODO");

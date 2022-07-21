@@ -34,6 +34,9 @@ contract PoolAdapterMock is IPoolAdapter {
   function pool() external view override returns (address) {
     return poolValue;
   }
+  function user() external view override returns (address) {
+    return userValue;
+  }
 
   /// @notice Supply collateral to the pool and borrow {borrowedAmount_} in {borrowedToken_}
   function borrow(
@@ -63,10 +66,9 @@ contract PoolAdapterMock is IPoolAdapter {
 
   function getOpenedPositions() external view override returns (
     address[] memory borrowedTokens,
-    uint[] memory collateralAmounts,
-    uint[] memory amountsToRepay,
-    uint[] memory healthFactors
+    uint[] memory collateralAmountsCT,
+    uint[] memory amountsToPayBT
   ) {
-    return (borrowedTokens, collateralAmounts, amountsToRepay, healthFactors);
+    return (borrowedTokens, collateralAmountsCT, amountsToPayBT);
   }
 }
