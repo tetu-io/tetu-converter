@@ -1,7 +1,7 @@
 import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import {
     BorrowManager,
-    Controller,
+    Controller, DebtMonitor,
     IController, LendingPlatformMock,
     MockERC20, PoolAdapterMock,
     PoolMock,
@@ -18,14 +18,33 @@ export class CoreContractsHelper {
         deployer: SignerWithAddress,
         underlines?: MockERC20[],
         prices?: BigNumber[]
-    ) : Promise<IController>{
+    ) : Promise<Controller>{
         const controller = (await DeployUtils.deployContract(deployer, "Controller")) as Controller;
         const priceOracle = (await DeployUtils.deployContract(deployer, "PriceOracleMock"
             , underlines ? underlines.map(x => x.address) : []
             , prices || []
         )) as PriceOracleMock;
-        await controller.initialize([await controller.priceOracleKey()], [priceOracle.address]);
+        await controller.initialize(
+            [
+                await controller.priceOracleKey()
+                , await controller.governanceKey()
+            ], [
+                priceOracle.address
+                , deployer.address
+            ]
+        );
         return controller;
+    }
+
+    public static async createDebtMonitor(
+        signer: SignerWithAddress,
+        controller: IController,
+    ): Promise<DebtMonitor> {
+        return (await DeployUtils.deployContract(
+            signer,
+            "DebtMonitor",
+            controller.address
+        )) as DebtMonitor;
     }
 
     /** Create BorrowManager with mock as adapter */

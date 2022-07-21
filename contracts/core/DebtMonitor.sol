@@ -11,26 +11,26 @@ import "../integrations/IERC20Extended.sol";
 import "../interfaces/IBorrowManager.sol";
 
 /// @notice Collects list of registered loans. Allow to check state of the loan collaterals.
-contract DebtMonitor is IDebtMonitor{
+contract DebtMonitor is IDebtMonitor {
   IController public immutable controller;
 
   /// @notice Pool adapters with active borrow positions
   /// @dev All these pool adapters should be enumerated during health-checking
   address[] public poolAdapters;
 
-  /// @notice pool adapter => cToken => borrowed token => amount of cTokens
-  mapping(address => mapping (address => mapping(address => uint))) public activeCollaterals;
+  /// @notice pool adapter => borrowed token => amount of cTokens
+  mapping(address => mapping(address => uint)) public activeCollaterals;
 
-  /// @notice pool adapter => cToken => borrowed tokens
-  mapping(address => mapping (address => address[])) public borrowedTokens;
+  /// @notice pool adapter => borrowed tokens
+  mapping(address => address[]) public borrowedTokens;
 
-  /// @notice true if the pool adapter is registered in {poolAdapters}
-  /// @dev pool adapter => bool
-  mapping(address => bool) registeredPoolAdapters;
+  /// @notice pool adapter => cToken
+  /// @dev not 0 if the pool adapter is registered in {poolAdapters}
+  mapping(address => address) public cTokensForPoolAdapters;
 
   /// @notice true if the borrow token is already registered in {borrowedTokens} for the pool adapter
-  /// @dev pool adapter => cToken => borrow token => bool
-  mapping(address => mapping (address => mapping (address => bool))) registeredBorrowTokens;
+  /// @dev pool adapter => borrow token => bool
+  mapping(address => mapping (address => bool)) public registeredBorrowTokens;
 
   ///////////////////////////////////////////////////////
   ///       Constructor and initialization
@@ -54,60 +54,62 @@ contract DebtMonitor is IDebtMonitor{
     require(amountReceivedCTokens_ != 0, "zero amount");
 
     bool isBorrowTokenRegistered;
+    address registeredCToken = cTokensForPoolAdapters[msg.sender];
 
-    if (registeredPoolAdapters[msg.sender]) {
-      // increment amount of the exist position
-      activeCollaterals[msg.sender][cToken_][borrowedToken_] += amountReceivedCTokens_;
-      isBorrowTokenRegistered = registeredBorrowTokens[msg.sender][cToken_][borrowedToken_];
-    } else {
+    if (registeredCToken == address(0)) {
       // add new pool adapter
       poolAdapters.push(msg.sender);
-      registeredPoolAdapters[msg.sender] = true;
+      cTokensForPoolAdapters[msg.sender] = cToken_;
 
       // set initial amount for the new position
-      activeCollaterals[msg.sender][cToken_][borrowedToken_] = amountReceivedCTokens_;
+      activeCollaterals[msg.sender][borrowedToken_] = amountReceivedCTokens_;
+    } else {
+      require(registeredCToken == cToken_, "wrong cToken");
+      // increment amount of the exist position
+      activeCollaterals[msg.sender][borrowedToken_] += amountReceivedCTokens_;
+      isBorrowTokenRegistered = registeredBorrowTokens[msg.sender][borrowedToken_];
     }
 
     if (! isBorrowTokenRegistered) {
-      borrowedTokens[msg.sender][cToken_].push(borrowedToken_);
-      registeredBorrowTokens[msg.sender][cToken_][borrowedToken_] = true;
+      borrowedTokens[msg.sender].push(borrowedToken_);
+      registeredBorrowTokens[msg.sender][borrowedToken_] = true;
     }
   }
 
   /// @dev This function is called from a pool adapter after any repaying
   function onRepay(address cToken_, uint amountBurntCTokens_, address borrowedToken_) external override {
-    require(registeredPoolAdapters[msg.sender], "unregistered pool adapter");
-    _onRepay(msg.sender, cToken_, amountBurntCTokens_, borrowedToken_);
+    require(cTokensForPoolAdapters[msg.sender] == cToken_, "unregistered pool adapter");
+    _onRepay(msg.sender, amountBurntCTokens_, borrowedToken_);
   }
 
   function onRepayBehalf(address borrower, address cToken_, uint amountBurntCTokens_, address borrowedToken_)
   external override {
     _onlyGovernance();
-    require(registeredPoolAdapters[borrower], "unregistered pool adapter");
-    _onRepay(borrower, cToken_, amountBurntCTokens_, borrowedToken_);
+    require(cTokensForPoolAdapters[borrower] == cToken_, "unregistered pool adapter");
+    _onRepay(borrower, amountBurntCTokens_, borrowedToken_);
   }
 
-  function _onRepay(address borrower, address cToken_, uint amountBurntCTokens_, address borrowedToken_) internal {
-    require(registeredBorrowTokens[borrower][cToken_][borrowedToken_], "unregistered borrowed token");
+  function _onRepay(address borrower, uint amountBurntCTokens_, address borrowedToken_) internal {
+    require(registeredBorrowTokens[borrower][borrowedToken_], "unregistered borrowed token");
     require(amountBurntCTokens_ != 0, "zero amount");
 
     // get total amount of the given position
-    uint amountTotal = activeCollaterals[msg.sender][cToken_][borrowedToken_];
+    uint amountTotal = activeCollaterals[msg.sender][borrowedToken_];
     require(amountTotal >= amountBurntCTokens_, "amount is too big");
     bool removeBorrowedToken = amountTotal == amountBurntCTokens_;
-    bool removePool = removeBorrowedToken && borrowedTokens[borrower][cToken_].length == 1;
+    bool removePool = removeBorrowedToken && borrowedTokens[borrower].length == 1;
 
     // decrease amount of the position on the amount of burnt c-tokens
-    activeCollaterals[borrower][cToken_][borrowedToken_] -= amountBurntCTokens_;
+    activeCollaterals[borrower][borrowedToken_] -= amountBurntCTokens_;
 
     // unregister pool and borrowed token if necessary
     if (removeBorrowedToken) {
-      _removeItemFromArray(borrowedTokens[borrower][cToken_], borrowedToken_);
-      registeredBorrowTokens[borrower][cToken_][borrowedToken_] = false;
+      _removeItemFromArray(borrowedTokens[borrower], borrowedToken_);
+      registeredBorrowTokens[borrower][borrowedToken_] = false;
     }
     if (removePool) {
       _removeItemFromArray(poolAdapters, borrower);
-      registeredPoolAdapters[borrower] = false;
+      cTokensForPoolAdapters[borrower] = address(0);
     }
   }
 
@@ -150,16 +152,16 @@ contract DebtMonitor is IDebtMonitor{
     uint collateralPrice18 = _getPrice18(pa.collateralToken());
 
     // enumerate all borrowed tokens inside the pool adapter
-    (address[] memory borrowedTokens,
+    (address[] memory bTokens,
      uint[] memory collateralAmountsCT,
      uint[] memory amountsToPayBT
     ) = pa.getOpenedPositions();
 
-    uint lengthTokens = borrowedTokens.length;
+    uint lengthTokens = bTokens.length;
     for (uint j = 0; j < lengthTokens; j = _uncheckedInc(j)) {
       // calculate health factor for the borrowed token
-      uint8 borrowedTokenDecimals = IERC20Extended(borrowedTokens[j]).decimals();
-      uint borrowedTokenPrice18 = _getPrice18(borrowedTokens[j]);
+      uint8 borrowedTokenDecimals = IERC20Extended(bTokens[j]).decimals();
+      uint borrowedTokenPrice18 = _getPrice18(bTokens[j]);
 
       // HF = CollateralFactor * (CollateralAmount * CollateralPrice) / (AmountToPayBT * PriceBorrowedToken)
       uint healthFactor = pa.collateralFactor()
@@ -172,7 +174,7 @@ contract DebtMonitor is IDebtMonitor{
           // we should allocate memory for all remaining tokens
           outBorrowedTokens = new address[](lengthTokens - j);
         }
-        outBorrowedTokens[outCountBorrowedTokens] = borrowedTokens[j];
+        outBorrowedTokens[outCountBorrowedTokens] = bTokens[j];
         outCountBorrowedTokens += 1;
       }
     }
@@ -233,5 +235,17 @@ contract DebtMonitor is IDebtMonitor{
   /// @notice Ensure that msg.sender is registered pool adapter
   function _onlyGovernance() internal view {
     require(msg.sender == controller.governance(), "gov only");
+  }
+
+  ///////////////////////////////////////////////////////
+  ///               Arrays lengths
+  ///////////////////////////////////////////////////////
+
+  function poolAdaptersLength() external view returns (uint) {
+    return poolAdapters.length;
+  }
+
+  function borrowedTokensLength(address poolAdapter) external view returns (uint) {
+    return borrowedTokens[poolAdapter].length;
   }
 }

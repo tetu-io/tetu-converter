@@ -2,7 +2,7 @@ import {MocksHelper} from "./MocksHelper";
 import {CoreContractsHelper} from "./CoreContractsHelper";
 import {BigNumber} from "ethers";
 import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
-import {BorrowManager, LendingPlatformMock, MockERC20, PoolAdapterMock} from "../../typechain";
+import {BorrowManager, IController, LendingPlatformMock, MockERC20, PoolAdapterMock} from "../../typechain";
 
 export interface IPoolInfo {
     /** The length of array should be equal to the count of underlines */
@@ -32,7 +32,8 @@ export class BorrowManagerHelper {
         targetToken: MockERC20,
         pools: string[],
         platformAdapters: LendingPlatformMock[],
-        templatePoolAdapters: PoolAdapterMock[]
+        templatePoolAdapters: PoolAdapterMock[],
+        controller: IController
     }>{
         const sourceDecimals = tt.sourceDecimals || 18;
         const targetDecimals = tt.targetDecimals || 6;
@@ -76,7 +77,7 @@ export class BorrowManagerHelper {
         const sourceToken = underlines[0];
         const targetToken = underlines[1];
 
-        return {bm, sourceToken, targetToken, pools, platformAdapters, templatePoolAdapters};
+        return {bm, sourceToken, targetToken, pools, platformAdapters, templatePoolAdapters, controller};
     }
 
     static getBmInputParamsThreePools(bestBorrowRate: number = 27) : IBmInputParams {

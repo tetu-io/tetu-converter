@@ -2,6 +2,7 @@
  * Help to initialize and setup Borrow Manager and related classes
  */
 import {
+    BorrowManagerMock,
     Controller,
     CTokenMock,
     IController,
@@ -98,4 +99,20 @@ export class MocksHelper {
         return dest;
     }
 
+    public static async createBorrowManagerMock(
+        signer: SignerWithAddress,
+        poolAdapters: string[],
+        pools: string[],
+        users: string[],
+        collateralUnderlines: string[]
+    ) : Promise<BorrowManagerMock> {
+        return await DeployUtils.deployContract(
+            signer
+            , "BorrowManagerMock"
+            , poolAdapters
+            , pools
+            , users
+            , collateralUnderlines
+        ) as BorrowManagerMock;
+    }
 }
