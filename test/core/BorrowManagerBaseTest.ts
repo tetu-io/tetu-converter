@@ -54,11 +54,11 @@ describe("BorrowManagerBase (IPoolAdaptersManager)", () => {
 
                     // create borrow manager (BM) with single pool
                     const tt = BorrowManagerHelper.getBmInputParamsSinglePool();
-                    const {bm, sourceToken, targetToken, pools, platformAdapters, templatePoolAdapters}
+                    const {bm, sourceToken, targetToken, pools}
                         = await BorrowManagerHelper.createBmTwoUnderlines(deployer, tt);
 
                     // register pool adapter
-                    const pool = pools[0];
+                    const pool = pools[0].pool;
                     const user = ethers.Wallet.createRandom().address;
                     const collateral = sourceToken.address;
 

@@ -2,7 +2,15 @@ import {MocksHelper} from "./MocksHelper";
 import {CoreContractsHelper} from "./CoreContractsHelper";
 import {BigNumber} from "ethers";
 import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
-import {BorrowManager, IController, LendingPlatformMock, MockERC20, PoolAdapterMock} from "../../typechain";
+import {
+    BorrowManager,
+    Controller,
+    CTokenMock,
+    IController,
+    LendingPlatformMock,
+    MockERC20,
+    PoolAdapterMock
+} from "../../typechain";
 
 export interface IPoolInfo {
     /** The length of array should be equal to the count of underlines */
@@ -22,18 +30,24 @@ export interface IBmInputParams {
     targetDecimals?: number;
 }
 
+export interface PoolInstanceInfo {
+    pool: string;
+    platformAdapter: string;
+    templatePlatformAdapter: string;
+    underlineTocTokens: Map<string, string>;
+}
+
 export class BorrowManagerHelper {
     static async createBmTwoUnderlines(
         signer: SignerWithAddress,
         tt: IBmInputParams,
+        templateAdapterPoolOptional?: string
     ) : Promise<{
         bm: BorrowManager,
         sourceToken: MockERC20,
         targetToken: MockERC20,
-        pools: string[],
-        platformAdapters: LendingPlatformMock[],
-        templatePoolAdapters: PoolAdapterMock[],
-        controller: IController
+        pools: PoolInstanceInfo[],
+        controller: Controller
     }>{
         const sourceDecimals = tt.sourceDecimals || 18;
         const targetDecimals = tt.targetDecimals || 6;
@@ -51,9 +65,7 @@ export class BorrowManagerHelper {
             pricesUSD.map(x => BigNumber.from(10).pow(16).mul(x * 100))
         );
         const bm = await CoreContractsHelper.createBorrowManager(signer, controller);
-        const pools: string[] = [];
-        const platformAdapters: LendingPlatformMock[] = [];
-        const templatePoolAdapters: PoolAdapterMock[] = [];
+        const pools: PoolInstanceInfo[] = [];
 
         for (const poolInfo of tt.availablePools) {
             const cTokens = await MocksHelper.createCTokensMocks(
@@ -67,17 +79,25 @@ export class BorrowManagerHelper {
                 pool,
                 poolInfo,
                 collateralFactors,
-                underlines
+                underlines,
+                templateAdapterPoolOptional
             );
-            pools.push(pool.address);
-            platformAdapters.push(r.platformAdapter);
-            templatePoolAdapters.push(r.templatePoolAdapter);
+            const mapCTokens = new Map<string, string>();
+            for (let i = 0; i < underlines.length; ++i) {
+                mapCTokens.set(underlines[i].address, cTokens[i].address);
+            }
+            pools.push({
+                pool: pool.address,
+                platformAdapter: r.platformAdapter.address,
+                templatePlatformAdapter: r.templatePoolAdapter,
+                underlineTocTokens: mapCTokens
+            });
         }
 
         const sourceToken = underlines[0];
         const targetToken = underlines[1];
 
-        return {bm, sourceToken, targetToken, pools, platformAdapters, templatePoolAdapters, controller};
+        return {bm, sourceToken, targetToken, pools, controller};
     }
 
     static getBmInputParamsThreePools(bestBorrowRate: number = 27) : IBmInputParams {
@@ -106,11 +126,15 @@ export class BorrowManagerHelper {
         };
     }
 
-    static getBmInputParamsSinglePool(bestBorrowRate: number = 27) : IBmInputParams {
+    static getBmInputParamsSinglePool(
+        bestBorrowRate: number = 27,
+        priceSourceUSD: number = 0.1,
+        priceTargetUSD: number = 4,
+    ) : IBmInputParams {
         return {
             targetCollateralFactor: 0.8,
-            priceSourceUSD: 0.1,
-            priceTargetUSD: 4,
+            priceSourceUSD: priceSourceUSD || 0.1,
+            priceTargetUSD: priceTargetUSD || 4,
             sourceDecimals: 24,
             targetDecimals: 12,
             sourceAmount: 100_000,

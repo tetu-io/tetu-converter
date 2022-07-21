@@ -9,6 +9,7 @@ import "../interfaces/IDebtsMonitor.sol";
 import "../interfaces/IPriceOracle.sol";
 import "../integrations/IERC20Extended.sol";
 import "../interfaces/IBorrowManager.sol";
+import "hardhat/console.sol";
 
 /// @notice Collects list of registered loans. Allow to check state of the loan collaterals.
 contract DebtMonitor is IDebtMonitor {
@@ -48,7 +49,9 @@ contract DebtMonitor is IDebtMonitor {
 
   /// @dev This function is called from a pool adapter after any borrow
   function onBorrow(address cToken_, uint amountReceivedCTokens_, address borrowedToken_) external override {
+    console.log("onBorrow.1 %s", msg.sender);
     _onlyPoolAdapter();
+    console.log("onBorrow.2");
 
     require(cToken_ != address(0) && borrowedToken_ != address(0), "zero address");
     require(amountReceivedCTokens_ != 0, "zero amount");

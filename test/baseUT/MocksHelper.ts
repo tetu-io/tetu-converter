@@ -5,9 +5,9 @@ import {
     BorrowManagerMock,
     Controller,
     CTokenMock,
-    IController,
+    IController, IDebtMonitor, IPriceOracle,
     LendingPlatformMock,
-    MockERC20, PoolAdapterMock,
+    MockERC20, PoolAdapterMock, PoolAdapterStab,
     PoolMock,
     PriceOracleMock
 } from "../../typechain";
@@ -18,6 +18,32 @@ import {ethers} from "hardhat";
 
 /** Helper to create mock contracts */
 export class MocksHelper {
+//region Adapters
+    /** Create template pool adapter */
+    public static async createPoolAdapterMock(signer: SignerWithAddress) : Promise<PoolAdapterMock> {
+        return (await DeployUtils.deployContract(signer, "PoolAdapterMock")) as PoolAdapterMock;
+    }
+
+    /** Set up pool adapter created through minimal-proxy pattern */
+    public static async setupPoolAdapterMock(
+        m: PoolAdapterMock
+        , cTokenMock: CTokenMock
+        , priceOracle: IPriceOracle
+        , debtMonitor: IDebtMonitor
+        , collateralFactor18: BigNumber
+        , borrowTokens: MockERC20[]
+        , borrowRatesPerBlock18: BigNumber[]
+    ) {
+        await m.setUpMock(
+            cTokenMock.address
+            , priceOracle.address
+            , debtMonitor.address
+            , collateralFactor18
+            , borrowTokens.map(x => x.address)
+            , borrowRatesPerBlock18
+        );
+    }
+
     /** Create platform adapter that supports a single pool with set of the given underlines */
     public static async createPlatformAdapterMock(
         signer: SignerWithAddress
@@ -40,16 +66,19 @@ export class MocksHelper {
         )) as LendingPlatformMock;
     }
 
-    public static async createPoolAdapterMock(
+    /** Simple mock - all params are set through constructor */
+    public static async createPoolAdapterStab(
         signer: SignerWithAddress,
         collateralFactorValue: BigNumber
-    ) : Promise<PoolAdapterMock> {
+    ) : Promise<PoolAdapterStab> {
         return (await DeployUtils.deployContract(signer
-            , "PoolAdapterMock"
+            , "PoolAdapterStab"
             , collateralFactorValue
-        )) as PoolAdapterMock;
+        )) as PoolAdapterStab;
     }
+//endregion Adapters
 
+//region Tokens
     public static async createTokens(decimals: number[]) : Promise<MockERC20[]> {
         const dest: MockERC20[] = [];
 
@@ -85,7 +114,9 @@ export class MocksHelper {
 
         return dest;
     }
+//endregion Tokens
 
+//region Pools
     public static async createPoolMock(
         signer: SignerWithAddress,
         cTokens: CTokenMock[]
@@ -98,7 +129,9 @@ export class MocksHelper {
 
         return dest;
     }
+//endregion Pools
 
+//region Core contracts
     public static async createBorrowManagerMock(
         signer: SignerWithAddress,
         poolAdapters: string[],
@@ -115,4 +148,5 @@ export class MocksHelper {
             , collateralUnderlines
         ) as BorrowManagerMock;
     }
+//endregion Core contracts
 }

@@ -70,10 +70,10 @@ export class CoreContractsHelper {
         poolsInfo: IPoolInfo,
         collateralFactors: number[],
         underlines: MockERC20[],
-        collateralFactorForTemplatePoolAdapter: BigNumber = BigNumber.from(1)
+        templateAdapterPoolOptional?: string
     ) : Promise <{
         platformAdapter: LendingPlatformMock,
-        templatePoolAdapter: PoolAdapterMock
+        templatePoolAdapter: string
     }>{
         const borrowRates = await Promise.all(underlines.map(
             async (token, index) => getBigNumberFrom(
@@ -81,7 +81,7 @@ export class CoreContractsHelper {
                 await underlines[index].decimals()
             )
         ));
-        const availableLiquidities = await Promise.all(underlines.map(
+        const availableLiquidity = await Promise.all(underlines.map(
             async (token, index) => getBigNumberFrom(
                 poolsInfo.availableLiquidityInTokens[index],
                 await underlines[index].decimals()
@@ -94,17 +94,15 @@ export class CoreContractsHelper {
             underlines.map(x => x.address),
             borrowRates,
             collateralFactors,
-            availableLiquidities
+            availableLiquidity
         );
 
-        const templatePoolAdapter = await MocksHelper.createPoolAdapterMock(
-            signer,
-            collateralFactorForTemplatePoolAdapter
-        );
+        const templatePoolAdapter = templateAdapterPoolOptional
+            || (await MocksHelper.createPoolAdapterStab(signer, getBigNumberFrom(1))).toString();
 
         await bm.addPool(pool.address
             , platformAdapter.address
-            , templatePoolAdapter.address
+            , templatePoolAdapter
             , underlines.map(x => x.address)
         );
 

@@ -5,7 +5,7 @@ import {expect} from "chai";
 import {getBigNumberFrom} from "../../scripts/utils/NumberUtils";
 import {DeployUtils} from "../../scripts/utils/DeployUtils";
 import {BorrowManager, MockERC20, TetuConverter} from "../../typechain";
-import {IBmInputParams, BorrowManagerHelper} from "../baseUT/BorrowManagerHelper";
+import {IBmInputParams, BorrowManagerHelper, PoolInstanceInfo} from "../baseUT/BorrowManagerHelper";
 
 describe("BorrowManager", () => {
 //region Constants
@@ -57,7 +57,7 @@ describe("BorrowManager", () => {
         sourceToken: MockERC20,
         targetToken: MockERC20,
         borrowManager: BorrowManager,
-        pools: string[]
+        pools: PoolInstanceInfo[]
     }> {
         const {bm, sourceToken, targetToken, pools}
             = await BorrowManagerHelper.createBmTwoUnderlines(signer, tt);

@@ -250,7 +250,7 @@ describe("BorrowManager", () => {
                 })
                 : undefined;
             return {
-                outPoolIndex0: pools.findIndex(x => x == ret.outPool),
+                outPoolIndex0: pools.findIndex(x => x.pool == ret.outPool),
                 outBorrowRate: ret.outBorrowRate,
                 outMaxTargetAmount: ret.outMaxTargetAmount,
                 outGas: gas
