@@ -68,6 +68,7 @@ describe("PoolAdapterMock", () => {
                     // create template-pool-adapter
                     const priceSourceUSD = 0.1;
                     const priceTargetUSD = 2;
+                    const blocksBetweenBorrowAndRepay = 20;
                     const templatePoolAdapter = await MocksHelper.createPoolAdapterMock(deployer);
                     const collateralFactor18 = getBigNumberFrom(5, 17); // 0.5
                     const borrowRatePerBlock18 = getBigNumberFrom(1, 10); // 0.01
@@ -122,31 +123,47 @@ describe("PoolAdapterMock", () => {
                     await targetToken.mint(pa.address, amountBorrowLiquidityInPool);
 
                     await sourceToken.mint(user, amountCollateral);
+                    console.log("Mint collateral to user", amountCollateral);
                     await targetToken.mint(user, amountBorrowedUserInitial);
+                    console.log("Mint borrowed token to user", amountBorrowedUserInitial);
 
                     const before = [
                         await sourceToken.balanceOf(user), await sourceToken.balanceOf(pa.address),
                         await targetToken.balanceOf(user), await targetToken.balanceOf(pa.address),
                         await cToken.balanceOf(user), await cToken.balanceOf(pa.address),
-
                     ];
+                    console.log("Before borrow", before);
 
                     // borrow
                     await MockERC20__factory.connect(sourceToken.address, await DeployerUtils.startImpersonate(user))
                         .transfer(pa.address, amountCollateral); // user transfers collateral to pool adapter
+                    console.log("Transfer collateral to PA", amountCollateral);
                     await pa.borrow(amountCollateral, targetToken.address, amountToBorrow, user);
+                    console.log("Borrow", amountToBorrow);
 
                     const afterBorrow = [
                         await sourceToken.balanceOf(user), await sourceToken.balanceOf(pa.address),
                         await targetToken.balanceOf(user), await targetToken.balanceOf(pa.address),
                         await cToken.balanceOf(user), await cToken.balanceOf(pa.address),
                     ];
+                    console.log("After borrow", afterBorrow);
+
+                    // assume, that some time is passed and the borrow debt is increased
+                    await PoolAdapterMock__factory.connect(pa.address, deployer)
+                        .setPassedBlocks(targetToken.address, blocksBetweenBorrowAndRepay);
+                    const expectedDebt = amountToBorrow
+                        .mul(blocksBetweenBorrowAndRepay)
+                        .mul(borrowRatePerBlock18)
+                        .div(BigNumber.from(10).pow(18));
+                    console.log("Time passed, blocks=", blocksBetweenBorrowAndRepay, "+debt", expectedDebt);
 
                     // repay immediately
                     // how much we should repay?
-                    const amountToRepay = pa.getAmountToRepay(targetToken.address);
+                    const amountToRepay = await pa.getAmountToRepay(targetToken.address);
+                    console.log("We need to repay", amountToRepay);
                     await MockERC20__factory.connect(targetToken.address, await DeployerUtils.startImpersonate(user))
                         .transfer(pa.address, amountToRepay); // user transfers collateral to pool adapter
+                    console.log("Transfer borrowed token to PA", amountToRepay);
                     await pa.repay(targetToken.address, amountToRepay, user);
 
                     const afterRepay = [
@@ -154,18 +171,13 @@ describe("PoolAdapterMock", () => {
                         await targetToken.balanceOf(user), await targetToken.balanceOf(pa.address),
                         await cToken.balanceOf(user), await cToken.balanceOf(pa.address),
                     ];
+                    console.log("After repay", afterRepay);
 
                     const ret = [
                         ...before.map(x => x.toString())
                         , ...afterBorrow.map(x => x.toString())
                         , ...afterRepay.map(x => x.toString())
                     ].join("\r");
-
-                    const countPassedBlocks = 2;
-                    const expectedDebt = amountToBorrow
-                        .mul(countPassedBlocks)
-                        .mul(borrowRatePerBlock18)
-                        .div(BigNumber.from(10).pow(18));
 
                     const expectedAmounts = [
                         // before

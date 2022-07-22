@@ -27,13 +27,12 @@ contract PoolAdapterMock is IPoolAdapter {
   mapping(address=>uint) private _lastBalances;
 
   /// @notice borrowed-token => block.number
-  /// @dev block.number is a number of block when last borrow/repay operation was made
-  mapping(address=>uint) private _blocks;
+  /// @dev block.number is a number of blocks passed since last borrow/repay
+  ///      we set it manually
+  mapping(address=>uint) private _passedBlocks;
 
   ///////////////////////////////////////////////////////
-  ///           Initialization
-  ///  Constructor is not applicable, because this contract
-  ///  is created using minimal-proxy pattern
+  ///           Setup mock behavior
   ///////////////////////////////////////////////////////
 
   function setUpMock(
@@ -55,6 +54,16 @@ contract PoolAdapterMock is IPoolAdapter {
       _updateLastBalance(borrowTokens_[i]);
     }
   }
+
+  function setPassedBlocks(address borrowedToken_, uint countPassedBlocks) external {
+    _passedBlocks[borrowedToken_] = countPassedBlocks;
+  }
+
+  ///////////////////////////////////////////////////////
+  ///           Initialization
+  ///  Constructor is not applicable, because this contract
+  ///  is created using minimal-proxy pattern
+  ///////////////////////////////////////////////////////
 
   function initialize(address pool_, address user_, address collateralUnderline_) external override {
     _pool = pool_;
@@ -125,11 +134,10 @@ contract PoolAdapterMock is IPoolAdapter {
   }
 
   function _accumulateDebt(address borrowedToken_, uint borrowedAmount_) internal {
-    // accumulate exist debt
+    // accumulate exist debt and clear number of the passed blocks
     console.log("_accumulateDebt.1 to=%d add=%d + %d", _borrowedAmounts[borrowedToken_], _getAmountToRepay(borrowedToken_), borrowedAmount_);
     _borrowedAmounts[borrowedToken_] = _getAmountToRepay(borrowedToken_) + borrowedAmount_;
-    console.log("_accumulateDebt.2");
-    _blocks[borrowedToken_] = block.number;
+    _passedBlocks[borrowedToken_] = 0;
   }
 
   function _updateLastBalance(address borrowedToken_) internal {
@@ -187,17 +195,12 @@ contract PoolAdapterMock is IPoolAdapter {
   }
 
   function _getAmountToRepay(address borrowedToken_) internal view returns (uint) {
-    console.log("_getAmountToRepay.1 %d %d", block.number, _blocks[borrowedToken_]);
-    if (_blocks[borrowedToken_] != 0) {
-      return _borrowedAmounts[borrowedToken_]
-        + _borrowRates[borrowedToken_]
-        * _borrowedAmounts[borrowedToken_]
-        * (block.number - _blocks[borrowedToken_])
-        / 1e18
-      ;
-    } else {
-      return 0;
-    }
+    return _borrowedAmounts[borrowedToken_]
+      + _borrowRates[borrowedToken_]
+      * _borrowedAmounts[borrowedToken_]
+      * _passedBlocks[borrowedToken_]
+      / 1e18
+    ;
   }
 
   function getOpenedPositions() external view override returns (
