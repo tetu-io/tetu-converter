@@ -4,7 +4,14 @@ import {TimeUtils} from "../../scripts/utils/TimeUtils";
 import {expect} from "chai";
 import {getBigNumberFrom} from "../../scripts/utils/NumberUtils";
 import {DeployUtils} from "../../scripts/utils/DeployUtils";
-import {BorrowManager, IERC20__factory, MockERC20, MockERC20__factory, TetuConverter} from "../../typechain";
+import {
+    BorrowManager,
+    IERC20__factory,
+    MockERC20,
+    MockERC20__factory,
+    PoolAdapterMock__factory,
+    TetuConverter
+} from "../../typechain";
 import {IBmInputParams, BorrowManagerHelper, PoolInstanceInfo} from "../baseUT/BorrowManagerHelper";
 import {ConversionUsesCases, IParamsUS11} from "../uses-cases/ConversionUsesCases";
 import {CoreContracts} from "../uses-cases/CoreContracts";
@@ -56,6 +63,11 @@ describe("BorrowManager", () => {
 //endregion before, after
 
 //region Utils
+    interface ContractToInvestigate {
+        name: string;
+        contract: string;
+    }
+
     async function createTetuConverter(
         tt: IBmInputParams
     ) : Promise<{
@@ -75,22 +87,25 @@ describe("BorrowManager", () => {
     }
 
     async function getBalances(
-        contracts: string[],
+        contracts: ContractToInvestigate[],
         tokens: string[]
-    ) : Promise<BigNumber[]> {
-        const dest: BigNumber[] = [];
+    ) : Promise<(BigNumber | string)[]> {
+        const dest: (BigNumber | string)[] = [];
         for (const contract of contracts) {
+            dest.push(contract.name);
             for (const token of tokens) {
                 dest.push(
-                    await IERC20__factory.connect(token, deployer).balanceOf(contract)
+                    await IERC20__factory.connect(token, deployer).balanceOf(contract.contract)
                 )
             }
         }
         return dest;
     }
 
-    function toString(n: number | BigNumber) : string {
-        return typeof n === "object" ? n.toString() : "" + n;
+    function toString(n: number | string | BigNumber) : string {
+        return typeof n === "object"
+            ? n.toString()
+            : "" + n;
     }
 //endregion Utils
 
@@ -178,7 +193,7 @@ describe("BorrowManager", () => {
 
     describe("convert", () => {
         describe("Good paths", () => {
-            describe("US11, mock", () => {
+            describe("UC11, mock", () => {
                 it("should update balances in proper way", async () => {
                     const period = BLOCKS_PER_DAY * 31;
                     const targetDecimals = 12;
@@ -189,7 +204,9 @@ describe("BorrowManager", () => {
                     const sourceAmount = getBigNumberFrom(sourceAmountNumber, sourceDecimals);
                     const availableBorrowLiquidityNumber = 200_000_000;
                     const availableBorrowLiquidity = getBigNumberFrom(availableBorrowLiquidityNumber, targetDecimals);
-                    const healthFactor = 1.8;
+                    const healthFactor = 2;
+                    const templatePoolAdapter = await MocksHelper.createPoolAdapterMock(deployer);
+                    const borrowRatePerBlock18 = getBigNumberFrom(1);
 
                     const tt: IBmInputParams = {
                         targetCollateralFactor: 0.8,
@@ -211,7 +228,7 @@ describe("BorrowManager", () => {
                     };
 
                     const {bm, sourceToken, targetToken, pools, controller}
-                        = await BorrowManagerHelper.createBmTwoUnderlines(deployer, tt);
+                        = await BorrowManagerHelper.createBmTwoUnderlines(deployer, tt, templatePoolAdapter.address);
                     const tc = await CoreContractsHelper.createTetuConverter(deployer, controller);
                     const dm = await CoreContractsHelper.createDebtMonitor(deployer, controller);
                     await controller.assignBatch(
@@ -225,7 +242,27 @@ describe("BorrowManager", () => {
                     const cToken = pools[0].underlineTocTokens.get(sourceToken.address) || "";
                     const userContract = await MocksHelper.deployUserBorrowRepayUCs(user, core.controller);
 
-                    const contractsToInvestigate = [userContract.address, user, pool, core.tc.address];
+                    // we need to set up the pool adapter
+                    await core.bm.registerPoolAdapter(pool, userContract.address, sourceToken.address);
+                    const poolAdapter: string = await core.bm.getPoolAdapter(pool, userContract.address, sourceToken.address);
+                    const poolAdapterMock = PoolAdapterMock__factory.connect(poolAdapter, deployer);
+                    await poolAdapterMock.setUpMock(
+                        cToken,
+                        await controller.priceOracle(),
+                        await controller.debtMonitor(),
+                        getBigNumberFrom(tt.targetCollateralFactor*10, 17),
+                        [targetToken.address],
+                        [borrowRatePerBlock18]
+                    );
+                    console.log("poolAdapter-mock is configured:", poolAdapter, targetToken);
+
+                    const contractsToInvestigate: ContractToInvestigate[] = [
+                        {name: "userContract", contract: userContract.address},
+                        {name: "user", contract: user},
+                        {name: "pool", contract: pool},
+                        {name: "tc", contract: core.tc.address},
+                        {name: "poolAdapter", contract: poolAdapter},
+                    ];
                     const tokensToInvestigate = [sourceToken.address, targetToken.address, cToken];
 
                     // initialize balances
@@ -246,15 +283,10 @@ describe("BorrowManager", () => {
                         user
                     );
 
-                    //now we can take address of pool adapter - to check its balances
-                    const poolAdapter = await core.bm.getPoolAdapter(pool, user, sourceToken.address);
-                    console.log("poolAdapter", poolAdapter);
-                    contractsToInvestigate.push(poolAdapter);
-
                     const after = await getBalances(contractsToInvestigate, tokensToInvestigate);
                     console.log("after", after);
 
-                    const ret = [...before, ...after].map(x => toString(x)).join("\r");
+                    const ret = [...before, "after", ...after].map(x => toString(x)).join("\r");
 
                     const expectedTargetAmount = getBigNumberFrom(
                         tt.targetCollateralFactor
@@ -266,26 +298,28 @@ describe("BorrowManager", () => {
 
                     const expected = [
                         //before
-                        //userContract: source, target, cToken
-                        sourceAmount, 0, 0,
+                        //userContract, source, target, cToken
+                        "userContract", sourceAmount, 0, 0,
                         //user: source, target, cToken
-                        0, 0, 0,
+                        "user", 0, 0, 0,
                         //pool: source, target, cToken
-                        0, availableBorrowLiquidity, 0,
+                        "pool", 0, availableBorrowLiquidity, 0,
                         //tc: source, target, cToken
-                        0, 0, 0,
-
+                        "tc", 0, 0, 0,
+                        //pa: source, target, cToken
+                        "poolAdapter", 0, 0, 0,
+                        "after",
                         //after borrowing
                         //userContract: source, target, cToken
-                        0, 0, 0,
+                        "userContract", 0, 0, 0,
                         //user: source, target, cToken
-                        0, expectedTargetAmount, 0,
+                        "user", 0, expectedTargetAmount, 0,
                         //pool: source, target, cToken
-                        sourceAmount, availableBorrowLiquidity.sub(expectedTargetAmount), 0,
+                        "pool", sourceAmount, availableBorrowLiquidity.sub(expectedTargetAmount), 0,
                         //tc: source, target, cToken
-                        0, 0, 0,
+                        "tc", 0, 0, 0,
                         //pa: source, target, cToken
-                        0, 0, sourceAmount //!TODO: we assume exchange rate 1:1
+                        "poolAdapter", 0, 0, sourceAmount //!TODO: we assume exchange rate 1:1
 
                     ].map(x => toString(x)).join("\r");
 

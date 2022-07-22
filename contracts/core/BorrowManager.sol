@@ -204,7 +204,7 @@ contract BorrowManager is BorrowManagerBase {
     AdaptersForPlatform memory aa = poolToAdapter[pool_];
     require(aa.platformAdapter != address(0), "wrong pool");
 
-    return (aa.platformAdapter, aa.templatePoolAdapter == address(0));
+    return (aa.platformAdapter, aa.templatePoolAdapter != address(0));
   }
 
   function _getTemplatePoolAdapter(address pool_) internal view override returns (address) {

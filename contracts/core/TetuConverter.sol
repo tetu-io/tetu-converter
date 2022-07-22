@@ -94,29 +94,48 @@ contract TetuConverter is ITetuConverter {
     uint targetAmount_,
     address receiver_
   ) external override {
+    console.log("TC.convert");
     //ensure that source amount was transferred to balance
     require(reserves[sourceToken_] + sourceAmount_ == IERC20(sourceToken_).balanceOf(address(this)), "wrong balance");
 
     (address platformAdapter, bool lending) = _bm().getPlatformAdapter(pool_);
     if (lending) {
       // make borrow
-      address poolAdapter = _bm().getPoolAdapter(
-        pool_,
-        msg.sender,
-        sourceToken_
-      );
+      console.log("Lending!");
+
+      // get exist or register new pool adapter
+      address poolAdapter;
+      for (uint i = 0; i < 2; ++i) {
+        poolAdapter = _bm().getPoolAdapter(
+          pool_,
+          msg.sender,
+          sourceToken_
+        );
+        if (i == 0 && poolAdapter == address(0)) {
+          _bm().registerPoolAdapter(
+            pool_,
+            msg.sender,
+            sourceToken_
+          );
+        } else {
+          break;
+        }
+      }
       require(poolAdapter != address(0), "pa not found");
+      console.log("Pool adapter", poolAdapter);
 
       IPoolAdapter pa = IPoolAdapter(poolAdapter);
 
       // re-transfer the collateral to the pool adapter
       IERC20(sourceToken_).transfer(poolAdapter, sourceAmount_);
+      console.log("Transfer to pool adapter token=%s amount=%d", sourceToken_, sourceAmount_);
 
       // borrow target-amount and transfer borrowed amount to the receiver
       pa.borrow(sourceAmount_, targetToken_, targetAmount_, receiver_);
     } else {
       // make swap
       //TODO
+      console.log("SWAP!");
     }
 
     // update reserves
