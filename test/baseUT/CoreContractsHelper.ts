@@ -5,7 +5,7 @@ import {
     IController, LendingPlatformMock,
     MockERC20, PoolAdapterMock,
     PoolMock,
-    PriceOracleMock
+    PriceOracleMock, TetuConverter
 } from "../../typechain";
 import {BigNumber} from "ethers";
 import {DeployUtils} from "../../scripts/utils/DeployUtils";
@@ -45,6 +45,17 @@ export class CoreContractsHelper {
             "DebtMonitor",
             controller.address
         )) as DebtMonitor;
+    }
+
+    public static async createTetuConverter(
+        signer: SignerWithAddress,
+        controller: Controller,
+    ): Promise<TetuConverter> {
+        return (await DeployUtils.deployContract(
+            signer,
+            "TetuConverter",
+            controller.address
+        )) as TetuConverter;
     }
 
     /** Create BorrowManager with mock as adapter */

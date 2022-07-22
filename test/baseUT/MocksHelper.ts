@@ -9,12 +9,13 @@ import {
     LendingPlatformMock,
     MockERC20, PoolAdapterMock, PoolAdapterStab,
     PoolMock,
-    PriceOracleMock
+    PriceOracleMock, UserBorrowRepayUCs
 } from "../../typechain";
 import {DeployUtils} from "../../scripts/utils/DeployUtils";
 import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import {BigNumber} from "ethers";
 import {ethers} from "hardhat";
+import {DeployerUtils} from "../../scripts/utils/DeployerUtils";
 
 export interface IPooAdapterStabInitParams {
     pool: string;
@@ -162,4 +163,17 @@ export class MocksHelper {
         ) as BorrowManagerMock;
     }
 //endregion Core contracts
+
+//region Uses cases
+    public static async deployUserBorrowRepayUCs(
+        userAddress: string,
+        controller: IController
+    ) : Promise<UserBorrowRepayUCs> {
+        return (await DeployUtils.deployContract(
+            await DeployerUtils.startImpersonate(userAddress),
+            "UserBorrowRepayUCs",
+            controller.address
+        )) as UserBorrowRepayUCs;
+    }
+//endregion Uses cases
 }
