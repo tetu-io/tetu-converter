@@ -75,19 +75,35 @@ describe("BorrowManager", () => {
             describe("Lending is more efficient", () => {
                 describe("Single suitable lending pool", () => {
                     it("should return expected data", async () => {
-                        const bestBorrowRate = 27;
                         const period = BLOCKS_PER_DAY * 31;
-
-                        const sourceAmount = 100_000;
+                        const targetDecimals = 12;
+                        const bestBorrowRate = getBigNumberFrom(1, targetDecimals - 8);
 
                         const healthFactor = 2;
-                        const input = BorrowManagerHelper.getBmInputParamsThreePools(bestBorrowRate);
+                        const input = {
+                            targetCollateralFactor: 0.8,
+                            priceSourceUSD: 0.1,
+                            priceTargetUSD: 4,
+                            sourceDecimals: 24,
+                            targetDecimals: targetDecimals,
+                            sourceAmount: 100_000,
+                            healthFactor: 4,
+                            availablePools: [
+                                {   // source, target
+                                    borrowRateInTokens: [
+                                        getBigNumberFrom(0, targetDecimals),
+                                        bestBorrowRate
+                                    ],
+                                    availableLiquidityInTokens: [0, 200_000]
+                                }
+                            ]
+                        };
 
                         const data = await createTetuConverter(input);
 
                         const ret = await data.tetuConveter.findBestConversionStrategy(
                             data.sourceToken.address,
-                            sourceAmount,
+                            getBigNumberFrom(input.sourceAmount, input.sourceDecimals),
                             data.targetToken.address,
                             getBigNumberFrom(healthFactor, 18),
                             period
@@ -96,15 +112,19 @@ describe("BorrowManager", () => {
                         const sret = [
                             ret.outPool,
                             ret.outMaxTargetAmount,
-                            ret.outInterest
+                            //TODO ret.outInterest
                         ].join();
 
-
+                        const expectedTargetAmount =
+                            input.targetCollateralFactor
+                            * input.sourceAmount * input.priceSourceUSD
+                            / (input.priceTargetUSD)
+                            / healthFactor;
 
                         const sexpected = [
                             data.pools[0].pool,
-                            0, // TODO
-                            0  // TODO
+                            getBigNumberFrom(expectedTargetAmount, input.targetDecimals),
+                            //TODO bestBorrowRate.mul(period).mul(expectedTargetAmount)
                         ].join();
 
                         expect(sret).equal(sexpected);
@@ -131,28 +151,9 @@ describe("BorrowManager", () => {
         });
     });
 
-    describe("borrow", () => {
+    describe("convert", () => {
         describe("Good paths", () => {
-            describe("Use matic as collateral, borrow USDC", () => {
-                it("should update balance in proper way", async () => {
-                    // register MarketXYZ's pools in BorrowManager
-
-                    // find a pool
-
-                    // borrow USDC
-
-                    // check balances of USDC, Matic and cMatic
-
-
-                    expect.fail();
-                });
-            });
-            describe("Use USDC as collateral, borrow matic", () => {
-                it("should update balance in proper way", async () => {
-                    expect.fail();
-                });
-            });
-            describe("Use USDC as collateral, borrow USDT", () => {
+            describe("TODO", () => {
                 it("should update balance in proper way", async () => {
                     expect.fail();
                 });
@@ -160,7 +161,25 @@ describe("BorrowManager", () => {
         });
 
         describe("Bad paths", () => {
-            describe("Unsupported source asset", () => {
+            describe("TODO", () => {
+                it("TODO", async () => {
+                    expect.fail();
+                });
+            });
+        });
+    });
+
+    describe("findBorrows", () => {
+        describe("Good paths", () => {
+            describe("TODO", () => {
+                it("should update balance in proper way", async () => {
+                    expect.fail();
+                });
+            });
+        });
+
+        describe("Bad paths", () => {
+            describe("TODO", () => {
                 it("TODO", async () => {
                     expect.fail();
                 });

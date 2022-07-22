@@ -75,6 +75,7 @@ contract TetuConverter is ITetuConverter {
       } else {
         //TODO: estimate cost of the money - commissions for all operations:
         //TODO: a lawn has borrow and repay, swap has direct and backward swap.
+        console.log("br=%d period=%d", br, approxOwnershipPeriodInBlocks);
         uint interest = (br * approxOwnershipPeriodInBlocks);
         return (pool, mta, interest);
       }

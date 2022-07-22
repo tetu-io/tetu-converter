@@ -25,7 +25,7 @@ contract BorrowManager is BorrowManagerBase {
   struct BorrowInput {
     address targetToken;
     uint96 healthFactor18;
-    uint16 targetDecimals;
+    uint8 targetDecimals;
     uint sourceAmount18;
     uint priceTarget18;
     uint priceSource18;
@@ -141,7 +141,7 @@ contract BorrowManager is BorrowManagerBase {
       (outPool, outBorrowRate, outMaxTargetAmount) = _findPool(pools
         , BorrowInput({
           targetToken: p_.targetToken,
-          sourceAmount18: _toMantissa(p_.sourceAmount, uint16(IERC20Extended(p_.sourceToken).decimals()), 18),
+          sourceAmount18: _toMantissa(p_.sourceAmount, uint8(IERC20Extended(p_.sourceToken).decimals()), 18),
           healthFactor18: p_.healthFactorOptional == 0
             ? defaultHealthFactors[p_.targetToken]
             : p_.healthFactorOptional,
@@ -222,7 +222,7 @@ contract BorrowManager is BorrowManagerBase {
   }
 
   /// @notice Convert {amount} with [sourceDecimals} to new amount with {targetDecimals}
-  function _toMantissa(uint amount, uint16 sourceDecimals, uint16 targetDecimals) internal pure returns (uint) {
+  function _toMantissa(uint amount, uint8 sourceDecimals, uint8 targetDecimals) internal pure returns (uint) {
     return sourceDecimals == targetDecimals
       ? amount
       : amount * (10 ** targetDecimals) / (10 ** sourceDecimals);

@@ -76,10 +76,15 @@ export class CoreContractsHelper {
         templatePoolAdapter: string
     }>{
         const borrowRates = await Promise.all(underlines.map(
-            async (token, index) => getBigNumberFrom(
-                poolsInfo.borrowRateInTokens[index],
-                await underlines[index].decimals()
-            )
+            async (token, index) => {
+                const br = poolsInfo.borrowRateInTokens[index];
+                return typeof br === "object"
+                    ? br
+                    : getBigNumberFrom(
+                        poolsInfo.borrowRateInTokens[index],
+                        await underlines[index].decimals()
+                    );
+            }
         ));
         const availableLiquidity = await Promise.all(underlines.map(
             async (token, index) => getBigNumberFrom(

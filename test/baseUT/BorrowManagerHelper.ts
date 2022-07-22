@@ -14,7 +14,7 @@ import {
 
 export interface IPoolInfo {
     /** The length of array should be equal to the count of underlines */
-    borrowRateInTokens: number[],
+    borrowRateInTokens: (number|BigNumber)[],
     /** The length of array should be equal to the count of underlines */
     availableLiquidityInTokens: number[]
 }
