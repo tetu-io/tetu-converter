@@ -152,6 +152,7 @@ contract PoolAdapterMock is IPoolAdapter {
     uint borrowedAmount_,
     address receiverCollateralAmount_
   ) override external {
+    console.log("repay");
     require(borrowedAmount_ > 0, "nothing to repay");
     // add debts to the borrowed amount
     _accumulateDebt(borrowedToken_, 0);
@@ -165,11 +166,13 @@ contract PoolAdapterMock is IPoolAdapter {
     IERC20(borrowedToken_).transfer(_pool, borrowedAmount_);
 
     //return collateral
-    uint collateralBalance = IERC20(_collateralUnderline).balanceOf(address(this));
+    uint collateralBalance = IERC20(_collateralUnderline).balanceOf(_pool);
     uint collateralToReturn = _borrowedAmounts[borrowedToken_] == amountReceivedBT
       ? collateralBalance
       : collateralBalance * amountReceivedBT / _borrowedAmounts[borrowedToken_];
 
+    console.log("collateralBalance %d", collateralBalance);
+    console.log("collateralToReturn %d", collateralToReturn);
     uint amountCTokens = collateralToReturn;
     _cTokenMock.burn(address(this), amountCTokens);
 

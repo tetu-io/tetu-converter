@@ -10,7 +10,7 @@ import {
     MockERC20,
     MockERC20__factory,
     PoolAdapterMock__factory,
-    TetuConverter
+    TetuConverter, UserBorrowRepayUCs
 } from "../../typechain";
 import {IBmInputParams, BorrowManagerHelper, PoolInstanceInfo} from "../baseUT/BorrowManagerHelper";
 import {ConversionUsesCases, IParamsUS11} from "../uses-cases/ConversionUsesCases";
@@ -19,6 +19,8 @@ import {CoreContractsHelper} from "../baseUT/CoreContractsHelper";
 import {BigNumber} from "ethers";
 import exp from "constants";
 import {MocksHelper} from "../baseUT/MocksHelper";
+import {initializeWaffleMatchers} from "@nomiclabs/hardhat-waffle/dist/src/matchers";
+import {DeployerUtils} from "../../scripts/utils/DeployerUtils";
 
 describe("BorrowManager", () => {
 //region Constants
@@ -106,6 +108,53 @@ describe("BorrowManager", () => {
         return typeof n === "object"
             ? n.toString()
             : "" + n;
+    }
+
+    async function prepareContracts(
+        tt: IBmInputParams,
+        user: string,
+        borrowRatePerBlock18: BigNumber
+    ) : Promise<{
+        core: CoreContracts,
+        pool: string,
+        cToken: string,
+        userContract: UserBorrowRepayUCs,
+        sourceToken: MockERC20,
+        targetToken: MockERC20,
+        poolAdapter: string
+    }>{
+        const templatePoolAdapter = await MocksHelper.createPoolAdapterMock(deployer);
+
+        const {bm, sourceToken, targetToken, pools, controller}
+            = await BorrowManagerHelper.createBmTwoUnderlines(deployer, tt, templatePoolAdapter.address);
+        const tc = await CoreContractsHelper.createTetuConverter(deployer, controller);
+        const dm = await CoreContractsHelper.createDebtMonitor(deployer, controller);
+        await controller.assignBatch(
+            [await controller.tetuConverterKey(), await controller.debtMonitorKey()]
+            , [tc.address, dm.address]
+        );
+
+        const core = new CoreContracts(controller, tc, bm, dm);
+
+        const pool = pools[0].pool;
+        const cToken = pools[0].underlineTocTokens.get(sourceToken.address) || "";
+        const userContract = await MocksHelper.deployUserBorrowRepayUCs(user, core.controller);
+
+        // we need to set up the pool adapter
+        await core.bm.registerPoolAdapter(pool, userContract.address, sourceToken.address);
+        const poolAdapter: string = await core.bm.getPoolAdapter(pool, userContract.address, sourceToken.address);
+        const poolAdapterMock = PoolAdapterMock__factory.connect(poolAdapter, deployer);
+        await poolAdapterMock.setUpMock(
+            cToken,
+            await controller.priceOracle(),
+            await controller.debtMonitor(),
+            getBigNumberFrom(tt.targetCollateralFactor*10, 17),
+            [targetToken.address],
+            [borrowRatePerBlock18]
+        );
+        console.log("poolAdapter-mock is configured:", poolAdapter, targetToken.address);
+
+        return {core,  pool, cToken, userContract, sourceToken, targetToken, poolAdapter};
     }
 //endregion Utils
 
@@ -195,19 +244,14 @@ describe("BorrowManager", () => {
         describe("Good paths", () => {
             describe("UC11, mock", () => {
                 it("should update balances in proper way", async () => {
+                    const user = ethers.Wallet.createRandom().address;
                     const period = BLOCKS_PER_DAY * 31;
                     const targetDecimals = 12;
                     const sourceDecimals = 24;
-                    const user = ethers.Wallet.createRandom().address;
-                    const receiver = ethers.Wallet.createRandom().address;
                     const sourceAmountNumber = 100_000;
-                    const sourceAmount = getBigNumberFrom(sourceAmountNumber, sourceDecimals);
                     const availableBorrowLiquidityNumber = 200_000_000;
-                    const availableBorrowLiquidity = getBigNumberFrom(availableBorrowLiquidityNumber, targetDecimals);
                     const healthFactor = 2;
-                    const templatePoolAdapter = await MocksHelper.createPoolAdapterMock(deployer);
                     const borrowRatePerBlock18 = getBigNumberFrom(1);
-
                     const tt: IBmInputParams = {
                         targetCollateralFactor: 0.8,
                         priceSourceUSD: 0.1,
@@ -226,35 +270,11 @@ describe("BorrowManager", () => {
                             }
                         ]
                     };
+                    const sourceAmount = getBigNumberFrom(sourceAmountNumber, sourceDecimals);
+                    const availableBorrowLiquidity = getBigNumberFrom(availableBorrowLiquidityNumber, targetDecimals);
 
-                    const {bm, sourceToken, targetToken, pools, controller}
-                        = await BorrowManagerHelper.createBmTwoUnderlines(deployer, tt, templatePoolAdapter.address);
-                    const tc = await CoreContractsHelper.createTetuConverter(deployer, controller);
-                    const dm = await CoreContractsHelper.createDebtMonitor(deployer, controller);
-                    await controller.assignBatch(
-                      [await controller.tetuConverterKey(), await controller.debtMonitorKey()]
-                      , [tc.address, dm.address]
-                    );
-
-                    const core = new CoreContracts(controller, tc, bm, dm);
-
-                    const pool = pools[0].pool;
-                    const cToken = pools[0].underlineTocTokens.get(sourceToken.address) || "";
-                    const userContract = await MocksHelper.deployUserBorrowRepayUCs(user, core.controller);
-
-                    // we need to set up the pool adapter
-                    await core.bm.registerPoolAdapter(pool, userContract.address, sourceToken.address);
-                    const poolAdapter: string = await core.bm.getPoolAdapter(pool, userContract.address, sourceToken.address);
-                    const poolAdapterMock = PoolAdapterMock__factory.connect(poolAdapter, deployer);
-                    await poolAdapterMock.setUpMock(
-                        cToken,
-                        await controller.priceOracle(),
-                        await controller.debtMonitor(),
-                        getBigNumberFrom(tt.targetCollateralFactor*10, 17),
-                        [targetToken.address],
-                        [borrowRatePerBlock18]
-                    );
-                    console.log("poolAdapter-mock is configured:", poolAdapter, targetToken);
+                    const {core,  pool, cToken, userContract, sourceToken, targetToken, poolAdapter} =
+                        await prepareContracts(tt, user, borrowRatePerBlock18);
 
                     const contractsToInvestigate: ContractToInvestigate[] = [
                         {name: "userContract", contract: userContract.address},
@@ -271,9 +291,11 @@ describe("BorrowManager", () => {
                     await MockERC20__factory.connect(targetToken.address, deployer)
                         .mint(pool, availableBorrowLiquidity);
 
+                    // get balances before start
                     const before = await getBalances(contractsToInvestigate, tokensToInvestigate);
                     console.log("before", before);
 
+                    // borrow
                     await userContract.makeBorrowUS11(
                         sourceToken.address,
                         sourceAmount,
@@ -283,6 +305,7 @@ describe("BorrowManager", () => {
                         user
                     );
 
+                    // get result balances
                     const after = await getBalances(contractsToInvestigate, tokensToInvestigate);
                     console.log("after", after);
 
@@ -322,6 +345,116 @@ describe("BorrowManager", () => {
                         "poolAdapter", 0, 0, sourceAmount //!TODO: we assume exchange rate 1:1
 
                     ].map(x => toString(x)).join("\r");
+
+                    expect(ret).equal(expected);
+                });
+            });
+            describe("UC12, mock", () => {
+                it("should update balances in proper way", async () => {
+                    const user = ethers.Wallet.createRandom().address;
+                    const period = BLOCKS_PER_DAY * 31;
+                    const targetDecimals = 12;
+                    const sourceDecimals = 24;
+                    const sourceAmountNumber = 100_000;
+                    const availableBorrowLiquidityNumber = 200_000_000;
+                    const healthFactor = 2;
+                    const borrowRatePerBlock18 = getBigNumberFrom(1);
+                    const tt: IBmInputParams = {
+                        targetCollateralFactor: 0.8,
+                        priceSourceUSD: 0.1,
+                        priceTargetUSD: 4,
+                        sourceDecimals: sourceDecimals,
+                        targetDecimals: targetDecimals,
+                        sourceAmount: sourceAmountNumber,
+                        healthFactor: 4,
+                        availablePools: [
+                            {   // source, target
+                                borrowRateInTokens: [
+                                    getBigNumberFrom(0, targetDecimals),
+                                    getBigNumberFrom(1, targetDecimals - 6), //1e-6
+                                ],
+                                availableLiquidityInTokens: [0, availableBorrowLiquidityNumber]
+                            }
+                        ]
+                    };
+                    const sourceAmount = getBigNumberFrom(sourceAmountNumber, sourceDecimals);
+                    const availableBorrowLiquidity = getBigNumberFrom(availableBorrowLiquidityNumber, targetDecimals);
+
+                    const {core,  pool, cToken, userContract, sourceToken, targetToken, poolAdapter} =
+                        await prepareContracts(tt, user, borrowRatePerBlock18);
+
+                    const contractsToInvestigate: ContractToInvestigate[] = [
+                        {name: "userContract", contract: userContract.address},
+                        {name: "user", contract: user},
+                        {name: "pool", contract: pool},
+                        {name: "tc", contract: core.tc.address},
+                        {name: "poolAdapter", contract: poolAdapter},
+                    ];
+                    const tokensToInvestigate = [sourceToken.address, targetToken.address, cToken];
+
+                    // initialize balances
+                    await MockERC20__factory.connect(sourceToken.address, deployer)
+                        .mint(userContract.address, sourceAmount);
+                    await MockERC20__factory.connect(targetToken.address, deployer)
+                        .mint(pool, availableBorrowLiquidity);
+
+                    // get balances before start
+                    const before = await getBalances(contractsToInvestigate, tokensToInvestigate);
+                    console.log("before", before);
+
+                    // borrow
+                    await userContract.makeBorrowUS11(
+                        sourceToken.address,
+                        sourceAmount,
+                        targetToken.address,
+                        BigNumber.from(period),
+                        getBigNumberFrom(healthFactor * 10, 17),
+                        user
+                    );
+
+                    // repay back immediately
+                    const targetTokenAsUser = IERC20__factory.connect(targetToken.address
+                        , await DeployerUtils.startImpersonate(user)
+                    );
+                    await targetTokenAsUser.transfer(userContract.address
+                        , targetTokenAsUser.balanceOf(user)
+                    );
+
+                    // user receives collateral and transfers it back to UserContract to restore same state as before
+                    await userContract.makeRepayUS12(
+                        sourceToken.address,
+                        targetToken.address,
+                        user
+                    );
+                    const sourceTokenAsUser = IERC20__factory.connect(sourceToken.address
+                        , await DeployerUtils.startImpersonate(user)
+                    );
+                    await sourceTokenAsUser.transfer(userContract.address
+                        , sourceAmount
+                    );
+
+                    // get result balances
+                    const after = await getBalances(contractsToInvestigate, tokensToInvestigate);
+                    console.log("after", after);
+
+                    const ret = [...before, "after", ...after].map(x => toString(x)).join("\r");
+
+                    const beforeExpected = [
+                        //before
+                        //userContract, source, target, cToken
+                        "userContract", sourceAmount, 0, 0,
+                        //user: source, target, cToken
+                        "user", 0, 0, 0,
+                        //pool: source, target, cToken
+                        "pool", 0, availableBorrowLiquidity, 0,
+                        //tc: source, target, cToken
+                        "tc", 0, 0, 0,
+                        //pa: source, target, cToken
+                        "poolAdapter", 0, 0, 0,
+                    ];
+
+                    // balances should be restarted in exactly same state as they were before the borrow
+                    const expected = [...beforeExpected, "after", ...beforeExpected].map(x => toString(x)).join("\r");
 
                     expect(ret).equal(expected);
                 });

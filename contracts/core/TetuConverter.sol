@@ -13,6 +13,7 @@ import "../interfaces/IPlatformAdapter.sol";
 import "../core/DataTypes.sol";
 import "../interfaces/IPoolAdapter.sol";
 import "../interfaces/IController.sol";
+import "../interfaces/IDebtsMonitor.sol";
 
 /// @notice Main application contract
 contract TetuConverter is ITetuConverter {
@@ -154,9 +155,7 @@ contract TetuConverter is ITetuConverter {
     address[] memory outPoolAdapters,
     uint[] memory outAmountsToPay
   ) {
-
-
-    return (outCountItems, outPoolAdapters, outAmountsToPay);
+    return _dm().findBorrows(msg.sender, collateralToken_, borrowedToken_);
   }
 
   ///////////////////////////////////////////////////////
@@ -164,6 +163,10 @@ contract TetuConverter is ITetuConverter {
   ///////////////////////////////////////////////////////
   function _bm() internal view returns (IBorrowManager) {
     return IBorrowManager(controller.borrowManager());
+  }
+
+  function _dm() internal view returns (IDebtMonitor) {
+    return IDebtMonitor(controller.debtMonitor());
   }
 }
 

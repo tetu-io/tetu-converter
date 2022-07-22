@@ -194,6 +194,38 @@ contract DebtMonitor is IDebtMonitor {
   }
 
   ///////////////////////////////////////////////////////
+  ///      Get active borrows of the given user
+  ///////////////////////////////////////////////////////
+  function findBorrows (
+    address user_,
+    address collateralToken_,
+    address borrowedToken_
+  ) external view override returns (
+    uint outCountItems,
+    address[] memory outPoolAdapters,
+    uint[] memory outAmountsToPay
+  ) {
+    address[] memory adapters = userToAdapters[user_];
+    uint countAdapters = adapters.length;
+
+    outPoolAdapters = new address[](countAdapters);
+    outAmountsToPay = new uint[](countAdapters);
+
+    for (uint i = 0; i < countAdapters; ++i) {
+      IPoolAdapter pa = IPoolAdapter(adapters[i]);
+      uint amountToRepay = pa.getAmountToRepay(borrowedToken_);
+      if (amountToRepay != 0) {
+        outPoolAdapters[outCountItems] = adapters[i];
+        outAmountsToPay[outCountItems] = amountToRepay;
+        outCountItems++;
+      }
+    }
+
+    return (outCountItems, outPoolAdapters, outAmountsToPay);
+  }
+
+
+  ///////////////////////////////////////////////////////
   ///               Utils
   ///////////////////////////////////////////////////////
 

@@ -35,5 +35,4 @@ interface IBorrowManager is IPoolAdaptersManager {
     address outPlatformAdapter,
     bool outIsLendingPlatform
   );
-
 }

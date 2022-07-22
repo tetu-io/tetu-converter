@@ -66,11 +66,14 @@ contract UserBorrowRepayUCs {
     address borrowedToken_,
     address receiver_
   ) external {
+    console.log("makeRepayUS12.1");
     (uint count, address[] memory poolAdapters, uint[] memory amounts)
       = _tc().findBorrows(collateralToken_, borrowedToken_);
+    console.log("makeRepayUS12.2 count=%d", count);
     for (uint i = 0; i < count; ++i) {
       // transfer borrowed amount to Pool Adapter
       IERC20(borrowedToken_).transfer(poolAdapters[i], amounts[i]);
+      console.log("makeRepayUS12.3 borrowedToken_=%s amount=%d", borrowedToken_, amounts[i]);
 
       // repay borrowed amount and receive collateral to receiver's balance
       IPoolAdapter(poolAdapters[i]).repay(
