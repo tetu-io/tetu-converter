@@ -97,6 +97,10 @@ export class BorrowManagerHelper {
         const sourceToken = underlines[0];
         const targetToken = underlines[1];
 
+        await controller.assignBatch(
+            [await controller.borrowManagerKey()], [bm.address]
+        );
+
         return {bm, sourceToken, targetToken, pools, controller};
     }
 

@@ -134,6 +134,8 @@ contract TetuConverter is ITetuConverter {
     address[] memory outPoolAdapters,
     uint[] memory outAmountsToPay
   ) {
+
+
     return (outCountItems, outPoolAdapters, outAmountsToPay);
   }
 

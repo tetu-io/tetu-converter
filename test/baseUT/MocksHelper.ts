@@ -16,6 +16,12 @@ import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import {BigNumber} from "ethers";
 import {ethers} from "hardhat";
 
+export interface IPooAdapterStabInitParams {
+    pool: string;
+    user: string;
+    collateralUnderline: string;
+}
+
 /** Helper to create mock contracts */
 export class MocksHelper {
 //region Adapters
@@ -69,12 +75,19 @@ export class MocksHelper {
     /** Simple mock - all params are set through constructor */
     public static async createPoolAdapterStab(
         signer: SignerWithAddress,
-        collateralFactorValue: BigNumber
+        collateralFactorValue: BigNumber,
+        initParams?: IPooAdapterStabInitParams
     ) : Promise<PoolAdapterStab> {
-        return (await DeployUtils.deployContract(signer
+        const dest = (await DeployUtils.deployContract(signer
             , "PoolAdapterStab"
             , collateralFactorValue
         )) as PoolAdapterStab;
+
+        if (initParams) {
+            await dest.initialize(initParams.pool, initParams.user, initParams.collateralUnderline);
+        }
+
+        return dest;
     }
 //endregion Adapters
 

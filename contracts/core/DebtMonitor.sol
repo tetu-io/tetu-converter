@@ -19,6 +19,9 @@ contract DebtMonitor is IDebtMonitor {
   /// @dev All these pool adapters should be enumerated during health-checking
   address[] public poolAdapters;
 
+  /// @notice user => pool-adapters
+  mapping(address => address[]) public userToAdapters;
+
   /// @notice pool adapter => borrowed token => amount of cTokens
   mapping(address => mapping(address => uint)) public activeCollaterals;
 
@@ -61,6 +64,7 @@ contract DebtMonitor is IDebtMonitor {
       // add new pool adapter
       poolAdapters.push(msg.sender);
       cTokensForPoolAdapters[msg.sender] = cToken_;
+      userToAdapters[IPoolAdapter(msg.sender).user()].push(msg.sender);
 
       // set initial amount for the new position
       activeCollaterals[msg.sender][borrowedToken_] = amountReceivedCTokens_;
@@ -109,6 +113,7 @@ contract DebtMonitor is IDebtMonitor {
       registeredBorrowTokens[borrower][borrowedToken_] = false;
     }
     if (removePool) {
+      _removeItemFromArray(userToAdapters[IPoolAdapter(borrower).user()], borrower);
       _removeItemFromArray(poolAdapters, borrower);
       cTokensForPoolAdapters[borrower] = address(0);
     }
@@ -248,5 +253,9 @@ contract DebtMonitor is IDebtMonitor {
 
   function borrowedTokensLength(address poolAdapter) external view returns (uint) {
     return borrowedTokens[poolAdapter].length;
+  }
+
+  function userToAdaptersLength(address user) external view returns (uint) {
+    return userToAdapters[user].length;
   }
 }

@@ -80,7 +80,15 @@ describe("DebtsMonitor", () => {
                 it("should set expected state", async () => {
                     const cToken = ethers.Wallet.createRandom().address;
                     const borrowedToken = ethers.Wallet.createRandom().address;
-                    const poolAdapter = ethers.Wallet.createRandom().address;
+                    const user = ethers.Wallet.createRandom().address;
+                    const poolAdapter = (await MocksHelper.createPoolAdapterStab(deployer
+                        , BigNumber.from(1)
+                        , {
+                            pool: ethers.Wallet.createRandom().address,
+                            user: user,
+                            collateralUnderline: ethers.Wallet.createRandom().address
+                        }
+                    )).address;
                     const amountCTokens = getBigNumberFrom(999);
 
                     const dmAsPa = await getDmAsFirstPA(poolAdapter);
@@ -90,7 +98,8 @@ describe("DebtsMonitor", () => {
                         (await dmAsPa.activeCollaterals(poolAdapter, borrowedToken)).toString(),
                         await dmAsPa.borrowedTokensLength(poolAdapter),
                         await dmAsPa.cTokensForPoolAdapters(poolAdapter),
-                        await dmAsPa.registeredBorrowTokens(poolAdapter, borrowedToken)
+                        await dmAsPa.registeredBorrowTokens(poolAdapter, borrowedToken),
+                        await dmAsPa.userToAdaptersLength(user),
                     ];
 
                     await dmAsPa.onBorrow(cToken, amountCTokens, borrowedToken);
@@ -102,14 +111,16 @@ describe("DebtsMonitor", () => {
                         await dmAsPa.borrowedTokensLength(poolAdapter),
                         await dmAsPa.borrowedTokens(poolAdapter, 0),
                         await dmAsPa.cTokensForPoolAdapters(poolAdapter),
-                        await dmAsPa.registeredBorrowTokens(poolAdapter, borrowedToken)
+                        await dmAsPa.registeredBorrowTokens(poolAdapter, borrowedToken),
+                        await dmAsPa.userToAdaptersLength(user),
+                        await dmAsPa.userToAdapters(user, 0)
                     ];
 
-                    const ret = [...before, ...after].join();
+                    const ret = [...before, ...after].join("\n");
 
                     const expected = [
                         //before
-                        0, 0, 0, Misc.ZERO_ADDRESS, false,
+                        0, 0, 0, Misc.ZERO_ADDRESS, false, 0,
                         //after
                         poolAdapter
                         , 1
@@ -118,7 +129,9 @@ describe("DebtsMonitor", () => {
                         , borrowedToken
                         , cToken
                         , true
-                    ].join();
+                        , 1
+                        , poolAdapter
+                    ].join("\n");
 
                     expect(ret).equal(expected);
                 });
@@ -127,9 +140,18 @@ describe("DebtsMonitor", () => {
                 it("should combine two borrows to single amount", async () => {
                     const cToken = ethers.Wallet.createRandom().address;
                     const borrowedToken = ethers.Wallet.createRandom().address;
-                    const poolAdapter = ethers.Wallet.createRandom().address;
                     const amountCTokens1 = getBigNumberFrom(999);
                     const amountCTokens2 = getBigNumberFrom(777);
+                    const user = ethers.Wallet.createRandom().address;
+                    const poolAdapter = (await MocksHelper.createPoolAdapterStab(deployer
+                        , BigNumber.from(1)
+                        , {
+                            pool: ethers.Wallet.createRandom().address,
+                            user: user,
+                            collateralUnderline: ethers.Wallet.createRandom().address
+                        }
+                    )).address;
+
 
                     const dmAsPa = await getDmAsFirstPA(poolAdapter);
 
@@ -138,7 +160,8 @@ describe("DebtsMonitor", () => {
                         (await dmAsPa.activeCollaterals(poolAdapter, borrowedToken)).toString(),
                         await dmAsPa.borrowedTokensLength(poolAdapter),
                         await dmAsPa.cTokensForPoolAdapters(poolAdapter),
-                        await dmAsPa.registeredBorrowTokens(poolAdapter, borrowedToken)
+                        await dmAsPa.registeredBorrowTokens(poolAdapter, borrowedToken),
+                        await dmAsPa.userToAdaptersLength(user),
                     ];
 
                     // make two borrows one by one
@@ -152,14 +175,16 @@ describe("DebtsMonitor", () => {
                         await dmAsPa.borrowedTokensLength(poolAdapter),
                         await dmAsPa.borrowedTokens(poolAdapter, 0),
                         await dmAsPa.cTokensForPoolAdapters(poolAdapter),
-                        await dmAsPa.registeredBorrowTokens(poolAdapter, borrowedToken)
+                        await dmAsPa.registeredBorrowTokens(poolAdapter, borrowedToken),
+                        await dmAsPa.userToAdaptersLength(user),
+                        await dmAsPa.userToAdapters(user, 0)
                     ];
 
-                    const ret = [...before, ...after].join();
+                    const ret = [...before, ...after].join("\n");
 
                     const expected = [
                         //before
-                        0, 0, 0, Misc.ZERO_ADDRESS, false,
+                        0, 0, 0, Misc.ZERO_ADDRESS, false, 0,
                         //after
                         poolAdapter
                         , 1
@@ -168,7 +193,9 @@ describe("DebtsMonitor", () => {
                         , borrowedToken
                         , cToken
                         , true
-                    ].join();
+                        , 1
+                        , poolAdapter
+                    ].join("\n");
 
                     expect(ret).equal(expected);
                 });
@@ -178,9 +205,17 @@ describe("DebtsMonitor", () => {
                     const cToken = ethers.Wallet.createRandom().address;
                     const borrowedToken1 = ethers.Wallet.createRandom().address;
                     const borrowedToken2 = ethers.Wallet.createRandom().address;
-                    const poolAdapter = ethers.Wallet.createRandom().address;
                     const amountCTokens1 = getBigNumberFrom(999);
                     const amountCTokens2 = getBigNumberFrom(777);
+                    const user = ethers.Wallet.createRandom().address;
+                    const poolAdapter = (await MocksHelper.createPoolAdapterStab(deployer
+                        , BigNumber.from(1)
+                        , {
+                            pool: ethers.Wallet.createRandom().address,
+                            user: user,
+                            collateralUnderline: ethers.Wallet.createRandom().address
+                        }
+                    )).address;
 
                     const dmAsPa = await getDmAsFirstPA(poolAdapter);
 
@@ -191,7 +226,8 @@ describe("DebtsMonitor", () => {
                         await dmAsPa.borrowedTokensLength(poolAdapter),
                         await dmAsPa.cTokensForPoolAdapters(poolAdapter),
                         await dmAsPa.registeredBorrowTokens(poolAdapter, borrowedToken1),
-                        await dmAsPa.registeredBorrowTokens(poolAdapter, borrowedToken2)
+                        await dmAsPa.registeredBorrowTokens(poolAdapter, borrowedToken2),
+                        await dmAsPa.userToAdaptersLength(user),
                     ];
 
                     // make two borrows one by one
@@ -208,14 +244,16 @@ describe("DebtsMonitor", () => {
                         await dmAsPa.borrowedTokens(poolAdapter, 1),
                         await dmAsPa.cTokensForPoolAdapters(poolAdapter),
                         await dmAsPa.registeredBorrowTokens(poolAdapter, borrowedToken1),
-                        await dmAsPa.registeredBorrowTokens(poolAdapter, borrowedToken2)
+                        await dmAsPa.registeredBorrowTokens(poolAdapter, borrowedToken2),
+                        await dmAsPa.userToAdaptersLength(user),
+                        await dmAsPa.userToAdapters(user, 0)
                     ];
 
-                    const ret = [...before, ...after].join();
+                    const ret = [...before, ...after].join("\n");
 
                     const expected = [
                         //before
-                        0, 0, 0, 0, Misc.ZERO_ADDRESS, false, false,
+                        0, 0, 0, 0, Misc.ZERO_ADDRESS, false, false, 0,
                         //after
                         poolAdapter
                         , 1
@@ -227,7 +265,9 @@ describe("DebtsMonitor", () => {
                         , cToken
                         , true
                         , true
-                    ].join();
+                        , 1
+                        , poolAdapter
+                    ].join("\n");
 
                     expect(ret).equal(expected);
                 });
@@ -239,12 +279,27 @@ describe("DebtsMonitor", () => {
                     const borrowedToken12 = ethers.Wallet.createRandom().address;
                     const borrowedToken21 = ethers.Wallet.createRandom().address;
                     const borrowedToken22 = ethers.Wallet.createRandom().address;
-                    const poolAdapter1 = ethers.Wallet.createRandom().address;
-                    const poolAdapter2 = ethers.Wallet.createRandom().address;
                     const amountCTokens11 = getBigNumberFrom(999);
                     const amountCTokens12 = getBigNumberFrom(777);
                     const amountCTokens21 = getBigNumberFrom(4147);
                     const amountCTokens22 = getBigNumberFrom(1313);
+                    const user = ethers.Wallet.createRandom().address;
+                    const poolAdapter1 = (await MocksHelper.createPoolAdapterStab(deployer
+                        , BigNumber.from(1)
+                        , {
+                            pool: ethers.Wallet.createRandom().address,
+                            user: user,
+                            collateralUnderline: ethers.Wallet.createRandom().address
+                        }
+                    )).address;
+                    const poolAdapter2 = (await MocksHelper.createPoolAdapterStab(deployer
+                        , BigNumber.from(1)
+                        , {
+                            pool: ethers.Wallet.createRandom().address,
+                            user: user,
+                            collateralUnderline: ethers.Wallet.createRandom().address
+                        }
+                    )).address;
 
                     const dmAsPa1 = await getDmAsFirstPA(poolAdapter1, poolAdapter2);
                     const dmAsPa2 = DebtMonitor__factory.connect(
@@ -268,7 +323,9 @@ describe("DebtsMonitor", () => {
                         await dmAsPa2.borrowedTokensLength(poolAdapter2),
                         await dmAsPa2.cTokensForPoolAdapters(poolAdapter2),
                         await dmAsPa2.registeredBorrowTokens(poolAdapter2, borrowedToken21),
-                        await dmAsPa2.registeredBorrowTokens(poolAdapter2, borrowedToken22)
+                        await dmAsPa2.registeredBorrowTokens(poolAdapter2, borrowedToken22),
+
+                        await dmAsPa1.userToAdaptersLength(user),
                     ];
 
                     // each PA makes 2 borrows
@@ -299,15 +356,20 @@ describe("DebtsMonitor", () => {
                         await dmAsPa2.borrowedTokens(poolAdapter2, 1),
                         await dmAsPa2.cTokensForPoolAdapters(poolAdapter2),
                         await dmAsPa2.registeredBorrowTokens(poolAdapter2, borrowedToken21),
-                        await dmAsPa2.registeredBorrowTokens(poolAdapter2, borrowedToken22)
+                        await dmAsPa2.registeredBorrowTokens(poolAdapter2, borrowedToken22),
+
+                        await dmAsPa1.userToAdaptersLength(user),
+                        await dmAsPa1.userToAdapters(user, 0),
+                        await dmAsPa1.userToAdapters(user, 1),
                     ];
 
-                    const ret = [...before, ...after].join();
+                    const ret = [...before, ...after].join("\n");
 
                     const expected = [
                         //before
                         0, 0, 0, 0, Misc.ZERO_ADDRESS, false, false,
                         0, 0, 0, 0, Misc.ZERO_ADDRESS, false, false,
+                        0,
                         //after, PA1
                         poolAdapter1
                         , 2
@@ -330,7 +392,11 @@ describe("DebtsMonitor", () => {
                         , cToken
                         , true
                         , true
-                    ].join();
+
+                        , 2
+                        , poolAdapter1
+                        , poolAdapter2
+                    ].join("\n");
 
                     expect(ret).equal(expected);
                 });
@@ -351,7 +417,15 @@ describe("DebtsMonitor", () => {
                 it("should set expected state", async () => {
                     const cToken = ethers.Wallet.createRandom().address;
                     const borrowedToken = ethers.Wallet.createRandom().address;
-                    const poolAdapter = ethers.Wallet.createRandom().address;
+                    const user = ethers.Wallet.createRandom().address;
+                    const poolAdapter = (await MocksHelper.createPoolAdapterStab(deployer
+                        , BigNumber.from(1)
+                        , {
+                            pool: ethers.Wallet.createRandom().address,
+                            user: user,
+                            collateralUnderline: ethers.Wallet.createRandom().address
+                        }
+                    )).address;
                     const amountCTokens = getBigNumberFrom(999);
 
                     const dmAsPa = await getDmAsFirstPA(poolAdapter);
@@ -365,7 +439,9 @@ describe("DebtsMonitor", () => {
                         await dmAsPa.borrowedTokensLength(poolAdapter),
                         await dmAsPa.borrowedTokens(poolAdapter, 0),
                         await dmAsPa.cTokensForPoolAdapters(poolAdapter),
-                        await dmAsPa.registeredBorrowTokens(poolAdapter, borrowedToken)
+                        await dmAsPa.registeredBorrowTokens(poolAdapter, borrowedToken),
+                        await dmAsPa.userToAdaptersLength(user),
+                        await dmAsPa.userToAdapters(user, 0),
                     ];
 
                     await dmAsPa.onRepay(cToken, amountCTokens, borrowedToken);
@@ -375,10 +451,11 @@ describe("DebtsMonitor", () => {
                         (await dmAsPa.activeCollaterals(poolAdapter, borrowedToken)).toString(),
                         await dmAsPa.borrowedTokensLength(poolAdapter),
                         await dmAsPa.cTokensForPoolAdapters(poolAdapter),
-                        await dmAsPa.registeredBorrowTokens(poolAdapter, borrowedToken)
+                        await dmAsPa.registeredBorrowTokens(poolAdapter, borrowedToken),
+                        await dmAsPa.userToAdaptersLength(user),
                     ];
 
-                    const ret = [...before, ...after].join();
+                    const ret = [...before, ...after].join("\n");
 
                     const expected = [
                         //before
@@ -388,10 +465,11 @@ describe("DebtsMonitor", () => {
                         , 1
                         , borrowedToken
                         , cToken
-                        , true,
+                        , true
+                        , 1, poolAdapter,
                         //after
-                        0, 0, 0, Misc.ZERO_ADDRESS, false,
-                    ].join();
+                        0, 0, 0, Misc.ZERO_ADDRESS, false, 0
+                    ].join("\n");
 
                     expect(ret).equal(expected);
                 });
@@ -401,7 +479,17 @@ describe("DebtsMonitor", () => {
                     it("should combine two borrows to single amount", async () => {
                         const cToken = ethers.Wallet.createRandom().address;
                         const borrowedToken = ethers.Wallet.createRandom().address;
-                        const poolAdapter = ethers.Wallet.createRandom().address;
+
+                        const user = ethers.Wallet.createRandom().address;
+                        const poolAdapter = (await MocksHelper.createPoolAdapterStab(deployer
+                            , BigNumber.from(1)
+                            , {
+                                pool: ethers.Wallet.createRandom().address,
+                                user: user,
+                                collateralUnderline: ethers.Wallet.createRandom().address
+                            }
+                        )).address;
+
                         const amountCTokens1 = getBigNumberFrom(999);
                         const amountCTokens2 = getBigNumberFrom(777);
 
@@ -418,7 +506,9 @@ describe("DebtsMonitor", () => {
                             await dmAsPa.borrowedTokensLength(poolAdapter),
                             await dmAsPa.borrowedTokens(poolAdapter, 0),
                             await dmAsPa.cTokensForPoolAdapters(poolAdapter),
-                            await dmAsPa.registeredBorrowTokens(poolAdapter, borrowedToken)
+                            await dmAsPa.registeredBorrowTokens(poolAdapter, borrowedToken),
+                            await dmAsPa.userToAdaptersLength(user),
+                            await dmAsPa.userToAdapters(user, 0),
                         ];
 
                         // repay borrow 1 only
@@ -431,10 +521,12 @@ describe("DebtsMonitor", () => {
                             await dmAsPa.borrowedTokensLength(poolAdapter),
                             await dmAsPa.borrowedTokens(poolAdapter, 0),
                             await dmAsPa.cTokensForPoolAdapters(poolAdapter),
-                            await dmAsPa.registeredBorrowTokens(poolAdapter, borrowedToken)
+                            await dmAsPa.registeredBorrowTokens(poolAdapter, borrowedToken),
+                            await dmAsPa.userToAdaptersLength(user),
+                            await dmAsPa.userToAdapters(user, 0),
                         ];
 
-                        const ret = [...before, ...after].join();
+                        const ret = [...before, ...after].join("\n");
 
                         const expected = [
                             //before
@@ -445,6 +537,8 @@ describe("DebtsMonitor", () => {
                             , borrowedToken
                             , cToken
                             , true
+                            , 1
+                            , poolAdapter
                             //after
                             , poolAdapter
                             , 1
@@ -453,7 +547,9 @@ describe("DebtsMonitor", () => {
                             , borrowedToken
                             , cToken
                             , true
-                        ].join();
+                            , 1
+                            , poolAdapter
+                        ].join("\n");
 
                         expect(ret).equal(expected);
                     });
@@ -465,7 +561,15 @@ describe("DebtsMonitor", () => {
                         const cToken = ethers.Wallet.createRandom().address;
                         const borrowedToken1 = ethers.Wallet.createRandom().address;
                         const borrowedToken2 = ethers.Wallet.createRandom().address;
-                        const poolAdapter = ethers.Wallet.createRandom().address;
+                        const user = ethers.Wallet.createRandom().address;
+                        const poolAdapter = (await MocksHelper.createPoolAdapterStab(deployer
+                            , BigNumber.from(1)
+                            , {
+                                pool: ethers.Wallet.createRandom().address,
+                                user: user,
+                                collateralUnderline: ethers.Wallet.createRandom().address
+                            }
+                        )).address;
                         const amountCTokens1 = getBigNumberFrom(999);
                         const amountCTokens2 = getBigNumberFrom(777);
 
@@ -485,7 +589,9 @@ describe("DebtsMonitor", () => {
                             await dmAsPa.borrowedTokens(poolAdapter, 1),
                             await dmAsPa.cTokensForPoolAdapters(poolAdapter),
                             await dmAsPa.registeredBorrowTokens(poolAdapter, borrowedToken1),
-                            await dmAsPa.registeredBorrowTokens(poolAdapter, borrowedToken2)
+                            await dmAsPa.registeredBorrowTokens(poolAdapter, borrowedToken2),
+                            await dmAsPa.userToAdaptersLength(user),
+                            await dmAsPa.userToAdapters(user, 0),
                         ];
 
                         // repay second borrow only
@@ -500,9 +606,11 @@ describe("DebtsMonitor", () => {
                             await dmAsPa.borrowedTokens(poolAdapter, 0),
                             await dmAsPa.cTokensForPoolAdapters(poolAdapter),
                             await dmAsPa.registeredBorrowTokens(poolAdapter, borrowedToken1),
-                            await dmAsPa.registeredBorrowTokens(poolAdapter, borrowedToken2)
+                            await dmAsPa.registeredBorrowTokens(poolAdapter, borrowedToken2),
+                            await dmAsPa.userToAdaptersLength(user),
+                            await dmAsPa.userToAdapters(user, 0),
                         ];
-                        const ret = [...before, ...after].join();
+                        const ret = [...before, ...after].join("\n");
 
                         const expected = [
                             //before
@@ -516,6 +624,8 @@ describe("DebtsMonitor", () => {
                             , cToken
                             , true
                             , true
+                            , 1
+                            , poolAdapter
                             //after
                             , poolAdapter
                             , 1
@@ -526,7 +636,9 @@ describe("DebtsMonitor", () => {
                             , cToken
                             , false
                             , true
-                        ].join();
+                            , 1
+                            , poolAdapter
+                        ].join("\n");
 
                         expect(ret).equal(expected);
                     });
@@ -536,7 +648,15 @@ describe("DebtsMonitor", () => {
                         const cToken = ethers.Wallet.createRandom().address;
                         const borrowedToken1 = ethers.Wallet.createRandom().address;
                         const borrowedToken2 = ethers.Wallet.createRandom().address;
-                        const poolAdapter = ethers.Wallet.createRandom().address;
+                        const user = ethers.Wallet.createRandom().address;
+                        const poolAdapter = (await MocksHelper.createPoolAdapterStab(deployer
+                            , BigNumber.from(1)
+                            , {
+                                pool: ethers.Wallet.createRandom().address,
+                                user: user,
+                                collateralUnderline: ethers.Wallet.createRandom().address
+                            }
+                        )).address;
                         const amountCTokens1 = getBigNumberFrom(999);
                         const amountCTokens2 = getBigNumberFrom(777);
 
@@ -556,7 +676,9 @@ describe("DebtsMonitor", () => {
                             await dmAsPa.borrowedTokens(poolAdapter, 1),
                             await dmAsPa.cTokensForPoolAdapters(poolAdapter),
                             await dmAsPa.registeredBorrowTokens(poolAdapter, borrowedToken1),
-                            await dmAsPa.registeredBorrowTokens(poolAdapter, borrowedToken2)
+                            await dmAsPa.registeredBorrowTokens(poolAdapter, borrowedToken2),
+                            await dmAsPa.userToAdaptersLength(user),
+                            await dmAsPa.userToAdapters(user, 0),
                         ];
 
                         // repay second borrow only
@@ -571,9 +693,11 @@ describe("DebtsMonitor", () => {
                             await dmAsPa.borrowedTokens(poolAdapter, 0),
                             await dmAsPa.cTokensForPoolAdapters(poolAdapter),
                             await dmAsPa.registeredBorrowTokens(poolAdapter, borrowedToken1),
-                            await dmAsPa.registeredBorrowTokens(poolAdapter, borrowedToken2)
+                            await dmAsPa.registeredBorrowTokens(poolAdapter, borrowedToken2),
+                            await dmAsPa.userToAdaptersLength(user),
+                            await dmAsPa.userToAdapters(user, 0),
                         ];
-                        const ret = [...before, ...after].join();
+                        const ret = [...before, ...after].join("\n");
 
                         const expected = [
                             //before
@@ -587,6 +711,8 @@ describe("DebtsMonitor", () => {
                             , cToken
                             , true
                             , true
+                            , 1
+                            , poolAdapter
                             //after
                             , poolAdapter
                             , 1
@@ -597,7 +723,9 @@ describe("DebtsMonitor", () => {
                             , cToken
                             , true
                             , false
-                        ].join();
+                            , 1
+                            , poolAdapter
+                        ].join("\n");
 
                         expect(ret).equal(expected);
                     });

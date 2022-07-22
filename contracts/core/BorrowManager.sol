@@ -49,7 +49,7 @@ contract BorrowManager is BorrowManagerBase {
 
   /// @notice Platform adapter is a contract that "knows" how to work with the pool correctly.
   ///         pool => adapters ( 1 Platform adapter : N pools )
-  mapping(address => AdaptersForPlatform) public poolToPlatformAdapter;
+  mapping(address => AdaptersForPlatform) public poolToAdapter;
 
   /// @notice SourceToken => TargetToken => [all suitable pools]
   /// @dev SourceToken is always less then TargetToken
@@ -84,9 +84,9 @@ contract BorrowManager is BorrowManagerBase {
   external override {
     uint lenAssets = assets_.length;
 
-    require(poolToPlatformAdapter[pool_].platformAdapter == address(0), "Pool is already registered");
-    poolToPlatformAdapter[pool_].platformAdapter = platformAdapter_;
-    poolToPlatformAdapter[pool_].templatePoolAdapter = templatePoolAdapter_;
+    require(poolToAdapter[pool_].platformAdapter == address(0), "Pool is already registered");
+    poolToAdapter[pool_].platformAdapter = platformAdapter_;
+    poolToAdapter[pool_].templatePoolAdapter = templatePoolAdapter_;
 
     for (uint i = 0; i < lenAssets; i = _uncheckedInc(i)) {
       for (uint j = i + 1; j < lenAssets; j = _uncheckedInc(j)) {
@@ -169,7 +169,7 @@ contract BorrowManager is BorrowManagerBase {
     uint lenPools = pools.length;
     for (uint i = 0; i < lenPools; i = _uncheckedInc(i)) {
       address pool = pools[i];
-      address adapter = poolToPlatformAdapter[pool].platformAdapter;
+      address adapter = poolToAdapter[pool].platformAdapter;
 
       (uint rate18,
        uint pcf18,
@@ -204,14 +204,14 @@ contract BorrowManager is BorrowManagerBase {
     address outPlatformAdapter,
     bool outIsLendingPlatform
   ) {
-    AdaptersForPlatform memory aa = poolToPlatformAdapter[pool_];
+    AdaptersForPlatform memory aa = poolToAdapter[pool_];
     require(aa.platformAdapter != address(0), "wrong pool");
 
     return (aa.platformAdapter, aa.templatePoolAdapter == address(0));
   }
 
   function _getTemplatePoolAdapter(address pool_) internal view override returns (address) {
-    return poolToPlatformAdapter[pool_].templatePoolAdapter;
+    return poolToAdapter[pool_].templatePoolAdapter;
   }
 
   ///////////////////////////////////////////////////////

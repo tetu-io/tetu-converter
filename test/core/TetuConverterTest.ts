@@ -59,11 +59,11 @@ describe("BorrowManager", () => {
         borrowManager: BorrowManager,
         pools: PoolInstanceInfo[]
     }> {
-        const {bm, sourceToken, targetToken, pools}
+        const {bm, sourceToken, targetToken, pools, controller}
             = await BorrowManagerHelper.createBmTwoUnderlines(signer, tt);
 
         const tetuConveter = await DeployUtils.deployContract(signer
-            , "TetuConverter", bm.address) as TetuConverter;
+            , "TetuConverter", controller.address) as TetuConverter;
 
         return {tetuConveter, sourceToken, targetToken, borrowManager: bm, pools};
     }
@@ -83,19 +83,18 @@ describe("BorrowManager", () => {
                         const healthFactor = 2;
                         const input = BorrowManagerHelper.getBmInputParamsThreePools(bestBorrowRate);
 
-                        const {tetuConveter, sourceToken, targetToken} = await createTetuConverter(input);
+                        const data = await createTetuConverter(input);
 
-                        const ret = await tetuConveter.findBestConversionStrategy(
-                            sourceToken.address,
+                        const ret = await data.tetuConveter.findBestConversionStrategy(
+                            data.sourceToken.address,
                             sourceAmount,
-                            targetToken.address,
+                            data.targetToken.address,
                             getBigNumberFrom(healthFactor, 18),
                             period
                         );
 
                         const sret = [
                             ret.outPool,
-                            ret.outAdapter,
                             ret.outMaxTargetAmount,
                             ret.outInterest
                         ].join();
@@ -103,10 +102,9 @@ describe("BorrowManager", () => {
 
 
                         const sexpected = [
-                            "",
-                            "",
-                            0,
-                            0
+                            data.pools[0].pool,
+                            0, // TODO
+                            0  // TODO
                         ].join();
 
                         expect(sret).equal(sexpected);

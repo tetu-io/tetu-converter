@@ -98,7 +98,7 @@ export class CoreContractsHelper {
         );
 
         const templatePoolAdapter = templateAdapterPoolOptional
-            || (await MocksHelper.createPoolAdapterStab(signer, getBigNumberFrom(1))).toString();
+            || (await MocksHelper.createPoolAdapterStab(signer, getBigNumberFrom(1))).address;
 
         await bm.addPool(pool.address
             , platformAdapter.address
