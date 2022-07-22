@@ -34,7 +34,7 @@ contract BorrowManager is BorrowManagerBase {
   struct AdaptersForPlatform {
     /// @notice IPlatformAdapter implementation for the platform
     address platformAdapter;
-    /// @notice IPoolAdapter implementation for the platforms
+    /// @notice IPoolAdapter implementation for the platforms. 0 for DEX, not 0 for lending platforms
     /// @dev This contract provides source code for pool adapters cloned through minimal proxy template
     address templatePoolAdapter;
   }
@@ -47,9 +47,9 @@ contract BorrowManager is BorrowManagerBase {
   /// @dev Health factor < 1 produces liquidation immediately
   uint96 constant public MIN_HEALTH_FACTOR = 11e17; //TODO value?
 
-  /// @notice Adapter is a contract that "knows" how to work with the pool correctly.
-  /// @dev 1 Adapter : N pools
-  mapping(address => AdaptersForPlatform) public poolToAdapter;
+  /// @notice Platform adapter is a contract that "knows" how to work with the pool correctly.
+  ///         pool => adapters ( 1 Platform adapter : N pools )
+  mapping(address => AdaptersForPlatform) public poolToPlatformAdapter;
 
   /// @notice SourceToken => TargetToken => [all suitable pools]
   /// @dev SourceToken is always less then TargetToken
@@ -84,9 +84,9 @@ contract BorrowManager is BorrowManagerBase {
   external override {
     uint lenAssets = assets_.length;
 
-    require(poolToAdapter[pool_].platformAdapter == address(0), "Pool is already registered");
-    poolToAdapter[pool_].platformAdapter = platformAdapter_;
-    poolToAdapter[pool_].templatePoolAdapter = templatePoolAdapter_;
+    require(poolToPlatformAdapter[pool_].platformAdapter == address(0), "Pool is already registered");
+    poolToPlatformAdapter[pool_].platformAdapter = platformAdapter_;
+    poolToPlatformAdapter[pool_].templatePoolAdapter = templatePoolAdapter_;
 
     for (uint i = 0; i < lenAssets; i = _uncheckedInc(i)) {
       for (uint j = i + 1; j < lenAssets; j = _uncheckedInc(j)) {
@@ -169,7 +169,7 @@ contract BorrowManager is BorrowManagerBase {
     uint lenPools = pools.length;
     for (uint i = 0; i < lenPools; i = _uncheckedInc(i)) {
       address pool = pools[i];
-      address adapter = poolToAdapter[pool].platformAdapter;
+      address adapter = poolToPlatformAdapter[pool].platformAdapter;
 
       (uint rate18,
        uint pcf18,
@@ -200,17 +200,19 @@ contract BorrowManager is BorrowManagerBase {
   ///                  Getters
   ///////////////////////////////////////////////////////
 
-  function getPlatformAdapter(address pool_) external view override returns (address) {
-    address adapter = poolToAdapter[pool_].platformAdapter;
-    require(adapter != address(0), "wrong pool");
+  function getPlatformAdapter(address pool_) external view override returns (
+    address outPlatformAdapter,
+    bool outIsLendingPlatform
+  ) {
+    AdaptersForPlatform memory aa = poolToPlatformAdapter[pool_];
+    require(aa.platformAdapter != address(0), "wrong pool");
 
-    return adapter;
+    return (aa.platformAdapter, aa.templatePoolAdapter == address(0));
   }
 
   function _getTemplatePoolAdapter(address pool_) internal view override returns (address) {
-    return poolToAdapter[pool_].templatePoolAdapter;
+    return poolToPlatformAdapter[pool_].templatePoolAdapter;
   }
-
 
   ///////////////////////////////////////////////////////
   ///               Helper utils

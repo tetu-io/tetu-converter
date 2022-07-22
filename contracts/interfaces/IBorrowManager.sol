@@ -33,5 +33,9 @@ interface IBorrowManager is IPoolAdaptersManager {
     uint outMaxTargetAmount
   );
 
-  function getPlatformAdapter(address pool_) external view returns (address);
+  function getPlatformAdapter(address pool_) external view returns (
+    address outPlatformAdapter,
+    bool outIsLendingPlatform
+  );
+
 }
