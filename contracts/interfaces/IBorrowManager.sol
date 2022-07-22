@@ -23,12 +23,10 @@ interface IBorrowManager is IPoolAdaptersManager {
 
   /// @notice Find lending pool capable of providing {targetAmount} and having best normalized borrow rate
   /// @return outPool Result pool or 0 if a pool is not found
-  /// @return outAdapter implementation of IConverter that is able to work with outPool
   /// @return outBorrowRate Pool normalized borrow rate per ethereum block
   /// @return outMaxTargetAmount Max available amount of target tokens that we can borrow using {sourceAmount}
   function findPool(DataTypes.ExecuteFindPoolParams memory params) external view returns (
     address outPool,
-    address outAdapter,
     uint outBorrowRate,
     uint outMaxTargetAmount
   );

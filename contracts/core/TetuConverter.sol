@@ -69,7 +69,7 @@ contract TetuConverter is ITetuConverter {
     }
 
     {
-      (address pool,, uint br, uint mta) = _bm().findPool(findPoolParams);
+      (address pool, uint br, uint mta) = _bm().findPool(findPoolParams);
       if (pool == address(0)) {
         return (address(0), 0, 0);
       } else {

@@ -118,7 +118,6 @@ contract BorrowManager is BorrowManagerBase {
   ///////////////////////////////////////////////////////
   function findPool(DataTypes.ExecuteFindPoolParams memory p_) external view override returns (
     address outPool,
-    address outAdapter,
     uint outBorrowRate,
     uint outMaxTargetAmount
   ) {
@@ -139,7 +138,7 @@ contract BorrowManager is BorrowManagerBase {
       [p_.sourceToken < p_.targetToken ? p_.targetToken : p_.sourceToken];
 
     if (pools.length != 0) {
-      (outPool, outAdapter, outBorrowRate, outMaxTargetAmount) = _findPool(pools
+      (outPool, outBorrowRate, outMaxTargetAmount) = _findPool(pools
         , BorrowInput({
           targetToken: p_.targetToken,
           sourceAmount18: _toMantissa(p_.sourceAmount, uint16(IERC20Extended(p_.sourceToken).decimals()), 18),
@@ -153,13 +152,12 @@ contract BorrowManager is BorrowManagerBase {
       );
     }
 
-    return (outPool, outAdapter, outBorrowRate, outMaxTargetAmount);
+    return (outPool, outBorrowRate, outMaxTargetAmount);
   }
 
   /// @notice Enumerate all pools and select a pool suitable for borrowing with min borrow rate and enough underline
   function _findPool(address[] memory pools, BorrowInput memory pp) internal view returns (
     address outPool,
-    address outAdapter,
     uint outBorrowRate,
     uint outMaxTargetAmount
   ) {
@@ -185,14 +183,13 @@ contract BorrowManager is BorrowManagerBase {
         if (_toMantissa(pta, pp.targetDecimals, 18) >= resultTa18) {
           // take the pool with lowed borrow rate
           outPool = pool;
-          outAdapter = adapter;
           outBorrowRate = rate18;
           outMaxTargetAmount = _toMantissa(resultTa18, 18, pp.targetDecimals);
         }
       }
     }
 
-    return (outPool, outAdapter, outBorrowRate, outMaxTargetAmount);
+    return (outPool, outBorrowRate, outMaxTargetAmount);
   }
 
 
