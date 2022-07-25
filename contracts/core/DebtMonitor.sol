@@ -23,7 +23,7 @@ contract DebtMonitor is IDebtMonitor {
   mapping(address => address[]) public userToAdapters;
 
   /// @notice pool adapter => borrowed token => amount of cTokens
-  mapping(address => mapping(address => uint)) public activeCollaterals;
+  mapping(address => mapping(address => uint)) public override activeCollaterals;
 
   /// @notice pool adapter => borrowed tokens
   mapping(address => address[]) public borrowedTokens;
@@ -138,15 +138,16 @@ contract DebtMonitor is IDebtMonitor {
 
     // enumerate all pool adapters
     for (uint i = 0; i < count; i = _uncheckedInc(i)) {
-      outNextIndex0 = i + 1;
       IPoolAdapter pa = IPoolAdapter(poolAdapters[i]);
       (outCountBorrowedTokens, outBorrowedTokens) = _getUnhealthyTokens(pa, minAllowedHealthFactor);
       if (outCountBorrowedTokens != 0) {
         outPoolAdapter = poolAdapters[i];
+        outNextIndex0 = i + 1;
         break; // we have found first problem pool adapter
       }
     }
 
+    // we return outNextIndex0 = 0 if there are no unhealthy pool adapters
     return (outNextIndex0, outPoolAdapter, outCountBorrowedTokens, outBorrowedTokens);
   }
 
@@ -162,21 +163,22 @@ contract DebtMonitor is IDebtMonitor {
     // get a price of the collateral
     uint8 collateralDecimals = IERC20Extended(pa.collateralToken()).decimals();
     uint collateralPrice18 = _getPrice18(pa.collateralToken());
+    uint cf = pa.collateralFactor();
 
     // enumerate all borrowed tokens inside the pool adapter
-    (address[] memory bTokens,
+    (uint outCountItems,
+     address[] memory bTokens,
      uint[] memory collateralAmountsCT,
      uint[] memory amountsToPayBT
     ) = pa.getOpenedPositions();
 
-    uint lengthTokens = bTokens.length;
-    for (uint j = 0; j < lengthTokens; j = _uncheckedInc(j)) {
+    for (uint j = 0; j < outCountItems; j = _uncheckedInc(j)) {
       // calculate health factor for the borrowed token
       uint8 borrowedTokenDecimals = IERC20Extended(bTokens[j]).decimals();
       uint borrowedTokenPrice18 = _getPrice18(bTokens[j]);
 
       // HF = CollateralFactor * (CollateralAmount * CollateralPrice) / (AmountToPayBT * PriceBorrowedToken)
-      uint healthFactor = pa.collateralFactor()
+      uint healthFactor = cf
         * (_toMantissa(collateralAmountsCT[j], collateralDecimals, 18) * collateralPrice18)
         / (_toMantissa(amountsToPayBT[j], borrowedTokenDecimals, 18) * borrowedTokenPrice18);
 
@@ -184,7 +186,7 @@ contract DebtMonitor is IDebtMonitor {
         if (outCountBorrowedTokens == 0) {
           // lazy initialization of outBorrowedTokens
           // we should allocate memory for all remaining tokens
-          outBorrowedTokens = new address[](lengthTokens - j);
+          outBorrowedTokens = new address[](outCountItems - j);
         }
         outBorrowedTokens[outCountBorrowedTokens] = bTokens[j];
         outCountBorrowedTokens += 1;

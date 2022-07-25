@@ -202,18 +202,35 @@ contract PoolAdapterMock is IPoolAdapter {
   function _getAmountToRepay(address borrowedToken_) internal view returns (uint) {
     return _borrowedAmounts[borrowedToken_]
       + _borrowRates[borrowedToken_]
-      * _borrowedAmounts[borrowedToken_]
-      * _passedBlocks[borrowedToken_]
-      / 1e18
+        * _borrowedAmounts[borrowedToken_]
+        * _passedBlocks[borrowedToken_]
+        / 1e18 //br has decimals 18
     ;
   }
 
   function getOpenedPositions() external view override returns (
-    address[] memory borrowedTokens,
-    uint[] memory collateralAmountsCT,
-    uint[] memory amountsToPayBT
+    uint outCountItems,
+    address[] memory outBorrowedTokens,
+    uint[] memory outCollateralAmountsCT,
+    uint[] memory outAmountsToPayBT
   ) {
-    return (borrowedTokens, collateralAmountsCT, amountsToPayBT);
+    uint lengthTokens = _borrowTokens.length;
+
+    outBorrowedTokens = new address[](lengthTokens);
+    outCollateralAmountsCT = new uint[](lengthTokens);
+    outAmountsToPayBT = new uint[](lengthTokens);
+
+    for (uint i = 0; i < lengthTokens; ++i) {
+      uint amountToPay = _getAmountToRepay(_borrowTokens[i]);
+      if (amountToPay != 0) {
+        outBorrowedTokens[outCountItems] = _borrowTokens[i];
+        outCollateralAmountsCT[outCountItems] = _debtMonitor.activeCollaterals(address(this), _borrowTokens[i]);
+        outAmountsToPayBT[outCountItems] = amountToPay;
+        outCountItems += 1;
+      }
+    }
+
+    return (outCountItems, outBorrowedTokens, outCollateralAmountsCT, outAmountsToPayBT);
   }
 
   ///////////////////////////////////////////////////////

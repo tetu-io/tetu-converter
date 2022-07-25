@@ -65,10 +65,11 @@ contract PoolAdapterStab is IPoolAdapter {
   }
 
   function getOpenedPositions() external view override returns (
-    address[] memory borrowedTokens,
-    uint[] memory collateralAmountsCT,
-    uint[] memory amountsToPayBT
+    uint outCountItems,
+    address[] memory outBorrowedTokens,
+    uint[] memory outCollateralAmountsCT,
+    uint[] memory outAmountsToPayBT
   ) {
-    return (borrowedTokens, collateralAmountsCT, amountsToPayBT);
+    return (outCountItems, outBorrowedTokens, outCollateralAmountsCT, outAmountsToPayBT);
   }
 }

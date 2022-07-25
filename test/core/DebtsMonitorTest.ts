@@ -8,7 +8,7 @@ import {
     IPoolAdapter,
     IPoolAdapter__factory,
     MockERC20, MockERC20__factory, PoolAdapterMock,
-    PoolAdapterMock__factory
+    PoolAdapterMock__factory, PriceOracleMock, PriceOracleMock__factory
 } from "../../typechain";
 import {TimeUtils} from "../../scripts/utils/TimeUtils";
 import {BorrowManagerHelper, IBmInputParams} from "../baseUT/BorrowManagerHelper";
@@ -844,70 +844,247 @@ describe("DebtsMonitor", () => {
     });
 
     describe("getUnhealthyTokens", () => {
+
+        interface OldNewValue {
+            initial: number;
+            updated: number;
+        }
+
+        interface TestParams {
+            amountCollateral: number;
+            sourceDecimals: number;
+            targetDecimals: number;
+            amountToBorrow: number;
+            priceSourceUSD: OldNewValue;
+            priceTargetUSD: OldNewValue;
+            collateralFactor: OldNewValue;
+            countPassedBlocks: number;
+            borrowRate: number; // i.e. 1e-18
+        }
+
+        async function prepareTest(
+            pp: TestParams
+        ) : Promise<{
+            dm: DebtMonitor,
+            poolAdapterMock: PoolAdapterMock,
+            sourceToken: MockERC20,
+            targetToken: MockERC20,
+            userTC: string,
+            controller: Controller,
+            pool: string,
+            cTokenAddress: string,
+        }> {
+            const collateralFactor18 = getBigNumberFrom(pp.collateralFactor.initial * 10, 17);
+
+            const tt: IBmInputParams = {
+                targetCollateralFactor: pp.collateralFactor.initial,
+                priceSourceUSD: pp.priceSourceUSD.initial,
+                priceTargetUSD: pp.priceTargetUSD.initial,
+                sourceDecimals: pp.sourceDecimals,
+                targetDecimals: pp.targetDecimals,
+                availablePools: [{
+                    borrowRateInTokens: [0, getBigNumberFrom(1e18*pp.borrowRate)],
+                    availableLiquidityInTokens: [0, 200_000]
+                }]
+            };
+
+            const amountBorrowLiquidityInPool = getBigNumberFrom(1e10, tt.targetDecimals);
+
+            const {userTC, controller, sourceToken, targetToken, pool, cTokenAddress, poolAdapterMock} =
+                await preparePoolAdapter(tt);
+
+            const dm = DebtMonitor__factory.connect(await controller.debtMonitor(), deployer);
+
+            await poolAdapterMock.setUpMock(
+                cTokenAddress,
+                await controller.priceOracle(),
+                dm.address,
+                collateralFactor18,
+                [targetToken.address],
+                [getBigNumberFrom(1e18*pp.borrowRate)]
+            );
+
+            await makeBorrow(
+                userTC,
+                pool,
+                poolAdapterMock.address,
+                sourceToken,
+                targetToken,
+                amountBorrowLiquidityInPool,
+                getBigNumberFrom(pp.amountCollateral, tt.sourceDecimals),
+                getBigNumberFrom(pp.amountToBorrow, tt.targetDecimals)
+            );
+
+            const pam: PoolAdapterMock = PoolAdapterMock__factory.connect(poolAdapterMock.address
+                , deployer);
+            if (pp.collateralFactor.initial != pp.collateralFactor.updated) {
+                await pam.changeCollateralFactor(getBigNumberFrom(pp.collateralFactor.updated * 10, 17));
+                console.log("Collateral factor is changed from", pp.collateralFactor.initial
+                    , "to", pp.collateralFactor.updated);
+            }
+
+            await pam.setPassedBlocks(targetToken.address, pp.countPassedBlocks);
+
+            const priceOracle: PriceOracleMock = PriceOracleMock__factory.connect(
+                await controller.priceOracle()
+                , deployer
+            );
+            await priceOracle.changePrices(
+                [sourceToken.address, targetToken.address],
+                [
+                    getBigNumberFrom(pp.priceSourceUSD.updated * 10, 17)
+                    , getBigNumberFrom(pp.priceTargetUSD.updated * 10, 17)
+                ]
+            );
+
+            return {dm, poolAdapterMock, sourceToken, targetToken, userTC, controller, pool, cTokenAddress};
+        }
         describe("Good paths", () => {
             describe("Single borrowed token", () => {
                 describe("The token is healthy", () => {
-                    describe("Health factor == min", () => {
-                        it("should return empty", async () => {
-                            const priceSourceUSD = 0.1;
-                            const priceTargetUSD = 2;
-                            const collateralFactor18 = getBigNumberFrom(5, 17); // 0.5
-                            const borrowRatePerBlock18 = getBigNumberFrom(1, 10); // 0.01
-
-                            const tt: IBmInputParams = {
-                                targetCollateralFactor: 0.8,
-                                priceSourceUSD: priceSourceUSD || 0.1,
-                                priceTargetUSD: priceTargetUSD || 4,
-                                sourceDecimals: 24,
-                                targetDecimals: 12,
-                                availablePools: [
-                                    {   // source, target
-                                        borrowRateInTokens: [0, borrowRatePerBlock18],
-                                        availableLiquidityInTokens: [0, 200_000]
-                                    }
-                                ]
-                            };
-
-                            const amountBorrowLiquidityInPool = getBigNumberFrom(1e10, tt.targetDecimals);
-                            const amountCollateral = getBigNumberFrom(10000, tt.sourceDecimals);
-                            const amountToBorrow = getBigNumberFrom(100, tt.targetDecimals);
-
-                            const {userTC, controller, sourceToken, targetToken, pool, cTokenAddress, poolAdapterMock} =
-                                await preparePoolAdapter(tt);
-
-                            await poolAdapterMock.setUpMock(
-                                cTokenAddress,
-                                await controller.priceOracle(),
-                                await controller.debtMonitor(),
-                                collateralFactor18,
-                                [targetToken.address],
-                                [borrowRatePerBlock18]
-                            );
-
-                            await makeBorrow(
-                                userTC,
-                                pool,
-                                poolAdapterMock.address,
-                                sourceToken,
-                                targetToken,
-                                amountBorrowLiquidityInPool,
-                                amountCollateral,
-                                amountToBorrow
-                            );
-
-                            expect.fail("TODO");
-                        });
-                    });
                     describe("Health factor > min", () => {
                         it("should return empty", async () => {
-                            expect.fail("TODO");
+                            const index = 0;
+                            const count = 100; // find all pools
+                            const minAllowedHealthFactor = 2.0;
+
+                            const pp: TestParams = {
+                                amountCollateral:  10_000
+                                , sourceDecimals: 6
+                                , targetDecimals: 24
+                                , amountToBorrow: 1000
+                                , priceSourceUSD: {initial: 1, updated: 1}
+                                , priceTargetUSD: {initial: 2, updated: 2}
+                                , collateralFactor: {initial: 0.5, updated: 0.5}
+                                , countPassedBlocks: 0 // no debts
+                                , borrowRate: 1e-10
+                            }
+                            const {dm} = await prepareTest(pp);
+
+                            const expectedHealthFactor =
+                                pp.collateralFactor.updated
+                                * pp.priceSourceUSD.updated * pp.amountCollateral
+                                / (pp.priceTargetUSD.updated * pp.amountToBorrow + pp.borrowRate * pp.countPassedBlocks);
+                            console.log("Expected healthy factor", expectedHealthFactor);
+
+                            const ret = await dm.findFirstUnhealthyPoolAdapter(index, count
+                                , getBigNumberFrom(minAllowedHealthFactor * 10, 17)
+                            );
+
+                            const sret = [
+                                ret.outNextIndex0.toNumber(),
+                                ret.outCountBorrowedTokens.toNumber(),
+                                ret.outPoolAdapter,
+                                expectedHealthFactor > minAllowedHealthFactor
+                            ].join();
+
+                            const sexpected = [
+                                0,
+                                0,
+                                Misc.ZERO_ADDRESS,
+                                true
+                            ].join();
+
+                            expect(sret).equal(sexpected);
+                        });
+                    });
+                    describe("Health factor == min", () => {
+                        it("should return empty", async () => {
+                            const index = 0;
+                            const count = 100; // find all pools
+                            const minAllowedHealthFactor = 2.5;
+
+                            const pp: TestParams = {
+                                amountCollateral:  10_000
+                                , sourceDecimals: 6
+                                , targetDecimals: 24
+                                , amountToBorrow: 1000
+                                , priceSourceUSD: {initial: 1, updated: 1}
+                                , priceTargetUSD: {initial: 2, updated: 2}
+                                , collateralFactor: {initial: 0.5, updated: 0.5}
+                                , countPassedBlocks: 0 // no debts
+                                , borrowRate: 1e-10
+                            }
+                            const {dm} = await prepareTest(pp);
+
+                            const expectedHealthFactor =
+                                pp.collateralFactor.updated
+                                * pp.priceSourceUSD.updated * pp.amountCollateral
+                                / (pp.priceTargetUSD.updated * pp.amountToBorrow + pp.borrowRate * pp.countPassedBlocks);
+                            console.log("Expected healthy factor", expectedHealthFactor);
+
+                            const ret = await dm.findFirstUnhealthyPoolAdapter(index, count
+                                , getBigNumberFrom(minAllowedHealthFactor * 10, 17)
+                            );
+
+                            const sret = [
+                                ret.outNextIndex0.toNumber(),
+                                ret.outCountBorrowedTokens.toNumber(),
+                                ret.outPoolAdapter,
+                                expectedHealthFactor == minAllowedHealthFactor
+                            ].join();
+
+                            const sexpected = [
+                                0,
+                                0,
+                                Misc.ZERO_ADDRESS,
+                                true
+                            ].join();
+
+                            expect(sret).equal(sexpected);
                         });
                     });
                 });
                 describe("The token is unhealthy", () => {
-                    describe("Collateral factor is too low", () => {
+                    describe("Collateral factor is too high", () => {
                         it("should return the token", async () => {
-                            expect.fail("TODO");
+                            const index = 0;
+                            const count = 100; // find all pools
+                            const minAllowedHealthFactor = 2.5;
+
+                            const pp: TestParams = {
+                                amountCollateral:  10_000
+                                , sourceDecimals: 6
+                                , targetDecimals: 24
+                                , amountToBorrow: 1000
+                                , priceSourceUSD: {initial: 1, updated: 1}
+                                , priceTargetUSD: {initial: 2, updated: 2}
+                                , collateralFactor: {
+                                    initial: 0.5
+                                    , updated: 0.3  // (!) changed
+                                }
+                                , countPassedBlocks: 0 // no debts
+                                , borrowRate: 1e-10
+                            }
+                            const {dm, poolAdapterMock, sourceToken, targetToken} = await prepareTest(pp);
+
+                            const expectedHealthFactor =
+                                pp.collateralFactor.updated
+                                * pp.priceSourceUSD.updated * pp.amountCollateral
+                                / (pp.priceTargetUSD.updated * pp.amountToBorrow + pp.borrowRate * pp.countPassedBlocks);
+                            console.log("Expected healthy factor", expectedHealthFactor);
+
+                            const ret = await dm.findFirstUnhealthyPoolAdapter(index, count
+                                , getBigNumberFrom(minAllowedHealthFactor * 10, 17)
+                            );
+
+                            const sret = [
+                                ret.outNextIndex0.toNumber(),
+                                ret.outCountBorrowedTokens.toNumber(),
+                                ret.outPoolAdapter,
+                                ret.outBorrowedTokens[0],
+                                expectedHealthFactor < minAllowedHealthFactor
+                            ].join();
+
+                            const sexpected = [
+                                1,
+                                1,
+                                poolAdapterMock.address,
+                                targetToken.address,
+                                true
+                            ].join();
+
+                            expect(sret).equal(sexpected);
                         });
                     });
                     describe("Collateral is too cheap", () => {

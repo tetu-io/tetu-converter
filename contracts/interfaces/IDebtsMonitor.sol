@@ -18,7 +18,7 @@ interface IDebtMonitor {
   function onRepayBehalf(address borrower_, address cToken_, uint amountBurntCTokens_, address borrowedToken_) external;
 
   /// @notice Enumerate {count} pool adapters starting from {index0} and return first found unhealthy pool-adapter
-  /// @notice minAllowedHealthFactor Decimals 18
+  /// @param minAllowedHealthFactor Decimals 18
   /// @return outNextIndex0 Index of next pool to check
   ///                       0: there are no unhealthy pool-adapters in the range [index0, index0 + count)
   /// @return outPoolAdapter Unhealthy pool adapter
@@ -32,12 +32,14 @@ interface IDebtMonitor {
   );
 
   /// @notice Check health of all borrowed tokens in the pool adapter
-  /// @notice outCountBorrowedTokens Count of valid items inside {outBorrowedTokens}
-  /// @notice outBorrowedTokens All found unhealthy tokens. The number of valid items is {outCountBorrowedTokens}
+  /// @param outCountBorrowedTokens Count of valid items inside {outBorrowedTokens}
+  /// @param outBorrowedTokens All found unhealthy tokens. The number of valid items is {outCountBorrowedTokens}
   function getUnhealthyTokens(address poolAdapter_, uint minAllowedHealthFactor_)
   external
   view returns (uint outCountBorrowedTokens, address[] memory outBorrowedTokens);
 
+  /// @notice
+  function activeCollaterals(address poolAdapter, address borrowedToken) external view returns (uint);
 
     /// @notice Get total count of pool adapters with opened positions
   function getCountActivePoolAdapters() external view returns (uint);

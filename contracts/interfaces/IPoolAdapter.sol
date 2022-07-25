@@ -32,12 +32,14 @@ interface IPoolAdapter {
     address receiverCollateralAmount_
   ) external;
 
-  /// @return borrowedTokens List of borrowed tokens (BT)
-  /// @return collateralAmountsCT List of summary collateral amounts [in collateral tokens]
-  /// @return amountsToPayBT List of amounts that should be repay [in borrowed tokens] to return the collaterals
+  /// @return outCountItems Count of valid items in the output arrays
+  /// @return outBorrowedTokens List of borrowed tokens (BT)
+  /// @return outCollateralAmountsCT List of summary collateral amounts [in collateral tokens]
+  /// @return outAmountsToPayBT List of amounts that should be repay [in borrowed tokens] to return the collaterals
   function getOpenedPositions() external view returns (
-    address[] memory borrowedTokens,
-    uint[] memory collateralAmountsCT,
-    uint[] memory amountsToPayBT
+    uint outCountItems,
+    address[] memory outBorrowedTokens,
+    uint[] memory outCollateralAmountsCT,
+    uint[] memory outAmountsToPayBT
   );
 }
