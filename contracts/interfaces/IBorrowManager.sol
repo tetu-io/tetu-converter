@@ -7,6 +7,8 @@ import "./IPoolAdaptersManager.sol";
 
 /// @notice A facade for the set of available lending platforms
 interface IBorrowManager is IPoolAdaptersManager {
+
+  /// Register new lending/swap pool in the list of the active pools
   /// @param pool_ It's comptroller
   /// @param platformAdapter_ Implementation of IPlatformAdapter that knows how to work with the pool
   /// @param templatePoolAdapter_ Implementation of IPoolAdapter for the lending platform

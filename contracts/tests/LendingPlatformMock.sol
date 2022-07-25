@@ -58,28 +58,4 @@ contract LendingPlatformMock is IPlatformAdapter {
     availableCash = liquidity[pool][underline];
     borrowRatePerBlock = borrowRates[pool][underline];
   }
-
-  /// @notice Convert {sourceAmount_} to {targetAmount} using borrowing
-  /// @param sourceToken_ Input asset
-  /// @param sourceAmount_ TODO requirements
-  /// @param targetToken_ Target asset
-  /// @param targetAmount_ TODO requirements
-  /// @param receiver_ Receiver of cTokens
-  function openPosition (
-    address pool_,
-    address sourceToken_,
-    uint sourceAmount_,
-    address targetToken_,
-    uint targetAmount_,
-    address receiver_
-  ) external override {
-    //TODO _supplyAndBorrow(pool_, sourceToken_, sourceAmount_, targetToken_, targetAmount_);
-    //TODO: send borrowed amount to receiver
-  }
-
-  /// @notice save current balance to reserve before sending a collateral
-  /// @dev sync(), send collateral, openPosition()
-  function sync(address sourceToken) external override {
-    //TODO
-  }
 }

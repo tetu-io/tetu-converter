@@ -1,11 +1,10 @@
-// SPDX-License-Identifier: MIT
+import "../../interfaces/IPlatformAdapter.sol";
+import "../../openzeppelin/SafeERC20.sol";
+import "../../openzeppelin/IERC20.sol";
 
-pragma solidity 0.8.4;
-
-import "../core/DataTypes.sol";
-
-/// @notice A lending platform (AAVE, HF, etc). Allow to work with comptroller and any pool of the platform.
-interface IPlatformAdapter {
+/// @notice Adapter to read current pools info from AAVE-protocol, see https://docs.aave.com/hub/
+contract AavePlatformAdapter is IPlatformAdapter {
+  using SafeERC20 for IERC20;
 
   /// @notice Get pool data required to select best lending pool
   /// @param pool = comptroller
@@ -14,10 +13,12 @@ interface IPlatformAdapter {
   /// @return availableCash Available underline in the pool. 0 if the market is unlisted
   function getPoolInfo(address pool, address underline)
   external
-  view
-  returns (
+  view override returns (
     uint borrowRatePerBlock,
     uint collateralFactor,
     uint availableCash
-  );
+  ) {
+    //TODO
+    return (borrowRatePerBlock, collateralFactor, availableCash);
+  }
 }

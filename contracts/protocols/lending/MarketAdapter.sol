@@ -65,7 +65,7 @@ contract MarketAdapter is IPlatformAdapter {
     address targetToken_,
     uint targetAmount_,
     address receiver_
-  ) external override {
+  ) external {
     console.log("openPosition sourceToken_=%s sourceAmount_=%d", sourceToken_, sourceAmount_);
     console.log("openPosition targetToken_=%s targetAmount_=%d", targetToken_, targetAmount_);
 
@@ -81,7 +81,7 @@ contract MarketAdapter is IPlatformAdapter {
 
   /// @notice save current balance to reserve before sending a collateral
   /// @dev sync(), send collateral, openPosition()
-  function sync(address sourceToken) external override {
+  function sync(address sourceToken) external {
     reserves[sourceToken] = IERC20(sourceToken).balanceOf(address(this));
   }
 
