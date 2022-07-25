@@ -24,14 +24,22 @@ interface IDebtMonitor {
   /// @return outPoolAdapter Unhealthy pool adapter
   /// @return outCountBorrowedTokens Count of valid items in outBorrowedTokens
   /// @return outBorrowedTokens Borrow tokens that have bad healthy factors in the given pool adapter.
-  function findFirst(uint index0, uint count, uint minAllowedHealthFactor) external view returns (
+  function findFirstUnhealthyPoolAdapter(uint index0, uint count, uint minAllowedHealthFactor) external view returns (
       uint outNextIndex0,
       address outPoolAdapter,
       uint outCountBorrowedTokens,
       address[] memory outBorrowedTokens
   );
 
-  /// @notice Get total count of pool adapters with opened positions
+  /// @notice Check health of all borrowed tokens in the pool adapter
+  /// @notice outCountBorrowedTokens Count of valid items inside {outBorrowedTokens}
+  /// @notice outBorrowedTokens All found unhealthy tokens. The number of valid items is {outCountBorrowedTokens}
+  function getUnhealthyTokens(address poolAdapter_, uint minAllowedHealthFactor_)
+  external
+  view returns (uint outCountBorrowedTokens, address[] memory outBorrowedTokens);
+
+
+    /// @notice Get total count of pool adapters with opened positions
   function getCountActivePoolAdapters() external view returns (uint);
 
   /// @notice Get active borrows of the user with given collateral/borrowToken

@@ -24,8 +24,6 @@ export interface IBmInputParams {
     targetCollateralFactor: number;
     priceSourceUSD: number;
     priceTargetUSD: number;
-    sourceAmount: number;
-    healthFactor: number;
     sourceDecimals?: number;
     targetDecimals?: number;
 }
@@ -111,8 +109,6 @@ export class BorrowManagerHelper {
             priceTargetUSD: 4,
             sourceDecimals: 24,
             targetDecimals: 12,
-            sourceAmount: 100_000,
-            healthFactor: 4,
             availablePools: [
                 {   // source, target
                     borrowRateInTokens: [0, bestBorrowRate],
@@ -141,8 +137,6 @@ export class BorrowManagerHelper {
             priceTargetUSD: priceTargetUSD || 4,
             sourceDecimals: 24,
             targetDecimals: 12,
-            sourceAmount: 100_000,
-            healthFactor: 4,
             availablePools: [
                 {   // source, target
                     borrowRateInTokens: [0, bestBorrowRate],

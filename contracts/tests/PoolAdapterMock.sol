@@ -58,6 +58,10 @@ contract PoolAdapterMock is IPoolAdapter {
     _passedBlocks[borrowedToken_] = countPassedBlocks;
   }
 
+  function changeCollateralFactor(uint collateralFactor_) external {
+    _collateralFactor = collateralFactor_;
+  }
+
   ///////////////////////////////////////////////////////
   ///           Initialization
   ///  Constructor is not applicable, because this contract

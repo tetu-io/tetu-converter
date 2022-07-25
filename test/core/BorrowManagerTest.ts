@@ -223,6 +223,8 @@ describe("BorrowManager", () => {
     describe("findPool", () => {
         async function makeTestTwoUnderlines(
             tt: IBmInputParams,
+            sourceAmount: number,
+            healthFactor: number,
             estimateGas: boolean = false
         ) : Promise<{
             outPoolIndex0: number;
@@ -234,19 +236,19 @@ describe("BorrowManager", () => {
             const {bm, sourceToken, targetToken, pools}
                 = await BorrowManagerHelper.createBmTwoUnderlines(signer, tt);
 
-            console.log("Source amount:", getBigNumberFrom(tt.sourceAmount, await sourceToken.decimals()).toString());
+            console.log("Source amount:", getBigNumberFrom(sourceAmount, await sourceToken.decimals()).toString());
             const ret = await bm.findPool({
                 sourceToken: sourceToken.address,
-                sourceAmount: getBigNumberFrom(tt.sourceAmount, await sourceToken.decimals()),
+                sourceAmount: getBigNumberFrom(sourceAmount, await sourceToken.decimals()),
                 targetToken: targetToken.address,
-                healthFactorOptional: BigNumber.from(10).pow(16).mul(tt.healthFactor * 100)
+                healthFactorOptional: BigNumber.from(10).pow(16).mul(healthFactor * 100)
             });
             const gas = estimateGas
                 ? await bm.estimateGas.findPool({
                     sourceToken: sourceToken.address,
-                    sourceAmount: getBigNumberFrom(tt.sourceAmount, await sourceToken.decimals()),
+                    sourceAmount: getBigNumberFrom(sourceAmount, await sourceToken.decimals()),
                     targetToken: targetToken.address,
-                    healthFactorOptional: BigNumber.from(10).pow(16).mul(tt.healthFactor * 100)
+                    healthFactorOptional: BigNumber.from(10).pow(16).mul(healthFactor * 100)
                 })
                 : undefined;
             return {
@@ -261,14 +263,14 @@ describe("BorrowManager", () => {
                 describe("Example 1: Pool 1 has a lowest borrow rate", () => {
                     it("should return Pool 1 and expected amount", async () => {
                         const bestBorrowRate = 27;
-                        const input = {
+                        const sourceAmount = 100_000;
+                        const healthFactor = 4;
+                        const input: IBmInputParams = {
                             targetCollateralFactor: 0.8,
                             priceSourceUSD: 0.1,
                             priceTargetUSD: 4,
                             sourceDecimals: 24,
                             targetDecimals: 12,
-                            sourceAmount: 100_000,
-                            healthFactor: 4,
                             availablePools: [
                                 {   // source, target
                                     borrowRateInTokens: [0, bestBorrowRate],
@@ -285,7 +287,7 @@ describe("BorrowManager", () => {
                             ]
                         };
 
-                        const ret = await makeTestTwoUnderlines(input);
+                        const ret = await makeTestTwoUnderlines(input, sourceAmount, healthFactor);
                         const sret = [
                             ret.outPoolIndex0,
                             ethers.utils.formatUnits(ret.outMaxTargetAmount, input.targetDecimals),
@@ -305,14 +307,14 @@ describe("BorrowManager", () => {
                 describe("Example 4: Pool 3 has a lowest borrow rate", () => {
                     it("should return Pool 3 and expected amount", async () => {
                         const bestBorrowRate = 270;
-                        const input = {
+                        const sourceAmount = 1000;
+                        const healthFactor = 1.6;
+                        const input: IBmInputParams = {
                             targetCollateralFactor: 0.9,
                             priceSourceUSD: 2,
                             priceTargetUSD: 0.5,
                             sourceDecimals: 6,
                             targetDecimals: 6,
-                            sourceAmount: 1000,
-                            healthFactor: 1.6,
                             availablePools: [
                                 {   // source, target
                                     borrowRateInTokens: [0, bestBorrowRate],
@@ -337,7 +339,7 @@ describe("BorrowManager", () => {
                             ]
                         };
 
-                        const ret = await makeTestTwoUnderlines(input);
+                        const ret = await makeTestTwoUnderlines(input, sourceAmount, healthFactor);
                         const sret = [
                             ret.outPoolIndex0,
                             ethers.utils.formatUnits(ret.outMaxTargetAmount, input.targetDecimals),
@@ -357,14 +359,14 @@ describe("BorrowManager", () => {
                 describe("All pools has same borrow rate", () => {
                     it("should return Pool 0", async () => {
                         const bestBorrowRate = 7;
-                        const input = {
+                        const sourceAmount = 10000;
+                        const healthFactor = 2.0;
+                        const input: IBmInputParams = {
                             targetCollateralFactor: 0.5,
                             priceSourceUSD: 0.5,
                             priceTargetUSD: 0.2,
                             sourceDecimals: 18,
                             targetDecimals: 6,
-                            sourceAmount: 10000,
-                            healthFactor: 2.0,
                             availablePools: [
                                 {   // source, target
                                     borrowRateInTokens: [0, bestBorrowRate],
@@ -381,7 +383,7 @@ describe("BorrowManager", () => {
                             ]
                         };
 
-                        const ret = await makeTestTwoUnderlines(input);
+                        const ret = await makeTestTwoUnderlines(input, sourceAmount, healthFactor);
                         const sret = [
                             ret.outPoolIndex0,
                             ethers.utils.formatUnits(ret.outMaxTargetAmount, input.targetDecimals),
@@ -401,14 +403,14 @@ describe("BorrowManager", () => {
                 describe("10 pools, each next pool is better then previous, estimate gas @skip-on-coverage", () => {
                     async function checkGas(countPools: number): Promise<BigNumber> {
                         const bestBorrowRate = 270;
-                        const input = {
+                        const sourceAmount = 100_000;
+                        const healthFactor = 4;
+                        const input: IBmInputParams = {
                             targetCollateralFactor: 0.8,
                             priceSourceUSD: 0.1,
                             priceTargetUSD: 4,
                             sourceDecimals: 24,
                             targetDecimals: 12,
-                            sourceAmount: 100_000,
-                            healthFactor: 4,
                             availablePools: [...Array(countPools).keys()].map(
                                 x => ({   // source, target
                                     borrowRateInTokens: [0, bestBorrowRate - x], // next pool is better then previous
@@ -418,6 +420,8 @@ describe("BorrowManager", () => {
                         };
 
                         const ret = await makeTestTwoUnderlines(input
+                            , sourceAmount
+                            , healthFactor
                             , true // we need to estimate gas
                         );
                         const sret = [
@@ -462,14 +466,14 @@ describe("BorrowManager", () => {
             describe("Example 2. Pools have not enough liquidity", () => {
                 it("should return all 0", async () => {
                     const bestBorrowRate = 7;
-                    const input = {
+                    const sourceAmount = 100_000;
+                    const healthFactor = 4;
+                    const input: IBmInputParams = {
                         targetCollateralFactor: 0.5,
                         priceSourceUSD: 0.5,
                         priceTargetUSD: 0.2,
                         sourceDecimals: 18,
                         targetDecimals: 6,
-                        sourceAmount: 10000,
-                        healthFactor: 2.0,
                         availablePools: [
                             {   // source, target
                                 borrowRateInTokens: [0, bestBorrowRate],
@@ -486,7 +490,7 @@ describe("BorrowManager", () => {
                         ]
                     };
 
-                    const ret = await makeTestTwoUnderlines(input);
+                    const ret = await makeTestTwoUnderlines(input, sourceAmount, healthFactor);
                     const sret = [
                         ret.outPoolIndex0,
                         ethers.utils.formatUnits(ret.outMaxTargetAmount, input.targetDecimals),
@@ -501,14 +505,14 @@ describe("BorrowManager", () => {
             describe("Example 3. Pools don't have enough liquidity", () => {
                 it("should return all 0", async () => {
                     const bestBorrowRate = 7;
-                    const input = {
+                    const sourceAmount = 100_000;
+                    const healthFactor = 4;
+                    const input: IBmInputParams = {
                         targetCollateralFactor: 0.5,
                         priceSourceUSD: 0.5,
                         priceTargetUSD: 0.2,
                         sourceDecimals: 18,
                         targetDecimals: 6,
-                        sourceAmount: 10000,
-                        healthFactor: 2.0,
                         availablePools: [
                             {   // source, target
                                 borrowRateInTokens: [0, bestBorrowRate - 1],
@@ -525,7 +529,7 @@ describe("BorrowManager", () => {
                         ]
                     };
 
-                    const ret = await makeTestTwoUnderlines(input);
+                    const ret = await makeTestTwoUnderlines(input, sourceAmount, healthFactor);
                     const sret = [
                         ret.outPoolIndex0,
                         ethers.utils.formatUnits(ret.outMaxTargetAmount, input.targetDecimals),

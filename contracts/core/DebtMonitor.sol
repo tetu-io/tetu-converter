@@ -123,7 +123,7 @@ contract DebtMonitor is IDebtMonitor {
   ///           Detect unhealthy positions
   ///////////////////////////////////////////////////////
 
-  function findFirst(uint index0, uint count, uint minAllowedHealthFactor) external view override returns (
+  function findFirstUnhealthyPoolAdapter(uint index0, uint count, uint minAllowedHealthFactor) external view override returns (
     uint outNextIndex0,
     address outPoolAdapter,
     uint outCountBorrowedTokens,
@@ -140,7 +140,7 @@ contract DebtMonitor is IDebtMonitor {
     for (uint i = 0; i < count; i = _uncheckedInc(i)) {
       outNextIndex0 = i + 1;
       IPoolAdapter pa = IPoolAdapter(poolAdapters[i]);
-      (outCountBorrowedTokens, outBorrowedTokens) = _checkPoolAdapter(pa, minAllowedHealthFactor);
+      (outCountBorrowedTokens, outBorrowedTokens) = _getUnhealthyTokens(pa, minAllowedHealthFactor);
       if (outCountBorrowedTokens != 0) {
         outPoolAdapter = poolAdapters[i];
         break; // we have found first problem pool adapter
@@ -150,7 +150,13 @@ contract DebtMonitor is IDebtMonitor {
     return (outNextIndex0, outPoolAdapter, outCountBorrowedTokens, outBorrowedTokens);
   }
 
-  function _checkPoolAdapter(IPoolAdapter pa, uint minAllowedHealthFactor)
+  function getUnhealthyTokens(address poolAdapter_, uint minAllowedHealthFactor_)
+  external
+  view override returns (uint outCountBorrowedTokens, address[] memory outBorrowedTokens) {
+    return _getUnhealthyTokens(IPoolAdapter(poolAdapter_), minAllowedHealthFactor_);
+  }
+
+  function _getUnhealthyTokens(IPoolAdapter pa, uint minAllowedHealthFactor)
   internal
   view returns (uint outCountBorrowedTokens, address[] memory outBorrowedTokens) {
     // get a price of the collateral

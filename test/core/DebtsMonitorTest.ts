@@ -1,9 +1,17 @@
 import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import {ethers} from "hardhat";
 import {expect} from "chai";
-import {DebtMonitor, DebtMonitor__factory, IPoolAdapter, IPoolAdapter__factory} from "../../typechain";
+import {
+    Controller,
+    DebtMonitor,
+    DebtMonitor__factory,
+    IPoolAdapter,
+    IPoolAdapter__factory,
+    MockERC20, MockERC20__factory, PoolAdapterMock,
+    PoolAdapterMock__factory
+} from "../../typechain";
 import {TimeUtils} from "../../scripts/utils/TimeUtils";
-import {BorrowManagerHelper} from "../baseUT/BorrowManagerHelper";
+import {BorrowManagerHelper, IBmInputParams} from "../baseUT/BorrowManagerHelper";
 import {DeployerUtils} from "../../scripts/utils/DeployerUtils";
 import {BigNumber} from "ethers";
 import {getBigNumberFrom} from "../../scripts/utils/NumberUtils";
@@ -71,6 +79,75 @@ describe("DebtsMonitor", () => {
 
         return dmAsPA;
     }
+
+    async function preparePoolAdapter(
+        tt: IBmInputParams
+    ) : Promise<{
+        userTC: string,
+        controller: Controller,
+        sourceToken: MockERC20,
+        targetToken: MockERC20,
+        pool: string,
+        cTokenAddress: string,
+        poolAdapterMock: PoolAdapterMock
+    }> {
+        // create template-pool-adapter
+        const templatePoolAdapter = await MocksHelper.createPoolAdapterMock(deployer);
+
+        // create borrow manager (BM) with single pool and DebtMonitor (DM)
+        const {bm, sourceToken, targetToken, pools, controller}
+            = await BorrowManagerHelper.createBmTwoUnderlines(deployer, tt, templatePoolAdapter.address);
+        const dm = await CoreContractsHelper.createDebtMonitor(deployer, controller);
+        await controller.assignBatch(
+            [await controller.debtMonitorKey(), await controller.borrowManagerKey()]
+            , [dm.address, bm.address]
+        );
+
+        // register pool adapter
+        const pool = pools[0].pool;
+        const cTokenAddress = pools[0].underlineTocTokens.get(sourceToken.address) || "";
+        const userTC = ethers.Wallet.createRandom().address;
+        const collateral = sourceToken.address;
+        await bm.registerPoolAdapter(pool, userTC, collateral);
+
+        // pool adapter is a copy of templatePoolAdapter, created using minimal-proxy pattern
+        // this is a mock, we need to configure it
+        const poolAdapterAddress = await bm.getPoolAdapter(pool, userTC, collateral);
+        const poolAdapterMock = await PoolAdapterMock__factory.connect(poolAdapterAddress, deployer);
+
+        return {
+            userTC, controller, sourceToken, targetToken, pool, cTokenAddress, poolAdapterMock
+        }
+    }
+
+    async function makeBorrow(
+        userTC: string,
+        pool: string,
+        poolAdapterAddress: string,
+        sourceToken: MockERC20,
+        targetToken: MockERC20,
+        amountBorrowLiquidityInPool: BigNumber,
+        amountCollateral: BigNumber,
+        amountToBorrow: BigNumber
+    ) {
+        // get data from the pool adapter
+        const pa: IPoolAdapter = IPoolAdapter__factory.connect(
+            poolAdapterAddress, await DeployerUtils.startImpersonate(userTC)
+        );
+
+        // prepare initial balances
+        await targetToken.mint(pool, amountBorrowLiquidityInPool);
+        await sourceToken.mint(userTC, amountCollateral);
+
+        // user transfers collateral to pool adapter
+        await MockERC20__factory.connect(sourceToken.address, await DeployerUtils.startImpersonate(userTC))
+            .transfer(pa.address, amountCollateral);
+
+        // borrow
+        await pa.borrow(amountCollateral, targetToken.address, amountToBorrow, userTC);
+    }
+
+
 //endregion Utils
 
 //region Unit tests
@@ -766,10 +843,136 @@ describe("DebtsMonitor", () => {
         });
     });
 
-    describe("findFirst", () => {
+    describe("getUnhealthyTokens", () => {
+        describe("Good paths", () => {
+            describe("Single borrowed token", () => {
+                describe("The token is healthy", () => {
+                    describe("Health factor == min", () => {
+                        it("should return empty", async () => {
+                            const priceSourceUSD = 0.1;
+                            const priceTargetUSD = 2;
+                            const collateralFactor18 = getBigNumberFrom(5, 17); // 0.5
+                            const borrowRatePerBlock18 = getBigNumberFrom(1, 10); // 0.01
+
+                            const tt: IBmInputParams = {
+                                targetCollateralFactor: 0.8,
+                                priceSourceUSD: priceSourceUSD || 0.1,
+                                priceTargetUSD: priceTargetUSD || 4,
+                                sourceDecimals: 24,
+                                targetDecimals: 12,
+                                availablePools: [
+                                    {   // source, target
+                                        borrowRateInTokens: [0, borrowRatePerBlock18],
+                                        availableLiquidityInTokens: [0, 200_000]
+                                    }
+                                ]
+                            };
+
+                            const amountBorrowLiquidityInPool = getBigNumberFrom(1e10, tt.targetDecimals);
+                            const amountCollateral = getBigNumberFrom(10000, tt.sourceDecimals);
+                            const amountToBorrow = getBigNumberFrom(100, tt.targetDecimals);
+
+                            const {userTC, controller, sourceToken, targetToken, pool, cTokenAddress, poolAdapterMock} =
+                                await preparePoolAdapter(tt);
+
+                            await poolAdapterMock.setUpMock(
+                                cTokenAddress,
+                                await controller.priceOracle(),
+                                await controller.debtMonitor(),
+                                collateralFactor18,
+                                [targetToken.address],
+                                [borrowRatePerBlock18]
+                            );
+
+                            await makeBorrow(
+                                userTC,
+                                pool,
+                                poolAdapterMock.address,
+                                sourceToken,
+                                targetToken,
+                                amountBorrowLiquidityInPool,
+                                amountCollateral,
+                                amountToBorrow
+                            );
+
+                            expect.fail("TODO");
+                        });
+                    });
+                    describe("Health factor > min", () => {
+                        it("should return empty", async () => {
+                            expect.fail("TODO");
+                        });
+                    });
+                });
+                describe("The token is unhealthy", () => {
+                    describe("Collateral factor is too low", () => {
+                        it("should return the token", async () => {
+                            expect.fail("TODO");
+                        });
+                    });
+                    describe("Collateral is too cheap", () => {
+                        it("should return the token", async () => {
+                            expect.fail("TODO");
+                        });
+                    });
+                    describe("Borrowed token is too expensive", () => {
+                        it("should return the token", async () => {
+                            expect.fail("TODO");
+                        });
+                    });
+                    describe("Debt is too high", () => {
+                        it("should return the token", async () => {
+                            expect.fail("TODO");
+                        });
+                    });
+                });
+            });
+            describe("Multiple borrowed tokens", () => {
+                describe("All tokens are healthy", () => {
+                    describe("Tokens have different decimals", () => {
+                        it("should return empty", async () => {
+                            expect.fail("TODO");
+                        });
+                    });
+                });
+                describe("All tokens are unhealthy", () => {
+                    describe("Tokens have different decimals", () => {
+                        it("should return all tokens", async () => {
+                            expect.fail("TODO");
+                        });
+                    });
+                });
+                describe("First token is unhealthy", () => {
+                    it("should return first token only", async () => {
+                        expect.fail("TODO");
+                    });
+                });
+                describe("Last token is unhealthy", () => {
+                    it("should return last token only", async () => {
+                        expect.fail("TODO");
+                    });
+                });
+
+            });
+        });
+        describe("Bad paths", () => {
+            describe("Unknown pool adapter", () => {
+                it("should revert", async () => {
+                    expect.fail("TODO");
+                });
+            });
+            describe("Price oracle returns zero price", () => {
+                it("should revert", async () => {
+                    expect.fail("TODO");
+                });
+            });
+        });
+    });
+
+    describe("findFirstUnhealthyPoolAdapter", () => {
         describe("Good paths", () => {
             describe("All pool adapters are in good state", () => {
-                it("should TODO", async () => {
+                it("should return no pool adapters ", async () => {
                     expect.fail("TODO");
                 });
             });
@@ -780,13 +983,8 @@ describe("DebtsMonitor", () => {
                     });
                 });
                 describe("Multiple unhealthy borrowed tokens", () => {
-                    describe("First borrowed tokens is unhealthy", () => {
-                        it("should TODO", async () => {
-                            expect.fail("TODO");
-                        });
-                    });
-                    describe("Last borrowed tokens is unhealthy", () => {
-                        it("should TODO", async () => {
+                    describe("Multiple calls of findFirst", () => {
+                        it("should return all unhealthy pool adapters", async () => {
                             expect.fail("TODO");
                         });
                     });

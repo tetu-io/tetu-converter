@@ -13,13 +13,10 @@ import {
     TetuConverter, UserBorrowRepayUCs
 } from "../../typechain";
 import {IBmInputParams, BorrowManagerHelper, PoolInstanceInfo} from "../baseUT/BorrowManagerHelper";
-import {ConversionUsesCases, IParamsUS11} from "../uses-cases/ConversionUsesCases";
 import {CoreContracts} from "../uses-cases/CoreContracts";
 import {CoreContractsHelper} from "../baseUT/CoreContractsHelper";
 import {BigNumber} from "ethers";
-import exp from "constants";
 import {MocksHelper} from "../baseUT/MocksHelper";
-import {initializeWaffleMatchers} from "@nomiclabs/hardhat-waffle/dist/src/matchers";
 import {DeployerUtils} from "../../scripts/utils/DeployerUtils";
 import {BalanceUtils, ContractToInvestigate} from "../baseUT/BalanceUtils";
 
@@ -143,14 +140,13 @@ describe("BorrowManager", () => {
                         const bestBorrowRate = getBigNumberFrom(1, targetDecimals - 8);
 
                         const healthFactor = 2;
-                        const input = {
+                        const sourceAmount = 100_000;
+                        const input: IBmInputParams = {
                             targetCollateralFactor: 0.8,
                             priceSourceUSD: 0.1,
                             priceTargetUSD: 4,
                             sourceDecimals: 24,
                             targetDecimals: targetDecimals,
-                            sourceAmount: 100_000,
-                            healthFactor: 4,
                             availablePools: [
                                 {   // source, target
                                     borrowRateInTokens: [
@@ -166,7 +162,7 @@ describe("BorrowManager", () => {
 
                         const ret = await data.tetuConveter.findBestConversionStrategy(
                             data.sourceToken.address,
-                            getBigNumberFrom(input.sourceAmount, input.sourceDecimals),
+                            getBigNumberFrom(sourceAmount, input.sourceDecimals),
                             data.targetToken.address,
                             getBigNumberFrom(healthFactor, 18),
                             period
@@ -180,7 +176,7 @@ describe("BorrowManager", () => {
 
                         const expectedTargetAmount =
                             input.targetCollateralFactor
-                            * input.sourceAmount * input.priceSourceUSD
+                            * sourceAmount * input.priceSourceUSD
                             / (input.priceTargetUSD)
                             / healthFactor;
 
@@ -232,8 +228,6 @@ describe("BorrowManager", () => {
                         priceTargetUSD: 4,
                         sourceDecimals: sourceDecimals,
                         targetDecimals: targetDecimals,
-                        sourceAmount: sourceAmountNumber,
-                        healthFactor: 4,
                         availablePools: [
                             {   // source, target
                                 borrowRateInTokens: [
@@ -287,7 +281,7 @@ describe("BorrowManager", () => {
 
                     const expectedTargetAmount = getBigNumberFrom(
                         tt.targetCollateralFactor
-                        * tt.sourceAmount * tt.priceSourceUSD
+                        * sourceAmountNumber * tt.priceSourceUSD
                         / (tt.priceTargetUSD)
                         / healthFactor
                         , targetDecimals
@@ -339,8 +333,6 @@ describe("BorrowManager", () => {
                         priceTargetUSD: 4,
                         sourceDecimals: sourceDecimals,
                         targetDecimals: targetDecimals,
-                        sourceAmount: sourceAmountNumber,
-                        healthFactor: 4,
                         availablePools: [
                             {   // source, target
                                 borrowRateInTokens: [
