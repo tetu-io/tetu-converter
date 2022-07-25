@@ -2,8 +2,6 @@
 
 pragma solidity 0.8.4;
 
-import "../core/DataTypes.sol";
-
 /// @notice A lending platform (AAVE, HF, etc). Allow to work with comptroller and any pool of the platform.
 interface IPlatformAdapter {
 
