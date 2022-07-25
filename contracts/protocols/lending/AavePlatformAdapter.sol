@@ -4,6 +4,7 @@ import "../../openzeppelin/IERC20.sol";
 import "../../integrations/aave/IAavePool.sol";
 import "../../integrations/aave/IAaveAddressesProvider.sol";
 import "../../integrations/aave/IAaveProtocolDataProvider.sol";
+import "hardhat/console.sol";
 
 /// @notice Adapter to read current pools info from AAVE-protocol, see https://docs.aave.com/hub/
 contract AavePlatformAdapter is IPlatformAdapter {
@@ -11,6 +12,7 @@ contract AavePlatformAdapter is IPlatformAdapter {
 
   /// @dev See aave-v3-core ReserveConfiguration.sol for other ready masks
   uint256 internal immutable LIQUIDATION_THRESHOLD_MASK = 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF0000FFFF;
+  uint256 internal immutable LIQUIDATION_THRESHOLD_START_BIT_POSITION = 16;
 
   /// @notice Get pool data required to select best lending pool
   /// @param pool_ = comptroller
@@ -24,26 +26,40 @@ contract AavePlatformAdapter is IPlatformAdapter {
     uint collateralFactor,
     uint availableCash
   ) {
+    console.log("getPoolInfo %s %s", pool_, underline_);
+    // TODO is paused?
 
     // https://docs.aave.com/risk/asset-risk/risk-parameters#collaterals
     DataTypes.ReserveData memory rd = IAavePool(pool_).getReserveData(underline_);
 
     // The liquidation threshold is the percentage at which a loan is defined as undercollateralised.
-    uint liquidationThreshold = rd.configuration.data & ~LIQUIDATION_THRESHOLD_MASK; // percentage, i.e. 8500 for 85%
+    uint liquidationThreshold =  // percentage, i.e. 8500 for 85%
+      rd.configuration.data & ~LIQUIDATION_THRESHOLD_MASK >> LIQUIDATION_THRESHOLD_START_BIT_POSITION;
+    console.log("liquidationThreshold %d data=%d", liquidationThreshold, rd.configuration.data);
 
     // assume here, that we always use variable borrow rate
-    uint128 br = rd.currentVariableBorrowRate; // [rays]
+    uint br = rd.currentVariableBorrowRate; // [rays]
+    console.log("currentVariableBorrowRate %d", rd.currentVariableBorrowRate);
 
     // we need to know available liquidity of {underline_} in the pool
     // so, we need an access to pool-data-provider
+    // TODO: can we use static address of the PoolDataProvider - 0x69FA688f1Dc47d4B5d8029D5a35FB7a548310654 ?
+    // TODO: see https://docs.aave.com/developers/deployed-contracts/v3-mainnet/polygon
     IAaveAddressesProvider aap = IAaveAddressesProvider(IAavePool(pool_).ADDRESSES_PROVIDER());
     IAaveProtocolDataProvider dp = IAaveProtocolDataProvider(aap.getPoolDataProvider());
-    (uint256 borrowCap, ) = dp.getReserveCaps(underline_);
+
+    console.log("aTokenTotalSupply.1");
+    // TODO: how to get total available liquidity correctly?
+    uint aTokenTotalSupply = dp.getATokenTotalSupply(underline_);
+    console.log("aTokenTotalSupply = %d", aTokenTotalSupply);
+    console.log("br = %d", br * 10**18 );
+    console.log("br = %d", br * 10**18 / 10**27);
+    console.log("collateralFactor = %d", liquidationThreshold * 10**14);
 
     return (
-      br * 1e18 / 1e24, // rays => decimals 18
-      collateralFactor * 1e14, // 8500 => 0.85 with decimals 18
-      borrowCap
+      br * 10**18 / 10**27, // rays => decimals 18 (1 ray = 1e-27)
+    liquidationThreshold * 10**14, // 8500 => 0.85 with decimals 18
+      aTokenTotalSupply
     );
   }
 }
