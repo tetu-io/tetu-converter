@@ -13,7 +13,7 @@ import {changeDecimals, getBigNumberFrom} from "../../../../../scripts/utils/Num
 import {isPolygonForkInUse} from "../../../../baseUT/NetworkUtils";
 import {DeployerUtils} from "../../../../../scripts/utils/DeployerUtils";
 
-describe("MarketXYZ integration tests", () => {
+describe.skip("MarketXYZ integration tests", () => {
 //region Constants
     const maticAddress = '0x0d500B1d8E8eF31E21C99d1Db9A6444d3ADf1270';
 

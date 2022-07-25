@@ -753,6 +753,19 @@ describe("DebtsMonitor", () => {
         });
     });
 
+    describe("findBorrows", () => {
+        describe("Good paths", () => {
+            it("should TODO", async () => {
+                expect.fail("TODO");
+            });
+        });
+        describe("Bad paths", () => {
+            it("should TODO", async () => {
+                expect.fail("TODO");
+            });
+        });
+    });
+
     describe("findFirst", () => {
         describe("Good paths", () => {
             describe("All pool adapters are in good state", () => {
