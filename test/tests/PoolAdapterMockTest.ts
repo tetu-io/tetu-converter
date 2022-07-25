@@ -3,10 +3,8 @@ import {ethers} from "hardhat";
 import {expect} from "chai";
 import {
     CTokenMock__factory,
-    DebtMonitor,
-    DebtMonitor__factory,
     IPoolAdapter,
-    IPoolAdapter__factory, IPriceOracle__factory, MockERC20__factory,
+    IPoolAdapter__factory, MockERC20__factory,
     PoolAdapterMock__factory
 } from "../../typechain";
 import {TimeUtils} from "../../scripts/utils/TimeUtils";
@@ -16,7 +14,7 @@ import {BigNumber} from "ethers";
 import {getBigNumberFrom} from "../../scripts/utils/NumberUtils";
 import {CoreContractsHelper} from "../baseUT/CoreContractsHelper";
 import {MocksHelper} from "../baseUT/MocksHelper";
-import {Misc} from "../../scripts/utils/Misc";
+import {BalanceUtils, ContractToInvestigate} from "../baseUT/BalanceUtils";
 
 describe("PoolAdapterMock", () => {
 //region Global vars for all tests
@@ -55,6 +53,7 @@ describe("PoolAdapterMock", () => {
         await TimeUtils.rollback(snapshotForEach);
     });
 //endregion before, after
+
 //region Utils
 
 
@@ -120,18 +119,22 @@ describe("PoolAdapterMock", () => {
                     console.log("User", user);
 
                     // prepare initial balances
-                    await targetToken.mint(pa.address, amountBorrowLiquidityInPool);
+                    await targetToken.mint(pool, amountBorrowLiquidityInPool);
 
                     await sourceToken.mint(user, amountCollateral);
                     console.log("Mint collateral to user", amountCollateral);
                     await targetToken.mint(user, amountBorrowedUserInitial);
                     console.log("Mint borrowed token to user", amountBorrowedUserInitial);
 
-                    const before = [
-                        await sourceToken.balanceOf(user), await sourceToken.balanceOf(pa.address),
-                        await targetToken.balanceOf(user), await targetToken.balanceOf(pa.address),
-                        await cToken.balanceOf(user), await cToken.balanceOf(pa.address),
+                    const contractsToInvestigate: ContractToInvestigate[] = [
+                        {name: "user", contract: user},
+                        {name: "pa", contract: pa.address},
+                        {name: "pool", contract: pool},
                     ];
+                    const tokensToInvestigate = [sourceToken.address, targetToken.address, cToken.address];
+
+                    const before = await BalanceUtils.getBalances(deployer
+                        , contractsToInvestigate, tokensToInvestigate);
                     console.log("Before borrow", before);
 
                     // borrow
@@ -141,11 +144,8 @@ describe("PoolAdapterMock", () => {
                     await pa.borrow(amountCollateral, targetToken.address, amountToBorrow, user);
                     console.log("Borrow", amountToBorrow);
 
-                    const afterBorrow = [
-                        await sourceToken.balanceOf(user), await sourceToken.balanceOf(pa.address),
-                        await targetToken.balanceOf(user), await targetToken.balanceOf(pa.address),
-                        await cToken.balanceOf(user), await cToken.balanceOf(pa.address),
-                    ];
+                    const afterBorrow = await BalanceUtils.getBalances(deployer
+                        , contractsToInvestigate, tokensToInvestigate);
                     console.log("After borrow", afterBorrow);
 
                     // assume, that some time is passed and the borrow debt is increased
@@ -166,36 +166,33 @@ describe("PoolAdapterMock", () => {
                     console.log("Transfer borrowed token to PA", amountToRepay);
                     await pa.repay(targetToken.address, amountToRepay, user);
 
-                    const afterRepay = [
-                        await sourceToken.balanceOf(user), await sourceToken.balanceOf(pa.address),
-                        await targetToken.balanceOf(user), await targetToken.balanceOf(pa.address),
-                        await cToken.balanceOf(user), await cToken.balanceOf(pa.address),
-                    ];
+                    const afterRepay = await BalanceUtils.getBalances(deployer
+                        , contractsToInvestigate, tokensToInvestigate);
                     console.log("After repay", afterRepay);
 
-                    const ret = [
-                        ...before.map(x => x.toString())
-                        , ...afterBorrow.map(x => x.toString())
-                        , ...afterRepay.map(x => x.toString())
-                    ].join("\r");
+                    const ret = [...before, "after borrow", ...afterBorrow, "after repay", ...afterRepay]
+                        .map(x => BalanceUtils.toString(x)).join("\r");
 
                     const expectedAmounts = [
                         // before
-                        amountCollateral, 0, //sourceToken
-                        amountBorrowedUserInitial, amountBorrowLiquidityInPool, //targetToken
-                        0, 0, //cToken
+                        // source token, target token, cToken
+                        "user", amountCollateral, amountBorrowedUserInitial, 0,
+                        "pa", 0, 0, 0,
+                        "pool", 0, amountBorrowLiquidityInPool, 0,
 
-                        // afterBorrow
-                        0, amountCollateral, //sourceToken
-                        amountBorrowedUserInitial.add(amountToBorrow), amountBorrowLiquidityInPool.sub(amountToBorrow), //targetToken
-                        0, amountCollateral, //cToken
+                        "after borrow",
+                        // source token, target token, cToken
+                        "user", 0, amountBorrowedUserInitial.add(amountToBorrow), 0,
+                        "pa", 0, 0, amountCollateral,
+                        "pool", amountCollateral, amountBorrowLiquidityInPool.sub(amountToBorrow), 0,
 
-                        // afterRepay
-                        amountCollateral, 0, //sourceToken
-                        amountBorrowedUserInitial.sub(expectedDebt), amountBorrowLiquidityInPool.add(expectedDebt), //targetToken
-                        0, 0, //cToken
+                        "after repay",
+                        "user", amountCollateral, amountBorrowedUserInitial.sub(expectedDebt), 0,
+                        "pa", 0, 0, 0,
+                        "pool", 0, amountBorrowLiquidityInPool.add(expectedDebt), 0,
                     ];
-                    const expected = expectedAmounts.map(x => x.toString()).join("\r");
+                    const expected = expectedAmounts.map(x => BalanceUtils.toString(x)).join("\r");
+
 
                     expect(ret).equal(expected);
                 });

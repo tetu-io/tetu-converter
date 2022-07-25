@@ -21,6 +21,7 @@ import exp from "constants";
 import {MocksHelper} from "../baseUT/MocksHelper";
 import {initializeWaffleMatchers} from "@nomiclabs/hardhat-waffle/dist/src/matchers";
 import {DeployerUtils} from "../../scripts/utils/DeployerUtils";
+import {BalanceUtils, ContractToInvestigate} from "../baseUT/BalanceUtils";
 
 describe("BorrowManager", () => {
 //region Constants
@@ -65,11 +66,6 @@ describe("BorrowManager", () => {
 //endregion before, after
 
 //region Utils
-    interface ContractToInvestigate {
-        name: string;
-        contract: string;
-    }
-
     async function createTetuConverter(
         tt: IBmInputParams
     ) : Promise<{
@@ -86,28 +82,6 @@ describe("BorrowManager", () => {
             , "TetuConverter", controller.address) as TetuConverter;
 
         return {tetuConveter, sourceToken, targetToken, borrowManager: bm, pools};
-    }
-
-    async function getBalances(
-        contracts: ContractToInvestigate[],
-        tokens: string[]
-    ) : Promise<(BigNumber | string)[]> {
-        const dest: (BigNumber | string)[] = [];
-        for (const contract of contracts) {
-            dest.push(contract.name);
-            for (const token of tokens) {
-                dest.push(
-                    await IERC20__factory.connect(token, deployer).balanceOf(contract.contract)
-                )
-            }
-        }
-        return dest;
-    }
-
-    function toString(n: number | string | BigNumber) : string {
-        return typeof n === "object"
-            ? n.toString()
-            : "" + n;
     }
 
     async function prepareContracts(
@@ -292,7 +266,7 @@ describe("BorrowManager", () => {
                         .mint(pool, availableBorrowLiquidity);
 
                     // get balances before start
-                    const before = await getBalances(contractsToInvestigate, tokensToInvestigate);
+                    const before = await BalanceUtils.getBalances(deployer, contractsToInvestigate, tokensToInvestigate);
                     console.log("before", before);
 
                     // borrow
@@ -306,10 +280,10 @@ describe("BorrowManager", () => {
                     );
 
                     // get result balances
-                    const after = await getBalances(contractsToInvestigate, tokensToInvestigate);
+                    const after = await BalanceUtils.getBalances(deployer, contractsToInvestigate, tokensToInvestigate);
                     console.log("after", after);
 
-                    const ret = [...before, "after", ...after].map(x => toString(x)).join("\r");
+                    const ret = [...before, "after", ...after].map(x => BalanceUtils.toString(x)).join("\r");
 
                     const expectedTargetAmount = getBigNumberFrom(
                         tt.targetCollateralFactor
@@ -344,7 +318,7 @@ describe("BorrowManager", () => {
                         //pa: source, target, cToken
                         "poolAdapter", 0, 0, sourceAmount //!TODO: we assume exchange rate 1:1
 
-                    ].map(x => toString(x)).join("\r");
+                    ].map(x => BalanceUtils.toString(x)).join("\r");
 
                     expect(ret).equal(expected);
                 });
@@ -399,7 +373,7 @@ describe("BorrowManager", () => {
                         .mint(pool, availableBorrowLiquidity);
 
                     // get balances before start
-                    const before = await getBalances(contractsToInvestigate, tokensToInvestigate);
+                    const before = await BalanceUtils.getBalances(deployer, contractsToInvestigate, tokensToInvestigate);
                     console.log("before", before);
 
                     // borrow
@@ -434,10 +408,10 @@ describe("BorrowManager", () => {
                     );
 
                     // get result balances
-                    const after = await getBalances(contractsToInvestigate, tokensToInvestigate);
+                    const after = await BalanceUtils.getBalances(deployer, contractsToInvestigate, tokensToInvestigate);
                     console.log("after", after);
 
-                    const ret = [...before, "after", ...after].map(x => toString(x)).join("\r");
+                    const ret = [...before, "after", ...after].map(x => BalanceUtils.toString(x)).join("\r");
 
                     const beforeExpected = [
                         //before
@@ -454,7 +428,8 @@ describe("BorrowManager", () => {
                     ];
 
                     // balances should be restarted in exactly same state as they were before the borrow
-                    const expected = [...beforeExpected, "after", ...beforeExpected].map(x => toString(x)).join("\r");
+                    const expected = [...beforeExpected, "after", ...beforeExpected]
+                        .map(x => BalanceUtils.toString(x)).join("\r");
 
                     expect(ret).equal(expected);
                 });
