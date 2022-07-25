@@ -7,12 +7,22 @@ import "../../interfaces/IPoolAdapter.sol";
 contract AavePoolAdapter is IPoolAdapter {
   using SafeERC20 for IERC20;
 
+  address public override collateralToken;
+  address public override pool;
+  address public override user;
+
   ///////////////////////////////////////////////////////
   ///                Initialization
   ///////////////////////////////////////////////////////
 
   function initialize(address pool_, address user_, address collateralUnderline_) override external {
-    //TODO
+    require(pool_ != address(0), "zero pool");
+    require(user_ != address(0), "zero user");
+    require(collateralUnderline_ != address(0), "zero collateral");
+
+    pool = pool_;
+    user = user_;
+    collateralToken = collateralUnderline_;
   }
 
   ///////////////////////////////////////////////////////
@@ -66,21 +76,7 @@ contract AavePoolAdapter is IPoolAdapter {
     return (outCountItems, outBorrowedTokens, outCollateralAmountsCT, outAmountsToPayBT);
   }
 
-  ///////////////////////////////////////////////////////
-  ///         Trivial view functions
-  ///////////////////////////////////////////////////////
-
-  function collateralToken() external view override returns (address) {
-    return address(0); //TODO
-  }
   function collateralFactor() external view override returns (uint) {
     return 0; //TODO
   }
-  function pool() external view override returns (address) {
-    return address(0); //TODO
-  }
-  function user() external view override returns (address) {
-    return address(0); //TODO
-  }
-
 }
