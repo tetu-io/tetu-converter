@@ -10,7 +10,7 @@ import "hardhat/console.sol";
 import "../openzeppelin/SafeERC20.sol";
 import "../openzeppelin/IERC20.sol";
 import "../interfaces/IPlatformAdapter.sol";
-import "../core/DataTypes.sol";
+import "../core/AppDataTypes.sol";
 import "../interfaces/IPoolAdapter.sol";
 import "../interfaces/IController.sol";
 import "../interfaces/IDebtsMonitor.sol";
@@ -59,9 +59,9 @@ contract TetuConverter is ITetuConverter {
     uint outMaxTargetAmount,
     uint outInterest
   ) {
-    DataTypes.ExecuteFindPoolParams memory findPoolParams;
+    AppDataTypes.ExecuteFindPoolParams memory findPoolParams;
     {
-      findPoolParams = DataTypes.ExecuteFindPoolParams({
+      findPoolParams = AppDataTypes.ExecuteFindPoolParams({
         healthFactorOptional: healthFactorOptional,
         sourceToken: sourceToken,
         targetToken: targetToken,

@@ -52,7 +52,7 @@ abstract contract BorrowManagerBase is IBorrowManager {
 
       // create an instance of the pool adapter using minimal proxy pattern, initialize newly created contract
       address poolAdapter = poolAdapterTemplateContract.clone();
-      IPoolAdapter(poolAdapter).initialize(pool_, user_, collateralUnderline_);
+      IPoolAdapter(poolAdapter).initialize(address(controller), pool_, user_, collateralUnderline_);
 
       // register newly created pool adapter in the list of the pool adapters forever
       poolAdaptersAll[pool_][user_][collateralUnderline_] = poolAdapter;

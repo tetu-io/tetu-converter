@@ -2,7 +2,7 @@
 
 pragma solidity 0.8.4;
 
-import "./DataTypes.sol";
+import "./AppDataTypes.sol";
 import "../interfaces/IPlatformAdapter.sol";
 import "../integrations/market/ICErc20.sol";
 import "../integrations/IERC20Extended.sol";
@@ -116,7 +116,7 @@ contract BorrowManager is BorrowManagerBase {
   ///////////////////////////////////////////////////////
   ///           Find best pool for borrowing
   ///////////////////////////////////////////////////////
-  function findPool(DataTypes.ExecuteFindPoolParams memory p_) external view override returns (
+  function findPool(AppDataTypes.ExecuteFindPoolParams memory p_) external view override returns (
     address outPool,
     uint outBorrowRate,
     uint outMaxTargetAmount
@@ -137,6 +137,7 @@ contract BorrowManager is BorrowManagerBase {
       [p_.sourceToken < p_.targetToken ? p_.sourceToken : p_.targetToken]
       [p_.sourceToken < p_.targetToken ? p_.targetToken : p_.sourceToken];
 
+    //TODO: check if the source token can be used as collateral
     if (pools.length != 0) {
       (outPool, outBorrowRate, outMaxTargetAmount) = _findPool(pools
         , BorrowInput({

@@ -2,7 +2,7 @@
 
 pragma solidity 0.8.4;
 
-import "../core/DataTypes.sol";
+import "../core/AppDataTypes.sol";
 import "./IPoolAdaptersManager.sol";
 
 /// @notice A facade for the set of available lending platforms
@@ -27,7 +27,7 @@ interface IBorrowManager is IPoolAdaptersManager {
   /// @return outPool Result pool or 0 if a pool is not found
   /// @return outBorrowRate Pool normalized borrow rate per ethereum block
   /// @return outMaxTargetAmount Max available amount of target tokens that we can borrow using {sourceAmount}
-  function findPool(DataTypes.ExecuteFindPoolParams memory params) external view returns (
+  function findPool(AppDataTypes.ExecuteFindPoolParams memory params) external view returns (
     address outPool,
     uint outBorrowRate,
     uint outMaxTargetAmount

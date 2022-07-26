@@ -2,7 +2,7 @@
 
 pragma solidity 0.8.4;
 
-import "../core/DataTypes.sol";
+import "../core/AppDataTypes.sol";
 
 /// @notice Main contract of the TetuConverter application
 interface ITetuConverter {

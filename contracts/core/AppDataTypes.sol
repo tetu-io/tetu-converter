@@ -2,7 +2,7 @@
 
 pragma solidity 0.8.4;
 
-library DataTypes {
+library AppDataTypes {
 
   /// @notice Input params for BorroManager.findPool (stack is too deep problem)
   struct ExecuteFindPoolParams {

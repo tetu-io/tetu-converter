@@ -10,7 +10,7 @@ import "../../integrations/market/IComptroller.sol";
 import "../../integrations/IERC20Extended.sol";
 import "../../integrations/IWmatic.sol";
 import "../../interfaces/IPriceOracle.sol";
-import "../../core/DataTypes.sol";
+import "../../core/AppDataTypes.sol";
 import "../../interfaces/IPlatformAdapter.sol";
 import "hardhat/console.sol";
 

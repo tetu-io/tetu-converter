@@ -13,6 +13,7 @@ import "./PoolMock.sol";
 
 contract PoolAdapterMock is IPoolAdapter {
 
+  address public controller;
   address private _pool;
   address private _user;
   address private _collateralUnderline;
@@ -68,7 +69,13 @@ contract PoolAdapterMock is IPoolAdapter {
   ///  is created using minimal-proxy pattern
   ///////////////////////////////////////////////////////
 
-  function initialize(address pool_, address user_, address collateralUnderline_) external override {
+  function initialize(
+    address controller_,
+    address pool_,
+    address user_,
+    address collateralUnderline_
+  ) external override {
+    controller = controller_;
     _pool = pool_;
     _user = user_;
     _collateralUnderline = collateralUnderline_;
@@ -98,7 +105,7 @@ contract PoolAdapterMock is IPoolAdapter {
     uint collateralAmount_,
     address borrowedToken_,
     uint borrowedAmount_,
-    address receiverBorrowedAmount_
+    address receiver_
   ) override external {
     console.log("Pool adapter.borrow");
     uint collateralBalance = IERC20(_collateralUnderline).balanceOf(address(this));
@@ -128,7 +135,7 @@ contract PoolAdapterMock is IPoolAdapter {
 
     // get borrow tokens from the pool to the receiver
     PoolMock thePool = PoolMock(_pool);
-    thePool.transferToReceiver(borrowedToken_, borrowedAmount_, receiverBorrowedAmount_);
+    thePool.transferToReceiver(borrowedToken_, borrowedAmount_, receiver_);
 
     _addBorrow(borrowedToken_, borrowedAmount_, amountCTokens);
   }
@@ -154,7 +161,7 @@ contract PoolAdapterMock is IPoolAdapter {
   function repay(
     address borrowedToken_,
     uint borrowedAmount_,
-    address receiverCollateralAmount_
+    address receiver_
   ) override external {
     console.log("repay");
     require(borrowedAmount_ > 0, "nothing to repay");
@@ -181,7 +188,7 @@ contract PoolAdapterMock is IPoolAdapter {
     _cTokenMock.burn(address(this), amountCTokens);
 
     PoolMock thePool = PoolMock(_pool);
-    thePool.transferToReceiver(_collateralUnderline, collateralToReturn, receiverCollateralAmount_);
+    thePool.transferToReceiver(_collateralUnderline, collateralToReturn, receiver_);
 
     // update status
     _borrowedAmounts[borrowedToken_] -= amountReceivedBT;

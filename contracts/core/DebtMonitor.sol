@@ -2,7 +2,6 @@
 
 pragma solidity 0.8.4;
 
-import "./DataTypes.sol";
 import "../interfaces/IPoolAdapter.sol";
 import "../interfaces/IController.sol";
 import "../interfaces/IDebtsMonitor.sol";

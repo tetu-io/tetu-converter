@@ -7,10 +7,15 @@ pragma solidity 0.8.4;
 ///         This contract is used as a source by minimal-proxy pattern to create Pool-Adapters.
 interface IPoolAdapter {
 
-  function initialize(address pool_, address user_, address collateralUnderline_) external;
+  function initialize(
+    address controller_,
+    address pool_,
+    address user_,
+    address collateralUnderline_
+  ) external;
 
   function collateralToken() external view returns (address);
-  function collateralFactor() external view returns (uint);
+  function collateralFactor() external view returns (uint); //TODO: uint16, i.e 8500
   function pool() external view returns (address);
   function user() external view returns (address);
 
@@ -19,7 +24,7 @@ interface IPoolAdapter {
     uint collateralAmount_,
     address borrowedToken_,
     uint borrowedAmount_,
-    address receiverBorrowedAmount_
+    address receiver_
   ) external;
 
   /// @notice How much we should pay to close the borrow
@@ -29,7 +34,7 @@ interface IPoolAdapter {
   function repay(
     address borrowedToken_,
     uint borrowedAmount_,
-    address receiverCollateralAmount_
+    address receiver_
   ) external;
 
   /// @return outCountItems Count of valid items in the output arrays

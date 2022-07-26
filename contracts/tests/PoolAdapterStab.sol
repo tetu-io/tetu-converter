@@ -7,6 +7,7 @@ import "hardhat/console.sol";
 
 /// @notice Simple implementation of pool adapter, all params are set through constructor
 contract PoolAdapterStab is IPoolAdapter {
+  address public controller;
   address public poolValue;
   address public userValue;
   address public collateralUnderline;
@@ -19,7 +20,13 @@ contract PoolAdapterStab is IPoolAdapter {
     collateralFactorValue = collateralFactor_;
   }
 
-  function initialize(address pool_, address user_, address collateralUnderline_) external override {
+  function initialize(
+    address controller_,
+    address pool_,
+    address user_,
+    address collateralUnderline_
+  ) external override {
+    controller = controller_;
     poolValue = pool_;
     userValue = user_;
     collateralUnderline = collateralUnderline_;

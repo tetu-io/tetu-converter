@@ -11,8 +11,13 @@ contract AavePlatformAdapter is IPlatformAdapter {
   using SafeERC20 for IERC20;
 
   /// @dev See aave-v3-core ReserveConfiguration.sol for other ready masks
-  uint256 internal immutable LIQUIDATION_THRESHOLD_MASK = 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF0000FFFF;
+  uint256 internal immutable LIQUIDATION_THRESHOLD_MASK =    0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF0000FFFF;
+  uint256 internal constant ACTIVE_MASK =                    0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEFFFFFFFFFFFFFF;
+  uint256 internal constant FROZEN_MASK =                    0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFDFFFFFFFFFFFFFF;
+  uint256 internal constant BORROWING_MASK =                 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFBFFFFFFFFFFFFFF;
+
   uint256 internal immutable LIQUIDATION_THRESHOLD_START_BIT_POSITION = 16;
+
 
   /// @notice Get pool data required to select best lending pool
   /// @param pool_ = comptroller
@@ -27,7 +32,7 @@ contract AavePlatformAdapter is IPlatformAdapter {
     uint availableCash
   ) {
     console.log("getPoolInfo %s %s", pool_, underline_);
-    // TODO is paused?
+    // TODO is paused? is borrow enabled?
 
     // https://docs.aave.com/risk/asset-risk/risk-parameters#collaterals
     DataTypes.ReserveData memory rd = IAavePool(pool_).getReserveData(underline_);

@@ -2,7 +2,6 @@
 
 pragma solidity 0.8.4;
 
-import "./DataTypes.sol";
 import "../openzeppelin/Initializable.sol";
 import "../interfaces/IController.sol";
 
