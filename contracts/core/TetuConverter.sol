@@ -77,7 +77,12 @@ contract TetuConverter is ITetuConverter {
         //TODO: estimate cost of the money - commissions for all operations:
         //TODO: a lawn has borrow and repay, swap has direct and backward swap.
         console.log("br=%d period=%d", br, approxOwnershipPeriodInBlocks);
-        uint interest = (br * approxOwnershipPeriodInBlocks);
+
+        // We need to calculate borrowAPY
+        // https://docs.aave.com/developers/v/2.0/guides/apy-and-apr
+        // APY = (1 + (APR / period))^period - 1, where APR = br
+
+        uint interest = 1e18 * ((1 + (br / approxOwnershipPeriodInBlocks / 1e18)) ** approxOwnershipPeriodInBlocks - 1);
         return (pool, mta, interest);
       }
     }
