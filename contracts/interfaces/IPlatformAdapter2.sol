@@ -15,7 +15,7 @@ interface IPlatformAdapter2 {
   }
 
   /// @notice Get pool data required to select best lending pool
-  /// @param pool = comptroller
+  /// @param pool_ = comptroller
   /// @return borrowRateKind Kind of {borrowRatePerBlockWAD}. 0 if the borrow is not possible
   /// @return borrowRatePerBlockWAD Normalized borrow rate (borrow-rate + any fees), decimals = 18 (wad)
   /// @return collateralFactorWAD Current collateral factor [0..1e18], where 1e18 is corresponded to CF=1

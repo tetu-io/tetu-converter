@@ -8,7 +8,7 @@ import "../../integrations/aave/IAaveAddressesProvider.sol";
 
 /// @notice Implementation of IPoolAdapter for AAVE-protocol, see https://docs.aave.com/hub/
 /// @dev Instances of this contract are created using proxy-minimal pattern, so no constructor
-contract AavePoolAdapter is IPoolAdapter {
+contract Aave3PoolAdapter is IPoolAdapter {
   using SafeERC20 for IERC20;
 
   /// @notice 1 - stable, 2 - variable
