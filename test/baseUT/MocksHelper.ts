@@ -20,7 +20,8 @@ import {DeployerUtils} from "../../scripts/utils/DeployerUtils";
 export interface IPooAdapterStabInitParams {
     pool: string;
     user: string;
-    collateralUnderline: string;
+    collateralAsset: string;
+    borrowAsset: string;
 }
 
 /** Helper to create mock contracts */
@@ -85,7 +86,12 @@ export class MocksHelper {
         )) as PoolAdapterStab;
 
         if (initParams) {
-            await dest.initialize(initParams.pool, initParams.user, initParams.collateralUnderline);
+            await dest.initialize(
+                initParams.pool,
+                initParams.user,
+                initParams.collateralAsset,
+                initParams.borrowAsset
+            );
         }
 
         return dest;

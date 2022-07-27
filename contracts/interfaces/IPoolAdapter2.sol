@@ -11,7 +11,7 @@ interface IPoolAdapter2 {
     address controller_,
     address pool_,
     address user_,
-    address collateralAsset,
+    address collateralAsset_,
     address borrowAsset_
   ) external;
 
@@ -23,10 +23,11 @@ interface IPoolAdapter2 {
   ) external;
 
   /// @notice Repay borrowed amount, return collateral to the user
-  /// @param borrowedAmount_ Pass type(uint256) - 1 in order to repay the whole debt
+  /// @param closePosition true to pay full borrowed amount
   function repay(
-    uint borrowedAmount_,
-    address receiver_
+    uint amountToRepay_,
+    address receiver_,
+    bool closePosition
   ) external;
 
   function getConfig() external view returns (
