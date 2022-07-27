@@ -10,6 +10,8 @@ import {getBigNumberFrom} from "../../../../../scripts/utils/NumberUtils";
 import {DeployerUtils} from "../../../../../scripts/utils/DeployerUtils";
 import {AdaptersHelper} from "../../../../baseUT/AdaptersHelper";
 import {isPolygonForkInUse} from "../../../../baseUT/NetworkUtils";
+import {AaveHelper} from "../../../../../scripts/integration/helpers/AaveHelper";
+import {BalanceUtils} from "../../../../baseUT/BalanceUtils";
 
 describe("Aave integration tests, platform adapter", () => {
 //region Constants
@@ -106,33 +108,141 @@ describe("Aave integration tests, platform adapter", () => {
 //region Unit tests
     describe("getPoolInfo", () => {
         describe("Good paths", () => {
-            describe("Get USDC info", () => {
+            describe("DAI : matic", () => {
                 it("should return expected values", async () => {
                     if (!await isPolygonForkInUse()) return;
 
-                    const aavePlatformAdapter = await AdaptersHelper.createAavePlatformAdapter(deployer);
+                    const h: AaveHelper = new AaveHelper(deployer);
+                    const aavePlatformAdapter = await AdaptersHelper.createAave3PlatformAdapter(deployer);
 
-                    // Following data can be changed in time
-                    // https://app-v3.aave.com/reserve-overview/?underlyingAsset=0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48&marketName=proto_mainnet
-                    const liquidationThreshold = 82.50;
-                    const totalSupplied = 1.21e9;
-                    const apyVariable = 1.56;
+                    const aavePool = await AaveHelper.getAavePool(deployer);
+                    const dp = await AaveHelper.getAaveProtocolDataProvider(deployer);
 
-                    const ret = await aavePlatformAdapter.getPoolInfo(aavePoolV3, usdcAddress);
+                    const collateralAsset = "0x8f3Cf7ad23Cd3CaDbD9735AFf958023239c6A063"; //dai
+                    const borrowAsset = "0x0d500B1d8E8eF31E21C99d1Db9A6444d3ADf1270"; //matic
+
+                    const collateralAssetData = await h.getReserveInfo(deployer, aavePool, dp, collateralAsset);
+                    const borrowAssetData = await h.getReserveInfo(deployer, aavePool, dp, borrowAsset);
+
+                    const ret = await aavePlatformAdapter.getPoolInfo(aavePool.address, collateralAsset, borrowAsset);
+
                     const sret = [
-                        ethers.utils.formatUnits(ret.collateralFactor.mul(100))
-                    ].join();
+                        ret.borrowRateKind,
+                        ret.borrowRate,
+                        ret.ltvWAD,
+                        ret.collateralFactorWAD,
+                        ret.maxAmountToBorrowBT,
+                        ret.maxAmountToSupplyCT,
+                    // ensure that high efficiency mode is not available
+                        collateralAssetData.data.emodeCategory == 1,
+                        borrowAssetData.data.emodeCategory == 0,
+                    ].map(x => BalanceUtils.toString(x)) .join();
 
                     const sexpected = [
-                        ethers.utils.formatUnits(getBigNumberFrom(liquidationThreshold * 100, 16))
-                    ].join();
+                        2, // per second
+                        BigNumber.from(borrowAssetData.data.currentVariableBorrowRate)
+                            .mul(getBigNumberFrom(1, 18))
+                            .div(getBigNumberFrom(1, 27)),
+                        BigNumber.from(borrowAssetData.data.ltv)
+                            .mul(getBigNumberFrom(1, 18))
+                            .div(getBigNumberFrom(1, 5)),
+                        BigNumber.from(borrowAssetData.data.liquidationThreshold)
+                            .mul(getBigNumberFrom(1, 18))
+                            .div(getBigNumberFrom(1, 5)),
+                        BigNumber.from(borrowAssetData.liquidity.totalAToken)
+                            .sub(borrowAssetData.liquidity.totalVariableDebt)
+                            .sub(borrowAssetData.liquidity.totalStableDebt),
+                        0, //no limitations
+                        true,
+                        true
+                    ].map(x => BalanceUtils.toString(x)) .join();
 
-                    expect(sret).equal(sexpected);
+                    expect(sret).eq(sexpected);
+                });
+            });
+            describe("Two assets from category 1", () => {
+                it("should return values for high efficient mode", async () => {
+                    it("", async () =>{
+                        if (!await isPolygonForkInUse()) return;
+
+                        const h: AaveHelper = new AaveHelper(deployer);
+                        const aavePlatformAdapter = await AdaptersHelper.createAave3PlatformAdapter(deployer);
+
+                        const aavePool = await AaveHelper.getAavePool(deployer);
+                        const dp = await AaveHelper.getAaveProtocolDataProvider(deployer);
+
+                        const collateralAsset = "0x8f3Cf7ad23Cd3CaDbD9735AFf958023239c6A063"; //dai
+                        const borrowAsset = "0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174"; //usdt
+
+                        const collateralAssetData = await h.getReserveInfo(deployer, aavePool, dp, collateralAsset);
+                        const borrowAssetData = await h.getReserveInfo(deployer, aavePool, dp, borrowAsset);
+                        const categoryData = await AaveHelper.getEModeCategory(aavePool
+                            , borrowAssetData.data.emodeCategory
+                        );
+
+                        const ret = await aavePlatformAdapter.getPoolInfo(aavePool.address, collateralAsset, borrowAsset);
+
+                        const sret = [
+                            ret.borrowRateKind,
+                            ret.borrowRate,
+                            ret.ltvWAD,
+                            ret.collateralFactorWAD,
+                            ret.maxAmountToBorrowBT,
+                            ret.maxAmountToSupplyCT,
+                            // ensure that high efficiency mode is not available
+                            collateralAssetData.data.emodeCategory == 1,
+                            borrowAssetData.data.emodeCategory == 0,
+                        ].map(x => BalanceUtils.toString(x)) .join();
+
+                        const sexpected = [
+                            2, // per second
+                            BigNumber.from(borrowAssetData.data.currentVariableBorrowRate)
+                                .mul(getBigNumberFrom(1, 18))
+                                .div(getBigNumberFrom(1, 27)),
+                            BigNumber.from(categoryData.ltv)
+                                .mul(getBigNumberFrom(1, 18))
+                                .div(getBigNumberFrom(1, 5)),
+                            BigNumber.from(categoryData.liquidationThreshold)
+                                .mul(getBigNumberFrom(1, 18))
+                                .div(getBigNumberFrom(1, 5)),
+                            BigNumber.from(borrowAssetData.liquidity.totalAToken)
+                                .sub(borrowAssetData.liquidity.totalVariableDebt)
+                                .sub(borrowAssetData.liquidity.totalStableDebt),
+                            0, //no limitations
+                            true,
+                            true
+                        ].map(x => BalanceUtils.toString(x)) .join();
+
+                        expect(sret).eq(sexpected);
+                    });
+                });
+            });
+            describe("Borrow cap not 0", () => {
+                it("should return expected values", async () => {
+                    it("", async () =>{
+                        expect.fail("TODO");
+                    });
+                });
+            });
+            describe("Supply cap not 0", () => {
+                it("should return expected values", async () => {
+                    it("", async () =>{
+                        expect.fail("TODO");
+                    });
                 });
             });
         });
         describe("Bad paths", () => {
-
+            describe("Not borrowable", () => {
+                it("", async () =>{
+                    expect.fail("TODO");
+                });
+            });
+            describe("Not usable as collateral", () => {
+                it("", async () =>{
+                    expect.fail("TODO");
+                });
+            });
         });
 
     });

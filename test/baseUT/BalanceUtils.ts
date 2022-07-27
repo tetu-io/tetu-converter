@@ -33,7 +33,7 @@ export class BalanceUtils {
      * Convert string or number to string.
      * Use BigNumber.toString() for big-numbers
      */
-    static toString(n: number | string | BigNumber) : string {
+    static toString(n: number | string | BigNumber | boolean) : string {
         return typeof n === "object"
             ? n.toString()
             : "" + n;

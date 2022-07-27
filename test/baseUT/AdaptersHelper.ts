@@ -1,11 +1,11 @@
 import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
-import {AavePlatformAdapter} from "../../typechain";
+import {Aave3PlatformAdapter} from "../../typechain";
 import {DeployUtils} from "../../scripts/utils/DeployUtils";
 
 export class AdaptersHelper {
 //region AAVE
-    public static async createAavePlatformAdapter(signer: SignerWithAddress) : Promise<AavePlatformAdapter> {
-        return (await DeployUtils.deployContract(signer, "AavePlatformAdapter")) as AavePlatformAdapter;
+    public static async createAave3PlatformAdapter(signer: SignerWithAddress) : Promise<Aave3PlatformAdapter> {
+        return (await DeployUtils.deployContract(signer, "Aave3PlatformAdapter")) as Aave3PlatformAdapter;
     }
 //endregion AAVE
 }

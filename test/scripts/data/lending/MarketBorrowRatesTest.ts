@@ -1,4 +1,4 @@
-import {getInfoAboutFusePools} from "../../../../scripts/data/lending/marketXYZ/MarketBorrowRates";
+import {getInfoAboutFusePools} from "../../../../scripts/integration/lending/marketXYZ/MarketBorrowRates";
 
 // describe.skip("Test MaretBorrowRates", () =>{
 //     it("should allow to debug the script", async () => {
