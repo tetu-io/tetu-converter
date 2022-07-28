@@ -3,7 +3,11 @@ import {
     IAaveAddressesProvider,
     IAaveAddressesProvider__factory,
     IAavePool,
-    IAavePool__factory, IAaveProtocolDataProvider, IAaveProtocolDataProvider__factory, IERC20Extended__factory
+    IAavePool__factory,
+    IAavePriceOracle, IAavePriceOracle__factory,
+    IAaveProtocolDataProvider,
+    IAaveProtocolDataProvider__factory,
+    IERC20Extended__factory
 } from "../../../typechain";
 import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import {DataTypes} from "../../../typechain/contracts/integrations/aave/IAavePool";
@@ -228,6 +232,10 @@ export class AaveHelper {
     public static async getAaveProtocolDataProvider(signer: SignerWithAddress): Promise<IAaveProtocolDataProvider> {
         return IAaveProtocolDataProvider__factory.connect(
             await(await AaveHelper.getAaveAddressesProvider(signer)).getPoolDataProvider(), signer);
+    }
+    public static async getAavePriceOracle(signer: SignerWithAddress): Promise<IAavePriceOracle> {
+        return IAavePriceOracle__factory.connect(
+            await(await AaveHelper.getAaveAddressesProvider(signer)).getPriceOracle(), signer);
     }
 //endregion Access
 

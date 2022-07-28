@@ -32,54 +32,57 @@ contract Aave3PlatformAdapter is IPlatformAdapter2 {
 
       if (_isUsable(rc.configuration) && rb.configuration.getBorrowingEnabled()) {
 
-        { // get liquidation threshold (== collateral factor) and loan-to-value
-          uint8 categoryCollateral = uint8(rc.configuration.getEModeCategory());
-          if (categoryCollateral != 0 && categoryCollateral == rb.configuration.getEModeCategory()) {
+        if (!_isIsolationModeEnabled(rc.configuration) || _isUsableInIsolationMode(rb.configuration)) {
+          { // get liquidation threshold (== collateral factor) and loan-to-value
+            uint8 categoryCollateral = uint8(rc.configuration.getEModeCategory());
+            if (categoryCollateral != 0 && categoryCollateral == rb.configuration.getEModeCategory()) {
 
-            // if both assets belong to the same e-mode-category, we can use category's ltv (higher than default)
-            // TODO: we assume here, that e-mode is always used if it's available
-            DataTypes.EModeCategory memory categoryData = pool.getEModeCategoryData(categoryCollateral);
-
-            // ltv: 8500 for 0.85, we need decimals 18.
-            ltvWAD = categoryData.ltv * 10**(18-5);
-            collateralFactorWAD = categoryData.liquidationThreshold * 10**(18-5);
-          } else {
-            ltvWAD = rb.configuration.getLtv() * 10**(18-5);
-            collateralFactorWAD = rb.configuration.getLiquidationThreshold() * 10**(18-5);
+              // if both assets belong to the same e-mode-category, we can use category's ltv (higher than default)
+              // TODO: we assume here, that e-mode is always used if it's available
+              DataTypes.EModeCategory memory categoryData = pool.getEModeCategoryData(categoryCollateral);
+              // ltv: 8500 for 0.85, we need decimals 18.
+              ltvWAD = uint(categoryData.ltv) * 10**(18-5);
+              collateralFactorWAD = uint(categoryData.liquidationThreshold) * 10**(18-5);
+            } else {
+              ltvWAD = rb.configuration.getLtv() * 10**(18-5);
+              collateralFactorWAD = rb.configuration.getLiquidationThreshold() * 10**(18-5);
+            }
           }
-        }
-        console.log("collateralFactorWAD %d ltvWAD=%d", collateralFactorWAD, ltvWAD);
+          console.log("collateralFactorWAD %d ltvWAD=%d", collateralFactorWAD, ltvWAD);
 
-       // assume here, that we always use variable borrow rate
-        borrowRate = rb.currentVariableBorrowRate / 10**(27-18); // rays => decimals 18 (1 ray = 1e-27)
-        borrowRateKind = BorrowRateKind.PER_SECOND_2;
-        console.log("currentVariableBorrowRate %d", borrowRate);
+         // assume here, that we always use variable borrow rate
+          borrowRate = rb.currentVariableBorrowRate / 10**(27-18); // rays => decimals 18 (1 ray = 1e-27)
+          borrowRateKind = BorrowRateKind.PER_SECOND_2;
+          console.log("currentVariableBorrowRate %d", borrowRate);
 
-        // we need to know available liquidity in the pool, so, we need an access to pool-data-provider
-        // TODO: can we use static address of the PoolDataProvider - 0x69FA688f1Dc47d4B5d8029D5a35FB7a548310654 ?
-        // TODO: see https://docs.aave.com/developers/deployed-contracts/v3-mainnet/polygon
-        IAaveProtocolDataProvider dp = IAaveProtocolDataProvider(
-          (IAaveAddressesProvider(IAavePool(pool_).ADDRESSES_PROVIDER())).getPoolDataProvider()
-        );
+          { // by default, we can borrow all available cache
 
-        { // by default, we can borrow all available cache
-          (,,
-          uint256 totalAToken,
-          uint256 totalStableDebt,
-          uint256 totalVariableDebt
-          ,,,,,,,) = dp.getReserveData(borrowAsset_);
-          maxAmountToBorrowBT = totalAToken - totalStableDebt - totalVariableDebt;
-          console.log("maxAmountToBorrowBT = %d", maxAmountToBorrowBT);
-        }
+            // we need to know available liquidity in the pool, so, we need an access to pool-data-provider
+            // TODO: can we use static address of the PoolDataProvider - 0x69FA688f1Dc47d4B5d8029D5a35FB7a548310654 ?
+            // TODO: see https://docs.aave.com/developers/deployed-contracts/v3-mainnet/polygon
+            IAaveProtocolDataProvider dp = IAaveProtocolDataProvider(
+              (IAaveAddressesProvider(IAavePool(pool_).ADDRESSES_PROVIDER())).getPoolDataProvider()
+            );
 
-        { // take into account borrow cap and supply cap
-          uint borrowCap = rb.configuration.getBorrowCap();
-          if (borrowCap < maxAmountToSupplyCT) {
-            maxAmountToSupplyCT = borrowCap;
+            (,,
+            uint256 totalAToken,
+            uint256 totalStableDebt,
+            uint256 totalVariableDebt
+            ,,,,,,,) = dp.getReserveData(borrowAsset_);
+            maxAmountToBorrowBT = totalAToken - totalStableDebt - totalVariableDebt;
+            console.log("maxAmountToBorrowBT = %d", maxAmountToBorrowBT);
           }
-        }
 
-        maxAmountToSupplyCT = rb.configuration.getSupplyCap();
+          { // take into account borrow cap, supply cap and debts ceiling
+            uint borrowCap = rb.configuration.getBorrowCap();
+            if (borrowCap != 0 && borrowCap < maxAmountToBorrowBT) {
+              maxAmountToBorrowBT = borrowCap;
+            }
+          }
+
+          maxAmountToSupplyCT = rc.configuration.getSupplyCap();
+          console.log("maxAmountToSupplyCT = %d", maxAmountToSupplyCT);
+        }
       }
     }
 
@@ -98,5 +101,18 @@ contract Aave3PlatformAdapter is IPlatformAdapter2 {
   /// @param data DataTypes.ReserveData.configuration.data
   function _isUsable(DataTypes.ReserveConfigurationMap memory data) internal view returns (bool) {
     return data.getActive() && ! data.getFrozen() && ! data.getPaused();
+  }
+
+  /// @notice Some assets can be used as collateral in isolation mode only
+  /// @dev // see comment to getDebtCeiling(): The debt ceiling (0 = isolation mode disabled)
+  function _isIsolationModeEnabled(DataTypes.ReserveConfigurationMap memory collateralData_)
+  internal view returns (bool) {
+    return collateralData_.getDebtCeiling() != 0;
+  }
+
+  /// @notice Only certain assets can be borrowed in isolation mode—specifically, approved stablecoins.
+  /// @dev https://docs.aave.com/developers/whats-new/isolation-mode
+  function _isUsableInIsolationMode(DataTypes.ReserveConfigurationMap memory borrowData) internal view returns (bool) {
+    return borrowData.getBorrowableInIsolation();
   }
 }
