@@ -402,23 +402,26 @@ describe("Aave integration tests, pool adapter", () => {
                         );
 
                         const sret = [
-                            r.userBalancesBeforeBorrow.colalteral, r.userBalancesBeforeBorrow.borrow,
-                            r.userBalancesAfterBorrow.colalteral, r.userBalancesAfterBorrow.borrow,
-                            r.userBalancesAfterRepay.colalteral, r.userBalancesAfterRepay.borrow
+                            r.userBalancesBeforeBorrow.colalteral, r.userBalancesBeforeBorrow.borrow
+                            , r.userBalancesAfterBorrow.colalteral, r.userBalancesAfterBorrow.borrow
+
+                            // original collateral > returned collateral ...
+                            , collateralAmount.gt(r.userBalancesAfterRepay.colalteral)
+                            // ... the difference is less than 1%
+                            , collateralAmount.sub(r.userBalancesAfterRepay.colalteral)
+                                .div(collateralAmount)
+                                .mul(100).toNumber() < 1
+                            , r.userBalancesAfterRepay.borrow
                         ].map(x => BalanceUtils.toString(x)).join();
 
                         const sexpected = [
-                            collateralAmount, 0,
-                            0, borrowAmount,
                             collateralAmount, 0
-                            // collateralAmount, // amount of collateral tokens on pool-adapter's balance
-                            // collateralAmount.mul(prices[0])  // registered collateral in the pool
-                            //     .div(getBigNumberFrom(1, collateralToken.decimals)),
-                            // borrowAmount.mul(prices[1]) // registered debt in the pool
-                            //     .div(getBigNumberFrom(1, borrowToken.decimals)),
-                        ].map(x => BalanceUtils.toString(x)).join();
+                            , 0, borrowAmount
 
-                        return {sret, sexpected};
+                            , true // original collateral > returned collateral ...
+                            , true // the difference is less than 1%
+                            , 0
+                        ].map(x => BalanceUtils.toString(x)).join();
 
                         expect(sret).eq(sexpected);
                     });

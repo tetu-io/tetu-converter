@@ -215,21 +215,20 @@ contract Aave3PoolAdapter is IPoolAdapter2 {
     uint[] memory prices = _priceOracle.getAssetsPrices(assets);
     require(prices[0] != 0, "zero price");
 
-    uint amountToRepayBase = amountToRepay_ / prices[0];
+    uint amountToRepayBase = amountToRepay_ * prices[1] / (10 ** IERC20Extended(borrowAsset).decimals());
+    uint part = amountToRepayBase >= totalDebtBase
+      ? 10**18 //TODO we need to return the amount in wei units
+      : 10**18 * amountToRepayBase / totalDebtBase;
 
+    console.log("totalCollateralBase: %d", totalCollateralBase);
     console.log("_getCollateralAmountToReturn: %d", totalCollateralBase * (10 ** IERC20Extended(collateralAsset).decimals()));
     console.log("prices: %d %d", prices[0], prices[1]);
     console.log("amountToRepayBase: %d", amountToRepayBase );
     console.log("totalDebtBase: %d", totalDebtBase);
     return // == totalCollateral * amountToRepay / totalDebt
-      totalCollateralBase * (10 ** IERC20Extended(collateralAsset).decimals()) //TODO we need to return the amount in wei units
-      / prices[1]
-      / _priceOracle.BASE_CURRENCY_UNIT() // == 1e8 for USD
-      * (
-        amountToRepayBase == totalDebtBase
-          ? 1
-          : amountToRepayBase / totalDebtBase
-      );
+      totalCollateralBase * (10 ** IERC20Extended(collateralAsset).decimals())
+      * part / 10**18
+      / prices[0];
   }
 
   ///////////////////////////////////////////////////////
