@@ -1,26 +1,26 @@
-import "../../openzeppelin/SafeERC20.sol";
-import "../../openzeppelin/IERC20.sol";
-import "../../interfaces/IPoolAdapter2.sol";
-import "../../core/DebtMonitor.sol";
-import "../../integrations/aave/IAavePool.sol";
-import "../../integrations/aave/IAavePriceOracle.sol";
-import "../../integrations/aave/IAaveAddressesProvider.sol";
+import "../../../openzeppelin/SafeERC20.sol";
+import "../../../openzeppelin/IERC20.sol";
+import "../../../interfaces/IPoolAdapter2.sol";
+import "../../../core/DebtMonitor.sol";
+import "../../../integrations/aave/IAavePool.sol";
+import "../../../integrations/aave/IAavePriceOracle.sol";
+import "../../../integrations/aave/IAaveAddressesProvider.sol";
 
 /// @notice Implementation of IPoolAdapter for AAVE-protocol, see https://docs.aave.com/hub/
 /// @dev Instances of this contract are created using proxy-minimal pattern, so no constructor
-contract Aave3PoolAdapter is IPoolAdapter2 {
+abstract contract Aave3PoolAdapterBase is IPoolAdapter2 {
   using SafeERC20 for IERC20;
 
   /// @notice 1 - stable, 2 - variable
-  uint constant public RATE_MODE = 2;
+  uint immutable public RATE_MODE = 2;
 
   address public collateralAsset;
   address public borrowAsset;
   address public user;
 
   IController public controller;
-  IAavePool private _pool;
-  IAavePriceOracle private _priceOracle;
+  IAavePool internal _pool;
+  IAavePriceOracle internal _priceOracle;
 
   /// @notice Last synced amount of given token on the balance of this contract
   mapping(address => uint) public collateralBalance;
@@ -67,6 +67,14 @@ contract Aave3PoolAdapter is IPoolAdapter2 {
   }
 
   ///////////////////////////////////////////////////////
+  ///             Adapter customization
+  ///////////////////////////////////////////////////////
+
+  /// @notice Enter to E-mode if necessary
+  function prepareToBorrow() internal virtual;
+
+
+  ///////////////////////////////////////////////////////
   ///                 Borrow logic
   ///////////////////////////////////////////////////////
 
@@ -83,11 +91,6 @@ contract Aave3PoolAdapter is IPoolAdapter2 {
     DataTypes.ReserveData memory d = _pool.getReserveData(collateralAsset);
     uint aTokensBalance = IERC20(d.aTokenAddress).balanceOf(address(this));
 
-    console.log("collateralAmount_ %d", collateralAmount_);
-    console.log("Collateral balance %d", IERC20(collateralAsset).balanceOf(address(this)));
-    console.log("sync %d", collateralBalance[collateralAsset]);
-    console.log("diff %d", IERC20(collateralAsset).balanceOf(address(this)) - collateralBalance[collateralAsset]);
-
     // ensure we have received expected collateral amount
     require(collateralAmount_ >= IERC20(collateralAsset).balanceOf(address(this)) - collateralBalance[collateralAsset]
       , "APA:Wrong collateral balance");
@@ -103,18 +106,14 @@ contract Aave3PoolAdapter is IPoolAdapter2 {
     );
     _pool.setUserUseReserveAsCollateral(collateralAsset, true);
     (uint256 totalCollateralBase,,,,,) = _pool.getUserAccountData(user);
-    console.log("totalCollateralBase %d", totalCollateralBase);
-    console.log("Collateral balance %d", IERC20(collateralAsset).balanceOf(address(this)));
 
     // ensure that we received a-tokens
     uint aTokensAmount = IERC20(d.aTokenAddress).balanceOf(address(this)) - aTokensBalance;
-    console.log("aTokensAmount %d", aTokensAmount);
-    console.log("aTokensAmount balance %d", IERC20(d.aTokenAddress).balanceOf(address(this)));
-    console.log("aTokensAmount balance inc %d", IERC20(d.aTokenAddress).balanceOf(address(this))- aTokensBalance);
     require(aTokensAmount >= collateralAmount_, "APA: wrong aTokens balance");
 
     // make borrow, send borrowed amount to the receiver
     // we cannot transfer borrowed amount directly to receiver because the debt is incurred by amount receiver
+    prepareToBorrow();
     _pool.borrow(
       borrowAsset,
       borrowAmount_,
@@ -164,13 +163,9 @@ contract Aave3PoolAdapter is IPoolAdapter2 {
     address receiver_,
     bool closePosition
   ) external override {
-    console.log("collateralBalance[borrowAsset]=%d", collateralBalance[borrowAsset]);
     // ensure that we have received enough money on our balance just before repay was called
     uint borrowAmountOnBalance = IERC20(borrowAsset).balanceOf(address(this)) - collateralBalance[borrowAsset];
-    console.log("repay.1 amountToRepay_=%d borrowAmountOnBalance=%d", amountToRepay_, borrowAmountOnBalance);
     require(closePosition || amountToRepay_ == borrowAmountOnBalance, "APA:Wrong repay balance");
-
-    console.log("repay.2");
 
     uint amountCollateralToReturn = closePosition
     ? type(uint).max
@@ -183,16 +178,12 @@ contract Aave3PoolAdapter is IPoolAdapter2 {
     console.log("repay.3");
 
     if (closePosition) {
-      console.log("repay.4.0");
       // repay remain debt using aTokens
       _pool.repayWithATokens(borrowAsset, type(uint256).max, RATE_MODE);
     }
-    console.log("repay.4");
 
     // withdraw the collateral
-    console.log("repay.5 %d", amountCollateralToReturn);
     _pool.withdraw(collateralAsset, amountCollateralToReturn, receiver_);
-    console.log("repay.6");
 
     // update borrow position status in DebtMonitor
     //TODO IDebtMonitor(controller.debtMonitor()).onRepay(d.aTokenAddress, aTokensAmount, borrowAsset);
