@@ -59,6 +59,9 @@ contract Aave3PoolAdapter is IPoolAdapter2 {
   function sync() external {
     _onlyTC();
 
+    console.log("sync collateral cache=%d balance=%d", collateralBalance[collateralAsset], IERC20(collateralAsset).balanceOf(address(this)));
+    console.log("sync borrowAsset cache=%d balance=%d", collateralBalance[borrowAsset], IERC20(borrowAsset).balanceOf(address(this)));
+
     collateralBalance[collateralAsset] = IERC20(collateralAsset).balanceOf(address(this));
     collateralBalance[borrowAsset] = IERC20(borrowAsset).balanceOf(address(this));
   }
@@ -110,9 +113,6 @@ contract Aave3PoolAdapter is IPoolAdapter2 {
     console.log("aTokensAmount balance inc %d", IERC20(d.aTokenAddress).balanceOf(address(this))- aTokensBalance);
     require(aTokensAmount >= collateralAmount_, "APA: wrong aTokens balance");
 
-    // ensure that we can borrow allowed amount safely
-    _ensureSafeToBorrow(borrowAmount_);
-
     // make borrow, send borrowed amount to the receiver
     // we cannot transfer borrowed amount directly to receiver because the debt is incurred by amount receiver
     _pool.borrow(
@@ -121,6 +121,10 @@ contract Aave3PoolAdapter is IPoolAdapter2 {
       RATE_MODE,
       0, // no referral code
       address(this)
+    );
+
+    _ensureSafeToBorrow(
+      0 //TODO: min allowed health factor
     );
 
     // ensure that we have received required borrowed amount, send the amount to the receiver
@@ -135,15 +139,19 @@ contract Aave3PoolAdapter is IPoolAdapter2 {
   }
 
   /// @notice Revert if health factor will be below threshold after borrowing {amountToBorrow_}
-  function _ensureSafeToBorrow(uint amountToBorrow_) internal view {
+  function _ensureSafeToBorrow(uint minAllowedHealthFactor_) internal view {
     (uint256 totalCollateralBase,
-    uint256 totalDebtBase,
-    uint256 availableBorrowsBase,
-    uint256 currentLiquidationThreshold,
-    uint256 ltv,
+     uint256 totalDebtBase,
+     uint256 availableBorrowsBase,
+     uint256 currentLiquidationThreshold,
+     uint256 ltv,
+     uint256 healthFactor
     ) = _pool.getUserAccountData(address(this));
 
-    //TODO
+    //TODO: ensure that healthFactor >= minAllowedHealthFactor_
+    console.log("totalCollateralBase=%d totalDebtBase=%d", totalCollateralBase, totalDebtBase);
+    console.log("availableBorrowsBase=%d currentLiquidationThreshold=%d", availableBorrowsBase, currentLiquidationThreshold);
+    console.log("ltv=%d totalDebtBase=%d healthFactor=%d", ltv, totalDebtBase, healthFactor);
   }
 
 
@@ -156,25 +164,35 @@ contract Aave3PoolAdapter is IPoolAdapter2 {
     address receiver_,
     bool closePosition
   ) external override {
+    console.log("collateralBalance[borrowAsset]=%d", collateralBalance[borrowAsset]);
     // ensure that we have received enough money on our balance just before repay was called
     uint borrowAmountOnBalance = IERC20(borrowAsset).balanceOf(address(this)) - collateralBalance[borrowAsset];
+    console.log("repay.1 amountToRepay_=%d borrowAmountOnBalance=%d", amountToRepay_, borrowAmountOnBalance);
     require(closePosition || amountToRepay_ == borrowAmountOnBalance, "APA:Wrong repay balance");
+
+    console.log("repay.2");
+
+    uint amountCollateralToReturn = closePosition
+    ? type(uint).max
+    : _getCollateralAmountToReturn(borrowAsset, amountToRepay_);
 
     // transfer borrow amount back to the pool
     //TODO amount to be repaid, expressed in wei units.
-    _pool.repay(borrowAsset, amountToRepay_, RATE_MODE, address(this)
-    );
+    IERC20(borrowAsset).approve(address(_pool), amountToRepay_);
+    _pool.repay(borrowAsset, amountToRepay_, RATE_MODE, address(this));
+    console.log("repay.3");
 
     if (closePosition) {
+      console.log("repay.4.0");
       // repay remain debt using aTokens
       _pool.repayWithATokens(borrowAsset, type(uint256).max, RATE_MODE);
     }
+    console.log("repay.4");
 
     // withdraw the collateral
-    uint amountCollateralToReturn = closePosition
-      ? type(uint).max
-      : _getCollateralAmountToReturn(borrowAsset, amountToRepay_);
+    console.log("repay.5 %d", amountCollateralToReturn);
     _pool.withdraw(collateralAsset, amountCollateralToReturn, receiver_);
+    console.log("repay.6");
 
     // update borrow position status in DebtMonitor
     //TODO IDebtMonitor(controller.debtMonitor()).onRepay(d.aTokenAddress, aTokensAmount, borrowAsset);
@@ -195,8 +213,14 @@ contract Aave3PoolAdapter is IPoolAdapter2 {
     assets[1] = borrowAsset;
 
     uint[] memory prices = _priceOracle.getAssetsPrices(assets);
+    require(prices[0] != 0, "zero price");
 
-    uint amountToRepayBase = amountToRepay_ * prices[0];
+    uint amountToRepayBase = amountToRepay_ / prices[0];
+
+    console.log("_getCollateralAmountToReturn: %d", totalCollateralBase * (10 ** IERC20Extended(collateralAsset).decimals()));
+    console.log("prices: %d %d", prices[0], prices[1]);
+    console.log("amountToRepayBase: %d", amountToRepayBase );
+    console.log("totalDebtBase: %d", totalDebtBase);
     return // == totalCollateral * amountToRepay / totalDebt
       totalCollateralBase * (10 ** IERC20Extended(collateralAsset).decimals()) //TODO we need to return the amount in wei units
       / prices[1]
