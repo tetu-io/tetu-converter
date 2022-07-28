@@ -13,8 +13,14 @@ contract Aave3PlatformAdapter is IPlatformAdapter2 {
   using ReserveConfiguration for DataTypes.ReserveConfigurationMap;
 
   IAavePool public pool;
-  address public templateAdapterNormal;
-  address public templateAdapterEMode;
+
+  /// @notice Full list of supported template-pool-adapters
+  address[] override converters;
+
+  /// @notice Index of template pool adapter in {templatePoolAdapters} that should be used in normal borrowing mode
+  uint constant public INDEX_NORMAL_MODE = 0;
+  /// @notice Index of template pool adapter in {templatePoolAdapters} that should be used in E-mode of borrowing
+  uint constant public INDEX_E_MODE = 1;
 
   constructor (
     address poolAave_,
@@ -26,8 +32,9 @@ contract Aave3PlatformAdapter is IPlatformAdapter2 {
     require(templateAdapterEMode_ != address(0), "zero address");
 
     pool = IAavePool(poolAave_);
-    templateAdapterNormal = templateAdapterNormal_;
-    templateAdapterEMode = templateAdapterEMode_;
+
+    converters.push(templateAdapterNormal_); // add first, INDEX_NORMAL_MODE = 0
+    converters.push(templateAdapterEMode_); // add second, INDEX_E_MODE = 1
   }
 
   function getPoolInfo (
@@ -54,11 +61,11 @@ contract Aave3PlatformAdapter is IPlatformAdapter2 {
               // ltv: 8500 for 0.85, we need decimals 18.
               plan.ltvWAD = uint(categoryData.ltv) * 10**(18-5);
               plan.collateralFactorWAD = uint(categoryData.liquidationThreshold) * 10**(18-5);
-              plan.poolAdapterTemplate = templateAdapterEMode;
+              plan.poolAdapterTemplate = converters[INDEX_E_MODE];
             } else {
               plan.ltvWAD = rb.configuration.getLtv() * 10**(18-5);
               plan.collateralFactorWAD = rb.configuration.getLiquidationThreshold() * 10**(18-5);
-              plan.poolAdapterTemplate = templateAdapterNormal;
+              plan.poolAdapterTemplate = converters[INDEX_NORMAL_MODE];
             }
           }
 

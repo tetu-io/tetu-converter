@@ -4,6 +4,7 @@ pragma solidity 0.8.4;
 
 /// @notice Keep and provide addresses of all application contracts
 interface IController {
+  function MIN_HEALTH_FACTOR_WAD() external view returns (uint32);
   function governance() external view returns (address);
 
   ///////////////////////////////////////////////////////

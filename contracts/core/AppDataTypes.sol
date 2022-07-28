@@ -16,7 +16,7 @@ library AppDataTypes {
   /// @notice Input params for BorroManager.findPool (stack is too deep problem)
   struct ExecuteFindPoolParams {
     /// @notice if 0 than default health factor specified for the target asset will be used
-    uint96 healthFactorOptional;
+    uint healthFactorOptional;
 
     address sourceToken;
     address targetToken;
