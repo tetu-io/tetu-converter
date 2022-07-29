@@ -31,15 +31,15 @@ contract UserBorrowRepayUCs {
     uint sourceAmount_,
     address targetToken_,
     uint borrowPeriodInBlocks_,
-    uint96 healthFactorOptional_,
+    uint16 healthFactor2_,
     address receiver_
   ) external {
-    console.log("makeBorrowUS11.1 %d", healthFactorOptional_);
+    console.log("makeBorrowUS11.1 %d", healthFactor2_);
     // ask TC for the best conversion strategy
-    (address pool, uint maxTargetAmount,) = _tc().findBestConversionStrategy(sourceToken_,
+    (address converter, uint maxTargetAmount,) = _tc().findConversionStrategy(sourceToken_,
       sourceAmount_,
       targetToken_,
-      healthFactorOptional_,
+      healthFactor2_,
       borrowPeriodInBlocks_
     );
 
@@ -52,7 +52,7 @@ contract UserBorrowRepayUCs {
     console.log("makeBorrowUS11.3");
     // borrow and receive borrowed-amount to receiver's balance
     _tc().convert(
-      pool,
+      converter,
       sourceToken_,
       sourceAmount_,
       targetToken_,
@@ -64,7 +64,8 @@ contract UserBorrowRepayUCs {
   function makeRepayUS12(
     address collateralToken_,
     address borrowedToken_,
-    address receiver_
+    address receiver_,
+    bool closePosition_
   ) external {
     console.log("makeRepayUS12.1");
     (uint count, address[] memory poolAdapters, uint[] memory amounts)
@@ -77,9 +78,9 @@ contract UserBorrowRepayUCs {
 
       // repay borrowed amount and receive collateral to receiver's balance
       IPoolAdapter(poolAdapters[i]).repay(
-        borrowedToken_,
         amounts[i],
-        receiver_
+        receiver_,
+        closePosition_
       );
     }
   }

@@ -12,8 +12,7 @@ import "hardhat/console.sol";
 import "../openzeppelin/IERC20.sol";
 import "../openzeppelin/SafeERC20.sol";
 import "../base/BorrowManagerBase.sol";
-import "./Errors.sol";
-import "../interfaces/IPlatformAdapter2.sol";
+import "./AppErrors.sol";
 
 /// @notice Contains list of lending pools. Allow to select most efficient pool for the given collateral/borrow pair
 contract BorrowManager is BorrowManagerBase {
@@ -71,15 +70,15 @@ contract BorrowManager is BorrowManagerBase {
 
   function addPool(address platformAdapter_, address[] calldata assets_)
   external override {
-    if (!platformAdaptersRegistered[platformAdapters]) {
-      platformAdapters.push(platformAdapters);
-      platformAdaptersRegistered[platformAdapters] = true;
+    if (!platformAdaptersRegistered[platformAdapter_]) {
+      platformAdapters.push(platformAdapter_);
+      platformAdaptersRegistered[platformAdapter_] = true;
     }
 
-    address[] memory converters = IPlatformAdapter2(platformAdapter_).converters();
-    uint lenConverters = converters.length;
+    address[] memory paConverters = IPlatformAdapter(platformAdapter_).converters();
+    uint lenConverters = paConverters.length;
     for (uint i = 0; i < lenConverters; ++i) {
-      converters[converters[i]] = platformAdapter_;
+      converters[paConverters[i]] = platformAdapter_;
     }
 
     // enumerate all assets and register all possible pairs
@@ -101,9 +100,9 @@ contract BorrowManager is BorrowManagerBase {
   }
 
   /// @notice Set default health factor for {asset}. Default value is used only if user hasn't provided custom value
-  /// @param value3 Health factor with decimals 2; must be greater or equal to MIN_HEALTH_FACTOR (for 1.5 use 150)
+  /// @param value2 Health factor with decimals 2; must be greater or equal to MIN_HEALTH_FACTOR (for 1.5 use 150)
   function setHealthFactor(address asset, uint16 value2) external override {
-    require(value2 > controller.MIN_HEALTH_FACTOR2(), "HF must be > MIN_HF");
+    require(value2 > controller.MIN_HEALTH_FACTOR2(), AppErrors.WRONG_HEALTH_FACTOR);
     defaultHealthFactors2[asset] = value2;
   }
 
@@ -131,15 +130,15 @@ contract BorrowManager is BorrowManagerBase {
       [p_.sourceToken < p_.targetToken ? p_.sourceToken : p_.targetToken]
       [p_.sourceToken < p_.targetToken ? p_.targetToken : p_.sourceToken];
 
-    if (_p.healthFactor2 == 0) {
-      _p.healthFactor2 = defaultHealthFactorsWAD[p_.targetToken];
+    if (p_.healthFactor2 == 0) {
+      p_.healthFactor2 = defaultHealthFactors2[p_.targetToken];
     }
-    require(_p.healthFactor2 >= controller.MIN_HEALTH_FACTOR_WAD(), ErrorTypes.WRONG_HEALTH_FACTOR);
+    require(p_.healthFactor2 >= controller.MIN_HEALTH_FACTOR2(), AppErrors.WRONG_HEALTH_FACTOR);
 
     if (pas.length != 0) {
-      (outTemplatePoolAdapter, outMaxTargetAmount, borrowRatePerBlock18) = _findPool(
+      (converter, maxTargetAmount, borrowRatePerBlock18) = _findPool(
         pas
-        , _p
+        , p_
         , BorrowInput({
           sourceAmount18: _toMantissa(p_.sourceAmount, uint8(IERC20Extended(p_.sourceToken).decimals()), 18),
           targetDecimals: IERC20Extended(p_.targetToken).decimals(),
@@ -149,7 +148,7 @@ contract BorrowManager is BorrowManagerBase {
       );
     }
 
-    return (outTemplatePoolAdapter, outBorrowRate, outMaxTargetAmount);
+    return (converter, maxTargetAmount, borrowRatePerBlock18);
   }
 
   /// @notice Enumerate all pools and select a pool suitable for borrowing with min borrow rate and enough underline
@@ -162,13 +161,13 @@ contract BorrowManager is BorrowManagerBase {
     uint maxTargetAmount,
     uint interest18
   ) {
-    require(pp_.priceSource18 != 0, Errors.ZERO_PRICE);
+    require(pp_.priceSource18 != 0, AppErrors.ZERO_PRICE);
 
     uint lenPools = platformAdapters_.length;
     for (uint i = 0; i < lenPools; i = _uncheckedInc(i)) {
-      AppDataTypes.ConversionPlan memory plan = IPlatformAdapter2(platformAdapters_[i]).getConversionPlan(
-        pp_.sourceToken,
-        pp_.targetToken
+      AppDataTypes.ConversionPlan memory plan = IPlatformAdapter(platformAdapters_[i]).getConversionPlan(
+        p_.sourceToken,
+        p_.targetToken
       );
 
       // check if we are able to supply required collateral
@@ -182,13 +181,13 @@ contract BorrowManager is BorrowManagerBase {
           // how much target asset we are able to get for the provided collateral with given health factor
           // TargetTA = BS / PT [TA], C = SA * PS, CM = C / HF, BS = CM * PCF
           uint resultTa18 = plan.collateralFactorWAD
-            * pp_.sourceAmountWAD * pp_.priceSourceWAD
-            / (pp_.priceTargetWAD * pp_.healthFactorWAD);
+            * pp_.sourceAmount18 * pp_.priceSource18
+            / (pp_.priceTarget18 * p_.healthFactor2 * 10**(18-2));
 
           // the pool should have enough liquidity
           if (_toMantissa(plan.maxAmountToBorrowBT, pp_.targetDecimals, 18) >= resultTa18) {
             // take the pool with lowest borrow rate
-            converter = plan.poolAdapterTemplate;
+            converter = plan.converter;
             maxTargetAmount = _toMantissa(resultTa18, 18, pp_.targetDecimals);
             interest18 = apy;
           }
@@ -210,7 +209,7 @@ contract BorrowManager is BorrowManagerBase {
 
   function getPlatformAdapter(address converter_) external view override returns (address) {
     address platformAdapter = converters[converter_];
-    require(platformAdapter != address(0), Errors.PLATFORM_ADAPTER_NOT_FOUND);
+    require(platformAdapter != address(0), AppErrors.PLATFORM_ADAPTER_NOT_FOUND);
     return platformAdapter;
   }
 

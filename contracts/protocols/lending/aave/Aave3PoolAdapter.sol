@@ -1,3 +1,7 @@
+// SPDX-License-Identifier: MIT
+
+pragma solidity 0.8.4;
+
 import "./Aave3PoolAdapterBase.sol";
 
 /// @notice PoolAdapter for AAVE-protocol that uses ordinal borrow mode (not E-mode)

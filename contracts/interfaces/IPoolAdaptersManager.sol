@@ -11,7 +11,6 @@ pragma solidity 0.8.4;
 interface IPoolAdaptersManager {
 
   /// @notice Register a pool adapter for (pool, user, collateral) if the adapter wasn't created before
-  /// @param pool_ Pool of a lending platform, i.e. address of comptroller contract in Compound protocol
   /// @param user_ Address of the caller contract who requires access to the pool adapter
   /// @return Address of registered pool adapter
   function registerPoolAdapter(

@@ -5,57 +5,80 @@ pragma solidity 0.8.4;
 import "../core/AppDataTypes.sol";
 import "../interfaces/IPlatformAdapter.sol";
 import "hardhat/console.sol";
+import "./PoolAdapterMock.sol";
 
 contract LendingPlatformMock is IPlatformAdapter {
-  /// @notice pool => underline => cf
-  mapping(address => mapping(address => uint256)) public collateralFactors;
+  address private _pool;
+  address private _converter;
+  address private _controller;
+  /// @notice asset => cf
+  mapping(address => uint256) public collateralFactors;
 
-  /// @notice asset => underline => borrowRates
-  mapping(address => mapping(address => uint256)) public borrowRates;
-  /// @notice asset => underline => liquidity
-  mapping(address => mapping(address => uint256)) public liquidity;
+  /// @notice underline => borrowRates
+  mapping(address => uint256) public borrowRates;
+  /// @notice underline => liquidity
+  mapping(address => uint256) public liquidity;
 
   constructor(
-    address[] memory pools_,
+    address controller_,
+    address pool_,
+    address converter_,
     address[] memory underlines_,
     uint[] memory collateralFactors_,
     uint[] memory borrowRates_,
     uint[] memory liquidity_
   ) {
-    require(pools_.length == collateralFactors_.length, "wrong lengths 2");
-    require(pools_.length == borrowRates_.length, "wrong lengths 1");
-    require(pools_.length == liquidity_.length, "wrong lengths 3");
-    require(pools_.length == underlines_.length, "wrong lengths 4");
+    _pool = pool_;
+    _converter = converter_;
 
-    for (uint i = 0; i < pools_.length; ++i) {
-      collateralFactors[pools_[i]][underlines_[i]] = collateralFactors_[i];
-      borrowRates[pools_[i]][underlines_[i]] = borrowRates_[i];
-      liquidity[pools_[i]][underlines_[i]] = liquidity_[i];
+    for (uint i = 0; i < underlines_.length; ++i) {
+      collateralFactors[underlines_[i]] = collateralFactors_[i];
+      borrowRates[underlines_[i]] = borrowRates_[i];
+      liquidity[underlines_[i]] = liquidity_[i];
 
-      console.log("LendingPlatformMock pool=%s underline=%s", pools_[i], underlines_[i]);
+      console.log("LendingPlatformMock underline=%s", underlines_[i]);
       console.log("collateralFactor=%d", collateralFactors_[i]);
       console.log("borrowRate=%d", borrowRates_[i]);
       console.log("liquidity=%d", liquidity_[i]);
     }
   }
 
-  /// @notice get data of the pool
-  /// @param pool = comptroller
-  /// @return borrowRatePerBlock Normalized borrow rate can include borrow-rate-per-block + any additional fees
-  /// @return collateralFactor Current collateral factor [0..1e18], where 1e18 is corresponded to CF=1
-  /// @return availableCash Available underline in the pool. 0 if the market is unlisted
-  function getPoolInfo(address pool, address underline)
-  external
-  view
-  override
-  returns (
-    uint borrowRatePerBlock,
-    uint collateralFactor,
-    uint availableCash
+  function getConversionPlan (
+    address collateralAsset_,
+    address borrowAsset_
+  ) external view override returns (
+    AppDataTypes.ConversionPlan memory plan
   ) {
-    console.log("getPoolInfo pools=%s underline=%s", pool, underline);
-    collateralFactor = collateralFactors[pool][underline];
-    availableCash = liquidity[pool][underline];
-    borrowRatePerBlock = borrowRates[pool][underline];
+    return AppDataTypes.ConversionPlan({
+      converter: _converter,
+      borrowRateKind: AppDataTypes.BorrowRateKind.PER_BLOCK_1,
+      collateralFactorWAD: collateralFactors[collateralAsset_],
+      borrowRate: borrowRates[borrowAsset_],
+      ltvWAD: collateralFactors[collateralAsset_],
+      maxAmountToBorrowBT: liquidity[borrowAsset_],
+      maxAmountToSupplyCT: 0
+    });
+  }
+
+  function converters() external view override returns (address[] memory) {
+    address[] memory dest = new address[](1);
+    dest[0] = _converter;
+    return dest;
+  }
+
+  function initializePoolAdapter(
+    address converter_,
+    address poolAdapter_,
+    address user_,
+    address collateralAsset_,
+    address borrowAsset_
+  ) external override {
+    PoolAdapterMock(poolAdapter_).initialize(
+      _controller,
+      _pool,
+      user_,
+      collateralAsset_,
+      borrowAsset_
+    );
   }
 }

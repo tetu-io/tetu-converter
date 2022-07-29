@@ -19,7 +19,7 @@ interface IPoolAdapter is IConverter {
   ) external;
 
   /// @notice Repay borrowed amount, return collateral to the user
-  /// @param closePosition true to pay full borrowed amount
+  /// @param closePosition_ true to pay full borrowed amount
   function repay(
     uint amountToRepay_,
     address receiver_,
@@ -36,7 +36,7 @@ interface IPoolAdapter is IConverter {
   /// @notice Get current status of the borrow position
   /// @return collateralAmount Total amount of provided collateral in [collateral asset]
   /// @return amountToPay Total amount of borrowed debt in [borrow asset]. 0 - for closed borrow positions.
-  /// @return healthFactor3 Current health factor, decimals 18
+  /// @return healthFactorWAD Current health factor, decimals 18
   function getStatus() external view returns (
     uint collateralAmount,
     uint amountToPay,

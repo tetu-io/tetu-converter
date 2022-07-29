@@ -1,14 +1,20 @@
+// SPDX-License-Identifier: MIT
+
+pragma solidity 0.8.4;
+
 import "../../../openzeppelin/SafeERC20.sol";
 import "../../../openzeppelin/IERC20.sol";
-import "../../../interfaces/IPoolAdapter2.sol";
+import "../../../interfaces/IPoolAdapter.sol";
 import "../../../core/DebtMonitor.sol";
+import "../../../core/AppErrors.sol";
 import "../../../integrations/aave/IAavePool.sol";
 import "../../../integrations/aave/IAavePriceOracle.sol";
 import "../../../integrations/aave/IAaveAddressesProvider.sol";
+import "../../../interfaces/IPoolAdapterInitializer.sol";
 
 /// @notice Implementation of IPoolAdapter for AAVE-protocol, see https://docs.aave.com/hub/
 /// @dev Instances of this contract are created using proxy-minimal pattern, so no constructor
-abstract contract Aave3PoolAdapterBase is IPoolAdapter2 {
+abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer {
   using SafeERC20 for IERC20;
 
   /// @notice 1 - stable, 2 - variable
@@ -36,11 +42,10 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter2 {
     address collateralAsset_,
     address borrowAsset_
   ) override external {
-    require(controller_ != address(0), "zero controller");
-    require(pool_ != address(0), "zero pool");
-    require(user_ != address(0), "zero user");
-    require(collateralAsset_ != address(0), "zero collateral");
-    require(borrowAsset_ != address(0), "zero borrow token");
+    require(controller_ != address(0)
+      && user_ != address(0)
+      && collateralAsset_ != address(0)
+      && borrowAsset_ != address(0), AppErrors.ZERO_ADDRESS);
 
     controller = IController(controller_);
     user = user_;
@@ -51,12 +56,16 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter2 {
     _priceOracle = IAavePriceOracle(IAaveAddressesProvider(_pool.ADDRESSES_PROVIDER()).getPriceOracle());
   }
 
+  function getConversionKind() external pure override returns (AppDataTypes.ConversionKind) {
+    return AppDataTypes.ConversionKind.BORROW_2;
+  }
+
   ///////////////////////////////////////////////////////
   ///        Sync balances before borrow/repay
   ///////////////////////////////////////////////////////
 
   /// @dev TC calls this function before transferring any amounts to balance of this contract
-  function sync(bool beforeBorrow) external override {
+  function syncBalance(bool beforeBorrow) external override {
     _onlyTC();
 
     if (beforeBorrow) {
@@ -93,7 +102,7 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter2 {
 
     // ensure we have received expected collateral amount
     require(collateralAmount_ >= IERC20(collateralAsset).balanceOf(address(this)) - collateralBalance[collateralAsset]
-      , "APA:Wrong collateral balance");
+      , AppErrors.WRONG_COLLATERAL_BALANCE);
 
     // Supplies an `amount` of underlying asset into the reserve, receiving in return overlying aTokens.
     // E.g. User supplies 100 USDC and gets in return 100 aUSDC
@@ -109,7 +118,7 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter2 {
 
     // ensure that we received a-tokens
     uint aTokensAmount = IERC20(d.aTokenAddress).balanceOf(address(this)) - aTokensBalance;
-    require(aTokensAmount >= collateralAmount_, "APA: wrong aTokens balance");
+    require(aTokensAmount >= collateralAmount_, AppErrors.WRONG_DERIVATIVE_TOKENS_BALANCE);
 
     // enter to E-mode if necessary
     prepareToBorrow();
@@ -126,12 +135,12 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter2 {
 
     {
       (,,,,, uint256 healthFactor) = _pool.getUserAccountData(address(this));
-      require(healthFactor > controller.MIN_HEALTH_FACTOR2()*10**(18-2), Errors.WRONG_HEALTH_FACTOR);
+      require(healthFactor > controller.MIN_HEALTH_FACTOR2()*10**(18-2), AppErrors.WRONG_HEALTH_FACTOR);
     }
 
     // ensure that we have received required borrowed amount, send the amount to the receiver
     require(borrowAmount_ == IERC20(borrowAsset).balanceOf(address(this)) - collateralBalance[borrowAsset]
-    , "APA:Wrong borrow balance");
+      , AppErrors.WRONG_BORROWED_BALANCE);
     IERC20(borrowAsset).safeTransfer(receiver_, borrowAmount_);
 
     // register the borrow in DebtMonitor
@@ -154,8 +163,8 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter2 {
     require(closePosition || amountToRepay_ == borrowAmountOnBalance, "APA:Wrong repay balance");
 
     uint amountCollateralToReturn = closePosition
-    ? type(uint).max
-    : _getCollateralAmountToReturn(borrowAsset, amountToRepay_);
+      ? type(uint).max
+      : _getCollateralAmountToReturn(amountToRepay_);
 
     // transfer borrow amount back to the pool
     //TODO amount to be repaid, expressed in wei units.
@@ -177,10 +186,10 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter2 {
 
   /// @param amountToRepay_ Amount to be repaid [in borrowed tokens]
   /// @return Amount of collateral [in collateral tokens] to be returned in exchange of {borrowedAmount_}
-  function _getCollateralAmountToReturn(address borrowAsset, uint amountToRepay_) internal returns (uint) {
+  function _getCollateralAmountToReturn(uint amountToRepay_) internal returns (uint) {
     // get total amount of the borrow position
     (uint256 totalCollateralBase, uint256 totalDebtBase,,,,) = _pool.getUserAccountData(address(this));
-    require(totalDebtBase != 0, "APA:zero totalDebtBase");
+    require(totalDebtBase != 0, AppErrors.ZERO_BALANCE);
 
     // how much collateral we have provided?
 
@@ -190,7 +199,7 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter2 {
     assets[1] = borrowAsset;
 
     uint[] memory prices = _priceOracle.getAssetsPrices(assets);
-    require(prices[0] != 0, "zero price");
+    require(prices[0] != 0, AppErrors.ZERO_PRICE);
 
     uint amountToRepayBase = amountToRepay_ * prices[1] / (10 ** IERC20Extended(borrowAsset).decimals());
     uint part = amountToRepayBase >= totalDebtBase
@@ -214,9 +223,9 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter2 {
 
   function getConfig() external view override returns (
     address pool,
-    address user,
-    address collateralAsset,
-    address borrowAsset
+    address outUser,
+    address outCollateralAsset,
+    address outBorrowAsset
   ) {
     return (address(_pool), user, collateralAsset, borrowAsset);
   }
@@ -231,13 +240,13 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter2 {
      uint256 availableBorrowsBase,
      uint256 currentLiquidationThreshold,
      uint256 ltv,
-     uint256 healthFactor
+     uint256 hf
     ) = _pool.getUserAccountData(user);
 
     return (
       totalCollateralBase, //TODO: units
       totalDebtBase, //TODO: units
-      healthFactor
+      hf //TODO
     );
   }
 
@@ -247,7 +256,7 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter2 {
 
   /// @notice Ensure that the caller is TetuConveter
   function _onlyTC() internal view {
-    require(controller.tetuConverter() == msg.sender, Errors.TETU_CONVERTER_ONLY);
+    require(controller.tetuConverter() == msg.sender, AppErrors.TETU_CONVERTER_ONLY);
   }
 
   /// @notice Convert {amount} with [sourceDecimals} to new amount with {targetDecimals}

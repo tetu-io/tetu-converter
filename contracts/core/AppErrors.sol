@@ -2,7 +2,7 @@
 
 pragma solidity 0.8.4;
 
-library Errors {
+library AppErrors {
   /// @notice Provided address should be not zero
   string public constant ZERO_ADDRESS = "1";
   /// @notice Pool adapter for the given set {converter, user, collateral, borrowToken} not found and cannot be created
@@ -23,5 +23,14 @@ library Errors {
   string public constant ATTEMPT_TO_CLOSE_NOT_EMPTY_BORROW_POSITION = "10";
   /// @notice Borrow position is not registered in DebtMonitor
   string public constant BORROW_POSITION_IS_NOT_REGISTERED = "11";
-
+  /// @notice Passed arrays should have same length
+  string public constant WRONG_LENGTHS = "12";
+  /// @notice Pool adapter expects some amount of collateral on its balance
+  string public constant WRONG_COLLATERAL_BALANCE="13";
+  /// @notice Pool adapter expects some amount of derivative tokens on its balance after borrowing
+  string public constant WRONG_DERIVATIVE_TOKENS_BALANCE="14";
+  /// @notice Pool adapter expects some amount of borrowed tokens on its balance
+  string public constant WRONG_BORROWED_BALANCE="15";
+  /// @notice Balance shouldn't be zero
+  string public constant ZERO_BALANCE="15";
 }

@@ -4,6 +4,7 @@ pragma solidity 0.8.4;
 
 import "../openzeppelin/Initializable.sol";
 import "../interfaces/IController.sol";
+import "./AppErrors.sol";
 
 /// @notice Keep and provide addresses of all application contracts
 contract Controller is IController, Initializable {
@@ -17,7 +18,7 @@ contract Controller is IController, Initializable {
 
   /// @notice Min allowed health factor = collateral / min allowed collateral, decimals 2
   /// @dev Health factor < 1 produces liquidation immediately
-  uint constant public override MIN_HEALTH_FACTOR2 = 150; //=1.5; TODO value?
+  uint16 constant public override MIN_HEALTH_FACTOR2 = 150; //=1.5; TODO value?
 
   /// @notice map: keccak256(abi.encodePacked(XXX)) => XXX
   mapping(bytes32 => address) private addressStorage;
@@ -51,10 +52,10 @@ contract Controller is IController, Initializable {
 
   function _assignBatch(bytes32[] memory keys_, address[] calldata values_) internal {
     uint len = keys_.length;
-    require(len == values_.length, "wrong lengths");
+    require(len == values_.length, AppErrors.WRONG_LENGTHS);
 
     for (uint i = 0; i < len; ++i) {
-      require(values_[i] != address(0), "zero address");
+      require(values_[i] != address(0), AppErrors.ZERO_ADDRESS);
       addressStorage[keys_[i]] = values_[i];
     }
   }
@@ -68,7 +69,7 @@ contract Controller is IController, Initializable {
     return addressStorage[governanceKey];
   }
   function _ensureSenderIsGovernance() internal view {
-    require (msg.sender == _governance(), "governance only");
+    require (msg.sender == _governance(), AppErrors.GOVERNANCE_ONLY);
   }
 
   ///////////////////////////////////////////////////////

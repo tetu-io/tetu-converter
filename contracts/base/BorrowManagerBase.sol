@@ -6,7 +6,7 @@ import "../openzeppelin/Clones.sol";
 import "../interfaces/IController.sol";
 import "../interfaces/IBorrowManager.sol";
 import "../interfaces/IPoolAdapter.sol";
-import "../core/Errors.sol";
+import "../core/AppErrors.sol";
 import "../interfaces/IPlatformAdapter.sol";
 
 /// @notice Maintain list of registered pool adapters
@@ -16,7 +16,7 @@ abstract contract BorrowManagerBase is IBorrowManager {
   IController public immutable controller;
 
   /// @notice Complete list ever created pool adapters
-  /// @dev pool => user => collateral => borrowToken => address of the pool adapter
+  /// @dev converter => user => collateral => borrowToken => address of the pool adapter
   mapping (address => mapping(address => mapping(address => mapping(address => address)))) public poolAdapters;
   /// @notice Pool adapter => is registered
   mapping (address => bool) poolAdaptersRegistered;
@@ -25,7 +25,7 @@ abstract contract BorrowManagerBase is IBorrowManager {
   ///         Constructor
   ///////////////////////////////////////////////////////
   constructor (address controller_) {
-    require(controller_ != address(0), "zero controller");
+    require(controller_ != address(0), AppErrors.ZERO_ADDRESS);
     controller = IController(controller_);
   }
 
@@ -41,9 +41,9 @@ abstract contract BorrowManagerBase is IBorrowManager {
     address collateral_,
     address borrowToken_
   ) external override returns (address) {
-    require(platformAdapter_ != 0, Errors.PLATFORM_ADAPTER_NOT_FOUND);
+    require(platformAdapter_ != address(0), AppErrors.PLATFORM_ADAPTER_NOT_FOUND);
 
-    address poolAdapter = poolAdapters[pool_][user_][collateral_][borrowToken_];
+    address poolAdapter = poolAdapters[converter_][user_][collateral_][borrowToken_];
     if (poolAdapter == address(0) ) {
       // create an instance of the pool adapter using minimal proxy pattern, initialize newly created contract
       poolAdapter = poolAdapter.clone();
@@ -56,7 +56,7 @@ abstract contract BorrowManagerBase is IBorrowManager {
       );
 
       // register newly created pool adapter in the list of the pool adapters forever
-      poolAdapters[pool_][user_][collateral_][borrowToken_] = poolAdapter;
+      poolAdapters[converter_][user_][collateral_][borrowToken_] = poolAdapter;
       poolAdaptersRegistered[poolAdapter] = true;
     }
     return poolAdapter;
@@ -72,10 +72,10 @@ abstract contract BorrowManagerBase is IBorrowManager {
     address collateral_,
     address borrowToken_
   ) external view override returns (address) {
-    return poolAdapters[pool_][user_][collateral_][borrowToken_];
+    return poolAdapters[converter_][user_][collateral_][borrowToken_];
   }
 
-  function isPoolAdapter(address poolAdapter_) external view returns (bool) {
+  function isPoolAdapter(address poolAdapter_) external view override returns (bool) {
     return poolAdaptersRegistered[poolAdapter_];
   }
 }

@@ -8,9 +8,10 @@ import "../interfaces/IDebtsMonitor.sol";
 import "../interfaces/IPriceOracle.sol";
 import "../integrations/IERC20Extended.sol";
 import "../interfaces/IBorrowManager.sol";
+import "./AppErrors.sol";
 import "hardhat/console.sol";
 
-/// @notice Collects list of open borrow positions
+/// @notice Manage list of open borrow positions
 contract DebtMonitor is IDebtMonitor {
   IController public immutable controller;
 
@@ -29,7 +30,7 @@ contract DebtMonitor is IDebtMonitor {
   ///////////////////////////////////////////////////////
 
   constructor(address controller_) {
-    require(controller_ != address(0), "zero controller");
+    require(controller_ != address(0), AppErrors.ZERO_ADDRESS);
     controller = IController(controller_);
   }
 
@@ -53,10 +54,10 @@ contract DebtMonitor is IDebtMonitor {
 
   /// @dev This function is called from a pool adapter after any repaying
   function onClosePosition() external override {
-    require(positionsRegistered[msg.sender] != 0, Errors.BORROW_POSITION_IS_NOT_REGISTERED);
+    require(positionsRegistered[msg.sender], AppErrors.BORROW_POSITION_IS_NOT_REGISTERED);
 
-    (collateralAmount, amountToPay,,) = IPoolAdapter(msg.sender).getStatus();
-    require(collateralAmount == 0 && amountToPay == 0, Errors.ATTEMPT_TO_CLOSE_NOT_EMPTY_BORROW_POSITION);
+    (uint collateralAmount, uint amountToPay,) = IPoolAdapter(msg.sender).getStatus();
+    require(collateralAmount == 0 && amountToPay == 0, AppErrors.ATTEMPT_TO_CLOSE_NOT_EMPTY_BORROW_POSITION);
 
     positionsRegistered[msg.sender] = false;
     _removeItemFromArray(positions, msg.sender);
@@ -77,78 +78,39 @@ contract DebtMonitor is IDebtMonitor {
   ) external view override returns (
     uint nextIndexToCheck0,
     uint countFoundItems,
-    address[] outPoolAdapter
+    address[] memory outPoolAdapters
   ) {
-    outBorrowedTokens = new address[](count);
+    outPoolAdapters = new address[](maxCountToReturn);
 
-    uint len = poolAdapters.length;
-    if (index0 + count > len) {
-      count = len - index0;
+    uint len = positions.length;
+    if (index0 + maxCountToCheck > len) {
+      maxCountToCheck = len - index0;
     }
 
     // enumerate all pool adapters
-    for (uint i = 0; i < count; i = _uncheckedInc(i)) {
-      IPoolAdapter pa = IPoolAdapter(poolAdapters[i]);
-      (outCountBorrowedTokens, outBorrowedTokens) = _getUnhealthyTokens(pa, minAllowedHealthFactor);
-      if (outCountBorrowedTokens != 0) {
-        outPoolAdapter = poolAdapters[i];
-        outNextIndex0 = i + 1;
-        break; // we have found first problem pool adapter
-      }
-    }
-
-    // we return outNextIndex0 = 0 if there are no unhealthy pool adapters
-    return (outNextIndex0, outPoolAdapter, outCountBorrowedTokens, outBorrowedTokens);
-  }
-
-  function getUnhealthyTokens(address poolAdapter_, uint minAllowedHealthFactor_)
-  external
-  view override returns (uint outCountBorrowedTokens, address[] memory outBorrowedTokens) {
-    return _getUnhealthyTokens(IPoolAdapter(poolAdapter_), minAllowedHealthFactor_);
-  }
-
-  function _getUnhealthyTokens(IPoolAdapter pa, uint minAllowedHealthFactor)
-  internal
-  view returns (uint outCountBorrowedTokens, address[] memory outBorrowedTokens) {
-    // get a price of the collateral
-    uint8 collateralDecimals = IERC20Extended(pa.collateralToken()).decimals();
-    uint collateralPrice18 = _getPrice18(pa.collateralToken());
-    uint cf = pa.collateralFactor();
-
-    // enumerate all borrowed tokens inside the pool adapter
-    (uint outCountItems,
-     address[] memory bTokens,
-     uint[] memory collateralAmountsCT,
-     uint[] memory amountsToPayBT
-    ) = pa.getOpenedPositions();
-
-    for (uint j = 0; j < outCountItems; j = _uncheckedInc(j)) {
-      // calculate health factor for the borrowed token
-      uint8 borrowedTokenDecimals = IERC20Extended(bTokens[j]).decimals();
-      uint borrowedTokenPrice18 = _getPrice18(bTokens[j]);
-
-      // HF = CollateralFactor * (CollateralAmount * CollateralPrice) / (AmountToPayBT * PriceBorrowedToken)
-      uint healthFactor = cf
-        * (_toMantissa(collateralAmountsCT[j], collateralDecimals, 18) * collateralPrice18)
-        / (_toMantissa(amountsToPayBT[j], borrowedTokenDecimals, 18) * borrowedTokenPrice18);
-
-      if (healthFactor < minAllowedHealthFactor) {
-        if (outCountBorrowedTokens == 0) {
-          // lazy initialization of outBorrowedTokens
-          // we should allocate memory for all remaining tokens
-          outBorrowedTokens = new address[](outCountItems - j);
+    for (uint i = 0; i < maxCountToCheck; i = _uncheckedInc(i)) {
+      nextIndexToCheck0 += 1;
+      IPoolAdapter pa = IPoolAdapter(positions[index0 + i]);
+      (uint collateralAmount, uint amountToPay, uint healthFactorWAD) = pa.getStatus();
+      if (healthFactorWAD < minAllowedHealthFactor) {
+        outPoolAdapters[countFoundItems] = positions[index0 + i];
+        countFoundItems += 1;
+        if (countFoundItems == maxCountToReturn) {
+          break;
         }
-        outBorrowedTokens[outCountBorrowedTokens] = bTokens[j];
-        outCountBorrowedTokens += 1;
       }
     }
 
-    return (outCountBorrowedTokens, outBorrowedTokens);
+    if (nextIndexToCheck0 == len) {
+      nextIndexToCheck0 = 0; // all items were checked
+    }
+
+    return (nextIndexToCheck0, countFoundItems, outPoolAdapters);
   }
 
   /// @notice Get total count of pool adapters with opened positions
   function getCountPositions() external view override returns (uint) {
-    return poolAdapters.length;
+    return positions.length;
   }
 
   ///////////////////////////////////////////////////////
@@ -160,26 +122,26 @@ contract DebtMonitor is IDebtMonitor {
     address borrowedToken_
   ) external view override returns (
     uint countItems,
-    address[] memory poolAdapters,
+    address[] memory outPoolAdapters,
     uint[] memory amountsToPay
   ) {
     address[] memory adapters = poolAdapters[user_][collateralToken_][borrowedToken_];
     uint countAdapters = adapters.length;
 
-    poolAdapters = new address[](countAdapters);
+    outPoolAdapters = new address[](countAdapters);
     amountsToPay = new uint[](countAdapters);
 
     for (uint i = 0; i < countAdapters; ++i) {
       IPoolAdapter pa = IPoolAdapter(adapters[i]);
       (, uint amountToPay,) = pa.getStatus();
-      if (amountToRepay != 0) {
-        poolAdapters[countItems] = adapters[i];
+      if (amountToPay != 0) {
+        outPoolAdapters[countItems] = adapters[i];
         amountsToPay[countItems] = amountToPay;
         countItems++;
       }
     }
 
-    return (countItems, poolAdapters, amountsToPay);
+    return (countItems, outPoolAdapters, amountsToPay);
   }
 
 
@@ -210,7 +172,7 @@ contract DebtMonitor is IDebtMonitor {
   /// @notice Get price of single {asset}-token in $, decimals 18
   function _getPrice18(address asset) internal view returns(uint) {
     uint price = IPriceOracle(controller.priceOracle()).getAssetPrice(asset);
-    require (price != 0, Errors.ZERO_PRICE);
+    require (price != 0, AppErrors.ZERO_PRICE);
     return price;
   }
 
@@ -224,12 +186,12 @@ contract DebtMonitor is IDebtMonitor {
   /// @notice Ensure that msg.sender is registered pool adapter
   function _onlyPoolAdapter() internal view {
     IBorrowManager bm = IBorrowManager(controller.borrowManager());
-    require(bm.isPoolAdapter(msg.sender) != address(0), Errors.POOL_ADAPTER_ONLY);
+    require(bm.isPoolAdapter(msg.sender), AppErrors.POOL_ADAPTER_ONLY);
   }
 
   /// @notice Ensure that msg.sender is registered pool adapter
   function _onlyGovernance() internal view {
-    require(msg.sender == controller.governance(), Errors.GOVERNANCE_ONLY);
+    require(msg.sender == controller.governance(), AppErrors.GOVERNANCE_ONLY);
   }
 
   ///////////////////////////////////////////////////////

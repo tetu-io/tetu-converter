@@ -1,3 +1,7 @@
+// SPDX-License-Identifier: MIT
+
+pragma solidity 0.8.4;
+
 import "../../../openzeppelin/SafeERC20.sol";
 import "../../../openzeppelin/IERC20.sol";
 import "../../../integrations/aave/IAavePool.sol";
@@ -6,18 +10,21 @@ import "../../../integrations/aave/IAaveProtocolDataProvider.sol";
 import "../../../integrations/aave/ReserveConfiguration.sol";
 import "hardhat/console.sol";
 import "../../../core/AppDataTypes.sol";
+import "../../../core/AppErrors.sol";
 import "../../../interfaces/IPlatformAdapter.sol";
 import "../../../interfaces/IPoolAdapterInitializer.sol";
+import "../../../interfaces/IController.sol";
 
 /// @notice Adapter to read current pools info from AAVE-protocol v3, see https://docs.aave.com/hub/
 contract Aave3PlatformAdapter is IPlatformAdapter {
   using SafeERC20 for IERC20;
   using ReserveConfiguration for DataTypes.ReserveConfigurationMap;
 
+  IController public controller;
   IAavePool public pool;
 
   /// @notice Full list of supported template-pool-adapters
-  address[] override converters;
+  address[] private _converters;
 
   /// @notice Index of template pool adapter in {templatePoolAdapters} that should be used in normal borrowing mode
   uint constant public INDEX_NORMAL_MODE = 0;
@@ -29,18 +36,30 @@ contract Aave3PlatformAdapter is IPlatformAdapter {
   ///////////////////////////////////////////////////////
 
   constructor (
+    address controller_,
     address poolAave_,
     address templateAdapterNormal_,
     address templateAdapterEMode_
   ) {
-    require(poolAave_ != address(0), "zero address");
-    require(templateAdapterNormal_ != address(0), "zero address");
-    require(templateAdapterEMode_ != address(0), "zero address");
+    require(poolAave_ != address(0)
+      && templateAdapterNormal_ != address(0)
+      && templateAdapterEMode_ != address(0)
+      && controller_ != address(0)
+    , AppErrors.ZERO_ADDRESS);
 
     pool = IAavePool(poolAave_);
+    controller = IController(controller_);
 
-    converters.push(templateAdapterNormal_); // add first, INDEX_NORMAL_MODE = 0
-    converters.push(templateAdapterEMode_); // add second, INDEX_E_MODE = 1
+    _converters.push(templateAdapterNormal_); // add first, INDEX_NORMAL_MODE = 0
+    _converters.push(templateAdapterEMode_); // add second, INDEX_E_MODE = 1
+  }
+
+  ///////////////////////////////////////////////////////
+  ///       View
+  ///////////////////////////////////////////////////////
+
+  function converters() external view override returns (address[] memory) {
+    return _converters;
   }
 
   ///////////////////////////////////////////////////////
@@ -71,11 +90,11 @@ contract Aave3PlatformAdapter is IPlatformAdapter {
               // ltv: 8500 for 0.85, we need decimals 18.
               plan.ltvWAD = uint(categoryData.ltv) * 10**(18-5);
               plan.collateralFactorWAD = uint(categoryData.liquidationThreshold) * 10**(18-5);
-              plan.poolAdapterTemplate = converters[INDEX_E_MODE];
+              plan.converter = _converters[INDEX_E_MODE];
             } else {
               plan.ltvWAD = rb.configuration.getLtv() * 10**(18-5);
               plan.collateralFactorWAD = rb.configuration.getLiquidationThreshold() * 10**(18-5);
-              plan.poolAdapterTemplate = converters[INDEX_NORMAL_MODE];
+              plan.converter = _converters[INDEX_NORMAL_MODE];
             }
           }
 
@@ -114,6 +133,7 @@ contract Aave3PlatformAdapter is IPlatformAdapter {
 
     return plan;
   }
+
   ///////////////////////////////////////////////////////
   ///         Initialization of pool adapters
   ///////////////////////////////////////////////////////
@@ -125,7 +145,8 @@ contract Aave3PlatformAdapter is IPlatformAdapter {
     address borrowAsset_
   ) external override {
     // All AAVE-pool-adapters support IPoolAdapterInitializer
-    IPoolAdapterInitializer(_poolAdapter).initialize(
+    IPoolAdapterInitializer(poolAdapter_).initialize(
+      address(controller),
       address(pool),
       user_,
       collateralAsset_,

@@ -32,14 +32,14 @@ interface IHfComptroller {
   function claimComp(address holder) external;
   function closeFactorMantissa() external view returns (uint256);
   function compAccrued(address) external view returns (uint256);
-  function compBorrowState(address) external view returns (uint224 index, uint32 block);
+  function compBorrowState(address) external view returns (uint224 index_, uint32 block_);
   function compBorrowerIndex(address, address) external view returns (uint256);
   function compContributorSpeeds(address) external view returns (uint256);
   function compInitialIndex() external view returns (uint224);
   function compRate() external view returns (uint256);
   function compSpeeds(address) external view returns (uint256);
   function compSupplierIndex(address, address) external view returns (uint256);
-  function compSupplyState(address) external view returns (uint224 index, uint32 block);
+  function compSupplyState(address) external view returns (uint224 index, uint32 block_);
   function enterMarkets(address[] memory cTokens) external returns (uint256[] memory);
   function exitMarket(address cTokenAddress) external returns (uint256);
   function getAccountLiquidity(address account) external view returns (uint256, uint256, uint256);

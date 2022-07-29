@@ -15,8 +15,9 @@ interface IDebtMonitor {
 
   /// @notice Enumerate {maxCountToCheck} pool adapters starting from {index0} and return unhealthy pool-adapters
   /// @param minAllowedHealthFactor Decimals 18
-  /// @return outNextIndex0 Index of next pool-adapter to check; 0: all pool-adapters were checked
-  /// @return outPoolAdapter Unhealthy pool adapters, count of valid items is {countFoundItems}
+  /// @return nextIndexToCheck0 Index of next pool-adapter to check; 0: all pool-adapters were checked
+  /// @return countFoundItems Count of valid items in poolAdapters
+  /// @return poolAdapters Unhealthy pool adapters, count of valid items is {countFoundItems}
   function findUnhealthyPositions(
       uint index0,
       uint maxCountToCheck,
@@ -25,16 +26,16 @@ interface IDebtMonitor {
   ) external view returns (
       uint nextIndexToCheck0,
       uint countFoundItems,
-      address[] outPoolAdapter
+      address[] memory poolAdapters
   );
 
     /// @notice Get total count of pool adapters with opened positions
   function getCountPositions() external view returns (uint);
 
   /// @notice Get active borrows of the user with given collateral/borrowToken
-  /// @return outCountItems Count of valid items in {outPoolAdapters} and {outAmountsToPay}
-  /// @return outPoolAdapters An instance of IPoolAdapter
-  /// @return outAmountsToPay Amount of {borrowedToken_} that should be repaid to close the borrow
+  /// @return countItems Count of valid items in {outPoolAdapters} and {outAmountsToPay}
+  /// @return poolAdapters An instance of IPoolAdapter
+  /// @return amountsToPay Amount of {borrowedToken_} that should be repaid to close the borrow
   function getPositions (
     address user_,
     address collateralToken_,

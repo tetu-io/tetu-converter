@@ -8,9 +8,11 @@ import "hardhat/console.sol";
 /// @notice Simple implementation of pool adapter, all params are set through constructor
 contract PoolAdapterStab is IPoolAdapter {
   address public controller;
-  address public poolValue;
-  address public userValue;
-  address public collateralUnderline;
+  address private _pool;
+  address private _user;
+  address private _collateralAsset;
+  address private _borrowAsset;
+
   uint public collateralFactorValue;
 
   /// @notice Real implementation of IPoolAdapter cannot use constructors  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -24,59 +26,62 @@ contract PoolAdapterStab is IPoolAdapter {
     address controller_,
     address pool_,
     address user_,
-    address collateralUnderline_
-  ) external override {
+    address collateralAsset_,
+    address borrowAsset_
+  ) external {
     controller = controller_;
-    poolValue = pool_;
-    userValue = user_;
-    collateralUnderline = collateralUnderline_;
+    _pool = pool_;
+    _user = user_;
+    _collateralAsset = collateralAsset_;
+    _borrowAsset = borrowAsset_;
   }
 
-  function collateralToken() external view override returns (address) {
-    return collateralUnderline;
+  function syncBalance(bool beforeBorrow) external override {
+    console.log("syncBalance beforeBorrow=%d", beforeBorrow ? 1 : 0);
   }
-  function collateralFactor() external view override returns (uint) {
-    return collateralFactorValue;
-  }
-  function pool() external view override returns (address) {
-    return poolValue;
-  }
-  function user() external view override returns (address) {
-    return userValue;
+
+  function getConversionKind() external pure override returns (AppDataTypes.ConversionKind) {
+    return AppDataTypes.ConversionKind.BORROW_2;
   }
 
   /// @notice Supply collateral to the pool and borrow {borrowedAmount_} in {borrowedToken_}
   function borrow(
     uint collateralAmount_,
-    address borrowedToken_,
-    uint borrowedAmount_,
-    address receiverBorrowedAmount_
+    uint borrowAmount_,
+    address receiver_
   ) override external {
-    console.log("borrow collateral=%s receiver=%s", collateralAmount_, receiverBorrowedAmount_);
-    console.log("borrow token=%s amount=%d", borrowedToken_, borrowedAmount_);
-  }
-
-  /// @notice How much we should pay to close the borrow
-  function getAmountToRepay(address borrowedToken_) external view override returns (uint) {
-    return 0;
+    console.log("borrow collateral=%s receiver=%s", collateralAmount_, borrowAmount_);
+    console.log("borrow borrowAmount=%d", borrowAmount_);
   }
 
   /// @notice Repay borrowed amount, return collateral to the user
   function repay(
-    address borrowedToken_,
-    uint borrowedAmount_,
-    address receiverCollateralAmount_
+    uint amountToRepay_,
+    address receiver_,
+    bool closePosition_
   ) override external {
-    console.log("repay receiver=%s", receiverCollateralAmount_);
-    console.log("repay token=%s amount=%d", borrowedToken_, borrowedAmount_);
+    console.log("repay receiver=%s", receiver_);
+    console.log("repay amountToRepay_=%d closePosition_=%d", amountToRepay_, closePosition_ ? 1 : 0);
   }
 
-  function getOpenedPositions() external view override returns (
-    uint outCountItems,
-    address[] memory outBorrowedTokens,
-    uint[] memory outCollateralAmountsCT,
-    uint[] memory outAmountsToPayBT
+  function getConfig() external view override returns (
+    address pool,
+    address user,
+    address collateralAsset,
+    address borrowAsset
   ) {
-    return (outCountItems, outBorrowedTokens, outCollateralAmountsCT, outAmountsToPayBT);
+    return (_pool, _user, _collateralAsset, _borrowAsset);
+  }
+
+  /// @notice Get current status of the borrow position
+  /// @return collateralAmount Total amount of provided collateral in [collateral asset]
+  /// @return amountToPay Total amount of borrowed debt in [borrow asset]. 0 - for closed borrow positions.
+  /// @return healthFactorWAD Current health factor, decimals 18
+  function getStatus() external view override returns (
+    uint collateralAmount,
+    uint amountToPay,
+    uint healthFactorWAD
+  ) {
+    return (collateralAmount, amountToPay, healthFactorWAD);
   }
 }

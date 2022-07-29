@@ -8,8 +8,8 @@ import "../core/AppDataTypes.sol";
 interface ITetuConverter {
 
   /// @notice Find best conversion strategy (swap or lending) and provide "cost of money" as interest for the period
-  /// @param sourceAmount Amount to be converted
-  /// @param healthFactorOptional2 For lending: min allowed health factor, decimals 2; 0 - use default value
+  /// @param sourceAmount_ Amount to be converted
+  /// @param healthFactor2_ For lending: min allowed health factor, decimals 2; 0 - use default value
   /// @return converter Result contract that should be used for conversion; it supports IConverter
   /// @return maxTargetAmount Max available amount of target tokens that we can get after conversion
   /// @return interest Interest on the use of {outMaxTargetAmount} during the period {approxOwnershipPeriodInBlocks}
@@ -18,7 +18,7 @@ interface ITetuConverter {
     address sourceToken_,
     uint sourceAmount_,
     address targetToken_,
-    uint16 healthFactorOptional2_,
+    uint16 healthFactor2_,
     uint periodInBlocks_
   ) external view returns (
     address converter,

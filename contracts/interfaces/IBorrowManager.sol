@@ -14,8 +14,8 @@ interface IBorrowManager is IPoolAdaptersManager {
   function addPool(address platformAdapter_, address[] calldata assets_) external;
 
   /// @notice Set default health factor for {asset}. Default value is used only if user hasn't provided custom value
-  /// @param value Health factor must be greater then 1, decimals 3
-  function setHealthFactor(address asset, uint16 value3) external;
+  /// @param value2 Health factor must be greater then 1, decimals 2
+  function setHealthFactor(address asset, uint16 value2) external;
 
   /// @notice Find lending pool capable of providing {targetAmount} and having best normalized borrow rate
   /// @return converter Result template-pool-adapter or 0 if a pool is not found
