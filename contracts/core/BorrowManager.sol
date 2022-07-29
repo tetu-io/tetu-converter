@@ -182,7 +182,7 @@ contract BorrowManager is BorrowManagerBase {
           // TargetTA = BS / PT [TA], C = SA * PS, CM = C / HF, BS = CM * PCF
           uint resultTa18 = plan.collateralFactorWAD
             * pp_.sourceAmount18 * pp_.priceSource18
-            / (pp_.priceTarget18 * p_.healthFactor2 * 10**(18-2));
+            / (pp_.priceTarget18 * uint(p_.healthFactor2) * 10**(18-2));
 
           // the pool should have enough liquidity
           if (_toMantissa(plan.maxAmountToBorrowBT, pp_.targetDecimals, 18) >= resultTa18) {

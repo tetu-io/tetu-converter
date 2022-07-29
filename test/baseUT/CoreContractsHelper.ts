@@ -71,11 +71,12 @@ export class CoreContractsHelper {
     }
 
     /**
-     * Generate N pools with same set of underlines.
-     * Create new BorrowManager and add each pool as a separate platform
+     * Generate single platform adapter (with attached pool).
+     * Create new BorrowManager and add the pool there
      */
     public static async addPool(
         signer: SignerWithAddress,
+        controllerAddress: string,
         bm: BorrowManager,
         pool: PoolMock,
         poolsInfo: IPoolInfo,
@@ -104,23 +105,21 @@ export class CoreContractsHelper {
             )
         ));
 
+        const templatePoolAdapter = templateAdapterPoolOptional
+            || (await MocksHelper.createPoolAdapterStab(signer, getBigNumberFrom(1))).address;
+
         const platformAdapter = await MocksHelper.createPlatformAdapterMock(
             signer,
             pool,
+            controllerAddress,
+            templatePoolAdapter,
             underlines.map(x => x.address),
             borrowRates,
             collateralFactors,
             availableLiquidity
         );
 
-        const templatePoolAdapter = templateAdapterPoolOptional
-            || (await MocksHelper.createPoolAdapterStab(signer, getBigNumberFrom(1))).address;
-
-        await bm.addPool(pool.address
-            , platformAdapter.address
-            , templatePoolAdapter
-            , underlines.map(x => x.address)
-        );
+        await bm.addPool(platformAdapter.address, underlines.map(x => x.address));
 
         return {platformAdapter, templatePoolAdapter};
     }

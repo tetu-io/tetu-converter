@@ -92,7 +92,7 @@ describe("PoolAdapterMock", () => {
                     const user = ethers.Wallet.createRandom().address;
                     const collateral = sourceToken.address;
 
-                    await bm.registerPoolAdapter(pool, user, collateral);
+                    await bm.registerPoolAdapter(pool, user, collateral, targetToken.address);
 
                     // pool adapter is a copy of templatePoolAdapter, created using minimal-proxy pattern
                     // this is a mock, we need to configure it

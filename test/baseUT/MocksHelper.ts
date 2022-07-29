@@ -18,6 +18,7 @@ import {ethers} from "hardhat";
 import {DeployerUtils} from "../../scripts/utils/DeployerUtils";
 
 export interface IPooAdapterStabInitParams {
+    controller: string;
     pool: string;
     user: string;
     collateralAsset: string;
@@ -56,6 +57,8 @@ export class MocksHelper {
     public static async createPlatformAdapterMock(
         signer: SignerWithAddress
         , pool: PoolMock
+        , controllerAddress: string
+        , converterAddress: string
         , underlines: string[]
         , borrowRates: BigNumber[]
         , collateralFactors: number[]
@@ -66,7 +69,9 @@ export class MocksHelper {
         const cfs = collateralFactors.map(x => (BigNumber.from(10).pow(16)).mul(x * 100));
         return (await DeployUtils.deployContract(signer
             , "LendingPlatformMock"
-            , underlines.map(x => pool.address)
+            , controllerAddress
+            , pool.address
+            , converterAddress
             , underlines
             , cfs
             , borrowRates
@@ -87,6 +92,7 @@ export class MocksHelper {
 
         if (initParams) {
             await dest.initialize(
+                initParams.controller,
                 initParams.pool,
                 initParams.user,
                 initParams.collateralAsset,

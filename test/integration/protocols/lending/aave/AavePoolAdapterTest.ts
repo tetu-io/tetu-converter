@@ -91,7 +91,7 @@ describe("Aave integration tests, pool adapter", () => {
                 collateralToken.address,
                 borrowToken.address
             );
-            await aavePoolAdapterAsTC.sync();
+            await aavePoolAdapterAsTC.syncBalance(true);
             await collateralToken.token.transfer(aavePoolAdapterAsTC.address, collateralAmount);
             await aavePoolAdapterAsTC.borrow(
                 collateralAmount,
@@ -324,7 +324,7 @@ describe("Aave integration tests, pool adapter", () => {
                 collateralToken.address,
                 borrowToken.address
             );
-            await aavePoolAdapterAsTC.sync();
+            await aavePoolAdapterAsTC.syncBalance(true);
             await IERC20Extended__factory.connect(collateralToken.address
                 , await DeployerUtils.startImpersonate(user.address)
             ).transfer(aavePoolAdapterAsTC.address, collateralAmount);
@@ -341,7 +341,7 @@ describe("Aave integration tests, pool adapter", () => {
             console.log(afterBorrow);
 
             // make repay
-            await aavePoolAdapterAsTC.sync();
+            await aavePoolAdapterAsTC.syncBalance(false);
             await IERC20Extended__factory.connect(borrowToken.address
                 , await DeployerUtils.startImpersonate(user.address)
             ).transfer(aavePoolAdapterAsTC.address, amountToRepay);

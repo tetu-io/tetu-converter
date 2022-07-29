@@ -92,8 +92,8 @@ contract Aave3PlatformAdapter is IPlatformAdapter {
               plan.collateralFactorWAD = uint(categoryData.liquidationThreshold) * 10**(18-5);
               plan.converter = _converters[INDEX_E_MODE];
             } else {
-              plan.ltvWAD = rb.configuration.getLtv() * 10**(18-5);
-              plan.collateralFactorWAD = rb.configuration.getLiquidationThreshold() * 10**(18-5);
+              plan.ltvWAD = uint(rb.configuration.getLtv()) * 10**(18-5);
+              plan.collateralFactorWAD = uint(rb.configuration.getLiquidationThreshold()) * 10**(18-5);
               plan.converter = _converters[INDEX_NORMAL_MODE];
             }
           }

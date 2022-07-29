@@ -113,16 +113,26 @@ describe("Aave integration tests, platform adapter", () => {
             highEfficientModeEnabled: boolean,
             isolationModeEnabled: boolean
         ) : Promise<{sret: string, sexpected: string}> {
-            const h: AaveHelper = new AaveHelper(deployer);
-            const aavePlatformAdapter = await AdaptersHelper.createAave3PlatformAdapter(deployer);
+            const controllerStub = ethers.Wallet.createRandom();
+            const templateAdapterNormalStub = ethers.Wallet.createRandom();
+            const templateAdapterEModeStub = ethers.Wallet.createRandom();
 
+            const h: AaveHelper = new AaveHelper(deployer);
             const aavePool = await AaveHelper.getAavePool(deployer);
+            const aavePlatformAdapter = await AdaptersHelper.createAave3PlatformAdapter(
+                deployer,
+                controllerStub.address,
+                aavePool.address,
+                templateAdapterNormalStub.address,
+                templateAdapterEModeStub.address
+            );
+
             const dp = await AaveHelper.getAaveProtocolDataProvider(deployer);
 
             const collateralAssetData = await h.getReserveInfo(deployer, aavePool, dp, collateralAsset);
             const borrowAssetData = await h.getReserveInfo(deployer, aavePool, dp, borrowAsset);
 
-            const ret = await aavePlatformAdapter.getPoolInfo(aavePool.address, collateralAsset, borrowAsset);
+            const ret = await aavePlatformAdapter.getConversionPlan(collateralAsset, borrowAsset);
 
             const sret = [
                 ret.borrowRateKind,
