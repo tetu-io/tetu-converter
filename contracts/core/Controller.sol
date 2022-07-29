@@ -15,9 +15,9 @@ contract Controller is IController, Initializable {
 
   bytes32 public immutable borrowerKey;
 
-  /// @notice Min allowed health factor = collateral / min allowed collateral.
+  /// @notice Min allowed health factor = collateral / min allowed collateral, decimals 2
   /// @dev Health factor < 1 produces liquidation immediately
-  uint constant public override MIN_HEALTH_FACTOR_WAD = 15e17; //=1.5; TODO value?
+  uint constant public override MIN_HEALTH_FACTOR2 = 150; //=1.5; TODO value?
 
   /// @notice map: keccak256(abi.encodePacked(XXX)) => XXX
   mapping(bytes32 => address) private addressStorage;

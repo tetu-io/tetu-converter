@@ -4,6 +4,12 @@ pragma solidity 0.8.4;
 
 library AppDataTypes {
 
+  enum ConversionKind {
+    UNKNOWN_0,
+    SWAP_1,
+    BORROW_2
+  }
+
   /// @notice Kind of borrow rate
   ///         I.e. AAVE calculates borrow-rate per second
   ///              Compound calculates borrow-rate per block
@@ -14,21 +20,22 @@ library AppDataTypes {
   }
 
   /// @notice Input params for BorroManager.findPool (stack is too deep problem)
-  struct ExecuteFindPoolParams {
-    /// @notice if 0 than default health factor specified for the target asset will be used
-    uint healthFactorOptional;
+  struct InputConversionParams {
+    /// @notice if 0 than default health factor specified for the target asset will be used, decimals 2
+    uint16 healthFactor2;
 
     address sourceToken;
     address targetToken;
 
-    /// @notice Max possible collateral value in source tokens
+    uint periodInBlocks;
+    /// @notice Amount of {sourceToken} to be converted to {targetToken}
     uint sourceAmount;
   }
 
   /// @notice Explain how a given pool can make specified conversion
   struct ConversionPlan {
     /// @notice Template adapter contract that implements required strategy.
-    address poolAdapterTemplate;
+    address converter;
     /// @notice Kind of {borrowRatePerBlockWAD}. 0 if the borrow is not possible
     BorrowRateKind borrowRateKind;
     /// @notice Current collateral factor [0..1e18], where 1e18 is corresponded to CF=1

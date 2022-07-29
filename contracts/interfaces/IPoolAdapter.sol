@@ -2,49 +2,44 @@
 
 pragma solidity 0.8.4;
 
-/// @notice Allow to work with specified pool of the platform.
+import "./IConverter.sol";
+
+/// @notice Allow to borrow given asset from the given pool using given asset as collateral.
 ///         There is Template-Pool-Adapter contract for each platform (AAVE, HF, etc).
-///         This contract is used as a source by minimal-proxy pattern to create Pool-Adapters.
-interface IPoolAdapter {
+/// @dev Terms: "pool adapter" is an instance of "converter" created using minimal-proxy-pattern
+interface IPoolAdapter is IConverter {
+  /// @dev Must be called before borrow (true) or repay (false) to sync current balances
+  function syncBalance(bool beforeBorrow) external;
 
-  function initialize(
-    address controller_,
-    address pool_,
-    address user_,
-    address collateralUnderline_
-  ) external;
-
-  function collateralToken() external view returns (address);
-  function collateralFactor() external view returns (uint); //TODO: uint16, i.e 8500
-  function pool() external view returns (address);
-  function user() external view returns (address);
-
-  /// @notice Supply collateral to the pool and borrow {borrowedAmount_} in {borrowedToken_}
+  /// @notice Supply collateral to the pool and borrow specified amount
   function borrow(
     uint collateralAmount_,
-    address borrowedToken_,
-    uint borrowedAmount_,
+    uint borrowAmount_,
     address receiver_
   ) external;
-
-  /// @notice How much we should pay to close the borrow
-  function getAmountToRepay(address borrowedToken_) external view returns (uint);
 
   /// @notice Repay borrowed amount, return collateral to the user
+  /// @param closePosition true to pay full borrowed amount
   function repay(
-    address borrowedToken_,
-    uint borrowedAmount_,
-    address receiver_
+    uint amountToRepay_,
+    address receiver_,
+    bool closePosition_
   ) external;
 
-  /// @return outCountItems Count of valid items in the output arrays
-  /// @return outBorrowedTokens List of borrowed tokens (BT)
-  /// @return outCollateralAmountsCT List of summary collateral amounts [in collateral tokens]
-  /// @return outAmountsToPayBT List of amounts that should be repay [in borrowed tokens] to return the collaterals
-  function getOpenedPositions() external view returns (
-    uint outCountItems,
-    address[] memory outBorrowedTokens,
-    uint[] memory outCollateralAmountsCT,
-    uint[] memory outAmountsToPayBT
+  function getConfig() external view returns (
+    address pool,
+    address user,
+    address collateralAsset,
+    address borrowAsset
+  );
+
+  /// @notice Get current status of the borrow position
+  /// @return collateralAmount Total amount of provided collateral in [collateral asset]
+  /// @return amountToPay Total amount of borrowed debt in [borrow asset]. 0 - for closed borrow positions.
+  /// @return healthFactor3 Current health factor, decimals 18
+  function getStatus() external view returns (
+    uint collateralAmount,
+    uint amountToPay,
+    uint healthFactorWAD
   );
 }

@@ -2,59 +2,46 @@
 
 pragma solidity 0.8.4;
 
-/// @notice Collects list of registered loans. Allow to check state of the loan collaterals.
+/// @notice Collects list of registered borrow-positions. Allow to check state of the collaterals.
 interface IDebtMonitor {
 
-  /// @notice Create new position or increase amount of already registered position
+  /// @notice Register new borrow position if it's not yet registered
   /// @dev This function is called from a pool adapter after any borrow
-  function onBorrow(address cToken_, uint amountReceivedCTokens_, address borrowedToken_) external;
+  function onOpenPosition() external;
 
-  /// @notice Decrease amount of already registered position or close the position
+  /// @notice Unregister the borrow position if it's completely repaid
   /// @dev This function is called from a pool adapter after any repaying
-  function onRepay(address cToken_, uint amountBurntCTokens_, address borrowedToken_) external;
+  function onClosePosition() external;
 
-  /// @notice Decrease amount of already registered position or close the position
-  /// @dev governance only
-  function onRepayBehalf(address borrower_, address cToken_, uint amountBurntCTokens_, address borrowedToken_) external;
-
-  /// @notice Enumerate {count} pool adapters starting from {index0} and return first found unhealthy pool-adapter
+  /// @notice Enumerate {maxCountToCheck} pool adapters starting from {index0} and return unhealthy pool-adapters
   /// @param minAllowedHealthFactor Decimals 18
-  /// @return outNextIndex0 Index of next pool to check
-  ///                       0: there are no unhealthy pool-adapters in the range [index0, index0 + count)
-  /// @return outPoolAdapter Unhealthy pool adapter
-  /// @return outCountBorrowedTokens Count of valid items in outBorrowedTokens
-  /// @return outBorrowedTokens Borrow tokens that have bad healthy factors in the given pool adapter.
-  function findFirstUnhealthyPoolAdapter(uint index0, uint count, uint minAllowedHealthFactor) external view returns (
-      uint outNextIndex0,
-      address outPoolAdapter,
-      uint outCountBorrowedTokens,
-      address[] memory outBorrowedTokens
+  /// @return outNextIndex0 Index of next pool-adapter to check; 0: all pool-adapters were checked
+  /// @return outPoolAdapter Unhealthy pool adapters, count of valid items is {countFoundItems}
+  function findUnhealthyPositions(
+      uint index0,
+      uint maxCountToCheck,
+      uint maxCountToReturn,
+      uint minAllowedHealthFactor
+  ) external view returns (
+      uint nextIndexToCheck0,
+      uint countFoundItems,
+      address[] outPoolAdapter
   );
 
-  /// @notice Check health of all borrowed tokens in the pool adapter
-  /// @param outCountBorrowedTokens Count of valid items inside {outBorrowedTokens}
-  /// @param outBorrowedTokens All found unhealthy tokens. The number of valid items is {outCountBorrowedTokens}
-  function getUnhealthyTokens(address poolAdapter_, uint minAllowedHealthFactor_)
-  external
-  view returns (uint outCountBorrowedTokens, address[] memory outBorrowedTokens);
-
-  /// @notice
-  function activeCollaterals(address poolAdapter, address borrowedToken) external view returns (uint);
-
     /// @notice Get total count of pool adapters with opened positions
-  function getCountActivePoolAdapters() external view returns (uint);
+  function getCountPositions() external view returns (uint);
 
   /// @notice Get active borrows of the user with given collateral/borrowToken
   /// @return outCountItems Count of valid items in {outPoolAdapters} and {outAmountsToPay}
   /// @return outPoolAdapters An instance of IPoolAdapter
   /// @return outAmountsToPay Amount of {borrowedToken_} that should be repaid to close the borrow
-  function findBorrows (
+  function getPositions (
     address user_,
     address collateralToken_,
     address borrowedToken_
   ) external view returns (
-    uint outCountItems,
-    address[] memory outPoolAdapters,
-    uint[] memory outAmountsToPay
+    uint countItems,
+    address[] memory poolAdapters,
+    uint[] memory amountsToPay
   );
 }

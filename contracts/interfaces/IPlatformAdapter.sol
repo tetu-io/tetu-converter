@@ -2,20 +2,28 @@
 
 pragma solidity 0.8.4;
 
-/// @notice A lending platform (AAVE, HF, etc). Allow to work with comptroller and any pool of the platform.
+import "../core/AppDataTypes.sol";
+
+/// @notice Adapter for Dex/lending platform attached to the given platform's pool.
 interface IPlatformAdapter {
 
   /// @notice Get pool data required to select best lending pool
-  /// @param pool = comptroller
-  /// @return borrowRatePerBlock Normalized borrow rate can include borrow-rate-per-block + any additional fees
-  /// @return collateralFactor Current collateral factor [0..1e18], where 1e18 is corresponded to CF=1
-  /// @return availableCash Available underline in the pool. 0 if the market is unlisted
-  function getPoolInfo(address pool, address underline)
-  external
-  view
-  returns (
-    uint borrowRatePerBlock,
-    uint collateralFactor,
-    uint availableCash
+  function getConversionPlan (
+    address collateralAsset_,
+    address borrowAsset_
+  ) external view returns (
+    AppDataTypes.ConversionPlan memory plan
   );
+
+  /// @notice Full list of supported converters
+  function converters() external view returns (address[] memory);
+
+  /// @notice Initialize {poolAdapter_} created from {converter_} using minimal proxy pattern
+  function initializePoolAdapter(
+    address converter_,
+    address poolAdapter_,
+    address user_,
+    address collateralAsset_,
+    address borrowAsset_
+  ) external;
 }

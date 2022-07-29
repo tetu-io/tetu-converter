@@ -11,9 +11,11 @@ import "../openzeppelin/SafeERC20.sol";
 import "../openzeppelin/IERC20.sol";
 import "../interfaces/IPlatformAdapter.sol";
 import "../core/AppDataTypes.sol";
+import "../core/Errors.sol";
 import "../interfaces/IPoolAdapter.sol";
 import "../interfaces/IController.sol";
 import "../interfaces/IDebtsMonitor.sol";
+import "../interfaces/IConverter.sol";
 
 /// @notice Main application contract
 contract TetuConverter is ITetuConverter {
@@ -25,21 +27,12 @@ contract TetuConverter is ITetuConverter {
 
   IController public immutable controller;
 
-  /// @notice Save asset-balance at the end of every borrow function and read them at the beginning
-  ///         The differences between stored balance and actual balanc is amount of tokens provided as collateral
-  /// @dev See explanation to swap, https://docs.uniswap.org/protocol/V2/concepts/core-concepts/swaps
-  mapping (address => uint) reserves;
-
-  /// @notice user contract => collateral => adapter
-  /// @dev adapter = an instance of [Protocol]PoolAdapter created using minimal proxy pattern
-  mapping (address => mapping(address => mapping(address => IPoolAdapter))) poolAdapters;
-
   ///////////////////////////////////////////////////////
   ///                Initialization
   ///////////////////////////////////////////////////////
 
   constructor(address controller_) {
-    require(controller_ != address(0), "zero controller");
+    require(controller_ != address(0), Errors.ZERO_ADDRESS);
 
     controller = IController(controller_);
   }
@@ -48,44 +41,29 @@ contract TetuConverter is ITetuConverter {
   ///       Find best strategy for conversion
   ///////////////////////////////////////////////////////
 
-  function findBestConversionStrategy(
-    address sourceToken,
-    uint sourceAmount,
-    address targetToken,
-    uint96 healthFactorOptional,
-    uint approxOwnershipPeriodInBlocks
+  function findConversionStrategy(
+    address sourceToken_,
+    uint sourceAmount_,
+    address targetToken_,
+    uint16 healthFactorOptional2_,
+    uint periodInBlocks_
   ) external view override returns (
-    address outPool,
-    uint outMaxTargetAmount,
-    uint outInterest
+    address converter,
+    uint maxTargetAmount,
+    uint interest
   ) {
-    AppDataTypes.ExecuteFindPoolParams memory findPoolParams;
-    {
-      findPoolParams = AppDataTypes.ExecuteFindPoolParams({
-        healthFactorOptional: healthFactorOptional,
-        sourceToken: sourceToken,
-        targetToken: targetToken,
-        sourceAmount: sourceAmount
-      });
-    }
+    InputConversionParams.ExecuteFindPoolParams memory params = AppDataTypes.ExecuteFindPoolParams({
+      healthFactorOptional2: healthFactorOptional2_,
+      sourceToken: sourceToken_,
+      targetToken: targetToken_,
+      sourceAmount: sourceAmount_,
+      periodInBlocks: periodInBlocks_
+    });
 
-    {
-      (address pool, uint br, uint mta) = _bm().findPool(findPoolParams);
-      if (pool == address(0)) {
-        return (address(0), 0, 0);
-      } else {
-        //TODO: estimate cost of the money - commissions for all operations:
-        //TODO: a lawn has borrow and repay, swap has direct and backward swap.
-        console.log("br=%d period=%d", br, approxOwnershipPeriodInBlocks);
+    // find best DEX platform
 
-        // We need to calculate borrowAPY
-        // https://docs.aave.com/developers/v/2.0/guides/apy-and-apr
-        // APY = (1 + (APR / period))^period - 1, where APR = br
-
-        uint interest = 1e18 * ((1 + (br / approxOwnershipPeriodInBlocks / 1e18)) ** approxOwnershipPeriodInBlocks - 1);
-        return (pool, mta, interest);
-      }
-    }
+    // find best lending platform
+    return _bm().findConverter(params);
   }
 
   ///////////////////////////////////////////////////////
@@ -93,59 +71,40 @@ contract TetuConverter is ITetuConverter {
   ///////////////////////////////////////////////////////
 
   function convert(
-    address pool_,
+    address converter_,
     address sourceToken_,
     uint sourceAmount_,
     address targetToken_,
     uint targetAmount_,
     address receiver_
   ) external override {
-    console.log("TC.convert");
-    //ensure that source amount was transferred to balance
-    require(reserves[sourceToken_] + sourceAmount_ == IERC20(sourceToken_).balanceOf(address(this)), "wrong balance");
-
-    (address platformAdapter, bool lending) = _bm().getPlatformAdapter(pool_);
-    if (lending) {
+    if (IConverter(converter_).getConversionKind() == AppDataTypes.ConversionKind.BORROW_2) {
       // make borrow
-      console.log("Lending!");
 
       // get exist or register new pool adapter
-      address poolAdapter;
-      for (uint i = 0; i < 2; ++i) {
-        poolAdapter = _bm().getPoolAdapter(
-          pool_,
+      address poolAdapter = _bm().getPoolAdapter(converter_, msg.sender, sourceToken_, targetToken_);
+      if (poolAdapter == address(0)) {
+        poolAdapter = _bm().registerPoolAdapter(
+          _bm.getPlatformAdapter(converter_),
+          converter_,
           msg.sender,
-          sourceToken_
+          sourceToken_,
+          targetToken_
         );
-        if (i == 0 && poolAdapter == address(0)) {
-          _bm().registerPoolAdapter(
-            pool_,
-            msg.sender,
-            sourceToken_
-          );
-        } else {
-          break;
-        }
       }
-      require(poolAdapter != address(0), "pa not found");
-      console.log("Pool adapter", poolAdapter);
+      require(poolAdapter != address(0), Errors.POOL_ADAPTER_NOT_FOUND);
 
-      IPoolAdapter pa = IPoolAdapter(poolAdapter);
-
-      // re-transfer the collateral to the pool adapter
-      IERC20(sourceToken_).transfer(poolAdapter, sourceAmount_);
-      console.log("Transfer to pool adapter token=%s amount=%d", sourceToken_, sourceAmount_);
+      // transfer the collateral from the user to the pool adapter; assume, that the transfer is approved
+      IPoolAdapter(poolAdapter).sync(true);
+      IERC20(sourceToken_).transferFrom(msg.sender, poolAdapter, sourceAmount_);
 
       // borrow target-amount and transfer borrowed amount to the receiver
-      pa.borrow(sourceAmount_, targetToken_, targetAmount_, receiver_);
+      IPoolAdapter(poolAdapter).borrow(sourceAmount_, targetAmount_, receiver_);
     } else {
       // make swap
       //TODO
       console.log("SWAP!");
     }
-
-    // update reserves
-    reserves[sourceToken_] = IERC20(sourceToken_).balanceOf(address(this));
   }
 
   ///////////////////////////////////////////////////////
@@ -156,9 +115,9 @@ contract TetuConverter is ITetuConverter {
     address collateralToken_,
     address borrowedToken_
   ) external view override returns (
-    uint outCountItems,
-    address[] memory outPoolAdapters,
-    uint[] memory outAmountsToPay
+    uint countItems,
+    address[] memory poolAdapters,
+    uint[] memory amountsToPay
   ) {
     return _dm().findBorrows(msg.sender, collateralToken_, borrowedToken_);
   }

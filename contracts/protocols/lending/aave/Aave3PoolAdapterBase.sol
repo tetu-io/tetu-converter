@@ -56,13 +56,13 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter2 {
   ///////////////////////////////////////////////////////
 
   /// @dev TC calls this function before transferring any amounts to balance of this contract
-  function sync() external {
+  function sync(bool beforeBorrow) external override {
     _onlyTC();
 
-    console.log("sync collateral cache=%d balance=%d", collateralBalance[collateralAsset], IERC20(collateralAsset).balanceOf(address(this)));
-    console.log("sync borrowAsset cache=%d balance=%d", collateralBalance[borrowAsset], IERC20(borrowAsset).balanceOf(address(this)));
+    if (beforeBorrow) {
+      collateralBalance[collateralAsset] = IERC20(collateralAsset).balanceOf(address(this));
+    }
 
-    collateralBalance[collateralAsset] = IERC20(collateralAsset).balanceOf(address(this));
     collateralBalance[borrowAsset] = IERC20(borrowAsset).balanceOf(address(this));
   }
 
@@ -111,9 +111,11 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter2 {
     uint aTokensAmount = IERC20(d.aTokenAddress).balanceOf(address(this)) - aTokensBalance;
     require(aTokensAmount >= collateralAmount_, "APA: wrong aTokens balance");
 
+    // enter to E-mode if necessary
+    prepareToBorrow();
+
     // make borrow, send borrowed amount to the receiver
     // we cannot transfer borrowed amount directly to receiver because the debt is incurred by amount receiver
-    prepareToBorrow();
     _pool.borrow(
       borrowAsset,
       borrowAmount_,
@@ -122,9 +124,10 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter2 {
       address(this)
     );
 
-    _ensureSafeToBorrow(
-      0 //TODO: min allowed health factor
-    );
+    {
+      (,,,,, uint256 healthFactor) = _pool.getUserAccountData(address(this));
+      require(healthFactor > controller.MIN_HEALTH_FACTOR2()*10**(18-2), Errors.WRONG_HEALTH_FACTOR);
+    }
 
     // ensure that we have received required borrowed amount, send the amount to the receiver
     require(borrowAmount_ == IERC20(borrowAsset).balanceOf(address(this)) - collateralBalance[borrowAsset]
@@ -136,23 +139,6 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter2 {
 
     // TODO: send aTokens anywhere?
   }
-
-  /// @notice Revert if health factor will be below threshold after borrowing {amountToBorrow_}
-  function _ensureSafeToBorrow(uint minAllowedHealthFactor_) internal view {
-    (uint256 totalCollateralBase,
-     uint256 totalDebtBase,
-     uint256 availableBorrowsBase,
-     uint256 currentLiquidationThreshold,
-     uint256 ltv,
-     uint256 healthFactor
-    ) = _pool.getUserAccountData(address(this));
-
-    //TODO: ensure that healthFactor >= minAllowedHealthFactor_
-    console.log("totalCollateralBase=%d totalDebtBase=%d", totalCollateralBase, totalDebtBase);
-    console.log("availableBorrowsBase=%d currentLiquidationThreshold=%d", availableBorrowsBase, currentLiquidationThreshold);
-    console.log("ltv=%d totalDebtBase=%d healthFactor=%d", ltv, totalDebtBase, healthFactor);
-  }
-
 
   ///////////////////////////////////////////////////////
   ///                 Repay logic
@@ -261,7 +247,7 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter2 {
 
   /// @notice Ensure that the caller is TetuConveter
   function _onlyTC() internal view {
-    require(controller.tetuConverter() == msg.sender, "not TC");
+    require(controller.tetuConverter() == msg.sender, Errors.TETU_CONVERTER_ONLY);
   }
 
   /// @notice Convert {amount} with [sourceDecimals} to new amount with {targetDecimals}

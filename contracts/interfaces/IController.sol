@@ -4,7 +4,8 @@ pragma solidity 0.8.4;
 
 /// @notice Keep and provide addresses of all application contracts
 interface IController {
-  function MIN_HEALTH_FACTOR_WAD() external view returns (uint32);
+  /// @notice min allowed health factor with decimals 2
+  function MIN_HEALTH_FACTOR2() external view returns (uint16);
   function governance() external view returns (address);
 
   ///////////////////////////////////////////////////////

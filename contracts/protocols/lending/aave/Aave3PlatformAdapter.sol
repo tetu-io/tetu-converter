@@ -1,4 +1,3 @@
-import "../../../interfaces/IPlatformAdapter2.sol";
 import "../../../openzeppelin/SafeERC20.sol";
 import "../../../openzeppelin/IERC20.sol";
 import "../../../integrations/aave/IAavePool.sol";
@@ -6,9 +5,12 @@ import "../../../integrations/aave/IAaveAddressesProvider.sol";
 import "../../../integrations/aave/IAaveProtocolDataProvider.sol";
 import "../../../integrations/aave/ReserveConfiguration.sol";
 import "hardhat/console.sol";
+import "../../../core/AppDataTypes.sol";
+import "../../../interfaces/IPlatformAdapter.sol";
+import "../../../interfaces/IPoolAdapterInitializer.sol";
 
 /// @notice Adapter to read current pools info from AAVE-protocol v3, see https://docs.aave.com/hub/
-contract Aave3PlatformAdapter is IPlatformAdapter2 {
+contract Aave3PlatformAdapter is IPlatformAdapter {
   using SafeERC20 for IERC20;
   using ReserveConfiguration for DataTypes.ReserveConfigurationMap;
 
@@ -21,6 +23,10 @@ contract Aave3PlatformAdapter is IPlatformAdapter2 {
   uint constant public INDEX_NORMAL_MODE = 0;
   /// @notice Index of template pool adapter in {templatePoolAdapters} that should be used in E-mode of borrowing
   uint constant public INDEX_E_MODE = 1;
+
+  ///////////////////////////////////////////////////////
+  ///       Constructor and initialization
+  ///////////////////////////////////////////////////////
 
   constructor (
     address poolAave_,
@@ -37,7 +43,11 @@ contract Aave3PlatformAdapter is IPlatformAdapter2 {
     converters.push(templateAdapterEMode_); // add second, INDEX_E_MODE = 1
   }
 
-  function getPoolInfo (
+  ///////////////////////////////////////////////////////
+  ///       Get conversion plan
+  ///////////////////////////////////////////////////////
+
+  function getConversionPlan (
     address collateralAsset_,
     address borrowAsset_
   ) external view override returns (
@@ -104,6 +114,29 @@ contract Aave3PlatformAdapter is IPlatformAdapter2 {
 
     return plan;
   }
+  ///////////////////////////////////////////////////////
+  ///         Initialization of pool adapters
+  ///////////////////////////////////////////////////////
+  function initializePoolAdapter(
+    address /* converter_ */,
+    address poolAdapter_,
+    address user_,
+    address collateralAsset_,
+    address borrowAsset_
+  ) external override {
+    // All AAVE-pool-adapters support IPoolAdapterInitializer
+    IPoolAdapterInitializer(_poolAdapter).initialize(
+      address(pool),
+      user_,
+      collateralAsset_,
+      borrowAsset_
+    );
+  }
+
+
+  ///////////////////////////////////////////////////////
+  ///                    Utils
+  ///////////////////////////////////////////////////////
 
   /// @notice Check if the asset can be used as a collateral
   /// @dev Some assets cannot be used as collateral: https://docs.aave.com/risk/asset-risk/risk-parameters#collaterals
