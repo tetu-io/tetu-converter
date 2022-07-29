@@ -85,7 +85,6 @@ contract TetuConverter is ITetuConverter {
       address poolAdapter = _bm().getPoolAdapter(converter_, msg.sender, sourceToken_, targetToken_);
       if (poolAdapter == address(0)) {
         poolAdapter = _bm().registerPoolAdapter(
-          _bm().getPlatformAdapter(converter_),
           converter_,
           msg.sender,
           sourceToken_,

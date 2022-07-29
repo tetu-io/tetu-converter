@@ -13,6 +13,7 @@ import {
     GAS_LIMIT_BM_FIND_POOL_100, GAS_LIMIT_BM_FIND_POOL_5
 } from "../baseUT/GasLimit";
 import {IBmInputParams, BorrowManagerHelper} from "../baseUT/BorrowManagerHelper";
+import {MocksHelper} from "../baseUT/MocksHelper";
 
 describe("BorrowManager", () => {
 //region Global vars for all tests
@@ -57,8 +58,26 @@ describe("BorrowManager", () => {
         describe("Good paths", () => {
             describe("Create a pool with tree assets", () => {
                 it("should register 3 asset pairs", async () => {
-                    const platformAdapter = ethers.Wallet.createRandom().address;
-                    const templatePoolAdapter = ethers.Wallet.createRandom().address;
+                    const controller = (await DeployUtils.deployContract(signer, "Controller")) as Controller;
+                    const priceOracle = (await DeployUtils.deployContract(signer, "PriceOracleMock"
+                        , [], [])) as PriceOracleMock;
+                    const bm = (await DeployUtils.deployContract(signer
+                        , "BorrowManager"
+                        , controller.address
+                    )) as BorrowManager;
+                    const poolMock = await MocksHelper.createPoolMock(signer, []);
+                    await controller.initialize(
+                        [await controller.priceOracleKey(), await controller.borrowManagerKey()],
+                        [priceOracle.address, bm.address]
+                    );
+
+                    const converter = ethers.Wallet.createRandom().address;
+                    const platformAdapter = await MocksHelper.createPlatformAdapterMock(signer
+                        , poolMock
+                        , controller.address
+                        , converter
+                        , [], [], [], []
+                    );
 
                     const poolAddress = ethers.Wallet.createRandom().address;
                     const poolAssets = [
@@ -71,41 +90,26 @@ describe("BorrowManager", () => {
                     const asset2 = poolAssets[1];
                     const asset3 = poolAssets[2];
 
-                    const controller = (await DeployUtils.deployContract(signer, "Controller")) as Controller;
-                    const priceOracle = (await DeployUtils.deployContract(signer, "PriceOracleMock"
-                        , [], [])) as PriceOracleMock;
-                    await controller.initialize([await controller.priceOracleKey()], [priceOracle.address]);
-
-                    const bm = (await DeployUtils.deployContract(signer
-                        , "BorrowManager"
-                        , controller.address
-                    )) as BorrowManager;
-
-                    await bm.addPool(poolAddress, platformAdapter, templatePoolAdapter, poolAssets);
+                    await bm.addPool(platformAdapter.address, poolAssets);
 
                     const ret = [
-                        (await bm.poolToAdapter(poolAddress)).platformAdapter
-                        , (await bm.poolToAdapter(poolAddress)).templatePoolAdapter
-                        , await bm.poolsForAssets(asset1, asset2, 0)
-                        , await bm.poolsForAssets(asset1, asset3, 0)
-                        , await bm.poolsForAssets(asset2, asset3, 0)
-                        , await bm.assignedPoolsForAssets(asset1, asset2, poolAddress)
-                        , await bm.assignedPoolsForAssets(asset1, asset3, poolAddress)
-                        , await bm.assignedPoolsForAssets(asset2, asset3, poolAddress)
-                        , await bm.poolsForAssetsLength(asset1, asset2)
-                        , await bm.poolsForAssetsLength(asset1, asset3)
-                        , await bm.poolsForAssetsLength(asset2, asset3)
-                        , await bm.assignedPoolsForAssets(asset2, asset1, poolAddress)
-                        , await bm.assignedPoolsForAssets(asset3, asset1, poolAddress)
-                        , await bm.assignedPoolsForAssets(asset3, asset2, poolAddress)
-                        , await bm.poolsForAssetsLength(asset2, asset1)
-                        , await bm.poolsForAssetsLength(asset3, asset1)
-                        , await bm.poolsForAssetsLength(asset3, asset2)
+                        await bm.platformAdaptersLength()
+                        , await bm.platformAdapters(0)
+                        , await bm.platformAdaptersRegistered(poolAddress)
+                        , await bm.pairsList(asset1, asset2, 0)
+                        , await bm.pairsList(asset1, asset3, 0)
+                        , await bm.pairsList(asset2, asset3, 0)
+                        , await bm.pairsListRegistered(asset1, asset2, poolAddress)
+                        , await bm.pairsListRegistered(asset1, asset3, poolAddress)
+                        , await bm.pairsListRegistered(asset2, asset3, poolAddress)
+                        , await bm.pairsListLength(asset1, asset2)
+                        , await bm.pairsListLength(asset1, asset3)
+                        , await bm.pairsListLength(asset2, asset3)
                     ].join();
 
                     const expected = [
                         platformAdapter
-                        , templatePoolAdapter
+                        , converter
                         , poolAddress, poolAddress, poolAddress
                         , true, true, true
                         , 1, 1, 1
@@ -168,13 +172,13 @@ describe("BorrowManager", () => {
             describe("Asset is not registered in BM", () => {
                 it("should save specified value to defaultHealthFactors", async () => {
                     const asset = ethers.Wallet.createRandom().address;
-                    const value = getBigNumberFrom(1, 18).mul(2); //2e18
+                    const value = 2000;
 
                     const bm = await makeEmptyBM();
 
-                    const before = await bm.defaultHealthFactors(asset);
+                    const before = await bm.defaultHealthFactors2(asset);
                     await bm.setHealthFactor(asset, value);
-                    const after = await bm.defaultHealthFactors(asset);
+                    const after = await bm.defaultHealthFactors2(asset);
 
                     const ret = [
                         ethers.utils.formatUnits(before),
@@ -194,7 +198,7 @@ describe("BorrowManager", () => {
             describe("Health factor is equal to 1e18", () => {
                 it("should revert", async () => {
                     const asset = ethers.Wallet.createRandom().address;
-                    const value = getBigNumberFrom(1, 18); //1e18
+                    const value = 1000;
                     console.log(value);
 
                     const bm = await makeEmptyBM();
@@ -207,7 +211,7 @@ describe("BorrowManager", () => {
             describe("Health factor is less then 1e18", () => {
                 it("should revert", async () => {
                     const asset = ethers.Wallet.createRandom().address;
-                    const value = getBigNumberFrom(1, 12); // 1e12
+                    const value = 10;
 
                     const bm = await makeEmptyBM();
 
@@ -237,24 +241,26 @@ describe("BorrowManager", () => {
                 = await BorrowManagerHelper.createBmTwoUnderlines(signer, tt);
 
             console.log("Source amount:", getBigNumberFrom(sourceAmount, await sourceToken.decimals()).toString());
-            const ret = await bm.findPool({
+            const ret = await bm.findConverter({
                 sourceToken: sourceToken.address,
                 sourceAmount: getBigNumberFrom(sourceAmount, await sourceToken.decimals()),
                 targetToken: targetToken.address,
-                healthFactorOptional: BigNumber.from(10).pow(16).mul(healthFactor * 100)
+                healthFactor2: healthFactor * 100,
+                periodInBlocks: 1
             });
             const gas = estimateGas
-                ? await bm.estimateGas.findPool({
+                ? await bm.estimateGas.findConverter({
                     sourceToken: sourceToken.address,
                     sourceAmount: getBigNumberFrom(sourceAmount, await sourceToken.decimals()),
                     targetToken: targetToken.address,
-                    healthFactorOptional: BigNumber.from(10).pow(16).mul(healthFactor * 100)
+                    healthFactor2: healthFactor * 100,
+                    periodInBlocks: 1
                 })
                 : undefined;
             return {
-                outPoolIndex0: pools.findIndex(x => x.pool == ret.outPool),
-                outBorrowRate: ret.outBorrowRate,
-                outMaxTargetAmount: ret.outMaxTargetAmount,
+                outPoolIndex0: pools.findIndex(x => x.converter == ret.converter),
+                outBorrowRate: ret.borrowRatePerBlock18,
+                outMaxTargetAmount: ret.maxTargetAmount,
                 outGas: gas
             }
         }

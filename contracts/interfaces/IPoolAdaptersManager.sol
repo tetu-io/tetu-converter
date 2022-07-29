@@ -14,7 +14,6 @@ interface IPoolAdaptersManager {
   /// @param user_ Address of the caller contract who requires access to the pool adapter
   /// @return Address of registered pool adapter
   function registerPoolAdapter(
-    address platformAdapter_,
     address converter_,
     address user_,
     address collateral_,

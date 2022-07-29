@@ -30,36 +30,39 @@ abstract contract BorrowManagerBase is IBorrowManager {
   }
 
   ///////////////////////////////////////////////////////
+  ///         Abstract functions
+  ///////////////////////////////////////////////////////
+
+  function _getPlatformAdapter(address converter_) internal view virtual returns(address);
+
+  ///////////////////////////////////////////////////////
   ///         Minimal proxy creation
   ///////////////////////////////////////////////////////
 
   /// @notice Register a pool adapter for (pool, user, collateral) if the adapter wasn't created before
   function registerPoolAdapter(
-    address platformAdapter_,
     address converter_,
     address user_,
     address collateral_,
     address borrowToken_
   ) external override returns (address) {
-    require(platformAdapter_ != address(0), AppErrors.PLATFORM_ADAPTER_NOT_FOUND);
-
-    address poolAdapter = poolAdapters[converter_][user_][collateral_][borrowToken_];
-    if (poolAdapter == address(0) ) {
+    address dest = poolAdapters[converter_][user_][collateral_][borrowToken_];
+    if (dest == address(0) ) {
       // create an instance of the pool adapter using minimal proxy pattern, initialize newly created contract
-      poolAdapter = poolAdapter.clone();
-      IPlatformAdapter(platformAdapter_).initializePoolAdapter(
+      dest = converter_.clone();
+      IPlatformAdapter(_getPlatformAdapter(converter_)).initializePoolAdapter(
         converter_,
-        poolAdapter,
+        dest,
         user_,
         collateral_,
         borrowToken_
       );
 
       // register newly created pool adapter in the list of the pool adapters forever
-      poolAdapters[converter_][user_][collateral_][borrowToken_] = poolAdapter;
-      poolAdaptersRegistered[poolAdapter] = true;
+      poolAdapters[converter_][user_][collateral_][borrowToken_] = dest;
+      poolAdaptersRegistered[dest] = true;
     }
-    return poolAdapter;
+    return dest;
   }
 
   ///////////////////////////////////////////////////////

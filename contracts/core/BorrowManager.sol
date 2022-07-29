@@ -39,7 +39,8 @@ contract BorrowManager is BorrowManagerBase {
 
   /// @notice all registered platform adapters
   address[] public platformAdapters;
-  mapping(address => bool) platformAdaptersRegistered;
+  /// @notice Platform adapter : is registered
+  mapping(address => bool) public platformAdaptersRegistered;
 
   /// @notice SourceToken => TargetToken => [list of platform adapters]
   /// @dev SourceToken is always less then TargetToken
@@ -48,7 +49,7 @@ contract BorrowManager is BorrowManagerBase {
   mapping(address => mapping (address => mapping (address => bool))) public pairsListRegistered;
 
   /// @notice Converter : platform adapter
-  mapping(address => address) converters;
+  mapping(address => address) public converters;
 
   /// @notice Default health factors (HF) for assets. Default HF is used if user hasn't provided HF value, decimals 2
   /// @dev Health factor = collateral / minimum collateral. It should be greater then MIN_HEALTH_FACTOR
@@ -61,7 +62,7 @@ contract BorrowManager is BorrowManagerBase {
   constructor(address controller_)
     BorrowManagerBase(controller_)
   {
-
+    console.log("BorrowManager is created %s", address(this));
   }
 
   ///////////////////////////////////////////////////////
@@ -70,6 +71,7 @@ contract BorrowManager is BorrowManagerBase {
 
   function addPool(address platformAdapter_, address[] calldata assets_)
   external override {
+    console.log("Add pool platformAdapter_=%s", platformAdapter_);
     if (!platformAdaptersRegistered[platformAdapter_]) {
       platformAdapters.push(platformAdapter_);
       platformAdaptersRegistered[platformAdapter_] = true;
@@ -78,6 +80,7 @@ contract BorrowManager is BorrowManagerBase {
     address[] memory paConverters = IPlatformAdapter(platformAdapter_).converters();
     uint lenConverters = paConverters.length;
     for (uint i = 0; i < lenConverters; ++i) {
+      console.log("Add converter_=%s %s", paConverters[i], platformAdapter_);
       converters[paConverters[i]] = platformAdapter_;
     }
 
@@ -184,6 +187,14 @@ contract BorrowManager is BorrowManagerBase {
             * pp_.sourceAmount18 * pp_.priceSource18
             / (pp_.priceTarget18 * uint(p_.healthFactor2) * 10**(18-2));
 
+          console.log("apy %d", apy);
+          console.log("resultTa18 %d", resultTa18);
+          console.log("plan.collateralFactorWAD %d", plan.collateralFactorWAD);
+          console.log("pp_.sourceAmount18 %d", pp_.sourceAmount18);
+          console.log("pp_.priceSource18 %d", pp_.priceSource18);
+          console.log("pp_.priceTarget18 %d", pp_.priceTarget18);
+          console.log("p_.healthFactor2 %d", p_.healthFactor2);
+
           // the pool should have enough liquidity
           if (_toMantissa(plan.maxAmountToBorrowBT, pp_.targetDecimals, 18) >= resultTa18) {
             // take the pool with lowest borrow rate
@@ -199,8 +210,9 @@ contract BorrowManager is BorrowManagerBase {
   }
 
   /// @notice Calculate APY = (1 + r / n)^n - 1, where r - period rate, n = number of compounding periods
-  function _getApy(uint rate18_, uint period_) internal pure returns (uint) {
-    return 10**18 * ((1 + rate18_ / 10**18 / period_)** period_ - 1);
+  function _getApy(uint rate18_, uint period_) internal view returns (uint) {
+    console.log("_getApy rate18_=%d period_=%d", rate18_, period_);
+    return 10**18 * ((10**18 + rate18_ / period_)** period_ / (10**(18+period_))  - 1);
   }
 
   ///////////////////////////////////////////////////////
@@ -208,6 +220,15 @@ contract BorrowManager is BorrowManagerBase {
   ///////////////////////////////////////////////////////
 
   function getPlatformAdapter(address converter_) external view override returns (address) {
+    return _getPlatformAdapter(converter_);
+  }
+
+  ///////////////////////////////////////////////////////
+  ///         BorrowManagerBase functions
+  ///////////////////////////////////////////////////////
+
+  function _getPlatformAdapter(address converter_) internal view override returns(address) {
+    console.log("_getPlatformAdapter %s", converter_);
     address platformAdapter = converters[converter_];
     require(platformAdapter != address(0), AppErrors.PLATFORM_ADAPTER_NOT_FOUND);
     return platformAdapter;
@@ -228,6 +249,14 @@ contract BorrowManager is BorrowManagerBase {
     return sourceDecimals == targetDecimals
       ? amount
       : amount * (10 ** targetDecimals) / (10 ** sourceDecimals);
+  }
+
+  ///////////////////////////////////////////////////////
+  ///                 Lengths
+  ///////////////////////////////////////////////////////
+
+  function platformAdaptersLength() public view returns (uint) {
+    return platformAdapters.length;
   }
 
   function pairsListLength(address token1, address token2) public view returns (uint) {

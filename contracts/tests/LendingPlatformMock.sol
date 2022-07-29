@@ -28,6 +28,8 @@ contract LendingPlatformMock is IPlatformAdapter {
     uint[] memory borrowRates_,
     uint[] memory liquidity_
   ) {
+    console.log("LendingPlatformMock converter=%s pool=%s", converter_, pool_);
+    console.log("LendingPlatformMock this=%s", address(this));
     _pool = pool_;
     _converter = converter_;
 
@@ -52,9 +54,9 @@ contract LendingPlatformMock is IPlatformAdapter {
     return AppDataTypes.ConversionPlan({
       converter: _converter,
       borrowRateKind: AppDataTypes.BorrowRateKind.PER_BLOCK_1,
-      collateralFactorWAD: collateralFactors[collateralAsset_],
+      collateralFactorWAD: collateralFactors[borrowAsset_],
       borrowRate: borrowRates[borrowAsset_],
-      ltvWAD: collateralFactors[collateralAsset_],
+      ltvWAD: collateralFactors[borrowAsset_],
       maxAmountToBorrowBT: liquidity[borrowAsset_],
       maxAmountToSupplyCT: 0
     });

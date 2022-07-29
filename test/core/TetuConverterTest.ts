@@ -94,10 +94,10 @@ describe("BorrowManager", () => {
         targetToken: MockERC20,
         poolAdapter: string
     }>{
-        const templatePoolAdapter = await MocksHelper.createPoolAdapterMock(deployer);
+        const converter = await MocksHelper.createPoolAdapterMock(deployer);
 
         const {bm, sourceToken, targetToken, pools, controller}
-            = await BorrowManagerHelper.createBmTwoUnderlines(deployer, tt, templatePoolAdapter.address);
+            = await BorrowManagerHelper.createBmTwoUnderlines(deployer, tt, converter.address);
         const tc = await CoreContractsHelper.createTetuConverter(deployer, controller);
         const dm = await CoreContractsHelper.createDebtMonitor(deployer, controller);
         await controller.assignBatch(
@@ -112,8 +112,19 @@ describe("BorrowManager", () => {
         const userContract = await MocksHelper.deployUserBorrowRepayUCs(user, core.controller);
 
         // we need to set up the pool adapter
-        await core.bm.registerPoolAdapter(pool, userContract.address, sourceToken.address);
-        const poolAdapter: string = await core.bm.getPoolAdapter(pool, userContract.address, sourceToken.address);
+        await core.bm.registerPoolAdapter(
+            platformAdapter,
+            converter.address,
+            userContract.address,
+            sourceToken.address,
+            targetToken.address
+        );
+        const poolAdapter: string = await core.bm.getPoolAdapter(
+            converter.address,
+            userContract.address,
+            sourceToken.address,
+            targetToken.address
+        );
         const poolAdapterMock = PoolAdapterMock__factory.connect(poolAdapter, deployer);
         await poolAdapterMock.setUpMock(
             cToken,

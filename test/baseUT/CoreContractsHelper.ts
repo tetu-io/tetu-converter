@@ -1,6 +1,6 @@
 import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import {
-    BorrowManager,
+    BorrowManager, BorrowManager__factory,
     Controller, DebtMonitor,
     IController, LendingPlatformMock,
     MockERC20, PoolAdapterMock,
@@ -76,8 +76,7 @@ export class CoreContractsHelper {
      */
     public static async addPool(
         signer: SignerWithAddress,
-        controllerAddress: string,
-        bm: BorrowManager,
+        controller: IController,
         pool: PoolMock,
         poolsInfo: IPoolInfo,
         collateralFactors: number[],
@@ -111,13 +110,15 @@ export class CoreContractsHelper {
         const platformAdapter = await MocksHelper.createPlatformAdapterMock(
             signer,
             pool,
-            controllerAddress,
+            controller.address,
             templatePoolAdapter,
             underlines.map(x => x.address),
             borrowRates,
             collateralFactors,
             availableLiquidity
         );
+
+        const bm = BorrowManager__factory.connect(await controller.borrowManager(), signer);
 
         await bm.addPool(platformAdapter.address, underlines.map(x => x.address));
 

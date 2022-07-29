@@ -10,6 +10,7 @@ import "./MockERC20.sol";
 import "../integrations/IERC20Extended.sol";
 import "../interfaces/IDebtsMonitor.sol";
 import "./PoolMock.sol";
+import "../interfaces/IController.sol";
 
 contract PoolAdapterMock is IPoolAdapter {
 
@@ -20,8 +21,6 @@ contract PoolAdapterMock is IPoolAdapter {
   address private _borrowAsset;
 
   MockERC20 private _cTokenMock;
-  IPriceOracle private _priceOracle;
-  IDebtMonitor private _debtMonitor;
   uint private _collateralFactor;
 
   address[] private _borrowTokens;
@@ -38,16 +37,12 @@ contract PoolAdapterMock is IPoolAdapter {
 
   function setUpMock(
     address cTokenMock_,
-    address priceOracle_,
-    address debtMonitor_,
     uint collateralFactor_,
     address[] calldata borrowTokens_,
     uint[] calldata borrowRatesPerBlock_
   ) external {
     console.log("setUpMock");
     _cTokenMock = MockERC20(cTokenMock_);
-    _priceOracle = IPriceOracle(priceOracle_);
-    _debtMonitor = IDebtMonitor(debtMonitor_);
     _collateralFactor = collateralFactor_;
     for (uint i = 0; i < borrowTokens_.length; ++i) {
       _borrowTokens.push(borrowTokens_[i]);
@@ -151,7 +146,8 @@ contract PoolAdapterMock is IPoolAdapter {
   function _addBorrow(uint borrowedAmount_, uint amountCTokens_) internal {
     _accumulateDebt(borrowedAmount_);
     // send notification to the debt monitor
-    _debtMonitor.onOpenPosition();
+  IDebtMonitor dm = IDebtMonitor(IController(controller).debtMonitor());
+  dm.onOpenPosition();
     console.log("_borrowedAmounts", _borrowedAmounts);
   }
 
@@ -202,7 +198,8 @@ contract PoolAdapterMock is IPoolAdapter {
     _borrowedAmounts -= amountReceivedBT;
 
     if (closePosition_) {
-      _debtMonitor.onClosePosition();
+      IDebtMonitor dm = IDebtMonitor(IController(controller).debtMonitor());
+      dm.onClosePosition();
     }
   }
 
@@ -251,7 +248,9 @@ contract PoolAdapterMock is IPoolAdapter {
 
   function getPrice18(address asset) internal view returns (uint) {
     IERC20Extended d = IERC20Extended(asset);
-    uint price = _priceOracle.getAssetPrice(asset);
+    IPriceOracle priceOracle = IPriceOracle(IController(controller).priceOracle());
+
+    uint price = priceOracle.getAssetPrice(asset);
     return _toMantissa(price, d.decimals(), 18);
   }
 

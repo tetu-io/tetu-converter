@@ -50,38 +50,37 @@ describe("BorrowManagerBase (IPoolAdaptersManager)", () => {
         describe("Good paths", () => {
             describe("Single platformAdapter + templatePoolAdapter", () => {
                 it("should create instance of the required template contract", async () => {
-                    //const collateralFactorToBeLostByMinimalProxyPattern = 10000000000000;
-
                     // create borrow manager (BM) with single pool
                     const tt = BorrowManagerHelper.getBmInputParamsSinglePool();
                     const {bm, sourceToken, targetToken, pools}
                         = await BorrowManagerHelper.createBmTwoUnderlines(deployer, tt);
 
                     // register pool adapter
-                    const pool = pools[0].pool;
+                    const converter = pools[0].converter;
                     const user = ethers.Wallet.createRandom().address;
                     const collateral = sourceToken.address;
 
-                    await bm.registerPoolAdapter(pool, user, collateral);
-                    const poolAdapter = await bm.getPoolAdapter(pool, user, collateral);
+                    await bm.registerPoolAdapter(converter, user, collateral, targetToken.address);
+                    const poolAdapter = await bm.getPoolAdapter(converter, user, collateral, targetToken.address);
 
                     // get data from the pool adapter
                     const pa: IPoolAdapter = IPoolAdapter__factory.connect(
                         poolAdapter, await DeployerUtils.startImpersonate(user)
                     );
 
+                    const paConfig = await pa.getConfig();
                     const ret = [
-                        await pa.pool(),
-                        (await pa.collateralFactor()).toString(),
-                        await pa.collateralToken(),
-                        await pa.user()
+                        paConfig.pool,
+                        paConfig.collateralAsset,
+                        paConfig.user,
+                        paConfig.borrowAsset
                     ].join();
 
                     const expected = [
-                        pool,
-                        0,
+                        pools[0].pool,
                         sourceToken.address,
-                        user
+                        user,
+                        targetToken.address
                     ].join();
 
                     expect(ret).equal(expected);

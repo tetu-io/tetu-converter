@@ -31,7 +31,7 @@ export interface IBmInputParams {
 export interface PoolInstanceInfo {
     pool: string;
     platformAdapter: string;
-    templatePlatformAdapter: string;
+    converter: string;
     underlineTocTokens: Map<string, string>;
 }
 
@@ -63,6 +63,10 @@ export class BorrowManagerHelper {
             pricesUSD.map(x => BigNumber.from(10).pow(16).mul(x * 100))
         );
         const bm = await CoreContractsHelper.createBorrowManager(signer, controller);
+        await controller.assignBatch(
+            [await controller.borrowManagerKey()], [bm.address]
+        );
+
         const pools: PoolInstanceInfo[] = [];
 
         for (const poolInfo of tt.availablePools) {
@@ -72,8 +76,9 @@ export class BorrowManagerHelper {
                 underlines.map(x => x.address)
             );
             const pool = await MocksHelper.createPoolMock(signer, cTokens);
+
             const r = await CoreContractsHelper.addPool(signer,
-                bm,
+                controller,
                 pool,
                 poolInfo,
                 collateralFactors,
@@ -87,17 +92,13 @@ export class BorrowManagerHelper {
             pools.push({
                 pool: pool.address,
                 platformAdapter: r.platformAdapter.address,
-                templatePlatformAdapter: r.templatePoolAdapter,
+                converter: r.templatePoolAdapter,
                 underlineTocTokens: mapCTokens
             });
         }
 
         const sourceToken = underlines[0];
         const targetToken = underlines[1];
-
-        await controller.assignBatch(
-            [await controller.borrowManagerKey()], [bm.address]
-        );
 
         return {bm, sourceToken, targetToken, pools, controller};
     }

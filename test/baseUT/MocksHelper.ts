@@ -45,8 +45,6 @@ export class MocksHelper {
     ) {
         await m.setUpMock(
             cTokenMock.address
-            , priceOracle.address
-            , debtMonitor.address
             , collateralFactor18
             , borrowTokens.map(x => x.address)
             , borrowRatesPerBlock18
