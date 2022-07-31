@@ -111,9 +111,8 @@ describe("BorrowManager", () => {
         const cToken = pools[0].underlineTocTokens.get(sourceToken.address) || "";
         const userContract = await MocksHelper.deployUserBorrowRepayUCs(user, core.controller);
 
-        // we need to set up the pool adapter
+        // we need to set up a pool adapter
         await core.bm.registerPoolAdapter(
-            platformAdapter,
             converter.address,
             userContract.address,
             sourceToken.address,
@@ -128,8 +127,6 @@ describe("BorrowManager", () => {
         const poolAdapterMock = PoolAdapterMock__factory.connect(poolAdapter, deployer);
         await poolAdapterMock.setUpMock(
             cToken,
-            await controller.priceOracle(),
-            await controller.debtMonitor(),
             getBigNumberFrom(tt.targetCollateralFactor*10, 17),
             [targetToken.address],
             [borrowRatePerBlock18]
@@ -171,18 +168,18 @@ describe("BorrowManager", () => {
 
                         const data = await createTetuConverter(input);
 
-                        const ret = await data.tetuConveter.findBestConversionStrategy(
+                        const ret = await data.tetuConveter.findConversionStrategy(
                             data.sourceToken.address,
                             getBigNumberFrom(sourceAmount, input.sourceDecimals),
                             data.targetToken.address,
-                            getBigNumberFrom(healthFactor, 18),
+                            getBigNumberFrom(healthFactor, 2),
                             period
                         );
 
                         const sret = [
-                            ret.outPool,
-                            ret.outMaxTargetAmount,
-                            //TODO ret.outInterest
+                            ret.converter,
+                            ret.maxTargetAmount,
+                            ret.interest
                         ].join();
 
                         const expectedTargetAmount =
@@ -192,9 +189,9 @@ describe("BorrowManager", () => {
                             / healthFactor;
 
                         const sexpected = [
-                            data.pools[0].pool,
+                            data.pools[0].converter,
                             getBigNumberFrom(expectedTargetAmount, input.targetDecimals),
-                            //TODO bestBorrowRate.mul(period).mul(expectedTargetAmount)
+                            bestBorrowRate
                         ].join();
 
                         expect(sret).equal(sexpected);
@@ -280,7 +277,7 @@ describe("BorrowManager", () => {
                         sourceAmount,
                         targetToken.address,
                         BigNumber.from(period),
-                        getBigNumberFrom(healthFactor * 10, 17),
+                        BigNumber.from(healthFactor * 100),
                         user
                     );
 
@@ -385,7 +382,7 @@ describe("BorrowManager", () => {
                         sourceAmount,
                         targetToken.address,
                         BigNumber.from(period),
-                        getBigNumberFrom(healthFactor * 10, 17),
+                        BigNumber.from(healthFactor * 100),
                         user
                     );
 
@@ -401,7 +398,8 @@ describe("BorrowManager", () => {
                     await userContract.makeRepayUS12(
                         sourceToken.address,
                         targetToken.address,
-                        user
+                        user,
+                        false
                     );
                     const sourceTokenAsUser = IERC20__factory.connect(sourceToken.address
                         , await DeployerUtils.startImpersonate(user)

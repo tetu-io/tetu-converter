@@ -95,26 +95,25 @@ describe("BorrowManager", () => {
                     const ret = [
                         await bm.platformAdaptersLength()
                         , await bm.platformAdapters(0)
-                        , await bm.platformAdaptersRegistered(poolAddress)
+                        , await bm.platformAdaptersRegistered(platformAdapter.address)
                         , await bm.pairsList(asset1, asset2, 0)
                         , await bm.pairsList(asset1, asset3, 0)
                         , await bm.pairsList(asset2, asset3, 0)
-                        , await bm.pairsListRegistered(asset1, asset2, poolAddress)
-                        , await bm.pairsListRegistered(asset1, asset3, poolAddress)
-                        , await bm.pairsListRegistered(asset2, asset3, poolAddress)
+                        , await bm.pairsListRegistered(asset1, asset2, platformAdapter.address)
+                        , await bm.pairsListRegistered(asset1, asset3, platformAdapter.address)
+                        , await bm.pairsListRegistered(asset2, asset3, platformAdapter.address)
                         , await bm.pairsListLength(asset1, asset2)
                         , await bm.pairsListLength(asset1, asset3)
                         , await bm.pairsListLength(asset2, asset3)
                     ].join();
 
                     const expected = [
-                        platformAdapter
-                        , converter
-                        , poolAddress, poolAddress, poolAddress
+                        1
+                        , platformAdapter.address
+                        , true
+                        , platformAdapter.address, platformAdapter.address, platformAdapter.address
                         , true, true, true
                         , 1, 1, 1
-                        , false, false, false
-                        , 0, 0, 0
                     ].join();
 
                     expect(ret).equal(expected);
@@ -205,7 +204,7 @@ describe("BorrowManager", () => {
 
                     await expect(
                         bm.setHealthFactor(asset, value)
-                    ).revertedWith("HF must be > MIN_HF");
+                    ).revertedWith("3");
                 });
             });
             describe("Health factor is less then 1e18", () => {
@@ -217,7 +216,7 @@ describe("BorrowManager", () => {
 
                     await expect(
                         bm.setHealthFactor(asset, value)
-                    ).revertedWith("HF must be > MIN_HF");
+                    ).revertedWith("3");
                 });
             });
         });
@@ -232,7 +231,7 @@ describe("BorrowManager", () => {
             estimateGas: boolean = false
         ) : Promise<{
             outPoolIndex0: number;
-            outBorrowRate: BigNumber;
+            outApr: BigNumber;
             outMaxTargetAmount: BigNumber;
             outGas?: BigNumber
         }> {
@@ -259,7 +258,7 @@ describe("BorrowManager", () => {
                 : undefined;
             return {
                 outPoolIndex0: pools.findIndex(x => x.converter == ret.converter),
-                outBorrowRate: ret.borrowRatePerBlock18,
+                outApr: ret.apr,
                 outMaxTargetAmount: ret.maxTargetAmount,
                 outGas: gas
             }
@@ -297,7 +296,7 @@ describe("BorrowManager", () => {
                         const sret = [
                             ret.outPoolIndex0,
                             ethers.utils.formatUnits(ret.outMaxTargetAmount, input.targetDecimals),
-                            ethers.utils.formatUnits(ret.outBorrowRate, input.targetDecimals)
+                            ethers.utils.formatUnits(ret.outApr, input.targetDecimals)
                         ].join();
 
                         const sexpected = [
@@ -349,7 +348,7 @@ describe("BorrowManager", () => {
                         const sret = [
                             ret.outPoolIndex0,
                             ethers.utils.formatUnits(ret.outMaxTargetAmount, input.targetDecimals),
-                            ethers.utils.formatUnits(ret.outBorrowRate, input.targetDecimals)
+                            ethers.utils.formatUnits(ret.outApr, input.targetDecimals)
                         ].join();
 
                         const sexpected = [
@@ -393,7 +392,7 @@ describe("BorrowManager", () => {
                         const sret = [
                             ret.outPoolIndex0,
                             ethers.utils.formatUnits(ret.outMaxTargetAmount, input.targetDecimals),
-                            ethers.utils.formatUnits(ret.outBorrowRate, input.targetDecimals)
+                            ethers.utils.formatUnits(ret.outApr, input.targetDecimals)
                         ].join();
 
                         const sexpected = [
@@ -500,7 +499,7 @@ describe("BorrowManager", () => {
                     const sret = [
                         ret.outPoolIndex0,
                         ethers.utils.formatUnits(ret.outMaxTargetAmount, input.targetDecimals),
-                        ethers.utils.formatUnits(ret.outBorrowRate, input.targetDecimals)
+                        ethers.utils.formatUnits(ret.outApr, input.targetDecimals)
                     ].join();
 
                     const sexpected = [-1, "0.0", "0.0"].join();
@@ -539,7 +538,7 @@ describe("BorrowManager", () => {
                     const sret = [
                         ret.outPoolIndex0,
                         ethers.utils.formatUnits(ret.outMaxTargetAmount, input.targetDecimals),
-                        ethers.utils.formatUnits(ret.outBorrowRate, input.targetDecimals)
+                        ethers.utils.formatUnits(ret.outApr, input.targetDecimals)
                     ].join();
                     const sexpected = [-1, "0.0", "0.0"].join();
 

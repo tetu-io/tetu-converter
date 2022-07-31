@@ -8,6 +8,7 @@ import "../interfaces/IBorrowManager.sol";
 import "../interfaces/IPoolAdapter.sol";
 import "../core/AppErrors.sol";
 import "../interfaces/IPlatformAdapter.sol";
+import "hardhat/console.sol";
 
 /// @notice Maintain list of registered pool adapters
 abstract contract BorrowManagerBase is IBorrowManager {
@@ -46,10 +47,13 @@ abstract contract BorrowManagerBase is IBorrowManager {
     address collateral_,
     address borrowToken_
   ) external override returns (address) {
+    console.log("registerPoolAdapter.1");
     address dest = poolAdapters[converter_][user_][collateral_][borrowToken_];
     if (dest == address(0) ) {
+      console.log("registerPoolAdapter.2");
       // create an instance of the pool adapter using minimal proxy pattern, initialize newly created contract
       dest = converter_.clone();
+      console.log("registerPoolAdapter.3");
       IPlatformAdapter(_getPlatformAdapter(converter_)).initializePoolAdapter(
         converter_,
         dest,
@@ -57,11 +61,13 @@ abstract contract BorrowManagerBase is IBorrowManager {
         collateral_,
         borrowToken_
       );
+      console.log("registerPoolAdapter.4");
 
       // register newly created pool adapter in the list of the pool adapters forever
       poolAdapters[converter_][user_][collateral_][borrowToken_] = dest;
       poolAdaptersRegistered[dest] = true;
     }
+    console.log("registerPoolAdapter.5");
     return dest;
   }
 

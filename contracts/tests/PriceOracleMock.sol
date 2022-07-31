@@ -4,6 +4,7 @@ pragma solidity 0.8.4;
 
 import "../core/AppDataTypes.sol";
 import "../interfaces/IPriceOracle.sol";
+import "hardhat/console.sol";
 
 contract PriceOracleMock is IPriceOracle {
   /// how much 1 token costs in USD, decimals 18
@@ -23,6 +24,7 @@ contract PriceOracleMock is IPriceOracle {
     require(assets.length == pricesInUSD.length, "wrong lengths");
     for (uint i = 0; i < assets.length; ++i) {
       prices[assets[i]] = pricesInUSD[i];
+      console.log("Price for %d is %d USD", assets[i], pricesInUSD[i]);
     }
   }
 

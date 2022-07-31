@@ -68,7 +68,7 @@ describe("PoolAdapterMock", () => {
                     const priceSourceUSD = 0.1;
                     const priceTargetUSD = 2;
                     const blocksBetweenBorrowAndRepay = 20;
-                    const templatePoolAdapter = await MocksHelper.createPoolAdapterMock(deployer);
+                    const converter = await MocksHelper.createPoolAdapterMock(deployer);
                     const collateralFactor18 = getBigNumberFrom(5, 17); // 0.5
                     const borrowRatePerBlock18 = getBigNumberFrom(1, 10); // 0.01
                     const tt = BorrowManagerHelper.getBmInputParamsSinglePool(1
@@ -80,7 +80,7 @@ describe("PoolAdapterMock", () => {
 
                     // create borrow manager (BM) with single pool and DebtMonitor (DM)
                     const {bm, sourceToken, targetToken, pools, controller}
-                        = await BorrowManagerHelper.createBmTwoUnderlines(deployer, tt, templatePoolAdapter.address);
+                        = await BorrowManagerHelper.createBmTwoUnderlines(deployer, tt, converter.address);
                     const dm = await CoreContractsHelper.createDebtMonitor(deployer, controller);
                     await controller.assignBatch(
                         [await controller.debtMonitorKey(), await controller.borrowManagerKey()]
@@ -92,11 +92,12 @@ describe("PoolAdapterMock", () => {
                     const user = ethers.Wallet.createRandom().address;
                     const collateral = sourceToken.address;
 
-                    await bm.registerPoolAdapter(pool, user, collateral, targetToken.address);
+                    await bm.registerPoolAdapter(pools[0].converter, user, collateral, targetToken.address);
 
                     // pool adapter is a copy of templatePoolAdapter, created using minimal-proxy pattern
                     // this is a mock, we need to configure it
-                    const poolAdapterAddress = await bm.getPoolAdapter(pool, user, collateral);
+                    const poolAdapterAddress = await bm.getPoolAdapter(pools[0].converter, user, collateral
+                        , targetToken.address);
                     const poolAdapterMock = await PoolAdapterMock__factory.connect(poolAdapterAddress, deployer);
                     const cToken = CTokenMock__factory.connect(
                         pools[0].underlineTocTokens.get(sourceToken.address) || ""
@@ -104,8 +105,6 @@ describe("PoolAdapterMock", () => {
                     );
                     await poolAdapterMock.setUpMock(
                         cToken.address,
-                        await controller.priceOracle(),
-                        await controller.debtMonitor(),
                         collateralFactor18,
                         [targetToken.address],
                         [borrowRatePerBlock18]
@@ -141,7 +140,7 @@ describe("PoolAdapterMock", () => {
                     await MockERC20__factory.connect(sourceToken.address, await DeployerUtils.startImpersonate(user))
                         .transfer(pa.address, amountCollateral); // user transfers collateral to pool adapter
                     console.log("Transfer collateral to PA", amountCollateral);
-                    await pa.borrow(amountCollateral, targetToken.address, amountToBorrow, user);
+                    await pa.borrow(amountCollateral, amountToBorrow, user);
                     console.log("Borrow", amountToBorrow);
 
                     const afterBorrow = await BalanceUtils.getBalances(deployer
@@ -159,12 +158,13 @@ describe("PoolAdapterMock", () => {
 
                     // repay immediately
                     // how much we should repay?
-                    const amountToRepay = await pa.getAmountToRepay(targetToken.address);
+                    const amountToRepay = (await pa.getStatus()).amountToPay;
                     console.log("We need to repay", amountToRepay);
+                    await pa.syncBalance(false);
                     await MockERC20__factory.connect(targetToken.address, await DeployerUtils.startImpersonate(user))
                         .transfer(pa.address, amountToRepay); // user transfers collateral to pool adapter
                     console.log("Transfer borrowed token to PA", amountToRepay);
-                    await pa.repay(targetToken.address, amountToRepay, user);
+                    await pa.repay(amountToRepay, user, false);
 
                     const afterRepay = await BalanceUtils.getBalances(deployer
                         , contractsToInvestigate, tokensToInvestigate);

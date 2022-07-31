@@ -160,7 +160,7 @@ describe("Controller", () => {
 
                         await expect(
                             createTestController(b)
-                        ).revertedWith("zero address");
+                        ).revertedWith("1");
                     }
                 });
             });
@@ -218,7 +218,7 @@ describe("Controller", () => {
                                 await getKeysArray(controller)
                                 , getAddressesArray(updatedAddresses)
                             )
-                        ).revertedWith("zero address");
+                        ).revertedWith("1");
                     }
                 });
             });

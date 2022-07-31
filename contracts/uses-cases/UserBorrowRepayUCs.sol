@@ -7,6 +7,7 @@ import "../interfaces/ITetuConverter.sol";
 import "../openzeppelin/IERC20.sol";
 import "../interfaces/IPoolAdapter.sol";
 import "hardhat/console.sol";
+import "../openzeppelin/SafeERC20.sol";
 
 /// @notice This contract imitates real TetuConverter-user behavior
 /// Terms:
@@ -15,6 +16,7 @@ import "hardhat/console.sol";
 ///   PA: selected PoolAdapter
 ///   DM: DebtsMonitor
 contract UserBorrowRepayUCs {
+  using SafeERC20 for IERC20;
 
   IController immutable private _controller;
 
@@ -47,7 +49,8 @@ contract UserBorrowRepayUCs {
     // transfer collateral to TC
     require(IERC20(sourceToken_).balanceOf(address(this)) >= sourceAmount_
       , "wrong balance st on tc");
-    IERC20(sourceToken_).transfer(_controller.tetuConverter(), sourceAmount_);
+    IERC20(sourceToken_).safeApprove(_controller.tetuConverter(), sourceAmount_);
+    console.log("approve %d for %s", sourceAmount_, _controller.tetuConverter());
 
     console.log("makeBorrowUS11.3");
     // borrow and receive borrowed-amount to receiver's balance

@@ -20,7 +20,7 @@ contract DebtMonitor is IDebtMonitor {
   address[] public positions;
 
   /// @notice Pool adapter => true if the pool adapter is registered in the {positions} list
-  mapping(address => bool) positionsRegistered;
+  mapping(address => bool) public positionsRegistered;
 
   /// @notice user => collateral => borrowToken => poolAdapters
   mapping(address => mapping(address => mapping(address => address[]))) public poolAdapters;
@@ -92,6 +92,7 @@ contract DebtMonitor is IDebtMonitor {
       nextIndexToCheck0 += 1;
       IPoolAdapter pa = IPoolAdapter(positions[index0 + i]);
       (uint collateralAmount, uint amountToPay, uint healthFactorWAD) = pa.getStatus();
+      console.log("healthFactorWAD=%d minAllowedHealthFactor=%d", healthFactorWAD, minAllowedHealthFactor);
       if (healthFactorWAD < minAllowedHealthFactor) {
         outPoolAdapters[countFoundItems] = positions[index0 + i];
         countFoundItems += 1;

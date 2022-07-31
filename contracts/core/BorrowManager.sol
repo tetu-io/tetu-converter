@@ -18,8 +18,8 @@ import "./AppErrors.sol";
 contract BorrowManager is BorrowManagerBase {
   using SafeERC20 for IERC20;
 
-  uint constant public SECONDS_PER_YEAR = 31536000;
-  uint constant public BLOCKS_PER_YEAR = 6570 * 365;
+  uint constant public BLOCKS_PER_DAY = 40000;
+  uint constant public SECONDS_PER_DAY = 86400;
 
   ///////////////////////////////////////////////////////
   ///                Structs and enums
@@ -115,7 +115,7 @@ contract BorrowManager is BorrowManagerBase {
   function findConverter(AppDataTypes.InputConversionParams memory p_) external view override returns (
     address converter,
     uint maxTargetAmount,
-    uint borrowRatePerBlock18
+    uint apr
   ) {
     // Input params:
     // Health factor = HF [-], Collateral amount = C [USD]
@@ -139,7 +139,7 @@ contract BorrowManager is BorrowManagerBase {
     require(p_.healthFactor2 >= controller.MIN_HEALTH_FACTOR2(), AppErrors.WRONG_HEALTH_FACTOR);
 
     if (pas.length != 0) {
-      (converter, maxTargetAmount, borrowRatePerBlock18) = _findPool(
+      (converter, maxTargetAmount, apr) = _findPool(
         pas
         , p_
         , BorrowInput({
@@ -151,7 +151,7 @@ contract BorrowManager is BorrowManagerBase {
       );
     }
 
-    return (converter, maxTargetAmount, borrowRatePerBlock18);
+    return (converter, maxTargetAmount, apr);
   }
 
   /// @notice Enumerate all pools and select a pool suitable for borrowing with min borrow rate and enough underline
@@ -162,7 +162,7 @@ contract BorrowManager is BorrowManagerBase {
   ) internal view returns (
     address converter,
     uint maxTargetAmount,
-    uint interest18
+    uint apr
   ) {
     require(pp_.priceSource18 != 0, AppErrors.ZERO_PRICE);
 
@@ -175,19 +175,19 @@ contract BorrowManager is BorrowManagerBase {
 
       // check if we are able to supply required collateral
       if (plan.maxAmountToSupplyCT == 0 || plan.maxAmountToSupplyCT > p_.sourceAmount) {
-        // convert borrow rate to interest
-        uint apy = plan.borrowRateKind == AppDataTypes.BorrowRateKind.PER_BLOCK_1
-          ? _getApy(plan.borrowRate, p_.periodInBlocks)
-          : _getApy(plan.borrowRate, p_.periodInBlocks * SECONDS_PER_YEAR / BLOCKS_PER_YEAR);
+        // convert borrow rate to APR
+        uint aprOfPool = plan.borrowRateKind == AppDataTypes.BorrowRateKind.PER_BLOCK_1
+          ? plan.borrowRate
+          : plan.borrowRate * SECONDS_PER_DAY / BLOCKS_PER_DAY;
 
-        if (converter == address(0) || apy > interest18) {
+        if (converter == address(0) || aprOfPool < apr) {
           // how much target asset we are able to get for the provided collateral with given health factor
           // TargetTA = BS / PT [TA], C = SA * PS, CM = C / HF, BS = CM * PCF
           uint resultTa18 = plan.collateralFactorWAD
             * pp_.sourceAmount18 * pp_.priceSource18
             / (pp_.priceTarget18 * uint(p_.healthFactor2) * 10**(18-2));
 
-          console.log("apy %d", apy);
+          console.log("apr %d plan.borrowRate=%d", aprOfPool, plan.borrowRate);
           console.log("resultTa18 %d", resultTa18);
           console.log("plan.collateralFactorWAD %d", plan.collateralFactorWAD);
           console.log("pp_.sourceAmount18 %d", pp_.sourceAmount18);
@@ -200,19 +200,13 @@ contract BorrowManager is BorrowManagerBase {
             // take the pool with lowest borrow rate
             converter = plan.converter;
             maxTargetAmount = _toMantissa(resultTa18, 18, pp_.targetDecimals);
-            interest18 = apy;
+            apr = aprOfPool;
           }
         }
       }
     }
 
-    return (converter, maxTargetAmount, interest18);
-  }
-
-  /// @notice Calculate APY = (1 + r / n)^n - 1, where r - period rate, n = number of compounding periods
-  function _getApy(uint rate18_, uint period_) internal view returns (uint) {
-    console.log("_getApy rate18_=%d period_=%d", rate18_, period_);
-    return 10**18 * ((10**18 + rate18_ / period_)** period_ / (10**(18+period_))  - 1);
+    return (converter, maxTargetAmount, apr);
   }
 
   ///////////////////////////////////////////////////////

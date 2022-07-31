@@ -60,7 +60,9 @@ export class BorrowManagerHelper {
         const controller = await CoreContractsHelper.createControllerWithPrices(
             signer,
             underlines,
-            pricesUSD.map(x => BigNumber.from(10).pow(16).mul(x * 100))
+            pricesUSD.map((x, index) => BigNumber.from(10)
+                .pow(18 - 2)
+                .mul(x * 100))
         );
         const bm = await CoreContractsHelper.createBorrowManager(signer, controller);
         await controller.assignBatch(

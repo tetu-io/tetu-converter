@@ -29,7 +29,7 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer 
   IAavePriceOracle internal _priceOracle;
 
   /// @notice Last synced amount of given token on the balance of this contract
-  mapping(address => uint) public collateralBalance;
+  mapping(address => uint) public reserveBalances;
 
   ///////////////////////////////////////////////////////
   ///                Initialization
@@ -69,10 +69,10 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer 
     _onlyTC();
 
     if (beforeBorrow) {
-      collateralBalance[collateralAsset] = IERC20(collateralAsset).balanceOf(address(this));
+      reserveBalances[collateralAsset] = IERC20(collateralAsset).balanceOf(address(this));
     }
 
-    collateralBalance[borrowAsset] = IERC20(borrowAsset).balanceOf(address(this));
+    reserveBalances[borrowAsset] = IERC20(borrowAsset).balanceOf(address(this));
   }
 
   ///////////////////////////////////////////////////////
@@ -101,7 +101,7 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer 
     uint aTokensBalance = IERC20(d.aTokenAddress).balanceOf(address(this));
 
     // ensure we have received expected collateral amount
-    require(collateralAmount_ >= IERC20(collateralAsset).balanceOf(address(this)) - collateralBalance[collateralAsset]
+    require(collateralAmount_ >= IERC20(collateralAsset).balanceOf(address(this)) - reserveBalances[collateralAsset]
       , AppErrors.WRONG_COLLATERAL_BALANCE);
 
     // Supplies an `amount` of underlying asset into the reserve, receiving in return overlying aTokens.
@@ -139,7 +139,7 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer 
     }
 
     // ensure that we have received required borrowed amount, send the amount to the receiver
-    require(borrowAmount_ == IERC20(borrowAsset).balanceOf(address(this)) - collateralBalance[borrowAsset]
+    require(borrowAmount_ == IERC20(borrowAsset).balanceOf(address(this)) - reserveBalances[borrowAsset]
       , AppErrors.WRONG_BORROWED_BALANCE);
     IERC20(borrowAsset).safeTransfer(receiver_, borrowAmount_);
 
@@ -159,7 +159,7 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer 
     bool closePosition
   ) external override {
     // ensure that we have received enough money on our balance just before repay was called
-    uint borrowAmountOnBalance = IERC20(borrowAsset).balanceOf(address(this)) - collateralBalance[borrowAsset];
+    uint borrowAmountOnBalance = IERC20(borrowAsset).balanceOf(address(this)) - reserveBalances[borrowAsset];
     require(closePosition || amountToRepay_ == borrowAmountOnBalance, "APA:Wrong repay balance");
 
     uint amountCollateralToReturn = closePosition

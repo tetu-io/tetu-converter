@@ -11,6 +11,7 @@ import "../integrations/IERC20Extended.sol";
 import "../interfaces/IDebtsMonitor.sol";
 import "./PoolMock.sol";
 import "../interfaces/IController.sol";
+import "../core/AppErrors.sol";
 
 contract PoolAdapterMock is IPoolAdapter {
 
@@ -30,6 +31,9 @@ contract PoolAdapterMock is IPoolAdapter {
   /// @dev block.number is a number of blocks passed since last borrow/repay
   ///      we set it manually
   uint private _passedBlocks;
+
+  /// @notice Last synced amount of given token on the balance of this contract
+  mapping(address => uint) public reserveBalances;
 
   ///////////////////////////////////////////////////////
   ///           Setup mock behavior
@@ -71,6 +75,7 @@ contract PoolAdapterMock is IPoolAdapter {
     address collateralAsset_,
     address borrowAsset_
   ) external {
+    console.log("PoolAdapterMock.initialize controller=%s pool=%s user=%s", controller_, pool_, user_);
     controller = controller_;
     _pool = pool_;
     _user = user_;
@@ -95,7 +100,31 @@ contract PoolAdapterMock is IPoolAdapter {
     uint amountToPay,
     uint healthFactorWAD
   ) {
-    return (collateralAmount, amountToPay, healthFactorWAD); //TODO
+    uint priceCollateral = getPrice18(_collateralAsset);
+    uint priceBorrowedUSD = getPrice18(_borrowAsset);
+
+    collateralAmount = IERC20(_collateralAsset).balanceOf(_pool);
+    amountToPay = _getAmountToRepay();
+
+    uint8 decimalsCollateral = IERC20Extended(_collateralAsset).decimals();
+    uint8 decimalsBorrow = IERC20Extended(_borrowAsset).decimals();
+
+    healthFactorWAD = _collateralFactor
+      * _toMantissa(collateralAmount, decimalsCollateral, 18) * priceCollateral
+      / (_toMantissa(amountToPay, decimalsBorrow, 18) * priceBorrowedUSD);
+
+    console.log("healthFactorWAD=%d", healthFactorWAD);
+    console.log("_collateralFactor=%d", _collateralFactor);
+    console.log("collateralAmount=%d", _toMantissa(collateralAmount, decimalsCollateral, 18));
+    console.log("amountToPay=%d", _toMantissa(amountToPay, decimalsBorrow, 18));
+    console.log("priceCollateral=%d", priceCollateral);
+    console.log("priceBorrowedUSD=%d", priceBorrowedUSD);
+
+    return (
+      collateralAmount,
+      amountToPay,
+      healthFactorWAD
+    );
   }
 
   function getConversionKind() external pure override returns (AppDataTypes.ConversionKind) {
@@ -104,6 +133,15 @@ contract PoolAdapterMock is IPoolAdapter {
 
   function syncBalance(bool beforeBorrow) external override {
     console.log("syncBalance beforeBorrow=%d", beforeBorrow ? 1 : 0);
+    uint collateralBalance = IERC20(_collateralAsset).balanceOf(address(this));
+    uint borrowBalance = IERC20(_borrowAsset).balanceOf(address(this));
+    console.log("Pool adapter balances: collateral=%d, borrow=%d", collateralBalance, borrowBalance);
+
+    if (beforeBorrow) {
+      reserveBalances[_collateralAsset] = collateralBalance;
+    }
+
+    reserveBalances[_borrowAsset] = borrowBalance;
   }
 
   ///////////////////////////////////////////////////////
@@ -115,9 +153,14 @@ contract PoolAdapterMock is IPoolAdapter {
     uint borrowAmount_,
     address receiver_
   ) external override {
-    console.log("Pool adapter.borrow");
-    // transfer collateral to the pool
-    IERC20(_collateralAsset).transferFrom(msg.sender, _pool, collateralAmount_);
+    console.log("Pool adapter.borrow sender=%s", msg.sender);
+
+    // ensure we have received expected collateral amount
+    require(collateralAmount_ >= IERC20(_collateralAsset).balanceOf(address(this)) - reserveBalances[_collateralAsset]
+    , AppErrors.WRONG_COLLATERAL_BALANCE);
+
+    // send the collateral to the pool
+    IERC20(_collateralAsset).transfer(_pool, collateralAmount_);
 
     // mint ctokens and keep them on our balance
     uint amountCTokens = collateralAmount_; //TODO: exchange rate 1:1, it's not always true
@@ -127,20 +170,31 @@ contract PoolAdapterMock is IPoolAdapter {
     // price of the collateral and borrowed token in USD
     uint priceCollateral = getPrice18(_collateralAsset);
     uint priceBorrowedUSD = getPrice18(_borrowAsset);
+    console.log("1");
 
     // ensure that we can borrow allowed amount
     uint maxAmountToBorrowUSD = _collateralFactor
-      * (collateralAmount_ * priceCollateral)
+      * (_toMantissa(collateralAmount_, IERC20Extended(_collateralAsset).decimals(), 18) * priceCollateral)
       / 1e18
       / 1e18;
-    uint claimedAmount = borrowAmount_ * priceBorrowedUSD / 1e18;
+    console.log("2 %d", maxAmountToBorrowUSD);
+    console.log("collateralAmount_=%d", collateralAmount_);
+    console.log("priceCollateral=%d", priceCollateral);
+    console.log("borrowAmount_=%d", _toMantissa(borrowAmount_, IERC20Extended(_borrowAsset).decimals(), 18));
+    console.log("priceBorrowedUSD=%d", priceBorrowedUSD);
+    uint claimedAmount = _toMantissa(borrowAmount_, IERC20Extended(_borrowAsset).decimals(), 18) * priceBorrowedUSD / 1e18;
+    console.log("claimedAmount=%d", claimedAmount);
+    console.log("maxAmountToBorrowUSD=%d", maxAmountToBorrowUSD);
     require(maxAmountToBorrowUSD >= claimedAmount, "borrow amount is too big");
 
-    // get borrow tokens from the pool to the receiver
+    console.log("2.2");
+    // send the borrow amount to the receiver
     PoolMock thePool = PoolMock(_pool);
+    console.log("3");
     thePool.transferToReceiver(_borrowAsset, borrowAmount_, receiver_);
-
+    console.log("4");
     _addBorrow(borrowAmount_, amountCTokens);
+    console.log("5");
   }
 
   function _addBorrow(uint borrowedAmount_, uint amountCTokens_) internal {
@@ -181,6 +235,8 @@ contract PoolAdapterMock is IPoolAdapter {
     IERC20(_borrowAsset).transfer(_pool, amountToRepay_);
 
     //return collateral
+    console.log("_borrowedAmounts %s", _borrowedAmounts);
+    console.log("amountReceivedBT %s", amountReceivedBT);
     uint collateralBalance = IERC20(_collateralAsset).balanceOf(_pool);
     uint collateralToReturn = _borrowedAmounts == amountReceivedBT
       ? collateralBalance
@@ -247,11 +303,14 @@ contract PoolAdapterMock is IPoolAdapter {
   ///////////////////////////////////////////////////////
 
   function getPrice18(address asset) internal view returns (uint) {
+    console.log("getPrice18");
     IERC20Extended d = IERC20Extended(asset);
-    IPriceOracle priceOracle = IPriceOracle(IController(controller).priceOracle());
+    address priceOracleAddress = IController(controller).priceOracle();
+    IPriceOracle priceOracle = IPriceOracle(priceOracleAddress);
 
-    uint price = priceOracle.getAssetPrice(asset);
-    return _toMantissa(price, d.decimals(), 18);
+    uint price18 = priceOracle.getAssetPrice(asset);
+    console.log("getPrice18 %d", price18);
+    return price18;
   }
 
   /// @notice Convert {amount} with [sourceDecimals} to new amount with {targetDecimals}

@@ -63,6 +63,7 @@ contract TetuConverter is ITetuConverter {
     // find best DEX platform
 
     // find best lending platform
+    //TODO: Calculate APY = (1 + r / n)^n - 1, where r - period rate, n = number of compounding periods
     return _bm().findConverter(params);
   }
 
@@ -93,7 +94,7 @@ contract TetuConverter is ITetuConverter {
       }
       require(poolAdapter != address(0), AppErrors.POOL_ADAPTER_NOT_FOUND);
 
-      // transfer the collateral from the user to the pool adapter; assume, that the transfer is approved
+      // transfer the collateral from the user directly to the pool adapter; assume, that the transfer is approved
       IPoolAdapter(poolAdapter).syncBalance(true);
       IERC20(sourceToken_).transferFrom(msg.sender, poolAdapter, sourceAmount_);
 

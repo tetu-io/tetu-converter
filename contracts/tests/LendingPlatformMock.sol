@@ -32,6 +32,7 @@ contract LendingPlatformMock is IPlatformAdapter {
     console.log("LendingPlatformMock this=%s", address(this));
     _pool = pool_;
     _converter = converter_;
+    _controller = controller_;
 
     for (uint i = 0; i < underlines_.length; ++i) {
       collateralFactors[underlines_[i]] = collateralFactors_[i];
@@ -75,6 +76,7 @@ contract LendingPlatformMock is IPlatformAdapter {
     address collateralAsset_,
     address borrowAsset_
   ) external override {
+    console.log("initializePoolAdapter %s", poolAdapter_);
     PoolAdapterMock(poolAdapter_).initialize(
       _controller,
       _pool,
