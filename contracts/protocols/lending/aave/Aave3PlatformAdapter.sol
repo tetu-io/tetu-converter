@@ -8,12 +8,12 @@ import "../../../integrations/aave/IAavePool.sol";
 import "../../../integrations/aave/IAaveAddressesProvider.sol";
 import "../../../integrations/aave/IAaveProtocolDataProvider.sol";
 import "../../../integrations/aave/ReserveConfiguration.sol";
-import "hardhat/console.sol";
 import "../../../core/AppDataTypes.sol";
 import "../../../core/AppErrors.sol";
 import "../../../interfaces/IPlatformAdapter.sol";
 import "../../../interfaces/IPoolAdapterInitializer.sol";
 import "../../../interfaces/IController.sol";
+import "hardhat/console.sol";
 
 /// @notice Adapter to read current pools info from AAVE-protocol v3, see https://docs.aave.com/hub/
 contract Aave3PlatformAdapter is IPlatformAdapter {
@@ -89,11 +89,11 @@ contract Aave3PlatformAdapter is IPlatformAdapter {
               DataTypes.EModeCategory memory categoryData = pool.getEModeCategoryData(categoryCollateral);
               // ltv: 8500 for 0.85, we need decimals 18.
               plan.ltvWAD = uint(categoryData.ltv) * 10**(18-5);
-              plan.collateralFactorWAD = uint(categoryData.liquidationThreshold) * 10**(18-5);
+              plan.liquidationThreshold18 = uint(categoryData.liquidationThreshold) * 10**(18-5);
               plan.converter = _converters[INDEX_E_MODE];
             } else {
               plan.ltvWAD = uint(rb.configuration.getLtv()) * 10**(18-5);
-              plan.collateralFactorWAD = uint(rb.configuration.getLiquidationThreshold()) * 10**(18-5);
+              plan.liquidationThreshold18 = uint(rb.configuration.getLiquidationThreshold()) * 10**(18-5);
               plan.converter = _converters[INDEX_NORMAL_MODE];
             }
           }
@@ -122,7 +122,7 @@ contract Aave3PlatformAdapter is IPlatformAdapter {
           { // take into account borrow cap, supply cap and debts ceiling
             uint borrowCap = rb.configuration.getBorrowCap();
             if (borrowCap != 0 && borrowCap < plan.maxAmountToBorrowBT) {
-              plan.maxAmountToBorrowBT = borrowCap;
+              plan.maxAmountToBorrowBT = borrowCap; //TODO: is cap for all user together?
             }
           }
 
@@ -137,6 +137,7 @@ contract Aave3PlatformAdapter is IPlatformAdapter {
   ///////////////////////////////////////////////////////
   ///         Initialization of pool adapters
   ///////////////////////////////////////////////////////
+
   function initializePoolAdapter(
     address /* converter_ */,
     address poolAdapter_,

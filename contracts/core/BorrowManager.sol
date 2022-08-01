@@ -183,13 +183,13 @@ contract BorrowManager is BorrowManagerBase {
         if (converter == address(0) || aprOfPool < apr) {
           // how much target asset we are able to get for the provided collateral with given health factor
           // TargetTA = BS / PT [TA], C = SA * PS, CM = C / HF, BS = CM * PCF
-          uint resultTa18 = plan.collateralFactorWAD
+          uint resultTa18 = plan.liquidationThreshold18
             * pp_.sourceAmount18 * pp_.priceSource18
             / (pp_.priceTarget18 * uint(p_.healthFactor2) * 10**(18-2));
 
           console.log("apr %d plan.borrowRate=%d", aprOfPool, plan.borrowRate);
           console.log("resultTa18 %d", resultTa18);
-          console.log("plan.collateralFactorWAD %d", plan.collateralFactorWAD);
+          console.log("plan.collateralFactorWAD %d", plan.liquidationThreshold18);
           console.log("pp_.sourceAmount18 %d", pp_.sourceAmount18);
           console.log("pp_.priceSource18 %d", pp_.priceSource18);
           console.log("pp_.priceTarget18 %d", pp_.priceTarget18);

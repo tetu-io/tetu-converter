@@ -11,8 +11,8 @@ contract LendingPlatformMock is IPlatformAdapter {
   address private _pool;
   address private _converter;
   address private _controller;
-  /// @notice asset => cf
-  mapping(address => uint256) public collateralFactors;
+  /// @notice asset => liquidation threshold18
+  mapping(address => uint256) public liquidationThresholds18;
 
   /// @notice underline => borrowRates
   mapping(address => uint256) public borrowRates;
@@ -24,7 +24,7 @@ contract LendingPlatformMock is IPlatformAdapter {
     address pool_,
     address converter_,
     address[] memory underlines_,
-    uint[] memory collateralFactors_,
+    uint[] memory liquidationThresholds18_,
     uint[] memory borrowRates_,
     uint[] memory liquidity_
   ) {
@@ -35,12 +35,12 @@ contract LendingPlatformMock is IPlatformAdapter {
     _controller = controller_;
 
     for (uint i = 0; i < underlines_.length; ++i) {
-      collateralFactors[underlines_[i]] = collateralFactors_[i];
+      liquidationThresholds18[underlines_[i]] = liquidationThresholds18_[i];
       borrowRates[underlines_[i]] = borrowRates_[i];
       liquidity[underlines_[i]] = liquidity_[i];
 
       console.log("LendingPlatformMock underline=%s", underlines_[i]);
-      console.log("collateralFactor=%d", collateralFactors_[i]);
+      console.log("liquidationThreshold18=%d", liquidationThresholds18_[i]);
       console.log("borrowRate=%d", borrowRates_[i]);
       console.log("liquidity=%d", liquidity_[i]);
     }
@@ -55,9 +55,9 @@ contract LendingPlatformMock is IPlatformAdapter {
     return AppDataTypes.ConversionPlan({
       converter: _converter,
       borrowRateKind: AppDataTypes.BorrowRateKind.PER_BLOCK_1,
-      collateralFactorWAD: collateralFactors[borrowAsset_],
+      liquidationThreshold18: liquidationThresholds18[borrowAsset_],
       borrowRate: borrowRates[borrowAsset_],
-      ltvWAD: collateralFactors[borrowAsset_],
+      ltvWAD: liquidationThresholds18[borrowAsset_],
       maxAmountToBorrowBT: liquidity[borrowAsset_],
       maxAmountToSupplyCT: 0
     });

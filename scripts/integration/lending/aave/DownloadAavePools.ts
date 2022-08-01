@@ -144,7 +144,7 @@ async function getAavePoolReserves(
  * */
 async function main() {
     const signer = (await ethers.getSigners())[0];
-    console.log("getInfoAboutFusePools");
+    console.log("getInfoAboutAavePools");
 
     const net = await ethers.provider.getNetwork();
     console.log(net, network.name);

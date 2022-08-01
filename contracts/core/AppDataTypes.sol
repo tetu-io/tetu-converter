@@ -40,7 +40,7 @@ library AppDataTypes {
     BorrowRateKind borrowRateKind;
     /// @notice Current collateral factor [0..1e18], where 1e18 is corresponded to CF=1
     /// TODO: probably we need to use different decimals for the collateral factor to reduce size of this struct
-    uint collateralFactorWAD;
+    uint liquidationThreshold18;
     /// @notice Normalized borrow rate (borrow-rate + any fees), decimals = 18 (wad)
     /// TODO: uint128? see aave
     uint borrowRate;
