@@ -1,14 +1,11 @@
 import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import {
-    ICErc20__factory,
-    IERC20__factory,
     IHfComptroller,
     IHfComptroller__factory, IHfCToken,
     IHfCToken__factory, IHfInterestRateModel, IHfInterestRateModel__factory
 } from "../../../typechain";
 import {BigNumber} from "ethers";
 import {AaveHelper} from "./AaveHelper";
-import {getBigNumberFrom} from "../../utils/NumberUtils";
 
 const HF_COMPTROLLER = "0xEdBA32185BAF7fEf9A26ca567bC4A6cbe426e499";
 const hMATIC = "0xEbd7f3349AbA8bB15b897e03D6c1a4Ba95B55e31";

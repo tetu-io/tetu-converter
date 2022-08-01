@@ -1,5 +1,10 @@
 import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
-import {Aave3PlatformAdapter, Aave3PoolAdapter} from "../../typechain";
+import {
+    Aave3PlatformAdapter,
+    Aave3PoolAdapter,
+    HundredFinancePlatformAdapter,
+    HundredFinancePoolAdapter
+} from "../../typechain";
 import {DeployUtils} from "../../scripts/utils/DeployUtils";
 
 export class AdaptersHelper {
@@ -25,4 +30,27 @@ export class AdaptersHelper {
         return (await DeployUtils.deployContract(signer, "Aave3PoolAdapter")) as Aave3PoolAdapter;
     }
 //endregion AAVE
+
+//region Hundred finance
+    public static async createHundredFinancePlatformAdapter(
+        signer: SignerWithAddress
+        , controller: string
+        , comptroller: string
+        , templateAdapterNormal: string
+        , cTokensActive: string[]
+    ) : Promise<HundredFinancePlatformAdapter> {
+        return (await DeployUtils.deployContract(
+            signer,
+            "HundredFinancePlatformAdapter",
+            controller,
+            comptroller,
+            templateAdapterNormal,
+            cTokensActive
+        )) as HundredFinancePlatformAdapter;
+    }
+
+    public static async createHundredFinancePoolAdapter(signer: SignerWithAddress) : Promise<HundredFinancePoolAdapter> {
+        return (await DeployUtils.deployContract(signer, "HundredFinancePoolAdapter")) as HundredFinancePoolAdapter;
+    }
+//endregion Hundred finance
 }

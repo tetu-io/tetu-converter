@@ -15,7 +15,7 @@ import {BalanceUtils} from "../../../../baseUT/BalanceUtils";
 import {CoreContractsHelper} from "../../../../baseUT/CoreContractsHelper";
 import {TokenWrapper} from "../../../../baseUT/TokenWrapper";
 
-describe("Aave integration tests, pool adapter", () => {
+describe("Aave-v3 integration tests, pool adapter", () => {
 //region Constants
 
 //endregion Constants

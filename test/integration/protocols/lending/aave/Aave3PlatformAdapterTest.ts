@@ -13,7 +13,7 @@ import {isPolygonForkInUse} from "../../../../baseUT/NetworkUtils";
 import {AaveHelper} from "../../../../../scripts/integration/helpers/AaveHelper";
 import {BalanceUtils} from "../../../../baseUT/BalanceUtils";
 
-describe("Aave integration tests, platform adapter", () => {
+describe("Aave-v3 integration tests, platform adapter", () => {
 //region Constants
     /** https://docs.aave.com/developers/deployed-contracts/v3-mainnet/polygon */
     const aavePoolV3 = "0x794a61358D6845594F94dc1DB02A252b5b4814aD";
@@ -106,7 +106,7 @@ describe("Aave integration tests, platform adapter", () => {
 //endregion before, after
 
 //region Unit tests
-    describe("getPoolInfo", () => {
+    describe("getConversionPlan", () => {
         async function makeTest(
             collateralAsset: string,
             borrowAsset: string,
@@ -138,7 +138,7 @@ describe("Aave integration tests, platform adapter", () => {
                 ret.borrowRateKind,
                 ret.borrowRate,
                 ret.ltvWAD,
-                ret.collateralFactorWAD,
+                ret.liquidationThreshold18,
                 ret.maxAmountToBorrowBT,
                 ret.maxAmountToSupplyCT,
                 // ensure that high efficiency mode is not available
