@@ -112,11 +112,12 @@ interface IHfCToken {
 
     /**
      * @notice Get a snapshot of the account's balances, and the cached exchange rate
+     *         Return (possible error, token balance, borrow balance, exchange rate mantissa)
      * @dev This is used by comptroller to more efficiently perform liquidity checks.
      * @param account Address of the account to snapshot
-     * @return (possible error, token balance, borrow balance, exchange rate mantissa)
      */
-    function getAccountSnapshot(address account) external view returns (uint256, uint256, uint256, uint256);
+    function getAccountSnapshot(address account)
+    external view returns (uint256 error, uint256 tokenBalance, uint256 borrowBalance, uint256 exchangeRageMantissa);
 
     /**
      * @notice Get cash balance of this cToken in the underlying asset

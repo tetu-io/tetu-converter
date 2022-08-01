@@ -89,11 +89,12 @@ interface IHfComptroller {
 
   /**
    * @notice Determine the current account liquidity wrt collateral requirements
-     * @return (possible error code (semi-opaque),
-                account liquidity in excess of collateral requirements,
-     *          account shortfall below collateral requirements)
-     */
-  function getAccountLiquidity(address account) external view returns (uint256, uint256, uint256);
+   *         Return (possible error code (semi-opaque),
+   *         account liquidity in excess of collateral requirements,
+   *         account shortfall below collateral requirements)
+   */
+  function getAccountLiquidity(address account)
+  external view returns (uint256 error, uint256 liquidity, uint256 shortfall);
 
   /**
    * @notice Return all of the markets

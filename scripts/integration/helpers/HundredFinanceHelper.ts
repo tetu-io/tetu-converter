@@ -1,10 +1,15 @@
 import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import {
     IHfComptroller,
-    IHfComptroller__factory, IHfCToken,
-    IHfCToken__factory, IHfInterestRateModel, IHfInterestRateModel__factory
+    IHfComptroller__factory,
+    IHfCToken,
+    IHfCToken__factory,
+    IHfInterestRateModel,
+    IHfInterestRateModel__factory,
+    IHfOracle__factory,
+    IHfOracle,
 } from "../../../typechain";
-import {BigNumber} from "ethers";
+import {BigNumber, Signer} from "ethers";
 import {AaveHelper} from "./AaveHelper";
 import {MaticAddresses} from "../../addresses/MaticAddresses";
 
@@ -59,11 +64,17 @@ interface IHfData {
 //endregion Data types
 
 export class HundredFinanceHelper {
-//region Read data
+//region Access
     public static getComptroller(signer: SignerWithAddress) : IHfComptroller {
         return IHfComptroller__factory.connect(MaticAddresses.HUNDRED_FINANCE_COMPTROLLER, signer);
     }
 
+    public static getPriceOracle(signer: SignerWithAddress) : IHfOracle {
+        return IHfOracle__factory.connect(MaticAddresses.HUNDRED_FINANCE_ORACLE, signer);
+    }
+//endregion Access
+
+//region Read data
     public static async getInterestRateModel(
         irm: IHfInterestRateModel,
         cToken: IHfCToken

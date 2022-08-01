@@ -59,8 +59,13 @@ contract HundredFinancePoolAdapter is IPoolAdapter, IPoolAdapterInitializerHF {
     collateralAsset = collateralAsset_;
     borrowAsset = borrowAsset_;
 
+    console.log("cTokenAddressProvider_=%s", cTokenAddressProvider_);
     (address cTokenCollateral, address cTokenBorrow) = IHfCTokenAddressProvider(cTokenAddressProvider_)
       .getCTokenByUnderlying(collateralAsset_, borrowAsset_);
+    console.log("HundredFinancePoolAdapter.initialize");
+    console.log("collateralAsset_=%s borrowAsset_=%s", collateralAsset_, borrowAsset_);
+    console.log("cTokenCollateral=%s cTokenBorrow=%s", cTokenCollateral, cTokenBorrow);
+
     require(cTokenCollateral != address(0), AppErrors.HF_DERIVATIVE_TOKEN_NOT_FOUND);
     require(cTokenBorrow != address(0), AppErrors.HF_DERIVATIVE_TOKEN_NOT_FOUND);
     collateralCToken = cTokenCollateral;

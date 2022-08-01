@@ -9,10 +9,10 @@ import "../../../interfaces/IController.sol";
 import "../../../core/AppDataTypes.sol";
 import "../../../core/AppErrors.sol";
 import "../../../integrations/hundred-finance/IHfComptroller.sol";
-import "hardhat/console.sol";
 import "../../../integrations/hundred-finance/IHfCToken.sol";
 import "../../../interfaces/hundred-finance/IPoolAdapterInitializerHF.sol";
 import "../../../interfaces/hundred-finance/IHfCTokenAddressProvider.sol";
+import "hardhat/console.sol";
 
 /// @notice Adapter to read current pools info from HundredFinance-protocol, see https://docs.hundred.finance/
 contract HundredFinancePlatformAdapter is IPlatformAdapter, IHfCTokenAddressProvider {
@@ -52,28 +52,34 @@ contract HundredFinancePlatformAdapter is IPlatformAdapter, IHfCTokenAddressProv
     controller = IController(controller_);
 
     _converters.push(templateAdapterNormal_); // Index INDEX_NORMAL_MODE: ordinal conversion mode
+    console.log("HundredFinancePlatformAdapter this=%s", address(this));
     _setupCTokens(activeCTokens_, true);
   }
 
-  function setupCTokens(address[] memory cTokens_, bool makeActive) external {
-    _setupCTokens(cTokens_, makeActive);
+  function setupCTokens(address[] memory cTokens_, bool makeActive_) external {
+    _setupCTokens(cTokens_, makeActive_);
   }
 
-  function _setupCTokens(address[] memory cTokens_, bool makeActive) internal {
+  function _setupCTokens(address[] memory cTokens_, bool makeActive_) internal {
+    console.log("_setupCTokens");
     uint lenCTokens = cTokens_.length;
-    if (makeActive) {
+    if (makeActive_) {
       for (uint i = 0; i < lenCTokens; i = _uncheckedInc(i)) {
-        // There is no underlying for WMATIC, so we store WMATIC:WMATIC
-        activeAssets[(WMATIC == cTokens_[i])
+        console.log("_setupCTokens ctoken=%s underline=%s", cTokens_[i], IHfCToken(cTokens_[i]).underlying());
+        // Special case: there is no underlying for WMATIC, so we store WMATIC:WMATIC
+        address underlying = WMATIC == cTokens_[i]
           ? WMATIC
-          : IHfCToken(cTokens_[i]).underlying()
-        ] = cTokens_[i];
+          : IHfCToken(cTokens_[i]).underlying();
+        activeAssets[underlying] = cTokens_[i];
+
+        console.log("Underline=%s ctoken=%s this=%s", underlying, activeAssets[underlying], address(this));
       }
     } else {
       for (uint i = 0; i < lenCTokens; i = _uncheckedInc(i)) {
         delete activeAssets[cTokens_[i]];
       }
     }
+
   }
 
   ///////////////////////////////////////////////////////
@@ -87,7 +93,7 @@ contract HundredFinancePlatformAdapter is IPlatformAdapter, IHfCTokenAddressProv
   function getCTokenByUnderlying(address token1, address token2)
   external view override
   returns (address cToken1, address cToken2) {
-    return (activeAssets[cToken1], activeAssets[cToken2]);
+    return (activeAssets[token1], activeAssets[token2]);
   }
 
   ///////////////////////////////////////////////////////
@@ -139,6 +145,7 @@ contract HundredFinancePlatformAdapter is IPlatformAdapter, IHfCTokenAddressProv
     address collateralAsset_,
     address borrowAsset_
   ) external override {
+    console.log("initializePoolAdapter %s %s", collateralAsset_, borrowAsset_);
     // HF-pool-adapters support IPoolAdapterInitializer
     IPoolAdapterInitializerHF(poolAdapter_).initialize(
       address(controller),
