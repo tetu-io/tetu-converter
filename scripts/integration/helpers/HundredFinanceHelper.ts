@@ -6,9 +6,12 @@ import {
 } from "../../../typechain";
 import {BigNumber} from "ethers";
 import {AaveHelper} from "./AaveHelper";
+import {MaticAddresses} from "../../addresses/MaticAddresses";
 
-const HF_COMPTROLLER = "0xEdBA32185BAF7fEf9A26ca567bC4A6cbe426e499";
-const hMATIC = "0xEbd7f3349AbA8bB15b897e03D6c1a4Ba95B55e31";
+//region Constants
+
+
+//endregion Constants
 
 //region Data types
 interface InterestRateModel {
@@ -58,7 +61,7 @@ interface IHfData {
 export class HundredFinanceHelper {
 //region Read data
     public static getComptroller(signer: SignerWithAddress) : IHfComptroller {
-        return IHfComptroller__factory.connect(HF_COMPTROLLER, signer);
+        return IHfComptroller__factory.connect(MaticAddresses.HUNDRED_FINANCE_COMPTROLLER, signer);
     }
 
     public static async getInterestRateModel(
@@ -99,7 +102,7 @@ export class HundredFinanceHelper {
         return {
             comptroller: await cToken.comptroller(),
             ctoken: cToken.address,
-            underlying: cToken.address == hMATIC
+            underlying: cToken.address == MaticAddresses.hMATIC
                 ? "" //hMATIC doesn't support CErc20Storage and doesn't have underlying property
                 : await cToken.underlying(),
             name: await cToken.name(),
