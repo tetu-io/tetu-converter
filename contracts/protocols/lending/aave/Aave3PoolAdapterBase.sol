@@ -42,10 +42,12 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer 
     address collateralAsset_,
     address borrowAsset_
   ) override external {
-    require(controller_ != address(0)
+    require(
+      controller_ != address(0)
       && user_ != address(0)
       && collateralAsset_ != address(0)
-      && borrowAsset_ != address(0), AppErrors.ZERO_ADDRESS);
+      && borrowAsset_ != address(0)
+    , AppErrors.ZERO_ADDRESS);
 
     controller = IController(controller_);
     user = user_;
@@ -65,10 +67,10 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer 
   ///////////////////////////////////////////////////////
 
   /// @dev TC calls this function before transferring any amounts to balance of this contract
-  function syncBalance(bool beforeBorrow) external override {
+  function syncBalance(bool beforeBorrow_) external override {
     _onlyTC();
 
-    if (beforeBorrow) {
+    if (beforeBorrow_) {
       reserveBalances[collateralAsset] = IERC20(collateralAsset).balanceOf(address(this));
     }
 
@@ -98,7 +100,7 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer 
 
     //a-tokens
     DataTypes.ReserveData memory d = _pool.getReserveData(collateralAsset);
-    uint aTokensBalance = IERC20(d.aTokenAddress).balanceOf(address(this));
+    uint aTokensBalanceBeforeSupply = IERC20(d.aTokenAddress).balanceOf(address(this));
 
     // ensure we have received expected collateral amount
     require(collateralAmount_ >= IERC20(collateralAsset).balanceOf(address(this)) - reserveBalances[collateralAsset]
@@ -114,10 +116,10 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer 
       0 // no referral code
     );
     _pool.setUserUseReserveAsCollateral(collateralAsset, true);
-    (uint256 totalCollateralBase,,,,,) = _pool.getUserAccountData(user);
+    //(uint256 totalCollateralBase,,,,,) = _pool.getUserAccountData(user);
 
     // ensure that we received a-tokens
-    uint aTokensAmount = IERC20(d.aTokenAddress).balanceOf(address(this)) - aTokensBalance;
+    uint aTokensAmount = IERC20(d.aTokenAddress).balanceOf(address(this)) - aTokensBalanceBeforeSupply;
     require(aTokensAmount >= collateralAmount_, AppErrors.WRONG_DERIVATIVE_TOKENS_BALANCE);
 
     // enter to E-mode if necessary
@@ -133,20 +135,21 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer 
       address(this)
     );
 
-    {
-      (,,,,, uint256 healthFactor) = _pool.getUserAccountData(address(this));
-      require(healthFactor > uint(controller.MIN_HEALTH_FACTOR2())*10**(18-2), AppErrors.WRONG_HEALTH_FACTOR);
-    }
-
     // ensure that we have received required borrowed amount, send the amount to the receiver
     require(borrowAmount_ == IERC20(borrowAsset).balanceOf(address(this)) - reserveBalances[borrowAsset]
       , AppErrors.WRONG_BORROWED_BALANCE);
     IERC20(borrowAsset).safeTransfer(receiver_, borrowAmount_);
 
     // register the borrow in DebtMonitor
-    //!TODO: IDebtMonitor(controller.debtMonitor()).onBorrow(d.aTokenAddress, aTokensAmount, borrowAsset);
+    IDebtMonitor(controller.debtMonitor()).onOpenPosition();
 
     // TODO: send aTokens anywhere?
+
+    // ensure that health factor is greater than min allowed
+    {
+      (,,,,, uint256 healthFactor) = _pool.getUserAccountData(address(this));
+      require(healthFactor > uint(controller.MIN_HEALTH_FACTOR2())*10**(18-2), AppErrors.WRONG_HEALTH_FACTOR);
+    }
   }
 
   ///////////////////////////////////////////////////////
@@ -175,13 +178,14 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer 
     if (closePosition) {
       // repay remain debt using aTokens
       _pool.repayWithATokens(borrowAsset, type(uint256).max, RATE_MODE);
+      // update borrow position status in DebtMonitor
+      IDebtMonitor(controller.debtMonitor()).onClosePosition();
     }
 
     // withdraw the collateral
     _pool.withdraw(collateralAsset, amountCollateralToReturn, receiver_);
 
-    // update borrow position status in DebtMonitor
-    //TODO IDebtMonitor(controller.debtMonitor()).onRepay(d.aTokenAddress, aTokensAmount, borrowAsset);
+    //TODO: check current health factor
   }
 
   /// @param amountToRepay_ Amount to be repaid [in borrowed tokens]
@@ -262,7 +266,7 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer 
   /// @notice Convert {amount} with [sourceDecimals} to new amount with {targetDecimals}
   function _toMantissa(uint amount, uint8 sourceDecimals, uint8 targetDecimals) internal pure returns (uint) {
     return sourceDecimals == targetDecimals
-    ? amount
-    : amount * (10 ** targetDecimals) / (10 ** sourceDecimals);
+      ? amount
+      : amount * (10 ** targetDecimals) / (10 ** sourceDecimals);
   }
 }

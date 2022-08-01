@@ -33,4 +33,10 @@ library AppErrors {
   string public constant WRONG_BORROWED_BALANCE="15";
   /// @notice Balance shouldn't be zero
   string public constant ZERO_BALANCE="15";
+  /// @notice cToken is not found for provided underlying
+  string public constant HF_DERIVATIVE_TOKEN_NOT_FOUND = "16";
+  /// @notice cToken.mint failed
+  string public constant CTOKEN_MINT_FAILED = "17";
+  string public constant COMPTROLLER_GET_ACCOUNT_LIQUIDITY_FAILED = "18";
+  string public constant COMPTROLLER_GET_ACCOUNT_LIQUIDITY_UNDERWATER = "19";
 }

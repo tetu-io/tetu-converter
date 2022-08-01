@@ -11,10 +11,11 @@ import "../../../core/AppErrors.sol";
 import "../../../integrations/hundred-finance/IHfComptroller.sol";
 import "hardhat/console.sol";
 import "../../../integrations/hundred-finance/IHfCToken.sol";
-import "../../../interfaces/IPoolAdapterInitializer.sol";
+import "../../../interfaces/hundred-finance/IPoolAdapterInitializerHF.sol";
+import "../../../interfaces/hundred-finance/IHfCTokenAddressProvider.sol";
 
 /// @notice Adapter to read current pools info from HundredFinance-protocol, see https://docs.hundred.finance/
-contract HundredFinancePlatformAdapter is IPlatformAdapter {
+contract HundredFinancePlatformAdapter is IPlatformAdapter, IHfCTokenAddressProvider {
   using SafeERC20 for IERC20;
 
   /// @notice Index of template pool adapter in {templatePoolAdapters} that should be used in normal borrowing mode
@@ -83,6 +84,11 @@ contract HundredFinancePlatformAdapter is IPlatformAdapter {
     return _converters;
   }
 
+  function getCTokenByUnderlying(address token1, address token2)
+  external view override
+  returns (address cToken1, address cToken2) {
+    return (activeAssets[cToken1], activeAssets[cToken2]);
+  }
 
   ///////////////////////////////////////////////////////
   ///       Get conversion plan
@@ -116,7 +122,6 @@ contract HundredFinancePlatformAdapter is IPlatformAdapter {
         }
       }
     }
-    //plan.borrowRate =
 
     return plan;
   }
@@ -135,8 +140,9 @@ contract HundredFinancePlatformAdapter is IPlatformAdapter {
     address borrowAsset_
   ) external override {
     // HF-pool-adapters support IPoolAdapterInitializer
-    IPoolAdapterInitializer(poolAdapter_).initialize(
+    IPoolAdapterInitializerHF(poolAdapter_).initialize(
       address(controller),
+      address(this),
       address(comptroller),
       user_,
       collateralAsset_,
