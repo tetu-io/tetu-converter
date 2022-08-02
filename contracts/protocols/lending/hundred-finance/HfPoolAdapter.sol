@@ -153,7 +153,9 @@ contract HfPoolAdapter is IPoolAdapter, IPoolAdapterInitializerHF {
   }
 
   function _validateHealthStatusAfterBorrow(address cTokenCollateral, address cTokenBorrow) internal view {
+    console.log("_validateHealthStatusAfterBorrow");
     (,, uint collateralBase, uint sumBorrowPlusEffects) = _getStatus(cTokenCollateral, cTokenBorrow);
+    console.log("collateralBase=%d sumBorrowPlusEffects=%d", collateralBase, sumBorrowPlusEffects);
     (uint sumCollateralSafe, uint healthFactor18) = _getHealthFactor(
       cTokenCollateral,
       collateralBase,
@@ -190,6 +192,7 @@ contract HfPoolAdapter is IPoolAdapter, IPoolAdapterInitializerHF {
     bool closePosition
   ) external override {
     address assetBorrow = borrowAsset;
+    address assetCollateral = collateralAsset;
     address cTokenBorrow = borrowCToken;
     address cTokenCollateral = collateralCToken;
 
@@ -205,6 +208,8 @@ contract HfPoolAdapter is IPoolAdapter, IPoolAdapterInitializerHF {
     IERC20(assetBorrow).approve(address(cTokenBorrow), amountToRepay_);
     IHfCToken(cTokenBorrow).repayBorrow(amountToRepay_);
 
+    console.log("repay.1");
+
     // withdraw the collateral
     uint collateralTokensToRedeem = _getCollateralTokensToRedeem(
       cTokenCollateral,
@@ -212,14 +217,22 @@ contract HfPoolAdapter is IPoolAdapter, IPoolAdapterInitializerHF {
       initialBorrowBalance,
       amountToRepay_
     );
-    uint balanceBorrowAsset = IERC20(assetBorrow).balanceOf(address(this));
-    IHfCToken(cTokenBorrow).redeem(collateralTokensToRedeem);
+    console.log("repay.2");
+    uint balanceCollateralAsset = IERC20(assetCollateral).balanceOf(address(this));
+    uint errorRedeem = IHfCToken(cTokenBorrow).redeem(collateralTokensToRedeem);
+    console.log("errorRedeem %d", errorRedeem);
+    require(errorRedeem == 0, AppErrors.REDEEM_FAILED); //TODO: INSUFFICIENT_SHORTFALL
+
+    console.log("repay.3");
 
     //transfer collateral back to the user
-    IERC20(assetBorrow).transfer(receiver_, IERC20(assetBorrow).balanceOf(address(this)) - balanceBorrowAsset);
+    console.log("collateral balance=%d", IERC20(collateralAsset).balanceOf(address(this)));
+    IERC20(collateralAsset).transfer(receiver_, IERC20(assetCollateral).balanceOf(address(this)) - balanceCollateralAsset);
 
+    console.log("repay.4");
     // update borrow position status in DebtMonitor
-    if (closePosition) {
+    (,, uint collateralBase, uint sumBorrowPlusEffects) = _getStatus(cTokenCollateral, cTokenBorrow);
+    if (closePosition || (collateralBase == 0 && sumBorrowPlusEffects == 0) ) {
       (uint256 error, uint256 tokenBalance, uint256 borrowBalance,) = IHfCToken(cTokenBorrow)
         .getAccountSnapshot(address(this));
       require(error == 0, AppErrors.CTOKEN_GET_ACCOUNT_SNAPSHOT_FAILED);
@@ -227,7 +240,6 @@ contract HfPoolAdapter is IPoolAdapter, IPoolAdapterInitializerHF {
 
       IDebtMonitor(controller.debtMonitor()).onClosePosition();
     } else {
-      (,, uint collateralBase, uint sumBorrowPlusEffects) = _getStatus(cTokenCollateral, cTokenBorrow);
       (, uint healthFactor18) = _getHealthFactor(cTokenCollateral, collateralBase, sumBorrowPlusEffects);
       require(healthFactor18 > uint(controller.MIN_HEALTH_FACTOR2())*10**(18-2), AppErrors.WRONG_HEALTH_FACTOR);
     }
@@ -236,6 +248,7 @@ contract HfPoolAdapter is IPoolAdapter, IPoolAdapterInitializerHF {
   function _getBorrowBalance(address cTokenBorrow) internal view returns (uint) {
     (uint256 error,, uint256 initialBorrowBalance,) = IHfCToken(cTokenBorrow).getAccountSnapshot(address(this));
     require(error == 0, AppErrors.CTOKEN_GET_ACCOUNT_SNAPSHOT_FAILED);
+    console.log("_getBorrowBalance initialBorrowBalance=%d", initialBorrowBalance);
 
     return initialBorrowBalance;
   }
@@ -246,7 +259,12 @@ contract HfPoolAdapter is IPoolAdapter, IPoolAdapterInitializerHF {
     uint initialBorrowBalance_,
     uint amountToRepay_
   ) internal view returns (uint) {
-    require(closePosition_ || amountToRepay_ <= initialBorrowBalance_, AppErrors.WRONG_BORROWED_BALANCE);
+    console.log("_getCollateralTokensToRedeem amountToRepay_=%d initialBorrowBalance_=%d", amountToRepay_, initialBorrowBalance_);
+    require(
+      closePosition_
+      || (initialBorrowBalance_ != 0 && amountToRepay_ <= initialBorrowBalance_)
+      , AppErrors.WRONG_BORROWED_BALANCE
+    );
 
     (uint256 error, uint tokenBalance,,) = IHfCToken(cTokenCollateral).getAccountSnapshot(address(this));
     require(error == 0, AppErrors.CTOKEN_GET_ACCOUNT_SNAPSHOT_FAILED);
@@ -321,13 +339,17 @@ contract HfPoolAdapter is IPoolAdapter, IPoolAdapterInitializerHF {
     (uint256 cError, uint256 tokenBalance,, uint256 cExchangeRateMantissa) = IHfCToken(cTokenCollateral)
       .getAccountSnapshot(address(this));
     require(cError == 0, AppErrors.CTOKEN_GET_ACCOUNT_SNAPSHOT_FAILED);
+    console.log("_getStatus.1 %d %d %d", tokenBalance, cExchangeRateMantissa, priceCollateral);
 
     (uint256 bError,, uint borrowBalance,) = IHfCToken(cTokenBorrow)
       .getAccountSnapshot(address(this));
     require(bError == 0, AppErrors.CTOKEN_GET_ACCOUNT_SNAPSHOT_FAILED);
+    console.log("_getStatus.2 %d %d", borrowBalance, priceBorrow);
 
-    outCollateralAmount = (priceCollateral / 10**18 * cExchangeRateMantissa / 10**18) * tokenBalance / 10**18;
+    outCollateralAmount = (priceCollateral * cExchangeRateMantissa / 10**18) * tokenBalance / 10**18;
     sumBorrowPlusEffects = priceBorrow * borrowBalance / 10**18;
+
+    console.log("_getStatus outCollateralAmount=%d sumBorrowPlusEffects=%d", outCollateralAmount, sumBorrowPlusEffects);
 
     return (tokenBalance, borrowBalance, outCollateralAmount, sumBorrowPlusEffects);
   }
@@ -346,8 +368,14 @@ contract HfPoolAdapter is IPoolAdapter, IPoolAdapterInitializerHF {
   ) {
     (,uint collateralFactor,) = _comptroller.markets(cTokenCollateral);
 
-    sumCollateralSafe = collateralFactor * sumCollateral;
-    healthFactor18 = sumCollateralSafe * 10**18 / sumBorrowPlusEffects;
+    sumCollateralSafe = collateralFactor * sumCollateral / 10**18;
+    healthFactor18 = sumBorrowPlusEffects == 0
+      ? type(uint).max
+      : sumCollateralSafe * 10**18 / sumBorrowPlusEffects;
+
+    console.log("_getHealthFactor sumCollateralSafe=%d sumCollateral=%d", sumCollateralSafe, sumCollateral);
+
+    return (sumCollateralSafe, healthFactor18);
   }
 
   /// @notice Ensure that the caller is TetuConveter

@@ -46,4 +46,5 @@ library AppErrors {
   string public constant HF_INCORRECT_RESULT_LIQUIDITY = "23";
   string public constant CLOSE_POSITION_FAILED = "24";
   string public constant CONVERTER_NOT_FOUND = "25";
+  string public constant REDEEM_FAILED = "26";
 }

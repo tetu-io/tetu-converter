@@ -255,7 +255,7 @@ describe("Aave-v3 integration tests, pool adapter", () => {
 
     describe("repay", () =>{
         interface IUserBalances {
-            colalteral: BigNumber;
+            collateral: BigNumber;
             borrow: BigNumber;
         }
 
@@ -312,7 +312,7 @@ describe("Aave-v3 integration tests, pool adapter", () => {
             }
 
             const beforeBorrow: IUserBalances = {
-                colalteral: await collateralToken.token.balanceOf(user.address),
+                collateral: await collateralToken.token.balanceOf(user.address),
                 borrow: await borrowToken.token.balanceOf(user.address)
             };
 
@@ -335,7 +335,7 @@ describe("Aave-v3 integration tests, pool adapter", () => {
             );
 
             const afterBorrow: IUserBalances = {
-                colalteral: await collateralToken.token.balanceOf(user.address),
+                collateral: await collateralToken.token.balanceOf(user.address),
                 borrow: await borrowToken.token.balanceOf(user.address)
             };
             console.log(afterBorrow);
@@ -352,12 +352,9 @@ describe("Aave-v3 integration tests, pool adapter", () => {
                 closePosition
             );
 
-            // prices of assets in base currency
-            const prices = await aavePrices.getAssetsPrices([collateralToken.address, borrowToken.address]);
-
             // check results
             const afterRepay: IUserBalances = {
-                colalteral: await collateralToken.token.balanceOf(user.address),
+                collateral: await collateralToken.token.balanceOf(user.address),
                 borrow: await borrowToken.token.balanceOf(user.address)
             };
             const ret = await aavePool.getUserAccountData(aavePoolAdapterAsTC.address);
@@ -402,13 +399,13 @@ describe("Aave-v3 integration tests, pool adapter", () => {
                         );
 
                         const sret = [
-                            r.userBalancesBeforeBorrow.colalteral, r.userBalancesBeforeBorrow.borrow
-                            , r.userBalancesAfterBorrow.colalteral, r.userBalancesAfterBorrow.borrow
+                            r.userBalancesBeforeBorrow.collateral, r.userBalancesBeforeBorrow.borrow
+                            , r.userBalancesAfterBorrow.collateral, r.userBalancesAfterBorrow.borrow
 
                             // original collateral > returned collateral ...
-                            , collateralAmount.gt(r.userBalancesAfterRepay.colalteral)
+                            , collateralAmount.gt(r.userBalancesAfterRepay.collateral)
                             // ... the difference is less than 1%
-                            , collateralAmount.sub(r.userBalancesAfterRepay.colalteral)
+                            , collateralAmount.sub(r.userBalancesAfterRepay.collateral)
                                 .div(collateralAmount)
                                 .mul(100).toNumber() < 1
                             , r.userBalancesAfterRepay.borrow
