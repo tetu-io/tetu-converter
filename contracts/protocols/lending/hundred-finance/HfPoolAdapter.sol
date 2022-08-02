@@ -11,6 +11,7 @@ import "../../../interfaces/hundred-finance/IPoolAdapterInitializerHF.sol";
 import "../../../integrations/hundred-finance/IHfComptroller.sol";
 import "../../../interfaces/hundred-finance/IHfCTokenAddressProvider.sol";
 import "../../../integrations/hundred-finance/IHfCToken.sol";
+import "../../../integrations/hundred-finance/IHfOracle.sol";
 
 /// @notice Implementation of IPoolAdapter for HundredFinance-protocol, see https://docs.hundred.finance/
 /// @dev Instances of this contract are created using proxy-minimal pattern, so no constructor
@@ -24,8 +25,9 @@ contract HfPoolAdapter is IPoolAdapter, IPoolAdapterInitializerHF {
   address public user;
 
   IController public controller;
-  IHfComptroller _comptroller;
-
+  IHfComptroller private _comptroller;
+  /// @notice Implementation of IHfOracle
+  IHfOracle private _priceOracle;
 
   /// @notice Last synced amount of given token on the balance of this contract
   mapping(address => uint) public collateralBalance;
@@ -60,7 +62,7 @@ contract HfPoolAdapter is IPoolAdapter, IPoolAdapterInitializerHF {
     borrowAsset = borrowAsset_;
 
     console.log("cTokenAddressProvider_=%s", cTokenAddressProvider_);
-    (address cTokenCollateral, address cTokenBorrow) = IHfCTokenAddressProvider(cTokenAddressProvider_)
+    (address cTokenCollateral, address cTokenBorrow, address priceOracle) = IHfCTokenAddressProvider(cTokenAddressProvider_)
       .getCTokenByUnderlying(collateralAsset_, borrowAsset_);
     console.log("HundredFinancePoolAdapter.initialize");
     console.log("collateralAsset_=%s borrowAsset_=%s", collateralAsset_, borrowAsset_);
@@ -68,8 +70,11 @@ contract HfPoolAdapter is IPoolAdapter, IPoolAdapterInitializerHF {
 
     require(cTokenCollateral != address(0), AppErrors.HF_DERIVATIVE_TOKEN_NOT_FOUND);
     require(cTokenBorrow != address(0), AppErrors.HF_DERIVATIVE_TOKEN_NOT_FOUND);
+    require(priceOracle != address(0), AppErrors.ZERO_ADDRESS);
+
     collateralCToken = cTokenCollateral;
     borrowCToken = cTokenBorrow;
+    _priceOracle = IHfOracle(priceOracle);
 
     _comptroller = IHfComptroller(comptroller_);
   }
@@ -151,32 +156,52 @@ contract HfPoolAdapter is IPoolAdapter, IPoolAdapterInitializerHF {
   }
 
   function _ensureAccountHealthStatus() internal {
-    console.log("_ensureAccountHealthStatus");
-    (uint256 error, uint256 liquidity, uint256 shortfall) = _comptroller.getAccountLiquidity(address(this));
-    console.log("_ensureAccountHealthStatus.1");
-    require(error == 0, AppErrors.COMPTROLLER_GET_ACCOUNT_LIQUIDITY_FAILED);
-    console.log("_ensureAccountHealthStatus.2");
-    require(shortfall == 0, AppErrors.COMPTROLLER_GET_ACCOUNT_LIQUIDITY_UNDERWATER);
-    console.log("_ensureAccountHealthStatus.3");
+    // we need to repeat Comptroller.getHypotheticalAccountLiquidityInternal
+    // but for single collateral and single borrow only
+    // Collateral factor = CF, exchange rate = ER, price = P
+    // Liquidity = sumCollateral - sumBorrowPlusEffects
+    // where sumCollateral = tokenToDenom * Collateral::TokenBalance
+    //       sumBorrowPlusEffects = Borrow::P * Borrow::BorrowBalance
+    //       tokenToDenom = Collateral::CF * Collateral::ER * Collateral::P
+    // TokenBalance and BorrowBalance can be received through Token.getAccountSnapshot
+    // Liquidity - through Comptroller.getAccountLiquidity
+    //
+    // Health factor = sumCollateral / sumBorrowPlusEffects
+    //               = (Liquidity + sumBorrowPlusEffects) / sumBorrowPlusEffects
 
-    address assetCollateral = collateralAsset;
-    address assetBorrow = borrowAsset;
     address cTokenBorrow = borrowCToken;
     address cTokenCollateral = collateralCToken;
-    console.log("_ensureAccountHealthStatus.4");
 
-    IPriceOracle priceOracle = IPriceOracle(controller.priceOracle());
-    console.log("_ensureAccountHealthStatus.5");
-    uint priceCollateral18 = priceOracle.getAssetPrice(assetCollateral);
-    uint priceBorrow18 = priceOracle.getAssetPrice(assetBorrow);
-    console.log("_ensureAccountHealthStatus.6");
-    console.log("_ensureAccountHealthStatus.6");
+    uint priceCollateral = _priceOracle.getUnderlyingPrice(cTokenCollateral);
+    uint priceBorrow = _priceOracle.getUnderlyingPrice(cTokenBorrow);
 
-    uint256 borrows = IHfCToken(cTokenBorrow).borrowBalanceCurrent(address(this));
-    uint256 borrows18 = _toMantissa(borrows, IERC20Extended(cTokenBorrow).decimals(), 18) * priceBorrow18;
-    //!TODO: uint256 hf = _toMantissa(borrows, IERC20Extended(cTokenCollateral).decimals(), 18) * priceCollateral18;
-    console.log("_ensureAccountHealthStatus.7");
+    (uint256 cError, uint256 tokenBalance,, uint256 cExchangeRateMantissa) = IHfCToken(cTokenCollateral)
+      .getAccountSnapshot(address(this));
+    require(cError == 0, AppErrors.CTOKEN_GET_ACCOUNT_SNAPSHOT_FAILED);
+    (uint256 bError,, uint borrowBalance,) = IHfCToken(cTokenBorrow)
+      .getAccountSnapshot(address(this));
+    require(bError == 0, AppErrors.CTOKEN_GET_ACCOUNT_SNAPSHOT_FAILED);
 
+    (,uint ccf,) = _comptroller.markets(cTokenCollateral);
+
+    uint sumCollateral = (ccf * priceCollateral / 10**18 * cExchangeRateMantissa / 10**18) * tokenBalance / 10**18;
+    uint sumBorrowPlusEffects = priceBorrow * borrowBalance / 10**18;
+
+    (uint256 dError, uint256 liquidity,) = _comptroller.getAccountLiquidity(address(this));
+    require(dError == 0, AppErrors.CTOKEN_GET_ACCOUNT_LIQUIDITY_FAILED);
+
+    console.log("sumCollateral=%d", sumCollateral);
+    console.log("sumBorrowPlusEffects=%d", sumBorrowPlusEffects);
+    console.log("liquidity=%d", liquidity);
+    require(
+      sumCollateral > sumBorrowPlusEffects
+      && sumBorrowPlusEffects > 0
+      && sumCollateral - sumBorrowPlusEffects == liquidity //TODO: probably this additional check is not necessary
+      , AppErrors.HF_INCORRECT_RESULT_LIQUIDITY
+    );
+
+    uint hf = sumCollateral * 100 / sumBorrowPlusEffects;
+    require(hf > controller.MIN_HEALTH_FACTOR2(), AppErrors.WRONG_HEALTH_FACTOR);
   }
 
   ///////////////////////////////////////////////////////

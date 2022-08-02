@@ -89,7 +89,8 @@ describe("Hundred Finance integration tests, pool adapter", () => {
                 controller.address,
                 comptroller.address,
                 hfPoolAdapterTC.address,
-                [collateralCToken.address, borrowCToken.address]
+                [collateralCToken.address, borrowCToken.address],
+                MaticAddresses.HUNDRED_FINANCE_ORACLE
             )
             const priceOracle = HundredFinanceHelper.getPriceOracle(deployer);
 
@@ -139,10 +140,10 @@ describe("Hundred Finance integration tests, pool adapter", () => {
             const {error, liquidity, shortfall} = await comptroller.getAccountLiquidity(hfPoolAdapterTC.address);
             const sb = await IHfCToken__factory.connect(borrowCToken.address, deployer)
                 .getAccountSnapshot(hfPoolAdapterTC.address);
-            console.log(`Borrow token: balance=${sb.borrowBalance} tokenBalance=${sb.tokenBalance} exchangeRate=${sb.exchangeRageMantissa}`);
+            console.log(`Borrow token: balance=${sb.borrowBalance} tokenBalance=${sb.tokenBalance} exchangeRate=${sb.exchangeRateMantissa}`);
             const sc = await IHfCToken__factory.connect(collateralCToken.address, deployer)
                 .getAccountSnapshot(hfPoolAdapterTC.address);
-            console.log(`Collateral token: balance=${sc.borrowBalance} tokenBalance=${sc.tokenBalance} exchangeRate=${sc.exchangeRageMantissa}`);
+            console.log(`Collateral token: balance=${sc.borrowBalance} tokenBalance=${sc.tokenBalance} exchangeRate=${sc.exchangeRateMantissa}`);
 
             const retBalanceBorrowUser = await borrowToken.token.balanceOf(user.address);
             const retBalanceCollateralTokensPoolAdapter = await IERC20Extended__factory.connect(

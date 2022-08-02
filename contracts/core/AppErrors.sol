@@ -41,4 +41,7 @@ library AppErrors {
   string public constant COMPTROLLER_GET_ACCOUNT_LIQUIDITY_UNDERWATER = "19";
   /// @notice borrow failed
   string public constant CTOKEN_BORROW_FAILED = "20";
+  string public constant CTOKEN_GET_ACCOUNT_SNAPSHOT_FAILED = "21";
+  string public constant CTOKEN_GET_ACCOUNT_LIQUIDITY_FAILED = "22";
+  string public constant HF_INCORRECT_RESULT_LIQUIDITY = "22";
 }

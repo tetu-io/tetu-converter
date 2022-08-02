@@ -38,6 +38,7 @@ export class AdaptersHelper {
         , comptroller: string
         , templateAdapterNormal: string
         , cTokensActive: string[]
+        , priceOracle: string
     ) : Promise<HfPlatformAdapter> {
         return (await DeployUtils.deployContract(
             signer,
@@ -45,7 +46,8 @@ export class AdaptersHelper {
             controller,
             comptroller,
             templateAdapterNormal,
-            cTokensActive
+            cTokensActive,
+            priceOracle
         )) as HfPlatformAdapter;
     }
 

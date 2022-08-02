@@ -117,7 +117,7 @@ interface IHfCToken {
      * @param account Address of the account to snapshot
      */
     function getAccountSnapshot(address account)
-    external view returns (uint256 error, uint256 tokenBalance, uint256 borrowBalance, uint256 exchangeRageMantissa);
+    external view returns (uint256 error, uint256 tokenBalance, uint256 borrowBalance, uint256 exchangeRateMantissa);
 
     /**
      * @notice Get cash balance of this cToken in the underlying asset

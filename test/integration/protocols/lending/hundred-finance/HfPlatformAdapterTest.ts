@@ -63,7 +63,8 @@ describe("Hundred finance integration tests, platform adapter", () => {
                 controllerStub.address,
                 comptroller.address,
                 templateAdapterNormalStub.address,
-                [cTokenCollateral, cTokenBorrow]
+                [cTokenCollateral, cTokenBorrow],
+                MaticAddresses.HUNDRED_FINANCE_ORACLE
             );
 
             const dp = await AaveHelper.getAaveProtocolDataProvider(deployer);

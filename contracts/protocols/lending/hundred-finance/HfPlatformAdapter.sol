@@ -24,6 +24,8 @@ contract HfPlatformAdapter is IPlatformAdapter, IHfCTokenAddressProvider {
 
   IController public controller;
   IHfComptroller public comptroller;
+  /// @notice Implementation of IHfOracle
+  address public priceOracleAddress;
 
   /// @notice Full list of supported template-pool-adapters
   address[] private _converters;
@@ -40,16 +42,19 @@ contract HfPlatformAdapter is IPlatformAdapter, IHfCTokenAddressProvider {
     address controller_,
     address comptroller_,
     address templateAdapterNormal_,
-    address[] memory activeCTokens_
+    address[] memory activeCTokens_,
+    address priceOracle_
   ) {
     require(
       comptroller_ != address(0)
       && templateAdapterNormal_ != address(0)
       && controller_ != address(0)
+      && priceOracle_ != address(0)
     , AppErrors.ZERO_ADDRESS);
 
     comptroller = IHfComptroller(comptroller_);
     controller = IController(controller_);
+    priceOracleAddress = priceOracle_;
 
     _converters.push(templateAdapterNormal_); // Index INDEX_NORMAL_MODE: ordinal conversion mode
     console.log("HfPlatformAdapter this=%s", address(this));
@@ -90,8 +95,8 @@ contract HfPlatformAdapter is IPlatformAdapter, IHfCTokenAddressProvider {
 
   function getCTokenByUnderlying(address token1, address token2)
   external view override
-  returns (address cToken1, address cToken2) {
-    return (activeAssets[token1], activeAssets[token2]);
+  returns (address cToken1, address cToken2, address priceOracle) {
+    return (activeAssets[token1], activeAssets[token2], priceOracleAddress);
   }
 
   ///////////////////////////////////////////////////////
