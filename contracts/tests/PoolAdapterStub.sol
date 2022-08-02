@@ -14,6 +14,8 @@ contract PoolAdapterStub is IPoolAdapter {
   address private _borrowAsset;
 
   uint public collateralFactorValue;
+  bool private _syncedHideWarning;
+  bool private _borrowHideWarning;
 
   /// @notice Real implementation of IPoolAdapter cannot use constructors  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
   ///         because pool-adapters are created using minimanl-proxy pattern
@@ -38,6 +40,7 @@ contract PoolAdapterStub is IPoolAdapter {
 
   function syncBalance(bool beforeBorrow) external override {
     console.log("syncBalance beforeBorrow=%d", beforeBorrow ? 1 : 0);
+    _syncedHideWarning = beforeBorrow;
   }
 
   function getConversionKind() external pure override returns (AppDataTypes.ConversionKind) {
@@ -50,8 +53,9 @@ contract PoolAdapterStub is IPoolAdapter {
     uint borrowAmount_,
     address receiver_
   ) override external {
-    console.log("borrow collateral=%s receiver=%s", collateralAmount_, borrowAmount_);
-    console.log("borrow borrowAmount=%d", borrowAmount_);
+    console.log("borrow collateral=%s receiver=%s", collateralAmount_, receiver_);
+    console.log("borrow borrowAmount=%d ", borrowAmount_);
+  _borrowHideWarning = true;
   }
 
   /// @notice Repay borrowed amount, return collateral to the user
@@ -62,6 +66,7 @@ contract PoolAdapterStub is IPoolAdapter {
   ) override external {
     console.log("repay receiver=%s", receiver_);
     console.log("repay amountToRepay_=%d closePosition_=%d", amountToRepay_, closePosition_ ? 1 : 0);
+    _borrowHideWarning = false;
   }
 
   function getConfig() external view override returns (
@@ -82,6 +87,9 @@ contract PoolAdapterStub is IPoolAdapter {
     uint amountToPay,
     uint healthFactorWAD
   ) {
+    if (_syncedHideWarning) {
+      // hide warning for pure
+    }
     return (collateralAmount, amountToPay, healthFactorWAD);
   }
 }

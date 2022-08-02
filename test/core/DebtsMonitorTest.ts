@@ -475,7 +475,7 @@ describe("DebtsMonitor", () => {
                     , "to", pp.collateralFactor.updated);
             }
 
-            await pam.setPassedBlocks(targetToken.address, pp.countPassedBlocks);
+            await pam.setPassedBlocks(pp.countPassedBlocks);
 
             const priceOracle: PriceOracleMock = PriceOracleMock__factory.connect(
                 await controller.priceOracle()

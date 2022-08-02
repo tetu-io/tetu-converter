@@ -98,24 +98,27 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer 
   ) external override {
     _onlyTC();
 
+    address assetCollateral = collateralAsset;
+    address assetBorrow = borrowAsset;
+
     //a-tokens
-    DataTypes.ReserveData memory d = _pool.getReserveData(collateralAsset);
+    DataTypes.ReserveData memory d = _pool.getReserveData(assetCollateral);
     uint aTokensBalanceBeforeSupply = IERC20(d.aTokenAddress).balanceOf(address(this));
 
     // ensure we have received expected collateral amount
-    require(collateralAmount_ >= IERC20(collateralAsset).balanceOf(address(this)) - reserveBalances[collateralAsset]
+    require(collateralAmount_ >= IERC20(assetCollateral).balanceOf(address(this)) - reserveBalances[assetCollateral]
       , AppErrors.WRONG_COLLATERAL_BALANCE);
 
     // Supplies an `amount` of underlying asset into the reserve, receiving in return overlying aTokens.
     // E.g. User supplies 100 USDC and gets in return 100 aUSDC
-    IERC20(collateralAsset).approve(address(_pool), collateralAmount_);
+    IERC20(assetCollateral).approve(address(_pool), collateralAmount_);
     _pool.supply(
-      collateralAsset,
+      assetCollateral,
       collateralAmount_,
       address(this),
       0 // no referral code
     );
-    _pool.setUserUseReserveAsCollateral(collateralAsset, true);
+    _pool.setUserUseReserveAsCollateral(assetCollateral, true);
     //(uint256 totalCollateralBase,,,,,) = _pool.getUserAccountData(user);
 
     // ensure that we received a-tokens
@@ -128,7 +131,7 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer 
     // make borrow, send borrowed amount to the receiver
     // we cannot transfer borrowed amount directly to receiver because the debt is incurred by amount receiver
     _pool.borrow(
-      borrowAsset,
+      assetBorrow,
       borrowAmount_,
       RATE_MODE,
       0, // no referral code
@@ -136,9 +139,9 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer 
     );
 
     // ensure that we have received required borrowed amount, send the amount to the receiver
-    require(borrowAmount_ == IERC20(borrowAsset).balanceOf(address(this)) - reserveBalances[borrowAsset]
+    require(borrowAmount_ == IERC20(assetBorrow).balanceOf(address(this)) - reserveBalances[assetBorrow]
       , AppErrors.WRONG_BORROWED_BALANCE);
-    IERC20(borrowAsset).safeTransfer(receiver_, borrowAmount_);
+    IERC20(assetBorrow).safeTransfer(receiver_, borrowAmount_);
 
     // register the borrow in DebtMonitor
     IDebtMonitor(controller.debtMonitor()).onOpenPosition();
@@ -161,8 +164,10 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer 
     address receiver_,
     bool closePosition
   ) external override {
+    address assetBorrow = borrowAsset;
+
     // ensure that we have received enough money on our balance just before repay was called
-    uint borrowAmountOnBalance = IERC20(borrowAsset).balanceOf(address(this)) - reserveBalances[borrowAsset];
+    uint borrowAmountOnBalance = IERC20(assetBorrow).balanceOf(address(this)) - reserveBalances[assetBorrow];
     require(closePosition || amountToRepay_ == borrowAmountOnBalance, "APA:Wrong repay balance");
 
     uint amountCollateralToReturn = closePosition
@@ -171,13 +176,12 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer 
 
     // transfer borrow amount back to the pool
     //TODO amount to be repaid, expressed in wei units.
-    IERC20(borrowAsset).approve(address(_pool), amountToRepay_);
-    _pool.repay(borrowAsset, amountToRepay_, RATE_MODE, address(this));
-    console.log("repay.3");
+    IERC20(assetBorrow).approve(address(_pool), amountToRepay_);
+    _pool.repay(assetBorrow, amountToRepay_, RATE_MODE, address(this));
 
     if (closePosition) {
       // repay remain debt using aTokens
-      _pool.repayWithATokens(borrowAsset, type(uint256).max, RATE_MODE);
+      _pool.repayWithATokens(assetBorrow, type(uint256).max, RATE_MODE);
       // update borrow position status in DebtMonitor
       IDebtMonitor(controller.debtMonitor()).onClosePosition();
     }
@@ -185,12 +189,19 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer 
     // withdraw the collateral
     _pool.withdraw(collateralAsset, amountCollateralToReturn, receiver_);
 
-    //TODO: check current health factor
+    { // validate result status
+      (uint totalCollateralBase, uint totalDebtBase,,,, uint256 healthFactor) = _pool.getUserAccountData(address(this));
+      if (closePosition) {
+        require(totalCollateralBase == 0 && totalDebtBase == 0, AppErrors.CLOSE_POSITION_FAILED);
+      } else {
+        require(healthFactor > uint(controller.MIN_HEALTH_FACTOR2())*10**(18-2), AppErrors.WRONG_HEALTH_FACTOR);
+      }
+    }
   }
 
   /// @param amountToRepay_ Amount to be repaid [in borrowed tokens]
   /// @return Amount of collateral [in collateral tokens] to be returned in exchange of {borrowedAmount_}
-  function _getCollateralAmountToReturn(uint amountToRepay_) internal returns (uint) {
+  function _getCollateralAmountToReturn(uint amountToRepay_) internal view returns (uint) {
     // get total amount of the borrow position
     (uint256 totalCollateralBase, uint256 totalDebtBase,,,,) = _pool.getUserAccountData(address(this));
     require(totalDebtBase != 0, AppErrors.ZERO_BALANCE);
@@ -237,20 +248,24 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer 
   function getStatus() external view override returns (
     uint collateralAmount,
     uint amountsToPay,
-    uint healthFactor
+    uint healthFactor18
   ) {
     (uint256 totalCollateralBase,
      uint256 totalDebtBase,
-     uint256 availableBorrowsBase,
-     uint256 currentLiquidationThreshold,
-     uint256 ltv,
+     ,,,
      uint256 hf
     ) = _pool.getUserAccountData(user);
 
+    uint priceBorrow = _priceOracle.getAssetPrice(borrowAsset);
+    require(priceBorrow != 0, AppErrors.ZERO_PRICE);
+
     return (
-      totalCollateralBase, //TODO: units
-      totalDebtBase, //TODO: units
-      hf //TODO
+    // Total amount of provided collateral in Pool adapter's base currency
+      totalCollateralBase,
+    // Total amount of borrowed debt in [borrow asset]. 0 - for closed borrow positions.
+      totalDebtBase / priceBorrow,
+    // Current health factor, decimals 18
+      hf
     );
   }
 

@@ -54,7 +54,7 @@ contract PoolAdapterMock is IPoolAdapter {
     }
   }
 
-  function setPassedBlocks(address borrowedToken_, uint countPassedBlocks) external {
+  function setPassedBlocks(uint countPassedBlocks) external {
     _passedBlocks = countPassedBlocks;
   }
 
@@ -193,11 +193,11 @@ contract PoolAdapterMock is IPoolAdapter {
     console.log("3");
     thePool.transferToReceiver(_borrowAsset, borrowAmount_, receiver_);
     console.log("4");
-    _addBorrow(borrowAmount_, amountCTokens);
+    _addBorrow(borrowAmount_);
     console.log("5");
   }
 
-  function _addBorrow(uint borrowedAmount_, uint amountCTokens_) internal {
+  function _addBorrow(uint borrowedAmount_) internal {
     _accumulateDebt(borrowedAmount_);
     // send notification to the debt monitor
   IDebtMonitor dm = IDebtMonitor(IController(controller).debtMonitor());
@@ -304,7 +304,6 @@ contract PoolAdapterMock is IPoolAdapter {
 
   function getPrice18(address asset) internal view returns (uint) {
     console.log("getPrice18");
-    IERC20Extended d = IERC20Extended(asset);
     address priceOracleAddress = IController(controller).priceOracle();
     IPriceOracle priceOracle = IPriceOracle(priceOracleAddress);
 

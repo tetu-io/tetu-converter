@@ -47,7 +47,7 @@ contract LendingPlatformMock is IPlatformAdapter {
   }
 
   function getConversionPlan (
-    address collateralAsset_,
+    address, // collateralAsset_
     address borrowAsset_
   ) external view override returns (
     AppDataTypes.ConversionPlan memory plan
@@ -70,7 +70,7 @@ contract LendingPlatformMock is IPlatformAdapter {
   }
 
   function initializePoolAdapter(
-    address converter_,
+    address, // converter_
     address poolAdapter_,
     address user_,
     address collateralAsset_,

@@ -43,5 +43,7 @@ library AppErrors {
   string public constant CTOKEN_BORROW_FAILED = "20";
   string public constant CTOKEN_GET_ACCOUNT_SNAPSHOT_FAILED = "21";
   string public constant CTOKEN_GET_ACCOUNT_LIQUIDITY_FAILED = "22";
-  string public constant HF_INCORRECT_RESULT_LIQUIDITY = "22";
+  string public constant HF_INCORRECT_RESULT_LIQUIDITY = "23";
+  string public constant CLOSE_POSITION_FAILED = "24";
+  string public constant CONVERTER_NOT_FOUND = "25";
 }

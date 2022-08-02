@@ -149,7 +149,7 @@ describe("PoolAdapterMock", () => {
 
                     // assume, that some time is passed and the borrow debt is increased
                     await PoolAdapterMock__factory.connect(pa.address, deployer)
-                        .setPassedBlocks(targetToken.address, blocksBetweenBorrowAndRepay);
+                        .setPassedBlocks(blocksBetweenBorrowAndRepay);
                     const expectedDebt = amountToBorrow
                         .mul(blocksBetweenBorrowAndRepay)
                         .mul(borrowRatePerBlock18)

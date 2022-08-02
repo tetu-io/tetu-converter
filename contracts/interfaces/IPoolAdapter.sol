@@ -34,12 +34,12 @@ interface IPoolAdapter is IConverter {
   );
 
   /// @notice Get current status of the borrow position
-  /// @return collateralAmount Total amount of provided collateral in [collateral asset]
+  /// @return collateralAmount Total amount of provided collateral in Pool adapter's base currency
   /// @return amountToPay Total amount of borrowed debt in [borrow asset]. 0 - for closed borrow positions.
-  /// @return healthFactorWAD Current health factor, decimals 18
+  /// @return healthFactor18 Current health factor, decimals 18
   function getStatus() external view returns (
     uint collateralAmount,
     uint amountToPay,
-    uint healthFactorWAD
+    uint healthFactor18
   );
 }

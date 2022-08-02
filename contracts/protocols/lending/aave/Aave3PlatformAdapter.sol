@@ -163,27 +163,27 @@ contract Aave3PlatformAdapter is IPlatformAdapter {
   /// @notice Check if the asset can be used as a collateral
   /// @dev Some assets cannot be used as collateral: https://docs.aave.com/risk/asset-risk/risk-parameters#collaterals
   /// @param data DataTypes.ReserveData.configuration.data
-  function _isCollateralUsageAllowed(DataTypes.ReserveConfigurationMap memory data) internal view returns (bool) {
+  function _isCollateralUsageAllowed(DataTypes.ReserveConfigurationMap memory data) internal pure returns (bool) {
     // see AaveProtocolDataProvider.getReserveConfigurationData impl
     return data.getLiquidationThreshold() != 0;
   }
 
   /// @notice Check if the asset active, not frozen, not paused
   /// @param data DataTypes.ReserveData.configuration.data
-  function _isUsable(DataTypes.ReserveConfigurationMap memory data) internal view returns (bool) {
+  function _isUsable(DataTypes.ReserveConfigurationMap memory data) internal pure returns (bool) {
     return data.getActive() && ! data.getFrozen() && ! data.getPaused();
   }
 
   /// @notice Some assets can be used as collateral in isolation mode only
   /// @dev // see comment to getDebtCeiling(): The debt ceiling (0 = isolation mode disabled)
   function _isIsolationModeEnabled(DataTypes.ReserveConfigurationMap memory collateralData_)
-  internal view returns (bool) {
+  internal pure returns (bool) {
     return collateralData_.getDebtCeiling() != 0;
   }
 
   /// @notice Only certain assets can be borrowed in isolation mode—specifically, approved stablecoins.
   /// @dev https://docs.aave.com/developers/whats-new/isolation-mode
-  function _isUsableInIsolationMode(DataTypes.ReserveConfigurationMap memory borrowData) internal view returns (bool) {
+  function _isUsableInIsolationMode(DataTypes.ReserveConfigurationMap memory borrowData) internal pure returns (bool) {
     return borrowData.getBorrowableInIsolation();
   }
 }

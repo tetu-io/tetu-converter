@@ -148,7 +148,7 @@ contract HfPlatformAdapter is IPlatformAdapter, IHfCTokenAddressProvider {
     address collateralAsset_,
     address borrowAsset_
   ) external override {
-    console.log("initializePoolAdapter %s %s", collateralAsset_, borrowAsset_);
+    require(_converters[0] == converter_, AppErrors.CONVERTER_NOT_FOUND);
     // HF-pool-adapters support IPoolAdapterInitializer
     IPoolAdapterInitializerHF(poolAdapter_).initialize(
       address(controller),

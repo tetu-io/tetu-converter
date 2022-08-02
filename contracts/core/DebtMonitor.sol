@@ -93,9 +93,9 @@ contract DebtMonitor is IDebtMonitor {
     for (uint i = 0; i < maxCountToCheck; i = _uncheckedInc(i)) {
       nextIndexToCheck0 += 1;
       IPoolAdapter pa = IPoolAdapter(positions[index0 + i]);
-      (uint collateralAmount, uint amountToPay, uint healthFactorWAD) = pa.getStatus();
-      console.log("healthFactorWAD=%d minAllowedHealthFactor=%d", healthFactorWAD, minAllowedHealthFactor);
-      if (healthFactorWAD < minAllowedHealthFactor) {
+      (,, uint healthFactor18) = pa.getStatus();
+      console.log("healthFactor18=%d minAllowedHealthFactor=%d", healthFactor18, minAllowedHealthFactor);
+      if (healthFactor18 < minAllowedHealthFactor) {
         outPoolAdapters[countFoundItems] = positions[index0 + i];
         countFoundItems += 1;
         if (countFoundItems == maxCountToReturn) {
