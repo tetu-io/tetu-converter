@@ -2,20 +2,20 @@ import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import {ethers} from "hardhat";
 import {TimeUtils} from "../../../../../scripts/utils/TimeUtils";
 import {
-    IERC20Extended, IERC20Extended__factory, IHfCToken__factory
+    IERC20Extended__factory, IHfCToken__factory
 } from "../../../../../typechain";
-import {expect, use} from "chai";
-import {BigNumber, BigNumberish} from "ethers";
+import {expect} from "chai";
+import {BigNumber} from "ethers";
 import {getBigNumberFrom} from "../../../../../scripts/utils/NumberUtils";
 import {DeployerUtils} from "../../../../../scripts/utils/DeployerUtils";
 import {AdaptersHelper} from "../../../../baseUT/AdaptersHelper";
 import {isPolygonForkInUse} from "../../../../baseUT/NetworkUtils";
-import {AaveHelper} from "../../../../../scripts/integration/helpers/AaveHelper";
 import {BalanceUtils} from "../../../../baseUT/BalanceUtils";
 import {CoreContractsHelper} from "../../../../baseUT/CoreContractsHelper";
 import {TokenWrapper} from "../../../../baseUT/TokenWrapper";
 import {HundredFinanceHelper} from "../../../../../scripts/integration/helpers/HundredFinanceHelper";
 import {MaticAddresses} from "../../../../../scripts/addresses/MaticAddresses";
+import {MocksHelper} from "../../../../baseUT/MocksHelper";
 
 describe("Hundred Finance integration tests, pool adapter", () => {
 //region Constants
@@ -63,11 +63,20 @@ describe("Hundred Finance integration tests, pool adapter", () => {
             const user = ethers.Wallet.createRandom();
             const tetuConveterStab = ethers.Wallet.createRandom();
 
-            // controller: we need TC (as a caller) and DM (to register borrow position)
+            // controller, dm, bm
             const controller = await CoreContractsHelper.createControllerWithPrices(deployer);
+            const debtMonitor = await CoreContractsHelper.createDebtMonitor(deployer, controller);
+            const borrowManager = await MocksHelper.createBorrowManagerStub(deployer, true);
             await controller.assignBatch(
-                [await controller.tetuConverterKey()]
-                , [tetuConveterStab.address]
+                [await controller.tetuConverterKey()
+                    , await controller.debtMonitorKey()
+                    , await controller.borrowManagerKey()
+                ]
+                , [
+                    tetuConveterStab.address
+                    , debtMonitor.address
+                    , borrowManager.address
+                ]
             );
 
             // initialize adapters and price oracle
@@ -88,9 +97,6 @@ describe("Hundred Finance integration tests, pool adapter", () => {
             await collateralToken.token
                 .connect(await DeployerUtils.startImpersonate(collateralHolder))
                 .transfer(deployer.address, collateralAmount);
-            const collateralData = await HundredFinanceHelper.getCTokenData(deployer, comptroller
-                , IHfCToken__factory.connect(collateralCToken.address, deployer)
-            );
 
             // initialize pool adapater
             await hfPoolAdapterTC.initialize(
@@ -110,33 +116,74 @@ describe("Hundred Finance integration tests, pool adapter", () => {
                 borrowAmount,
                 user.address
             );
+            console.log(`borrow: success`);
+
+            // tokens data
+            const borrowData = await HundredFinanceHelper.getCTokenData(deployer, comptroller
+                , IHfCToken__factory.connect(borrowCToken.address, deployer)
+            );
+            const collateralData = await HundredFinanceHelper.getCTokenData(deployer, comptroller
+                , IHfCToken__factory.connect(collateralCToken.address, deployer)
+            );
 
             // prices of assets in base currency
-            const priceCollateral = await priceOracle.getUnderlyingPrice(collateralToken.address);
+            // From sources: The underlying asset price mantissa (scaled by 1e18).
+            // WRONG: The price of the asset in USD as an unsigned integer scaled up by 10 ^ (36 - underlying asset decimals).
+            // WRONG: see https://compound.finance/docs/prices#price
+            const priceCollateral = await priceOracle.getUnderlyingPrice(collateralCToken.address);
             const priceBorrow = await priceOracle.getUnderlyingPrice(borrowCToken.address);
+            console.log("priceCollateral", priceCollateral);
+            console.log("priceBorrow", priceBorrow);
 
             // check results
             const {error, liquidity, shortfall} = await comptroller.getAccountLiquidity(hfPoolAdapterTC.address);
-            const ret = IHfCToken__factory.connect(borrowCToken.address, deployer).getAccountSnapshot(hfPoolAdapterTC.address);
+            const sb = await IHfCToken__factory.connect(borrowCToken.address, deployer)
+                .getAccountSnapshot(hfPoolAdapterTC.address);
+            console.log(`Borrow token: balance=${sb.borrowBalance} tokenBalance=${sb.tokenBalance} exchangeRate=${sb.exchangeRageMantissa}`);
+            const sc = await IHfCToken__factory.connect(collateralCToken.address, deployer)
+                .getAccountSnapshot(hfPoolAdapterTC.address);
+            console.log(`Collateral token: balance=${sc.borrowBalance} tokenBalance=${sc.tokenBalance} exchangeRate=${sc.exchangeRageMantissa}`);
+
+            const retBalanceBorrowUser = await borrowToken.token.balanceOf(user.address);
+            const retBalanceCollateralTokensPoolAdapter = await IERC20Extended__factory.connect(
+                collateralCToken.address, deployer
+            ).balanceOf(hfPoolAdapterTC.address);
 
             const sret = [
                 error,
-                await borrowToken.token.balanceOf(user.address),
-                await IERC20Extended__factory.connect(collateralCToken.address, deployer)
-                    .balanceOf(hfPoolAdapterTC.address),
+                retBalanceBorrowUser,
+                retBalanceCollateralTokensPoolAdapter,
                 liquidity,
-                shortfall
-            ].map(x => BalanceUtils.toString(x)).join();
+                shortfall,
+            ].map(x => BalanceUtils.toString(x)).join("\n");
 
+            const n18 = getBigNumberFrom(1, 18); //1e18
+            const nc = getBigNumberFrom(1, collateralToken.decimals); //1e18
+            const nb = getBigNumberFrom(1,  borrowToken.decimals); //1e18
+
+            // ALl calculations are explained here:
+            // https://docs.google.com/spreadsheets/d/1oLeF7nlTefoN0_9RWCuNc62Y7W72-Yk7
+            // sheet: Hundred finance
+            const cf1 = collateralData.collateralFactorMantissa;
+            const er1 = collateralData.exchangeRateStored;
+            const pr1 = priceCollateral;
+            const td1 = cf1.mul(er1).div(n18).mul(pr1).div(n18);
+            const sc1 = td1.mul(sc.tokenBalance).div(n18);
+            const sb1 = priceBorrow.mul(sb.borrowBalance).div(n18);
+            const expectedLiquiditiy = sc1.sub(sb1);
+            const er2 = borrowData.exchangeRateStored;
+            console.log(`cf1=${cf1} er1=${er1} pr1=${pr1} td1=${td1} sc1=${sc1} sb1=${sb1} L1=${expectedLiquiditiy} er2=${er2}`);
+            console.log("health factor", ethers.utils.formatUnits(sc1.mul(n18).div(sb1)) );
 
             const sexpected = [
+                0,
                 borrowAmount, // borrowed amount on user's balance
-                collateralAmount, // amount of collateral tokens on pool-adapter's balance
-                collateralAmount.mul(priceCollateral)  // registered collateral in the pool
-                    .div(getBigNumberFrom(1, collateralToken.decimals)),
-                borrowAmount.mul(priceBorrow) // registered debt in the pool
-                    .div(getBigNumberFrom(1, borrowToken.decimals)),
-            ].map(x => BalanceUtils.toString(x)).join();
+                collateralAmount
+                    .mul(getBigNumberFrom(1, 18))
+                    .div(collateralData.exchangeRateStored),
+                expectedLiquiditiy,
+                0,
+            ].map(x => BalanceUtils.toString(x)).join("\n");
 
             return {sret, sexpected};
         }

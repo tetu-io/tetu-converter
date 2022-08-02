@@ -15,7 +15,7 @@ import "../../../interfaces/hundred-finance/IHfCTokenAddressProvider.sol";
 import "hardhat/console.sol";
 
 /// @notice Adapter to read current pools info from HundredFinance-protocol, see https://docs.hundred.finance/
-contract HundredFinancePlatformAdapter is IPlatformAdapter, IHfCTokenAddressProvider {
+contract HfPlatformAdapter is IPlatformAdapter, IHfCTokenAddressProvider {
   using SafeERC20 for IERC20;
 
   /// @notice Index of template pool adapter in {templatePoolAdapters} that should be used in normal borrowing mode
@@ -52,7 +52,7 @@ contract HundredFinancePlatformAdapter is IPlatformAdapter, IHfCTokenAddressProv
     controller = IController(controller_);
 
     _converters.push(templateAdapterNormal_); // Index INDEX_NORMAL_MODE: ordinal conversion mode
-    console.log("HundredFinancePlatformAdapter this=%s", address(this));
+    console.log("HfPlatformAdapter this=%s", address(this));
     _setupCTokens(activeCTokens_, true);
   }
 
@@ -71,8 +71,6 @@ contract HundredFinancePlatformAdapter is IPlatformAdapter, IHfCTokenAddressProv
           ? WMATIC
           : IHfCToken(cTokens_[i]).underlying();
         activeAssets[underlying] = cTokens_[i];
-
-        console.log("Underline=%s ctoken=%s this=%s", underlying, activeAssets[underlying], address(this));
       }
     } else {
       for (uint i = 0; i < lenCTokens; i = _uncheckedInc(i)) {

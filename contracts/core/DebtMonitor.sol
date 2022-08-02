@@ -41,6 +41,7 @@ contract DebtMonitor is IDebtMonitor {
 
   /// @dev This function is called from a pool adapter after any borrow
   function onOpenPosition() external override {
+    console.log("DebtMonitor.onOpenPosition");
     _onlyPoolAdapter();
 
     if (!positionsRegistered[msg.sender]) {
@@ -54,6 +55,7 @@ contract DebtMonitor is IDebtMonitor {
 
   /// @dev This function is called from a pool adapter after any repaying
   function onClosePosition() external override {
+    console.log("DebtMonitor.onClosePosition");
     require(positionsRegistered[msg.sender], AppErrors.BORROW_POSITION_IS_NOT_REGISTERED);
 
     (uint collateralAmount, uint amountToPay,) = IPoolAdapter(msg.sender).getStatus();

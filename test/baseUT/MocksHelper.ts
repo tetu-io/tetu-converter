@@ -2,14 +2,12 @@
  * Help to initialize and setup Borrow Manager and related classes
  */
 import {
-    BorrowManagerMock,
-    Controller,
-    CTokenMock,
-    IController, IDebtMonitor, IPriceOracle,
+    BorrowManagerStub,
+    CTokenMock, IController, IDebtMonitor, IPriceOracle,
     LendingPlatformMock,
-    MockERC20, PoolAdapterMock, PoolAdapterStab,
+    MockERC20, PoolAdapterMock, PoolAdapterStub,
     PoolMock,
-    PriceOracleMock, UserBorrowRepayUCs
+    UserBorrowRepayUCs
 } from "../../typechain";
 import {DeployUtils} from "../../scripts/utils/DeployUtils";
 import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
@@ -78,15 +76,15 @@ export class MocksHelper {
     }
 
     /** Simple mock - all params are set through constructor */
-    public static async createPoolAdapterStab(
+    public static async createPoolAdapterStub(
         signer: SignerWithAddress,
         collateralFactorValue: BigNumber,
         initParams?: IPooAdapterStabInitParams
-    ) : Promise<PoolAdapterStab> {
+    ) : Promise<PoolAdapterStub> {
         const dest = (await DeployUtils.deployContract(signer
-            , "PoolAdapterStab"
+            , "PoolAdapterStub"
             , collateralFactorValue
-        )) as PoolAdapterStab;
+        )) as PoolAdapterStub;
 
         if (initParams) {
             await dest.initialize(
@@ -156,21 +154,15 @@ export class MocksHelper {
 //endregion Pools
 
 //region Core contracts
-    public static async createBorrowManagerMock(
+    public static async createBorrowManagerStub(
         signer: SignerWithAddress,
-        poolAdapters: string[],
-        pools: string[],
-        users: string[],
-        collateralUnderlines: string[]
-    ) : Promise<BorrowManagerMock> {
+        valueIsPoolAdapter: boolean
+    ) : Promise<BorrowManagerStub> {
         return await DeployUtils.deployContract(
             signer
-            , "BorrowManagerMock"
-            , poolAdapters
-            , pools
-            , users
-            , collateralUnderlines
-        ) as BorrowManagerMock;
+            , "BorrowManagerStub"
+            , valueIsPoolAdapter
+        ) as BorrowManagerStub;
     }
 //endregion Core contracts
 

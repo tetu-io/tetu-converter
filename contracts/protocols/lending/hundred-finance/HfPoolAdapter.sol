@@ -14,7 +14,7 @@ import "../../../integrations/hundred-finance/IHfCToken.sol";
 
 /// @notice Implementation of IPoolAdapter for HundredFinance-protocol, see https://docs.hundred.finance/
 /// @dev Instances of this contract are created using proxy-minimal pattern, so no constructor
-contract HundredFinancePoolAdapter is IPoolAdapter, IPoolAdapterInitializerHF {
+contract HfPoolAdapter is IPoolAdapter, IPoolAdapterInitializerHF {
   using SafeERC20 for IERC20;
 
   address public collateralAsset;
@@ -114,17 +114,22 @@ contract HundredFinancePoolAdapter is IPoolAdapter, IPoolAdapterInitializerHF {
     markets[1] = cTokenBorrow;
     _comptroller.enterMarkets(markets);
 
+    console.log("cTokenCollateral balance=%d", IERC20(cTokenCollateral).balanceOf(address(this)));
+    console.log("Collateral balance=%d", IERC20(collateralAsset).balanceOf(address(this)));
+    console.log("cTokenCollateral decimals=%d", IERC20Extended(cTokenCollateral).decimals());
+    console.log("Collateral decimals=%d", IERC20Extended(collateralAsset).decimals());
+
     // supply collateral
     IERC20(assetCollateral).approve(cTokenCollateral, collateralAmount_);
     uint error = IHfCToken(cTokenCollateral).mint(collateralAmount_);
     require(error == 0, AppErrors.CTOKEN_MINT_FAILED);
 
-    // ensure that we received a-tokens
-    uint aTokensAmount = IERC20(cTokenCollateral).balanceOf(address(this)) - cTokensBalanceBeforeSupply;
-    require(aTokensAmount >= collateralAmount_, AppErrors.WRONG_DERIVATIVE_TOKENS_BALANCE);
+    console.log("cTokenCollateral balance=%d", IERC20(cTokenCollateral).balanceOf(address(this)));
+    console.log("Collateral balance=%d", IERC20(collateralAsset).balanceOf(address(this)));
 
     // make borrow
-    IHfCToken(cTokenCollateral).borrow(borrowAmount_);
+    error = IHfCToken(cTokenBorrow).borrow(borrowAmount_);
+    require(error == 0, AppErrors.CTOKEN_BORROW_FAILED);
 
     {
       // ensure that we have received required borrowed amount, send the amount to the receiver
@@ -134,8 +139,10 @@ contract HundredFinancePoolAdapter is IPoolAdapter, IPoolAdapterInitializerHF {
       IERC20(assetBorrow).safeTransfer(receiver_, borrowAmount_);
     }
 
+    console.log("debtMonitor=%d", controller.debtMonitor());
     // register the borrow in DebtMonitor
     IDebtMonitor(controller.debtMonitor()).onOpenPosition();
+    console.log("borrow.2");
 
     // TODO: send cTokens anywhere?
 
@@ -144,22 +151,32 @@ contract HundredFinancePoolAdapter is IPoolAdapter, IPoolAdapterInitializerHF {
   }
 
   function _ensureAccountHealthStatus() internal {
+    console.log("_ensureAccountHealthStatus");
     (uint256 error, uint256 liquidity, uint256 shortfall) = _comptroller.getAccountLiquidity(address(this));
+    console.log("_ensureAccountHealthStatus.1");
     require(error == 0, AppErrors.COMPTROLLER_GET_ACCOUNT_LIQUIDITY_FAILED);
+    console.log("_ensureAccountHealthStatus.2");
     require(shortfall == 0, AppErrors.COMPTROLLER_GET_ACCOUNT_LIQUIDITY_UNDERWATER);
+    console.log("_ensureAccountHealthStatus.3");
 
     address assetCollateral = collateralAsset;
     address assetBorrow = borrowAsset;
     address cTokenBorrow = borrowCToken;
     address cTokenCollateral = collateralCToken;
+    console.log("_ensureAccountHealthStatus.4");
 
     IPriceOracle priceOracle = IPriceOracle(controller.priceOracle());
+    console.log("_ensureAccountHealthStatus.5");
     uint priceCollateral18 = priceOracle.getAssetPrice(assetCollateral);
     uint priceBorrow18 = priceOracle.getAssetPrice(assetBorrow);
+    console.log("_ensureAccountHealthStatus.6");
+    console.log("_ensureAccountHealthStatus.6");
 
     uint256 borrows = IHfCToken(cTokenBorrow).borrowBalanceCurrent(address(this));
     uint256 borrows18 = _toMantissa(borrows, IERC20Extended(cTokenBorrow).decimals(), 18) * priceBorrow18;
     //!TODO: uint256 hf = _toMantissa(borrows, IERC20Extended(cTokenCollateral).decimals(), 18) * priceCollateral18;
+    console.log("_ensureAccountHealthStatus.7");
+
   }
 
   ///////////////////////////////////////////////////////

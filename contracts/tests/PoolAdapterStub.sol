@@ -6,7 +6,7 @@ import "../interfaces/IPoolAdapter.sol";
 import "hardhat/console.sol";
 
 /// @notice Simple implementation of pool adapter, all params are set through constructor
-contract PoolAdapterStab is IPoolAdapter {
+contract PoolAdapterStub is IPoolAdapter {
   address public controller;
   address private _pool;
   address private _user;
