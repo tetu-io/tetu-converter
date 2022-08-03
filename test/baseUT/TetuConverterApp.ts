@@ -1,6 +1,6 @@
 import {
     Controller,
-    IBorrowManager, IController, IConverter,
+    IBorrowManager, IController, IConverter, IERC20,
     ITetuConverter,
     PriceOracleStub
 } from "../../typechain";
@@ -10,15 +10,17 @@ import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import {DeployUtils} from "../../scripts/utils/DeployUtils";
 
 export interface ILendingPlatformFabric {
-    createAndRegisterPools: (deployer: SignerWithAddress, controller: IController) => Promise<void>;
+    /** return addresses of pools */
+    createAndRegisterPools: (deployer: SignerWithAddress, controller: IController) => Promise<IERC20[]>;
 }
 
-export class SetupTetuConverterApp {
+export class TetuConverterApp {
     static async buildApp(
         deployer: SignerWithAddress,
         fabrics: ILendingPlatformFabric[]
-    ) : Promise<{tc: ITetuConverter, controller: IController}> {
+    ) : Promise<{tc: ITetuConverter, controller: IController, pools: IERC20[]}> {
         const controller = (await DeployUtils.deployContract(deployer, "Controller")) as Controller;
+        await controller.initialize([await controller.governanceKey()], [deployer.address]);
         const priceOracle = (await DeployUtils.deployContract(deployer
             , "PriceOracleStub"
             , getBigNumberFrom(1)
@@ -44,10 +46,12 @@ export class SetupTetuConverterApp {
             ]
         );
 
+        const pools: IERC20[] = [];
         for (const fabric of fabrics) {
-            await fabric.createAndRegisterPools(deployer, controller);
+            const pp = await fabric.createAndRegisterPools(deployer, controller);
+            pools.push(...pp);
         }
 
-        return {tc, controller};
+        return {tc, controller, pools};
     }
 }

@@ -92,7 +92,7 @@ contract PoolAdapterMock is IPoolAdapter {
     uint priceCollateral = getPrice18(_collateralAsset);
     uint priceBorrowedUSD = getPrice18(_borrowAsset);
 
-    collateralAmount = IERC20(_collateralAsset).balanceOf(_pool);
+    collateralAmount = _cTokenMock.balanceOf(address(this));
     amountToPay = _getAmountToRepay();
 
     uint8 decimalsCollateral = IERC20Extended(_collateralAsset).decimals();
@@ -148,6 +148,7 @@ contract PoolAdapterMock is IPoolAdapter {
     address receiver_
   ) external override {
     console.log("Pool adapter.borrow sender=%s", msg.sender);
+    console.log("collateralAmount_=%d borrowAmount_=%d", collateralAmount_, borrowAmount_);
 
     // ensure we have received expected collateral amount
     require(collateralAmount_ >= IERC20(_collateralAsset).balanceOf(address(this)) - reserveBalances[_collateralAsset]
@@ -181,21 +182,17 @@ contract PoolAdapterMock is IPoolAdapter {
     console.log("maxAmountToBorrowUSD=%d", maxAmountToBorrowUSD);
     require(maxAmountToBorrowUSD >= claimedAmount, "borrow amount is too big");
 
-    console.log("2.2");
     // send the borrow amount to the receiver
     PoolStub thePool = PoolStub(_pool);
-    console.log("3");
     thePool.transferToReceiver(_borrowAsset, borrowAmount_, receiver_);
-    console.log("4");
     _addBorrow(borrowAmount_);
-    console.log("5");
   }
 
   function _addBorrow(uint borrowedAmount_) internal {
     _accumulateDebt(borrowedAmount_);
     // send notification to the debt monitor
-  IDebtMonitor dm = IDebtMonitor(IController(controller).debtMonitor());
-  dm.onOpenPosition();
+    IDebtMonitor dm = IDebtMonitor(IController(controller).debtMonitor());
+    dm.onOpenPosition();
     console.log("_borrowedAmounts", _borrowedAmounts);
   }
 
@@ -231,7 +228,7 @@ contract PoolAdapterMock is IPoolAdapter {
     //return collateral
     console.log("_borrowedAmounts %s", _borrowedAmounts);
     console.log("amountReceivedBT %s", amountReceivedBT);
-    uint collateralBalance = IERC20(_collateralAsset).balanceOf(_pool);
+    uint collateralBalance = _cTokenMock.balanceOf(address(this));
     uint collateralToReturn = _borrowedAmounts == amountReceivedBT
       ? collateralBalance
       : collateralBalance * amountReceivedBT / _borrowedAmounts;
@@ -239,6 +236,7 @@ contract PoolAdapterMock is IPoolAdapter {
     console.log("collateralBalance %d", collateralBalance);
     console.log("collateralToReturn %d", collateralToReturn);
     uint amountCTokens = collateralToReturn;
+    console.log("amountCTokens %d", amountCTokens);
     _cTokenMock.burn(address(this), amountCTokens);
 
     PoolStub thePool = PoolStub(_pool);

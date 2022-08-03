@@ -1,12 +1,12 @@
-import {IBorrowManager, IBorrowManager__factory, IController} from "../../../typechain";
-import {ILendingPlatformFabric} from "../SetupTetuConverterApp";
+import {IBorrowManager, IBorrowManager__factory, IController, IERC20, IERC20__factory} from "../../../typechain";
+import {ILendingPlatformFabric} from "../TetuConverterApp";
 import {AaveHelper} from "../../../scripts/integration/helpers/AaveHelper";
 import {AdaptersHelper} from "../AdaptersHelper";
 import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import {MaticAddresses} from "../../../scripts/addresses/MaticAddresses";
 
 export class Aave3PlatformFabric implements ILendingPlatformFabric {
-    async createAndRegisterPools(deployer: SignerWithAddress, controller: IController) : Promise<void> {
+    async createAndRegisterPools(deployer: SignerWithAddress, controller: IController) : Promise<IERC20[]> {
         const aavePool = await AaveHelper.getAavePool(deployer);
 
         const templateAdapterNormal = await AdaptersHelper.createAave3PoolAdapter(deployer);
@@ -35,6 +35,10 @@ export class Aave3PlatformFabric implements ILendingPlatformFabric {
             , MaticAddresses.CRV
             , MaticAddresses.agEUR
         ];
-        await bm.addPool(aavePlatformAdapter.pool(), assets);
+        await bm.addPool(aavePlatformAdapter.address, assets);
+
+        return [
+            IERC20__factory.connect(aavePool.address, deployer)
+        ]
     }
 }

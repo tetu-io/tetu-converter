@@ -1,12 +1,12 @@
-import {IBorrowManager, IBorrowManager__factory, IController} from "../../../typechain";
-import {ILendingPlatformFabric} from "../SetupTetuConverterApp";
+import {IBorrowManager, IBorrowManager__factory, IController, IERC20__factory} from "../../../typechain";
+import {ILendingPlatformFabric} from "../TetuConverterApp";
 import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import {MaticAddresses} from "../../../scripts/addresses/MaticAddresses";
 import {HundredFinanceHelper} from "../../../scripts/integration/helpers/HundredFinanceHelper";
 import {AdaptersHelper} from "../AdaptersHelper";
 
 export class HundredFinancePlatformFabric implements ILendingPlatformFabric {
-    async createAndRegisterPools(deployer: SignerWithAddress, controller: IController) : Promise<void> {
+    async createAndRegisterPools(deployer: SignerWithAddress, controller: IController) : Promise<IERC20[]> {
         const comptroller = await HundredFinanceHelper.getComptroller(deployer);
 
         const converter = await AdaptersHelper.createHundredFinancePoolAdapter(deployer);
@@ -39,5 +39,9 @@ export class HundredFinancePlatformFabric implements ILendingPlatformFabric {
             , MaticAddresses.WBTS
         ];
         await bm.addPool(platformAdapter.comptroller(), assets);
+
+        return [
+            IERC20__factory.connect(comptroller.address, deployer)
+        ]
     }
 }

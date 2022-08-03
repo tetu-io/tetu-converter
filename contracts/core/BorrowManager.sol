@@ -136,7 +136,12 @@ contract BorrowManager is BorrowManagerBase {
     if (p_.healthFactor2 == 0) {
       p_.healthFactor2 = defaultHealthFactors2[p_.targetToken];
     }
-    require(p_.healthFactor2 >= controller.MIN_HEALTH_FACTOR2(), AppErrors.WRONG_HEALTH_FACTOR);
+
+    if (p_.healthFactor2 == 0) {
+      p_.healthFactor2 = controller.MIN_HEALTH_FACTOR2();
+    } else {
+      require(p_.healthFactor2 >= controller.MIN_HEALTH_FACTOR2(), AppErrors.WRONG_HEALTH_FACTOR);
+    }
 
     if (pas.length != 0) {
       (converter, maxTargetAmount, apr) = _findPool(
@@ -167,11 +172,13 @@ contract BorrowManager is BorrowManagerBase {
     require(pp_.priceSource18 != 0, AppErrors.ZERO_PRICE);
 
     uint lenPools = platformAdapters_.length;
+    console.log("lenPools %d", lenPools);
     for (uint i = 0; i < lenPools; i = _uncheckedInc(i)) {
       AppDataTypes.ConversionPlan memory plan = IPlatformAdapter(platformAdapters_[i]).getConversionPlan(
         p_.sourceToken,
         p_.targetToken
       );
+      console.log("plan.maxAmountToSupplyCT=%d p_.sourceAmount=%d", plan.maxAmountToSupplyCT, p_.sourceAmount);
 
       // check if we are able to supply required collateral
       if (plan.maxAmountToSupplyCT == 0 || plan.maxAmountToSupplyCT > p_.sourceAmount) {

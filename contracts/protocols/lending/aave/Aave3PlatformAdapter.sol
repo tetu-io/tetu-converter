@@ -96,6 +96,7 @@ contract Aave3PlatformAdapter is IPlatformAdapter {
               plan.liquidationThreshold18 = uint(rb.configuration.getLiquidationThreshold()) * 10**(18-5);
               plan.converter = _converters[INDEX_NORMAL_MODE];
             }
+            console.log("plan.converter=%s", plan.converter);
           }
 
          // assume here, that we always use variable borrow rate

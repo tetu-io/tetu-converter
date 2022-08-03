@@ -36,7 +36,7 @@ contract UserBorrowRepayUCs {
     uint16 healthFactor2_,
     address receiver_
   ) external {
-    console.log("makeBorrowUS1.1 healthFactor2_=%d", healthFactor2_);
+    console.log("makeBorrowUC1.1 healthFactor2_=%d sourceAmount_=%d of %s", healthFactor2_, sourceAmount_, sourceAsset_);
     // ask TC for the best conversion strategy
     (address converter, uint maxTargetAmount,) = _tc().findConversionStrategy(sourceAsset_,
       sourceAmount_,
@@ -44,8 +44,12 @@ contract UserBorrowRepayUCs {
       healthFactor2_,
       borrowPeriodInBlocks_
     );
+    require(converter != address(0), "Conversion strategy wasn't found");
+    require(maxTargetAmount != 0, "maxTargetAmount is 0");
 
-    console.log("makeBorrowUS1.1 balance=%d source amount=%d", IERC20(sourceAsset_).balanceOf(address(this)), sourceAmount_);
+    console.log("We can borrow %d of %s using converter=%s", maxTargetAmount, targetAsset_, converter);
+
+    console.log("makeBorrowUC1.1 balance=%d source amount=%d", IERC20(sourceAsset_).balanceOf(address(this)), sourceAmount_);
     // transfer collateral to TC
     require(IERC20(sourceAsset_).balanceOf(address(this)) >= sourceAmount_
       , "wrong balance st on tc");
@@ -61,7 +65,7 @@ contract UserBorrowRepayUCs {
       maxTargetAmount,
       receiver_
     );
-    console.log("makeBorrowUS1.1 done");
+    console.log("makeBorrowUC1.1 done");
   }
 
   /// @notice See US1.2 in the project scope
@@ -70,14 +74,14 @@ contract UserBorrowRepayUCs {
     address borrowedAsset_,
     address receiver_
   ) external {
-    console.log("makeRepayUS1.2 started");
+    console.log("makeRepayUC1.2 started");
     (uint count, address[] memory poolAdapters, uint[] memory amounts)
       = _tc().findBorrows(collateralAsset_, borrowedAsset_);
-    console.log("makeRepayUS1.2 count positions=%d", count);
+    console.log("makeRepayUC1.2 count positions=%d", count);
     for (uint i = 0; i < count; ++i) {
       // transfer borrowed amount to Pool Adapter
       IERC20(borrowedAsset_).transfer(poolAdapters[i], amounts[i]);
-      console.log("makeRepayUS1.2 borrowedToken_=%s amount=%d", borrowedAsset_, amounts[i]);
+      console.log("makeRepayUC1.2 borrowedToken_=%s amount=%d", borrowedAsset_, amounts[i]);
 
       // repay borrowed amount and receive collateral to receiver's balance
       IPoolAdapter(poolAdapters[i]).repay(
@@ -86,7 +90,7 @@ contract UserBorrowRepayUCs {
         true
       );
     }
-    console.log("makeRepayUS1.2 done");
+    console.log("makeRepayUC1.2 done");
   }
 
   /// @notice See US1.3 in the project scope

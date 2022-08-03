@@ -2,7 +2,7 @@ import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import {ethers} from "hardhat";
 import {expect} from "chai";
 import {
-    CTokenMock__factory, IERC20Extended__factory, IHfCToken__factory,
+    CTokenMock__factory, IERC20__factory, IERC20Extended__factory, IHfCToken__factory,
     IPoolAdapter,
     IPoolAdapter__factory, MockERC20__factory,
     PoolAdapterMock__factory
@@ -20,10 +20,12 @@ import {AdaptersHelper} from "../baseUT/AdaptersHelper";
 import {HundredFinanceHelper} from "../../scripts/integration/helpers/HundredFinanceHelper";
 import {MaticAddresses} from "../../scripts/addresses/MaticAddresses";
 import {Aave3PlatformFabric} from "../baseUT/fabrics/Aave3PlatformFabric";
-import {SetupTetuConverterApp} from "../baseUT/SetupTetuConverterApp";
+import {TetuConverterApp} from "../baseUT/TetuConverterApp";
 import {BorrowRepayUsesCase} from "../baseUT/BorrowRepayUsesCase";
 import {BorrowAction} from "../baseUT/actions/BorrowAction";
 import {RepayAction} from "../baseUT/actions/RepayAction";
+import {MockPlatformFabric} from "../baseUT/fabrics/MockPlatformFabric";
+import {isPolygonForkInUse} from "../baseUT/NetworkUtils";
 
 describe("BorrowRepayTest", () => {
 //region Global vars for all tests
@@ -63,17 +65,71 @@ describe("BorrowRepayTest", () => {
     });
 //endregion before, after
 
+//region Utils
+    async function setInitialBalance(
+        asset: string,
+        holder: string,
+        amount: number,
+        recipient: string
+    ) : Promise<BigNumber> {
+        await BalanceUtils.getAmountFromHolder(asset, holder, recipient, amount);
+        return IERC20__factory.connect(asset, deployer).balanceOf(recipient);
+    }
+
+    function getSingleBorrowSingleRepayResults(
+        c0: BigNumber,
+        b0: BigNumber,
+        collateralAmount: BigNumber,
+        userBalances: IUserBalances[],
+        borrowBalances: BigNumber[]
+    ) : {sret: string, sexpected: string} {
+        const borrowedAmount = userBalances[0].borrow.sub(b0);
+
+        const sret = [
+            // collateral after borrow
+            userBalances[0].collateral
+            // borrowed amount > 0
+            , !borrowedAmount.eq(BigNumber.from(0))
+            // contract borrow balance >= borrowed amount
+            , borrowBalances[0].gte(borrowedAmount),
+
+            // after repay
+            // collateral >= initial collateral
+            userBalances[1].collateral.gte(c0)
+            // borrowed balance <= initial borrowed balance
+            , b0.gte(userBalances[1].borrow)
+            // contract borrowed balance is 0
+            , borrowBalances[1].eq(BigNumber.from(0))
+        ].map(x => BalanceUtils.toString(x)).join("\n");
+
+        const sexpected = [
+            // collateral after borrow
+            c0.sub(collateralAmount)
+            // borrowed amount > 0
+            , true
+            // contract borrow balance >= b0 + borrowed amount
+            , true
+
+            //after repay
+            // collateral >= initial collateral
+            , true
+            // borrowed balance <= initial borrowed balance
+            , true
+            // contract borrowed balance is 0
+            , true
+        ].map(x => BalanceUtils.toString(x)).join("\n");
+
+        return {sret, sexpected};
+    }
+//endregion Utils
+
 //region Unit tests
-    describe("Single borrow, single repay", () => {
+    describe("Single borrow, single full repay", () => {
         describe("Borrow and repay immediately", () => {
             describe("Good paths", () => {
-                describe("AAVE.v3", () => {
+                describe("Mock", () => {
                     describe("Dai=>Matic, full repay", () => {
-                        it("", async () => {
-                            const fabric = new Aave3PlatformFabric();
-                            const {tc, controller} = await SetupTetuConverterApp.buildApp(deployer, [fabric]);
-                            const uc = await MocksHelper.deployUserBorrowRepayUCs(deployer.address, controller);
-
+                        it("should return expected balances", async () => {
                             const collateralAsset = MaticAddresses.DAI;
                             const collateralHolder = MaticAddresses.HOLDER_DAI;
                             const borrowAsset = MaticAddresses.WMATIC;
@@ -82,26 +138,32 @@ describe("BorrowRepayTest", () => {
                             const collateralToken = await TokenWrapper.Build(deployer, collateralAsset);
                             const borrowToken = await TokenWrapper.Build(deployer, borrowAsset);
 
-                            const collateralAmount = getBigNumberFrom(100_000, collateralToken.decimals);
+                            const collateralAmount = getBigNumberFrom(1_000, collateralToken.decimals);
 
                             const countBlocks = 1;
                             const healthFactor2 = 0;
 
                             const amountToRepay = undefined; //full repay
 
-                            await BalanceUtils.transferFromHolder(
-                              collateralToken.address
-                              , collateralHolder
-                              , uc.address
-                              , 1_000_000
-                            );
+                            const underlines = [collateralAsset, borrowAsset];
+                            const cTokenDecimals = [6, 24];
+                            const cTokens = await MocksHelper.createCTokensMocks(deployer, cTokenDecimals, underlines);
 
-                            await BalanceUtils.transferFromHolder(
-                                borrowToken.address
-                                , borrowHolder
-                                , uc.address
-                                , 1_000
+                            const fabric = new MockPlatformFabric(
+                                underlines,
+                                [getBigNumberFrom(1, 10), getBigNumberFrom(1, 10)],
+                                [0.5, 0.8],
+                                [1_000_000, 1_000_000],
+                                [collateralHolder, borrowHolder],
+                                cTokens
                             );
+                            const {tc, controller} = await TetuConverterApp.buildApp(deployer, [fabric]);
+                            const uc = await MocksHelper.deployUserBorrowRepayUCs(deployer.address, controller);
+
+                            const c0 = await setInitialBalance(collateralToken.address
+                                , collateralHolder, 1_000_000, uc.address);
+                            const b0 = await setInitialBalance(borrowToken.address
+                                , borrowHolder, 80_000, uc.address);
 
                             const {
                                 userBalances,
@@ -123,6 +185,78 @@ describe("BorrowRepayTest", () => {
                                     )
                                 ]
                             );
+
+                            const ret = getSingleBorrowSingleRepayResults(
+                                c0
+                                , b0
+                                , collateralAmount
+                                , userBalances
+                                , borrowBalances
+                            );
+
+                            expect(ret.sret).eq(ret.sexpected);
+                        });
+                    });
+                })
+                describe("AAVE.v3", () => {
+                    describe("Dai=>Matic, full repay", () => {
+                        it("should return expected balances", async () => {
+                            if (!await isPolygonForkInUse()) return;
+
+                            const fabric = new Aave3PlatformFabric();
+                            const {tc, controller} = await TetuConverterApp.buildApp(deployer, [fabric]);
+                            const uc = await MocksHelper.deployUserBorrowRepayUCs(deployer.address, controller);
+
+                            const collateralAsset = MaticAddresses.DAI;
+                            const collateralHolder = MaticAddresses.HOLDER_DAI;
+                            const borrowAsset = MaticAddresses.WMATIC;
+                            const borrowHolder = MaticAddresses.HOLDER_WMATIC;
+
+                            const collateralToken = await TokenWrapper.Build(deployer, collateralAsset);
+                            const borrowToken = await TokenWrapper.Build(deployer, borrowAsset);
+
+                            const collateralAmount = getBigNumberFrom(100_000, collateralToken.decimals);
+
+                            const countBlocks = 1;
+                            const healthFactor2 = 0;
+
+                            const amountToRepay = undefined; //full repay
+
+                            const c0 = await setInitialBalance(collateralToken.address
+                                , collateralHolder, 1_000_000, uc.address);
+                            const b0 = await setInitialBalance(borrowToken.address
+                                , borrowHolder, 80_000, uc.address);
+
+                            const {
+                                userBalances,
+                                borrowBalances
+                            } = await BorrowRepayUsesCase.makeBorrowRepayActions(deployer
+                                , uc
+                                , [
+                                    new BorrowAction(
+                                        collateralToken
+                                        , collateralAmount
+                                        , borrowToken
+                                        , countBlocks
+                                        , healthFactor2
+                                    ),
+                                    new RepayAction(
+                                        collateralToken
+                                        , borrowToken
+                                        , amountToRepay
+                                    )
+                                ]
+                            );
+
+                            const ret = getSingleBorrowSingleRepayResults(
+                                c0
+                                , b0
+                                , collateralAmount
+                                , userBalances
+                                , borrowBalances
+                            );
+
+                            expect(ret.sret).eq(ret.sexpected);
                         });
                     });
                 });

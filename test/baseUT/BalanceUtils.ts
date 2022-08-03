@@ -47,7 +47,7 @@ export class BalanceUtils {
             : "" + n;
     }
 
-    static async transferFromHolder(
+    static async getAmountFromHolder(
         asset: string
         , holder: string
         , recipient: string

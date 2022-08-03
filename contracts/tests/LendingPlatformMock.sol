@@ -52,7 +52,7 @@ contract LendingPlatformMock is IPlatformAdapter {
   }
 
   function getConversionPlan (
-    address, // collateralAsset_
+    address collateralAsset_,
     address borrowAsset_
   ) external view override returns (
     AppDataTypes.ConversionPlan memory plan
@@ -60,9 +60,9 @@ contract LendingPlatformMock is IPlatformAdapter {
     return AppDataTypes.ConversionPlan({
       converter: _converter,
       borrowRateKind: AppDataTypes.BorrowRateKind.PER_BLOCK_1,
-      liquidationThreshold18: liquidationThresholds18[borrowAsset_],
+      liquidationThreshold18: liquidationThresholds18[collateralAsset_],
       borrowRate: borrowRates[borrowAsset_],
-      ltvWAD: liquidationThresholds18[borrowAsset_],
+      ltvWAD: liquidationThresholds18[collateralAsset_],
       maxAmountToBorrowBT: liquidity[borrowAsset_],
       maxAmountToSupplyCT: 0
     });

@@ -9,7 +9,11 @@ import "../openzeppelin/IERC20.sol";
 contract PoolStub {
 
   function transferToReceiver(address token_, uint amount_, address receiver_) external {
-    require(IERC20(token_).balanceOf(address(this)) >= amount_, "not enough tokens on balance");
+    uint balanceTokens = IERC20(token_).balanceOf(address(this));
+    console.log("PoolStub.transferToReceiver token_=%s amount_=%d receiver_=%s",token_, amount_, receiver_);
+    console.log("Tokens balance=%d", balanceTokens);
+
+    require(balanceTokens >= amount_, "not enough tokens on balance");
 
     console.log("transferToReceiver amount=%d from=%d to=%d"
       , amount_, address(this), receiver_
