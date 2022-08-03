@@ -90,7 +90,7 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer 
   ///////////////////////////////////////////////////////
 
   /// @notice Supply collateral to the pool and borrow {borrowedAmount_}
-  /// @dev Caller should call "sync" before "borrow"
+  /// @dev Caller should call "syncBalance" before transferring borrow amount and call "borrow"
   function borrow(
     uint collateralAmount_,
     uint borrowAmount_,
@@ -106,8 +106,10 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer 
     uint aTokensBalanceBeforeSupply = IERC20(d.aTokenAddress).balanceOf(address(this));
 
     // ensure we have received expected collateral amount
-    require(collateralAmount_ >= IERC20(assetCollateral).balanceOf(address(this)) - reserveBalances[assetCollateral]
-      , AppErrors.WRONG_COLLATERAL_BALANCE);
+    require(
+      collateralAmount_ >= IERC20(assetCollateral).balanceOf(address(this)) - reserveBalances[assetCollateral]
+      , AppErrors.WRONG_COLLATERAL_BALANCE
+    );
 
     // Supplies an `amount` of underlying asset into the reserve, receiving in return overlying aTokens.
     // E.g. User supplies 100 USDC and gets in return 100 aUSDC
@@ -139,8 +141,10 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer 
     );
 
     // ensure that we have received required borrowed amount, send the amount to the receiver
-    require(borrowAmount_ == IERC20(assetBorrow).balanceOf(address(this)) - reserveBalances[assetBorrow]
-      , AppErrors.WRONG_BORROWED_BALANCE);
+    require(
+      borrowAmount_ == IERC20(assetBorrow).balanceOf(address(this)) - reserveBalances[assetBorrow]
+      , AppErrors.WRONG_BORROWED_BALANCE
+    );
     IERC20(assetBorrow).safeTransfer(receiver_, borrowAmount_);
 
     // register the borrow in DebtMonitor
@@ -148,17 +152,17 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer 
 
     // TODO: send aTokens anywhere?
 
-    // ensure that health factor is greater than min allowed
-    {
-      (,,,,, uint256 healthFactor) = _pool.getUserAccountData(address(this));
-      require(healthFactor > uint(controller.MIN_HEALTH_FACTOR2())*10**(18-2), AppErrors.WRONG_HEALTH_FACTOR);
-    }
+    // ensure that current health factor is greater than min allowed
+    (,,,,, uint256 healthFactor) = _pool.getUserAccountData(address(this));
+    require(healthFactor > uint(controller.MIN_HEALTH_FACTOR2())*10**(18-2), AppErrors.WRONG_HEALTH_FACTOR);
   }
 
   ///////////////////////////////////////////////////////
   ///                 Repay logic
   ///////////////////////////////////////////////////////
 
+  /// @notice Repay borrowed amount, return collateral to the user
+  /// @dev Caller should call "syncBalance" before transferring amount to repay and call the "repay"
   function repay(
     uint amountToRepay_,
     address receiver_,
@@ -167,35 +171,37 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer 
     address assetBorrow = borrowAsset;
 
     // ensure that we have received enough money on our balance just before repay was called
-    uint borrowAmountOnBalance = IERC20(assetBorrow).balanceOf(address(this)) - reserveBalances[assetBorrow];
-    require(closePosition || amountToRepay_ == borrowAmountOnBalance, "APA:Wrong repay balance");
+    require(
+      amountToRepay_ == IERC20(assetBorrow).balanceOf(address(this)) - reserveBalances[assetBorrow]
+      , AppErrors.WRONG_BORROWED_BALANCE
+    );
 
-    uint amountCollateralToReturn = closePosition
+    // how much collateral we are going to return
+    uint amountCollateralToWithdraw = closePosition
       ? type(uint).max
       : _getCollateralAmountToReturn(amountToRepay_);
 
     // transfer borrow amount back to the pool
     //TODO amount to be repaid, expressed in wei units.
-    IERC20(assetBorrow).approve(address(_pool), amountToRepay_);
+    IERC20(assetBorrow).approve(address(_pool), amountToRepay_); //TODO: do we need approve(0)?
     _pool.repay(assetBorrow, amountToRepay_, RATE_MODE, address(this));
 
     if (closePosition) {
       // repay remain debt using aTokens
       _pool.repayWithATokens(assetBorrow, type(uint256).max, RATE_MODE);
-      // update borrow position status in DebtMonitor
-      IDebtMonitor(controller.debtMonitor()).onClosePosition();
     }
 
     // withdraw the collateral
-    _pool.withdraw(collateralAsset, amountCollateralToReturn, receiver_);
+    _pool.withdraw(collateralAsset, amountCollateralToWithdraw, receiver_);
 
-    { // validate result status
-      (uint totalCollateralBase, uint totalDebtBase,,,, uint256 healthFactor) = _pool.getUserAccountData(address(this));
-      if (closePosition) {
-        require(totalCollateralBase == 0 && totalDebtBase == 0, AppErrors.CLOSE_POSITION_FAILED);
-      } else {
-        require(healthFactor > uint(controller.MIN_HEALTH_FACTOR2())*10**(18-2), AppErrors.WRONG_HEALTH_FACTOR);
-      }
+    // validate result status
+    (uint totalCollateralBase, uint totalDebtBase,,,, uint256 healthFactor) = _pool.getUserAccountData(address(this));
+    if (totalCollateralBase == 0 && totalDebtBase == 0) {
+      // update borrow position status in DebtMonitor
+      IDebtMonitor(controller.debtMonitor()).onClosePosition();
+    } else {
+      require(!closePosition, AppErrors.CLOSE_POSITION_FAILED);
+      require(healthFactor > uint(controller.MIN_HEALTH_FACTOR2())*10**(18-2), AppErrors.WRONG_HEALTH_FACTOR);
     }
   }
 

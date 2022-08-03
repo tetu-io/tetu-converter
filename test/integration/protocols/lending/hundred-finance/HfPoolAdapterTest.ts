@@ -418,12 +418,18 @@ describe("Hundred Finance integration tests, pool adapter", () => {
                             , false
                         );
 
+                        console.log(`collateralAmount=${collateralAmount}`);
+                        console.log(`r.userBalancesAfterRepay.collateral=${r.userBalancesAfterRepay.collateral}`);
                         const sret = [
                             r.userBalancesBeforeBorrow.collateral, r.userBalancesBeforeBorrow.borrow
                             , r.userBalancesAfterBorrow.collateral, r.userBalancesAfterBorrow.borrow
+                            ,                                       r.userBalancesAfterRepay.borrow
+                            , r.paCTokensBalance
+                            , r.totalCollateralBase
+                            , r.totalDebtBase
 
-                            // original collateral > returned collateral ...
-                            , collateralAmount.gt(r.userBalancesAfterRepay.collateral)
+                            // returned collateral > original collateral ...
+                            , r.userBalancesAfterRepay.collateral.gt(collateralAmount)
                             // ... the difference is less than 1%
                             , collateralAmount.sub(r.userBalancesAfterRepay.collateral)
                                 .div(collateralAmount)
@@ -434,6 +440,10 @@ describe("Hundred Finance integration tests, pool adapter", () => {
                         const sexpected = [
                             collateralAmount, 0
                             , 0, borrowAmount
+                            ,                 0
+                            , 0
+                            , 0
+                            , 0
 
                             , true // original collateral > returned collateral ...
                             , true // the difference is less than 1%

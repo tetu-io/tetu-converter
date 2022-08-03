@@ -53,6 +53,7 @@ contract HfPoolAdapter is IPoolAdapter, IPoolAdapterInitializerHF {
       && user_ != address(0)
       && collateralAsset_ != address(0)
       && borrowAsset_ != address(0)
+      && cTokenAddressProvider_ != address(0)
       , AppErrors.ZERO_ADDRESS
     );
 
@@ -61,12 +62,8 @@ contract HfPoolAdapter is IPoolAdapter, IPoolAdapterInitializerHF {
     collateralAsset = collateralAsset_;
     borrowAsset = borrowAsset_;
 
-    console.log("cTokenAddressProvider_=%s", cTokenAddressProvider_);
     (address cTokenCollateral, address cTokenBorrow, address priceOracle) = IHfCTokenAddressProvider(cTokenAddressProvider_)
       .getCTokenByUnderlying(collateralAsset_, borrowAsset_);
-    console.log("HundredFinancePoolAdapter.initialize");
-    console.log("collateralAsset_=%s borrowAsset_=%s", collateralAsset_, borrowAsset_);
-    console.log("cTokenCollateral=%s cTokenBorrow=%s", cTokenCollateral, cTokenBorrow);
 
     require(cTokenCollateral != address(0), AppErrors.HF_DERIVATIVE_TOKEN_NOT_FOUND);
     require(cTokenBorrow != address(0), AppErrors.HF_DERIVATIVE_TOKEN_NOT_FOUND);
@@ -95,7 +92,7 @@ contract HfPoolAdapter is IPoolAdapter, IPoolAdapterInitializerHF {
   }
 
   /// @notice Supply collateral to the pool and borrow {borrowedAmount_} in {borrowedToken_}
-  /// @dev Caller should call "sync" before "borrow"
+  /// @dev Caller should call "syncBalance" before transferring borrow amount and call "borrow"
   function borrow(
     uint collateralAmount_,
     uint borrowAmount_,
@@ -105,70 +102,55 @@ contract HfPoolAdapter is IPoolAdapter, IPoolAdapterInitializerHF {
     address cTokenCollateral = collateralCToken;
     address cTokenBorrow = borrowCToken;
     address assetCollateral = collateralAsset;
+    IERC20 assetBorrow = IERC20(borrowAsset);
 
     // ensure we have received expected collateral amount
-    require(collateralAmount_ >= IERC20(assetCollateral).balanceOf(address(this)) - reserveBalances[assetCollateral]
-      , AppErrors.WRONG_COLLATERAL_BALANCE);
+    require(
+      collateralAmount_ >= IERC20(assetCollateral).balanceOf(address(this)) - reserveBalances[assetCollateral]
+      , AppErrors.WRONG_COLLATERAL_BALANCE
+    );
 
-    // enter markets
+    // enter markets (repeat entering is not a problem)
     address[] memory markets = new address[](2);
     markets[0] = cTokenCollateral;
     markets[1] = cTokenBorrow;
     _comptroller.enterMarkets(markets);
 
-    console.log("cTokenCollateral balance=%d", IERC20(cTokenCollateral).balanceOf(address(this)));
-    console.log("Collateral balance=%d", IERC20(collateralAsset).balanceOf(address(this)));
-    console.log("cTokenCollateral decimals=%d", IERC20Extended(cTokenCollateral).decimals());
-    console.log("Collateral decimals=%d", IERC20Extended(collateralAsset).decimals());
-
     // supply collateral
     IERC20(assetCollateral).approve(cTokenCollateral, collateralAmount_);
     uint error = IHfCToken(cTokenCollateral).mint(collateralAmount_);
-    require(error == 0, AppErrors.CTOKEN_MINT_FAILED);
-
-    console.log("cTokenCollateral balance=%d", IERC20(cTokenCollateral).balanceOf(address(this)));
-    console.log("Collateral balance=%d", IERC20(collateralAsset).balanceOf(address(this)));
+    require(error == 0, AppErrors.MINT_FAILED);
 
     // make borrow
     error = IHfCToken(cTokenBorrow).borrow(borrowAmount_);
-    require(error == 0, AppErrors.CTOKEN_BORROW_FAILED);
+    require(error == 0, AppErrors.BORROW_FAILED);
 
-    {
-      // ensure that we have received required borrowed amount, send the amount to the receiver
-      address assetBorrow = borrowAsset;
-      require(borrowAmount_ == IERC20(assetBorrow).balanceOf(address(this)) - reserveBalances[assetBorrow]
-      , AppErrors.WRONG_BORROWED_BALANCE);
-      IERC20(assetBorrow).safeTransfer(receiver_, borrowAmount_);
-    }
+    // ensure that we have received required borrowed amount, send the amount to the receiver
+    require(
+      borrowAmount_ == assetBorrow.balanceOf(address(this)) - reserveBalances[address(assetBorrow)]
+      , AppErrors.WRONG_BORROWED_BALANCE
+    );
+    assetBorrow.safeTransfer(receiver_, borrowAmount_);
 
-    console.log("debtMonitor=%d", controller.debtMonitor());
     // register the borrow in DebtMonitor
     IDebtMonitor(controller.debtMonitor()).onOpenPosition();
-    console.log("borrow.2");
 
     // TODO: send cTokens anywhere?
 
-    // ensure that health factor is greater than min allowed
+    // ensure that current health factor is greater than min allowed
     _validateHealthStatusAfterBorrow(cTokenCollateral, cTokenBorrow);
   }
 
   function _validateHealthStatusAfterBorrow(address cTokenCollateral, address cTokenBorrow) internal view {
-    console.log("_validateHealthStatusAfterBorrow");
     (,, uint collateralBase, uint sumBorrowPlusEffects) = _getStatus(cTokenCollateral, cTokenBorrow);
-    console.log("collateralBase=%d sumBorrowPlusEffects=%d", collateralBase, sumBorrowPlusEffects);
     (uint sumCollateralSafe, uint healthFactor18) = _getHealthFactor(
       cTokenCollateral,
       collateralBase,
       sumBorrowPlusEffects
     );
 
-    console.log("sumCollateralSafe=%d", sumCollateralSafe);
-    console.log("sumBorrowPlusEffects=%d", sumBorrowPlusEffects);
-
     (uint256 dError, uint256 liquidity,) = _comptroller.getAccountLiquidity(address(this));
     require(dError == 0, AppErrors.CTOKEN_GET_ACCOUNT_LIQUIDITY_FAILED);
-
-    console.log("liquidity=%d", liquidity);
 
     require(
       sumCollateralSafe > sumBorrowPlusEffects
@@ -185,93 +167,80 @@ contract HfPoolAdapter is IPoolAdapter, IPoolAdapterInitializerHF {
   ///////////////////////////////////////////////////////
 
   /// @notice Repay borrowed amount, return collateral to the user
-  /// @dev Caller should call "sync" before "repay"
+  /// @dev Caller should call "syncBalance" before transferring amount to repay and call the "repay"
   function repay(
     uint amountToRepay_,
     address receiver_,
     bool closePosition
   ) external override {
-    address assetBorrow = borrowAsset;
-    address assetCollateral = collateralAsset;
+    uint error;
+    IERC20 assetBorrow = IERC20(borrowAsset);
+    IERC20 assetCollateral = IERC20(collateralAsset);
     address cTokenBorrow = borrowCToken;
     address cTokenCollateral = collateralCToken;
 
     // ensure that we have received enough money on our balance just before repay was called
-    uint borrowAmountOnBalance = IERC20(assetBorrow).balanceOf(address(this)) - reserveBalances[assetBorrow];
-    require(closePosition || amountToRepay_ == borrowAmountOnBalance, "APA:Wrong repay balance");
+    require(
+      amountToRepay_ == IERC20(assetBorrow).balanceOf(address(this)) - reserveBalances[address(assetBorrow)]
+    , AppErrors.WRONG_BORROWED_BALANCE
+    );
 
-    // transfer borrow amount back to the pool
-    uint initialBorrowBalance = closePosition
-      ? 0 //we should redeem all collateral
-      : _getBorrowBalance(cTokenBorrow);
-
-    IERC20(assetBorrow).approve(address(cTokenBorrow), amountToRepay_);
-    IHfCToken(cTokenBorrow).repayBorrow(amountToRepay_);
-
-    console.log("repay.1");
-
-    // withdraw the collateral
-    uint collateralTokensToRedeem = _getCollateralTokensToRedeem(
+    // how much collateral we are going to return
+    uint collateralTokensToWithdraw = _getCollateralTokensToRedeem(
       cTokenCollateral,
+      cTokenBorrow,
       closePosition,
-      initialBorrowBalance,
       amountToRepay_
     );
-    console.log("repay.2");
-    uint balanceCollateralAsset = IERC20(assetCollateral).balanceOf(address(this));
-    uint errorRedeem = IHfCToken(cTokenBorrow).redeem(collateralTokensToRedeem);
-    console.log("errorRedeem %d", errorRedeem);
-    require(errorRedeem == 0, AppErrors.REDEEM_FAILED); //TODO: INSUFFICIENT_SHORTFALL
 
-    console.log("repay.3");
+    // transfer borrow amount back to the pool
+    assetBorrow.approve(cTokenBorrow, amountToRepay_); //TODO: do we need approve(0)?
+    error = IHfCToken(cTokenBorrow).repayBorrow(amountToRepay_);
+    require(error == 0, AppErrors.REPAY_FAILED);
 
-    //transfer collateral back to the user
-    console.log("collateral balance=%d", IERC20(collateralAsset).balanceOf(address(this)));
-    IERC20(collateralAsset).transfer(receiver_, IERC20(assetCollateral).balanceOf(address(this)) - balanceCollateralAsset);
+    // withdraw the collateral
+    uint balanceCollateralAsset = assetCollateral.balanceOf(address(this));
+    error = IHfCToken(cTokenCollateral).redeem(collateralTokensToWithdraw);
+    require(error == 0, AppErrors.REDEEM_FAILED);
 
-    console.log("repay.4");
-    // update borrow position status in DebtMonitor
-    (,, uint collateralBase, uint sumBorrowPlusEffects) = _getStatus(cTokenCollateral, cTokenBorrow);
-    if (closePosition || (collateralBase == 0 && sumBorrowPlusEffects == 0) ) {
-      (uint256 error, uint256 tokenBalance, uint256 borrowBalance,) = IHfCToken(cTokenBorrow)
-        .getAccountSnapshot(address(this));
-      require(error == 0, AppErrors.CTOKEN_GET_ACCOUNT_SNAPSHOT_FAILED);
-      require(tokenBalance == 0 && borrowBalance == 0, AppErrors.CLOSE_POSITION_FAILED);
+    // transfer collateral back to the user
+    assetCollateral.transfer(receiver_, assetCollateral.balanceOf(address(this)) - balanceCollateralAsset);
 
+    // validate result status
+    (uint tokenBalance,
+     uint borrowBalance,
+     uint collateralBase,
+     uint sumBorrowPlusEffects
+    ) = _getStatus(cTokenCollateral, cTokenBorrow);
+
+    if (tokenBalance == 0 && borrowBalance == 0) {
       IDebtMonitor(controller.debtMonitor()).onClosePosition();
+      //!TODO: do we need exit the markets?
     } else {
+      require(!closePosition, AppErrors.CLOSE_POSITION_FAILED);
       (, uint healthFactor18) = _getHealthFactor(cTokenCollateral, collateralBase, sumBorrowPlusEffects);
       require(healthFactor18 > uint(controller.MIN_HEALTH_FACTOR2())*10**(18-2), AppErrors.WRONG_HEALTH_FACTOR);
     }
   }
 
-  function _getBorrowBalance(address cTokenBorrow) internal view returns (uint) {
-    (uint256 error,, uint256 initialBorrowBalance,) = IHfCToken(cTokenBorrow).getAccountSnapshot(address(this));
-    require(error == 0, AppErrors.CTOKEN_GET_ACCOUNT_SNAPSHOT_FAILED);
-    console.log("_getBorrowBalance initialBorrowBalance=%d", initialBorrowBalance);
-
-    return initialBorrowBalance;
-  }
-
   function _getCollateralTokensToRedeem(
-    address cTokenCollateral,
+    address cTokenCollateral_,
+    address cTokenBorrow_,
     bool closePosition_,
-    uint initialBorrowBalance_,
     uint amountToRepay_
   ) internal view returns (uint) {
-    console.log("_getCollateralTokensToRedeem amountToRepay_=%d initialBorrowBalance_=%d", amountToRepay_, initialBorrowBalance_);
-    require(
-      closePosition_
-      || (initialBorrowBalance_ != 0 && amountToRepay_ <= initialBorrowBalance_)
-      , AppErrors.WRONG_BORROWED_BALANCE
-    );
-
-    (uint256 error, uint tokenBalance,,) = IHfCToken(cTokenCollateral).getAccountSnapshot(address(this));
+    (uint error, uint tokenBalance,,) = IHfCToken(cTokenCollateral_).getAccountSnapshot(address(this));
     require(error == 0, AppErrors.CTOKEN_GET_ACCOUNT_SNAPSHOT_FAILED);
 
-    return closePosition_
-      ? tokenBalance
-      : tokenBalance * amountToRepay_ / initialBorrowBalance_;
+    if (closePosition_) {
+      return tokenBalance;
+    }
+
+    (uint error2,, uint borrowBalance,) = IHfCToken(cTokenBorrow_).getAccountSnapshot(address(this));
+    require(error2 == 0, AppErrors.CTOKEN_GET_ACCOUNT_SNAPSHOT_FAILED);
+    require(borrowBalance != 0 && amountToRepay_ <= borrowBalance, AppErrors.WRONG_BORROWED_BALANCE);
+
+    return tokenBalance * amountToRepay_ / borrowBalance;
   }
 
   ///////////////////////////////////////////////////////
@@ -339,17 +308,13 @@ contract HfPoolAdapter is IPoolAdapter, IPoolAdapterInitializerHF {
     (uint256 cError, uint256 tokenBalance,, uint256 cExchangeRateMantissa) = IHfCToken(cTokenCollateral)
       .getAccountSnapshot(address(this));
     require(cError == 0, AppErrors.CTOKEN_GET_ACCOUNT_SNAPSHOT_FAILED);
-    console.log("_getStatus.1 %d %d %d", tokenBalance, cExchangeRateMantissa, priceCollateral);
 
     (uint256 bError,, uint borrowBalance,) = IHfCToken(cTokenBorrow)
       .getAccountSnapshot(address(this));
     require(bError == 0, AppErrors.CTOKEN_GET_ACCOUNT_SNAPSHOT_FAILED);
-    console.log("_getStatus.2 %d %d", borrowBalance, priceBorrow);
 
     outCollateralAmount = (priceCollateral * cExchangeRateMantissa / 10**18) * tokenBalance / 10**18;
     sumBorrowPlusEffects = priceBorrow * borrowBalance / 10**18;
-
-    console.log("_getStatus outCollateralAmount=%d sumBorrowPlusEffects=%d", outCollateralAmount, sumBorrowPlusEffects);
 
     return (tokenBalance, borrowBalance, outCollateralAmount, sumBorrowPlusEffects);
   }
@@ -372,8 +337,6 @@ contract HfPoolAdapter is IPoolAdapter, IPoolAdapterInitializerHF {
     healthFactor18 = sumBorrowPlusEffects == 0
       ? type(uint).max
       : sumCollateralSafe * 10**18 / sumBorrowPlusEffects;
-
-    console.log("_getHealthFactor sumCollateralSafe=%d sumCollateral=%d", sumCollateralSafe, sumCollateral);
 
     return (sumCollateralSafe, healthFactor18);
   }

@@ -36,15 +36,16 @@ library AppErrors {
   /// @notice cToken is not found for provided underlying
   string public constant HF_DERIVATIVE_TOKEN_NOT_FOUND = "16";
   /// @notice cToken.mint failed
-  string public constant CTOKEN_MINT_FAILED = "17";
+  string public constant MINT_FAILED = "17";
   string public constant COMPTROLLER_GET_ACCOUNT_LIQUIDITY_FAILED = "18";
   string public constant COMPTROLLER_GET_ACCOUNT_LIQUIDITY_UNDERWATER = "19";
   /// @notice borrow failed
-  string public constant CTOKEN_BORROW_FAILED = "20";
+  string public constant BORROW_FAILED = "20";
   string public constant CTOKEN_GET_ACCOUNT_SNAPSHOT_FAILED = "21";
   string public constant CTOKEN_GET_ACCOUNT_LIQUIDITY_FAILED = "22";
   string public constant HF_INCORRECT_RESULT_LIQUIDITY = "23";
   string public constant CLOSE_POSITION_FAILED = "24";
   string public constant CONVERTER_NOT_FOUND = "25";
   string public constant REDEEM_FAILED = "26";
+  string public constant REPAY_FAILED = "27";
 }
