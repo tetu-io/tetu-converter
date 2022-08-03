@@ -4,7 +4,7 @@ import {
     Controller, DebtMonitor,
     IController, LendingPlatformMock,
     MockERC20, PoolAdapterMock,
-    PoolMock,
+    PoolStub,
     PriceOracleMock, TetuConverter
 } from "../../typechain";
 import {BigNumber} from "ethers";
@@ -77,10 +77,11 @@ export class CoreContractsHelper {
     public static async addPool(
         signer: SignerWithAddress,
         controller: IController,
-        pool: PoolMock,
+        pool: PoolStub,
         poolsInfo: IPoolInfo,
         collateralFactors: number[],
         underlines: MockERC20[],
+        cTokens: MockERC20[],
         templateAdapterPoolOptional?: string
     ) : Promise <{
         platformAdapter: LendingPlatformMock,
@@ -115,7 +116,8 @@ export class CoreContractsHelper {
             underlines.map(x => x.address),
             borrowRates,
             collateralFactors,
-            availableLiquidity
+            availableLiquidity,
+            cTokens
         );
 
         const bm = BorrowManager__factory.connect(await controller.borrowManager(), signer);

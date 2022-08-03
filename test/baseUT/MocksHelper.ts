@@ -6,7 +6,7 @@ import {
     CTokenMock, IController, IDebtMonitor, IPriceOracle,
     LendingPlatformMock,
     MockERC20, PoolAdapterMock, PoolAdapterStub,
-    PoolMock,
+    PoolStub,
     UserBorrowRepayUCs
 } from "../../typechain";
 import {DeployUtils} from "../../scripts/utils/DeployUtils";
@@ -21,6 +21,9 @@ export interface IPooAdapterStabInitParams {
     user: string;
     collateralAsset: string;
     borrowAsset: string;
+    cTokenAddress: string;
+    collateralFactor: BigNumber;
+    borrowRatePerBlock: BigNumber;
 }
 
 /** Helper to create mock contracts */
@@ -31,34 +34,17 @@ export class MocksHelper {
         return (await DeployUtils.deployContract(signer, "PoolAdapterMock")) as PoolAdapterMock;
     }
 
-    /** Set up pool adapter created through minimal-proxy pattern */
-    public static async setupPoolAdapterMock(
-        m: PoolAdapterMock
-        , cTokenMock: CTokenMock
-        , priceOracle: IPriceOracle
-        , debtMonitor: IDebtMonitor
-        , collateralFactor18: BigNumber
-        , borrowTokens: MockERC20[]
-        , borrowRatesPerBlock18: BigNumber[]
-    ) {
-        await m.setUpMock(
-            cTokenMock.address
-            , collateralFactor18
-            , borrowTokens.map(x => x.address)
-            , borrowRatesPerBlock18
-        );
-    }
-
     /** Create platform adapter that supports a single pool with set of the given underlines */
     public static async createPlatformAdapterMock(
         signer: SignerWithAddress
-        , pool: PoolMock
+        , pool: PoolStub
         , controllerAddress: string
         , converterAddress: string
         , underlines: string[]
         , borrowRates: BigNumber[]
         , collateralFactors: number[]
         , liquidity: BigNumber[]
+        , cTokens: MockERC20[]
     ) : Promise<LendingPlatformMock> {
         // we cannot pass 0.8 to mul, we will have https://links.ethers.org/v5-errors-NUMERIC_FAULT-underflow
         // so:  0.8 => 80 and reduce decimals 18 => 16
@@ -72,6 +58,7 @@ export class MocksHelper {
             , cfs
             , borrowRates
             , liquidity
+            , cTokens.map(x => x.address)
         )) as LendingPlatformMock;
     }
 
@@ -92,7 +79,10 @@ export class MocksHelper {
                 initParams.pool,
                 initParams.user,
                 initParams.collateralAsset,
-                initParams.borrowAsset
+                initParams.borrowAsset,
+                initParams.cTokenAddress,
+                initParams.collateralFactor,
+                initParams.borrowRatePerBlock
             );
         }
 
@@ -139,15 +129,13 @@ export class MocksHelper {
 //endregion Tokens
 
 //region Pools
-    public static async createPoolMock(
-        signer: SignerWithAddress,
-        cTokens: CTokenMock[]
-    ) : Promise<PoolMock> {
+    public static async createPoolStub(
+        signer: SignerWithAddress
+    ) : Promise<PoolStub> {
         const dest = await DeployUtils.deployContract(
             signer
-            , "PoolMock"
-            , cTokens.map(x => x.address)
-        ) as PoolMock;
+            , "PoolStub"
+        ) as PoolStub;
 
         return dest;
     }
@@ -168,11 +156,11 @@ export class MocksHelper {
 
 //region Uses cases
     public static async deployUserBorrowRepayUCs(
-        userAddress: string,
+        deployer: string,
         controller: IController
     ) : Promise<UserBorrowRepayUCs> {
         return (await DeployUtils.deployContract(
-            await DeployerUtils.startImpersonate(userAddress),
+            await DeployerUtils.startImpersonate(deployer),
             "UserBorrowRepayUCs",
             controller.address
         )) as UserBorrowRepayUCs;

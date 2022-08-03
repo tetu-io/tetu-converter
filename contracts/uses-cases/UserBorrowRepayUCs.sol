@@ -28,64 +28,112 @@ contract UserBorrowRepayUCs {
   /// Uses cases US1.1 and US1.2, see project scope
   ///////////////////////////////////////////////////////
   /// @notice See US1.1 in the project scope
-  function makeBorrowUS11(
-    address sourceToken_,
+  function makeBorrowUC1_1(
+    address sourceAsset_,
     uint sourceAmount_,
-    address targetToken_,
+    address targetAsset_,
     uint borrowPeriodInBlocks_,
     uint16 healthFactor2_,
     address receiver_
   ) external {
-    console.log("makeBorrowUS11.1 %d", healthFactor2_);
+    console.log("makeBorrowUS1.1 healthFactor2_=%d", healthFactor2_);
     // ask TC for the best conversion strategy
-    (address converter, uint maxTargetAmount,) = _tc().findConversionStrategy(sourceToken_,
+    (address converter, uint maxTargetAmount,) = _tc().findConversionStrategy(sourceAsset_,
       sourceAmount_,
-      targetToken_,
+      targetAsset_,
       healthFactor2_,
       borrowPeriodInBlocks_
     );
 
-    console.log("makeBorrowUS11.2 balance=%d source amount=%d", IERC20(sourceToken_).balanceOf(address(this)), sourceAmount_);
+    console.log("makeBorrowUS1.1 balance=%d source amount=%d", IERC20(sourceAsset_).balanceOf(address(this)), sourceAmount_);
     // transfer collateral to TC
-    require(IERC20(sourceToken_).balanceOf(address(this)) >= sourceAmount_
+    require(IERC20(sourceAsset_).balanceOf(address(this)) >= sourceAmount_
       , "wrong balance st on tc");
-    IERC20(sourceToken_).safeApprove(_controller.tetuConverter(), sourceAmount_);
+    IERC20(sourceAsset_).safeApprove(_controller.tetuConverter(), sourceAmount_);
     console.log("approve %d for %s", sourceAmount_, _controller.tetuConverter());
 
-    console.log("makeBorrowUS11.3");
     // borrow and receive borrowed-amount to receiver's balance
     _tc().convert(
       converter,
-      sourceToken_,
+      sourceAsset_,
       sourceAmount_,
-      targetToken_,
+      targetAsset_,
       maxTargetAmount,
       receiver_
     );
+    console.log("makeBorrowUS1.1 done");
   }
 
-  function makeRepayUS12(
-    address collateralToken_,
-    address borrowedToken_,
-    address receiver_,
-    bool closePosition_
+  /// @notice See US1.2 in the project scope
+  function makeRepayUC1_2(
+    address collateralAsset_,
+    address borrowedAsset_,
+    address receiver_
   ) external {
-    console.log("makeRepayUS12.1");
+    console.log("makeRepayUS1.2 started");
     (uint count, address[] memory poolAdapters, uint[] memory amounts)
-      = _tc().findBorrows(collateralToken_, borrowedToken_);
-    console.log("makeRepayUS12.2 count=%d", count);
+      = _tc().findBorrows(collateralAsset_, borrowedAsset_);
+    console.log("makeRepayUS1.2 count positions=%d", count);
     for (uint i = 0; i < count; ++i) {
       // transfer borrowed amount to Pool Adapter
-      IERC20(borrowedToken_).transfer(poolAdapters[i], amounts[i]);
-      console.log("makeRepayUS12.3 borrowedToken_=%s amount=%d", borrowedToken_, amounts[i]);
+      IERC20(borrowedAsset_).transfer(poolAdapters[i], amounts[i]);
+      console.log("makeRepayUS1.2 borrowedToken_=%s amount=%d", borrowedAsset_, amounts[i]);
 
       // repay borrowed amount and receive collateral to receiver's balance
       IPoolAdapter(poolAdapters[i]).repay(
         amounts[i],
         receiver_,
-        closePosition_
+        true
       );
     }
+    console.log("makeRepayUS1.2 done");
+  }
+
+  /// @notice See US1.3 in the project scope
+  function makeRepayUC1_3(
+    address collateralAsset_,
+    address borrowedAsset_,
+    address receiver_,
+    uint amountToPay_
+  ) external {
+    console.log("makeRepayUS1.3 started");
+    (uint count, address[] memory poolAdapters, uint[] memory amounts)
+      = _tc().findBorrows(collateralAsset_, borrowedAsset_);
+    console.log("makeRepayUS1.3 count positions=%d", count);
+    for (uint i = 0; i < count; ++i) {
+      uint amountToPayToPA = amountToPay_ >= amounts[i]
+        ? amounts[i]
+        : amountToPay_;
+      bool closePosition = amountToPayToPA == amounts[i];
+      console.log("makeRepayUS1.3 amount to pay=%d close position=%d", amountToPayToPA, closePosition ? 1 : 0);
+
+      // transfer borrowed amount to Pool Adapter
+      IERC20(borrowedAsset_).transfer(poolAdapters[i], amountToPayToPA);
+      console.log("makeRepayUS1.3 borrowedToken_=%s amount=%d", borrowedAsset_, amountToPayToPA);
+
+      // repay borrowed amount and receive collateral to receiver's balance
+      IPoolAdapter(poolAdapters[i]).repay(
+        amountToPayToPA,
+        receiver_,
+        closePosition
+      );
+    }
+    console.log("makeRepayUS1.3 done");
+  }
+
+  ///////////////////////////////////////////////////////
+  ///                   View status
+  ///////////////////////////////////////////////////////
+
+  function getBorrows(
+    address collateralAsset_,
+    address borrowedAsset_
+  ) external view returns (
+    uint count,
+    address[] memory poolAdapters,
+    uint[] memory amounts
+  ) {
+    return _tc().findBorrows(collateralAsset_, borrowedAsset_);
   }
 
   ///////////////////////////////////////////////////////

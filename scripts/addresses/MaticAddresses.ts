@@ -11,12 +11,23 @@ export class MaticAddresses {
   public static DAI = "0x8f3Cf7ad23Cd3CaDbD9735AFf958023239c6A063";
   public static USDC = "0x2791bca1f2de4661ed88a30c99a7a9449aa84174";
   public static USDT = "0xc2132d05d31c914a87c6611c10748aeb04b58e8f";
+  public static EURS = "0xe111178a87a3bff0c8d18decba5798827539ae99";
+  public static jEUR = "0x4e3Decbb3645551B8A19f0eA1678079FCB33fB4c";
+  public static BALANCER = "0x9a71012B13CA4d3D0Cdc72A177DF3ef03b0E76A3";
+  public static WBTS = "0x1BFD67037B42Cf73acF2047067bd4F2C47D9BfD6";
+  public static WETH = "0x7ceB23fD6bC0adD59E62ac25578270cFf1b9f619";
+  public static WMATIC = "0x0d500B1d8E8eF31E21C99d1Db9A6444d3ADf1270";
+  public static SUSHI = "0x0b3F868E0BE5597D5DB7fEB59E1CADBb0fdDa50a";
+  public static CRV = "0x172370d5Cd63279eFa6d502DAB29171933a610AF";
+  public static agEUR = "0xE0B52e49357Fd4DAf2c15e02058DCE6BC0057db4";
 //endregion Assets
 
 //region Asset biggest holders
   public static HOLDER_DAI = "0xf04adbf75cdfc5ed26eea4bbbb991db002036bdd";
   public static HOLDER_USDC = "0x06959153b974d0d5fdfd87d561db6d8d4fa0bb0b";
   public static HOLDER_USDT = "0x0d0707963952f2fba59dd06f2b425ace40b492fe";
+  public static HOLDER_WMATIC = "0x369582d2010b6ed950b571f4101e3bb9b554876f";
+  public static HOLDER_EURS = "0x6de2865067b65d4571c17f6b9eeb8dbdd5e36584";
 //endregion Asset biggest holders
 
 

@@ -1,8 +1,7 @@
 import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import {ethers} from "hardhat";
 import {expect} from "chai";
-import {DeployUtils} from "../../scripts/utils/DeployUtils";
-import {IPoolAdapter, IPoolAdapter__factory, PoolAdapterMock} from "../../typechain";
+import {IPoolAdapter, IPoolAdapter__factory} from "../../typechain";
 import {TimeUtils} from "../../scripts/utils/TimeUtils";
 import {BorrowManagerHelper} from "../baseUT/BorrowManagerHelper";
 import {DeployerUtils} from "../../scripts/utils/DeployerUtils";

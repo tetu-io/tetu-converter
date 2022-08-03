@@ -9,11 +9,10 @@ import {
     IERC20__factory,
     MockERC20,
     MockERC20__factory,
-    PoolAdapterMock__factory,
     TetuConverter, UserBorrowRepayUCs
 } from "../../typechain";
 import {IBmInputParams, BorrowManagerHelper, PoolInstanceInfo} from "../baseUT/BorrowManagerHelper";
-import {CoreContracts} from "../uses-cases/CoreContracts";
+import {CoreContracts} from "../baseUT/CoreContracts";
 import {CoreContractsHelper} from "../baseUT/CoreContractsHelper";
 import {BigNumber} from "ethers";
 import {MocksHelper} from "../baseUT/MocksHelper";
@@ -84,7 +83,6 @@ describe("BorrowManager", () => {
     async function prepareContracts(
         tt: IBmInputParams,
         user: string,
-        borrowRatePerBlock18: BigNumber
     ) : Promise<{
         core: CoreContracts,
         pool: string,
@@ -124,13 +122,7 @@ describe("BorrowManager", () => {
             sourceToken.address,
             targetToken.address
         );
-        const poolAdapterMock = PoolAdapterMock__factory.connect(poolAdapter, deployer);
-        await poolAdapterMock.setUpMock(
-            cToken,
-            getBigNumberFrom(tt.targetCollateralFactor*10, 17),
-            [targetToken.address],
-            [borrowRatePerBlock18]
-        );
+
         console.log("poolAdapter-mock is configured:", poolAdapter, targetToken.address);
 
         return {core,  pool, cToken, userContract, sourceToken, targetToken, poolAdapter};
@@ -229,7 +221,6 @@ describe("BorrowManager", () => {
                     const sourceAmountNumber = 100_000;
                     const availableBorrowLiquidityNumber = 200_000_000;
                     const healthFactor = 2;
-                    const borrowRatePerBlock18 = getBigNumberFrom(1);
                     const tt: IBmInputParams = {
                         targetCollateralFactor: 0.8,
                         priceSourceUSD: 0.1,
@@ -250,7 +241,8 @@ describe("BorrowManager", () => {
                     const availableBorrowLiquidity = getBigNumberFrom(availableBorrowLiquidityNumber, targetDecimals);
 
                     const {core,  pool, cToken, userContract, sourceToken, targetToken, poolAdapter} =
-                        await prepareContracts(tt, user, borrowRatePerBlock18);
+                        await prepareContracts(tt, user);
+                    console.log("cToken is", cToken);
 
                     const contractsToInvestigate: ContractToInvestigate[] = [
                         {name: "userContract", contract: userContract.address},
@@ -272,7 +264,7 @@ describe("BorrowManager", () => {
                     console.log("before", before);
 
                     // borrow
-                    await userContract.makeBorrowUS11(
+                    await userContract.makeBorrowUC1_1(
                         sourceToken.address,
                         sourceAmount,
                         targetToken.address,
@@ -334,7 +326,6 @@ describe("BorrowManager", () => {
                     const sourceAmountNumber = 100_000;
                     const availableBorrowLiquidityNumber = 200_000_000;
                     const healthFactor = 2;
-                    const borrowRatePerBlock18 = getBigNumberFrom(1);
                     const tt: IBmInputParams = {
                         targetCollateralFactor: 0.8,
                         priceSourceUSD: 0.1,
@@ -355,7 +346,7 @@ describe("BorrowManager", () => {
                     const availableBorrowLiquidity = getBigNumberFrom(availableBorrowLiquidityNumber, targetDecimals);
 
                     const {core,  pool, cToken, userContract, sourceToken, targetToken, poolAdapter} =
-                        await prepareContracts(tt, user, borrowRatePerBlock18);
+                        await prepareContracts(tt, user);
 
                     const contractsToInvestigate: ContractToInvestigate[] = [
                         {name: "userContract", contract: userContract.address},
@@ -377,7 +368,7 @@ describe("BorrowManager", () => {
                     console.log("before", before);
 
                     // borrow
-                    await userContract.makeBorrowUS11(
+                    await userContract.makeBorrowUC1_1(
                         sourceToken.address,
                         sourceAmount,
                         targetToken.address,
@@ -395,11 +386,10 @@ describe("BorrowManager", () => {
                     );
 
                     // user receives collateral and transfers it back to UserContract to restore same state as before
-                    await userContract.makeRepayUS12(
+                    await userContract.makeRepayUC1_2(
                         sourceToken.address,
                         targetToken.address,
-                        user,
-                        false
+                        user
                     );
                     const sourceTokenAsUser = IERC20__factory.connect(sourceToken.address
                         , await DeployerUtils.startImpersonate(user)

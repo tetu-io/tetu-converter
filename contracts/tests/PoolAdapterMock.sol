@@ -9,7 +9,7 @@ import "../openzeppelin/IERC20.sol";
 import "./MockERC20.sol";
 import "../integrations/IERC20Extended.sol";
 import "../interfaces/IDebtsMonitor.sol";
-import "./PoolMock.sol";
+import "./PoolStub.sol";
 import "../interfaces/IController.sol";
 import "../core/AppErrors.sol";
 
@@ -24,7 +24,6 @@ contract PoolAdapterMock is IPoolAdapter {
   MockERC20 private _cTokenMock;
   uint private _collateralFactor;
 
-  address[] private _borrowTokens;
   uint private _borrowedAmounts;
   uint private _borrowRates;
 
@@ -38,22 +37,6 @@ contract PoolAdapterMock is IPoolAdapter {
   ///////////////////////////////////////////////////////
   ///           Setup mock behavior
   ///////////////////////////////////////////////////////
-
-  function setUpMock(
-    address cTokenMock_,
-    uint collateralFactor_,
-    address[] calldata borrowTokens_,
-    uint[] calldata borrowRatesPerBlock_
-  ) external {
-    console.log("setUpMock");
-    _cTokenMock = MockERC20(cTokenMock_);
-    _collateralFactor = collateralFactor_;
-    for (uint i = 0; i < borrowTokens_.length; ++i) {
-      _borrowTokens.push(borrowTokens_[i]);
-      _borrowRates = borrowRatesPerBlock_[i];
-    }
-  }
-
   function setPassedBlocks(uint countPassedBlocks) external {
     _passedBlocks = countPassedBlocks;
   }
@@ -73,7 +56,10 @@ contract PoolAdapterMock is IPoolAdapter {
     address pool_,
     address user_,
     address collateralAsset_,
-    address borrowAsset_
+    address borrowAsset_,
+    address cTokenMock_,
+    uint collateralFactor_,
+    uint borrowRatePerBlock_
   ) external {
     console.log("PoolAdapterMock.initialize controller=%s pool=%s user=%s", controller_, pool_, user_);
     controller = controller_;
@@ -81,6 +67,9 @@ contract PoolAdapterMock is IPoolAdapter {
     _user = user_;
     _collateralAsset = collateralAsset_;
     _borrowAsset = borrowAsset_;
+    _cTokenMock = MockERC20(cTokenMock_);
+    _collateralFactor = collateralFactor_;
+    _borrowRates = borrowRatePerBlock_;
   }
 
   ///////////////////////////////////////////////////////
@@ -109,9 +98,14 @@ contract PoolAdapterMock is IPoolAdapter {
     uint8 decimalsCollateral = IERC20Extended(_collateralAsset).decimals();
     uint8 decimalsBorrow = IERC20Extended(_borrowAsset).decimals();
 
-    healthFactorWAD = _collateralFactor
-      * _toMantissa(collateralAmount, decimalsCollateral, 18) * priceCollateral
-      / (_toMantissa(amountToPay, decimalsBorrow, 18) * priceBorrowedUSD);
+    console.log("amountToPay = %d", amountToPay);
+    console.log("priceBorrowedUSD = %d", priceBorrowedUSD);
+
+    healthFactorWAD = amountToPay == 0
+      ? type(uint).max
+      : _collateralFactor
+        * _toMantissa(collateralAmount, decimalsCollateral, 18) * priceCollateral
+        / (_toMantissa(amountToPay, decimalsBorrow, 18) * priceBorrowedUSD);
 
     console.log("healthFactorWAD=%d", healthFactorWAD);
     console.log("_collateralFactor=%d", _collateralFactor);
@@ -165,7 +159,7 @@ contract PoolAdapterMock is IPoolAdapter {
     // mint ctokens and keep them on our balance
     uint amountCTokens = collateralAmount_; //TODO: exchange rate 1:1, it's not always true
     _cTokenMock.mint(address(this), amountCTokens);
-    console.log("mint ctokens amount=%d to=%s", amountCTokens, address(this));
+    console.log("mint ctokens %s amount=%d to=%s", address(_cTokenMock), amountCTokens, address(this));
 
     // price of the collateral and borrowed token in USD
     uint priceCollateral = getPrice18(_collateralAsset);
@@ -189,7 +183,7 @@ contract PoolAdapterMock is IPoolAdapter {
 
     console.log("2.2");
     // send the borrow amount to the receiver
-    PoolMock thePool = PoolMock(_pool);
+    PoolStub thePool = PoolStub(_pool);
     console.log("3");
     thePool.transferToReceiver(_borrowAsset, borrowAmount_, receiver_);
     console.log("4");
@@ -247,7 +241,7 @@ contract PoolAdapterMock is IPoolAdapter {
     uint amountCTokens = collateralToReturn;
     _cTokenMock.burn(address(this), amountCTokens);
 
-    PoolMock thePool = PoolMock(_pool);
+    PoolStub thePool = PoolStub(_pool);
     thePool.transferToReceiver(_collateralAsset, collateralToReturn, receiver_);
 
     // update status
@@ -265,6 +259,7 @@ contract PoolAdapterMock is IPoolAdapter {
   ///////////////////////////////////////////////////////
 
   function _getAmountToRepay() internal view returns (uint) {
+    console.log("_getAmountToRepay _borrowedAmounts=%d _borrowRates=%d _passedBlocks=%d", _borrowedAmounts, _borrowRates, _passedBlocks);
     return _borrowedAmounts
       + _borrowRates
         * _borrowedAmounts
@@ -273,30 +268,6 @@ contract PoolAdapterMock is IPoolAdapter {
     ;
   }
 
-//  function getOpenedPositions() external view override returns (
-//    uint outCountItems,
-//    address[] memory outBorrowedTokens,
-//    uint[] memory outCollateralAmountsCT,
-//    uint[] memory outAmountsToPayBT
-//  ) {
-//    uint lengthTokens = _borrowTokens.length;
-//
-//    outBorrowedTokens = new address[](lengthTokens);
-//    outCollateralAmountsCT = new uint[](lengthTokens);
-//    outAmountsToPayBT = new uint[](lengthTokens);
-//
-//    for (uint i = 0; i < lengthTokens; ++i) {
-//      uint amountToPay = _getAmountToRepay(_borrowTokens[i]);
-//      if (amountToPay != 0) {
-//        outBorrowedTokens[outCountItems] = _borrowTokens[i];
-//        outCollateralAmountsCT[outCountItems] = _debtMonitor.activeCollaterals(address(this), _borrowTokens[i]);
-//        outAmountsToPayBT[outCountItems] = amountToPay;
-//        outCountItems += 1;
-//      }
-//    }
-//
-//    return (outCountItems, outBorrowedTokens, outCollateralAmountsCT, outAmountsToPayBT);
-//  }
 
   ///////////////////////////////////////////////////////
   ///           Utils

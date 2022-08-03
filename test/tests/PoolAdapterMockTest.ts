@@ -106,8 +106,7 @@ describe("PoolAdapterMock", () => {
                     await poolAdapterMock.setUpMock(
                         cToken.address,
                         collateralFactor18,
-                        [targetToken.address],
-                        [borrowRatePerBlock18]
+                        borrowRatePerBlock18
                     );
 
                     // get data from the pool adapter

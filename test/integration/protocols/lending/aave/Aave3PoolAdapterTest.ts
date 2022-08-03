@@ -11,7 +11,7 @@ import {DeployerUtils} from "../../../../../scripts/utils/DeployerUtils";
 import {AdaptersHelper} from "../../../../baseUT/AdaptersHelper";
 import {isPolygonForkInUse} from "../../../../baseUT/NetworkUtils";
 import {AaveHelper} from "../../../../../scripts/integration/helpers/AaveHelper";
-import {BalanceUtils} from "../../../../baseUT/BalanceUtils";
+import {BalanceUtils, IUserBalances} from "../../../../baseUT/BalanceUtils";
 import {CoreContractsHelper} from "../../../../baseUT/CoreContractsHelper";
 import {TokenWrapper} from "../../../../baseUT/TokenWrapper";
 
@@ -254,11 +254,6 @@ describe("Aave-v3 integration tests, pool adapter", () => {
     });
 
     describe("repay", () =>{
-        interface IUserBalances {
-            collateral: BigNumber;
-            borrow: BigNumber;
-        }
-
         async function makeTest(
             collateralToken: TokenWrapper,
             collateralHolder: string,

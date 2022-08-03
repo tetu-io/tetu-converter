@@ -10,7 +10,7 @@ import {getBigNumberFrom} from "../../../../../scripts/utils/NumberUtils";
 import {DeployerUtils} from "../../../../../scripts/utils/DeployerUtils";
 import {AdaptersHelper} from "../../../../baseUT/AdaptersHelper";
 import {isPolygonForkInUse} from "../../../../baseUT/NetworkUtils";
-import {BalanceUtils} from "../../../../baseUT/BalanceUtils";
+import {BalanceUtils, IUserBalances} from "../../../../baseUT/BalanceUtils";
 import {CoreContractsHelper} from "../../../../baseUT/CoreContractsHelper";
 import {TokenWrapper} from "../../../../baseUT/TokenWrapper";
 import {HundredFinanceHelper} from "../../../../../scripts/integration/helpers/HundredFinanceHelper";
@@ -252,11 +252,6 @@ describe("Hundred Finance integration tests, pool adapter", () => {
     });
 
     describe("repay", () =>{
-        interface IUserBalances {
-            collateral: BigNumber;
-            borrow: BigNumber;
-        }
-
         async function makeTest(
             collateralToken: TokenWrapper,
             collateralCToken: TokenWrapper,

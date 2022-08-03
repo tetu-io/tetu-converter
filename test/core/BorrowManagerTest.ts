@@ -65,7 +65,7 @@ describe("BorrowManager", () => {
                         , "BorrowManager"
                         , controller.address
                     )) as BorrowManager;
-                    const poolMock = await MocksHelper.createPoolMock(signer, []);
+                    const poolMock = await MocksHelper.createPoolStub(signer);
                     await controller.initialize(
                         [await controller.priceOracleKey(), await controller.borrowManagerKey()],
                         [priceOracle.address, bm.address]
@@ -76,7 +76,7 @@ describe("BorrowManager", () => {
                         , poolMock
                         , controller.address
                         , converter
-                        , [], [], [], []
+                        , [], [], [], [], []
                     );
 
                     const poolAddress = ethers.Wallet.createRandom().address;
@@ -197,7 +197,7 @@ describe("BorrowManager", () => {
             describe("Health factor is equal to 1e18", () => {
                 it("should revert", async () => {
                     const asset = ethers.Wallet.createRandom().address;
-                    const value = 1000;
+                    const value = 100;
                     console.log(value);
 
                     const bm = await makeEmptyBM();

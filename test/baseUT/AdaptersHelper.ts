@@ -1,7 +1,7 @@
 import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import {
     Aave3PlatformAdapter,
-    Aave3PoolAdapter,
+    Aave3PoolAdapter, Aave3PoolAdapterEMode,
     HfPlatformAdapter,
     HfPoolAdapter
 } from "../../typechain";
@@ -28,6 +28,9 @@ export class AdaptersHelper {
 
     public static async createAave3PoolAdapter(signer: SignerWithAddress) : Promise<Aave3PoolAdapter> {
         return (await DeployUtils.deployContract(signer, "Aave3PoolAdapter")) as Aave3PoolAdapter;
+    }
+    public static async createAave3PoolAdapterEMode(signer: SignerWithAddress) : Promise<Aave3PoolAdapterEMode> {
+        return (await DeployUtils.deployContract(signer, "Aave3PoolAdapterEMode")) as Aave3PoolAdapterEMode;
     }
 //endregion AAVE
 

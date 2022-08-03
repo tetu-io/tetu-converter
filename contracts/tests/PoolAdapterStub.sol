@@ -12,6 +12,9 @@ contract PoolAdapterStub is IPoolAdapter {
   address private _user;
   address private _collateralAsset;
   address private _borrowAsset;
+  address private _cTokenMock;
+  uint private _collateralFactor;
+  uint private _borrowRatePerBlock;
 
   uint public collateralFactorValue;
   bool private _syncedHideWarning;
@@ -29,13 +32,19 @@ contract PoolAdapterStub is IPoolAdapter {
     address pool_,
     address user_,
     address collateralAsset_,
-    address borrowAsset_
+    address borrowAsset_,
+    address cTokenMock_,
+    uint collateralFactor_,
+    uint borrowRatePerBlock_
   ) external {
     controller = controller_;
     _pool = pool_;
     _user = user_;
     _collateralAsset = collateralAsset_;
     _borrowAsset = borrowAsset_;
+    _cTokenMock = cTokenMock_;
+    _collateralFactor = collateralFactor_;
+    _borrowRatePerBlock = borrowRatePerBlock_;
   }
 
   function syncBalance(bool beforeBorrow) external override {

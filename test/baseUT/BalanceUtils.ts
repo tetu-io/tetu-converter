@@ -1,11 +1,19 @@
 import {BigNumber} from "ethers";
-import {IERC20__factory} from "../../typechain";
+import {IERC20__factory, IERC20Extended__factory} from "../../typechain";
 import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
+import {DeployerUtils} from "../../scripts/utils/DeployerUtils";
+import {getBigNumberFrom} from "../../scripts/utils/NumberUtils";
 
 export interface ContractToInvestigate {
     name: string;
     contract: string;
 }
+
+export interface IUserBalances {
+    collateral: BigNumber;
+    borrow: BigNumber;
+}
+
 export class BalanceUtils {
     /**
      * Get balance of each pair (contract, token)
@@ -37,5 +45,25 @@ export class BalanceUtils {
         return typeof n === "object"
             ? n.toString()
             : "" + n;
+    }
+
+    static async transferFromHolder(
+        asset: string
+        , holder: string
+        , recipient: string
+        , amount: number
+    ) {
+        const decimals = await IERC20Extended__factory.connect(
+            asset
+            , await DeployerUtils.startImpersonate(holder)
+        ).decimals();
+
+        await IERC20Extended__factory.connect(
+            asset
+            , await DeployerUtils.startImpersonate(holder)
+        ).transfer(
+            recipient
+            , getBigNumberFrom(amount, decimals)
+        );
     }
 }

@@ -18,7 +18,7 @@ import {getBigNumberFrom} from "../../scripts/utils/NumberUtils";
 import {CoreContractsHelper} from "../baseUT/CoreContractsHelper";
 import {IPooAdapterStabInitParams, MocksHelper} from "../baseUT/MocksHelper";
 import {Misc} from "../../scripts/utils/Misc";
-import {CoreContracts} from "../uses-cases/CoreContracts";
+import {CoreContracts} from "../baseUT/CoreContracts";
 
 describe("DebtsMonitor", () => {
 //region Constants
@@ -174,12 +174,9 @@ describe("DebtsMonitor", () => {
             targetToken.address
         );
         const poolAdapterMock = PoolAdapterMock__factory.connect(poolAdapter, deployer);
-        await poolAdapterMock.setUpMock(
-            cToken,
-            getBigNumberFrom(tt.targetCollateralFactor*10, 17),
-            [targetToken.address],
-            [borrowRatePerBlock18]
-        );
+            // cToken,
+            // getBigNumberFrom(tt.targetCollateralFactor*10, 17),
+            // borrowRatePerBlock18
         console.log("poolAdapter-mock is configured:", poolAdapter, targetToken.address);
 
         return {core,  pool, cToken, userContract, sourceToken, targetToken, poolAdapter};
@@ -449,12 +446,9 @@ describe("DebtsMonitor", () => {
 
             const dm = DebtMonitor__factory.connect(await controller.debtMonitor(), deployer);
 
-            await poolAdapterMock.setUpMock(
-                cTokenAddress,
-                collateralFactor18,
-                [targetToken.address],
-                [getBigNumberFrom(1e18*pp.borrowRate)]
-            );
+                // cTokenAddress,
+                // collateralFactor18,
+                // getBigNumberFrom(1e18*pp.borrowRate)
 
             await makeBorrow(
                 userTC,

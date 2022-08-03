@@ -18,6 +18,8 @@ contract LendingPlatformMock is IPlatformAdapter {
   mapping(address => uint256) public borrowRates;
   /// @notice underline => liquidity
   mapping(address => uint256) public liquidity;
+  /// @notice underline => cToken
+  mapping(address => address) public cTokens;
 
   constructor(
     address controller_,
@@ -26,7 +28,8 @@ contract LendingPlatformMock is IPlatformAdapter {
     address[] memory underlines_,
     uint[] memory liquidationThresholds18_,
     uint[] memory borrowRates_,
-    uint[] memory liquidity_
+    uint[] memory liquidity_,
+    address[] memory cTokens_
   ) {
     console.log("LendingPlatformMock converter=%s pool=%s", converter_, pool_);
     console.log("LendingPlatformMock this=%s", address(this));
@@ -38,11 +41,13 @@ contract LendingPlatformMock is IPlatformAdapter {
       liquidationThresholds18[underlines_[i]] = liquidationThresholds18_[i];
       borrowRates[underlines_[i]] = borrowRates_[i];
       liquidity[underlines_[i]] = liquidity_[i];
+      cTokens[underlines_[i]] = cTokens_[i];
 
       console.log("LendingPlatformMock underline=%s", underlines_[i]);
       console.log("liquidationThreshold18=%d", liquidationThresholds18_[i]);
       console.log("borrowRate=%d", borrowRates_[i]);
       console.log("liquidity=%d", liquidity_[i]);
+      console.log("cTokens=%s", cTokens_[i]);
     }
   }
 
@@ -82,7 +87,11 @@ contract LendingPlatformMock is IPlatformAdapter {
       _pool,
       user_,
       collateralAsset_,
-      borrowAsset_
+      borrowAsset_,
+
+      cTokens[collateralAsset_],
+      liquidationThresholds18[collateralAsset_],
+      borrowRates[borrowAsset_]
     );
   }
 }

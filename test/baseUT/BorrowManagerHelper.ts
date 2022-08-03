@@ -77,7 +77,7 @@ export class BorrowManagerHelper {
                 cTokenDecimals,
                 underlines.map(x => x.address)
             );
-            const pool = await MocksHelper.createPoolMock(signer, cTokens);
+            const pool = await MocksHelper.createPoolStub(signer);
 
             const r = await CoreContractsHelper.addPool(signer,
                 controller,
@@ -85,6 +85,7 @@ export class BorrowManagerHelper {
                 poolInfo,
                 collateralFactors,
                 underlines,
+                cTokens,
                 templateAdapterPoolOptional
             );
             const mapCTokens = new Map<string, string>();
