@@ -6,7 +6,6 @@ export class MaticAddresses {
   public static MARKET_POOL_LENS = '0xe4D84b252308645098846312286E6c6D2846DbB0'.toLowerCase();
 //endregion MARKET.XYZ
 
-
 //region Assets
   public static DAI = "0x8f3Cf7ad23Cd3CaDbD9735AFf958023239c6A063";
   public static USDC = "0x2791bca1f2de4661ed88a30c99a7a9449aa84174";
@@ -30,7 +29,6 @@ export class MaticAddresses {
   public static HOLDER_EURS = "0x6de2865067b65d4571c17f6b9eeb8dbdd5e36584";
 //endregion Asset biggest holders
 
-
 //region Hundred finance
   /** https://docs.hundred.finance/developers/protocol-contracts/polygon */
   public static HUNDRED_FINANCE_COMPTROLLER = "0xEdBA32185BAF7fEf9A26ca567bC4A6cbe426e499";
@@ -45,4 +43,22 @@ export class MaticAddresses {
   public static hFRAX = "0x2c7a9d9919f042C4C120199c69e126124d09BE7c";
   public static hLINK = "0x5B9451B1bFAE2A74D7b9D0D45BdD0E9a27F7bB22";
 //endregion Hundred finance
+
+//region dForce
+  /** https://developers.dforce.network/lend/lend-and-synth/deployed-contracts */
+  public static DFORCE_CONTROLLER = "0x52eaCd19E38D501D006D2023C813d7E37F025f37";
+
+  public static dForce_iUSDC = "0x5268b3c4afb0860D365a093C184985FCFcb65234";
+  public static dForce_iUSDT = "0xb3ab7148cCCAf66686AD6C1bE24D83e58E6a504e";
+  public static dForce_iUSX = "0xc171EBE1A2873F042F1dDdd9327D00527CA29882";
+  public static dForce_iDAI = "0xec85F77104Ffa35a5411750d70eDFf8f1496d95b";
+  public static dForce_iWETH = "0x0c92617dF0753Af1CaB2d9Cc6A56173970d81740";
+  public static dForce_iWBTC = "0x94a14Ba6E59f4BE36a77041Ef5590Fe24445876A";
+  public static dForce_iEUX = "0x15962427A9795005c640A6BF7f99c2BA1531aD6d";
+  public static dForce_iAAVE = "0x38D0c498698A35fc52a6EB943E47e4A5471Cd6f9";
+  public static dForce_iCRV = "0x7D86eE431fbAf60E86b5D3133233E478aF691B68";
+  public static dForce_iDF = "0xcB5D9b6A9BA8eA6FA82660fAA9cC130586F939B2";
+  public static dForce_iMATIC = "0x6A3fE5342a4Bd09efcd44AC5B9387475A0678c74";
+
+//endregion dForce
 }
