@@ -13,6 +13,7 @@ import "../../../integrations/hundred-finance/IHfCToken.sol";
 import "../../../interfaces/hundred-finance/IPoolAdapterInitializerHF.sol";
 import "../../../interfaces/hundred-finance/IHfCTokenAddressProvider.sol";
 import "hardhat/console.sol";
+import "../../../integrations/hundred-finance/IHfOracle.sol";
 
 /// @notice Adapter to read current pools info from HundredFinance-protocol, see https://docs.hundred.finance/
 contract HfPlatformAdapter is IPlatformAdapter, IHfCTokenAddressProvider {
@@ -91,6 +92,20 @@ contract HfPlatformAdapter is IPlatformAdapter, IHfCTokenAddressProvider {
 
   function converters() external view override returns (address[] memory) {
     return _converters;
+  }
+
+  /// @notice Returns the prices of the supported assets in BASE_CURRENCY of the market. Decimals 18
+  /// @dev Different markets can have different BASE_CURRENCY
+  function getAssetsPrices(address[] calldata assets_) external view override returns (uint[] memory prices18) {
+    IHfOracle priceOracle = IHfOracle(priceOracleAddress);
+
+    uint lenAssets = assets_.length;
+    prices18 = new uint[](lenAssets);
+    for (uint i = 0; i < lenAssets; i = _uncheckedInc(i)) {
+      prices18[i] = priceOracle.getUnderlyingPrice(assets_[i]);
+    }
+
+    return prices18;
   }
 
   function getCTokenByUnderlying(address token1, address token2)

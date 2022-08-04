@@ -255,6 +255,8 @@ describe("BorrowRepayTest", () => {
                                 , userBalances
                                 , borrowBalances
                             );
+                            console.log(`after borrow: collateral=${userBalances[0].collateral.toString()} borrow=${userBalances[0].borrow.toString()} borrowBalance=${borrowBalances[0].toString()}`);
+                            console.log(`after repay: collateral=${userBalances[1].collateral.toString()} borrow=${userBalances[1].borrow.toString()} borrowBalance=${borrowBalances[1].toString()}`);
 
                             expect(ret.sret).eq(ret.sexpected);
                         });

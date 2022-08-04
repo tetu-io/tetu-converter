@@ -119,6 +119,7 @@ contract TetuConverter is ITetuConverter {
     address[] memory poolAdapters,
     uint[] memory amountsToPay
   ) {
+    console.log("findBorrows user=%s collateral=%s borrow=%s", msg.sender, collateralToken_, borrowedToken_);
     return _dm().getPositions(msg.sender, collateralToken_, borrowedToken_);
   }
 

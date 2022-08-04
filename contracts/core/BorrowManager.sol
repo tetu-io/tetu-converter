@@ -29,8 +29,8 @@ contract BorrowManager is BorrowManagerBase {
   struct BorrowInput {
     uint8 targetDecimals;
     uint sourceAmount18;
-    uint priceTarget18;
-    uint priceSource18;
+    /// @notice collateral, borrow (to get prices)
+    address[] assets;
   }
 
   ///////////////////////////////////////////////////////
@@ -143,6 +143,10 @@ contract BorrowManager is BorrowManagerBase {
       require(p_.healthFactor2 >= controller.MIN_HEALTH_FACTOR2(), AppErrors.WRONG_HEALTH_FACTOR);
     }
 
+    address[] memory assets = new address[](2);
+    assets[0] = p_.sourceToken;
+    assets[1] = p_.targetToken;
+
     if (pas.length != 0) {
       (converter, maxTargetAmount, apr) = _findPool(
         pas
@@ -150,8 +154,7 @@ contract BorrowManager is BorrowManagerBase {
         , BorrowInput({
           sourceAmount18: _toMantissa(p_.sourceAmount, uint8(IERC20Extended(p_.sourceToken).decimals()), 18),
           targetDecimals: IERC20Extended(p_.targetToken).decimals(),
-          priceTarget18: IPriceOracle(controller.priceOracle()).getAssetPrice(p_.targetToken),
-          priceSource18: IPriceOracle(controller.priceOracle()).getAssetPrice(p_.sourceToken)
+          assets: assets
         })
       );
     }
@@ -169,10 +172,16 @@ contract BorrowManager is BorrowManagerBase {
     uint maxTargetAmount,
     uint apr
   ) {
-    require(pp_.priceSource18 != 0, AppErrors.ZERO_PRICE);
-
     uint lenPools = platformAdapters_.length;
     console.log("lenPools %d", lenPools);
+
+    uint[] memory pricesCB18;
+    if (lenPools > 0) {
+      // we can take prices only once; we use only their relation, not absolute values
+      pricesCB18 = IPlatformAdapter(platformAdapters_[0]).getAssetsPrices(pp_.assets);
+      require(pricesCB18[1] != 0 && pricesCB18[0] != 0, AppErrors.ZERO_PRICE);
+    }
+
     for (uint i = 0; i < lenPools; i = _uncheckedInc(i)) {
       AppDataTypes.ConversionPlan memory plan = IPlatformAdapter(platformAdapters_[i]).getConversionPlan(
         p_.sourceToken,
@@ -191,15 +200,15 @@ contract BorrowManager is BorrowManagerBase {
           // how much target asset we are able to get for the provided collateral with given health factor
           // TargetTA = BS / PT [TA], C = SA * PS, CM = C / HF, BS = CM * PCF
           uint resultTa18 = plan.liquidationThreshold18
-            * pp_.sourceAmount18 * pp_.priceSource18
-            / (pp_.priceTarget18 * uint(p_.healthFactor2) * 10**(18-2));
+            * pp_.sourceAmount18 * pricesCB18[0]
+            / (pricesCB18[1] * uint(p_.healthFactor2) * 10**(18-2));
 
           console.log("apr %d plan.borrowRate=%d", aprOfPool, plan.borrowRate);
           console.log("resultTa18 %d", resultTa18);
           console.log("plan.collateralFactorWAD %d", plan.liquidationThreshold18);
           console.log("pp_.sourceAmount18 %d", pp_.sourceAmount18);
-          console.log("pp_.priceSource18 %d", pp_.priceSource18);
-          console.log("pp_.priceTarget18 %d", pp_.priceTarget18);
+          console.log("pp_.priceSource18 %d", pricesCB18[0]);
+          console.log("pp_.priceTarget18 %d", pricesCB18[1]);
           console.log("p_.healthFactor2 %d", p_.healthFactor2);
 
           // the pool should have enough liquidity

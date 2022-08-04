@@ -14,6 +14,7 @@ import "../../../interfaces/IPlatformAdapter.sol";
 import "../../../interfaces/IPoolAdapterInitializer.sol";
 import "../../../interfaces/IController.sol";
 import "hardhat/console.sol";
+import "../../../integrations/aave/IAavePriceOracle.sol";
 
 /// @notice Adapter to read current pools info from AAVE-protocol v3, see https://docs.aave.com/hub/
 contract Aave3PlatformAdapter is IPlatformAdapter {
@@ -22,6 +23,7 @@ contract Aave3PlatformAdapter is IPlatformAdapter {
 
   IController public controller;
   IAavePool public pool;
+  IAavePriceOracle internal _priceOracle;
 
   /// @notice Full list of supported template-pool-adapters
   address[] private _converters;
@@ -48,6 +50,8 @@ contract Aave3PlatformAdapter is IPlatformAdapter {
     , AppErrors.ZERO_ADDRESS);
 
     pool = IAavePool(poolAave_);
+    _priceOracle = IAavePriceOracle(IAaveAddressesProvider(pool.ADDRESSES_PROVIDER()).getPriceOracle());
+
     controller = IController(controller_);
 
     _converters.push(templateAdapterNormal_); // add first, INDEX_NORMAL_MODE = 0
@@ -60,6 +64,12 @@ contract Aave3PlatformAdapter is IPlatformAdapter {
 
   function converters() external view override returns (address[] memory) {
     return _converters;
+  }
+
+  /// @notice Returns the prices of the supported assets in BASE_CURRENCY of the market. Decimals 18
+  /// @dev Different markets can have different BASE_CURRENCY
+  function getAssetsPrices(address[] calldata assets) external view override returns (uint[] memory prices18) {
+    return _priceOracle.getAssetsPrices(assets);
   }
 
   ///////////////////////////////////////////////////////
@@ -120,14 +130,18 @@ contract Aave3PlatformAdapter is IPlatformAdapter {
             plan.maxAmountToBorrowBT = totalAToken - totalStableDebt - totalVariableDebt;
           }
 
+          // supply/borrow caps are given in "whole tokens" == without decimals
+          // see AAVE3-code, ValidationLogic.sol, validateSupply
+
           { // take into account borrow cap, supply cap and debts ceiling
-            uint borrowCap = rb.configuration.getBorrowCap();
+            uint borrowCap = rb.configuration.getBorrowCap() * (10**rb.configuration.getDecimals());
             if (borrowCap != 0 && borrowCap < plan.maxAmountToBorrowBT) {
               plan.maxAmountToBorrowBT = borrowCap; //TODO: is cap for all user together?
             }
+            //TODO: take into account DebtCeiling in isolation mode
           }
 
-          plan.maxAmountToSupplyCT = rc.configuration.getSupplyCap();
+          plan.maxAmountToSupplyCT = rc.configuration.getSupplyCap() * (10**rb.configuration.getDecimals());
         }
       }
     }

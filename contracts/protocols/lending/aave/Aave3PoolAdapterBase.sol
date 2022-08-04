@@ -11,11 +11,13 @@ import "../../../integrations/aave/IAavePool.sol";
 import "../../../integrations/aave/IAavePriceOracle.sol";
 import "../../../integrations/aave/IAaveAddressesProvider.sol";
 import "../../../interfaces/IPoolAdapterInitializer.sol";
+import "../../../integrations/aave/ReserveConfiguration.sol";
 
 /// @notice Implementation of IPoolAdapter for AAVE-protocol, see https://docs.aave.com/hub/
 /// @dev Instances of this contract are created using proxy-minimal pattern, so no constructor
 abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer {
   using SafeERC20 for IERC20;
+  using ReserveConfiguration for DataTypes.ReserveConfigurationMap;
 
   /// @notice 1 - stable, 2 - variable
   uint immutable public RATE_MODE = 2;
@@ -97,6 +99,8 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer 
     address receiver_
   ) external override {
     _onlyTC();
+    console.log("Aave3 borrow: collateral=%d borrow=%d receiver=%s", collateralAmount_, borrowAmount_, receiver_);
+    console.log("Aave3 borrow: this=%s", address(this));
 
     address assetCollateral = collateralAsset;
     address assetBorrow = borrowAsset;
@@ -121,7 +125,6 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer 
       0 // no referral code
     );
     _pool.setUserUseReserveAsCollateral(assetCollateral, true);
-    //(uint256 totalCollateralBase,,,,,) = _pool.getUserAccountData(user);
 
     // ensure that we received a-tokens
     uint aTokensAmount = IERC20(d.aTokenAddress).balanceOf(address(this)) - aTokensBalanceBeforeSupply;
@@ -130,6 +133,7 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer 
     // enter to E-mode if necessary
     prepareToBorrow();
 
+    console.log("Balance before=%d", IERC20(assetBorrow).balanceOf(address(this)));
     // make borrow, send borrowed amount to the receiver
     // we cannot transfer borrowed amount directly to receiver because the debt is incurred by amount receiver
     _pool.borrow(
@@ -140,6 +144,7 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer 
       address(this)
     );
 
+    console.log("Balance after=%d", IERC20(assetBorrow).balanceOf(address(this)));
     // ensure that we have received required borrowed amount, send the amount to the receiver
     require(
       borrowAmount_ == IERC20(assetBorrow).balanceOf(address(this)) - reserveBalances[assetBorrow]
@@ -155,6 +160,22 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer 
     // ensure that current health factor is greater than min allowed
     (,,,,, uint256 healthFactor) = _pool.getUserAccountData(address(this));
     require(healthFactor > uint(controller.MIN_HEALTH_FACTOR2())*10**(18-2), AppErrors.WRONG_HEALTH_FACTOR);
+
+    print();
+  }
+  function print() internal view {
+      (uint256 totalCollateralBase,
+      uint256 totalDebtBase,
+      uint256 availableBorrowsBase,
+      uint256 currentLiquidationThreshold,
+      uint256 ltv,
+      uint256 healthFactor
+      ) = _pool.getUserAccountData(address(this));
+
+    console.log("Print user account data: totalCollateralBase=%d totalDebtBase=%d", totalCollateralBase, totalDebtBase);
+    console.log("Print user account data: availableBorrowsBase=%d currentLiquidationThreshold=%d", availableBorrowsBase, currentLiquidationThreshold);
+    console.log("Print user account data: ltv=%d healthFactor=%d", ltv, healthFactor);
+    console.log("Print user account data: this=%s", address(this));
   }
 
   ///////////////////////////////////////////////////////
@@ -168,6 +189,7 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer 
     address receiver_,
     bool closePosition
   ) external override {
+    console.log("repay amountToRepay_=%d receiver_=%s closePosition=%d", amountToRepay_, receiver_, closePosition ? 1 : 0);
     address assetBorrow = borrowAsset;
 
     // ensure that we have received enough money on our balance just before repay was called
@@ -260,16 +282,18 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer 
      uint256 totalDebtBase,
      ,,,
      uint256 hf
-    ) = _pool.getUserAccountData(user);
+    ) = _pool.getUserAccountData(address(this));
 
     uint priceBorrow = _priceOracle.getAssetPrice(borrowAsset);
     require(priceBorrow != 0, AppErrors.ZERO_PRICE);
 
+    console.log("getStatus totalCollateralBase=%d totalDebtBase=%d priceBorrow=%d", totalCollateralBase, totalDebtBase, priceBorrow);
+    console.log("pool adapter=%s", address(this));
     return (
     // Total amount of provided collateral in Pool adapter's base currency
       totalCollateralBase,
     // Total amount of borrowed debt in [borrow asset]. 0 - for closed borrow positions.
-      totalDebtBase / priceBorrow,
+      totalDebtBase * (10 ** _pool.getConfiguration(borrowAsset).getDecimals()) / priceBorrow,
     // Current health factor, decimals 18
       hf
     );

@@ -49,6 +49,8 @@ contract DebtMonitor is IDebtMonitor {
       positions.push(msg.sender);
 
       (, address user, address collateralAsset, address borrowAsset) = IPoolAdapter(msg.sender).getConfig();
+      console.log("register position user=%s collateral=%s borrow=%s", user, collateralAsset, borrowAsset);
+      console.log("pool adapter=%s", msg.sender);
       poolAdapters[user][collateralAsset][borrowAsset].push(msg.sender);
     }
   }
@@ -128,6 +130,8 @@ contract DebtMonitor is IDebtMonitor {
     address[] memory outPoolAdapters,
     uint[] memory amountsToPay
   ) {
+    console.log("get positions user=%s collateral=%s borrow=%s", user_, collateralToken_, borrowedToken_);
+
     address[] memory adapters = poolAdapters[user_][collateralToken_][borrowedToken_];
     uint countAdapters = adapters.length;
 
@@ -135,8 +139,10 @@ contract DebtMonitor is IDebtMonitor {
     amountsToPay = new uint[](countAdapters);
 
     for (uint i = 0; i < countAdapters; ++i) {
+      console.log("position %d pool adapter=%s", i, adapters[i]);
       IPoolAdapter pa = IPoolAdapter(adapters[i]);
       (, uint amountToPay,) = pa.getStatus();
+      console.log("amountToPay %d", amountToPay);
       if (amountToPay != 0) {
         outPoolAdapters[countItems] = adapters[i];
         amountsToPay[countItems] = amountToPay;
