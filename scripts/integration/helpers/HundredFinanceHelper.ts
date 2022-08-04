@@ -7,7 +7,7 @@ import {
     IHfInterestRateModel,
     IHfInterestRateModel__factory,
     IHfOracle__factory,
-    IHfOracle,
+    IHfOracle, IERC20__factory, IERC20Extended__factory,
 } from "../../../typechain";
 import {BigNumber, Signer} from "ethers";
 import {AaveHelper} from "./AaveHelper";
@@ -59,6 +59,8 @@ interface IHfData {
     interestRateModel: string;
     borrowCap: BigNumber;
     bprotocol: string;
+    price: BigNumber;
+    underlineDecimals: number;
 }
 
 //endregion Data types
@@ -109,6 +111,7 @@ export class HundredFinanceHelper {
     ) : Promise<IHfData> {
         const m = await comptroller.markets(cToken.address);
         const irm = IHfInterestRateModel__factory.connect(await cToken.interestRateModel(), signer);
+        const priceOracle = IHfOracle__factory.connect(MaticAddresses.HUNDRED_FINANCE_ORACLE, signer);
 
         return {
             comptroller: await cToken.comptroller(),
@@ -133,7 +136,14 @@ export class HundredFinanceHelper {
             interestRateModel: await cToken.interestRateModel(),
             borrowCap: await comptroller.borrowCaps(cToken.address),
             /** TODO: https://docs.bprotocol.org/ */
-            bprotocol: await comptroller.bprotocol(cToken.address)
+            bprotocol: await comptroller.bprotocol(cToken.address),
+            price: await priceOracle.getUnderlyingPrice(cToken.address),
+            underlineDecimals: await IERC20Extended__factory.connect(
+                cToken.address == MaticAddresses.hMATIC
+                    ? MaticAddresses.WMATIC
+                    : await cToken.underlying()
+                , signer
+            ).decimals()
         }
     }
 //endregion Read data
@@ -146,15 +156,17 @@ export class HundredFinanceHelper {
         const markets = await comptroller.getAllMarkets();
         const dest: string[] = [];
         dest.push([
+            "name",
             "comptroller",
-            "name", "symbol", "decimals", "ctoken", "underline",
+            "symbol", "decimals", "ctoken", "underline",
             "borrowRatePerBlock", "exchangeRateStored",
             "cash", "reserveFactorMantissa",
             "totalBorrows", "totalReserves", "totalSupply",
             "isListed", "collateralFactorMantissa",
             "isComped", "closeFactorMantissa",
             "interestRateModel", "borrowCap", "bprotocol",
-            "borrowRate18", "supplyRate18", "baseRatePerBlock", "blocksPerYear", "irmName"
+            "borrowRate18", "supplyRate18", "baseRatePerBlock", "blocksPerYear", "irmName",
+            "price", "underlineDecimals"
         ].join(","));
 
         const getInterestRateModel = HundredFinanceHelper.memoize(
@@ -172,15 +184,17 @@ export class HundredFinanceHelper {
             const irm = await getInterestRateModel(cToken);
 
             const line = [
+                rd.name,
                 rd.comptroller,
-                rd.name, rd.symbol, rd.decimals, rd.ctoken, rd.underlying,
+                rd.symbol, rd.decimals, rd.ctoken, rd.underlying,
                 rd.borrowRatePerBlock, rd.exchangeRateStored,
                 rd.cash, rd.reserveFactorMantissa,
                 rd.totalBorrows, rd.totalReserves, rd.totalSupply,
                 rd.isListed, rd.collateralFactorMantissa,
                 rd.isComped, rd.closeFactorMantissa,
                 rd.interestRateModel, rd.borrowCap, rd.bprotocol,
-                irm.borrowRate18, irm.supplyRate18, irm.baseRatePerBlock, irm.blocksPerYear, irm.name
+                irm.borrowRate18, irm.supplyRate18, irm.baseRatePerBlock, irm.blocksPerYear, irm.name,
+                rd.price, rd.underlineDecimals
             ];
 
             dest.push(line.map(x => AaveHelper.toString(x)).join(","));

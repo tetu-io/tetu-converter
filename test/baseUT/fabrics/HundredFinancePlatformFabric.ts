@@ -1,4 +1,4 @@
-import {IBorrowManager, IBorrowManager__factory, IController, IERC20__factory} from "../../../typechain";
+import {IBorrowManager, IBorrowManager__factory, IController, IERC20, IERC20__factory} from "../../../typechain";
 import {ILendingPlatformFabric} from "../TetuConverterApp";
 import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import {MaticAddresses} from "../../../scripts/addresses/MaticAddresses";
@@ -21,15 +21,15 @@ export class HundredFinancePlatformFabric implements ILendingPlatformFabric {
                 MaticAddresses.hMATIC,
                 MaticAddresses.hUSDC,
                 MaticAddresses.hETH,
+                MaticAddresses.hUSDT,
+                MaticAddresses.hWBTC,
                 MaticAddresses.hFRAX,
                 MaticAddresses.hLINK,
-                MaticAddresses.hUSDT,
-                MaticAddresses.hWBTC
             ]
             , MaticAddresses.HUNDRED_FINANCE_ORACLE
         );
 
-        const bm = IBorrowManager__factory.connect(await controller.borrowManager(), deployer);
+        const bm: IBorrowManager = IBorrowManager__factory.connect(await controller.borrowManager(), deployer);
         const assets: string[] = [
             MaticAddresses.DAI
             , MaticAddresses.WMATIC
@@ -38,7 +38,7 @@ export class HundredFinancePlatformFabric implements ILendingPlatformFabric {
             , MaticAddresses.USDT
             , MaticAddresses.WBTS
         ];
-        await bm.addPool(platformAdapter.comptroller(), assets);
+        await bm.addPool(platformAdapter.address, assets);
 
         return [
             IERC20__factory.connect(comptroller.address, deployer)

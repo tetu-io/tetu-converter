@@ -149,17 +149,30 @@ contract HfPoolAdapter is IPoolAdapter, IPoolAdapterInitializerHF {
       sumBorrowPlusEffects
     );
 
-    (uint256 dError, uint256 liquidity,) = _comptroller.getAccountLiquidity(address(this));
+    (uint256 dError, uint liquidity,) = _comptroller.getAccountLiquidity(address(this));
     require(dError == 0, AppErrors.CTOKEN_GET_ACCOUNT_LIQUIDITY_FAILED);
+
+    console.log("_validateHealthStatusAfterBorrow");
+    console.log("sumCollateralSafe", sumCollateralSafe);
+    console.log("sumBorrowPlusEffect", sumBorrowPlusEffects);
+    console.log("sumCollateralSafe - sumBorrowPlusEffects", sumCollateralSafe - sumBorrowPlusEffects);
+    console.log("liquidity", liquidity);
+    console.log("sumCollateralSafe - sumBorrowPlusEffects == liquidity %d, dif=%d"
+      , sumCollateralSafe - sumBorrowPlusEffects == liquidity ? 1 : 0
+      , liquidity - (sumCollateralSafe - sumBorrowPlusEffects)
+    );
 
     require(
       sumCollateralSafe > sumBorrowPlusEffects
       && sumBorrowPlusEffects > 0
-      && sumCollateralSafe - sumBorrowPlusEffects == liquidity //TODO: probably this additional check is not necessary
+    // here we should have: sumCollateralSafe - sumBorrowPlusEffects == liquidity
+    // but it seems like round-error can happen, we can check only sumCollateralSafe - sumBorrowPlusEffects ~ liquidity
+    // let's ensure that liquidity has a reasonable value //TODO: remove this check at all?
+      && liquidity > (sumCollateralSafe - sumBorrowPlusEffects) / 2
       , AppErrors.HF_INCORRECT_RESULT_LIQUIDITY
     );
 
-    require(healthFactor18 > uint(controller.MIN_HEALTH_FACTOR2())*10**18, AppErrors.WRONG_HEALTH_FACTOR);
+    require(healthFactor18 > uint(controller.MIN_HEALTH_FACTOR2())*10**(18-2), AppErrors.WRONG_HEALTH_FACTOR);
   }
 
   ///////////////////////////////////////////////////////
@@ -303,7 +316,9 @@ contract HfPoolAdapter is IPoolAdapter, IPoolAdapterInitializerHF {
     //               = (Liquidity + sumBorrowPlusEffects) / sumBorrowPlusEffects
 
     uint priceCollateral = _priceOracle.getUnderlyingPrice(cTokenCollateral);
+    //  / (10 ** (18 - IERC20Extended(collateralAsset).decimals()));
     uint priceBorrow = _priceOracle.getUnderlyingPrice(cTokenBorrow);
+    //  / (10 ** (18 - IERC20Extended(borrowAsset).decimals()));
 
     (uint256 cError, uint256 tokenBalance,, uint256 cExchangeRateMantissa) = IHfCToken(cTokenCollateral)
       .getAccountSnapshot(address(this));
@@ -337,6 +352,8 @@ contract HfPoolAdapter is IPoolAdapter, IPoolAdapterInitializerHF {
     healthFactor18 = sumBorrowPlusEffects == 0
       ? type(uint).max
       : sumCollateralSafe * 10**18 / sumBorrowPlusEffects;
+
+    console.log("_getHealthFactor", healthFactor18);
 
     return (sumCollateralSafe, healthFactor18);
   }

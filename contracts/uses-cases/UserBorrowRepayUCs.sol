@@ -20,6 +20,9 @@ contract UserBorrowRepayUCs {
 
   IController immutable private _controller;
 
+  uint public totalBorrowedAmount;
+  uint public totalRepaidAmount;
+
   constructor (address controller) {
     _controller = IController(controller);
   }
@@ -66,6 +69,8 @@ contract UserBorrowRepayUCs {
       receiver_
     );
     console.log("makeBorrowUC1.1 done");
+
+    totalBorrowedAmount += maxTargetAmount;
   }
 
   /// @notice See US1.2 in the project scope
@@ -89,6 +94,8 @@ contract UserBorrowRepayUCs {
         receiver_,
         true
       );
+
+      totalRepaidAmount += amounts[i];
     }
     console.log("makeRepayUC1.2 done");
   }
@@ -121,6 +128,8 @@ contract UserBorrowRepayUCs {
         receiver_,
         closePosition
       );
+
+      totalRepaidAmount += amountToPayToPA;
     }
     console.log("makeRepayUS1.3 done");
   }

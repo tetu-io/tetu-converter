@@ -26,6 +26,7 @@ import {BorrowAction} from "../baseUT/actions/BorrowAction";
 import {RepayAction} from "../baseUT/actions/RepayAction";
 import {MockPlatformFabric} from "../baseUT/fabrics/MockPlatformFabric";
 import {isPolygonForkInUse} from "../baseUT/NetworkUtils";
+import {HundredFinancePlatformFabric} from "../baseUT/fabrics/HundredFinancePlatformFabric";
 
 describe("BorrowRepayTest", () => {
 //region Global vars for all tests
@@ -81,17 +82,17 @@ describe("BorrowRepayTest", () => {
         b0: BigNumber,
         collateralAmount: BigNumber,
         userBalances: IUserBalances[],
-        borrowBalances: BigNumber[]
+        borrowBalances: BigNumber[],
+        totalBorrowedAmount: BigNumber,
+        totalRepaidAmount: BigNumber
     ) : {sret: string, sexpected: string} {
-        const borrowedAmount = userBalances[0].borrow.sub(b0);
-
         const sret = [
             // collateral after borrow
             userBalances[0].collateral
             // borrowed amount > 0
-            , !borrowedAmount.eq(BigNumber.from(0))
-            // contract borrow balance >= borrowed amount
-            , borrowBalances[0].gte(borrowedAmount),
+            , !totalBorrowedAmount.eq(BigNumber.from(0))
+            // contract borrow balance ~ borrowed amount
+            , borrowBalances[0].sub(totalBorrowedAmount).div(totalBorrowedAmount).abs().mul(1e6).toNumber() == 0,
 
             // after repay
             // collateral >= initial collateral
@@ -100,6 +101,9 @@ describe("BorrowRepayTest", () => {
             , b0.gte(userBalances[1].borrow)
             // contract borrowed balance is 0
             , borrowBalances[1].eq(BigNumber.from(0))
+
+            // paid amount >= borrowed amount
+            , totalRepaidAmount.gte(totalBorrowedAmount)
         ].map(x => BalanceUtils.toString(x)).join("\n");
 
         const sexpected = [
@@ -107,7 +111,7 @@ describe("BorrowRepayTest", () => {
             c0.sub(collateralAmount)
             // borrowed amount > 0
             , true
-            // contract borrow balance >= b0 + borrowed amount
+            // contract borrow balance ~ borrowed amount
             , true
 
             //after repay
@@ -117,7 +121,15 @@ describe("BorrowRepayTest", () => {
             , true
             // contract borrowed balance is 0
             , true
+
+            // paid amount >= borrowed amount
+            , true
+
         ].map(x => BalanceUtils.toString(x)).join("\n");
+
+        console.log(`after borrow: collateral=${userBalances[0].collateral.toString()} borrow=${userBalances[0].borrow.toString()} borrowBalance=${borrowBalances[0].toString()}`);
+        console.log(`after repay: collateral=${userBalances[1].collateral.toString()} borrow=${userBalances[1].borrow.toString()} borrowBalance=${borrowBalances[1].toString()}`);
+        console.log(`borrowedAmount: ${totalBorrowedAmount} paidAmount: ${totalRepaidAmount}`);
 
         return {sret, sexpected};
     }
@@ -192,6 +204,8 @@ describe("BorrowRepayTest", () => {
                                 , collateralAmount
                                 , userBalances
                                 , borrowBalances
+                                , await uc.totalBorrowedAmount()
+                                , await uc.totalRepaidAmount()
                             );
 
                             expect(ret.sret).eq(ret.sexpected);
@@ -254,15 +268,77 @@ describe("BorrowRepayTest", () => {
                                 , collateralAmount
                                 , userBalances
                                 , borrowBalances
+                                , await uc.totalBorrowedAmount()
+                                , await uc.totalRepaidAmount()
                             );
-                            console.log(`after borrow: collateral=${userBalances[0].collateral.toString()} borrow=${userBalances[0].borrow.toString()} borrowBalance=${borrowBalances[0].toString()}`);
-                            console.log(`after repay: collateral=${userBalances[1].collateral.toString()} borrow=${userBalances[1].borrow.toString()} borrowBalance=${borrowBalances[1].toString()}`);
 
                             expect(ret.sret).eq(ret.sexpected);
                         });
                     });
                 });
                 describe("HundredFinance", () => {
+                    it("should return expected balances", async () => {
+                        if (!await isPolygonForkInUse()) return;
+
+                        const fabric = new HundredFinancePlatformFabric();
+                        const {tc, controller} = await TetuConverterApp.buildApp(deployer, [fabric]);
+                        const uc = await MocksHelper.deployUserBorrowRepayUCs(deployer.address, controller);
+
+                        const collateralAsset = MaticAddresses.DAI;
+                        const collateralHolder = MaticAddresses.HOLDER_DAI;
+                        const borrowAsset = MaticAddresses.USDT;
+                        const borrowHolder = MaticAddresses.HOLDER_USDT;
+                        // const borrowAsset = MaticAddresses.WMATIC;
+                        // const borrowHolder = MaticAddresses.HOLDER_WMATIC;
+
+                        const collateralToken = await TokenWrapper.Build(deployer, collateralAsset);
+                        const borrowToken = await TokenWrapper.Build(deployer, borrowAsset);
+
+                        const collateralAmount = getBigNumberFrom(1_000, collateralToken.decimals);
+
+                        const countBlocks = 1;
+                        const healthFactor2 = 0;
+
+                        const amountToRepay = undefined; //full repay
+
+                        const c0 = await setInitialBalance(collateralToken.address
+                            , collateralHolder, 1_000_000, uc.address);
+                        const b0 = await setInitialBalance(borrowToken.address
+                            , borrowHolder, 80_000, uc.address);
+
+                        const {
+                            userBalances,
+                            borrowBalances
+                        } = await BorrowRepayUsesCase.makeBorrowRepayActions(deployer
+                            , uc
+                            , [
+                                new BorrowAction(
+                                    collateralToken
+                                    , collateralAmount
+                                    , borrowToken
+                                    , countBlocks
+                                    , healthFactor2
+                                ),
+                                new RepayAction(
+                                    collateralToken
+                                    , borrowToken
+                                    , amountToRepay
+                                )
+                            ]
+                        );
+
+                        const ret = getSingleBorrowSingleRepayResults(
+                            c0
+                            , b0
+                            , collateralAmount
+                            , userBalances
+                            , borrowBalances
+                            , await uc.totalBorrowedAmount()
+                            , await uc.totalRepaidAmount()
+                        );
+
+                        expect(ret.sret).eq(ret.sexpected);
+                    });
                 });
             });
             describe("Bad paths", () => {

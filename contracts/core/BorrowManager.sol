@@ -195,6 +195,7 @@ contract BorrowManager is BorrowManagerBase {
         uint aprOfPool = plan.borrowRateKind == AppDataTypes.BorrowRateKind.PER_BLOCK_1
           ? plan.borrowRate
           : plan.borrowRate * SECONDS_PER_DAY / BLOCKS_PER_DAY;
+        console.log("aprOfPool=%d", aprOfPool);
 
         if (converter == address(0) || aprOfPool < apr) {
           // how much target asset we are able to get for the provided collateral with given health factor
@@ -210,6 +211,8 @@ contract BorrowManager is BorrowManagerBase {
           console.log("pp_.priceSource18 %d", pricesCB18[0]);
           console.log("pp_.priceTarget18 %d", pricesCB18[1]);
           console.log("p_.healthFactor2 %d", p_.healthFactor2);
+          console.log("plan.maxAmountToBorrowBT %d", plan.maxAmountToBorrowBT);
+          console.log("plan.ltvWAD %d", plan.ltvWAD);
 
           // the pool should have enough liquidity
           if (_toMantissa(plan.maxAmountToBorrowBT, pp_.targetDecimals, 18) >= resultTa18) {

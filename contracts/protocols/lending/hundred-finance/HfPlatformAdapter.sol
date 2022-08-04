@@ -14,6 +14,7 @@ import "../../../interfaces/hundred-finance/IPoolAdapterInitializerHF.sol";
 import "../../../interfaces/hundred-finance/IHfCTokenAddressProvider.sol";
 import "hardhat/console.sol";
 import "../../../integrations/hundred-finance/IHfOracle.sol";
+import "../../../integrations/IERC20Extended.sol";
 
 /// @notice Adapter to read current pools info from HundredFinance-protocol, see https://docs.hundred.finance/
 contract HfPlatformAdapter is IPlatformAdapter, IHfCTokenAddressProvider {
@@ -22,6 +23,7 @@ contract HfPlatformAdapter is IPlatformAdapter, IHfCTokenAddressProvider {
   /// @notice Index of template pool adapter in {templatePoolAdapters} that should be used in normal borrowing mode
   uint constant public INDEX_NORMAL_MODE = 0;
   address private constant WMATIC = address(0x0d500B1d8E8eF31E21C99d1Db9A6444d3ADf1270);
+  address private constant hMATIC = address(0xEbd7f3349AbA8bB15b897e03D6c1a4Ba95B55e31);
 
   IController public controller;
   IHfComptroller public comptroller;
@@ -58,7 +60,7 @@ contract HfPlatformAdapter is IPlatformAdapter, IHfCTokenAddressProvider {
     priceOracleAddress = priceOracle_;
 
     _converters.push(templateAdapterNormal_); // Index INDEX_NORMAL_MODE: ordinal conversion mode
-    console.log("HfPlatformAdapter this=%s", address(this));
+    console.log("HfPlatformAdapter this=%s priceOracleAddress=%s", address(this), priceOracleAddress);
     _setupCTokens(activeCTokens_, true);
   }
 
@@ -71,11 +73,11 @@ contract HfPlatformAdapter is IPlatformAdapter, IHfCTokenAddressProvider {
     uint lenCTokens = cTokens_.length;
     if (makeActive_) {
       for (uint i = 0; i < lenCTokens; i = _uncheckedInc(i)) {
-        console.log("_setupCTokens ctoken=%s underline=%s", cTokens_[i], IHfCToken(cTokens_[i]).underlying());
-        // Special case: there is no underlying for WMATIC, so we store WMATIC:WMATIC
-        address underlying = WMATIC == cTokens_[i]
+        // Special case: there is no underlying for WMATIC, so we store hMATIC:WMATIC
+        address underlying = hMATIC == cTokens_[i]
           ? WMATIC
           : IHfCToken(cTokens_[i]).underlying();
+        console.log("_setupCTokens ctoken=%s underline=%s", cTokens_[i], underlying);
         activeAssets[underlying] = cTokens_[i];
       }
     } else {
@@ -102,7 +104,18 @@ contract HfPlatformAdapter is IPlatformAdapter, IHfCTokenAddressProvider {
     uint lenAssets = assets_.length;
     prices18 = new uint[](lenAssets);
     for (uint i = 0; i < lenAssets; i = _uncheckedInc(i)) {
-      prices18[i] = priceOracle.getUnderlyingPrice(assets_[i]);
+      console.log("asset=%s", assets_[i]);
+      address cToken = activeAssets[assets_[i]];
+
+      // we get a price with decimals = (36 - asset decimals)
+      // let's convert it to decimals = 18
+      prices18[i] = priceOracle.getUnderlyingPrice(cToken) / (10 ** (18 - IERC20Extended(assets_[i]).decimals()));
+      console.log("underline decimals=%d", IERC20Extended(assets_[i]).decimals());
+      console.log("price1=%d", priceOracle.getUnderlyingPrice(cToken));
+      console.log("price2=%d", priceOracle.getUnderlyingPrice(cToken) / (10 ** (18 - IERC20Extended(assets_[i]).decimals())));
+      console.log("price3=%d", priceOracle.getUnderlyingPrice(cToken) * (10 ** 18) / (10 ** (36 - IERC20Extended(assets_[i]).decimals())) );
+
+      console.log("underline=%s ctoken=%s price=%d", assets_[i], cToken, prices18[i] );
     }
 
     return prices18;
@@ -138,6 +151,8 @@ contract HfPlatformAdapter is IPlatformAdapter, IHfCTokenAddressProvider {
           //TODO: how to take into account borrow cap?
           //TODO: probably we should add borrow cap to conversion plan
           plan.maxAmountToBorrowBT = IHfCToken(cTokenBorrow).getCash();
+          console.log("maxAmountToBorrowBT=%d", plan.maxAmountToBorrowBT);
+          console.log("borrowRate=%d", plan.borrowRate);
 
           //it seems that supply is not limited in HundredFinance protocol
           //plan.maxAmountToSupplyCT = 0;

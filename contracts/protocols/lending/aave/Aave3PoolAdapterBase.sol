@@ -150,7 +150,10 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer 
       borrowAmount_ == IERC20(assetBorrow).balanceOf(address(this)) - reserveBalances[assetBorrow]
       , AppErrors.WRONG_BORROWED_BALANCE
     );
+    console.log("Transfer borrow amount to user: %d", borrowAmount_);
+    console.log("user balance before %d", IERC20(assetBorrow).balanceOf(receiver_));
     IERC20(assetBorrow).safeTransfer(receiver_, borrowAmount_);
+    console.log("user balance after %d", IERC20(assetBorrow).balanceOf(receiver_));
 
     // register the borrow in DebtMonitor
     IDebtMonitor(controller.debtMonitor()).onOpenPosition();
@@ -206,12 +209,11 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer 
     // transfer borrow amount back to the pool
     //TODO amount to be repaid, expressed in wei units.
     IERC20(assetBorrow).approve(address(_pool), amountToRepay_); //TODO: do we need approve(0)?
-    _pool.repay(assetBorrow, amountToRepay_, RATE_MODE, address(this));
-
-    if (closePosition) {
-      // repay remain debt using aTokens
-      _pool.repayWithATokens(assetBorrow, type(uint256).max, RATE_MODE);
-    }
+    _pool.repay(assetBorrow
+      , amountToRepay_
+      , RATE_MODE
+      , address(this)
+    );
 
     // withdraw the collateral
     _pool.withdraw(collateralAsset, amountCollateralToWithdraw, receiver_);
