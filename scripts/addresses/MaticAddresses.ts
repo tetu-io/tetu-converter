@@ -19,6 +19,7 @@ export class MaticAddresses {
   public static SUSHI = "0x0b3F868E0BE5597D5DB7fEB59E1CADBb0fdDa50a";
   public static CRV = "0x172370d5Cd63279eFa6d502DAB29171933a610AF";
   public static agEUR = "0xE0B52e49357Fd4DAf2c15e02058DCE6BC0057db4";
+  public static dForce_USD = "0xCf66EB3D546F0415b368d98A95EAF56DeD7aA752";
 //endregion Assets
 
 //region Asset biggest holders

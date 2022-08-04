@@ -212,7 +212,7 @@ contract BorrowManager is BorrowManagerBase {
           console.log("pp_.priceTarget18 %d", pricesCB18[1]);
           console.log("p_.healthFactor2 %d", p_.healthFactor2);
           console.log("plan.maxAmountToBorrowBT %d", plan.maxAmountToBorrowBT);
-          console.log("plan.ltvWAD %d", plan.ltvWAD);
+          console.log("plan.ltvWAD %d", plan.ltv18);
 
           // the pool should have enough liquidity
           if (_toMantissa(plan.maxAmountToBorrowBT, pp_.targetDecimals, 18) >= resultTa18) {

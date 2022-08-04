@@ -191,4 +191,14 @@ interface IDForceCToken {
    * @dev Updates total borrows and reserves with any accumulated interest.
    */
   function updateInterest() external returns (bool);
+
+  ///TODO
+  function getAccountSnapshot(address _account)
+  external
+  view
+  returns (
+    uint256,
+    uint256,
+    uint256
+  );
 }

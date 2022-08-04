@@ -8,26 +8,26 @@ import "../../../openzeppelin/IERC20.sol";
 import "../../../interfaces/IController.sol";
 import "../../../core/AppDataTypes.sol";
 import "../../../core/AppErrors.sol";
-import "../../../integrations/hundred-finance/IHfComptroller.sol";
-import "../../../integrations/hundred-finance/IHfCToken.sol";
+import "../../../integrations/dforce/IDForceController.sol";
+import "../../../integrations/dforce/IDForceCToken.sol";
 import "../../../interfaces/IPoolAdapterInitializerWithAP.sol";
 import "../../../interfaces/ITokenAddressProvider.sol";
 import "hardhat/console.sol";
-import "../../../integrations/hundred-finance/IHfOracle.sol";
+import "../../../integrations/dforce/IDForcePriceOracle.sol";
 import "../../../integrations/IERC20Extended.sol";
 
-/// @notice Adapter to read current pools info from HundredFinance-protocol, see https://docs.hundred.finance/
-contract HfPlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
+/// @notice Adapter to read current pools info from DForce-protocol, see https://developers.dforce.network/
+contract DForcePlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
   using SafeERC20 for IERC20;
 
   /// @notice Index of template pool adapter in {templatePoolAdapters} that should be used in normal borrowing mode
   uint constant public INDEX_NORMAL_MODE = 0;
   address private constant WMATIC = address(0x0d500B1d8E8eF31E21C99d1Db9A6444d3ADf1270);
-  address private constant hMATIC = address(0xEbd7f3349AbA8bB15b897e03D6c1a4Ba95B55e31);
+  address private constant iMATIC = address(0x6A3fE5342a4Bd09efcd44AC5B9387475A0678c74);
 
   IController public controller;
-  IHfComptroller public comptroller;
-  /// @notice Implementation of IHfOracle
+  IDForceController public comptroller;
+  /// @notice Implementation of IDForcePriceOracle
   address public priceOracleAddress;
 
   /// @notice Full list of supported template-pool-adapters
@@ -35,7 +35,7 @@ contract HfPlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
 
 
   /// @notice All enabled pairs underlying : cTokens. All assets usable for collateral/to borrow.
-  /// @dev There is no underlying for WMATIC, we store hMATIC:WMATIC
+  /// @dev There is no underlying for WMATIC, we store iMATIC:WMATIC
   mapping(address => address) public activeAssets;
 
   ///////////////////////////////////////////////////////
@@ -55,12 +55,12 @@ contract HfPlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
       && priceOracle_ != address(0)
     , AppErrors.ZERO_ADDRESS);
 
-    comptroller = IHfComptroller(comptroller_);
+    comptroller = IDForceController(comptroller_);
     controller = IController(controller_);
     priceOracleAddress = priceOracle_;
 
     _converters.push(templateAdapterNormal_); // Index INDEX_NORMAL_MODE: ordinal conversion mode
-    console.log("HfPlatformAdapter this=%s priceOracleAddress=%s", address(this), priceOracleAddress);
+    console.log("DForcePlatformAdapter this=%s priceOracleAddress=%s", address(this), priceOracleAddress);
     _setupCTokens(activeCTokens_, true);
   }
 
@@ -74,9 +74,9 @@ contract HfPlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
     if (makeActive_) {
       for (uint i = 0; i < lenCTokens; i = _uncheckedInc(i)) {
         // Special case: there is no underlying for WMATIC, so we store hMATIC:WMATIC
-        address underlying = hMATIC == cTokens_[i]
+        address underlying = iMATIC == cTokens_[i]
           ? WMATIC
-          : IHfCToken(cTokens_[i]).underlying();
+          : IDForceCToken(cTokens_[i]).underlying();
         console.log("_setupCTokens ctoken=%s underline=%s", cTokens_[i], underlying);
         activeAssets[underlying] = cTokens_[i];
       }
@@ -99,7 +99,7 @@ contract HfPlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
   /// @notice Returns the prices of the supported assets in BASE_CURRENCY of the market. Decimals 18
   /// @dev Different markets can have different BASE_CURRENCY
   function getAssetsPrices(address[] calldata assets_) external view override returns (uint[] memory prices18) {
-    IHfOracle priceOracle = IHfOracle(priceOracleAddress);
+    IDForcePriceOracle priceOracle = IDForcePriceOracle(priceOracleAddress);
 
     uint lenAssets = assets_.length;
     prices18 = new uint[](lenAssets);
@@ -142,22 +142,28 @@ contract HfPlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
 
       address cTokenBorrow = activeAssets[borrowAsset_];
       if (cTokenBorrow != address(0)) {
-        plan.ltv18 = _getLtv18(cTokenBorrow);
-        if (plan.ltv18 != 0) {
+        (uint collateralFactorMantissa,
+         uint borrowFactorMantissa,
+         uint borrowCapacity,
+         uint supplyCapacity
+        ) = _getLtv18(cTokenBorrow);
+        if (collateralFactorMantissa != 0) {
           plan.borrowRateKind = AppDataTypes.BorrowRateKind.PER_BLOCK_1;
-          plan.borrowRate = IHfCToken(cTokenBorrow).borrowRatePerBlock();
+          plan.borrowRate = IDForceCToken(cTokenBorrow).borrowRatePerBlock();
           plan.converter = _converters[INDEX_NORMAL_MODE];
-
-          //TODO: how to take into account borrow cap?
-          //TODO: probably we should add borrow cap to conversion plan
-          plan.maxAmountToBorrowBT = IHfCToken(cTokenBorrow).getCash();
+          plan.liquidationThreshold18 = collateralFactorMantissa;
+          plan.ltv18 = collateralFactorMantissa * borrowFactorMantissa;
+          plan.maxAmountToBorrowBT = IDForceCToken(cTokenBorrow).getCash();
           console.log("maxAmountToBorrowBT=%d", plan.maxAmountToBorrowBT);
+          if (borrowCapacity < plan.maxAmountToBorrowBT) {
+            plan.maxAmountToBorrowBT = borrowCapacity;
+            console.log("maxAmountToBorrowBT=%d", plan.maxAmountToBorrowBT);
+          }
+          plan.maxAmountToSupplyCT = supplyCapacity;
+
           console.log("borrowRate=%d", plan.borrowRate);
-
-          //it seems that supply is not limited in HundredFinance protocol
-          //plan.maxAmountToSupplyCT = 0;
-
-          plan.liquidationThreshold18 = plan.ltv18; //TODO is it valid?
+          console.log("ltv=%d", plan.ltv18);
+          console.log("liquidationThreshold18=%d", plan.liquidationThreshold18);
         }
       }
     }
@@ -195,9 +201,29 @@ contract HfPlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
   ///////////////////////////////////////////////////////
 
   /// @notice Check if the c-token is active and return its collateral factor (== ltv)
-  function _getLtv18(address cToken) internal view returns (uint) {
-    (bool isListed, uint256 collateralFactorMantissa,) = comptroller.markets(cToken);
-    return isListed ? collateralFactorMantissa : 0;
+  /// @return collateralFactorMantissa Multiplier representing the most one can borrow against their collateral in
+  ///         this market. For instance, 0.9 to allow borrowing 90% of collateral value.
+  /// @return borrowFactorMantissa Multiplier representing the most one can borrow the asset.
+  ///         For instance, 0.5 to allow borrowing this asset 50% * collateral value * collateralFactor.
+  function _getLtv18(address cToken) internal view returns (
+    uint collateralFactorMantissa,
+    uint borrowFactorMantissa,
+    uint borrowCapacity,
+    uint supplyCapacity
+  ) {
+    (uint256 collateralFactorMantissa0,
+     uint256 borrowFactorMantissa0,
+     uint256 borrowCapacity0,
+     uint256 supplyCapacity0,
+     bool mintPaused,
+     bool redeemPaused,
+     bool borrowPaused
+    ) = comptroller.markets(cToken);
+    if (mintPaused || redeemPaused || borrowPaused || borrowCapacity0 == 0 || supplyCapacity0 == 0) {
+      return (0, 0, 0, 0);
+    } else {
+      return (collateralFactorMantissa0, borrowFactorMantissa0, borrowCapacity0, supplyCapacity0);
+    }
   }
 
   ///////////////////////////////////////////////////////

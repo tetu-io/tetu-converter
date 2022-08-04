@@ -98,11 +98,11 @@ contract Aave3PlatformAdapter is IPlatformAdapter {
               // TODO: we assume here, that e-mode is always used if it's available
               DataTypes.EModeCategory memory categoryData = pool.getEModeCategoryData(categoryCollateral);
               // ltv: 8500 for 0.85, we need decimals 18.
-              plan.ltvWAD = uint(categoryData.ltv) * 10**(18-5);
+              plan.ltv18 = uint(categoryData.ltv) * 10**(18-5);
               plan.liquidationThreshold18 = uint(categoryData.liquidationThreshold) * 10**(18-5);
               plan.converter = _converters[INDEX_E_MODE];
             } else {
-              plan.ltvWAD = uint(rb.configuration.getLtv()) * 10**(18-5);
+              plan.ltv18 = uint(rb.configuration.getLtv()) * 10**(18-5);
               plan.liquidationThreshold18 = uint(rb.configuration.getLiquidationThreshold()) * 10**(18-5);
               plan.converter = _converters[INDEX_NORMAL_MODE];
             }

@@ -58,4 +58,29 @@ export class AdaptersHelper {
         return (await DeployUtils.deployContract(signer, "HfPoolAdapter")) as HfPoolAdapter;
     }
 //endregion Hundred finance
+
+//region dForce
+    public static async createDForcePlatformAdapter(
+        signer: SignerWithAddress
+        , controller: string
+        , comptroller: string
+        , templateAdapterNormal: string
+        , cTokensActive: string[]
+        , priceOracle: string
+    ) : Promise<DForcePlatformAdapter> {
+        return (await DeployUtils.deployContract(
+            signer,
+            "DForcePlatformAdapter",
+            controller,
+            comptroller,
+            templateAdapterNormal,
+            cTokensActive,
+            priceOracle
+        )) as DForcePlatformAdapter;
+    }
+
+    public static async createDForcePoolAdapter(signer: SignerWithAddress) : Promise<DForcePoolAdapter> {
+        return (await DeployUtils.deployContract(signer, "DForcePoolAdapter")) as DForcePoolAdapter;
+    }
+//endregion dForce
 }

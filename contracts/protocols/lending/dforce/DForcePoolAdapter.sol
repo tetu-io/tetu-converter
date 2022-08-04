@@ -7,13 +7,13 @@ import "../../../openzeppelin/IERC20.sol";
 import "../../../interfaces/IPoolAdapter.sol";
 import "../../../core/DebtMonitor.sol";
 import "../../../core/AppErrors.sol";
-import "../../../integrations/hundred-finance/IHfComptroller.sol";
+import "../../../integrations/dforce/IDForceController.sol";
 import "../../../interfaces/IPoolAdapterInitializerWithAP.sol";
-import "../../../integrations/hundred-finance/IHfCToken.sol";
-import "../../../integrations/hundred-finance/IHfOracle.sol";
+import "../../../integrations/dforce/IDForceCToken.sol";
+import "../../../integrations/dforce/IDForcePriceOracle.sol";
 import "../../../interfaces/ITokenAddressProvider.sol";
 
-/// @notice Implementation of IPoolAdapter for HundredFinance-protocol, see https://docs.hundred.finance/
+/// @notice Implementation of IPoolAdapter for dForce-protocol, see https://developers.dforce.network/
 /// @dev Instances of this contract are created using proxy-minimal pattern, so no constructor
 contract HfPoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP {
   using SafeERC20 for IERC20;
@@ -25,9 +25,9 @@ contract HfPoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP {
   address public user;
 
   IController public controller;
-  IHfComptroller private _comptroller;
-  /// @notice Implementation of IHfOracle
-  IHfOracle private _priceOracle;
+  IDForceController private _comptroller;
+  /// @notice Implementation of IDForcePriceOracle
+  IDForcePriceOracle private _priceOracle;
 
   /// @notice Last synced amount of given token on the balance of this contract
   mapping(address => uint) public collateralBalance;
@@ -71,9 +71,9 @@ contract HfPoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP {
 
     collateralCToken = cTokenCollateral;
     borrowCToken = cTokenBorrow;
-    _priceOracle = IHfOracle(priceOracle);
+    _priceOracle = IDForcePriceOracle(priceOracle);
 
-    _comptroller = IHfComptroller(comptroller_);
+    _comptroller = IDForceController(comptroller_);
   }
 
   ///////////////////////////////////////////////////////
@@ -118,12 +118,10 @@ contract HfPoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP {
 
     // supply collateral
     IERC20(assetCollateral).approve(cTokenCollateral, collateralAmount_);
-    uint error = IHfCToken(cTokenCollateral).mint(collateralAmount_);
-    require(error == 0, AppErrors.MINT_FAILED);
+    IDForceCToken(cTokenCollateral).mint(address(this), collateralAmount_);
 
     // make borrow
-    error = IHfCToken(cTokenBorrow).borrow(borrowAmount_);
-    require(error == 0, AppErrors.BORROW_FAILED);
+    IDForceCToken(cTokenBorrow).borrow(borrowAmount_);
 
     // ensure that we have received required borrowed amount, send the amount to the receiver
     require(
@@ -149,8 +147,7 @@ contract HfPoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP {
       sumBorrowPlusEffects
     );
 
-    (uint256 dError, uint liquidity,) = _comptroller.getAccountLiquidity(address(this));
-    require(dError == 0, AppErrors.CTOKEN_GET_ACCOUNT_LIQUIDITY_FAILED);
+    (uint liquidity,uint shortfall,,) = _comptroller.calcAccountEquity(address(this));
 
     console.log("_validateHealthStatusAfterBorrow");
     console.log("sumCollateralSafe", sumCollateralSafe);
@@ -208,13 +205,11 @@ contract HfPoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP {
 
     // transfer borrow amount back to the pool
     assetBorrow.approve(cTokenBorrow, amountToRepay_); //TODO: do we need approve(0)?
-    error = IHfCToken(cTokenBorrow).repayBorrow(amountToRepay_);
-    require(error == 0, AppErrors.REPAY_FAILED);
+    IDForceCToken(cTokenBorrow).repayBorrow(amountToRepay_);
 
     // withdraw the collateral
     uint balanceCollateralAsset = assetCollateral.balanceOf(address(this));
-    error = IHfCToken(cTokenCollateral).redeem(collateralTokensToWithdraw);
-    require(error == 0, AppErrors.REDEEM_FAILED);
+    IDForceCToken(cTokenCollateral).redeem(address(this), collateralTokensToWithdraw);
 
     // transfer collateral back to the user
     assetCollateral.transfer(receiver_, assetCollateral.balanceOf(address(this)) - balanceCollateralAsset);
@@ -242,14 +237,14 @@ contract HfPoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP {
     bool closePosition_,
     uint amountToRepay_
   ) internal view returns (uint) {
-    (uint error, uint tokenBalance,,) = IHfCToken(cTokenCollateral_).getAccountSnapshot(address(this));
+    (uint error, uint tokenBalance,,) = IDForceCToken(cTokenCollateral_).getAccountSnapshot(address(this));
     require(error == 0, AppErrors.CTOKEN_GET_ACCOUNT_SNAPSHOT_FAILED);
 
     if (closePosition_) {
       return tokenBalance;
     }
 
-    (uint error2,, uint borrowBalance,) = IHfCToken(cTokenBorrow_).getAccountSnapshot(address(this));
+    (uint error2,, uint borrowBalance,) = IDForceCToken(cTokenBorrow_).getAccountSnapshot(address(this));
     require(error2 == 0, AppErrors.CTOKEN_GET_ACCOUNT_SNAPSHOT_FAILED);
     require(borrowBalance != 0 && amountToRepay_ <= borrowBalance, AppErrors.WRONG_BORROWED_BALANCE);
 
@@ -320,11 +315,11 @@ contract HfPoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP {
     uint priceBorrow = _priceOracle.getUnderlyingPrice(cTokenBorrow);
     //  / (10 ** (18 - IERC20Extended(borrowAsset).decimals()));
 
-    (uint256 cError, uint256 tokenBalance,, uint256 cExchangeRateMantissa) = IHfCToken(cTokenCollateral)
+    (uint256 cError, uint256 tokenBalance,, uint256 cExchangeRateMantissa) = IDForceCToken(cTokenCollateral)
       .getAccountSnapshot(address(this));
     require(cError == 0, AppErrors.CTOKEN_GET_ACCOUNT_SNAPSHOT_FAILED);
 
-    (uint256 bError,, uint borrowBalance,) = IHfCToken(cTokenBorrow)
+    (uint256 bError,, uint borrowBalance,) = IDForceCToken(cTokenBorrow)
       .getAccountSnapshot(address(this));
     require(bError == 0, AppErrors.CTOKEN_GET_ACCOUNT_SNAPSHOT_FAILED);
 

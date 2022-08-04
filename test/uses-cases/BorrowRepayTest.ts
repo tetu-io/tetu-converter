@@ -27,6 +27,7 @@ import {RepayAction} from "../baseUT/actions/RepayAction";
 import {MockPlatformFabric} from "../baseUT/fabrics/MockPlatformFabric";
 import {isPolygonForkInUse} from "../baseUT/NetworkUtils";
 import {HundredFinancePlatformFabric} from "../baseUT/fabrics/HundredFinancePlatformFabric";
+import {DForcePlatformFabric} from "../baseUT/fabrics/DForcePlatformFabric";
 
 describe("BorrowRepayTest", () => {
 //region Global vars for all tests
@@ -281,6 +282,70 @@ describe("BorrowRepayTest", () => {
                         if (!await isPolygonForkInUse()) return;
 
                         const fabric = new HundredFinancePlatformFabric();
+                        const {tc, controller} = await TetuConverterApp.buildApp(deployer, [fabric]);
+                        const uc = await MocksHelper.deployUserBorrowRepayUCs(deployer.address, controller);
+
+                        const collateralAsset = MaticAddresses.DAI;
+                        const collateralHolder = MaticAddresses.HOLDER_DAI;
+                        const borrowAsset = MaticAddresses.USDT;
+                        const borrowHolder = MaticAddresses.HOLDER_USDT;
+                        // const borrowAsset = MaticAddresses.WMATIC;
+                        // const borrowHolder = MaticAddresses.HOLDER_WMATIC;
+
+                        const collateralToken = await TokenWrapper.Build(deployer, collateralAsset);
+                        const borrowToken = await TokenWrapper.Build(deployer, borrowAsset);
+
+                        const collateralAmount = getBigNumberFrom(1_000, collateralToken.decimals);
+
+                        const countBlocks = 1;
+                        const healthFactor2 = 0;
+
+                        const amountToRepay = undefined; //full repay
+
+                        const c0 = await setInitialBalance(collateralToken.address
+                            , collateralHolder, 1_000_000, uc.address);
+                        const b0 = await setInitialBalance(borrowToken.address
+                            , borrowHolder, 80_000, uc.address);
+
+                        const {
+                            userBalances,
+                            borrowBalances
+                        } = await BorrowRepayUsesCase.makeBorrowRepayActions(deployer
+                            , uc
+                            , [
+                                new BorrowAction(
+                                    collateralToken
+                                    , collateralAmount
+                                    , borrowToken
+                                    , countBlocks
+                                    , healthFactor2
+                                ),
+                                new RepayAction(
+                                    collateralToken
+                                    , borrowToken
+                                    , amountToRepay
+                                )
+                            ]
+                        );
+
+                        const ret = getSingleBorrowSingleRepayResults(
+                            c0
+                            , b0
+                            , collateralAmount
+                            , userBalances
+                            , borrowBalances
+                            , await uc.totalBorrowedAmount()
+                            , await uc.totalRepaidAmount()
+                        );
+
+                        expect(ret.sret).eq(ret.sexpected);
+                    });
+                });
+                describe("dForce", () => {
+                    it("should return expected balances", async () => {
+                        if (!await isPolygonForkInUse()) return;
+
+                        const fabric = new DForcePlatformFabric();
                         const {tc, controller} = await TetuConverterApp.buildApp(deployer, [fabric]);
                         const uc = await MocksHelper.deployUserBorrowRepayUCs(deployer.address, controller);
 
