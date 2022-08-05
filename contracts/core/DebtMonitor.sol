@@ -126,9 +126,7 @@ contract DebtMonitor is IDebtMonitor {
     address collateralToken_,
     address borrowedToken_
   ) external view override returns (
-    uint countItems,
-    address[] memory outPoolAdapters,
-    uint[] memory amountsToPay
+    address[] memory outPoolAdapters
   ) {
     console.log("get positions user=%s collateral=%s borrow=%s", user_, collateralToken_, borrowedToken_);
 
@@ -136,21 +134,13 @@ contract DebtMonitor is IDebtMonitor {
     uint countAdapters = adapters.length;
 
     outPoolAdapters = new address[](countAdapters);
-    amountsToPay = new uint[](countAdapters);
 
-    for (uint i = 0; i < countAdapters; ++i) {
+    for (uint i = 0; i < countAdapters; i = _uncheckedInc(i)) {
       console.log("position %d pool adapter=%s", i, adapters[i]);
-      IPoolAdapter pa = IPoolAdapter(adapters[i]);
-      (, uint amountToPay,) = pa.getStatus();
-      console.log("amountToPay %d", amountToPay);
-      if (amountToPay != 0) {
-        outPoolAdapters[countItems] = adapters[i];
-        amountsToPay[countItems] = amountToPay;
-        countItems++;
-      }
+      outPoolAdapters[i] = adapters[i];
     }
 
-    return (countItems, outPoolAdapters, amountsToPay);
+    return outPoolAdapters;
   }
 
 

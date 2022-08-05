@@ -115,11 +115,10 @@ contract TetuConverter is ITetuConverter {
     address collateralToken_,
     address borrowedToken_
   ) external view override returns (
-    uint countItems,
-    address[] memory poolAdapters,
-    uint[] memory amountsToPay
+    address[] memory poolAdapters
   ) {
     console.log("findBorrows user=%s collateral=%s borrow=%s", msg.sender, collateralToken_, borrowedToken_);
+
     return _dm().getPositions(msg.sender, collateralToken_, borrowedToken_);
   }
 

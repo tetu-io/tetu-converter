@@ -2,9 +2,11 @@ import {TokenWrapper} from "./TokenWrapper";
 import {BigNumber} from "ethers";
 import {IUserBalances} from "./BalanceUtils";
 import {
+    IPoolAdapter__factory,
     UserBorrowRepayUCs
 } from "../../typechain";
 import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
+import {deprecate} from "util";
 
 export interface IBorrowAction {
     collateralToken: TokenWrapper,
@@ -40,9 +42,18 @@ export class BorrowRepayUsesCase {
         const borrowBalances: BigNumber[] = [];
         for (const action of actions) {
             const balances = await action.doAction(user);
-            const ret = await user.getBorrows(action.collateralToken.address, action.borrowToken.address);
+            const poolAdapters: string[] = await user.getBorrows(action.collateralToken.address, action.borrowToken.address);
             borrowBalances.push(
-                ret.amounts.reduce((prev, cur) => prev.add(cur), BigNumber.from(0))
+                await poolAdapters.reduce(
+                    async (prevPromise, curPoolAdapterAddress) => {
+                        return prevPromise.then(async prevValue => {
+                            const pa = IPoolAdapter__factory.connect(curPoolAdapterAddress, signer);
+                            const status = await pa.getStatus();
+                            return prevValue.add(status.amountToPay);
+                        });
+                    }
+                    , Promise.resolve(BigNumber.from(0))
+                )
             );
             userBalances.push(balances);
         }

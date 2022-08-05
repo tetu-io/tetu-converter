@@ -82,8 +82,6 @@ contract HfPoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP {
 
   /// @dev TC calls this function before transferring any amounts to balance of this contract
   function syncBalance(bool beforeBorrow_) external override {
-    _onlyTC();
-
     if (beforeBorrow_) {
       reserveBalances[collateralAsset] = IERC20(collateralAsset).balanceOf(address(this));
     }

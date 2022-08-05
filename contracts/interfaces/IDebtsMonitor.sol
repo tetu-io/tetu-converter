@@ -33,16 +33,12 @@ interface IDebtMonitor {
   function getCountPositions() external view returns (uint);
 
   /// @notice Get active borrows of the user with given collateral/borrowToken
-  /// @return countItems Count of valid items in {outPoolAdapters} and {outAmountsToPay}
   /// @return poolAdapters An instance of IPoolAdapter
-  /// @return amountsToPay Amount of {borrowedToken_} that should be repaid to close the borrow
   function getPositions (
     address user_,
     address collateralToken_,
     address borrowedToken_
   ) external view returns (
-    uint countItems,
-    address[] memory poolAdapters,
-    uint[] memory amountsToPay
+    address[] memory poolAdapters
   );
 }

@@ -82,13 +82,10 @@ contract DForcePoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP {
 
   /// @dev TC calls this function before transferring any amounts to balance of this contract
   function syncBalance(bool beforeBorrow_) external override {
-    _onlyTC();
-
     if (beforeBorrow_) {
       reserveBalances[collateralAsset] = IERC20(collateralAsset).balanceOf(address(this));
     } else {
-      // take all effects into account
-      // after that, getStatus will return actual borrow balance
+      // Update borrowBalance to actual value
       IDForceCToken(borrowCToken).borrowBalanceCurrent(address(this));
     }
 

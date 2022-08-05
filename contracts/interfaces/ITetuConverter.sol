@@ -42,14 +42,11 @@ interface ITetuConverter {
   ) external;
 
   /// @notice Get active borrow positions for the given collateral/borrowToken
-  /// @return countItems Count of valid items in {outPoolAdapters} and {outAmountsToPay}
   /// @return poolAdapters An instance of IPoolAdapter (with repay function)
   function findBorrows (
     address collateralToken_,
     address borrowedToken_
   ) external view returns (
-    uint countItems,
-    address[] memory poolAdapters,
-    uint[] memory amountsToPay
+    address[] memory poolAdapters
   );
 }

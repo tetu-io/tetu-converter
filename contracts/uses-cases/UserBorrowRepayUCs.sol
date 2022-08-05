@@ -80,22 +80,25 @@ contract UserBorrowRepayUCs {
     address receiver_
   ) external {
     console.log("makeRepayUC1.2 started");
-    (uint count, address[] memory poolAdapters, uint[] memory amounts)
-      = _tc().findBorrows(collateralAsset_, borrowedAsset_);
-    console.log("makeRepayUC1.2 count positions=%d", count);
-    for (uint i = 0; i < count; ++i) {
-      // transfer borrowed amount to Pool Adapter
-      IERC20(borrowedAsset_).transfer(poolAdapters[i], amounts[i]);
-      console.log("makeRepayUC1.2 borrowedToken_=%s amount=%d", borrowedAsset_, amounts[i]);
 
-      // repay borrowed amount and receive collateral to receiver's balance
-      IPoolAdapter(poolAdapters[i]).repay(
-        amounts[i],
-        receiver_,
-        true
-      );
+    address[] memory poolAdapters = _tc().findBorrows(collateralAsset_, borrowedAsset_);
+    uint lenPoolAdapters = poolAdapters.length;
 
-      totalRepaidAmount += amounts[i];
+    console.log("makeRepayUC1.2 count positions=%d", lenPoolAdapters);
+    for (uint i = 0; i < lenPoolAdapters; ++i) {
+      IPoolAdapter pa = IPoolAdapter(poolAdapters[i]);
+      pa.syncBalance(false);
+      (, uint amountToPay, ) = pa.getStatus();
+      if (amountToPay > 0) {
+        // transfer borrowed amount to Pool Adapter
+        IERC20(borrowedAsset_).transfer(poolAdapters[i], amountToPay);
+        console.log("makeRepayUC1.2 borrowedToken_=%s amount=%d", borrowedAsset_, amountToPay);
+
+        // repay borrowed amount and receive collateral to receiver's balance
+        pa.repay(amountToPay, receiver_, true);
+
+        totalRepaidAmount += amountToPay;
+      }
     }
     console.log("makeRepayUC1.2 done");
   }
@@ -108,14 +111,16 @@ contract UserBorrowRepayUCs {
     uint amountToPay_
   ) external {
     console.log("makeRepayUS1.3 started");
-    (uint count, address[] memory poolAdapters, uint[] memory amounts)
-      = _tc().findBorrows(collateralAsset_, borrowedAsset_);
-    console.log("makeRepayUS1.3 count positions=%d", count);
-    for (uint i = 0; i < count; ++i) {
-      uint amountToPayToPA = amountToPay_ >= amounts[i]
-        ? amounts[i]
-        : amountToPay_;
-      bool closePosition = amountToPayToPA == amounts[i];
+    address[] memory poolAdapters = _tc().findBorrows(collateralAsset_, borrowedAsset_);
+    uint lenPoolAdapters = poolAdapters.length;
+    console.log("makeRepayUS1.3 count positions=%d", lenPoolAdapters);
+    for (uint i = 0; i < lenPoolAdapters; ++i) {
+      IPoolAdapter pa = IPoolAdapter(poolAdapters[i]);
+      pa.syncBalance(false);
+      (, uint amountToPay, ) = pa.getStatus();
+
+      uint amountToPayToPA = amountToPay_ >= amountToPay ? amountToPay : amountToPay_;
+      bool closePosition = amountToPayToPA == amountToPay;
       console.log("makeRepayUS1.3 amount to pay=%d close position=%d", amountToPayToPA, closePosition ? 1 : 0);
 
       // transfer borrowed amount to Pool Adapter
@@ -123,11 +128,7 @@ contract UserBorrowRepayUCs {
       console.log("makeRepayUS1.3 borrowedToken_=%s amount=%d", borrowedAsset_, amountToPayToPA);
 
       // repay borrowed amount and receive collateral to receiver's balance
-      IPoolAdapter(poolAdapters[i]).repay(
-        amountToPayToPA,
-        receiver_,
-        closePosition
-      );
+      pa.repay(amountToPayToPA, receiver_, closePosition);
 
       totalRepaidAmount += amountToPayToPA;
     }
@@ -142,9 +143,7 @@ contract UserBorrowRepayUCs {
     address collateralAsset_,
     address borrowedAsset_
   ) external view returns (
-    uint count,
-    address[] memory poolAdapters,
-    uint[] memory amounts
+    address[] memory poolAdapters
   ) {
     return _tc().findBorrows(collateralAsset_, borrowedAsset_);
   }
