@@ -15,7 +15,7 @@ import "../../../interfaces/ITokenAddressProvider.sol";
 
 /// @notice Implementation of IPoolAdapter for dForce-protocol, see https://developers.dforce.network/
 /// @dev Instances of this contract are created using proxy-minimal pattern, so no constructor
-contract HfPoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP {
+contract DForcePoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP {
   using SafeERC20 for IERC20;
 
   address public collateralAsset;
@@ -147,7 +147,7 @@ contract HfPoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP {
       sumBorrowPlusEffects
     );
 
-    (uint liquidity,uint shortfall,,) = _comptroller.calcAccountEquity(address(this));
+    (uint liquidity,,,) = _comptroller.calcAccountEquity(address(this));
 
     console.log("_validateHealthStatusAfterBorrow");
     console.log("sumCollateralSafe", sumCollateralSafe);
@@ -183,7 +183,6 @@ contract HfPoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP {
     address receiver_,
     bool closePosition
   ) external override {
-    uint error;
     IERC20 assetBorrow = IERC20(borrowAsset);
     IERC20 assetCollateral = IERC20(collateralAsset);
     address cTokenBorrow = borrowCToken;
@@ -237,15 +236,13 @@ contract HfPoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP {
     bool closePosition_,
     uint amountToRepay_
   ) internal view returns (uint) {
-    (uint error, uint tokenBalance,,) = IDForceCToken(cTokenCollateral_).getAccountSnapshot(address(this));
-    require(error == 0, AppErrors.CTOKEN_GET_ACCOUNT_SNAPSHOT_FAILED);
+    uint tokenBalance = IERC20(cTokenCollateral_).balanceOf(address(this));
 
     if (closePosition_) {
       return tokenBalance;
     }
 
-    (uint error2,, uint borrowBalance,) = IDForceCToken(cTokenBorrow_).getAccountSnapshot(address(this));
-    require(error2 == 0, AppErrors.CTOKEN_GET_ACCOUNT_SNAPSHOT_FAILED);
+    uint borrowBalance = IDForceCToken(cTokenBorrow_).borrowBalanceStored(address(this));
     require(borrowBalance != 0 && amountToRepay_ <= borrowBalance, AppErrors.WRONG_BORROWED_BALANCE);
 
     return tokenBalance * amountToRepay_ / borrowBalance;
@@ -287,46 +284,44 @@ contract HfPoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP {
     );
   }
 
-  /// @return outTokenBalance Count of collateral tokens on balance
-  /// @return outBorrowBalance Borrow amount [borrow asset units]
-  /// @return outCollateralAmount Total collateral in base currency
-  /// @return sumBorrowPlusEffects Total borrow amount in base currency
-  function _getStatus(address cTokenCollateral, address cTokenBorrow) internal view returns (
-    uint outTokenBalance,
-    uint outBorrowBalance,
-    uint outCollateralAmount,
-    uint sumBorrowPlusEffects
+  /// @return tokenBalance Count of collateral tokens on balance
+  /// @return borrowBalance Borrow amount [borrow asset units]
+  /// @return collateralAmountBASE Total collateral in base currency
+  /// @return sumBorrowBASE Total borrow amount in base currency
+  function _getStatus(address cTokenCollateral_, address cTokenBorrow_) internal view returns (
+    uint tokenBalance,
+    uint borrowBalance,
+    uint collateralAmountBASE,
+    uint sumBorrowBASE
   ) {
-    // we need to repeat Comptroller.getHypotheticalAccountLiquidityInternal
-    // but for single collateral and single borrow only
-    // Collateral factor = CF, exchange rate = ER, price = P
-    // Liquidity = sumCollateral - sumBorrowPlusEffects
-    // where sumCollateral = ERMP * Collateral::TokenBalance
-    //       sumBorrowPlusEffects = Borrow::P * Borrow::BorrowBalance
-    //       ERMP = Collateral::ER * Collateral::P
-    // TokenBalance and BorrowBalance can be received through Token.getAccountSnapshot
-    // Liquidity - through Comptroller.getAccountLiquidity
-    //
-    // Health factor = (Collateral::CF * sumCollateral) / sumBorrowPlusEffects
-    //               = (Liquidity + sumBorrowPlusEffects) / sumBorrowPlusEffects
+    // Calculate value of all collaterals, see ControllerV2.calcAccountEquityWithEffect
+    // collateralValuePerToken = underlyingPrice * exchangeRate * collateralFactor
+    // collateralValue = balance * collateralValuePerToken
+    // sumCollateral += collateralValue
+    tokenBalance = IERC20(cTokenCollateral_).balanceOf(address(this));
+    uint exchangeRateMantissa = IDForceCToken(cTokenCollateral_).exchangeRateStored();
 
-    uint priceCollateral = _priceOracle.getUnderlyingPrice(cTokenCollateral);
-    //  / (10 ** (18 - IERC20Extended(collateralAsset).decimals()));
-    uint priceBorrow = _priceOracle.getUnderlyingPrice(cTokenBorrow);
-    //  / (10 ** (18 - IERC20Extended(borrowAsset).decimals()));
+    (uint underlyingPrice, bool isPriceValid) = _priceOracle.getUnderlyingPriceAndStatus(address(cTokenCollateral_));
+    require(underlyingPrice != 0 && isPriceValid, AppErrors.ZERO_PRICE);
 
-    (uint256 cError, uint256 tokenBalance,, uint256 cExchangeRateMantissa) = IDForceCToken(cTokenCollateral)
-      .getAccountSnapshot(address(this));
-    require(cError == 0, AppErrors.CTOKEN_GET_ACCOUNT_SNAPSHOT_FAILED);
+    (uint collateralFactorMantissa,,,,,,) = _comptroller.markets(cTokenCollateral_);
 
-    (uint256 bError,, uint borrowBalance,) = IDForceCToken(cTokenBorrow)
-      .getAccountSnapshot(address(this));
-    require(bError == 0, AppErrors.CTOKEN_GET_ACCOUNT_SNAPSHOT_FAILED);
+    collateralAmountBASE = tokenBalance * underlyingPrice
+      * exchangeRateMantissa / 10**18
+      * collateralFactorMantissa / 10**18;
 
-    outCollateralAmount = (priceCollateral * cExchangeRateMantissa / 10**18) * tokenBalance / 10**18;
-    sumBorrowPlusEffects = priceBorrow * borrowBalance / 10**18;
+    // Calculate all borrowed value, see ControllerV2.calcAccountEquityWithEffect
+    // borrowValue = underlyingPrice * underlyingBorrowed / borrowFactor
+    // sumBorrowed += borrowValue
+    borrowBalance = IDForceCToken(cTokenBorrow_).borrowBalanceStored(address(this));
 
-    return (tokenBalance, borrowBalance, outCollateralAmount, sumBorrowPlusEffects);
+    (underlyingPrice, isPriceValid) = _priceOracle.getUnderlyingPriceAndStatus(address(cTokenBorrow_));
+    require(underlyingPrice != 0 && isPriceValid, AppErrors.ZERO_PRICE);
+
+    (, uint borrowFactorMantissa,,,,,) = _comptroller.markets(cTokenBorrow_);
+    sumBorrowBASE = borrowBalance * underlyingPrice * 10**18 / borrowFactorMantissa;
+
+    return (tokenBalance, borrowBalance, collateralAmountBASE, sumBorrowBASE);
   }
 
   function getConversionKind() external pure override returns (AppDataTypes.ConversionKind) {
@@ -336,17 +331,17 @@ contract HfPoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP {
   ///////////////////////////////////////////////////////
   ///         Utils
   ///////////////////////////////////////////////////////
-  function _getHealthFactor(address cTokenCollateral, uint sumCollateral, uint sumBorrowPlusEffects)
+  function _getHealthFactor(address cTokenCollateral_, uint sumCollateralBase_, uint sumBorrowBase_)
   internal view returns (
     uint sumCollateralSafe,
     uint healthFactor18
   ) {
-    (,uint collateralFactor,) = _comptroller.markets(cTokenCollateral);
+    (uint collateralFactorMantissa,,,,,,) = _comptroller.markets(cTokenCollateral_);
 
-    sumCollateralSafe = collateralFactor * sumCollateral / 10**18;
-    healthFactor18 = sumBorrowPlusEffects == 0
+    sumCollateralSafe = collateralFactorMantissa * sumCollateralBase_ / 10**18;
+    healthFactor18 = sumBorrowBase_ == 0
       ? type(uint).max
-      : sumCollateralSafe * 10**18 / sumBorrowPlusEffects;
+      : sumCollateralSafe * 10**18 / sumBorrowBase_;
 
     console.log("_getHealthFactor", healthFactor18);
 

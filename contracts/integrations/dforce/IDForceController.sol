@@ -139,7 +139,7 @@ interface IDForceController {
     uint256 _amount
   ) external;
 
-  /// @return account equity, shortfall, collateral value, borrowed value.
+  /// @notice return account equity, shortfall, collateral value, borrowed value.
   function calcAccountEquity(address _account)
   external
   view

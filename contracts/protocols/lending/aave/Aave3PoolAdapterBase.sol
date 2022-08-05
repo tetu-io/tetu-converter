@@ -166,6 +166,8 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer 
 
     print();
   }
+
+  //TODO: remove
   function print() internal view {
       (uint256 totalCollateralBase,
       uint256 totalDebtBase,

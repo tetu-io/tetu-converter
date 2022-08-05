@@ -82,16 +82,16 @@ contract Aave3PlatformAdapter is IPlatformAdapter {
   ) external view override returns (
     AppDataTypes.ConversionPlan memory plan
   ) {
-    DataTypes.ReserveData memory rc = pool.getReserveData(collateralAsset_);
+    DataTypes.ReserveConfigurationMap memory rc = pool.getConfiguration(collateralAsset_);
 
-    if (_isUsable(rc.configuration) &&  _isCollateralUsageAllowed(rc.configuration)) {
+    if (_isUsable(rc) &&  _isCollateralUsageAllowed(rc)) {
       DataTypes.ReserveData memory rb = pool.getReserveData(borrowAsset_);
 
-      if (_isUsable(rc.configuration) && rb.configuration.getBorrowingEnabled()) {
+      if (_isUsable(rc) && rb.configuration.getBorrowingEnabled()) {
 
-        if (!_isIsolationModeEnabled(rc.configuration) || _isUsableInIsolationMode(rb.configuration)) {
+        if (!_isIsolationModeEnabled(rc) || _isUsableInIsolationMode(rb.configuration)) {
           { // get liquidation threshold (== collateral factor) and loan-to-value
-            uint8 categoryCollateral = uint8(rc.configuration.getEModeCategory());
+            uint8 categoryCollateral = uint8(rc.getEModeCategory());
             if (categoryCollateral != 0 && categoryCollateral == rb.configuration.getEModeCategory()) {
 
               // if both assets belong to the same e-mode-category, we can use category's ltv (higher than default)
@@ -141,7 +141,7 @@ contract Aave3PlatformAdapter is IPlatformAdapter {
             //TODO: take into account DebtCeiling in isolation mode
           }
 
-          plan.maxAmountToSupplyCT = rc.configuration.getSupplyCap() * (10**rb.configuration.getDecimals());
+          plan.maxAmountToSupplyCT = rc.getSupplyCap() * (10**rc.getDecimals());
         }
       }
     }

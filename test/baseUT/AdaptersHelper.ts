@@ -1,7 +1,7 @@
 import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import {
     Aave3PlatformAdapter,
-    Aave3PoolAdapter, Aave3PoolAdapterEMode,
+    Aave3PoolAdapter, Aave3PoolAdapterEMode, DForcePlatformAdapter, DForcePoolAdapter,
     HfPlatformAdapter,
     HfPoolAdapter
 } from "../../typechain";

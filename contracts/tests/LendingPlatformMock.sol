@@ -62,7 +62,7 @@ contract LendingPlatformMock is IPlatformAdapter {
       borrowRateKind: AppDataTypes.BorrowRateKind.PER_BLOCK_1,
       liquidationThreshold18: liquidationThresholds18[collateralAsset_],
       borrowRate: borrowRates[borrowAsset_],
-      ltvWAD: liquidationThresholds18[collateralAsset_],
+      ltv18: liquidationThresholds18[collateralAsset_],
       maxAmountToBorrowBT: liquidity[borrowAsset_],
       maxAmountToSupplyCT: 0
     });
