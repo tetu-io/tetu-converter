@@ -34,6 +34,9 @@ contract Aave3PlatformAdapter is IPlatformAdapter {
   /// @notice Index of template pool adapter in {templatePoolAdapters} that should be used in E-mode of borrowing
   uint constant public INDEX_E_MODE = 1;
 
+  uint256 internal constant RAY = 1e27;
+  uint256 internal constant HALF_RAY = 0.5e27;
+
   ///////////////////////////////////////////////////////
   ///       Constructor and initialization
   ///////////////////////////////////////////////////////
@@ -138,7 +141,11 @@ contract Aave3PlatformAdapter is IPlatformAdapter {
             uint borrowCap = rb.configuration.getBorrowCap();
             if (borrowCap != 0) {
               borrowCap *= (10**rb.configuration.getDecimals());
-              uint totalDebt;
+              IAaveProtocolDataProvider dp = IAaveProtocolDataProvider(
+                IAaveAddressesProvider(pool.ADDRESSES_PROVIDER()).getPoolDataProvider()
+              );
+              (,,, uint256 totalStableDebt, uint256 totalVariableDebt,,,,,,,) = dp.getReserveData(borrowAsset_);
+              uint totalDebt = totalStableDebt + totalVariableDebt;
               if (totalDebt > borrowCap) {
                 plan.maxAmountToBorrowBT = 0;
               } else {
@@ -155,8 +162,11 @@ contract Aave3PlatformAdapter is IPlatformAdapter {
           if (supplyCap == 0) {
             plan.maxAmountToSupplyCT = type(uint).max; // unlimited
           } else {
+            console.log("supplyCap", supplyCap);
             supplyCap  *= (10**rc.configuration.getDecimals());
-            uint totalSupply = IAaveToken(rc.aTokenAddress).scaledTotalSupply() * rc.liquidityIndex;
+            console.log("supplyCap", supplyCap);
+            uint totalSupply = (IAaveToken(rc.aTokenAddress).scaledTotalSupply() * rc.liquidityIndex + HALF_RAY) / RAY;
+            console.log("totalSupply", totalSupply);
             plan.maxAmountToSupplyCT = supplyCap > totalSupply
               ? supplyCap - totalSupply
               : 0;

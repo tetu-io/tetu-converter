@@ -12,6 +12,7 @@ import "../../../integrations/aave/IAavePriceOracle.sol";
 import "../../../integrations/aave/IAaveAddressesProvider.sol";
 import "../../../interfaces/IPoolAdapterInitializer.sol";
 import "../../../integrations/aave/ReserveConfiguration.sol";
+import "../../../integrations/aave/IAaveToken.sol";
 
 /// @notice Implementation of IPoolAdapter for AAVE-protocol, see https://docs.aave.com/hub/
 /// @dev Instances of this contract are created using proxy-minimal pattern, so no constructor
@@ -192,6 +193,8 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer 
     address receiver_,
     bool closePosition
   ) external override {
+    print();
+
     console.log("repay amountToRepay_=%d receiver_=%s closePosition=%d", amountToRepay_, receiver_, closePosition ? 1 : 0);
     address assetBorrow = borrowAsset;
 
@@ -209,24 +212,58 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer 
     // transfer borrow amount back to the pool
     //TODO amount to be repaid, expressed in wei units.
     IERC20(assetBorrow).approve(address(_pool), amountToRepay_); //TODO: do we need approve(0)?
-    _pool.repay(assetBorrow
-      , amountToRepay_
-      , RATE_MODE
-      , address(this)
-    );
 
+    _pool.repay(assetBorrow, amountToRepay_, RATE_MODE, address(this));
+
+    print();
     // withdraw the collateral
-    _pool.withdraw(collateralAsset, amountCollateralToWithdraw, receiver_);
-
-    // validate result status
-    (uint totalCollateralBase, uint totalDebtBase,,,, uint256 healthFactor) = _pool.getUserAccountData(address(this));
-    if (totalCollateralBase == 0 && totalDebtBase == 0) {
-      // update borrow position status in DebtMonitor
-      IDebtMonitor(controller.debtMonitor()).onClosePosition();
+    if (closePosition) {
+      // getUserAccountData returns totalDebtBase, we recalculate it to borrowAsset
+      // when we repay the recalculated amount, some dust balance can be appear. I.e. 100 for USDT
+      // if we will try to withdraw all collateral, the transaction will be reverted
+      // with error HEALTH_FACTOR_LOWER_THAN_LIQUIDATION_THRESHOLD
+      // One possible way to fix it: remain some "dust collateral" on balance to avoid reverting
+      _withdrawAndLeaveDustCollateral(receiver_);
     } else {
-      require(!closePosition, AppErrors.CLOSE_POSITION_FAILED);
-      require(healthFactor > uint(controller.MIN_HEALTH_FACTOR2())*10**(18-2), AppErrors.WRONG_HEALTH_FACTOR);
+      _pool.withdraw(collateralAsset, amountCollateralToWithdraw, receiver_);
+
+      // validate result status
+      (uint totalCollateralBase, uint totalDebtBase,,,, uint256 healthFactor) = _pool.getUserAccountData(address(this));
+      if (totalCollateralBase == 0 && totalDebtBase == 0) {
+        // update borrow position status in DebtMonitor
+        IDebtMonitor(controller.debtMonitor()).onClosePosition();
+      } else {
+        require(!closePosition, AppErrors.CLOSE_POSITION_FAILED);
+        require(healthFactor > uint(controller.MIN_HEALTH_FACTOR2())*10**(18-2), AppErrors.WRONG_HEALTH_FACTOR);
+      }
     }
+
+    print();
+  }
+
+  function _withdrawAndLeaveDustCollateral(address receiver_) internal {
+    (uint256 totalCollateralBase, uint totalDebtBase,,,,) = _pool.getUserAccountData(address(this));
+    if (totalDebtBase != 0) {
+      address assetBorrow = borrowAsset;
+      address assetCollateral = collateralAsset;
+
+      address[] memory assets = new address[](2);
+      assets[0] = assetCollateral;
+      assets[1] = assetBorrow;
+      uint[] memory prices = _priceOracle.getAssetsPrices(assets);
+
+      uint liquidationThreshold18 = _pool.getConfiguration(assetCollateral).getLiquidationThreshold();
+
+      uint collateralToKeepToAvoidRevert = totalDebtBase * liquidationThreshold18 * prices[1] / prices[0];
+      console.log("Keep: ", collateralToKeepToAvoidRevert, prices[0], prices[1]);
+      console.log("Withdraw: ", totalCollateralBase/ prices[0], totalCollateralBase, liquidationThreshold18);
+      console.log("Withdraw possible: ", (totalCollateralBase - collateralToKeepToAvoidRevert)/ prices[0], (totalCollateralBase - collateralToKeepToAvoidRevert));
+
+      _pool.withdraw(collateralAsset, (totalCollateralBase - collateralToKeepToAvoidRevert)/ prices[0], receiver_);
+    } else {
+      _pool.withdraw(collateralAsset, type(uint).max, receiver_);
+    }
+
   }
 
   /// @param amountToRepay_ Amount to be repaid [in borrowed tokens]
@@ -316,4 +353,11 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer 
       ? amount
       : amount * (10 ** targetDecimals) / (10 ** sourceDecimals);
   }
+
+  function _uncheckedInc(uint i) internal pure returns (uint) {
+    unchecked {
+      return i + 1;
+    }
+  }
+
 }
