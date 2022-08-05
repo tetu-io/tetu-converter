@@ -190,7 +190,7 @@ contract BorrowManager is BorrowManagerBase {
       console.log("plan.maxAmountToSupplyCT=%d p_.sourceAmount=%d", plan.maxAmountToSupplyCT, p_.sourceAmount);
 
       // check if we are able to supply required collateral
-      if (plan.maxAmountToSupplyCT == 0 || plan.maxAmountToSupplyCT > p_.sourceAmount) {
+      if (plan.maxAmountToSupplyCT > p_.sourceAmount) {
         // convert borrow rate to APR
         uint aprOfPool = plan.borrowRateKind == AppDataTypes.BorrowRateKind.PER_BLOCK_1
           ? plan.borrowRate

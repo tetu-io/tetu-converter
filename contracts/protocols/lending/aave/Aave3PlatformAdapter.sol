@@ -15,6 +15,7 @@ import "../../../interfaces/IPoolAdapterInitializer.sol";
 import "../../../interfaces/IController.sol";
 import "hardhat/console.sol";
 import "../../../integrations/aave/IAavePriceOracle.sol";
+import "../../../integrations/aave/IAaveToken.sol";
 
 /// @notice Adapter to read current pools info from AAVE-protocol v3, see https://docs.aave.com/hub/
 contract Aave3PlatformAdapter is IPlatformAdapter {
@@ -82,16 +83,16 @@ contract Aave3PlatformAdapter is IPlatformAdapter {
   ) external view override returns (
     AppDataTypes.ConversionPlan memory plan
   ) {
-    DataTypes.ReserveConfigurationMap memory rc = pool.getConfiguration(collateralAsset_);
+    DataTypes.ReserveData memory rc = pool.getReserveData(collateralAsset_);
 
-    if (_isUsable(rc) &&  _isCollateralUsageAllowed(rc)) {
+    if (_isUsable(rc.configuration) &&  _isCollateralUsageAllowed(rc.configuration)) {
       DataTypes.ReserveData memory rb = pool.getReserveData(borrowAsset_);
 
-      if (_isUsable(rc) && rb.configuration.getBorrowingEnabled()) {
+      if (_isUsable(rc.configuration) && rb.configuration.getBorrowingEnabled()) {
 
-        if (!_isIsolationModeEnabled(rc) || _isUsableInIsolationMode(rb.configuration)) {
+        if (!_isIsolationModeEnabled(rc.configuration) || _isUsableInIsolationMode(rb.configuration)) {
           { // get liquidation threshold (== collateral factor) and loan-to-value
-            uint8 categoryCollateral = uint8(rc.getEModeCategory());
+            uint8 categoryCollateral = uint8(rc.configuration.getEModeCategory());
             if (categoryCollateral != 0 && categoryCollateral == rb.configuration.getEModeCategory()) {
 
               // if both assets belong to the same e-mode-category, we can use category's ltv (higher than default)
@@ -134,14 +135,32 @@ contract Aave3PlatformAdapter is IPlatformAdapter {
           // see AAVE3-code, ValidationLogic.sol, validateSupply
 
           { // take into account borrow cap, supply cap and debts ceiling
-            uint borrowCap = rb.configuration.getBorrowCap() * (10**rb.configuration.getDecimals());
-            if (borrowCap != 0 && borrowCap < plan.maxAmountToBorrowBT) {
-              plan.maxAmountToBorrowBT = borrowCap; //TODO: is cap for all user together?
+            uint borrowCap = rb.configuration.getBorrowCap();
+            if (borrowCap != 0) {
+              borrowCap *= (10**rb.configuration.getDecimals());
+              uint totalDebt;
+              if (totalDebt > borrowCap) {
+                plan.maxAmountToBorrowBT = 0;
+              } else {
+                if (totalDebt + plan.maxAmountToBorrowBT > borrowCap) {
+                  plan.maxAmountToBorrowBT = borrowCap - totalDebt;
+                }
+              }
             }
             //TODO: take into account DebtCeiling in isolation mode
           }
 
-          plan.maxAmountToSupplyCT = rc.getSupplyCap() * (10**rc.getDecimals());
+          // see sources of AAVE3\ValidationLogic.sol\validateSupply
+          uint supplyCap = rc.configuration.getSupplyCap();
+          if (supplyCap == 0) {
+            plan.maxAmountToSupplyCT = type(uint).max; // unlimited
+          } else {
+            supplyCap  *= (10**rc.configuration.getDecimals());
+            uint totalSupply = IAaveToken(rc.aTokenAddress).scaledTotalSupply() * rc.liquidityIndex;
+            plan.maxAmountToSupplyCT = supplyCap > totalSupply
+              ? supplyCap - totalSupply
+              : 0;
+          }
         }
       }
     }

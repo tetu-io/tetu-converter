@@ -51,12 +51,12 @@ contract UserBorrowRepayUCs {
     require(maxTargetAmount != 0, "maxTargetAmount is 0");
 
     console.log("We can borrow %d of %s using converter=%s", maxTargetAmount, targetAsset_, converter);
-
     console.log("makeBorrowUC1.1 balance=%d source amount=%d", IERC20(sourceAsset_).balanceOf(address(this)), sourceAmount_);
+
     // transfer collateral to TC
-    require(IERC20(sourceAsset_).balanceOf(address(this)) >= sourceAmount_
-      , "wrong balance st on tc");
+    require(IERC20(sourceAsset_).balanceOf(address(this)) >= sourceAmount_, "wrong balance st on tc");
     IERC20(sourceAsset_).safeApprove(_controller.tetuConverter(), sourceAmount_);
+
     console.log("approve %d for %s", sourceAmount_, _controller.tetuConverter());
 
     // borrow and receive borrowed-amount to receiver's balance

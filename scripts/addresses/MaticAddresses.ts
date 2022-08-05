@@ -10,15 +10,21 @@ export class MaticAddresses {
   public static DAI = "0x8f3Cf7ad23Cd3CaDbD9735AFf958023239c6A063";
   public static USDC = "0x2791bca1f2de4661ed88a30c99a7a9449aa84174";
   public static USDT = "0xc2132d05d31c914a87c6611c10748aeb04b58e8f";
-  public static EURS = "0xe111178a87a3bff0c8d18decba5798827539ae99";
-  public static jEUR = "0x4e3Decbb3645551B8A19f0eA1678079FCB33fB4c";
   public static BALANCER = "0x9a71012B13CA4d3D0Cdc72A177DF3ef03b0E76A3";
   public static WBTS = "0x1BFD67037B42Cf73acF2047067bd4F2C47D9BfD6";
   public static WETH = "0x7ceB23fD6bC0adD59E62ac25578270cFf1b9f619";
   public static WMATIC = "0x0d500B1d8E8eF31E21C99d1Db9A6444d3ADf1270";
   public static SUSHI = "0x0b3F868E0BE5597D5DB7fEB59E1CADBb0fdDa50a";
   public static CRV = "0x172370d5Cd63279eFa6d502DAB29171933a610AF";
+//AAVE
   public static agEUR = "0xE0B52e49357Fd4DAf2c15e02058DCE6BC0057db4";
+  public static EURS = "0xe111178a87a3bff0c8d18decba5798827539ae99";
+  public static jEUR = "0x4e3Decbb3645551B8A19f0eA1678079FCB33fB4c";
+  public static ChainLink = "0x53E0bca35eC356BD5ddDFebbD1Fc0fD03FaBad39";
+  public static AaveToken = "0xD6DF932A45C0f255f85145f286eA0b292B21C90B";
+  public static Aavegotchi_GHST = "0x385Eeac5cB85A38A9a07A70c73e0a3271CfB54A7";
+  public static DefiPulseToken = "0x85955046DF4668e1DD369D2DE9f3AEB98DD2A369";
+//DForce
   public static dForce_USD = "0xCf66EB3D546F0415b368d98A95EAF56DeD7aA752";
 //endregion Assets
 
@@ -29,6 +35,25 @@ export class MaticAddresses {
   public static HOLDER_WMATIC = "0x369582d2010b6ed950b571f4101e3bb9b554876f";
   public static HOLDER_EURS = "0x6de2865067b65d4571c17f6b9eeb8dbdd5e36584";
 //endregion Asset biggest holders
+
+//region AAVE
+  public static Aave_Polygon_DAI = "0x82E64f49Ed5EC1bC6e43DAD4FC8Af9bb3A2312EE";
+  public static Aave_Polygon_LINK = "0x191c10Aa4AF7C30e871E70C95dB0E4eb77237530";
+  public static Aave_Polygon_USDC = "0x625E7708f30cA75bfd92586e17077590C60eb4cD";
+  public static Aave_Polygon_WBTC = "0x078f358208685046a11C85e8ad32895DED33A249";
+  public static Aave_Polygon_WETH = "0xe50fA9b3c56FfB159cB0FCA61F5c9D750e8128c8";
+  public static Aave_Polygon_USDT = "0x6ab707Aca953eDAeFBc4fD23bA73294241490620";
+  public static Aave_Polygon_AAVE = "0xf329e36C7bF6E5E86ce2150875a84Ce77f477375";
+  public static Aave_Polygon_WMATIC = "0x6d80113e533a2C0fe82EaBD35f1875DcEA89Ea97";
+  public static Aave_Polygon_CRV = "0x513c7E3a9c69cA3e22550eF58AC1C0088e918FFf";
+  public static Aave_Polygon_SUSHI = "0xc45A479877e1e9Dfe9FcD4056c699575a1045dAA";
+  public static Aave_Polygon_GHST = "0x8Eb270e296023E9D92081fdF967dDd7878724424";
+  public static Aave_Polygon_BAL = "0x8ffDf2DE812095b1D19CB146E4c004587C0A0692";
+  public static Aave_Polygon_DPI = "0x724dc807b04555b71ed48a6896b6F41593b8C637";
+  public static Aave_Polygon_EURS = "0x38d693cE1dF5AaDF7bC62595A37D667aD57922e5";
+  public static Aave_Polygon_JEUR = "0x6533afac2E7BCCB20dca161449A13A32D391fb00";
+  public static Aave_Polygon_AGEUR = "0x8437d7C167dFB82ED4Cb79CD44B7a32A1dd95c77";
+//endregion AAVE
 
 //region Hundred finance
   /** https://docs.hundred.finance/developers/protocol-contracts/polygon */

@@ -44,7 +44,6 @@ interface ITetuConverter {
   /// @notice Get active borrow positions for the given collateral/borrowToken
   /// @return countItems Count of valid items in {outPoolAdapters} and {outAmountsToPay}
   /// @return poolAdapters An instance of IPoolAdapter (with repay function)
-  /// @return amountsToPay Amount of {borrowedToken_} that should be repaid to close the borrow
   function findBorrows (
     address collateralToken_,
     address borrowedToken_

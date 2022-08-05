@@ -66,7 +66,6 @@ export class AdaptersHelper {
         , comptroller: string
         , templateAdapterNormal: string
         , cTokensActive: string[]
-        , priceOracle: string
     ) : Promise<DForcePlatformAdapter> {
         return (await DeployUtils.deployContract(
             signer,
@@ -75,7 +74,6 @@ export class AdaptersHelper {
             comptroller,
             templateAdapterNormal,
             cTokensActive,
-            priceOracle
         )) as DForcePlatformAdapter;
     }
 

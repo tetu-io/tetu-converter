@@ -142,22 +142,30 @@ contract HfPlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
 
       address cTokenBorrow = activeAssets[borrowAsset_];
       if (cTokenBorrow != address(0)) {
-        plan.ltv18 = _getLtv18(cTokenBorrow);
-        if (plan.ltv18 != 0) {
+        (plan.ltv18, plan.liquidationThreshold18) = _getMarketsInfo(cTokenCollateral, cTokenBorrow);
+        if (plan.ltv18 != 0 && plan.liquidationThreshold18 != 0) {
           plan.borrowRateKind = AppDataTypes.BorrowRateKind.PER_BLOCK_1;
           plan.borrowRate = IHfCToken(cTokenBorrow).borrowRatePerBlock();
           plan.converter = _converters[INDEX_NORMAL_MODE];
 
-          //TODO: how to take into account borrow cap?
-          //TODO: probably we should add borrow cap to conversion plan
           plan.maxAmountToBorrowBT = IHfCToken(cTokenBorrow).getCash();
+          uint borrowCap = comptroller.borrowCaps(cTokenBorrow);
+          if (borrowCap != 0) {
+            uint totalBorrows = IHfCToken(cTokenBorrow).totalBorrows();
+            if (totalBorrows > borrowCap) {
+              plan.maxAmountToBorrowBT = 0;
+            } else {
+              if (totalBorrows + plan.maxAmountToBorrowBT > borrowCap) {
+                plan.maxAmountToBorrowBT = borrowCap - totalBorrows;
+              }
+            }
+          }
+
           console.log("maxAmountToBorrowBT=%d", plan.maxAmountToBorrowBT);
           console.log("borrowRate=%d", plan.borrowRate);
 
           //it seems that supply is not limited in HundredFinance protocol
-          //plan.maxAmountToSupplyCT = 0;
-
-          plan.liquidationThreshold18 = plan.ltv18; //TODO is it valid?
+          plan.maxAmountToSupplyCT = type(uint).max; // unlimited
         }
       }
     }
@@ -195,9 +203,20 @@ contract HfPlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
   ///////////////////////////////////////////////////////
 
   /// @notice Check if the c-token is active and return its collateral factor (== ltv)
-  function _getLtv18(address cToken) internal view returns (uint) {
-    (bool isListed, uint256 collateralFactorMantissa,) = comptroller.markets(cToken);
-    return isListed ? collateralFactorMantissa : 0;
+  function _getMarketsInfo(address cTokenCollateral_, address cTokenBorrow_) internal view returns (
+    uint ltv18,
+    uint liquidityThreshold18
+  ) {
+    (bool isListed, uint256 collateralFactorMantissa,) = comptroller.markets(cTokenBorrow_);
+    if (isListed) {
+      ltv18 = collateralFactorMantissa;
+      (isListed, collateralFactorMantissa,) = comptroller.markets(cTokenCollateral_);
+      if (isListed) {
+        liquidityThreshold18 = collateralFactorMantissa;
+      }
+    }
+
+    return (ltv18, liquidityThreshold18);
   }
 
   ///////////////////////////////////////////////////////

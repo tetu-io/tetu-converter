@@ -26,7 +26,7 @@ interface IHfComptroller {
   function borrowCapGuardian() external view returns (address);
   /// @notice Borrow caps enforced by borrowAllowed for each cToken address. Defaults to zero which corresponds to unlimited borrowing.
   /// @dev https://github.com/compound-finance/compound-protocol/blob/master/contracts/ComptrollerStorage.sol
-  function borrowCaps(address) external view returns (uint256);
+  function borrowCaps(address cToken) external view returns (uint256);
   function borrowGuardianPaused(address) external view returns (bool);
 
   /**

@@ -49,7 +49,8 @@ library AppDataTypes {
     uint ltv18;
     /// @notice How much borrow asset we can borrow in the pool (in borrow tokens)
     uint maxAmountToBorrowBT;
-    /// @notice How much collateral asset can be supplied (in collateral tokens). 0 - unlimited
+    /// @notice How much collateral asset can be supplied (in collateral tokens).
+    ///         type(uint).max - unlimited, 0 - no supply is possible
     uint maxAmountToSupplyCT;
   }
 }

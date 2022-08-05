@@ -1,16 +1,11 @@
 import {writeFileSync} from "fs";
 import {
-    IAaveAddressesProvider, IAaveAddressesProvider__factory,
     IAavePool,
-    IAavePool__factory, IAaveProtocolDataProvider, IAaveProtocolDataProvider__factory,
-    IERC20__factory,
-    IERC20Extended__factory
+    IAaveProtocolDataProvider
 } from "../../../../typechain";
 import {ethers, network} from "hardhat";
-import {BigNumber, Bytes} from "ethers";
-import {DataTypes} from "../../../../typechain/contracts/integrations/aave/IAavePool";
 import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
-import {AaveHelper, CategoryData} from "../../helpers/AaveHelper";
+import {AaveHelper} from "../../helpers/AaveHelper";
 
 /** Download detailed info for all available AAVE pools */
 async function getAavePoolReserves(
@@ -19,8 +14,12 @@ async function getAavePoolReserves(
     dp: IAaveProtocolDataProvider
 ) : Promise<string[]> {
     const headers= [
-        "name",
-        "reserve",
+        "assetSymbol",
+        "assetName",
+        "assetAddress",
+        "aTokenSymbol",
+        "aTokenName",
+        "aTokenAddress",
 
         "totalAToken",
         "totalStableDebt",
@@ -52,7 +51,6 @@ async function getAavePoolReserves(
         "currentStableBorrowRate",
         "lastUpdateTimestamp",
         "id",
-        "aTokenAddress",
         "stableDebtTokenAddress",
         "variableDebtTokenAddress",
         "interestRateStrategyAddress",
@@ -78,8 +76,12 @@ async function getAavePoolReserves(
         const rd = await h.getReserveInfo(signer, aavePool, dp, reserve);
 
         let line = [
+            rd.reserveSymbol,
             rd.reserveName,
             rd.reserveAddress,
+            rd.aTokenSymbol,
+            rd.aTokenName,
+            rd.aTokenAddress,
 
         // total supply of aTokens
             rd.liquidity.totalAToken,
@@ -113,7 +115,6 @@ async function getAavePoolReserves(
             rd.data.currentStableBorrowRate,
             rd.data.lastUpdateTimestamp,
             rd.data.id,
-            rd.data.aTokenAddress,
             rd.data.stableDebtTokenAddress,
             rd.data.variableDebtTokenAddress,
             rd.data.interestRateStrategyAddress,

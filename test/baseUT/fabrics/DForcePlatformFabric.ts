@@ -29,7 +29,6 @@ export class DForcePlatformFabric implements ILendingPlatformFabric {
                 MaticAddresses.dForce_iDF,
                 MaticAddresses.dForce_iMATIC,
             ]
-            , MaticAddresses.HUNDRED_FINANCE_ORACLE
         );
 
         const bm: IBorrowManager = IBorrowManager__factory.connect(await controller.borrowManager(), deployer);

@@ -64,7 +64,7 @@ contract LendingPlatformMock is IPlatformAdapter {
       borrowRate: borrowRates[borrowAsset_],
       ltv18: liquidationThresholds18[collateralAsset_],
       maxAmountToBorrowBT: liquidity[borrowAsset_],
-      maxAmountToSupplyCT: 0
+      maxAmountToSupplyCT: type(uint).max
     });
   }
 

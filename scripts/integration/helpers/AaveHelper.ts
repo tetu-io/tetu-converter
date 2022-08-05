@@ -127,7 +127,11 @@ export interface CategoryData {
 
 export interface ReserveInfo {
     reserveName: string;
+    reserveSymbol: string;
     reserveAddress: string;
+    aTokenName: string;
+    aTokenAddress: string;
+    aTokenSymbol: string;
 
     liquidity: ReserveLiquidity;
     data: ReserveData;
@@ -156,7 +160,10 @@ export class AaveHelper {
 
         const rawData: BigNumber = BigNumber.from(rd.configuration.data);
 
-        const name = await IERC20Extended__factory.connect(reserve, signer).name();
+        const reserveName = await IERC20Extended__factory.connect(reserve, signer).name();
+        const reserveSymbol = await IERC20Extended__factory.connect(reserve, signer).name();
+        const aTokenName = await IERC20Extended__factory.connect(await rd.aTokenAddress, signer).name();
+        const aTokenSymbol = await IERC20Extended__factory.connect(await rd.aTokenAddress, signer).name();
         const decimals = await IERC20Extended__factory.connect(reserve, signer).decimals();
         const category = AaveHelper.get(rawData, EMODE_CATEGORY_MASK, EMODE_CATEGORY_START_BIT_POSITION).toNumber();
 
@@ -210,9 +217,13 @@ export class AaveHelper {
         }
 
         return {
-            reserveName: name,
-            category: categoryData,
+            reserveName: reserveName,
+            reserveSymbol: reserveSymbol,
             reserveAddress: reserve,
+            aTokenSymbol: aTokenSymbol,
+            aTokenAddress: await rd.aTokenAddress,
+            aTokenName: aTokenName,
+            category: categoryData,
             liquidity: liquidityData,
             data: data
         }
