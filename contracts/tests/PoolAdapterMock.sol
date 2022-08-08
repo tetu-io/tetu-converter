@@ -136,6 +136,8 @@ contract PoolAdapterMock is IPoolAdapter {
     }
 
     reserveBalances[_borrowAsset] = borrowBalance;
+
+    _accumulateDebt(0);
   }
 
   ///////////////////////////////////////////////////////

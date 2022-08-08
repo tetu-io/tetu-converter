@@ -110,7 +110,7 @@ contract UserBorrowRepayUCs {
     address receiver_,
     uint amountToPay_
   ) external {
-    console.log("makeRepayUS1.3 started");
+    console.log("makeRepayUS1.3 started - partial pay");
     address[] memory poolAdapters = _tc().findBorrows(collateralAsset_, borrowedAsset_);
     uint lenPoolAdapters = poolAdapters.length;
     console.log("makeRepayUS1.3 count positions=%d", lenPoolAdapters);
@@ -118,6 +118,7 @@ contract UserBorrowRepayUCs {
       IPoolAdapter pa = IPoolAdapter(poolAdapters[i]);
       pa.syncBalance(false);
       (, uint amountToPay, ) = pa.getStatus();
+      console.log("makeRepayUS1.3 total amount to pay=%d we are going to pay=%d", amountToPay, amountToPay_);
 
       uint amountToPayToPA = amountToPay_ >= amountToPay ? amountToPay : amountToPay_;
       bool closePosition = amountToPayToPA == amountToPay;

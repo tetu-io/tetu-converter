@@ -4,21 +4,25 @@ import {IERC20__factory, UserBorrowRepayUCs} from "../../../typechain";
 import {IUserBalances} from "../BalanceUtils";
 import {TokenWrapper} from "../TokenWrapper";
 import {DeployerUtils} from "../../../scripts/utils/DeployerUtils";
+import {TimeUtils} from "../../../scripts/utils/TimeUtils";
 
 export class RepayAction implements IRepayAction {
     public collateralToken: TokenWrapper;
     public borrowToken: TokenWrapper;
     /** if undefined - repay all */
     public amountToRepay: BigNumber | undefined;
+    public countBlocksToSkipAfterAction?: number;
 
     constructor(
         collateralToken: TokenWrapper,
         borrowToken: TokenWrapper,
-        amountToRepay: BigNumber | undefined
+        amountToRepay: BigNumber | undefined,
+        countBlocksToSkipAfterAction?: number
     ) {
         this.collateralToken = collateralToken;
         this.borrowToken = borrowToken;
         this.amountToRepay = amountToRepay;
+        this.countBlocksToSkipAfterAction = countBlocksToSkipAfterAction;
     }
 
     async doAction(user: UserBorrowRepayUCs) : Promise<IUserBalances> {
@@ -35,6 +39,10 @@ export class RepayAction implements IRepayAction {
                 this.borrowToken.address,
                 user.address
             );
+        }
+
+        if (this.countBlocksToSkipAfterAction) {
+            await TimeUtils.advanceNBlocks(this.countBlocksToSkipAfterAction);
         }
 
         const collateral = await IERC20__factory.connect(

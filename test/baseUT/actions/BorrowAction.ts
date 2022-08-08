@@ -4,6 +4,7 @@ import {IUserBalances} from "../BalanceUtils";
 import {TokenWrapper} from "../TokenWrapper";
 import {BigNumber} from "ethers";
 import {DeployerUtils} from "../../../scripts/utils/DeployerUtils";
+import {TimeUtils} from "../../../scripts/utils/TimeUtils";
 
 export class BorrowAction implements IBorrowAction {
     public collateralToken: TokenWrapper;
@@ -11,19 +12,22 @@ export class BorrowAction implements IBorrowAction {
     public borrowToken: TokenWrapper;
     public countBlocks: number;
     public healthFactor2: number;
+    public countBlocksToSkipAfterAction?: number;
 
     constructor(
         collateralToken: TokenWrapper,
         collateralAmount: BigNumber,
         borrowToken: TokenWrapper,
         countBlocks: number,
-        healthFactor2: number
+        healthFactor2: number,
+        countBlocksToSkipAfterAction?: number
     ) {
         this.collateralToken = collateralToken;
         this.collateralAmount = collateralAmount;
         this.borrowToken = borrowToken;
         this.countBlocks = countBlocks;
         this.healthFactor2 = healthFactor2;
+        this.countBlocksToSkipAfterAction = countBlocksToSkipAfterAction;
     }
 
     async doAction(user: UserBorrowRepayUCs) : Promise<IUserBalances> {
@@ -35,6 +39,10 @@ export class BorrowAction implements IBorrowAction {
             this.healthFactor2,
             user.address
         );
+
+        if (this.countBlocksToSkipAfterAction) {
+            await TimeUtils.advanceNBlocks(this.countBlocksToSkipAfterAction);
+        }
 
         const collateral = await IERC20__factory.connect(
             this.collateralToken.address,
