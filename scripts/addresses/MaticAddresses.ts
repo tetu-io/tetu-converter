@@ -36,24 +36,33 @@ export class MaticAddresses {
   public static HOLDER_EURS = "0x6de2865067b65d4571c17f6b9eeb8dbdd5e36584";
 //endregion Asset biggest holders
 
-//region AAVE
-  public static Aave_Polygon_DAI = "0x82E64f49Ed5EC1bC6e43DAD4FC8Af9bb3A2312EE";
-  public static Aave_Polygon_LINK = "0x191c10Aa4AF7C30e871E70C95dB0E4eb77237530";
-  public static Aave_Polygon_USDC = "0x625E7708f30cA75bfd92586e17077590C60eb4cD";
-  public static Aave_Polygon_WBTC = "0x078f358208685046a11C85e8ad32895DED33A249";
-  public static Aave_Polygon_WETH = "0xe50fA9b3c56FfB159cB0FCA61F5c9D750e8128c8";
-  public static Aave_Polygon_USDT = "0x6ab707Aca953eDAeFBc4fD23bA73294241490620";
-  public static Aave_Polygon_AAVE = "0xf329e36C7bF6E5E86ce2150875a84Ce77f477375";
-  public static Aave_Polygon_WMATIC = "0x6d80113e533a2C0fe82EaBD35f1875DcEA89Ea97";
-  public static Aave_Polygon_CRV = "0x513c7E3a9c69cA3e22550eF58AC1C0088e918FFf";
-  public static Aave_Polygon_SUSHI = "0xc45A479877e1e9Dfe9FcD4056c699575a1045dAA";
-  public static Aave_Polygon_GHST = "0x8Eb270e296023E9D92081fdF967dDd7878724424";
-  public static Aave_Polygon_BAL = "0x8ffDf2DE812095b1D19CB146E4c004587C0A0692";
-  public static Aave_Polygon_DPI = "0x724dc807b04555b71ed48a6896b6F41593b8C637";
-  public static Aave_Polygon_EURS = "0x38d693cE1dF5AaDF7bC62595A37D667aD57922e5";
-  public static Aave_Polygon_JEUR = "0x6533afac2E7BCCB20dca161449A13A32D391fb00";
-  public static Aave_Polygon_AGEUR = "0x8437d7C167dFB82ED4Cb79CD44B7a32A1dd95c77";
-//endregion AAVE
+//region AAVE-v3
+  // https://docs.aave.com/developers/deployed-contracts/v3-mainnet/polygon
+  public static AAVE_V3_POOL = "0x794a61358D6845594F94dc1DB02A252b5b4814aD";
+
+  public static Aave3_Polygon_DAI = "0x82E64f49Ed5EC1bC6e43DAD4FC8Af9bb3A2312EE";
+  public static Aave3_Polygon_LINK = "0x191c10Aa4AF7C30e871E70C95dB0E4eb77237530";
+  public static Aave3_Polygon_USDC = "0x625E7708f30cA75bfd92586e17077590C60eb4cD";
+  public static Aave3_Polygon_WBTC = "0x078f358208685046a11C85e8ad32895DED33A249";
+  public static Aave3_Polygon_WETH = "0xe50fA9b3c56FfB159cB0FCA61F5c9D750e8128c8";
+  public static Aave3_Polygon_USDT = "0x6ab707Aca953eDAeFBc4fD23bA73294241490620";
+  public static Aave3_Polygon_AAVE = "0xf329e36C7bF6E5E86ce2150875a84Ce77f477375";
+  public static Aave3_Polygon_WMATIC = "0x6d80113e533a2C0fe82EaBD35f1875DcEA89Ea97";
+  public static Aave3_Polygon_CRV = "0x513c7E3a9c69cA3e22550eF58AC1C0088e918FFf";
+  public static Aave3_Polygon_SUSHI = "0xc45A479877e1e9Dfe9FcD4056c699575a1045dAA";
+  public static Aave3_Polygon_GHST = "0x8Eb270e296023E9D92081fdF967dDd7878724424";
+  public static Aave3_Polygon_BAL = "0x8ffDf2DE812095b1D19CB146E4c004587C0A0692";
+  public static Aave3_Polygon_DPI = "0x724dc807b04555b71ed48a6896b6F41593b8C637";
+  public static Aave3_Polygon_EURS = "0x38d693cE1dF5AaDF7bC62595A37D667aD57922e5";
+  public static Aave3_Polygon_JEUR = "0x6533afac2E7BCCB20dca161449A13A32D391fb00";
+  public static Aave3_Polygon_AGEUR = "0x8437d7C167dFB82ED4Cb79CD44B7a32A1dd95c77";
+//endregion AAVE-v3
+
+//region AAVE-v3
+  // https://docs.aave.com/developers/v/2.0/deployed-contracts/matic-polygon-market
+  public static AAVE_V2_POOL = "0x8dFf5E27EA6b7AC08EbFdf9eB090F32ee9a30fcf";
+
+//endregion AAVE-v3
 
 //region Hundred finance
   /** https://docs.hundred.finance/developers/protocol-contracts/polygon */

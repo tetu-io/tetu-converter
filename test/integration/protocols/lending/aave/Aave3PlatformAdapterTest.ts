@@ -10,7 +10,7 @@ import {getBigNumberFrom} from "../../../../../scripts/utils/NumberUtils";
 import {DeployerUtils} from "../../../../../scripts/utils/DeployerUtils";
 import {AdaptersHelper} from "../../../../baseUT/AdaptersHelper";
 import {isPolygonForkInUse} from "../../../../baseUT/NetworkUtils";
-import {AaveHelper} from "../../../../../scripts/integration/helpers/AaveHelper";
+import {Aave3Helper} from "../../../../../scripts/integration/helpers/Aave3Helper";
 import {BalanceUtils} from "../../../../baseUT/BalanceUtils";
 
 describe("Aave-v3 integration tests, platform adapter", () => {
@@ -117,8 +117,8 @@ describe("Aave-v3 integration tests, platform adapter", () => {
             const templateAdapterNormalStub = ethers.Wallet.createRandom();
             const templateAdapterEModeStub = ethers.Wallet.createRandom();
 
-            const h: AaveHelper = new AaveHelper(deployer);
-            const aavePool = await AaveHelper.getAavePool(deployer);
+            const h: Aave3Helper = new Aave3Helper(deployer);
+            const aavePool = await Aave3Helper.getAavePool(deployer);
             const aavePlatformAdapter = await AdaptersHelper.createAave3PlatformAdapter(
                 deployer,
                 controllerStub.address,
@@ -127,7 +127,7 @@ describe("Aave-v3 integration tests, platform adapter", () => {
                 templateAdapterEModeStub.address
             );
 
-            const dp = await AaveHelper.getAaveProtocolDataProvider(deployer);
+            const dp = await Aave3Helper.getAaveProtocolDataProvider(deployer);
 
             const collateralAssetData = await h.getReserveInfo(deployer, aavePool, dp, collateralAsset);
             const borrowAssetData = await h.getReserveInfo(deployer, aavePool, dp, borrowAsset);

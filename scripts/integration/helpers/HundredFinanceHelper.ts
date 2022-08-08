@@ -10,7 +10,7 @@ import {
     IHfOracle, IERC20__factory, IERC20Extended__factory,
 } from "../../../typechain";
 import {BigNumber, Signer} from "ethers";
-import {AaveHelper} from "./AaveHelper";
+import {Aave3Helper} from "./Aave3Helper";
 import {MaticAddresses} from "../../addresses/MaticAddresses";
 
 //region Constants
@@ -197,7 +197,7 @@ export class HundredFinanceHelper {
                 rd.price, rd.underlineDecimals
             ];
 
-            dest.push(line.map(x => AaveHelper.toString(x)).join(","));
+            dest.push(line.map(x => Aave3Helper.toString(x)).join(","));
         }
 
         return dest;

@@ -4,20 +4,20 @@ pragma solidity 0.8.4;
 
 import "../../../openzeppelin/SafeERC20.sol";
 import "../../../openzeppelin/IERC20.sol";
-import "../../../integrations/aave/IAavePool.sol";
-import "../../../integrations/aave/IAaveAddressesProvider.sol";
-import "../../../integrations/aave/IAaveProtocolDataProvider.sol";
-import "../../../integrations/aave/ReserveConfiguration.sol";
+import "../../../integrations/aave3/IAavePool.sol";
+import "../../../integrations/aave3/IAaveAddressesProvider.sol";
+import "../../../integrations/aave3/IAaveProtocolDataProvider.sol";
+import "../../../integrations/aave3/ReserveConfiguration.sol";
+import "../../../integrations/aave3/IAavePriceOracle.sol";
+import "../../../integrations/aave3/IAaveToken.sol";
 import "../../../core/AppDataTypes.sol";
 import "../../../core/AppErrors.sol";
 import "../../../interfaces/IPlatformAdapter.sol";
 import "../../../interfaces/IPoolAdapterInitializer.sol";
 import "../../../interfaces/IController.sol";
 import "hardhat/console.sol";
-import "../../../integrations/aave/IAavePriceOracle.sol";
-import "../../../integrations/aave/IAaveToken.sol";
 
-/// @notice Adapter to read current pools info from AAVE-protocol v3, see https://docs.aave.com/hub/
+/// @notice Adapter to read current pools info from AAVE-v3-protocol, see https://docs.aave.com/hub/
 contract Aave3PlatformAdapter is IPlatformAdapter {
   using SafeERC20 for IERC20;
   using ReserveConfiguration for DataTypes.ReserveConfigurationMap;
@@ -117,22 +117,21 @@ contract Aave3PlatformAdapter is IPlatformAdapter {
           plan.borrowRate = rb.currentVariableBorrowRate / 10**(27-18); // rays => decimals 18 (1 ray = 1e-27)
           plan.borrowRateKind = AppDataTypes.BorrowRateKind.PER_SECOND_2;
 
-          { // by default, we can borrow all available cache
+          // by default, we can borrow all available cache
 
-            // we need to know available liquidity in the pool, so, we need an access to pool-data-provider
-            // TODO: can we use static address of the PoolDataProvider - 0x69FA688f1Dc47d4B5d8029D5a35FB7a548310654 ?
-            // TODO: see https://docs.aave.com/developers/deployed-contracts/v3-mainnet/polygon
-            IAaveProtocolDataProvider dp = IAaveProtocolDataProvider(
-              (IAaveAddressesProvider(IAavePool(pool).ADDRESSES_PROVIDER())).getPoolDataProvider()
-            );
+          // we need to know available liquidity in the pool, so, we need an access to pool-data-provider
+          // TODO: can we use static address of the PoolDataProvider - 0x69FA688f1Dc47d4B5d8029D5a35FB7a548310654 ?
+          // TODO: see https://docs.aave.com/developers/deployed-contracts/v3-mainnet/polygon
+          IAaveProtocolDataProvider dp = IAaveProtocolDataProvider(
+            (IAaveAddressesProvider(IAavePool(pool).ADDRESSES_PROVIDER())).getPoolDataProvider()
+          );
 
-            (,,
-            uint256 totalAToken,
-            uint256 totalStableDebt,
-            uint256 totalVariableDebt
-            ,,,,,,,) = dp.getReserveData(borrowAsset_);
-            plan.maxAmountToBorrowBT = totalAToken - totalStableDebt - totalVariableDebt;
-          }
+          (,,
+          uint256 totalAToken,
+          uint256 totalStableDebt,
+          uint256 totalVariableDebt
+          ,,,,,,,) = dp.getReserveData(borrowAsset_);
+          plan.maxAmountToBorrowBT = totalAToken - totalStableDebt - totalVariableDebt;
 
           // supply/borrow caps are given in "whole tokens" == without decimals
           // see AAVE3-code, ValidationLogic.sol, validateSupply
@@ -141,10 +140,10 @@ contract Aave3PlatformAdapter is IPlatformAdapter {
             uint borrowCap = rb.configuration.getBorrowCap();
             if (borrowCap != 0) {
               borrowCap *= (10**rb.configuration.getDecimals());
-              IAaveProtocolDataProvider dp = IAaveProtocolDataProvider(
-                IAaveAddressesProvider(pool.ADDRESSES_PROVIDER()).getPoolDataProvider()
-              );
-              (,,, uint256 totalStableDebt, uint256 totalVariableDebt,,,,,,,) = dp.getReserveData(borrowAsset_);
+//              IAaveProtocolDataProvider dp = IAaveProtocolDataProvider(
+//                IAaveAddressesProvider(pool.ADDRESSES_PROVIDER()).getPoolDataProvider()
+//              );
+//              (,,, uint256 totalStableDebt, uint256 totalVariableDebt,,,,,,,) = dp.getReserveData(borrowAsset_);
               uint totalDebt = totalStableDebt + totalVariableDebt;
               if (totalDebt > borrowCap) {
                 plan.maxAmountToBorrowBT = 0;

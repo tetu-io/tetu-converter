@@ -11,9 +11,10 @@ import {
 } from "../../../typechain";
 import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import {DataTypes} from "../../../typechain/contracts/integrations/aave/IAavePool";
+import {MaticAddresses} from "../../addresses/MaticAddresses";
 
 // https://docs.aave.com/developers/deployed-contracts/v3-mainnet/polygon
-const AAVE_POOL = "0x794a61358D6845594F94dc1DB02A252b5b4814aD";
+const AAVE_POOL = MaticAddresses.AAVE_V3_POOL;
 
 const FULL_MASK =                      "0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF";
 
@@ -139,13 +140,13 @@ export interface ReserveInfo {
 }
 //endregion Data types
 
-export class AaveHelper {
+export class Aave3Helper {
 //region Instance
     private funcGetECategoryData: (category: number) => Promise<CategoryData>;
 
     constructor(signer: SignerWithAddress) {
-        this.funcGetECategoryData = AaveHelper.memoize(category => AaveHelper.getEModeCategory(
-            AaveHelper.getAavePool(signer)
+        this.funcGetECategoryData = Aave3Helper.memoize(category => Aave3Helper.getEModeCategory(
+            Aave3Helper.getAavePool(signer)
             , category
         ));
     }
@@ -165,7 +166,7 @@ export class AaveHelper {
         const aTokenName = await IERC20Extended__factory.connect(await rd.aTokenAddress, signer).name();
         const aTokenSymbol = await IERC20Extended__factory.connect(await rd.aTokenAddress, signer).name();
         const decimals = await IERC20Extended__factory.connect(reserve, signer).decimals();
-        const category = AaveHelper.get(rawData, EMODE_CATEGORY_MASK, EMODE_CATEGORY_START_BIT_POSITION).toNumber();
+        const category = Aave3Helper.get(rawData, EMODE_CATEGORY_MASK, EMODE_CATEGORY_START_BIT_POSITION).toNumber();
 
         const categoryData: CategoryData | undefined = category
             ? await this.funcGetECategoryData(category)
@@ -180,23 +181,23 @@ export class AaveHelper {
         }
 
         const data: ReserveData = {
-            ltv: AaveHelper.get(rawData, LTV_MASK, 0),
-            liquidationThreshold: AaveHelper.get(rawData, LIQUIDATION_THRESHOLD_MASK, LIQUIDATION_THRESHOLD_START_BIT_POSITION),
-            liquidationBonus: AaveHelper.get(rawData, LIQUIDATION_BONUS_MASK, LIQUIDATION_BONUS_START_BIT_POSITION),
-            decimals: AaveHelper.get(rawData, DECIMALS_MASK, RESERVE_DECIMALS_START_BIT_POSITION).toNumber(),
-            active: AaveHelper.getBitValue(rawData, ACTIVE_MASK),
-            frozen: AaveHelper.getBitValue(rawData, FROZEN_MASK),
-            paused: AaveHelper.getBitValue(rawData, PAUSED_MASK),
-            borrowableInIsolationMode: AaveHelper.getBitValue(rawData, BORROWABLE_IN_ISOLATION_MASK),
-            siloedBorrowing: AaveHelper.getBitValue(rawData, SILOED_BORROWING_MASK),
-            borrowing: AaveHelper.getBitValue(rawData, BORROWING_MASK),
-            stableBorrowing: AaveHelper.getBitValue(rawData, STABLE_BORROWING_MASK),
-            reserveFactor: AaveHelper.get(rawData, RESERVE_FACTOR_MASK, RESERVE_FACTOR_START_BIT_POSITION),
-            borrowCap: AaveHelper.get(rawData, BORROW_CAP_MASK, BORROW_CAP_START_BIT_POSITION),
-            supplyCap: AaveHelper.get(rawData, SUPPLY_CAP_MASK, SUPPLY_CAP_START_BIT_POSITION),
-            debtCeiling: AaveHelper.get(rawData, DEBT_CEILING_MASK, DEBT_CEILING_START_BIT_POSITION),
-            liquidationProtocolFee: AaveHelper.get(rawData, LIQUIDATION_PROTOCOL_FEE_MASK, LIQUIDATION_PROTOCOL_FEE_START_BIT_POSITION),
-            unbackedMintCap: AaveHelper.get(rawData, UNBACKED_MINT_CAP_MASK, UNBACKED_MINT_CAP_START_BIT_POSITION),
+            ltv: Aave3Helper.get(rawData, LTV_MASK, 0),
+            liquidationThreshold: Aave3Helper.get(rawData, LIQUIDATION_THRESHOLD_MASK, LIQUIDATION_THRESHOLD_START_BIT_POSITION),
+            liquidationBonus: Aave3Helper.get(rawData, LIQUIDATION_BONUS_MASK, LIQUIDATION_BONUS_START_BIT_POSITION),
+            decimals: Aave3Helper.get(rawData, DECIMALS_MASK, RESERVE_DECIMALS_START_BIT_POSITION).toNumber(),
+            active: Aave3Helper.getBitValue(rawData, ACTIVE_MASK),
+            frozen: Aave3Helper.getBitValue(rawData, FROZEN_MASK),
+            paused: Aave3Helper.getBitValue(rawData, PAUSED_MASK),
+            borrowableInIsolationMode: Aave3Helper.getBitValue(rawData, BORROWABLE_IN_ISOLATION_MASK),
+            siloedBorrowing: Aave3Helper.getBitValue(rawData, SILOED_BORROWING_MASK),
+            borrowing: Aave3Helper.getBitValue(rawData, BORROWING_MASK),
+            stableBorrowing: Aave3Helper.getBitValue(rawData, STABLE_BORROWING_MASK),
+            reserveFactor: Aave3Helper.get(rawData, RESERVE_FACTOR_MASK, RESERVE_FACTOR_START_BIT_POSITION),
+            borrowCap: Aave3Helper.get(rawData, BORROW_CAP_MASK, BORROW_CAP_START_BIT_POSITION),
+            supplyCap: Aave3Helper.get(rawData, SUPPLY_CAP_MASK, SUPPLY_CAP_START_BIT_POSITION),
+            debtCeiling: Aave3Helper.get(rawData, DEBT_CEILING_MASK, DEBT_CEILING_START_BIT_POSITION),
+            liquidationProtocolFee: Aave3Helper.get(rawData, LIQUIDATION_PROTOCOL_FEE_MASK, LIQUIDATION_PROTOCOL_FEE_START_BIT_POSITION),
+            unbackedMintCap: Aave3Helper.get(rawData, UNBACKED_MINT_CAP_MASK, UNBACKED_MINT_CAP_START_BIT_POSITION),
             emodeCategory: category,
 
             // other fields
@@ -236,17 +237,17 @@ export class AaveHelper {
     }
     public static async getAaveAddressesProvider(signer: SignerWithAddress): Promise<IAaveAddressesProvider> {
         return IAaveAddressesProvider__factory.connect(
-            await AaveHelper.getAavePool(signer).ADDRESSES_PROVIDER()
+            await Aave3Helper.getAavePool(signer).ADDRESSES_PROVIDER()
             , signer
         );
     }
     public static async getAaveProtocolDataProvider(signer: SignerWithAddress): Promise<IAaveProtocolDataProvider> {
         return IAaveProtocolDataProvider__factory.connect(
-            await(await AaveHelper.getAaveAddressesProvider(signer)).getPoolDataProvider(), signer);
+            await(await Aave3Helper.getAaveAddressesProvider(signer)).getPoolDataProvider(), signer);
     }
     public static async getAavePriceOracle(signer: SignerWithAddress): Promise<IAavePriceOracle> {
         return IAavePriceOracle__factory.connect(
-            await(await AaveHelper.getAaveAddressesProvider(signer)).getPriceOracle(), signer);
+            await(await Aave3Helper.getAaveAddressesProvider(signer)).getPriceOracle(), signer);
     }
 //endregion Access
 

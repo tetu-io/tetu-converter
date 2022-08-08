@@ -10,7 +10,7 @@ import {getBigNumberFrom} from "../../../../../scripts/utils/NumberUtils";
 import {DeployerUtils} from "../../../../../scripts/utils/DeployerUtils";
 import {AdaptersHelper} from "../../../../baseUT/AdaptersHelper";
 import {isPolygonForkInUse} from "../../../../baseUT/NetworkUtils";
-import {AaveHelper} from "../../../../../scripts/integration/helpers/AaveHelper";
+import {Aave3Helper} from "../../../../../scripts/integration/helpers/Aave3Helper";
 import {BalanceUtils, IUserBalances} from "../../../../baseUT/BalanceUtils";
 import {CoreContractsHelper} from "../../../../baseUT/CoreContractsHelper";
 import {TokenWrapper} from "../../../../baseUT/TokenWrapper";
@@ -60,14 +60,14 @@ describe("Aave-v3 integration tests, pool adapter", () => {
             const tetuConveterStab = ethers.Wallet.createRandom();
 
             // initialize pool, adapters and helper for the adapters
-            const h: AaveHelper = new AaveHelper(deployer);
+            const h: Aave3Helper = new Aave3Helper(deployer);
             //const aavePlatformAdapter = await AdaptersHelper.createAave3PlatformAdapter(deployer);
             const aavePoolAdapterAsTC = await AdaptersHelper.createAave3PoolAdapter(
                 await DeployerUtils.startImpersonate(tetuConveterStab.address)
             );
-            const aavePool = await AaveHelper.getAavePool(deployer);
-            const dp = await AaveHelper.getAaveProtocolDataProvider(deployer);
-            const aavePrices = await AaveHelper.getAavePriceOracle(deployer);
+            const aavePool = await Aave3Helper.getAavePool(deployer);
+            const dp = await Aave3Helper.getAaveProtocolDataProvider(deployer);
+            const aavePrices = await Aave3Helper.getAavePriceOracle(deployer);
 
             // controller: we need TC (as a caller) and DM (to register borrow position)
             const controller = await CoreContractsHelper.createControllerWithPrices(deployer);
@@ -276,14 +276,14 @@ describe("Aave-v3 integration tests, pool adapter", () => {
             const tetuConveterStab = ethers.Wallet.createRandom();
 
             // initialize pool, adapters and helper for the adapters
-            const h: AaveHelper = new AaveHelper(deployer);
+            const h: Aave3Helper = new Aave3Helper(deployer);
             //const aavePlatformAdapter = await AdaptersHelper.createAave3PlatformAdapter(deployer);
             const aavePoolAdapterAsTC = await AdaptersHelper.createAave3PoolAdapter(
                 await DeployerUtils.startImpersonate(tetuConveterStab.address)
             );
-            const aavePool = await AaveHelper.getAavePool(deployer);
-            const dp = await AaveHelper.getAaveProtocolDataProvider(deployer);
-            const aavePrices = await AaveHelper.getAavePriceOracle(deployer);
+            const aavePool = await Aave3Helper.getAavePool(deployer);
+            const dp = await Aave3Helper.getAaveProtocolDataProvider(deployer);
+            const aavePrices = await Aave3Helper.getAavePriceOracle(deployer);
 
             // controller: we need TC (as a caller) and DM (to register borrow position)
             const controller = await CoreContractsHelper.createControllerWithPrices(deployer);

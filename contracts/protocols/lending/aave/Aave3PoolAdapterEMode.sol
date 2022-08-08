@@ -3,9 +3,9 @@
 pragma solidity 0.8.4;
 
 import "./Aave3PoolAdapterBase.sol";
-import "../../../integrations/aave/ReserveConfiguration.sol";
+import "../../../integrations/aave3/ReserveConfiguration.sol";
 
-/// @notice PoolAdapter for AAVE-protocol that uses high efficiency borrow mode (E-mode)
+/// @notice PoolAdapter for AAVE-v3-protocol that uses high efficiency borrow mode (E-mode)
 /// @dev https://docs.aave.com/faq/aave-v3-features#high-efficiency-mode-e-mode
 contract Aave3PoolAdapterEMode is Aave3PoolAdapterBase {
   using ReserveConfiguration for DataTypes.ReserveConfigurationMap;

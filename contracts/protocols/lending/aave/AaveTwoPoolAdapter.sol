@@ -1,22 +1,21 @@
 // SPDX-License-Identifier: MIT
-
 pragma solidity 0.8.4;
 
 import "../../../openzeppelin/SafeERC20.sol";
 import "../../../openzeppelin/IERC20.sol";
 import "../../../interfaces/IPoolAdapter.sol";
-import "../../../interfaces/IPoolAdapterInitializer.sol";
 import "../../../core/DebtMonitor.sol";
 import "../../../core/AppErrors.sol";
 import "../../../integrations/aave3/IAavePool.sol";
 import "../../../integrations/aave3/IAavePriceOracle.sol";
 import "../../../integrations/aave3/IAaveAddressesProvider.sol";
+import "../../../interfaces/IPoolAdapterInitializer.sol";
 import "../../../integrations/aave3/ReserveConfiguration.sol";
 import "../../../integrations/aave3/IAaveToken.sol";
 
-/// @notice Implementation of IPoolAdapter for AAVE-v3-protocol, see https://docs.aave.com/hub/
+/// @notice Implementation of IPoolAdapter for AAVE-v2-protocol, see https://docs.aave.com/hub/
 /// @dev Instances of this contract are created using proxy-minimal pattern, so no constructor
-abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer {
+abstract contract AaveTwoPoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer {
   using SafeERC20 for IERC20;
   using ReserveConfiguration for DataTypes.ReserveConfigurationMap;
 

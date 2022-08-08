@@ -9,7 +9,7 @@ import {
 
 } from "../../../typechain";
 import {BigNumber, Signer} from "ethers";
-import {AaveHelper} from "./AaveHelper";
+import {Aave3Helper} from "./Aave3Helper";
 import {MaticAddresses} from "../../addresses/MaticAddresses";
 
 //region Data types
@@ -177,7 +177,7 @@ export class DForceHelper {
                 rd.underlineDecimals
             ];
 
-            dest.push(line.map(x => AaveHelper.toString(x)).join(","));
+            dest.push(line.map(x => Aave3Helper.toString(x)).join(","));
         }
 
         return dest;

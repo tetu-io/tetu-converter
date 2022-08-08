@@ -7,7 +7,7 @@ import {
 import {expect} from "chai";
 import {AdaptersHelper} from "../../../../baseUT/AdaptersHelper";
 import {isPolygonForkInUse} from "../../../../baseUT/NetworkUtils";
-import {AaveHelper} from "../../../../../scripts/integration/helpers/AaveHelper";
+import {Aave3Helper} from "../../../../../scripts/integration/helpers/Aave3Helper";
 import {BalanceUtils} from "../../../../baseUT/BalanceUtils";
 import {HundredFinanceHelper} from "../../../../../scripts/integration/helpers/HundredFinanceHelper";
 import {MaticAddresses} from "../../../../../scripts/addresses/MaticAddresses";
@@ -67,7 +67,7 @@ describe("Hundred finance integration tests, platform adapter", () => {
                 MaticAddresses.HUNDRED_FINANCE_ORACLE
             );
 
-            const dp = await AaveHelper.getAaveProtocolDataProvider(deployer);
+            const dp = await Aave3Helper.getAaveProtocolDataProvider(deployer);
 
             const collateralAssetData = await HundredFinanceHelper.getCTokenData(deployer, comptroller
                 , IHfCToken__factory.connect(cTokenCollateral, deployer)

@@ -1,17 +1,17 @@
 import {writeFileSync} from "fs";
 import {
-    IAavePool,
-    IAaveProtocolDataProvider
+    IAaveTwoPool, IAaveTwoProtocolDataProvider
+
 } from "../../../../typechain";
 import {ethers, network} from "hardhat";
 import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
-import {AaveHelper} from "../../helpers/AaveHelper";
+import {AaveTwoHelper} from "../../helpers/AaveTwoHelper";
 
 /** Download detailed info for all available AAVE pools */
-async function getAavePoolReserves(
+async function getAaveTwoPoolReserves(
     signer: SignerWithAddress,
-    aavePool: IAavePool,
-    dp: IAaveProtocolDataProvider
+    aavePool: IAaveTwoPool,
+    dp: IAaveTwoProtocolDataProvider
 ) : Promise<string[]> {
     const headers= [
         "assetSymbol",
@@ -31,18 +31,10 @@ async function getAavePoolReserves(
         "decimals",
         "active",
         "frozen",
-        "paused",
-        "borrowable in isolation mode",
-        "siloed borrowing",
         "borrowing",
-        "stable borrowing",
+        "stableBorrowing",
         "reserve factor",
-        "borrow cap",
-        "supply cap",
-        "debt ceiling",
         "liquidation protocol fee",
-        "unbacked mint cap",
-        "emode category",
 
         "liquidityIndex",
         "currentLiquidityRate",
@@ -54,9 +46,6 @@ async function getAavePoolReserves(
         "stableDebtTokenAddress",
         "variableDebtTokenAddress",
         "interestRateStrategyAddress",
-        "accruedToTreasury",
-        "unbacked",
-        "isolationModeTotalDebt",
 
         "ct-ltv",
         "ct-liquidationThreshold",
@@ -65,15 +54,13 @@ async function getAavePoolReserves(
         "ct-label"
     ]
 
-    const h = new AaveHelper(signer);
-
     const dest: string[] = [];
     dest.push(headers.join(","));
 
     const reserves = await aavePool.getReservesList();
     for (const reserve of reserves) {
         console.log("reserve", reserve);
-        const rd = await h.getReserveInfo(signer, aavePool, dp, reserve);
+        const rd = await AaveTwoHelper.getReserveInfo(signer, aavePool, dp, reserve);
 
         let line = [
             rd.reserveSymbol,
@@ -84,7 +71,7 @@ async function getAavePoolReserves(
             rd.aTokenAddress,
 
         // total supply of aTokens
-            rd.liquidity.totalAToken,
+            rd.liquidity.availableLiquidity,
             rd.liquidity.totalStableDebt,
             rd.liquidity.totalVariableDebt,
 
@@ -95,18 +82,9 @@ async function getAavePoolReserves(
             rd.data.decimals,
             rd.data.active,
             rd.data.frozen,
-            rd.data.paused,
-            rd.data.borrowableInIsolationMode,
-            rd.data.siloedBorrowing,
             rd.data.borrowing,
             rd.data.stableBorrowing,
             rd.data.reserveFactor,
-            rd.data.borrowCap,
-            rd.data.supplyCap,
-            rd.data.debtCeiling,
-            rd.data.liquidationProtocolFee,
-            rd.data.unbackedMintCap,
-            rd.data.emodeCategory,
 
             rd.data.liquidityIndex,
             rd.data.currentLiquidityRate,
@@ -118,22 +96,9 @@ async function getAavePoolReserves(
             rd.data.stableDebtTokenAddress,
             rd.data.variableDebtTokenAddress,
             rd.data.interestRateStrategyAddress,
-            rd.data.accruedToTreasury,
-            rd.data.unbacked,
-            rd.data.isolationModeTotalDebt
         ];
 
-        if (rd.category) {
-            line = [...line
-                , rd.category.ltv
-                , rd.category.liquidationThreshold
-                , rd.category.liquidationBonus
-                , rd.category.priceSource
-                , rd.category.label
-            ];
-        }
-
-        dest.push(line.map(x => AaveHelper.toString(x)).join(","));
+        dest.push(line.map(x => AaveTwoHelper.toString(x)).join(","));
     }
 
     return dest;
@@ -141,20 +106,20 @@ async function getAavePoolReserves(
 
 /** Download detailed info for all available AAVE pools
  *
- * npx hardhat run scripts/integration/lending/aave/DownloadAavePools.ts
+ * npx hardhat run scripts/integration/lending/aave/DownloadAaveTwoPools.ts
  * */
 async function main() {
     const signer = (await ethers.getSigners())[0];
-    console.log("getInfoAboutAavePools");
+    console.log("Get AAVEv2 pool info");
 
     const net = await ethers.provider.getNetwork();
     console.log(net, network.name);
 
-    const aavePool: IAavePool = AaveHelper.getAavePool(signer);
-    const dp: IAaveProtocolDataProvider = await AaveHelper.getAaveProtocolDataProvider(signer);
+    const aavePool: IAaveTwoPool = AaveTwoHelper.getAavePool(signer);
+    const dp: IAaveTwoProtocolDataProvider = await AaveTwoHelper.getAaveProtocolDataProvider(signer);
 
-    const lines = await getAavePoolReserves(signer, aavePool, dp);
-    writeFileSync('./tmp/aave_reserves.csv', lines.join("\n"), 'utf8');
+    const lines = await getAaveTwoPoolReserves(signer, aavePool, dp);
+    writeFileSync('./tmp/aave2_reserves.csv', lines.join("\n"), 'utf8');
 }
 
 main()
