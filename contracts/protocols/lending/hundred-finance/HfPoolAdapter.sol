@@ -94,10 +94,8 @@ contract HfPoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP {
       IHfCToken(borrowCToken).borrowBalanceCurrent(address(this));
     }
 
-    {
-      address assetBorrow = borrowAsset;
-      reserveBalances[assetBorrow] = _getBalance(assetBorrow);
-    }
+    address assetBorrow = borrowAsset;
+    reserveBalances[assetBorrow] = _getBalance(assetBorrow);
   }
 
   /// @notice Supply collateral to the pool and borrow {borrowedAmount_} in {borrowedToken_}
@@ -148,7 +146,7 @@ contract HfPoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP {
     }
     require(
       borrowAmount_ == IERC20(assetBorrow).balanceOf(address(this)) - reserveBalances[assetBorrow]
-    , AppErrors.WRONG_BORROWED_BALANCE
+      , AppErrors.WRONG_BORROWED_BALANCE
     );
     IERC20(assetBorrow).safeTransfer(receiver_, borrowAmount_);
 
@@ -234,7 +232,6 @@ contract HfPoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP {
 
     // transfer collateral back to the user
     uint amountToReturn = _getBalance(assetCollateral) - balanceCollateralAsset;
-
     if (_isMatic(assetCollateral)) {
       IWmatic(WMATIC).deposit{value : amountToReturn}();
     }

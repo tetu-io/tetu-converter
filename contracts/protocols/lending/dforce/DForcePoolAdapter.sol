@@ -13,6 +13,7 @@ import "../../../integrations/dforce/IDForceCToken.sol";
 import "../../../integrations/dforce/IDForcePriceOracle.sol";
 import "../../../interfaces/ITokenAddressProvider.sol";
 import "../../../integrations/dforce/IDForceCTokenMatic.sol";
+import "../../../integrations/IWmatic.sol";
 
 /// @notice Implementation of IPoolAdapter for dForce-protocol, see https://developers.dforce.network/
 /// @dev Instances of this contract are created using proxy-minimal pattern, so no constructor
@@ -86,13 +87,15 @@ contract DForcePoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP {
   /// @dev TC calls this function before transferring any amounts to balance of this contract
   function syncBalance(bool beforeBorrow_) external override {
     if (beforeBorrow_) {
-      reserveBalances[collateralAsset] = IERC20(collateralAsset).balanceOf(address(this));
+      address assetCollateral = collateralAsset;
+      reserveBalances[assetCollateral] = _getBalance(assetCollateral);
     } else {
       // Update borrowBalance to actual value
       IDForceCToken(borrowCToken).borrowBalanceCurrent(address(this));
     }
 
-    reserveBalances[borrowAsset] = IERC20(borrowAsset).balanceOf(address(this));
+    address assetBorrow = borrowAsset;
+    reserveBalances[assetBorrow] = _getBalance(assetBorrow);
   }
 
   /// @notice Supply collateral to the pool and borrow {borrowedAmount_} in {borrowedToken_}
@@ -102,19 +105,17 @@ contract DForcePoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP {
     uint borrowAmount_,
     address receiver_
   ) external override {
-    console.log("borrow.1", collateralAmount_, borrowAmount_, receiver_);
     _onlyTC();
     address cTokenCollateral = collateralCToken;
     address cTokenBorrow = borrowCToken;
     address assetCollateral = collateralAsset;
-    IERC20 assetBorrow = IERC20(borrowAsset);
+    address assetBorrow = borrowAsset;
 
     // ensure we have received expected collateral amount
     require(
-      collateralAmount_ >= IERC20(assetCollateral).balanceOf(address(this)) - reserveBalances[assetCollateral]
+      collateralAmount_ >= _getBalance(assetCollateral) - reserveBalances[assetCollateral]
       , AppErrors.WRONG_COLLATERAL_BALANCE
     );
-    console.log("borrow.2 balance of collateral", IERC20(assetCollateral).balanceOf(address(this)) - reserveBalances[assetCollateral]);
 
     // enter markets (repeat entering is not a problem)
     address[] memory markets = new address[](2);
@@ -123,8 +124,9 @@ contract DForcePoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP {
     _comptroller.enterMarkets(markets);
 
     // supply collateral
-    if (!_isMatic(assetCollateral)) {
+    if (_isMatic(assetCollateral)) {
       require(IERC20(WMATIC).balanceOf(address(this)) >= collateralAmount_, AppErrors.MINT_FAILED);
+      IWmatic(WMATIC).withdraw(collateralAmount_);
       IDForceCTokenMatic(cTokenCollateral).mint{value : collateralAmount_}(address(this));
     } else {
       IERC20(assetCollateral).approve(cTokenCollateral, collateralAmount_);
@@ -134,15 +136,15 @@ contract DForcePoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP {
     // make borrow
     IDForceCToken(cTokenBorrow).borrow(borrowAmount_);
 
-    console.log("borrow.3 balance of cToken", IDForceCToken(cTokenBorrow).balanceOf(address(this)));
-
     // ensure that we have received required borrowed amount, send the amount to the receiver
+    if (_isMatic(assetBorrow)) {
+      IWmatic(WMATIC).deposit{value : borrowAmount_}();
+    }
     require(
-      borrowAmount_ == assetBorrow.balanceOf(address(this)) - reserveBalances[address(assetBorrow)]
+      borrowAmount_ == IERC20(assetBorrow).balanceOf(address(this)) - reserveBalances[address(assetBorrow)]
       , AppErrors.WRONG_BORROWED_BALANCE
     );
-    assetBorrow.safeTransfer(receiver_, borrowAmount_);
-    console.log("borrow.4 borrow ammount", borrowAmount_);
+    IERC20(assetBorrow).safeTransfer(receiver_, borrowAmount_);
 
     // register the borrow in DebtMonitor
     IDebtMonitor(controller.debtMonitor()).onOpenPosition();
@@ -158,16 +160,6 @@ contract DForcePoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP {
     (uint sumCollateralSafe, uint healthFactor18) = _getHealthFactor(cTokenCollateral, collateralBase, borrowBase);
 
     (uint liquidity,,,) = _comptroller.calcAccountEquity(address(this));
-
-    console.log("_validateHealthStatusAfterBorrow");
-    console.log("sumCollateralSafe", sumCollateralSafe);
-    console.log("sumBorrowPlusEffect", borrowBase);
-    console.log("sumCollateralSafe - sumBorrowPlusEffects", sumCollateralSafe - borrowBase);
-    console.log("liquidity", liquidity);
-    console.log("sumCollateralSafe - sumBorrowPlusEffects == liquidity %d, dif=%d"
-      , sumCollateralSafe - borrowBase == liquidity ? 1 : 0
-      , liquidity - (sumCollateralSafe - borrowBase)
-    );
 
     require(
       sumCollateralSafe > borrowBase
@@ -193,28 +185,16 @@ contract DForcePoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP {
     address receiver_,
     bool closePosition
   ) external override {
-    console.log("repay");
-    IERC20 assetBorrow = IERC20(borrowAsset);
-    IERC20 assetCollateral = IERC20(collateralAsset);
+    address assetBorrow = borrowAsset;
+    address assetCollateral = collateralAsset;
     address cTokenBorrow = borrowCToken;
     address cTokenCollateral = collateralCToken;
 
-
-    (uint liquidity, uint shortfall,,) = _comptroller.calcAccountEquity(address(this));
-    console.log("liquidity shortfall", liquidity, shortfall);
-
-    uint borrowBalance1 = IDForceCToken(cTokenBorrow).borrowBalanceStored(address(this));
-    console.log("borrowBalance", borrowBalance1);
-
-    borrowBalance1 = IDForceCToken(cTokenBorrow).borrowBalanceStored(address(this));
-    console.log("borrowBalance", borrowBalance1);
-
     // ensure that we have received enough money on our balance just before repay was called
     require(
-      amountToRepay_ == assetBorrow.balanceOf(address(this)) - reserveBalances[address(assetBorrow)]
+      amountToRepay_ == IERC20(assetBorrow).balanceOf(address(this)) - reserveBalances[assetBorrow]
     , AppErrors.WRONG_BORROWED_BALANCE
     );
-    console.log("balance borrow", assetBorrow.balanceOf(address(this)) - reserveBalances[address(assetBorrow)]);
 
     // how much collateral we are going to return
     uint collateralTokensToWithdraw = _getCollateralTokensToRedeem(
@@ -223,32 +203,27 @@ contract DForcePoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP {
       closePosition,
       amountToRepay_
     );
-    console.log("collateralTokensToWithdraw", collateralTokensToWithdraw);
-    console.log("amountToRepay_", amountToRepay_);
 
     // transfer borrow amount back to the pool
-    console.log("IDForceCToken(cTokenBorrow) balance before", IDForceCToken(cTokenBorrow).balanceOf(address(this)));
-    if (!_isMatic(address(assetBorrow))) {
+    if (_isMatic(address(assetBorrow))) {
       require(IERC20(WMATIC).balanceOf(address(this)) >= amountToRepay_, AppErrors.MINT_FAILED);
+      IWmatic(WMATIC).withdraw(amountToRepay_);
       IDForceCTokenMatic(cTokenBorrow).repayBorrow{value : amountToRepay_}();
     } else {
-      assetBorrow.approve(cTokenBorrow, amountToRepay_); //TODO: do we need approve(0)?
+      IERC20(assetBorrow).approve(cTokenBorrow, amountToRepay_); //TODO: do we need approve(0)?
       IDForceCToken(cTokenBorrow).repayBorrow(amountToRepay_);
     }
 
-    console.log("IDForceCToken(cTokenBorrow) balance after", IDForceCToken(cTokenBorrow).balanceOf(address(this)));
-    (liquidity, shortfall,,) = _comptroller.calcAccountEquity(address(this));
-    console.log("liquidity shortfall", liquidity, shortfall);
-
     // withdraw the collateral
-    uint balanceCollateralAsset = assetCollateral.balanceOf(address(this));
-    console.log("balanceCollateralAsset", balanceCollateralAsset);
-
+    uint balanceCollateralAsset = _getBalance(assetCollateral);
     IDForceCToken(cTokenCollateral).redeem(address(this), collateralTokensToWithdraw);
 
     // transfer collateral back to the user
-    assetCollateral.transfer(receiver_, assetCollateral.balanceOf(address(this)) - balanceCollateralAsset);
-    console.log("assetCollateral.balanceOf(address(this))", assetCollateral.balanceOf(address(this)));
+    uint amountToReturn = _getBalance(assetCollateral) - balanceCollateralAsset;
+    if (_isMatic(assetCollateral)) {
+      IWmatic(WMATIC).deposit{value : amountToReturn}();
+    }
+    IERC20(assetCollateral).safeTransfer(receiver_, amountToReturn);
 
     // validate result status
     (uint tokenBalance,
@@ -274,7 +249,6 @@ contract DForcePoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP {
     uint amountToRepay_
   ) internal view returns (uint) {
     uint tokenBalance = IERC20(cTokenCollateral_).balanceOf(address(this));
-    console.log("tokenBalance", tokenBalance);
 
     if (closePosition_) {
       return tokenBalance;
@@ -282,10 +256,6 @@ contract DForcePoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP {
 
     uint borrowBalance = IDForceCToken(cTokenBorrow_).borrowBalanceStored(address(this));
     require(borrowBalance != 0 && amountToRepay_ <= borrowBalance, AppErrors.WRONG_BORROWED_BALANCE);
-
-    console.log("_getCollateralTokensToRedeem");
-    console.log("borrowBalance", borrowBalance);
-    console.log("amountToRepay_", amountToRepay_);
 
     return tokenBalance * amountToRepay_ / borrowBalance;
   }
@@ -336,34 +306,27 @@ contract DForcePoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP {
     uint collateralAmountBASE,
     uint sumBorrowBASE
   ) {
-    console.log("_getStatus");
     // Calculate value of all collaterals, see ControllerV2.calcAccountEquityWithEffect
     // collateralValuePerToken = underlyingPrice * exchangeRate * collateralFactor
     // collateralValue = balance * collateralValuePerToken
     // sumCollateral += collateralValue
     tokenBalance = IERC20(cTokenCollateral_).balanceOf(address(this));
     uint exchangeRateMantissa = IDForceCToken(cTokenCollateral_).exchangeRateStored();
-    console.log("tokenBalance exchangeRateMantissa", tokenBalance, exchangeRateMantissa);
 
     (uint underlyingPrice, bool isPriceValid) = _priceOracle.getUnderlyingPriceAndStatus(address(cTokenCollateral_));
     require(underlyingPrice != 0 && isPriceValid, AppErrors.ZERO_PRICE);
-    console.log("underlyingPrice", underlyingPrice);
 
     collateralAmountBASE = tokenBalance * underlyingPrice * exchangeRateMantissa / 10**18;
-    console.log("collateralAmountBASE", collateralAmountBASE);
 
     // Calculate all borrowed value, see ControllerV2.calcAccountEquityWithEffect
     // borrowValue = underlyingPrice * underlyingBorrowed / borrowFactor
     // sumBorrowed += borrowValue
     borrowBalance = IDForceCToken(cTokenBorrow_).borrowBalanceStored(address(this));
-    console.log("borrowBalance", borrowBalance);
 
     (underlyingPrice, isPriceValid) = _priceOracle.getUnderlyingPriceAndStatus(address(cTokenBorrow_));
     require(underlyingPrice != 0 && isPriceValid, AppErrors.ZERO_PRICE);
-    console.log("underlyingPrice", underlyingPrice);
 
     sumBorrowBASE = borrowBalance * underlyingPrice;
-    console.log("sumBorrowBASE", sumBorrowBASE);
 
     return (tokenBalance, borrowBalance, collateralAmountBASE, sumBorrowBASE);
   }
@@ -380,17 +343,13 @@ contract DForcePoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP {
     uint sumCollateralSafe,
     uint healthFactor18
   ) {
-    console.log("_getHealthFactor");
     (uint collateralFactorMantissa,,,,,,) = _comptroller.markets(cTokenCollateral_);
-    console.log("collateralFactorMantissa", collateralFactorMantissa);
 
     sumCollateralSafe = collateralFactorMantissa * sumCollateralBase_ / 10**18;
-    console.log("sumCollateralSafe", sumCollateralSafe);
 
     healthFactor18 = sumBorrowBase_ == 0
       ? type(uint).max
       : sumCollateralSafe * 10**18 / sumBorrowBase_;
-    console.log("healthFactor18", healthFactor18);
     return (sumCollateralSafe, healthFactor18);
   }
 
@@ -406,7 +365,19 @@ contract DForcePoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP {
       : amount * (10 ** targetDecimals) / (10 ** sourceDecimals);
   }
 
+  ///////////////////////////////////////////////////////
+  ///                Native tokens
+  ///////////////////////////////////////////////////////
+
   function _isMatic(address asset_) internal pure returns (bool) {
     return asset_ == WMATIC;
   }
+
+  function _getBalance(address asset) internal view returns (uint) {
+    return _isMatic(asset)
+      ? address(this).balance
+      : IERC20(asset).balanceOf(address(this));
+  }
+
+  receive() external payable {} // this is needed for the native token unwrapping
 }

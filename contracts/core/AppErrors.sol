@@ -31,8 +31,6 @@ library AppErrors {
   string public constant WRONG_DERIVATIVE_TOKENS_BALANCE="14";
   /// @notice Pool adapter expects some amount of borrowed tokens on its balance
   string public constant WRONG_BORROWED_BALANCE="15";
-  /// @notice Balance shouldn't be zero
-  string public constant ZERO_BALANCE="15";
   /// @notice cToken is not found for provided underlying
   string public constant HF_DERIVATIVE_TOKEN_NOT_FOUND = "16";
   /// @notice cToken.mint failed
@@ -48,4 +46,7 @@ library AppErrors {
   string public constant CONVERTER_NOT_FOUND = "25";
   string public constant REDEEM_FAILED = "26";
   string public constant REPAY_FAILED = "27";
+  /// @notice Balance shouldn't be zero
+  string public constant ZERO_BALANCE="28";
+
 }

@@ -71,7 +71,7 @@ describe("BorrowRepayTest", () => {
     }
 
     /// @param accuracy 10 for 1e-10
-    function areAlmostEqual(b1: BigNumber, b2: BigNumber, accuracy: number = 10) : boolean {
+    function areAlmostEqual(b1: BigNumber, b2: BigNumber, accuracy: number = 8) : boolean {
         const n18 = getBigNumberFrom(1, accuracy);
         console.log("approx1", b1, b2);
         console.log("approx2", b1.sub(b2));
@@ -398,7 +398,7 @@ describe("BorrowRepayTest", () => {
                     const ASSET_BORROW  = MaticAddresses.WMATIC;
                     const HOLDER_BORROW  = MaticAddresses.HOLDER_WMATIC;
                     const AMOUNT_COLLATERAL = 1_000;
-                    const INITIAL_LIQUIDITY_COLLATERAL = 1_000_000;
+                    const INITIAL_LIQUIDITY_COLLATERAL = 10_000;
                     const INITIAL_LIQUIDITY_BORROW = 80_000;
                     const HEALTH_FACTOR2 = 200;
                     const COUNT_BLOCKS = 1;
@@ -506,7 +506,7 @@ describe("BorrowRepayTest", () => {
                     const AMOUNT_COLLATERAL = 1_000;
                     const INITIAL_LIQUIDITY_COLLATERAL = 1_000_000;
                     const INITIAL_LIQUIDITY_BORROW = 80_000;
-                    const HEALTH_FACTOR2 = 0;
+                    const HEALTH_FACTOR2 = 200;
                     const COUNT_BLOCKS = 1;
                     describe("Mock", () => {
                         it("should return expected balances", async () => {
