@@ -12,11 +12,14 @@ import "../../../interfaces/IPoolAdapterInitializerWithAP.sol";
 import "../../../integrations/dforce/IDForceCToken.sol";
 import "../../../integrations/dforce/IDForcePriceOracle.sol";
 import "../../../interfaces/ITokenAddressProvider.sol";
+import "../../../integrations/dforce/IDForceCTokenMatic.sol";
 
 /// @notice Implementation of IPoolAdapter for dForce-protocol, see https://developers.dforce.network/
 /// @dev Instances of this contract are created using proxy-minimal pattern, so no constructor
 contract DForcePoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP {
   using SafeERC20 for IERC20;
+
+  address private constant WMATIC = address(0x0d500B1d8E8eF31E21C99d1Db9A6444d3ADf1270);
 
   address public collateralAsset;
   address public borrowAsset;
@@ -120,8 +123,13 @@ contract DForcePoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP {
     _comptroller.enterMarkets(markets);
 
     // supply collateral
-    IERC20(assetCollateral).approve(cTokenCollateral, collateralAmount_);
-    IDForceCToken(cTokenCollateral).mint(address(this), collateralAmount_);
+    if (!_isMatic(assetCollateral)) {
+      require(IERC20(WMATIC).balanceOf(address(this)) >= collateralAmount_, AppErrors.MINT_FAILED);
+      IDForceCTokenMatic(cTokenCollateral).mint{value : collateralAmount_}(address(this));
+    } else {
+      IERC20(assetCollateral).approve(cTokenCollateral, collateralAmount_);
+      IDForceCToken(cTokenCollateral).mint(address(this), collateralAmount_);
+    }
 
     // make borrow
     IDForceCToken(cTokenBorrow).borrow(borrowAmount_);
@@ -203,10 +211,10 @@ contract DForcePoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP {
 
     // ensure that we have received enough money on our balance just before repay was called
     require(
-      amountToRepay_ == IERC20(assetBorrow).balanceOf(address(this)) - reserveBalances[address(assetBorrow)]
+      amountToRepay_ == assetBorrow.balanceOf(address(this)) - reserveBalances[address(assetBorrow)]
     , AppErrors.WRONG_BORROWED_BALANCE
     );
-    console.log("balance borrow", IERC20(assetBorrow).balanceOf(address(this)) - reserveBalances[address(assetBorrow)]);
+    console.log("balance borrow", assetBorrow.balanceOf(address(this)) - reserveBalances[address(assetBorrow)]);
 
     // how much collateral we are going to return
     uint collateralTokensToWithdraw = _getCollateralTokensToRedeem(
@@ -219,9 +227,15 @@ contract DForcePoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP {
     console.log("amountToRepay_", amountToRepay_);
 
     // transfer borrow amount back to the pool
-    assetBorrow.approve(cTokenBorrow, amountToRepay_); //TODO: do we need approve(0)?
     console.log("IDForceCToken(cTokenBorrow) balance before", IDForceCToken(cTokenBorrow).balanceOf(address(this)));
-    IDForceCToken(cTokenBorrow).repayBorrow(amountToRepay_);
+    if (!_isMatic(address(assetBorrow))) {
+      require(IERC20(WMATIC).balanceOf(address(this)) >= amountToRepay_, AppErrors.MINT_FAILED);
+      IDForceCTokenMatic(cTokenBorrow).repayBorrow{value : amountToRepay_}();
+    } else {
+      assetBorrow.approve(cTokenBorrow, amountToRepay_); //TODO: do we need approve(0)?
+      IDForceCToken(cTokenBorrow).repayBorrow(amountToRepay_);
+    }
+
     console.log("IDForceCToken(cTokenBorrow) balance after", IDForceCToken(cTokenBorrow).balanceOf(address(this)));
     (liquidity, shortfall,,) = _comptroller.calcAccountEquity(address(this));
     console.log("liquidity shortfall", liquidity, shortfall);
@@ -390,5 +404,9 @@ contract DForcePoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP {
     return sourceDecimals == targetDecimals
       ? amount
       : amount * (10 ** targetDecimals) / (10 ** sourceDecimals);
+  }
+
+  function _isMatic(address asset_) internal pure returns (bool) {
+    return asset_ == WMATIC;
   }
 }

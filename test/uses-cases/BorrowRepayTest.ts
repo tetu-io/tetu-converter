@@ -70,8 +70,15 @@ describe("BorrowRepayTest", () => {
         return IERC20__factory.connect(asset, deployer).balanceOf(recipient);
     }
 
-    function areAlmostEqual(b1: BigNumber, b2: BigNumber, accuracy: number = 1e10) : boolean {
-        return b1.sub(b2).div(b1).abs().mul(accuracy).toNumber() == 0;
+    /// @param accuracy 10 for 1e-10
+    function areAlmostEqual(b1: BigNumber, b2: BigNumber, accuracy: number = 10) : boolean {
+        const n18 = getBigNumberFrom(1, accuracy);
+        console.log("approx1", b1, b2);
+        console.log("approx2", b1.sub(b2));
+        console.log("approx3", b1.sub(b2).mul(n18).div(b1).abs());
+        console.log("approx4", b1.sub(b2).mul(n18).div(b1).abs().mul(accuracy));
+        console.log("approx5", b1.sub(b2).mul(n18).div(b1).abs().mul(accuracy).toNumber());
+        return b1.sub(b2).mul(n18).div(b1).abs().mul(accuracy).toNumber() == 0;
     }
 
     function getSingleBorrowSingleRepayResults(
@@ -393,7 +400,7 @@ describe("BorrowRepayTest", () => {
                     const AMOUNT_COLLATERAL = 1_000;
                     const INITIAL_LIQUIDITY_COLLATERAL = 1_000_000;
                     const INITIAL_LIQUIDITY_BORROW = 80_000;
-                    const HEALTH_FACTOR2 = 0;
+                    const HEALTH_FACTOR2 = 200;
                     const COUNT_BLOCKS = 1;
                     describe("Mock", () => {
                         it("should return expected balances", async () => {

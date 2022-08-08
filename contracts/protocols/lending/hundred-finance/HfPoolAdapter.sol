@@ -12,11 +12,15 @@ import "../../../interfaces/IPoolAdapterInitializerWithAP.sol";
 import "../../../integrations/hundred-finance/IHfCToken.sol";
 import "../../../integrations/hundred-finance/IHfOracle.sol";
 import "../../../interfaces/ITokenAddressProvider.sol";
+import "../../../integrations/hundred-finance/IHfHMatic.sol";
+import "../../../integrations/IWmatic.sol";
 
 /// @notice Implementation of IPoolAdapter for HundredFinance-protocol, see https://docs.hundred.finance/
 /// @dev Instances of this contract are created using proxy-minimal pattern, so no constructor
 contract HfPoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP {
   using SafeERC20 for IERC20;
+
+  address private constant WMATIC = address(0x0d500B1d8E8eF31E21C99d1Db9A6444d3ADf1270);
 
   address public collateralAsset;
   address public borrowAsset;
@@ -83,10 +87,17 @@ contract HfPoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP {
   /// @dev TC calls this function before transferring any amounts to balance of this contract
   function syncBalance(bool beforeBorrow_) external override {
     if (beforeBorrow_) {
-      reserveBalances[collateralAsset] = IERC20(collateralAsset).balanceOf(address(this));
+      address assetCollateral = collateralAsset;
+      reserveBalances[assetCollateral] = _getBalance(assetCollateral);
+    } else {
+      // Update borrowBalance to actual value
+      IHfCToken(borrowCToken).borrowBalanceCurrent(address(this));
     }
 
-    reserveBalances[borrowAsset] = IERC20(borrowAsset).balanceOf(address(this));
+    {
+      address assetBorrow = borrowAsset;
+      reserveBalances[assetBorrow] = _getBalance(assetBorrow);
+    }
   }
 
   /// @notice Supply collateral to the pool and borrow {borrowedAmount_} in {borrowedToken_}
@@ -97,14 +108,16 @@ contract HfPoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP {
     address receiver_
   ) external override {
     _onlyTC();
+    uint error;
+
     address cTokenCollateral = collateralCToken;
     address cTokenBorrow = borrowCToken;
     address assetCollateral = collateralAsset;
-    IERC20 assetBorrow = IERC20(borrowAsset);
+    address assetBorrow = borrowAsset;
 
     // ensure we have received expected collateral amount
     require(
-      collateralAmount_ >= IERC20(assetCollateral).balanceOf(address(this)) - reserveBalances[assetCollateral]
+      collateralAmount_ >= _getBalance(assetCollateral) - reserveBalances[assetCollateral]
       , AppErrors.WRONG_COLLATERAL_BALANCE
     );
 
@@ -115,20 +128,29 @@ contract HfPoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP {
     _comptroller.enterMarkets(markets);
 
     // supply collateral
-    IERC20(assetCollateral).approve(cTokenCollateral, collateralAmount_);
-    uint error = IHfCToken(cTokenCollateral).mint(collateralAmount_);
-    require(error == 0, AppErrors.MINT_FAILED);
+    if (_isMatic(assetCollateral)) {
+      require(IERC20(WMATIC).balanceOf(address(this)) >= collateralAmount_, AppErrors.MINT_FAILED);
+      IWmatic(WMATIC).withdraw(collateralAmount_);
+      IHfHMatic(payable(cTokenCollateral)).mint{value : collateralAmount_}();
+    } else {
+      IERC20(assetCollateral).approve(cTokenCollateral, collateralAmount_);
+      error = IHfCToken(cTokenCollateral).mint(collateralAmount_);
+      require(error == 0, AppErrors.MINT_FAILED);
+    }
 
     // make borrow
     error = IHfCToken(cTokenBorrow).borrow(borrowAmount_);
     require(error == 0, AppErrors.BORROW_FAILED);
 
     // ensure that we have received required borrowed amount, send the amount to the receiver
+    if (_isMatic(assetBorrow)) {
+      IWmatic(WMATIC).deposit{value : borrowAmount_}();
+    }
     require(
-      borrowAmount_ == assetBorrow.balanceOf(address(this)) - reserveBalances[address(assetBorrow)]
-      , AppErrors.WRONG_BORROWED_BALANCE
+      borrowAmount_ == IERC20(assetBorrow).balanceOf(address(this)) - reserveBalances[assetBorrow]
+    , AppErrors.WRONG_BORROWED_BALANCE
     );
-    assetBorrow.safeTransfer(receiver_, borrowAmount_);
+    IERC20(assetBorrow).safeTransfer(receiver_, borrowAmount_);
 
     // register the borrow in DebtMonitor
     IDebtMonitor(controller.debtMonitor()).onOpenPosition();
@@ -149,16 +171,6 @@ contract HfPoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP {
 
     (uint256 dError, uint liquidity,) = _comptroller.getAccountLiquidity(address(this));
     require(dError == 0, AppErrors.CTOKEN_GET_ACCOUNT_LIQUIDITY_FAILED);
-
-    console.log("_validateHealthStatusAfterBorrow");
-    console.log("sumCollateralSafe", sumCollateralSafe);
-    console.log("sumBorrowPlusEffect", sumBorrowPlusEffects);
-    console.log("sumCollateralSafe - sumBorrowPlusEffects", sumCollateralSafe - sumBorrowPlusEffects);
-    console.log("liquidity", liquidity);
-    console.log("sumCollateralSafe - sumBorrowPlusEffects == liquidity %d, dif=%d"
-      , sumCollateralSafe - sumBorrowPlusEffects == liquidity ? 1 : 0
-      , liquidity - (sumCollateralSafe - sumBorrowPlusEffects)
-    );
 
     require(
       sumCollateralSafe > sumBorrowPlusEffects
@@ -185,14 +197,14 @@ contract HfPoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP {
     bool closePosition
   ) external override {
     uint error;
-    IERC20 assetBorrow = IERC20(borrowAsset);
-    IERC20 assetCollateral = IERC20(collateralAsset);
+    address assetBorrow = borrowAsset;
+    address assetCollateral = collateralAsset;
     address cTokenBorrow = borrowCToken;
     address cTokenCollateral = collateralCToken;
 
     // ensure that we have received enough money on our balance just before repay was called
     require(
-      amountToRepay_ == IERC20(assetBorrow).balanceOf(address(this)) - reserveBalances[address(assetBorrow)]
+      amountToRepay_ == IERC20(assetBorrow).balanceOf(address(this)) - reserveBalances[assetBorrow]
     , AppErrors.WRONG_BORROWED_BALANCE
     );
 
@@ -205,17 +217,28 @@ contract HfPoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP {
     );
 
     // transfer borrow amount back to the pool
-    assetBorrow.approve(cTokenBorrow, amountToRepay_); //TODO: do we need approve(0)?
-    error = IHfCToken(cTokenBorrow).repayBorrow(amountToRepay_);
-    require(error == 0, AppErrors.REPAY_FAILED);
+    if (_isMatic(assetBorrow)) {
+      require(IERC20(WMATIC).balanceOf(address(this)) >= amountToRepay_, AppErrors.MINT_FAILED);
+      IWmatic(WMATIC).withdraw(amountToRepay_);
+      IHfHMatic(payable(cTokenBorrow)).repayBorrow{value : amountToRepay_}();
+    } else {
+      IERC20(assetBorrow).approve(cTokenBorrow, amountToRepay_); //TODO: do we need approve(0)?
+      error = IHfCToken(cTokenBorrow).repayBorrow(amountToRepay_);
+      require(error == 0, AppErrors.REPAY_FAILED);
+    }
 
     // withdraw the collateral
-    uint balanceCollateralAsset = assetCollateral.balanceOf(address(this));
+    uint balanceCollateralAsset = _getBalance(assetCollateral);
     error = IHfCToken(cTokenCollateral).redeem(collateralTokensToWithdraw);
     require(error == 0, AppErrors.REDEEM_FAILED);
 
     // transfer collateral back to the user
-    assetCollateral.transfer(receiver_, assetCollateral.balanceOf(address(this)) - balanceCollateralAsset);
+    uint amountToReturn = _getBalance(assetCollateral) - balanceCollateralAsset;
+
+    if (_isMatic(assetCollateral)) {
+      IWmatic(WMATIC).deposit{value : amountToReturn}();
+    }
+    IERC20(assetCollateral).safeTransfer(receiver_, amountToReturn);
 
     // validate result status
     (uint tokenBalance,
@@ -226,7 +249,7 @@ contract HfPoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP {
 
     if (tokenBalance == 0 && borrowBalance == 0) {
       IDebtMonitor(controller.debtMonitor()).onClosePosition();
-      //!TODO: do we need exit the markets?
+      //!TODO: do we need to exit the markets?
     } else {
       require(!closePosition, AppErrors.CLOSE_POSITION_FAILED);
       (, uint healthFactor18) = _getHealthFactor(cTokenCollateral, collateralBase, sumBorrowPlusEffects);
@@ -337,7 +360,7 @@ contract HfPoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP {
   }
 
   ///////////////////////////////////////////////////////
-  ///         Utils
+  ///                   Utils
   ///////////////////////////////////////////////////////
   function _getHealthFactor(address cTokenCollateral, uint sumCollateral, uint sumBorrowPlusEffects)
   internal view returns (
@@ -350,8 +373,6 @@ contract HfPoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP {
     healthFactor18 = sumBorrowPlusEffects == 0
       ? type(uint).max
       : sumCollateralSafe * 10**18 / sumBorrowPlusEffects;
-
-    console.log("_getHealthFactor", healthFactor18);
 
     return (sumCollateralSafe, healthFactor18);
   }
@@ -367,4 +388,20 @@ contract HfPoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP {
       ? amount
       : amount * (10 ** targetDecimals) / (10 ** sourceDecimals);
   }
+
+  ///////////////////////////////////////////////////////
+  ///                Native tokens
+  ///////////////////////////////////////////////////////
+
+  function _isMatic(address asset_) internal pure returns (bool) {
+    return asset_ == WMATIC;
+  }
+
+  function _getBalance(address asset) internal view returns (uint) {
+    return _isMatic(asset)
+    ? address(this).balance
+    : IERC20(asset).balanceOf(address(this));
+  }
+
+  receive() external payable {} // this is needed for the native token unwrapping
 }
