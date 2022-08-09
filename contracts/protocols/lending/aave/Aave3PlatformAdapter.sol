@@ -107,7 +107,7 @@ contract Aave3PlatformAdapter is IPlatformAdapter {
               plan.converter = _converters[INDEX_E_MODE];
             } else {
               plan.ltv18 = uint(rb.configuration.getLtv()) * 10**(18-5);
-              plan.liquidationThreshold18 = uint(rb.configuration.getLiquidationThreshold()) * 10**(18-5);
+              plan.liquidationThreshold18 = uint(rc.configuration.getLiquidationThreshold()) * 10**(18-5);
               plan.converter = _converters[INDEX_NORMAL_MODE];
             }
             console.log("plan.converter=%s", plan.converter);

@@ -93,18 +93,14 @@ contract AaveTwoPlatformAdapter is IPlatformAdapter {
 
          // get liquidation threshold (== collateral factor) and loan-to-value
         plan.ltv18 = uint(rb.configuration.getLtv()) * 10**(18-5);
-        plan.liquidationThreshold18 = uint(rb.configuration.getLiquidationThreshold()) * 10**(18-5);
+        plan.liquidationThreshold18 = uint(rc.configuration.getLiquidationThreshold()) * 10**(18-5);
         plan.converter = converter;
 
        // assume here, that we always use variable borrow rate
         plan.borrowRate = rb.currentVariableBorrowRate / 10**(27-18); // rays => decimals 18 (1 ray = 1e-27)
         plan.borrowRateKind = AppDataTypes.BorrowRateKind.PER_SECOND_2;
 
-        // by default, we can borrow all available cache
-
         // we need to know available liquidity in the pool, so, we need an access to pool-data-provider
-        // TODO: can we use static address of the PoolDataProvider - 0x69FA688f1Dc47d4B5d8029D5a35FB7a548310654 ?
-        // TODO: see https://docs.aave.com/developers/deployed-contracts/v3-mainnet/polygon
         IAaveTwoProtocolDataProvider dp = IAaveTwoProtocolDataProvider(
           (IAaveTwoLendingPoolAddressesProvider(IAaveTwoPool(pool).getAddressesProvider())).getAddress(ID_DATA_PROVIDER)
         );
@@ -113,6 +109,7 @@ contract AaveTwoPlatformAdapter is IPlatformAdapter {
          uint totalStableDebt,
          uint256 totalVariableDebt,
          ,,,,,,) = dp.getReserveData(borrowAsset_);
+
         plan.maxAmountToBorrowBT = availableLiquidity - totalStableDebt - totalVariableDebt;
         plan.maxAmountToSupplyCT = type(uint).max; // unlimited
       }

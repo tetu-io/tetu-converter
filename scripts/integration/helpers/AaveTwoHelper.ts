@@ -10,14 +10,13 @@ import {
 } from "../../../typechain";
 import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import {MaticAddresses} from "../../addresses/MaticAddresses";
-import {web3} from "hardhat";
 import {DataTypes} from "../../../typechain/contracts/integrations/aaveTwo/IAaveTwoPool";
 
 const AAVE_POOL = MaticAddresses.AAVE_V2_POOL;
 
 const FULL_MASK =                      "0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF";
 
-//region aave-v3-core: ReserveConfiguration.sol
+//region aave-v2-core: ReserveConfiguration.sol
 const LTV_MASK =                       "0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF0000";
 const LIQUIDATION_THRESHOLD_MASK =     "0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF0000FFFF";
 const LIQUIDATION_BONUS_MASK =         "0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF0000FFFFFFFF";
@@ -75,6 +74,8 @@ export interface ReserveData {
     stableDebtTokenAddress: string;
     variableDebtTokenAddress: string;
     interestRateStrategyAddress: string;
+
+    price: BigNumber;
 }
 
 export interface CategoryData {
@@ -107,6 +108,7 @@ export class AaveTwoHelper {
         reserve: string
     ) : Promise<ReserveInfo> {
         const rd: DataTypes.ReserveDataStruct = await aavePool.getReserveData(reserve);
+        const priceOracle = await AaveTwoHelper.getAavePriceOracle(signer);
 
         const rawData: BigNumber = BigNumber.from(rd.configuration.data);
 
@@ -147,6 +149,8 @@ export class AaveTwoHelper {
             stableDebtTokenAddress: await rd.stableDebtTokenAddress,
             variableDebtTokenAddress: await rd.variableDebtTokenAddress,
             interestRateStrategyAddress: await rd.interestRateStrategyAddress,
+
+            price: await priceOracle.getAssetPrice(reserve)
         }
 
         return {
@@ -172,11 +176,17 @@ export class AaveTwoHelper {
             , signer
         );
     }
+    public static async getPriceOracle(signer: SignerWithAddress): Promise<IAaveTwoPriceOracle> {
+        const ap = await AaveTwoHelper.getAaveAddressesProvider(signer);
+        return IAaveTwoPriceOracle__factory.connect(await ap.getPriceOracle(), signer);
+    }
     public static async getAaveProtocolDataProvider(signer: SignerWithAddress): Promise<IAaveTwoProtocolDataProvider> {
-        return IAaveTwoProtocolDataProvider__factory.connect(
-            await(await AaveTwoHelper.getAaveAddressesProvider(signer)).getAddress(
-                "0x0000000000000000000000000000000000000000000000000000000000000001"
-            ), signer);
+        const ap = await AaveTwoHelper.getAaveAddressesProvider(signer);
+        const dp = await(ap).getAddress(
+            [0x1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
+        );
+        console.log(dp);
+        return IAaveTwoProtocolDataProvider__factory.connect(dp, signer);
     }
     public static async getAavePriceOracle(signer: SignerWithAddress): Promise<IAaveTwoPriceOracle> {
         return IAaveTwoPriceOracle__factory.connect(

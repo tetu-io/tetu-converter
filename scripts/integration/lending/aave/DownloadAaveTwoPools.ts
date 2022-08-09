@@ -21,7 +21,7 @@ async function getAaveTwoPoolReserves(
         "aTokenName",
         "aTokenAddress",
 
-        "totalAToken",
+        "AvailableLiquidity",
         "totalStableDebt",
         "totalVariableDebt",
 
@@ -34,7 +34,6 @@ async function getAaveTwoPoolReserves(
         "borrowing",
         "stableBorrowing",
         "reserve factor",
-        "liquidation protocol fee",
 
         "liquidityIndex",
         "currentLiquidityRate",
@@ -47,11 +46,7 @@ async function getAaveTwoPoolReserves(
         "variableDebtTokenAddress",
         "interestRateStrategyAddress",
 
-        "ct-ltv",
-        "ct-liquidationThreshold",
-        "ct-liquidationBonus",
-        "ct-priceSource",
-        "ct-label"
+        "price"
     ]
 
     const dest: string[] = [];
@@ -96,6 +91,8 @@ async function getAaveTwoPoolReserves(
             rd.data.stableDebtTokenAddress,
             rd.data.variableDebtTokenAddress,
             rd.data.interestRateStrategyAddress,
+
+            rd.data.price
         ];
 
         dest.push(line.map(x => AaveTwoHelper.toString(x)).join(","));

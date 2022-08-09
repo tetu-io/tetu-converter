@@ -58,6 +58,8 @@ async function getAave3PoolReserves(
         "unbacked",
         "isolationModeTotalDebt",
 
+        "price",
+
         "ct-ltv",
         "ct-liquidationThreshold",
         "ct-liquidationBonus",
@@ -120,7 +122,9 @@ async function getAave3PoolReserves(
             rd.data.interestRateStrategyAddress,
             rd.data.accruedToTreasury,
             rd.data.unbacked,
-            rd.data.isolationModeTotalDebt
+            rd.data.isolationModeTotalDebt,
+
+            rd.data.price
         ];
 
         if (rd.category) {
@@ -141,7 +145,7 @@ async function getAave3PoolReserves(
 
 /** Download detailed info for all available AAVE pools
  *
- * npx hardhat run scripts/integration/lending/aave/DownloadAavePools.ts
+ *
  * */
 async function main() {
     const signer = (await ethers.getSigners())[0];

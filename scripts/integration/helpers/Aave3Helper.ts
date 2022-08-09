@@ -3,14 +3,14 @@ import {
     IAaveAddressesProvider,
     IAaveAddressesProvider__factory,
     IAavePool,
-    IAavePool__factory,
-    IAavePriceOracle, IAavePriceOracle__factory,
+    IAavePool__factory, IAavePriceOracle,
+    IAavePriceOracle__factory,
     IAaveProtocolDataProvider,
     IAaveProtocolDataProvider__factory,
     IERC20Extended__factory
 } from "../../../typechain";
 import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
-import {DataTypes} from "../../../typechain/contracts/integrations/aave/IAavePool";
+import {DataTypes} from "../../../typechain/contracts/integrations/aave3/IAavePool";
 import {MaticAddresses} from "../../addresses/MaticAddresses";
 
 // https://docs.aave.com/developers/deployed-contracts/v3-mainnet/polygon
@@ -116,6 +116,8 @@ export interface ReserveData {
     accruedToTreasury: BigNumberish;
     unbacked: BigNumberish;
     isolationModeTotalDebt: BigNumberish;
+
+    price: BigNumber;
 }
 
 export interface CategoryData {
@@ -158,6 +160,7 @@ export class Aave3Helper {
         reserve: string
     ) : Promise<ReserveInfo> {
         const rd: DataTypes.ReserveDataStruct = await aavePool.getReserveData(reserve);
+        const priceOracle = await Aave3Helper.getAavePriceOracle(signer);
 
         const rawData: BigNumber = BigNumber.from(rd.configuration.data);
 
@@ -214,7 +217,9 @@ export class Aave3Helper {
             interestRateStrategyAddress: await rd.interestRateStrategyAddress,
             accruedToTreasury: await rd.accruedToTreasury,
             unbacked: await rd.unbacked,
-            isolationModeTotalDebt: await rd.isolationModeTotalDebt
+            isolationModeTotalDebt: await rd.isolationModeTotalDebt,
+
+            price: await priceOracle.getAssetPrice(reserve)
         }
 
         return {
