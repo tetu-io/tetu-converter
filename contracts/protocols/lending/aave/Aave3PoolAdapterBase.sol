@@ -4,21 +4,21 @@ pragma solidity 0.8.4;
 
 import "../../../openzeppelin/SafeERC20.sol";
 import "../../../openzeppelin/IERC20.sol";
-import "../../../interfaces/IPoolAdapter.sol";
-import "../../../interfaces/IPoolAdapterInitializer.sol";
 import "../../../core/DebtMonitor.sol";
 import "../../../core/AppErrors.sol";
+import "../../../interfaces/IPoolAdapter.sol";
+import "../../../interfaces/IPoolAdapterInitializer.sol";
 import "../../../integrations/aave3/IAavePool.sol";
 import "../../../integrations/aave3/IAavePriceOracle.sol";
 import "../../../integrations/aave3/IAaveAddressesProvider.sol";
-import "../../../integrations/aave3/ReserveConfiguration.sol";
+import "../../../integrations/aave3/Aave3ReserveConfiguration.sol";
 import "../../../integrations/aave3/IAaveToken.sol";
 
 /// @notice Implementation of IPoolAdapter for AAVE-v3-protocol, see https://docs.aave.com/hub/
 /// @dev Instances of this contract are created using proxy-minimal pattern, so no constructor
 abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer {
   using SafeERC20 for IERC20;
-  using ReserveConfiguration for DataTypes.ReserveConfigurationMap;
+  using Aave3ReserveConfiguration for DataTypes.ReserveConfigurationMap;
 
   /// @notice 1 - stable, 2 - variable
   uint immutable public RATE_MODE = 2;
@@ -162,24 +162,6 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer 
     // ensure that current health factor is greater than min allowed
     (,,,,, uint256 healthFactor) = _pool.getUserAccountData(address(this));
     require(healthFactor > uint(controller.MIN_HEALTH_FACTOR2())*10**(18-2), AppErrors.WRONG_HEALTH_FACTOR);
-
-    print();
-  }
-
-  //TODO: remove
-  function print() internal view {
-      (uint256 totalCollateralBase,
-      uint256 totalDebtBase,
-      uint256 availableBorrowsBase,
-      uint256 currentLiquidationThreshold,
-      uint256 ltv,
-      uint256 healthFactor
-      ) = _pool.getUserAccountData(address(this));
-
-    console.log("Print user account data: totalCollateralBase=%d totalDebtBase=%d", totalCollateralBase, totalDebtBase);
-    console.log("Print user account data: availableBorrowsBase=%d currentLiquidationThreshold=%d", availableBorrowsBase, currentLiquidationThreshold);
-    console.log("Print user account data: ltv=%d healthFactor=%d", ltv, healthFactor);
-    console.log("Print user account data: this=%s", address(this));
   }
 
   ///////////////////////////////////////////////////////
@@ -193,8 +175,6 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer 
     address receiver_,
     bool closePosition
   ) external override {
-    print();
-
     console.log("repay amountToRepay_=%d receiver_=%s closePosition=%d", amountToRepay_, receiver_, closePosition ? 1 : 0);
     address assetBorrow = borrowAsset;
 
@@ -215,7 +195,6 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer 
 
     _pool.repay(assetBorrow, amountToRepay_, RATE_MODE, address(this));
 
-    print();
     // withdraw the collateral
     if (closePosition) {
       // getUserAccountData returns totalDebtBase, we recalculate it to borrowAsset
@@ -237,8 +216,6 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer 
         require(healthFactor > uint(controller.MIN_HEALTH_FACTOR2())*10**(18-2), AppErrors.WRONG_HEALTH_FACTOR);
       }
     }
-
-    print();
   }
 
   function _withdrawAndLeaveDustCollateral(address receiver_) internal {

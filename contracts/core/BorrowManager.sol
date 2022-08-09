@@ -186,7 +186,15 @@ contract BorrowManager is BorrowManagerBase {
         p_.sourceToken,
         p_.targetToken
       );
-      console.log("plan.maxAmountToSupplyCT=%d p_.sourceAmount=%d", plan.maxAmountToSupplyCT, p_.sourceAmount);
+      console.log("done");
+      console.log("plan.maxAmountToSupplyCT", plan.maxAmountToSupplyCT);
+      console.log("sourceAmount", p_.sourceAmount);
+      console.log("plan.converter", plan.converter);
+      console.log("plan.ltv18", plan.ltv18);
+      console.log("plan.liquidationThreshold18", plan.liquidationThreshold18);
+      console.log("plan.borrowRate", plan.borrowRate);
+      console.log("plan.borrowRateKind", uint(plan.borrowRateKind));
+      console.log("plan.maxAmountToBorrowBT", plan.maxAmountToBorrowBT);
 
       // check if we are able to supply required collateral
       if (plan.maxAmountToSupplyCT > p_.sourceAmount) {

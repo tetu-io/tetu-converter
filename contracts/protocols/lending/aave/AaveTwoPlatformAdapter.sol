@@ -4,23 +4,23 @@ pragma solidity 0.8.4;
 
 import "../../../openzeppelin/SafeERC20.sol";
 import "../../../openzeppelin/IERC20.sol";
-import "../../../integrations/aaveTwo/IAaveTwoPool.sol";
-import "../../../integrations/aaveTwo/IAaveTwoLendingPoolAddressesProvider.sol";
-import "../../../integrations/aaveTwo/IAaveTwoPriceOracle.sol";
-import "../../../integrations/aaveTwo/IAaveTwoProtocolDataProvider.sol";
-import "../../../integrations/aaveTwo/ReserveConfiguration.sol";
-import "../../../integrations/aaveTwo/IAaveTwoAToken.sol";
 import "../../../core/AppDataTypes.sol";
 import "../../../core/AppErrors.sol";
 import "../../../interfaces/IPlatformAdapter.sol";
 import "../../../interfaces/IPoolAdapterInitializer.sol";
 import "../../../interfaces/IController.sol";
+import "../../../integrations/aaveTwo/IAaveTwoPool.sol";
+import "../../../integrations/aaveTwo/IAaveTwoLendingPoolAddressesProvider.sol";
+import "../../../integrations/aaveTwo/IAaveTwoPriceOracle.sol";
+import "../../../integrations/aaveTwo/IAaveTwoProtocolDataProvider.sol";
+import "../../../integrations/aaveTwo/IAaveTwoAToken.sol";
+import "../../../integrations/aaveTwo/AaveTwoReserveConfiguration.sol";
 import "hardhat/console.sol";
 
 /// @notice Adapter to read current pools info from AAVE-v2-protocol, see https://docs.aave.com/hub/
 contract AaveTwoPlatformAdapter is IPlatformAdapter {
   using SafeERC20 for IERC20;
-  using ReserveConfiguration for DataTypes.ReserveConfigurationMap;
+  using AaveTwoReserveConfiguration for DataTypes.ReserveConfigurationMap;
 
   IController public controller;
   IAaveTwoPool public pool;
@@ -29,13 +29,10 @@ contract AaveTwoPlatformAdapter is IPlatformAdapter {
   /// @notice template-pool-adapter
   address public converter;
 
-  uint256 internal constant RAY = 1e27;
-  uint256 internal constant HALF_RAY = 0.5e27;
-
   /// @notice https://docs.aave.com/developers/v/2.0/the-core-protocol/protocol-data-provider
   ///        Each market has a separate Protocol Data Provider.
   ///        To get the address for a particular market, call getAddress() using the value 0x1.
-  bytes32 internal constant ID_DATA_PROVIDER = bytes32(uint256(0x1));
+  uint internal constant ID_DATA_PROVIDER = 0x1000000000000000000000000000000000000000000000000000000000000000;
 
   ///////////////////////////////////////////////////////
   ///       Constructor and initialization
@@ -90,8 +87,7 @@ contract AaveTwoPlatformAdapter is IPlatformAdapter {
       DataTypes.ReserveData memory rb = pool.getReserveData(borrowAsset_);
 
       if (_isUsable(rc.configuration) && rb.configuration.getBorrowingEnabled()) {
-
-         // get liquidation threshold (== collateral factor) and loan-to-value
+        // get liquidation threshold (== collateral factor) and loan-to-value
         plan.ltv18 = uint(rb.configuration.getLtv()) * 10**(18-5);
         plan.liquidationThreshold18 = uint(rc.configuration.getLiquidationThreshold()) * 10**(18-5);
         plan.converter = converter;
@@ -100,21 +96,18 @@ contract AaveTwoPlatformAdapter is IPlatformAdapter {
         plan.borrowRate = rb.currentVariableBorrowRate / 10**(27-18); // rays => decimals 18 (1 ray = 1e-27)
         plan.borrowRateKind = AppDataTypes.BorrowRateKind.PER_SECOND_2;
 
-        // we need to know available liquidity in the pool, so, we need an access to pool-data-provider
-        IAaveTwoProtocolDataProvider dp = IAaveTwoProtocolDataProvider(
-          (IAaveTwoLendingPoolAddressesProvider(IAaveTwoPool(pool).getAddressesProvider())).getAddress(ID_DATA_PROVIDER)
-        );
+        // availableLiquidity is IERC20(borrowToken).balanceOf(atoken)
+        (uint availableLiquidity,,,,,,,,,) = IAaveTwoProtocolDataProvider(
+          IAaveTwoLendingPoolAddressesProvider(pool.getAddressesProvider()).getAddress(bytes32(ID_DATA_PROVIDER))
+        ).getReserveData(borrowAsset_);
 
-        (uint availableLiquidity,
-         uint totalStableDebt,
-         uint256 totalVariableDebt,
-         ,,,,,,) = dp.getReserveData(borrowAsset_);
-
-        plan.maxAmountToBorrowBT = availableLiquidity - totalStableDebt - totalVariableDebt;
+        plan.maxAmountToBorrowBT = availableLiquidity;
+        console.log("8");
         plan.maxAmountToSupplyCT = type(uint).max; // unlimited
       }
     }
 
+    console.log("10");
     return plan;
   }
 

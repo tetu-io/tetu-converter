@@ -3,21 +3,21 @@ pragma solidity 0.8.4;
 
 import "../../../openzeppelin/SafeERC20.sol";
 import "../../../openzeppelin/IERC20.sol";
-import "../../../interfaces/IPoolAdapter.sol";
 import "../../../core/DebtMonitor.sol";
 import "../../../core/AppErrors.sol";
-import "../../../integrations/aave3/IAavePool.sol";
-import "../../../integrations/aave3/IAavePriceOracle.sol";
-import "../../../integrations/aave3/IAaveAddressesProvider.sol";
+import "../../../interfaces/IPoolAdapter.sol";
 import "../../../interfaces/IPoolAdapterInitializer.sol";
-import "../../../integrations/aave3/ReserveConfiguration.sol";
-import "../../../integrations/aave3/IAaveToken.sol";
+import "../../../integrations/aaveTwo/IAaveTwoPool.sol";
+import "../../../integrations/aaveTwo/IAaveTwoPriceOracle.sol";
+import "../../../integrations/aaveTwo/IAaveTwoLendingPoolAddressesProvider.sol";
+import "../../../integrations/aaveTwo/AaveTwoReserveConfiguration.sol";
+import "../../../integrations/aaveTwo/IAaveTwoAToken.sol";
 
 /// @notice Implementation of IPoolAdapter for AAVE-v2-protocol, see https://docs.aave.com/hub/
 /// @dev Instances of this contract are created using proxy-minimal pattern, so no constructor
-abstract contract AaveTwoPoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer {
+contract AaveTwoPoolAdapter is IPoolAdapter, IPoolAdapterInitializer {
   using SafeERC20 for IERC20;
-  using ReserveConfiguration for DataTypes.ReserveConfigurationMap;
+  using AaveTwoReserveConfiguration for DataTypes.ReserveConfigurationMap;
 
   /// @notice 1 - stable, 2 - variable
   uint immutable public RATE_MODE = 2;
@@ -27,8 +27,8 @@ abstract contract AaveTwoPoolAdapterBase is IPoolAdapter, IPoolAdapterInitialize
   address public user;
 
   IController public controller;
-  IAavePool internal _pool;
-  IAavePriceOracle internal _priceOracle;
+  IAaveTwoPool internal _pool;
+  IAaveTwoPriceOracle internal _priceOracle;
 
   /// @notice Last synced amount of given token on the balance of this contract
   mapping(address => uint) public reserveBalances;
@@ -56,8 +56,8 @@ abstract contract AaveTwoPoolAdapterBase is IPoolAdapter, IPoolAdapterInitialize
     collateralAsset = collateralAsset_;
     borrowAsset = borrowAsset_;
 
-    _pool = IAavePool(pool_);
-    _priceOracle = IAavePriceOracle(IAaveAddressesProvider(_pool.ADDRESSES_PROVIDER()).getPriceOracle());
+    _pool = IAaveTwoPool(pool_);
+    _priceOracle = IAaveTwoPriceOracle(IAaveTwoLendingPoolAddressesProvider(_pool.getAddressesProvider()).getPriceOracle());
   }
 
   function getConversionKind() external pure override returns (AppDataTypes.ConversionKind) {
@@ -78,14 +78,6 @@ abstract contract AaveTwoPoolAdapterBase is IPoolAdapter, IPoolAdapterInitialize
   }
 
   ///////////////////////////////////////////////////////
-  ///             Adapter customization
-  ///////////////////////////////////////////////////////
-
-  /// @notice Enter to E-mode if necessary
-  function prepareToBorrow() internal virtual;
-
-
-  ///////////////////////////////////////////////////////
   ///                 Borrow logic
   ///////////////////////////////////////////////////////
 
@@ -97,8 +89,8 @@ abstract contract AaveTwoPoolAdapterBase is IPoolAdapter, IPoolAdapterInitialize
     address receiver_
   ) external override {
     _onlyTC();
-    console.log("Aave3 borrow: collateral=%d borrow=%d receiver=%s", collateralAmount_, borrowAmount_, receiver_);
-    console.log("Aave3 borrow: this=%s", address(this));
+    console.log("Aave2 borrow: collateral=%d borrow=%d receiver=%s", collateralAmount_, borrowAmount_, receiver_);
+    console.log("Aave2 borrow: this=%s", address(this));
 
     address assetCollateral = collateralAsset;
     address assetBorrow = borrowAsset;
@@ -116,7 +108,7 @@ abstract contract AaveTwoPoolAdapterBase is IPoolAdapter, IPoolAdapterInitialize
     // Supplies an `amount` of underlying asset into the reserve, receiving in return overlying aTokens.
     // E.g. User supplies 100 USDC and gets in return 100 aUSDC
     IERC20(assetCollateral).approve(address(_pool), collateralAmount_);
-    _pool.supply(
+    _pool.deposit(
       assetCollateral,
       collateralAmount_,
       address(this),
@@ -127,9 +119,6 @@ abstract contract AaveTwoPoolAdapterBase is IPoolAdapter, IPoolAdapterInitialize
     // ensure that we received a-tokens
     uint aTokensAmount = IERC20(d.aTokenAddress).balanceOf(address(this)) - aTokensBalanceBeforeSupply;
     require(aTokensAmount >= collateralAmount_, AppErrors.WRONG_DERIVATIVE_TOKENS_BALANCE);
-
-    // enter to E-mode if necessary
-    prepareToBorrow();
 
     console.log("Balance before=%d", IERC20(assetBorrow).balanceOf(address(this)));
     // make borrow, send borrowed amount to the receiver

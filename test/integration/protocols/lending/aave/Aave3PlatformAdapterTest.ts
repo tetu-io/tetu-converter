@@ -88,7 +88,7 @@ describe("Aave-v3 integration tests, platform adapter", () => {
                     : collateralAssetData.data.emodeCategory == 0 || borrowAssetData.data.emodeCategory == 0,
             ].map(x => BalanceUtils.toString(x)) .join();
 
-            let expectedMaxAmountToSupply = BigNumber.from(2).pow(256); // == type(uint).max
+            let expectedMaxAmountToSupply = BigNumber.from(2).pow(256).sub(1); // == type(uint).max
             if (! collateralAssetData.data.supplyCap.eq(0)) {
                 // see sources of AAVE3\ValidationLogic.sol\validateSupply
                 const totalSupply =
@@ -115,8 +115,8 @@ describe("Aave-v3 integration tests, platform adapter", () => {
                     .mul(getBigNumberFrom(1, 18))
                     .div(getBigNumberFrom(1, 5)),
                 BigNumber.from(highEfficientModeEnabled
-                    ? borrowAssetData.category?.liquidationThreshold
-                    : borrowAssetData.data.liquidationThreshold
+                    ? collateralAssetData.category?.liquidationThreshold
+                    : collateralAssetData.data.liquidationThreshold
                 )
                     .mul(getBigNumberFrom(1, 18))
                     .div(getBigNumberFrom(1, 5)),

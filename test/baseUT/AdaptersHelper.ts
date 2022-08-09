@@ -1,14 +1,19 @@
 import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import {
     Aave3PlatformAdapter,
-    Aave3PoolAdapter, Aave3PoolAdapterEMode, DForcePlatformAdapter, DForcePoolAdapter,
+    Aave3PoolAdapter,
+    Aave3PoolAdapterEMode,
+    AaveTwoPlatformAdapter,
+    AaveTwoPoolAdapter,
+    DForcePlatformAdapter,
+    DForcePoolAdapter,
     HfPlatformAdapter,
     HfPoolAdapter
 } from "../../typechain";
 import {DeployUtils} from "../../scripts/utils/DeployUtils";
 
 export class AdaptersHelper {
-//region AAVE
+//region AAVE.v3
     public static async createAave3PlatformAdapter(
         signer: SignerWithAddress
         , controller: string
@@ -32,7 +37,28 @@ export class AdaptersHelper {
     public static async createAave3PoolAdapterEMode(signer: SignerWithAddress) : Promise<Aave3PoolAdapterEMode> {
         return (await DeployUtils.deployContract(signer, "Aave3PoolAdapterEMode")) as Aave3PoolAdapterEMode;
     }
-//endregion AAVE
+//endregion AAVE.v2
+
+//region AAVE.v3
+    public static async createAaveTwoPlatformAdapter(
+        signer: SignerWithAddress
+        , controller: string
+        , poolAave: string
+        , templateAdapterNormal: string
+    ) : Promise<AaveTwoPlatformAdapter> {
+        return (await DeployUtils.deployContract(
+            signer,
+            "AaveTwoPlatformAdapter",
+            controller,
+            poolAave,
+            templateAdapterNormal,
+        )) as AaveTwoPlatformAdapter;
+    }
+
+    public static async createAaveTwoPoolAdapter(signer: SignerWithAddress) : Promise<AaveTwoPoolAdapter> {
+        return (await DeployUtils.deployContract(signer, "AaveTwoPoolAdapter")) as AaveTwoPoolAdapter;
+    }
+//endregion AAVE.v2
 
 //region Hundred finance
     public static async createHundredFinancePlatformAdapter(
