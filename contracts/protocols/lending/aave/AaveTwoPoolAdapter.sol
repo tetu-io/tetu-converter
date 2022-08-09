@@ -143,6 +143,8 @@ contract AaveTwoPoolAdapter is IPoolAdapter, IPoolAdapterInitializer {
     console.log("user balance after %d", IERC20(assetBorrow).balanceOf(receiver_));
 
     // register the borrow in DebtMonitor
+    console.log("controller", address(controller));
+    console.log("debtMonitor", address(controller.debtMonitor()));
     IDebtMonitor(controller.debtMonitor()).onOpenPosition();
 
     // TODO: send aTokens anywhere?

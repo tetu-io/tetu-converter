@@ -80,7 +80,7 @@ describe("Hundred finance integration tests, platform adapter", () => {
             const sret = [
                 ret.borrowRateKind,
                 ret.borrowRate,
-                ret.ltvWAD,
+                ret.ltv18,
                 ret.liquidationThreshold18,
                 ret.maxAmountToBorrowBT,
                 ret.maxAmountToSupplyCT,

@@ -87,6 +87,7 @@ contract Controller is IController, Initializable {
   function debtMonitor() external view override returns (address) {
     return addressStorage[debtMonitorKey];
   }
+  /// @notice External instance of IBorrower to claim repay in emergency
   function borrower() external view override returns (address) {
     return addressStorage[borrowerKey];
   }

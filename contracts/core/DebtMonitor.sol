@@ -184,6 +184,7 @@ contract DebtMonitor is IDebtMonitor {
 
   /// @notice Ensure that msg.sender is registered pool adapter
   function _onlyPoolAdapter() internal view {
+    console.log("_onlyPoolAdapter", controller.borrowManager());
     IBorrowManager bm = IBorrowManager(controller.borrowManager());
     require(bm.isPoolAdapter(msg.sender), AppErrors.POOL_ADAPTER_ONLY);
   }
