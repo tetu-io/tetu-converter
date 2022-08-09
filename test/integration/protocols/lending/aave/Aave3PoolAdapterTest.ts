@@ -2,7 +2,7 @@ import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import {ethers} from "hardhat";
 import {TimeUtils} from "../../../../../scripts/utils/TimeUtils";
 import {
-    IERC20Extended, IERC20Extended__factory
+    IERC20Extended__factory
 } from "../../../../../typechain";
 import {expect, use} from "chai";
 import {BigNumber, BigNumberish} from "ethers";
@@ -111,7 +111,7 @@ describe("Aave-v3 integration tests, pool adapter", () => {
                     .balanceOf(aavePoolAdapterAsTC.address),
                 ret.totalCollateralBase,
                 ret.totalDebtBase
-            ].map(x => BalanceUtils.toString(x)).join();
+            ].map(x => BalanceUtils.toString(x)).join("\n");
 
 
             const sexpected = [
@@ -121,7 +121,7 @@ describe("Aave-v3 integration tests, pool adapter", () => {
                     .div(getBigNumberFrom(1, collateralToken.decimals)),
                 borrowAmount.mul(prices[1]) // registered debt in the pool
                     .div(getBigNumberFrom(1, borrowToken.decimals)),
-            ].map(x => BalanceUtils.toString(x)).join();
+            ].map(x => BalanceUtils.toString(x)).join("\n");
 
             return {sret, sexpected};
         }

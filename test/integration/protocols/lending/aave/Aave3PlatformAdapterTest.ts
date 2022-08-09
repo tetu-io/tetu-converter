@@ -2,6 +2,7 @@ import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import {ethers} from "hardhat";
 import {TimeUtils} from "../../../../../scripts/utils/TimeUtils";
 import {
+    IAaveToken__factory,
     IERC20Extended
 } from "../../../../../typechain";
 import {expect} from "chai";
@@ -12,51 +13,14 @@ import {AdaptersHelper} from "../../../../baseUT/AdaptersHelper";
 import {isPolygonForkInUse} from "../../../../baseUT/NetworkUtils";
 import {Aave3Helper} from "../../../../../scripts/integration/helpers/Aave3Helper";
 import {BalanceUtils} from "../../../../baseUT/BalanceUtils";
+import {MaticAddresses} from "../../../../../scripts/addresses/MaticAddresses";
 
 describe("Aave-v3 integration tests, platform adapter", () => {
-//region Constants
-    /** https://docs.aave.com/developers/deployed-contracts/v3-mainnet/polygon */
-    const aavePoolV3 = "0x794a61358D6845594F94dc1DB02A252b5b4814aD";
-
-    const usdcAddress = '0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174';
-    const usdcHolder = '0xe7804c37c13166ff0b37f5ae0bb07a3aebb6e245';
-
-    const daiAddress = '0x8f3Cf7ad23Cd3CaDbD9735AFf958023239c6A063';
-    const daiHolder = "0xf04adbf75cdfc5ed26eea4bbbb991db002036bdd";
-
-    const eursAddress = '0xE111178A87A3BFf0c8d18DECBa5798827539Ae99';
-    const eursHolder = "TODO";
-
-    /** All available markets are here: https://app-v3.aave.com/markets/ */
-
-    /** This token can be used as collateral but cannot be borrowed */
-    const aaveAddress = "0xD6DF932A45C0f255f85145f286eA0b292B21C90B";
-
-    /**
-     * Tether assets cannot be used as collateral
-     * https://app-v3.aave.com/reserve-overview/?underlyingAsset=0xdac17f958d2ee523a2206206994597c13d831ec7&marketName=proto_mainnet
-     * */
-    const usdTetherAddress_IsolationModeOnly = "0xc2132D05D31c914a87C6611C10748AEb04B58e8F";
-
-    /**
-     * jEUR cannot be used as collateral
-     * https://app-v3.aave.com/reserve-overview/?underlyingAsset=0x4e3decbb3645551b8a19f0ea1678079fcb33fb4c&marketName=proto_polygon_v3
-     */
-    const jEUR_NotCollateral = "0x4e3Decbb3645551B8A19f0eA1678079FCB33fB4c";
-
-    const wmaticAddress = "0x0d500B1d8E8eF31E21C99d1Db9A6444d3ADf1270";
-
-//endregion Constants
-
 //region Global vars for all tests
     let snapshot: string;
     let snapshotForEach: string;
     let deployer: SignerWithAddress;
     let investor: SignerWithAddress;
-
-    let usdc: IERC20Extended;
-    let dai: IERC20Extended;
-    let wmatic: IERC20Extended;
 //endregion Global vars for all tests
 
 //region before, after
@@ -66,16 +30,6 @@ describe("Aave-v3 integration tests, platform adapter", () => {
         const signers = await ethers.getSigners();
         deployer = signers[0];
         investor = signers[0];
-
-        usdc = (await ethers.getContractAt(
-            'contracts/integrations/IERC20Extended.sol:IERC20Extended',
-            usdcAddress
-        )) as IERC20Extended;
-
-        dai = (await ethers.getContractAt(
-            'contracts/integrations/IERC20Extended.sol:IERC20Extended',
-            daiAddress
-        )) as IERC20Extended;
     });
 
     after(async function () {
@@ -84,20 +38,6 @@ describe("Aave-v3 integration tests, platform adapter", () => {
 
     beforeEach(async function () {
         snapshotForEach = await TimeUtils.snapshot();
-
-        await usdc
-            .connect(await DeployerUtils.startImpersonate(usdcHolder))
-            .transfer(
-                investor.address,
-                BigNumber.from(100_000).mul(BigNumber.from(10).pow(await usdc.decimals()))
-            );
-
-        await dai
-            .connect(await DeployerUtils.startImpersonate(daiHolder))
-            .transfer(
-                investor.address,
-                BigNumber.from(100_000).mul(BigNumber.from(10).pow(await dai.decimals()))
-            );
     });
 
     afterEach(async function () {
@@ -137,7 +77,7 @@ describe("Aave-v3 integration tests, platform adapter", () => {
             const sret = [
                 ret.borrowRateKind,
                 ret.borrowRate,
-                ret.ltvWAD,
+                ret.ltv18,
                 ret.liquidationThreshold18,
                 ret.maxAmountToBorrowBT,
                 ret.maxAmountToSupplyCT,
@@ -147,6 +87,21 @@ describe("Aave-v3 integration tests, platform adapter", () => {
                       && borrowAssetData.data.emodeCategory == collateralAssetData.data.emodeCategory
                     : collateralAssetData.data.emodeCategory == 0 || borrowAssetData.data.emodeCategory == 0,
             ].map(x => BalanceUtils.toString(x)) .join();
+
+            let expectedMaxAmountToSupply = BigNumber.from(2).pow(256); // == type(uint).max
+            if (! collateralAssetData.data.supplyCap.eq(0)) {
+                // see sources of AAVE3\ValidationLogic.sol\validateSupply
+                const totalSupply =
+                    (await IAaveToken__factory.connect(collateralAssetData.aTokenAddress, deployer).scaledTotalSupply())
+                        .mul(collateralAssetData.data.liquidityIndex)
+                        .add(getBigNumberFrom(5, 26)) //HALF_RAY = 0.5e27
+                        .div(getBigNumberFrom(1, 27)); //RAY = 1e27
+                const supplyCap = collateralAssetData.data.supplyCap
+                    .mul(getBigNumberFrom(1, collateralAssetData.data.decimals));
+                expectedMaxAmountToSupply = supplyCap.gt(totalSupply)
+                    ? supplyCap.sub(totalSupply)
+                    : BigNumber.from(0);
+            }
 
             const sexpected = [
                 2, // per second
@@ -168,7 +123,7 @@ describe("Aave-v3 integration tests, platform adapter", () => {
                 BigNumber.from(borrowAssetData.liquidity.totalAToken)
                     .sub(borrowAssetData.liquidity.totalVariableDebt)
                     .sub(borrowAssetData.liquidity.totalStableDebt),
-                collateralAssetData.data.supplyCap,
+                expectedMaxAmountToSupply,
                 true,
             ].map(x => BalanceUtils.toString(x)) .join();
 
@@ -179,8 +134,8 @@ describe("Aave-v3 integration tests, platform adapter", () => {
                 it("should return expected values", async () => {
                     if (!await isPolygonForkInUse()) return;
 
-                    const collateralAsset = "0x8f3Cf7ad23Cd3CaDbD9735AFf958023239c6A063"; //dai
-                    const borrowAsset = "0x0d500B1d8E8eF31E21C99d1Db9A6444d3ADf1270"; //matic
+                    const collateralAsset = MaticAddresses.DAI;
+                    const borrowAsset = MaticAddresses.WMATIC;
 
                     const r = await makeTest(
                         collateralAsset,
@@ -194,11 +149,11 @@ describe("Aave-v3 integration tests, platform adapter", () => {
             });
             describe("Isolation mode is enabled for collateral, borrow token is borrowable", () => {
                 describe("STASIS EURS-2 : Tether USD", () => {
-                    it("", async () =>{
+                    it("should return expected values", async () =>{
                         if (!await isPolygonForkInUse()) return;
 
-                        const collateralAsset = "0xE111178A87A3BFf0c8d18DECBa5798827539Ae99"; // STASIS EURS
-                        const borrowAsset = "0xc2132D05D31c914a87C6611C10748AEb04B58e8F"; // Tether USD
+                        const collateralAsset = MaticAddresses.EURS;
+                        const borrowAsset = MaticAddresses.USDT;
 
                         const r = await makeTest(
                             collateralAsset,
@@ -213,97 +168,99 @@ describe("Aave-v3 integration tests, platform adapter", () => {
             });
             describe("Two assets from category 1", () => {
                 it("should return values for high efficient mode", async () => {
-                    it("should return expected values", async () =>{
-                        if (!await isPolygonForkInUse()) return;
+                    if (!await isPolygonForkInUse()) return;
 
-                        const collateralAsset = "0x8f3Cf7ad23Cd3CaDbD9735AFf958023239c6A063"; //dai
-                        const borrowAsset = "0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174"; //usdc
+                    const collateralAsset = MaticAddresses.DAI;
+                    const borrowAsset = MaticAddresses.USDC;
 
-                        const r = await makeTest(
-                            collateralAsset,
-                            borrowAsset,
-                            true,
-                            false
-                        );
+                    const r = await makeTest(
+                        collateralAsset,
+                        borrowAsset,
+                        true,
+                        false
+                    );
 
-                        expect(r.sret).eq(r.sexpected);
-                    });
+                    expect(r.sret).eq(r.sexpected);
                 });
             });
             describe("Borrow cap > available liquidity to borrow", () => {
                 it("should return expected values", async () => {
-                    it("", async () =>{
-                        expect.fail("TODO");
-                    });
+                    expect.fail("TODO");
                 });
             });
             describe("Supply cap not 0", () => {
                 it("should return expected values", async () => {
-                    it("", async () =>{
-                        expect.fail("TODO");
-                    });
+                    expect.fail("TODO");
                 });
             });
             describe("Borrow exists, AAVE changes parameters of the reserve, make new borrow", () => {
                 it("TODO", async () => {
-                    it("", async () =>{
-                        expect.fail("TODO");
-                    });
+                    expect.fail("TODO");
                 });
             });
         });
         describe("Bad paths", () => {
             describe("inactive", () => {
                 describe("collateral token is inactive", () => {
-                    it("", async () =>{
+                    it("should revert", async () =>{
                         expect.fail("TODO");
                     });
                 });
                 describe("borrow token is inactive", () => {
-                    it("", async () =>{
+                    it("should revert", async () =>{
                         expect.fail("TODO");
                     });
                 });
             });
             describe("paused", () => {
                 describe("collateral token is paused", () => {
-                    it("", async () =>{
+                    it("should revert", async () =>{
                         expect.fail("TODO");
                     });
                 });
                 describe("borrow token is paused", () => {
-                    it("", async () =>{
+                    it("should revert", async () =>{
                         expect.fail("TODO");
                     });
                 });
             });
             describe("Borrow token is frozen", () => {
                 describe("collateral token is frozen", () => {
-                    it("", async () =>{
+                    it("should revert", async () =>{
                         expect.fail("TODO");
                     });
                 });
                 describe("borrow token is frozen", () => {
-                    it("", async () =>{
+                    it("should revert", async () =>{
                         expect.fail("TODO");
                     });
                 });
             });
             describe("Not borrowable", () => {
-                it("", async () =>{
+                it("should revert", async () =>{
                     expect.fail("TODO");
                 });
             });
             describe("Not usable as collateral", () => {
-                it("", async () =>{
+                it("should revert", async () =>{
                     expect.fail("TODO");
                 });
             });
             describe("Isolation mode is enabled for collateral, borrow token is not borrowable", () => {
                 describe("STASIS EURS-2 : SushiToken (PoS)", () => {
-                    it("", async () =>{
+                    it("should revert", async () =>{
                         expect.fail("TODO");
                     });
+                });
+            });
+            describe("Try to supply more than allowed by supply cap", () => {
+                it("should revert", async () =>{
+                    expect.fail("TODO");
+                });
+            });
+            describe("Try to borrow more than allowed by borrow cap", () => {
+                it("should revert", async () =>{
+                    expect.fail("TODO");
                 });
             });
         });

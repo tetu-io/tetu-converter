@@ -7,11 +7,11 @@ import "../integrations/market/ICErc20.sol";
 import "../integrations/IERC20Extended.sol";
 import "../interfaces/IBorrowManager.sol";
 import "../interfaces/IPriceOracle.sol";
-import "hardhat/console.sol";
 import "../openzeppelin/IERC20.sol";
 import "../openzeppelin/SafeERC20.sol";
-import "../base/BorrowManagerBase.sol";
+import "./BorrowManagerBase.sol";
 import "./AppErrors.sol";
+import "hardhat/console.sol";
 
 /// @notice Contains list of lending pools. Allow to select most efficient pool for the given collateral/borrow pair
 contract BorrowManager is BorrowManagerBase {
