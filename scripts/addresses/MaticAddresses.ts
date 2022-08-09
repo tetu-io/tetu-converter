@@ -24,6 +24,8 @@ export class MaticAddresses {
   public static AaveToken = "0xD6DF932A45C0f255f85145f286eA0b292B21C90B";
   public static Aavegotchi_GHST = "0x385Eeac5cB85A38A9a07A70c73e0a3271CfB54A7";
   public static DefiPulseToken = "0x85955046DF4668e1DD369D2DE9f3AEB98DD2A369";
+//Hundred Finance
+  public static FRAX = "0x45c32fa6df82ead1e2ef74d17b76547eddfaff89";
 //DForce
   public static dForce_USD = "0xCf66EB3D546F0415b368d98A95EAF56DeD7aA752";
 //endregion Assets

@@ -110,7 +110,7 @@ contract Aave3PlatformAdapter is IPlatformAdapter {
               plan.liquidationThreshold18 = uint(rc.configuration.getLiquidationThreshold()) * 10**(18-5);
               plan.converter = _converters[INDEX_NORMAL_MODE];
             }
-            console.log("plan.converter=%s", plan.converter);
+//            console.log("plan.converter=%s", plan.converter);
           }
 
          // assume here, that we always use variable borrow rate
@@ -161,11 +161,11 @@ contract Aave3PlatformAdapter is IPlatformAdapter {
           if (supplyCap == 0) {
             plan.maxAmountToSupplyCT = type(uint).max; // unlimited
           } else {
-            console.log("supplyCap", supplyCap);
+//            console.log("supplyCap", supplyCap);
             supplyCap  *= (10**rc.configuration.getDecimals());
-            console.log("supplyCap", supplyCap);
+//            console.log("supplyCap", supplyCap);
             uint totalSupply = (IAaveToken(rc.aTokenAddress).scaledTotalSupply() * rc.liquidityIndex + HALF_RAY) / RAY;
-            console.log("totalSupply", totalSupply);
+//            console.log("totalSupply", totalSupply);
             plan.maxAmountToSupplyCT = supplyCap > totalSupply
               ? supplyCap - totalSupply
               : 0;

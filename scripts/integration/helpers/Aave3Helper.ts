@@ -282,7 +282,10 @@ export class Aave3Helper {
         return ! configuration.and(BigNumber.from(mask).xor(fullMask)).eq(0);
     }
 
-    public static toString(n: BigNumberish | boolean) : string {
+    public static toString(n: BigNumberish | boolean | undefined) : string {
+        if (n === undefined) {
+            return "";
+        }
         return typeof n === "object" && n.toString()
             ? n.toString()
             : "" + n;

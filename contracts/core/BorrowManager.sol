@@ -186,47 +186,49 @@ contract BorrowManager is BorrowManagerBase {
         p_.sourceToken,
         p_.targetToken
       );
-      console.log("done");
-      console.log("plan.maxAmountToSupplyCT", plan.maxAmountToSupplyCT);
-      console.log("sourceAmount", p_.sourceAmount);
-      console.log("plan.converter", plan.converter);
-      console.log("plan.ltv18", plan.ltv18);
-      console.log("plan.liquidationThreshold18", plan.liquidationThreshold18);
-      console.log("plan.borrowRate", plan.borrowRate);
-      console.log("plan.borrowRateKind", uint(plan.borrowRateKind));
-      console.log("plan.maxAmountToBorrowBT", plan.maxAmountToBorrowBT);
+      if (plan.converter != address(0)) {
+        console.log("done");
+        console.log("plan.maxAmountToSupplyCT", plan.maxAmountToSupplyCT);
+        console.log("sourceAmount", p_.sourceAmount);
+        console.log("plan.converter", plan.converter);
+        console.log("plan.ltv18", plan.ltv18);
+        console.log("plan.liquidationThreshold18", plan.liquidationThreshold18);
+        console.log("plan.borrowRate", plan.borrowRate);
+        console.log("plan.borrowRateKind", uint(plan.borrowRateKind));
+        console.log("plan.maxAmountToBorrowBT", plan.maxAmountToBorrowBT);
 
-      // check if we are able to supply required collateral
-      if (plan.maxAmountToSupplyCT > p_.sourceAmount) {
-        // convert borrow rate to APR
-        uint aprOfPool = plan.borrowRateKind == AppDataTypes.BorrowRateKind.PER_BLOCK_1
-          ? plan.borrowRate
-          : plan.borrowRate * SECONDS_PER_DAY / BLOCKS_PER_DAY;
-        console.log("aprOfPool=%d", aprOfPool);
+        // check if we are able to supply required collateral
+        if (plan.maxAmountToSupplyCT > p_.sourceAmount) {
+          // convert borrow rate to APR
+          uint aprOfPool = plan.borrowRateKind == AppDataTypes.BorrowRateKind.PER_BLOCK_1
+            ? plan.borrowRate
+            : plan.borrowRate * SECONDS_PER_DAY / BLOCKS_PER_DAY;
+          console.log("aprOfPool=%d", aprOfPool);
 
-        if (converter == address(0) || aprOfPool < apr) {
-          // how much target asset we are able to get for the provided collateral with given health factor
-          // TargetTA = BS / PT [TA], C = SA * PS, CM = C / HF, BS = CM * PCF
-          uint resultTa18 = plan.liquidationThreshold18
-            * pp_.sourceAmount18 * pricesCB18[0]
-            / (pricesCB18[1] * uint(p_.healthFactor2) * 10**(18-2));
+          if (converter == address(0) || aprOfPool < apr) {
+            // how much target asset we are able to get for the provided collateral with given health factor
+            // TargetTA = BS / PT [TA], C = SA * PS, CM = C / HF, BS = CM * PCF
+            uint resultTa18 = plan.liquidationThreshold18
+              * pp_.sourceAmount18 * pricesCB18[0]
+              / (pricesCB18[1] * uint(p_.healthFactor2) * 10**(18-2));
 
-          console.log("apr %d plan.borrowRate=%d", aprOfPool, plan.borrowRate);
-          console.log("resultTa18 %d", resultTa18);
-          console.log("plan.collateralFactorWAD %d", plan.liquidationThreshold18);
-          console.log("pp_.sourceAmount18 %d", pp_.sourceAmount18);
-          console.log("pp_.priceSource18 %d", pricesCB18[0]);
-          console.log("pp_.priceTarget18 %d", pricesCB18[1]);
-          console.log("p_.healthFactor2 %d", p_.healthFactor2);
-          console.log("plan.maxAmountToBorrowBT %d", plan.maxAmountToBorrowBT);
-          console.log("plan.ltvWAD %d", plan.ltv18);
+            console.log("apr %d plan.borrowRate=%d", aprOfPool, plan.borrowRate);
+            console.log("resultTa18 %d", resultTa18);
+            console.log("plan.collateralFactorWAD %d", plan.liquidationThreshold18);
+            console.log("pp_.sourceAmount18 %d", pp_.sourceAmount18);
+            console.log("pp_.priceSource18 %d", pricesCB18[0]);
+            console.log("pp_.priceTarget18 %d", pricesCB18[1]);
+            console.log("p_.healthFactor2 %d", p_.healthFactor2);
+            console.log("plan.maxAmountToBorrowBT %d", plan.maxAmountToBorrowBT);
+            console.log("plan.ltvWAD %d", plan.ltv18);
 
-          // the pool should have enough liquidity
-          if (_toMantissa(plan.maxAmountToBorrowBT, pp_.targetDecimals, 18) >= resultTa18) {
-            // take the pool with lowest borrow rate
-            converter = plan.converter;
-            maxTargetAmount = _toMantissa(resultTa18, 18, pp_.targetDecimals);
-            apr = aprOfPool;
+            // the pool should have enough liquidity
+            if (_toMantissa(plan.maxAmountToBorrowBT, pp_.targetDecimals, 18) >= resultTa18) {
+              // take the pool with lowest borrow rate
+              converter = plan.converter;
+              maxTargetAmount = _toMantissa(resultTa18, 18, pp_.targetDecimals);
+              apr = aprOfPool;
+            }
           }
         }
       }

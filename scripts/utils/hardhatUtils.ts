@@ -37,6 +37,6 @@ export function controlGasLimitsEx(
         console.log(`Gas control is skipped: used=${gasUsed.toNumber()} limit=${gasLimit}}`);
     } else {
         f(gasUsed, gasLimit);
-        console.log(`Limit - used = ${gasLimit - gasUsed.toNumber()}`);
+        console.log(`Limit - used = ${gasLimit - gasUsed.toNumber()}, used=${gasUsed.toNumber()}`);
     }
 }

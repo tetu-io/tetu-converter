@@ -168,20 +168,6 @@ contract DebtMonitor is IDebtMonitor {
     }
   }
 
-  /// @notice Get price of single {asset}-token in $, decimals 18
-  function _getPrice18(address asset) internal view returns(uint) {
-    uint price = IPriceOracle(controller.priceOracle()).getAssetPrice(asset);
-    require (price != 0, AppErrors.ZERO_PRICE);
-    return price;
-  }
-
-  /// @notice Convert {amount} with [sourceDecimals} to new amount with {targetDecimals}
-  function _toMantissa(uint amount, uint8 sourceDecimals, uint8 targetDecimals) internal pure returns (uint) {
-    return sourceDecimals == targetDecimals
-    ? amount
-    : amount * (10 ** targetDecimals) / (10 ** sourceDecimals);
-  }
-
   /// @notice Ensure that msg.sender is registered pool adapter
   function _onlyPoolAdapter() internal view {
     console.log("_onlyPoolAdapter", controller.borrowManager());

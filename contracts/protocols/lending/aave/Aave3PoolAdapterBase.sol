@@ -98,8 +98,8 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer 
     address receiver_
   ) external override {
     _onlyTC();
-    console.log("Aave3 borrow: collateral=%d borrow=%d receiver=%s", collateralAmount_, borrowAmount_, receiver_);
-    console.log("Aave3 borrow: this=%s", address(this));
+//    console.log("Aave3 borrow: collateral=%d borrow=%d receiver=%s", collateralAmount_, borrowAmount_, receiver_);
+//    console.log("Aave3 borrow: this=%s", address(this));
 
     address assetCollateral = collateralAsset;
     address assetBorrow = borrowAsset;
@@ -132,7 +132,7 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer 
     // enter to E-mode if necessary
     prepareToBorrow();
 
-    console.log("Balance before=%d", IERC20(assetBorrow).balanceOf(address(this)));
+//    console.log("Balance before=%d", IERC20(assetBorrow).balanceOf(address(this)));
     // make borrow, send borrowed amount to the receiver
     // we cannot transfer borrowed amount directly to receiver because the debt is incurred by amount receiver
     _pool.borrow(
@@ -143,16 +143,16 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer 
       address(this)
     );
 
-    console.log("Balance after=%d", IERC20(assetBorrow).balanceOf(address(this)));
+//    console.log("Balance after=%d", IERC20(assetBorrow).balanceOf(address(this)));
     // ensure that we have received required borrowed amount, send the amount to the receiver
     require(
       borrowAmount_ == IERC20(assetBorrow).balanceOf(address(this)) - reserveBalances[assetBorrow]
       , AppErrors.WRONG_BORROWED_BALANCE
     );
-    console.log("Transfer borrow amount to user: %d", borrowAmount_);
-    console.log("user balance before %d", IERC20(assetBorrow).balanceOf(receiver_));
+//    console.log("Transfer borrow amount to user: %d", borrowAmount_);
+//    console.log("user balance before %d", IERC20(assetBorrow).balanceOf(receiver_));
     IERC20(assetBorrow).safeTransfer(receiver_, borrowAmount_);
-    console.log("user balance after %d", IERC20(assetBorrow).balanceOf(receiver_));
+//    console.log("user balance after %d", IERC20(assetBorrow).balanceOf(receiver_));
 
     // register the borrow in DebtMonitor
     IDebtMonitor(controller.debtMonitor()).onOpenPosition();
@@ -175,7 +175,7 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer 
     address receiver_,
     bool closePosition
   ) external override {
-    console.log("repay amountToRepay_=%d receiver_=%s closePosition=%d", amountToRepay_, receiver_, closePosition ? 1 : 0);
+//    console.log("repay amountToRepay_=%d receiver_=%s closePosition=%d", amountToRepay_, receiver_, closePosition ? 1 : 0);
     address assetBorrow = borrowAsset;
 
     // ensure that we have received enough money on our balance just before repay was called
@@ -232,9 +232,9 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer 
       uint liquidationThreshold18 = _pool.getConfiguration(assetCollateral).getLiquidationThreshold();
 
       uint collateralToKeepToAvoidRevert = totalDebtBase * liquidationThreshold18 * prices[1] / prices[0];
-      console.log("Keep: ", collateralToKeepToAvoidRevert, prices[0], prices[1]);
-      console.log("Withdraw: ", totalCollateralBase/ prices[0], totalCollateralBase, liquidationThreshold18);
-      console.log("Withdraw possible: ", (totalCollateralBase - collateralToKeepToAvoidRevert)/ prices[0], (totalCollateralBase - collateralToKeepToAvoidRevert));
+//      console.log("Keep: ", collateralToKeepToAvoidRevert, prices[0], prices[1]);
+//      console.log("Withdraw: ", totalCollateralBase/ prices[0], totalCollateralBase, liquidationThreshold18);
+//      console.log("Withdraw possible: ", (totalCollateralBase - collateralToKeepToAvoidRevert)/ prices[0], (totalCollateralBase - collateralToKeepToAvoidRevert));
 
       _pool.withdraw(collateralAsset, (totalCollateralBase - collateralToKeepToAvoidRevert)/ prices[0], receiver_);
     } else {
@@ -265,11 +265,11 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer 
       ? 10**18 //TODO we need to return the amount in wei units
       : 10**18 * amountToRepayBase / totalDebtBase;
 
-    console.log("totalCollateralBase: %d", totalCollateralBase);
-    console.log("_getCollateralAmountToReturn: %d", totalCollateralBase * (10 ** IERC20Extended(collateralAsset).decimals()));
-    console.log("prices: %d %d", prices[0], prices[1]);
-    console.log("amountToRepayBase: %d", amountToRepayBase );
-    console.log("totalDebtBase: %d", totalDebtBase);
+//    console.log("totalCollateralBase: %d", totalCollateralBase);
+//    console.log("_getCollateralAmountToReturn: %d", totalCollateralBase * (10 ** IERC20Extended(collateralAsset).decimals()));
+//    console.log("prices: %d %d", prices[0], prices[1]);
+//    console.log("amountToRepayBase: %d", amountToRepayBase );
+//    console.log("totalDebtBase: %d", totalDebtBase);
     return // == totalCollateral * amountToRepay / totalDebt
       totalCollateralBase * (10 ** IERC20Extended(collateralAsset).decimals())
       * part / 10**18
@@ -303,8 +303,8 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer 
     uint priceBorrow = _priceOracle.getAssetPrice(borrowAsset);
     require(priceBorrow != 0, AppErrors.ZERO_PRICE);
 
-    console.log("getStatus totalCollateralBase=%d totalDebtBase=%d priceBorrow=%d", totalCollateralBase, totalDebtBase, priceBorrow);
-    console.log("pool adapter=%s", address(this));
+//    console.log("getStatus totalCollateralBase=%d totalDebtBase=%d priceBorrow=%d", totalCollateralBase, totalDebtBase, priceBorrow);
+//    console.log("pool adapter=%s", address(this));
     return (
     // Total amount of provided collateral in Pool adapter's base currency
       totalCollateralBase,

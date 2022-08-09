@@ -1231,7 +1231,7 @@ describe("BorrowRepayTest", () => {
                     const HEALTH_FACTOR2 = 0;
                     const COUNT_BLOCKS = 1;
                     describe("AAVE.v3", () => {
-                        it("should return expected balances", async () => {
+                        it("should not exceed gas limit", async () => {
 
                             const r = await makeTestSingleBorrowInstantRepay(
                                 {
@@ -1255,7 +1255,7 @@ describe("BorrowRepayTest", () => {
                         });
                     });
                     describe("Hundred finance", () => {
-                        it("should return expected balances", async () => {
+                        it("should not exceed gas limit", async () => {
                             if (!await isPolygonForkInUse()) return;
                             const r = await makeTestSingleBorrowInstantRepay(
                                 {
@@ -1279,7 +1279,7 @@ describe("BorrowRepayTest", () => {
                         });
                     });
                     describe("dForce", () => {
-                        it("should return expected balances", async () => {
+                        it("should not exceed gas limit", async () => {
                             if (!await isPolygonForkInUse()) return;
                             const r = await makeTestSingleBorrowInstantRepay(
                                 {
@@ -1303,7 +1303,7 @@ describe("BorrowRepayTest", () => {
                         });
                     });
                     describe("AAVE.v2", () => {
-                        it("should return expected balances", async () => {
+                        it("should not exceed gas limit", async () => {
                             if (!await isPolygonForkInUse()) return;
                             const r = await makeTestSingleBorrowInstantRepay(
                                 {

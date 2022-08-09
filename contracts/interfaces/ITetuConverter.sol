@@ -49,4 +49,10 @@ interface ITetuConverter {
   ) external view returns (
     address[] memory poolAdapters
   );
+
+//  /// @notice Repay the borrow completely and re-borrow using another PA
+//  /// @dev Revert if re-borrow uses same PA as before
+//  function rebalance(
+//    address poolAdapter_
+//  ) external;
 }
