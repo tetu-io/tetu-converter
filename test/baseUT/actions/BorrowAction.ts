@@ -13,6 +13,7 @@ export class BorrowAction implements IBorrowAction {
     public countBlocks: number;
     public healthFactor2: number;
     public countBlocksToSkipAfterAction?: number;
+    public controlGas?: boolean;
 
     constructor(
         collateralToken: TokenWrapper,
@@ -20,7 +21,8 @@ export class BorrowAction implements IBorrowAction {
         borrowToken: TokenWrapper,
         countBlocks: number,
         healthFactor2: number,
-        countBlocksToSkipAfterAction?: number
+        countBlocksToSkipAfterAction?: number,
+        controlGas?: boolean
     ) {
         this.collateralToken = collateralToken;
         this.collateralAmount = collateralAmount;
@@ -28,9 +30,12 @@ export class BorrowAction implements IBorrowAction {
         this.countBlocks = countBlocks;
         this.healthFactor2 = healthFactor2;
         this.countBlocksToSkipAfterAction = countBlocksToSkipAfterAction;
+        this.controlGas = controlGas;
     }
 
     async doAction(user: UserBorrowRepayUCs) : Promise<IUserBalances> {
+        let gasUsed: BigNumber | undefined;
+
         await user.makeBorrowUC1_1(
             this.collateralToken.address,
             this.collateralAmount,
@@ -39,6 +44,16 @@ export class BorrowAction implements IBorrowAction {
             this.healthFactor2,
             user.address
         );
+        if (this.controlGas) {
+            gasUsed = await user.estimateGas.makeBorrowUC1_1(
+                this.collateralToken.address,
+                this.collateralAmount,
+                this.borrowToken.address,
+                this.countBlocks,
+                this.healthFactor2,
+                user.address
+            );
+        }
 
         if (this.countBlocksToSkipAfterAction) {
             await TimeUtils.advanceNBlocks(this.countBlocksToSkipAfterAction);
@@ -54,6 +69,6 @@ export class BorrowAction implements IBorrowAction {
             await DeployerUtils.startImpersonate(user.address)
         ).balanceOf(user.address);
 
-        return { collateral, borrow };
+        return { collateral, borrow, gasUsed };
     }
 }

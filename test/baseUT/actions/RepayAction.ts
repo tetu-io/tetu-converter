@@ -12,20 +12,25 @@ export class RepayAction implements IRepayAction {
     /** if undefined - repay all */
     public amountToRepay: BigNumber | undefined;
     public countBlocksToSkipAfterAction?: number;
+    public controlGas?: boolean;
 
     constructor(
         collateralToken: TokenWrapper,
         borrowToken: TokenWrapper,
         amountToRepay: BigNumber | undefined,
-        countBlocksToSkipAfterAction?: number
+        countBlocksToSkipAfterAction?: number,
+        controlGas?: boolean
     ) {
         this.collateralToken = collateralToken;
         this.borrowToken = borrowToken;
         this.amountToRepay = amountToRepay;
         this.countBlocksToSkipAfterAction = countBlocksToSkipAfterAction;
+        this.controlGas = controlGas;
     }
 
     async doAction(user: UserBorrowRepayUCs) : Promise<IUserBalances> {
+        let gasUsed: BigNumber | undefined;
+
         if (this.amountToRepay) {
             await user.makeRepayUC1_3(
                 this.collateralToken.address,
@@ -33,12 +38,27 @@ export class RepayAction implements IRepayAction {
                 user.address,
                 this.amountToRepay
             );
+            if (this.controlGas) {
+                gasUsed = await user.estimateGas.makeRepayUC1_3(
+                    this.collateralToken.address,
+                    this.borrowToken.address,
+                    user.address,
+                    this.amountToRepay
+                );
+            }
         } else {
             await user.makeRepayUC1_2(
                 this.collateralToken.address,
                 this.borrowToken.address,
                 user.address
             );
+            if (this.controlGas) {
+                gasUsed = await user.estimateGas.makeRepayUC1_2(
+                    this.collateralToken.address,
+                    this.borrowToken.address,
+                    user.address
+                );
+            }
         }
 
         if (this.countBlocksToSkipAfterAction) {
@@ -55,6 +75,6 @@ export class RepayAction implements IRepayAction {
             await DeployerUtils.startImpersonate(user.address)
         ).balanceOf(user.address);
 
-        return { collateral, borrow };
+        return { collateral, borrow, gasUsed };
     }
 }

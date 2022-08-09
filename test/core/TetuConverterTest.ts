@@ -142,7 +142,7 @@ describe("BorrowManager", () => {
                         const healthFactor = 2;
                         const sourceAmount = 100_000;
                         const input: IBmInputParams = {
-                            targetCollateralFactor: 0.8,
+                            collateralFactor: 0.8,
                             priceSourceUSD: 0.1,
                             priceTargetUSD: 4,
                             sourceDecimals: 24,
@@ -175,7 +175,7 @@ describe("BorrowManager", () => {
                         ].join();
 
                         const expectedTargetAmount =
-                            input.targetCollateralFactor
+                            input.collateralFactor
                             * sourceAmount * input.priceSourceUSD
                             / (input.priceTargetUSD)
                             / healthFactor;
@@ -222,7 +222,7 @@ describe("BorrowManager", () => {
                     const availableBorrowLiquidityNumber = 200_000_000;
                     const healthFactor = 2;
                     const tt: IBmInputParams = {
-                        targetCollateralFactor: 0.8,
+                        collateralFactor: 0.8,
                         priceSourceUSD: 0.1,
                         priceTargetUSD: 4,
                         sourceDecimals: sourceDecimals,
@@ -280,7 +280,7 @@ describe("BorrowManager", () => {
                     const ret = [...before, "after", ...after].map(x => BalanceUtils.toString(x)).join("\r");
 
                     const expectedTargetAmount = getBigNumberFrom(
-                        tt.targetCollateralFactor
+                        tt.collateralFactor
                         * sourceAmountNumber * tt.priceSourceUSD
                         / (tt.priceTargetUSD)
                         / healthFactor
@@ -327,7 +327,7 @@ describe("BorrowManager", () => {
                     const availableBorrowLiquidityNumber = 200_000_000;
                     const healthFactor = 2;
                     const tt: IBmInputParams = {
-                        targetCollateralFactor: 0.8,
+                        collateralFactor: 0.8,
                         priceSourceUSD: 0.1,
                         priceTargetUSD: 4,
                         sourceDecimals: sourceDecimals,

@@ -110,7 +110,7 @@ contract PoolAdapterMock is IPoolAdapter {
     console.log("healthFactorWAD=%d", healthFactorWAD);
     console.log("_collateralFactor=%d", _collateralFactor);
     console.log("collateralAmount=%d", _toMantissa(collateralAmount, decimalsCollateral, 18));
-    console.log("amountToPay=%d", _toMantissa(amountToPay, decimalsBorrow, 18));
+    console.log("amountToPay18=%d", _toMantissa(amountToPay, decimalsBorrow, 18));
     console.log("priceCollateral=%d", priceCollateral);
     console.log("priceBorrowedUSD=%d", priceBorrowedUSD);
 
@@ -137,7 +137,7 @@ contract PoolAdapterMock is IPoolAdapter {
 
     reserveBalances[_borrowAsset] = borrowBalance;
 
-    _accumulateDebt(0);
+    //_accumulateDebt(_getAmountToRepay() - _borrowedAmounts);
   }
 
   ///////////////////////////////////////////////////////
@@ -214,11 +214,12 @@ contract PoolAdapterMock is IPoolAdapter {
     address receiver_,
     bool closePosition_
   ) external override {
-    console.log("repay");
+    console.log("repay", amountToRepay_, _borrowedAmounts);
     require(amountToRepay_ > 0, "nothing to repay");
     // add debts to the borrowed amount
     _accumulateDebt(0);
     require(_borrowedAmounts >= amountToRepay_, "try to repay too much");
+    console.log("_borrowedAmounts", _borrowedAmounts);
 
     // ensure that we have received enough money on our balance just before repay was called
     uint amountReceivedBT = IERC20(_borrowAsset).balanceOf(address(this));

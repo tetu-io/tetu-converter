@@ -79,7 +79,6 @@ describe("BorrowManager", () => {
                         , [], [], [], [], []
                     );
 
-                    const poolAddress = ethers.Wallet.createRandom().address;
                     const poolAssets = [
                         ethers.Wallet.createRandom().address
                         , ethers.Wallet.createRandom().address
@@ -271,7 +270,7 @@ describe("BorrowManager", () => {
                         const sourceAmount = 100_000;
                         const healthFactor = 4;
                         const input: IBmInputParams = {
-                            targetCollateralFactor: 0.8,
+                            collateralFactor: 0.8,
                             priceSourceUSD: 0.1,
                             priceTargetUSD: 4,
                             sourceDecimals: 24,
@@ -315,7 +314,7 @@ describe("BorrowManager", () => {
                         const sourceAmount = 1000;
                         const healthFactor = 1.6;
                         const input: IBmInputParams = {
-                            targetCollateralFactor: 0.9,
+                            collateralFactor: 0.9,
                             priceSourceUSD: 2,
                             priceTargetUSD: 0.5,
                             sourceDecimals: 6,
@@ -367,7 +366,7 @@ describe("BorrowManager", () => {
                         const sourceAmount = 10000;
                         const healthFactor = 2.0;
                         const input: IBmInputParams = {
-                            targetCollateralFactor: 0.5,
+                            collateralFactor: 0.5,
                             priceSourceUSD: 0.5,
                             priceTargetUSD: 0.2,
                             sourceDecimals: 18,
@@ -411,7 +410,7 @@ describe("BorrowManager", () => {
                         const sourceAmount = 100_000;
                         const healthFactor = 4;
                         const input: IBmInputParams = {
-                            targetCollateralFactor: 0.8,
+                            collateralFactor: 0.8,
                             priceSourceUSD: 0.1,
                             priceTargetUSD: 4,
                             sourceDecimals: 24,
@@ -474,7 +473,7 @@ describe("BorrowManager", () => {
                     const sourceAmount = 100_000;
                     const healthFactor = 4;
                     const input: IBmInputParams = {
-                        targetCollateralFactor: 0.5,
+                        collateralFactor: 0.5,
                         priceSourceUSD: 0.5,
                         priceTargetUSD: 0.2,
                         sourceDecimals: 18,
@@ -513,7 +512,7 @@ describe("BorrowManager", () => {
                     const sourceAmount = 100_000;
                     const healthFactor = 4;
                     const input: IBmInputParams = {
-                        targetCollateralFactor: 0.5,
+                        collateralFactor: 0.5,
                         priceSourceUSD: 0.5,
                         priceTargetUSD: 0.2,
                         sourceDecimals: 18,

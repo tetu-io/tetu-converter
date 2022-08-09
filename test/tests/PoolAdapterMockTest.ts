@@ -69,10 +69,10 @@ describe("PoolAdapterMock", () => {
                     const priceTargetUSD = 2;
                     const blocksBetweenBorrowAndRepay = 20;
                     const converter = await MocksHelper.createPoolAdapterMock(deployer);
-                    const collateralFactor18 = getBigNumberFrom(5, 17); // 0.5
-                    const borrowRatePerBlock18 = getBigNumberFrom(1, 10); // 0.01
+                    const bestBorrowRate = 1;
                     const tt = BorrowManagerHelper.getBmInputParamsSinglePool(1
                         , priceSourceUSD, priceTargetUSD);
+                    const borrowRatePerBlock18 = getBigNumberFrom(bestBorrowRate, tt.targetDecimals);
                     const amountCollateral = getBigNumberFrom(10000, tt.sourceDecimals);
                     const amountBorrowLiquidityInPool = getBigNumberFrom(1e10, tt.targetDecimals);
                     const amountToBorrow = getBigNumberFrom(100, tt.targetDecimals);
@@ -98,15 +98,9 @@ describe("PoolAdapterMock", () => {
                     // this is a mock, we need to configure it
                     const poolAdapterAddress = await bm.getPoolAdapter(pools[0].converter, user, collateral
                         , targetToken.address);
-                    const poolAdapterMock = await PoolAdapterMock__factory.connect(poolAdapterAddress, deployer);
                     const cToken = CTokenMock__factory.connect(
                         pools[0].underlineTocTokens.get(sourceToken.address) || ""
                         , deployer
-                    );
-                    await poolAdapterMock.setUpMock(
-                        cToken.address,
-                        collateralFactor18,
-                        borrowRatePerBlock18
                     );
 
                     // get data from the pool adapter
@@ -149,6 +143,7 @@ describe("PoolAdapterMock", () => {
                     // assume, that some time is passed and the borrow debt is increased
                     await PoolAdapterMock__factory.connect(pa.address, deployer)
                         .setPassedBlocks(blocksBetweenBorrowAndRepay);
+                    console.log(`amountToBorrow=${amountToBorrow.toString()} blocksBetweenBorrowAndRepay=${blocksBetweenBorrowAndRepay.toString()} borrowRatePerBlock18=${borrowRatePerBlock18.toString()}`);
                     const expectedDebt = amountToBorrow
                         .mul(blocksBetweenBorrowAndRepay)
                         .mul(borrowRatePerBlock18)

@@ -12,6 +12,7 @@ export interface ContractToInvestigate {
 export interface IUserBalances {
     collateral: BigNumber;
     borrow: BigNumber;
+    gasUsed?: BigNumber;
 }
 
 export class BalanceUtils {

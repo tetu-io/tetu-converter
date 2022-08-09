@@ -196,7 +196,7 @@ describe("DebtsMonitor", () => {
                     const availableBorrowLiquidityNumber = 200_000_000;
                     const borrowRatePerBlock18 = getBigNumberFrom(1);
                     const tt: IBmInputParams = {
-                        targetCollateralFactor: 0.8,
+                        collateralFactor: 0.8,
                         priceSourceUSD: 0.1,
                         priceTargetUSD: 4,
                         sourceDecimals: sourceDecimals,
@@ -286,7 +286,7 @@ describe("DebtsMonitor", () => {
                     const availableBorrowLiquidityNumber = 200_000_000;
                     const borrowRatePerBlock18 = getBigNumberFrom(1);
                     const tt: IBmInputParams = {
-                        targetCollateralFactor: 0.8,
+                        collateralFactor: 0.8,
                         priceSourceUSD: 0.1,
                         priceTargetUSD: 4,
                         sourceDecimals: sourceDecimals,
@@ -428,7 +428,7 @@ describe("DebtsMonitor", () => {
             const collateralFactor18 = getBigNumberFrom(pp.collateralFactor.initial * 10, 17);
 
             const tt: IBmInputParams = {
-                targetCollateralFactor: pp.collateralFactor.initial,
+                collateralFactor: pp.collateralFactor.initial,
                 priceSourceUSD: pp.priceSourceUSD.initial,
                 priceTargetUSD: pp.priceTargetUSD.initial,
                 sourceDecimals: pp.sourceDecimals,

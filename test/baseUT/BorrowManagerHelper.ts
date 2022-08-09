@@ -21,7 +21,8 @@ export interface IPoolInfo {
 
 export interface IBmInputParams {
     availablePools: IPoolInfo[],
-    targetCollateralFactor: number;
+    /** == liquidation threshold for collateral asset **/
+    collateralFactor: number;
     priceSourceUSD: number;
     priceTargetUSD: number;
     sourceDecimals?: number;
@@ -52,7 +53,7 @@ export class BorrowManagerHelper {
 
         const underlineDecimals = [sourceDecimals, targetDecimals];
         const cTokenDecimals = [sourceDecimals, targetDecimals];
-        const collateralFactors = [0.6, tt.targetCollateralFactor];
+        const collateralFactors = [tt.collateralFactor, 0.6];
         const pricesUSD = [tt.priceSourceUSD, tt.priceTargetUSD];
 
         const underlines = await MocksHelper.createTokens(underlineDecimals);
@@ -108,7 +109,7 @@ export class BorrowManagerHelper {
 
     static getBmInputParamsThreePools(bestBorrowRate: number = 27) : IBmInputParams {
         return {
-            targetCollateralFactor: 0.8,
+            collateralFactor: 0.8,
             priceSourceUSD: 0.1,
             priceTargetUSD: 4,
             sourceDecimals: 24,
@@ -136,7 +137,7 @@ export class BorrowManagerHelper {
         priceTargetUSD: number = 4,
     ) : IBmInputParams {
         return {
-            targetCollateralFactor: 0.8,
+            collateralFactor: 0.8,
             priceSourceUSD: priceSourceUSD || 0.1,
             priceTargetUSD: priceTargetUSD || 4,
             sourceDecimals: 24,
