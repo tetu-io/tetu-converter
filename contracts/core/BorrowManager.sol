@@ -104,7 +104,7 @@ contract BorrowManager is BorrowManagerBase {
   /// @notice Set default health factor for {asset}. Default value is used only if user hasn't provided custom value
   /// @param value2 Health factor with decimals 2; must be greater or equal to MIN_HEALTH_FACTOR (for 1.5 use 150)
   function setHealthFactor(address asset, uint16 value2) external override {
-    require(value2 > controller.MIN_HEALTH_FACTOR2(), AppErrors.WRONG_HEALTH_FACTOR);
+    require(value2 > controller.getMinHealthFactor2(), AppErrors.WRONG_HEALTH_FACTOR);
     defaultHealthFactors2[asset] = value2;
   }
 
@@ -137,9 +137,9 @@ contract BorrowManager is BorrowManagerBase {
     }
 
     if (p_.healthFactor2 == 0) {
-      p_.healthFactor2 = controller.MIN_HEALTH_FACTOR2();
+      p_.healthFactor2 = controller.getMinHealthFactor2();
     } else {
-      require(p_.healthFactor2 >= controller.MIN_HEALTH_FACTOR2(), AppErrors.WRONG_HEALTH_FACTOR);
+      require(p_.healthFactor2 >= controller.getMinHealthFactor2(), AppErrors.WRONG_HEALTH_FACTOR);
     }
 
     address[] memory assets = new address[](2);

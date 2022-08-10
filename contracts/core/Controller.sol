@@ -17,7 +17,7 @@ contract Controller is IController, Initializable {
 
   /// @notice Min allowed health factor = collateral / min allowed collateral, decimals 2
   /// @dev Health factor < 1 produces liquidation immediately
-  uint16 constant public override MIN_HEALTH_FACTOR2 = 150; //=1.5; TODO value?
+  uint16 public minHealthFactor2;
 
   /// @notice map: keccak256(abi.encodePacked(XXX)) => XXX
   mapping(bytes32 => address) private addressStorage;
@@ -36,6 +36,7 @@ contract Controller is IController, Initializable {
     borrowerKey = keccak256(abi.encodePacked("borrower"));
 
     _blocksPerDay = blocksPerDay_;
+    minHealthFactor2 = 150; //TODO: default value?
   }
 
   function initialize(bytes32[] memory keys_, address[] calldata values_) external initializer {
@@ -73,8 +74,17 @@ contract Controller is IController, Initializable {
   }
 
   function setBlocksPerDay(uint value_) external override {
-    require(value_ != 0, AppErrors.ZERO_VALUE);
+    require(value_ != 0, AppErrors.INCORRECT_VALUE);
     _blocksPerDay = value_;
+  }
+
+  function getMinHealthFactor2() external view override returns (uint16) {
+    return minHealthFactor2;
+  }
+
+  function setMinHealthFactor2(uint16 value_) external override {
+    require(value_ > 100, AppErrors.INCORRECT_VALUE);
+    minHealthFactor2 = value_;
   }
 
   ///////////////////////////////////////////////////////

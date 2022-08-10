@@ -4,7 +4,7 @@ import {expect} from "chai";
 import {
     Controller,
     DebtMonitor,
-    DebtMonitor__factory,
+    DebtMonitor__factory, IController__factory,
     IPoolAdapter,
     IPoolAdapter__factory,
     MockERC20, MockERC20__factory, PoolAdapterMock,
@@ -104,9 +104,17 @@ describe("DebtsMonitor", () => {
         const {bm, sourceToken, targetToken, pools, controller}
             = await BorrowManagerHelper.createBmTwoUnderlines(deployer, tt, converter.address);
         const dm = await CoreContractsHelper.createDebtMonitor(deployer, controller);
+        const tc =  await CoreContractsHelper.createTetuConverter(deployer, controller);
         await controller.assignBatch(
-            [await controller.debtMonitorKey(), await controller.borrowManagerKey()]
-            , [dm.address, bm.address]
+            [
+                await controller.debtMonitorKey()
+                , await controller.borrowManagerKey()
+                , await controller.tetuConverterKey()
+            ], [
+                dm.address
+                , bm.address
+                , tc.address
+            ]
         );
 
         // register pool adapter
@@ -390,7 +398,7 @@ describe("DebtsMonitor", () => {
         });
     });
 
-    describe("getUnhealthyTokens", () => {
+    describe("checkForReconversion", () => {
 
         interface OldNewValue {
             initial: number;
@@ -486,7 +494,8 @@ describe("DebtsMonitor", () => {
                         it("should return empty", async () => {
                             const index = 0;
                             const count = 100; // find all pools
-                            const minAllowedHealthFactor = 2.0;
+                            const healthFactor2 = 200;
+                            const periodBlocks = 1000
 
                             const pp: TestParams = {
                                 amountCollateral:  10_000
@@ -499,7 +508,14 @@ describe("DebtsMonitor", () => {
                                 , countPassedBlocks: 0 // no debts
                                 , borrowRate: 1e-10
                             }
-                            const {dm} = await prepareTest(pp);
+                            const {dm, poolAdapterMock, controller} = await prepareTest(pp);
+
+                            const currentHealthFactor18 = (await poolAdapterMock.getStatus()).healthFactorWAD;
+                            const minAllowedHealthFactor2 = currentHealthFactor18
+                                .div(2)
+                                .div(getBigNumberFrom(1, 18-2))
+                                .toNumber();
+                            await controller.setMinHealthFactor2(minAllowedHealthFactor2);
 
                             const expectedHealthFactor =
                                 pp.collateralFactor.updated
@@ -507,9 +523,7 @@ describe("DebtsMonitor", () => {
                                 / (pp.priceTargetUSD.updated * pp.amountToBorrow + pp.borrowRate * pp.countPassedBlocks);
                             console.log("Expected healthy factor", expectedHealthFactor);
 
-                            const ret = await dm.findUnhealthyPositions(index, count, count
-                                , getBigNumberFrom(minAllowedHealthFactor * 10, 17)
-                            );
+                            const ret = await dm.checkForReconversion(index, count, count, healthFactor2, periodBlocks);
                             const retPoolAdapters: string[] = ret.countFoundItems.toNumber()
                                 ? ret.outPoolAdapters.slice(0, ret.countFoundItems.toNumber())
                                 : [];
@@ -518,7 +532,7 @@ describe("DebtsMonitor", () => {
                                 ret.nextIndexToCheck0.toNumber(),
                                 ret.countFoundItems.toNumber(),
                                 retPoolAdapters,
-                                expectedHealthFactor > minAllowedHealthFactor
+                                expectedHealthFactor > minAllowedHealthFactor2 / 100
                             ].join();
 
                             const sexpected = [
@@ -535,7 +549,6 @@ describe("DebtsMonitor", () => {
                         it("should return empty", async () => {
                             const index = 0;
                             const count = 100; // find all pools
-                            const minAllowedHealthFactor = 2.5;
 
                             const pp: TestParams = {
                                 amountCollateral:  10_000
@@ -548,7 +561,16 @@ describe("DebtsMonitor", () => {
                                 , countPassedBlocks: 0 // no debts
                                 , borrowRate: 1e-10
                             }
-                            const {dm} = await prepareTest(pp);
+                            const {dm, poolAdapterMock, controller} = await prepareTest(pp);
+
+                            const currentHealthFactor18 = (await poolAdapterMock.getStatus()).healthFactorWAD;
+                            const minAllowedHealthFactor2 = currentHealthFactor18
+                                .div(getBigNumberFrom(1, 18-2))
+                                .toNumber();
+                            await controller.setMinHealthFactor2(minAllowedHealthFactor2);
+
+                            const dummyHealthFactor2 = minAllowedHealthFactor2 * 10;
+                            const dummyPeriodBlocks = 1000;
 
                             const expectedHealthFactor =
                                 pp.collateralFactor.updated
@@ -556,8 +578,9 @@ describe("DebtsMonitor", () => {
                                 / (pp.priceTargetUSD.updated * pp.amountToBorrow + pp.borrowRate * pp.countPassedBlocks);
                             console.log("Expected healthy factor", expectedHealthFactor);
 
-                            const ret = await dm.findUnhealthyPositions(index, count, count
-                                , getBigNumberFrom(minAllowedHealthFactor * 10, 17)
+                            const ret = await dm.checkForReconversion(index, count, count
+                                , dummyHealthFactor2
+                                , dummyPeriodBlocks
                             );
 
                             const retPoolAdapters: string[] = ret.countFoundItems.toNumber()
@@ -567,7 +590,7 @@ describe("DebtsMonitor", () => {
                                 ret.nextIndexToCheck0.toNumber(),
                                 ret.countFoundItems.toNumber(),
                                 retPoolAdapters,
-                                expectedHealthFactor == minAllowedHealthFactor
+                                expectedHealthFactor == minAllowedHealthFactor2 / 100
                             ].join();
 
                             const sexpected = [
@@ -586,7 +609,8 @@ describe("DebtsMonitor", () => {
                         it("should return the token", async () => {
                             const index = 0;
                             const count = 100; // find all pools
-                            const minAllowedHealthFactor = 2.5;
+                            const healthFactor2 = 250;
+                            const periodBlocks = 1000
 
                             const pp: TestParams = {
                                 amountCollateral:  10_000
@@ -597,12 +621,19 @@ describe("DebtsMonitor", () => {
                                 , priceTargetUSD: {initial: 2, updated: 2}
                                 , collateralFactor: {
                                     initial: 0.5
-                                    , updated: 0.3  // (!) changed
+                                    , updated: 0.5
                                 }
                                 , countPassedBlocks: 0 // no debts
                                 , borrowRate: 1e-10
                             }
-                            const {dm, poolAdapterMock, sourceToken, targetToken} = await prepareTest(pp);
+                            const {dm, poolAdapterMock, controller} = await prepareTest(pp);
+
+                            const currentHealthFactor18 = (await poolAdapterMock.getStatus()).healthFactorWAD;
+                            const minAllowedHealthFactor2 = currentHealthFactor18
+                                .mul(2)
+                                .div(getBigNumberFrom(1, 18-2))
+                                .toNumber();
+                            await controller.setMinHealthFactor2(minAllowedHealthFactor2);
 
                             const expectedHealthFactor =
                                 pp.collateralFactor.updated
@@ -610,9 +641,7 @@ describe("DebtsMonitor", () => {
                                 / (pp.priceTargetUSD.updated * pp.amountToBorrow + pp.borrowRate * pp.countPassedBlocks);
                             console.log("Expected healthy factor", expectedHealthFactor);
 
-                            const ret = await dm.findUnhealthyPositions(index, count, count
-                                , getBigNumberFrom(minAllowedHealthFactor * 10, 17)
-                            );
+                            const ret = await dm.checkForReconversion(index, count, count, healthFactor2, periodBlocks);
 
                             const retPoolAdapters: string[] = ret.countFoundItems.toNumber()
                                 ? ret.outPoolAdapters.slice(0, ret.countFoundItems.toNumber())
@@ -622,7 +651,7 @@ describe("DebtsMonitor", () => {
                                 ret.nextIndexToCheck0.toNumber(),
                                 ret.countFoundItems.toNumber(),
                                 retPoolAdapters,
-                                expectedHealthFactor < minAllowedHealthFactor
+                                expectedHealthFactor < minAllowedHealthFactor2 / 100
                             ].join();
 
                             const sexpected = [

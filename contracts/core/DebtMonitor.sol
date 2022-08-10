@@ -8,6 +8,7 @@ import "../interfaces/IDebtsMonitor.sol";
 import "../interfaces/IPriceOracle.sol";
 import "../integrations/IERC20Extended.sol";
 import "../interfaces/IBorrowManager.sol";
+import "../interfaces/ITetuConverter.sol";
 import "./AppErrors.sol";
 import "hardhat/console.sol";
 
@@ -74,31 +75,41 @@ contract DebtMonitor is IDebtMonitor {
   ///           Detect unhealthy positions
   ///////////////////////////////////////////////////////
 
-  function findUnhealthyPositions(
-    uint index0,
+  function checkForReconversion(
+    uint startIndex0,
     uint maxCountToCheck,
     uint maxCountToReturn,
-    uint minAllowedHealthFactor
+    uint16 healthFactor2,
+    uint periodInBlocks
   ) external view override returns (
     uint nextIndexToCheck0,
     uint countFoundItems,
     address[] memory outPoolAdapters
   ) {
+    ITetuConverter tc = ITetuConverter(controller.tetuConverter());
     outPoolAdapters = new address[](maxCountToReturn);
 
-    uint len = positions.length;
-    if (index0 + maxCountToCheck > len) {
-      maxCountToCheck = len - index0;
+    if (startIndex0 + maxCountToCheck > positions.length) {
+      maxCountToCheck = positions.length - startIndex0;
     }
+
+    console.log("1");
+    uint minAllowedHealthFactor = uint(IController(controller).getMinHealthFactor2()) * 10**(18-2);
+    console.log("2");
 
     // enumerate all pool adapters
     for (uint i = 0; i < maxCountToCheck; i = _uncheckedInc(i)) {
+      console.log("i");
       nextIndexToCheck0 += 1;
-      IPoolAdapter pa = IPoolAdapter(positions[index0 + i]);
-      (,, uint healthFactor18) = pa.getStatus();
-      console.log("healthFactor18=%d minAllowedHealthFactor=%d", healthFactor18, minAllowedHealthFactor);
-      if (healthFactor18 < minAllowedHealthFactor) {
-        outPoolAdapters[countFoundItems] = positions[index0 + i];
+
+      // check if we need to make rebalancing because of too low health factor
+      IPoolAdapter pa = IPoolAdapter(positions[startIndex0 + i]);
+      (uint collateralAmount,, uint healthFactor18) = pa.getStatus();
+      console.log("checkForReconversion: healthFactor18=%d pool-adapter=%s", healthFactor18, address(pa));
+      if (healthFactor18 < minAllowedHealthFactor
+        || _findBetterBorrowWay(tc, pa, collateralAmount, healthFactor2, periodInBlocks)
+      ) {
+        outPoolAdapters[countFoundItems] = positions[startIndex0 + i];
         countFoundItems += 1;
         if (countFoundItems == maxCountToReturn) {
           break;
@@ -106,11 +117,37 @@ contract DebtMonitor is IDebtMonitor {
       }
     }
 
-    if (nextIndexToCheck0 == len) {
+    if (nextIndexToCheck0 == positions.length) {
       nextIndexToCheck0 = 0; // all items were checked
     }
 
     return (nextIndexToCheck0, countFoundItems, outPoolAdapters);
+  }
+
+  function _findBetterBorrowWay(
+    ITetuConverter tc_,
+    IPoolAdapter pa_,
+    uint sourceAmount_,
+    uint16 healthFactor2_,
+    uint periodInBlocks_
+  ) internal view returns (bool) {
+    // check if we can re-borrow the asset in different place with higher profit
+    (address origin,, address sourceToken, address targetToken) = pa_.getConfig();
+    (address converter,, uint aprForPeriod18) = tc_.findConversionStrategy(
+      sourceToken, sourceAmount_, targetToken, healthFactor2_, periodInBlocks_
+    );
+    uint currentApr18 = pa_.getAPR18() * periodInBlocks_;
+
+    // make decision if the found conversion-strategy is worth to be used
+    if (origin != converter) {
+      //TODO: we need some decision making rules here
+      //1) threshold for APRs difference, i.e. (apr0-apr1)/apr0 > 20%
+      //2) threshold for block number: count blocks since prev rebalancing should exceed the threshold.
+      return currentApr18 != 0
+        && (currentApr18 - aprForPeriod18) * 100 / currentApr18 > 20
+        ;
+    }
+    return false;
   }
 
   /// @notice Get total count of pool adapters with opened positions

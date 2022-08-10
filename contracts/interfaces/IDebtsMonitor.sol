@@ -14,15 +14,17 @@ interface IDebtMonitor {
   function onClosePosition() external;
 
   /// @notice Enumerate {maxCountToCheck} pool adapters starting from {index0} and return unhealthy pool-adapters
-  /// @param minAllowedHealthFactor Decimals 18
+  /// @param healthFactor2 Health factor that should be used in rebalancing, decimals 2
+  /// @param periodInBlocks Period in blocks that should be used in rebalancing
   /// @return nextIndexToCheck0 Index of next pool-adapter to check; 0: all pool-adapters were checked
   /// @return countFoundItems Count of valid items in poolAdapters
   /// @return poolAdapters Unhealthy pool adapters, count of valid items is {countFoundItems}
-  function findUnhealthyPositions(
-      uint index0,
+  function checkForReconversion(
+      uint startIndex0,
       uint maxCountToCheck,
       uint maxCountToReturn,
-      uint minAllowedHealthFactor
+      uint16 healthFactor2,
+      uint periodInBlocks
   ) external view returns (
       uint nextIndexToCheck0,
       uint countFoundItems,

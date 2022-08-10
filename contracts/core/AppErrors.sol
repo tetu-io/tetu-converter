@@ -48,7 +48,6 @@ library AppErrors {
   string public constant REPAY_FAILED = "27";
   /// @notice Balance shouldn't be zero
   string public constant ZERO_BALANCE="28";
-  /// @notice Value shouldn't be zero
-  string public constant ZERO_VALUE="29";
+  string public constant INCORRECT_VALUE ="29";
 
 }
