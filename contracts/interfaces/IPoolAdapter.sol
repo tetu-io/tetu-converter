@@ -42,4 +42,9 @@ interface IPoolAdapter is IConverter {
     uint amountToPay,
     uint healthFactor18
   );
+
+  /// @notice Compute current APR value, decimals 18
+  /// @return Interest * 1e18, i.e. 2.25e18 means APR=2.25%
+  function getAPR18() external view returns (uint);
+
 }

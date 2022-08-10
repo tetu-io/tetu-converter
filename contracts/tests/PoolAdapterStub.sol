@@ -101,4 +101,9 @@ contract PoolAdapterStub is IPoolAdapter {
     }
     return (collateralAmount, amountToPay, healthFactorWAD);
   }
+
+  /// @notice Compute current cost of the money
+  function getAPR18() external view override returns (uint) {
+    return _borrowRatePerBlock * 15017140 * 100;
+  }
 }

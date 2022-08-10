@@ -12,12 +12,14 @@ import "../../../integrations/aaveTwo/IAaveTwoPriceOracle.sol";
 import "../../../integrations/aaveTwo/IAaveTwoLendingPoolAddressesProvider.sol";
 import "../../../integrations/aaveTwo/AaveTwoReserveConfiguration.sol";
 import "../../../integrations/aaveTwo/IAaveTwoAToken.sol";
+import "../../../integrations/dforce/SafeRatioMath.sol";
 
 /// @notice Implementation of IPoolAdapter for AAVE-v2-protocol, see https://docs.aave.com/hub/
 /// @dev Instances of this contract are created using proxy-minimal pattern, so no constructor
 contract AaveTwoPoolAdapter is IPoolAdapter, IPoolAdapterInitializer {
   using SafeERC20 for IERC20;
   using AaveTwoReserveConfiguration for DataTypes.ReserveConfigurationMap;
+  using SafeRatioMath for uint;
 
   /// @notice 1 - stable, 2 - variable
   uint immutable public RATE_MODE = 2;
@@ -327,6 +329,13 @@ contract AaveTwoPoolAdapter is IPoolAdapter, IPoolAdapterInitializer {
       hf
     );
   }
+
+  /// @notice Compute current cost of the money
+  function getAPR18() external view override returns (uint) {
+    DataTypes.ReserveData memory rb = _pool.getReserveData(borrowAsset);
+    return rb.currentVariableBorrowRate * 10**18 * 100 / 10**27;
+  }
+
 
   ///////////////////////////////////////////////////////
   ///                    Utils

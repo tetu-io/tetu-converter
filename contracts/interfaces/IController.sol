@@ -8,6 +8,9 @@ interface IController {
   function MIN_HEALTH_FACTOR2() external view returns (uint16);
   function governance() external view returns (address);
 
+  function blocksPerDay() external view returns (uint);
+  function setBlocksPerDay(uint value_) external;
+
   ///////////////////////////////////////////////////////
   ///        Core application contracts
   ///////////////////////////////////////////////////////

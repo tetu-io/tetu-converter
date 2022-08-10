@@ -13,15 +13,18 @@ import "../../../integrations/aave3/IAavePriceOracle.sol";
 import "../../../integrations/aave3/IAaveAddressesProvider.sol";
 import "../../../integrations/aave3/Aave3ReserveConfiguration.sol";
 import "../../../integrations/aave3/IAaveToken.sol";
+import "../../../integrations/dforce/SafeRatioMath.sol";
 
 /// @notice Implementation of IPoolAdapter for AAVE-v3-protocol, see https://docs.aave.com/hub/
 /// @dev Instances of this contract are created using proxy-minimal pattern, so no constructor
 abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer {
   using SafeERC20 for IERC20;
   using Aave3ReserveConfiguration for DataTypes.ReserveConfigurationMap;
+  using SafeRatioMath for uint;
 
   /// @notice 1 - stable, 2 - variable
   uint immutable public RATE_MODE = 2;
+  uint constant public SECONDS_PER_YEAR = 31536000;
 
   address public collateralAsset;
   address public borrowAsset;
@@ -314,6 +317,13 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer 
       hf
     );
   }
+
+  /// @notice Compute current cost of the money
+  function getAPR18() external view override returns (uint) {
+    DataTypes.ReserveData memory rb = _pool.getReserveData(borrowAsset);
+    return rb.currentVariableBorrowRate * 10**18 * 100 / 10**27;
+  }
+
 
   ///////////////////////////////////////////////////////
   ///                    Utils

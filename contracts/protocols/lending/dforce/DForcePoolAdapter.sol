@@ -14,6 +14,7 @@ import "../../../integrations/dforce/IDForcePriceOracle.sol";
 import "../../../interfaces/ITokenAddressProvider.sol";
 import "../../../integrations/dforce/IDForceCTokenMatic.sol";
 import "../../../integrations/IWmatic.sol";
+import "../../../integrations/dforce/IDForceInterestRateModel.sol";
 
 /// @notice Implementation of IPoolAdapter for dForce-protocol, see https://developers.dforce.network/
 /// @dev Instances of this contract are created using proxy-minimal pattern, so no constructor
@@ -334,6 +335,12 @@ contract DForcePoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP {
   function getConversionKind() external pure override returns (AppDataTypes.ConversionKind) {
     return AppDataTypes.ConversionKind.BORROW_2;
   }
+
+  /// @notice Compute current cost of the money
+  function getAPR18() external view override returns (uint) {
+    return IDForceCToken(borrowCToken).borrowRatePerBlock() * controller.blocksPerDay() * 365 * 100;
+  }
+
 
   ///////////////////////////////////////////////////////
   ///         Utils

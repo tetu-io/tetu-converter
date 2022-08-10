@@ -8,6 +8,7 @@ import {BigNumber} from "ethers";
 import {AppDataTypes} from "../../../typechain/contracts/interfaces/IPlatformAdapter";
 import {Misc} from "../../utils/Misc";
 import {Aave3Helper} from "../helpers/Aave3Helper";
+import {getBigNumberFrom} from "../../utils/NumberUtils";
 
 interface IItem {
     platformAdapter: IPlatformAdapter;
@@ -29,6 +30,7 @@ interface Strategy {
     borrowAsset: string;
     adapter: string;
     apr?: BigNumber;
+    apy?: number;
     plan?: Plan;
 }
 
@@ -37,6 +39,26 @@ interface IAsset {
     a: string;
 }
 
+
+function getApy(ap: IItem, br: BigNumber): number {
+    const SECONDS_PER_YEAR = 31536000;
+    const BLOCKS_PER_YEAR_HR = 15017140;
+    const BLOCKS_PER_YEAR_DF = 13711304;
+    const DAYS_PER_YEAR = 365;
+
+    switch (ap.title) {
+        case "aave3":
+        case "aaveTwo":
+
+            return Math.pow(+ethers.utils.formatUnits(br, 27) / SECONDS_PER_YEAR + 1, SECONDS_PER_YEAR) - 1;
+        case "hunred finance":
+            return Math.pow(+ethers.utils.formatUnits(br, 18) * BLOCKS_PER_YEAR_HR + 1, DAYS_PER_YEAR) - 1;
+        case "DForce":
+            return Math.pow(+ethers.utils.formatUnits(br, 18) * BLOCKS_PER_YEAR_DF + 1, DAYS_PER_YEAR) - 1;
+    }
+
+    return 0;
+}
 
 /** Get APR for all pairs of assets and all platform adapters
  *
@@ -138,6 +160,7 @@ async function main() {
         "borrowAsset",
         "adapter",
         "apr",
+        "APY",
         "borrowRateKind",
         "borrowRate",
         "converter",
@@ -171,7 +194,8 @@ async function main() {
                         plan: plan,
                         apr: plan.borrowRateKind == 1
                             ? plan.borrowRate
-                            : plan.borrowRate.mul(SECONDS_PER_DAY).div(BLOCKS_PER_DAY)
+                            : plan.borrowRate.mul(SECONDS_PER_DAY).div(BLOCKS_PER_DAY),
+                        apy: getApy(pa, plan.borrowRate) * 100
                     });
                 }
 
@@ -181,6 +205,7 @@ async function main() {
                     st.borrowAsset,
                     st.adapter,
                     st.apr,
+                    st.apy,
                     st.plan?.borrowRateKind,
                     st.plan?.borrowRate,
                     st.plan?.converter,

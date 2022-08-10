@@ -291,4 +291,9 @@ contract PoolAdapterMock is IPoolAdapter {
     : amount * (10 ** targetDecimals) / (10 ** sourceDecimals);
   }
 
+  /// @notice Compute current cost of the money
+  function getAPR18() external view override returns (uint) {
+    return _borrowRates * IController(controller).blocksPerDay() * 365;
+  }
+
 }

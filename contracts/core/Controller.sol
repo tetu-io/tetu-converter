@@ -23,6 +23,8 @@ contract Controller is IController, Initializable {
   /// @notice map: keccak256(abi.encodePacked(XXX)) => XXX
   mapping(bytes32 => address) private addressStorage;
 
+  uint private _blocksPerDay;
+
   ///////////////////////////////////////////////////////
   ///        Constructor and Initialization
   ///////////////////////////////////////////////////////
@@ -59,6 +61,22 @@ contract Controller is IController, Initializable {
       addressStorage[keys_[i]] = values_[i];
     }
   }
+
+  ///////////////////////////////////////////////////////
+  ///               Blocks per day
+  ///     TODO: there is idea to detect this value
+  ///     TODO: automatically on DebtMonitor side
+  ///////////////////////////////////////////////////////
+
+  function blocksPerDay() external view override returns (uint) {
+    return _blocksPerDay;
+  }
+
+  function setBlocksPerDay(uint value_) external override {
+    require(value_ != 0, AppErrors.ZERO_VALUE);
+    _blocksPerDay = value_;
+  }
+
   ///////////////////////////////////////////////////////
   ///               Governance
   ///////////////////////////////////////////////////////
