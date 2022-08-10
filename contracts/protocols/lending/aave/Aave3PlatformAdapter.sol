@@ -87,6 +87,7 @@ contract Aave3PlatformAdapter is IPlatformAdapter {
   ) external view override returns (
     AppDataTypes.ConversionPlan memory plan
   ) {
+    console.log("1");
     DataTypes.ReserveData memory rc = pool.getReserveData(collateralAsset_);
 
     if (_isUsable(rc.configuration) &&  _isCollateralUsageAllowed(rc.configuration)) {
@@ -113,6 +114,12 @@ contract Aave3PlatformAdapter is IPlatformAdapter {
             }
 //            console.log("plan.converter=%s", plan.converter);
           }
+          console.log("2");
+          console.log("3", rb.currentVariableBorrowRate);
+          console.log("4", rb.currentVariableBorrowRate / COUNT_SECONDS_PER_YEAR);
+          console.log("5", IController(controller).blocksPerDay() * 365 / COUNT_SECONDS_PER_YEAR);
+          console.log("6", rb.currentVariableBorrowRate / COUNT_SECONDS_PER_YEAR * IController(controller).blocksPerDay() * 365 / COUNT_SECONDS_PER_YEAR);
+          console.log("7", rb.currentVariableBorrowRate / COUNT_SECONDS_PER_YEAR * IController(controller).blocksPerDay() * 365 / COUNT_SECONDS_PER_YEAR  / 10**(27-18));
 
          // assume here, that we always use variable borrow rate
           plan.aprPerBlock18 = rb.currentVariableBorrowRate

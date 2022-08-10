@@ -9,6 +9,7 @@ import {controlGasLimitsEx, getGasUsed} from "../../scripts/utils/hardhatUtils";
 import {GAS_LIMIT_CONTROLLER_BATCH_ASSIGN, GAS_LIMIT_CONTROLLER_INITIALIZE} from "../baseUT/GasLimit";
 import {Misc} from "../../scripts/utils/Misc";
 import {DeployerUtils} from "../../scripts/utils/DeployerUtils";
+import {AprUtils, COUNT_BLOCKS_PER_DAY} from "../baseUT/aprUtils";
 
 describe("Controller", () => {
 //region Global vars for all tests
@@ -51,7 +52,6 @@ describe("Controller", () => {
 //region Utils
     interface IControllerAddresses {
         governance: string;
-        priceOracle: string;
         tetuConverter: string;
         borrowManager: string;
         debtMonitor: string;
@@ -63,7 +63,6 @@ describe("Controller", () => {
         return [
             await controller.governanceKey()
 
-            , await controller.priceOracleKey()
             , await controller.tetuConverterKey()
             , await controller.borrowManagerKey()
             , await controller.debtMonitorKey()
@@ -76,7 +75,6 @@ describe("Controller", () => {
         return [
             a.governance
 
-            , a.priceOracle
             , a.tetuConverter
             , a.borrowManager
             , a.debtMonitor
@@ -89,7 +87,6 @@ describe("Controller", () => {
         return [
             await controller.governance()
 
-            , await controller.priceOracle()
             , await controller.tetuConverter()
             , await controller.borrowManager()
             , await controller.debtMonitor()
@@ -104,7 +101,7 @@ describe("Controller", () => {
         controller: Controller
         , gasUsed: BigNumber
     }> {
-        let controller = (await DeployUtils.deployContract(deployer, 'Controller')) as Controller;
+        let controller = (await DeployUtils.deployContract(deployer, 'Controller', COUNT_BLOCKS_PER_DAY)) as Controller;
         const r = await getGasUsed(controller.initialize(
             await getKeysArray(controller)
             , getAddressesArray(a)
@@ -117,7 +114,6 @@ describe("Controller", () => {
         return {
             governance: ethers.Wallet.createRandom().address,
 
-            priceOracle: ethers.Wallet.createRandom().address,
             tetuConverter: ethers.Wallet.createRandom().address,
             borrowManager: ethers.Wallet.createRandom().address,
             debtMonitor: ethers.Wallet.createRandom().address,

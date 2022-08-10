@@ -14,6 +14,8 @@ import {isPolygonForkInUse} from "../../../../baseUT/NetworkUtils";
 import {Aave3Helper} from "../../../../../scripts/integration/helpers/Aave3Helper";
 import {BalanceUtils} from "../../../../baseUT/BalanceUtils";
 import {MaticAddresses} from "../../../../../scripts/addresses/MaticAddresses";
+import {AprUtils} from "../../../../baseUT/aprUtils";
+import {CoreContractsHelper} from "../../../../baseUT/CoreContractsHelper";
 
 describe("Aave-v3 integration tests, platform adapter", () => {
 //region Global vars for all tests
@@ -53,7 +55,7 @@ describe("Aave-v3 integration tests, platform adapter", () => {
             highEfficientModeEnabled: boolean,
             isolationModeEnabled: boolean
         ) : Promise<{sret: string, sexpected: string}> {
-            const controllerStub = ethers.Wallet.createRandom();
+            const controller = await CoreContractsHelper.createController(deployer);
             const templateAdapterNormalStub = ethers.Wallet.createRandom();
             const templateAdapterEModeStub = ethers.Wallet.createRandom();
 
@@ -61,7 +63,7 @@ describe("Aave-v3 integration tests, platform adapter", () => {
             const aavePool = await Aave3Helper.getAavePool(deployer);
             const aavePlatformAdapter = await AdaptersHelper.createAave3PlatformAdapter(
                 deployer,
-                controllerStub.address,
+                controller.address,
                 aavePool.address,
                 templateAdapterNormalStub.address,
                 templateAdapterEModeStub.address
@@ -75,8 +77,7 @@ describe("Aave-v3 integration tests, platform adapter", () => {
             const ret = await aavePlatformAdapter.getConversionPlan(collateralAsset, borrowAsset);
 
             const sret = [
-                ret.borrowRateKind,
-                ret.borrowRate,
+                ret.aprPerBlock18,
                 ret.ltv18,
                 ret.liquidationThreshold18,
                 ret.maxAmountToBorrowBT,
@@ -86,7 +87,7 @@ describe("Aave-v3 integration tests, platform adapter", () => {
                     ? collateralAssetData.data.emodeCategory != 0
                       && borrowAssetData.data.emodeCategory == collateralAssetData.data.emodeCategory
                     : collateralAssetData.data.emodeCategory == 0 || borrowAssetData.data.emodeCategory == 0,
-            ].map(x => BalanceUtils.toString(x)) .join();
+            ].map(x => BalanceUtils.toString(x)) .join("\n");
 
             let expectedMaxAmountToSupply = BigNumber.from(2).pow(256).sub(1); // == type(uint).max
             if (! collateralAssetData.data.supplyCap.eq(0)) {
@@ -104,28 +105,25 @@ describe("Aave-v3 integration tests, platform adapter", () => {
             }
 
             const sexpected = [
-                2, // per second
-                BigNumber.from(borrowAssetData.data.currentVariableBorrowRate)
-                    .mul(getBigNumberFrom(1, 18))
-                    .div(getBigNumberFrom(1, 27)),
+                AprUtils.aprPerBlock18(BigNumber.from(borrowAssetData.data.currentVariableBorrowRate)),
                 BigNumber.from(highEfficientModeEnabled
                     ? borrowAssetData.category?.ltv
                     : borrowAssetData.data.ltv
                 )
                     .mul(getBigNumberFrom(1, 18))
-                    .div(getBigNumberFrom(1, 5)),
+                    .div(getBigNumberFrom(1, 4)),
                 BigNumber.from(highEfficientModeEnabled
                     ? collateralAssetData.category?.liquidationThreshold
                     : collateralAssetData.data.liquidationThreshold
                 )
                     .mul(getBigNumberFrom(1, 18))
-                    .div(getBigNumberFrom(1, 5)),
+                    .div(getBigNumberFrom(1, 4)),
                 BigNumber.from(borrowAssetData.liquidity.totalAToken)
                     .sub(borrowAssetData.liquidity.totalVariableDebt)
                     .sub(borrowAssetData.liquidity.totalStableDebt),
                 expectedMaxAmountToSupply,
                 true,
-            ].map(x => BalanceUtils.toString(x)) .join();
+            ].map(x => BalanceUtils.toString(x)) .join("\n");
 
             return {sret, sexpected};
         }

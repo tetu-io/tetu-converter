@@ -12,26 +12,15 @@ import {DeployUtils} from "../../scripts/utils/DeployUtils";
 import {getBigNumberFrom} from "../../scripts/utils/NumberUtils";
 import {MocksHelper} from "./MocksHelper";
 import {IPoolInfo} from "./BorrowManagerHelper";
+import {COUNT_BLOCKS_PER_DAY} from "./aprUtils";
 
 export class CoreContractsHelper {
-    static async createControllerWithPrices(
-        deployer: SignerWithAddress,
-        underlines?: MockERC20[],
-        prices?: BigNumber[]
+    static async createController(
+        deployer: SignerWithAddress
     ) : Promise<Controller>{
-        const controller = (await DeployUtils.deployContract(deployer, "Controller")) as Controller;
-        const priceOracle = (await DeployUtils.deployContract(deployer, "PriceOracleMock"
-            , underlines ? underlines.map(x => x.address) : []
-            , prices || []
-        )) as PriceOracleMock;
+        const controller = (await DeployUtils.deployContract(deployer, "Controller", COUNT_BLOCKS_PER_DAY)) as Controller;
         await controller.initialize(
-            [
-                await controller.priceOracleKey()
-                , await controller.governanceKey()
-            ], [
-                priceOracle.address
-                , deployer.address
-            ]
+            [await controller.governanceKey()], [deployer.address]
         );
         return controller;
     }
@@ -82,7 +71,8 @@ export class CoreContractsHelper {
         collateralFactors: number[],
         underlines: MockERC20[],
         cTokens: MockERC20[],
-        templateAdapterPoolOptional?: string
+        prices: BigNumber[],
+        templateAdapterPoolOptional?: string,
     ) : Promise <{
         platformAdapter: LendingPlatformMock,
         templatePoolAdapter: string
@@ -108,6 +98,11 @@ export class CoreContractsHelper {
         const templatePoolAdapter = templateAdapterPoolOptional
             || (await MocksHelper.createPoolAdapterStub(signer, getBigNumberFrom(1))).address;
 
+        const priceOracle = (await DeployUtils.deployContract(signer, "PriceOracleMock"
+            , underlines ? underlines.map(x => x.address) : []
+            , prices || []
+        )) as PriceOracleMock;
+
         const platformAdapter = await MocksHelper.createPlatformAdapterMock(
             signer,
             pool,
@@ -117,7 +112,8 @@ export class CoreContractsHelper {
             borrowRates,
             collateralFactors,
             availableLiquidity,
-            cTokens
+            cTokens,
+            priceOracle.address
         );
 
         const bm = BorrowManager__factory.connect(await controller.borrowManager(), signer);

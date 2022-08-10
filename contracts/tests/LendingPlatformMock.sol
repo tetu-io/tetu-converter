@@ -13,6 +13,7 @@ contract LendingPlatformMock is IPlatformAdapter {
   address private _controller;
   /// @notice asset => liquidation threshold18
   mapping(address => uint256) public liquidationThresholds18;
+  address private _priceOracle;
 
   /// @notice underline => borrowRates
   mapping(address => uint256) public borrowRates;
@@ -29,13 +30,15 @@ contract LendingPlatformMock is IPlatformAdapter {
     uint[] memory liquidationThresholds18_,
     uint[] memory borrowRates_,
     uint[] memory liquidity_,
-    address[] memory cTokens_
+    address[] memory cTokens_,
+    address priceOracle_
   ) {
     console.log("LendingPlatformMock converter=%s pool=%s", converter_, pool_);
     console.log("LendingPlatformMock this=%s", address(this));
     _pool = pool_;
     _converter = converter_;
     _controller = controller_;
+    _priceOracle = priceOracle_;
 
     for (uint i = 0; i < underlines_.length; ++i) {
       liquidationThresholds18[underlines_[i]] = liquidationThresholds18_[i];
@@ -76,8 +79,7 @@ contract LendingPlatformMock is IPlatformAdapter {
   /// @notice Returns the prices of the supported assets in BASE_CURRENCY of the market. Decimals 18
   /// @dev Different markets can have different BASE_CURRENCY
   function getAssetsPrices(address[] calldata assets_) external view override returns (uint[] memory prices18) {
-    IController c = IController(_controller);
-    IPriceOracle p = IPriceOracle(c.priceOracle());
+    IPriceOracle p = IPriceOracle(_priceOracle);
 
     uint lenAssets = assets_.length;
     prices18 = new uint[](lenAssets);
@@ -105,7 +107,8 @@ contract LendingPlatformMock is IPlatformAdapter {
 
       cTokens[collateralAsset_],
       liquidationThresholds18[collateralAsset_],
-      borrowRates[borrowAsset_]
+      borrowRates[borrowAsset_],
+      _priceOracle
     );
   }
 }

@@ -15,7 +15,6 @@ interface IController {
   ///        Core application contracts
   ///////////////////////////////////////////////////////
 
-  function priceOracle() external view returns (address);
   function tetuConverter() external view returns (address);
   function borrowManager() external view returns (address);
   function debtMonitor() external view returns (address);

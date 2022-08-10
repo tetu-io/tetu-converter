@@ -171,7 +171,7 @@ describe("BorrowManager", () => {
                         const sret = [
                             ret.converter,
                             ret.maxTargetAmount,
-                            ret.interest
+                            ret.aprForPeriod18
                         ].join();
 
                         const expectedTargetAmount =
@@ -183,7 +183,7 @@ describe("BorrowManager", () => {
                         const sexpected = [
                             data.pools[0].converter,
                             getBigNumberFrom(expectedTargetAmount, input.targetDecimals),
-                            bestBorrowRate
+                            bestBorrowRate.mul(period)
                         ].join();
 
                         expect(sret).equal(sexpected);

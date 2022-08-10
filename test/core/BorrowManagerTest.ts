@@ -14,6 +14,7 @@ import {
 } from "../baseUT/GasLimit";
 import {IBmInputParams, BorrowManagerHelper} from "../baseUT/BorrowManagerHelper";
 import {MocksHelper} from "../baseUT/MocksHelper";
+import {CoreContractsHelper} from "../baseUT/CoreContractsHelper";
 
 describe("BorrowManager", () => {
 //region Global vars for all tests
@@ -58,7 +59,7 @@ describe("BorrowManager", () => {
         describe("Good paths", () => {
             describe("Create a pool with tree assets", () => {
                 it("should register 3 asset pairs", async () => {
-                    const controller = (await DeployUtils.deployContract(signer, "Controller")) as Controller;
+                    const controller = await CoreContractsHelper.createController(signer);
                     const priceOracle = (await DeployUtils.deployContract(signer, "PriceOracleMock"
                         , [], [])) as PriceOracleMock;
                     const bm = (await DeployUtils.deployContract(signer
@@ -66,9 +67,9 @@ describe("BorrowManager", () => {
                         , controller.address
                     )) as BorrowManager;
                     const poolMock = await MocksHelper.createPoolStub(signer);
-                    await controller.initialize(
-                        [await controller.priceOracleKey(), await controller.borrowManagerKey()],
-                        [priceOracle.address, bm.address]
+                    await controller.assignBatch(
+                        [await controller.borrowManagerKey()],
+                        [bm.address]
                     );
 
                     const converter = ethers.Wallet.createRandom().address;
@@ -77,6 +78,7 @@ describe("BorrowManager", () => {
                         , controller.address
                         , converter
                         , [], [], [], [], []
+                        , priceOracle.address
                     );
 
                     const poolAssets = [
@@ -156,10 +158,10 @@ describe("BorrowManager", () => {
 
     describe("setHealthFactor", () => {
         async function makeEmptyBM() : Promise<BorrowManager> {
-            const controller = (await DeployUtils.deployContract(signer, "Controller")) as Controller;
+            const controller = await CoreContractsHelper.createController(signer);
             const priceOracle = (await DeployUtils.deployContract(signer, "PriceOracleMock"
                 , [], [])) as PriceOracleMock;
-            await controller.initialize([await controller.priceOracleKey()], [priceOracle.address]);
+            await controller.assignBatch([], []);
 
             return (await DeployUtils.deployContract(signer
                 , "BorrowManager"
@@ -257,7 +259,7 @@ describe("BorrowManager", () => {
                 : undefined;
             return {
                 outPoolIndex0: pools.findIndex(x => x.converter == ret.converter),
-                outApr: ret.apr,
+                outApr: ret.aprForPeriod18,
                 outMaxTargetAmount: ret.maxTargetAmount,
                 outGas: gas
             }

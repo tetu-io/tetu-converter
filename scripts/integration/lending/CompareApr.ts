@@ -90,7 +90,7 @@ async function main() {
     ];
 
 
-    const controller = await CoreContractsHelper.createControllerWithPrices(signer);
+    const controller = await CoreContractsHelper.createController(signer);
     const templateAdapterStub = ethers.Wallet.createRandom().address;
 
     const platformAdapters: IItem[] = [

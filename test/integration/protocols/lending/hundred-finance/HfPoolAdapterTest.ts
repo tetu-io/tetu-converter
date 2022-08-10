@@ -64,7 +64,7 @@ describe("Hundred Finance integration tests, pool adapter", () => {
             const tetuConveterStab = ethers.Wallet.createRandom();
 
             // controller, dm, bm
-            const controller = await CoreContractsHelper.createControllerWithPrices(deployer);
+            const controller = await CoreContractsHelper.createController(deployer);
             const debtMonitor = await CoreContractsHelper.createDebtMonitor(deployer, controller);
             const borrowManager = await MocksHelper.createBorrowManagerStub(deployer, true);
             await controller.assignBatch(
@@ -276,7 +276,7 @@ describe("Hundred Finance integration tests, pool adapter", () => {
             const tetuConveterStab = ethers.Wallet.createRandom();
 
             // controller, dm, bm
-            const controller = await CoreContractsHelper.createControllerWithPrices(deployer);
+            const controller = await CoreContractsHelper.createController(deployer);
             const debtMonitor = await CoreContractsHelper.createDebtMonitor(deployer, controller);
             const borrowManager = await MocksHelper.createBorrowManagerStub(deployer, true);
             await controller.assignBatch(

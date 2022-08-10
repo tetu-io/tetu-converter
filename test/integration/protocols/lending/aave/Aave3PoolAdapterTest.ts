@@ -72,7 +72,7 @@ describe("Aave-v3 integration tests, pool adapter", () => {
             const aavePrices = await Aave3Helper.getAavePriceOracle(deployer);
 
             // controller: we need TC (as a caller) and DM (to register borrow position)
-            const controller = await CoreContractsHelper.createControllerWithPrices(deployer);
+            const controller = await CoreContractsHelper.createController(deployer);
             const dm = await CoreContractsHelper.createDebtMonitor(deployer, controller);
             const bm = await MocksHelper.createBorrowManagerStub(deployer, true);
             await controller.assignBatch(
@@ -299,7 +299,7 @@ describe("Aave-v3 integration tests, pool adapter", () => {
             const aavePrices = await Aave3Helper.getAavePriceOracle(deployer);
 
             // controller: we need TC (as a caller) and DM (to register borrow position)
-            const controller = await CoreContractsHelper.createControllerWithPrices(deployer);
+            const controller = await CoreContractsHelper.createController(deployer);
             const dm = await CoreContractsHelper.createDebtMonitor(deployer, controller);
             const bm = await MocksHelper.createBorrowManagerStub(deployer, true);
             console.log("bm", bm.address);

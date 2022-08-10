@@ -26,6 +26,7 @@ contract PoolAdapterMock is IPoolAdapter {
 
   uint private _borrowedAmounts;
   uint private _borrowRates;
+  address public priceOracle;
 
   /// @dev block.number is a number of blocks passed since last borrow/repay
   ///      we set it manually
@@ -59,7 +60,8 @@ contract PoolAdapterMock is IPoolAdapter {
     address borrowAsset_,
     address cTokenMock_,
     uint collateralFactor_,
-    uint borrowRatePerBlock_
+    uint borrowRatePerBlock_,
+    address priceOracle_
   ) external {
     console.log("PoolAdapterMock.initialize controller=%s pool=%s user=%s", controller_, pool_, user_);
     controller = controller_;
@@ -70,6 +72,7 @@ contract PoolAdapterMock is IPoolAdapter {
     _cTokenMock = MockERC20(cTokenMock_);
     _collateralFactor = collateralFactor_;
     _borrowRates = borrowRatePerBlock_;
+    priceOracle = priceOracle_;
   }
 
   ///////////////////////////////////////////////////////
@@ -276,10 +279,9 @@ contract PoolAdapterMock is IPoolAdapter {
 
   function getPrice18(address asset) internal view returns (uint) {
     console.log("getPrice18");
-    address priceOracleAddress = IController(controller).priceOracle();
-    IPriceOracle priceOracle = IPriceOracle(priceOracleAddress);
+    IPriceOracle p = IPriceOracle(priceOracle);
 
-    uint price18 = priceOracle.getAssetPrice(asset);
+    uint price18 = p.getAssetPrice(asset);
     console.log("getPrice18 %d", price18);
     return price18;
   }

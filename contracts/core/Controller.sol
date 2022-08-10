@@ -9,7 +9,6 @@ import "./AppErrors.sol";
 /// @notice Keep and provide addresses of all application contracts
 contract Controller is IController, Initializable {
   bytes32 public immutable governanceKey;
-  bytes32 public immutable priceOracleKey;
   bytes32 public immutable tetuConverterKey;
   bytes32 public immutable borrowManagerKey;
   bytes32 public immutable debtMonitorKey;
@@ -29,13 +28,14 @@ contract Controller is IController, Initializable {
   ///        Constructor and Initialization
   ///////////////////////////////////////////////////////
 
-  constructor() {
+  constructor(uint blocksPerDay_) {
     governanceKey = keccak256(abi.encodePacked("governance"));
-    priceOracleKey = keccak256(abi.encodePacked("priceOracle"));
     tetuConverterKey = keccak256(abi.encodePacked("tetuConverter"));
     borrowManagerKey = keccak256(abi.encodePacked("borrowManager"));
     debtMonitorKey = keccak256(abi.encodePacked("debtMonitor"));
     borrowerKey = keccak256(abi.encodePacked("borrower"));
+
+    _blocksPerDay = blocksPerDay_;
   }
 
   function initialize(bytes32[] memory keys_, address[] calldata values_) external initializer {
@@ -93,9 +93,6 @@ contract Controller is IController, Initializable {
   ///////////////////////////////////////////////////////
   ///               Getters
   ///////////////////////////////////////////////////////
-  function priceOracle() external view override returns (address) {
-    return addressStorage[priceOracleKey];
-  }
   function tetuConverter() external view override returns (address) {
     return addressStorage[tetuConverterKey];
   }

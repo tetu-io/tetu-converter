@@ -1,10 +1,18 @@
 import {ILendingPlatformFabric} from "../TetuConverterApp";
 import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
-import {CTokenMock, IBorrowManager__factory, IController, IERC20, IERC20__factory} from "../../../typechain";
+import {
+    CTokenMock,
+    IBorrowManager__factory,
+    IController,
+    IERC20,
+    IERC20__factory,
+    PriceOracleMock
+} from "../../../typechain";
 import {MocksHelper} from "../MocksHelper";
 import {BigNumber} from "ethers";
 import {getBigNumberFrom} from "../../../scripts/utils/NumberUtils";
 import {BalanceUtils} from "../BalanceUtils";
+import {DeployUtils} from "../../../scripts/utils/DeployUtils";
 
 export class MockPlatformFabric implements ILendingPlatformFabric {
     public underlines: string[];
@@ -13,6 +21,7 @@ export class MockPlatformFabric implements ILendingPlatformFabric {
     public liquidityNumbers: number[];
     public cTokens: CTokenMock[];
     public holders: string[];
+    public prices: BigNumber[];
 
     constructor (
         underlines: string[]
@@ -21,6 +30,7 @@ export class MockPlatformFabric implements ILendingPlatformFabric {
         , liquidity: number[]
         , holders: string[]
         , cTokens: CTokenMock[]
+        , prices: BigNumber[]
     ) {
         this.underlines = underlines;
         this.borrowRates = borrowRates;
@@ -28,10 +38,15 @@ export class MockPlatformFabric implements ILendingPlatformFabric {
         this.liquidityNumbers = liquidity;
         this.cTokens = cTokens;
         this.holders = holders;
+        this.prices = prices;
     }
     async createAndRegisterPools(deployer: SignerWithAddress, controller: IController) : Promise<IERC20[]> {
         const pool = await MocksHelper.createPoolStub(deployer);
         const converter = await MocksHelper.createPoolAdapterMock(deployer);
+        const priceOracle = (await DeployUtils.deployContract(deployer, "PriceOracleMock"
+            , this.underlines ? this.underlines.map(x => x.address) : []
+            , this.prices || []
+        )) as PriceOracleMock;
 
         const liquidity = await Promise.all(
             this.liquidityNumbers.map( async (x, index) => {
@@ -56,6 +71,7 @@ export class MockPlatformFabric implements ILendingPlatformFabric {
             , this.collateralFactors
             , liquidity
             , this.cTokens
+            , priceOracle.address
         );
 
 

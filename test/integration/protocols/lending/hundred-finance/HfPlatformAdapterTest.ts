@@ -11,6 +11,9 @@ import {Aave3Helper} from "../../../../../scripts/integration/helpers/Aave3Helpe
 import {BalanceUtils} from "../../../../baseUT/BalanceUtils";
 import {HundredFinanceHelper} from "../../../../../scripts/integration/helpers/HundredFinanceHelper";
 import {MaticAddresses} from "../../../../../scripts/addresses/MaticAddresses";
+import {AprUtils} from "../../../../baseUT/aprUtils";
+import {CoreContractsHelper} from "../../../../baseUT/CoreContractsHelper";
+import {BigNumber} from "ethers";
 
 describe("Hundred finance integration tests, platform adapter", () => {
 //region Constants
@@ -54,13 +57,13 @@ describe("Hundred finance integration tests, platform adapter", () => {
             cTokenCollateral: string,
             cTokenBorrow: string
         ) : Promise<{sret: string, sexpected: string}> {
-            const controllerStub = ethers.Wallet.createRandom();
+            const controller = await CoreContractsHelper.createController(deployer);
             const templateAdapterNormalStub = ethers.Wallet.createRandom();
 
             const comptroller = await HundredFinanceHelper.getComptroller(deployer);
             const hfPlatformAdapter = await AdaptersHelper.createHundredFinancePlatformAdapter(
                 deployer,
-                controllerStub.address,
+                controller.address,
                 comptroller.address,
                 templateAdapterNormalStub.address,
                 [cTokenCollateral, cTokenBorrow],
@@ -78,22 +81,20 @@ describe("Hundred finance integration tests, platform adapter", () => {
             const ret = await hfPlatformAdapter.getConversionPlan(collateralAsset, borrowAsset);
 
             const sret = [
-                ret.borrowRateKind,
-                ret.borrowRate,
+                ret.aprPerBlock18,
                 ret.ltv18,
                 ret.liquidationThreshold18,
                 ret.maxAmountToBorrowBT,
                 ret.maxAmountToSupplyCT,
-            ].map(x => BalanceUtils.toString(x)) .join();
+            ].map(x => BalanceUtils.toString(x)) .join("\n");
 
             const sexpected = [
-                1, // per block
                 borrowAssetData.borrowRatePerBlock,
                 borrowAssetData.collateralFactorMantissa,
                 borrowAssetData.collateralFactorMantissa,
                 borrowAssetData.cash,
-                0
-            ].map(x => BalanceUtils.toString(x)) .join();
+                BigNumber.from(2).pow(256).sub(1), // === type(uint).max
+            ].map(x => BalanceUtils.toString(x)) .join("\n");
 
             return {sret, sexpected};
         }

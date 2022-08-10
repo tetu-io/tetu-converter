@@ -58,13 +58,7 @@ export class BorrowManagerHelper {
 
         const underlines = await MocksHelper.createTokens(underlineDecimals);
 
-        const controller = await CoreContractsHelper.createControllerWithPrices(
-            signer,
-            underlines,
-            pricesUSD.map((x, index) => BigNumber.from(10)
-                .pow(18 - 2)
-                .mul(x * 100))
-        );
+        const controller = await CoreContractsHelper.createController(signer);
         const bm = await CoreContractsHelper.createBorrowManager(signer, controller);
         await controller.assignBatch(
             [await controller.borrowManagerKey()], [bm.address]
@@ -87,6 +81,9 @@ export class BorrowManagerHelper {
                 collateralFactors,
                 underlines,
                 cTokens,
+                pricesUSD.map((x, index) => BigNumber.from(10)
+                    .pow(18 - 2)
+                    .mul(x * 100)),
                 templateAdapterPoolOptional
             );
             const mapCTokens = new Map<string, string>();

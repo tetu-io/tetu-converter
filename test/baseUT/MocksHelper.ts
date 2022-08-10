@@ -24,6 +24,7 @@ export interface IPooAdapterStabInitParams {
     cTokenAddress: string;
     collateralFactor: BigNumber;
     borrowRatePerBlock: BigNumber;
+    priceOracle: string;
 }
 
 /** Helper to create mock contracts */
@@ -45,6 +46,7 @@ export class MocksHelper {
         , collateralFactors: number[]
         , liquidity: BigNumber[]
         , cTokens: MockERC20[]
+        , priceOracleAddress: string
     ) : Promise<LendingPlatformMock> {
         // we cannot pass 0.8 to mul, we will have https://links.ethers.org/v5-errors-NUMERIC_FAULT-underflow
         // so:  0.8 => 80 and reduce decimals 18 => 16
@@ -59,6 +61,7 @@ export class MocksHelper {
             , borrowRates
             , liquidity
             , cTokens.map(x => x.address)
+            , priceOracleAddress
         )) as LendingPlatformMock;
     }
 
@@ -82,7 +85,8 @@ export class MocksHelper {
                 initParams.borrowAsset,
                 initParams.cTokenAddress,
                 initParams.collateralFactor,
-                initParams.borrowRatePerBlock
+                initParams.borrowRatePerBlock,
+                initParams.priceOracle
             );
         }
 

@@ -9,6 +9,8 @@ import {isPolygonForkInUse} from "../../../../baseUT/NetworkUtils";
 import {BalanceUtils} from "../../../../baseUT/BalanceUtils";
 import {MaticAddresses} from "../../../../../scripts/addresses/MaticAddresses";
 import {AaveTwoHelper} from "../../../../../scripts/integration/helpers/AaveTwoHelper";
+import {AprUtils} from "../../../../baseUT/aprUtils";
+import {CoreContractsHelper} from "../../../../baseUT/CoreContractsHelper";
 
 describe("Aave-v2 integration tests, platform adapter", () => {
 //region Global vars for all tests
@@ -46,13 +48,13 @@ describe("Aave-v2 integration tests, platform adapter", () => {
             collateralAsset: string,
             borrowAsset: string
         ) : Promise<{sret: string, sexpected: string}> {
-            const controllerStub = ethers.Wallet.createRandom();
+            const controller = await CoreContractsHelper.createController(deployer);
             const templateAdapterNormalStub = ethers.Wallet.createRandom();
 
             const aavePool = await AaveTwoHelper.getAavePool(deployer);
             const aavePlatformAdapter = await AdaptersHelper.createAaveTwoPlatformAdapter(
                 deployer,
-                controllerStub.address,
+                controller.address,
                 aavePool.address,
                 templateAdapterNormalStub.address,
             );
@@ -65,8 +67,7 @@ describe("Aave-v2 integration tests, platform adapter", () => {
             const ret = await aavePlatformAdapter.getConversionPlan(collateralAsset, borrowAsset);
 
             const sret = [
-                ret.borrowRateKind,
-                ret.borrowRate,
+                ret.aprPerBlock18,
                 ret.ltv18,
                 ret.liquidationThreshold18,
                 ret.maxAmountToBorrowBT,
@@ -74,18 +75,15 @@ describe("Aave-v2 integration tests, platform adapter", () => {
             ].map(x => BalanceUtils.toString(x)) .join("\n");
 
             const sexpected = [
-                2, // per second
-                BigNumber.from(borrowAssetData.data.currentVariableBorrowRate)
-                    .mul(getBigNumberFrom(1, 18))
-                    .div(getBigNumberFrom(1, 27)),
+                AprUtils.aprPerBlock18(BigNumber.from(borrowAssetData.data.currentVariableBorrowRate)),
                 BigNumber.from(borrowAssetData.data.ltv
                 )
                     .mul(getBigNumberFrom(1, 18))
-                    .div(getBigNumberFrom(1, 5)),
+                    .div(getBigNumberFrom(1, 4)),
                 BigNumber.from(collateralAssetData.data.liquidationThreshold
                 )
                     .mul(getBigNumberFrom(1, 18))
-                    .div(getBigNumberFrom(1, 5)),
+                    .div(getBigNumberFrom(1, 4)),
                 BigNumber.from(borrowAssetData.liquidity.availableLiquidity),
                 BigNumber.from(2).pow(256).sub(1), // === type(uint).max
             ].map(x => BalanceUtils.toString(x)) .join("\n");

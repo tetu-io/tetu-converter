@@ -21,10 +21,6 @@ import {Misc} from "../../scripts/utils/Misc";
 import {CoreContracts} from "../baseUT/CoreContracts";
 
 describe("DebtsMonitor", () => {
-//region Constants
-    const BLOCKS_PER_DAY = 6456;
-//endregion Constants
-
 //region Global vars for all tests
     let snapshot: string;
     let snapshotForEach: string;
@@ -425,8 +421,6 @@ describe("DebtsMonitor", () => {
             pool: string,
             cTokenAddress: string,
         }> {
-            const collateralFactor18 = getBigNumberFrom(pp.collateralFactor.initial * 10, 17);
-
             const tt: IBmInputParams = {
                 collateralFactor: pp.collateralFactor.initial,
                 priceSourceUSD: pp.priceSourceUSD.initial,
@@ -472,7 +466,7 @@ describe("DebtsMonitor", () => {
             await pam.setPassedBlocks(pp.countPassedBlocks);
 
             const priceOracle: PriceOracleMock = PriceOracleMock__factory.connect(
-                await controller.priceOracle()
+                await poolAdapterMock.priceOracle()
                 , deployer
             );
             await priceOracle.changePrices(
