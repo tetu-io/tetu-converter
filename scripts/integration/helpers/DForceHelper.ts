@@ -3,7 +3,7 @@ import {
     IDForceController,
     IDForceController__factory,
     IDForceCToken, IDForceCToken__factory,
-    IDForceInterestRateModel,
+    IDForceInterestRateModel, IDForceInterestRateModel__factory,
     IDForcePriceOracle,
     IDForcePriceOracle__factory, IERC20Extended__factory
 
@@ -66,6 +66,8 @@ interface IHfData {
     supplyCapacity: BigNumber;
     price: BigNumber;
     underlineDecimals: number;
+
+    blocksPerYear: BigNumber;
 }
 
 //endregion Data types
@@ -93,6 +95,8 @@ export class DForceHelper {
     ) : Promise<IHfData> {
         const m = await controller.markets(cToken.address);
         const priceOracle = await DForceHelper.getPriceOracle(controller, signer);
+        const irm = IDForceInterestRateModel__factory.connect(await cToken.interestRateModel(), signer);
+
 
         console.log(cToken.address);
         console.log(await cToken.underlying());
@@ -129,7 +133,8 @@ export class DForceHelper {
                     ? MaticAddresses.WMATIC
                     : await cToken.underlying()
                 , signer
-            ).decimals()
+            ).decimals(),
+            blocksPerYear: await irm.blocksPerYear()
         }
     }
 //endregion Read data
@@ -153,7 +158,8 @@ export class DForceHelper {
             "borrowCapacity", "supplyCapacity",
             "redeemPaused", "mintPaused", "borrowPaused",
             "price",
-            "underlineDecimals"
+            "underlineDecimals",
+            "blocksPerYear"
         ].join(","));
 
         for (const market of markets) {
@@ -174,7 +180,8 @@ export class DForceHelper {
                 rd.borrowCapacity, rd.supplyCapacity,
                 rd.redeemPaused, rd.mintPaused, rd.borrowPaused,
                 rd.price,
-                rd.underlineDecimals
+                rd.underlineDecimals,
+                rd.blocksPerYear
             ];
 
             dest.push(line.map(x => Aave3Helper.toString(x)).join(","));

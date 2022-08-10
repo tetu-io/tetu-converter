@@ -7,6 +7,8 @@ pragma solidity 0.8.4;
 interface IDForceInterestRateModel {
   function isInterestRateModel() external view returns (bool);
 
+  function blocksPerYear() external view returns (uint256);
+
   /**
    * @dev Calculates the current borrow interest rate per block.
      * @param cash The total amount of cash the market has.

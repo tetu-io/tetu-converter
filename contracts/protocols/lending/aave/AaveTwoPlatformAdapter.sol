@@ -88,8 +88,8 @@ contract AaveTwoPlatformAdapter is IPlatformAdapter {
 
       if (_isUsable(rc.configuration) && rb.configuration.getBorrowingEnabled()) {
         // get liquidation threshold (== collateral factor) and loan-to-value
-        plan.ltv18 = uint(rb.configuration.getLtv()) * 10**(18-5);
-        plan.liquidationThreshold18 = uint(rc.configuration.getLiquidationThreshold()) * 10**(18-5);
+        plan.ltv18 = uint(rb.configuration.getLtv()) * 10**(18-4);
+        plan.liquidationThreshold18 = uint(rc.configuration.getLiquidationThreshold()) * 10**(18-4);
         plan.converter = converter;
 
        // assume here, that we always use variable borrow rate

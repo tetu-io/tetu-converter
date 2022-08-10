@@ -61,6 +61,8 @@ interface IHfData {
     bprotocol: string;
     price: BigNumber;
     underlineDecimals: number;
+
+    blocksPerYear: BigNumber;
 }
 
 //endregion Data types
@@ -113,6 +115,7 @@ export class HundredFinanceHelper {
         const irm = IHfInterestRateModel__factory.connect(await cToken.interestRateModel(), signer);
         const priceOracle = IHfOracle__factory.connect(MaticAddresses.HUNDRED_FINANCE_ORACLE, signer);
 
+
         return {
             comptroller: await cToken.comptroller(),
             ctoken: cToken.address,
@@ -143,7 +146,8 @@ export class HundredFinanceHelper {
                     ? MaticAddresses.WMATIC
                     : await cToken.underlying()
                 , signer
-            ).decimals()
+            ).decimals(),
+            blocksPerYear: await irm.blocksPerYear()
         }
     }
 //endregion Read data
@@ -166,7 +170,8 @@ export class HundredFinanceHelper {
             "isComped", "closeFactorMantissa",
             "interestRateModel", "borrowCap", "bprotocol",
             "borrowRate18", "supplyRate18", "baseRatePerBlock", "blocksPerYear", "irmName",
-            "price", "underlineDecimals"
+            "price", "underlineDecimals",
+            "blocksPerYear"
         ].join(","));
 
         const getInterestRateModel = HundredFinanceHelper.memoize(
@@ -194,7 +199,8 @@ export class HundredFinanceHelper {
                 rd.isComped, rd.closeFactorMantissa,
                 rd.interestRateModel, rd.borrowCap, rd.bprotocol,
                 irm.borrowRate18, irm.supplyRate18, irm.baseRatePerBlock, irm.blocksPerYear, irm.name,
-                rd.price, rd.underlineDecimals
+                rd.price, rd.underlineDecimals,
+                rd.blocksPerYear
             ];
 
             dest.push(line.map(x => Aave3Helper.toString(x)).join(","));
