@@ -120,7 +120,7 @@ contract AaveTwoPlatformAdapter is IPlatformAdapter {
   ///////////////////////////////////////////////////////
 
   function initializePoolAdapter(
-    address /* converter_ */,
+    address converter_,
     address poolAdapter_,
     address user_,
     address collateralAsset_,
@@ -132,7 +132,8 @@ contract AaveTwoPlatformAdapter is IPlatformAdapter {
       address(pool),
       user_,
       collateralAsset_,
-      borrowAsset_
+      borrowAsset_,
+      converter_
     );
   }
 

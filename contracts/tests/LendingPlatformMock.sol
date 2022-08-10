@@ -91,7 +91,7 @@ contract LendingPlatformMock is IPlatformAdapter {
   }
 
   function initializePoolAdapter(
-    address, // converter_
+    address converter_,
     address poolAdapter_,
     address user_,
     address collateralAsset_,
@@ -104,6 +104,7 @@ contract LendingPlatformMock is IPlatformAdapter {
       user_,
       collateralAsset_,
       borrowAsset_,
+      converter_,
 
       cTokens[collateralAsset_],
       liquidationThresholds18[collateralAsset_],

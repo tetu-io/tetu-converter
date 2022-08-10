@@ -26,8 +26,9 @@ interface IPoolAdapter is IConverter {
     bool closePosition_
   ) external;
 
+  /// @return originConverter Address of original PoolAdapter contract that was cloned to make the instance of the pool adapter
   function getConfig() external view returns (
-    address pool,
+    address originConverter,
     address user,
     address collateralAsset,
     address borrowAsset

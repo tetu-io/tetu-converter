@@ -12,6 +12,7 @@ interface IPoolAdapterInitializerWithAP {
     address pool_,
     address user_,
     address collateralAsset_,
-    address borrowAsset_
+    address borrowAsset_,
+    address originConverter_
   ) external;
 }

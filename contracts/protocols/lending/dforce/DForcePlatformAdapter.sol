@@ -213,7 +213,8 @@ contract DForcePlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
       address(comptroller),
       user_,
       collateralAsset_,
-      borrowAsset_
+      borrowAsset_,
+      converter_
     );
   }
 

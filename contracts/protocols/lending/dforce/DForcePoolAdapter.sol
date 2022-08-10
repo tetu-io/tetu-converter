@@ -34,6 +34,9 @@ contract DForcePoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP {
   /// @notice Implementation of IDForcePriceOracle
   IDForcePriceOracle private _priceOracle;
 
+  /// @notice Address of original PoolAdapter contract that was cloned to make the instance of the pool adapter
+  address originConverter;
+
   /// @notice Last synced amount of given token on the balance of this contract
   mapping(address => uint) public collateralBalance;
 
@@ -50,7 +53,8 @@ contract DForcePoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP {
     address comptroller_,
     address user_,
     address collateralAsset_,
-    address borrowAsset_
+    address borrowAsset_,
+    address originConveter_
   ) override external {
     require(
       controller_ != address(0)
@@ -66,6 +70,7 @@ contract DForcePoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP {
     user = user_;
     collateralAsset = collateralAsset_;
     borrowAsset = borrowAsset_;
+    originConverter = originConveter_;
 
     (address cTokenCollateral, address cTokenBorrow, address priceOracle) = ITokenAddressProvider(cTokenAddressProvider_)
       .getCTokenByUnderlying(collateralAsset_, borrowAsset_);
@@ -266,12 +271,12 @@ contract DForcePoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP {
   ///////////////////////////////////////////////////////
 
   function getConfig() external view override returns (
-    address pool,
+    address origin,
     address outUser,
     address outCollateralAsset,
     address outBorrowAsset
   ) {
-    return (address(_comptroller), user, collateralAsset, borrowAsset);
+    return (originConverter, user, collateralAsset, borrowAsset);
   }
 
   function getStatus() external view override returns (

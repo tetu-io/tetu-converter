@@ -112,14 +112,7 @@ contract Aave3PlatformAdapter is IPlatformAdapter {
               plan.liquidationThreshold18 = uint(rc.configuration.getLiquidationThreshold()) * 10**(18-4);
               plan.converter = _converters[INDEX_NORMAL_MODE];
             }
-//            console.log("plan.converter=%s", plan.converter);
           }
-          console.log("2");
-          console.log("3", rb.currentVariableBorrowRate);
-          console.log("4", rb.currentVariableBorrowRate / COUNT_SECONDS_PER_YEAR);
-          console.log("5", IController(controller).blocksPerDay() * 365 / COUNT_SECONDS_PER_YEAR);
-          console.log("6", rb.currentVariableBorrowRate / COUNT_SECONDS_PER_YEAR * IController(controller).blocksPerDay() * 365 / COUNT_SECONDS_PER_YEAR);
-          console.log("7", rb.currentVariableBorrowRate / COUNT_SECONDS_PER_YEAR * IController(controller).blocksPerDay() * 365 / COUNT_SECONDS_PER_YEAR  / 10**(27-18));
 
          // assume here, that we always use variable borrow rate
           plan.aprPerBlock18 = rb.currentVariableBorrowRate
@@ -192,7 +185,7 @@ contract Aave3PlatformAdapter is IPlatformAdapter {
   ///////////////////////////////////////////////////////
 
   function initializePoolAdapter(
-    address /* converter_ */,
+    address converter_,
     address poolAdapter_,
     address user_,
     address collateralAsset_,
@@ -204,7 +197,8 @@ contract Aave3PlatformAdapter is IPlatformAdapter {
       address(pool),
       user_,
       collateralAsset_,
-      borrowAsset_
+      borrowAsset_,
+      converter_
     );
   }
 

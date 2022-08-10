@@ -33,6 +33,9 @@ contract HfPoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP {
   /// @notice Implementation of IHfOracle
   IHfOracle private _priceOracle;
 
+  /// @notice Address of original PoolAdapter contract that was cloned to make the instance of the pool adapter
+  address originConverter;
+
   /// @notice Last synced amount of given token on the balance of this contract
   mapping(address => uint) public collateralBalance;
 
@@ -49,7 +52,8 @@ contract HfPoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP {
     address comptroller_,
     address user_,
     address collateralAsset_,
-    address borrowAsset_
+    address borrowAsset_,
+    address originConverter_
   ) override external {
     require(
       controller_ != address(0)
@@ -58,6 +62,7 @@ contract HfPoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP {
       && collateralAsset_ != address(0)
       && borrowAsset_ != address(0)
       && cTokenAddressProvider_ != address(0)
+      && originConverter_ != address(0)
       , AppErrors.ZERO_ADDRESS
     );
 
@@ -65,6 +70,7 @@ contract HfPoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP {
     user = user_;
     collateralAsset = collateralAsset_;
     borrowAsset = borrowAsset_;
+    originConverter = originConverter_;
 
     (address cTokenCollateral, address cTokenBorrow, address priceOracle) = ITokenAddressProvider(cTokenAddressProvider_)
       .getCTokenByUnderlying(collateralAsset_, borrowAsset_);
@@ -279,12 +285,12 @@ contract HfPoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP {
   ///////////////////////////////////////////////////////
 
   function getConfig() external view override returns (
-    address pool,
+    address origin,
     address outUser,
     address outCollateralAsset,
     address outBorrowAsset
   ) {
-    return (address(_comptroller), user, collateralAsset, borrowAsset);
+    return (originConverter, user, collateralAsset, borrowAsset);
   }
 
   function getStatus() external view override returns (

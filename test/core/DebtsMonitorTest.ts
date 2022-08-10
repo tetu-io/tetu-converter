@@ -488,7 +488,7 @@ describe("DebtsMonitor", () => {
             return {dm, poolAdapterMock, sourceToken, targetToken, userTC, controller, pool, cTokenAddress};
         }
         describe("Good paths", () => {
-            describe("Single borrowed token", () => {
+            describe("Single borrowed token, no better borrow strategy", () => {
                 describe("The token is healthy", () => {
                     describe("Health factor > min", () => {
                         it("should return empty", async () => {

@@ -32,6 +32,9 @@ contract AaveTwoPoolAdapter is IPoolAdapter, IPoolAdapterInitializer {
   IAaveTwoPool internal _pool;
   IAaveTwoPriceOracle internal _priceOracle;
 
+  /// @notice Address of original PoolAdapter contract that was cloned to make the instance of the pool adapter
+  address originConverter;
+
   /// @notice Last synced amount of given token on the balance of this contract
   mapping(address => uint) public reserveBalances;
 
@@ -44,19 +47,22 @@ contract AaveTwoPoolAdapter is IPoolAdapter, IPoolAdapterInitializer {
     address pool_,
     address user_,
     address collateralAsset_,
-    address borrowAsset_
+    address borrowAsset_,
+    address originConveter_
   ) override external {
     require(
       controller_ != address(0)
       && user_ != address(0)
       && collateralAsset_ != address(0)
       && borrowAsset_ != address(0)
+      && originConveter_ != address(0)
     , AppErrors.ZERO_ADDRESS);
 
     controller = IController(controller_);
     user = user_;
     collateralAsset = collateralAsset_;
     borrowAsset = borrowAsset_;
+    originConverter = originConveter_;
 
     _pool = IAaveTwoPool(pool_);
     _priceOracle = IAaveTwoPriceOracle(IAaveTwoLendingPoolAddressesProvider(_pool.getAddressesProvider()).getPriceOracle());
@@ -296,12 +302,12 @@ contract AaveTwoPoolAdapter is IPoolAdapter, IPoolAdapterInitializer {
   ///////////////////////////////////////////////////////
 
   function getConfig() external view override returns (
-    address pool,
+    address origin,
     address outUser,
     address outCollateralAsset,
     address outBorrowAsset
   ) {
-    return (address(_pool), user, collateralAsset, borrowAsset);
+    return (originConverter, user, collateralAsset, borrowAsset);
   }
 
   function getStatus() external view override returns (

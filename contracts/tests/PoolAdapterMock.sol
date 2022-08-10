@@ -32,6 +32,8 @@ contract PoolAdapterMock is IPoolAdapter {
   ///      we set it manually
   uint private _passedBlocks;
 
+  address public originConverter;
+
   /// @notice Last synced amount of given token on the balance of this contract
   mapping(address => uint) public reserveBalances;
 
@@ -58,6 +60,7 @@ contract PoolAdapterMock is IPoolAdapter {
     address user_,
     address collateralAsset_,
     address borrowAsset_,
+    address originConverter_,
     address cTokenMock_,
     uint collateralFactor_,
     uint borrowRatePerBlock_,
@@ -73,18 +76,19 @@ contract PoolAdapterMock is IPoolAdapter {
     _collateralFactor = collateralFactor_;
     _borrowRates = borrowRatePerBlock_;
     priceOracle = priceOracle_;
+    originConverter = originConverter_;
   }
 
   ///////////////////////////////////////////////////////
   ///           Getters
   ///////////////////////////////////////////////////////
   function getConfig() external view override returns (
-    address pool,
+    address origin,
     address user,
     address collateralAsset,
     address borrowAsset
   ) {
-    return (_pool, _user, _collateralAsset, _borrowAsset);
+    return (originConverter, _user, _collateralAsset, _borrowAsset);
   }
 
   function getStatus() external view override returns (
