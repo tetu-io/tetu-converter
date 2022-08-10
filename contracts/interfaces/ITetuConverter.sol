@@ -12,8 +12,7 @@ interface ITetuConverter {
   /// @param healthFactor2_ For lending: min allowed health factor, decimals 2; 0 - use default value
   /// @return converter Result contract that should be used for conversion; it supports IConverter
   /// @return maxTargetAmount Max available amount of target tokens that we can get after conversion
-  /// @return interest Interest on the use of {outMaxTargetAmount} during the period {approxOwnershipPeriodInBlocks}
-  ///                     decimals 18
+  /// @return aprForPeriod18 Interest on the use of {outMaxTargetAmount} during the given period, decimals 18
   function findConversionStrategy(
     address sourceToken_,
     uint sourceAmount_,
@@ -23,7 +22,7 @@ interface ITetuConverter {
   ) external view returns (
     address converter,
     uint maxTargetAmount,
-    uint interest
+    uint aprForPeriod18
   );
 
   /// @notice Convert {sourceAmount_} to {targetAmount_} using {converter_}

@@ -21,6 +21,8 @@ contract Aave3PlatformAdapter is IPlatformAdapter {
   using SafeERC20 for IERC20;
   using Aave3ReserveConfiguration for DataTypes.ReserveConfigurationMap;
 
+  uint public COUNT_SECONDS_PER_YEAR = 31536000;
+
   IController public controller;
   IAavePool public pool;
   IAavePriceOracle internal _priceOracle;
@@ -113,8 +115,10 @@ contract Aave3PlatformAdapter is IPlatformAdapter {
           }
 
          // assume here, that we always use variable borrow rate
-          plan.borrowRate = rb.currentVariableBorrowRate / 10**(27-18); // rays => decimals 18 (1 ray = 1e-27)
-          plan.borrowRateKind = AppDataTypes.BorrowRateKind.PER_SECOND_2;
+          plan.aprPerBlock18 = rb.currentVariableBorrowRate
+            / COUNT_SECONDS_PER_YEAR
+            * IController(controller).blocksPerDay() * 365 / COUNT_SECONDS_PER_YEAR
+            / 10**(27-18); // rays => decimals 18 (1 ray = 1e-27)
 
           // by default, we can borrow all available cache
 

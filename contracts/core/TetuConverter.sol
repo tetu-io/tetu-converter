@@ -50,7 +50,7 @@ contract TetuConverter is ITetuConverter {
   ) external view override returns (
     address converter,
     uint maxTargetAmount,
-    uint interest
+    uint aprForPeriod18
   ) {
     AppDataTypes.InputConversionParams memory params = AppDataTypes.InputConversionParams({
       healthFactor2: healthFactor2_,

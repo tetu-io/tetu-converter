@@ -10,15 +10,6 @@ library AppDataTypes {
     BORROW_2
   }
 
-  /// @notice Kind of borrow rate
-  ///         I.e. AAVE calculates borrow-rate per second
-  ///              Compound calculates borrow-rate per block
-  enum BorrowRateKind {
-    UNKNOWN_0,
-    PER_BLOCK_1,
-    PER_SECOND_2
-  }
-
   /// @notice Input params for BorroManager.findPool (stack is too deep problem)
   struct InputConversionParams {
     /// @notice if 0 than default health factor specified for the target asset will be used, decimals 2
@@ -36,14 +27,11 @@ library AppDataTypes {
   struct ConversionPlan {
     /// @notice Template adapter contract that implements required strategy.
     address converter;
-    /// @notice Kind of {borrowRatePerBlockWAD}. 0 if the borrow is not possible
-    BorrowRateKind borrowRateKind;
     /// @notice Current collateral factor [0..1e18], where 1e18 is corresponded to CF=1
     /// TODO: probably we need to use different decimals for the collateral factor to reduce size of this struct
     uint liquidationThreshold18;
-    /// @notice Normalized borrow rate (borrow-rate + any fees), decimals = 18 (wad)
-    /// TODO: uint128? see aave
-    uint borrowRate;
+    /// @notice APR per 1 block (normalized borrow rate, borrow-rate + any fees), decimals = 18
+    uint aprPerBlock18;
     /// @notice Loan-to-value, decimals = 18 (wad)
     /// TODO: uint16? see aave..
     uint ltv18;

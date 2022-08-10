@@ -59,9 +59,8 @@ contract LendingPlatformMock is IPlatformAdapter {
   ) {
     return AppDataTypes.ConversionPlan({
       converter: _converter,
-      borrowRateKind: AppDataTypes.BorrowRateKind.PER_BLOCK_1,
       liquidationThreshold18: liquidationThresholds18[collateralAsset_],
-      borrowRate: borrowRates[borrowAsset_],
+      aprPerBlock18: borrowRates[borrowAsset_],
       ltv18: liquidationThresholds18[collateralAsset_],
       maxAmountToBorrowBT: liquidity[borrowAsset_],
       maxAmountToSupplyCT: type(uint).max

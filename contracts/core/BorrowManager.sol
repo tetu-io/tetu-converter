@@ -114,7 +114,7 @@ contract BorrowManager is BorrowManagerBase {
   function findConverter(AppDataTypes.InputConversionParams memory p_) external view override returns (
     address converter,
     uint maxTargetAmount,
-    uint apr
+    uint aprForPeriod18
   ) {
     // Input params:
     // Health factor = HF [-], Collateral amount = C [USD]
@@ -147,7 +147,7 @@ contract BorrowManager is BorrowManagerBase {
     assets[1] = p_.targetToken;
 
     if (pas.length != 0) {
-      (converter, maxTargetAmount, apr) = _findPool(
+      (converter, maxTargetAmount, aprForPeriod18) = _findPool(
         pas
         , p_
         , BorrowInput({
@@ -158,7 +158,7 @@ contract BorrowManager is BorrowManagerBase {
       );
     }
 
-    return (converter, maxTargetAmount, apr);
+    return (converter, maxTargetAmount, aprForPeriod18);
   }
 
   /// @notice Enumerate all pools and select a pool suitable for borrowing with min borrow rate and enough underline
@@ -169,7 +169,7 @@ contract BorrowManager is BorrowManagerBase {
   ) internal view returns (
     address converter,
     uint maxTargetAmount,
-    uint apr
+    uint aprForPeriod18
   ) {
     uint lenPools = platformAdapters_.length;
     console.log("lenPools %d", lenPools);
@@ -193,26 +193,19 @@ contract BorrowManager is BorrowManagerBase {
         console.log("plan.converter", plan.converter);
         console.log("plan.ltv18", plan.ltv18);
         console.log("plan.liquidationThreshold18", plan.liquidationThreshold18);
-        console.log("plan.borrowRate", plan.borrowRate);
-        console.log("plan.borrowRateKind", uint(plan.borrowRateKind));
+        console.log("plan.borrowRate", plan.aprPerBlock18);
         console.log("plan.maxAmountToBorrowBT", plan.maxAmountToBorrowBT);
 
         // check if we are able to supply required collateral
         if (plan.maxAmountToSupplyCT > p_.sourceAmount) {
-          // convert borrow rate to APR
-          uint aprOfPool = plan.borrowRateKind == AppDataTypes.BorrowRateKind.PER_BLOCK_1
-            ? plan.borrowRate
-            : plan.borrowRate * SECONDS_PER_DAY / BLOCKS_PER_DAY;
-          console.log("aprOfPool=%d", aprOfPool);
-
-          if (converter == address(0) || aprOfPool < apr) {
+          if (converter == address(0) || plan.aprPerBlock18 < aprForPeriod18) {
             // how much target asset we are able to get for the provided collateral with given health factor
             // TargetTA = BS / PT [TA], C = SA * PS, CM = C / HF, BS = CM * PCF
             uint resultTa18 = plan.liquidationThreshold18
               * pp_.sourceAmount18 * pricesCB18[0]
               / (pricesCB18[1] * uint(p_.healthFactor2) * 10**(18-2));
 
-            console.log("apr %d plan.borrowRate=%d", aprOfPool, plan.borrowRate);
+            console.log("apr %d plan.borrowRate=%d", plan.aprPerBlock18, plan.aprPerBlock18);
             console.log("resultTa18 %d", resultTa18);
             console.log("plan.collateralFactorWAD %d", plan.liquidationThreshold18);
             console.log("pp_.sourceAmount18 %d", pp_.sourceAmount18);
@@ -227,14 +220,14 @@ contract BorrowManager is BorrowManagerBase {
               // take the pool with lowest borrow rate
               converter = plan.converter;
               maxTargetAmount = _toMantissa(resultTa18, 18, pp_.targetDecimals);
-              apr = aprOfPool;
+              aprForPeriod18 = plan.aprPerBlock18 * p_.periodInBlocks;
             }
           }
         }
       }
     }
 
-    return (converter, maxTargetAmount, apr);
+    return (converter, maxTargetAmount, aprForPeriod18);
   }
 
   ///////////////////////////////////////////////////////

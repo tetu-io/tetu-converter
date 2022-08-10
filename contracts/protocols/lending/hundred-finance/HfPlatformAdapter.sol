@@ -144,8 +144,7 @@ contract HfPlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
       if (cTokenBorrow != address(0)) {
         (plan.ltv18, plan.liquidationThreshold18) = _getMarketsInfo(cTokenCollateral, cTokenBorrow);
         if (plan.ltv18 != 0 && plan.liquidationThreshold18 != 0) {
-          plan.borrowRateKind = AppDataTypes.BorrowRateKind.PER_BLOCK_1;
-          plan.borrowRate = IHfCToken(cTokenBorrow).borrowRatePerBlock();
+          plan.aprPerBlock18 = IHfCToken(cTokenBorrow).borrowRatePerBlock();
           plan.converter = _converters[INDEX_NORMAL_MODE];
 
           plan.maxAmountToBorrowBT = IHfCToken(cTokenBorrow).getCash();
@@ -162,7 +161,7 @@ contract HfPlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
           }
 
           console.log("maxAmountToBorrowBT=%d", plan.maxAmountToBorrowBT);
-          console.log("borrowRate=%d", plan.borrowRate);
+          console.log("borrowRate=%d", plan.aprPerBlock18);
 
           //it seems that supply is not limited in HundredFinance protocol
           plan.maxAmountToSupplyCT = type(uint).max; // unlimited

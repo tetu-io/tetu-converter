@@ -148,8 +148,7 @@ contract DForcePlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
           console.log("borrowFactorMantissa borrowCapacity", borrowFactorMantissa, borrowCapacity);
 
           if (borrowFactorMantissa != 0 && borrowCapacity != 0) {
-            plan.borrowRateKind = AppDataTypes.BorrowRateKind.PER_BLOCK_1;
-            plan.borrowRate = IDForceCToken(cTokenBorrow).borrowRatePerBlock();
+            plan.aprPerBlock18 = IDForceCToken(cTokenBorrow).borrowRatePerBlock();
             plan.converter = _converters[INDEX_NORMAL_MODE];
 
             plan.liquidationThreshold18 = collateralFactorMantissa;
@@ -181,7 +180,7 @@ contract DForcePlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
                 : supplyCapacity - totalSupply;
             }
 
-            console.log("borrowRate=%d", plan.borrowRate);
+            console.log("borrowRate=%d", plan.aprPerBlock18);
             console.log("ltv=%d", plan.ltv18);
             console.log("liquidationThreshold18=%d", plan.liquidationThreshold18);
             console.log("maxAmountToSupplyCT=%d", plan.maxAmountToSupplyCT);

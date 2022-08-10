@@ -22,6 +22,8 @@ contract AaveTwoPlatformAdapter is IPlatformAdapter {
   using SafeERC20 for IERC20;
   using AaveTwoReserveConfiguration for DataTypes.ReserveConfigurationMap;
 
+  uint public COUNT_SECONDS_PER_YEAR = 31536000;
+
   IController public controller;
   IAaveTwoPool public pool;
   IAaveTwoPriceOracle internal _priceOracle;
@@ -93,8 +95,10 @@ contract AaveTwoPlatformAdapter is IPlatformAdapter {
         plan.converter = converter;
 
        // assume here, that we always use variable borrow rate
-        plan.borrowRate = rb.currentVariableBorrowRate / 10**(27-18); // rays => decimals 18 (1 ray = 1e-27)
-        plan.borrowRateKind = AppDataTypes.BorrowRateKind.PER_SECOND_2;
+        plan.aprPerBlock18 = rb.currentVariableBorrowRate
+        / COUNT_SECONDS_PER_YEAR
+        * IController(controller).blocksPerDay() * 365 / COUNT_SECONDS_PER_YEAR
+        / 10**(27-18); // rays => decimals 18 (1 ray = 1e-27)
 
         // availableLiquidity is IERC20(borrowToken).balanceOf(atoken)
         (uint availableLiquidity,,,,,,,,,) = IAaveTwoProtocolDataProvider(
