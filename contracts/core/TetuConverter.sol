@@ -107,6 +107,15 @@ contract TetuConverter is ITetuConverter {
     }
   }
 
+  function reconvert(
+    address poolAdapter_,
+    uint16 healthFactor2_,
+    uint periodInBlocks_
+  ) external override {
+    console.log("TODO", poolAdapter_, healthFactor2_, periodInBlocks_);
+    //TODO
+  }
+
   ///////////////////////////////////////////////////////
   ///       Find opened borrow-positions
   ///////////////////////////////////////////////////////

@@ -315,7 +315,7 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer 
 //    console.log("pool adapter=%s", address(this));
     return (
     // Total amount of provided collateral in Pool adapter's base currency
-      totalCollateralBase,
+      totalCollateralBase, //TODO:
     // Total amount of borrowed debt in [borrow asset]. 0 - for closed borrow positions.
       totalDebtBase * (10 ** _pool.getConfiguration(borrowAsset).getDecimals()) / priceBorrow,
     // Current health factor, decimals 18
