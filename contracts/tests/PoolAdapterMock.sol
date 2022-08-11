@@ -22,10 +22,11 @@ contract PoolAdapterMock is IPoolAdapter {
   address private _borrowAsset;
 
   MockERC20 private _cTokenMock;
+  /** Collateral factor (liquidation threshold) of the collateral asset */
   uint private _collateralFactor;
 
   uint private _borrowedAmounts;
-  uint private _borrowRates;
+  uint public borrowRate;
   address public priceOracle;
 
   /// @dev block.number is a number of blocks passed since last borrow/repay
@@ -46,6 +47,10 @@ contract PoolAdapterMock is IPoolAdapter {
 
   function changeCollateralFactor(uint collateralFactor_) external {
     _collateralFactor = collateralFactor_;
+  }
+
+  function changeBorrowRate(uint value_) external {
+    borrowRate = value_;
   }
 
   ///////////////////////////////////////////////////////
@@ -74,7 +79,7 @@ contract PoolAdapterMock is IPoolAdapter {
     _borrowAsset = borrowAsset_;
     _cTokenMock = MockERC20(cTokenMock_);
     _collateralFactor = collateralFactor_;
-    _borrowRates = borrowRatePerBlock_;
+    borrowRate = borrowRatePerBlock_;
     priceOracle = priceOracle_;
     originConverter = originConverter_;
   }
@@ -269,9 +274,9 @@ contract PoolAdapterMock is IPoolAdapter {
   ///////////////////////////////////////////////////////
 
   function _getAmountToRepay() internal view returns (uint) {
-    console.log("_getAmountToRepay _borrowedAmounts=%d _borrowRates=%d _passedBlocks=%d", _borrowedAmounts, _borrowRates, _passedBlocks);
+    console.log("_getAmountToRepay _borrowedAmounts=%d _borrowRates=%d _passedBlocks=%d", _borrowedAmounts, borrowRate, _passedBlocks);
     return _borrowedAmounts
-      + _borrowRates
+      + borrowRate
         * _borrowedAmounts
         * _passedBlocks
         / 1e18 //br has decimals 18
@@ -301,7 +306,7 @@ contract PoolAdapterMock is IPoolAdapter {
 
   /// @notice Compute current cost of the money
   function getAPR18() external view override returns (uint) {
-    return _borrowRates * IController(controller).blocksPerDay() * 365;
+    return borrowRate * IController(controller).blocksPerDay() * 365;
   }
 
 }

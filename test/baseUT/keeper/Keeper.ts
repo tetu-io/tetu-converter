@@ -1,5 +1,6 @@
 import {IBorrower__factory, IDebtMonitor, IPoolAdapter__factory, ITetuConverter} from "../../../typechain";
 import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
+import {IReConverter} from "./ReСonverters";
 
 /**
  * Implementation of UC2.4
@@ -10,10 +11,12 @@ export class Keeper {
     periodBlocks: number;
     maxCountToCheck: number;
     maxCountToReturn: number;
+    reConverter: IReConverter;
     constructor(
         dm: IDebtMonitor,
         healthFactor2: number,
         periodBlocks: number,
+        reConverter: IReConverter,
         maxCountToCheck: number = 3,
         maxCountToReturn: number = 2
     ) {
@@ -22,6 +25,7 @@ export class Keeper {
         this.periodBlocks = periodBlocks;
         this.maxCountToCheck = maxCountToCheck;
         this.maxCountToReturn = maxCountToReturn;
+        this.reConverter = reConverter;
     }
 
     /** Find all positions that should be reconverted and reconvert them */
@@ -42,17 +46,12 @@ export class Keeper {
             for (let i = 0; i < ret.countFoundItems.toNumber(); ++i) {
                 poolAdaptersToReconvert.push(ret.poolAdapters[i]);
             }
-            startIndex0 = ret.nextIndexToCheck0;
+            startIndex0 = ret.nextIndexToCheck0.toNumber();
         } while (startIndex0 != 0);
 
         // let's reconvert all found pool adapters, each in the separate transaction
         for (let i = 0; i < poolAdaptersToReconvert.length; ++i) {
-            const poolAdapter = IPoolAdapter__factory.connect(poolAdaptersToReconvert[i], signer);
-            const poolAdapterConfig = await poolAdapter.getConfig();
-            const user = poolAdapterConfig.user;
-
-            const userAsSigner = IBorrower__factory.connect(user, signer);
-            await userAsSigner.requireReconversion(poolAdapter);
+            await this.reConverter.do(poolAdaptersToReconvert[i], signer);
         }
     }
 }

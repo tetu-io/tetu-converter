@@ -3,7 +3,7 @@ import {Aave3Helper} from "../../../scripts/integration/helpers/Aave3Helper";
 import {AdaptersHelper} from "../helpers/AdaptersHelper";
 import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import {MaticAddresses} from "../../../scripts/addresses/MaticAddresses";
-import {ILendingPlatformFabric} from "../interfaces/ILendingPlatformFabric";
+import {ILendingPlatformFabric} from "./ILendingPlatformFabric";
 
 export class Aave3PlatformFabric implements ILendingPlatformFabric {
     async createAndRegisterPools(deployer: SignerWithAddress, controller: IController) : Promise<IERC20[]> {

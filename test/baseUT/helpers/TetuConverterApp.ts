@@ -8,7 +8,7 @@ import {getBigNumberFrom} from "../../../scripts/utils/NumberUtils";
 import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import {DeployUtils} from "../../../scripts/utils/DeployUtils";
 import {COUNT_BLOCKS_PER_DAY} from "../utils/aprUtils";
-import {ILendingPlatformFabric} from "../interfaces/ILendingPlatformFabric";
+import {ILendingPlatformFabric} from "../fabrics/ILendingPlatformFabric";
 
 
 export class TetuConverterApp {

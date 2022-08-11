@@ -1,5 +1,5 @@
 import {IBorrowManager, IBorrowManager__factory, IController, IERC20, IERC20__factory} from "../../../typechain";
-import {ILendingPlatformFabric} from "../interfaces/ILendingPlatformFabric";
+import {ILendingPlatformFabric} from "./ILendingPlatformFabric";
 import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import {MaticAddresses} from "../../../scripts/addresses/MaticAddresses";
 import {HundredFinanceHelper} from "../../../scripts/integration/helpers/HundredFinanceHelper";

@@ -31,7 +31,7 @@ import {
 } from "../baseUT/GasLimit";
 import {controlGasLimitsEx} from "../../scripts/utils/hardhatUtils";
 import {TetuConverterApp} from "../baseUT/helpers/TetuConverterApp";
-import {ILendingPlatformFabric} from "../baseUT/interfaces/ILendingPlatformFabric";
+import {ILendingPlatformFabric} from "../baseUT/fabrics/ILendingPlatformFabric";
 
 describe("BorrowRepayTest", () => {
 //region Global vars for all tests

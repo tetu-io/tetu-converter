@@ -1,4 +1,4 @@
-import {ILendingPlatformFabric} from "../interfaces/ILendingPlatformFabric";
+import {ILendingPlatformFabric} from "./ILendingPlatformFabric";
 import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import {
     CTokenMock,

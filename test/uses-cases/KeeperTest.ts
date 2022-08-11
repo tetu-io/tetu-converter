@@ -48,9 +48,21 @@ describe("Keeper test", () => {
 //region Unit tests
     describe("Health checking", async () => {
         describe("Good paths", () => {
-            describe("Single borrow, single instant complete repay", () => {
-                it("", async() => {
-                   expect.fail("TODO");
+            describe("Health factor becomes below allowed minimum", () => {
+                describe("Collateral factor is decreased", () => {
+                    it("should call reconvert", async () => {
+                        expect.fail("TODO");
+                    });
+                });
+                describe("Collateral price is decreased", () => {
+                    it("should call reconvert", async () => {
+                        expect.fail("TODO");
+                    });
+                });
+                describe("Borrow price is increased", () => {
+                    it("should call reconvert", async () => {
+                        expect.fail("TODO");
+                    });
                 });
             });
         });

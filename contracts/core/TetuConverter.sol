@@ -77,9 +77,9 @@ contract TetuConverter is ITetuConverter {
     // find best DEX platform
 
     // find best lending platform
-    //TODO: Calculate APY = (1 + r / n)^n - 1, where r - period rate, n = number of compounding periods
     return _bm().findConverter(params);
   }
+
   ///////////////////////////////////////////////////////
   ///       Make conversion
   ///////////////////////////////////////////////////////

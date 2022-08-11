@@ -16,11 +16,12 @@ interface IAaveTwoPriceOracle {
   /// @notice Gets the address of the fallback oracle
   /// @return address The addres of the fallback oracle
   function getFallbackOracle() external view returns (address);
+  function setFallbackOracle(address fallbackOracle) external;
 
   function getSourceOfAsset(address asset) external view returns (address);
+  function setAssetSources(address[] memory assets, address[] memory sources) external;
+
+  function transferOwnership(address newOwner) external;
   function owner() external view returns (address);
   function renounceOwnership() external;
-  function setAssetSources(address[] memory assets, address[] memory sources) external;
-  function setFallbackOracle(address fallbackOracle) external;
-  function transferOwnership(address newOwner) external;
 }
