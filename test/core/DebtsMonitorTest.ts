@@ -510,7 +510,7 @@ describe("DebtsMonitor", () => {
                             }
                             const {dm, poolAdapterMock, controller} = await prepareTest(pp);
 
-                            const currentHealthFactor18 = (await poolAdapterMock.getStatus()).healthFactorWAD;
+                            const currentHealthFactor18 = (await poolAdapterMock.getStatus()).healthFactor18;
                             const minAllowedHealthFactor2 = currentHealthFactor18
                                 .div(2)
                                 .div(getBigNumberFrom(1, 18-2))
@@ -563,7 +563,7 @@ describe("DebtsMonitor", () => {
                             }
                             const {dm, poolAdapterMock, controller} = await prepareTest(pp);
 
-                            const currentHealthFactor18 = (await poolAdapterMock.getStatus()).healthFactorWAD;
+                            const currentHealthFactor18 = (await poolAdapterMock.getStatus()).healthFactor18;
                             const minAllowedHealthFactor2 = currentHealthFactor18
                                 .div(getBigNumberFrom(1, 18-2))
                                 .toNumber();
@@ -628,7 +628,7 @@ describe("DebtsMonitor", () => {
                             }
                             const {dm, poolAdapterMock, controller} = await prepareTest(pp);
 
-                            const currentHealthFactor18 = (await poolAdapterMock.getStatus()).healthFactorWAD;
+                            const currentHealthFactor18 = (await poolAdapterMock.getStatus()).healthFactor18;
                             const minAllowedHealthFactor2 = currentHealthFactor18
                                 .mul(2)
                                 .div(getBigNumberFrom(1, 18-2))

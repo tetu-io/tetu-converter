@@ -61,7 +61,7 @@ contract DebtMonitor is IDebtMonitor {
     console.log("DebtMonitor.onClosePosition %s", msg.sender);
     require(positionsRegistered[msg.sender], AppErrors.BORROW_POSITION_IS_NOT_REGISTERED);
 
-    (uint collateralAmount, uint amountToPay,) = IPoolAdapter(msg.sender).getStatus();
+    (uint collateralAmount, uint amountToPay,,) = IPoolAdapter(msg.sender).getStatus();
     require(collateralAmount == 0 && amountToPay == 0, AppErrors.ATTEMPT_TO_CLOSE_NOT_EMPTY_BORROW_POSITION);
 
     positionsRegistered[msg.sender] = false;
@@ -104,7 +104,7 @@ contract DebtMonitor is IDebtMonitor {
 
       // check if we need to make rebalancing because of too low health factor
       IPoolAdapter pa = IPoolAdapter(positions[startIndex0 + i]);
-      (uint collateralAmount,, uint healthFactor18) = pa.getStatus();
+      (uint collateralAmount,, uint healthFactor18,) = pa.getStatus();
       console.log("checkForReconversion: healthFactor18=%d pool-adapter=%s", healthFactor18, address(pa));
       if (healthFactor18 < minAllowedHealthFactor
         || _findBetterBorrowWay(tc, pa, collateralAmount, healthFactor2, periodInBlocks)

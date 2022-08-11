@@ -300,7 +300,8 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer 
   function getStatus() external view override returns (
     uint collateralAmount,
     uint amountsToPay,
-    uint healthFactor18
+    uint healthFactor18,
+    bool opened
   ) {
     (uint256 totalCollateralBase,
      uint256 totalDebtBase,
@@ -308,18 +309,25 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer 
      uint256 hf
     ) = _pool.getUserAccountData(address(this));
 
-    uint priceBorrow = _priceOracle.getAssetPrice(borrowAsset);
-    require(priceBorrow != 0, AppErrors.ZERO_PRICE);
+    address assetBorrow = borrowAsset;
+    address assetCollateral = collateralAsset;
+
+    address[] memory assets = new address[](2);
+    assets[0] = assetCollateral;
+    assets[1] = assetBorrow;
+    uint[] memory prices = _priceOracle.getAssetsPrices(assets);
+    require(prices[1] != 0, AppErrors.ZERO_PRICE);
 
 //    console.log("getStatus totalCollateralBase=%d totalDebtBase=%d priceBorrow=%d", totalCollateralBase, totalDebtBase, priceBorrow);
 //    console.log("pool adapter=%s", address(this));
     return (
     // Total amount of provided collateral in Pool adapter's base currency
-      totalCollateralBase, //TODO:
+      totalCollateralBase * (10 ** _pool.getConfiguration(assetCollateral).getDecimals()) / prices[0],
     // Total amount of borrowed debt in [borrow asset]. 0 - for closed borrow positions.
-      totalDebtBase * (10 ** _pool.getConfiguration(borrowAsset).getDecimals()) / priceBorrow,
+      totalDebtBase * (10 ** _pool.getConfiguration(assetBorrow).getDecimals()) / prices[1],
     // Current health factor, decimals 18
-      hf
+      hf,
+      totalCollateralBase != 0 || totalDebtBase != 0
     );
   }
 

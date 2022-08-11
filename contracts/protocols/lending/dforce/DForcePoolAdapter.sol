@@ -162,7 +162,7 @@ contract DForcePoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP {
   }
 
   function _validateHealthStatusAfterBorrow(address cTokenCollateral, address cTokenBorrow) internal view {
-    (,, uint collateralBase, uint borrowBase) = _getStatus(cTokenCollateral, cTokenBorrow);
+    (,, uint collateralBase, uint borrowBase,) = _getStatus(cTokenCollateral, cTokenBorrow);
     (uint sumCollateralSafe, uint healthFactor18) = _getHealthFactor(cTokenCollateral, collateralBase, borrowBase);
 
     (uint liquidity,,,) = _comptroller.calcAccountEquity(address(this));
@@ -235,7 +235,7 @@ contract DForcePoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP {
     (uint tokenBalance,
      uint borrowBalance,
      uint collateralBase,
-     uint sumBorrowPlusEffects
+     uint sumBorrowPlusEffects,
     ) = _getStatus(cTokenCollateral, cTokenBorrow);
 
     if (tokenBalance == 0 && borrowBalance == 0) {
@@ -282,23 +282,33 @@ contract DForcePoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP {
   function getStatus() external view override returns (
     uint collateralAmount,
     uint amountsToPay,
-    uint healthFactor18
+    uint healthFactor18,
+    bool opened
   ) {
     address cTokenBorrow = borrowCToken;
     address cTokenCollateral = collateralCToken;
-    (, uint borrowBalance, uint collateralBase, uint borrowBase) = _getStatus(cTokenCollateral, cTokenBorrow);
+
+    ( uint collateralTokens,
+      uint borrowBalance,
+      uint collateralBase,
+      uint borrowBase,
+      uint priceCollateral
+    ) = _getStatus(cTokenCollateral, cTokenBorrow);
+
     (, healthFactor18) = _getHealthFactor(
       cTokenCollateral,
       collateralBase,
       borrowBase
     );
+
     return (
-    // Total amount of provided collateral in Pool adapter's base currency
-      collateralBase,
+    // Total amount of provided collateral in [collateral asset]
+      collateralBase / priceCollateral,
     // Total amount of borrowed debt in [borrow asset]. 0 - for closed borrow positions.
       borrowBalance,
     // Current health factor, decimals 18
-      healthFactor18
+      healthFactor18,
+      collateralTokens != 0 || borrowBalance != 0
     );
   }
 
@@ -310,7 +320,8 @@ contract DForcePoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP {
     uint tokenBalance,
     uint borrowBalance,
     uint collateralAmountBASE,
-    uint sumBorrowBASE
+    uint sumBorrowBASE,
+    uint outPriceCollateral
   ) {
     // Calculate value of all collaterals, see ControllerV2.calcAccountEquityWithEffect
     // collateralValuePerToken = underlyingPrice * exchangeRate * collateralFactor
@@ -334,7 +345,7 @@ contract DForcePoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP {
 
     sumBorrowBASE = borrowBalance * underlyingPrice;
 
-    return (tokenBalance, borrowBalance, collateralAmountBASE, sumBorrowBASE);
+    return (tokenBalance, borrowBalance, collateralAmountBASE, sumBorrowBASE, underlyingPrice);
   }
 
   function getConversionKind() external pure override returns (AppDataTypes.ConversionKind) {

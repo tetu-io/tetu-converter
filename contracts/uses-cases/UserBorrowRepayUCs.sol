@@ -88,7 +88,7 @@ contract UserBorrowRepayUCs {
     for (uint i = 0; i < lenPoolAdapters; ++i) {
       IPoolAdapter pa = IPoolAdapter(poolAdapters[i]);
       pa.syncBalance(false);
-      (, uint amountToPay, ) = pa.getStatus();
+      (, uint amountToPay,,) = pa.getStatus();
       if (amountToPay > 0) {
         // transfer borrowed amount to Pool Adapter
         IERC20(borrowedAsset_).transfer(poolAdapters[i], amountToPay);
@@ -117,7 +117,7 @@ contract UserBorrowRepayUCs {
     for (uint i = 0; i < lenPoolAdapters; ++i) {
       IPoolAdapter pa = IPoolAdapter(poolAdapters[i]);
       pa.syncBalance(false);
-      (, uint amountToPay, ) = pa.getStatus();
+      (, uint amountToPay,,) = pa.getStatus();
       console.log("makeRepayUS1.3 total amount to pay=%d we are going to pay=%d", amountToPay, amountToPay_);
 
       uint amountToPayToPA = amountToPay_ >= amountToPay ? amountToPay : amountToPay_;

@@ -94,7 +94,8 @@ contract PoolAdapterMock is IPoolAdapter {
   function getStatus() external view override returns (
     uint collateralAmount,
     uint amountToPay,
-    uint healthFactorWAD
+    uint healthFactor18,
+    bool opened
   ) {
     uint priceCollateral = getPrice18(_collateralAsset);
     uint priceBorrowedUSD = getPrice18(_borrowAsset);
@@ -108,13 +109,13 @@ contract PoolAdapterMock is IPoolAdapter {
     console.log("amountToPay = %d", amountToPay);
     console.log("priceBorrowedUSD = %d", priceBorrowedUSD);
 
-    healthFactorWAD = amountToPay == 0
+    healthFactor18 = amountToPay == 0
       ? type(uint).max
       : _collateralFactor
         * _toMantissa(collateralAmount, decimalsCollateral, 18) * priceCollateral
         / (_toMantissa(amountToPay, decimalsBorrow, 18) * priceBorrowedUSD);
 
-    console.log("healthFactorWAD=%d", healthFactorWAD);
+    console.log("healthFactorWAD=%d", healthFactor18);
     console.log("_collateralFactor=%d", _collateralFactor);
     console.log("collateralAmount=%d", _toMantissa(collateralAmount, decimalsCollateral, 18));
     console.log("amountToPay18=%d", _toMantissa(amountToPay, decimalsBorrow, 18));
@@ -124,7 +125,8 @@ contract PoolAdapterMock is IPoolAdapter {
     return (
       collateralAmount,
       amountToPay,
-      healthFactorWAD
+      healthFactor18,
+      collateralAmount != 0 || amountToPay != 0
     );
   }
 
