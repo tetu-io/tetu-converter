@@ -1,24 +1,24 @@
 import {IBorrowAction} from "../uses-cases/BorrowRepayUsesCase";
 import {IERC20__factory, Borrower} from "../../../typechain";
 import {IUserBalances} from "../utils/BalanceUtils";
-import {TokenWrapper} from "../helpers/TokenWrapper";
+import {TokenDataTypes} from "../helpers/TokenWrapper";
 import {BigNumber} from "ethers";
 import {DeployerUtils} from "../../../scripts/utils/DeployerUtils";
 import {TimeUtils} from "../../../scripts/utils/TimeUtils";
 
 export class BorrowAction implements IBorrowAction {
-    public collateralToken: TokenWrapper;
+    public collateralToken: TokenDataTypes;
     public collateralAmount: BigNumber;
-    public borrowToken: TokenWrapper;
+    public borrowToken: TokenDataTypes;
     public countBlocks: number;
     public healthFactor2: number;
     public countBlocksToSkipAfterAction?: number;
     public controlGas?: boolean;
 
     constructor(
-        collateralToken: TokenWrapper,
+        collateralToken: TokenDataTypes,
         collateralAmount: BigNumber,
-        borrowToken: TokenWrapper,
+        borrowToken: TokenDataTypes,
         countBlocks: number,
         healthFactor2: number,
         countBlocksToSkipAfterAction?: number,

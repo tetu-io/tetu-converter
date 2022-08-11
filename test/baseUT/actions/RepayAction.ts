@@ -2,21 +2,21 @@ import {IRepayAction} from "../uses-cases/BorrowRepayUsesCase";
 import {BigNumber} from "ethers";
 import {IERC20__factory, Borrower} from "../../../typechain";
 import {IUserBalances} from "../utils/BalanceUtils";
-import {TokenWrapper} from "../helpers/TokenWrapper";
+import {TokenDataTypes} from "../helpers/TokenWrapper";
 import {DeployerUtils} from "../../../scripts/utils/DeployerUtils";
 import {TimeUtils} from "../../../scripts/utils/TimeUtils";
 
 export class RepayAction implements IRepayAction {
-    public collateralToken: TokenWrapper;
-    public borrowToken: TokenWrapper;
+    public collateralToken: TokenDataTypes;
+    public borrowToken: TokenDataTypes;
     /** if undefined - repay all */
     public amountToRepay: BigNumber | undefined;
     public countBlocksToSkipAfterAction?: number;
     public controlGas?: boolean;
 
     constructor(
-        collateralToken: TokenWrapper,
-        borrowToken: TokenWrapper,
+        collateralToken: TokenDataTypes,
+        borrowToken: TokenDataTypes,
         amountToRepay: BigNumber | undefined,
         countBlocksToSkipAfterAction?: number,
         controlGas?: boolean

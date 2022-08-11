@@ -12,7 +12,7 @@ import {AdaptersHelper} from "../../../../baseUT/helpers/AdaptersHelper";
 import {isPolygonForkInUse} from "../../../../baseUT/utils/NetworkUtils";
 import {BalanceUtils, IUserBalances} from "../../../../baseUT/utils/BalanceUtils";
 import {CoreContractsHelper} from "../../../../baseUT/helpers/CoreContractsHelper";
-import {TokenWrapper} from "../../../../baseUT/helpers/TokenWrapper";
+import {TokenDataTypes} from "../../../../baseUT/helpers/TokenWrapper";
 import {HundredFinanceHelper} from "../../../../../scripts/integration/helpers/HundredFinanceHelper";
 import {MaticAddresses} from "../../../../../scripts/addresses/MaticAddresses";
 import {MocksHelper} from "../../../../baseUT/helpers/MocksHelper";
@@ -52,12 +52,12 @@ describe("Hundred Finance integration tests, pool adapter", () => {
 //region Unit tests
     describe("borrow", () => {
         async function makeTest(
-            collateralToken: TokenWrapper,
-            collateralCToken: TokenWrapper,
+            collateralToken: TokenDataTypes,
+            collateralCToken: TokenDataTypes,
             collateralHolder: string,
             collateralAmount: BigNumber,
-            borrowToken: TokenWrapper,
-            borrowCToken: TokenWrapper,
+            borrowToken: TokenDataTypes,
+            borrowCToken: TokenDataTypes,
             borrowAmount: BigNumber
         ) : Promise<{sret: string, sexpected: string}>{
             const user = ethers.Wallet.createRandom();
@@ -201,10 +201,10 @@ describe("Hundred Finance integration tests, pool adapter", () => {
                         const borrowAsset = MaticAddresses.USDC;
                         const borrowCTokenAddress = MaticAddresses.hUSDC;
 
-                        const collateralToken = await TokenWrapper.Build(deployer, collateralAsset);
-                        const borrowToken = await TokenWrapper.Build(deployer, borrowAsset);
-                        const collateralCToken = await TokenWrapper.Build(deployer, collateralCTokenAddress);
-                        const borrowCToken = await TokenWrapper.Build(deployer, borrowCTokenAddress);
+                        const collateralToken = await TokenDataTypes.Build(deployer, collateralAsset);
+                        const borrowToken = await TokenDataTypes.Build(deployer, borrowAsset);
+                        const collateralCToken = await TokenDataTypes.Build(deployer, collateralCTokenAddress);
+                        const borrowCToken = await TokenDataTypes.Build(deployer, borrowCTokenAddress);
 
                         const collateralAmount = getBigNumberFrom(100_000, collateralToken.decimals);
                         const borrowAmount = getBigNumberFrom(10, borrowToken.decimals);
@@ -253,12 +253,12 @@ describe("Hundred Finance integration tests, pool adapter", () => {
 
     describe("repay", () =>{
         async function makeTest(
-            collateralToken: TokenWrapper,
-            collateralCToken: TokenWrapper,
+            collateralToken: TokenDataTypes,
+            collateralCToken: TokenDataTypes,
             collateralHolder: string,
             collateralAmount: BigNumber,
-            borrowToken: TokenWrapper,
-            borrowCToken: TokenWrapper,
+            borrowToken: TokenDataTypes,
+            borrowCToken: TokenDataTypes,
             borrowHolder: string,
             borrowAmount: BigNumber,
             initialBorrowAmountOnUserBalance: BigNumber,
@@ -391,10 +391,10 @@ describe("Hundred Finance integration tests, pool adapter", () => {
                         const borrowCTokenAddress = MaticAddresses.hUSDC;
                         const borrowHolder = MaticAddresses.HOLDER_USDC;
 
-                        const collateralToken = await TokenWrapper.Build(deployer, collateralAsset);
-                        const borrowToken = await TokenWrapper.Build(deployer, borrowAsset);
-                        const collateralCToken = await TokenWrapper.Build(deployer, collateralCTokenAddress);
-                        const borrowCToken = await TokenWrapper.Build(deployer, borrowCTokenAddress);
+                        const collateralToken = await TokenDataTypes.Build(deployer, collateralAsset);
+                        const borrowToken = await TokenDataTypes.Build(deployer, borrowAsset);
+                        const collateralCToken = await TokenDataTypes.Build(deployer, collateralCTokenAddress);
+                        const borrowCToken = await TokenDataTypes.Build(deployer, borrowCTokenAddress);
 
                         const collateralAmount = getBigNumberFrom(100_000, collateralToken.decimals);
                         const borrowAmount = getBigNumberFrom(10, borrowToken.decimals);

@@ -28,7 +28,7 @@ export class LendingPlatformManagerMock implements ILendingPlatformManager {
     }
 
     /** Borrow max possible amount (and significantly increase the borrow rate) */
-    async makeMaxBorrow(signer: SignerWithAddress,): Promise<PairAPRs> {
+    async makeMaxBorrow(signer: SignerWithAddress): Promise<PairAPRs> {
         const before = this.poolAdapter.getAPR18();
         const borrowRate = await this.poolAdapter.borrowRate;
         await this.poolAdapter.changeBorrowRate(borrowRate.mul(100));
@@ -36,7 +36,7 @@ export class LendingPlatformManagerMock implements ILendingPlatformManager {
         return {before, after};
     }
     /** Return previously borrowed amount back (reverse to makeMaxBorrow) */
-    async releaseMaxBorrow(signer: SignerWithAddress,): Promise<PairAPRs> {
+    async releaseMaxBorrow(signer: SignerWithAddress): Promise<PairAPRs> {
         const before = this.poolAdapter.getAPR18();
         const borrowRate = await this.poolAdapter.borrowRate;
         await this.poolAdapter.changeBorrowRate(borrowRate.div(100));

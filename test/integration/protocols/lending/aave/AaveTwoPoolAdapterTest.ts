@@ -12,7 +12,7 @@ import {AdaptersHelper} from "../../../../baseUT/helpers/AdaptersHelper";
 import {isPolygonForkInUse} from "../../../../baseUT/utils/NetworkUtils";
 import {BalanceUtils, IUserBalances} from "../../../../baseUT/utils/BalanceUtils";
 import {CoreContractsHelper} from "../../../../baseUT/helpers/CoreContractsHelper";
-import {TokenWrapper} from "../../../../baseUT/helpers/TokenWrapper";
+import {TokenDataTypes} from "../../../../baseUT/helpers/TokenWrapper";
 import {AaveTwoHelper} from "../../../../../scripts/integration/helpers/AaveTwoHelper";
 import {MaticAddresses} from "../../../../../scripts/addresses/MaticAddresses";
 import {MocksHelper} from "../../../../baseUT/helpers/MocksHelper";
@@ -48,10 +48,10 @@ describe("Aave-v2 integration tests, pool adapter", () => {
 //region Unit tests
     describe("borrow", () => {
         async function makeTest(
-            collateralToken: TokenWrapper,
+            collateralToken: TokenDataTypes,
             collateralHolder: string,
             collateralAmount: BigNumber,
-            borrowToken: TokenWrapper,
+            borrowToken: TokenDataTypes,
             borrowAmount: BigNumber
         ) : Promise<{sret: string, sexpected: string}>{
             const user = ethers.Wallet.createRandom();
@@ -143,8 +143,8 @@ describe("Aave-v2 integration tests, pool adapter", () => {
                         const collateralHolder = MaticAddresses.HOLDER_DAI;
                         const borrowAsset = MaticAddresses.WMATIC;
 
-                        const collateralToken = await TokenWrapper.Build(deployer, collateralAsset);
-                        const borrowToken = await TokenWrapper.Build(deployer, borrowAsset);
+                        const collateralToken = await TokenDataTypes.Build(deployer, collateralAsset);
+                        const borrowToken = await TokenDataTypes.Build(deployer, borrowAsset);
 
                         const collateralAmount = getBigNumberFrom(100_000, collateralToken.decimals);
                         const borrowAmount = getBigNumberFrom(10, borrowToken.decimals);
@@ -167,8 +167,8 @@ describe("Aave-v2 integration tests, pool adapter", () => {
                         const collateralHolder = MaticAddresses.HOLDER_DAI;
                         const borrowAsset = MaticAddresses.USDC
 
-                        const collateralToken = await TokenWrapper.Build(deployer, collateralAsset);
-                        const borrowToken = await TokenWrapper.Build(deployer, borrowAsset);
+                        const collateralToken = await TokenDataTypes.Build(deployer, collateralAsset);
+                        const borrowToken = await TokenDataTypes.Build(deployer, borrowAsset);
 
                         const collateralAmount = getBigNumberFrom(100_000, collateralToken.decimals);
                         const borrowAmount = getBigNumberFrom(10, borrowToken.decimals);
@@ -191,8 +191,8 @@ describe("Aave-v2 integration tests, pool adapter", () => {
                         const collateralHolder = MaticAddresses.HOLDER_WBTC;
                         const borrowAsset = MaticAddresses.USDT;
 
-                        const collateralToken = await TokenWrapper.Build(deployer, collateralAsset);
-                        const borrowToken = await TokenWrapper.Build(deployer, borrowAsset);
+                        const collateralToken = await TokenDataTypes.Build(deployer, collateralAsset);
+                        const borrowToken = await TokenDataTypes.Build(deployer, borrowAsset);
 
                         const collateralAmount = getBigNumberFrom(100, collateralToken.decimals);
                         const borrowAmount = getBigNumberFrom(10, borrowToken.decimals);
@@ -215,8 +215,8 @@ describe("Aave-v2 integration tests, pool adapter", () => {
                         const collateralHolder = MaticAddresses.HOLDER_USDC;
                         const borrowAsset = MaticAddresses.DAI;
 
-                        const collateralToken = await TokenWrapper.Build(deployer, collateralAsset);
-                        const borrowToken = await TokenWrapper.Build(deployer, borrowAsset);
+                        const collateralToken = await TokenDataTypes.Build(deployer, collateralAsset);
+                        const borrowToken = await TokenDataTypes.Build(deployer, borrowAsset);
 
                         const collateralAmount = getBigNumberFrom(100_000, collateralToken.decimals);
                         const borrowAmount = getBigNumberFrom(10, borrowToken.decimals);
@@ -263,10 +263,10 @@ describe("Aave-v2 integration tests, pool adapter", () => {
 
     describe("repay", () =>{
         async function makeTest(
-            collateralToken: TokenWrapper,
+            collateralToken: TokenDataTypes,
             collateralHolder: string,
             collateralAmount: BigNumber,
-            borrowToken: TokenWrapper,
+            borrowToken: TokenDataTypes,
             borrowHolder: string,
             borrowAmount: BigNumber,
             initialBorrowAmountOnUserBalance: BigNumber,
@@ -393,8 +393,8 @@ describe("Aave-v2 integration tests, pool adapter", () => {
                         const borrowAsset = MaticAddresses.WMATIC;
                         const borrowHolder = MaticAddresses.HOLDER_WMATIC;
 
-                        const collateralToken = await TokenWrapper.Build(deployer, collateralAsset);
-                        const borrowToken = await TokenWrapper.Build(deployer, borrowAsset);
+                        const collateralToken = await TokenDataTypes.Build(deployer, collateralAsset);
+                        const borrowToken = await TokenDataTypes.Build(deployer, borrowAsset);
 
                         const collateralAmount = getBigNumberFrom(100_000, collateralToken.decimals);
                         const borrowAmount = getBigNumberFrom(10, borrowToken.decimals);

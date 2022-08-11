@@ -44,6 +44,10 @@ export class MaticAddresses {
 //region AAVE-v3
   // https://docs.aave.com/developers/deployed-contracts/v3-mainnet/polygon
   public static AAVE_V3_POOL = "0x794a61358D6845594F94dc1DB02A252b5b4814aD";
+  /** See first event for of ACLManager
+   *  https://polygonscan.com/address/0xa72636cbcaa8f5ff95b2cc47f3cdee83f3294a0b#readContract
+   * */
+  public static AAVE_V3_POOL_ADMIN = "4365f8e70cf38c6ca67de41448508f2da8825500";
 
   public static Aave3_Polygon_DAI = "0x82E64f49Ed5EC1bC6e43DAD4FC8Af9bb3A2312EE";
   public static Aave3_Polygon_LINK = "0x191c10Aa4AF7C30e871E70C95dB0E4eb77237530";

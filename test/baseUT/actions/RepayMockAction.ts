@@ -1,4 +1,4 @@
-import {TokenWrapper} from "../helpers/TokenWrapper";
+import {TokenDataTypes} from "../helpers/TokenWrapper";
 import {BigNumber} from "ethers";
 import {PoolAdapterMock__factory, Borrower} from "../../../typechain";
 import {IUserBalances} from "../utils/BalanceUtils";
@@ -9,8 +9,8 @@ import {ethers} from "hardhat";
 export class RepayMockAction extends RepayAction {
     private _mockAddress?: string;
     constructor(
-        collateralToken: TokenWrapper,
-        borrowToken: TokenWrapper,
+        collateralToken: TokenDataTypes,
+        borrowToken: TokenDataTypes,
         amountToRepay: BigNumber | undefined,
         countBlocksToSkipAfterAction?: number,
         mockAddress?: string

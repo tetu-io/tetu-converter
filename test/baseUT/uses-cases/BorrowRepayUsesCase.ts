@@ -1,4 +1,4 @@
-import {TokenWrapper} from "../helpers/TokenWrapper";
+import {TokenDataTypes} from "../helpers/TokenWrapper";
 import {BigNumber} from "ethers";
 import {IUserBalances} from "../utils/BalanceUtils";
 import {
@@ -9,17 +9,17 @@ import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import {deprecate} from "util";
 
 export interface IBorrowAction {
-    collateralToken: TokenWrapper,
+    collateralToken: TokenDataTypes,
     collateralAmount: BigNumber;
-    borrowToken: TokenWrapper,
+    borrowToken: TokenDataTypes,
     countBlocks: number;
     healthFactor2: number;
     doAction: (user: Borrower) => Promise<IUserBalances>;
 }
 
 export interface IRepayAction {
-    collateralToken: TokenWrapper,
-    borrowToken: TokenWrapper,
+    collateralToken: TokenDataTypes,
+    borrowToken: TokenDataTypes,
     /** if undefined - repay all and close position */
     amountToRepay: BigNumber | undefined;
     doAction: (user: Borrower) => Promise<IUserBalances>;

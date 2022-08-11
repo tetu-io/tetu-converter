@@ -1,5 +1,5 @@
 import {BorrowAction} from "./BorrowAction";
-import {TokenWrapper} from "../helpers/TokenWrapper";
+import {TokenDataTypes} from "../helpers/TokenWrapper";
 import {BigNumber} from "ethers";
 import {PoolAdapterMock__factory, Borrower} from "../../../typechain";
 import {IUserBalances} from "../utils/BalanceUtils";
@@ -9,9 +9,9 @@ import {ethers} from "hardhat";
 export class BorrowMockAction extends BorrowAction {
     private _mockAddress?: string;
     constructor(
-        collateralToken: TokenWrapper,
+        collateralToken: TokenDataTypes,
         collateralAmount: BigNumber,
-        borrowToken: TokenWrapper,
+        borrowToken: TokenDataTypes,
         countBlocks: number,
         healthFactor2: number,
         countBlocksToSkipAfterAction?: number,

@@ -10,7 +10,7 @@ import {BigNumber} from "ethers";
 import {getBigNumberFrom} from "../../scripts/utils/NumberUtils";
 import {MocksHelper} from "../baseUT/helpers/MocksHelper";
 import {BalanceUtils, IUserBalances} from "../baseUT/utils/BalanceUtils";
-import {TokenWrapper} from "../baseUT/helpers/TokenWrapper";
+import {TokenDataTypes} from "../baseUT/helpers/TokenWrapper";
 import {MaticAddresses} from "../../scripts/addresses/MaticAddresses";
 import {Aave3PlatformFabric} from "../baseUT/fabrics/Aave3PlatformFabric";
 import {BorrowRepayUsesCase} from "../baseUT/uses-cases/BorrowRepayUsesCase";
@@ -251,8 +251,8 @@ describe("BorrowRepayTest", () => {
         p: TestSingleBorrowParams,
         m: MockTestInputParams
     ) : Promise<{sret: string, sexpected: string}> {
-        const collateralToken = await TokenWrapper.Build(deployer, p.collateral.asset);
-        const borrowToken = await TokenWrapper.Build(deployer, p.borrow.asset);
+        const collateralToken = await TokenDataTypes.Build(deployer, p.collateral.asset);
+        const borrowToken = await TokenDataTypes.Build(deployer, p.borrow.asset);
 
         const amountToRepay = undefined; //full repay
 
@@ -321,8 +321,8 @@ describe("BorrowRepayTest", () => {
         const {tc, controller} = await TetuConverterApp.buildApp(deployer, [fabric]);
         const uc = await MocksHelper.deployBorrower(deployer.address, controller, p.healthFactor2, p.countBlocks);
 
-        const collateralToken = await TokenWrapper.Build(deployer, p.collateral.asset);
-        const borrowToken = await TokenWrapper.Build(deployer, p.borrow.asset);
+        const collateralToken = await TokenDataTypes.Build(deployer, p.collateral.asset);
+        const borrowToken = await TokenDataTypes.Build(deployer, p.borrow.asset);
 
         const amountToRepay = undefined; //full repay
 
@@ -389,8 +389,8 @@ describe("BorrowRepayTest", () => {
         p: TestTwoBorrowsParams,
         m: MockTestInputParams
     ) : Promise<{sret: string, sexpected: string}> {
-        const collateralToken = await TokenWrapper.Build(deployer, p.collateral.asset);
-        const borrowToken = await TokenWrapper.Build(deployer, p.borrow.asset);
+        const collateralToken = await TokenDataTypes.Build(deployer, p.collateral.asset);
+        const borrowToken = await TokenDataTypes.Build(deployer, p.borrow.asset);
 
         const amountToRepay1 = getBigNumberFrom(p.repayAmount1, borrowToken.decimals);
         const amountToRepay2 = undefined; //full repay
@@ -492,8 +492,8 @@ describe("BorrowRepayTest", () => {
         const {tc, controller} = await TetuConverterApp.buildApp(deployer, [fabric]);
         const uc = await MocksHelper.deployBorrower(deployer.address, controller, p.healthFactor2, p.countBlocks);
 
-        const collateralToken = await TokenWrapper.Build(deployer, p.collateral.asset);
-        const borrowToken = await TokenWrapper.Build(deployer, p.borrow.asset);
+        const collateralToken = await TokenDataTypes.Build(deployer, p.collateral.asset);
+        const borrowToken = await TokenDataTypes.Build(deployer, p.borrow.asset);
 
         const amountToRepay1 = getBigNumberFrom(p.repayAmount1, borrowToken.decimals);
         const amountToRepay2 = undefined; //full repay
