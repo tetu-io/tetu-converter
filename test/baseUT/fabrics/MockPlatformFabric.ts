@@ -1,4 +1,4 @@
-import {ILendingPlatformFabric} from "../TetuConverterApp";
+import {ILendingPlatformFabric} from "../interfaces/ILendingPlatformFabric";
 import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import {
     CTokenMock,
@@ -8,10 +8,10 @@ import {
     IERC20__factory,
     PriceOracleMock
 } from "../../../typechain";
-import {MocksHelper} from "../MocksHelper";
+import {MocksHelper} from "../helpers/MocksHelper";
 import {BigNumber} from "ethers";
 import {getBigNumberFrom} from "../../../scripts/utils/NumberUtils";
-import {BalanceUtils} from "../BalanceUtils";
+import {BalanceUtils} from "../utils/BalanceUtils";
 import {DeployUtils} from "../../../scripts/utils/DeployUtils";
 
 export class MockPlatformFabric implements ILendingPlatformFabric {

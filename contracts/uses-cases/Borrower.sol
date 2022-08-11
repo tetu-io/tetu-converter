@@ -8,6 +8,7 @@ import "../openzeppelin/IERC20.sol";
 import "../interfaces/IPoolAdapter.sol";
 import "hardhat/console.sol";
 import "../openzeppelin/SafeERC20.sol";
+import "../interfaces/IBorrower.sol";
 
 /// @notice This contract imitates real TetuConverter-user behavior
 /// Terms:
@@ -15,37 +16,43 @@ import "../openzeppelin/SafeERC20.sol";
 ///   TC: TestConverter contract
 ///   PA: selected PoolAdapter
 ///   DM: DebtsMonitor
-contract UserBorrowRepayUCs {
+contract Borrower is IBorrower {
   using SafeERC20 for IERC20;
 
   IController immutable private _controller;
 
   uint public totalBorrowedAmount;
   uint public totalRepaidAmount;
+  uint16 private _healthFactor2;
+  uint private _borrowPeriodInBlocks;
 
-  constructor (address controller) {
-    _controller = IController(controller);
+  constructor (
+    address controller_,
+    uint borrowPeriodInBlocks_,
+    uint16 healthFactor2_
+  ) {
+    _controller = IController(controller_);
+    _healthFactor2 = healthFactor2_;
+    _borrowPeriodInBlocks = borrowPeriodInBlocks_;
   }
 
   ///////////////////////////////////////////////////////
-  /// Uses cases US1.1 and US1.2, see project scope
+  /// Uses cases UC1.1, UC1.2, UC1.3 see project scope
   ///////////////////////////////////////////////////////
   /// @notice See US1.1 in the project scope
   function makeBorrowUC1_1(
     address sourceAsset_,
     uint sourceAmount_,
     address targetAsset_,
-    uint borrowPeriodInBlocks_,
-    uint16 healthFactor2_,
     address receiver_
   ) external {
-    console.log("makeBorrowUC1.1 healthFactor2_=%d sourceAmount_=%d of %s", healthFactor2_, sourceAmount_, sourceAsset_);
+    console.log("makeBorrowUC1.1 sourceAmount_=%d of %s", sourceAmount_, sourceAsset_);
     // ask TC for the best conversion strategy
     (address converter, uint maxTargetAmount,) = _tc().findConversionStrategy(sourceAsset_,
       sourceAmount_,
       targetAsset_,
-      healthFactor2_,
-      borrowPeriodInBlocks_
+      _healthFactor2,
+      _borrowPeriodInBlocks
     );
     require(converter != address(0), "Conversion strategy wasn't found");
     require(maxTargetAmount != 0, "maxTargetAmount is 0");
@@ -134,6 +141,17 @@ contract UserBorrowRepayUCs {
       totalRepaidAmount += amountToPayToPA;
     }
     console.log("makeRepayUS1.3 done");
+  }
+
+  ///////////////////////////////////////////////////////
+  ///                   IBorrower impl
+  ///////////////////////////////////////////////////////
+  function requireReconversion(address poolAdapter) external override {
+    //reconvert
+    _tc().reconvert(poolAdapter
+      , _healthFactor2
+      , _borrowPeriodInBlocks
+    );
   }
 
   ///////////////////////////////////////////////////////

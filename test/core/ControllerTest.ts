@@ -9,7 +9,7 @@ import {controlGasLimitsEx, getGasUsed} from "../../scripts/utils/hardhatUtils";
 import {GAS_LIMIT_CONTROLLER_BATCH_ASSIGN, GAS_LIMIT_CONTROLLER_INITIALIZE} from "../baseUT/GasLimit";
 import {Misc} from "../../scripts/utils/Misc";
 import {DeployerUtils} from "../../scripts/utils/DeployerUtils";
-import {AprUtils, COUNT_BLOCKS_PER_DAY} from "../baseUT/aprUtils";
+import {AprUtils, COUNT_BLOCKS_PER_DAY} from "../baseUT/utils/aprUtils";
 
 describe("Controller", () => {
 //region Global vars for all tests

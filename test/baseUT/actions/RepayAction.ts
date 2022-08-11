@@ -1,8 +1,8 @@
-import {IRepayAction} from "../BorrowRepayUsesCase";
+import {IRepayAction} from "../uses-cases/BorrowRepayUsesCase";
 import {BigNumber} from "ethers";
-import {IERC20__factory, UserBorrowRepayUCs} from "../../../typechain";
-import {IUserBalances} from "../BalanceUtils";
-import {TokenWrapper} from "../TokenWrapper";
+import {IERC20__factory, Borrower} from "../../../typechain";
+import {IUserBalances} from "../utils/BalanceUtils";
+import {TokenWrapper} from "../helpers/TokenWrapper";
 import {DeployerUtils} from "../../../scripts/utils/DeployerUtils";
 import {TimeUtils} from "../../../scripts/utils/TimeUtils";
 
@@ -28,7 +28,7 @@ export class RepayAction implements IRepayAction {
         this.controlGas = controlGas;
     }
 
-    async doAction(user: UserBorrowRepayUCs) : Promise<IUserBalances> {
+    async doAction(user: Borrower) : Promise<IUserBalances> {
         let gasUsed: BigNumber | undefined;
 
         if (this.amountToRepay) {

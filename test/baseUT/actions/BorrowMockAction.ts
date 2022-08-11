@@ -1,8 +1,8 @@
 import {BorrowAction} from "./BorrowAction";
-import {TokenWrapper} from "../TokenWrapper";
+import {TokenWrapper} from "../helpers/TokenWrapper";
 import {BigNumber} from "ethers";
-import {PoolAdapterMock__factory, UserBorrowRepayUCs} from "../../../typechain";
-import {IUserBalances} from "../BalanceUtils";
+import {PoolAdapterMock__factory, Borrower} from "../../../typechain";
+import {IUserBalances} from "../utils/BalanceUtils";
 import {ethers} from "hardhat";
 
 /** BorrowAction + setPassedBlocks(count blocks) */
@@ -22,7 +22,7 @@ export class BorrowMockAction extends BorrowAction {
         this._mockAddress = mockAddress;
     }
 
-    async doAction(user: UserBorrowRepayUCs) : Promise<IUserBalances> {
+    async doAction(user: Borrower) : Promise<IUserBalances> {
         const ret = await super.doAction(user);
 
         // !TODO

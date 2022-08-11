@@ -1,8 +1,8 @@
 import {IBorrowManager, IBorrowManager__factory, IController, IERC20, IERC20__factory} from "../../../typechain";
-import {ILendingPlatformFabric} from "../TetuConverterApp";
+import {ILendingPlatformFabric} from "../interfaces/ILendingPlatformFabric";
 import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import {MaticAddresses} from "../../../scripts/addresses/MaticAddresses";
-import {AdaptersHelper} from "../AdaptersHelper";
+import {AdaptersHelper} from "../helpers/AdaptersHelper";
 import {DForceHelper} from "../../../scripts/integration/helpers/DForceHelper";
 
 export class DForcePlatformFabric implements ILendingPlatformFabric {

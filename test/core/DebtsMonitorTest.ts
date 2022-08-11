@@ -8,15 +8,15 @@ import {
     IPoolAdapter,
     IPoolAdapter__factory,
     MockERC20, MockERC20__factory, PoolAdapterMock,
-    PoolAdapterMock__factory, PriceOracleMock, PriceOracleMock__factory, UserBorrowRepayUCs
+    PoolAdapterMock__factory, PriceOracleMock, PriceOracleMock__factory, Borrower
 } from "../../typechain";
 import {TimeUtils} from "../../scripts/utils/TimeUtils";
-import {BorrowManagerHelper, IBmInputParams} from "../baseUT/BorrowManagerHelper";
+import {BorrowManagerHelper, IBmInputParams} from "../baseUT/helpers/BorrowManagerHelper";
 import {DeployerUtils} from "../../scripts/utils/DeployerUtils";
 import {BigNumber} from "ethers";
 import {getBigNumberFrom} from "../../scripts/utils/NumberUtils";
-import {CoreContractsHelper} from "../baseUT/CoreContractsHelper";
-import {IPooAdapterStabInitParams, MocksHelper} from "../baseUT/MocksHelper";
+import {CoreContractsHelper} from "../baseUT/helpers/CoreContractsHelper";
+import {IPooAdapterStabInitParams, MocksHelper} from "../baseUT/helpers/MocksHelper";
 import {Misc} from "../../scripts/utils/Misc";
 import {CoreContracts} from "../baseUT/CoreContracts";
 
@@ -142,11 +142,13 @@ describe("DebtsMonitor", () => {
         core: CoreContracts,
         pool: string,
         cToken: string,
-        userContract: UserBorrowRepayUCs,
+        userContract: Borrower,
         sourceToken: MockERC20,
         targetToken: MockERC20,
         poolAdapter: string
     }>{
+        const healthFactor2 = 200;
+        const periodInBlocks = 117;
         const converter = await MocksHelper.createPoolAdapterMock(deployer);
 
         const {bm, sourceToken, targetToken, pools, controller}
@@ -162,7 +164,7 @@ describe("DebtsMonitor", () => {
 
         const pool = pools[0].pool;
         const cToken = pools[0].underlineTocTokens.get(sourceToken.address) || "";
-        const userContract = await MocksHelper.deployUserBorrowRepayUCs(user, core.controller);
+        const userContract = await MocksHelper.deployBorrower(user, core.controller, healthFactor2, periodInBlocks);
 
         // we need to set up a pool adapter
         await core.bm.registerPoolAdapter(

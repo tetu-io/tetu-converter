@@ -8,14 +8,14 @@ import {expect} from "chai";
 import {BigNumber} from "ethers";
 import {getBigNumberFrom} from "../../../../../scripts/utils/NumberUtils";
 import {DeployerUtils} from "../../../../../scripts/utils/DeployerUtils";
-import {AdaptersHelper} from "../../../../baseUT/AdaptersHelper";
-import {isPolygonForkInUse} from "../../../../baseUT/NetworkUtils";
-import {BalanceUtils, IUserBalances} from "../../../../baseUT/BalanceUtils";
-import {CoreContractsHelper} from "../../../../baseUT/CoreContractsHelper";
-import {TokenWrapper} from "../../../../baseUT/TokenWrapper";
+import {AdaptersHelper} from "../../../../baseUT/helpers/AdaptersHelper";
+import {isPolygonForkInUse} from "../../../../baseUT/utils/NetworkUtils";
+import {BalanceUtils, IUserBalances} from "../../../../baseUT/utils/BalanceUtils";
+import {CoreContractsHelper} from "../../../../baseUT/helpers/CoreContractsHelper";
+import {TokenWrapper} from "../../../../baseUT/helpers/TokenWrapper";
 import {HundredFinanceHelper} from "../../../../../scripts/integration/helpers/HundredFinanceHelper";
 import {MaticAddresses} from "../../../../../scripts/addresses/MaticAddresses";
-import {MocksHelper} from "../../../../baseUT/MocksHelper";
+import {MocksHelper} from "../../../../baseUT/helpers/MocksHelper";
 
 describe("Hundred Finance integration tests, pool adapter", () => {
 //region Constants

@@ -1,6 +1,7 @@
 import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import {TimeUtils} from "../../scripts/utils/TimeUtils";
 import {ethers} from "hardhat";
+import {expect} from "chai";
 
 describe("Keeper test", () => {
 //region Global vars for all tests
@@ -40,5 +41,30 @@ describe("Keeper test", () => {
     });
 //endregion before, after
 
+//region Tests implementations
 
+//endregion Tests implementations
+
+//region Unit tests
+    describe("Health checking", async () => {
+        describe("Good paths", () => {
+            describe("Single borrow, single instant complete repay", () => {
+                it("", async() => {
+                   expect.fail("TODO");
+                });
+            });
+        });
+    });
+
+    describe("Better converting way checking", async () => {
+        describe("Good paths", () => {
+            describe("Single borrow, single instant complete repay", () => {
+                it("", async() => {
+                    expect.fail("TODO");
+                });
+            });
+        });
+    });
+
+//endregion Unit tests
 });

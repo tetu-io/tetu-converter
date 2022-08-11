@@ -1,9 +1,9 @@
-import {TokenWrapper} from "./TokenWrapper";
+import {TokenWrapper} from "../helpers/TokenWrapper";
 import {BigNumber} from "ethers";
-import {IUserBalances} from "./BalanceUtils";
+import {IUserBalances} from "../utils/BalanceUtils";
 import {
     IPoolAdapter__factory,
-    UserBorrowRepayUCs
+    Borrower
 } from "../../typechain";
 import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import {deprecate} from "util";
@@ -14,7 +14,7 @@ export interface IBorrowAction {
     borrowToken: TokenWrapper,
     countBlocks: number;
     healthFactor2: number;
-    doAction: (user: UserBorrowRepayUCs) => Promise<IUserBalances>;
+    doAction: (user: Borrower) => Promise<IUserBalances>;
 }
 
 export interface IRepayAction {
@@ -22,7 +22,7 @@ export interface IRepayAction {
     borrowToken: TokenWrapper,
     /** if undefined - repay all and close position */
     amountToRepay: BigNumber | undefined;
-    doAction: (user: UserBorrowRepayUCs) => Promise<IUserBalances>;
+    doAction: (user: Borrower) => Promise<IUserBalances>;
 }
 
 export class BorrowRepayUsesCase {
@@ -32,7 +32,7 @@ export class BorrowRepayUsesCase {
      */
     static async makeBorrowRepayActions(
         signer: SignerWithAddress,
-        user: UserBorrowRepayUCs,
+        user: Borrower,
         actions: (IBorrowAction | IRepayAction)[],
     ) : Promise<{
         userBalances: IUserBalances[],

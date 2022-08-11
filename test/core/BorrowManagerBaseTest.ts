@@ -3,7 +3,7 @@ import {ethers} from "hardhat";
 import {expect} from "chai";
 import {IPoolAdapter, IPoolAdapter__factory} from "../../typechain";
 import {TimeUtils} from "../../scripts/utils/TimeUtils";
-import {BorrowManagerHelper} from "../baseUT/BorrowManagerHelper";
+import {BorrowManagerHelper} from "../baseUT/helpers/BorrowManagerHelper";
 import {DeployerUtils} from "../../scripts/utils/DeployerUtils";
 
 describe("BorrowManagerBase (IPoolAdaptersManager)", () => {

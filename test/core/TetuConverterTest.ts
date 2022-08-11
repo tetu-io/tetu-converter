@@ -9,15 +9,15 @@ import {
     IERC20__factory,
     MockERC20,
     MockERC20__factory,
-    TetuConverter, UserBorrowRepayUCs
+    TetuConverter, Borrower
 } from "../../typechain";
-import {IBmInputParams, BorrowManagerHelper, PoolInstanceInfo} from "../baseUT/BorrowManagerHelper";
+import {IBmInputParams, BorrowManagerHelper, PoolInstanceInfo} from "../baseUT/helpers/BorrowManagerHelper";
 import {CoreContracts} from "../baseUT/CoreContracts";
-import {CoreContractsHelper} from "../baseUT/CoreContractsHelper";
+import {CoreContractsHelper} from "../baseUT/helpers/CoreContractsHelper";
 import {BigNumber} from "ethers";
-import {MocksHelper} from "../baseUT/MocksHelper";
+import {MocksHelper} from "../baseUT/helpers/MocksHelper";
 import {DeployerUtils} from "../../scripts/utils/DeployerUtils";
-import {BalanceUtils, ContractToInvestigate} from "../baseUT/BalanceUtils";
+import {BalanceUtils, ContractToInvestigate} from "../baseUT/utils/BalanceUtils";
 
 describe("BorrowManager", () => {
 //region Constants
@@ -87,11 +87,13 @@ describe("BorrowManager", () => {
         core: CoreContracts,
         pool: string,
         cToken: string,
-        userContract: UserBorrowRepayUCs,
+        userContract: Borrower,
         sourceToken: MockERC20,
         targetToken: MockERC20,
         poolAdapter: string
     }>{
+        const healthFactor2 = 200;
+        const periodInBlocks = 117;
         const converter = await MocksHelper.createPoolAdapterMock(deployer);
 
         const {bm, sourceToken, targetToken, pools, controller}
@@ -107,7 +109,7 @@ describe("BorrowManager", () => {
 
         const pool = pools[0].pool;
         const cToken = pools[0].underlineTocTokens.get(sourceToken.address) || "";
-        const userContract = await MocksHelper.deployUserBorrowRepayUCs(user, core.controller);
+        const userContract = await MocksHelper.deployBorrower(user, core.controller, healthFactor2, periodInBlocks);
 
         // we need to set up a pool adapter
         await core.bm.registerPoolAdapter(

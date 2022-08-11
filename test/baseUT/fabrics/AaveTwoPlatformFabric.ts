@@ -1,6 +1,6 @@
 import {IBorrowManager, IBorrowManager__factory, IController, IERC20, IERC20__factory} from "../../../typechain";
-import {ILendingPlatformFabric} from "../TetuConverterApp";
-import {AdaptersHelper} from "../AdaptersHelper";
+import {ILendingPlatformFabric} from "../interfaces/ILendingPlatformFabric";
+import {AdaptersHelper} from "../helpers/AdaptersHelper";
 import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import {MaticAddresses} from "../../../scripts/addresses/MaticAddresses";
 import {AaveTwoHelper} from "../../../scripts/integration/helpers/AaveTwoHelper";

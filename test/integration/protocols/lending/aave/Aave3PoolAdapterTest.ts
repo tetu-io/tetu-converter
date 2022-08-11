@@ -8,14 +8,14 @@ import {expect, use} from "chai";
 import {BigNumber, BigNumberish} from "ethers";
 import {getBigNumberFrom} from "../../../../../scripts/utils/NumberUtils";
 import {DeployerUtils} from "../../../../../scripts/utils/DeployerUtils";
-import {AdaptersHelper} from "../../../../baseUT/AdaptersHelper";
-import {isPolygonForkInUse} from "../../../../baseUT/NetworkUtils";
+import {AdaptersHelper} from "../../../../baseUT/helpers/AdaptersHelper";
+import {isPolygonForkInUse} from "../../../../baseUT/utils/NetworkUtils";
 import {Aave3Helper} from "../../../../../scripts/integration/helpers/Aave3Helper";
-import {BalanceUtils, IUserBalances} from "../../../../baseUT/BalanceUtils";
-import {CoreContractsHelper} from "../../../../baseUT/CoreContractsHelper";
-import {TokenWrapper} from "../../../../baseUT/TokenWrapper";
+import {BalanceUtils, IUserBalances} from "../../../../baseUT/utils/BalanceUtils";
+import {CoreContractsHelper} from "../../../../baseUT/helpers/CoreContractsHelper";
+import {TokenWrapper} from "../../../../baseUT/helpers/TokenWrapper";
 import {MaticAddresses} from "../../../../../scripts/addresses/MaticAddresses";
-import {MocksHelper} from "../../../../baseUT/MocksHelper";
+import {MocksHelper} from "../../../../baseUT/helpers/MocksHelper";
 
 describe("Aave-v3 integration tests, pool adapter", () => {
 //region Constants

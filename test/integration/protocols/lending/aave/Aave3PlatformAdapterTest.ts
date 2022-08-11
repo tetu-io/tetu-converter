@@ -9,13 +9,13 @@ import {expect} from "chai";
 import {BigNumber} from "ethers";
 import {getBigNumberFrom} from "../../../../../scripts/utils/NumberUtils";
 import {DeployerUtils} from "../../../../../scripts/utils/DeployerUtils";
-import {AdaptersHelper} from "../../../../baseUT/AdaptersHelper";
-import {isPolygonForkInUse} from "../../../../baseUT/NetworkUtils";
+import {AdaptersHelper} from "../../../../baseUT/helpers/AdaptersHelper";
+import {isPolygonForkInUse} from "../../../../baseUT/utils/NetworkUtils";
 import {Aave3Helper} from "../../../../../scripts/integration/helpers/Aave3Helper";
-import {BalanceUtils} from "../../../../baseUT/BalanceUtils";
+import {BalanceUtils} from "../../../../baseUT/utils/BalanceUtils";
 import {MaticAddresses} from "../../../../../scripts/addresses/MaticAddresses";
-import {AprUtils} from "../../../../baseUT/aprUtils";
-import {CoreContractsHelper} from "../../../../baseUT/CoreContractsHelper";
+import {AprUtils} from "../../../../baseUT/utils/aprUtils";
+import {CoreContractsHelper} from "../../../../baseUT/helpers/CoreContractsHelper";
 
 describe("Aave-v3 integration tests, platform adapter", () => {
 //region Global vars for all tests

@@ -4,13 +4,13 @@ import {TimeUtils} from "../../../../../scripts/utils/TimeUtils";
 import {expect} from "chai";
 import {BigNumber} from "ethers";
 import {getBigNumberFrom} from "../../../../../scripts/utils/NumberUtils";
-import {AdaptersHelper} from "../../../../baseUT/AdaptersHelper";
-import {isPolygonForkInUse} from "../../../../baseUT/NetworkUtils";
-import {BalanceUtils} from "../../../../baseUT/BalanceUtils";
+import {AdaptersHelper} from "../../../../baseUT/helpers/AdaptersHelper";
+import {isPolygonForkInUse} from "../../../../baseUT/utils/NetworkUtils";
+import {BalanceUtils} from "../../../../baseUT/utils/BalanceUtils";
 import {MaticAddresses} from "../../../../../scripts/addresses/MaticAddresses";
 import {AaveTwoHelper} from "../../../../../scripts/integration/helpers/AaveTwoHelper";
-import {AprUtils} from "../../../../baseUT/aprUtils";
-import {CoreContractsHelper} from "../../../../baseUT/CoreContractsHelper";
+import {AprUtils} from "../../../../baseUT/utils/aprUtils";
+import {CoreContractsHelper} from "../../../../baseUT/helpers/CoreContractsHelper";
 
 describe("Aave-v2 integration tests, platform adapter", () => {
 //region Global vars for all tests

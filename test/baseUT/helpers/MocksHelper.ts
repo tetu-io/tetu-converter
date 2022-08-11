@@ -7,13 +7,13 @@ import {
     LendingPlatformMock,
     MockERC20, PoolAdapterMock, PoolAdapterStub,
     PoolStub,
-    UserBorrowRepayUCs
+    Borrower
 } from "../../typechain";
-import {DeployUtils} from "../../scripts/utils/DeployUtils";
+import {DeployUtils} from "../../../scripts/utils/DeployUtils";
 import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import {BigNumber} from "ethers";
 import {ethers} from "hardhat";
-import {DeployerUtils} from "../../scripts/utils/DeployerUtils";
+import {DeployerUtils} from "../../../scripts/utils/DeployerUtils";
 
 export interface IPooAdapterStabInitParams {
     controller: string;
@@ -159,15 +159,19 @@ export class MocksHelper {
 //endregion Core contracts
 
 //region Uses cases
-    public static async deployUserBorrowRepayUCs(
+    public static async deployBorrower(
         deployer: string,
-        controller: IController
-    ) : Promise<UserBorrowRepayUCs> {
+        controller: IController,
+        healthFactor2: number,
+        periodInBlocks: number
+    ) : Promise<Borrower> {
         return (await DeployUtils.deployContract(
             await DeployerUtils.startImpersonate(deployer),
-            "UserBorrowRepayUCs",
-            controller.address
-        )) as UserBorrowRepayUCs;
+            "Borrower",
+            controller.address,
+            healthFactor2,
+            periodInBlocks
+        )) as Borrower;
     }
 //endregion Uses cases
 }

@@ -1,19 +1,15 @@
 import {
     Controller,
-    IBorrowManager, IController, IConverter, IERC20,
-    ITetuConverter,
-    PriceOracleStub
+    IController, IERC20,
+    ITetuConverter
 } from "../../typechain";
 import {CoreContractsHelper} from "./CoreContractsHelper";
-import {getBigNumberFrom} from "../../scripts/utils/NumberUtils";
+import {getBigNumberFrom} from "../../../scripts/utils/NumberUtils";
 import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
-import {DeployUtils} from "../../scripts/utils/DeployUtils";
-import {COUNT_BLOCKS_PER_DAY} from "./aprUtils";
+import {DeployUtils} from "../../../scripts/utils/DeployUtils";
+import {COUNT_BLOCKS_PER_DAY} from "../utils/aprUtils";
+import {ILendingPlatformFabric} from "../interfaces/ILendingPlatformFabric";
 
-export interface ILendingPlatformFabric {
-    /** return addresses of pools */
-    createAndRegisterPools: (deployer: SignerWithAddress, controller: IController) => Promise<IERC20[]>;
-}
 
 export class TetuConverterApp {
     static async buildApp(

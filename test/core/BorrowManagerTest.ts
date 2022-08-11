@@ -12,9 +12,9 @@ import {
     GAS_LIMIT_BM_FIND_POOL_10,
     GAS_LIMIT_BM_FIND_POOL_100, GAS_LIMIT_BM_FIND_POOL_5
 } from "../baseUT/GasLimit";
-import {IBmInputParams, BorrowManagerHelper} from "../baseUT/BorrowManagerHelper";
-import {MocksHelper} from "../baseUT/MocksHelper";
-import {CoreContractsHelper} from "../baseUT/CoreContractsHelper";
+import {IBmInputParams, BorrowManagerHelper} from "../baseUT/helpers/BorrowManagerHelper";
+import {MocksHelper} from "../baseUT/helpers/MocksHelper";
+import {CoreContractsHelper} from "../baseUT/helpers/CoreContractsHelper";
 
 describe("BorrowManager", () => {
 //region Global vars for all tests

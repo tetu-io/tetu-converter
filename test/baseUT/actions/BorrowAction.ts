@@ -1,7 +1,7 @@
-import {IBorrowAction} from "../BorrowRepayUsesCase";
-import {IERC20__factory, UserBorrowRepayUCs} from "../../../typechain";
-import {IUserBalances} from "../BalanceUtils";
-import {TokenWrapper} from "../TokenWrapper";
+import {IBorrowAction} from "../uses-cases/BorrowRepayUsesCase";
+import {IERC20__factory, Borrower} from "../../../typechain";
+import {IUserBalances} from "../utils/BalanceUtils";
+import {TokenWrapper} from "../helpers/TokenWrapper";
 import {BigNumber} from "ethers";
 import {DeployerUtils} from "../../../scripts/utils/DeployerUtils";
 import {TimeUtils} from "../../../scripts/utils/TimeUtils";
@@ -33,7 +33,7 @@ export class BorrowAction implements IBorrowAction {
         this.controlGas = controlGas;
     }
 
-    async doAction(user: UserBorrowRepayUCs) : Promise<IUserBalances> {
+    async doAction(user: Borrower) : Promise<IUserBalances> {
         let gasUsed: BigNumber | undefined;
 
         await user.makeBorrowUC1_1(

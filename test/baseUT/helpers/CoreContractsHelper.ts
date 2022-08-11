@@ -8,11 +8,11 @@ import {
     PriceOracleMock, TetuConverter
 } from "../../typechain";
 import {BigNumber} from "ethers";
-import {DeployUtils} from "../../scripts/utils/DeployUtils";
-import {getBigNumberFrom} from "../../scripts/utils/NumberUtils";
+import {DeployUtils} from "../../../scripts/utils/DeployUtils";
+import {getBigNumberFrom} from "../../../scripts/utils/NumberUtils";
 import {MocksHelper} from "./MocksHelper";
 import {IPoolInfo} from "./BorrowManagerHelper";
-import {COUNT_BLOCKS_PER_DAY} from "./aprUtils";
+import {COUNT_BLOCKS_PER_DAY} from "../utils/aprUtils";
 
 export class CoreContractsHelper {
     static async createController(

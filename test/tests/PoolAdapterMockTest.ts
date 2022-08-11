@@ -8,13 +8,13 @@ import {
     PoolAdapterMock__factory
 } from "../../typechain";
 import {TimeUtils} from "../../scripts/utils/TimeUtils";
-import {BorrowManagerHelper} from "../baseUT/BorrowManagerHelper";
+import {BorrowManagerHelper} from "../baseUT/helpers/BorrowManagerHelper";
 import {DeployerUtils} from "../../scripts/utils/DeployerUtils";
 import {BigNumber} from "ethers";
 import {getBigNumberFrom} from "../../scripts/utils/NumberUtils";
-import {CoreContractsHelper} from "../baseUT/CoreContractsHelper";
-import {MocksHelper} from "../baseUT/MocksHelper";
-import {BalanceUtils, ContractToInvestigate} from "../baseUT/BalanceUtils";
+import {CoreContractsHelper} from "../baseUT/helpers/CoreContractsHelper";
+import {MocksHelper} from "../baseUT/helpers/MocksHelper";
+import {BalanceUtils, ContractToInvestigate} from "../baseUT/utils/BalanceUtils";
 
 describe("PoolAdapterMock", () => {
 //region Global vars for all tests

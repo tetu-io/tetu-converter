@@ -1,9 +1,9 @@
 import {IBorrowManager, IBorrowManager__factory, IController, IERC20, IERC20__factory} from "../../../typechain";
-import {ILendingPlatformFabric} from "../TetuConverterApp";
+import {ILendingPlatformFabric} from "../interfaces/ILendingPlatformFabric";
 import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import {MaticAddresses} from "../../../scripts/addresses/MaticAddresses";
 import {HundredFinanceHelper} from "../../../scripts/integration/helpers/HundredFinanceHelper";
-import {AdaptersHelper} from "../AdaptersHelper";
+import {AdaptersHelper} from "../helpers/AdaptersHelper";
 
 export class HundredFinancePlatformFabric implements ILendingPlatformFabric {
     async createAndRegisterPools(deployer: SignerWithAddress, controller: IController) : Promise<IERC20[]> {

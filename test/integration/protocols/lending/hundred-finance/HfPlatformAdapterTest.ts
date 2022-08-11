@@ -5,14 +5,14 @@ import {
     IHfCToken__factory
 } from "../../../../../typechain";
 import {expect} from "chai";
-import {AdaptersHelper} from "../../../../baseUT/AdaptersHelper";
-import {isPolygonForkInUse} from "../../../../baseUT/NetworkUtils";
+import {AdaptersHelper} from "../../../../baseUT/helpers/AdaptersHelper";
+import {isPolygonForkInUse} from "../../../../baseUT/utils/NetworkUtils";
 import {Aave3Helper} from "../../../../../scripts/integration/helpers/Aave3Helper";
-import {BalanceUtils} from "../../../../baseUT/BalanceUtils";
+import {BalanceUtils} from "../../../../baseUT/utils/BalanceUtils";
 import {HundredFinanceHelper} from "../../../../../scripts/integration/helpers/HundredFinanceHelper";
 import {MaticAddresses} from "../../../../../scripts/addresses/MaticAddresses";
-import {AprUtils} from "../../../../baseUT/aprUtils";
-import {CoreContractsHelper} from "../../../../baseUT/CoreContractsHelper";
+import {AprUtils} from "../../../../baseUT/utils/aprUtils";
+import {CoreContractsHelper} from "../../../../baseUT/helpers/CoreContractsHelper";
 import {BigNumber} from "ethers";
 
 describe("Hundred finance integration tests, platform adapter", () => {

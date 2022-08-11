@@ -8,17 +8,16 @@ import {
 import {TimeUtils} from "../../scripts/utils/TimeUtils";
 import {BigNumber} from "ethers";
 import {getBigNumberFrom} from "../../scripts/utils/NumberUtils";
-import {MocksHelper} from "../baseUT/MocksHelper";
-import {BalanceUtils, IUserBalances} from "../baseUT/BalanceUtils";
-import {TokenWrapper} from "../baseUT/TokenWrapper";
+import {MocksHelper} from "../baseUT/helpers/MocksHelper";
+import {BalanceUtils, IUserBalances} from "../baseUT/utils/BalanceUtils";
+import {TokenWrapper} from "../baseUT/helpers/TokenWrapper";
 import {MaticAddresses} from "../../scripts/addresses/MaticAddresses";
 import {Aave3PlatformFabric} from "../baseUT/fabrics/Aave3PlatformFabric";
-import {ILendingPlatformFabric, TetuConverterApp} from "../baseUT/TetuConverterApp";
-import {BorrowRepayUsesCase} from "../baseUT/BorrowRepayUsesCase";
+import {BorrowRepayUsesCase} from "../baseUT/uses-cases/BorrowRepayUsesCase";
 import {BorrowAction} from "../baseUT/actions/BorrowAction";
 import {RepayAction} from "../baseUT/actions/RepayAction";
 import {MockPlatformFabric} from "../baseUT/fabrics/MockPlatformFabric";
-import {isPolygonForkInUse} from "../baseUT/NetworkUtils";
+import {isPolygonForkInUse} from "../baseUT/utils/NetworkUtils";
 import {HundredFinancePlatformFabric} from "../baseUT/fabrics/HundredFinancePlatformFabric";
 import {DForcePlatformFabric} from "../baseUT/fabrics/DForcePlatformFabric";
 import {BorrowMockAction} from "../baseUT/actions/BorrowMockAction";
@@ -31,6 +30,8 @@ import {
     GAS_LIMIT_SINGLE_BORROW_SINGLE_REPAY_HUNDRED_FINANCE
 } from "../baseUT/GasLimit";
 import {controlGasLimitsEx} from "../../scripts/utils/hardhatUtils";
+import {TetuConverterApp} from "../baseUT/helpers/TetuConverterApp";
+import {ILendingPlatformFabric} from "../baseUT/interfaces/ILendingPlatformFabric";
 
 describe("BorrowRepayTest", () => {
 //region Global vars for all tests
@@ -272,7 +273,7 @@ describe("BorrowRepayTest", () => {
                 .mul(x * 100))
         );
         const {tc, controller} = await TetuConverterApp.buildApp(deployer, [fabric]);
-        const uc = await MocksHelper.deployUserBorrowRepayUCs(deployer.address, controller);
+        const uc = await MocksHelper.deployBorrower(deployer.address, controller, p.healthFactor2, p.countBlocks);
 
         const c0 = await setInitialBalance(collateralToken.address
             , p.collateral.holder, p.collateral.initialLiquidity, uc.address);
@@ -318,7 +319,7 @@ describe("BorrowRepayTest", () => {
         checkGasUsed: boolean = false
     ) : Promise<{sret: string, sexpected: string, gasUsed?: BigNumber}> {
         const {tc, controller} = await TetuConverterApp.buildApp(deployer, [fabric]);
-        const uc = await MocksHelper.deployUserBorrowRepayUCs(deployer.address, controller);
+        const uc = await MocksHelper.deployBorrower(deployer.address, controller, p.healthFactor2, p.countBlocks);
 
         const collateralToken = await TokenWrapper.Build(deployer, p.collateral.asset);
         const borrowToken = await TokenWrapper.Build(deployer, p.borrow.asset);
@@ -411,7 +412,7 @@ describe("BorrowRepayTest", () => {
                 .mul(x * 100))
         );
         const {tc, controller, pools} = await TetuConverterApp.buildApp(deployer, [fabric]);
-        const uc = await MocksHelper.deployUserBorrowRepayUCs(deployer.address, controller);
+        const uc = await MocksHelper.deployBorrower(deployer.address, controller, p.healthFactor2, p.countBlocks);
 
         const c0 = await setInitialBalance(collateralToken.address
             , p.collateral.holder, p.collateral.initialLiquidity, uc.address);
@@ -489,7 +490,7 @@ describe("BorrowRepayTest", () => {
         fabric: ILendingPlatformFabric
     ) : Promise<{sret: string, sexpected: string}> {
         const {tc, controller} = await TetuConverterApp.buildApp(deployer, [fabric]);
-        const uc = await MocksHelper.deployUserBorrowRepayUCs(deployer.address, controller);
+        const uc = await MocksHelper.deployBorrower(deployer.address, controller, p.healthFactor2, p.countBlocks);
 
         const collateralToken = await TokenWrapper.Build(deployer, p.collateral.asset);
         const borrowToken = await TokenWrapper.Build(deployer, p.borrow.asset);

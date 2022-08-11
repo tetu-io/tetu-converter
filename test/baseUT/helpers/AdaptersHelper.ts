@@ -10,7 +10,7 @@ import {
     HfPlatformAdapter,
     HfPoolAdapter
 } from "../../typechain";
-import {DeployUtils} from "../../scripts/utils/DeployUtils";
+import {DeployUtils} from "../../../scripts/utils/DeployUtils";
 
 export class AdaptersHelper {
 //region AAVE.v3
