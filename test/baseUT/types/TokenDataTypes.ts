@@ -1,5 +1,5 @@
-import {IERC20Extended, IERC20Extended__factory} from "../../typechain";
 import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
+import {IERC20Extended, IERC20Extended__factory} from "../../../typechain";
 
 export class TokenDataTypes {
     public readonly address: string;

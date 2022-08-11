@@ -1,10 +1,9 @@
 import {
     Controller,
-    IController, IERC20,
+    IERC20,
     ITetuConverter
-} from "../../typechain";
+} from "../../../typechain";
 import {CoreContractsHelper} from "./CoreContractsHelper";
-import {getBigNumberFrom} from "../../../scripts/utils/NumberUtils";
 import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import {DeployUtils} from "../../../scripts/utils/DeployUtils";
 import {COUNT_BLOCKS_PER_DAY} from "../utils/aprUtils";
@@ -15,7 +14,7 @@ export class TetuConverterApp {
     static async buildApp(
         deployer: SignerWithAddress,
         fabrics: ILendingPlatformFabric[]
-    ) : Promise<{tc: ITetuConverter, controller: IController, pools: IERC20[]}> {
+    ) : Promise<{tc: ITetuConverter, controller: Controller, pools: IERC20[]}> {
         const controller = (await DeployUtils.deployContract(deployer, "Controller"
             , COUNT_BLOCKS_PER_DAY)) as Controller;
         await controller.initialize([await controller.governanceKey()], [deployer.address]);

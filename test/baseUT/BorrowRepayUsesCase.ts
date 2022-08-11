@@ -1,19 +1,16 @@
-import {TokenDataTypes} from "../helpers/TokenWrapper";
 import {BigNumber} from "ethers";
-import {IUserBalances} from "../utils/BalanceUtils";
+import {IUserBalances} from "./utils/BalanceUtils";
 import {
     IPoolAdapter__factory,
     Borrower
 } from "../../typechain";
 import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
-import {deprecate} from "util";
+import {TokenDataTypes} from "./types/TokenDataTypes";
 
 export interface IBorrowAction {
     collateralToken: TokenDataTypes,
     collateralAmount: BigNumber;
     borrowToken: TokenDataTypes,
-    countBlocks: number;
-    healthFactor2: number;
     doAction: (user: Borrower) => Promise<IUserBalances>;
 }
 

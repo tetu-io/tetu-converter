@@ -1,10 +1,10 @@
-import {IRepayAction} from "../uses-cases/BorrowRepayUsesCase";
+import {IRepayAction} from "../BorrowRepayUsesCase";
 import {BigNumber} from "ethers";
 import {IERC20__factory, Borrower} from "../../../typechain";
 import {IUserBalances} from "../utils/BalanceUtils";
-import {TokenDataTypes} from "../helpers/TokenWrapper";
 import {DeployerUtils} from "../../../scripts/utils/DeployerUtils";
 import {TimeUtils} from "../../../scripts/utils/TimeUtils";
+import {TokenDataTypes} from "../types/TokenDataTypes";
 
 export class RepayAction implements IRepayAction {
     public collateralToken: TokenDataTypes;

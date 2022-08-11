@@ -3,17 +3,16 @@ import {ethers} from "hardhat";
 import {expect} from "chai";
 import {
     BorrowManager__factory,
-    IERC20__factory, IPlatformAdapter__factory
+    IPlatformAdapter__factory
 } from "../../typechain";
 import {TimeUtils} from "../../scripts/utils/TimeUtils";
 import {BigNumber} from "ethers";
 import {getBigNumberFrom} from "../../scripts/utils/NumberUtils";
 import {MocksHelper} from "../baseUT/helpers/MocksHelper";
 import {BalanceUtils, IUserBalances} from "../baseUT/utils/BalanceUtils";
-import {TokenDataTypes} from "../baseUT/helpers/TokenWrapper";
 import {MaticAddresses} from "../../scripts/addresses/MaticAddresses";
 import {Aave3PlatformFabric} from "../baseUT/fabrics/Aave3PlatformFabric";
-import {BorrowRepayUsesCase} from "../baseUT/uses-cases/BorrowRepayUsesCase";
+import {BorrowRepayUsesCase} from "../baseUT/BorrowRepayUsesCase";
 import {BorrowAction} from "../baseUT/actions/BorrowAction";
 import {RepayAction} from "../baseUT/actions/RepayAction";
 import {MockPlatformFabric} from "../baseUT/fabrics/MockPlatformFabric";
@@ -32,6 +31,9 @@ import {
 import {controlGasLimitsEx} from "../../scripts/utils/hardhatUtils";
 import {TetuConverterApp} from "../baseUT/helpers/TetuConverterApp";
 import {ILendingPlatformFabric} from "../baseUT/fabrics/ILendingPlatformFabric";
+import {areAlmostEqual, setInitialBalance} from "../baseUT/utils/BorrowRepayTestUtils";
+import {TokenDataTypes} from "../baseUT/types/TokenDataTypes";
+import {MockTestInputParams, TestSingleBorrowParams, TestTwoBorrowsParams} from "../baseUT/types/BorrowRepayDataTypes";
 
 describe("BorrowRepayTest", () => {
 //region Global vars for all tests
@@ -72,27 +74,6 @@ describe("BorrowRepayTest", () => {
 //endregion before, after
 
 //region Utils
-    async function setInitialBalance(
-        asset: string,
-        holder: string,
-        amount: number,
-        recipient: string
-    ) : Promise<BigNumber> {
-        await BalanceUtils.getAmountFromHolder(asset, holder, recipient, amount);
-        return IERC20__factory.connect(asset, deployer).balanceOf(recipient);
-    }
-
-    /// @param accuracy 10 for 1e-10
-    function areAlmostEqual(b1: BigNumber, b2: BigNumber, accuracy: number = 8) : boolean {
-        const n18 = getBigNumberFrom(1, accuracy);
-        console.log("approx1", b1, b2);
-        console.log("approx2", b1.sub(b2));
-        console.log("approx3", b1.sub(b2).mul(n18).div(b1).abs());
-        console.log("approx4", b1.sub(b2).mul(n18).div(b1).abs().mul(accuracy));
-        console.log("approx5", b1.sub(b2).mul(n18).div(b1).abs().mul(accuracy).toNumber());
-        return b1.sub(b2).mul(n18).div(b1).abs().mul(accuracy).toNumber() == 0;
-    }
-
     function getSingleBorrowSingleRepayResults(
         c0: BigNumber,
         b0: BigNumber,
@@ -210,42 +191,6 @@ describe("BorrowRepayTest", () => {
     }
 //endregion Utils
 
-//region Data types
-    interface TokenParams {
-        asset: string;
-        holder: string;
-        initialLiquidity: number;
-    }
-
-    /** Input params for test: single borrow, single repay*/
-    interface TestSingleBorrowParams {
-        collateral: TokenParams;
-        borrow: TokenParams;
-        collateralAmount: number;
-        healthFactor2: number;
-        countBlocks: number;
-    }
-    /** Input params for test: two borrows, two repays*/
-    interface TestTwoBorrowsParams extends TestSingleBorrowParams {
-        collateralAmount2: number;
-        repayAmount1: number;
-        deltaBlocksBetweenBorrows: number;
-        deltaBlocksBetweenRepays: number;
-    }
-
-    interface MockCTokenParams {
-        decimals: number;
-        liquidity: number;
-        borrowRate: BigNumber;
-        collateralFactor: number;
-    }
-
-    interface MockTestInputParams {
-        collateral: MockCTokenParams;
-        borrow: MockCTokenParams;
-    }
-//endregion Data types
-
 //region Test single borrow, single repay
     async function makeTestSingleBorrowInstantRepay_Mock(
         p: TestSingleBorrowParams,
@@ -275,9 +220,11 @@ describe("BorrowRepayTest", () => {
         const {tc, controller} = await TetuConverterApp.buildApp(deployer, [fabric]);
         const uc = await MocksHelper.deployBorrower(deployer.address, controller, p.healthFactor2, p.countBlocks);
 
-        const c0 = await setInitialBalance(collateralToken.address
+        const c0 = await setInitialBalance(deployer
+            , collateralToken.address
             , p.collateral.holder, p.collateral.initialLiquidity, uc.address);
-        const b0 = await setInitialBalance(borrowToken.address
+        const b0 = await setInitialBalance(deployer
+            , borrowToken.address
             , p.borrow.holder, p.borrow.initialLiquidity, uc.address);
         const collateralAmount = getBigNumberFrom(p.collateralAmount, collateralToken.decimals);
 
@@ -291,8 +238,6 @@ describe("BorrowRepayTest", () => {
                     collateralToken
                     , collateralAmount
                     , borrowToken
-                    , p.countBlocks
-                    , p.healthFactor2
                 ),
                 new RepayAction(
                     collateralToken
@@ -326,9 +271,9 @@ describe("BorrowRepayTest", () => {
 
         const amountToRepay = undefined; //full repay
 
-        const c0 = await setInitialBalance(collateralToken.address
+        const c0 = await setInitialBalance(deployer, collateralToken.address
             , p.collateral.holder, p.collateral.initialLiquidity, uc.address);
-        const b0 = await setInitialBalance(borrowToken.address
+        const b0 = await setInitialBalance(deployer, borrowToken.address
             , p.borrow.holder, p.borrow.initialLiquidity, uc.address);
         const collateralAmount = getBigNumberFrom(p.collateralAmount, collateralToken.decimals);
 
@@ -414,9 +359,9 @@ describe("BorrowRepayTest", () => {
         const {tc, controller, pools} = await TetuConverterApp.buildApp(deployer, [fabric]);
         const uc = await MocksHelper.deployBorrower(deployer.address, controller, p.healthFactor2, p.countBlocks);
 
-        const c0 = await setInitialBalance(collateralToken.address
+        const c0 = await setInitialBalance(deployer, collateralToken.address
             , p.collateral.holder, p.collateral.initialLiquidity, uc.address);
-        const b0 = await setInitialBalance(borrowToken.address
+        const b0 = await setInitialBalance(deployer, borrowToken.address
             , p.borrow.holder, p.borrow.initialLiquidity, uc.address);
 
         const collateralAmount1 = getBigNumberFrom(p.collateralAmount, collateralToken.decimals);
@@ -498,9 +443,9 @@ describe("BorrowRepayTest", () => {
         const amountToRepay1 = getBigNumberFrom(p.repayAmount1, borrowToken.decimals);
         const amountToRepay2 = undefined; //full repay
 
-        const c0 = await setInitialBalance(collateralToken.address
+        const c0 = await setInitialBalance(deployer, collateralToken.address
             , p.collateral.holder, p.collateral.initialLiquidity, uc.address);
-        const b0 = await setInitialBalance(borrowToken.address
+        const b0 = await setInitialBalance(deployer, borrowToken.address
             , p.borrow.holder, p.borrow.initialLiquidity, uc.address);
 
         const collateralAmount1 = getBigNumberFrom(p.collateralAmount, collateralToken.decimals);

@@ -1,4 +1,4 @@
-import {BorrowManager, Controller, DebtMonitor, TetuConverter} from "../../typechain";
+import {BorrowManager, Controller, DebtMonitor, TetuConverter} from "../../../typechain";
 
 export class CoreContracts {
     readonly controller: Controller;

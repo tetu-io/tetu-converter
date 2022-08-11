@@ -1,17 +1,15 @@
-import {IBorrowAction} from "../uses-cases/BorrowRepayUsesCase";
+import {IBorrowAction} from "../BorrowRepayUsesCase";
 import {IERC20__factory, Borrower} from "../../../typechain";
 import {IUserBalances} from "../utils/BalanceUtils";
-import {TokenDataTypes} from "../helpers/TokenWrapper";
 import {BigNumber} from "ethers";
 import {DeployerUtils} from "../../../scripts/utils/DeployerUtils";
 import {TimeUtils} from "../../../scripts/utils/TimeUtils";
+import {TokenDataTypes} from "../types/TokenDataTypes";
 
 export class BorrowAction implements IBorrowAction {
     public collateralToken: TokenDataTypes;
     public collateralAmount: BigNumber;
     public borrowToken: TokenDataTypes;
-    public countBlocks: number;
-    public healthFactor2: number;
     public countBlocksToSkipAfterAction?: number;
     public controlGas?: boolean;
 
@@ -19,16 +17,12 @@ export class BorrowAction implements IBorrowAction {
         collateralToken: TokenDataTypes,
         collateralAmount: BigNumber,
         borrowToken: TokenDataTypes,
-        countBlocks: number,
-        healthFactor2: number,
         countBlocksToSkipAfterAction?: number,
         controlGas?: boolean
     ) {
         this.collateralToken = collateralToken;
         this.collateralAmount = collateralAmount;
         this.borrowToken = borrowToken;
-        this.countBlocks = countBlocks;
-        this.healthFactor2 = healthFactor2;
         this.countBlocksToSkipAfterAction = countBlocksToSkipAfterAction;
         this.controlGas = controlGas;
     }
@@ -40,8 +34,6 @@ export class BorrowAction implements IBorrowAction {
             this.collateralToken.address,
             this.collateralAmount,
             this.borrowToken.address,
-            this.countBlocks,
-            this.healthFactor2,
             user.address
         );
         if (this.controlGas) {
@@ -49,8 +41,6 @@ export class BorrowAction implements IBorrowAction {
                 this.collateralToken.address,
                 this.collateralAmount,
                 this.borrowToken.address,
-                this.countBlocks,
-                this.healthFactor2,
                 user.address
             );
         }

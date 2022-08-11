@@ -1,9 +1,8 @@
-import {TokenDataTypes} from "../helpers/TokenWrapper";
 import {BigNumber} from "ethers";
-import {PoolAdapterMock__factory, Borrower} from "../../../typechain";
+import {Borrower} from "../../../typechain";
 import {IUserBalances} from "../utils/BalanceUtils";
 import {RepayAction} from "./RepayAction";
-import {ethers} from "hardhat";
+import {TokenDataTypes} from "../types/TokenDataTypes";
 
 /** RepayAction + setPassedBlocks(count blocks) */
 export class RepayMockAction extends RepayAction {

@@ -1,6 +1,6 @@
 import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
-import {IController} from "../../../typechain/contracts/interfaces/IController";
-import {IERC20} from "../../../typechain/contracts/openzeppelin/IERC20";
+import {IController} from "../../../typechain";
+import {IERC20} from "../../../typechain";
 
 export interface ILendingPlatformFabric {
     /** return addresses of pools */

@@ -28,8 +28,8 @@ contract Borrower is IBorrower {
 
   constructor (
     address controller_,
-    uint borrowPeriodInBlocks_,
-    uint16 healthFactor2_
+    uint16 healthFactor2_,
+    uint borrowPeriodInBlocks_
   ) {
     _controller = IController(controller_);
     _healthFactor2 = healthFactor2_;
@@ -46,7 +46,12 @@ contract Borrower is IBorrower {
     address targetAsset_,
     address receiver_
   ) external {
-    console.log("makeBorrowUC1.1 sourceAmount_=%d of %s", sourceAmount_, sourceAsset_);
+    console.log("makeBorrowUC1.1 start");
+    console.log("sourceAsset_", sourceAsset_);
+    console.log("sourceAmount_", sourceAmount_);
+    console.log("_healthFactor2", _healthFactor2);
+    console.log("_borrowPeriodInBlocks", _borrowPeriodInBlocks);
+    console.log("targetAsset_", targetAsset_);
     // ask TC for the best conversion strategy
     (address converter, uint maxTargetAmount,) = _tc().findConversionStrategy(sourceAsset_,
       sourceAmount_,

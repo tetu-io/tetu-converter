@@ -1,9 +1,9 @@
 import {BorrowAction} from "./BorrowAction";
-import {TokenDataTypes} from "../helpers/TokenWrapper";
 import {BigNumber} from "ethers";
 import {PoolAdapterMock__factory, Borrower} from "../../../typechain";
 import {IUserBalances} from "../utils/BalanceUtils";
 import {ethers} from "hardhat";
+import {TokenDataTypes} from "../types/TokenDataTypes";
 
 /** BorrowAction + setPassedBlocks(count blocks) */
 export class BorrowMockAction extends BorrowAction {

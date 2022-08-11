@@ -12,7 +12,7 @@ import {
     TetuConverter, Borrower
 } from "../../typechain";
 import {IBmInputParams, BorrowManagerHelper, PoolInstanceInfo} from "../baseUT/helpers/BorrowManagerHelper";
-import {CoreContracts} from "../baseUT/CoreContracts";
+import {CoreContracts} from "../baseUT/types/CoreContracts";
 import {CoreContractsHelper} from "../baseUT/helpers/CoreContractsHelper";
 import {BigNumber} from "ethers";
 import {MocksHelper} from "../baseUT/helpers/MocksHelper";
@@ -270,8 +270,6 @@ describe("BorrowManager", () => {
                         sourceToken.address,
                         sourceAmount,
                         targetToken.address,
-                        BigNumber.from(period),
-                        BigNumber.from(healthFactor * 100),
                         user
                     );
 
@@ -374,8 +372,6 @@ describe("BorrowManager", () => {
                         sourceToken.address,
                         sourceAmount,
                         targetToken.address,
-                        BigNumber.from(period),
-                        BigNumber.from(healthFactor * 100),
                         user
                     );
 

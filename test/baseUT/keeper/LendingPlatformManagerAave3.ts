@@ -1,18 +1,17 @@
-import {ILendingPlatformManager, PairAPRs} from "./ILendingPlatformManager";
+import {getPoolAdapterState, ILendingPlatformManager, PoolAdapterState01} from "./ILendingPlatformManager";
 import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import {
     Aave3PoolAdapter,
     Aave3PriceOracleMock,
     Aave3PriceOracleMock__factory, Borrower,
     IAaveAddressesProvider__factory,
-    IAavePool, IAavePool__factory, IAavePoolConigurator__factory, IERC20__factory, ITetuConverter
+    IAavePool, IAavePoolConigurator__factory, IERC20__factory, ITetuConverter
 } from "../../../typechain";
 import {DeployUtils} from "../../../scripts/utils/DeployUtils";
 import {Aave3Helper} from "../../../scripts/integration/helpers/Aave3Helper";
 import {DeployerUtils} from "../../../scripts/utils/DeployerUtils";
 import {MaticAddresses} from "../../../scripts/addresses/MaticAddresses";
-import {ITokenWithHolder} from "../helpers/TokenDataTypes";
-import {Misc} from "../../../scripts/utils/Misc";
+import {ITokenWithHolder} from "../types/TokenDataTypes";
 
 export class LendingPlatformManagerAave3 implements ILendingPlatformManager {
     poolAdapter: Aave3PoolAdapter;
@@ -37,6 +36,7 @@ export class LendingPlatformManagerAave3 implements ILendingPlatformManager {
         this.collateralHolder = collateralHolder;
         this.borrowHolder = borrowHolder;
     }
+
 //region Substitute mocks into the AAVE3-protocol
     async setupPriceOracleMock(
         deployer: SignerWithAddress,
@@ -74,8 +74,18 @@ export class LendingPlatformManagerAave3 implements ILendingPlatformManager {
 
 //region ILendingPlatformManager
     /** Increase or decrease a price of the asset on the given number of times */
-    async changeAssetPrice(signer: SignerWithAddress, asset: string, inc: boolean, times: number) {
-        const oracle = Aave3PriceOracleMock__factory.connect(await this.poolAdapter.priceOracle(), signer);
+    async changeAssetPrice(
+        signer: SignerWithAddress
+        , asset: string
+        , inc: boolean
+        , times: number
+    ): Promise<PoolAdapterState01>  {
+        const before = await getPoolAdapterState(signer, this.poolAdapter.address);
+
+        const oracle = Aave3PriceOracleMock__factory.connect(
+            (await Aave3Helper.getAavePriceOracle(signer)).address
+            , signer
+        );
         const currentPrice = await oracle.getAssetPrice(asset);
 
         await oracle.setPrices(
@@ -85,10 +95,14 @@ export class LendingPlatformManagerAave3 implements ILendingPlatformManager {
                 inc ? currentPrice.mul(times) : currentPrice.div(times)
             ]
         );
+
+        const after = await getPoolAdapterState(signer, this.poolAdapter.address);
+        return {before, after};
     }
 
     /** Change collateral factor of the asset on new value, decimals 2 */
-    async changeCollateralFactor(signer: SignerWithAddress, newValue2: number) {
+    async changeCollateralFactor(signer: SignerWithAddress, newValue2: number): Promise<PoolAdapterState01>  {
+        const before = await getPoolAdapterState(signer, this.poolAdapter.address);
         const collateralAsset = (await this.poolAdapter.getConfig()).outCollateralAsset;
 
         // get admin address
@@ -111,11 +125,14 @@ export class LendingPlatformManagerAave3 implements ILendingPlatformManager {
             , newValue2
             , ltvConfig.liquidationBonus
         );
+
+        const after = await getPoolAdapterState(signer, this.poolAdapter.address);
+        return {before, after};
     }
 
     /** Borrow max possible amount (and significantly increase the borrow rate) */
-    async makeMaxBorrow(signer: SignerWithAddress): Promise<PairAPRs> {
-        const before = await this.poolAdapter.getAPR18();
+    async makeMaxBorrow(signer: SignerWithAddress): Promise<PoolAdapterState01> {
+        const before = await getPoolAdapterState(signer, this.poolAdapter.address);
 
         const borrowAsset = this.borrowHolder.address;
         const collateralAsset = this.collateralHolder.address;
@@ -135,12 +152,12 @@ export class LendingPlatformManagerAave3 implements ILendingPlatformManager {
             , this.collateralHolder.address //put borrowed amount on the balance of borrow-holder
         );
 
-        const after = await this.poolAdapter.getAPR18();
+        const after = await getPoolAdapterState(signer, this.poolAdapter.address);
         return {before, after};
     }
     /** Return previously borrowed amount back (reverse to makeMaxBorrow) */
-    async releaseMaxBorrow(signer: SignerWithAddress): Promise<PairAPRs> {
-        const before = await this.poolAdapter.getAPR18();
+    async releaseMaxBorrow(signer: SignerWithAddress): Promise<PoolAdapterState01> {
+        const before = await getPoolAdapterState(signer, this.poolAdapter.address);
 
         const borrowAssetAsHolder = await IERC20__factory.connect(this.borrowHolder.address
             , await DeployerUtils.startImpersonate(this.borrowHolder.address)
@@ -154,7 +171,7 @@ export class LendingPlatformManagerAave3 implements ILendingPlatformManager {
             , borrowAssetAsHolder.address
             , this.collateralHolder.address
         );
-        const after = await this.poolAdapter.getAPR18();
+        const after = await getPoolAdapterState(signer, this.poolAdapter.address);
         return {before, after};
     }
 //endregion ILendingPlatformManager

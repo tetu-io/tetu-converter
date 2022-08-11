@@ -1,8 +1,8 @@
 import {BigNumber} from "ethers";
-import {IERC20__factory, IERC20Extended__factory} from "../../typechain";
 import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import {DeployerUtils} from "../../../scripts/utils/DeployerUtils";
 import {getBigNumberFrom} from "../../../scripts/utils/NumberUtils";
+import {IERC20__factory, IERC20Extended__factory} from "../../../typechain";
 
 export interface ContractToInvestigate {
     name: string;

@@ -3,10 +3,9 @@ import {
     BorrowManager, BorrowManager__factory,
     Controller, DebtMonitor,
     IController, LendingPlatformMock,
-    MockERC20, PoolAdapterMock,
-    PoolStub,
+    MockERC20, PoolStub,
     PriceOracleMock, TetuConverter
-} from "../../typechain";
+} from "../../../typechain";
 import {BigNumber} from "ethers";
 import {DeployUtils} from "../../../scripts/utils/DeployUtils";
 import {getBigNumberFrom} from "../../../scripts/utils/NumberUtils";

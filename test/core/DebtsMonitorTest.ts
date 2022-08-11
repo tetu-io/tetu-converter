@@ -16,9 +16,8 @@ import {DeployerUtils} from "../../scripts/utils/DeployerUtils";
 import {BigNumber} from "ethers";
 import {getBigNumberFrom} from "../../scripts/utils/NumberUtils";
 import {CoreContractsHelper} from "../baseUT/helpers/CoreContractsHelper";
-import {IPooAdapterStabInitParams, MocksHelper} from "../baseUT/helpers/MocksHelper";
-import {Misc} from "../../scripts/utils/Misc";
-import {CoreContracts} from "../baseUT/CoreContracts";
+import {MocksHelper} from "../baseUT/helpers/MocksHelper";
+import {CoreContracts} from "../baseUT/types/CoreContracts";
 
 describe("DebtsMonitor", () => {
 //region Global vars for all tests

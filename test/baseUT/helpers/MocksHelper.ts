@@ -1,19 +1,20 @@
 /**
  * Help to initialize and setup Borrow Manager and related classes
  */
-import {
-    BorrowManagerStub,
-    CTokenMock, IController, IDebtMonitor, IPriceOracle,
-    LendingPlatformMock,
-    MockERC20, PoolAdapterMock, PoolAdapterStub,
-    PoolStub,
-    Borrower
-} from "../../typechain";
 import {DeployUtils} from "../../../scripts/utils/DeployUtils";
 import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import {BigNumber} from "ethers";
 import {ethers} from "hardhat";
 import {DeployerUtils} from "../../../scripts/utils/DeployerUtils";
+import {
+    Borrower,
+    BorrowManagerStub,
+    CTokenMock, IController,
+    LendingPlatformMock,
+    MockERC20,
+    PoolAdapterMock, PoolAdapterStub,
+    PoolStub
+} from "../../../typechain";
 
 export interface IPooAdapterStabInitParams {
     controller: string;
