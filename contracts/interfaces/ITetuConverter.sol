@@ -57,6 +57,7 @@ interface ITetuConverter {
   function reconvert(
     address poolAdapter_,
     uint16 healthFactor2_,
-    uint periodInBlocks_
+    uint periodInBlocks_,
+    address receiver_
   ) external;
 }

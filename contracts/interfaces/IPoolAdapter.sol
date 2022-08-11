@@ -8,7 +8,7 @@ import "./IConverter.sol";
 ///         There is Template-Pool-Adapter contract for each platform (AAVE, HF, etc).
 /// @dev Terms: "pool adapter" is an instance of "converter" created using minimal-proxy-pattern
 interface IPoolAdapter is IConverter {
-  /// @dev Must be called before borrow (true) or repay (false) to sync current balances
+  /// @dev Must be called before borrow (true) or repay/reconvert (false) to sync current balances
   function syncBalance(bool beforeBorrow) external;
 
   /// @notice Supply collateral to the pool and borrow specified amount

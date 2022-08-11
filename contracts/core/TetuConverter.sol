@@ -52,12 +52,26 @@ contract TetuConverter is ITetuConverter {
     uint maxTargetAmount,
     uint aprForPeriod18
   ) {
+    return _findConversionStrategy(sourceToken_, sourceAmount_, targetToken_, healthFactor2_, periodInBlocks_);
+  }
+
+  function _findConversionStrategy(
+    address sourceToken_,
+    uint sourceAmount_,
+    address targetToken_,
+    uint16 healthFactor2_,
+    uint periodInBlocks_
+  ) internal view returns (
+    address converter,
+    uint maxTargetAmount,
+    uint aprForPeriod18
+  ) {
     AppDataTypes.InputConversionParams memory params = AppDataTypes.InputConversionParams({
-      healthFactor2: healthFactor2_,
-      sourceToken: sourceToken_,
-      targetToken: targetToken_,
-      sourceAmount: sourceAmount_,
-      periodInBlocks: periodInBlocks_
+    healthFactor2: healthFactor2_,
+    sourceToken: sourceToken_,
+    targetToken: targetToken_,
+    sourceAmount: sourceAmount_,
+    periodInBlocks: periodInBlocks_
     });
 
     // find best DEX platform
@@ -66,7 +80,6 @@ contract TetuConverter is ITetuConverter {
     //TODO: Calculate APY = (1 + r / n)^n - 1, where r - period rate, n = number of compounding periods
     return _bm().findConverter(params);
   }
-
   ///////////////////////////////////////////////////////
   ///       Make conversion
   ///////////////////////////////////////////////////////
@@ -79,6 +92,17 @@ contract TetuConverter is ITetuConverter {
     uint targetAmount_,
     address receiver_
   ) external override {
+    _convert(converter_, sourceToken_, sourceAmount_, targetToken_, targetAmount_, receiver_);
+  }
+
+  function _convert(
+    address converter_,
+    address sourceToken_,
+    uint sourceAmount_,
+    address targetToken_,
+    uint targetAmount_,
+    address receiver_
+  ) internal {
     if (IConverter(converter_).getConversionKind() == AppDataTypes.ConversionKind.BORROW_2) {
       // make borrow
 
@@ -110,10 +134,44 @@ contract TetuConverter is ITetuConverter {
   function reconvert(
     address poolAdapter_,
     uint16 healthFactor2_,
-    uint periodInBlocks_
+    uint periodInBlocks_,
+    address receiver_
   ) external override {
-    console.log("TODO", poolAdapter_, healthFactor2_, periodInBlocks_);
-    //TODO
+    // we assume, that the caller has already transferred borrowed amount back to the pool adapter
+
+    // prepare to repay
+    IPoolAdapter pa = IPoolAdapter(poolAdapter_);
+    (address originConverter, address user, address collateralAsset, address borrowAsset) = pa.getConfig();
+    require(user == msg.sender, AppErrors.USER_ONLY);
+
+    (, uint amountToPay,,) = pa.getStatus();
+
+    // temporary store current balance of the collateral - we need to know balance delta after and before repay
+    uint deltaCollateral = IERC20(collateralAsset).balanceOf(address(this));
+
+    // repay
+    pa.repay(amountToPay, address(this), true);
+    deltaCollateral = IERC20(collateralAsset).balanceOf(address(this)) - deltaCollateral;
+
+    // find new plan
+    (address converter, uint maxTargetAmount,) = _findConversionStrategy(
+        collateralAsset,
+        deltaCollateral,
+        borrowAsset,
+        healthFactor2_,
+        periodInBlocks_
+    );
+    require(converter != originConverter, AppErrors.RECONVERSION_WITH_SAME_CONVERTER_FORBIDDEN);
+
+    // make conversion using new pool adapter, transfer borrowed amount {receiver_}
+    _convert(
+      converter,
+      collateralAsset,
+      deltaCollateral,
+      borrowAsset,
+      maxTargetAmount,
+      receiver_
+    );
   }
 
   ///////////////////////////////////////////////////////

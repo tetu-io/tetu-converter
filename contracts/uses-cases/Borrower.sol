@@ -147,10 +147,24 @@ contract Borrower is IBorrower {
   ///                   IBorrower impl
   ///////////////////////////////////////////////////////
   function requireReconversion(address poolAdapter) external override {
+    IPoolAdapter pa = IPoolAdapter(poolAdapter);
+    // get amount to pay
+    (,uint amountToPay,,) = pa.getStatus();
+    (,,, address borrowAsset) = pa.getConfig();
+
+    // In reality: make some actions and return required amount back to our balance
+    // we need to receive borrow amount back to the receiver
+    address receiver = address(this);
+
+    // transfer borrowed amount directly to the Pool Adapter
+    pa.syncBalance(false);
+    IERC20(borrowAsset).transfer(poolAdapter, amountToPay);
+
     //reconvert
     _tc().reconvert(poolAdapter
       , _healthFactor2
       , _borrowPeriodInBlocks
+      , receiver
     );
   }
 

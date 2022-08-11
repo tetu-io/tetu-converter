@@ -49,5 +49,9 @@ library AppErrors {
   /// @notice Balance shouldn't be zero
   string public constant ZERO_BALANCE="28";
   string public constant INCORRECT_VALUE ="29";
+  /// @notice Only user can make this action
+  string public constant USER_ONLY = "30";
+  /// @notice It's not allowed to close position with a pool adapter and make re-conversion using the same adapter
+  string public constant RECONVERSION_WITH_SAME_CONVERTER_FORBIDDEN = "31";
 
 }
