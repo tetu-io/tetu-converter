@@ -8,6 +8,7 @@ import {CoreContractsHelper} from "./CoreContractsHelper";
 import {getBigNumberFrom} from "../../scripts/utils/NumberUtils";
 import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import {DeployUtils} from "../../scripts/utils/DeployUtils";
+import {COUNT_BLOCKS_PER_DAY} from "./aprUtils";
 
 export interface ILendingPlatformFabric {
     /** return addresses of pools */
@@ -19,12 +20,9 @@ export class TetuConverterApp {
         deployer: SignerWithAddress,
         fabrics: ILendingPlatformFabric[]
     ) : Promise<{tc: ITetuConverter, controller: IController, pools: IERC20[]}> {
-        const controller = (await DeployUtils.deployContract(deployer, "Controller")) as Controller;
+        const controller = (await DeployUtils.deployContract(deployer, "Controller"
+            , COUNT_BLOCKS_PER_DAY)) as Controller;
         await controller.initialize([await controller.governanceKey()], [deployer.address]);
-        const priceOracle = (await DeployUtils.deployContract(deployer
-            , "PriceOracleStub"
-            , getBigNumberFrom(1)
-        )) as PriceOracleStub;
 
         const bm = await CoreContractsHelper.createBorrowManager(deployer, controller);
         const tc = await CoreContractsHelper.createTetuConverter(deployer, controller);
@@ -33,13 +31,11 @@ export class TetuConverterApp {
         await controller.assignBatch(
             [
                 await controller.borrowManagerKey()
-                , await controller.priceOracleKey()
                 , await controller.tetuConverterKey()
                 , await controller.debtMonitorKey()
                 , await controller.governanceKey()
             ], [
                 bm.address
-                , priceOracle.address
                 , tc.address
                 , dm.address
                 , deployer.address

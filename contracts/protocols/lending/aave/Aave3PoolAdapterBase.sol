@@ -140,7 +140,7 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer 
     // enter to E-mode if necessary
     prepareToBorrow();
 
-//    console.log("Balance before=%d", IERC20(assetBorrow).balanceOf(address(this)));
+    console.log("Balance before=%d", IERC20(assetBorrow).balanceOf(address(this)));
     // make borrow, send borrowed amount to the receiver
     // we cannot transfer borrowed amount directly to receiver because the debt is incurred by amount receiver
     _pool.borrow(
@@ -151,7 +151,7 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer 
       address(this)
     );
 
-//    console.log("Balance after=%d", IERC20(assetBorrow).balanceOf(address(this)));
+    console.log("Balance after=%d", IERC20(assetBorrow).balanceOf(address(this)));
     // ensure that we have received required borrowed amount, send the amount to the receiver
     require(
       borrowAmount_ == IERC20(assetBorrow).balanceOf(address(this)) - reserveBalances[assetBorrow]
@@ -169,7 +169,9 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer 
 
     // ensure that current health factor is greater than min allowed
     (,,,,, uint256 healthFactor) = _pool.getUserAccountData(address(this));
+    //console.log("health factors:", healthFactor, uint(controller.getMinHealthFactor2())*10**(18-2));
     require(healthFactor > uint(controller.getMinHealthFactor2())*10**(18-2), AppErrors.WRONG_HEALTH_FACTOR);
+    //console.log("borrow is completed");
   }
 
   ///////////////////////////////////////////////////////
@@ -244,7 +246,11 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer 
 //      console.log("Withdraw: ", totalCollateralBase/ prices[0], totalCollateralBase, liquidationThreshold18);
 //      console.log("Withdraw possible: ", (totalCollateralBase - collateralToKeepToAvoidRevert)/ prices[0], (totalCollateralBase - collateralToKeepToAvoidRevert));
 
-      _pool.withdraw(collateralAsset, (totalCollateralBase - collateralToKeepToAvoidRevert)/ prices[0], receiver_);
+      _pool.withdraw(collateralAsset
+        , (totalCollateralBase - collateralToKeepToAvoidRevert)/ prices[0]
+          * (10 ** IERC20Extended(collateralAsset).decimals()) / prices[0]
+        , receiver_
+      );
     } else {
       _pool.withdraw(collateralAsset, type(uint).max, receiver_);
     }

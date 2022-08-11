@@ -70,7 +70,6 @@ contract BorrowManager is BorrowManagerBase {
 
   function addPool(address platformAdapter_, address[] calldata assets_)
   external override {
-    console.log("Add pool platformAdapter_=%s", platformAdapter_);
     if (!platformAdaptersRegistered[platformAdapter_]) {
       platformAdapters.push(platformAdapter_);
       platformAdaptersRegistered[platformAdapter_] = true;
@@ -79,7 +78,6 @@ contract BorrowManager is BorrowManagerBase {
     address[] memory paConverters = IPlatformAdapter(platformAdapter_).converters();
     uint lenConverters = paConverters.length;
     for (uint i = 0; i < lenConverters; ++i) {
-      console.log("Add converter_=%s %s", paConverters[i], platformAdapter_);
       converters[paConverters[i]] = platformAdapter_;
     }
 
@@ -172,7 +170,6 @@ contract BorrowManager is BorrowManagerBase {
     uint aprForPeriod18
   ) {
     uint lenPools = platformAdapters_.length;
-    console.log("lenPools %d", lenPools);
 
     uint[] memory pricesCB18;
     if (lenPools > 0) {
@@ -187,7 +184,7 @@ contract BorrowManager is BorrowManagerBase {
         p_.targetToken
       );
       if (plan.converter != address(0)) {
-        console.log("done");
+        console.log("_findPool");
         console.log("plan.maxAmountToSupplyCT", plan.maxAmountToSupplyCT);
         console.log("sourceAmount", p_.sourceAmount);
         console.log("plan.converter", plan.converter);
@@ -243,7 +240,6 @@ contract BorrowManager is BorrowManagerBase {
   ///////////////////////////////////////////////////////
 
   function _getPlatformAdapter(address converter_) internal view override returns(address) {
-    console.log("_getPlatformAdapter %s", converter_);
     address platformAdapter = converters[converter_];
     require(platformAdapter != address(0), AppErrors.PLATFORM_ADAPTER_NOT_FOUND);
     return platformAdapter;

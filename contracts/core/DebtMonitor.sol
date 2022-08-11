@@ -62,6 +62,8 @@ contract DebtMonitor is IDebtMonitor {
     require(positionsRegistered[msg.sender], AppErrors.BORROW_POSITION_IS_NOT_REGISTERED);
 
     (uint collateralAmount, uint amountToPay,,) = IPoolAdapter(msg.sender).getStatus();
+
+    //!TODO: how to close AAVE position with dust tokens?
     require(collateralAmount == 0 && amountToPay == 0, AppErrors.ATTEMPT_TO_CLOSE_NOT_EMPTY_BORROW_POSITION);
 
     positionsRegistered[msg.sender] = false;
@@ -93,19 +95,15 @@ contract DebtMonitor is IDebtMonitor {
       maxCountToCheck = positions.length - startIndex0;
     }
 
-    console.log("1");
     uint minAllowedHealthFactor = uint(IController(controller).getMinHealthFactor2()) * 10**(18-2);
-    console.log("2");
 
     // enumerate all pool adapters
     for (uint i = 0; i < maxCountToCheck; i = _uncheckedInc(i)) {
-      console.log("i");
       nextIndexToCheck0 += 1;
 
       // check if we need to make rebalancing because of too low health factor
       IPoolAdapter pa = IPoolAdapter(positions[startIndex0 + i]);
       (uint collateralAmount,, uint healthFactor18,) = pa.getStatus();
-      console.log("checkForReconversion: healthFactor18=%d pool-adapter=%s", healthFactor18, address(pa));
       if (healthFactor18 < minAllowedHealthFactor
         || _findBetterBorrowWay(tc, pa, collateralAmount, healthFactor2, periodInBlocks)
       ) {

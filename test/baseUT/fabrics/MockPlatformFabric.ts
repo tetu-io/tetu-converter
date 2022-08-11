@@ -44,7 +44,7 @@ export class MockPlatformFabric implements ILendingPlatformFabric {
         const pool = await MocksHelper.createPoolStub(deployer);
         const converter = await MocksHelper.createPoolAdapterMock(deployer);
         const priceOracle = (await DeployUtils.deployContract(deployer, "PriceOracleMock"
-            , this.underlines ? this.underlines.map(x => x.address) : []
+            , this.underlines || []
             , this.prices || []
         )) as PriceOracleMock;
 

@@ -25,7 +25,6 @@ import {BorrowMockAction} from "../baseUT/actions/BorrowMockAction";
 import {RepayMockAction} from "../baseUT/actions/RepayMockAction";
 import {AaveTwoPlatformFabric} from "../baseUT/fabrics/AaveTwoPlatformFabric";
 import {
-    GAS_LIMIT_BM_FIND_POOL_5,
     GAS_LIMIT_SINGLE_BORROW_SINGLE_REPAY_AAVE3,
     GAS_LIMIT_SINGLE_BORROW_SINGLE_REPAY_AAVE_TWO,
     GAS_LIMIT_SINGLE_BORROW_SINGLE_REPAY_DFORCE,
@@ -257,6 +256,7 @@ describe("BorrowRepayTest", () => {
         const amountToRepay = undefined; //full repay
 
         const underlines = [p.collateral.asset, p.borrow.asset];
+        const pricesUSD = [1, 1];
         const cTokenDecimals = [m.collateral.decimals, m.borrow.decimals];
         const cTokens = await MocksHelper.createCTokensMocks(deployer, cTokenDecimals, underlines);
 
@@ -266,7 +266,10 @@ describe("BorrowRepayTest", () => {
             [m.collateral.collateralFactor, m.borrow.collateralFactor],
             [m.collateral.liquidity, m.borrow.liquidity],
             [p.collateral.holder, p.borrow.holder],
-            cTokens
+            cTokens,
+            pricesUSD.map((x, index) => BigNumber.from(10)
+                .pow(18 - 2)
+                .mul(x * 100))
         );
         const {tc, controller} = await TetuConverterApp.buildApp(deployer, [fabric]);
         const uc = await MocksHelper.deployUserBorrowRepayUCs(deployer.address, controller);
@@ -392,6 +395,7 @@ describe("BorrowRepayTest", () => {
         const amountToRepay2 = undefined; //full repay
 
         const underlines = [p.collateral.asset, p.borrow.asset];
+        const pricesUSD = [1, 1];
         const cTokenDecimals = [m.collateral.decimals, m.borrow.decimals];
         const cTokens = await MocksHelper.createCTokensMocks(deployer, cTokenDecimals, underlines);
 
@@ -401,7 +405,10 @@ describe("BorrowRepayTest", () => {
             [m.collateral.collateralFactor, m.borrow.collateralFactor],
             [m.collateral.liquidity, m.borrow.liquidity],
             [p.collateral.holder, p.borrow.holder],
-            cTokens
+            cTokens,
+            pricesUSD.map((x, index) => BigNumber.from(10)
+                .pow(18 - 2)
+                .mul(x * 100))
         );
         const {tc, controller, pools} = await TetuConverterApp.buildApp(deployer, [fabric]);
         const uc = await MocksHelper.deployUserBorrowRepayUCs(deployer.address, controller);
@@ -545,7 +552,6 @@ describe("BorrowRepayTest", () => {
     }
 //endregion Test two borrows, two repays
 
-
 //region Unit tests
     describe("Borrow & repay", async () => {
         describe("Good paths", () => {
@@ -558,7 +564,7 @@ describe("BorrowRepayTest", () => {
                     const AMOUNT_COLLATERAL = 1_000;
                     const INITIAL_LIQUIDITY_COLLATERAL = 100_000;
                     const INITIAL_LIQUIDITY_BORROW = 80_000;
-                    const HEALTH_FACTOR2 = 0;
+                    const HEALTH_FACTOR2 = 200;
                     const COUNT_BLOCKS = 1;
                     describe("Mock", () => {
                         it("should return expected balances", async () => {
@@ -942,7 +948,7 @@ describe("BorrowRepayTest", () => {
                     const AMOUNT_COLLATERAL = 100_000;
                     const INITIAL_LIQUIDITY_COLLATERAL = 1_000_000;
                     const INITIAL_LIQUIDITY_BORROW = 80_000;
-                    const HEALTH_FACTOR2 = 0;
+                    const HEALTH_FACTOR2 = 200;
                     const COUNT_BLOCKS = 1;
                     describe("Mock", () => {
                         it("should return expected balances", async () => {
@@ -1228,7 +1234,7 @@ describe("BorrowRepayTest", () => {
                     const AMOUNT_COLLATERAL = 1_000;
                     const INITIAL_LIQUIDITY_COLLATERAL = 100_000;
                     const INITIAL_LIQUIDITY_BORROW = 80_000;
-                    const HEALTH_FACTOR2 = 0;
+                    const HEALTH_FACTOR2 = 200;
                     const COUNT_BLOCKS = 1;
                     describe("AAVE.v3", () => {
                         it("should not exceed gas limit", async () => {

@@ -87,7 +87,6 @@ contract Aave3PlatformAdapter is IPlatformAdapter {
   ) external view override returns (
     AppDataTypes.ConversionPlan memory plan
   ) {
-    console.log("1");
     DataTypes.ReserveData memory rc = pool.getReserveData(collateralAsset_);
 
     if (_isUsable(rc.configuration) &&  _isCollateralUsageAllowed(rc.configuration)) {
