@@ -135,9 +135,11 @@ contract DebtMonitor is IDebtMonitor {
       sourceToken, sourceAmount_, targetToken, healthFactor2_, periodInBlocks_
     );
     uint currentApr18 = pa_.getAPR18() * periodInBlocks_;
+    console.log("_findBetterBorrowWay.1", address(pa_), currentApr18);
 
     // make decision if the found conversion-strategy is worth to be used
     if (origin != converter) {
+      console.log("_findBetterBorrowWay.2", converter, aprForPeriod18);
       //TODO: we need some decision making rules here
       //1) threshold for APRs difference, i.e. (apr0-apr1)/apr0 > 20%
       //2) threshold for block number: count blocks since prev rebalancing should exceed the threshold.

@@ -78,6 +78,7 @@ export class MockPlatformFabric implements ILendingPlatformFabric {
 
         const bm = IBorrowManager__factory.connect(await controller.borrowManager(), deployer);
         await bm.addPool(aavePlatformAdapter.address, this.underlines);
+        console.log("Mock pool was added to BM", aavePlatformAdapter.address);
 
         return [
             IERC20__factory.connect(pool.address, deployer)

@@ -11,13 +11,21 @@ import {getBigNumberFrom} from "../../scripts/utils/NumberUtils";
 import {BorrowRepayUsesCase} from "../baseUT/BorrowRepayUsesCase";
 import {BorrowAction} from "../baseUT/actions/BorrowAction";
 import {TokenDataTypes} from "../baseUT/types/TokenDataTypes";
-import {Borrower, Controller, IDebtMonitor__factory, ITetuConverter, PoolAdapterMock__factory} from "../../typechain";
+import {
+    Borrower,
+    BorrowManager, BorrowManager__factory,
+    Controller,
+    IDebtMonitor__factory, IPoolAdapter__factory,
+    ITetuConverter, LendingPlatformMock__factory,
+    PoolAdapterMock__factory
+} from "../../typechain";
 import {MaticAddresses} from "../../scripts/addresses/MaticAddresses";
 import {isPolygonForkInUse} from "../baseUT/utils/NetworkUtils";
 import {ReConverterMock} from "../baseUT/keeper/ReСonverters";
 import {LendingPlatformManagerMock} from "../baseUT/keeper/LendingPlatformManagerMock";
 import {PoolAdapterState01} from "../baseUT/keeper/ILendingPlatformManager";
 import {MockTestInputParams, TestSingleBorrowParams} from "../baseUT/types/BorrowRepayDataTypes";
+import {setInitialBalance} from "../baseUT/utils/BorrowRepayTestUtils";
 
 describe("Keeper test", () => {
 //region Global vars for all tests
@@ -57,16 +65,27 @@ describe("Keeper test", () => {
     });
 //endregion before, after
 
+//region Utils
+    async function getBorrowManager(deployer: SignerWithAddress, controller: Controller) : Promise<BorrowManager> {
+        return BorrowManager__factory.connect(await controller.borrowManager(), deployer);
+    }
+//endregion Utils
+
 //region Tests implementations
     /**
+     * @param p
+     * @param m
+     * @param countMockFabrics How many same mocks-pool-adapter we should register
      * @returns Array of too booleans:
      * - keeper has called a reconversion BEFORE modification of the platform state
      * - keeper has called a reconversion AFTER state modification
      */
     async function makeSingleBorrow_Mock (
         p: TestSingleBorrowParams,
-        m: MockTestInputParams
+        m: MockTestInputParams,
+        countMockFabrics: number = 1
     ) : Promise<{uc: Borrower, tc: ITetuConverter, controller: Controller, poolAdapter: string}> {
+        console.log("makeSingleBorrow_Mock.start");
         const collateralToken = await TokenDataTypes.Build(deployer, p.collateral.asset);
         const borrowToken = await TokenDataTypes.Build(deployer, p.borrow.asset);
 
@@ -75,26 +94,32 @@ describe("Keeper test", () => {
         const cTokenDecimals = [m.collateral.decimals, m.borrow.decimals];
         const cTokens = await MocksHelper.createCTokensMocks(deployer, cTokenDecimals, underlines);
 
-        const fabric = new MockPlatformFabric(
-            underlines,
-            [m.collateral.borrowRate, m.borrow.borrowRate],
-            [m.collateral.collateralFactor, m.borrow.collateralFactor],
-            [m.collateral.liquidity, m.borrow.liquidity],
-            [p.collateral.holder, p.borrow.holder],
-            cTokens,
-            pricesUSD.map((x, index) => BigNumber.from(10)
-                .pow(18 - 2)
-                .mul(x * 100))
-        );
-        const {tc, controller} = await TetuConverterApp.buildApp(deployer, [fabric]);
+        const fabrics = [...Array(countMockFabrics).keys()].map(
+            () => new MockPlatformFabric(
+                underlines,
+                [m.collateral.borrowRate, m.borrow.borrowRate],
+                [m.collateral.collateralFactor, m.borrow.collateralFactor],
+                [m.collateral.liquidity, m.borrow.liquidity],
+                [p.collateral.holder, p.borrow.holder],
+                cTokens,
+                pricesUSD.map((x, index) => BigNumber.from(10)
+                    .pow(18 - 2)
+                    .mul(x * 100))
+            )
+        )
+
+        const {tc, controller} = await TetuConverterApp.buildApp(deployer, fabrics);
         const uc: Borrower = await MocksHelper.deployBorrower(deployer.address
             , controller
             , p.healthFactor2
             , p.countBlocks
         );
         const collateralAmount = getBigNumberFrom(p.collateralAmount, collateralToken.decimals);
-        const poolAdapters = await uc.getBorrows(collateralToken.address, borrowToken.address);
-        const poolAdapter = poolAdapters[0];
+
+        // transfer sufficient amount of collateral to the user
+        await setInitialBalance(deployer
+            , collateralToken.address
+            , p.collateral.holder, p.collateral.initialLiquidity, uc.address);
 
         // make borrow only
         const {
@@ -111,6 +136,13 @@ describe("Keeper test", () => {
             ]
         );
 
+        const poolAdapters = await uc.getBorrows(collateralToken.address, borrowToken.address);
+        const poolAdapter = poolAdapters[0];
+        if (! poolAdapter) {
+            throw "pool adapter not found";
+        }
+
+        console.log("makeSingleBorrow_Mock.end", poolAdapters.length);
         return {uc, tc, controller, poolAdapter};
     }
 //endregion Tests implementations
@@ -164,24 +196,31 @@ describe("Keeper test", () => {
                             }
                         );
 
+                        // create a keeper
+                        const reconverter = new ReConverterMock();
+                        const keeper: Keeper = new Keeper(
+                            IDebtMonitor__factory.connect(await controller.debtMonitor(), deployer)
+                            , HEALTH_FACTOR2
+                            , COUNT_BLOCKS
+                            , reconverter
+                        );
+
                         // let's call keeper job twice: before and after modification of the platform state
                         const dest: boolean[] = [];
                         for (let i = 0; i < 2; ++i) {
-                            // run a keeper
-                            const reconverter = new ReConverterMock();
-                            const keeper: Keeper = new Keeper(
-                                IDebtMonitor__factory.connect(await controller.debtMonitor(), deployer)
-                                , HEALTH_FACTOR2
-                                , COUNT_BLOCKS
-                                , reconverter
-                            );
+                            console.log("Run keeper, step", i);
                             await keeper.makeKeeperJob(deployer);
 
                             // ensure that re-conversion was called for the given poolAdapter
-                            dest.push(reconverter.ensureExpectedPA(poolAdapter));
+                            const keeperResult = reconverter.ensureExpectedPA(poolAdapter);
+                            console.log("keeperResult", keeperResult);
+                            dest.push(keeperResult);
 
-                            // modify platform state
-                            await platformStateModifierFabric(uc, tc, controller, poolAdapter);
+                            if (i == 0) {
+                                // modify platform state
+                                console.log("Modify platform state", i);
+                                await platformStateModifierFabric(uc, tc, controller, poolAdapter);
+                            }
                         }
 
                         return dest;
@@ -190,7 +229,7 @@ describe("Keeper test", () => {
                     describe("Mock", () => {
                         describe("Collateral factor is decreased to 100", () => {
                             it("should call reconvert", async () => {
-                                if (!await isPolygonForkInUse()) return;
+                                if (!await isPolygonForkInUse()) return; //TODO: replace real DAI and USDC by own tokens
 
                                 const modifier = async (
                                     uc: Borrower
@@ -198,9 +237,17 @@ describe("Keeper test", () => {
                                     , controller: Controller
                                     , poolAdapter: string
                                 ) => {
+                                    const bm: BorrowManager = await getBorrowManager(deployer, controller);
+                                    const pa = IPoolAdapter__factory.connect(poolAdapter, deployer);
+
                                     const m = new LendingPlatformManagerMock(
                                         PoolAdapterMock__factory.connect(poolAdapter, deployer)
+                                        , LendingPlatformMock__factory.connect(
+                                            await bm.getPlatformAdapter((await pa.getConfig()).originConverter)
+                                            , deployer
+                                        )
                                     );
+
                                     return m.changeCollateralFactor(deployer, 100);
                                 };
                                 const ret = await makeTestForReconversionCall_Mock(modifier);
@@ -222,9 +269,17 @@ describe("Keeper test", () => {
                                     , controller: Controller
                                     , poolAdapter: string
                                 ) => {
+                                    const bm: BorrowManager = await getBorrowManager(deployer, controller);
+                                    const pa = IPoolAdapter__factory.connect(poolAdapter, deployer);
+
                                     const m = new LendingPlatformManagerMock(
                                         PoolAdapterMock__factory.connect(poolAdapter, deployer)
+                                        , LendingPlatformMock__factory.connect(
+                                            await bm.getPlatformAdapter((await pa.getConfig()).originConverter)
+                                            , deployer
+                                        )
                                     );
+
                                     return m.changeAssetPrice(deployer, ASSET_COLLATERAL, false, 10);
                                 };
                                 const ret = await makeTestForReconversionCall_Mock(modifier);
@@ -246,34 +301,18 @@ describe("Keeper test", () => {
                                     , controller: Controller
                                     , poolAdapter: string
                                 ) => {
+                                    const bm: BorrowManager = await getBorrowManager(deployer, controller);
+                                    const pa = IPoolAdapter__factory.connect(poolAdapter, deployer);
+
                                     const m = new LendingPlatformManagerMock(
                                         PoolAdapterMock__factory.connect(poolAdapter, deployer)
+                                        , LendingPlatformMock__factory.connect(
+                                            await bm.getPlatformAdapter((await pa.getConfig()).originConverter)
+                                            , deployer
+                                        )
                                     );
+
                                     return m.changeAssetPrice(deployer, ASSET_BORROW, true, 10);
-                                };
-                                const ret = await makeTestForReconversionCall_Mock(modifier);
-                                const expected = [false, true];
-
-                                const sret = ret.join("\n");
-                                const sexpected = expected.join("\n");
-
-                                expect(sret).equal(sexpected);
-                            });
-                        });
-                        describe("Increase borrow rate significantly", () => {
-                            it("should call reconvert", async () => {
-                                if (!await isPolygonForkInUse()) return;
-
-                                const modifier = async (
-                                    uc: Borrower
-                                    , tc: ITetuConverter
-                                    , controller: Controller
-                                    , poolAdapter: string
-                                ) => {
-                                    const m = new LendingPlatformManagerMock(
-                                        PoolAdapterMock__factory.connect(poolAdapter, deployer)
-                                    );
-                                    return m.makeMaxBorrow(deployer);
                                 };
                                 const ret = await makeTestForReconversionCall_Mock(modifier);
                                 const expected = [false, true];
@@ -305,9 +344,131 @@ describe("Keeper test", () => {
 
     describe("Better converting way checking", async () => {
         describe("Good paths", () => {
-            describe("Single borrow, single instant complete repay", () => {
-                it("", async() => {
-                    expect.fail("TODO");
+            describe("Health factor becomes below allowed minimum", () => {
+                describe("DAI => USDC", () => {
+                    const ASSET_COLLATERAL = MaticAddresses.DAI;
+                    const HOLDER_COLLATERAL = MaticAddresses.HOLDER_DAI;
+                    const ASSET_BORROW = MaticAddresses.USDC;
+                    const HOLDER_BORROW = MaticAddresses.HOLDER_USDC;
+                    const AMOUNT_COLLATERAL = 1_000;
+                    const INITIAL_LIQUIDITY_COLLATERAL = 100_000;
+                    const INITIAL_LIQUIDITY_BORROW = 80_000;
+                    const HEALTH_FACTOR2 = 200;
+                    const COUNT_BLOCKS = 1;
+
+                    async function makeTestForReconversionCall_Mock(
+                        platformStateModifierFabric: (
+                            uc: Borrower, controller: Controller, poolAdapter: string
+                        ) => Promise<PoolAdapterState01>
+                    ): Promise<boolean[]> {
+                        // make a borrow
+                        const {uc, tc, controller, poolAdapter} = await makeSingleBorrow_Mock(
+                            {
+                                collateral: {
+                                    asset: ASSET_COLLATERAL,
+                                    holder: HOLDER_COLLATERAL,
+                                    initialLiquidity: INITIAL_LIQUIDITY_COLLATERAL,
+                                }, borrow: {
+                                    asset: ASSET_BORROW,
+                                    holder: HOLDER_BORROW,
+                                    initialLiquidity: INITIAL_LIQUIDITY_BORROW,
+                                }, collateralAmount: AMOUNT_COLLATERAL
+                                , healthFactor2: HEALTH_FACTOR2
+                                , countBlocks: COUNT_BLOCKS
+                            }, {
+                                collateral: {
+                                    liquidity: INITIAL_LIQUIDITY_COLLATERAL * 2
+                                    , collateralFactor: 0.5
+                                    , borrowRate: getBigNumberFrom(1, 10)
+                                    , decimals: 6
+                                }, borrow: {
+                                    liquidity: INITIAL_LIQUIDITY_COLLATERAL * 2
+                                    , collateralFactor: 0.8
+                                    , borrowRate: getBigNumberFrom(1, 8)
+                                    , decimals: 24
+                                }
+                            }
+                            // we create 2 pool adapters, use first one to borrow and later change its borrow rate
+                            // as result, second pool adapter will have better APR and keeper should find it.
+                            , 2
+
+                        );
+
+                        // create a keeper
+                        const reconverter = new ReConverterMock();
+                        const keeper: Keeper = new Keeper(
+                            IDebtMonitor__factory.connect(await controller.debtMonitor(), deployer)
+                            , HEALTH_FACTOR2
+                            , COUNT_BLOCKS
+                            , reconverter
+                        );
+
+                        // let's call keeper job twice: before and after modification of the platform state
+                        const dest: boolean[] = [];
+                        for (let i = 0; i < 2; ++i) {
+                            console.log("Run keeper, step", i);
+                            await keeper.makeKeeperJob(deployer);
+
+                            // ensure that re-conversion was called for the given poolAdapter
+                            const keeperResult = reconverter.ensureExpectedPA(poolAdapter);
+                            console.log("keeperResult", keeperResult);
+                            dest.push(keeperResult);
+
+                            if (i == 0) {
+                                // modify platform state
+                                console.log("Modify platform state", i);
+                                await platformStateModifierFabric(uc, controller, poolAdapter);
+                            }
+                        }
+
+                        return dest;
+                    }
+
+                    describe("Mock", () => {
+                        describe("Increase borrow rate significantly", () => {
+                            it("should call reconvert", async () => {
+                                if (!await isPolygonForkInUse()) return;
+
+                                const modifier = async (
+                                    uc: Borrower
+                                    , controller: Controller
+                                    , poolAdapter: string
+                                ) => {
+                                    const bm: BorrowManager = await getBorrowManager(deployer, controller);
+                                    const pa = IPoolAdapter__factory.connect(poolAdapter, deployer);
+
+                                    const m = new LendingPlatformManagerMock(
+                                        PoolAdapterMock__factory.connect(poolAdapter, deployer)
+                                        , LendingPlatformMock__factory.connect(
+                                            await bm.getPlatformAdapter((await pa.getConfig()).originConverter)
+                                            , deployer
+                                        )
+                                    );
+                                    return m.makeMaxBorrow(deployer);
+                                };
+                                const ret = await makeTestForReconversionCall_Mock(modifier);
+                                const expected = [false, true];
+
+                                const sret = ret.join("\n");
+                                const sexpected = expected.join("\n");
+
+                                expect(sret).equal(sexpected);
+                            });
+                        });
+                    });
+
+                    describe("AAVE3", () => {
+                        describe("Collateral price is decreased", () => {
+                            it("should call reconvert", async () => {
+                                expect.fail("TODO");
+                            });
+                        });
+                        describe("Borrow price is increased", () => {
+                            it("should call reconvert", async () => {
+                                expect.fail("TODO");
+                            });
+                        });
+                    });
                 });
             });
         });

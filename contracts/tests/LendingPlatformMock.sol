@@ -112,4 +112,8 @@ contract LendingPlatformMock is IPlatformAdapter {
       _priceOracle
     );
   }
+
+  function changeBorrowRate(address asset_, uint borrowRate_) external {
+    borrowRates[asset_] = borrowRate_;
+  }
 }

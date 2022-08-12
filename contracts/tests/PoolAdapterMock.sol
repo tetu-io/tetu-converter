@@ -41,15 +41,18 @@ contract PoolAdapterMock is IPoolAdapter {
   ///////////////////////////////////////////////////////
   ///           Setup mock behavior
   ///////////////////////////////////////////////////////
-  function setPassedBlocks(uint countPassedBlocks) external {
-    _passedBlocks = countPassedBlocks;
+  function setPassedBlocks(uint countPassedBlocks_) external {
+    console.log("PoolAdapterMock.setPassedBlocks", _passedBlocks, countPassedBlocks_);
+    _passedBlocks = countPassedBlocks_;
   }
 
   function changeCollateralFactor(uint collateralFactor_) external {
+    console.log("PoolAdapterMock.changeCollateralFactor", _collateralFactor, collateralFactor_);
     _collateralFactor = collateralFactor_;
   }
 
   function changeBorrowRate(uint value_) external {
+    console.log("PoolAdapterMock.changeBorrowRate", address(this), borrowRate, value_);
     borrowRate = value_;
   }
 
@@ -306,6 +309,7 @@ contract PoolAdapterMock is IPoolAdapter {
 
   /// @notice Compute current cost of the money
   function getAPR18() external view override returns (uint) {
+    console.log("PoolAdapterMock br=", borrowRate);
     return borrowRate * IController(controller).blocksPerDay() * 365;
   }
 

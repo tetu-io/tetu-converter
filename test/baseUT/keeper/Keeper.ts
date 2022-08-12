@@ -30,12 +30,15 @@ export class Keeper {
 
     /** Find all positions that should be reconverted and reconvert them */
     async makeKeeperJob(signer: SignerWithAddress) {
+        console.log("makeKeeperJob");
 
         let startIndex0 = 0;
         const poolAdaptersToReconvert: string[] = [];
 
         // let's find all pool adapters that should be reconverted
         do {
+            console.log("makeKeeperJob.checkForReconversion", startIndex0);
+
             const ret = await this.dm.checkForReconversion(
                 startIndex0
                 , this.maxCountToCheck
@@ -43,6 +46,7 @@ export class Keeper {
                 , this.healthFactor2
                 , this.periodBlocks
             );
+            console.log("makeKeeperJob.checkForReconversion found items:", ret.countFoundItems);
             for (let i = 0; i < ret.countFoundItems.toNumber(); ++i) {
                 poolAdaptersToReconvert.push(ret.poolAdapters[i]);
             }
@@ -51,6 +55,7 @@ export class Keeper {
 
         // let's reconvert all found pool adapters, each in the separate transaction
         for (let i = 0; i < poolAdaptersToReconvert.length; ++i) {
+            console.log("makeKeeperJob.reconvert pool adapter:", poolAdaptersToReconvert[i]);
             await this.reConverter.do(poolAdaptersToReconvert[i], signer);
         }
     }
