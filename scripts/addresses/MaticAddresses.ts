@@ -32,6 +32,12 @@ export class MaticAddresses {
 
 //region Asset biggest holders
   public static HOLDER_DAI = "0xf04adbf75cdfc5ed26eea4bbbb991db002036bdd";
+  public static HOLDER_DAI_2 = "0xf04adbf75cdfc5ed26eea4bbbb991db002036bdd";
+  public static HOLDER_DAI_3 = "0x075e72a5edf65f0a5f44699c7654c1a76941ddc8";
+  public static HOLDER_DAI_4 = "0xc5ed2333f8a2c351fca35e5ebadb2a82f5d254c3";
+  public static HOLDER_DAI_5 = "0x9bdb521a97e95177bf252c253e256a60c3e14447";
+  public static HOLDER_DAI_6 = "0x7344e478574acbe6dac9de1077430139e17eec3d";
+
   public static HOLDER_USDC = "0x06959153b974d0d5fdfd87d561db6d8d4fa0bb0b";
   public static HOLDER_USDT = "0x0d0707963952f2fba59dd06f2b425ace40b492fe";
   public static HOLDER_WMATIC = "0x369582d2010b6ed950b571f4101e3bb9b554876f";

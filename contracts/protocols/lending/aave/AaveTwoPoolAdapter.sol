@@ -97,8 +97,8 @@ contract AaveTwoPoolAdapter is IPoolAdapter, IPoolAdapterInitializer {
     address receiver_
   ) external override {
     _onlyTC();
-//    console.log("Aave2 borrow: collateral=%d borrow=%d receiver=%s", collateralAmount_, borrowAmount_, receiver_);
-//    console.log("Aave2 borrow: this=%s", address(this));
+    console.log("AaveTwo borrow: collateral=%d borrow=%d receiver=%s", collateralAmount_, borrowAmount_, receiver_);
+    console.log("AaveTwo borrow: this=%s", address(this));
 
     address assetCollateral = collateralAsset;
     address assetBorrow = borrowAsset;
@@ -173,7 +173,7 @@ contract AaveTwoPoolAdapter is IPoolAdapter, IPoolAdapterInitializer {
     address receiver_,
     bool closePosition
   ) external override {
-//    console.log("repay amountToRepay_=%d receiver_=%s closePosition=%d", amountToRepay_, receiver_, closePosition ? 1 : 0);
+    console.log("AAVETwo repay amountToRepay_=%d receiver_=%s closePosition=%d", amountToRepay_, receiver_, closePosition ? 1 : 0);
     address assetBorrow = borrowAsset;
 
     // ensure that we have received enough money on our balance just before repay was called

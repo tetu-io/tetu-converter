@@ -16,7 +16,7 @@ import {
     Borrower,
     BorrowManager, BorrowManager__factory,
     Controller, Controller__factory,
-    IDebtMonitor__factory, IPlatformAdapter__factory, IPoolAdapter__factory,
+    IDebtMonitor__factory, IERC20__factory, IPlatformAdapter__factory, IPoolAdapter__factory,
     ITetuConverter, LendingPlatformMock__factory,
     PoolAdapterMock__factory, TetuConverter__factory
 } from "../../typechain";
@@ -33,6 +33,8 @@ import {ILendingPlatformFabric} from "../baseUT/fabrics/ILendingPlatformFabric";
 import {Aave3PlatformFabric} from "../baseUT/fabrics/Aave3PlatformFabric";
 import {LendingPlatformManagerAaveTwo} from "../baseUT/keeper/LendingPlatformManagerAaveTwo";
 import {AaveTwoPlatformFabric} from "../baseUT/fabrics/AaveTwoPlatformFabric";
+import {DeployerUtils} from "../../scripts/utils/DeployerUtils";
+import {RepayAction} from "../baseUT/actions/RepayAction";
 
 describe("Keeper test", () => {
 //region Global vars for all tests
@@ -464,10 +466,10 @@ describe("Keeper test", () => {
                             , uc
                             , TetuConverter__factory.connect(await controller.tetuConverter(), deployer)
                             , {
-                                address: ASSET_COLLATERAL,
+                                asset: ASSET_COLLATERAL,
                                 holder: HOLDER_COLLATERAL
                             }, {
-                                address: ASSET_BORROW,
+                                asset: ASSET_BORROW,
                                 holder: HOLDER_BORROW
                             }
                         );
@@ -664,6 +666,13 @@ describe("Keeper test", () => {
 //region Constants and utils
                     const ASSET_COLLATERAL = MaticAddresses.DAI;
                     const HOLDER_COLLATERAL = MaticAddresses.HOLDER_DAI;
+                    const ADDITIONAL_COLLATERAL_HOLDERS = [
+                        MaticAddresses.HOLDER_DAI_2
+                        , MaticAddresses.HOLDER_DAI_3
+                        , MaticAddresses.HOLDER_DAI_4
+                        , MaticAddresses.HOLDER_DAI_5
+                        , MaticAddresses.HOLDER_DAI_6
+                    ];
                     const ASSET_BORROW = MaticAddresses.WBTS;
                     const HOLDER_BORROW = MaticAddresses.HOLDER_WBTC;
                     const AMOUNT_COLLATERAL = 1_000;
@@ -682,10 +691,10 @@ describe("Keeper test", () => {
                             , uc
                             , TetuConverter__factory.connect(await controller.tetuConverter(), deployer)
                             , {
-                                address: ASSET_COLLATERAL,
+                                asset: ASSET_COLLATERAL,
                                 holder: HOLDER_COLLATERAL
                             }, {
-                                address: ASSET_BORROW,
+                                asset: ASSET_BORROW,
                                 holder: HOLDER_BORROW
                             }
                         );
@@ -701,10 +710,10 @@ describe("Keeper test", () => {
                             , uc
                             , TetuConverter__factory.connect(await controller.tetuConverter(), deployer)
                             , {
-                                address: ASSET_COLLATERAL,
+                                asset: ASSET_COLLATERAL,
                                 holder: HOLDER_COLLATERAL
                             }, {
-                                address: ASSET_BORROW,
+                                asset: ASSET_BORROW,
                                 holder: HOLDER_BORROW
                             }
                         );
@@ -714,12 +723,15 @@ describe("Keeper test", () => {
                     describe("AAVE3 + AAVE2", () => {
 //region Utils
                         /**
-                         * There are two pool adapters: PA1 and PA2 (AAVE3 and AAVE2)
-                         * Increase BR in PA2
-                         * Make borrow using PA1
-                         * Decrease BR in PA2
-                         * Increase BR in PA1
+                         * There are two pool adapters: PA1 and PA2
+                         * Find conversion strategy for borrow, i.e. PA1
+                         * Make max possible borrow using PA1 (and increase its BR)
+                         * Find conversion strategy for borrow. Now it should be PA2
+                         * Make borrow using PA2
+                         * Repay PA1 (and decrease its BR). Now PA1 is more profitable again.
                          * Now the keeper should suggest to make reconversion.
+                         *
+                         * It doesn't matter what is PA1 and what is PA2, they can be AAVE3/Two or Two/3.
                          * */
                         async function makeTestForReconversionAave3andTwo(): Promise<boolean[]> {
                             // install the app and prepare to borrow
@@ -764,14 +776,34 @@ describe("Keeper test", () => {
                             }
                             const paAAVE3 = poolAdapters01[0];
                             const paAAVETwo = poolAdapters01[1];
+                            console.log("Pool adapter AAVE3", paAAVE3);
+                            console.log("Pool adapter AAVETwo", paAAVETwo);
 
-                            const m3 = await getLendingPlatformManagerAave3(uc, controller, paAAVE3);
-                            const mTwo = await getLendingPlatformManagerAaveTwo(uc, controller, paAAVETwo);
+                            // let's try to make borrow for all collateral amount that the holder have
+                            let collateralForMaxBorrow = await IERC20__factory.connect(p.collateral.asset, deployer)
+                                .balanceOf(p.collateral.holder);
+                            console.log("Holder's balance of collateral", collateralForMaxBorrow);
+                            await IERC20__factory.connect(p.collateral.asset
+                                , await DeployerUtils.startImpersonate(p.collateral.holder)
+                            ).transfer(uc.address, collateralForMaxBorrow.sub(collateralAmount));
 
-                            // increase BR in AAVE2
-                            await mTwo.makeMaxBorrow(deployer);
+                            // Let's borrow max possible amount for provided collateral
+                            for (const h of ADDITIONAL_COLLATERAL_HOLDERS) {
+                                const holderBalance = await IERC20__factory.connect(p.collateral.asset, deployer)
+                                    .balanceOf(h);
+                                console.log("Holder's balance of collateral", holderBalance);
+                                await IERC20__factory.connect(p.collateral.asset
+                                    , await DeployerUtils.startImpersonate(h)
+                                ).transfer(uc.address, holderBalance);
+                                collateralForMaxBorrow = collateralForMaxBorrow.add(holderBalance);
+                            }
 
-                            // make borrow using AAVE3
+                            await BorrowRepayUsesCase.makeBorrowRepayActions(deployer, uc
+                                , [new BorrowAction(collateralToken, collateralForMaxBorrow, borrowToken)]
+                            );
+                            const statusAfterMaxBorrow = await uc.getBorrows(p.collateral.asset, p.borrow.asset);
+
+                            // Let's make borrow again - now we should use different pool adapter
                             await BorrowRepayUsesCase.makeBorrowRepayActions(deployer
                                 , uc
                                 , [
@@ -782,6 +814,7 @@ describe("Keeper test", () => {
                                     )
                                 ]
                             );
+                            const statusAfterSmallBorrow = await uc.getBorrows(p.collateral.asset, p.borrow.asset);
 
                             // create a keeper
                             const reconverter = new ReConverterMock();
@@ -806,8 +839,24 @@ describe("Keeper test", () => {
                                 if (i == 0) {
                                     // modify platform state
                                     console.log("Modify platform state", i);
-                                    await mTwo.releaseMaxBorrow(deployer);
-                                    await m3.makeMaxBorrow(deployer);
+
+                                    // Let's repay first borrow
+                                    await IERC20__factory.connect(p.borrow.asset
+                                        , await DeployerUtils.startImpersonate(p.borrow.holder)
+                                    ).transfer(uc.address
+                                        , IERC20__factory.connect(p.borrow.asset, deployer).balanceOf(p.borrow.holder)
+                                    );
+
+                                    await BorrowRepayUsesCase.makeBorrowRepayActions(deployer
+                                        , uc
+                                        , [
+                                            new RepayAction(
+                                                collateralToken
+                                                , borrowToken
+                                                , undefined //complete repay
+                                            )
+                                        ]
+                                    );
                                 }
                             }
 

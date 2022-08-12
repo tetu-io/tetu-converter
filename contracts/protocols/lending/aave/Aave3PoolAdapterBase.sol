@@ -106,8 +106,8 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer 
     address receiver_
   ) external override {
     _onlyTC();
-//    console.log("Aave3 borrow: collateral=%d borrow=%d receiver=%s", collateralAmount_, borrowAmount_, receiver_);
-//    console.log("Aave3 borrow: this=%s", address(this));
+    console.log("Aave3 borrow: collateral=%d borrow=%d receiver=%s", collateralAmount_, borrowAmount_, receiver_);
+    console.log("Aave3 borrow: this=%s", address(this));
 
     address assetCollateral = collateralAsset;
     address assetBorrow = borrowAsset;
@@ -185,8 +185,10 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer 
     address receiver_,
     bool closePosition
   ) external override {
-//    console.log("repay amountToRepay_=%d receiver_=%s closePosition=%d", amountToRepay_, receiver_, closePosition ? 1 : 0);
     address assetBorrow = borrowAsset;
+    console.log("AAVE3 repay amountToRepay_=%d receiver_=%s closePosition=%d", amountToRepay_, receiver_, closePosition ? 1 : 0);
+    console.log("IERC20(assetBorrow).balanceOf(address(this))", IERC20(assetBorrow).balanceOf(address(this)));
+    console.log("reserveBalances[assetBorrow]", reserveBalances[assetBorrow]);
 
     // ensure that we have received enough money on our balance just before repay was called
     require(
@@ -242,9 +244,9 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer 
       uint liquidationThreshold18 = _pool.getConfiguration(assetCollateral).getLiquidationThreshold();
 
       uint collateralToKeepToAvoidRevert = totalDebtBase * liquidationThreshold18 * prices[1] / prices[0];
-//      console.log("Keep: ", collateralToKeepToAvoidRevert, prices[0], prices[1]);
-//      console.log("Withdraw: ", totalCollateralBase/ prices[0], totalCollateralBase, liquidationThreshold18);
-//      console.log("Withdraw possible: ", (totalCollateralBase - collateralToKeepToAvoidRevert)/ prices[0], (totalCollateralBase - collateralToKeepToAvoidRevert));
+      console.log("Keep: ", collateralToKeepToAvoidRevert, prices[0], prices[1]);
+      console.log("Withdraw: ", totalCollateralBase/ prices[0], totalCollateralBase, liquidationThreshold18);
+      console.log("Withdraw possible: ", (totalCollateralBase - collateralToKeepToAvoidRevert)/ prices[0], (totalCollateralBase - collateralToKeepToAvoidRevert));
 
       _pool.withdraw(collateralAsset
         , (totalCollateralBase - collateralToKeepToAvoidRevert)/ prices[0]

@@ -44,4 +44,6 @@ export interface ILendingPlatformManager {
     makeMaxBorrow: (signer: SignerWithAddress) => Promise<PoolAdapterState01>;
     /** Return previously borrowed amount back (reverse to makeMaxBorrow) */
     releaseMaxBorrow: (signer: SignerWithAddress) => Promise<PoolAdapterState01>;
+
+    setActive: (signer: SignerWithAddress, asset: string, active: boolean) => Promise<void>;
 }

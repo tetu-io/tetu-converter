@@ -19,6 +19,6 @@ export class TokenDataTypes {
 }
 
 export interface ITokenWithHolder {
-    address: string;
+    asset: string;
     holder: string;
 }

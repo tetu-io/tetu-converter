@@ -96,9 +96,9 @@ contract AaveTwoPlatformAdapter is IPlatformAdapter {
 
        // assume here, that we always use variable borrow rate
         plan.aprPerBlock18 = rb.currentVariableBorrowRate
-        / COUNT_SECONDS_PER_YEAR
-        * IController(controller).blocksPerDay() * 365 / COUNT_SECONDS_PER_YEAR
-        / 10**(27-18); // rays => decimals 18 (1 ray = 1e-27)
+          / COUNT_SECONDS_PER_YEAR
+          * IController(controller).blocksPerDay() * 365 / COUNT_SECONDS_PER_YEAR
+          / 10**(27-18); // rays => decimals 18 (1 ray = 1e-27)
 
         // availableLiquidity is IERC20(borrowToken).balanceOf(atoken)
         (uint availableLiquidity,,,,,,,,,) = IAaveTwoProtocolDataProvider(
@@ -106,7 +106,7 @@ contract AaveTwoPlatformAdapter is IPlatformAdapter {
         ).getReserveData(borrowAsset_);
 
         plan.maxAmountToBorrowBT = availableLiquidity;
-        console.log("8");
+        console.log("AAVETwo: availableLiquidity", availableLiquidity);
         plan.maxAmountToSupplyCT = type(uint).max; // unlimited
       }
     }

@@ -134,6 +134,7 @@ contract Aave3PlatformAdapter is IPlatformAdapter {
           uint256 totalVariableDebt
           ,,,,,,,) = dp.getReserveData(borrowAsset_);
           plan.maxAmountToBorrowBT = totalAToken - totalStableDebt - totalVariableDebt;
+          console.log("AAVE3: maxAmountToBorrowBT", plan.maxAmountToBorrowBT);
 
           // supply/borrow caps are given in "whole tokens" == without decimals
           // see AAVE3-code, ValidationLogic.sol, validateSupply

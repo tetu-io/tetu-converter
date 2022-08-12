@@ -8,9 +8,14 @@ import {ITokenWithHolder} from "../types/TokenDataTypes";
 import {BigNumber} from "ethers";
 import {
     AaveTwoPoolAdapter,
-    AaveTwoPriceOracleMock, AaveTwoPriceOracleMock__factory,
-    Borrower, IAaveTwoLendingPoolAddressesProvider__factory, IAaveTwoLendingPoolConfigurator__factory,
-    IAaveTwoPool, IERC20__factory,
+    AaveTwoPriceOracleMock,
+    AaveTwoPriceOracleMock__factory,
+    Borrower,
+    IAaveAddressesProvider__factory, IAavePoolConigurator__factory,
+    IAaveTwoLendingPoolAddressesProvider__factory,
+    IAaveTwoLendingPoolConfigurator__factory,
+    IAaveTwoPool,
+    IERC20__factory,
     ITetuConverter
 } from "../../../typechain";
 import {AaveTwoHelper} from "../../../scripts/integration/helpers/AaveTwoHelper";
@@ -146,50 +151,94 @@ export class LendingPlatformManagerAaveTwo implements ILendingPlatformManager {
 
     /** Borrow max possible amount (and significantly increase the borrow rate) */
     async makeMaxBorrow(signer: SignerWithAddress): Promise<PoolAdapterState01> {
-        console.log("makeMaxBorrow.1");
+        console.log("AAVETwo.makeMaxBorrow.1");
         const before = await getPoolAdapterState(signer, this.poolAdapter.address);
 
-        const borrowAsset = this.borrowHolder.address;
-        const collateralAsset = this.collateralHolder.address;
+        const borrowAsset = this.borrowHolder.asset;
+        const collateralAsset = this.collateralHolder.asset;
 
         // let's try to make borrow for all collateral amount that the holder have
         const collateralAmount = await IERC20__factory.connect(collateralAsset, signer)
             .balanceOf(this.collateralHolder.holder);
+        console.log("Holder's balance of collateral", collateralAmount);
 
         // Let's borrow max possible amount for provided collateral
         await IERC20__factory.connect(collateralAsset
-            , await DeployerUtils.startImpersonate(this.collateralHolder.address)
+            , await DeployerUtils.startImpersonate(this.collateralHolder.holder)
         ).transfer(this.borrower.address, collateralAmount);
+
+        console.log("Borrower balance of collateral"
+            , await IERC20__factory.connect(collateralAsset, signer).balanceOf(this.borrower.address));
 
         await this.borrower.makeBorrowUC1_1(
             collateralAsset
             , collateralAmount
             , borrowAsset
-            , this.collateralHolder.address //put borrowed amount on the balance of borrow-holder
+            , this.collateralHolder.asset //put borrowed amount on the balance of borrow-holder
         );
 
         const after = await getPoolAdapterState(signer, this.poolAdapter.address);
-        console.log("makeMaxBorrow.2", before, after);
+        console.log("AAVETwo.makeMaxBorrow.2", before, after);
         return {before, after};
     }
     /** Return previously borrowed amount back (reverse to makeMaxBorrow) */
     async releaseMaxBorrow(signer: SignerWithAddress): Promise<PoolAdapterState01> {
+        console.log("AAVETwo.releaseMaxBorrow.1");
         const before = await getPoolAdapterState(signer, this.poolAdapter.address);
 
-        const borrowAssetAsHolder = await IERC20__factory.connect(this.borrowHolder.address
-            , await DeployerUtils.startImpersonate(this.borrowHolder.address)
+        const borrowAssetAsHolder = await IERC20__factory.connect(this.borrowHolder.asset
+            , await DeployerUtils.startImpersonate(this.borrowHolder.holder)
         );
-        // Let's put all borrow-asset on balance of borrower
-        await borrowAssetAsHolder.transfer(this.borrower.address
-            , await borrowAssetAsHolder.balanceOf(borrowAssetAsHolder.address)
+        const collateralAssetAsHolder = await IERC20__factory.connect(this.collateralHolder.asset
+            , await DeployerUtils.startImpersonate(this.collateralHolder.holder)
         );
+        // how much we should pay?
+        const status = await this.poolAdapter.getStatus();
+
+        // Let's put amount-to-pay + small amount on balance of the borrower,
+        console.log("AAVETwo Borrow holder's balance of borrow token (before repay)"
+            , await borrowAssetAsHolder.balanceOf(this.borrowHolder.holder));
+        console.log("AAVETwo Collateral holder's balance of collateral token (before repay)"
+            , await collateralAssetAsHolder.balanceOf(this.collateralHolder.holder));
+
+        await borrowAssetAsHolder.transfer(this.borrower.address, status.amountsToPay.mul(2));
+        console.log("AAVETwo Borrower balance of borrow token (before repay)"
+            , await IERC20__factory.connect(this.borrowHolder.asset, signer).balanceOf(this.borrower.address));
+
         await this.borrower.makeRepayUC1_2(
-            this.collateralHolder.address
+            this.collateralHolder.asset
             , borrowAssetAsHolder.address
-            , this.collateralHolder.address
+            , this.collateralHolder.holder
         );
+
+        console.log("AAVETwo Borrow holder's balance of borrow token (after repay)"
+            , await borrowAssetAsHolder.balanceOf(this.borrowHolder.holder));
+        console.log("AAVETwo Collateral holder's balance of collateral token (after repay)"
+            , await collateralAssetAsHolder.balanceOf(this.collateralHolder.holder));
+        console.log("AAVETwo Borrower balance of borrow token (after repay)"
+            , await IERC20__factory.connect(this.borrowHolder.asset, signer).balanceOf(this.borrower.address));
+
         const after = await getPoolAdapterState(signer, this.poolAdapter.address);
+        console.log("AAVETwo.releaseMaxBorrow.2");
         return {before, after};
+    }
+
+    async setActive(signer: SignerWithAddress, asset: string, active: boolean) {
+        console.log("AAVETwo set active", asset, active);
+        // get admin address
+        const aavePoolAdmin = await DeployerUtils.startImpersonate(MaticAddresses.AAVE_TWO_POOL_ADMIN);
+        const aavePool = await AaveTwoHelper.getAavePool(signer);
+        const aaveAddressProvider = IAaveTwoLendingPoolAddressesProvider__factory.connect(
+            await aavePool.getAddressesProvider()
+            , signer
+        );
+
+        const poolConfiguratorAsAdmin = IAaveTwoLendingPoolConfigurator__factory.connect(
+            await aaveAddressProvider.getLendingPoolConfigurator()
+            , aavePoolAdmin
+        );
+
+        await poolConfiguratorAsAdmin.setPoolPause(active);
     }
 //endregion ILendingPlatformManager
 }

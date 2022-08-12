@@ -88,4 +88,8 @@ export class LendingPlatformManagerMock implements ILendingPlatformManager {
         console.log("LendingPlatformManagerMock.releaseMaxBorrow.end", before, after);
         return {before, after};
     }
+
+    async setActive(signer: SignerWithAddress, asset: string, active: boolean) {
+        //TODO
+    }
 }
