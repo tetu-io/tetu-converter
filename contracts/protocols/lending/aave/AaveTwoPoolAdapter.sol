@@ -342,7 +342,7 @@ contract AaveTwoPoolAdapter is IPoolAdapter, IPoolAdapterInitializer {
   /// @notice Compute current cost of the money
   function getAPR18() external view override returns (uint) {
     DataTypes.ReserveData memory rb = _pool.getReserveData(borrowAsset);
-    return rb.currentVariableBorrowRate * 10**18 * 100 / 10**27;
+    return uint(rb.currentVariableBorrowRate) * 10**18 * 100 / 10**27;
   }
 
 

@@ -6,6 +6,8 @@ import {
     PriceOracleMock__factory
 } from "../../../typechain";
 import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
+import {BigNumber} from "ethers";
+import {getBigNumberFrom} from "../../../scripts/utils/NumberUtils";
 
 export class LendingPlatformManagerMock implements ILendingPlatformManager {
     poolAdapter: PoolAdapterMock;
@@ -48,7 +50,7 @@ export class LendingPlatformManagerMock implements ILendingPlatformManager {
         console.log("LendingPlatformManagerMock.changeCollateralFactor.start", this.poolAdapter.address);
         const before = await getPoolAdapterState(signer, this.poolAdapter.address);
 
-        await this.poolAdapter.changeCollateralFactor(newValue2);
+        await this.poolAdapter.changeCollateralFactor(BigNumber.from(newValue2).mul(getBigNumberFrom(1, 18-2)) );
 
         const after = await getPoolAdapterState(signer, this.poolAdapter.address);
         console.log("LendingPlatformManagerMock.changeCollateralFactor.end", before, after);

@@ -1,22 +1,22 @@
 import {getPoolAdapterState, ILendingPlatformManager, PoolAdapterState01} from "./ILendingPlatformManager";
 import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
-import {
-    Aave3PoolAdapter,
-    Aave3PriceOracleMock,
-    Aave3PriceOracleMock__factory, Borrower,
-    IAaveAddressesProvider__factory,
-    IAavePool, IAavePoolConigurator__factory, IAavePriceOracle__factory, IERC20__factory, ITetuConverter
-} from "../../../typechain";
 import {DeployUtils} from "../../../scripts/utils/DeployUtils";
 import {Aave3Helper} from "../../../scripts/integration/helpers/Aave3Helper";
 import {DeployerUtils} from "../../../scripts/utils/DeployerUtils";
 import {MaticAddresses} from "../../../scripts/addresses/MaticAddresses";
 import {ITokenWithHolder} from "../types/TokenDataTypes";
 import {BigNumber} from "ethers";
-import {MocksHelper} from "../helpers/MocksHelper";
+import {
+    AaveTwoPoolAdapter,
+    AaveTwoPriceOracleMock, AaveTwoPriceOracleMock__factory,
+    Borrower, IAaveTwoLendingPoolAddressesProvider__factory, IAaveTwoLendingPoolConfigurator__factory,
+    IAaveTwoPool, IERC20__factory,
+    ITetuConverter
+} from "../../../typechain";
+import {AaveTwoHelper} from "../../../scripts/integration/helpers/AaveTwoHelper";
 
-export class LendingPlatformManagerAave3 implements ILendingPlatformManager {
-    poolAdapter: Aave3PoolAdapter;
+export class LendingPlatformManagerAaveTwo implements ILendingPlatformManager {
+    poolAdapter: AaveTwoPoolAdapter;
     borrower: Borrower;
     tc: ITetuConverter;
     /** We can use ITetuConverter to make max allowed borrow,
@@ -26,7 +26,7 @@ export class LendingPlatformManagerAave3 implements ILendingPlatformManager {
     collateralHolder: ITokenWithHolder;
     borrowHolder: ITokenWithHolder;
     constructor(
-        pa: Aave3PoolAdapter
+        pa: AaveTwoPoolAdapter
         , borrower: Borrower
         , tc: ITetuConverter
         , collateralHolder: ITokenWithHolder
@@ -39,40 +39,39 @@ export class LendingPlatformManagerAave3 implements ILendingPlatformManager {
         this.borrowHolder = borrowHolder;
     }
 
-//region Substitute mocks into the AAVE3-protocol
+//region Substitute mocks into the AAVE_TWO-protocol
     async setupPriceOracleMock(
         deployer: SignerWithAddress,
-        aave3pool: IAavePool
+        aave3pool: IAaveTwoPool
     ) {
         // get access to AAVE price oracle
-        const aaveOracle = await Aave3Helper.getAavePriceOracle(deployer);
+        const aaveOracle = await AaveTwoHelper.getAavePriceOracle(deployer);
 
         // get admin address
-        const aavePoolOwner = await DeployerUtils.startImpersonate(MaticAddresses.AAVE_V3_POOL_OWNER);
+        const aavePoolOwner = await DeployerUtils.startImpersonate(MaticAddresses.AAVE_TWO_POOL);
 
         // deploy mock
         const mock = (await DeployUtils.deployContract(deployer
-            , "Aave3PriceOracleMock"
-            , await aaveOracle.ADDRESSES_PROVIDER()
-            , await aaveOracle.BASE_CURRENCY()
-            , await aaveOracle.BASE_CURRENCY_UNIT()
+            , "AaveTwoPriceOracleMock"
+            , await aaveOracle.owner()
+            , await aaveOracle.WETH()
             , await aaveOracle.getFallbackOracle()
-        )) as Aave3PriceOracleMock;
+        )) as AaveTwoPriceOracleMock;
 
         // copy current prices from real price oracle to the mock
-        const aavePool = await Aave3Helper.getAavePool(deployer);
+        const aavePool = await AaveTwoHelper.getAavePool(deployer);
         const reserves = await aavePool.getReservesList();
         const prices = await aaveOracle.getAssetsPrices(reserves);
         await mock.setPrices(reserves, prices);
 
         // install the mock to the protocol
-        const aaveAddressProviderAsOwner = IAaveAddressesProvider__factory.connect(
-            await aavePool.ADDRESSES_PROVIDER()
+        const aaveAddressProviderAsOwner = IAaveTwoLendingPoolAddressesProvider__factory.connect(
+            await aavePool.getAddressesProvider()
             , aavePoolOwner
         );
         await aaveAddressProviderAsOwner.setPriceOracle(mock.address);
     }
-//endregion Substitute mocks into the AAVE3-protocol
+//endregion Substitute mocks into the AAVE_TWO-protocol
 
 //region ILendingPlatformManager
     /** Increase or decrease a price of the asset on the given number of times */
@@ -85,12 +84,12 @@ export class LendingPlatformManagerAave3 implements ILendingPlatformManager {
         const before = await getPoolAdapterState(signer, this.poolAdapter.address);
 
         // setup new price oracle
-        const aavePool = await Aave3Helper.getAavePool(signer);
+        const aavePool = await AaveTwoHelper.getAavePool(signer);
         await this.setupPriceOracleMock(signer, aavePool);
 
         // change a price of the given asset
-        const oracle = Aave3PriceOracleMock__factory.connect(
-            (await Aave3Helper.getAavePriceOracle(signer)).address
+        const oracle = AaveTwoPriceOracleMock__factory.connect(
+            (await AaveTwoHelper.getAavePriceOracle(signer)).address
             , signer
         );
         const currentPrice: BigNumber = await oracle.getAssetPrice(asset);
@@ -114,18 +113,18 @@ export class LendingPlatformManagerAave3 implements ILendingPlatformManager {
         const collateralAsset = (await this.poolAdapter.getConfig()).outCollateralAsset;
 
         // get admin address
-        const aavePoolAdmin = await DeployerUtils.startImpersonate(MaticAddresses.AAVE_V3_POOL_ADMIN);
-        const aavePool = await Aave3Helper.getAavePool(signer);
-        const aaveAddressProvider = IAaveAddressesProvider__factory.connect(
-            await aavePool.ADDRESSES_PROVIDER()
+        const aavePoolAdmin = await DeployerUtils.startImpersonate(MaticAddresses.AAVE_TWO_POOL_ADMIN);
+        const aavePool = await AaveTwoHelper.getAavePool(signer);
+        const aaveAddressProvider = IAaveTwoLendingPoolAddressesProvider__factory.connect(
+            await aavePool.getAddressesProvider()
             , signer
         );
 
-        const poolConfiguratorAsAdmin = IAavePoolConigurator__factory.connect(
-            await aaveAddressProvider.getPoolConfigurator()
+        const poolConfiguratorAsAdmin = IAaveTwoLendingPoolConfigurator__factory.connect(
+            await aaveAddressProvider.getLendingPoolConfigurator()
             , aavePoolAdmin
         );
-        const ltvConfig = await Aave3Helper.getReserveLtvConfig(aavePool, collateralAsset);
+        const ltvConfig = await AaveTwoHelper.getReserveLtvConfig(aavePool, collateralAsset);
         await aavePool.getReserveData(collateralAsset);
 
         // LTV must be less than liquidationThreshold
@@ -161,6 +160,7 @@ export class LendingPlatformManagerAave3 implements ILendingPlatformManager {
         await IERC20__factory.connect(collateralAsset
             , await DeployerUtils.startImpersonate(this.collateralHolder.address)
         ).transfer(this.borrower.address, collateralAmount);
+
         await this.borrower.makeBorrowUC1_1(
             collateralAsset
             , collateralAmount

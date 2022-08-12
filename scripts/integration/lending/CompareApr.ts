@@ -107,7 +107,7 @@ async function main() {
             title: "aaveTwo",
             platformAdapter: await AdaptersHelper.createAaveTwoPlatformAdapter(signer
                     , controller.address
-                    , MaticAddresses.AAVE_V2_POOL
+                    , MaticAddresses.AAVE_TWO_POOL
                     , templateAdapterStub
                 )
         }

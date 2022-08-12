@@ -88,6 +88,7 @@ contract DebtMonitor is IDebtMonitor {
     uint countFoundItems,
     address[] memory outPoolAdapters
   ) {
+    console.log("maxCountToReturn.1");
     ITetuConverter tc = ITetuConverter(controller.tetuConverter());
     outPoolAdapters = new address[](maxCountToReturn);
 
@@ -104,9 +105,11 @@ contract DebtMonitor is IDebtMonitor {
       // check if we need to make rebalancing because of too low health factor
       IPoolAdapter pa = IPoolAdapter(positions[startIndex0 + i]);
       (uint collateralAmount,, uint healthFactor18,) = pa.getStatus();
+
       if (healthFactor18 < minAllowedHealthFactor
         || _findBetterBorrowWay(tc, pa, collateralAmount, healthFactor2, periodInBlocks)
       ) {
+        console.log("maxCountToReturn.found problem pa, hf=", healthFactor18);
         outPoolAdapters[countFoundItems] = positions[startIndex0 + i];
         countFoundItems += 1;
         if (countFoundItems == maxCountToReturn) {
@@ -135,7 +138,6 @@ contract DebtMonitor is IDebtMonitor {
       sourceToken, sourceAmount_, targetToken, healthFactor2_, periodInBlocks_
     );
     uint currentApr18 = pa_.getAPR18() * periodInBlocks_;
-    console.log("_findBetterBorrowWay.1", address(pa_), currentApr18);
 
     // make decision if the found conversion-strategy is worth to be used
     if (origin != converter) {

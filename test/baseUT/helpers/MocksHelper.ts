@@ -7,6 +7,7 @@ import {BigNumber} from "ethers";
 import {ethers} from "hardhat";
 import {DeployerUtils} from "../../../scripts/utils/DeployerUtils";
 import {
+    Aave3PriceOracleMock,
     Borrower,
     BorrowManagerStub,
     CTokenMock, IController,
@@ -137,12 +138,10 @@ export class MocksHelper {
     public static async createPoolStub(
         signer: SignerWithAddress
     ) : Promise<PoolStub> {
-        const dest = await DeployUtils.deployContract(
+        return await DeployUtils.deployContract(
             signer
             , "PoolStub"
         ) as PoolStub;
-
-        return dest;
     }
 //endregion Pools
 
@@ -175,4 +174,38 @@ export class MocksHelper {
         )) as Borrower;
     }
 //endregion Uses cases
+
+//region Price mocks
+    public static async createAave3PriceOracleMock(
+        signer: SignerWithAddress,
+        addressProvider: string,
+        baseCurrency: string,
+        baseCurrencyUnit: BigNumber,
+        fallbackOracle: string
+    ) : Promise<Aave3PriceOracleMock> {
+        return await DeployUtils.deployContract(
+            signer
+            , "Aave3PriceOracleMock"
+            , addressProvider
+            , baseCurrency
+            , baseCurrencyUnit
+            , fallbackOracle
+        ) as Aave3PriceOracleMock;
+    }
+
+    public static async createAave2PriceOracleMock(
+        signer: SignerWithAddress,
+        owner: string,
+        weth: string,
+        fallbackOracle: string
+    ) : Promise<Aave3PriceOracleMock> {
+        return await DeployUtils.deployContract(
+            signer
+            , "Aave2PriceOracleMock"
+            , owner
+            , weth
+            , fallbackOracle
+        ) as Aave3PriceOracleMock;
+    }
+//endregion Price mocks
 }

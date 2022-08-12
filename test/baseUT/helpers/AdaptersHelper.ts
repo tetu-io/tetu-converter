@@ -9,7 +9,7 @@ import {
     DForcePoolAdapter,
     HfPlatformAdapter,
     HfPoolAdapter
-} from "../../typechain";
+} from "../../../typechain";
 import {DeployUtils} from "../../../scripts/utils/DeployUtils";
 
 export class AdaptersHelper {

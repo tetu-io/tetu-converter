@@ -204,7 +204,7 @@ contract BorrowManager is BorrowManagerBase {
 
             console.log("apr %d plan.borrowRate=%d", plan.aprPerBlock18, plan.aprPerBlock18);
             console.log("resultTa18 %d", resultTa18);
-            console.log("plan.collateralFactorWAD %d", plan.liquidationThreshold18);
+            console.log("plan.collateralFactor18 %d", plan.liquidationThreshold18);
             console.log("pp_.sourceAmount18 %d", pp_.sourceAmount18);
             console.log("pp_.priceSource18 %d", pricesCB18[0]);
             console.log("pp_.priceTarget18 %d", pricesCB18[1]);

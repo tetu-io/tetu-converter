@@ -2,6 +2,7 @@
 pragma solidity 0.8.4;
 
 import "../../integrations/aave3/IAavePriceOracle.sol";
+import "hardhat/console.sol";
 
 contract Aave3PriceOracleMock is IAavePriceOracle {
   address private _addressProvider;
@@ -66,6 +67,7 @@ contract Aave3PriceOracleMock is IAavePriceOracle {
    * @return The price of the asset
    **/
   function getAssetPrice(address asset) external view override returns (uint256) {
+    console.log("Mocked getAssetPrice");
     return _prices[asset];
   }
   /**
@@ -74,6 +76,7 @@ contract Aave3PriceOracleMock is IAavePriceOracle {
    * @return The prices of the given assets
    */
   function getAssetsPrices(address[] memory assets) external view override returns (uint256[] memory) {
+    console.log("Mocked getAssetsPrices");
     uint[] memory dest = new uint[](assets.length);
     for (uint i = 0; i < assets.length; ++i) {
       dest[i] = _prices[assets[i]];

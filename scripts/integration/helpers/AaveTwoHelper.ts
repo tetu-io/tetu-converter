@@ -11,8 +11,9 @@ import {
 import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import {MaticAddresses} from "../../addresses/MaticAddresses";
 import {DataTypes} from "../../../typechain/contracts/integrations/aaveTwo/IAaveTwoPool";
+import {ReserveLtvConfig} from "./Aave3Helper";
 
-const AAVE_POOL = MaticAddresses.AAVE_V2_POOL;
+const AAVE_POOL = MaticAddresses.AAVE_TWO_POOL;
 
 const FULL_MASK =                      "0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF";
 
@@ -100,7 +101,7 @@ export interface ReserveInfo {
 //endregion Data types
 
 export class AaveTwoHelper {
-//region Instance
+//region Read reserve info
     public static async getReserveInfo(
         signer: SignerWithAddress,
         aavePool: IAaveTwoPool,
@@ -164,7 +165,18 @@ export class AaveTwoHelper {
             data: data
         }
     }
-//endregion Instance
+
+    public static async getReserveLtvConfig(aavePool: IAaveTwoPool, reserve: string): Promise<ReserveLtvConfig> {
+        const rd: DataTypes.ReserveDataStruct = await aavePool.getReserveData(reserve);
+        const rawData: BigNumber = BigNumber.from(rd.configuration.data);
+
+        return {
+            ltv: AaveTwoHelper.get(rawData, LTV_MASK, 0),
+            liquidationThreshold: AaveTwoHelper.get(rawData, LIQUIDATION_THRESHOLD_MASK, LIQUIDATION_THRESHOLD_START_BIT_POSITION),
+            liquidationBonus: AaveTwoHelper.get(rawData, LIQUIDATION_BONUS_MASK, LIQUIDATION_BONUS_START_BIT_POSITION),
+        }
+    }
+//endregion Read reserve info
 
 //region Access
     public static getAavePool(signer: SignerWithAddress): IAaveTwoPool {

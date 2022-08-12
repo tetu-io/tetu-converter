@@ -3,7 +3,7 @@ pragma solidity 0.8.4;
 
 import "../../integrations/aaveTwo/IAaveTwoPriceOracle.sol";
 
-contract Aave2PriceOracleMock is IAaveTwoPriceOracle {
+contract AaveTwoPriceOracleMock is IAaveTwoPriceOracle {
   address private _owner;
   address private _weth;
   address private _fallbackOracle;
