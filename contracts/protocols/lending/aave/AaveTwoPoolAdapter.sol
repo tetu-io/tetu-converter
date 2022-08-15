@@ -207,7 +207,8 @@ contract AaveTwoPoolAdapter is IPoolAdapter, IPoolAdapterInitializer {
 
       // validate result status
       (uint totalCollateralBase, uint totalDebtBase,,,, uint256 healthFactor) = _pool.getUserAccountData(address(this));
-      if (totalCollateralBase == 0 && totalDebtBase == 0) {
+      console.log("AAVETwo after repay:", totalCollateralBase, totalDebtBase);
+      if (totalCollateralBase == 0 && totalDebtBase == 0) { //!TODO: we need to close position if balance is not zero (dust tokens)
         // update borrow position status in DebtMonitor
         IDebtMonitor(controller.debtMonitor()).onClosePosition();
       } else {
@@ -215,6 +216,7 @@ contract AaveTwoPoolAdapter is IPoolAdapter, IPoolAdapterInitializer {
         require(healthFactor > uint(controller.getMinHealthFactor2())*10**(18-2), AppErrors.WRONG_HEALTH_FACTOR);
       }
     }
+    console.log("AAVETwo repay done");
   }
 
   function _withdrawAndLeaveDustCollateral(address receiver_) internal {

@@ -243,6 +243,7 @@ describe("BorrowRepayTest", () => {
                     collateralToken
                     , borrowToken
                     , amountToRepay
+                    , {}
                 )
             ]
         );
@@ -287,8 +288,6 @@ describe("BorrowRepayTest", () => {
                     collateralToken
                     , collateralAmount
                     , borrowToken
-                    , p.countBlocks
-                    , p.healthFactor2
                     , undefined
                     , checkGasUsed
                 ),
@@ -296,8 +295,9 @@ describe("BorrowRepayTest", () => {
                     collateralToken
                     , borrowToken
                     , amountToRepay
-                    , undefined
-                    , checkGasUsed
+                    , {
+                        controlGas: checkGasUsed
+                    }
                 )
             ]
         );
@@ -461,8 +461,6 @@ describe("BorrowRepayTest", () => {
                     collateralToken
                     , collateralAmount1
                     , borrowToken
-                    , p.countBlocks
-                    , p.healthFactor2
                     , p.deltaBlocksBetweenBorrows
                 ),
                 new BorrowAction(
@@ -470,18 +468,21 @@ describe("BorrowRepayTest", () => {
                     , collateralAmount2
                     , borrowToken
                     , p.countBlocks
-                    , p.healthFactor2
                 ),
                 new RepayAction(
                     collateralToken
                     , borrowToken
                     , amountToRepay1
-                    , p.deltaBlocksBetweenRepays
+                    , {
+                        countBlocksToSkipAfterAction: p.deltaBlocksBetweenRepays
+                    }
+
                 ),
                 new RepayAction(
                     collateralToken
                     , borrowToken
                     , amountToRepay2
+                    , {}
                 ),
             ]
         );

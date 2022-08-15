@@ -816,19 +816,19 @@ describe("Keeper test", () => {
                             );
                             const statusAfterSmallBorrow = await uc.getBorrows(p.collateral.asset, p.borrow.asset);
 
-                            // create a keeper
-                            const reconverter = new ReConverterMock();
-                            const keeper: Keeper = new Keeper(
-                                IDebtMonitor__factory.connect(await controller.debtMonitor(), deployer)
-                                , HEALTH_FACTOR2
-                                , COUNT_BLOCKS
-                                , reconverter
-                            );
-
                             // let's call keeper job twice: before and after modification of the platform state
                             const dest: boolean[] = [];
                             for (let i = 0; i < 2; ++i) {
                                 console.log("Run keeper, step", i);
+
+                                // create a keeper
+                                const reconverter = new ReConverterMock();
+                                const keeper: Keeper = new Keeper(
+                                    IDebtMonitor__factory.connect(await controller.debtMonitor(), deployer)
+                                    , HEALTH_FACTOR2
+                                    , COUNT_BLOCKS
+                                    , reconverter
+                                );
                                 await keeper.makeKeeperJob(deployer);
 
                                 // ensure that re-conversion was called for the given poolAdapter
@@ -854,6 +854,9 @@ describe("Keeper test", () => {
                                                 collateralToken
                                                 , borrowToken
                                                 , undefined //complete repay
+                                                , {
+                                                    repayFirstPositionOnly: true
+                                                }
                                             )
                                         ]
                                     );

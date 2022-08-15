@@ -14,7 +14,11 @@ export class RepayMockAction extends RepayAction {
         countBlocksToSkipAfterAction?: number,
         mockAddress?: string
     ) {
-        super(collateralToken, borrowToken, amountToRepay, countBlocksToSkipAfterAction);
+        super(collateralToken, borrowToken, amountToRepay
+            , {
+            countBlocksToSkipAfterAction: countBlocksToSkipAfterAction
+            }
+        );
 
         this._mockAddress = mockAddress;
     }

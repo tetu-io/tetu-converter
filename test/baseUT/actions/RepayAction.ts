@@ -6,26 +6,29 @@ import {DeployerUtils} from "../../../scripts/utils/DeployerUtils";
 import {TimeUtils} from "../../../scripts/utils/TimeUtils";
 import {TokenDataTypes} from "../types/TokenDataTypes";
 
+export interface RepayActionOptionalParams {
+    countBlocksToSkipAfterAction?: number,
+    controlGas?: boolean;
+    repayFirstPositionOnly?: boolean;
+}
+
 export class RepayAction implements IRepayAction {
     public collateralToken: TokenDataTypes;
     public borrowToken: TokenDataTypes;
     /** if undefined - repay all */
     public amountToRepay: BigNumber | undefined;
-    public countBlocksToSkipAfterAction?: number;
-    public controlGas?: boolean;
+    public params: RepayActionOptionalParams;
 
     constructor(
         collateralToken: TokenDataTypes,
         borrowToken: TokenDataTypes,
         amountToRepay: BigNumber | undefined,
-        countBlocksToSkipAfterAction?: number,
-        controlGas?: boolean
+        params: RepayActionOptionalParams
     ) {
         this.collateralToken = collateralToken;
         this.borrowToken = borrowToken;
         this.amountToRepay = amountToRepay;
-        this.countBlocksToSkipAfterAction = countBlocksToSkipAfterAction;
-        this.controlGas = controlGas;
+        this.params = params;
     }
 
     async doAction(user: Borrower) : Promise<IUserBalances> {
@@ -38,7 +41,7 @@ export class RepayAction implements IRepayAction {
                 user.address,
                 this.amountToRepay
             );
-            if (this.controlGas) {
+            if (this.params.controlGas) {
                 gasUsed = await user.estimateGas.makeRepayUC1_3(
                     this.collateralToken.address,
                     this.borrowToken.address,
@@ -47,22 +50,37 @@ export class RepayAction implements IRepayAction {
                 );
             }
         } else {
-            await user.makeRepayUC1_2(
-                this.collateralToken.address,
-                this.borrowToken.address,
-                user.address
-            );
-            if (this.controlGas) {
-                gasUsed = await user.estimateGas.makeRepayUC1_2(
+            if (this.params.repayFirstPositionOnly) {
+                await user.makeRepayUC1_2_firstPositionOnly(
                     this.collateralToken.address,
                     this.borrowToken.address,
                     user.address
                 );
+                if (this.params.controlGas) {
+                    gasUsed = await user.estimateGas.makeRepayUC1_2_firstPositionOnly(
+                        this.collateralToken.address,
+                        this.borrowToken.address,
+                        user.address
+                    );
+                }
+            } else {
+                await user.makeRepayUC1_2(
+                    this.collateralToken.address,
+                    this.borrowToken.address,
+                    user.address
+                );
+                if (this.params.controlGas) {
+                    gasUsed = await user.estimateGas.makeRepayUC1_2(
+                        this.collateralToken.address,
+                        this.borrowToken.address,
+                        user.address
+                    );
+                }
             }
         }
 
-        if (this.countBlocksToSkipAfterAction) {
-            await TimeUtils.advanceNBlocks(this.countBlocksToSkipAfterAction);
+        if (this.params.countBlocksToSkipAfterAction) {
+            await TimeUtils.advanceNBlocks(this.params.countBlocksToSkipAfterAction);
         }
 
         const collateral = await IERC20__factory.connect(

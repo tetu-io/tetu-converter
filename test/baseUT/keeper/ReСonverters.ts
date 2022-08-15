@@ -24,6 +24,7 @@ export class ReConverterMock implements IReConverter {
         this.poolAdapters.push(poolAdapterAddress);
     }
     ensureExpectedPA(poolAdapterAddress: string) : boolean {
+        console.log(`ensureExpectedPA poolAdapterAddress=${poolAdapterAddress} poolAdapters=${this.poolAdapters}`)
         return this.poolAdapters.length === 1 && this.poolAdapters[0] === poolAdapterAddress;
     }
 }

@@ -100,11 +100,14 @@ contract DebtMonitor is IDebtMonitor {
 
     // enumerate all pool adapters
     for (uint i = 0; i < maxCountToCheck; i = _uncheckedInc(i)) {
+      console.log("checkForReconversion position=", i);
       nextIndexToCheck0 += 1;
 
       // check if we need to make rebalancing because of too low health factor
       IPoolAdapter pa = IPoolAdapter(positions[startIndex0 + i]);
       (uint collateralAmount,, uint healthFactor18,) = pa.getStatus();
+      console.log("checkForReconversion collateralAmount=", collateralAmount);
+      console.log("checkForReconversion healthFactor18=", healthFactor18);
 
       if (healthFactor18 < minAllowedHealthFactor
         || _findBetterBorrowWay(tc, pa, collateralAmount, healthFactor2, periodInBlocks)

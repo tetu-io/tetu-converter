@@ -168,10 +168,12 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer 
     // TODO: send aTokens anywhere?
 
     // ensure that current health factor is greater than min allowed
-    (,,,,, uint256 healthFactor) = _pool.getUserAccountData(address(this));
+    (uint256 totalCollateralBase,uint256 totalDebtBase,,,, uint256 healthFactor) = _pool.getUserAccountData(address(this));
+    console.log("totalCollateralBase", totalCollateralBase);
+    console.log("totalDebtBase", totalDebtBase);
     //console.log("health factors:", healthFactor, uint(controller.getMinHealthFactor2())*10**(18-2));
     require(healthFactor > uint(controller.getMinHealthFactor2())*10**(18-2), AppErrors.WRONG_HEALTH_FACTOR);
-    //console.log("borrow is completed");
+    console.log("AAVE3 borrow done");
   }
 
   ///////////////////////////////////////////////////////
@@ -220,7 +222,7 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer 
 
       // validate result status
       (uint totalCollateralBase, uint totalDebtBase,,,, uint256 healthFactor) = _pool.getUserAccountData(address(this));
-      if (totalCollateralBase == 0 && totalDebtBase == 0) {
+      if (totalCollateralBase == 0 && totalDebtBase == 0) { //!TODO: we need to close position if balance is not zero (dust tokens)
         // update borrow position status in DebtMonitor
         IDebtMonitor(controller.debtMonitor()).onClosePosition();
       } else {
@@ -228,6 +230,7 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer 
         require(healthFactor > uint(controller.getMinHealthFactor2())*10**(18-2), AppErrors.WRONG_HEALTH_FACTOR);
       }
     }
+    console.log("AAVE3 repay done");
   }
 
   function _withdrawAndLeaveDustCollateral(address receiver_) internal {
@@ -242,8 +245,13 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer 
       uint[] memory prices = _priceOracle.getAssetsPrices(assets);
 
       uint liquidationThreshold18 = _pool.getConfiguration(assetCollateral).getLiquidationThreshold();
-
       uint collateralToKeepToAvoidRevert = totalDebtBase * liquidationThreshold18 * prices[1] / prices[0];
+      console.log("totalCollateralBase: ", totalCollateralBase);
+      console.log("totalDebtBase: ", totalDebtBase);
+      console.log("liquidationThreshold18: ", liquidationThreshold18);
+      console.log("prices[0]: ", prices[0]);
+      console.log("prices[1]: ", prices[1]);
+
       console.log("Keep: ", collateralToKeepToAvoidRevert, prices[0], prices[1]);
       console.log("Withdraw: ", totalCollateralBase/ prices[0], totalCollateralBase, liquidationThreshold18);
       console.log("Withdraw possible: ", (totalCollateralBase - collateralToKeepToAvoidRevert)/ prices[0], (totalCollateralBase - collateralToKeepToAvoidRevert));
