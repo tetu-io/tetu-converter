@@ -207,12 +207,104 @@ contract Aave3PlatformAdapter is IPlatformAdapter {
       (IAaveAddressesProvider(IAavePool(pool).ADDRESSES_PROVIDER())).getPoolDataProvider()
     );
 
-    (,,,
+    (,,
+    uint256 aTokens,
     uint256 totalStableDebt,
     uint256 totalVariableDebt
     ,,,,,,,) = dp.getReserveData(borrowAsset_);
 
-    return _br(borrowAsset_, rb, amountToBorrow_, totalStableDebt, totalVariableDebt);
+    console.log("getBorrowRateAfterBorrow");
+    console.log("amountToBorrow_", amountToBorrow_);
+    console.log("price", _priceOracle.getAssetPrice(borrowAsset_));
+    console.log("aTokens", aTokens);
+    console.log("totalVariableDebt", totalVariableDebt);
+    console.log("totalStableDebt", totalStableDebt);
+
+  //see function updateInterestRates(
+//    vars.totalVariableDebt = reserveCache.nextScaledVariableDebt.rayMul(
+//      reserveCache.nextVariableBorrowIndex
+//    );
+
+    // see function cache(DataTypes.ReserveData storage reserve)
+//    reserveCache.currScaledVariableDebt = reserveCache.nextScaledVariableDebt = IVariableDebtToken(
+//      reserveCache.variableDebtTokenAddress
+//    ).scaledTotalSupply();
+
+    uint br0 = calculateInterestRates(
+      borrowAsset_,
+      rb.aTokenAddress,
+      0,
+      0,
+      totalStableDebt,
+      totalVariableDebt
+    );
+    console.log("Native predicted BR0:", br0);
+    uint br2 = calculateInterestRates(
+      borrowAsset_,
+      rb.aTokenAddress,
+      0,
+      amountToBorrow_,
+      totalStableDebt,
+      totalVariableDebt
+    );
+    console.log("Native predicted BR:", br2);
+
+    return _br(borrowAsset_,
+      rb,
+      amountToBorrow_,
+      totalStableDebt,
+      totalVariableDebt
+    );
+  }
+
+  uint constant private MAX_EXCESS_USAGE_RATIO = 100000000000000000000000000;
+  uint constant private OPTIMAL_USAGE_RATIO = 900000000000000000000000000;
+  uint constant private _variableRateSlope1 = 40000000000000000000000000;
+  uint constant private _variableRateSlope2 = 600000000000000000000000000;
+  uint constant private _baseVariableBorrowRate = 0;
+
+  function calculateInterestRates(
+    address reserve,
+    address aToken,
+    uint liquidityAdded,
+    uint liquidityTaken,
+    uint totalStableDebt,
+    uint totalVariableDebt
+  ) internal view returns (
+    uint256 currentVariableBorrowRate
+  )
+  {
+    console.log("calculateInterestRates");
+    uint totalDebt = totalStableDebt + totalVariableDebt;
+    console.log("totalDebt", totalDebt);
+    currentVariableBorrowRate = _baseVariableBorrowRate;
+    uint borrowUsageRatio;
+
+    if (totalDebt != 0) {
+      uint availableLiquidity = IERC20(reserve).balanceOf(aToken) + liquidityAdded - liquidityTaken;
+      uint availableLiquidityPlusDebt = availableLiquidity + totalDebt;
+      borrowUsageRatio = rayDiv(totalDebt, availableLiquidityPlusDebt);
+      console.log("availableLiquidity", availableLiquidity);
+      console.log("availableLiquidityPlusDebt", availableLiquidityPlusDebt);
+    }
+    console.log("borrowUsageRatio", borrowUsageRatio);
+
+    if (borrowUsageRatio > OPTIMAL_USAGE_RATIO) {
+      uint256 excessBorrowUsageRatio = rayDiv(borrowUsageRatio - OPTIMAL_USAGE_RATIO, MAX_EXCESS_USAGE_RATIO);
+      currentVariableBorrowRate += _variableRateSlope1 + rayMul(_variableRateSlope2, excessBorrowUsageRatio);
+      console.log("currentVariableBorrowRateHigh", currentVariableBorrowRate, excessBorrowUsageRatio);
+    } else {
+      currentVariableBorrowRate += rayDiv(rayMul(_variableRateSlope1, borrowUsageRatio), OPTIMAL_USAGE_RATIO);
+      console.log("currentVariableBorrowRateLow", currentVariableBorrowRate);
+    }
+  }
+
+  function rayDiv(uint a, uint b) internal pure returns (uint) {
+    return ((a * RAY) + b / 2) / b;
+  }
+
+  function rayMul(uint a, uint b) internal pure returns (uint) {
+    return (a * b + HALF_RAY) / RAY;
   }
 
   function _br(

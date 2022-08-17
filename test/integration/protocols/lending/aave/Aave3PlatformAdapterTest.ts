@@ -2,7 +2,7 @@ import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import {ethers} from "hardhat";
 import {TimeUtils} from "../../../../../scripts/utils/TimeUtils";
 import {
-  IAaveToken__factory,
+  IAaveToken__factory, IERC20__factory,
   IERC20Extended, IERC20Extended__factory
 } from "../../../../../typechain";
 import {expect, use} from "chai";
@@ -313,8 +313,13 @@ describe("Aave-v3 integration tests, platform adapter", () => {
         // before borrow
         const dataBefore = await h.getReserveInfo(deployer, aavePool, dp, borrowAsset);
         const brBefore = dataBefore.data.currentVariableBorrowRate;
-        const brPredicted = await aavePlatformAdapter.getBorrowRateAfterBorrow(borrowAsset, amountToBorrow);
+        const brPredicted = await aavePlatformAdapter.getBorrowRateAfterBorrow(
+          borrowAsset
+          , amountToBorrow
+        );
         console.log(`Current borrow rate ${brBefore.toString()} predicted ${brPredicted.toString()}`);
+        console.log(`ReserveInterestRateStrategy ${dataBefore.data.interestRateStrategyAddress}`);
+        console.log(`AToken address ${dataBefore.data.aTokenAddress}`);
 
         // supply collateral
         await IERC20Extended__factory.connect(collateralAsset, deployer).approve(aavePool.address, collateralAmount);
@@ -323,6 +328,11 @@ describe("Aave-v3 integration tests, platform adapter", () => {
         const userAccountData = await aavePool.getUserAccountData(deployer.address);
         console.log(`Available borrow base ${userAccountData.availableBorrowsBase}`);
         await aavePool.setUserUseReserveAsCollateral(collateralAsset, true);
+
+        // balance of the borrow asset before the borrow
+        const borrowBalanceOfAToken = await IERC20__factory.connect(borrowAsset, deployer)
+          .balanceOf(dataBefore.aTokenAddress);
+        console.log(`AToken has borrow asset: ${borrowBalanceOfAToken}`);
 
         // borrow
         console.log(`borrow ${borrowAsset} amount ${amountToBorrow}`);
