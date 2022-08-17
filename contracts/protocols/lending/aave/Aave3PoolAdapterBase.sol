@@ -19,7 +19,7 @@ import "../../../integrations/dforce/SafeRatioMath.sol";
 /// @dev Instances of this contract are created using proxy-minimal pattern, so no constructor
 abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer {
   using SafeERC20 for IERC20;
-  using Aave3ReserveConfiguration for DataTypes.ReserveConfigurationMap;
+  using Aave3ReserveConfiguration for Aave3DataTypes.ReserveConfigurationMap;
   using SafeRatioMath for uint;
 
   /// @notice 1 - stable, 2 - variable
@@ -113,7 +113,7 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer 
     address assetBorrow = borrowAsset;
 
     //a-tokens
-    DataTypes.ReserveData memory d = _pool.getReserveData(assetCollateral);
+    Aave3DataTypes.ReserveData memory d = _pool.getReserveData(assetCollateral);
     uint aTokensBalanceBeforeSupply = IERC20(d.aTokenAddress).balanceOf(address(this));
 
     // ensure we have received expected collateral amount
@@ -349,7 +349,7 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer 
 
   /// @notice Compute current cost of the money
   function getAPR18() external view override returns (uint) {
-    DataTypes.ReserveData memory rb = _pool.getReserveData(borrowAsset);
+    Aave3DataTypes.ReserveData memory rb = _pool.getReserveData(borrowAsset);
     return uint(rb.currentVariableBorrowRate) * 10**18 * 100 / 10**27;
   }
 

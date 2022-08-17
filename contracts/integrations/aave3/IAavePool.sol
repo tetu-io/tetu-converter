@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.4;
+
+import "./Aave3DataTypes.sol";
 pragma experimental ABIEncoderV2;
 
 /// @notice Restored from 0x794a61358D6845594F94dc1DB02A252b5b4814aD (no events)
@@ -70,7 +72,7 @@ interface IAavePool {
    */
   function configureEModeCategory(
     uint8 id,
-    DataTypes.EModeCategory memory category
+    Aave3DataTypes.EModeCategory memory category
   ) external;
 
   /**
@@ -172,7 +174,7 @@ interface IAavePool {
   function getConfiguration(address asset)
   external
   view
-  returns (DataTypes.ReserveConfigurationMap memory);
+  returns (Aave3DataTypes.ReserveConfigurationMap memory);
 
   /**
    * @notice Returns the data of an eMode category
@@ -182,11 +184,11 @@ interface IAavePool {
   function getEModeCategoryData(uint8 id)
   external
   view
-  returns (DataTypes.EModeCategory memory);
+  returns (Aave3DataTypes.EModeCategory memory);
 
   /**
-   * @notice Returns the address of the underlying asset of a reserve by the reserve id as stored in the DataTypes.ReserveData struct
-   * @param id The id of the reserve as stored in the DataTypes.ReserveData struct
+   * @notice Returns the address of the underlying asset of a reserve by the reserve id as stored in the Aave3DataTypes.ReserveData struct
+   * @param id The id of the reserve as stored in the Aave3DataTypes.ReserveData struct
    * @return The address of the reserve associated with id
    **/
   function getReserveAddressById(uint16 id) external view returns (address);
@@ -199,7 +201,7 @@ interface IAavePool {
   function getReserveData(address asset)
   external
   view
-  returns (DataTypes.ReserveData memory);
+  returns (Aave3DataTypes.ReserveData memory);
 
   /**
    * @notice Returns the normalized income normalized income of the reserve
@@ -258,7 +260,7 @@ interface IAavePool {
   function getUserConfiguration(address user)
   external
   view
-  returns (DataTypes.ReserveConfigurationMap memory);
+  returns (Aave3DataTypes.ReserveConfigurationMap memory);
 
   function getUserEMode(address user) external view returns (uint256);
 
@@ -409,7 +411,7 @@ interface IAavePool {
    **/
   function setConfiguration(
     address asset,
-    DataTypes.ReserveConfigurationMap memory configuration
+    Aave3DataTypes.ReserveConfigurationMap memory configuration
   ) external;
 
   /**
@@ -520,37 +522,5 @@ interface IAavePool {
     uint256 amount,
     address to
   ) external returns (uint256);
-}
-
-interface DataTypes {
-  struct EModeCategory {
-    uint16 ltv;
-    uint16 liquidationThreshold;
-    uint16 liquidationBonus;
-    address priceSource;
-    string label;
-  }
-
-  struct ReserveConfigurationMap {
-    uint256 data;
-  }
-
-  struct ReserveData {
-    ReserveConfigurationMap configuration;
-    uint128 liquidityIndex;
-    uint128 currentLiquidityRate;
-    uint128 variableBorrowIndex;
-    uint128 currentVariableBorrowRate;
-    uint128 currentStableBorrowRate;
-    uint40 lastUpdateTimestamp;
-    uint16 id;
-    address aTokenAddress;
-    address stableDebtTokenAddress;
-    address variableDebtTokenAddress;
-    address interestRateStrategyAddress;
-    uint128 accruedToTreasury;
-    uint128 unbacked;
-    uint128 isolationModeTotalDebt;
-  }
 }
 

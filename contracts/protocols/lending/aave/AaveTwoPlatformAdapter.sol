@@ -1,5 +1,4 @@
 // SPDX-License-Identifier: MIT
-
 pragma solidity 0.8.4;
 
 import "../../../openzeppelin/SafeERC20.sol";
@@ -15,6 +14,7 @@ import "../../../integrations/aaveTwo/IAaveTwoPriceOracle.sol";
 import "../../../integrations/aaveTwo/IAaveTwoProtocolDataProvider.sol";
 import "../../../integrations/aaveTwo/IAaveTwoAToken.sol";
 import "../../../integrations/aaveTwo/AaveTwoReserveConfiguration.sol";
+import "../../../integrations/aaveTwo/IAaveTwoReserveInterestRateStrategy.sol";
 import "hardhat/console.sol";
 
 /// @notice Adapter to read current pools info from AAVE-v2-protocol, see https://docs.aave.com/hub/
@@ -79,7 +79,8 @@ contract AaveTwoPlatformAdapter is IPlatformAdapter {
 
   function getConversionPlan (
     address collateralAsset_,
-    address borrowAsset_
+    address borrowAsset_,
+    uint borrowAmountFactor
   ) external view override returns (
     AppDataTypes.ConversionPlan memory plan
   ) {
@@ -94,25 +95,78 @@ contract AaveTwoPlatformAdapter is IPlatformAdapter {
         plan.liquidationThreshold18 = uint(rc.configuration.getLiquidationThreshold()) * 10**(18-4);
         plan.converter = converter;
 
-       // assume here, that we always use variable borrow rate
-        plan.aprPerBlock18 = rb.currentVariableBorrowRate
-          / COUNT_SECONDS_PER_YEAR
-          * IController(controller).blocksPerDay() * 365 / COUNT_SECONDS_PER_YEAR
-          / 10**(27-18); // rays => decimals 18 (1 ray = 1e-27)
-
         // availableLiquidity is IERC20(borrowToken).balanceOf(atoken)
-        (uint availableLiquidity,,,,,,,,,) = IAaveTwoProtocolDataProvider(
+        (uint availableLiquidity, uint totalStableDebt, uint totalVariableDebt,,,,,,,) = IAaveTwoProtocolDataProvider(
           IAaveTwoLendingPoolAddressesProvider(pool.getAddressesProvider()).getAddress(bytes32(ID_DATA_PROVIDER))
         ).getReserveData(borrowAsset_);
 
         plan.maxAmountToBorrowBT = availableLiquidity;
         console.log("AAVETwo: availableLiquidity", availableLiquidity);
         plan.maxAmountToSupplyCT = type(uint).max; // unlimited
+
+        {
+          uint br = rb.currentVariableBorrowRate;
+          uint brAfterBorrow = _br(borrowAsset_,
+            rb,
+            borrowAmountFactor * plan.liquidationThreshold18 / 1e18,
+            totalStableDebt,
+            totalVariableDebt
+          );
+
+          console.log("maxAmountToBorrowBT", plan.maxAmountToBorrowBT, plan.liquidationThreshold18 * borrowAmountFactor / 1e18);
+          console.log("BRTwo", br);
+          console.log("BRTwo-after-borrow", brAfterBorrow, borrowAmountFactor * plan.liquidationThreshold18 / 1e18);
+
+          // assume here, that we always use variable borrow rate
+          plan.aprPerBlock18 = (brAfterBorrow > br ? brAfterBorrow : br)
+            / COUNT_SECONDS_PER_YEAR
+            * IController(controller).blocksPerDay() * 365 / COUNT_SECONDS_PER_YEAR
+            / 10**(27-18); // rays => decimals 18 (1 ray = 1e-27)
+        }
+
       }
     }
 
     console.log("10");
     return plan;
+  }
+
+  ///////////////////////////////////////////////////////
+  ///  Calculate borrow rate after borrowing in advance
+  ///////////////////////////////////////////////////////
+
+  /// @notice Estimate value of variable borrow rate after borrowing {amountToBorrow_}
+  function getBorrowRateAfterBorrow(address borrowAsset_, uint amountToBorrow_) external view override returns (uint) {
+    DataTypes.ReserveData memory rb = pool.getReserveData(borrowAsset_);
+    (, uint totalStableDebt, uint totalVariableDebt,,,,,,,) = IAaveTwoProtocolDataProvider(
+      IAaveTwoLendingPoolAddressesProvider(pool.getAddressesProvider()).getAddress(bytes32(ID_DATA_PROVIDER))
+    ).getReserveData(borrowAsset_);
+
+    return _br(borrowAsset_, rb, amountToBorrow_, totalStableDebt, totalVariableDebt);
+  }
+
+  function _br(
+    address borrowAsset_,
+    DataTypes.ReserveData memory r,
+    uint amountToBorrow_,
+    uint256 totalStableDebt,
+    uint256 totalVariableDebt
+  ) internal view returns (uint variableBorrowRate) {
+    console.log("AAVETwo calc br available liquidity=", IERC20(borrowAsset_).balanceOf(r.aTokenAddress));
+    console.log("AAVETwo amountToBorrow_=", amountToBorrow_);
+    console.log("AAVETwo totalVariableDebt=", totalVariableDebt);
+
+    // see aave-v2-core, DefaultReserveInterestRateStrategy, calculateInterestRates impl
+    (,,variableBorrowRate) = IAaveTwoReserveInterestRateStrategy(r.interestRateStrategyAddress).calculateInterestRates(
+      borrowAsset_,
+      r.aTokenAddress,
+      0,
+      amountToBorrow_,
+      totalStableDebt,
+      totalVariableDebt,
+      r.currentStableBorrowRate, // this value is not used to calculate variable BR
+      r.configuration.getReserveFactor()
+    );
   }
 
   ///////////////////////////////////////////////////////

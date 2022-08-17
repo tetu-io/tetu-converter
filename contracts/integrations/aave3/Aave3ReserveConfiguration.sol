@@ -2,7 +2,7 @@
 pragma solidity 0.8.4;
 
 import {Aave3Errors} from './Aave3Errors.sol';
-import {DataTypes} from './IAavePool.sol';
+import {Aave3DataTypes} from './IAavePool.sol';
 
 /**
  * @title ReserveConfiguration library
@@ -70,7 +70,7 @@ library Aave3ReserveConfiguration {
    * @param self The reserve configuration
    * @param ltv The new ltv
    **/
-  function setLtv(DataTypes.ReserveConfigurationMap memory self, uint256 ltv) internal pure {
+  function setLtv(Aave3DataTypes.ReserveConfigurationMap memory self, uint256 ltv) internal pure {
     require(ltv <= MAX_VALID_LTV, Aave3Errors.INVALID_LTV);
 
     self.data = (self.data & LTV_MASK) | ltv;
@@ -81,7 +81,7 @@ library Aave3ReserveConfiguration {
    * @param self The reserve configuration
    * @return The loan to value
    **/
-  function getLtv(DataTypes.ReserveConfigurationMap memory self) internal pure returns (uint256) {
+  function getLtv(Aave3DataTypes.ReserveConfigurationMap memory self) internal pure returns (uint256) {
     return self.data & ~LTV_MASK;
   }
 
@@ -90,7 +90,7 @@ library Aave3ReserveConfiguration {
    * @param self The reserve configuration
    * @param threshold The new liquidation threshold
    **/
-  function setLiquidationThreshold(DataTypes.ReserveConfigurationMap memory self, uint256 threshold)
+  function setLiquidationThreshold(Aave3DataTypes.ReserveConfigurationMap memory self, uint256 threshold)
   internal
   pure
   {
@@ -106,7 +106,7 @@ library Aave3ReserveConfiguration {
    * @param self The reserve configuration
    * @return The liquidation threshold
    **/
-  function getLiquidationThreshold(DataTypes.ReserveConfigurationMap memory self)
+  function getLiquidationThreshold(Aave3DataTypes.ReserveConfigurationMap memory self)
   internal
   pure
   returns (uint256)
@@ -119,7 +119,7 @@ library Aave3ReserveConfiguration {
    * @param self The reserve configuration
    * @param bonus The new liquidation bonus
    **/
-  function setLiquidationBonus(DataTypes.ReserveConfigurationMap memory self, uint256 bonus)
+  function setLiquidationBonus(Aave3DataTypes.ReserveConfigurationMap memory self, uint256 bonus)
   internal
   pure
   {
@@ -135,7 +135,7 @@ library Aave3ReserveConfiguration {
    * @param self The reserve configuration
    * @return The liquidation bonus
    **/
-  function getLiquidationBonus(DataTypes.ReserveConfigurationMap memory self)
+  function getLiquidationBonus(Aave3DataTypes.ReserveConfigurationMap memory self)
   internal
   pure
   returns (uint256)
@@ -148,7 +148,7 @@ library Aave3ReserveConfiguration {
    * @param self The reserve configuration
    * @param decimals The decimals
    **/
-  function setDecimals(DataTypes.ReserveConfigurationMap memory self, uint256 decimals)
+  function setDecimals(Aave3DataTypes.ReserveConfigurationMap memory self, uint256 decimals)
   internal
   pure
   {
@@ -162,7 +162,7 @@ library Aave3ReserveConfiguration {
    * @param self The reserve configuration
    * @return The decimals of the asset
    **/
-  function getDecimals(DataTypes.ReserveConfigurationMap memory self)
+  function getDecimals(Aave3DataTypes.ReserveConfigurationMap memory self)
   internal
   pure
   returns (uint256)
@@ -175,7 +175,7 @@ library Aave3ReserveConfiguration {
    * @param self The reserve configuration
    * @param active The active state
    **/
-  function setActive(DataTypes.ReserveConfigurationMap memory self, bool active) internal pure {
+  function setActive(Aave3DataTypes.ReserveConfigurationMap memory self, bool active) internal pure {
     self.data =
     (self.data & ACTIVE_MASK) |
     (uint256(active ? 1 : 0) << IS_ACTIVE_START_BIT_POSITION);
@@ -186,7 +186,7 @@ library Aave3ReserveConfiguration {
    * @param self The reserve configuration
    * @return The active state
    **/
-  function getActive(DataTypes.ReserveConfigurationMap memory self) internal pure returns (bool) {
+  function getActive(Aave3DataTypes.ReserveConfigurationMap memory self) internal pure returns (bool) {
     return (self.data & ~ACTIVE_MASK) != 0;
   }
 
@@ -195,7 +195,7 @@ library Aave3ReserveConfiguration {
    * @param self The reserve configuration
    * @param frozen The frozen state
    **/
-  function setFrozen(DataTypes.ReserveConfigurationMap memory self, bool frozen) internal pure {
+  function setFrozen(Aave3DataTypes.ReserveConfigurationMap memory self, bool frozen) internal pure {
     self.data =
     (self.data & FROZEN_MASK) |
     (uint256(frozen ? 1 : 0) << IS_FROZEN_START_BIT_POSITION);
@@ -206,7 +206,7 @@ library Aave3ReserveConfiguration {
    * @param self The reserve configuration
    * @return The frozen state
    **/
-  function getFrozen(DataTypes.ReserveConfigurationMap memory self) internal pure returns (bool) {
+  function getFrozen(Aave3DataTypes.ReserveConfigurationMap memory self) internal pure returns (bool) {
     return (self.data & ~FROZEN_MASK) != 0;
   }
 
@@ -215,7 +215,7 @@ library Aave3ReserveConfiguration {
    * @param self The reserve configuration
    * @param paused The paused state
    **/
-  function setPaused(DataTypes.ReserveConfigurationMap memory self, bool paused) internal pure {
+  function setPaused(Aave3DataTypes.ReserveConfigurationMap memory self, bool paused) internal pure {
     self.data =
     (self.data & PAUSED_MASK) |
     (uint256(paused ? 1 : 0) << IS_PAUSED_START_BIT_POSITION);
@@ -226,7 +226,7 @@ library Aave3ReserveConfiguration {
    * @param self The reserve configuration
    * @return The paused state
    **/
-  function getPaused(DataTypes.ReserveConfigurationMap memory self) internal pure returns (bool) {
+  function getPaused(Aave3DataTypes.ReserveConfigurationMap memory self) internal pure returns (bool) {
     return (self.data & ~PAUSED_MASK) != 0;
   }
 
@@ -239,7 +239,7 @@ library Aave3ReserveConfiguration {
    * @param self The reserve configuration
    * @param borrowable True if the asset is borrowable
    **/
-  function setBorrowableInIsolation(DataTypes.ReserveConfigurationMap memory self, bool borrowable)
+  function setBorrowableInIsolation(Aave3DataTypes.ReserveConfigurationMap memory self, bool borrowable)
   internal
   pure
   {
@@ -257,7 +257,7 @@ library Aave3ReserveConfiguration {
    * @param self The reserve configuration
    * @return The borrowable in isolation flag
    **/
-  function getBorrowableInIsolation(DataTypes.ReserveConfigurationMap memory self)
+  function getBorrowableInIsolation(Aave3DataTypes.ReserveConfigurationMap memory self)
   internal
   pure
   returns (bool)
@@ -271,7 +271,7 @@ library Aave3ReserveConfiguration {
    * @param self The reserve configuration
    * @param siloed True if the asset is siloed
    **/
-  function setSiloedBorrowing(DataTypes.ReserveConfigurationMap memory self, bool siloed)
+  function setSiloedBorrowing(Aave3DataTypes.ReserveConfigurationMap memory self, bool siloed)
   internal
   pure
   {
@@ -286,7 +286,7 @@ library Aave3ReserveConfiguration {
    * @param self The reserve configuration
    * @return The siloed borrowing flag
    **/
-  function getSiloedBorrowing(DataTypes.ReserveConfigurationMap memory self)
+  function getSiloedBorrowing(Aave3DataTypes.ReserveConfigurationMap memory self)
   internal
   pure
   returns (bool)
@@ -299,7 +299,7 @@ library Aave3ReserveConfiguration {
    * @param self The reserve configuration
    * @param enabled True if the borrowing needs to be enabled, false otherwise
    **/
-  function setBorrowingEnabled(DataTypes.ReserveConfigurationMap memory self, bool enabled)
+  function setBorrowingEnabled(Aave3DataTypes.ReserveConfigurationMap memory self, bool enabled)
   internal
   pure
   {
@@ -313,7 +313,7 @@ library Aave3ReserveConfiguration {
    * @param self The reserve configuration
    * @return The borrowing state
    **/
-  function getBorrowingEnabled(DataTypes.ReserveConfigurationMap memory self)
+  function getBorrowingEnabled(Aave3DataTypes.ReserveConfigurationMap memory self)
   internal
   pure
   returns (bool)
@@ -327,7 +327,7 @@ library Aave3ReserveConfiguration {
    * @param enabled True if the stable rate borrowing needs to be enabled, false otherwise
    **/
   function setStableRateBorrowingEnabled(
-    DataTypes.ReserveConfigurationMap memory self,
+    Aave3DataTypes.ReserveConfigurationMap memory self,
     bool enabled
   ) internal pure {
     self.data =
@@ -340,7 +340,7 @@ library Aave3ReserveConfiguration {
    * @param self The reserve configuration
    * @return The stable rate borrowing state
    **/
-  function getStableRateBorrowingEnabled(DataTypes.ReserveConfigurationMap memory self)
+  function getStableRateBorrowingEnabled(Aave3DataTypes.ReserveConfigurationMap memory self)
   internal
   pure
   returns (bool)
@@ -353,7 +353,7 @@ library Aave3ReserveConfiguration {
    * @param self The reserve configuration
    * @param reserveFactor The reserve factor
    **/
-  function setReserveFactor(DataTypes.ReserveConfigurationMap memory self, uint256 reserveFactor)
+  function setReserveFactor(Aave3DataTypes.ReserveConfigurationMap memory self, uint256 reserveFactor)
   internal
   pure
   {
@@ -369,7 +369,7 @@ library Aave3ReserveConfiguration {
    * @param self The reserve configuration
    * @return The reserve factor
    **/
-  function getReserveFactor(DataTypes.ReserveConfigurationMap memory self)
+  function getReserveFactor(Aave3DataTypes.ReserveConfigurationMap memory self)
   internal
   pure
   returns (uint256)
@@ -382,7 +382,7 @@ library Aave3ReserveConfiguration {
    * @param self The reserve configuration
    * @param borrowCap The borrow cap
    **/
-  function setBorrowCap(DataTypes.ReserveConfigurationMap memory self, uint256 borrowCap)
+  function setBorrowCap(Aave3DataTypes.ReserveConfigurationMap memory self, uint256 borrowCap)
   internal
   pure
   {
@@ -396,7 +396,7 @@ library Aave3ReserveConfiguration {
    * @param self The reserve configuration
    * @return The borrow cap
    **/
-  function getBorrowCap(DataTypes.ReserveConfigurationMap memory self)
+  function getBorrowCap(Aave3DataTypes.ReserveConfigurationMap memory self)
   internal
   pure
   returns (uint256)
@@ -409,7 +409,7 @@ library Aave3ReserveConfiguration {
    * @param self The reserve configuration
    * @param supplyCap The supply cap
    **/
-  function setSupplyCap(DataTypes.ReserveConfigurationMap memory self, uint256 supplyCap)
+  function setSupplyCap(Aave3DataTypes.ReserveConfigurationMap memory self, uint256 supplyCap)
   internal
   pure
   {
@@ -423,7 +423,7 @@ library Aave3ReserveConfiguration {
    * @param self The reserve configuration
    * @return The supply cap
    **/
-  function getSupplyCap(DataTypes.ReserveConfigurationMap memory self)
+  function getSupplyCap(Aave3DataTypes.ReserveConfigurationMap memory self)
   internal
   pure
   returns (uint256)
@@ -436,7 +436,7 @@ library Aave3ReserveConfiguration {
    * @param self The reserve configuration
    * @param ceiling The maximum debt ceiling for the asset
    **/
-  function setDebtCeiling(DataTypes.ReserveConfigurationMap memory self, uint256 ceiling)
+  function setDebtCeiling(Aave3DataTypes.ReserveConfigurationMap memory self, uint256 ceiling)
   internal
   pure
   {
@@ -450,7 +450,7 @@ library Aave3ReserveConfiguration {
    * @param self The reserve configuration
    * @return The debt ceiling (0 = isolation mode disabled)
    **/
-  function getDebtCeiling(DataTypes.ReserveConfigurationMap memory self)
+  function getDebtCeiling(Aave3DataTypes.ReserveConfigurationMap memory self)
   internal
   pure
   returns (uint256)
@@ -464,7 +464,7 @@ library Aave3ReserveConfiguration {
    * @param liquidationProtocolFee The liquidation protocol fee
    **/
   function setLiquidationProtocolFee(
-    DataTypes.ReserveConfigurationMap memory self,
+    Aave3DataTypes.ReserveConfigurationMap memory self,
     uint256 liquidationProtocolFee
   ) internal pure {
     require(
@@ -482,7 +482,7 @@ library Aave3ReserveConfiguration {
    * @param self The reserve configuration
    * @return The liquidation protocol fee
    **/
-  function getLiquidationProtocolFee(DataTypes.ReserveConfigurationMap memory self)
+  function getLiquidationProtocolFee(Aave3DataTypes.ReserveConfigurationMap memory self)
   internal
   pure
   returns (uint256)
@@ -497,7 +497,7 @@ library Aave3ReserveConfiguration {
    * @param unbackedMintCap The unbacked mint cap
    **/
   function setUnbackedMintCap(
-    DataTypes.ReserveConfigurationMap memory self,
+    Aave3DataTypes.ReserveConfigurationMap memory self,
     uint256 unbackedMintCap
   ) internal pure {
     require(unbackedMintCap <= MAX_VALID_UNBACKED_MINT_CAP, Aave3Errors.INVALID_UNBACKED_MINT_CAP);
@@ -512,7 +512,7 @@ library Aave3ReserveConfiguration {
    * @param self The reserve configuration
    * @return The unbacked mint cap
    **/
-  function getUnbackedMintCap(DataTypes.ReserveConfigurationMap memory self)
+  function getUnbackedMintCap(Aave3DataTypes.ReserveConfigurationMap memory self)
   internal
   pure
   returns (uint256)
@@ -525,7 +525,7 @@ library Aave3ReserveConfiguration {
    * @param self The reserve configuration
    * @param category The asset category when the user selects the eMode
    **/
-  function setEModeCategory(DataTypes.ReserveConfigurationMap memory self, uint256 category)
+  function setEModeCategory(Aave3DataTypes.ReserveConfigurationMap memory self, uint256 category)
   internal
   pure
   {
@@ -539,7 +539,7 @@ library Aave3ReserveConfiguration {
    * @param self The reserve configuration
    * @return The eMode category for the asset
    **/
-  function getEModeCategory(DataTypes.ReserveConfigurationMap memory self)
+  function getEModeCategory(Aave3DataTypes.ReserveConfigurationMap memory self)
   internal
   pure
   returns (uint256)
@@ -556,7 +556,7 @@ library Aave3ReserveConfiguration {
    * @return The state flag representing stableRateBorrowing enabled
    * @return The state flag representing paused
    **/
-  function getFlags(DataTypes.ReserveConfigurationMap memory self)
+  function getFlags(Aave3DataTypes.ReserveConfigurationMap memory self)
   internal
   pure
   returns (
@@ -588,7 +588,7 @@ library Aave3ReserveConfiguration {
    * @return The state param representing reserve factor
    * @return The state param representing eMode category
    **/
-  function getParams(DataTypes.ReserveConfigurationMap memory self)
+  function getParams(Aave3DataTypes.ReserveConfigurationMap memory self)
   internal
   pure
   returns (
@@ -618,7 +618,7 @@ library Aave3ReserveConfiguration {
    * @return The state param representing borrow cap
    * @return The state param representing supply cap.
    **/
-  function getCaps(DataTypes.ReserveConfigurationMap memory self)
+  function getCaps(Aave3DataTypes.ReserveConfigurationMap memory self)
   internal
   pure
   returns (uint256, uint256)

@@ -133,7 +133,8 @@ contract HfPlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
 
   function getConversionPlan (
     address collateralAsset_,
-    address borrowAsset_
+    address borrowAsset_,
+    uint borrowAmountFactor //TODO
   ) external override view returns (
     AppDataTypes.ConversionPlan memory plan
   ) {
@@ -196,6 +197,15 @@ contract HfPlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
       borrowAsset_,
       converter_
     );
+  }
+
+  ///////////////////////////////////////////////////////
+  ///  Calculate borrow rate after borrowing in advance
+  ///////////////////////////////////////////////////////
+
+  /// @notice Estimate value of variable borrow rate after borrowing {amountToBorrow_}
+  function getBorrowRateAfterBorrow(address borrowAsset_, uint amountToBorrow_) external view override returns (uint) {
+    return 0; //TODO
   }
 
   ///////////////////////////////////////////////////////

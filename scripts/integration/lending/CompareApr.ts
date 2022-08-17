@@ -5,10 +5,8 @@ import {MaticAddresses} from "../../addresses/MaticAddresses";
 import {AdaptersHelper} from "../../../test/baseUT/helpers/AdaptersHelper";
 import {CoreContractsHelper} from "../../../test/baseUT/helpers/CoreContractsHelper";
 import {BigNumber} from "ethers";
-import {AppDataTypes} from "../../../typechain/contracts/interfaces/IPlatformAdapter";
 import {Misc} from "../../utils/Misc";
 import {Aave3Helper} from "../helpers/Aave3Helper";
-import {getBigNumberFrom} from "../../utils/NumberUtils";
 
 interface IItem {
     platformAdapter: IPlatformAdapter;

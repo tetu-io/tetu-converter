@@ -1,7 +1,5 @@
 // SPDX-License-Identifier: MIT
-
 pragma solidity 0.8.4;
-pragma experimental ABIEncoderV2;
 
 /// @notice Restored from abi of 0x69FA688f1Dc47d4B5d8029D5a35FB7a548310654
 interface IAaveProtocolDataProvider {

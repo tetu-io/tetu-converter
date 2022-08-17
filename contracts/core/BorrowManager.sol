@@ -179,10 +179,17 @@ contract BorrowManager is BorrowManagerBase {
       require(pricesCB18[1] != 0 && pricesCB18[0] != 0, AppErrors.ZERO_PRICE);
     }
 
+    uint borrowAmountFactor18 = 1e18
+      * pp_.sourceAmount18
+      * pricesCB18[0]
+      / (pricesCB18[1] * uint(p_.healthFactor2) * 10**(18-2));
+
+
     for (uint i = 0; i < lenPools; i = _uncheckedInc(i)) {
       AppDataTypes.ConversionPlan memory plan = IPlatformAdapter(platformAdapters_[i]).getConversionPlan(
         p_.sourceToken,
-        p_.targetToken
+        p_.targetToken,
+        _toMantissa(borrowAmountFactor18, 18, pp_.targetDecimals)
       );
       if (plan.converter != address(0)) {
 //        console.log("_findPool", plan.converter);
@@ -199,9 +206,8 @@ contract BorrowManager is BorrowManagerBase {
           if (converter == address(0) || plan.aprPerBlock18 < aprForPeriod18) {
             // how much target asset we are able to get for the provided collateral with given health factor
             // TargetTA = BS / PT [TA], C = SA * PS, CM = C / HF, BS = CM * PCF
-            uint resultTa18 = plan.liquidationThreshold18
-              * pp_.sourceAmount18 * pricesCB18[0]
-              / (pricesCB18[1] * uint(p_.healthFactor2) * 10**(18-2));
+            uint resultTa18 = plan.liquidationThreshold18 * borrowAmountFactor18 / 1e18;
+
 
 //            console.log("apr %d plan.borrowRate=%d", plan.aprPerBlock18, plan.aprPerBlock18);
 //            console.log("resultTa18 %d", resultTa18);

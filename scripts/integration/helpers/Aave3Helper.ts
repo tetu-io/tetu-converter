@@ -10,7 +10,7 @@ import {
     IERC20Extended__factory
 } from "../../../typechain";
 import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
-import {DataTypes} from "../../../typechain/contracts/integrations/aave3/IAavePool";
+import {Aave3DataTypes} from "../../../typechain/contracts/integrations/aave3/IAavePool";
 import {MaticAddresses} from "../../addresses/MaticAddresses";
 
 // https://docs.aave.com/developers/deployed-contracts/v3-mainnet/polygon
@@ -160,7 +160,7 @@ export class Aave3Helper {
     }
 
     public static async getReserveLtvConfig(aavePool: IAavePool, reserve: string): Promise<ReserveLtvConfig> {
-        const rd: DataTypes.ReserveDataStruct = await aavePool.getReserveData(reserve);
+        const rd: Aave3DataTypes.ReserveDataStruct = await aavePool.getReserveData(reserve);
         const rawData: BigNumber = BigNumber.from(rd.configuration.data);
 
         return {
@@ -176,7 +176,7 @@ export class Aave3Helper {
         dp: IAaveProtocolDataProvider,
         reserve: string
     ) : Promise<ReserveInfo> {
-        const rd: DataTypes.ReserveDataStruct = await aavePool.getReserveData(reserve);
+        const rd: Aave3DataTypes.ReserveDataStruct = await aavePool.getReserveData(reserve);
         const priceOracle = await Aave3Helper.getAavePriceOracle(signer);
 
         const rawData: BigNumber = BigNumber.from(rd.configuration.data);
