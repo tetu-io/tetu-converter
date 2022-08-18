@@ -26,7 +26,7 @@ import {ReConverterMock} from "../baseUT/keeper/ReСonverters";
 import {LendingPlatformManagerMock} from "../baseUT/keeper/LendingPlatformManagerMock";
 import {PoolAdapterState01} from "../baseUT/keeper/ILendingPlatformManager";
 import {MockTestInputParams, TestSingleBorrowParams} from "../baseUT/types/BorrowRepayDataTypes";
-import {setInitialBalance} from "../baseUT/utils/BorrowRepayTestUtils";
+import {setInitialBalance} from "../baseUT/utils/CommonUtils";
 import {LendingPlatformManagerAave3} from "../baseUT/keeper/LendingPlatformManagerAave3";
 import {Aave3Helper} from "../../scripts/integration/helpers/Aave3Helper";
 import {ILendingPlatformFabric} from "../baseUT/fabrics/ILendingPlatformFabric";

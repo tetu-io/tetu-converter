@@ -78,7 +78,7 @@ describe("Hundred finance integration tests, platform adapter", () => {
             const borrowAssetData = await HundredFinanceHelper.getCTokenData(deployer, comptroller
                 , IHfCToken__factory.connect(cTokenBorrow, deployer));
 
-            const ret = await hfPlatformAdapter.getConversionPlan(collateralAsset, borrowAsset);
+            const ret = await hfPlatformAdapter.getConversionPlan(collateralAsset, borrowAsset, 0);
 
             const sret = [
                 ret.aprPerBlock18,

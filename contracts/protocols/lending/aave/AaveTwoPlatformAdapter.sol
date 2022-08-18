@@ -152,18 +152,15 @@ contract AaveTwoPlatformAdapter is IPlatformAdapter {
     uint256 totalStableDebt,
     uint256 totalVariableDebt
   ) internal view returns (uint variableBorrowRate) {
-    console.log("AAVETwo calc br available liquidity=", IERC20(borrowAsset_).balanceOf(r.aTokenAddress));
-    console.log("AAVETwo amountToBorrow_=", amountToBorrow_);
-    console.log("AAVETwo totalVariableDebt=", totalVariableDebt);
-
     // see aave-v2-core, DefaultReserveInterestRateStrategy, calculateInterestRates impl
+    // to calculate new BR, we need to reduce liquidity on borrowAmount and increase the debt on the same amount
     (,,variableBorrowRate) = IAaveTwoReserveInterestRateStrategy(r.interestRateStrategyAddress).calculateInterestRates(
       borrowAsset_,
       r.aTokenAddress,
       0,
       amountToBorrow_,
       totalStableDebt,
-      totalVariableDebt,
+      totalVariableDebt + amountToBorrow_,
       r.currentStableBorrowRate, // this value is not used to calculate variable BR
       r.configuration.getReserveFactor()
     );

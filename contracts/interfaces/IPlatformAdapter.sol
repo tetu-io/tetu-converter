@@ -9,7 +9,8 @@ interface IPlatformAdapter {
 
   /// @notice Get pool data required to select best lending pool
   /// @param borrowAmountFactor18_ Coefficient to calculate borrow amount to estimate borrow rate after borrowing
-  ///                                   max borrow amount = borrowAmountFactor * liquidationThreshold
+  ///                              max borrow amount = borrowAmountFactor * liquidationThreshold
+  ///                              Pass 0 to get current borrow rate in the plan OR not 0 to get estimated borrow rate
   function getConversionPlan (
     address collateralAsset_,
     address borrowAsset_,

@@ -31,7 +31,7 @@ import {
 import {controlGasLimitsEx} from "../../scripts/utils/hardhatUtils";
 import {TetuConverterApp} from "../baseUT/helpers/TetuConverterApp";
 import {ILendingPlatformFabric} from "../baseUT/fabrics/ILendingPlatformFabric";
-import {areAlmostEqual, setInitialBalance} from "../baseUT/utils/BorrowRepayTestUtils";
+import {areAlmostEqual, setInitialBalance} from "../baseUT/utils/CommonUtils";
 import {TokenDataTypes} from "../baseUT/types/TokenDataTypes";
 import {MockTestInputParams, TestSingleBorrowParams, TestTwoBorrowsParams} from "../baseUT/types/BorrowRepayDataTypes";
 
