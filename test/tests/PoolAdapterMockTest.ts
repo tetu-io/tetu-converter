@@ -80,7 +80,7 @@ describe("PoolAdapterMock", () => {
 
                     // create borrow manager (BM) with single pool and DebtMonitor (DM)
                     const {bm, sourceToken, targetToken, pools, controller}
-                        = await BorrowManagerHelper.createBmTwoUnderlines(deployer, tt, converter.address);
+                        = await BorrowManagerHelper.createBmTwoUnderlyings(deployer, tt, converter.address);
                     const dm = await CoreContractsHelper.createDebtMonitor(deployer, controller);
                     await controller.assignBatch(
                         [await controller.debtMonitorKey(), await controller.borrowManagerKey()]
@@ -99,7 +99,7 @@ describe("PoolAdapterMock", () => {
                     const poolAdapterAddress = await bm.getPoolAdapter(pools[0].converter, user, collateral
                         , targetToken.address);
                     const cToken = CTokenMock__factory.connect(
-                        pools[0].underlineTocTokens.get(sourceToken.address) || ""
+                        pools[0].underlyingTocTokens.get(sourceToken.address) || ""
                         , deployer
                     );
 

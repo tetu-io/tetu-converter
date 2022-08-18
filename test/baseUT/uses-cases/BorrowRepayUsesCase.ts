@@ -1,11 +1,11 @@
 import {BigNumber} from "ethers";
-import {IUserBalances} from "./utils/BalanceUtils";
+import {IUserBalances} from "../utils/BalanceUtils";
 import {
     IPoolAdapter__factory,
     Borrower
-} from "../../typechain";
+} from "../../../typechain";
 import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
-import {TokenDataTypes} from "./types/TokenDataTypes";
+import {TokenDataTypes} from "../types/TokenDataTypes";
 
 export interface IBorrowAction {
     collateralToken: TokenDataTypes,

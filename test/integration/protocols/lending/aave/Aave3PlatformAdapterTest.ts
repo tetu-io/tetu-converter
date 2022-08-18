@@ -2,13 +2,13 @@ import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import {ethers} from "hardhat";
 import {TimeUtils} from "../../../../../scripts/utils/TimeUtils";
 import {
-  IAaveToken__factory, IERC20__factory,
-  IERC20Extended, IERC20Extended__factory
+  IAavePool,
+  IAaveProtocolDataProvider,
+  IAaveToken__factory, IERC20Extended__factory
 } from "../../../../../typechain";
-import {expect, use} from "chai";
+import {expect} from "chai";
 import {BigNumber} from "ethers";
 import {getBigNumberFrom} from "../../../../../scripts/utils/NumberUtils";
-import {DeployerUtils} from "../../../../../scripts/utils/DeployerUtils";
 import {AdaptersHelper} from "../../../../baseUT/helpers/AdaptersHelper";
 import {isPolygonForkInUse} from "../../../../baseUT/utils/NetworkUtils";
 import {Aave3Helper} from "../../../../../scripts/integration/helpers/Aave3Helper";
@@ -17,6 +17,7 @@ import {MaticAddresses} from "../../../../../scripts/addresses/MaticAddresses";
 import {AprUtils} from "../../../../baseUT/utils/aprUtils";
 import {CoreContractsHelper} from "../../../../baseUT/helpers/CoreContractsHelper";
 import {areAlmostEqual} from "../../../../baseUT/utils/CommonUtils";
+import {IPlatformActor, PredictBrUsesCase} from "../../../../baseUT/uses-cases/PredictBrUsesCase";
 
 describe("Aave-v3 integration tests, platform adapter", () => {
 //region Global vars for all tests
@@ -47,6 +48,59 @@ describe("Aave-v3 integration tests, platform adapter", () => {
     await TimeUtils.rollback(snapshotForEach);
   });
 //endregion before, after
+
+//region IPlatformActor impl
+  class Aave3PlatformActor implements IPlatformActor {
+    deployer: SignerWithAddress;
+    dp: IAaveProtocolDataProvider;
+    pool: IAavePool;
+    collateralAsset: string;
+    borrowAsset: string;
+    private h: Aave3Helper;
+    constructor(
+      deployer: SignerWithAddress,
+      dp: IAaveProtocolDataProvider,
+      pool: IAavePool,
+      collateralAsset: string,
+      borrowAsset: string
+    ) {
+      this.deployer = deployer;
+      this.h = new Aave3Helper(deployer);
+      this.dp = dp;
+      this.pool = pool;
+      this.collateralAsset = collateralAsset;
+      this.borrowAsset = borrowAsset;
+    }
+    async getAvailableLiquidity() : Promise<BigNumber> {
+      const rd = await this.dp.getReserveData(this.borrowAsset);
+      console.log(`Reserve data before: totalAToken=${rd.totalAToken} totalStableDebt=${rd.totalStableDebt} totalVariableDebt=${rd.totalVariableDebt}`);
+      const availableLiquidity = rd.totalAToken.sub(
+        rd.totalStableDebt.add(rd.totalVariableDebt)
+      );
+      console.log("availableLiquidity", availableLiquidity);
+      return availableLiquidity;
+    }
+    async getCurrentBR(): Promise<BigNumber> {
+      const data = await this.h.getReserveInfo(deployer, this.pool, this.dp, this.borrowAsset);
+      const br = data.data.currentVariableBorrowRate;
+      console.log(`BR ${br.toString()}`);
+      return BigNumber.from(br);
+    }
+    async supplyCollateral(collateralAmount: BigNumber): Promise<void> {
+      await IERC20Extended__factory.connect(this.collateralAsset, deployer).approve(this.pool.address, collateralAmount);
+      console.log(`Supply collateral ${this.collateralAsset} amount ${collateralAmount}`);
+      await this.pool.supply(this.collateralAsset, collateralAmount, deployer.address, 0);
+      const userAccountData = await this.pool.getUserAccountData(deployer.address);
+      console.log(`Available borrow base ${userAccountData.availableBorrowsBase}`);
+      await this.pool.setUserUseReserveAsCollateral(this.collateralAsset, true);
+    }
+    async borrow(borrowAmount: BigNumber): Promise<void> {
+      console.log(`borrow ${this.borrowAsset} amount ${borrowAmount}`);
+      await this.pool.borrow(this.borrowAsset, borrowAmount, 2, 0, deployer.address);
+
+    }
+  }
+//endregion IPlatformActor impl
 
 //region Unit tests
   describe("getConversionPlan", () => {
@@ -273,94 +327,34 @@ describe("Aave-v3 integration tests, platform adapter", () => {
         borrowAsset: string,
         collateralHolders: string[],
         part10000: number
-      ) : Promise<{sret: string, sexpected: string}> {
-        console.log(`collateral ${collateralAsset} borrow ${borrowAsset}`);
-
-        const controller = await CoreContractsHelper.createController(deployer);
-        const templateAdapterNormalStub = ethers.Wallet.createRandom();
+      ) : Promise<{br: BigNumber, brPredicted: BigNumber}> {
         const templateAdapterEModeStub = ethers.Wallet.createRandom();
-
-        const h: Aave3Helper = new Aave3Helper(deployer);
-        const aavePool = await Aave3Helper.getAavePool(deployer);
-        const aavePlatformAdapter = await AdaptersHelper.createAave3PlatformAdapter(
-          deployer,
-          controller.address,
-          aavePool.address,
-          templateAdapterNormalStub.address,
-          templateAdapterEModeStub.address
-        );
-
-        // get available liquidity
-        // we are going to borrow given part of the liquidity
-        //                 [available liquidity] * percent100 / 100
+        const templateAdapterNormalStub = ethers.Wallet.createRandom();
         const dp = await Aave3Helper.getAaveProtocolDataProvider(deployer);
-        const reserveDataBefore = await dp.getReserveData(borrowAsset);
-        console.log(`Reserve data before: totalAToken=${reserveDataBefore.totalAToken} totalStableDebt=${reserveDataBefore.totalStableDebt} totalVariableDebt=${reserveDataBefore.totalVariableDebt}`);
-        const availableLiquidityBefore = reserveDataBefore.totalAToken.sub(
-          reserveDataBefore.totalStableDebt.add(reserveDataBefore.totalVariableDebt)
+        const aavePool = await Aave3Helper.getAavePool(deployer);
+
+        return await PredictBrUsesCase.makeTest(
+          deployer,
+          new Aave3PlatformActor(
+            deployer,
+            dp,
+            aavePool,
+            collateralAsset,
+            borrowAsset
+          ),
+          async controller => await AdaptersHelper.createAave3PlatformAdapter(
+            deployer,
+            controller.address,
+            aavePool.address,
+            templateAdapterNormalStub.address,
+            templateAdapterEModeStub.address
+          ),
+          collateralAsset,
+          borrowAsset,
+          collateralHolders,
+          part10000
         );
-        console.log(`availableLiquidity before: ${availableLiquidityBefore}`);
-
-        const amountToBorrow = availableLiquidityBefore.mul(part10000).div(10000);
-        console.log(`Try to borrow ${amountToBorrow.toString()} available liquidity is ${availableLiquidityBefore.toString()}`);
-
-        // we assume, that total amount of collateral on holders accounts should be enough to borrow required amount
-        for (const h of collateralHolders) {
-          const cAsH = IERC20Extended__factory.connect(collateralAsset
-            , await DeployerUtils.startImpersonate(h));
-          await cAsH.transfer(deployer.address, await cAsH.balanceOf(h) );
-        }
-        const collateralAmount = await IERC20Extended__factory.connect(collateralAsset, deployer)
-          .balanceOf(deployer.address);
-        console.log(`Collateral balance ${collateralAmount}`);
-
-        // before borrow
-        const dataBefore = await h.getReserveInfo(deployer, aavePool, dp, borrowAsset);
-        const brBefore = dataBefore.data.currentVariableBorrowRate;
-        const brPredicted = await aavePlatformAdapter.getBorrowRateAfterBorrow(
-          borrowAsset
-          , amountToBorrow
-        );
-        console.log(`Current borrow rate ${brBefore.toString()} predicted ${brPredicted.toString()}`);
-        console.log(`ReserveInterestRateStrategy ${dataBefore.data.interestRateStrategyAddress}`);
-        console.log(`AToken address ${dataBefore.data.aTokenAddress}`);
-
-        // supply collateral
-        await IERC20Extended__factory.connect(collateralAsset, deployer).approve(aavePool.address, collateralAmount);
-        console.log(`Supply collateral ${collateralAsset} amount ${collateralAmount}`);
-        await aavePool.supply(collateralAsset, collateralAmount, deployer.address, 0);
-        const userAccountData = await aavePool.getUserAccountData(deployer.address);
-        console.log(`Available borrow base ${userAccountData.availableBorrowsBase}`);
-        await aavePool.setUserUseReserveAsCollateral(collateralAsset, true);
-
-        // balance of the borrow asset before the borrow
-        const borrowBalanceOfAToken = await IERC20__factory.connect(borrowAsset, deployer)
-          .balanceOf(dataBefore.aTokenAddress);
-        console.log(`AToken has borrow asset: ${borrowBalanceOfAToken}`);
-
-        // borrow
-        console.log(`borrow ${borrowAsset} amount ${amountToBorrow}`);
-        await aavePool.borrow(borrowAsset, amountToBorrow, 2, 0, deployer.address);
-
-        const dataAfter = await h.getReserveInfo(deployer, aavePool, dp, borrowAsset);
-        const brAfter = BigNumber.from(dataAfter.data.currentVariableBorrowRate);
-        console.log(`Borrow rate after borrow ${brAfter.toString()}`);
-
-        const reserveDataAfter = await dp.getReserveData(borrowAsset);
-        console.log(`Reserve data after: totalAToken=${reserveDataAfter.totalAToken} totalStableDebt=${reserveDataAfter.totalStableDebt} totalVariableDebt=${reserveDataAfter.totalVariableDebt}`);
-        const availableLiquidityAfter = reserveDataAfter.totalAToken.sub(
-          reserveDataAfter.totalStableDebt.add(reserveDataAfter.totalVariableDebt)
-        );
-        console.log(`availableLiquidity after: ${availableLiquidityAfter}`);
-
-        const brPredictedAfter = await aavePlatformAdapter.getBorrowRateAfterBorrow(borrowAsset, 0);
-        console.log(`brPredictedAfter: ${brPredictedAfter}`);
-
-        const sret = areAlmostEqual(brAfter, brPredicted, 5) ? "1" : "0";
-        const sexpected = "1";
-
-        return {sret, sexpected};
-      }
+       }
 
       describe("small amount", () => {
         it("Predicted borrow rate should be same to real rate after the borrow", async () => {
@@ -376,9 +370,10 @@ describe("Aave-v3 integration tests, platform adapter", () => {
           ];
           const part10000 = 1;
 
-          const ret = await makeTest(collateralAsset, borrowAsset, collateralHolders, part10000);
+          const r = await makeTest(collateralAsset, borrowAsset, collateralHolders, part10000);
 
-          expect(ret.sret).eq(ret.sexpected);
+          const ret = areAlmostEqual(r.br, r.brPredicted, 5);
+          expect(ret).true;
         });
       });
 
@@ -396,9 +391,10 @@ describe("Aave-v3 integration tests, platform adapter", () => {
           ];
           const part10000 = 5000;
 
-          const ret = await makeTest(collateralAsset, borrowAsset, collateralHolders, part10000);
+          const r = await makeTest(collateralAsset, borrowAsset, collateralHolders, part10000);
 
-          expect(ret.sret).eq(ret.sexpected);
+          const ret = areAlmostEqual(r.br, r.brPredicted, 5);
+          expect(ret).true;
         });
       });
     });

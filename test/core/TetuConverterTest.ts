@@ -72,7 +72,7 @@ describe("BorrowManager", () => {
         pools: PoolInstanceInfo[]
     }> {
         const {bm, sourceToken, targetToken, pools, controller}
-            = await BorrowManagerHelper.createBmTwoUnderlines(deployer, tt);
+            = await BorrowManagerHelper.createBmTwoUnderlyings(deployer, tt);
 
         const tetuConveter = await DeployUtils.deployContract(deployer
             , "TetuConverter", controller.address) as TetuConverter;
@@ -97,7 +97,7 @@ describe("BorrowManager", () => {
         const converter = await MocksHelper.createPoolAdapterMock(deployer);
 
         const {bm, sourceToken, targetToken, pools, controller}
-            = await BorrowManagerHelper.createBmTwoUnderlines(deployer, tt, converter.address);
+            = await BorrowManagerHelper.createBmTwoUnderlyings(deployer, tt, converter.address);
         const tc = await CoreContractsHelper.createTetuConverter(deployer, controller);
         const dm = await CoreContractsHelper.createDebtMonitor(deployer, controller);
         await controller.assignBatch(
@@ -108,7 +108,7 @@ describe("BorrowManager", () => {
         const core = new CoreContracts(controller, tc, bm, dm);
 
         const pool = pools[0].pool;
-        const cToken = pools[0].underlineTocTokens.get(sourceToken.address) || "";
+        const cToken = pools[0].underlyingTocTokens.get(sourceToken.address) || "";
         const userContract = await MocksHelper.deployBorrower(user, core.controller, healthFactor2, periodInBlocks);
 
         // we need to set up a pool adapter

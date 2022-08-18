@@ -207,8 +207,7 @@ contract Aave3PlatformAdapter is IPlatformAdapter {
       (IAaveAddressesProvider(IAavePool(pool).ADDRESSES_PROVIDER())).getPoolDataProvider()
     );
 
-    (,,
-    uint256 aTokens,
+    (,,,
     uint256 totalStableDebt,
     uint256 totalVariableDebt
     ,,,,,,,) = dp.getReserveData(borrowAsset_);

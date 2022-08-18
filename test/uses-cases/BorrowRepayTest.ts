@@ -12,7 +12,7 @@ import {MocksHelper} from "../baseUT/helpers/MocksHelper";
 import {BalanceUtils, IUserBalances} from "../baseUT/utils/BalanceUtils";
 import {MaticAddresses} from "../../scripts/addresses/MaticAddresses";
 import {Aave3PlatformFabric} from "../baseUT/fabrics/Aave3PlatformFabric";
-import {BorrowRepayUsesCase} from "../baseUT/BorrowRepayUsesCase";
+import {BorrowRepayUsesCase} from "../baseUT/uses-cases/BorrowRepayUsesCase";
 import {BorrowAction} from "../baseUT/actions/BorrowAction";
 import {RepayAction} from "../baseUT/actions/RepayAction";
 import {MockPlatformFabric} from "../baseUT/fabrics/MockPlatformFabric";
@@ -201,13 +201,13 @@ describe("BorrowRepayTest", () => {
 
         const amountToRepay = undefined; //full repay
 
-        const underlines = [p.collateral.asset, p.borrow.asset];
+        const underlyings = [p.collateral.asset, p.borrow.asset];
         const pricesUSD = [1, 1];
         const cTokenDecimals = [m.collateral.decimals, m.borrow.decimals];
-        const cTokens = await MocksHelper.createCTokensMocks(deployer, cTokenDecimals, underlines);
+        const cTokens = await MocksHelper.createCTokensMocks(deployer, cTokenDecimals, underlyings);
 
         const fabric = new MockPlatformFabric(
-            underlines,
+            underlyings,
             [m.collateral.borrowRate, m.borrow.borrowRate],
             [m.collateral.collateralFactor, m.borrow.collateralFactor],
             [m.collateral.liquidity, m.borrow.liquidity],
@@ -340,13 +340,13 @@ describe("BorrowRepayTest", () => {
         const amountToRepay1 = getBigNumberFrom(p.repayAmount1, borrowToken.decimals);
         const amountToRepay2 = undefined; //full repay
 
-        const underlines = [p.collateral.asset, p.borrow.asset];
+        const underlyings = [p.collateral.asset, p.borrow.asset];
         const pricesUSD = [1, 1];
         const cTokenDecimals = [m.collateral.decimals, m.borrow.decimals];
-        const cTokens = await MocksHelper.createCTokensMocks(deployer, cTokenDecimals, underlines);
+        const cTokens = await MocksHelper.createCTokensMocks(deployer, cTokenDecimals, underlyings);
 
         const fabric = new MockPlatformFabric(
-            underlines,
+            underlyings,
             [m.collateral.borrowRate, m.borrow.borrowRate],
             [m.collateral.collateralFactor, m.borrow.collateralFactor],
             [m.collateral.liquidity, m.borrow.liquidity],

@@ -101,7 +101,7 @@ describe("DebtsMonitor", () => {
 
         // create borrow manager (BM) with single pool and DebtMonitor (DM)
         const {bm, sourceToken, targetToken, pools, controller}
-            = await BorrowManagerHelper.createBmTwoUnderlines(deployer, tt, converter.address);
+            = await BorrowManagerHelper.createBmTwoUnderlyings(deployer, tt, converter.address);
         const dm = await CoreContractsHelper.createDebtMonitor(deployer, controller);
         const tc =  await CoreContractsHelper.createTetuConverter(deployer, controller);
         await controller.assignBatch(
@@ -118,7 +118,7 @@ describe("DebtsMonitor", () => {
 
         // register pool adapter
         const pool = pools[0].pool;
-        const cTokenAddress = pools[0].underlineTocTokens.get(sourceToken.address) || "";
+        const cTokenAddress = pools[0].underlyingTocTokens.get(sourceToken.address) || "";
         const userTC = ethers.Wallet.createRandom().address;
         const collateral = sourceToken.address;
         await bm.registerPoolAdapter(converter.address, userTC, collateral, targetToken.address);
@@ -151,7 +151,7 @@ describe("DebtsMonitor", () => {
         const converter = await MocksHelper.createPoolAdapterMock(deployer);
 
         const {bm, sourceToken, targetToken, pools, controller}
-            = await BorrowManagerHelper.createBmTwoUnderlines(deployer, tt, converter.address);
+            = await BorrowManagerHelper.createBmTwoUnderlyings(deployer, tt, converter.address);
         const tc = await CoreContractsHelper.createTetuConverter(deployer, controller);
         const dm = await CoreContractsHelper.createDebtMonitor(deployer, controller);
         await controller.assignBatch(
@@ -162,7 +162,7 @@ describe("DebtsMonitor", () => {
         const core = new CoreContracts(controller, tc, bm, dm);
 
         const pool = pools[0].pool;
-        const cToken = pools[0].underlineTocTokens.get(sourceToken.address) || "";
+        const cToken = pools[0].underlyingTocTokens.get(sourceToken.address) || "";
         const userContract = await MocksHelper.deployBorrower(user, core.controller, healthFactor2, periodInBlocks);
 
         // we need to set up a pool adapter

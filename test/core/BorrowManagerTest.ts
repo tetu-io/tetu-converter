@@ -225,7 +225,7 @@ describe("BorrowManager", () => {
     });
 
     describe("findPool", () => {
-        async function makeTestTwoUnderlines(
+        async function makeTestTwoUnderlyings(
             tt: IBmInputParams,
             sourceAmount: number,
             healthFactor: number,
@@ -236,9 +236,9 @@ describe("BorrowManager", () => {
             outMaxTargetAmount: BigNumber;
             outGas?: BigNumber
         }> {
-            // There are TWO underlines: source, target
+            // There are TWO underlyings: source, target
             const {bm, sourceToken, targetToken, pools}
-                = await BorrowManagerHelper.createBmTwoUnderlines(signer, tt);
+                = await BorrowManagerHelper.createBmTwoUnderlyings(signer, tt);
 
             console.log("Source amount:", getBigNumberFrom(sourceAmount, await sourceToken.decimals()).toString());
             const ret = await bm.findConverter({
@@ -293,7 +293,7 @@ describe("BorrowManager", () => {
                             ]
                         };
 
-                        const ret = await makeTestTwoUnderlines(input, sourceAmount, healthFactor);
+                        const ret = await makeTestTwoUnderlyings(input, sourceAmount, healthFactor);
                         const sret = [
                             ret.outPoolIndex0,
                             ethers.utils.formatUnits(ret.outMaxTargetAmount, input.targetDecimals),
@@ -345,7 +345,7 @@ describe("BorrowManager", () => {
                             ]
                         };
 
-                        const ret = await makeTestTwoUnderlines(input, sourceAmount, healthFactor);
+                        const ret = await makeTestTwoUnderlyings(input, sourceAmount, healthFactor);
                         const sret = [
                             ret.outPoolIndex0,
                             ethers.utils.formatUnits(ret.outMaxTargetAmount, input.targetDecimals),
@@ -389,7 +389,7 @@ describe("BorrowManager", () => {
                             ]
                         };
 
-                        const ret = await makeTestTwoUnderlines(input, sourceAmount, healthFactor);
+                        const ret = await makeTestTwoUnderlyings(input, sourceAmount, healthFactor);
                         const sret = [
                             ret.outPoolIndex0,
                             ethers.utils.formatUnits(ret.outMaxTargetAmount, input.targetDecimals),
@@ -425,7 +425,7 @@ describe("BorrowManager", () => {
                             )
                         };
 
-                        const ret = await makeTestTwoUnderlines(input
+                        const ret = await makeTestTwoUnderlyings(input
                             , sourceAmount
                             , healthFactor
                             , true // we need to estimate gas
@@ -496,7 +496,7 @@ describe("BorrowManager", () => {
                         ]
                     };
 
-                    const ret = await makeTestTwoUnderlines(input, sourceAmount, healthFactor);
+                    const ret = await makeTestTwoUnderlyings(input, sourceAmount, healthFactor);
                     const sret = [
                         ret.outPoolIndex0,
                         ethers.utils.formatUnits(ret.outMaxTargetAmount, input.targetDecimals),
@@ -535,7 +535,7 @@ describe("BorrowManager", () => {
                         ]
                     };
 
-                    const ret = await makeTestTwoUnderlines(input, sourceAmount, healthFactor);
+                    const ret = await makeTestTwoUnderlyings(input, sourceAmount, healthFactor);
                     const sret = [
                         ret.outPoolIndex0,
                         ethers.utils.formatUnits(ret.outMaxTargetAmount, input.targetDecimals),

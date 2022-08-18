@@ -15,7 +15,7 @@ import {BalanceUtils} from "../utils/BalanceUtils";
 import {DeployUtils} from "../../../scripts/utils/DeployUtils";
 
 export class MockPlatformFabric implements ILendingPlatformFabric {
-    public underlines: string[];
+    public underlyings: string[];
     public borrowRates: BigNumber[];
     public collateralFactors: number[];
     public liquidityNumbers: number[];
@@ -24,7 +24,7 @@ export class MockPlatformFabric implements ILendingPlatformFabric {
     public prices: BigNumber[];
 
     constructor (
-        underlines: string[]
+        underlyings: string[]
         , borrowRates: BigNumber[]
         , collateralFactors: number[]
         , liquidity: number[]
@@ -32,7 +32,7 @@ export class MockPlatformFabric implements ILendingPlatformFabric {
         , cTokens: CTokenMock[]
         , prices: BigNumber[]
     ) {
-        this.underlines = underlines;
+        this.underlyings = underlyings;
         this.borrowRates = borrowRates;
         this.collateralFactors = collateralFactors;
         this.liquidityNumbers = liquidity;
@@ -44,7 +44,7 @@ export class MockPlatformFabric implements ILendingPlatformFabric {
         const pool = await MocksHelper.createPoolStub(deployer);
         const converter = await MocksHelper.createPoolAdapterMock(deployer);
         const priceOracle = (await DeployUtils.deployContract(deployer, "PriceOracleMock"
-            , this.underlines || []
+            , this.underlyings || []
             , this.prices || []
         )) as PriceOracleMock;
 
@@ -54,7 +54,7 @@ export class MockPlatformFabric implements ILendingPlatformFabric {
             })
         );
         for (let i = 0; i < this.holders.length; ++i) {
-            await BalanceUtils.getAmountFromHolder(this.underlines[i]
+            await BalanceUtils.getAmountFromHolder(this.underlyings[i]
                 , this.holders[i]
                 , pool.address
                 , this.liquidityNumbers[i]
@@ -66,7 +66,7 @@ export class MockPlatformFabric implements ILendingPlatformFabric {
             , pool
             , controller.address
             , converter.address
-            , this.underlines
+            , this.underlyings
             , this.borrowRates
             , this.collateralFactors
             , liquidity
@@ -77,7 +77,7 @@ export class MockPlatformFabric implements ILendingPlatformFabric {
 
 
         const bm = IBorrowManager__factory.connect(await controller.borrowManager(), deployer);
-        await bm.addPool(aavePlatformAdapter.address, this.underlines);
+        await bm.addPool(aavePlatformAdapter.address, this.underlyings);
         console.log("Mock pool was added to BM", aavePlatformAdapter.address);
 
         return [

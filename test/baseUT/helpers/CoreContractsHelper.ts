@@ -68,7 +68,7 @@ export class CoreContractsHelper {
         pool: PoolStub,
         poolsInfo: IPoolInfo,
         collateralFactors: number[],
-        underlines: MockERC20[],
+        underlyings: MockERC20[],
         cTokens: MockERC20[],
         prices: BigNumber[],
         templateAdapterPoolOptional?: string,
@@ -76,21 +76,21 @@ export class CoreContractsHelper {
         platformAdapter: LendingPlatformMock,
         templatePoolAdapter: string
     }>{
-        const borrowRates = await Promise.all(underlines.map(
+        const borrowRates = await Promise.all(underlyings.map(
             async (token, index) => {
                 const br = poolsInfo.borrowRateInTokens[index];
                 return typeof br === "object"
                     ? br
                     : getBigNumberFrom(
                         poolsInfo.borrowRateInTokens[index],
-                        await underlines[index].decimals()
+                        await underlyings[index].decimals()
                     );
             }
         ));
-        const availableLiquidity = await Promise.all(underlines.map(
+        const availableLiquidity = await Promise.all(underlyings.map(
             async (token, index) => getBigNumberFrom(
                 poolsInfo.availableLiquidityInTokens[index],
-                await underlines[index].decimals()
+                await underlyings[index].decimals()
             )
         ));
 
@@ -98,7 +98,7 @@ export class CoreContractsHelper {
             || (await MocksHelper.createPoolAdapterStub(signer, getBigNumberFrom(1))).address;
 
         const priceOracle = (await DeployUtils.deployContract(signer, "PriceOracleMock"
-            , underlines ? underlines.map(x => x.address) : []
+            , underlyings ? underlyings.map(x => x.address) : []
             , prices || []
         )) as PriceOracleMock;
 
@@ -107,7 +107,7 @@ export class CoreContractsHelper {
             pool,
             controller.address,
             templatePoolAdapter,
-            underlines.map(x => x.address),
+            underlyings.map(x => x.address),
             borrowRates,
             collateralFactors,
             availableLiquidity,
@@ -117,7 +117,7 @@ export class CoreContractsHelper {
 
         const bm = BorrowManager__factory.connect(await controller.borrowManager(), signer);
 
-        await bm.addPool(platformAdapter.address, underlines.map(x => x.address));
+        await bm.addPool(platformAdapter.address, underlyings.map(x => x.address));
 
         return {platformAdapter, templatePoolAdapter};
     }

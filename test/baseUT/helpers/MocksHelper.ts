@@ -37,13 +37,13 @@ export class MocksHelper {
         return (await DeployUtils.deployContract(signer, "PoolAdapterMock")) as PoolAdapterMock;
     }
 
-    /** Create platform adapter that supports a single pool with set of the given underlines */
+    /** Create platform adapter that supports a single pool with set of the given underlyings */
     public static async createPlatformAdapterMock(
         signer: SignerWithAddress
         , pool: PoolStub
         , controllerAddress: string
         , converterAddress: string
-        , underlines: string[]
+        , underlyings: string[]
         , borrowRates: BigNumber[]
         , collateralFactors: number[]
         , liquidity: BigNumber[]
@@ -58,7 +58,7 @@ export class MocksHelper {
             , controllerAddress
             , pool.address
             , converterAddress
-            , underlines
+            , underlyings
             , cfs
             , borrowRates
             , liquidity
@@ -113,7 +113,7 @@ export class MocksHelper {
     public static async createCTokensMocks(
         signer: SignerWithAddress,
         decimals: number[],
-        underlines: string[]
+        underlyings: string[]
     ) : Promise<CTokenMock[]> {
         const dest: CTokenMock[] = [];
 
@@ -125,7 +125,7 @@ export class MocksHelper {
                 , `cToken-${i}-${d}`
                 , `cToken-${i}-${d}`
                 , d
-                , underlines[i]
+                , underlyings[i]
             ) as CTokenMock;
             dest.push(token);
         }

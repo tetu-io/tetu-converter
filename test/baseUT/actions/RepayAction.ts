@@ -1,4 +1,4 @@
-import {IRepayAction} from "../BorrowRepayUsesCase";
+import {IRepayAction} from "../uses-cases/BorrowRepayUsesCase";
 import {BigNumber} from "ethers";
 import {IERC20__factory, Borrower} from "../../../typechain";
 import {IUserBalances} from "../utils/BalanceUtils";

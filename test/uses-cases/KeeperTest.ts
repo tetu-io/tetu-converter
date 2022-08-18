@@ -8,7 +8,7 @@ import {MockPlatformFabric} from "../baseUT/fabrics/MockPlatformFabric";
 import {BigNumber} from "ethers";
 import {TetuConverterApp} from "../baseUT/helpers/TetuConverterApp";
 import {getBigNumberFrom} from "../../scripts/utils/NumberUtils";
-import {BorrowRepayUsesCase} from "../baseUT/BorrowRepayUsesCase";
+import {BorrowRepayUsesCase} from "../baseUT/uses-cases/BorrowRepayUsesCase";
 import {BorrowAction} from "../baseUT/actions/BorrowAction";
 import {TokenDataTypes} from "../baseUT/types/TokenDataTypes";
 import {
@@ -98,14 +98,14 @@ describe("Keeper test", () => {
         const collateralToken = await TokenDataTypes.Build(deployer, p.collateral.asset);
         const borrowToken = await TokenDataTypes.Build(deployer, p.borrow.asset);
 
-        const underlines = [p.collateral.asset, p.borrow.asset];
+        const underlyings = [p.collateral.asset, p.borrow.asset];
         const pricesUSD = [1, 1];
         const cTokenDecimals = [m.collateral.decimals, m.borrow.decimals];
-        const cTokens = await MocksHelper.createCTokensMocks(deployer, cTokenDecimals, underlines);
+        const cTokens = await MocksHelper.createCTokensMocks(deployer, cTokenDecimals, underlyings);
 
         const fabrics = [...Array(countMockFabrics).keys()].map(
             () => new MockPlatformFabric(
-                underlines,
+                underlyings,
                 [m.collateral.borrowRate, m.borrow.borrowRate],
                 [m.collateral.collateralFactor, m.borrow.collateralFactor],
                 [m.collateral.liquidity, m.borrow.liquidity],

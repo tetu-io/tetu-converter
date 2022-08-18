@@ -15,6 +15,7 @@ import "../../../interfaces/ITokenAddressProvider.sol";
 import "hardhat/console.sol";
 import "../../../integrations/dforce/IDForcePriceOracle.sol";
 import "../../../integrations/IERC20Extended.sol";
+import "../../../integrations/dforce/IDForceInterestRateModel.sol";
 
 /// @notice Adapter to read current pools info from DForce-protocol, see https://developers.dforce.network/
 contract DForcePlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
@@ -132,7 +133,7 @@ contract DForcePlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
   function getConversionPlan (
     address collateralAsset_,
     address borrowAsset_,
-    uint borrowAmountFactor //TODO
+    uint borrowAmountFactor18_ //TODO
   ) external override view returns (
     AppDataTypes.ConversionPlan memory plan
   ) {
@@ -149,7 +150,6 @@ contract DForcePlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
           console.log("borrowFactorMantissa borrowCapacity", borrowFactorMantissa, borrowCapacity);
 
           if (borrowFactorMantissa != 0 && borrowCapacity != 0) {
-            plan.aprPerBlock18 = IDForceCToken(cTokenBorrow).borrowRatePerBlock();
             plan.converter = _converters[INDEX_NORMAL_MODE];
 
             plan.liquidationThreshold18 = collateralFactorMantissa;
@@ -186,6 +186,14 @@ contract DForcePlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
             console.log("liquidationThreshold18=%d", plan.liquidationThreshold18);
             console.log("maxAmountToSupplyCT=%d", plan.maxAmountToSupplyCT);
           }
+
+          // calculate current borrow rate and the borrow rate after borrowing max allowed amount
+          uint br = IDForceCToken(cTokenBorrow).borrowRatePerBlock();
+          uint brAfterBorrow = _br(
+            IDForceCToken(cTokenBorrow),
+            plan.liquidationThreshold18 * borrowAmountFactor18_ / 1e18
+          );
+          plan.aprPerBlock18 = (brAfterBorrow > br ? brAfterBorrow : br);
         }
       }
     }
@@ -219,9 +227,25 @@ contract DForcePlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
     );
   }
 
+  ///////////////////////////////////////////////////////
+  ///  Calculate borrow rate after borrowing in advance
+  ///////////////////////////////////////////////////////
+
   /// @notice Estimate value of variable borrow rate after borrowing {amountToBorrow_}
   function getBorrowRateAfterBorrow(address borrowAsset_, uint amountToBorrow_) external view override returns (uint) {
-    return 0; //TODO
+    return _br(IDForceCToken(activeAssets[borrowAsset_]), amountToBorrow_);
+  }
+
+  /// @notice Estimate value of variable borrow rate after borrowing {amountToBorrow_}
+  function _br(
+    IDForceCToken cTokenBorrow,
+    uint amountToBorrow_
+  ) internal view returns (uint) {
+    return IDForceInterestRateModel(cTokenBorrow.interestRateModel()).getBorrowRate(
+      cTokenBorrow.getCash() - amountToBorrow_,
+      cTokenBorrow.totalBorrows() + amountToBorrow_,
+      cTokenBorrow.totalReserves()
+    );
   }
 
   ///////////////////////////////////////////////////////

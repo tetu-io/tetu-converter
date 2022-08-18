@@ -15,6 +15,7 @@ import "../../../interfaces/ITokenAddressProvider.sol";
 import "hardhat/console.sol";
 import "../../../integrations/hundred-finance/IHfOracle.sol";
 import "../../../integrations/IERC20Extended.sol";
+import "../../../integrations/hundred-finance/IHfInterestRateModel.sol";
 
 /// @notice Adapter to read current pools info from HundredFinance-protocol, see https://docs.hundred.finance/
 contract HfPlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
@@ -134,7 +135,7 @@ contract HfPlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
   function getConversionPlan (
     address collateralAsset_,
     address borrowAsset_,
-    uint borrowAmountFactor //TODO
+    uint borrowAmountFactor18_
   ) external override view returns (
     AppDataTypes.ConversionPlan memory plan
   ) {
@@ -145,7 +146,6 @@ contract HfPlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
       if (cTokenBorrow != address(0)) {
         (plan.ltv18, plan.liquidationThreshold18) = _getMarketsInfo(cTokenCollateral, cTokenBorrow);
         if (plan.ltv18 != 0 && plan.liquidationThreshold18 != 0) {
-          plan.aprPerBlock18 = IHfCToken(cTokenBorrow).borrowRatePerBlock();
           plan.converter = _converters[INDEX_NORMAL_MODE];
 
           plan.maxAmountToBorrowBT = IHfCToken(cTokenBorrow).getCash();
@@ -164,8 +164,16 @@ contract HfPlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
           console.log("maxAmountToBorrowBT=%d", plan.maxAmountToBorrowBT);
           console.log("borrowRate=%d", plan.aprPerBlock18);
 
-          //it seems that supply is not limited in HundredFinance protocol
+          // it seems that supply is not limited in HundredFinance protocol
           plan.maxAmountToSupplyCT = type(uint).max; // unlimited
+
+          // calculate current borrow rate and the borrow rate after borrowing max allowed amount
+          uint br = IHfCToken(cTokenBorrow).borrowRatePerBlock();
+          uint brAfterBorrow = _br(
+            IHfCToken(cTokenBorrow),
+            plan.liquidationThreshold18 * borrowAmountFactor18_ / 1e18
+          );
+          plan.aprPerBlock18 = (brAfterBorrow > br ? brAfterBorrow : br);
         }
       }
     }
@@ -205,7 +213,19 @@ contract HfPlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
 
   /// @notice Estimate value of variable borrow rate after borrowing {amountToBorrow_}
   function getBorrowRateAfterBorrow(address borrowAsset_, uint amountToBorrow_) external view override returns (uint) {
-    return 0; //TODO
+    return _br(IHfCToken(activeAssets[borrowAsset_]), amountToBorrow_);
+  }
+
+  /// @notice Estimate value of variable borrow rate after borrowing {amountToBorrow_}
+  function _br(
+    IHfCToken cTokenBorrow,
+    uint amountToBorrow_
+  ) internal view returns (uint) {
+    return IHfInterestRateModel(cTokenBorrow.interestRateModel()).getBorrowRate(
+      cTokenBorrow.getCash() - amountToBorrow_,
+      cTokenBorrow.totalBorrows() + amountToBorrow_,
+      cTokenBorrow.totalReserves()
+    );
   }
 
   ///////////////////////////////////////////////////////

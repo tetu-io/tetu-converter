@@ -13,9 +13,9 @@ import {
 } from "../../typechain";
 
 export interface IPoolInfo {
-    /** The length of array should be equal to the count of underlines */
+    /** The length of array should be equal to the count of underlyings */
     borrowRateInTokens: (number|BigNumber)[],
-    /** The length of array should be equal to the count of underlines */
+    /** The length of array should be equal to the count of underlyings */
     availableLiquidityInTokens: number[]
 }
 
@@ -33,11 +33,11 @@ export interface PoolInstanceInfo {
     pool: string;
     platformAdapter: string;
     converter: string;
-    underlineTocTokens: Map<string, string>;
+    underlyingTocTokens: Map<string, string>;
 }
 
 export class BorrowManagerHelper {
-    static async createBmTwoUnderlines(
+    static async createBmTwoUnderlyings(
         signer: SignerWithAddress,
         tt: IBmInputParams,
         templateAdapterPoolOptional?: string
@@ -51,12 +51,12 @@ export class BorrowManagerHelper {
         const sourceDecimals = tt.sourceDecimals || 18;
         const targetDecimals = tt.targetDecimals || 6;
 
-        const underlineDecimals = [sourceDecimals, targetDecimals];
+        const underlyingDecimals = [sourceDecimals, targetDecimals];
         const cTokenDecimals = [sourceDecimals, targetDecimals];
         const collateralFactors = [tt.collateralFactor, 0.6];
         const pricesUSD = [tt.priceSourceUSD, tt.priceTargetUSD];
 
-        const underlines = await MocksHelper.createTokens(underlineDecimals);
+        const underlyings = await MocksHelper.createTokens(underlyingDecimals);
 
         const controller = await CoreContractsHelper.createController(signer);
         const bm = await CoreContractsHelper.createBorrowManager(signer, controller);
@@ -70,7 +70,7 @@ export class BorrowManagerHelper {
             const cTokens = await MocksHelper.createCTokensMocks(
                 signer,
                 cTokenDecimals,
-                underlines.map(x => x.address)
+                underlyings.map(x => x.address)
             );
             const pool = await MocksHelper.createPoolStub(signer);
 
@@ -79,7 +79,7 @@ export class BorrowManagerHelper {
                 pool,
                 poolInfo,
                 collateralFactors,
-                underlines,
+                underlyings,
                 cTokens,
                 pricesUSD.map((x, index) => BigNumber.from(10)
                     .pow(18 - 2)
@@ -87,19 +87,19 @@ export class BorrowManagerHelper {
                 templateAdapterPoolOptional
             );
             const mapCTokens = new Map<string, string>();
-            for (let i = 0; i < underlines.length; ++i) {
-                mapCTokens.set(underlines[i].address, cTokens[i].address);
+            for (let i = 0; i < underlyings.length; ++i) {
+                mapCTokens.set(underlyings[i].address, cTokens[i].address);
             }
             pools.push({
                 pool: pool.address,
                 platformAdapter: r.platformAdapter.address,
                 converter: r.templatePoolAdapter,
-                underlineTocTokens: mapCTokens
+                underlyingTocTokens: mapCTokens
             });
         }
 
-        const sourceToken = underlines[0];
-        const targetToken = underlines[1];
+        const sourceToken = underlyings[0];
+        const targetToken = underlyings[1];
 
         return {bm, sourceToken, targetToken, pools, controller};
     }

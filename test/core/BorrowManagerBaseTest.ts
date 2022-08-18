@@ -52,7 +52,7 @@ describe("BorrowManagerBase (IPoolAdaptersManager)", () => {
                     // create borrow manager (BM) with single pool
                     const tt = BorrowManagerHelper.getBmInputParamsSinglePool();
                     const {bm, sourceToken, targetToken, pools}
-                        = await BorrowManagerHelper.createBmTwoUnderlines(deployer, tt);
+                        = await BorrowManagerHelper.createBmTwoUnderlyings(deployer, tt);
 
                     // register pool adapter
                     const converter = pools[0].converter;
