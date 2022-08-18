@@ -16,6 +16,7 @@ import {BalanceUtils} from "../../../../baseUT/utils/BalanceUtils";
 import {MaticAddresses} from "../../../../../scripts/addresses/MaticAddresses";
 import {AprUtils} from "../../../../baseUT/utils/aprUtils";
 import {CoreContractsHelper} from "../../../../baseUT/helpers/CoreContractsHelper";
+import {areAlmostEqual} from "../../../../baseUT/utils/CommonUtils";
 
 describe("Aave-v3 integration tests, platform adapter", () => {
 //region Global vars for all tests
@@ -342,7 +343,7 @@ describe("Aave-v3 integration tests, platform adapter", () => {
         await aavePool.borrow(borrowAsset, amountToBorrow, 2, 0, deployer.address);
 
         const dataAfter = await h.getReserveInfo(deployer, aavePool, dp, borrowAsset);
-        const brAfter = dataAfter.data.currentVariableBorrowRate;
+        const brAfter = BigNumber.from(dataAfter.data.currentVariableBorrowRate);
         console.log(`Borrow rate after borrow ${brAfter.toString()}`);
 
         const reserveDataAfter = await dp.getReserveData(borrowAsset);
@@ -355,8 +356,8 @@ describe("Aave-v3 integration tests, platform adapter", () => {
         const brPredictedAfter = await aavePlatformAdapter.getBorrowRateAfterBorrow(borrowAsset, 0);
         console.log(`brPredictedAfter: ${brPredictedAfter}`);
 
-        const sret = brAfter.toString();
-        const sexpected = brPredicted.toString();
+        const sret = areAlmostEqual(brAfter, brPredicted, 5) ? "1" : "0";
+        const sexpected = "1";
 
         return {sret, sexpected};
       }
