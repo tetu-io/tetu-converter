@@ -293,12 +293,15 @@ describe("Aave-v3 integration tests, platform adapter", () => {
         // we are going to borrow given part of the liquidity
         //                 [available liquidity] * percent100 / 100
         const dp = await Aave3Helper.getAaveProtocolDataProvider(deployer);
-        const reserveData = await dp.getReserveData(borrowAsset);
-        const availableLiquidity = reserveData.totalAToken.sub(
-          reserveData.totalStableDebt.add(reserveData.totalVariableDebt)
+        const reserveDataBefore = await dp.getReserveData(borrowAsset);
+        console.log(`Reserve data before: totalAToken=${reserveDataBefore.totalAToken} totalStableDebt=${reserveDataBefore.totalStableDebt} totalVariableDebt=${reserveDataBefore.totalVariableDebt}`);
+        const availableLiquidityBefore = reserveDataBefore.totalAToken.sub(
+          reserveDataBefore.totalStableDebt.add(reserveDataBefore.totalVariableDebt)
         );
-        const amountToBorrow = availableLiquidity.mul(part10000).div(10000);
-        console.log(`Try to borrow ${amountToBorrow.toString()} available liquidity is ${availableLiquidity.toString()}`);
+        console.log(`availableLiquidity before: ${availableLiquidityBefore}`);
+
+        const amountToBorrow = availableLiquidityBefore.mul(part10000).div(10000);
+        console.log(`Try to borrow ${amountToBorrow.toString()} available liquidity is ${availableLiquidityBefore.toString()}`);
 
         // we assume, that total amount of collateral on holders accounts should be enough to borrow required amount
         for (const h of collateralHolders) {
@@ -341,6 +344,16 @@ describe("Aave-v3 integration tests, platform adapter", () => {
         const dataAfter = await h.getReserveInfo(deployer, aavePool, dp, borrowAsset);
         const brAfter = dataAfter.data.currentVariableBorrowRate;
         console.log(`Borrow rate after borrow ${brAfter.toString()}`);
+
+        const reserveDataAfter = await dp.getReserveData(borrowAsset);
+        console.log(`Reserve data after: totalAToken=${reserveDataAfter.totalAToken} totalStableDebt=${reserveDataAfter.totalStableDebt} totalVariableDebt=${reserveDataAfter.totalVariableDebt}`);
+        const availableLiquidityAfter = reserveDataAfter.totalAToken.sub(
+          reserveDataAfter.totalStableDebt.add(reserveDataAfter.totalVariableDebt)
+        );
+        console.log(`availableLiquidity after: ${availableLiquidityAfter}`);
+
+        const brPredictedAfter = await aavePlatformAdapter.getBorrowRateAfterBorrow(borrowAsset, 0);
+        console.log(`brPredictedAfter: ${brPredictedAfter}`);
 
         const sret = brAfter.toString();
         const sexpected = brPredicted.toString();

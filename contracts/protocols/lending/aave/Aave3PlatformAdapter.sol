@@ -16,6 +16,8 @@ import "../../../integrations/aave3/IAavePriceOracle.sol";
 import "../../../integrations/aave3/IAaveToken.sol";
 import "hardhat/console.sol";
 import "../../../integrations/aave3/IAaveReserveInterestRateStrategy.sol";
+import "../../../integrations/aave3/IAaveVariableDebtToken.sol";
+import "../../../integrations/aave3/IAaveStableDebtToken.sol";
 
 /// @notice Adapter to read current pools info from AAVE-v3-protocol, see https://docs.aave.com/hub/
 contract Aave3PlatformAdapter is IPlatformAdapter {
@@ -220,12 +222,18 @@ contract Aave3PlatformAdapter is IPlatformAdapter {
     console.log("totalVariableDebt", totalVariableDebt);
     console.log("totalStableDebt", totalStableDebt);
 
-  //see function updateInterestRates(
+  //see functions in aave-v3-core: updateInterestRates, cache(DataTypes.ReserveData storage reserve)
+    uint nextScaledVariableDebt = IAaveVariableDebtToken(rb.variableDebtTokenAddress).scaledTotalSupply();
+    totalVariableDebt = rayMul(nextScaledVariableDebt, rb.variableBorrowIndex);
+    totalStableDebt = IAaveStableDebtToken(rb.stableDebtTokenAddress).totalSupply();
+    console.log("totalVariableDebt2", totalVariableDebt);
+    console.log("totalStableDebt2", totalStableDebt);
+
 //    vars.totalVariableDebt = reserveCache.nextScaledVariableDebt.rayMul(
 //      reserveCache.nextVariableBorrowIndex
 //    );
 
-    // see function cache(DataTypes.ReserveData storage reserve)
+    // see function
 //    reserveCache.currScaledVariableDebt = reserveCache.nextScaledVariableDebt = IVariableDebtToken(
 //      reserveCache.variableDebtTokenAddress
 //    ).scaledTotalSupply();
@@ -245,7 +253,7 @@ contract Aave3PlatformAdapter is IPlatformAdapter {
       0,
       amountToBorrow_,
       totalStableDebt,
-      totalVariableDebt
+      totalVariableDebt + amountToBorrow_
     );
     console.log("Native predicted BR:", br2);
 
@@ -275,6 +283,8 @@ contract Aave3PlatformAdapter is IPlatformAdapter {
   )
   {
     console.log("calculateInterestRates");
+    console.log("totalStableDebt", totalStableDebt);
+    console.log("totalVariableDebt", totalVariableDebt);
     uint totalDebt = totalStableDebt + totalVariableDebt;
     console.log("totalDebt", totalDebt);
     currentVariableBorrowRate = _baseVariableBorrowRate;
@@ -323,7 +333,7 @@ contract Aave3PlatformAdapter is IPlatformAdapter {
         liquidityAdded: 0,
         liquidityTaken: amountToBorrow_,
         totalStableDebt: totalStableDebt,
-        totalVariableDebt: totalVariableDebt,
+        totalVariableDebt: totalVariableDebt + amountToBorrow_,
         averageStableBorrowRate: r.currentStableBorrowRate, // this value is not used to calculate variable BR
         reserveFactor: r.configuration.getReserveFactor(),
         reserve: borrowAsset_,
