@@ -392,8 +392,6 @@ describe("BorrowRepayTest", () => {
                     collateralToken
                     , collateralAmount1
                     , borrowToken
-                    , p.countBlocks
-                    , p.healthFactor2
                     , p.deltaBlocksBetweenBorrows
                     , poolAdapter
                 ),
@@ -402,7 +400,6 @@ describe("BorrowRepayTest", () => {
                     , collateralAmount2
                     , borrowToken
                     , p.countBlocks
-                    , p.healthFactor2
                 ),
                 new RepayMockAction(
                     collateralToken

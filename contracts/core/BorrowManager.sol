@@ -198,7 +198,7 @@ contract BorrowManager is BorrowManagerBase {
         console.log("plan.converter", plan.converter);
 //        console.log("plan.ltv18", plan.ltv18);
 //        console.log("plan.liquidationThreshold18", plan.liquidationThreshold18);
-        console.log("plan.aprPerBlock18", plan.aprPerBlock18);
+        console.log("plan.aprPerBlock18", plan.aprPerBlock18, aprForPeriod18);
 //        console.log("plan.maxAmountToBorrowBT", plan.maxAmountToBorrowBT);
 
         // check if we are able to supply required collateral
@@ -221,17 +221,18 @@ contract BorrowManager is BorrowManagerBase {
 
             // the pool should have enough liquidity
             if (_toMantissa(plan.maxAmountToBorrowBT, pp_.targetDecimals, 18) >= resultTa18) {
+              console.log("Select converter:", plan.converter);
               // take the pool with lowest borrow rate
               converter = plan.converter;
               maxTargetAmount = _toMantissa(resultTa18, 18, pp_.targetDecimals);
-              aprForPeriod18 = plan.aprPerBlock18 * p_.periodInBlocks;
+              aprForPeriod18 = plan.aprPerBlock18;
             }
           }
         }
       }
     }
 
-    return (converter, maxTargetAmount, aprForPeriod18);
+    return (converter, maxTargetAmount, aprForPeriod18 * p_.periodInBlocks);
   }
 
   ///////////////////////////////////////////////////////

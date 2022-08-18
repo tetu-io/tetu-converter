@@ -40,6 +40,8 @@ contract PoolAdapterStub is IPoolAdapter {
     uint borrowRatePerBlock_,
     address priceOracle_
   ) external {
+    console.log("PoolAdapterStub is initialized:", address(this));
+
     controller = controller_;
     _pool = pool_;
     _user = user_;

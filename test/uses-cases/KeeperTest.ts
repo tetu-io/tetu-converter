@@ -15,8 +15,7 @@ import {
     Aave3PoolAdapter__factory, AaveTwoPoolAdapter__factory,
     Borrower,
     BorrowManager, BorrowManager__factory,
-    Controller, Controller__factory,
-    IDebtMonitor__factory, IERC20__factory, IPlatformAdapter__factory, IPoolAdapter__factory,
+    Controller, IDebtMonitor__factory, IERC20__factory, IPlatformAdapter__factory, IPoolAdapter__factory,
     ITetuConverter, LendingPlatformMock__factory,
     PoolAdapterMock__factory, TetuConverter__factory
 } from "../../typechain";
@@ -547,7 +546,7 @@ describe("Keeper test", () => {
 
     describe("Better converting way checking", async () => {
         describe("Good paths", () => {
-            describe("Health factor becomes below allowed minimum", () => {
+            describe("Two pools, select best one", () => {
                 describe("DAI => USDC", () => {
 //region Constants and utils
                     const ASSET_COLLATERAL = MaticAddresses.DAI;
@@ -630,7 +629,7 @@ describe("Keeper test", () => {
 //endregion Constants and utils
 
                     describe("Mock", () => {
-                        describe("Increase borrow rate significantly", () => {
+                        describe("Increase borrow rate significantly, second pool becomes better", () => {
                             it("should call reconvert", async () => {
                                 if (!await isPolygonForkInUse()) return;
 
@@ -724,7 +723,7 @@ describe("Keeper test", () => {
 //region Utils
                         /**
                          * There are two pool adapters: PA1 and PA2
-                         * Find conversion strategy for borrow, i.e. PA1
+                         * Find the best conversion strategy for borrow, i.e. PA1
                          * Make max possible borrow using PA1 (and increase its BR)
                          * Find conversion strategy for borrow. Now it should be PA2
                          * Make borrow using PA2
@@ -866,7 +865,7 @@ describe("Keeper test", () => {
                             return dest;
                         }
 //endregion Utils
-                        describe("Increase borrow rate significantly", () => {
+                        describe("Increase borrow rate significantly, second pool becomes better", () => {
                             it("should call reconvert", async () => {
                                 if (!await isPolygonForkInUse()) return;
 
@@ -879,12 +878,10 @@ describe("Keeper test", () => {
                                 expect(sret).equal(sexpected);
                             });
                         });
-
                     });
                 });
             });
         });
     });
-
 //endregion Unit tests
 });

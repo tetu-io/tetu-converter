@@ -25,7 +25,7 @@ export interface IRepayAction {
 export class BorrowRepayUsesCase {
     /**
      * Perform a series of actions, control user balances and total borrow balance after each action.
-     * We assume, that uc has enough amount of collateral and borrow assets to make required actions.
+     * We assume, that user has enough amount of collateral and borrow assets to make required actions.
      */
     static async makeBorrowRepayActions(
         signer: SignerWithAddress,

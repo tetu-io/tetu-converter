@@ -184,10 +184,14 @@ contract Borrower is IBorrower {
   ///                   IBorrower impl
   ///////////////////////////////////////////////////////
   function requireReconversion(address poolAdapter) external override {
+    console.log("requireReconversion poolAdapter=", poolAdapter);
     IPoolAdapter pa = IPoolAdapter(poolAdapter);
+
     // get amount to pay
     (,uint amountToPay,,) = pa.getStatus();
     (,,, address borrowAsset) = pa.getConfig();
+    console.log("requireReconversion amountToPay=", amountToPay);
+    console.log("requireReconversion borrowAsset=", borrowAsset);
 
     // In reality: make some actions and return required amount back to our balance
     // we need to receive borrow amount back to the receiver
@@ -195,9 +199,12 @@ contract Borrower is IBorrower {
 
     // transfer borrowed amount directly to the Pool Adapter
     pa.syncBalance(false);
+    console.log("safeTransfer: amountToPay <= balance:", amountToPay, IERC20(borrowAsset).balanceOf(address(this)));
+    require(IERC20(borrowAsset).balanceOf(address(this)) >= amountToPay, "not enough balance of borrow asset");
     IERC20(borrowAsset).safeTransfer(poolAdapter, amountToPay);
 
     //reconvert
+    console.log("reconvert poolAdapter, hf2, period", poolAdapter, _healthFactor2, _borrowPeriodInBlocks);
     _tc().reconvert(poolAdapter
       , _healthFactor2
       , _borrowPeriodInBlocks

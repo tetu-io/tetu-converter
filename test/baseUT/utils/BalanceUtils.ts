@@ -39,6 +39,31 @@ export class BalanceUtils {
     }
 
     /**
+     * Get balance of each pair (contract, token)
+     * and return array
+     *   name1: {balance(c1, t1), balance(c1, t2) .. balance(c1, tN),}
+     *   name2: {balance(c2, t1), balance(c2, t2) .. balance(c2, tN),}
+     *   ...
+     */
+    static async getBalancesObj(
+      signer: SignerWithAddress,
+      contracts: ContractToInvestigate[],
+      tokens: string[]
+    ) : Promise<Map<string, (BigNumber | string)[]>> {
+        const dest: Map<string, (BigNumber | string)[]> = new Map<string, (BigNumber | string)[]>();
+        for (const contract of contracts) {
+            const items: (BigNumber | string)[] = [];
+            for (const token of tokens) {
+                items.push(
+                  await IERC20__factory.connect(token, signer).balanceOf(contract.contract)
+                )
+            }
+            dest.set(contract.name, items);
+        }
+        return dest;
+    }
+
+    /**
      * Convert string or number to string.
      * Use BigNumber.toString() for big-numbers
      */

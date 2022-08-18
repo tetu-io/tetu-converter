@@ -74,6 +74,7 @@ contract PoolAdapterMock is IPoolAdapter {
     uint borrowRatePerBlock_,
     address priceOracle_
   ) external {
+    console.log("PoolAdapterMock is initialized:", address(this));
     console.log("PoolAdapterMock.initialize controller=%s pool=%s user=%s", controller_, pool_, user_);
     controller = controller_;
     _pool = pool_;
@@ -123,7 +124,7 @@ contract PoolAdapterMock is IPoolAdapter {
         * _toMantissa(collateralAmount, decimalsCollateral, 18) * priceCollateral
         / (_toMantissa(amountToPay, decimalsBorrow, 18) * priceBorrowedUSD);
 
-    console.log("healthFactorWAD=%d", healthFactor18);
+    console.log("healthFactor18=%d", healthFactor18);
     console.log("_collateralFactor=%d", _collateralFactor);
     console.log("collateralAmount=%d", _toMantissa(collateralAmount, decimalsCollateral, 18));
     console.log("amountToPay18=%d", _toMantissa(amountToPay, decimalsBorrow, 18));

@@ -101,7 +101,10 @@ describe("DebtsMonitor", () => {
 
         // create borrow manager (BM) with single pool and DebtMonitor (DM)
         const {bm, sourceToken, targetToken, pools, controller}
-            = await BorrowManagerHelper.createBmTwoUnderlyings(deployer, tt, converter.address);
+            = await BorrowManagerHelper.createBmTwoUnderlyings(deployer
+                , tt
+                , async () => converter.address
+        );
         const dm = await CoreContractsHelper.createDebtMonitor(deployer, controller);
         const tc =  await CoreContractsHelper.createTetuConverter(deployer, controller);
         await controller.assignBatch(
@@ -151,7 +154,10 @@ describe("DebtsMonitor", () => {
         const converter = await MocksHelper.createPoolAdapterMock(deployer);
 
         const {bm, sourceToken, targetToken, pools, controller}
-            = await BorrowManagerHelper.createBmTwoUnderlyings(deployer, tt, converter.address);
+            = await BorrowManagerHelper.createBmTwoUnderlyings(deployer
+                , tt
+                , async () => converter.address
+        );
         const tc = await CoreContractsHelper.createTetuConverter(deployer, controller);
         const dm = await CoreContractsHelper.createDebtMonitor(deployer, controller);
         await controller.assignBatch(

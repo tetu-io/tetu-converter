@@ -92,7 +92,7 @@ contract TetuConverter is ITetuConverter {
     uint targetAmount_,
     address receiver_
   ) external override {
-    _convert(converter_, sourceToken_, sourceAmount_, targetToken_, targetAmount_, receiver_);
+    _convert(converter_, sourceToken_, sourceAmount_, targetToken_, targetAmount_, receiver_, msg.sender);
   }
 
   function _convert(
@@ -101,14 +101,18 @@ contract TetuConverter is ITetuConverter {
     uint sourceAmount_,
     address targetToken_,
     uint targetAmount_,
-    address receiver_
+    address receiver_,
+    address collateralProvider_
   ) internal {
     if (IConverter(converter_).getConversionKind() == AppDataTypes.ConversionKind.BORROW_2) {
       // make borrow
+      console.log("_convert.1");
 
       // get exist or register new pool adapter
       address poolAdapter = _bm().getPoolAdapter(converter_, msg.sender, sourceToken_, targetToken_);
+      console.log("_convert.2", poolAdapter);
       if (poolAdapter == address(0)) {
+        console.log("_convert.3");
         poolAdapter = _bm().registerPoolAdapter(
           converter_,
           msg.sender,
@@ -116,12 +120,20 @@ contract TetuConverter is ITetuConverter {
           targetToken_
         );
       }
+      console.log("_convert.4");
       require(poolAdapter != address(0), AppErrors.POOL_ADAPTER_NOT_FOUND);
 
+      console.log("_convert.5");
       // transfer the collateral from the user directly to the pool adapter; assume, that the transfer is approved
       IPoolAdapter(poolAdapter).syncBalance(true);
-      IERC20(sourceToken_).transferFrom(msg.sender, poolAdapter, sourceAmount_);
-
+      console.log("_convert.6", collateralProvider_, sourceAmount_, poolAdapter);
+      console.log("_convert.6.balance", IERC20(sourceToken_).balanceOf(collateralProvider_));
+      if (collateralProvider_ == address(this)) {
+        IERC20(sourceToken_).transfer(poolAdapter, sourceAmount_);
+      } else {
+        IERC20(sourceToken_).transferFrom(collateralProvider_, poolAdapter, sourceAmount_);
+      }
+      console.log("_convert.7");
       // borrow target-amount and transfer borrowed amount to the receiver
       IPoolAdapter(poolAdapter).borrow(sourceAmount_, targetAmount_, receiver_);
     } else {
@@ -137,21 +149,26 @@ contract TetuConverter is ITetuConverter {
     uint periodInBlocks_,
     address receiver_
   ) external override {
+    console.log("TC.reconvert");
     // we assume, that the caller has already transferred borrowed amount back to the pool adapter
 
     // prepare to repay
     IPoolAdapter pa = IPoolAdapter(poolAdapter_);
     (address originConverter, address user, address collateralAsset, address borrowAsset) = pa.getConfig();
     require(user == msg.sender, AppErrors.USER_ONLY);
+    console.log("TC.reconvert.1", originConverter, user);
 
     (, uint amountToPay,,) = pa.getStatus();
+    console.log("TC.reconvert.2", amountToPay);
 
     // temporary store current balance of the collateral - we need to know balance delta after and before repay
     uint deltaCollateral = IERC20(collateralAsset).balanceOf(address(this));
+    console.log("TC.reconvert.3", deltaCollateral);
 
     // repay
     pa.repay(amountToPay, address(this), true);
     deltaCollateral = IERC20(collateralAsset).balanceOf(address(this)) - deltaCollateral;
+    console.log("TC.reconvert.4", deltaCollateral);
 
     // find new plan
     (address converter, uint maxTargetAmount,) = _findConversionStrategy(
@@ -162,6 +179,8 @@ contract TetuConverter is ITetuConverter {
         periodInBlocks_
     );
     require(converter != originConverter, AppErrors.RECONVERSION_WITH_SAME_CONVERTER_FORBIDDEN);
+    console.log("TC.reconvert.5", converter, collateralAsset, borrowAsset);
+    console.log("TC.reconvert.6", maxTargetAmount, deltaCollateral, receiver_);
 
     // make conversion using new pool adapter, transfer borrowed amount {receiver_}
     _convert(
@@ -170,7 +189,8 @@ contract TetuConverter is ITetuConverter {
       deltaCollateral,
       borrowAsset,
       maxTargetAmount,
-      receiver_
+      receiver_,
+      address(this)
     );
   }
 

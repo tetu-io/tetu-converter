@@ -5,12 +5,8 @@ import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import {
     BorrowManager,
     Controller,
-    CTokenMock,
-    IController,
-    LendingPlatformMock,
     MockERC20,
-    PoolAdapterMock
-} from "../../typechain";
+} from "../../../typechain";
 
 export interface IPoolInfo {
     /** The length of array should be equal to the count of underlyings */
@@ -40,7 +36,7 @@ export class BorrowManagerHelper {
     static async createBmTwoUnderlyings(
         signer: SignerWithAddress,
         tt: IBmInputParams,
-        templateAdapterPoolOptional?: string
+        converterFabric?: () => Promise<string>
     ) : Promise<{
         bm: BorrowManager,
         sourceToken: MockERC20,
@@ -84,7 +80,9 @@ export class BorrowManagerHelper {
                 pricesUSD.map((x, index) => BigNumber.from(10)
                     .pow(18 - 2)
                     .mul(x * 100)),
-                templateAdapterPoolOptional
+              converterFabric
+                    ? await converterFabric()
+                    : undefined
             );
             const mapCTokens = new Map<string, string>();
             for (let i = 0; i < underlyings.length; ++i) {

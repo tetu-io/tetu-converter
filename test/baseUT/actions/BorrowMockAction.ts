@@ -12,12 +12,10 @@ export class BorrowMockAction extends BorrowAction {
         collateralToken: TokenDataTypes,
         collateralAmount: BigNumber,
         borrowToken: TokenDataTypes,
-        countBlocks: number,
-        healthFactor2: number,
         countBlocksToSkipAfterAction?: number,
         mockAddress?: string
     ) {
-        super(collateralToken, collateralAmount, borrowToken, countBlocks, healthFactor2, countBlocksToSkipAfterAction);
+        super(collateralToken, collateralAmount, borrowToken, countBlocksToSkipAfterAction);
 
         this._mockAddress = mockAddress;
     }
