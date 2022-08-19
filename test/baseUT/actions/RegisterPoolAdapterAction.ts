@@ -32,8 +32,7 @@ export class RegisterPoolAdapterAction implements IBorrowAction {
       gasUsed = await user.estimateGas.preInitializePoolAdapter(
         this.collateralToken.address,
         this.collateralAmount,
-        this.borrowToken.address,
-        user.address
+        this.borrowToken.address
       );
       console.log("doAction.end", gasUsed);
     }
@@ -41,7 +40,6 @@ export class RegisterPoolAdapterAction implements IBorrowAction {
       this.collateralToken.address,
       this.collateralAmount,
       this.borrowToken.address,
-      user.address
     );
 
     const collateral = await IERC20__factory.connect(

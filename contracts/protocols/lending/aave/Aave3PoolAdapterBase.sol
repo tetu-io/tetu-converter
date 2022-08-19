@@ -68,8 +68,22 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer 
     _priceOracle = IAavePriceOracle(IAaveAddressesProvider(_pool.ADDRESSES_PROVIDER()).getPriceOracle());
   }
 
-  function getConversionKind() external pure override returns (AppDataTypes.ConversionKind) {
-    return AppDataTypes.ConversionKind.BORROW_2;
+  ///////////////////////////////////////////////////////
+  ///               Restrictions
+  ///////////////////////////////////////////////////////
+
+  /// @notice Ensure that the caller is TetuConveter
+  function _onlyTC() internal view {
+    require(controller.tetuConverter() == msg.sender, AppErrors.TETU_CONVERTER_ONLY);
+  }
+
+  /// @notice Ensure that the caller is the user or TetuConveter
+  function _onlyUserOrTC() internal view {
+    require(
+      msg.sender == controller.tetuConverter()
+      || msg.sender == user
+    , AppErrors.USER_OR_TETU_CONVERTER_ONLY
+    );
   }
 
   ///////////////////////////////////////////////////////
@@ -256,6 +270,10 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer 
   ///         View current status
   ///////////////////////////////////////////////////////
 
+  function getConversionKind() external pure override returns (AppDataTypes.ConversionKind) {
+    return AppDataTypes.ConversionKind.BORROW_2;
+  }
+
   function getConfig() external view override returns (
     address origin,
     address outUser,
@@ -315,20 +333,6 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer 
   ///////////////////////////////////////////////////////
   ///                    Utils
   ///////////////////////////////////////////////////////
-
-  /// @notice Ensure that the caller is TetuConveter
-  function _onlyTC() internal view {
-    require(controller.tetuConverter() == msg.sender, AppErrors.TETU_CONVERTER_ONLY);
-  }
-
-  /// @notice Ensure that the caller is the user or TetuConveter
-  function _onlyUserOrTC() internal view {
-    require(
-      msg.sender == controller.tetuConverter()
-      || msg.sender == user
-    , AppErrors.USER_OR_TETU_CONVERTER_ONLY
-    );
-  }
 
   /// @notice Convert {amount} with [sourceDecimals} to new amount with {targetDecimals}
   function _toMantissa(uint amount, uint8 sourceDecimals, uint8 targetDecimals) internal pure returns (uint) {

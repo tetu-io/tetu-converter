@@ -89,6 +89,24 @@ contract DForcePoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP {
   }
 
   ///////////////////////////////////////////////////////
+  ///                 Restrictions
+  ///////////////////////////////////////////////////////
+
+  /// @notice Ensure that the caller is TetuConveter
+  function _onlyTC() internal view {
+    require(controller.tetuConverter() == msg.sender, AppErrors.TETU_CONVERTER_ONLY);
+  }
+
+  /// @notice Ensure that the caller is the user or TetuConveter
+  function _onlyUserOrTC() internal view {
+    require(
+      msg.sender == controller.tetuConverter()
+      || msg.sender == user
+    , AppErrors.USER_OR_TETU_CONVERTER_ONLY
+    );
+  }
+
+  ///////////////////////////////////////////////////////
   ///                 Borrow logic
   ///////////////////////////////////////////////////////
 
@@ -378,20 +396,6 @@ contract DForcePoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP {
       ? type(uint).max
       : sumCollateralSafe * 10**18 / sumBorrowBase_;
     return (sumCollateralSafe, healthFactor18);
-  }
-
-  /// @notice Ensure that the caller is TetuConveter
-  function _onlyTC() internal view {
-    require(controller.tetuConverter() == msg.sender, AppErrors.TETU_CONVERTER_ONLY);
-  }
-
-  /// @notice Ensure that the caller is the user or TetuConveter
-  function _onlyUserOrTC() internal view {
-    require(
-      msg.sender == controller.tetuConverter()
-      || msg.sender == user
-    , AppErrors.USER_OR_TETU_CONVERTER_ONLY
-    );
   }
 
   /// @notice Convert {amount} with [sourceDecimals} to new amount with {targetDecimals}

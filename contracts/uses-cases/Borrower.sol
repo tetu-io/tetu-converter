@@ -203,8 +203,7 @@ contract Borrower is IBorrower {
   function preInitializePoolAdapter(
     address sourceAsset_,
     uint sourceAmount_,
-    address targetAsset_,
-    address receiver_
+    address targetAsset_
   ) external {
     console.log("preInitializePoolAdapter start gasleft", gasleft());
 

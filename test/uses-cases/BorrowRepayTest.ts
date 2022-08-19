@@ -354,9 +354,9 @@ describe("BorrowRepayTest", () => {
         return {
             sret: ret.sret,
             sexpected: ret.sexpected,
-            gasUsedByPaInitialization: checkGasUsed ? userBalances[0].gasUsed : undefined,
-            gasUsedByBorrow: userBalances[checkGasUsed ? 0 : 1].gasUsed,
-            gasUsedByRepay: userBalances[checkGasUsed ? 1 : 2].gasUsed
+            gasUsedByPaInitialization: checkGasUsed ? userBalances[0].gasUsed : BigNumber.from(0),
+            gasUsedByBorrow: checkGasUsed ? userBalances[1].gasUsed : BigNumber.from(0),
+            gasUsedByRepay: checkGasUsed ? userBalances[2].gasUsed : BigNumber.from(0),
         };
     }
 //endregion Test single borrow, single repay

@@ -62,6 +62,7 @@ abstract contract BorrowManagerBase is IBorrowManager {
       poolAdapters[converter_][user_][collateral_][borrowToken_] = dest;
       poolAdaptersRegistered[dest] = true;
     }
+
     return dest;
   }
 
