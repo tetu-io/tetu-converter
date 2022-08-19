@@ -58,7 +58,7 @@ contract Borrower is IBorrower {
     require(converter != address(0), "Conversion strategy wasn't found");
     require(maxTargetAmount != 0, "maxTargetAmount is 0");
 
-    console.log("we can borrow:", maxTargetAmount);
+    console.log("we can borrow:", maxTargetAmount, "gasleft", gasleft());
     // transfer collateral to TC
     require(IERC20(sourceAsset_).balanceOf(address(this)) >= sourceAmount_, "wrong balance st on tc");
     IERC20(sourceAsset_).safeApprove(_controller.tetuConverter(), sourceAmount_);
@@ -214,6 +214,8 @@ contract Borrower is IBorrower {
       _borrowPeriodInBlocks
     );
 
+    console.log("preInitializePoolAdapter findConversionStrategy.completed gasleft", gasleft());
+
     IBorrowManager(_controller.borrowManager()).registerPoolAdapter(
       converter,
       address(this),
@@ -221,7 +223,7 @@ contract Borrower is IBorrower {
       targetAsset_
     );
 
-    console.log("preInitializePoolAdapter done gasleft6", gasleft());
+    console.log("preInitializePoolAdapter registerPoolAdapter.completed gasleft", gasleft());
   }
 
   ///////////////////////////////////////////////////////

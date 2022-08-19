@@ -145,6 +145,7 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer 
     _pool.setUserUseReserveAsCollateral(assetCollateral, true);
 
     // ensure that we received a-tokens; don't transfer them anywhere
+    // !TODO: should we exclude following validation? AAVE-TWO has problems here
     uint aTokensAmount = IERC20(d.aTokenAddress).balanceOf(address(this)) - aTokensBalanceBeforeSupply;
     require(aTokensAmount >= collateralAmount_, AppErrors.WRONG_DERIVATIVE_TOKENS_BALANCE);
 

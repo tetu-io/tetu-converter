@@ -136,6 +136,8 @@ contract AaveTwoPoolAdapter is IPoolAdapter, IPoolAdapterInitializer {
     );
     _pool.setUserUseReserveAsCollateral(assetCollateral, true);
 
+    //TODO: There is float bug here. Sometime, we provide collateral=1000000000000000000000 and receive atokens=999999999999999999999 from aave.v2
+    //TODO: should we exclude "require" below??
     // ensure that we received a-tokens; we leave all received a-tokens here
     uint aTokensAmount = IERC20(d.aTokenAddress).balanceOf(address(this)) - aTokensBalanceBeforeSupply;
     require(aTokensAmount >= collateralAmount_, AppErrors.WRONG_DERIVATIVE_TOKENS_BALANCE);
