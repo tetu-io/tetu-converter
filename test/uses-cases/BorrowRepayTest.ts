@@ -23,10 +23,14 @@ import {BorrowMockAction} from "../baseUT/actions/BorrowMockAction";
 import {RepayMockAction} from "../baseUT/actions/RepayMockAction";
 import {AaveTwoPlatformFabric} from "../baseUT/fabrics/AaveTwoPlatformFabric";
 import {
-    GAS_LIMIT_SINGLE_BORROW_SINGLE_REPAY_AAVE3,
-    GAS_LIMIT_SINGLE_BORROW_SINGLE_REPAY_AAVE_TWO,
-    GAS_LIMIT_SINGLE_BORROW_SINGLE_REPAY_DFORCE,
-    GAS_LIMIT_SINGLE_BORROW_SINGLE_REPAY_HUNDRED_FINANCE
+    GAS_LIMIT_SINGLE_BORROW_SINGLE_REPAY_AAVE3_BORROW,
+    GAS_LIMIT_SINGLE_BORROW_SINGLE_REPAY_AAVE3_REPAY,
+    GAS_LIMIT_SINGLE_BORROW_SINGLE_REPAY_AAVE_TWO_BORROW,
+    GAS_LIMIT_SINGLE_BORROW_SINGLE_REPAY_AAVE_TWO_REPAY,
+    GAS_LIMIT_SINGLE_BORROW_SINGLE_REPAY_DFORCE_BORROW,
+    GAS_LIMIT_SINGLE_BORROW_SINGLE_REPAY_DFORCE_REPAY,
+    GAS_LIMIT_SINGLE_BORROW_SINGLE_REPAY_HUNDRED_FINANCE_BORROW,
+    GAS_LIMIT_SINGLE_BORROW_SINGLE_REPAY_HUNDRED_FINANCE_REPAY, GAS_LIMIT_SINGLE_BORROW_SINGLE_REPAY_INITIALIZE_PA
 } from "../baseUT/GasLimit";
 import {controlGasLimitsEx} from "../../scripts/utils/hardhatUtils";
 import {TetuConverterApp} from "../baseUT/helpers/TetuConverterApp";
@@ -34,6 +38,7 @@ import {ILendingPlatformFabric} from "../baseUT/fabrics/ILendingPlatformFabric";
 import {areAlmostEqual, setInitialBalance} from "../baseUT/utils/CommonUtils";
 import {TokenDataTypes} from "../baseUT/types/TokenDataTypes";
 import {MockTestInputParams, TestSingleBorrowParams, TestTwoBorrowsParams} from "../baseUT/types/BorrowRepayDataTypes";
+import {RegisterPoolAdapterAction} from "../baseUT/actions/RegisterPoolAdapterAction";
 
 describe("BorrowRepayTest", () => {
 //region Global vars for all tests
@@ -81,7 +86,9 @@ describe("BorrowRepayTest", () => {
         userBalances: IUserBalances[],
         borrowBalances: BigNumber[],
         totalBorrowedAmount: BigNumber,
-        totalRepaidAmount: BigNumber
+        totalRepaidAmount: BigNumber,
+        indexBorrow: number = 0,
+        indexRepay: number = 1
     ) : {sret: string, sexpected: string} {
         console.log("c0", c0);
         console.log("b0", b0);
@@ -92,19 +99,19 @@ describe("BorrowRepayTest", () => {
         console.log("totalRepaidAmount", totalRepaidAmount);
         const sret = [
             // collateral after borrow
-            userBalances[0].collateral
+            userBalances[indexBorrow].collateral
             // borrowed amount > 0
             , !totalBorrowedAmount.eq(BigNumber.from(0))
             // contract borrow balance - initial borrow balance == borrowed amount
-            , userBalances[0].borrow.sub(b0)
+            , userBalances[indexBorrow].borrow.sub(b0)
 
             // after repay
             // collateral >= initial collateral
-            , userBalances[1].collateral.gte(c0)
+            , userBalances[indexRepay].collateral.gte(c0)
             // borrowed balance <= initial borrowed balance
-            , b0.gte(userBalances[1].borrow)
+            , b0.gte(userBalances[indexRepay].borrow)
             // contract borrowed balance is 0
-            , borrowBalances[1]
+            , borrowBalances[indexRepay]
 
             // paid amount >= borrowed amount
             , totalRepaidAmount.gte(totalBorrowedAmount)
@@ -146,7 +153,9 @@ describe("BorrowRepayTest", () => {
         userBalances: IUserBalances[],
         borrowBalances: BigNumber[],
         totalBorrowedAmount: BigNumber,
-        totalRepaidAmount: BigNumber
+        totalRepaidAmount: BigNumber,
+        indexLastBorrow: number = 1,
+        indexLastRepay: number = 3
     ) : {sret: string, sexpected: string} {
         console.log("c0", c0);
         console.log("b0", b0);
@@ -157,19 +166,19 @@ describe("BorrowRepayTest", () => {
         console.log("totalRepaidAmount", totalRepaidAmount);
         const sret = [
             // collateral after borrow 2
-            userBalances[1].collateral
+            userBalances[indexLastBorrow].collateral
             // borrowed amount > 0
             , !totalBorrowedAmount.eq(BigNumber.from(0))
             // contract borrow balance - initial borrow balance == borrowed amount
-            , userBalances[1].borrow.sub(b0)
+            , userBalances[indexLastBorrow].borrow.sub(b0)
 
             // after repay
             // collateral >= initial collateral
-            , userBalances[3].collateral.gte(c0)
+            , userBalances[indexLastRepay].collateral.gte(c0)
             // borrowed balance <= initial borrowed balance
-            , b0.gte(userBalances[3].borrow)
+            , b0.gte(userBalances[indexLastRepay].borrow)
             // contract borrowed balance is 0
-            , borrowBalances[3]
+            , borrowBalances[indexLastRepay]
 
             // paid amount >= borrowed amount
             , totalRepaidAmount.gte(totalBorrowedAmount)
@@ -276,8 +285,14 @@ describe("BorrowRepayTest", () => {
     async function makeTestSingleBorrowInstantRepay(
         p: TestSingleBorrowParams,
         fabric: ILendingPlatformFabric,
-        checkGasUsed: boolean = false
-    ) : Promise<{sret: string, sexpected: string, gasUsed?: BigNumber}> {
+        checkGasUsed: boolean = false,
+    ) : Promise<{
+        sret: string,
+        sexpected: string,
+        gasUsedByBorrow?: BigNumber,
+        gasUsedByRepay?: BigNumber,
+        gasUsedByPaInitialization?: BigNumber
+    }> {
         const {tc, controller} = await TetuConverterApp.buildApp(deployer, [fabric]);
         const uc = await MocksHelper.deployBorrower(deployer.address, controller, p.healthFactor2, p.countBlocks);
 
@@ -292,28 +307,38 @@ describe("BorrowRepayTest", () => {
             , p.borrow.holder, p.borrow.initialLiquidity, uc.address);
         const collateralAmount = getBigNumberFrom(p.collateralAmount, collateralToken.decimals);
 
+        const borrowAction = new BorrowAction(
+          collateralToken
+          , collateralAmount
+          , borrowToken
+          , undefined
+          , checkGasUsed
+        );
+
+        const repayAction = new RepayAction(
+          collateralToken
+          , borrowToken
+          , amountToRepay
+          , {
+              controlGas: checkGasUsed
+          }
+        );
+
+        const preInitializePaAction = new RegisterPoolAdapterAction(
+          collateralToken
+          , collateralAmount
+          , borrowToken
+          , checkGasUsed
+        );
+
         const {
             userBalances,
             borrowBalances
         } = await BorrowRepayUsesCase.makeBorrowRepayActions(deployer
             , uc
-            , [
-                new BorrowAction(
-                    collateralToken
-                    , collateralAmount
-                    , borrowToken
-                    , undefined
-                    , checkGasUsed
-                ),
-                new RepayAction(
-                    collateralToken
-                    , borrowToken
-                    , amountToRepay
-                    , {
-                        controlGas: checkGasUsed
-                    }
-                )
-            ]
+            , checkGasUsed
+                ? [preInitializePaAction, borrowAction, repayAction]
+                : [borrowAction, repayAction]
         );
 
         const ret = getSingleBorrowSingleRepayResults(
@@ -326,20 +351,13 @@ describe("BorrowRepayTest", () => {
             , await uc.totalRepaidAmount()
         );
 
-        let gasUsed: BigNumber | undefined;
-        if (checkGasUsed) {
-            gasUsed = userBalances.reduce(
-                (prev, cur) => {
-                    if (cur.gasUsed) {
-                        return cur.gasUsed.add(prev);
-                    } else {
-                        throw "gas used is null";
-                    }
-                }, BigNumber.from(0)
-            )
-        }
-
-        return {sret: ret.sret, sexpected: ret.sexpected, gasUsed};
+        return {
+            sret: ret.sret,
+            sexpected: ret.sexpected,
+            gasUsedByPaInitialization: checkGasUsed ? userBalances[0].gasUsed : undefined,
+            gasUsedByBorrow: userBalances[checkGasUsed ? 0 : 1].gasUsed,
+            gasUsedByRepay: userBalances[checkGasUsed ? 1 : 2].gasUsed
+        };
     }
 //endregion Test single borrow, single repay
 
@@ -1213,7 +1231,13 @@ describe("BorrowRepayTest", () => {
                                 }, new Aave3PlatformFabric()
                                 , true
                             );
-                            controlGasLimitsEx(r.gasUsed!, GAS_LIMIT_SINGLE_BORROW_SINGLE_REPAY_AAVE3, (u, t) => {
+                            controlGasLimitsEx(r.gasUsedByPaInitialization!, GAS_LIMIT_SINGLE_BORROW_SINGLE_REPAY_INITIALIZE_PA, (u, t) => {
+                                expect(u).to.be.below(t);
+                            });
+                            controlGasLimitsEx(r.gasUsedByBorrow!, GAS_LIMIT_SINGLE_BORROW_SINGLE_REPAY_AAVE3_BORROW, (u, t) => {
+                                expect(u).to.be.below(t);
+                            });
+                            controlGasLimitsEx(r.gasUsedByRepay!, GAS_LIMIT_SINGLE_BORROW_SINGLE_REPAY_AAVE3_REPAY, (u, t) => {
                                 expect(u).to.be.below(t);
                             });
                         });
@@ -1237,7 +1261,13 @@ describe("BorrowRepayTest", () => {
                                 }, new HundredFinancePlatformFabric()
                                 , true
                             );
-                            controlGasLimitsEx(r.gasUsed!, GAS_LIMIT_SINGLE_BORROW_SINGLE_REPAY_HUNDRED_FINANCE, (u, t) => {
+                            controlGasLimitsEx(r.gasUsedByPaInitialization!, GAS_LIMIT_SINGLE_BORROW_SINGLE_REPAY_INITIALIZE_PA, (u, t) => {
+                                expect(u).to.be.below(t);
+                            });
+                            controlGasLimitsEx(r.gasUsedByBorrow!, GAS_LIMIT_SINGLE_BORROW_SINGLE_REPAY_HUNDRED_FINANCE_BORROW, (u, t) => {
+                                expect(u).to.be.below(t);
+                            });
+                            controlGasLimitsEx(r.gasUsedByRepay!, GAS_LIMIT_SINGLE_BORROW_SINGLE_REPAY_HUNDRED_FINANCE_REPAY, (u, t) => {
                                 expect(u).to.be.below(t);
                             });
                         });
@@ -1261,7 +1291,13 @@ describe("BorrowRepayTest", () => {
                                 }, new DForcePlatformFabric()
                                 , true
                             );
-                            controlGasLimitsEx(r.gasUsed!, GAS_LIMIT_SINGLE_BORROW_SINGLE_REPAY_DFORCE, (u, t) => {
+                            controlGasLimitsEx(r.gasUsedByPaInitialization!, GAS_LIMIT_SINGLE_BORROW_SINGLE_REPAY_INITIALIZE_PA, (u, t) => {
+                                expect(u).to.be.below(t);
+                            });
+                            controlGasLimitsEx(r.gasUsedByBorrow!, GAS_LIMIT_SINGLE_BORROW_SINGLE_REPAY_DFORCE_BORROW, (u, t) => {
+                                expect(u).to.be.below(t);
+                            });
+                            controlGasLimitsEx(r.gasUsedByRepay!, GAS_LIMIT_SINGLE_BORROW_SINGLE_REPAY_DFORCE_REPAY, (u, t) => {
                                 expect(u).to.be.below(t);
                             });
                         });
@@ -1285,7 +1321,13 @@ describe("BorrowRepayTest", () => {
                                 }, new AaveTwoPlatformFabric()
                                 , true
                             );
-                            controlGasLimitsEx(r.gasUsed!, GAS_LIMIT_SINGLE_BORROW_SINGLE_REPAY_AAVE_TWO, (u, t) => {
+                            controlGasLimitsEx(r.gasUsedByPaInitialization!, GAS_LIMIT_SINGLE_BORROW_SINGLE_REPAY_INITIALIZE_PA, (u, t) => {
+                                expect(u).to.be.below(t);
+                            });
+                            controlGasLimitsEx(r.gasUsedByBorrow!, GAS_LIMIT_SINGLE_BORROW_SINGLE_REPAY_AAVE_TWO_BORROW, (u, t) => {
+                                expect(u).to.be.below(t);
+                            });
+                            controlGasLimitsEx(r.gasUsedByRepay!, GAS_LIMIT_SINGLE_BORROW_SINGLE_REPAY_AAVE_TWO_REPAY, (u, t) => {
                                 expect(u).to.be.below(t);
                             });
                         });

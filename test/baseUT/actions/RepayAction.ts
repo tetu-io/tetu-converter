@@ -35,47 +35,53 @@ export class RepayAction implements IRepayAction {
         let gasUsed: BigNumber | undefined;
 
         if (this.amountToRepay) {
-            await user.makeRepayUC1_3(
-                this.collateralToken.address,
-                this.borrowToken.address,
-                user.address,
-                this.amountToRepay
-            );
             if (this.params.controlGas) {
+                console.log("doAction.start makeRepayUC1_3");
                 gasUsed = await user.estimateGas.makeRepayUC1_3(
                     this.collateralToken.address,
                     this.borrowToken.address,
                     user.address,
                     this.amountToRepay
                 );
+                console.log("doAction.end", gasUsed);
             }
+            await user.makeRepayUC1_3(
+              this.collateralToken.address,
+              this.borrowToken.address,
+              user.address,
+              this.amountToRepay
+            );
         } else {
             if (this.params.repayFirstPositionOnly) {
-                await user.makeRepayUC1_2_firstPositionOnly(
-                    this.collateralToken.address,
-                    this.borrowToken.address,
-                    user.address
-                );
                 if (this.params.controlGas) {
+                    console.log("doAction.start makeRepayUC1_2_firstPositionOnly");
                     gasUsed = await user.estimateGas.makeRepayUC1_2_firstPositionOnly(
                         this.collateralToken.address,
                         this.borrowToken.address,
                         user.address
                     );
+                    console.log("doAction.end", gasUsed);
                 }
-            } else {
-                await user.makeRepayUC1_2(
-                    this.collateralToken.address,
-                    this.borrowToken.address,
-                    user.address
+                await user.makeRepayUC1_2_firstPositionOnly(
+                  this.collateralToken.address,
+                  this.borrowToken.address,
+                  user.address
                 );
+            } else {
                 if (this.params.controlGas) {
+                    console.log("doAction.start makeRepayUC1_2");
                     gasUsed = await user.estimateGas.makeRepayUC1_2(
                         this.collateralToken.address,
                         this.borrowToken.address,
                         user.address
                     );
+                    console.log("doAction.end", gasUsed);
                 }
+                await user.makeRepayUC1_2(
+                  this.collateralToken.address,
+                  this.borrowToken.address,
+                  user.address
+                );
             }
         }
 

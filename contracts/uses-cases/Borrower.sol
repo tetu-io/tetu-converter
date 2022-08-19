@@ -6,9 +6,10 @@ import "../interfaces/IController.sol";
 import "../interfaces/ITetuConverter.sol";
 import "../openzeppelin/IERC20.sol";
 import "../interfaces/IPoolAdapter.sol";
-import "hardhat/console.sol";
 import "../openzeppelin/SafeERC20.sol";
 import "../interfaces/IBorrower.sol";
+import "../interfaces/IBorrowManager.sol";
+import "hardhat/console.sol";
 
 /// @notice This contract imitates real TetuConverter-user behavior
 /// Terms:
@@ -46,12 +47,7 @@ contract Borrower is IBorrower {
     address targetAsset_,
     address receiver_
   ) external {
-    console.log("makeBorrowUC1.1 start");
-    console.log("sourceAsset_", sourceAsset_);
-    console.log("sourceAmount_", sourceAmount_);
-    console.log("_healthFactor2", _healthFactor2);
-    console.log("_borrowPeriodInBlocks", _borrowPeriodInBlocks);
-    console.log("targetAsset_", targetAsset_);
+    console.log("makeBorrowUC1.1 start gasleft", gasleft());
     // ask TC for the best conversion strategy
     (address converter, uint maxTargetAmount,) = _tc().findConversionStrategy(sourceAsset_,
       sourceAmount_,
@@ -62,17 +58,14 @@ contract Borrower is IBorrower {
     require(converter != address(0), "Conversion strategy wasn't found");
     require(maxTargetAmount != 0, "maxTargetAmount is 0");
 
-    console.log("We can borrow %d of %s using converter=%s", maxTargetAmount, targetAsset_, converter);
-    console.log("makeBorrowUC1.1 balance=%d source amount=%d", IERC20(sourceAsset_).balanceOf(address(this)), sourceAmount_);
-
+    console.log("we can borrow:", maxTargetAmount);
     // transfer collateral to TC
     require(IERC20(sourceAsset_).balanceOf(address(this)) >= sourceAmount_, "wrong balance st on tc");
     IERC20(sourceAsset_).safeApprove(_controller.tetuConverter(), sourceAmount_);
 
-    console.log("approve %d for %s", sourceAmount_, _controller.tetuConverter());
-
     // borrow and receive borrowed-amount to receiver's balance
-    _tc().convert(
+    ITetuConverter tc = _tc();
+    tc.convert(
       converter,
       sourceAsset_,
       sourceAmount_,
@@ -80,7 +73,7 @@ contract Borrower is IBorrower {
       maxTargetAmount,
       receiver_
     );
-    console.log("makeBorrowUC1.1 done");
+    console.log("makeBorrowUC1.1 done gasleft6", gasleft());
 
     totalBorrowedAmount += maxTargetAmount;
   }
@@ -91,34 +84,27 @@ contract Borrower is IBorrower {
     address borrowedAsset_,
     address receiver_
   ) external {
-    console.log("makeRepayUC1.2 started");
+    console.log("makeRepayUC1.2 started gasleft", gasleft());
 
     address[] memory poolAdapters = _tc().findBorrows(collateralAsset_, borrowedAsset_);
     uint lenPoolAdapters = poolAdapters.length;
 
-    console.log("makeRepayUC1.2 count positions=%d", lenPoolAdapters);
     for (uint i = 0; i < lenPoolAdapters; ++i) {
-      console.log("makeRepayUC1.2 start position=%d", i);
       IPoolAdapter pa = IPoolAdapter(poolAdapters[i]);
       pa.syncBalance(false);
       (uint collateralAmount, uint amountToPay,,) = pa.getStatus();
       if (amountToPay > 0) {
-        console.log("makeRepayUC1.2 amountToPay=%d collateralAmount=%d", amountToPay, collateralAmount);
-
-        console.log("makeRepayUC1.2: pa-borrow-balance initial", IERC20(borrowedAsset_).balanceOf(poolAdapters[i]));
+        console.log("makeRepayUC1.2: repay", amountToPay, collateralAmount);
         // transfer borrowed amount to Pool Adapter
         IERC20(borrowedAsset_).safeTransfer(poolAdapters[i], amountToPay);
-        console.log("makeRepayUC1.2: pa-borrow-balance before repay", IERC20(borrowedAsset_).balanceOf(poolAdapters[i]));
 
         // repay borrowed amount and receive collateral to receiver's balance
         pa.repay(amountToPay, receiver_, true);
-        console.log("makeRepayUC1.2: pa-borrow-balance after repay", IERC20(borrowedAsset_).balanceOf(poolAdapters[i]));
 
         totalRepaidAmount += amountToPay;
       }
-      console.log("makeRepayUC1.2 end position=%d", i);
     }
-    console.log("makeRepayUC1.2 done");
+    console.log("makeRepayUC1.2 done gasleft", gasleft());
   }
 
   function makeRepayUC1_2_firstPositionOnly(
@@ -126,19 +112,17 @@ contract Borrower is IBorrower {
     address borrowedAsset_,
     address receiver_
   ) external {
-    console.log("makeRepayUC1.2 started");
+    console.log("makeRepayUC1.2 started gasleft", gasleft());
 
     address[] memory poolAdapters = _tc().findBorrows(collateralAsset_, borrowedAsset_);
     uint lenPoolAdapters = poolAdapters.length;
 
-    console.log("makeRepayUC1.2 count positions=%d", lenPoolAdapters);
     if (lenPoolAdapters > 0) {
-      console.log("makeRepayUC1.2 start position=0");
       IPoolAdapter pa = IPoolAdapter(poolAdapters[0]);
       pa.syncBalance(false);
       (uint collateralAmount, uint amountToPay,,) = pa.getStatus();
       if (amountToPay > 0) {
-        console.log("makeRepayUC1.2 amountToPay=%d collateralAmount=%d", amountToPay, collateralAmount);
+        console.log("makeRepayUC1.2: repay", amountToPay, collateralAmount);
         // transfer borrowed amount to Pool Adapter
         IERC20(borrowedAsset_).safeTransfer(poolAdapters[0], amountToPay);
 
@@ -148,7 +132,7 @@ contract Borrower is IBorrower {
         totalRepaidAmount += amountToPay;
       }
     }
-    console.log("makeRepayUC1.2 done");
+    console.log("makeRepayUC1.2 done gasleft", gasleft());
   }
 
   /// @notice See US1.3 in the project scope
@@ -158,37 +142,33 @@ contract Borrower is IBorrower {
     address receiver_,
     uint amountToPay_
   ) external {
-    console.log("makeRepayUS1.3 started - partial pay");
+    console.log("makeRepayUS1.3 started - partial pay gasleft", gasleft());
     address[] memory poolAdapters = _tc().findBorrows(collateralAsset_, borrowedAsset_);
     uint lenPoolAdapters = poolAdapters.length;
-    console.log("makeRepayUS1.3 count positions=%d", lenPoolAdapters);
     for (uint i = 0; i < lenPoolAdapters; ++i) {
       IPoolAdapter pa = IPoolAdapter(poolAdapters[i]);
       pa.syncBalance(false);
       (, uint amountToPay,,) = pa.getStatus();
-      console.log("makeRepayUS1.3 total amount to pay=%d we are going to pay=%d", amountToPay, amountToPay_);
 
       uint amountToPayToPA = amountToPay_ >= amountToPay ? amountToPay : amountToPay_;
       bool closePosition = amountToPayToPA == amountToPay;
-      console.log("makeRepayUS1.3 amount to pay=%d close position=%d", amountToPayToPA, closePosition ? 1 : 0);
 
       // transfer borrowed amount to Pool Adapter
       IERC20(borrowedAsset_).safeTransfer(poolAdapters[i], amountToPayToPA);
-      console.log("makeRepayUS1.3 borrowedToken_=%s amount=%d", borrowedAsset_, amountToPayToPA);
 
       // repay borrowed amount and receive collateral to receiver's balance
       pa.repay(amountToPayToPA, receiver_, closePosition);
 
       totalRepaidAmount += amountToPayToPA;
     }
-    console.log("makeRepayUS1.3 done");
+    console.log("makeRepayUS1.3 done gasleft", gasleft());
   }
 
   ///////////////////////////////////////////////////////
   ///                   IBorrower impl
   ///////////////////////////////////////////////////////
   function requireReconversion(address poolAdapter) external override {
-    console.log("requireReconversion poolAdapter=", poolAdapter);
+    console.log("requireReconversion start poolAdapter, gasleft", poolAdapter, gasleft());
     IPoolAdapter pa = IPoolAdapter(poolAdapter);
 
     // get amount to pay
@@ -203,7 +183,6 @@ contract Borrower is IBorrower {
 
     // transfer borrowed amount directly to the Pool Adapter
     pa.syncBalance(false);
-    console.log("safeTransfer: amountToPay <= balance:", amountToPay, IERC20(borrowAsset).balanceOf(address(this)));
     require(IERC20(borrowAsset).balanceOf(address(this)) >= amountToPay, "not enough balance of borrow asset");
     IERC20(borrowAsset).safeTransfer(poolAdapter, amountToPay);
 
@@ -214,6 +193,36 @@ contract Borrower is IBorrower {
       , _borrowPeriodInBlocks
       , receiver
     );
+    console.log("requireReconversion end gasleft", gasleft());
+  }
+
+  ///////////////////////////////////////////////////////
+  ///        Pre-initialize pool adapter
+  ///////////////////////////////////////////////////////
+
+  function preInitializePoolAdapter(
+    address sourceAsset_,
+    uint sourceAmount_,
+    address targetAsset_,
+    address receiver_
+  ) external {
+    console.log("preInitializePoolAdapter start gasleft", gasleft());
+
+    (address converter,,) = _tc().findConversionStrategy(sourceAsset_,
+      sourceAmount_,
+      targetAsset_,
+      _healthFactor2,
+      _borrowPeriodInBlocks
+    );
+
+    IBorrowManager(_controller.borrowManager()).registerPoolAdapter(
+      converter,
+      address(this),
+      sourceAsset_,
+      targetAsset_
+    );
+
+    console.log("preInitializePoolAdapter done gasleft6", gasleft());
   }
 
   ///////////////////////////////////////////////////////
@@ -226,7 +235,9 @@ contract Borrower is IBorrower {
   ) external view returns (
     address[] memory poolAdapters
   ) {
-    return _tc().findBorrows(collateralAsset_, borrowedAsset_);
+    console.log("getBorrows start gasleft", gasleft());
+    poolAdapters = _tc().findBorrows(collateralAsset_, borrowedAsset_);
+    console.log("getBorrows end gasleft", gasleft());
   }
 
   ///////////////////////////////////////////////////////
