@@ -12,7 +12,6 @@ import "../../../integrations/hundred-finance/IHfComptroller.sol";
 import "../../../integrations/hundred-finance/IHfCToken.sol";
 import "../../../interfaces/IPoolAdapterInitializerWithAP.sol";
 import "../../../interfaces/ITokenAddressProvider.sol";
-import "hardhat/console.sol";
 import "../../../integrations/hundred-finance/IHfOracle.sol";
 import "../../../integrations/IERC20Extended.sol";
 import "../../../integrations/hundred-finance/IHfInterestRateModel.sol";
@@ -21,8 +20,6 @@ import "../../../integrations/hundred-finance/IHfInterestRateModel.sol";
 contract HfPlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
   using SafeERC20 for IERC20;
 
-  /// @notice Index of template pool adapter in {templatePoolAdapters} that should be used in normal borrowing mode
-  uint constant public INDEX_NORMAL_MODE = 0;
   address private constant WMATIC = address(0x0d500B1d8E8eF31E21C99d1Db9A6444d3ADf1270);
   address private constant hMATIC = address(0xEbd7f3349AbA8bB15b897e03D6c1a4Ba95B55e31);
 
@@ -31,8 +28,8 @@ contract HfPlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
   /// @notice Implementation of IHfOracle
   address public priceOracleAddress;
 
-  /// @notice Full list of supported template-pool-adapters
-  address[] private _converters;
+  /// @notice Template of pool adapter
+  address _converter;
 
 
   /// @notice All enabled pairs underlying : cTokens. All assets usable for collateral/to borrow.
@@ -45,13 +42,13 @@ contract HfPlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
   constructor (
     address controller_,
     address comptroller_,
-    address templateAdapterNormal_,
+    address templatePoolAdapter_,
     address[] memory activeCTokens_,
     address priceOracle_
   ) {
     require(
       comptroller_ != address(0)
-      && templateAdapterNormal_ != address(0)
+      && templatePoolAdapter_ != address(0)
       && controller_ != address(0)
       && priceOracle_ != address(0)
     , AppErrors.ZERO_ADDRESS);
@@ -60,17 +57,16 @@ contract HfPlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
     controller = IController(controller_);
     priceOracleAddress = priceOracle_;
 
-    _converters.push(templateAdapterNormal_); // Index INDEX_NORMAL_MODE: ordinal conversion mode
-    console.log("HfPlatformAdapter this=%s priceOracleAddress=%s", address(this), priceOracleAddress);
+    _converter = templatePoolAdapter_;
     _setupCTokens(activeCTokens_, true);
   }
 
   function setupCTokens(address[] memory cTokens_, bool makeActive_) external {
+    _onlyGovernance();
     _setupCTokens(cTokens_, makeActive_);
   }
 
   function _setupCTokens(address[] memory cTokens_, bool makeActive_) internal {
-    console.log("_setupCTokens");
     uint lenCTokens = cTokens_.length;
     if (makeActive_) {
       for (uint i = 0; i < lenCTokens; i = _uncheckedInc(i)) {
@@ -78,7 +74,6 @@ contract HfPlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
         address underlying = hMATIC == cTokens_[i]
           ? WMATIC
           : IHfCToken(cTokens_[i]).underlying();
-        console.log("_setupCTokens ctoken=%s underline=%s", cTokens_[i], underlying);
         activeAssets[underlying] = cTokens_[i];
       }
     } else {
@@ -86,7 +81,6 @@ contract HfPlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
         delete activeAssets[cTokens_[i]];
       }
     }
-
   }
 
   ///////////////////////////////////////////////////////
@@ -94,7 +88,9 @@ contract HfPlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
   ///////////////////////////////////////////////////////
 
   function converters() external view override returns (address[] memory) {
-    return _converters;
+    address[] memory dest = new address[](1);
+    dest[0] = _converter;
+    return dest;
   }
 
   /// @notice Returns the prices of the supported assets in BASE_CURRENCY of the market. Decimals 18
@@ -105,27 +101,20 @@ contract HfPlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
     uint lenAssets = assets_.length;
     prices18 = new uint[](lenAssets);
     for (uint i = 0; i < lenAssets; i = _uncheckedInc(i)) {
-      console.log("asset=%s", assets_[i]);
       address cToken = activeAssets[assets_[i]];
 
       // we get a price with decimals = (36 - asset decimals)
       // let's convert it to decimals = 18
       prices18[i] = priceOracle.getUnderlyingPrice(cToken) / (10 ** (18 - IERC20Extended(assets_[i]).decimals()));
-      console.log("underline decimals=%d", IERC20Extended(assets_[i]).decimals());
-      console.log("price1=%d", priceOracle.getUnderlyingPrice(cToken));
-      console.log("price2=%d", priceOracle.getUnderlyingPrice(cToken) / (10 ** (18 - IERC20Extended(assets_[i]).decimals())));
-      console.log("price3=%d", priceOracle.getUnderlyingPrice(cToken) * (10 ** 18) / (10 ** (36 - IERC20Extended(assets_[i]).decimals())) );
-
-      console.log("underline=%s ctoken=%s price=%d", assets_[i], cToken, prices18[i] );
     }
 
     return prices18;
   }
 
-  function getCTokenByUnderlying(address token1, address token2)
+  function getCTokenByUnderlying(address token1_, address token2_)
   external view override
   returns (address cToken1, address cToken2, address priceOracle) {
-    return (activeAssets[token1], activeAssets[token2], priceOracleAddress);
+    return (activeAssets[token1_], activeAssets[token2_], priceOracleAddress);
   }
 
   ///////////////////////////////////////////////////////
@@ -146,7 +135,7 @@ contract HfPlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
       if (cTokenBorrow != address(0)) {
         (plan.ltv18, plan.liquidationThreshold18) = _getMarketsInfo(cTokenCollateral, cTokenBorrow);
         if (plan.ltv18 != 0 && plan.liquidationThreshold18 != 0) {
-          plan.converter = _converters[INDEX_NORMAL_MODE];
+          plan.converter = _converter;
 
           plan.maxAmountToBorrowBT = IHfCToken(cTokenBorrow).getCash();
           uint borrowCap = comptroller.borrowCaps(cTokenBorrow);
@@ -161,9 +150,6 @@ contract HfPlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
             }
           }
 
-          console.log("maxAmountToBorrowBT=%d", plan.maxAmountToBorrowBT);
-          console.log("borrowRate=%d", plan.aprPerBlock18);
-
           // it seems that supply is not limited in HundredFinance protocol
           plan.maxAmountToSupplyCT = type(uint).max; // unlimited
 
@@ -171,7 +157,7 @@ contract HfPlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
           uint br = IHfCToken(cTokenBorrow).borrowRatePerBlock();
           uint brAfterBorrow = _br(
             IHfCToken(cTokenBorrow),
-            plan.liquidationThreshold18 * borrowAmountFactor18_ / 1e18
+            plan.liquidationThreshold18 * borrowAmountFactor18_ / 1e18 // == amount to borrow
           );
           plan.aprPerBlock18 = (brAfterBorrow > br ? brAfterBorrow : br);
         }
@@ -194,7 +180,7 @@ contract HfPlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
     address collateralAsset_,
     address borrowAsset_
   ) external override {
-    require(_converters[0] == converter_, AppErrors.CONVERTER_NOT_FOUND);
+    require(_converter == converter_, AppErrors.CONVERTER_NOT_FOUND);
     // HF-pool-adapters support IPoolAdapterInitializer
     IPoolAdapterInitializerWithAP(poolAdapter_).initialize(
       address(controller),
@@ -237,10 +223,11 @@ contract HfPlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
     uint ltv18,
     uint liquidityThreshold18
   ) {
-    (bool isListed, uint256 collateralFactorMantissa,) = comptroller.markets(cTokenBorrow_);
+    IHfComptroller comptrollerLocal = comptroller;
+    (bool isListed, uint256 collateralFactorMantissa,) = comptrollerLocal.markets(cTokenBorrow_);
     if (isListed) {
       ltv18 = collateralFactorMantissa;
-      (isListed, collateralFactorMantissa,) = comptroller.markets(cTokenCollateral_);
+      (isListed, collateralFactorMantissa,) = comptrollerLocal.markets(cTokenCollateral_);
       if (isListed) {
         liquidityThreshold18 = collateralFactorMantissa;
       }
@@ -257,6 +244,11 @@ contract HfPlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
     unchecked {
       return i + 1;
     }
+  }
+
+  /// @notice Ensure that the caller is governance
+  function _onlyGovernance() internal view {
+    require(controller.governance() == msg.sender, AppErrors.GOVERNANCE_ONLY);
   }
 
 }

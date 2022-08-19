@@ -12,7 +12,6 @@ import "../../../integrations/dforce/IDForceController.sol";
 import "../../../integrations/dforce/IDForceCToken.sol";
 import "../../../interfaces/IPoolAdapterInitializerWithAP.sol";
 import "../../../interfaces/ITokenAddressProvider.sol";
-import "hardhat/console.sol";
 import "../../../integrations/dforce/IDForcePriceOracle.sol";
 import "../../../integrations/IERC20Extended.sol";
 import "../../../integrations/dforce/IDForceInterestRateModel.sol";
@@ -21,17 +20,14 @@ import "../../../integrations/dforce/IDForceInterestRateModel.sol";
 contract DForcePlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
   using SafeERC20 for IERC20;
 
-  /// @notice Index of template pool adapter in {templatePoolAdapters} that should be used in normal borrowing mode
-  uint constant public INDEX_NORMAL_MODE = 0;
   address private constant WMATIC = address(0x0d500B1d8E8eF31E21C99d1Db9A6444d3ADf1270);
   address private constant iMATIC = address(0x6A3fE5342a4Bd09efcd44AC5B9387475A0678c74);
 
   IController public controller;
   IDForceController public comptroller;
 
-  /// @notice Full list of supported template-pool-adapters
-  address[] private _converters;
-
+  /// @notice Template of pool adapter
+  address _converter;
 
   /// @notice All enabled pairs underlying : cTokens. All assets usable for collateral/to borrow.
   /// @dev There is no underlying for WMATIC, we store iMATIC:WMATIC
@@ -43,36 +39,35 @@ contract DForcePlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
   constructor (
     address controller_,
     address comptroller_,
-    address templateAdapterNormal_,
+    address templatePoolAdapter_,
     address[] memory activeCTokens_
   ) {
     require(
       comptroller_ != address(0)
-      && templateAdapterNormal_ != address(0)
+      && templatePoolAdapter_ != address(0)
       && controller_ != address(0)
     , AppErrors.ZERO_ADDRESS);
 
     comptroller = IDForceController(comptroller_);
     controller = IController(controller_);
 
-    _converters.push(templateAdapterNormal_); // Index INDEX_NORMAL_MODE: ordinal conversion mode
+    _converter = templatePoolAdapter_;
     _setupCTokens(activeCTokens_, true);
   }
 
   function setupCTokens(address[] memory cTokens_, bool makeActive_) external {
+    _onlyGovernance();
     _setupCTokens(cTokens_, makeActive_);
   }
 
   function _setupCTokens(address[] memory cTokens_, bool makeActive_) internal {
-    console.log("_setupCTokens");
     uint lenCTokens = cTokens_.length;
     if (makeActive_) {
       for (uint i = 0; i < lenCTokens; i = _uncheckedInc(i)) {
-        // Special case: there is no underlying for WMATIC, so we store hMATIC:WMATIC
+        // Special case: there is no underlying for WMATIC, so we store iMATIC:WMATIC
         address underlying = iMATIC == cTokens_[i]
           ? WMATIC
           : IDForceCToken(cTokens_[i]).underlying();
-        console.log("_setupCTokens ctoken=%s underline=%s", cTokens_[i], underlying);
         activeAssets[underlying] = cTokens_[i];
       }
     } else {
@@ -80,15 +75,16 @@ contract DForcePlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
         delete activeAssets[cTokens_[i]];
       }
     }
-
   }
 
   ///////////////////////////////////////////////////////
-  ///       View
+  ///                     View
   ///////////////////////////////////////////////////////
 
   function converters() external view override returns (address[] memory) {
-    return _converters;
+    address[] memory dest = new address[](1);
+    dest[0] = _converter;
+    return dest;
   }
 
   /// @notice Returns the prices of the supported assets in BASE_CURRENCY of the market. Decimals 18
@@ -99,7 +95,6 @@ contract DForcePlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
     uint lenAssets = assets_.length;
     prices18 = new uint[](lenAssets);
     for (uint i = 0; i < lenAssets; i = _uncheckedInc(i)) {
-      console.log("asset=%s", assets_[i]);
       address cToken = activeAssets[assets_[i]];
 
       // we get a price with decimals = (36 - asset decimals)
@@ -107,56 +102,46 @@ contract DForcePlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
       (uint underlyingPrice, bool isPriceValid) = priceOracle.getUnderlyingPriceAndStatus(address(cToken));
       require(underlyingPrice != 0 && isPriceValid, AppErrors.ZERO_PRICE);
 
-      console.log("underline decimals=%d", IERC20Extended(assets_[i]).decimals());
-      console.log("price1=%d", underlyingPrice);
-      console.log("price2=%d", underlyingPrice / (10 ** (18 - IERC20Extended(assets_[i]).decimals())));
-      console.log("price3=%d", underlyingPrice * (10 ** 18) / (10 ** (36 - IERC20Extended(assets_[i]).decimals())) );
-
       prices18[i] = underlyingPrice / (10 ** (18 - IERC20Extended(assets_[i]).decimals()));
-
-      console.log("underline=%s ctoken=%s price=%d", assets_[i], cToken, prices18[i] );
     }
 
     return prices18;
   }
 
-  function getCTokenByUnderlying(address token1, address token2)
+  function getCTokenByUnderlying(address token1_, address token2_)
   external view override
   returns (address cToken1, address cToken2, address priceOracle) {
-    return (activeAssets[token1], activeAssets[token2], comptroller.priceOracle());
+    return (activeAssets[token1_], activeAssets[token2_], comptroller.priceOracle());
   }
 
   ///////////////////////////////////////////////////////
-  ///       Get conversion plan
+  ///            Get conversion plan
   ///////////////////////////////////////////////////////
 
   function getConversionPlan (
     address collateralAsset_,
     address borrowAsset_,
-    uint borrowAmountFactor18_ //TODO
+    uint borrowAmountFactor18_
   ) external override view returns (
     AppDataTypes.ConversionPlan memory plan
   ) {
-    console.log("DForcePlatformAdapter.getConversionPlan");
+    IDForceController comptrollerLocal = comptroller;
     address cTokenCollateral = activeAssets[collateralAsset_];
     if (cTokenCollateral != address(0)) {
 
       address cTokenBorrow = activeAssets[borrowAsset_];
       if (cTokenBorrow != address(0)) {
-        (uint collateralFactorMantissa, uint supplyCapacity) = _getCollateralMarketData(cTokenCollateral);
-        console.log("collateralFactorMantissa supplyCapacity", collateralFactorMantissa, supplyCapacity);
-        if (collateralFactorMantissa != 0 && supplyCapacity != 0) {
-          (uint borrowFactorMantissa, uint borrowCapacity) = _getBorrowMarketData(cTokenBorrow);
-          console.log("borrowFactorMantissa borrowCapacity", borrowFactorMantissa, borrowCapacity);
+        (uint collateralFactor, uint supplyCapacity) = _getCollateralMarketData(comptrollerLocal, cTokenCollateral);
+        if (collateralFactor != 0 && supplyCapacity != 0) {
+          (uint borrowFactorMantissa, uint borrowCapacity) = _getBorrowMarketData(comptrollerLocal, cTokenBorrow);
 
           if (borrowFactorMantissa != 0 && borrowCapacity != 0) {
-            plan.converter = _converters[INDEX_NORMAL_MODE];
+            plan.converter = _converter;
 
-            plan.liquidationThreshold18 = collateralFactorMantissa;
-            plan.ltv18 = collateralFactorMantissa * borrowFactorMantissa / 10**18;
+            plan.liquidationThreshold18 = collateralFactor;
+            plan.ltv18 = collateralFactor * borrowFactorMantissa / 10**18;
 
             plan.maxAmountToBorrowBT = IDForceCToken(cTokenBorrow).getCash();
-            console.log("maxAmountToBorrowBT=%d", plan.maxAmountToBorrowBT);
             if (borrowCapacity != type(uint).max) { // == uint(-1)
               // we shouldn't exceed borrowCapacity limit, see Controller.beforeBorrow
               uint totalBorrow = IDForceCToken(cTokenBorrow).totalBorrows();
@@ -168,7 +153,6 @@ contract DForcePlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
                 }
               }
             }
-            console.log("maxAmountToBorrowBT=%d", plan.maxAmountToBorrowBT);
 
             if (supplyCapacity == type(uint).max) { // == uint(-1)
               plan.maxAmountToSupplyCT = type(uint).max;
@@ -180,18 +164,13 @@ contract DForcePlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
                 ? type(uint).max
                 : supplyCapacity - totalSupply;
             }
-
-            console.log("borrowRate=%d", plan.aprPerBlock18);
-            console.log("ltv=%d", plan.ltv18);
-            console.log("liquidationThreshold18=%d", plan.liquidationThreshold18);
-            console.log("maxAmountToSupplyCT=%d", plan.maxAmountToSupplyCT);
           }
 
-          // calculate current borrow rate and the borrow rate after borrowing max allowed amount
+          // calculate current borrow rate and predicted BR value after borrowing required amount
           uint br = IDForceCToken(cTokenBorrow).borrowRatePerBlock();
           uint brAfterBorrow = _br(
             IDForceCToken(cTokenBorrow),
-            plan.liquidationThreshold18 * borrowAmountFactor18_ / 1e18
+            plan.liquidationThreshold18 * borrowAmountFactor18_ / 1e18  // == amount to borrow
           );
           plan.aprPerBlock18 = (brAfterBorrow > br ? brAfterBorrow : br);
         }
@@ -214,7 +193,7 @@ contract DForcePlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
     address collateralAsset_,
     address borrowAsset_
   ) external override {
-    require(_converters[0] == converter_, AppErrors.CONVERTER_NOT_FOUND);
+    require(_converter == converter_, AppErrors.CONVERTER_NOT_FOUND);
     // HF-pool-adapters support IPoolAdapterInitializer
     IPoolAdapterInitializerWithAP(poolAdapter_).initialize(
       address(controller),
@@ -238,13 +217,13 @@ contract DForcePlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
 
   /// @notice Estimate value of variable borrow rate after borrowing {amountToBorrow_}
   function _br(
-    IDForceCToken cTokenBorrow,
+    IDForceCToken cTokenBorrow_,
     uint amountToBorrow_
   ) internal view returns (uint) {
-    return IDForceInterestRateModel(cTokenBorrow.interestRateModel()).getBorrowRate(
-      cTokenBorrow.getCash() - amountToBorrow_,
-      cTokenBorrow.totalBorrows() + amountToBorrow_,
-      cTokenBorrow.totalReserves()
+    return IDForceInterestRateModel(cTokenBorrow_.interestRateModel()).getBorrowRate(
+      cTokenBorrow_.getCash() - amountToBorrow_,
+      cTokenBorrow_.totalBorrows() + amountToBorrow_,
+      cTokenBorrow_.totalReserves()
     );
   }
 
@@ -255,11 +234,11 @@ contract DForcePlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
   /// @return collateralFactorMantissa Multiplier representing the most one can borrow against their collateral in
   ///         this market. For instance, 0.9 to allow borrowing 90% of collateral value.
   /// @return supplyCapacity iToken's supply capacity, -1 means no limit
-  function _getCollateralMarketData(address cTokenCollateral_) internal view returns (
+  function _getCollateralMarketData(IDForceController comptroller_, address cTokenCollateral_) internal view returns (
     uint collateralFactorMantissa,
     uint supplyCapacity
   ) {
-    (uint256 collateralFactorMantissa0,,, uint256 supplyCapacity0, bool mintPaused,,) = comptroller
+    (uint256 collateralFactorMantissa0,,, uint256 supplyCapacity0, bool mintPaused,,) = comptroller_
       .markets(cTokenCollateral_);
     return mintPaused || supplyCapacity0 == 0
       ? (0, 0)
@@ -269,11 +248,11 @@ contract DForcePlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
   /// @return borrowFactorMantissa Multiplier representing the most one can borrow the asset.
   ///         For instance, 0.5 to allow borrowing this asset 50% * collateral value * collateralFactor.
   /// @return borrowCapacity iToken's borrow capacity, -1 means no limit
-  function _getBorrowMarketData(address cTokenBorrow_) internal view returns (
+  function _getBorrowMarketData(IDForceController comptroller_, address cTokenBorrow_) internal view returns (
     uint borrowFactorMantissa,
     uint borrowCapacity
   ) {
-    (, uint256 borrowFactorMantissa0, uint256 borrowCapacity0,,, bool redeemPaused, bool borrowPaused) = comptroller
+    (, uint256 borrowFactorMantissa0, uint256 borrowCapacity0,,, bool redeemPaused, bool borrowPaused) = comptroller_
       .markets(cTokenBorrow_);
     return (redeemPaused || borrowPaused || borrowCapacity0 == 0)
       ? (0, 0)
@@ -290,4 +269,8 @@ contract DForcePlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
     }
   }
 
+  /// @notice Ensure that the caller is governance
+  function _onlyGovernance() internal view {
+    require(controller.governance() == msg.sender, AppErrors.GOVERNANCE_ONLY);
+  }
 }

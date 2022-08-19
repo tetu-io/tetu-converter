@@ -34,7 +34,7 @@ contract HfPoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP {
   IHfOracle private _priceOracle;
 
   /// @notice Address of original PoolAdapter contract that was cloned to make the instance of the pool adapter
-  address originConverter;
+  address public originConverter;
 
   /// @notice Last synced amount of given token on the balance of this contract
   mapping(address => uint) public collateralBalance;
@@ -72,8 +72,10 @@ contract HfPoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP {
     borrowAsset = borrowAsset_;
     originConverter = originConverter_;
 
-    (address cTokenCollateral, address cTokenBorrow, address priceOracle) = ITokenAddressProvider(cTokenAddressProvider_)
-      .getCTokenByUnderlying(collateralAsset_, borrowAsset_);
+    (address cTokenCollateral,
+     address cTokenBorrow,
+     address priceOracle
+    ) = ITokenAddressProvider(cTokenAddressProvider_).getCTokenByUnderlying(collateralAsset_, borrowAsset_);
 
     require(cTokenCollateral != address(0), AppErrors.HF_DERIVATIVE_TOKEN_NOT_FOUND);
     require(cTokenBorrow != address(0), AppErrors.HF_DERIVATIVE_TOKEN_NOT_FOUND);
@@ -113,6 +115,7 @@ contract HfPoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP {
   ) external override {
     _onlyTC();
     uint error;
+    IHfComptroller comptroller = _comptroller;
 
     address cTokenCollateral = collateralCToken;
     address cTokenBorrow = borrowCToken;
@@ -129,7 +132,7 @@ contract HfPoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP {
     address[] memory markets = new address[](2);
     markets[0] = cTokenCollateral;
     markets[1] = cTokenBorrow;
-    _comptroller.enterMarkets(markets);
+    comptroller.enterMarkets(markets);
 
     // supply collateral
     if (_isMatic(assetCollateral)) {
@@ -137,6 +140,7 @@ contract HfPoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP {
       IWmatic(WMATIC).withdraw(collateralAmount_);
       IHfHMatic(payable(cTokenCollateral)).mint{value : collateralAmount_}();
     } else {
+      IERC20(assetCollateral).approve(cTokenCollateral, 0);
       IERC20(assetCollateral).approve(cTokenCollateral, collateralAmount_);
       error = IHfCToken(cTokenCollateral).mint(collateralAmount_);
       require(error == 0, AppErrors.MINT_FAILED);
@@ -159,21 +163,23 @@ contract HfPoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP {
     // register the borrow in DebtMonitor
     IDebtMonitor(controller.debtMonitor()).onOpenPosition();
 
-    // TODO: send cTokens anywhere?
-
     // ensure that current health factor is greater than min allowed
-    _validateHealthStatusAfterBorrow(cTokenCollateral, cTokenBorrow);
+    _validateHealthStatusAfterBorrow(comptroller, cTokenCollateral, cTokenBorrow);
   }
 
-  function _validateHealthStatusAfterBorrow(address cTokenCollateral, address cTokenBorrow) internal view {
-    (,, uint collateralBase, uint borrowBase, ) = _getStatus(cTokenCollateral, cTokenBorrow);
+  function _validateHealthStatusAfterBorrow(
+    IHfComptroller comptroller_,
+    address cTokenCollateral_,
+    address cTokenBorrow_
+  ) internal view {
+    (,, uint collateralBase, uint borrowBase, ) = _getStatus(cTokenCollateral_, cTokenBorrow_);
     (uint sumCollateralSafe, uint healthFactor18) = _getHealthFactor(
-      cTokenCollateral,
+      cTokenCollateral_,
       collateralBase,
       borrowBase
     );
 
-    (uint256 dError, uint liquidity,) = _comptroller.getAccountLiquidity(address(this));
+    (uint256 dError, uint liquidity,) = comptroller_.getAccountLiquidity(address(this));
     require(dError == 0, AppErrors.CTOKEN_GET_ACCOUNT_LIQUIDITY_FAILED);
 
     require(
@@ -186,7 +192,7 @@ contract HfPoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP {
       , AppErrors.HF_INCORRECT_RESULT_LIQUIDITY
     );
 
-    require(healthFactor18 > uint(controller.getMinHealthFactor2())*10**(18-2), AppErrors.WRONG_HEALTH_FACTOR);
+    _validateHealthFactor(healthFactor18);
   }
 
   ///////////////////////////////////////////////////////
@@ -200,6 +206,8 @@ contract HfPoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP {
     address receiver_,
     bool closePosition
   ) external override {
+    _onlyUserOrTC();
+
     uint error;
     address assetBorrow = borrowAsset;
     address assetCollateral = collateralAsset;
@@ -226,7 +234,8 @@ contract HfPoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP {
       IWmatic(WMATIC).withdraw(amountToRepay_);
       IHfHMatic(payable(cTokenBorrow)).repayBorrow{value : amountToRepay_}();
     } else {
-      IERC20(assetBorrow).approve(cTokenBorrow, amountToRepay_); //TODO: do we need approve(0)?
+      IERC20(assetBorrow).approve(cTokenBorrow, 0);
+      IERC20(assetBorrow).approve(cTokenBorrow, amountToRepay_);
       error = IHfCToken(cTokenBorrow).repayBorrow(amountToRepay_);
       require(error == 0, AppErrors.REPAY_FAILED);
     }
@@ -256,7 +265,7 @@ contract HfPoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP {
     } else {
       require(!closePosition, AppErrors.CLOSE_POSITION_FAILED);
       (, uint healthFactor18) = _getHealthFactor(cTokenCollateral, collateralBase, borrowBase);
-      require(healthFactor18 > uint(controller.getMinHealthFactor2())*10**(18-2), AppErrors.WRONG_HEALTH_FACTOR);
+      _validateHealthFactor(healthFactor18);
     }
   }
 
@@ -348,9 +357,7 @@ contract HfPoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP {
     //               = (Liquidity + sumBorrowPlusEffects) / sumBorrowPlusEffects
 
     uint priceCollateral = _priceOracle.getUnderlyingPrice(cTokenCollateral);
-    //  / (10 ** (18 - IERC20Extended(collateralAsset).decimals()));
     uint priceBorrow = _priceOracle.getUnderlyingPrice(cTokenBorrow);
-    //  / (10 ** (18 - IERC20Extended(borrowAsset).decimals()));
 
     (uint256 cError, uint256 tokenBalance,, uint256 cExchangeRateMantissa) = IHfCToken(cTokenCollateral)
       .getAccountSnapshot(address(this));
@@ -379,17 +386,17 @@ contract HfPoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP {
   ///////////////////////////////////////////////////////
   ///                   Utils
   ///////////////////////////////////////////////////////
-  function _getHealthFactor(address cTokenCollateral, uint sumCollateral, uint sumBorrowPlusEffects)
+  function _getHealthFactor(address cTokenCollateral_, uint sumCollateral_, uint sumBorrowPlusEffects_)
   internal view returns (
     uint sumCollateralSafe,
     uint healthFactor18
   ) {
-    (,uint collateralFactor,) = _comptroller.markets(cTokenCollateral);
+    (,uint collateralFactor,) = _comptroller.markets(cTokenCollateral_);
 
-    sumCollateralSafe = collateralFactor * sumCollateral / 10**18;
-    healthFactor18 = sumBorrowPlusEffects == 0
+    sumCollateralSafe = collateralFactor * sumCollateral_ / 10**18;
+    healthFactor18 = sumBorrowPlusEffects_ == 0
       ? type(uint).max
-      : sumCollateralSafe * 10**18 / sumBorrowPlusEffects;
+      : sumCollateralSafe * 10**18 / sumBorrowPlusEffects_;
 
     return (sumCollateralSafe, healthFactor18);
   }
@@ -399,11 +406,24 @@ contract HfPoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP {
     require(controller.tetuConverter() == msg.sender, AppErrors.TETU_CONVERTER_ONLY);
   }
 
+  /// @notice Ensure that the caller is the user or TetuConveter
+  function _onlyUserOrTC() internal view {
+    require(
+      msg.sender == controller.tetuConverter()
+      || msg.sender == user
+    , AppErrors.USER_OR_TETU_CONVERTER_ONLY
+    );
+  }
+
   /// @notice Convert {amount} with [sourceDecimals} to new amount with {targetDecimals}
   function _toMantissa(uint amount, uint8 sourceDecimals, uint8 targetDecimals) internal pure returns (uint) {
     return sourceDecimals == targetDecimals
       ? amount
       : amount * (10 ** targetDecimals) / (10 ** sourceDecimals);
+  }
+
+  function _validateHealthFactor(uint hf18) internal view {
+    require(hf18 > uint(controller.getMinHealthFactor2())*10**(18-2), AppErrors.WRONG_HEALTH_FACTOR);
   }
 
   ///////////////////////////////////////////////////////
