@@ -148,17 +148,24 @@ describe("BorrowRepayTest", () => {
         totalBorrowedAmount: BigNumber,
         totalRepaidAmount: BigNumber
     ) : {sret: string, sexpected: string} {
+        console.log("c0", c0);
+        console.log("b0", b0);
+        console.log("collateralAmount", collateralAmount);
+        console.log("userBalances", userBalances);
+        console.log("borrowBalances", borrowBalances);
+        console.log("totalBorrowedAmount", totalBorrowedAmount);
+        console.log("totalRepaidAmount", totalRepaidAmount);
         const sret = [
             // collateral after borrow 2
             userBalances[1].collateral
             // borrowed amount > 0
             , !totalBorrowedAmount.eq(BigNumber.from(0))
             // contract borrow balance - initial borrow balance == borrowed amount
-            , userBalances[0].borrow.sub(b0)
+            , userBalances[1].borrow.sub(b0)
 
             // after repay
             // collateral >= initial collateral
-            , userBalances[3].collateral.gt(c0) || areAlmostEqual(userBalances[3].collateral, c0) //TODO: userBalances[1].collateral.gte(c0)
+            , userBalances[3].collateral.gte(c0)
             // borrowed balance <= initial borrowed balance
             , b0.gte(userBalances[3].borrow)
             // contract borrowed balance is 0
