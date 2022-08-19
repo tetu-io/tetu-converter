@@ -54,4 +54,6 @@ library AppErrors {
   /// @notice It's not allowed to close position with a pool adapter and make re-conversion using the same adapter
   string public constant RECONVERSION_WITH_SAME_CONVERTER_FORBIDDEN = "31";
 
+  string public constant USER_OR_TETU_CONVERTER_ONLY = "32";
+
 }

@@ -15,7 +15,6 @@ import "../../../integrations/aaveTwo/IAaveTwoProtocolDataProvider.sol";
 import "../../../integrations/aaveTwo/IAaveTwoAToken.sol";
 import "../../../integrations/aaveTwo/AaveTwoReserveConfiguration.sol";
 import "../../../integrations/aaveTwo/IAaveTwoReserveInterestRateStrategy.sol";
-import "hardhat/console.sol";
 
 /// @notice Adapter to read current pools info from AAVE-v2-protocol, see https://docs.aave.com/hub/
 contract AaveTwoPlatformAdapter is IPlatformAdapter {
@@ -80,14 +79,15 @@ contract AaveTwoPlatformAdapter is IPlatformAdapter {
   function getConversionPlan (
     address collateralAsset_,
     address borrowAsset_,
-    uint borrowAmountFactor
+    uint borrowAmountFactor_
   ) external view override returns (
     AppDataTypes.ConversionPlan memory plan
   ) {
-    DataTypes.ReserveData memory rc = pool.getReserveData(collateralAsset_);
+    IAaveTwoPool poolLocal = pool;
+    DataTypes.ReserveData memory rc = poolLocal.getReserveData(collateralAsset_);
 
     if (_isUsable(rc.configuration) &&  _isCollateralUsageAllowed(rc.configuration)) {
-      DataTypes.ReserveData memory rb = pool.getReserveData(borrowAsset_);
+      DataTypes.ReserveData memory rb = poolLocal.getReserveData(borrowAsset_);
 
       if (_isUsable(rc.configuration) && rb.configuration.getBorrowingEnabled()) {
         // get liquidation threshold (== collateral factor) and loan-to-value
@@ -97,27 +97,24 @@ contract AaveTwoPlatformAdapter is IPlatformAdapter {
 
         // availableLiquidity is IERC20(borrowToken).balanceOf(atoken)
         (uint availableLiquidity, uint totalStableDebt, uint totalVariableDebt,,,,,,,) = IAaveTwoProtocolDataProvider(
-          IAaveTwoLendingPoolAddressesProvider(pool.getAddressesProvider()).getAddress(bytes32(ID_DATA_PROVIDER))
+          IAaveTwoLendingPoolAddressesProvider(poolLocal.getAddressesProvider()).getAddress(bytes32(ID_DATA_PROVIDER))
         ).getReserveData(borrowAsset_);
 
         plan.maxAmountToBorrowBT = availableLiquidity;
-        console.log("AAVETwo: availableLiquidity", availableLiquidity);
         plan.maxAmountToSupplyCT = type(uint).max; // unlimited
 
-        {
+        { // calculate borrow rate
+          // get both current BR and predict BR-value after borrowing of the required amount, take max value
+          // assume here, that we always use variable borrow rate
           uint br = rb.currentVariableBorrowRate;
           uint brAfterBorrow = _br(borrowAsset_,
             rb,
-            borrowAmountFactor * plan.liquidationThreshold18 / 1e18,
+          // calculate what amount will be borrowed
+            borrowAmountFactor_ * plan.liquidationThreshold18 / 1e18,
             totalStableDebt,
             totalVariableDebt
           );
 
-          console.log("maxAmountToBorrowBT", plan.maxAmountToBorrowBT, plan.liquidationThreshold18 * borrowAmountFactor / 1e18);
-          console.log("BRTwo", br);
-          console.log("BRTwo-after-borrow", brAfterBorrow, borrowAmountFactor * plan.liquidationThreshold18 / 1e18);
-
-          // assume here, that we always use variable borrow rate
           plan.aprPerBlock18 = (brAfterBorrow > br ? brAfterBorrow : br)
             / COUNT_SECONDS_PER_YEAR
             * IController(controller).blocksPerDay() * 365 / COUNT_SECONDS_PER_YEAR
@@ -127,7 +124,6 @@ contract AaveTwoPlatformAdapter is IPlatformAdapter {
       }
     }
 
-    console.log("10");
     return plan;
   }
 
@@ -147,23 +143,24 @@ contract AaveTwoPlatformAdapter is IPlatformAdapter {
 
   function _br(
     address borrowAsset_,
-    DataTypes.ReserveData memory r,
+    DataTypes.ReserveData memory rd_,
     uint amountToBorrow_,
-    uint256 totalStableDebt,
-    uint256 totalVariableDebt
+    uint256 totalStableDebt_,
+    uint256 totalVariableDebt_
   ) internal view returns (uint variableBorrowRate) {
     // see aave-v2-core, DefaultReserveInterestRateStrategy, calculateInterestRates impl
     // to calculate new BR, we need to reduce liquidity on borrowAmount and increase the debt on the same amount
-    (,,variableBorrowRate) = IAaveTwoReserveInterestRateStrategy(r.interestRateStrategyAddress).calculateInterestRates(
-      borrowAsset_,
-      r.aTokenAddress,
-      0,
-      amountToBorrow_,
-      totalStableDebt,
-      totalVariableDebt + amountToBorrow_,
-      r.currentStableBorrowRate, // this value is not used to calculate variable BR
-      r.configuration.getReserveFactor()
-    );
+    (,,variableBorrowRate) = IAaveTwoReserveInterestRateStrategy(rd_.interestRateStrategyAddress)
+      .calculateInterestRates(
+        borrowAsset_,
+        rd_.aTokenAddress,
+        0,
+        amountToBorrow_,
+        totalStableDebt_,
+        totalVariableDebt_ + amountToBorrow_,
+        rd_.currentStableBorrowRate, // this value is not used to calculate variable BR
+        rd_.configuration.getReserveFactor()
+      );
   }
 
   ///////////////////////////////////////////////////////

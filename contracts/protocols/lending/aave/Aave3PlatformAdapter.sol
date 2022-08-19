@@ -15,7 +15,6 @@ import "../../../integrations/aave3/Aave3ReserveConfiguration.sol";
 import "../../../integrations/aave3/IAavePriceOracle.sol";
 import "../../../integrations/aave3/IAaveToken.sol";
 import "../../../integrations/aave3/IAaveReserveInterestRateStrategy.sol";
-import "hardhat/console.sol";
 
 /// @notice Adapter to read current pools info from AAVE-v3-protocol, see https://docs.aave.com/hub/
 contract Aave3PlatformAdapter is IPlatformAdapter {
@@ -65,7 +64,7 @@ contract Aave3PlatformAdapter is IPlatformAdapter {
   }
 
   ///////////////////////////////////////////////////////
-  ///       View
+  ///                    View
   ///////////////////////////////////////////////////////
 
   function converters() external view override returns (address[] memory) {
@@ -79,7 +78,7 @@ contract Aave3PlatformAdapter is IPlatformAdapter {
   }
 
   ///////////////////////////////////////////////////////
-  ///       Get conversion plan
+  ///             Get conversion plan
   ///////////////////////////////////////////////////////
 
   function getConversionPlan (
@@ -89,10 +88,11 @@ contract Aave3PlatformAdapter is IPlatformAdapter {
   ) external view override returns (
     AppDataTypes.ConversionPlan memory plan
   ) {
-    Aave3DataTypes.ReserveData memory rc = pool.getReserveData(collateralAsset_);
+    IAavePool poolLocal = pool;
+    Aave3DataTypes.ReserveData memory rc = poolLocal.getReserveData(collateralAsset_);
 
     if (_isUsable(rc.configuration) &&  _isCollateralUsageAllowed(rc.configuration)) {
-      Aave3DataTypes.ReserveData memory rb = pool.getReserveData(borrowAsset_);
+      Aave3DataTypes.ReserveData memory rb = poolLocal.getReserveData(borrowAsset_);
 
       if (_isUsable(rc.configuration) && rb.configuration.getBorrowingEnabled()) {
 
@@ -102,8 +102,8 @@ contract Aave3PlatformAdapter is IPlatformAdapter {
             if (categoryCollateral != 0 && categoryCollateral == rb.configuration.getEModeCategory()) {
 
               // if both assets belong to the same e-mode-category, we can use category's ltv (higher than default)
-              // TODO: we assume here, that e-mode is always used if it's available
-              Aave3DataTypes.EModeCategory memory categoryData = pool.getEModeCategoryData(categoryCollateral);
+              // we assume here, that e-mode is always used if it's available
+              Aave3DataTypes.EModeCategory memory categoryData = poolLocal.getEModeCategoryData(categoryCollateral);
               // ltv: 8500 for 0.85, we need decimals 18.
               plan.ltv18 = uint(categoryData.ltv) * 10**(18-4);
               plan.liquidationThreshold18 = uint(categoryData.liquidationThreshold) * 10**(18-4);
@@ -116,21 +116,12 @@ contract Aave3PlatformAdapter is IPlatformAdapter {
           }
 
           // by default, we can borrow all available cache
-
-          // we need to know available liquidity in the pool, so, we need an access to pool-data-provider
-          // TODO: can we use static address of the PoolDataProvider - 0x69FA688f1Dc47d4B5d8029D5a35FB7a548310654 ?
-          // TODO: see https://docs.aave.com/developers/deployed-contracts/v3-mainnet/polygon
-          IAaveProtocolDataProvider dp = IAaveProtocolDataProvider(
-            (IAaveAddressesProvider(IAavePool(pool).ADDRESSES_PROVIDER())).getPoolDataProvider()
-          );
-
           (,,
           uint256 totalAToken,
           uint256 totalStableDebt,
           uint256 totalVariableDebt
-          ,,,,,,,) = dp.getReserveData(borrowAsset_);
+          ,,,,,,,) = _dp(poolLocal).getReserveData(borrowAsset_);
           plan.maxAmountToBorrowBT = totalAToken - totalStableDebt - totalVariableDebt;
-          console.log("AAVE3: maxAmountToBorrowBT", plan.maxAmountToBorrowBT);
 
           // supply/borrow caps are given in "whole tokens" == without decimals
           // see AAVE3-code, ValidationLogic.sol, validateSupply
@@ -139,10 +130,6 @@ contract Aave3PlatformAdapter is IPlatformAdapter {
             uint borrowCap = rb.configuration.getBorrowCap();
             if (borrowCap != 0) {
               borrowCap *= (10**rb.configuration.getDecimals());
-//              IAaveProtocolDataProvider dp = IAaveProtocolDataProvider(
-//                IAaveAddressesProvider(pool.ADDRESSES_PROVIDER()).getPoolDataProvider()
-//              );
-//              (,,, uint256 totalStableDebt, uint256 totalVariableDebt,,,,,,,) = dp.getReserveData(borrowAsset_);
               uint totalDebt = totalStableDebt + totalVariableDebt;
               if (totalDebt > borrowCap) {
                 plan.maxAmountToBorrowBT = 0;
@@ -160,27 +147,23 @@ contract Aave3PlatformAdapter is IPlatformAdapter {
           if (supplyCap == 0) {
             plan.maxAmountToSupplyCT = type(uint).max; // unlimited
           } else {
-//            console.log("supplyCap", supplyCap);
             supplyCap  *= (10**rc.configuration.getDecimals());
-//            console.log("supplyCap", supplyCap);
             uint totalSupply = (IAaveToken(rc.aTokenAddress).scaledTotalSupply() * rc.liquidityIndex + HALF_RAY) / RAY;
-//            console.log("totalSupply", totalSupply);
             plan.maxAmountToSupplyCT = supplyCap > totalSupply
               ? supplyCap - totalSupply
               : 0;
           }
 
-          {// assume here, that we always use variable borrow rate
+          { // calculate borrow rate
+            // get both current BR and predict BR-value after borrowing of the required amount, take max value
+            // assume here, that we always use variable borrow rate
             uint br = rb.currentVariableBorrowRate;
-            uint brAfterBorrow = _br(borrowAsset_, rb
-              , plan.liquidationThreshold18 * borrowAmountFactor18_ / 1e18
-              , totalStableDebt
-              , totalVariableDebt
+            uint brAfterBorrow = _br(borrowAsset_,
+              rb,
+              plan.liquidationThreshold18 * borrowAmountFactor18_ / 1e18,
+              totalStableDebt,
+              totalVariableDebt
             );
-
-            console.log("maxAmountToBorrowBT", plan.maxAmountToBorrowBT, plan.liquidationThreshold18 * borrowAmountFactor18_ / 1e18);
-            console.log("BR", br);
-            console.log("BR-after-borrow", brAfterBorrow);
 
             plan.aprPerBlock18 = (brAfterBorrow > br ? brAfterBorrow : br)
               / COUNT_SECONDS_PER_YEAR
@@ -201,16 +184,13 @@ contract Aave3PlatformAdapter is IPlatformAdapter {
 
   /// @notice Estimate value of variable borrow rate after borrowing {amountToBorrow_}
   function getBorrowRateAfterBorrow(address borrowAsset_, uint amountToBorrow_) external view override returns (uint) {
-    Aave3DataTypes.ReserveData memory rb = pool.getReserveData(borrowAsset_);
-
-    IAaveProtocolDataProvider dp = IAaveProtocolDataProvider(
-      (IAaveAddressesProvider(IAavePool(pool).ADDRESSES_PROVIDER())).getPoolDataProvider()
-    );
+    IAavePool poolLocal = pool;
+    Aave3DataTypes.ReserveData memory rb = poolLocal.getReserveData(borrowAsset_);
 
     (,,,
     uint256 totalStableDebt,
     uint256 totalVariableDebt
-    ,,,,,,,) = dp.getReserveData(borrowAsset_);
+    ,,,,,,,) = _dp(poolLocal).getReserveData(borrowAsset_);
 
     return _br(borrowAsset_,
       rb,
@@ -223,25 +203,25 @@ contract Aave3PlatformAdapter is IPlatformAdapter {
 
   function _br(
     address borrowAsset_,
-    Aave3DataTypes.ReserveData memory r,
+    Aave3DataTypes.ReserveData memory rd_,
     uint amountToBorrow_,
-    uint256 totalStableDebt,
-    uint256 totalVariableDebt
+    uint256 totalStableDebt_,
+    uint256 totalVariableDebt_
   ) internal view returns (uint variableBorrowRate) {
 
     // see aave-v3-core, DefaultReserveInterestRateStrategy, calculateInterestRates impl
     // to calculate new BR, we need to reduce liquidity on borrowAmount and increase the debt on the same amount
-    (,,variableBorrowRate) = IAaveReserveInterestRateStrategy(r.interestRateStrategyAddress).calculateInterestRates(
+    (,,variableBorrowRate) = IAaveReserveInterestRateStrategy(rd_.interestRateStrategyAddress).calculateInterestRates(
       Aave3DataTypes.CalculateInterestRatesParams({
         unbacked: 0, // this value is not used to calculate variable BR
         liquidityAdded: 0,
         liquidityTaken: amountToBorrow_,
-        totalStableDebt: totalStableDebt,
-        totalVariableDebt: totalVariableDebt + amountToBorrow_,
-        averageStableBorrowRate: r.currentStableBorrowRate, // this value is not used to calculate variable BR
-        reserveFactor: r.configuration.getReserveFactor(),
+        totalStableDebt: totalStableDebt_,
+        totalVariableDebt: totalVariableDebt_ + amountToBorrow_,
+        averageStableBorrowRate: rd_.currentStableBorrowRate, // this value is not used to calculate variable BR
+        reserveFactor: rd_.configuration.getReserveFactor(),
         reserve: borrowAsset_,
-        aToken: r.aTokenAddress
+        aToken: rd_.aTokenAddress
       })
     );
   }
@@ -298,5 +278,11 @@ contract Aave3PlatformAdapter is IPlatformAdapter {
   /// @dev https://docs.aave.com/developers/whats-new/isolation-mode
   function _isUsableInIsolationMode(Aave3DataTypes.ReserveConfigurationMap memory borrowData) internal pure returns (bool) {
     return borrowData.getBorrowableInIsolation();
+  }
+
+  function _dp(IAavePool pool_) internal view returns (IAaveProtocolDataProvider) {
+    return IAaveProtocolDataProvider(
+      (IAaveAddressesProvider(pool_.ADDRESSES_PROVIDER())).getPoolDataProvider()
+    );
   }
 }
