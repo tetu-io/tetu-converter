@@ -21,6 +21,10 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer 
   using Aave3ReserveConfiguration for Aave3DataTypes.ReserveConfigurationMap;
   using SafeRatioMath for uint;
 
+  /// @notice We allow to receive less atokens then provided collateral on following value
+  /// @dev Sometime, we provide collateral=1000000000000000000000 and receive atokens=999999999999999999999
+  uint constant public ATOKEN_MAX_DELTA = 10;
+
   /// @notice 1 - stable, 2 - variable
   uint immutable public RATE_MODE = 2;
   uint constant public SECONDS_PER_YEAR = 31536000;
@@ -147,7 +151,7 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer 
     // ensure that we received a-tokens; don't transfer them anywhere
     // !TODO: should we exclude following validation? AAVE-TWO has problems here
     uint aTokensAmount = IERC20(d.aTokenAddress).balanceOf(address(this)) - aTokensBalanceBeforeSupply;
-    require(aTokensAmount >= collateralAmount_, AppErrors.WRONG_DERIVATIVE_TOKENS_BALANCE);
+    require(aTokensAmount + ATOKEN_MAX_DELTA >= collateralAmount_, AppErrors.WRONG_DERIVATIVE_TOKENS_BALANCE);
 
     // enter to E-mode if necessary
     prepareToBorrow();

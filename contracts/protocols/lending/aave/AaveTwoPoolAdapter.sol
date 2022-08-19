@@ -21,6 +21,10 @@ contract AaveTwoPoolAdapter is IPoolAdapter, IPoolAdapterInitializer {
   using AaveTwoReserveConfiguration for DataTypes.ReserveConfigurationMap;
   using SafeRatioMath for uint;
 
+  /// @notice We allow to receive less atokens then provided collateral on following value
+  /// @dev Sometime, we provide collateral=1000000000000000000000 and receive atokens=999999999999999999999
+  uint constant public ATOKEN_MAX_DELTA = 10;
+
   /// @notice 1 - stable, 2 - variable
   uint immutable public RATE_MODE = 2;
 
@@ -136,11 +140,9 @@ contract AaveTwoPoolAdapter is IPoolAdapter, IPoolAdapterInitializer {
     );
     _pool.setUserUseReserveAsCollateral(assetCollateral, true);
 
-    //TODO: There is float bug here. Sometime, we provide collateral=1000000000000000000000 and receive atokens=999999999999999999999 from aave.v2
-    //TODO: should we exclude "require" below??
-    // ensure that we received a-tokens; we leave all received a-tokens here
+
     uint aTokensAmount = IERC20(d.aTokenAddress).balanceOf(address(this)) - aTokensBalanceBeforeSupply;
-    require(aTokensAmount >= collateralAmount_, AppErrors.WRONG_DERIVATIVE_TOKENS_BALANCE);
+    require(aTokensAmount + ATOKEN_MAX_DELTA >= collateralAmount_, AppErrors.WRONG_DERIVATIVE_TOKENS_BALANCE);
 
     // make borrow, send borrowed amount to the receiver
     // we cannot transfer borrowed amount directly to receiver because the debt is incurred by amount receiver
