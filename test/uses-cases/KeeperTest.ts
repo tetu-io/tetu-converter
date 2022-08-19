@@ -21,13 +21,12 @@ import {
 } from "../../typechain";
 import {MaticAddresses} from "../../scripts/addresses/MaticAddresses";
 import {isPolygonForkInUse} from "../baseUT/utils/NetworkUtils";
-import {ReConverterMock} from "../baseUT/keeper/ReСonverters";
+import {IReConverter, ReConverterMock, ReConverterUsingPA} from "../baseUT/keeper/ReСonverters";
 import {LendingPlatformManagerMock} from "../baseUT/keeper/LendingPlatformManagerMock";
 import {PoolAdapterState01} from "../baseUT/keeper/ILendingPlatformManager";
 import {MockTestInputParams, TestSingleBorrowParams} from "../baseUT/types/BorrowRepayDataTypes";
 import {setInitialBalance} from "../baseUT/utils/CommonUtils";
 import {LendingPlatformManagerAave3} from "../baseUT/keeper/LendingPlatformManagerAave3";
-import {Aave3Helper} from "../../scripts/integration/helpers/Aave3Helper";
 import {ILendingPlatformFabric} from "../baseUT/fabrics/ILendingPlatformFabric";
 import {Aave3PlatformFabric} from "../baseUT/fabrics/Aave3PlatformFabric";
 import {LendingPlatformManagerAaveTwo} from "../baseUT/keeper/LendingPlatformManagerAaveTwo";
@@ -209,6 +208,149 @@ describe("Keeper test", () => {
 
         console.log("makeSingleBorrow.end", poolAdapters.length);
         return {uc, controller, poolAdapter};
+    }
+
+    /**
+     * There are two pool adapters: PA1 and PA2
+     * Find the best conversion strategy for borrow, i.e. PA1
+     * Make max possible borrow using PA1 (and increase its BR)
+     * Find conversion strategy for borrow. Now it should be PA2
+     * Make borrow using PA2
+     * Repay PA1 (and decrease its BR). Now PA1 is more profitable again.
+     * Now the keeper should suggest to make reconversion.
+     *
+     * It doesn't matter what is PA1 and what is PA2, they can be AAVE3/Two or Two/3.
+     * */
+    async function makeTestForReconversionAave3andTwo(
+      reconverter: IReConverter,
+      p: TestSingleBorrowParams,
+      collateralHolders: string[]
+    ): Promise<{
+        statusAfterMaxBorrow: string[],
+        statusAfterSmallBorrow: string[],
+        statusAfterRepayMaxBorrow: string[],
+        statusAfterReconversion: string[]
+    }> {
+        const {uc, controller} = await prepareToBorrow(p, [
+            new Aave3PlatformFabric(),
+            new AaveTwoPlatformFabric()
+        ]);
+
+        const collateralToken = await TokenDataTypes.Build(deployer, p.collateral.asset);
+        const borrowToken = await TokenDataTypes.Build(deployer, p.borrow.asset);
+        const collateralAmount = getBigNumberFrom(p.collateralAmount, collateralToken.decimals);
+
+        // create two pool adapters - one for aave3 (normal mode only) and one for aave2
+        const bm = await getBorrowManager(deployer, controller);
+        const poolAdapters01: string[] = [];
+        for (let i = 0; i < 2; ++i) {
+            const pa = IPlatformAdapter__factory.connect(await bm.platformAdapters(i), deployer);
+            const converter = (await pa.converters())[0];
+            await bm.registerPoolAdapter(converter,
+              uc.address,
+              collateralToken.address,
+              borrowToken.address
+            );
+            poolAdapters01.push(await bm.getPoolAdapter(converter,
+              uc.address,
+              collateralToken.address,
+              borrowToken.address
+            ));
+        }
+        const paAAVE3 = poolAdapters01[0];
+        const paAAVETwo = poolAdapters01[1];
+        console.log("Pool adapter AAVE3", paAAVE3);
+        console.log("Pool adapter AAVETwo", paAAVETwo);
+
+        // let's try to make borrow for all collateral amount that the holder have
+        let collateralForMaxBorrow = await IERC20__factory.connect(p.collateral.asset, deployer)
+          .balanceOf(p.collateral.holder);
+        console.log("Holder's balance of collateral", collateralForMaxBorrow);
+        await IERC20__factory.connect(p.collateral.asset
+          , await DeployerUtils.startImpersonate(p.collateral.holder)
+        ).transfer(uc.address, collateralForMaxBorrow.sub(collateralAmount));
+
+        // Let's borrow max possible amount for provided collateral
+        for (const h of collateralHolders) {
+            const holderBalance = await IERC20__factory.connect(p.collateral.asset, deployer)
+              .balanceOf(h);
+            console.log("Holder's balance of collateral", holderBalance);
+            await IERC20__factory.connect(p.collateral.asset
+              , await DeployerUtils.startImpersonate(h)
+            ).transfer(uc.address, holderBalance);
+            collateralForMaxBorrow = collateralForMaxBorrow.add(holderBalance);
+        }
+
+        await BorrowRepayUsesCase.makeBorrowRepayActions(deployer, uc
+          , [new BorrowAction(collateralToken, collateralForMaxBorrow, borrowToken)]
+        );
+        const statusAfterMaxBorrow = await uc.getBorrows(p.collateral.asset, p.borrow.asset);
+        let statusAfterRepayMaxBorrow: string[] = [];
+
+        // Let's make borrow again - now we should use different pool adapter
+        await BorrowRepayUsesCase.makeBorrowRepayActions(deployer
+          , uc
+          , [
+              new BorrowAction(
+                collateralToken
+                , collateralAmount
+                , borrowToken
+              )
+          ]
+        );
+        const statusAfterSmallBorrow = await uc.getBorrows(p.collateral.asset, p.borrow.asset);
+
+        // let's call keeper job twice: before and after modification of the platform state
+        const dest: boolean[] = [];
+        for (let i = 0; i < 2; ++i) {
+            console.log("Run keeper, step", i);
+
+            // create a keeper
+            const keeper: Keeper = new Keeper(
+              IDebtMonitor__factory.connect(await controller.debtMonitor(), deployer)
+              , p.healthFactor2
+              , p.countBlocks
+              , reconverter
+            );
+            await keeper.makeKeeperJob(deployer);
+
+            if (i == 0) {
+                // modify platform state
+                console.log("Modify platform state", i);
+
+                // Let's repay first borrow
+                await IERC20__factory.connect(p.borrow.asset
+                  , await DeployerUtils.startImpersonate(p.borrow.holder)
+                ).transfer(uc.address
+                  , IERC20__factory.connect(p.borrow.asset, deployer).balanceOf(p.borrow.holder)
+                );
+
+                await BorrowRepayUsesCase.makeBorrowRepayActions(deployer
+                  , uc
+                  , [
+                      new RepayAction(
+                        collateralToken
+                        , borrowToken
+                        , undefined //complete repay
+                        , {
+                            repayFirstPositionOnly: true
+                        }
+                      )
+                  ]
+                );
+
+                statusAfterRepayMaxBorrow = await uc.getBorrows(p.collateral.asset, p.borrow.asset);
+            }
+        }
+
+        const statusAfterReconversion = await uc.getBorrows(p.collateral.asset, p.borrow.asset);
+
+        return {
+            statusAfterMaxBorrow,
+            statusAfterSmallBorrow,
+            statusAfterRepayMaxBorrow,
+            statusAfterReconversion
+        };
     }
 //endregion Tests implementations
 
@@ -662,7 +804,7 @@ describe("Keeper test", () => {
                     });
                 });
                 describe("DAI => WBTC", () => {
-//region Constants and utils
+//region Constants
                     const ASSET_COLLATERAL = MaticAddresses.DAI;
                     const HOLDER_COLLATERAL = MaticAddresses.HOLDER_DAI;
                     const ADDITIONAL_COLLATERAL_HOLDERS = [
@@ -679,205 +821,132 @@ describe("Keeper test", () => {
                     const INITIAL_LIQUIDITY_BORROW = 10;
                     const HEALTH_FACTOR2 = 200;
                     const COUNT_BLOCKS = 1;
-
-                    async function getLendingPlatformManagerAave3(
-                        uc: Borrower
-                        , controller: Controller
-                        , poolAdapter: string
-                    ): Promise<LendingPlatformManagerAave3> {
-                        return new LendingPlatformManagerAave3(
-                            await Aave3PoolAdapter__factory.connect(poolAdapter, deployer)
-                            , uc
-                            , TetuConverter__factory.connect(await controller.tetuConverter(), deployer)
-                            , {
-                                asset: ASSET_COLLATERAL,
-                                holder: HOLDER_COLLATERAL
-                            }, {
-                                asset: ASSET_BORROW,
-                                holder: HOLDER_BORROW
-                            }
-                        );
-                    }
-
-                    async function getLendingPlatformManagerAaveTwo(
-                        uc: Borrower
-                        , controller: Controller
-                        , poolAdapter: string
-                    ): Promise<LendingPlatformManagerAaveTwo> {
-                        return new LendingPlatformManagerAaveTwo(
-                            await AaveTwoPoolAdapter__factory.connect(poolAdapter, deployer)
-                            , uc
-                            , TetuConverter__factory.connect(await controller.tetuConverter(), deployer)
-                            , {
-                                asset: ASSET_COLLATERAL,
-                                holder: HOLDER_COLLATERAL
-                            }, {
-                                asset: ASSET_BORROW,
-                                holder: HOLDER_BORROW
-                            }
-                        );
-                    }
-//endregion Constants and utils
-
+//endregion Constants
                     describe("AAVE3 + AAVE2", () => {
-//region Utils
-                        /**
-                         * There are two pool adapters: PA1 and PA2
-                         * Find the best conversion strategy for borrow, i.e. PA1
-                         * Make max possible borrow using PA1 (and increase its BR)
-                         * Find conversion strategy for borrow. Now it should be PA2
-                         * Make borrow using PA2
-                         * Repay PA1 (and decrease its BR). Now PA1 is more profitable again.
-                         * Now the keeper should suggest to make reconversion.
-                         *
-                         * It doesn't matter what is PA1 and what is PA2, they can be AAVE3/Two or Two/3.
-                         * */
-                        async function makeTestForReconversionAave3andTwo(): Promise<boolean[]> {
-                            // install the app and prepare to borrow
-                            const p = {
-                                collateral: {
-                                    asset: ASSET_COLLATERAL,
-                                    holder: HOLDER_COLLATERAL,
-                                    initialLiquidity: INITIAL_LIQUIDITY_COLLATERAL,
-                                }, borrow: {
-                                    asset: ASSET_BORROW,
-                                    holder: HOLDER_BORROW,
-                                    initialLiquidity: INITIAL_LIQUIDITY_BORROW,
-                                }, collateralAmount: AMOUNT_COLLATERAL
-                                , healthFactor2: HEALTH_FACTOR2
-                                , countBlocks: COUNT_BLOCKS
-                            };
-                            const {uc, controller} = await prepareToBorrow(p, [
-                                new Aave3PlatformFabric(),
-                                new AaveTwoPlatformFabric()
-                            ]);
-
-                            const collateralToken = await TokenDataTypes.Build(deployer, p.collateral.asset);
-                            const borrowToken = await TokenDataTypes.Build(deployer, p.borrow.asset);
-                            const collateralAmount = getBigNumberFrom(p.collateralAmount, collateralToken.decimals);
-
-                            // create two pool adapters - one for aave3 (normal mode only) and one for aave2
-                            const bm = await getBorrowManager(deployer, controller);
-                            const poolAdapters01: string[] = [];
-                            for (let i = 0; i < 2; ++i) {
-                                const pa = IPlatformAdapter__factory.connect(await bm.platformAdapters(i), deployer);
-                                const converter = (await pa.converters())[0];
-                                await bm.registerPoolAdapter(converter,
-                                    uc.address,
-                                    collateralToken.address,
-                                    borrowToken.address
-                                );
-                                poolAdapters01.push(await bm.getPoolAdapter(converter,
-                                    uc.address,
-                                    collateralToken.address,
-                                    borrowToken.address
-                                ));
-                            }
-                            const paAAVE3 = poolAdapters01[0];
-                            const paAAVETwo = poolAdapters01[1];
-                            console.log("Pool adapter AAVE3", paAAVE3);
-                            console.log("Pool adapter AAVETwo", paAAVETwo);
-
-                            // let's try to make borrow for all collateral amount that the holder have
-                            let collateralForMaxBorrow = await IERC20__factory.connect(p.collateral.asset, deployer)
-                                .balanceOf(p.collateral.holder);
-                            console.log("Holder's balance of collateral", collateralForMaxBorrow);
-                            await IERC20__factory.connect(p.collateral.asset
-                                , await DeployerUtils.startImpersonate(p.collateral.holder)
-                            ).transfer(uc.address, collateralForMaxBorrow.sub(collateralAmount));
-
-                            // Let's borrow max possible amount for provided collateral
-                            for (const h of ADDITIONAL_COLLATERAL_HOLDERS) {
-                                const holderBalance = await IERC20__factory.connect(p.collateral.asset, deployer)
-                                    .balanceOf(h);
-                                console.log("Holder's balance of collateral", holderBalance);
-                                await IERC20__factory.connect(p.collateral.asset
-                                    , await DeployerUtils.startImpersonate(h)
-                                ).transfer(uc.address, holderBalance);
-                                collateralForMaxBorrow = collateralForMaxBorrow.add(holderBalance);
-                            }
-
-                            await BorrowRepayUsesCase.makeBorrowRepayActions(deployer, uc
-                                , [new BorrowAction(collateralToken, collateralForMaxBorrow, borrowToken)]
-                            );
-                            const statusAfterMaxBorrow = await uc.getBorrows(p.collateral.asset, p.borrow.asset);
-
-                            // Let's make borrow again - now we should use different pool adapter
-                            await BorrowRepayUsesCase.makeBorrowRepayActions(deployer
-                                , uc
-                                , [
-                                    new BorrowAction(
-                                        collateralToken
-                                        , collateralAmount
-                                        , borrowToken
-                                    )
-                                ]
-                            );
-                            const statusAfterSmallBorrow = await uc.getBorrows(p.collateral.asset, p.borrow.asset);
-
-                            // let's call keeper job twice: before and after modification of the platform state
-                            const dest: boolean[] = [];
-                            for (let i = 0; i < 2; ++i) {
-                                console.log("Run keeper, step", i);
-
-                                // create a keeper
-                                const reconverter = new ReConverterMock();
-                                const keeper: Keeper = new Keeper(
-                                    IDebtMonitor__factory.connect(await controller.debtMonitor(), deployer)
-                                    , HEALTH_FACTOR2
-                                    , COUNT_BLOCKS
-                                    , reconverter
-                                );
-                                await keeper.makeKeeperJob(deployer);
-
-                                // ensure that re-conversion was called for the given poolAdapter
-                                const keeperResult = reconverter.ensureExpectedPA(paAAVE3);
-                                console.log("keeperResult", keeperResult);
-                                dest.push(keeperResult);
-
-                                if (i == 0) {
-                                    // modify platform state
-                                    console.log("Modify platform state", i);
-
-                                    // Let's repay first borrow
-                                    await IERC20__factory.connect(p.borrow.asset
-                                        , await DeployerUtils.startImpersonate(p.borrow.holder)
-                                    ).transfer(uc.address
-                                        , IERC20__factory.connect(p.borrow.asset, deployer).balanceOf(p.borrow.holder)
-                                    );
-
-                                    await BorrowRepayUsesCase.makeBorrowRepayActions(deployer
-                                        , uc
-                                        , [
-                                            new RepayAction(
-                                                collateralToken
-                                                , borrowToken
-                                                , undefined //complete repay
-                                                , {
-                                                    repayFirstPositionOnly: true
-                                                }
-                                            )
-                                        ]
-                                    );
-                                }
-                            }
-
-                            return dest;
-                        }
-//endregion Utils
                         describe("Increase borrow rate significantly, second pool becomes better", () => {
                             it("should call reconvert", async () => {
                                 if (!await isPolygonForkInUse()) return;
 
-                                const ret = await makeTestForReconversionAave3andTwo();
-                                const expected = [false, true];
+                                // install the app and prepare to borrow
+                                const p = {
+                                    collateral: {
+                                        asset: ASSET_COLLATERAL,
+                                        holder: HOLDER_COLLATERAL,
+                                        initialLiquidity: INITIAL_LIQUIDITY_COLLATERAL,
+                                    }, borrow: {
+                                        asset: ASSET_BORROW,
+                                        holder: HOLDER_BORROW,
+                                        initialLiquidity: INITIAL_LIQUIDITY_BORROW,
+                                    }, collateralAmount: AMOUNT_COLLATERAL
+                                    , healthFactor2: HEALTH_FACTOR2
+                                    , countBlocks: COUNT_BLOCKS
+                                };
 
-                                const sret = ret.join("\n");
-                                const sexpected = expected.join("\n");
+                                const reconverter = new ReConverterMock();
+
+                                const ret = await makeTestForReconversionAave3andTwo(
+                                  reconverter
+                                  , p
+                                  , ADDITIONAL_COLLATERAL_HOLDERS
+                                );
+
+                                const paInitiallyInefficient = ret.statusAfterMaxBorrow[0];
+                                const paInitiallyEfficient =  ret.statusAfterSmallBorrow[1];
+
+                                const sret = [
+                                  ret.statusAfterMaxBorrow.join(";"),
+                                  ret.statusAfterSmallBorrow.join(";"),
+                                  ret.statusAfterRepayMaxBorrow.join(";"),
+
+                                  reconverter.poolAdapters.join(";"),
+                                ].join("\n");
+
+                                const sexpected = [
+                                  [paInitiallyInefficient].join(";"),
+                                  [paInitiallyInefficient, paInitiallyEfficient].join(";"),
+                                  [paInitiallyEfficient].join(";"),
+
+                                  [paInitiallyEfficient].join(";"),
+                                ].join("\n");
+
+                                console.log(ret);
+                                console.log(reconverter.poolAdapters);
 
                                 expect(sret).equal(sexpected);
                             });
                         });
+                    });
+                });
+            });
+        });
+    });
+
+    describe("Make reconversion", () => {
+        describe("Good paths", () => {
+            describe("Increase borrow rate significantly, second pool becomes better", () => {
+                describe("DAI => WBTC", () => {
+//region Constants
+                    const ASSET_COLLATERAL = MaticAddresses.DAI;
+                    const HOLDER_COLLATERAL = MaticAddresses.HOLDER_DAI;
+                    const ADDITIONAL_COLLATERAL_HOLDERS = [
+                        MaticAddresses.HOLDER_DAI_2
+                        , MaticAddresses.HOLDER_DAI_3
+                        , MaticAddresses.HOLDER_DAI_4
+                        , MaticAddresses.HOLDER_DAI_5
+                        , MaticAddresses.HOLDER_DAI_6
+                    ];
+                    const ASSET_BORROW = MaticAddresses.WBTS;
+                    const HOLDER_BORROW = MaticAddresses.HOLDER_WBTC;
+                    const AMOUNT_COLLATERAL = 1_000;
+                    const INITIAL_LIQUIDITY_COLLATERAL = 100_000;
+                    const INITIAL_LIQUIDITY_BORROW = 10;
+                    const HEALTH_FACTOR2 = 200;
+                    const COUNT_BLOCKS = 1;
+//endregion Constants
+                    it("should make reconversion", async () => {
+                        if (!await isPolygonForkInUse()) return;
+
+                        const reconverter = new ReConverterUsingPA();
+
+                        const p = {
+                            collateral: {
+                                asset: ASSET_COLLATERAL,
+                                holder: HOLDER_COLLATERAL,
+                                initialLiquidity: INITIAL_LIQUIDITY_COLLATERAL,
+                            }, borrow: {
+                                asset: ASSET_BORROW,
+                                holder: HOLDER_BORROW,
+                                initialLiquidity: INITIAL_LIQUIDITY_BORROW,
+                            }, collateralAmount: AMOUNT_COLLATERAL
+                            , healthFactor2: HEALTH_FACTOR2
+                            , countBlocks: COUNT_BLOCKS
+                        };
+                        const ret = await makeTestForReconversionAave3andTwo(
+                          reconverter
+                          , p
+                          , ADDITIONAL_COLLATERAL_HOLDERS
+                        );
+
+                        const paInitiallyInefficient = ret.statusAfterMaxBorrow[0];
+                        const paInitiallyEfficient = ret.statusAfterSmallBorrow[1];
+
+                        const sret = [
+                            ret.statusAfterMaxBorrow.join(";"),
+                            ret.statusAfterSmallBorrow.join(";"),
+                            ret.statusAfterRepayMaxBorrow.join(";"),
+                            ret.statusAfterReconversion.join(";")
+                        ].join("\n");
+
+                        const sexpected = [
+                            [paInitiallyInefficient].join(";"),
+                            [paInitiallyInefficient, paInitiallyEfficient].join(";"),
+                            [paInitiallyEfficient].join(";"),
+                            [paInitiallyInefficient].join(";"),
+                        ].join("\n");
+
+                        console.log(ret);
+
+                        expect(sret).equal(sexpected);
                     });
                 });
             });

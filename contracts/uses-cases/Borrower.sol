@@ -104,11 +104,15 @@ contract Borrower is IBorrower {
       (uint collateralAmount, uint amountToPay,,) = pa.getStatus();
       if (amountToPay > 0) {
         console.log("makeRepayUC1.2 amountToPay=%d collateralAmount=%d", amountToPay, collateralAmount);
+
+        console.log("makeRepayUC1.2: pa-borrow-balance initial", IERC20(borrowedAsset_).balanceOf(poolAdapters[i]));
         // transfer borrowed amount to Pool Adapter
         IERC20(borrowedAsset_).safeTransfer(poolAdapters[i], amountToPay);
+        console.log("makeRepayUC1.2: pa-borrow-balance before repay", IERC20(borrowedAsset_).balanceOf(poolAdapters[i]));
 
         // repay borrowed amount and receive collateral to receiver's balance
         pa.repay(amountToPay, receiver_, true);
+        console.log("makeRepayUC1.2: pa-borrow-balance after repay", IERC20(borrowedAsset_).balanceOf(poolAdapters[i]));
 
         totalRepaidAmount += amountToPay;
       }

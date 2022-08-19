@@ -206,64 +206,35 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer 
     //TODO amount to be repaid, expressed in wei units.
     IERC20(assetBorrow).approve(address(_pool), amountToRepay_); //TODO: do we need approve(0)?
 
-    _pool.repay(assetBorrow, amountToRepay_, RATE_MODE, address(this));
+    _pool.repay(assetBorrow,
+      closePosition ? type(uint).max : amountToRepay_,
+      RATE_MODE,
+      address(this)
+    );
 
     // withdraw the collateral
-    if (closePosition) {
-      // getUserAccountData returns totalDebtBase, we recalculate it to borrowAsset
-      // when we repay the recalculated amount, some dust balance can be appear. I.e. 100 for USDT
-      // if we will try to withdraw all collateral, the transaction will be reverted
-      // with error HEALTH_FACTOR_LOWER_THAN_LIQUIDATION_THRESHOLD
-      // One possible way to fix it: remain some "dust collateral" on balance to avoid reverting
-      _withdrawAndLeaveDustCollateral(receiver_);
-    } else {
-      _pool.withdraw(collateralAsset, amountCollateralToWithdraw, receiver_);
+    _pool.withdraw(collateralAsset, amountCollateralToWithdraw, receiver_);
 
-      // validate result status
-      (uint totalCollateralBase, uint totalDebtBase,,,, uint256 healthFactor) = _pool.getUserAccountData(address(this));
-      if (totalCollateralBase == 0 && totalDebtBase == 0) { //!TODO: we need to close position if balance is not zero (dust tokens)
-        // update borrow position status in DebtMonitor
-        IDebtMonitor(controller.debtMonitor()).onClosePosition();
-      } else {
-        require(!closePosition, AppErrors.CLOSE_POSITION_FAILED);
-        require(healthFactor > uint(controller.getMinHealthFactor2())*10**(18-2), AppErrors.WRONG_HEALTH_FACTOR);
-      }
+    if (closePosition) {
+      // user has transferred a little bigger amount than actually need to close position
+      // because of the dust-tokens problem. Let's return remain amount back to the user
+      console.log("Receiver balance", IERC20(assetBorrow).balanceOf(receiver_));
+      uint borrowBalance = IERC20(assetBorrow).balanceOf(address(this));
+      if (borrowBalance > reserveBalances[assetBorrow]) {
+        IERC20(assetBorrow).safeTransfer(receiver_, borrowBalance - reserveBalances[assetBorrow]);
+        console.log("Receiver balance2", IERC20(assetBorrow).balanceOf(receiver_));
+      }}
+
+    // validate result status
+    (uint totalCollateralBase, uint totalDebtBase,,,, uint256 healthFactor) = _pool.getUserAccountData(address(this));
+    if (totalCollateralBase == 0 && totalDebtBase == 0) { //!TODO: we need to close position if balance is not zero (dust tokens)
+      // update borrow position status in DebtMonitor
+      IDebtMonitor(controller.debtMonitor()).onClosePosition();
+    } else {
+      require(!closePosition, AppErrors.CLOSE_POSITION_FAILED);
+      require(healthFactor > uint(controller.getMinHealthFactor2())*10**(18-2), AppErrors.WRONG_HEALTH_FACTOR);
     }
     console.log("AAVE3 repay done");
-  }
-
-  function _withdrawAndLeaveDustCollateral(address receiver_) internal {
-    (uint256 totalCollateralBase, uint totalDebtBase,,,,) = _pool.getUserAccountData(address(this));
-    if (totalDebtBase != 0) {
-      address assetBorrow = borrowAsset;
-      address assetCollateral = collateralAsset;
-
-      address[] memory assets = new address[](2);
-      assets[0] = assetCollateral;
-      assets[1] = assetBorrow;
-      uint[] memory prices = _priceOracle.getAssetsPrices(assets);
-
-      uint liquidationThreshold18 = _pool.getConfiguration(assetCollateral).getLiquidationThreshold();
-      uint collateralToKeepToAvoidRevert = totalDebtBase * liquidationThreshold18 * prices[1] / prices[0];
-      console.log("totalCollateralBase: ", totalCollateralBase);
-      console.log("totalDebtBase: ", totalDebtBase);
-      console.log("liquidationThreshold18: ", liquidationThreshold18);
-      console.log("prices[0]: ", prices[0]);
-      console.log("prices[1]: ", prices[1]);
-
-      console.log("Keep: ", collateralToKeepToAvoidRevert, prices[0], prices[1]);
-      console.log("Withdraw: ", totalCollateralBase/ prices[0], totalCollateralBase, liquidationThreshold18);
-      console.log("Withdraw possible: ", (totalCollateralBase - collateralToKeepToAvoidRevert)/ prices[0], (totalCollateralBase - collateralToKeepToAvoidRevert));
-
-      _pool.withdraw(collateralAsset
-        , (totalCollateralBase - collateralToKeepToAvoidRevert)/ prices[0]
-          * (10 ** IERC20Extended(collateralAsset).decimals()) / prices[0]
-        , receiver_
-      );
-    } else {
-      _pool.withdraw(collateralAsset, type(uint).max, receiver_);
-    }
-
   }
 
   /// @param amountToRepay_ Amount to be repaid [in borrowed tokens]
@@ -333,13 +304,23 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer 
     uint[] memory prices = _priceOracle.getAssetsPrices(assets);
     require(prices[1] != 0, AppErrors.ZERO_PRICE);
 
+    uint targetDecimals = (10 ** _pool.getConfiguration(assetBorrow).getDecimals());
+    console.log("GetStatus.amountToPay: ", totalDebtBase * (10 ** _pool.getConfiguration(assetBorrow).getDecimals()) / prices[1]);
+    console.log("GetStatus.amountToPay2: ", totalDebtBase * (10 ** _pool.getConfiguration(assetBorrow).getDecimals()) / prices[1] + targetDecimals / 100);
+
 //    console.log("getStatus totalCollateralBase=%d totalDebtBase=%d priceBorrow=%d", totalCollateralBase, totalDebtBase, priceBorrow);
 //    console.log("pool adapter=%s", address(this));
     return (
-    // Total amount of provided collateral in Pool adapter's base currency
+    // Total amount of provided collateral in [collateral asset]
       totalCollateralBase * (10 ** _pool.getConfiguration(assetCollateral).getDecimals()) / prices[0],
     // Total amount of borrowed debt in [borrow asset]. 0 - for closed borrow positions.
-      totalDebtBase * (10 ** _pool.getConfiguration(assetBorrow).getDecimals()) / prices[1],
+    totalDebtBase == 0
+      ? 0
+      : totalDebtBase * targetDecimals / prices[1]
+      // we ask to pay a bit more amount to exclude dust tokens
+      // i.e. for USD we need to pay only 1 cent
+      // this amount allows us to pass type(uint).max to repay function
+      + targetDecimals / 100,
     // Current health factor, decimals 18
       hf,
       totalCollateralBase != 0 || totalDebtBase != 0

@@ -112,6 +112,7 @@ contract AaveTwoPoolAdapter is IPoolAdapter, IPoolAdapterInitializer {
       collateralAmount_ >= IERC20(assetCollateral).balanceOf(address(this)) - reserveBalances[assetCollateral]
       , AppErrors.WRONG_COLLATERAL_BALANCE
     );
+    console.log("AaveTwo borrow.2");
 
     // Supplies an `amount` of underlying asset into the reserve, receiving in return overlying aTokens.
     // E.g. User supplies 100 USDC and gets in return 100 aUSDC
@@ -122,11 +123,14 @@ contract AaveTwoPoolAdapter is IPoolAdapter, IPoolAdapterInitializer {
       address(this),
       0 // no referral code
     );
+    console.log("AaveTwo borrow.3");
     _pool.setUserUseReserveAsCollateral(assetCollateral, true);
+    console.log("AaveTwo borrow.4");
 
     // ensure that we received a-tokens
     uint aTokensAmount = IERC20(d.aTokenAddress).balanceOf(address(this)) - aTokensBalanceBeforeSupply;
     require(aTokensAmount >= collateralAmount_, AppErrors.WRONG_DERIVATIVE_TOKENS_BALANCE);
+    console.log("AaveTwo borrow.5");
 
 //    console.log("Balance before=%d", IERC20(assetBorrow).balanceOf(address(this)));
     // make borrow, send borrowed amount to the receiver
@@ -138,6 +142,7 @@ contract AaveTwoPoolAdapter is IPoolAdapter, IPoolAdapterInitializer {
       0, // no referral code
       address(this)
     );
+    console.log("AaveTwo borrow.6");
 
 //    console.log("Balance after=%d", IERC20(assetBorrow).balanceOf(address(this)));
     // ensure that we have received required borrowed amount, send the amount to the receiver
@@ -188,72 +193,39 @@ contract AaveTwoPoolAdapter is IPoolAdapter, IPoolAdapterInitializer {
       : _getCollateralAmountToReturn(amountToRepay_);
 
     // transfer borrow amount back to the pool
-    //TODO amount to be repaid, expressed in wei units.
     IERC20(assetBorrow).approve(address(_pool), amountToRepay_); //TODO: do we need approve(0)?
 
-    _pool.repay(assetBorrow, amountToRepay_, RATE_MODE, address(this));
-//    console.log("Repaid", amountToRepay_);
+    _pool.repay(assetBorrow,
+      closePosition ? type(uint).max : amountToRepay_,
+      RATE_MODE,
+      address(this)
+    );
 
     // withdraw the collateral
-    if (closePosition) {
-      // getUserAccountData returns totalDebtBase, we recalculate it to borrowAsset
-      // when we repay the recalculated amount, some dust balance can be appear. I.e. 100 for USDT
-      // if we will try to withdraw all collateral, the transaction will be reverted
-      // with error HEALTH_FACTOR_LOWER_THAN_LIQUIDATION_THRESHOLD
-      // One possible way to fix it: remain some "dust collateral" on balance to avoid reverting
-      _withdrawAndLeaveDustCollateral(receiver_);
-    } else {
-      _pool.withdraw(collateralAsset, amountCollateralToWithdraw, receiver_);
+    _pool.withdraw(collateralAsset, amountCollateralToWithdraw, receiver_);
 
-      // validate result status
-      (uint totalCollateralBase, uint totalDebtBase,,,, uint256 healthFactor) = _pool.getUserAccountData(address(this));
-      console.log("AAVETwo after repay:", totalCollateralBase, totalDebtBase);
-      if (totalCollateralBase == 0 && totalDebtBase == 0) { //!TODO: we need to close position if balance is not zero (dust tokens)
-        // update borrow position status in DebtMonitor
-        IDebtMonitor(controller.debtMonitor()).onClosePosition();
-      } else {
-        require(!closePosition, AppErrors.CLOSE_POSITION_FAILED);
-        require(healthFactor > uint(controller.getMinHealthFactor2())*10**(18-2), AppErrors.WRONG_HEALTH_FACTOR);
+    if (closePosition) {
+      // user has transferred a little bigger amount than actually need to close position
+      // because of the dust-tokens problem. Let's return remain amount back to the user
+      console.log("Receiver balance", IERC20(assetBorrow).balanceOf(receiver_));
+      uint borrowBalance = IERC20(assetBorrow).balanceOf(address(this));
+      if (borrowBalance > reserveBalances[assetBorrow]) {
+        IERC20(assetBorrow).safeTransfer(receiver_, borrowBalance - reserveBalances[assetBorrow]);
+        console.log("Receiver balance2", IERC20(assetBorrow).balanceOf(receiver_));
       }
     }
-    console.log("AAVETwo repay done");
-  }
 
-  function _withdrawAndLeaveDustCollateral(address receiver_) internal {
-    (uint256 totalCollateralBase, uint totalDebtBase,,,,) = _pool.getUserAccountData(address(this));
-    console.log("totalDebtBase: ", totalDebtBase);
-    console.log("totalCollateralBase: ", totalCollateralBase);
-    if (totalDebtBase != 0) {
-      address assetBorrow = borrowAsset;
-      address assetCollateral = collateralAsset;
-
-      address[] memory assets = new address[](2);
-      assets[0] = assetCollateral;
-      assets[1] = assetBorrow;
-      uint[] memory prices = _priceOracle.getAssetsPrices(assets);
-
-      uint liquidationThreshold18 = _pool.getConfiguration(assetCollateral).getLiquidationThreshold();
-
-      uint collateralToKeepToAvoidRevert = totalDebtBase * liquidationThreshold18 * prices[1] / prices[0];
-//      console.log("prices[0]: ", prices[0]);
-//      console.log("prices[1]: ", prices[1]);
-//      console.log("liquidationThreshold18: ", liquidationThreshold18);
-//      console.log("Keep: ", collateralToKeepToAvoidRevert, prices[0], prices[1]);
-//      console.log("Withdraw: ", (totalCollateralBase - collateralToKeepToAvoidRevert));
-//      console.log("Withdraw possible: "
-//        , (totalCollateralBase - collateralToKeepToAvoidRevert)
-//          * (10 ** IERC20Extended(collateralAsset).decimals()) / prices[0]
-//      );
-
-      _pool.withdraw(collateralAsset
-        , (totalCollateralBase - collateralToKeepToAvoidRevert)
-          * (10 ** IERC20Extended(collateralAsset).decimals()) / prices[0]
-        , receiver_
-      );
+    // validate result status
+    (uint totalCollateralBase, uint totalDebtBase,,,, uint256 healthFactor) = _pool.getUserAccountData(address(this));
+    console.log("AAVETwo after repay:", totalCollateralBase, totalDebtBase);
+    if (totalCollateralBase == 0 && totalDebtBase == 0) { //!TODO: we need to close position if balance is not zero (dust tokens)
+      // update borrow position status in DebtMonitor
+      IDebtMonitor(controller.debtMonitor()).onClosePosition();
     } else {
-      _pool.withdraw(collateralAsset, type(uint).max, receiver_);
+      require(!closePosition, AppErrors.CLOSE_POSITION_FAILED);
+      require(healthFactor > uint(controller.getMinHealthFactor2())*10**(18-2), AppErrors.WRONG_HEALTH_FACTOR);
     }
-
+    console.log("AAVETwo repay done");
   }
 
   /// @param amountToRepay_ Amount to be repaid [in borrowed tokens]
@@ -329,12 +301,20 @@ contract AaveTwoPoolAdapter is IPoolAdapter, IPoolAdapterInitializer {
     console.log("GetStatus.collateralPrice: ", prices[0], _priceOracle.getAssetPrice(assetCollateral));
     console.log("GetStatus.borrowPrice: ", prices[1], _priceOracle.getAssetPrice(assetBorrow));
 
+    uint targetDecimals = (10 ** _pool.getConfiguration(assetBorrow).getDecimals());
     console.log("GetStatus.amountToPay: ", totalDebtBase * (10 ** _pool.getConfiguration(assetBorrow).getDecimals()) / prices[1]);
+    console.log("GetStatus.amountToPay2: ", totalDebtBase * (10 ** _pool.getConfiguration(assetBorrow).getDecimals()) / prices[1] + targetDecimals / 100);
     return (
     // Total amount of provided collateral in [collateral asset]
       totalCollateralBase * (10 ** _pool.getConfiguration(assetCollateral).getDecimals()) / prices[0],
     // Total amount of borrowed debt in [borrow asset]. 0 - for closed borrow positions.
-      totalDebtBase * (10 ** _pool.getConfiguration(assetBorrow).getDecimals()) / prices[1],
+      totalDebtBase == 0
+        ? 0
+        : totalDebtBase * targetDecimals / prices[1]
+          // we ask to pay a bit more amount to exclude dust tokens
+          // i.e. for USD we need to pay only 1 cent
+          // this amount allows us to pass type(uint).max to repay function
+          + targetDecimals / 100,
     // Current health factor, decimals 18
       hf,
       totalCollateralBase != 0 || totalDebtBase != 0

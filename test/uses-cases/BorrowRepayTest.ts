@@ -83,21 +83,28 @@ describe("BorrowRepayTest", () => {
         totalBorrowedAmount: BigNumber,
         totalRepaidAmount: BigNumber
     ) : {sret: string, sexpected: string} {
+        console.log("c0", c0);
+        console.log("b0", b0);
+        console.log("collateralAmount", collateralAmount);
+        console.log("userBalances", userBalances);
+        console.log("borrowBalances", borrowBalances);
+        console.log("totalBorrowedAmount", totalBorrowedAmount);
+        console.log("totalRepaidAmount", totalRepaidAmount);
         const sret = [
             // collateral after borrow
             userBalances[0].collateral
             // borrowed amount > 0
             , !totalBorrowedAmount.eq(BigNumber.from(0))
-            // contract borrow balance ~ borrowed amount
-            , areAlmostEqual(borrowBalances[0], totalBorrowedAmount),
+            // contract borrow balance - initial borrow balance == borrowed amount
+            , userBalances[0].borrow.sub(b0)
 
             // after repay
             // collateral >= initial collateral
-            userBalances[1].collateral.gt(c0) || areAlmostEqual(userBalances[1].collateral, c0) //TODO: userBalances[1].collateral.gte(c0)
+            , userBalances[1].collateral.gte(c0)
             // borrowed balance <= initial borrowed balance
             , b0.gte(userBalances[1].borrow)
             // contract borrowed balance is 0
-            , borrowBalances[1].eq(BigNumber.from(0))
+            , borrowBalances[1]
 
             // paid amount >= borrowed amount
             , totalRepaidAmount.gte(totalBorrowedAmount)
@@ -108,8 +115,8 @@ describe("BorrowRepayTest", () => {
             c0.sub(collateralAmount)
             // borrowed amount > 0
             , true
-            // contract borrow balance ~ borrowed amount
-            , true
+            // contract borrow balance == borrowed amount
+            , totalBorrowedAmount
 
             //after repay
             // collateral >= initial collateral
@@ -118,7 +125,7 @@ describe("BorrowRepayTest", () => {
             // borrowed balance <= initial borrowed balance
             , true
             // contract borrowed balance is 0
-            , true
+            , BigNumber.from(0)
 
             // paid amount >= borrowed amount
             , true
@@ -146,16 +153,16 @@ describe("BorrowRepayTest", () => {
             userBalances[1].collateral
             // borrowed amount > 0
             , !totalBorrowedAmount.eq(BigNumber.from(0))
-            // contract borrow balance ~ borrowed amount 1
-            , areAlmostEqual(borrowBalances[1], totalBorrowedAmount, 6),
+            // contract borrow balance - initial borrow balance == borrowed amount
+            , userBalances[0].borrow.sub(b0)
 
             // after repay
             // collateral >= initial collateral
-            userBalances[3].collateral.gt(c0) || areAlmostEqual(userBalances[3].collateral, c0) //TODO: userBalances[1].collateral.gte(c0)
+            , userBalances[3].collateral.gt(c0) || areAlmostEqual(userBalances[3].collateral, c0) //TODO: userBalances[1].collateral.gte(c0)
             // borrowed balance <= initial borrowed balance
             , b0.gte(userBalances[3].borrow)
             // contract borrowed balance is 0
-            , borrowBalances[3].eq(BigNumber.from(0))
+            , borrowBalances[3]
 
             // paid amount >= borrowed amount
             , totalRepaidAmount.gte(totalBorrowedAmount)
@@ -167,7 +174,7 @@ describe("BorrowRepayTest", () => {
             // borrowed amount > 0
             , true
             // contract borrow balance ~ borrowed amount
-            , true
+            , totalBorrowedAmount
 
             //after repay
             // collateral >= initial collateral
@@ -176,7 +183,7 @@ describe("BorrowRepayTest", () => {
             // borrowed balance <= initial borrowed balance
             , true
             // contract borrowed balance is 0
-            , true
+            , BigNumber.from(0)
 
             // paid amount >= borrowed amount
             , true
