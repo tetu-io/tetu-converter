@@ -10,7 +10,6 @@ import "../integrations/IERC20Extended.sol";
 import "../interfaces/IBorrowManager.sol";
 import "../interfaces/ITetuConverter.sol";
 import "./AppErrors.sol";
-import "hardhat/console.sol";
 
 /// @notice Manage list of open borrow positions
 contract DebtMonitor is IDebtMonitor {
@@ -42,7 +41,6 @@ contract DebtMonitor is IDebtMonitor {
 
   /// @dev This function is called from a pool adapter after any borrow
   function onOpenPosition() external override {
-    console.log("DebtMonitor.onOpenPosition %s", msg.sender);
     _onlyPoolAdapter();
 
     if (!positionsRegistered[msg.sender]) {
@@ -50,20 +48,15 @@ contract DebtMonitor is IDebtMonitor {
       positions.push(msg.sender);
 
       (, address user, address collateralAsset, address borrowAsset) = IPoolAdapter(msg.sender).getConfig();
-      console.log("register position user=%s collateral=%s borrow=%s", user, collateralAsset, borrowAsset);
-      console.log("pool adapter=%s", msg.sender);
       poolAdapters[user][collateralAsset][borrowAsset].push(msg.sender);
     }
   }
 
   /// @dev This function is called from a pool adapter after any repaying
   function onClosePosition() external override {
-    console.log("DebtMonitor.onClosePosition %s", msg.sender);
     require(positionsRegistered[msg.sender], AppErrors.BORROW_POSITION_IS_NOT_REGISTERED);
 
     (uint collateralAmount, uint amountToPay,,) = IPoolAdapter(msg.sender).getStatus();
-
-    //!TODO: how to close AAVE position with dust tokens?
     require(collateralAmount == 0 && amountToPay == 0, AppErrors.ATTEMPT_TO_CLOSE_NOT_EMPTY_BORROW_POSITION);
 
     positionsRegistered[msg.sender] = false;
@@ -88,7 +81,6 @@ contract DebtMonitor is IDebtMonitor {
     uint countFoundItems,
     address[] memory outPoolAdapters
   ) {
-    console.log("maxCountToReturn.1");
     ITetuConverter tc = ITetuConverter(controller.tetuConverter());
     outPoolAdapters = new address[](maxCountToReturn);
 
@@ -100,19 +92,15 @@ contract DebtMonitor is IDebtMonitor {
 
     // enumerate all pool adapters
     for (uint i = 0; i < maxCountToCheck; i = _uncheckedInc(i)) {
-      console.log("checkForReconversion position=", i);
       nextIndexToCheck0 += 1;
 
       // check if we need to make rebalancing because of too low health factor
       IPoolAdapter pa = IPoolAdapter(positions[startIndex0 + i]);
       (uint collateralAmount,, uint healthFactor18,) = pa.getStatus();
-      console.log("checkForReconversion collateralAmount=", collateralAmount);
-      console.log("checkForReconversion healthFactor18=", healthFactor18);
 
       if (healthFactor18 < minAllowedHealthFactor
         || _findBetterBorrowWay(tc, pa, collateralAmount, healthFactor2, periodInBlocks)
       ) {
-        console.log("maxCountToReturn.found problem pa, hf=", healthFactor18);
         outPoolAdapters[countFoundItems] = positions[startIndex0 + i];
         countFoundItems += 1;
         if (countFoundItems == maxCountToReturn) {
@@ -144,7 +132,6 @@ contract DebtMonitor is IDebtMonitor {
 
     // make decision if the found conversion-strategy is worth to be used
     if (origin != converter) {
-      console.log("_findBetterBorrowWay.2", converter, aprForPeriod18);
       //TODO: we need some decision making rules here
       //1) threshold for APRs difference, i.e. (apr0-apr1)/apr0 > 20%
       //2) threshold for block number: count blocks since prev rebalancing should exceed the threshold.
@@ -170,15 +157,12 @@ contract DebtMonitor is IDebtMonitor {
   ) external view override returns (
     address[] memory outPoolAdapters
   ) {
-    console.log("get positions user=%s collateral=%s borrow=%s", user_, collateralToken_, borrowedToken_);
-
     address[] memory adapters = poolAdapters[user_][collateralToken_][borrowedToken_];
     uint countAdapters = adapters.length;
 
     outPoolAdapters = new address[](countAdapters);
 
     for (uint i = 0; i < countAdapters; i = _uncheckedInc(i)) {
-      console.log("position %d pool adapter=%s", i, adapters[i]);
       outPoolAdapters[i] = adapters[i];
     }
 
@@ -212,7 +196,6 @@ contract DebtMonitor is IDebtMonitor {
 
   /// @notice Ensure that msg.sender is registered pool adapter
   function _onlyPoolAdapter() internal view {
-    console.log("_onlyPoolAdapter", controller.borrowManager());
     IBorrowManager bm = IBorrowManager(controller.borrowManager());
     require(bm.isPoolAdapter(msg.sender), AppErrors.POOL_ADAPTER_ONLY);
   }

@@ -11,7 +11,6 @@ import "../openzeppelin/IERC20.sol";
 import "../openzeppelin/SafeERC20.sol";
 import "./BorrowManagerBase.sol";
 import "./AppErrors.sol";
-import "hardhat/console.sol";
 
 /// @notice Contains list of lending pools. Allow to select most efficient pool for the given collateral/borrow pair
 contract BorrowManager is BorrowManagerBase {
@@ -61,7 +60,7 @@ contract BorrowManager is BorrowManagerBase {
   constructor(address controller_)
     BorrowManagerBase(controller_)
   {
-    console.log("BorrowManager is created %s", address(this));
+
   }
 
   ///////////////////////////////////////////////////////
@@ -156,7 +155,6 @@ contract BorrowManager is BorrowManagerBase {
       );
     }
 
-    console.log("Selected strategy", converter, maxTargetAmount, aprForPeriod18);
     return (converter, maxTargetAmount, aprForPeriod18);
   }
 
@@ -179,11 +177,12 @@ contract BorrowManager is BorrowManagerBase {
       require(pricesCB18[1] != 0 && pricesCB18[0] != 0, AppErrors.ZERO_PRICE);
     }
 
+    // borrow-to-amount = borrowAmountFactor18 * liquidationThreshold18 / 1e18
+    // Platform-adapters use borrowAmountFactor18 to calculate result borrow-to-amount
     uint borrowAmountFactor18 = 1e18
       * pp_.sourceAmount18
       * pricesCB18[0]
       / (pricesCB18[1] * uint(p_.healthFactor2) * 10**(18-2));
-
 
     for (uint i = 0; i < lenPools; i = _uncheckedInc(i)) {
       AppDataTypes.ConversionPlan memory plan = IPlatformAdapter(platformAdapters_[i]).getConversionPlan(
@@ -192,15 +191,6 @@ contract BorrowManager is BorrowManagerBase {
         _toMantissa(borrowAmountFactor18, 18, pp_.targetDecimals)
       );
       if (plan.converter != address(0)) {
-//        console.log("_findPool", plan.converter);
-//        console.log("plan.maxAmountToSupplyCT", plan.maxAmountToSupplyCT);
-//        console.log("sourceAmount", p_.sourceAmount);
-        console.log("plan.converter", plan.converter);
-//        console.log("plan.ltv18", plan.ltv18);
-//        console.log("plan.liquidationThreshold18", plan.liquidationThreshold18);
-        console.log("plan.aprPerBlock18", plan.aprPerBlock18, aprForPeriod18);
-//        console.log("plan.maxAmountToBorrowBT", plan.maxAmountToBorrowBT);
-
         // check if we are able to supply required collateral
         if (plan.maxAmountToSupplyCT > p_.sourceAmount) {
           if (converter == address(0) || plan.aprPerBlock18 < aprForPeriod18) {
@@ -208,20 +198,8 @@ contract BorrowManager is BorrowManagerBase {
             // TargetTA = BS / PT [TA], C = SA * PS, CM = C / HF, BS = CM * PCF
             uint resultTa18 = plan.liquidationThreshold18 * borrowAmountFactor18 / 1e18;
 
-
-//            console.log("apr %d plan.borrowRate=%d", plan.aprPerBlock18, plan.aprPerBlock18);
-//            console.log("resultTa18 %d", resultTa18);
-//            console.log("plan.collateralFactor18 %d", plan.liquidationThreshold18);
-//            console.log("pp_.sourceAmount18 %d", pp_.sourceAmount18);
-//            console.log("pp_.priceSource18 %d", pricesCB18[0]);
-//            console.log("pp_.priceTarget18 %d", pricesCB18[1]);
-//            console.log("p_.healthFactor2 %d", p_.healthFactor2);
-//            console.log("plan.maxAmountToBorrowBT %d", plan.maxAmountToBorrowBT);
-//            console.log("plan.ltv18 %d", plan.ltv18);
-
             // the pool should have enough liquidity
             if (_toMantissa(plan.maxAmountToBorrowBT, pp_.targetDecimals, 18) >= resultTa18) {
-              console.log("Select converter:", plan.converter);
               // take the pool with lowest borrow rate
               converter = plan.converter;
               maxTargetAmount = _toMantissa(resultTa18, 18, pp_.targetDecimals);
