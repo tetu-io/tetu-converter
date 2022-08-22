@@ -262,7 +262,7 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer 
 
     uint amountToRepayBase = amountToRepay_ * prices[1] / (10 ** IERC20Extended(assetBorrow_).decimals());
     uint part = amountToRepayBase >= totalDebtBase
-      ? 10**18 //TODO we need to return the amount in wei units
+      ? 10**18
       : 10**18 * amountToRepayBase / totalDebtBase;
 
     return // == totalCollateral * amountToRepay / totalDebt

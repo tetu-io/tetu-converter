@@ -96,7 +96,8 @@ contract Aave3PlatformAdapter is IPlatformAdapter {
 
       if (_isUsable(rc.configuration) && rb.configuration.getBorrowingEnabled()) {
 
-        if (!_isIsolationModeEnabled(rc.configuration) || _isUsableInIsolationMode(rb.configuration)) {
+        bool isolationMode = _isIsolationModeEnabled(rc.configuration);
+        if (!isolationMode || _isUsableInIsolationMode(rb.configuration)) {
           { // get liquidation threshold (== collateral factor) and loan-to-value
             uint8 categoryCollateral = uint8(rc.configuration.getEModeCategory());
             if (categoryCollateral != 0 && categoryCollateral == rb.configuration.getEModeCategory()) {
@@ -139,7 +140,12 @@ contract Aave3PlatformAdapter is IPlatformAdapter {
                 }
               }
             }
-            //TODO: take into account DebtCeiling in isolation mode
+            if (isolationMode) {
+              //TODO: take into account DebtCeiling in isolation mode
+              // the total exposure cannot be bigger than the collateral debt ceiling, see aave-v3-core: validateBorrow()
+              // Suppose, the collateral is an isolated asset with the debt ceiling $10M
+              // The user will therefore be allowed to borrow up to $10M of stable coins
+            }
           }
 
           // see sources of AAVE3\ValidationLogic.sol\validateSupply
