@@ -65,7 +65,7 @@ interface IHfData {
    */
   supplyCapacity: BigNumber;
   price: BigNumber;
-  underlineDecimals: number;
+  underlyingDecimals: number;
 
   blocksPerYear: BigNumber;
 }
@@ -128,7 +128,7 @@ export class DForceHelper {
       mintPaused: m.mintPaused,
       redeemPaused: m.redeemPaused,
       price: await priceOracle.getUnderlyingPrice(cToken.address),
-      underlineDecimals: await IERC20Extended__factory.connect(
+      underlyingDecimals: await IERC20Extended__factory.connect(
         cToken.address == MaticAddresses.dForce_iMATIC
           ? MaticAddresses.WMATIC
           : await cToken.underlying()
@@ -149,7 +149,7 @@ export class DForceHelper {
     dest.push([
       "name",
       "controller",
-      "symbol", "decimals", "ctoken", "underline",
+      "symbol", "decimals", "ctoken", "underlying",
       "borrowRatePerBlock", "exchangeRateStored",
       "cash", "reserveFactorMantissa",
       "totalBorrows", "totalReserves", "totalSupply",
@@ -158,7 +158,7 @@ export class DForceHelper {
       "borrowCapacity", "supplyCapacity",
       "redeemPaused", "mintPaused", "borrowPaused",
       "price",
-      "underlineDecimals",
+      "underlyingDecimals",
       "blocksPerYear"
     ].join(","));
 
@@ -180,7 +180,7 @@ export class DForceHelper {
         rd.borrowCapacity, rd.supplyCapacity,
         rd.redeemPaused, rd.mintPaused, rd.borrowPaused,
         rd.price,
-        rd.underlineDecimals,
+        rd.underlyingDecimals,
         rd.blocksPerYear
       ];
 

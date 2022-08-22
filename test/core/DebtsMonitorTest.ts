@@ -4,8 +4,7 @@ import {expect} from "chai";
 import {
   Controller,
   DebtMonitor,
-  DebtMonitor__factory, IController__factory,
-  IPoolAdapter,
+  DebtMonitor__factory, IPoolAdapter,
   IPoolAdapter__factory,
   MockERC20, MockERC20__factory, PoolAdapterMock,
   PoolAdapterMock__factory, PriceOracleMock, PriceOracleMock__factory, Borrower
@@ -193,7 +192,93 @@ describe("DebtsMonitor", () => {
     return {core,  pool, cToken, userContract, sourceToken, targetToken, poolAdapter};
   }
 
+  interface OldNewValue {
+    initial: number;
+    updated: number;
+  }
 
+  interface TestParams {
+    amountCollateral: number;
+    sourceDecimals: number;
+    targetDecimals: number;
+    amountToBorrow: number;
+    priceSourceUSD: OldNewValue;
+    priceTargetUSD: OldNewValue;
+    collateralFactor: OldNewValue;
+    countPassedBlocks: number;
+    borrowRate: number; // i.e. 1e-18
+  }
+
+  async function prepareTest(
+    pp: TestParams
+  ) : Promise<{
+    dm: DebtMonitor,
+    poolAdapterMock: PoolAdapterMock,
+    sourceToken: MockERC20,
+    targetToken: MockERC20,
+    userTC: string,
+    controller: Controller,
+    pool: string,
+    cTokenAddress: string,
+  }> {
+    const tt: IBmInputParams = {
+      collateralFactor: pp.collateralFactor.initial,
+      priceSourceUSD: pp.priceSourceUSD.initial,
+      priceTargetUSD: pp.priceTargetUSD.initial,
+      sourceDecimals: pp.sourceDecimals,
+      targetDecimals: pp.targetDecimals,
+      availablePools: [{
+        borrowRateInTokens: [0, getBigNumberFrom(1e18*pp.borrowRate)],
+        availableLiquidityInTokens: [0, 200_000]
+      }]
+    };
+
+    const amountBorrowLiquidityInPool = getBigNumberFrom(1e10, tt.targetDecimals);
+
+    const {userTC, controller, sourceToken, targetToken, pool, cTokenAddress, poolAdapterMock} =
+      await preparePoolAdapter(tt);
+
+    const dm = DebtMonitor__factory.connect(await controller.debtMonitor(), deployer);
+
+    // cTokenAddress,
+    // collateralFactor18,
+    // getBigNumberFrom(1e18*pp.borrowRate)
+
+    await makeBorrow(
+      userTC,
+      pool,
+      poolAdapterMock.address,
+      sourceToken,
+      targetToken,
+      amountBorrowLiquidityInPool,
+      getBigNumberFrom(pp.amountCollateral, tt.sourceDecimals),
+      getBigNumberFrom(pp.amountToBorrow, tt.targetDecimals)
+    );
+
+    const pam: PoolAdapterMock = PoolAdapterMock__factory.connect(poolAdapterMock.address
+      , deployer);
+    if (pp.collateralFactor.initial != pp.collateralFactor.updated) {
+      await pam.changeCollateralFactor(getBigNumberFrom(pp.collateralFactor.updated * 10, 17));
+      console.log("Collateral factor is changed from", pp.collateralFactor.initial
+        , "to", pp.collateralFactor.updated);
+    }
+
+    await pam.setPassedBlocks(pp.countPassedBlocks);
+
+    const priceOracle: PriceOracleMock = PriceOracleMock__factory.connect(
+      await poolAdapterMock.priceOracle()
+      , deployer
+    );
+    await priceOracle.changePrices(
+      [sourceToken.address, targetToken.address],
+      [
+        getBigNumberFrom(pp.priceSourceUSD.updated * 10, 17)
+        , getBigNumberFrom(pp.priceTargetUSD.updated * 10, 17)
+      ]
+    );
+
+    return {dm, poolAdapterMock, sourceToken, targetToken, userTC, controller, pool, cTokenAddress};
+  }
 //endregion Utils
 
 //region Unit tests
@@ -405,95 +490,7 @@ describe("DebtsMonitor", () => {
     });
   });
 
-  describe("checkForReconversion", () => {
-
-    interface OldNewValue {
-      initial: number;
-      updated: number;
-    }
-
-    interface TestParams {
-      amountCollateral: number;
-      sourceDecimals: number;
-      targetDecimals: number;
-      amountToBorrow: number;
-      priceSourceUSD: OldNewValue;
-      priceTargetUSD: OldNewValue;
-      collateralFactor: OldNewValue;
-      countPassedBlocks: number;
-      borrowRate: number; // i.e. 1e-18
-    }
-
-    async function prepareTest(
-      pp: TestParams
-    ) : Promise<{
-      dm: DebtMonitor,
-      poolAdapterMock: PoolAdapterMock,
-      sourceToken: MockERC20,
-      targetToken: MockERC20,
-      userTC: string,
-      controller: Controller,
-      pool: string,
-      cTokenAddress: string,
-    }> {
-      const tt: IBmInputParams = {
-        collateralFactor: pp.collateralFactor.initial,
-        priceSourceUSD: pp.priceSourceUSD.initial,
-        priceTargetUSD: pp.priceTargetUSD.initial,
-        sourceDecimals: pp.sourceDecimals,
-        targetDecimals: pp.targetDecimals,
-        availablePools: [{
-          borrowRateInTokens: [0, getBigNumberFrom(1e18*pp.borrowRate)],
-          availableLiquidityInTokens: [0, 200_000]
-        }]
-      };
-
-      const amountBorrowLiquidityInPool = getBigNumberFrom(1e10, tt.targetDecimals);
-
-      const {userTC, controller, sourceToken, targetToken, pool, cTokenAddress, poolAdapterMock} =
-        await preparePoolAdapter(tt);
-
-      const dm = DebtMonitor__factory.connect(await controller.debtMonitor(), deployer);
-
-      // cTokenAddress,
-      // collateralFactor18,
-      // getBigNumberFrom(1e18*pp.borrowRate)
-
-      await makeBorrow(
-        userTC,
-        pool,
-        poolAdapterMock.address,
-        sourceToken,
-        targetToken,
-        amountBorrowLiquidityInPool,
-        getBigNumberFrom(pp.amountCollateral, tt.sourceDecimals),
-        getBigNumberFrom(pp.amountToBorrow, tt.targetDecimals)
-      );
-
-      const pam: PoolAdapterMock = PoolAdapterMock__factory.connect(poolAdapterMock.address
-        , deployer);
-      if (pp.collateralFactor.initial != pp.collateralFactor.updated) {
-        await pam.changeCollateralFactor(getBigNumberFrom(pp.collateralFactor.updated * 10, 17));
-        console.log("Collateral factor is changed from", pp.collateralFactor.initial
-          , "to", pp.collateralFactor.updated);
-      }
-
-      await pam.setPassedBlocks(pp.countPassedBlocks);
-
-      const priceOracle: PriceOracleMock = PriceOracleMock__factory.connect(
-        await poolAdapterMock.priceOracle()
-        , deployer
-      );
-      await priceOracle.changePrices(
-        [sourceToken.address, targetToken.address],
-        [
-          getBigNumberFrom(pp.priceSourceUSD.updated * 10, 17)
-          , getBigNumberFrom(pp.priceTargetUSD.updated * 10, 17)
-        ]
-      );
-
-      return {dm, poolAdapterMock, sourceToken, targetToken, userTC, controller, pool, cTokenAddress};
-    }
+  describe("checkForReconversion, unhealthy", () => {
     describe("Good paths", () => {
       describe("Single borrowed token, no better borrow strategy", () => {
         describe("The token is healthy", () => {
@@ -713,7 +710,6 @@ describe("DebtsMonitor", () => {
             expect.fail("TODO");
           });
         });
-
       });
     });
     describe("Bad paths", () => {
@@ -727,6 +723,27 @@ describe("DebtsMonitor", () => {
           expect.fail("TODO");
         });
       });
+    });
+  });
+
+  describe("checkForReconversion, healthy, better borrow way exists", () => {
+    describe("Good paths", () => {
+      describe("Threshold APR enabled", () => {
+        describe("Threshold count blocks enabled", () => {
+          it("should return empty", async () => {
+            expect.fail("TODO");
+          });
+        });
+        describe("Threshold count blocks disabled", () => {
+          it("should return empty", async () => {
+            expect.fail("TODO");
+          });
+        });
+      });
+
+    });
+    describe("Bad paths", () =>{
+
     });
   });
 

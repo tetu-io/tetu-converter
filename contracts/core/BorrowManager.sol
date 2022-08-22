@@ -38,7 +38,7 @@ contract BorrowManager is BorrowManagerBase {
   /// @notice all registered platform adapters
   address[] public platformAdapters;
   /// @notice Platform adapter : is registered
-  mapping(address => bool) public platformAdaptersRegistered;
+  mapping(address => bool) public platformAdaptersRegistered; //TODO: change to EnumerableSet
 
   /// @notice SourceToken => TargetToken => [list of platform adapters]
   /// @dev SourceToken is always less then TargetToken
@@ -67,7 +67,10 @@ contract BorrowManager is BorrowManagerBase {
   ///               Configuration
   ///////////////////////////////////////////////////////
 
-  function addPool(address platformAdapter_, address[] calldata assets_)
+  function addPool(
+    address platformAdapter_,
+    address[] calldata assets_ //TODO: pass ready set of pairs
+  )
   external override {
     if (!platformAdaptersRegistered[platformAdapter_]) {
       platformAdapters.push(platformAdapter_);
@@ -105,25 +108,26 @@ contract BorrowManager is BorrowManagerBase {
     defaultHealthFactors2[asset] = value2;
   }
 
+  //TODO: deletePool
+
   ///////////////////////////////////////////////////////
   ///           Find best pool for borrowing
+  /// Input params:
+  /// Health factor = HF [-], Collateral amount = C [USD]
+  /// Source amount that can be used for the collateral = SA [SA}, Borrow amount = BS [USD]
+  /// Price of the source amount = PS [USD/SA] (1 [SA] = PS[USD])
+  /// Price of the target amount = PT [USD/TA] (1[TA] = PT[USD]), Available cash in the pool = PTA[TA]
+  /// Pool params: Collateral factor of the pool = PCF [-], Free cash in the pool = PTA [TA]
+  ///
+  /// C = SA * PS, CM = C / HF, BS = CM * PCF
+  /// Max target amount capable to be borrowed: ResultTA = BS / PT [TA].
+  /// We can use the pool only if ResultTA >= PTA >= TA
   ///////////////////////////////////////////////////////
   function findConverter(AppDataTypes.InputConversionParams memory p_) external view override returns (
     address converter,
     uint maxTargetAmount,
     uint aprForPeriod18
   ) {
-    // Input params:
-    // Health factor = HF [-], Collateral amount = C [USD]
-    // Source amount that can be used for the collateral = SA [SA}, Borrow amount = BS [USD]
-    // Price of the source amount = PS [USD/SA] (1 [SA] = PS[USD])
-    // Price of the target amount = PT [USD/TA] (1[TA] = PT[USD]), Available cash in the pool = PTA[TA]
-    // Pool params: Collateral factor of the pool = PCF [-], Free cash in the pool = PTA [TA]
-    //
-    // C = SA * PS, CM = C / HF, BS = CM * PCF
-    // Max target amount capable to be borrowed: ResultTA = BS / PT [TA].
-    // We can use the pool only if ResultTA >= PTA >= TA
-
     // get all available pools from poolsForAssets[smaller-address][higher-address]
     address[] memory pas = pairsList
       [p_.sourceToken < p_.targetToken ? p_.sourceToken : p_.targetToken]
@@ -158,7 +162,7 @@ contract BorrowManager is BorrowManagerBase {
     return (converter, maxTargetAmount, aprForPeriod18);
   }
 
-  /// @notice Enumerate all pools and select a pool suitable for borrowing with min borrow rate and enough underline
+  /// @notice Enumerate all pools and select a pool suitable for borrowing with min borrow rate and enough underlying
   function _findPool(
     address[] memory platformAdapters_,
     AppDataTypes.InputConversionParams memory p_,

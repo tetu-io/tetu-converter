@@ -4,8 +4,6 @@ import {ethers} from "hardhat";
 import {expect} from "chai";
 import {Keeper} from "../baseUT/keeper/Keeper";
 import {MocksHelper} from "../baseUT/helpers/MocksHelper";
-import {MockPlatformFabric} from "../baseUT/fabrics/MockPlatformFabric";
-import {BigNumber} from "ethers";
 import {TetuConverterApp} from "../baseUT/helpers/TetuConverterApp";
 import {getBigNumberFrom} from "../../scripts/utils/NumberUtils";
 import {BorrowRepayUsesCase} from "../baseUT/uses-cases/BorrowRepayUsesCase";
@@ -24,15 +22,15 @@ import {isPolygonForkInUse} from "../baseUT/utils/NetworkUtils";
 import {IReConverter, ReConverterMock, ReConverterUsingPA} from "../baseUT/keeper/ReСonverters";
 import {LendingPlatformManagerMock} from "../baseUT/keeper/LendingPlatformManagerMock";
 import {PoolAdapterState01} from "../baseUT/keeper/ILendingPlatformManager";
-import {MockTestInputParams, TestSingleBorrowParams} from "../baseUT/types/BorrowRepayDataTypes";
+import {TestSingleBorrowParams} from "../baseUT/types/BorrowRepayDataTypes";
 import {setInitialBalance} from "../baseUT/utils/CommonUtils";
 import {LendingPlatformManagerAave3} from "../baseUT/keeper/LendingPlatformManagerAave3";
 import {ILendingPlatformFabric} from "../baseUT/fabrics/ILendingPlatformFabric";
 import {Aave3PlatformFabric} from "../baseUT/fabrics/Aave3PlatformFabric";
-import {LendingPlatformManagerAaveTwo} from "../baseUT/keeper/LendingPlatformManagerAaveTwo";
 import {AaveTwoPlatformFabric} from "../baseUT/fabrics/AaveTwoPlatformFabric";
 import {DeployerUtils} from "../../scripts/utils/DeployerUtils";
 import {RepayAction} from "../baseUT/actions/RepayAction";
+import {KeeperTestMockUtils} from "../baseUT/keeper/KeeperTestMockUtils";
 
 describe("Keeper test", () => {
 //region Global vars for all tests
@@ -79,80 +77,6 @@ describe("Keeper test", () => {
 //endregion Utils
 
 //region Tests implementations
-  /**
-   * @param p
-   * @param m
-   * @param countMockFabrics How many same mocks-pool-adapter we should register
-   * @returns Array of too booleans:
-   * - keeper has called a reconversion BEFORE modification of the platform state
-   * - keeper has called a reconversion AFTER state modification
-   */
-  async function makeSingleBorrow_Mock (
-    p: TestSingleBorrowParams,
-    m: MockTestInputParams,
-    countMockFabrics: number = 1
-  ) : Promise<{uc: Borrower, tc: ITetuConverter, controller: Controller, poolAdapter: string}> {
-    console.log("makeSingleBorrow_Mock.start");
-    const collateralToken = await TokenDataTypes.Build(deployer, p.collateral.asset);
-    const borrowToken = await TokenDataTypes.Build(deployer, p.borrow.asset);
-
-    const underlyings = [p.collateral.asset, p.borrow.asset];
-    const pricesUSD = [1, 1];
-    const cTokenDecimals = [m.collateral.decimals, m.borrow.decimals];
-    const cTokens = await MocksHelper.createCTokensMocks(deployer, cTokenDecimals, underlyings);
-
-    const fabrics = [...Array(countMockFabrics).keys()].map(
-      () => new MockPlatformFabric(
-        underlyings,
-        [m.collateral.borrowRate, m.borrow.borrowRate],
-        [m.collateral.collateralFactor, m.borrow.collateralFactor],
-        [m.collateral.liquidity, m.borrow.liquidity],
-        [p.collateral.holder, p.borrow.holder],
-        cTokens,
-        pricesUSD.map((x, index) => BigNumber.from(10)
-          .pow(18 - 2)
-          .mul(x * 100))
-      )
-    )
-
-    const {tc, controller} = await TetuConverterApp.buildApp(deployer, fabrics);
-    const uc: Borrower = await MocksHelper.deployBorrower(deployer.address
-      , controller
-      , p.healthFactor2
-      , p.countBlocks
-    );
-    const collateralAmount = getBigNumberFrom(p.collateralAmount, collateralToken.decimals);
-
-    // transfer sufficient amount of collateral to the user
-    await setInitialBalance(deployer
-      , collateralToken.address
-      , p.collateral.holder, p.collateral.initialLiquidity, uc.address);
-
-    // make borrow only
-    const {
-      userBalances,
-      borrowBalances
-    } = await BorrowRepayUsesCase.makeBorrowRepayActions(deployer
-      , uc
-      , [
-        new BorrowAction(
-          collateralToken
-          , collateralAmount
-          , borrowToken
-        )
-      ]
-    );
-
-    const poolAdapters = await uc.getBorrows(collateralToken.address, borrowToken.address);
-    const poolAdapter = poolAdapters[0];
-    if (! poolAdapter) {
-      throw "pool adapter not found";
-    }
-
-    console.log("makeSingleBorrow_Mock.end", poolAdapters.length);
-    return {uc, tc, controller, poolAdapter};
-  }
-
   async function prepareToBorrow(
     p: TestSingleBorrowParams,
     fabrics: ILendingPlatformFabric[]
@@ -376,8 +300,9 @@ describe("Keeper test", () => {
             ) => Promise<PoolAdapterState01>
           ): Promise<boolean[]> {
             // make a borrow
-            const {uc, tc, controller, poolAdapter} = await makeSingleBorrow_Mock(
-              {
+            const {uc, tc, controller, poolAdapter} = await KeeperTestMockUtils.makeSingleBorrow_Mock(
+              deployer
+              , {
                 collateral: {
                   asset: ASSET_COLLATERAL,
                   holder: HOLDER_COLLATERAL,
@@ -707,8 +632,9 @@ describe("Keeper test", () => {
             ) => Promise<PoolAdapterState01>
           ): Promise<boolean[]> {
             // make a borrow
-            const {uc, tc, controller, poolAdapter} = await makeSingleBorrow_Mock(
-              {
+            const {uc, tc, controller, poolAdapter} = await KeeperTestMockUtils.makeSingleBorrow_Mock(
+                deployer
+                , {
                 collateral: {
                   asset: ASSET_COLLATERAL,
                   holder: HOLDER_COLLATERAL,

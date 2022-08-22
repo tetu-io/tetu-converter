@@ -19,21 +19,60 @@ contract DebtMonitor is IDebtMonitor {
   /// @dev All these pool adapters should be enumerated during health-checking
   address[] public positions;
 
-  /// @notice Pool adapter => true if the pool adapter is registered in the {positions} list
-  mapping(address => bool) public positionsRegistered;
+  /// @notice Pool adapter => block number of last call of onOpenPosition
+  mapping(address => uint) public positionsRegistered;
 
   /// @notice user => collateral => borrowToken => poolAdapters
   mapping(address => mapping(address => mapping(address => address[]))) public poolAdapters;
+
+  /// @notice threshold for APRs difference, i.e. _thresholdApr100 = 20 for (apr0-apr1)/apr0 > 20%
+  ///         0 - disable the limitation by value of APR difference
+  uint public thresholdAPR;
+
+  /// @notice best-way reconversion is allowed only after passing specified count of blocks since last reconversion
+  ///         0 - disable the limitation by count of blocks passed since last onOpenPosition call
+  uint public thresholdCountBlocks;
 
   ///////////////////////////////////////////////////////
   ///       Constructor and initialization
   ///////////////////////////////////////////////////////
 
-  constructor(address controller_) {
+  constructor(
+    address controller_,
+    uint thresholdAPR_,
+    uint thresholdCountBlocks_
+  ) {
     require(controller_ != address(0), AppErrors.ZERO_ADDRESS);
+
     controller = IController(controller_);
+    thresholdAPR = thresholdAPR_;
+    thresholdCountBlocks = thresholdCountBlocks_;
   }
 
+  function setThresholdAPR(uint value100_) external {
+    _onlyGovernance();
+    thresholdAPR = value100_;
+  }
+
+  function setThresholdCountBlocks(uint countBlocks_) external {
+    _onlyGovernance();
+    thresholdCountBlocks = countBlocks_;
+  }
+
+  ///////////////////////////////////////////////////////
+  ///               Access rights
+  ///////////////////////////////////////////////////////
+
+  /// @notice Ensure that msg.sender is registered pool adapter
+  function _onlyPoolAdapter() internal view {
+    IBorrowManager bm = IBorrowManager(controller.borrowManager());
+    require(bm.isPoolAdapter(msg.sender), AppErrors.POOL_ADAPTER_ONLY);
+  }
+
+  /// @notice Ensure that msg.sender is registered pool adapter
+  function _onlyGovernance() internal view {
+    require(msg.sender == controller.governance(), AppErrors.GOVERNANCE_ONLY);
+  }
 
   ///////////////////////////////////////////////////////
   ///       On-borrow and on-repay logic
@@ -43,8 +82,8 @@ contract DebtMonitor is IDebtMonitor {
   function onOpenPosition() external override {
     _onlyPoolAdapter();
 
-    if (!positionsRegistered[msg.sender]) {
-      positionsRegistered[msg.sender] = true;
+    if (positionsRegistered[msg.sender] == 0) {
+      positionsRegistered[msg.sender] = block.number;
       positions.push(msg.sender);
 
       (, address user, address collateralAsset, address borrowAsset) = IPoolAdapter(msg.sender).getConfig();
@@ -54,12 +93,12 @@ contract DebtMonitor is IDebtMonitor {
 
   /// @dev This function is called from a pool adapter when the borrow is completely repaid
   function onClosePosition() external override {
-    require(positionsRegistered[msg.sender], AppErrors.BORROW_POSITION_IS_NOT_REGISTERED);
+    require(positionsRegistered[msg.sender] != 0, AppErrors.BORROW_POSITION_IS_NOT_REGISTERED);
 
     (uint collateralAmount, uint amountToPay,,) = IPoolAdapter(msg.sender).getStatus();
     require(collateralAmount == 0 && amountToPay == 0, AppErrors.ATTEMPT_TO_CLOSE_NOT_EMPTY_BORROW_POSITION);
 
-    positionsRegistered[msg.sender] = false;
+    positionsRegistered[msg.sender] = 0;
     _removeItemFromArray(positions, msg.sender);
 
     (, address user, address collateralAsset, address borrowAsset) = IPoolAdapter(msg.sender).getConfig();
@@ -130,21 +169,19 @@ contract DebtMonitor is IDebtMonitor {
     );
     uint currentApr18 = pa_.getAPR18() * periodInBlocks_;
 
-    // make decision if the found conversion-strategy is worth to be used
+    // make decision if the new conversion-strategy is worth to be used instead current one
     if (origin != converter) {
-      //TODO: we need some decision making rules here
-      //1) threshold for APRs difference, i.e. (apr0-apr1)/apr0 > 20%
-      //2) threshold for block number: count blocks since prev rebalancing should exceed the threshold.
-      return currentApr18 != 0
-        && (currentApr18 - aprForPeriod18) * 100 / currentApr18 > 20
-        ;
+      //1) threshold for APRs difference exceeds threshold, i.e. (apr0-apr1)/apr0 > 20%
+      if (thresholdAPR != 0
+        && currentApr18 - aprForPeriod18 > currentApr18 * thresholdAPR / 100
+      ) {
+        //2) threshold for block number: count blocks since prev rebalancing should exceed the threshold.
+        if (block.number - positionsRegistered[address(pa_)] > thresholdCountBlocks) {
+          return true;
+        }
+      }
     }
     return false;
-  }
-
-  /// @notice Get total count of pool adapters with opened positions
-  function getCountPositions() external view override returns (uint) {
-    return positions.length;
   }
 
   ///////////////////////////////////////////////////////
@@ -168,7 +205,6 @@ contract DebtMonitor is IDebtMonitor {
 
     return outPoolAdapters;
   }
-
 
   ///////////////////////////////////////////////////////
   ///               Utils
@@ -194,22 +230,12 @@ contract DebtMonitor is IDebtMonitor {
     }
   }
 
-  /// @notice Ensure that msg.sender is registered pool adapter
-  function _onlyPoolAdapter() internal view {
-    IBorrowManager bm = IBorrowManager(controller.borrowManager());
-    require(bm.isPoolAdapter(msg.sender), AppErrors.POOL_ADAPTER_ONLY);
-  }
-
-  /// @notice Ensure that msg.sender is registered pool adapter
-  function _onlyGovernance() internal view {
-    require(msg.sender == controller.governance(), AppErrors.GOVERNANCE_ONLY);
-  }
-
   ///////////////////////////////////////////////////////
   ///               Arrays lengths
   ///////////////////////////////////////////////////////
 
-  function positionsLength() external view returns (uint) {
+  /// @notice Get total count of pool adapters with opened positions
+  function getCountPositions() external view override returns (uint) {
     return positions.length;
   }
 

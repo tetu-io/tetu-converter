@@ -60,7 +60,7 @@ interface IHfData {
     borrowCap: BigNumber;
     bprotocol: string;
     price: BigNumber;
-    underlineDecimals: number;
+    underlyingDecimals: number;
 
     blocksPerYear: BigNumber;
 }
@@ -141,7 +141,7 @@ export class HundredFinanceHelper {
             /** TODO: https://docs.bprotocol.org/ */
             bprotocol: await comptroller.bprotocol(cToken.address),
             price: await priceOracle.getUnderlyingPrice(cToken.address),
-            underlineDecimals: await IERC20Extended__factory.connect(
+            underlyingDecimals: await IERC20Extended__factory.connect(
                 cToken.address == MaticAddresses.hMATIC
                     ? MaticAddresses.WMATIC
                     : await cToken.underlying()
@@ -162,7 +162,7 @@ export class HundredFinanceHelper {
         dest.push([
             "name",
             "comptroller",
-            "symbol", "decimals", "ctoken", "underline",
+            "symbol", "decimals", "ctoken", "underlying",
             "borrowRatePerBlock", "exchangeRateStored",
             "cash", "reserveFactorMantissa",
             "totalBorrows", "totalReserves", "totalSupply",
@@ -170,7 +170,7 @@ export class HundredFinanceHelper {
             "isComped", "closeFactorMantissa",
             "interestRateModel", "borrowCap", "bprotocol",
             "borrowRate18", "supplyRate18", "baseRatePerBlock", "blocksPerYear", "irmName",
-            "price", "underlineDecimals",
+            "price", "underlyingDecimals",
             "blocksPerYear"
         ].join(","));
 
@@ -199,7 +199,7 @@ export class HundredFinanceHelper {
                 rd.isComped, rd.closeFactorMantissa,
                 rd.interestRateModel, rd.borrowCap, rd.bprotocol,
                 irm.borrowRate18, irm.supplyRate18, irm.baseRatePerBlock, irm.blocksPerYear, irm.name,
-                rd.price, rd.underlineDecimals,
+                rd.price, rd.underlyingDecimals,
                 rd.blocksPerYear
             ];
 

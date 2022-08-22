@@ -15,18 +15,18 @@ contract LendingPlatformMock is IPlatformAdapter {
   mapping(address => uint256) public liquidationThresholds18;
   address private _priceOracle;
 
-  /// @notice underline => borrowRates
+  /// @notice underlying => borrowRates
   mapping(address => uint256) public borrowRates;
-  /// @notice underline => liquidity
+  /// @notice underlying => liquidity
   mapping(address => uint256) public liquidity;
-  /// @notice underline => cToken
+  /// @notice underlying => cToken
   mapping(address => address) public cTokens;
 
   constructor(
     address controller_,
     address pool_,
     address converter_,
-    address[] memory underlines_,
+    address[] memory underlyings_,
     uint[] memory liquidationThresholds18_,
     uint[] memory borrowRates_,
     uint[] memory liquidity_,
@@ -40,13 +40,13 @@ contract LendingPlatformMock is IPlatformAdapter {
     _controller = controller_;
     _priceOracle = priceOracle_;
 
-    for (uint i = 0; i < underlines_.length; ++i) {
-      liquidationThresholds18[underlines_[i]] = liquidationThresholds18_[i];
-      borrowRates[underlines_[i]] = borrowRates_[i];
-      liquidity[underlines_[i]] = liquidity_[i];
-      cTokens[underlines_[i]] = cTokens_[i];
+    for (uint i = 0; i < underlyings_.length; ++i) {
+      liquidationThresholds18[underlyings_[i]] = liquidationThresholds18_[i];
+      borrowRates[underlyings_[i]] = borrowRates_[i];
+      liquidity[underlyings_[i]] = liquidity_[i];
+      cTokens[underlyings_[i]] = cTokens_[i];
 
-      console.log("LendingPlatformMock underline=%s", underlines_[i]);
+      console.log("LendingPlatformMock underlying=%s", underlyings_[i]);
       console.log("liquidationThreshold18=%d", liquidationThresholds18_[i]);
       console.log("borrowRate=%d", borrowRates_[i]);
       console.log("liquidity=%d", liquidity_[i]);
