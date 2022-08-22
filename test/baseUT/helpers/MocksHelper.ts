@@ -23,6 +23,7 @@ export interface IPooAdapterStabInitParams {
   user: string;
   collateralAsset: string;
   borrowAsset: string;
+  origin: string;
   cTokenAddress: string;
   collateralFactor: BigNumber;
   borrowRatePerBlock: BigNumber;
@@ -85,6 +86,7 @@ export class MocksHelper {
         initParams.user,
         initParams.collateralAsset,
         initParams.borrowAsset,
+        initParams.origin,
         initParams.cTokenAddress,
         initParams.collateralFactor,
         initParams.borrowRatePerBlock,

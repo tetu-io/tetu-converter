@@ -107,15 +107,20 @@ contract AaveTwoPlatformAdapter is IPlatformAdapter {
           // get both current BR and predict BR-value after borrowing of the required amount, take max value
           // assume here, that we always use variable borrow rate
           uint br = rb.currentVariableBorrowRate;
-          uint brAfterBorrow = _br(borrowAsset_,
-            rb,
-          // calculate what amount will be borrowed
-            borrowAmountFactor_ * plan.liquidationThreshold18 / 1e18,
-            totalStableDebt,
-            totalVariableDebt
-          );
+          if (borrowAmountFactor_ != 0) {
+            uint brAfterBorrow = _br(borrowAsset_,
+              rb,
+            // calculate what amount will be borrowed
+              borrowAmountFactor_ * plan.liquidationThreshold18 / 1e18,
+              totalStableDebt,
+              totalVariableDebt
+            );
+            if (brAfterBorrow > br) {
+              br = brAfterBorrow;
+            }
+          }
 
-          plan.aprPerBlock18 = (brAfterBorrow > br ? brAfterBorrow : br)
+          plan.aprPerBlock18 = br
             / COUNT_SECONDS_PER_YEAR
             * IController(controller).blocksPerDay() * 365 / COUNT_SECONDS_PER_YEAR
             / 10**(27-18); // rays => decimals 18 (1 ray = 1e-27)

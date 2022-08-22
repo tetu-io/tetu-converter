@@ -79,6 +79,15 @@ describe("BorrowRepayTest", () => {
 //endregion before, after
 
 //region Utils
+  interface IResultExpectations {
+    /**
+     * true for Hundred finance
+     *    Hundred Finance has small supply fee, so result collateral can be a bit less than initial one
+     * false for other protocols
+     */
+    resultCollateralCanBeLessThenInitial?: boolean
+  }
+
   function getSingleBorrowSingleRepayResults(
     c0: BigNumber,
     b0: BigNumber,
@@ -87,8 +96,9 @@ describe("BorrowRepayTest", () => {
     borrowBalances: BigNumber[],
     totalBorrowedAmount: BigNumber,
     totalRepaidAmount: BigNumber,
+    expectations: IResultExpectations,
     indexBorrow: number = 0,
-    indexRepay: number = 1
+    indexRepay: number = 1,
   ) : {sret: string, sexpected: string} {
     console.log("c0", c0);
     console.log("b0", b0);
@@ -107,7 +117,9 @@ describe("BorrowRepayTest", () => {
 
       // after repay
       // collateral >= initial collateral
-      , userBalances[indexRepay].collateral.gte(c0)
+      , expectations.resultCollateralCanBeLessThenInitial
+          ? areAlmostEqual(userBalances[indexRepay].collateral, c0)
+          : userBalances[indexRepay].collateral.gte(c0)
       // borrowed balance <= initial borrowed balance
       , b0.gte(userBalances[indexRepay].borrow)
       // contract borrowed balance is 0
@@ -127,7 +139,7 @@ describe("BorrowRepayTest", () => {
 
       //after repay
       // collateral >= initial collateral
-      // TODO: aave can keep dust collateral on balance, so we check collateral ~ initial collateral
+      // TODO: hundred finance has supply fee, so we check collateral ~ initial collateral
       , true
       // borrowed balance <= initial borrowed balance
       , true
@@ -154,8 +166,9 @@ describe("BorrowRepayTest", () => {
     borrowBalances: BigNumber[],
     totalBorrowedAmount: BigNumber,
     totalRepaidAmount: BigNumber,
+    expectations: IResultExpectations,
     indexLastBorrow: number = 1,
-    indexLastRepay: number = 3
+    indexLastRepay: number = 3,
   ) : {sret: string, sexpected: string} {
     console.log("c0", c0);
     console.log("b0", b0);
@@ -174,7 +187,10 @@ describe("BorrowRepayTest", () => {
 
       // after repay
       // collateral >= initial collateral
-      , userBalances[indexLastRepay].collateral.gte(c0)
+      , expectations.resultCollateralCanBeLessThenInitial
+        ? areAlmostEqual(userBalances[indexLastRepay].collateral, c0)
+        : userBalances[indexLastRepay].collateral.gte(c0)
+
       // borrowed balance <= initial borrowed balance
       , b0.gte(userBalances[indexLastRepay].borrow)
       // contract borrowed balance is 0
@@ -279,12 +295,16 @@ describe("BorrowRepayTest", () => {
       , borrowBalances
       , await uc.totalBorrowedAmount()
       , await uc.totalRepaidAmount()
+      , {
+        resultCollateralCanBeLessThenInitial: false
+      }
     );
   }
 
   async function makeTestSingleBorrowInstantRepay(
     p: TestSingleBorrowParams,
     fabric: ILendingPlatformFabric,
+    expectations: IResultExpectations,
     checkGasUsed: boolean = false,
   ) : Promise<{
     sret: string,
@@ -349,6 +369,7 @@ describe("BorrowRepayTest", () => {
       , borrowBalances
       , await uc.totalBorrowedAmount()
       , await uc.totalRepaidAmount()
+      , expectations
     );
 
     return {
@@ -456,12 +477,16 @@ describe("BorrowRepayTest", () => {
       , borrowBalances
       , await uc.totalBorrowedAmount()
       , await uc.totalRepaidAmount()
+      , {
+        resultCollateralCanBeLessThenInitial: false
+      }
     );
   }
 
   async function makeTestTwoBorrowsTwoRepays(
     p: TestTwoBorrowsParams,
-    fabric: ILendingPlatformFabric
+    fabric: ILendingPlatformFabric,
+    expectations: IResultExpectations,
   ) : Promise<{sret: string, sexpected: string}> {
     const {tc, controller} = await TetuConverterApp.buildApp(deployer, [fabric]);
     const uc = await MocksHelper.deployBorrower(deployer.address, controller, p.healthFactor2, p.countBlocks);
@@ -524,6 +549,7 @@ describe("BorrowRepayTest", () => {
       , borrowBalances
       , await uc.totalBorrowedAmount()
       , await uc.totalRepaidAmount()
+      , expectations
     );
   }
 //endregion Test two borrows, two repays
@@ -592,6 +618,7 @@ describe("BorrowRepayTest", () => {
                   , healthFactor2: HEALTH_FACTOR2
                   , countBlocks: COUNT_BLOCKS
                 }, new Aave3PlatformFabric()
+                , {}
               );
               expect(ret.sret).eq(ret.sexpected);
             });
@@ -613,6 +640,9 @@ describe("BorrowRepayTest", () => {
                   , healthFactor2: HEALTH_FACTOR2
                   , countBlocks: COUNT_BLOCKS
                 }, new HundredFinancePlatformFabric()
+                , {
+                  resultCollateralCanBeLessThenInitial: true
+                }
               );
               expect(ret.sret).eq(ret.sexpected);
             });
@@ -634,6 +664,7 @@ describe("BorrowRepayTest", () => {
                   , healthFactor2: HEALTH_FACTOR2
                   , countBlocks: COUNT_BLOCKS
                 }, new DForcePlatformFabric()
+                , {}
               );
               expect(ret.sret).eq(ret.sexpected);
             });
@@ -655,6 +686,7 @@ describe("BorrowRepayTest", () => {
                   , healthFactor2: HEALTH_FACTOR2
                   , countBlocks: COUNT_BLOCKS
                 }, new AaveTwoPlatformFabric()
+                , {}
               );
               expect(ret.sret).eq(ret.sexpected);
             });
@@ -720,6 +752,7 @@ describe("BorrowRepayTest", () => {
                   , healthFactor2: HEALTH_FACTOR2
                   , countBlocks: COUNT_BLOCKS
                 }, new Aave3PlatformFabric()
+                , {}
               );
               expect(ret.sret).eq(ret.sexpected);
             });
@@ -741,6 +774,7 @@ describe("BorrowRepayTest", () => {
                   , healthFactor2: HEALTH_FACTOR2
                   , countBlocks: COUNT_BLOCKS
                 }, new HundredFinancePlatformFabric()
+                , {}
               );
               expect(ret.sret).eq(ret.sexpected);
             });
@@ -762,6 +796,7 @@ describe("BorrowRepayTest", () => {
                   , healthFactor2: HEALTH_FACTOR2
                   , countBlocks: COUNT_BLOCKS
                 }, new DForcePlatformFabric()
+                , {}
               );
               expect(ret.sret).eq(ret.sexpected);
             });
@@ -783,6 +818,7 @@ describe("BorrowRepayTest", () => {
                   , healthFactor2: HEALTH_FACTOR2
                   , countBlocks: COUNT_BLOCKS
                 }, new AaveTwoPlatformFabric()
+                , {}
               );
               expect(ret.sret).eq(ret.sexpected);
             });
@@ -848,6 +884,9 @@ describe("BorrowRepayTest", () => {
                   , healthFactor2: HEALTH_FACTOR2
                   , countBlocks: COUNT_BLOCKS
                 }, new Aave3PlatformFabric()
+                , {
+                  resultCollateralCanBeLessThenInitial: false
+                }
               );
               expect(ret.sret).eq(ret.sexpected);
             });
@@ -869,6 +908,9 @@ describe("BorrowRepayTest", () => {
                   , healthFactor2: HEALTH_FACTOR2
                   , countBlocks: COUNT_BLOCKS
                 }, new HundredFinancePlatformFabric()
+                , {
+                  resultCollateralCanBeLessThenInitial: true
+                }
               );
               expect(ret.sret).eq(ret.sexpected);
             });
@@ -890,6 +932,9 @@ describe("BorrowRepayTest", () => {
                   , healthFactor2: HEALTH_FACTOR2
                   , countBlocks: COUNT_BLOCKS
                 }, new DForcePlatformFabric()
+                , {
+                  resultCollateralCanBeLessThenInitial: false
+                }
               );
               expect(ret.sret).eq(ret.sexpected);
             });
@@ -911,6 +956,9 @@ describe("BorrowRepayTest", () => {
                   , healthFactor2: HEALTH_FACTOR2
                   , countBlocks: COUNT_BLOCKS
                 }, new AaveTwoPlatformFabric()
+                , {
+                  resultCollateralCanBeLessThenInitial: false
+                }
               );
               expect(ret.sret).eq(ret.sexpected);
             });
@@ -976,6 +1024,9 @@ describe("BorrowRepayTest", () => {
                   , healthFactor2: HEALTH_FACTOR2
                   , countBlocks: COUNT_BLOCKS
                 }, new Aave3PlatformFabric()
+                , {
+                  resultCollateralCanBeLessThenInitial: false
+                }
               );
               expect(ret.sret).eq(ret.sexpected);
             });
@@ -997,6 +1048,9 @@ describe("BorrowRepayTest", () => {
                   , healthFactor2: HEALTH_FACTOR2
                   , countBlocks: COUNT_BLOCKS
                 }, new HundredFinancePlatformFabric()
+                , {
+                  resultCollateralCanBeLessThenInitial: true
+                }
               );
               expect(ret.sret).eq(ret.sexpected);
             });
@@ -1018,6 +1072,9 @@ describe("BorrowRepayTest", () => {
                   , healthFactor2: HEALTH_FACTOR2
                   , countBlocks: COUNT_BLOCKS
                 }, new DForcePlatformFabric()
+                , {
+                  resultCollateralCanBeLessThenInitial: false
+                }
               );
               expect(ret.sret).eq(ret.sexpected);
             });
@@ -1039,6 +1096,9 @@ describe("BorrowRepayTest", () => {
                   , healthFactor2: HEALTH_FACTOR2
                   , countBlocks: COUNT_BLOCKS
                 }, new AaveTwoPlatformFabric()
+                , {
+                  resultCollateralCanBeLessThenInitial: false
+                }
               );
               expect(ret.sret).eq(ret.sexpected);
             });
@@ -1119,6 +1179,9 @@ describe("BorrowRepayTest", () => {
                   , deltaBlocksBetweenRepays: DELTA_BLOCKS_REPAY
                   , repayAmount1: AMOUNT_REPAY1
                 }, new Aave3PlatformFabric()
+                , {
+                  resultCollateralCanBeLessThenInitial: false
+                }
               );
               expect(ret.sret).eq(ret.sexpected);
             });
@@ -1144,6 +1207,9 @@ describe("BorrowRepayTest", () => {
                   , deltaBlocksBetweenRepays: DELTA_BLOCKS_REPAY
                   , repayAmount1: AMOUNT_REPAY1
                 }, new HundredFinancePlatformFabric()
+                , {
+                  resultCollateralCanBeLessThenInitial: false
+                }
               );
               expect(ret.sret).eq(ret.sexpected);
             });
@@ -1169,6 +1235,9 @@ describe("BorrowRepayTest", () => {
                   , deltaBlocksBetweenRepays: DELTA_BLOCKS_REPAY
                   , repayAmount1: AMOUNT_REPAY1
                 }, new DForcePlatformFabric()
+                , {
+                  resultCollateralCanBeLessThenInitial: false
+                }
               );
               expect(ret.sret).eq(ret.sexpected);
             });
@@ -1194,6 +1263,9 @@ describe("BorrowRepayTest", () => {
                   , deltaBlocksBetweenRepays: DELTA_BLOCKS_REPAY
                   , repayAmount1: AMOUNT_REPAY1
                 }, new AaveTwoPlatformFabric()
+                , {
+                  resultCollateralCanBeLessThenInitial: false
+                }
               );
               expect(ret.sret).eq(ret.sexpected);
             });
@@ -1229,6 +1301,7 @@ describe("BorrowRepayTest", () => {
                   , healthFactor2: HEALTH_FACTOR2
                   , countBlocks: COUNT_BLOCKS
                 }, new Aave3PlatformFabric()
+                , {}
                 , true
               );
               controlGasLimitsEx(r.gasUsedByPaInitialization!, GAS_LIMIT_SINGLE_BORROW_SINGLE_REPAY_INITIALIZE_PA, (u, t) => {
@@ -1259,6 +1332,9 @@ describe("BorrowRepayTest", () => {
                   , healthFactor2: HEALTH_FACTOR2
                   , countBlocks: COUNT_BLOCKS
                 }, new HundredFinancePlatformFabric()
+                , {
+                  resultCollateralCanBeLessThenInitial: true
+                }
                 , true
               );
               controlGasLimitsEx(r.gasUsedByPaInitialization!, GAS_LIMIT_SINGLE_BORROW_SINGLE_REPAY_INITIALIZE_PA, (u, t) => {
@@ -1289,6 +1365,7 @@ describe("BorrowRepayTest", () => {
                   , healthFactor2: HEALTH_FACTOR2
                   , countBlocks: COUNT_BLOCKS
                 }, new DForcePlatformFabric()
+                , {}
                 , true
               );
               controlGasLimitsEx(r.gasUsedByPaInitialization!, GAS_LIMIT_SINGLE_BORROW_SINGLE_REPAY_INITIALIZE_PA, (u, t) => {
@@ -1319,6 +1396,7 @@ describe("BorrowRepayTest", () => {
                   , healthFactor2: HEALTH_FACTOR2
                   , countBlocks: COUNT_BLOCKS
                 }, new AaveTwoPlatformFabric()
+                , {}
                 , true
               );
               controlGasLimitsEx(r.gasUsedByPaInitialization!, GAS_LIMIT_SINGLE_BORROW_SINGLE_REPAY_INITIALIZE_PA, (u, t) => {

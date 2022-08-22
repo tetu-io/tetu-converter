@@ -21,6 +21,7 @@ contract PoolAdapterStub is IPoolAdapter {
   bool private _borrowHideWarning;
 
   address public priceOracle;
+  address public originConverter;
 
   /// @notice Real implementation of IPoolAdapter cannot use constructors  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
   ///         because pool-adapters are created using minimanl-proxy pattern
@@ -35,6 +36,7 @@ contract PoolAdapterStub is IPoolAdapter {
     address user_,
     address collateralAsset_,
     address borrowAsset_,
+    address originConverter_,
     address cTokenMock_,
     uint collateralFactor_,
     uint borrowRatePerBlock_,
@@ -51,6 +53,7 @@ contract PoolAdapterStub is IPoolAdapter {
     _collateralFactor = collateralFactor_;
     _borrowRatePerBlock = borrowRatePerBlock_;
     priceOracle = priceOracle_;
+    originConverter = originConverter_;
   }
 
   function syncBalance(bool beforeBorrow) external override {
@@ -85,12 +88,12 @@ contract PoolAdapterStub is IPoolAdapter {
   }
 
   function getConfig() external view override returns (
-    address pool,
+    address origin,
     address user,
     address collateralAsset,
     address borrowAsset
   ) {
-    return (_pool, _user, _collateralAsset, _borrowAsset);
+    return (originConverter, _user, _collateralAsset, _borrowAsset);
   }
 
   /// @notice Get current status of the borrow position

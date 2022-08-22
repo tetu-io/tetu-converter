@@ -167,12 +167,16 @@ contract DForcePlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
           }
 
           // calculate current borrow rate and predicted BR value after borrowing required amount
-          uint br = IDForceCToken(cTokenBorrow).borrowRatePerBlock();
-          uint brAfterBorrow = _br(
-            IDForceCToken(cTokenBorrow),
-            plan.liquidationThreshold18 * borrowAmountFactor18_ / 1e18  // == amount to borrow
-          );
-          plan.aprPerBlock18 = (brAfterBorrow > br ? brAfterBorrow : br);
+          plan.aprPerBlock18 = IDForceCToken(cTokenBorrow).borrowRatePerBlock();
+          if (borrowAmountFactor18_ != 0) {
+            uint brAfterBorrow = _br(
+              IDForceCToken(cTokenBorrow),
+              plan.liquidationThreshold18 * borrowAmountFactor18_ / 1e18  // == amount to borrow
+            );
+            if (brAfterBorrow > plan.aprPerBlock18) {
+              plan.aprPerBlock18 = brAfterBorrow;
+            }
+          }
         }
       }
     }

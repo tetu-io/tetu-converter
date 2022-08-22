@@ -3,7 +3,7 @@ import {
   IDForceController,
   IDForceController__factory,
   IDForceCToken, IDForceCToken__factory,
-  IDForceInterestRateModel, IDForceInterestRateModel__factory,
+  IDForceInterestRateModel__factory,
   IDForcePriceOracle,
   IDForcePriceOracle__factory, IERC20Extended__factory
 

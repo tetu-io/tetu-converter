@@ -2,7 +2,6 @@ import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import {ethers} from "hardhat";
 import {TimeUtils} from "../../../../../scripts/utils/TimeUtils";
 import {
-  IERC20__factory,
   IERC20Extended__factory, IDForceController, IDForceCToken,
   IDForceCToken__factory
 } from "../../../../../typechain";
@@ -105,13 +104,12 @@ describe("Hundred finance integration tests, platform adapter", () => {
       const templateAdapterNormalStub = ethers.Wallet.createRandom();
 
       const comptroller = await DForceHelper.getController(deployer);
-      const DForcePlatformAdapter = await AdaptersHelper.createHundredFinancePlatformAdapter(
+      const dForcePlatformAdapter = await AdaptersHelper.createDForcePlatformAdapter(
         deployer,
         controller.address,
         comptroller.address,
         templateAdapterNormalStub.address,
         [cTokenCollateral, cTokenBorrow],
-        MaticAddresses.HUNDRED_FINANCE_ORACLE
       );
 
       const collateralAssetData = await DForceHelper.getCTokenData(deployer, comptroller
@@ -120,7 +118,8 @@ describe("Hundred finance integration tests, platform adapter", () => {
       const borrowAssetData = await DForceHelper.getCTokenData(deployer, comptroller
         , IDForceCToken__factory.connect(cTokenBorrow, deployer));
 
-      const ret = await DForcePlatformAdapter.getConversionPlan(collateralAsset, borrowAsset, 0);
+      console.log("getConversionPlan", collateralAsset, borrowAsset);
+      const ret = await dForcePlatformAdapter.getConversionPlan(collateralAsset, borrowAsset, 0);
 
       const sret = [
         ret.aprPerBlock18,
@@ -147,8 +146,8 @@ describe("Hundred finance integration tests, platform adapter", () => {
 
           const collateralAsset = MaticAddresses.DAI;
           const borrowAsset = MaticAddresses.USDC;
-          const collateralCToken = MaticAddresses.hDAI;
-          const borrowCToken = MaticAddresses.hUSDC;
+          const collateralCToken = MaticAddresses.dForce_iDAI;
+          const borrowCToken = MaticAddresses.dForce_iUSDC;
 
           const r = await makeTest(
             collateralAsset,

@@ -73,14 +73,14 @@ describe("BorrowManagerBase (IPoolAdaptersManager)", () => {
             paConfig.collateralAsset,
             paConfig.user,
             paConfig.borrowAsset
-          ].join();
+          ].join("\n");
 
           const expected = [
             pools[0].converter,
             sourceToken.address,
             user,
             targetToken.address
-          ].join();
+          ].join("\n");
 
           expect(ret).equal(expected);
         });

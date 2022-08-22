@@ -52,7 +52,7 @@ contract DebtMonitor is IDebtMonitor {
     }
   }
 
-  /// @dev This function is called from a pool adapter after any repaying
+  /// @dev This function is called from a pool adapter when the borrow is completely repaid
   function onClosePosition() external override {
     require(positionsRegistered[msg.sender], AppErrors.BORROW_POSITION_IS_NOT_REGISTERED);
 
@@ -94,7 +94,7 @@ contract DebtMonitor is IDebtMonitor {
     for (uint i = 0; i < maxCountToCheck; i = _uncheckedInc(i)) {
       nextIndexToCheck0 += 1;
 
-      // check if we need to make rebalancing because of too low health factor
+      // check if we need to make reconversion because the health factor is too low or a better borrow way exists
       IPoolAdapter pa = IPoolAdapter(positions[startIndex0 + i]);
       (uint collateralAmount,, uint healthFactor18,) = pa.getStatus();
 

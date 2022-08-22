@@ -10,7 +10,7 @@ interface IDebtMonitor {
   function onOpenPosition() external;
 
   /// @notice Unregister the borrow position if it's completely repaid
-  /// @dev This function is called from a pool adapter after any repaying
+  /// @dev This function is called from a pool adapter when the borrow is completely repaid
   function onClosePosition() external;
 
   /// @notice Enumerate {maxCountToCheck} pool adapters starting from {index0} and return unhealthy pool-adapters

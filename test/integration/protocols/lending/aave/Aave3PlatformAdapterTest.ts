@@ -4,7 +4,7 @@ import {TimeUtils} from "../../../../../scripts/utils/TimeUtils";
 import {
   IAavePool,
   IAaveProtocolDataProvider,
-  IAaveToken__factory, IERC20Extended__factory
+  IAaveToken__factory, IERC20Extended__factory, IPlatformAdapter
 } from "../../../../../typechain";
 import {expect} from "chai";
 import {BigNumber} from "ethers";
@@ -129,7 +129,10 @@ describe("Aave-v3 integration tests, platform adapter", () => {
       const collateralAssetData = await h.getReserveInfo(deployer, aavePool, dp, collateralAsset);
       const borrowAssetData = await h.getReserveInfo(deployer, aavePool, dp, borrowAsset);
 
-      const ret = await aavePlatformAdapter.getConversionPlan(collateralAsset, borrowAsset, 0);
+      const ret = await aavePlatformAdapter.getConversionPlan(collateralAsset
+        , borrowAsset
+        , 0
+      );
 
       const sret = [
         ret.aprPerBlock18,
