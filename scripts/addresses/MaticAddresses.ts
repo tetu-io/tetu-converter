@@ -40,6 +40,9 @@ export class MaticAddresses {
 
   public static HOLDER_USDC = "0x06959153b974d0d5fdfd87d561db6d8d4fa0bb0b";
   public static HOLDER_USDT = "0x0d0707963952f2fba59dd06f2b425ace40b492fe";
+  public static HOLDER_USDT_1 = "0xf977814e90da44bfa03b6295a0616a897441acec";
+  public static HOLDER_USDT_2 = "0xe7804c37c13166ff0b37f5ae0bb07a3aebb6e245";
+  public static HOLDER_USDT_3 = "0xfa0b641678f5115ad8a8de5752016bd1359681b9";
   public static HOLDER_WMATIC = "0x369582d2010b6ed950b571f4101e3bb9b554876f";
   public static HOLDER_EURS = "0x6de2865067b65d4571c17f6b9eeb8dbdd5e36584";
   public static HOLDER_BALANCER = "0x4cd80aa0ce4881eb8679eda1f6fbe3d89aec0f7f";

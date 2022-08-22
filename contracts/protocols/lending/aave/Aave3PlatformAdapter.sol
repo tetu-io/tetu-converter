@@ -141,10 +141,15 @@ contract Aave3PlatformAdapter is IPlatformAdapter {
               }
             }
             if (isolationMode) {
-              //TODO: take into account DebtCeiling in isolation mode
               // the total exposure cannot be bigger than the collateral debt ceiling, see aave-v3-core: validateBorrow()
               // Suppose, the collateral is an isolated asset with the debt ceiling $10M
               // The user will therefore be allowed to borrow up to $10M of stable coins
+              // Debt ceiling does not include interest accrued over time, only the principal borrowed
+              uint maxAmount = (rc.configuration.getDebtCeiling() - rc.isolationModeTotalDebt)
+                  * (10 ** (rc.configuration.getDecimals() - Aave3ReserveConfiguration.DEBT_CEILING_DECIMALS));
+              if (plan.maxAmountToBorrowBT > maxAmount) {
+                plan.maxAmountToBorrowBT = maxAmount;
+              }
             }
           }
 
