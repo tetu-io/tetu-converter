@@ -1,12 +1,12 @@
 import {ILendingPlatformFabric} from "./ILendingPlatformFabric";
 import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import {
-    CTokenMock,
-    IBorrowManager__factory,
-    IController,
-    IERC20,
-    IERC20__factory,
-    PriceOracleMock
+  CTokenMock,
+  IBorrowManager__factory,
+  IController,
+  IERC20,
+  IERC20__factory,
+  PriceOracleMock
 } from "../../../typechain";
 import {MocksHelper} from "../helpers/MocksHelper";
 import {BigNumber} from "ethers";
@@ -15,73 +15,73 @@ import {BalanceUtils} from "../utils/BalanceUtils";
 import {DeployUtils} from "../../../scripts/utils/DeployUtils";
 
 export class MockPlatformFabric implements ILendingPlatformFabric {
-    public underlyings: string[];
-    public borrowRates: BigNumber[];
-    public collateralFactors: number[];
-    public liquidityNumbers: number[];
-    public cTokens: CTokenMock[];
-    public holders: string[];
-    public prices: BigNumber[];
+  public underlyings: string[];
+  public borrowRates: BigNumber[];
+  public collateralFactors: number[];
+  public liquidityNumbers: number[];
+  public cTokens: CTokenMock[];
+  public holders: string[];
+  public prices: BigNumber[];
 
-    constructor (
-        underlyings: string[]
-        , borrowRates: BigNumber[]
-        , collateralFactors: number[]
-        , liquidity: number[]
-        , holders: string[]
-        , cTokens: CTokenMock[]
-        , prices: BigNumber[]
-    ) {
-        this.underlyings = underlyings;
-        this.borrowRates = borrowRates;
-        this.collateralFactors = collateralFactors;
-        this.liquidityNumbers = liquidity;
-        this.cTokens = cTokens;
-        this.holders = holders;
-        this.prices = prices;
+  constructor (
+    underlyings: string[]
+    , borrowRates: BigNumber[]
+    , collateralFactors: number[]
+    , liquidity: number[]
+    , holders: string[]
+    , cTokens: CTokenMock[]
+    , prices: BigNumber[]
+  ) {
+    this.underlyings = underlyings;
+    this.borrowRates = borrowRates;
+    this.collateralFactors = collateralFactors;
+    this.liquidityNumbers = liquidity;
+    this.cTokens = cTokens;
+    this.holders = holders;
+    this.prices = prices;
+  }
+  async createAndRegisterPools(deployer: SignerWithAddress, controller: IController) : Promise<IERC20[]> {
+    const pool = await MocksHelper.createPoolStub(deployer);
+    const converter = await MocksHelper.createPoolAdapterMock(deployer);
+    const priceOracle = (await DeployUtils.deployContract(deployer, "PriceOracleMock"
+      , this.underlyings || []
+      , this.prices || []
+    )) as PriceOracleMock;
+
+    const liquidity = await Promise.all(
+      this.liquidityNumbers.map( async (x, index) => {
+        return getBigNumberFrom(x, await this.cTokens[index].decimals())
+      })
+    );
+    for (let i = 0; i < this.holders.length; ++i) {
+      await BalanceUtils.getAmountFromHolder(this.underlyings[i]
+        , this.holders[i]
+        , pool.address
+        , this.liquidityNumbers[i]
+      );
     }
-    async createAndRegisterPools(deployer: SignerWithAddress, controller: IController) : Promise<IERC20[]> {
-        const pool = await MocksHelper.createPoolStub(deployer);
-        const converter = await MocksHelper.createPoolAdapterMock(deployer);
-        const priceOracle = (await DeployUtils.deployContract(deployer, "PriceOracleMock"
-            , this.underlyings || []
-            , this.prices || []
-        )) as PriceOracleMock;
 
-        const liquidity = await Promise.all(
-            this.liquidityNumbers.map( async (x, index) => {
-                return getBigNumberFrom(x, await this.cTokens[index].decimals())
-            })
-        );
-        for (let i = 0; i < this.holders.length; ++i) {
-            await BalanceUtils.getAmountFromHolder(this.underlyings[i]
-                , this.holders[i]
-                , pool.address
-                , this.liquidityNumbers[i]
-            );
-        }
-
-        const aavePlatformAdapter = await MocksHelper.createPlatformAdapterMock(
-            deployer
-            , pool
-            , controller.address
-            , converter.address
-            , this.underlyings
-            , this.borrowRates
-            , this.collateralFactors
-            , liquidity
-            , this.cTokens
-            , priceOracle.address
-        );
+    const aavePlatformAdapter = await MocksHelper.createPlatformAdapterMock(
+      deployer
+      , pool
+      , controller.address
+      , converter.address
+      , this.underlyings
+      , this.borrowRates
+      , this.collateralFactors
+      , liquidity
+      , this.cTokens
+      , priceOracle.address
+    );
 
 
 
-        const bm = IBorrowManager__factory.connect(await controller.borrowManager(), deployer);
-        await bm.addPool(aavePlatformAdapter.address, this.underlyings);
-        console.log("Mock pool was added to BM", aavePlatformAdapter.address);
+    const bm = IBorrowManager__factory.connect(await controller.borrowManager(), deployer);
+    await bm.addPool(aavePlatformAdapter.address, this.underlyings);
+    console.log("Mock pool was added to BM", aavePlatformAdapter.address);
 
-        return [
-            IERC20__factory.connect(pool.address, deployer)
-        ]
-    }
+    return [
+      IERC20__factory.connect(pool.address, deployer)
+    ]
+  }
 }

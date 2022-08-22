@@ -3,6 +3,6 @@ import {IController} from "../../../typechain";
 import {IERC20} from "../../../typechain";
 
 export interface ILendingPlatformFabric {
-    /** return addresses of pools */
-    createAndRegisterPools: (deployer: SignerWithAddress, controller: IController) => Promise<IERC20[]>;
+  /** return addresses of pools */
+  createAndRegisterPools: (deployer: SignerWithAddress, controller: IController) => Promise<IERC20[]>;
 }

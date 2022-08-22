@@ -7,60 +7,60 @@ import {TimeUtils} from "../../../scripts/utils/TimeUtils";
 import {TokenDataTypes} from "../types/TokenDataTypes";
 
 export class BorrowAction implements IBorrowAction {
-    public collateralToken: TokenDataTypes;
-    public collateralAmount: BigNumber;
-    public borrowToken: TokenDataTypes;
-    public countBlocksToSkipAfterAction?: number;
-    public controlGas?: boolean;
+  public collateralToken: TokenDataTypes;
+  public collateralAmount: BigNumber;
+  public borrowToken: TokenDataTypes;
+  public countBlocksToSkipAfterAction?: number;
+  public controlGas?: boolean;
 
-    constructor(
-        collateralToken: TokenDataTypes,
-        collateralAmount: BigNumber,
-        borrowToken: TokenDataTypes,
-        countBlocksToSkipAfterAction?: number,
-        controlGas?: boolean
-    ) {
-        this.collateralToken = collateralToken;
-        this.collateralAmount = collateralAmount;
-        this.borrowToken = borrowToken;
-        this.countBlocksToSkipAfterAction = countBlocksToSkipAfterAction;
-        this.controlGas = controlGas;
+  constructor(
+    collateralToken: TokenDataTypes,
+    collateralAmount: BigNumber,
+    borrowToken: TokenDataTypes,
+    countBlocksToSkipAfterAction?: number,
+    controlGas?: boolean
+  ) {
+    this.collateralToken = collateralToken;
+    this.collateralAmount = collateralAmount;
+    this.borrowToken = borrowToken;
+    this.countBlocksToSkipAfterAction = countBlocksToSkipAfterAction;
+    this.controlGas = controlGas;
+  }
+
+  async doAction(user: Borrower) : Promise<IUserBalances> {
+    let gasUsed: BigNumber | undefined;
+
+    if (this.controlGas) {
+      console.log("doAction.start makeBorrowUC1_1");
+      gasUsed = await user.estimateGas.makeBorrowUC1_1(
+        this.collateralToken.address,
+        this.collateralAmount,
+        this.borrowToken.address,
+        user.address
+      );
+      console.log("doAction.end", gasUsed);
+    }
+    await user.makeBorrowUC1_1(
+      this.collateralToken.address,
+      this.collateralAmount,
+      this.borrowToken.address,
+      user.address
+    );
+
+    if (this.countBlocksToSkipAfterAction) {
+      await TimeUtils.advanceNBlocks(this.countBlocksToSkipAfterAction);
     }
 
-    async doAction(user: Borrower) : Promise<IUserBalances> {
-        let gasUsed: BigNumber | undefined;
+    const collateral = await IERC20__factory.connect(
+      this.collateralToken.address,
+      await DeployerUtils.startImpersonate(user.address)
+    ).balanceOf(user.address);
 
-        if (this.controlGas) {
-            console.log("doAction.start makeBorrowUC1_1");
-            gasUsed = await user.estimateGas.makeBorrowUC1_1(
-                this.collateralToken.address,
-                this.collateralAmount,
-                this.borrowToken.address,
-                user.address
-            );
-            console.log("doAction.end", gasUsed);
-        }
-        await user.makeBorrowUC1_1(
-          this.collateralToken.address,
-          this.collateralAmount,
-          this.borrowToken.address,
-          user.address
-        );
+    const borrow = await IERC20__factory.connect(
+      this.borrowToken.address,
+      await DeployerUtils.startImpersonate(user.address)
+    ).balanceOf(user.address);
 
-        if (this.countBlocksToSkipAfterAction) {
-            await TimeUtils.advanceNBlocks(this.countBlocksToSkipAfterAction);
-        }
-
-        const collateral = await IERC20__factory.connect(
-            this.collateralToken.address,
-            await DeployerUtils.startImpersonate(user.address)
-        ).balanceOf(user.address);
-
-        const borrow = await IERC20__factory.connect(
-            this.borrowToken.address,
-            await DeployerUtils.startImpersonate(user.address)
-        ).balanceOf(user.address);
-
-        return { collateral, borrow, gasUsed };
-    }
+    return { collateral, borrow, gasUsed };
+  }
 }

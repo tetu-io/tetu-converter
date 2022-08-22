@@ -6,39 +6,39 @@ import {MaticAddresses} from "../../../scripts/addresses/MaticAddresses";
 import {ILendingPlatformFabric} from "./ILendingPlatformFabric";
 
 export class Aave3PlatformFabric implements ILendingPlatformFabric {
-    async createAndRegisterPools(deployer: SignerWithAddress, controller: IController) : Promise<IERC20[]> {
-        const aavePool = await Aave3Helper.getAavePool(deployer);
+  async createAndRegisterPools(deployer: SignerWithAddress, controller: IController) : Promise<IERC20[]> {
+    const aavePool = await Aave3Helper.getAavePool(deployer);
 
-        const templateAdapterNormal = await AdaptersHelper.createAave3PoolAdapter(deployer);
-        const templateAdapterEMode = await AdaptersHelper.createAave3PoolAdapterEMode(deployer);
+    const templateAdapterNormal = await AdaptersHelper.createAave3PoolAdapter(deployer);
+    const templateAdapterEMode = await AdaptersHelper.createAave3PoolAdapterEMode(deployer);
 
-        const aavePlatformAdapter = await AdaptersHelper.createAave3PlatformAdapter(
-            deployer
-            , controller.address
-            , aavePool.address
-            , templateAdapterNormal.address
-            , templateAdapterEMode.address
-        );
+    const aavePlatformAdapter = await AdaptersHelper.createAave3PlatformAdapter(
+      deployer
+      , controller.address
+      , aavePool.address
+      , templateAdapterNormal.address
+      , templateAdapterEMode.address
+    );
 
-        const bm = IBorrowManager__factory.connect(await controller.borrowManager(), deployer);
-        const assets: string[] = [
-            MaticAddresses.DAI
-            , MaticAddresses.USDC
-            , MaticAddresses.USDT
-            , MaticAddresses.EURS
-            , MaticAddresses.jEUR
-            , MaticAddresses.BALANCER
-            , MaticAddresses.WBTS
-            , MaticAddresses.WETH
-            , MaticAddresses.WMATIC
-            , MaticAddresses.SUSHI
-            , MaticAddresses.CRV
-            , MaticAddresses.agEUR
-        ];
-        await bm.addPool(aavePlatformAdapter.address, assets);
+    const bm = IBorrowManager__factory.connect(await controller.borrowManager(), deployer);
+    const assets: string[] = [
+      MaticAddresses.DAI
+      , MaticAddresses.USDC
+      , MaticAddresses.USDT
+      , MaticAddresses.EURS
+      , MaticAddresses.jEUR
+      , MaticAddresses.BALANCER
+      , MaticAddresses.WBTS
+      , MaticAddresses.WETH
+      , MaticAddresses.WMATIC
+      , MaticAddresses.SUSHI
+      , MaticAddresses.CRV
+      , MaticAddresses.agEUR
+    ];
+    await bm.addPool(aavePlatformAdapter.address, assets);
 
-        return [
-            IERC20__factory.connect(aavePool.address, deployer)
-        ]
-    }
+    return [
+      IERC20__factory.connect(aavePool.address, deployer)
+    ]
+  }
 }

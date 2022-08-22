@@ -1,7 +1,7 @@
 import {
-    Controller,
-    IERC20,
-    ITetuConverter
+  Controller,
+  IERC20,
+  ITetuConverter
 } from "../../../typechain";
 import {CoreContractsHelper} from "./CoreContractsHelper";
 import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
@@ -11,38 +11,38 @@ import {ILendingPlatformFabric} from "../fabrics/ILendingPlatformFabric";
 
 
 export class TetuConverterApp {
-    static async buildApp(
-        deployer: SignerWithAddress,
-        fabrics: ILendingPlatformFabric[]
-    ) : Promise<{tc: ITetuConverter, controller: Controller, pools: IERC20[]}> {
-        const controller = (await DeployUtils.deployContract(deployer, "Controller"
-            , COUNT_BLOCKS_PER_DAY)) as Controller;
-        await controller.initialize([await controller.governanceKey()], [deployer.address]);
+  static async buildApp(
+    deployer: SignerWithAddress,
+    fabrics: ILendingPlatformFabric[]
+  ) : Promise<{tc: ITetuConverter, controller: Controller, pools: IERC20[]}> {
+    const controller = (await DeployUtils.deployContract(deployer, "Controller"
+      , COUNT_BLOCKS_PER_DAY)) as Controller;
+    await controller.initialize([await controller.governanceKey()], [deployer.address]);
 
-        const bm = await CoreContractsHelper.createBorrowManager(deployer, controller);
-        const tc = await CoreContractsHelper.createTetuConverter(deployer, controller);
-        const dm = await CoreContractsHelper.createDebtMonitor(deployer, controller);
+    const bm = await CoreContractsHelper.createBorrowManager(deployer, controller);
+    const tc = await CoreContractsHelper.createTetuConverter(deployer, controller);
+    const dm = await CoreContractsHelper.createDebtMonitor(deployer, controller);
 
-        await controller.assignBatch(
-            [
-                await controller.borrowManagerKey()
-                , await controller.tetuConverterKey()
-                , await controller.debtMonitorKey()
-                , await controller.governanceKey()
-            ], [
-                bm.address
-                , tc.address
-                , dm.address
-                , deployer.address
-            ]
-        );
+    await controller.assignBatch(
+      [
+        await controller.borrowManagerKey()
+        , await controller.tetuConverterKey()
+        , await controller.debtMonitorKey()
+        , await controller.governanceKey()
+      ], [
+        bm.address
+        , tc.address
+        , dm.address
+        , deployer.address
+      ]
+    );
 
-        const pools: IERC20[] = [];
-        for (const fabric of fabrics) {
-            const pp = await fabric.createAndRegisterPools(deployer, controller);
-            pools.push(...pp);
-        }
-
-        return {tc, controller, pools};
+    const pools: IERC20[] = [];
+    for (const fabric of fabrics) {
+      const pp = await fabric.createAndRegisterPools(deployer, controller);
+      pools.push(...pp);
     }
+
+    return {tc, controller, pools};
+  }
 }

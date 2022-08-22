@@ -6,57 +6,57 @@ import {IReConverter} from "./ReСonverters";
  * Implementation of UC2.4
  * */
 export class Keeper {
-    dm: IDebtMonitor;
-    healthFactor2: number;
-    periodBlocks: number;
-    maxCountToCheck: number;
-    maxCountToReturn: number;
-    reConverter: IReConverter;
-    constructor(
-        dm: IDebtMonitor,
-        healthFactor2: number,
-        periodBlocks: number,
-        reConverter: IReConverter,
-        maxCountToCheck: number = 3,
-        maxCountToReturn: number = 2
-    ) {
-        this.dm = dm;
-        this.healthFactor2 = healthFactor2;
-        this.periodBlocks = periodBlocks;
-        this.maxCountToCheck = maxCountToCheck;
-        this.maxCountToReturn = maxCountToReturn;
-        this.reConverter = reConverter;
+  dm: IDebtMonitor;
+  healthFactor2: number;
+  periodBlocks: number;
+  maxCountToCheck: number;
+  maxCountToReturn: number;
+  reConverter: IReConverter;
+  constructor(
+    dm: IDebtMonitor,
+    healthFactor2: number,
+    periodBlocks: number,
+    reConverter: IReConverter,
+    maxCountToCheck: number = 3,
+    maxCountToReturn: number = 2
+  ) {
+    this.dm = dm;
+    this.healthFactor2 = healthFactor2;
+    this.periodBlocks = periodBlocks;
+    this.maxCountToCheck = maxCountToCheck;
+    this.maxCountToReturn = maxCountToReturn;
+    this.reConverter = reConverter;
+  }
+
+  /** Find all positions that should be reconverted and reconvert them */
+  async makeKeeperJob(signer: SignerWithAddress) {
+    console.log("makeKeeperJob");
+
+    let startIndex0 = 0;
+    const poolAdaptersToReconvert: string[] = [];
+
+    // let's find all pool adapters that should be reconverted
+    do {
+      console.log("makeKeeperJob.checkForReconversion", startIndex0);
+
+      const ret = await this.dm.checkForReconversion(
+        startIndex0
+        , this.maxCountToCheck
+        , this.maxCountToReturn
+        , this.healthFactor2
+        , this.periodBlocks
+      );
+      console.log("makeKeeperJob.checkForReconversion found items:", ret.countFoundItems);
+      for (let i = 0; i < ret.countFoundItems.toNumber(); ++i) {
+        poolAdaptersToReconvert.push(ret.poolAdapters[i]);
+      }
+      startIndex0 = ret.nextIndexToCheck0.toNumber();
+    } while (startIndex0 != 0);
+
+    // let's reconvert all found pool adapters, each in the separate transaction
+    for (let i = 0; i < poolAdaptersToReconvert.length; ++i) {
+      console.log("makeKeeperJob.reconvert pool adapter:", poolAdaptersToReconvert[i]);
+      await this.reConverter.do(poolAdaptersToReconvert[i], signer);
     }
-
-    /** Find all positions that should be reconverted and reconvert them */
-    async makeKeeperJob(signer: SignerWithAddress) {
-        console.log("makeKeeperJob");
-
-        let startIndex0 = 0;
-        const poolAdaptersToReconvert: string[] = [];
-
-        // let's find all pool adapters that should be reconverted
-        do {
-            console.log("makeKeeperJob.checkForReconversion", startIndex0);
-
-            const ret = await this.dm.checkForReconversion(
-                startIndex0
-                , this.maxCountToCheck
-                , this.maxCountToReturn
-                , this.healthFactor2
-                , this.periodBlocks
-            );
-            console.log("makeKeeperJob.checkForReconversion found items:", ret.countFoundItems);
-            for (let i = 0; i < ret.countFoundItems.toNumber(); ++i) {
-                poolAdaptersToReconvert.push(ret.poolAdapters[i]);
-            }
-            startIndex0 = ret.nextIndexToCheck0.toNumber();
-        } while (startIndex0 != 0);
-
-        // let's reconvert all found pool adapters, each in the separate transaction
-        for (let i = 0; i < poolAdaptersToReconvert.length; ++i) {
-            console.log("makeKeeperJob.reconvert pool adapter:", poolAdaptersToReconvert[i]);
-            await this.reConverter.do(poolAdaptersToReconvert[i], signer);
-        }
-    }
+  }
 }
