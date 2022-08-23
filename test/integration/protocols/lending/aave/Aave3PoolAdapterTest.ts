@@ -2,13 +2,12 @@ import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import {ethers} from "hardhat";
 import {TimeUtils} from "../../../../../scripts/utils/TimeUtils";
 import {
-  Aave3PoolAdapter__factory,
-  Aave3ReserveConfiguration__factory, IAavePool, IAavePool__factory,
+  IAavePool, IAavePool__factory,
   IERC20__factory,
   IERC20Extended__factory
 } from "../../../../../typechain";
-import {expect, use} from "chai";
-import {BigNumber, BigNumberish} from "ethers";
+import {expect} from "chai";
+import {BigNumber} from "ethers";
 import {getBigNumberFrom} from "../../../../../scripts/utils/NumberUtils";
 import {DeployerUtils} from "../../../../../scripts/utils/DeployerUtils";
 import {AdaptersHelper} from "../../../../baseUT/helpers/AdaptersHelper";
@@ -406,7 +405,6 @@ describe("Aave-v3 integration tests, pool adapter", () => {
             const plan = await pa.getConversionPlan(collateralAsset, borrowAsset, 0);
 
             // now, let's ensure that we can borrow max amount
-            const DELTA = BigNumber.from(1e6);
             const borrowAmount = maxBorrowAmount //.add(DELTA)
               .mul(getBigNumberFrom(1, borrowDataBefore.data.decimals))
               .div(getBigNumberFrom(1, collateralDataBefore.data.decimals))

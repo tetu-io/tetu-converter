@@ -4,6 +4,7 @@ import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import {MaticAddresses} from "../../../scripts/addresses/MaticAddresses";
 import {HundredFinanceHelper} from "../../../scripts/integration/helpers/HundredFinanceHelper";
 import {AdaptersHelper} from "../helpers/AdaptersHelper";
+import {generateAssetPairs} from "../utils/AssetPairUtils";
 
 export class HundredFinancePlatformFabric implements ILendingPlatformFabric {
     async createAndRegisterPools(deployer: SignerWithAddress, controller: IController) : Promise<IERC20[]> {
@@ -38,7 +39,11 @@ export class HundredFinancePlatformFabric implements ILendingPlatformFabric {
             , MaticAddresses.USDT
             , MaticAddresses.WBTS
         ];
-        await bm.addPool(platformAdapter.address, assets);
+      const assetPairs = generateAssetPairs(assets);
+      await bm.addAssetPairs(platformAdapter.address
+        , assetPairs.map(x => x.smallerAddress)
+        , assetPairs.map(x => x.biggerAddress)
+      );
 
         return [
             IERC20__factory.connect(comptroller.address, deployer)

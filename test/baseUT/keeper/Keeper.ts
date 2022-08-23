@@ -46,10 +46,8 @@ export class Keeper {
         , this.healthFactor2
         , this.periodBlocks
       );
-      console.log("makeKeeperJob.checkForReconversion found items:", ret.countFoundItems);
-      for (let i = 0; i < ret.countFoundItems.toNumber(); ++i) {
-        poolAdaptersToReconvert.push(ret.poolAdapters[i]);
-      }
+      console.log("makeKeeperJob.checkForReconversion found items:", ret.poolAdapters.length);
+      poolAdaptersToReconvert.push(...ret.poolAdapters);
       startIndex0 = ret.nextIndexToCheck0.toNumber();
     } while (startIndex0 != 0);
 

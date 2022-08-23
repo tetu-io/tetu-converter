@@ -17,9 +17,6 @@ import {areAlmostEqual} from "../../../../baseUT/utils/CommonUtils";
 import {IPlatformActor, PredictBrUsesCase} from "../../../../baseUT/uses-cases/PredictBrUsesCase";
 
 describe("Hundred finance integration tests, platform adapter", () => {
-//region Constants
-//endregion Constants
-
 //region Global vars for all tests
   let snapshot: string;
   let snapshotForEach: string;
@@ -113,9 +110,6 @@ describe("Hundred finance integration tests, platform adapter", () => {
         MaticAddresses.HUNDRED_FINANCE_ORACLE
       );
 
-      const collateralAssetData = await HundredFinanceHelper.getCTokenData(deployer, comptroller
-        , IHfCToken__factory.connect(cTokenCollateral, deployer)
-      );
       const borrowAssetData = await HundredFinanceHelper.getCTokenData(deployer, comptroller
         , IHfCToken__factory.connect(cTokenBorrow, deployer));
 

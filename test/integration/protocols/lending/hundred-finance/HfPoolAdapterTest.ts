@@ -160,8 +160,6 @@ describe("Hundred Finance integration tests, pool adapter", () => {
       ].map(x => BalanceUtils.toString(x)).join("\n");
 
       const n18 = getBigNumberFrom(1, 18); //1e18
-      const nc = getBigNumberFrom(1, collateralToken.decimals); //1e18
-      const nb = getBigNumberFrom(1,  borrowToken.decimals); //1e18
 
       // ALl calculations are explained here:
       // https://docs.google.com/spreadsheets/d/1oLeF7nlTefoN0_9RWCuNc62Y7W72-Yk7
@@ -305,7 +303,6 @@ describe("Hundred Finance integration tests, pool adapter", () => {
         [collateralCToken.address, borrowCToken.address],
         MaticAddresses.HUNDRED_FINANCE_ORACLE
       )
-      const priceOracle = HundredFinanceHelper.getPriceOracle(deployer);
 
       // collateral asset
       await collateralToken.token

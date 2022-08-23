@@ -422,7 +422,7 @@ describe("BorrowRepayTest", () => {
 
     // we need an address of the mock pool adapter, so let's initialize the pool adapter right now
     const bm = BorrowManager__factory.connect(await controller.borrowManager(), deployer);
-    const platformAdapter = IPlatformAdapter__factory.connect(await bm.platformAdapters(0), deployer);
+    const platformAdapter = IPlatformAdapter__factory.connect(await bm.platformAdaptersAt(0), deployer);
     const converter = (await platformAdapter.converters())[0];
     await bm.registerPoolAdapter(converter
       , uc.address

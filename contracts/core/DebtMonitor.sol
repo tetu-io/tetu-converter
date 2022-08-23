@@ -138,9 +138,9 @@ contract DebtMonitor is IDebtMonitor {
     uint periodInBlocks
   ) external view override returns (
     uint nextIndexToCheck0,
-    uint countFoundItems,
     address[] memory outPoolAdapters
   ) {
+    uint countFoundItems = 0;
     ITetuConverter tc = ITetuConverter(controller.tetuConverter());
     outPoolAdapters = new address[](maxCountToReturn);
 
@@ -173,7 +173,12 @@ contract DebtMonitor is IDebtMonitor {
       nextIndexToCheck0 = 0; // all items were checked
     }
 
-    return (nextIndexToCheck0, countFoundItems, outPoolAdapters);
+    // we need to keep only found items in result array and remove others
+    return (nextIndexToCheck0
+      , countFoundItems == 0
+        ? new address[](0)
+        : AppUtils.removeLastItems(outPoolAdapters, countFoundItems)
+    );
   }
 
   function _findBetterBorrowWay(
@@ -183,6 +188,7 @@ contract DebtMonitor is IDebtMonitor {
     uint16 healthFactor2_,
     uint periodInBlocks_
   ) internal view returns (bool) {
+
     // check if we can re-borrow the asset in different place with higher profit
     (address origin,, address sourceToken, address targetToken) = pa_.getConfig();
     (address converter,, uint aprForPeriod18) = tc_.findConversionStrategy(
@@ -193,11 +199,11 @@ contract DebtMonitor is IDebtMonitor {
     // make decision if the new conversion-strategy is worth to be used instead current one
     if (origin != converter) {
       //1) threshold for APRs difference exceeds threshold, i.e. (apr0-apr1)/apr0 > 20%
-      if (thresholdAPR != 0
-        && currentApr18 - aprForPeriod18 > currentApr18 * thresholdAPR / 100
+      if (currentApr18 > aprForPeriod18
+         && (thresholdAPR == 0 || currentApr18 - aprForPeriod18 > currentApr18 * thresholdAPR / 100)
       ) {
         //2) threshold for block number: count blocks since prev rebalancing should exceed the threshold.
-        if (block.number - positionLastAccess[address(pa_)] > thresholdCountBlocks) {
+        if (thresholdCountBlocks == 0 || block.number - positionLastAccess[address(pa_)] > thresholdCountBlocks) {
           return true;
         }
       }

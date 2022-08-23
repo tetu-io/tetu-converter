@@ -4,6 +4,7 @@ import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import {MaticAddresses} from "../../../scripts/addresses/MaticAddresses";
 import {AdaptersHelper} from "../helpers/AdaptersHelper";
 import {DForceHelper} from "../../../scripts/integration/helpers/DForceHelper";
+import {generateAssetPairs} from "../utils/AssetPairUtils";
 
 export class DForcePlatformFabric implements ILendingPlatformFabric {
     async createAndRegisterPools(deployer: SignerWithAddress, controller: IController) : Promise<IERC20[]> {
@@ -41,7 +42,11 @@ export class DForcePlatformFabric implements ILendingPlatformFabric {
             , MaticAddresses.WBTS
             , MaticAddresses.dForce_USD
         ];
-        await bm.addPool(platformAdapter.address, assets);
+      const assetPairs = generateAssetPairs(assets);
+      await bm.addAssetPairs(platformAdapter.address
+        , assetPairs.map(x => x.smallerAddress)
+        , assetPairs.map(x => x.biggerAddress)
+      );
 
         return [
             IERC20__factory.connect(comptroller.address, deployer)

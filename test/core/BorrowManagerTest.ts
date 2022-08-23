@@ -2,7 +2,7 @@ import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import {ethers} from "hardhat";
 import {expect} from "chai";
 import {DeployUtils} from "../../scripts/utils/DeployUtils";
-import {BorrowManager, Controller, MockERC20, PriceOracleMock} from "../../typechain";
+import {BorrowManager, Controller, MockERC20, PlatformAdapterStub, PriceOracleMock} from "../../typechain";
 import {TimeUtils} from "../../scripts/utils/TimeUtils";
 import {BigNumber} from "ethers";
 import {getBigNumberFrom} from "../../scripts/utils/NumberUtils";
@@ -15,6 +15,7 @@ import {
 import {IBmInputParams, BorrowManagerHelper} from "../baseUT/helpers/BorrowManagerHelper";
 import {MocksHelper} from "../baseUT/helpers/MocksHelper";
 import {CoreContractsHelper} from "../baseUT/helpers/CoreContractsHelper";
+import {generateAssetPairs, IAssetPair} from "../baseUT/utils/AssetPairUtils";
 
 describe("BorrowManager", () => {
 //region Global vars for all tests
@@ -54,105 +55,229 @@ describe("BorrowManager", () => {
   });
 //endregion before, after
 
+//region Utils
+  async function getPairsList(bm: BorrowManager, pairs: IAssetPair[]): Promise<string[]> {
+    const dest: string[] = [];
+    for (const pair of pairs) {
+      const len = (await bm.pairsListLength(pair.smallerAddress, pair.biggerAddress)).toNumber();
+      for (let i = 0; i < len; ++i) {
+        dest.push(await bm.pairsListAt(pair.smallerAddress, pair.biggerAddress, i));
+      }
+    }
+    return dest;
+  }
+
+  async function getAllRegisteredPairs(bm: BorrowManager, platformAdapter: string) : Promise<IAssetPair[]> {
+    const dest: IAssetPair[] = [];
+    const len = (await bm.platformAdapterPairsLength(platformAdapter)).toNumber();
+    for (let i = 0; i < len; ++i) {
+      const r = await bm.platformAdapterPairsAt(platformAdapter, i);
+      if (r.assetLeft < r.assetRight) {
+        dest.push({
+          smallerAddress: r.assetLeft,
+          biggerAddress: r.assetRight
+        });
+      } else {
+        dest.push({
+          smallerAddress: r.assetRight,
+          biggerAddress: r.assetLeft
+        });
+      }
+    }
+    return dest;
+  }
+
+  async function initializeAssetPairs(
+    converters: string[],
+    pairs: IAssetPair[]
+  ) : Promise<{
+    bm: BorrowManager,
+    platformAdapter: PlatformAdapterStub
+  }>{
+    const controller = await CoreContractsHelper.createController(signer);
+    const bm = await CoreContractsHelper.createBorrowManager(signer, controller);
+    const dm = await MocksHelper.createDebtsMonitorStub(signer, false);
+    await controller.assignBatch(
+      [await controller.borrowManagerKey(), await controller.debtMonitorKey()]
+      , [bm.address, dm.address]
+    );
+
+    const platformAdapter = await MocksHelper.createPlatformAdapterStub(signer, converters);
+
+    // generate all possible pairs of underlying
+    await bm.addAssetPairs(
+      platformAdapter.address
+      , pairs.map(x => x.smallerAddress)
+      , pairs.map(x => x.biggerAddress)
+    );
+
+    return {bm, platformAdapter};
+  }
+//endregion Utils
+
 //region Unit tests
-  describe("addPool", () => {
+  describe("addAssetPairs", () => {
     describe("Good paths", () => {
-      describe("Create a pool with tree assets", () => {
-        it("should register 3 asset pairs", async () => {
-          const controller = await CoreContractsHelper.createController(signer);
-          const priceOracle = (await DeployUtils.deployContract(signer, "PriceOracleMock"
-            , [], [])) as PriceOracleMock;
-          const bm = (await DeployUtils.deployContract(signer
-            , "BorrowManager"
-            , controller.address
-          )) as BorrowManager;
-          const poolMock = await MocksHelper.createPoolStub(signer);
-          await controller.assignBatch(
-            [await controller.borrowManagerKey()],
-            [bm.address]
-          );
-
-          const converter = ethers.Wallet.createRandom().address;
-          const platformAdapter = await MocksHelper.createPlatformAdapterMock(signer
-            , poolMock
-            , controller.address
-            , converter
-            , [], [], [], [], []
-            , priceOracle.address
-          );
-
-          const poolAssets = [
+      describe("Register single pool", () => {
+        it("should set BM to expected state", async () => {
+          const converters: string[] = [
+            ethers.Wallet.createRandom().address
+            , ethers.Wallet.createRandom().address
+          ];
+          const underlying = [
             ethers.Wallet.createRandom().address
             , ethers.Wallet.createRandom().address
             , ethers.Wallet.createRandom().address
+            , ethers.Wallet.createRandom().address
           ];
-          poolAssets.sort((x, y) => x.localeCompare(y));
-          const asset1 = poolAssets[0];
-          const asset2 = poolAssets[1];
-          const asset3 = poolAssets[2];
-
-          await bm.addPool(platformAdapter.address, poolAssets);
+          const pairs = generateAssetPairs(underlying).sort(
+            (x, y) => (x.smallerAddress + x.biggerAddress).localeCompare(y.smallerAddress + y.biggerAddress)
+          );
+          const {bm, platformAdapter} = await initializeAssetPairs(converters, pairs);
+          const registeredPairs = await getAllRegisteredPairs(bm, platformAdapter.address);
+          const lenPlatformAdapters = (await bm.platformAdaptersLength()).toNumber()
 
           const ret = [
-            await bm.platformAdaptersLength()
-            , await bm.platformAdapters(0)
-            , await bm.platformAdaptersRegistered(platformAdapter.address)
-            , await bm.pairsList(asset1, asset2, 0)
-            , await bm.pairsList(asset1, asset3, 0)
-            , await bm.pairsList(asset2, asset3, 0)
-            , await bm.pairsListRegistered(asset1, asset2, platformAdapter.address)
-            , await bm.pairsListRegistered(asset1, asset3, platformAdapter.address)
-            , await bm.pairsListRegistered(asset2, asset3, platformAdapter.address)
-            , await bm.pairsListLength(asset1, asset2)
-            , await bm.pairsListLength(asset1, asset3)
-            , await bm.pairsListLength(asset2, asset3)
-          ].join();
+            lenPlatformAdapters,
+            lenPlatformAdapters == 0 ? "" : await bm.platformAdaptersAt(0),
+
+            registeredPairs.map(x => x.smallerAddress + ":" + x.biggerAddress).join(";"),
+
+            (await getPairsList(bm, pairs)).join(";")
+          ].join("\n");
 
           const expected = [
-            1
-            , platformAdapter.address
-            , true
-            , platformAdapter.address, platformAdapter.address, platformAdapter.address
-            , true, true, true
-            , 1, 1, 1
-          ].join();
+            1,
+            platformAdapter.address,
+
+            pairs.map(x => x.smallerAddress + ":" + x.biggerAddress).join(";"),
+
+            [...Array(pairs.length).keys()].map(x => platformAdapter.address).join(";")
+          ].join("\n");
 
           expect(ret).equal(expected);
         });
       });
-      describe("Create two pools", () => {
-        it("should set expected values to poolsForAssets and assignedPoolsForAssets", async () => {
-          expect.fail();
+    });
+    describe("Bad paths", () => {
+      describe("Wrong lengths", () => {
+        it("should revert with WRONG_LENGTHS", async () => {
+          expect.fail("TODO");
+        });
+      });
+    });
+  });
+
+  describe("removeAssetPairs", () => {
+    describe("Good paths", () => {
+      describe("Register single pool", () => {
+        describe("Remove all asset pairs", () => {
+          it("should completely remove pool from BM", async () => {
+            const converters: string[] = [
+              ethers.Wallet.createRandom().address
+              , ethers.Wallet.createRandom().address
+            ];
+            const underlying = [
+              ethers.Wallet.createRandom().address
+              , ethers.Wallet.createRandom().address
+              , ethers.Wallet.createRandom().address
+              , ethers.Wallet.createRandom().address
+            ];
+            const pairs = generateAssetPairs(underlying).sort(
+              (x, y) => (x.smallerAddress + x.biggerAddress).localeCompare(y.smallerAddress + y.biggerAddress)
+            );
+            const {bm, platformAdapter} = await initializeAssetPairs(converters, pairs);
+
+            await bm.removeAssetPairs(
+              platformAdapter.address
+              , pairs.map(x => x.smallerAddress)
+              , pairs.map(x => x.biggerAddress)
+            );
+
+            const registeredPairs = await getAllRegisteredPairs(bm, platformAdapter.address);
+            const foundPlatformAdapters = await getPairsList(bm, pairs);
+            const lenPlatformAdapters = (await bm.platformAdaptersLength()).toNumber()
+
+            const ret = [
+              lenPlatformAdapters,
+
+              registeredPairs.map(x => x.smallerAddress + ":" + x.biggerAddress).join(";"),
+
+              (await getPairsList(bm, pairs)).join(";")
+            ].join("\n");
+
+            const expected = [
+              0,
+              "",
+              "",
+            ].join("\n");
+
+            expect(ret).equal(expected);
+          });
+        });
+        describe("Remove single asset pair", () => {
+          it("should set BM to expected state", async () => {
+            const converters: string[] = [
+              ethers.Wallet.createRandom().address
+              , ethers.Wallet.createRandom().address
+            ];
+            const underlying = [
+              ethers.Wallet.createRandom().address
+              , ethers.Wallet.createRandom().address
+              , ethers.Wallet.createRandom().address
+              , ethers.Wallet.createRandom().address
+            ];
+            const pairs = generateAssetPairs(underlying).sort(
+              (x, y) => (x.smallerAddress + x.biggerAddress).localeCompare(y.smallerAddress + y.biggerAddress)
+            );
+            const {bm, platformAdapter} = await initializeAssetPairs(converters, pairs);
+
+            // remove last pair only
+            const pairToRemove = pairs.pop();
+            if (pairToRemove) {
+              await bm.removeAssetPairs(
+                platformAdapter.address
+                , [pairToRemove.smallerAddress]
+                , [pairToRemove.biggerAddress]
+              );
+            }
+
+            const registeredPairs = await getAllRegisteredPairs(bm, platformAdapter.address);
+            const lenPlatformAdapters = (await bm.platformAdaptersLength()).toNumber();
+
+            const ret = [
+              !!pairToRemove,
+
+              lenPlatformAdapters,
+              lenPlatformAdapters == 0 ? "" : await bm.platformAdaptersAt(0),
+
+              registeredPairs.map(x => x.smallerAddress + ":" + x.biggerAddress).join(";"),
+
+              (await getPairsList(bm, pairs)).join(";")
+            ].join("\n");
+
+            const expected = [
+              true,
+
+              1,
+              platformAdapter.address,
+
+              pairs.map(x => x.smallerAddress + ":" + x.biggerAddress).join(";"),
+
+              [...Array(pairs.length).keys()].map(x => platformAdapter.address).join(";")
+            ].join("\n");
+
+            expect(ret).equal(expected);
+          });
         });
       });
     });
     describe("Bad paths", () => {
-      describe("Not governance", () => {
-        it("should revert", async () => {
-          expect.fail();
+      describe("Wrong pool address", () => {
+        it("should revert with template contract not found", async () => {
+          expect.fail("TODO");
         });
       });
-      describe("Pool is already registered", () => {
-        it("should revert", async () => {
-          expect.fail();
-        });
-      });
-      describe("Unknown platform", () => {
-        it("should revert", async () => {
-          expect.fail();
-        });
-      });
-      describe("Pool has no assets", () => {
-        it("should revert", async () => {
-          expect.fail();
-        });
-      });
-      describe("An asset is repeated", () => {
-        it("should revert", async () => {
-          expect.fail();
-        });
-      });
-
     });
   });
 

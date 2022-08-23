@@ -62,9 +62,10 @@ export class LendingPlatformManagerMock implements ILendingPlatformManager {
     console.log("LendingPlatformManagerMock.makeMaxBorrow.start");
     const before = await getPoolAdapterState(signer, this.poolAdapter.address);
     const borrowRate = await this.poolAdapter.borrowRate();
-    const newBorrowRate = borrowRate.mul(100);
+    const newBorrowRate = borrowRate.mul(200);
     const config = await this.poolAdapter.getConfig();
 
+    console.log(`Change borrow rate from ${borrowRate.toString()} to ${newBorrowRate.toString()}`);
     await this.poolAdapter.changeBorrowRate(newBorrowRate);
     await this.platform.changeBorrowRate(config.borrowAsset, newBorrowRate);
 
@@ -78,7 +79,7 @@ export class LendingPlatformManagerMock implements ILendingPlatformManager {
     const before = await getPoolAdapterState(signer, this.poolAdapter.address);
 
     const borrowRate = await this.poolAdapter.borrowRate();
-    const newBorrowRate = borrowRate.div(100);
+    const newBorrowRate = borrowRate.div(200);
     const config = await this.poolAdapter.getConfig();
 
     await this.poolAdapter.changeBorrowRate(newBorrowRate);

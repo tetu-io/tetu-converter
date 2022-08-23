@@ -29,4 +29,20 @@ library AppUtils {
       }
     }
   }
+
+  /// @notice Create new array with only first {countItemsToKeep_} items from {items_} array
+  /// @dev We assume, that trivial case countItemsToKeep_ == 0 is excluded, the function is not called in that case
+  function removeLastItems(address[] memory items_, uint countItemsToKeep_) internal pure returns (address[] memory) {
+    uint lenItems = items_.length;
+    if (lenItems == countItemsToKeep_) {
+      return items_;
+    }
+
+    address[] memory dest = new address[](countItemsToKeep_);
+    for (uint i = 0; i < countItemsToKeep_; i = uncheckedInc(i)) {
+      dest[i] = items_[i];
+    }
+
+    return dest;
+  }
 }

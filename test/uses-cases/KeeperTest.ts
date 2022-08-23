@@ -10,8 +10,7 @@ import {BorrowRepayUsesCase} from "../baseUT/uses-cases/BorrowRepayUsesCase";
 import {BorrowAction} from "../baseUT/actions/BorrowAction";
 import {TokenDataTypes} from "../baseUT/types/TokenDataTypes";
 import {
-  Aave3PoolAdapter__factory, AaveTwoPoolAdapter__factory,
-  Borrower,
+  Aave3PoolAdapter__factory, Borrower,
   BorrowManager, BorrowManager__factory,
   Controller, IDebtMonitor__factory, IERC20__factory, IPlatformAdapter__factory, IPoolAdapter__factory,
   ITetuConverter, LendingPlatformMock__factory,
@@ -168,7 +167,7 @@ describe("Keeper test", () => {
     const bm = await getBorrowManager(deployer, controller);
     const poolAdapters01: string[] = [];
     for (let i = 0; i < 2; ++i) {
-      const pa = IPlatformAdapter__factory.connect(await bm.platformAdapters(i), deployer);
+      const pa = IPlatformAdapter__factory.connect(await bm.platformAdaptersAt(i), deployer);
       const converter = (await pa.converters())[0];
       await bm.registerPoolAdapter(converter,
         uc.address,
@@ -650,12 +649,12 @@ describe("Keeper test", () => {
                 collateral: {
                   liquidity: INITIAL_LIQUIDITY_COLLATERAL * 2
                   , collateralFactor: 0.5
-                  , borrowRate: getBigNumberFrom(1, 10)
+                  , borrowRate: getBigNumberFrom(3, 10)
                   , decimals: 6
                 }, borrow: {
                   liquidity: INITIAL_LIQUIDITY_COLLATERAL * 2
                   , collateralFactor: 0.8
-                  , borrowRate: getBigNumberFrom(1, 8)
+                  , borrowRate: getBigNumberFrom(4, 8)
                   , decimals: 24
                 }
               }

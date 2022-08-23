@@ -305,8 +305,10 @@ contract PoolAdapterMock is IPoolAdapter {
 
   /// @notice Compute current cost of the money
   function getAPR18() external view override returns (uint) {
+    console.log("PoolAdapterMock address=", address(this));
     console.log("PoolAdapterMock br=", borrowRate);
-    return borrowRate * IController(controller).blocksPerDay() * 365;
+    console.log("APR18 =", borrowRate);
+    return borrowRate;
   }
 
 }

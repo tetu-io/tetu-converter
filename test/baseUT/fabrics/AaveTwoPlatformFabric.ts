@@ -4,6 +4,7 @@ import {AdaptersHelper} from "../helpers/AdaptersHelper";
 import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import {MaticAddresses} from "../../../scripts/addresses/MaticAddresses";
 import {AaveTwoHelper} from "../../../scripts/integration/helpers/AaveTwoHelper";
+import {generateAssetPairs} from "../utils/AssetPairUtils";
 
 export class AaveTwoPlatformFabric implements ILendingPlatformFabric {
   async createAndRegisterPools(deployer: SignerWithAddress, controller: IController) : Promise<IERC20[]> {
@@ -31,7 +32,11 @@ export class AaveTwoPlatformFabric implements ILendingPlatformFabric {
       , MaticAddresses.Aavegotchi_GHST
       , MaticAddresses.DefiPulseToken
     ];
-    await bm.addPool(aavePlatformAdapter.address, assets);
+    const assetPairs = generateAssetPairs(assets);
+    await bm.addAssetPairs(aavePlatformAdapter.address
+      , assetPairs.map(x => x.smallerAddress)
+      , assetPairs.map(x => x.biggerAddress)
+    );
 
     return [
       IERC20__factory.connect(aavePool.address, deployer)

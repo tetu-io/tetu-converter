@@ -320,8 +320,8 @@ describe("DebtsMonitor", () => {
               , sourceToken.address
               , targetToken.address
             ),
-            await dmAsPa.positionsLength(),
-            await dmAsPa.positionsRegistered(poolAdapter)
+            await dmAsPa.getCountPositions(),
+            !(await dmAsPa.positionLastAccess(poolAdapter)).eq(0)
           ];
 
           await dmAsPa.onOpenPosition();
@@ -331,8 +331,8 @@ describe("DebtsMonitor", () => {
               , sourceToken.address
               , targetToken.address
             ),
-            await dmAsPa.positionsLength(),
-            await dmAsPa.positionsRegistered(poolAdapter)
+            await dmAsPa.getCountPositions(),
+            !(await dmAsPa.positionLastAccess(poolAdapter)).eq(0)
           ];
 
           const ret = [...before, ...after].join("\n");
@@ -410,8 +410,8 @@ describe("DebtsMonitor", () => {
               , sourceToken.address
               , targetToken.address
             ),
-            await dmAsPa.positionsLength(),
-            await dmAsPa.positionsRegistered(poolAdapter)
+            await dmAsPa.getCountPositions(),
+            !(await dmAsPa.positionLastAccess(poolAdapter)).eq(0)
           ];
 
           await dmAsPa.onOpenPosition();
@@ -420,8 +420,8 @@ describe("DebtsMonitor", () => {
               , sourceToken.address
               , targetToken.address
             ),
-            await dmAsPa.positionsLength(),
-            await dmAsPa.positionsRegistered(poolAdapter)
+            await dmAsPa.getCountPositions(),
+            !(await dmAsPa.positionLastAccess(poolAdapter)).eq(0)
           ];
 
           await dmAsPa.onClosePosition();
@@ -431,8 +431,8 @@ describe("DebtsMonitor", () => {
               , sourceToken.address
               , targetToken.address
             ),
-            await dmAsPa.positionsLength(),
-            await dmAsPa.positionsRegistered(poolAdapter)
+            await dmAsPa.getCountPositions(),
+            !(await dmAsPa.positionLastAccess(poolAdapter)).eq(0)
           ];
 
           const ret = [...before, ...afterBorrow, ...afterRepay].join("\n");
@@ -528,14 +528,11 @@ describe("DebtsMonitor", () => {
               console.log("Expected healthy factor", expectedHealthFactor);
 
               const ret = await dm.checkForReconversion(index, count, count, healthFactor2, periodBlocks);
-              const retPoolAdapters: string[] = ret.countFoundItems.toNumber()
-                ? ret.outPoolAdapters.slice(0, ret.countFoundItems.toNumber())
-                : [];
 
               const sret = [
                 ret.nextIndexToCheck0.toNumber(),
-                ret.countFoundItems.toNumber(),
-                retPoolAdapters,
+                ret.outPoolAdapters.length,
+                ret.outPoolAdapters,
                 expectedHealthFactor > minAllowedHealthFactor2 / 100
               ].join();
 
@@ -587,13 +584,10 @@ describe("DebtsMonitor", () => {
                 , dummyPeriodBlocks
               );
 
-              const retPoolAdapters: string[] = ret.countFoundItems.toNumber()
-                ? ret.outPoolAdapters.slice(0, ret.countFoundItems.toNumber())
-                : [];
               const sret = [
                 ret.nextIndexToCheck0.toNumber(),
-                ret.countFoundItems.toNumber(),
-                retPoolAdapters,
+                ret.outPoolAdapters.length,
+                ret.outPoolAdapters,
                 expectedHealthFactor == minAllowedHealthFactor2 / 100
               ].join();
 
@@ -647,14 +641,10 @@ describe("DebtsMonitor", () => {
 
               const ret = await dm.checkForReconversion(index, count, count, healthFactor2, periodBlocks);
 
-              const retPoolAdapters: string[] = ret.countFoundItems.toNumber()
-                ? ret.outPoolAdapters.slice(0, ret.countFoundItems.toNumber())
-                : [];
-
               const sret = [
                 ret.nextIndexToCheck0.toNumber(),
-                ret.countFoundItems.toNumber(),
-                retPoolAdapters,
+                ret.outPoolAdapters.length,
+                ret.outPoolAdapters,
                 expectedHealthFactor < minAllowedHealthFactor2 / 100
               ].join();
 

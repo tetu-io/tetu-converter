@@ -17,8 +17,7 @@ interface IDebtMonitor {
   /// @param healthFactor2 Health factor that should be used in rebalancing, decimals 2
   /// @param periodInBlocks Period in blocks that should be used in rebalancing
   /// @return nextIndexToCheck0 Index of next pool-adapter to check; 0: all pool-adapters were checked
-  /// @return countFoundItems Count of valid items in poolAdapters
-  /// @return poolAdapters Unhealthy pool adapters, count of valid items is {countFoundItems}
+  /// @return poolAdapters List of pool adapters that should be reconverted
   function checkForReconversion(
       uint startIndex0,
       uint maxCountToCheck,
@@ -27,7 +26,6 @@ interface IDebtMonitor {
       uint periodInBlocks
   ) external view returns (
       uint nextIndexToCheck0,
-      uint countFoundItems,
       address[] memory poolAdapters
   );
 
