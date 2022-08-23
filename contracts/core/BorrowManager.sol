@@ -363,7 +363,7 @@ contract BorrowManager is IBorrowManager {
     return _platformAdapters.length();
   }
 
-  function platformAdapterAt(uint index) public view returns (address) {
+  function platformAdaptersAt(uint index) public view returns (address) {
     return _platformAdapters.at(index);
   }
 
@@ -375,7 +375,7 @@ contract BorrowManager is IBorrowManager {
     return _pairsList[getAssetPairKey(token1, token2)].at(index);
   }
 
-  function _platformAdapterPairsLength(address platformAdapter_) public view returns (uint) {
+  function platformAdapterPairsLength(address platformAdapter_) public view returns (uint) {
     return _platformAdapterPairs[platformAdapter_].length();
   }
 

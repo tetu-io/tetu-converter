@@ -72,7 +72,7 @@ export class CoreContractsHelper {
     pool: PoolStub,
     poolsInfo: IPoolInfo,
     collateralFactors: number[],
-    underlyings: MockERC20[],
+    underlying: MockERC20[],
     cTokens: MockERC20[],
     prices: BigNumber[],
     templateAdapterPoolOptional?: string,
@@ -80,21 +80,21 @@ export class CoreContractsHelper {
     platformAdapter: LendingPlatformMock,
     templatePoolAdapter: string
   }>{
-    const borrowRates = await Promise.all(underlyings.map(
+    const borrowRates = await Promise.all(underlying.map(
       async (token, index) => {
         const br = poolsInfo.borrowRateInTokens[index];
         return typeof br === "object"
           ? br
           : getBigNumberFrom(
             poolsInfo.borrowRateInTokens[index],
-            await underlyings[index].decimals()
+            await underlying[index].decimals()
           );
       }
     ));
-    const availableLiquidity = await Promise.all(underlyings.map(
+    const availableLiquidity = await Promise.all(underlying.map(
       async (token, index) => getBigNumberFrom(
         poolsInfo.availableLiquidityInTokens[index],
-        await underlyings[index].decimals()
+        await underlying[index].decimals()
       )
     ));
 
@@ -102,7 +102,7 @@ export class CoreContractsHelper {
       || (await MocksHelper.createPoolAdapterStub(signer, getBigNumberFrom(1))).address;
 
     const priceOracle = (await DeployUtils.deployContract(signer, "PriceOracleMock"
-      , underlyings ? underlyings.map(x => x.address) : []
+      , underlying ? underlying.map(x => x.address) : []
       , prices || []
     )) as PriceOracleMock;
 
@@ -111,7 +111,7 @@ export class CoreContractsHelper {
       pool,
       controller.address,
       templatePoolAdapter,
-      underlyings.map(x => x.address),
+      underlying.map(x => x.address),
       borrowRates,
       collateralFactors,
       availableLiquidity,
@@ -121,7 +121,17 @@ export class CoreContractsHelper {
 
     const bm = BorrowManager__factory.connect(await controller.borrowManager(), signer);
 
-    await bm.addPool(platformAdapter.address, underlyings.map(x => x.address));
+    // generate all possible pairs of underlying
+    const left: string[] = [];
+    const right: string[] = [];
+    for (let i = 0; i < underlying.length; ++i) {
+      for (let j = i + 1; j < underlying.length; ++j) {
+        left.push(underlying[i].address);
+        right.push(underlying[j].address);
+      }
+    }
+
+    await bm.addAssetPairs(platformAdapter.address, left, right);
 
     return {platformAdapter, templatePoolAdapter};
   }

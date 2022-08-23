@@ -13,8 +13,10 @@ import {
   CTokenMock, IController,
   LendingPlatformMock,
   MockERC20,
-  PoolAdapterMock, PoolAdapterStub,
-  PoolStub
+  PoolAdapterMock,
+  PoolAdapterStub,
+  DebtsMonitorStub,
+  PoolStub, PlatformAdapterStub
 } from "../../../typechain";
 
 export interface IPooAdapterStabInitParams {
@@ -157,6 +159,28 @@ export class MocksHelper {
       , "BorrowManagerStub"
       , valueIsPoolAdapter
     ) as BorrowManagerStub;
+  }
+
+  public static async createDebtsMonitorStub(
+    signer: SignerWithAddress,
+    valueIsConverterInUse: boolean
+  ) : Promise<DebtsMonitorStub> {
+    return await DeployUtils.deployContract(
+      signer
+      , "DebtsMonitorStub"
+      , valueIsConverterInUse
+    ) as DebtsMonitorStub;
+  }
+
+  public static async createPlatformAdapterStub(
+    signer: SignerWithAddress,
+    converters: string[]
+  ) : Promise<PlatformAdapterStub> {
+    return await DeployUtils.deployContract(
+      signer
+      , "PlatformAdapterStub"
+      , converters
+    ) as PlatformAdapterStub;
   }
 //endregion Core contracts
 
