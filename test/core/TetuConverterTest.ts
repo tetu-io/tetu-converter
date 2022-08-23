@@ -102,10 +102,8 @@ describe("BorrowManager", () => {
     );
     const tc = await CoreContractsHelper.createTetuConverter(deployer, controller);
     const dm = await CoreContractsHelper.createDebtMonitor(deployer, controller);
-    await controller.assignBatch(
-      [await controller.tetuConverterKey(), await controller.debtMonitorKey()]
-      , [tc.address, dm.address]
-    );
+    await controller.setTetuConverter(tc.address);
+    await controller.setDebtMonitor(dm.address);
 
     const core = new CoreContracts(controller, tc, bm, dm);
     const userContract = await MocksHelper.deployBorrower(deployer.address

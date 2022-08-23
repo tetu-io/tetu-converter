@@ -85,10 +85,8 @@ describe("PoolAdapterMock", () => {
             , async () => converter.address
           );
           const dm = await CoreContractsHelper.createDebtMonitor(deployer, controller);
-          await controller.assignBatch(
-            [await controller.debtMonitorKey(), await controller.borrowManagerKey()]
-            , [dm.address, bm.address]
-          );
+          await controller.setBorrowManager(bm.address);
+          await controller.setDebtMonitor(dm.address);
 
           // register pool adapter
           const pool = pools[0].pool;

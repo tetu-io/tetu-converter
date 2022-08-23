@@ -6,10 +6,13 @@ import {Controller, Controller__factory} from "../../typechain";
 import {TimeUtils} from "../../scripts/utils/TimeUtils";
 import {BigNumber} from "ethers";
 import {controlGasLimitsEx, getGasUsed} from "../../scripts/utils/hardhatUtils";
-import {GAS_LIMIT_CONTROLLER_BATCH_ASSIGN, GAS_LIMIT_CONTROLLER_INITIALIZE} from "../baseUT/GasLimit";
+import {
+  GAS_LIMIT_CONTROLLER_INITIALIZE,
+  GAS_LIMIT_CONTROLLER_SET_XXX
+} from "../baseUT/GasLimit";
 import {Misc} from "../../scripts/utils/Misc";
 import {DeployerUtils} from "../../scripts/utils/DeployerUtils";
-import {AprUtils, COUNT_BLOCKS_PER_DAY} from "../baseUT/utils/aprUtils";
+import {COUNT_BLOCKS_PER_DAY} from "../baseUT/utils/aprUtils";
 
 describe("Controller", () => {
 //region Global vars for all tests
@@ -59,18 +62,6 @@ describe("Controller", () => {
     borrower: string;
   }
 
-  async function getKeysArray(controller: Controller) : Promise<string[]> {
-    return [
-      await controller.governanceKey()
-
-      , await controller.tetuConverterKey()
-      , await controller.borrowManagerKey()
-      , await controller.debtMonitorKey()
-
-      , await controller.borrowerKey()
-    ];
-  }
-
   function getAddressesArray(a: IControllerAddresses): string[] {
     return [
       a.governance
@@ -97,17 +88,24 @@ describe("Controller", () => {
 
   async function createTestController(
     a: IControllerAddresses
-  ) : Promise<{
-    controller: Controller
-    , gasUsed: BigNumber
-  }> {
-    let controller = (await DeployUtils.deployContract(deployer, 'Controller', COUNT_BLOCKS_PER_DAY)) as Controller;
-    const r = await getGasUsed(controller.initialize(
-      await getKeysArray(controller)
-      , getAddressesArray(a)
-    ));
+  ) : Promise<{controller: Controller, gasUsed: BigNumber}> {
+    let controller = (await DeployUtils.deployContract(deployer
+      , 'Controller'
+      , COUNT_BLOCKS_PER_DAY
+      , 101
+      , a.governance
+    )) as Controller;
 
-    return {controller, gasUsed: r};
+    const gasUsed = await getGasUsed(
+      controller.initialize(
+        a.tetuConverter
+        , a.borrowManager
+        , a.debtMonitor
+        , a.borrower
+      )
+    );
+
+    return {controller, gasUsed};
   }
 
   function getRandomControllerAddresses() : IControllerAddresses {
@@ -121,10 +119,25 @@ describe("Controller", () => {
       borrower: ethers.Wallet.createRandom().address,
     }
   }
+
+  async function setAddresses(
+    controller: Controller
+    , a: IControllerAddresses
+  ) : Promise<{gasUsed: BigNumber[]}> {
+    const gasUsed = [
+      await getGasUsed(controller.setTetuConverter(a.tetuConverter)),
+      await getGasUsed(controller.setBorrowManager(a.borrowManager)),
+      await getGasUsed(controller.setDebtMonitor(a.debtMonitor)),
+      await getGasUsed(controller.setBorrower(a.borrower)),
+      await getGasUsed(controller.setGovernance(a.governance)),
+    ];
+
+    return {gasUsed};
+  }
 //endregion Utils
 
 //region Unit tests
-  describe ("initialize", () => {
+  describe ("constructor and initialize", () => {
     describe ("Good paths", () => {
       it("should initialize addresses correctly", async () => {
         const a = getRandomControllerAddresses();
@@ -136,8 +149,9 @@ describe("Controller", () => {
 
         expect(ret).to.be.equal(expected);
         controlGasLimitsEx(gasUsed, GAS_LIMIT_CONTROLLER_INITIALIZE, (u, t) => {
-          expect(u).to.be.below(t);
-        });
+            expect(u).to.be.below(t);
+          }
+        );
       });
     });
 
@@ -163,7 +177,7 @@ describe("Controller", () => {
     });
   });
 
-  describe ("assignBatch", () => {
+  describe ("setXXX", () => {
     describe ("Good paths", () => {
       it("should initialize addresses correctly", async () => {
         const initialAddresses = getRandomControllerAddresses();
@@ -174,18 +188,20 @@ describe("Controller", () => {
           controller.address
           , await DeployerUtils.startImpersonate(initialAddresses.governance)
         );
-        const gasUsed = await getGasUsed(controllerAsGov.assignBatch(
-          await getKeysArray(controller)
-          , getAddressesArray(updatedAddresses))
-        );
+        const {gasUsed} = await setAddresses(controllerAsGov, updatedAddresses);
 
         const ret = (await getValuesArray(controller)).join();
         const expected = getAddressesArray(updatedAddresses).join();
 
         expect(ret).to.be.equal(expected);
-        controlGasLimitsEx(gasUsed, GAS_LIMIT_CONTROLLER_BATCH_ASSIGN, (u, t) => {
-          expect(u).to.be.below(t);
-        });
+        controlGasLimitsEx(
+          //get max value
+          gasUsed.reduce((prev, cur) => prev.gt(cur) ? prev : cur )
+          , GAS_LIMIT_CONTROLLER_SET_XXX
+          , (u, t) => {
+            expect(u).to.be.below(t);
+          }
+        );
       });
     });
 
@@ -202,19 +218,24 @@ describe("Controller", () => {
 
           type ta = typeof initialAddresses;
           for (const key of Object.keys(initialAddresses)) {
-            const updatedAddresses = getRandomControllerAddresses();
-
+            const updatedAddresses: IControllerAddresses = {
+              governance: await controller.governance(),
+              borrower: await controller.borrower(),
+              debtMonitor: await controller.debtMonitor(),
+              borrowManager: await controller.borrowManager(),
+              tetuConverter: await controller.tetuConverter()
+            };
             // let's set one of address to 0
 
             // @ts-ignore
             updatedAddresses[key] = Misc.ZERO_ADDRESS;
 
+            console.log("initialAddresses", initialAddresses);
+            console.log("updatedAddresses", updatedAddresses);
+
             await expect(
-              controllerAsGov.assignBatch(
-                await getKeysArray(controller)
-                , getAddressesArray(updatedAddresses)
-              )
-            ).revertedWith("1");
+              setAddresses(controllerAsGov, updatedAddresses)
+            ).revertedWith("TC-1");
           }
         });
       });

@@ -7,20 +7,19 @@ import "../interfaces/IController.sol";
 import "./AppErrors.sol";
 
 /// @notice Keep and provide addresses of all application contracts
-contract Controller is IController, Initializable {
-  bytes32 public immutable governanceKey;
-  bytes32 public immutable tetuConverterKey;
-  bytes32 public immutable borrowManagerKey;
-  bytes32 public immutable debtMonitorKey;
+contract Controller is IController {
 
-  bytes32 public immutable borrowerKey;
+  uint16 constant MIN_ALLOWED_MIN_HEALTH_FACTOR = 100;
+
+  address private _governance;
+  address private _tetuConverter;
+  address private _borrowManager;
+  address private _debtMonitor;
+  address private _borrower;
 
   /// @notice Min allowed health factor = collateral / min allowed collateral, decimals 2
   /// @dev Health factor < 1 produces liquidation immediately
-  uint16 public minHealthFactor2;
-
-  /// @notice map: keccak256(abi.encodePacked(XXX)) => XXX
-  mapping(bytes32 => address) private addressStorage;
+  uint16 private _minHealthFactor2;
 
   uint private _blocksPerDay;
 
@@ -28,39 +27,42 @@ contract Controller is IController, Initializable {
   ///        Constructor and Initialization
   ///////////////////////////////////////////////////////
 
-  constructor(uint blocksPerDay_) {
-    governanceKey = keccak256(abi.encodePacked("governance"));
-    tetuConverterKey = keccak256(abi.encodePacked("tetuConverter"));
-    borrowManagerKey = keccak256(abi.encodePacked("borrowManager"));
-    debtMonitorKey = keccak256(abi.encodePacked("debtMonitor"));
-    borrowerKey = keccak256(abi.encodePacked("borrower"));
+  constructor(
+    uint blocksPerDay_,
+    uint16 minHealthFactor_,
+    address governance_
+  ) {
+    require(governance_ != address(0), AppErrors.ZERO_ADDRESS);
+    require(minHealthFactor_ > MIN_ALLOWED_MIN_HEALTH_FACTOR, AppErrors.WRONG_HEALTH_FACTOR);
+    require(blocksPerDay_ != 0, AppErrors.INCORRECT_VALUE);
+
+    _governance = governance_;
 
     _blocksPerDay = blocksPerDay_;
-    minHealthFactor2 = 150; //TODO: default value?
+    _minHealthFactor2 = minHealthFactor_;
   }
 
-  function initialize(bytes32[] memory keys_, address[] calldata values_) external initializer {
-    _assignBatch(keys_, values_);
+  function initialize(
+    address tetuConverter_,
+    address borrowManager_,
+    address debtMonitor_,
+    address borrower_
+  ) external {
+    require(
+      tetuConverter_ != address(0)
+      && borrowManager_ != address(0)
+      && debtMonitor_ != address(0)
+      && borrower_ != address(0)
+      , AppErrors.ZERO_ADDRESS
+    );
+    _tetuConverter = tetuConverter_;
+    _borrowManager = borrowManager_;
+    _debtMonitor = debtMonitor_;
+    _borrower = borrower_;
   }
 
-  ///////////////////////////////////////////////////////
-  ///               Setters
-  ///////////////////////////////////////////////////////
-
-  /// TODO: it's very convenient to implement and test such function... what's better approach?
-  function assignBatch(bytes32[] memory keys_, address[] calldata values_) external {
-    _ensureSenderIsGovernance();
-    _assignBatch(keys_, values_);
-  }
-
-  function _assignBatch(bytes32[] memory keys_, address[] calldata values_) internal {
-    uint len = keys_.length;
-    require(len == values_.length, AppErrors.WRONG_LENGTHS);
-
-    for (uint i = 0; i < len; ++i) {
-      require(values_[i] != address(0), AppErrors.ZERO_ADDRESS);
-      addressStorage[keys_[i]] = values_[i];
-    }
+  function _onlyGovernance() internal view {
+    require (msg.sender == _governance, AppErrors.GOVERNANCE_ONLY);
   }
 
   ///////////////////////////////////////////////////////
@@ -79,41 +81,71 @@ contract Controller is IController, Initializable {
   }
 
   function getMinHealthFactor2() external view override returns (uint16) {
-    return minHealthFactor2;
+    return _minHealthFactor2;
   }
 
   function setMinHealthFactor2(uint16 value_) external override {
-    require(value_ > 100, AppErrors.INCORRECT_VALUE);
-    minHealthFactor2 = value_;
+    require(value_ > MIN_ALLOWED_MIN_HEALTH_FACTOR, AppErrors.WRONG_HEALTH_FACTOR);
+    _minHealthFactor2 = value_;
   }
 
   ///////////////////////////////////////////////////////
   ///               Governance
   ///////////////////////////////////////////////////////
+
   function governance() external view override returns (address) {
-    return _governance();
-  }
-  function _governance() internal view returns (address) {
-    return addressStorage[governanceKey];
+    return _governance;
   }
   function _ensureSenderIsGovernance() internal view {
-    require (msg.sender == _governance(), AppErrors.GOVERNANCE_ONLY);
+    require (msg.sender == _governance, AppErrors.GOVERNANCE_ONLY);
+  }
+  function setGovernance(address governance_) external {
+    require(governance_ != address(0), AppErrors.ZERO_ADDRESS);
+    _onlyGovernance();
+    _governance = governance_;
   }
 
   ///////////////////////////////////////////////////////
-  ///               Getters
+  ///              Get addresses
   ///////////////////////////////////////////////////////
+
   function tetuConverter() external view override returns (address) {
-    return addressStorage[tetuConverterKey];
+    return _tetuConverter;
   }
   function borrowManager() external view override returns (address) {
-    return addressStorage[borrowManagerKey];
+    return _borrowManager;
   }
   function debtMonitor() external view override returns (address) {
-    return addressStorage[debtMonitorKey];
+    return _debtMonitor;
   }
   /// @notice External instance of IBorrower to claim repay in emergency
   function borrower() external view override returns (address) {
-    return addressStorage[borrowerKey];
+    return _borrower;
+  }
+
+  ///////////////////////////////////////////////////////
+  ///             Set addresses
+  ///////////////////////////////////////////////////////
+
+  function setTetuConverter(address tetuConverter_) external {
+    require(tetuConverter_ != address(0), AppErrors.ZERO_ADDRESS);
+    _onlyGovernance();
+    _tetuConverter = tetuConverter_;
+  }
+  function setBorrowManager(address borrowManager_) external {
+    require(borrowManager_ != address(0), AppErrors.ZERO_ADDRESS);
+    _onlyGovernance();
+    _borrowManager = borrowManager_;
+  }
+  function setDebtMonitor(address debtMonitor_) external {
+    require(debtMonitor_ != address(0), AppErrors.ZERO_ADDRESS);
+    _onlyGovernance();
+    _debtMonitor = debtMonitor_;
+  }
+  /// @notice External instance of IBorrower to claim repay in emergency
+  function setBorrower(address borrower_) external {
+    require(borrower_ != address(0), AppErrors.ZERO_ADDRESS);
+    _onlyGovernance();
+    _borrower = borrower_;
   }
 }

@@ -106,17 +106,9 @@ describe("DebtsMonitor", () => {
     );
     const dm = await CoreContractsHelper.createDebtMonitor(deployer, controller);
     const tc =  await CoreContractsHelper.createTetuConverter(deployer, controller);
-    await controller.assignBatch(
-      [
-        await controller.debtMonitorKey()
-        , await controller.borrowManagerKey()
-        , await controller.tetuConverterKey()
-      ], [
-        dm.address
-        , bm.address
-        , tc.address
-      ]
-    );
+    await controller.setBorrowManager(bm.address);
+    await controller.setDebtMonitor(dm.address);
+    await controller.setTetuConverter(tc.address);
 
     // register pool adapter
     const pool = pools[0].pool;
@@ -159,10 +151,9 @@ describe("DebtsMonitor", () => {
     );
     const tc = await CoreContractsHelper.createTetuConverter(deployer, controller);
     const dm = await CoreContractsHelper.createDebtMonitor(deployer, controller);
-    await controller.assignBatch(
-      [await controller.tetuConverterKey(), await controller.debtMonitorKey()]
-      , [tc.address, dm.address]
-    );
+    await controller.setBorrowManager(bm.address);
+    await controller.setDebtMonitor(dm.address);
+    await controller.setTetuConverter(tc.address);
 
     const core = new CoreContracts(controller, tc, bm, dm);
 

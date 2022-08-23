@@ -8,6 +8,7 @@ import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import {DeployUtils} from "../../../scripts/utils/DeployUtils";
 import {COUNT_BLOCKS_PER_DAY} from "../utils/aprUtils";
 import {ILendingPlatformFabric} from "../fabrics/ILendingPlatformFabric";
+import {ethers} from "ethers";
 
 
 export class TetuConverterApp {
@@ -15,27 +16,18 @@ export class TetuConverterApp {
     deployer: SignerWithAddress,
     fabrics: ILendingPlatformFabric[]
   ) : Promise<{tc: ITetuConverter, controller: Controller, pools: IERC20[]}> {
-    const controller = (await DeployUtils.deployContract(deployer, "Controller"
-      , COUNT_BLOCKS_PER_DAY)) as Controller;
-    await controller.initialize([await controller.governanceKey()], [deployer.address]);
+    const controller = (await DeployUtils.deployContract(deployer
+      , "Controller"
+      , COUNT_BLOCKS_PER_DAY
+      , 101
+      , deployer.address
+    )) as Controller;
 
     const bm = await CoreContractsHelper.createBorrowManager(deployer, controller);
     const tc = await CoreContractsHelper.createTetuConverter(deployer, controller);
     const dm = await CoreContractsHelper.createDebtMonitor(deployer, controller);
 
-    await controller.assignBatch(
-      [
-        await controller.borrowManagerKey()
-        , await controller.tetuConverterKey()
-        , await controller.debtMonitorKey()
-        , await controller.governanceKey()
-      ], [
-        bm.address
-        , tc.address
-        , dm.address
-        , deployer.address
-      ]
-    );
+    await controller.initialize(tc.address, bm.address, dm.address, ethers.Wallet.createRandom().address);
 
     const pools: IERC20[] = [];
     for (const fabric of fabrics) {

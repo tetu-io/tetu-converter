@@ -67,17 +67,9 @@ describe("Hundred Finance integration tests, pool adapter", () => {
       const controller = await CoreContractsHelper.createController(deployer);
       const debtMonitor = await CoreContractsHelper.createDebtMonitor(deployer, controller);
       const borrowManager = await MocksHelper.createBorrowManagerStub(deployer, true);
-      await controller.assignBatch(
-        [await controller.tetuConverterKey()
-          , await controller.debtMonitorKey()
-          , await controller.borrowManagerKey()
-        ]
-        , [
-          tetuConveterStab.address
-          , debtMonitor.address
-          , borrowManager.address
-        ]
-      );
+      await controller.setBorrowManager(borrowManager.address);
+      await controller.setDebtMonitor(debtMonitor.address);
+      await controller.setTetuConverter(tetuConveterStab.address);
 
       // initialize adapters and price oracle
       const hfPoolAdapterTC = await AdaptersHelper.createHundredFinancePoolAdapter(
@@ -278,17 +270,9 @@ describe("Hundred Finance integration tests, pool adapter", () => {
       const controller = await CoreContractsHelper.createController(deployer);
       const debtMonitor = await CoreContractsHelper.createDebtMonitor(deployer, controller);
       const borrowManager = await MocksHelper.createBorrowManagerStub(deployer, true);
-      await controller.assignBatch(
-        [await controller.tetuConverterKey()
-          , await controller.debtMonitorKey()
-          , await controller.borrowManagerKey()
-        ]
-        , [
-          tetuConveterStab.address
-          , debtMonitor.address
-          , borrowManager.address
-        ]
-      );
+      await controller.setBorrowManager(borrowManager.address);
+      await controller.setDebtMonitor(debtMonitor.address);
+      await controller.setTetuConverter(tetuConveterStab.address);
 
       // initialize adapters and price oracle
       const hfPoolAdapterTC = await AdaptersHelper.createHundredFinancePoolAdapter(

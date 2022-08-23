@@ -57,10 +57,8 @@ export class BorrowManagerHelper {
         const controller = await CoreContractsHelper.createController(signer);
         const bm = await CoreContractsHelper.createBorrowManager(signer, controller);
         const dm = await MocksHelper.createDebtsMonitorStub(signer, false);
-        await controller.assignBatch(
-          [await controller.borrowManagerKey(), await controller.debtMonitorKey()]
-          , [bm.address, dm.address]
-        );
+        await controller.setBorrowManager(bm.address);
+        await controller.setDebtMonitor(dm.address);
 
         const pools: PoolInstanceInfo[] = [];
 

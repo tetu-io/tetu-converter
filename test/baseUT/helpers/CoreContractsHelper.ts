@@ -6,7 +6,7 @@ import {
   MockERC20, PoolStub,
   PriceOracleMock, TetuConverter
 } from "../../../typechain";
-import {BigNumber} from "ethers";
+import {BigNumber, ethers} from "ethers";
 import {DeployUtils} from "../../../scripts/utils/DeployUtils";
 import {getBigNumberFrom} from "../../../scripts/utils/NumberUtils";
 import {MocksHelper} from "./MocksHelper";
@@ -17,9 +17,17 @@ export class CoreContractsHelper {
   static async createController(
     deployer: SignerWithAddress
   ) : Promise<Controller>{
-    const controller = (await DeployUtils.deployContract(deployer, "Controller", COUNT_BLOCKS_PER_DAY)) as Controller;
+    const controller = (await DeployUtils.deployContract(deployer
+      , "Controller"
+      , COUNT_BLOCKS_PER_DAY
+      , 101
+      , deployer.address
+    )) as Controller;
     await controller.initialize(
-      [await controller.governanceKey()], [deployer.address]
+      ethers.Wallet.createRandom().address
+      , ethers.Wallet.createRandom().address
+      , ethers.Wallet.createRandom().address
+      , ethers.Wallet.createRandom().address
     );
     return controller;
   }

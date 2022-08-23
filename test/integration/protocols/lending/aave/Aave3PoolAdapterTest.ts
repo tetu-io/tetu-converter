@@ -77,20 +77,8 @@ describe("Aave-v3 integration tests, pool adapter", () => {
       const controller = await CoreContractsHelper.createController(deployer);
       const dm = await CoreContractsHelper.createDebtMonitor(deployer, controller);
       const bm = await MocksHelper.createBorrowManagerStub(deployer, true);
-      await controller.assignBatch(
-        [
-          await controller.tetuConverterKey()
-          , await controller.governanceKey()
-          , await controller.debtMonitorKey()
-          , await controller.borrowManagerKey()
-        ], [
-          tetuConveterStab.address
-          , deployer.address
-          , dm.address
-          , bm.address
-        ]
-      );
-
+      await controller.setBorrowManager(bm.address);
+      await controller.setDebtMonitor(dm.address);
 
       // collateral asset
       await collateralToken.token
@@ -532,20 +520,8 @@ describe("Aave-v3 integration tests, pool adapter", () => {
       const dm = await CoreContractsHelper.createDebtMonitor(deployer, controller);
       const bm = await MocksHelper.createBorrowManagerStub(deployer, true);
       console.log("bm", bm.address);
-      await controller.assignBatch(
-        [
-          await controller.tetuConverterKey()
-          , await controller.governanceKey()
-          , await controller.debtMonitorKey()
-          , await controller.borrowManagerKey()
-        ], [
-          tetuConveterStab.address
-          , deployer.address
-          , dm.address
-          , bm.address
-        ]
-      );
-
+      await controller.setBorrowManager(bm.address);
+      await controller.setDebtMonitor(dm.address);
 
       // collateral asset
       await collateralToken.token

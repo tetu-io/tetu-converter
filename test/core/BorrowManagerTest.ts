@@ -97,10 +97,8 @@ describe("BorrowManager", () => {
     const controller = await CoreContractsHelper.createController(signer);
     const bm = await CoreContractsHelper.createBorrowManager(signer, controller);
     const dm = await MocksHelper.createDebtsMonitorStub(signer, false);
-    await controller.assignBatch(
-      [await controller.borrowManagerKey(), await controller.debtMonitorKey()]
-      , [bm.address, dm.address]
-    );
+    await controller.setBorrowManager(bm.address);
+    await controller.setDebtMonitor(dm.address);
 
     const platformAdapter = await MocksHelper.createPlatformAdapterStub(signer, converters);
 
@@ -286,7 +284,6 @@ describe("BorrowManager", () => {
       const controller = await CoreContractsHelper.createController(signer);
       const priceOracle = (await DeployUtils.deployContract(signer, "PriceOracleMock"
         , [], [])) as PriceOracleMock;
-      await controller.assignBatch([], []);
 
       return (await DeployUtils.deployContract(signer
         , "BorrowManager"
