@@ -116,15 +116,4 @@ contract Controller is IController, Initializable {
   function borrower() external view override returns (address) {
     return addressStorage[borrowerKey];
   }
-
-  ///////////////////////////////////////////////////////
-  ///               Helper utils
-  ///////////////////////////////////////////////////////
-
-  function _uncheckedInc(uint i) internal pure returns (uint) {
-    unchecked {
-      return i + 1;
-    }
-  }
-
 }

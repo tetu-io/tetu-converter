@@ -15,10 +15,11 @@ import "../../../interfaces/ITokenAddressProvider.sol";
 import "../../../integrations/hundred-finance/IHfOracle.sol";
 import "../../../integrations/IERC20Extended.sol";
 import "../../../integrations/hundred-finance/IHfInterestRateModel.sol";
-
+import "../../../core/AppUtils.sol";
 /// @notice Adapter to read current pools info from HundredFinance-protocol, see https://docs.hundred.finance/
 contract HfPlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
   using SafeERC20 for IERC20;
+  using AppUtils for uint;
 
   address private constant WMATIC = address(0x0d500B1d8E8eF31E21C99d1Db9A6444d3ADf1270);
   address private constant hMATIC = address(0xEbd7f3349AbA8bB15b897e03D6c1a4Ba95B55e31);
@@ -69,7 +70,7 @@ contract HfPlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
   function _setupCTokens(address[] memory cTokens_, bool makeActive_) internal {
     uint lenCTokens = cTokens_.length;
     if (makeActive_) {
-      for (uint i = 0; i < lenCTokens; i = _uncheckedInc(i)) {
+      for (uint i = 0; i < lenCTokens; i = i.uncheckedInc()) {
         // Special case: there is no underlying for WMATIC, so we store hMATIC:WMATIC
         address underlying = hMATIC == cTokens_[i]
           ? WMATIC
@@ -77,14 +78,23 @@ contract HfPlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
         activeAssets[underlying] = cTokens_[i];
       }
     } else {
-      for (uint i = 0; i < lenCTokens; i = _uncheckedInc(i)) {
+      for (uint i = 0; i < lenCTokens; i = i.uncheckedInc()) {
         delete activeAssets[cTokens_[i]];
       }
     }
   }
 
   ///////////////////////////////////////////////////////
-  ///       View
+  ///                    Access
+  ///////////////////////////////////////////////////////
+
+  /// @notice Ensure that the caller is governance
+  function _onlyGovernance() internal view {
+    require(controller.governance() == msg.sender, AppErrors.GOVERNANCE_ONLY);
+  }
+
+  ///////////////////////////////////////////////////////
+  ///                     View
   ///////////////////////////////////////////////////////
 
   function converters() external view override returns (address[] memory) {
@@ -100,7 +110,7 @@ contract HfPlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
 
     uint lenAssets = assets_.length;
     prices18 = new uint[](lenAssets);
-    for (uint i = 0; i < lenAssets; i = _uncheckedInc(i)) {
+    for (uint i = 0; i < lenAssets; i = i.uncheckedInc()) {
       address cToken = activeAssets[assets_[i]];
 
       // we get a price with decimals = (36 - asset decimals)
@@ -239,20 +249,4 @@ contract HfPlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
 
     return (ltv18, liquidityThreshold18);
   }
-
-  ///////////////////////////////////////////////////////
-  ///               Helper utils
-  ///////////////////////////////////////////////////////
-
-  function _uncheckedInc(uint i) internal pure returns (uint) {
-    unchecked {
-      return i + 1;
-    }
-  }
-
-  /// @notice Ensure that the caller is governance
-  function _onlyGovernance() internal view {
-    require(controller.governance() == msg.sender, AppErrors.GOVERNANCE_ONLY);
-  }
-
 }

@@ -9,14 +9,16 @@ import "../interfaces/IBorrowManager.sol";
 import "../interfaces/IPriceOracle.sol";
 import "../openzeppelin/IERC20.sol";
 import "../openzeppelin/SafeERC20.sol";
-import "./BorrowManagerBase.sol";
 import "./AppErrors.sol";
 import "../core/AppUtils.sol";
+import "../openzeppelin/Clones.sol";
+import "../interfaces/IController.sol";
 
 /// @notice Contains list of lending pools. Allow to select most efficient pool for the given collateral/borrow pair
-contract BorrowManager is BorrowManagerBase {
+contract BorrowManager is IBorrowManager {
   using SafeERC20 for IERC20;
   using AppUtils for uint;
+  using Clones for address;
 
   uint constant public BLOCKS_PER_DAY = 40000;
   uint constant public SECONDS_PER_DAY = 86400;
@@ -36,6 +38,7 @@ contract BorrowManager is BorrowManagerBase {
   ///////////////////////////////////////////////////////
   ///                    Members
   ///////////////////////////////////////////////////////
+  IController public immutable controller;
 
   /// @notice all registered platform adapters
   address[] public platformAdapters;
@@ -55,15 +58,22 @@ contract BorrowManager is BorrowManagerBase {
   /// @dev Health factor = collateral / minimum collateral. It should be greater then MIN_HEALTH_FACTOR
   mapping(address => uint16) public defaultHealthFactors2;
 
+  /// @notice Complete list ever created pool adapters
+  /// @dev converter => user => collateral => borrowToken => address of the pool adapter
+  mapping (address => mapping(address => mapping(address => mapping(address => address)))) public poolAdapters;
+  /// @notice Pool adapter => is registered
+  mapping (address => bool) poolAdaptersRegistered;
+
+
   ///////////////////////////////////////////////////////
   ///               Initialization
   ///////////////////////////////////////////////////////
 
-  constructor(address controller_)
-    BorrowManagerBase(controller_)
-  {
-
+  constructor (address controller_) {
+    require(controller_ != address(0), AppErrors.ZERO_ADDRESS);
+    controller = IController(controller_);
   }
+
 
   ///////////////////////////////////////////////////////
   ///               Configuration
@@ -89,8 +99,8 @@ contract BorrowManager is BorrowManagerBase {
     // TODO: some pairs are not valid. Probably platformAdapter should provide list of available pairs?
     // TODO: how to re-register the pool (i.e. if new asset was added to the internal pool)
     uint lenAssets = assets_.length;
-    for (uint i = 0; i < lenAssets; i = _uncheckedInc(i)) {
-      for (uint j = i + 1; j < lenAssets; j = _uncheckedInc(j)) {
+    for (uint i = 0; i < lenAssets; i = i.uncheckedInc()) {
+      for (uint j = i + 1; j < lenAssets; j = j.uncheckedInc()) {
         bool inputFirst = assets_[i] < assets_[j];
         address tokenIn = inputFirst ? assets_[i] : assets_[j];
         address tokenOut = inputFirst ? assets_[j] : assets_[i];
@@ -104,10 +114,10 @@ contract BorrowManager is BorrowManagerBase {
   }
 
   /// @notice Set default health factor for {asset}. Default value is used only if user hasn't provided custom value
-  /// @param value2 Health factor with decimals 2; must be greater or equal to MIN_HEALTH_FACTOR (for 1.5 use 150)
-  function setHealthFactor(address asset, uint16 value2) external override {
-    require(value2 > controller.getMinHealthFactor2(), AppErrors.WRONG_HEALTH_FACTOR);
-    defaultHealthFactors2[asset] = value2;
+  /// @param healthFactor_ Health factor with decimals 2; must be greater or equal to MIN_HEALTH_FACTOR; for 1.5 use 150
+  function setHealthFactor(address asset, uint16 healthFactor_) external override {
+    require(healthFactor_ > controller.getMinHealthFactor2(), AppErrors.WRONG_HEALTH_FACTOR);
+    defaultHealthFactors2[asset] = healthFactor_;
   }
 
   //TODO: deletePool
@@ -190,7 +200,7 @@ contract BorrowManager is BorrowManagerBase {
       * pricesCB18[0]
       / (pricesCB18[1] * uint(p_.healthFactor2) * 10**(18-2));
 
-    for (uint i = 0; i < lenPools; i = _uncheckedInc(i)) {
+    for (uint i = 0; i < lenPools; i = i.uncheckedInc()) {
       AppDataTypes.ConversionPlan memory plan = IPlatformAdapter(platformAdapters_[i]).getConversionPlan(
         p_.sourceToken,
         p_.targetToken,
@@ -220,6 +230,37 @@ contract BorrowManager is BorrowManagerBase {
   }
 
   ///////////////////////////////////////////////////////
+  ///         Minimal proxy creation
+  ///////////////////////////////////////////////////////
+
+  /// @notice Register a pool adapter for (pool, user, collateral) if the adapter wasn't created before
+  function registerPoolAdapter(
+    address converter_,
+    address user_,
+    address collateral_,
+    address borrowToken_
+  ) external override returns (address) {
+    address dest = poolAdapters[converter_][user_][collateral_][borrowToken_];
+    if (dest == address(0) ) {
+      // create an instance of the pool adapter using minimal proxy pattern, initialize newly created contract
+      dest = converter_.clone();
+      IPlatformAdapter(_getPlatformAdapter(converter_)).initializePoolAdapter(
+        converter_,
+        dest,
+        user_,
+        collateral_,
+        borrowToken_
+      );
+
+      // register newly created pool adapter in the list of the pool adapters forever
+      poolAdapters[converter_][user_][collateral_][borrowToken_] = dest;
+      poolAdaptersRegistered[dest] = true;
+    }
+
+    return dest;
+  }
+
+  ///////////////////////////////////////////////////////
   ///                  Getters
   ///////////////////////////////////////////////////////
 
@@ -227,24 +268,29 @@ contract BorrowManager is BorrowManagerBase {
     return _getPlatformAdapter(converter_);
   }
 
+  /// @notice Get pool adapter or 0 if the pool adapter is not registered
+  function getPoolAdapter(
+    address converter_,
+    address user_,
+    address collateral_,
+    address borrowToken_
+  ) external view override returns (address) {
+    return poolAdapters[converter_][user_][collateral_][borrowToken_];
+  }
+
+  function isPoolAdapter(address poolAdapter_) external view override returns (bool) {
+    return poolAdaptersRegistered[poolAdapter_];
+  }
+
+
   ///////////////////////////////////////////////////////
   ///         BorrowManagerBase functions
   ///////////////////////////////////////////////////////
 
-  function _getPlatformAdapter(address converter_) internal view override returns(address) {
+  function _getPlatformAdapter(address converter_) internal view returns(address) {
     address platformAdapter = converters[converter_];
     require(platformAdapter != address(0), AppErrors.PLATFORM_ADAPTER_NOT_FOUND);
     return platformAdapter;
-  }
-
-  ///////////////////////////////////////////////////////
-  ///               Inline utils
-  ///////////////////////////////////////////////////////
-
-  function _uncheckedInc(uint i) internal pure returns (uint) {
-    unchecked {
-      return i + 1;
-    }
   }
 
   ///////////////////////////////////////////////////////

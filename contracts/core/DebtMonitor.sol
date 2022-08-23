@@ -10,9 +10,12 @@ import "../integrations/IERC20Extended.sol";
 import "../interfaces/IBorrowManager.sol";
 import "../interfaces/ITetuConverter.sol";
 import "./AppErrors.sol";
+import "../core/AppUtils.sol";
 
 /// @notice Manage list of open borrow positions
 contract DebtMonitor is IDebtMonitor {
+  using AppUtils for uint;
+
   IController public immutable controller;
 
   /// @notice Pool adapters with active borrow positions
@@ -99,10 +102,10 @@ contract DebtMonitor is IDebtMonitor {
     require(collateralAmount == 0 && amountToPay == 0, AppErrors.ATTEMPT_TO_CLOSE_NOT_EMPTY_BORROW_POSITION);
 
     positionsRegistered[msg.sender] = 0;
-    _removeItemFromArray(positions, msg.sender);
+    AppUtils.removeItemFromArray(positions, msg.sender);
 
     (, address user, address collateralAsset, address borrowAsset) = IPoolAdapter(msg.sender).getConfig();
-    _removeItemFromArray(poolAdapters[user][collateralAsset][borrowAsset], msg.sender);
+    AppUtils.removeItemFromArray(poolAdapters[user][collateralAsset][borrowAsset], msg.sender);
   }
 
   ///////////////////////////////////////////////////////
@@ -130,7 +133,7 @@ contract DebtMonitor is IDebtMonitor {
     uint minAllowedHealthFactor = uint(IController(controller).getMinHealthFactor2()) * 10**(18-2);
 
     // enumerate all pool adapters
-    for (uint i = 0; i < maxCountToCheck; i = _uncheckedInc(i)) {
+    for (uint i = 0; i < maxCountToCheck; i = i.uncheckedInc()) {
       nextIndexToCheck0 += 1;
 
       // check if we need to make reconversion because the health factor is too low or a better borrow way exists
@@ -199,35 +202,11 @@ contract DebtMonitor is IDebtMonitor {
 
     outPoolAdapters = new address[](countAdapters);
 
-    for (uint i = 0; i < countAdapters; i = _uncheckedInc(i)) {
+    for (uint i = 0; i < countAdapters; i = i.uncheckedInc()) {
       outPoolAdapters[i] = adapters[i];
     }
 
     return outPoolAdapters;
-  }
-
-  ///////////////////////////////////////////////////////
-  ///               Utils
-  ///////////////////////////////////////////////////////
-
-  /// @notice Remove {itemToRemove} from {items}, move last item of {items} to the position of the removed item
-  function _removeItemFromArray(address[] storage items, address itemToRemove) internal {
-    uint lenItems = items.length;
-    for (uint i = 0; i < lenItems; i = _uncheckedInc(i)) {
-      if (items[i] == itemToRemove) {
-        if (i < lenItems - 1) {
-          items[i] = items[lenItems - 1];
-        }
-        items.pop();
-        break;
-      }
-    }
-  }
-
-  function _uncheckedInc(uint i) internal pure returns (uint) {
-    unchecked {
-      return i + 1;
-    }
   }
 
   ///////////////////////////////////////////////////////
