@@ -327,13 +327,6 @@ contract AaveTwoPoolAdapter is IPoolAdapter, IPoolAdapterInitializer {
   ///               Utils to inline
   ///////////////////////////////////////////////////////
 
-  /// @notice Convert {amount} with [sourceDecimals} to new amount with {targetDecimals}
-  function _toMantissa(uint amount, uint8 sourceDecimals, uint8 targetDecimals) internal pure returns (uint) {
-    return sourceDecimals == targetDecimals
-      ? amount
-      : amount * (10 ** targetDecimals) / (10 ** sourceDecimals);
-  }
-
   function _validateHealthFactor(uint hf18) internal view {
     require(hf18 > uint(controller.getMinHealthFactor2())*10**(18-2), AppErrors.WRONG_HEALTH_FACTOR);
   }

@@ -11,10 +11,12 @@ import "../openzeppelin/IERC20.sol";
 import "../openzeppelin/SafeERC20.sol";
 import "./BorrowManagerBase.sol";
 import "./AppErrors.sol";
+import "../core/AppUtils.sol";
 
 /// @notice Contains list of lending pools. Allow to select most efficient pool for the given collateral/borrow pair
 contract BorrowManager is BorrowManagerBase {
   using SafeERC20 for IERC20;
+  using AppUtils for uint;
 
   uint constant public BLOCKS_PER_DAY = 40000;
   uint constant public SECONDS_PER_DAY = 86400;
@@ -152,7 +154,7 @@ contract BorrowManager is BorrowManagerBase {
         pas
         , p_
         , BorrowInput({
-          sourceAmount18: _toMantissa(p_.sourceAmount, uint8(IERC20Extended(p_.sourceToken).decimals()), 18),
+          sourceAmount18: p_.sourceAmount.toMantissa(uint8(IERC20Extended(p_.sourceToken).decimals()), 18),
           targetDecimals: IERC20Extended(p_.targetToken).decimals(),
           assets: assets
         })
@@ -192,7 +194,7 @@ contract BorrowManager is BorrowManagerBase {
       AppDataTypes.ConversionPlan memory plan = IPlatformAdapter(platformAdapters_[i]).getConversionPlan(
         p_.sourceToken,
         p_.targetToken,
-        _toMantissa(borrowAmountFactor18, 18, pp_.targetDecimals)
+        borrowAmountFactor18.toMantissa(18, pp_.targetDecimals)
       );
       if (plan.converter != address(0)) {
         // check if we are able to supply required collateral
@@ -203,10 +205,10 @@ contract BorrowManager is BorrowManagerBase {
             uint resultTa18 = plan.liquidationThreshold18 * borrowAmountFactor18 / 1e18;
 
             // the pool should have enough liquidity
-            if (_toMantissa(plan.maxAmountToBorrowBT, pp_.targetDecimals, 18) >= resultTa18) {
+            if (plan.maxAmountToBorrowBT.toMantissa(pp_.targetDecimals, 18) >= resultTa18) {
               // take the pool with lowest borrow rate
               converter = plan.converter;
-              maxTargetAmount = _toMantissa(resultTa18, 18, pp_.targetDecimals);
+              maxTargetAmount = resultTa18.toMantissa(18, pp_.targetDecimals);
               aprForPeriod18 = plan.aprPerBlock18;
             }
           }
@@ -236,20 +238,13 @@ contract BorrowManager is BorrowManagerBase {
   }
 
   ///////////////////////////////////////////////////////
-  ///               Helper utils
+  ///               Inline utils
   ///////////////////////////////////////////////////////
 
   function _uncheckedInc(uint i) internal pure returns (uint) {
     unchecked {
       return i + 1;
     }
-  }
-
-  /// @notice Convert {amount} with [sourceDecimals} to new amount with {targetDecimals}
-  function _toMantissa(uint amount, uint8 sourceDecimals, uint8 targetDecimals) internal pure returns (uint) {
-    return sourceDecimals == targetDecimals
-      ? amount
-      : amount * (10 ** targetDecimals) / (10 ** sourceDecimals);
   }
 
   ///////////////////////////////////////////////////////

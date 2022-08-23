@@ -12,8 +12,10 @@ import "../interfaces/IDebtsMonitor.sol";
 import "./PoolStub.sol";
 import "../interfaces/IController.sol";
 import "../core/AppErrors.sol";
+import "../core/AppUtils.sol";
 
 contract PoolAdapterMock is IPoolAdapter {
+  using AppUtils for uint;
 
   address public controller;
   address private _pool;
@@ -121,13 +123,13 @@ contract PoolAdapterMock is IPoolAdapter {
     healthFactor18 = amountToPay == 0
       ? type(uint).max
       : _collateralFactor
-        * _toMantissa(collateralAmount, decimalsCollateral, 18) * priceCollateral
-        / (_toMantissa(amountToPay, decimalsBorrow, 18) * priceBorrowedUSD);
+        * collateralAmount.toMantissa(decimalsCollateral, 18) * priceCollateral
+        / (amountToPay.toMantissa(decimalsBorrow, 18) * priceBorrowedUSD);
 
     console.log("healthFactor18=%d", healthFactor18);
     console.log("_collateralFactor=%d", _collateralFactor);
-    console.log("collateralAmount=%d", _toMantissa(collateralAmount, decimalsCollateral, 18));
-    console.log("amountToPay18=%d", _toMantissa(amountToPay, decimalsBorrow, 18));
+    console.log("collateralAmount=%d", collateralAmount.toMantissa(decimalsCollateral, 18));
+    console.log("amountToPay18=%d", amountToPay.toMantissa(decimalsBorrow, 18));
     console.log("priceCollateral=%d", priceCollateral);
     console.log("priceBorrowedUSD=%d", priceBorrowedUSD);
 
@@ -189,15 +191,15 @@ contract PoolAdapterMock is IPoolAdapter {
 
     // ensure that we can borrow allowed amount
     uint maxAmountToBorrowUSD = _collateralFactor
-      * (_toMantissa(collateralAmount_, IERC20Extended(_collateralAsset).decimals(), 18) * priceCollateral)
+      * (collateralAmount_.toMantissa(IERC20Extended(_collateralAsset).decimals(), 18) * priceCollateral)
       / 1e18
       / 1e18;
     console.log("2 %d", maxAmountToBorrowUSD);
     console.log("collateralAmount_=%d", collateralAmount_);
     console.log("priceCollateral=%d", priceCollateral);
-    console.log("borrowAmount_=%d", _toMantissa(borrowAmount_, IERC20Extended(_borrowAsset).decimals(), 18));
+    console.log("borrowAmount_=%d", borrowAmount_.toMantissa(IERC20Extended(_borrowAsset).decimals(), 18));
     console.log("priceBorrowedUSD=%d", priceBorrowedUSD);
-    uint claimedAmount = _toMantissa(borrowAmount_, IERC20Extended(_borrowAsset).decimals(), 18) * priceBorrowedUSD / 1e18;
+    uint claimedAmount = borrowAmount_.toMantissa(IERC20Extended(_borrowAsset).decimals(), 18) * priceBorrowedUSD / 1e18;
     console.log("claimedAmount=%d", claimedAmount);
     console.log("maxAmountToBorrowUSD=%d", maxAmountToBorrowUSD);
     require(maxAmountToBorrowUSD >= claimedAmount, "borrow amount is too big");
@@ -299,13 +301,6 @@ contract PoolAdapterMock is IPoolAdapter {
     uint price18 = p.getAssetPrice(asset);
     console.log("getPrice18 %d", price18);
     return price18;
-  }
-
-  /// @notice Convert {amount} with [sourceDecimals} to new amount with {targetDecimals}
-  function _toMantissa(uint amount, uint16 sourceDecimals, uint16 targetDecimals) internal pure returns (uint) {
-    return sourceDecimals == targetDecimals
-    ? amount
-    : amount * (10 ** targetDecimals) / (10 ** sourceDecimals);
   }
 
   /// @notice Compute current cost of the money
