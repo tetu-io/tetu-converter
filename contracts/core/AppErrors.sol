@@ -56,4 +56,7 @@ library AppErrors {
 
   string public constant USER_OR_TETU_CONVERTER_ONLY = "TC-32";
 
+  /// @notice Platform adapter cannot be unregistered because there is active pool adapter (open borrow on the platform)
+  string public constant PLATFORM_ADAPTER_IS_IN_USE = "TC-33";
+
 }

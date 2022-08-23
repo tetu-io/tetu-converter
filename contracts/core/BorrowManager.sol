@@ -13,15 +13,21 @@ import "./AppErrors.sol";
 import "../core/AppUtils.sol";
 import "../openzeppelin/Clones.sol";
 import "../interfaces/IController.sol";
+import "../openzeppelin/EnumerableSet.sol";
+import "../interfaces/IDebtsMonitor.sol";
 
 /// @notice Contains list of lending pools. Allow to select most efficient pool for the given collateral/borrow pair
 contract BorrowManager is IBorrowManager {
   using SafeERC20 for IERC20;
   using AppUtils for uint;
   using Clones for address;
+  using EnumerableSet for EnumerableSet.AddressSet;
+  using EnumerableSet for EnumerableSet.UintSet;
 
   uint constant public BLOCKS_PER_DAY = 40000;
   uint constant public SECONDS_PER_DAY = 86400;
+
+  IController public immutable controller;
 
   ///////////////////////////////////////////////////////
   ///                Structs and enums
@@ -30,39 +36,49 @@ contract BorrowManager is IBorrowManager {
   /// @dev Additional input params for _findPool; 18 means that decimals 18 is used
   struct BorrowInput {
     uint8 targetDecimals;
-    uint sourceAmount18;
     /// @notice collateral, borrow (to get prices)
     address[] assets;
+    uint sourceAmount18;
+  }
+
+  /// @notice Pair of two assets. Asset 1 can be converted to asset 2 and vice versa.
+  /// @dev There are no restrictions for {assetLeft} and {assertRight}. Each can be smaller than the other.
+  struct AssetPair {
+    address assetLeft;
+    address assetRight;
   }
 
   ///////////////////////////////////////////////////////
   ///                    Members
   ///////////////////////////////////////////////////////
-  IController public immutable controller;
 
   /// @notice all registered platform adapters
-  address[] public platformAdapters;
-  /// @notice Platform adapter : is registered
-  mapping(address => bool) public platformAdaptersRegistered; //TODO: change to EnumerableSet
+  EnumerableSet.AddressSet private _platformAdapters;
 
-  /// @notice SourceToken => TargetToken => [list of platform adapters]
-  /// @dev SourceToken is always less then TargetToken
-  mapping(address => mapping (address => address[])) public pairsList;
-  /// @notice Check if triple (source token, target token, platform adapter) is already registered in {assets}
-  mapping(address => mapping (address => mapping (address => bool))) public pairsListRegistered;
+  /// @notice all asset pairs registered for the platform adapter
+  /// @dev PlatformAdapter : key of asset pair
+  mapping(address => EnumerableSet.UintSet) private _platformAdapterPairs;
+
+  /// @notice all platform adapters for which the asset pair is registered
+  /// @dev Key of pair asset => [list of platform adapters]
+  mapping(uint => EnumerableSet.AddressSet) private _pairsList;
+
+  /// @notice Key of pair asset => Asset pair
+  mapping(uint => AssetPair) private _assetPairs;
 
   /// @notice Converter : platform adapter
   mapping(address => address) public converters;
 
+  /// @notice Complete list ever created pool adapters
+  /// @dev PoolAdapterKey(== keccak256(converter, user, collateral, borrowToken)) => address of the pool adapter
+  mapping (uint => address) public poolAdapters;
+
+  /// @notice Pool adapter => is registered
+  mapping (address => bool) poolAdaptersRegistered;
+
   /// @notice Default health factors (HF) for assets. Default HF is used if user hasn't provided HF value, decimals 2
   /// @dev Health factor = collateral / minimum collateral. It should be greater then MIN_HEALTH_FACTOR
   mapping(address => uint16) public defaultHealthFactors2;
-
-  /// @notice Complete list ever created pool adapters
-  /// @dev converter => user => collateral => borrowToken => address of the pool adapter
-  mapping (address => mapping(address => mapping(address => mapping(address => address)))) public poolAdapters;
-  /// @notice Pool adapter => is registered
-  mapping (address => bool) poolAdaptersRegistered;
 
 
   ///////////////////////////////////////////////////////
@@ -79,40 +95,6 @@ contract BorrowManager is IBorrowManager {
   ///               Configuration
   ///////////////////////////////////////////////////////
 
-  function addPool(
-    address platformAdapter_,
-    address[] calldata assets_ //TODO: pass ready set of pairs
-  )
-  external override {
-    if (!platformAdaptersRegistered[platformAdapter_]) {
-      platformAdapters.push(platformAdapter_);
-      platformAdaptersRegistered[platformAdapter_] = true;
-    }
-
-    address[] memory paConverters = IPlatformAdapter(platformAdapter_).converters();
-    uint lenConverters = paConverters.length;
-    for (uint i = 0; i < lenConverters; ++i) {
-      converters[paConverters[i]] = platformAdapter_;
-    }
-
-    // enumerate all assets and register all possible pairs
-    // TODO: some pairs are not valid. Probably platformAdapter should provide list of available pairs?
-    // TODO: how to re-register the pool (i.e. if new asset was added to the internal pool)
-    uint lenAssets = assets_.length;
-    for (uint i = 0; i < lenAssets; i = i.uncheckedInc()) {
-      for (uint j = i + 1; j < lenAssets; j = j.uncheckedInc()) {
-        bool inputFirst = assets_[i] < assets_[j];
-        address tokenIn = inputFirst ? assets_[i] : assets_[j];
-        address tokenOut = inputFirst ? assets_[j] : assets_[i];
-
-        if (!pairsListRegistered[tokenIn][tokenOut][platformAdapter_]) {
-          pairsList[tokenIn][tokenOut].push(platformAdapter_);
-          pairsListRegistered[tokenIn][tokenOut][platformAdapter_] = true;
-        }
-      }
-    }
-  }
-
   /// @notice Set default health factor for {asset}. Default value is used only if user hasn't provided custom value
   /// @param healthFactor_ Health factor with decimals 2; must be greater or equal to MIN_HEALTH_FACTOR; for 1.5 use 150
   function setHealthFactor(address asset, uint16 healthFactor_) external override {
@@ -120,7 +102,74 @@ contract BorrowManager is IBorrowManager {
     defaultHealthFactors2[asset] = healthFactor_;
   }
 
-  //TODO: deletePool
+  function addAssetPairs(
+    address platformAdapter_,
+    address[] calldata leftAssets_,
+    address[] calldata rightAssets_
+  )
+  external override {
+    uint lenAssets = rightAssets_.length;
+    require(leftAssets_.length == lenAssets, AppErrors.WRONG_LENGTHS);
+
+    // register new platform adapter if necessary
+    if (!_platformAdapters.contains(platformAdapter_)) {
+      _platformAdapters.add(platformAdapter_);
+    }
+
+    // register all available template pool adapters
+    address[] memory paConverters = IPlatformAdapter(platformAdapter_).converters();
+    uint lenConverters = paConverters.length;
+    for (uint i = 0; i < lenConverters; i = i.uncheckedInc()) {
+      require(!_dm().isConverterInUse(paConverters[i]), AppErrors.PLATFORM_ADAPTER_IS_IN_USE);
+      converters[paConverters[i]] = platformAdapter_;
+    }
+
+    // register all supported asset pairs
+    for (uint i = 0; i < lenAssets; i = i.uncheckedInc()) {
+      uint assetPairKey = getAssetPairKey(leftAssets_[i], rightAssets_[i]);
+      if (_assetPairs[assetPairKey].assetLeft == address(0)) {
+        _assetPairs[assetPairKey] = AssetPair({
+          assetLeft: leftAssets_[i],
+          assetRight: rightAssets_[i]
+        });
+      }
+      if (!_pairsList[assetPairKey].contains(platformAdapter_)) {
+        _pairsList[assetPairKey].add(platformAdapter_);
+        _platformAdapterPairs[platformAdapter_].add(assetPairKey);
+      }
+    }
+  }
+
+  function removeAssetPairs(
+    address platformAdapter_,
+    address[] calldata leftAssets_,
+    address[] calldata rightAssets_
+  ) external override {
+    uint lenAssets = rightAssets_.length;
+    require(leftAssets_.length == lenAssets, AppErrors.WRONG_LENGTHS);
+
+    // unregister the asset pairs
+    for (uint i = 0; i < lenAssets; i = i.uncheckedInc()) {
+      uint assetPairKey = getAssetPairKey(leftAssets_[i], rightAssets_[i]);
+      if (_pairsList[assetPairKey].contains(platformAdapter_)) {
+        _pairsList[assetPairKey].remove(platformAdapter_);
+        _platformAdapterPairs[platformAdapter_].remove(assetPairKey);
+      }
+    }
+
+    // if platform adapter doesn't have any asset pairs, we unregister it
+    if (_platformAdapterPairs[platformAdapter_].length() == 0) {
+      // unregister all template pool adapters
+      address[] memory paConverters = IPlatformAdapter(platformAdapter_).converters();
+      uint lenConverters = paConverters.length;
+      for (uint i = 0; i < lenConverters; i = i.uncheckedInc()) {
+        converters[paConverters[i]] = address(0);
+      }
+
+      // unregister platform adapter
+      _platformAdapters.remove(platformAdapter_);
+    }
+  }
 
   ///////////////////////////////////////////////////////
   ///           Find best pool for borrowing
@@ -135,15 +184,14 @@ contract BorrowManager is IBorrowManager {
   /// Max target amount capable to be borrowed: ResultTA = BS / PT [TA].
   /// We can use the pool only if ResultTA >= PTA >= TA
   ///////////////////////////////////////////////////////
+
   function findConverter(AppDataTypes.InputConversionParams memory p_) external view override returns (
     address converter,
     uint maxTargetAmount,
     uint aprForPeriod18
   ) {
     // get all available pools from poolsForAssets[smaller-address][higher-address]
-    address[] memory pas = pairsList
-      [p_.sourceToken < p_.targetToken ? p_.sourceToken : p_.targetToken]
-      [p_.sourceToken < p_.targetToken ? p_.targetToken : p_.sourceToken];
+    EnumerableSet.AddressSet storage pas = _pairsList[getAssetPairKey(p_.sourceToken, p_.targetToken )];
 
     if (p_.healthFactor2 == 0) {
       p_.healthFactor2 = defaultHealthFactors2[p_.targetToken];
@@ -159,7 +207,7 @@ contract BorrowManager is IBorrowManager {
     assets[0] = p_.sourceToken;
     assets[1] = p_.targetToken;
 
-    if (pas.length != 0) {
+    if (pas.length() != 0) {
       (converter, maxTargetAmount, aprForPeriod18) = _findPool(
         pas
         , p_
@@ -176,7 +224,7 @@ contract BorrowManager is IBorrowManager {
 
   /// @notice Enumerate all pools and select a pool suitable for borrowing with min borrow rate and enough underlying
   function _findPool(
-    address[] memory platformAdapters_,
+    EnumerableSet.AddressSet storage platformAdapters_,
     AppDataTypes.InputConversionParams memory p_,
     BorrowInput memory pp_
   ) internal view returns (
@@ -184,12 +232,12 @@ contract BorrowManager is IBorrowManager {
     uint maxTargetAmount,
     uint aprForPeriod18
   ) {
-    uint lenPools = platformAdapters_.length;
+    uint lenPools = platformAdapters_.length();
 
     uint[] memory pricesCB18;
     if (lenPools > 0) {
       // we can take prices only once; we use only their relation, not absolute values
-      pricesCB18 = IPlatformAdapter(platformAdapters_[0]).getAssetsPrices(pp_.assets);
+      pricesCB18 = IPlatformAdapter(platformAdapters_.at(0)).getAssetsPrices(pp_.assets);
       require(pricesCB18[1] != 0 && pricesCB18[0] != 0, AppErrors.ZERO_PRICE);
     }
 
@@ -201,7 +249,7 @@ contract BorrowManager is IBorrowManager {
       / (pricesCB18[1] * uint(p_.healthFactor2) * 10**(18-2));
 
     for (uint i = 0; i < lenPools; i = i.uncheckedInc()) {
-      AppDataTypes.ConversionPlan memory plan = IPlatformAdapter(platformAdapters_[i]).getConversionPlan(
+      AppDataTypes.ConversionPlan memory plan = IPlatformAdapter(platformAdapters_.at(i)).getConversionPlan(
         p_.sourceToken,
         p_.targetToken,
         borrowAmountFactor18.toMantissa(18, pp_.targetDecimals)
@@ -240,7 +288,8 @@ contract BorrowManager is IBorrowManager {
     address collateral_,
     address borrowToken_
   ) external override returns (address) {
-    address dest = poolAdapters[converter_][user_][collateral_][borrowToken_];
+    uint poolAdapterKey = getPoolAdapterKey(converter_, user_, collateral_, borrowToken_);
+    address dest = poolAdapters[poolAdapterKey];
     if (dest == address(0) ) {
       // create an instance of the pool adapter using minimal proxy pattern, initialize newly created contract
       dest = converter_.clone();
@@ -253,7 +302,7 @@ contract BorrowManager is IBorrowManager {
       );
 
       // register newly created pool adapter in the list of the pool adapters forever
-      poolAdapters[converter_][user_][collateral_][borrowToken_] = dest;
+      poolAdapters[poolAdapterKey] = dest;
       poolAdaptersRegistered[dest] = true;
     }
 
@@ -268,6 +317,10 @@ contract BorrowManager is IBorrowManager {
     return _getPlatformAdapter(converter_);
   }
 
+  function isPoolAdapter(address poolAdapter_) external view override returns (bool) {
+    return poolAdaptersRegistered[poolAdapter_];
+  }
+
   /// @notice Get pool adapter or 0 if the pool adapter is not registered
   function getPoolAdapter(
     address converter_,
@@ -275,17 +328,8 @@ contract BorrowManager is IBorrowManager {
     address collateral_,
     address borrowToken_
   ) external view override returns (address) {
-    return poolAdapters[converter_][user_][collateral_][borrowToken_];
+    return poolAdapters[getPoolAdapterKey(converter_, user_, collateral_, borrowToken_)];
   }
-
-  function isPoolAdapter(address poolAdapter_) external view override returns (bool) {
-    return poolAdaptersRegistered[poolAdapter_];
-  }
-
-
-  ///////////////////////////////////////////////////////
-  ///         BorrowManagerBase functions
-  ///////////////////////////////////////////////////////
 
   function _getPlatformAdapter(address converter_) internal view returns(address) {
     address platformAdapter = converters[converter_];
@@ -294,15 +338,56 @@ contract BorrowManager is IBorrowManager {
   }
 
   ///////////////////////////////////////////////////////
-  ///                 Lengths
+  ///                 keccak256 keys
+  ///////////////////////////////////////////////////////
+
+  function getPoolAdapterKey(address converter_,
+    address user_,
+    address collateral_,
+    address borrowToken_
+  ) public pure returns (uint){
+    return uint(keccak256(abi.encodePacked(converter_, user_, collateral_, borrowToken_)));
+  }
+
+  function getAssetPairKey(address assetLeft_, address assetRight_) public pure returns (uint) {
+    return assetLeft_ < assetRight_
+      ? uint(keccak256(abi.encodePacked(assetLeft_, assetRight_)))
+      : uint(keccak256(abi.encodePacked(assetRight_, assetLeft_)));
+  }
+
+  ///////////////////////////////////////////////////////
+  ///                 Access to arrays
   ///////////////////////////////////////////////////////
 
   function platformAdaptersLength() public view returns (uint) {
-    return platformAdapters.length;
+    return _platformAdapters.length();
+  }
+
+  function platformAdapterAt(uint index) public view returns (address) {
+    return _platformAdapters.at(index);
   }
 
   function pairsListLength(address token1, address token2) public view returns (uint) {
-    return pairsList[token1][token2].length;
+    return _pairsList[getAssetPairKey(token1, token2)].length();
   }
 
+  function pairsListAt(address token1, address token2, uint index) public view returns (address) {
+    return _pairsList[getAssetPairKey(token1, token2)].at(index);
+  }
+
+  function _platformAdapterPairsLength(address platformAdapter_) public view returns (uint) {
+    return _platformAdapterPairs[platformAdapter_].length();
+  }
+
+  function platformAdapterPairsAt(address platformAdapter_, uint index) public view returns (AssetPair memory) {
+    return _assetPairs[_platformAdapterPairs[platformAdapter_].at(index)];
+  }
+
+
+  ///////////////////////////////////////////////////////
+  ///       Inline functions
+  ///////////////////////////////////////////////////////
+  function _dm() internal view returns (IDebtMonitor) {
+    return IDebtMonitor(controller.debtMonitor());
+  }
 }

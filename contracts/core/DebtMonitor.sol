@@ -11,10 +11,12 @@ import "../interfaces/IBorrowManager.sol";
 import "../interfaces/ITetuConverter.sol";
 import "./AppErrors.sol";
 import "../core/AppUtils.sol";
+import "../openzeppelin/EnumerableSet.sol";
 
 /// @notice Manage list of open borrow positions
 contract DebtMonitor is IDebtMonitor {
   using AppUtils for uint;
+  using EnumerableSet for EnumerableSet.AddressSet;
 
   IController public immutable controller;
 
@@ -23,10 +25,14 @@ contract DebtMonitor is IDebtMonitor {
   address[] public positions;
 
   /// @notice Pool adapter => block number of last call of onOpenPosition
-  mapping(address => uint) public positionsRegistered;
+  mapping(address => uint) public positionLastAccess;
 
-  /// @notice user => collateral => borrowToken => poolAdapters
-  mapping(address => mapping(address => mapping(address => address[]))) public poolAdapters;
+  /// @notice PoolAdapterKey(== keccak256(user, collateral, borrowToken)) => poolAdapters
+  mapping(uint => address[]) public poolAdapters;
+
+  /// @notice Template pool adapter => list of ACTIVE pool adapters created on the base of the template
+  /// @dev We need it to prevent removing a pool from the borrow manager when the pool is in use
+  mapping(address => EnumerableSet.AddressSet) private _poolAdaptersForConverters;
 
   /// @notice threshold for APRs difference, i.e. _thresholdApr100 = 20 for (apr0-apr1)/apr0 > 20%
   ///         0 - disable the limitation by value of APR difference
@@ -85,27 +91,39 @@ contract DebtMonitor is IDebtMonitor {
   function onOpenPosition() external override {
     _onlyPoolAdapter();
 
-    if (positionsRegistered[msg.sender] == 0) {
-      positionsRegistered[msg.sender] = block.number;
+    if (positionLastAccess[msg.sender] == 0) {
+      positionLastAccess[msg.sender] = block.number;
       positions.push(msg.sender);
 
-      (, address user, address collateralAsset, address borrowAsset) = IPoolAdapter(msg.sender).getConfig();
-      poolAdapters[user][collateralAsset][borrowAsset].push(msg.sender);
+      (address origin,
+       address user,
+       address collateralAsset,
+       address borrowAsset
+      ) = IPoolAdapter(msg.sender).getConfig();
+      poolAdapters[getPoolAdapterKey(user, collateralAsset, borrowAsset)].push(msg.sender);
+
+      _poolAdaptersForConverters[origin].add(msg.sender);
     }
   }
 
   /// @dev This function is called from a pool adapter when the borrow is completely repaid
   function onClosePosition() external override {
-    require(positionsRegistered[msg.sender] != 0, AppErrors.BORROW_POSITION_IS_NOT_REGISTERED);
+    require(positionLastAccess[msg.sender] != 0, AppErrors.BORROW_POSITION_IS_NOT_REGISTERED);
 
     (uint collateralAmount, uint amountToPay,,) = IPoolAdapter(msg.sender).getStatus();
     require(collateralAmount == 0 && amountToPay == 0, AppErrors.ATTEMPT_TO_CLOSE_NOT_EMPTY_BORROW_POSITION);
 
-    positionsRegistered[msg.sender] = 0;
+    positionLastAccess[msg.sender] = 0;
     AppUtils.removeItemFromArray(positions, msg.sender);
 
-    (, address user, address collateralAsset, address borrowAsset) = IPoolAdapter(msg.sender).getConfig();
-    AppUtils.removeItemFromArray(poolAdapters[user][collateralAsset][borrowAsset], msg.sender);
+    (address origin,
+     address user,
+     address collateralAsset,
+     address borrowAsset
+    ) = IPoolAdapter(msg.sender).getConfig();
+    AppUtils.removeItemFromArray(poolAdapters[getPoolAdapterKey(user, collateralAsset, borrowAsset)], msg.sender);
+
+    _poolAdaptersForConverters[origin].remove(msg.sender);
   }
 
   ///////////////////////////////////////////////////////
@@ -179,7 +197,7 @@ contract DebtMonitor is IDebtMonitor {
         && currentApr18 - aprForPeriod18 > currentApr18 * thresholdAPR / 100
       ) {
         //2) threshold for block number: count blocks since prev rebalancing should exceed the threshold.
-        if (block.number - positionsRegistered[address(pa_)] > thresholdCountBlocks) {
+        if (block.number - positionLastAccess[address(pa_)] > thresholdCountBlocks) {
           return true;
         }
       }
@@ -188,7 +206,7 @@ contract DebtMonitor is IDebtMonitor {
   }
 
   ///////////////////////////////////////////////////////
-  ///      Get active borrows of the given user
+  ///                   Views
   ///////////////////////////////////////////////////////
   function getPositions (
     address user_,
@@ -197,7 +215,7 @@ contract DebtMonitor is IDebtMonitor {
   ) external view override returns (
     address[] memory outPoolAdapters
   ) {
-    address[] memory adapters = poolAdapters[user_][collateralToken_][borrowedToken_];
+    address[] memory adapters = poolAdapters[getPoolAdapterKey(user_, collateralToken_, borrowedToken_)];
     uint countAdapters = adapters.length;
 
     outPoolAdapters = new address[](countAdapters);
@@ -209,8 +227,23 @@ contract DebtMonitor is IDebtMonitor {
     return outPoolAdapters;
   }
 
+  function isConverterInUse(address converter_) external view override returns (bool) {
+    return _poolAdaptersForConverters[converter_].length() != 0;
+  }
+
   ///////////////////////////////////////////////////////
-  ///               Arrays lengths
+  ///                     Utils
+  ///////////////////////////////////////////////////////
+  function getPoolAdapterKey(
+    address user_,
+    address collateral_,
+    address borrowToken_
+  ) public pure returns (uint){
+    return uint(keccak256(abi.encodePacked(user_, collateral_, borrowToken_)));
+  }
+
+  ///////////////////////////////////////////////////////
+  ///               Access to arrays
   ///////////////////////////////////////////////////////
 
   /// @notice Get total count of pool adapters with opened positions
@@ -220,9 +253,12 @@ contract DebtMonitor is IDebtMonitor {
 
   function poolAdaptersLength(
     address user_,
-    address collateralToken_,
-    address borrowedToken_
+    address collateral_,
+    address borrowToken_
   ) external view returns (uint) {
-    return poolAdapters[user_][collateralToken_][borrowedToken_].length;
+    return poolAdapters[getPoolAdapterKey(user_, collateral_, borrowToken_)].length;
   }
+
+
+
 }

@@ -43,4 +43,7 @@ interface IDebtMonitor {
   ) external view returns (
     address[] memory poolAdapters
   );
+
+  /// @notice Return true if there is a least once active pool adapter created on the base of the {converter_}
+  function isConverterInUse(address converter_) external view returns (bool);
 }

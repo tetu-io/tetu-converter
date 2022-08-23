@@ -7,10 +7,24 @@ import "./IPoolAdaptersManager.sol";
 /// @notice Manage list of available lending platforms
 interface IBorrowManager is IPoolAdaptersManager {
 
-  /// @notice Register new lending platform
+  /// @notice Register new lending platform with available pairs of assets
+  ///         OR add new pairs of assets to the exist lending platform
   /// @param platformAdapter_ Implementation of IPlatformAdapter attached to the specified pool
-  /// @param assets_ All assets supported by the pool
-  function addPool(address platformAdapter_, address[] calldata assets_) external;
+  /// @param leftAssets_  Supported pairs of assets. The pairs are set using two arrays: left and right
+  /// @param rightAssets_  Supported pairs of assets. The pairs are set using two arrays: left and right
+  function addAssetPairs(
+    address platformAdapter_,
+    address[] calldata leftAssets_,
+    address[] calldata rightAssets_
+  ) external;
+
+  /// @notice Remove available pairs of asset from the platform adapter.
+  ///         The platform adapter will be unregistered after removing last supported pair of assets
+  function removeAssetPairs(
+    address platformAdapter_,
+    address[] calldata leftAssets_,
+    address[] calldata rightAssets_
+  ) external;
 
   /// @notice Set default health factor for {asset}. Default value is used only if user hasn't provided custom value
   /// @param value2 Health factor must be greater then 1, decimals 2
