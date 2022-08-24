@@ -38,7 +38,7 @@ export class MaticAddresses {
   public static HOLDER_DAI_5 = "0x9bdb521a97e95177bf252c253e256a60c3e14447";
   public static HOLDER_DAI_6 = "0x7344e478574acbe6dac9de1077430139e17eec3d";
 
-  public static HOLDER_USDC = "0x06959153b974d0d5fdfd87d561db6d8d4fa0bb0b";
+  public static HOLDER_USDC = "0xe7804c37c13166ff0b37f5ae0bb07a3aebb6e245";
   public static HOLDER_USDT = "0x0d0707963952f2fba59dd06f2b425ace40b492fe";
   public static HOLDER_USDT_1 = "0xf977814e90da44bfa03b6295a0616a897441acec";
   public static HOLDER_USDT_2 = "0xe7804c37c13166ff0b37f5ae0bb07a3aebb6e245";
@@ -103,6 +103,8 @@ export class MaticAddresses {
 //region dForce
   /** https://developers.dforce.network/lend/lend-and-synth/deployed-contracts */
   public static DFORCE_CONTROLLER = "0x52eaCd19E38D501D006D2023C813d7E37F025f37";
+  /** https://developers.dforce.network/lend/lend-and-synth/distribution **/
+  public static DFOCE_LENDING_DATA = "0xEb339b4EA1051C8064A124C959b531C89b834182";
 
   public static dForce_iUSDC = "0x5268b3c4afb0860D365a093C184985FCFcb65234";
   public static dForce_iUSDT = "0xb3ab7148cCCAf66686AD6C1bE24D83e58E6a504e";

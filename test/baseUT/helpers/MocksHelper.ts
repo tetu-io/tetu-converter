@@ -3,7 +3,7 @@
  */
 import {DeployUtils} from "../../../scripts/utils/DeployUtils";
 import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
-import {BigNumber} from "ethers";
+import {BigNumber, Signer} from "ethers";
 import {ethers} from "hardhat";
 import {DeployerUtils} from "../../../scripts/utils/DeployerUtils";
 import {
