@@ -207,7 +207,7 @@ contract HfPoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP {
     // but it seems like round-error can happen, we can check only sumCollateralSafe - sumBorrowPlusEffects ~ liquidity
     // let's ensure that liquidity has a reasonable value //TODO: remove this check at all?
       && liquidity > (sumCollateralSafe - borrowBase) / 2
-      , AppErrors.HF_INCORRECT_RESULT_LIQUIDITY
+      , AppErrors.INCORRECT_RESULT_LIQUIDITY
     );
 
     _validateHealthFactor(healthFactor18);

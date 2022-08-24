@@ -2,7 +2,8 @@ import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import {ethers} from "hardhat";
 import {TimeUtils} from "../../../../../scripts/utils/TimeUtils";
 import {
-  IERC20Extended__factory, IHfCToken__factory
+  IDForceCToken__factory,
+  IERC20Extended__factory,
 } from "../../../../../typechain";
 import {expect} from "chai";
 import {BigNumber} from "ethers";
@@ -12,13 +13,12 @@ import {AdaptersHelper} from "../../../../baseUT/helpers/AdaptersHelper";
 import {isPolygonForkInUse} from "../../../../baseUT/utils/NetworkUtils";
 import {BalanceUtils, IUserBalances} from "../../../../baseUT/utils/BalanceUtils";
 import {CoreContractsHelper} from "../../../../baseUT/helpers/CoreContractsHelper";
-import {HundredFinanceHelper} from "../../../../../scripts/integration/helpers/HundredFinanceHelper";
 import {MaticAddresses} from "../../../../../scripts/addresses/MaticAddresses";
 import {MocksHelper} from "../../../../baseUT/helpers/MocksHelper";
 import {TokenDataTypes} from "../../../../baseUT/types/TokenDataTypes";
+import {DForceHelper} from "../../../../../scripts/integration/helpers/DForceHelper";
 
-describe("Hundred Finance integration tests, pool adapter", () => {
-
+describe("DForce integration tests, pool adapter", () => {
 //region Global vars for all tests
   let snapshot: string;
   let snapshotForEach: string;
@@ -69,19 +69,18 @@ describe("Hundred Finance integration tests, pool adapter", () => {
       await controller.setTetuConverter(tetuConveterStab.address);
 
       // initialize adapters and price oracle
-      const hfPoolAdapterTC = await AdaptersHelper.createHundredFinancePoolAdapter(
+      const hfPoolAdapterTC = await AdaptersHelper.createDForcePoolAdapter(
         await DeployerUtils.startImpersonate(tetuConveterStab.address)
       );
-      const comptroller = await HundredFinanceHelper.getComptroller(deployer);
-      const hfPlatformAdapter = await AdaptersHelper.createHundredFinancePlatformAdapter(
+      const comptroller = await DForceHelper.getController(deployer);
+      const dfPlatformAdapter = await AdaptersHelper.createDForcePlatformAdapter(
         deployer,
         controller.address,
         comptroller.address,
         hfPoolAdapterTC.address,
         [collateralCToken.address, borrowCToken.address],
-        MaticAddresses.HUNDRED_FINANCE_ORACLE
       )
-      const priceOracle = HundredFinanceHelper.getPriceOracle(deployer);
+      const priceOracle = await DForceHelper.getPriceOracle(comptroller, deployer);
 
       // collateral asset
       await collateralToken.token
@@ -91,7 +90,7 @@ describe("Hundred Finance integration tests, pool adapter", () => {
       // initialize pool adapter
       await hfPoolAdapterTC.initialize(
         controller.address,
-        hfPlatformAdapter.address,
+        dfPlatformAdapter.address,
         comptroller.address,
         user.address,
         collateralToken.address,
@@ -110,11 +109,11 @@ describe("Hundred Finance integration tests, pool adapter", () => {
       console.log(`borrow: success`);
 
       // tokens data
-      const borrowData = await HundredFinanceHelper.getCTokenData(deployer, comptroller
-        , IHfCToken__factory.connect(borrowCToken.address, deployer)
+      const borrowData = await DForceHelper.getCTokenData(deployer, comptroller
+        , IDForceCToken__factory.connect(borrowCToken.address, deployer)
       );
-      const collateralData = await HundredFinanceHelper.getCTokenData(deployer, comptroller
-        , IHfCToken__factory.connect(collateralCToken.address, deployer)
+      const collateralData = await DForceHelper.getCTokenData(deployer, comptroller
+        , IDForceCToken__factory.connect(collateralCToken.address, deployer)
       );
 
       // prices of assets in base currency
@@ -127,28 +126,42 @@ describe("Hundred Finance integration tests, pool adapter", () => {
       console.log("priceBorrow", priceBorrow);
 
       // check results
-      const {error, liquidity, shortfall} = await comptroller.getAccountLiquidity(hfPoolAdapterTC.address);
-      const sb = await IHfCToken__factory.connect(borrowCToken.address, deployer)
-        .getAccountSnapshot(hfPoolAdapterTC.address);
-      console.log(`Borrow token: balance=${sb.borrowBalance} tokenBalance=${sb.tokenBalance} exchangeRate=${sb.exchangeRateMantissa}`);
-      const sc = await IHfCToken__factory.connect(collateralCToken.address, deployer)
-        .getAccountSnapshot(hfPoolAdapterTC.address);
-      console.log(`Collateral token: balance=${sc.borrowBalance} tokenBalance=${sc.tokenBalance} exchangeRate=${sc.exchangeRateMantissa}`);
+
+      // https://developers.dforce.network/lend/lend-and-synth/controller#calcaccountequity
+      // Collaterals and borrows represent the current collateral and borrow value is USD with 36 integer precision
+      // which for example, 360000000000000000000000000000000000000000 indicates 360000 in USD.
+      const {accountEquity
+        , shortfall
+        , collateralValue
+        , borrowedValue
+      } = await comptroller.calcAccountEquity(hfPoolAdapterTC.address);
+      console.log(`calcAccountEquity: accountEquity=${accountEquity} shortfall=${shortfall} collateralValue=${collateralValue} borrowedValue=${borrowedValue}`);
+
+      const cTokenBorrow = await IDForceCToken__factory.connect(borrowCToken.address, deployer);
+      const bBorrowBalance = await cTokenBorrow.borrowBalanceStored(hfPoolAdapterTC.address);
+      const bTokenBalance = await cTokenBorrow.balanceOf(hfPoolAdapterTC.address);
+      const bExchangeRateMantissa = await cTokenBorrow.exchangeRateStored();
+      console.log(`Borrow token: balance=${bBorrowBalance} tokenBalance=${bTokenBalance} exchangeRate=${bExchangeRateMantissa}`);
+
+      const cTokenCollateral = await IDForceCToken__factory.connect(collateralCToken.address, deployer);
+      const cBorrowBalance = await cTokenCollateral.borrowBalanceStored(hfPoolAdapterTC.address);
+      const cTokenBalance = await cTokenCollateral.balanceOf(hfPoolAdapterTC.address);
+      const cExchangeRateMantissa = await cTokenCollateral.exchangeRateStored();
+      console.log(`Collateral token: balance=${cBorrowBalance} tokenBalance=${cTokenBalance} exchangeRate=${cExchangeRateMantissa}`);
 
       const retBalanceBorrowUser = await borrowToken.token.balanceOf(user.address);
       const retBalanceCollateralTokensPoolAdapter = await IERC20Extended__factory.connect(
         collateralCToken.address, deployer
       ).balanceOf(hfPoolAdapterTC.address);
 
+      const n18 = getBigNumberFrom(1, 18); //1e18
+
       const sret = [
-        error,
         retBalanceBorrowUser,
         retBalanceCollateralTokensPoolAdapter,
-        liquidity,
+        accountEquity,
         shortfall,
       ].map(x => BalanceUtils.toString(x)).join("\n");
-
-      const n18 = getBigNumberFrom(1, 18); //1e18
 
       // ALl calculations are explained here:
       // https://docs.google.com/spreadsheets/d/1oLeF7nlTefoN0_9RWCuNc62Y7W72-Yk7
@@ -156,16 +169,14 @@ describe("Hundred Finance integration tests, pool adapter", () => {
       const cf1 = collateralData.collateralFactorMantissa;
       const er1 = collateralData.exchangeRateStored;
       const pr1 = priceCollateral;
-      const td1 = cf1.mul(er1).div(n18).mul(pr1).div(n18);
-      const sc1 = td1.mul(sc.tokenBalance).div(n18);
-      const sb1 = priceBorrow.mul(sb.borrowBalance).div(n18);
+      const sc1 = cTokenBalance.mul(cf1).mul(er1).div(n18).mul(pr1).div(n18);
+      const sb1 = priceBorrow.mul(bBorrowBalance);
       const expectedLiquiditiy = sc1.sub(sb1);
       const er2 = borrowData.exchangeRateStored;
-      console.log(`cf1=${cf1} er1=${er1} pr1=${pr1} td1=${td1} sc1=${sc1} sb1=${sb1} L1=${expectedLiquiditiy} er2=${er2}`);
+      console.log(`cf1=${cf1} er1=${er1} pr1=${pr1} sc1=${sc1} sb1=${sb1} L1=${expectedLiquiditiy} er2=${er2}`);
       console.log("health factor", ethers.utils.formatUnits(sc1.mul(n18).div(sb1)) );
 
       const sexpected = [
-        0,
         borrowAmount, // borrowed amount on user's balance
         collateralAmount
           .mul(getBigNumberFrom(1, 18))
@@ -176,6 +187,7 @@ describe("Hundred Finance integration tests, pool adapter", () => {
 
       return {sret, sexpected};
     }
+
     describe("Good paths", () => {
       describe("Borrow modest amount", () => {
         describe("DAI-18 : usdc-6", () => {
@@ -184,10 +196,10 @@ describe("Hundred Finance integration tests, pool adapter", () => {
 
             const collateralAsset = MaticAddresses.DAI;
             const collateralHolder = MaticAddresses.HOLDER_DAI;
-            const collateralCTokenAddress = MaticAddresses.hDAI;
+            const collateralCTokenAddress = MaticAddresses.dForce_iDAI;
 
             const borrowAsset = MaticAddresses.USDC;
-            const borrowCTokenAddress = MaticAddresses.hUSDC;
+            const borrowCTokenAddress = MaticAddresses.dForce_iUSDC;
 
             const collateralToken = await TokenDataTypes.Build(deployer, collateralAsset);
             const borrowToken = await TokenDataTypes.Build(deployer, borrowAsset);
@@ -272,17 +284,16 @@ describe("Hundred Finance integration tests, pool adapter", () => {
       await controller.setTetuConverter(tetuConveterStab.address);
 
       // initialize adapters and price oracle
-      const hfPoolAdapterTC = await AdaptersHelper.createHundredFinancePoolAdapter(
+      const dfPoolAdapterTC = await AdaptersHelper.createDForcePoolAdapter(
         await DeployerUtils.startImpersonate(tetuConveterStab.address)
       );
-      const comptroller = await HundredFinanceHelper.getComptroller(deployer);
-      const hfPlatformAdapter = await AdaptersHelper.createHundredFinancePlatformAdapter(
+      const comptroller = await DForceHelper.getController(deployer);
+      const dfPlatformAdapter = await AdaptersHelper.createDForcePlatformAdapter(
         deployer,
         controller.address,
         comptroller.address,
-        hfPoolAdapterTC.address,
+        dfPoolAdapterTC.address,
         [collateralCToken.address, borrowCToken.address],
-        MaticAddresses.HUNDRED_FINANCE_ORACLE
       )
 
       // collateral asset
@@ -291,14 +302,14 @@ describe("Hundred Finance integration tests, pool adapter", () => {
         .transfer(user.address, collateralAmount);
 
       // initialize pool adapter
-      await hfPoolAdapterTC.initialize(
+      await dfPoolAdapterTC.initialize(
         controller.address,
-        hfPlatformAdapter.address,
+        dfPlatformAdapter.address,
         comptroller.address,
         user.address,
         collateralToken.address,
         borrowToken.address,
-        hfPoolAdapterTC.address
+        dfPoolAdapterTC.address
       );
 
       const beforeBorrow: IUserBalances = {
@@ -307,16 +318,19 @@ describe("Hundred Finance integration tests, pool adapter", () => {
       };
 
       // make borrow
-      await hfPoolAdapterTC.syncBalance(true);
+      await dfPoolAdapterTC.syncBalance(true);
       await IERC20Extended__factory.connect(collateralToken.address
         , await DeployerUtils.startImpersonate(user.address)
-      ).transfer(hfPoolAdapterTC.address, collateralAmount);
+      ).transfer(dfPoolAdapterTC.address, collateralAmount);
 
-      await hfPoolAdapterTC.borrow(
+      await dfPoolAdapterTC.borrow(
         collateralAmount,
         borrowAmount,
         user.address
       );
+      console.log("Borrowed amount", borrowAmount);
+      const statusAfterBorrow = await dfPoolAdapterTC.getStatus();
+      console.log("statusAfterBorrow", statusAfterBorrow);
 
       const afterBorrow: IUserBalances = {
         collateral: await collateralToken.token.balanceOf(user.address),
@@ -325,37 +339,41 @@ describe("Hundred Finance integration tests, pool adapter", () => {
       console.log(afterBorrow);
 
       // make repay
-      await hfPoolAdapterTC.syncBalance(false);
+      await dfPoolAdapterTC.syncBalance(false);
       await IERC20Extended__factory.connect(borrowToken.address
         , await DeployerUtils.startImpersonate(user.address)
-      ).transfer(hfPoolAdapterTC.address, amountToRepay);
-      console.log("amountToRepay", amountToRepay);
+      ).transfer(dfPoolAdapterTC.address, amountToRepay);
+      console.log("Amount to repay", amountToRepay);
 
-      await hfPoolAdapterTC.repay(
+      await dfPoolAdapterTC.repay(
         amountToRepay,
         user.address,
         closePosition
       );
       console.log("repay is done");
+      const statusAfterRepay = await dfPoolAdapterTC.getStatus();
+      console.log("statusAfterRepay", statusAfterRepay);
 
       // check results
       const afterRepay: IUserBalances = {
         collateral: await collateralToken.token.balanceOf(user.address),
         borrow: await borrowToken.token.balanceOf(user.address)
       };
-      const cTokenCollateral = await IHfCToken__factory.connect(collateralCToken.address, deployer);
-      const cTokenBorrow = await IHfCToken__factory.connect(borrowCToken.address, deployer);
+      const cTokenCollateral = await IDForceCToken__factory.connect(collateralCToken.address, deployer);
+      const cTokenBorrow = await IDForceCToken__factory.connect(borrowCToken.address, deployer);
 
-      const retCollateral = await cTokenCollateral.getAccountSnapshot(hfPoolAdapterTC.address);
-      const retBorrow = await cTokenBorrow.getAccountSnapshot(hfPoolAdapterTC.address);
+      const bBorrowBalance = await IDForceCToken__factory.connect(borrowCToken.address, deployer)
+        .borrowBalanceStored(dfPoolAdapterTC.address);
+      const cTokenBalance = await IDForceCToken__factory.connect(collateralCToken.address, deployer)
+        .balanceOf(dfPoolAdapterTC.address);
 
       return {
         userBalancesBeforeBorrow: beforeBorrow,
         userBalancesAfterBorrow: afterBorrow,
         userBalancesAfterRepay: afterRepay,
-        paCTokensBalance: await cTokenCollateral.balanceOf(hfPoolAdapterTC.address),
-        totalCollateralBase: retCollateral.tokenBalance,
-        totalDebtBase: retBorrow.borrowBalance
+        paCTokensBalance: await cTokenCollateral.balanceOf(dfPoolAdapterTC.address),
+        totalCollateralBase: cTokenBalance,
+        totalDebtBase: bBorrowBalance
       }
     }
     describe("Good paths", () =>{
@@ -366,10 +384,10 @@ describe("Hundred Finance integration tests, pool adapter", () => {
 
             const collateralAsset = MaticAddresses.DAI;
             const collateralHolder = MaticAddresses.HOLDER_DAI;
-            const collateralCTokenAddress = MaticAddresses.hDAI;
+            const collateralCTokenAddress = MaticAddresses.dForce_iDAI;
 
             const borrowAsset = MaticAddresses.USDC;
-            const borrowCTokenAddress = MaticAddresses.hUSDC;
+            const borrowCTokenAddress = MaticAddresses.dForce_iUSDC;
             const borrowHolder = MaticAddresses.HOLDER_USDC;
 
             const collateralToken = await TokenDataTypes.Build(deployer, collateralAsset);
@@ -395,36 +413,27 @@ describe("Hundred Finance integration tests, pool adapter", () => {
             );
 
             console.log(`collateralAmount=${collateralAmount}`);
-            console.log(`r.userBalancesAfterRepay.collateral=${r.userBalancesAfterRepay.collateral}`);
+            console.log(`r`, r);
             const sret = [
               r.userBalancesBeforeBorrow.collateral, r.userBalancesBeforeBorrow.borrow
               , r.userBalancesAfterBorrow.collateral, r.userBalancesAfterBorrow.borrow
               ,                                       r.userBalancesAfterRepay.borrow
-              , r.paCTokensBalance
-              , r.totalCollateralBase
-              , r.totalDebtBase
 
-              // returned collateral > original collateral ...
-              , r.userBalancesAfterRepay.collateral.gt(collateralAmount)
               // ... the difference is less than 1%
               , collateralAmount.sub(r.userBalancesAfterRepay.collateral)
                 .div(collateralAmount)
                 .mul(100).toNumber() < 1
               , r.userBalancesAfterRepay.borrow
-            ].map(x => BalanceUtils.toString(x)).join();
+            ].map(x => BalanceUtils.toString(x)).join("\n");
 
             const sexpected = [
               collateralAmount, 0
               , 0, borrowAmount
               ,                 0
-              , 0
-              , 0
-              , 0
 
-              , true // original collateral > returned collateral ...
               , true // the difference is less than 1%
               , 0
-            ].map(x => BalanceUtils.toString(x)).join();
+            ].map(x => BalanceUtils.toString(x)).join("\n");
 
             expect(sret).eq(sexpected);
           });

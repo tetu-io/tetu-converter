@@ -15,12 +15,15 @@ import "../../../interfaces/ITokenAddressProvider.sol";
 import "../../../integrations/dforce/IDForceCTokenMatic.sol";
 import "../../../integrations/IWmatic.sol";
 import "../../../integrations/dforce/IDForceInterestRateModel.sol";
+import "hardhat/console.sol";
 
 /// @notice Implementation of IPoolAdapter for dForce-protocol, see https://developers.dforce.network/
 /// @dev Instances of this contract are created using proxy-minimal pattern, so no constructor
 contract DForcePoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP {
   using SafeERC20 for IERC20;
 
+  /// @notice Max allowed difference for sumCollateralSafe - sumBorrowPlusEffects == liquidity
+  uint private constant DELTA = 100;
   address private constant WMATIC = address(0x0d500B1d8E8eF31E21C99d1Db9A6444d3ADf1270);
 
   address public collateralAsset;
@@ -181,20 +184,24 @@ contract DForcePoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP {
   }
 
   function _validateHealthStatusAfterBorrow(address cTokenCollateral_, address cTokenBorrow_) internal view {
-    (,, uint collateralBase, uint borrowBase,) = _getStatus(cTokenCollateral_, cTokenBorrow_);
-    (uint sumCollateralSafe, uint healthFactor18) = _getHealthFactor(cTokenCollateral_, collateralBase, borrowBase);
+    (,, uint collateralBase36, uint borrowBase36,) = _getStatus(cTokenCollateral_, cTokenBorrow_);
+    (uint sumCollateralSafe36,
+     uint healthFactor18
+    ) = _getHealthFactor(cTokenCollateral_, collateralBase36, borrowBase36);
 
-    (uint liquidity,,,) = _comptroller.calcAccountEquity(address(this));
+    // USD with 36 integer precision
+    // see https://developers.dforce.network/lend/lend-and-synth/controller#calcaccountequity
+    (uint liquidity36,,,) = _comptroller.calcAccountEquity(address(this));
 
     require(
-      sumCollateralSafe > borrowBase
-      && borrowBase > 0
+      sumCollateralSafe36 > borrowBase36
+      && borrowBase36 > 0
     // here we should have: sumCollateralSafe - sumBorrowPlusEffects == liquidity
-    // but it seems like round-error can happen, we can check only sumCollateralSafe - sumBorrowPlusEffects ~ liquidity
-    // let's ensure that liquidity has a reasonable value //TODO: remove this check at all?
-      && liquidity > (sumCollateralSafe - borrowBase) / 2
-      , AppErrors.HF_INCORRECT_RESULT_LIQUIDITY
+      && liquidity36 + DELTA >= sumCollateralSafe36 - borrowBase36
+      , AppErrors.INCORRECT_RESULT_LIQUIDITY
     );
+    console.log("liquidity", liquidity36);
+    console.log("(sumCollateralSafe - borrowBase)", (sumCollateralSafe36 - borrowBase36) );
 
     _validateHealthFactor(healthFactor18);
   }
@@ -211,6 +218,7 @@ contract DForcePoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP {
     bool closePosition_
   ) external override {
     _onlyUserOrTC();
+    console.log("REPAY", amountToRepay_, closePosition_ ? 1 : 0);
 
     address assetBorrow = borrowAsset;
     address assetCollateral = collateralAsset;
@@ -240,11 +248,14 @@ contract DForcePoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP {
       IERC20(assetBorrow).approve(cTokenBorrow, 0);
       IERC20(assetBorrow).approve(cTokenBorrow, amountToRepay_);
       IDForceCToken(cTokenBorrow).repayBorrow(amountToRepay_);
+      console.log("repayBorrow", amountToRepay_);
     }
 
     // withdraw the collateral
     uint balanceCollateralAsset = _getBalance(assetCollateral);
     IDForceCToken(cTokenCollateral).redeem(address(this), collateralTokensToWithdraw);
+    console.log("balanceCollateralAsset", balanceCollateralAsset);
+    console.log("collateralTokensToWithdraw", collateralTokensToWithdraw);
 
     // transfer collateral back to the user
     uint amountToReturn = _getBalance(assetCollateral) - balanceCollateralAsset;
@@ -252,6 +263,7 @@ contract DForcePoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP {
       IWmatic(WMATIC).deposit{value : amountToReturn}();
     }
     IERC20(assetCollateral).safeTransfer(receiver_, amountToReturn);
+    console.log("amountToReturn", amountToReturn);
 
     // validate result status
     (uint tokenBalance,
@@ -259,6 +271,8 @@ contract DForcePoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP {
      uint collateralBase,
      uint sumBorrowPlusEffects,
     ) = _getStatus(cTokenCollateral, cTokenBorrow);
+    console.log("status", tokenBalance, borrowBalance, collateralBase);
+    console.log("sumBorrowPlusEffects", sumBorrowPlusEffects);
 
     if (tokenBalance == 0 && borrowBalance == 0) {
       IDebtMonitor(controller.debtMonitor()).onClosePosition();
@@ -285,6 +299,7 @@ contract DForcePoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP {
     uint borrowBalance = IDForceCToken(cTokenBorrow_).borrowBalanceStored(address(this));
     require(borrowBalance != 0 && amountToRepay_ <= borrowBalance, AppErrors.WRONG_BORROWED_BALANCE);
 
+    console.log("_getCollateralTokensToRedeem", tokenBalance, amountToRepay_, borrowBalance);
     return tokenBalance * amountToRepay_ / borrowBalance;
   }
 
@@ -312,20 +327,26 @@ contract DForcePoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP {
 
     ( uint collateralTokens,
       uint borrowBalance,
-      uint collateralBase,
-      uint borrowBase,
+      uint collateralBase36,
+      uint borrowBase36,
       uint priceCollateral
     ) = _getStatus(cTokenCollateral, cTokenBorrow);
 
     (, healthFactor18) = _getHealthFactor(
       cTokenCollateral,
-      collateralBase,
-      borrowBase
+      collateralBase36,
+      borrowBase36
     );
+
+    console.log("getStatus");
+    console.log("collateralTokens", collateralTokens);
+    console.log("borrowBalance", borrowBalance);
+    console.log("collateralBase36", collateralBase36);
+    console.log("borrowBase36", borrowBase36);
 
     return (
     // Total amount of provided collateral in [collateral asset]
-      collateralBase / priceCollateral,
+      collateralBase36 / priceCollateral,
     // Total amount of borrowed debt in [borrow asset]. 0 - for closed borrow positions.
       borrowBalance,
     // Current health factor, decimals 18
@@ -336,13 +357,13 @@ contract DForcePoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP {
 
   /// @return tokenBalance Count of collateral tokens on balance
   /// @return borrowBalance Borrow amount [borrow asset units]
-  /// @return collateralAmountBASE Total collateral in base currency
-  /// @return sumBorrowBASE Total borrow amount in base currency
+  /// @return collateralAmountBase36 Total collateral in base currency, decimals 36
+  /// @return sumBorrowBase36 Total borrow amount in base currency, decimals 36
   function _getStatus(address cTokenCollateral_, address cTokenBorrow_) internal view returns (
     uint tokenBalance,
     uint borrowBalance,
-    uint collateralAmountBASE,
-    uint sumBorrowBASE,
+    uint collateralAmountBase36,
+    uint sumBorrowBase36,
     uint outPriceCollateral
   ) {
     // Calculate value of all collaterals, see ControllerV2.calcAccountEquityWithEffect
@@ -355,7 +376,7 @@ contract DForcePoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP {
     (uint underlyingPrice, bool isPriceValid) = _priceOracle.getUnderlyingPriceAndStatus(address(cTokenCollateral_));
     require(underlyingPrice != 0 && isPriceValid, AppErrors.ZERO_PRICE);
 
-    collateralAmountBASE = tokenBalance * underlyingPrice * exchangeRateMantissa / 10**18;
+    collateralAmountBase36 = tokenBalance * underlyingPrice * exchangeRateMantissa / 10**18;
 
     // Calculate all borrowed value, see ControllerV2.calcAccountEquityWithEffect
     // borrowValue = underlyingPrice * underlyingBorrowed / borrowFactor
@@ -365,9 +386,9 @@ contract DForcePoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP {
     (underlyingPrice, isPriceValid) = _priceOracle.getUnderlyingPriceAndStatus(address(cTokenBorrow_));
     require(underlyingPrice != 0 && isPriceValid, AppErrors.ZERO_PRICE);
 
-    sumBorrowBASE = borrowBalance * underlyingPrice;
+    sumBorrowBase36 = borrowBalance * underlyingPrice;
 
-    return (tokenBalance, borrowBalance, collateralAmountBASE, sumBorrowBASE, underlyingPrice);
+    return (tokenBalance, borrowBalance, collateralAmountBase36, sumBorrowBase36, underlyingPrice);
   }
 
   function getConversionKind() external pure override returns (AppDataTypes.ConversionKind) {
@@ -383,19 +404,19 @@ contract DForcePoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP {
   ///////////////////////////////////////////////////////
   ///         Utils
   ///////////////////////////////////////////////////////
-  function _getHealthFactor(address cTokenCollateral_, uint sumCollateralBase_, uint sumBorrowBase_)
+  function _getHealthFactor(address cTokenCollateral_, uint sumCollateralBase36_, uint sumBorrowBase36_)
   internal view returns (
-    uint sumCollateralSafe,
+    uint sumCollateralSafe36,
     uint healthFactor18
   ) {
     (uint collateralFactorMantissa,,,,,,) = _comptroller.markets(cTokenCollateral_);
 
-    sumCollateralSafe = collateralFactorMantissa * sumCollateralBase_ / 10**18;
+    sumCollateralSafe36 = collateralFactorMantissa * sumCollateralBase36_ / 10**18;
 
-    healthFactor18 = sumBorrowBase_ == 0
+    healthFactor18 = sumBorrowBase36_ == 0
       ? type(uint).max
-      : sumCollateralSafe * 10**18 / sumBorrowBase_;
-    return (sumCollateralSafe, healthFactor18);
+      : sumCollateralSafe36 * 10**18 / sumBorrowBase36_;
+    return (sumCollateralSafe36, healthFactor18);
   }
 
   function _validateHealthFactor(uint hf18) internal view {

@@ -41,7 +41,7 @@ library AppErrors {
   string public constant BORROW_FAILED = "TC-20";
   string public constant CTOKEN_GET_ACCOUNT_SNAPSHOT_FAILED = "TC-21";
   string public constant CTOKEN_GET_ACCOUNT_LIQUIDITY_FAILED = "TC-22";
-  string public constant HF_INCORRECT_RESULT_LIQUIDITY = "TC-23";
+  string public constant INCORRECT_RESULT_LIQUIDITY = "TC-23";
   string public constant CLOSE_POSITION_FAILED = "TC-24";
   string public constant CONVERTER_NOT_FOUND = "TC-25";
   string public constant REDEEM_FAILED = "TC-26";

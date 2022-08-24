@@ -196,6 +196,24 @@ contract Borrower is IBorrower {
     console.log("requireReconversion end gasleft", gasleft());
   }
 
+  function requireRepay(address poolAdapter) external override {
+    console.log("requireRepay start poolAdapter, gasleft", poolAdapter, gasleft());
+    IPoolAdapter pa = IPoolAdapter(poolAdapter);
+
+    // get amount to pay
+    (,uint amountToPay,,) = pa.getStatus();
+    (,,, address borrowAsset) = pa.getConfig();
+    console.log("requireRepay amountToPay=", amountToPay);
+    console.log("requireRepay borrowAsset=", borrowAsset);
+
+    // transfer borrowed amount directly to the Pool Adapter
+    pa.syncBalance(false);
+    require(IERC20(borrowAsset).balanceOf(address(this)) >= amountToPay, "not enough balance of borrow asset");
+    IERC20(borrowAsset).safeTransfer(poolAdapter, amountToPay);
+
+    console.log("requireRepay end gasleft", gasleft());
+  }
+
   ///////////////////////////////////////////////////////
   ///        Pre-initialize pool adapter
   ///////////////////////////////////////////////////////
