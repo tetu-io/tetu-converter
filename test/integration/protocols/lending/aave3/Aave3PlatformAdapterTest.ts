@@ -147,6 +147,19 @@ describe("Aave-v3 integration tests, platform adapter", () => {
           : collateralAssetData.data.emodeCategory == 0 || borrowAssetData.data.emodeCategory == 0,
       ].map(x => BalanceUtils.toString(x)) .join("\n");
 
+      let expectedMaxAmountToBorrow = BigNumber.from(borrowAssetData.liquidity.totalAToken)
+        .sub(borrowAssetData.liquidity.totalVariableDebt)
+        .sub(borrowAssetData.liquidity.totalStableDebt);
+      if (!collateralAssetData.data.debtCeiling.eq(0)) {
+        // isolation mode
+        expectedMaxAmountToBorrow =
+          collateralAssetData.data.debtCeiling
+            .sub(collateralAssetData.data.isolationModeTotalDebt)
+            .mul(
+              getBigNumberFrom(1, collateralAssetData.data.decimals - 2)
+            );
+      }
+
       let expectedMaxAmountToSupply = BigNumber.from(2).pow(256).sub(1); // == type(uint).max
       if (! collateralAssetData.data.supplyCap.eq(0)) {
         // see sources of AAVE3\ValidationLogic.sol\validateSupply
@@ -176,9 +189,7 @@ describe("Aave-v3 integration tests, platform adapter", () => {
         )
           .mul(getBigNumberFrom(1, 18))
           .div(getBigNumberFrom(1, 4)),
-        BigNumber.from(borrowAssetData.liquidity.totalAToken)
-          .sub(borrowAssetData.liquidity.totalVariableDebt)
-          .sub(borrowAssetData.liquidity.totalStableDebt),
+        expectedMaxAmountToBorrow,
         expectedMaxAmountToSupply,
         true,
       ].map(x => BalanceUtils.toString(x)) .join("\n");

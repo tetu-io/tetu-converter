@@ -73,6 +73,7 @@ describe("Aave-v2 integration tests, pool adapter", () => {
       console.log("dm", dm.address);
       await controller.setBorrowManager(bm.address);
       await controller.setDebtMonitor(dm.address);
+      await controller.setTetuConverter(tetuConveterStab.address);
 
       // collateral asset
       await collateralToken.token
@@ -288,6 +289,7 @@ describe("Aave-v2 integration tests, pool adapter", () => {
       console.log("bm", bm.address);
       await controller.setBorrowManager(bm.address);
       await controller.setDebtMonitor(dm.address);
+      await controller.setTetuConverter(tetuConveterStab.address);
 
       // collateral asset
       await collateralToken.token

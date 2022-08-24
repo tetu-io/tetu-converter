@@ -79,6 +79,7 @@ describe("Aave-v3 integration tests, pool adapter", () => {
       const bm = await MocksHelper.createBorrowManagerStub(deployer, true);
       await controller.setBorrowManager(bm.address);
       await controller.setDebtMonitor(dm.address);
+      await controller.setTetuConverter(tetuConveterStab.address);
 
       // collateral asset
       await collateralToken.token
@@ -522,6 +523,7 @@ describe("Aave-v3 integration tests, pool adapter", () => {
       console.log("bm", bm.address);
       await controller.setBorrowManager(bm.address);
       await controller.setDebtMonitor(dm.address);
+      await controller.setTetuConverter(tetuConveterStab.address);
 
       // collateral asset
       await collateralToken.token
