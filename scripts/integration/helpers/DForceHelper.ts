@@ -379,11 +379,12 @@ export class DForceHelper {
       : BigNumber.from(0);
 
     console.log("block", currentBlock);
-    console.log("supplyStateBlock", stateBlock);
-    console.log("supplyStateIndex", stateIndex);
-    console.log("supplySpeed", distributionSpeed);
+    console.log("stateBlock", stateBlock);
+    console.log("stateIndex", stateIndex);
+    console.log("distributionSpeed", distributionSpeed);
     console.log("totalDistributed", totalDistributed);
     console.log("distributedPerToken", distributedPerToken);
+    console.log("Next state index=", stateIndex.add(distributedPerToken));
 
     // state.index = state.index.add(_distributedPerToken);
     return stateIndex.add(distributedPerToken);
@@ -405,6 +406,68 @@ export class DForceHelper {
     console.log("accountBalance", accountBalance);
 
     return amount;
+  }
+
+  public static getSupplyRewardsAmount(
+    marketData: IDForceMarketRewards,
+    accountData: IDForceMarketAccount,
+    totalSupply: BigNumber,
+    block: BigNumber
+  ) : {
+    rewardsAmount: BigNumber,
+    newSupplyStateIndex: BigNumber
+  } {
+    // manually calculate rewards for user 1
+    const supplyStateBlock = marketData.distributionSupplyState_Block;
+    const supplyStateIndex = marketData.distributionSupplyState_Index;
+    const supplySpeed = marketData.distributionSupplySpeed;
+
+    const newSupplyStateIndex = DForceHelper.calcDistributionStateSupply(
+      block,
+      supplyStateBlock,
+      supplyStateIndex,
+      supplySpeed,
+      totalSupply
+    );
+
+    const iTokenIndex = newSupplyStateIndex; // distributionSupplyState[_iToken].index;
+    const accountIndex = accountData.distributionSupplierIndex;
+    const accountBalance = accountData.accountBalance;
+
+    const rewardsAmount = this.calcUpdateRewards(iTokenIndex, accountIndex, accountBalance);
+    return {rewardsAmount, newSupplyStateIndex};
+  }
+
+  public static getBorrowRewardsAmount(
+    marketData: IDForceMarketRewards,
+    accountData: IDForceMarketAccount,
+    totalBorrows: BigNumber,
+    borrowIndex: BigNumber,
+    borrowBalanceStored: BigNumber,
+    block: BigNumber
+  ) : {
+    rewardsAmount: BigNumber,
+    newBorrowStateIndex: BigNumber
+  } {
+    // manually calculate rewards for user 1
+    const borrowStateBlock = marketData.distributionBorrowState_Block;
+    const borrowStateIndex = marketData.distributionBorrowState_Index;
+    const borrowSpeed = marketData.distributionSpeed;
+
+    const newBorrowStateIndex = DForceHelper.calcDistributionStateSupply(
+      block,
+      borrowStateBlock,
+      borrowStateIndex,
+      borrowSpeed,
+      this.getTotalTokenForBorrowCase(totalBorrows, borrowIndex)
+    );
+
+    const iTokenIndex = newBorrowStateIndex;
+    const accountIndex = accountData.distributionBorrowerIndex;
+    const accountBalance = this.rdiv(borrowBalanceStored, borrowIndex);
+
+    const rewardsAmount = this.calcUpdateRewards(iTokenIndex, accountIndex, accountBalance);
+    return {rewardsAmount, newBorrowStateIndex};
   }
 //endregion Rewards calculations
 
