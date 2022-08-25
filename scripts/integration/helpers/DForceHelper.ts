@@ -100,6 +100,13 @@ export interface IDForceMarketRewards {
   paused: boolean;
 }
 
+export interface IDForceMarketAccount {
+  distributionSupplierIndex: BigNumber;
+  distributionBorrowerIndex: BigNumber;
+  accountBalance: BigNumber;
+  rewards: BigNumber;
+}
+
 //endregion Data types
 
 export class DForceHelper {
@@ -150,7 +157,7 @@ export class DForceHelper {
       controller: await cToken.controller(),
       ctoken: cToken.address,
       underlying: cToken.address == MaticAddresses.dForce_iMATIC
-        ? "" //iMatic doesn't support CErc20Storage and doesn't have underlying property
+        ? "" // iMatic doesn't support CErc20Storage and doesn't have underlying property
         : await cToken.underlying(),
       name: await cToken.name(),
       symbol: await cToken.symbol(),
@@ -236,6 +243,20 @@ export class DForceHelper {
 //endregion Get data for script
 
 //region Rewards
+  public static async getMarketAccountRewardsInfo(
+    controller: IDForceController,
+    rd: IDForceRewardDistributor,
+    cToken: IDForceCToken,
+    account: string
+  ) : Promise<IDForceMarketAccount> {
+    return {
+      accountBalance: await cToken.balanceOf(account),
+      rewards: await rd.reward(account),
+      distributionSupplierIndex: await rd.distributionSupplierIndex(cToken.address, account),
+      distributionBorrowerIndex: await rd.distributionBorrowerIndex(cToken.address, account),
+    }
+  }
+
   public static async getRewardsForMarket(
     controller: IDForceController,
     rd: IDForceRewardDistributor,
@@ -331,25 +352,41 @@ export class DForceHelper {
 //endregion Rewards
 
 //region Rewards calculations
+
+  /**
+   * Calculate totalToken value for borrow case.
+   *
+   * See LendingContractsV2, RewardDistributorV3.sol, _updateDistributionState
+   * */
+  public static getTotalTokenForBorrowCase(totalBorrows: BigNumber, borrowIndex: BigNumber) : BigNumber {
+    return this.rdiv(totalBorrows, borrowIndex);
+  }
+
   /** See LendingContractsV2, RewardDistributorV3.sol, _updateDistributionState */
-  public static calcDistributionState(
-    block: BigNumber,
-    supplyStateBlock: BigNumber,
-    supplyStateIndex: BigNumber,
-    supplySpeed: BigNumber,
-    totalSupply: BigNumber,
+  public static calcDistributionStateSupply(
+    currentBlock: BigNumber,
+    stateBlock: BigNumber,
+    stateIndex: BigNumber,
+    distributionSpeed: BigNumber,
+    totalToken: BigNumber,
   ) : BigNumber {
     // uint256 _totalDistributed = _speed.mul(_deltaBlocks);
-    const totalDistributed = supplySpeed.mul(block.sub(supplyStateBlock));
+    const totalDistributed = distributionSpeed.mul(currentBlock.sub(stateBlock));
 
     // uint256 _distributedPerToken = _totalToken > 0 ? _totalDistributed.rdiv(_totalToken) : 0;
-    const totalToken = totalSupply;
     const distributedPerToken = totalToken.gt(0)
       ? this.rdiv(totalDistributed, totalToken)
       : BigNumber.from(0);
 
+    console.log("block", currentBlock);
+    console.log("supplyStateBlock", stateBlock);
+    console.log("supplyStateIndex", stateIndex);
+    console.log("supplySpeed", distributionSpeed);
+    console.log("totalDistributed", totalDistributed);
+    console.log("distributedPerToken", distributedPerToken);
+
     // state.index = state.index.add(_distributedPerToken);
-    return supplyStateIndex.add(distributedPerToken);
+    return stateIndex.add(distributedPerToken);
   }
 
   /** See LendingContractsV2, RewardDistributorV3.sol, _updateReward */
@@ -363,6 +400,9 @@ export class DForceHelper {
 
     // uint256 _amount = _accountBalance.rmul(_deltaIndex);
     const amount = this.rmul(accountBalance, deltaIndex);
+    console.log("iTokenIndex", iTokenIndex);
+    console.log("accountIndex", accountIndex);
+    console.log("accountBalance", accountBalance);
 
     return amount;
   }

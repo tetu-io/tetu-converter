@@ -1,9 +1,8 @@
 import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
-import {ethers} from "hardhat";
+import hre, {ethers} from "hardhat";
 import {TimeUtils} from "../../../../../scripts/utils/TimeUtils";
 import {
-  IDForceCToken__factory, IERC20__factory, PoolAdapterMock,
-  DForceRewardAmountDetector
+  IDForceCToken__factory
 } from "../../../../../typechain";
 import {expect} from "chai";
 import {BigNumber} from "ethers";
@@ -13,7 +12,6 @@ import {isPolygonForkInUse} from "../../../../baseUT/utils/NetworkUtils";
 import {MaticAddresses} from "../../../../../scripts/addresses/MaticAddresses";
 import {TokenDataTypes} from "../../../../baseUT/types/TokenDataTypes";
 import {DForceHelper, IDForceMarketRewards} from "../../../../../scripts/integration/helpers/DForceHelper";
-import {DeployUtils} from "../../../../../scripts/utils/DeployUtils";
 
 /**
  * Supply amount => claim rewards in specified period
@@ -79,56 +77,97 @@ describe("DForce rewards tests", () => {
       const cToken = IDForceCToken__factory.connect(cToken1.address, deployer);
 
       const rewardsDataBefore = await DForceHelper.getRewardsForMarket(comptroller, rd, cToken);
-      console.log("rewardsDataBefore", rewardsDataBefore);
+      const accountDataBefore = await DForceHelper.getMarketAccountRewardsInfo(comptroller, rd, cToken, user1.address);
+      console.log("rewardsDataBefore", rewardsDataBefore, accountDataBefore);
       const rewardsBefore = await rd.reward(user1.address);
       const rewardsBeforeUser2 = await rd.reward(user2.address);
       console.log(`rewardsBefore user1=${rewardsBefore} user2=${rewardsBeforeUser2}`);
 
-      const totalSupply = await cToken.totalSupply();
+      const totalSupplyBefore = await cToken.totalSupply();
+      console.log("totalSupply", totalSupplyBefore);
 
       // user 1: first supply token 1
       await DForceHelper.supply(user1, asset1, cToken1, holder1, collateralAmount1);
+      await rd.updateDistributionState(cToken1.address, false);
+      await rd.updateReward(cToken1.address, user1.address, false);
+
       // // user 2: borrow token 1
       // await DForceHelper.supply(user2, asset2, cToken2, holder2, collateralAmount2);
       // await DForceHelper.borrow(user2, cToken1, borrowAmount1);
 
-      const rewardsDataAfterSupply = await DForceHelper.getRewardsForMarket(comptroller, rd, cToken);
-      console.log("rewardsDataAfterSupply", rewardsDataAfterSupply);
+      const rewardsDataMiddle = await DForceHelper.getRewardsForMarket(comptroller, rd, cToken);
+      const accountDataMiddle = await DForceHelper.getMarketAccountRewardsInfo(comptroller, rd, cToken, user1.address);
+      const currentBlockMiddle = (await hre.ethers.provider.getBlock("latest")).number;
+      console.log("rewardsDataMiddle", rewardsDataMiddle, accountDataMiddle);
+      console.log("Current block", currentBlockMiddle);
+      const totalSupplyMiddle = await cToken.totalSupply();
+      console.log("totalSupplyMiddle", totalSupplyMiddle);
 
       await TimeUtils.advanceNBlocks(periodInBlocks);
+      const currentBlockAfterAdvance = (await hre.ethers.provider.getBlock("latest")).number;
+      console.log("Current block", currentBlockAfterAdvance);
+      const totalSupplyAfterAdvance = await cToken.totalSupply();
+      console.log("totalSupplyAfterAdvance", totalSupplyAfterAdvance);
 
       // // user 2: repay the borrow
       // await DForceHelper.repayAll(user2, asset1, cToken1, holder1);
 
       // forced update rewards
       await rd.updateDistributionState(cToken1.address, false);
+      const rewardsDataAfterUDS = await DForceHelper.getRewardsForMarket(comptroller, rd, cToken);
+      const accountDataAfterUDS = await DForceHelper.getMarketAccountRewardsInfo(comptroller, rd, cToken, user1.address);
+      const currentBlockAfterUDS = (await hre.ethers.provider.getBlock("latest")).number;
+      console.log("rewardsDataAfterUDS", rewardsDataAfterUDS, accountDataAfterUDS);
+      console.log("Current block", currentBlockAfterUDS);
+
       await rd.updateReward(cToken1.address, user1.address, false);
-      await rd.updateReward(cToken1.address, user2.address, false);
+//      await rd.updateReward(cToken1.address, user2.address, false);
 
       const rewardsDataAfter = await DForceHelper.getRewardsForMarket(comptroller, rd, cToken);
-      console.log("rewardsDataAfter", rewardsDataAfter);
+      const accountDataAfter = await DForceHelper.getMarketAccountRewardsInfo(comptroller, rd, cToken, user1.address);
+      console.log("rewardsDataAfter", rewardsDataAfter, accountDataAfter);
+      console.log("totalSupplyBefore", totalSupplyBefore);
+      console.log("Current block", (await hre.ethers.provider.getBlock("latest")).number);
+      const totalSupplyAfter = await cToken.totalSupply();
+      console.log("totalSupplyAfter", totalSupplyAfter);
 
       const rewardsAfter = await rd.reward(user1.address);
       const rewardsAfterUser2 = await rd.reward(user2.address);
-      
+
       console.log(`rewardsAfter user1=${rewardsAfter} user2=${rewardsAfterUser2}`);
       console.log(`+rewards user1=${rewardsAfter.sub(rewardsBefore)} user2=${rewardsAfterUser2.sub(rewardsBeforeUser2)}`);
 
       // manually calculate rewards for user 1
-      const newSupplyStateIndex = DForceHelper.calcDistributionState(
-        rewardsDataAfter.distributionSupplyState_Block,
-        rewardsDataAfterSupply.distributionSupplyState_Block,
-        rewardsDataAfterSupply.distributionSupplyState_Index,
-        rewardsDataAfterSupply.distributionSupplySpeed,
+      const block = BigNumber.from(currentBlockAfterUDS);//rewardsDataAfterUDS.distributionSupplyState_Block;
+      const expectedNewSupplyStateIndex = rewardsDataAfter.distributionSupplyState_Index;
+
+      const supplyStateBlock = rewardsDataMiddle.distributionSupplyState_Block;
+      const supplyStateIndex = rewardsDataMiddle.distributionSupplyState_Index;
+      const supplySpeed = rewardsDataMiddle.distributionSupplySpeed;
+      const totalSupply = totalSupplyMiddle;
+
+      const newSupplyStateIndex = DForceHelper.calcDistributionStateSupply(
+        block,
+        supplyStateBlock,
+        supplyStateIndex,
+        supplySpeed,
         totalSupply
       );
+      const base = getBigNumberFrom(1, 18);
+      const deltaB = expectedNewSupplyStateIndex.sub(supplyStateIndex)
+        .mul(totalSupply)
+        .div(supplySpeed);
+      console.log("deltaB*1e18", deltaB);
+      console.log("block", deltaB.div(base).add(supplyStateBlock));
 
-      const rewardsAmount = DForceHelper.calcUpdateRewards(
-        newSupplyStateIndex,
-        await rd.distributionSupplierIndex(cToken1.address, user1.address),
-        await cToken.balanceOf(user1.address)
-      );
-      console.log(`Manual calculations: newSupplyStateIndex=${newSupplyStateIndex} rewardsAmount=${rewardsAmount}`);
+
+      const iTokenIndex = newSupplyStateIndex; // distributionSupplyState[_iToken].index;
+      const accountIndex = accountDataMiddle.distributionSupplierIndex;
+      const accountBalance = accountDataMiddle.accountBalance;
+      const rewardsAmount = DForceHelper.calcUpdateRewards(iTokenIndex, accountIndex, accountBalance);
+
+      console.log(`Manual calculations: newSupplyStateIndex=${newSupplyStateIndex} rewardsAmount=${rewardsAmount} rewardsAmount+init=${accountDataMiddle.rewards.add(rewardsAmount)}` );
+      console.log(`Actual values: newSupplyStateIndex=${rewardsDataAfter.distributionSupplyState_Index} rewardsAmount=${rewardsAfter}`);
 
       return {
         rewardsAfterSupply: rewardsBefore,
@@ -184,7 +223,7 @@ describe("DForce rewards tests", () => {
 
             const expected = [
               0,
-              111
+              1
             ].join("\n");
 
             expect(ret).eq(expected);
