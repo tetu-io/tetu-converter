@@ -17,9 +17,6 @@ import {DForceHelper} from "../../../../../scripts/integration/helpers/DForceHel
 import {areAlmostEqual} from "../../../../baseUT/utils/CommonUtils";
 
 describe("Hundred finance integration tests, platform adapter", () => {
-//region Constants
-//endregion Constants
-
 //region Global vars for all tests
   let snapshot: string;
   let snapshotForEach: string;
@@ -91,6 +88,39 @@ describe("Hundred finance integration tests, platform adapter", () => {
     }
   }
 //endregion IPlatformActor impl
+
+//region Test predict-br impl
+  async function makePredictBrTest(
+    collateralAsset: string,
+    collateralCToken: string,
+    borrowAsset: string,
+    borrowCToken: string,
+    collateralHolders: string[],
+    part10000: number
+  ) : Promise<{br: BigNumber, brPredicted: BigNumber}> {
+    const collateralToken = IDForceCToken__factory.connect(collateralCToken, deployer);
+    const borrowToken = IDForceCToken__factory.connect(borrowCToken, deployer);
+    const comptroller = await DForceHelper.getController(deployer);
+    const templateAdapterNormalStub = ethers.Wallet.createRandom();
+
+    return await PredictBrUsesCase.makeTest(
+      deployer,
+      new DForcePlatformActor(collateralToken, borrowToken, comptroller),
+      async controller => await AdaptersHelper.createHundredFinancePlatformAdapter(
+        deployer,
+        controller.address,
+        comptroller.address,
+        templateAdapterNormalStub.address,
+        [collateralCToken, borrowCToken],
+        MaticAddresses.HUNDRED_FINANCE_ORACLE
+      ),
+      collateralAsset,
+      borrowAsset,
+      collateralHolders,
+      part10000
+    );
+  }
+//endregion Test predict-br impl
 
 //region Unit tests
   describe("getConversionPlan", () => {
@@ -173,37 +203,6 @@ describe("Hundred finance integration tests, platform adapter", () => {
 
   describe("getBorrowRateAfterBorrow", () => {
     describe("Good paths", () => {
-      async function makeTest(
-        collateralAsset: string,
-        collateralCToken: string,
-        borrowAsset: string,
-        borrowCToken: string,
-        collateralHolders: string[],
-        part10000: number
-      ) : Promise<{br: BigNumber, brPredicted: BigNumber}> {
-        const collateralToken = IDForceCToken__factory.connect(collateralCToken, deployer);
-        const borrowToken = IDForceCToken__factory.connect(borrowCToken, deployer);
-        const comptroller = await DForceHelper.getController(deployer);
-        const templateAdapterNormalStub = ethers.Wallet.createRandom();
-
-        return await PredictBrUsesCase.makeTest(
-          deployer,
-          new DForcePlatformActor(collateralToken, borrowToken, comptroller),
-          async controller => await AdaptersHelper.createHundredFinancePlatformAdapter(
-            deployer,
-            controller.address,
-            comptroller.address,
-            templateAdapterNormalStub.address,
-            [collateralCToken, borrowCToken],
-            MaticAddresses.HUNDRED_FINANCE_ORACLE
-          ),
-          collateralAsset,
-          borrowAsset,
-          collateralHolders,
-          part10000
-        );
-      }
-
       describe("small amount DAI => USDC", () => {
         it("Predicted borrow rate should be same to real rate after the borrow", async () => {
           const collateralAsset = MaticAddresses.DAI;
@@ -221,7 +220,7 @@ describe("Hundred finance integration tests, platform adapter", () => {
           ];
           const part10000 = 1;
 
-          const r = await makeTest(
+          const r = await makePredictBrTest(
             collateralAsset
             , collateralCToken
             , borrowAsset
@@ -252,7 +251,7 @@ describe("Hundred finance integration tests, platform adapter", () => {
           ];
           const part10000 = 500;
 
-          const r = await makeTest(
+          const r = await makePredictBrTest(
             collateralAsset
             , collateralCToken
             , borrowAsset
@@ -284,7 +283,7 @@ describe("Hundred finance integration tests, platform adapter", () => {
           ];
           const part10000 = 500;
 
-          const r = await makeTest(
+          const r = await makePredictBrTest(
             collateralAsset
             , collateralCToken
             , borrowAsset

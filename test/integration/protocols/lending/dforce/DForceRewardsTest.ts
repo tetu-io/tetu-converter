@@ -369,9 +369,7 @@ describe("DForce rewards tests", () => {
 //endregion Borrow-test-impl
 
 //region Unit tests
-  describe("borrow", () => {
-
-
+  describe("Rewards manual calculations", () => {
     describe("Good paths", () => {
       describe("Supply amount and claim supply-rewards", () => {
         describe("DAI-18 : usdc-6", () => {
@@ -410,7 +408,7 @@ describe("DForce rewards tests", () => {
           });
         });
       });
-      describe("Supply amount1, borrow amount2, claim both rewards", () => {
+      describe("Supply, borrow, repay, claim supply- and borrow-rewards", () => {
         describe("DAI-18 : usdc-6", () => {
           it("should return expected amount of rewards", async () => {
             if (!await isPolygonForkInUse()) return;
