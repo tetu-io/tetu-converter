@@ -1,0 +1,405 @@
+import {TokenDataTypes} from "../../types/TokenDataTypes";
+import {BigNumber} from "ethers";
+import {DeployerUtils} from "../../../../scripts/utils/DeployerUtils";
+import hre, {ethers} from "hardhat";
+import {
+  DForceHelper,
+  IDForceMarketAccount,
+  IDForceMarketRewards
+} from "../../../../scripts/integration/helpers/DForceHelper";
+import {
+  IDForceController, IDForceCToken,
+  IDForceCToken__factory,
+  IDForceRewardDistributor,
+  IERC20__factory
+} from "../../../../typechain";
+import {TimeUtils} from "../../../../scripts/utils/TimeUtils";
+import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
+
+//region Data types
+export interface ISnapshot {
+  market: IDForceMarketRewards;
+  account: IDForceMarketAccount;
+  totalSupply: BigNumber;
+  rewards: BigNumber;
+  block: BigNumber;
+}
+
+export interface ISnapshotBorrowToken {
+  market: IDForceMarketRewards;
+  account: IDForceMarketAccount;
+  totalBorrows: BigNumber;
+  borrowIndex: BigNumber;
+  borrowBalanceStored: BigNumber;
+  rewards: BigNumber;
+  block: BigNumber;
+}
+
+export interface IRewardsStateC {
+  supplyRewardsAmount: BigNumber;
+  newSupplyStateIndex: BigNumber;
+}
+
+export interface IRewardsStateB {
+  borrowRewardsAmount: BigNumber;
+  newBorrowStateIndex: BigNumber;
+}
+//endregion Data types
+
+export class SupplyBorrowUsingDForce {
+
+//region Utils
+  static async getState(
+    comptroller: IDForceController
+    , rd: IDForceRewardDistributor
+    , cToken: IDForceCToken
+    , user: string
+  ) : Promise<ISnapshot> {
+    const priceOracle = await DForceHelper.getPriceOracle(comptroller
+      , await DeployerUtils.startImpersonate(user)
+    );
+    const market = await DForceHelper.getRewardsForMarket(comptroller, rd, cToken, priceOracle);
+    const account = await DForceHelper.getMarketAccountRewardsInfo(comptroller, rd, cToken, user);
+    const rewards = await rd.reward(user);
+    const totalSupply = await cToken.totalSupply();
+    const block = BigNumber.from( (await hre.ethers.provider.getBlock("latest")).number );
+    return {
+      market,
+      account,
+      totalSupply,
+      rewards,
+      block
+    };
+  }
+
+  static async getStateBorrowToken(
+    comptroller: IDForceController
+    , rd: IDForceRewardDistributor
+    , cToken: IDForceCToken
+    , user: string
+  ) : Promise<ISnapshotBorrowToken> {
+    const priceOracle = await DForceHelper.getPriceOracle(comptroller
+      , await DeployerUtils.startImpersonate(user)
+    );
+    const market = await DForceHelper.getRewardsForMarket(comptroller, rd, cToken, priceOracle);
+    const account = await DForceHelper.getMarketAccountRewardsInfo(comptroller, rd, cToken, user);
+    const rewards = await rd.reward(user);
+    const block = BigNumber.from( (await hre.ethers.provider.getBlock("latest")).number );
+    const totalBorrows = await cToken.totalBorrows();
+    const borrowIndex = await cToken.borrowIndex();
+    const borrowBalanceStored = await cToken.borrowBalanceStored(user);
+    return {
+      market,
+      account,
+      totalBorrows,
+      borrowIndex,
+      borrowBalanceStored,
+      rewards,
+      block
+    };
+  }
+
+  static async getRewardsStateC(
+    st: ISnapshot,
+    block: BigNumber
+  ) : Promise<IRewardsStateC> {
+    const r0 = DForceHelper.getSupplyRewardsAmount(
+      st.market
+      , st.account
+      , st.totalSupply
+      , block
+    );
+    return {
+      supplyRewardsAmount: r0.rewardsAmount,
+      newSupplyStateIndex: r0.newSupplyStateIndex,
+    }
+  }
+
+  static async getRewardsStateB(
+    stb: ISnapshotBorrowToken,
+    block: BigNumber,
+    borrowIndex: BigNumber,
+    borrowBalanceStored: BigNumber,
+    totalBorrows: BigNumber
+  ) : Promise<IRewardsStateB> {
+    const r1 = DForceHelper.getBorrowRewardsAmount(
+      stb.market
+      , stb.account
+      , totalBorrows
+      , borrowIndex
+      , borrowBalanceStored
+      , block
+    );
+
+    return {
+      borrowRewardsAmount: r1.rewardsAmount,
+      newBorrowStateIndex: r1.newBorrowStateIndex
+    }
+  }
+//endregion Utils
+
+//region Supply-test-impl
+  /**
+   * Supply amount. Wait some blocks. Claim rewards.
+   * Ensure, that amount of received rewards is same as pre-calculated
+   */
+  static async makeSupplyRewardsTest(
+    deployer: SignerWithAddress,
+    asset1: TokenDataTypes,
+    cToken1: TokenDataTypes,
+    holder1: string,
+    collateralAmount1: BigNumber,
+    periodInBlocks: number
+  ) : Promise<{
+    rewardsEarnedManual: BigNumber,
+    rewardsEarnedActual: BigNumber,
+    rewardsReceived: BigNumber
+  }>{
+    const user = await DeployerUtils.startImpersonate(ethers.Wallet.createRandom().address);
+
+    const comptroller = await DForceHelper.getController(deployer);
+    const rd = await DForceHelper.getRewardDistributor(comptroller, deployer);
+    const cToken = IDForceCToken__factory.connect(cToken1.address, deployer);
+
+    const before = await this.getState(comptroller, rd, cToken, user.address);
+    console.log("before", before);
+
+    // supply
+    await DForceHelper.supply(user, asset1, cToken1, holder1, collateralAmount1);
+
+    const afterSupply = await this.getState(comptroller, rd, cToken, user.address);
+    console.log("afterSupply", afterSupply);
+
+    // forced update rewards
+    await rd.updateDistributionState(cToken1.address, false);
+    await rd.updateReward(cToken1.address, user.address, false);
+
+    const middle = await this.getState(comptroller, rd, cToken, user.address);
+    console.log("middle", middle);
+
+    // move time
+    await TimeUtils.advanceNBlocks(periodInBlocks);
+
+    const afterAdvance = await this.getState(comptroller, rd, cToken, user.address);
+    console.log("afterAdvance", afterAdvance);
+
+    // forced update rewards
+    await rd.updateDistributionState(cToken1.address, false);
+    const afterUDC = await this.getState(comptroller, rd, cToken, user.address);
+    console.log("afterUDC", afterUDC);
+
+    await rd.updateReward(cToken1.address, user.address, false);
+
+    // get results
+    const after = await this.getState(comptroller, rd, cToken, user.address);
+    console.log("after", after);
+
+    // manually calculate rewards
+    const r0 = DForceHelper.getSupplyRewardsAmount(
+      afterSupply.market
+      , afterSupply.account
+      , afterSupply.totalSupply
+      , BigNumber.from(middle.block.sub(1))
+    );
+
+    const r1 = DForceHelper.getSupplyRewardsAmount(
+      middle.market
+      , middle.account
+      , middle.totalSupply
+      , BigNumber.from(afterUDC.block)
+    );
+
+    console.log(`Manual0: newSupplyStateIndex=${r0.newSupplyStateIndex} rewardsAmount=${r0.rewardsAmount}` );
+    console.log(`Manual1: newSupplyStateIndex=${r1.newSupplyStateIndex} rewardsAmount=${r1.rewardsAmount}` );
+    const totalRewards = r0.rewardsAmount.add(r1.rewardsAmount);
+    console.log(`Total manual: rewardsAmount=${totalRewards}` );
+    console.log(`Actual: newSupplyStateIndex=${after.market.distributionSupplyState_Index} rewardsAmount=${after.rewards}`);
+
+    const rewardsBalance0 = await IERC20__factory.connect(before.market.rewardToken, user).balanceOf(user.address);
+    await rd.claimReward([user.address], [cToken.address]);
+    const rewardsBalance1 = await IERC20__factory.connect(before.market.rewardToken, user).balanceOf(user.address);
+
+    return {
+      rewardsEarnedManual: totalRewards,
+      rewardsEarnedActual: after.rewards,
+      rewardsReceived: rewardsBalance1.sub(rewardsBalance0)
+    };
+  }
+//endregion Supply-test-impl
+
+//region Borrow-test-impl
+  /**
+   * Supply amount 1 and borrow amount 2.
+   * Wait some blocks.
+   * Repay the borrow completely.
+   * Claim rewards.
+   * Ensure, that amount of received rewards is same as pre-calculated
+   */
+  static async makeBorrowRewardsTest(
+    deployer: SignerWithAddress,
+    collateralAsset: TokenDataTypes,
+    cTokenCollateral: TokenDataTypes,
+    holderCollateral: string,
+    collateralAmount: BigNumber,
+    borrowAsset: TokenDataTypes,
+    cTokenBorrow: TokenDataTypes,
+    holderBorrow: string,
+    borrowAmount: BigNumber,
+    periodInBlocks: number
+  ) : Promise<{
+    rewardsEarnedManual: BigNumber,
+    rewardsEarnedActual: BigNumber,
+    rewardsReceived: BigNumber
+  }>{
+    const user = await DeployerUtils.startImpersonate(ethers.Wallet.createRandom().address);
+    const comptroller = await DForceHelper.getController(deployer);
+    const rd = await DForceHelper.getRewardDistributor(comptroller, deployer);
+    const cToken = IDForceCToken__factory.connect(cTokenCollateral.address, deployer);
+    const bToken = IDForceCToken__factory.connect(cTokenBorrow.address, deployer);
+
+    const before = await this.getState(comptroller, rd, cToken, user.address);
+    const beforeB = await this.getStateBorrowToken(comptroller, rd, bToken, user.address);
+    console.log("before", before, beforeB);
+
+    // supply collateral
+    await DForceHelper.supply(user, collateralAsset, cTokenCollateral, holderCollateral, collateralAmount);
+
+    const afterSupply = await this.getState(comptroller, rd, cToken, user.address);
+    const afterSupplyB = await this.getStateBorrowToken(comptroller, rd, bToken, user.address);
+    console.log("afterSupply", afterSupply, afterSupplyB);
+
+    // borrow
+    await DForceHelper.borrow(user, cTokenBorrow, borrowAmount);
+
+    const afterBorrow = await this.getState(comptroller, rd, cToken, user.address);
+    const afterBorrowB = await this.getStateBorrowToken(comptroller, rd, bToken, user.address);
+    console.log("afterBorrow", afterBorrow, afterBorrowB);
+
+    // move time ahead
+    await TimeUtils.advanceNBlocks(periodInBlocks);
+    await bToken.updateInterest(); //see comment below to rAfterRepay
+
+    const afterAdvance = await this.getState(comptroller, rd, cToken, user.address);
+    const afterAdvanceB = await this.getStateBorrowToken(comptroller, rd, bToken, user.address);
+    console.log("afterAdvance", afterAdvance, afterAdvanceB);
+
+    // repay completely
+    await DForceHelper.repayAll(user, borrowAsset, cTokenBorrow, holderBorrow);
+
+    const afterRepay = await this.getState(comptroller, rd, cToken, user.address);
+    const afterRepayB = await this.getStateBorrowToken(comptroller, rd, bToken, user.address);
+    console.log("afterRepay", afterRepay, afterRepayB);
+
+    // forced update rewards
+    await rd.updateDistributionState(cTokenCollateral.address, false);
+    const afterUDCSupply = await this.getState(comptroller, rd, cToken, user.address);
+    const afterUDCSupplyB = await this.getStateBorrowToken(comptroller, rd, bToken, user.address);
+    console.log("afterUDCSupply", afterUDCSupply, afterUDCSupplyB);
+
+    await rd.updateDistributionState(cTokenBorrow.address, true);
+    const afterUDCBorrow = await this.getState(comptroller, rd, cToken, user.address);
+    const afterUDCBorrowB = await this.getStateBorrowToken(comptroller, rd, bToken, user.address);
+    console.log("afterUDCBorrow", afterUDCBorrow, afterUDCBorrowB);
+
+    await rd.updateReward(cTokenCollateral.address, user.address, false);
+    await rd.updateReward(cTokenBorrow.address, user.address, true);
+
+    const after = await this.getState(comptroller, rd, cToken, user.address);
+    const afterB = await this.getState(comptroller, rd, bToken, user.address);
+    console.log("after", after, afterB);
+
+    // manually calculate supply rewards for user
+    const rAfterRepay = await this.getRewardsStateB(afterAdvanceB
+      , afterRepayB.block
+      // We have a problem here.
+      // Repay is called in several blocks after afterAdvanceB
+      // so, borrowIndex can be a bit different.
+      // We explicitly call updateInterest after advanceNBlocks, so it can be not enough.
+      // It's necessary to get borrowIndex from the transaction where Repay is called
+      // to exclude any errors. Anyway, difference is small, so test is passed anyway
+      , afterAdvanceB.borrowIndex
+      , afterAdvanceB.borrowBalanceStored
+      , afterAdvanceB.totalBorrows
+    );
+    console.log("rAfterRepay", rAfterRepay);
+    const rAfterUDCSupply = await this.getRewardsStateC(afterRepay, afterUDCSupply.block);
+    console.log("rAfterUDCSupply", rAfterUDCSupply);
+    const rAfterUDCBorrow = await this.getRewardsStateB(afterUDCSupplyB
+      , afterUDCBorrowB.block
+      , afterUDCSupplyB.borrowIndex
+      , afterUDCSupplyB.borrowBalanceStored
+      , afterUDCSupplyB.totalBorrows
+    );
+    console.log("rAfterUDCBorrow", rAfterUDCBorrow);
+
+    const rewardsBalance0 = await IERC20__factory.connect(before.market.rewardToken, user).balanceOf(user.address);
+    await rd.claimReward([user.address], [cToken.address]);
+    const rewardsBalance1 = await IERC20__factory.connect(before.market.rewardToken, user).balanceOf(user.address);
+
+    return {
+      rewardsEarnedManual: [
+        rAfterRepay.borrowRewardsAmount,
+        rAfterUDCSupply.supplyRewardsAmount,
+        rAfterUDCBorrow.borrowRewardsAmount,
+      ].reduce((cur, prev) => cur.add(prev), BigNumber.from(0)),
+      rewardsEarnedActual: after.rewards,
+      rewardsReceived: rewardsBalance1.sub(rewardsBalance0)
+    };
+  }
+//endregion Borrow-test-impl
+
+//region Supply-test-impl, DForceSupplyRewardsHelper is used
+  /**
+   * Supply amount. Wait some blocks. Claim rewards.
+   * Ensure, that amount of received rewards is same as pre-calculated
+   */
+  static async makeSupplyRewardsTestWithHelper(
+    deployer: SignerWithAddress,
+    user: SignerWithAddress,
+    collateralAsset: TokenDataTypes,
+    cToken1: TokenDataTypes,
+    collateralHolder: string,
+    collateralAmount: BigNumber,
+    periodInBlocks: number
+  ) : Promise<{
+    rewardsEarnedActual: BigNumber,
+    rewardsReceived: BigNumber
+  }>{
+    const comptroller = await DForceHelper.getController(deployer);
+    const rd = await DForceHelper.getRewardDistributor(comptroller, deployer);
+    const cToken = IDForceCToken__factory.connect(cToken1.address, deployer);
+
+    const before = await this.getState(comptroller, rd, cToken, user.address);
+    console.log("before", before);
+
+    // supply
+    await DForceHelper.supply(user, collateralAsset, cToken1, collateralHolder, collateralAmount);
+
+    const afterSupply = await this.getState(comptroller, rd, cToken, user.address);
+    console.log("afterSupply", afterSupply);
+
+    // move time
+    await TimeUtils.advanceNBlocks(periodInBlocks);
+
+    // forced update rewards
+    await rd.updateDistributionState(cToken1.address, false);
+    const afterUDC = await this.getState(comptroller, rd, cToken, user.address);
+    console.log("afterUDC", afterUDC);
+
+    await rd.updateReward(cToken1.address, user.address, false);
+
+    // get results
+    const after = await this.getState(comptroller, rd, cToken, user.address);
+    console.log("after", after);
+
+    const rewardsBalance0 = await IERC20__factory.connect(before.market.rewardToken, user).balanceOf(user.address);
+    await rd.claimReward([user.address], [cToken.address]);
+    const rewardsBalance1 = await IERC20__factory.connect(before.market.rewardToken, user).balanceOf(user.address);
+
+    return {
+      rewardsEarnedActual: after.rewards,
+      rewardsReceived: rewardsBalance1.sub(rewardsBalance0)
+    };
+  }
+//endregion Supply-test-impl, DForceSupplyRewardsHelper is used
+}

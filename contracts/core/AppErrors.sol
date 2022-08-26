@@ -59,4 +59,6 @@ library AppErrors {
   /// @notice Platform adapter cannot be unregistered because there is active pool adapter (open borrow on the platform)
   string public constant PLATFORM_ADAPTER_IS_IN_USE = "TC-33";
 
+  string public constant DIVISION_BY_ZERO = "TC-34";
+
 }

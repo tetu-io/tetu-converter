@@ -2,8 +2,11 @@ import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import {ethers} from "hardhat";
 import {TimeUtils} from "../../../../../scripts/utils/TimeUtils";
 import {
-  IERC20Extended__factory, IDForceController, IDForceCToken,
-  IDForceCToken__factory
+  IERC20Extended__factory,
+  IDForceController,
+  IDForceCToken,
+  IDForceCToken__factory,
+  DForcePlatformAdapter__factory,
 } from "../../../../../typechain";
 import {expect} from "chai";
 import {AdaptersHelper} from "../../../../baseUT/helpers/AdaptersHelper";
@@ -15,8 +18,14 @@ import {BigNumber} from "ethers";
 import {IPlatformActor, PredictBrUsesCase} from "../../../../baseUT/uses-cases/PredictBrUsesCase";
 import {DForceHelper} from "../../../../../scripts/integration/helpers/DForceHelper";
 import {areAlmostEqual} from "../../../../baseUT/utils/CommonUtils";
+import {TokenDataTypes} from "../../../../baseUT/types/TokenDataTypes";
+import {getBigNumberFrom} from "../../../../../scripts/utils/NumberUtils";
+import {SupplyBorrowUsingDForce} from "../../../../baseUT/uses-cases/dforce/SupplyBorrowUsingDForce";
+import {DForcePlatformFabric} from "../../../../baseUT/fabrics/DForcePlatformFabric";
+import {MocksHelper} from "../../../../baseUT/helpers/MocksHelper";
+import {DeployerUtils} from "../../../../../scripts/utils/DeployerUtils";
 
-describe("Hundred finance integration tests, platform adapter", () => {
+describe("DForce integration tests, platform adapter", () => {
 //region Global vars for all tests
   let snapshot: string;
   let snapshotForEach: string;
@@ -294,6 +303,108 @@ describe("Hundred finance integration tests, platform adapter", () => {
 
           const ret = areAlmostEqual(r.br, r.brPredicted, 4);
           expect(ret).true;
+        });
+      });
+    });
+  });
+
+  describe("getRewardAmounts", () => {
+    describe("Good paths", () => {
+      describe("Supply, wait, get rewards", () => {
+        it("should return amount of rewards same to really received", async () => {
+          if (!await isPolygonForkInUse()) return;
+
+          const collateralAsset = MaticAddresses.DAI;
+          const collateralHolder = MaticAddresses.HOLDER_DAI;
+          const collateralCTokenAddress = MaticAddresses.dForce_iDAI;
+
+          const collateralToken = await TokenDataTypes.Build(deployer, collateralAsset);
+          const collateralCToken = await TokenDataTypes.Build(deployer, collateralCTokenAddress);
+
+          const collateralAmount = getBigNumberFrom(20_000, collateralToken.decimals);
+          const periodInBlocks = 1_000;
+
+          // use DForce-platform adapter to predict amount of rewards
+          const controller = await CoreContractsHelper.createController(deployer);
+          const bm = await CoreContractsHelper.createBorrowManager(deployer, controller);
+          const dm = await MocksHelper.createDebtsMonitorStub(deployer, false);
+          await controller.setBorrowManager(bm.address);
+          await controller.setDebtMonitor(dm.address);
+
+          const fabric: DForcePlatformFabric = new DForcePlatformFabric();
+          await fabric.createAndRegisterPools(deployer, controller);
+          console.log("Count registered platform adapters", await bm.platformAdaptersLength());
+
+          const platformAdapter = DForcePlatformAdapter__factory.connect(
+            await bm.platformAdaptersAt(0)
+            , deployer
+          );
+          console.log("Platform adapter is created", platformAdapter.address);
+          const user = await DeployerUtils.startImpersonate(ethers.Wallet.createRandom().address);
+          console.log("user", user.address);
+
+          const ret = await platformAdapter.getRewardAmounts(
+            collateralCToken.address
+            , BigNumber.from("19884381299573167800813") //collateralAmount
+            , MaticAddresses.dForce_iDAI // any borrow asset that doesn't support borrow-rewards
+            , 0
+            , periodInBlocks
+          );
+          console.log("Predicted rewards:", ret);
+
+          // make supply, wait period, get actual amount of rewards
+          const r = await SupplyBorrowUsingDForce.makeSupplyRewardsTestWithHelper(
+            deployer
+            , user
+            , collateralToken
+            , collateralCToken
+            , collateralHolder
+            , collateralAmount
+            , periodInBlocks
+          );
+          
+          const e = DForceHelper.getSupplyRewardsAmount(
+            {
+              controller: '0x52eaCd19E38D501D006D2023C813d7E37F025f37',
+              ctoken: '0xec85F77104Ffa35a5411750d70eDFf8f1496d95b',
+              underlying: '0x8f3Cf7ad23Cd3CaDbD9735AFf958023239c6A063',
+              name: 'dForce DAI',
+              symbol: 'iDAI',
+              decimals: 18,
+              distributionBorrowState_Index: BigNumber.from("130473694579292052"),
+              distributionBorrowState_Block: BigNumber.from("32308906"),
+              distributionFactorMantissa: BigNumber.from("1000000000000000000"),
+              distributionSpeed: BigNumber.from("15972314654598696"),
+              distributionSupplySpeed: BigNumber.from("37268734194063624"),
+              distributionSupplyState_Index: BigNumber.from("217294813968775027"),
+              distributionSupplyState_Block: BigNumber.from("32331257"),
+              globalDistributionSpeed: BigNumber.from("159723146545986958"),
+              globalDistributionSupplySpeed: BigNumber.from("372687341940636234"),
+              rewardToken: '0x08C15FA26E519A78a666D19CE5C646D55047e0a3',
+              paused: false,
+              rewardTokenPrice: BigNumber.from("37659205976040000"),
+            },
+            {
+              accountBalance: BigNumber.from("19884381299573167800813"),
+              rewards: BigNumber.from("0"),
+              distributionSupplierIndex: BigNumber.from("217294813968775027"),
+              distributionBorrowerIndex: BigNumber.from(0)
+            }
+            , BigNumber.from("951245945780543917612766")
+            , BigNumber.from("32332258")
+          );
+          console.log("Expected results", e);
+
+          const sret = [
+            ret.rewardAmountSupply.toString()
+            , ret.rewardAmountBorrow.toString()
+          ].join("\n");
+          const sexpected = [
+            r.rewardsEarnedActual.toString()
+            , 0
+          ].join("\n");
+
+          expect(sret).eq(sexpected);
         });
       });
     });

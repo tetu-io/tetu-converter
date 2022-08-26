@@ -14,7 +14,7 @@ import {
   IDForceLendingData__factory
 
 } from "../../../typechain";
-import {BigNumber, Signer} from "ethers";
+import {BigNumber, ContractTransaction, Signer} from "ethers";
 import {Aave3Helper} from "./Aave3Helper";
 import {MaticAddresses} from "../../addresses/MaticAddresses";
 import {TokenDataTypes} from "../../../test/baseUT/types/TokenDataTypes";
@@ -98,6 +98,8 @@ export interface IDForceMarketRewards {
   globalDistributionSupplySpeed: BigNumber;
   rewardToken: string;
   paused: boolean;
+
+  rewardTokenPrice: BigNumber;
 }
 
 export interface IDForceMarketAccount {
@@ -135,7 +137,6 @@ export class DForceHelper {
   ) : Promise<IDForceLendingData> {
     return IDForceLendingData__factory.connect(MaticAddresses.DFOCE_LENDING_DATA, signer);
   }
-
 //endregion Access
 
 //region Read data
@@ -147,7 +148,6 @@ export class DForceHelper {
     const m = await controller.markets(cToken.address);
     const priceOracle = await DForceHelper.getPriceOracle(controller, signer);
     const irm = IDForceInterestRateModel__factory.connect(await cToken.interestRateModel(), signer);
-
 
     console.log(cToken.address);
     console.log(await cToken.underlying());
@@ -261,6 +261,7 @@ export class DForceHelper {
     controller: IDForceController,
     rd: IDForceRewardDistributor,
     cToken: IDForceCToken,
+    priceOracle: IDForcePriceOracle
   ) : Promise<IDForceMarketRewards> {
     const bs = await rd.distributionBorrowState(cToken.address);
     const ss = await rd.distributionSupplyState(cToken.address);
@@ -284,7 +285,8 @@ export class DForceHelper {
       globalDistributionSpeed: await rd.globalDistributionSpeed(),
       globalDistributionSupplySpeed: await rd.globalDistributionSupplySpeed(),
       rewardToken: await rd.rewardToken(),
-      paused: await rd.paused()
+      paused: await rd.paused(),
+      rewardTokenPrice: await priceOracle.getUnderlyingPrice(await rd.rewardToken())
     }
   }
 
@@ -294,6 +296,7 @@ export class DForceHelper {
   ) : Promise<string[]> {
     const rd = await DForceHelper.getRewardDistributor(controller, signer);
     const markets = await controller.getAlliTokens();
+    const priceOracle = await DForceHelper.getPriceOracle(controller, signer);
 
     const dest: string[] = [];
     dest.push([
@@ -309,7 +312,8 @@ export class DForceHelper {
       "globalDistributionSpeed",
       "globalDistributionSupplySpeed",
       "rewardToken",
-      "paused"
+      "paused",
+      "rewardTokenPrice"
     ].join(","));
 
     for (const market of markets) {
@@ -317,7 +321,7 @@ export class DForceHelper {
 
       const cToken = IDForceCToken__factory.connect(market, signer);
 
-      const row = await DForceHelper.getRewardsForMarket(controller, rd, cToken);
+      const row = await DForceHelper.getRewardsForMarket(controller, rd, cToken, priceOracle);
       const line = [
         row.controller, row.name, row.symbol, row.decimals
         , row.ctoken, row.underlying,
@@ -332,7 +336,8 @@ export class DForceHelper {
         row.globalDistributionSpeed,
         row.globalDistributionSupplySpeed,
         row.rewardToken,
-        row.paused
+        row.paused,
+        row.rewardTokenPrice
       ];
       dest.push(line.map(x => Aave3Helper.toString(x)).join(","));
     }
@@ -384,6 +389,7 @@ export class DForceHelper {
     console.log("distributionSpeed", distributionSpeed);
     console.log("totalDistributed", totalDistributed);
     console.log("distributedPerToken", distributedPerToken);
+    console.log("totalToken", totalToken);
     console.log("Next state index=", stateIndex.add(distributedPerToken));
 
     // state.index = state.index.add(_distributedPerToken);
@@ -477,7 +483,7 @@ export class DForceHelper {
     collateralToken: TokenDataTypes,
     collateralCToken: TokenDataTypes,
     collateralHolder: string,
-    collateralAmount: BigNumber,
+    collateralAmount: BigNumber
   ) {
     console.log(`user ${user.address} supply ${collateralAmount.toString()}`);
     const comptroller = await DForceHelper.getController(user);

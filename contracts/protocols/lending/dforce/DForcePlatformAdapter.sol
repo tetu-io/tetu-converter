@@ -16,6 +16,8 @@ import "../../../integrations/dforce/IDForcePriceOracle.sol";
 import "../../../integrations/IERC20Extended.sol";
 import "../../../integrations/dforce/IDForceInterestRateModel.sol";
 import "../../../core/AppUtils.sol";
+import "../../../integrations/dforce/IDForceRewardDistributor.sol";
+import "hardhat/console.sol";
 
 /// @notice Adapter to read current pools info from DForce-protocol, see https://developers.dforce.network/
 contract DForcePlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
@@ -242,6 +244,217 @@ contract DForcePlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
       cTokenBorrow_.totalReserves()
     );
   }
+
+  ///////////////////////////////////////////////////////
+  ///  Rewards pre-calculations. The algo repeats the code from
+  ///     LendingContractsV2, RewardsDistributorV3.sol, updateDistributionState, updateReward
+  ///
+  ///  RA(x) = rmul(AB, (SI + rdiv(DS * x, TT)) - AI);
+  ///
+  /// where:
+  ///  RA(x) - reward amount
+  ///  x - count of blocks
+  ///  AB - account balance (cToken.balance OR rdiv(borrow balance stored, borrow index)
+  ///  SI - state index (distribution supply state OR distribution borrow state)
+  ///  DS - distribution speed
+  ///  TI - token index, TI = SI + DT = SI + rdiv(DS * x, TT)
+  ///  TT - total tokens (total supply OR rdiv(total borrow, borrow index)
+  ///  AI - account index (distribution supplier index OR distribution borrower index)
+  ///  rmul(x, y): x * y / 1e18
+  ///  rdiv(x, y): x * 1e18 / y
+  ///
+  ///  Total amount of rewards = RA_supply + RA_borrow
+  ///
+  ///  Earned amount EA per block:
+  ///       EA(x) = ( RA_supply(x) + RA_borrow(x) ) * PriceRewardToken / PriceUnderlying
+  ///
+  ///  borrowIndex is calculated according to Base.sol, _updateInterest() algo
+  ///     simpleInterestFactor = borrowRate * blockDelta
+  ///     newBorrowIndex = simpleInterestFactor * borrowIndex + borrowIndex
+  ///////////////////////////////////////////////////////
+
+  function getRewardAmounts(
+    address collateralCToken_,
+    uint collateralAmount_,
+    address borrowCToken_,
+    uint borrowAmount_,
+    uint countBlocks_,
+    uint delayBlocks_
+  ) external view returns (
+    uint rewardAmountSupply,
+    uint rewardAmountBorrow,
+    uint totalRewardsInBorrowAsset
+  ) {
+    IDForceRewardDistributor rd = IDForceRewardDistributor(comptroller.rewardDistributor());
+    rewardAmountSupply = _supplyRewardAmounts(
+      rd,
+      IDForceCToken(collateralCToken_),
+      collateralAmount_,
+      countBlocks_,
+      delayBlocks_
+    );
+    rewardAmountBorrow = _borrowRewardAmounts(
+      rd,
+      IDForceCToken(borrowCToken_),
+      borrowAmount_,
+      countBlocks_,
+      delayBlocks_
+    );
+    totalRewardsInBorrowAsset = rewardAmountSupply + rewardAmountBorrow;
+    if (totalRewardsInBorrowAsset != 0) {
+      IDForcePriceOracle priceOracle = IDForcePriceOracle(comptroller.priceOracle());
+      // EA(x) = ( RA_supply(x) + RA_borrow(x) ) * PriceRewardToken / PriceBorrowUnderlying
+      totalRewardsInBorrowAsset = totalRewardsInBorrowAsset
+        * priceOracle.getUnderlyingPrice(rd.rewardToken())
+        / priceOracle.getUnderlyingPrice(borrowCToken_);
+    }
+  }
+
+  function _supplyRewardAmounts(
+    IDForceRewardDistributor rd_,
+    IDForceCToken cTokenCollateral_,
+    uint collateralAmount_,
+    uint countBlocks_,
+    uint delayBlocks_
+  ) internal view returns (uint rewardAmountSupply) {
+    console.log("_supplyRewardAmounts.1");
+
+    // compute supply rewards
+    uint distributionSpeed = rd_.distributionSupplySpeed(address(cTokenCollateral_));
+    if (distributionSpeed != 0) {
+      console.log("_rewardAmounts.2 distributionSpeed=", distributionSpeed);
+
+      // before supplying
+      uint distributionSupplierIndex = rd_.distributionSupplierIndex(address(cTokenCollateral_), address(this));
+      uint totalSupply = cTokenCollateral_.totalSupply();
+      (uint stateIndex, uint stateBlock0) = rd_.distributionSupplyState(address(cTokenCollateral_));
+      console.log("_rewardAmounts.3 stateIndex=", stateIndex);
+      console.log("_rewardAmounts.3 distributionSupplierIndex=", distributionSupplierIndex);
+      console.log("_rewardAmounts.3 totalSupply=", totalSupply);
+      console.log("block.number", block.number);
+      console.log("stateBlock0", stateBlock0);
+
+      // after supplying
+      uint _distributedPerToken = _rdiv(distributionSpeed * (delayBlocks_ + block.number - stateBlock0), totalSupply);
+      stateIndex += _distributedPerToken;
+      distributionSupplierIndex = stateIndex;
+      totalSupply += collateralAmount_;
+      console.log("_rewardAmounts.4 _distributedPerToken=", _distributedPerToken);
+      console.log("_rewardAmounts.4 stateIndex=", stateIndex);
+      console.log("_rewardAmounts.4 distributionSupplierIndex=", distributionSupplierIndex);
+      console.log("_rewardAmounts.4 totalSupply=", totalSupply);
+      console.log("block.number", delayBlocks_ + block.number);
+
+      // after period of time
+      _distributedPerToken = _rdiv(distributionSpeed * (countBlocks_ + 1), totalSupply);
+      console.log("_rewardAmounts.5 _distributedPerToken=", _distributedPerToken);
+      console.log("_rewardAmounts.5 stateIndex=", stateIndex + _distributedPerToken);
+      console.log("_rewardAmounts.5 distributionSupplierIndex=", distributionSupplierIndex);
+      console.log("_rewardAmounts.5 totalSupply=", totalSupply);
+      console.log("block.number", delayBlocks_ + block.number + countBlocks_ + 1);
+
+      rewardAmountSupply = _getRewardAmount(
+        collateralAmount_,
+        stateIndex,
+        distributionSpeed,
+        totalSupply,
+        distributionSupplierIndex,
+        countBlocks_ + 1
+      );
+      console.log("_rewardAmounts.6 rewardAmountSupply=", rewardAmountSupply);
+      console.log("_rewardAmounts.7 collateralAmount_", collateralAmount_);
+      console.log("_rewardAmounts.8 countBlocks_", countBlocks_ + 1);
+    }
+
+    return rewardAmountSupply;
+  }
+
+  function _borrowRewardAmounts(
+    IDForceRewardDistributor rd_,
+    IDForceCToken cTokenBorrow_,
+    uint amountToBorrow_,
+    uint countBlocks_,
+    uint delayBlocks_
+  ) internal view returns (uint rewardAmountBorrow) {
+    console.log("_rewardAmounts.1");
+
+    // compute borrow rewards
+    uint distributionSpeed = rd_.distributionSpeed(address(cTokenBorrow_));
+    if (distributionSpeed != 0) {
+      // calculate borrow index after period of count-blocks
+
+      // get current borrow index
+      uint borrowIndex = cTokenBorrow_.borrowIndex();
+
+      // current borrow index => new borrow index
+      borrowIndex += _rmul(_getNewBorrowRate(cTokenBorrow_, amountToBorrow_) * countBlocks_, borrowIndex);
+
+      (uint stateIndex,) = rd_.distributionBorrowState(address(cTokenBorrow_));
+      rewardAmountBorrow = _getRewardAmount(
+        _rdiv(cTokenBorrow_.borrowBalanceStored(address(this)) + amountToBorrow_, borrowIndex),
+        stateIndex,
+        distributionSpeed,
+        _rdiv(cTokenBorrow_.totalBorrows(), borrowIndex),
+        rd_.distributionBorrowerIndex(address(cTokenBorrow_), address(this)),
+        countBlocks_
+      );
+    }
+
+    return rewardAmountBorrow;
+  }
+
+  function _getNewBorrowRate(IDForceCToken cTokenBorrow_, uint amountToBorrow_) internal view returns (uint) {
+    return IDForceInterestRateModel(cTokenBorrow_.interestRateModel())
+      .getBorrowRate(
+        cTokenBorrow_.getCash(),
+        cTokenBorrow_.totalBorrows() + amountToBorrow_,
+        cTokenBorrow_.totalReserves()
+      );
+  }
+
+  function _getRewardAmount(
+    uint accountBalance_,
+    uint stateIndex_,
+    uint distributionSpeed_,
+    uint totalToken_,
+    uint accountIndex_,
+    uint countBlocks_
+  ) internal view returns (uint) {
+    console.log("_getRewardAmount.accountBalance_", accountBalance_);
+    console.log("_getRewardAmount.stateIndex_", stateIndex_);
+    console.log("_getRewardAmount.distributionSpeed_", distributionSpeed_);
+    console.log("_getRewardAmount.totalToken_", totalToken_);
+    console.log("_getRewardAmount.accountIndex_", accountIndex_);
+    console.log("_getRewardAmount.countBlocks_", countBlocks_);
+
+    uint totalDistributed = distributionSpeed_ * countBlocks_;
+    uint dt = _rdiv(totalDistributed, totalToken_);
+    uint ti = stateIndex_ + dt;
+    uint ra = _rmul(accountBalance_, ti - accountIndex_);
+    console.log("_getRewardAmount.totalDistributed", totalDistributed);
+    console.log("_getRewardAmount.distributedPerToken", dt);
+    console.log("_getRewardAmount.iTokenIndex", ti);
+    console.log("_getRewardAmount.RA", ra);
+
+    return _rmul(accountBalance_,
+      (stateIndex_
+        + _rdiv(
+            distributionSpeed_ * countBlocks_,
+            totalToken_
+          )
+      ) - accountIndex_
+    );
+  }
+
+  function _rmul(uint x, uint y) internal pure returns (uint) {
+    return x * y / 10 ** 18;
+  }
+
+  function _rdiv(uint x, uint y) internal pure returns (uint) {
+    require(y != 0, AppErrors.DIVISION_BY_ZERO);
+    return x * 10**18 / y;
+  }
+
 
   ///////////////////////////////////////////////////////
   ///                    Utils
