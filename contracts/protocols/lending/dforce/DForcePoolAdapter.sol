@@ -15,6 +15,7 @@ import "../../../interfaces/ITokenAddressProvider.sol";
 import "../../../integrations/dforce/IDForceCTokenMatic.sol";
 import "../../../integrations/IWmatic.sol";
 import "../../../integrations/dforce/IDForceInterestRateModel.sol";
+import "../../../integrations/dforce/IDForceRewardDistributor.sol";
 import "hardhat/console.sol";
 
 /// @notice Implementation of IPoolAdapter for dForce-protocol, see https://developers.dforce.network/
@@ -304,6 +305,31 @@ contract DForcePoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP {
   }
 
   ///////////////////////////////////////////////////////
+  ///                 Rewards
+  ///////////////////////////////////////////////////////
+  function hasRewards() external view override returns (bool) {
+    IDForceRewardDistributor rd = IDForceRewardDistributor(_comptroller.rewardDistributor());
+    return rd.reward(address(this)) != 0;
+  }
+
+  function claimRewards(address receiver_) external override {
+    IDForceRewardDistributor rd = IDForceRewardDistributor(_comptroller.rewardDistributor());
+    uint amountRewards = rd.reward(address(this));
+    if (amountRewards != 0) {
+      address[] memory holders = new address[](1);
+      holders[0] = address(this);
+      rd.claimAllReward(holders);
+
+      uint balance = IERC20(rd.rewardToken()).balanceOf(address(this));
+
+      console.log("claimRewards", amountRewards, balance);
+      if (amountRewards != 0) {
+        IERC20(rd.rewardToken()).safeTransfer(receiver_, balance);
+      }
+    }
+  }
+
+  ///////////////////////////////////////////////////////
   ///         View current status
   ///////////////////////////////////////////////////////
 
@@ -402,7 +428,7 @@ contract DForcePoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP {
 
 
   ///////////////////////////////////////////////////////
-  ///         Utils
+  ///                     Utils
   ///////////////////////////////////////////////////////
   function _getHealthFactor(address cTokenCollateral_, uint sumCollateralBase36_, uint sumBorrowBase36_)
   internal view returns (

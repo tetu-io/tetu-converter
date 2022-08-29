@@ -113,4 +113,16 @@ contract PoolAdapterStub is IPoolAdapter {
   function getAPR18() external view override returns (uint) {
     return _borrowRatePerBlock * 15017140 * 100;
   }
+
+  ///////////////////////////////////////////////////////
+  ///                 Rewards
+  ///////////////////////////////////////////////////////
+  function hasRewards() external pure override returns (bool) {
+    return false;
+  }
+
+  function claimRewards(address receiver_) external pure override {
+    receiver_;
+  }
+
 }

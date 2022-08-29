@@ -293,20 +293,20 @@ export class BorrowRepayUsesCase {
     );
   }
 
-  static async makeTestSingleBorrowInstantRepay(
+  static async makeTestSingleBorrowInstantRepayBase(
     deployer: SignerWithAddress,
     p: TestSingleBorrowParams,
     fabric: ILendingPlatformFabric,
-    expectations: IResultExpectations,
     checkGasUsed: boolean = false,
   ) : Promise<{
-    sret: string,
-    sexpected: string,
-    gasUsedByBorrow?: BigNumber,
-    gasUsedByRepay?: BigNumber,
-    gasUsedByPaInitialization?: BigNumber
-  }> {
-    const {tc, controller} = await TetuConverterApp.buildApp(deployer, [fabric]);
+    uc: Borrower
+    ucBalanceCollateral0: BigNumber,
+    ucBalanceBorrow0: BigNumber,
+    collateralAmount: BigNumber,
+    userBalances: IUserBalances[],
+    borrowBalances: BigNumber[],
+  }>{
+    const {controller} = await TetuConverterApp.buildApp(deployer, [fabric]);
     const uc = await MocksHelper.deployBorrower(deployer.address, controller, p.healthFactor2, p.countBlocks);
 
     const collateralToken = await TokenDataTypes.Build(deployer, p.collateral.asset);
@@ -354,23 +354,48 @@ export class BorrowRepayUsesCase {
         : [borrowAction, repayAction]
     );
 
+    return {
+      uc,
+      ucBalanceCollateral0: c0,
+      ucBalanceBorrow0: b0,
+      borrowBalances,
+      userBalances,
+      collateralAmount,
+    }
+  }
+
+  static async makeTestSingleBorrowInstantRepay(
+    deployer: SignerWithAddress,
+    p: TestSingleBorrowParams,
+    fabric: ILendingPlatformFabric,
+    expectations: IResultExpectations,
+    checkGasUsed: boolean = false,
+  ) : Promise<{
+    sret: string,
+    sexpected: string,
+    gasUsedByBorrow?: BigNumber,
+    gasUsedByRepay?: BigNumber,
+    gasUsedByPaInitialization?: BigNumber
+  }> {
+    const r = await BorrowRepayUsesCase.makeTestSingleBorrowInstantRepayBase(deployer, p, fabric, checkGasUsed);
+
     const ret = BorrowRepayUsesCase.getSingleBorrowSingleRepayResults(
-      c0
-      , b0
-      , collateralAmount
-      , userBalances
-      , borrowBalances
-      , await uc.totalBorrowedAmount()
-      , await uc.totalRepaidAmount()
+      r.ucBalanceCollateral0
+      , r.ucBalanceBorrow0
+      , r.collateralAmount
+      , r.userBalances
+      , r.borrowBalances
+      , await r.uc.totalBorrowedAmount()
+      , await r.uc.totalRepaidAmount()
       , expectations
     );
 
     return {
       sret: ret.sret,
       sexpected: ret.sexpected,
-      gasUsedByPaInitialization: checkGasUsed ? userBalances[0].gasUsed : BigNumber.from(0),
-      gasUsedByBorrow: checkGasUsed ? userBalances[1].gasUsed : BigNumber.from(0),
-      gasUsedByRepay: checkGasUsed ? userBalances[2].gasUsed : BigNumber.from(0),
+      gasUsedByPaInitialization: checkGasUsed ? r.userBalances[0].gasUsed : BigNumber.from(0),
+      gasUsedByBorrow: checkGasUsed ? r.userBalances[1].gasUsed : BigNumber.from(0),
+      gasUsedByRepay: checkGasUsed ? r.userBalances[2].gasUsed : BigNumber.from(0),
     };
   }
 //endregion Test single borrow, single repay

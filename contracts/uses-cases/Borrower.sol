@@ -59,8 +59,11 @@ contract Borrower is IBorrower {
     require(maxTargetAmount != 0, "maxTargetAmount is 0");
 
     console.log("we can borrow:", maxTargetAmount, "gasleft", gasleft());
+    console.log("sourceAmount_", sourceAmount_);
+    console.log("balance st on tc", IERC20(sourceAsset_).balanceOf(address(this)));
     // transfer collateral to TC
-    require(IERC20(sourceAsset_).balanceOf(address(this)) >= sourceAmount_, "wrong balance st on tc");
+    require(IERC20(sourceAsset_).balanceOf(address(this)) >= sourceAmount_
+      , "wrong balance st on tc");
     IERC20(sourceAsset_).safeApprove(_controller.tetuConverter(), sourceAmount_);
 
     // borrow and receive borrowed-amount to receiver's balance
@@ -102,6 +105,9 @@ contract Borrower is IBorrower {
         pa.repay(amountToPay, receiver_, true);
 
         totalRepaidAmount += amountToPay;
+
+        // claim rewards
+        pa.claimRewards(address(this));
       }
     }
     console.log("makeRepayUC1.2 done gasleft", gasleft());
@@ -130,6 +136,9 @@ contract Borrower is IBorrower {
         pa.repay(amountToPay, receiver_, true);
 
         totalRepaidAmount += amountToPay;
+
+        // claim rewards
+        pa.claimRewards(address(this));
       }
     }
     console.log("makeRepayUC1.2 done gasleft", gasleft());
@@ -158,6 +167,9 @@ contract Borrower is IBorrower {
 
       // repay borrowed amount and receive collateral to receiver's balance
       pa.repay(amountToPayToPA, receiver_, closePosition);
+
+      // claim rewards
+      pa.claimRewards(address(this));
 
       totalRepaidAmount += amountToPayToPA;
     }

@@ -48,6 +48,7 @@ export class MaticAddresses {
   public static HOLDER_BALANCER = "0x4cd80aa0ce4881eb8679eda1f6fbe3d89aec0f7f";
   public static HOLDER_CRV = "0x06959153b974d0d5fdfd87d561db6d8d4fa0bb0b";
   public static HOLDER_WBTC = "0xdc9232e2df177d7a12fdff6ecbab114e2231198d";
+  public static HOLDER_WETH = "0x72a53cdbbcc1b9efa39c834a540550e23463aacb";
 //endregion Asset biggest holders
 
 //region AAVE-v3

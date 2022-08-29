@@ -15,6 +15,7 @@ import "../openzeppelin/Clones.sol";
 import "../interfaces/IController.sol";
 import "../openzeppelin/EnumerableSet.sol";
 import "../interfaces/IDebtsMonitor.sol";
+import "hardhat/console.sol";
 
 /// @notice Contains list of lending pools. Allow to select most efficient pool for the given collateral/borrow pair
 contract BorrowManager is IBorrowManager {
@@ -190,6 +191,8 @@ contract BorrowManager is IBorrowManager {
     uint maxTargetAmount,
     uint aprForPeriod18
   ) {
+    console.log("findConverter", p_.sourceAmount, p_.periodInBlocks);
+
     // get all available pools from poolsForAssets[smaller-address][higher-address]
     EnumerableSet.AddressSet storage pas = _pairsList[getAssetPairKey(p_.sourceToken, p_.targetToken )];
 
@@ -232,6 +235,7 @@ contract BorrowManager is IBorrowManager {
     uint maxTargetAmount,
     uint apr18
   ) {
+    console.log("_findPool");
     uint lenPools = platformAdapters_.length();
 
     uint[] memory pricesCB18;
@@ -247,6 +251,12 @@ contract BorrowManager is IBorrowManager {
       * pp_.sourceAmount18
       * pricesCB18[0]
       / (pricesCB18[1] * uint(p_.healthFactor2) * 10**(18-2));
+    console.log("sourceAmount18", pp_.sourceAmount18);
+    console.log("price0", pricesCB18[0]);
+    console.log("price0", pricesCB18[1]);
+    console.log("hf", uint(p_.healthFactor2) * 10**(18-2));
+    console.log("borrowAmountFactor18", borrowAmountFactor18.toMantissa(18, pp_.targetDecimals));
+    console.log("targetDecimals", pp_.targetDecimals);
 
     for (uint i = 0; i < lenPools; i = i.uncheckedInc()) {
       AppDataTypes.ConversionPlan memory plan = IPlatformAdapter(platformAdapters_.at(i)).getConversionPlan(

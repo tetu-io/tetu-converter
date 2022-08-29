@@ -50,4 +50,10 @@ interface IPoolAdapter is IConverter {
   /// @return Interest * 1e18, i.e. 2.25e18 means APR=2.25%
   function getAPR18() external view returns (uint);
 
+
+  /// @notice Check if any reward tokens exist on the balance of the pool adapter
+  function hasRewards() external view returns (bool);
+
+  /// @notice Transfer all reward tokens to {receiver_}
+  function claimRewards(address receiver_) external;
 }

@@ -272,6 +272,17 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer 
   }
 
   ///////////////////////////////////////////////////////
+  ///                 Rewards
+  ///////////////////////////////////////////////////////
+  function hasRewards() external pure override returns (bool) {
+    return false; //AAVE3 has no rewards on Polygon
+  }
+
+  function claimRewards(address receiver_) external pure override {
+    receiver_;
+  }
+
+  ///////////////////////////////////////////////////////
   ///         View current status
   ///////////////////////////////////////////////////////
 

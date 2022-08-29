@@ -308,6 +308,18 @@ contract HfPoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP {
   }
 
   ///////////////////////////////////////////////////////
+  ///                 Rewards
+  ///////////////////////////////////////////////////////
+  function hasRewards() external pure override returns (bool) {
+    return false; // Currently we don't support rewards on HF (if any)
+  }
+
+  function claimRewards(address receiver_) external pure override {
+    receiver_;
+  }
+
+
+  ///////////////////////////////////////////////////////
   ///         View current status
   ///////////////////////////////////////////////////////
 

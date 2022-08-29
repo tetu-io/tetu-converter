@@ -311,4 +311,14 @@ contract PoolAdapterMock is IPoolAdapter {
     return borrowRate;
   }
 
+  ///////////////////////////////////////////////////////
+  ///                 Rewards
+  ///////////////////////////////////////////////////////
+  function hasRewards() external pure override returns (bool) {
+    return false; //TODO: we need to implement rewards for tests
+  }
+
+  function claimRewards(address receiver_) external pure override {
+    receiver_;
+  }
 }

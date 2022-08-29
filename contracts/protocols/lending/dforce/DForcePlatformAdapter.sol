@@ -141,6 +141,7 @@ contract DForcePlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
   ) external override view returns (
     AppDataTypes.ConversionPlan memory plan
   ) {
+    console.log("getConversionPlan");
     IDForceController comptrollerLocal = comptroller;
     address cTokenCollateral = activeAssets[collateralAsset_];
     if (cTokenCollateral != address(0)) {
@@ -183,13 +184,24 @@ contract DForcePlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
           }
 
           // calculate current borrow rate and predicted BR value after borrowing required amount
-          plan.apr18 = _getApr18(collateralAmount_,
-            borrowAmountFactor18_,
-            countBlocks_,
-            cTokenBorrow,
-            cTokenCollateral,
-            plan.liquidationThreshold18
-          );
+          plan.apr18 = IDForceCToken(cTokenBorrow).borrowRatePerBlock() * countBlocks_;
+          console.log("plan.apr18", plan.apr18);
+          if (borrowAmountFactor18_ != 0) {
+            uint amountToBorrow = borrowAmountFactor18_ * plan.liquidationThreshold18 / 1e18;  // == amount to borrow
+            console.log("amountToBorrow", amountToBorrow);
+            console.log("plan.maxAmountToBorrowBT", plan.maxAmountToBorrowBT);
+            if (amountToBorrow > plan.maxAmountToBorrowBT) {
+              amountToBorrow = plan.maxAmountToBorrowBT;
+            }
+            console.log("amountToBorrow", amountToBorrow);
+            plan.apr18 = _getApr18(collateralAmount_,
+              countBlocks_,
+              cTokenBorrow,
+              cTokenCollateral,
+              amountToBorrow
+            );
+            console.log("plan.apr18", plan.apr18);
+          }
         }
       }
     }
@@ -199,28 +211,32 @@ contract DForcePlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
 
   function _getApr18(
     uint collateralAmount_,
-    uint borrowAmountFactor18_,
     uint countBlocks_,
     address cTokenBorrow_,
     address cTokenCollateral_,
-    uint liquidationThreshold18
-  ) internal view returns (uint apr18) {
-    apr18 = IDForceCToken(cTokenBorrow_).borrowRatePerBlock() * countBlocks_;
-    if (borrowAmountFactor18_ != 0) {
-      uint amountToBorrow = liquidationThreshold18 * borrowAmountFactor18_ / 1e18;  // == amount to borrow
-      uint brAfterBorrow = _br(IDForceCToken(cTokenBorrow_), amountToBorrow) * countBlocks_;
-      // estimate by what amount should BR be reduced due to supply+borrow rewards
-      (,,uint negativeBrRewards) = _getRewardAmounts(cTokenCollateral_,
-        collateralAmount_,
-        cTokenBorrow_,
-        amountToBorrow,
-        countBlocks_,
-        1 // we need to estimate rewards inside next (not current) block
-      );
-      if (brAfterBorrow > apr18) {
-        apr18 = brAfterBorrow - negativeBrRewards;
-      }
-    }
+    uint amountToBorrow
+  ) internal view returns (uint outApr18) {
+    // estimate by what amount should BR be reduced due to supply+borrow rewards
+    (,,uint borrowAmountToReturn) = _getRewardAmounts(cTokenCollateral_,
+      collateralAmount_,
+      cTokenBorrow_,
+      amountToBorrow,
+      countBlocks_,
+      1 // we need to estimate rewards inside next (not current) block
+    );
+    console.log("borrowAmountToReturn", borrowAmountToReturn);
+
+    console.log("_getApr18",
+      _br(
+        IDForceCToken(cTokenBorrow_),
+        amountToBorrow
+      ) * countBlocks_
+    );
+    outApr18 = _br(
+      IDForceCToken(cTokenBorrow_),
+      amountToBorrow //TODO: we need a proof that such estimation is valid
+    ) * countBlocks_;
+    console.log("outApr18-2", outApr18);
   }
 
   ///////////////////////////////////////////////////////
@@ -268,6 +284,10 @@ contract DForcePlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
     IDForceCToken cTokenBorrow_,
     uint amountToBorrow_
   ) internal view returns (uint) {
+    console.log("_br");
+    console.log("_br cash", cTokenBorrow_.getCash());
+    console.log("_br totalBorrows", cTokenBorrow_.totalBorrows());
+    console.log("_br totalReserves", cTokenBorrow_.totalReserves());
     return IDForceInterestRateModel(cTokenBorrow_.interestRateModel()).getBorrowRate(
       cTokenBorrow_.getCash() - amountToBorrow_,
       cTokenBorrow_.totalBorrows() + amountToBorrow_,
@@ -353,11 +373,19 @@ contract DForcePlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
     );
     totalRewardsInBorrowAsset = rewardAmountSupply + rewardAmountBorrow;
     if (totalRewardsInBorrowAsset != 0) {
+      address rewardToken = rd.rewardToken();
       IDForcePriceOracle priceOracle = IDForcePriceOracle(comptroller.priceOracle());
+      console.log("totalRewardsInBorrowAsset", totalRewardsInBorrowAsset);
       // EA(x) = ( RA_supply(x) + RA_borrow(x) ) * PriceRewardToken / PriceBorrowUnderlying
       totalRewardsInBorrowAsset = totalRewardsInBorrowAsset
-        * priceOracle.getUnderlyingPrice(rd.rewardToken())
-        / priceOracle.getUnderlyingPrice(borrowCToken_);
+        * priceOracle.getUnderlyingPrice(rewardToken)
+        * 10**IDForceCToken(borrowCToken_).decimals()
+        / priceOracle.getUnderlyingPrice(borrowCToken_)
+        / 10**IDForceCToken(rewardToken).decimals()
+      ;
+      console.log("totalRewardsInBorrowAsset", totalRewardsInBorrowAsset);
+      console.log("priceOracle", rewardToken, priceOracle.getUnderlyingPrice(rewardToken));
+      console.log("priceOracle", borrowCToken_, priceOracle.getUnderlyingPrice(borrowCToken_));
     }
   }
 

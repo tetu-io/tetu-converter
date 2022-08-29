@@ -322,6 +322,17 @@ contract AaveTwoPoolAdapter is IPoolAdapter, IPoolAdapterInitializer {
     return uint(rb.currentVariableBorrowRate) * 10**18 * 100 / 10**27;
   }
 
+  ///////////////////////////////////////////////////////
+  ///                 Rewards
+  ///////////////////////////////////////////////////////
+  function hasRewards() external pure override returns (bool) {
+    return false; //Currently AAVE2 has no rewards on Polygon
+  }
+
+  function claimRewards(address receiver_) external pure override {
+    receiver_;
+  }
+
 
   ///////////////////////////////////////////////////////
   ///               Utils to inline
