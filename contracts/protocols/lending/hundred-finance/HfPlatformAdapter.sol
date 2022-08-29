@@ -133,11 +133,16 @@ contract HfPlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
 
   function getConversionPlan (
     address collateralAsset_,
+    uint collateralAmount_,
     address borrowAsset_,
-    uint borrowAmountFactor18_
+    uint borrowAmountFactor18_,
+    uint countBlocks_
   ) external override view returns (
     AppDataTypes.ConversionPlan memory plan
   ) {
+    // there are no rewards in AAVE3; this value is required by other platforms to predict the rewards correctly
+    collateralAmount_;
+
     address cTokenCollateral = activeAssets[collateralAsset_];
     if (cTokenCollateral != address(0)) {
 
@@ -164,14 +169,14 @@ contract HfPlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
           plan.maxAmountToSupplyCT = type(uint).max; // unlimited
 
           // calculate current borrow rate and the borrow rate after borrowing max allowed amount
-          plan.aprPerBlock18 = IHfCToken(cTokenBorrow).borrowRatePerBlock();
+          plan.apr18 = IHfCToken(cTokenBorrow).borrowRatePerBlock() * countBlocks_;
           if (borrowAmountFactor18_ != 0) {
             uint brAfterBorrow = _br(
               IHfCToken(cTokenBorrow),
               plan.liquidationThreshold18 * borrowAmountFactor18_ / 1e18 // == amount to borrow
             );
-            if (brAfterBorrow > plan.aprPerBlock18) {
-              plan.aprPerBlock18 = brAfterBorrow;
+            if (brAfterBorrow > plan.apr18) {
+              plan.apr18 = brAfterBorrow * countBlocks_;
             }
           }
         }

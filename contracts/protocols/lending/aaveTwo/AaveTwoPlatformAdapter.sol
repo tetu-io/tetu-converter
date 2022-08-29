@@ -78,11 +78,16 @@ contract AaveTwoPlatformAdapter is IPlatformAdapter {
 
   function getConversionPlan (
     address collateralAsset_,
+    uint collateralAmount_,
     address borrowAsset_,
-    uint borrowAmountFactor_
+    uint borrowAmountFactor_,
+    uint countBlocks_
   ) external view override returns (
     AppDataTypes.ConversionPlan memory plan
   ) {
+    // there are no rewards in AAVE3; this value is required by other platforms to predict the rewards correctly
+    collateralAmount_;
+
     IAaveTwoPool poolLocal = pool;
     DataTypes.ReserveData memory rc = poolLocal.getReserveData(collateralAsset_);
 
@@ -120,7 +125,8 @@ contract AaveTwoPlatformAdapter is IPlatformAdapter {
             }
           }
 
-          plan.aprPerBlock18 = br
+          plan.apr18 = br
+            * countBlocks_
             / COUNT_SECONDS_PER_YEAR
             * IController(controller).blocksPerDay() * 365 / COUNT_SECONDS_PER_YEAR
             / 10**(27-18); // rays => decimals 18 (1 ray = 1e-27)

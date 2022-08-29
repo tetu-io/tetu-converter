@@ -101,6 +101,7 @@ describe("Aave-v2 integration tests, platform adapter", () => {
       collateralAsset: string,
       borrowAsset: string
     ) : Promise<{sret: string, sexpected: string}> {
+      const countBlocks = 10;
       const controller = await CoreContractsHelper.createController(deployer);
       const templateAdapterNormalStub = ethers.Wallet.createRandom();
 
@@ -117,10 +118,16 @@ describe("Aave-v2 integration tests, platform adapter", () => {
       const collateralAssetData = await AaveTwoHelper.getReserveInfo(deployer, aavePool, dp, collateralAsset);
       const borrowAssetData = await AaveTwoHelper.getReserveInfo(deployer, aavePool, dp, borrowAsset);
 
-      const ret = await aavePlatformAdapter.getConversionPlan(collateralAsset, borrowAsset, 0);
+      const ret = await aavePlatformAdapter.getConversionPlan(
+        collateralAsset,
+        0,
+        borrowAsset,
+        0,
+        countBlocks
+      );
 
       const sret = [
-        ret.aprPerBlock18,
+        ret.apr18,
         ret.ltv18,
         ret.liquidationThreshold18,
         ret.maxAmountToBorrowBT,
@@ -128,7 +135,7 @@ describe("Aave-v2 integration tests, platform adapter", () => {
       ].map(x => BalanceUtils.toString(x)) .join("\n");
 
       const sexpected = [
-        AprUtils.aprPerBlock18(BigNumber.from(borrowAssetData.data.currentVariableBorrowRate)),
+        AprUtils.aprPerBlock18(BigNumber.from(borrowAssetData.data.currentVariableBorrowRate)).mul(countBlocks),
         BigNumber.from(borrowAssetData.data.ltv
         )
           .mul(getBigNumberFrom(1, 18))

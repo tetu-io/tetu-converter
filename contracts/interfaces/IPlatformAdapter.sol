@@ -8,13 +8,17 @@ import "../core/AppDataTypes.sol";
 interface IPlatformAdapter {
 
   /// @notice Get pool data required to select best lending pool
+  /// @param collateralAmount_ Amount of collateral. We need it to calculate rewards correctly.
   /// @param borrowAmountFactor18_ Coefficient to calculate borrow amount to estimate borrow rate after borrowing
   ///                              max borrow amount = borrowAmountFactor * liquidationThreshold
   ///                              Pass 0 to get current borrow rate in the plan OR not 0 to get estimated borrow rate
+  /// @param countBlocks_ Estimated period of the borrow in blocks.
   function getConversionPlan (
     address collateralAsset_,
+    uint collateralAmount_,
     address borrowAsset_,
-    uint borrowAmountFactor18_
+    uint borrowAmountFactor18_,
+    uint countBlocks_
   ) external view returns (
     AppDataTypes.ConversionPlan memory plan
   );

@@ -141,6 +141,7 @@ describe("DForce integration tests, platform adapter", () => {
     ) : Promise<{sret: string, sexpected: string}> {
       const controller = await CoreContractsHelper.createController(deployer);
       const templateAdapterNormalStub = ethers.Wallet.createRandom();
+      const countBlocks = 10;
 
       const comptroller = await DForceHelper.getController(deployer);
       const dForcePlatformAdapter = await AdaptersHelper.createDForcePlatformAdapter(
@@ -158,10 +159,16 @@ describe("DForce integration tests, platform adapter", () => {
         , IDForceCToken__factory.connect(cTokenBorrow, deployer));
 
       console.log("getConversionPlan", collateralAsset, borrowAsset);
-      const ret = await dForcePlatformAdapter.getConversionPlan(collateralAsset, borrowAsset, 0);
+      const ret = await dForcePlatformAdapter.getConversionPlan(
+        collateralAsset,
+        0,
+        borrowAsset,
+        0,
+        countBlocks
+      );
 
       const sret = [
-        ret.aprPerBlock18,
+        ret.apr18,
         ret.ltv18,
         ret.liquidationThreshold18,
         ret.maxAmountToBorrowBT,
@@ -169,7 +176,7 @@ describe("DForce integration tests, platform adapter", () => {
       ].map(x => BalanceUtils.toString(x)) .join("\n");
 
       const sexpected = [
-        borrowAssetData.borrowRatePerBlock,
+        borrowAssetData.borrowRatePerBlock.mul(countBlocks),
         borrowAssetData.collateralFactorMantissa,
         borrowAssetData.collateralFactorMantissa,
         borrowAssetData.cash,
@@ -349,11 +356,12 @@ describe("DForce integration tests, platform adapter", () => {
             , MaticAddresses.dForce_iDAI // any borrow asset that doesn't support borrow-rewards
             , 0
             , periodInBlocks
+            , 4
           );
           console.log("Predicted rewards:", ret);
 
           // make supply, wait period, get actual amount of rewards
-          const r = await SupplyBorrowUsingDForce.makeSupplyRewardsTestWithHelper(
+          const r = await SupplyBorrowUsingDForce.makeSupplyRewardsTestMinimumTransactions(
             deployer
             , user
             , collateralToken

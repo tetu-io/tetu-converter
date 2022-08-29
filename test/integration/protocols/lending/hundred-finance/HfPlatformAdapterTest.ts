@@ -99,6 +99,7 @@ describe("Hundred finance integration tests, platform adapter", () => {
     ) : Promise<{sret: string, sexpected: string}> {
       const controller = await CoreContractsHelper.createController(deployer);
       const templateAdapterNormalStub = ethers.Wallet.createRandom();
+      const countBlocks = 10;
 
       const comptroller = await HundredFinanceHelper.getComptroller(deployer);
       const hfPlatformAdapter = await AdaptersHelper.createHundredFinancePlatformAdapter(
@@ -113,10 +114,15 @@ describe("Hundred finance integration tests, platform adapter", () => {
       const borrowAssetData = await HundredFinanceHelper.getCTokenData(deployer, comptroller
         , IHfCToken__factory.connect(cTokenBorrow, deployer));
 
-      const ret = await hfPlatformAdapter.getConversionPlan(collateralAsset, borrowAsset, 0);
+      const ret = await hfPlatformAdapter.getConversionPlan(collateralAsset,
+        0,
+        borrowAsset,
+        0,
+        countBlocks
+      );
 
       const sret = [
-        ret.aprPerBlock18,
+        ret.apr18,
         ret.ltv18,
         ret.liquidationThreshold18,
         ret.maxAmountToBorrowBT,
@@ -124,7 +130,7 @@ describe("Hundred finance integration tests, platform adapter", () => {
       ].map(x => BalanceUtils.toString(x)) .join("\n");
 
       const sexpected = [
-        borrowAssetData.borrowRatePerBlock,
+        borrowAssetData.borrowRatePerBlock.mul(countBlocks),
         borrowAssetData.collateralFactorMantissa,
         borrowAssetData.collateralFactorMantissa,
         borrowAssetData.cash,

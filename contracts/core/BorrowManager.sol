@@ -230,7 +230,7 @@ contract BorrowManager is IBorrowManager {
   ) internal view returns (
     address converter,
     uint maxTargetAmount,
-    uint aprForPeriod18
+    uint apr18
   ) {
     uint lenPools = platformAdapters_.length();
 
@@ -251,13 +251,15 @@ contract BorrowManager is IBorrowManager {
     for (uint i = 0; i < lenPools; i = i.uncheckedInc()) {
       AppDataTypes.ConversionPlan memory plan = IPlatformAdapter(platformAdapters_.at(i)).getConversionPlan(
         p_.sourceToken,
+        pp_.sourceAmount18,
         p_.targetToken,
-        borrowAmountFactor18.toMantissa(18, pp_.targetDecimals)
+        borrowAmountFactor18.toMantissa(18, pp_.targetDecimals),
+        p_.periodInBlocks
       );
       if (plan.converter != address(0)) {
         // check if we are able to supply required collateral
         if (plan.maxAmountToSupplyCT > p_.sourceAmount) {
-          if (converter == address(0) || plan.aprPerBlock18 < aprForPeriod18) {
+          if (converter == address(0) || plan.apr18 < apr18) {
             // how much target asset we are able to get for the provided collateral with given health factor
             // TargetTA = BS / PT [TA], C = SA * PS, CM = C / HF, BS = CM * PCF
             uint resultTa18 = plan.liquidationThreshold18 * borrowAmountFactor18 / 1e18;
@@ -267,14 +269,14 @@ contract BorrowManager is IBorrowManager {
               // take the pool with lowest borrow rate
               converter = plan.converter;
               maxTargetAmount = resultTa18.toMantissa(18, pp_.targetDecimals);
-              aprForPeriod18 = plan.aprPerBlock18;
+              apr18 = plan.apr18;
             }
           }
         }
       }
     }
 
-    return (converter, maxTargetAmount, aprForPeriod18 * p_.periodInBlocks);
+    return (converter, maxTargetAmount, apr18);
   }
 
   ///////////////////////////////////////////////////////

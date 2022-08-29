@@ -365,6 +365,7 @@ describe("Aave-v3 integration tests, pool adapter", () => {
         describe("Try to borrow max amount allowed by debt ceiling", () => {
           it("should return expected values", async () => {
             const user = await DeployerUtils.startImpersonate(ethers.Wallet.createRandom().address);
+            const countBlocks = 10;
 
             const aavePool = await Aave3Helper.getAavePool(user);
             const dp = await Aave3Helper.getAaveProtocolDataProvider(user);
@@ -391,7 +392,12 @@ describe("Aave-v3 integration tests, pool adapter", () => {
               , templateAdapterStub
               , templateAdapterStub
             );
-            const plan = await pa.getConversionPlan(collateralAsset, borrowAsset, 0);
+            const plan = await pa.getConversionPlan(
+              collateralAsset,
+              0,
+              borrowAsset,
+              0,
+              countBlocks);
 
             // now, let's ensure that we can borrow max amount
             const borrowAmount = maxBorrowAmount //.add(DELTA)
@@ -464,7 +470,7 @@ describe("Aave-v3 integration tests, pool adapter", () => {
               , templateAdapterStub
               , templateAdapterStub
             );
-            const plan = await pa.getConversionPlan(collateralAsset, borrowAsset, 0);
+            const plan = await pa.getConversionPlan(collateralAsset, 0, borrowAsset, 0, 0);
 
             // now, let's ensure that we can borrow max amount
             const DELTA = BigNumber.from(1e6); // $1

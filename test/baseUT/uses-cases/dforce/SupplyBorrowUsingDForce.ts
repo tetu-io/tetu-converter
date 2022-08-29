@@ -140,7 +140,10 @@ export class SupplyBorrowUsingDForce {
 
 //region Supply-test-impl
   /**
-   * Supply amount. Wait some blocks. Claim rewards.
+   * Supply amount. Update distribution and rewards.
+   * Wait some blocks. Update distribution and rewards.
+   * Claim rewards.
+   *
    * Ensure, that amount of received rewards is same as pre-calculated
    */
   static async makeSupplyRewardsTest(
@@ -221,6 +224,59 @@ export class SupplyBorrowUsingDForce {
 
     return {
       rewardsEarnedManual: totalRewards,
+      rewardsEarnedActual: after.rewards,
+      rewardsReceived: rewardsBalance1.sub(rewardsBalance0)
+    };
+  }
+
+  /**
+   * Supply amount. Wait some blocks. Update distribution and rewards. Claim rewards.
+   * Ensure, that amount of received rewards is same as pre-calculated
+   */
+  static async makeSupplyRewardsTestMinimumTransactions(
+    deployer: SignerWithAddress,
+    user: SignerWithAddress,
+    collateralAsset: TokenDataTypes,
+    cToken1: TokenDataTypes,
+    collateralHolder: string,
+    collateralAmount: BigNumber,
+    periodInBlocks: number
+  ) : Promise<{
+    rewardsEarnedActual: BigNumber,
+    rewardsReceived: BigNumber
+  }>{
+    const comptroller = await DForceHelper.getController(deployer);
+    const rd = await DForceHelper.getRewardDistributor(comptroller, deployer);
+    const cToken = IDForceCToken__factory.connect(cToken1.address, deployer);
+
+    const before = await this.getState(comptroller, rd, cToken, user.address);
+    console.log("before", before);
+
+    // supply
+    await DForceHelper.supply(user, collateralAsset, cToken1, collateralHolder, collateralAmount);
+
+    const afterSupply = await this.getState(comptroller, rd, cToken, user.address);
+    console.log("afterSupply", afterSupply);
+
+    // move time
+    await TimeUtils.advanceNBlocks(periodInBlocks);
+
+    // forced update rewards
+    await rd.updateDistributionState(cToken1.address, false);
+    const afterUDC = await this.getState(comptroller, rd, cToken, user.address);
+    console.log("afterUDC", afterUDC);
+
+    await rd.updateReward(cToken1.address, user.address, false);
+
+    // get results
+    const after = await this.getState(comptroller, rd, cToken, user.address);
+    console.log("after", after);
+
+    const rewardsBalance0 = await IERC20__factory.connect(before.market.rewardToken, user).balanceOf(user.address);
+    await rd.claimReward([user.address], [cToken.address]);
+    const rewardsBalance1 = await IERC20__factory.connect(before.market.rewardToken, user).balanceOf(user.address);
+
+    return {
       rewardsEarnedActual: after.rewards,
       rewardsReceived: rewardsBalance1.sub(rewardsBalance0)
     };
@@ -348,58 +404,4 @@ export class SupplyBorrowUsingDForce {
   }
 //endregion Borrow-test-impl
 
-//region Supply-test-impl, DForceSupplyRewardsHelper is used
-  /**
-   * Supply amount. Wait some blocks. Claim rewards.
-   * Ensure, that amount of received rewards is same as pre-calculated
-   */
-  static async makeSupplyRewardsTestWithHelper(
-    deployer: SignerWithAddress,
-    user: SignerWithAddress,
-    collateralAsset: TokenDataTypes,
-    cToken1: TokenDataTypes,
-    collateralHolder: string,
-    collateralAmount: BigNumber,
-    periodInBlocks: number
-  ) : Promise<{
-    rewardsEarnedActual: BigNumber,
-    rewardsReceived: BigNumber
-  }>{
-    const comptroller = await DForceHelper.getController(deployer);
-    const rd = await DForceHelper.getRewardDistributor(comptroller, deployer);
-    const cToken = IDForceCToken__factory.connect(cToken1.address, deployer);
-
-    const before = await this.getState(comptroller, rd, cToken, user.address);
-    console.log("before", before);
-
-    // supply
-    await DForceHelper.supply(user, collateralAsset, cToken1, collateralHolder, collateralAmount);
-
-    const afterSupply = await this.getState(comptroller, rd, cToken, user.address);
-    console.log("afterSupply", afterSupply);
-
-    // move time
-    await TimeUtils.advanceNBlocks(periodInBlocks);
-
-    // forced update rewards
-    await rd.updateDistributionState(cToken1.address, false);
-    const afterUDC = await this.getState(comptroller, rd, cToken, user.address);
-    console.log("afterUDC", afterUDC);
-
-    await rd.updateReward(cToken1.address, user.address, false);
-
-    // get results
-    const after = await this.getState(comptroller, rd, cToken, user.address);
-    console.log("after", after);
-
-    const rewardsBalance0 = await IERC20__factory.connect(before.market.rewardToken, user).balanceOf(user.address);
-    await rd.claimReward([user.address], [cToken.address]);
-    const rewardsBalance1 = await IERC20__factory.connect(before.market.rewardToken, user).balanceOf(user.address);
-
-    return {
-      rewardsEarnedActual: after.rewards,
-      rewardsReceived: rewardsBalance1.sub(rewardsBalance0)
-    };
-  }
-//endregion Supply-test-impl, DForceSupplyRewardsHelper is used
 }

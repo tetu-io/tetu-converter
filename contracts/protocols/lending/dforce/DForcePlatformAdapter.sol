@@ -134,8 +134,10 @@ contract DForcePlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
 
   function getConversionPlan (
     address collateralAsset_,
+    uint collateralAmount_,
     address borrowAsset_,
-    uint borrowAmountFactor18_
+    uint borrowAmountFactor18_,
+    uint countBlocks_
   ) external override view returns (
     AppDataTypes.ConversionPlan memory plan
   ) {
@@ -181,16 +183,13 @@ contract DForcePlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
           }
 
           // calculate current borrow rate and predicted BR value after borrowing required amount
-          plan.aprPerBlock18 = IDForceCToken(cTokenBorrow).borrowRatePerBlock();
-          if (borrowAmountFactor18_ != 0) {
-            uint brAfterBorrow = _br(
-              IDForceCToken(cTokenBorrow),
-              plan.liquidationThreshold18 * borrowAmountFactor18_ / 1e18  // == amount to borrow
-            );
-            if (brAfterBorrow > plan.aprPerBlock18) {
-              plan.aprPerBlock18 = brAfterBorrow;
-            }
-          }
+          plan.apr18 = _getApr18(collateralAmount_,
+            borrowAmountFactor18_,
+            countBlocks_,
+            cTokenBorrow,
+            cTokenCollateral,
+            plan.liquidationThreshold18
+          );
         }
       }
     }
@@ -198,6 +197,31 @@ contract DForcePlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
     return plan;
   }
 
+  function _getApr18(
+    uint collateralAmount_,
+    uint borrowAmountFactor18_,
+    uint countBlocks_,
+    address cTokenBorrow_,
+    address cTokenCollateral_,
+    uint liquidationThreshold18
+  ) internal view returns (uint apr18) {
+    apr18 = IDForceCToken(cTokenBorrow_).borrowRatePerBlock() * countBlocks_;
+    if (borrowAmountFactor18_ != 0) {
+      uint amountToBorrow = liquidationThreshold18 * borrowAmountFactor18_ / 1e18;  // == amount to borrow
+      uint brAfterBorrow = _br(IDForceCToken(cTokenBorrow_), amountToBorrow) * countBlocks_;
+      // estimate by what amount should BR be reduced due to supply+borrow rewards
+      (,,uint negativeBrRewards) = _getRewardAmounts(cTokenCollateral_,
+        collateralAmount_,
+        cTokenBorrow_,
+        amountToBorrow,
+        countBlocks_,
+        1 // we need to estimate rewards inside next (not current) block
+      );
+      if (brAfterBorrow > apr18) {
+        apr18 = brAfterBorrow - negativeBrRewards;
+      }
+    }
+  }
 
   ///////////////////////////////////////////////////////
   ///         Initialization of pool adapters
@@ -229,8 +253,14 @@ contract DForcePlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
   ///////////////////////////////////////////////////////
 
   /// @notice Estimate value of variable borrow rate after borrowing {amountToBorrow_}
-  function getBorrowRateAfterBorrow(address borrowAsset_, uint amountToBorrow_) external view override returns (uint) {
-    return _br(IDForceCToken(activeAssets[borrowAsset_]), amountToBorrow_);
+  function getBorrowRateAfterBorrow(
+    address borrowAsset_,
+    uint amountToBorrow_
+  ) external view override returns (uint) {
+    return _br(
+      IDForceCToken(activeAssets[borrowAsset_]),
+      amountToBorrow_
+    );
   }
 
   /// @notice Estimate value of variable borrow rate after borrowing {amountToBorrow_}
@@ -285,6 +315,28 @@ contract DForcePlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
     uint rewardAmountBorrow,
     uint totalRewardsInBorrowAsset
   ) {
+    return _getRewardAmounts(
+      collateralCToken_,
+      collateralAmount_,
+      borrowCToken_,
+      borrowAmount_,
+      countBlocks_,
+      delayBlocks_
+    );
+  }
+
+  function _getRewardAmounts(
+    address collateralCToken_,
+    uint collateralAmount_,
+    address borrowCToken_,
+    uint borrowAmount_,
+    uint countBlocks_,
+    uint delayBlocks_
+  ) internal view returns (
+    uint rewardAmountSupply,
+    uint rewardAmountBorrow,
+    uint totalRewardsInBorrowAsset
+  ) {
     IDForceRewardDistributor rd = IDForceRewardDistributor(comptroller.rewardDistributor());
     rewardAmountSupply = _supplyRewardAmounts(
       rd,
@@ -297,8 +349,7 @@ contract DForcePlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
       rd,
       IDForceCToken(borrowCToken_),
       borrowAmount_,
-      countBlocks_,
-      delayBlocks_
+      countBlocks_
     );
     totalRewardsInBorrowAsset = rewardAmountSupply + rewardAmountBorrow;
     if (totalRewardsInBorrowAsset != 0) {
@@ -309,6 +360,10 @@ contract DForcePlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
         / priceOracle.getUnderlyingPrice(borrowCToken_);
     }
   }
+
+  ///////////////////////////////////////////////////////
+  ///       Calculate suppy and borrow rewards
+  ///////////////////////////////////////////////////////
 
   function _supplyRewardAmounts(
     IDForceRewardDistributor rd_,
@@ -373,8 +428,7 @@ contract DForcePlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
     IDForceRewardDistributor rd_,
     IDForceCToken cTokenBorrow_,
     uint amountToBorrow_,
-    uint countBlocks_,
-    uint delayBlocks_
+    uint countBlocks_
   ) internal view returns (uint rewardAmountBorrow) {
     console.log("_rewardAmounts.1");
 

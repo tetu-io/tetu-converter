@@ -2,20 +2,12 @@ import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import {ethers} from "hardhat";
 import {expect} from "chai";
 import {
-  BorrowManager,
   IPoolAdapter,
-  IPoolAdapter__factory,
-  PlatformAdapterStub,
-  PriceOracleMock
+  IPoolAdapter__factory
 } from "../../typechain";
 import {TimeUtils} from "../../scripts/utils/TimeUtils";
 import {BorrowManagerHelper} from "../baseUT/helpers/BorrowManagerHelper";
 import {DeployerUtils} from "../../scripts/utils/DeployerUtils";
-import {CoreContractsHelper} from "../baseUT/helpers/CoreContractsHelper";
-import {MocksHelper} from "../baseUT/helpers/MocksHelper";
-import {BigNumber} from "ethers";
-import {getBigNumberFrom} from "../../scripts/utils/NumberUtils";
-import {DeployUtils} from "../../scripts/utils/DeployUtils";
 
 describe("BorrowManagerBase (IPoolAdaptersManager)", () => {
 //region Global vars for all tests

@@ -110,6 +110,7 @@ describe("Aave-v3 integration tests, platform adapter", () => {
       highEfficientModeEnabled: boolean,
       isolationModeEnabled: boolean
     ) : Promise<{sret: string, sexpected: string}> {
+      const countBlocks = 10;
       const controller = await CoreContractsHelper.createController(deployer);
       const templateAdapterNormalStub = ethers.Wallet.createRandom();
       const templateAdapterEModeStub = ethers.Wallet.createRandom();
@@ -130,12 +131,14 @@ describe("Aave-v3 integration tests, platform adapter", () => {
       const borrowAssetData = await h.getReserveInfo(deployer, aavePool, dp, borrowAsset);
 
       const ret = await aavePlatformAdapter.getConversionPlan(collateralAsset
+        , 0
         , borrowAsset
         , 0
+        , countBlocks
       );
 
       const sret = [
-        ret.aprPerBlock18,
+        ret.apr18,
         ret.ltv18,
         ret.liquidationThreshold18,
         ret.maxAmountToBorrowBT,
@@ -176,7 +179,7 @@ describe("Aave-v3 integration tests, platform adapter", () => {
       }
 
       const sexpected = [
-        AprUtils.aprPerBlock18(BigNumber.from(borrowAssetData.data.currentVariableBorrowRate)),
+        AprUtils.aprPerBlock18(BigNumber.from(borrowAssetData.data.currentVariableBorrowRate)).mul(countBlocks),
         BigNumber.from(highEfficientModeEnabled
           ? borrowAssetData.category?.ltv
           : borrowAssetData.data.ltv

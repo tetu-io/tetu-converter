@@ -2,7 +2,7 @@ import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import {ethers} from "hardhat";
 import {expect} from "chai";
 import {DeployUtils} from "../../scripts/utils/DeployUtils";
-import {BorrowManager, Controller, MockERC20, PlatformAdapterStub, PriceOracleMock} from "../../typechain";
+import {BorrowManager, PlatformAdapterStub, PriceOracleMock} from "../../typechain";
 import {TimeUtils} from "../../scripts/utils/TimeUtils";
 import {BigNumber} from "ethers";
 import {getBigNumberFrom} from "../../scripts/utils/NumberUtils";
