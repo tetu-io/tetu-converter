@@ -1,4 +1,12 @@
-import {IBorrowManager, IBorrowManager__factory, IController, IERC20, IERC20__factory} from "../../../typechain";
+import {
+  DForcePlatformAdapter,
+  IBorrowManager,
+  IBorrowManager__factory,
+  IController,
+  IDForceController,
+  IERC20,
+  IERC20__factory
+} from "../../../typechain";
 import {ILendingPlatformFabric} from "./ILendingPlatformFabric";
 import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import {MaticAddresses} from "../../../scripts/addresses/MaticAddresses";
@@ -8,29 +16,11 @@ import {generateAssetPairs} from "../utils/AssetPairUtils";
 
 export class DForcePlatformFabric implements ILendingPlatformFabric {
     async createAndRegisterPools(deployer: SignerWithAddress, controller: IController) : Promise<IERC20[]> {
-        const comptroller = await DForceHelper.getController(deployer);
-
-        const converter = await AdaptersHelper.createDForcePoolAdapter(deployer);
-
-        const platformAdapter = await AdaptersHelper.createDForcePlatformAdapter(
-            deployer
-            , controller.address
-            , comptroller.address
-            , converter.address
-            , [
-                MaticAddresses.dForce_iUSDC,
-                MaticAddresses.dForce_iUSDT,
-                MaticAddresses.dForce_iUSX,
-                MaticAddresses.dForce_iDAI,
-                MaticAddresses.dForce_iWETH,
-                MaticAddresses.dForce_iWBTC,
-                MaticAddresses.dForce_iEUX,
-                MaticAddresses.dForce_iAAVE,
-                MaticAddresses.dForce_iCRV,
-                MaticAddresses.dForce_iDF,
-                MaticAddresses.dForce_iMATIC,
-            ]
+        const {comptroller, platformAdapter} = await DForcePlatformFabric.createPlatformAdapter(
+          deployer,
+          controller.address
         );
+          await DForceHelper.getController(deployer);
 
         const bm: IBorrowManager = IBorrowManager__factory.connect(await controller.borrowManager(), deployer);
         const assets: string[] = [
@@ -52,4 +42,38 @@ export class DForcePlatformFabric implements ILendingPlatformFabric {
             IERC20__factory.connect(comptroller.address, deployer)
         ]
     }
+
+    static async createPlatformAdapter(
+      deployer: SignerWithAddress,
+      controller: string
+    ) : Promise<{
+      comptroller: IDForceController,
+      platformAdapter: DForcePlatformAdapter
+    }> {
+      const comptroller = await DForceHelper.getController(deployer);
+
+      const converter = await AdaptersHelper.createDForcePoolAdapter(deployer);
+
+      const platformAdapter = await AdaptersHelper.createDForcePlatformAdapter(
+        deployer
+        , controller
+        , comptroller.address
+        , converter.address
+        , [
+          MaticAddresses.dForce_iUSDC,
+          MaticAddresses.dForce_iUSDT,
+          MaticAddresses.dForce_iUSX,
+          MaticAddresses.dForce_iDAI,
+          MaticAddresses.dForce_iWETH,
+          MaticAddresses.dForce_iWBTC,
+          MaticAddresses.dForce_iEUX,
+          MaticAddresses.dForce_iAAVE,
+          MaticAddresses.dForce_iCRV,
+          MaticAddresses.dForce_iDF,
+          MaticAddresses.dForce_iMATIC,
+        ]
+      );
+
+      return {comptroller, platformAdapter};
+  }
 }

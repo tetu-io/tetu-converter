@@ -528,9 +528,8 @@ export class DForceHelper {
     borrowToken: TokenDataTypes,
     borrowCToken: TokenDataTypes,
     borrowHolder: string
-  ) {
+  ) : Promise<BigNumber>{
     console.log(`user ${user.address} repay`);
-    const comptroller = await DForceHelper.getController(user);
     const borrowCTokenAsUser = IDForceCToken__factory.connect(borrowCToken.address, user);
     const borrowTokenAsUser = IDForceCToken__factory.connect(borrowToken.address, user);
 
@@ -549,6 +548,8 @@ export class DForceHelper {
 
     const amountToRepayAfter = await borrowCTokenAsUser.borrowBalanceStored(user.address);
     console.log(`amountToRepay after repay = ${amountToRepayAfter.toString()}`);
+
+    return amountToRepay;
   }
 //endregion Supply, borrow, repay
 

@@ -305,7 +305,9 @@ export class SupplyBorrowUsingDForce {
   ) : Promise<{
     rewardsEarnedManual: BigNumber,
     rewardsEarnedActual: BigNumber,
-    rewardsReceived: BigNumber
+    rewardsReceived: BigNumber,
+    /// paid-amount - borrow-amount
+    cost: BigNumber
   }>{
     const user = await DeployerUtils.startImpersonate(ethers.Wallet.createRandom().address);
     const comptroller = await DForceHelper.getController(deployer);
@@ -340,7 +342,7 @@ export class SupplyBorrowUsingDForce {
     console.log("afterAdvance", afterAdvance, afterAdvanceB);
 
     // repay completely
-    await DForceHelper.repayAll(user, borrowAsset, cTokenBorrow, holderBorrow);
+    const paidAmount = await DForceHelper.repayAll(user, borrowAsset, cTokenBorrow, holderBorrow);
 
     const afterRepay = await this.getState(comptroller, rd, cToken, user.address);
     const afterRepayB = await this.getStateBorrowToken(comptroller, rd, bToken, user.address);
@@ -392,6 +394,7 @@ export class SupplyBorrowUsingDForce {
     await rd.claimReward([user.address], [cToken.address]);
     const rewardsBalance1 = await IERC20__factory.connect(before.market.rewardToken, user).balanceOf(user.address);
 
+    const cost = paidAmount.sub(borrowAmount);
     return {
       rewardsEarnedManual: [
         rAfterRepay.borrowRewardsAmount,
@@ -399,7 +402,8 @@ export class SupplyBorrowUsingDForce {
         rAfterUDCBorrow.borrowRewardsAmount,
       ].reduce((cur, prev) => cur.add(prev), BigNumber.from(0)),
       rewardsEarnedActual: after.rewards,
-      rewardsReceived: rewardsBalance1.sub(rewardsBalance0)
+      rewardsReceived: rewardsBalance1.sub(rewardsBalance0),
+      cost: cost
     };
   }
 //endregion Borrow-test-impl

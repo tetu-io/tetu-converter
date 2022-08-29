@@ -15,7 +15,7 @@ export interface IPlatformActor {
 /**
  * We are going to borrow some amount.
  * 1. Get predicted borrow
- * 2. Make amount
+ * 2. Borrow amount
  * 3. Get borrow rate after the borrow.
  * 4. Ensure, that predicted borrow rate is almost the same as predicted.
  * The amounts are almost equal, not exactly, because we predicted borrow rate

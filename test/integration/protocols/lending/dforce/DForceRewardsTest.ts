@@ -7,6 +7,9 @@ import {isPolygonForkInUse} from "../../../../baseUT/utils/NetworkUtils";
 import {MaticAddresses} from "../../../../../scripts/addresses/MaticAddresses";
 import {TokenDataTypes} from "../../../../baseUT/types/TokenDataTypes";
 import {SupplyBorrowUsingDForce} from "../../../../baseUT/uses-cases/dforce/SupplyBorrowUsingDForce";
+import {AdaptersHelper} from "../../../../baseUT/helpers/AdaptersHelper";
+import {DForcePlatformFabric} from "../../../../baseUT/fabrics/DForcePlatformFabric";
+import {CoreContractsHelper} from "../../../../baseUT/helpers/CoreContractsHelper";
 
 /**
  * Supply amount => claim rewards in specified period
@@ -129,6 +132,73 @@ describe("DForce rewards tests", () => {
             expect(ret).eq(expected);
           });
         });
+      });
+    });
+  });
+
+  describe("Cost estimation", () =>{
+    describe("Good paths", () => {
+      describe("No rewards, DAI => WBTS", () => {
+        it("should return expected amount of rewards", async () => {
+          if (!await isPolygonForkInUse()) return;
+
+          const collateralAsset = MaticAddresses.DAI;
+          const collateralHolder = MaticAddresses.HOLDER_DAI;
+          const collateralCTokenAddress = MaticAddresses.dForce_iDAI;
+
+          const borrowAsset = MaticAddresses.WBTS;
+          const borrowCTokenAddress = MaticAddresses.dForce_iWBTC;
+          const borrowHolder = MaticAddresses.HOLDER_WBTC;
+
+          const collateralToken = await TokenDataTypes.Build(deployer, collateralAsset);
+          const borrowToken = await TokenDataTypes.Build(deployer, borrowAsset);
+          const collateralCToken = await TokenDataTypes.Build(deployer, collateralCTokenAddress);
+          const borrowCToken = await TokenDataTypes.Build(deployer, borrowCTokenAddress);
+
+          const collateralAmount = getBigNumberFrom(20_000, collateralToken.decimals);
+          const borrowAmount = getBigNumberFrom(1_00, borrowToken.decimals);
+
+          const periodInBlocks = 1_000;
+
+          const {platformAdapter} = await DForcePlatformFabric.createPlatformAdapter(deployer
+            , (await CoreContractsHelper.createController(deployer)).address
+          );
+          const plan = await platformAdapter.getConversionPlan(
+            collateralAsset
+            , collateralAmount
+            , borrowAsset
+            , 0
+            , periodInBlocks
+          );
+
+          const r = await SupplyBorrowUsingDForce.makeBorrowRewardsTest(
+            deployer
+            , collateralToken
+            , collateralCToken
+            , collateralHolder
+            , collateralAmount
+            , borrowToken
+            , borrowCToken
+            , borrowHolder
+            , borrowAmount
+            , periodInBlocks
+          );
+
+          // how much money we have list (to repay our debts)
+          const ret = [
+            r.cost
+          ].join("\n");
+
+          const expected = [
+            plan.apr18
+          ].join("\n");
+
+          expect(ret).eq(expected);
+        });
+
+      });
+      describe("Supply rewards only", () => {
+
       });
     });
   });
