@@ -127,6 +127,7 @@ describe("DForce rewards tests", () => {
               , borrowAmount
               , periodInBlocks
             );
+            console.log(r);
 
             const ret = [
               r.rewardsEarnedManual.toString()

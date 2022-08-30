@@ -161,45 +161,6 @@ library DForceRewardsLib {
     );
   }
 
-//  function supplyRewardAmounts(
-//    DForceCore memory core,
-//    uint collateralAmount_,
-//    uint countBlocks_,
-//    uint delayBlocks_
-//  ) internal view returns (uint rewardAmountSupply) {
-//    console.log("_supplyRewardAmounts.1");
-//
-//    // compute supply rewards
-//    uint distributionSpeed = core.rd.distributionSupplySpeed(address(core.cTokenCollateral));
-//    if (distributionSpeed != 0) {
-//
-//      // before supplying
-//      uint distributionSupplierIndex = core.rd.distributionSupplierIndex(address(core.cTokenCollateral), address(this));
-//      uint totalSupply = core.cTokenCollateral.totalSupply();
-//      (uint stateIndex, uint stateBlock0) = core.rd.distributionSupplyState(address(core.cTokenCollateral));
-//
-//      // after supplying
-//      uint _distributedPerToken = rdiv(distributionSpeed * (delayBlocks_ + block.number - stateBlock0), totalSupply);
-//      stateIndex += _distributedPerToken;
-//      distributionSupplierIndex = stateIndex;
-//      totalSupply += collateralAmount_;
-//
-//      // after period of time
-//      _distributedPerToken = rdiv(distributionSpeed * (countBlocks_ + 1), totalSupply);
-//
-//      rewardAmountSupply = getRewardAmount(
-//        collateralAmount_,
-//        stateIndex,
-//        distributionSpeed,
-//        totalSupply,
-//        distributionSupplierIndex,
-//        countBlocks_ + 1
-//      );
-//    }
-//
-//    return rewardAmountSupply;
-//  }
-
   function borrowRewardAmounts(
     DForceCore memory core,
     uint amountToBorrow_,

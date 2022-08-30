@@ -3,7 +3,7 @@ import {BigNumber} from "ethers";
 import {DeployerUtils} from "../../../../scripts/utils/DeployerUtils";
 import hre, {ethers} from "hardhat";
 import {
-  DForceHelper,
+  DForceHelper, IBorrowRewardsStatePoint,
   IDForceMarketAccount,
   IDForceMarketRewards, IRewardsStatePoint, ISupplyRewardsStatePoint
 } from "../../../../scripts/integration/helpers/DForceHelper";
@@ -104,7 +104,7 @@ export class SupplyBorrowUsingDForce {
     block: BigNumber
   ) : Promise<IRewardsStateC> {
     const r0 = DForceHelper.getSupplyRewardsAmount(
-      DForceHelper.getRewardsStatePoint(
+      DForceHelper.getRewardsStatePointForSupply(
         st.market
         , st.account
         , st.totalSupply
@@ -125,11 +125,13 @@ export class SupplyBorrowUsingDForce {
     totalBorrows: BigNumber
   ) : Promise<IRewardsStateB> {
     const r1 = DForceHelper.getBorrowRewardsAmount(
-      stb.market
-      , stb.account
-      , totalBorrows
-      , borrowIndex
-      , borrowBalanceStored
+      DForceHelper.getRewardsStatePointForBorrow(
+        stb.market
+        , stb.account
+        , totalBorrows
+        , borrowIndex
+        , borrowBalanceStored
+      )
       , block
     );
 
@@ -203,7 +205,7 @@ export class SupplyBorrowUsingDForce {
     // one part of the rewards we get in the period
     // [supply, update-rewards1)
     const r0 = DForceHelper.getSupplyRewardsAmount(
-      DForceHelper.getRewardsStatePoint(
+      DForceHelper.getRewardsStatePointForSupply(
         afterSupply.market
         , afterSupply.account
         , afterSupply.totalSupply
@@ -214,7 +216,7 @@ export class SupplyBorrowUsingDForce {
     // another part of the rewards we get in next block where calcDistributionStateSupply is called
     // [update-rewards1, calcDistributionStateSupply2)
     const r1 = DForceHelper.getSupplyRewardsAmount(
-      DForceHelper.getRewardsStatePoint(
+      DForceHelper.getRewardsStatePointForSupply(
         middle.market
         , middle.account
         , middle.totalSupply
@@ -304,6 +306,91 @@ export class SupplyBorrowUsingDForce {
 //endregion Supply-test-impl
 
 //region Borrow-test-impl
+  /**
+   * ONLY borrow rewards.
+   *
+   * Supply amount 1 and borrow amount 2.
+   * Wait some blocks.
+   * Claim rewards.
+   * Ensure, that amount of received borrow rewards is same as pre-calculated
+   */
+  static async makeBorrowRewardsOnlyTest(
+    deployer: SignerWithAddress,
+    collateralAsset: TokenDataTypes,
+    cTokenCollateral: TokenDataTypes,
+    holderCollateral: string,
+    collateralAmount: BigNumber,
+    borrowAsset: TokenDataTypes,
+    cTokenBorrow: TokenDataTypes,
+    holderBorrow: string,
+    borrowAmount: BigNumber,
+    periodInBlocks: number
+  ) : Promise<{
+    rewardsEarnedActual: BigNumber,
+    rewardsReceived: BigNumber,
+    borrowPoint: IBorrowRewardsStatePoint,
+    blockUpdateDistributionState: BigNumber
+  }>{
+    const user = await DeployerUtils.startImpersonate(ethers.Wallet.createRandom().address);
+    const comptroller = await DForceHelper.getController(deployer);
+    const rd = await DForceHelper.getRewardDistributor(comptroller, deployer);
+    const cToken = IDForceCToken__factory.connect(cTokenCollateral.address, deployer);
+    const bToken = IDForceCToken__factory.connect(cTokenBorrow.address, deployer);
+
+    const before = await this.getStateBorrowToken(comptroller, rd, bToken, user.address);
+    console.log("before", before);
+
+    // supply collateral
+    await DForceHelper.supply(user, collateralAsset, cTokenCollateral, holderCollateral, collateralAmount);
+
+    const afterSupply = await this.getStateBorrowToken(comptroller, rd, bToken, user.address);
+    console.log("afterSupply", afterSupply);
+
+    // borrow
+    await DForceHelper.borrow(user, cTokenBorrow, borrowAmount);
+
+    const afterBorrow = await this.getStateBorrowToken(comptroller, rd, bToken, user.address);
+    console.log("afterBorrow", afterBorrow);
+
+    // move time ahead and update interest
+    await TimeUtils.advanceNBlocks(periodInBlocks);
+    await bToken.updateInterest(); //see comments below
+
+    const afterAdvance = await this.getStateBorrowToken(comptroller, rd, bToken, user.address);
+    console.log("afterAdvance", afterAdvance);
+
+    // forced update rewards
+    await rd.updateDistributionState(cTokenBorrow.address, true);
+    const afterUDC = await this.getStateBorrowToken(comptroller, rd, bToken, user.address);
+    console.log("afterUDCSupply", afterUDC);
+
+    await rd.updateReward(cTokenBorrow.address, user.address, true);
+
+    const after = await this.getState(comptroller, rd, bToken, user.address);
+    console.log("after", after);
+
+    const rewardsBalance0 = await IERC20__factory.connect(before.market.rewardToken, user).balanceOf(user.address);
+    await rd.claimReward([user.address], [cToken.address]);
+    const rewardsBalance1 = await IERC20__factory.connect(before.market.rewardToken, user).balanceOf(user.address);
+
+    return {
+      rewardsEarnedActual: after.rewards,
+      rewardsReceived: rewardsBalance1.sub(rewardsBalance0),
+      borrowPoint: DForceHelper.getBorrowRewardsStatePoint(
+        afterBorrow.block,
+        before.market,
+        before.totalBorrows,
+        before.borrowIndex,
+        before.borrowBalanceStored,
+        borrowAmount,
+        afterAdvance.borrowIndex
+      ),
+      blockUpdateDistributionState: afterUDC.block
+    };
+  }
+//endregion Borrow-test-impl
+
+//region Supply-borrow-test-impl
   /**
    * Supply amount 1 and borrow amount 2.
    * Wait some blocks.
@@ -426,6 +513,6 @@ export class SupplyBorrowUsingDForce {
       cost: cost
     };
   }
-//endregion Borrow-test-impl
+//endregion supply-borrow-test-impl
 
 }

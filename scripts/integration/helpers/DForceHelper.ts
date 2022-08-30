@@ -142,6 +142,28 @@ export interface ISupplyRewardsStatePoint {
   supplyAmount: BigNumber;
 }
 
+/**
+ * All data at the moment of borrow
+ * required to calculate amount of borrow-rewards
+ * that we will have at any given block in the future
+ * (on the assumption, that no data is changed after supply)
+ */
+export interface IBorrowRewardsStatePoint {
+  /** Block in which borrow happens */
+  blockBorrow: BigNumber;
+  beforeBorrow: {
+    stateIndex: BigNumber;
+    stateBlock: BigNumber;
+    distributionSpeed: BigNumber;
+    totalBorrow: BigNumber;
+    borrowIndex: BigNumber;
+    borrowBalanceStored: BigNumber;
+  }
+  borrowAmount: BigNumber;
+  /** Borrow index at the moment of claiming rewards.
+   *  Borrow index is updated manually(?) using updateInterest() */
+  borrowIndexClaimRewards: BigNumber;
+}
 //endregion Data types
 
 export class DForceHelper {
@@ -481,40 +503,32 @@ export class DForceHelper {
   }
 
   public static getBorrowRewardsAmount(
-    marketData: IDForceMarketRewards,
-    accountData: IDForceMarketAccount,
-    totalBorrows: BigNumber,
-    borrowIndex: BigNumber,
-    borrowBalanceStored: BigNumber,
-    block: BigNumber
+    pt: IRewardsStatePoint,
+    currentBlock: BigNumber
   ) : {
     rewardsAmount: BigNumber,
     newBorrowStateIndex: BigNumber
-  } {
+  } { //TODO: merge getSupplyRewardsAmount and getBorrowRewardsAmount
     // manually calculate rewards for user 1
-    const borrowStateBlock = marketData.distributionBorrowState_Block;
-    const borrowStateIndex = marketData.distributionBorrowState_Index;
-    const borrowSpeed = marketData.distributionSpeed;
-
     const newBorrowStateIndex = DForceHelper.calcDistributionStateSupply(
-      block,
-      borrowStateBlock,
-      borrowStateIndex,
-      borrowSpeed,
-      this.getTotalTokenForBorrowCase(totalBorrows, borrowIndex)
+      currentBlock,
+      pt.stateBlock,
+      pt.stateIndex,
+      pt.distributionSpeed,
+      pt.totalToken
     );
 
-    const iTokenIndex = newBorrowStateIndex;
-    const accountIndex = accountData.distributionBorrowerIndex;
-    const accountBalance = this.rdiv(borrowBalanceStored, borrowIndex);
-
-    const rewardsAmount = this.calcUpdateRewards(iTokenIndex, accountIndex, accountBalance);
+    const rewardsAmount = this.calcUpdateRewards(
+      newBorrowStateIndex,
+      pt.accountIndex,
+      pt.accountBalance
+    );
     return {rewardsAmount, newBorrowStateIndex};
   }
 //endregion Rewards calculations
 
-//region Generate IRewardsStatePoint
-  public static getRewardsStatePoint(
+//region Generate IRewardsStatePoint - supply
+  public static getRewardsStatePointForSupply(
     marketData: IDForceMarketRewards,
     accountData: IDForceMarketAccount,
     totalSupply: BigNumber,
@@ -538,11 +552,11 @@ export class DForceHelper {
     return {
       blockSupply: blockSupply,
       beforeSupply: {
-        stateIndex: marketDataBeforeSupply.distributionSupplyState_Index,
-        stateBlock: marketDataBeforeSupply.distributionSupplyState_Block,
-        distributionSpeed: marketDataBeforeSupply.distributionSupplySpeed,
-        totalSupply: totalSupplyBeforeSupply
-      },
+            stateIndex: marketDataBeforeSupply.distributionSupplyState_Index,
+            stateBlock: marketDataBeforeSupply.distributionSupplyState_Block,
+            distributionSpeed: marketDataBeforeSupply.distributionSupplySpeed,
+            totalSupply: totalSupplyBeforeSupply
+          },
       supplyAmount: supplyAmount
     }
   }
@@ -568,7 +582,76 @@ export class DForceHelper {
       stateBlock: pt.blockSupply
     }
   }
-//endregion Generate IRewardsStatePoint
+//endregion Generate IRewardsStatePoint - supply
+
+//region Generate IRewardsStatePoint - borrow
+  public static getRewardsStatePointForBorrow(
+    marketData: IDForceMarketRewards,
+    accountData: IDForceMarketAccount,
+    borrowIndex: BigNumber,
+    borrowBalanceStored: BigNumber,
+    totalBorrows: BigNumber,
+  ) : IRewardsStatePoint {
+    return {
+      stateIndex: marketData.distributionBorrowState_Index,
+      stateBlock: marketData.distributionBorrowState_Block,
+      distributionSpeed: marketData.distributionSpeed,
+      accountBalance: this.rdiv(borrowBalanceStored, borrowIndex),
+      accountIndex: accountData.distributionBorrowerIndex,
+      totalToken: this.getTotalTokenForBorrowCase(totalBorrows, borrowIndex)
+    }
+  }
+
+  public static getBorrowRewardsStatePoint(
+    blockBorrow: BigNumber,
+    marketDataBeforeBorrow: IDForceMarketRewards,
+    totalBorrowBeforeBorrow: BigNumber,
+    borrowIndex: BigNumber,
+    borrowBalanceStored: BigNumber,
+    borrowAmount: BigNumber,
+    borrowIndexClaimRewards: BigNumber
+  ) : IBorrowRewardsStatePoint {
+    return {
+      blockBorrow: blockBorrow,
+      beforeBorrow: {
+        stateIndex: marketDataBeforeBorrow.distributionBorrowState_Index,
+        stateBlock: marketDataBeforeBorrow.distributionBorrowState_Block,
+        distributionSpeed: marketDataBeforeBorrow.distributionSpeed,
+        totalBorrow: totalBorrowBeforeBorrow,
+        borrowIndex: borrowIndex,
+        borrowBalanceStored: borrowBalanceStored
+      },
+      borrowAmount: borrowAmount,
+      borrowIndexClaimRewards: borrowIndexClaimRewards
+    }
+  }
+
+  public static predictRewardsStatePointAfterBorrow(
+    pt: IBorrowRewardsStatePoint
+  ) : IRewardsStatePoint {
+    let totalBorrows = pt.beforeBorrow.totalBorrow;
+    let stateIndex = pt.beforeBorrow.stateIndex;
+
+    const distributedPerToken = DForceHelper.rdiv(
+      pt.beforeBorrow.distributionSpeed.mul(pt.blockBorrow.add(1).sub(pt.beforeBorrow.stateBlock))
+      , totalBorrows
+    );
+    stateIndex = stateIndex.add(distributedPerToken);
+    totalBorrows = totalBorrows.add(pt.borrowAmount);
+
+    return {
+      accountBalance: this.rdiv(
+        pt.beforeBorrow.borrowBalanceStored.add(pt.borrowAmount),
+        pt.borrowIndexClaimRewards
+      ),
+      stateIndex: stateIndex,
+      distributionSpeed: pt.beforeBorrow.distributionSpeed,
+      totalToken: this.getTotalTokenForBorrowCase(totalBorrows, pt.borrowIndexClaimRewards),
+      accountIndex: stateIndex,
+      stateBlock: pt.blockBorrow
+    }
+  }
+//endregion Generate IRewardsStatePoint - borrow
 
 //region Supply, borrow, repay
   public static async supply(
