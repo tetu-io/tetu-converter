@@ -350,16 +350,6 @@ describe("DForce integration tests, platform adapter", () => {
           const user = await DeployerUtils.startImpersonate(ethers.Wallet.createRandom().address);
           console.log("user", user.address);
 
-          const ret = await platformAdapter.getRewardAmounts(
-            collateralCToken.address
-            , BigNumber.from("19884381299573167800813") //collateralAmount
-            , MaticAddresses.dForce_iDAI // any borrow asset that doesn't support borrow-rewards
-            , 0
-            , periodInBlocks
-            , 4
-          );
-          console.log("Predicted rewards:", ret);
-
           // make supply, wait period, get actual amount of rewards
           const r = await SupplyBorrowUsingDForce.makeSupplyRewardsTestMinimumTransactions(
             deployer
@@ -370,46 +360,15 @@ describe("DForce integration tests, platform adapter", () => {
             , collateralAmount
             , periodInBlocks
           );
-          
-          const e = DForceHelper.getSupplyRewardsAmount(
-            {
-              controller: '0x52eaCd19E38D501D006D2023C813d7E37F025f37',
-              ctoken: '0xec85F77104Ffa35a5411750d70eDFf8f1496d95b',
-              underlying: '0x8f3Cf7ad23Cd3CaDbD9735AFf958023239c6A063',
-              name: 'dForce DAI',
-              symbol: 'iDAI',
-              decimals: 18,
-              distributionBorrowState_Index: BigNumber.from("130473694579292052"),
-              distributionBorrowState_Block: BigNumber.from("32308906"),
-              distributionFactorMantissa: BigNumber.from("1000000000000000000"),
-              distributionSpeed: BigNumber.from("15972314654598696"),
-              distributionSupplySpeed: BigNumber.from("37268734194063624"),
-              distributionSupplyState_Index: BigNumber.from("217294813968775027"),
-              distributionSupplyState_Block: BigNumber.from("32331257"),
-              globalDistributionSpeed: BigNumber.from("159723146545986958"),
-              globalDistributionSupplySpeed: BigNumber.from("372687341940636234"),
-              rewardToken: '0x08C15FA26E519A78a666D19CE5C646D55047e0a3',
-              paused: false,
-              rewardTokenPrice: BigNumber.from("37659205976040000"),
-            },
-            {
-              accountBalance: BigNumber.from("19884381299573167800813"),
-              rewards: BigNumber.from("0"),
-              distributionSupplierIndex: BigNumber.from("217294813968775027"),
-              distributionBorrowerIndex: BigNumber.from(0)
-            }
-            , BigNumber.from("951245945780543917612766")
-            , BigNumber.from("32332258")
-          );
-          console.log("Expected results", e);
+
+          const pst = DForceHelper.predictRewardsStatePointAfterSupply(r.supplyPoint);
+          const ret = DForceHelper.getSupplyRewardsAmount(pst, r.blockUpdateDistributionState);
 
           const sret = [
-            ret.rewardAmountSupply.toString()
-            , ret.rewardAmountBorrow.toString()
+            ret.rewardsAmount.toString()
           ].join("\n");
           const sexpected = [
             r.rewardsEarnedActual.toString()
-            , 0
           ].join("\n");
 
           expect(sret).eq(sexpected);

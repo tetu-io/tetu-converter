@@ -5,7 +5,7 @@ import hre, {ethers} from "hardhat";
 import {
   DForceHelper,
   IDForceMarketAccount,
-  IDForceMarketRewards
+  IDForceMarketRewards, IRewardsStatePoint, ISupplyRewardsStatePoint
 } from "../../../../scripts/integration/helpers/DForceHelper";
 import {
   IDForceController, IDForceCToken,
@@ -104,9 +104,11 @@ export class SupplyBorrowUsingDForce {
     block: BigNumber
   ) : Promise<IRewardsStateC> {
     const r0 = DForceHelper.getSupplyRewardsAmount(
-      st.market
-      , st.account
-      , st.totalSupply
+      DForceHelper.getRewardsStatePoint(
+        st.market
+        , st.account
+        , st.totalSupply
+      )
       , block
     );
     return {
@@ -198,17 +200,25 @@ export class SupplyBorrowUsingDForce {
     console.log("after", after);
 
     // manually calculate rewards
+    // one part of the rewards we get in the period
+    // [supply, update-rewards1)
     const r0 = DForceHelper.getSupplyRewardsAmount(
-      afterSupply.market
-      , afterSupply.account
-      , afterSupply.totalSupply
+      DForceHelper.getRewardsStatePoint(
+        afterSupply.market
+        , afterSupply.account
+        , afterSupply.totalSupply
+      )
       , BigNumber.from(middle.block.sub(1))
     );
 
+    // another part of the rewards we get in next block where calcDistributionStateSupply is called
+    // [update-rewards1, calcDistributionStateSupply2)
     const r1 = DForceHelper.getSupplyRewardsAmount(
-      middle.market
-      , middle.account
-      , middle.totalSupply
+      DForceHelper.getRewardsStatePoint(
+        middle.market
+        , middle.account
+        , middle.totalSupply
+      )
       , BigNumber.from(afterUDC.block)
     );
 
@@ -243,7 +253,9 @@ export class SupplyBorrowUsingDForce {
     periodInBlocks: number
   ) : Promise<{
     rewardsEarnedActual: BigNumber,
-    rewardsReceived: BigNumber
+    rewardsReceived: BigNumber,
+    supplyPoint: ISupplyRewardsStatePoint,
+    blockUpdateDistributionState: BigNumber
   }>{
     const comptroller = await DForceHelper.getController(deployer);
     const rd = await DForceHelper.getRewardDistributor(comptroller, deployer);
@@ -278,7 +290,15 @@ export class SupplyBorrowUsingDForce {
 
     return {
       rewardsEarnedActual: after.rewards,
-      rewardsReceived: rewardsBalance1.sub(rewardsBalance0)
+      rewardsReceived: rewardsBalance1.sub(rewardsBalance0),
+      supplyPoint: DForceHelper.getSupplyRewardsStatePoint(
+        afterSupply.block,
+        before.market,
+        before.totalSupply,
+        // DForce has a supply fee, so this amount is a bit less than initial collateral
+        afterSupply.account.accountBalance
+      ),
+      blockUpdateDistributionState: afterUDC.block
     };
   }
 //endregion Supply-test-impl

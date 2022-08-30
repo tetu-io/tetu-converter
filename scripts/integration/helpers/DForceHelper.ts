@@ -109,6 +109,39 @@ export interface IDForceMarketAccount {
   rewards: BigNumber;
 }
 
+/**
+ * All data at the given block
+ * required to calculate rewards
+ * that we will have at any given block in the future
+ * (on the assumption, that no data is changed between blocks)
+ */
+export interface IRewardsStatePoint {
+  accountBalance: BigNumber;
+  stateIndex: BigNumber;
+  distributionSpeed: BigNumber;
+  totalToken: BigNumber;
+  accountIndex: BigNumber;
+  stateBlock: BigNumber;
+}
+
+/**
+ * All data at the moment of supply
+ * required to calculate amount of rewards
+ * that we will have at any given block in the future
+ * (on the assumption, that no data is changed after supply)
+ */
+export interface ISupplyRewardsStatePoint {
+  /** Block in which supply happens */
+  blockSupply: BigNumber;
+  beforeSupply: {
+    stateIndex: BigNumber;
+    stateBlock: BigNumber;
+    distributionSpeed: BigNumber;
+    totalSupply: BigNumber;
+  }
+  supplyAmount: BigNumber;
+}
+
 //endregion Data types
 
 export class DForceHelper {
@@ -414,33 +447,36 @@ export class DForceHelper {
     return amount;
   }
 
+  /**
+   * Calculate amount of rewards
+   * from the given point
+   * up to the given block
+   * in assumption, that the market data and the account data
+   * are not changed in that period
+   * @param pt
+   * @param currentBlock
+   */
   public static getSupplyRewardsAmount(
-    marketData: IDForceMarketRewards,
-    accountData: IDForceMarketAccount,
-    totalSupply: BigNumber,
-    block: BigNumber
+    pt: IRewardsStatePoint,
+    currentBlock: BigNumber
   ) : {
     rewardsAmount: BigNumber,
     newSupplyStateIndex: BigNumber
   } {
     // manually calculate rewards for user 1
-    const supplyStateBlock = marketData.distributionSupplyState_Block;
-    const supplyStateIndex = marketData.distributionSupplyState_Index;
-    const supplySpeed = marketData.distributionSupplySpeed;
-
     const newSupplyStateIndex = DForceHelper.calcDistributionStateSupply(
-      block,
-      supplyStateBlock,
-      supplyStateIndex,
-      supplySpeed,
-      totalSupply
+      currentBlock,
+      pt.stateBlock,
+      pt.stateIndex,
+      pt.distributionSpeed,
+      pt.totalToken
     );
 
-    const iTokenIndex = newSupplyStateIndex; // distributionSupplyState[_iToken].index;
-    const accountIndex = accountData.distributionSupplierIndex;
-    const accountBalance = accountData.accountBalance;
-
-    const rewardsAmount = this.calcUpdateRewards(iTokenIndex, accountIndex, accountBalance);
+    const rewardsAmount = this.calcUpdateRewards(
+      newSupplyStateIndex, // == iTokenIndex == distributionSupplyState[_iToken].index;
+      pt.accountIndex,
+      pt.accountBalance
+    );
     return {rewardsAmount, newSupplyStateIndex};
   }
 
@@ -476,6 +512,63 @@ export class DForceHelper {
     return {rewardsAmount, newBorrowStateIndex};
   }
 //endregion Rewards calculations
+
+//region Generate IRewardsStatePoint
+  public static getRewardsStatePoint(
+    marketData: IDForceMarketRewards,
+    accountData: IDForceMarketAccount,
+    totalSupply: BigNumber,
+  ) : IRewardsStatePoint {
+    return {
+      stateIndex: marketData.distributionSupplyState_Index,
+      stateBlock: marketData.distributionBorrowState_Block,
+      distributionSpeed: marketData.distributionSupplySpeed,
+      accountBalance: accountData.accountBalance,
+      accountIndex: accountData.distributionSupplierIndex,
+      totalToken: totalSupply
+    }
+  }
+
+  public static getSupplyRewardsStatePoint(
+    blockSupply: BigNumber,
+    marketDataBeforeSupply: IDForceMarketRewards,
+    totalSupplyBeforeSupply: BigNumber,
+    supplyAmount: BigNumber
+  ) : ISupplyRewardsStatePoint {
+    return {
+      blockSupply: blockSupply,
+      beforeSupply: {
+        stateIndex: marketDataBeforeSupply.distributionSupplyState_Index,
+        stateBlock: marketDataBeforeSupply.distributionSupplyState_Block,
+        distributionSpeed: marketDataBeforeSupply.distributionSupplySpeed,
+        totalSupply: totalSupplyBeforeSupply
+      },
+      supplyAmount: supplyAmount
+    }
+  }
+
+  public static predictRewardsStatePointAfterSupply(
+    pt: ISupplyRewardsStatePoint
+  ) : IRewardsStatePoint {
+    let totalSupply = pt.beforeSupply.totalSupply;
+    let stateIndex = pt.beforeSupply.stateIndex;
+    const distributedPerToken = DForceHelper.rdiv(
+      pt.beforeSupply.distributionSpeed.mul(pt.blockSupply.add(1).sub(pt.beforeSupply.stateBlock))
+      , totalSupply
+    );
+    stateIndex = stateIndex.add(distributedPerToken);
+    totalSupply = totalSupply.add(pt.supplyAmount);
+
+    return {
+      accountBalance: pt.supplyAmount,
+      stateIndex: stateIndex,
+      distributionSpeed: pt.beforeSupply.distributionSpeed,
+      totalToken: totalSupply,
+      accountIndex: stateIndex,
+      stateBlock: pt.blockSupply
+    }
+  }
+//endregion Generate IRewardsStatePoint
 
 //region Supply, borrow, repay
   public static async supply(
