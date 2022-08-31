@@ -652,7 +652,7 @@ export class DForceHelper {
   }
 
   /** Manually calculate amount of borrow-rewards */
-  public static async predictRewardsStatePointAfterBorrow(
+  public static async predictRewardsAfterBorrow(
     p: IBorrowRewardsPredictionInput,
     brCalc: (cash: BigNumber, totalBorrows: BigNumber, totalReserve: BigNumber) => Promise<BigNumber>,
     blockUpdateDistributionState: BigNumber
@@ -696,7 +696,17 @@ export class DForceHelper {
       accountBalance: accountBalance,
       totalToken: totalToken,
     }
-    return DForceHelper.getBorrowRewardsAmount(pt, blockUpdateDistributionState).rewardsAmount;
+    const dest = DForceHelper.getBorrowRewardsAmount(pt, blockUpdateDistributionState).rewardsAmount;
+    const toPrint = [
+      borrowRate1, simpleInterestFactor1, interestAccumulated1, totalBorrows1
+      , totalReserves1, borrowIndex1, stateIndex1, totalBorrowsAfterBorrow1
+      , blockNumber2, borrowRate2, simpleInterestFactor2, interestAccumulated2
+      , totalBorrows2, borrowIndex, totalToken, borrowBalanceStored
+      , accountBalance, dest
+    ];
+    console.log("predictRewardsStatePointAfterBorrow", toPrint.join("\n"));
+
+    return dest;
   }
 //endregion Generate IRewardsStatePoint - borrow
 

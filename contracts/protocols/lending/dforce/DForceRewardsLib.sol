@@ -27,7 +27,7 @@ library DForceRewardsLib {
     IDForcePriceOracle priceOracle;
   }
 
-  /// @notice the data before borrow
+  /// @notice Set of input params for borrowRewardAmounts function
   struct DBorrowRewardsInput {
     /// @notice Block where the borrow is made
     uint blockNumber;
@@ -142,7 +142,16 @@ library DForceRewardsLib {
           block.number + delayBlocks_ + countBlocks_
       );
     }
-    rewardAmountBorrow = borrowRewardAmounts(core, borrowAmount_, countBlocks_);
+    distributionSpeed = core.rd.distributionSpeed(address(core.cTokenBorrow));
+    if (distributionSpeed != 0) {
+      address user = address(0); //TODO
+      rewardAmountBorrow = _borrowRewardAmount(core,
+        user,
+        borrowAmount_,
+        distributionSpeed,
+        delayBlocks_ + countBlocks_
+      );
+    }
     totalRewardsInBorrowAsset = rewardAmountSupply + rewardAmountBorrow;
 
     if (totalRewardsInBorrowAsset != 0) {
@@ -158,6 +167,44 @@ library DForceRewardsLib {
     return (rewardAmountSupply, rewardAmountBorrow, totalRewardsInBorrowAsset);
   }
 
+  function _borrowRewardAmount(
+    DForceCore memory core,
+    address user,
+    uint borrowAmount_,
+    uint distributionSpeed_,
+    uint countBlocks_
+  ) internal view returns (uint) {
+    (, uint interestIndex) = core.cTokenBorrow.borrowSnapshot(user);
+    (uint stateIndex, uint stateBlock) = core.rd.distributionBorrowState(address(core.cTokenBorrow));
+    return borrowRewardAmount(
+      DBorrowRewardsInput({
+        blockNumber: block.number,
+        amountToBorrow: borrowAmount_,
+
+        userInterest: interestIndex,
+        accrualBlockNumber: core.cTokenBorrow.accrualBlockNumber(),
+        borrowBalanceStored: core.cTokenBorrow.borrowBalanceStored(user),
+
+        stateIndex: stateIndex,
+        stateBlock: stateBlock,
+        borrowIndex: core.cTokenBorrow.borrowIndex(),
+        distributionSpeed: distributionSpeed_,
+
+        totalCash: core.cTokenBorrow.getCash(),
+        totalBorrows: core.cTokenBorrow.totalBorrows(),
+        totalReserves: core.cTokenBorrow.totalReserves(),
+        reserveFactor: core.cTokenBorrow.reserveRatio(),
+
+        interestRateModel: core.cTokenBorrow.interestRateModel()
+      }), block.number + countBlocks_
+    );
+  }
+
+  /// @notice Calculate amount of supply rewards inside the supply-block
+  ///         in assumption that after supply no data will be changed on market
+  /// @dev Algo repeats original algo implemented in LendingContractsV2.
+  ///      github.com:dforce-network/LendingContractsV2.git
+  ///      Same algo is implemented in tests, see DForceHelper.predictRewardsStatePointAfterSupply
   function supplyRewardAmount(
     uint blockSupply_,
     uint stateIndex_,
@@ -184,45 +231,56 @@ library DForceRewardsLib {
     );
   }
 
-  function borrowRewardAmounts(
+  /// @notice Calculate amount of borrow rewards inside the borrow-block
+  ///         in assumption that after borrow no data will be changed on market
+  /// @dev Algo repeats original algo implemented in LendingContractsV2.
+  ///      github.com:dforce-network/LendingContractsV2.git
+  ///      Same algo is implemented in tests, see DForceHelper.predictRewardsAfterBorrow
+  function borrowRewardAmount(
     DBorrowRewardsInput memory p_,
     uint blockToClaimRewards_
   ) internal view returns (uint rewardAmountBorrow) {
-    uint borrowRate = IDForceInterestRateModel(p_.interestRateModel).getBorrowRate(
-      p_.totalCash,
-      p_.totalBorrows,
-      p_.totalReserves
-    );
-
-    uint simpleInterestFactor = (p_.blockNumber - p_.accrualBlockNumber) * borrowRate;
+    // borrow block: before borrow
+    uint simpleInterestFactor = (p_.blockNumber - p_.accrualBlockNumber)
+      * IDForceInterestRateModel(p_.interestRateModel).getBorrowRate(
+          p_.totalCash,
+          p_.totalBorrows,
+          p_.totalReserves
+        );
     uint interestAccumulated = rmul(simpleInterestFactor, p_.totalBorrows);
     uint totalBorrows = p_.totalBorrows + interestAccumulated;
     uint totalReserves = p_.totalReserves + rmul(interestAccumulated, p_.reserveFactor);
     uint borrowIndex = rmul(simpleInterestFactor, p_.borrowIndex) + p_.borrowIndex;
-    uint stateIndex = TODO
+    uint totalTokens = rdiv(totalBorrows, borrowIndex);
 
-
-    // current borrow index => new borrow index
-    borrowIndex += rmul(
-      core.interestRateModel.getBorrowRate(
-        core.cTokenBorrow.getCash(), //TODO
-        core.cTokenBorrow.totalBorrows() + amountToBorrow_,
-        core.cTokenBorrow.totalReserves()
-      ) * countBlocks_,
-      borrowIndex
+    // borrow block: after borrow
+    uint stateIndex = p_.stateIndex + (
+      totalTokens == 0
+        ? 0
+        : rdiv(p_.distributionSpeed * (p_.blockNumber - p_.stateBlock), totalTokens)
     );
+    totalBorrows += p_.amountToBorrow;
 
-    (uint stateIndex,) = core.rd.distributionBorrowState(address(core.cTokenBorrow));
-    rewardAmountBorrow = getRewardAmount(
-      rdiv(core.cTokenBorrow.borrowBalanceStored(address(this)) + amountToBorrow_, borrowIndex),
+    // target block (where we are going to claim the rewards)
+    simpleInterestFactor = (blockToClaimRewards_ - 1 - p_.blockNumber)
+      * IDForceInterestRateModel(p_.interestRateModel).getBorrowRate(
+          p_.totalCash + p_.amountToBorrow,
+          totalBorrows,
+          totalReserves
+        );
+    interestAccumulated = rmul(simpleInterestFactor, totalBorrows);
+    totalBorrows += interestAccumulated;
+    borrowIndex += rmul(simpleInterestFactor, borrowIndex);
+    totalTokens = rdiv(totalBorrows, borrowIndex);
+
+    return getRewardAmount(
+      rdiv(divup(p_.amountToBorrow * borrowIndex, p_.userInterest), borrowIndex),
       stateIndex,
-      distributionSpeed,
-      rdiv(core.cTokenBorrow.totalBorrows(), borrowIndex),
-      core.rd.distributionBorrowerIndex(address(core.cTokenBorrow), address(this)),
-      countBlocks_
+      p_.distributionSpeed,
+      totalTokens,
+      stateIndex,
+      blockToClaimRewards_ - p_.blockNumber
     );
-
-    return rewardAmountBorrow;
   }
 
   ///////////////////////////////////////////////////////
@@ -282,4 +340,8 @@ library DForceRewardsLib {
     return x * 10**18 / y;
   }
 
+  function divup(uint x, uint y) internal pure returns (uint) {
+    require(y != 0, AppErrors.DIVISION_BY_ZERO);
+    return (x + y - 1) / y;
+  }
 }

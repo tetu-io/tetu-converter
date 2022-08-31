@@ -64,12 +64,11 @@ contract DForceRewardsLibFacade {
     );
   }
 
-  function borrowRewardAmounts(
-    DForceRewardsLib.DForceCore memory core,
-    uint amountToBorrow_,
-    uint countBlocks_
+  function borrowRewardAmount(
+    DForceRewardsLib.DBorrowRewardsInput memory p_,
+    uint blockToClaimRewards_
   ) external view returns (uint rewardAmountBorrow) {
-    return DForceRewardsLib.borrowRewardAmounts(core, amountToBorrow_, countBlocks_);
+    return DForceRewardsLib.borrowRewardAmount(p_, blockToClaimRewards_);
   }
 
   function getRewardAmount(

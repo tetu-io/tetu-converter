@@ -330,7 +330,7 @@ export class SupplyBorrowUsingDForce {
     rewardsReceived: BigNumber,
     predictData: IBorrowRewardsPredictionInput,
     blockUpdateDistributionState: BigNumber,
-    interestRateModel: IDForceInterestRateModel
+    interestRateModel: IDForceInterestRateModel,
   }>{
     const user = await DeployerUtils.startImpersonate(ethers.Wallet.createRandom().address);
     const comptroller = await DForceHelper.getController(deployer);

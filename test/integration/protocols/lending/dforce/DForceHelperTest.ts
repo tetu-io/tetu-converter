@@ -117,7 +117,7 @@ describe("DForceHelper tests", () => {
     rewardsReceived: BigNumber,
     predictData: IBorrowRewardsPredictionInput,
     blockUpdateDistributionState: BigNumber,
-    interestRateModel: IDForceInterestRateModel
+    interestRateModel: IDForceInterestRateModel,
   }>{
     const collateralToken = await TokenDataTypes.Build(deployer, collateralAsset);
     const collateralCToken = await TokenDataTypes.Build(deployer, collateralCTokenAddress);
@@ -238,15 +238,21 @@ describe("DForceHelper tests", () => {
               1_000
             );
 
-            const sret = await DForceHelper.predictRewardsStatePointAfterBorrow(
+            const cashesAndBorrowRates: BigNumber[] = [];
+            const sret = await DForceHelper.predictRewardsAfterBorrow(
               r.predictData,
               async function (cash: BigNumber, totalBorrows: BigNumber, totalReserve: BigNumber) : Promise<BigNumber> {
-                return await r.interestRateModel.getBorrowRate(cash, totalBorrows, totalReserve);
+                const br = await r.interestRateModel.getBorrowRate(cash, totalBorrows, totalReserve);
+                cashesAndBorrowRates.push(cash);
+                cashesAndBorrowRates.push(br);
+                return br;
               },
               r.blockUpdateDistributionState
             );
             const sexpected = r.rewardsEarnedActual.toString();
             console.log(`rewardsEarnedActual=${sexpected} predicted=${sret}`);
+
+            console.log(`Generate source data for DForceRewardsLibTest`, r, cashesAndBorrowRates);
 
             expect(sret).eq(sexpected);
           });
@@ -330,7 +336,7 @@ describe("DForceHelper tests", () => {
             const ret = DForceHelper.getBorrowRewardsAmount(pt, blockUpdateDistributionState);
             console.log(ret);
 
-            const ret2 = await DForceHelper.predictRewardsStatePointAfterBorrow(
+            const ret2 = await DForceHelper.predictRewardsAfterBorrow(
               {
                 amountToBorrow,
                 distributionSpeed: distributionSpeed0,

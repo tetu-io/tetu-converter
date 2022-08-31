@@ -16,7 +16,7 @@ import {
   PoolAdapterMock,
   PoolAdapterStub,
   DebtsMonitorStub,
-  PoolStub, PlatformAdapterStub
+  PoolStub, PlatformAdapterStub, DForceInterestRateModelMock
 } from "../../../typechain";
 
 export interface IPooAdapterStabInitParams {
@@ -234,4 +234,24 @@ export class MocksHelper {
     ) as Aave3PriceOracleMock;
   }
 //endregion Price mocks
+
+//region DForce mocks
+  public static async createDForceInterestRateModelMock(
+    signer: SignerWithAddress,
+    cash1: BigNumber,
+    borrowRate1: BigNumber,
+    cash2: BigNumber,
+    borrowRate2: BigNumber
+  ) : Promise<DForceInterestRateModelMock> {
+    return await DeployUtils.deployContract(
+      signer
+      , "DForceInterestRateModelMock"
+      , cash1
+      , borrowRate1
+      , cash2
+      , borrowRate2
+    ) as DForceInterestRateModelMock;
+  }
+
+//endregion DForce mocks
 }
