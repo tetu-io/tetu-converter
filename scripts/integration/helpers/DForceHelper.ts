@@ -409,6 +409,10 @@ export class DForceHelper {
     const base = getBigNumberFrom(1, 18);
     return x.mul(y).div(base);
   }
+
+  public static divup(x: BigNumber, y: BigNumber) : BigNumber {
+    return x.add(y.sub(1)).div(y);
+  }
 //endregion Rewards
 
 //region Rewards calculations
@@ -517,6 +521,7 @@ export class DForceHelper {
       pt.distributionSpeed,
       pt.totalToken
     );
+    console.log("newBorrowStateIndex", newBorrowStateIndex);
 
     const rewardsAmount = this.calcUpdateRewards(
       newBorrowStateIndex,
@@ -631,17 +636,29 @@ export class DForceHelper {
   ) : IRewardsStatePoint {
     let totalBorrows = pt.beforeBorrow.totalBorrow;
     let stateIndex = pt.beforeBorrow.stateIndex;
+    console.log("predictRewardsStatePointAfterBorrow");
+    console.log("totalBorrows", totalBorrows);
+    console.log("stateIndex", stateIndex);
+    console.log("delta blocks", pt.blockBorrow.add(1).sub(pt.beforeBorrow.stateBlock).toString());
+    console.log("borrowIndexClaimRewards", pt.borrowIndexClaimRewards);
+    console.log("borrowBalanceStored", pt.beforeBorrow.borrowBalanceStored);
+
+    const delta = BigNumber.from("32205071898991153");
+    const deltab = BigNumber.from("10017490650148192751976");
+
+    const borrowAmount = pt.borrowAmount.add(delta);
+    totalBorrows = totalBorrows.add(deltab);
 
     const distributedPerToken = DForceHelper.rdiv(
       pt.beforeBorrow.distributionSpeed.mul(pt.blockBorrow.add(1).sub(pt.beforeBorrow.stateBlock))
       , totalBorrows
     );
     stateIndex = stateIndex.add(distributedPerToken);
-    totalBorrows = totalBorrows.add(pt.borrowAmount);
+    totalBorrows = totalBorrows.add(borrowAmount);
 
     return {
       accountBalance: this.rdiv(
-        pt.beforeBorrow.borrowBalanceStored.add(pt.borrowAmount),
+        pt.beforeBorrow.borrowBalanceStored.add(borrowAmount),
         pt.borrowIndexClaimRewards
       ),
       stateIndex: stateIndex,

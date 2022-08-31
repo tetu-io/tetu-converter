@@ -9,7 +9,7 @@ import {
 } from "../../../../scripts/integration/helpers/DForceHelper";
 import {
   IDForceController, IDForceCToken,
-  IDForceCToken__factory,
+  IDForceCToken__factory, IDForceInterestRateModel__factory,
   IDForceRewardDistributor,
   IERC20__factory
 } from "../../../../typechain";
@@ -346,27 +346,61 @@ export class SupplyBorrowUsingDForce {
     const afterSupply = await this.getStateBorrowToken(comptroller, rd, bToken, user.address);
     console.log("afterSupply", afterSupply);
 
+    const accrualBlockNumberBeforeBorrow = await bToken.accrualBlockNumber();
+    const borrowRateBeforeBorrow = await IDForceInterestRateModel__factory.connect(
+      await bToken.interestRateModel()
+      , deployer
+    ).getBorrowRate(
+      await bToken.getCash(),
+      await bToken.totalBorrows(),
+      await bToken.totalReserves()
+    );
+    console.log(`BeforeBorrow: accrualBlockNumber=${accrualBlockNumberBeforeBorrow} borrowRate=${borrowRateBeforeBorrow}`);
+    console.log("Borrower.borrowIndex", await bToken.borrowSnapshot(user.address));
+    console.log("getCash", await bToken.getCash());
+    console.log("totalBorrows", await bToken.totalBorrows());
+    console.log("totalReserves", await bToken.totalReserves());
+    console.log("reserveRatio", await bToken.reserveRatio());
+
     // borrow
     await DForceHelper.borrow(user, cTokenBorrow, borrowAmount);
 
     const afterBorrow = await this.getStateBorrowToken(comptroller, rd, bToken, user.address);
     console.log("afterBorrow", afterBorrow);
+    console.log("Borrower.borrowIndex", await bToken.borrowSnapshot(user.address));
 
     // move time ahead and update interest
     await TimeUtils.advanceNBlocks(periodInBlocks);
+    const accrualBlockNumberAfterBorrow = await bToken.accrualBlockNumber();
+    const borrowRateAfterBorrow = await IDForceInterestRateModel__factory.connect(
+      await bToken.interestRateModel()
+      , deployer
+    ).getBorrowRate(
+      await bToken.getCash(),
+      await bToken.totalBorrows(),
+      await bToken.totalReserves()
+    );
+    console.log(`AfterBorrow: accrualBlockNumber=${accrualBlockNumberAfterBorrow} borrowRate=${borrowRateAfterBorrow}`);
+    console.log("Before updateInterest Borrower.borrowIndex", await bToken.borrowSnapshot(user.address));
+    console.log("getCash", await bToken.getCash());
+    console.log("totalBorrows", await bToken.totalBorrows());
+    console.log("totalReserves", await bToken.totalReserves());
+
     await bToken.updateInterest(); //see comments below
 
     const afterAdvance = await this.getStateBorrowToken(comptroller, rd, bToken, user.address);
     console.log("afterAdvance", afterAdvance);
+    console.log("After updateInterest Borrower.borrowIndex", await bToken.borrowSnapshot(user.address));
 
     // forced update rewards
     await rd.updateDistributionState(cTokenBorrow.address, true);
     const afterUDC = await this.getStateBorrowToken(comptroller, rd, bToken, user.address);
     console.log("afterUDCSupply", afterUDC);
+    console.log("Borrower.borrowIndex", await bToken.borrowSnapshot(user.address));
 
     await rd.updateReward(cTokenBorrow.address, user.address, true);
 
-    const after = await this.getState(comptroller, rd, bToken, user.address);
+    const after = await this.getStateBorrowToken(comptroller, rd, bToken, user.address);
     console.log("after", after);
 
     const rewardsBalance0 = await IERC20__factory.connect(before.market.rewardToken, user).balanceOf(user.address);
