@@ -40,7 +40,7 @@ interface IDForceCToken {
    * @dev Gets user borrowing information.
    *      principal, interestIndex
    */
-  function borrowSnapshot(address _account) external view returns (uint256, uint256);
+  function borrowSnapshot(address _account) external view returns (uint256 principal, uint256 interestIndex);
   function controller() external view returns (address);
   function decimals() external view returns (uint8);
   function decreaseAllowance(address spender, uint256 subtractedValue) external returns (bool);

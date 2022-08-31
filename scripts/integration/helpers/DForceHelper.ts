@@ -164,6 +164,25 @@ export interface IBorrowRewardsStatePoint {
    *  Borrow index is updated manually(?) using updateInterest() */
   borrowIndexClaimRewards: BigNumber;
 }
+
+export interface IBorrowRewardsPredictionInput {
+  blockNumber: BigNumber;
+  amountToBorrow: BigNumber;
+
+  userInterest: BigNumber;
+  accrualBlockNumber: BigNumber;
+  borrowBalanceStored: BigNumber;
+
+  stateIndex: BigNumber;
+  stateBlock: BigNumber;
+  borrowIndex: BigNumber;
+  distributionSpeed: BigNumber;
+
+  totalCash: BigNumber;
+  totalBorrows: BigNumber;
+  totalReserves: BigNumber;
+  reserveFactor: BigNumber;
+}
 //endregion Data types
 
 export class DForceHelper {
@@ -566,6 +585,7 @@ export class DForceHelper {
     }
   }
 
+  /** Manually calculate amount of supply-rewards */
   public static predictRewardsStatePointAfterSupply(
     pt: ISupplyRewardsStatePoint
   ) : IRewardsStatePoint {
@@ -631,42 +651,52 @@ export class DForceHelper {
     }
   }
 
-  public static predictRewardsStatePointAfterBorrow(
-    pt: IBorrowRewardsStatePoint
-  ) : IRewardsStatePoint {
-    let totalBorrows = pt.beforeBorrow.totalBorrow;
-    let stateIndex = pt.beforeBorrow.stateIndex;
-    console.log("predictRewardsStatePointAfterBorrow");
-    console.log("totalBorrows", totalBorrows);
-    console.log("stateIndex", stateIndex);
-    console.log("delta blocks", pt.blockBorrow.add(1).sub(pt.beforeBorrow.stateBlock).toString());
-    console.log("borrowIndexClaimRewards", pt.borrowIndexClaimRewards);
-    console.log("borrowBalanceStored", pt.beforeBorrow.borrowBalanceStored);
+  /** Manually calculate amount of borrow-rewards */
+  public static async predictRewardsStatePointAfterBorrow(
+    p: IBorrowRewardsPredictionInput,
+    brCalc: (cash: BigNumber, totalBorrows: BigNumber, totalReserve: BigNumber) => Promise<BigNumber>,
+    blockUpdateDistributionState: BigNumber
+  ) : Promise<BigNumber> {
+    // borrow block: before borrow
+    const borrowRate1 = await brCalc(p.totalCash, p.totalBorrows, p.totalReserves);
 
-    const delta = BigNumber.from("32205071898991153");
-    const deltab = BigNumber.from("10017490650148192751976");
+    // see LendingContractsV2, Base.sol, _updateInterest
+    const simpleInterestFactor1 = (p.blockNumber.sub(p.accrualBlockNumber).mul(borrowRate1));
+    const interestAccumulated1 = DForceHelper.rmul(simpleInterestFactor1, p.totalBorrows);
+    const totalBorrows1 = p.totalBorrows.add(interestAccumulated1);
+    const totalReserves1 = p.totalReserves.add(DForceHelper.rmul(interestAccumulated1, p.reserveFactor));
 
-    const borrowAmount = pt.borrowAmount.add(delta);
-    totalBorrows = totalBorrows.add(deltab);
+    const borrowIndex1 = DForceHelper.rmul(simpleInterestFactor1, p.borrowIndex).add(p.borrowIndex);
 
-    const distributedPerToken = DForceHelper.rdiv(
-      pt.beforeBorrow.distributionSpeed.mul(pt.blockBorrow.add(1).sub(pt.beforeBorrow.stateBlock))
-      , totalBorrows
+    // borrow block: after borrow
+    const stateIndex1 = DForceHelper.calcDistributionStateSupply(
+      p.blockNumber, p.stateBlock, p.stateIndex, p.distributionSpeed
+      , DForceHelper.getTotalTokenForBorrowCase(totalBorrows1, borrowIndex1)
     );
-    stateIndex = stateIndex.add(distributedPerToken);
-    totalBorrows = totalBorrows.add(borrowAmount);
+    const totalBorrowsAfterBorrow1 = totalBorrows1.add(p.amountToBorrow)
 
-    return {
-      accountBalance: this.rdiv(
-        pt.beforeBorrow.borrowBalanceStored.add(borrowAmount),
-        pt.borrowIndexClaimRewards
-      ),
-      stateIndex: stateIndex,
-      distributionSpeed: pt.beforeBorrow.distributionSpeed,
-      totalToken: this.getTotalTokenForBorrowCase(totalBorrows, pt.borrowIndexClaimRewards),
-      accountIndex: stateIndex,
-      stateBlock: pt.blockBorrow
+    // claiming rewards block
+    const blockNumber2 = blockUpdateDistributionState.sub(1);
+    const borrowRate2 = await brCalc(p.totalCash.add(p.amountToBorrow), totalBorrowsAfterBorrow1, totalReserves1);
+
+    const simpleInterestFactor2 = (blockNumber2.sub(p.blockNumber).mul(borrowRate2));
+    const interestAccumulated2 = DForceHelper.rmul(simpleInterestFactor2, totalBorrowsAfterBorrow1);
+    const totalBorrows2 = totalBorrowsAfterBorrow1.add(interestAccumulated2);
+
+    const borrowIndex: BigNumber = DForceHelper.rmul(simpleInterestFactor2, borrowIndex1).add(borrowIndex1);
+    const totalToken = DForceHelper.getTotalTokenForBorrowCase(totalBorrows2, borrowIndex);
+    const borrowBalanceStored = DForceHelper.divup(p.amountToBorrow.mul(borrowIndex), p.userInterest);
+    const accountBalance = DForceHelper.rdiv(borrowBalanceStored, borrowIndex);
+
+    const pt: IRewardsStatePoint = {
+      stateIndex: stateIndex1,
+      stateBlock: p.blockNumber,
+      accountIndex: stateIndex1,
+      distributionSpeed: p.distributionSpeed,
+      accountBalance: accountBalance,
+      totalToken: totalToken,
     }
+    return DForceHelper.getBorrowRewardsAmount(pt, blockUpdateDistributionState).rewardsAmount;
   }
 //endregion Generate IRewardsStatePoint - borrow
 

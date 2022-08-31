@@ -27,6 +27,29 @@ library DForceRewardsLib {
     IDForcePriceOracle priceOracle;
   }
 
+  /// @notice the data before borrow
+  struct DBorrowRewardsInput {
+    /// @notice Block where the borrow is made
+    uint blockNumber;
+    uint amountToBorrow;
+
+    uint userInterest;
+    uint accrualBlockNumber;
+    uint borrowBalanceStored;
+
+    uint stateIndex;
+    uint stateBlock;
+    uint borrowIndex;
+    uint distributionSpeed;
+
+    uint totalCash;
+    uint totalBorrows;
+    uint totalReserves;
+    uint reserveFactor;
+
+    address interestRateModel;
+  }
+
   /// @notice Get core address of DForce
   function getCore(
     IDForceController comptroller,
@@ -162,40 +185,42 @@ library DForceRewardsLib {
   }
 
   function borrowRewardAmounts(
-    DForceCore memory core,
-    uint amountToBorrow_,
-    uint countBlocks_
+    DBorrowRewardsInput memory p_,
+    uint blockToClaimRewards_
   ) internal view returns (uint rewardAmountBorrow) {
-    console.log("_rewardAmounts.1");
+    uint borrowRate = IDForceInterestRateModel(p_.interestRateModel).getBorrowRate(
+      p_.totalCash,
+      p_.totalBorrows,
+      p_.totalReserves
+    );
 
-    // compute borrow rewards
-    uint distributionSpeed = core.rd.distributionSpeed(address(core.cTokenBorrow));
-    if (distributionSpeed != 0) {
-      // calculate borrow index after period of count-blocks
+    uint simpleInterestFactor = (p_.blockNumber - p_.accrualBlockNumber) * borrowRate;
+    uint interestAccumulated = rmul(simpleInterestFactor, p_.totalBorrows);
+    uint totalBorrows = p_.totalBorrows + interestAccumulated;
+    uint totalReserves = p_.totalReserves + rmul(interestAccumulated, p_.reserveFactor);
+    uint borrowIndex = rmul(simpleInterestFactor, p_.borrowIndex) + p_.borrowIndex;
+    uint stateIndex = TODO
 
-      // get current borrow index
-      uint borrowIndex = core.cTokenBorrow.borrowIndex();
 
-      // current borrow index => new borrow index
-      borrowIndex += rmul(
-        core.interestRateModel.getBorrowRate(
-          core.cTokenBorrow.getCash(), //TODO
-          core.cTokenBorrow.totalBorrows() + amountToBorrow_,
-          core.cTokenBorrow.totalReserves()
-        ) * countBlocks_,
-        borrowIndex
-      );
+    // current borrow index => new borrow index
+    borrowIndex += rmul(
+      core.interestRateModel.getBorrowRate(
+        core.cTokenBorrow.getCash(), //TODO
+        core.cTokenBorrow.totalBorrows() + amountToBorrow_,
+        core.cTokenBorrow.totalReserves()
+      ) * countBlocks_,
+      borrowIndex
+    );
 
-      (uint stateIndex,) = core.rd.distributionBorrowState(address(core.cTokenBorrow));
-      rewardAmountBorrow = getRewardAmount(
-        rdiv(core.cTokenBorrow.borrowBalanceStored(address(this)) + amountToBorrow_, borrowIndex),
-        stateIndex,
-        distributionSpeed,
-        rdiv(core.cTokenBorrow.totalBorrows(), borrowIndex),
-        core.rd.distributionBorrowerIndex(address(core.cTokenBorrow), address(this)),
-        countBlocks_
-      );
-    }
+    (uint stateIndex,) = core.rd.distributionBorrowState(address(core.cTokenBorrow));
+    rewardAmountBorrow = getRewardAmount(
+      rdiv(core.cTokenBorrow.borrowBalanceStored(address(this)) + amountToBorrow_, borrowIndex),
+      stateIndex,
+      distributionSpeed,
+      rdiv(core.cTokenBorrow.totalBorrows(), borrowIndex),
+      core.rd.distributionBorrowerIndex(address(core.cTokenBorrow), address(this)),
+      countBlocks_
+    );
 
     return rewardAmountBorrow;
   }

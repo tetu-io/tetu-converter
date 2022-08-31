@@ -2,14 +2,14 @@ import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import {ethers} from "hardhat";
 import {TimeUtils} from "../../../../../scripts/utils/TimeUtils";
 import {
-  DForcePlatformAdapter__factory,
+  DForcePlatformAdapter__factory, IDForceInterestRateModel,
 } from "../../../../../typechain";
 import {expect} from "chai";
 import {isPolygonForkInUse} from "../../../../baseUT/utils/NetworkUtils";
 import {MaticAddresses} from "../../../../../scripts/addresses/MaticAddresses";
 import {CoreContractsHelper} from "../../../../baseUT/helpers/CoreContractsHelper";
 import {
-  DForceHelper,
+  DForceHelper, IBorrowRewardsPredictionInput,
   IBorrowRewardsStatePoint, IRewardsStatePoint,
   ISupplyRewardsStatePoint
 } from "../../../../../scripts/integration/helpers/DForceHelper";
@@ -115,8 +115,9 @@ describe("DForceHelper tests", () => {
   ) : Promise<{
     rewardsEarnedActual: BigNumber,
     rewardsReceived: BigNumber,
-    borrowPoint: IBorrowRewardsStatePoint,
-    blockUpdateDistributionState: BigNumber
+    predictData: IBorrowRewardsPredictionInput,
+    blockUpdateDistributionState: BigNumber,
+    interestRateModel: IDForceInterestRateModel
   }>{
     const collateralToken = await TokenDataTypes.Build(deployer, collateralAsset);
     const collateralCToken = await TokenDataTypes.Build(deployer, collateralCTokenAddress);
@@ -237,19 +238,22 @@ describe("DForceHelper tests", () => {
               1_000
             );
 
-            // estimate amount of rewards using DForceHelper utils
-            const pt = DForceHelper.predictRewardsStatePointAfterBorrow(r.borrowPoint);
-            console.log("PT", pt);
-            const ret = DForceHelper.getBorrowRewardsAmount(pt, r.blockUpdateDistributionState);
-
-            console.log(`Generate source data for DForceRewardsLibTest`, r);
-
-            const sret = ret.rewardsAmount.toString();
+            const sret = await DForceHelper.predictRewardsStatePointAfterBorrow(
+              r.predictData,
+              async function (cash: BigNumber, totalBorrows: BigNumber, totalReserve: BigNumber) : Promise<BigNumber> {
+                return await r.interestRateModel.getBorrowRate(cash, totalBorrows, totalReserve);
+              },
+              r.blockUpdateDistributionState
+            );
             const sexpected = r.rewardsEarnedActual.toString();
+            console.log(`rewardsEarnedActual=${sexpected} predicted=${sret}`);
 
             expect(sret).eq(sexpected);
           });
-          it("temp", async()=>{
+
+          it("predicted value of rewards should be the same to manually calculated (block 32290571)", async()=> {
+            // data for matic block 32290571
+
             const userInterest = BigNumber.from("1007792047531702871");
             const borrowIndex0: BigNumber = BigNumber.from("1007768505397815983");
             const totalBorrows0 = BigNumber.from("748722543290648981048813");
@@ -273,21 +277,12 @@ describe("DForceHelper tests", () => {
             const totalBorrows1 = totalBorrows0.add(interestAccumulated1);
             const totalReserves1 = totalReserves0.add(DForceHelper.rmul(interestAccumulated1, reserveFactor));
             const borrowIndex1 = DForceHelper.rmul(simpleInterestFactor1, borrowIndex0).add(borrowIndex0);
-            console.log("simpleInterestFactor1", simpleInterestFactor1);
-            console.log("interestAccumulated1", interestAccumulated1);
-            console.log("totalBorrows1", totalBorrows1);
-            console.log("borrowIndex1", borrowIndex1);
-            console.log("totalReserves1", totalReserves1);
             const stateIndex1 = DForceHelper.calcDistributionStateSupply(
               blockNumber1, stateBlock0, stateIndex0, distributionSpeed0
               , DForceHelper.getTotalTokenForBorrowCase(totalBorrows1, borrowIndex1)
             );
             const stateBlock1 = blockNumber1;
-            console.log("stateIndex1", stateIndex1);
-            console.log("stateBlock1", stateBlock1);
             const totalBorrowsAfterBorrow1 = totalBorrows1.add(amountToBorrow)
-            console.log("totalBorrowsAfterBorrow1", totalBorrowsAfterBorrow1);
-            console.log("borrowIndex1", borrowIndex1);
 
             const blockNumber2 = BigNumber.from("32291587");
             const accrualBlockNumber2 = blockNumber1;
@@ -334,6 +329,32 @@ describe("DForceHelper tests", () => {
             console.log("PT", pt);
             const ret = DForceHelper.getBorrowRewardsAmount(pt, blockUpdateDistributionState);
             console.log(ret);
+
+            const ret2 = await DForceHelper.predictRewardsStatePointAfterBorrow(
+              {
+                amountToBorrow,
+                distributionSpeed: distributionSpeed0,
+                userInterest,
+                totalReserves: totalReserves0,
+                totalBorrows: totalBorrows0,
+                totalCash: getCash0,
+                accrualBlockNumber: accrualBlockNumber1,
+                blockNumber: blockNumber1,
+                reserveFactor,
+                borrowIndex: borrowIndex0,
+                borrowBalanceStored,
+                stateBlock: stateBlock0,
+                stateIndex: stateIndex0
+              },
+              async function (cash: BigNumber, totalBorrows: BigNumber, totalReserve: BigNumber) : Promise<BigNumber> {
+                return cash == getCash0
+                  ? borrowRate1
+                  : borrowRate2
+              },
+              blockUpdateDistributionState
+            );
+            console.log("ret2", ret2);
+
             expect(ret.rewardsAmount.toString()).eq("210932052718815335");
           });
         });

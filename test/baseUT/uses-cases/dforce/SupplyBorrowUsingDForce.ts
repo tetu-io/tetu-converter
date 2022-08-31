@@ -3,13 +3,13 @@ import {BigNumber} from "ethers";
 import {DeployerUtils} from "../../../../scripts/utils/DeployerUtils";
 import hre, {ethers} from "hardhat";
 import {
-  DForceHelper, IBorrowRewardsStatePoint,
+  DForceHelper, IBorrowRewardsPredictionInput, IBorrowRewardsStatePoint,
   IDForceMarketAccount,
   IDForceMarketRewards, IRewardsStatePoint, ISupplyRewardsStatePoint
 } from "../../../../scripts/integration/helpers/DForceHelper";
 import {
   IDForceController, IDForceCToken,
-  IDForceCToken__factory, IDForceInterestRateModel__factory,
+  IDForceCToken__factory, IDForceInterestRateModel, IDForceInterestRateModel__factory,
   IDForceRewardDistributor,
   IERC20__factory
 } from "../../../../typechain";
@@ -328,8 +328,9 @@ export class SupplyBorrowUsingDForce {
   ) : Promise<{
     rewardsEarnedActual: BigNumber,
     rewardsReceived: BigNumber,
-    borrowPoint: IBorrowRewardsStatePoint,
-    blockUpdateDistributionState: BigNumber
+    predictData: IBorrowRewardsPredictionInput,
+    blockUpdateDistributionState: BigNumber,
+    interestRateModel: IDForceInterestRateModel
   }>{
     const user = await DeployerUtils.startImpersonate(ethers.Wallet.createRandom().address);
     const comptroller = await DForceHelper.getController(deployer);
@@ -358,7 +359,9 @@ export class SupplyBorrowUsingDForce {
     console.log(`BeforeBorrow: accrualBlockNumber=${accrualBlockNumberBeforeBorrow} borrowRate=${borrowRateBeforeBorrow}`);
     console.log("Borrower.borrowIndex", await bToken.borrowSnapshot(user.address));
     console.log("getCash", await bToken.getCash());
-    console.log("totalBorrows", await bToken.totalBorrows());
+    const totalReserves = await bToken.totalReserves();
+    const reserveRatio = await bToken.reserveRatio();
+    const cash = await bToken.getCash();
     console.log("totalReserves", await bToken.totalReserves());
     console.log("reserveRatio", await bToken.reserveRatio());
 
@@ -366,8 +369,26 @@ export class SupplyBorrowUsingDForce {
     await DForceHelper.borrow(user, cTokenBorrow, borrowAmount);
 
     const afterBorrow = await this.getStateBorrowToken(comptroller, rd, bToken, user.address);
+    const borrowSnapshot =  await bToken.borrowSnapshot(user.address);
     console.log("afterBorrow", afterBorrow);
-    console.log("Borrower.borrowIndex", await bToken.borrowSnapshot(user.address));
+    console.log("Borrower.borrowIndex", borrowSnapshot);
+
+    // estimate amount of rewards using DForceHelper utils
+    const predictData: IBorrowRewardsPredictionInput = {
+      amountToBorrow: borrowAmount,
+      distributionSpeed: afterSupply.market.distributionSpeed,
+      userInterest: borrowSnapshot.interestIndex,
+      totalReserves: totalReserves,
+      totalBorrows: afterSupply.totalBorrows,
+      totalCash: cash,
+      accrualBlockNumber: accrualBlockNumberBeforeBorrow,
+      blockNumber: afterBorrow.block,
+      reserveFactor: reserveRatio,
+      borrowIndex: afterSupply.borrowIndex,
+      borrowBalanceStored: afterSupply.borrowBalanceStored,
+      stateBlock: afterSupply.market.distributionBorrowState_Block,
+      stateIndex: afterSupply.market.distributionBorrowState_Index
+    };
 
     // move time ahead and update interest
     await TimeUtils.advanceNBlocks(periodInBlocks);
@@ -410,16 +431,12 @@ export class SupplyBorrowUsingDForce {
     return {
       rewardsEarnedActual: after.rewards,
       rewardsReceived: rewardsBalance1.sub(rewardsBalance0),
-      borrowPoint: DForceHelper.getBorrowRewardsStatePoint(
-        afterBorrow.block,
-        before.market,
-        before.totalBorrows,
-        before.borrowIndex,
-        before.borrowBalanceStored,
-        borrowAmount,
-        afterAdvance.borrowIndex
-      ),
-      blockUpdateDistributionState: afterUDC.block
+      blockUpdateDistributionState: afterUDC.block,
+      predictData,
+      interestRateModel: IDForceInterestRateModel__factory.connect(
+        await bToken.interestRateModel()
+        , deployer
+      )
     };
   }
 //endregion Borrow-test-impl
