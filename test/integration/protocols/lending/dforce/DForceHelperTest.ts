@@ -118,6 +118,7 @@ describe("DForceHelper tests", () => {
     predictData: IBorrowRewardsPredictionInput,
     blockUpdateDistributionState: BigNumber,
     interestRateModel: IDForceInterestRateModel,
+    supplyPoint: ISupplyRewardsStatePoint,
   }>{
     const collateralToken = await TokenDataTypes.Build(deployer, collateralAsset);
     const collateralCToken = await TokenDataTypes.Build(deployer, collateralCTokenAddress);
@@ -205,7 +206,7 @@ describe("DForceHelper tests", () => {
               10_000
             );
 
-            // estimate amount of rewards using DForceHelper utils
+            // estimate amount of supply-rewards using DForceHelper utils
             const pt = DForceHelper.predictRewardsStatePointAfterSupply(r.supplyPoint);
             const ret = DForceHelper.getSupplyRewardsAmount(pt, r.blockUpdateDistributionState);
 
@@ -362,6 +363,52 @@ describe("DForceHelper tests", () => {
             expect(ret.rewardsAmount.toString()).eq("210932052718815335");
           });
         });
+      });
+    });
+    describe("Test3. Supply-rewards and borrow-rewards", () => {
+      describe("Borrow 10_000 DAI, 1000 blocks", () => {
+        // it("should return amount of rewards same to really received", async () => {
+        //   if (!await isPolygonForkInUse()) return;
+        //
+        //   // get amount of really earned supply-rewards
+        //   const r = await makeTestBorrowRewardsOnly(
+        //     MaticAddresses.USDC, // supply-rewards are supported
+        //     MaticAddresses.dForce_iUSDC,
+        //     MaticAddresses.HOLDER_USDC,
+        //     50_000,
+        //     MaticAddresses.DAI, // borrow-rewards are supported
+        //     MaticAddresses.dForce_iDAI,
+        //     MaticAddresses.HOLDER_DAI,
+        //     10_000,
+        //     1_000
+        //   );
+        //
+        //   // estimate amount of supply-rewards using DForceHelper utils
+        //   const pt = DForceHelper.predictRewardsStatePointAfterSupply(r.supplyPoint);
+        //   const retSupply = DForceHelper.getSupplyRewardsAmount(pt, r.blockUpdateDistributionState.add(4));
+        //
+        //   // estimate amount of borrow-rewards
+        //   const cashesAndBorrowRates: BigNumber[] = [];
+        //   const retBorrow = await DForceHelper.predictRewardsAfterBorrow(
+        //     r.predictData,
+        //     async function (cash: BigNumber, totalBorrows: BigNumber, totalReserve: BigNumber) : Promise<BigNumber> {
+        //       const br = await r.interestRateModel.getBorrowRate(cash, totalBorrows, totalReserve);
+        //       cashesAndBorrowRates.push(cash);
+        //       cashesAndBorrowRates.push(br);
+        //       return br;
+        //     },
+        //     r.blockUpdateDistributionState
+        //   );
+        //   const sexpected = r.rewardsReceived.toString();
+        //   console.log(`rewardsEarnedActual=${sexpected} borrow predicted=${retBorrow} supply predicted=${retSupply.rewardsAmount}`);
+        //
+        //   console.log(`Generate source data for DForceRewardsLibTest`, r, cashesAndBorrowRates);
+        //
+        //   const totalAmountRewards = retSupply.rewardsAmount.add(retBorrow).toString();
+        //   console.log("totalAmountRewards", totalAmountRewards);
+        //
+        //   expect(totalAmountRewards).eq(sexpected);
+        // });
       });
     });
   });
