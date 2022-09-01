@@ -130,7 +130,6 @@ describe("DForceHelper unit tests", () => {
           const predictData: IBorrowRewardsPredictionInput = {
             amountToBorrow: BigNumber.from("10000000000000000000000"),
             distributionSpeed: BigNumber.from("15972314654598696"),
-            userInterest: BigNumber.from("1008283610150481270"),
             totalReserves: BigNumber.from("685078796128768463280"),
             totalBorrows: BigNumber.from("748769851167139472249361"),
             totalCash: BigNumber.from("188472893545567236961658"),
@@ -138,7 +137,6 @@ describe("DForceHelper unit tests", () => {
             blockNumber: BigNumber.from("32441502"),
             reserveFactor: BigNumber.from("100000000000000000"),
             borrowIndex: BigNumber.from("1008235458586920493"),
-            borrowBalanceStored: BigNumber.from("0"),
             stateBlock: BigNumber.from("32426759"),
             stateIndex: BigNumber.from("133007866972213896")
           };
@@ -150,16 +148,14 @@ describe("DForceHelper unit tests", () => {
             , cashesAndBorrowRates[3]
           );
 
-          const ret = await libFacade.borrowRewardAmounts(
+          const ret = await libFacade.borrowRewardAmount(
             {
               amountToBorrow: predictData.amountToBorrow,
               accrualBlockNumber: predictData.accrualBlockNumber,
               borrowIndex: predictData.borrowIndex,
-              borrowBalanceStored: predictData.borrowBalanceStored,
               stateBlock: predictData.stateBlock,
               blockNumber: predictData.blockNumber,
               distributionSpeed: predictData.distributionSpeed,
-              userInterest: predictData.userInterest,
               stateIndex: predictData.stateIndex,
               reserveFactor: predictData.reserveFactor,
               totalBorrows: predictData.totalBorrows,

@@ -340,7 +340,6 @@ describe("DForceHelper tests", () => {
               {
                 amountToBorrow,
                 distributionSpeed: distributionSpeed0,
-                userInterest,
                 totalReserves: totalReserves0,
                 totalBorrows: totalBorrows0,
                 totalCash: getCash0,
@@ -348,7 +347,6 @@ describe("DForceHelper tests", () => {
                 blockNumber: blockNumber1,
                 reserveFactor,
                 borrowIndex: borrowIndex0,
-                borrowBalanceStored,
                 stateBlock: stateBlock0,
                 stateIndex: stateIndex0
               },

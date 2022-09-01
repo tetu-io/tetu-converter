@@ -169,9 +169,7 @@ export interface IBorrowRewardsPredictionInput {
   blockNumber: BigNumber;
   amountToBorrow: BigNumber;
 
-  userInterest: BigNumber;
   accrualBlockNumber: BigNumber;
-  borrowBalanceStored: BigNumber;
 
   stateIndex: BigNumber;
   stateBlock: BigNumber;
@@ -685,7 +683,8 @@ export class DForceHelper {
 
     const borrowIndex: BigNumber = DForceHelper.rmul(simpleInterestFactor2, borrowIndex1).add(borrowIndex1);
     const totalToken = DForceHelper.getTotalTokenForBorrowCase(totalBorrows2, borrowIndex);
-    const borrowBalanceStored = DForceHelper.divup(p.amountToBorrow.mul(borrowIndex), p.userInterest);
+    const userInterest = borrowIndex1;
+    const borrowBalanceStored = DForceHelper.divup(p.amountToBorrow.mul(borrowIndex), userInterest);
     const accountBalance = DForceHelper.rdiv(borrowBalanceStored, borrowIndex);
 
     const pt: IRewardsStatePoint = {

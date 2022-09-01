@@ -32,10 +32,7 @@ library DForceRewardsLib {
     /// @notice Block where the borrow is made
     uint blockNumber;
     uint amountToBorrow;
-
-    uint userInterest;
     uint accrualBlockNumber;
-    uint borrowBalanceStored;
 
     uint stateIndex;
     uint stateBlock;
@@ -144,9 +141,7 @@ library DForceRewardsLib {
     }
     distributionSpeed = core.rd.distributionSpeed(address(core.cTokenBorrow));
     if (distributionSpeed != 0) {
-      address user = address(0); //TODO
       rewardAmountBorrow = _borrowRewardAmount(core,
-        user,
         borrowAmount_,
         distributionSpeed,
         delayBlocks_ + countBlocks_
@@ -167,23 +162,20 @@ library DForceRewardsLib {
     return (rewardAmountSupply, rewardAmountBorrow, totalRewardsInBorrowAsset);
   }
 
+  /// @notice Take data from DeForce protocol and estimate amount of user's rewards in countBlocks_
   function _borrowRewardAmount(
     DForceCore memory core,
-    address user,
     uint borrowAmount_,
     uint distributionSpeed_,
     uint countBlocks_
   ) internal view returns (uint) {
-    (, uint interestIndex) = core.cTokenBorrow.borrowSnapshot(user);
     (uint stateIndex, uint stateBlock) = core.rd.distributionBorrowState(address(core.cTokenBorrow));
     return borrowRewardAmount(
       DBorrowRewardsInput({
         blockNumber: block.number,
         amountToBorrow: borrowAmount_,
 
-        userInterest: interestIndex,
         accrualBlockNumber: core.cTokenBorrow.accrualBlockNumber(),
-        borrowBalanceStored: core.cTokenBorrow.borrowBalanceStored(user),
 
         stateIndex: stateIndex,
         stateBlock: stateBlock,
@@ -248,10 +240,11 @@ library DForceRewardsLib {
           p_.totalReserves
         );
     uint interestAccumulated = rmul(simpleInterestFactor, p_.totalBorrows);
-    uint totalBorrows = p_.totalBorrows + interestAccumulated;
+    p_.totalBorrows += interestAccumulated; // modify p_.totalBorrows - avoid stack too deep
     uint totalReserves = p_.totalReserves + rmul(interestAccumulated, p_.reserveFactor);
     uint borrowIndex = rmul(simpleInterestFactor, p_.borrowIndex) + p_.borrowIndex;
-    uint totalTokens = rdiv(totalBorrows, borrowIndex);
+    uint totalTokens = rdiv(p_.totalBorrows, borrowIndex);
+    uint userInterest = borrowIndex;
 
     // borrow block: after borrow
     uint stateIndex = p_.stateIndex + (
@@ -259,22 +252,22 @@ library DForceRewardsLib {
         ? 0
         : rdiv(p_.distributionSpeed * (p_.blockNumber - p_.stateBlock), totalTokens)
     );
-    totalBorrows += p_.amountToBorrow;
+    p_.totalBorrows += p_.amountToBorrow;
 
     // target block (where we are going to claim the rewards)
     simpleInterestFactor = (blockToClaimRewards_ - 1 - p_.blockNumber)
       * IDForceInterestRateModel(p_.interestRateModel).getBorrowRate(
           p_.totalCash + p_.amountToBorrow,
-          totalBorrows,
+          p_.totalBorrows,
           totalReserves
         );
-    interestAccumulated = rmul(simpleInterestFactor, totalBorrows);
-    totalBorrows += interestAccumulated;
+    interestAccumulated = rmul(simpleInterestFactor, p_.totalBorrows);
+    p_.totalBorrows += interestAccumulated;
     borrowIndex += rmul(simpleInterestFactor, borrowIndex);
-    totalTokens = rdiv(totalBorrows, borrowIndex);
+    totalTokens = rdiv(p_.totalBorrows, borrowIndex);
 
     return getRewardAmount(
-      rdiv(divup(p_.amountToBorrow * borrowIndex, p_.userInterest), borrowIndex),
+      rdiv(divup(p_.amountToBorrow * borrowIndex, userInterest), borrowIndex),
       stateIndex,
       p_.distributionSpeed,
       totalTokens,

@@ -340,6 +340,7 @@ export class SupplyBorrowUsingDForce {
 
     const before = await this.getStateBorrowToken(comptroller, rd, bToken, user.address);
     console.log("before", before);
+    console.log("before Borrower.borrowIndex", await bToken.borrowSnapshot(user.address));
 
     // supply collateral
     await DForceHelper.supply(user, collateralAsset, cTokenCollateral, holderCollateral, collateralAmount);
@@ -377,7 +378,6 @@ export class SupplyBorrowUsingDForce {
     const predictData: IBorrowRewardsPredictionInput = {
       amountToBorrow: borrowAmount,
       distributionSpeed: afterSupply.market.distributionSpeed,
-      userInterest: borrowSnapshot.interestIndex,
       totalReserves: totalReserves,
       totalBorrows: afterSupply.totalBorrows,
       totalCash: cash,
@@ -385,7 +385,6 @@ export class SupplyBorrowUsingDForce {
       blockNumber: afterBorrow.block,
       reserveFactor: reserveRatio,
       borrowIndex: afterSupply.borrowIndex,
-      borrowBalanceStored: afterSupply.borrowBalanceStored,
       stateBlock: afterSupply.market.distributionBorrowState_Block,
       stateIndex: afterSupply.market.distributionBorrowState_Index
     };
