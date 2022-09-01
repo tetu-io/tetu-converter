@@ -189,7 +189,7 @@ contract BorrowManager is IBorrowManager {
   function findConverter(AppDataTypes.InputConversionParams memory p_) external view override returns (
     address converter,
     uint maxTargetAmount,
-    uint aprForPeriod18
+    int aprForPeriod18
   ) {
     console.log("findConverter", p_.sourceAmount, p_.periodInBlocks);
 
@@ -233,7 +233,7 @@ contract BorrowManager is IBorrowManager {
   ) internal view returns (
     address converter,
     uint maxTargetAmount,
-    uint apr18
+    int apr18
   ) {
     console.log("_findPool");
     uint lenPools = platformAdapters_.length();

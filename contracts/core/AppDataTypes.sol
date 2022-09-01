@@ -30,8 +30,11 @@ library AppDataTypes {
     /// @notice Current collateral factor [0..1e18], where 1e18 is corresponded to CF=1
     /// TODO: probably we need to use different decimals for the collateral factor to reduce size of this struct
     uint liquidationThreshold18;
+
     /// @notice APR for the period (normalized borrow rate, borrow-rate + any fees), decimals = 18
-    uint apr18;
+    ///         APR takes into account all kind or reward tokens and rewards for supply
+    ///         so, result APR can be negative (supply reward is greater then borrow-amount to repay)
+    int apr18;
     /// @notice Loan-to-value, decimals = 18 (wad)
     /// TODO: uint16? see aave..
     uint ltv18;

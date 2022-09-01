@@ -421,8 +421,8 @@ contract DForcePoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP {
   }
 
   /// @notice Compute current cost of the money
-  function getAPR18() external view override returns (uint) {
-    return IDForceCToken(borrowCToken).borrowRatePerBlock() * controller.blocksPerDay() * 365 * 100;
+  function getAPR18() external view override returns (int) {
+    return int(IDForceCToken(borrowCToken).borrowRatePerBlock() * controller.blocksPerDay() * 365 * 100);
   }
 
 

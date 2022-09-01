@@ -26,7 +26,7 @@ contract DForceRewardsLibFacade {
     uint collateralAmount_,
     uint countBlocks_,
     uint amountToBorrow_
-  ) external view returns (uint) {
+  ) external view returns (int) {
     return DForceRewardsLib.getApr18(core, collateralAmount_, countBlocks_, amountToBorrow_);
   }
 

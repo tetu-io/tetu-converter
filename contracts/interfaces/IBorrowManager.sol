@@ -37,7 +37,7 @@ interface IBorrowManager is IPoolAdaptersManager {
   function findConverter(AppDataTypes.InputConversionParams memory params) external view returns (
     address converter,
     uint maxTargetAmount,
-    uint aprForPeriod18
+    int aprForPeriod18
   );
 
   /// @notice Get platformAdapter to which the converter belongs

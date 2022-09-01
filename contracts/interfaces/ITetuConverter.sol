@@ -23,7 +23,7 @@ interface ITetuConverter {
   ) external view returns (
     address converter,
     uint maxTargetAmount,
-    uint aprForPeriod18
+    int aprForPeriod18
   );
 
   /// @notice Convert {sourceAmount_} to {targetAmount_} using {converter_}

@@ -110,8 +110,8 @@ contract PoolAdapterStub is IPoolAdapter {
   }
 
   /// @notice Compute current cost of the money
-  function getAPR18() external view override returns (uint) {
-    return _borrowRatePerBlock * 15017140 * 100;
+  function getAPR18() external view override returns (int) {
+    return int(_borrowRatePerBlock * 15017140 * 100);
   }
 
   ///////////////////////////////////////////////////////

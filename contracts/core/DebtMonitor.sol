@@ -192,16 +192,16 @@ contract DebtMonitor is IDebtMonitor {
 
     // check if we can re-borrow the asset in different place with higher profit
     (address origin,, address sourceToken, address targetToken) = pa_.getConfig();
-    (address converter,, uint aprForPeriod18) = tc_.findConversionStrategy(
+    (address converter,, int aprForPeriod18) = tc_.findConversionStrategy(
       sourceToken, sourceAmount_, targetToken, healthFactor2_, periodInBlocks_
     );
-    uint currentApr18 = pa_.getAPR18() * periodInBlocks_;
+    int currentApr18 = pa_.getAPR18() * int(periodInBlocks_);
 
     // make decision if the new conversion-strategy is worth to be used instead current one
     if (origin != converter) {
       //1) threshold for APRs difference exceeds threshold, i.e. (apr0-apr1)/apr0 > 20%
       if (currentApr18 > aprForPeriod18
-         && (thresholdAPR == 0 || currentApr18 - aprForPeriod18 > currentApr18 * thresholdAPR / 100)
+         && (thresholdAPR == 0 || currentApr18 - aprForPeriod18 > currentApr18 * int(thresholdAPR) / 100)
       ) {
         //2) threshold for block number: count blocks since prev rebalancing should exceed the threshold.
         if (thresholdCountBlocks == 0 || block.number - positionLastAccess[address(pa_)] > thresholdCountBlocks) {

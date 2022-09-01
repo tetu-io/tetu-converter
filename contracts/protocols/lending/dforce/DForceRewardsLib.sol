@@ -92,7 +92,7 @@ library DForceRewardsLib {
     uint collateralAmount_,
     uint countBlocks_,
     uint amountToBorrow_
-  ) internal view returns (uint outApr18) {
+  ) internal view returns (int outApr18) {
     // estimate by what amount should BR be reduced due to supply+borrow rewards
     (,,uint borrowAmountToReturn) = getRewardAmounts(core,
       collateralAmount_,
@@ -102,12 +102,13 @@ library DForceRewardsLib {
     );
     console.log("borrowAmountToReturn", borrowAmountToReturn);
 
-    outApr18 = getEstimatedBorrowRate(
-      core.interestRateModel,
-      core.cTokenBorrow,
-      amountToBorrow_ //TODO: we need a proof that such estimation is valid
-    ) * countBlocks_;
-    console.log("outApr18-2", outApr18);
+    outApr18 = int(
+      getEstimatedBorrowRate(
+        core.interestRateModel,
+        core.cTokenBorrow,
+        amountToBorrow_
+      ) * countBlocks_ - borrowAmountToReturn
+    );
   }
 
   ///////////////////////////////////////////////////////
