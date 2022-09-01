@@ -60,6 +60,7 @@ contract DebtMonitor is IDebtMonitor {
 
   function setThresholdAPR(uint value100_) external {
     _onlyGovernance();
+    require(value100_ < 100, AppErrors.INCORRECT_VALUE);
     thresholdAPR = value100_;
   }
 

@@ -364,7 +364,6 @@ describe("DForceHelper tests", () => {
         });
       });
     });
-
   });
 //endregion Unit tests
 

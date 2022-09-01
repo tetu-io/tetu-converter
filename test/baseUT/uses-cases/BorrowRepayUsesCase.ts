@@ -324,7 +324,7 @@ export class BorrowRepayUsesCase {
       collateralToken
       , collateralAmount
       , borrowToken
-      , undefined
+      , p.countBlocks
       , checkGasUsed
     );
 

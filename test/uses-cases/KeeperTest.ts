@@ -10,11 +10,21 @@ import {BorrowRepayUsesCase} from "../baseUT/uses-cases/BorrowRepayUsesCase";
 import {BorrowAction} from "../baseUT/actions/BorrowAction";
 import {TokenDataTypes} from "../baseUT/types/TokenDataTypes";
 import {
-  Aave3PoolAdapter__factory, Borrower,
-  BorrowManager, BorrowManager__factory,
-  Controller, IDebtMonitor__factory, IERC20__factory, IPlatformAdapter__factory, IPoolAdapter__factory,
-  ITetuConverter, LendingPlatformMock__factory,
-  PoolAdapterMock__factory, TetuConverter__factory
+  Aave3PoolAdapter__factory,
+  Borrower,
+  BorrowManager,
+  BorrowManager__factory,
+  Controller,
+  DebtMonitor,
+  DebtMonitor__factory,
+  IDebtMonitor__factory,
+  IERC20__factory,
+  IPlatformAdapter__factory,
+  IPoolAdapter__factory,
+  ITetuConverter,
+  LendingPlatformMock__factory,
+  PoolAdapterMock__factory,
+  TetuConverter__factory
 } from "../../typechain";
 import {MaticAddresses} from "../../scripts/addresses/MaticAddresses";
 import {isPolygonForkInUse} from "../baseUT/utils/NetworkUtils";
@@ -72,6 +82,9 @@ describe("Keeper test", () => {
 //region Utils
   async function getBorrowManager(deployer: SignerWithAddress, controller: Controller) : Promise<BorrowManager> {
     return BorrowManager__factory.connect(await controller.borrowManager(), deployer);
+  }
+  async function getDebtMonitor(deployer: SignerWithAddress, controller: Controller) : Promise<DebtMonitor> {
+    return DebtMonitor__factory.connect(await controller.debtMonitor(), deployer);
   }
 //endregion Utils
 
@@ -625,6 +638,11 @@ describe("Keeper test", () => {
           const HEALTH_FACTOR2 = 200;
           const COUNT_BLOCKS = 1;
 
+          /**
+           * Return two booleans:
+           *    1) reconversion is required BEFORE modification
+           *    2) reconversion is required AFTER modification
+           */
           async function makeTestForReconversionCall_Mock(
             platformStateModifierFabric: (
               uc: Borrower, controller: Controller, poolAdapter: string
@@ -693,37 +711,196 @@ describe("Keeper test", () => {
             return dest;
           }
 
+          /**
+           * Return two booleans:
+           *    1) reconversion is required BEFORE modification
+           *    2) reconversion is required AFTER modification
+           */
+          async function makeTestChangeBorrowRate_Mock(
+            thresholdAprPercents: number,
+            changeBorrowRateFactor: number
+          ) : Promise<boolean[]> {
+            const modifier = async (
+              uc: Borrower
+              , controller: Controller
+              , poolAdapter: string
+            ) => {
+              const bm: BorrowManager = await getBorrowManager(deployer, controller);
+              const pa = IPoolAdapter__factory.connect(poolAdapter, deployer);
+              const dm: DebtMonitor = await getDebtMonitor(deployer, controller);
+              await dm.setThresholdAPR(thresholdAprPercents); // 200%
+              await dm.setThresholdCountBlocks(0); // disable
+
+              const m = new LendingPlatformManagerMock(
+                PoolAdapterMock__factory.connect(poolAdapter, deployer)
+                , LendingPlatformMock__factory.connect(
+                  await bm.getPlatformAdapter((await pa.getConfig()).originConverter)
+                  , deployer
+                )
+              );
+              return m.changeBorrowRate(deployer, true, changeBorrowRateFactor);
+            };
+            return await makeTestForReconversionCall_Mock(modifier);
+          }
+
+          /**
+           * Return two booleans:
+           *    1) reconversion is required BEFORE modification
+           *    2) reconversion is required AFTER modification
+           */
+          async function makeTestPeriodSinceLastReconversion_Mock(
+            thresholdCountBlocks: number,
+            periodBeforeCheckInBlocks: number
+          ) : Promise<boolean[]> {
+            const modifier = async (
+              uc: Borrower
+              , controller: Controller
+              , poolAdapter: string
+            ) => {
+              const bm: BorrowManager = await getBorrowManager(deployer, controller);
+              const pa = IPoolAdapter__factory.connect(poolAdapter, deployer);
+              const dm: DebtMonitor = await getDebtMonitor(deployer, controller);
+              await dm.setThresholdAPR(0); // disabled
+              await dm.setThresholdCountBlocks(thresholdCountBlocks);
+
+              if (periodBeforeCheckInBlocks) {
+                await TimeUtils.advanceNBlocks(periodBeforeCheckInBlocks);
+              }
+
+              const m = new LendingPlatformManagerMock(
+                PoolAdapterMock__factory.connect(poolAdapter, deployer)
+                , LendingPlatformMock__factory.connect(
+                  await bm.getPlatformAdapter((await pa.getConfig()).originConverter)
+                  , deployer
+                )
+              );
+              return m.makeMaxBorrow(deployer);
+            };
+            return await makeTestForReconversionCall_Mock(modifier);
+          }
 //endregion Constants and utils
 
           describe("Mock", () => {
-            describe("Increase borrow rate significantly, second pool becomes better", () => {
-              it("should call reconvert", async () => {
-                if (!await isPolygonForkInUse()) return;
+            describe("thresholdAPR", () => {
+              describe("Increase borrow rate, thresholdAPR is disabled", () => {
+                it("should call reconvert", async () => {
+                  if (!await isPolygonForkInUse()) return;
 
-                const modifier = async (
-                  uc: Borrower
-                  , controller: Controller
-                  , poolAdapter: string
-                ) => {
-                  const bm: BorrowManager = await getBorrowManager(deployer, controller);
-                  const pa = IPoolAdapter__factory.connect(poolAdapter, deployer);
+                  const thresholdAprPercents = 0; // disabled
+                  const changeBorrowRateFactor = 100;
 
-                  const m = new LendingPlatformManagerMock(
-                    PoolAdapterMock__factory.connect(poolAdapter, deployer)
-                    , LendingPlatformMock__factory.connect(
-                      await bm.getPlatformAdapter((await pa.getConfig()).originConverter)
-                      , deployer
-                    )
+                  const ret = await makeTestChangeBorrowRate_Mock(
+                    thresholdAprPercents,
+                    changeBorrowRateFactor
                   );
-                  return m.makeMaxBorrow(deployer);
-                };
-                const ret = await makeTestForReconversionCall_Mock(modifier);
-                const expected = [false, true];
 
-                const sret = ret.join("\n");
-                const sexpected = expected.join("\n");
+                  const expected = [false, true];
 
-                expect(sret).equal(sexpected);
+                  const sret = ret.join("\n");
+                  const sexpected = expected.join("\n");
+
+                  expect(sret).equal(sexpected);
+                });
+              });
+              describe("Increase borrow rate, thresholdAPR is not reached", () => {
+                it("should NOT call reconvert", async () => {
+                  if (!await isPolygonForkInUse()) return;
+
+                  const thresholdAprPercents = 50;
+                  const changeBorrowRateFactor = 1.5;
+
+                  const ret = [
+                    ...await makeTestChangeBorrowRate_Mock(thresholdAprPercents, changeBorrowRateFactor)
+                  ];
+
+                  const expected = [false, false];
+
+                  const sret = ret.join("\n");
+                  const sexpected = expected.join("\n");
+
+                  expect(sret).equal(sexpected);
+                });
+              });
+              describe("Increase borrow rate, thresholdAPR is reached", () => {
+                it("should call reconvert", async () => {
+                  if (!await isPolygonForkInUse()) return;
+
+                  const thresholdAprPercents = 50;
+                  const changeBorrowRateFactor = 20;
+
+                  const ret = [
+                    ...await makeTestChangeBorrowRate_Mock(thresholdAprPercents, changeBorrowRateFactor)
+                  ];
+
+                  const expected = [false, true];
+
+                  const sret = ret.join("\n");
+                  const sexpected = expected.join("\n");
+
+                  expect(sret).equal(sexpected);
+                });
+              });
+            });
+            describe("thresholdCountBlocks", () => {
+              describe("Increase borrow rate, thresholdCountBlocks is disabled", () => {
+                it("should call reconvert", async () => {
+                  if (!await isPolygonForkInUse()) return;
+
+                  const thresholdCountBlocks = 0;
+                  const periodBeforeCheckInBlocks = 100;
+
+                  const ret = await makeTestPeriodSinceLastReconversion_Mock(
+                    thresholdCountBlocks,
+                    periodBeforeCheckInBlocks
+                  );
+
+                  const expected = [false, true];
+
+                  const sret = ret.join("\n");
+                  const sexpected = expected.join("\n");
+
+                  expect(sret).equal(sexpected);
+                });
+              });
+              describe("Increase borrow rate, thresholdCountBlocks is not reached", () => {
+                it("should NOT call reconvert", async () => {
+                  if (!await isPolygonForkInUse()) return;
+
+                  const thresholdCountBlocks = 21;
+                  const periodBeforeCheckInBlocks = 10;
+
+                  const ret = await makeTestPeriodSinceLastReconversion_Mock(
+                    thresholdCountBlocks,
+                    periodBeforeCheckInBlocks
+                  );
+
+                  const expected = [false, false];
+
+                  const sret = ret.join("\n");
+                  const sexpected = expected.join("\n");
+
+                  expect(sret).equal(sexpected);
+                });
+              });
+              describe("Increase borrow rate, thresholdCountBlocks is reached", () => {
+                it("should call reconvert", async () => {
+                  if (!await isPolygonForkInUse()) return;
+
+                  const thresholdCountBlocks = 10;
+                  const periodBeforeCheckInBlocks = 21;
+
+                  const ret = await makeTestPeriodSinceLastReconversion_Mock(
+                    thresholdCountBlocks,
+                    periodBeforeCheckInBlocks
+                  );
+
+                  const expected = [false, true];
+
+                  const sret = ret.join("\n");
+                  const sexpected = expected.join("\n");
+
+                  expect(sret).equal(sexpected);
+                });
               });
             });
           });

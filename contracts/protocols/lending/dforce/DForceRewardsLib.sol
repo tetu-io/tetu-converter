@@ -16,7 +16,7 @@ import "hardhat/console.sol";
 /// @notice DForce utils: estimate reward tokens, predict borrow rate in advance
 library DForceRewardsLib {
   ///////////////////////////////////////////////////////
-  // Estimate borrow rate
+  // Data type and getting core addresses
   ///////////////////////////////////////////////////////
   struct DForceCore {
     IDForceCToken cTokenCollateral;
@@ -69,6 +69,7 @@ library DForceRewardsLib {
   ///////////////////////////////////////////////////////
 
   /// @notice Estimate value of variable borrow rate after borrowing {amountToBorrow_}
+  ///         Rewards are not taken into account
   function getEstimatedBorrowRate(
     IDForceInterestRateModel interestRateModel_,
     IDForceCToken cTokenBorrow_,

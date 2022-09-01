@@ -58,11 +58,17 @@ export class LendingPlatformManagerMock implements ILendingPlatformManager {
   }
 
   /** Borrow max possible amount (and significantly increase the borrow rate) */
-  async makeMaxBorrow(signer: SignerWithAddress): Promise<PoolAdapterState01> {
-    console.log("LendingPlatformManagerMock.makeMaxBorrow.start");
+  async changeBorrowRate(
+    signer: SignerWithAddress,
+    multiplication: boolean,
+    ratio: number
+  ): Promise<PoolAdapterState01> {
+    console.log("LendingPlatformManagerMock.makeBorrow.start", multiplication, ratio);
     const before = await getPoolAdapterState(signer, this.poolAdapter.address);
     const borrowRate = await this.poolAdapter.borrowRate();
-    const newBorrowRate = borrowRate.mul(200);
+    const newBorrowRate = multiplication
+      ? borrowRate.mul(ratio * 1000).div(1000)
+      : borrowRate.div(ratio * 1000).div(1000)
     const config = await this.poolAdapter.getConfig();
 
     console.log(`Change borrow rate from ${borrowRate.toString()} to ${newBorrowRate.toString()}`);
@@ -70,24 +76,18 @@ export class LendingPlatformManagerMock implements ILendingPlatformManager {
     await this.platform.changeBorrowRate(config.borrowAsset, newBorrowRate);
 
     const after = await getPoolAdapterState(signer, this.poolAdapter.address);
-    console.log("LendingPlatformManagerMock.makeMaxBorrow.end", before, after);
+    console.log("LendingPlatformManagerMock.makeBorrow.end", before, after);
     return {before, after};
   }
+
+  /** Borrow max possible amount (and significantly increase the borrow rate) */
+  async makeMaxBorrow(signer: SignerWithAddress): Promise<PoolAdapterState01> {
+    return await this.changeBorrowRate(signer, true, 200);
+  }
+
   /** Return previously borrowed amount back (reverse to makeMaxBorrow) */
   async releaseMaxBorrow(signer: SignerWithAddress): Promise<PoolAdapterState01> {
-    console.log("LendingPlatformManagerMock.releaseMaxBorrow.start");
-    const before = await getPoolAdapterState(signer, this.poolAdapter.address);
-
-    const borrowRate = await this.poolAdapter.borrowRate();
-    const newBorrowRate = borrowRate.div(200);
-    const config = await this.poolAdapter.getConfig();
-
-    await this.poolAdapter.changeBorrowRate(newBorrowRate);
-    await this.platform.changeBorrowRate(config.borrowAsset, newBorrowRate);
-
-    const after = await getPoolAdapterState(signer, this.poolAdapter.address);
-    console.log("LendingPlatformManagerMock.releaseMaxBorrow.end", before, after);
-    return {before, after};
+    return await this.changeBorrowRate(signer, false, 200);
   }
 
   async setActive(signer: SignerWithAddress, asset: string, active: boolean) {
