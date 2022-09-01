@@ -181,11 +181,10 @@ contract Aave3PlatformAdapter is IPlatformAdapter {
               }
             }
 
-            plan.apr18 = int(br
+            plan.brForPeriod18 = br
               / COUNT_SECONDS_PER_YEAR
               * IController(controller).blocksPerDay() * 365 / COUNT_SECONDS_PER_YEAR
-              / 10**(27-18) // rays => decimals 18 (1 ray = 1e-27)
-            );
+              / 10**(27-18); // rays => decimals 18 (1 ray = 1e-27)
           }
 
         }
@@ -214,7 +213,7 @@ contract Aave3PlatformAdapter is IPlatformAdapter {
     );
 
     // avoid Stack too deep, try removing local variables.
-    plan.apr18 *= int(countBlocks_);
+    plan.brForPeriod18 *= countBlocks_;
     return plan;
   }
 

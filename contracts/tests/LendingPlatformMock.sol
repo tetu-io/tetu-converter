@@ -69,10 +69,12 @@ contract LendingPlatformMock is IPlatformAdapter {
     return AppDataTypes.ConversionPlan({
       converter: _converter,
       liquidationThreshold18: liquidationThresholds18[collateralAsset_],
-      apr18: int(borrowRates[borrowAsset_] * countBlocks_),
+      brForPeriod18: borrowRates[borrowAsset_] * countBlocks_,
       ltv18: liquidationThresholds18[collateralAsset_],
       maxAmountToBorrowBT: liquidity[borrowAsset_],
-      maxAmountToSupplyCT: type(uint).max
+      maxAmountToSupplyCT: type(uint).max,
+      supplyIncrement18: 0, //TODO
+      rewardsAmount18: 0 //TODO
     });
   }
 

@@ -109,11 +109,13 @@ contract DForcePlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
     uint lenAssets = assets_.length;
     prices18 = new uint[](lenAssets);
     for (uint i = 0; i < lenAssets; i = i.uncheckedInc()) {
+      console.log("Token", activeAssets[assets_[i]]);
       address cToken = activeAssets[assets_[i]];
 
       // we get a price with decimals = (36 - asset decimals)
       // let's convert it to decimals = 18
       (uint underlyingPrice, bool isPriceValid) = priceOracle.getUnderlyingPriceAndStatus(address(cToken));
+      console.log("underlyingPrice", underlyingPrice, isPriceValid);
       require(underlyingPrice != 0 && isPriceValid, AppErrors.ZERO_PRICE);
 
       prices18[i] = underlyingPrice / (10 ** (18 - IERC20Extended(assets_[i]).decimals()));
@@ -184,13 +186,15 @@ contract DForcePlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
           }
 
           // calculate current borrow rate and predicted BR value after borrowing required amount
-          plan.apr18 = int(IDForceCToken(cTokenBorrow).borrowRatePerBlock() * countBlocks_);
-          if (borrowAmountFactor18_ != 0) {
-            uint amountToBorrow = borrowAmountFactor18_ * plan.liquidationThreshold18 / 1e18;  // == amount to borrow
+          if (borrowAmountFactor18_ == 0) {
+            // simple mode
+            plan.brForPeriod18 = IDForceCToken(cTokenBorrow).borrowRatePerBlock() * countBlocks_;
+          } else {
+            uint amountToBorrow = borrowAmountFactor18_ * plan.liquidationThreshold18 / 1e18;
             if (amountToBorrow > plan.maxAmountToBorrowBT) {
               amountToBorrow = plan.maxAmountToBorrowBT;
             }
-            plan.apr18 = DForceRewardsLib.getApr18(
+            (plan.brForPeriod18, plan.supplyIncrement18, plan.rewardsAmount18) = DForceRewardsLib.getRawAprInfo(
               DForceRewardsLib.getCore(comptroller, cTokenCollateral, cTokenBorrow),
               collateralAmount_,
               countBlocks_,
@@ -259,12 +263,19 @@ contract DForcePlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
     uint totalRewardsInBorrowAsset
   ) {
     DForceRewardsLib.DForceCore memory core = DForceRewardsLib.getCore(comptroller, collateralCToken_, borrowCToken_);
-    return DForceRewardsLib.getRewardAmounts(
+
+    (uint priceBorrow, bool isPriceValid) = core.priceOracle.getUnderlyingPriceAndStatus(address(core.cTokenBorrow));
+    require(priceBorrow != 0 && isPriceValid, AppErrors.ZERO_PRICE);
+
+    return DForceRewardsLib.getRewardAmountsBT18(
       core,
-      collateralAmount_,
-      borrowAmount_,
-      countBlocks_,
-      delayBlocks_
+      DForceRewardsLib.RewardsAmountInput({
+        collateralAmount: collateralAmount_,
+        borrowAmount: borrowAmount_,
+        countBlocks: countBlocks_,
+        delayBlocks: delayBlocks_,
+        priceBorrow: priceBorrow
+      })
     );
   }
 

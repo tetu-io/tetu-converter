@@ -266,10 +266,11 @@ contract BorrowManager is IBorrowManager {
         borrowAmountFactor18.toMantissa(18, pp_.targetDecimals),
         p_.periodInBlocks
       );
+      int planApr18 = int(plan.brForPeriod18) - int(plan.supplyIncrement18) - int(plan.rewardsAmount18);
       if (plan.converter != address(0)) {
         // check if we are able to supply required collateral
         if (plan.maxAmountToSupplyCT > p_.sourceAmount) {
-          if (converter == address(0) || plan.apr18 < apr18) {
+          if (converter == address(0) || planApr18 < apr18) {
             // how much target asset we are able to get for the provided collateral with given health factor
             // TargetTA = BS / PT [TA], C = SA * PS, CM = C / HF, BS = CM * PCF
             uint resultTa18 = plan.liquidationThreshold18 * borrowAmountFactor18 / 1e18;
@@ -279,7 +280,7 @@ contract BorrowManager is IBorrowManager {
               // take the pool with lowest borrow rate
               converter = plan.converter;
               maxTargetAmount = resultTa18.toMantissa(18, pp_.targetDecimals);
-              apr18 = plan.apr18;
+              apr18 = planApr18;
             }
           }
         }

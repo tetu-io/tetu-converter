@@ -21,27 +21,28 @@ contract DForceRewardsLibFacade {
     return DForceRewardsLib.getEstimatedBorrowRate(interestRateModel_, cTokenBorrow_, amountToBorrow_);
   }
 
-  function getApr18(
+  function getRawAprInfo(
     DForceRewardsLib.DForceCore memory core,
     uint collateralAmount_,
     uint countBlocks_,
     uint amountToBorrow_
-  ) external view returns (int) {
-    return DForceRewardsLib.getApr18(core, collateralAmount_, countBlocks_, amountToBorrow_);
+  ) external view returns (
+    uint apr18,
+    uint supplyIncrementBT,
+    uint rewardsBT
+  ) {
+    return DForceRewardsLib.getRawAprInfo(core, collateralAmount_, countBlocks_, amountToBorrow_);
   }
 
-  function getRewardAmounts(
+  function getRewardAmountsBT18(
     DForceRewardsLib.DForceCore memory core,
-    uint collateralAmount_,
-    uint borrowAmount_,
-    uint countBlocks_,
-    uint delayBlocks_
+    DForceRewardsLib.RewardsAmountInput memory p_
   ) external view returns (
     uint rewardAmountSupply,
     uint rewardAmountBorrow,
     uint totalRewardsInBorrowAsset
   ) {
-    return DForceRewardsLib.getRewardAmounts(core, collateralAmount_, borrowAmount_, countBlocks_, delayBlocks_);
+    return DForceRewardsLib.getRewardAmountsBT18(core, p_);
   }
 
   function supplyRewardAmount(

@@ -15,10 +15,12 @@ import "hardhat/console.sol";
 
 /// @notice DForce utils: estimate reward tokens, predict borrow rate in advance
 library DForceRewardsLib {
+
   ///////////////////////////////////////////////////////
-  // Data type and getting core addresses
+  //                  Data type
   ///////////////////////////////////////////////////////
   struct DForceCore {
+    IDForceController comptroller;
     IDForceCToken cTokenCollateral;
     IDForceCToken cTokenBorrow;
     IDForceCToken cRewardsToken;
@@ -47,6 +49,18 @@ library DForceRewardsLib {
     address interestRateModel;
   }
 
+  struct RewardsAmountInput {
+    uint collateralAmount;
+    uint borrowAmount;
+    uint countBlocks;
+    uint delayBlocks;
+    uint priceBorrow;
+  }
+
+  ///////////////////////////////////////////////////////
+  //                  Addresses
+  ///////////////////////////////////////////////////////
+
   /// @notice Get core address of DForce
   function getCore(
     IDForceController comptroller,
@@ -55,6 +69,7 @@ library DForceRewardsLib {
   ) internal view returns (DForceCore memory) {
     IDForceRewardDistributor rd = IDForceRewardDistributor(comptroller.rewardDistributor());
     return DForceCore({
+      comptroller: comptroller,
       cTokenCollateral: IDForceCToken(cTokenCollateral_),
       cTokenBorrow: IDForceCToken(cTokenBorrow_),
       cRewardsToken: IDForceCToken(rd.rewardToken()),
@@ -65,7 +80,81 @@ library DForceRewardsLib {
   }
 
   ///////////////////////////////////////////////////////
-  // Estimate borrow rate
+  //                  Estimate APR
+  ///////////////////////////////////////////////////////
+
+  /// @notice Calculate APR, take into account all borrow rate, supply rate, borrow and supply tokens.
+  function getRawAprInfo(
+    DForceCore memory core,
+    uint collateralAmount_,
+    uint countBlocks_,
+    uint amountToBorrow_
+  ) internal view returns (
+    uint apr18,
+    uint supplyIncrementBT18,
+    uint rewardsBT18
+  ) {
+    uint priceCollateral;
+    uint priceBorrow;
+    {
+      bool isPriceValid;
+
+      (priceCollateral, isPriceValid) = core.priceOracle.getUnderlyingPriceAndStatus(address(core.cTokenCollateral));
+      require(priceCollateral != 0 && isPriceValid, AppErrors.ZERO_PRICE);
+
+      (priceBorrow, isPriceValid) = core.priceOracle.getUnderlyingPriceAndStatus(address(core.cTokenBorrow));
+      require(priceBorrow != 0 && isPriceValid, AppErrors.ZERO_PRICE);
+    }
+
+    // estimate amount of supply+borrow rewards in terms of borrow asset
+    (,, rewardsBT18) = getRewardAmountsBT18(
+      core,
+      RewardsAmountInput({
+        collateralAmount: collateralAmount_,
+        borrowAmount: amountToBorrow_,
+        countBlocks: countBlocks_,
+        delayBlocks: 1, // we need to estimate rewards inside next (not current) block
+        priceBorrow: priceBorrow
+      })
+    );
+    console.log("rewardsBT", rewardsBT18);
+
+    supplyIncrementBT18 = getSupplyIncrementBT18(core, collateralAmount_, priceCollateral, priceBorrow);
+    console.log("supplyIncrementBT", supplyIncrementBT18);
+
+    // estimate borrow rate value after the borrow and calculate result APR
+    apr18 = getEstimatedBorrowRate(
+        core.interestRateModel,
+        core.cTokenBorrow,
+        amountToBorrow_
+      ) * countBlocks_;
+  }
+
+  /// @notice By what amount will the collateral balance increase over the borrow period because of supply ratio
+  // @dev see LendingContractsV2, ControlerV2.sol, calcAccountEquityWithEffect
+  function getSupplyIncrementBT18(
+    DForceCore memory core,
+    uint collateralAmount_,
+    uint priceCollateral_,
+    uint priceBorrow_
+  ) internal view returns (uint) {
+    (uint256 collateralFactorMantissa,,,,,,) = core.comptroller.markets(address(core.cTokenCollateral));
+    return rmul(
+      rmul(
+          collateralAmount_ * priceCollateral_,
+          core.cTokenCollateral.exchangeRateStored()
+        ),
+        collateralFactorMantissa
+      )
+      * priceCollateral_
+      * 10**18
+      / priceBorrow_
+      / 10**core.cTokenCollateral.decimals();
+  }
+
+
+  ///////////////////////////////////////////////////////
+  //         Estimate borrow and supply rates
   ///////////////////////////////////////////////////////
 
   /// @notice Estimate value of variable borrow rate after borrowing {amountToBorrow_}
@@ -75,10 +164,6 @@ library DForceRewardsLib {
     IDForceCToken cTokenBorrow_,
     uint amountToBorrow_
   ) internal view returns (uint) {
-    console.log("getEstimatedBorrowRate");
-    console.log("getEstimatedBorrowRate cash", cTokenBorrow_.getCash());
-    console.log("getEstimatedBorrowRate totalBorrows", cTokenBorrow_.totalBorrows());
-    console.log("getEstimatedBorrowRate totalReserves", cTokenBorrow_.totalReserves());
     return interestRateModel_.getBorrowRate(
       cTokenBorrow_.getCash() - amountToBorrow_,
       cTokenBorrow_.totalBorrows() + amountToBorrow_,
@@ -86,28 +171,17 @@ library DForceRewardsLib {
     );
   }
 
-  /// @notice
-  function getApr18(
-    DForceCore memory core,
-    uint collateralAmount_,
-    uint countBlocks_,
-    uint amountToBorrow_
-  ) internal view returns (int outApr18) {
-    // estimate by what amount should BR be reduced due to supply+borrow rewards
-    (,,uint borrowAmountToReturn) = getRewardAmounts(core,
-      collateralAmount_,
-      amountToBorrow_,
-      countBlocks_,
-      1 // we need to estimate rewards inside next (not current) block
-    );
-    console.log("borrowAmountToReturn", borrowAmountToReturn);
-
-    outApr18 = int(
-      getEstimatedBorrowRate(
-        core.interestRateModel,
-        core.cTokenBorrow,
-        amountToBorrow_
-      ) * countBlocks_ - borrowAmountToReturn
+  /// @notice Estimate value of variable supply rate after supplying {amountToSupply_}
+  ///         Rewards are not taken into account
+  function getEstimatedSupplyRate(
+    IDForceInterestRateModel interestRateModel_,
+    IDForceCToken cTokenCollateral_,
+    uint amountToSupply_
+  ) internal view returns (uint) {
+    return interestRateModel_.getBorrowRate(
+      cTokenCollateral_.getCash() + amountToSupply_,
+      cTokenCollateral_.totalBorrows(),
+      cTokenCollateral_.totalReserves()
     );
   }
 
@@ -115,12 +189,9 @@ library DForceRewardsLib {
   ///       Calculate supply and borrow rewards
   ///////////////////////////////////////////////////////
 
-  function getRewardAmounts(
+  function getRewardAmountsBT18(
     DForceCore memory core,
-    uint collateralAmount_,
-    uint borrowAmount_,
-    uint countBlocks_,
-    uint delayBlocks_
+    RewardsAmountInput memory p_
   ) internal view returns (
     uint rewardAmountSupply,
     uint rewardAmountBorrow,
@@ -130,33 +201,35 @@ library DForceRewardsLib {
     if (distributionSpeed != 0) {
       (uint stateIndex, uint stateBlock0) = core.rd.distributionSupplyState(address(core.cTokenCollateral));
       rewardAmountSupply = supplyRewardAmount(
-          block.number + delayBlocks_,
+          block.number + p_.delayBlocks,
           stateIndex,
           stateBlock0,
           distributionSpeed,
           core.cTokenCollateral.totalSupply(),
           // actually, after supplying we will have a bit less amount on user's balance
           // because of the supply fee, but we assume that this change can be neglected
-          collateralAmount_,
-          block.number + delayBlocks_ + countBlocks_
+          p_.collateralAmount,
+          block.number + p_.delayBlocks + p_.countBlocks
       );
     }
     distributionSpeed = core.rd.distributionSpeed(address(core.cTokenBorrow));
     if (distributionSpeed != 0) {
       rewardAmountBorrow = _borrowRewardAmount(core,
-        borrowAmount_,
+        p_.borrowAmount,
         distributionSpeed,
-        delayBlocks_ + countBlocks_
+        p_.delayBlocks + p_.countBlocks
       );
     }
-    totalRewardsInBorrowAsset = rewardAmountSupply + rewardAmountBorrow;
 
-    if (totalRewardsInBorrowAsset != 0) {
+    if (rewardAmountSupply + rewardAmountBorrow != 0) {
+      (uint priceRewards, bool isPriceValid) = core.priceOracle.getUnderlyingPriceAndStatus(address(core.cRewardsToken));
+      require(priceRewards != 0 && isPriceValid, AppErrors.ZERO_PRICE);
+
       // EA(x) = ( RA_supply(x) + RA_borrow(x) ) * PriceRewardToken / PriceBorrowUnderlying
-      totalRewardsInBorrowAsset = totalRewardsInBorrowAsset
-        * core.priceOracle.getUnderlyingPrice(address(core.cRewardsToken))
-        * 10**core.cTokenBorrow.decimals()
-        / core.priceOracle.getUnderlyingPrice(address(core.cTokenBorrow))
+      totalRewardsInBorrowAsset = (rewardAmountSupply + rewardAmountBorrow)
+        * priceRewards
+        * 10**18 //core.cTokenBorrow.decimals()
+        / p_.priceBorrow
         / 10**core.cRewardsToken.decimals()
       ;
     }
