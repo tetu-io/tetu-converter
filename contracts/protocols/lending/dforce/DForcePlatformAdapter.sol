@@ -186,21 +186,16 @@ contract DForcePlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
           }
 
           // calculate current borrow rate and predicted BR value after borrowing required amount
-          if (borrowAmountFactor18_ == 0) {
-            // simple mode
-            plan.brForPeriod18 = IDForceCToken(cTokenBorrow).borrowRatePerBlock() * countBlocks_;
-          } else {
-            uint amountToBorrow = borrowAmountFactor18_ * plan.liquidationThreshold18 / 1e18;
-            if (amountToBorrow > plan.maxAmountToBorrowBT) {
-              amountToBorrow = plan.maxAmountToBorrowBT;
-            }
-            (plan.brForPeriod18, plan.supplyIncrement18, plan.rewardsAmount18) = DForceRewardsLib.getRawAprInfo(
-              DForceRewardsLib.getCore(comptroller, cTokenCollateral, cTokenBorrow),
-              collateralAmount_,
-              countBlocks_,
-              amountToBorrow
-            );
+          uint amountToBorrow = borrowAmountFactor18_ * plan.liquidationThreshold18 / 1e18;
+          if (amountToBorrow > plan.maxAmountToBorrowBT) {
+            amountToBorrow = plan.maxAmountToBorrowBT;
           }
+          (plan.brForPeriod18, plan.supplyIncrement18, plan.rewardsAmount18) = DForceRewardsLib.getRawAprInfo(
+            DForceRewardsLib.getCore(comptroller, cTokenCollateral, cTokenBorrow),
+            collateralAmount_,
+            countBlocks_,
+            amountToBorrow
+          );
         }
       }
     }

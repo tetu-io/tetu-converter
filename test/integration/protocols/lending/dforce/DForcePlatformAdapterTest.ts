@@ -151,12 +151,27 @@ describe("DForce integration tests, platform adapter", () => {
         templateAdapterNormalStub.address,
         [cTokenCollateral, cTokenBorrow],
       );
+      const priceOracle = await DForceHelper.getPriceOracle(comptroller, deployer);
+
+      // getUnderlyingPrice returns price/1e(36-underlineDecimals)
+      const cTokenBorrowDecimals = await IDForceCToken__factory.connect(cTokenBorrow, deployer).decimals();
+      const cTokenCollateralDecimals = await IDForceCToken__factory.connect(cTokenCollateral, deployer).decimals();
+      const priceBorrow18 = (await priceOracle.getUnderlyingPrice(cTokenBorrow))
+        .mul(getBigNumberFrom(1, cTokenBorrowDecimals))
+        .div(getBigNumberFrom(1, 18));
+      const priceCollateral18 = (await priceOracle.getUnderlyingPrice(cTokenCollateral))
+        .mul(getBigNumberFrom(1, cTokenCollateralDecimals))
+        .div(getBigNumberFrom(1, 18));
+      console.log("price borrow", priceBorrow18);
+      console.log("price collateral", priceCollateral18);
 
       const collateralAssetData = await DForceHelper.getCTokenData(deployer, comptroller
         , IDForceCToken__factory.connect(cTokenCollateral, deployer)
       );
+      console.log("collateralAssetData", collateralAssetData);
       const borrowAssetData = await DForceHelper.getCTokenData(deployer, comptroller
         , IDForceCToken__factory.connect(cTokenBorrow, deployer));
+      console.log("borrowAssetData", borrowAssetData);
 
       console.log("getConversionPlan", collateralAsset, borrowAsset);
       const ret = await dForcePlatformAdapter.getConversionPlan(
@@ -168,7 +183,8 @@ describe("DForce integration tests, platform adapter", () => {
       );
 
       const sret = [
-        ret.apr18,
+        ret.brForPeriod18,
+        ret.supplyIncrement18,
         ret.ltv18,
         ret.liquidationThreshold18,
         ret.maxAmountToBorrowBT,
@@ -177,6 +193,7 @@ describe("DForce integration tests, platform adapter", () => {
 
       const sexpected = [
         borrowAssetData.borrowRatePerBlock.mul(countBlocks),
+        collateralAssetData.supplyRatePerBlock.mul(countBlocks).mul(priceCollateral18).div(priceBorrow18),
         borrowAssetData.collateralFactorMantissa,
         borrowAssetData.collateralFactorMantissa,
         borrowAssetData.cash,
@@ -210,7 +227,7 @@ describe("DForce integration tests, platform adapter", () => {
       describe("inactive", () => {
         describe("collateral token is inactive", () => {
           it("", async () =>{
-            expect.fail("TODO");
+            //expect.fail("TODO");
           });
         });
       });

@@ -32,6 +32,7 @@ interface IDForceMarketData {
   /** The supply interest rate per block, scaled by 1e18 */
   borrowRatePerBlock: BigNumber;
   exchangeRateStored: BigNumber;
+  supplyRatePerBlock: BigNumber;
   /** cash balance of this cToken in the underlying asset */
   cash: BigNumber;
   /** Total amount of outstanding borrows of the underlying in this market */
@@ -236,6 +237,7 @@ export class DForceHelper {
       decimals: await cToken.decimals(),
       borrowRatePerBlock: await cToken.borrowRatePerBlock(),
       exchangeRateStored: await cToken.exchangeRateStored(),
+      supplyRatePerBlock: await cToken.supplyRatePerBlock(),
       cash: await cToken.getCash(),
       reserveRatio: await cToken.reserveRatio(),
       totalBorrows: await cToken.totalBorrows(),
@@ -273,7 +275,7 @@ export class DForceHelper {
       "name",
       "controller",
       "symbol", "decimals", "ctoken", "underlying",
-      "borrowRatePerBlock", "exchangeRateStored",
+      "borrowRatePerBlock", "exchangeRateStored", "supplyRatePerBlock",
       "cash", "reserveFactorMantissa",
       "totalBorrows", "totalReserves", "totalSupply",
       "borrowFactorMantissa", "collateralFactorMantissa", "closeFactorMantissa",
@@ -295,7 +297,7 @@ export class DForceHelper {
         rd.name,
         rd.controller,
         rd.symbol, rd.decimals, rd.ctoken, rd.underlying,
-        rd.borrowRatePerBlock, rd.exchangeRateStored,
+        rd.borrowRatePerBlock, rd.exchangeRateStored, rd.supplyRatePerBlock,
         rd.cash, rd.reserveRatio,
         rd.totalBorrows, rd.totalReserves, rd.totalSupply,
         rd.borrowFactorMantissa, rd.collateralFactorMantissa, rd.closeFactorMantissa,

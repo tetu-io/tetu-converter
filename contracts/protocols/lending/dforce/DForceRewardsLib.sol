@@ -25,7 +25,8 @@ library DForceRewardsLib {
     IDForceCToken cTokenBorrow;
     IDForceCToken cRewardsToken;
     IDForceRewardDistributor rd;
-    IDForceInterestRateModel interestRateModel;
+    IDForceInterestRateModel borrowInterestRateModel;
+    IDForceInterestRateModel collateralInterestRateModel;
     IDForcePriceOracle priceOracle;
   }
 
@@ -74,7 +75,8 @@ library DForceRewardsLib {
       cTokenBorrow: IDForceCToken(cTokenBorrow_),
       cRewardsToken: IDForceCToken(rd.rewardToken()),
       rd: rd,
-      interestRateModel: IDForceInterestRateModel(IDForceCToken(cTokenBorrow_).interestRateModel()),
+      borrowInterestRateModel: IDForceInterestRateModel(IDForceCToken(cTokenBorrow_).interestRateModel()),
+      collateralInterestRateModel: IDForceInterestRateModel(IDForceCToken(cTokenCollateral_).interestRateModel()),
       priceOracle: IDForcePriceOracle(comptroller.priceOracle())
     });
   }
@@ -90,7 +92,7 @@ library DForceRewardsLib {
     uint countBlocks_,
     uint amountToBorrow_
   ) internal view returns (
-    uint apr18,
+    uint brPeriod18,
     uint supplyIncrementBT18,
     uint rewardsBT18
   ) {
@@ -99,6 +101,7 @@ library DForceRewardsLib {
     {
       bool isPriceValid;
 
+      // getUnderlyingPrice returns price/1e(36-underlineDecimals)
       (priceCollateral, isPriceValid) = core.priceOracle.getUnderlyingPriceAndStatus(address(core.cTokenCollateral));
       require(priceCollateral != 0 && isPriceValid, AppErrors.ZERO_PRICE);
 
@@ -117,41 +120,28 @@ library DForceRewardsLib {
         priceBorrow: priceBorrow
       })
     );
-    console.log("rewardsBT", rewardsBT18);
+    console.log("rewardsBT", rewardsBT18, priceBorrow, core.cTokenCollateral.decimals());
 
-    supplyIncrementBT18 = getSupplyIncrementBT18(core, collateralAmount_, priceCollateral, priceBorrow);
+    supplyIncrementBT18 = getEstimatedSupplyRate(
+      core.collateralInterestRateModel,
+      core.cTokenCollateral,
+      collateralAmount_
+    )
+    * countBlocks_
+    * priceCollateral
+    * 10**core.cTokenBorrow.decimals()
+    / priceBorrow
+    / 10**core.cTokenCollateral.decimals();
+
     console.log("supplyIncrementBT", supplyIncrementBT18);
 
     // estimate borrow rate value after the borrow and calculate result APR
-    apr18 = getEstimatedBorrowRate(
-        core.interestRateModel,
+    brPeriod18 = getEstimatedBorrowRate(
+        core.borrowInterestRateModel,
         core.cTokenBorrow,
         amountToBorrow_
       ) * countBlocks_;
   }
-
-  /// @notice By what amount will the collateral balance increase over the borrow period because of supply ratio
-  // @dev see LendingContractsV2, ControlerV2.sol, calcAccountEquityWithEffect
-  function getSupplyIncrementBT18(
-    DForceCore memory core,
-    uint collateralAmount_,
-    uint priceCollateral_,
-    uint priceBorrow_
-  ) internal view returns (uint) {
-    (uint256 collateralFactorMantissa,,,,,,) = core.comptroller.markets(address(core.cTokenCollateral));
-    return rmul(
-      rmul(
-          collateralAmount_ * priceCollateral_,
-          core.cTokenCollateral.exchangeRateStored()
-        ),
-        collateralFactorMantissa
-      )
-      * priceCollateral_
-      * 10**18
-      / priceBorrow_
-      / 10**core.cTokenCollateral.decimals();
-  }
-
 
   ///////////////////////////////////////////////////////
   //         Estimate borrow and supply rates
@@ -178,10 +168,15 @@ library DForceRewardsLib {
     IDForceCToken cTokenCollateral_,
     uint amountToSupply_
   ) internal view returns (uint) {
-    return interestRateModel_.getBorrowRate(
+    console.log("getEstimatedSupplyRate", address(interestRateModel_));
+    console.log("cTokenCollateral_.getCash()", cTokenCollateral_.getCash() );
+    console.log("cTokenCollateral_.totalBorrows()", cTokenCollateral_.totalBorrows() );
+    console.log("cTokenCollateral_.reserveRatio()", cTokenCollateral_.reserveRatio() );
+    return interestRateModel_.getSupplyRate(
       cTokenCollateral_.getCash() + amountToSupply_,
       cTokenCollateral_.totalBorrows(),
-      cTokenCollateral_.totalReserves()
+      cTokenCollateral_.totalReserves(),
+      cTokenCollateral_.reserveRatio()
     );
   }
 
@@ -228,7 +223,7 @@ library DForceRewardsLib {
       // EA(x) = ( RA_supply(x) + RA_borrow(x) ) * PriceRewardToken / PriceBorrowUnderlying
       totalRewardsInBorrowAsset = (rewardAmountSupply + rewardAmountBorrow)
         * priceRewards
-        * 10**18 //core.cTokenBorrow.decimals()
+        * core.cTokenBorrow.decimals()
         / p_.priceBorrow
         / 10**core.cRewardsToken.decimals()
       ;
