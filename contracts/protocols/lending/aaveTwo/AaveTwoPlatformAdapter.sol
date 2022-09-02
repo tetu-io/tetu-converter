@@ -36,6 +36,18 @@ contract AaveTwoPlatformAdapter is IPlatformAdapter {
   uint internal constant ID_DATA_PROVIDER = 0x1000000000000000000000000000000000000000000000000000000000000000;
 
   ///////////////////////////////////////////////////////
+  ///       Data types
+  ///////////////////////////////////////////////////////
+  /// @notice Local vars inside _getConversionPlan - to avoid stack too deep
+  struct LocalsGetConversionPlan {
+    IAaveTwoPool poolLocal;
+    uint availableLiquidity;
+    uint totalStableDebt;
+    uint totalVariableDebt;
+    uint aprFactor;
+  }
+
+  ///////////////////////////////////////////////////////
   ///       Constructor and initialization
   ///////////////////////////////////////////////////////
 
@@ -57,7 +69,7 @@ contract AaveTwoPlatformAdapter is IPlatformAdapter {
   }
 
   ///////////////////////////////////////////////////////
-  ///       View
+  ///              View
   ///////////////////////////////////////////////////////
 
   function converters() external view override returns (address[] memory) {
@@ -73,7 +85,7 @@ contract AaveTwoPlatformAdapter is IPlatformAdapter {
   }
 
   ///////////////////////////////////////////////////////
-  ///       Get conversion plan
+  ///           Get conversion plan
   ///////////////////////////////////////////////////////
 
   function getConversionPlan (
@@ -85,14 +97,13 @@ contract AaveTwoPlatformAdapter is IPlatformAdapter {
   ) external view override returns (
     AppDataTypes.ConversionPlan memory plan
   ) {
-    // there are no rewards in AAVE3; this value is required by other platforms to predict the rewards correctly
-    collateralAmount_;
+    LocalsGetConversionPlan memory vars;
+    vars.poolLocal = pool;
 
-    IAaveTwoPool poolLocal = pool;
-    DataTypes.ReserveData memory rc = poolLocal.getReserveData(collateralAsset_);
+    DataTypes.ReserveData memory rc = vars.poolLocal.getReserveData(collateralAsset_);
 
     if (_isUsable(rc.configuration) &&  _isCollateralUsageAllowed(rc.configuration)) {
-      DataTypes.ReserveData memory rb = poolLocal.getReserveData(borrowAsset_);
+      DataTypes.ReserveData memory rb = vars.poolLocal.getReserveData(borrowAsset_);
 
       if (_isUsable(rc.configuration) && rb.configuration.getBorrowingEnabled()) {
         // get liquidation threshold (== collateral factor) and loan-to-value
@@ -101,37 +112,39 @@ contract AaveTwoPlatformAdapter is IPlatformAdapter {
         plan.converter = converter;
 
         // availableLiquidity is IERC20(borrowToken).balanceOf(atoken)
-        (uint availableLiquidity, uint totalStableDebt, uint totalVariableDebt,,,,,,,) = IAaveTwoProtocolDataProvider(
-          IAaveTwoLendingPoolAddressesProvider(poolLocal.getAddressesProvider()).getAddress(bytes32(ID_DATA_PROVIDER))
+        (vars.availableLiquidity, vars.totalStableDebt, vars.totalVariableDebt,,,,,,,) = IAaveTwoProtocolDataProvider(
+          IAaveTwoLendingPoolAddressesProvider(vars.poolLocal.getAddressesProvider())
+            .getAddress(bytes32(ID_DATA_PROVIDER))
         ).getReserveData(borrowAsset_);
 
-        plan.maxAmountToBorrowBT = availableLiquidity;
+        plan.maxAmountToBorrowBT = vars.availableLiquidity;
         plan.maxAmountToSupplyCT = type(uint).max; // unlimited
 
-        { // calculate borrow rate
-          // get both current BR and predict BR-value after borrowing of the required amount, take max value
-          // assume here, that we always use variable borrow rate
-          uint br = rb.currentVariableBorrowRate;
-          if (borrowAmountFactor_ != 0) {
-            uint brAfterBorrow = _br(borrowAsset_,
-              rb,
-            // calculate what amount will be borrowed
-              borrowAmountFactor_ * plan.liquidationThreshold18 / 1e18,
-              totalStableDebt,
-              totalVariableDebt
-            );
-            if (brAfterBorrow > br) {
-              br = brAfterBorrow;
-            }
-          }
+        // seconds => blocks
+        vars.aprFactor = IController(controller).blocksPerDay() * 365 / COUNT_SECONDS_PER_YEAR
+          / COUNT_SECONDS_PER_YEAR
+          / 10**(27-18); // rays => decimals 18 (1 ray = 1e-27)
 
-          plan.brForPeriod18 = br
-            * countBlocks_
-            / COUNT_SECONDS_PER_YEAR
-            * IController(controller).blocksPerDay() * 365 / COUNT_SECONDS_PER_YEAR
-            / 10**(27-18); // rays => decimals 18 (1 ray = 1e-27)
-        }
+        // calculate borrow rate
+        plan.borrowApr18 = (
+          borrowAmountFactor_ == 0
+            ? rb.currentVariableBorrowRate
+            : _br(borrowAsset_,
+                rb,
+              // calculate what amount will be borrowed
+                borrowAmountFactor_ * plan.liquidationThreshold18 / 1e18,
+                vars.totalStableDebt,
+                vars.totalVariableDebt
+              )
+        ) * countBlocks_ * vars.aprFactor;
 
+        plan.supplyApr18 = _srBT(collateralAsset_,
+          rc,
+          collateralAmount_,
+          vars.totalStableDebt,
+          vars.totalVariableDebt,
+          borrowAsset_
+        ) * vars.aprFactor;
       }
     }
 
@@ -172,6 +185,43 @@ contract AaveTwoPlatformAdapter is IPlatformAdapter {
         rd_.currentStableBorrowRate, // this value is not used to calculate variable BR
         rd_.configuration.getReserveFactor()
       );
+  }
+
+  /// @notice calculate liquidityRate for collateral token fater supply {amountToSupply_} in terms of borrow tokens
+  function _srBT(
+    address collateralAsset_,
+    DataTypes.ReserveData memory rc_,
+    uint amountToSupply_,
+    uint256 totalStableDebt_,
+    uint256 totalVariableDebt_,
+    address borrowAsset_
+  ) internal view returns (uint liquidityRateBT) {
+
+    // see aave-v3-core, DefaultReserveInterestRateStrategy, calculateInterestRates impl
+    // to calculate new BR, we need to reduce liquidity on borrowAmount and increase the debt on the same amount
+    (liquidityRateBT,,) = IAaveTwoReserveInterestRateStrategy(rc_.interestRateStrategyAddress)
+      .calculateInterestRates(
+        collateralAsset_,
+        rc_.aTokenAddress,
+        amountToSupply_,
+        0,
+        totalStableDebt_,
+        totalVariableDebt_,
+        rc_.currentStableBorrowRate,
+        rc_.configuration.getReserveFactor()
+      );
+
+    // recalculate liquidityRate to borrow tokens
+    address[] memory assets = new address[](2);
+    assets[0] = collateralAsset_;
+    assets[1] = borrowAsset_;
+
+    uint[] memory prices = _priceOracle.getAssetsPrices(assets);
+    require(prices[1] != 0, AppErrors.ZERO_PRICE);
+
+    liquidityRateBT = liquidityRateBT
+      * prices[0]
+      / prices[1];
   }
 
   ///////////////////////////////////////////////////////

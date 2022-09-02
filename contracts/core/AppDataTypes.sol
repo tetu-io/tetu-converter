@@ -33,9 +33,9 @@ library AppDataTypes {
 
     /// @notice APR for the period calculated using borrow rate, decimals = 18
     ///         It doesn't take into account supply increment and rewards
-    uint brForPeriod18;
+    uint borrowApr18;
     /// @notice Potential supply increment after borrow period in terms of borrow asset, decimals = 18
-    uint supplyIncrement18;
+    uint supplyApr18;
     /// @notice Potential rewards amount after borrow period in terms of borrow asset, decimals = 18
     uint rewardsAmount18;
 

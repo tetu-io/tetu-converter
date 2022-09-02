@@ -38,6 +38,28 @@ contract Aave3PlatformAdapter is IPlatformAdapter {
   uint256 internal constant RAY = 1e27;
   uint256 internal constant HALF_RAY = 0.5e27;
 
+
+  ///////////////////////////////////////////////////////
+  ///       Data types
+  ///////////////////////////////////////////////////////
+  /// @notice Local vars inside _getConversionPlan - to avoid stack too deep
+  struct LocalsGetConversionPlan {
+    IAavePool poolLocal;
+    bool isolationMode;
+    uint totalAToken;
+    uint totalStableDebt;
+    uint totalVariableDebt;
+    uint aprFactor;
+  }
+
+  struct ParamsGetConversionPlan {
+    address collateralAsset;
+    uint collateralAmount;
+    address borrowAsset;
+    uint borrowAmountFactor18;
+    uint countBlocks;
+  }
+
   ///////////////////////////////////////////////////////
   ///       Constructor and initialization
   ///////////////////////////////////////////////////////
@@ -80,31 +102,30 @@ contract Aave3PlatformAdapter is IPlatformAdapter {
   ///////////////////////////////////////////////////////
   ///             Get conversion plan
   ///////////////////////////////////////////////////////
-
   function _getConversionPlan (
-    address collateralAsset_,
-    address borrowAsset_,
-    uint borrowAmountFactor18_
+    ParamsGetConversionPlan memory params
   ) internal view returns (
     AppDataTypes.ConversionPlan memory plan
   ) {
-    IAavePool poolLocal = pool;
-    Aave3DataTypes.ReserveData memory rc = poolLocal.getReserveData(collateralAsset_);
+    LocalsGetConversionPlan memory vars;
+
+    vars.poolLocal = pool;
+    Aave3DataTypes.ReserveData memory rc = vars.poolLocal.getReserveData(params.collateralAsset);
 
     if (_isUsable(rc.configuration) &&  _isCollateralUsageAllowed(rc.configuration)) {
-      Aave3DataTypes.ReserveData memory rb = poolLocal.getReserveData(borrowAsset_);
+      Aave3DataTypes.ReserveData memory rb = vars.poolLocal.getReserveData(params.borrowAsset);
 
       if (_isUsable(rc.configuration) && rb.configuration.getBorrowingEnabled()) {
 
-        bool isolationMode = _isIsolationModeEnabled(rc.configuration);
-        if (!isolationMode || _isUsableInIsolationMode(rb.configuration)) {
+        vars.isolationMode = _isIsolationModeEnabled(rc.configuration);
+        if (!vars.isolationMode || _isUsableInIsolationMode(rb.configuration)) {
           { // get liquidation threshold (== collateral factor) and loan-to-value
             uint8 categoryCollateral = uint8(rc.configuration.getEModeCategory());
             if (categoryCollateral != 0 && categoryCollateral == rb.configuration.getEModeCategory()) {
 
               // if both assets belong to the same e-mode-category, we can use category's ltv (higher than default)
               // we assume here, that e-mode is always used if it's available
-              Aave3DataTypes.EModeCategory memory categoryData = poolLocal.getEModeCategoryData(categoryCollateral);
+              Aave3DataTypes.EModeCategory memory categoryData = vars.poolLocal.getEModeCategoryData(categoryCollateral);
               // ltv: 8500 for 0.85, we need decimals 18.
               plan.ltv18 = uint(categoryData.ltv) * 10**(18-4);
               plan.liquidationThreshold18 = uint(categoryData.liquidationThreshold) * 10**(18-4);
@@ -118,20 +139,19 @@ contract Aave3PlatformAdapter is IPlatformAdapter {
 
           // by default, we can borrow all available cache
           (,,
-          uint256 totalAToken,
-          uint256 totalStableDebt,
-          uint256 totalVariableDebt
-          ,,,,,,,) = _dp(poolLocal).getReserveData(borrowAsset_);
-          plan.maxAmountToBorrowBT = totalAToken - totalStableDebt - totalVariableDebt;
+          vars.totalAToken,
+          vars.totalStableDebt,
+          vars.totalVariableDebt
+          ,,,,,,,) = _dp(vars.poolLocal).getReserveData(params.borrowAsset);
+          plan.maxAmountToBorrowBT = vars.totalAToken - vars.totalStableDebt - vars.totalVariableDebt;
 
           // supply/borrow caps are given in "whole tokens" == without decimals
           // see AAVE3-code, ValidationLogic.sol, validateSupply
-
           { // take into account borrow cap, supply cap and debts ceiling
             uint borrowCap = rb.configuration.getBorrowCap();
             if (borrowCap != 0) {
               borrowCap *= (10**rb.configuration.getDecimals());
-              uint totalDebt = totalStableDebt + totalVariableDebt;
+              uint totalDebt = vars.totalStableDebt + vars.totalVariableDebt;
               if (totalDebt > borrowCap) {
                 plan.maxAmountToBorrowBT = 0;
               } else {
@@ -140,7 +160,7 @@ contract Aave3PlatformAdapter is IPlatformAdapter {
                 }
               }
             }
-            if (isolationMode) {
+            if (vars.isolationMode) {
               // the total exposure cannot be bigger than the collateral debt ceiling, see aave-v3-core: validateBorrow()
               // Suppose, the collateral is an isolated asset with the debt ceiling $10M
               // The user will therefore be allowed to borrow up to $10M of stable coins
@@ -153,40 +173,46 @@ contract Aave3PlatformAdapter is IPlatformAdapter {
             }
           }
 
-          // see sources of AAVE3\ValidationLogic.sol\validateSupply
-          uint supplyCap = rc.configuration.getSupplyCap();
-          if (supplyCap == 0) {
-            plan.maxAmountToSupplyCT = type(uint).max; // unlimited
-          } else {
-            supplyCap  *= (10**rc.configuration.getDecimals());
-            uint totalSupply = (IAaveToken(rc.aTokenAddress).scaledTotalSupply() * rc.liquidityIndex + HALF_RAY) / RAY;
-            plan.maxAmountToSupplyCT = supplyCap > totalSupply
-              ? supplyCap - totalSupply
-              : 0;
-          }
-
-          { // calculate borrow rate
-            // get both current BR and predict BR-value after borrowing of the required amount, take max value
-            // assume here, that we always use variable borrow rate
-            uint br = rb.currentVariableBorrowRate;
-            if (borrowAmountFactor18_ != 0) {
-              uint brAfterBorrow = _br(borrowAsset_,
-                rb,
-                plan.liquidationThreshold18 * borrowAmountFactor18_ / 1e18,
-                totalStableDebt,
-                totalVariableDebt
-              );
-              if (brAfterBorrow > br) {
-                br = brAfterBorrow;
-              }
+          {
+            // see sources of AAVE3\ValidationLogic.sol\validateSupply
+            uint supplyCap = rc.configuration.getSupplyCap();
+            if (supplyCap == 0) {
+              plan.maxAmountToSupplyCT = type(uint).max; // unlimited
+            } else {
+              supplyCap  *= (10**rc.configuration.getDecimals());
+              uint totalSupply = (
+                IAaveToken(rc.aTokenAddress).scaledTotalSupply() * rc.liquidityIndex + HALF_RAY
+              ) / RAY;
+              plan.maxAmountToSupplyCT = supplyCap > totalSupply
+                ? supplyCap - totalSupply
+                : 0;
             }
-
-            plan.brForPeriod18 = br
-              / COUNT_SECONDS_PER_YEAR
-              * IController(controller).blocksPerDay() * 365 / COUNT_SECONDS_PER_YEAR
-              / 10**(27-18); // rays => decimals 18 (1 ray = 1e-27)
           }
 
+          // seconds => blocks
+          vars.aprFactor = IController(controller).blocksPerDay() * 365 / COUNT_SECONDS_PER_YEAR
+            / COUNT_SECONDS_PER_YEAR
+            / 10**(27-18); // rays => decimals 18 (1 ray = 1e-27)
+
+          // calculate APR
+          plan.borrowApr18 = (
+            (params.borrowAmountFactor18 == 0) // assume here, that we always use variable borrow rate
+              ? rb.currentVariableBorrowRate
+              : _br(params.borrowAsset,
+                  rb,
+                  plan.liquidationThreshold18 * params.borrowAmountFactor18 / 1e18,
+                  vars.totalStableDebt,
+                  vars.totalVariableDebt
+                )
+          ) * params.countBlocks * vars.aprFactor;
+
+          plan.supplyApr18 = _srBT(params.collateralAsset,
+            rc,
+            params.collateralAmount,
+            vars.totalStableDebt,
+            vars.totalVariableDebt,
+            params.borrowAsset
+          ) * params.countBlocks * vars.aprFactor;
         }
       }
     }
@@ -203,18 +229,15 @@ contract Aave3PlatformAdapter is IPlatformAdapter {
   ) external view override returns (
     AppDataTypes.ConversionPlan memory plan
   ) {
-    // there are no rewards in AAVE3; this value is required by other platforms to predict the rewards correctly
-    collateralAmount_;
-
-    plan = _getConversionPlan(
-      collateralAsset_,
-      borrowAsset_,
-      borrowAmountFactor18_
+    return _getConversionPlan(
+      ParamsGetConversionPlan({
+        collateralAsset: collateralAsset_,
+        collateralAmount: collateralAmount_,
+        borrowAsset: borrowAsset_,
+        borrowAmountFactor18: borrowAmountFactor18_,
+        countBlocks: countBlocks_
+      })
     );
-
-    // avoid Stack too deep, try removing local variables.
-    plan.brForPeriod18 *= countBlocks_;
-    return plan;
   }
 
   ///////////////////////////////////////////////////////
@@ -263,6 +286,45 @@ contract Aave3PlatformAdapter is IPlatformAdapter {
         aToken: rd_.aTokenAddress
       })
     );
+  }
+
+  /// @notice calculate liquidityRate for collateral token fater supply {amountToSupply_} in terms of borrow tokens
+  function _srBT(
+    address collateralAsset_,
+    Aave3DataTypes.ReserveData memory rc_,
+    uint amountToSupply_,
+    uint256 totalStableDebt_,
+    uint256 totalVariableDebt_,
+    address borrowAsset_
+  ) internal view returns (uint liquidityRateBT) {
+
+    // see aave-v3-core, DefaultReserveInterestRateStrategy, calculateInterestRates impl
+    // to calculate new BR, we need to reduce liquidity on borrowAmount and increase the debt on the same amount
+    (uint liquidityRate,,) = IAaveReserveInterestRateStrategy(rc_.interestRateStrategyAddress).calculateInterestRates(
+      Aave3DataTypes.CalculateInterestRatesParams({
+        unbacked: rc_.unbacked,
+        liquidityAdded: amountToSupply_,
+        liquidityTaken: 0,
+        totalStableDebt: totalStableDebt_,
+        totalVariableDebt: totalVariableDebt_,
+        averageStableBorrowRate: rc_.currentStableBorrowRate, // this value is not used to calculate variable BR
+        reserveFactor: rc_.configuration.getReserveFactor(),
+        reserve: collateralAsset_,
+        aToken: rc_.aTokenAddress
+      })
+    );
+
+    // recalculate liquidityRate to borrow tokens
+    address[] memory assets = new address[](2);
+    assets[0] = collateralAsset_;
+    assets[1] = borrowAsset_;
+
+    uint[] memory prices = _priceOracle.getAssetsPrices(assets);
+    require(prices[1] != 0, AppErrors.ZERO_PRICE);
+
+    liquidityRateBT = liquidityRate
+      * prices[0]
+      / prices[1];
   }
 
   ///////////////////////////////////////////////////////

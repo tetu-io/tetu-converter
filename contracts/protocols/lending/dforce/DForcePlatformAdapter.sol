@@ -190,7 +190,7 @@ contract DForcePlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
           if (amountToBorrow > plan.maxAmountToBorrowBT) {
             amountToBorrow = plan.maxAmountToBorrowBT;
           }
-          (plan.brForPeriod18, plan.supplyIncrement18, plan.rewardsAmount18) = DForceRewardsLib.getRawAprInfo(
+          (plan.borrowApr18, plan.supplyApr18, plan.rewardsAmount18) = DForceRewardsLib.getRawAprInfo(
             DForceRewardsLib.getCore(comptroller, cTokenCollateral, cTokenBorrow),
             collateralAmount_,
             countBlocks_,
