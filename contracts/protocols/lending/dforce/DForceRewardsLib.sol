@@ -122,17 +122,24 @@ library DForceRewardsLib {
     );
     console.log("rewardsBT", rewardsBT18, priceBorrow, core.cTokenCollateral.decimals());
 
-    supplyIncrementBT18 = getEstimatedSupplyRate(
-      core.collateralInterestRateModel,
-      core.cTokenCollateral,
-      collateralAmount_
-    )
-    * countBlocks_
-    * priceCollateral
-    * 10**core.cTokenBorrow.decimals()
-    / priceBorrow
-    / 10**core.cTokenCollateral.decimals();
 
+    // it seems like there is no method getSupplyRate in the current interest models
+    // the call of getSupplyRate is just crashed, so we cannot estimate next supply rate.
+    // For simplicity just return current supplyRate
+    // Recalculate the amount from [collateral tokens] to [borrow tokens]
+    supplyIncrementBT18 = core.cTokenCollateral.supplyRatePerBlock()
+      * countBlocks_
+      * priceCollateral
+      * 10**core.cTokenCollateral.decimals()
+      / priceBorrow
+      / 10**core.cTokenBorrow.decimals();
+
+    console.log("supplyRatePerBlock", core.cTokenCollateral.supplyRatePerBlock());
+    console.log("countBlocks_", countBlocks_);
+    console.log("priceCollateral", priceCollateral);
+    console.log("core.cTokenBorrow.decimals()", core.cTokenBorrow.decimals());
+    console.log("priceBorrow", priceBorrow);
+    console.log("core.cTokenCollateral.decimals()", core.cTokenCollateral.decimals());
     console.log("supplyIncrementBT", supplyIncrementBT18);
 
     // estimate borrow rate value after the borrow and calculate result APR
@@ -161,24 +168,27 @@ library DForceRewardsLib {
     );
   }
 
-  /// @notice Estimate value of variable supply rate after supplying {amountToSupply_}
-  ///         Rewards are not taken into account
-  function getEstimatedSupplyRate(
-    IDForceInterestRateModel interestRateModel_,
-    IDForceCToken cTokenCollateral_,
-    uint amountToSupply_
-  ) internal view returns (uint) {
-    console.log("getEstimatedSupplyRate", address(interestRateModel_));
-    console.log("cTokenCollateral_.getCash()", cTokenCollateral_.getCash() );
-    console.log("cTokenCollateral_.totalBorrows()", cTokenCollateral_.totalBorrows() );
-    console.log("cTokenCollateral_.reserveRatio()", cTokenCollateral_.reserveRatio() );
-    return interestRateModel_.getSupplyRate(
-      cTokenCollateral_.getCash() + amountToSupply_,
-      cTokenCollateral_.totalBorrows(),
-      cTokenCollateral_.totalReserves(),
-      cTokenCollateral_.reserveRatio()
-    );
-  }
+//  /// @notice Estimate value of variable supply rate after supplying {amountToSupply_}
+//  ///         Rewards are not taken into account
+//  function getEstimatedSupplyRate(
+//    IDForceInterestRateModel interestRateModel_,
+//    IDForceCToken cTokenCollateral_,
+//    uint amountToSupply_
+//  ) internal view returns (uint) {
+//    // it seems like there is no method getSupplyRate in the current interest models
+//    // the call of getSupplyRate is just crashed
+//
+//    console.log("getEstimatedSupplyRate", address(interestRateModel_));
+//    console.log("cTokenCollateral_.getCash()", cTokenCollateral_.getCash() );
+//    console.log("cTokenCollateral_.totalBorrows()", cTokenCollateral_.totalBorrows() );
+//    console.log("cTokenCollateral_.reserveRatio()", cTokenCollateral_.reserveRatio() );
+//    return interestRateModel_.getSupplyRate(
+//      cTokenCollateral_.getCash() + amountToSupply_,
+//      cTokenCollateral_.totalBorrows(),
+//      cTokenCollateral_.totalReserves(),
+//      cTokenCollateral_.reserveRatio()
+//    );
+//  }
 
   ///////////////////////////////////////////////////////
   ///       Calculate supply and borrow rewards
@@ -221,11 +231,12 @@ library DForceRewardsLib {
       require(priceRewards != 0 && isPriceValid, AppErrors.ZERO_PRICE);
 
       // EA(x) = ( RA_supply(x) + RA_borrow(x) ) * PriceRewardToken / PriceBorrowUnderlying
+      // recalculate the amount from [rewards tokens] to [borrow tokens]
       totalRewardsInBorrowAsset = (rewardAmountSupply + rewardAmountBorrow)
         * priceRewards
-        * core.cTokenBorrow.decimals()
+        * 10**core.cRewardsToken.decimals()
         / p_.priceBorrow
-        / 10**core.cRewardsToken.decimals()
+        / 10**core.cTokenBorrow.decimals()
       ;
     }
 

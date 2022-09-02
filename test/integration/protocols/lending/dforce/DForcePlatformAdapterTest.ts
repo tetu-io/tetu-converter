@@ -6,7 +6,7 @@ import {
   IDForceController,
   IDForceCToken,
   IDForceCToken__factory,
-  DForcePlatformAdapter__factory,
+  DForcePlatformAdapter__factory, IDForceInterestRateModel__factory,
 } from "../../../../../typechain";
 import {expect} from "chai";
 import {AdaptersHelper} from "../../../../baseUT/helpers/AdaptersHelper";
@@ -165,6 +165,7 @@ describe("DForce integration tests, platform adapter", () => {
       console.log("price borrow", priceBorrow18);
       console.log("price collateral", priceCollateral18);
 
+
       const collateralAssetData = await DForceHelper.getCTokenData(deployer, comptroller
         , IDForceCToken__factory.connect(cTokenCollateral, deployer)
       );
@@ -173,7 +174,15 @@ describe("DForce integration tests, platform adapter", () => {
         , IDForceCToken__factory.connect(cTokenBorrow, deployer));
       console.log("borrowAssetData", borrowAssetData);
 
-      console.log("getConversionPlan", collateralAsset, borrowAsset);
+      // The code below crashes with unknown error .. it seems like there is no such method - getSupplyRate
+      // const sr = await IDForceInterestRateModel__factory.connect(collateralAssetData.interestRateModel, deployer).getSupplyRate(
+      //   collateralAssetData.cash,
+      //   collateralAssetData.totalBorrows,
+      //   collateralAssetData.totalReserves,
+      //   collateralAssetData.reserveRatio
+      // );
+      // console.log(sr);
+
       const ret = await dForcePlatformAdapter.getConversionPlan(
         collateralAsset,
         0,
@@ -181,6 +190,7 @@ describe("DForce integration tests, platform adapter", () => {
         0,
         countBlocks
       );
+      console.log("getConversionPlan", ret);
 
       const sret = [
         ret.brForPeriod18,
