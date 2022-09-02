@@ -43,7 +43,7 @@ contract AaveTwoPlatformAdapter is IPlatformAdapter {
     uint availableLiquidity;
     uint totalStableDebt;
     uint totalVariableDebt;
-    uint aprFactor;
+    uint aprFactor18;
   }
 
   ///////////////////////////////////////////////////////
@@ -111,7 +111,7 @@ contract AaveTwoPlatformAdapter is IPlatformAdapter {
         plan.converter = converter;
 
         // seconds => blocks
-        vars.aprFactor = AaveTwoAprLib.getAprFactor(IController(controller).blocksPerDay());
+        vars.aprFactor18 = AaveTwoAprLib.getAprFactor18(IController(controller).blocksPerDay());
 
         // availableLiquidity is IERC20(borrowToken).balanceOf(atoken)
         (vars.availableLiquidity, vars.totalStableDebt, vars.totalVariableDebt,,,,,,,) = IAaveTwoProtocolDataProvider(
@@ -127,7 +127,10 @@ contract AaveTwoPlatformAdapter is IPlatformAdapter {
             borrowAmountFactor_ * plan.liquidationThreshold18 / 1e18,
             vars.totalStableDebt,
             vars.totalVariableDebt
-        ) * countBlocks_ * vars.aprFactor;
+        )
+        * countBlocks_
+        * vars.aprFactor18
+        / 10**(27-18); // rays => decimals 18 (1 ray = 1e-27)
 
         (, vars.totalStableDebt, vars.totalVariableDebt,,,,,,,) = IAaveTwoProtocolDataProvider(
           IAaveTwoLendingPoolAddressesProvider(vars.poolLocal.getAddressesProvider())
@@ -143,7 +146,10 @@ contract AaveTwoPlatformAdapter is IPlatformAdapter {
           vars.totalStableDebt,
           vars.totalVariableDebt,
           address(_priceOracle)
-        ) * countBlocks_ * vars.aprFactor;
+        )
+        * countBlocks_
+        * vars.aprFactor18
+        / 10**(27-18); // rays => decimals 18 (1 ray = 1e-27)
       }
     }
 

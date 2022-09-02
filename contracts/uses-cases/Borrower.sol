@@ -40,7 +40,7 @@ contract Borrower is IBorrower {
   ///////////////////////////////////////////////////////
   /// Uses cases UC1.1, UC1.2, UC1.3 see project scope
   ///////////////////////////////////////////////////////
-  /// @notice See US1.1 in the project scope
+  /// @notice See US1.1 in the project scope. Borrow MAX allowed amount
   function makeBorrowUC1_1(
     address sourceAsset_,
     uint sourceAmount_,
@@ -79,6 +79,48 @@ contract Borrower is IBorrower {
     console.log("makeBorrowUC1.1 done gasleft6", gasleft());
 
     totalBorrowedAmount += maxTargetAmount;
+  }
+
+  /// @notice Borrow exact amount
+  function makeBorrowExactAmount(
+    address sourceAsset_,
+    uint sourceAmount_,
+    address targetAsset_,
+    address receiver_,
+    uint amountToBorrow_
+  ) external {
+    console.log("makeBorrowExactAmount start gasleft", gasleft());
+    // ask TC for the best conversion strategy
+    (address converter, uint maxTargetAmount,) = _tc().findConversionStrategy(sourceAsset_,
+      sourceAmount_,
+      targetAsset_,
+      _healthFactor2,
+      _borrowPeriodInBlocks
+    );
+    require(converter != address(0), "Conversion strategy wasn't found");
+    require(maxTargetAmount != 0, "maxTargetAmount is 0");
+
+    console.log("we will borrow:", amountToBorrow_, "gasleft", gasleft());
+    console.log("sourceAmount_", sourceAmount_);
+    console.log("balance st on tc", IERC20(sourceAsset_).balanceOf(address(this)));
+    // transfer collateral to TC
+    require(IERC20(sourceAsset_).balanceOf(address(this)) >= sourceAmount_
+    , "wrong balance st on tc");
+    IERC20(sourceAsset_).safeApprove(_controller.tetuConverter(), sourceAmount_);
+
+    // borrow and receive borrowed-amount to receiver's balance
+    ITetuConverter tc = _tc();
+    tc.convert(
+      converter,
+      sourceAsset_,
+      sourceAmount_,
+      targetAsset_,
+      amountToBorrow_,
+      receiver_
+    );
+    console.log("makeBorrowExactAmount done gasleft6", gasleft());
+
+    totalBorrowedAmount += amountToBorrow_;
   }
 
   /// @notice See US1.2 in the project scope

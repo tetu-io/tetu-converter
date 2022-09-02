@@ -21,8 +21,6 @@ contract Aave3PlatformAdapter is IPlatformAdapter {
   using SafeERC20 for IERC20;
   using Aave3ReserveConfiguration for Aave3DataTypes.ReserveConfigurationMap;
 
-  uint public COUNT_SECONDS_PER_YEAR = 31536000;
-
   IController public controller;
   IAavePool public pool;
   IAavePriceOracle internal _priceOracle;
@@ -49,7 +47,7 @@ contract Aave3PlatformAdapter is IPlatformAdapter {
     uint totalAToken;
     uint totalStableDebt;
     uint totalVariableDebt;
-    uint aprFactor;
+    uint aprFactor18;
   }
 
   ///////////////////////////////////////////////////////
@@ -182,28 +180,32 @@ contract Aave3PlatformAdapter is IPlatformAdapter {
           }
 
           // seconds => blocks
-          vars.aprFactor = IController(controller).blocksPerDay() * 365 / COUNT_SECONDS_PER_YEAR
-            / COUNT_SECONDS_PER_YEAR
-            / 10**(27-18); // rays => decimals 18 (1 ray = 1e-27)
+          vars.aprFactor18 = Aave3AprLib.getAprFactor18(IController(controller).blocksPerDay());
 
-          // calculate APR
-          plan.borrowApr18 = Aave3AprLib.getBorrowApr18(
+          // calculate borrow-APR, see detailed explanation in Aave3AprLib
+          plan.borrowApr18 = Aave3AprLib.getVariableBorrowRateRays(
             rb,
             params.borrowAsset,
             plan.liquidationThreshold18 * params.borrowAmountFactor18 / 1e18,
             vars.totalStableDebt,
             vars.totalVariableDebt
-          ) * params.countBlocks * vars.aprFactor;
+          )
+          * params.countBlocks
+          * vars.aprFactor18
+          / 10**27; // rays => decimals 18 (1 ray = 1e-27)
 
-          plan.supplyApr18 = Aave3AprLib.getSupplyApr18(
+
+        // calculate supply-APR, see detailed explanation in Aave3AprLib
+        plan.supplyApr18 = Aave3AprLib.getLiquidityRateRays(
             rc,
             params.collateralAsset,
             params.collateralAmount,
-            params.borrowAsset,
             vars.totalStableDebt,
-            vars.totalVariableDebt,
-            address(_priceOracle)
-          ) * params.countBlocks * vars.aprFactor;
+            vars.totalVariableDebt
+          )
+          * params.countBlocks
+          * vars.aprFactor18
+          / 10**27; // rays => decimals 18 (1 ray = 1e-27)
         }
       }
     }
@@ -245,7 +247,7 @@ contract Aave3PlatformAdapter is IPlatformAdapter {
     uint256 totalVariableDebt
     ,,,,,,,) = _dp(poolLocal).getReserveData(borrowAsset_);
 
-    return Aave3AprLib.getBorrowApr18(
+    return Aave3AprLib.getVariableBorrowRateRays(
       rb,
       borrowAsset_,
       amountToBorrow_,

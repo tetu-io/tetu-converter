@@ -18,7 +18,7 @@ export interface IPlatformActor {
  * 2. Borrow amount
  * 3. Get borrow rate after the borrow.
  * 4. Ensure, that predicted borrow rate is almost the same as predicted.
- * The amounts are almost equal, not exactly, because we predicted borrow rate
+ * The amounts are almost equal, not exactly, because predicted borrow rate
  * doesn't take into account interest that appears between borrow moment and getting-borrow-rate moment
  */
 export class PredictBrUsesCase {

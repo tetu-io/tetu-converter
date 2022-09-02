@@ -15,10 +15,11 @@ library AaveTwoAprLib {
 
   uint constant public COUNT_SECONDS_PER_YEAR = 31536000;
 
-  function getAprFactor(uint blocksPerDay_) internal pure returns (uint) {
-    return blocksPerDay_ * 365 / COUNT_SECONDS_PER_YEAR  //TODO
+  function getAprFactor18(uint blocksPerDay_) internal pure returns (uint) {
+    return blocksPerDay_ * 365
+      / 10**18
       / COUNT_SECONDS_PER_YEAR
-      / 10**(27-18); // rays => decimals 18 (1 ray = 1e-27)
+      / COUNT_SECONDS_PER_YEAR;
   }
 
   function getBorrowApr18(
