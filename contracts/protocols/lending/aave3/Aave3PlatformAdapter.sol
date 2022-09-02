@@ -3,6 +3,7 @@ pragma solidity 0.8.4;
 
 import "../../../openzeppelin/SafeERC20.sol";
 import "../../../openzeppelin/IERC20.sol";
+import "./Aave3AprLib.sol";
 import "../../../core/AppDataTypes.sol";
 import "../../../core/AppErrors.sol";
 import "../../../interfaces/IPlatformAdapter.sol";
@@ -14,7 +15,6 @@ import "../../../integrations/aave3/IAaveProtocolDataProvider.sol";
 import "../../../integrations/aave3/Aave3ReserveConfiguration.sol";
 import "../../../integrations/aave3/IAavePriceOracle.sol";
 import "../../../integrations/aave3/IAaveToken.sol";
-import "../../../integrations/aave3/IAaveReserveInterestRateStrategy.sol";
 
 /// @notice Adapter to read current pools info from AAVE-v3-protocol, see https://docs.aave.com/hub/
 contract Aave3PlatformAdapter is IPlatformAdapter {
@@ -50,14 +50,6 @@ contract Aave3PlatformAdapter is IPlatformAdapter {
     uint totalStableDebt;
     uint totalVariableDebt;
     uint aprFactor;
-  }
-
-  struct ParamsGetConversionPlan {
-    address collateralAsset;
-    uint collateralAmount;
-    address borrowAsset;
-    uint borrowAmountFactor18;
-    uint countBlocks;
   }
 
   ///////////////////////////////////////////////////////
@@ -103,7 +95,7 @@ contract Aave3PlatformAdapter is IPlatformAdapter {
   ///             Get conversion plan
   ///////////////////////////////////////////////////////
   function _getConversionPlan (
-    ParamsGetConversionPlan memory params
+    AppDataTypes.ParamsGetConversionPlan memory params
   ) internal view returns (
     AppDataTypes.ConversionPlan memory plan
   ) {
@@ -195,23 +187,22 @@ contract Aave3PlatformAdapter is IPlatformAdapter {
             / 10**(27-18); // rays => decimals 18 (1 ray = 1e-27)
 
           // calculate APR
-          plan.borrowApr18 = (
-            (params.borrowAmountFactor18 == 0) // assume here, that we always use variable borrow rate
-              ? rb.currentVariableBorrowRate
-              : _br(params.borrowAsset,
-                  rb,
-                  plan.liquidationThreshold18 * params.borrowAmountFactor18 / 1e18,
-                  vars.totalStableDebt,
-                  vars.totalVariableDebt
-                )
+          plan.borrowApr18 = Aave3AprLib.getBorrowApr18(
+            rb,
+            params.borrowAsset,
+            plan.liquidationThreshold18 * params.borrowAmountFactor18 / 1e18,
+            vars.totalStableDebt,
+            vars.totalVariableDebt
           ) * params.countBlocks * vars.aprFactor;
 
-          plan.supplyApr18 = _srBT(params.collateralAsset,
+          plan.supplyApr18 = Aave3AprLib.getSupplyApr18(
             rc,
+            params.collateralAsset,
             params.collateralAmount,
+            params.borrowAsset,
             vars.totalStableDebt,
             vars.totalVariableDebt,
-            params.borrowAsset
+            address(_priceOracle)
           ) * params.countBlocks * vars.aprFactor;
         }
       }
@@ -230,7 +221,7 @@ contract Aave3PlatformAdapter is IPlatformAdapter {
     AppDataTypes.ConversionPlan memory plan
   ) {
     return _getConversionPlan(
-      ParamsGetConversionPlan({
+      AppDataTypes.ParamsGetConversionPlan({
         collateralAsset: collateralAsset_,
         collateralAmount: collateralAmount_,
         borrowAsset: borrowAsset_,
@@ -254,77 +245,13 @@ contract Aave3PlatformAdapter is IPlatformAdapter {
     uint256 totalVariableDebt
     ,,,,,,,) = _dp(poolLocal).getReserveData(borrowAsset_);
 
-    return _br(borrowAsset_,
+    return Aave3AprLib.getBorrowApr18(
       rb,
+      borrowAsset_,
       amountToBorrow_,
       totalStableDebt,
       totalVariableDebt
     );
-  }
-
-
-  function _br(
-    address borrowAsset_,
-    Aave3DataTypes.ReserveData memory rd_,
-    uint amountToBorrow_,
-    uint256 totalStableDebt_,
-    uint256 totalVariableDebt_
-  ) internal view returns (uint variableBorrowRate) {
-
-    // see aave-v3-core, DefaultReserveInterestRateStrategy, calculateInterestRates impl
-    // to calculate new BR, we need to reduce liquidity on borrowAmount and increase the debt on the same amount
-    (,,variableBorrowRate) = IAaveReserveInterestRateStrategy(rd_.interestRateStrategyAddress).calculateInterestRates(
-      Aave3DataTypes.CalculateInterestRatesParams({
-        unbacked: 0, // this value is not used to calculate variable BR
-        liquidityAdded: 0,
-        liquidityTaken: amountToBorrow_,
-        totalStableDebt: totalStableDebt_,
-        totalVariableDebt: totalVariableDebt_ + amountToBorrow_,
-        averageStableBorrowRate: rd_.currentStableBorrowRate, // this value is not used to calculate variable BR
-        reserveFactor: rd_.configuration.getReserveFactor(),
-        reserve: borrowAsset_,
-        aToken: rd_.aTokenAddress
-      })
-    );
-  }
-
-  /// @notice calculate liquidityRate for collateral token fater supply {amountToSupply_} in terms of borrow tokens
-  function _srBT(
-    address collateralAsset_,
-    Aave3DataTypes.ReserveData memory rc_,
-    uint amountToSupply_,
-    uint256 totalStableDebt_,
-    uint256 totalVariableDebt_,
-    address borrowAsset_
-  ) internal view returns (uint liquidityRateBT) {
-
-    // see aave-v3-core, DefaultReserveInterestRateStrategy, calculateInterestRates impl
-    // to calculate new BR, we need to reduce liquidity on borrowAmount and increase the debt on the same amount
-    (uint liquidityRate,,) = IAaveReserveInterestRateStrategy(rc_.interestRateStrategyAddress).calculateInterestRates(
-      Aave3DataTypes.CalculateInterestRatesParams({
-        unbacked: rc_.unbacked,
-        liquidityAdded: amountToSupply_,
-        liquidityTaken: 0,
-        totalStableDebt: totalStableDebt_,
-        totalVariableDebt: totalVariableDebt_,
-        averageStableBorrowRate: rc_.currentStableBorrowRate, // this value is not used to calculate variable BR
-        reserveFactor: rc_.configuration.getReserveFactor(),
-        reserve: collateralAsset_,
-        aToken: rc_.aTokenAddress
-      })
-    );
-
-    // recalculate liquidityRate to borrow tokens
-    address[] memory assets = new address[](2);
-    assets[0] = collateralAsset_;
-    assets[1] = borrowAsset_;
-
-    uint[] memory prices = _priceOracle.getAssetsPrices(assets);
-    require(prices[1] != 0, AppErrors.ZERO_PRICE);
-
-    liquidityRateBT = liquidityRate
-      * prices[0]
-      / prices[1];
   }
 
   ///////////////////////////////////////////////////////

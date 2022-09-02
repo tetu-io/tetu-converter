@@ -48,4 +48,12 @@ library AppDataTypes {
     ///         type(uint).max - unlimited, 0 - no supply is possible
     uint maxAmountToSupplyCT;
   }
+
+  struct ParamsGetConversionPlan {
+    address collateralAsset;
+    uint collateralAmount;
+    address borrowAsset;
+    uint borrowAmountFactor18;
+    uint countBlocks;
+  }
 }
