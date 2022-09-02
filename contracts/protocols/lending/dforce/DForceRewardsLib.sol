@@ -86,6 +86,9 @@ library DForceRewardsLib {
   ///////////////////////////////////////////////////////
 
   /// @notice Calculate APR, take into account all borrow rate, supply rate, borrow and supply tokens.
+  /// @return brPeriod18 Estimated borrow APR for the period, borrow tokens.
+  /// @return supplyIncrementBT18 Current supply APR for the period (in terms of borrow tokens)
+  /// @return rewardsBT18 Estimated amount of all kind of rewards at the end of the period (in terms of borrow tokens)
   function getRawAprInfo(
     DForceCore memory core,
     uint collateralAmount_,
@@ -96,22 +99,10 @@ library DForceRewardsLib {
     uint supplyIncrementBT18,
     uint rewardsBT18
   ) {
-    uint priceCollateral;
-    uint priceBorrow;
-    {
-      bool isPriceValid;
-
-      // getUnderlyingPrice returns price/1e(36-underlineDecimals)
-      (priceCollateral, isPriceValid) = core.priceOracle.getUnderlyingPriceAndStatus(address(core.cTokenCollateral));
-      require(priceCollateral != 0 && isPriceValid, AppErrors.ZERO_PRICE);
-
-      (priceBorrow, isPriceValid) = core.priceOracle.getUnderlyingPriceAndStatus(address(core.cTokenBorrow));
-      require(priceBorrow != 0 && isPriceValid, AppErrors.ZERO_PRICE);
-    }
+    uint priceBorrow = getPrice(core.priceOracle, address(core.cTokenBorrow));
 
     // estimate amount of supply+borrow rewards in terms of borrow asset
-    (,, rewardsBT18) = getRewardAmountsBT18(
-      core,
+    (,, rewardsBT18) = getRewardAmountsBT18(core,
       RewardsAmountInput({
         collateralAmount: collateralAmount_,
         borrowAmount: amountToBorrow_,
@@ -120,8 +111,6 @@ library DForceRewardsLib {
         priceBorrow: priceBorrow
       })
     );
-    console.log("rewardsBT", rewardsBT18, priceBorrow, core.cTokenCollateral.decimals());
-
 
     // it seems like there is no method getSupplyRate in the current interest models
     // the call of getSupplyRate is just crashed, so we cannot estimate next supply rate.
@@ -129,18 +118,10 @@ library DForceRewardsLib {
     // Recalculate the amount from [collateral tokens] to [borrow tokens]
     supplyIncrementBT18 = core.cTokenCollateral.supplyRatePerBlock()
       * countBlocks_
-      * priceCollateral
+      * getPrice(core.priceOracle, address(core.cTokenCollateral))
       * 10**core.cTokenCollateral.decimals()
       / priceBorrow
       / 10**core.cTokenBorrow.decimals();
-
-    console.log("supplyRatePerBlock", core.cTokenCollateral.supplyRatePerBlock());
-    console.log("countBlocks_", countBlocks_);
-    console.log("priceCollateral", priceCollateral);
-    console.log("core.cTokenBorrow.decimals()", core.cTokenBorrow.decimals());
-    console.log("priceBorrow", priceBorrow);
-    console.log("core.cTokenCollateral.decimals()", core.cTokenCollateral.decimals());
-    console.log("supplyIncrementBT", supplyIncrementBT18);
 
     // estimate borrow rate value after the borrow and calculate result APR
     brPeriod18 = getEstimatedBorrowRate(
@@ -168,28 +149,6 @@ library DForceRewardsLib {
     );
   }
 
-//  /// @notice Estimate value of variable supply rate after supplying {amountToSupply_}
-//  ///         Rewards are not taken into account
-//  function getEstimatedSupplyRate(
-//    IDForceInterestRateModel interestRateModel_,
-//    IDForceCToken cTokenCollateral_,
-//    uint amountToSupply_
-//  ) internal view returns (uint) {
-//    // it seems like there is no method getSupplyRate in the current interest models
-//    // the call of getSupplyRate is just crashed
-//
-//    console.log("getEstimatedSupplyRate", address(interestRateModel_));
-//    console.log("cTokenCollateral_.getCash()", cTokenCollateral_.getCash() );
-//    console.log("cTokenCollateral_.totalBorrows()", cTokenCollateral_.totalBorrows() );
-//    console.log("cTokenCollateral_.reserveRatio()", cTokenCollateral_.reserveRatio() );
-//    return interestRateModel_.getSupplyRate(
-//      cTokenCollateral_.getCash() + amountToSupply_,
-//      cTokenCollateral_.totalBorrows(),
-//      cTokenCollateral_.totalReserves(),
-//      cTokenCollateral_.reserveRatio()
-//    );
-//  }
-
   ///////////////////////////////////////////////////////
   ///       Calculate supply and borrow rewards
   ///////////////////////////////////////////////////////
@@ -200,7 +159,7 @@ library DForceRewardsLib {
   ) internal view returns (
     uint rewardAmountSupply,
     uint rewardAmountBorrow,
-    uint totalRewardsInBorrowAsset
+    uint totalRewardsBT
   ) {
     uint distributionSpeed = core.rd.distributionSupplySpeed(address(core.cTokenCollateral));
     if (distributionSpeed != 0) {
@@ -227,20 +186,17 @@ library DForceRewardsLib {
     }
 
     if (rewardAmountSupply + rewardAmountBorrow != 0) {
-      (uint priceRewards, bool isPriceValid) = core.priceOracle.getUnderlyingPriceAndStatus(address(core.cRewardsToken));
-      require(priceRewards != 0 && isPriceValid, AppErrors.ZERO_PRICE);
-
       // EA(x) = ( RA_supply(x) + RA_borrow(x) ) * PriceRewardToken / PriceBorrowUnderlying
       // recalculate the amount from [rewards tokens] to [borrow tokens]
-      totalRewardsInBorrowAsset = (rewardAmountSupply + rewardAmountBorrow)
-        * priceRewards
+      totalRewardsBT = (rewardAmountSupply + rewardAmountBorrow)
+        * getPrice(core.priceOracle, address(core.cRewardsToken))
         * 10**core.cRewardsToken.decimals()
         / p_.priceBorrow
         / 10**core.cTokenBorrow.decimals()
       ;
     }
 
-    return (rewardAmountSupply, rewardAmountBorrow, totalRewardsInBorrowAsset);
+    return (rewardAmountSupply, rewardAmountBorrow, totalRewardsBT);
   }
 
   /// @notice Take data from DeForce protocol and estimate amount of user's rewards in countBlocks_
@@ -402,11 +358,20 @@ library DForceRewardsLib {
   }
 
   ///////////////////////////////////////////////////////
+  ///                 Utils to inline
+  ///////////////////////////////////////////////////////
+  function getPrice(IDForcePriceOracle priceOracle, address token) internal view returns (uint) {
+    (uint price, bool isPriceValid) = priceOracle.getUnderlyingPriceAndStatus(token);
+    require(price != 0 && isPriceValid, AppErrors.ZERO_PRICE);
+    return price;
+  }
+
+///////////////////////////////////////////////////////
   ///                 Math utils
   ///////////////////////////////////////////////////////
 
   function rmul(uint x, uint y) internal pure returns (uint) {
-    return x * y / 10 ** 18;
+    return x * y / 10**18;
   }
 
   function rdiv(uint x, uint y) internal pure returns (uint) {

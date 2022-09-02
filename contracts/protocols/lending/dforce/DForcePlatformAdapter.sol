@@ -255,15 +255,14 @@ contract DForcePlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
   ) external view returns (
     uint rewardAmountSupply,
     uint rewardAmountBorrow,
-    uint totalRewardsInBorrowAsset
+    uint totalRewardsBT
   ) {
     DForceRewardsLib.DForceCore memory core = DForceRewardsLib.getCore(comptroller, collateralCToken_, borrowCToken_);
 
     (uint priceBorrow, bool isPriceValid) = core.priceOracle.getUnderlyingPriceAndStatus(address(core.cTokenBorrow));
     require(priceBorrow != 0 && isPriceValid, AppErrors.ZERO_PRICE);
 
-    return DForceRewardsLib.getRewardAmountsBT18(
-      core,
+    return DForceRewardsLib.getRewardAmountsBT18(core,
       DForceRewardsLib.RewardsAmountInput({
         collateralAmount: collateralAmount_,
         borrowAmount: borrowAmount_,

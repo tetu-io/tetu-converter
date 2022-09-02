@@ -40,7 +40,7 @@ contract DForceRewardsLibFacade {
   ) external view returns (
     uint rewardAmountSupply,
     uint rewardAmountBorrow,
-    uint totalRewardsInBorrowAsset
+    uint totalRewardsBT
   ) {
     return DForceRewardsLib.getRewardAmountsBT18(core, p_);
   }

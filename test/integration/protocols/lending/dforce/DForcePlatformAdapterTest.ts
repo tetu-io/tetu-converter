@@ -174,15 +174,6 @@ describe("DForce integration tests, platform adapter", () => {
         , IDForceCToken__factory.connect(cTokenBorrow, deployer));
       console.log("borrowAssetData", borrowAssetData);
 
-      // The code below crashes with unknown error .. it seems like there is no such method - getSupplyRate
-      // const sr = await IDForceInterestRateModel__factory.connect(collateralAssetData.interestRateModel, deployer).getSupplyRate(
-      //   collateralAssetData.cash,
-      //   collateralAssetData.totalBorrows,
-      //   collateralAssetData.totalReserves,
-      //   collateralAssetData.reserveRatio
-      // );
-      // console.log(sr);
-
       const ret = await dForcePlatformAdapter.getConversionPlan(
         collateralAsset,
         0,
