@@ -323,7 +323,7 @@ describe("CompareAprBeforeAfterBorrow", () => {
               block: blockBeforeBorrow.number,
               blockTimeStamp: blockBeforeBorrow.timestamp,
               rate: borrowAssetData.currentVariableBorrowRate,
-              liquidityIndex: borrowAssetData.liquidityIndex,
+              liquidityIndex: borrowAssetData.variableBorrowIndex,
               scaledBalance: BigNumber.from(0),
               reserveNormalized: borrowReserveNormalizedBeforeBorrow,
               userBalanceBase: BigNumber.from(0)
@@ -332,7 +332,7 @@ describe("CompareAprBeforeAfterBorrow", () => {
               block: blockAfterBorrow.number,
               blockTimeStamp: blockAfterBorrow.timestamp,
               rate: borrowAssetDataAfterBorrow.currentVariableBorrowRate,
-              liquidityIndex: borrowAssetDataAfterBorrow.liquidityIndex,
+              liquidityIndex: borrowAssetDataAfterBorrow.variableBorrowIndex,
               scaledBalance: borrowScaledBalanceAfterBorrow,
               reserveNormalized: borrowReserveNormalizedAfterBorrow,
               userBalanceBase: afterBorrow.totalDebtBase,
@@ -341,7 +341,7 @@ describe("CompareAprBeforeAfterBorrow", () => {
               block: blockNext.number,
               blockTimeStamp: blockNext.timestamp,
               rate: borrowAssetDataAfterBorrow.currentVariableBorrowRate,
-              liquidityIndex: borrowAssetDataAfterBorrow.liquidityIndex,
+              liquidityIndex: borrowAssetDataAfterBorrow.variableBorrowIndex,
               scaledBalance: borrowScaledBalanceNext,
               reserveNormalized: borrowReserveNormalizedNext,
               userBalanceBase: next.totalDebtBase,
@@ -350,7 +350,7 @@ describe("CompareAprBeforeAfterBorrow", () => {
               block: blockLast.number,
               blockTimeStamp: blockLast.timestamp,
               rate: borrowAssetData.currentVariableBorrowRate,
-              liquidityIndex: borrowAssetData.liquidityIndex,
+              liquidityIndex: borrowAssetData.variableBorrowIndex,
               scaledBalance: borrowScaledBalanceLast,
               reserveNormalized: borrowReserveNormalizedLast,
               userBalanceBase: last.totalDebtBase
@@ -383,17 +383,17 @@ describe("CompareAprBeforeAfterBorrow", () => {
           liquidityRateRays,
           8,
           86400,
-          18
+          collateralToken.decimals
         );
         const borrowApr = await libFacade.getAprForPeriod18(
           amountToBorrow,
           priceBorrow,
           borrowReserveNormalizedAfterBorrow,
-          borrowAssetDataAfterBorrow.liquidityIndex,
+          borrowAssetDataAfterBorrow.variableBorrowIndex,
           borrowAssetDataAfterBorrow.currentVariableBorrowRate, // brRays,
           8,
           86400,
-          18
+          borrowToken.decimals
         );
         console.log("supplyApr", supplyApr);
         console.log("borrowApr", supplyApr);

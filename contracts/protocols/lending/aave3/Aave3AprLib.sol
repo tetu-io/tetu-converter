@@ -177,6 +177,7 @@ library Aave3AprLib {
     uint userBalance1 = scaledBalance0 * nextN * price18 / RAY / 1e18;
     console.log("userBalance0", userBalance0);
     console.log("userBalance1", userBalance1);
+    console.log("countBlocks * COUNT_SECONDS_PER_YEAR / (blocksPerDay_ * 365)", countBlocks * COUNT_SECONDS_PER_YEAR / (blocksPerDay_ * 365));
     console.log("userBalanceDeltaBase", userBalance1 - userBalance0);
     console.log("userBalanceDelta", (userBalance1 - userBalance0) * 1e18 / price18);
     return userBalance1 - userBalance0;
