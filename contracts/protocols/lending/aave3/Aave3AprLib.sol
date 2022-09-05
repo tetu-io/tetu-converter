@@ -8,14 +8,19 @@ import "../../../integrations/aave3/IAavePool.sol";
 import "../../../integrations/aave3/IAaveToken.sol";
 import "../../../integrations/aave3/IAaveStableDebtToken.sol";
 import "../../../integrations/aave3/Aave3ReserveConfiguration.sol";
+import "hardhat/console.sol";
 
 /// @notice Library for AAVE v2 to calculate APR: borrow APR and supply APR
 library Aave3AprLib {
   using Aave3ReserveConfiguration for Aave3DataTypes.ReserveConfigurationMap;
 
   uint constant public COUNT_SECONDS_PER_YEAR = 365 days; // 31536000;
+  uint constant public RAY = 1e27;
+  uint constant public HALF_RAY = 0.5e27;
 
   //////////////////////////////////////////////////////////////////////////
+  /// Calculate borrow and liquidity rate - in same way as in AAVE v3 protocol
+  ///
   /// See ReserveLogic.sol getNormalizedIncome implementation
   /// Function getNormalizedIncome/getNormalizedDebt return income-ratios
   ///     "A value of 1e27 means there is no debt/income. As time passes, the debt/income is accrued"
@@ -120,5 +125,64 @@ library Aave3AprLib {
     );
 
     return liquidityRateRays;
+  }
+
+  //////////////////////////////////////////////////////////////////////////
+  // APR for period = result income/debt in period
+  //                  without any compound
+  // APR = user-balance-after - user-balance-before
+  // where user-balance = scaled-user-balance * N * price
+  // So,
+  //      APR = (SB_1 - SB_0) * N * price
+  // where N = normalized income / debt (for collateral / borrow)
+  //       N = rayMul(RAY + rate * dT / Sy, LI)
+  //       rayMul(x, y) => (x * y + HALF_RAY) / RAY
+  // where Sy = seconds per year = 31536000
+  //       dT = period in seconds
+  //       LI = liquidity index
+  //
+  // Assume
+  //       SB_0 ~ Amount / N_current
+  // where amount is amount to supply/borrow.
+  //
+  // So, APR ~ func(amount, N_current, dT, LI_current, price)
+  //////////////////////////////////////////////////////////////////////////
+  function getAprForPeriod18(
+    uint amount,
+    uint price18,
+    uint currentN,
+    uint currentLiquidityIndex,
+    uint rate,
+    uint countBlocks,
+    uint blocksPerDay_,
+    uint amountDecimals_
+  ) internal view returns (uint) {
+    console.log("getAprForPeriod18");
+    console.log("amount", amount);
+    console.log("price18", price18);
+    console.log("currentLiquidityIndex", currentLiquidityIndex);
+    console.log("currentN", currentN);
+    console.log("rate", rate);
+    console.log("countBlocks", countBlocks);
+    console.log("blocksPerDay_", blocksPerDay_);
+    uint scaledBalance0 = amount * RAY / currentN;
+    console.log("scaledBalance0", scaledBalance0);
+    uint nextN = rayMul(RAY
+      + rate * (
+        // count seconds
+        countBlocks * COUNT_SECONDS_PER_YEAR / (blocksPerDay_ * 365)
+      ) / COUNT_SECONDS_PER_YEAR, currentLiquidityIndex);
+    console.log("nextN", nextN);
+    uint userBalance0 = scaledBalance0 * currentN * price18 / RAY / 1e18;
+    uint userBalance1 = scaledBalance0 * nextN * price18 / RAY / 1e18;
+    console.log("userBalance0", userBalance0);
+    console.log("userBalance1", userBalance1);
+    console.log("userBalanceDeltaBase", userBalance1 - userBalance0);
+    console.log("userBalanceDelta", (userBalance1 - userBalance0) * 1e18 / price18);
+    return userBalance1 - userBalance0;
+  }
+
+  function rayMul(uint x, uint y) internal pure returns (uint) {
+    return (x * y + HALF_RAY) / RAY;
   }
 }

@@ -28,4 +28,19 @@ contract Aave3AprLibFacade {
   ) external view returns (uint) {
     return Aave3AprLib.getLiquidityRateRays(rc_, collateralAsset_, amountToSupply_, totalStableDebt_, totalVariableDebt_);
   }
+
+  function getAprForPeriod18(
+    uint amount,
+    uint price18,
+    uint currentN,
+    uint currentLiquidityIndex,
+    uint rate,
+    uint countBlocks,
+    uint blocksPerDay_,
+    uint amountDecimals_
+  ) external view returns (uint) {
+    return Aave3AprLib.getAprForPeriod18(amount, price18, currentN, currentLiquidityIndex, rate, countBlocks
+      , blocksPerDay_, amountDecimals_
+    );
+  }
 }
