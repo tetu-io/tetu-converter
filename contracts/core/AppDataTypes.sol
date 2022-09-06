@@ -31,13 +31,13 @@ library AppDataTypes {
     /// TODO: probably we need to use different decimals for the collateral factor to reduce size of this struct
     uint liquidationThreshold18;
 
-    /// @notice APR for the period calculated using borrow rate, decimals = 18
-    ///         It doesn't take into account supply increment and rewards
-    uint borrowApr18;
-    /// @notice Potential supply increment after borrow period in terms of borrow asset, decimals = 18
-    uint supplyApr18;
-    /// @notice Potential rewards amount after borrow period in terms of borrow asset, decimals = 18
-    uint rewardsAmount18;
+    /// @notice APR for the period calculated using borrow rate in terms of borrow tokens.
+    /// @dev It doesn't take into account supply increment and rewards
+    uint borrowApr;
+    /// @notice Potential supply increment after borrow period in terms of Borrow Tokens (BT)
+    uint supplyAprBT;
+    /// @notice Potential rewards amount after borrow period in terms of Borrow Tokens (BT)
+    uint rewardsAmountBT;
 
     /// @notice Loan-to-value, decimals = 18 (wad)
     /// TODO: uint16? see aave..

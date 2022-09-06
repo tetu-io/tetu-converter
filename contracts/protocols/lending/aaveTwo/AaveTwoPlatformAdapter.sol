@@ -94,18 +94,35 @@ contract AaveTwoPlatformAdapter is IPlatformAdapter {
     address collateralAsset_,
     uint collateralAmount_,
     address borrowAsset_,
-    uint borrowAmountFactor_,
+    uint borrowAmountFactor18_,
     uint countBlocks_
   ) external view override returns (
+    AppDataTypes.ConversionPlan memory plan
+  ) {
+    return _getConversionPlan(
+      AppDataTypes.ParamsGetConversionPlan({
+        collateralAsset: collateralAsset_,
+        collateralAmount: collateralAmount_,
+        borrowAsset: borrowAsset_,
+        borrowAmountFactor18: borrowAmountFactor18_,
+        countBlocks: countBlocks_
+      })
+    );
+  }
+
+
+  function _getConversionPlan (
+    AppDataTypes.ParamsGetConversionPlan memory params
+  ) internal view returns (
     AppDataTypes.ConversionPlan memory plan
   ) {
     LocalsGetConversionPlan memory vars;
     vars.poolLocal = pool;
 
-    DataTypes.ReserveData memory rc = vars.poolLocal.getReserveData(collateralAsset_);
+    DataTypes.ReserveData memory rc = vars.poolLocal.getReserveData(params.collateralAsset);
 
     if (_isUsable(rc.configuration) &&  _isCollateralUsageAllowed(rc.configuration)) {
-      DataTypes.ReserveData memory rb = vars.poolLocal.getReserveData(borrowAsset_);
+      DataTypes.ReserveData memory rb = vars.poolLocal.getReserveData(params.borrowAsset);
 
       if (_isUsable(rc.configuration) && rb.configuration.getBorrowingEnabled()) {
         // get liquidation threshold (== collateral factor) and loan-to-value
@@ -114,22 +131,22 @@ contract AaveTwoPlatformAdapter is IPlatformAdapter {
         plan.converter = converter;
 
         // prepare to calculate supply/borrow APR
-        vars.amountToBorrow = plan.liquidationThreshold18 * borrowAmountFactor_ / 1e18;
+        vars.amountToBorrow = plan.liquidationThreshold18 * params.borrowAmountFactor18 / 1e18;
         vars.blocksPerDay = IController(controller).blocksPerDay();
         vars.assets = new address[](2);
-        vars.assets[0] = collateralAsset_;
-        vars.assets[1] = borrowAsset_;
+        vars.assets[0] = params.collateralAsset;
+        vars.assets[1] = params.borrowAsset;
         vars.prices = _priceOracle.getAssetsPrices(vars.assets);
 
         // availableLiquidity is IERC20(borrowToken).balanceOf(atoken)
         (vars.availableLiquidity, vars.totalStableDebt, vars.totalVariableDebt,,,,,,,) = IAaveTwoProtocolDataProvider(
           IAaveTwoLendingPoolAddressesProvider(vars.poolLocal.getAddressesProvider())
             .getAddress(bytes32(ID_DATA_PROVIDER))
-        ).getReserveData(borrowAsset_);
+        ).getReserveData(params.borrowAsset);
 
         plan.maxAmountToBorrowBT = vars.availableLiquidity;
 
-        plan.borrowApr18 = AaveSharedLib.getAprForPeriodBefore(
+        plan.borrowApr = AaveSharedLib.getAprForPeriodBefore(
           AaveSharedLib.State({
             liquidityIndex: rb.variableBorrowIndex,
             lastUpdateTimestamp: uint(rb.lastUpdateTimestamp),
@@ -139,12 +156,12 @@ contract AaveTwoPlatformAdapter is IPlatformAdapter {
         //predicted borrow ray after the borrow
           AaveTwoAprLib.getVariableBorrowRateRays(
             rb,
-            borrowAsset_,
+            params.borrowAsset,
             vars.amountToBorrow,
             vars.totalStableDebt,
             vars.totalVariableDebt
           ),
-          countBlocks_,
+          params.countBlocks,
           vars.blocksPerDay,
           block.timestamp // assume, that we make borrow in the current block
         );
@@ -153,31 +170,34 @@ contract AaveTwoPlatformAdapter is IPlatformAdapter {
         (, vars.totalStableDebt, vars.totalVariableDebt,,,,,,,) = IAaveTwoProtocolDataProvider(
           IAaveTwoLendingPoolAddressesProvider(vars.poolLocal.getAddressesProvider())
             .getAddress(bytes32(ID_DATA_PROVIDER))
-        ).getReserveData(collateralAsset_);
+        ).getReserveData(params.collateralAsset);
 
         plan.maxAmountToSupplyCT = type(uint).max; // unlimited
 
         // calculate supply-APR, see detailed explanation in Aave3AprLib
-        plan.supplyApr18 = AaveSharedLib.getAprForPeriodBefore(
+        plan.supplyAprBT = AaveSharedLib.getAprForPeriodBefore(
           AaveSharedLib.State({
             liquidityIndex: rc.liquidityIndex,
             lastUpdateTimestamp: uint(rc.lastUpdateTimestamp),
             rate: rc.currentLiquidityRate
           }),
-          collateralAmount_,
+          params.collateralAmount,
           AaveTwoAprLib.getLiquidityRateRays(
             rc,
-            collateralAsset_,
-            collateralAmount_,
+            params.collateralAsset,
+            params.collateralAmount,
             vars.totalStableDebt,
             vars.totalVariableDebt
           ),
-          countBlocks_,
+          params.countBlocks,
           vars.blocksPerDay,
           block.timestamp // assume, that we supply collateral in the current block
         )
-        // we need a value in terms of borrow tokens,
-        * vars.prices[0] / vars.prices[1];
+        // we need a value in terms of borrow tokens with decimals == decimals of the borrow asset
+        * vars.prices[0] // collateral price
+        * rb.configuration.getDecimals()
+        / vars.prices[1] // borrow price
+        / rc.configuration.getDecimals();
       }
     }
 

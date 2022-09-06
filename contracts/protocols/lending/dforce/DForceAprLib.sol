@@ -14,7 +14,7 @@ import "hardhat/console.sol";
 
 
 /// @notice DForce utils: estimate reward tokens, predict borrow rate in advance
-library DForceRewardsLib {
+library DForceAprLib {
 
   ///////////////////////////////////////////////////////
   //                  Data type
@@ -86,23 +86,23 @@ library DForceRewardsLib {
   ///////////////////////////////////////////////////////
 
   /// @notice Calculate APR, take into account all borrow rate, supply rate, borrow and supply tokens.
-  /// @return brPeriod18 Estimated borrow APR for the period, borrow tokens.
-  /// @return supplyIncrementBT18 Current supply APR for the period (in terms of borrow tokens)
-  /// @return rewardsBT18 Estimated amount of all kind of rewards at the end of the period (in terms of borrow tokens)
+  /// @return borrowApr Estimated borrow APR for the period, borrow tokens.
+  /// @return supplyAprBT Current supply APR for the period (in terms of borrow tokens)
+  /// @return rewardsAmountBT Estimated total amount of rewards at the end of the period (in terms of borrow tokens)
   function getRawAprInfo(
     DForceCore memory core,
     uint collateralAmount_,
     uint countBlocks_,
     uint amountToBorrow_
   ) internal view returns (
-    uint brPeriod18,
-    uint supplyIncrementBT18,
-    uint rewardsBT18
+    uint borrowApr,
+    uint supplyAprBT,
+    uint rewardsAmountBT
   ) {
     uint priceBorrow = getPrice(core.priceOracle, address(core.cTokenBorrow));
 
     // estimate amount of supply+borrow rewards in terms of borrow asset
-    (,, rewardsBT18) = getRewardAmountsBT18(core,
+    (,, rewardsAmountBT) = getRewardAmountsBT(core,
       RewardsAmountInput({
         collateralAmount: collateralAmount_,
         borrowAmount: amountToBorrow_,
@@ -116,15 +116,15 @@ library DForceRewardsLib {
     // the call of getSupplyRate is just crashed, so we cannot estimate next supply rate.
     // For simplicity just return current supplyRate
     // Recalculate the amount from [collateral tokens] to [borrow tokens]
-    supplyIncrementBT18 = core.cTokenCollateral.supplyRatePerBlock()
+    supplyAprBT = core.cTokenCollateral.supplyRatePerBlock()
       * countBlocks_
       * getPrice(core.priceOracle, address(core.cTokenCollateral))
-      * 10**core.cTokenCollateral.decimals()
-      / priceBorrow
-      / 10**core.cTokenBorrow.decimals();
+      * 10**core.cTokenBorrow.decimals()
+      / 10**core.cTokenCollateral.decimals()
+      / priceBorrow;
 
     // estimate borrow rate value after the borrow and calculate result APR
-    brPeriod18 = getEstimatedBorrowRate(
+    borrowApr = getEstimatedBorrowRate(
         core.borrowInterestRateModel,
         core.cTokenBorrow,
         amountToBorrow_
@@ -132,7 +132,7 @@ library DForceRewardsLib {
   }
 
   ///////////////////////////////////////////////////////
-  //         Estimate borrow and supply rates
+  //         Estimate borrow rate
   ///////////////////////////////////////////////////////
 
   /// @notice Estimate value of variable borrow rate after borrowing {amountToBorrow_}
@@ -153,7 +153,7 @@ library DForceRewardsLib {
   ///       Calculate supply and borrow rewards
   ///////////////////////////////////////////////////////
 
-  function getRewardAmountsBT18(
+  function getRewardAmountsBT(
     DForceCore memory core,
     RewardsAmountInput memory p_
   ) internal view returns (
@@ -178,7 +178,7 @@ library DForceRewardsLib {
     }
     distributionSpeed = core.rd.distributionSpeed(address(core.cTokenBorrow));
     if (distributionSpeed != 0) {
-      rewardAmountBorrow = _borrowRewardAmount(core,
+      rewardAmountBorrow = borrowRewardAmount(core,
         p_.borrowAmount,
         distributionSpeed,
         p_.delayBlocks + p_.countBlocks
@@ -190,43 +190,13 @@ library DForceRewardsLib {
       // recalculate the amount from [rewards tokens] to [borrow tokens]
       totalRewardsBT = (rewardAmountSupply + rewardAmountBorrow)
         * getPrice(core.priceOracle, address(core.cRewardsToken))
-        * 10**core.cRewardsToken.decimals()
+        * 10**core.cTokenBorrow.decimals()
+        / 10**core.cRewardsToken.decimals()
         / p_.priceBorrow
-        / 10**core.cTokenBorrow.decimals()
       ;
     }
 
     return (rewardAmountSupply, rewardAmountBorrow, totalRewardsBT);
-  }
-
-  /// @notice Take data from DeForce protocol and estimate amount of user's rewards in countBlocks_
-  function _borrowRewardAmount(
-    DForceCore memory core,
-    uint borrowAmount_,
-    uint distributionSpeed_,
-    uint countBlocks_
-  ) internal view returns (uint) {
-    (uint stateIndex, uint stateBlock) = core.rd.distributionBorrowState(address(core.cTokenBorrow));
-    return borrowRewardAmount(
-      DBorrowRewardsInput({
-        blockNumber: block.number,
-        amountToBorrow: borrowAmount_,
-
-        accrualBlockNumber: core.cTokenBorrow.accrualBlockNumber(),
-
-        stateIndex: stateIndex,
-        stateBlock: stateBlock,
-        borrowIndex: core.cTokenBorrow.borrowIndex(),
-        distributionSpeed: distributionSpeed_,
-
-        totalCash: core.cTokenBorrow.getCash(),
-        totalBorrows: core.cTokenBorrow.totalBorrows(),
-        totalReserves: core.cTokenBorrow.totalReserves(),
-        reserveFactor: core.cTokenBorrow.reserveRatio(),
-
-        interestRateModel: core.cTokenBorrow.interestRateModel()
-      }), block.number + countBlocks_
-    );
   }
 
   /// @notice Calculate amount of supply rewards inside the supply-block
@@ -260,12 +230,43 @@ library DForceRewardsLib {
     );
   }
 
+  /// @notice Take data from DeForce protocol and estimate amount of user's rewards in countBlocks_
+  function borrowRewardAmount(
+    DForceCore memory core,
+    uint borrowAmount_,
+    uint distributionSpeed_,
+    uint countBlocks_
+  ) internal view returns (uint) {
+    (uint stateIndex, uint stateBlock) = core.rd.distributionBorrowState(address(core.cTokenBorrow));
+
+    return borrowRewardAmountInternal(
+      DBorrowRewardsInput({
+        blockNumber: block.number,
+        amountToBorrow: borrowAmount_,
+
+        accrualBlockNumber: core.cTokenBorrow.accrualBlockNumber(),
+
+        stateIndex: stateIndex,
+        stateBlock: stateBlock,
+        borrowIndex: core.cTokenBorrow.borrowIndex(),
+        distributionSpeed: distributionSpeed_,
+
+        totalCash: core.cTokenBorrow.getCash(),
+        totalBorrows: core.cTokenBorrow.totalBorrows(),
+        totalReserves: core.cTokenBorrow.totalReserves(),
+        reserveFactor: core.cTokenBorrow.reserveRatio(),
+
+        interestRateModel: core.cTokenBorrow.interestRateModel()
+      }), block.number + countBlocks_
+    );
+  }
+
   /// @notice Calculate amount of borrow rewards inside the borrow-block
   ///         in assumption that after borrow no data will be changed on market
   /// @dev Algo repeats original algo implemented in LendingContractsV2.
   ///      github.com:dforce-network/LendingContractsV2.git
   ///      Same algo is implemented in tests, see DForceHelper.predictRewardsAfterBorrow
-  function borrowRewardAmount(
+  function borrowRewardAmountInternal(
     DBorrowRewardsInput memory p_,
     uint blockToClaimRewards_
   ) internal view returns (uint rewardAmountBorrow) {

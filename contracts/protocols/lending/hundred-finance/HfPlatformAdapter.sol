@@ -169,14 +169,14 @@ contract HfPlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
           plan.maxAmountToSupplyCT = type(uint).max; // unlimited
 
           // calculate current borrow rate and the borrow rate after borrowing max allowed amount
-          plan.borrowApr18 = IHfCToken(cTokenBorrow).borrowRatePerBlock() * countBlocks_;
+          plan.borrowApr = IHfCToken(cTokenBorrow).borrowRatePerBlock() * countBlocks_;
           if (borrowAmountFactor18_ != 0) {
             uint brAfterBorrow = _br(
               IHfCToken(cTokenBorrow),
               plan.liquidationThreshold18 * borrowAmountFactor18_ / 1e18 // == amount to borrow
             );
-            if (brAfterBorrow > plan.borrowApr18) {
-              plan.borrowApr18 = brAfterBorrow * countBlocks_;
+            if (brAfterBorrow > plan.borrowApr) {
+              plan.borrowApr = brAfterBorrow * countBlocks_;
             }
           }
         }

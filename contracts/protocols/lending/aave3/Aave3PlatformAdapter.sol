@@ -190,7 +190,7 @@ contract Aave3PlatformAdapter is IPlatformAdapter {
           vars.assets[1] = params.borrowAsset;
           vars.prices = _priceOracle.getAssetsPrices(vars.assets);
 
-          plan.borrowApr18 = AaveSharedLib.getAprForPeriodBefore(
+          plan.borrowApr = AaveSharedLib.getAprForPeriodBefore(
             AaveSharedLib.State({
               liquidityIndex: rb.variableBorrowIndex,
               lastUpdateTimestamp: uint(rb.lastUpdateTimestamp),
@@ -211,7 +211,7 @@ contract Aave3PlatformAdapter is IPlatformAdapter {
           );
 
           // calculate supply-APR, see detailed explanation in Aave3AprLib
-          plan.supplyApr18 = AaveSharedLib.getAprForPeriodBefore(
+          plan.supplyAprBT = AaveSharedLib.getAprForPeriodBefore(
             AaveSharedLib.State({
               liquidityIndex: rc.liquidityIndex,
               lastUpdateTimestamp: uint(rc.lastUpdateTimestamp),
@@ -229,8 +229,11 @@ contract Aave3PlatformAdapter is IPlatformAdapter {
             vars.blocksPerDay,
             block.timestamp // assume, that we supply collateral in the current block
           )
-          // we need a value in terms of borrow tokens,
-          * vars.prices[0] / vars.prices[1];
+          // we need a value in terms of borrow tokens with decimals == decimals of the borrow asset
+          * vars.prices[0] // collateral price
+          * rb.configuration.getDecimals()
+          / vars.prices[1] // borrow price
+          / rc.configuration.getDecimals();
         }
       }
     }

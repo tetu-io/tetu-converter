@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.4;
 
-import "../../protocols/lending/dforce/DForceRewardsLib.sol";
+import "../../protocols/lending/dforce/DForceAprLib.sol";
 
 /// @notice Facade for DForceRewardsLib to make external functions available for tests
 contract DForceRewardsLibFacade {
@@ -9,8 +9,8 @@ contract DForceRewardsLibFacade {
     IDForceController comptroller,
     address cTokenCollateral_,
     address cTokenBorrow_
-  ) external view returns (DForceRewardsLib.DForceCore memory) {
-    return DForceRewardsLib.getCore(comptroller, cTokenCollateral_, cTokenBorrow_);
+  ) external view returns (DForceAprLib.DForceCore memory) {
+    return DForceAprLib.getCore(comptroller, cTokenCollateral_, cTokenBorrow_);
   }
 
   function getEstimatedBorrowRate(
@@ -18,11 +18,15 @@ contract DForceRewardsLibFacade {
     IDForceCToken cTokenBorrow_,
     uint amountToBorrow_
   ) external view returns (uint) {
-    return DForceRewardsLib.getEstimatedBorrowRate(interestRateModel_, cTokenBorrow_, amountToBorrow_);
+    return DForceAprLib.getEstimatedBorrowRate(
+      interestRateModel_,
+      cTokenBorrow_,
+      amountToBorrow_
+    );
   }
 
   function getRawAprInfo(
-    DForceRewardsLib.DForceCore memory core,
+    DForceAprLib.DForceCore memory core,
     uint collateralAmount_,
     uint countBlocks_,
     uint amountToBorrow_
@@ -31,18 +35,23 @@ contract DForceRewardsLibFacade {
     uint supplyIncrementBT,
     uint rewardsBT
   ) {
-    return DForceRewardsLib.getRawAprInfo(core, collateralAmount_, countBlocks_, amountToBorrow_);
+    return DForceAprLib.getRawAprInfo(
+      core,
+      collateralAmount_,
+      countBlocks_,
+      amountToBorrow_
+    );
   }
 
-  function getRewardAmountsBT18(
-    DForceRewardsLib.DForceCore memory core,
-    DForceRewardsLib.RewardsAmountInput memory p_
+  function getRewardAmountsBT(
+    DForceAprLib.DForceCore memory core,
+    DForceAprLib.RewardsAmountInput memory p_
   ) external view returns (
     uint rewardAmountSupply,
     uint rewardAmountBorrow,
     uint totalRewardsBT
   ) {
-    return DForceRewardsLib.getRewardAmountsBT18(core, p_);
+    return DForceAprLib.getRewardAmountsBT(core, p_);
   }
 
   function supplyRewardAmount(
@@ -54,7 +63,7 @@ contract DForceRewardsLibFacade {
     uint supplyAmount_,
     uint targetBlock_
   ) external pure returns (uint) {
-    return DForceRewardsLib.supplyRewardAmount(
+    return DForceAprLib.supplyRewardAmount(
       blockSupply_,
       stateIndex_,
       stateBlock_,
@@ -66,10 +75,27 @@ contract DForceRewardsLibFacade {
   }
 
   function borrowRewardAmount(
-    DForceRewardsLib.DBorrowRewardsInput memory p_,
+    DForceAprLib.DForceCore memory core,
+    uint borrowAmount_,
+    uint distributionSpeed_,
+    uint countBlocks_
+  ) external view returns (uint rewardAmountBorrow) {
+    return DForceAprLib.borrowRewardAmount(
+      core,
+      borrowAmount_,
+      distributionSpeed_,
+      countBlocks_
+    );
+  }
+
+  function borrowRewardAmountInternal(
+    DForceAprLib.DBorrowRewardsInput memory p_,
     uint blockToClaimRewards_
   ) external view returns (uint rewardAmountBorrow) {
-    return DForceRewardsLib.borrowRewardAmount(p_, blockToClaimRewards_);
+    return DForceAprLib.borrowRewardAmountInternal(
+      p_,
+      blockToClaimRewards_
+    );
   }
 
   function getRewardAmount(
@@ -80,15 +106,21 @@ contract DForceRewardsLibFacade {
     uint accountIndex_,
     uint countBlocks_
   ) external pure returns (uint) {
-    return DForceRewardsLib.getRewardAmount(accountBalance_, stateIndex_, distributionSpeed_, totalToken_, accountIndex_, countBlocks_);
+    return DForceAprLib.getRewardAmount(accountBalance_,
+      stateIndex_,
+      distributionSpeed_,
+      totalToken_,
+      accountIndex_,
+      countBlocks_
+    );
   }
 
   function rmul(uint x, uint y) external pure returns (uint) {
-    return DForceRewardsLib.rmul(x, y);
+    return DForceAprLib.rmul(x, y);
   }
 
   function rdiv(uint x, uint y) external pure returns (uint) {
-    return DForceRewardsLib.rdiv(x, y);
+    return DForceAprLib.rdiv(x, y);
   }
 
 }

@@ -2,7 +2,7 @@
 
 pragma solidity 0.8.4;
 
-import "./DForceRewardsLib.sol";
+import "./DForceAprLib.sol";
 import "../../../core/AppDataTypes.sol";
 import "../../../core/AppErrors.sol";
 import "../../../core/AppUtils.sol";
@@ -190,8 +190,8 @@ contract DForcePlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
           if (amountToBorrow > plan.maxAmountToBorrowBT) {
             amountToBorrow = plan.maxAmountToBorrowBT;
           }
-          (plan.borrowApr18, plan.supplyApr18, plan.rewardsAmount18) = DForceRewardsLib.getRawAprInfo(
-            DForceRewardsLib.getCore(comptroller, cTokenCollateral, cTokenBorrow),
+          (plan.borrowApr, plan.supplyAprBT, plan.rewardsAmountBT) = DForceAprLib.getRawAprInfo(
+            DForceAprLib.getCore(comptroller, cTokenCollateral, cTokenBorrow),
             collateralAmount_,
             countBlocks_,
             amountToBorrow
@@ -238,7 +238,7 @@ contract DForcePlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
     uint amountToBorrow_
   ) external view override returns (uint) {
     address borrowCToken = activeAssets[borrowAsset_];
-    return DForceRewardsLib.getEstimatedBorrowRate(
+    return DForceAprLib.getEstimatedBorrowRate(
       IDForceInterestRateModel(IDForceCToken(borrowCToken).interestRateModel()),
       IDForceCToken(borrowCToken),
       amountToBorrow_
@@ -257,13 +257,13 @@ contract DForcePlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
     uint rewardAmountBorrow,
     uint totalRewardsBT
   ) {
-    DForceRewardsLib.DForceCore memory core = DForceRewardsLib.getCore(comptroller, collateralCToken_, borrowCToken_);
+    DForceAprLib.DForceCore memory core = DForceAprLib.getCore(comptroller, collateralCToken_, borrowCToken_);
 
     (uint priceBorrow, bool isPriceValid) = core.priceOracle.getUnderlyingPriceAndStatus(address(core.cTokenBorrow));
     require(priceBorrow != 0 && isPriceValid, AppErrors.ZERO_PRICE);
 
-    return DForceRewardsLib.getRewardAmountsBT18(core,
-      DForceRewardsLib.RewardsAmountInput({
+    return DForceAprLib.getRewardAmountsBT(core,
+      DForceAprLib.RewardsAmountInput({
         collateralAmount: collateralAmount_,
         borrowAmount: borrowAmount_,
         countBlocks: countBlocks_,
