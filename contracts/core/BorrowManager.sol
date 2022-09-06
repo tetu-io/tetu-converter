@@ -266,7 +266,7 @@ contract BorrowManager is IBorrowManager {
         borrowAmountFactor18.toMantissa(18, pp_.targetDecimals),
         p_.periodInBlocks
       );
-      int planApr18 = int(plan.borrowApr) - int(plan.supplyAprBT) - int(plan.rewardsAmountBT);
+      int planApr18 = int(plan.borrowApr18) - int(plan.supplyAprBT18) - int(plan.rewardsAmountBT18);
       if (plan.converter != address(0)) {
         // check if we are able to supply required collateral
         if (plan.maxAmountToSupplyCT > p_.sourceAmount) {

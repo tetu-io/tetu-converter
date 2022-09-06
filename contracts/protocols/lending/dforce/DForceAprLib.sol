@@ -86,23 +86,23 @@ library DForceAprLib {
   ///////////////////////////////////////////////////////
 
   /// @notice Calculate APR, take into account all borrow rate, supply rate, borrow and supply tokens.
-  /// @return borrowApr Estimated borrow APR for the period, borrow tokens.
-  /// @return supplyAprBT Current supply APR for the period (in terms of borrow tokens)
-  /// @return rewardsAmountBT Estimated total amount of rewards at the end of the period (in terms of borrow tokens)
-  function getRawAprInfo(
+  /// @return borrowApr18 Estimated borrow APR for the period, borrow tokens.
+  /// @return supplyAprBT18 Current supply APR for the period (in terms of borrow tokens)
+  /// @return rewardsAmountBT18 Estimated total amount of rewards at the end of the period (in terms of borrow tokens)
+  function getRawAprInfo18(
     DForceCore memory core,
     uint collateralAmount_,
     uint countBlocks_,
     uint amountToBorrow_
   ) internal view returns (
-    uint borrowApr,
-    uint supplyAprBT,
-    uint rewardsAmountBT
+    uint borrowApr18,
+    uint supplyAprBT18,
+    uint rewardsAmountBT18
   ) {
     uint priceBorrow = getPrice(core.priceOracle, address(core.cTokenBorrow));
 
     // estimate amount of supply+borrow rewards in terms of borrow asset
-    (,, rewardsAmountBT) = getRewardAmountsBT(core,
+    (,, rewardsAmountBT18) = getRewardAmountsBT(core,
       RewardsAmountInput({
         collateralAmount: collateralAmount_,
         borrowAmount: amountToBorrow_,
@@ -116,19 +116,23 @@ library DForceAprLib {
     // the call of getSupplyRate is just crashed, so we cannot estimate next supply rate.
     // For simplicity just return current supplyRate
     // Recalculate the amount from [collateral tokens] to [borrow tokens]
-    supplyAprBT = core.cTokenCollateral.supplyRatePerBlock()
+    supplyAprBT18 = core.cTokenCollateral.supplyRatePerBlock()
       * countBlocks_
       * getPrice(core.priceOracle, address(core.cTokenCollateral))
-      * 10**core.cTokenBorrow.decimals()
+      * 10**18 // we need decimals 18
       / 10**core.cTokenCollateral.decimals()
       / priceBorrow;
 
     // estimate borrow rate value after the borrow and calculate result APR
-    borrowApr = getEstimatedBorrowRate(
+    borrowApr18 = getEstimatedBorrowRate(
         core.borrowInterestRateModel,
         core.cTokenBorrow,
         amountToBorrow_
-      ) * countBlocks_;
+      )
+      * countBlocks_
+      * 10**18 // we need decimals 18
+      / 10**core.cTokenBorrow.decimals()
+      ;
   }
 
   ///////////////////////////////////////////////////////
@@ -190,7 +194,7 @@ library DForceAprLib {
       // recalculate the amount from [rewards tokens] to [borrow tokens]
       totalRewardsBT = (rewardAmountSupply + rewardAmountBorrow)
         * getPrice(core.priceOracle, address(core.cRewardsToken))
-        * 10**core.cTokenBorrow.decimals()
+        * 10**18 // we need decimals 18
         / 10**core.cRewardsToken.decimals()
         / p_.priceBorrow
       ;

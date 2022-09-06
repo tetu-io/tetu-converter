@@ -25,17 +25,17 @@ contract DForceRewardsLibFacade {
     );
   }
 
-  function getRawAprInfo(
+  function getRawAprInfo18(
     DForceAprLib.DForceCore memory core,
     uint collateralAmount_,
     uint countBlocks_,
     uint amountToBorrow_
   ) external view returns (
-    uint apr18,
-    uint supplyIncrementBT,
-    uint rewardsBT
+    uint borrowApr18,
+    uint supplyAprBT18,
+    uint rewardsAmountBT18
   ) {
-    return DForceAprLib.getRawAprInfo(
+    return DForceAprLib.getRawAprInfo18(
       core,
       collateralAmount_,
       countBlocks_,
