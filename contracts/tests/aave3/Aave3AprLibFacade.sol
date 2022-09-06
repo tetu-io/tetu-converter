@@ -5,10 +5,6 @@ import "../../integrations/aave3/Aave3DataTypes.sol";
 import "../../protocols/lending/aave3/Aave3AprLib.sol";
 
 contract Aave3AprLibFacade {
-  function getAprFactor18(uint blocksPerDay_) external pure returns (uint) {
-    return Aave3AprLib.getAprFactor18(blocksPerDay_);
-  }
-
   function getVariableBorrowRateRays(
     Aave3DataTypes.ReserveData memory rb_,
     address borrowAsset_,
@@ -26,35 +22,49 @@ contract Aave3AprLibFacade {
     uint totalStableDebt_,
     uint totalVariableDebt_
   ) external view returns (uint) {
-    return Aave3AprLib.getLiquidityRateRays(rc_, collateralAsset_, amountToSupply_, totalStableDebt_, totalVariableDebt_);
+    return Aave3AprLib.getLiquidityRateRays(rc_,
+      collateralAsset_,
+      amountToSupply_,
+      totalStableDebt_,
+      totalVariableDebt_
+    );
   }
 
   function getAprForPeriodAfter(
     uint amount,
-    uint currentN,
-    uint currentLiquidityIndex,
+    uint reserveNormalized,
+    uint liquidityIndex,
     uint rate,
     uint countBlocks,
     uint blocksPerDay,
     uint price18
-  ) external pure returns (int) {
-    return Aave3AprLib.getAprForPeriodAfter(amount, currentN, currentLiquidityIndex, rate, countBlocks
-      , blocksPerDay, price18
+  ) external pure returns (uint) {
+    return AaveSharedLib.getAprForPeriodAfter(amount,
+      reserveNormalized,
+      liquidityIndex,
+      rate,
+      countBlocks,
+      blocksPerDay,
+      price18
     );
   }
 
   function getAprForPeriodBefore(
-    Aave3AprLib.State memory state,
+    AaveSharedLib.State memory state,
     uint amount,
     uint predictedRate,
     uint countBlocks,
     uint blocksPerDay,
     uint price18,
     uint operationTimestamp
-  ) external pure returns (int) {
-    return Aave3AprLib.getAprForPeriodBefore(state, amount, predictedRate, countBlocks, blocksPerDay
-      , price18
-      , operationTimestamp
+  ) external pure returns (uint) {
+    return AaveSharedLib.getAprForPeriodBefore(state,
+      amount,
+      predictedRate,
+      countBlocks,
+      blocksPerDay,
+      price18,
+      operationTimestamp
     );
   }
 }

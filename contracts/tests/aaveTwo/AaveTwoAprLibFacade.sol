@@ -6,31 +6,68 @@ import "../../protocols/lending/aaveTwo/AaveTwoAprLib.sol";
 
 
 contract AaveTwoAprLibFacade {
-  function getAprFactor18(uint blocksPerDay_) external pure returns (uint) {
-    return AaveTwoAprLib.getAprFactor18(blocksPerDay_);
-  }
-
-  function getBorrowApr18(
+  function getVariableBorrowRateRays(
     DataTypes.ReserveData memory rb_,
     address borrowAsset_,
     uint amountToBorrow_,
     uint totalStableDebt_,
     uint totalVariableDebt_
   ) external view returns (uint) {
-    return AaveTwoAprLib.getBorrowApr18(rb_, borrowAsset_, amountToBorrow_, totalStableDebt_, totalVariableDebt_);
+    return AaveTwoAprLib.getVariableBorrowRateRays(
+      rb_,
+      borrowAsset_,
+      amountToBorrow_,
+      totalStableDebt_,
+      totalVariableDebt_
+    );
   }
 
-  function getSupplyApr18(
+  function getLiquidityRateRays(
     DataTypes.ReserveData memory rc_,
     address collateralAsset_,
     uint amountToSupply_,
-    address borrowAsset_,
     uint totalStableDebt_,
-    uint totalVariableDebt_,
-    address priceOracle_
+    uint totalVariableDebt_
   ) external view returns (uint) {
-    return AaveTwoAprLib.getSupplyApr18(rc_, collateralAsset_, amountToSupply_, borrowAsset_, totalStableDebt_
-    , totalVariableDebt_, priceOracle_
+    return AaveTwoAprLib.getLiquidityRateRays(rc_,
+      collateralAsset_,
+      amountToSupply_,
+      totalStableDebt_,
+      totalVariableDebt_
+    );
+  }
+
+  function getAprForPeriodAfter(
+    uint amount,
+    uint currentN,
+    uint currentLiquidityIndex,
+    uint rate,
+    uint countBlocks,
+    uint blocksPerDay,
+    uint price18
+  ) external pure returns (uint) {
+    return AaveSharedLib.getAprForPeriodAfter(amount,
+      currentN,
+      currentLiquidityIndex,
+      rate,
+      countBlocks,
+      blocksPerDay,
+      price18
+    );
+  }
+
+  function getAprForPeriodBefore(
+    AaveSharedLib.State memory state,
+    uint amount,
+    uint predictedRate,
+    uint countBlocks,
+    uint blocksPerDay,
+    uint price18,
+    uint operationTimestamp
+  ) external pure returns (uint) {
+    return AaveSharedLib.getAprForPeriodBefore(state, amount, predictedRate, countBlocks, blocksPerDay
+    , price18
+    , operationTimestamp
     );
   }
 }

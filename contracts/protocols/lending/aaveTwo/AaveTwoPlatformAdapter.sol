@@ -43,7 +43,10 @@ contract AaveTwoPlatformAdapter is IPlatformAdapter {
     uint availableLiquidity;
     uint totalStableDebt;
     uint totalVariableDebt;
-    uint aprFactor18;
+    uint amountToBorrow;
+    uint blocksPerDay;
+    address[] assets;
+    uint[] prices;
   }
 
   ///////////////////////////////////////////////////////
@@ -110,8 +113,13 @@ contract AaveTwoPlatformAdapter is IPlatformAdapter {
         plan.liquidationThreshold18 = uint(rc.configuration.getLiquidationThreshold()) * 10**(18-4);
         plan.converter = converter;
 
-        // seconds => blocks
-        vars.aprFactor18 = AaveTwoAprLib.getAprFactor18(IController(controller).blocksPerDay());
+        // prepare to calculate supply/borrow APR
+        vars.amountToBorrow = plan.liquidationThreshold18 * borrowAmountFactor_ / 1e18;
+        vars.blocksPerDay = IController(controller).blocksPerDay();
+        vars.assets = new address[](2);
+        vars.assets[0] = collateralAsset_;
+        vars.assets[1] = borrowAsset_;
+        vars.prices = _priceOracle.getAssetsPrices(vars.assets);
 
         // availableLiquidity is IERC20(borrowToken).balanceOf(atoken)
         (vars.availableLiquidity, vars.totalStableDebt, vars.totalVariableDebt,,,,,,,) = IAaveTwoProtocolDataProvider(
@@ -121,16 +129,27 @@ contract AaveTwoPlatformAdapter is IPlatformAdapter {
 
         plan.maxAmountToBorrowBT = vars.availableLiquidity;
 
-        plan.borrowApr18 = AaveTwoAprLib.getBorrowApr18(
+        plan.borrowApr18 = AaveSharedLib.getAprForPeriodBefore(
+          AaveSharedLib.State({
+            liquidityIndex: rb.variableBorrowIndex,
+            lastUpdateTimestamp: uint(rb.lastUpdateTimestamp),
+            rate: rb.currentVariableBorrowRate
+          }),
+          vars.amountToBorrow,
+        //predicted borrow ray after the borrow
+          AaveTwoAprLib.getVariableBorrowRateRays(
             rb,
             borrowAsset_,
-            borrowAmountFactor_ * plan.liquidationThreshold18 / 1e18,
+            vars.amountToBorrow,
             vars.totalStableDebt,
             vars.totalVariableDebt
-        )
-        * countBlocks_
-        * vars.aprFactor18
-        / 10**(27-18); // rays => decimals 18 (1 ray = 1e-27)
+          ),
+          countBlocks_,
+          vars.blocksPerDay,
+          vars.prices[1], // borrow price
+          block.timestamp // assume, that we make borrow in the current block
+        );
+
 
         (, vars.totalStableDebt, vars.totalVariableDebt,,,,,,,) = IAaveTwoProtocolDataProvider(
           IAaveTwoLendingPoolAddressesProvider(vars.poolLocal.getAddressesProvider())
@@ -138,18 +157,29 @@ contract AaveTwoPlatformAdapter is IPlatformAdapter {
         ).getReserveData(collateralAsset_);
 
         plan.maxAmountToSupplyCT = type(uint).max; // unlimited
-        plan.supplyApr18 = AaveTwoAprLib.getSupplyApr18(
-          rc,
-          collateralAsset_,
+
+        // calculate supply-APR, see detailed explanation in Aave3AprLib
+        plan.supplyApr18 = AaveSharedLib.getAprForPeriodBefore(
+          AaveSharedLib.State({
+            liquidityIndex: rc.liquidityIndex,
+            lastUpdateTimestamp: uint(rc.lastUpdateTimestamp),
+            rate: rc.currentLiquidityRate
+          }),
           collateralAmount_,
-          borrowAsset_,
-          vars.totalStableDebt,
-          vars.totalVariableDebt,
-          address(_priceOracle)
+          AaveTwoAprLib.getLiquidityRateRays(
+            rc,
+            collateralAsset_,
+            collateralAmount_,
+            vars.totalStableDebt,
+            vars.totalVariableDebt
+          ),
+          countBlocks_,
+          vars.blocksPerDay,
+          vars.prices[0], // collateral price
+          block.timestamp // assume, that we supply collateral in the current block
         )
-        * countBlocks_
-        * vars.aprFactor18
-        / 10**(27-18); // rays => decimals 18 (1 ray = 1e-27)
+        // we need a value in terms of borrow tokens,
+        * vars.prices[0] / vars.prices[1];
       }
     }
 
@@ -167,7 +197,7 @@ contract AaveTwoPlatformAdapter is IPlatformAdapter {
       IAaveTwoLendingPoolAddressesProvider(pool.getAddressesProvider()).getAddress(bytes32(ID_DATA_PROVIDER))
     ).getReserveData(borrowAsset_);
 
-    return AaveTwoAprLib.getBorrowApr18(
+    return AaveTwoAprLib.getVariableBorrowRateRays(
       rb,
       borrowAsset_,
       amountToBorrow_,

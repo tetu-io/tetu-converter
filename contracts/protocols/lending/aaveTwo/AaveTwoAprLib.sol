@@ -8,21 +8,20 @@ import "../../../integrations/aaveTwo/IAaveTwoPool.sol";
 import "../../../integrations/aaveTwo/AaveTwoReserveConfiguration.sol";
 import "../../../integrations/aaveTwo/IAaveTwoAToken.sol";
 import "../../../integrations/aaveTwo/IAaveTwoStableDebtToken.sol";
+import "../aaveShared/AaveSharedLib.sol";
 
 /// @notice Library for AAVE v2 to calculate APR: borrow APR and supply APR
 library AaveTwoAprLib {
   using AaveTwoReserveConfiguration for DataTypes.ReserveConfigurationMap;
 
-  uint constant public COUNT_SECONDS_PER_YEAR = 31536000;
+  //////////////////////////////////////////////////////////////////////////
+  /// Calculate borrow and liquidity rate in advance
+  /// in same way as in AAVE v2 protocol
+  //////////////////////////////////////////////////////////////////////////
 
-  function getAprFactor18(uint blocksPerDay_) internal pure returns (uint) {
-    return blocksPerDay_ * 365
-      / 10**18
-      / COUNT_SECONDS_PER_YEAR
-      / COUNT_SECONDS_PER_YEAR;
-  }
-
-  function getBorrowApr18(
+  /// @notice Calculate estimate variable borrow rate after borrowing {amountToBorrow_}
+  /// @dev See explanations in Aave3AprLib.sol
+  function getVariableBorrowRateRays(
     DataTypes.ReserveData memory rb_,
     address borrowAsset_,
     uint amountToBorrow_,
@@ -36,7 +35,7 @@ library AaveTwoAprLib {
     uint factor = rb_.configuration.getReserveFactor();
     // see aave-v2-core, DefaultReserveInterestRateStrategy, calculateInterestRates impl
     // to calculate new BR, we need to reduce liquidity on borrowAmount and increase the debt on the same amount
-    (,, uint variableBorrowRate) = IAaveTwoReserveInterestRateStrategy(
+    (,, uint variableBorrowRateRays) = IAaveTwoReserveInterestRateStrategy(
       rb_.interestRateStrategyAddress
     ).calculateInterestRates(
         borrowAsset_,
@@ -50,25 +49,23 @@ library AaveTwoAprLib {
         factor
       );
 
-    return variableBorrowRate;
+    return variableBorrowRateRays;
   }
 
   /// @notice calculate liquidityRate for collateral token after supplying {amountToSupply_} in terms of borrow tokens
-  function getSupplyApr18(
+  function getLiquidityRateRays(
     DataTypes.ReserveData memory rc_,
     address collateralAsset_,
     uint amountToSupply_,
-    address borrowAsset_,
     uint totalStableDebt_,
-    uint totalVariableDebt_,
-    address priceOracle_
+    uint totalVariableDebt_
   ) internal view returns (uint) {
     // see aave-v3-core, ReserveLogic.sol, updateInterestRates
     (, uint avgStableRate) = IAaveTwoStableDebtToken(rc_.stableDebtTokenAddress).getTotalSupplyAndAvgRate();
 
     // see aave-v3-core, DefaultReserveInterestRateStrategy, calculateInterestRates impl
     uint factor = rc_.configuration.getReserveFactor();
-    (uint liquidityRate,,) = IAaveTwoReserveInterestRateStrategy(rc_.interestRateStrategyAddress)
+    (uint liquidityRateRays,,) = IAaveTwoReserveInterestRateStrategy(rc_.interestRateStrategyAddress)
       .calculateInterestRates(
         collateralAsset_,
         rc_.aTokenAddress,
@@ -80,16 +77,6 @@ library AaveTwoAprLib {
         factor
       );
 
-    // recalculate liquidityRate to borrow tokens
-    address[] memory assets = new address[](2);
-    assets[0] = collateralAsset_;
-    assets[1] = borrowAsset_;
-
-    uint[] memory prices = IAaveTwoPriceOracle(priceOracle_).getAssetsPrices(assets);
-    require(prices[1] != 0, AppErrors.ZERO_PRICE);
-
-    return liquidityRate
-      * prices[0]
-      / prices[1];
+    return liquidityRateRays;
   }
 }

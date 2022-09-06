@@ -47,7 +47,10 @@ contract Aave3PlatformAdapter is IPlatformAdapter {
     uint totalAToken;
     uint totalStableDebt;
     uint totalVariableDebt;
-    uint aprFactor18;
+    uint amountToBorrow;
+    uint blocksPerDay;
+    address[] assets;
+    uint[] prices;
   }
 
   ///////////////////////////////////////////////////////
@@ -179,33 +182,57 @@ contract Aave3PlatformAdapter is IPlatformAdapter {
             }
           }
 
-          // seconds => blocks
-          vars.aprFactor18 = Aave3AprLib.getAprFactor18(IController(controller).blocksPerDay());
-
           // calculate borrow-APR, see detailed explanation in Aave3AprLib
-          plan.borrowApr18 = Aave3AprLib.getVariableBorrowRateRays(
-            rb,
-            params.borrowAsset,
-            plan.liquidationThreshold18 * params.borrowAmountFactor18 / 1e18,
-            vars.totalStableDebt,
-            vars.totalVariableDebt
-          )
-          * params.countBlocks
-          * vars.aprFactor18
-          / 10**27; // rays => decimals 18 (1 ray = 1e-27)
+          vars.amountToBorrow = plan.liquidationThreshold18 * params.borrowAmountFactor18 / 1e18;
+          vars.blocksPerDay = IController(controller).blocksPerDay();
+          vars.assets = new address[](2);
+          vars.assets[0] = params.collateralAsset;
+          vars.assets[1] = params.borrowAsset;
+          vars.prices = _priceOracle.getAssetsPrices(vars.assets);
 
+          plan.borrowApr18 = AaveSharedLib.getAprForPeriodBefore(
+            AaveSharedLib.State({
+              liquidityIndex: rb.variableBorrowIndex,
+              lastUpdateTimestamp: uint(rb.lastUpdateTimestamp),
+              rate: rb.currentVariableBorrowRate
+            }),
+            vars.amountToBorrow,
+        //predicted borrow ray after the borrow
+            Aave3AprLib.getVariableBorrowRateRays(
+              rb,
+              params.borrowAsset,
+              vars.amountToBorrow,
+              vars.totalStableDebt,
+              vars.totalVariableDebt
+            ),
+            params.countBlocks,
+            vars.blocksPerDay,
+            vars.prices[1], // borrow price
+            block.timestamp // assume, that we make borrow in the current block
+          );
 
-        // calculate supply-APR, see detailed explanation in Aave3AprLib
-        plan.supplyApr18 = Aave3AprLib.getLiquidityRateRays(
-            rc,
-            params.collateralAsset,
+          // calculate supply-APR, see detailed explanation in Aave3AprLib
+          plan.supplyApr18 = AaveSharedLib.getAprForPeriodBefore(
+            AaveSharedLib.State({
+              liquidityIndex: rc.liquidityIndex,
+              lastUpdateTimestamp: uint(rc.lastUpdateTimestamp),
+              rate: rc.currentLiquidityRate
+            }),
             params.collateralAmount,
-            vars.totalStableDebt,
-            vars.totalVariableDebt
+            Aave3AprLib.getLiquidityRateRays(
+              rc,
+              params.collateralAsset,
+              params.collateralAmount,
+              vars.totalStableDebt,
+              vars.totalVariableDebt
+            ),
+            params.countBlocks,
+            vars.blocksPerDay,
+            vars.prices[0], // collateral price
+            block.timestamp // assume, that we supply collateral in the current block
           )
-          * params.countBlocks
-          * vars.aprFactor18
-          / 10**27; // rays => decimals 18 (1 ray = 1e-27)
+          // we need a value in terms of borrow tokens,
+          * vars.prices[0] / vars.prices[1];
         }
       }
     }
