@@ -148,7 +148,7 @@ describe("DForceHelper unit tests", () => {
             , cashesAndBorrowRates[3]
           );
 
-          const ret = await libFacade.borrowRewardAmount(
+          const ret = await libFacade.borrowRewardAmountInternal(
             {
               amountToBorrow: predictData.amountToBorrow,
               accrualBlockNumber: predictData.accrualBlockNumber,

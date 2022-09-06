@@ -44,6 +44,26 @@ export interface IRewardsStateB {
   borrowRewardsAmount: BigNumber;
   newBorrowStateIndex: BigNumber;
 }
+
+export interface IKeyTestResults {
+  before: ISnapshot;
+  afterSupply: ISnapshot;
+  middle: ISnapshot;
+  afterAdvance: ISnapshot;
+  afterUDC: ISnapshot;
+  after: ISnapshot;
+  prediction: {
+    part1: {
+      rewardsAmount: BigNumber,
+      newSupplyStateIndex: BigNumber
+    },
+    part2: {
+      rewardsAmount: BigNumber,
+      newSupplyStateIndex: BigNumber
+    },
+  }
+}
+
 //endregion Data types
 
 export class SupplyBorrowUsingDForce {
@@ -160,7 +180,8 @@ export class SupplyBorrowUsingDForce {
   ) : Promise<{
     rewardsEarnedManual: BigNumber,
     rewardsEarnedActual: BigNumber,
-    rewardsReceived: BigNumber
+    rewardsReceived: BigNumber,
+    results: IKeyTestResults
   }>{
     const user = await DeployerUtils.startImpersonate(ethers.Wallet.createRandom().address);
 
@@ -169,37 +190,28 @@ export class SupplyBorrowUsingDForce {
     const cToken = IDForceCToken__factory.connect(cToken1.address, deployer);
 
     const before = await this.getStateSupplyToken(comptroller, rd, cToken, user.address);
-    console.log("before", before);
 
     // supply
     await DForceHelper.supply(user, asset1, cToken1, holder1, collateralAmount1);
 
     const afterSupply = await this.getStateSupplyToken(comptroller, rd, cToken, user.address);
-    console.log("afterSupply", afterSupply);
 
     // forced update rewards
     await rd.updateDistributionState(cToken1.address, false);
     await rd.updateReward(cToken1.address, user.address, false);
-
     const middle = await this.getStateSupplyToken(comptroller, rd, cToken, user.address);
-    console.log("middle", middle);
 
     // move time
     await TimeUtils.advanceNBlocks(periodInBlocks);
-
     const afterAdvance = await this.getStateSupplyToken(comptroller, rd, cToken, user.address);
-    console.log("afterAdvance", afterAdvance);
 
     // forced update rewards
     await rd.updateDistributionState(cToken1.address, false);
     const afterUDC = await this.getStateSupplyToken(comptroller, rd, cToken, user.address);
-    console.log("afterUDC", afterUDC);
-
-    await rd.updateReward(cToken1.address, user.address, false);
 
     // get results
+    await rd.updateReward(cToken1.address, user.address, false);
     const after = await this.getStateSupplyToken(comptroller, rd, cToken, user.address);
-    console.log("after", after);
 
     // manually calculate rewards
     // one part of the rewards we get in the period
@@ -237,7 +249,14 @@ export class SupplyBorrowUsingDForce {
     return {
       rewardsEarnedManual: totalRewards,
       rewardsEarnedActual: after.rewards,
-      rewardsReceived: rewardsBalance1.sub(rewardsBalance0)
+      rewardsReceived: rewardsBalance1.sub(rewardsBalance0),
+      results: {
+        before, afterSupply, middle, afterAdvance, afterUDC, after
+        , prediction: {
+          part1: r0,
+          part2: r1
+        }
+      }
     };
   }
 

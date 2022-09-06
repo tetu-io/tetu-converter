@@ -78,6 +78,7 @@ describe("DForce rewards tests", () => {
               , collateralAmount1
               , periodInBlocks
             );
+            console.log(r.results);
 
             const ret = [
               r.rewardsEarnedManual.toString()
@@ -258,7 +259,7 @@ describe("DForce rewards tests", () => {
           ].join("\n");
 
           const sexpected = [
-            plan.apr18
+            plan.borrowApr18
           ].join("\n");
 
           expect(sret).eq(sexpected);
