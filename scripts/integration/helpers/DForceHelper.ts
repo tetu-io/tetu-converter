@@ -559,7 +559,7 @@ export class DForceHelper {
   ) : IRewardsStatePoint {
     return {
       stateIndex: marketData.distributionSupplyState_Index,
-      stateBlock: marketData.distributionBorrowState_Block,
+      stateBlock: marketData.distributionSupplyState_Block,
       distributionSpeed: marketData.distributionSupplySpeed,
       accountBalance: accountData.accountBalance,
       accountIndex: accountData.distributionSupplierIndex,
