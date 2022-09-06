@@ -4,7 +4,6 @@ pragma solidity 0.8.4;
 import "../../integrations/aaveTwo/IAaveTwoPool.sol";
 import "../../protocols/lending/aaveTwo/AaveTwoAprLib.sol";
 
-
 contract AaveTwoAprLibFacade {
   function getVariableBorrowRateRays(
     DataTypes.ReserveData memory rb_,
@@ -43,16 +42,14 @@ contract AaveTwoAprLibFacade {
     uint currentLiquidityIndex,
     uint rate,
     uint countBlocks,
-    uint blocksPerDay,
-    uint price18
+    uint blocksPerDay
   ) external pure returns (uint) {
     return AaveSharedLib.getAprForPeriodAfter(amount,
       currentN,
       currentLiquidityIndex,
       rate,
       countBlocks,
-      blocksPerDay,
-      price18
+      blocksPerDay
     );
   }
 
@@ -62,12 +59,22 @@ contract AaveTwoAprLibFacade {
     uint predictedRate,
     uint countBlocks,
     uint blocksPerDay,
-    uint price18,
     uint operationTimestamp
   ) external pure returns (uint) {
-    return AaveSharedLib.getAprForPeriodBefore(state, amount, predictedRate, countBlocks, blocksPerDay
-    , price18
-    , operationTimestamp
+    return AaveSharedLib.getAprForPeriodBefore(
+      state,
+      amount,
+      predictedRate,
+      countBlocks,
+      blocksPerDay,
+      operationTimestamp
     );
+  }
+
+  function getNextLiquidityIndex(
+    AaveSharedLib.State memory state,
+    uint operationTimestamp
+  ) external pure returns (uint) {
+    return AaveSharedLib.getNextLiquidityIndex(state, operationTimestamp);
   }
 }

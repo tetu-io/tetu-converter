@@ -12,7 +12,12 @@ contract Aave3AprLibFacade {
     uint totalStableDebt_,
     uint totalVariableDebt_
   ) external view returns (uint) {
-    return Aave3AprLib.getVariableBorrowRateRays(rb_, borrowAsset_, amountToBorrow_, totalStableDebt_, totalVariableDebt_);
+    return Aave3AprLib.getVariableBorrowRateRays(rb_,
+      borrowAsset_,
+      amountToBorrow_,
+      totalStableDebt_,
+      totalVariableDebt_
+    );
   }
 
   function getLiquidityRateRays(
@@ -36,16 +41,14 @@ contract Aave3AprLibFacade {
     uint liquidityIndex,
     uint rate,
     uint countBlocks,
-    uint blocksPerDay,
-    uint price18
+    uint blocksPerDay
   ) external pure returns (uint) {
     return AaveSharedLib.getAprForPeriodAfter(amount,
       reserveNormalized,
       liquidityIndex,
       rate,
       countBlocks,
-      blocksPerDay,
-      price18
+      blocksPerDay
     );
   }
 
@@ -55,7 +58,6 @@ contract Aave3AprLibFacade {
     uint predictedRate,
     uint countBlocks,
     uint blocksPerDay,
-    uint price18,
     uint operationTimestamp
   ) external pure returns (uint) {
     return AaveSharedLib.getAprForPeriodBefore(state,
@@ -63,8 +65,14 @@ contract Aave3AprLibFacade {
       predictedRate,
       countBlocks,
       blocksPerDay,
-      price18,
       operationTimestamp
     );
+  }
+
+  function getNextLiquidityIndex(
+    AaveSharedLib.State memory state,
+    uint operationTimestamp
+  ) external pure returns (uint) {
+    return AaveSharedLib.getNextLiquidityIndex(state, operationTimestamp);
   }
 }

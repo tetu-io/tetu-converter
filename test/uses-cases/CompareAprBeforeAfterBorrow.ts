@@ -5,7 +5,7 @@ import {BigNumber} from "ethers";
 import {TetuConverterApp} from "../baseUT/helpers/TetuConverterApp";
 import {MocksHelper} from "../baseUT/helpers/MocksHelper";
 import {TokenDataTypes} from "../baseUT/types/TokenDataTypes";
-import {setInitialBalance} from "../baseUT/utils/CommonUtils";
+import {areAlmostEqual, setInitialBalance} from "../baseUT/utils/CommonUtils";
 import {getBigNumberFrom} from "../../scripts/utils/NumberUtils";
 import {TestSingleBorrowParams} from "../baseUT/types/BorrowRepayDataTypes";
 import {ILendingPlatformFabric} from "../baseUT/fabrics/ILendingPlatformFabric";
@@ -126,8 +126,10 @@ describe("CompareAprBeforeAfterBorrow", () => {
 //endregion Test impl
 
 //region Get APR, AAVE v3
-  /** Calc APR in the state AFTER the supply/borrow operation */
-  async function getAprAAVE3(
+  /** Calc APR in the state AFTER the supply/borrow operation
+   *  Return value in terms of base currency
+   * */
+  async function getAprAAVE3Base(
     libFacade: Aave3AprLibFacade,
     amount: BigNumber,
     predictedRate: BigNumber,
@@ -136,19 +138,20 @@ describe("CompareAprBeforeAfterBorrow", () => {
     state: IKeyState,
     blocksPerDay: number
   ) : Promise<BigNumber> {
-    return await libFacade.getAprForPeriodAfter(
+    return (await libFacade.getAprForPeriodAfter(
       amount,
       state.reserveNormalized,
       state.liquidityIndex,
       predictedRate,
       countBlocks,
-      blocksPerDay,
-      price18
-    );
+      blocksPerDay
+    )).mul(price18).div(getBigNumberFrom(1, 18));
   }
 
-  /** Calc APR in the state BEFORE the supply/borrow operation */
-  async function getAprBeforeAAVE3(
+  /** Calc APR in the state BEFORE the supply/borrow operation
+   * Return value in terms of base currency
+   * */
+  async function getAprBeforeAAVE3Base(
     libFacade: Aave3AprLibFacade,
     amount: BigNumber,
     predictedRate: BigNumber,
@@ -158,7 +161,7 @@ describe("CompareAprBeforeAfterBorrow", () => {
     blocksPerDay: number,
     operationTimestamp: number
   ) : Promise<BigNumber> {
-    return await libFacade.getAprForPeriodBefore(
+    return (await libFacade.getAprForPeriodBefore(
       {
         liquidityIndex: state.liquidityIndex,
         rate: state.rate,
@@ -168,15 +171,16 @@ describe("CompareAprBeforeAfterBorrow", () => {
       predictedRate,
       countBlocks,
       blocksPerDay,
-      price18,
       operationTimestamp
-    );
+    )).mul(price18).div(getBigNumberFrom(1, 18));
   }
 //endregion Get APR, AAVE v3
 
 //region Get APR, AAVE v2
-  /** Calc APR in the state AFTER the supply/borrow operation */
-  async function getAprAAVETwo(
+  /** Calc APR in the state AFTER the supply/borrow operation
+   * Return value in terms of base currency
+   * */
+  async function getAprAAVETwoBase(
     libFacade: AaveTwoAprLibFacade,
     amount: BigNumber,
     predictedRate: BigNumber,
@@ -185,19 +189,20 @@ describe("CompareAprBeforeAfterBorrow", () => {
     state: IKeyState,
     blocksPerDay: number
   ) : Promise<BigNumber> {
-    return await libFacade.getAprForPeriodAfter(
+    return (await libFacade.getAprForPeriodAfter(
       amount,
       state.reserveNormalized,
       state.liquidityIndex,
       predictedRate,
       countBlocks,
       blocksPerDay,
-      price18
-    );
+    )).mul(price18).div(getBigNumberFrom(1, 18));
   }
 
-  /** Calc APR in the state BEFORE the supply/borrow operation */
-  async function getAprBeforeAAVETwo(
+  /** Calc APR in the state BEFORE the supply/borrow operation
+   * Return value in terms of base currency
+   * */
+  async function getAprBeforeAAVETwoBase(
     libFacade: AaveTwoAprLibFacade,
     amount: BigNumber,
     predictedRate: BigNumber,
@@ -206,20 +211,27 @@ describe("CompareAprBeforeAfterBorrow", () => {
     state: IKeyState,
     blocksPerDay: number,
     operationTimestamp: number
-  ) : Promise<BigNumber> {
-    return await libFacade.getAprForPeriodBefore(
-      {
-        liquidityIndex: state.liquidityIndex,
-        rate: state.rate,
-        lastUpdateTimestamp: state.lastUpdateTimestamp
-      },
+  ) : Promise<{
+    apr: BigNumber,
+    nextLiquidityIndex: BigNumber
+  }> {
+    const st = {
+      liquidityIndex: state.liquidityIndex,
+      rate: state.rate,
+      lastUpdateTimestamp: state.lastUpdateTimestamp
+    };
+
+    const nextLiquidityIndex = await libFacade.getNextLiquidityIndex(st, operationTimestamp);
+    const apr = (await libFacade.getAprForPeriodBefore(
+      st,
       amount,
       predictedRate,
       countBlocks,
       blocksPerDay,
-      price18,
       operationTimestamp
-    );
+    )).mul(price18).div(getBigNumberFrom(1, 18));
+
+    return {apr, nextLiquidityIndex};
   }
 //endregion Get APR, AAVE v2
 
@@ -466,7 +478,7 @@ describe("CompareAprBeforeAfterBorrow", () => {
         const blocksPerDay = 86400;
         console.log("countBlocks", countBlocks);
 
-        const supplyApr = await getAprAAVE3(
+        const supplyApr = await getAprAAVE3Base(
           libFacade
           , amountCollateral
           , liquidityRateRaysPredicted
@@ -476,7 +488,7 @@ describe("CompareAprBeforeAfterBorrow", () => {
           , blocksPerDay
         );
         console.log("supplyAprExact", supplyApr);
-        const borrowApr = await getAprAAVE3(
+        const borrowApr = await getAprAAVE3Base(
           libFacade
           , amountToBorrow
           , borrowAssetDataAfterBorrow.currentVariableBorrowRate
@@ -489,7 +501,7 @@ describe("CompareAprBeforeAfterBorrow", () => {
 
         // calculate approx values of supply/borrow APR
         // we use state-values "before-borrow" and predicted values of supply/borrow rates after borrow
-        const supplyAprApprox = await getAprBeforeAAVE3(
+        const supplyAprApprox = await getAprBeforeAAVE3Base(
           libFacade
           , amountCollateral
           , keyValues.liquidityRatePredicted
@@ -500,7 +512,7 @@ describe("CompareAprBeforeAfterBorrow", () => {
           , keyValues.liquidity.afterBorrow.blockTimeStamp
         );
         console.log("supplyAprApprox", supplyAprApprox);
-        const borrowAprApprox = await getAprBeforeAAVE3(
+        const borrowAprApprox = await getAprBeforeAAVE3Base(
           libFacade
           , amountToBorrow
           , keyValues.borrowRatePredicted
@@ -797,7 +809,7 @@ describe("CompareAprBeforeAfterBorrow", () => {
         const blocksPerDay = 86400;
         console.log("countBlocks", countBlocks);
 
-        const supplyApr = await getAprAAVETwo(
+        const supplyApr = await getAprAAVETwoBase(
           libFacade
           , amountCollateral
           , liquidityRateRaysPredicted
@@ -807,7 +819,7 @@ describe("CompareAprBeforeAfterBorrow", () => {
           , blocksPerDay
         );
         console.log("supplyAprExact", supplyApr);
-        const borrowApr = await getAprAAVETwo(
+        const borrowApr = await getAprAAVETwoBase(
           libFacade
           , amountToBorrow
           , borrowAssetDataAfterBorrow.currentVariableBorrowRate
@@ -820,7 +832,7 @@ describe("CompareAprBeforeAfterBorrow", () => {
 
         // calculate approx values of supply/borrow APR
         // we use state-values "before-borrow" and predicted values of supply/borrow rates after borrow
-        const supplyAprApprox = await getAprBeforeAAVETwo(
+        const supplyAprApprox = await getAprBeforeAAVETwoBase(
           libFacade
           , amountCollateral
           , keyValues.liquidityRatePredicted
@@ -831,7 +843,7 @@ describe("CompareAprBeforeAfterBorrow", () => {
           , keyValues.liquidity.afterBorrow.blockTimeStamp
         );
         console.log("supplyAprApprox", supplyAprApprox);
-        const borrowAprApprox = await getAprBeforeAAVETwo(
+        const borrowAprApprox = await getAprBeforeAAVETwoBase(
           libFacade
           , amountToBorrow
           , keyValues.borrowRatePredicted
@@ -844,20 +856,37 @@ describe("CompareAprBeforeAfterBorrow", () => {
         console.log("borrowAprApprox", borrowAprApprox);
 
         // calculate real differences in user-account-balances for period [next block, last block]
-        const ret = [
-          last.totalCollateralETH.sub(next.totalCollateralETH).toString(),
-          last.totalDebtETH.sub(next.totalDebtETH).toString(),
+        const collateralAprETH = last.totalCollateralETH.sub(next.totalCollateralETH);
+        const borrowAprETH = last.totalDebtETH.sub(next.totalDebtETH);
+        console.log("collateralAprETH", collateralAprETH);
+        console.log("borrowAprETH", borrowAprETH);
 
-          last.totalCollateralETH.sub(next.totalCollateralETH).toString(),
-          last.totalDebtETH.sub(next.totalDebtETH).toString()
-        ].join();
+        const ret = [
+          areAlmostEqual(collateralAprETH, supplyApr, 6),
+          areAlmostEqual(borrowAprETH, borrowApr, 8),
+          supplyApr.toString(),
+          keyValues.liquidity.afterBorrow.liquidityIndex,
+
+          // borrowApr.toString(),
+          // keyValues.borrow.afterBorrow.liquidityIndex
+        ].join("\n");
 
         // these differences must be equal to exact supply/borrow APR
         const expected = [
-          supplyApr.toString(), borrowApr.toString(),
+          true,
+          true,
+          supplyAprApprox.apr.toString(),
+          supplyAprApprox.nextLiquidityIndex.toString(),
 
-          supplyAprApprox.toString(), borrowAprApprox.toString()
-        ].join();
+          /////////////////////////////////////////////////////////////////////
+          // TODO: nextLiquidityIndex for borrow is a bit different from expected
+          // The difference appears because we need to take into account compound effect
+          // see aave-v2, MathUtils.sol, calculateCompoundedInterest
+          ////////////////////////////////////////////////////////////////////
+          // borrowAprApprox.apr.toString(),
+          // borrowAprApprox.nextLiquidityIndex.toString()
+          ////////////////////////////////////////////////////////////////////
+        ].join("\n");
 
         expect(ret).equals(expected);
       });

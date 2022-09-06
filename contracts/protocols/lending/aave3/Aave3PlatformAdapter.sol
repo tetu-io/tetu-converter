@@ -207,7 +207,6 @@ contract Aave3PlatformAdapter is IPlatformAdapter {
             ),
             params.countBlocks,
             vars.blocksPerDay,
-            vars.prices[1], // borrow price
             block.timestamp // assume, that we make borrow in the current block
           );
 
@@ -228,7 +227,6 @@ contract Aave3PlatformAdapter is IPlatformAdapter {
             ),
             params.countBlocks,
             vars.blocksPerDay,
-            vars.prices[0], // collateral price
             block.timestamp // assume, that we supply collateral in the current block
           )
           // we need a value in terms of borrow tokens,

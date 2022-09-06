@@ -36,16 +36,14 @@ library AaveSharedLib {
   /// @param predictedRate Predicted value of liquidity/borrow rate
   /// @param countBlocks Duration of the period in blocks
   /// @param blocksPerDay Count blocks per day (about 40 ths)
-  /// @param price18 Price of collateral/borrow asset
-  ///                1 token of the amount costs {price18} base tokens
+  /// @return APR value in terms of source amount's asset tokens
   function getAprForPeriodAfter(
     uint amount,
     uint reserveNormalized,
     uint liquidityIndex,
     uint predictedRate,
     uint countBlocks,
-    uint blocksPerDay,
-    uint price18
+    uint blocksPerDay
   ) internal pure returns (uint) {
     // calculate income/debt in the period of {countBlocks} since the supply/borrow operation
     uint reserveNormalizedAfterPeriod = rayMul(
@@ -59,7 +57,6 @@ library AaveSharedLib {
       ? 0
       : amount
         * (reserveNormalizedAfterPeriod - reserveNormalized)
-        * price18 / 1e18
         / reserveNormalized;
   }
 
@@ -70,23 +67,19 @@ library AaveSharedLib {
   /// @param predictedRate Predicted value of liquidity/borrow rate
   /// @param countBlocks Duration of the period in blocks
   /// @param blocksPerDay Count blocks per day (about 40 ths)
-  /// @param price18 Price of collateral/borrow asset
-  ///                1 token of the amount costs {price18} base tokens
+  /// @return APR value in terms of source amount's asset tokens
   function getAprForPeriodBefore(
     State memory state,
     uint amount,
     uint predictedRate,
     uint countBlocks,
     uint blocksPerDay,
-    uint price18,
     uint operationTimestamp
   ) internal pure returns (uint) {
-    // recalculate reserveNormalized and liquidityIndex
-    // after the supply/borrow operation
-    uint liquidityIndexAfter = rayMul(
-      RAY + (state.rate * (operationTimestamp - state.lastUpdateTimestamp) / COUNT_SECONDS_PER_YEAR),
-      state.liquidityIndex
-    );
+    // recalculate reserveNormalized and liquidityIndex after the supply/borrow operation
+    // For borrow we have only approx calculations here because we don't take into account compound effect
+    // for the period [state.lastUpdateTimestamp ... operationTimestamp]
+    uint liquidityIndexAfter = getNextLiquidityIndex(state, operationTimestamp);
 
     return getAprForPeriodAfter(
       amount,
@@ -94,8 +87,19 @@ library AaveSharedLib {
       liquidityIndexAfter,
       predictedRate,
       countBlocks,
-      blocksPerDay,
-      price18
+      blocksPerDay
+    );
+  }
+
+  /// @notice Recalculate liquidityIndex after the supply/borrow operation
+  /// @param state State just before the supply/borrow operation
+  function getNextLiquidityIndex(
+    State memory state,
+    uint operationTimestamp
+  ) internal pure returns (uint) {
+    return rayMul(
+      RAY + (state.rate * (operationTimestamp - state.lastUpdateTimestamp) / COUNT_SECONDS_PER_YEAR),
+      state.liquidityIndex
     );
   }
 
