@@ -18,6 +18,13 @@ library Aave3AprLib {
   uint constant public RAY = 1e27;
   uint constant public HALF_RAY = 0.5e27;
 
+  struct State {
+    uint reserveNormalized;
+    uint liquidityIndex;
+    uint lastUpdateTimestamp;
+    uint rate;
+  }
+
   //////////////////////////////////////////////////////////////////////////
   /// Calculate borrow and liquidity rate - in same way as in AAVE v3 protocol
   ///
@@ -147,40 +154,74 @@ library Aave3AprLib {
   //
   // So, APR ~ func(amount, N_current, dT, LI_current, price)
   //////////////////////////////////////////////////////////////////////////
-  function getAprForPeriod18(
+
+  /// @notice Calculate APR for period {countBlocks} in the point AFTER supply/borrow operation
+  ///         APR is total amount of generated income/debt for the period in the terms of amount's asset
+  /// @param amount Amount of collateral or borrow
+  /// @param reserveNormalized Current value of normalized income / debt
+  /// @param liquidityIndex Value of liquidityIndex / variableBorrowIndex
+  /// @param predictedRate Predicted value of liquidity/borrow rate
+  /// @param countBlocks Duration of the period in blocks
+  /// @param blocksPerDay Count blocks per day (about 40 ths)
+  /// @param price18 Price of collateral/borrow asset
+  ///                1 token of the amount costs {price18} base tokens
+  function getAprForPeriodAfter(
     uint amount,
-    uint price18,
-    uint currentN,
-    uint currentLiquidityIndex,
-    uint rate,
+    uint reserveNormalized,
+    uint liquidityIndex,
+    uint predictedRate,
     uint countBlocks,
-    uint blocksPerDay_,
-    uint amountDecimals_
-  ) internal view returns (uint) {
-    console.log("getAprForPeriod18");
-    console.log("amount", amount);
-    console.log("price18", price18);
-    console.log("currentLiquidityIndex", currentLiquidityIndex);
-    console.log("currentN", currentN);
-    console.log("rate", rate);
-    console.log("countBlocks", countBlocks);
-    console.log("blocksPerDay_", blocksPerDay_);
-    uint scaledBalance0 = amount * RAY / currentN;
-    console.log("scaledBalance0", scaledBalance0);
-    uint nextN = rayMul(RAY
-      + rate * (
-        // count seconds
-        countBlocks * COUNT_SECONDS_PER_YEAR / (blocksPerDay_ * 365)
-      ) / COUNT_SECONDS_PER_YEAR, currentLiquidityIndex);
-    console.log("nextN", nextN);
-    uint userBalance0 = scaledBalance0 * currentN * price18 / RAY / 1e18;
-    uint userBalance1 = scaledBalance0 * nextN * price18 / RAY / 1e18;
-    console.log("userBalance0", userBalance0);
-    console.log("userBalance1", userBalance1);
-    console.log("countBlocks * COUNT_SECONDS_PER_YEAR / (blocksPerDay_ * 365)", countBlocks * COUNT_SECONDS_PER_YEAR / (blocksPerDay_ * 365));
-    console.log("userBalanceDeltaBase", userBalance1 - userBalance0);
-    console.log("userBalanceDelta", (userBalance1 - userBalance0) * 1e18 / price18);
-    return userBalance1 - userBalance0;
+    uint blocksPerDay,
+    uint price18
+  ) internal pure returns (int) {
+    // calculate income/debt in the period of {countBlocks} since the supply/borrow operation
+    uint reserveNormalizedAfterPeriod = rayMul(
+      RAY + predictedRate * (
+        countBlocks * COUNT_SECONDS_PER_YEAR / (blocksPerDay * 365)  // count seconds
+      ) / COUNT_SECONDS_PER_YEAR,
+        liquidityIndex
+    );
+
+    return int(amount)
+      * (int(reserveNormalizedAfterPeriod) - int(reserveNormalized))
+      * int(price18) / 1e18
+      / int(reserveNormalized);
+  }
+
+  /// @notice Calculate APR for period {countBlocks} in the point before the supply/borrow operation
+  ///         APR is total amount of generated income/debt for the period in the terms of amount's asset
+  /// @param amount Amount of collateral or borrow
+  /// @param state Current state (before the supply/borrow operation)
+  /// @param predictedRate Predicted value of liquidity/borrow rate
+  /// @param countBlocks Duration of the period in blocks
+  /// @param blocksPerDay Count blocks per day (about 40 ths)
+  /// @param price18 Price of collateral/borrow asset
+  ///                1 token of the amount costs {price18} base tokens
+  function getAprForPeriodBefore(
+    State memory state,
+    uint amount,
+    uint predictedRate,
+    uint countBlocks,
+    uint blocksPerDay,
+    uint price18,
+    uint operationTimestamp
+  ) internal pure returns (int) {
+    // recalculate reserveNormalized and liquidityIndex
+    // after the supply/borrow operation
+    uint liquidityIndexAfter = rayMul(
+      RAY + (state.rate * (operationTimestamp - state.lastUpdateTimestamp) / COUNT_SECONDS_PER_YEAR),
+      state.liquidityIndex
+    );
+
+    return getAprForPeriodAfter(
+      amount,
+      liquidityIndexAfter, // reserveNormalizedAfter is the same as liquidityIndexAfter
+      liquidityIndexAfter,
+      predictedRate,
+      countBlocks,
+      blocksPerDay,
+      price18
+    );
   }
 
   function rayMul(uint x, uint y) internal pure returns (uint) {

@@ -29,18 +29,32 @@ contract Aave3AprLibFacade {
     return Aave3AprLib.getLiquidityRateRays(rc_, collateralAsset_, amountToSupply_, totalStableDebt_, totalVariableDebt_);
   }
 
-  function getAprForPeriod18(
+  function getAprForPeriodAfter(
     uint amount,
-    uint price18,
     uint currentN,
     uint currentLiquidityIndex,
     uint rate,
     uint countBlocks,
-    uint blocksPerDay_,
-    uint amountDecimals_
-  ) external view returns (uint) {
-    return Aave3AprLib.getAprForPeriod18(amount, price18, currentN, currentLiquidityIndex, rate, countBlocks
-      , blocksPerDay_, amountDecimals_
+    uint blocksPerDay,
+    uint price18
+  ) external pure returns (int) {
+    return Aave3AprLib.getAprForPeriodAfter(amount, currentN, currentLiquidityIndex, rate, countBlocks
+      , blocksPerDay, price18
+    );
+  }
+
+  function getAprForPeriodBefore(
+    Aave3AprLib.State memory state,
+    uint amount,
+    uint predictedRate,
+    uint countBlocks,
+    uint blocksPerDay,
+    uint price18,
+    uint operationTimestamp
+  ) external pure returns (int) {
+    return Aave3AprLib.getAprForPeriodBefore(state, amount, predictedRate, countBlocks, blocksPerDay
+      , price18
+      , operationTimestamp
     );
   }
 }
