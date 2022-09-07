@@ -11,6 +11,7 @@ import "../../../integrations/dforce/IDForceInterestRateModel.sol";
 import "../../../integrations/dforce/IDForceRewardDistributor.sol";
 import "../../../core/AppErrors.sol";
 import "hardhat/console.sol";
+import "../../../core/AppUtils.sol";
 
 
 /// @notice DForce utils: estimate reward tokens, predict borrow rate in advance
@@ -116,27 +117,56 @@ library DForceAprLib {
     // the call of getSupplyRate is just crashed, so we cannot estimate next supply rate.
     // For simplicity just return current supplyRate
     // Recalculate the amount from [collateral tokens] to [borrow tokens]
-    supplyAprBT18 = core.cTokenCollateral.supplyRatePerBlock()
-      * countBlocks_
-      * getPrice(core.priceOracle, address(core.cTokenCollateral))
-      * 10**18 // we need decimals 18
-      / 10**core.cTokenCollateral.decimals()
-      / priceBorrow;
+    supplyAprBT18 = getSupplyApr18(
+      getEstimatedSupplyRate(core.cTokenCollateral, collateralAmount_),
+      countBlocks_,
+      core.cTokenCollateral.decimals(),
+      getPrice(core.priceOracle, address(core.cTokenCollateral)),
+      priceBorrow
+    );
 
     // estimate borrow rate value after the borrow and calculate result APR
-    borrowApr18 = getEstimatedBorrowRate(
+    borrowApr18 = getBorrowApr18(
+      getEstimatedBorrowRate(
         core.borrowInterestRateModel,
         core.cTokenBorrow,
         amountToBorrow_
-      )
-      * countBlocks_
-      * 10**18 // we need decimals 18
-      / 10**core.cTokenBorrow.decimals()
-      ;
+      ),
+      countBlocks_,
+      core.cTokenBorrow.decimals()
+    );
+  }
+
+  /// @notice Calculate supply APR in terms of borrow tokens with decimals 18
+  function getSupplyApr18(
+    uint supplyRatePerBlock,
+    uint countBlocks,
+    uint8 collateralDecimals,
+    uint priceCollateral,
+    uint priceBorrow
+  ) internal pure returns (uint) {
+    return AppUtils.toMantissa(
+      supplyRatePerBlock * countBlocks * priceCollateral / priceBorrow,
+      collateralDecimals,
+      18
+    );
+  }
+
+  /// @notice Calculate borrow APR in terms of borrow tokens with decimals 18
+  function getBorrowApr18(
+    uint borrowRatePerBlock,
+    uint countBlocks,
+    uint8 borrowDecimals
+  ) internal pure returns (uint) {
+    return  AppUtils.toMantissa(
+      borrowRatePerBlock * countBlocks,
+      borrowDecimals,
+      18
+    );
   }
 
   ///////////////////////////////////////////////////////
-  //         Estimate borrow rate
+  //         Estimate borrow rate and supply rate
   ///////////////////////////////////////////////////////
 
   /// @notice Estimate value of variable borrow rate after borrowing {amountToBorrow_}
@@ -146,6 +176,12 @@ library DForceAprLib {
     IDForceCToken cTokenBorrow_,
     uint amountToBorrow_
   ) internal view returns (uint) {
+    console.log("getEstimatedBorrowRate.amountToBorrow_", amountToBorrow_);
+    console.log("getEstimatedBorrowRate.cash0", cTokenBorrow_.getCash());
+    console.log("getEstimatedBorrowRate.cash", cTokenBorrow_.getCash() - amountToBorrow_);
+    console.log("getEstimatedBorrowRate.totalBorrows0", cTokenBorrow_.totalBorrows());
+    console.log("getEstimatedBorrowRate.totalBorrows", cTokenBorrow_.totalBorrows() + amountToBorrow_);
+    console.log("getEstimatedBorrowRate.totalReserves", cTokenBorrow_.totalReserves());
     return interestRateModel_.getBorrowRate(
       cTokenBorrow_.getCash() - amountToBorrow_,
       cTokenBorrow_.totalBorrows() + amountToBorrow_,
@@ -153,6 +189,67 @@ library DForceAprLib {
     );
   }
 
+  function getEstimatedSupplyRate(
+    IDForceCToken cTokenCollateral_,
+    uint amountToSupply_
+  ) internal view returns(uint) {
+    return getEstimatedSupplyRatePure(
+      cTokenCollateral_.totalSupply(),
+      amountToSupply_,
+      cTokenCollateral_.getCash(),
+      cTokenCollateral_.totalBorrows(),
+      cTokenCollateral_.totalReserves(),
+      IDForceInterestRateModel(cTokenCollateral_.interestRateModel()),
+      cTokenCollateral_.reserveRatio()
+    );
+  }
+
+  /// @dev repeats LendingContractsV2, iToken.sol, supplyRatePerBlock() impl
+  function getEstimatedSupplyRatePure(
+    uint totalSupply_,
+    uint amountToSupply_,
+    uint cash_,
+    uint totalBorrows_,
+    uint totalReserves_,
+    IDForceInterestRateModel interestRateModel_,
+    uint reserveRatio_
+  ) internal view returns(uint) {
+    // actually, total supply is increased on a bit less value of the initial supply fee
+    uint totalSupply = totalSupply_ + amountToSupply_;
+
+    uint exchangeRateInternal = getEstimatedExchangeRate(
+      totalSupply,
+      cash_ + amountToSupply_, // cash is increased exactly on amountToSupply_, no approximation here
+      totalBorrows_,
+      totalReserves_
+    );
+
+    uint underlyingScaled = totalSupply * exchangeRateInternal;
+    if (underlyingScaled == 0) return 0;
+
+    uint borrowRatePerBlock = interestRateModel_.getBorrowRate(
+      cash_ + amountToSupply_,
+      totalBorrows_,
+      totalReserves_
+    );
+
+    return tmul(
+      borrowRatePerBlock,
+      1e18 - reserveRatio_,
+      rdiv(totalBorrows_ * 1e18, underlyingScaled)
+    );
+  }
+
+  function getEstimatedExchangeRate(
+    uint totalSupply_,
+    uint cash_,
+    uint totalBorrows_,
+    uint totalReserves_
+  ) internal pure returns (uint) {
+    return totalSupply_ == 0
+      ? 0
+      : rdiv(cash_ + totalBorrows_ - totalReserves_, totalSupply_);
+  }
   ///////////////////////////////////////////////////////
   ///       Calculate supply and borrow rewards
   ///////////////////////////////////////////////////////
@@ -372,7 +469,7 @@ library DForceAprLib {
   }
 
 ///////////////////////////////////////////////////////
-  ///                 Math utils
+  ///  Math utils, see LendingContractsV2, SafeRatioMath.sol
   ///////////////////////////////////////////////////////
 
   function rmul(uint x, uint y) internal pure returns (uint) {
@@ -387,5 +484,9 @@ library DForceAprLib {
   function divup(uint x, uint y) internal pure returns (uint) {
     require(y != 0, AppErrors.DIVISION_BY_ZERO);
     return (x + y - 1) / y;
+  }
+
+  function tmul(uint256 x, uint256 y, uint256 z) internal pure returns (uint256 result) {
+    result = x * y * z / 10**36;
   }
 }

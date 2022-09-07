@@ -4,7 +4,7 @@ pragma solidity 0.8.4;
 import "../../protocols/lending/dforce/DForceAprLib.sol";
 
 /// @notice Facade for DForceRewardsLib to make external functions available for tests
-contract DForceRewardsLibFacade {
+contract DForceAprLibFacade {
   function getCore(
     IDForceController comptroller,
     address cTokenCollateral_,
@@ -25,6 +25,30 @@ contract DForceRewardsLibFacade {
     );
   }
 
+  function getEstimatedSupplyRatePure(
+    uint totalSupply_,
+    uint amountToSupply_,
+    uint cash_,
+    uint totalBorrows_,
+    uint totalReserves_,
+    IDForceInterestRateModel interestRateModel_,
+    uint reserveRatio_
+  ) external view returns(uint) {
+    return DForceAprLib.getEstimatedSupplyRatePure(
+      totalSupply_, amountToSupply_, cash_, totalBorrows_, totalReserves_, interestRateModel_, reserveRatio_
+    );
+  }
+
+  function getEstimatedSupplyRate(
+    IDForceCToken cTokenCollateral_,
+    uint amountToSupply_
+  ) external view returns(uint) {
+    return DForceAprLib.getEstimatedSupplyRate(
+      cTokenCollateral_,
+      amountToSupply_
+    );
+  }
+
   function getRawAprInfo18(
     DForceAprLib.DForceCore memory core,
     uint collateralAmount_,
@@ -41,6 +65,30 @@ contract DForceRewardsLibFacade {
       countBlocks_,
       amountToBorrow_
     );
+  }
+
+  function getSupplyApr18(
+    uint supplyRatePerBlock,
+    uint countBlocks,
+    uint8 collateralDecimals,
+    uint priceCollateral,
+    uint priceBorrow
+  ) external pure returns (uint) {
+    return DForceAprLib.getSupplyApr18(
+      supplyRatePerBlock,
+      countBlocks,
+      collateralDecimals,
+      priceCollateral,
+      priceBorrow
+    );
+  }
+
+  function getBorrowApr18(
+    uint borrowRatePerBlock,
+    uint countBlocks,
+    uint8 borrowDecimals
+  ) external pure returns (uint) {
+    return DForceAprLib.getBorrowApr18(borrowRatePerBlock, countBlocks, borrowDecimals);
   }
 
   function getRewardAmountsBT(

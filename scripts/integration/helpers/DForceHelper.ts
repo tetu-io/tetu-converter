@@ -432,6 +432,10 @@ export class DForceHelper {
   public static divup(x: BigNumber, y: BigNumber) : BigNumber {
     return x.add(y.sub(1)).div(y);
   }
+
+  public static tmul(x: BigNumber, y: BigNumber, z: BigNumber) : BigNumber {
+    return x.mul(y).mul(z).div(getBigNumberFrom(1, 36));
+  }
 //endregion Rewards
 
 //region Rewards calculations
@@ -787,4 +791,37 @@ export class DForceHelper {
   }
 //endregion Supply, borrow, repay
 
+//region Amounts calculations
+  /**
+   * See LendingContractsV2, Controller.sol, calcAccountEquityWithEffect
+   */
+  public static getCollateralValue(
+    cTokenBalance: BigNumber,
+    underlyingPrice: BigNumber,
+    exchangeRate: BigNumber,
+    collateralFactorMantissa: BigNumber
+  ): BigNumber {
+    return this.rmul(
+      this.rmul(
+        cTokenBalance.mul(underlyingPrice)
+        , exchangeRate
+      )
+      , collateralFactorMantissa
+    );
+  }
+
+  /**
+   * See LendingContractsV2, Controller.sol, calcAccountEquityWithEffect
+   */
+  public static getBorrowValue(
+    borrowBalance: BigNumber,
+    underlyingPrice: BigNumber,
+    borrowFactorMantissa: BigNumber
+  ): BigNumber {
+    return this.rdiv(
+      borrowBalance.mul(underlyingPrice)
+      , borrowFactorMantissa
+    );
+  }
+//endregion Amounts calculations
 }

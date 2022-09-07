@@ -17,7 +17,7 @@ import {TimeUtils} from "../../../../scripts/utils/TimeUtils";
 import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 
 //region Data types
-export interface ISnapshot {
+export interface ISnapshotCollateralToken {
   market: IDForceMarketRewards;
   account: IDForceMarketAccount;
   totalSupply: BigNumber;
@@ -46,12 +46,12 @@ export interface IRewardsStateB {
 }
 
 export interface IKeyTestResults {
-  before: ISnapshot;
-  afterSupply: ISnapshot;
-  middle: ISnapshot;
-  afterAdvance: ISnapshot;
-  afterUDC: ISnapshot;
-  after: ISnapshot;
+  before: ISnapshotCollateralToken;
+  afterSupply: ISnapshotCollateralToken;
+  middle: ISnapshotCollateralToken;
+  afterAdvance: ISnapshotCollateralToken;
+  afterUDC: ISnapshotCollateralToken;
+  after: ISnapshotCollateralToken;
   prediction: {
     part1: {
       rewardsAmount: BigNumber,
@@ -74,7 +74,7 @@ export class SupplyBorrowUsingDForce {
     , rd: IDForceRewardDistributor
     , cToken: IDForceCToken
     , user: string
-  ) : Promise<ISnapshot> {
+  ) : Promise<ISnapshotCollateralToken> {
     const priceOracle = await DForceHelper.getPriceOracle(comptroller
       , await DeployerUtils.startImpersonate(user)
     );
@@ -120,7 +120,7 @@ export class SupplyBorrowUsingDForce {
   }
 
   static async getRewardsStateC(
-    st: ISnapshot,
+    st: ISnapshotCollateralToken,
     block: BigNumber
   ) : Promise<IRewardsStateC> {
     const r0 = DForceHelper.getSupplyRewardsAmount(
