@@ -16,6 +16,7 @@ import "../../../integrations/hundred-finance/IHfOracle.sol";
 import "../../../integrations/IERC20Extended.sol";
 import "../../../integrations/hundred-finance/IHfInterestRateModel.sol";
 import "../../../core/AppUtils.sol";
+import "./HfAprLib.sol";
 /// @notice Adapter to read current pools info from HundredFinance-protocol, see https://docs.hundred.finance/
 contract HfPlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
   using SafeERC20 for IERC20;
@@ -140,9 +141,6 @@ contract HfPlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
   ) external override view returns (
     AppDataTypes.ConversionPlan memory plan
   ) {
-    // there are no rewards in AAVE3; this value is required by other platforms to predict the rewards correctly
-    collateralAmount_;
-
     address cTokenCollateral = activeAssets[collateralAsset_];
     if (cTokenCollateral != address(0)) {
 
@@ -179,6 +177,14 @@ contract HfPlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
               plan.borrowApr18 = brAfterBorrow * countBlocks_;
             }
           }
+
+          //TODO
+//          (plan.borrowApr18, plan.supplyAprBT18) = HfForceAprLib.getRawAprInfo(
+//            collateralAmount_,
+//            countBlocks_,
+//            amountToBorrow
+//          );
+
         }
       }
     }

@@ -273,6 +273,7 @@ library DForceAprLib {
       ? 0
       : rdiv(cash_ + totalBorrows_ - totalReserves_, totalSupply_);
   }
+
   ///////////////////////////////////////////////////////
   ///       Calculate supply and borrow rewards
   ///////////////////////////////////////////////////////

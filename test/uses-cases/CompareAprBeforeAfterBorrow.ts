@@ -25,7 +25,7 @@ import {
   IDForceCToken,
   IDForceCToken__factory,
   IDForceInterestRateModel__factory,
-  IDForceRewardDistributor, IERC20__factory
+  IDForceRewardDistributor, IERC20__factory, IHfCToken__factory
 } from "../../typechain";
 import {DeployUtils} from "../../scripts/utils/DeployUtils";
 import {expect} from "chai";
@@ -40,6 +40,7 @@ import {
 } from "../baseUT/uses-cases/dforce/SupplyBorrowUsingDForce";
 import {DForcePlatformFabric} from "../baseUT/fabrics/DForcePlatformFabric";
 import {totalmem} from "os";
+import {HundredFinanceHelper} from "../../scripts/integration/helpers/HundredFinanceHelper";
 
 /**
  * For any landing platform:
@@ -522,9 +523,11 @@ describe("CompareAprBeforeAfterBorrow", () => {
     const ASSET_COLLATERAL = MaticAddresses.DAI;
     const HOLDER_COLLATERAL = MaticAddresses.HOLDER_DAI;
     const ASSET_COLLATERAL_DFORCE_CTOKEN = MaticAddresses.dForce_iDAI;
+    const ASSET_COLLATERAL_HUNDRED_FINANCE_CTOKEN = MaticAddresses.hDAI;
     const ASSET_BORROW = MaticAddresses.WETH;
     const HOLDER_BORROW = MaticAddresses.HOLDER_WETH;
     const ASSET_BORROW_DFORCE_CTOREN = MaticAddresses.dForce_iWETH;
+    const ASSET_BORROW_HUNDRED_FINANCE_CTOREN = MaticAddresses.hETH;
     const AMOUNT_COLLATERAL = 200_000;
     const INITIAL_LIQUIDITY_COLLATERAL = 1_000_000;
     const INITIAL_LIQUIDITY_BORROW = 100;
@@ -1299,113 +1302,321 @@ describe("CompareAprBeforeAfterBorrow", () => {
 
 
       });
+
+      describe.skip("Temp calcs for DForce", () => {
+        it("apr", () => {
+          const borrowBalanceMiddle = BigNumber.from("58035600000000000000000000000000000000000");
+          const borrowBalanceLast = BigNumber.from("58035600197395749574642710000000000000000");
+          const collateralBalanceNext = BigNumber.from("169985288199999999999999838023644809698004");
+          const collateralBalanceMiddle = BigNumber.from("169985288469050133207406287966044900859892");
+          const collateralFactorMantissa = BigNumber.from("850000000000000000");
+          const borrowFactorMantissa = BigNumber.from("1000000000000000000")
+          const borrowTotalBorrowsMiddle = BigNumber.from("52239880587431260022");
+          const borrowTotalBorrowsLast = BigNumber.from("52239880765114102730");
+
+          const priceCollateral = BigNumber.from("999913460000000000");
+          const priceBorrow = BigNumber.from("1450890000000000000000");
+
+          const base = getBigNumberFrom(1, 18);
+          const double = getBigNumberFrom(1, 36);
+
+          const collateralExchangeRateNext = BigNumber.from("1006072989394821668");
+          const collateralExchangeRateMiddle = BigNumber.from("1006072990987218720");
+
+          const c2 = collateralBalanceMiddle.mul(base).div(priceCollateral).div(collateralFactorMantissa);
+          const c1 = collateralBalanceNext.mul(base).div(priceCollateral).div(collateralFactorMantissa);
+          console.log("c2", c2);
+          console.log("c1", c1);
+
+          const cDelta = c2.sub(c1);
+          console.log("cDelta", cDelta);
+
+          const b2 = borrowBalanceLast.mul(base).div(priceBorrow).div(borrowFactorMantissa);
+          const b1 = borrowBalanceMiddle.mul(base).div(priceBorrow).div(borrowFactorMantissa);
+          console.log("b2", b2);
+          console.log("b1", b1);
+
+          const bDelta = b2.sub(b1);
+          console.log("cDelta", bDelta);
+        });
+
+        it.skip("supply rate", async () => {
+          const comptroller = await DForceHelper.getController(deployer);
+          const im = DForceInterestRateModelMock__factory.connect("0x6Bf21BF8cB213997ac0F3A3b1feD431E2BD0C45a", deployer);
+
+          const totalSupply = BigNumber.from("950110374878895912732010");
+          const amountToSupply = BigNumber.from("198862327947469607502699");
+          const amountToSupplyExact = BigNumber.from("200000000000000000000000");
+          const cash = BigNumber.from("207457975647111909044867");
+
+          const totalBorrow = BigNumber.from("748722543290648981048813");
+          const borrowInterest = BigNumber.from("17485895962232384280");
+          const reserveInterest = BigNumber.from("1748589596223238428");
+          const totalReserves = BigNumber.from("650392243307287326761");
+          const borrowRatePerBlock = BigNumber.from("3174864977");
+          const borrowRatePerBlockAfter = BigNumber.from("2625382581");
+          const reserveRatio = BigNumber.from("100000000000000000");
+
+          const balance = await IERC20__factory.connect(MaticAddresses.DAI, deployer).balanceOf(
+            MaticAddresses.dForce_iDAI
+          )
+          console.log("balance", balance);
+
+          const totalSupplyUpdated = totalSupply.add(amountToSupply);
+          console.log("totalSupplyUpdated", totalSupplyUpdated);
+
+          const totalBorrowUpdated = totalBorrow.add(borrowInterest);
+          console.log("totalBorrowUpdated", totalBorrowUpdated);
+
+          const totalReservesUpdated = totalReserves.add(reserveInterest);
+          console.log("totalReservesUpdated", totalReservesUpdated);
+
+          const cashUpdated = cash.add(amountToSupplyExact);
+          console.log("cashUpdated", cashUpdated);
+
+          const br = await im.getBorrowRate(
+            cashUpdated,
+            totalBorrowUpdated,
+            totalReservesUpdated
+          );
+          console.log("br", br);
+
+          const exchangeRateInternal = DForceHelper.rdiv(
+            cashUpdated.add(totalBorrowUpdated).sub(totalReservesUpdated)
+            , totalSupplyUpdated
+          );
+          console.log("exchangeRateInternal", exchangeRateInternal);
+
+          const underlyingScaled = totalSupplyUpdated.mul(exchangeRateInternal);
+          console.log("underlyingScaled", underlyingScaled);
+
+          const base = getBigNumberFrom(1, 18);
+          const totalBorrowsScaled = totalBorrowUpdated.mul(base);
+          console.log("totalBorrowsScaled", totalBorrowsScaled);
+
+          console.log("reserveRatio", reserveRatio)
+          console.log("1e18 - reserveRatio", base.sub(reserveRatio))
+          console.log("DForceHelper.rdiv(totalBorrowsScaled, underlyingScaled)", DForceHelper.rdiv(totalBorrowsScaled, underlyingScaled))
+
+          const estimatedSupplyRate = DForceHelper.tmul(
+            borrowRatePerBlockAfter,
+            base.sub(reserveRatio),
+            DForceHelper.rdiv(totalBorrowsScaled, underlyingScaled)
+          );
+
+          console.log("estimatedSupplyRate", estimatedSupplyRate);
+        });
+      })
     });
 
-    describe("Temp calcs for DForce", () => {
-      it("apr", () => {
-        const borrowBalanceMiddle = BigNumber.from("58035600000000000000000000000000000000000");
-        const borrowBalanceLast = BigNumber.from("58035600197395749574642710000000000000000");
-        const collateralBalanceNext = BigNumber.from("169985288199999999999999838023644809698004");
-        const collateralBalanceMiddle = BigNumber.from("169985288469050133207406287966044900859892");
-        const collateralFactorMantissa = BigNumber.from("850000000000000000");
-        const borrowFactorMantissa = BigNumber.from("1000000000000000000")
-        const borrowTotalBorrowsMiddle = BigNumber.from("52239880587431260022");
-        const borrowTotalBorrowsLast = BigNumber.from("52239880765114102730");
+    describe("Hundred finance", () => {
+      it("predicted APR should be equal to real APR", async () => {
+        if (!await isPolygonForkInUse()) return;
+        const collateralToken = await TokenDataTypes.Build(deployer, ASSET_COLLATERAL);
+        const borrowToken = await TokenDataTypes.Build(deployer, ASSET_BORROW);
 
-        const priceCollateral = BigNumber.from("999913460000000000");
-        const priceBorrow = BigNumber.from("1450890000000000000000");
+        const comptroller = await HundredFinanceHelper.getComptroller(deployer);
+        const cTokenCollateral = IHfCToken__factory.connect(ASSET_COLLATERAL_HUNDRED_FINANCE_CTOKEN, deployer);
+        const cTokenBorrow = IHfCToken__factory.connect(ASSET_BORROW_HUNDRED_FINANCE_CTOREN, deployer);
+        const priceOracle = await HundredFinanceHelper.getPriceOracle(deployer);
 
+        const marketCollateralData = await HundredFinanceHelper.getCTokenData(deployer, comptroller, cTokenCollateral);
+        const marketBorrowData = await HundredFinanceHelper.getCTokenData(deployer, comptroller, cTokenBorrow);
+
+        console.log("marketCollateralData", marketCollateralData);
+        console.log("marketBorrowData", marketBorrowData);
+
+        const amountToBorrow = getBigNumberFrom(AMOUNT_TO_BORROW, borrowToken.decimals);
+        const amountCollateral = getBigNumberFrom(AMOUNT_COLLATERAL, collateralToken.decimals);
+        console.log(`amountCollateral=${amountCollateral.toString()} amountToBorrow=${amountToBorrow.toString()}`);
+
+        // prices
+        const priceCollateral = await priceOracle.getUnderlyingPrice(ASSET_COLLATERAL_HUNDRED_FINANCE_CTOKEN);
+        const priceBorrow = await priceOracle.getUnderlyingPrice(ASSET_BORROW_HUNDRED_FINANCE_CTOREN);
+        console.log("priceCollateral", priceCollateral);
+        console.log("priceBorrow", priceBorrow);
+
+        // predict APR
+        const libFacade = await DeployUtils.deployContract(deployer, "DForceAprLibFacade") as DForceAprLibFacade;
+
+        // start point: we estimate APR in this point before borrow and supply
+        const before = await getDForceStateInfo(comptroller
+          , cTokenCollateral
+          , cTokenBorrow
+          // we don't have user address at this moment
+          // so, use dummy address (and get dummy balance values - we don't use them)
+          , ethers.Wallet.createRandom().address
+        );
+
+        const borrowRatePredicted = await libFacade.getEstimatedBorrowRate(
+          await cTokenBorrow.interestRateModel()
+          , cTokenBorrow.address
+          , amountToBorrow
+        );
+
+        const supplyRatePredicted = await libFacade.getEstimatedSupplyRatePure(
+          before.collateral.market.totalSupply
+          , amountCollateral
+          , before.collateral.market.cash
+          , before.collateral.market.totalBorrows
+          , before.collateral.market.totalReserves
+          , marketCollateralData.interestRateModel
+          , before.collateral.market.reserveRatio
+          , before.collateral.market.exchangeRateStored
+        );
+
+        console.log(`Predicted: supplyRate=${supplyRatePredicted.toString()} br=${borrowRatePredicted.toString()}`);
+
+        // make borrow
+        const userAddress = await makeBorrow(deployer
+          , {
+            collateral: {
+              asset: ASSET_COLLATERAL,
+              holder: HOLDER_COLLATERAL,
+              initialLiquidity: INITIAL_LIQUIDITY_COLLATERAL,
+            }, borrow: {
+              asset: ASSET_BORROW,
+              holder: HOLDER_BORROW,
+              initialLiquidity: INITIAL_LIQUIDITY_BORROW,
+            }, collateralAmount: AMOUNT_COLLATERAL
+            , healthFactor2: HEALTH_FACTOR2
+            , countBlocks: COUNT_BLOCKS
+          }
+          , amountToBorrow
+          , new DForcePlatformFabric()
+        );
+
+        const afterBorrow = await getDForceStateInfo(comptroller
+          , cTokenCollateral
+          , cTokenBorrow
+          , userAddress
+        );
+
+        // next => last
+        const next = afterBorrow;
+
+        // For collateral: move ahead on single block
+        await cTokenCollateral.updateInterest(); //await TimeUtils.advanceNBlocks(1);
+
+        const middle = await getDForceStateInfo(comptroller
+          , cTokenCollateral
+          , cTokenBorrow
+          , userAddress
+        );
+
+        // For borrow: move ahead on one more block
+        await cTokenBorrow.updateInterest();
+
+        const last = await getDForceStateInfo(comptroller
+          , cTokenCollateral
+          , cTokenBorrow
+          , userAddress
+        );
         const base = getBigNumberFrom(1, 18);
-        const double = getBigNumberFrom(1, 36);
 
-        const collateralExchangeRateNext = BigNumber.from("1006072989394821668");
-        const collateralExchangeRateMiddle = BigNumber.from("1006072990987218720");
+        const collateralNextV = DForceHelper.getCollateralValue(
+          next.collateral.account.balance
+          , priceCollateral
+          , next.collateral.market.exchangeRateStored
+          , marketCollateralData.collateralFactorMantissa
+        );
+        const collateralLastV = DForceHelper.getCollateralValue(
+          last.collateral.account.balance
+          , priceCollateral
+          , last.collateral.market.exchangeRateStored
+          , marketCollateralData.collateralFactorMantissa
+        );
 
-        const c2 = collateralBalanceMiddle.mul(base).div(priceCollateral).div(collateralFactorMantissa);
-        const c1 = collateralBalanceNext.mul(base).div(priceCollateral).div(collateralFactorMantissa);
-        console.log("c2", c2);
-        console.log("c1", c1);
+        const collateralNext = collateralNextV
+          .mul(base)
+          .div(priceCollateral)
+          .div(marketCollateralData.collateralFactorMantissa);
+        const collateralLast = collateralLastV
+          .mul(base)
+          .div(priceCollateral)
+          .div(marketCollateralData.collateralFactorMantissa);
+        console.log("collateralNext", collateralNext);
+        console.log("collateralLast", collateralLast);
 
-        const cDelta = c2.sub(c1);
-        console.log("cDelta", cDelta);
+        const deltaCollateralV = collateralLastV.sub(collateralNextV);
+        const deltaCollateral = collateralLast.sub(collateralNext);
 
-        const b2 = borrowBalanceLast.mul(base).div(priceBorrow).div(borrowFactorMantissa);
-        const b1 = borrowBalanceMiddle.mul(base).div(priceBorrow).div(borrowFactorMantissa);
-        console.log("b2", b2);
-        console.log("b1", b1);
+        const deltaBorrowBalance = last.borrow.account.borrowBalanceStored.sub(next.borrow.account.borrowBalanceStored);
 
-        const bDelta = b2.sub(b1);
-        console.log("cDelta", bDelta);
+        console.log("before", before);
+        console.log("afterBorrow=next", afterBorrow);
+        console.log("middle", middle);
+        console.log("last", last);
+
+        // calculate exact values of supply/borrow APR
+        // we use state-values "after-borrow" and exact values of supply/borrow rates after borrow
+        const countBlocksSupply = 1; // after next, we call UpdateInterest for supply token...
+        const countBlocksBorrow = 2; // ...then for the borrow token
+
+        console.log("deltaCollateral", deltaCollateral);
+        console.log("deltaCollateralV", deltaCollateralV);
+        console.log("deltaBorrowBalance", deltaBorrowBalance);
+
+        const supplyApr = await libFacade.getSupplyApr18(
+          supplyRatePredicted
+          , countBlocksSupply
+          , await cTokenCollateral.decimals()
+          , priceCollateral
+          , priceBorrow
+          , amountCollateral
+        );
+        console.log("supplyApr", supplyApr);
+        const supplyAprExact = await libFacade.getSupplyApr18(
+          next.collateral.market.supplyRatePerBlock
+          , countBlocksSupply
+          , await cTokenCollateral.decimals()
+          , priceCollateral
+          , priceBorrow
+          , amountCollateral
+        );
+        console.log("supplyAprExact", supplyAprExact);
+
+        const borrowApr = await libFacade.getBorrowApr18(
+          borrowRatePredicted
+          , amountToBorrow
+          , countBlocksBorrow
+          , await cTokenBorrow.decimals()
+        );
+        console.log("borrowApr", borrowApr);
+
+        const borrowAprExact = await libFacade.getBorrowApr18(
+          middle.borrow.market.borrowRatePerBlock
+          , amountToBorrow
+          , countBlocksBorrow
+          , await cTokenBorrow.decimals()
+        );
+        console.log("borrowAprExact", borrowApr);
+
+        const deltaCollateralBT = deltaCollateral.mul(priceCollateral).div(priceBorrow);
+
+        // calculate real differences in user-account-balances for period [next block, last block]
+        const ret = [
+          areAlmostEqual(deltaCollateralBT, supplyApr, 4)
+          , areAlmostEqual(deltaBorrowBalance, borrowApr, 5)
+
+          // not exact because real supply and borrow rate are rounded
+          , areAlmostEqual(deltaCollateralBT, supplyAprExact, 9)
+          , areAlmostEqual(deltaBorrowBalance, borrowAprExact, 9)
+        ].join("\n");
+
+        // these differences must be equal to exact supply/borrow APR
+        const expected = [
+          true
+          , true
+          , true
+          , true
+        ].join("\n");
+
+        expect(ret).equals(expected);
+
+
       });
-
-      it.skip("supply rate", async () => {
-        const comptroller = await DForceHelper.getController(deployer);
-        const im = DForceInterestRateModelMock__factory.connect("0x6Bf21BF8cB213997ac0F3A3b1feD431E2BD0C45a", deployer);
-
-        const totalSupply = BigNumber.from("950110374878895912732010");
-        const amountToSupply = BigNumber.from("198862327947469607502699");
-        const amountToSupplyExact = BigNumber.from("200000000000000000000000");
-        const cash = BigNumber.from("207457975647111909044867");
-
-        const totalBorrow = BigNumber.from("748722543290648981048813");
-        const borrowInterest = BigNumber.from("17485895962232384280");
-        const reserveInterest = BigNumber.from("1748589596223238428");
-        const totalReserves = BigNumber.from("650392243307287326761");
-        const borrowRatePerBlock = BigNumber.from("3174864977");
-        const borrowRatePerBlockAfter = BigNumber.from("2625382581");
-        const reserveRatio = BigNumber.from("100000000000000000");
-
-        const balance = await IERC20__factory.connect(MaticAddresses.DAI, deployer).balanceOf(
-          MaticAddresses.dForce_iDAI
-        )
-        console.log("balance", balance);
-
-        const totalSupplyUpdated = totalSupply.add(amountToSupply);
-        console.log("totalSupplyUpdated", totalSupplyUpdated);
-
-        const totalBorrowUpdated = totalBorrow.add(borrowInterest);
-        console.log("totalBorrowUpdated", totalBorrowUpdated);
-
-        const totalReservesUpdated = totalReserves.add(reserveInterest);
-        console.log("totalReservesUpdated", totalReservesUpdated);
-
-        const cashUpdated = cash.add(amountToSupplyExact);
-        console.log("cashUpdated", cashUpdated);
-
-        const br = await im.getBorrowRate(
-          cashUpdated,
-          totalBorrowUpdated,
-          totalReservesUpdated
-        );
-        console.log("br", br);
-
-        const exchangeRateInternal = DForceHelper.rdiv(
-          cashUpdated.add(totalBorrowUpdated).sub(totalReservesUpdated)
-          , totalSupplyUpdated
-        );
-        console.log("exchangeRateInternal", exchangeRateInternal);
-
-        const underlyingScaled = totalSupplyUpdated.mul(exchangeRateInternal);
-        console.log("underlyingScaled", underlyingScaled);
-
-        const base = getBigNumberFrom(1, 18);
-        const totalBorrowsScaled = totalBorrowUpdated.mul(base);
-        console.log("totalBorrowsScaled", totalBorrowsScaled);
-
-        console.log("reserveRatio", reserveRatio)
-        console.log("1e18 - reserveRatio", base.sub(reserveRatio))
-        console.log("DForceHelper.rdiv(totalBorrowsScaled, underlyingScaled)", DForceHelper.rdiv(totalBorrowsScaled, underlyingScaled))
-
-        const estimatedSupplyRate = DForceHelper.tmul(
-          borrowRatePerBlockAfter,
-          base.sub(reserveRatio),
-          DForceHelper.rdiv(totalBorrowsScaled, underlyingScaled)
-        );
-
-        console.log("estimatedSupplyRate", estimatedSupplyRate);
-      });
-    })
-
+    });
   });
 });
 
