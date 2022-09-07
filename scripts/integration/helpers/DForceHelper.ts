@@ -794,6 +794,8 @@ export class DForceHelper {
 //region Amounts calculations
   /**
    * See LendingContractsV2, Controller.sol, calcAccountEquityWithEffect
+   *
+   * CollateralValue = Balance * (Price * ExchangeRate * collateralFactorMantissa) / 1e36
    */
   public static getCollateralValue(
     cTokenBalance: BigNumber,

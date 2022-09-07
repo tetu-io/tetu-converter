@@ -32,10 +32,18 @@ contract DForceAprLibFacade {
     uint totalBorrows_,
     uint totalReserves_,
     IDForceInterestRateModel interestRateModel_,
-    uint reserveRatio_
+    uint reserveRatio_,
+    uint currentExchangeRate_
   ) external view returns(uint) {
     return DForceAprLib.getEstimatedSupplyRatePure(
-      totalSupply_, amountToSupply_, cash_, totalBorrows_, totalReserves_, interestRateModel_, reserveRatio_
+      totalSupply_,
+      amountToSupply_,
+      cash_,
+      totalBorrows_,
+      totalReserves_,
+      interestRateModel_,
+      reserveRatio_,
+      currentExchangeRate_
     );
   }
 
@@ -72,23 +80,26 @@ contract DForceAprLibFacade {
     uint countBlocks,
     uint8 collateralDecimals,
     uint priceCollateral,
-    uint priceBorrow
+    uint priceBorrow,
+    uint suppliedAmount
   ) external pure returns (uint) {
     return DForceAprLib.getSupplyApr18(
       supplyRatePerBlock,
       countBlocks,
       collateralDecimals,
       priceCollateral,
-      priceBorrow
+      priceBorrow,
+      suppliedAmount
     );
   }
 
   function getBorrowApr18(
     uint borrowRatePerBlock,
+    uint borrowedAmount,
     uint countBlocks,
     uint8 borrowDecimals
   ) external pure returns (uint) {
-    return DForceAprLib.getBorrowApr18(borrowRatePerBlock, countBlocks, borrowDecimals);
+    return DForceAprLib.getBorrowApr18(borrowRatePerBlock, borrowedAmount, countBlocks, borrowDecimals);
   }
 
   function getRewardAmountsBT(

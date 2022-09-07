@@ -39,6 +39,7 @@ import {
   SupplyBorrowUsingDForce
 } from "../baseUT/uses-cases/dforce/SupplyBorrowUsingDForce";
 import {DForcePlatformFabric} from "../baseUT/fabrics/DForcePlatformFabric";
+import {totalmem} from "os";
 
 /**
  * For any landing platform:
@@ -1136,15 +1137,15 @@ describe("CompareAprBeforeAfterBorrow", () => {
           , amountToBorrow
         );
 
-        const brExact = BigNumber.from("1681078699");
         const supplyRatePredicted = await libFacade.getEstimatedSupplyRatePure(
           before.collateral.market.totalSupply
           , amountCollateral
           , before.collateral.market.cash
           , before.collateral.market.totalBorrows
           , before.collateral.market.totalReserves
-          , before.collateral.market.borrowRatePerBlock
+          , marketCollateralData.interestRateModel
           , before.collateral.market.reserveRatio
+          , before.collateral.market.exchangeRateStored
         );
 
         console.log(`Predicted: supplyRate=${supplyRatePredicted.toString()} br=${borrowRatePredicted.toString()}`);
@@ -1194,216 +1195,150 @@ describe("CompareAprBeforeAfterBorrow", () => {
           , cTokenBorrow
           , userAddress
         );
+        const base = getBigNumberFrom(1, 18);
 
-        const collateralNext = DForceHelper.getCollateralValue(
+        const collateralNextV = DForceHelper.getCollateralValue(
           next.collateral.account.balance
           , priceCollateral
           , next.collateral.market.exchangeRateStored
           , marketCollateralData.collateralFactorMantissa
         );
-        const collateralLast = DForceHelper.getCollateralValue(
+        const collateralLastV = DForceHelper.getCollateralValue(
           last.collateral.account.balance
           , priceCollateral
           , last.collateral.market.exchangeRateStored
           , marketCollateralData.collateralFactorMantissa
         );
+
+        const collateralNext = collateralNextV
+          .mul(base)
+          .div(priceCollateral)
+          .div(marketCollateralData.collateralFactorMantissa);
+        const collateralLast = collateralLastV
+          .mul(base)
+          .div(priceCollateral)
+          .div(marketCollateralData.collateralFactorMantissa);
+        console.log("collateralNext", collateralNext);
+        console.log("collateralLast", collateralLast);
+
+        const deltaCollateralV = collateralLastV.sub(collateralNextV);
         const deltaCollateral = collateralLast.sub(collateralNext);
-        const deltaCollateralBT = collateralLast.sub(collateralNext)
-          .mul(priceCollateral)
-          .div(priceBorrow)
-          .mul(getBigNumberFrom(1, 18))
-          .div(getBigNumberFrom(1, await cTokenCollateral.decimals()));
 
-        const borrowNext = DForceHelper.getBorrowValue(
-          next.borrow.account.borrowBalanceStored,
-          priceBorrow,
-          marketBorrowData.borrowFactorMantissa
-        );
-        const borrowLast = DForceHelper.getBorrowValue(
-          last.borrow.account.borrowBalanceStored,
-          priceBorrow,
-          marketBorrowData.borrowFactorMantissa
-        );
-        const deltaBorrow = borrowLast.sub(borrowNext);
-
-        console.log("deltaCollateral", deltaCollateral);
-        console.log("deltaCollateralBT", deltaCollateralBT);
-        console.log("deltaBorrow", deltaBorrow);
+        const deltaBorrowBalance = last.borrow.account.borrowBalanceStored.sub(next.borrow.account.borrowBalanceStored);
 
         console.log("before", before);
         console.log("afterBorrow=next", afterBorrow);
         console.log("middle", middle);
         console.log("last", last);
 
-        // const keyValues: IAaveKeyTestValues = {
-        //   borrowRatePredicted: borrowRatePredicted,
-        //   liquidityRatePredicted: supplyRatePredicted,
-        //
-        //   liquidity: {
-        //     beforeBorrow: {
-        //       block: before.block,
-        //       blockTimeStamp: before.blockTimestamp,
-        //       rate: before.collateral.data.currentLiquidityRate,
-        //       liquidityIndex: before.collateral.data.liquidityIndex,
-        //       scaledBalance: BigNumber.from(0),
-        //       reserveNormalized: before.collateral.reserveNormalized,
-        //       userBalanceBase: BigNumber.from(0),
-        //       lastUpdateTimestamp: before.collateral.data.lastUpdateTimestamp
-        //     },
-        //     afterBorrow: {
-        //       block: afterBorrow.block,
-        //       blockTimeStamp: afterBorrow.blockTimestamp,
-        //       rate: afterBorrow.collateral.data.currentLiquidityRate,
-        //       liquidityIndex: afterBorrow.collateral.data.liquidityIndex,
-        //       scaledBalance: afterBorrow.collateral.scaledBalance,
-        //       reserveNormalized: afterBorrow.collateral.reserveNormalized,
-        //       userBalanceBase: afterBorrow.userAccount!.totalCollateralBase,
-        //       lastUpdateTimestamp: afterBorrow.collateral.data.lastUpdateTimestamp
-        //     },
-        //     next: {
-        //       block: next.block,
-        //       blockTimeStamp: next.blockTimestamp,
-        //       rate: next.collateral.data.currentLiquidityRate,
-        //       liquidityIndex: next.collateral.data.liquidityIndex,
-        //       scaledBalance: next.collateral.scaledBalance,
-        //       reserveNormalized: next.collateral.reserveNormalized,
-        //       userBalanceBase: next.userAccount!.totalCollateralBase,
-        //       lastUpdateTimestamp: next.collateral.data.lastUpdateTimestamp
-        //     },
-        //     last: {
-        //       block: last.block,
-        //       blockTimeStamp: last.blockTimestamp,
-        //       rate: last.collateral.data.currentLiquidityRate,
-        //       liquidityIndex: last.collateral.data.liquidityIndex,
-        //       scaledBalance: last.collateral.scaledBalance,
-        //       reserveNormalized: last.collateral.reserveNormalized,
-        //       userBalanceBase: last.userAccount!.totalCollateralBase,
-        //       lastUpdateTimestamp: last.collateral.data.lastUpdateTimestamp
-        //     }
-        //   },
-        //   borrow: {
-        //     beforeBorrow: {
-        //       block: before.block,
-        //       blockTimeStamp: before.blockTimestamp,
-        //       rate: before.borrow.data.currentVariableBorrowRate,
-        //       liquidityIndex: before.borrow.data.variableBorrowIndex,
-        //       scaledBalance: BigNumber.from(0),
-        //       reserveNormalized: before.borrow.reserveNormalized,
-        //       userBalanceBase: BigNumber.from(0),
-        //       lastUpdateTimestamp: before.borrow.data.lastUpdateTimestamp
-        //     },
-        //     afterBorrow: {
-        //       block: afterBorrow.block,
-        //       blockTimeStamp: afterBorrow.blockTimestamp,
-        //       rate: afterBorrow.borrow.data.currentVariableBorrowRate,
-        //       liquidityIndex: afterBorrow.borrow.data.variableBorrowIndex,
-        //       scaledBalance: afterBorrow.borrow.scaledBalance,
-        //       reserveNormalized: afterBorrow.borrow.reserveNormalized,
-        //       userBalanceBase: afterBorrow.userAccount!.totalDebtBase,
-        //       lastUpdateTimestamp: afterBorrow.borrow.data.lastUpdateTimestamp
-        //     },
-        //     next: {
-        //       block: next.block,
-        //       blockTimeStamp: next.blockTimestamp,
-        //       rate: next.borrow.data.currentVariableBorrowRate,
-        //       liquidityIndex: next.borrow.data.variableBorrowIndex,
-        //       scaledBalance: next.borrow.scaledBalance,
-        //       reserveNormalized: next.borrow.reserveNormalized,
-        //       userBalanceBase: next.userAccount!.totalDebtBase,
-        //       lastUpdateTimestamp: next.borrow.data.lastUpdateTimestamp
-        //     },
-        //     last: {
-        //       block: last.block,
-        //       blockTimeStamp: last.blockTimestamp,
-        //       rate: last.borrow.data.currentVariableBorrowRate,
-        //       liquidityIndex: last.borrow.data.variableBorrowIndex,
-        //       scaledBalance: last.borrow.scaledBalance,
-        //       reserveNormalized: last.borrow.reserveNormalized,
-        //       userBalanceBase: last.userAccount!.totalDebtBase,
-        //       lastUpdateTimestamp: last.borrow.data.lastUpdateTimestamp
-        //     }
-        //   },
-        // };
-        // console.log("key", keyValues);
-        //
-        // // calculate exact values of supply/borrow APR
-        // // we use state-values "after-borrow" and exact values of supply/borrow rates after borrow
-        // const countBlocks = keyValues.liquidity.last.blockTimeStamp - keyValues.liquidity.next.blockTimeStamp;
-        // // for test purpose assume that we have exactly 1 block per 1 second
-        // const blocksPerDay = 86400;
-        // console.log("countBlocks", countBlocks);
-        //
-        // const supplyApr = await getAprAAVE3Base(
-        //   libFacade
-        //   , amountCollateral
-        //   , supplyRatePredicted
-        //   , priceCollateral
-        //   , countBlocks
-        //   , keyValues.liquidity.afterBorrow
-        //   , blocksPerDay
-        // );
-        // console.log("supplyAprExact", supplyApr);
-        // const borrowApr = await getAprAAVE3Base(
-        //   libFacade
-        //   , amountToBorrow
-        //   , afterBorrow.borrow.data.currentVariableBorrowRate
-        //   , priceBorrow
-        //   , countBlocks
-        //   , keyValues.borrow.afterBorrow
-        //   , blocksPerDay
-        // );
-        // console.log("borrowAprExact", borrowApr);
-        //
-        // // calculate approx values of supply/borrow APR
-        // // we use state-values "before-borrow" and predicted values of supply/borrow rates after borrow
-        // const supplyAprApprox = await getAprBeforeAAVE3Base(
-        //   libFacade
-        //   , amountCollateral
-        //   , keyValues.liquidityRatePredicted
-        //   , priceCollateral
-        //   , countBlocks
-        //   , keyValues.liquidity.beforeBorrow
-        //   , blocksPerDay
-        //   , keyValues.liquidity.afterBorrow.blockTimeStamp
-        // );
-        // console.log("supplyAprApprox", supplyAprApprox);
-        //
-        // const borrowAprApprox = await getAprBeforeAAVE3Base(
-        //   libFacade
-        //   , amountToBorrow
-        //   , keyValues.borrowRatePredicted
-        //   , priceBorrow
-        //   , countBlocks
-        //   , keyValues.borrow.beforeBorrow
-        //   , blocksPerDay
-        //   , keyValues.borrow.afterBorrow.blockTimeStamp
-        // );
-        // console.log("borrowAprApprox", borrowAprApprox);
-        //
-        // // calculate real differences in user-account-balances for period [next block, last block]
-        // const ret = [
-        //   last.userAccount!.totalCollateralBase.sub(next.userAccount!.totalCollateralBase).toString(),
-        //   last.userAccount!.totalDebtBase.sub(next.userAccount!.totalDebtBase).toString(),
-        //
-        //   last.userAccount!.totalCollateralBase.sub(next.userAccount!.totalCollateralBase).toString(),
-        //   last.userAccount!.totalDebtBase.sub(next.userAccount!.totalDebtBase).toString()
-        // ].join();
-        //
-        // // these differences must be equal to exact supply/borrow APR
-        // const expected = [
-        //   supplyApr.toString(), borrowApr.toString(),
-        //
-        //   supplyAprApprox.toString(), borrowAprApprox.toString()
-        // ].join();
-        //
-        // expect(ret).equals(expected);
+        // calculate exact values of supply/borrow APR
+        // we use state-values "after-borrow" and exact values of supply/borrow rates after borrow
+        const countBlocksSupply = 1; // after next, we call UpdateInterest for supply token...
+        const countBlocksBorrow = 2; // ...then for the borrow token
+
+        console.log("deltaCollateral", deltaCollateral);
+        console.log("deltaCollateralV", deltaCollateralV);
+        console.log("deltaBorrowBalance", deltaBorrowBalance);
+
+        const supplyApr = await libFacade.getSupplyApr18(
+          supplyRatePredicted
+          , countBlocksSupply
+          , await cTokenCollateral.decimals()
+          , priceCollateral
+          , priceBorrow
+          , amountCollateral
+        );
+        console.log("supplyApr", supplyApr);
+        const supplyAprExact = await libFacade.getSupplyApr18(
+          next.collateral.market.supplyRatePerBlock
+          , countBlocksSupply
+          , await cTokenCollateral.decimals()
+          , priceCollateral
+          , priceBorrow
+          , amountCollateral
+        );
+        console.log("supplyAprExact", supplyAprExact);
+
+        const borrowApr = await libFacade.getBorrowApr18(
+          borrowRatePredicted
+          , amountToBorrow
+          , countBlocksBorrow
+          , await cTokenBorrow.decimals()
+        );
+        console.log("borrowApr", borrowApr);
+
+        const borrowAprExact = await libFacade.getBorrowApr18(
+          middle.borrow.market.borrowRatePerBlock
+          , amountToBorrow
+          , countBlocksBorrow
+          , await cTokenBorrow.decimals()
+        );
+        console.log("borrowAprExact", borrowApr);
+
+        const deltaCollateralBT = deltaCollateral.mul(priceCollateral).div(priceBorrow);
+
+        // calculate real differences in user-account-balances for period [next block, last block]
+        const ret = [
+          areAlmostEqual(deltaCollateralBT, supplyApr, 4)
+          , areAlmostEqual(deltaBorrowBalance, borrowApr, 5)
+
+          // not exact because real supply and borrow rate are rounded
+          , areAlmostEqual(deltaCollateralBT, supplyAprExact, 9)
+          , areAlmostEqual(deltaBorrowBalance, borrowAprExact, 9)
+        ].join("\n");
+
+        // these differences must be equal to exact supply/borrow APR
+        const expected = [
+          true
+          , true
+          , true
+          , true
+        ].join("\n");
+
+        expect(ret).equals(expected);
 
 
       });
     });
 
-    describe("Temp DForce", () => {
-      it("test", async () => {
+    describe("Temp calcs for DForce", () => {
+      it("apr", () => {
+        const borrowBalanceMiddle = BigNumber.from("58035600000000000000000000000000000000000");
+        const borrowBalanceLast = BigNumber.from("58035600197395749574642710000000000000000");
+        const collateralBalanceNext = BigNumber.from("169985288199999999999999838023644809698004");
+        const collateralBalanceMiddle = BigNumber.from("169985288469050133207406287966044900859892");
+        const collateralFactorMantissa = BigNumber.from("850000000000000000");
+        const borrowFactorMantissa = BigNumber.from("1000000000000000000")
+        const borrowTotalBorrowsMiddle = BigNumber.from("52239880587431260022");
+        const borrowTotalBorrowsLast = BigNumber.from("52239880765114102730");
+
+        const priceCollateral = BigNumber.from("999913460000000000");
+        const priceBorrow = BigNumber.from("1450890000000000000000");
+
+        const base = getBigNumberFrom(1, 18);
+        const double = getBigNumberFrom(1, 36);
+
+        const collateralExchangeRateNext = BigNumber.from("1006072989394821668");
+        const collateralExchangeRateMiddle = BigNumber.from("1006072990987218720");
+
+        const c2 = collateralBalanceMiddle.mul(base).div(priceCollateral).div(collateralFactorMantissa);
+        const c1 = collateralBalanceNext.mul(base).div(priceCollateral).div(collateralFactorMantissa);
+        console.log("c2", c2);
+        console.log("c1", c1);
+
+        const cDelta = c2.sub(c1);
+        console.log("cDelta", cDelta);
+
+        const b2 = borrowBalanceLast.mul(base).div(priceBorrow).div(borrowFactorMantissa);
+        const b1 = borrowBalanceMiddle.mul(base).div(priceBorrow).div(borrowFactorMantissa);
+        console.log("b2", b2);
+        console.log("b1", b1);
+
+        const bDelta = b2.sub(b1);
+        console.log("cDelta", bDelta);
+      });
+
+      it.skip("supply rate", async () => {
         const comptroller = await DForceHelper.getController(deployer);
         const im = DForceInterestRateModelMock__factory.connect("0x6Bf21BF8cB213997ac0F3A3b1feD431E2BD0C45a", deployer);
 

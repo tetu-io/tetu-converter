@@ -122,7 +122,8 @@ library DForceAprLib {
       countBlocks_,
       core.cTokenCollateral.decimals(),
       getPrice(core.priceOracle, address(core.cTokenCollateral)),
-      priceBorrow
+      priceBorrow,
+      collateralAmount_
     );
 
     // estimate borrow rate value after the borrow and calculate result APR
@@ -132,6 +133,7 @@ library DForceAprLib {
         core.cTokenBorrow,
         amountToBorrow_
       ),
+      core.cTokenBorrow.totalBorrows(),
       countBlocks_,
       core.cTokenBorrow.decimals()
     );
@@ -141,32 +143,40 @@ library DForceAprLib {
   function getSupplyApr18(
     uint supplyRatePerBlock,
     uint countBlocks,
-    uint8 collateralDecimals,
-    uint priceCollateral,
-    uint priceBorrow
+    uint8 ciceCollateral,
+    uint collateralDecimals,
+    uint priceBorrow,
+    uint suppliedAmount
   ) internal pure returns (uint) {
     return AppUtils.toMantissa(
-      supplyRatePerBlock * countBlocks * priceCollateral / priceBorrow,
+      rmul(supplyRatePerBlock * countBlocks, suppliedAmount) * priceCollateral / priceBorrow,
       collateralDecimals,
       18
     );
   }
 
   /// @notice Calculate borrow APR in terms of borrow tokens with decimals 18
+  /// @dev see LendingContractsV2, Base.sol, _updateInterest
   function getBorrowApr18(
     uint borrowRatePerBlock,
+    uint borrowedAmount,
     uint countBlocks,
     uint8 borrowDecimals
   ) internal pure returns (uint) {
+    // simpleInterestFactor = borrowRate * blockDelta
+    // interestAccumulated = simpleInterestFactor * totalBorrows
+    // newTotalBorrows = interestAccumulated + totalBorrows
+    uint simpleInterestFactor = borrowRatePerBlock * countBlocks;
+
     return  AppUtils.toMantissa(
-      borrowRatePerBlock * countBlocks,
+      rmul(simpleInterestFactor, borrowedAmount),
       borrowDecimals,
       18
     );
   }
 
   ///////////////////////////////////////////////////////
-  //         Estimate borrow rate and supply rate
+  //         Estimate borrow rate
   ///////////////////////////////////////////////////////
 
   /// @notice Estimate value of variable borrow rate after borrowing {amountToBorrow_}
@@ -176,18 +186,30 @@ library DForceAprLib {
     IDForceCToken cTokenBorrow_,
     uint amountToBorrow_
   ) internal view returns (uint) {
-    console.log("getEstimatedBorrowRate.amountToBorrow_", amountToBorrow_);
-    console.log("getEstimatedBorrowRate.cash0", cTokenBorrow_.getCash());
-    console.log("getEstimatedBorrowRate.cash", cTokenBorrow_.getCash() - amountToBorrow_);
-    console.log("getEstimatedBorrowRate.totalBorrows0", cTokenBorrow_.totalBorrows());
-    console.log("getEstimatedBorrowRate.totalBorrows", cTokenBorrow_.totalBorrows() + amountToBorrow_);
-    console.log("getEstimatedBorrowRate.totalReserves", cTokenBorrow_.totalReserves());
     return interestRateModel_.getBorrowRate(
       cTokenBorrow_.getCash() - amountToBorrow_,
       cTokenBorrow_.totalBorrows() + amountToBorrow_,
       cTokenBorrow_.totalReserves()
     );
   }
+
+  /// @notice Estimate value of variable borrow rate after borrowing {amountToBorrow_}
+  ///         Rewards are not taken into account
+  function getEstimatedBorrowRatePure(
+    IDForceInterestRateModel interestRateModel_,
+    IDForceCToken cTokenBorrow_,
+    uint amountToBorrow_
+  ) internal view returns (uint) {
+    return interestRateModel_.getBorrowRate(
+      cTokenBorrow_.getCash() - amountToBorrow_,
+      cTokenBorrow_.totalBorrows() + amountToBorrow_,
+      cTokenBorrow_.totalReserves()
+    );
+  }
+
+  ///////////////////////////////////////////////////////
+  //         Estimate supply rate
+  ///////////////////////////////////////////////////////
 
   function getEstimatedSupplyRate(
     IDForceCToken cTokenCollateral_,
@@ -200,7 +222,8 @@ library DForceAprLib {
       cTokenCollateral_.totalBorrows(),
       cTokenCollateral_.totalReserves(),
       IDForceInterestRateModel(cTokenCollateral_.interestRateModel()),
-      cTokenCollateral_.reserveRatio()
+      cTokenCollateral_.reserveRatio(),
+      cTokenCollateral_.exchangeRateStored()
     );
   }
 
@@ -212,10 +235,10 @@ library DForceAprLib {
     uint totalBorrows_,
     uint totalReserves_,
     IDForceInterestRateModel interestRateModel_,
-    uint reserveRatio_
+    uint reserveRatio_,
+    uint currentExchangeRate_
   ) internal view returns(uint) {
-    // actually, total supply is increased on a bit less value of the initial supply fee
-    uint totalSupply = totalSupply_ + amountToSupply_;
+    uint totalSupply = totalSupply_ + amountToSupply_ * 10**18 / currentExchangeRate_;
 
     uint exchangeRateInternal = getEstimatedExchangeRate(
       totalSupply,
