@@ -28,6 +28,8 @@ export interface IPointResults {
 
   /** Actual costs for period, all values are given in terms of borrow token, decimals 18*/
   costsBT18: IAmounts;
+  /** both supply and borrow rewards in total (starting from the beginning) */
+  totalAmountRewards?: BigNumber;
 }
 
 /**

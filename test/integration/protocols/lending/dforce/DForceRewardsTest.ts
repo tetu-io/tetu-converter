@@ -1,23 +1,12 @@
 import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
-import hre, {ethers} from "hardhat";
+import {ethers} from "hardhat";
 import {TimeUtils} from "../../../../../scripts/utils/TimeUtils";
-import {expect, use} from "chai";
+import {expect} from "chai";
 import {getBigNumberFrom} from "../../../../../scripts/utils/NumberUtils";
 import {isPolygonForkInUse} from "../../../../baseUT/utils/NetworkUtils";
 import {MaticAddresses} from "../../../../../scripts/addresses/MaticAddresses";
 import {TokenDataTypes} from "../../../../baseUT/types/TokenDataTypes";
 import {SupplyBorrowUsingDForce} from "../../../../baseUT/uses-cases/dforce/SupplyBorrowUsingDForce";
-import {DForcePlatformFabric} from "../../../../baseUT/fabrics/DForcePlatformFabric";
-import {CoreContractsHelper} from "../../../../baseUT/helpers/CoreContractsHelper";
-import {BorrowRepayUsesCase} from "../../../../baseUT/uses-cases/BorrowRepayUsesCase";
-import {
-  ITetuLiquidator__factory,
-  IERC20__factory,
-  IERC20Extended__factory,
-  IDForceCToken__factory
-} from "../../../../../typechain";
-import {DForceHelper} from "../../../../../scripts/integration/helpers/DForceHelper";
-import {DeployerUtils} from "../../../../../scripts/utils/DeployerUtils";
 
 /**
  * Supply amount => claim rewards in specified period

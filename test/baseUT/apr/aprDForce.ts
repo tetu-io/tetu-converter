@@ -174,6 +174,7 @@ export class AprDForce {
     const cTokenCollateral = IDForceCToken__factory.connect(collateralCTokenAddress, deployer);
     const cTokenBorrow = IDForceCToken__factory.connect(borrowCTokenAddress, deployer);
     const priceOracle = await DForceHelper.getPriceOracle(comptroller, deployer);
+    const rewardsDistributor = await DForceHelper.getRewardDistributor(comptroller, deployer);
 
     const marketCollateralData = await DForceHelper.getCTokenData(deployer, comptroller, cTokenCollateral);
     const marketBorrowData = await DForceHelper.getCTokenData(deployer, comptroller, cTokenBorrow);
@@ -319,7 +320,18 @@ export class AprDForce {
     const pointsResults: IPointResults[] = [];
     let prev = this.last;
     for (const period of additionalPoints) {
-      await TimeUtils.advanceNBlocks(period);
+      // we need 4 blocks to update rewards ... so we need to make advance on N - 4 blocks
+      if (period > 4) {
+        await TimeUtils.advanceNBlocks(period - 4);
+        await rewardsDistributor.updateDistributionState(collateralCTokenAddress, false);
+        await rewardsDistributor.updateReward(collateralCTokenAddress, this.userAddress, false);
+        await rewardsDistributor.updateDistributionState(borrowCTokenAddress, true);
+        await rewardsDistributor.updateReward(borrowCTokenAddress, this.userAddress, true);
+      } else {
+        await TimeUtils.advanceNBlocks(period); // no rewards, period is too small
+      }
+      const totalAmountRewards = await rewardsDistributor.reward(this.userAddress);
+
       let current = await getDForceStateInfo(comptroller
         , cTokenCollateral
         , cTokenBorrow
@@ -336,6 +348,7 @@ export class AprDForce {
       const db = current.borrow.account.borrowBalanceStored.sub(
         prev.borrow.account.borrowBalanceStored
       );
+
       pointsResults.push({
         period: {
           block0: prev.block,
@@ -351,7 +364,7 @@ export class AprDForce {
         }, costsBT18: {
           collateral: changeDecimals(dc.mul(priceCollateral).div(priceBorrow), collateralToken.decimals, 18),
           borrow: changeDecimals(db, borrowToken.decimals, 18),
-        }
+        }, totalAmountRewards: totalAmountRewards
       })
     }
 

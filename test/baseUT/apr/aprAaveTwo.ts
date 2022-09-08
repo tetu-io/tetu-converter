@@ -250,9 +250,12 @@ export class AprAaveTwo {
     this.userAddress = await makeBorrow(deployer, p, amountToBorrow, new AaveTwoPlatformFabric());
 
     this.next = await getAaveTwoStateInfo(deployer, aavePool, p.collateral.asset, p.borrow.asset, this.userAddress);
-    await TimeUtils.advanceNBlocks(1);
+    await TimeUtils.advanceNBlocks(p.countBlocks);
     this.last = await getAaveTwoStateInfo(deployer, aavePool, p.collateral.asset, p.borrow.asset, this.userAddress);
 
+    // we need to display full objects
+    // https://stackoverflow.com/questions/10729276/how-can-i-get-the-full-object-in-node-jss-console-log-rather-than-object
+    require("util").inspect.defaultOptions.depth = null;
     console.log("before", this.before);
     console.log("next", this.next);
     console.log("last", this.last);

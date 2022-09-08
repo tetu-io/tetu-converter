@@ -119,10 +119,11 @@ describe("CompareAprBeforeAfterBorrow", () => {
           ret.resultsBlock.aprBT18.collateral.toString(), ret.resultsBlock.aprBT18.borrow.toString(),
         ].join();
 
+        const rays = getBigNumberFrom(1, 36);
         // these differences must be equal to exact supply/borrow APR
         const sexpected = [
-          h.supplyAprBaseExact!.toString(), h.borrowAprBaseExact!.toString(),
-          h.supplyAprBaseApprox!.toString(), h.borrowAprBaseApprox!.toString(),
+          h.supplyAprBaseExactRay!.div(rays).toString(), h.borrowAprBaseExactRay!.div(rays).toString(),
+          h.supplyAprBaseApproxRay!.div(rays).toString(), h.borrowAprBaseApproxRay!.div(rays).toString(),
           ret.predicted.aprBT18.collateral.toString(), ret.predicted.aprBT18.borrow.toString()
         ].join();
 
@@ -614,12 +615,12 @@ describe("CompareAprBeforeAfterBorrow", () => {
     const HOLDER_BORROW = MaticAddresses.HOLDER_WBTC;
     const ASSET_BORROW_DFORCE_CTOREN = MaticAddresses.dForce_iWBTC;
     const ASSET_BORROW_HUNDRED_FINANCE_CTOREN = MaticAddresses.hWBTC;
-    const AMOUNT_COLLATERAL = 200_000;
-    const INITIAL_LIQUIDITY_COLLATERAL = 1_000_000;
-    const INITIAL_LIQUIDITY_BORROW = 1_000;
+    const AMOUNT_COLLATERAL = 4_000_000;
+    const INITIAL_LIQUIDITY_COLLATERAL = 5_000_000;
+    const INITIAL_LIQUIDITY_BORROW = 1;
     const HEALTH_FACTOR2 = 200;
     const COUNT_BLOCKS = 1;
-    const AMOUNT_TO_BORROW = 40_000;
+    const AMOUNT_TO_BORROW = 10;
 //endregion Constants
 
     describe("AAVE3", () => {
@@ -656,8 +657,8 @@ describe("CompareAprBeforeAfterBorrow", () => {
 
         // these differences must be equal to exact supply/borrow APR
         const sexpected = [
-          h.supplyAprBaseExact!.toString(), h.borrowAprBaseExact!.toString(),
-          h.supplyAprBaseApprox!.toString(), h.borrowAprBaseApprox!.toString(),
+          h.supplyAprBaseExactRay!.toString(), h.borrowAprBaseExactRay!.toString(),
+          h.supplyAprBaseApproxRay!.toString(), h.borrowAprBaseApproxRay!.toString(),
           ret.predicted.aprBT18.collateral.toString(), ret.predicted.aprBT18.borrow.toString()
         ].join();
 
