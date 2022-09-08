@@ -2,45 +2,28 @@ import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import hre, {ethers} from "hardhat";
 import {TimeUtils} from "../../scripts/utils/TimeUtils";
 import {BigNumber} from "ethers";
-import {TetuConverterApp} from "../baseUT/helpers/TetuConverterApp";
-import {MocksHelper} from "../baseUT/helpers/MocksHelper";
 import {TokenDataTypes} from "../baseUT/types/TokenDataTypes";
-import {areAlmostEqual, setInitialBalance} from "../baseUT/utils/CommonUtils";
+import {areAlmostEqual} from "../baseUT/utils/CommonUtils";
 import {getBigNumberFrom} from "../../scripts/utils/NumberUtils";
-import {TestSingleBorrowParams} from "../baseUT/types/BorrowRepayDataTypes";
-import {ILendingPlatformFabric} from "../baseUT/fabrics/ILendingPlatformFabric";
 import {isPolygonForkInUse} from "../baseUT/utils/NetworkUtils";
 import {AaveTwoPlatformFabric} from "../baseUT/fabrics/AaveTwoPlatformFabric";
 import {MaticAddresses} from "../../scripts/addresses/MaticAddresses";
-import {Aave3PlatformFabric} from "../baseUT/fabrics/Aave3PlatformFabric";
-import {Aave3Helper} from "../../scripts/integration/helpers/Aave3Helper";
 import {
-  Aave3AprLibFacade,
   AaveTwoAprLibFacade,
   DForceAprLibFacade, DForceInterestRateModelMock__factory,
-  IAavePool,
   IAaveToken__factory,
   IAaveTwoPool,
   IDForceController,
   IDForceCToken,
   IDForceCToken__factory,
-  IDForceInterestRateModel__factory,
-  IDForceRewardDistributor, IERC20__factory, IHfCToken__factory
+  IERC20__factory
 } from "../../typechain";
 import {DeployUtils} from "../../scripts/utils/DeployUtils";
 import {expect} from "chai";
 import {AaveTwoHelper} from "../../scripts/integration/helpers/AaveTwoHelper";
 import {DForceHelper} from "../../scripts/integration/helpers/DForceHelper";
-import {Aave3DataTypes} from "../../typechain/contracts/integrations/aave3/IAavePool";
 import {DataTypes} from "../../typechain/contracts/integrations/aaveTwo/IAaveTwoPool";
-import {
-  ISnapshotCollateralToken,
-  ISnapshotBorrowToken,
-  SupplyBorrowUsingDForce
-} from "../baseUT/uses-cases/dforce/SupplyBorrowUsingDForce";
 import {DForcePlatformFabric} from "../baseUT/fabrics/DForcePlatformFabric";
-import {totalmem} from "os";
-import {HundredFinanceHelper} from "../../scripts/integration/helpers/HundredFinanceHelper";
 import {makeBorrow} from "../baseUT/apr/aprUtils";
 import {AprAave3} from "../baseUT/apr/aprAave3";
 import {IAaveKeyState, IAaveKeyTestValues} from "../baseUT/apr/aprDataTypes";
@@ -362,20 +345,22 @@ describe("CompareAprBeforeAfterBorrow", () => {
             , healthFactor2: HEALTH_FACTOR2
             , countBlocks: COUNT_BLOCKS
           }
+          , [] // no additional points
         );
+        console.log("ret", ret);
 
         // calculate real differences in user-account-balances for period [next block, last block]
         const sret = [
-          ret.resultsBlock.aprBT.collateral.toString(), ret.resultsBlock.aprBT.borrow.toString(),
-          ret.resultsBlock.aprBT.collateral.toString(), ret.resultsBlock.aprBT.borrow.toString(),
-          ret.resultsBlock.aprBT.collateral.toString(), ret.resultsBlock.aprBT.borrow.toString(),
+          h.totalCollateralBaseDelta!.toString(), h.totalDebtBaseDelta!.toString(),
+          h.totalCollateralBaseDelta!.toString(), h.totalDebtBaseDelta!.toString(),
+          ret.resultsBlock.aprBT18.collateral.toString(), ret.resultsBlock.aprBT18.borrow.toString(),
         ].join();
 
         // these differences must be equal to exact supply/borrow APR
         const sexpected = [
-          h.supplyAprExact!.toString(), h.borrowAprExact!.toString(),
-          h.supplyAprApprox!.toString(), h.borrowAprApprox!.toString(),
-          ret.predicted.aprBT.collateral.toString(), ret.predicted.aprBT.borrow.toString()
+          h.supplyAprBaseExact!.toString(), h.borrowAprBaseExact!.toString(),
+          h.supplyAprBaseApprox!.toString(), h.borrowAprBaseApprox!.toString(),
+          ret.predicted.aprBT18.collateral.toString(), ret.predicted.aprBT18.borrow.toString()
         ].join();
 
         expect(sret).equals(sexpected);
@@ -528,16 +513,6 @@ describe("CompareAprBeforeAfterBorrow", () => {
               userBalanceBase: BigNumber.from(0),
               lastUpdateTimestamp: before.collateral.data.lastUpdateTimestamp
             },
-            afterBorrow: {
-              block: afterBorrow.block,
-              blockTimeStamp: afterBorrow.blockTimestamp,
-              rate: afterBorrow.collateral.data.currentLiquidityRate,
-              liquidityIndex: afterBorrow.collateral.data.liquidityIndex,
-              scaledBalance: afterBorrow.collateral.scaledBalance,
-              reserveNormalized: afterBorrow.collateral.reserveNormalized,
-              userBalanceBase: afterBorrow.userAccount!.totalCollateralETH,
-              lastUpdateTimestamp: afterBorrow.collateral.data.lastUpdateTimestamp
-            },
             next: {
               block: next.block,
               blockTimeStamp: next.blockTimestamp,
@@ -569,16 +544,6 @@ describe("CompareAprBeforeAfterBorrow", () => {
               reserveNormalized: before.borrow.reserveNormalized,
               userBalanceBase: BigNumber.from(0),
               lastUpdateTimestamp: before.borrow.data.lastUpdateTimestamp
-            },
-            afterBorrow: {
-              block: afterBorrow.block,
-              blockTimeStamp: afterBorrow.blockTimestamp,
-              rate: afterBorrow.borrow.data.currentVariableBorrowRate,
-              liquidityIndex: afterBorrow.borrow.data.variableBorrowIndex,
-              scaledBalance: afterBorrow.borrow.scaledBalance,
-              reserveNormalized: afterBorrow.borrow.reserveNormalized,
-              userBalanceBase: afterBorrow.userAccount!.totalDebtETH,
-              lastUpdateTimestamp: afterBorrow.borrow.data.lastUpdateTimestamp
             },
             next: {
               block: next.block,
@@ -617,7 +582,7 @@ describe("CompareAprBeforeAfterBorrow", () => {
           , liquidityRateRaysPredicted
           , priceCollateral
           , countBlocks
-          , keyValues.liquidity.afterBorrow
+          , keyValues.liquidity.next
           , blocksPerDay
         );
         console.log("supplyAprExact", supplyApr);
@@ -627,7 +592,7 @@ describe("CompareAprBeforeAfterBorrow", () => {
           , afterBorrow.borrow.data.currentVariableBorrowRate
           , priceBorrow
           , countBlocks
-          , keyValues.borrow.afterBorrow
+          , keyValues.borrow.next
           , blocksPerDay
         );
         console.log("borrowAprExact", borrowApr);
@@ -642,7 +607,7 @@ describe("CompareAprBeforeAfterBorrow", () => {
           , countBlocks
           , keyValues.liquidity.beforeBorrow
           , blocksPerDay
-          , keyValues.liquidity.afterBorrow.blockTimeStamp
+          , keyValues.liquidity.next.blockTimeStamp
         );
         console.log("supplyAprApprox", supplyAprApprox);
         const borrowAprApprox = await getAprBeforeAAVETwoBase(
@@ -653,7 +618,7 @@ describe("CompareAprBeforeAfterBorrow", () => {
           , countBlocks
           , keyValues.borrow.beforeBorrow
           , blocksPerDay
-          , keyValues.borrow.afterBorrow.blockTimeStamp
+          , keyValues.borrow.next.blockTimeStamp
         );
         console.log("borrowAprApprox", borrowAprApprox);
 
@@ -667,7 +632,7 @@ describe("CompareAprBeforeAfterBorrow", () => {
           areAlmostEqual(collateralAprETH, supplyApr, 6),
           areAlmostEqual(borrowAprETH, borrowApr, 8),
           supplyApr.toString(),
-          keyValues.liquidity.afterBorrow.liquidityIndex,
+          keyValues.liquidity.next.liquidityIndex,
 
           // borrowApr.toString(),
           // keyValues.borrow.afterBorrow.liquidityIndex

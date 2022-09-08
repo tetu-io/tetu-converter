@@ -41,13 +41,28 @@ export async function makeBorrow (
 
 export function convertUnits(
   amount: BigNumber,
-  sourceToken: TokenDataTypes,
   sourcePrice: BigNumber,
-  destToken: TokenDataTypes,
-  destPrice: BigNumber
+  sourceDecimals: number,
+  destPrice: BigNumber,
+  destDecimals: number
 ) : BigNumber {
-  return amount.mul(getBigNumberFrom(1, destToken.decimals))
+  return amount.mul(getBigNumberFrom(1, destDecimals))
     .mul(sourcePrice)
     .div(destPrice)
-    .div(getBigNumberFrom(1, sourceToken.decimals));
+    .div(getBigNumberFrom(1, sourceDecimals));
+}
+
+/** Convert amount from base-currency to borrow tokens with decimals 18 */
+export function baseToBorrow18(
+  amount: BigNumber,
+  baseCurrencyDecimals: number,
+  destDecimals: number,
+  baseCurrencyPrice: BigNumber
+) : BigNumber {
+  console.log("baseToBorrow18");
+  return amount
+    .mul(getBigNumberFrom(1, destDecimals))
+    .div(baseCurrencyPrice)
+    .div(getBigNumberFrom(1, baseCurrencyDecimals))
+    ;
 }

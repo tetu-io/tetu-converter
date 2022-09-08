@@ -2,8 +2,8 @@ import {TokenDataTypes} from "../types/TokenDataTypes";
 import {Aave3Helper} from "../../../scripts/integration/helpers/Aave3Helper";
 import {getBigNumberFrom} from "../../../scripts/utils/NumberUtils";
 import {DeployUtils} from "../../../scripts/utils/DeployUtils";
-import {Aave3AprLibFacade, IAavePool, IAaveToken__factory} from "../../../typechain";
-import {convertUnits, makeBorrow} from "./aprUtils";
+import {Aave3AprLibFacade, IAaveAddressesProvider, IAavePool, IAaveToken__factory} from "../../../typechain";
+import {baseToBorrow18, convertUnits, makeBorrow} from "./aprUtils";
 import {Aave3PlatformFabric} from "../fabrics/Aave3PlatformFabric";
 import {TimeUtils} from "../../../scripts/utils/TimeUtils";
 import {BigNumber} from "ethers";
@@ -11,7 +11,7 @@ import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import {TestSingleBorrowParams} from "../types/BorrowRepayDataTypes";
 import {Aave3DataTypes} from "../../../typechain/contracts/integrations/aave3/IAavePool";
 import hre from "hardhat";
-import {IAaveKeyState, IAaveKeyTestValues, IBorrowResults} from "./aprDataTypes";
+import {IAaveKeyState, IAaveKeyTestValues, IBorrowResults, IPointResults} from "./aprDataTypes";
 
 //region Data types
 interface IAave3AssetStateRaw {
@@ -164,19 +164,41 @@ export class AprAave3 {
   last: IAave3StateInfo | undefined;
   /** Borrower address */
   userAddress: string | undefined;
-  /** Supply APR calculated using predicted supply rate */
-  supplyAprExact: BigNumber | undefined;
-  /** Supply APR calculated using exact supply rate taken from next step */
-  supplyAprApprox: BigNumber | undefined;
-  /** Borrow APR calculated using predicted borrow rate */
-  borrowAprExact: BigNumber | undefined;
-  /** borrow APR calculated using exact borrow rate taken from next step */
-  borrowAprApprox: BigNumber | undefined;
 
+//// next : last  results
+
+  /** Supply APR in terms of base currency calculated using predicted supply rate */
+  supplyAprBaseExact: BigNumber | undefined;
+  /** Supply APR in terms of base currency calculated using exact supply rate taken from next step */
+  supplyAprBaseApprox: BigNumber | undefined;
+  /** Borrow APR in terms of base currency calculated using predicted borrow rate */
+  borrowAprBaseExact: BigNumber | undefined;
+  /** borrow APR in terms of base currency calculated using exact borrow rate taken from next step */
+  borrowAprBaseApprox: BigNumber | undefined;
+  /** total increment of collateral amount from NEXT to LAST in terms of base currency */
+  totalCollateralBaseDelta: BigNumber | undefined;
+  /** total increment of borrowed amount from NEXT to LAST in terms of base currency */
+  totalDebtBaseDelta: BigNumber | undefined;
+
+  /**
+   * 0. Predict APR
+   * 1. Make borrow
+   * This is "next point" (or AFTER BORROW point)
+   * 2. Wait N blocks (typically N is 1)
+   * This is "last point"
+   * 3. Calculate real APR for the period since "next" to "last"
+   * 4. Enumerate all additional points. Move to the point, get balances, save them to the results.
+   *
+   * @param deployer
+   * @param amountToBorrow0 Amount to borrow without decimals (i.e. 100 for 100 DAI)
+   * @param p Main parameters (asset, amounts, so on)
+   * @param additionalPoints
+   */
   async makeBorrowTest(
     deployer: SignerWithAddress
     , amountToBorrow0: number
     , p: TestSingleBorrowParams
+    , additionalPoints: number[]
   ) : Promise<IBorrowResults> {
     const collateralToken = await TokenDataTypes.Build(deployer, p.collateral.asset);
     const borrowToken = await TokenDataTypes.Build(deployer, p.borrow.asset);
@@ -185,6 +207,7 @@ export class AprAave3 {
     const aavePool = await Aave3Helper.getAavePool(deployer);
     const dp = await Aave3Helper.getAaveProtocolDataProvider(deployer);
     const priceOracle = await Aave3Helper.getAavePriceOracle(deployer);
+    const baseCurrencyDecimals = Math.log10((await priceOracle.BASE_CURRENCY_UNIT()).toNumber());
 
     const borrowReserveData = await dp.getReserveData(p.borrow.asset);
     const collateralReserveData = await dp.getReserveData(p.collateral.asset);
@@ -197,6 +220,8 @@ export class AprAave3 {
     const prices = await priceOracle.getAssetsPrices([p.collateral.asset, p.borrow.asset]);
     const priceCollateral = prices[0];
     const priceBorrow = prices[1];
+    console.log("priceCollateral", priceCollateral);
+    console.log("priceBorrow", priceBorrow);
 
     // predict APR
     const libFacade = await DeployUtils.deployContract(deployer, "Aave3AprLibFacade") as Aave3AprLibFacade;
@@ -222,21 +247,14 @@ export class AprAave3 {
 
     // make borrow
     this.userAddress = await makeBorrow(deployer, p, amountToBorrow, new Aave3PlatformFabric());
-    const afterBorrow = await getAave3StateInfo(deployer, aavePool, p.collateral.asset, p.borrow.asset, this.userAddress);
 
     // this.next => this.last
-    this.next = afterBorrow;
-    await TimeUtils.advanceNBlocks(1);
+    this.next = await getAave3StateInfo(deployer, aavePool, p.collateral.asset, p.borrow.asset, this.userAddress);
+    await TimeUtils.advanceNBlocks(p.countBlocks);
     this.last = await getAave3StateInfo(deployer, aavePool, p.collateral.asset, p.borrow.asset, this.userAddress);
 
-    const deltaCollateralBase = this.last.userAccount!.totalCollateralBase.sub(this.next.userAccount!.totalCollateralBase);
-    const deltaBorrowBase = this.last.userAccount!.totalDebtBase.sub(this.next.userAccount!.totalDebtBase);
-    console.log("deltaCollateralBase", deltaCollateralBase);
-    console.log("deltaBorrowBase", deltaBorrowBase);
-    console.log("priceBorrow", priceBorrow);
-
     console.log("before", this.before);
-    console.log("afterBorrow=next", afterBorrow);
+    console.log("afterBorrow=next", this.next);
     console.log("last", this.last);
 
     const keyValues: IAaveKeyTestValues = {
@@ -253,16 +271,6 @@ export class AprAave3 {
           reserveNormalized: this.before.collateral.reserveNormalized,
           userBalanceBase: BigNumber.from(0),
           lastUpdateTimestamp: this.before.collateral.data.lastUpdateTimestamp
-        },
-        afterBorrow: {
-          block: afterBorrow.block,
-          blockTimeStamp: afterBorrow.blockTimestamp,
-          rate: afterBorrow.collateral.data.currentLiquidityRate,
-          liquidityIndex: afterBorrow.collateral.data.liquidityIndex,
-          scaledBalance: afterBorrow.collateral.scaledBalance,
-          reserveNormalized: afterBorrow.collateral.reserveNormalized,
-          userBalanceBase: afterBorrow.userAccount!.totalCollateralBase,
-          lastUpdateTimestamp: afterBorrow.collateral.data.lastUpdateTimestamp
         },
         next: {
           block: this.next.block,
@@ -296,16 +304,6 @@ export class AprAave3 {
           userBalanceBase: BigNumber.from(0),
           lastUpdateTimestamp: this.before.borrow.data.lastUpdateTimestamp
         },
-        afterBorrow: {
-          block: afterBorrow.block,
-          blockTimeStamp: afterBorrow.blockTimestamp,
-          rate: afterBorrow.borrow.data.currentVariableBorrowRate,
-          liquidityIndex: afterBorrow.borrow.data.variableBorrowIndex,
-          scaledBalance: afterBorrow.borrow.scaledBalance,
-          reserveNormalized: afterBorrow.borrow.reserveNormalized,
-          userBalanceBase: afterBorrow.userAccount!.totalDebtBase,
-          lastUpdateTimestamp: afterBorrow.borrow.data.lastUpdateTimestamp
-        },
         next: {
           block: this.next.block,
           blockTimeStamp: this.next.blockTimestamp,
@@ -337,30 +335,30 @@ export class AprAave3 {
     const blocksPerDay = 86400;
     console.log("countBlocks", countBlocks);
 
-    this.supplyAprExact = await getAprAAVE3Base(
+    this.supplyAprBaseExact = await getAprAAVE3Base(
       libFacade
       , amountCollateral
       , liquidityRateRaysPredicted
       , priceCollateral
       , countBlocks
-      , keyValues.liquidity.afterBorrow
+      , keyValues.liquidity.next
       , blocksPerDay
     );
-    console.log("supplyAprExact", this.supplyAprExact);
-    this.borrowAprExact = await getAprAAVE3Base(
+    console.log("supplyAprExact", this.supplyAprBaseExact);
+    this.borrowAprBaseExact = await getAprAAVE3Base(
       libFacade
       , amountToBorrow
-      , afterBorrow.borrow.data.currentVariableBorrowRate
+      , this.next.borrow.data.currentVariableBorrowRate
       , priceBorrow
       , countBlocks
-      , keyValues.borrow.afterBorrow
+      , keyValues.borrow.next
       , blocksPerDay
     );
-    console.log("borrowAprExact", this.borrowAprExact);
+    console.log("borrowAprExact", this.borrowAprBaseExact);
 
     // calculate approx values of supply/borrow APR
     // we use state-values "this.before-borrow" and predicted values of supply/borrow rates after borrow
-    this.supplyAprApprox = await getAprBeforeAAVE3Base(
+    this.supplyAprBaseApprox = await getAprBeforeAAVE3Base(
       libFacade
       , amountCollateral
       , keyValues.liquidityRatePredicted
@@ -368,11 +366,11 @@ export class AprAave3 {
       , countBlocks
       , keyValues.liquidity.beforeBorrow
       , blocksPerDay
-      , keyValues.liquidity.afterBorrow.blockTimeStamp
+      , keyValues.liquidity.next.blockTimeStamp
     );
-    console.log("supplyAprApprox", this.supplyAprApprox);
+    console.log("supplyAprApprox", this.supplyAprBaseApprox);
 
-    this.borrowAprApprox = await getAprBeforeAAVE3Base(
+    this.borrowAprBaseApprox = await getAprBeforeAAVE3Base(
       libFacade
       , amountToBorrow
       , keyValues.borrowRatePredicted
@@ -380,19 +378,67 @@ export class AprAave3 {
       , countBlocks
       , keyValues.borrow.beforeBorrow
       , blocksPerDay
-      , keyValues.borrow.afterBorrow.blockTimeStamp
+      , keyValues.borrow.next.blockTimeStamp
     );
-    console.log("borrowAprApprox", this.borrowAprApprox);
+    console.log("borrowAprApprox", this.borrowAprBaseApprox);
+
+    this.totalCollateralBaseDelta = this.last.userAccount!.totalCollateralBase.sub(
+      this.next.userAccount!.totalCollateralBase
+    );
+    this.totalDebtBaseDelta = this.last.userAccount!.totalDebtBase.sub(
+      this.next.userAccount!.totalDebtBase
+    );
+    console.log("totalCollateralBaseDelta", this.totalCollateralBaseDelta);
+    console.log("totalDebtBaseDelta", this.totalDebtBaseDelta);
+
+    const pointsResults: IPointResults[] = [];
+    let prev = this.last;
+    for (const period of additionalPoints) {
+      await TimeUtils.advanceNBlocks(period);
+      let current = await getAave3StateInfo(deployer, aavePool, p.collateral.asset, p.borrow.asset, this.userAddress);
+
+      pointsResults.push({
+        period: {
+          block0: prev.block,
+          blockTimestamp0: prev.blockTimestamp,
+          block1: current.block,
+          blockTimestamp1: current.blockTimestamp,
+        }, rates: {
+          supplyRate: current.collateral.data.currentLiquidityRate,
+          borrowRate: current.borrow.data.currentVariableBorrowRate
+        }, balances: {
+          collateral: current.userAccount!.totalCollateralBase,
+          borrow: current.userAccount!.totalDebtBase
+        }, costsBT18: {
+          collateral: baseToBorrow18(
+            current.userAccount!.totalCollateralBase.sub(prev.userAccount!.totalCollateralBase)
+            , baseCurrencyDecimals
+            , 18
+            , priceBorrow
+          ),
+          borrow: baseToBorrow18(
+            current.userAccount!.totalDebtBase.sub(prev.userAccount!.totalDebtBase)
+            , baseCurrencyDecimals
+            , 18
+            , priceBorrow
+          ),
+        }
+      })
+    }
 
     return {
       init: {
         borrowAmount: amountToBorrow,
         collateralAmount: amountCollateral,
-        collateralAmountBT: convertUnits(amountCollateral, collateralToken, priceCollateral, borrowToken, priceBorrow)
+        collateralAmountBT18: convertUnits(
+          amountCollateral
+          , priceCollateral, collateralToken.decimals
+          , priceBorrow, 18
+        )
       }, predicted: {
-        aprBT: {
-          collateral: this.supplyAprApprox,
-          borrow: this.borrowAprApprox,
+        aprBT18: {
+          collateral: baseToBorrow18(this.supplyAprBaseApprox, baseCurrencyDecimals, 18, priceBorrow),
+          borrow: baseToBorrow18(this.borrowAprBaseApprox, baseCurrencyDecimals, 18, priceBorrow)
         },
         rates: {
           borrowRate: brRaysPredicted,
@@ -412,12 +458,22 @@ export class AprAave3 {
           borrowRate: this.next.borrow.data.currentVariableBorrowRate,
           supplyRate: this.next.collateral.data.currentLiquidityRate
         },
-        aprBT: {
-          collateral: this.last.userAccount!.totalCollateralBase.sub(this.next.userAccount!.totalCollateralBase),
-          borrow: this.last.userAccount!.totalDebtBase.sub(this.next.userAccount!.totalDebtBase)
+        aprBT18: {
+          collateral: baseToBorrow18(
+            this.totalCollateralBaseDelta
+            , baseCurrencyDecimals
+            , 18
+            , priceBorrow
+          ),
+          borrow: baseToBorrow18(
+            this.totalDebtBaseDelta
+            , baseCurrencyDecimals
+            , 18
+            , priceBorrow
+          ),
         }
-
-      }
+      },
+      points: pointsResults
     }
   }
 }

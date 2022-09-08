@@ -18,6 +18,18 @@ export interface IAmounts {
   rewards?: BigNumber;
 }
 
+export interface IPointResults {
+  period: IPeriod;
+  rates: IRates;
+  /** Result balances.
+   * Supply is in terms of collateral token, borrow - in terms of borrow tokens, rewards - in terms of rewards token
+   **/
+  balances: IAmounts;
+
+  /** Actual costs for period, all values are given in terms of borrow token, decimals 18*/
+  costsBT18: IAmounts;
+}
+
 /**
  * Results of the borrow.
  * 0. Predict APR
@@ -28,36 +40,25 @@ export interface IAmounts {
 export interface IBorrowResults {
   init: {
     collateralAmount: BigNumber;
-    collateralAmountBT: BigNumber;
+    collateralAmountBT18: BigNumber;
     borrowAmount: BigNumber;
   }
   prices: IAmounts;
 
   predicted: {
     /** Predicted APR, all values are given in terms of borrow token */
-    aprBT: IAmounts;
+    aprBT18: IAmounts;
     rates: IRates;
   }
 
   resultsBlock: {
     period: IPeriod;
     /** APR for single block, all values are given in terms of borrow token */
-    aprBT: IAmounts;
+    aprBT18: IAmounts;
     rates: IRates;
   }
 
-  // resultsPeriod: {
-  //   period: IPeriod;
-  //
-  //   /** Result balances.
-  //    * Supply is in terms of collateral token, borrow - in terms of borrow tokens, rewards - in terms of rewards token
-  //    **/
-  //   balances: IAmounts;
-  //
-  //   /** Actual costs for period, all values are given in terms of borrow token.*/
-  //   costs: IAmounts;
-  //   rates: IRates;
-  // }
+  points: IPointResults[];
 }
 
 export interface IAaveKeyState {
@@ -77,13 +78,11 @@ export interface IAaveKeyTestValues {
 
   liquidity: {
     beforeBorrow: IAaveKeyState,
-    afterBorrow: IAaveKeyState,
     next: IAaveKeyState,
     last: IAaveKeyState
   },
   borrow: {
     beforeBorrow: IAaveKeyState,
-    afterBorrow: IAaveKeyState,
     next: IAaveKeyState,
     last: IAaveKeyState
   },
