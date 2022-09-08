@@ -5,11 +5,11 @@ pragma solidity 0.8.4;
 interface IAaveTwoPriceOracle {
   function WETH() external view returns (address);
 
-  /// @notice Gets an asset price by address
+  /// @notice Gets an asset price in ETH by address
   /// @param asset The asset address
   function getAssetPrice(address asset) external view returns (uint256);
 
-  /// @notice Gets a list of prices from a list of assets addresses
+  /// @notice Gets a list of prices in ETH from a list of assets addresses
   /// @param assets The list of assets addresses
   function getAssetsPrices(address[] memory assets) external view returns (uint256[] memory);
 

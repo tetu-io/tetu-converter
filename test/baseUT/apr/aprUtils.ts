@@ -52,17 +52,28 @@ export function convertUnits(
     .div(getBigNumberFrom(1, sourceDecimals));
 }
 
+export interface IBaseToBorrowParams {
+  baseCurrencyDecimals: number;
+  priceDecimals: number;
+  priceBaseCurrency: BigNumber;
+}
+
 /** Convert amount from base-currency to borrow tokens with decimals 18 */
-export function baseToBorrow18(
-  amount: BigNumber,
-  baseCurrencyDecimals: number,
-  destDecimals: number,
-  baseCurrencyPrice: BigNumber
-) : BigNumber {
-  console.log("baseToBorrow18");
-  return amount
-    .mul(getBigNumberFrom(1, destDecimals))
-    .div(baseCurrencyPrice)
-    .div(getBigNumberFrom(1, baseCurrencyDecimals))
+export function baseToBorrow18(amount: BigNumber, params: IBaseToBorrowParams) : BigNumber {
+  // amount-in-base-currency = a1 * 10^db
+  // we need to convert a1 * 10^db to a2*10^18, where a2 is the price in borrow tokens (and we need decimals 18 in result)
+  //
+  //                a1 * 10^db   *  10^dp
+  // a2*10^18 =    ----------      -----  * 10^18
+  //                p * 10^dp       10^db
+  //
+  // db - decimals of the base currency
+  // dp - decimals of the price
+
+  return amount // == a1 * 10^db
+    .mul(getBigNumberFrom(1, params.priceDecimals)) // == 10^dp
+    .mul(getBigNumberFrom(1, 18)) // == 10^18
+    .div(params.priceBaseCurrency) // == p * 10^dp
+    .div(getBigNumberFrom(1, params.baseCurrencyDecimals))
     ;
 }
