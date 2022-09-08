@@ -77,3 +77,7 @@ export function baseToBorrow18(amount: BigNumber, params: IBaseToBorrowParams) :
     .div(getBigNumberFrom(1, params.baseCurrencyDecimals))
     ;
 }
+
+export function changeDecimals(amount: BigNumber, from: number, to: number) : BigNumber {
+  return amount.mul(getBigNumberFrom(1, to)).div(getBigNumberFrom(1, from));
+}

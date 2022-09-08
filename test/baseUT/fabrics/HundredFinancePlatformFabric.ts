@@ -37,7 +37,7 @@ export class HundredFinancePlatformFabric implements ILendingPlatformFabric {
             , MaticAddresses.USDC
             , MaticAddresses.WETH
             , MaticAddresses.USDT
-            , MaticAddresses.WBTS
+            , MaticAddresses.WBTC
         ];
       const assetPairs = generateAssetPairs(assets);
       await bm.addAssetPairs(platformAdapter.address

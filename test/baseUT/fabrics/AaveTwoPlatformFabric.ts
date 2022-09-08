@@ -23,7 +23,7 @@ export class AaveTwoPlatformFabric implements ILendingPlatformFabric {
       , MaticAddresses.USDC
       , MaticAddresses.USDT
       , MaticAddresses.BALANCER
-      , MaticAddresses.WBTS
+      , MaticAddresses.WBTC
       , MaticAddresses.WETH
       , MaticAddresses.WMATIC
       , MaticAddresses.SUSHI

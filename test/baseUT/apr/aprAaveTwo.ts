@@ -247,11 +247,11 @@ export class AprAaveTwo {
     console.log(`Predicted: liquidityRateRays=${liquidityRateRaysPredicted.toString()} brRays=${brRaysPredicted.toString()}`);
 
     // make borrow
-    const userAddress = await makeBorrow(deployer, p, amountToBorrow, new AaveTwoPlatformFabric());
+    this.userAddress = await makeBorrow(deployer, p, amountToBorrow, new AaveTwoPlatformFabric());
 
-    this.next = await getAaveTwoStateInfo(deployer, aavePool, p.collateral.asset, p.borrow.asset, userAddress);
+    this.next = await getAaveTwoStateInfo(deployer, aavePool, p.collateral.asset, p.borrow.asset, this.userAddress);
     await TimeUtils.advanceNBlocks(1);
-    this.last = await getAaveTwoStateInfo(deployer, aavePool, p.collateral.asset, p.borrow.asset, userAddress);
+    this.last = await getAaveTwoStateInfo(deployer, aavePool, p.collateral.asset, p.borrow.asset, this.userAddress);
 
     console.log("before", this.before);
     console.log("next", this.next);

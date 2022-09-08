@@ -29,7 +29,7 @@ export class Aave3PlatformFabric implements ILendingPlatformFabric {
       , MaticAddresses.EURS
       , MaticAddresses.jEUR
       , MaticAddresses.BALANCER
-      , MaticAddresses.WBTS
+      , MaticAddresses.WBTC
       , MaticAddresses.WETH
       , MaticAddresses.WMATIC
       , MaticAddresses.SUSHI

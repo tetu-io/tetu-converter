@@ -29,7 +29,7 @@ export class DForcePlatformFabric implements ILendingPlatformFabric {
             , MaticAddresses.USDC
             , MaticAddresses.WETH
             , MaticAddresses.USDT
-            , MaticAddresses.WBTS
+            , MaticAddresses.WBTC
             , MaticAddresses.dForce_USD
         ];
       const assetPairs = generateAssetPairs(assets);

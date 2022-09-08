@@ -304,7 +304,7 @@ describe("DForce integration tests, platform adapter", () => {
         it("Predicted borrow rate should be same to real rate after the borrow", async () => {
           const collateralAsset = MaticAddresses.DAI;
           const collateralCToken = MaticAddresses.dForce_iDAI;
-          const borrowAsset = MaticAddresses.WBTS;
+          const borrowAsset = MaticAddresses.WBTC;
           const borrowCToken = MaticAddresses.dForce_iWBTC;
 
           const collateralHolders = [

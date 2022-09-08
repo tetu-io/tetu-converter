@@ -178,7 +178,7 @@ describe("Aave-v2 integration tests, pool adapter", () => {
           it("should return expected balances", async () => {
             if (!await isPolygonForkInUse()) return;
 
-            const collateralAsset = MaticAddresses.WBTS;
+            const collateralAsset = MaticAddresses.WBTC;
             const collateralHolder = MaticAddresses.HOLDER_WBTC;
             const borrowAsset = MaticAddresses.USDT;
 

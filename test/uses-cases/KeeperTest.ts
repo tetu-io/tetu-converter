@@ -475,7 +475,7 @@ describe("Keeper test", () => {
 //region Constants and utils
           const ASSET_COLLATERAL = MaticAddresses.DAI;
           const HOLDER_COLLATERAL = MaticAddresses.HOLDER_DAI;
-          const ASSET_BORROW = MaticAddresses.WBTS;
+          const ASSET_BORROW = MaticAddresses.WBTC;
           const HOLDER_BORROW = MaticAddresses.HOLDER_WBTC;
           const AMOUNT_COLLATERAL = 1_000;
           const INITIAL_LIQUIDITY_COLLATERAL = 100_000;
@@ -916,7 +916,7 @@ describe("Keeper test", () => {
             , MaticAddresses.HOLDER_DAI_5
             , MaticAddresses.HOLDER_DAI_6
           ];
-          const ASSET_BORROW = MaticAddresses.WBTS;
+          const ASSET_BORROW = MaticAddresses.WBTC;
           const HOLDER_BORROW = MaticAddresses.HOLDER_WBTC;
           const AMOUNT_COLLATERAL = 1_000;
           const INITIAL_LIQUIDITY_COLLATERAL = 100_000;
@@ -997,7 +997,7 @@ describe("Keeper test", () => {
             , MaticAddresses.HOLDER_DAI_5
             , MaticAddresses.HOLDER_DAI_6
           ];
-          const ASSET_BORROW = MaticAddresses.WBTS;
+          const ASSET_BORROW = MaticAddresses.WBTC;
           const HOLDER_BORROW = MaticAddresses.HOLDER_WBTC;
           const AMOUNT_COLLATERAL = 1_000;
           const INITIAL_LIQUIDITY_COLLATERAL = 100_000;

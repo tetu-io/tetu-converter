@@ -11,7 +11,7 @@ export class MaticAddresses {
   public static USDC = "0x2791bca1f2de4661ed88a30c99a7a9449aa84174";
   public static USDT = "0xc2132d05d31c914a87c6611c10748aeb04b58e8f";
   public static BALANCER = "0x9a71012B13CA4d3D0Cdc72A177DF3ef03b0E76A3";
-  public static WBTS = "0x1BFD67037B42Cf73acF2047067bd4F2C47D9BfD6";
+  public static WBTC = "0x1BFD67037B42Cf73acF2047067bd4F2C47D9BfD6";
   public static WETH = "0x7ceB23fD6bC0adD59E62ac25578270cFf1b9f619";
   public static WMATIC = "0x0d500B1d8E8eF31E21C99d1Db9A6444d3ADf1270";
   public static SUSHI = "0x0b3F868E0BE5597D5DB7fEB59E1CADBb0fdDa50a";
