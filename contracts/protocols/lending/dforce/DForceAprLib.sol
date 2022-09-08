@@ -143,8 +143,8 @@ library DForceAprLib {
   function getSupplyApr18(
     uint supplyRatePerBlock,
     uint countBlocks,
-    uint8 ciceCollateral,
-    uint collateralDecimals,
+    uint8 collateralDecimals,
+    uint priceCollateral,
     uint priceBorrow,
     uint suppliedAmount
   ) internal pure returns (uint) {
