@@ -1,4 +1,3 @@
-//region Making borrow impl
 import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import {TestSingleBorrowParams} from "../types/BorrowRepayDataTypes";
 import {BigNumber} from "ethers";
@@ -8,6 +7,7 @@ import {MocksHelper} from "../helpers/MocksHelper";
 import {TokenDataTypes} from "../types/TokenDataTypes";
 import {setInitialBalance} from "../utils/CommonUtils";
 import {getBigNumberFrom} from "../../../scripts/utils/NumberUtils";
+import {ConfigurableAmountToBorrow} from "./aprDataTypes";
 
 /**
  * Initialize tetu-converter-app.
@@ -18,9 +18,12 @@ import {getBigNumberFrom} from "../../../scripts/utils/NumberUtils";
 export async function makeBorrow (
   deployer: SignerWithAddress,
   p: TestSingleBorrowParams,
-  amountToBorrow: BigNumber,
+  amountToBorrow: ConfigurableAmountToBorrow,
   fabric: ILendingPlatformFabric,
-) : Promise<string> {
+) : Promise<{
+  poolAdapter: string,
+  borrowAmount: BigNumber
+}> {
   const {controller} = await TetuConverterApp.buildApp(deployer, [fabric]);
   const uc = await MocksHelper.deployBorrower(deployer.address, controller, p.healthFactor2, p.countBlocks);
 
@@ -28,15 +31,25 @@ export async function makeBorrow (
   const borrowToken = await TokenDataTypes.Build(deployer, p.borrow.asset);
 
   const c0 = await setInitialBalance(deployer, collateralToken.address
-    , p.collateral.holder, p.collateral.initialLiquidity, uc.address);
+    , p.collateral.holders, p.collateral.initialLiquidity, uc.address);
   const b0 = await setInitialBalance(deployer, borrowToken.address
-    , p.borrow.holder, p.borrow.initialLiquidity, uc.address);
+    , p.borrow.holders, p.borrow.initialLiquidity, uc.address);
   const collateralAmount = getBigNumberFrom(p.collateralAmount, collateralToken.decimals);
 
-  await uc.makeBorrowExactAmount(p.collateral.asset, collateralAmount, p.borrow.asset, uc.address, amountToBorrow);
+  await uc.makeBorrowExactAmount(
+    p.collateral.asset
+    , collateralAmount
+    , p.borrow.asset
+    , uc.address
+    , amountToBorrow.exact
+    , amountToBorrow.exact ? amountToBorrow.exactAmountToBorrow : amountToBorrow.ratio18
+  );
 
   const poolAdapters = await uc.getBorrows(p.collateral.asset, p.borrow.asset);
-  return poolAdapters[0];
+  return {
+    poolAdapter: poolAdapters[0],
+    borrowAmount: await uc.totalBorrowedAmount()
+  };
 }
 
 export function convertUnits(
@@ -69,6 +82,7 @@ export function baseToBorrow18(amount: BigNumber, params: IBaseToBorrowParams) :
   //
   // db - decimals of the base currency
   // dp - decimals of the price
+  console.log("baseToBorrow18", amount, params);
 
   return amount // == a1 * 10^db
     .mul(getBigNumberFrom(1, params.priceDecimals)) // == 10^dp

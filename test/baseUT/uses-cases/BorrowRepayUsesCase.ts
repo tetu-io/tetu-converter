@@ -242,7 +242,7 @@ export class BorrowRepayUsesCase {
       [m.collateral.borrowRate, m.borrow.borrowRate],
       [m.collateral.collateralFactor, m.borrow.collateralFactor],
       [m.collateral.liquidity, m.borrow.liquidity],
-      [p.collateral.holder, p.borrow.holder],
+      [p.collateral.holders, p.borrow.holders],
       cTokens,
       pricesUSD.map((x, index) => BigNumber.from(10)
         .pow(18 - 2)
@@ -253,10 +253,10 @@ export class BorrowRepayUsesCase {
 
     const c0 = await setInitialBalance(deployer
       , collateralToken.address
-      , p.collateral.holder, p.collateral.initialLiquidity, uc.address);
+      , p.collateral.holders, p.collateral.initialLiquidity, uc.address);
     const b0 = await setInitialBalance(deployer
       , borrowToken.address
-      , p.borrow.holder, p.borrow.initialLiquidity, uc.address);
+      , p.borrow.holders, p.borrow.initialLiquidity, uc.address);
     const collateralAmount = getBigNumberFrom(p.collateralAmount, collateralToken.decimals);
 
     const {
@@ -315,9 +315,9 @@ export class BorrowRepayUsesCase {
     const amountToRepay = undefined; //full repay
 
     const c0 = await setInitialBalance(deployer, collateralToken.address
-      , p.collateral.holder, p.collateral.initialLiquidity, uc.address);
+      , p.collateral.holders, p.collateral.initialLiquidity, uc.address);
     const b0 = await setInitialBalance(deployer, borrowToken.address
-      , p.borrow.holder, p.borrow.initialLiquidity, uc.address);
+      , p.borrow.holders, p.borrow.initialLiquidity, uc.address);
     const collateralAmount = getBigNumberFrom(p.collateralAmount, collateralToken.decimals);
 
     const borrowAction = new BorrowAction(
@@ -422,7 +422,7 @@ export class BorrowRepayUsesCase {
       [m.collateral.borrowRate, m.borrow.borrowRate],
       [m.collateral.collateralFactor, m.borrow.collateralFactor],
       [m.collateral.liquidity, m.borrow.liquidity],
-      [p.collateral.holder, p.borrow.holder],
+      [p.collateral.holders, p.borrow.holders],
       cTokens,
       pricesUSD.map((x, index) => BigNumber.from(10)
         .pow(18 - 2)
@@ -432,9 +432,9 @@ export class BorrowRepayUsesCase {
     const uc = await MocksHelper.deployBorrower(deployer.address, controller, p.healthFactor2, p.countBlocks);
 
     const c0 = await setInitialBalance(deployer, collateralToken.address
-      , p.collateral.holder, p.collateral.initialLiquidity, uc.address);
+      , p.collateral.holders, p.collateral.initialLiquidity, uc.address);
     const b0 = await setInitialBalance(deployer, borrowToken.address
-      , p.borrow.holder, p.borrow.initialLiquidity, uc.address);
+      , p.borrow.holders, p.borrow.initialLiquidity, uc.address);
 
     const collateralAmount1 = getBigNumberFrom(p.collateralAmount, collateralToken.decimals);
     const collateralAmount2 = getBigNumberFrom(p.collateralAmount2, collateralToken.decimals);
@@ -518,9 +518,9 @@ export class BorrowRepayUsesCase {
     const amountToRepay2 = undefined; //full repay
 
     const c0 = await setInitialBalance(deployer, collateralToken.address
-      , p.collateral.holder, p.collateral.initialLiquidity, uc.address);
+      , p.collateral.holders, p.collateral.initialLiquidity, uc.address);
     const b0 = await setInitialBalance(deployer, borrowToken.address
-      , p.borrow.holder, p.borrow.initialLiquidity, uc.address);
+      , p.borrow.holders, p.borrow.initialLiquidity, uc.address);
 
     const collateralAmount1 = getBigNumberFrom(p.collateralAmount, collateralToken.decimals);
     const collateralAmount2 = getBigNumberFrom(p.collateralAmount2, collateralToken.decimals);

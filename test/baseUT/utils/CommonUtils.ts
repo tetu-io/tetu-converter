@@ -7,12 +7,21 @@ import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 export async function setInitialBalance(
   deployer: SignerWithAddress,
   asset: string,
-  holder: string,
+  holders: string,
   amount: number,
   recipient: string
 ) : Promise<BigNumber> {
-  await BalanceUtils.getAmountFromHolder(asset, holder, recipient, amount);
-  return IERC20__factory.connect(asset, deployer).balanceOf(recipient);
+  const hh = holders.split(";");
+
+  const dest: BigNumber = BigNumber.from(0);
+  for (const h of hh) {
+    await BalanceUtils.getAmountFromHolder(asset, h, recipient, amount);
+    dest.add(
+      IERC20__factory.connect(asset, deployer).balanceOf(recipient)
+    );
+  }
+
+  return dest;
 }
 
 /// @param accuracy 10 for 1e-10

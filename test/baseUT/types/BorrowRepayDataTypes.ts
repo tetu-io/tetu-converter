@@ -3,7 +3,8 @@ import {BigNumber} from "ethers";
 
 export interface TokenParams {
   asset: string;
-  holder: string;
+  /** ;- separated list of holders */
+  holders: string;
   initialLiquidity: number;
 }
 

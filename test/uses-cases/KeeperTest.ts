@@ -107,7 +107,7 @@ describe("Keeper test", () => {
     // transfer sufficient amount of collateral to the user
     await setInitialBalance(deployer
       , collateralToken.address
-      , p.collateral.holder, p.collateral.initialLiquidity, uc.address);
+      , p.collateral.holders, p.collateral.initialLiquidity, uc.address);
 
     return {uc, controller};
   }
@@ -200,10 +200,10 @@ describe("Keeper test", () => {
 
     // let's try to make borrow for all collateral amount that the holder have
     let collateralForMaxBorrow = await IERC20__factory.connect(p.collateral.asset, deployer)
-      .balanceOf(p.collateral.holder);
+      .balanceOf(p.collateral.holders);
     console.log("Holder's balance of collateral", collateralForMaxBorrow);
     await IERC20__factory.connect(p.collateral.asset
-      , await DeployerUtils.startImpersonate(p.collateral.holder)
+      , await DeployerUtils.startImpersonate(p.collateral.holders)
     ).transfer(uc.address, collateralForMaxBorrow.sub(collateralAmount));
 
     // Let's borrow max possible amount for provided collateral
@@ -256,9 +256,9 @@ describe("Keeper test", () => {
 
         // Let's repay first borrow
         await IERC20__factory.connect(p.borrow.asset
-          , await DeployerUtils.startImpersonate(p.borrow.holder)
+          , await DeployerUtils.startImpersonate(p.borrow.holders)
         ).transfer(uc.address
-          , IERC20__factory.connect(p.borrow.asset, deployer).balanceOf(p.borrow.holder)
+          , IERC20__factory.connect(p.borrow.asset, deployer).balanceOf(p.borrow.holders)
         );
 
         await BorrowRepayUsesCase.makeBorrowRepayActions(deployer
@@ -317,11 +317,11 @@ describe("Keeper test", () => {
               , {
                 collateral: {
                   asset: ASSET_COLLATERAL,
-                  holder: HOLDER_COLLATERAL,
+                  holders: HOLDER_COLLATERAL,
                   initialLiquidity: INITIAL_LIQUIDITY_COLLATERAL,
                 }, borrow: {
                   asset: ASSET_BORROW,
-                  holder: HOLDER_BORROW,
+                  holders: HOLDER_BORROW,
                   initialLiquidity: INITIAL_LIQUIDITY_BORROW,
                 }, collateralAmount: AMOUNT_COLLATERAL
                 , healthFactor2: HEALTH_FACTOR2
@@ -492,11 +492,11 @@ describe("Keeper test", () => {
               {
                 collateral: {
                   asset: ASSET_COLLATERAL,
-                  holder: HOLDER_COLLATERAL,
+                  holders: HOLDER_COLLATERAL,
                   initialLiquidity: INITIAL_LIQUIDITY_COLLATERAL,
                 }, borrow: {
                   asset: ASSET_BORROW,
-                  holder: HOLDER_BORROW,
+                  holders: HOLDER_BORROW,
                   initialLiquidity: INITIAL_LIQUIDITY_BORROW,
                 }, collateralAmount: AMOUNT_COLLATERAL
                 , healthFactor2: HEALTH_FACTOR2
@@ -654,11 +654,11 @@ describe("Keeper test", () => {
                 , {
                 collateral: {
                   asset: ASSET_COLLATERAL,
-                  holder: HOLDER_COLLATERAL,
+                  holders: HOLDER_COLLATERAL,
                   initialLiquidity: INITIAL_LIQUIDITY_COLLATERAL,
                 }, borrow: {
                   asset: ASSET_BORROW,
-                  holder: HOLDER_BORROW,
+                  holders: HOLDER_BORROW,
                   initialLiquidity: INITIAL_LIQUIDITY_BORROW,
                 }, collateralAmount: AMOUNT_COLLATERAL
                 , healthFactor2: HEALTH_FACTOR2

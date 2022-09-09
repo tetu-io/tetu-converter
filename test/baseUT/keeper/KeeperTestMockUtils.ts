@@ -50,7 +50,7 @@ export class KeeperTestMockUtils {
         [m.collateral.borrowRate, m.borrow.borrowRate],
         [m.collateral.collateralFactor, m.borrow.collateralFactor],
         [m.collateral.liquidity, m.borrow.liquidity],
-        [p.collateral.holder, p.borrow.holder],
+        [p.collateral.holders, p.borrow.holders],
         cTokens,
         pricesUSD.map((x, index) => BigNumber.from(10)
           .pow(18 - 2)
@@ -69,7 +69,7 @@ export class KeeperTestMockUtils {
     // transfer sufficient amount of collateral to the user
     await setInitialBalance(deployer
       , collateralToken.address
-      , p.collateral.holder, p.collateral.initialLiquidity, uc.address);
+      , p.collateral.holders, p.collateral.initialLiquidity, uc.address);
 
     // make borrow only
     const {

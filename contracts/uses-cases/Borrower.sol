@@ -82,12 +82,18 @@ contract Borrower is IBorrower {
   }
 
   /// @notice Borrow exact amount
+  /// @param exact_ Meaning of the value_: exact or relative
+  ///     true  - value contains exact amount to borrow
+  ///     false - value contains RATIO, amount to borrow will be calculated as
+  ///             amount to borrow = max allowed amount * RATIO
+  ///             The ratio has decimals 18
   function makeBorrowExactAmount(
     address sourceAsset_,
     uint sourceAmount_,
     address targetAsset_,
     address receiver_,
-    uint amountToBorrow_
+    bool exact_,
+    uint value_
   ) external {
     console.log("makeBorrowExactAmount start gasleft", gasleft());
     // ask TC for the best conversion strategy
@@ -100,7 +106,11 @@ contract Borrower is IBorrower {
     require(converter != address(0), "Conversion strategy wasn't found");
     require(maxTargetAmount != 0, "maxTargetAmount is 0");
 
-    console.log("we will borrow:", amountToBorrow_, "gasleft", gasleft());
+    uint amountToBorrow = exact_
+      ? value_
+      : value_ * maxTargetAmount / 10**18; // value_contains RATIO with decimals 18
+
+    console.log("we will borrow:", amountToBorrow, "gasleft", gasleft());
     console.log("sourceAmount_", sourceAmount_);
     console.log("balance st on tc", IERC20(sourceAsset_).balanceOf(address(this)));
     // transfer collateral to TC
@@ -115,12 +125,12 @@ contract Borrower is IBorrower {
       sourceAsset_,
       sourceAmount_,
       targetAsset_,
-      amountToBorrow_,
+      amountToBorrow,
       receiver_
     );
     console.log("makeBorrowExactAmount done gasleft6", gasleft());
 
-    totalBorrowedAmount += amountToBorrow_;
+    totalBorrowedAmount += amountToBorrow;
   }
 
   /// @notice See US1.2 in the project scope

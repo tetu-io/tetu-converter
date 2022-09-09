@@ -8,7 +8,12 @@ import {DForceAprLibFacade, IDForceController, IDForceCToken, IDForceCToken__fac
 import {getBigNumberFrom} from "../../../scripts/utils/NumberUtils";
 import {DeployUtils} from "../../../scripts/utils/DeployUtils";
 import hre, {ethers} from "hardhat";
-import {baseToBorrow18, changeDecimals, convertUnits, IBaseToBorrowParams, makeBorrow} from "./aprUtils";
+import {
+  changeDecimals,
+  ConfigurableAmountToBorrow,
+  convertUnits,
+  makeBorrow
+} from "./aprUtils";
 import {DForcePlatformFabric} from "../fabrics/DForcePlatformFabric";
 import {TimeUtils} from "../../../scripts/utils/TimeUtils";
 
@@ -120,6 +125,8 @@ export class AprDForce {
   last: IDForceState | undefined;
   /** Borrower address */
   userAddress: string | undefined;
+  /** Exact value of the borrowed amount */
+  borrowAmount: BigNumber = BigNumber.from(0);
 
 //// next : last  results
 
@@ -161,7 +168,7 @@ export class AprDForce {
    */
   async makeBorrowTest(
     deployer: SignerWithAddress
-    , amountToBorrow0: number
+    , amountToBorrow0: ConfigurableAmountToBorrow
     , collateralCTokenAddress: string
     , borrowCTokenAddress: string
     , p: TestSingleBorrowParams
@@ -182,9 +189,8 @@ export class AprDForce {
     console.log("marketCollateralData", marketCollateralData);
     console.log("marketBorrowData", marketBorrowData);
 
-    const amountToBorrow = getBigNumberFrom(amountToBorrow0, borrowToken.decimals);
     const amountCollateral = getBigNumberFrom(p.collateralAmount, collateralToken.decimals);
-    console.log(`amountCollateral=${amountCollateral.toString()} amountToBorrow=${amountToBorrow.toString()}`);
+    console.log(`amountCollateral=${amountCollateral.toString()}`);
 
     // prices
     const priceCollateral = await priceOracle.getUnderlyingPrice(collateralCTokenAddress);
@@ -204,11 +210,23 @@ export class AprDForce {
       , ethers.Wallet.createRandom().address
     );
 
+    // make borrow
+    const borrowResults = await makeBorrow(
+      deployer
+      , p
+      , amountToBorrow0
+      , new DForcePlatformFabric()
+    );
+    this.userAddress = borrowResults.poolAdapter;
+    this.borrowAmount = borrowResults.borrowAmount;
+    console.log(`userAddress=${this.userAddress} borrowAmount=${this.borrowAmount}`);
+
     const borrowRatePredicted = await libFacade.getEstimatedBorrowRate(
       await cTokenBorrow.interestRateModel()
       , cTokenBorrow.address
-      , amountToBorrow
+      , this.borrowAmount
     );
+    console.log(`borrowRatePredicted=${borrowRatePredicted.toString()}`);
 
     const supplyRatePredicted = await libFacade.getEstimatedSupplyRatePure(
       this.before.collateral.market.totalSupply
@@ -220,11 +238,7 @@ export class AprDForce {
       , this.before.collateral.market.reserveRatio
       , this.before.collateral.market.exchangeRateStored
     );
-
-    console.log(`Predicted: supplyRate=${supplyRatePredicted.toString()} br=${borrowRatePredicted.toString()}`);
-
-    // make borrow
-    this.userAddress = await makeBorrow(deployer, p, amountToBorrow, new DForcePlatformFabric());
+    console.log(`supplyRatePredicted=${supplyRatePredicted.toString()}`);
 
     // next => last
     this.next = await getDForceStateInfo(comptroller
@@ -283,7 +297,7 @@ export class AprDForce {
 
     this.borrowApr = await libFacade.getBorrowApr18(
       borrowRatePredicted
-      , amountToBorrow
+      , this.borrowAmount
       , countBlocksBorrow
       , await cTokenBorrow.decimals()
     );
@@ -291,7 +305,7 @@ export class AprDForce {
 
     this.borrowAprExact = await libFacade.getBorrowApr18(
       this.middle.borrow.market.borrowRatePerBlock
-      , amountToBorrow
+      , this.borrowAmount
       , countBlocksBorrow
       , await cTokenBorrow.decimals()
     );
@@ -370,7 +384,7 @@ export class AprDForce {
 
     return {
       init: {
-        borrowAmount: amountToBorrow,
+        borrowAmount: this.borrowAmount,
         collateralAmount: amountCollateral,
         collateralAmountBT18: convertUnits(
           amountCollateral

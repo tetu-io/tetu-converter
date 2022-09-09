@@ -10,9 +10,8 @@ import "../../../integrations/dforce/IDForcePriceOracle.sol";
 import "../../../integrations/dforce/IDForceInterestRateModel.sol";
 import "../../../integrations/dforce/IDForceRewardDistributor.sol";
 import "../../../core/AppErrors.sol";
-import "hardhat/console.sol";
 import "../../../core/AppUtils.sol";
-
+import "hardhat/console.sol";
 
 /// @notice DForce utils: estimate reward tokens, predict borrow rate in advance
 library DForceAprLib {
@@ -186,6 +185,11 @@ library DForceAprLib {
     IDForceCToken cTokenBorrow_,
     uint amountToBorrow_
   ) internal view returns (uint) {
+    console.log("getEstimatedBorrowRate");
+    console.log("interestRateModel_", address(interestRateModel_));
+    console.log("cTokenBorrow_.getCash()", cTokenBorrow_.getCash());
+    console.log("amountToBorrow_", amountToBorrow_);
+    console.log("cTokenBorrow_.totalBorrows()", cTokenBorrow_.totalBorrows() );
     return interestRateModel_.getBorrowRate(
       cTokenBorrow_.getCash() - amountToBorrow_,
       cTokenBorrow_.totalBorrows() + amountToBorrow_,

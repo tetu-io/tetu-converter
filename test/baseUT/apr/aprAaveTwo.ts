@@ -9,7 +9,7 @@ import {getBigNumberFrom} from "../../../scripts/utils/NumberUtils";
 import {TokenDataTypes} from "../types/TokenDataTypes";
 import {AaveTwoHelper} from "../../../scripts/integration/helpers/AaveTwoHelper";
 import {DeployUtils} from "../../../scripts/utils/DeployUtils";
-import {baseToBorrow18, convertUnits, IBaseToBorrowParams, makeBorrow} from "./aprUtils";
+import {baseToBorrow18, ConfigurableAmountToBorrow, convertUnits, IBaseToBorrowParams, makeBorrow} from "./aprUtils";
 import {AaveTwoPlatformFabric} from "../fabrics/AaveTwoPlatformFabric";
 import {TimeUtils} from "../../../scripts/utils/TimeUtils";
 
@@ -107,19 +107,26 @@ async function getAprAAVETwoBase(
   libFacade: AaveTwoAprLibFacade,
   amount: BigNumber,
   predictedRate: BigNumber,
-  price18: BigNumber,
+  price: BigNumber,
   countBlocks: number,
   state: IAaveKeyState,
-  blocksPerDay: number
+  blocksPerDay: number,
+  decimalsAmount: number,
 ) : Promise<BigNumber> {
-  return (await libFacade.getAprForPeriodAfter(
+  const value = await libFacade.getAprForPeriodAfter(
     amount,
     state.reserveNormalized,
     state.liquidityIndex,
     predictedRate,
     countBlocks,
     blocksPerDay,
-  )).mul(price18).div(getBigNumberFrom(1, 18));
+  );
+  console.log("getAprAAVETwoBase", value);
+  return (value)
+    .mul(price)
+    .div(getBigNumberFrom(1, decimalsAmount))
+    ;
+
 }
 
 /** Calc APR in the state BEFORE the supply/borrow operation
@@ -129,11 +136,12 @@ async function getAprBeforeAAVETwoBase(
   libFacade: AaveTwoAprLibFacade,
   amount: BigNumber,
   predictedRate: BigNumber,
-  price18: BigNumber,
+  price: BigNumber,
   countBlocks: number,
   state: IAaveKeyState,
   blocksPerDay: number,
-  operationTimestamp: number
+  operationTimestamp: number,
+  decimalsAmount: number,
 ) : Promise<IAprData> {
   const st = {
     liquidityIndex: state.liquidityIndex,
@@ -142,16 +150,19 @@ async function getAprBeforeAAVETwoBase(
   };
 
   const nextLiquidityIndex = await libFacade.getNextLiquidityIndex(st, operationTimestamp);
-  const apr = (await libFacade.getAprForPeriodBefore(
+  const value = await libFacade.getAprForPeriodBefore(
     st,
     amount,
     predictedRate,
     countBlocks,
     blocksPerDay,
     operationTimestamp
-  )).mul(price18).div(getBigNumberFrom(1, 18));
-
-  return {apr, nextLiquidityIndex};
+  );
+  console.log("getAprAAVETwoBase", value);
+  return {
+    apr: value.mul(price).div(getBigNumberFrom(1, decimalsAmount))
+    , nextLiquidityIndex
+  };
 }
 //endregion Utils
 
@@ -164,6 +175,8 @@ export class AprAaveTwo {
   last: IAaveTwoStateInfo | undefined;
   /** Borrower address */
   userAddress: string | undefined;
+  /** Exact value of the borrowed amount */
+  borrowAmount: BigNumber = BigNumber.from(0);
 
 //// next : last  results
 
@@ -198,7 +211,7 @@ export class AprAaveTwo {
    */
   async makeBorrowTest(
     deployer: SignerWithAddress
-    , amountToBorrow0: number
+    , amountToBorrow0: ConfigurableAmountToBorrow
     , p: TestSingleBorrowParams
     , additionalPoints: number[]
   ) : Promise<IBorrowResults> {
@@ -213,9 +226,8 @@ export class AprAaveTwo {
     const borrowReserveData = await dp.getReserveData(p.borrow.asset);
     const collateralReserveData = await dp.getReserveData(p.collateral.asset);
 
-    const amountToBorrow = getBigNumberFrom(amountToBorrow0, borrowToken.decimals);
     const amountCollateral = getBigNumberFrom(p.collateralAmount, collateralToken.decimals);
-    console.log(`amountCollateral=${amountCollateral.toString()} amountToBorrow=${amountToBorrow.toString()}`);
+    console.log(`amountCollateral=${amountCollateral.toString()}`);
 
     // prices
     const prices = await priceOracle.getAssetsPrices([p.collateral.asset, p.borrow.asset]);
@@ -230,6 +242,17 @@ export class AprAaveTwo {
     // start point: we estimate APR in this point before borrow and supply
     this.before = await getAaveTwoStateInfo(deployer, aavePool, p.collateral.asset, p.borrow.asset);
 
+    // make borrow
+    const borrowResults = await makeBorrow(
+      deployer
+      , p
+      , amountToBorrow0
+      , new AaveTwoPlatformFabric()
+    );
+    this.userAddress = borrowResults.poolAdapter;
+    this.borrowAmount = borrowResults.borrowAmount;
+    console.log(`userAddress=${this.userAddress} borrowAmount=${this.borrowAmount}`);
+
     const liquidityRateRaysPredicted = await libFacade.getLiquidityRateRays(
       this.before.collateral.data,
       p.collateral.asset,
@@ -240,14 +263,11 @@ export class AprAaveTwo {
     const brRaysPredicted = (await libFacade.getVariableBorrowRateRays(
       this.before.borrow.data,
       p.borrow.asset,
-      amountToBorrow,
+      this.borrowAmount,
       borrowReserveData.totalStableDebt,
       borrowReserveData.totalVariableDebt
     ));
     console.log(`Predicted: liquidityRateRays=${liquidityRateRaysPredicted.toString()} brRays=${brRaysPredicted.toString()}`);
-
-    // make borrow
-    this.userAddress = await makeBorrow(deployer, p, amountToBorrow, new AaveTwoPlatformFabric());
 
     this.next = await getAaveTwoStateInfo(deployer, aavePool, p.collateral.asset, p.borrow.asset, this.userAddress);
     await TimeUtils.advanceNBlocks(p.countBlocks);
@@ -346,16 +366,18 @@ export class AprAaveTwo {
       , countBlocks
       , this.keyValues.liquidity.next
       , blocksPerDay
+      , collateralToken.decimals
     );
     console.log("supplyAprBaseExact", this.supplyAprBaseExact);
     this.borrowAprBaseExact = await getAprAAVETwoBase(
       libFacade
-      , amountToBorrow
+      , this.borrowAmount
       , this.next.borrow.data.currentVariableBorrowRate
       , priceBorrow
       , countBlocks
       , this.keyValues.borrow.next
       , blocksPerDay
+      , borrowToken.decimals
     );
     console.log("borrowAprBaseExact", this.borrowAprBaseExact);
 
@@ -370,17 +392,19 @@ export class AprAaveTwo {
       , this.keyValues.liquidity.beforeBorrow
       , blocksPerDay
       , this.keyValues.liquidity.next.blockTimeStamp
+      , collateralToken.decimals
     );
     console.log("supplyAprApprox", this.supplyAprBaseApprox);
     this.borrowAprBaseApprox = await getAprBeforeAAVETwoBase(
       libFacade
-      , amountToBorrow
+      , this.borrowAmount
       , this.keyValues.borrowRatePredicted
       , priceBorrow
       , countBlocks
       , this.keyValues.borrow.beforeBorrow
       , blocksPerDay
       , this.keyValues.borrow.next.blockTimeStamp
+      , borrowToken.decimals
     );
     console.log("borrowAprApprox", this.borrowAprBaseApprox);
 
@@ -429,7 +453,7 @@ export class AprAaveTwo {
 
     return {
       init: {
-        borrowAmount: amountToBorrow,
+        borrowAmount: this.borrowAmount,
         collateralAmount: amountCollateral,
         collateralAmountBT18: convertUnits(
           amountCollateral

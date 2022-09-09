@@ -81,11 +81,11 @@ describe("BorrowRepayTest", () => {
                 , {
                   collateral: {
                     asset: ASSET_COLLATERAL,
-                    holder: HOLDER_COLLATERAL,
+                    holders: HOLDER_COLLATERAL,
                     initialLiquidity: INITIAL_LIQUIDITY_COLLATERAL,
                   }, borrow: {
                     asset: ASSET_BORROW,
-                    holder: HOLDER_BORROW,
+                    holders: HOLDER_BORROW,
                     initialLiquidity: INITIAL_LIQUIDITY_BORROW,
                   }, collateralAmount: AMOUNT_COLLATERAL
                   , healthFactor2: HEALTH_FACTOR2
@@ -114,11 +114,11 @@ describe("BorrowRepayTest", () => {
                 , {
                   collateral: {
                     asset: ASSET_COLLATERAL,
-                    holder: HOLDER_COLLATERAL,
+                    holders: HOLDER_COLLATERAL,
                     initialLiquidity: INITIAL_LIQUIDITY_COLLATERAL,
                   }, borrow: {
                     asset: ASSET_BORROW,
-                    holder: HOLDER_BORROW,
+                    holders: HOLDER_BORROW,
                     initialLiquidity: INITIAL_LIQUIDITY_BORROW,
                   }, collateralAmount: AMOUNT_COLLATERAL
                   , healthFactor2: HEALTH_FACTOR2
@@ -136,11 +136,11 @@ describe("BorrowRepayTest", () => {
                 , {
                   collateral: {
                     asset: ASSET_COLLATERAL,
-                    holder: HOLDER_COLLATERAL,
+                    holders: HOLDER_COLLATERAL,
                     initialLiquidity: INITIAL_LIQUIDITY_COLLATERAL,
                   }, borrow: {
                     asset: ASSET_BORROW,
-                    holder: HOLDER_BORROW,
+                    holders: HOLDER_BORROW,
                     initialLiquidity: INITIAL_LIQUIDITY_BORROW,
                   }, collateralAmount: AMOUNT_COLLATERAL
                   , healthFactor2: HEALTH_FACTOR2
@@ -160,11 +160,11 @@ describe("BorrowRepayTest", () => {
                 , {
                   collateral: {
                     asset: ASSET_COLLATERAL,
-                    holder: HOLDER_COLLATERAL,
+                    holders: HOLDER_COLLATERAL,
                     initialLiquidity: INITIAL_LIQUIDITY_COLLATERAL,
                   }, borrow: {
                     asset: ASSET_BORROW,
-                    holder: HOLDER_BORROW,
+                    holders: HOLDER_BORROW,
                     initialLiquidity: INITIAL_LIQUIDITY_BORROW,
                   }, collateralAmount: AMOUNT_COLLATERAL
                   , healthFactor2: HEALTH_FACTOR2
@@ -182,11 +182,11 @@ describe("BorrowRepayTest", () => {
                 , {
                   collateral: {
                     asset: ASSET_COLLATERAL,
-                    holder: HOLDER_COLLATERAL,
+                    holders: HOLDER_COLLATERAL,
                     initialLiquidity: INITIAL_LIQUIDITY_COLLATERAL,
                   }, borrow: {
                     asset: ASSET_BORROW,
-                    holder: HOLDER_BORROW,
+                    holders: HOLDER_BORROW,
                     initialLiquidity: INITIAL_LIQUIDITY_BORROW,
                   }, collateralAmount: AMOUNT_COLLATERAL
                   , healthFactor2: HEALTH_FACTOR2
@@ -215,11 +215,11 @@ describe("BorrowRepayTest", () => {
                 , {
                   collateral: {
                     asset: ASSET_COLLATERAL,
-                    holder: HOLDER_COLLATERAL,
+                    holders: HOLDER_COLLATERAL,
                     initialLiquidity: INITIAL_LIQUIDITY_COLLATERAL,
                   }, borrow: {
                     asset: ASSET_BORROW,
-                    holder: HOLDER_BORROW,
+                    holders: HOLDER_BORROW,
                     initialLiquidity: INITIAL_LIQUIDITY_BORROW,
                   }, collateralAmount: AMOUNT_COLLATERAL
                   , healthFactor2: HEALTH_FACTOR2
@@ -248,11 +248,11 @@ describe("BorrowRepayTest", () => {
                 , {
                   collateral: {
                     asset: ASSET_COLLATERAL,
-                    holder: HOLDER_COLLATERAL,
+                    holders: HOLDER_COLLATERAL,
                     initialLiquidity: INITIAL_LIQUIDITY_COLLATERAL,
                   }, borrow: {
                     asset: ASSET_BORROW,
-                    holder: HOLDER_BORROW,
+                    holders: HOLDER_BORROW,
                     initialLiquidity: INITIAL_LIQUIDITY_BORROW,
                   }, collateralAmount: AMOUNT_COLLATERAL
                   , healthFactor2: HEALTH_FACTOR2
@@ -270,11 +270,11 @@ describe("BorrowRepayTest", () => {
                 , {
                   collateral: {
                     asset: ASSET_COLLATERAL,
-                    holder: HOLDER_COLLATERAL,
+                    holders: HOLDER_COLLATERAL,
                     initialLiquidity: INITIAL_LIQUIDITY_COLLATERAL,
                   }, borrow: {
                     asset: ASSET_BORROW,
-                    holder: HOLDER_BORROW,
+                    holders: HOLDER_BORROW,
                     initialLiquidity: INITIAL_LIQUIDITY_BORROW,
                   }, collateralAmount: AMOUNT_COLLATERAL
                   , healthFactor2: HEALTH_FACTOR2
@@ -292,11 +292,11 @@ describe("BorrowRepayTest", () => {
                 , {
                   collateral: {
                     asset: ASSET_COLLATERAL,
-                    holder: HOLDER_COLLATERAL,
+                    holders: HOLDER_COLLATERAL,
                     initialLiquidity: INITIAL_LIQUIDITY_COLLATERAL,
                   }, borrow: {
                     asset: ASSET_BORROW,
-                    holder: HOLDER_BORROW,
+                    holders: HOLDER_BORROW,
                     initialLiquidity: INITIAL_LIQUIDITY_BORROW,
                   }, collateralAmount: AMOUNT_COLLATERAL
                   , healthFactor2: HEALTH_FACTOR2
@@ -314,11 +314,11 @@ describe("BorrowRepayTest", () => {
                 , {
                   collateral: {
                     asset: ASSET_COLLATERAL,
-                    holder: HOLDER_COLLATERAL,
+                    holders: HOLDER_COLLATERAL,
                     initialLiquidity: INITIAL_LIQUIDITY_COLLATERAL,
                   }, borrow: {
                     asset: ASSET_BORROW,
-                    holder: HOLDER_BORROW,
+                    holders: HOLDER_BORROW,
                     initialLiquidity: INITIAL_LIQUIDITY_BORROW,
                   }, collateralAmount: AMOUNT_COLLATERAL
                   , healthFactor2: HEALTH_FACTOR2
@@ -347,11 +347,11 @@ describe("BorrowRepayTest", () => {
                 , {
                   collateral: {
                     asset: ASSET_COLLATERAL,
-                    holder: HOLDER_COLLATERAL,
+                    holders: HOLDER_COLLATERAL,
                     initialLiquidity: INITIAL_LIQUIDITY_COLLATERAL,
                   }, borrow: {
                     asset: ASSET_BORROW,
-                    holder: HOLDER_BORROW,
+                    holders: HOLDER_BORROW,
                     initialLiquidity: INITIAL_LIQUIDITY_BORROW,
                   }, collateralAmount: AMOUNT_COLLATERAL
                   , healthFactor2: HEALTH_FACTOR2
@@ -380,11 +380,11 @@ describe("BorrowRepayTest", () => {
                 , {
                   collateral: {
                     asset: ASSET_COLLATERAL,
-                    holder: HOLDER_COLLATERAL,
+                    holders: HOLDER_COLLATERAL,
                     initialLiquidity: INITIAL_LIQUIDITY_COLLATERAL,
                   }, borrow: {
                     asset: ASSET_BORROW,
-                    holder: HOLDER_BORROW,
+                    holders: HOLDER_BORROW,
                     initialLiquidity: INITIAL_LIQUIDITY_BORROW,
                   }, collateralAmount: AMOUNT_COLLATERAL
                   , healthFactor2: HEALTH_FACTOR2
@@ -404,11 +404,11 @@ describe("BorrowRepayTest", () => {
                 , {
                   collateral: {
                     asset: ASSET_COLLATERAL,
-                    holder: HOLDER_COLLATERAL,
+                    holders: HOLDER_COLLATERAL,
                     initialLiquidity: INITIAL_LIQUIDITY_COLLATERAL,
                   }, borrow: {
                     asset: ASSET_BORROW,
-                    holder: HOLDER_BORROW,
+                    holders: HOLDER_BORROW,
                     initialLiquidity: INITIAL_LIQUIDITY_BORROW,
                   }, collateralAmount: AMOUNT_COLLATERAL
                   , healthFactor2: HEALTH_FACTOR2
@@ -428,11 +428,11 @@ describe("BorrowRepayTest", () => {
                 , {
                   collateral: {
                     asset: ASSET_COLLATERAL,
-                    holder: HOLDER_COLLATERAL,
+                    holders: HOLDER_COLLATERAL,
                     initialLiquidity: INITIAL_LIQUIDITY_COLLATERAL,
                   }, borrow: {
                     asset: ASSET_BORROW,
-                    holder: HOLDER_BORROW,
+                    holders: HOLDER_BORROW,
                     initialLiquidity: INITIAL_LIQUIDITY_BORROW,
                   }, collateralAmount: AMOUNT_COLLATERAL
                   , healthFactor2: HEALTH_FACTOR2
@@ -452,11 +452,11 @@ describe("BorrowRepayTest", () => {
                 , {
                   collateral: {
                     asset: ASSET_COLLATERAL,
-                    holder: HOLDER_COLLATERAL,
+                    holders: HOLDER_COLLATERAL,
                     initialLiquidity: INITIAL_LIQUIDITY_COLLATERAL,
                   }, borrow: {
                     asset: ASSET_BORROW,
-                    holder: HOLDER_BORROW,
+                    holders: HOLDER_BORROW,
                     initialLiquidity: INITIAL_LIQUIDITY_BORROW,
                   }, collateralAmount: AMOUNT_COLLATERAL
                   , healthFactor2: HEALTH_FACTOR2
@@ -487,11 +487,11 @@ describe("BorrowRepayTest", () => {
                 , {
                   collateral: {
                     asset: ASSET_COLLATERAL,
-                    holder: HOLDER_COLLATERAL,
+                    holders: HOLDER_COLLATERAL,
                     initialLiquidity: INITIAL_LIQUIDITY_COLLATERAL,
                   }, borrow: {
                     asset: ASSET_BORROW,
-                    holder: HOLDER_BORROW,
+                    holders: HOLDER_BORROW,
                     initialLiquidity: INITIAL_LIQUIDITY_BORROW,
                   }, collateralAmount: AMOUNT_COLLATERAL
                   , healthFactor2: HEALTH_FACTOR2
@@ -520,11 +520,11 @@ describe("BorrowRepayTest", () => {
                 , {
                   collateral: {
                     asset: ASSET_COLLATERAL,
-                    holder: HOLDER_COLLATERAL,
+                    holders: HOLDER_COLLATERAL,
                     initialLiquidity: INITIAL_LIQUIDITY_COLLATERAL,
                   }, borrow: {
                     asset: ASSET_BORROW,
-                    holder: HOLDER_BORROW,
+                    holders: HOLDER_BORROW,
                     initialLiquidity: INITIAL_LIQUIDITY_BORROW,
                   }, collateralAmount: AMOUNT_COLLATERAL
                   , healthFactor2: HEALTH_FACTOR2
@@ -544,11 +544,11 @@ describe("BorrowRepayTest", () => {
                 , {
                   collateral: {
                     asset: ASSET_COLLATERAL,
-                    holder: HOLDER_COLLATERAL,
+                    holders: HOLDER_COLLATERAL,
                     initialLiquidity: INITIAL_LIQUIDITY_COLLATERAL,
                   }, borrow: {
                     asset: ASSET_BORROW,
-                    holder: HOLDER_BORROW,
+                    holders: HOLDER_BORROW,
                     initialLiquidity: INITIAL_LIQUIDITY_BORROW,
                   }, collateralAmount: AMOUNT_COLLATERAL
                   , healthFactor2: HEALTH_FACTOR2
@@ -568,11 +568,11 @@ describe("BorrowRepayTest", () => {
                 , {
                   collateral: {
                     asset: ASSET_COLLATERAL,
-                    holder: HOLDER_COLLATERAL,
+                    holders: HOLDER_COLLATERAL,
                     initialLiquidity: INITIAL_LIQUIDITY_COLLATERAL,
                   }, borrow: {
                     asset: ASSET_BORROW,
-                    holder: HOLDER_BORROW,
+                    holders: HOLDER_BORROW,
                     initialLiquidity: INITIAL_LIQUIDITY_BORROW,
                   }, collateralAmount: AMOUNT_COLLATERAL
                   , healthFactor2: HEALTH_FACTOR2
@@ -592,11 +592,11 @@ describe("BorrowRepayTest", () => {
                 , {
                   collateral: {
                     asset: ASSET_COLLATERAL,
-                    holder: HOLDER_COLLATERAL,
+                    holders: HOLDER_COLLATERAL,
                     initialLiquidity: INITIAL_LIQUIDITY_COLLATERAL,
                   }, borrow: {
                     asset: ASSET_BORROW,
-                    holder: HOLDER_BORROW,
+                    holders: HOLDER_BORROW,
                     initialLiquidity: INITIAL_LIQUIDITY_BORROW,
                   }, collateralAmount: AMOUNT_COLLATERAL
                   , healthFactor2: HEALTH_FACTOR2
@@ -634,11 +634,11 @@ describe("BorrowRepayTest", () => {
                 , {
                   collateral: {
                     asset: ASSET_COLLATERAL,
-                    holder: HOLDER_COLLATERAL,
+                    holders: HOLDER_COLLATERAL,
                     initialLiquidity: INITIAL_LIQUIDITY_COLLATERAL,
                   }, borrow: {
                     asset: ASSET_BORROW,
-                    holder: HOLDER_BORROW,
+                    holders: HOLDER_BORROW,
                     initialLiquidity: INITIAL_LIQUIDITY_BORROW,
                   }, collateralAmount: AMOUNT_COLLATERAL
                   , healthFactor2: HEALTH_FACTOR2
@@ -671,11 +671,11 @@ describe("BorrowRepayTest", () => {
                 , {
                   collateral: {
                     asset: ASSET_COLLATERAL,
-                    holder: HOLDER_COLLATERAL,
+                    holders: HOLDER_COLLATERAL,
                     initialLiquidity: INITIAL_LIQUIDITY_COLLATERAL,
                   }, borrow: {
                     asset: ASSET_BORROW,
-                    holder: HOLDER_BORROW,
+                    holders: HOLDER_BORROW,
                     initialLiquidity: INITIAL_LIQUIDITY_BORROW,
                   }, collateralAmount: AMOUNT_COLLATERAL
                   , healthFactor2: HEALTH_FACTOR2
@@ -699,11 +699,11 @@ describe("BorrowRepayTest", () => {
                 , {
                   collateral: {
                     asset: ASSET_COLLATERAL,
-                    holder: HOLDER_COLLATERAL,
+                    holders: HOLDER_COLLATERAL,
                     initialLiquidity: INITIAL_LIQUIDITY_COLLATERAL,
                   }, borrow: {
                     asset: ASSET_BORROW,
-                    holder: HOLDER_BORROW,
+                    holders: HOLDER_BORROW,
                     initialLiquidity: INITIAL_LIQUIDITY_BORROW,
                   }, collateralAmount: AMOUNT_COLLATERAL
                   , healthFactor2: HEALTH_FACTOR2
@@ -727,11 +727,11 @@ describe("BorrowRepayTest", () => {
                 , {
                   collateral: {
                     asset: ASSET_COLLATERAL,
-                    holder: HOLDER_COLLATERAL,
+                    holders: HOLDER_COLLATERAL,
                     initialLiquidity: INITIAL_LIQUIDITY_COLLATERAL,
                   }, borrow: {
                     asset: ASSET_BORROW,
-                    holder: HOLDER_BORROW,
+                    holders: HOLDER_BORROW,
                     initialLiquidity: INITIAL_LIQUIDITY_BORROW,
                   }, collateralAmount: AMOUNT_COLLATERAL
                   , healthFactor2: HEALTH_FACTOR2
@@ -755,11 +755,11 @@ describe("BorrowRepayTest", () => {
                 , {
                   collateral: {
                     asset: ASSET_COLLATERAL,
-                    holder: HOLDER_COLLATERAL,
+                    holders: HOLDER_COLLATERAL,
                     initialLiquidity: INITIAL_LIQUIDITY_COLLATERAL,
                   }, borrow: {
                     asset: ASSET_BORROW,
-                    holder: HOLDER_BORROW,
+                    holders: HOLDER_BORROW,
                     initialLiquidity: INITIAL_LIQUIDITY_BORROW,
                   }, collateralAmount: AMOUNT_COLLATERAL
                   , healthFactor2: HEALTH_FACTOR2
@@ -797,11 +797,11 @@ describe("BorrowRepayTest", () => {
                 , {
                   collateral: {
                     asset: ASSET_COLLATERAL,
-                    holder: HOLDER_COLLATERAL,
+                    holders: HOLDER_COLLATERAL,
                     initialLiquidity: INITIAL_LIQUIDITY_COLLATERAL,
                   }, borrow: {
                     asset: ASSET_BORROW,
-                    holder: HOLDER_BORROW,
+                    holders: HOLDER_BORROW,
                     initialLiquidity: INITIAL_LIQUIDITY_BORROW,
                   }, collateralAmount: AMOUNT_COLLATERAL
                   , healthFactor2: HEALTH_FACTOR2
@@ -828,11 +828,11 @@ describe("BorrowRepayTest", () => {
                 , {
                   collateral: {
                     asset: ASSET_COLLATERAL,
-                    holder: HOLDER_COLLATERAL,
+                    holders: HOLDER_COLLATERAL,
                     initialLiquidity: INITIAL_LIQUIDITY_COLLATERAL,
                   }, borrow: {
                     asset: ASSET_BORROW,
-                    holder: HOLDER_BORROW,
+                    holders: HOLDER_BORROW,
                     initialLiquidity: INITIAL_LIQUIDITY_BORROW,
                   }, collateralAmount: AMOUNT_COLLATERAL
                   , healthFactor2: HEALTH_FACTOR2
@@ -861,11 +861,11 @@ describe("BorrowRepayTest", () => {
                 , {
                   collateral: {
                     asset: ASSET_COLLATERAL,
-                    holder: HOLDER_COLLATERAL,
+                    holders: HOLDER_COLLATERAL,
                     initialLiquidity: INITIAL_LIQUIDITY_COLLATERAL,
                   }, borrow: {
                     asset: ASSET_BORROW,
-                    holder: HOLDER_BORROW,
+                    holders: HOLDER_BORROW,
                     initialLiquidity: INITIAL_LIQUIDITY_BORROW,
                   }, collateralAmount: AMOUNT_COLLATERAL
                   , healthFactor2: HEALTH_FACTOR2
@@ -892,11 +892,11 @@ describe("BorrowRepayTest", () => {
                 , {
                   collateral: {
                     asset: ASSET_COLLATERAL,
-                    holder: HOLDER_COLLATERAL,
+                    holders: HOLDER_COLLATERAL,
                     initialLiquidity: INITIAL_LIQUIDITY_COLLATERAL,
                   }, borrow: {
                     asset: ASSET_BORROW,
-                    holder: HOLDER_BORROW,
+                    holders: HOLDER_BORROW,
                     initialLiquidity: INITIAL_LIQUIDITY_BORROW,
                   }, collateralAmount: AMOUNT_COLLATERAL
                   , healthFactor2: HEALTH_FACTOR2
