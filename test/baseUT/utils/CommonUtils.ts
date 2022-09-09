@@ -8,16 +8,16 @@ export async function setInitialBalance(
   deployer: SignerWithAddress,
   asset: string,
   holders: string,
-  amount: number,
+  amount: number | BigNumber,
   recipient: string
 ) : Promise<BigNumber> {
   const hh = holders.split(";");
 
-  const dest: BigNumber = BigNumber.from(0);
+  let dest: BigNumber = BigNumber.from(0);
   for (const h of hh) {
     await BalanceUtils.getAmountFromHolder(asset, h, recipient, amount);
-    dest.add(
-      IERC20__factory.connect(asset, deployer).balanceOf(recipient)
+    dest = dest.add(
+      await IERC20__factory.connect(asset, deployer).balanceOf(recipient)
     );
   }
 

@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.4;
+import "hardhat/console.sol";
 
 /// @notice Utils shared by all AAVE protocols
 library AaveSharedLib {
@@ -75,11 +76,20 @@ library AaveSharedLib {
     uint countBlocks,
     uint blocksPerDay,
     uint operationTimestamp
-  ) internal pure returns (uint) {
+  ) internal view returns (uint) {
+    console.log("getAprForPeriodBefore");
+    console.log("amount", amount);
+    console.log("predictedRate", predictedRate);
+    console.log("countBlocks", countBlocks);
+    console.log("blocksPerDay", blocksPerDay);
+    console.log("operationTimestamp", operationTimestamp);
+
     // recalculate reserveNormalized and liquidityIndex after the supply/borrow operation
     // For borrow we have only approx calculations here because we don't take into account compound effect
     // for the period [state.lastUpdateTimestamp ... operationTimestamp]
     uint liquidityIndexAfter = getNextLiquidityIndex(state, operationTimestamp);
+
+    console.log("liquidityIndexAfter", liquidityIndexAfter);
 
     return getAprForPeriodAfter(
       amount,

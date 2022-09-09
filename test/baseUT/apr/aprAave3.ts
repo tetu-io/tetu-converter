@@ -260,6 +260,7 @@ export class AprAave3 {
     details: IAprAave3Results
     , results: IBorrowResults
   }> {
+    console.log("makeBorrowTest:", amountToBorrow0, p, additionalPoints);
     const collateralToken = await TokenDataTypes.Build(deployer, p.collateral.asset);
     const borrowToken = await TokenDataTypes.Build(deployer, p.borrow.asset);
 

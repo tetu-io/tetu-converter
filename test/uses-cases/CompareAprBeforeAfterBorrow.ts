@@ -79,11 +79,11 @@ describe("CompareAprBeforeAfterBorrow", () => {
           , {
             collateral: {
               asset: ASSET_COLLATERAL,
-              holders: HOLDER_COLLATERAL,
+              holder: HOLDER_COLLATERAL,
               initialLiquidity: INITIAL_LIQUIDITY_COLLATERAL,
             }, borrow: {
               asset: ASSET_BORROW,
-              holders: HOLDER_BORROW,
+              holder: HOLDER_BORROW,
               initialLiquidity: INITIAL_LIQUIDITY_BORROW,
             }, collateralAmount: AMOUNT_COLLATERAL
             , healthFactor2: HEALTH_FACTOR2
@@ -173,11 +173,11 @@ describe("CompareAprBeforeAfterBorrow", () => {
           , {
             collateral: {
               asset: ASSET_COLLATERAL,
-              holders: HOLDER_COLLATERAL,
+              holder: HOLDER_COLLATERAL,
               initialLiquidity: INITIAL_LIQUIDITY_COLLATERAL,
             }, borrow: {
               asset: ASSET_BORROW,
-              holders: HOLDER_BORROW,
+              holder: HOLDER_BORROW,
               initialLiquidity: INITIAL_LIQUIDITY_BORROW,
             }, collateralAmount: AMOUNT_COLLATERAL
             , healthFactor2: HEALTH_FACTOR2
@@ -228,11 +228,11 @@ describe("CompareAprBeforeAfterBorrow", () => {
           , {
             collateral: {
               asset: ASSET_COLLATERAL,
-              holders: HOLDER_COLLATERAL,
+              holder: HOLDER_COLLATERAL,
               initialLiquidity: INITIAL_LIQUIDITY_COLLATERAL,
             }, borrow: {
               asset: ASSET_BORROW,
-              holders: HOLDER_BORROW,
+              holder: HOLDER_BORROW,
               initialLiquidity: INITIAL_LIQUIDITY_BORROW,
             }, collateralAmount: AMOUNT_COLLATERAL
             , healthFactor2: HEALTH_FACTOR2
@@ -606,11 +606,11 @@ describe("CompareAprBeforeAfterBorrow", () => {
           , {
             collateral: {
               asset: ASSET_COLLATERAL,
-              holders: HOLDER_COLLATERAL,
+              holder: HOLDER_COLLATERAL,
               initialLiquidity: INITIAL_LIQUIDITY_COLLATERAL,
             }, borrow: {
               asset: ASSET_BORROW,
-              holders: HOLDER_BORROW,
+              holder: HOLDER_BORROW,
               initialLiquidity: INITIAL_LIQUIDITY_BORROW,
             }, collateralAmount: AMOUNT_COLLATERAL
             , healthFactor2: HEALTH_FACTOR2
@@ -648,11 +648,11 @@ describe("CompareAprBeforeAfterBorrow", () => {
           , {
             collateral: {
               asset: ASSET_COLLATERAL,
-              holders: HOLDER_COLLATERAL,
+              holder: HOLDER_COLLATERAL,
               initialLiquidity: INITIAL_LIQUIDITY_COLLATERAL,
             }, borrow: {
               asset: ASSET_BORROW,
-              holders: HOLDER_BORROW,
+              holder: HOLDER_BORROW,
               initialLiquidity: INITIAL_LIQUIDITY_BORROW,
             }, collateralAmount: AMOUNT_COLLATERAL
             , healthFactor2: HEALTH_FACTOR2
@@ -703,11 +703,11 @@ describe("CompareAprBeforeAfterBorrow", () => {
           , {
             collateral: {
               asset: ASSET_COLLATERAL,
-              holders: HOLDER_COLLATERAL,
+              holder: HOLDER_COLLATERAL,
               initialLiquidity: INITIAL_LIQUIDITY_COLLATERAL,
             }, borrow: {
               asset: ASSET_BORROW,
-              holders: HOLDER_BORROW,
+              holder: HOLDER_BORROW,
               initialLiquidity: INITIAL_LIQUIDITY_BORROW,
             }, collateralAmount: AMOUNT_COLLATERAL
             , healthFactor2: HEALTH_FACTOR2

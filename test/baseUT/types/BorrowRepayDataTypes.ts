@@ -4,15 +4,15 @@ import {BigNumber} from "ethers";
 export interface TokenParams {
   asset: string;
   /** ;- separated list of holders */
-  holders: string;
-  initialLiquidity: number;
+  holder: string;
+  initialLiquidity: number | BigNumber;
 }
 
 /** Input params for test: single borrow, single repay*/
 export interface TestSingleBorrowParams {
   collateral: TokenParams;
   borrow: TokenParams;
-  collateralAmount: number;
+  collateralAmount: number | BigNumber;
   healthFactor2: number;
   countBlocks: number;
 }

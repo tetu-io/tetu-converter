@@ -36,9 +36,9 @@ export async function makeBorrow (
   const borrowToken = await TokenDataTypes.Build(deployer, p.borrow.asset);
 
   const c0 = await setInitialBalance(deployer, collateralToken.address
-    , p.collateral.holders, p.collateral.initialLiquidity, uc.address);
+    , p.collateral.holder, p.collateral.initialLiquidity, uc.address);
   const b0 = await setInitialBalance(deployer, borrowToken.address
-    , p.borrow.holders, p.borrow.initialLiquidity, uc.address);
+    , p.borrow.holder, p.borrow.initialLiquidity, uc.address);
   const collateralAmount = getBigNumberFrom(p.collateralAmount, collateralToken.decimals);
 
   await uc.makeBorrowExactAmount(
@@ -120,7 +120,7 @@ export function prepareExactBorrowAmount(
   return data.exact
     ? new ConfigurableAmountToBorrow(
         true
-      , getBigNumberFrom(data.exactAmountToBorrow, assetDecimals)
+      , ConfigurableAmountToBorrow.getValue(data, assetDecimals)
     )
     : data;
 }
@@ -128,7 +128,7 @@ export function prepareExactBorrowAmount(
 //endregion ConfigurableAmountToBorrow
 
 //region Save borrow test results to CSV
-function appendToFile(path: string, data: IBorrowTestResults[]) {
+export function appendTestResultsToFile(path: string, data: IBorrowTestResults[]) {
   // write headers
   if (! existsSync(path)) {
     const headers: string[] = [
@@ -164,6 +164,17 @@ function appendToFile(path: string, data: IBorrowTestResults[]) {
 
       , "Collateral.address"
       , "Borrow.address"
+
+      , "plan.converter"
+      , "plan.ltv18"
+      , "plan.borrowApr18"
+      , "plan.liquidationThreshold18"
+      , "plan.maxAmountToSupplyCT"
+      , "plan.maxAmountToBorrowBT"
+      , "plan.rewardsAmountBT18"
+      , "plan.supplyAprBT18"
+
+// plan
 
 // point 0
       , "costsBT18.C"
@@ -219,6 +230,15 @@ function appendToFile(path: string, data: IBorrowTestResults[]) {
 
       , row.assetCollateral.asset
       , row.assetBorrow.asset
+
+      , row.plan.converter
+      , row.plan.ltv18
+      , row.plan.borrowApr18
+      , row.plan.liquidationThreshold18
+      , row.plan.maxAmountToSupplyCT
+      , row.plan.maxAmountToBorrowBT
+      , row.plan.rewardsAmountBT18
+      , row.plan.supplyAprBT18
     ];
 
     if (row.results) {

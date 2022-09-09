@@ -1,8 +1,6 @@
 import {TestSingleBorrowParams} from "../types/BorrowRepayDataTypes";
 import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import {
-  ConfigurableAmountToBorrow,
-  ConfigurableAmountToBorrowNumeric,
   ConversionPlan,
   IAssetInfo,
   IBorrowResults
@@ -13,6 +11,7 @@ import {IERC20__factory, IERC20Extended__factory, IPlatformAdapter} from "../../
 import {BigNumber} from "ethers";
 import {getBigNumberFrom} from "../../../scripts/utils/NumberUtils";
 import {Misc} from "../../../scripts/utils/Misc";
+import {ConfigurableAmountToBorrow} from "../apr/ConfigurableAmountToBorrow";
 
 //region Data types
 interface IInputParams {
@@ -24,7 +23,7 @@ interface IInputParams {
 /** I.e. one of AprXXX.makeBorrowTest */
 export type BorrowTestMaker = (
   deployer: SignerWithAddress
-  , amountToBorrow0: ConfigurableAmountToBorrowNumeric
+  , amountToBorrow0: ConfigurableAmountToBorrow
   , p: TestSingleBorrowParams
   , additionalPoints: number[]
 ) => Promise<IBorrowResults>;
@@ -97,15 +96,17 @@ export class CompareAprUsesCase {
 
     for (const [indexSource, sourceAsset] of assets.entries()) {
       const holders = sourceAsset.holders[indexSource].split(";");
-      const collateralAmount = await CompareAprUsesCase.getTotalAmount(deployer, sourceAsset.asset, holders);
+      const initialLiquidity = await CompareAprUsesCase.getTotalAmount(deployer, sourceAsset.asset, holders);
       const collateralDecimals = await IERC20Extended__factory.connect(sourceAsset.asset, deployer).decimals();
 
       for (const [indexTarget, targetAsset] of assets.entries()) {
         if (sourceAsset === targetAsset) continue;
+        console.log(`makePossibleBorrowsOnPlatform: ${sourceAsset.title} ${targetAsset.title}`);
 
         const stPrices = await platformAdapter.getAssetsPrices([sourceAsset.asset, targetAsset.asset]);
 
         // see definition of borrowAmountFactor18 inside BorrowManager._findPool
+        const collateralAmount = initialLiquidity; //TODO
         const borrowAmountFactor18 = getBigNumberFrom(1, 18)
           .mul(collateralAmount)
           .mul(stPrices[0])
@@ -134,14 +135,14 @@ export class CompareAprUsesCase {
           const p: TestSingleBorrowParams = {
             collateral: {
               asset: sourceAsset.asset,
-              holders: sourceAsset.holders[indexSource],
-              initialLiquidity: 0,
+              holder: sourceAsset.holders.join(";"),
+              initialLiquidity: initialLiquidity,
             }, borrow: {
               asset: targetAsset.asset,
-              holders: targetAsset.holders[indexTarget],
+              holder: targetAsset.holders.join(";"),
               initialLiquidity: 0,
             }
-            , collateralAmount: collateralAmount.div(getBigNumberFrom(collateralDecimals)).toNumber()
+            , collateralAmount: collateralAmount
             , healthFactor2: healthFactor2
             , countBlocks: 1 // we need 1 block for next/last; countBlocks are used as additional-points
           };
@@ -179,10 +180,11 @@ export class CompareAprUsesCase {
     , asset: string
     , holders: string[]
   ) : Promise<BigNumber> {
-    const dest = BigNumber.from(0);
+    let dest = BigNumber.from(0);
     for (const holder of holders) {
       const balance = await IERC20__factory.connect(asset, deployer).balanceOf(holder);
-      dest.add(balance);
+      console.log(`getTotalAmount holder=${holder} balance=${balance.toString()}`);
+      dest = dest.add(balance);
     }
     return dest;
   }

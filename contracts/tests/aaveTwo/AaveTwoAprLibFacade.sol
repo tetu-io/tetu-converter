@@ -60,7 +60,7 @@ contract AaveTwoAprLibFacade {
     uint countBlocks,
     uint blocksPerDay,
     uint operationTimestamp
-  ) external pure returns (uint) {
+  ) external view returns (uint) {
     return AaveSharedLib.getAprForPeriodBefore(
       state,
       amount,

@@ -15,6 +15,7 @@ import "../../../integrations/aave3/IAaveProtocolDataProvider.sol";
 import "../../../integrations/aave3/Aave3ReserveConfiguration.sol";
 import "../../../integrations/aave3/IAavePriceOracle.sol";
 import "../../../integrations/aave3/IAaveToken.sol";
+import "hardhat/console.sol";
 
 /// @notice Adapter to read current pools info from AAVE-v3-protocol, see https://docs.aave.com/hub/
 contract Aave3PlatformAdapter is IPlatformAdapter {
@@ -100,18 +101,23 @@ contract Aave3PlatformAdapter is IPlatformAdapter {
   ) internal view returns (
     AppDataTypes.ConversionPlan memory plan
   ) {
+    console.log("_getConversionPlan.1", params.collateralAmount, params.borrowAmountFactor18);
     LocalsGetConversionPlan memory vars;
 
     vars.poolLocal = pool;
     Aave3DataTypes.ReserveData memory rc = vars.poolLocal.getReserveData(params.collateralAsset);
+    console.log("_getConversionPlan.2");
 
     if (_isUsable(rc.configuration) &&  _isCollateralUsageAllowed(rc.configuration)) {
       Aave3DataTypes.ReserveData memory rb = vars.poolLocal.getReserveData(params.borrowAsset);
+      console.log("_getConversionPlan.3");
 
       if (_isUsable(rc.configuration) && rb.configuration.getBorrowingEnabled()) {
+        console.log("_getConversionPlan.4");
 
         vars.isolationMode = _isIsolationModeEnabled(rc.configuration);
         if (!vars.isolationMode || _isUsableInIsolationMode(rb.configuration)) {
+          console.log("_getConversionPlan.5");
           { // get liquidation threshold (== collateral factor) and loan-to-value
             uint8 categoryCollateral = uint8(rc.configuration.getEModeCategory());
             if (categoryCollateral != 0 && categoryCollateral == rb.configuration.getEModeCategory()) {
@@ -137,6 +143,7 @@ contract Aave3PlatformAdapter is IPlatformAdapter {
           vars.totalVariableDebt
           ,,,,,,,) = _dp(vars.poolLocal).getReserveData(params.borrowAsset);
           plan.maxAmountToBorrowBT = vars.totalAToken - vars.totalStableDebt - vars.totalVariableDebt;
+          console.log("_getConversionPlan.6");
 
           // supply/borrow caps are given in "whole tokens" == without decimals
           // see AAVE3-code, ValidationLogic.sol, validateSupply
@@ -165,6 +172,7 @@ contract Aave3PlatformAdapter is IPlatformAdapter {
               }
             }
           }
+          console.log("_getConversionPlan.7");
 
           {
             // see sources of AAVE3\ValidationLogic.sol\validateSupply
@@ -181,14 +189,20 @@ contract Aave3PlatformAdapter is IPlatformAdapter {
                 : 0;
             }
           }
+          console.log("_getConversionPlan.8");
 
           // calculate borrow-APR, see detailed explanation in Aave3AprLib
           vars.amountToBorrow = plan.liquidationThreshold18 * params.borrowAmountFactor18 / 1e18;
+          if (vars.amountToBorrow > plan.maxAmountToBorrowBT) {
+            vars.amountToBorrow = plan.maxAmountToBorrowBT;
+          }
           vars.blocksPerDay = IController(controller).blocksPerDay();
           vars.assets = new address[](2);
           vars.assets[0] = params.collateralAsset;
           vars.assets[1] = params.borrowAsset;
           vars.prices = _priceOracle.getAssetsPrices(vars.assets);
+
+          console.log("_getConversionPlan.9");
 
           plan.borrowApr18 = AaveSharedLib.getAprForPeriodBefore(
             AaveSharedLib.State({
@@ -211,6 +225,8 @@ contract Aave3PlatformAdapter is IPlatformAdapter {
           )
           * 10**18 // we need decimals 18
           / rb.configuration.getDecimals();
+
+          console.log("_getConversionPlan.10");
 
           // calculate supply-APR, see detailed explanation in Aave3AprLib
           plan.supplyAprBT18 = AaveSharedLib.getAprForPeriodBefore(
@@ -237,6 +253,9 @@ contract Aave3PlatformAdapter is IPlatformAdapter {
           / vars.prices[1] // borrow price
           / rc.configuration.getDecimals();
         }
+
+        console.log("_getConversionPlan.11");
+
       }
     }
 

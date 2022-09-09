@@ -12,10 +12,11 @@ import {CoreContractsHelper} from "../baseUT/helpers/CoreContractsHelper";
 import {AdaptersHelper} from "../baseUT/helpers/AdaptersHelper";
 import {AprAaveTwo} from "../baseUT/apr/aprAaveTwo";
 import {AprDForce} from "../baseUT/apr/aprDForce";
-import {getCTokenAddressForAsset} from "../baseUT/utils/DForceUtils";
+import {appendTestResultsToFile} from "../baseUT/apr/aprUtils";
 
 describe("CompareAprUsesCaseTest", () => {
 //region Constants
+  const PATH_OUT = "tmp/compareResults.csv";
   const HEALTH_FACTOR2 = 200;
   const COUNT_BLOCKS_SMALL = 2;
   const COUNT_BLOCKS_NORMAL = 80_000;
@@ -35,68 +36,69 @@ describe("CompareAprUsesCaseTest", () => {
       asset: MaticAddresses.USDC, title: "USDC", holders: [
         MaticAddresses.HOLDER_USDC
       ]
-    } , {
-      asset: MaticAddresses.USDT, title: "USDT", holders: [
-        MaticAddresses.HOLDER_USDT
-        , MaticAddresses.HOLDER_USDT_1
-        , MaticAddresses.HOLDER_USDT_2
-        , MaticAddresses.HOLDER_USDT_3
-      ]
-    } , {
-      asset: MaticAddresses.WMATIC, title: "WMATIC", holders: [
-        MaticAddresses.HOLDER_WMATIC
-      ]
-    } , {
-      asset: MaticAddresses.WBTC, title: "WBTS", holders: [
-        MaticAddresses.HOLDER_WBTC
-      ]
-    } , {
-      asset: MaticAddresses.ChainLink, title: "ChainLink", holders: [
-        MaticAddresses.HOLDER_ChainLink
-      ]
-    } , {
-      asset: MaticAddresses.DefiPulseToken, title: "DefiPulseToken", holders: [
-        MaticAddresses.HOLDER_DefiPulseToken
-      ]
-    } , {
-      asset: MaticAddresses.AavegotchiGHST, title: "AavegotchiGHST", holders: [
-        MaticAddresses.HOLDER_AavegotchiGHST
-      ]
-    } , {
-      asset: MaticAddresses.CRV, title: "CRV", holders: [
-        MaticAddresses.HOLDER_CRV
-      ]
-    } , {
-      asset: MaticAddresses.SUSHI, title: "SUSHI", holders: [
-        MaticAddresses.HOLDER_Sushi
-        , MaticAddresses.HOLDER_Sushi_2
-      ]
-    } , {
-      asset: MaticAddresses.WETH, title: "WETH", holders: [
-        MaticAddresses.HOLDER_WETH
-        , MaticAddresses.HOLDER_WETH_2
-        , MaticAddresses.HOLDER_WETH_3
-      ]
-    } , {
-      asset: MaticAddresses.BALANCER, title: "BALANCER", holders: [
-        MaticAddresses.HOLDER_BALANCER
-      ]
-    } , {
-      asset: MaticAddresses.EURS, title: "EURS", holders: [
-        MaticAddresses.HOLDER_EURS
-      ]
-    } , {
-      asset: MaticAddresses.jEUR, title: "jEUR", holders: [
-        MaticAddresses.HOLDER_jEUR
-        , MaticAddresses.HOLDER_jEUR_2
-      ]
-    } , {
-      asset: MaticAddresses.FRAX, title: "FRAX", holders: [
-        MaticAddresses.HOLDER_FRAX
-        , MaticAddresses.HOLDER_FRAX_2
-        , MaticAddresses.HOLDER_FRAX_3
-      ]
     }
+    // , {
+    //   asset: MaticAddresses.USDT, title: "USDT", holders: [
+    //     MaticAddresses.HOLDER_USDT
+    //     , MaticAddresses.HOLDER_USDT_1
+    //     , MaticAddresses.HOLDER_USDT_2
+    //     , MaticAddresses.HOLDER_USDT_3
+    //   ]
+    // } , {
+    //   asset: MaticAddresses.WMATIC, title: "WMATIC", holders: [
+    //     MaticAddresses.HOLDER_WMATIC
+    //   ]
+    // } , {
+    //   asset: MaticAddresses.WBTC, title: "WBTS", holders: [
+    //     MaticAddresses.HOLDER_WBTC
+    //   ]
+    // } , {
+    //   asset: MaticAddresses.ChainLink, title: "ChainLink", holders: [
+    //     MaticAddresses.HOLDER_ChainLink
+    //   ]
+    // } , {
+    //   asset: MaticAddresses.DefiPulseToken, title: "DefiPulseToken", holders: [
+    //     MaticAddresses.HOLDER_DefiPulseToken
+    //   ]
+    // } , {
+    //   asset: MaticAddresses.AavegotchiGHST, title: "AavegotchiGHST", holders: [
+    //     MaticAddresses.HOLDER_AavegotchiGHST
+    //   ]
+    // } , {
+    //   asset: MaticAddresses.CRV, title: "CRV", holders: [
+    //     MaticAddresses.HOLDER_CRV
+    //   ]
+    // } , {
+    //   asset: MaticAddresses.SUSHI, title: "SUSHI", holders: [
+    //     MaticAddresses.HOLDER_Sushi
+    //     , MaticAddresses.HOLDER_Sushi_2
+    //   ]
+    // } , {
+    //   asset: MaticAddresses.WETH, title: "WETH", holders: [
+    //     MaticAddresses.HOLDER_WETH
+    //     , MaticAddresses.HOLDER_WETH_2
+    //     , MaticAddresses.HOLDER_WETH_3
+    //   ]
+    // } , {
+    //   asset: MaticAddresses.BALANCER, title: "BALANCER", holders: [
+    //     MaticAddresses.HOLDER_BALANCER
+    //   ]
+    // } , {
+    //   asset: MaticAddresses.EURS, title: "EURS", holders: [
+    //     MaticAddresses.HOLDER_EURS
+    //   ]
+    // } , {
+    //   asset: MaticAddresses.jEUR, title: "jEUR", holders: [
+    //     MaticAddresses.HOLDER_jEUR
+    //     , MaticAddresses.HOLDER_jEUR_2
+    //   ]
+    // } , {
+    //   asset: MaticAddresses.FRAX, title: "FRAX", holders: [
+    //     MaticAddresses.HOLDER_FRAX
+    //     , MaticAddresses.HOLDER_FRAX_2
+    //     , MaticAddresses.HOLDER_FRAX_3
+    //   ]
+    // }
   ];
 //endregion Constants
 
@@ -262,6 +264,7 @@ describe("CompareAprUsesCaseTest", () => {
             ,true
             , await getSmallAmounts(assets)
           );
+          appendTestResultsToFile(PATH_OUT, ret);
         })
         it("AAVETwo", async () => {
           const ret = await makeTestAaveTwo(
@@ -269,6 +272,7 @@ describe("CompareAprUsesCaseTest", () => {
             ,true
             , await getSmallAmounts(assets)
           );
+          appendTestResultsToFile(PATH_OUT, ret);
         })
         it("DForce", async () => {
           const ret = await makeTestDForce(
@@ -276,9 +280,11 @@ describe("CompareAprUsesCaseTest", () => {
             ,true
             , await getSmallAmounts(assets)
           );
+          appendTestResultsToFile(PATH_OUT, ret);
         })
       });
     });
+
   });
 });
 

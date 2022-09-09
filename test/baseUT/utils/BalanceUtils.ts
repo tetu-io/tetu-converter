@@ -77,7 +77,7 @@ export class BalanceUtils {
     asset: string
     , holder: string
     , recipient: string
-    , amount: number
+    , amount: number | BigNumber
   ) {
     const decimals = await IERC20Extended__factory.connect(
       asset
@@ -89,7 +89,9 @@ export class BalanceUtils {
       , await DeployerUtils.startImpersonate(holder)
     ).transfer(
       recipient
-      , getBigNumberFrom(amount, decimals)
+      , typeof(amount) === "number"
+        ? getBigNumberFrom(amount, decimals)
+        : amount
     );
   }
 }
