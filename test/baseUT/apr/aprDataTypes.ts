@@ -15,7 +15,6 @@ export interface IPeriod {
 export interface IAmounts {
   collateral: BigNumber;
   borrow: BigNumber;
-  rewards?: BigNumber;
 }
 
 export interface IPointResults {
@@ -90,21 +89,6 @@ export interface IAaveKeyTestValues {
   },
 }
 
-export interface ConfigurableAmountToBorrow {
-  /**
-   * true  - exactAmountToBorrow contains exact amount to borrow
-   * false - ratio18 contains RATIO, amount to borrow will be calculated as
-   *         amount to borrow = max allowed amount * RATIO
-   *         The RATIO should have decimals 18
-   * */
-  exact: boolean;
-
-  /** One of two fields below must be not empty depending on exact value*/
-
-  exactAmountToBorrow: BigNumber | undefined;
-  ratio18: BigNumber | undefined;
-}
-
 export interface ConversionPlan {
   converter: string;
   liquidationThreshold18: BigNumber;
@@ -116,14 +100,8 @@ export interface ConversionPlan {
   maxAmountToSupplyCT: BigNumber;
 }
 
-export interface IAsset {
-  /** title */
-  t: string;
-  /** address */
-  a: string;
-}
-
-export interface IAssetHoldersBox {
+export interface IAssetInfo {
   asset: string;
+  title: string;
   holders: string[];
 }

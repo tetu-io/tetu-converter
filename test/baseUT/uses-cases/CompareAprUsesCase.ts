@@ -1,6 +1,12 @@
 import {TestSingleBorrowParams} from "../types/BorrowRepayDataTypes";
 import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
-import {ConfigurableAmountToBorrow, ConversionPlan, IAsset, IBorrowResults} from "../apr/aprDataTypes";
+import {
+  ConfigurableAmountToBorrow,
+  ConfigurableAmountToBorrowNumeric,
+  ConversionPlan,
+  IAssetInfo,
+  IBorrowResults
+} from "../apr/aprDataTypes";
 import {TimeUtils} from "../../../scripts/utils/TimeUtils";
 import {ethers} from "hardhat";
 import {IERC20__factory, IERC20Extended__factory, IPlatformAdapter} from "../../../typechain";
@@ -18,7 +24,7 @@ interface IInputParams {
 /** I.e. one of AprXXX.makeBorrowTest */
 export type BorrowTestMaker = (
   deployer: SignerWithAddress
-  , amountToBorrow0: ConfigurableAmountToBorrow
+  , amountToBorrow0: ConfigurableAmountToBorrowNumeric
   , p: TestSingleBorrowParams
   , additionalPoints: number[]
 ) => Promise<IBorrowResults>;
@@ -26,10 +32,10 @@ export type BorrowTestMaker = (
 export interface IBorrowTestResults {
   platformTitle: string;
 
-  assetCollateral: IAsset;
+  assetCollateral: IAssetInfo;
   collateralAmount: BigNumber;
 
-  assetBorrow: IAsset;
+  assetBorrow: IAssetInfo;
 
   plan: ConversionPlan;
   results?: IBorrowResults;
@@ -70,19 +76,17 @@ export class CompareAprUsesCase {
    * @param platformTitle
    * @param platformAdapter
    * @param assets
-   * @param holdersCSV  ;-separated list of holders
    * @param exactAmountToBorrow
    * @param amountsToBorrow
    * @param countBlocks
    * @param healthFactor2
    * @param testMaker
    */
-  static async makePossibleBorrowsOnPlatformExactAmounts(
+  static async makePossibleBorrowsOnPlatform(
     deployer: SignerWithAddress,
     platformTitle: string,
     platformAdapter: IPlatformAdapter,
-    assets: IAsset[],
-    holdersCSV: string[],
+    assets: IAssetInfo[],
     exactAmountToBorrow: boolean,
     amountsToBorrow: BigNumber[],
     countBlocks: number,
@@ -92,14 +96,14 @@ export class CompareAprUsesCase {
     const dest: IBorrowTestResults[] = [];
 
     for (const [indexSource, sourceAsset] of assets.entries()) {
-      const holders = holdersCSV[indexSource].split(";");
-      const collateralAmount = await CompareAprUsesCase.getTotalAmount(deployer, sourceAsset.a, holders);
-      const collateralDecimals = await IERC20Extended__factory.connect(sourceAsset.a, deployer).decimals();
+      const holders = sourceAsset.holders[indexSource].split(";");
+      const collateralAmount = await CompareAprUsesCase.getTotalAmount(deployer, sourceAsset.asset, holders);
+      const collateralDecimals = await IERC20Extended__factory.connect(sourceAsset.asset, deployer).decimals();
 
       for (const [indexTarget, targetAsset] of assets.entries()) {
         if (sourceAsset === targetAsset) continue;
 
-        const stPrices = await platformAdapter.getAssetsPrices([sourceAsset.a, targetAsset.a]);
+        const stPrices = await platformAdapter.getAssetsPrices([sourceAsset.asset, targetAsset.asset]);
 
         // see definition of borrowAmountFactor18 inside BorrowManager._findPool
         const borrowAmountFactor18 = getBigNumberFrom(1, 18)
@@ -110,9 +114,9 @@ export class CompareAprUsesCase {
           .div(getBigNumberFrom(1, 18-2));
 
         const plan = await platformAdapter.getConversionPlan(
-          sourceAsset.a
+          sourceAsset.asset
           , collateralAmount
-          , targetAsset.a
+          , targetAsset.asset
           , borrowAmountFactor18
           , countBlocks
         );
@@ -129,12 +133,12 @@ export class CompareAprUsesCase {
         } else {
           const p: TestSingleBorrowParams = {
             collateral: {
-              asset: sourceAsset.a,
-              holders: holdersCSV[indexSource],
+              asset: sourceAsset.asset,
+              holders: sourceAsset.holders[indexSource],
               initialLiquidity: 0,
             }, borrow: {
-              asset: targetAsset.a,
-              holders: holdersCSV[indexTarget],
+              asset: targetAsset.asset,
+              holders: targetAsset.holders[indexTarget],
               initialLiquidity: 0,
             }
             , collateralAmount: collateralAmount.div(getBigNumberFrom(collateralDecimals)).toNumber()

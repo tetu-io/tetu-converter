@@ -1,22 +1,105 @@
 import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import {ethers} from "hardhat";
 import {TimeUtils} from "../../scripts/utils/TimeUtils";
-import {CompareAprUsesCase} from "../baseUT/uses-cases/CompareAprUsesCase";
+import {CompareAprUsesCase, IBorrowTestResults} from "../baseUT/uses-cases/CompareAprUsesCase";
 import {MaticAddresses} from "../../scripts/addresses/MaticAddresses";
-import {IAsset, IAssetHoldersBox} from "../baseUT/apr/aprDataTypes";
+import {IAssetInfo} from "../baseUT/apr/aprDataTypes";
+import {BigNumber} from "ethers";
+import {IERC20Extended__factory} from "../../typechain";
+import {getBigNumberFrom} from "../../scripts/utils/NumberUtils";
+import {AprAave3} from "../baseUT/apr/aprAave3";
+import {CoreContractsHelper} from "../baseUT/helpers/CoreContractsHelper";
+import {AdaptersHelper} from "../baseUT/helpers/AdaptersHelper";
+import {AprAaveTwo} from "../baseUT/apr/aprAaveTwo";
+import {AprDForce} from "../baseUT/apr/aprDForce";
+import {getCTokenAddressForAsset} from "../baseUT/utils/DForceUtils";
 
-/**
- * For any landing platform:
- * 1. Get APR: borrow apr, supply apr (we don't check rewards in this test)
- * 2. Make supply+borrow inside single block
- * 3. Get current amount of borrow-debt-1 and supply-profit-1
- * 4. Advance 1 block
- * 5. Get current amount of borrow-debt-2 and supply-profit-2
- * 6. Ensure, that
- *        (borrow-debt-2 - borrow-debt-1) == borrow apr
- *        (supply-profit-2 - supply-profit-1) = supply apr
- */
-describe("CompareAprBeforeAfterBorrow", () => {
+describe("CompareAprUsesCaseTest", () => {
+//region Constants
+  const HEALTH_FACTOR2 = 200;
+  const COUNT_BLOCKS_SMALL = 2;
+  const COUNT_BLOCKS_NORMAL = 80_000;
+  const COUNT_BLOCK_HUGE = 30*40_000;
+
+  const assets: IAssetInfo[] = [
+    {
+      asset: MaticAddresses.DAI, title: "DAI", holders: [
+        MaticAddresses.HOLDER_DAI
+        , MaticAddresses.HOLDER_DAI_2
+        , MaticAddresses.HOLDER_DAI_3
+        , MaticAddresses.HOLDER_DAI_4
+        , MaticAddresses.HOLDER_DAI_5
+        , MaticAddresses.HOLDER_DAI_6
+      ]
+    } , {
+      asset: MaticAddresses.USDC, title: "USDC", holders: [
+        MaticAddresses.HOLDER_USDC
+      ]
+    } , {
+      asset: MaticAddresses.USDT, title: "USDT", holders: [
+        MaticAddresses.HOLDER_USDT
+        , MaticAddresses.HOLDER_USDT_1
+        , MaticAddresses.HOLDER_USDT_2
+        , MaticAddresses.HOLDER_USDT_3
+      ]
+    } , {
+      asset: MaticAddresses.WMATIC, title: "WMATIC", holders: [
+        MaticAddresses.HOLDER_WMATIC
+      ]
+    } , {
+      asset: MaticAddresses.WBTC, title: "WBTS", holders: [
+        MaticAddresses.HOLDER_WBTC
+      ]
+    } , {
+      asset: MaticAddresses.ChainLink, title: "ChainLink", holders: [
+        MaticAddresses.HOLDER_ChainLink
+      ]
+    } , {
+      asset: MaticAddresses.DefiPulseToken, title: "DefiPulseToken", holders: [
+        MaticAddresses.HOLDER_DefiPulseToken
+      ]
+    } , {
+      asset: MaticAddresses.AavegotchiGHST, title: "AavegotchiGHST", holders: [
+        MaticAddresses.HOLDER_AavegotchiGHST
+      ]
+    } , {
+      asset: MaticAddresses.CRV, title: "CRV", holders: [
+        MaticAddresses.HOLDER_CRV
+      ]
+    } , {
+      asset: MaticAddresses.SUSHI, title: "SUSHI", holders: [
+        MaticAddresses.HOLDER_Sushi
+        , MaticAddresses.HOLDER_Sushi_2
+      ]
+    } , {
+      asset: MaticAddresses.WETH, title: "WETH", holders: [
+        MaticAddresses.HOLDER_WETH
+        , MaticAddresses.HOLDER_WETH_2
+        , MaticAddresses.HOLDER_WETH_3
+      ]
+    } , {
+      asset: MaticAddresses.BALANCER, title: "BALANCER", holders: [
+        MaticAddresses.HOLDER_BALANCER
+      ]
+    } , {
+      asset: MaticAddresses.EURS, title: "EURS", holders: [
+        MaticAddresses.HOLDER_EURS
+      ]
+    } , {
+      asset: MaticAddresses.jEUR, title: "jEUR", holders: [
+        MaticAddresses.HOLDER_jEUR
+        , MaticAddresses.HOLDER_jEUR_2
+      ]
+    } , {
+      asset: MaticAddresses.FRAX, title: "FRAX", holders: [
+        MaticAddresses.HOLDER_FRAX
+        , MaticAddresses.HOLDER_FRAX_2
+        , MaticAddresses.HOLDER_FRAX_3
+      ]
+    }
+  ];
+//endregion Constants
+
 //region Global vars for all tests
   let snapshot: string;
   let snapshotForEach: string;
@@ -44,105 +127,157 @@ describe("CompareAprBeforeAfterBorrow", () => {
   });
 //endregion before, after
 
-//region Data types
-//endregion Data types
+//region Utils
+  /**
+   * For each asset generate small amount
+   *        0.1 * 10^AssetDecimals
+   * */
+  async function getSmallAmounts(assets: IAssetInfo[]) : Promise<BigNumber[]> {
+    return Promise.all(
+      assets.map(
+        async x => {
+            const decimals = await IERC20Extended__factory.connect(x.asset, deployer).decimals();
+            return getBigNumberFrom(1, decimals).div(10);
+        }
+      )
+    )
+  }
 
-describe("CompareAprUsesCaseTest", () => {
-//region Global vars for all tests
-    let snapshot: string;
-    let snapshotForEach: string;
-    let deployer: SignerWithAddress;
-//endregion Global vars for all tests
+//endregion Utils
 
-//region before, after
-    before(async function () {
-      this.timeout(1200000);
-      snapshot = await TimeUtils.snapshot();
-      const signers = await ethers.getSigners();
-      deployer = signers[0];
-    });
+//region Test impl
+  async function makeTestAave3(
+    countBlocks: number,
+    exactAmountToBorrow: boolean,
+    amountsToBorrow: BigNumber[],
+  ): Promise<IBorrowTestResults[]> {
+    const controller = await CoreContractsHelper.createController(deployer);
+    const templateAdapterStub = ethers.Wallet.createRandom().address;
 
-    after(async function () {
-      await TimeUtils.rollback(snapshot);
-    });
-
-    beforeEach(async function () {
-      snapshotForEach = await TimeUtils.snapshot();
-    });
-
-    afterEach(async function () {
-      await TimeUtils.rollback(snapshotForEach);
-    });
-//endregion before, after
-
-    describe("Make all borrow tests", () => {
-      const assets: IAsset[] = [
-        {a: MaticAddresses.DAI, t: "DAI"}
-        , {a: MaticAddresses.USDC, t: "USDC"}
-        , {a: MaticAddresses.USDT, t: "USDT"}
-        , {a: MaticAddresses.WMATIC, t: "WMATIC"}
-        , {a: MaticAddresses.WBTC, t: "WBTS"}
-        , {a: MaticAddresses.ChainLink, t: "ChainLink"}
-        , {a: MaticAddresses.DefiPulseToken, t: "DefiPulseToken"}
-        , {a: MaticAddresses.Aavegotchi_GHST, t: "Aavegotchi_GHST"}
-        , {a: MaticAddresses.CRV, t: "CRV"}
-        , {a: MaticAddresses.SUSHI, t: "SUSHI"}
-        , {a: MaticAddresses.WETH, t: "WETH"}
-        , {a: MaticAddresses.BALANCER, t: "BALANCER"}
-        , {a: MaticAddresses.EURS, t: "EURS"}
-        , {a: MaticAddresses.jEUR, t: "jEUR"}
-        , {a: MaticAddresses.FRAX, t: "FRAX"}
-      ];
-      const holders: IAssetHoldersBox[] = [
-        {asset: MaticAddresses.DAI, holders: [
-            MaticAddresses.HOLDER_DAI
-            , MaticAddresses.HOLDER_DAI_2
-            , MaticAddresses.HOLDER_DAI_3
-            , MaticAddresses.HOLDER_DAI_4
-            , MaticAddresses.HOLDER_DAI_5
-            , MaticAddresses.HOLDER_DAI_6
-        ]}, {asset: MaticAddresses.USDC, holders: [
-            MaticAddresses.HOLDER_USDC
-        ]}, {asset: MaticAddresses.USDT, holders:[
-            MaticAddresses.HOLDER_USDT
-            , MaticAddresses.HOLDER_USDT_1
-            , MaticAddresses.HOLDER_USDT_2
-            , MaticAddresses.HOLDER_USDT_3
-        ]}
-        , {asset: MaticAddresses.WMATIC, holders: [
-            MaticAddresses.HOLDER_WMATIC
-        ]}
-        , {asset: MaticAddresses.WBTC, holders: [
-            MaticAddresses.HOLDER_WBTC
-        ]}
-        , {asset: MaticAddresses.ChainLink, holders: [
-            MaticAddresses.ChainLink_TODO
-        ]}
-        , {asset: MaticAddresses.DefiPulseToken, t: "DefiPulseToken"}
-        , {asset: MaticAddresses.Aavegotchi_GHST, t: "Aavegotchi_GHST"}
-        , {asset: MaticAddresses.CRV, t: "CRV"}
-        , {asset: MaticAddresses.SUSHI, t: "SUSHI"}
-        , {asset: MaticAddresses.WETH, t: "WETH"}
-        , {asset: MaticAddresses.BALANCER, t: "BALANCER"}
-        , {asset: MaticAddresses.EURS, t: "EURS"}
-        , {asset: MaticAddresses.jEUR, t: "jEUR"}
-        , {asset: MaticAddresses.FRAX, t: "FRAX"}
-      ];
-
-      it("", async () => {
-        await CompareAprUsesCase.makePossibleBorrowsOnPlatformExactAmounts(
+    return await CompareAprUsesCase.makePossibleBorrowsOnPlatform(
+      deployer
+      , "AAVE3"
+      , await AdaptersHelper.createAave3PlatformAdapter(deployer
+        , controller.address
+        , MaticAddresses.AAVE_V3_POOL
+        , templateAdapterStub
+        , templateAdapterStub
+      )
+      , assets
+      , exactAmountToBorrow
+      , amountsToBorrow
+      , countBlocks
+      , HEALTH_FACTOR2
+      , async (
           deployer
-          , platformTitle
-          , platformAdapter
-          , assets
-          , holders
-          , exactAmountToBorrow
-          , amount
-          , countBlocks
-          , healthFactor2
-          , testMaker
-        );
-      })
+          , amountToBorrow0
+          , p
+          , additionalPoints
+        ) => (await AprAave3.makeBorrowTest(deployer, amountToBorrow0, p, additionalPoints)).results
+    );
+  }
+
+  async function makeTestAaveTwo(
+    countBlocks: number,
+    exactAmountToBorrow: boolean,
+    amountsToBorrow: BigNumber[],
+  ): Promise<IBorrowTestResults[]> {
+    const controller = await CoreContractsHelper.createController(deployer);
+    const templateAdapterStub = ethers.Wallet.createRandom().address;
+
+    return await CompareAprUsesCase.makePossibleBorrowsOnPlatform(
+      deployer
+      , "AAVETwo"
+      , await AdaptersHelper.createAaveTwoPlatformAdapter(deployer
+        , controller.address
+        , MaticAddresses.AAVE_TWO_POOL
+        , templateAdapterStub
+      )
+      , assets
+      , exactAmountToBorrow
+      , amountsToBorrow
+      , countBlocks
+      , HEALTH_FACTOR2
+      , async (
+        deployer
+        , amountToBorrow0
+        , p
+        , additionalPoints
+      ) => (await AprAaveTwo.makeBorrowTest(deployer, amountToBorrow0, p, additionalPoints)).results
+    );
+  }
+
+  async function makeTestDForce(
+    countBlocks: number,
+    exactAmountToBorrow: boolean,
+    amountsToBorrow: BigNumber[],
+  ): Promise<IBorrowTestResults[]> {
+    const controller = await CoreContractsHelper.createController(deployer);
+    const templateAdapterStub = ethers.Wallet.createRandom().address;
+
+    return await CompareAprUsesCase.makePossibleBorrowsOnPlatform(
+      deployer
+      , "DForce"
+      , await AdaptersHelper.createDForcePlatformAdapter(deployer
+        , controller.address
+        , MaticAddresses.DFORCE_CONTROLLER
+        , templateAdapterStub
+        , [
+          MaticAddresses.hDAI,
+          MaticAddresses.hMATIC,
+          MaticAddresses.hUSDC,
+          MaticAddresses.hETH,
+          MaticAddresses.hUSDT,
+          MaticAddresses.hWBTC,
+          MaticAddresses.hFRAX,
+          MaticAddresses.hLINK,
+        ]
+      )
+      , assets
+      , exactAmountToBorrow
+      , amountsToBorrow
+      , countBlocks
+      , HEALTH_FACTOR2
+      , async (
+        deployer
+        , amountToBorrow0
+        , p
+        , additionalPoints
+      ) => (await AprDForce.makeBorrowTest(
+        deployer
+        , amountToBorrow0
+        , p
+        , additionalPoints
+      )).results
+    );
+  }
+//endregion Test impl
+
+  describe("Make all borrow tests", () => {
+    describe("Normal count of blocks (2 days)", () => {
+      describe("Exact small amount", () => {
+        it("AAVE3", async () => {
+          const ret = await makeTestAave3(
+            COUNT_BLOCKS_SMALL
+            ,true
+            , await getSmallAmounts(assets)
+          );
+        })
+        it("AAVETwo", async () => {
+          const ret = await makeTestAaveTwo(
+            COUNT_BLOCKS_SMALL
+            ,true
+            , await getSmallAmounts(assets)
+          );
+        })
+        it("DForce", async () => {
+          const ret = await makeTestDForce(
+            COUNT_BLOCKS_SMALL
+            ,true
+            , await getSmallAmounts(assets)
+          );
+        })
+      });
     });
   });
 });

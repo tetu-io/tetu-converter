@@ -1,7 +1,12 @@
 import {BigNumber} from "ethers";
 import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import {TestSingleBorrowParams} from "../types/BorrowRepayDataTypes";
-import {IAaveKeyState, IAaveKeyTestValues, IBorrowResults, IPointResults} from "./aprDataTypes";
+import {
+  IAaveKeyState,
+  IAaveKeyTestValues,
+  IBorrowResults,
+  IPointResults
+} from "./aprDataTypes";
 import {DataTypes, IAaveTwoPool} from "../../../typechain/contracts/integrations/aaveTwo/IAaveTwoPool";
 import hre from "hardhat";
 import {AaveTwoAprLibFacade, IAaveToken__factory, IERC20__factory, IERC20Extended__factory} from "../../../typechain";
@@ -9,9 +14,15 @@ import {getBigNumberFrom} from "../../../scripts/utils/NumberUtils";
 import {TokenDataTypes} from "../types/TokenDataTypes";
 import {AaveTwoHelper} from "../../../scripts/integration/helpers/AaveTwoHelper";
 import {DeployUtils} from "../../../scripts/utils/DeployUtils";
-import {baseToBorrow18, ConfigurableAmountToBorrow, convertUnits, IBaseToBorrowParams, makeBorrow} from "./aprUtils";
+import {
+  baseToBorrow18, prepareExactBorrowAmount,
+  convertUnits,
+  IBaseToBorrowParams,
+  makeBorrow
+} from "./aprUtils";
 import {AaveTwoPlatformFabric} from "../fabrics/AaveTwoPlatformFabric";
 import {TimeUtils} from "../../../scripts/utils/TimeUtils";
+import {ConfigurableAmountToBorrow} from "./ConfigurableAmountToBorrow";
 
 //region Data types
 interface IAaveTwoAssetStateRaw {
@@ -51,6 +62,37 @@ interface IAaveTwoStateInfo {
 interface IAprData {
   apr: BigNumber,
   nextLiquidityIndex: BigNumber
+}
+
+interface IAprAaveTwoResults {
+  /** State before borrow */
+  before: IAaveTwoStateInfo;
+  /** State just after borrow */
+  next: IAaveTwoStateInfo;
+  /** State just after borrow + 1 block */
+  last: IAaveTwoStateInfo;
+  /** Borrower address */
+  userAddress: string;
+  /** Exact value of the borrowed amount */
+  borrowAmount: BigNumber;
+
+//// next : last  results
+
+  /** Supply APR in terms of base currency calculated using predicted supply rate */
+  supplyAprBaseExact: BigNumber;
+  /** Supply APR in terms of base currency calculated using exact supply rate taken from next step */
+  supplyAprBaseApprox: IAprData;
+  /** Borrow APR in terms of base currency calculated using predicted borrow rate */
+  borrowAprBaseExact: BigNumber;
+  /** borrow APR in terms of base currency calculated using exact borrow rate taken from next step */
+  borrowAprBaseApprox: IAprData;
+  /** total increment of collateral amount from NEXT to LAST in terms of base currency */
+  totalCollateralETH: BigNumber;
+  /** total increment of borrowed amount from NEXT to LAST in terms of base currency */
+  totalDebtETH: BigNumber;
+
+
+  keyValues: IAaveKeyTestValues;
 }
 //endregion Data types
 
@@ -167,34 +209,6 @@ async function getAprBeforeAAVETwoBase(
 //endregion Utils
 
 export class AprAaveTwo {
-  /** State before borrow */
-  before: IAaveTwoStateInfo | undefined;
-  /** State just after borrow */
-  next: IAaveTwoStateInfo | undefined;
-  /** State just after borrow + 1 block */
-  last: IAaveTwoStateInfo | undefined;
-  /** Borrower address */
-  userAddress: string | undefined;
-  /** Exact value of the borrowed amount */
-  borrowAmount: BigNumber = BigNumber.from(0);
-
-//// next : last  results
-
-  /** Supply APR in terms of base currency calculated using predicted supply rate */
-  supplyAprBaseExact: BigNumber | undefined;
-  /** Supply APR in terms of base currency calculated using exact supply rate taken from next step */
-  supplyAprBaseApprox: IAprData | undefined;
-  /** Borrow APR in terms of base currency calculated using predicted borrow rate */
-  borrowAprBaseExact: BigNumber | undefined;
-  /** borrow APR in terms of base currency calculated using exact borrow rate taken from next step */
-  borrowAprBaseApprox: IAprData | undefined;
-  /** total increment of collateral amount from NEXT to LAST in terms of base currency */
-  totalCollateralETH: BigNumber | undefined;
-  /** total increment of borrowed amount from NEXT to LAST in terms of base currency */
-  totalDebtETH: BigNumber | undefined;
-
-
-  keyValues: IAaveKeyTestValues | undefined;
   /**
    * 0. Predict APR
    * 1. Make borrow
@@ -209,12 +223,15 @@ export class AprAaveTwo {
    * @param p Main parameters (asset, amounts, so on)
    * @param additionalPoints
    */
-  async makeBorrowTest(
+  static async makeBorrowTest(
     deployer: SignerWithAddress
     , amountToBorrow0: ConfigurableAmountToBorrow
     , p: TestSingleBorrowParams
     , additionalPoints: number[]
-  ) : Promise<IBorrowResults> {
+  ) : Promise<{
+    details: IAprAaveTwoResults
+    , results: IBorrowResults
+  }> {
     const collateralToken = await TokenDataTypes.Build(deployer, p.collateral.asset);
     const borrowToken = await TokenDataTypes.Build(deployer, p.borrow.asset);
 
@@ -240,179 +257,179 @@ export class AprAaveTwo {
     const libFacade = await DeployUtils.deployContract(deployer, "AaveTwoAprLibFacade") as AaveTwoAprLibFacade;
 
     // start point: we estimate APR in this point before borrow and supply
-    this.before = await getAaveTwoStateInfo(deployer, aavePool, p.collateral.asset, p.borrow.asset);
+    const before = await getAaveTwoStateInfo(deployer, aavePool, p.collateral.asset, p.borrow.asset);
 
     // make borrow
     const borrowResults = await makeBorrow(
       deployer
       , p
-      , amountToBorrow0
+      , prepareExactBorrowAmount(amountToBorrow0, borrowToken.decimals)
       , new AaveTwoPlatformFabric()
     );
-    this.userAddress = borrowResults.poolAdapter;
-    this.borrowAmount = borrowResults.borrowAmount;
-    console.log(`userAddress=${this.userAddress} borrowAmount=${this.borrowAmount}`);
+    const userAddress = borrowResults.poolAdapter;
+    const borrowAmount = borrowResults.borrowAmount;
+    console.log(`userAddress=${userAddress} borrowAmount=${borrowAmount}`);
 
     const liquidityRateRaysPredicted = await libFacade.getLiquidityRateRays(
-      this.before.collateral.data,
+      before.collateral.data,
       p.collateral.asset,
       amountCollateral,
       collateralReserveData.totalStableDebt,
       collateralReserveData.totalVariableDebt,
     );
     const brRaysPredicted = (await libFacade.getVariableBorrowRateRays(
-      this.before.borrow.data,
+      before.borrow.data,
       p.borrow.asset,
-      this.borrowAmount,
+      borrowAmount,
       borrowReserveData.totalStableDebt,
       borrowReserveData.totalVariableDebt
     ));
     console.log(`Predicted: liquidityRateRays=${liquidityRateRaysPredicted.toString()} brRays=${brRaysPredicted.toString()}`);
 
-    this.next = await getAaveTwoStateInfo(deployer, aavePool, p.collateral.asset, p.borrow.asset, this.userAddress);
+    const next = await getAaveTwoStateInfo(deployer, aavePool, p.collateral.asset, p.borrow.asset, userAddress);
     await TimeUtils.advanceNBlocks(p.countBlocks);
-    this.last = await getAaveTwoStateInfo(deployer, aavePool, p.collateral.asset, p.borrow.asset, this.userAddress);
+    const last = await getAaveTwoStateInfo(deployer, aavePool, p.collateral.asset, p.borrow.asset, userAddress);
 
     // we need to display full objects
     // https://stackoverflow.com/questions/10729276/how-can-i-get-the-full-object-in-node-jss-console-log-rather-than-object
     require("util").inspect.defaultOptions.depth = null;
-    console.log("before", this.before);
-    console.log("next", this.next);
-    console.log("last", this.last);
+    console.log("before", before);
+    console.log("next", next);
+    console.log("last", last);
 
-    this.keyValues = {
+    const keyValues = {
       borrowRatePredicted: brRaysPredicted,
       liquidityRatePredicted: liquidityRateRaysPredicted,
 
       liquidity: {
         beforeBorrow: {
-          block: this.before.block,
-          blockTimeStamp: this.before.blockTimestamp,
-          rate: this.before.collateral.data.currentLiquidityRate,
-          liquidityIndex: this.before.collateral.data.liquidityIndex,
+          block: before.block,
+          blockTimeStamp: before.blockTimestamp,
+          rate: before.collateral.data.currentLiquidityRate,
+          liquidityIndex: before.collateral.data.liquidityIndex,
           scaledBalance: BigNumber.from(0),
-          reserveNormalized: this.before.collateral.reserveNormalized,
+          reserveNormalized: before.collateral.reserveNormalized,
           userBalanceBase: BigNumber.from(0),
-          lastUpdateTimestamp: this.before.collateral.data.lastUpdateTimestamp
+          lastUpdateTimestamp: before.collateral.data.lastUpdateTimestamp
         },
         next: {
-          block: this.next.block,
-          blockTimeStamp: this.next.blockTimestamp,
-          rate: this.next.collateral.data.currentLiquidityRate,
-          liquidityIndex: this.next.collateral.data.liquidityIndex,
-          scaledBalance: this.next.collateral.scaledBalance,
-          reserveNormalized: this.next.collateral.reserveNormalized,
-          userBalanceBase: this.next.userAccount!.totalCollateralETH,
-          lastUpdateTimestamp: this.next.collateral.data.lastUpdateTimestamp
+          block: next.block,
+          blockTimeStamp: next.blockTimestamp,
+          rate: next.collateral.data.currentLiquidityRate,
+          liquidityIndex: next.collateral.data.liquidityIndex,
+          scaledBalance: next.collateral.scaledBalance,
+          reserveNormalized: next.collateral.reserveNormalized,
+          userBalanceBase: next.userAccount!.totalCollateralETH,
+          lastUpdateTimestamp: next.collateral.data.lastUpdateTimestamp
         },
         last: {
-          block: this.last.block,
-          blockTimeStamp: this.last.blockTimestamp,
-          rate: this.last.collateral.data.currentLiquidityRate,
-          liquidityIndex: this.last.collateral.data.liquidityIndex,
-          scaledBalance: this.last.collateral.scaledBalance,
-          reserveNormalized: this.last.collateral.reserveNormalized,
-          userBalanceBase: this.last.userAccount!.totalCollateralETH,
-          lastUpdateTimestamp: this.last.collateral.data.lastUpdateTimestamp
+          block: last.block,
+          blockTimeStamp: last.blockTimestamp,
+          rate: last.collateral.data.currentLiquidityRate,
+          liquidityIndex: last.collateral.data.liquidityIndex,
+          scaledBalance: last.collateral.scaledBalance,
+          reserveNormalized: last.collateral.reserveNormalized,
+          userBalanceBase: last.userAccount!.totalCollateralETH,
+          lastUpdateTimestamp: last.collateral.data.lastUpdateTimestamp
         }
       },
       borrow: {
         beforeBorrow: {
-          block: this.before.block,
-          blockTimeStamp: this.before.blockTimestamp,
-          rate: this.before.borrow.data.currentVariableBorrowRate,
-          liquidityIndex: this.before.borrow.data.variableBorrowIndex,
+          block: before.block,
+          blockTimeStamp: before.blockTimestamp,
+          rate: before.borrow.data.currentVariableBorrowRate,
+          liquidityIndex: before.borrow.data.variableBorrowIndex,
           scaledBalance: BigNumber.from(0),
-          reserveNormalized: this.before.borrow.reserveNormalized,
+          reserveNormalized: before.borrow.reserveNormalized,
           userBalanceBase: BigNumber.from(0),
-          lastUpdateTimestamp: this.before.borrow.data.lastUpdateTimestamp
+          lastUpdateTimestamp: before.borrow.data.lastUpdateTimestamp
         },
         next: {
-          block: this.next.block,
-          blockTimeStamp: this.next.blockTimestamp,
-          rate: this.next.borrow.data.currentVariableBorrowRate,
-          liquidityIndex: this.next.borrow.data.variableBorrowIndex,
-          scaledBalance: this.next.borrow.scaledBalance,
-          reserveNormalized: this.next.borrow.reserveNormalized,
-          userBalanceBase: this.next.userAccount!.totalDebtETH,
-          lastUpdateTimestamp: this.next.borrow.data.lastUpdateTimestamp
+          block: next.block,
+          blockTimeStamp: next.blockTimestamp,
+          rate: next.borrow.data.currentVariableBorrowRate,
+          liquidityIndex: next.borrow.data.variableBorrowIndex,
+          scaledBalance: next.borrow.scaledBalance,
+          reserveNormalized: next.borrow.reserveNormalized,
+          userBalanceBase: next.userAccount!.totalDebtETH,
+          lastUpdateTimestamp: next.borrow.data.lastUpdateTimestamp
         },
         last: {
-          block: this.last.block,
-          blockTimeStamp: this.last.blockTimestamp,
-          rate: this.last.borrow.data.currentVariableBorrowRate,
-          liquidityIndex: this.last.borrow.data.variableBorrowIndex,
-          scaledBalance: this.last.borrow.scaledBalance,
-          reserveNormalized: this.last.borrow.reserveNormalized,
-          userBalanceBase: this.last.userAccount!.totalDebtETH,
-          lastUpdateTimestamp: this.last.borrow.data.lastUpdateTimestamp
+          block: last.block,
+          blockTimeStamp: last.blockTimestamp,
+          rate: last.borrow.data.currentVariableBorrowRate,
+          liquidityIndex: last.borrow.data.variableBorrowIndex,
+          scaledBalance: last.borrow.scaledBalance,
+          reserveNormalized: last.borrow.reserveNormalized,
+          userBalanceBase: last.userAccount!.totalDebtETH,
+          lastUpdateTimestamp: last.borrow.data.lastUpdateTimestamp
         }
       },
     };
-    console.log("key", this.keyValues);
+    console.log("key", keyValues);
 
     // calculate exact values of supply/borrow APR
     // we use state-values "after-borrow" and exact values of supply/borrow rates after borrow
-    const countBlocks = this.keyValues.liquidity.last.blockTimeStamp - this.keyValues.liquidity.next.blockTimeStamp;
+    const countBlocks = keyValues.liquidity.last.blockTimeStamp - keyValues.liquidity.next.blockTimeStamp;
     // for test purpose assume that we have exactly 1 block per 1 second
     const blocksPerDay = 86400;
     console.log("countBlocks", countBlocks);
 
-    this.supplyAprBaseExact = await getAprAAVETwoBase(
+    const supplyAprBaseExact = await getAprAAVETwoBase(
       libFacade
       , amountCollateral
       , liquidityRateRaysPredicted
       , priceCollateral
       , countBlocks
-      , this.keyValues.liquidity.next
+      , keyValues.liquidity.next
       , blocksPerDay
       , collateralToken.decimals
     );
-    console.log("supplyAprBaseExact", this.supplyAprBaseExact);
-    this.borrowAprBaseExact = await getAprAAVETwoBase(
+    console.log("supplyAprBaseExact", supplyAprBaseExact);
+    const borrowAprBaseExact = await getAprAAVETwoBase(
       libFacade
-      , this.borrowAmount
-      , this.next.borrow.data.currentVariableBorrowRate
+      , borrowAmount
+      , next.borrow.data.currentVariableBorrowRate
       , priceBorrow
       , countBlocks
-      , this.keyValues.borrow.next
+      , keyValues.borrow.next
       , blocksPerDay
       , borrowToken.decimals
     );
-    console.log("borrowAprBaseExact", this.borrowAprBaseExact);
+    console.log("borrowAprBaseExact", borrowAprBaseExact);
 
     // calculate approx values of supply/borrow APR
     // we use state-values "before-borrow" and predicted values of supply/borrow rates after borrow
-    this.supplyAprBaseApprox = await getAprBeforeAAVETwoBase(
+    const supplyAprBaseApprox = await getAprBeforeAAVETwoBase(
       libFacade
       , amountCollateral
-      , this.keyValues.liquidityRatePredicted
+      , keyValues.liquidityRatePredicted
       , priceCollateral
       , countBlocks
-      , this.keyValues.liquidity.beforeBorrow
+      , keyValues.liquidity.beforeBorrow
       , blocksPerDay
-      , this.keyValues.liquidity.next.blockTimeStamp
+      , keyValues.liquidity.next.blockTimeStamp
       , collateralToken.decimals
     );
-    console.log("supplyAprApprox", this.supplyAprBaseApprox);
-    this.borrowAprBaseApprox = await getAprBeforeAAVETwoBase(
+    console.log("supplyAprApprox", supplyAprBaseApprox);
+    const borrowAprBaseApprox = await getAprBeforeAAVETwoBase(
       libFacade
-      , this.borrowAmount
-      , this.keyValues.borrowRatePredicted
+      , borrowAmount
+      , keyValues.borrowRatePredicted
       , priceBorrow
       , countBlocks
-      , this.keyValues.borrow.beforeBorrow
+      , keyValues.borrow.beforeBorrow
       , blocksPerDay
-      , this.keyValues.borrow.next.blockTimeStamp
+      , keyValues.borrow.next.blockTimeStamp
       , borrowToken.decimals
     );
-    console.log("borrowAprApprox", this.borrowAprBaseApprox);
+    console.log("borrowAprApprox", borrowAprBaseApprox);
 
     // calculate real differences in user-account-balances for period [next block, last block]
-    this.totalCollateralETH = this.last.userAccount!.totalCollateralETH.sub(this.next.userAccount!.totalCollateralETH);
-    this.totalDebtETH = this.last.userAccount!.totalDebtETH.sub(this.next.userAccount!.totalDebtETH);
-    console.log("collateralAprETH", this.totalCollateralETH);
-    console.log("borrowAprETH", this.totalDebtETH);
+    const totalCollateralETH = last.userAccount!.totalCollateralETH.sub(next.userAccount!.totalCollateralETH);
+    const totalDebtETH = last.userAccount!.totalDebtETH.sub(next.userAccount!.totalDebtETH);
+    console.log("collateralAprETH", totalCollateralETH);
+    console.log("borrowAprETH", totalDebtETH);
 
     const bbp: IBaseToBorrowParams = {
       baseCurrencyDecimals: baseCurrencyDecimals,
@@ -421,10 +438,10 @@ export class AprAaveTwo {
     }
 
     const pointsResults: IPointResults[] = [];
-    let prev = this.last;
+    let prev = last;
     for (const period of additionalPoints) {
       await TimeUtils.advanceNBlocks(period);
-      let current = await getAaveTwoStateInfo(deployer, aavePool, p.collateral.asset, p.borrow.asset, this.userAddress);
+      let current = await getAaveTwoStateInfo(deployer, aavePool, p.collateral.asset, p.borrow.asset, userAddress);
 
       pointsResults.push({
         period: {
@@ -452,43 +469,58 @@ export class AprAaveTwo {
     }
 
     return {
-      init: {
-        borrowAmount: this.borrowAmount,
-        collateralAmount: amountCollateral,
-        collateralAmountBT18: convertUnits(
-          amountCollateral
-          , priceCollateral, collateralToken.decimals
-          , priceBorrow, 18
-        )
-      }, predicted: {
-        aprBT18: {
-          collateral: baseToBorrow18(this.supplyAprBaseApprox.apr, bbp),
-          borrow: baseToBorrow18(this.borrowAprBaseApprox.apr, bbp)
+      details: {
+        borrowAmount
+        , before
+        , borrowAprBaseApprox
+        , last
+        , borrowAprBaseExact
+        , next
+        , supplyAprBaseApprox
+        , keyValues
+        , supplyAprBaseExact
+        , userAddress
+        , totalCollateralETH
+        , totalDebtETH
+      }, results: {
+        init: {
+          borrowAmount: borrowAmount,
+          collateralAmount: amountCollateral,
+          collateralAmountBT18: convertUnits(
+            amountCollateral
+            , priceCollateral, collateralToken.decimals
+            , priceBorrow, 18
+          )
+        }, predicted: {
+          aprBT18: {
+            collateral: baseToBorrow18(supplyAprBaseApprox.apr, bbp),
+            borrow: baseToBorrow18(borrowAprBaseApprox.apr, bbp)
+          },
+          rates: {
+            borrowRate: brRaysPredicted,
+            supplyRate: liquidityRateRaysPredicted
+          }
+        }, prices: {
+          collateral: priceCollateral,
+          borrow: priceBorrow,
+        }, resultsBlock: {
+          period: {
+            block0: next.block,
+            blockTimestamp0: next.blockTimestamp,
+            block1: last.block,
+            blockTimestamp1: last.blockTimestamp,
+          },
+          rates: {
+            borrowRate: next.borrow.data.currentVariableBorrowRate,
+            supplyRate: next.collateral.data.currentLiquidityRate
+          },
+          aprBT18: {
+            collateral: baseToBorrow18(totalCollateralETH, bbp),
+            borrow: baseToBorrow18(totalDebtETH, bbp)
+          }
         },
-        rates: {
-          borrowRate: brRaysPredicted,
-          supplyRate: liquidityRateRaysPredicted
-        }
-      }, prices: {
-        collateral: priceCollateral,
-        borrow: priceBorrow,
-      }, resultsBlock: {
-        period: {
-          block0: this.next.block,
-          blockTimestamp0: this.next.blockTimestamp,
-          block1: this.last.block,
-          blockTimestamp1: this.last.blockTimestamp,
-        },
-        rates: {
-          borrowRate: this.next.borrow.data.currentVariableBorrowRate,
-          supplyRate: this.next.collateral.data.currentLiquidityRate
-        },
-        aprBT18: {
-          collateral: baseToBorrow18(this.totalCollateralETH, bbp),
-          borrow: baseToBorrow18(this.totalDebtETH, bbp)
-        }
-      },
-      points: pointsResults
+        points: pointsResults
+      }
     }
   }
 }

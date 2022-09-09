@@ -22,7 +22,7 @@ export class MaticAddresses {
   public static jEUR = "0x4e3Decbb3645551B8A19f0eA1678079FCB33fB4c";
   public static ChainLink = "0x53E0bca35eC356BD5ddDFebbD1Fc0fD03FaBad39";
   public static AaveToken = "0xD6DF932A45C0f255f85145f286eA0b292B21C90B";
-  public static Aavegotchi_GHST = "0x385Eeac5cB85A38A9a07A70c73e0a3271CfB54A7";
+  public static AavegotchiGHST = "0x385Eeac5cB85A38A9a07A70c73e0a3271CfB54A7";
   public static DefiPulseToken = "0x85955046DF4668e1DD369D2DE9f3AEB98DD2A369";
 //Hundred Finance
   public static FRAX = "0x45c32fa6df82ead1e2ef74d17b76547eddfaff89";
@@ -48,7 +48,23 @@ export class MaticAddresses {
   public static HOLDER_BALANCER = "0x4cd80aa0ce4881eb8679eda1f6fbe3d89aec0f7f";
   public static HOLDER_CRV = "0x06959153b974d0d5fdfd87d561db6d8d4fa0bb0b";
   public static HOLDER_WBTC = "0xdc9232e2df177d7a12fdff6ecbab114e2231198d";
-  public static HOLDER_WETH = "0x72a53cdbbcc1b9efa39c834a540550e23463aacb";
+
+  public static HOLDER_WETH = "0xded8c5159ca3673f543d0f72043e4c655b35b96a";
+  public static HOLDER_WETH_2 = "0xdc9232e2df177d7a12fdff6ecbab114e2231198d";
+  public static HOLDER_WETH_3 = "0xadbf1854e5883eb8aa7baf50705338739e558e5b";
+
+  public static HOLDER_ChainLink = "0x7344e478574acbe6dac9de1077430139e17eec3d";
+  public static HOLDER_DefiPulseToken = "0xd1468a5e1ff399d7a4465fbdff3e3ccb013d149f";
+  public static HOLDER_AavegotchiGHST = "0xf977814e90da44bfa03b6295a0616a897441acec";
+  public static HOLDER_Sushi = "0x0f0c716b007c289c0011e470cc7f14de4fe9fc80";
+  public static HOLDER_Sushi_2 = "0x52a258ed593c793251a89bfd36cae158ee9fc4f8";
+
+  public static HOLDER_jEUR = "0x1cd222bc3dff00a51637438855b1da01cc6383aa";
+  public static HOLDER_jEUR_2 = "0xcded54e63ad80391822d591e0748b8a7dbfd6027";
+
+  public static HOLDER_FRAX = "0x0000000002ce79aacd54227d2163ff3791338975";
+  public static HOLDER_FRAX_2 = "0xe7ec500e14edbe3ca3358bcde7df145968b2aead";
+  public static HOLDER_FRAX_3 = "0x65e09ae53d5f1a7d75e4442eb9d004191dd253fb";
 //endregion Asset biggest holders
 
 //region AAVE-v3

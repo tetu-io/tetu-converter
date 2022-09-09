@@ -1,32 +1,18 @@
 import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
-import hre, {ethers} from "hardhat";
+import {ethers} from "hardhat";
 import {TimeUtils} from "../../scripts/utils/TimeUtils";
 import {BigNumber} from "ethers";
-import {TokenDataTypes} from "../baseUT/types/TokenDataTypes";
 import {areAlmostEqual} from "../baseUT/utils/CommonUtils";
 import {getBigNumberFrom} from "../../scripts/utils/NumberUtils";
 import {isPolygonForkInUse} from "../baseUT/utils/NetworkUtils";
-import {AaveTwoPlatformFabric} from "../baseUT/fabrics/AaveTwoPlatformFabric";
 import {MaticAddresses} from "../../scripts/addresses/MaticAddresses";
 import {
-  AaveTwoAprLibFacade,
-  DForceAprLibFacade, DForceInterestRateModelMock__factory,
-  IAaveToken__factory,
-  IAaveTwoPool,
-  IDForceController,
-  IDForceCToken,
-  IDForceCToken__factory,
+  DForceInterestRateModelMock__factory,
   IERC20__factory
 } from "../../typechain";
-import {DeployUtils} from "../../scripts/utils/DeployUtils";
 import {expect} from "chai";
-import {AaveTwoHelper} from "../../scripts/integration/helpers/AaveTwoHelper";
 import {DForceHelper} from "../../scripts/integration/helpers/DForceHelper";
-import {DataTypes} from "../../typechain/contracts/integrations/aaveTwo/IAaveTwoPool";
-import {DForcePlatformFabric} from "../baseUT/fabrics/DForcePlatformFabric";
-import {makeBorrow} from "../baseUT/apr/aprUtils";
 import {AprAave3} from "../baseUT/apr/aprAave3";
-import {IAaveKeyState, IAaveKeyTestValues} from "../baseUT/apr/aprDataTypes";
 import {AprAaveTwo} from "../baseUT/apr/aprAaveTwo";
 import {AprDForce} from "../baseUT/apr/aprDForce";
 
@@ -73,12 +59,8 @@ describe("CompareAprBeforeAfterBorrow", () => {
 //region Constants
     const ASSET_COLLATERAL = MaticAddresses.DAI;
     const HOLDER_COLLATERAL = MaticAddresses.HOLDER_DAI;
-    const ASSET_COLLATERAL_DFORCE_CTOKEN = MaticAddresses.dForce_iDAI;
-    const ASSET_COLLATERAL_HUNDRED_FINANCE_CTOKEN = MaticAddresses.hDAI;
     const ASSET_BORROW = MaticAddresses.WETH;
     const HOLDER_BORROW = MaticAddresses.HOLDER_WETH;
-    const ASSET_BORROW_DFORCE_CTOREN = MaticAddresses.dForce_iWETH;
-    const ASSET_BORROW_HUNDRED_FINANCE_CTOREN = MaticAddresses.hETH;
     const AMOUNT_COLLATERAL = 200_000;
     const INITIAL_LIQUIDITY_COLLATERAL = 1_000_000;
     const INITIAL_LIQUIDITY_BORROW = 100;
@@ -91,10 +73,9 @@ describe("CompareAprBeforeAfterBorrow", () => {
       it("predicted APR should be equal to real APR", async () => {
         if (!await isPolygonForkInUse()) return;
 
-        const h: AprAave3 = new AprAave3();
-        const ret = await h.makeBorrowTest(
+        const ret = await AprAave3.makeBorrowTest(
           deployer
-          , AMOUNT_TO_BORROW
+          , {exact: true, exactAmountToBorrow: AMOUNT_TO_BORROW}
           , {
             collateral: {
               asset: ASSET_COLLATERAL,
@@ -114,17 +95,17 @@ describe("CompareAprBeforeAfterBorrow", () => {
 
         // calculate real differences in user-account-balances for period [next block, last block]
         const sret = [
-          h.totalCollateralBaseDelta!.toString(), h.totalDebtBaseDelta!.toString(),
-          h.totalCollateralBaseDelta!.toString(), h.totalDebtBaseDelta!.toString(),
-          ret.resultsBlock.aprBT18.collateral.toString(), ret.resultsBlock.aprBT18.borrow.toString(),
+          ret.details.totalCollateralBaseDelta.toString(), ret.details.totalDebtBaseDelta.toString(),
+          ret.details.totalCollateralBaseDelta.toString(), ret.details.totalDebtBaseDelta.toString(),
+          ret.results.resultsBlock.aprBT18.collateral.toString(), ret.results.resultsBlock.aprBT18.borrow.toString(),
         ].join();
 
         const rays = getBigNumberFrom(1, 36);
         // these differences must be equal to exact supply/borrow APR
         const sexpected = [
-          h.supplyAprBaseExact!.div(rays).toString(), h.borrowAprBaseExact!.div(rays).toString(),
-          h.supplyAprBaseApprox!.div(rays).toString(), h.borrowAprBaseApprox!.div(rays).toString(),
-          ret.predicted.aprBT18.collateral.toString(), ret.predicted.aprBT18.borrow.toString()
+          ret.details.supplyAprBaseExact.div(rays).toString(), ret.details.borrowAprBaseExact.div(rays).toString(),
+          ret.details.supplyAprBaseApprox.div(rays).toString(), ret.details.borrowAprBaseApprox.div(rays).toString(),
+          ret.results.predicted.aprBT18.collateral.toString(), ret.results.predicted.aprBT18.borrow.toString()
         ].join();
 
         expect(sret).equals(sexpected);
@@ -186,10 +167,9 @@ describe("CompareAprBeforeAfterBorrow", () => {
       it("predicted APR should be equal to real APR", async () => {
         if (!await isPolygonForkInUse()) return;
 
-        const h: AprAaveTwo = new AprAaveTwo();
-        const ret = await h.makeBorrowTest(
+        const ret = await AprAaveTwo.makeBorrowTest(
           deployer
-          , AMOUNT_TO_BORROW
+          , {exact: true, exactAmountToBorrow: AMOUNT_TO_BORROW}
           , {
             collateral: {
               asset: ASSET_COLLATERAL,
@@ -208,10 +188,10 @@ describe("CompareAprBeforeAfterBorrow", () => {
         console.log("ret", ret);
 
         const sret = [
-          areAlmostEqual(h.totalCollateralETH!, h.supplyAprBaseExact!, 6),
-          areAlmostEqual(h.totalDebtETH!, h.borrowAprBaseExact!, 8),
-          h.supplyAprBaseExact!.toString(),
-          h.keyValues!.liquidity.next.liquidityIndex,
+          areAlmostEqual(ret.details.totalCollateralETH!, ret.details.supplyAprBaseExact!, 6),
+          areAlmostEqual(ret.details.totalDebtETH!, ret.details.borrowAprBaseExact!, 8),
+          ret.details.supplyAprBaseExact.toString(),
+          ret.details.keyValues.liquidity.next.liquidityIndex,
 
           // borrowApr.toString(),
           // keyValues.borrow.afterBorrow.liquidityIndex
@@ -221,8 +201,8 @@ describe("CompareAprBeforeAfterBorrow", () => {
         const sexpected = [
           true,
           true,
-          h.supplyAprBaseApprox!.apr.toString(),
-          h.supplyAprBaseApprox!.nextLiquidityIndex.toString(),
+          ret.details.supplyAprBaseApprox.apr.toString(),
+          ret.details.supplyAprBaseApprox.nextLiquidityIndex.toString(),
 
           /////////////////////////////////////////////////////////////////////
           // TODO: nextLiquidityIndex for borrow is a bit different from expected
@@ -242,12 +222,9 @@ describe("CompareAprBeforeAfterBorrow", () => {
       it("predicted APR should be equal to real APR", async () => {
         if (!await isPolygonForkInUse()) return;
 
-        const h: AprDForce = new AprDForce();
-        const ret = await h.makeBorrowTest(
+        const ret = await AprDForce.makeBorrowTest(
           deployer
-          , AMOUNT_TO_BORROW
-          , ASSET_COLLATERAL_DFORCE_CTOKEN
-          , ASSET_BORROW_DFORCE_CTOREN
+          , {exact: true, exactAmountToBorrow: AMOUNT_TO_BORROW}
           , {
             collateral: {
               asset: ASSET_COLLATERAL,
@@ -268,12 +245,12 @@ describe("CompareAprBeforeAfterBorrow", () => {
 
         // calculate real differences in user-account-balances for period [next block, last block]
         const sret = [
-          areAlmostEqual(h.deltaCollateralBT!, h.supplyApr!, 4)
-          , areAlmostEqual(h.deltaBorrowBalance!, h.borrowApr!, 5)
+          areAlmostEqual(ret.details.deltaCollateralBT!, ret.details.supplyApr!, 4)
+          , areAlmostEqual(ret.details.deltaBorrowBalance!, ret.details.borrowApr!, 5)
 
           // not exact because real supply and borrow rate are rounded
-          , areAlmostEqual(h.deltaCollateralBT!, h.supplyAprExact!, 9)
-          , areAlmostEqual(h.deltaBorrowBalance!, h.borrowAprExact!, 9)
+          , areAlmostEqual(ret.details.deltaCollateralBT!, ret.details.supplyAprExact!, 9)
+          , areAlmostEqual(ret.details.deltaBorrowBalance!, ret.details.borrowAprExact!, 9)
         ].join("\n");
 
         // these differences must be equal to exact supply/borrow APR
@@ -609,12 +586,8 @@ describe("CompareAprBeforeAfterBorrow", () => {
 //region Constants
     const ASSET_COLLATERAL = MaticAddresses.USDC;
     const HOLDER_COLLATERAL = MaticAddresses.HOLDER_USDC;
-    const ASSET_COLLATERAL_DFORCE_CTOKEN = MaticAddresses.dForce_iUSDC;
-    const ASSET_COLLATERAL_HUNDRED_FINANCE_CTOKEN = MaticAddresses.hUSDC;
     const ASSET_BORROW = MaticAddresses.WBTC;
     const HOLDER_BORROW = MaticAddresses.HOLDER_WBTC;
-    const ASSET_BORROW_DFORCE_CTOREN = MaticAddresses.dForce_iWBTC;
-    const ASSET_BORROW_HUNDRED_FINANCE_CTOREN = MaticAddresses.hWBTC;
     const AMOUNT_COLLATERAL = 4_000_000;
     const INITIAL_LIQUIDITY_COLLATERAL = 5_000_000;
     const INITIAL_LIQUIDITY_BORROW = 1;
@@ -627,10 +600,9 @@ describe("CompareAprBeforeAfterBorrow", () => {
       it("predicted APR should be equal to real APR", async () => {
         if (!await isPolygonForkInUse()) return;
 
-        const h: AprAave3 = new AprAave3();
-        const ret = await h.makeBorrowTest(
+        const ret = await AprAave3.makeBorrowTest(
           deployer
-          , AMOUNT_TO_BORROW
+          , {exact: true, exactAmountToBorrow: AMOUNT_TO_BORROW}
           , {
             collateral: {
               asset: ASSET_COLLATERAL,
@@ -650,16 +622,16 @@ describe("CompareAprBeforeAfterBorrow", () => {
 
         // calculate real differences in user-account-balances for period [next block, last block]
         const sret = [
-          h.totalCollateralBaseDelta!.toString(), h.totalDebtBaseDelta!.toString(),
-          h.totalCollateralBaseDelta!.toString(), h.totalDebtBaseDelta!.toString(),
-          ret.resultsBlock.aprBT18.collateral.toString(), ret.resultsBlock.aprBT18.borrow.toString(),
+          ret.details.totalCollateralBaseDelta.toString(), ret.details.totalDebtBaseDelta.toString(),
+          ret.details.totalCollateralBaseDelta.toString(), ret.details.totalDebtBaseDelta.toString(),
+          ret.results.resultsBlock.aprBT18.collateral.toString(), ret.results.resultsBlock.aprBT18.borrow.toString(),
         ].join();
 
         // these differences must be equal to exact supply/borrow APR
         const sexpected = [
-          h.supplyAprBaseExact!.toString(), h.borrowAprBaseExact!.toString(),
-          h.supplyAprBaseApprox!.toString(), h.borrowAprBaseApprox!.toString(),
-          ret.predicted.aprBT18.collateral.toString(), ret.predicted.aprBT18.borrow.toString()
+          ret.details.supplyAprBaseExact.toString(), ret.details.borrowAprBaseExact.toString(),
+          ret.details.supplyAprBaseApprox.toString(), ret.details.borrowAprBaseApprox.toString(),
+          ret.results.predicted.aprBT18.collateral.toString(), ret.results.predicted.aprBT18.borrow.toString()
         ].join();
 
         expect(sret).equals(sexpected);
@@ -670,10 +642,9 @@ describe("CompareAprBeforeAfterBorrow", () => {
       it("predicted APR should be equal to real APR", async () => {
         if (!await isPolygonForkInUse()) return;
 
-        const h: AprAaveTwo = new AprAaveTwo();
-        const ret = await h.makeBorrowTest(
+        const ret = await AprAaveTwo.makeBorrowTest(
           deployer
-          , AMOUNT_TO_BORROW
+          , {exact: true, exactAmountToBorrow: AMOUNT_TO_BORROW}
           , {
             collateral: {
               asset: ASSET_COLLATERAL,
@@ -692,10 +663,10 @@ describe("CompareAprBeforeAfterBorrow", () => {
         console.log("ret", ret);
 
         const sret = [
-          areAlmostEqual(h.totalCollateralETH!, h.supplyAprBaseExact!, 3),
-          areAlmostEqual(h.totalDebtETH!, h.borrowAprBaseExact!, 8),
-          h.supplyAprBaseExact!.toString(),
-          h.keyValues!.liquidity.next.liquidityIndex,
+          areAlmostEqual(ret.details.totalCollateralETH!, ret.details.supplyAprBaseExact!, 3),
+          areAlmostEqual(ret.details.totalDebtETH!, ret.details.borrowAprBaseExact!, 8),
+          ret.details.supplyAprBaseExact.toString(),
+          ret.details.keyValues.liquidity.next.liquidityIndex,
 
           // borrowApr.toString(),
           // keyValues.borrow.afterBorrow.liquidityIndex
@@ -705,8 +676,8 @@ describe("CompareAprBeforeAfterBorrow", () => {
         const sexpected = [
           true,
           true,
-          h.supplyAprBaseApprox!.apr.toString(),
-          h.supplyAprBaseApprox!.nextLiquidityIndex.toString(),
+          ret.details.supplyAprBaseApprox.apr.toString(),
+          ret.details.supplyAprBaseApprox.nextLiquidityIndex.toString(),
 
           /////////////////////////////////////////////////////////////////////
           // TODO: nextLiquidityIndex for borrow is a bit different from expected
@@ -726,12 +697,9 @@ describe("CompareAprBeforeAfterBorrow", () => {
       it("predicted APR should be equal to real APR", async () => {
         if (!await isPolygonForkInUse()) return;
 
-        const h: AprDForce = new AprDForce();
-        const ret = await h.makeBorrowTest(
+        const ret = await AprDForce.makeBorrowTest(
           deployer
-          , AMOUNT_TO_BORROW
-          , ASSET_COLLATERAL_DFORCE_CTOKEN
-          , ASSET_BORROW_DFORCE_CTOREN
+          , {exact: true, exactAmountToBorrow: AMOUNT_TO_BORROW}
           , {
             collateral: {
               asset: ASSET_COLLATERAL,
@@ -752,12 +720,12 @@ describe("CompareAprBeforeAfterBorrow", () => {
 
         // calculate real differences in user-account-balances for period [next block, last block]
         const sret = [
-          areAlmostEqual(h.deltaCollateralBT!, h.supplyApr!, 4)
-          , areAlmostEqual(h.deltaBorrowBalance!, h.borrowApr!, 5)
+          areAlmostEqual(ret.details.deltaCollateralBT!, ret.details.supplyApr!, 4)
+          , areAlmostEqual(ret.details.deltaBorrowBalance!, ret.details.borrowApr!, 5)
 
           // not exact because real supply and borrow rate are rounded
-          , areAlmostEqual(h.deltaCollateralBT!, h.supplyAprExact!, 9)
-          , areAlmostEqual(h.deltaBorrowBalance!, h.borrowAprExact!, 9)
+          , areAlmostEqual(ret.details.deltaCollateralBT!, ret.details.supplyAprExact!, 9)
+          , areAlmostEqual(ret.details.deltaBorrowBalance!, ret.details.borrowAprExact!, 9)
         ].join("\n");
 
         // these differences must be equal to exact supply/borrow APR

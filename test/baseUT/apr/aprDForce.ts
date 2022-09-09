@@ -1,5 +1,5 @@
 import {BigNumber} from "ethers";
-import {IAaveKeyTestValues, IBorrowResults, IPointResults} from "./aprDataTypes";
+import {IBorrowResults, IPointResults} from "./aprDataTypes";
 import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import {TestSingleBorrowParams} from "../types/BorrowRepayDataTypes";
 import {TokenDataTypes} from "../types/TokenDataTypes";
@@ -9,13 +9,13 @@ import {getBigNumberFrom} from "../../../scripts/utils/NumberUtils";
 import {DeployUtils} from "../../../scripts/utils/DeployUtils";
 import hre, {ethers} from "hardhat";
 import {
-  changeDecimals,
-  ConfigurableAmountToBorrow,
-  convertUnits,
-  makeBorrow
+  changeDecimals, prepareExactBorrowAmount,
+  convertUnits, makeBorrow
 } from "./aprUtils";
 import {DForcePlatformFabric} from "../fabrics/DForcePlatformFabric";
 import {TimeUtils} from "../../../scripts/utils/TimeUtils";
+import {ConfigurableAmountToBorrow} from "./ConfigurableAmountToBorrow";
+import {getCTokenAddressForAsset} from "../utils/DForceUtils";
 
 //region Data types
 interface IDForceMarketState {
@@ -55,6 +55,38 @@ interface IDForceState {
     market: IDForceMarketState,
     account: IDForceUserAccountState
   },
+}
+
+interface IAprDForceTwoResults {
+  /** State before borrow */
+  before: IDForceState;
+  /** State just after borrow */
+  next: IDForceState;
+  /** After borrow + 1 block */
+  middle: IDForceState;
+  /** State just after borrow + 1 block */
+  last: IDForceState;
+  /** Borrower address */
+  userAddress: string;
+  /** Exact value of the borrowed amount */
+  borrowAmount: BigNumber;
+
+//// next : last  results
+
+  /** Supply APR in terms of base currency calculated using predicted supply rate */
+  supplyAprExact: BigNumber;
+  /** Supply APR in terms of base currency calculated using exact supply rate taken from next step */
+  supplyApr: BigNumber;
+  /** Borrow APR in terms of base currency calculated using predicted borrow rate */
+  borrowAprExact: BigNumber;
+  /** borrow APR in terms of base currency calculated using exact borrow rate taken from next step */
+  borrowApr: BigNumber;
+  /** total increment of collateral amount from NEXT to LAST in terms of COLLATERAL currency */
+  deltaCollateral: BigNumber;
+  /** total increment of collateral amount from NEXT to LAST in terms of BORROW currency */
+  deltaCollateralBT: BigNumber;
+  /** total increment of borrowed amount from NEXT to LAST in terms of BORROW currency */
+  deltaBorrowBalance: BigNumber;
 }
 //endregion Data types
 
@@ -115,39 +147,6 @@ async function getDForceStateInfo(
 //endregion Utils
 
 export class AprDForce {
-  /** State before borrow */
-  before: IDForceState | undefined;
-  /** State just after borrow */
-  next: IDForceState | undefined;
-  /** After borrow + 1 block */
-  middle: IDForceState | undefined;
-  /** State just after borrow + 1 block */
-  last: IDForceState | undefined;
-  /** Borrower address */
-  userAddress: string | undefined;
-  /** Exact value of the borrowed amount */
-  borrowAmount: BigNumber = BigNumber.from(0);
-
-//// next : last  results
-
-  /** Supply APR in terms of base currency calculated using predicted supply rate */
-  supplyAprExact: BigNumber | undefined;
-  /** Supply APR in terms of base currency calculated using exact supply rate taken from next step */
-  supplyApr: BigNumber | undefined;
-  /** Borrow APR in terms of base currency calculated using predicted borrow rate */
-  borrowAprExact: BigNumber | undefined;
-  /** borrow APR in terms of base currency calculated using exact borrow rate taken from next step */
-  borrowApr: BigNumber | undefined;
-  /** total increment of collateral amount from NEXT to LAST in terms of COLLATERAL currency */
-  deltaCollateral: BigNumber | undefined;
-  /** total increment of collateral amount from NEXT to LAST in terms of BORROW currency */
-  deltaCollateralBT: BigNumber | undefined;
-  /** total increment of borrowed amount from NEXT to LAST in terms of BORROW currency */
-  deltaBorrowBalance: BigNumber | undefined;
-
-
-  keyValues: IAaveKeyTestValues | undefined;
-
   /**
    * 0. Predict APR
    * 1. Make borrow
@@ -161,19 +160,21 @@ export class AprDForce {
    *
    * @param deployer
    * @param amountToBorrow0 Amount to borrow without decimals (i.e. 100 for 100 DAI)
-   * @param collateralCTokenAddress
-   * @param borrowCTokenAddress
    * @param p Main parameters (asset, amounts, so on)
    * @param additionalPoints
    */
-  async makeBorrowTest(
+  static async makeBorrowTest(
     deployer: SignerWithAddress
     , amountToBorrow0: ConfigurableAmountToBorrow
-    , collateralCTokenAddress: string
-    , borrowCTokenAddress: string
     , p: TestSingleBorrowParams
     , additionalPoints: number[]
-  ): Promise<IBorrowResults> {
+  ): Promise<{
+    details: IAprDForceTwoResults
+    , results: IBorrowResults
+  }> {
+    const collateralCTokenAddress = getCTokenAddressForAsset(p.collateral.asset);
+    const borrowCTokenAddress = getCTokenAddressForAsset(p.borrow.asset);
+
     const collateralToken = await TokenDataTypes.Build(deployer, p.collateral.asset);
     const borrowToken = await TokenDataTypes.Build(deployer, p.borrow.asset);
 
@@ -202,7 +203,7 @@ export class AprDForce {
     const libFacade = await DeployUtils.deployContract(deployer, "DForceAprLibFacade") as DForceAprLibFacade;
 
     // start point: we estimate APR in this point before borrow and supply
-    this.before = await getDForceStateInfo(comptroller
+    const before = await getDForceStateInfo(comptroller
       , cTokenCollateral
       , cTokenBorrow
       // we don't have user address at this moment
@@ -214,61 +215,61 @@ export class AprDForce {
     const borrowResults = await makeBorrow(
       deployer
       , p
-      , amountToBorrow0
+      , prepareExactBorrowAmount(amountToBorrow0, borrowToken.decimals)
       , new DForcePlatformFabric()
     );
-    this.userAddress = borrowResults.poolAdapter;
-    this.borrowAmount = borrowResults.borrowAmount;
-    console.log(`userAddress=${this.userAddress} borrowAmount=${this.borrowAmount}`);
+    const userAddress = borrowResults.poolAdapter;
+    const borrowAmount = borrowResults.borrowAmount;
+    console.log(`userAddress=${userAddress} borrowAmount=${borrowAmount}`);
 
     const borrowRatePredicted = await libFacade.getEstimatedBorrowRate(
       await cTokenBorrow.interestRateModel()
       , cTokenBorrow.address
-      , this.borrowAmount
+      , borrowAmount
     );
     console.log(`borrowRatePredicted=${borrowRatePredicted.toString()}`);
 
     const supplyRatePredicted = await libFacade.getEstimatedSupplyRatePure(
-      this.before.collateral.market.totalSupply
+      before.collateral.market.totalSupply
       , amountCollateral
-      , this.before.collateral.market.cash
-      , this.before.collateral.market.totalBorrows
-      , this.before.collateral.market.totalReserves
+      , before.collateral.market.cash
+      , before.collateral.market.totalBorrows
+      , before.collateral.market.totalReserves
       , marketCollateralData.interestRateModel
-      , this.before.collateral.market.reserveRatio
-      , this.before.collateral.market.exchangeRateStored
+      , before.collateral.market.reserveRatio
+      , before.collateral.market.exchangeRateStored
     );
     console.log(`supplyRatePredicted=${supplyRatePredicted.toString()}`);
 
     // next => last
-    this.next = await getDForceStateInfo(comptroller
+    const next = await getDForceStateInfo(comptroller
       , cTokenCollateral
       , cTokenBorrow
-      , this.userAddress
+      , userAddress
     );
 
     // For collateral: move ahead on single block
     await cTokenCollateral.updateInterest(); //await TimeUtils.advanceNBlocks(1);
 
-    this.middle = await getDForceStateInfo(comptroller
+    const middle = await getDForceStateInfo(comptroller
       , cTokenCollateral
       , cTokenBorrow
-      , this.userAddress
+      , userAddress
     );
 
     // For borrow: move ahead on one more block
     await cTokenBorrow.updateInterest();
 
-    this.last = await getDForceStateInfo(comptroller
+    const last = await getDForceStateInfo(comptroller
       , cTokenCollateral
       , cTokenBorrow
-      , this.userAddress
+      , userAddress
     );
 
-    console.log("before", this.before);
-    console.log("next", this.next);
-    console.log("middle", this.middle);
-    console.log("last", this.last);
+    console.log("before", before);
+    console.log("next", next);
+    console.log("middle", middle);
+    console.log("last", last);
 
 
     // calculate exact values of supply/borrow APR
@@ -276,7 +277,7 @@ export class AprDForce {
     const countBlocksSupply = 1; // after next, we call UpdateInterest for supply token...
     const countBlocksBorrow = 2; // ...then for the borrow token
 
-    this.supplyApr = await libFacade.getSupplyApr18(
+    const supplyApr = await libFacade.getSupplyApr18(
       supplyRatePredicted
       , countBlocksSupply
       , await cTokenCollateral.decimals()
@@ -284,72 +285,72 @@ export class AprDForce {
       , priceBorrow
       , amountCollateral
     );
-    console.log("supplyApr", this.supplyApr);
-    this.supplyAprExact = await libFacade.getSupplyApr18(
-      this.next.collateral.market.supplyRatePerBlock
+    console.log("supplyApr", supplyApr);
+    const supplyAprExact = await libFacade.getSupplyApr18(
+      next.collateral.market.supplyRatePerBlock
       , countBlocksSupply
       , await cTokenCollateral.decimals()
       , priceCollateral
       , priceBorrow
       , amountCollateral
     );
-    console.log("supplyAprExact", this.supplyAprExact);
+    console.log("supplyAprExact", supplyAprExact);
 
-    this.borrowApr = await libFacade.getBorrowApr18(
+    const borrowApr = await libFacade.getBorrowApr18(
       borrowRatePredicted
-      , this.borrowAmount
+      , borrowAmount
       , countBlocksBorrow
       , await cTokenBorrow.decimals()
     );
-    console.log("borrowApr", this.borrowApr);
+    console.log("borrowApr", borrowApr);
 
-    this.borrowAprExact = await libFacade.getBorrowApr18(
-      this.middle.borrow.market.borrowRatePerBlock
-      , this.borrowAmount
+    const borrowAprExact = await libFacade.getBorrowApr18(
+      middle.borrow.market.borrowRatePerBlock
+      , borrowAmount
       , countBlocksBorrow
       , await cTokenBorrow.decimals()
     );
-    console.log("borrowAprExact", this.borrowApr);
+    console.log("borrowAprExact", borrowApr);
 
     // get collateral (in terms of collateral tokens) for next and last points
     const base = getBigNumberFrom(1, 18);
-    const collateralNext = this.next.collateral.account.balance
-      .mul(this.next.collateral.market.exchangeRateStored)
+    const collateralNext = next.collateral.account.balance
+      .mul(next.collateral.market.exchangeRateStored)
       .div(base);
-    const collateralLast = this.last.collateral.account.balance
-      .mul(this.last.collateral.market.exchangeRateStored)
+    const collateralLast = last.collateral.account.balance
+      .mul(last.collateral.market.exchangeRateStored)
       .div(base);
-    this.deltaCollateral = collateralLast.sub(collateralNext);
-    this.deltaCollateralBT = this.deltaCollateral.mul(priceCollateral).div(priceBorrow);
+    const deltaCollateral = collateralLast.sub(collateralNext);
+    const deltaCollateralBT = deltaCollateral.mul(priceCollateral).div(priceBorrow);
     console.log("collateralNext", collateralNext);
     console.log("collateralLast", collateralLast);
-    console.log("deltaCollateral", this.deltaCollateral);
-    console.log("deltaCollateralBT", this.deltaCollateralBT);
+    console.log("deltaCollateral", deltaCollateral);
+    console.log("deltaCollateralBT", deltaCollateralBT);
 
-    this.deltaBorrowBalance = this.last.borrow.account.borrowBalanceStored.sub(
-      this.next.borrow.account.borrowBalanceStored
+    const deltaBorrowBalance = last.borrow.account.borrowBalanceStored.sub(
+      next.borrow.account.borrowBalanceStored
     );
-    console.log("deltaBorrowBalance", this.deltaBorrowBalance);
+    console.log("deltaBorrowBalance", deltaBorrowBalance);
 
     const pointsResults: IPointResults[] = [];
-    let prev = this.last;
+    let prev = last;
     for (const period of additionalPoints) {
       // we need 4 blocks to update rewards ... so we need to make advance on N - 4 blocks
       if (period > 4) {
         await TimeUtils.advanceNBlocks(period - 4);
         await rewardsDistributor.updateDistributionState(collateralCTokenAddress, false);
-        await rewardsDistributor.updateReward(collateralCTokenAddress, this.userAddress, false);
+        await rewardsDistributor.updateReward(collateralCTokenAddress, userAddress, false);
         await rewardsDistributor.updateDistributionState(borrowCTokenAddress, true);
-        await rewardsDistributor.updateReward(borrowCTokenAddress, this.userAddress, true);
+        await rewardsDistributor.updateReward(borrowCTokenAddress, userAddress, true);
       } else {
         await TimeUtils.advanceNBlocks(period); // no rewards, period is too small
       }
-      const totalAmountRewards = await rewardsDistributor.reward(this.userAddress);
+      const totalAmountRewards = await rewardsDistributor.reward(userAddress);
 
       let current = await getDForceStateInfo(comptroller
         , cTokenCollateral
         , cTokenBorrow
-        , this.userAddress
+        , userAddress
       );
 
       const collateralPrev = prev.collateral.account.balance
@@ -383,46 +384,62 @@ export class AprDForce {
     }
 
     return {
-      init: {
-        borrowAmount: this.borrowAmount,
-        collateralAmount: amountCollateral,
-        collateralAmountBT18: convertUnits(
-          amountCollateral
-          , priceCollateral, collateralToken.decimals
-          , priceBorrow, 18
-        )
-      }, predicted: {
-        aprBT18: {
-          collateral: this.supplyApr,
-          borrow: this.borrowApr
+      details: {
+        borrowApr
+        , borrowAprExact
+        , before
+        , deltaBorrowBalance
+        , middle
+        , deltaCollateral
+        , supplyApr
+        , deltaCollateralBT
+        , borrowAmount
+        , last
+        , supplyAprExact
+        , next
+        , userAddress
+      }, results: {
+        init: {
+          borrowAmount: borrowAmount,
+          collateralAmount: amountCollateral,
+          collateralAmountBT18: convertUnits(
+            amountCollateral
+            , priceCollateral, collateralToken.decimals
+            , priceBorrow, 18
+          )
+        }, predicted: {
+          aprBT18: {
+            collateral: supplyApr,
+            borrow: borrowApr
+          },
+          rates: {
+            borrowRate: borrowRatePredicted,
+            supplyRate: supplyRatePredicted
+          }
+        }, prices: {
+          collateral: priceCollateral,
+          borrow: priceBorrow,
+        }, resultsBlock: {
+          period: {
+            block0: next.block,
+            blockTimestamp0: next.blockTimestamp,
+            block1: last.block,
+            blockTimestamp1: last.blockTimestamp,
+          },
+          rates: {
+            borrowRate: next.borrow.market.borrowRatePerBlock,
+            supplyRate: next.collateral.market.supplyRatePerBlock
+          },
+          aprBT18: {
+            collateral: changeDecimals(
+              deltaCollateral.mul(priceCollateral).div(priceBorrow)
+              , collateralToken.decimals
+              , 18
+            ), borrow: changeDecimals(deltaBorrowBalance, borrowToken.decimals, 18)
+          }
         },
-        rates: {
-          borrowRate: borrowRatePredicted,
-          supplyRate: supplyRatePredicted
-        }
-      }, prices: {
-        collateral: priceCollateral,
-        borrow: priceBorrow,
-      }, resultsBlock: {
-        period: {
-          block0: this.next.block,
-          blockTimestamp0: this.next.blockTimestamp,
-          block1: this.last.block,
-          blockTimestamp1: this.last.blockTimestamp,
-        },
-        rates: {
-          borrowRate: this.next.borrow.market.borrowRatePerBlock,
-          supplyRate: this.next.collateral.market.supplyRatePerBlock
-        },
-        aprBT18: {
-          collateral: changeDecimals(
-            this.deltaCollateral.mul(priceCollateral).div(priceBorrow)
-            , collateralToken.decimals
-            , 18
-          ), borrow: changeDecimals(this.deltaBorrowBalance, borrowToken.decimals, 18)
-        }
-      },
-      points: pointsResults
+        points: pointsResults
+      }
     }
   }
 }

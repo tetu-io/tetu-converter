@@ -29,7 +29,7 @@ export class AaveTwoPlatformFabric implements ILendingPlatformFabric {
       , MaticAddresses.SUSHI
       , MaticAddresses.CRV
       , MaticAddresses.ChainLink
-      , MaticAddresses.Aavegotchi_GHST
+      , MaticAddresses.AavegotchiGHST
       , MaticAddresses.DefiPulseToken
     ];
     const assetPairs = generateAssetPairs(assets);
