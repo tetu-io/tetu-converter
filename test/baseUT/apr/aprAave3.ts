@@ -20,6 +20,9 @@ import hre from "hardhat";
 import {IAaveKeyState, IAaveKeyTestValues, IBorrowResults, IPointResults} from "./aprDataTypes";
 import * as util from "util";
 
+const ray = getBigNumberFrom(1, 36);
+const base = getBigNumberFrom(1, 18);
+
 //region Data types
 interface IAave3AssetStateRaw {
   data: {
@@ -132,19 +135,22 @@ async function getAprAAVE3BaseRay(
   libFacade: Aave3AprLibFacade,
   amount: BigNumber,
   predictedRate: BigNumber,
-  price18: BigNumber,
+  price: BigNumber,
   countBlocks: number,
   state: IAaveKeyState,
-  blocksPerDay: number
+  blocksPerDay: number,
+  decimalsAmount: number,
+  decimalsBaseCurrency: number
 ) : Promise<BigNumber> {
   console.log("getAprAAVE3Base");
   console.log("amount", amount);
   console.log("predictedRate", predictedRate);
-  console.log("price18", price18);
+  console.log("price", price);
   console.log("countBlocks", countBlocks);
   console.log("state", state);
   console.log("blocksPerDay", blocksPerDay);
-  console.log("blocksPerDay", blocksPerDay);
+  console.log("decimalsAmount", decimalsAmount);
+  console.log("decimalsBaseCurrency", decimalsBaseCurrency);
   const value = await libFacade.getAprForPeriodAfter(
     amount,
     state.reserveNormalized,
@@ -155,8 +161,10 @@ async function getAprAAVE3BaseRay(
   );
   console.log("getAprAAVE3Base", value);
   return value
-    .mul(price18)
-    .mul(getBigNumberFrom(1, 18));
+    .mul(price)
+    .mul(ray)
+    .div(getBigNumberFrom(1, decimalsAmount))
+    .div(getBigNumberFrom(1, decimalsBaseCurrency));
 }
 
 /** Calc APR in the state this.before the supply/borrow operation
@@ -166,11 +174,13 @@ async function getAprBeforeAAVE3BaseRay(
   libFacade: Aave3AprLibFacade,
   amount: BigNumber,
   predictedRate: BigNumber,
-  price18: BigNumber,
+  price: BigNumber,
   countBlocks: number,
   state: IAaveKeyState,
   blocksPerDay: number,
-  operationTimestamp: number
+  operationTimestamp: number,
+  decimalsAmount: number,
+  decimalsBaseCurrency: number
 ) : Promise<BigNumber> {
   const value = await libFacade.getAprForPeriodBefore(
     {
@@ -186,9 +196,10 @@ async function getAprBeforeAAVE3BaseRay(
   );
   console.log("getAprBeforeAAVE3Base", value);
   return (value)
-    .mul(price18)
-    .mul(getBigNumberFrom(1, 18)
-  );
+    .mul(price)
+    .mul(ray)
+    .div(getBigNumberFrom(1, decimalsAmount))
+    .div(getBigNumberFrom(1, decimalsBaseCurrency));
 }
 //endregion Utils
 
@@ -404,6 +415,8 @@ export class AprAave3 {
       , countBlocks
       , keyValues.liquidity.next
       , blocksPerDay
+      , collateralToken.decimals
+      , baseCurrencyDecimals
     );
     console.log("supplyAprExactRay", this.supplyAprBaseExactRay);
     this.borrowAprBaseExactRay = await getAprAAVE3BaseRay(
@@ -414,6 +427,8 @@ export class AprAave3 {
       , countBlocks
       , keyValues.borrow.next
       , blocksPerDay
+      , borrowToken.decimals
+      , baseCurrencyDecimals
     );
     console.log("borrowAprExactRay", this.borrowAprBaseExactRay);
 
@@ -428,6 +443,8 @@ export class AprAave3 {
       , keyValues.liquidity.beforeBorrow
       , blocksPerDay
       , keyValues.liquidity.next.blockTimeStamp
+      , collateralToken.decimals
+      , baseCurrencyDecimals
     );
     console.log("supplyAprApproxRay", this.supplyAprBaseApproxRay);
 
@@ -440,6 +457,8 @@ export class AprAave3 {
       , keyValues.borrow.beforeBorrow
       , blocksPerDay
       , keyValues.borrow.next.blockTimeStamp
+      , borrowToken.decimals
+      , baseCurrencyDecimals
     );
     console.log("borrowAprApprox", this.borrowAprBaseApproxRay);
 
@@ -453,7 +472,7 @@ export class AprAave3 {
     console.log("totalDebtBaseDelta", this.totalDebtBaseDelta);
 
     const bbp: IBaseToBorrowParams = {
-      baseCurrencyDecimals: baseCurrencyDecimals,
+      baseCurrencyDecimals: 36, //rays
       priceBaseCurrency: priceBorrow,
       priceDecimals: baseCurrencyDecimals // all prices in AAVE v3 are in base currency
     }
@@ -488,7 +507,6 @@ export class AprAave3 {
         }
       })
     }
-    const ray = getBigNumberFrom(1, 36);
 
     return {
       init: {
