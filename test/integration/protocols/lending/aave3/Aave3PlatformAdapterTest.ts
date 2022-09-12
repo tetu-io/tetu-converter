@@ -157,7 +157,10 @@ describe("Aave-v3 integration tests, platform adapter", () => {
         , countBlocks
       );
       console.log("ret", ret);
-      const borrowAmount = ret.liquidationThreshold18.mul(borrowAmountFactor18).div(getBigNumberFrom(1, 18));
+      let borrowAmount = ret.liquidationThreshold18.mul(borrowAmountFactor18).div(getBigNumberFrom(1, 18));
+      if (borrowAmount.gt(ret.maxAmountToBorrowBT)) {
+        borrowAmount = ret.maxAmountToBorrowBT;
+      }
 
       // calculate expected supply and borrow values
       const predictedSupplyAprBT18 = await AprAave3.predictSupplyApr18(deployer

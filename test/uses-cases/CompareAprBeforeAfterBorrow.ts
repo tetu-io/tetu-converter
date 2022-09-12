@@ -203,7 +203,7 @@ describe("CompareAprBeforeAfterBorrow", () => {
         const sexpected = [
           true,
           true,
-          ret.details.supplyAprBaseApprox.apr.toString(),
+          ret.details.supplyAprBaseApprox.aprBase18.toString(),
           ret.details.supplyAprBaseApprox.nextLiquidityIndex.toString(),
 
           /////////////////////////////////////////////////////////////////////
@@ -680,7 +680,7 @@ describe("CompareAprBeforeAfterBorrow", () => {
         const sexpected = [
           true,
           true,
-          ret.details.supplyAprBaseApprox.apr.toString(),
+          ret.details.supplyAprBaseApprox.aprBase18.toString(),
           ret.details.supplyAprBaseApprox.nextLiquidityIndex.toString(),
 
           /////////////////////////////////////////////////////////////////////

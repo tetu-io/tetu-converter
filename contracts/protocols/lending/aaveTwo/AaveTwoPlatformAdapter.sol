@@ -145,6 +145,9 @@ contract AaveTwoPlatformAdapter is IPlatformAdapter {
         ).getReserveData(params.borrowAsset);
 
         plan.maxAmountToBorrowBT = vars.availableLiquidity;
+        if (vars.amountToBorrow > plan.maxAmountToBorrowBT) {
+          vars.amountToBorrow = plan.maxAmountToBorrowBT;
+        }
 
         plan.borrowApr18 = AaveSharedLib.getAprForPeriodBefore(
           AaveSharedLib.State({
