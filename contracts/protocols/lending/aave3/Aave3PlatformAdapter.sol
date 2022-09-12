@@ -193,8 +193,11 @@ contract Aave3PlatformAdapter is IPlatformAdapter {
 
           // calculate borrow-APR, see detailed explanation in Aave3AprLib
           vars.amountToBorrow = plan.liquidationThreshold18 * params.borrowAmountFactor18 / 1e18;
+          console.log("_getConversionPlan: vars.amountToBorrow", vars.amountToBorrow);
+          console.log("_getConversionPlan: plan.liquidationThreshold18", plan.liquidationThreshold18);
           if (vars.amountToBorrow > plan.maxAmountToBorrowBT) {
             vars.amountToBorrow = plan.maxAmountToBorrowBT;
+            console.log("_getConversionPlan: plan.maxAmountToBorrowBT", vars.amountToBorrow);
           }
           vars.blocksPerDay = IController(controller).blocksPerDay();
           vars.assets = new address[](2);
@@ -224,11 +227,15 @@ contract Aave3PlatformAdapter is IPlatformAdapter {
             block.timestamp // assume, that we make borrow in the current block
           )
           * 10**18 // we need decimals 18
-          / rb.configuration.getDecimals();
-
-          console.log("_getConversionPlan.10");
+          / 10**rb.configuration.getDecimals();
 
           // calculate supply-APR, see detailed explanation in Aave3AprLib
+          (,,
+          vars.totalAToken,
+          vars.totalStableDebt,
+          vars.totalVariableDebt
+          ,,,,,,,) = _dp(vars.poolLocal).getReserveData(params.collateralAsset);
+
           plan.supplyAprBT18 = AaveSharedLib.getAprForPeriodBefore(
             AaveSharedLib.State({
               liquidityIndex: rc.liquidityIndex,
@@ -251,11 +258,8 @@ contract Aave3PlatformAdapter is IPlatformAdapter {
           * vars.prices[0] // collateral price
           * 10**18 // we need decimals 18
           / vars.prices[1] // borrow price
-          / rc.configuration.getDecimals();
+          / 10**rc.configuration.getDecimals();
         }
-
-        console.log("_getConversionPlan.11");
-
       }
     }
 

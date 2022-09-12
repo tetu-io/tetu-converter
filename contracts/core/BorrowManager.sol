@@ -253,7 +253,7 @@ contract BorrowManager is IBorrowManager {
       / (pricesCB18[1] * uint(p_.healthFactor2) * 10**(18-2));
     console.log("sourceAmount18", pp_.sourceAmount18);
     console.log("price0", pricesCB18[0]);
-    console.log("price0", pricesCB18[1]);
+    console.log("price1", pricesCB18[1]);
     console.log("hf", uint(p_.healthFactor2) * 10**(18-2));
     console.log("borrowAmountFactor18", borrowAmountFactor18.toMantissa(18, pp_.targetDecimals));
     console.log("targetDecimals", pp_.targetDecimals);

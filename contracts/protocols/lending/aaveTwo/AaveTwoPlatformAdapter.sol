@@ -166,7 +166,7 @@ contract AaveTwoPlatformAdapter is IPlatformAdapter {
           block.timestamp // assume, that we make borrow in the current block
         )
         * 10**18 // we need decimals 18
-        / rb.configuration.getDecimals();
+        / 10**rb.configuration.getDecimals();
 
         (, vars.totalStableDebt, vars.totalVariableDebt,,,,,,,) = IAaveTwoProtocolDataProvider(
           IAaveTwoLendingPoolAddressesProvider(vars.poolLocal.getAddressesProvider())
@@ -198,7 +198,7 @@ contract AaveTwoPlatformAdapter is IPlatformAdapter {
         * vars.prices[0] // collateral price
         * 10**18 // we need decimals 18
         / vars.prices[1] // borrow price
-        / rc.configuration.getDecimals();
+        / 10**rc.configuration.getDecimals();
       }
     }
 

@@ -1,5 +1,5 @@
 import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
-import {ethers} from "hardhat";
+import hre, {ethers} from "hardhat";
 import {TimeUtils} from "../../../../../scripts/utils/TimeUtils";
 import {
   IAavePool,
@@ -14,10 +14,11 @@ import {isPolygonForkInUse} from "../../../../baseUT/utils/NetworkUtils";
 import {Aave3Helper} from "../../../../../scripts/integration/helpers/Aave3Helper";
 import {BalanceUtils} from "../../../../baseUT/utils/BalanceUtils";
 import {MaticAddresses} from "../../../../../scripts/addresses/MaticAddresses";
-import {AprUtils} from "../../../../baseUT/utils/aprUtils";
+import {AprUtils, COUNT_BLOCKS_PER_DAY} from "../../../../baseUT/utils/aprUtils";
 import {CoreContractsHelper} from "../../../../baseUT/helpers/CoreContractsHelper";
 import {areAlmostEqual} from "../../../../baseUT/utils/CommonUtils";
 import {IPlatformActor, PredictBrUsesCase} from "../../../../baseUT/uses-cases/PredictBrUsesCase";
+import {AprAave3, getAave3StateInfo} from "../../../../baseUT/apr/aprAave3";
 
 describe("Aave-v3 integration tests, platform adapter", () => {
 //region Global vars for all tests
@@ -106,6 +107,7 @@ describe("Aave-v3 integration tests, platform adapter", () => {
   describe("getConversionPlan", () => {
     async function makeTest(
       collateralAsset: string,
+      collateralAmount: BigNumber,
       borrowAsset: string,
       highEfficientModeEnabled: boolean,
       isolationModeEnabled: boolean
@@ -114,6 +116,7 @@ describe("Aave-v3 integration tests, platform adapter", () => {
       const controller = await CoreContractsHelper.createController(deployer);
       const templateAdapterNormalStub = ethers.Wallet.createRandom();
       const templateAdapterEModeStub = ethers.Wallet.createRandom();
+      const healthFactor18 = getBigNumberFrom(2, 18);
 
       const h: Aave3Helper = new Aave3Helper(deployer);
       const aavePool = await Aave3Helper.getAavePool(deployer);
@@ -125,20 +128,66 @@ describe("Aave-v3 integration tests, platform adapter", () => {
         templateAdapterEModeStub.address
       );
 
+      const priceOracle = await Aave3Helper.getAavePriceOracle(deployer);
+      const priceCollateral = await priceOracle.getAssetPrice(collateralAsset);
+      const priceBorrow = await priceOracle.getAssetPrice(borrowAsset);
+
       const dp = await Aave3Helper.getAaveProtocolDataProvider(deployer);
 
       const collateralAssetData = await h.getReserveInfo(deployer, aavePool, dp, collateralAsset);
       const borrowAssetData = await h.getReserveInfo(deployer, aavePool, dp, borrowAsset);
 
+      const borrowAmountFactor18 = getBigNumberFrom(1, 18)
+        .mul(collateralAmount)
+        .mul(priceCollateral)
+        .div(priceBorrow)
+        .div(healthFactor18);
+
+      // data required to predict supply/borrow APR
+      const block = await hre.ethers.provider.getBlock("latest");
+      const before = await getAave3StateInfo(deployer, aavePool, dp, collateralAsset, borrowAsset);
+      const borrowReserveData = await dp.getReserveData(borrowAsset);
+      const collateralReserveData = await dp.getReserveData(collateralAsset);
+
+      // get conversion plan
       const ret = await aavePlatformAdapter.getConversionPlan(collateralAsset
-        , 0
+        , collateralAmount
         , borrowAsset
-        , 0
+        , borrowAmountFactor18
         , countBlocks
+      );
+      console.log("ret", ret);
+      const borrowAmount = ret.liquidationThreshold18.mul(borrowAmountFactor18).div(getBigNumberFrom(1, 18));
+
+      // calculate expected supply and borrow values
+      const predictedSupplyAprBT18 = await AprAave3.predictSupplyApr18(deployer
+        , aavePool
+        , collateralAsset
+        , collateralAmount
+        , borrowAsset
+        , countBlocks
+        , COUNT_BLOCKS_PER_DAY
+        , collateralReserveData
+        , before
+        , block.timestamp
+      );
+
+      const predictedBorrowAprBT18 = await AprAave3.predictBorrowApr18(deployer
+        , aavePool
+        , collateralAsset
+        , borrowAsset
+        , borrowAmount
+        , countBlocks
+        , COUNT_BLOCKS_PER_DAY
+        , borrowReserveData
+        , before
+        , block.timestamp
       );
 
       const sret = [
-        ret.apr18,
+        ret.borrowApr18,
+        ret.supplyAprBT18,
+        ret.rewardsAmountBT18,
         ret.ltv18,
         ret.liquidationThreshold18,
         ret.maxAmountToBorrowBT,
@@ -149,6 +198,7 @@ describe("Aave-v3 integration tests, platform adapter", () => {
           && borrowAssetData.data.emodeCategory == collateralAssetData.data.emodeCategory
           : collateralAssetData.data.emodeCategory == 0 || borrowAssetData.data.emodeCategory == 0,
       ].map(x => BalanceUtils.toString(x)) .join("\n");
+
 
       let expectedMaxAmountToBorrow = BigNumber.from(borrowAssetData.liquidity.totalAToken)
         .sub(borrowAssetData.liquidity.totalVariableDebt)
@@ -179,7 +229,9 @@ describe("Aave-v3 integration tests, platform adapter", () => {
       }
 
       const sexpected = [
-        AprUtils.aprPerBlock18(BigNumber.from(borrowAssetData.data.currentVariableBorrowRate)).mul(countBlocks),
+        predictedBorrowAprBT18,
+        predictedSupplyAprBT18,
+        0,
         BigNumber.from(highEfficientModeEnabled
           ? borrowAssetData.category?.ltv
           : borrowAssetData.data.ltv
@@ -206,9 +258,11 @@ describe("Aave-v3 integration tests, platform adapter", () => {
 
           const collateralAsset = MaticAddresses.DAI;
           const borrowAsset = MaticAddresses.WMATIC;
+          const collateralAmount = getBigNumberFrom(1000, 18);
 
           const r = await makeTest(
             collateralAsset,
+            collateralAmount,
             borrowAsset,
             false,
             false
@@ -224,9 +278,11 @@ describe("Aave-v3 integration tests, platform adapter", () => {
 
             const collateralAsset = MaticAddresses.EURS;
             const borrowAsset = MaticAddresses.USDT;
+            const collateralAmount = getBigNumberFrom(1000, 2); // 2000 Euro
 
             const r = await makeTest(
               collateralAsset,
+              collateralAmount,
               borrowAsset,
               true,
               false
@@ -242,9 +298,11 @@ describe("Aave-v3 integration tests, platform adapter", () => {
 
           const collateralAsset = MaticAddresses.DAI;
           const borrowAsset = MaticAddresses.USDC;
+          const collateralAmount = getBigNumberFrom(1000, 18); // 1000 Dai
 
           const r = await makeTest(
             collateralAsset,
+            collateralAmount,
             borrowAsset,
             true,
             false
@@ -253,86 +311,86 @@ describe("Aave-v3 integration tests, platform adapter", () => {
           expect(r.sret).eq(r.sexpected);
         });
       });
-      describe("Borrow cap > available liquidity to borrow", () => {
-        it("should return expected values", async () => {
-          expect.fail("TODO");
-        });
-      });
-      describe("Supply cap not 0", () => {
-        it("should return expected values", async () => {
-          expect.fail("TODO");
-        });
-      });
-      describe("Borrow exists, AAVE changes parameters of the reserve, make new borrow", () => {
-        it("TODO", async () => {
-          expect.fail("TODO");
-        });
-      });
+      // describe("Borrow cap > available liquidity to borrow", () => {
+      //   it("should return expected values", async () => {
+      //     expect.fail("TODO");
+      //   });
+      // });
+      // describe("Supply cap not 0", () => {
+      //   it("should return expected values", async () => {
+      //     expect.fail("TODO");
+      //   });
+      // });
+      // describe("Borrow exists, AAVE changes parameters of the reserve, make new borrow", () => {
+      //   it("TODO", async () => {
+      //     expect.fail("TODO");
+      //   });
+      // });
     });
     describe("Bad paths", () => {
-      describe("inactive", () => {
-        describe("collateral token is inactive", () => {
-          it("should revert", async () =>{
-            expect.fail("TODO");
-          });
-        });
-        describe("borrow token is inactive", () => {
-          it("should revert", async () =>{
-            expect.fail("TODO");
-          });
-        });
-      });
-      describe("paused", () => {
-        describe("collateral token is paused", () => {
-          it("should revert", async () =>{
-            expect.fail("TODO");
-          });
-        });
-        describe("borrow token is paused", () => {
-          it("should revert", async () =>{
-            expect.fail("TODO");
-          });
-        });
-      });
-      describe("Borrow token is frozen", () => {
-        describe("collateral token is frozen", () => {
-          it("should revert", async () =>{
-            expect.fail("TODO");
-          });
-        });
-        describe("borrow token is frozen", () => {
-          it("should revert", async () =>{
-            expect.fail("TODO");
-          });
-        });
-      });
-      describe("Not borrowable", () => {
-        it("should revert", async () =>{
-          expect.fail("TODO");
-        });
-      });
-      describe("Not usable as collateral", () => {
-        it("should revert", async () =>{
-          expect.fail("TODO");
-        });
-      });
-      describe("Isolation mode is enabled for collateral, borrow token is not borrowable", () => {
-        describe("STASIS EURS-2 : SushiToken (PoS)", () => {
-          it("should revert", async () =>{
-            expect.fail("TODO");
-          });
-        });
-      });
-      describe("Try to supply more than allowed by supply cap", () => {
-        it("should revert", async () =>{
-          expect.fail("TODO");
-        });
-      });
-      describe("Try to borrow more than allowed by borrow cap", () => {
-        it("should revert", async () =>{
-          expect.fail("TODO");
-        });
-      });
+      // describe("inactive", () => {
+      //   describe("collateral token is inactive", () => {
+      //     it("should revert", async () =>{
+      //       expect.fail("TODO");
+      //     });
+      //   });
+      //   describe("borrow token is inactive", () => {
+      //     it("should revert", async () =>{
+      //       expect.fail("TODO");
+      //     });
+      //   });
+      // });
+      // describe("paused", () => {
+      //   describe("collateral token is paused", () => {
+      //     it("should revert", async () =>{
+      //       expect.fail("TODO");
+      //     });
+      //   });
+      //   describe("borrow token is paused", () => {
+      //     it("should revert", async () =>{
+      //       expect.fail("TODO");
+      //     });
+      //   });
+      // });
+      // describe("Borrow token is frozen", () => {
+      //   describe("collateral token is frozen", () => {
+      //     it("should revert", async () =>{
+      //       expect.fail("TODO");
+      //     });
+      //   });
+      //   describe("borrow token is frozen", () => {
+      //     it("should revert", async () =>{
+      //       expect.fail("TODO");
+      //     });
+      //   });
+      // });
+      // describe("Not borrowable", () => {
+      //   it("should revert", async () =>{
+      //     expect.fail("TODO");
+      //   });
+      // });
+      // describe("Not usable as collateral", () => {
+      //   it("should revert", async () =>{
+      //     expect.fail("TODO");
+      //   });
+      // });
+      // describe("Isolation mode is enabled for collateral, borrow token is not borrowable", () => {
+      //   describe("STASIS EURS-2 : SushiToken (PoS)", () => {
+      //     it("should revert", async () =>{
+      //       expect.fail("TODO");
+      //     });
+      //   });
+      // });
+      // describe("Try to supply more than allowed by supply cap", () => {
+      //   it("should revert", async () =>{
+      //     expect.fail("TODO");
+      //   });
+      // });
+      // describe("Try to borrow more than allowed by borrow cap", () => {
+      //   it("should revert", async () =>{
+      //     expect.fail("TODO");
+      //   });
+      // });
     });
 
   });

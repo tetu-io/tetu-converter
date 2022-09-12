@@ -97,16 +97,18 @@ describe("CompareAprBeforeAfterBorrow", () => {
         const sret = [
           ret.details.totalCollateralBaseDelta.toString(), ret.details.totalDebtBaseDelta.toString(),
           ret.details.totalCollateralBaseDelta.toString(), ret.details.totalDebtBaseDelta.toString(),
+          ret.details.predictedSupplyAprBT18.toString(), ret.details.predictedBorrowAprBT18.toString(),
           ret.results.resultsBlock.aprBT18.collateral.toString(), ret.results.resultsBlock.aprBT18.borrow.toString(),
-        ].join();
+        ].join("\n");
 
         const rays = getBigNumberFrom(1, 36);
         // these differences must be equal to exact supply/borrow APR
         const sexpected = [
           ret.details.supplyAprBaseExact.div(rays).toString(), ret.details.borrowAprBaseExact.div(rays).toString(),
           ret.details.supplyAprBaseApprox.div(rays).toString(), ret.details.borrowAprBaseApprox.div(rays).toString(),
+          ret.results.predicted.aprBT18.collateral.toString(), ret.results.predicted.aprBT18.borrow.toString(),
           ret.results.predicted.aprBT18.collateral.toString(), ret.results.predicted.aprBT18.borrow.toString()
-        ].join();
+        ].join("\n");
 
         expect(sret).equals(sexpected);
       });
@@ -624,15 +626,17 @@ describe("CompareAprBeforeAfterBorrow", () => {
         const sret = [
           ret.details.totalCollateralBaseDelta.toString(), ret.details.totalDebtBaseDelta.toString(),
           ret.details.totalCollateralBaseDelta.toString(), ret.details.totalDebtBaseDelta.toString(),
+          ret.details.predictedSupplyAprBT18.toString(), ret.details.predictedBorrowAprBT18.toString(),
           ret.results.resultsBlock.aprBT18.collateral.toString(), ret.results.resultsBlock.aprBT18.borrow.toString(),
-        ].join();
+        ].join("\n");
 
         // these differences must be equal to exact supply/borrow APR
         const sexpected = [
           ret.details.supplyAprBaseExact.toString(), ret.details.borrowAprBaseExact.toString(),
           ret.details.supplyAprBaseApprox.toString(), ret.details.borrowAprBaseApprox.toString(),
-          ret.results.predicted.aprBT18.collateral.toString(), ret.results.predicted.aprBT18.borrow.toString()
-        ].join();
+          ret.results.predicted.aprBT18.collateral.toString(), ret.results.predicted.aprBT18.borrow.toString(),
+          ret.results.predicted.aprBT18.collateral.toString(), ret.results.predicted.aprBT18.borrow.toString(),
+        ].join("\n");
 
         expect(sret).equals(sexpected);
       });

@@ -90,6 +90,13 @@ export function baseToBorrow18(amount: BigNumber, params: IBaseToBorrowParams) :
   // db - decimals of the base currency
   // dp - decimals of the price
   console.log("baseToBorrow18", amount, params);
+  console.log("baseToBorrow18 result=", amount // == a1 * 10^db
+    .mul(getBigNumberFrom(1, params.priceDecimals)) // == 10^dp
+    .mul(getBigNumberFrom(1, 18)) // == 10^18
+    .div(params.priceBaseCurrency) // == p * 10^dp
+    .div(getBigNumberFrom(1, params.baseCurrencyDecimals))
+  );
+
 
   return amount // == a1 * 10^db
     .mul(getBigNumberFrom(1, params.priceDecimals)) // == 10^dp
