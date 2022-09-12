@@ -8,7 +8,6 @@ import {TokenDataTypes} from "../types/TokenDataTypes";
 import {setInitialBalance} from "../utils/CommonUtils";
 import {getBigNumberFrom} from "../../../scripts/utils/NumberUtils";
 import {ConfigurableAmountToBorrow} from "./ConfigurableAmountToBorrow";
-import {IBorrowResults} from "./aprDataTypes";
 import {existsSync, writeFileSync} from "fs";
 import {Aave3Helper} from "../../../scripts/integration/helpers/Aave3Helper";
 import {IBorrowTestResults} from "../uses-cases/CompareAprUsesCase";
@@ -29,6 +28,7 @@ export async function makeBorrow (
   poolAdapter: string,
   borrowAmount: BigNumber
 }> {
+  console.log("makeBorrow:", p, amountToBorrow);
   const {controller} = await TetuConverterApp.buildApp(deployer, [fabric]);
   const uc = await MocksHelper.deployBorrower(deployer.address, controller, p.healthFactor2, p.countBlocks);
 
@@ -49,8 +49,10 @@ export async function makeBorrow (
     , amountToBorrow.exact
     , ConfigurableAmountToBorrow.getValue(amountToBorrow, borrowToken.decimals)
   );
+  console.log("Borrow is done, borrowed amount is", await uc.totalBorrowedAmount());
 
   const poolAdapters = await uc.getBorrows(p.collateral.asset, p.borrow.asset);
+  console.log("Pool adapter is", poolAdapters[0]);
   return {
     poolAdapter: poolAdapters[0],
     borrowAmount: await uc.totalBorrowedAmount()
@@ -136,6 +138,9 @@ export function prepareExactBorrowAmount(
 
 //region Save borrow test results to CSV
 export function appendTestResultsToFile(path: string, data: IBorrowTestResults[]) {
+  console.log("appendTestResultsToFile", path);
+  const lines: string[] = [];
+
   // write headers
   if (! existsSync(path)) {
     const headers: string[] = [
@@ -200,9 +205,9 @@ export function appendTestResultsToFile(path: string, data: IBorrowTestResults[]
       , "point.timestamp0"
       , "point.timestamp1"
     ]
+    lines.push(headers.join(","));
   }
 
-  const lines: string[] = [];
   for (const row of data) {
     const line = [
       row.platformTitle
@@ -276,7 +281,7 @@ export function appendTestResultsToFile(path: string, data: IBorrowTestResults[]
 
   // write data
   writeFileSync(
-    './tmp/df_reserves.csv'
+    path
     , lines.join("\n")
     , {
       encoding: 'utf8'

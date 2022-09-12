@@ -78,20 +78,31 @@ export class BalanceUtils {
     , holder: string
     , recipient: string
     , amount: number | BigNumber
-  ) {
-    const decimals = await IERC20Extended__factory.connect(
+  ) : Promise<BigNumber> {
+    const connection = await IERC20Extended__factory.connect(
       asset
       , await DeployerUtils.startImpersonate(holder)
-    ).decimals();
-
-    await IERC20Extended__factory.connect(
-      asset
-      , await DeployerUtils.startImpersonate(holder)
-    ).transfer(
-      recipient
-      , typeof(amount) === "number"
-        ? getBigNumberFrom(amount, decimals)
-        : amount
     );
+    const decimals = await connection.decimals();
+
+    const requiredTotalAmount = typeof(amount) === "number"
+      ? getBigNumberFrom(amount, decimals)
+      : amount;
+    const availableAmount = await connection.balanceOf(holder);
+    const amountToClaim = requiredTotalAmount.gt(availableAmount)
+      ? availableAmount
+      : requiredTotalAmount;
+    console.log("holder", holder);
+    console.log("availableAmount", availableAmount);
+    console.log("requiredTotalAmount", requiredTotalAmount);
+    console.log("decimals", decimals);
+    console.log("amount", amount);
+
+    if (amountToClaim.gt(0)) {
+      console.log(`Transfer ${amountToClaim.toString()} of ${await connection.name()} to ${recipient}`);
+      await connection.transfer(recipient, amountToClaim);
+    }
+
+    return amountToClaim;
   }
 }

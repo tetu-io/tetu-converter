@@ -49,21 +49,36 @@ export class CompareAprUsesCase {
     title: string,
     p: IInputParams,
     testMaker: BorrowTestMaker
-  ) : Promise<IBorrowResults | undefined> {
+  ) : Promise<{
+    results?: IBorrowResults
+    error?: string
+  } > {
     const signers = await ethers.getSigners();
     const deployer = signers[0];
 
     const snapshot = await TimeUtils.snapshot();
     try {
       console.log("START", title);
-      return await testMaker(deployer, p.amountToBorrow, p.params, p.additionalPoints);
-    } catch (e) {
+      return {
+        results: await testMaker(deployer, p.amountToBorrow, p.params, p.additionalPoints)
+      }
+    } catch (e: any) {
       console.log(e);
+      const re = /Error: VM Exception while processing transaction: reverted with reason string '[^']+'/i;
+      if (e.message) {
+        const found = e.message.match(re);
+        return {
+          error: found[0]
+        }
+      }
     } finally {
       console.log("FINISH", title);
     }
 
     await TimeUtils.rollback(snapshot);
+    return {
+      error: "Unknown error"
+    }
   }
 
   /**
@@ -95,18 +110,32 @@ export class CompareAprUsesCase {
     const dest: IBorrowTestResults[] = [];
 
     for (const [indexSource, sourceAsset] of assets.entries()) {
-      const holders = sourceAsset.holders[indexSource].split(";");
+      if (sourceAsset.asset != "0x172370d5Cd63279eFa6d502DAB29171933a610AF") continue; //TODO
+      console.log("makePossibleBorrowsOnPlatform, source:", sourceAsset);
+      const holders = sourceAsset.holders;
       const initialLiquidity = await CompareAprUsesCase.getTotalAmount(deployer, sourceAsset.asset, holders);
       const collateralDecimals = await IERC20Extended__factory.connect(sourceAsset.asset, deployer).decimals();
 
       for (const [indexTarget, targetAsset] of assets.entries()) {
         if (sourceAsset === targetAsset) continue;
+        console.log("makePossibleBorrowsOnPlatform, target:", targetAsset);
         console.log(`makePossibleBorrowsOnPlatform: ${sourceAsset.title} ${targetAsset.title}`);
 
+        const borrowDecimals = await IERC20Extended__factory.connect(targetAsset.asset, deployer).decimals();
         const stPrices = await platformAdapter.getAssetsPrices([sourceAsset.asset, targetAsset.asset]);
+        console.log("prices", stPrices);
 
+        // calculate approx amount of collateral required to borrow required amount with collateral factor = 0.5
+        const collateralAmount = amountsToBorrow[indexTarget]
+          .mul(2) //cf = 0.5
+          .mul(healthFactor2).div(100)
+          .mul(getBigNumberFrom(1, collateralDecimals))
+          .mul(stPrices[1])
+          .div(stPrices[0])
+          .div(getBigNumberFrom(1, borrowDecimals));
+        console.log("collateralAmount", collateralAmount);
+        console.log("required amount to borrow", amountsToBorrow[indexTarget]);
         // see definition of borrowAmountFactor18 inside BorrowManager._findPool
-        const collateralAmount = initialLiquidity; //TODO
         const borrowAmountFactor18 = getBigNumberFrom(1, 18)
           .mul(collateralAmount)
           .mul(stPrices[0])
@@ -121,6 +150,7 @@ export class CompareAprUsesCase {
           , borrowAmountFactor18
           , countBlocks
         );
+        console.log("plan", plan);
 
         if (plan.converter == Misc.ZERO_ADDRESS) {
           dest.push({
@@ -165,12 +195,14 @@ export class CompareAprUsesCase {
             assetCollateral: sourceAsset,
             collateralAmount: collateralAmount,
             plan: plan,
-            results: res
+            results: res.results,
+            error: res.error
           });
         }
       }
     }
 
+    console.log("makePossibleBorrowsOnPlatform finished:", dest);
     return dest;
   }
 
