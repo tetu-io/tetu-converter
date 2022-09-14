@@ -58,15 +58,15 @@ library Aave3AprLib {
     uint totalStableDebt_,
     uint totalVariableDebt_
   ) internal view returns (uint) {
-    console.log("getVariableBorrowRateRays");
-    console.log("borrowAsset_", borrowAsset_);
-    console.log("amountToBorrow_", amountToBorrow_);
-    console.log("totalStableDebt_", totalStableDebt_);
-    console.log("totalVariableDebt_", totalVariableDebt_);
-    console.log("rb_.interestRateStrategyAddress", rb_.interestRateStrategyAddress);
-    console.log("rb_.currentStableBorrowRate", rb_.currentStableBorrowRate);
-    console.log("rb_.configuration.getReserveFactor()", rb_.configuration.getReserveFactor());
-    console.log("rb_.aTokenAddress", rb_.aTokenAddress);
+//    console.log("getVariableBorrowRateRays");
+//    console.log("borrowAsset_", borrowAsset_);
+//    console.log("amountToBorrow_", amountToBorrow_);
+//    console.log("totalStableDebt_", totalStableDebt_);
+//    console.log("totalVariableDebt_", totalVariableDebt_);
+//    console.log("rb_.interestRateStrategyAddress", rb_.interestRateStrategyAddress);
+//    console.log("rb_.currentStableBorrowRate", rb_.currentStableBorrowRate);
+//    console.log("rb_.configuration.getReserveFactor()", rb_.configuration.getReserveFactor());
+//    console.log("rb_.aTokenAddress", rb_.aTokenAddress);
 
     if (amountToBorrow_ == 0) {
       return rb_.currentVariableBorrowRate;

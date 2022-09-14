@@ -17,7 +17,7 @@ import {appendTestResultsToFile} from "../baseUT/apr/aprUtils";
 describe("CompareAprUsesCaseTest", () => {
 //region Constants
   const PATH_OUT = "tmp/compareResults.csv";
-  const HEALTH_FACTOR2 = 200;
+  const HEALTH_FACTOR2 = 400;
   const COUNT_BLOCKS_SMALL = 2;
   const COUNT_BLOCKS_NORMAL = 80_000;
   const COUNT_BLOCK_HUGE = 30*40_000;
@@ -57,28 +57,33 @@ describe("CompareAprUsesCaseTest", () => {
       asset: MaticAddresses.WBTC, title: "WBTS", holders: [
         MaticAddresses.HOLDER_WBTC
       ]
-    } , {
-      asset: MaticAddresses.ChainLink, title: "ChainLink", holders: [
-        MaticAddresses.HOLDER_ChainLink
-      ]
-    } , {
-      asset: MaticAddresses.DefiPulseToken, title: "DefiPulseToken", holders: [
-        MaticAddresses.HOLDER_DefiPulseToken
-      ]
-    } , {
-      asset: MaticAddresses.AavegotchiGHST, title: "AavegotchiGHST", holders: [
-        MaticAddresses.HOLDER_AavegotchiGHST
-      ]
-    } , {
+    }
+    // , {
+    //   asset: MaticAddresses.ChainLink, title: "ChainLink", holders: [
+    //     MaticAddresses.HOLDER_ChainLink
+    //   ]
+    // }
+    // , {
+    //   asset: MaticAddresses.DefiPulseToken, title: "DefiPulseToken", holders: [
+    //     MaticAddresses.HOLDER_DefiPulseToken
+    //   ]
+    // } , {
+    //   asset: MaticAddresses.AavegotchiGHST, title: "AavegotchiGHST", holders: [
+    //     MaticAddresses.HOLDER_AavegotchiGHST
+    //   ]
+    // }
+    , {
       asset: MaticAddresses.CRV, title: "CRV", holders: [
         MaticAddresses.HOLDER_CRV
       ]
-    } , {
+    } ,
+    {
       asset: MaticAddresses.SUSHI, title: "SUSHI", holders: [
         MaticAddresses.HOLDER_Sushi
         , MaticAddresses.HOLDER_Sushi_2
       ]
-    } , {
+    }
+    , {
       asset: MaticAddresses.WETH, title: "WETH", holders: [
         MaticAddresses.HOLDER_WETH
         , MaticAddresses.HOLDER_WETH_2
@@ -98,6 +103,7 @@ describe("CompareAprUsesCaseTest", () => {
         , MaticAddresses.HOLDER_jEUR_2
       ]
     }
+
     // , {
     //   asset: MaticAddresses.FRAX, title: "FRAX", holders: [
     //     MaticAddresses.HOLDER_FRAX
@@ -146,6 +152,26 @@ describe("CompareAprUsesCaseTest", () => {
         async x => {
             const decimals = await IERC20Extended__factory.connect(x.asset, deployer).decimals();
             return getBigNumberFrom(1, decimals).div(10);
+        }
+      )
+    )
+  }
+
+  /**
+   * For each asset generate middle amount
+   *     1000 * 10^AssetDecimals
+   * */
+  async function getMiddleAmounts(assets: IAssetInfo[]) : Promise<BigNumber[]> {
+    return Promise.all(
+      assets.map(
+        async x => {
+          const decimals = await IERC20Extended__factory.connect(x.asset, deployer).decimals();
+          return getBigNumberFrom(1, decimals)
+            .mul(
+              x.asset === MaticAddresses.WBTC
+                  ? 10
+                  : 1000
+            );
         }
       )
     )
@@ -285,6 +311,32 @@ describe("CompareAprUsesCaseTest", () => {
             COUNT_BLOCKS_SMALL
             ,true
             , await getSmallAmounts(assets)
+          );
+          appendTestResultsToFile(PATH_OUT, ret);
+        })
+      });
+      describe("Exact middle amount", () => {
+        it("AAVE3", async () => {
+          const ret = await makeTestAave3(
+            COUNT_BLOCKS_SMALL
+            ,true
+            , await getMiddleAmounts(assets)
+          );
+          appendTestResultsToFile(PATH_OUT, ret);
+        })
+        it("AAVETwo", async () => {
+          const ret = await makeTestAaveTwo(
+            COUNT_BLOCKS_SMALL
+            ,true
+            , await getMiddleAmounts(assets)
+          );
+          appendTestResultsToFile(PATH_OUT, ret);
+        })
+        it("DForce", async () => {
+          const ret = await makeTestDForce(
+            COUNT_BLOCKS_SMALL
+            ,true
+            , await getMiddleAmounts(assets)
           );
           appendTestResultsToFile(PATH_OUT, ret);
         })
