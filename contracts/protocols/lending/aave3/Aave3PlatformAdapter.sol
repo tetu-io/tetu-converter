@@ -139,6 +139,10 @@ contract Aave3PlatformAdapter is IPlatformAdapter {
           vars.totalVariableDebt
           ,,,,,,,) = _dp(vars.poolLocal).getReserveData(params.borrowAsset);
           plan.maxAmountToBorrowBT = vars.totalAToken - vars.totalStableDebt - vars.totalVariableDebt;
+          console.log("maxAmountToBorrowBT", plan.maxAmountToBorrowBT, params.borrowAsset);
+          console.log("totalAToken", vars.totalAToken);
+          console.log("totalStableDebt", vars.totalStableDebt);
+          console.log("totalVariableDebt", vars.totalVariableDebt);
 
           // supply/borrow caps are given in "whole tokens" == without decimals
           // see AAVE3-code, ValidationLogic.sol, validateSupply
@@ -151,6 +155,7 @@ contract Aave3PlatformAdapter is IPlatformAdapter {
                 plan.maxAmountToBorrowBT = 0;
               } else {
                 if (totalDebt + plan.maxAmountToBorrowBT > borrowCap) {
+                  console.log("maxAmountToBorrowBT.1", plan.maxAmountToBorrowBT, borrowCap, totalDebt);
                   plan.maxAmountToBorrowBT = borrowCap - totalDebt;
                 }
               }
@@ -161,9 +166,10 @@ contract Aave3PlatformAdapter is IPlatformAdapter {
               // The user will therefore be allowed to borrow up to $10M of stable coins
               // Debt ceiling does not include interest accrued over time, only the principal borrowed
               uint maxAmount = (rc.configuration.getDebtCeiling() - rc.isolationModeTotalDebt)
-                  * (10 ** (rc.configuration.getDecimals() - Aave3ReserveConfiguration.DEBT_CEILING_DECIMALS));
+                  * (10 ** (rb.configuration.getDecimals() - Aave3ReserveConfiguration.DEBT_CEILING_DECIMALS));
               if (plan.maxAmountToBorrowBT > maxAmount) {
                 plan.maxAmountToBorrowBT = maxAmount;
+                console.log("maxAmountToBorrowBT.2", maxAmount, rc.configuration.getDebtCeiling(), rc.isolationModeTotalDebt);
               }
             }
           }

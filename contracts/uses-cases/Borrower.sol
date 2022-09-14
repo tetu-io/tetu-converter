@@ -96,6 +96,11 @@ contract Borrower is IBorrower {
     uint value_
   ) external {
     console.log("makeBorrowExactAmount start gasleft", gasleft());
+    console.log("makeBorrowExactAmount sourceAsset_", sourceAsset_);
+    console.log("makeBorrowExactAmount sourceAmount_", sourceAmount_);
+    console.log("makeBorrowExactAmount targetAsset_", targetAsset_);
+    console.log("makeBorrowExactAmount _healthFactor2", _healthFactor2);
+    console.log("makeBorrowExactAmount _borrowPeriodInBlocks", _borrowPeriodInBlocks);
     // ask TC for the best conversion strategy
     (address converter, uint maxTargetAmount,) = _tc().findConversionStrategy(sourceAsset_,
       sourceAmount_,

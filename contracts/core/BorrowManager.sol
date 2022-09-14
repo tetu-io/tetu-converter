@@ -270,10 +270,23 @@ contract BorrowManager is IBorrowManager {
       if (plan.converter != address(0)) {
         // check if we are able to supply required collateral
         if (plan.maxAmountToSupplyCT > p_.sourceAmount) {
+          console.log("converter", converter);
+          if (planApr18 > 0) {
+            console.log("planApr18 positive", uint(planApr18));
+          } else {
+            console.log("planApr18 negative", uint(-planApr18));
+          }
+          if (apr18 > 0) {
+            console.log("apr18 positive", uint(apr18));
+          } else {
+            console.log("apr18 negative", uint(-apr18));
+          }
           if (converter == address(0) || planApr18 < apr18) {
             // how much target asset we are able to get for the provided collateral with given health factor
             // TargetTA = BS / PT [TA], C = SA * PS, CM = C / HF, BS = CM * PCF
             uint resultTa18 = plan.liquidationThreshold18 * borrowAmountFactor18 / 1e18;
+            console.log("resultTa18", resultTa18);
+            console.log("maxAmountToBorrowBT", plan.maxAmountToBorrowBT);
 
             // the pool should have enough liquidity
             if (plan.maxAmountToBorrowBT.toMantissa(pp_.targetDecimals, 18) >= resultTa18) {

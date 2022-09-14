@@ -121,22 +121,29 @@ export class CompareAprUsesCase {
         if (sourceAsset === targetAsset) continue;
         console.log("makePossibleBorrowsOnPlatform, target:", targetAsset);
         console.log(`makePossibleBorrowsOnPlatform: ${sourceAsset.title} ${targetAsset.title}`);
+        console.log(`makePossibleBorrowsOnPlatform: amount to borrow=${amountsToBorrow[indexTarget]}`);
 
         const snapshot = await TimeUtils.snapshot();
         try {
           const borrowDecimals = await IERC20Extended__factory.connect(targetAsset.asset, deployer).decimals();
-          const stPrices = await platformAdapter.getAssetsPrices([sourceAsset.asset, targetAsset.asset]);
-          console.log("prices", stPrices);
+          const stPrices = await this.getPrices(platformAdapter, sourceAsset, targetAsset);
 
-          const collateralAmount = this.getApproxCollateralAmount(amountsToBorrow
-            , indexTarget
+          if (! stPrices) {
+            // the platform doesn't support some of provided assets
+            continue;
+          }
+
+          let collateralAmount = this.getApproxCollateralAmount(amountsToBorrow[indexTarget]
             , healthFactor2
             , collateralDecimals
             , stPrices
             , borrowDecimals
           );
+          if (collateralAmount.gt(initialLiquidity)) {
+            console.log(`Attempt to borrow too much. Required collateral ${collateralAmount.toString()} is greater available ${initialLiquidity.toString()}`);
+            collateralAmount = initialLiquidity;
+          }
           console.log("collateralAmount", collateralAmount);
-          console.log("required amount to borrow", amountsToBorrow[indexTarget]);
 
           // see definition of borrowAmountFactor18 inside BorrowManager._findPool
           const borrowAmountFactor18 = this.getBorrowAmountFactor18(collateralAmount, stPrices, healthFactor2);
@@ -146,9 +153,17 @@ export class CompareAprUsesCase {
             , collateralAmount
             , targetAsset.asset
             , borrowAmountFactor18
-            , countBlocks
+            // we need 1 block for next/last; countBlocks are used as additional-points
+            , 1 // countBlocks
           );
           console.log("plan", plan);
+
+          const amountToBorrow: ConfigurableAmountToBorrow = this.getAmountToBorrow(
+            exactAmountToBorrow
+            , amountsToBorrow[indexTarget]
+            , plan.maxAmountToBorrowBT
+          );
+          console.log("borrowAmount", amountToBorrow);
 
           if (plan.converter == Misc.ZERO_ADDRESS) {
             dest.push({
@@ -176,15 +191,7 @@ export class CompareAprUsesCase {
             };
             const res = await this.makeSingleBorrowTest(
               platformTitle
-              , {
-                params: p,
-                amountToBorrow: {
-                  exact: exactAmountToBorrow
-                  , exactAmountToBorrow: exactAmountToBorrow ? amountsToBorrow[indexTarget] : undefined
-                  , ratio18: exactAmountToBorrow ? undefined : amountsToBorrow[indexTarget]
-                },
-                additionalPoints: [countBlocks],
-              }
+              , {params: p, amountToBorrow, additionalPoints: [countBlocks]}
               , testMaker
             );
             dest.push({
@@ -207,24 +214,52 @@ export class CompareAprUsesCase {
     return dest;
   }
 
-  private static getBorrowAmountFactor18(collateralAmount: BigNumber, stPrices: BigNumber[], healthFactor2: number) {
+  private static async getPrices(
+    platformAdapter: IPlatformAdapter
+    , sourceAsset: IAssetInfo
+    , targetAsset: IAssetInfo
+  ) : Promise<{
+   priceCollateral: BigNumber,
+   priceBorrow: BigNumber
+  } | undefined > {
+    try {
+      const stPrices = await platformAdapter.getAssetsPrices([sourceAsset.asset, targetAsset.asset]);
+      console.log("prices", stPrices);
+      return {priceCollateral: stPrices[0], priceBorrow: stPrices[1]};
+    } catch {
+      console.log("Cannot get prices for the assets unsupported by the platform");
+    }
+  }
+
+
+  private static getBorrowAmountFactor18(
+    collateralAmount: BigNumber,
+    stPrices: {priceCollateral: BigNumber, priceBorrow: BigNumber},
+    healthFactor2: number
+  ) {
     const borrowAmountFactor18 = getBigNumberFrom(1, 18)
       .mul(collateralAmount)
-      .mul(stPrices[0])
-      .div(stPrices[1])
+      .mul(stPrices.priceCollateral)
+      .div(stPrices.priceBorrow)
       .div(healthFactor2)
       .div(getBigNumberFrom(1, 18 - 2));
     return borrowAmountFactor18;
   }
 
   /** calculate approx amount of collateral required to borrow required amount with collateral factor = 0.2 */
-  private static getApproxCollateralAmount(amountsToBorrow: BigNumber[], indexTarget: number, healthFactor2: number, collateralDecimals: number, stPrices: BigNumber[], borrowDecimals: number) {
-    return amountsToBorrow[indexTarget]
+  private static getApproxCollateralAmount(
+    amountToBorrow: BigNumber
+    , healthFactor2: number
+    , collateralDecimals: number
+    , stPrices: {priceCollateral: BigNumber, priceBorrow: BigNumber}
+    , borrowDecimals: number
+  ) {
+    return amountToBorrow
       .mul(5) //cf = 0.2
       .mul(healthFactor2).div(100)
       .mul(getBigNumberFrom(1, collateralDecimals))
-      .mul(stPrices[1])
-      .div(stPrices[0])
+      .mul(stPrices.priceBorrow)
+      .div(stPrices.priceCollateral)
       .div(getBigNumberFrom(1, borrowDecimals));
   }
 
@@ -241,5 +276,24 @@ export class CompareAprUsesCase {
       dest = dest.add(balance);
     }
     return dest;
+  }
+
+  static getAmountToBorrow(
+    isAmountExact: boolean,
+    requiredValue: BigNumber,
+    maxAvailableAmount: BigNumber
+  ) : ConfigurableAmountToBorrow {
+    if (isAmountExact) {
+      if (maxAvailableAmount.gt(requiredValue)) {
+        return {
+          exact: true,
+          exactAmountToBorrow: requiredValue
+        }
+      } else {
+        throw `Try to borrow amount ${requiredValue} greater than available one ${maxAvailableAmount}`;
+      }
+    } else {
+      return { exact: false, ratio18: requiredValue };
+    }
   }
 }
