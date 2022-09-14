@@ -300,7 +300,7 @@ describe("DForce integration tests, platform adapter", () => {
         });
       });
 
-      describe("Huge amount DAI => WBTS", () => {
+      describe("Huge amount DAI => WBTC", () => {
         it("Predicted borrow rate should be same to real rate after the borrow", async () => {
           const collateralAsset = MaticAddresses.DAI;
           const collateralCToken = MaticAddresses.dForce_iDAI;

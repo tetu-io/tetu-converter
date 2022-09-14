@@ -74,7 +74,7 @@ async function main() {
       , {a: MaticAddresses.USDC, t: "USDC"}
       , {a: MaticAddresses.USDT, t: "USDT"}
       , {a: MaticAddresses.WMATIC, t: "WMATIC"}
-      , {a: MaticAddresses.WBTC, t: "WBTS"}
+      , {a: MaticAddresses.WBTC, t: "WBTC"}
       , {a: MaticAddresses.ChainLink, t: "ChainLink"}
       , {a: MaticAddresses.DefiPulseToken, t: "DefiPulseToken"}
       , {a: MaticAddresses.AavegotchiGHST, t: "Aavegotchi_GHST"}

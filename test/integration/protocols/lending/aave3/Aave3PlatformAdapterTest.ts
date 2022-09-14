@@ -110,9 +110,9 @@ describe("Aave-v3 integration tests, platform adapter", () => {
       collateralAmount: BigNumber,
       borrowAsset: string,
       highEfficientModeEnabled: boolean,
-      isolationModeEnabled: boolean
+      isolationModeEnabled: boolean,
+      countBlocks: number = 10
     ) : Promise<{sret: string, sexpected: string}> {
-      const countBlocks = 10;
       const controller = await CoreContractsHelper.createController(deployer);
       const templateAdapterNormalStub = ethers.Wallet.createRandom();
       const templateAdapterEModeStub = ethers.Wallet.createRandom();
@@ -200,8 +200,10 @@ describe("Aave-v3 integration tests, platform adapter", () => {
           ? collateralAssetData.data.emodeCategory != 0
           && borrowAssetData.data.emodeCategory == collateralAssetData.data.emodeCategory
           : collateralAssetData.data.emodeCategory == 0 || borrowAssetData.data.emodeCategory == 0,
-      ].map(x => BalanceUtils.toString(x)) .join("\n");
 
+        !ret.borrowApr18.eq(0),
+        !ret.supplyAprBT18.eq(0)
+      ].map(x => BalanceUtils.toString(x)) .join("\n");
 
       let expectedMaxAmountToBorrow = BigNumber.from(borrowAssetData.liquidity.totalAToken)
         .sub(borrowAssetData.liquidity.totalVariableDebt)
@@ -250,8 +252,13 @@ describe("Aave-v3 integration tests, platform adapter", () => {
         expectedMaxAmountToBorrow,
         expectedMaxAmountToSupply,
         true,
+
+        true, // borrow APR is not 0
+        true, // supply APR is not 0
       ].map(x => BalanceUtils.toString(x)) .join("\n");
 
+      console.log(`Result APR: borrowApr18=${ret.borrowApr18} supplyAprBT18=${ret.supplyAprBT18}`);
+      console.log(`Predicted APR: borrowApr18=${predictedBorrowAprBT18} supplyAprBT18=${predictedSupplyAprBT18}`);
       return {sret, sexpected};
     }
     describe("Good paths", () => {
@@ -269,6 +276,48 @@ describe("Aave-v3 integration tests, platform adapter", () => {
             borrowAsset,
             false,
             false
+          );
+
+          expect(r.sret).eq(r.sexpected);
+        });
+      });
+      describe("DAI : USDC", () => {
+        it("should return expected values", async () => {
+          if (!await isPolygonForkInUse()) return;
+
+          const countBlocks = 1;
+          const collateralAsset = MaticAddresses.DAI;
+          const borrowAsset = MaticAddresses.USDC;
+          const collateralAmount = getBigNumberFrom(100, 18);
+
+          const r = await makeTest(
+            collateralAsset,
+            collateralAmount,
+            borrowAsset,
+            true,
+            false,
+            countBlocks
+          );
+
+          expect(r.sret).eq(r.sexpected);
+        });
+      });
+      describe("USDC : WBTC", () => {
+        it("should return expected values", async () => {
+          if (!await isPolygonForkInUse()) return;
+
+          const countBlocks = 1;
+          const collateralAsset = MaticAddresses.USDC;
+          const borrowAsset = MaticAddresses.WBTC;
+          const collateralAmount = getBigNumberFrom(1000, 6);
+
+          const r = await makeTest(
+            collateralAsset,
+            collateralAmount,
+            borrowAsset,
+            false,
+            false,
+            countBlocks
           );
 
           expect(r.sret).eq(r.sexpected);

@@ -158,14 +158,24 @@ export class CompareAprUsesCase {
           );
           console.log("plan", plan);
 
-          const amountToBorrow: ConfigurableAmountToBorrow = this.getAmountToBorrow(
-            exactAmountToBorrow
-            , amountsToBorrow[indexTarget]
-            , plan.maxAmountToBorrowBT
-          );
+          const amountToBorrow: ConfigurableAmountToBorrow = {
+            exact: exactAmountToBorrow,
+            exactAmountToBorrow: exactAmountToBorrow ? amountsToBorrow[indexTarget] : undefined,
+            ratio18: exactAmountToBorrow ? undefined : amountsToBorrow[indexTarget]
+          }
           console.log("borrowAmount", amountToBorrow);
 
-          if (plan.converter == Misc.ZERO_ADDRESS) {
+          if (exactAmountToBorrow && !plan.maxAmountToBorrowBT.gt(amountsToBorrow[indexTarget])) {
+            dest.push({
+              platformTitle: platformTitle,
+              assetBorrow: targetAsset,
+              assetCollateral: sourceAsset,
+              collateralAmount: collateralAmount,
+              plan: plan,
+              error: `Borrow amount is greater than available amount ${plan.maxAmountToBorrowBT}`,
+            });
+
+          } else if (plan.converter == Misc.ZERO_ADDRESS) {
             dest.push({
               platformTitle: platformTitle,
               assetBorrow: targetAsset,
@@ -276,24 +286,5 @@ export class CompareAprUsesCase {
       dest = dest.add(balance);
     }
     return dest;
-  }
-
-  static getAmountToBorrow(
-    isAmountExact: boolean,
-    requiredValue: BigNumber,
-    maxAvailableAmount: BigNumber
-  ) : ConfigurableAmountToBorrow {
-    if (isAmountExact) {
-      if (maxAvailableAmount.gt(requiredValue)) {
-        return {
-          exact: true,
-          exactAmountToBorrow: requiredValue
-        }
-      } else {
-        throw `Try to borrow amount ${requiredValue} greater than available one ${maxAvailableAmount}`;
-      }
-    } else {
-      return { exact: false, ratio18: requiredValue };
-    }
   }
 }
