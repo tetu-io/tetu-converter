@@ -1,7 +1,7 @@
 import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import {ethers} from "hardhat";
 import {TimeUtils} from "../../scripts/utils/TimeUtils";
-import {CompareAprUsesCase, IBorrowTestResults} from "../baseUT/uses-cases/CompareAprUsesCase";
+import {CompareAprUsesCase, IBorrowTask, IBorrowTestResults} from "../baseUT/uses-cases/CompareAprUsesCase";
 import {MaticAddresses} from "../../scripts/addresses/MaticAddresses";
 import {IAssetInfo} from "../baseUT/apr/aprDataTypes";
 import {BigNumber} from "ethers";
@@ -184,11 +184,7 @@ describe("CompareAprUsesCaseTest", () => {
 //endregion Utils
 
 //region Test impl
-  async function makeTestAave3(
-    countBlocks: number,
-    exactAmountToBorrow: boolean,
-    amountsToBorrow: BigNumber[],
-  ): Promise<IBorrowTestResults[]> {
+  async function makeTestAave3(countBlocks: number, tasks: IBorrowTask[]): Promise<IBorrowTestResults[]> {
     const controller = await CoreContractsHelper.createController(deployer);
     const templateAdapterStub = ethers.Wallet.createRandom().address;
 
@@ -201,9 +197,7 @@ describe("CompareAprUsesCaseTest", () => {
         , templateAdapterStub
         , templateAdapterStub
       )
-      , assets
-      , exactAmountToBorrow
-      , amountsToBorrow
+      , tasks
       , countBlocks
       , HEALTH_FACTOR2
       , async (
@@ -215,11 +209,7 @@ describe("CompareAprUsesCaseTest", () => {
     );
   }
 
-  async function makeTestAaveTwo(
-    countBlocks: number,
-    exactAmountToBorrow: boolean,
-    amountsToBorrow: BigNumber[],
-  ): Promise<IBorrowTestResults[]> {
+  async function makeTestAaveTwo(countBlocks: number, tasks: IBorrowTask[]): Promise<IBorrowTestResults[]> {
     const controller = await CoreContractsHelper.createController(deployer);
     const templateAdapterStub = ethers.Wallet.createRandom().address;
 
@@ -231,9 +221,7 @@ describe("CompareAprUsesCaseTest", () => {
         , MaticAddresses.AAVE_TWO_POOL
         , templateAdapterStub
       )
-      , assets
-      , exactAmountToBorrow
-      , amountsToBorrow
+      , tasks
       , countBlocks
       , HEALTH_FACTOR2
       , async (
@@ -245,11 +233,7 @@ describe("CompareAprUsesCaseTest", () => {
     );
   }
 
-  async function makeTestDForce(
-    countBlocks: number,
-    exactAmountToBorrow: boolean,
-    amountsToBorrow: BigNumber[],
-  ): Promise<IBorrowTestResults[]> {
+  async function makeTestDForce(countBlocks: number, tasks: IBorrowTask[]): Promise<IBorrowTestResults[]> {
     const controller = await CoreContractsHelper.createController(deployer);
     const templateAdapterStub = ethers.Wallet.createRandom().address;
 
@@ -274,9 +258,7 @@ describe("CompareAprUsesCaseTest", () => {
           MaticAddresses.dForce_iCRV
         ]
       )
-      , assets
-      , exactAmountToBorrow
-      , amountsToBorrow
+      , tasks
       , countBlocks
       , HEALTH_FACTOR2
       , async (
@@ -298,56 +280,70 @@ describe("CompareAprUsesCaseTest", () => {
     describe("Normal count of blocks (2 days)", () => {
       describe("Exact small amount", () => {
         it("AAVE3", async () => {
-          const ret = await makeTestAave3(
-            COUNT_BLOCKS_SMALL
-            ,true
+          const tasks: IBorrowTask[] = CompareAprUsesCase.generateTasks(assets
+            , true
             , await getSmallAmounts(assets)
           );
+          const ret = await makeTestAave3(COUNT_BLOCKS_SMALL, tasks);
           appendTestResultsToFile(PATH_OUT, ret);
         })
         it("AAVETwo", async () => {
-          const ret = await makeTestAaveTwo(
-            COUNT_BLOCKS_SMALL
-            ,true
+          const tasks: IBorrowTask[] = CompareAprUsesCase.generateTasks(assets
+            , true
             , await getSmallAmounts(assets)
           );
+          const ret = await makeTestAaveTwo(COUNT_BLOCKS_SMALL, tasks);
           appendTestResultsToFile(PATH_OUT, ret);
         })
         it("DForce", async () => {
-          const ret = await makeTestDForce(
-            COUNT_BLOCKS_SMALL
-            ,true
+          const tasks: IBorrowTask[] = CompareAprUsesCase.generateTasks(assets
+            , true
             , await getSmallAmounts(assets)
           );
+          const ret = await makeTestDForce(COUNT_BLOCKS_SMALL, tasks);
           appendTestResultsToFile(PATH_OUT, ret);
         })
       });
       describe("Exact middle amount", () => {
         it("AAVE3", async () => {
-          const ret = await makeTestAave3(
-            COUNT_BLOCKS_SMALL
-            ,true
+          const tasks: IBorrowTask[] = CompareAprUsesCase.generateTasks(assets
+            , true
             , await getMiddleAmounts(assets)
           );
+          const ret = await makeTestAave3(COUNT_BLOCKS_SMALL, tasks);
           appendTestResultsToFile(PATH_OUT, ret);
         })
         it("AAVETwo", async () => {
-          const ret = await makeTestAaveTwo(
-            COUNT_BLOCKS_SMALL
-            ,true
+          const tasks: IBorrowTask[] = CompareAprUsesCase.generateTasks(assets
+            , true
             , await getMiddleAmounts(assets)
           );
+          const ret = await makeTestAaveTwo(COUNT_BLOCKS_SMALL, tasks);
           appendTestResultsToFile(PATH_OUT, ret);
         })
         it("DForce", async () => {
-          const ret = await makeTestDForce(
-            COUNT_BLOCKS_SMALL
-            ,true
+          const tasks: IBorrowTask[] = CompareAprUsesCase.generateTasks(assets
+            , true
             , await getMiddleAmounts(assets)
           );
+          const ret = await makeTestDForce(COUNT_BLOCKS_SMALL, tasks);
           appendTestResultsToFile(PATH_OUT, ret);
         })
       });
+      describe("Debug", () => {
+        it("AAVE3", async () => {
+          const tasks: IBorrowTask[] = [
+            {
+              collateralAsset: assets.find(x => x.title == "DAI")!,
+              borrowAsset: assets.find(x => x.title == "USDC")!,
+              amountToBorrow: getBigNumberFrom(1000, 6),
+              exactAmountToBorrow: true
+            }
+          ];
+          const ret = await makeTestAave3(COUNT_BLOCKS_SMALL, tasks);
+          appendTestResultsToFile(PATH_OUT, ret);
+        })
+      })
     });
 
   });

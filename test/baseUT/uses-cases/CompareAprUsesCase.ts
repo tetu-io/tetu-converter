@@ -42,6 +42,12 @@ export interface IBorrowTestResults {
   error?: string;
 }
 
+export interface IBorrowTask {
+  collateralAsset: IAssetInfo;
+  borrowAsset: IAssetInfo;
+  exactAmountToBorrow: boolean;
+  amountToBorrow: BigNumber;
+}
 //endregion Data types
 
 export class CompareAprUsesCase {
@@ -82,6 +88,26 @@ export class CompareAprUsesCase {
     }
   }
 
+  static generateTasks(
+    assets: IAssetInfo[],
+    exactAmountToBorrow: boolean,
+    amountsToBorrow: BigNumber[],
+  ) : IBorrowTask[] {
+    const dest: IBorrowTask[] = [];
+    for (const [indexSource, sourceAsset] of assets.entries()) {
+      for (const [indexTarget, targetAsset] of assets.entries()) {
+        if (sourceAsset === targetAsset) continue;
+        dest.push({
+          collateralAsset: sourceAsset,
+          borrowAsset: targetAsset,
+          exactAmountToBorrow: exactAmountToBorrow,
+          amountToBorrow: amountsToBorrow[indexTarget]
+        });
+      }
+    }
+    return dest;
+  }
+
   /**
    * Enumerate all possible pairs of the asset.
    * Find all pairs for which the borrow is possible.
@@ -90,9 +116,7 @@ export class CompareAprUsesCase {
    * @param deployer
    * @param platformTitle
    * @param platformAdapter
-   * @param assets
-   * @param exactAmountToBorrow
-   * @param amountsToBorrow
+   * @param tasks
    * @param countBlocks
    * @param healthFactor2
    * @param testMaker
@@ -101,9 +125,7 @@ export class CompareAprUsesCase {
     deployer: SignerWithAddress,
     platformTitle: string,
     platformAdapter: IPlatformAdapter,
-    assets: IAssetInfo[],
-    exactAmountToBorrow: boolean,
-    amountsToBorrow: BigNumber[],
+    tasks: IBorrowTask[],
     countBlocks: number,
     healthFactor2: number,
     testMaker: BorrowTestMaker
@@ -111,47 +133,36 @@ export class CompareAprUsesCase {
     console.log("makePossibleBorrowsOnPlatform:", platformTitle);
     const dest: IBorrowTestResults[] = [];
 
-    for (const [indexSource, sourceAsset] of assets.entries()) {
-      console.log("makePossibleBorrowsOnPlatform, source:", sourceAsset);
-      const holders = sourceAsset.holders;
-      const initialLiquidity = await CompareAprUsesCase.getTotalAmount(deployer, sourceAsset.asset, holders);
-      const collateralDecimals = await IERC20Extended__factory.connect(sourceAsset.asset, deployer).decimals();
+    for (const task of tasks) {
+      const holders = task.collateralAsset.holders;
+      const initialLiquidity = await CompareAprUsesCase.getTotalAmount(deployer, task.collateralAsset.asset, holders);
+      const collateralDecimals = await IERC20Extended__factory.connect(task.collateralAsset.asset, deployer).decimals();
 
-      for (const [indexTarget, targetAsset] of assets.entries()) {
-        if (sourceAsset === targetAsset) continue;
-        console.log("makePossibleBorrowsOnPlatform, target:", targetAsset);
-        console.log(`makePossibleBorrowsOnPlatform: ${sourceAsset.title} ${targetAsset.title}`);
-        console.log(`makePossibleBorrowsOnPlatform: amount to borrow=${amountsToBorrow[indexTarget]}`);
+      console.log("makePossibleBorrowsOnPlatform, task:", task);
 
-        const snapshot = await TimeUtils.snapshot();
-        try {
-          const borrowDecimals = await IERC20Extended__factory.connect(targetAsset.asset, deployer).decimals();
-          const stPrices = await this.getPrices(platformAdapter, sourceAsset, targetAsset);
-
-          if (! stPrices) {
-            // the platform doesn't support some of provided assets
-            continue;
-          }
-
-          let collateralAmount = this.getApproxCollateralAmount(amountsToBorrow[indexTarget]
+      const snapshot = await TimeUtils.snapshot();
+      try {
+        const borrowDecimals = await IERC20Extended__factory.connect(task.borrowAsset.asset, deployer).decimals();
+        const stPrices = await this.getPrices(platformAdapter, task.collateralAsset, task.borrowAsset);
+        if (stPrices) {
+          let collateralAmount = this.getApproxCollateralAmount(task.amountToBorrow
             , healthFactor2
             , collateralDecimals
             , stPrices
             , borrowDecimals
           );
           if (collateralAmount.gt(initialLiquidity)) {
-            console.log(`Attempt to borrow too much. Required collateral ${collateralAmount.toString()} is greater available ${initialLiquidity.toString()}`);
+            console.log(`Required collateral ${collateralAmount.toString()} available: ${initialLiquidity.toString()}`);
             collateralAmount = initialLiquidity;
           }
           console.log("collateralAmount", collateralAmount);
 
-          // see definition of borrowAmountFactor18 inside BorrowManager._findPool
           const borrowAmountFactor18 = this.getBorrowAmountFactor18(collateralAmount, stPrices, healthFactor2);
 
           const plan = await platformAdapter.getConversionPlan(
-            sourceAsset.asset
+            task.collateralAsset.asset
             , collateralAmount
-            , targetAsset.asset
+            , task.borrowAsset.asset
             , borrowAmountFactor18
             // we need 1 block for next/last; countBlocks are used as additional-points
             , 1 // countBlocks
@@ -159,27 +170,26 @@ export class CompareAprUsesCase {
           console.log("plan", plan);
 
           const amountToBorrow: ConfigurableAmountToBorrow = {
-            exact: exactAmountToBorrow,
-            exactAmountToBorrow: exactAmountToBorrow ? amountsToBorrow[indexTarget] : undefined,
-            ratio18: exactAmountToBorrow ? undefined : amountsToBorrow[indexTarget]
+            exact: task.exactAmountToBorrow,
+            exactAmountToBorrow: task.exactAmountToBorrow ? task.amountToBorrow : undefined,
+            ratio18: task.exactAmountToBorrow ? undefined : task.amountToBorrow
           }
           console.log("borrowAmount", amountToBorrow);
 
-          if (exactAmountToBorrow && !plan.maxAmountToBorrowBT.gt(amountsToBorrow[indexTarget])) {
+          if (task.exactAmountToBorrow && !plan.maxAmountToBorrowBT.gt(task.amountToBorrow)) {
             dest.push({
               platformTitle: platformTitle,
-              assetBorrow: targetAsset,
-              assetCollateral: sourceAsset,
+              assetBorrow: task.borrowAsset,
+              assetCollateral: task.collateralAsset,
               collateralAmount: collateralAmount,
               plan: plan,
               error: `Borrow amount is greater than available amount ${plan.maxAmountToBorrowBT}`,
             });
-
           } else if (plan.converter == Misc.ZERO_ADDRESS) {
             dest.push({
               platformTitle: platformTitle,
-              assetBorrow: targetAsset,
-              assetCollateral: sourceAsset,
+              assetBorrow: task.borrowAsset,
+              assetCollateral: task.collateralAsset,
               collateralAmount: collateralAmount,
               plan: plan,
               error: "Plan not found",
@@ -187,12 +197,12 @@ export class CompareAprUsesCase {
           } else {
             const p: TestSingleBorrowParams = {
               collateral: {
-                asset: sourceAsset.asset,
-                holder: sourceAsset.holders.join(";"),
+                asset: task.collateralAsset.asset,
+                holder: task.collateralAsset.holders.join(";"),
                 initialLiquidity: initialLiquidity,
               }, borrow: {
-                asset: targetAsset.asset,
-                holder: targetAsset.holders.join(";"),
+                asset: task.borrowAsset.asset,
+                holder: task.borrowAsset.holders.join(";"),
                 initialLiquidity: 0,
               }
               , collateralAmount: collateralAmount
@@ -206,17 +216,17 @@ export class CompareAprUsesCase {
             );
             dest.push({
               platformTitle: platformTitle,
-              assetBorrow: targetAsset,
-              assetCollateral: sourceAsset,
+              assetBorrow: task.borrowAsset,
+              assetCollateral: task.collateralAsset,
               collateralAmount: collateralAmount,
               plan: plan,
               results: res.results,
               error: res.error
             });
           }
-        } finally {
-          await TimeUtils.rollback(snapshot);
         }
+      } finally {
+        await TimeUtils.rollback(snapshot);
       }
     }
 
@@ -242,18 +252,18 @@ export class CompareAprUsesCase {
   }
 
 
-  private static getBorrowAmountFactor18(
+  /** see definition of borrowAmountFactor18 inside BorrowManager._findPool */
+   private static getBorrowAmountFactor18(
     collateralAmount: BigNumber,
     stPrices: {priceCollateral: BigNumber, priceBorrow: BigNumber},
     healthFactor2: number
   ) {
-    const borrowAmountFactor18 = getBigNumberFrom(1, 18)
+    return getBigNumberFrom(1, 18)
       .mul(collateralAmount)
       .mul(stPrices.priceCollateral)
       .div(stPrices.priceBorrow)
       .div(healthFactor2)
       .div(getBigNumberFrom(1, 18 - 2));
-    return borrowAmountFactor18;
   }
 
   /** calculate approx amount of collateral required to borrow required amount with collateral factor = 0.2 */
