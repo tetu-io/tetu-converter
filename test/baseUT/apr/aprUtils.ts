@@ -82,27 +82,31 @@ export interface IBaseToBorrowParams {
 
 /** Convert amount from base-currency to borrow tokens with decimals 18 */
 export function baseToBt18(amount: BigNumber, params: IBaseToBorrowParams) : BigNumber {
+  return baseToBt(amount, params, 18);
+}
+
+export function baseToBt(amount: BigNumber, params: IBaseToBorrowParams, targetDecimals: number) : BigNumber {
   // amount-in-base-currency = a1 * 10^db
   // we need to convert a1 * 10^db to a2*10^18, where a2 is the price in borrow tokens (and we need decimals 18 in result)
   //
   //                a1 * 10^db   *  10^dp
-  // a2*10^18 =    ----------      -----  * 10^18
+  // a2*10^18 =    ----------      -----  * 10^targetDecimals
   //                p * 10^dp       10^db
   //
   // db - decimals of the base currency
   // dp - decimals of the price
+
   console.log("baseToBorrow18", amount, params);
   console.log("baseToBorrow18 result=", amount // == a1 * 10^db
     .mul(getBigNumberFrom(1, params.priceDecimals)) // == 10^dp
-    .mul(getBigNumberFrom(1, 18)) // == 10^18
+    .mul(getBigNumberFrom(1, targetDecimals)) // == 10^targetDecimals
     .div(params.priceBaseCurrency) // == p * 10^dp
     .div(getBigNumberFrom(1, params.baseCurrencyDecimals))
   );
 
-
   return amount // == a1 * 10^db
     .mul(getBigNumberFrom(1, params.priceDecimals)) // == 10^dp
-    .mul(getBigNumberFrom(1, 18)) // == 10^18
+    .mul(getBigNumberFrom(1, targetDecimals)) // == 10^targetDecimals
     .div(params.priceBaseCurrency) // == p * 10^dp
     .div(getBigNumberFrom(1, params.baseCurrencyDecimals))
     ;
@@ -224,10 +228,10 @@ export function appendTestResultsToFile(path: string, data: IBorrowTestResults[]
       , row.results?.prices.borrow
 
       , row.results?.predicted.aprBt36.collateral
-      , row.results?.resultsBlock.aprBT18.collateral
+      , row.results?.resultsBlock.aprBt36.collateral
 
       , row.results?.predicted.aprBt36.borrow
-      , row.results?.resultsBlock.aprBT18.borrow
+      , row.results?.resultsBlock.aprBt36.borrow
 
       , row.results?.predicted.rates.supplyRate
       , row.results?.resultsBlock.rates.supplyRate
@@ -245,12 +249,12 @@ export function appendTestResultsToFile(path: string, data: IBorrowTestResults[]
 
       , row.plan.converter
       , row.plan.ltv18
-      , row.plan.borrowApr18
+      , row.plan.borrowApr36
       , row.plan.liquidationThreshold18
       , row.plan.maxAmountToSupplyCT
       , row.plan.maxAmountToBorrowBT
-      , row.plan.rewardsAmountBT18
-      , row.plan.supplyAprBT18
+      , row.plan.rewardsAmountBt36
+      , row.plan.supplyAprBt36
     ];
 
     if (row.results) {

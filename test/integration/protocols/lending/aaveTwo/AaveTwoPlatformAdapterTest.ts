@@ -181,9 +181,9 @@ describe("Aave-v2 integration tests, platform adapter", () => {
       console.log("predictedBorrowAprBT18", predictedBorrowAprBtRay);
 
       const sret = [
-        ret.borrowAprRay,
-        ret.supplyAprBtRay,
-        ret.rewardsAmountBtRay,
+        ret.borrowApr36,
+        ret.supplyAprBt36,
+        ret.rewardsAmountBt36,
         ret.ltv18,
         ret.liquidationThreshold18,
         ret.maxAmountToBorrowBT,

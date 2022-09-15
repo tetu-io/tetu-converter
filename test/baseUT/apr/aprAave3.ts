@@ -12,7 +12,7 @@ import {
   baseToBt18, prepareExactBorrowAmount,
   convertUnits,
   IBaseToBorrowParams,
-  makeBorrow
+  makeBorrow, baseToBt
 } from "./aprUtils";
 import {Aave3PlatformFabric} from "../fabrics/Aave3PlatformFabric";
 import {TimeUtils} from "../../../scripts/utils/TimeUtils";
@@ -630,9 +630,9 @@ export class AprAave3 {
             borrowRate: next.borrow.data.currentVariableBorrowRate,
             supplyRate: next.collateral.data.currentLiquidityRate
           },
-          aprBT18: {
-            collateral: baseToBt18(totalCollateralBaseDelta, bbp),
-            borrow: baseToBt18(totalDebtBaseDelta, bbp)
+          aprBt36: {
+            collateral: baseToBt(totalCollateralBaseDelta, bbp, 36),
+            borrow: baseToBt(totalDebtBaseDelta, bbp, 36)
           }
         },
         points: pointsResults

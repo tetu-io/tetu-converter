@@ -49,6 +49,10 @@ export class MaticAddresses {
 
   public static HOLDER_EURS = "0x6de2865067b65d4571c17f6b9eeb8dbdd5e36584";
   public static HOLDER_BALANCER = "0x4cd80aa0ce4881eb8679eda1f6fbe3d89aec0f7f";
+  public static HOLDER_BALANCER_1 = "0x2aea39e27fc87de4a63963687c6e188f062197b4";
+  public static HOLDER_BALANCER_2 = "0x75070bade864bf4fa4ccc491cb28f077c4473bff";
+  public static HOLDER_BALANCER_3 = "0x428ab2ba90eba0a4be7af34c9ac451ab061ac010";
+  public static HOLDER_BALANCER_4 = "0x2fedc4002a2398ac32d9d43a9b92a5cf16a36304";
   public static HOLDER_CRV = "0x06959153b974d0d5fdfd87d561db6d8d4fa0bb0b";
   public static HOLDER_WBTC = "0xdc9232e2df177d7a12fdff6ecbab114e2231198d";
 
@@ -61,6 +65,10 @@ export class MaticAddresses {
   public static HOLDER_AavegotchiGHST = "0xf977814e90da44bfa03b6295a0616a897441acec";
   public static HOLDER_Sushi = "0x0f0c716b007c289c0011e470cc7f14de4fe9fc80";
   public static HOLDER_Sushi_2 = "0x52a258ed593c793251a89bfd36cae158ee9fc4f8";
+  public static HOLDER_Sushi_3 = "0xedaf30a3bbf3a8b20d053aad3b34450e6d5953b2";
+  public static HOLDER_Sushi_4 = "0xc40dc55970f0dc6b4254d270d881807a74d9694f";
+  public static HOLDER_Sushi_5 = "0x9bdb521a97e95177bf252c253e256a60c3e14447";
+  public static HOLDER_Sushi_6 = "0x945bcf562085de2d5875b9e2012ed5fd5cfab927";
 
   public static HOLDER_jEUR = "0x1cd222bc3dff00a51637438855b1da01cc6383aa";
   public static HOLDER_jEUR_2 = "0xcded54e63ad80391822d591e0748b8a7dbfd6027";

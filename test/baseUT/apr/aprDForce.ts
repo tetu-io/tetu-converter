@@ -424,12 +424,12 @@ export class AprDForce {
             borrowRate: next.borrow.market.borrowRatePerBlock,
             supplyRate: next.collateral.market.supplyRatePerBlock
           },
-          aprBT18: {
+          aprBt36: {
             collateral: changeDecimals(
               deltaCollateral.mul(priceCollateral).div(priceBorrow)
               , collateralToken.decimals
-              , 18
-            ), borrow: changeDecimals(deltaBorrowBalance, borrowToken.decimals, 18)
+              , 36
+            ), borrow: changeDecimals(deltaBorrowBalance, borrowToken.decimals, 36)
           }
         },
         points: pointsResults

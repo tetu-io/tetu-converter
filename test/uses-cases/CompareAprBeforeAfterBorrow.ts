@@ -98,7 +98,7 @@ describe("CompareAprBeforeAfterBorrow", () => {
           ret.details.totalCollateralBaseDelta.toString(), ret.details.totalDebtBaseDelta.toString(),
           ret.details.totalCollateralBaseDelta.toString(), ret.details.totalDebtBaseDelta.toString(),
           ret.details.predictedSupplyAprBt36.toString(), ret.details.predictedBorrowAprBt36.toString(),
-          ret.results.resultsBlock.aprBT18.collateral.toString(), ret.results.resultsBlock.aprBT18.borrow.toString(),
+          ret.results.resultsBlock.aprBt36.collateral.toString(), ret.results.resultsBlock.aprBt36.borrow.toString(),
         ].join("\n");
 
         const rays = getBigNumberFrom(1, 36);
@@ -627,7 +627,7 @@ describe("CompareAprBeforeAfterBorrow", () => {
           ret.details.totalCollateralBaseDelta.toString(), ret.details.totalDebtBaseDelta.toString(),
           ret.details.totalCollateralBaseDelta.toString(), ret.details.totalDebtBaseDelta.toString(),
           ret.details.predictedSupplyAprBt36.toString(), ret.details.predictedBorrowAprBt36.toString(),
-          ret.results.resultsBlock.aprBT18.collateral.toString(), ret.results.resultsBlock.aprBT18.borrow.toString(),
+          ret.results.resultsBlock.aprBt36.collateral.toString(), ret.results.resultsBlock.aprBt36.borrow.toString(),
         ].join("\n");
 
         // these differences must be equal to exact supply/borrow APR

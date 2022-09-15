@@ -55,7 +55,7 @@ export interface IBorrowResults {
   resultsBlock: {
     period: IPeriod;
     /** APR for single block, all values are given in terms of borrow token */
-    aprBT18: IAmounts;
+    aprBt36: IAmounts;
     rates: IRates;
   }
 
@@ -92,9 +92,9 @@ export interface IAaveKeyTestValues {
 export interface ConversionPlan {
   converter: string;
   liquidationThreshold18: BigNumber;
-  borrowApr18: BigNumber;
-  supplyAprBT18: BigNumber;
-  rewardsAmountBT18: BigNumber;
+  borrowApr36: BigNumber;
+  supplyAprBt36: BigNumber;
+  rewardsAmountBt36: BigNumber;
   ltv18: BigNumber;
   maxAmountToBorrowBT: BigNumber;
   maxAmountToSupplyCT: BigNumber;

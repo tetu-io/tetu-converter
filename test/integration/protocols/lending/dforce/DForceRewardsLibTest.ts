@@ -1,9 +1,6 @@
 import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import {ethers} from "hardhat";
 import {TimeUtils} from "../../../../../scripts/utils/TimeUtils";
-import {
-  DForceRewardsLibFacade,
-} from "../../../../../typechain";
 import {expect} from "chai";
 import {
   IBorrowRewardsPredictionInput,
@@ -11,8 +8,8 @@ import {
 } from "../../../../../scripts/integration/helpers/DForceHelper";
 import {BigNumber} from "ethers";
 import {DeployUtils} from "../../../../../scripts/utils/DeployUtils";
-import {MaticAddresses} from "../../../../../scripts/addresses/MaticAddresses";
 import {MocksHelper} from "../../../../baseUT/helpers/MocksHelper";
+import {DForceAprLibFacade} from "../../../../../typechain";
 
 describe("DForceHelper unit tests", () => {
 //region Global vars for all tests
@@ -20,7 +17,7 @@ describe("DForceHelper unit tests", () => {
   let snapshotForEach: string;
   let deployer: SignerWithAddress;
   let investor: SignerWithAddress;
-  let libFacade: DForceRewardsLibFacade;
+  let libFacade: DForceAprLibFacade;
 
 //endregion Global vars for all tests
 
@@ -33,7 +30,7 @@ describe("DForceHelper unit tests", () => {
     investor = signers[0];
     libFacade = await DeployUtils.deployContract(deployer
       , "DForceRewardsLibFacade"
-    ) as DForceRewardsLibFacade;
+    ) as DForceAprLibFacade;
   });
 
   after(async function () {

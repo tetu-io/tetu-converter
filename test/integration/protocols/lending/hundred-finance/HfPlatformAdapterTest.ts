@@ -122,7 +122,7 @@ describe("Hundred finance integration tests, platform adapter", () => {
       );
 
       const sret = [
-        ret.apr18,
+        ret.borrowApr36,
         ret.ltv18,
         ret.liquidationThreshold18,
         ret.maxAmountToBorrowBT,

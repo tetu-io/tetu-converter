@@ -22,7 +22,7 @@ import {
   baseToBt18, prepareExactBorrowAmount,
   convertUnits,
   IBaseToBorrowParams,
-  makeBorrow
+  makeBorrow, baseToBt
 } from "./aprUtils";
 import {AaveTwoPlatformFabric} from "../fabrics/AaveTwoPlatformFabric";
 import {TimeUtils} from "../../../scripts/utils/TimeUtils";
@@ -447,7 +447,7 @@ export class AprAaveTwo {
       , countBlocks
       , keyValues.borrow.beforeBorrow
       , blocksPerDay
-      , keyValues.borrow.next.blockTimeS
+      , keyValues.borrow.next.blockTimeStamp
       , borrowToken.decimals
     );
     console.log("borrowAprApprox", borrowAprBaseApprox);
@@ -547,9 +547,9 @@ export class AprAaveTwo {
             borrowRate: next.borrow.data.currentVariableBorrowRate,
             supplyRate: next.collateral.data.currentLiquidityRate
           },
-          aprBT18: {
-            collateral: baseToBt18(totalCollateralETH, bbp),
-            borrow: baseToBt18(totalDebtETH, bbp)
+          aprBt36: {
+            collateral: baseToBt(totalCollateralETH, bbp, 36),
+            borrow: baseToBt(totalDebtETH, bbp, 36)
           }
         },
         points: pointsResults

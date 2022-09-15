@@ -13,6 +13,9 @@ import {AdaptersHelper} from "../baseUT/helpers/AdaptersHelper";
 import {AprAaveTwo} from "../baseUT/apr/aprAaveTwo";
 import {AprDForce} from "../baseUT/apr/aprDForce";
 import {appendTestResultsToFile} from "../baseUT/apr/aprUtils";
+import {areAlmostEqual} from "../baseUT/utils/CommonUtils";
+import exp from "constants";
+import {expect} from "chai";
 
 describe("CompareAprUsesCaseTest", () => {
 //region Constants
@@ -77,6 +80,10 @@ describe("CompareAprUsesCaseTest", () => {
       asset: MaticAddresses.SUSHI, title: "SUSHI", holders: [
         MaticAddresses.HOLDER_Sushi
         , MaticAddresses.HOLDER_Sushi_2
+        , MaticAddresses.HOLDER_Sushi_3
+        , MaticAddresses.HOLDER_Sushi_4
+        , MaticAddresses.HOLDER_Sushi_5
+        , MaticAddresses.HOLDER_Sushi_6
       ]
     }
     , {
@@ -89,6 +96,10 @@ describe("CompareAprUsesCaseTest", () => {
     , {
       asset: MaticAddresses.BALANCER, title: "BALANCER", holders: [
         MaticAddresses.HOLDER_BALANCER
+        , MaticAddresses.HOLDER_BALANCER_1
+        , MaticAddresses.HOLDER_BALANCER_2
+        , MaticAddresses.HOLDER_BALANCER_3
+        , MaticAddresses.HOLDER_BALANCER_4
       ]
     }
     , {
@@ -181,6 +192,35 @@ describe("CompareAprUsesCaseTest", () => {
     )
   }
 
+  function validate(items: IBorrowTestResults[]) : {sret: string, sexpected: string} {
+    const ret = [
+      // predicted apr-supply is undefined or zero
+      items.filter(x => !x.results?.predicted.aprBt36.collateral).length,
+      // predicted apr-borrow is undefined or zero
+      items.filter(x => !x.results?.predicted.aprBt36.borrow).length,
+
+      // predicted apr-supply is almost equal to real one
+      items.filter(
+        x =>
+          x.results?.resultsBlock.aprBt36.collateral
+          && x.results?.predicted.aprBt36.collateral
+          && areAlmostEqual(
+            x.results?.resultsBlock.aprBt36.collateral,
+            x.results?.predicted.aprBt36.collateral.div(getBigNumberFrom(1, 18)),
+          2
+          )
+      ).length
+    ];
+    const expected = [
+      0,
+      0,
+      items.length,
+    ];
+    return {
+      sret: ret.join(),
+      sexpected: expected.join()
+    }
+  }
 //endregion Utils
 
 //region Test impl
@@ -330,7 +370,7 @@ describe("CompareAprUsesCaseTest", () => {
           appendTestResultsToFile(PATH_OUT, ret);
         })
       });
-      describe("Debug", () => {
+      describe("Debug AAVE3", () => {
         it("AAVE3 DAI:USDC", async () => {
           const tasks: IBorrowTask[] = [
             {
@@ -342,6 +382,8 @@ describe("CompareAprUsesCaseTest", () => {
           ];
           const ret = await makeTestAave3(COUNT_BLOCKS_SMALL, tasks);
           appendTestResultsToFile(PATH_OUT, ret);
+          const {sret, sexpected} = validate(ret);
+          expect(sret).eq(sexpected);
         })
         it("AAVE3 WBTC:DAI", async () => {
           const tasks: IBorrowTask[] = [
@@ -354,8 +396,82 @@ describe("CompareAprUsesCaseTest", () => {
           ];
           const ret = await makeTestAave3(COUNT_BLOCKS_SMALL, tasks);
           appendTestResultsToFile(PATH_OUT, ret);
+          const {sret, sexpected} = validate(ret);
+          expect(sret).eq(sexpected);
+        })
+        it("AAVE3 Dai:ChainLink", async () => {
+          const tasks: IBorrowTask[] = [
+            {
+              collateralAsset: assets.find(x => x.title == "DAI")!,
+              borrowAsset: assets.find(x => x.title == "ChainLink")!,
+              amountToBorrow: getBigNumberFrom(100, 18),
+              exactAmountToBorrow: true
+            }
+          ];
+          const ret = await makeTestAave3(COUNT_BLOCKS_SMALL, tasks);
+          appendTestResultsToFile(PATH_OUT, ret);
+          const {sret, sexpected} = validate(ret);
+          expect(sret).eq(sexpected);
+        })
+        it("AAVE3 Sushi:WBTC", async () => {
+          const tasks: IBorrowTask[] = [
+            {
+              collateralAsset: assets.find(x => x.title == "SUSHI")!,
+              borrowAsset: assets.find(x => x.title == "WBTC")!,
+              amountToBorrow: getBigNumberFrom(1, 7), //0.1 WBTC
+              exactAmountToBorrow: true
+            }
+          ];
+          const ret = await makeTestAave3(COUNT_BLOCKS_SMALL, tasks);
+          appendTestResultsToFile(PATH_OUT, ret);
+          const {sret, sexpected} = validate(ret);
+          expect(sret).eq(sexpected);
+        })
+        it("AAVE3 BALANCER:WETH", async () => {
+          const tasks: IBorrowTask[] = [
+            {
+              collateralAsset: assets.find(x => x.title == "BALANCER")!,
+              borrowAsset: assets.find(x => x.title == "WETH")!,
+              amountToBorrow: getBigNumberFrom(1, 18),
+              exactAmountToBorrow: true
+            }
+          ];
+          const ret = await makeTestAave3(COUNT_BLOCKS_SMALL, tasks);
+          appendTestResultsToFile(PATH_OUT, ret);
+          const {sret, sexpected} = validate(ret);
+          expect(sret).eq(sexpected);
         })
       })
+      describe("Debug DForce", () => {
+        it("AAVE3 DAI:WBTC", async () => {
+          const tasks: IBorrowTask[] = [
+            {
+              collateralAsset: assets.find(x => x.title == "DAI")!,
+              borrowAsset: assets.find(x => x.title == "WBTC")!,
+              amountToBorrow: getBigNumberFrom(1, 8),
+              exactAmountToBorrow: true
+            }
+          ];
+          const ret = await makeTestDForce(COUNT_BLOCKS_SMALL, tasks);
+          appendTestResultsToFile(PATH_OUT, ret);
+          const {sret, sexpected} = validate(ret);
+          expect(sret).eq(sexpected);
+        })
+        it("AAVE3 WMATIC:WETH", async () => {
+          const tasks: IBorrowTask[] = [
+            {
+              collateralAsset: assets.find(x => x.title == "WMATIC")!,
+              borrowAsset: assets.find(x => x.title == "WETH")!,
+              amountToBorrow: getBigNumberFrom(1, 18),
+              exactAmountToBorrow: true
+            }
+          ];
+          const ret = await makeTestDForce(COUNT_BLOCKS_SMALL, tasks);
+          appendTestResultsToFile(PATH_OUT, ret);
+          const {sret, sexpected} = validate(ret);
+          expect(sret).eq(sexpected);
+        })
+      });
     });
 
   });
