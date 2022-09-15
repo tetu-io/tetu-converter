@@ -201,7 +201,7 @@ contract Aave3PlatformAdapter is IPlatformAdapter {
           vars.assets[1] = params.borrowAsset;
           vars.prices = _priceOracle.getAssetsPrices(vars.assets);
 
-          plan.borrowApr18 = AaveSharedLib.getAprForPeriodBefore(
+          plan.borrowApr36 = AaveSharedLib.getAprForPeriodBefore(
             AaveSharedLib.State({
               liquidityIndex: rb.variableBorrowIndex,
               lastUpdateTimestamp: uint(rb.lastUpdateTimestamp),
@@ -218,9 +218,10 @@ contract Aave3PlatformAdapter is IPlatformAdapter {
             ),
             params.countBlocks,
             vars.blocksPerDay,
-            block.timestamp // assume, that we make borrow in the current block
+            block.timestamp, // assume, that we make borrow in the current block
+            1e18 // multiplier to increase result precision
           )
-          * 10**18 // we need decimals 18
+          * 10**18 // we need decimals 36, but the result is already multiplied on 1e18 by multiplier above
           / 10**rb.configuration.getDecimals();
 
           // calculate supply-APR, see detailed explanation in Aave3AprLib
@@ -230,7 +231,7 @@ contract Aave3PlatformAdapter is IPlatformAdapter {
           vars.totalVariableDebt
           ,,,,,,,) = _dp(vars.poolLocal).getReserveData(params.collateralAsset);
 
-          plan.supplyAprBT18 = AaveSharedLib.getAprForPeriodBefore(
+          plan.supplyAprBt36 = AaveSharedLib.getAprForPeriodBefore(
             AaveSharedLib.State({
               liquidityIndex: rc.liquidityIndex,
               lastUpdateTimestamp: uint(rc.lastUpdateTimestamp),
@@ -246,11 +247,12 @@ contract Aave3PlatformAdapter is IPlatformAdapter {
             ),
             params.countBlocks,
             vars.blocksPerDay,
-            block.timestamp // assume, that we supply collateral in the current block
+            block.timestamp, // assume, that we supply collateral in the current block
+            1e18 // multiplier to increase result precision
           )
           // we need a value in terms of borrow tokens but with decimals 18
           * vars.prices[0] // collateral price
-          * 10**18 // we need decimals 18
+          * 10**18 // we need decimals 36, but the result is already multiplied on 1e18 by multiplier above
           / vars.prices[1] // borrow price
           / 10**rc.configuration.getDecimals();
         }

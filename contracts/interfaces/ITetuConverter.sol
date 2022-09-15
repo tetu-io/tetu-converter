@@ -13,7 +13,7 @@ interface ITetuConverter {
   /// @param periodInBlocks_ Estimated period to keep target amount. It's required to compute APR
   /// @return converter Result contract that should be used for conversion; it supports IConverter
   /// @return maxTargetAmount Max available amount of target tokens that we can get after conversion
-  /// @return aprForPeriod18 Interest on the use of {outMaxTargetAmount} during the given period, decimals 18
+  /// @return aprForPeriod36 Interest on the use of {outMaxTargetAmount} during the given period, decimals 36
   function findConversionStrategy(
     address sourceToken_,
     uint sourceAmount_,
@@ -23,7 +23,7 @@ interface ITetuConverter {
   ) external view returns (
     address converter,
     uint maxTargetAmount,
-    int aprForPeriod18
+    int aprForPeriod36
   );
 
   /// @notice Convert {sourceAmount_} to {targetAmount_} using {converter_}

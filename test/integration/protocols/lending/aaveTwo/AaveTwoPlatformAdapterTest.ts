@@ -9,7 +9,7 @@ import {isPolygonForkInUse} from "../../../../baseUT/utils/NetworkUtils";
 import {BalanceUtils} from "../../../../baseUT/utils/BalanceUtils";
 import {MaticAddresses} from "../../../../../scripts/addresses/MaticAddresses";
 import {AaveTwoHelper} from "../../../../../scripts/integration/helpers/AaveTwoHelper";
-import {AprUtils, COUNT_BLOCKS_PER_DAY} from "../../../../baseUT/utils/aprUtils";
+import {COUNT_BLOCKS_PER_DAY} from "../../../../baseUT/utils/aprUtils";
 import {CoreContractsHelper} from "../../../../baseUT/helpers/CoreContractsHelper";
 import {
   IAaveTwoPool,
@@ -18,7 +18,6 @@ import {
 } from "../../../../../typechain";
 import {areAlmostEqual} from "../../../../baseUT/utils/CommonUtils";
 import {IPlatformActor, PredictBrUsesCase} from "../../../../baseUT/uses-cases/PredictBrUsesCase";
-import {AprAave3, getAave3StateInfo} from "../../../../baseUT/apr/aprAave3";
 import {AprAaveTwo, getAaveTwoStateInfo} from "../../../../baseUT/apr/aprAaveTwo";
 import {Aave3Helper} from "../../../../../scripts/integration/helpers/Aave3Helper";
 
@@ -155,7 +154,7 @@ describe("Aave-v2 integration tests, platform adapter", () => {
       }
 
       // calculate expected supply and borrow values
-      const predictedSupplyAprBT18 = await AprAaveTwo.predictSupplyApr18(deployer
+      const predictedSupplyAprBtRay = await AprAaveTwo.predictSupplyApr36(deployer
         , aavePool
         , collateralAsset
         , collateralAmount
@@ -166,9 +165,9 @@ describe("Aave-v2 integration tests, platform adapter", () => {
         , before
         , block.timestamp
       );
-      console.log("predictedSupplyAprBT18", predictedSupplyAprBT18);
+      console.log("predictedSupplyAprBT18", predictedSupplyAprBtRay);
 
-      const predictedBorrowAprBT18 = await AprAaveTwo.predictBorrowApr18(deployer
+      const predictedBorrowAprBtRay = await AprAaveTwo.predictBorrowApr36(deployer
         , aavePool
         , collateralAsset
         , borrowAsset
@@ -179,12 +178,12 @@ describe("Aave-v2 integration tests, platform adapter", () => {
         , before
         , block.timestamp
       );
-      console.log("predictedBorrowAprBT18", predictedBorrowAprBT18);
+      console.log("predictedBorrowAprBT18", predictedBorrowAprBtRay);
 
       const sret = [
-        ret.borrowApr18,
-        ret.supplyAprBT18,
-        ret.rewardsAmountBT18,
+        ret.borrowAprRay,
+        ret.supplyAprBtRay,
+        ret.rewardsAmountBtRay,
         ret.ltv18,
         ret.liquidationThreshold18,
         ret.maxAmountToBorrowBT,
@@ -192,8 +191,8 @@ describe("Aave-v2 integration tests, platform adapter", () => {
       ].map(x => BalanceUtils.toString(x)) .join("\n");
 
       const sexpected = [
-        predictedBorrowAprBT18,
-        predictedSupplyAprBT18,
+        predictedBorrowAprBtRay,
+        predictedSupplyAprBtRay,
         0,
         BigNumber.from(borrowAssetData.data.ltv
         )

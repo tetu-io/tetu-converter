@@ -41,14 +41,16 @@ contract Aave3AprLibFacade {
     uint liquidityIndex,
     uint rate,
     uint countBlocks,
-    uint blocksPerDay
-  ) external pure returns (uint) {
+    uint blocksPerDay,
+    uint aprMultiplier
+  ) external view returns (uint) {
     return AaveSharedLib.getAprForPeriodAfter(amount,
       reserveNormalized,
       liquidityIndex,
       rate,
       countBlocks,
-      blocksPerDay
+      blocksPerDay,
+      aprMultiplier
     );
   }
 
@@ -58,14 +60,16 @@ contract Aave3AprLibFacade {
     uint predictedRate,
     uint countBlocks,
     uint blocksPerDay,
-    uint operationTimestamp
+    uint operationTimestamp,
+    uint aprMultiplier
   ) external view returns (uint) {
     return AaveSharedLib.getAprForPeriodBefore(state,
       amount,
       predictedRate,
       countBlocks,
       blocksPerDay,
-      operationTimestamp
+      operationTimestamp,
+      aprMultiplier
     );
   }
 

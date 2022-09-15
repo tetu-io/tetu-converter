@@ -48,7 +48,7 @@ export interface IBorrowResults {
 
   predicted: {
     /** Predicted APR, all values are given in terms of borrow token */
-    aprBT18: IAmounts;
+    aprBt36: IAmounts;
     rates: IRates;
   }
 

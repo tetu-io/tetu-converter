@@ -42,14 +42,16 @@ contract AaveTwoAprLibFacade {
     uint currentLiquidityIndex,
     uint rate,
     uint countBlocks,
-    uint blocksPerDay
-  ) external pure returns (uint) {
+    uint blocksPerDay,
+    uint aprMultiplier
+  ) external view returns (uint) {
     return AaveSharedLib.getAprForPeriodAfter(amount,
       currentN,
       currentLiquidityIndex,
       rate,
       countBlocks,
-      blocksPerDay
+      blocksPerDay,
+      aprMultiplier
     );
   }
 
@@ -59,7 +61,8 @@ contract AaveTwoAprLibFacade {
     uint predictedRate,
     uint countBlocks,
     uint blocksPerDay,
-    uint operationTimestamp
+    uint operationTimestamp,
+    uint aprMultiplier
   ) external view returns (uint) {
     return AaveSharedLib.getAprForPeriodBefore(
       state,
@@ -67,7 +70,8 @@ contract AaveTwoAprLibFacade {
       predictedRate,
       countBlocks,
       blocksPerDay,
-      operationTimestamp
+      operationTimestamp,
+      aprMultiplier
     );
   }
 

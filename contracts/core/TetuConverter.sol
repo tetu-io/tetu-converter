@@ -49,7 +49,7 @@ contract TetuConverter is ITetuConverter {
   ) external view override returns (
     address converter,
     uint maxTargetAmount,
-    int aprForPeriod18
+    int aprForPeriod36
   ) {
     return _findConversionStrategy(sourceToken_, sourceAmount_, targetToken_, healthFactor2_, periodInBlocks_);
   }
@@ -63,7 +63,7 @@ contract TetuConverter is ITetuConverter {
   ) internal view returns (
     address converter,
     uint maxTargetAmount,
-    int aprForPeriod18
+    int aprForPeriod36
   ) {
     AppDataTypes.InputConversionParams memory params = AppDataTypes.InputConversionParams({
       healthFactor2: healthFactor2_,

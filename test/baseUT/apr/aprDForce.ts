@@ -126,7 +126,7 @@ async function getDForceUserAccountState(
   }
 }
 
-async function getDForceStateInfo(
+export async function getDForceStateInfo(
   comptroller: IDForceController
   , cTokenCollateral: IDForceCToken
   , cTokenBorrow: IDForceCToken
@@ -222,22 +222,16 @@ export class AprDForce {
     const borrowAmount = borrowResults.borrowAmount;
     console.log(`userAddress=${userAddress} borrowAmount=${borrowAmount}`);
 
-    const borrowRatePredicted = await libFacade.getEstimatedBorrowRate(
-      await cTokenBorrow.interestRateModel()
-      , cTokenBorrow.address
+    const borrowRatePredicted = await this.getEstimatedBorrowRate(libFacade
+      , cTokenBorrow
       , borrowAmount
     );
     console.log(`borrowRatePredicted=${borrowRatePredicted.toString()}`);
 
-    const supplyRatePredicted = await libFacade.getEstimatedSupplyRatePure(
-      before.collateral.market.totalSupply
+    const supplyRatePredicted = await this.getEstimatedSupplyRate(libFacade
+      , before
       , amountCollateral
-      , before.collateral.market.cash
-      , before.collateral.market.totalBorrows
-      , before.collateral.market.totalReserves
       , marketCollateralData.interestRateModel
-      , before.collateral.market.reserveRatio
-      , before.collateral.market.exchangeRateStored
     );
     console.log(`supplyRatePredicted=${supplyRatePredicted.toString()}`);
 
@@ -277,7 +271,7 @@ export class AprDForce {
     const countBlocksSupply = 1; // after next, we call UpdateInterest for supply token...
     const countBlocksBorrow = 2; // ...then for the borrow token
 
-    const supplyApr = await libFacade.getSupplyApr18(
+    const supplyApr = await libFacade.getSupplyApr36(
       supplyRatePredicted
       , countBlocksSupply
       , await cTokenCollateral.decimals()
@@ -286,7 +280,7 @@ export class AprDForce {
       , amountCollateral
     );
     console.log("supplyApr", supplyApr);
-    const supplyAprExact = await libFacade.getSupplyApr18(
+    const supplyAprExact = await libFacade.getSupplyApr36(
       next.collateral.market.supplyRatePerBlock
       , countBlocksSupply
       , await cTokenCollateral.decimals()
@@ -296,7 +290,7 @@ export class AprDForce {
     );
     console.log("supplyAprExact", supplyAprExact);
 
-    const borrowApr = await libFacade.getBorrowApr18(
+    const borrowApr = await libFacade.getBorrowApr36(
       borrowRatePredicted
       , borrowAmount
       , countBlocksBorrow
@@ -304,7 +298,7 @@ export class AprDForce {
     );
     console.log("borrowApr", borrowApr);
 
-    const borrowAprExact = await libFacade.getBorrowApr18(
+    const borrowAprExact = await libFacade.getBorrowApr36(
       middle.borrow.market.borrowRatePerBlock
       , borrowAmount
       , countBlocksBorrow
@@ -408,7 +402,7 @@ export class AprDForce {
             , priceBorrow, 18
           )
         }, predicted: {
-          aprBT18: {
+          aprBt36: {
             collateral: supplyApr,
             borrow: borrowApr
           },
@@ -441,5 +435,36 @@ export class AprDForce {
         points: pointsResults
       }
     }
+  }
+
+  static async getEstimatedSupplyRate(
+    libFacade: DForceAprLibFacade,
+    state: IDForceState,
+    amountCollateral: BigNumber,
+    interestRateModel: string
+  ) : Promise<BigNumber> {
+    return await libFacade.getEstimatedSupplyRatePure(
+      state.collateral.market.totalSupply
+      , amountCollateral
+      , state.collateral.market.cash
+      , state.collateral.market.totalBorrows
+      , state.collateral.market.totalReserves
+      , interestRateModel
+      , state.collateral.market.reserveRatio
+      , state.collateral.market.exchangeRateStored
+    );
+  }
+
+  static async getEstimatedBorrowRate(
+    libFacade: DForceAprLibFacade,
+    token: IDForceCToken,
+    borrowAmount: BigNumber
+  ) : Promise<BigNumber> {
+    return await libFacade.getEstimatedBorrowRate(
+      await token.interestRateModel()
+      , token.address
+      , borrowAmount
+    );
+
   }
 }

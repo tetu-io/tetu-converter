@@ -163,7 +163,7 @@ describe("Aave-v3 integration tests, platform adapter", () => {
       }
 
       // calculate expected supply and borrow values
-      const predictedSupplyAprBT18 = await AprAave3.predictSupplyApr18(deployer
+      const predictedSupplyAprBtRay = await AprAave3.predictSupplyApr36(deployer
         , aavePool
         , collateralAsset
         , collateralAmount
@@ -175,7 +175,7 @@ describe("Aave-v3 integration tests, platform adapter", () => {
         , block.timestamp
       );
 
-      const predictedBorrowAprBT18 = await AprAave3.predictBorrowApr18(deployer
+      const predictedBorrowAprBtRay = await AprAave3.predictBorrowApr36(deployer
         , aavePool
         , collateralAsset
         , borrowAsset
@@ -188,9 +188,9 @@ describe("Aave-v3 integration tests, platform adapter", () => {
       );
 
       const sret = [
-        ret.borrowApr18,
-        ret.supplyAprBT18,
-        ret.rewardsAmountBT18,
+        ret.borrowApr36,
+        ret.supplyAprBt36,
+        ret.rewardsAmountBt36,
         ret.ltv18,
         ret.liquidationThreshold18,
         ret.maxAmountToBorrowBT,
@@ -201,8 +201,8 @@ describe("Aave-v3 integration tests, platform adapter", () => {
           && borrowAssetData.data.emodeCategory == collateralAssetData.data.emodeCategory
           : collateralAssetData.data.emodeCategory == 0 || borrowAssetData.data.emodeCategory == 0,
 
-        !ret.borrowApr18.eq(0),
-        !ret.supplyAprBT18.eq(0)
+        !ret.borrowApr36.eq(0),
+        !ret.supplyAprBt36.eq(0)
       ].map(x => BalanceUtils.toString(x)) .join("\n");
 
       let expectedMaxAmountToBorrow = BigNumber.from(borrowAssetData.liquidity.totalAToken)
@@ -214,7 +214,7 @@ describe("Aave-v3 integration tests, platform adapter", () => {
           collateralAssetData.data.debtCeiling
             .sub(collateralAssetData.data.isolationModeTotalDebt)
             .mul(
-              getBigNumberFrom(1, collateralAssetData.data.decimals - 2)
+              getBigNumberFrom(1, borrowAssetData.data.decimals - 2)
             );
       }
 
@@ -234,8 +234,8 @@ describe("Aave-v3 integration tests, platform adapter", () => {
       }
 
       const sexpected = [
-        predictedBorrowAprBT18,
-        predictedSupplyAprBT18,
+        predictedBorrowAprBtRay,
+        predictedSupplyAprBtRay,
         0,
         BigNumber.from(highEfficientModeEnabled
           ? borrowAssetData.category?.ltv
@@ -257,8 +257,8 @@ describe("Aave-v3 integration tests, platform adapter", () => {
         true, // supply APR is not 0
       ].map(x => BalanceUtils.toString(x)) .join("\n");
 
-      console.log(`Result APR: borrowApr18=${ret.borrowApr18} supplyAprBT18=${ret.supplyAprBT18}`);
-      console.log(`Predicted APR: borrowApr18=${predictedBorrowAprBT18} supplyAprBT18=${predictedSupplyAprBT18}`);
+      console.log(`Result APR: borrowApr36=${ret.borrowApr36} supplyAprBt36=${ret.supplyAprBt36}`);
+      console.log(`Predicted APR: borrowApr18=${predictedBorrowAprBtRay} supplyAprBT18=${predictedSupplyAprBtRay}`);
       return {sret, sexpected};
     }
     describe("Good paths", () => {
@@ -516,7 +516,7 @@ describe("Aave-v3 integration tests, platform adapter", () => {
             MaticAddresses.HOLDER_DAI_5,
             MaticAddresses.HOLDER_DAI_6,
           ];
-          const part10000 = 5000;
+          const part10000 = 3000;
 
           const r = await makeTest(collateralAsset, borrowAsset, collateralHolders, part10000);
 

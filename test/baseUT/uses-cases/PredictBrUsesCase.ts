@@ -17,7 +17,8 @@ export interface IPlatformActor {
  * 1. Get predicted borrow
  * 2. Borrow amount
  * 3. Get borrow rate after the borrow.
- * 4. Ensure, that predicted borrow rate is almost the same as predicted.
+ * 4. Ensure, that the real borrow rate is almost the same as predicted.
+ *
  * The amounts are almost equal, not exactly, because predicted borrow rate
  * doesn't take into account interest that appears between borrow moment and getting-borrow-rate moment
  */
@@ -66,7 +67,6 @@ export class PredictBrUsesCase {
     console.log(`borrow ${borrowAsset} amount ${amountToBorrow}`);
     await actor.borrow(amountToBorrow);
 
-    const availableLiquidityAfter = await actor.getAvailableLiquidity();
     console.log(`Available liquidity AFTER ${availableLiquidity.toString()}`);
     const brAfter = await actor.getCurrentBR();
     const brPredictedAfter = await platformAdapter.getBorrowRateAfterBorrow(borrowAsset, 0);

@@ -6,7 +6,7 @@ import {
   IDForceController,
   IDForceCToken,
   IDForceCToken__factory,
-  DForcePlatformAdapter__factory, IDForceInterestRateModel__factory,
+  DForcePlatformAdapter__factory, IDForceInterestRateModel__factory, DForceAprLibFacade,
 } from "../../../../../typechain";
 import {expect} from "chai";
 import {AdaptersHelper} from "../../../../baseUT/helpers/AdaptersHelper";
@@ -24,6 +24,9 @@ import {SupplyBorrowUsingDForce} from "../../../../baseUT/uses-cases/dforce/Supp
 import {DForcePlatformFabric} from "../../../../baseUT/fabrics/DForcePlatformFabric";
 import {MocksHelper} from "../../../../baseUT/helpers/MocksHelper";
 import {DeployerUtils} from "../../../../../scripts/utils/DeployerUtils";
+import {DeployUtils} from "../../../../../scripts/utils/DeployUtils";
+import {AprDForce, getDForceStateInfo} from "../../../../baseUT/apr/aprDForce";
+import {Misc} from "../../../../../scripts/utils/Misc";
 
 describe("DForce integration tests, platform adapter", () => {
 //region Global vars for all tests
@@ -133,68 +136,118 @@ describe("DForce integration tests, platform adapter", () => {
 
 //region Unit tests
   describe("getConversionPlan", () => {
+    /**
+     * Ensure, that getConversionPlan returns same APR
+     * as directly calculated one using DForceAprLibFacade
+     */
     async function makeTest(
       collateralAsset: string,
+      collateralAmount: BigNumber,
       borrowAsset: string,
-      cTokenCollateral: string,
-      cTokenBorrow: string
+      collateralCToken: string,
+      borrowCToken: string
     ) : Promise<{sret: string, sexpected: string}> {
       const controller = await CoreContractsHelper.createController(deployer);
-      const templateAdapterNormalStub = ethers.Wallet.createRandom();
       const countBlocks = 10;
+      const healthFactor18 = getBigNumberFrom(2, 18);
 
       const comptroller = await DForceHelper.getController(deployer);
       const dForcePlatformAdapter = await AdaptersHelper.createDForcePlatformAdapter(
         deployer,
         controller.address,
         comptroller.address,
-        templateAdapterNormalStub.address,
-        [cTokenCollateral, cTokenBorrow],
+        ethers.Wallet.createRandom().address,
+        [collateralCToken, borrowCToken],
       );
       const priceOracle = await DForceHelper.getPriceOracle(comptroller, deployer);
+      const cTokenBorrow = IDForceCToken__factory.connect(borrowCToken, deployer);
+      const cTokenCollateral = IDForceCToken__factory.connect(collateralCToken, deployer);
+
+      const cTokenBorrowDecimals = await cTokenBorrow.decimals();
+      const cTokenCollateralDecimals = await cTokenCollateral.decimals();
 
       // getUnderlyingPrice returns price/1e(36-underlineDecimals)
-      const cTokenBorrowDecimals = await IDForceCToken__factory.connect(cTokenBorrow, deployer).decimals();
-      const cTokenCollateralDecimals = await IDForceCToken__factory.connect(cTokenCollateral, deployer).decimals();
-      const priceBorrow18 = (await priceOracle.getUnderlyingPrice(cTokenBorrow))
+      const priceBorrow = await priceOracle.getUnderlyingPrice(borrowCToken);
+      const priceCollateral = await priceOracle.getUnderlyingPrice(collateralCToken);
+      console.log("priceBorrow", priceBorrow);
+      console.log("priceCollateral", priceCollateral);
+
+      const priceBorrow18 = (priceBorrow)
         .mul(getBigNumberFrom(1, cTokenBorrowDecimals))
         .div(getBigNumberFrom(1, 18));
-      const priceCollateral18 = (await priceOracle.getUnderlyingPrice(cTokenCollateral))
+      const priceCollateral18 = (priceCollateral)
         .mul(getBigNumberFrom(1, cTokenCollateralDecimals))
         .div(getBigNumberFrom(1, 18));
-      console.log("price borrow", priceBorrow18);
-      console.log("price collateral", priceCollateral18);
+      console.log("priceBorrow18", priceBorrow18);
+      console.log("priceCollateral18", priceCollateral18);
 
-
-      const collateralAssetData = await DForceHelper.getCTokenData(deployer, comptroller
-        , IDForceCToken__factory.connect(cTokenCollateral, deployer)
-      );
+      const collateralAssetData = await DForceHelper.getCTokenData(deployer, comptroller, cTokenCollateral);
       console.log("collateralAssetData", collateralAssetData);
-      const borrowAssetData = await DForceHelper.getCTokenData(deployer, comptroller
-        , IDForceCToken__factory.connect(cTokenBorrow, deployer));
+      const borrowAssetData = await DForceHelper.getCTokenData(deployer, comptroller, cTokenBorrow);
       console.log("borrowAssetData", borrowAssetData);
+
+      const borrowAmountFactor18 = getBigNumberFrom(1, 18)
+        .mul(collateralAmount)
+        .mul(priceCollateral18)
+        .div(priceBorrow18)
+        .div(healthFactor18);
+      console.log("borrowAmountFactor18", borrowAmountFactor18, collateralAmount);
 
       const ret = await dForcePlatformAdapter.getConversionPlan(
         collateralAsset,
-        0,
+        collateralAmount,
         borrowAsset,
-        0,
+        borrowAmountFactor18,
         countBlocks
       );
       console.log("getConversionPlan", ret);
 
+      let amountToBorrow = borrowAmountFactor18.mul(ret.liquidationThreshold18).div(getBigNumberFrom(1, 18));
+      if (amountToBorrow.gt(ret.maxAmountToBorrowBT)) {
+        amountToBorrow = ret.maxAmountToBorrowBT;
+      }
+
+      // predict APR
+      const libFacade = await DeployUtils.deployContract(deployer, "DForceAprLibFacade") as DForceAprLibFacade;
+      const borrowRatePredicted = await AprDForce.getEstimatedBorrowRate(libFacade
+        , cTokenBorrow
+        , amountToBorrow
+      );
+      const supplyRatePredicted = await AprDForce.getEstimatedSupplyRate(libFacade
+        , await getDForceStateInfo(comptroller, cTokenCollateral, cTokenBorrow, Misc.ZERO_ADDRESS)
+        , collateralAmount
+        , await cTokenCollateral.interestRateModel()
+      );
+      const supplyApr = await libFacade.getSupplyApr36(
+        supplyRatePredicted
+        , countBlocks
+        , cTokenCollateralDecimals
+        , priceCollateral18
+        , priceBorrow18
+        , collateralAmount
+      );
+      const borrowApr = await libFacade.getBorrowApr36(
+        borrowRatePredicted
+        , amountToBorrow
+        , countBlocks
+        , cTokenBorrowDecimals
+      );
+
       const sret = [
-        ret.brForPeriod18,
-        ret.supplyIncrement18,
+        ret.borrowApr36,
+        ret.supplyAprBt36,
         ret.ltv18,
         ret.liquidationThreshold18,
         ret.maxAmountToBorrowBT,
         ret.maxAmountToSupplyCT,
       ].map(x => BalanceUtils.toString(x)) .join("\n");
+      console.log("amountToBorrow", amountToBorrow);
+      console.log("borrowAssetData.borrowRatePerBlock", borrowAssetData.borrowRatePerBlock);
+      console.log("countBlocks", countBlocks);
 
       const sexpected = [
-        borrowAssetData.borrowRatePerBlock.mul(countBlocks),
-        collateralAssetData.supplyRatePerBlock.mul(countBlocks).mul(priceCollateral18).div(priceBorrow18),
+        borrowApr,
+        supplyApr,
         borrowAssetData.collateralFactorMantissa,
         borrowAssetData.collateralFactorMantissa,
         borrowAssetData.cash,
@@ -203,6 +256,7 @@ describe("DForce integration tests, platform adapter", () => {
 
       return {sret, sexpected};
     }
+
     describe("Good paths", () => {
       describe("DAI : usdc", () => {
         it("should return expected values", async () => {
@@ -213,14 +267,17 @@ describe("DForce integration tests, platform adapter", () => {
           const collateralCToken = MaticAddresses.dForce_iDAI;
           const borrowCToken = MaticAddresses.dForce_iUSDC;
 
-          const r = await makeTest(
+          const collateralAmount = getBigNumberFrom(1000, 18);
+          const ret = await makeTest(
             collateralAsset,
+            collateralAmount,
             borrowAsset,
             collateralCToken,
             borrowCToken
           );
+          console.log(ret);
 
-          expect(r.sret).eq(r.sexpected);
+          expect(ret.sret).eq(ret.sexpected);
         });
       });
     });
@@ -263,7 +320,7 @@ describe("DForce integration tests, platform adapter", () => {
             , part10000
           );
 
-          const ret = areAlmostEqual(r.br, r.brPredicted, 5);
+          const ret = areAlmostEqual(r.br, r.brPredicted, 4);
           expect(ret).true;
         });
       });
@@ -294,7 +351,7 @@ describe("DForce integration tests, platform adapter", () => {
             , part10000
           );
 
-          const ret = areAlmostEqual(r.br, r.brPredicted, 5);
+          const ret = areAlmostEqual(r.br, r.brPredicted, 4);
           expect(ret).true;
 
         });

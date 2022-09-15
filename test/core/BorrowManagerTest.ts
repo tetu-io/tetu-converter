@@ -381,7 +381,7 @@ describe("BorrowManager", () => {
         : undefined;
       return {
         outPoolIndex0: pools.findIndex(x => x.converter == ret.converter),
-        outApr: ret.aprForPeriod18,
+        outApr: ret.aprForPeriod36,
         outMaxTargetAmount: ret.maxTargetAmount,
         outGas: gas
       }

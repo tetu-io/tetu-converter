@@ -37,15 +37,17 @@ library AaveSharedLib {
   /// @param predictedRate Predicted value of liquidity/borrow rate
   /// @param countBlocks Duration of the period in blocks
   /// @param blocksPerDay Count blocks per day (about 40 ths)
-  /// @return APR value in terms of source amount's asset tokens
+  /// @param aprMultiplier Multiplier for result value (to increase precision)
+  /// @return APR value in terms of source amount's asset tokens multiplied on aprMultiplier
   function getAprForPeriodAfter(
     uint amount,
     uint reserveNormalized,
     uint liquidityIndex,
     uint predictedRate,
     uint countBlocks,
-    uint blocksPerDay
-  ) internal pure returns (uint) {
+    uint blocksPerDay,
+    uint aprMultiplier
+  ) internal view returns (uint) {
     // calculate income/debt in the period of {countBlocks} since the supply/borrow operation
     uint reserveNormalizedAfterPeriod = rayMul(
       RAY + predictedRate * (
@@ -54,9 +56,17 @@ library AaveSharedLib {
       liquidityIndex
     );
 
+    console.log("reserveNormalizedAfterPeriod", reserveNormalizedAfterPeriod);
+    console.log("reserveNormalized", reserveNormalized);
+    console.log("amount", amount);
+    console.log("aprMultiplier", aprMultiplier);
+    console.log("RESULT", amount * aprMultiplier
+      * (reserveNormalizedAfterPeriod - reserveNormalized)
+      / reserveNormalized);
     return reserveNormalizedAfterPeriod < reserveNormalized
       ? 0
       : amount
+        * aprMultiplier
         * (reserveNormalizedAfterPeriod - reserveNormalized)
         / reserveNormalized;
   }
@@ -68,14 +78,16 @@ library AaveSharedLib {
   /// @param predictedRate Predicted value of liquidity/borrow rate
   /// @param countBlocks Duration of the period in blocks
   /// @param blocksPerDay Count blocks per day (about 40 ths)
-  /// @return APR value in terms of source amount's asset tokens
+  /// @param aprMultiplier Multiplier for result value (to increase precision)
+  /// @return APR value in terms of source amount's asset tokens multiplied on aprMultiplier
   function getAprForPeriodBefore(
     State memory state,
     uint amount,
     uint predictedRate,
     uint countBlocks,
     uint blocksPerDay,
-    uint operationTimestamp
+    uint operationTimestamp,
+    uint aprMultiplier
   ) internal view returns (uint) {
     console.log("getAprForPeriodBefore");
     console.log("amount", amount);
@@ -97,7 +109,8 @@ library AaveSharedLib {
       liquidityIndexAfter,
       predictedRate,
       countBlocks,
-      blocksPerDay
+      blocksPerDay,
+      aprMultiplier
     );
   }
 

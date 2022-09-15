@@ -306,7 +306,7 @@ describe("BorrowManager", () => {
             const sret = [
               ret.converter,
               ret.maxTargetAmount,
-              ret.aprForPeriod18
+              ret.aprForPeriod36
             ].join();
 
             const expectedTargetAmount =

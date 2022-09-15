@@ -190,7 +190,7 @@ contract DForcePlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
           if (amountToBorrow > plan.maxAmountToBorrowBT) {
             amountToBorrow = plan.maxAmountToBorrowBT;
           }
-          (plan.borrowApr18, plan.supplyAprBT18, plan.rewardsAmountBT18) = DForceAprLib.getRawAprInfo18(
+          (plan.borrowApr36, plan.supplyAprBt36, plan.rewardsAmountBt36) = DForceAprLib.getRawAprInfo36(
             DForceAprLib.getCore(comptroller, cTokenCollateral, cTokenBorrow),
             collateralAmount_,
             countBlocks_,
@@ -262,7 +262,7 @@ contract DForcePlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
     (uint priceBorrow, bool isPriceValid) = core.priceOracle.getUnderlyingPriceAndStatus(address(core.cTokenBorrow));
     require(priceBorrow != 0 && isPriceValid, AppErrors.ZERO_PRICE);
 
-    return DForceAprLib.getRewardAmountsBT(core,
+    return DForceAprLib.getRewardAmountsBt(core,
       DForceAprLib.RewardsAmountInput({
         collateralAmount: collateralAmount_,
         borrowAmount: borrowAmount_,

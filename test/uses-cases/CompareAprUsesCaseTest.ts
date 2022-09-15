@@ -331,12 +331,24 @@ describe("CompareAprUsesCaseTest", () => {
         })
       });
       describe("Debug", () => {
-        it("AAVE3", async () => {
+        it("AAVE3 DAI:USDC", async () => {
           const tasks: IBorrowTask[] = [
             {
               collateralAsset: assets.find(x => x.title == "DAI")!,
               borrowAsset: assets.find(x => x.title == "USDC")!,
-              amountToBorrow: getBigNumberFrom(1000, 6),
+              amountToBorrow: getBigNumberFrom(100, 6),
+              exactAmountToBorrow: true
+            }
+          ];
+          const ret = await makeTestAave3(COUNT_BLOCKS_SMALL, tasks);
+          appendTestResultsToFile(PATH_OUT, ret);
+        })
+        it("AAVE3 WBTC:DAI", async () => {
+          const tasks: IBorrowTask[] = [
+            {
+              collateralAsset: assets.find(x => x.title == "WBTC")!,
+              borrowAsset: assets.find(x => x.title == "DAI")!,
+              amountToBorrow: getBigNumberFrom(100, 18),
               exactAmountToBorrow: true
             }
           ];

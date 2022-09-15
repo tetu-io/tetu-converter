@@ -81,7 +81,7 @@ export interface IBaseToBorrowParams {
 }
 
 /** Convert amount from base-currency to borrow tokens with decimals 18 */
-export function baseToBorrow18(amount: BigNumber, params: IBaseToBorrowParams) : BigNumber {
+export function baseToBt18(amount: BigNumber, params: IBaseToBorrowParams) : BigNumber {
   // amount-in-base-currency = a1 * 10^db
   // we need to convert a1 * 10^db to a2*10^18, where a2 is the price in borrow tokens (and we need decimals 18 in result)
   //
@@ -223,10 +223,10 @@ export function appendTestResultsToFile(path: string, data: IBorrowTestResults[]
       , row.results?.prices.collateral
       , row.results?.prices.borrow
 
-      , row.results?.predicted.aprBT18.collateral
+      , row.results?.predicted.aprBt36.collateral
       , row.results?.resultsBlock.aprBT18.collateral
 
-      , row.results?.predicted.aprBT18.borrow
+      , row.results?.predicted.aprBt36.borrow
       , row.results?.resultsBlock.aprBT18.borrow
 
       , row.results?.predicted.rates.supplyRate
