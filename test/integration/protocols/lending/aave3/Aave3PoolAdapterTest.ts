@@ -468,6 +468,28 @@ describe("Aave3PoolAdapterTest", () => {
           });
         });
       });
+      describe("EURS : USDT", () => {
+//region Constants
+        const collateralAsset = MaticAddresses.EURS;
+        const borrowAsset = MaticAddresses.USDT;
+        const collateralHolders = [MaticAddresses.HOLDER_EURS
+          , MaticAddresses.HOLDER_EURS_2
+          , MaticAddresses.HOLDER_EURS_3
+        ];
+        const borrowHolders = [MaticAddresses.HOLDER_USDT];
+//endregion Constants
+
+        describe("Try to borrow max amount allowed by debt ceiling", () => {
+          it("should return expected values", async () => {
+            const ret = await borrowMaxAmountInIsolationMode(collateralAsset, collateralHolders, borrowAsset, borrowHolders);
+
+            const sret = ret.maxBorrowAmount.toString();
+            const sexpected = ret.maxBorrowAmountByPlan.toString();
+
+            expect(sret).eq(sexpected);
+          });
+        });
+      });
     });
 
     describe("Bad paths", () => {
@@ -493,16 +515,14 @@ describe("Aave3PoolAdapterTest", () => {
 //endregion Constants
           describe("Try to borrow max amount allowed by debt ceiling", () => {
             it("should return expected values", async () => {
-              it("should return expected values", async () => {
-                await expect(
-                  borrowMaxAmountInIsolationMode(collateralAsset
-                    , collateralHolders
-                    , borrowAsset
-                    , borrowHolders
-                    , getBigNumberFrom(1, 18) // 1 DAI
-                  )
-                ).revertedWith("VM Exception while processing transaction: reverted with reason string '53'");
-              });
+              await expect(
+                borrowMaxAmountInIsolationMode(collateralAsset
+                  , collateralHolders
+                  , borrowAsset
+                  , borrowHolders
+                  , getBigNumberFrom(1, 18) // 1 DAI
+                )
+              ).revertedWith("VM Exception while processing transaction: reverted with reason string '53'");
             });
           });
         });
@@ -527,6 +547,35 @@ describe("Aave3PoolAdapterTest", () => {
                   , getBigNumberFrom(1, 6) // 1 USDC
                 )
               ).revertedWith("VM Exception while processing transaction: reverted with reason string '53'");
+            });
+          });
+        });
+      });
+      describe("Not borrowable in isolation mode", () => {
+        describe("USDT : Chainlink", () => {
+//region Constants
+          const collateralAsset = MaticAddresses.USDT;
+          const borrowAsset = MaticAddresses.ChainLink;
+          const collateralHolders = [
+            MaticAddresses.HOLDER_USDT,
+            MaticAddresses.HOLDER_USDT_1,
+            MaticAddresses.HOLDER_USDT_2,
+            MaticAddresses.HOLDER_USDT_3
+          ];
+          const borrowHolders = [
+            MaticAddresses.HOLDER_ChainLink,
+          ];
+//endregion Constants
+          describe("Try to borrow max amount allowed by debt ceiling", () => {
+            it("should return expected values", async () => {
+              await expect(
+                borrowMaxAmountInIsolationMode(collateralAsset
+                  , collateralHolders
+                  , borrowAsset
+                  , borrowHolders
+                  , getBigNumberFrom(1, 18) // 1 DAI
+                )
+              ).revertedWith("VM Exception while processing transaction: reverted with reason string '60'");
             });
           });
         });

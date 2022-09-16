@@ -21,8 +21,7 @@ describe("CompareAprUsesCaseTest", () => {
   const PATH_OUT = "tmp/compareResults.csv";
   const HEALTH_FACTOR2 = 400;
   const COUNT_BLOCKS_SMALL = 2;
-  const COUNT_BLOCKS_NORMAL = 80_000;
-  const COUNT_BLOCKS_HUGE = 10*40_000;
+  const COUNT_BLOCKS_HUGE = 1*40_000;
 
   const assets: IAssetInfo[] = [
     {
@@ -370,6 +369,32 @@ describe("CompareAprUsesCaseTest", () => {
           appendTestResultsToFile(PATH_OUT, ret);
         })
       });
+      describe("Half of max allowed amount", () => {
+        it("AAVE3", async () => {
+          const tasks: IBorrowTask[] = CompareAprUsesCase.generateTasks(assets
+            , false
+            , assets.map(x => getBigNumberFrom(5, 17))
+          );
+          const ret = await makeTestAave3(COUNT_BLOCKS, tasks);
+          appendTestResultsToFile(PATH_OUT, ret);
+        })
+        it("AAVETwo", async () => {
+          const tasks: IBorrowTask[] = CompareAprUsesCase.generateTasks(assets
+            , false
+            , assets.map(x => getBigNumberFrom(5, 17))
+          );
+          const ret = await makeTestAaveTwo(COUNT_BLOCKS, tasks);
+          appendTestResultsToFile(PATH_OUT, ret);
+        })
+        it("DForce", async () => {
+          const tasks: IBorrowTask[] = CompareAprUsesCase.generateTasks(assets
+            , false
+            , assets.map(x => getBigNumberFrom(5, 17))
+          );
+          const ret = await makeTestDForce(COUNT_BLOCKS, tasks);
+          appendTestResultsToFile(PATH_OUT, ret);
+        })
+      });
       describe.skip("Debug AAVE3", () => {
         it("AAVE3 DAI:USDC", async () => {
           const tasks: IBorrowTask[] = [
@@ -522,6 +547,32 @@ describe("CompareAprUsesCaseTest", () => {
           const tasks: IBorrowTask[] = CompareAprUsesCase.generateTasks(assets
             , true
             , await getMiddleAmounts(assets)
+          );
+          const ret = await makeTestDForce(COUNT_BLOCKS, tasks);
+          appendTestResultsToFile(PATH_OUT, ret);
+        })
+      });
+      describe("Half of max allowed amount", () => {
+        it("AAVE3", async () => {
+          const tasks: IBorrowTask[] = CompareAprUsesCase.generateTasks(assets
+            , false
+            , assets.map(x => getBigNumberFrom(5, 17))
+          );
+          const ret = await makeTestAave3(COUNT_BLOCKS, tasks);
+          appendTestResultsToFile(PATH_OUT, ret);
+        })
+        it("AAVETwo", async () => {
+          const tasks: IBorrowTask[] = CompareAprUsesCase.generateTasks(assets
+            , false
+            , assets.map(x => getBigNumberFrom(5, 17))
+          );
+          const ret = await makeTestAaveTwo(COUNT_BLOCKS, tasks);
+          appendTestResultsToFile(PATH_OUT, ret);
+        })
+        it("DForce", async () => {
+          const tasks: IBorrowTask[] = CompareAprUsesCase.generateTasks(assets
+            , false
+            , assets.map(x => getBigNumberFrom(5, 17))
           );
           const ret = await makeTestDForce(COUNT_BLOCKS, tasks);
           appendTestResultsToFile(PATH_OUT, ret);
