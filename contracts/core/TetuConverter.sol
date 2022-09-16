@@ -6,6 +6,7 @@ import "../interfaces/ITetuConverter.sol";
 import "../integrations/market/ICErc20.sol";
 import "../integrations/IERC20Extended.sol";
 import "../interfaces/IBorrowManager.sol";
+import "../interfaces/ISwapManager.sol";
 import "../openzeppelin/SafeERC20.sol";
 import "../openzeppelin/IERC20.sol";
 import "../interfaces/IPlatformAdapter.sol";
@@ -73,10 +74,25 @@ contract TetuConverter is ITetuConverter {
       periodInBlocks: periodInBlocks_
     });
 
-    // find best DEX platform
+    // get best swap return
+    (address swapConverter,
+    uint swapMaxTargetAmount,) = _swapManager().getConverter(params);
 
     // find best lending platform
-    return _bm().findConverter(params);
+    (address borrowConverter,
+    uint borrowMaxTargetAmount,
+    int borrowAprForPeriod36) = _bm().findConverter(params);
+
+    // TODO check
+    // TODO use healthFactor2_
+    int borrowFees = int(borrowMaxTargetAmount) * borrowAprForPeriod36 / 10**36;
+    bool doSwap = (int(borrowMaxTargetAmount) < borrowFees) ||
+      int(swapMaxTargetAmount) > (int(borrowMaxTargetAmount) - borrowFees);
+
+    return doSwap
+      ? (swapConverter, swapMaxTargetAmount, int(0))
+      : (borrowConverter, borrowMaxTargetAmount, borrowAprForPeriod36);
+
   }
 
   ///////////////////////////////////////////////////////
@@ -200,5 +216,8 @@ contract TetuConverter is ITetuConverter {
   function _dm() internal view returns (IDebtMonitor) {
     return IDebtMonitor(controller.debtMonitor());
   }
-}
 
+  function _swapManager() internal view returns (ISwapManager) {
+    return ISwapManager(controller.swapManager());
+  }
+}

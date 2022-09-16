@@ -20,11 +20,12 @@ interface IController {
   function tetuConverter() external view returns (address);
   function borrowManager() external view returns (address);
   function debtMonitor() external view returns (address);
+  function tetuLiquidator() external view returns (address);
+  function swapManager() external view returns (address);
 
   ///////////////////////////////////////////////////////
   ///        External contracts
   ///////////////////////////////////////////////////////
-
   /// @notice External instance of IBorrower to claim repay in emergency
   function borrower() external view returns (address);
 
