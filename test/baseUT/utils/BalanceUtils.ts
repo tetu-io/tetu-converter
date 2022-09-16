@@ -92,11 +92,11 @@ export class BalanceUtils {
     const amountToClaim = requiredTotalAmount.gt(availableAmount)
       ? availableAmount
       : requiredTotalAmount;
-    console.log("holder", holder);
-    console.log("availableAmount", availableAmount);
-    console.log("requiredTotalAmount", requiredTotalAmount);
-    console.log("decimals", decimals);
-    console.log("amount", amount);
+    // console.log("holder", holder);
+    // console.log("availableAmount", availableAmount);
+    // console.log("requiredTotalAmount", requiredTotalAmount);
+    // console.log("decimals", decimals);
+    // console.log("amount", amount);
 
     if (amountToClaim.gt(0)) {
       console.log(`Transfer ${amountToClaim.toString()} of ${await connection.name()} to ${recipient}`);

@@ -73,7 +73,7 @@ describe("BorrowRepayTest", () => {
           const INITIAL_LIQUIDITY_COLLATERAL = 100_000;
           const INITIAL_LIQUIDITY_BORROW = 80_000;
           const HEALTH_FACTOR2 = 200;
-          const COUNT_BLOCKS = 10_000;
+          const COUNT_BLOCKS = 1_000;
           describe("Mock", () => {
             it("should return expected balances", async () => {
               if (!await isPolygonForkInUse()) return;

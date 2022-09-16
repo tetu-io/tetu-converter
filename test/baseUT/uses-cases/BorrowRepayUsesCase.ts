@@ -61,6 +61,7 @@ export class BorrowRepayUsesCase {
     for (const action of actions) {
       const balances = await action.doAction(user);
       const poolAdapters: string[] = await user.getBorrows(action.collateralToken.address, action.borrowToken.address);
+      console.log(poolAdapters);
       borrowBalances.push(
         await poolAdapters.reduce(
           async (prevPromise, curPoolAdapterAddress) => {
@@ -91,13 +92,13 @@ export class BorrowRepayUsesCase {
     indexBorrow: number = 0,
     indexRepay: number = 1,
   ) : {sret: string, sexpected: string} {
-    console.log("c0", c0);
-    console.log("b0", b0);
-    console.log("collateralAmount", collateralAmount);
-    console.log("userBalances", userBalances);
-    console.log("borrowBalances", borrowBalances);
-    console.log("totalBorrowedAmount", totalBorrowedAmount);
-    console.log("totalRepaidAmount", totalRepaidAmount);
+    // console.log("c0", c0);
+    // console.log("b0", b0);
+    // console.log("collateralAmount", collateralAmount);
+    // console.log("userBalances", userBalances);
+    // console.log("borrowBalances", borrowBalances);
+    // console.log("totalBorrowedAmount", totalBorrowedAmount);
+    // console.log("totalRepaidAmount", totalRepaidAmount);
     const sret = [
       // collateral after borrow
       userBalances[indexBorrow].collateral

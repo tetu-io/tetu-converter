@@ -21,7 +21,7 @@ describe("CompareAprUsesCaseTest", () => {
   const PATH_OUT = "tmp/compareResults.csv";
   const HEALTH_FACTOR2 = 400;
   const COUNT_BLOCKS_SMALL = 2;
-  const COUNT_BLOCKS_HUGE = 1*40_000;
+  const COUNT_BLOCKS_HUGE = 10_000;
 
   const assets: IAssetInfo[] = [
     {
@@ -60,31 +60,6 @@ describe("CompareAprUsesCaseTest", () => {
       ]
     }
     , {
-      asset: MaticAddresses.ChainLink, title: "ChainLink", holders: [
-        MaticAddresses.HOLDER_ChainLink
-      ]
-    }
-    , {
-      asset: MaticAddresses.AavegotchiGHST, title: "AavegotchiGHST", holders: [
-        MaticAddresses.HOLDER_AavegotchiGHST
-      ]
-    }
-    , {
-      asset: MaticAddresses.CRV, title: "CRV", holders: [
-        MaticAddresses.HOLDER_CRV
-      ]
-    } ,
-    {
-      asset: MaticAddresses.SUSHI, title: "SUSHI", holders: [
-        MaticAddresses.HOLDER_Sushi
-        , MaticAddresses.HOLDER_Sushi_2
-        , MaticAddresses.HOLDER_Sushi_3
-        , MaticAddresses.HOLDER_Sushi_4
-        , MaticAddresses.HOLDER_Sushi_5
-        , MaticAddresses.HOLDER_Sushi_6
-      ]
-    }
-    , {
       asset: MaticAddresses.WETH, title: "WETH", holders: [
         MaticAddresses.HOLDER_WETH
         , MaticAddresses.HOLDER_WETH_2
@@ -92,12 +67,8 @@ describe("CompareAprUsesCaseTest", () => {
       ]
     }
     , {
-      asset: MaticAddresses.BALANCER, title: "BALANCER", holders: [
-        MaticAddresses.HOLDER_BALANCER
-        , MaticAddresses.HOLDER_BALANCER_1
-        , MaticAddresses.HOLDER_BALANCER_2
-        , MaticAddresses.HOLDER_BALANCER_3
-        , MaticAddresses.HOLDER_BALANCER_4
+      asset: MaticAddresses.ChainLink, title: "ChainLink", holders: [
+        MaticAddresses.HOLDER_ChainLink
       ]
     }
     , {
@@ -105,12 +76,41 @@ describe("CompareAprUsesCaseTest", () => {
         MaticAddresses.HOLDER_EURS
       ]
     }
-    , {
-      asset: MaticAddresses.jEUR, title: "jEUR", holders: [
-        MaticAddresses.HOLDER_jEUR
-        , MaticAddresses.HOLDER_jEUR_2
-      ]
-    }
+    // , {
+    //   asset: MaticAddresses.AavegotchiGHST, title: "AavegotchiGHST", holders: [
+    //     MaticAddresses.HOLDER_AavegotchiGHST
+    //   ]
+    // }
+    // , {
+    //   asset: MaticAddresses.CRV, title: "CRV", holders: [
+    //     MaticAddresses.HOLDER_CRV
+    //   ]
+    // } ,
+    // {
+    //   asset: MaticAddresses.SUSHI, title: "SUSHI", holders: [
+    //     MaticAddresses.HOLDER_Sushi
+    //     , MaticAddresses.HOLDER_Sushi_2
+    //     , MaticAddresses.HOLDER_Sushi_3
+    //     , MaticAddresses.HOLDER_Sushi_4
+    //     , MaticAddresses.HOLDER_Sushi_5
+    //     , MaticAddresses.HOLDER_Sushi_6
+    //   ]
+    // }
+    // , {
+    //   asset: MaticAddresses.BALANCER, title: "BALANCER", holders: [
+    //     MaticAddresses.HOLDER_BALANCER
+    //     , MaticAddresses.HOLDER_BALANCER_1
+    //     , MaticAddresses.HOLDER_BALANCER_2
+    //     , MaticAddresses.HOLDER_BALANCER_3
+    //     , MaticAddresses.HOLDER_BALANCER_4
+    //   ]
+    // }
+    // , {
+    //   asset: MaticAddresses.jEUR, title: "jEUR", holders: [
+    //     MaticAddresses.HOLDER_jEUR
+    //     , MaticAddresses.HOLDER_jEUR_2
+    //   ]
+    // }
 
                 // , {
                 //   asset: MaticAddresses.DefiPulseToken, title: "DefiPulseToken", holders: [

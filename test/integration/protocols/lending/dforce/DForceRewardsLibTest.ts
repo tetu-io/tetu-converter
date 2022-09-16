@@ -29,7 +29,7 @@ describe("DForceHelper unit tests", () => {
     deployer = signers[0];
     investor = signers[0];
     libFacade = await DeployUtils.deployContract(deployer
-      , "DForceRewardsLibFacade"
+      , "DForceAprLibFacade"
     ) as DForceAprLibFacade;
   });
 

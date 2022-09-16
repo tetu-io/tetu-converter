@@ -656,9 +656,9 @@ export class AprAave3 {
     stateBeforeBorrow?: IAave3StateInfo,
     operationTimestamp?: number
   ) : Promise<BigNumber> {
-    console.log("predictSupplyApr36");
-    console.log("collateralAmount", collateralAmount);
-    console.log("countBlocks", countBlocks);
+    // console.log("predictSupplyApr36");
+    // console.log("collateralAmount", collateralAmount);
+    // console.log("countBlocks", countBlocks);
     const libFacade = await DeployUtils.deployContract(deployer, "Aave3AprLibFacade") as Aave3AprLibFacade;
     const dp = await Aave3Helper.getAaveProtocolDataProvider(deployer);
 
@@ -674,10 +674,10 @@ export class AprAave3 {
         , collateralAsset
         , borrowAsset
       ));
-    console.log("predictSupplyApr18.before", before);
+    // console.log("predictSupplyApr18.before", before);
 
     const collateralReserveData = reserveData || await dp.getReserveData(collateralAsset);
-    console.log("predictSupplyApr36.collateralReserveData", collateralReserveData);
+    // console.log("predictSupplyApr36.collateralReserveData", collateralReserveData);
 
     const liquidityRateRaysPredicted = await libFacade.getLiquidityRateRays(
       before.collateral.data, // collateralAssetData,
@@ -709,15 +709,15 @@ export class AprAave3 {
       , operationTimestamp || before.blockTimestamp
       , decimalsCollateral
     );
-    console.log("predictSupplyApr36.supplyApr=", supplyApr);
-    console.log("collateralAmount", collateralAmount);
-    console.log("liquidityRateRaysPredicted", liquidityRateRaysPredicted);
-    console.log("priceCollateral", priceCollateral);
-    console.log("countBlocks", countBlocks);
-    console.log("state", state);
-    console.log("blocksPerDay", blocksPerDay);
-    console.log("operationTimestamp", operationTimestamp || before.blockTimestamp);
-    console.log("decimalsCollateral", decimalsCollateral);
+    // console.log("predictSupplyApr36.supplyApr=", supplyApr);
+    // console.log("collateralAmount", collateralAmount);
+    // console.log("liquidityRateRaysPredicted", liquidityRateRaysPredicted);
+    // console.log("priceCollateral", priceCollateral);
+    // console.log("countBlocks", countBlocks);
+    // console.log("state", state);
+    // console.log("blocksPerDay", blocksPerDay);
+    // console.log("operationTimestamp", operationTimestamp || before.blockTimestamp);
+    // console.log("decimalsCollateral", decimalsCollateral);
 
     const baseCurrencyDecimals = Math.log10((await priceOracle.BASE_CURRENCY_UNIT()).toNumber());
     const bbp: IBaseToBorrowParams = {
@@ -803,15 +803,15 @@ export class AprAave3 {
       priceDecimals: baseCurrencyDecimals // all prices in AAVE v3 are in base currency
     }
 
-    console.log("predictBorrowApr36 borrowApr=", borrowApr);
-    console.log("amountToBorrow", amountToBorrow);
-    console.log("brRaysPredicted", brRaysPredicted);
-    console.log("priceBorrow", priceBorrow);
-    console.log("countBlocks", countBlocks);
-    console.log("state", state);
-    console.log("blocksPerDay", blocksPerDay);
-    console.log("operationTimestamp", operationTimestamp || before.blockTimestamp);
-    console.log("decimalsBorrow", decimalsBorrow);
+    // console.log("predictBorrowApr36 borrowApr=", borrowApr);
+    // console.log("amountToBorrow", amountToBorrow);
+    // console.log("brRaysPredicted", brRaysPredicted);
+    // console.log("priceBorrow", priceBorrow);
+    // console.log("countBlocks", countBlocks);
+    // console.log("state", state);
+    // console.log("blocksPerDay", blocksPerDay);
+    // console.log("operationTimestamp", operationTimestamp || before.blockTimestamp);
+    // console.log("decimalsBorrow", decimalsBorrow);
 
     return borrowApr.aprMultiplied18
       .mul(getBigNumberFrom(1, 18))

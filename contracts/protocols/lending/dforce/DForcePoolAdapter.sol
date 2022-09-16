@@ -271,8 +271,6 @@ contract DForcePoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP {
      uint collateralBase,
      uint sumBorrowPlusEffects,
     ) = _getStatus(cTokenCollateral, cTokenBorrow);
-    console.log("status", tokenBalance, borrowBalance, collateralBase);
-    console.log("sumBorrowPlusEffects", sumBorrowPlusEffects);
 
     if (tokenBalance == 0 && borrowBalance == 0) {
       IDebtMonitor(controller.debtMonitor()).onClosePosition();
@@ -350,7 +348,7 @@ contract DForcePoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP {
     address cTokenBorrow = borrowCToken;
     address cTokenCollateral = collateralCToken;
 
-    ( uint collateralTokens,
+  ( uint collateralTokens,
       uint borrowBalance,
       uint collateralBase36,
       uint borrowBase36,
@@ -363,7 +361,6 @@ contract DForcePoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP {
       borrowBase36
     );
 
-    console.log("getStatus");
     console.log("collateralTokens", collateralTokens);
     console.log("borrowBalance", borrowBalance);
     console.log("collateralBase36", collateralBase36);

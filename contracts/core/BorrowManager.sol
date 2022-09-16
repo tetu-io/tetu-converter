@@ -191,7 +191,6 @@ contract BorrowManager is IBorrowManager {
     uint maxTargetAmount,
     int aprForPeriod36
   ) {
-    console.log("findConverter", p_.sourceAmount, p_.periodInBlocks);
 
     // get all available pools from poolsForAssets[smaller-address][higher-address]
     EnumerableSet.AddressSet storage pas = _pairsList[getAssetPairKey(p_.sourceToken, p_.targetToken )];
@@ -235,7 +234,6 @@ contract BorrowManager is IBorrowManager {
     uint maxTargetAmount,
     int apr36
   ) {
-    console.log("_findPool");
     uint lenPools = platformAdapters_.length();
 
     uint[] memory pricesCB18;
@@ -251,12 +249,6 @@ contract BorrowManager is IBorrowManager {
       * pp_.sourceAmount18
       * pricesCB18[0]
       / (pricesCB18[1] * uint(p_.healthFactor2) * 10**(18-2));
-    console.log("sourceAmount18", pp_.sourceAmount18);
-    console.log("price0", pricesCB18[0]);
-    console.log("price1", pricesCB18[1]);
-    console.log("hf", uint(p_.healthFactor2) * 10**(18-2));
-    console.log("borrowAmountFactor18", borrowAmountFactor18.toMantissa(18, pp_.targetDecimals));
-    console.log("targetDecimals", pp_.targetDecimals);
 
     for (uint i = 0; i < lenPools; i = i.uncheckedInc()) {
       AppDataTypes.ConversionPlan memory plan = IPlatformAdapter(platformAdapters_.at(i)).getConversionPlan(
@@ -266,27 +258,19 @@ contract BorrowManager is IBorrowManager {
         borrowAmountFactor18.toMantissa(18, pp_.targetDecimals),
         p_.periodInBlocks
       );
-      int planApr36 = int(plan.borrowApr36) - int(plan.supplyAprBt36) - int(plan.rewardsAmountBt36);
+
+      // combine three found APR to single one
+      int planApr36 = int(plan.borrowApr36)
+        - int(plan.supplyAprBt36)
+        - int(plan.rewardsAmountBt36);
+
       if (plan.converter != address(0)) {
         // check if we are able to supply required collateral
         if (plan.maxAmountToSupplyCT > p_.sourceAmount) {
-          console.log("converter", converter);
-          if (planApr36 > 0) {
-            console.log("planApr36 positive", uint(planApr36));
-          } else {
-            console.log("planApr36 negative", uint(- planApr36));
-          }
-          if (apr36 > 0) {
-            console.log("apr36 positive", uint(apr36));
-          } else {
-            console.log("apr36 negative", uint(- apr36));
-          }
           if (converter == address(0) || planApr36 < apr36) {
             // how much target asset we are able to get for the provided collateral with given health factor
             // TargetTA = BS / PT [TA], C = SA * PS, CM = C / HF, BS = CM * PCF
             uint resultTa18 = plan.liquidationThreshold18 * borrowAmountFactor18 / 1e18;
-            console.log("resultTa18", resultTa18);
-            console.log("maxAmountToBorrowBT", plan.maxAmountToBorrowBT);
 
             // the pool should have enough liquidity
             if (plan.maxAmountToBorrowBT.toMantissa(pp_.targetDecimals, 18) >= resultTa18) {

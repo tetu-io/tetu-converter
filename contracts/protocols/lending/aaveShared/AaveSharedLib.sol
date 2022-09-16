@@ -56,13 +56,6 @@ library AaveSharedLib {
       liquidityIndex
     );
 
-    console.log("reserveNormalizedAfterPeriod", reserveNormalizedAfterPeriod);
-    console.log("reserveNormalized", reserveNormalized);
-    console.log("amount", amount);
-    console.log("aprMultiplier", aprMultiplier);
-    console.log("RESULT", amount * aprMultiplier
-      * (reserveNormalizedAfterPeriod - reserveNormalized)
-      / reserveNormalized);
     return reserveNormalizedAfterPeriod < reserveNormalized
       ? 0
       : amount
@@ -89,19 +82,10 @@ library AaveSharedLib {
     uint operationTimestamp,
     uint aprMultiplier
   ) internal view returns (uint) {
-    console.log("getAprForPeriodBefore");
-    console.log("amount", amount);
-    console.log("predictedRate", predictedRate);
-    console.log("countBlocks", countBlocks);
-    console.log("blocksPerDay", blocksPerDay);
-    console.log("operationTimestamp", operationTimestamp);
-
     // recalculate reserveNormalized and liquidityIndex after the supply/borrow operation
     // For borrow we have only approx calculations here because we don't take into account compound effect
     // for the period [state.lastUpdateTimestamp ... operationTimestamp]
     uint liquidityIndexAfter = getNextLiquidityIndex(state, operationTimestamp);
-
-    console.log("liquidityIndexAfter", liquidityIndexAfter);
 
     return getAprForPeriodAfter(
       amount,
