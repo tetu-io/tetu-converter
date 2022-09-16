@@ -18,8 +18,9 @@ import {MocksHelper} from "../baseUT/helpers/MocksHelper";
 import {DeployerUtils} from "../../scripts/utils/DeployerUtils";
 import {BalanceUtils, ContractToInvestigate} from "../baseUT/utils/BalanceUtils";
 import {BigNumber} from "ethers";
+import {Misc} from "../../scripts/utils/Misc";
 
-describe("BorrowManager", () => {
+describe("TetuConverterTest", () => {
 //region Constants
   const BLOCKS_PER_DAY = 6456;
 //endregion Constants
@@ -303,22 +304,23 @@ describe("BorrowManager", () => {
               period
             );
 
-            const sret = [
-              ret.converter,
-              ret.maxTargetAmount,
-              ret.aprForPeriod36
-            ].join();
-
             const expectedTargetAmount =
               input.collateralFactor
               * sourceAmount * input.priceSourceUSD
               / (input.priceTargetUSD)
               / healthFactor;
 
+
+            const sret = [
+              ret.converter,
+              ret.maxTargetAmount,
+              ret.aprForPeriod36
+            ].join();
+
             const sexpected = [
-              data.pools[0].converter,
-              getBigNumberFrom(expectedTargetAmount, input.targetDecimals),
-              bestBorrowRate.mul(period)
+              data.pools[0].converter
+              , getBigNumberFrom(expectedTargetAmount, input.targetDecimals)
+              , bestBorrowRate.mul(period).mul(Misc.WEI)
             ].join();
 
             expect(sret).equal(sexpected);

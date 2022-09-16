@@ -30,6 +30,7 @@ export type BorrowTestMaker = (
 
 export interface IBorrowTestResults {
   platformTitle: string;
+  countBlocks: number;
 
   assetCollateral: IAssetInfo;
   collateralAmount: BigNumber;
@@ -179,6 +180,7 @@ export class CompareAprUsesCase {
           if (task.exactAmountToBorrow && !plan.maxAmountToBorrowBT.gt(task.amountToBorrow)) {
             dest.push({
               platformTitle: platformTitle,
+              countBlocks: countBlocks,
               assetBorrow: task.borrowAsset,
               assetCollateral: task.collateralAsset,
               collateralAmount: collateralAmount,
@@ -188,6 +190,7 @@ export class CompareAprUsesCase {
           } else if (plan.converter == Misc.ZERO_ADDRESS) {
             dest.push({
               platformTitle: platformTitle,
+              countBlocks: countBlocks,
               assetBorrow: task.borrowAsset,
               assetCollateral: task.collateralAsset,
               collateralAmount: collateralAmount,
@@ -216,6 +219,7 @@ export class CompareAprUsesCase {
             );
             dest.push({
               platformTitle: platformTitle,
+              countBlocks: countBlocks,
               assetBorrow: task.borrowAsset,
               assetCollateral: task.collateralAsset,
               collateralAmount: collateralAmount,

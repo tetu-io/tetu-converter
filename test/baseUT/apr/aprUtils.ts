@@ -149,6 +149,7 @@ export function appendTestResultsToFile(path: string, data: IBorrowTestResults[]
   if (! existsSync(path)) {
     const headers: string[] = [
       "platformTitle"
+      , "period.blocks"
       , "error"
 
       , "Collateral"
@@ -158,20 +159,24 @@ export function appendTestResultsToFile(path: string, data: IBorrowTestResults[]
       , "amount.B"
       , "amountBT18.C"
 
+      , "plan.S.AprBt36"
+      , "plan.B.Apr36"
+      , "plan.R.AmountBt36"
+
+      , "P.C.aprBt36"
+      , "R.C.aprBt36"
+
+      , "P.B.aprBt36"
+      , "R.B.aprBt36"
+
       , "price.C"
       , "price.B"
 
-      , "predicted.C.aprBT18"
-      , "result.C.aprBT18"
+      , "P.C.supplyRate"
+      , "R.C.supplyRate"
 
-      , "predicted.B.aprBT18"
-      , "result.B.aprBT18"
-
-      , "predicted.C.supplyRate"
-      , "result.C.supplyRate"
-
-      , "predicted.C.borrowRate"
-      , "result.C.borrowRate"
+      , "P.C.borrowRate"
+      , "R.C.borrowRate"
 
       , "block0"
       , "block1"
@@ -181,16 +186,12 @@ export function appendTestResultsToFile(path: string, data: IBorrowTestResults[]
       , "Collateral.address"
       , "Borrow.address"
 
+// plan
       , "plan.converter"
       , "plan.ltv18"
-      , "plan.borrowApr18"
       , "plan.liquidationThreshold18"
       , "plan.maxAmountToSupplyCT"
       , "plan.maxAmountToBorrowBT"
-      , "plan.rewardsAmountBT18"
-      , "plan.supplyAprBT18"
-
-// plan
 
 // point 0
       , "costsBT18.C"
@@ -215,6 +216,7 @@ export function appendTestResultsToFile(path: string, data: IBorrowTestResults[]
   for (const row of data) {
     const line = [
       row.platformTitle
+      , row.countBlocks
       , row.error
 
       , row.assetCollateral.title
@@ -224,14 +226,18 @@ export function appendTestResultsToFile(path: string, data: IBorrowTestResults[]
       , row.results?.init.borrowAmount
       , row.results?.init.collateralAmountBT18
 
-      , row.results?.prices.collateral
-      , row.results?.prices.borrow
+      , row.plan.supplyAprBt36
+      , row.plan.borrowApr36
+      , row.plan.rewardsAmountBt36
 
       , row.results?.predicted.aprBt36.collateral
       , row.results?.resultsBlock.aprBt36.collateral
 
       , row.results?.predicted.aprBt36.borrow
       , row.results?.resultsBlock.aprBt36.borrow
+
+      , row.results?.prices.collateral
+      , row.results?.prices.borrow
 
       , row.results?.predicted.rates.supplyRate
       , row.results?.resultsBlock.rates.supplyRate
@@ -249,12 +255,9 @@ export function appendTestResultsToFile(path: string, data: IBorrowTestResults[]
 
       , row.plan.converter
       , row.plan.ltv18
-      , row.plan.borrowApr36
       , row.plan.liquidationThreshold18
       , row.plan.maxAmountToSupplyCT
       , row.plan.maxAmountToBorrowBT
-      , row.plan.rewardsAmountBt36
-      , row.plan.supplyAprBt36
     ];
 
     if (row.results) {

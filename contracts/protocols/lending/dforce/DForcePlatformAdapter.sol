@@ -185,11 +185,12 @@ contract DForcePlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
             }
           }
 
-          // calculate current borrow rate and predicted BR value after borrowing required amount
+          // calculate current borrow rate and predicted APR after borrowing required amount
           uint amountToBorrow = borrowAmountFactor18_ * plan.liquidationThreshold18 / 1e18;
           if (amountToBorrow > plan.maxAmountToBorrowBT) {
             amountToBorrow = plan.maxAmountToBorrowBT;
           }
+
           (plan.borrowApr36, plan.supplyAprBt36, plan.rewardsAmountBt36) = DForceAprLib.getRawAprInfo36(
             DForceAprLib.getCore(comptroller, cTokenCollateral, cTokenBorrow),
             collateralAmount_,

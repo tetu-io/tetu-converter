@@ -48,6 +48,8 @@ export class MaticAddresses {
   public static HOLDER_WMATIC_3 = "0xadbf1854e5883eb8aa7baf50705338739e558e5b";
 
   public static HOLDER_EURS = "0x6de2865067b65d4571c17f6b9eeb8dbdd5e36584";
+  public static HOLDER_EURS_2 = "0x1bee4f735062cd00841d6997964f187f5f5f5ac9";
+  public static HOLDER_EURS_3 = "0x6cf2656c825656bb07a6630855618df37bec7725";
   public static HOLDER_BALANCER = "0x4cd80aa0ce4881eb8679eda1f6fbe3d89aec0f7f";
   public static HOLDER_BALANCER_1 = "0x2aea39e27fc87de4a63963687c6e188f062197b4";
   public static HOLDER_BALANCER_2 = "0x75070bade864bf4fa4ccc491cb28f077c4473bff";

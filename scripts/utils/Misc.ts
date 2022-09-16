@@ -22,6 +22,12 @@ export class Misc {
   public static readonly SECONDS_OF_DAY = 60 * 60 * 24;
   public static readonly SECONDS_OF_YEAR = Misc.SECONDS_OF_DAY * 365;
   public static readonly ZERO_ADDRESS = '0x0000000000000000000000000000000000000000';
+  /** 1e18 */
+  public static readonly WEI =         BigNumber.from('1000000000000000000');
+  /** 1e36 */
+  public static readonly WEI_DOUBLE =  BigNumber.from('1000000000000000000000000000000000000');
+  /** 1e27 */
+  public static readonly RAYS =        BigNumber.from('1000000000000000000000000000');
 
   public static printDuration(text: string, start: number) {
     log.info('>>>' + text, ((Date.now() - start) / 1000).toFixed(1), 'sec');

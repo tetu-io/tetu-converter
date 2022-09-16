@@ -14,7 +14,6 @@ import {AprAaveTwo} from "../baseUT/apr/aprAaveTwo";
 import {AprDForce} from "../baseUT/apr/aprDForce";
 import {appendTestResultsToFile} from "../baseUT/apr/aprUtils";
 import {areAlmostEqual} from "../baseUT/utils/CommonUtils";
-import exp from "constants";
 import {expect} from "chai";
 
 describe("CompareAprUsesCaseTest", () => {
@@ -23,7 +22,7 @@ describe("CompareAprUsesCaseTest", () => {
   const HEALTH_FACTOR2 = 400;
   const COUNT_BLOCKS_SMALL = 2;
   const COUNT_BLOCKS_NORMAL = 80_000;
-  const COUNT_BLOCK_HUGE = 30*40_000;
+  const COUNT_BLOCKS_HUGE = 10*40_000;
 
   const assets: IAssetInfo[] = [
     {
@@ -317,14 +316,15 @@ describe("CompareAprUsesCaseTest", () => {
 //endregion Test impl
 
   describe("Make all borrow tests", () => {
-    describe("Normal count of blocks (2 days)", () => {
+    describe("Small count of blocks (2 days)", () => {
+      const COUNT_BLOCKS = COUNT_BLOCKS_SMALL;
       describe("Exact small amount", () => {
         it("AAVE3", async () => {
           const tasks: IBorrowTask[] = CompareAprUsesCase.generateTasks(assets
             , true
             , await getSmallAmounts(assets)
           );
-          const ret = await makeTestAave3(COUNT_BLOCKS_SMALL, tasks);
+          const ret = await makeTestAave3(COUNT_BLOCKS, tasks);
           appendTestResultsToFile(PATH_OUT, ret);
         })
         it("AAVETwo", async () => {
@@ -332,7 +332,7 @@ describe("CompareAprUsesCaseTest", () => {
             , true
             , await getSmallAmounts(assets)
           );
-          const ret = await makeTestAaveTwo(COUNT_BLOCKS_SMALL, tasks);
+          const ret = await makeTestAaveTwo(COUNT_BLOCKS, tasks);
           appendTestResultsToFile(PATH_OUT, ret);
         })
         it("DForce", async () => {
@@ -340,7 +340,7 @@ describe("CompareAprUsesCaseTest", () => {
             , true
             , await getSmallAmounts(assets)
           );
-          const ret = await makeTestDForce(COUNT_BLOCKS_SMALL, tasks);
+          const ret = await makeTestDForce(COUNT_BLOCKS, tasks);
           appendTestResultsToFile(PATH_OUT, ret);
         })
       });
@@ -350,7 +350,7 @@ describe("CompareAprUsesCaseTest", () => {
             , true
             , await getMiddleAmounts(assets)
           );
-          const ret = await makeTestAave3(COUNT_BLOCKS_SMALL, tasks);
+          const ret = await makeTestAave3(COUNT_BLOCKS, tasks);
           appendTestResultsToFile(PATH_OUT, ret);
         })
         it("AAVETwo", async () => {
@@ -358,7 +358,7 @@ describe("CompareAprUsesCaseTest", () => {
             , true
             , await getMiddleAmounts(assets)
           );
-          const ret = await makeTestAaveTwo(COUNT_BLOCKS_SMALL, tasks);
+          const ret = await makeTestAaveTwo(COUNT_BLOCKS, tasks);
           appendTestResultsToFile(PATH_OUT, ret);
         })
         it("DForce", async () => {
@@ -366,11 +366,11 @@ describe("CompareAprUsesCaseTest", () => {
             , true
             , await getMiddleAmounts(assets)
           );
-          const ret = await makeTestDForce(COUNT_BLOCKS_SMALL, tasks);
+          const ret = await makeTestDForce(COUNT_BLOCKS, tasks);
           appendTestResultsToFile(PATH_OUT, ret);
         })
       });
-      describe("Debug AAVE3", () => {
+      describe.skip("Debug AAVE3", () => {
         it("AAVE3 DAI:USDC", async () => {
           const tasks: IBorrowTask[] = [
             {
@@ -380,7 +380,7 @@ describe("CompareAprUsesCaseTest", () => {
               exactAmountToBorrow: true
             }
           ];
-          const ret = await makeTestAave3(COUNT_BLOCKS_SMALL, tasks);
+          const ret = await makeTestAave3(COUNT_BLOCKS, tasks);
           appendTestResultsToFile(PATH_OUT, ret);
           const {sret, sexpected} = validate(ret);
           expect(sret).eq(sexpected);
@@ -394,7 +394,7 @@ describe("CompareAprUsesCaseTest", () => {
               exactAmountToBorrow: true
             }
           ];
-          const ret = await makeTestAave3(COUNT_BLOCKS_SMALL, tasks);
+          const ret = await makeTestAave3(COUNT_BLOCKS, tasks);
           appendTestResultsToFile(PATH_OUT, ret);
           const {sret, sexpected} = validate(ret);
           expect(sret).eq(sexpected);
@@ -408,7 +408,7 @@ describe("CompareAprUsesCaseTest", () => {
               exactAmountToBorrow: true
             }
           ];
-          const ret = await makeTestAave3(COUNT_BLOCKS_SMALL, tasks);
+          const ret = await makeTestAave3(COUNT_BLOCKS, tasks);
           appendTestResultsToFile(PATH_OUT, ret);
           const {sret, sexpected} = validate(ret);
           expect(sret).eq(sexpected);
@@ -422,7 +422,7 @@ describe("CompareAprUsesCaseTest", () => {
               exactAmountToBorrow: true
             }
           ];
-          const ret = await makeTestAave3(COUNT_BLOCKS_SMALL, tasks);
+          const ret = await makeTestAave3(COUNT_BLOCKS, tasks);
           appendTestResultsToFile(PATH_OUT, ret);
           const {sret, sexpected} = validate(ret);
           expect(sret).eq(sexpected);
@@ -436,13 +436,13 @@ describe("CompareAprUsesCaseTest", () => {
               exactAmountToBorrow: true
             }
           ];
-          const ret = await makeTestAave3(COUNT_BLOCKS_SMALL, tasks);
+          const ret = await makeTestAave3(COUNT_BLOCKS, tasks);
           appendTestResultsToFile(PATH_OUT, ret);
           const {sret, sexpected} = validate(ret);
           expect(sret).eq(sexpected);
         })
       })
-      describe("Debug DForce", () => {
+      describe.skip("Debug DForce", () => {
         it("AAVE3 DAI:WBTC", async () => {
           const tasks: IBorrowTask[] = [
             {
@@ -473,7 +473,61 @@ describe("CompareAprUsesCaseTest", () => {
         })
       });
     });
-
+    describe("Huge count of blocks (10 days)", () => {
+      const COUNT_BLOCKS = COUNT_BLOCKS_HUGE;
+      describe("Exact small amount", () => {
+        it("AAVE3", async () => {
+          const tasks: IBorrowTask[] = CompareAprUsesCase.generateTasks(assets
+            , true
+            , await getSmallAmounts(assets)
+          );
+          const ret = await makeTestAave3(COUNT_BLOCKS, tasks);
+          appendTestResultsToFile(PATH_OUT, ret);
+        })
+        it("AAVETwo", async () => {
+          const tasks: IBorrowTask[] = CompareAprUsesCase.generateTasks(assets
+            , true
+            , await getSmallAmounts(assets)
+          );
+          const ret = await makeTestAaveTwo(COUNT_BLOCKS, tasks);
+          appendTestResultsToFile(PATH_OUT, ret);
+        })
+        it("DForce", async () => {
+          const tasks: IBorrowTask[] = CompareAprUsesCase.generateTasks(assets
+            , true
+            , await getSmallAmounts(assets)
+          );
+          const ret = await makeTestDForce(COUNT_BLOCKS, tasks);
+          appendTestResultsToFile(PATH_OUT, ret);
+        })
+      });
+      describe("Exact middle amount", () => {
+        it("AAVE3", async () => {
+          const tasks: IBorrowTask[] = CompareAprUsesCase.generateTasks(assets
+            , true
+            , await getMiddleAmounts(assets)
+          );
+          const ret = await makeTestAave3(COUNT_BLOCKS, tasks);
+          appendTestResultsToFile(PATH_OUT, ret);
+        })
+        it("AAVETwo", async () => {
+          const tasks: IBorrowTask[] = CompareAprUsesCase.generateTasks(assets
+            , true
+            , await getMiddleAmounts(assets)
+          );
+          const ret = await makeTestAaveTwo(COUNT_BLOCKS, tasks);
+          appendTestResultsToFile(PATH_OUT, ret);
+        })
+        it("DForce", async () => {
+          const tasks: IBorrowTask[] = CompareAprUsesCase.generateTasks(assets
+            , true
+            , await getMiddleAmounts(assets)
+          );
+          const ret = await makeTestDForce(COUNT_BLOCKS, tasks);
+          appendTestResultsToFile(PATH_OUT, ret);
+        })
+      });
+    });
   });
 });
 

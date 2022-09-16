@@ -19,7 +19,7 @@ import {MaticAddresses} from "../../../../../scripts/addresses/MaticAddresses";
 import {MocksHelper} from "../../../../baseUT/helpers/MocksHelper";
 import {TokenDataTypes} from "../../../../baseUT/types/TokenDataTypes";
 
-describe("Aave-v3 integration tests, pool adapter", () => {
+describe("Aave3PoolAdapterTest", () => {
 //region Constants
 
 //endregion Constants
@@ -300,13 +300,16 @@ describe("Aave-v3 integration tests, pool adapter", () => {
       }
     }
 
-    async function getMaxAmountToBorrow(collateralDataBefore: ReserveInfo) : Promise<BigNumber> {
+    async function getMaxAmountToBorrow(
+      collateralDataBefore: ReserveInfo
+      , borrowDataBefore: ReserveInfo
+    ) : Promise<BigNumber> {
       // get max allowed amount to borrow
       // amount = (debt-ceiling - total-isolation-debt) * 10^{6 - 2}
       // see aave-v3-core: validateBorrow()
       const debtCeiling = collateralDataBefore.data.debtCeiling;
       const totalIsolationDebt = collateralDataBefore.data.isolationModeTotalDebt;
-      const decimalsBorrow = collateralDataBefore.data.decimals;
+      const decimalsBorrow = borrowDataBefore.data.decimals;
       const precisionDebtCeiling = 2; //Aave3ReserveConfiguration.DEBT_CEILING_DECIMALS
       console.log("debtCeiling", debtCeiling);
       console.log("totalIsolationDebt", totalIsolationDebt);
@@ -343,9 +346,78 @@ describe("Aave-v3 integration tests, pool adapter", () => {
       const userAccountDataAfter = await aavePool.getUserAccountData(user.address);
       console.log(userAccountDataAfter);
     }
+
+    /** Calculate max allowed borrow amount in isolation mode manually and using getConversionPlan
+     * Try to make borrow of (the max allowed amount + optional delta)
+     * */
+    async function borrowMaxAmountInIsolationMode (
+      collateralAsset: string,
+      collateralHolders: string[],
+      borrowAsset: string,
+      borrowHolders: string[],
+      deltaToMaxAmount?: BigNumber
+    ) : Promise<{maxBorrowAmount: BigNumber, maxBorrowAmountByPlan: BigNumber}>{
+      const user = await DeployerUtils.startImpersonate(ethers.Wallet.createRandom().address);
+      const countBlocks = 10;
+
+      const aavePool = await Aave3Helper.getAavePool(user);
+      const dp = await Aave3Helper.getAaveProtocolDataProvider(user);
+
+      await supplyEnoughBorrowAssetToAavePool(aavePool.address, borrowHolders, borrowAsset);
+      await takeCollateralFromHolders(user.address, collateralHolders, collateralAsset);
+
+      // take collateral status before supply
+      const h: Aave3Helper = new Aave3Helper(user);
+      const collateralDataBefore = await h.getReserveInfo(user, aavePool, dp, collateralAsset);
+      const borrowDataBefore = await h.getReserveInfo(user, aavePool, dp, borrowAsset);
+      console.log("collateralDataBefore", collateralDataBefore);
+
+      // calculate max amount to borrow manually
+      const maxBorrowAmount = await getMaxAmountToBorrow(collateralDataBefore, borrowDataBefore);
+
+      // get conversion strategy from tetu converter
+      const controller = await CoreContractsHelper.createController(deployer);
+      const templateAdapterStub = ethers.Wallet.createRandom().address;
+
+      const pa = await AdaptersHelper.createAave3PlatformAdapter(deployer
+        , controller.address
+        , aavePool.address
+        , templateAdapterStub
+        , templateAdapterStub
+      );
+      const plan = await pa.getConversionPlan(
+        collateralAsset,
+        0,
+        borrowAsset,
+        0,
+        countBlocks);
+
+      // now, let's ensure that we can borrow max amount
+      console.log("Max allowed amount to borrow", maxBorrowAmount);
+
+      const amountToBorrow = deltaToMaxAmount
+        ? maxBorrowAmount.add(deltaToMaxAmount)
+        : maxBorrowAmount;
+
+      console.log("Try to borrow", amountToBorrow);
+
+      await makeBorrow(aavePool, user, amountToBorrow, collateralAsset, borrowAsset);
+
+      // after borrow
+      const collateralDataAfter = await h.getReserveInfo(user, aavePool, dp, collateralAsset);
+      console.log("collateralDataAfter", collateralDataAfter);
+      console.log("isolationModeTotalDebt delta"
+        , BigNumber.from(collateralDataAfter.data.isolationModeTotalDebt)
+          .sub(BigNumber.from(collateralDataBefore.data.isolationModeTotalDebt))
+      );
+
+      return {maxBorrowAmount, maxBorrowAmountByPlan: plan.maxAmountToBorrowBT}
+    }
 //endregion Utils
+
     describe("Good paths", () => {
       describe("USDT : DAI", () => {
+//region Constants
         const collateralAsset = MaticAddresses.USDT;
         const borrowAsset = MaticAddresses.DAI;
         const collateralHolders = [
@@ -362,63 +434,35 @@ describe("Aave-v3 integration tests, pool adapter", () => {
           MaticAddresses.HOLDER_DAI_5,
           MaticAddresses.HOLDER_DAI_6
         ];
+//endregion Constants
         describe("Try to borrow max amount allowed by debt ceiling", () => {
           it("should return expected values", async () => {
-            const user = await DeployerUtils.startImpersonate(ethers.Wallet.createRandom().address);
-            const countBlocks = 10;
+            const ret = await borrowMaxAmountInIsolationMode(collateralAsset, collateralHolders, borrowAsset, borrowHolders);
 
-            const aavePool = await Aave3Helper.getAavePool(user);
-            const dp = await Aave3Helper.getAaveProtocolDataProvider(user);
+            const sret = ret.maxBorrowAmount.toString();
+            const sexpected = ret.maxBorrowAmountByPlan.toString();
 
-            await supplyEnoughBorrowAssetToAavePool(aavePool.address, borrowHolders, borrowAsset);
-            await takeCollateralFromHolders(user.address, collateralHolders, collateralAsset);
+            expect(sret).eq(sexpected);
+          });
+        });
+      });
+      describe("EURS : USDC", () => {
+//region Constants
+        const collateralAsset = MaticAddresses.EURS;
+        const borrowAsset = MaticAddresses.USDC;
+        const collateralHolders = [MaticAddresses.HOLDER_EURS
+          , MaticAddresses.HOLDER_EURS_2
+          , MaticAddresses.HOLDER_EURS_3
+        ];
+        const borrowHolders = [MaticAddresses.HOLDER_USDC];
+//endregion Constants
 
-            // take collateral status before supply
-            const h: Aave3Helper = new Aave3Helper(user);
-            const collateralDataBefore = await h.getReserveInfo(user, aavePool, dp, collateralAsset);
-            const borrowDataBefore = await h.getReserveInfo(user, aavePool, dp, borrowAsset);
-            console.log("collateralDataBefore", collateralDataBefore);
+        describe("Try to borrow max amount allowed by debt ceiling", () => {
+          it("should return expected values", async () => {
+            const ret = await borrowMaxAmountInIsolationMode(collateralAsset, collateralHolders, borrowAsset, borrowHolders);
 
-            // calculate max amount to borrow manually
-            const maxBorrowAmount = await getMaxAmountToBorrow(collateralDataBefore);
-
-            // get conversion strategy from tetu converter
-            const controller = await CoreContractsHelper.createController(deployer);
-            const templateAdapterStub = ethers.Wallet.createRandom().address;
-
-            const pa = await AdaptersHelper.createAave3PlatformAdapter(deployer
-              , controller.address
-              , aavePool.address
-              , templateAdapterStub
-              , templateAdapterStub
-            );
-            const plan = await pa.getConversionPlan(
-              collateralAsset,
-              0,
-              borrowAsset,
-              0,
-              countBlocks);
-
-            // now, let's ensure that we can borrow max amount
-            const borrowAmount = maxBorrowAmount //.add(DELTA)
-              .mul(getBigNumberFrom(1, borrowDataBefore.data.decimals))
-              .div(getBigNumberFrom(1, collateralDataBefore.data.decimals))
-            ; //getBigNumberFrom(borrowAmountNumber, borrowDataBefore.data.decimals);
-            console.log("Max amount to borrow", maxBorrowAmount);
-            console.log("Amount to borrow", borrowAmount);
-
-            await makeBorrow(aavePool, user, borrowAmount, collateralAsset, borrowAsset);
-
-            // after borrow
-            const collateralDataAfter = await h.getReserveInfo(user, aavePool, dp, collateralAsset);
-            console.log("collateralDataAfter", collateralDataAfter);
-            console.log("isolationModeTotalDebt delta"
-              , BigNumber.from(collateralDataAfter.data.isolationModeTotalDebt)
-                .sub(BigNumber.from(collateralDataBefore.data.isolationModeTotalDebt))
-            );
-
-            const sret = maxBorrowAmount.toString();
-            const sexpected = plan.maxAmountToBorrowBT.toString();
+            const sret = ret.maxBorrowAmount.toString();
+            const sexpected = ret.maxBorrowAmountByPlan.toString();
 
             expect(sret).eq(sexpected);
           });
@@ -429,6 +473,7 @@ describe("Aave-v3 integration tests, pool adapter", () => {
     describe("Bad paths", () => {
       describe("Debt ceiling exceeded", () => {
         describe("USDT : DAI", () => {
+//region Constants
           const collateralAsset = MaticAddresses.USDT;
           const borrowAsset = MaticAddresses.DAI;
           const collateralHolders = [
@@ -445,45 +490,44 @@ describe("Aave-v3 integration tests, pool adapter", () => {
             MaticAddresses.HOLDER_DAI_5,
             MaticAddresses.HOLDER_DAI_6
           ];
-          it("should revert", async () => {
-            const user = await DeployerUtils.startImpersonate(ethers.Wallet.createRandom().address);
+//endregion Constants
+          describe("Try to borrow max amount allowed by debt ceiling", () => {
+            it("should return expected values", async () => {
+              it("should return expected values", async () => {
+                await expect(
+                  borrowMaxAmountInIsolationMode(collateralAsset
+                    , collateralHolders
+                    , borrowAsset
+                    , borrowHolders
+                    , getBigNumberFrom(1, 18) // 1 DAI
+                  )
+                ).revertedWith("VM Exception while processing transaction: reverted with reason string '53'");
+              });
+            });
+          });
+        });
+        describe("EURS : USDC", () => {
+//region Constants
+          const collateralAsset = MaticAddresses.EURS;
+          const borrowAsset = MaticAddresses.USDC;
+          const collateralHolders = [MaticAddresses.HOLDER_EURS
+            , MaticAddresses.HOLDER_EURS_2
+            , MaticAddresses.HOLDER_EURS_3
+          ];
+          const borrowHolders = [MaticAddresses.HOLDER_USDC];
+//endregion Constants
 
-            const aavePool = await Aave3Helper.getAavePool(user);
-            const dp = await Aave3Helper.getAaveProtocolDataProvider(user);
-
-            await supplyEnoughBorrowAssetToAavePool(aavePool.address, borrowHolders, borrowAsset);
-            await takeCollateralFromHolders(user.address, collateralHolders, collateralAsset);
-
-            // take collateral status before supply
-            const h: Aave3Helper = new Aave3Helper(user);
-            const collateralDataBefore = await h.getReserveInfo(user, aavePool, dp, collateralAsset);
-            const borrowDataBefore = await h.getReserveInfo(user, aavePool, dp, borrowAsset);
-            console.log("collateralDataBefore", collateralDataBefore);
-
-            // get conversion strategy from tetu converter
-            const controller = await CoreContractsHelper.createController(deployer);
-            const templateAdapterStub = ethers.Wallet.createRandom().address;
-
-            const pa = await AdaptersHelper.createAave3PlatformAdapter(deployer
-              , controller.address
-              , aavePool.address
-              , templateAdapterStub
-              , templateAdapterStub
-            );
-            const plan = await pa.getConversionPlan(collateralAsset, 0, borrowAsset, 0, 0);
-
-            // now, let's ensure that we can borrow max amount
-            const DELTA = BigNumber.from(1e6); // $1
-            const borrowAmount = plan.maxAmountToBorrowBT.add(DELTA)
-              .mul(getBigNumberFrom(1, borrowDataBefore.data.decimals))
-              .div(getBigNumberFrom(1, collateralDataBefore.data.decimals))
-            ; //getBigNumberFrom(borrowAmountNumber, borrowDataBefore.data.decimals);
-            console.log("borrow amount", borrowAmount.toString());
-
-            // AAVE3: constant DEBT_CEILING_EXCEEDED = '53'; // 'Debt ceiling is exceeded'
-            await expect(
-              makeBorrow(aavePool, user, borrowAmount, collateralAsset, borrowAsset)
-            ).revertedWith("VM Exception while processing transaction: reverted with reason string '53'");
+          describe("Try to borrow max amount allowed by debt ceiling", () => {
+            it("should return expected values", async () => {
+              await expect(
+                borrowMaxAmountInIsolationMode(collateralAsset
+                  , collateralHolders
+                  , borrowAsset
+                  , borrowHolders
+                  , getBigNumberFrom(1, 6) // 1 USDC
+                )
+              ).revertedWith("VM Exception while processing transaction: reverted with reason string '53'");
+            });
           });
         });
       });

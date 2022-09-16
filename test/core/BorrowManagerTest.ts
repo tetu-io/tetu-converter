@@ -16,6 +16,7 @@ import {IBmInputParams, BorrowManagerHelper} from "../baseUT/helpers/BorrowManag
 import {MocksHelper} from "../baseUT/helpers/MocksHelper";
 import {CoreContractsHelper} from "../baseUT/helpers/CoreContractsHelper";
 import {generateAssetPairs, IAssetPair} from "../baseUT/utils/AssetPairUtils";
+import {Misc} from "../../scripts/utils/Misc";
 
 describe("BorrowManager", () => {
 //region Global vars for all tests
@@ -354,7 +355,7 @@ describe("BorrowManager", () => {
       estimateGas: boolean = false
     ) : Promise<{
       outPoolIndex0: number;
-      outApr: BigNumber;
+      outApr36: BigNumber;
       outMaxTargetAmount: BigNumber;
       outGas?: BigNumber
     }> {
@@ -381,7 +382,7 @@ describe("BorrowManager", () => {
         : undefined;
       return {
         outPoolIndex0: pools.findIndex(x => x.converter == ret.converter),
-        outApr: ret.aprForPeriod36,
+        outApr36: ret.aprForPeriod36,
         outMaxTargetAmount: ret.maxTargetAmount,
         outGas: gas
       }
@@ -419,7 +420,7 @@ describe("BorrowManager", () => {
             const sret = [
               ret.outPoolIndex0,
               ethers.utils.formatUnits(ret.outMaxTargetAmount, input.targetDecimals),
-              ethers.utils.formatUnits(ret.outApr, input.targetDecimals)
+              ethers.utils.formatUnits(ret.outApr36.div(Misc.WEI), input.targetDecimals)
             ].join();
 
             const sexpected = [
@@ -432,6 +433,7 @@ describe("BorrowManager", () => {
             expect(sret).equal(sexpected);
           });
         });
+
         describe("Example 4: Pool 3 has a lowest borrow rate", () => {
           it("should return Pool 3 and expected amount", async () => {
             const bestBorrowRate = 270;
@@ -471,7 +473,7 @@ describe("BorrowManager", () => {
             const sret = [
               ret.outPoolIndex0,
               ethers.utils.formatUnits(ret.outMaxTargetAmount, input.targetDecimals),
-              ethers.utils.formatUnits(ret.outApr, input.targetDecimals)
+              ethers.utils.formatUnits(ret.outApr36.div(Misc.WEI), input.targetDecimals)
             ].join();
 
             const sexpected = [
@@ -515,7 +517,7 @@ describe("BorrowManager", () => {
             const sret = [
               ret.outPoolIndex0,
               ethers.utils.formatUnits(ret.outMaxTargetAmount, input.targetDecimals),
-              ethers.utils.formatUnits(ret.outApr, input.targetDecimals)
+              ethers.utils.formatUnits(ret.outApr36.div(Misc.WEI), input.targetDecimals)
             ].join();
 
             const sexpected = [
@@ -622,7 +624,7 @@ describe("BorrowManager", () => {
           const sret = [
             ret.outPoolIndex0,
             ethers.utils.formatUnits(ret.outMaxTargetAmount, input.targetDecimals),
-            ethers.utils.formatUnits(ret.outApr, input.targetDecimals)
+            ethers.utils.formatUnits(ret.outApr36, input.targetDecimals)
           ].join();
 
           const sexpected = [-1, "0.0", "0.0"].join();
@@ -661,7 +663,7 @@ describe("BorrowManager", () => {
           const sret = [
             ret.outPoolIndex0,
             ethers.utils.formatUnits(ret.outMaxTargetAmount, input.targetDecimals),
-            ethers.utils.formatUnits(ret.outApr, input.targetDecimals)
+            ethers.utils.formatUnits(ret.outApr36, input.targetDecimals)
           ].join();
           const sexpected = [-1, "0.0", "0.0"].join();
 

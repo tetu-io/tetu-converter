@@ -21,7 +21,7 @@ import {IPlatformActor, PredictBrUsesCase} from "../../../../baseUT/uses-cases/P
 import {AprAaveTwo, getAaveTwoStateInfo} from "../../../../baseUT/apr/aprAaveTwo";
 import {Aave3Helper} from "../../../../../scripts/integration/helpers/Aave3Helper";
 
-describe("Aave-v2 integration tests, platform adapter", () => {
+describe("AaveTwoPlatformAdapterTest", () => {
 //region Global vars for all tests
   let snapshot: string;
   let snapshotForEach: string;

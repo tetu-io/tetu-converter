@@ -14,13 +14,13 @@ import {isPolygonForkInUse} from "../../../../baseUT/utils/NetworkUtils";
 import {Aave3Helper} from "../../../../../scripts/integration/helpers/Aave3Helper";
 import {BalanceUtils} from "../../../../baseUT/utils/BalanceUtils";
 import {MaticAddresses} from "../../../../../scripts/addresses/MaticAddresses";
-import {AprUtils, COUNT_BLOCKS_PER_DAY} from "../../../../baseUT/utils/aprUtils";
+import {COUNT_BLOCKS_PER_DAY} from "../../../../baseUT/utils/aprUtils";
 import {CoreContractsHelper} from "../../../../baseUT/helpers/CoreContractsHelper";
 import {areAlmostEqual} from "../../../../baseUT/utils/CommonUtils";
 import {IPlatformActor, PredictBrUsesCase} from "../../../../baseUT/uses-cases/PredictBrUsesCase";
 import {AprAave3, getAave3StateInfo} from "../../../../baseUT/apr/aprAave3";
 
-describe("Aave-v3 integration tests, platform adapter", () => {
+describe("Aave3PlatformAdapterTest", () => {
 //region Global vars for all tests
   let snapshot: string;
   let snapshotForEach: string;
