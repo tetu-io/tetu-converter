@@ -28,6 +28,11 @@ contract BorrowManager is IBorrowManager {
   uint constant public BLOCKS_PER_DAY = 40000;
   uint constant public SECONDS_PER_DAY = 86400;
 
+  /// @notice Reward APR is taken into account with given factor
+  ///         Result APR = borrow-apr - supply-apr - Factor/Denominator * rewards-APR
+  uint constant public REWARDS_FACTOR_18 = 5e17;
+  uint constant public REWARDS_FACTOR_DENOMINATOR_18 = 1e18;
+
   IController public immutable controller;
 
   ///////////////////////////////////////////////////////
@@ -259,7 +264,7 @@ contract BorrowManager is IBorrowManager {
         p_.periodInBlocks
       );
 
-      // combine three found APR to single one
+      // combine three found APRs to single one
       int planApr36 = int(plan.borrowApr36)
         - int(plan.supplyAprBt36)
         - int(plan.rewardsAmountBt36);

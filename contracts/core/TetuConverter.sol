@@ -74,6 +74,7 @@ contract TetuConverter is ITetuConverter {
     });
 
     // find best DEX platform
+    // TODO: if periodInBlocks_ === max then swap
 
     // find best lending platform
     return _bm().findConverter(params);

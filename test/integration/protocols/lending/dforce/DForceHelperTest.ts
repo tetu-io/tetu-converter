@@ -193,7 +193,7 @@ describe("DForceHelper tests", () => {
             expect(sret).eq(sexpected);
           });
         });
-        describe("300 USDC, 10_000 blocks", () => {
+        describe("Supply USDC, 2_000 blocks", () => {
           it("should return amount of rewards same to really received", async () => {
             if (!await isPolygonForkInUse()) return;
 
@@ -202,8 +202,8 @@ describe("DForceHelper tests", () => {
               MaticAddresses.USDC,
               MaticAddresses.dForce_iUSDC,
               MaticAddresses.HOLDER_USDC,
-              300,
-              10_000
+              1642,
+              2_000
             );
 
             // estimate amount of supply-rewards using DForceHelper utils
@@ -211,6 +211,7 @@ describe("DForceHelper tests", () => {
             const ret = DForceHelper.getSupplyRewardsAmount(pt, r.blockUpdateDistributionState);
 
             console.log(`Generate source data for DForceRewardsLibTest`, r);
+            console.log(ret);
 
             const sret = ret.rewardsAmount.toString();
             const sexpected = r.rewardsEarnedActual.toString();

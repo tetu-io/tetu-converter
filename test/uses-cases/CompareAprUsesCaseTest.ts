@@ -21,7 +21,7 @@ describe("CompareAprUsesCaseTest", () => {
   const PATH_OUT = "tmp/compareResults.csv";
   const HEALTH_FACTOR2 = 400;
   const COUNT_BLOCKS_SMALL = 2;
-  const COUNT_BLOCKS_HUGE = 10_000;
+  const COUNT_BLOCKS_LARGE = 2_000;
 
   const assets: IAssetInfo[] = [
     {
@@ -74,6 +74,8 @@ describe("CompareAprUsesCaseTest", () => {
     , {
       asset: MaticAddresses.EURS, title: "EURS", holders: [
         MaticAddresses.HOLDER_EURS
+        , MaticAddresses.HOLDER_EURS_2
+        , MaticAddresses.HOLDER_EURS_3
       ]
     }
     // , {
@@ -498,8 +500,8 @@ describe("CompareAprUsesCaseTest", () => {
         })
       });
     });
-    describe("Huge count of blocks (10 days)", () => {
-      const COUNT_BLOCKS = COUNT_BLOCKS_HUGE;
+    describe("Large count of blocks", () => {
+      const COUNT_BLOCKS = COUNT_BLOCKS_LARGE;
       describe("Exact small amount", () => {
         it("AAVE3", async () => {
           const tasks: IBorrowTask[] = CompareAprUsesCase.generateTasks(assets
@@ -552,11 +554,11 @@ describe("CompareAprUsesCaseTest", () => {
           appendTestResultsToFile(PATH_OUT, ret);
         })
       });
-      describe("Half of max allowed amount", () => {
+      describe("A part of max allowed amount", () => {
         it("AAVE3", async () => {
           const tasks: IBorrowTask[] = CompareAprUsesCase.generateTasks(assets
             , false
-            , assets.map(x => getBigNumberFrom(5, 17))
+            , assets.map(x => getBigNumberFrom(3, 17))
           );
           const ret = await makeTestAave3(COUNT_BLOCKS, tasks);
           appendTestResultsToFile(PATH_OUT, ret);
@@ -576,6 +578,22 @@ describe("CompareAprUsesCaseTest", () => {
           );
           const ret = await makeTestDForce(COUNT_BLOCKS, tasks);
           appendTestResultsToFile(PATH_OUT, ret);
+        })
+      });
+      describe.skip("Debug DForce", () => {
+        it("AAVE3 DAI:WBTC", async () => {
+          const tasks: IBorrowTask[] = [
+            {
+              collateralAsset: assets.find(x => x.title == "DAI")!,
+              borrowAsset: assets.find(x => x.title == "USDC")!,
+              amountToBorrow: getBigNumberFrom(5, 6),
+              exactAmountToBorrow: true
+            }
+          ];
+          const ret = await makeTestDForce(COUNT_BLOCKS, tasks);
+          appendTestResultsToFile(PATH_OUT, ret);
+          const {sret, sexpected} = validate(ret);
+          expect(sret).eq(sexpected);
         })
       });
     });

@@ -37,7 +37,10 @@ export interface IBorrowTestResults {
 
   assetBorrow: IAssetInfo;
 
-  plan: ConversionPlan;
+  /** Plan for 1 block - we need to compare borrow/supply APR*/
+  planSingleBlock: ConversionPlan;
+  /** Plan for full period - we need to compare reward amounts */
+  planFullPeriod: ConversionPlan;
   results?: IBorrowResults;
 
   error?: string;
@@ -160,15 +163,24 @@ export class CompareAprUsesCase {
 
           const borrowAmountFactor18 = this.getBorrowAmountFactor18(collateralAmount, stPrices, healthFactor2);
 
-          const plan = await platformAdapter.getConversionPlan(
+          const planSingleBlock = await platformAdapter.getConversionPlan(
             task.collateralAsset.asset
             , collateralAmount
             , task.borrowAsset.asset
             , borrowAmountFactor18
-            // we need 1 block for next/last; countBlocks are used as additional-points
-            , 1 // countBlocks
+            , 1 // we need 1 block for next/last; countBlocks are used as additional-points
           );
-          console.log("plan", plan);
+          console.log("planSingleBlock", planSingleBlock);
+
+          const planFullPeriod = await platformAdapter.getConversionPlan(
+            task.collateralAsset.asset
+            , collateralAmount
+            , task.borrowAsset.asset
+            , borrowAmountFactor18
+            , countBlocks
+          );
+          console.log("planFullPeriod", planFullPeriod);
+
 
           const amountToBorrow: ConfigurableAmountToBorrow = {
             exact: task.exactAmountToBorrow,
@@ -177,24 +189,26 @@ export class CompareAprUsesCase {
           }
           console.log("borrowAmount", amountToBorrow);
 
-          if (task.exactAmountToBorrow && !plan.maxAmountToBorrowBT.gt(task.amountToBorrow)) {
+          if (task.exactAmountToBorrow && !planSingleBlock.maxAmountToBorrowBT.gt(task.amountToBorrow)) {
             dest.push({
               platformTitle: platformTitle,
               countBlocks: countBlocks,
               assetBorrow: task.borrowAsset,
               assetCollateral: task.collateralAsset,
               collateralAmount: collateralAmount,
-              plan: plan,
-              error: `Borrow amount is greater than available amount ${plan.maxAmountToBorrowBT}`,
+              planSingleBlock: planSingleBlock,
+              planFullPeriod: planFullPeriod,
+              error: `Borrow amount is greater than available amount ${planSingleBlock.maxAmountToBorrowBT}`,
             });
-          } else if (plan.converter == Misc.ZERO_ADDRESS) {
+          } else if (planSingleBlock.converter == Misc.ZERO_ADDRESS) {
             dest.push({
               platformTitle: platformTitle,
               countBlocks: countBlocks,
               assetBorrow: task.borrowAsset,
               assetCollateral: task.collateralAsset,
               collateralAmount: collateralAmount,
-              plan: plan,
+              planSingleBlock: planSingleBlock,
+              planFullPeriod: planFullPeriod,
               error: "Plan not found",
             });
           } else {
@@ -223,7 +237,8 @@ export class CompareAprUsesCase {
               assetBorrow: task.borrowAsset,
               assetCollateral: task.collateralAsset,
               collateralAmount: collateralAmount,
-              plan: plan,
+              planSingleBlock: planSingleBlock,
+              planFullPeriod: planFullPeriod,
               results: res.results,
               error: res.error
             });

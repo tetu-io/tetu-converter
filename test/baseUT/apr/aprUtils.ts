@@ -159,9 +159,9 @@ export function appendTestResultsToFile(path: string, data: IBorrowTestResults[]
       , "amount.B"
       , "amountBT18.C"
 
-      , "plan.S.AprBt36"
-      , "plan.B.Apr36"
-      , "plan.R.AmountBt36"
+      , "plan1.S.AprBt36"
+      , "plan1.B.Apr36"
+      , "planP.RW.AmountBt36"
 
       , "P.C.aprBt36"
       , "R.C.aprBt36"
@@ -186,12 +186,22 @@ export function appendTestResultsToFile(path: string, data: IBorrowTestResults[]
       , "Collateral.address"
       , "Borrow.address"
 
-// plan
-      , "plan.converter"
-      , "plan.ltv18"
-      , "plan.liquidationThreshold18"
-      , "plan.maxAmountToSupplyCT"
-      , "plan.maxAmountToBorrowBT"
+// plan single block
+      , "plan1.converter"
+      , "plan1.RW.AmountBt36"
+      , "plan1.ltv18"
+      , "plan1.liquidationThreshold18"
+      , "plan1.maxAmountToSupplyCT"
+      , "plan1.maxAmountToBorrowBT"
+
+// plan full period
+      , "planP.converter"
+      , "planP.S.AprBt36"
+      , "planP.B.Apr36"
+      , "planP.ltv18"
+      , "planP.liquidationThreshold18"
+      , "planP.maxAmountToSupplyCT"
+      , "planP.maxAmountToBorrowBT"
 
 // point 0
       , "costsBT18.C"
@@ -226,9 +236,9 @@ export function appendTestResultsToFile(path: string, data: IBorrowTestResults[]
       , row.results?.init.borrowAmount
       , row.results?.init.collateralAmountBT18
 
-      , row.plan.supplyAprBt36
-      , row.plan.borrowApr36
-      , row.plan.rewardsAmountBt36
+      , row.planSingleBlock.supplyAprBt36
+      , row.planSingleBlock.borrowApr36
+      , row.planFullPeriod.rewardsAmountBt36
 
       , row.results?.predicted.aprBt36.collateral
       , row.results?.resultsBlock.aprBt36.collateral
@@ -253,11 +263,22 @@ export function appendTestResultsToFile(path: string, data: IBorrowTestResults[]
       , row.assetCollateral.asset
       , row.assetBorrow.asset
 
-      , row.plan.converter
-      , row.plan.ltv18
-      , row.plan.liquidationThreshold18
-      , row.plan.maxAmountToSupplyCT
-      , row.plan.maxAmountToBorrowBT
+// plan single block
+      , row.planSingleBlock.converter
+      , row.planSingleBlock.rewardsAmountBt36
+      , row.planSingleBlock.ltv18
+      , row.planSingleBlock.liquidationThreshold18
+      , row.planSingleBlock.maxAmountToSupplyCT
+      , row.planSingleBlock.maxAmountToBorrowBT
+
+// plan full period
+      , row.planFullPeriod.converter
+      , row.planFullPeriod.supplyAprBt36
+      , row.planFullPeriod.borrowApr36
+      , row.planFullPeriod.ltv18
+      , row.planFullPeriod.liquidationThreshold18
+      , row.planFullPeriod.maxAmountToSupplyCT
+      , row.planFullPeriod.maxAmountToBorrowBT
     ];
 
     if (row.results) {
@@ -289,7 +310,7 @@ export function appendTestResultsToFile(path: string, data: IBorrowTestResults[]
   // write data
   writeFileSync(
     path
-    , lines.join("\n")
+    , lines.join("\n") + "\n"
     , {
       encoding: 'utf8'
       , flag: "a" //appending

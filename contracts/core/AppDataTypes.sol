@@ -49,6 +49,8 @@ library AppDataTypes {
     uint maxAmountToSupplyCT;
   }
 
+  /// @notice A struct to combine all params of getConversionPlan implementation to single struct
+  /// @dev Workaround for - stack is too deep problem... - problem
   struct ParamsGetConversionPlan {
     address collateralAsset;
     uint collateralAmount;
