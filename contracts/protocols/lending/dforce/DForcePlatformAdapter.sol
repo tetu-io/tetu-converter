@@ -186,9 +186,17 @@ contract DForcePlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
           }
 
           // calculate current borrow rate and predicted APR after borrowing required amount
-          uint amountToBorrow = borrowAmountFactor18_ * plan.liquidationThreshold18 / 1e18;
+          uint amountToBorrow = AppUtils.toMantissa(
+            borrowAmountFactor18_ * plan.liquidationThreshold18 / 1e18
+            , 18
+            , IDForceCToken(cTokenBorrow).decimals()
+          );
+          console.log("DForcePlatformAdapter borrowAmountFactor18_=", borrowAmountFactor18_);
+          console.log("DForcePlatformAdapter amountToBorrow=", amountToBorrow);
+          console.log("DForcePlatformAdapter liquidationThreshold18=", plan.liquidationThreshold18);
           if (amountToBorrow > plan.maxAmountToBorrowBT) {
             amountToBorrow = plan.maxAmountToBorrowBT;
+            console.log("DForcePlatformAdapter amountToBorrow CORRECTED=", amountToBorrow);
           }
 
           (plan.borrowApr36, plan.supplyAprBt36, plan.rewardsAmountBt36) = DForceAprLib.getRawAprInfo36(
@@ -269,7 +277,7 @@ contract DForcePlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
         borrowAmount: borrowAmount_,
         countBlocks: countBlocks_,
         delayBlocks: delayBlocks_,
-        priceBorrow: priceBorrow
+        priceBorrow36: priceBorrow * 10**core.cRewardsToken.decimals()
       })
     );
   }

@@ -349,7 +349,7 @@ export class SupplyBorrowUsingDForce {
     rewardsReceived: BigNumber,
     predictData: IBorrowRewardsPredictionInput,
     blockUpdateDistributionState: BigNumber,
-    interestRateModel: IDForceInterestRateModel,
+    interestRateModelAddress: string,
     supplyPoint: ISupplyRewardsStatePoint,
   }>{
     const user = await DeployerUtils.startImpersonate(ethers.Wallet.createRandom().address);
@@ -461,10 +461,7 @@ export class SupplyBorrowUsingDForce {
       rewardsReceived: rewardsBalance2.sub(rewardsBalance0),
       blockUpdateDistributionState: afterUDC.block,
       predictData,
-      interestRateModel: IDForceInterestRateModel__factory.connect(
-        await bToken.interestRateModel()
-        , deployer
-      ),
+      interestRateModelAddress: await bToken.interestRateModel(),
       supplyPoint: DForceHelper.getSupplyRewardsStatePoint(
         afterSupplySupply.block,
         beforeSupply.market,

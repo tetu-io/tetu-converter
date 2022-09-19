@@ -5,6 +5,7 @@ import "../../../openzeppelin/SafeERC20.sol";
 import "../../../openzeppelin/IERC20.sol";
 import "../../../core/AppDataTypes.sol";
 import "../../../core/AppErrors.sol";
+import "../../../core/AppUtils.sol";
 import "../../../interfaces/IPlatformAdapter.sol";
 import "../../../interfaces/IPoolAdapterInitializer.sol";
 import "../../../interfaces/IController.sol";
@@ -131,8 +132,13 @@ contract AaveTwoPlatformAdapter is IPlatformAdapter {
         plan.converter = converter;
 
         // prepare to calculate supply/borrow APR
-        vars.amountToBorrow = plan.liquidationThreshold18 * params.borrowAmountFactor18 / 1e18;
-        vars.blocksPerDay = IController(controller).blocksPerDay();
+        vars.amountToBorrow = AppUtils.toMantissa(
+          params.borrowAmountFactor18 * plan.liquidationThreshold18 / 1e18
+          , 18
+          , uint8(rb.configuration.getDecimals())
+        );
+
+      vars.blocksPerDay = IController(controller).blocksPerDay();
         vars.assets = new address[](2);
         vars.assets[0] = params.collateralAsset;
         vars.assets[1] = params.borrowAsset;

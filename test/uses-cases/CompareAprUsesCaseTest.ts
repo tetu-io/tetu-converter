@@ -581,12 +581,98 @@ describe("CompareAprUsesCaseTest", () => {
         })
       });
       describe.skip("Debug DForce", () => {
-        it("AAVE3 DAI:WBTC", async () => {
+        it("DForce DAI:WBTC", async () => {
           const tasks: IBorrowTask[] = [
             {
               collateralAsset: assets.find(x => x.title == "DAI")!,
               borrowAsset: assets.find(x => x.title == "USDC")!,
               amountToBorrow: getBigNumberFrom(5, 6),
+              exactAmountToBorrow: true
+            }
+          ];
+          const ret = await makeTestDForce(COUNT_BLOCKS, tasks);
+          appendTestResultsToFile(PATH_OUT, ret);
+          const {sret, sexpected} = validate(ret);
+          expect(sret).eq(sexpected);
+        })
+      });
+      describe("Debug DForce DAI", () => {
+        it("DForce DAI:WETH", async () => {
+          const tasks: IBorrowTask[] = [
+            {
+              collateralAsset: assets.find(x => x.title == "DAI")!,
+              borrowAsset: assets.find(x => x.title == "WETH")!,
+              amountToBorrow: getBigNumberFrom(1, 17),
+              collateralAmount: BigNumber.from("3355117817885310000000"),
+              exactAmountToBorrow: true
+            }
+          ];
+          const ret = await makeTestDForce(COUNT_BLOCKS, tasks);
+          appendTestResultsToFile(PATH_OUT, ret);
+          const {sret, sexpected} = validate(ret);
+          expect(sret).eq(sexpected);
+        })
+      });
+      describe("Debug DForce WETH:USDT", () => {
+        it("DForce WETH:USDT", async () => {
+          const countBlocks = 1000;
+          const tasks: IBorrowTask[] = [
+            {
+              collateralAsset: assets.find(x => x.title == "WETH")!,
+              borrowAsset: assets.find(x => x.title == "USDT")!,
+              amountToBorrow: BigNumber.from("6711760000"),
+              collateralAmount: getBigNumberFrom(20, 18),
+              exactAmountToBorrow: true
+            }
+          ];
+          const ret = await makeTestDForce(countBlocks, tasks);
+          appendTestResultsToFile(PATH_OUT, ret);
+          const {sret, sexpected} = validate(ret);
+          expect(sret).eq(sexpected);
+        })
+      });
+      describe("Debug DForce DAI:USDT", () => {
+        it("DForce DAI:USDT", async () => {
+          const tasks: IBorrowTask[] = [
+            {
+              collateralAsset: assets.find(x => x.title == "DAI")!,
+              borrowAsset: assets.find(x => x.title == "USDT")!,
+              amountToBorrow: getBigNumberFrom(100, 6), // getBigNumberFrom(1, 6),
+              collateralAmount: getBigNumberFrom(2000, 18), // BigNumber.from("3355117817885310000000"),
+              exactAmountToBorrow: true
+            }
+          ];
+          const ret = await makeTestDForce(COUNT_BLOCKS, tasks);
+          appendTestResultsToFile(PATH_OUT, ret);
+          const {sret, sexpected} = validate(ret);
+          expect(sret).eq(sexpected);
+        })
+      });
+      describe.skip("Debug DForce", () => {
+        it("Dforce USDT:WETH", async () => {
+          const tasks: IBorrowTask[] = [
+            {
+              collateralAsset: assets.find(x => x.title == "USDT")!,
+              borrowAsset: assets.find(x => x.title == "WETH")!,
+              amountToBorrow: getBigNumberFrom(1, 17),
+              collateralAmount: BigNumber.from("3355000000"),
+              exactAmountToBorrow: true
+            }
+          ];
+          const ret = await makeTestDForce(COUNT_BLOCKS, tasks);
+          appendTestResultsToFile(PATH_OUT, ret);
+          const {sret, sexpected} = validate(ret);
+          expect(sret).eq(sexpected);
+        })
+      });
+      describe.skip("Debug DForce", () => {
+        it("Dforce USDT:USDC", async () => {
+          const tasks: IBorrowTask[] = [
+            {
+              collateralAsset: assets.find(x => x.title == "USDT")!,
+              borrowAsset: assets.find(x => x.title == "USDC")!,
+              amountToBorrow: getBigNumberFrom(1, 8),
+              collateralAmount: BigNumber.from("3355000000"),
               exactAmountToBorrow: true
             }
           ];

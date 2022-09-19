@@ -29,6 +29,8 @@ export interface IPointResults {
   costsBT18: IAmounts;
   /** both supply and borrow rewards in total (starting from the beginning) */
   totalAmountRewards?: BigNumber;
+  /** both supply and borrow rewards in total (starting from the beginning) in terms of borrow tokens, decimals 36 */
+  totalAmountRewardsBt36?: BigNumber;
 }
 
 /**

@@ -341,6 +341,22 @@ export class AprDForce {
       }
       const totalAmountRewards = await rewardsDistributor.reward(userAddress);
 
+      //let's reconvert rewards to borrow tokens
+      const rewardToken = await rewardsDistributor.rewardToken();
+      const priceRewards = await priceOracle.getUnderlyingPrice(rewardToken);
+      const rt = IDForceCToken__factory.connect(rewardToken, deployer);
+      console.log("totalAmountRewards", totalAmountRewards);
+      console.log("priceRewards", priceRewards);
+      console.log("rewards-decimals", await rt.decimals());
+      console.log("priceBorrow", priceBorrow);
+
+      const totalAmountRewardsBt36 = totalAmountRewards
+        .mul(priceRewards).mul(getBigNumberFrom(1, await rt.decimals()))
+        .mul(getBigNumberFrom(1, 36))
+        .div(priceBorrow.mul(getBigNumberFrom(1, await cTokenBorrow.decimals())))
+        .div(getBigNumberFrom(1, await rt.decimals()));
+      console.log("totalAmountRewardsBt36", totalAmountRewardsBt36);
+
       let current = await getDForceStateInfo(comptroller
         , cTokenCollateral
         , cTokenBorrow
@@ -374,6 +390,7 @@ export class AprDForce {
           collateral: changeDecimals(dc.mul(priceCollateral).div(priceBorrow), collateralToken.decimals, 18),
           borrow: changeDecimals(db, borrowToken.decimals, 18),
         }, totalAmountRewards: totalAmountRewards
+        , totalAmountRewardsBt36: totalAmountRewardsBt36
       })
     }
 

@@ -51,6 +51,7 @@ export interface IBorrowTask {
   borrowAsset: IAssetInfo;
   exactAmountToBorrow: boolean;
   amountToBorrow: BigNumber;
+  collateralAmount?: BigNumber;
 }
 //endregion Data types
 
@@ -149,19 +150,27 @@ export class CompareAprUsesCase {
         const borrowDecimals = await IERC20Extended__factory.connect(task.borrowAsset.asset, deployer).decimals();
         const stPrices = await this.getPrices(platformAdapter, task.collateralAsset, task.borrowAsset);
         if (stPrices) {
-          let collateralAmount = this.getApproxCollateralAmount(task.amountToBorrow
-            , healthFactor2
-            , collateralDecimals
-            , stPrices
-            , borrowDecimals
-          );
+          let collateralAmount = task.collateralAmount
+            ? task.collateralAmount
+            : this.getApproxCollateralAmount(task.amountToBorrow
+              , healthFactor2
+              , collateralDecimals
+              , stPrices
+              , borrowDecimals
+            );
           if (collateralAmount.gt(initialLiquidity)) {
             console.log(`Required collateral ${collateralAmount.toString()} available: ${initialLiquidity.toString()}`);
             collateralAmount = initialLiquidity;
           }
           console.log("collateralAmount", collateralAmount);
 
-          const borrowAmountFactor18 = this.getBorrowAmountFactor18(collateralAmount, stPrices, healthFactor2);
+          const borrowAmountFactor18 = this.getBorrowAmountFactor18(
+            collateralAmount
+            , stPrices
+            , healthFactor2
+            , collateralDecimals
+          );
+          console.log("makePossibleBorrowsOnPlatform.borrowAmountFactor18", borrowAmountFactor18);
 
           const planSingleBlock = await platformAdapter.getConversionPlan(
             task.collateralAsset.asset
@@ -249,6 +258,10 @@ export class CompareAprUsesCase {
       }
     }
 
+    // we need to display full objects, so we use util.inspect, see
+    // https://stackoverflow.com/questions/10729276/how-can-i-get-the-full-object-in-node-jss-console-log-rather-than-object
+    require("util").inspect.defaultOptions.depth = null;
+
     console.log("makePossibleBorrowsOnPlatform finished:", dest);
     return dest;
   }
@@ -275,10 +288,13 @@ export class CompareAprUsesCase {
    private static getBorrowAmountFactor18(
     collateralAmount: BigNumber,
     stPrices: {priceCollateral: BigNumber, priceBorrow: BigNumber},
-    healthFactor2: number
+    healthFactor2: number,
+    collateralDecimals: number
   ) {
     return getBigNumberFrom(1, 18)
       .mul(collateralAmount)
+        .mul(getBigNumberFrom(1, 18))
+        .div(getBigNumberFrom(1, collateralDecimals))
       .mul(stPrices.priceCollateral)
       .div(stPrices.priceBorrow)
       .div(healthFactor2)

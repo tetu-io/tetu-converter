@@ -55,7 +55,7 @@ library DForceAprLib {
     uint borrowAmount;
     uint countBlocks;
     uint delayBlocks;
-    uint priceBorrow;
+    uint priceBorrow36;
   }
 
   ///////////////////////////////////////////////////////
@@ -102,7 +102,7 @@ library DForceAprLib {
     console.log("getRawAprInfo36");
     console.log("collateralAmount_", collateralAmount_);
     console.log("amountToBorrow_", amountToBorrow_);
-    uint priceBorrow = getPrice(core.priceOracle, address(core.cTokenBorrow)) * 10**core.cTokenBorrow.decimals();
+    uint priceBorrow36 = getPrice(core.priceOracle, address(core.cTokenBorrow)) * 10**core.cTokenBorrow.decimals();
 
     // estimate amount of supply+borrow rewards in terms of borrow asset
     (,, rewardsAmountBt36) = getRewardAmountsBt(core,
@@ -111,7 +111,7 @@ library DForceAprLib {
         borrowAmount: amountToBorrow_,
         countBlocks: countBlocks_,
         delayBlocks: 1, // we need to estimate rewards inside next (not current) block
-        priceBorrow: priceBorrow
+        priceBorrow36: priceBorrow36
       })
     );
 
@@ -120,7 +120,7 @@ library DForceAprLib {
       countBlocks_,
       core.cTokenCollateral.decimals(),
       getPrice(core.priceOracle, address(core.cTokenCollateral)) * 10**core.cTokenCollateral.decimals(),
-      priceBorrow,
+      priceBorrow36,
       collateralAmount_
     );
     console.log("getEstimatedSupplyRate",getEstimatedSupplyRate(core.cTokenCollateral, collateralAmount_));
@@ -151,8 +151,8 @@ library DForceAprLib {
     uint supplyRatePerBlock,
     uint countBlocks,
     uint8 collateralDecimals,
-    uint priceCollateral,
-    uint priceBorrow,
+    uint priceCollateral36,
+    uint priceBorrow36,
     uint suppliedAmount
   ) internal pure returns (uint) {
     // original code:
@@ -160,7 +160,7 @@ library DForceAprLib {
     // but we need result decimals 36
     // so, we replace rmul by ordinal mul and take into account /1e18
     return AppUtils.toMantissa(
-      supplyRatePerBlock * countBlocks * suppliedAmount * priceCollateral / priceBorrow,
+      supplyRatePerBlock * countBlocks * suppliedAmount * priceCollateral36 / priceBorrow36,
       collateralDecimals,
       18 // not 36 because we replaced rmul by mul
     );
@@ -303,8 +303,10 @@ library DForceAprLib {
     uint rewardAmountBorrow,
     uint totalRewardsBt36
   ) {
+    console.log("getRewardAmountsBt");
     uint distributionSpeed = core.rd.distributionSupplySpeed(address(core.cTokenCollateral));
     if (distributionSpeed != 0) {
+      console.log("getRewardAmountsBt supply-rewards are supported", distributionSpeed);
       (uint stateIndex, uint stateBlock0) = core.rd.distributionSupplyState(address(core.cTokenCollateral));
       rewardAmountSupply = supplyRewardAmount(
           block.number + p_.delayBlocks,
@@ -320,6 +322,9 @@ library DForceAprLib {
     }
     distributionSpeed = core.rd.distributionSpeed(address(core.cTokenBorrow));
     if (distributionSpeed != 0) {
+      console.log("getRewardAmountsBt borrow-rewards are supported", distributionSpeed);
+      console.log("borrowAmount", p_.borrowAmount);
+      console.log("countBlocks", p_.delayBlocks + p_.countBlocks);
       rewardAmountBorrow = borrowRewardAmount(core,
         p_.borrowAmount,
         distributionSpeed,
@@ -327,14 +332,21 @@ library DForceAprLib {
       );
     }
 
+    console.log("rewardAmountSupply", rewardAmountSupply);
+    console.log("rewardAmountBorrow", rewardAmountBorrow);
+    console.log("rewardAmountSupply.priceRewards", getPrice(core.priceOracle, address(core.cRewardsToken)));
+    console.log("rewardAmountSupply.rewardsDecimal", core.cRewardsToken.decimals());
+    console.log("rewardAmountSupply.priceBorrow", p_.priceBorrow36);
+
     if (rewardAmountSupply + rewardAmountBorrow != 0) {
       // EA(x) = ( RA_supply(x) + RA_borrow(x) ) * PriceRewardToken / PriceBorrowUnderlying
       // recalculate the amount from [rewards tokens] to [borrow tokens]
       totalRewardsBt36 = (rewardAmountSupply + rewardAmountBorrow)
-        * getPrice(core.priceOracle, address(core.cRewardsToken))
-        * 10**36 // we need decimals 36
-        / 10**core.cRewardsToken.decimals()
-        / p_.priceBorrow
+        * getPrice(core.priceOracle, address(core.cRewardsToken)) // * 10**core.cRewardsToken.decimals()
+        * 10**18
+        / p_.priceBorrow36
+        * 10**18
+        // / 10**core.cRewardsToken.decimals()
       ;
     }
 
@@ -354,13 +366,19 @@ library DForceAprLib {
     uint totalSupply_,
     uint supplyAmount_,
     uint targetBlock_
-  ) internal pure returns (uint) {
+  ) internal view returns (uint) {
+    console.log("supplyRewardAmount");
 
     // nextStateIndex = stateIndex_ +  distributedPerToken
     uint nextStateIndex = stateIndex_ + rdiv(
       distributionSpeed_ * (blockSupply_ - stateBlock_),
       totalSupply_
     );
+    console.log("totalSupply_", totalSupply_);
+    console.log("(blockSupply_ - stateBlock_)", (blockSupply_ - stateBlock_));
+    console.log("distributionSpeed_", distributionSpeed_);
+    console.log("stateIndex_", stateIndex_);
+    console.log("nextStateIndex", nextStateIndex);
 
     return getRewardAmount(
       supplyAmount_,
@@ -493,10 +511,17 @@ library DForceAprLib {
     uint totalToken_,
     uint accountIndex_,
     uint countBlocks_
-  ) internal pure returns (uint) {
+  ) internal view returns (uint) {
+    console.log("getRewardAmount");
     uint totalDistributed = distributionSpeed_ * countBlocks_;
     uint dt = rdiv(totalDistributed, totalToken_);
     uint ti = stateIndex_ + dt;
+
+    console.log("totalDistributed", totalDistributed);
+    console.log("dt", dt);
+    console.log("ti", ti);
+    console.log("getRewardAmount", rmul(accountBalance_, ti - accountIndex_));
+
     return rmul(accountBalance_, ti - accountIndex_);
   }
 

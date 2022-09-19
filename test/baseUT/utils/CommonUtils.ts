@@ -26,6 +26,9 @@ export async function setInitialBalance(
 
 /// @param accuracy 10 for 1e-10
 export function areAlmostEqual(b1: BigNumber, b2: BigNumber, accuracy: number = 8) : boolean {
+  if (b1.eq(0)) {
+    return b2.eq(0);
+  }
   const n18 = getBigNumberFrom(1, accuracy);
   console.log("approx1", b1, b2);
   console.log("approx2", b1.sub(b2));

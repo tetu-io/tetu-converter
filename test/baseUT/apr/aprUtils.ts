@@ -207,6 +207,7 @@ export function appendTestResultsToFile(path: string, data: IBorrowTestResults[]
       , "costsBT18.C"
       , "costsBT18.B"
       , "rewardsTotal"
+      , "rewardsTotalBt36"
 
       , "balances.C"
       , "balances.B"
@@ -287,6 +288,7 @@ export function appendTestResultsToFile(path: string, data: IBorrowTestResults[]
           point.costsBT18.collateral
           , point.costsBT18.borrow
           , point.totalAmountRewards
+          , point.totalAmountRewardsBt36
 
           , point.balances.collateral
           , point.balances.borrow

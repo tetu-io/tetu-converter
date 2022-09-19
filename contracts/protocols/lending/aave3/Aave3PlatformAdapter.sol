@@ -4,6 +4,7 @@ pragma solidity 0.8.4;
 import "../../../openzeppelin/SafeERC20.sol";
 import "../../../openzeppelin/IERC20.sol";
 import "./Aave3AprLib.sol";
+import "../../../core/AppUtils.sol";
 import "../../../core/AppDataTypes.sol";
 import "../../../core/AppErrors.sol";
 import "../../../interfaces/IPlatformAdapter.sol";
@@ -191,7 +192,11 @@ contract Aave3PlatformAdapter is IPlatformAdapter {
           }
 
           // calculate borrow-APR, see detailed explanation in Aave3AprLib
-          vars.amountToBorrow = plan.liquidationThreshold18 * params.borrowAmountFactor18 / 1e18;
+          vars.amountToBorrow = AppUtils.toMantissa(
+            params.borrowAmountFactor18 * plan.liquidationThreshold18 / 1e18
+            , 18
+            , uint8(rb.configuration.getDecimals())
+          );
           if (vars.amountToBorrow > plan.maxAmountToBorrowBT) {
             vars.amountToBorrow = plan.maxAmountToBorrowBT;
           }
