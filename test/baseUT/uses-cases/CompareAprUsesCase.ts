@@ -12,6 +12,7 @@ import {BigNumber} from "ethers";
 import {getBigNumberFrom} from "../../../scripts/utils/NumberUtils";
 import {Misc} from "../../../scripts/utils/Misc";
 import {ConfigurableAmountToBorrow} from "../apr/ConfigurableAmountToBorrow";
+import {toMantissa} from "../utils/CommonUtils";
 
 //region Data types
 interface IInputParams {
@@ -292,9 +293,7 @@ export class CompareAprUsesCase {
     collateralDecimals: number
   ) {
     return getBigNumberFrom(1, 18)
-      .mul(collateralAmount)
-        .mul(getBigNumberFrom(1, 18))
-        .div(getBigNumberFrom(1, collateralDecimals))
+      .mul(toMantissa(collateralAmount, collateralDecimals, 18) )
       .mul(stPrices.priceCollateral)
       .div(stPrices.priceBorrow)
       .div(healthFactor2)

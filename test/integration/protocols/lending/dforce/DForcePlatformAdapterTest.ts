@@ -17,7 +17,7 @@ import {CoreContractsHelper} from "../../../../baseUT/helpers/CoreContractsHelpe
 import {BigNumber} from "ethers";
 import {IPlatformActor, PredictBrUsesCase} from "../../../../baseUT/uses-cases/PredictBrUsesCase";
 import {DForceHelper} from "../../../../../scripts/integration/helpers/DForceHelper";
-import {areAlmostEqual} from "../../../../baseUT/utils/CommonUtils";
+import {areAlmostEqual, toMantissa} from "../../../../baseUT/utils/CommonUtils";
 import {TokenDataTypes} from "../../../../baseUT/types/TokenDataTypes";
 import {getBigNumberFrom} from "../../../../../scripts/utils/NumberUtils";
 import {SupplyBorrowUsingDForce} from "../../../../baseUT/uses-cases/dforce/SupplyBorrowUsingDForce";
@@ -187,7 +187,7 @@ describe("DForce integration tests, platform adapter", () => {
       console.log("borrowAssetData", borrowAssetData);
 
       const borrowAmountFactor18 = getBigNumberFrom(1, 18)
-        .mul(collateralAmount)
+        .mul(toMantissa(collateralAmount, await cTokenCollateral.decimals(), 18))
         .mul(priceCollateral18)
         .div(priceBorrow18)
         .div(healthFactor18);
@@ -202,7 +202,10 @@ describe("DForce integration tests, platform adapter", () => {
       );
       console.log("getConversionPlan", ret);
 
-      let amountToBorrow = borrowAmountFactor18.mul(ret.liquidationThreshold18).div(getBigNumberFrom(1, 18));
+      const amountToBorrow18 = borrowAmountFactor18
+        .mul(ret.liquidationThreshold18)
+        .div(getBigNumberFrom(1, 18));
+      let amountToBorrow = toMantissa(amountToBorrow18, 18, await cTokenBorrow.decimals());
       if (amountToBorrow.gt(ret.maxAmountToBorrowBT)) {
         amountToBorrow = ret.maxAmountToBorrowBT;
       }

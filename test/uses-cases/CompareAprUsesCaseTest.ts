@@ -580,6 +580,25 @@ describe("CompareAprUsesCaseTest", () => {
           appendTestResultsToFile(PATH_OUT, ret);
         })
       });
+
+      describe("Debug AAVE3", () => {
+        it("usdt:usdc", async () => {
+          const tasks: IBorrowTask[] = [
+            {
+              collateralAsset: assets.find(x => x.title == "USDC")!,
+              borrowAsset: assets.find(x => x.title == "USDT")!,
+              amountToBorrow: getBigNumberFrom(1, 8),
+              collateralAmount: BigNumber.from("1999909100"),
+              exactAmountToBorrow: true
+            }
+          ];
+          const ret = await makeTestAave3(COUNT_BLOCKS, tasks);
+          appendTestResultsToFile(PATH_OUT, ret);
+          const {sret, sexpected} = validate(ret);
+          expect(sret).eq(sexpected);
+        })
+      });
+
       describe.skip("Debug DForce", () => {
         it("DForce DAI:WBTC", async () => {
           const tasks: IBorrowTask[] = [
@@ -596,7 +615,7 @@ describe("CompareAprUsesCaseTest", () => {
           expect(sret).eq(sexpected);
         })
       });
-      describe("Debug DForce DAI", () => {
+      describe.skip("Debug DForce DAI", () => {
         it("DForce DAI:WETH", async () => {
           const tasks: IBorrowTask[] = [
             {
@@ -613,7 +632,7 @@ describe("CompareAprUsesCaseTest", () => {
           expect(sret).eq(sexpected);
         })
       });
-      describe("Debug DForce WETH:USDT", () => {
+      describe.skip("Debug DForce WETH:USDT", () => {
         it("DForce WETH:USDT", async () => {
           const countBlocks = 1000;
           const tasks: IBorrowTask[] = [
@@ -631,7 +650,7 @@ describe("CompareAprUsesCaseTest", () => {
           expect(sret).eq(sexpected);
         })
       });
-      describe("Debug DForce DAI:USDT", () => {
+      describe.skip("Debug DForce DAI:USDT", () => {
         it("DForce DAI:USDT", async () => {
           const tasks: IBorrowTask[] = [
             {

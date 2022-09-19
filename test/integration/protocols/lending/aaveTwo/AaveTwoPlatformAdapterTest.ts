@@ -16,7 +16,7 @@ import {
   IAaveTwoProtocolDataProvider,
   IERC20Extended__factory
 } from "../../../../../typechain";
-import {areAlmostEqual} from "../../../../baseUT/utils/CommonUtils";
+import {areAlmostEqual, toMantissa} from "../../../../baseUT/utils/CommonUtils";
 import {IPlatformActor, PredictBrUsesCase} from "../../../../baseUT/uses-cases/PredictBrUsesCase";
 import {AprAaveTwo, getAaveTwoStateInfo} from "../../../../baseUT/apr/aprAaveTwo";
 import {Aave3Helper} from "../../../../../scripts/integration/helpers/Aave3Helper";
@@ -128,7 +128,7 @@ describe("AaveTwoPlatformAdapterTest", () => {
       const borrowAssetData = await AaveTwoHelper.getReserveInfo(deployer, aavePool, dp, borrowAsset);
 
       const borrowAmountFactor18 = getBigNumberFrom(1, 18)
-        .mul(collateralAmount)
+        .mul(toMantissa(collateralAmount, collateralAssetData.data.decimals, 18))
         .mul(priceCollateral)
         .div(priceBorrow)
         .div(healthFactor18);
@@ -148,7 +148,8 @@ describe("AaveTwoPlatformAdapterTest", () => {
         countBlocks
       );
       console.log("ret", ret);
-      let borrowAmount = ret.liquidationThreshold18.mul(borrowAmountFactor18).div(getBigNumberFrom(1, 18));
+      const borrowAmount18 = ret.liquidationThreshold18.mul(borrowAmountFactor18).div(getBigNumberFrom(1, 18));
+      let borrowAmount = toMantissa(borrowAmount18, 18, borrowAssetData.data.decimals);
       if (borrowAmount.gt(ret.maxAmountToBorrowBT)) {
         borrowAmount = ret.maxAmountToBorrowBT;
       }

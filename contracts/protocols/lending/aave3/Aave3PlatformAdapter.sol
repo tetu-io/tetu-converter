@@ -168,6 +168,7 @@ contract Aave3PlatformAdapter is IPlatformAdapter {
               // Debt ceiling does not include interest accrued over time, only the principal borrowed
               uint maxAmount = (rc.configuration.getDebtCeiling() - rc.isolationModeTotalDebt)
                   * (10 ** (rb.configuration.getDecimals() - Aave3ReserveConfiguration.DEBT_CEILING_DECIMALS));
+
               if (plan.maxAmountToBorrowBT > maxAmount) {
                 plan.maxAmountToBorrowBT = maxAmount;
                 console.log("maxAmountToBorrowBT.2", maxAmount, rc.configuration.getDebtCeiling(), rc.isolationModeTotalDebt);

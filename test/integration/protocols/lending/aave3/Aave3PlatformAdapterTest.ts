@@ -16,7 +16,7 @@ import {BalanceUtils} from "../../../../baseUT/utils/BalanceUtils";
 import {MaticAddresses} from "../../../../../scripts/addresses/MaticAddresses";
 import {COUNT_BLOCKS_PER_DAY} from "../../../../baseUT/utils/aprUtils";
 import {CoreContractsHelper} from "../../../../baseUT/helpers/CoreContractsHelper";
-import {areAlmostEqual} from "../../../../baseUT/utils/CommonUtils";
+import {areAlmostEqual, toMantissa} from "../../../../baseUT/utils/CommonUtils";
 import {IPlatformActor, PredictBrUsesCase} from "../../../../baseUT/uses-cases/PredictBrUsesCase";
 import {AprAave3, getAave3StateInfo} from "../../../../baseUT/apr/aprAave3";
 
@@ -138,7 +138,7 @@ describe("Aave3PlatformAdapterTest", () => {
       const borrowAssetData = await h.getReserveInfo(deployer, aavePool, dp, borrowAsset);
 
       const borrowAmountFactor18 = getBigNumberFrom(1, 18)
-        .mul(collateralAmount)
+        .mul(toMantissa(collateralAmount, collateralAssetData.data.decimals, 18))
         .mul(priceCollateral)
         .div(priceBorrow)
         .div(healthFactor18);
@@ -157,7 +157,11 @@ describe("Aave3PlatformAdapterTest", () => {
         , countBlocks
       );
       console.log("ret", ret);
-      let borrowAmount = ret.liquidationThreshold18.mul(borrowAmountFactor18).div(getBigNumberFrom(1, 18));
+      const borrowAmount18 = ret.liquidationThreshold18
+        .mul(borrowAmountFactor18)
+        .div(getBigNumberFrom(1, 18))
+      let borrowAmount = toMantissa(borrowAmount18, 18, borrowAssetData.data.decimals);
+
       if (borrowAmount.gt(ret.maxAmountToBorrowBT)) {
         borrowAmount = ret.maxAmountToBorrowBT;
       }
@@ -208,14 +212,18 @@ describe("Aave3PlatformAdapterTest", () => {
       let expectedMaxAmountToBorrow = BigNumber.from(borrowAssetData.liquidity.totalAToken)
         .sub(borrowAssetData.liquidity.totalVariableDebt)
         .sub(borrowAssetData.liquidity.totalStableDebt);
+
       if (!collateralAssetData.data.debtCeiling.eq(0)) {
         // isolation mode
-        expectedMaxAmountToBorrow =
+        const expectedMaxAmountToBorrowDebtCeiling =
           collateralAssetData.data.debtCeiling
             .sub(collateralAssetData.data.isolationModeTotalDebt)
             .mul(
               getBigNumberFrom(1, borrowAssetData.data.decimals - 2)
             );
+        if (expectedMaxAmountToBorrow.gt(expectedMaxAmountToBorrowDebtCeiling)) {
+          expectedMaxAmountToBorrow = expectedMaxAmountToBorrowDebtCeiling;
+        }
       }
 
       let expectedMaxAmountToSupply = BigNumber.from(2).pow(256).sub(1); // == type(uint).max
@@ -323,6 +331,27 @@ describe("Aave3PlatformAdapterTest", () => {
           expect(r.sret).eq(r.sexpected);
         });
       });
+      describe("USDC : USDT", () => {
+        it("should return expected values", async () => {
+          if (!await isPolygonForkInUse()) return;
+
+          const countBlocks = 1;
+          const collateralAsset = MaticAddresses.USDC;
+          const borrowAsset = MaticAddresses.USDT;
+          const collateralAmount = BigNumber.from("1999909100")
+
+          const r = await makeTest(
+            collateralAsset,
+            collateralAmount,
+            borrowAsset,
+            true,
+            false,
+            countBlocks
+          );
+
+          expect(r.sret).eq(r.sexpected);
+        });
+      });
       describe("Isolation mode is enabled for collateral, borrow token is borrowable", () => {
         describe("STASIS EURS-2 : Tether USD", () => {
           it("should return expected values", async () =>{
@@ -363,21 +392,6 @@ describe("Aave3PlatformAdapterTest", () => {
           expect(r.sret).eq(r.sexpected);
         });
       });
-      // describe("Borrow cap > available liquidity to borrow", () => {
-      //   it("should return expected values", async () => {
-      //     expect.fail("TODO");
-      //   });
-      // });
-      // describe("Supply cap not 0", () => {
-      //   it("should return expected values", async () => {
-      //     expect.fail("TODO");
-      //   });
-      // });
-      // describe("Borrow exists, AAVE changes parameters of the reserve, make new borrow", () => {
-      //   it("TODO", async () => {
-      //     expect.fail("TODO");
-      //   });
-      // });
     });
     describe("Bad paths", () => {
       // describe("inactive", () => {
