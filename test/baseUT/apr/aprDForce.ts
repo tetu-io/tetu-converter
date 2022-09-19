@@ -4,7 +4,13 @@ import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import {TestSingleBorrowParams} from "../types/BorrowRepayDataTypes";
 import {TokenDataTypes} from "../types/TokenDataTypes";
 import {DForceHelper} from "../../../scripts/integration/helpers/DForceHelper";
-import {DForceAprLibFacade, IDForceController, IDForceCToken, IDForceCToken__factory} from "../../../typechain";
+import {
+  DForceAprLibFacade,
+  IDForceController,
+  IDForceCToken,
+  IDForceCToken__factory,
+  IERC20__factory
+} from "../../../typechain";
 import {getBigNumberFrom} from "../../../scripts/utils/NumberUtils";
 import {DeployUtils} from "../../../scripts/utils/DeployUtils";
 import hre, {ethers} from "hardhat";
@@ -335,7 +341,12 @@ export class AprDForce {
         await rewardsDistributor.updateDistributionState(collateralCTokenAddress, false);
         await rewardsDistributor.updateReward(collateralCTokenAddress, userAddress, false);
         await rewardsDistributor.updateDistributionState(borrowCTokenAddress, true);
+        let rewardsBalance0 = await IERC20__factory.connect(await rewardsDistributor.rewardToken(), deployer).balanceOf(userAddress);
+        console.log("rewardsBalance0", rewardsBalance0);
         await rewardsDistributor.updateReward(borrowCTokenAddress, userAddress, true);
+        //await rewardsDistributor.claimReward([userAddress], [collateralCTokenAddress, borrowCTokenAddress]);
+        rewardsBalance0 = await IERC20__factory.connect(await rewardsDistributor.rewardToken(), deployer).balanceOf(userAddress);
+        console.log("rewardsBalance0", rewardsBalance0);
       } else {
         await TimeUtils.advanceNBlocks(period); // no rewards, period is too small
       }

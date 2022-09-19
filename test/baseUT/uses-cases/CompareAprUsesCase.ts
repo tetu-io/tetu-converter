@@ -50,9 +50,7 @@ export interface IBorrowTestResults {
 export interface IBorrowTask {
   collateralAsset: IAssetInfo;
   borrowAsset: IAssetInfo;
-  exactAmountToBorrow: boolean;
-  amountToBorrow: BigNumber;
-  collateralAmount?: BigNumber;
+  collateralAmount: BigNumber;
 }
 //endregion Data types
 
@@ -96,8 +94,7 @@ export class CompareAprUsesCase {
 
   static generateTasks(
     assets: IAssetInfo[],
-    exactAmountToBorrow: boolean,
-    amountsToBorrow: BigNumber[],
+    collateralAmounts: BigNumber[]
   ) : IBorrowTask[] {
     const dest: IBorrowTask[] = [];
     for (const [indexSource, sourceAsset] of assets.entries()) {
@@ -106,8 +103,7 @@ export class CompareAprUsesCase {
         dest.push({
           collateralAsset: sourceAsset,
           borrowAsset: targetAsset,
-          exactAmountToBorrow: exactAmountToBorrow,
-          amountToBorrow: amountsToBorrow[indexTarget]
+          collateralAmount: collateralAmounts[indexSource],
         });
       }
     }
@@ -151,22 +147,10 @@ export class CompareAprUsesCase {
         const borrowDecimals = await IERC20Extended__factory.connect(task.borrowAsset.asset, deployer).decimals();
         const stPrices = await this.getPrices(platformAdapter, task.collateralAsset, task.borrowAsset);
         if (stPrices) {
-          let collateralAmount = task.collateralAmount
-            ? task.collateralAmount
-            : this.getApproxCollateralAmount(task.amountToBorrow
-              , healthFactor2
-              , collateralDecimals
-              , stPrices
-              , borrowDecimals
-            );
-          if (collateralAmount.gt(initialLiquidity)) {
-            console.log(`Required collateral ${collateralAmount.toString()} available: ${initialLiquidity.toString()}`);
-            collateralAmount = initialLiquidity;
-          }
-          console.log("collateralAmount", collateralAmount);
+          console.log("makePossibleBorrowsOnPlatform.collateralAmount", task.collateralAmount);
 
           const borrowAmountFactor18 = this.getBorrowAmountFactor18(
-            collateralAmount
+            task.collateralAmount
             , stPrices
             , healthFactor2
             , collateralDecimals
@@ -175,7 +159,7 @@ export class CompareAprUsesCase {
 
           const planSingleBlock = await platformAdapter.getConversionPlan(
             task.collateralAsset.asset
-            , collateralAmount
+            , task.collateralAmount
             , task.borrowAsset.asset
             , borrowAmountFactor18
             , 1 // we need 1 block for next/last; countBlocks are used as additional-points
@@ -184,39 +168,30 @@ export class CompareAprUsesCase {
 
           const planFullPeriod = await platformAdapter.getConversionPlan(
             task.collateralAsset.asset
-            , collateralAmount
+            , task.collateralAmount
             , task.borrowAsset.asset
             , borrowAmountFactor18
             , countBlocks
           );
           console.log("planFullPeriod", planFullPeriod);
 
-
+          const borrowAmount18 = planFullPeriod.liquidationThreshold18
+            .mul(borrowAmountFactor18)
+            .div(getBigNumberFrom(1, 18))
+          let borrowAmount = toMantissa(borrowAmount18, 18, borrowDecimals);
           const amountToBorrow: ConfigurableAmountToBorrow = {
-            exact: task.exactAmountToBorrow,
-            exactAmountToBorrow: task.exactAmountToBorrow ? task.amountToBorrow : undefined,
-            ratio18: task.exactAmountToBorrow ? undefined : task.amountToBorrow
+            exactAmountToBorrow: borrowAmount,
+            exact: true
           }
-          console.log("borrowAmount", amountToBorrow);
+          console.log("makePossibleBorrowsOnPlatform.amountToBorrow", amountToBorrow);
 
-          if (task.exactAmountToBorrow && !planSingleBlock.maxAmountToBorrowBT.gt(task.amountToBorrow)) {
+          if (planSingleBlock.converter == Misc.ZERO_ADDRESS) {
             dest.push({
               platformTitle: platformTitle,
               countBlocks: countBlocks,
               assetBorrow: task.borrowAsset,
               assetCollateral: task.collateralAsset,
-              collateralAmount: collateralAmount,
-              planSingleBlock: planSingleBlock,
-              planFullPeriod: planFullPeriod,
-              error: `Borrow amount is greater than available amount ${planSingleBlock.maxAmountToBorrowBT}`,
-            });
-          } else if (planSingleBlock.converter == Misc.ZERO_ADDRESS) {
-            dest.push({
-              platformTitle: platformTitle,
-              countBlocks: countBlocks,
-              assetBorrow: task.borrowAsset,
-              assetCollateral: task.collateralAsset,
-              collateralAmount: collateralAmount,
+              collateralAmount: task.collateralAmount,
               planSingleBlock: planSingleBlock,
               planFullPeriod: planFullPeriod,
               error: "Plan not found",
@@ -232,21 +207,24 @@ export class CompareAprUsesCase {
                 holder: task.borrowAsset.holders.join(";"),
                 initialLiquidity: 0,
               }
-              , collateralAmount: collateralAmount
+              , collateralAmount: task.collateralAmount
               , healthFactor2: healthFactor2
               , countBlocks: 1 // we need 1 block for next/last; countBlocks are used as additional-points
             };
             const res = await this.makeSingleBorrowTest(
               platformTitle
-              , {params: p, amountToBorrow, additionalPoints: [countBlocks]}
-              , testMaker
+              , {
+                params: p
+                , amountToBorrow
+                , additionalPoints: [countBlocks]
+              }, testMaker
             );
             dest.push({
               platformTitle: platformTitle,
               countBlocks: countBlocks,
               assetBorrow: task.borrowAsset,
               assetCollateral: task.collateralAsset,
-              collateralAmount: collateralAmount,
+              collateralAmount: task.collateralAmount,
               planSingleBlock: planSingleBlock,
               planFullPeriod: planFullPeriod,
               results: res.results,

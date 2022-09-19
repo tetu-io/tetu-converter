@@ -245,6 +245,32 @@ describe("DForceHelper tests", () => {
             expect(sret).eq(sexpected);
           });
         });
+        describe("Supply WETH, 2_000 blocks", () => {
+          it("should return amount of rewards same to really received", async () => {
+            if (!await isPolygonForkInUse()) return;
+
+            // get amount of really earned supply-rewards
+            const r = await makeTestSupplyRewardsOnly(
+              MaticAddresses.WETH,
+              MaticAddresses.dForce_iWETH,
+              MaticAddresses.HOLDER_WETH,
+              1000,
+              2_000
+            );
+
+            // estimate amount of supply-rewards using DForceHelper utils
+            const pt = DForceHelper.predictRewardsStatePointAfterSupply(r.supplyPoint);
+            const ret = DForceHelper.getSupplyRewardsAmount(pt, r.blockUpdateDistributionState);
+
+            console.log(`Generate source data for DForceRewardsLibTest`, r);
+            console.log(ret);
+
+            const sret = ret.rewardsAmount.toString();
+            const sexpected = r.rewardsEarnedActual.toString();
+
+            expect(sret).eq(sexpected);
+          });
+        });
       });
     });
     describe("getBorrowRewardsAmount", () => {
@@ -400,12 +426,12 @@ describe("DForceHelper tests", () => {
               MaticAddresses.WETH, //WETH doesn't have supply-rewards
               MaticAddresses.dForce_iWETH,
               MaticAddresses.HOLDER_WETH,
-              2_000,
-              MaticAddresses.USDT,
-              MaticAddresses.dForce_iUSDT,
-              MaticAddresses.HOLDER_USDT,
-              100,
-              1_000
+              1,
+              MaticAddresses.USDC,
+              MaticAddresses.dForce_iUSDC,
+              MaticAddresses.HOLDER_USDC,
+              351,
+              2_000
             );
 
             const cashesAndBorrowRates: BigNumber[] = [];
@@ -429,111 +455,6 @@ describe("DForceHelper tests", () => {
             console.log(`Generate source data for DForceRewardsLibTest`, r, cashesAndBorrowRates);
 
             expect(sret).eq(sexpected);
-          });
-
-          it.skip("predicted value of rewards should be the same to manually calculated (block 32290571)", async()=> {
-            // data for matic block 32290571
-
-            const userInterest = BigNumber.from("1007792047531702871");
-            const borrowIndex0: BigNumber = BigNumber.from("1007768505397815983");
-            const totalBorrows0 = BigNumber.from("748722543290648981048813");
-            const totalToken0 = DForceHelper.getTotalTokenForBorrowCase(totalBorrows0, borrowIndex0);
-            const borrowBalanceStored0 = BigNumber.from("0");
-            const accountBalance0 = DForceHelper.rdiv(borrowBalanceStored0, borrowIndex0);
-            const stateIndex0 = BigNumber.from("129921656642613910");
-            const stateBlock0 = BigNumber.from("32283228");
-            const distributionSpeed0 = BigNumber.from("15972314654598696");
-            const amountToBorrow = BigNumber.from("10000000000000000000000");
-            const blockNumber1 = BigNumber.from("32290586");
-            const accrualBlockNumber1 = BigNumber.from("32283228");
-
-            const borrowRate1 = BigNumber.from("3174864977");
-            const getCash0 = BigNumber.from("207457975647111909044867");
-            const totalReserves0 = BigNumber.from("650392243307287326761");
-            const reserveFactor = BigNumber.from("100000000000000000");
-
-            const simpleInterestFactor1 = (blockNumber1.sub(accrualBlockNumber1).mul(borrowRate1));
-            const interestAccumulated1 = DForceHelper.rmul(simpleInterestFactor1, totalBorrows0);
-            const totalBorrows1 = totalBorrows0.add(interestAccumulated1);
-            const totalReserves1 = totalReserves0.add(DForceHelper.rmul(interestAccumulated1, reserveFactor));
-            const borrowIndex1 = DForceHelper.rmul(simpleInterestFactor1, borrowIndex0).add(borrowIndex0);
-            const stateIndex1 = DForceHelper.calcDistributionStateSupply(
-              blockNumber1, stateBlock0, stateIndex0, distributionSpeed0
-              , DForceHelper.getTotalTokenForBorrowCase(totalBorrows1, borrowIndex1)
-            );
-            const stateBlock1 = blockNumber1;
-            const totalBorrowsAfterBorrow1 = totalBorrows1.add(amountToBorrow)
-
-            const blockNumber2 = BigNumber.from("32291587");
-            const accrualBlockNumber2 = blockNumber1;
-
-            const borrowRate2 = BigNumber.from("3217289900");
-            const getCash21 = getCash0.add(amountToBorrow);
-            const totalBorrows21 = totalBorrowsAfterBorrow1;
-            const totalReserves21 = totalReserves1;
-
-            const simpleInterestFactor2 = (blockNumber2.sub(accrualBlockNumber2).mul(borrowRate2));
-            const interestAccumulated2 = DForceHelper.rmul(simpleInterestFactor2, totalBorrowsAfterBorrow1);
-            const totalBorrows2 = totalBorrowsAfterBorrow1.add(interestAccumulated2);
-            const borrowIndex2 = DForceHelper.rmul(simpleInterestFactor2, borrowIndex1).add(borrowIndex1);
-            console.log("totalBorrows2", totalBorrows2);
-            console.log("borrowIndex2", borrowIndex2);
-            const blockNumber3 = BigNumber.from("32291588");
-
-            const stateIndex3 = DForceHelper.calcDistributionStateSupply(
-              blockNumber3, stateBlock1, stateIndex1, distributionSpeed0
-              , DForceHelper.getTotalTokenForBorrowCase(totalBorrows2, borrowIndex2)
-            );
-            const stateBlock3 = blockNumber3;
-            console.log("stateIndex3", stateIndex3);
-            console.log("stateBlock3", stateBlock3);
-
-            const borrowIndex: BigNumber = borrowIndex2;
-            const totalBorrows = totalBorrows2;
-            const totalToken = DForceHelper.getTotalTokenForBorrowCase(totalBorrows, borrowIndex);
-            const borrowBalanceStored1 = DForceHelper.divup(amountToBorrow.mul(borrowIndex), userInterest);
-            console.log("borrowBalanceStored", borrowBalanceStored1);
-            const borrowBalanceStored = BigNumber.from(borrowBalanceStored1);
-            const accountBalance = DForceHelper.rdiv(borrowBalanceStored, borrowIndex);
-
-            const pt: IRewardsStatePoint = {
-              stateIndex: stateIndex1,
-              stateBlock: stateBlock1,
-              accountIndex: stateIndex1,
-              distributionSpeed: BigNumber.from("15972314654598696"),
-              accountBalance: accountBalance,
-              totalToken: totalToken,
-            }
-            const blockUpdateDistributionState: BigNumber = BigNumber.from("32291588");
-            //const pt = DForceHelper.predictRewardsStatePointAfterBorrow(borrowPoint);
-            console.log("PT", pt);
-            const ret = DForceHelper.getBorrowRewardsAmount(pt, blockUpdateDistributionState);
-            console.log(ret);
-
-            const ret2 = await DForceHelper.predictRewardsAfterBorrow(
-              {
-                amountToBorrow,
-                distributionSpeed: distributionSpeed0,
-                totalReserves: totalReserves0,
-                totalBorrows: totalBorrows0,
-                totalCash: getCash0,
-                accrualBlockNumber: accrualBlockNumber1,
-                blockNumber: blockNumber1,
-                reserveFactor,
-                borrowIndex: borrowIndex0,
-                stateBlock: stateBlock0,
-                stateIndex: stateIndex0
-              },
-              async function (cash: BigNumber, totalBorrows: BigNumber, totalReserve: BigNumber) : Promise<BigNumber> {
-                return cash == getCash0
-                  ? borrowRate1
-                  : borrowRate2
-              },
-              blockUpdateDistributionState
-            );
-            console.log("ret2", ret2);
-
-            expect(ret.rewardsAmount.toString()).eq("210932052718815335");
           });
         });
       });
