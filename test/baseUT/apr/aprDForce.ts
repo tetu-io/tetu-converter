@@ -295,6 +295,14 @@ export class AprDForce {
       , amountCollateral
     );
     console.log("supplyApr", supplyApr);
+    console.log("!!!!!!!!!!!!!!!!!!!!!!!!!!");
+    console.log("supplyRatePredicted", supplyRatePredicted);
+    console.log("countBlocksSupply", countBlocksSupply);
+    console.log("decimals", collateralAssetDecimals);
+    console.log("priceCollateral36", priceCollateral36);
+    console.log("priceBorrow36", priceBorrow36);
+    console.log("amountCollateral", amountCollateral);
+    console.log("supplyApr", supplyApr);
     const supplyAprExact = await libFacade.getSupplyApr36(
       next.collateral.market.supplyRatePerBlock
       , countBlocksSupply
@@ -435,7 +443,7 @@ export class AprDForce {
           collateralAmount: amountCollateral,
           collateralAmountBT18: convertUnits(
             amountCollateral
-            , priceCollateral, collateralToken.decimals
+            , priceCollateral, collateralAssetDecimals
             , priceBorrow, 18
           )
         }, predicted: {
@@ -462,11 +470,14 @@ export class AprDForce {
             supplyRate: next.collateral.market.supplyRatePerBlock
           },
           aprBt36: {
+            // collateral amount * priceCollateral / priceBorrow => amount in terms of borrow token
+            // convert borrow tokens => decimals 36
             collateral: changeDecimals(
-              deltaCollateral.mul(priceCollateral).div(priceBorrow)
-              , collateralToken.decimals
+              deltaCollateral.mul(priceCollateral)
+              , borrowAssetDecimals
               , 36
-            ), borrow: changeDecimals(deltaBorrowBalance, borrowToken.decimals, 36)
+            ).div(priceBorrow)
+            , borrow: changeDecimals(deltaBorrowBalance, borrowAssetDecimals, 36)
           }
         },
         points: pointsResults

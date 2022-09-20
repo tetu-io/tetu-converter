@@ -25,7 +25,7 @@ import {Misc} from "../../scripts/utils/Misc";
  * - make borrow and estimate real APR
  * - save predicted and real values to result comparative file
  */
-describe.skip("CompareAprUsesCaseTest", () => {
+describe("CompareAprUsesCaseTest", () => {
 //region Constants
   const PATH_OUT = "tmp/compareResults.csv";
   const HEALTH_FACTOR2 = 400;
@@ -165,7 +165,7 @@ describe.skip("CompareAprUsesCaseTest", () => {
   });
 //endregion before, after
 
-//region Utils
+//region Utils to generate amounts and validate results
   /**
    * For each asset generate small amount
    *        0.1 * 10^AssetDecimals
@@ -246,7 +246,7 @@ describe.skip("CompareAprUsesCaseTest", () => {
       sexpected: expected.join()
     }
   }
-//endregion Utils
+//endregion Utils to generate amounts and validate results
 
 //region Test impl
   async function makeTestAave3(countBlocks: number, tasks: IBorrowTask[]): Promise<IBorrowTestResults[]> {

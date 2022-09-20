@@ -130,7 +130,14 @@ library DForceAprLib {
 
     {
       uint8 collateralDecimals = IERC20Extended(core.collateralAsset).decimals();
+      console.log("getRawAprInfo36.getSupplyApr36");
       console.log("collateralDecimals", collateralDecimals);
+      console.log("getEstimatedSupplyRate", getEstimatedSupplyRate(core.cTokenCollateral, collateralAmount_));
+      console.log("countBlocks_", countBlocks_);
+      console.log("getPriceCollateral", getPrice(core.priceOracle, address(core.cTokenCollateral)));
+      console.log("getCollateralPrice36", getPrice(core.priceOracle, address(core.cTokenCollateral)) * 10**collateralDecimals);
+      console.log("priceBorrow36", priceBorrow36);
+      console.log("collateralAmount_", collateralAmount_);
       supplyAprBt36 = getSupplyApr36(
         getEstimatedSupplyRate(core.cTokenCollateral, collateralAmount_),
         countBlocks_,
@@ -171,7 +178,8 @@ library DForceAprLib {
     uint priceCollateral36,
     uint priceBorrow36,
     uint suppliedAmount
-  ) internal pure returns (uint) {
+  ) internal view returns (uint) {
+    console.log("Supply APR pure", supplyRatePerBlock * countBlocks * suppliedAmount / 1e18);
     // original code:
     //    rmul(supplyRatePerBlock * countBlocks, suppliedAmount) * priceCollateral / priceBorrow,
     // but we need result decimals 36
