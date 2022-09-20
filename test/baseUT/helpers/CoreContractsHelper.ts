@@ -2,7 +2,7 @@ import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import {
   BorrowManager, BorrowManager__factory,
   Controller, DebtMonitor,
-  IController, ITetuLiquidator, LendingPlatformMock,
+  IController, LendingPlatformMock,
   MockERC20, PoolStub,
   PriceOracleMock, SwapManager, TetuConverter,
 } from "../../../typechain";
@@ -12,7 +12,6 @@ import {getBigNumberFrom} from "../../../scripts/utils/NumberUtils";
 import {MocksHelper} from "./MocksHelper";
 import {IPoolInfo} from "./BorrowManagerHelper";
 import {COUNT_BLOCKS_PER_DAY} from "../utils/aprUtils";
-import {DeployerUtils} from "@tetu_io/tetu-liquidator/scripts/utils/DeployerUtils";
 
 export class CoreContractsHelper {
   static async createController(
@@ -77,23 +76,14 @@ export class CoreContractsHelper {
   public static async createSwapManager (
     signer: SignerWithAddress,
     controller: IController,
-    tetuLiquidator: ITetuLiquidator,
+    tetuLiquidatorAddress: string,
   ) : Promise<SwapManager> {
     return (await DeployUtils.deployContract(
       signer,
       "SwapManager",
       controller.address,
-      tetuLiquidator.address,
+      tetuLiquidatorAddress,
     )) as SwapManager;
-  }
-
-  /** Deploy TetuLiquidator */
-  public static async deployTetuLiquidator (
-    signer: SignerWithAddress,
-  ) {
-    const liqController = await DeployerUtils.deployController(signer);
-    const tetuLiquidator = await DeployerUtils.deployTetuLiquidator(signer, liqController.address);
-    return {tetuLiquidator, liqController}
   }
 
   /**

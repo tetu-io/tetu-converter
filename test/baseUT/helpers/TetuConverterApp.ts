@@ -27,10 +27,10 @@ export class TetuConverterApp {
     const tc = await CoreContractsHelper.createTetuConverter(deployer, controller);
     const dm = await CoreContractsHelper.createDebtMonitor(deployer, controller);
 
-    const {tetuLiquidator} = await CoreContractsHelper.deployTetuLiquidator(deployer);
-    const swapManager = await CoreContractsHelper.createSwapManager(deployer, controller, tetuLiquidator);
+    const tetuLiquidatorAddress = '0x67e14A8Ebe89639945e4209CE3fE19e721633AC3';
+    const swapManager = await CoreContractsHelper.createSwapManager(deployer, controller, tetuLiquidatorAddress);
 
-    await controller.initialize(tc.address, bm.address, dm.address, ethers.Wallet.createRandom().address, tetuLiquidator.address, swapManager.address);
+    await controller.initialize(tc.address, bm.address, dm.address, ethers.Wallet.createRandom().address, tetuLiquidatorAddress, swapManager.address);
 
     const pools: IERC20[] = [];
     for (const fabric of fabrics) {
