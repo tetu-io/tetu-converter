@@ -87,8 +87,9 @@ contract TetuConverter is ITetuConverter {
     // TODO use healthFactor2_,
     // TODO calculate cost of swap (forward and back)
     int borrowFees = int(borrowMaxTargetAmount) * borrowAprForPeriod36 / 10**36;
-    bool doSwap = (int(borrowMaxTargetAmount) < borrowFees) ||
-      int(swapMaxTargetAmount) > (int(borrowMaxTargetAmount) - borrowFees);
+    bool doSwap = (periodInBlocks_ == type(uint).max)
+      || (int(borrowMaxTargetAmount) < borrowFees)
+      || int(swapMaxTargetAmount) > (int(borrowMaxTargetAmount) - borrowFees);
 
     return doSwap
       ? (swapConverter, swapMaxTargetAmount, int(0))
