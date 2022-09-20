@@ -24,7 +24,7 @@ contract SwapManager is ISwapManager {
   ///           Return best pool for swap
   ///////////////////////////////////////////////////////
 
-  function getConverter(AppDataTypes.InputConversionParams memory p_) external view override returns (
+  function getConverter(AppDataTypes.InputConversionParams memory /*p_*/) external view override returns (
     address converter,
     uint maxTargetAmount,
     int aprForPeriod36

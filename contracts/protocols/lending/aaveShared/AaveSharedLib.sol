@@ -47,7 +47,7 @@ library AaveSharedLib {
     uint countBlocks,
     uint blocksPerDay,
     uint aprMultiplier
-  ) internal view returns (uint) {
+  ) internal pure returns (uint) {
     // calculate income/debt in the period of {countBlocks} since the supply/borrow operation
     uint reserveNormalizedAfterPeriod = rayMul(
       RAY + predictedRate * (
@@ -81,7 +81,7 @@ library AaveSharedLib {
     uint blocksPerDay,
     uint operationTimestamp,
     uint aprMultiplier
-  ) internal view returns (uint) {
+  ) internal pure returns (uint) {
     // recalculate reserveNormalized and liquidityIndex after the supply/borrow operation
     // For borrow we have only approx calculations here because we don't take into account compound effect
     // for the period [state.lastUpdateTimestamp ... operationTimestamp]

@@ -76,6 +76,7 @@
     "node": "^14.18.1"
   },
   "devDependencies": {
+    "@tetu_io/tetu-liquidator": "git+https://github.com/tetu-io/tetu-liquidator.git",
     "@types/chai-as-promised": "^7.1.5"
   }
 }

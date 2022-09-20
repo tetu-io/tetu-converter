@@ -134,7 +134,7 @@ contract HfPlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
 
   function getConversionPlan (
     address collateralAsset_,
-    uint collateralAmount_,
+    uint /*collateralAmount_*/,
     address borrowAsset_,
     uint borrowAmountFactor18_,
     uint countBlocks_
