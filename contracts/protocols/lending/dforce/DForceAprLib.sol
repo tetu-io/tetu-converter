@@ -11,10 +11,13 @@ import "../../../integrations/dforce/IDForceInterestRateModel.sol";
 import "../../../integrations/dforce/IDForceRewardDistributor.sol";
 import "../../../core/AppErrors.sol";
 import "../../../core/AppUtils.sol";
+import "../../../integrations/IERC20Extended.sol";
 import "hardhat/console.sol";
 
 /// @notice DForce utils: estimate reward tokens, predict borrow rate in advance
 library DForceAprLib {
+  address internal constant WMATIC = address(0x0d500B1d8E8eF31E21C99d1Db9A6444d3ADf1270);
+  address internal constant iMATIC = address(0x6A3fE5342a4Bd09efcd44AC5B9387475A0678c74);
 
   ///////////////////////////////////////////////////////
   //                  Data type
@@ -28,6 +31,8 @@ library DForceAprLib {
     IDForceInterestRateModel borrowInterestRateModel;
     IDForceInterestRateModel collateralInterestRateModel;
     IDForcePriceOracle priceOracle;
+    address collateralAsset;
+    address borrowAsset;
   }
 
   /// @notice Set of input params for borrowRewardAmounts function
@@ -77,7 +82,13 @@ library DForceAprLib {
       rd: rd,
       borrowInterestRateModel: IDForceInterestRateModel(IDForceCToken(cTokenBorrow_).interestRateModel()),
       collateralInterestRateModel: IDForceInterestRateModel(IDForceCToken(cTokenCollateral_).interestRateModel()),
-      priceOracle: IDForcePriceOracle(comptroller.priceOracle())
+      priceOracle: IDForcePriceOracle(comptroller.priceOracle()),
+      collateralAsset: cTokenCollateral_ == iMATIC
+        ? WMATIC
+        : IDForceCToken(cTokenCollateral_).underlying(),
+      borrowAsset: cTokenBorrow_ == iMATIC
+        ? WMATIC
+        : IDForceCToken(cTokenBorrow_).underlying()
     });
   }
 
@@ -102,7 +113,9 @@ library DForceAprLib {
     console.log("getRawAprInfo36");
     console.log("collateralAmount_", collateralAmount_);
     console.log("amountToBorrow_", amountToBorrow_);
-    uint priceBorrow36 = getPrice(core.priceOracle, address(core.cTokenBorrow)) * 10**core.cTokenBorrow.decimals();
+    console.log("borrowDecimals", IERC20Extended(core.borrowAsset).decimals());
+    uint priceBorrow36 = getPrice(core.priceOracle, address(core.cTokenBorrow))
+      * 10**IERC20Extended(core.borrowAsset).decimals();
 
     // estimate amount of supply+borrow rewards in terms of borrow asset
     (,, rewardsAmountBt36) = getRewardAmountsBt(core,
@@ -115,14 +128,18 @@ library DForceAprLib {
       })
     );
 
-    supplyAprBt36 = getSupplyApr36(
-      getEstimatedSupplyRate(core.cTokenCollateral, collateralAmount_),
-      countBlocks_,
-      core.cTokenCollateral.decimals(),
-      getPrice(core.priceOracle, address(core.cTokenCollateral)) * 10**core.cTokenCollateral.decimals(),
-      priceBorrow36,
-      collateralAmount_
-    );
+    {
+      uint8 collateralDecimals = IERC20Extended(core.collateralAsset).decimals();
+      console.log("collateralDecimals", collateralDecimals);
+      supplyAprBt36 = getSupplyApr36(
+        getEstimatedSupplyRate(core.cTokenCollateral, collateralAmount_),
+        countBlocks_,
+        collateralDecimals,
+        getPrice(core.priceOracle, address(core.cTokenCollateral)) * 10**collateralDecimals,
+        priceBorrow36,
+        collateralAmount_
+      );
+    }
     console.log("getEstimatedSupplyRate",getEstimatedSupplyRate(core.cTokenCollateral, collateralAmount_));
 
     // estimate borrow rate value after the borrow and calculate result APR
@@ -134,15 +151,15 @@ library DForceAprLib {
       ),
       amountToBorrow_, //TODO core.cTokenBorrow.totalBorrows(),
       countBlocks_,
-      core.cTokenBorrow.decimals()
+      IERC20Extended(core.borrowAsset).decimals()
     );
     console.log("rewardsAmountBt36", rewardsAmountBt36);
     console.log("supplyAprBt36", supplyAprBt36);
     console.log("borrowApr36", borrowApr36);
     console.log("getEstimatedBorrowRate", getEstimatedBorrowRate(
-    core.borrowInterestRateModel,
-    core.cTokenBorrow,
-    amountToBorrow_
+      core.borrowInterestRateModel,
+      core.cTokenBorrow,
+      amountToBorrow_
     ));
   }
 
@@ -194,25 +211,6 @@ library DForceAprLib {
   /// @notice Estimate value of variable borrow rate after borrowing {amountToBorrow_}
   ///         Rewards are not taken into account
   function getEstimatedBorrowRate(
-    IDForceInterestRateModel interestRateModel_,
-    IDForceCToken cTokenBorrow_,
-    uint amountToBorrow_
-  ) internal view returns (uint) {
-    console.log("getEstimatedBorrowRate");
-    console.log("interestRateModel_", address(interestRateModel_));
-    console.log("cTokenBorrow_.getCash()", cTokenBorrow_.getCash());
-    console.log("amountToBorrow_", amountToBorrow_);
-    console.log("cTokenBorrow_.totalBorrows()", cTokenBorrow_.totalBorrows() );
-    return interestRateModel_.getBorrowRate(
-      cTokenBorrow_.getCash() - amountToBorrow_,
-      cTokenBorrow_.totalBorrows() + amountToBorrow_,
-      cTokenBorrow_.totalReserves()
-    );
-  }
-
-  /// @notice Estimate value of variable borrow rate after borrowing {amountToBorrow_}
-  ///         Rewards are not taken into account
-  function getEstimatedBorrowRatePure(
     IDForceInterestRateModel interestRateModel_,
     IDForceCToken cTokenBorrow_,
     uint amountToBorrow_

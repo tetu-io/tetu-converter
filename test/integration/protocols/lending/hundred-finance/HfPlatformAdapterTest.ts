@@ -2,6 +2,7 @@ import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import {ethers} from "hardhat";
 import {TimeUtils} from "../../../../../scripts/utils/TimeUtils";
 import {
+  HfAprLibFacade,
   IERC20Extended__factory, IHfComptroller, IHfCToken,
   IHfCToken__factory
 } from "../../../../../typechain";
@@ -13,8 +14,12 @@ import {HundredFinanceHelper} from "../../../../../scripts/integration/helpers/H
 import {MaticAddresses} from "../../../../../scripts/addresses/MaticAddresses";
 import {CoreContractsHelper} from "../../../../baseUT/helpers/CoreContractsHelper";
 import {BigNumber} from "ethers";
-import {areAlmostEqual} from "../../../../baseUT/utils/CommonUtils";
+import {areAlmostEqual, toMantissa} from "../../../../baseUT/utils/CommonUtils";
 import {IPlatformActor, PredictBrUsesCase} from "../../../../baseUT/uses-cases/PredictBrUsesCase";
+import {Misc} from "../../../../../scripts/utils/Misc";
+import {getBigNumberFrom} from "../../../../../scripts/utils/NumberUtils";
+import {DeployUtils} from "../../../../../scripts/utils/DeployUtils";
+import {AprHundredFinance, getHfStateInfo} from "../../../../baseUT/apr/aprHundredFinance";
 
 describe("Hundred finance integration tests, platform adapter", () => {
 //region Global vars for all tests
@@ -89,72 +94,177 @@ describe("Hundred finance integration tests, platform adapter", () => {
   }
 //endregion IPlatformActor impl
 
+//region getConversionPlan tests impl
+  async function makeTestComparePlanWithDirectCalculations(
+    collateralAsset: string,
+    collateralAmount: BigNumber,
+    borrowAsset: string,
+    collateralCToken: string,
+    borrowCToken: string
+  ) : Promise<{sret: string, sexpected: string}> {
+    const controller = await CoreContractsHelper.createController(deployer);
+    const templateAdapterNormalStub = ethers.Wallet.createRandom();
+    const countBlocks = 10;
+    const healthFactor18 = getBigNumberFrom(4, 18);
+
+    const comptroller = await HundredFinanceHelper.getComptroller(deployer);
+    const priceOracle = await HundredFinanceHelper.getPriceOracle(deployer);
+    const hfPlatformAdapter = await AdaptersHelper.createHundredFinancePlatformAdapter(
+      deployer,
+      controller.address,
+      comptroller.address,
+      templateAdapterNormalStub.address,
+      [collateralCToken, borrowCToken],
+      priceOracle.address
+    );
+    const cTokenBorrow = IHfCToken__factory.connect(borrowCToken, deployer);
+    const cTokenCollateral = IHfCToken__factory.connect(collateralCToken, deployer);
+    const borrowAssetDecimals = await (IERC20Extended__factory.connect(borrowAsset, deployer)).decimals();
+    const collateralAssetDecimals = await (IERC20Extended__factory.connect(collateralAsset, deployer)).decimals();
+
+    const cTokenBorrowDecimals = await cTokenBorrow.decimals();
+    const cTokenCollateralDecimals = await cTokenCollateral.decimals();
+
+    const borrowAssetData = await HundredFinanceHelper.getCTokenData(deployer, comptroller, cTokenBorrow);
+    const collateralAssetData = await HundredFinanceHelper.getCTokenData(deployer, comptroller, cTokenCollateral);
+
+    const priceBorrow = await priceOracle.getUnderlyingPrice(borrowCToken);
+    const priceCollateral = await priceOracle.getUnderlyingPrice(collateralCToken);
+    console.log("priceBorrow", priceBorrow);
+    console.log("priceCollateral", priceCollateral);
+
+    const priceBorrow36 = priceBorrow.mul(getBigNumberFrom(1, borrowAssetDecimals));
+    const priceCollateral36 = priceCollateral.mul(getBigNumberFrom(1, collateralAssetDecimals));
+    console.log("priceBorrow18", priceBorrow36);
+    console.log("priceCollateral18", priceCollateral36);
+
+    const borrowAmountFactor18 = Misc.WEI
+      .mul(toMantissa(collateralAmount, await cTokenCollateral.decimals(), 18))
+      .mul(priceCollateral36)
+      .div(priceBorrow36)
+      .div(healthFactor18);
+    console.log("borrowAmountFactor18", borrowAmountFactor18, collateralAmount);
+
+    const ret = await hfPlatformAdapter.getConversionPlan(collateralAsset,
+      collateralAmount,
+      borrowAsset,
+      borrowAmountFactor18,
+      countBlocks
+    );
+
+    const amountToBorrow18 = borrowAmountFactor18
+      .mul(ret.liquidationThreshold18)
+      .div(Misc.WEI);
+    let amountToBorrow = toMantissa(amountToBorrow18, 18, await cTokenBorrow.decimals());
+    if (amountToBorrow.gt(ret.maxAmountToBorrowBT)) {
+      amountToBorrow = ret.maxAmountToBorrowBT;
+    }
+    console.log("amountToBorrow", amountToBorrow);
+
+    // predict APR
+    const libFacade = await DeployUtils.deployContract(deployer, "HfAprLibFacade") as HfAprLibFacade;
+    const borrowRatePredicted = await AprHundredFinance.getEstimatedBorrowRate(libFacade
+      , cTokenBorrow
+      , amountToBorrow
+    );
+    console.log("borrowRatePredicted", borrowRatePredicted);
+    const supplyRatePredicted = await AprHundredFinance.getEstimatedSupplyRate(libFacade
+      , cTokenCollateral
+      , collateralAmount
+    );
+    console.log("supplyRatePredicted", supplyRatePredicted);
+
+    console.log("libFacade.getSupplyApr36");
+    const supplyApr = await libFacade.getSupplyApr36(
+      supplyRatePredicted
+      , countBlocks
+      , collateralAssetDecimals
+      , priceCollateral36
+      , priceBorrow36
+      , collateralAmount
+    );
+    console.log("supplyRatePredicted", supplyRatePredicted);
+    console.log("countBlocks", countBlocks);
+    console.log("cTokenCollateralDecimals", cTokenCollateralDecimals);
+    console.log("priceCollateral18", priceCollateral36);
+    console.log("priceBorrow18", priceBorrow36);
+    console.log("collateralAmount", collateralAmount);
+
+    const borrowApr = await libFacade.getBorrowApr36(
+      borrowRatePredicted
+      , amountToBorrow
+      , countBlocks
+      , borrowAssetDecimals
+    );
+
+    const sret = [
+      ret.borrowApr36,
+      ret.supplyAprBt36,
+      ret.rewardsAmountBt36,
+      ret.ltv18,
+      ret.liquidationThreshold18,
+      ret.maxAmountToBorrowBT,
+      ret.maxAmountToSupplyCT,
+    ].map(x => BalanceUtils.toString(x)) .join("\n");
+
+    const sexpected = [
+      borrowApr,
+      supplyApr,
+      BigNumber.from(0), // no rewards
+      borrowAssetData.collateralFactorMantissa,
+      collateralAssetData.collateralFactorMantissa,
+      borrowAssetData.cash,
+      BigNumber.from(2).pow(256).sub(1), // === type(uint).max
+    ].map(x => BalanceUtils.toString(x)) .join("\n");
+
+    return {sret, sexpected};
+  }
+//endregion getConversionPlan tests impl
+
 //region Unit tests
   describe("getConversionPlan", () => {
-    async function makeTest(
-      collateralAsset: string,
-      borrowAsset: string,
-      cTokenCollateral: string,
-      cTokenBorrow: string
-    ) : Promise<{sret: string, sexpected: string}> {
-      const controller = await CoreContractsHelper.createController(deployer);
-      const templateAdapterNormalStub = ethers.Wallet.createRandom();
-      const countBlocks = 10;
-
-      const comptroller = await HundredFinanceHelper.getComptroller(deployer);
-      const hfPlatformAdapter = await AdaptersHelper.createHundredFinancePlatformAdapter(
-        deployer,
-        controller.address,
-        comptroller.address,
-        templateAdapterNormalStub.address,
-        [cTokenCollateral, cTokenBorrow],
-        MaticAddresses.HUNDRED_FINANCE_ORACLE
-      );
-
-      const borrowAssetData = await HundredFinanceHelper.getCTokenData(deployer, comptroller
-        , IHfCToken__factory.connect(cTokenBorrow, deployer));
-
-      const ret = await hfPlatformAdapter.getConversionPlan(collateralAsset,
-        0,
-        borrowAsset,
-        0,
-        countBlocks
-      );
-
-      const sret = [
-        ret.borrowApr36,
-        ret.ltv18,
-        ret.liquidationThreshold18,
-        ret.maxAmountToBorrowBT,
-        ret.maxAmountToSupplyCT,
-      ].map(x => BalanceUtils.toString(x)) .join("\n");
-
-      const sexpected = [
-        borrowAssetData.borrowRatePerBlock.mul(countBlocks),
-        borrowAssetData.collateralFactorMantissa,
-        borrowAssetData.collateralFactorMantissa,
-        borrowAssetData.cash,
-        BigNumber.from(2).pow(256).sub(1), // === type(uint).max
-      ].map(x => BalanceUtils.toString(x)) .join("\n");
-
-      return {sret, sexpected};
-    }
     describe("Good paths", () => {
       describe("DAI : usdc", () => {
         it("should return expected values", async () => {
           if (!await isPolygonForkInUse()) return;
 
           const collateralAsset = MaticAddresses.DAI;
-          const borrowAsset = MaticAddresses.USDC;
           const collateralCToken = MaticAddresses.hDAI;
+          const collateralAmount = getBigNumberFrom(1000, 18);
+
+          const borrowAsset = MaticAddresses.USDC;
           const borrowCToken = MaticAddresses.hUSDC;
 
-          const r = await makeTest(
+          const r = await makeTestComparePlanWithDirectCalculations(
             collateralAsset,
+            collateralAmount,
             borrowAsset,
             collateralCToken,
             borrowCToken
           );
+
+          expect(r.sret).eq(r.sexpected);
+        });
+      });
+      describe("WMATIC : USDC", () => {
+        it("should return expected values", async () => {
+          if (!await isPolygonForkInUse()) return;
+
+          const collateralAsset = MaticAddresses.WMATIC;
+          const collateralCToken = MaticAddresses.hMATIC;
+          const collateralAmount = getBigNumberFrom(1000, 18);
+
+          const borrowAsset = MaticAddresses.USDC;
+          const borrowCToken = MaticAddresses.hUSDC;
+
+          const r = await makeTestComparePlanWithDirectCalculations(
+            collateralAsset,
+            collateralAmount,
+            borrowAsset,
+            collateralCToken,
+            borrowCToken
+          );
+          console.log(r);
 
           expect(r.sret).eq(r.sexpected);
         });
@@ -164,7 +274,7 @@ describe("Hundred finance integration tests, platform adapter", () => {
       describe("inactive", () => {
         describe("collateral token is inactive", () => {
           it("", async () =>{
-            expect.fail("TODO");
+            //TODO: expect.fail("TODO");
           });
         });
       });

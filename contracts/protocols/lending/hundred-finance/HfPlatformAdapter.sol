@@ -12,11 +12,13 @@ import "../../../integrations/hundred-finance/IHfComptroller.sol";
 import "../../../integrations/hundred-finance/IHfCToken.sol";
 import "../../../interfaces/IPoolAdapterInitializerWithAP.sol";
 import "../../../interfaces/ITokenAddressProvider.sol";
-import "../../../integrations/hundred-finance/IHfOracle.sol";
+import "../../../integrations/hundred-finance/IHfPriceOracle.sol";
 import "../../../integrations/IERC20Extended.sol";
 import "../../../integrations/hundred-finance/IHfInterestRateModel.sol";
 import "../../../core/AppUtils.sol";
 import "./HfAprLib.sol";
+import "hardhat/console.sol";
+
 /// @notice Adapter to read current pools info from HundredFinance-protocol, see https://docs.hundred.finance/
 contract HfPlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
   using SafeERC20 for IERC20;
@@ -27,7 +29,7 @@ contract HfPlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
 
   IController public controller;
   IHfComptroller public comptroller;
-  /// @notice Implementation of IHfOracle
+  /// @notice Implementation of IHfPriceOracle
   address public priceOracleAddress;
 
   /// @notice Template of pool adapter
@@ -107,7 +109,7 @@ contract HfPlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
   /// @notice Returns the prices of the supported assets in BASE_CURRENCY of the market. Decimals 18
   /// @dev Different markets can have different BASE_CURRENCY
   function getAssetsPrices(address[] calldata assets_) external view override returns (uint[] memory prices18) {
-    IHfOracle priceOracle = IHfOracle(priceOracleAddress);
+    IHfPriceOracle priceOracle = IHfPriceOracle(priceOracleAddress);
 
     uint lenAssets = assets_.length;
     prices18 = new uint[](lenAssets);
@@ -166,28 +168,24 @@ contract HfPlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
           // it seems that supply is not limited in HundredFinance protocol
           plan.maxAmountToSupplyCT = type(uint).max; // unlimited
 
-          // calculate current borrow rate and the borrow rate after borrowing max allowed amount
-          plan.borrowApr36 = IHfCToken(cTokenBorrow).borrowRatePerBlock() * countBlocks_;
-          if (borrowAmountFactor18_ != 0) {
-            uint brAfterBorrow = _br(
-              IHfCToken(cTokenBorrow),
-              AppUtils.toMantissa(
-                borrowAmountFactor18_ * plan.liquidationThreshold18 / 1e18 // == amount to borrow, decimals 18
-                , 18
-                , IHfCToken(cTokenBorrow).decimals()
-              )
-            );
-            if (brAfterBorrow > plan.borrowApr36) {
-              plan.borrowApr36 = brAfterBorrow * countBlocks_;
-            }
+          // calculate current borrow rate and predicted APR after borrowing required amount
+          // amountToBorrow18 = borrowAmountFactor18_ * plan.liquidationThreshold18 / 1e18, convert decimals 18=>borrow
+          uint amountToBorrow = AppUtils.toMantissa(
+            borrowAmountFactor18_ * plan.liquidationThreshold18 / 1e18 // amount to borrow, decimals 18
+          , 18
+          , IHfCToken(cTokenBorrow).decimals()
+          );
+          if (amountToBorrow > plan.maxAmountToBorrowBT) {
+            amountToBorrow = plan.maxAmountToBorrowBT;
+            console.log("HfPlatformAdapter amountToBorrow CORRECTED=", amountToBorrow);
           }
 
-          //TODO
-//          (plan.borrowApr18, plan.supplyAprBT18) = HfForceAprLib.getRawAprInfo(
-//            collateralAmount_,
-//            countBlocks_,
-//            amountToBorrow
-//          );
+          (plan.borrowApr36, plan.supplyAprBt36) = HfAprLib.getRawAprInfo36(
+            HfAprLib.getCore(comptroller, cTokenCollateral, cTokenBorrow),
+            collateralAmount_,
+            countBlocks_,
+            amountToBorrow
+          );
 
         }
       }
@@ -228,18 +226,11 @@ contract HfPlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
 
   /// @notice Estimate value of variable borrow rate after borrowing {amountToBorrow_}
   function getBorrowRateAfterBorrow(address borrowAsset_, uint amountToBorrow_) external view override returns (uint) {
-    return _br(IHfCToken(activeAssets[borrowAsset_]), amountToBorrow_);
-  }
-
-  /// @notice Estimate value of variable borrow rate after borrowing {amountToBorrow_}
-  function _br(
-    IHfCToken cTokenBorrow,
-    uint amountToBorrow_
-  ) internal view returns (uint) {
-    return IHfInterestRateModel(cTokenBorrow.interestRateModel()).getBorrowRate(
-      cTokenBorrow.getCash() - amountToBorrow_,
-      cTokenBorrow.totalBorrows() + amountToBorrow_,
-      cTokenBorrow.totalReserves()
+    address borrowCToken = activeAssets[borrowAsset_];
+    return HfAprLib.getEstimatedBorrowRate(
+      IHfInterestRateModel(IHfCToken(borrowCToken).interestRateModel()),
+      IHfCToken(borrowCToken),
+      amountToBorrow_
     );
   }
 

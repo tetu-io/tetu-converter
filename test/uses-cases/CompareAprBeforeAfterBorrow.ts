@@ -243,6 +243,10 @@ describe("CompareAprBeforeAfterBorrow", () => {
           }
           , [] // no additional points
         );
+
+        // we need to display full objects, so we use util.inspect, see
+        // https://stackoverflow.com/questions/10729276/how-can-i-get-the-full-object-in-node-jss-console-log-rather-than-object
+        require("util").inspect.defaultOptions.depth = null;
         console.log("ret", ret);
 
 
@@ -265,8 +269,6 @@ describe("CompareAprBeforeAfterBorrow", () => {
         ].join("\n");
 
         expect(sret).equals(sexpected);
-
-
       });
 
       describe.skip("Temp calcs for DForce", () => {

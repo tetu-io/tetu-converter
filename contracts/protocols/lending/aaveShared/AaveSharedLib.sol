@@ -81,7 +81,7 @@ library AaveSharedLib {
     uint blocksPerDay,
     uint operationTimestamp,
     uint aprMultiplier
-  ) internal view returns (uint) {
+  ) internal pure returns (uint) {
     // recalculate reserveNormalized and liquidityIndex after the supply/borrow operation
     // For borrow we have only approx calculations here because we don't take into account compound effect
     // for the period [state.lastUpdateTimestamp ... operationTimestamp]

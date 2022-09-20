@@ -3,7 +3,7 @@ pragma solidity 0.8.4;
 
 import "../../protocols/lending/dforce/DForceAprLib.sol";
 
-/// @notice Facade for DForceRewardsLib to make external functions available for tests
+/// @notice Facade for DForceAprLib to make external functions available for tests
 contract DForceAprLibFacade {
   function getCore(
     IDForceController comptroller,

@@ -2,7 +2,7 @@
 pragma solidity 0.8.4;
 
 /// @notice Restored from 0x0b510A226F4A7A66c480988704eCd5306B6f1954 (events removed)
-interface IHfOracle {
+interface IHfPriceOracle {
   function ethUsdChainlinkAggregatorAddress() external view returns (address);
 
   /**

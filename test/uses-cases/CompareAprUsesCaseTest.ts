@@ -17,7 +17,15 @@ import {areAlmostEqual} from "../baseUT/utils/CommonUtils";
 import {expect} from "chai";
 import {Misc} from "../../scripts/utils/Misc";
 
-describe("CompareAprUsesCaseTest", () => {
+/**
+ * Script to generate
+ *        compareResults.csv
+ * For each pair of assets do follow:
+ * - predict APR
+ * - make borrow and estimate real APR
+ * - save predicted and real values to result comparative file
+ */
+describe.skip("CompareAprUsesCaseTest", () => {
 //region Constants
   const PATH_OUT = "tmp/compareResults.csv";
   const HEALTH_FACTOR2 = 400;

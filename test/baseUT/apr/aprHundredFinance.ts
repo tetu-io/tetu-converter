@@ -3,13 +3,11 @@ import {IBorrowResults, IPointResults} from "./aprDataTypes";
 import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import {TestSingleBorrowParams} from "../types/BorrowRepayDataTypes";
 import {TokenDataTypes} from "../types/TokenDataTypes";
-import {DForceHelper} from "../../../scripts/integration/helpers/DForceHelper";
+import {HundredFinanceHelper} from "../../../scripts/integration/helpers/HundredFinanceHelper";
 import {
-  DForceAprLibFacade,
-  IDForceController,
-  IDForceCToken,
-  IDForceCToken__factory,
-  IERC20__factory, IERC20Extended__factory
+  HfAprLibFacade, IHfComptroller,
+  IHfCToken,
+  IHfCToken__factory,
 } from "../../../typechain";
 import {getBigNumberFrom} from "../../../scripts/utils/NumberUtils";
 import {DeployUtils} from "../../../scripts/utils/DeployUtils";
@@ -18,61 +16,60 @@ import {
   changeDecimals, prepareExactBorrowAmount,
   convertUnits, makeBorrow
 } from "./aprUtils";
-import {DForcePlatformFabric} from "../fabrics/DForcePlatformFabric";
 import {TimeUtils} from "../../../scripts/utils/TimeUtils";
 import {ConfigurableAmountToBorrow} from "./ConfigurableAmountToBorrow";
-import {getCTokenAddressForAsset} from "../utils/DForceUtils";
 import {Misc} from "../../../scripts/utils/Misc";
+import {getCTokenAddressForAsset} from "../utils/DForceUtils";
+import {HundredFinancePlatformFabric} from "../fabrics/HundredFinancePlatformFabric";
 
 //region Data types
-interface IDForceMarketState {
+interface IHfMarketState {
   accrualBlockNumber: BigNumber;
   borrowIndex: BigNumber;
   borrowRatePerBlock: BigNumber;
   exchangeRateStored: BigNumber;
   cash: BigNumber;
-  reserveRatio: BigNumber;
+  reserveFactorMantissa: BigNumber;
   supplyRatePerBlock: BigNumber;
   totalBorrows: BigNumber;
   totalReserves: BigNumber;
   totalSupply: BigNumber;
 }
 
-interface IDForceUserAccountState {
+interface IHfUserAccountState {
   balance: BigNumber;
   borrowBalanceStored: BigNumber;
-  borrowPrincipal: BigNumber;
   borrowInterestIndex: BigNumber;
 
-  // calcAccountEquity
-  accountEquity: BigNumber;
+  accountLiquidity: BigNumber;
   accountShortfall: BigNumber;
-  accountCollateralValue: BigNumber;
-  accountBorrowedValue: BigNumber;
+  accountTokenBalance: BigNumber;
+  accountBorrowBalance: BigNumber;
+  exchangeRateMantissa: BigNumber;
 }
 
-interface IDForceState {
+interface IHfState {
   block: number,
   blockTimestamp: number;
   collateral: {
-    market: IDForceMarketState,
-    account: IDForceUserAccountState
+    market: IHfMarketState,
+    account: IHfUserAccountState
   },
   borrow: {
-    market: IDForceMarketState,
-    account: IDForceUserAccountState
+    market: IHfMarketState,
+    account: IHfUserAccountState
   },
 }
 
-interface IAprDForceTwoResults {
+interface IAprHfTwoResults {
   /** State before borrow */
-  before: IDForceState;
+  before: IHfState;
   /** State just after borrow */
-  next: IDForceState;
+  next: IHfState;
   /** After borrow + 1 block */
-  middle: IDForceState;
+  middle: IHfState;
   /** State just after borrow + 1 block */
-  last: IDForceState;
+  last: IHfState;
   /** Borrower address */
   userAddress: string;
   /** Exact value of the borrowed amount */
@@ -98,14 +95,14 @@ interface IAprDForceTwoResults {
 //endregion Data types
 
 //region Utils
-async function getDForceMarketState(token: IDForceCToken): Promise<IDForceMarketState> {
+async function getHfMarketState(token: IHfCToken): Promise<IHfMarketState> {
   return {
     accrualBlockNumber: await token.accrualBlockNumber(),
     borrowIndex: await token.borrowIndex(),
     cash: await token.getCash(),
     borrowRatePerBlock: await token.borrowRatePerBlock(),
     exchangeRateStored: await token.exchangeRateStored(),
-    reserveRatio: await token.reserveRatio(),
+    reserveFactorMantissa: await token.reserveFactorMantissa(),
     supplyRatePerBlock: await token.supplyRatePerBlock(),
     totalBorrows: await token.totalBorrows(),
     totalReserves: await token.totalReserves(),
@@ -113,47 +110,47 @@ async function getDForceMarketState(token: IDForceCToken): Promise<IDForceMarket
   }
 }
 
-async function getDForceUserAccountState(
-  comptroller: IDForceController,
-  token: IDForceCToken,
+async function getHfUserAccountState(
+  comptroller: IHfComptroller,
+  token: IHfCToken,
   user: string
-): Promise<IDForceUserAccountState> {
-  const snapshot = await token.borrowSnapshot(user);
-  const e = await comptroller.calcAccountEquity(user);
+): Promise<IHfUserAccountState> {
+  const e = await comptroller.getAccountLiquidity(user);
+  const snapshot = await token.getAccountSnapshot(user);
   return {
     balance: await token.balanceOf(user),
     borrowBalanceStored: await token.borrowBalanceStored(user),
-    borrowInterestIndex: snapshot.interestIndex,
-    borrowPrincipal: snapshot.principal,
+    borrowInterestIndex: await token.borrowIndex(),
 
-    accountEquity: e.accountEquity,
+    accountLiquidity: e.liquidity,
     accountShortfall: e.shortfall,
-    accountBorrowedValue: e.borrowedValue,
-    accountCollateralValue: e.collateralValue
+    accountBorrowBalance: snapshot.borrowBalance,
+    accountTokenBalance: snapshot.tokenBalance,
+    exchangeRateMantissa: snapshot.exchangeRateMantissa
   }
 }
 
-export async function getDForceStateInfo(
-  comptroller: IDForceController
-  , cTokenCollateral: IDForceCToken
-  , cTokenBorrow: IDForceCToken
+export async function getHfStateInfo(
+  comptroller: IHfComptroller
+  , cTokenCollateral: IHfCToken
+  , cTokenBorrow: IHfCToken
   , user: string
-) : Promise<IDForceState> {
+) : Promise<IHfState> {
   return {
     block: (await hre.ethers.provider.getBlock("latest")).number,
     blockTimestamp: (await hre.ethers.provider.getBlock("latest")).timestamp,
     collateral: {
-      market: await getDForceMarketState(cTokenCollateral),
-      account: await getDForceUserAccountState(comptroller, cTokenCollateral, user),
+      market: await getHfMarketState(cTokenCollateral),
+      account: await getHfUserAccountState(comptroller, cTokenCollateral, user),
     }, borrow: {
-      market: await getDForceMarketState(cTokenBorrow),
-      account: await getDForceUserAccountState(comptroller, cTokenBorrow, user),
+      market: await getHfMarketState(cTokenBorrow),
+      account: await getHfUserAccountState(comptroller, cTokenBorrow, user),
     }
   }
 }
 //endregion Utils
 
-export class AprDForce {
+export class AprHundredFinance {
   /**
    * 0. Predict APR
    * 1. Make borrow
@@ -176,7 +173,7 @@ export class AprDForce {
     , p: TestSingleBorrowParams
     , additionalPoints: number[]
   ): Promise<{
-    details: IAprDForceTwoResults
+    details: IAprHfTwoResults
     , results: IBorrowResults
   }> {
     const collateralCTokenAddress = getCTokenAddressForAsset(p.collateral.asset);
@@ -185,23 +182,18 @@ export class AprDForce {
     const collateralToken = await TokenDataTypes.Build(deployer, p.collateral.asset);
     const borrowToken = await TokenDataTypes.Build(deployer, p.borrow.asset);
 
-    const comptroller = await DForceHelper.getController(deployer);
-    const cTokenCollateral = IDForceCToken__factory.connect(collateralCTokenAddress, deployer);
-    const cTokenBorrow = IDForceCToken__factory.connect(borrowCTokenAddress, deployer);
-    const priceOracle = await DForceHelper.getPriceOracle(comptroller, deployer);
-    const rewardsDistributor = await DForceHelper.getRewardDistributor(comptroller, deployer);
+    const comptroller = await HundredFinanceHelper.getComptroller(deployer);
+    const cTokenCollateral = IHfCToken__factory.connect(collateralCTokenAddress, deployer);
+    const cTokenBorrow = IHfCToken__factory.connect(borrowCTokenAddress, deployer);
+    const priceOracle = await HundredFinanceHelper.getPriceOracle(deployer);
 
-    const borrowAssetDecimals = await (IERC20Extended__factory.connect(p.borrow.asset, deployer)).decimals();
-    const collateralAssetDecimals = await (IERC20Extended__factory.connect(p.collateral.asset, deployer)).decimals();
-
-
-    const marketCollateralData = await DForceHelper.getCTokenData(deployer, comptroller, cTokenCollateral);
-    const marketBorrowData = await DForceHelper.getCTokenData(deployer, comptroller, cTokenBorrow);
+    const marketCollateralData = await HundredFinanceHelper.getCTokenData(deployer, comptroller, cTokenCollateral);
+    const marketBorrowData = await HundredFinanceHelper.getCTokenData(deployer, comptroller, cTokenBorrow);
 
     console.log("marketCollateralData", marketCollateralData);
     console.log("marketBorrowData", marketBorrowData);
 
-    const amountCollateral = getBigNumberFrom(p.collateralAmount, collateralAssetDecimals);
+    const amountCollateral = getBigNumberFrom(p.collateralAmount, collateralToken.decimals);
     console.log(`amountCollateral=${amountCollateral.toString()}`);
 
     // prices
@@ -209,16 +201,12 @@ export class AprDForce {
     const priceBorrow = await priceOracle.getUnderlyingPrice(borrowCTokenAddress);
     console.log("priceCollateral", priceCollateral);
     console.log("priceBorrow", priceBorrow);
-    const priceBorrow36 = priceBorrow.mul(getBigNumberFrom(1, borrowAssetDecimals));
-    const priceCollateral36 = priceCollateral.mul(getBigNumberFrom(1, collateralAssetDecimals));
-    console.log("priceCollateral36", priceCollateral36);
-    console.log("priceBorrow36", priceBorrow36);
 
     // predict APR
-    const libFacade = await DeployUtils.deployContract(deployer, "DForceAprLibFacade") as DForceAprLibFacade;
+    const libFacade = await DeployUtils.deployContract(deployer, "HfAprLibFacade") as HfAprLibFacade;
 
     // start point: we estimate APR in this point before borrow and supply
-    const before = await getDForceStateInfo(comptroller
+    const before = await getHfStateInfo(comptroller
       , cTokenCollateral
       , cTokenBorrow
       // we don't have user address at this moment
@@ -230,8 +218,8 @@ export class AprDForce {
     const borrowResults = await makeBorrow(
       deployer
       , p
-      , prepareExactBorrowAmount(amountToBorrow0, borrowAssetDecimals)
-      , new DForcePlatformFabric()
+      , prepareExactBorrowAmount(amountToBorrow0, borrowToken.decimals)
+      , new HundredFinancePlatformFabric()
     );
     const userAddress = borrowResults.poolAdapter;
     const borrowAmount = borrowResults.borrowAmount;
@@ -244,32 +232,31 @@ export class AprDForce {
     console.log(`borrowRatePredicted=${borrowRatePredicted.toString()}`);
 
     const supplyRatePredicted = await this.getEstimatedSupplyRate(libFacade
-      , before
+      , cTokenCollateral
       , amountCollateral
-      , marketCollateralData.interestRateModel
     );
     console.log(`supplyRatePredicted=${supplyRatePredicted.toString()}`);
 
     // next => last
-    const next = await getDForceStateInfo(comptroller
+    const next = await getHfStateInfo(comptroller
       , cTokenCollateral
       , cTokenBorrow
       , userAddress
     );
 
     // For collateral: move ahead on single block
-    await cTokenCollateral.updateInterest(); //await TimeUtils.advanceNBlocks(1);
+    await cTokenCollateral.accrueInterest(); //await TimeUtils.advanceNBlocks(1);
 
-    const middle = await getDForceStateInfo(comptroller
+    const middle = await getHfStateInfo(comptroller
       , cTokenCollateral
       , cTokenBorrow
       , userAddress
     );
 
     // For borrow: move ahead on one more block
-    await cTokenBorrow.updateInterest();
+    await cTokenBorrow.accrueInterest();
 
-    const last = await getDForceStateInfo(comptroller
+    const last = await getHfStateInfo(comptroller
       , cTokenCollateral
       , cTokenBorrow
       , userAddress
@@ -289,18 +276,18 @@ export class AprDForce {
     const supplyApr = await libFacade.getSupplyApr36(
       supplyRatePredicted
       , countBlocksSupply
-      , collateralAssetDecimals
-      , priceCollateral36
-      , priceBorrow36
+      , await cTokenCollateral.decimals()
+      , priceCollateral
+      , priceBorrow
       , amountCollateral
     );
     console.log("supplyApr", supplyApr);
     const supplyAprExact = await libFacade.getSupplyApr36(
       next.collateral.market.supplyRatePerBlock
       , countBlocksSupply
-      , collateralAssetDecimals
-      , priceCollateral36
-      , priceBorrow36
+      , await cTokenCollateral.decimals()
+      , priceCollateral
+      , priceBorrow
       , amountCollateral
     );
     console.log("supplyAprExact", supplyAprExact);
@@ -309,7 +296,7 @@ export class AprDForce {
       borrowRatePredicted
       , borrowAmount
       , countBlocksBorrow
-      , borrowAssetDecimals
+      , await cTokenBorrow.decimals()
     );
     console.log("borrowApr", borrowApr);
 
@@ -317,7 +304,7 @@ export class AprDForce {
       middle.borrow.market.borrowRatePerBlock
       , borrowAmount
       , countBlocksBorrow
-      , borrowAssetDecimals
+      , await cTokenBorrow.decimals()
     );
     console.log("borrowAprExact", borrowApr);
 
@@ -344,40 +331,9 @@ export class AprDForce {
     const pointsResults: IPointResults[] = [];
     let prev = last;
     for (const period of additionalPoints) {
-      // we need 4 blocks to update rewards ... so we need to make advance on N - 4 blocks
-      if (period > 4) {
-        await TimeUtils.advanceNBlocks(period - 4);
-        await rewardsDistributor.updateDistributionState(collateralCTokenAddress, false);
-        await rewardsDistributor.updateReward(collateralCTokenAddress, userAddress, false);
-        await rewardsDistributor.updateDistributionState(borrowCTokenAddress, true);
-        let rewardsBalance0 = await IERC20__factory.connect(await rewardsDistributor.rewardToken(), deployer).balanceOf(userAddress);
-        console.log("rewardsBalance0", rewardsBalance0);
-        await rewardsDistributor.updateReward(borrowCTokenAddress, userAddress, true);
-        //await rewardsDistributor.claimReward([userAddress], [collateralCTokenAddress, borrowCTokenAddress]);
-        rewardsBalance0 = await IERC20__factory.connect(await rewardsDistributor.rewardToken(), deployer).balanceOf(userAddress);
-        console.log("rewardsBalance0", rewardsBalance0);
-      } else {
-        await TimeUtils.advanceNBlocks(period); // no rewards, period is too small
-      }
-      const totalAmountRewards = await rewardsDistributor.reward(userAddress);
+      await TimeUtils.advanceNBlocks(period);
 
-      //let's reconvert rewards to borrow tokens
-      const rewardToken = await rewardsDistributor.rewardToken();
-      const priceRewards = await priceOracle.getUnderlyingPrice(rewardToken);
-      const rt = IDForceCToken__factory.connect(rewardToken, deployer);
-      console.log("totalAmountRewards", totalAmountRewards);
-      console.log("priceRewards", priceRewards);
-      console.log("rewards-decimals", await rt.decimals());
-      console.log("priceBorrow", priceBorrow);
-
-      const totalAmountRewardsBt36 = totalAmountRewards
-        .mul(priceRewards).mul(getBigNumberFrom(1, await rt.decimals()))
-        .mul(getBigNumberFrom(1, 36))
-        .div(priceBorrow.mul(getBigNumberFrom(1, borrowAssetDecimals)))
-        .div(getBigNumberFrom(1, await rt.decimals()));
-      console.log("totalAmountRewardsBt36", totalAmountRewardsBt36);
-
-      let current = await getDForceStateInfo(comptroller
+      let current = await getHfStateInfo(comptroller
         , cTokenCollateral
         , cTokenBorrow
         , userAddress
@@ -407,10 +363,9 @@ export class AprDForce {
           collateral: current.collateral.account.balance,
           borrow: current.borrow.account.borrowBalanceStored
         }, costsBT18: {
-          collateral: changeDecimals(dc.mul(priceCollateral).div(priceBorrow), collateralAssetDecimals, 18),
-          borrow: changeDecimals(db, borrowAssetDecimals, 18),
-        }, totalAmountRewards: totalAmountRewards
-        , totalAmountRewardsBt36: totalAmountRewardsBt36
+          collateral: changeDecimals(dc.mul(priceCollateral).div(priceBorrow), collateralToken.decimals, 18),
+          borrow: changeDecimals(db, borrowToken.decimals, 18),
+        }
       })
     }
 
@@ -475,26 +430,20 @@ export class AprDForce {
   }
 
   static async getEstimatedSupplyRate(
-    libFacade: DForceAprLibFacade,
-    state: IDForceState,
+    libFacade: HfAprLibFacade,
+    token: IHfCToken,
     amountCollateral: BigNumber,
-    interestRateModel: string
   ) : Promise<BigNumber> {
-    return await libFacade.getEstimatedSupplyRatePure(
-      state.collateral.market.totalSupply
+    return await libFacade.getEstimatedSupplyRate(
+      await token.interestRateModel()
+      , token.address
       , amountCollateral
-      , state.collateral.market.cash
-      , state.collateral.market.totalBorrows
-      , state.collateral.market.totalReserves
-      , interestRateModel
-      , state.collateral.market.reserveRatio
-      , state.collateral.market.exchangeRateStored
     );
   }
 
   static async getEstimatedBorrowRate(
-    libFacade: DForceAprLibFacade,
-    token: IDForceCToken,
+    libFacade: HfAprLibFacade,
+    token: IHfCToken,
     borrowAmount: BigNumber
   ) : Promise<BigNumber> {
     return await libFacade.getEstimatedBorrowRate(

@@ -162,8 +162,9 @@ describe("DForce integration tests, platform adapter", () => {
     const cTokenBorrow = IDForceCToken__factory.connect(borrowCToken, deployer);
     const cTokenCollateral = IDForceCToken__factory.connect(collateralCToken, deployer);
 
-    const cTokenBorrowDecimals = await cTokenBorrow.decimals();
-    const cTokenCollateralDecimals = await cTokenCollateral.decimals();
+    const borrowAssetDecimals = await (IERC20Extended__factory.connect(borrowAsset, deployer)).decimals();
+    const collateralAssetDecimals = await (IERC20Extended__factory.connect(collateralAsset, deployer)).decimals();
+
 
     // getUnderlyingPrice returns price/1e(36-underlineDecimals)
     const priceBorrow = await priceOracle.getUnderlyingPrice(borrowCToken);
@@ -171,14 +172,10 @@ describe("DForce integration tests, platform adapter", () => {
     console.log("priceBorrow", priceBorrow);
     console.log("priceCollateral", priceCollateral);
 
-    const priceBorrow18 = (priceBorrow)
-      .mul(getBigNumberFrom(1, cTokenBorrowDecimals))
-      .div(getBigNumberFrom(1, 18));
-    const priceCollateral18 = (priceCollateral)
-      .mul(getBigNumberFrom(1, cTokenCollateralDecimals))
-      .div(Misc.WEI);
-    console.log("priceBorrow18", priceBorrow18);
-    console.log("priceCollateral18", priceCollateral18);
+    const priceBorrow36 = priceBorrow.mul(getBigNumberFrom(1, borrowAssetDecimals));
+    const priceCollateral36 = priceCollateral.mul(getBigNumberFrom(1, collateralAssetDecimals));
+    console.log("priceBorrow18", priceBorrow36);
+    console.log("priceCollateral18", priceCollateral36);
 
     const collateralAssetData = await DForceHelper.getCTokenData(deployer, comptroller, cTokenCollateral);
     console.log("collateralAssetData", collateralAssetData);
@@ -187,8 +184,8 @@ describe("DForce integration tests, platform adapter", () => {
 
     const borrowAmountFactor18 = Misc.WEI
       .mul(toMantissa(collateralAmount, await cTokenCollateral.decimals(), 18))
-      .mul(priceCollateral18)
-      .div(priceBorrow18)
+      .mul(priceCollateral36)
+      .div(priceBorrow36)
       .div(healthFactor18);
     console.log("borrowAmountFactor18", borrowAmountFactor18, collateralAmount);
 
@@ -223,16 +220,16 @@ describe("DForce integration tests, platform adapter", () => {
     const supplyApr = await libFacade.getSupplyApr36(
       supplyRatePredicted
       , countBlocks
-      , cTokenCollateralDecimals
-      , priceCollateral18
-      , priceBorrow18
+      , collateralAssetDecimals
+      , priceCollateral36
+      , priceBorrow36
       , collateralAmount
     );
     const borrowApr = await libFacade.getBorrowApr36(
       borrowRatePredicted
       , amountToBorrow
       , countBlocks
-      , cTokenBorrowDecimals
+      , borrowAssetDecimals
     );
 
     const sret = [
