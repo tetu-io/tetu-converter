@@ -2,9 +2,9 @@ import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import {
   BorrowManager, BorrowManager__factory,
   Controller, DebtMonitor,
-  IController, LendingPlatformMock,
+  IController, ITetuLiquidator, LendingPlatformMock,
   MockERC20, PoolStub,
-  PriceOracleMock, TetuConverter
+  PriceOracleMock, SwapManager, TetuConverter,
 } from "../../../typechain";
 import {BigNumber, ethers} from "ethers";
 import {DeployUtils} from "../../../scripts/utils/DeployUtils";
@@ -12,6 +12,7 @@ import {getBigNumberFrom} from "../../../scripts/utils/NumberUtils";
 import {MocksHelper} from "./MocksHelper";
 import {IPoolInfo} from "./BorrowManagerHelper";
 import {COUNT_BLOCKS_PER_DAY} from "../utils/aprUtils";
+import {DeployerUtils} from "@tetu_io/tetu-liquidator/scripts/utils/DeployerUtils";
 
 export class CoreContractsHelper {
   static async createController(
@@ -25,6 +26,8 @@ export class CoreContractsHelper {
     )) as Controller;
     await controller.initialize(
       ethers.Wallet.createRandom().address
+      , ethers.Wallet.createRandom().address
+      , ethers.Wallet.createRandom().address
       , ethers.Wallet.createRandom().address
       , ethers.Wallet.createRandom().address
       , ethers.Wallet.createRandom().address
@@ -68,6 +71,29 @@ export class CoreContractsHelper {
       "BorrowManager",
       controller.address
     )) as BorrowManager;
+  }
+
+  /** Create SwapManager */
+  public static async createSwapManager (
+    signer: SignerWithAddress,
+    controller: IController,
+    tetuLiquidator: ITetuLiquidator,
+  ) : Promise<SwapManager> {
+    return (await DeployUtils.deployContract(
+      signer,
+      "SwapManager",
+      controller.address,
+      tetuLiquidator.address,
+    )) as SwapManager;
+  }
+
+  /** Deploy TetuLiquidator */
+  public static async deployTetuLiquidator (
+    signer: SignerWithAddress,
+  ) {
+    const liqController = await DeployerUtils.deployController(signer);
+    const tetuLiquidator = await DeployerUtils.deployTetuLiquidator(signer, liqController.address);
+    return {tetuLiquidator, liqController}
   }
 
   /**
