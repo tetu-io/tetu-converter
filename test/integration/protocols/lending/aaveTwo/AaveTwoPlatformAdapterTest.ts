@@ -20,6 +20,7 @@ import {areAlmostEqual, toMantissa} from "../../../../baseUT/utils/CommonUtils";
 import {IPlatformActor, PredictBrUsesCase} from "../../../../baseUT/uses-cases/PredictBrUsesCase";
 import {AprAaveTwo, getAaveTwoStateInfo} from "../../../../baseUT/apr/aprAaveTwo";
 import {Aave3Helper} from "../../../../../scripts/integration/helpers/Aave3Helper";
+import {Misc} from "../../../../../scripts/utils/Misc";
 
 describe("AaveTwoPlatformAdapterTest", () => {
 //region Global vars for all tests
@@ -121,7 +122,6 @@ describe("AaveTwoPlatformAdapterTest", () => {
       const priceCollateral = await priceOracle.getAssetPrice(collateralAsset);
       const priceBorrow = await priceOracle.getAssetPrice(borrowAsset);
 
-
       const dp = await AaveTwoHelper.getAaveProtocolDataProvider(deployer);
 
       const collateralAssetData = await AaveTwoHelper.getReserveInfo(deployer, aavePool, dp, collateralAsset);
@@ -148,7 +148,7 @@ describe("AaveTwoPlatformAdapterTest", () => {
         countBlocks
       );
       console.log("ret", ret);
-      const borrowAmount18 = ret.liquidationThreshold18.mul(borrowAmountFactor18).div(getBigNumberFrom(1, 18));
+      const borrowAmount18 = ret.liquidationThreshold18.mul(borrowAmountFactor18).div(Misc.WEI);
       let borrowAmount = toMantissa(borrowAmount18, 18, borrowAssetData.data.decimals);
       if (borrowAmount.gt(ret.maxAmountToBorrowBT)) {
         borrowAmount = ret.maxAmountToBorrowBT;
@@ -197,11 +197,11 @@ describe("AaveTwoPlatformAdapterTest", () => {
         0,
         BigNumber.from(borrowAssetData.data.ltv
         )
-          .mul(getBigNumberFrom(1, 18))
+          .mul(Misc.WEI)
           .div(getBigNumberFrom(1, 4)),
         BigNumber.from(collateralAssetData.data.liquidationThreshold
         )
-          .mul(getBigNumberFrom(1, 18))
+          .mul(Misc.WEI)
           .div(getBigNumberFrom(1, 4)),
         BigNumber.from(borrowAssetData.liquidity.availableLiquidity),
         BigNumber.from(2).pow(256).sub(1), // === type(uint).max

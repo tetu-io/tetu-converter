@@ -15,6 +15,7 @@ import {DForceHelper} from "../../scripts/integration/helpers/DForceHelper";
 import {AprAave3} from "../baseUT/apr/aprAave3";
 import {AprAaveTwo} from "../baseUT/apr/aprAaveTwo";
 import {AprDForce} from "../baseUT/apr/aprDForce";
+import {Misc} from "../../scripts/utils/Misc";
 
 /**
  * For any landing platform:
@@ -126,7 +127,7 @@ describe("CompareAprBeforeAfterBorrow", () => {
         const Sy = BigNumber.from("31536000");
         const liquidityIndex = BigNumber.from("1007318912808656132837500551");
         const reserveNormalizedIncomeLast = BigNumber.from("1007318914657950415385632913");
-        const wei = getBigNumberFrom(1, 18);
+        const wei = Misc.WEI;
 
         const r1 = sb.mul(price).mul(reserveNormalizedIncomeLast).div(RAY).div(wei);
         console.log(r1);
@@ -355,7 +356,7 @@ describe("CompareAprBeforeAfterBorrow", () => {
           const underlyingScaled = totalSupplyUpdated.mul(exchangeRateInternal);
           console.log("underlyingScaled", underlyingScaled);
 
-          const base = getBigNumberFrom(1, 18);
+          const base = Misc.WEI;
           const totalBorrowsScaled = totalBorrowUpdated.mul(base);
           console.log("totalBorrowsScaled", totalBorrowsScaled);
 
@@ -743,6 +744,71 @@ describe("CompareAprBeforeAfterBorrow", () => {
         expect(sret).equals(sexpected);
 
 
+      });
+    });
+  });
+
+  describe("USDC-6 => USDT-6", () => {
+//region Constants
+    const ASSET_COLLATERAL = MaticAddresses.USDC;
+    const HOLDER_COLLATERAL = MaticAddresses.HOLDER_USDC;
+    const ASSET_BORROW = MaticAddresses.USDT;
+    const HOLDER_BORROW = MaticAddresses.HOLDER_USDT;
+    const AMOUNT_COLLATERAL = 100;
+    const INITIAL_LIQUIDITY_COLLATERAL = 1_000_000;
+    const INITIAL_LIQUIDITY_BORROW = 100;
+    const HEALTH_FACTOR2 = 200;
+    const COUNT_BLOCKS = 1;
+    const AMOUNT_TO_BORROW = BigNumber.from("21251849");
+//endregion Constants
+
+    describe("DForce", () => {
+      it("predicted APR should be equal to real APR", async () => {
+        if (!await isPolygonForkInUse()) return;
+
+        const ret = await AprDForce.makeBorrowTest(
+          deployer
+          , {exact: true, exactAmountToBorrow: AMOUNT_TO_BORROW}
+          , {
+            collateral: {
+              asset: ASSET_COLLATERAL,
+              holder: HOLDER_COLLATERAL,
+              initialLiquidity: INITIAL_LIQUIDITY_COLLATERAL,
+            }, borrow: {
+              asset: ASSET_BORROW,
+              holder: HOLDER_BORROW,
+              initialLiquidity: INITIAL_LIQUIDITY_BORROW,
+            }, collateralAmount: AMOUNT_COLLATERAL
+            , healthFactor2: HEALTH_FACTOR2
+            , countBlocks: COUNT_BLOCKS
+          }
+          , [] // no additional points
+        );
+
+        // we need to display full objects, so we use util.inspect, see
+        // https://stackoverflow.com/questions/10729276/how-can-i-get-the-full-object-in-node-jss-console-log-rather-than-object
+        require("util").inspect.defaultOptions.depth = null;
+        console.log("ret", ret);
+
+        // calculate real differences in user-account-balances for period [next block, last block]
+        const sret = [
+          areAlmostEqual(ret.details.deltaCollateralBT!, ret.details.supplyApr!, 4)
+          , areAlmostEqual(ret.details.deltaBorrowBalance!, ret.details.borrowApr!, 5)
+
+          // not exact because real supply and borrow rate are rounded
+          , areAlmostEqual(ret.details.deltaCollateralBT!, ret.details.supplyAprExact!, 9)
+          , areAlmostEqual(ret.details.deltaBorrowBalance!, ret.details.borrowAprExact!, 9)
+        ].join("\n");
+
+        // these differences must be equal to exact supply/borrow APR
+        const sexpected = [
+          true
+          , true
+          , true
+          , true
+        ].join("\n");
+
+        expect(sret).equals(sexpected);
       });
     });
   });

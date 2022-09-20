@@ -27,6 +27,7 @@ import {
 import {AaveTwoPlatformFabric} from "../fabrics/AaveTwoPlatformFabric";
 import {TimeUtils} from "../../../scripts/utils/TimeUtils";
 import {ConfigurableAmountToBorrow} from "./ConfigurableAmountToBorrow";
+import {Misc} from "../../../scripts/utils/Misc";
 
 //region Data types
 interface IAaveTwoReserveData {
@@ -219,13 +220,13 @@ async function getAprBeforeAAVETwo(
     countBlocks,
     blocksPerDay,
     operationTimestamp,
-    getBigNumberFrom(1, 18) //additional multiplier to keep the precision
+    Misc.WEI //additional multiplier to keep the precision
   );
   console.log("getAprAAVETwoBase", value);
   return {
     aprBase18: value
       .mul(price)
-      .div(getBigNumberFrom(1, 18))
+      .div(Misc.WEI)
       .div(getBigNumberFrom(1, decimalsAmount))
     , nextLiquidityIndex
     , aprMultiplied18: value
@@ -421,7 +422,7 @@ export class AprAaveTwo {
       , keyValues.borrow.next
       , blocksPerDay
       , borrowToken.decimals
-      , getBigNumberFrom(1, 18) //additional multiplier to keep precision
+      , Misc.WEI //additional multiplier to keep precision
     );
     console.log("borrowAprBaseExactMul18", borrowAprBaseExactMul18);
 
@@ -521,12 +522,12 @@ export class AprAaveTwo {
         }, predicted: {
           aprBt36: {
             collateral: supplyAprBaseApprox.aprMultiplied18
-              .mul(getBigNumberFrom(1, 18))
+              .mul(Misc.WEI)
               .mul(priceCollateral)
               .div(priceBorrow)
               .div(getBigNumberFrom(1, collateralToken.decimals)),
             borrow: borrowAprBaseApprox.aprMultiplied18
-              .mul(getBigNumberFrom(1, 18))
+              .mul(Misc.WEI)
               .div(getBigNumberFrom(1, borrowToken.decimals)),
           },
           rates: {
@@ -729,7 +730,7 @@ export class AprAaveTwo {
     console.log("decimalsBorrow", decimalsBorrow);
 
     return borrowApr.aprMultiplied18
-      .mul(getBigNumberFrom(1, 18))
+      .mul(Misc.WEI)
       .div(getBigNumberFrom(1, decimalsBorrow));
   }
 }

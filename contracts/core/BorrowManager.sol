@@ -260,7 +260,7 @@ contract BorrowManager is IBorrowManager {
         p_.sourceToken,
         pp_.sourceAmount18,
         p_.targetToken,
-        borrowAmountFactor18.toMantissa(18, pp_.targetDecimals),
+        borrowAmountFactor18,
         p_.periodInBlocks
       );
 

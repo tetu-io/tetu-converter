@@ -16,6 +16,7 @@ import {HundredFinanceHelper} from "../../../../../scripts/integration/helpers/H
 import {MaticAddresses} from "../../../../../scripts/addresses/MaticAddresses";
 import {MocksHelper} from "../../../../baseUT/helpers/MocksHelper";
 import {TokenDataTypes} from "../../../../baseUT/types/TokenDataTypes";
+import {Misc} from "../../../../../scripts/utils/Misc";
 
 describe("Hundred Finance integration tests, pool adapter", () => {
 
@@ -148,7 +149,7 @@ describe("Hundred Finance integration tests, pool adapter", () => {
         shortfall,
       ].map(x => BalanceUtils.toString(x)).join("\n");
 
-      const n18 = getBigNumberFrom(1, 18); //1e18
+      const n18 = Misc.WEI; //1e18
 
       // ALl calculations are explained here:
       // https://docs.google.com/spreadsheets/d/1oLeF7nlTefoN0_9RWCuNc62Y7W72-Yk7
@@ -168,7 +169,7 @@ describe("Hundred Finance integration tests, pool adapter", () => {
         0,
         borrowAmount, // borrowed amount on user's balance
         collateralAmount
-          .mul(getBigNumberFrom(1, 18))
+          .mul(Misc.WEI)
           .div(collateralData.exchangeRateStored),
         expectedLiquiditiy,
         0,

@@ -9,7 +9,7 @@ import "../../../integrations/aave3/IAaveToken.sol";
 import "../../../integrations/aave3/IAaveStableDebtToken.sol";
 import "../../../integrations/aave3/Aave3ReserveConfiguration.sol";
 import "../aaveShared/AaveSharedLib.sol";
-import "hardhat/console.sol";
+//import "hardhat/console.sol";
 
 /// @notice Library for AAVE v2 to calculate APR: borrow APR and supply APR
 library Aave3AprLib {

@@ -28,6 +28,7 @@ import {
   IPointResults
 } from "./aprDataTypes";
 import {ConfigurableAmountToBorrow} from "./ConfigurableAmountToBorrow";
+import {Misc} from "../../../scripts/utils/Misc";
 
 //region Data types
 interface IAaveReserveData {
@@ -240,7 +241,7 @@ export async function getAprBeforeAAVE3(
     countBlocks,
     blocksPerDay,
     operationTimestamp,
-    getBigNumberFrom(1, 18) // multiplier to increase the precision
+    Misc.WEI // multiplier to increase the precision
   );
   console.log("getAprBeforeAAVE3Base.getAprForPeriodBefore returns:", value);
   console.log("getAprBeforeAAVE3Base.blocksPerDay", blocksPerDay);
@@ -256,7 +257,7 @@ export async function getAprBeforeAAVE3(
   return {
     aprBase18: value
       .mul(price)
-      .div(getBigNumberFrom(1, 18))
+      .div(Misc.WEI)
       .div(getBigNumberFrom(1, decimalsAmount)),
     aprMultiplied18: value
   };
@@ -472,7 +473,7 @@ export class AprAave3 {
       , keyValues.borrow.next
       , blocksPerDay
       , borrowToken.decimals
-      , getBigNumberFrom(1, 18)
+      , Misc.WEI
     );
     console.log("borrowAprBaseExactMul18", borrowAprBaseExactMul18);
 
@@ -604,12 +605,12 @@ export class AprAave3 {
         }, predicted: {
           aprBt36: {
             collateral: supplyAprBaseApprox.aprMultiplied18
-              .mul(getBigNumberFrom(1, 18))
+              .mul(Misc.WEI)
               .mul(priceCollateral)
               .div(priceBorrow)
               .div(getBigNumberFrom(1, collateralToken.decimals)),
             borrow: borrowAprBaseApprox.aprMultiplied18
-              .mul(getBigNumberFrom(1, 18))
+              .mul(Misc.WEI)
               .div(getBigNumberFrom(1, borrowToken.decimals)),
           },
           rates: {
@@ -814,7 +815,7 @@ export class AprAave3 {
     // console.log("decimalsBorrow", decimalsBorrow);
 
     return borrowApr.aprMultiplied18
-      .mul(getBigNumberFrom(1, 18))
+      .mul(Misc.WEI)
       .div(getBigNumberFrom(1, decimalsBorrow));
   }
 }

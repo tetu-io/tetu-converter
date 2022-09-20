@@ -19,6 +19,7 @@ import {CoreContractsHelper} from "../../../../baseUT/helpers/CoreContractsHelpe
 import {areAlmostEqual, toMantissa} from "../../../../baseUT/utils/CommonUtils";
 import {IPlatformActor, PredictBrUsesCase} from "../../../../baseUT/uses-cases/PredictBrUsesCase";
 import {AprAave3, getAave3StateInfo} from "../../../../baseUT/apr/aprAave3";
+import {Misc} from "../../../../../scripts/utils/Misc";
 
 describe("Aave3PlatformAdapterTest", () => {
 //region Global vars for all tests
@@ -137,7 +138,7 @@ describe("Aave3PlatformAdapterTest", () => {
       const collateralAssetData = await h.getReserveInfo(deployer, aavePool, dp, collateralAsset);
       const borrowAssetData = await h.getReserveInfo(deployer, aavePool, dp, borrowAsset);
 
-      const borrowAmountFactor18 = getBigNumberFrom(1, 18)
+      const borrowAmountFactor18 = Misc.WEI
         .mul(toMantissa(collateralAmount, collateralAssetData.data.decimals, 18))
         .mul(priceCollateral)
         .div(priceBorrow)
@@ -249,13 +250,13 @@ describe("Aave3PlatformAdapterTest", () => {
           ? borrowAssetData.category?.ltv
           : borrowAssetData.data.ltv
         )
-          .mul(getBigNumberFrom(1, 18))
+          .mul(Misc.WEI)
           .div(getBigNumberFrom(1, 4)),
         BigNumber.from(highEfficientModeEnabled
           ? collateralAssetData.category?.liquidationThreshold
           : collateralAssetData.data.liquidationThreshold
         )
-          .mul(getBigNumberFrom(1, 18))
+          .mul(Misc.WEI)
           .div(getBigNumberFrom(1, 4)),
         expectedMaxAmountToBorrow,
         expectedMaxAmountToSupply,

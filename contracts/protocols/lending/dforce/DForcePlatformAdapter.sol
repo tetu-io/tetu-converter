@@ -186,14 +186,12 @@ contract DForcePlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
           }
 
           // calculate current borrow rate and predicted APR after borrowing required amount
+          // amountToBorrow18 = borrowAmountFactor18_ * plan.liquidationThreshold18 / 1e18, convert decimals 18=>borrow
           uint amountToBorrow = AppUtils.toMantissa(
-            borrowAmountFactor18_ * plan.liquidationThreshold18 / 1e18
+            borrowAmountFactor18_ * plan.liquidationThreshold18 / 1e18 // amount to borrow, decimals 18
             , 18
             , IDForceCToken(cTokenBorrow).decimals()
           );
-          console.log("DForcePlatformAdapter borrowAmountFactor18_=", borrowAmountFactor18_);
-          console.log("DForcePlatformAdapter amountToBorrow=", amountToBorrow);
-          console.log("DForcePlatformAdapter liquidationThreshold18=", plan.liquidationThreshold18);
           if (amountToBorrow > plan.maxAmountToBorrowBT) {
             amountToBorrow = plan.maxAmountToBorrowBT;
             console.log("DForcePlatformAdapter amountToBorrow CORRECTED=", amountToBorrow);

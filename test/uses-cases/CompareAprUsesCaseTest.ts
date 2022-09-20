@@ -15,6 +15,7 @@ import {AprDForce} from "../baseUT/apr/aprDForce";
 import {appendTestResultsToFile} from "../baseUT/apr/aprUtils";
 import {areAlmostEqual} from "../baseUT/utils/CommonUtils";
 import {expect} from "chai";
+import {Misc} from "../../scripts/utils/Misc";
 
 describe("CompareAprUsesCaseTest", () => {
 //region Constants
@@ -462,7 +463,7 @@ describe("CompareAprUsesCaseTest", () => {
           {
             collateralAsset: assets.find(x => x.title == "WETH")!,
             borrowAsset: assets.find(x => x.title == "USDC")!,
-            collateralAmount: getBigNumberFrom(1, 18),
+            collateralAmount: Misc.WEI,
           }
         ];
         const ret = await makeTestDForce(COUNT_BLOCKS_LARGE, tasks);

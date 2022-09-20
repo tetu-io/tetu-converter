@@ -4,14 +4,15 @@ pragma solidity 0.8.4;
 
 import "../core/AppDataTypes.sol";
 
-/// @notice Adapter for Dex/lending platform attached to the given platform's pool.
+/// @notice Adapter for lending platform attached to the given platform's pool.
 interface IPlatformAdapter {
 
   /// @notice Get pool data required to select best lending pool
-  /// @param collateralAmount_ Amount of collateral. We need it to calculate rewards correctly.
-  /// @param borrowAmountFactor18_ Coefficient to calculate borrow amount to estimate borrow rate after borrowing
-  ///                              max borrow amount = borrowAmountFactor * liquidationThreshold
-  ///                              Pass 0 to get current borrow rate in the plan OR not 0 to get estimated borrow rate
+  /// @param collateralAmount_ Amount of collateral. We need it to calculate rewards and APRs correctly.
+  /// @param borrowAmountFactor18_ Coefficient to calculate available borrow amount
+  ///                              = 1e18 * sourceAmount18 * priceCollateral18 / (priceBorrow18 * healthFactor18)
+  ///                              Here 18 means "decimals 18"
+  ///                              Max borrow amount = borrowAmountFactor18 * liquidationThreshold / 1e18
   /// @param countBlocks_ Estimated period of the borrow in blocks.
   function getConversionPlan (
     address collateralAsset_,

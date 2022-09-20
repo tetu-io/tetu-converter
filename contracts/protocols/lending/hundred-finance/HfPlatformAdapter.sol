@@ -172,7 +172,7 @@ contract HfPlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
             uint brAfterBorrow = _br(
               IHfCToken(cTokenBorrow),
               AppUtils.toMantissa(
-                borrowAmountFactor18_ * plan.liquidationThreshold18 / 1e18 // == amount to borrow
+                borrowAmountFactor18_ * plan.liquidationThreshold18 / 1e18 // == amount to borrow, decimals 18
                 , 18
                 , IHfCToken(cTokenBorrow).decimals()
               )

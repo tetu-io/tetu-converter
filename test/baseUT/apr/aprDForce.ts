@@ -22,6 +22,7 @@ import {DForcePlatformFabric} from "../fabrics/DForcePlatformFabric";
 import {TimeUtils} from "../../../scripts/utils/TimeUtils";
 import {ConfigurableAmountToBorrow} from "./ConfigurableAmountToBorrow";
 import {getCTokenAddressForAsset} from "../utils/DForceUtils";
+import {Misc} from "../../../scripts/utils/Misc";
 
 //region Data types
 interface IDForceMarketState {
@@ -313,7 +314,7 @@ export class AprDForce {
     console.log("borrowAprExact", borrowApr);
 
     // get collateral (in terms of collateral tokens) for next and last points
-    const base = getBigNumberFrom(1, 18);
+    const base = Misc.WEI;
     const collateralNext = next.collateral.account.balance
       .mul(next.collateral.market.exchangeRateStored)
       .div(base);

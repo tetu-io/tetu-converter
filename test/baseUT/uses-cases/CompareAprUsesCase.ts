@@ -177,7 +177,7 @@ export class CompareAprUsesCase {
 
           const borrowAmount18 = planFullPeriod.liquidationThreshold18
             .mul(borrowAmountFactor18)
-            .div(getBigNumberFrom(1, 18))
+            .div(Misc.WEI)
           let borrowAmount = toMantissa(borrowAmount18, 18, borrowDecimals);
           const amountToBorrow: ConfigurableAmountToBorrow = {
             exactAmountToBorrow: borrowAmount,
