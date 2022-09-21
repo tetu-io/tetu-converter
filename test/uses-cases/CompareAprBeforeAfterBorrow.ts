@@ -757,12 +757,12 @@ describe("CompareAprBeforeAfterBorrow", () => {
     const HOLDER_COLLATERAL = MaticAddresses.HOLDER_USDC;
     const ASSET_BORROW = MaticAddresses.USDT;
     const HOLDER_BORROW = MaticAddresses.HOLDER_USDT;
-    const AMOUNT_COLLATERAL = 80_000;
+    const AMOUNT_COLLATERAL = 800_000;
     const INITIAL_LIQUIDITY_COLLATERAL = 1_000_000;
     const INITIAL_LIQUIDITY_BORROW = 100;
     const HEALTH_FACTOR2 = 200;
     const COUNT_BLOCKS = 1;
-    const AMOUNT_TO_BORROW = 20_000;
+    const AMOUNT_TO_BORROW = 200_000;
 //endregion Constants
     describe("DForce", () => {
       it("predicted APR should be equal to real APR", async () => {

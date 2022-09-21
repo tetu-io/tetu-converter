@@ -227,22 +227,23 @@ export class AprHundredFinance {
     );
     console.log(`supplyRatePredicted=${supplyRatePredicted.toString()}`);
 
+    const amountToBorrow = getBigNumberFrom(amountToBorrow0, borrowAssetDecimals);
+    const borrowRatePredicted = await this.getEstimatedBorrowRate(libFacade
+      , cTokenBorrow
+      , amountToBorrow
+    );
+    console.log(`borrowRatePredicted=${borrowRatePredicted.toString()}`);
+
     // make borrow
     const borrowResults = await makeBorrow(
       deployer
       , p
-      , prepareExactBorrowAmount(amountToBorrow0, borrowAssetDecimals)
+      , amountToBorrow
       , new HundredFinancePlatformFabric()
     );
     const userAddress = borrowResults.poolAdapter;
     const borrowAmount = borrowResults.borrowAmount;
-    console.log(`userAddress=${userAddress} borrowAmount=${borrowAmount}`);
-
-    const borrowRatePredicted = await this.getEstimatedBorrowRate(libFacade
-      , cTokenBorrow
-      , borrowAmount
-    );
-    console.log(`borrowRatePredicted=${borrowRatePredicted.toString()}`);
+    console.log(`userAddress=${userAddress} borrowAmount=${borrowAmount} amountToBorrow=${amountToBorrow}`);
 
     // next => last
     const next = await getHfStateInfo(comptroller
