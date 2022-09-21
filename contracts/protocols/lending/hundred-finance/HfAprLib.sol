@@ -91,7 +91,7 @@ library HfAprLib {
       priceBorrow,
       collateralAmount_
     );
-    console.log("getEstimatedSupplyRate", getEstimatedSupplyRate(
+    console.log("getRawAprInfo36.getEstimatedSupplyRate", getEstimatedSupplyRate(
         IHfInterestRateModel(core.cTokenCollateral.interestRateModel()),
         core.cTokenCollateral,
         collateralAmount_)
@@ -195,7 +195,15 @@ library HfAprLib {
     IHfCToken cToken_,
     uint amountToSupply_
   ) internal view returns(uint) {
+    console.log("getEstimatedSupplyRate interestRateModel", address(interestRateModel_));
+    console.log("cToken_.getCash() ", cToken_.getCash() );
+    console.log("amountToSupply_", amountToSupply_ );
+    console.log("cToken_.totalBorrows()", cToken_.totalBorrows() );
+    console.log("cToken_.totalReserves()", cToken_.totalReserves() );
+    console.log("cToken_.reserveFactorMantissa()", cToken_.reserveFactorMantissa() );
     return interestRateModel_.getSupplyRate(
+
+      // Cash balance of this cToken in the underlying asset
       cToken_.getCash() + amountToSupply_,
       cToken_.totalBorrows(),
       cToken_.totalReserves(),
@@ -213,7 +221,7 @@ library HfAprLib {
   }
 
   function getUnderlying(address token) internal view returns (address) {
-    return token == iMATIC
+    return token == hMATIC
       ? WMATIC
       : IHfCToken(token).underlying();
   }

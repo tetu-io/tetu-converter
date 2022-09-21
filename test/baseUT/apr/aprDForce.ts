@@ -172,7 +172,7 @@ export class AprDForce {
    */
   static async makeBorrowTest(
     deployer: SignerWithAddress
-    , amountToBorrow0: ConfigurableAmountToBorrow
+    , amountToBorrow0: number
     , p: TestSingleBorrowParams
     , additionalPoints: number[]
   ): Promise<{

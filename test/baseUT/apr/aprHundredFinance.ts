@@ -169,7 +169,7 @@ export class AprHundredFinance {
    */
   static async makeBorrowTest(
     deployer: SignerWithAddress
-    , amountToBorrow0: ConfigurableAmountToBorrow
+    , amountToBorrow0: number
     , p: TestSingleBorrowParams
     , additionalPoints: number[]
   ): Promise<{
@@ -221,6 +221,12 @@ export class AprHundredFinance {
       , ethers.Wallet.createRandom().address
     );
 
+    const supplyRatePredicted = await this.getEstimatedSupplyRate(libFacade
+      , cTokenCollateral
+      , amountCollateral
+    );
+    console.log(`supplyRatePredicted=${supplyRatePredicted.toString()}`);
+
     // make borrow
     const borrowResults = await makeBorrow(
       deployer
@@ -237,12 +243,6 @@ export class AprHundredFinance {
       , borrowAmount
     );
     console.log(`borrowRatePredicted=${borrowRatePredicted.toString()}`);
-
-    const supplyRatePredicted = await this.getEstimatedSupplyRate(libFacade
-      , cTokenCollateral
-      , amountCollateral
-    );
-    console.log(`supplyRatePredicted=${supplyRatePredicted.toString()}`);
 
     // next => last
     const next = await getHfStateInfo(comptroller
@@ -262,6 +262,8 @@ export class AprHundredFinance {
 
     // For borrow: move ahead on one more block
     await cTokenBorrow.accrueInterest();
+    await cTokenBorrow.borrowBalanceCurrent(userAddress);
+    await cTokenCollateral.exchangeRateCurrent();
 
     const last = await getHfStateInfo(comptroller
       , cTokenCollateral
@@ -339,6 +341,9 @@ export class AprHundredFinance {
     let prev = last;
     for (const period of additionalPoints) {
       await TimeUtils.advanceNBlocks(period);
+      await cTokenBorrow.accrueInterest();
+      await cTokenBorrow.borrowBalanceCurrent(userAddress);
+      await cTokenCollateral.exchangeRateCurrent();
 
       let current = await getHfStateInfo(comptroller
         , cTokenCollateral

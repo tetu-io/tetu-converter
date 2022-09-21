@@ -44,7 +44,7 @@ contract BorrowManager is IBorrowManager {
     uint8 targetDecimals;
     /// @notice collateral, borrow (to get prices)
     address[] assets;
-    uint sourceAmount18;
+    uint sourceAmount;
   }
 
   /// @notice Pair of two assets. Asset 1 can be converted to asset 2 and vice versa.
@@ -219,7 +219,7 @@ contract BorrowManager is IBorrowManager {
         pas
         , p_
         , BorrowInput({
-          sourceAmount18: p_.sourceAmount.toMantissa(uint8(IERC20Extended(p_.sourceToken).decimals()), 18),
+          sourceAmount: p_.sourceAmount,
           targetDecimals: IERC20Extended(p_.targetToken).decimals(),
           assets: assets
         })
@@ -251,14 +251,14 @@ contract BorrowManager is IBorrowManager {
     // borrow-to-amount = borrowAmountFactor18 * liquidationThreshold18 / 1e18
     // Platform-adapters use borrowAmountFactor18 to calculate result borrow-to-amount
     uint borrowAmountFactor18 = 1e18
-      * pp_.sourceAmount18
+      * pp_.sourceAmount.toMantissa(uint8(IERC20Extended(pp_.assets[0]).decimals()), 18)
       * pricesCB18[0]
       / (pricesCB18[1] * uint(p_.healthFactor2) * 10**(18-2));
 
     for (uint i = 0; i < lenPools; i = i.uncheckedInc()) {
       AppDataTypes.ConversionPlan memory plan = IPlatformAdapter(platformAdapters_.at(i)).getConversionPlan(
         p_.sourceToken,
-        pp_.sourceAmount18,
+        pp_.sourceAmount,
         p_.targetToken,
         borrowAmountFactor18,
         p_.periodInBlocks

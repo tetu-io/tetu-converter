@@ -22,7 +22,7 @@ import {IBorrowTestResults} from "../uses-cases/CompareAprUsesCase";
 export async function makeBorrow (
   deployer: SignerWithAddress,
   p: TestSingleBorrowParams,
-  amountToBorrow: ConfigurableAmountToBorrow,
+  amountToBorrow: BigNumber,
   fabric: ILendingPlatformFabric,
 ) : Promise<{
   poolAdapter: string,
@@ -46,8 +46,8 @@ export async function makeBorrow (
     , collateralAmount
     , p.borrow.asset
     , uc.address
-    , amountToBorrow.exact
-    , ConfigurableAmountToBorrow.getValue(amountToBorrow, borrowToken.decimals)
+    , true
+    , amountToBorrow
   );
   console.log("Borrow is done, borrowed amount is", await uc.totalBorrowedAmount());
 
@@ -118,24 +118,12 @@ export function changeDecimals(amount: BigNumber, from: number, to: number) : Bi
 //endregion Conversion of amounts
 
 //region ConfigurableAmountToBorrow
-/** Convert numerical borrowAmount to BigNumer */
-export function prepareExactBorrowAmount(
-  data: ConfigurableAmountToBorrow,
-  assetDecimals: number
-): ConfigurableAmountToBorrow {
-  if (
-    (data.exact && !data.exactAmountToBorrow)
-    || (!data.exact && !data.ratio18)
-  ) {
-    throw "Incorrect ConfigurableAmountToBorrowNumeric";
-  }
 
-  return data.exact
-    ? new ConfigurableAmountToBorrow(
-        true
-      , ConfigurableAmountToBorrow.getValue(data, assetDecimals)
-    )
-    : data;
+export function prepareExactBorrowAmount(
+  amount: number,
+  assetDecimals: number
+): BigNumber {
+  return getBigNumberFrom(amount, assetDecimals);
 }
 
 //endregion ConfigurableAmountToBorrow

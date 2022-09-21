@@ -183,9 +183,9 @@ contract DForcePlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
           // calculate current borrow rate and predicted APR after borrowing required amount
           // amountToBorrow18 = borrowAmountFactor18_ * plan.liquidationThreshold18 / 1e18, convert decimals 18=>borrow
           uint amountToBorrow = AppUtils.toMantissa(
-            borrowAmountFactor18_ * plan.liquidationThreshold18 / 1e18 // amount to borrow, decimals 18
-            , 18
-            , IDForceCToken(cTokenBorrow).decimals()
+            borrowAmountFactor18_ * plan.liquidationThreshold18 / 1e18, // amount to borrow, decimals 18
+            18,
+            IERC20Extended(borrowAsset_).decimals()
           );
           if (amountToBorrow > plan.maxAmountToBorrowBT) {
             amountToBorrow = plan.maxAmountToBorrowBT;
