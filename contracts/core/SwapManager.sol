@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.4;
 
-import "@tetu_io/tetu-liquidator/contracts/interfaces/ITetuLiquidator.sol";
+import "../interfaces/ITetuLiquidator.sol";
 import "../openzeppelin/IERC20.sol";
 import "../interfaces/ISwapManager.sol";
 import "../interfaces/IController.sol";
@@ -15,6 +15,12 @@ import "./AppDataTypes.sol";
 contract SwapManager is ISwapManager, ISwapConverter {
   IController public immutable controller;
   ITetuLiquidator public tetuLiquidator;
+
+  ///////////////////////////////////////////////////////
+  ///               Constants
+  ///////////////////////////////////////////////////////
+
+  uint public constant SLIPPAGE_DENOMINATOR = 100_000;
 
   ///////////////////////////////////////////////////////
   ///               Initialization
@@ -54,15 +60,22 @@ contract SwapManager is ISwapManager, ISwapConverter {
     return AppDataTypes.ConversionKind.SWAP_1;
   }
 
-  function swap(AppDataTypes.InputConversionParams memory p, uint priceImpactTolerance)
-  override external returns (uint outputAmount) {
-    uint targetTokenBalanceBefore = IERC20(p.targetToken).balanceOf(address(this));
-    IERC20(p.sourceToken).transfer(address(tetuLiquidator), p.sourceAmount);
+  function swap(
+    address sourceToken_,
+    uint sourceAmount_,
+    address targetToken_,
+    uint targetAmount_,
+    address receiver_,
+    uint priceImpactTolerance_,
+    uint slippageTolerance_
+  ) override external returns (uint outputAmount) {
+    uint targetTokenBalanceBefore = IERC20(targetToken_).balanceOf(address(this));
+    IERC20(sourceToken_).transfer(address(tetuLiquidator), sourceAmount_);
 
-    tetuLiquidator.liquidate(p.sourceToken, p.targetToken, p.sourceAmount, priceImpactTolerance);
-
-    outputAmount = IERC20(p.targetToken).balanceOf(address(this)) - targetTokenBalanceBefore;
-    IERC20(p.targetToken).transfer(msg.sender, outputAmount);
+    tetuLiquidator.liquidate(sourceToken_, targetToken_, sourceAmount_, priceImpactTolerance_);
+    // TODO add slippage test
+    outputAmount = IERC20(targetToken_).balanceOf(address(this)) - targetTokenBalanceBefore;
+    IERC20(targetToken_).transfer(receiver_, outputAmount);
   }
 
 

@@ -16,6 +16,7 @@ import "../interfaces/IPoolAdapter.sol";
 import "../interfaces/IController.sol";
 import "../interfaces/IDebtsMonitor.sol";
 import "../interfaces/IConverter.sol";
+import "../interfaces/ISwapConverter.sol";
 
 /// @notice Main application contract
 contract TetuConverter is ITetuConverter {
@@ -63,7 +64,6 @@ contract TetuConverter is ITetuConverter {
     uint16 healthFactor2_,
     uint periodInBlocks_
   ) internal view returns (
-  // ? make enum OutputConversionParams
     address converter,
     uint maxTargetAmount,
     int aprForPeriod36
@@ -144,10 +144,25 @@ contract TetuConverter is ITetuConverter {
       }
       // borrow target-amount and transfer borrowed amount to the receiver
       IPoolAdapter(poolAdapter).borrow(sourceAmount_, targetAmount_, receiver_);
-    } else {
-      // make swap
-      //TODO
+
+    } if (IConverter(converter_).getConversionKind() == AppDataTypes.ConversionKind.SWAP_1) {
+      IERC20(sourceToken_).transfer(converter_, sourceAmount_);
+      // TODO move to fn params
+      uint priceImpactTolerance_ = 2000; // 2%
+      uint slippageTolerance_ = 1000; // 1%
+      ISwapConverter(converter_).swap(
+        sourceToken_,
+        sourceAmount_,
+        targetToken_,
+        targetAmount_,
+        receiver_,
+        priceImpactTolerance_,
+        slippageTolerance_
+      );
+
     }
+
+    revert(AppErrors.UNSUPPORTED_CONVERSION_KIND);
   }
 
   function reconvert(

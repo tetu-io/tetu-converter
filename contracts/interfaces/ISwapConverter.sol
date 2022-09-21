@@ -9,6 +9,13 @@ interface ISwapConverter is IConverter {
   function getConversionKind()
   override external pure returns (AppDataTypes.ConversionKind);
 
-  function swap(AppDataTypes.InputConversionParams memory params, uint priceImpactTolerance)
+  function swap(
+    address sourceToken_,
+    uint sourceAmount_,
+    address targetToken_,
+    uint targetAmount_,
+    address receiver_,
+    uint priceImpactTolerance_,
+    uint slippageTolerance_)
   external returns (uint outputAmount);
 }
