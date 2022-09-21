@@ -118,7 +118,7 @@ export class MaticAddresses {
 //region Hundred finance
   /** https://docs.hundred.finance/developers/protocol-contracts/polygon */
   public static HUNDRED_FINANCE_COMPTROLLER = "0xEdBA32185BAF7fEf9A26ca567bC4A6cbe426e499";
-  public static HUNDRED_FINANCE_ORACLE = "0x0b510A226F4A7A66c480988704eCd5306B6f1954";
+  public static HUNDRED_FINANCE_PRICE_ORACLE = "0x0b510A226F4A7A66c480988704eCd5306B6f1954";
 
   public static hETH = "0x243E33aa7f6787154a8E59d3C27a66db3F8818ee";
   public static hDAI = "0xE4e43864ea18d5E5211352a4B810383460aB7fcC";

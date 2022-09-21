@@ -125,7 +125,7 @@ async function main() {
                     MaticAddresses.hFRAX,
                     MaticAddresses.hLINK,
                 ]
-                , MaticAddresses.HUNDRED_FINANCE_ORACLE
+                , MaticAddresses.HUNDRED_FINANCE_PRICE_ORACLE
             )
         }
         , {

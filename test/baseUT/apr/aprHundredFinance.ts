@@ -5,7 +5,7 @@ import {TestSingleBorrowParams} from "../types/BorrowRepayDataTypes";
 import {TokenDataTypes} from "../types/TokenDataTypes";
 import {HundredFinanceHelper} from "../../../scripts/integration/helpers/HundredFinanceHelper";
 import {
-  HfAprLibFacade, IHfComptroller,
+  HfAprLibFacade, IERC20Extended__factory, IHfComptroller,
   IHfCToken,
   IHfCToken__factory,
 } from "../../../typechain";
@@ -19,8 +19,8 @@ import {
 import {TimeUtils} from "../../../scripts/utils/TimeUtils";
 import {ConfigurableAmountToBorrow} from "./ConfigurableAmountToBorrow";
 import {Misc} from "../../../scripts/utils/Misc";
-import {getCTokenAddressForAsset} from "../utils/DForceUtils";
 import {HundredFinancePlatformFabric} from "../fabrics/HundredFinancePlatformFabric";
+import {HundredFinanceUtils} from "../utils/HundredFinanceUtils";
 
 //region Data types
 interface IHfMarketState {
@@ -176,8 +176,8 @@ export class AprHundredFinance {
     details: IAprHfTwoResults
     , results: IBorrowResults
   }> {
-    const collateralCTokenAddress = getCTokenAddressForAsset(p.collateral.asset);
-    const borrowCTokenAddress = getCTokenAddressForAsset(p.borrow.asset);
+    const collateralCTokenAddress = HundredFinanceUtils.getCTokenAddressForAsset(p.collateral.asset);
+    const borrowCTokenAddress = HundredFinanceUtils.getCTokenAddressForAsset(p.borrow.asset);
 
     const collateralToken = await TokenDataTypes.Build(deployer, p.collateral.asset);
     const borrowToken = await TokenDataTypes.Build(deployer, p.borrow.asset);
@@ -187,13 +187,16 @@ export class AprHundredFinance {
     const cTokenBorrow = IHfCToken__factory.connect(borrowCTokenAddress, deployer);
     const priceOracle = await HundredFinanceHelper.getPriceOracle(deployer);
 
+    const borrowAssetDecimals = await (IERC20Extended__factory.connect(p.borrow.asset, deployer)).decimals();
+    const collateralAssetDecimals = await (IERC20Extended__factory.connect(p.collateral.asset, deployer)).decimals();
+
     const marketCollateralData = await HundredFinanceHelper.getCTokenData(deployer, comptroller, cTokenCollateral);
     const marketBorrowData = await HundredFinanceHelper.getCTokenData(deployer, comptroller, cTokenBorrow);
 
     console.log("marketCollateralData", marketCollateralData);
     console.log("marketBorrowData", marketBorrowData);
 
-    const amountCollateral = getBigNumberFrom(p.collateralAmount, collateralToken.decimals);
+    const amountCollateral = getBigNumberFrom(p.collateralAmount, collateralAssetDecimals);
     console.log(`amountCollateral=${amountCollateral.toString()}`);
 
     // prices
@@ -201,6 +204,10 @@ export class AprHundredFinance {
     const priceBorrow = await priceOracle.getUnderlyingPrice(borrowCTokenAddress);
     console.log("priceCollateral", priceCollateral);
     console.log("priceBorrow", priceBorrow);
+    const priceBorrow36 = priceBorrow.mul(getBigNumberFrom(1, borrowAssetDecimals));
+    const priceCollateral36 = priceCollateral.mul(getBigNumberFrom(1, collateralAssetDecimals));
+    console.log("priceCollateral36", priceCollateral36);
+    console.log("priceBorrow36", priceBorrow36);
 
     // predict APR
     const libFacade = await DeployUtils.deployContract(deployer, "HfAprLibFacade") as HfAprLibFacade;
@@ -218,7 +225,7 @@ export class AprHundredFinance {
     const borrowResults = await makeBorrow(
       deployer
       , p
-      , prepareExactBorrowAmount(amountToBorrow0, borrowToken.decimals)
+      , prepareExactBorrowAmount(amountToBorrow0, borrowAssetDecimals)
       , new HundredFinancePlatformFabric()
     );
     const userAddress = borrowResults.poolAdapter;
@@ -276,18 +283,18 @@ export class AprHundredFinance {
     const supplyApr = await libFacade.getSupplyApr36(
       supplyRatePredicted
       , countBlocksSupply
-      , await cTokenCollateral.decimals()
-      , priceCollateral
-      , priceBorrow
+      , collateralAssetDecimals
+      , priceCollateral36
+      , priceBorrow36
       , amountCollateral
     );
     console.log("supplyApr", supplyApr);
     const supplyAprExact = await libFacade.getSupplyApr36(
       next.collateral.market.supplyRatePerBlock
       , countBlocksSupply
-      , await cTokenCollateral.decimals()
-      , priceCollateral
-      , priceBorrow
+      , collateralAssetDecimals
+      , priceCollateral36
+      , priceBorrow36
       , amountCollateral
     );
     console.log("supplyAprExact", supplyAprExact);
@@ -296,7 +303,7 @@ export class AprHundredFinance {
       borrowRatePredicted
       , borrowAmount
       , countBlocksBorrow
-      , await cTokenBorrow.decimals()
+      , borrowAssetDecimals
     );
     console.log("borrowApr", borrowApr);
 
@@ -304,7 +311,7 @@ export class AprHundredFinance {
       middle.borrow.market.borrowRatePerBlock
       , borrowAmount
       , countBlocksBorrow
-      , await cTokenBorrow.decimals()
+      , borrowAssetDecimals
     );
     console.log("borrowAprExact", borrowApr);
 
@@ -363,8 +370,8 @@ export class AprHundredFinance {
           collateral: current.collateral.account.balance,
           borrow: current.borrow.account.borrowBalanceStored
         }, costsBT18: {
-          collateral: changeDecimals(dc.mul(priceCollateral).div(priceBorrow), collateralToken.decimals, 18),
-          borrow: changeDecimals(db, borrowToken.decimals, 18),
+          collateral: changeDecimals(dc.mul(priceCollateral).div(priceBorrow), collateralAssetDecimals, 18),
+          borrow: changeDecimals(db, borrowAssetDecimals, 18),
         }
       })
     }
@@ -390,7 +397,7 @@ export class AprHundredFinance {
           collateralAmount: amountCollateral,
           collateralAmountBT18: convertUnits(
             amountCollateral
-            , priceCollateral, collateralToken.decimals
+            , priceCollateral, collateralAssetDecimals
             , priceBorrow, 18
           )
         }, predicted: {
@@ -419,9 +426,9 @@ export class AprHundredFinance {
           aprBt36: {
             collateral: changeDecimals(
               deltaCollateral.mul(priceCollateral).div(priceBorrow)
-              , collateralToken.decimals
+              , borrowAssetDecimals
               , 36
-            ), borrow: changeDecimals(deltaBorrowBalance, borrowToken.decimals, 36)
+            ), borrow: changeDecimals(deltaBorrowBalance, borrowAssetDecimals, 36)
           }
         },
         points: pointsResults

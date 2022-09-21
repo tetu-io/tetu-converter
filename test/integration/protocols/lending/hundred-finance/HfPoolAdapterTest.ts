@@ -80,7 +80,7 @@ describe("Hundred Finance integration tests, pool adapter", () => {
         comptroller.address,
         hfPoolAdapterTC.address,
         [collateralCToken.address, borrowCToken.address],
-        MaticAddresses.HUNDRED_FINANCE_ORACLE
+        MaticAddresses.HUNDRED_FINANCE_PRICE_ORACLE
       )
       const priceOracle = HundredFinanceHelper.getPriceOracle(deployer);
 
@@ -283,7 +283,7 @@ describe("Hundred Finance integration tests, pool adapter", () => {
         comptroller.address,
         hfPoolAdapterTC.address,
         [collateralCToken.address, borrowCToken.address],
-        MaticAddresses.HUNDRED_FINANCE_ORACLE
+        MaticAddresses.HUNDRED_FINANCE_PRICE_ORACLE
       )
 
       // collateral asset

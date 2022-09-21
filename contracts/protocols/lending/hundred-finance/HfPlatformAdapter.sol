@@ -24,9 +24,6 @@ contract HfPlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
   using SafeERC20 for IERC20;
   using AppUtils for uint;
 
-  address private constant WMATIC = address(0x0d500B1d8E8eF31E21C99d1Db9A6444d3ADf1270);
-  address private constant hMATIC = address(0xEbd7f3349AbA8bB15b897e03D6c1a4Ba95B55e31);
-
   IController public controller;
   IHfComptroller public comptroller;
   /// @notice Implementation of IHfPriceOracle
@@ -75,9 +72,7 @@ contract HfPlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
     if (makeActive_) {
       for (uint i = 0; i < lenCTokens; i = i.uncheckedInc()) {
         // Special case: there is no underlying for WMATIC, so we store hMATIC:WMATIC
-        address underlying = hMATIC == cTokens_[i]
-          ? WMATIC
-          : IHfCToken(cTokens_[i]).underlying();
+        address underlying = HfAprLib.getUnderlying(cTokens_[i]);
         activeAssets[underlying] = cTokens_[i];
       }
     } else {

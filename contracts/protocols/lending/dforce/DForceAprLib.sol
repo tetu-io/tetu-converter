@@ -83,12 +83,8 @@ library DForceAprLib {
       borrowInterestRateModel: IDForceInterestRateModel(IDForceCToken(cTokenBorrow_).interestRateModel()),
       collateralInterestRateModel: IDForceInterestRateModel(IDForceCToken(cTokenCollateral_).interestRateModel()),
       priceOracle: IDForcePriceOracle(comptroller.priceOracle()),
-      collateralAsset: cTokenCollateral_ == iMATIC
-        ? WMATIC
-        : IDForceCToken(cTokenCollateral_).underlying(),
-      borrowAsset: cTokenBorrow_ == iMATIC
-        ? WMATIC
-        : IDForceCToken(cTokenBorrow_).underlying()
+      collateralAsset: getUnderlying(cTokenCollateral_),
+      borrowAsset: getUnderlying(cTokenBorrow_)
     });
   }
 
@@ -538,6 +534,12 @@ library DForceAprLib {
     (uint price, bool isPriceValid) = priceOracle.getUnderlyingPriceAndStatus(token);
     require(price != 0 && isPriceValid, AppErrors.ZERO_PRICE);
     return price;
+  }
+
+  function getUnderlying(address token) internal view returns (address) {
+    return token == iMATIC
+      ? WMATIC
+      : IDForceCToken(token).underlying();
   }
 
 ///////////////////////////////////////////////////////

@@ -305,7 +305,7 @@ describe("Hundred finance integration tests, platform adapter", () => {
             comptroller.address,
             templateAdapterNormalStub.address,
             [collateralCToken, borrowCToken],
-            MaticAddresses.HUNDRED_FINANCE_ORACLE
+            MaticAddresses.HUNDRED_FINANCE_PRICE_ORACLE
           ),
           collateralAsset,
           borrowAsset,

@@ -16,6 +16,7 @@ import {appendTestResultsToFile} from "../baseUT/apr/aprUtils";
 import {areAlmostEqual} from "../baseUT/utils/CommonUtils";
 import {expect} from "chai";
 import {Misc} from "../../scripts/utils/Misc";
+import {AprHundredFinance} from "../baseUT/apr/aprHundredFinance";
 
 /**
  * Script to generate
@@ -339,10 +340,50 @@ describe("CompareAprUsesCaseTest", () => {
       )).results
     );
   }
+
+  async function makeTestHundredFinance(countBlocks: number, tasks: IBorrowTask[]): Promise<IBorrowTestResults[]> {
+    const controller = await CoreContractsHelper.createController(deployer);
+    const templateAdapterStub = ethers.Wallet.createRandom().address;
+
+    return await CompareAprUsesCase.makePossibleBorrowsOnPlatform(
+      deployer
+      , "HundredFinance"
+      , await AdaptersHelper.createHundredFinancePlatformAdapter(deployer
+        , controller.address
+        , MaticAddresses.HUNDRED_FINANCE_COMPTROLLER
+        , templateAdapterStub
+        , [
+          MaticAddresses.hDAI,
+          MaticAddresses.hMATIC,
+          MaticAddresses.hUSDC,
+          MaticAddresses.hETH,
+          MaticAddresses.hUSDT,
+          MaticAddresses.hWBTC,
+          MaticAddresses.hLINK,
+          MaticAddresses.hFRAX,
+        ]
+        , MaticAddresses.HUNDRED_FINANCE_PRICE_ORACLE
+      )
+      , tasks
+      , countBlocks
+      , HEALTH_FACTOR2
+      , async (
+        deployer
+        , amountToBorrow0
+        , p
+        , additionalPoints
+      ) => (await AprHundredFinance.makeBorrowTest(
+        deployer
+        , amountToBorrow0
+        , p
+        , additionalPoints
+      )).results
+    );
+  }
 //endregion Test impl
 
   describe("Make all borrow tests", () => {
-    describe("Small count of blocks (2 days)", () => {
+    describe.skip("Small count of blocks (2 days)", () => {
       const COUNT_BLOCKS = COUNT_BLOCKS_SMALL;
       describe("Exact small amount", () => {
         it("AAVE3", async () => {
@@ -414,6 +455,11 @@ describe("CompareAprUsesCaseTest", () => {
           const ret = await makeTestDForce(COUNT_BLOCKS, tasks);
           appendTestResultsToFile(PATH_OUT, ret);
         })
+        it("HundredFinance", async () => {
+          const tasks: IBorrowTask[] = CompareAprUsesCase.generateTasks(assets, await getSmallAmounts(assets));
+          const ret = await makeTestHundredFinance(COUNT_BLOCKS, tasks);
+          appendTestResultsToFile(PATH_OUT, ret);
+        })
       });
       describe("Exact middle amount", () => {
         it("AAVE3", async () => {
@@ -429,6 +475,11 @@ describe("CompareAprUsesCaseTest", () => {
         it("DForce", async () => {
           const tasks: IBorrowTask[] = CompareAprUsesCase.generateTasks(assets, await getMiddleAmounts(assets));
           const ret = await makeTestDForce(COUNT_BLOCKS, tasks);
+          appendTestResultsToFile(PATH_OUT, ret);
+        })
+        it("HundredFinance", async () => {
+          const tasks: IBorrowTask[] = CompareAprUsesCase.generateTasks(assets, await getMiddleAmounts(assets));
+          const ret = await makeTestHundredFinance(COUNT_BLOCKS, tasks);
           appendTestResultsToFile(PATH_OUT, ret);
         })
       });
@@ -448,6 +499,11 @@ describe("CompareAprUsesCaseTest", () => {
           const ret = await makeTestDForce(COUNT_BLOCKS, tasks);
           appendTestResultsToFile(PATH_OUT, ret);
         })
+        it("HundredFinance", async () => {
+          const tasks: IBorrowTask[] = CompareAprUsesCase.generateTasks(assets, await getHugeAmounts(assets));
+          const ret = await makeTestHundredFinance(COUNT_BLOCKS, tasks);
+          appendTestResultsToFile(PATH_OUT, ret);
+        })
       });
     });
     describe.skip("Debug DForce USDT:USDC", () => {
@@ -465,7 +521,7 @@ describe("CompareAprUsesCaseTest", () => {
         expect(sret).eq(sexpected);
       })
     });
-    describe("Debug DForce WETH:USDC", () => {
+    describe.skip("Debug DForce WETH:USDC", () => {
       it("Dforce WETH:DAI", async () => {
         const tasks: IBorrowTask[] = [
           {
@@ -480,8 +536,7 @@ describe("CompareAprUsesCaseTest", () => {
         expect(sret).eq(sexpected);
       })
     });
-
-    describe("Debug AAVE3 USDC:USDT", () => {
+    describe.skip("Debug AAVE3 USDC:USDT", () => {
       it("AAVE3 USDC:USDT", async () => {
         const tasks: IBorrowTask[] = [
           {
@@ -491,6 +546,21 @@ describe("CompareAprUsesCaseTest", () => {
           }
         ];
         const ret = await makeTestAave3(COUNT_BLOCKS_LARGE, tasks);
+        appendTestResultsToFile(PATH_OUT, ret);
+        const {sret, sexpected} = validate(ret);
+        expect(sret).eq(sexpected);
+      })
+    });
+    describe.skip("Debug HundredFinance WETH:USDC", () => {
+      it("Dforce WETH:DAI", async () => {
+        const tasks: IBorrowTask[] = [
+          {
+            collateralAsset: assets.find(x => x.title == "WETH")!,
+            borrowAsset: assets.find(x => x.title == "USDC")!,
+            collateralAmount: Misc.WEI,
+          }
+        ];
+        const ret = await makeTestHundredFinance(COUNT_BLOCKS_LARGE, tasks);
         appendTestResultsToFile(PATH_OUT, ret);
         const {sret, sexpected} = validate(ret);
         expect(sret).eq(sexpected);

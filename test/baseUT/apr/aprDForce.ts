@@ -21,8 +21,8 @@ import {
 import {DForcePlatformFabric} from "../fabrics/DForcePlatformFabric";
 import {TimeUtils} from "../../../scripts/utils/TimeUtils";
 import {ConfigurableAmountToBorrow} from "./ConfigurableAmountToBorrow";
-import {getCTokenAddressForAsset} from "../utils/DForceUtils";
 import {Misc} from "../../../scripts/utils/Misc";
+import {DForceUtils} from "../utils/DForceUtils";
 
 //region Data types
 interface IDForceMarketState {
@@ -179,8 +179,8 @@ export class AprDForce {
     details: IAprDForceTwoResults
     , results: IBorrowResults
   }> {
-    const collateralCTokenAddress = getCTokenAddressForAsset(p.collateral.asset);
-    const borrowCTokenAddress = getCTokenAddressForAsset(p.borrow.asset);
+    const collateralCTokenAddress = DForceUtils.getCTokenAddressForAsset(p.collateral.asset);
+    const borrowCTokenAddress = DForceUtils.getCTokenAddressForAsset(p.borrow.asset);
 
     const collateralToken = await TokenDataTypes.Build(deployer, p.collateral.asset);
     const borrowToken = await TokenDataTypes.Build(deployer, p.borrow.asset);
@@ -193,7 +193,6 @@ export class AprDForce {
 
     const borrowAssetDecimals = await (IERC20Extended__factory.connect(p.borrow.asset, deployer)).decimals();
     const collateralAssetDecimals = await (IERC20Extended__factory.connect(p.collateral.asset, deployer)).decimals();
-
 
     const marketCollateralData = await DForceHelper.getCTokenData(deployer, comptroller, cTokenCollateral);
     const marketBorrowData = await DForceHelper.getCTokenData(deployer, comptroller, cTokenBorrow);

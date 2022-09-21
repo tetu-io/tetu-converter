@@ -48,12 +48,8 @@ library HfAprLib {
       borrowInterestRateModel: IHfInterestRateModel(IHfCToken(cTokenBorrow_).interestRateModel()),
       collateralInterestRateModel: IHfInterestRateModel(IHfCToken(cTokenCollateral_).interestRateModel()),
       priceOracle: IHfPriceOracle(comptroller.oracle()),
-      collateralAsset: cTokenCollateral_ == hMATIC
-        ? WMATIC
-        : IHfCToken(cTokenCollateral_).underlying(),
-      borrowAsset: cTokenBorrow_ == hMATIC
-        ? WMATIC
-        : IHfCToken(cTokenBorrow_).underlying()
+      collateralAsset: getUnderlying(cTokenCollateral_),
+      borrowAsset: getUnderlying(cTokenBorrow_)
     });
   }
 
@@ -131,6 +127,7 @@ library HfAprLib {
     uint priceBorrow,
     uint suppliedAmount
   ) internal view returns (uint) {
+    console.log("Supply APR pure", supplyRatePerBlock * countBlocks * suppliedAmount / 1e18);
     // original code:
     //    rmul(supplyRatePerBlock * countBlocks, suppliedAmount) * priceCollateral / priceBorrow,
     // but we need result decimals 36
@@ -214,4 +211,11 @@ library HfAprLib {
     require(price != 0, AppErrors.ZERO_PRICE);
     return price;
   }
+
+  function getUnderlying(address token) internal view returns (address) {
+    return token == iMATIC
+      ? WMATIC
+      : IHfCToken(token).underlying();
+  }
+
 }

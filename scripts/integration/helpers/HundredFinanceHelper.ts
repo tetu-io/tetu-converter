@@ -73,7 +73,7 @@ export class HundredFinanceHelper {
     }
 
     public static getPriceOracle(signer: SignerWithAddress) : IHfPriceOracle {
-        return IHfPriceOracle__factory.connect(MaticAddresses.HUNDRED_FINANCE_ORACLE, signer);
+        return IHfPriceOracle__factory.connect(MaticAddresses.HUNDRED_FINANCE_PRICE_ORACLE, signer);
     }
 //endregion Access
 
@@ -112,7 +112,7 @@ export class HundredFinanceHelper {
     ) : Promise<IHfData> {
         const m = await comptroller.markets(cToken.address);
         const irm = IHfInterestRateModel__factory.connect(await cToken.interestRateModel(), signer);
-        const priceOracle = IHfPriceOracle__factory.connect(MaticAddresses.HUNDRED_FINANCE_ORACLE, signer);
+        const priceOracle = IHfPriceOracle__factory.connect(MaticAddresses.HUNDRED_FINANCE_PRICE_ORACLE, signer);
 
 
         return {
