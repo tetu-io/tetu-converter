@@ -58,6 +58,7 @@ contract Controller is IController {
       && debtMonitor_ != address(0)
       && borrower_ != address(0)
       && tetuLiquidator_ != address(0)
+      && swapManager_ != address(0)
       , AppErrors.ZERO_ADDRESS
     );
     tetuConverter = tetuConverter_;

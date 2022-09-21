@@ -24,12 +24,12 @@ export class CoreContractsHelper {
       , deployer.address
     )) as Controller;
     await controller.initialize(
-      ethers.Wallet.createRandom().address
-      , ethers.Wallet.createRandom().address
-      , ethers.Wallet.createRandom().address
-      , ethers.Wallet.createRandom().address
-      , ethers.Wallet.createRandom().address
-      , ethers.Wallet.createRandom().address
+      ethers.Wallet.createRandom().address,
+      ethers.Wallet.createRandom().address,
+      ethers.Wallet.createRandom().address,
+      ethers.Wallet.createRandom().address,
+      ethers.Wallet.createRandom().address,
+      ethers.Wallet.createRandom().address,
     );
     return controller;
   }

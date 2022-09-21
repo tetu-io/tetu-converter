@@ -55,6 +55,7 @@ contract TetuConverter is ITetuConverter {
     return _findConversionStrategy(sourceToken_, sourceAmount_, targetToken_, healthFactor2_, periodInBlocks_);
   }
 
+  /// @param periodInBlocks_ how long you want hold targetToken. When 0 - always borrows, when uint.max - always swaps
   function _findConversionStrategy(
     address sourceToken_,
     uint sourceAmount_,
@@ -62,6 +63,7 @@ contract TetuConverter is ITetuConverter {
     uint16 healthFactor2_,
     uint periodInBlocks_
   ) internal view returns (
+  // ? make enum OutputConversionParams
     address converter,
     uint maxTargetAmount,
     int aprForPeriod36
@@ -74,26 +76,23 @@ contract TetuConverter is ITetuConverter {
       periodInBlocks: periodInBlocks_
     });
 
-    // get best swap return
-    (address swapConverter,
-    uint swapMaxTargetAmount,) = _swapManager().getConverter(params);
+    // always swap when period is max
+    if (periodInBlocks_ == type(uint).max) {
+      // get swap
+      return _swapManager().getConverter(params);
 
-    // find best lending platform
-    (address borrowConverter,
-    uint borrowMaxTargetAmount,
-    int borrowAprForPeriod36) = _bm().findConverter(params);
+    // always borrow when period is 0
+    } else if (periodInBlocks_ == 0) {
+      // find best lending platform
+      return _bm().findConverter(params);
 
-    // TODO check
-    // TODO use healthFactor2_,
-    // TODO calculate cost of swap (forward and back)
-    int borrowFees = int(borrowMaxTargetAmount) * borrowAprForPeriod36 / 10**36;
-    bool doSwap = (periodInBlocks_ == type(uint).max)
-      || (int(borrowMaxTargetAmount) < borrowFees)
-      || int(swapMaxTargetAmount) > (int(borrowMaxTargetAmount) - borrowFees);
+    } else {
+      // TODO develop decision making function, that can be tested separately
+      // use healthFactor2_, calculate cost of swap (forward and back)
+      // for now just use borrow manager for dv tests compatibility
+      return _bm().findConverter(params);
 
-    return doSwap
-      ? (swapConverter, swapMaxTargetAmount, int(0))
-      : (borrowConverter, borrowMaxTargetAmount, borrowAprForPeriod36);
+    }
 
   }
 
