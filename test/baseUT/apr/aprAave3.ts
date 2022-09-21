@@ -9,7 +9,7 @@ import {
   IAaveToken__factory, IERC20Extended__factory
 } from "../../../typechain";
 import {
-  baseToBt18, prepareExactBorrowAmount,
+  baseToBt18,
   convertUnits,
   IBaseToBorrowParams,
   makeBorrow, baseToBt
@@ -281,7 +281,7 @@ export class AprAave3 {
    */
   static async makeBorrowTest(
     deployer: SignerWithAddress
-    , amountToBorrow0: number
+    , amountToBorrow0: number | BigNumber
     , p: TestSingleBorrowParams
     , additionalPoints: number[]
   ) : Promise<{
@@ -338,7 +338,7 @@ export class AprAave3 {
     // make borrow
     const borrowResults = await makeBorrow(deployer
       , p
-      , prepareExactBorrowAmount(amountToBorrow0, borrowToken.decimals)
+      , getBigNumberFrom(amountToBorrow0, borrowToken.decimals)
       , new Aave3PlatformFabric()
     );
     const userAddress = borrowResults.poolAdapter;
@@ -538,7 +538,7 @@ export class AprAave3 {
         }, balances: {
           collateral: current.userAccount!.totalCollateralBase,
           borrow: current.userAccount!.totalDebtBase
-        }, costsBT18: {
+        }, costsBT36: {
           collateral: baseToBt18(
             current.userAccount!.totalCollateralBase.sub(prev.userAccount!.totalCollateralBase)
             , bbp

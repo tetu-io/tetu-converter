@@ -5,7 +5,7 @@ import {TestSingleBorrowParams} from "../types/BorrowRepayDataTypes";
 import {TokenDataTypes} from "../types/TokenDataTypes";
 import {HundredFinanceHelper} from "../../../scripts/integration/helpers/HundredFinanceHelper";
 import {
-  HfAprLibFacade, IERC20Extended__factory, IHfComptroller,
+  HfAprLibFacade, HfTestHelper, IERC20Extended__factory, IHfComptroller,
   IHfCToken,
   IHfCToken__factory,
 } from "../../../typechain";
@@ -13,14 +13,14 @@ import {getBigNumberFrom} from "../../../scripts/utils/NumberUtils";
 import {DeployUtils} from "../../../scripts/utils/DeployUtils";
 import hre, {ethers} from "hardhat";
 import {
-  changeDecimals, prepareExactBorrowAmount,
+  changeDecimals,
   convertUnits, makeBorrow
 } from "./aprUtils";
 import {TimeUtils} from "../../../scripts/utils/TimeUtils";
-import {ConfigurableAmountToBorrow} from "./ConfigurableAmountToBorrow";
 import {Misc} from "../../../scripts/utils/Misc";
 import {HundredFinancePlatformFabric} from "../fabrics/HundredFinancePlatformFabric";
 import {HundredFinanceUtils} from "../utils/HundredFinanceUtils";
+import {DForceHelper} from "../../../scripts/integration/helpers/DForceHelper";
 
 //region Data types
 interface IHfMarketState {
@@ -86,7 +86,7 @@ interface IAprHfTwoResults {
   /** borrow APR in terms of base currency calculated using exact borrow rate taken from next step */
   borrowApr: BigNumber;
   /** total increment of collateral amount from NEXT to LAST in terms of COLLATERAL currency */
-  deltaCollateral: BigNumber;
+  deltaCollateralMul18: BigNumber;
   /** total increment of collateral amount from NEXT to LAST in terms of BORROW currency */
   deltaCollateralBT: BigNumber;
   /** total increment of borrowed amount from NEXT to LAST in terms of BORROW currency */
@@ -169,7 +169,7 @@ export class AprHundredFinance {
    */
   static async makeBorrowTest(
     deployer: SignerWithAddress
-    , amountToBorrow0: number
+    , amountToBorrow0: number | BigNumber
     , p: TestSingleBorrowParams
     , additionalPoints: number[]
   ): Promise<{
@@ -178,9 +178,6 @@ export class AprHundredFinance {
   }> {
     const collateralCTokenAddress = HundredFinanceUtils.getCTokenAddressForAsset(p.collateral.asset);
     const borrowCTokenAddress = HundredFinanceUtils.getCTokenAddressForAsset(p.borrow.asset);
-
-    const collateralToken = await TokenDataTypes.Build(deployer, p.collateral.asset);
-    const borrowToken = await TokenDataTypes.Build(deployer, p.borrow.asset);
 
     const comptroller = await HundredFinanceHelper.getComptroller(deployer);
     const cTokenCollateral = IHfCToken__factory.connect(collateralCTokenAddress, deployer);
@@ -211,6 +208,7 @@ export class AprHundredFinance {
 
     // predict APR
     const libFacade = await DeployUtils.deployContract(deployer, "HfAprLibFacade") as HfAprLibFacade;
+    const hfHelper = await DeployUtils.deployContract(deployer, "HfTestHelper") as HfTestHelper;
 
     // start point: we estimate APR in this point before borrow and supply
     const before = await getHfStateInfo(comptroller
@@ -263,8 +261,6 @@ export class AprHundredFinance {
 
     // For borrow: move ahead on one more block
     await cTokenBorrow.accrueInterest();
-    await cTokenBorrow.borrowBalanceCurrent(userAddress);
-    await cTokenCollateral.exchangeRateCurrent();
 
     const last = await getHfStateInfo(comptroller
       , cTokenCollateral
@@ -320,18 +316,16 @@ export class AprHundredFinance {
 
     // get collateral (in terms of collateral tokens) for next and last points
     const base = Misc.WEI;
-    const collateralNext = next.collateral.account.balance
-      .mul(next.collateral.market.exchangeRateStored)
-      .div(base);
-    const collateralLast = last.collateral.account.balance
-      .mul(last.collateral.market.exchangeRateStored)
-      .div(base);
-    const deltaCollateral = collateralLast.sub(collateralNext);
-    const deltaCollateralBT = deltaCollateral.mul(priceCollateral).div(priceBorrow);
-    console.log("collateralNext", collateralNext);
-    console.log("collateralLast", collateralLast);
-    console.log("deltaCollateral", deltaCollateral);
-    console.log("deltaCollateralBT", deltaCollateralBT);
+    const collateralNextMul18 = next.collateral.account.balance
+      .mul(next.collateral.market.exchangeRateStored);
+    const collateralLastMul18 = last.collateral.account.balance
+      .mul(last.collateral.market.exchangeRateStored);
+    const deltaCollateralMul18 = collateralLastMul18.sub(collateralNextMul18);
+    const deltaCollateralBtMul18 = deltaCollateralMul18.mul(priceCollateral).div(priceBorrow);
+    console.log("collateralNextMul18", collateralNextMul18);
+    console.log("collateralLastMul18", collateralLastMul18);
+    console.log("deltaCollateralMul18", deltaCollateralMul18);
+    console.log("deltaCollateralBT", deltaCollateralBtMul18);
 
     const deltaBorrowBalance = last.borrow.account.borrowBalanceStored.sub(
       next.borrow.account.borrowBalanceStored
@@ -342,9 +336,7 @@ export class AprHundredFinance {
     let prev = last;
     for (const period of additionalPoints) {
       await TimeUtils.advanceNBlocks(period);
-      await cTokenBorrow.accrueInterest();
-      await cTokenBorrow.borrowBalanceCurrent(userAddress);
-      await cTokenCollateral.exchangeRateCurrent();
+      await hfHelper.accrueInterest(cTokenCollateral.address, cTokenBorrow.address);
 
       let current = await getHfStateInfo(comptroller
         , cTokenCollateral
@@ -352,16 +344,9 @@ export class AprHundredFinance {
         , userAddress
       );
 
-      const collateralPrev = prev.collateral.account.balance
-        .mul(prev.collateral.market.exchangeRateStored)
-        .div(base);
-      const collateralCurrent = current.collateral.account.balance
-        .mul(current.collateral.market.exchangeRateStored)
-        .div(base);
-      const dc = collateralCurrent.sub(collateralNext);
-      const db = current.borrow.account.borrowBalanceStored.sub(
-        prev.borrow.account.borrowBalanceStored
-      );
+      const collateralCurrentMul18 = current.collateral.account.balance.mul(current.collateral.market.exchangeRateStored);
+      const dc = collateralCurrentMul18.sub(collateralNextMul18);
+      const db = current.borrow.account.borrowBalanceStored.sub(prev.borrow.account.borrowBalanceStored);
 
       pointsResults.push({
         period: {
@@ -375,28 +360,28 @@ export class AprHundredFinance {
         }, balances: {
           collateral: current.collateral.account.balance,
           borrow: current.borrow.account.borrowBalanceStored
-        }, costsBT18: {
+        }, costsBT36: {
           collateral: changeDecimals(dc.mul(priceCollateral).div(priceBorrow), collateralAssetDecimals, 18),
-          borrow: changeDecimals(db, borrowAssetDecimals, 18),
+          borrow: changeDecimals(db, borrowAssetDecimals, 36),
         }
       })
     }
 
     return {
       details: {
-        borrowApr
-        , borrowAprExact
-        , before
-        , deltaBorrowBalance
-        , middle
-        , deltaCollateral
-        , supplyApr
-        , deltaCollateralBT
-        , borrowAmount
-        , last
-        , supplyAprExact
-        , next
-        , userAddress
+        borrowApr,
+        borrowAprExact,
+        before,
+        deltaBorrowBalance,
+        middle,
+        deltaCollateralMul18: deltaCollateralMul18,
+        supplyApr,
+        deltaCollateralBT: deltaCollateralBtMul18,
+        borrowAmount,
+        last,
+        supplyAprExact,
+        next,
+        userAddress
       }, results: {
         init: {
           borrowAmount: borrowAmount,
@@ -431,9 +416,9 @@ export class AprHundredFinance {
           },
           aprBt36: {
             collateral: changeDecimals(
-              deltaCollateral.mul(priceCollateral).div(priceBorrow)
+              deltaCollateralMul18.mul(priceCollateral).div(priceBorrow)
               , borrowAssetDecimals
-              , 36
+              , 18 //we need decimals 36, but deltaCollateralMul18 is already multiplied on 1e18
             ), borrow: changeDecimals(deltaBorrowBalance, borrowAssetDecimals, 36)
           }
         },

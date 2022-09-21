@@ -19,7 +19,7 @@ import {TokenDataTypes} from "../types/TokenDataTypes";
 import {AaveTwoHelper} from "../../../scripts/integration/helpers/AaveTwoHelper";
 import {DeployUtils} from "../../../scripts/utils/DeployUtils";
 import {
-  baseToBt18, prepareExactBorrowAmount,
+  baseToBt18,
   convertUnits,
   IBaseToBorrowParams,
   makeBorrow, baseToBt
@@ -251,7 +251,7 @@ export class AprAaveTwo {
    */
   static async makeBorrowTest(
     deployer: SignerWithAddress
-    , amountToBorrow0: number
+    , amountToBorrow0: number | BigNumber
     , p: TestSingleBorrowParams
     , additionalPoints: number[]
   ) : Promise<{
@@ -289,7 +289,7 @@ export class AprAaveTwo {
     const borrowResults = await makeBorrow(
       deployer
       , p
-      , prepareExactBorrowAmount(amountToBorrow0, borrowToken.decimals)
+      , getBigNumberFrom(amountToBorrow0, borrowToken.decimals)
       , new AaveTwoPlatformFabric()
     );
     const userAddress = borrowResults.poolAdapter;
@@ -483,7 +483,7 @@ export class AprAaveTwo {
         }, balances: {
           collateral: current.userAccount!.totalCollateralETH,
           borrow: current.userAccount!.totalDebtETH
-        }, costsBT18: {
+        }, costsBT36: {
           collateral: baseToBt18(
             current.userAccount!.totalCollateralETH.sub(prev.userAccount!.totalCollateralETH)
             , bbp

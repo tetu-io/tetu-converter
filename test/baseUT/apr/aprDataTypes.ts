@@ -26,7 +26,7 @@ export interface IPointResults {
   balances: IAmounts;
 
   /** Actual costs for period, all values are given in terms of borrow token, decimals 18*/
-  costsBT18: IAmounts;
+  costsBT36: IAmounts;
   /** both supply and borrow rewards in total (starting from the beginning) */
   totalAmountRewards?: BigNumber;
   /** both supply and borrow rewards in total (starting from the beginning) in terms of borrow tokens, decimals 36 */

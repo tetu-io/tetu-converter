@@ -16,7 +16,7 @@ import {toMantissa} from "../utils/CommonUtils";
 
 //region Data types
 interface IInputParams {
-  amountToBorrow: ConfigurableAmountToBorrow;
+  amountToBorrow: number | BigNumber;
   params: TestSingleBorrowParams;
   additionalPoints: number[];
 }
@@ -24,7 +24,7 @@ interface IInputParams {
 /** I.e. one of AprXXX.makeBorrowTest */
 export type BorrowTestMaker = (
   deployer: SignerWithAddress
-  , amountToBorrow0: ConfigurableAmountToBorrow
+  , amountToBorrow: number | BigNumber
   , p: TestSingleBorrowParams
   , additionalPoints: number[]
 ) => Promise<IBorrowResults>;
@@ -178,11 +178,7 @@ export class CompareAprUsesCase {
           const borrowAmount18 = planFullPeriod.liquidationThreshold18
             .mul(borrowAmountFactor18)
             .div(Misc.WEI)
-          let borrowAmount = toMantissa(borrowAmount18, 18, borrowDecimals);
-          const amountToBorrow: ConfigurableAmountToBorrow = {
-            exactAmountToBorrow: borrowAmount,
-            exact: true
-          }
+          const amountToBorrow = toMantissa(borrowAmount18, 18, borrowDecimals);
           console.log("makePossibleBorrowsOnPlatform.amountToBorrow", amountToBorrow);
 
           if (planSingleBlock.converter == Misc.ZERO_ADDRESS) {

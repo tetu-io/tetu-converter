@@ -117,17 +117,6 @@ export function changeDecimals(amount: BigNumber, from: number, to: number) : Bi
 }
 //endregion Conversion of amounts
 
-//region ConfigurableAmountToBorrow
-
-export function prepareExactBorrowAmount(
-  amount: number,
-  assetDecimals: number
-): BigNumber {
-  return getBigNumberFrom(amount, assetDecimals);
-}
-
-//endregion ConfigurableAmountToBorrow
-
 //region Save borrow test results to CSV
 export function appendTestResultsToFile(path: string, data: IBorrowTestResults[]) {
   console.log("appendTestResultsToFile", path);
@@ -273,8 +262,8 @@ export function appendTestResultsToFile(path: string, data: IBorrowTestResults[]
     if (row.results) {
       for (const point of row.results?.points) {
         const linePoint = [
-          point.costsBT18.collateral
-          , point.costsBT18.borrow
+          point.costsBT36.collateral
+          , point.costsBT36.borrow
           , point.totalAmountRewards
           , point.totalAmountRewardsBt36
 
