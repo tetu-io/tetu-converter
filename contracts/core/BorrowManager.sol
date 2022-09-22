@@ -267,7 +267,7 @@ contract BorrowManager is IBorrowManager {
       // combine three found APRs to single one
       int planApr36 = int(plan.borrowApr36)
         - int(plan.supplyAprBt36)
-        - int(plan.rewardsAmountBt36);
+        - int(plan.rewardsAmountBt36 / p_.periodInBlocks);
 
       if (plan.converter != address(0)) {
         // check if we are able to supply required collateral
