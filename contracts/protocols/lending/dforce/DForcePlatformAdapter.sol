@@ -17,7 +17,6 @@ import "../../../integrations/IERC20Extended.sol";
 import "../../../integrations/dforce/IDForceInterestRateModel.sol";
 import "../../../integrations/dforce/IDForceController.sol";
 import "../../../integrations/dforce/IDForceCToken.sol";
-import "hardhat/console.sol";
 
 /// @notice Adapter to read current pools info from DForce-protocol, see https://developers.dforce.network/
 contract DForcePlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
@@ -104,13 +103,11 @@ contract DForcePlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
     uint lenAssets = assets_.length;
     prices18 = new uint[](lenAssets);
     for (uint i = 0; i < lenAssets; i = i.uncheckedInc()) {
-      console.log("Token", activeAssets[assets_[i]]);
       address cToken = activeAssets[assets_[i]];
 
       // we get a price with decimals = (36 - asset decimals)
       // let's convert it to decimals = 18
       (uint underlyingPrice, bool isPriceValid) = priceOracle.getUnderlyingPriceAndStatus(address(cToken));
-      console.log("underlyingPrice", underlyingPrice, isPriceValid);
       require(underlyingPrice != 0 && isPriceValid, AppErrors.ZERO_PRICE);
 
       prices18[i] = underlyingPrice / (10 ** (18 - IERC20Extended(assets_[i]).decimals()));
@@ -138,7 +135,6 @@ contract DForcePlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
   ) external override view returns (
     AppDataTypes.ConversionPlan memory plan
   ) {
-    console.log("getConversionPlan");
     IDForceController comptrollerLocal = comptroller;
     address cTokenCollateral = activeAssets[collateralAsset_];
     if (cTokenCollateral != address(0)) {
@@ -189,7 +185,6 @@ contract DForcePlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
           );
           if (amountToBorrow > plan.maxAmountToBorrowBT) {
             amountToBorrow = plan.maxAmountToBorrowBT;
-            console.log("DForcePlatformAdapter amountToBorrow CORRECTED=", amountToBorrow);
           }
 
           (plan.borrowApr36, plan.supplyAprBt36, plan.rewardsAmountBt36) = DForceAprLib.getRawAprInfo36(

@@ -8,7 +8,6 @@ import "../../../integrations/hundred-finance/IHfPriceOracle.sol";
 import "../../../core/AppErrors.sol";
 import "../../../core/AppUtils.sol";
 import "../../../integrations/IERC20Extended.sol";
-import "hardhat/console.sol";
 
 /// @notice Hundred finance utils: predict borrow and supply rate in advance, calculate borrow and supply APR
 ///         Borrow APR = the amount by which the debt increases per block; the amount is in terms of borrow tokens
@@ -72,11 +71,6 @@ library HfAprLib {
     uint8 collateralDecimals = IERC20Extended(core.collateralAsset).decimals();
     uint8 borrowDecimals = IERC20Extended(core.borrowAsset).decimals();
 
-    console.log("getRawAprInfo36");
-    console.log("collateralAmount_", collateralAmount_);
-    console.log("amountToBorrow_", amountToBorrow_);
-    console.log("borrowDecimals", borrowDecimals);
-    console.log("collateralDecimals", collateralDecimals);
     uint priceBorrow = getPrice(core.priceOracle, address(core.cTokenBorrow)) * 10**borrowDecimals;
 
     supplyAprBt36 = getSupplyApr36(
@@ -91,11 +85,6 @@ library HfAprLib {
       priceBorrow,
       collateralAmount_
     );
-    console.log("getRawAprInfo36.getEstimatedSupplyRate", getEstimatedSupplyRate(
-        IHfInterestRateModel(core.cTokenCollateral.interestRateModel()),
-        core.cTokenCollateral,
-        collateralAmount_)
-    );
 
     // estimate borrow rate value after the borrow and calculate result APR
     borrowApr36 = getBorrowApr36(
@@ -108,14 +97,6 @@ library HfAprLib {
       countBlocks_,
       borrowDecimals
     );
-    console.log("supplyAprBt36", supplyAprBt36);
-    console.log("borrowApr36", borrowApr36);
-    console.log("getEstimatedBorrowRate", getEstimatedBorrowRate(
-        core.borrowInterestRateModel,
-        core.cTokenBorrow,
-        amountToBorrow_
-      ));
-    console.log("amountToBorrow_", amountToBorrow_);
   }
 
   /// @notice Calculate supply APR in terms of borrow tokens with decimals 36
@@ -127,18 +108,10 @@ library HfAprLib {
     uint priceBorrow,
     uint suppliedAmount
   ) internal view returns (uint) {
-    console.log("Supply APR pure", supplyRatePerBlock * countBlocks * suppliedAmount / 1e18);
     // original code:
     //    rmul(supplyRatePerBlock * countBlocks, suppliedAmount) * priceCollateral / priceBorrow,
     // but we need result decimals 36
     // so, we replace rmul by ordinal mul and take into account /1e18
-    console.log("getSupplyApr36");
-    console.log("supplyRatePerBlock", supplyRatePerBlock);
-    console.log("countBlocks", countBlocks);
-    console.log("suppliedAmount", suppliedAmount);
-    console.log("priceCollateral", priceCollateral);
-    console.log("priceBorrow", priceBorrow);
-    console.log("collateralDecimals", collateralDecimals);
     return AppUtils.toMantissa(
       supplyRatePerBlock * countBlocks * suppliedAmount * priceCollateral / priceBorrow,
       collateralDecimals,
@@ -195,12 +168,6 @@ library HfAprLib {
     IHfCToken cToken_,
     uint amountToSupply_
   ) internal view returns(uint) {
-    console.log("getEstimatedSupplyRate interestRateModel", address(interestRateModel_));
-    console.log("cToken_.getCash() ", cToken_.getCash() );
-    console.log("amountToSupply_", amountToSupply_ );
-    console.log("cToken_.totalBorrows()", cToken_.totalBorrows() );
-    console.log("cToken_.totalReserves()", cToken_.totalReserves() );
-    console.log("cToken_.reserveFactorMantissa()", cToken_.reserveFactorMantissa() );
     return interestRateModel_.getSupplyRate(
 
       // Cash balance of this cToken in the underlying asset

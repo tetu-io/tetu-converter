@@ -69,8 +69,6 @@ interface IAprDForceTwoResults {
   before: IDForceState;
   /** State just after borrow */
   next: IDForceState;
-  /** After borrow + 1 block */
-  middle: IDForceState;
   /** State just after borrow + 1 block */
   last: IDForceState;
   /** Borrower address */
@@ -158,10 +156,8 @@ export class AprDForce {
    * 0. Predict APR
    * 1. Make borrow
    * This is "next point" (or AFTER BORROW point)
-   * 2. update supply interest
-   * This is "middle point" (+ 1 block since next)
-   * 3. update borrow interest
-   * This is "last point" (+ 2 blocks since next)
+   * 2. update borrow and supply interest
+   * This is "last point" (+ 1 blocks since next)
    * 3. Calculate real APR for the period since "next" to "last"
    * 4. Enumerate all additional points. Move to the point, get balances, save them to the results.
    *
@@ -181,9 +177,6 @@ export class AprDForce {
   }> {
     const collateralCTokenAddress = DForceUtils.getCTokenAddressForAsset(p.collateral.asset);
     const borrowCTokenAddress = DForceUtils.getCTokenAddressForAsset(p.borrow.asset);
-
-    const collateralToken = await TokenDataTypes.Build(deployer, p.collateral.asset);
-    const borrowToken = await TokenDataTypes.Build(deployer, p.borrow.asset);
 
     const comptroller = await DForceHelper.getController(deployer);
     const cTokenCollateral = IDForceCToken__factory.connect(collateralCTokenAddress, deployer);
@@ -258,17 +251,8 @@ export class AprDForce {
       , userAddress
     );
 
-    // For collateral: move ahead on single block
-    await cTokenCollateral.updateInterest(); //await TimeUtils.advanceNBlocks(1);
-
-    const middle = await getDForceStateInfo(comptroller
-      , cTokenCollateral
-      , cTokenBorrow
-      , userAddress
-    );
-
-    // For borrow: move ahead on one more block
-    await cTokenBorrow.updateInterest();
+    // For borrow and collateral: move ahead on single block
+    await dForceHelper.updateInterest(cTokenCollateral.address, cTokenBorrow.address);
 
     const last = await getDForceStateInfo(comptroller
       , cTokenCollateral
@@ -278,35 +262,23 @@ export class AprDForce {
 
     console.log("before", before);
     console.log("next", next);
-    console.log("middle", middle);
     console.log("last", last);
-
 
     // calculate exact values of supply/borrow APR
     // we use state-values "after-borrow" and exact values of supply/borrow rates after borrow
-    const countBlocksSupply = 1; // after next, we call UpdateInterest for supply token...
-    const countBlocksBorrow = 2; // ...then for the borrow token
+    const countBlocksNextToLast = 1;
 
     const supplyApr = await libFacade.getSupplyApr36(
       supplyRatePredicted
-      , countBlocksSupply
+      , countBlocksNextToLast
       , collateralAssetDecimals
       , priceCollateral36
       , priceBorrow36
       , amountCollateral
     );
-    console.log("supplyApr", supplyApr);
-    console.log("!!!!!!!!!!!!!!!!!!!!!!!!!!");
-    console.log("supplyRatePredicted", supplyRatePredicted);
-    console.log("countBlocksSupply", countBlocksSupply);
-    console.log("decimals", collateralAssetDecimals);
-    console.log("priceCollateral36", priceCollateral36);
-    console.log("priceBorrow36", priceBorrow36);
-    console.log("amountCollateral", amountCollateral);
-    console.log("supplyApr", supplyApr);
     const supplyAprExact = await libFacade.getSupplyApr36(
       next.collateral.market.supplyRatePerBlock
-      , countBlocksSupply
+      , countBlocksNextToLast
       , collateralAssetDecimals
       , priceCollateral36
       , priceBorrow36
@@ -317,21 +289,20 @@ export class AprDForce {
     const borrowApr = await libFacade.getBorrowApr36(
       borrowRatePredicted
       , borrowAmount
-      , countBlocksBorrow
+      , countBlocksNextToLast
       , borrowAssetDecimals
     );
     console.log("borrowApr", borrowApr);
 
     const borrowAprExact = await libFacade.getBorrowApr36(
-      middle.borrow.market.borrowRatePerBlock
+      last.borrow.market.borrowRatePerBlock
       , borrowAmount
-      , countBlocksBorrow
+      , countBlocksNextToLast
       , borrowAssetDecimals
     );
     console.log("borrowAprExact", borrowApr);
 
     // get collateral (in terms of collateral tokens) for next and last points
-    const base = Misc.WEI;
     const collateralNextMul18 = next.collateral.account.balance.mul(next.collateral.market.exchangeRateStored);
     const collateralLastMul18 = last.collateral.account.balance.mul(last.collateral.market.exchangeRateStored);
     const deltaCollateralMul18 = collateralLastMul18.sub(collateralNextMul18);
@@ -414,7 +385,6 @@ export class AprDForce {
         borrowAprExact,
         before,
         deltaBorrowBalance,
-        middle,
         deltaCollateralMul18: deltaCollateralMul18,
         supplyApr,
         deltaCollateralBtMul18,

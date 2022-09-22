@@ -17,7 +17,6 @@ import "../../../integrations/IERC20Extended.sol";
 import "../../../integrations/hundred-finance/IHfInterestRateModel.sol";
 import "../../../core/AppUtils.sol";
 import "./HfAprLib.sol";
-import "hardhat/console.sol";
 
 /// @notice Adapter to read current pools info from HundredFinance-protocol, see https://docs.hundred.finance/
 contract HfPlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
@@ -138,7 +137,6 @@ contract HfPlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
   ) external override view returns (
     AppDataTypes.ConversionPlan memory plan
   ) {
-    console.log("getConversionPlan", collateralAmount_);
     address cTokenCollateral = activeAssets[collateralAsset_];
     if (cTokenCollateral != address(0)) {
 
@@ -173,7 +171,6 @@ contract HfPlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
           );
           if (amountToBorrow > plan.maxAmountToBorrowBT) {
             amountToBorrow = plan.maxAmountToBorrowBT;
-            console.log("HfPlatformAdapter amountToBorrow CORRECTED=", amountToBorrow);
           }
 
           (plan.borrowApr36, plan.supplyAprBt36) = HfAprLib.getRawAprInfo36(

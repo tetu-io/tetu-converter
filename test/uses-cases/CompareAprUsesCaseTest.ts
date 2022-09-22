@@ -30,7 +30,7 @@ describe("CompareAprUsesCaseTest", () => {
 //region Constants
   const PATH_OUT = "tmp/compareResults.csv";
   const HEALTH_FACTOR2 = 400;
-  const COUNT_BLOCKS_SMALL = 2;
+  const COUNT_BLOCKS_SMALL = 1_00;
   const COUNT_BLOCKS_LARGE = 2_000;
 
   const assets: IAssetInfo[] = [
@@ -383,7 +383,7 @@ describe("CompareAprUsesCaseTest", () => {
 //endregion Test impl
 
   describe("Make all borrow tests", () => {
-    describe.skip("Small count of blocks (2 days)", () => {
+    describe("Small count of blocks", () => {
       const COUNT_BLOCKS = COUNT_BLOCKS_SMALL;
       describe("Exact small amount", () => {
         it("AAVE3", async () => {
