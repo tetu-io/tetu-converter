@@ -22,3 +22,15 @@ export function generateAssetPairs(underlying: string[]) : IAssetPair[] {
   }
   return  dest;
 }
+
+export function getAssetPair(asset1: string, asset2: string) : IAssetPair {
+  return asset1 < asset2
+    ? {
+      smallerAddress: asset1,
+      biggerAddress: asset2
+    }
+    : {
+      smallerAddress: asset2,
+      biggerAddress: asset1
+    }
+}

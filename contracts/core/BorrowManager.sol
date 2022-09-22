@@ -2,19 +2,19 @@
 pragma solidity 0.8.4;
 
 import "./AppDataTypes.sol";
-import "../interfaces/IPlatformAdapter.sol";
-import "../integrations/market/ICErc20.sol";
-import "../integrations/IERC20Extended.sol";
-import "../interfaces/IBorrowManager.sol";
-import "../interfaces/IPriceOracle.sol";
-import "../openzeppelin/IERC20.sol";
-import "../openzeppelin/SafeERC20.sol";
 import "./AppErrors.sol";
 import "../core/AppUtils.sol";
-import "../openzeppelin/Clones.sol";
+import "../interfaces/IPlatformAdapter.sol";
+import "../interfaces/IBorrowManager.sol";
+import "../interfaces/IPriceOracle.sol";
 import "../interfaces/IController.sol";
-import "../openzeppelin/EnumerableSet.sol";
 import "../interfaces/IDebtsMonitor.sol";
+import "../openzeppelin/Clones.sol";
+import "../openzeppelin/IERC20.sol";
+import "../openzeppelin/SafeERC20.sol";
+import "../openzeppelin/EnumerableSet.sol";
+import "../integrations/market/ICErc20.sol";
+import "../integrations/IERC20Extended.sol";
 import "hardhat/console.sol";
 
 /// @notice Contains list of lending pools. Allow to select most efficient pool for the given collateral/borrow pair
@@ -24,9 +24,6 @@ contract BorrowManager is IBorrowManager {
   using Clones for address;
   using EnumerableSet for EnumerableSet.AddressSet;
   using EnumerableSet for EnumerableSet.UintSet;
-
-  uint constant public BLOCKS_PER_DAY = 40000;
-  uint constant public SECONDS_PER_DAY = 86400;
 
   /// @notice Reward APR is taken into account with given factor
   ///         Result APR = borrow-apr - supply-apr - Factor/Denominator * rewards-APR
@@ -126,11 +123,13 @@ contract BorrowManager is IBorrowManager {
     address[] memory paConverters = IPlatformAdapter(platformAdapter_).converters();
     uint lenConverters = paConverters.length;
     for (uint i = 0; i < lenConverters; i = i.uncheckedInc()) {
-      require(!_dm().isConverterInUse(paConverters[i]), AppErrors.PLATFORM_ADAPTER_IS_IN_USE);
-      converters[paConverters[i]] = platformAdapter_;
+      if (converters[paConverters[i]] != platformAdapter_) {
+        require(!_debtMonitor().isConverterInUse(paConverters[i]), AppErrors.PLATFORM_ADAPTER_IS_IN_USE);
+        converters[paConverters[i]] = platformAdapter_;
+      }
     }
 
-    // register all supported asset pairs
+    // register all provided asset pairs
     for (uint i = 0; i < lenAssets; i = i.uncheckedInc()) {
       uint assetPairKey = getAssetPairKey(leftAssets_[i], rightAssets_[i]);
       if (_assetPairs[assetPairKey].assetLeft == address(0)) {
@@ -402,7 +401,7 @@ contract BorrowManager is IBorrowManager {
   ///////////////////////////////////////////////////////
   ///       Inline functions
   ///////////////////////////////////////////////////////
-  function _dm() internal view returns (IDebtMonitor) {
+  function _debtMonitor() internal view returns (IDebtMonitor) {
     return IDebtMonitor(controller.debtMonitor());
   }
 }

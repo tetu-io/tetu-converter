@@ -1,8 +1,12 @@
 import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import {ethers} from "hardhat";
 import {expect} from "chai";
-import {DeployUtils} from "../../scripts/utils/DeployUtils";
-import {BorrowManager, PlatformAdapterStub, PriceOracleMock} from "../../typechain";
+import {
+  BorrowManager,
+  IPoolAdapter,
+  IPoolAdapter__factory,
+  PlatformAdapterStub
+} from "../../typechain";
 import {TimeUtils} from "../../scripts/utils/TimeUtils";
 import {BigNumber} from "ethers";
 import {getBigNumberFrom} from "../../scripts/utils/NumberUtils";
@@ -15,8 +19,10 @@ import {
 import {IBmInputParams, BorrowManagerHelper} from "../baseUT/helpers/BorrowManagerHelper";
 import {MocksHelper} from "../baseUT/helpers/MocksHelper";
 import {CoreContractsHelper} from "../baseUT/helpers/CoreContractsHelper";
-import {generateAssetPairs, IAssetPair} from "../baseUT/utils/AssetPairUtils";
+import {generateAssetPairs, getAssetPair, IAssetPair} from "../baseUT/utils/AssetPairUtils";
 import {Misc} from "../../scripts/utils/Misc";
+import {DeployerUtils} from "../../scripts/utils/DeployerUtils";
+import exp from "constants";
 
 describe("BorrowManager", () => {
 //region Global vars for all tests
@@ -57,6 +63,7 @@ describe("BorrowManager", () => {
 //endregion before, after
 
 //region Utils
+  /** Get list of platform adapters registered for the given pairs */
   async function getPairsList(bm: BorrowManager, pairs: IAssetPair[]): Promise<string[]> {
     const dest: string[] = [];
     for (const pair of pairs) {
@@ -92,75 +99,369 @@ describe("BorrowManager", () => {
     converters: string[],
     pairs: IAssetPair[]
   ) : Promise<{
-    bm: BorrowManager,
+    borrowManager: BorrowManager,
     platformAdapter: PlatformAdapterStub
   }>{
     const controller = await CoreContractsHelper.createController(signer);
-    const bm = await CoreContractsHelper.createBorrowManager(signer, controller);
-    const dm = await MocksHelper.createDebtsMonitorStub(signer, false);
-    await controller.setBorrowManager(bm.address);
-    await controller.setDebtMonitor(dm.address);
+    const borrowManager = await CoreContractsHelper.createBorrowManager(signer, controller);
+    const debtsMonitor = await MocksHelper.createDebtsMonitorStub(signer, false);
+    await controller.setBorrowManager(borrowManager.address);
+    await controller.setDebtMonitor(debtsMonitor.address);
 
     const platformAdapter = await MocksHelper.createPlatformAdapterStub(signer, converters);
 
     // generate all possible pairs of underlying
-    await bm.addAssetPairs(
+    await borrowManager.addAssetPairs(
       platformAdapter.address
       , pairs.map(x => x.smallerAddress)
       , pairs.map(x => x.biggerAddress)
     );
 
-    return {bm, platformAdapter};
+    return {borrowManager: borrowManager, platformAdapter};
+  }
+
+  async function initializeApp() : Promise<BorrowManager>{
+    const controller = await CoreContractsHelper.createController(signer);
+    const borrowManager = await CoreContractsHelper.createBorrowManager(signer, controller);
+    const debtsMonitor = await MocksHelper.createDebtsMonitorStub(signer, false);
+    await controller.setBorrowManager(borrowManager.address);
+    await controller.setDebtMonitor(debtsMonitor.address);
+    return borrowManager;
+  }
+
+  function pairToStr(pair: BorrowManager.AssetPairStructOutput) {
+    return pair.assetLeft < pair.assetRight
+      ? `${pair.assetLeft} ${pair.assetRight}`
+      : `${pair.assetRight} ${pair.assetLeft}`;
   }
 //endregion Utils
 
+//region Set up asset pairs
+  async function setUpThreePairsTestSet(borrowManager: BorrowManager) : Promise<{
+    pair12: IAssetPair,
+    pair13: IAssetPair,
+    pair23: IAssetPair,
+    platformAdapter1: string,
+    platformAdapter2: string,
+    platformAdapter3: string,
+    converter11: string,
+    converter21: string,
+    converter22: string,
+    converter31: string,
+  }> {
+    const converter11 = ethers.Wallet.createRandom().address;
+    const converter21 = ethers.Wallet.createRandom().address;
+    const converter22 = ethers.Wallet.createRandom().address;
+    const converter31 = ethers.Wallet.createRandom().address;
+
+    const asset1 = ethers.Wallet.createRandom().address;
+    const asset2 = ethers.Wallet.createRandom().address;
+    const asset3 = ethers.Wallet.createRandom().address;
+
+    // register platform adapters
+    const platformAdapter1 = await MocksHelper.createPlatformAdapterStub(signer, [converter11]);
+    const platformAdapter2 = await MocksHelper.createPlatformAdapterStub(signer, [converter21, converter22]);
+    const platformAdapter3 = await MocksHelper.createPlatformAdapterStub(signer, [converter31]);
+
+    // first platform adapter allows to convert all 3 assets
+    await borrowManager.addAssetPairs(
+      platformAdapter1.address,
+      [asset1, asset3, asset2],
+      [asset2, asset1, asset3]
+    );
+    // second platform adapter - only one pair of assets
+    await borrowManager.addAssetPairs(platformAdapter2.address,
+      [asset2, asset1],
+      [asset1, asset3]);
+    // third platform adapter - only another pair of assets
+    await borrowManager.addAssetPairs(platformAdapter3.address, [asset3], [asset2]);
+
+    const pair12 = getAssetPair(asset1, asset2);
+    const pair13 = getAssetPair(asset1, asset3);
+    const pair23 = getAssetPair(asset2, asset3);
+
+    return {
+      pair12,
+      pair13,
+      pair23,
+      platformAdapter1: platformAdapter1.address,
+      platformAdapter2: platformAdapter2.address,
+      platformAdapter3: platformAdapter3.address,
+      converter11,
+      converter21,
+      converter22,
+      converter31
+    };
+  }
+
+  async function setUpSinglePlatformAdapterTestSet(borrowManager: BorrowManager) : Promise<{
+    pairs: IAssetPair[],
+    platformAdapter: string,
+    converters: string[],
+    underlying: string[]
+  }> {
+    const converters: string[] = [
+      ethers.Wallet.createRandom().address
+      , ethers.Wallet.createRandom().address
+    ];
+    const underlying = [
+      ethers.Wallet.createRandom().address
+      , ethers.Wallet.createRandom().address
+      , ethers.Wallet.createRandom().address
+      , ethers.Wallet.createRandom().address
+    ];
+    const pairs = generateAssetPairs(underlying).sort(
+      (x, y) => (x.smallerAddress + x.biggerAddress)
+        .localeCompare(y.smallerAddress + y.biggerAddress)
+    );
+
+    // register platform adapters
+    const platformAdapter = await MocksHelper.createPlatformAdapterStub(signer, converters);
+
+    // generate all possible pairs of underlying
+    await borrowManager.addAssetPairs(
+      platformAdapter.address
+      , pairs.map(x => x.smallerAddress)
+      , pairs.map(x => x.biggerAddress)
+    );
+
+    return {
+      pairs,
+      platformAdapter: platformAdapter.address,
+      converters,
+      underlying
+    };
+  }
+//endregion Set up asset pairs
+
 //region Unit tests
+  describe("setHealthFactor", () => {
+    describe("Good paths", () => {
+      it("should save specified value to defaultHealthFactors", async () => {
+        const asset = ethers.Wallet.createRandom().address;
+        const healthFactor = 400;
+
+        const controller = await CoreContractsHelper.createController(signer);
+        const borrowManager = await CoreContractsHelper.createBorrowManager(signer, controller);
+
+        const before = await borrowManager.defaultHealthFactors2(asset);
+        await borrowManager.setHealthFactor(asset, healthFactor);
+        const after = await borrowManager.defaultHealthFactors2(asset);
+
+        const ret = [
+          ethers.utils.formatUnits(before),
+          ethers.utils.formatUnits(after)
+        ].join();
+
+        const expected = [
+          ethers.utils.formatUnits(0),
+          ethers.utils.formatUnits(healthFactor)
+        ].join();
+
+        expect(ret).equal(expected);
+      });
+    });
+    describe("Bad paths", () => {
+      async function prepareBorrowManagerWithGivenHealthFactor(minHealthFactor2: number) : Promise<BorrowManager> {
+        const controller = await CoreContractsHelper.createController(signer);
+        await controller.setMinHealthFactor2(minHealthFactor2);
+        return await CoreContractsHelper.createBorrowManager(signer, controller);
+      }
+      describe("Health factor is equal to min value", () => {
+        it("should revert", async () => {
+          const minHealthFactor = 120;
+          const borrowManager = await prepareBorrowManagerWithGivenHealthFactor(minHealthFactor);
+          await expect(
+            borrowManager.setHealthFactor(ethers.Wallet.createRandom().address, minHealthFactor)
+          ).revertedWith("TC-3");
+        });
+      });
+      describe("Health factor is less then min value", () => {
+        it("should revert", async () => {
+          const minHealthFactor = 120;
+          const borrowManager = await prepareBorrowManagerWithGivenHealthFactor(minHealthFactor);
+          await expect(
+            borrowManager.setHealthFactor(ethers.Wallet.createRandom().address, minHealthFactor - 1)
+          ).revertedWith("TC-3");
+        });
+      });
+    });
+
+  });
+
   describe("addAssetPairs", () => {
     describe("Good paths", () => {
-      describe("Register single pool", () => {
-        it("should set BM to expected state", async () => {
-          const converters: string[] = [
-            ethers.Wallet.createRandom().address
-            , ethers.Wallet.createRandom().address
-          ];
-          const underlying = [
-            ethers.Wallet.createRandom().address
-            , ethers.Wallet.createRandom().address
-            , ethers.Wallet.createRandom().address
-            , ethers.Wallet.createRandom().address
-          ];
-          const pairs = generateAssetPairs(underlying).sort(
-            (x, y) => (x.smallerAddress + x.biggerAddress).localeCompare(y.smallerAddress + y.biggerAddress)
-          );
-          const {bm, platformAdapter} = await initializeAssetPairs(converters, pairs);
-          const registeredPairs = await getAllRegisteredPairs(bm, platformAdapter.address);
-          const lenPlatformAdapters = (await bm.platformAdaptersLength()).toNumber()
+      describe("Register single platform adapter first time", () => {
+        it("should set borrow manager to expected state", async () => {
+          const borrowManager = await initializeApp();
+          const r = await setUpSinglePlatformAdapterTestSet(borrowManager);
+
+          const registeredPairs = await getAllRegisteredPairs(borrowManager, r.platformAdapter);
+          const lenPlatformAdapters = (await borrowManager.platformAdaptersLength()).toNumber();
 
           const ret = [
+            // there is single platform adapter
             lenPlatformAdapters,
-            lenPlatformAdapters == 0 ? "" : await bm.platformAdaptersAt(0),
+            lenPlatformAdapters == 0 ? "" : await borrowManager.platformAdaptersAt(0),
 
+            // list of all pairs registered for the platform adapter
             registeredPairs.map(x => x.smallerAddress + ":" + x.biggerAddress).join(";"),
 
-            (await getPairsList(bm, pairs)).join(";")
+            // List of platform adapters registered for each pair
+            (await getPairsList(borrowManager, r.pairs)).join(";")
           ].join("\n");
 
           const expected = [
             1,
-            platformAdapter.address,
+            r.platformAdapter,
 
-            pairs.map(x => x.smallerAddress + ":" + x.biggerAddress).join(";"),
+            r.pairs.map(x => x.smallerAddress + ":" + x.biggerAddress).join(";"),
 
-            [...Array(pairs.length).keys()].map(x => platformAdapter.address).join(";")
+            [...Array(r.pairs.length).keys()].map(x => r.platformAdapter).join(";")
           ].join("\n");
 
           expect(ret).equal(expected);
         });
+
+        describe("Register same platform adapter second time", () => {
+          it("should success", async () => {
+            const borrowManager = await initializeApp();
+            // initialize platform adapter first time
+            const r = await setUpSinglePlatformAdapterTestSet(borrowManager);
+
+            // register the platform adapter with exactly same parameters second time
+            await expect(
+              borrowManager.addAssetPairs(
+                r.platformAdapter
+                , r.pairs.map(x => x.smallerAddress)
+                , r.pairs.map(x => x.biggerAddress)
+              )
+            ).ok;
+          });
+        });
+        describe("Add new asset pairs to exist platform adapter", () => {
+          it("should success", async () => {
+            expect.fail("TODO");
+          });
+        });
+      });
+      describe("Register several platform adapters", () => {
+        describe("Set up three pairs", () => {
+          it("should setup pairsList correctly", async () => {
+            const borrowManager = await initializeApp();
+            const r = await setUpThreePairsTestSet(borrowManager);
+
+            const list12 = await getPairsList(borrowManager, [r.pair12]);
+            const list13 = await getPairsList(borrowManager, [r.pair13]);
+            const list23 = await getPairsList(borrowManager, [r.pair23]);
+
+            const ret = [
+              list12.join(),
+              list13.join(),
+              list23.join(),
+            ].join("\n");
+            const expected = [
+              [r.platformAdapter1, r.platformAdapter2].join(),
+              [r.platformAdapter1, r.platformAdapter2].join(),
+              [r.platformAdapter1, r.platformAdapter3].join()
+            ].join("\n");
+
+            expect(ret).equal(expected);
+          });
+
+          it("should setup converters correctly", async () => {
+            const borrowManager = await initializeApp();
+            const r = await setUpThreePairsTestSet(borrowManager);
+
+            const ret = [
+              await borrowManager.converters(r.converter11),
+              await borrowManager.converters(r.converter21),
+              await borrowManager.converters(r.converter22),
+              await borrowManager.converters(r.converter31)
+            ].join("\n");
+
+            const expected = [
+              r.platformAdapter1,
+              r.platformAdapter2,
+              r.platformAdapter2,
+              r.platformAdapter3,
+            ].join("\n");
+            expect(ret).equal(expected);
+          });
+
+          it("should setup _platformAdapters correctly", async () => {
+            const borrowManager = await initializeApp();
+            const r = await setUpThreePairsTestSet(borrowManager);
+
+            const ret = [
+              await borrowManager.platformAdaptersLength(),
+              await borrowManager.platformAdaptersAt(0),
+              await borrowManager.platformAdaptersAt(1),
+              await borrowManager.platformAdaptersAt(2),
+            ].join("\n");
+
+            const expected = [
+              3,
+              r.platformAdapter1,
+              r.platformAdapter2,
+              r.platformAdapter3,
+            ].join("\n");
+            expect(ret).equal(expected);
+          });
+
+          it("should setup _platformAdapterPairs and _assetPairs correctly", async () => {
+            const borrowManager = await initializeApp();
+            const r = await setUpThreePairsTestSet(borrowManager);
+
+            const ret = [
+              await borrowManager.platformAdapterPairsLength(r.platformAdapter1),
+              pairToStr(await borrowManager.platformAdapterPairsAt(r.platformAdapter1,0)),
+              pairToStr(await borrowManager.platformAdapterPairsAt(r.platformAdapter1,1)),
+              pairToStr(await borrowManager.platformAdapterPairsAt(r.platformAdapter1,2)),
+              await borrowManager.platformAdapterPairsLength(r.platformAdapter2),
+              pairToStr(await borrowManager.platformAdapterPairsAt(r.platformAdapter2, 0)),
+              pairToStr(await borrowManager.platformAdapterPairsAt(r.platformAdapter2, 1)),
+              await borrowManager.platformAdapterPairsLength(r.platformAdapter3),
+              pairToStr(await borrowManager.platformAdapterPairsAt(r.platformAdapter3, 0)),
+            ].join("\n");
+
+            const expected = [
+              3,
+              `${r.pair12.smallerAddress} ${r.pair12.biggerAddress}`,
+              `${r.pair13.smallerAddress} ${r.pair13.biggerAddress}`,
+              `${r.pair23.smallerAddress} ${r.pair23.biggerAddress}`,
+              2,
+              `${r.pair12.smallerAddress} ${r.pair12.biggerAddress}`,
+              `${r.pair13.smallerAddress} ${r.pair13.biggerAddress}`,
+              1,
+              `${r.pair23.smallerAddress} ${r.pair23.biggerAddress}`,
+            ].join("\n");
+            expect(ret).equal(expected);
+          });
+        });
       });
     });
+
     describe("Bad paths", () => {
       describe("Wrong lengths", () => {
-        it("should revert with WRONG_LENGTHS", async () => {
+        it("should revert", async () => {
+          const borrowManager = await initializeApp();
+          const platformAdapter = await MocksHelper.createPlatformAdapterStub(signer,
+            [ethers.Wallet.createRandom().address]
+          );
+
+          // generate all possible pairs of underlying
+          await expect(
+            borrowManager.addAssetPairs(
+              platformAdapter.address
+              , [ethers.Wallet.createRandom().address]
+              , [ethers.Wallet.createRandom().address, ethers.Wallet.createRandom().address]
+            )
+          ).revertedWith("TC-12")
+        });
+      });
+      describe("Platform adapter is in use", () => {
+        it("should revert", async () => {
           expect.fail("TODO");
         });
       });
@@ -185,24 +486,24 @@ describe("BorrowManager", () => {
             const pairs = generateAssetPairs(underlying).sort(
               (x, y) => (x.smallerAddress + x.biggerAddress).localeCompare(y.smallerAddress + y.biggerAddress)
             );
-            const {bm, platformAdapter} = await initializeAssetPairs(converters, pairs);
+            const {borrowManager, platformAdapter} = await initializeAssetPairs(converters, pairs);
 
-            await bm.removeAssetPairs(
+            await borrowManager.removeAssetPairs(
               platformAdapter.address
               , pairs.map(x => x.smallerAddress)
               , pairs.map(x => x.biggerAddress)
             );
 
-            const registeredPairs = await getAllRegisteredPairs(bm, platformAdapter.address);
-            const foundPlatformAdapters = await getPairsList(bm, pairs);
-            const lenPlatformAdapters = (await bm.platformAdaptersLength()).toNumber()
+            const registeredPairs = await getAllRegisteredPairs(borrowManager, platformAdapter.address);
+            const foundPlatformAdapters = await getPairsList(borrowManager, pairs);
+            const lenPlatformAdapters = (await borrowManager.platformAdaptersLength()).toNumber()
 
             const ret = [
               lenPlatformAdapters,
 
               registeredPairs.map(x => x.smallerAddress + ":" + x.biggerAddress).join(";"),
 
-              (await getPairsList(bm, pairs)).join(";")
+              (await getPairsList(borrowManager, pairs)).join(";")
             ].join("\n");
 
             const expected = [
@@ -229,30 +530,30 @@ describe("BorrowManager", () => {
             const pairs = generateAssetPairs(underlying).sort(
               (x, y) => (x.smallerAddress + x.biggerAddress).localeCompare(y.smallerAddress + y.biggerAddress)
             );
-            const {bm, platformAdapter} = await initializeAssetPairs(converters, pairs);
+            const {borrowManager, platformAdapter} = await initializeAssetPairs(converters, pairs);
 
             // remove last pair only
             const pairToRemove = pairs.pop();
             if (pairToRemove) {
-              await bm.removeAssetPairs(
+              await borrowManager.removeAssetPairs(
                 platformAdapter.address
                 , [pairToRemove.smallerAddress]
                 , [pairToRemove.biggerAddress]
               );
             }
 
-            const registeredPairs = await getAllRegisteredPairs(bm, platformAdapter.address);
-            const lenPlatformAdapters = (await bm.platformAdaptersLength()).toNumber();
+            const registeredPairs = await getAllRegisteredPairs(borrowManager, platformAdapter.address);
+            const lenPlatformAdapters = (await borrowManager.platformAdaptersLength()).toNumber();
 
             const ret = [
               !!pairToRemove,
 
               lenPlatformAdapters,
-              lenPlatformAdapters == 0 ? "" : await bm.platformAdaptersAt(0),
+              lenPlatformAdapters == 0 ? "" : await borrowManager.platformAdaptersAt(0),
 
               registeredPairs.map(x => x.smallerAddress + ":" + x.biggerAddress).join(";"),
 
-              (await getPairsList(bm, pairs)).join(";")
+              (await getPairsList(borrowManager, pairs)).join(";")
             ].join("\n");
 
             const expected = [
@@ -280,74 +581,7 @@ describe("BorrowManager", () => {
     });
   });
 
-  describe("setHealthFactor", () => {
-    async function makeEmptyBM() : Promise<BorrowManager> {
-      const controller = await CoreContractsHelper.createController(signer);
-      const priceOracle = (await DeployUtils.deployContract(signer, "PriceOracleMock"
-        , [], [])) as PriceOracleMock;
-
-      return (await DeployUtils.deployContract(signer
-        , "BorrowManager"
-        , controller.address
-      )) as BorrowManager;
-    }
-    describe("Good paths", () => {
-      describe("Asset is not registered in BM", () => {
-        it("should save specified value to defaultHealthFactors", async () => {
-          const asset = ethers.Wallet.createRandom().address;
-          const value = 2000;
-
-          const bm = await makeEmptyBM();
-
-          const before = await bm.defaultHealthFactors2(asset);
-          await bm.setHealthFactor(asset, value);
-          const after = await bm.defaultHealthFactors2(asset);
-
-          const ret = [
-            ethers.utils.formatUnits(before),
-            ethers.utils.formatUnits(after)
-          ].join();
-
-          const expected = [
-            ethers.utils.formatUnits(0),
-            ethers.utils.formatUnits(value)
-          ].join();
-
-          expect(ret).equal(expected);
-        });
-      });
-    });
-    describe("Bad paths", () => {
-      describe("Health factor is equal to 1e18", () => {
-        it("should revert", async () => {
-          const asset = ethers.Wallet.createRandom().address;
-          const value = 100;
-          console.log(value);
-
-          const bm = await makeEmptyBM();
-
-          await expect(
-            bm.setHealthFactor(asset, value)
-          ).revertedWith("3");
-        });
-      });
-      describe("Health factor is less then 1e18", () => {
-        it("should revert", async () => {
-          const asset = ethers.Wallet.createRandom().address;
-          const value = 10;
-
-          const bm = await makeEmptyBM();
-
-          await expect(
-            bm.setHealthFactor(asset, value)
-          ).revertedWith("3");
-        });
-      });
-    });
-
-  });
-
-  describe("findPool", () => {
+  describe("findConverter", () => {
     async function makeTestTwoUnderlyings(
       tt: IBmInputParams,
       sourceAmount: number,
@@ -675,6 +909,109 @@ describe("BorrowManager", () => {
       });
     });
   });
+
+  describe("registerPoolAdapter", () => {
+    describe("Good paths", () => {
+      describe("Single platformAdapter + templatePoolAdapter", () => {
+        it("should create instance of the required template contract", async () => {
+          // create borrow manager (BM) with single pool
+          const tt = BorrowManagerHelper.getBmInputParamsSinglePool();
+          const {bm, sourceToken, targetToken, pools}
+            = await BorrowManagerHelper.createBmTwoUnderlyings(signer, tt);
+
+          // register pool adapter
+          const converter = pools[0].converter;
+          const user = ethers.Wallet.createRandom().address;
+          const collateral = sourceToken.address;
+
+          await bm.registerPoolAdapter(converter, user, collateral, targetToken.address);
+          const poolAdapter = await bm.getPoolAdapter(converter, user, collateral, targetToken.address);
+
+          // get data from the pool adapter
+          const pa: IPoolAdapter = IPoolAdapter__factory.connect(
+            poolAdapter, await DeployerUtils.startImpersonate(user)
+          );
+
+          const paConfig = await pa.getConfig();
+          const ret = [
+            paConfig.originConverter,
+            paConfig.collateralAsset,
+            paConfig.user,
+            paConfig.borrowAsset
+          ].join("\n");
+
+          const expected = [
+            pools[0].converter,
+            sourceToken.address,
+            user,
+            targetToken.address
+          ].join("\n");
+
+          expect(ret).equal(expected);
+        });
+      });
+    });
+    describe("Bad paths", () => {
+      describe("Wrong pool address", () => {
+        it("should revert with template contract not found", async () => {
+          expect.fail("TODO");
+        });
+      });
+    });
+  });
+
+  describe("getPlatformAdapter", () => {
+    describe("Good paths", () => {
+      it("should TODO", async () => {
+        expect.fail("TODO");
+      });
+    });
+    describe("Bad paths", () => {
+      it("should TODO", async () => {
+        expect.fail("TODO");
+      });
+    });
+  });
+
+  describe("isPoolAdapter", () => {
+    describe("Good paths", () => {
+      it("should TODO", async () => {
+        expect.fail("TODO");
+      });
+    });
+    describe("Bad paths", () => {
+      it("should TODO", async () => {
+        expect.fail("TODO");
+      });
+    });
+  });
+
+  describe("getPoolAdapter", () => {
+    describe("Good paths", () => {
+      it("should TODO", async () => {
+        expect.fail("TODO");
+      });
+    });
+    describe("Bad paths", () => {
+      it("should TODO", async () => {
+        expect.fail("TODO");
+      });
+    });
+  });
+
+  describe("Access to arrays", () => {
+    describe("Good paths", () => {
+      it("should TODO", async () => {
+        expect.fail("TODO");
+      });
+    });
+    describe("Bad paths", () => {
+      it("should TODO", async () => {
+        expect.fail("TODO");
+      });
+    });
+  });
+
 //endregion Unit tests
 
 });
