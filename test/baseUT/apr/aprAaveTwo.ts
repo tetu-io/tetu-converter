@@ -484,13 +484,15 @@ export class AprAaveTwo {
           collateral: current.userAccount!.totalCollateralETH,
           borrow: current.userAccount!.totalDebtETH
         }, costsBT36: {
-          collateral: baseToBt18(
+          collateral: baseToBt(
             current.userAccount!.totalCollateralETH.sub(prev.userAccount!.totalCollateralETH)
             , bbp
+            , 36
           ),
-          borrow: baseToBt18(
+          borrow: baseToBt(
             current.userAccount!.totalDebtETH.sub(prev.userAccount!.totalDebtETH)
             , bbp
+            , 36
           ),
         }
       })

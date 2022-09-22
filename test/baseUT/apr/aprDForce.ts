@@ -347,7 +347,6 @@ export class AprDForce {
     console.log("deltaBorrowBalance", deltaBorrowBalance);
 
     const pointsResults: IPointResults[] = [];
-    let prev = last;
     for (const period of additionalPoints) {
       // we need 4 blocks to update rewards ... so we need to make advance on N - 4 blocks
       await TimeUtils.advanceNBlocks(period > 4 ? period - 4 : period);
@@ -386,12 +385,12 @@ export class AprDForce {
 
       const collateralCurrentMul18 = current.collateral.account.balance.mul(current.collateral.market.exchangeRateStored);
       const deltaCollateral = collateralCurrentMul18.sub(collateralNextMul18);
-      const deltaBorrow = current.borrow.account.borrowBalanceStored.sub(prev.borrow.account.borrowBalanceStored);
+      const deltaBorrow = current.borrow.account.borrowBalanceStored.sub(next.borrow.account.borrowBalanceStored);
 
       pointsResults.push({
         period: {
-          block0: prev.block,
-          blockTimestamp0: prev.blockTimestamp,
+          block0: next.block,
+          blockTimestamp0: next.blockTimestamp,
           block1: current.block,
           blockTimestamp1: current.blockTimestamp,
         }, rates: {
@@ -401,7 +400,7 @@ export class AprDForce {
           collateral: current.collateral.account.balance,
           borrow: current.borrow.account.borrowBalanceStored
         }, costsBT36: {
-          collateral: changeDecimals(deltaCollateral.mul(priceCollateral).div(priceBorrow), collateralAssetDecimals, 18),
+          collateral: changeDecimals(deltaCollateral.mul(priceCollateral36).div(priceBorrow36), collateralAssetDecimals, 18),
           borrow: changeDecimals(deltaBorrow, borrowAssetDecimals, 36),
         },
         totalAmountRewards: totalAmountRewards,

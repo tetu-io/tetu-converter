@@ -333,7 +333,7 @@ export class AprHundredFinance {
     console.log("deltaBorrowBalance", deltaBorrowBalance);
 
     const pointsResults: IPointResults[] = [];
-    let prev = last;
+
     for (const period of additionalPoints) {
       await TimeUtils.advanceNBlocks(period);
       await hfHelper.accrueInterest(cTokenCollateral.address, cTokenBorrow.address);
@@ -346,12 +346,12 @@ export class AprHundredFinance {
 
       const collateralCurrentMul18 = current.collateral.account.balance.mul(current.collateral.market.exchangeRateStored);
       const dc = collateralCurrentMul18.sub(collateralNextMul18);
-      const db = current.borrow.account.borrowBalanceStored.sub(prev.borrow.account.borrowBalanceStored);
+      const db = current.borrow.account.borrowBalanceStored.sub(next.borrow.account.borrowBalanceStored);
 
       pointsResults.push({
         period: {
-          block0: prev.block,
-          blockTimestamp0: prev.blockTimestamp,
+          block0: next.block,
+          blockTimestamp0: next.blockTimestamp,
           block1: current.block,
           blockTimestamp1: current.blockTimestamp,
         }, rates: {
@@ -361,7 +361,7 @@ export class AprHundredFinance {
           collateral: current.collateral.account.balance,
           borrow: current.borrow.account.borrowBalanceStored
         }, costsBT36: {
-          collateral: changeDecimals(dc.mul(priceCollateral).div(priceBorrow), collateralAssetDecimals, 18),
+          collateral: changeDecimals(dc.mul(priceCollateral36).div(priceBorrow36), collateralAssetDecimals, 18),
           borrow: changeDecimals(db, borrowAssetDecimals, 36),
         }
       })
