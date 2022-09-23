@@ -59,7 +59,7 @@ contract BorrowManager is IBorrowManager {
   EnumerableSet.AddressSet private _platformAdapters;
 
   /// @notice all asset pairs registered for the platform adapter
-  /// @dev PlatformAdapter : key of asset pair
+  /// @dev PlatformAdapter : [key of asset pair]
   mapping(address => EnumerableSet.UintSet) private _platformAdapterPairs;
 
   /// @notice all platform adapters for which the asset pair is registered
@@ -70,7 +70,7 @@ contract BorrowManager is IBorrowManager {
   mapping(uint => AssetPair) private _assetPairs;
 
   /// @notice Converter : platform adapter
-  mapping(address => address) public converters;
+  mapping(address => address) public converterToPlatformAdapter;
 
   /// @notice Complete list ever created pool adapters
   /// @dev PoolAdapterKey(== keccak256(converter, user, collateral, borrowToken)) => address of the pool adapter
@@ -101,7 +101,7 @@ contract BorrowManager is IBorrowManager {
   /// @notice Set default health factor for {asset}. Default value is used only if user hasn't provided custom value
   /// @param healthFactor_ Health factor with decimals 2; must be greater or equal to MIN_HEALTH_FACTOR; for 1.5 use 150
   function setHealthFactor(address asset, uint16 healthFactor_) external override {
-    require(healthFactor_ > controller.getMinHealthFactor2(), AppErrors.WRONG_HEALTH_FACTOR);
+    require(healthFactor_ >= controller.getMinHealthFactor2(), AppErrors.WRONG_HEALTH_FACTOR);
     defaultHealthFactors2[asset] = healthFactor_;
   }
 
@@ -123,9 +123,11 @@ contract BorrowManager is IBorrowManager {
     address[] memory paConverters = IPlatformAdapter(platformAdapter_).converters();
     uint lenConverters = paConverters.length;
     for (uint i = 0; i < lenConverters; i = i.uncheckedInc()) {
-      if (converters[paConverters[i]] != platformAdapter_) {
-        require(!_debtMonitor().isConverterInUse(paConverters[i]), AppErrors.PLATFORM_ADAPTER_IS_IN_USE);
-        converters[paConverters[i]] = platformAdapter_;
+      // the relation "platform adapter - converter" is invariant
+      address platformAdapterForConverter = converterToPlatformAdapter[paConverters[i]];
+      if (platformAdapter_ != platformAdapterForConverter) {
+        require(platformAdapterForConverter == address(0), AppErrors.ONLY_SINGLE_PLATFORM_ADAPTER_CAN_USE_CONVERTER);
+        converterToPlatformAdapter[paConverters[i]] = platformAdapter_;
       }
     }
 
@@ -152,6 +154,7 @@ contract BorrowManager is IBorrowManager {
   ) external override {
     uint lenAssets = rightAssets_.length;
     require(leftAssets_.length == lenAssets, AppErrors.WRONG_LENGTHS);
+    require(_platformAdapters.contains(platformAdapter_), AppErrors.PLATFORM_ADAPTER_NOT_FOUND);
 
     // unregister the asset pairs
     for (uint i = 0; i < lenAssets; i = i.uncheckedInc()) {
@@ -168,7 +171,9 @@ contract BorrowManager is IBorrowManager {
       address[] memory paConverters = IPlatformAdapter(platformAdapter_).converters();
       uint lenConverters = paConverters.length;
       for (uint i = 0; i < lenConverters; i = i.uncheckedInc()) {
-        converters[paConverters[i]] = address(0);
+        // If there is active pool adapter for the platform adapter, we cannot unregister the platform adapter
+        require(!_debtMonitor().isConverterInUse(paConverters[i]), AppErrors.PLATFORM_ADAPTER_IS_IN_USE);
+        converterToPlatformAdapter[paConverters[i]] = address(0);
       }
 
       // unregister platform adapter
@@ -180,10 +185,10 @@ contract BorrowManager is IBorrowManager {
   ///           Find best pool for borrowing
   /// Input params:
   /// Health factor = HF [-], Collateral amount = C [USD]
-  /// Source amount that can be used for the collateral = SA [SA}, Borrow amount = BS [USD]
+  /// Source amount that can be used for the collateral = SA [SA], Borrow amount = BS [USD]
   /// Price of the source amount = PS [USD/SA] (1 [SA] = PS[USD])
-  /// Price of the target amount = PT [USD/TA] (1[TA] = PT[USD]), Available cash in the pool = PTA[TA]
-  /// Pool params: Collateral factor of the pool = PCF [-], Free cash in the pool = PTA [TA]
+  /// Price of the target amount = PT [USD/TA] (1 [TA] = PT[USD])
+  /// Pool params: Collateral factor of the pool = PCF [-], Available cash in the pool = PTA [TA]
   ///
   /// C = SA * PS, CM = C / HF, BS = CM * PCF
   /// Max target amount capable to be borrowed: ResultTA = BS / PT [TA].
@@ -195,8 +200,7 @@ contract BorrowManager is IBorrowManager {
     uint maxTargetAmount,
     int aprForPeriod36
   ) {
-
-    // get all available pools from poolsForAssets[smaller-address][higher-address]
+    // get all available pools
     EnumerableSet.AddressSet storage pas = _pairsList[getAssetPairKey(p_.sourceToken, p_.targetToken )];
 
     if (p_.healthFactor2 == 0) {
@@ -346,7 +350,7 @@ contract BorrowManager is IBorrowManager {
   }
 
   function _getPlatformAdapter(address converter_) internal view returns(address) {
-    address platformAdapter = converters[converter_];
+    address platformAdapter = converterToPlatformAdapter[converter_];
     require(platformAdapter != address(0), AppErrors.PLATFORM_ADAPTER_NOT_FOUND);
     return platformAdapter;
   }

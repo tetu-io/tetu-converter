@@ -107,7 +107,7 @@ library HfAprLib {
     uint priceCollateral,
     uint priceBorrow,
     uint suppliedAmount
-  ) internal view returns (uint) {
+  ) internal pure returns (uint) {
     // original code:
     //    rmul(supplyRatePerBlock * countBlocks, suppliedAmount) * priceCollateral / priceBorrow,
     // but we need result decimals 36

@@ -152,7 +152,7 @@ library DForceAprLib {
     uint priceCollateral36,
     uint priceBorrow36,
     uint suppliedAmount
-  ) internal view returns (uint) {
+  ) internal pure returns (uint) {
     // original code:
     //    rmul(supplyRatePerBlock * countBlocks, suppliedAmount) * priceCollateral / priceBorrow,
     // but we need result decimals 36

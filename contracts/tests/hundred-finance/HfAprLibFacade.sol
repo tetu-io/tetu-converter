@@ -64,7 +64,7 @@ contract HfAprLibFacade {
     uint priceCollateral,
     uint priceBorrow,
     uint suppliedAmount
-  ) external view returns (uint) {
+  ) external pure returns (uint) {
     return HfAprLib.getSupplyApr36(
       supplyRatePerBlock,
       countBlocks,

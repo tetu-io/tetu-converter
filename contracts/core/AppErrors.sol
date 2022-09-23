@@ -64,4 +64,8 @@ library AppErrors {
 
   string public constant DIVISION_BY_ZERO = "TC-34";
 
+  /// @notice The relation "platform adapter - converter" is invariant.
+  ///         It's not allowed to assign new platform adapter to the converter
+  string public constant ONLY_SINGLE_PLATFORM_ADAPTER_CAN_USE_CONVERTER = "TC-35";
+
 }

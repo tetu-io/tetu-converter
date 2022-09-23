@@ -82,7 +82,7 @@ contract DForceAprLibFacade {
     uint priceCollateral,
     uint priceBorrow,
     uint suppliedAmount
-  ) external view returns (uint) {
+  ) external pure returns (uint) {
     return DForceAprLib.getSupplyApr36(
       supplyRatePerBlock,
       countBlocks,
@@ -164,7 +164,7 @@ contract DForceAprLibFacade {
     uint totalToken_,
     uint accountIndex_,
     uint countBlocks_
-  ) external view returns (uint) {
+  ) external pure returns (uint) {
     return DForceAprLib.getRewardAmount(accountBalance_,
       stateIndex_,
       distributionSpeed_,
