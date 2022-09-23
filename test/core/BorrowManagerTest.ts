@@ -2,9 +2,9 @@ import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import {ethers} from "hardhat";
 import {expect} from "chai";
 import {
-  BorrowManager,
+  BorrowManager, Controller, Controller__factory,
   IPoolAdapter,
-  IPoolAdapter__factory,
+  IPoolAdapter__factory, LendingPlatformMock__factory, MockERC20,
   PlatformAdapterStub
 } from "../../typechain";
 import {TimeUtils} from "../../scripts/utils/TimeUtils";
@@ -16,7 +16,7 @@ import {
   GAS_LIMIT_BM_FIND_POOL_10,
   GAS_LIMIT_BM_FIND_POOL_100, GAS_LIMIT_BM_FIND_POOL_5
 } from "../baseUT/GasLimit";
-import {IBmInputParams, BorrowManagerHelper} from "../baseUT/helpers/BorrowManagerHelper";
+import {IBorrowInputParams, BorrowManagerHelper, PoolInstanceInfo} from "../baseUT/helpers/BorrowManagerHelper";
 import {MocksHelper} from "../baseUT/helpers/MocksHelper";
 import {CoreContractsHelper} from "../baseUT/helpers/CoreContractsHelper";
 import {generateAssetPairs, getAssetPair, IAssetPair} from "../baseUT/utils/AssetPairUtils";
@@ -228,6 +228,169 @@ describe("BorrowManager", () => {
     };
   }
 //endregion Set up asset pairs
+
+//region Test impl
+  async function makeTestFindConverter(
+    tt: IBorrowInputParams,
+    sourceAmount: number,
+    healthFactor: number,
+    estimateGas: boolean = false
+  ) : Promise<{
+    outPoolIndex0: number;
+    outApr36: BigNumber;
+    outMaxTargetAmount: BigNumber;
+    outGas?: BigNumber
+  }> {
+    // There are TWO underlyings: source, target
+    const {borrowManager, sourceToken, targetToken, pools}
+      = await BorrowManagerHelper.createBmTwoAssets(signer, tt);
+
+    console.log("Source amount:", getBigNumberFrom(sourceAmount, await sourceToken.decimals()).toString());
+    const ret = await borrowManager.findConverter({
+      sourceToken: sourceToken.address,
+      sourceAmount: getBigNumberFrom(sourceAmount, await sourceToken.decimals()),
+      targetToken: targetToken.address,
+      healthFactor2: healthFactor * 100,
+      periodInBlocks: 1
+    });
+    const gas = estimateGas
+      ? await borrowManager.estimateGas.findConverter({
+        sourceToken: sourceToken.address,
+        sourceAmount: getBigNumberFrom(sourceAmount, await sourceToken.decimals()),
+        targetToken: targetToken.address,
+        healthFactor2: healthFactor * 100,
+        periodInBlocks: 1
+      })
+      : undefined;
+    return {
+      outPoolIndex0: pools.findIndex(x => x.converter == ret.converter),
+      outApr36: ret.aprForPeriod36,
+      outMaxTargetAmount: ret.maxTargetAmount,
+      outGas: gas
+    }
+  }
+
+  async function makeTestWithHealthFactor(
+    providedHealthFactor2: number | undefined,
+    defaultHealthFactor2: number,
+    setDefaultHealthFactorForBorrowAsset: boolean,
+    setMinHealthFactor: boolean
+  ) : Promise<{ret: string, expected: string}> {
+    const sourceAmount = 1000;
+    const p: IBorrowInputParams = {
+      collateralFactor: 0.8,
+      priceSourceUSD: 0.1,
+      priceTargetUSD: 2,
+      sourceDecimals: 14,
+      targetDecimals: 17,
+      availablePools: [{   // source, target
+        borrowRateInTokens: [0, 1],
+        availableLiquidityInTokens: [0, 1000] //not enough money
+      }]
+    };
+
+    // initialize app
+    const {
+      borrowManager, sourceToken, targetToken, controller
+    } = await BorrowManagerHelper.createBmTwoAssets(signer, p);
+
+    if (setDefaultHealthFactorForBorrowAsset) {
+      await borrowManager.setHealthFactor(targetToken.address, defaultHealthFactor2);
+    }
+    if (setMinHealthFactor) {
+      await controller.setMinHealthFactor2(defaultHealthFactor2);
+    }
+
+    // try to find converter without giving a value of health factor
+    const r = await borrowManager.findConverter({
+      sourceToken: sourceToken.address,
+      sourceAmount: getBigNumberFrom(sourceAmount, await sourceToken.decimals()),
+      targetToken: targetToken.address,
+      healthFactor2: providedHealthFactor2 || 0,
+      periodInBlocks: 1
+    });
+
+    // we can borrow:
+    // sourceAmount * (priceSource / priceTarget) / healthFactor * collateralFactor
+    const expectedAmountToBorrow = sourceAmount
+      * p.priceSourceUSD
+      / p.priceTargetUSD
+      * p.collateralFactor
+      / (providedHealthFactor2 || defaultHealthFactor2)
+      * 100;
+
+    const expected = getBigNumberFrom(expectedAmountToBorrow, p.targetDecimals).toString();
+    const ret = r.maxTargetAmount.toString();
+
+    return {ret, expected};
+  }
+
+  /**
+   * Find conversion plan, return result Apr36
+   * @param borrowRate Borrow rate in terms of borrow token
+   * @param supplyRateBt Supply rate in terms of borrow token, decimals = decimals of the borrow token
+   * @param rewardsAmountBt36 Total amount of rewards for the period, decimals 36
+   * @param countBlocks Period in blocks
+   * @param targetDecimals
+   * @param rewardsFactor
+   */
+  async function testAprCalculations(
+    borrowRate: number,
+    supplyRateBt: number,
+    rewardsAmountBt36: BigNumber,
+    countBlocks: number,
+    targetDecimals: number,
+    rewardsFactor: BigNumber
+  ) : Promise<BigNumber> {
+    const sourceAmount = 1000;
+    const healthFactor2 = 400;
+    const p: IBorrowInputParams = {
+      collateralFactor: 0.8,
+      priceSourceUSD: 0.1,
+      priceTargetUSD: 2,
+      sourceDecimals: 14,
+      targetDecimals: targetDecimals,
+      availablePools: [{   // source, target
+        borrowRateInTokens: [0, 0],
+        availableLiquidityInTokens: [0, 1000] //not enough money
+      }]
+    };
+
+    // initialize app
+    const {
+      borrowManager, sourceToken, targetToken, pools
+    } = await BorrowManagerHelper.createBmTwoAssets(signer, p);
+
+    await borrowManager.setRewardsFactor(rewardsFactor);
+
+    // set up APR
+    const platformAdapter = await LendingPlatformMock__factory.connect(pools[0].platformAdapter, signer);
+    await platformAdapter.changeBorrowRate(
+      targetToken.address,
+      getBigNumberFrom(borrowRate, p.targetDecimals)
+    );
+
+    await platformAdapter.setSupplyRate(
+      sourceToken.address,
+      // for simplicity, we set supply rate in BORROW tokens
+      getBigNumberFrom(supplyRateBt, p.targetDecimals)
+    );
+    await platformAdapter.setRewardsAmount(
+      targetToken.address,
+      rewardsAmountBt36
+    );
+
+    const r = await borrowManager.findConverter({
+      sourceToken: sourceToken.address,
+      sourceAmount: getBigNumberFrom(sourceAmount, await sourceToken.decimals()),
+      targetToken: targetToken.address,
+      healthFactor2: healthFactor2,
+      periodInBlocks: countBlocks
+    });
+
+    return r.aprForPeriod36;
+  }
+//endregion Test impl
 
 //region Unit tests
   describe("setHealthFactor", () => {
@@ -657,53 +820,51 @@ describe("BorrowManager", () => {
   });
 
   describe("findConverter", () => {
-    async function makeTestTwoUnderlying(
-      tt: IBmInputParams,
-      sourceAmount: number,
-      healthFactor: number,
-      estimateGas: boolean = false
-    ) : Promise<{
-      outPoolIndex0: number;
-      outApr36: BigNumber;
-      outMaxTargetAmount: BigNumber;
-      outGas?: BigNumber
-    }> {
-      // There are TWO underlyings: source, target
-      const {bm, sourceToken, targetToken, pools}
-        = await BorrowManagerHelper.createBmTwoUnderlyings(signer, tt);
-
-      console.log("Source amount:", getBigNumberFrom(sourceAmount, await sourceToken.decimals()).toString());
-      const ret = await bm.findConverter({
-        sourceToken: sourceToken.address,
-        sourceAmount: getBigNumberFrom(sourceAmount, await sourceToken.decimals()),
-        targetToken: targetToken.address,
-        healthFactor2: healthFactor * 100,
-        periodInBlocks: 1
-      });
-      const gas = estimateGas
-        ? await bm.estimateGas.findConverter({
-          sourceToken: sourceToken.address,
-          sourceAmount: getBigNumberFrom(sourceAmount, await sourceToken.decimals()),
-          targetToken: targetToken.address,
-          healthFactor2: healthFactor * 100,
-          periodInBlocks: 1
-        })
-        : undefined;
-      return {
-        outPoolIndex0: pools.findIndex(x => x.converter == ret.converter),
-        outApr36: ret.aprForPeriod36,
-        outMaxTargetAmount: ret.maxTargetAmount,
-        outGas: gas
-      }
-    }
     describe("Good paths", () => {
-      describe("Several pools", () => {
+      describe("Check APR value calculation", () => {
+        it("should return expected APR value", async () => {
+          const borrowRate = 100;
+          const supplyRateBt = 123;
+          const rewardsAmountBt36 = getBigNumberFrom(8000, 36);
+          const countBlocks = 4;
+          const targetDecimals = 17;
+          const rewardsFactor = getBigNumberFrom(3, 17);
+
+          const retApr = await testAprCalculations(
+            borrowRate,
+            supplyRateBt,
+            rewardsAmountBt36,
+            countBlocks,
+            targetDecimals,
+            rewardsFactor
+          );
+
+          const expectedApr =
+            getBigNumberFrom(borrowRate * countBlocks, 36)
+            .sub(
+              getBigNumberFrom(supplyRateBt * countBlocks, 36)
+            )
+            .sub(
+              rewardsAmountBt36
+                .div(countBlocks)
+                .mul(rewardsFactor)
+                .div(Misc.WEI)
+            );
+
+          const ret = retApr.toString();
+          const expected = expectedApr.toString();
+
+          expect(ret).equal(expected);
+        });
+      });
+
+      describe("Check pool selection", () => {
         describe("Example 1: Pool 1 has a lowest borrow rate", () => {
           it("should return Pool 1 and expected amount", async () => {
             const bestBorrowRate = 27;
             const sourceAmount = 100_000;
             const healthFactor = 4;
-            const input: IBmInputParams = {
+            const p: IBorrowInputParams = {
               collateralFactor: 0.8,
               priceSourceUSD: 0.1,
               priceTargetUSD: 4,
@@ -725,18 +886,18 @@ describe("BorrowManager", () => {
               ]
             };
 
-            const ret = await makeTestTwoUnderlying(input, sourceAmount, healthFactor);
+            const ret = await makeTestFindConverter(p, sourceAmount, healthFactor);
             const sret = [
               ret.outPoolIndex0,
-              ethers.utils.formatUnits(ret.outMaxTargetAmount, input.targetDecimals),
-              ethers.utils.formatUnits(ret.outApr36.div(Misc.WEI), input.targetDecimals)
+              ethers.utils.formatUnits(ret.outMaxTargetAmount, p.targetDecimals),
+              ethers.utils.formatUnits(ret.outApr36.div(Misc.WEI), p.targetDecimals)
             ].join();
 
             const sexpected = [
               1, //best pool
               "500.0", // Use https://docs.google.com/spreadsheets/d/1oLeF7nlTefoN0_9RWCuNc62Y7W72-Yk7/edit?usp=sharing&ouid=116979561535348539867&rtpof=true&sd=true
                        // to calculate expected amounts
-              ethers.utils.formatUnits(getBigNumberFrom(bestBorrowRate, input.targetDecimals), input.targetDecimals)
+              ethers.utils.formatUnits(getBigNumberFrom(bestBorrowRate, p.targetDecimals), p.targetDecimals)
             ].join();
 
             expect(sret).equal(sexpected);
@@ -747,7 +908,7 @@ describe("BorrowManager", () => {
             const bestBorrowRate = 270;
             const sourceAmount = 1000;
             const healthFactor = 1.6;
-            const input: IBmInputParams = {
+            const input: IBorrowInputParams = {
               collateralFactor: 0.9,
               priceSourceUSD: 2,
               priceTargetUSD: 0.5,
@@ -777,7 +938,7 @@ describe("BorrowManager", () => {
               ]
             };
 
-            const ret = await makeTestTwoUnderlying(input, sourceAmount, healthFactor);
+            const ret = await makeTestFindConverter(input, sourceAmount, healthFactor);
             const sret = [
               ret.outPoolIndex0,
               ethers.utils.formatUnits(ret.outMaxTargetAmount, input.targetDecimals),
@@ -799,7 +960,7 @@ describe("BorrowManager", () => {
             const bestBorrowRate = 7;
             const sourceAmount = 10000;
             const healthFactor = 2.0;
-            const input: IBmInputParams = {
+            const input: IBorrowInputParams = {
               collateralFactor: 0.5,
               priceSourceUSD: 0.5,
               priceTargetUSD: 0.2,
@@ -821,7 +982,7 @@ describe("BorrowManager", () => {
               ]
             };
 
-            const ret = await makeTestTwoUnderlying(input, sourceAmount, healthFactor);
+            const ret = await makeTestFindConverter(input, sourceAmount, healthFactor);
             const sret = [
               ret.outPoolIndex0,
               ethers.utils.formatUnits(ret.outMaxTargetAmount, input.targetDecimals),
@@ -838,97 +999,94 @@ describe("BorrowManager", () => {
             expect(sret).equal(sexpected);
           });
         });
-        describe("10 pools, each next pool is better then previous, estimate gas @skip-on-coverage", () => {
-          async function checkGas(countPools: number): Promise<BigNumber> {
-            const bestBorrowRate = 270;
-            const sourceAmount = 100_000;
-            const healthFactor = 4;
-            const input: IBmInputParams = {
-              collateralFactor: 0.8,
-              priceSourceUSD: 0.1,
-              priceTargetUSD: 4,
-              sourceDecimals: 24,
-              targetDecimals: 12,
-              availablePools: [...Array(countPools).keys()].map(
-                x => ({   // source, target
-                  borrowRateInTokens: [0, bestBorrowRate - x], // next pool is better then previous
-                  availableLiquidityInTokens: [0, 2000000] //enough money
-                }),
-              )
-            };
-
-            const ret = await makeTestTwoUnderlying(input
-              , sourceAmount
-              , healthFactor
-              , true // we need to estimate gas
+      });
+      describe("Health factor", () => {
+        describe("Provide zero health factor", async () => {
+          describe("Default health factor is assigned for the borrow asset", () => {
+            it("should return max borrow amount calculated using default health factor", async () => {
+              const r = await makeTestWithHealthFactor(
+                0,
+                400,
+                true,
+                false
+              );
+              expect(r.ret).equal(r.expected);
+            });
+          });
+          describe("Default health factor is NOT assigned for the borrow asset", () => {
+            it("should return max borrow amount calculated using min allowed health factor", async () => {
+              const r = await makeTestWithHealthFactor(
+                0,
+                400,
+                false,
+                true
+              );
+              expect(r.ret).equal(r.expected);
+            });
+          });
+        });
+        describe("Provide not zero health factor", () => {
+          it("should return max borrow amount calculated using provided health factor", async () => {
+            const r = await makeTestWithHealthFactor(
+              1000,
+              400,
+              true,
+              false
             );
-            const sret = [
-              ret.outPoolIndex0,
-            ].join();
-
-            const sexpected = [
-              countPools - 1 //best pool
-            ].join();
-
-            console.log(`findPools: estimated gas for ${countPools} pools`, ret.outGas);
-            return ret.outGas!;
-          }
-          it("1 pool, estimated gas should be less the limit", async () => {
-            const gas = await checkGas(1);
-            controlGasLimitsEx(gas, GAS_LIMIT_BM_FIND_POOL_1, (u, t) => {
-              expect(u).to.be.below(t);
-            });
-          });
-          it("5 pools, estimated gas should be less the limit", async () => {
-            const gas = await checkGas(5);
-            controlGasLimitsEx(gas, GAS_LIMIT_BM_FIND_POOL_5, (u, t) => {
-              expect(u).to.be.below(t);
-            });
-          });
-          it.skip("10 pools, estimated gas should be less the limit", async () => {
-            const gas = await checkGas(10);
-            controlGasLimitsEx(gas, GAS_LIMIT_BM_FIND_POOL_10, (u, t) => {
-              expect(u).to.be.below(t);
-            });
-          });
-          it.skip("100 pools, estimated gas should be less the limit", async () => {
-            const gas = await checkGas(100);
-            controlGasLimitsEx(gas, GAS_LIMIT_BM_FIND_POOL_100, (u, t) => {
-              expect(u).to.be.below(t);
-            });
+            expect(r.ret).equal(r.expected);
           });
         });
       });
     });
     describe("Bad paths", () => {
-      describe("Example 2. Pools have not enough liquidity", () => {
+      describe("Health factor is less min allowed one", () => {
+        it("should revert", async () => {
+          await expect(
+            makeTestWithHealthFactor(
+            100, // (!) too small value
+            400,
+            true,
+            false
+          )).revertedWith("TC-3");
+        });
+      });
+      describe("Default health factor is not specified", () => {
+        it("should revert", async () => {
+          await expect(
+            makeTestWithHealthFactor(
+              100, // (!) too small value
+              0, // not used
+              false,
+              false
+            )).revertedWith("TC-3");
+        });
+      });
+      describe("Pools don't have enough liquidity", () => {
         it("should return all 0", async () => {
           const bestBorrowRate = 7;
           const sourceAmount = 100_000;
-          const healthFactor = 4;
-          const input: IBmInputParams = {
-            collateralFactor: 0.5,
-            priceSourceUSD: 0.5,
-            priceTargetUSD: 0.2,
+          const collateralFactor = 0.5;
+          const healthFactor = 2;
+          const expectedMaxAmountToBorrow = sourceAmount / healthFactor * collateralFactor;
+          const input: IBorrowInputParams = {
+            collateralFactor: collateralFactor,
+            priceSourceUSD: 1,
+            priceTargetUSD: 1,
             sourceDecimals: 18,
             targetDecimals: 6,
             availablePools: [
               {   // source, target
                 borrowRateInTokens: [0, bestBorrowRate],
-                availableLiquidityInTokens: [0, 6249]
+                availableLiquidityInTokens: [0, 0] // no liquidity at all
               },
               {   // source, target
-                borrowRateInTokens: [0, bestBorrowRate], //the rate is worse than in the pool 2
-                availableLiquidityInTokens: [0, 0]
-              },
-              {   // source, target   -   pool 2 is the best
                 borrowRateInTokens: [0, bestBorrowRate],
-                availableLiquidityInTokens: [0, 100]
+                availableLiquidityInTokens: [0, expectedMaxAmountToBorrow - 1] // not enough liquidity
               },
             ]
           };
 
-          const ret = await makeTestTwoUnderlying(input, sourceAmount, healthFactor);
+          const ret = await makeTestFindConverter(input, sourceAmount, healthFactor);
           const sret = [
             ret.outPoolIndex0,
             ethers.utils.formatUnits(ret.outMaxTargetAmount, input.targetDecimals),
@@ -940,46 +1098,67 @@ describe("BorrowManager", () => {
           expect(sret).equal(sexpected);
         });
       });
-      describe("Example 3. Pools don't have enough liquidity", () => {
-        it("should return all 0", async () => {
-          const bestBorrowRate = 7;
+    });
+    describe("Gas estimation @skip-on-coverage", () => {
+      describe("10 pools, each next pool is better then previous, estimate gas", () => {
+        async function checkGas(countPools: number): Promise<BigNumber> {
+          const bestBorrowRate = 270;
           const sourceAmount = 100_000;
           const healthFactor = 4;
-          const input: IBmInputParams = {
-            collateralFactor: 0.5,
-            priceSourceUSD: 0.5,
-            priceTargetUSD: 0.2,
-            sourceDecimals: 18,
-            targetDecimals: 6,
-            availablePools: [
-              {   // source, target
-                borrowRateInTokens: [0, bestBorrowRate - 1],
-                availableLiquidityInTokens: [0, 100] //not enough money
-              },
-              {   // source, target
-                borrowRateInTokens: [0, bestBorrowRate + 1], //the rate is worse than in the pool 2
-                availableLiquidityInTokens: [0, 2000]
-              },
-              {   // source, target   -   pool 2 is the best
-                borrowRateInTokens: [0, bestBorrowRate],
-                availableLiquidityInTokens: [0, 2000]
-              },
-            ]
+          const input: IBorrowInputParams = {
+            collateralFactor: 0.8,
+            priceSourceUSD: 0.1,
+            priceTargetUSD: 4,
+            sourceDecimals: 24,
+            targetDecimals: 12,
+            availablePools: [...Array(countPools).keys()].map(
+              x => ({   // source, target
+                borrowRateInTokens: [0, bestBorrowRate - x], // next pool is better then previous
+                availableLiquidityInTokens: [0, 2000000] //enough money
+              }),
+            )
           };
 
-          const ret = await makeTestTwoUnderlying(input, sourceAmount, healthFactor);
+          const ret = await makeTestFindConverter(input
+            , sourceAmount
+            , healthFactor
+            , true // we need to estimate gas
+          );
           const sret = [
             ret.outPoolIndex0,
-            ethers.utils.formatUnits(ret.outMaxTargetAmount, input.targetDecimals),
-            ethers.utils.formatUnits(ret.outApr36, input.targetDecimals)
           ].join();
-          const sexpected = [-1, "0.0", "0.0"].join();
 
-          expect(sret).equal(sexpected);
+          const sexpected = [
+            countPools - 1 //best pool
+          ].join();
+
+          console.log(`findPools: estimated gas for ${countPools} pools`, ret.outGas);
+          return ret.outGas!;
+        }
+        it("1 pool, estimated gas should be less the limit", async () => {
+          const gas = await checkGas(1);
+          controlGasLimitsEx(gas, GAS_LIMIT_BM_FIND_POOL_1, (u, t) => {
+            expect(u).to.be.below(t);
+          });
         });
-      });
-      it("should revert", async () => {
-        //expect.fail();
+        it("5 pools, estimated gas should be less the limit", async () => {
+          const gas = await checkGas(5);
+          controlGasLimitsEx(gas, GAS_LIMIT_BM_FIND_POOL_5, (u, t) => {
+            expect(u).to.be.below(t);
+          });
+        });
+        it.skip("10 pools, estimated gas should be less the limit", async () => {
+          const gas = await checkGas(10);
+          controlGasLimitsEx(gas, GAS_LIMIT_BM_FIND_POOL_10, (u, t) => {
+            expect(u).to.be.below(t);
+          });
+        });
+        it.skip("100 pools, estimated gas should be less the limit", async () => {
+          const gas = await checkGas(100);
+          controlGasLimitsEx(gas, GAS_LIMIT_BM_FIND_POOL_100, (u, t) => {
+            expect(u).to.be.below(t);
+          });
+        });
       });
     });
   });
@@ -990,16 +1169,16 @@ describe("BorrowManager", () => {
         it("should create instance of the required template contract", async () => {
           // create borrow manager (BM) with single pool
           const tt = BorrowManagerHelper.getBmInputParamsSinglePool();
-          const {bm, sourceToken, targetToken, pools}
-            = await BorrowManagerHelper.createBmTwoUnderlyings(signer, tt);
+          const {borrowManager, sourceToken, targetToken, pools}
+            = await BorrowManagerHelper.createBmTwoAssets(signer, tt);
 
           // register pool adapter
           const converter = pools[0].converter;
           const user = ethers.Wallet.createRandom().address;
           const collateral = sourceToken.address;
 
-          await bm.registerPoolAdapter(converter, user, collateral, targetToken.address);
-          const poolAdapter = await bm.getPoolAdapter(converter, user, collateral, targetToken.address);
+          await borrowManager.registerPoolAdapter(converter, user, collateral, targetToken.address);
+          const poolAdapter = await borrowManager.getPoolAdapter(converter, user, collateral, targetToken.address);
 
           // get data from the pool adapter
           const pa: IPoolAdapter = IPoolAdapter__factory.connect(

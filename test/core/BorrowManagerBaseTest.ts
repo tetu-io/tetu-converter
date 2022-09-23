@@ -54,16 +54,16 @@ describe("BorrowManagerBase (IPoolAdaptersManager)", () => {
         it("should create instance of the required template contract", async () => {
           // create borrow manager (BM) with single pool
           const tt = BorrowManagerHelper.getBmInputParamsSinglePool();
-          const {bm, sourceToken, targetToken, pools}
-            = await BorrowManagerHelper.createBmTwoUnderlyings(deployer, tt);
+          const {borrowManager, sourceToken, targetToken, pools}
+            = await BorrowManagerHelper.createBmTwoAssets(deployer, tt);
 
           // register pool adapter
           const converter = pools[0].converter;
           const user = ethers.Wallet.createRandom().address;
           const collateral = sourceToken.address;
 
-          await bm.registerPoolAdapter(converter, user, collateral, targetToken.address);
-          const poolAdapter = await bm.getPoolAdapter(converter, user, collateral, targetToken.address);
+          await borrowManager.registerPoolAdapter(converter, user, collateral, targetToken.address);
+          const poolAdapter = await borrowManager.getPoolAdapter(converter, user, collateral, targetToken.address);
 
           // get data from the pool adapter
           const pa: IPoolAdapter = IPoolAdapter__factory.connect(

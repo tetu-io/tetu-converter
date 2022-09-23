@@ -27,7 +27,6 @@ contract BorrowManager is IBorrowManager {
 
   /// @notice Reward APR is taken into account with given factor
   ///         Result APR = borrow-apr - supply-apr - Factor/Denominator * rewards-APR
-  uint constant public REWARDS_FACTOR_18 = 5e17;
   uint constant public REWARDS_FACTOR_DENOMINATOR_18 = 1e18;
 
   IController public immutable controller;
@@ -35,14 +34,6 @@ contract BorrowManager is IBorrowManager {
   ///////////////////////////////////////////////////////
   ///                Structs and enums
   ///////////////////////////////////////////////////////
-
-  /// @dev Additional input params for _findPool; 18 means that decimals 18 is used
-  struct BorrowInput {
-    uint8 targetDecimals;
-    /// @notice collateral, borrow (to get prices)
-    address[] assets;
-    uint sourceAmount;
-  }
 
   /// @notice Pair of two assets. Asset 1 can be converted to asset 2 and vice versa.
   /// @dev There are no restrictions for {assetLeft} and {assertRight}. Each can be smaller than the other.
@@ -54,6 +45,10 @@ contract BorrowManager is IBorrowManager {
   ///////////////////////////////////////////////////////
   ///                    Members
   ///////////////////////////////////////////////////////
+
+  /// @notice Reward APR is taken into account with given factor
+  /// @dev decimals 18. The value is divided on {REWARDS_FACTOR_DENOMINATOR_18}
+  uint public rewardsFactor;
 
   /// @notice all registered platform adapters
   EnumerableSet.AddressSet private _platformAdapters;
@@ -88,9 +83,11 @@ contract BorrowManager is IBorrowManager {
   ///               Initialization
   ///////////////////////////////////////////////////////
 
-  constructor (address controller_) {
+  constructor (address controller_, uint rewardsFactor_) {
     require(controller_ != address(0), AppErrors.ZERO_ADDRESS);
     controller = IController(controller_);
+
+    rewardsFactor = rewardsFactor_;
   }
 
 
@@ -103,6 +100,10 @@ contract BorrowManager is IBorrowManager {
   function setHealthFactor(address asset, uint16 healthFactor_) external override {
     require(healthFactor_ >= controller.getMinHealthFactor2(), AppErrors.WRONG_HEALTH_FACTOR);
     defaultHealthFactors2[asset] = healthFactor_;
+  }
+
+  function setRewardsFactor(uint rewardsFactor_) external override {
+    rewardsFactor = rewardsFactor_;
   }
 
   function addAssetPairs(
@@ -200,8 +201,8 @@ contract BorrowManager is IBorrowManager {
     uint maxTargetAmount,
     int aprForPeriod36
   ) {
-    // get all available pools
-    EnumerableSet.AddressSet storage pas = _pairsList[getAssetPairKey(p_.sourceToken, p_.targetToken )];
+    // get all platform adapters that support required pair of assets
+    EnumerableSet.AddressSet storage pas = _pairsList[getAssetPairKey(p_.sourceToken, p_.targetToken)];
 
     if (p_.healthFactor2 == 0) {
       p_.healthFactor2 = defaultHealthFactors2[p_.targetToken];
@@ -213,30 +214,17 @@ contract BorrowManager is IBorrowManager {
       require(p_.healthFactor2 >= controller.getMinHealthFactor2(), AppErrors.WRONG_HEALTH_FACTOR);
     }
 
-    address[] memory assets = new address[](2);
-    assets[0] = p_.sourceToken;
-    assets[1] = p_.targetToken;
-
     if (pas.length() != 0) {
-      (converter, maxTargetAmount, aprForPeriod36) = _findPool(
-        pas,
-        p_,
-        BorrowInput({
-          sourceAmount: p_.sourceAmount,
-          targetDecimals: IERC20Extended(p_.targetToken).decimals(),
-          assets: assets
-        })
-      );
+      (converter, maxTargetAmount, aprForPeriod36) = _findPool(pas, p_);
     }
 
     return (converter, maxTargetAmount, aprForPeriod36);
   }
 
-  /// @notice Enumerate all pools and select a pool suitable for borrowing with min borrow rate and enough underlying
+  /// @notice Enumerate all pools and select a pool suitable for borrowing with min APR and enough liquidity
   function _findPool(
     EnumerableSet.AddressSet storage platformAdapters_,
-    AppDataTypes.InputConversionParams memory p_,
-    BorrowInput memory pp_
+    AppDataTypes.InputConversionParams memory p_
   ) internal view returns (
     address converter,
     uint maxTargetAmount,
@@ -246,14 +234,14 @@ contract BorrowManager is IBorrowManager {
 
     // borrow-to-amount = borrowAmountFactor18 * (priceCollateral18/priceBorrow18) * liquidationThreshold18 / 1e18
     // Platform-adapters use borrowAmountFactor18 to calculate result borrow-to-amount
-    uint borrowAmountFactor18 = 1e18
-      * pp_.sourceAmount.toMantissa(uint8(IERC20Extended(pp_.assets[0]).decimals()), 18)
-      / (uint(p_.healthFactor2) * 10**(18-2));
+    uint borrowAmountFactor18 = 100
+      * p_.sourceAmount.toMantissa(uint8(IERC20Extended(p_.sourceToken).decimals()), 18)
+      / uint(p_.healthFactor2);
 
     for (uint i = 0; i < lenPools; i = i.uncheckedInc()) {
       AppDataTypes.ConversionPlan memory plan = IPlatformAdapter(platformAdapters_.at(i)).getConversionPlan(
         p_.sourceToken,
-        pp_.sourceAmount,
+        p_.sourceAmount,
         p_.targetToken,
         borrowAmountFactor18,
         p_.periodInBlocks
@@ -262,7 +250,7 @@ contract BorrowManager is IBorrowManager {
       // combine three found APRs to single one
       int planApr36 = int(plan.borrowApr36)
         - int(plan.supplyAprBt36)
-        - int(plan.rewardsAmountBt36 / p_.periodInBlocks);
+        - int(plan.rewardsAmountBt36 * rewardsFactor / REWARDS_FACTOR_DENOMINATOR_18 / p_.periodInBlocks);
 
       if (plan.converter != address(0)) {
         // check if we are able to supply required collateral

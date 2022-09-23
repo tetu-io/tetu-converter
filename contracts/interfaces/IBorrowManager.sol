@@ -30,6 +30,10 @@ interface IBorrowManager is IPoolAdaptersManager {
   /// @param value2 Health factor must be greater then 1, decimals 2
   function setHealthFactor(address asset, uint16 value2) external;
 
+  /// @notice Reward APR is taken into account with given factor
+  ///         Result APR = borrow-apr - supply-apr - [REWARD-FACTOR]/Denominator * rewards-APR
+  function setRewardsFactor(uint rewardsFactor_) external;
+
   /// @notice Find lending pool capable of providing {targetAmount} and having best normalized borrow rate
   /// @return converter Result template-pool-adapter or 0 if a pool is not found
   /// @return maxTargetAmount Max available amount of target tokens that we can borrow using {sourceAmount}

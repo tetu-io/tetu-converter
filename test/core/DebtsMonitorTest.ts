@@ -10,7 +10,7 @@ import {
   PoolAdapterMock__factory, PriceOracleMock, PriceOracleMock__factory, Borrower
 } from "../../typechain";
 import {TimeUtils} from "../../scripts/utils/TimeUtils";
-import {BorrowManagerHelper, IBmInputParams} from "../baseUT/helpers/BorrowManagerHelper";
+import {BorrowManagerHelper, IBorrowInputParams} from "../baseUT/helpers/BorrowManagerHelper";
 import {DeployerUtils} from "../../scripts/utils/DeployerUtils";
 import {BigNumber} from "ethers";
 import {getBigNumberFrom} from "../../scripts/utils/NumberUtils";
@@ -85,7 +85,7 @@ describe("DebtsMonitor", () => {
   }
 
   async function preparePoolAdapter(
-    tt: IBmInputParams
+    tt: IBorrowInputParams
   ) : Promise<{
     userTC: string,
     controller: Controller,
@@ -99,14 +99,14 @@ describe("DebtsMonitor", () => {
     const converter = await MocksHelper.createPoolAdapterMock(deployer);
 
     // create borrow manager (BM) with single pool and DebtMonitor (DM)
-    const {bm, sourceToken, targetToken, pools, controller}
-      = await BorrowManagerHelper.createBmTwoUnderlyings(deployer
+    const {borrowManager, sourceToken, targetToken, pools, controller}
+      = await BorrowManagerHelper.createBmTwoAssets(deployer
       , tt
       , async () => converter.address
     );
     const dm = await CoreContractsHelper.createDebtMonitor(deployer, controller);
     const tc =  await CoreContractsHelper.createTetuConverter(deployer, controller);
-    await controller.setBorrowManager(bm.address);
+    await controller.setBorrowManager(borrowManager.address);
     await controller.setDebtMonitor(dm.address);
     await controller.setTetuConverter(tc.address);
 
@@ -115,11 +115,11 @@ describe("DebtsMonitor", () => {
     const cTokenAddress = pools[0].underlyingTocTokens.get(sourceToken.address) || "";
     const userTC = ethers.Wallet.createRandom().address;
     const collateral = sourceToken.address;
-    await bm.registerPoolAdapter(converter.address, userTC, collateral, targetToken.address);
+    await borrowManager.registerPoolAdapter(converter.address, userTC, collateral, targetToken.address);
 
     // pool adapter is a copy of templatePoolAdapter, created using minimal-proxy pattern
     // this is a mock, we need to configure it
-    const poolAdapterAddress = await bm.getPoolAdapter(converter.address, userTC, collateral, targetToken.address);
+    const poolAdapterAddress = await borrowManager.getPoolAdapter(converter.address, userTC, collateral, targetToken.address);
     const poolAdapterMock = await PoolAdapterMock__factory.connect(poolAdapterAddress, deployer);
 
     return {
@@ -128,7 +128,7 @@ describe("DebtsMonitor", () => {
   }
 
   async function prepareContracts(
-    tt: IBmInputParams,
+    tt: IBorrowInputParams,
     user: string,
     borrowRatePerBlock18: BigNumber
   ) : Promise<{
@@ -144,18 +144,18 @@ describe("DebtsMonitor", () => {
     const periodInBlocks = 117;
     const converter = await MocksHelper.createPoolAdapterMock(deployer);
 
-    const {bm, sourceToken, targetToken, pools, controller}
-      = await BorrowManagerHelper.createBmTwoUnderlyings(deployer
+    const {borrowManager, sourceToken, targetToken, pools, controller}
+      = await BorrowManagerHelper.createBmTwoAssets(deployer
       , tt
       , async () => converter.address
     );
     const tc = await CoreContractsHelper.createTetuConverter(deployer, controller);
     const dm = await CoreContractsHelper.createDebtMonitor(deployer, controller);
-    await controller.setBorrowManager(bm.address);
+    await controller.setBorrowManager(borrowManager.address);
     await controller.setDebtMonitor(dm.address);
     await controller.setTetuConverter(tc.address);
 
-    const core = new CoreContracts(controller, tc, bm, dm);
+    const core = new CoreContracts(controller, tc, borrowManager, dm);
 
     const pool = pools[0].pool;
     const cToken = pools[0].underlyingTocTokens.get(sourceToken.address) || "";
@@ -212,7 +212,7 @@ describe("DebtsMonitor", () => {
     pool: string,
     cTokenAddress: string,
   }> {
-    const tt: IBmInputParams = {
+    const tt: IBorrowInputParams = {
       collateralFactor: pp.collateralFactor.initial,
       priceSourceUSD: pp.priceSourceUSD.initial,
       priceTargetUSD: pp.priceTargetUSD.initial,
@@ -282,7 +282,7 @@ describe("DebtsMonitor", () => {
           const sourceDecimals = 24;
           const availableBorrowLiquidityNumber = 200_000_000;
           const borrowRatePerBlock18 = getBigNumberFrom(1);
-          const tt: IBmInputParams = {
+          const tt: IBorrowInputParams = {
             collateralFactor: 0.8,
             priceSourceUSD: 0.1,
             priceTargetUSD: 4,
@@ -372,7 +372,7 @@ describe("DebtsMonitor", () => {
           const sourceDecimals = 24;
           const availableBorrowLiquidityNumber = 200_000_000;
           const borrowRatePerBlock18 = getBigNumberFrom(1);
-          const tt: IBmInputParams = {
+          const tt: IBorrowInputParams = {
             collateralFactor: 0.8,
             priceSourceUSD: 0.1,
             priceTargetUSD: 4,

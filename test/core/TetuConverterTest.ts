@@ -11,7 +11,7 @@ import {
   MockERC20__factory,
   TetuConverter, Borrower, PoolAdapterMock__factory, LendingPlatformMock__factory
 } from "../../typechain";
-import {IBmInputParams, BorrowManagerHelper, PoolInstanceInfo} from "../baseUT/helpers/BorrowManagerHelper";
+import {IBorrowInputParams, BorrowManagerHelper, PoolInstanceInfo} from "../baseUT/helpers/BorrowManagerHelper";
 import {CoreContracts} from "../baseUT/types/CoreContracts";
 import {CoreContractsHelper} from "../baseUT/helpers/CoreContractsHelper";
 import {MocksHelper} from "../baseUT/helpers/MocksHelper";
@@ -64,7 +64,7 @@ describe("TetuConverterTest", () => {
 
 //region Utils
   async function createTetuConverter(
-    tt: IBmInputParams
+    tt: IBorrowInputParams
   ) : Promise<{
     tetuConveter: TetuConverter,
     sourceToken: MockERC20,
@@ -72,17 +72,17 @@ describe("TetuConverterTest", () => {
     borrowManager: BorrowManager,
     pools: PoolInstanceInfo[]
   }> {
-    const {bm, sourceToken, targetToken, pools, controller}
-      = await BorrowManagerHelper.createBmTwoUnderlyings(deployer, tt);
+    const {borrowManager, sourceToken, targetToken, pools, controller}
+      = await BorrowManagerHelper.createBmTwoAssets(deployer, tt);
 
     const tetuConveter = await DeployUtils.deployContract(deployer
       , "TetuConverter", controller.address) as TetuConverter;
 
-    return {tetuConveter, sourceToken, targetToken, borrowManager: bm, pools};
+    return {tetuConveter, sourceToken, targetToken, borrowManager: borrowManager, pools};
   }
 
   async function prepareContracts(
-    tt: IBmInputParams,
+    tt: IBorrowInputParams,
   ) : Promise<{
     core: CoreContracts,
     pools: string[],
@@ -96,8 +96,8 @@ describe("TetuConverterTest", () => {
     const healthFactor2 = 200;
     const periodInBlocks = 117;
 
-    const {bm, sourceToken, targetToken, pools, controller}
-      = await BorrowManagerHelper.createBmTwoUnderlyings(deployer
+    const {borrowManager, sourceToken, targetToken, pools, controller}
+      = await BorrowManagerHelper.createBmTwoAssets(deployer
       , tt
       , async () => (await MocksHelper.createPoolAdapterMock(deployer)).address
     );
@@ -106,7 +106,7 @@ describe("TetuConverterTest", () => {
     await controller.setTetuConverter(tc.address);
     await controller.setDebtMonitor(dm.address);
 
-    const core = new CoreContracts(controller, tc, bm, dm);
+    const core = new CoreContracts(controller, tc, borrowManager, dm);
     const userContract = await MocksHelper.deployBorrower(deployer.address
       , core.controller
       , healthFactor2
@@ -160,7 +160,7 @@ describe("TetuConverterTest", () => {
    * Borrow should be reconverted to expected pool
    */
   async function makeReconversion(
-    tt: IBmInputParams,
+    tt: IBorrowInputParams,
     sourceAmountNumber: number,
     availableBorrowLiquidityNumber: number,
     mapOldNewBR: Map<string, BigNumber>
@@ -277,7 +277,7 @@ describe("TetuConverterTest", () => {
 
             const healthFactor = 2;
             const sourceAmount = 100_000;
-            const input: IBmInputParams = {
+            const input: IBorrowInputParams = {
               collateralFactor: 0.8,
               priceSourceUSD: 0.1,
               priceTargetUSD: 4,
@@ -357,7 +357,7 @@ describe("TetuConverterTest", () => {
           const sourceAmountNumber = 100_000;
           const availableBorrowLiquidityNumber = 200_000_000;
           const healthFactor = 2;
-          const tt: IBmInputParams = {
+          const tt: IBorrowInputParams = {
             collateralFactor: 0.8,
             priceSourceUSD: 0.1,
             priceTargetUSD: 4,
@@ -463,7 +463,7 @@ describe("TetuConverterTest", () => {
           const sourceAmountNumber = 100_000;
           const availableBorrowLiquidityNumber = 200_000_000;
           const healthFactor = 2;
-          const tt: IBmInputParams = {
+          const tt: IBorrowInputParams = {
             collateralFactor: 0.8,
             priceSourceUSD: 0.1,
             priceTargetUSD: 4,
@@ -607,7 +607,7 @@ describe("TetuConverterTest", () => {
         const brPA1new = getBigNumberFrom(7, targetDecimals - 6); //7e-6 (higher)
         const brPA2new = getBigNumberFrom(2, targetDecimals - 6); //2e-6 (lower)
 
-        const tt: IBmInputParams = {
+        const tt: IBorrowInputParams = {
           collateralFactor: 0.8,
           priceSourceUSD: 0.1,
           priceTargetUSD: 4,

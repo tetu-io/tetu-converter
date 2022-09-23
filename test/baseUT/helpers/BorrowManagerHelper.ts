@@ -15,7 +15,7 @@ export interface IPoolInfo {
     availableLiquidityInTokens: number[]
 }
 
-export interface IBmInputParams {
+export interface IBorrowInputParams {
     availablePools: IPoolInfo[],
     /** == liquidation threshold for collateral asset **/
     collateralFactor: number;
@@ -33,12 +33,12 @@ export interface PoolInstanceInfo {
 }
 
 export class BorrowManagerHelper {
-    static async createBmTwoUnderlyings(
+    static async createBmTwoAssets(
         signer: SignerWithAddress,
-        tt: IBmInputParams,
+        tt: IBorrowInputParams,
         converterFabric?: () => Promise<string>
     ) : Promise<{
-        bm: BorrowManager,
+        borrowManager: BorrowManager,
         sourceToken: MockERC20,
         targetToken: MockERC20,
         pools: PoolInstanceInfo[],
@@ -47,18 +47,18 @@ export class BorrowManagerHelper {
         const sourceDecimals = tt.sourceDecimals || 18;
         const targetDecimals = tt.targetDecimals || 6;
 
-        const underlyingDecimals = [sourceDecimals, targetDecimals];
+        const assetDecimals = [sourceDecimals, targetDecimals];
         const cTokenDecimals = [sourceDecimals, targetDecimals];
         const collateralFactors = [tt.collateralFactor, 0.6];
         const pricesUSD = [tt.priceSourceUSD, tt.priceTargetUSD];
 
-        const underlyings = await MocksHelper.createTokens(underlyingDecimals);
+        const assets = await MocksHelper.createTokens(assetDecimals);
 
         const controller = await CoreContractsHelper.createController(signer);
-        const bm = await CoreContractsHelper.createBorrowManager(signer, controller);
-        const dm = await MocksHelper.createDebtsMonitorStub(signer, false);
-        await controller.setBorrowManager(bm.address);
-        await controller.setDebtMonitor(dm.address);
+        const borrowManager = await CoreContractsHelper.createBorrowManager(signer, controller);
+        const debtMonitor = await MocksHelper.createDebtsMonitorStub(signer, false);
+        await controller.setBorrowManager(borrowManager.address);
+        await controller.setDebtMonitor(debtMonitor.address);
 
         const pools: PoolInstanceInfo[] = [];
 
@@ -66,7 +66,7 @@ export class BorrowManagerHelper {
             const cTokens = await MocksHelper.createCTokensMocks(
                 signer,
                 cTokenDecimals,
-                underlyings.map(x => x.address)
+                assets.map(x => x.address)
             );
             const pool = await MocksHelper.createPoolStub(signer);
 
@@ -75,7 +75,7 @@ export class BorrowManagerHelper {
                 pool,
                 poolInfo,
                 collateralFactors,
-                underlyings,
+                assets,
                 cTokens,
                 pricesUSD.map((x, index) => BigNumber.from(10)
                     .pow(18 - 2)
@@ -85,8 +85,8 @@ export class BorrowManagerHelper {
                     : undefined
             );
             const mapCTokens = new Map<string, string>();
-            for (let i = 0; i < underlyings.length; ++i) {
-                mapCTokens.set(underlyings[i].address, cTokens[i].address);
+            for (let i = 0; i < assets.length; ++i) {
+                mapCTokens.set(assets[i].address, cTokens[i].address);
             }
             pools.push({
                 pool: pool.address,
@@ -96,41 +96,17 @@ export class BorrowManagerHelper {
             });
         }
 
-        const sourceToken = underlyings[0];
-        const targetToken = underlyings[1];
+        const sourceToken = assets[0];
+        const targetToken = assets[1];
 
-        return {bm, sourceToken, targetToken, pools, controller};
-    }
-
-    static getBmInputParamsThreePools(bestBorrowRate: number = 27) : IBmInputParams {
-        return {
-            collateralFactor: 0.8,
-            priceSourceUSD: 0.1,
-            priceTargetUSD: 4,
-            sourceDecimals: 24,
-            targetDecimals: 12,
-            availablePools: [
-                {   // source, target
-                    borrowRateInTokens: [0, bestBorrowRate],
-                    availableLiquidityInTokens: [0, 100] //not enough money
-                },
-                {   // source, target
-                    borrowRateInTokens: [0, bestBorrowRate], //best rate
-                    availableLiquidityInTokens: [0, 2000] //enough cash
-                },
-                {   // source, target   -   pool 2 is the best
-                    borrowRateInTokens: [0, bestBorrowRate+1], //the rate is worse
-                    availableLiquidityInTokens: [0, 2000000000] //a lot of cash
-                },
-            ]
-        };
+        return {borrowManager: borrowManager, sourceToken, targetToken, pools, controller};
     }
 
     static getBmInputParamsSinglePool(
         bestBorrowRate: number = 27,
         priceSourceUSD: number = 0.1,
         priceTargetUSD: number = 4,
-    ) : IBmInputParams {
+    ) : IBorrowInputParams {
         return {
             collateralFactor: 0.8,
             priceSourceUSD: priceSourceUSD || 0.1,

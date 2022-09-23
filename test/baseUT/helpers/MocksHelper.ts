@@ -46,7 +46,7 @@ export class MocksHelper {
     , pool: PoolStub
     , controllerAddress: string
     , converterAddress: string
-    , underlyings: string[]
+    , assets: string[]
     , borrowRates: BigNumber[]
     , collateralFactors: number[]
     , liquidity: BigNumber[]
@@ -61,7 +61,7 @@ export class MocksHelper {
       , controllerAddress
       , pool.address
       , converterAddress
-      , underlyings
+      , assets
       , cfs
       , borrowRates
       , liquidity
@@ -117,7 +117,7 @@ export class MocksHelper {
   public static async createCTokensMocks(
     signer: SignerWithAddress,
     decimals: number[],
-    underlyings: string[]
+    assets: string[]
   ) : Promise<CTokenMock[]> {
     const dest: CTokenMock[] = [];
 
@@ -129,7 +129,7 @@ export class MocksHelper {
         , `cToken-${i}-${d}`
         , `cToken-${i}-${d}`
         , d
-        , underlyings[i]
+        , assets[i]
       ) as CTokenMock;
       dest.push(token);
     }
