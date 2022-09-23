@@ -131,7 +131,7 @@ export class CoreContractsHelper {
 
     const borrowManager = BorrowManager__factory.connect(await controller.borrowManager(), signer);
 
-    // generate all possible pairs of underlying
+    // generate all possible pairs of assets
     const left: string[] = [];
     const right: string[] = [];
     for (let i = 0; i < assets.length; ++i) {

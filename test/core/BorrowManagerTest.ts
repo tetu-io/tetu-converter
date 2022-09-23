@@ -392,6 +392,19 @@ describe("BorrowManager", () => {
   }
 //endregion Test impl
 
+//region registerPoolAdapter utils
+  async function registerPoolAdapters(
+    borrowManager: BorrowManager,
+    converters: string[],
+    users: string[],
+    assetPairs: {collateral: string, borrow: string}[],
+    countRepeats: number
+  ): Promise<string[]> {
+    return []; //TODO
+  }
+
+//endregion registerPoolAdapter utils
+
 //region Unit tests
   describe("setHealthFactor", () => {
     describe("Good paths", () => {
@@ -1165,12 +1178,13 @@ describe("BorrowManager", () => {
 
   describe("registerPoolAdapter", () => {
     describe("Good paths", () => {
-      describe("Single platformAdapter + templatePoolAdapter", () => {
-        it("should create instance of the required template contract", async () => {
+      describe("Single platform adapter + converter", () => {
+        it("should create and initialize an instance of the converter contract", async () => {
           // create borrow manager (BM) with single pool
           const tt = BorrowManagerHelper.getBmInputParamsSinglePool();
-          const {borrowManager, sourceToken, targetToken, pools}
-            = await BorrowManagerHelper.createBmTwoAssets(signer, tt);
+          const {
+            borrowManager, sourceToken, targetToken, pools
+          } = await BorrowManagerHelper.createBmTwoAssets(signer, tt);
 
           // register pool adapter
           const converter = pools[0].converter;
@@ -1182,7 +1196,8 @@ describe("BorrowManager", () => {
 
           // get data from the pool adapter
           const pa: IPoolAdapter = IPoolAdapter__factory.connect(
-            poolAdapter, await DeployerUtils.startImpersonate(user)
+            poolAdapter,
+            await DeployerUtils.startImpersonate(user)
           );
 
           const paConfig = await pa.getConfig();
@@ -1199,6 +1214,55 @@ describe("BorrowManager", () => {
             user,
             targetToken.address
           ].join("\n");
+
+          expect(ret).equal(expected);
+        });
+      });
+      describe("Create pool adapters for several converters, users, assets", () => {
+        it("should create separate pool adapter for each set of params", async () => {
+          const tt = {
+            collateralFactor: 0.8,
+            priceSourceUSD: 0.1,
+            priceTargetUSD: 4,
+            sourceDecimals: 24,
+            targetDecimals: 12,
+            availablePools: [
+              {   // source, target
+                borrowRateInTokens: [0, 0],
+                availableLiquidityInTokens: [0, 200_000]
+              },
+              {   // source, target
+                borrowRateInTokens: [0, 0],
+                availableLiquidityInTokens: [0, 100_000]
+              },
+            ]
+          };
+
+          const {
+            borrowManager, sourceToken, targetToken, pools
+          } = await BorrowManagerHelper.createBmTwoAssets(signer, tt);
+
+          // register pool adapter
+          const converters = [pools[0].converter, pools[1].converter];
+          const users = [
+            ethers.Wallet.createRandom().address,
+            ethers.Wallet.createRandom().address,
+            ethers.Wallet.createRandom().address
+          ];
+          const assetPairs = [
+            {
+              collateral: sourceToken.address,
+              borrow: targetToken.address
+            },
+            {
+              collateral: targetToken.address,
+              borrow: sourceToken.address
+            },
+          ];
+
+          const poolAdapters = await registerPoolAdapters(borrowManager, converters, users, assetPairs, 2);
+
+          //TODO: https://stackoverflow.com/questions/1960473/get-all-unique-values-in-a-javascript-array-remove-duplicates
 
           expect(ret).equal(expected);
         });

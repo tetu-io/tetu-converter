@@ -278,10 +278,10 @@ contract BorrowManager is IBorrowManager {
   function registerPoolAdapter(
     address converter_,
     address user_,
-    address collateral_,
-    address borrowToken_
+    address collateralAsset_,
+    address borrowAsset_
   ) external override returns (address) {
-    uint poolAdapterKey = getPoolAdapterKey(converter_, user_, collateral_, borrowToken_);
+    uint poolAdapterKey = getPoolAdapterKey(converter_, user_, collateralAsset_, borrowAsset_);
     address dest = poolAdapters[poolAdapterKey];
     if (dest == address(0) ) {
       // create an instance of the pool adapter using minimal proxy pattern, initialize newly created contract
@@ -290,8 +290,8 @@ contract BorrowManager is IBorrowManager {
         converter_,
         dest,
         user_,
-        collateral_,
-        borrowToken_
+        collateralAsset_,
+        borrowAsset_
       );
 
       // register newly created pool adapter in the list of the pool adapters forever
