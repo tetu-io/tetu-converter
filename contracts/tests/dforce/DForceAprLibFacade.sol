@@ -61,7 +61,9 @@ contract DForceAprLibFacade {
     DForceAprLib.DForceCore memory core,
     uint collateralAmount_,
     uint countBlocks_,
-    uint amountToBorrow_
+    uint amountToBorrow_,
+    uint priceCollateral36_,
+    uint priceBorrow36_
   ) external view returns (
     uint borrowApr36,
     uint supplyAprBt36,
@@ -71,7 +73,9 @@ contract DForceAprLibFacade {
       core,
       collateralAmount_,
       countBlocks_,
-      amountToBorrow_
+      amountToBorrow_,
+      priceCollateral36_,
+      priceBorrow36_
     );
   }
 
@@ -121,7 +125,7 @@ contract DForceAprLibFacade {
     uint totalSupply_,
     uint supplyAmount_,
     uint targetBlock_
-  ) external view returns (uint) {
+  ) external pure returns (uint) {
     return DForceAprLib.supplyRewardAmount(
       blockSupply_,
       stateIndex_,

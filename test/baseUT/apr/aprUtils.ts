@@ -155,11 +155,11 @@ export function appendTestResultsToFile(path: string, data: IBorrowTestResults[]
       "P1.costsBT36.B",
       "B.blocks",
 
-      "plan1.S.AprBt36",
-      "plan1.B.Apr36",
-
       "price.C",
       "price.B",
+
+      "plan1.S.AprBt36",
+      "plan1.B.Apr36",
 
       "P.C.supplyRate",
       "R.C.supplyRate",

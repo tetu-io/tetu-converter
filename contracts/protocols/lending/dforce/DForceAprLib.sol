@@ -99,15 +99,14 @@ library DForceAprLib {
     DForceCore memory core,
     uint collateralAmount_,
     uint countBlocks_,
-    uint amountToBorrow_
+    uint amountToBorrow_,
+    uint priceCollateral36_,
+    uint priceBorrow36_
   ) internal view returns (
     uint borrowApr36,
     uint supplyAprBt36,
     uint rewardsAmountBt36
   ) {
-    uint priceBorrow36 = getPrice(core.priceOracle, address(core.cTokenBorrow))
-      * 10**IERC20Extended(core.borrowAsset).decimals();
-
     // estimate amount of supply+borrow rewards in terms of borrow asset
     (,, rewardsAmountBt36) = getRewardAmountsBt(core,
       RewardsAmountInput({
@@ -115,7 +114,7 @@ library DForceAprLib {
         borrowAmount: amountToBorrow_,
         countBlocks: countBlocks_,
         delayBlocks: 1, // we need to estimate rewards inside next (not current) block
-        priceBorrow36: priceBorrow36
+        priceBorrow36: priceBorrow36_
       })
     );
 
@@ -125,8 +124,8 @@ library DForceAprLib {
         getEstimatedSupplyRate(core.cTokenCollateral, collateralAmount_),
         countBlocks_,
         collateralDecimals,
-        getPrice(core.priceOracle, address(core.cTokenCollateral)) * 10**collateralDecimals,
-        priceBorrow36,
+        priceCollateral36_,
+        priceBorrow36_,
         collateralAmount_
       );
     }

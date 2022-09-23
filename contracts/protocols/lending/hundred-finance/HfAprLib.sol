@@ -63,15 +63,15 @@ library HfAprLib {
     HfCore memory core,
     uint collateralAmount_,
     uint countBlocks_,
-    uint amountToBorrow_
+    uint amountToBorrow_,
+    uint priceCollateral36_,
+    uint priceBorrow36_
   ) internal view returns (
     uint borrowApr36,
     uint supplyAprBt36
   ) {
     uint8 collateralDecimals = IERC20Extended(core.collateralAsset).decimals();
     uint8 borrowDecimals = IERC20Extended(core.borrowAsset).decimals();
-
-    uint priceBorrow = getPrice(core.priceOracle, address(core.cTokenBorrow)) * 10**borrowDecimals;
 
     supplyAprBt36 = getSupplyApr36(
       getEstimatedSupplyRate(
@@ -81,8 +81,8 @@ library HfAprLib {
       ),
       countBlocks_,
       collateralDecimals,
-      getPrice(core.priceOracle, address(core.cTokenCollateral)) * 10**collateralDecimals,
-      priceBorrow,
+      priceCollateral36_,
+      priceBorrow36_,
       collateralAmount_
     );
 

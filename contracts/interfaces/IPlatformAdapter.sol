@@ -10,9 +10,9 @@ interface IPlatformAdapter {
   /// @notice Get pool data required to select best lending pool
   /// @param collateralAmount_ Amount of collateral. We need it to calculate rewards and APRs correctly.
   /// @param borrowAmountFactor18_ Coefficient to calculate available borrow amount
-  ///                              = 1e18 * sourceAmount18 * priceCollateral18 / (priceBorrow18 * healthFactor18)
-  ///                              Here 18 means "decimals 18"
-  ///                              Max borrow amount = borrowAmountFactor18 * liquidationThreshold / 1e18
+  ///        = 1e18 * sourceAmount18 / healthFactor18
+  ///        Here 18 means "decimals 18"
+  ///        Max borrow amount = borrowAmountFactor18 * collateralPrice18/borrowPrice18 * liquidationThreshold / 1e18
   /// @param countBlocks_ Estimated period of the borrow in blocks.
   function getConversionPlan (
     address collateralAsset_,

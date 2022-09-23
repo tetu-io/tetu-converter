@@ -140,8 +140,6 @@ describe("Hundred finance integration tests, platform adapter", () => {
 
     const borrowAmountFactor18 = Misc.WEI
       .mul(toMantissa(collateralAmount, await cTokenCollateral.decimals(), 18))
-      .mul(priceCollateral36)
-      .div(priceBorrow36)
       .div(healthFactor18);
     console.log("borrowAmountFactor18", borrowAmountFactor18, collateralAmount);
 

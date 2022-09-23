@@ -219,9 +219,9 @@ contract BorrowManager is IBorrowManager {
 
     if (pas.length() != 0) {
       (converter, maxTargetAmount, aprForPeriod36) = _findPool(
-        pas
-        , p_
-        , BorrowInput({
+        pas,
+        p_,
+        BorrowInput({
           sourceAmount: p_.sourceAmount,
           targetDecimals: IERC20Extended(p_.targetToken).decimals(),
           assets: assets
@@ -244,19 +244,11 @@ contract BorrowManager is IBorrowManager {
   ) {
     uint lenPools = platformAdapters_.length();
 
-    uint[] memory pricesCB18;
-    if (lenPools > 0) {
-      // we can take prices only once; we use only their relation, not absolute values
-      pricesCB18 = IPlatformAdapter(platformAdapters_.at(0)).getAssetsPrices(pp_.assets);
-      require(pricesCB18[1] != 0 && pricesCB18[0] != 0, AppErrors.ZERO_PRICE);
-    }
-
-    // borrow-to-amount = borrowAmountFactor18 * liquidationThreshold18 / 1e18
+    // borrow-to-amount = borrowAmountFactor18 * (priceCollateral18/priceBorrow18) * liquidationThreshold18 / 1e18
     // Platform-adapters use borrowAmountFactor18 to calculate result borrow-to-amount
     uint borrowAmountFactor18 = 1e18
       * pp_.sourceAmount.toMantissa(uint8(IERC20Extended(pp_.assets[0]).decimals()), 18)
-      * pricesCB18[0]
-      / (pricesCB18[1] * uint(p_.healthFactor2) * 10**(18-2));
+      / (uint(p_.healthFactor2) * 10**(18-2));
 
     for (uint i = 0; i < lenPools; i = i.uncheckedInc()) {
       AppDataTypes.ConversionPlan memory plan = IPlatformAdapter(platformAdapters_.at(i)).getConversionPlan(
@@ -274,17 +266,12 @@ contract BorrowManager is IBorrowManager {
 
       if (plan.converter != address(0)) {
         // check if we are able to supply required collateral
-        if (plan.maxAmountToSupplyCT > p_.sourceAmount) {
+        if (plan.maxAmountToSupply > p_.sourceAmount) {
           if (converter == address(0) || planApr36 < apr36) {
-            // how much target asset we are able to get for the provided collateral with given health factor
-            // TargetTA = BS / PT [TA], C = SA * PS, CM = C / HF, BS = CM * PCF
-            uint resultTa18 = plan.liquidationThreshold18 * borrowAmountFactor18 / 1e18;
-
-            // the pool should have enough liquidity
-            if (plan.maxAmountToBorrowBT.toMantissa(pp_.targetDecimals, 18) >= resultTa18) {
-              // take the pool with lowest borrow rate
+            // take the pool with lowest APR and with enough liquidity
+            if (plan.maxAmountToBorrow >= plan.amountToBorrow) {
               converter = plan.converter;
-              maxTargetAmount = resultTa18.toMantissa(18, pp_.targetDecimals);
+              maxTargetAmount = plan.amountToBorrow;
               apr36 = planApr36;
             }
           }

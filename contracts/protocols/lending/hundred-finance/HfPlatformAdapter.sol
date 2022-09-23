@@ -146,38 +146,49 @@ contract HfPlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
         if (plan.ltv18 != 0 && plan.liquidationThreshold18 != 0) {
           plan.converter = _converter;
 
-          plan.maxAmountToBorrowBT = IHfCToken(cTokenBorrow).getCash();
+          plan.maxAmountToBorrow = IHfCToken(cTokenBorrow).getCash();
           uint borrowCap = comptroller.borrowCaps(cTokenBorrow);
           if (borrowCap != 0) {
             uint totalBorrows = IHfCToken(cTokenBorrow).totalBorrows();
             if (totalBorrows > borrowCap) {
-              plan.maxAmountToBorrowBT = 0;
+              plan.maxAmountToBorrow = 0;
             } else {
-              if (totalBorrows + plan.maxAmountToBorrowBT > borrowCap) {
-                plan.maxAmountToBorrowBT = borrowCap - totalBorrows;
+              if (totalBorrows + plan.maxAmountToBorrow > borrowCap) {
+                plan.maxAmountToBorrow = borrowCap - totalBorrows;
               }
             }
           }
 
           // it seems that supply is not limited in HundredFinance protocol
-          plan.maxAmountToSupplyCT = type(uint).max; // unlimited
+          plan.maxAmountToSupply = type(uint).max; // unlimited
+
+          IHfPriceOracle priceOracle = IHfPriceOracle(comptroller.oracle());
+          uint priceCollateral36 = HfAprLib.getPrice(priceOracle, cTokenCollateral)
+            * 10**IERC20Extended(collateralAsset_).decimals();
+          uint priceBorrow36 = HfAprLib.getPrice(priceOracle, cTokenBorrow)
+            * 10**IERC20Extended(borrowAsset_).decimals();
 
           // calculate current borrow rate and predicted APR after borrowing required amount
-          // amountToBorrow18 = borrowAmountFactor18_ * plan.liquidationThreshold18 / 1e18, convert decimals 18=>borrow
-          uint amountToBorrow = AppUtils.toMantissa(
-            borrowAmountFactor18_ * plan.liquidationThreshold18 / 1e18, // amount to borrow, decimals 18
+          plan.amountToBorrow = AppUtils.toMantissa(
+            borrowAmountFactor18_
+              * plan.liquidationThreshold18
+              * priceCollateral36
+              / priceBorrow36
+              / 1e18, // amount to borrow, decimals 18
             18,
             IERC20Extended(borrowAsset_).decimals()
           );
-          if (amountToBorrow > plan.maxAmountToBorrowBT) {
-            amountToBorrow = plan.maxAmountToBorrowBT;
+          if (plan.amountToBorrow > plan.maxAmountToBorrow) {
+            plan.amountToBorrow = plan.maxAmountToBorrow;
           }
 
           (plan.borrowApr36, plan.supplyAprBt36) = HfAprLib.getRawAprInfo36(
             HfAprLib.getCore(comptroller, cTokenCollateral, cTokenBorrow),
             collateralAmount_,
             countBlocks_,
-            amountToBorrow
+            plan.amountToBorrow,
+            priceCollateral36,
+            priceBorrow36
           );
 
         }

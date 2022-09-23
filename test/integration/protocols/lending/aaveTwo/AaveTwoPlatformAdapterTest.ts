@@ -129,8 +129,6 @@ describe("AaveTwoPlatformAdapterTest", () => {
 
       const borrowAmountFactor18 = getBigNumberFrom(1, 18)
         .mul(toMantissa(collateralAmount, collateralAssetData.data.decimals, 18))
-        .mul(priceCollateral)
-        .div(priceBorrow)
         .div(healthFactor18);
       console.log("borrowAmountFactor18", borrowAmountFactor18, collateralAmount)
 

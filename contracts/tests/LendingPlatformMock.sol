@@ -71,10 +71,15 @@ contract LendingPlatformMock is IPlatformAdapter {
       liquidationThreshold18: liquidationThresholds18[collateralAsset_],
       borrowApr36: borrowRates[borrowAsset_] * countBlocks_ * 1e18,
       ltv18: liquidationThresholds18[collateralAsset_],
-      maxAmountToBorrowBT: liquidity[borrowAsset_],
-      maxAmountToSupplyCT: type(uint).max,
+      maxAmountToBorrow: liquidity[borrowAsset_],
+      maxAmountToSupply: type(uint).max,
       supplyAprBt36: 0, //TODO
-      rewardsAmountBt36: 0 //TODO
+      rewardsAmountBt36: 0, //TODO
+      amountToBorrow: borrowAmountFactor18_
+        * liquidationThresholds18[collateralAsset_]
+        * IPriceOracle(_priceOracle).getAssetPrice(collateralAsset_)
+        / IPriceOracle(_priceOracle).getAssetPrice(borrowAsset_)
+        / 1e18
     });
   }
 

@@ -742,7 +742,6 @@ describe("BorrowManager", () => {
             expect(sret).equal(sexpected);
           });
         });
-
         describe("Example 4: Pool 3 has a lowest borrow rate", () => {
           it("should return Pool 3 and expected amount", async () => {
             const bestBorrowRate = 270;

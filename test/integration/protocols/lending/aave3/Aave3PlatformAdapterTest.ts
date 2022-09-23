@@ -140,8 +140,6 @@ describe("Aave3PlatformAdapterTest", () => {
 
       const borrowAmountFactor18 = Misc.WEI
         .mul(toMantissa(collateralAmount, collateralAssetData.data.decimals, 18))
-        .mul(priceCollateral)
-        .div(priceBorrow)
         .div(healthFactor18);
 
       // data required to predict supply/borrow APR

@@ -49,7 +49,6 @@ contract Aave3PlatformAdapter is IPlatformAdapter {
     uint totalAToken;
     uint totalStableDebt;
     uint totalVariableDebt;
-    uint amountToBorrow;
     uint blocksPerDay;
     address[] assets;
     uint[] prices;
@@ -102,7 +101,6 @@ contract Aave3PlatformAdapter is IPlatformAdapter {
   ) internal view returns (
     AppDataTypes.ConversionPlan memory plan
   ) {
-    console.log("_getConversionPlan.1", params.collateralAmount, params.borrowAmountFactor18);
     LocalsGetConversionPlan memory vars;
 
     vars.poolLocal = pool;
@@ -139,8 +137,8 @@ contract Aave3PlatformAdapter is IPlatformAdapter {
           vars.totalStableDebt,
           vars.totalVariableDebt
           ,,,,,,,) = _dp(vars.poolLocal).getReserveData(params.borrowAsset);
-          plan.maxAmountToBorrowBT = vars.totalAToken - vars.totalStableDebt - vars.totalVariableDebt;
-          console.log("maxAmountToBorrowBT", plan.maxAmountToBorrowBT, params.borrowAsset);
+          plan.maxAmountToBorrow = vars.totalAToken - vars.totalStableDebt - vars.totalVariableDebt;
+          console.log("maxAmountToBorrowBT", plan.maxAmountToBorrow, params.borrowAsset);
           console.log("totalAToken", vars.totalAToken);
           console.log("totalStableDebt", vars.totalStableDebt);
           console.log("totalVariableDebt", vars.totalVariableDebt);
@@ -153,11 +151,11 @@ contract Aave3PlatformAdapter is IPlatformAdapter {
               borrowCap *= (10**rb.configuration.getDecimals());
               uint totalDebt = vars.totalStableDebt + vars.totalVariableDebt;
               if (totalDebt > borrowCap) {
-                plan.maxAmountToBorrowBT = 0;
+                plan.maxAmountToBorrow = 0;
               } else {
-                if (totalDebt + plan.maxAmountToBorrowBT > borrowCap) {
-                  console.log("maxAmountToBorrowBT.1", plan.maxAmountToBorrowBT, borrowCap, totalDebt);
-                  plan.maxAmountToBorrowBT = borrowCap - totalDebt;
+                if (totalDebt + plan.maxAmountToBorrow > borrowCap) {
+                  console.log("maxAmountToBorrowBT.1", plan.maxAmountToBorrow, borrowCap, totalDebt);
+                  plan.maxAmountToBorrow = borrowCap - totalDebt;
                 }
               }
             }
@@ -169,8 +167,8 @@ contract Aave3PlatformAdapter is IPlatformAdapter {
               uint maxAmount = (rc.configuration.getDebtCeiling() - rc.isolationModeTotalDebt)
                   * (10 ** (rb.configuration.getDecimals() - Aave3ReserveConfiguration.DEBT_CEILING_DECIMALS));
 
-              if (plan.maxAmountToBorrowBT > maxAmount) {
-                plan.maxAmountToBorrowBT = maxAmount;
+              if (plan.maxAmountToBorrow > maxAmount) {
+                plan.maxAmountToBorrow = maxAmount;
                 console.log("maxAmountToBorrowBT.2", maxAmount, rc.configuration.getDebtCeiling(), rc.isolationModeTotalDebt);
               }
             }
@@ -180,32 +178,37 @@ contract Aave3PlatformAdapter is IPlatformAdapter {
             // see sources of AAVE3\ValidationLogic.sol\validateSupply
             uint supplyCap = rc.configuration.getSupplyCap();
             if (supplyCap == 0) {
-              plan.maxAmountToSupplyCT = type(uint).max; // unlimited
+              plan.maxAmountToSupply = type(uint).max; // unlimited
             } else {
               supplyCap  *= (10**rc.configuration.getDecimals());
               uint totalSupply = (
                 IAaveToken(rc.aTokenAddress).scaledTotalSupply() * rc.liquidityIndex + HALF_RAY
               ) / RAY;
-              plan.maxAmountToSupplyCT = supplyCap > totalSupply
+              plan.maxAmountToSupply = supplyCap > totalSupply
                 ? supplyCap - totalSupply
                 : 0;
             }
           }
 
           // calculate borrow-APR, see detailed explanation in Aave3AprLib
-          vars.amountToBorrow = AppUtils.toMantissa(
-            params.borrowAmountFactor18 * plan.liquidationThreshold18 / 1e18
-            , 18
-            , uint8(rb.configuration.getDecimals())
-          );
-          if (vars.amountToBorrow > plan.maxAmountToBorrowBT) {
-            vars.amountToBorrow = plan.maxAmountToBorrowBT;
-          }
           vars.blocksPerDay = IController(controller).blocksPerDay();
           vars.assets = new address[](2);
           vars.assets[0] = params.collateralAsset;
           vars.assets[1] = params.borrowAsset;
           vars.prices = _priceOracle.getAssetsPrices(vars.assets);
+
+          plan.amountToBorrow = AppUtils.toMantissa(
+            params.borrowAmountFactor18
+              * vars.prices[0]
+              * plan.liquidationThreshold18
+              / vars.prices[1]
+              / 1e18
+            , 18
+            , uint8(rb.configuration.getDecimals())
+          );
+          if (plan.amountToBorrow > plan.maxAmountToBorrow) {
+            plan.amountToBorrow = plan.maxAmountToBorrow;
+          }
 
           plan.borrowApr36 = AaveSharedLib.getAprForPeriodBefore(
             AaveSharedLib.State({
@@ -213,12 +216,12 @@ contract Aave3PlatformAdapter is IPlatformAdapter {
               lastUpdateTimestamp: uint(rb.lastUpdateTimestamp),
               rate: rb.currentVariableBorrowRate
             }),
-            vars.amountToBorrow,
+              plan.amountToBorrow,
         //predicted borrow ray after the borrow
             Aave3AprLib.getVariableBorrowRateRays(
               rb,
               params.borrowAsset,
-              vars.amountToBorrow,
+              plan.amountToBorrow,
               vars.totalStableDebt,
               vars.totalVariableDebt
             ),

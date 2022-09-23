@@ -44,7 +44,9 @@ contract HfAprLibFacade {
     HfAprLib.HfCore memory core,
     uint collateralAmount_,
     uint countBlocks_,
-    uint amountToBorrow_
+    uint amountToBorrow_,
+    uint priceCollateral36_,
+    uint priceBorrow36_
   ) external view returns (
     uint borrowApr36,
     uint supplyAprBt36
@@ -53,7 +55,9 @@ contract HfAprLibFacade {
       core,
       collateralAmount_,
       countBlocks_,
-      amountToBorrow_
+      amountToBorrow_,
+      priceCollateral36_,
+      priceBorrow36_
     );
   }
 

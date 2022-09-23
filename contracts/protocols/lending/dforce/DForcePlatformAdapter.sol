@@ -143,55 +143,67 @@ contract DForcePlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
       if (cTokenBorrow != address(0)) {
         (uint collateralFactor, uint supplyCapacity) = _getCollateralMarketData(comptrollerLocal, cTokenCollateral);
         if (collateralFactor != 0 && supplyCapacity != 0) {
-          (uint borrowFactorMantissa, uint borrowCapacity) = _getBorrowMarketData(comptrollerLocal, cTokenBorrow);
-
-          if (borrowFactorMantissa != 0 && borrowCapacity != 0) {
+          {
+            (uint borrowFactorMantissa, uint borrowCapacity) = _getBorrowMarketData(comptrollerLocal, cTokenBorrow);
+            if (borrowFactorMantissa != 0 && borrowCapacity != 0) {
             plan.converter = _converter;
 
             plan.liquidationThreshold18 = collateralFactor;
             plan.ltv18 = collateralFactor * borrowFactorMantissa / 10**18;
 
-            plan.maxAmountToBorrowBT = IDForceCToken(cTokenBorrow).getCash();
+            plan.maxAmountToBorrow = IDForceCToken(cTokenBorrow).getCash();
             if (borrowCapacity != type(uint).max) { // == uint(-1)
               // we shouldn't exceed borrowCapacity limit, see Controller.beforeBorrow
               uint totalBorrow = IDForceCToken(cTokenBorrow).totalBorrows();
               if (totalBorrow > borrowCapacity) {
-                plan.maxAmountToBorrowBT = 0;
+                plan.maxAmountToBorrow = 0;
               } else {
-                if (totalBorrow + plan.maxAmountToBorrowBT > borrowCapacity) {
-                  plan.maxAmountToBorrowBT = borrowCapacity - totalBorrow;
+                if (totalBorrow + plan.maxAmountToBorrow > borrowCapacity) {
+                  plan.maxAmountToBorrow = borrowCapacity - totalBorrow;
                 }
               }
             }
 
             if (supplyCapacity == type(uint).max) { // == uint(-1)
-              plan.maxAmountToSupplyCT = type(uint).max;
+              plan.maxAmountToSupply = type(uint).max;
             } else {
               // we shouldn't exceed supplyCapacity limit, see Controller.beforeMint
               uint totalSupply = IDForceCToken(cTokenCollateral).totalSupply()
                 * IDForceCToken(cTokenCollateral).exchangeRateStored();
-              plan.maxAmountToSupplyCT = totalSupply >= supplyCapacity
+              plan.maxAmountToSupply = totalSupply >= supplyCapacity
                 ? type(uint).max
                 : supplyCapacity - totalSupply;
             }
           }
+          }
+
+          IDForcePriceOracle priceOracle = IDForcePriceOracle(comptroller.priceOracle());
+          uint priceCollateral36 = DForceAprLib.getPrice(priceOracle, cTokenCollateral)
+            * 10**IERC20Extended(collateralAsset_).decimals();
+          uint priceBorrow36 = DForceAprLib.getPrice(priceOracle, cTokenBorrow)
+            * 10**IERC20Extended(borrowAsset_).decimals();
 
           // calculate current borrow rate and predicted APR after borrowing required amount
-          // amountToBorrow18 = borrowAmountFactor18_ * plan.liquidationThreshold18 / 1e18, convert decimals 18=>borrow
-          uint amountToBorrow = AppUtils.toMantissa(
-            borrowAmountFactor18_ * plan.liquidationThreshold18 / 1e18, // amount to borrow, decimals 18
+          plan.amountToBorrow = AppUtils.toMantissa(
+            borrowAmountFactor18_
+              * plan.liquidationThreshold18
+              * priceCollateral36
+              / priceBorrow36
+              / 1e18, // amount to borrow, decimals 18
             18,
             IERC20Extended(borrowAsset_).decimals()
           );
-          if (amountToBorrow > plan.maxAmountToBorrowBT) {
-            amountToBorrow = plan.maxAmountToBorrowBT;
+          if (plan.amountToBorrow > plan.maxAmountToBorrow) {
+            plan.amountToBorrow = plan.maxAmountToBorrow;
           }
 
           (plan.borrowApr36, plan.supplyAprBt36, plan.rewardsAmountBt36) = DForceAprLib.getRawAprInfo36(
             DForceAprLib.getCore(comptroller, cTokenCollateral, cTokenBorrow),
             collateralAmount_,
             countBlocks_,
-            amountToBorrow
+            plan.amountToBorrow,
+            priceCollateral36,
+            priceBorrow36
           );
         }
       }

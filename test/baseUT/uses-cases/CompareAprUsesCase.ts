@@ -151,7 +151,6 @@ export class CompareAprUsesCase {
 
           const borrowAmountFactor18 = this.getBorrowAmountFactor18(
             task.collateralAmount
-            , stPrices
             , healthFactor2
             , collateralDecimals
           );
@@ -262,14 +261,11 @@ export class CompareAprUsesCase {
   /** see definition of borrowAmountFactor18 inside BorrowManager._findPool */
    private static getBorrowAmountFactor18(
     collateralAmount: BigNumber,
-    stPrices: {priceCollateral: BigNumber, priceBorrow: BigNumber},
     healthFactor2: number,
     collateralDecimals: number
   ) {
     return getBigNumberFrom(1, 18)
       .mul(toMantissa(collateralAmount, collateralDecimals, 18) )
-      .mul(stPrices.priceCollateral)
-      .div(stPrices.priceBorrow)
       .div(healthFactor2)
       .div(getBigNumberFrom(1, 18 - 2));
   }
