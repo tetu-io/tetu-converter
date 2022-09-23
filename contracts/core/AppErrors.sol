@@ -61,6 +61,7 @@ library AppErrors {
 
   string public constant DIVISION_BY_ZERO = "TC-34";
 
-  string public constant UNSUPPORTED_CONVERSION_KIND = "TC-35";
+  string public constant UNSUPPORTED_CONVERSION_KIND = "TC-35: UNKNOWN CONVERSION";
+  string public constant SLIPPAGE_TOO_BIG = "TC-36: SLIPPAGE TOO BIG";
 
 }

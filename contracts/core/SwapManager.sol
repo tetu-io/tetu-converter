@@ -73,8 +73,13 @@ contract SwapManager is ISwapManager, ISwapConverter {
     IERC20(sourceToken_).transfer(address(tetuLiquidator), sourceAmount_);
 
     tetuLiquidator.liquidate(sourceToken_, targetToken_, sourceAmount_, priceImpactTolerance_);
-    // TODO add slippage test
     outputAmount = IERC20(targetToken_).balanceOf(address(this)) - targetTokenBalanceBefore;
+
+    uint slippage = (outputAmount >= targetAmount_)
+      ? 0
+      : (targetAmount_ - outputAmount) * SLIPPAGE_DENOMINATOR / targetAmount_;
+    require(slippage <= slippageTolerance_, AppErrors.SLIPPAGE_TOO_BIG);
+
     IERC20(targetToken_).transfer(receiver_, outputAmount);
   }
 
