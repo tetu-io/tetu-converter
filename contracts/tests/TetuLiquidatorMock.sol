@@ -4,6 +4,7 @@ pragma solidity 0.8.4;
 
 import "../core/AppDataTypes.sol";
 import "../interfaces/ITetuLiquidator.sol";
+import "../openzeppelin/IERC20.sol";
 import "../tests/IMockERC20.sol";
 import "hardhat/console.sol";
 
@@ -12,7 +13,7 @@ contract TetuLiquidatorMock is ITetuLiquidator {
 
   uint public constant SLIPPAGE_DENOMINATOR = 100_000;
 
-  /// how much 1 token costs in USD, decimals 18
+  /// how much 1 token costs in USD, in token decimals
   mapping(address => uint256) public prices;
   int public slippage = 0;
   uint public priceImpact = 0;
@@ -37,7 +38,7 @@ contract TetuLiquidatorMock is ITetuLiquidator {
     require(assets.length == pricesInUSD.length, "wrong lengths");
     for (uint i = 0; i < assets.length; ++i) {
       prices[assets[i]] = pricesInUSD[i];
-      console.log("Price for %d is %d USD", assets[i], pricesInUSD[i]);
+      console.log("Price for %s is %d USD", assets[i], pricesInUSD[i]);
     }
   }
 
@@ -47,13 +48,18 @@ contract TetuLiquidatorMock is ITetuLiquidator {
 
   function getPrice(address tokenIn, address tokenOut, uint amount)
   public override view returns (uint) {
+    console.log('amount  ', amount);
     uint priceIn = prices[tokenIn];
+    console.log('priceIn ', priceIn);
     require(priceIn != 0, 'L: Not found pool for tokenIn');
+    uint8 decimalsIn = IMockERC20(tokenIn).decimals();
 
     uint priceOut = prices[tokenOut];
     require(priceOut != 0, 'L: Not found pool for tokenOut');
+    uint8 decimalsOut = IMockERC20(tokenOut).decimals();
+    console.log('priceOut', priceOut);
 
-    return priceIn * amount / priceOut;
+    return (priceIn * amount * 10**decimalsOut) / (priceOut * 10**decimalsIn);
   }
 
   function liquidate(
