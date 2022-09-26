@@ -7,7 +7,7 @@ import {
   DebtMonitor__factory, IPoolAdapter,
   IPoolAdapter__factory,
   MockERC20, MockERC20__factory, PoolAdapterMock,
-  PoolAdapterMock__factory, PriceOracleMock, PriceOracleMock__factory, Borrower
+  PoolAdapterMock__factory, PriceOracleMock, PriceOracleMock__factory, Borrower, BorrowManager
 } from "../../typechain";
 import {TimeUtils} from "../../scripts/utils/TimeUtils";
 import {BorrowManagerHelper, IBorrowInputParams} from "../baseUT/helpers/BorrowManagerHelper";
@@ -56,81 +56,29 @@ describe("DebtsMonitor", () => {
   });
 //endregion before, after
 
-//region Utils
-  async function makeBorrow(
-    userTC: string,
-    pool: string,
-    poolAdapterAddress: string,
-    sourceToken: MockERC20,
-    targetToken: MockERC20,
-    amountBorrowLiquidityInPool: BigNumber,
-    amountCollateral: BigNumber,
-    amountToBorrow: BigNumber
-  ) {
-    // get data from the pool adapter
-    const pa: IPoolAdapter = IPoolAdapter__factory.connect(
-      poolAdapterAddress, await DeployerUtils.startImpersonate(userTC)
-    );
-
-    // prepare initial balances
-    await targetToken.mint(pool, amountBorrowLiquidityInPool);
-    await sourceToken.mint(userTC, amountCollateral);
-
-    // user transfers collateral to pool adapter
-    await MockERC20__factory.connect(sourceToken.address, await DeployerUtils.startImpersonate(userTC))
-      .transfer(pa.address, amountCollateral);
-
-    // borrow
-    await pa.borrow(amountCollateral, amountToBorrow, userTC);
+//region Data types
+  interface OldNewValue {
+    initial: number;
+    updated: number;
   }
 
-  async function preparePoolAdapter(
-    tt: IBorrowInputParams
-  ) : Promise<{
-    userTC: string,
-    controller: Controller,
-    sourceToken: MockERC20,
-    targetToken: MockERC20,
-    pool: string,
-    cTokenAddress: string,
-    poolAdapterMock: PoolAdapterMock
-  }> {
-    // create template-pool-adapter
-    const converter = await MocksHelper.createPoolAdapterMock(deployer);
-
-    // create borrow manager (BM) with single pool and DebtMonitor (DM)
-    const {borrowManager, sourceToken, targetToken, pools, controller}
-      = await BorrowManagerHelper.createBmTwoAssets(deployer
-      , tt
-      , async () => converter.address
-    );
-    const dm = await CoreContractsHelper.createDebtMonitor(deployer, controller);
-    const tc =  await CoreContractsHelper.createTetuConverter(deployer, controller);
-    await controller.setBorrowManager(borrowManager.address);
-    await controller.setDebtMonitor(dm.address);
-    await controller.setTetuConverter(tc.address);
-
-    // register pool adapter
-    const pool = pools[0].pool;
-    const cTokenAddress = pools[0].underlyingTocTokens.get(sourceToken.address) || "";
-    const userTC = ethers.Wallet.createRandom().address;
-    const collateral = sourceToken.address;
-    await borrowManager.registerPoolAdapter(converter.address, userTC, collateral, targetToken.address);
-
-    // pool adapter is a copy of templatePoolAdapter, created using minimal-proxy pattern
-    // this is a mock, we need to configure it
-    const poolAdapterAddress = await borrowManager.getPoolAdapter(converter.address, userTC, collateral, targetToken.address);
-    const poolAdapterMock = await PoolAdapterMock__factory.connect(poolAdapterAddress, deployer);
-
-    return {
-      userTC, controller, sourceToken, targetToken, pool, cTokenAddress, poolAdapterMock
-    }
+  interface TestParams {
+    amountCollateral: number;
+    sourceDecimals: number;
+    targetDecimals: number;
+    amountToBorrow: number;
+    priceSourceUSD: OldNewValue;
+    priceTargetUSD: OldNewValue;
+    collateralFactor: OldNewValue;
+    countPassedBlocks: number;
+    borrowRate: number; // i.e. 1e-18
   }
+//endregion Data types
 
-  async function prepareContracts(
+//region Initialization utils
+  async function initializeApp(
     tt: IBorrowInputParams,
     user: string,
-    borrowRatePerBlock18: BigNumber
   ) : Promise<{
     core: CoreContracts,
     pool: string,
@@ -168,36 +116,94 @@ describe("DebtsMonitor", () => {
       sourceToken.address,
       targetToken.address
     );
-    const poolAdapter: string = await core.bm.getPoolAdapter(
+    const poolAdapterAddress: string = await core.bm.getPoolAdapter(
       converter.address,
       userContract.address,
       sourceToken.address,
       targetToken.address
     );
-    const poolAdapterMock = PoolAdapterMock__factory.connect(poolAdapter, deployer);
-    // cToken,
-    // getBigNumberFrom(tt.targetCollateralFactor*10, 17),
-    // borrowRatePerBlock18
-    console.log("poolAdapter-mock is configured:", poolAdapter, targetToken.address);
 
-    return {core,  pool, cToken, userContract, sourceToken, targetToken, poolAdapter};
+    return {core,  pool, cToken, userContract, sourceToken, targetToken, poolAdapter: poolAdapterAddress};
   }
 
-  interface OldNewValue {
-    initial: number;
-    updated: number;
-  }
+  async function preparePoolAdapter(
+    tt: IBorrowInputParams
+  ) : Promise<{
+    userTC: string,
+    controller: Controller,
+    sourceToken: MockERC20,
+    targetToken: MockERC20,
+    pool: string,
+    cTokenAddress: string,
+    poolAdapterMock: PoolAdapterMock
+  }> {
+    // create template-pool-adapter
+    const converter = await MocksHelper.createPoolAdapterMock(deployer);
 
-  interface TestParams {
-    amountCollateral: number;
-    sourceDecimals: number;
-    targetDecimals: number;
-    amountToBorrow: number;
-    priceSourceUSD: OldNewValue;
-    priceTargetUSD: OldNewValue;
-    collateralFactor: OldNewValue;
-    countPassedBlocks: number;
-    borrowRate: number; // i.e. 1e-18
+    // create borrow manager (BM) with single pool and DebtMonitor (DM)
+    const {borrowManager, sourceToken, targetToken, pools, controller}
+      = await BorrowManagerHelper.createBmTwoAssets(deployer
+      , tt
+      , async () => converter.address
+    );
+    const dm = await CoreContractsHelper.createDebtMonitor(deployer, controller);
+    const tc =  await CoreContractsHelper.createTetuConverter(deployer, controller);
+    await controller.setBorrowManager(borrowManager.address);
+    await controller.setDebtMonitor(dm.address);
+    await controller.setTetuConverter(tc.address);
+
+    // register pool adapter
+    const pool = pools[0].pool;
+    const cTokenAddress = pools[0].underlyingTocTokens.get(sourceToken.address) || "";
+    const userTC = ethers.Wallet.createRandom().address;
+    const collateral = sourceToken.address;
+    await borrowManager.registerPoolAdapter(converter.address,
+      userTC,
+      collateral,
+      targetToken.address
+    );
+
+    // pool adapter is a copy of templatePoolAdapter, created using minimal-proxy pattern
+    // this is a mock, we need to configure it
+    const poolAdapterAddress = await borrowManager.getPoolAdapter(converter.address,
+      userTC,
+      collateral,
+      targetToken.address
+    );
+    const poolAdapterMock = await PoolAdapterMock__factory.connect(poolAdapterAddress, deployer);
+
+    return {
+      userTC, controller, sourceToken, targetToken, pool, cTokenAddress, poolAdapterMock
+    }
+  }
+//endregion Initialization utils
+
+//region Test impl
+  async function makeBorrow(
+    userTC: string,
+    pool: string,
+    poolAdapterAddress: string,
+    sourceToken: MockERC20,
+    targetToken: MockERC20,
+    amountBorrowLiquidityInPool: BigNumber,
+    amountCollateral: BigNumber,
+    amountToBorrow: BigNumber
+  ) {
+    // get data from the pool adapter
+    const pa: IPoolAdapter = IPoolAdapter__factory.connect(
+      poolAdapterAddress, await DeployerUtils.startImpersonate(userTC)
+    );
+
+    // prepare initial balances
+    await targetToken.mint(pool, amountBorrowLiquidityInPool);
+    await sourceToken.mint(userTC, amountCollateral);
+
+    // user transfers collateral to pool adapter
+    await MockERC20__factory.connect(sourceToken.address, await DeployerUtils.startImpersonate(userTC))
+      .transfer(pa.address, amountCollateral);
+
+    // borrow
+    await pa.borrow(amountCollateral, amountToBorrow, userTC);
   }
 
   async function prepareTest(
@@ -212,6 +218,7 @@ describe("DebtsMonitor", () => {
     pool: string,
     cTokenAddress: string,
   }> {
+    const user = ethers.Wallet.createRandom().address;
     const tt: IBorrowInputParams = {
       collateralFactor: pp.collateralFactor.initial,
       priceSourceUSD: pp.priceSourceUSD.initial,
@@ -226,17 +233,14 @@ describe("DebtsMonitor", () => {
 
     const amountBorrowLiquidityInPool = getBigNumberFrom(1e10, tt.targetDecimals);
 
-    const {userTC, controller, sourceToken, targetToken, pool, cTokenAddress, poolAdapterMock} =
-      await preparePoolAdapter(tt);
+    const {core,  pool, cToken, userContract, sourceToken, targetToken, poolAdapter} =
+      await initializeApp(tt, user);
+    const poolAdapterMock = await PoolAdapterMock__factory.connect(poolAdapter, deployer);
 
-    const dm = DebtMonitor__factory.connect(await controller.debtMonitor(), deployer);
-
-    // cTokenAddress,
-    // collateralFactor18,
-    // getBigNumberFrom(1e18*pp.borrowRate)
+    const dm = DebtMonitor__factory.connect(await core.controller.debtMonitor(), deployer);
 
     await makeBorrow(
-      userTC,
+      userContract.address,
       pool,
       poolAdapterMock.address,
       sourceToken,
@@ -268,11 +272,67 @@ describe("DebtsMonitor", () => {
       ]
     );
 
-    return {dm, poolAdapterMock, sourceToken, targetToken, userTC, controller, pool, cTokenAddress};
+    return {
+      dm,
+      poolAdapterMock,
+      sourceToken,
+      targetToken,
+      userTC: userContract.address,
+      controller: core.controller,
+      pool,
+      cTokenAddress:
+    };
   }
-//endregion Utils
+//endregion Test impl
 
 //region Unit tests
+  describe("setThresholdAPR", () => {
+    describe("Good paths", () => {
+      describe("Set thresholdAPR equal to 0", () => {
+        it("should set expected value", async () => {
+
+        });
+      });
+      describe("Set thresholdAPR greater then 100", () => {
+        it("should set expected value", async () => {
+
+        });
+      });
+    });
+    describe("Bad paths", () => {
+      describe("Set thresholdAPR equal to 100", () => {
+        it("should revert", async () => {
+
+        });
+      });
+      describe("Set thresholdAPR less then 100 and not 0", () => {
+        it("should revert", async () => {
+
+        });
+      });
+      describe("Not governance", () => {
+        it("should revert", async () => {
+
+        });
+      });
+    });
+  });
+
+  describe("setThresholdCountBlocks", () => {
+    describe("Good paths", () => {
+      it("should set expected value", async () => {
+
+      });
+    });
+    describe("Bad paths", () => {
+      describe("Not governance", () => {
+        it("should revert", async () => {
+
+        });
+      });
+    });
+  });
+
   describe("onOpenPosition", () => {
     describe("Good paths", () => {
       describe("Single borrow", () => {
@@ -281,7 +341,6 @@ describe("DebtsMonitor", () => {
           const targetDecimals = 12;
           const sourceDecimals = 24;
           const availableBorrowLiquidityNumber = 200_000_000;
-          const borrowRatePerBlock18 = getBigNumberFrom(1);
           const tt: IBorrowInputParams = {
             collateralFactor: 0.8,
             priceSourceUSD: 0.1,
@@ -299,8 +358,8 @@ describe("DebtsMonitor", () => {
             ]
           };
 
-          const {core,  pool, cToken, userContract, sourceToken, targetToken, poolAdapter} =
-            await prepareContracts(tt, user, borrowRatePerBlock18);
+          const {core, userContract, sourceToken, targetToken, poolAdapter} =
+            await initializeApp(tt, user);
 
           const dmAsPa = DebtMonitor__factory.connect(core.dm.address
             , await DeployerUtils.startImpersonate(poolAdapter)
@@ -371,7 +430,6 @@ describe("DebtsMonitor", () => {
           const targetDecimals = 12;
           const sourceDecimals = 24;
           const availableBorrowLiquidityNumber = 200_000_000;
-          const borrowRatePerBlock18 = getBigNumberFrom(1);
           const tt: IBorrowInputParams = {
             collateralFactor: 0.8,
             priceSourceUSD: 0.1,
@@ -389,8 +447,8 @@ describe("DebtsMonitor", () => {
             ]
           };
 
-          const {core,  pool, cToken, userContract, sourceToken, targetToken, poolAdapter} =
-            await prepareContracts(tt, user, borrowRatePerBlock18);
+          const {core, userContract, sourceToken, targetToken, poolAdapter} =
+            await initializeApp(tt, user);
 
           const dmAsPa = DebtMonitor__factory.connect(core.dm.address
             , await DeployerUtils.startImpersonate(poolAdapter)
@@ -468,7 +526,7 @@ describe("DebtsMonitor", () => {
     });
   });
 
-  describe("findBorrows", () => {
+  describe("getPositions", () => {
     describe("Good paths", () => {
       it("should TODO", async () => {
         expect.fail("TODO");
@@ -728,7 +786,7 @@ describe("DebtsMonitor", () => {
     });
   });
 
-  describe("findFirstUnhealthyPoolAdapter", () => {
+  describe("getPoolAdapterKey", () => {
     describe("Good paths", () => {
       describe("All pool adapters are in good state", () => {
         it("should return no pool adapters ", async () => {
@@ -769,7 +827,7 @@ describe("DebtsMonitor", () => {
     });
   });
 
-  describe("getCountActivePoolAdapters", () => {
+  describe("getCountPositions", () => {
     describe("Good paths", () => {
       it("should TODO", async () => {
         expect.fail("TODO");
