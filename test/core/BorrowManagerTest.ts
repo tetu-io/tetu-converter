@@ -2,9 +2,9 @@ import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import {ethers} from "hardhat";
 import {expect} from "chai";
 import {
-  BorrowManager, Controller, Controller__factory,
+  BorrowManager, BorrowManager__factory, Controller, Controller__factory, IBorrowManager__factory,
   IPoolAdapter,
-  IPoolAdapter__factory, LendingPlatformMock__factory, MockERC20,
+  IPoolAdapter__factory, ITetuConverter__factory, LendingPlatformMock__factory, MockERC20,
   PlatformAdapterStub
 } from "../../typechain";
 import {TimeUtils} from "../../scripts/utils/TimeUtils";
@@ -22,6 +22,9 @@ import {CoreContractsHelper} from "../baseUT/helpers/CoreContractsHelper";
 import {generateAssetPairs, getAssetPair, IAssetPair} from "../baseUT/utils/AssetPairUtils";
 import {Misc} from "../../scripts/utils/Misc";
 import {DeployerUtils} from "../../scripts/utils/DeployerUtils";
+import exp from "constants";
+import {sign} from "crypto";
+import {tetu} from "../../typechain/contracts/integrations";
 
 describe("BorrowManager", () => {
 //region Global vars for all tests
@@ -60,6 +63,15 @@ describe("BorrowManager", () => {
     await TimeUtils.rollback(snapshotForEach);
   });
 //endregion before, after
+
+//region DataTypes
+  interface PoolAdapterConfig {
+    originConverter: string;
+      user: string;
+      collateralAsset: string;
+      borrowAsset: string
+  }
+//endregion DataTypes
 
 //region Utils
   /** Get list of platform adapters registered for the given pairs */
@@ -123,8 +135,10 @@ describe("BorrowManager", () => {
     const controller = await CoreContractsHelper.createController(signer);
     const borrowManager = await CoreContractsHelper.createBorrowManager(signer, controller);
     const debtsMonitor = await MocksHelper.createDebtsMonitorStub(signer, valueIsConverterInUse);
+    const tetuConverter = await CoreContractsHelper.createTetuConverter(signer, controller);
     await controller.setBorrowManager(borrowManager.address);
     await controller.setDebtMonitor(debtsMonitor.address);
+    await controller.setTetuConverter(tetuConverter.address);
     return borrowManager;
   }
 
@@ -294,8 +308,13 @@ describe("BorrowManager", () => {
       borrowManager, sourceToken, targetToken, controller
     } = await BorrowManagerHelper.createBmTwoAssets(signer, p);
 
+    const bmAsGov = IBorrowManager__factory.connect(
+      borrowManager.address,
+      await DeployerUtils.startImpersonate(await controller.governance())
+    );
+
     if (setDefaultHealthFactorForBorrowAsset) {
-      await borrowManager.setHealthFactor(targetToken.address, defaultHealthFactor2);
+      await bmAsGov.setHealthFactor(targetToken.address, defaultHealthFactor2);
     }
     if (setMinHealthFactor) {
       await controller.setMinHealthFactor2(defaultHealthFactor2);
@@ -398,15 +417,125 @@ describe("BorrowManager", () => {
     converters: string[],
     users: string[],
     assetPairs: {collateral: string, borrow: string}[],
-    countRepeats: number
-  ): Promise<string[]> {
-    return []; //TODO
+    countRepeats: number = 1
+  ): Promise<{
+    poolAdapterAddress: string,
+    initConfig: PoolAdapterConfig,
+    resultConfig: PoolAdapterConfig
+  }[]> {
+    const dest: {
+      poolAdapterAddress: string,
+      initConfig: PoolAdapterConfig,
+      resultConfig: PoolAdapterConfig
+    }[] = [];
+    for (let i = 0; i < countRepeats; ++i) {
+      for (const converter of converters) {
+        for (const user of users) {
+          for (const pair of assetPairs) {
+            await borrowManager.registerPoolAdapter(converter, user, pair.collateral, pair.borrow);
+            const poolAdapterAddress = await borrowManager.getPoolAdapter(converter, user, pair.collateral, pair.borrow);
+
+            const poolAdapter = await IPoolAdapter__factory.connect(poolAdapterAddress, signer);
+            const config = await poolAdapter.getConfig();
+            dest.push({
+              poolAdapterAddress,
+              initConfig: {
+                originConverter: converter,
+                user,
+                borrowAsset: pair.borrow,
+                collateralAsset: pair.collateral
+              },
+              resultConfig: config
+            });
+          }
+        }
+      }
+    }
+    return dest;
   }
 
+  async function getUniquePoolAdaptersForTwoPoolsAndTwoPairs(countUsers: number) : Promise<{
+    out: {
+      poolAdapterAddress: string,
+      initConfig: PoolAdapterConfig,
+      resultConfig: PoolAdapterConfig,
+    }[],
+    app: {
+      borrowManager: BorrowManager,
+      controller: Controller,
+      pools: PoolInstanceInfo[]
+    }
+  }> {
+    const tt = {
+      collateralFactor: 0.8,
+      priceSourceUSD: 0.1,
+      priceTargetUSD: 4,
+      sourceDecimals: 24,
+      targetDecimals: 12,
+      availablePools: [
+        {   // source, target
+          borrowRateInTokens: [0, 0],
+          availableLiquidityInTokens: [0, 200_000]
+        },
+        {   // source, target
+          borrowRateInTokens: [0, 0],
+          availableLiquidityInTokens: [0, 100_000]
+        },
+      ]
+    };
+
+    const {
+      borrowManager, sourceToken, targetToken, pools, controller
+    } = await BorrowManagerHelper.createBmTwoAssets(signer, tt);
+
+    const tc = ITetuConverter__factory.connect(await controller.tetuConverter(), signer);
+    const bmAsTc = BorrowManager__factory.connect(
+      borrowManager.address,
+      await DeployerUtils.startImpersonate(tc.address)
+    );
+
+    // register pool adapter
+    const converters = [pools[0].converter, pools[1].converter];
+    const users = [...Array(countUsers).keys()].map(x => ethers.Wallet.createRandom().address);
+    const assetPairs = [
+      {
+        collateral: sourceToken.address,
+        borrow: targetToken.address
+      },
+      {
+        collateral: targetToken.address,
+        borrow: sourceToken.address
+      },
+    ];
+
+    const poolAdapters = await registerPoolAdapters(bmAsTc, converters, users, assetPairs, 2);
+
+    return {
+      out: poolAdapters.filter(
+        function onlyUnique(value, index, self) {
+          return self.findIndex(
+            function poolAdapterAddressIsEqual(item) {
+              return item.poolAdapterAddress == value.poolAdapterAddress;
+            }
+          ) === index;
+        }
+      ),
+      app: {
+        borrowManager,
+        controller,
+        pools
+      }
+    };
+  }
 //endregion registerPoolAdapter utils
 
 //region Unit tests
   describe("setHealthFactor", () => {
+    async function prepareBorrowManagerWithGivenHealthFactor(minHealthFactor2: number) : Promise<BorrowManager> {
+      const controller = await CoreContractsHelper.createController(signer);
+      await controller.setMinHealthFactor2(minHealthFactor2);
+      return await CoreContractsHelper.createBorrowManager(signer, controller);
+    }
     describe("Good paths", () => {
       it("should save specified value to defaultHealthFactors", async () => {
         const asset = ethers.Wallet.createRandom().address;
@@ -431,22 +560,20 @@ describe("BorrowManager", () => {
 
         expect(ret).equal(expected);
       });
-    });
-    describe("Bad paths", () => {
-      async function prepareBorrowManagerWithGivenHealthFactor(minHealthFactor2: number) : Promise<BorrowManager> {
-        const controller = await CoreContractsHelper.createController(signer);
-        await controller.setMinHealthFactor2(minHealthFactor2);
-        return await CoreContractsHelper.createBorrowManager(signer, controller);
-      }
       describe("Health factor is equal to min value", () => {
-        it("should revert", async () => {
+        it("should not revert", async () => {
           const minHealthFactor = 120;
           const borrowManager = await prepareBorrowManagerWithGivenHealthFactor(minHealthFactor);
-          await expect(
-            borrowManager.setHealthFactor(ethers.Wallet.createRandom().address, minHealthFactor)
-          ).revertedWith("TC-3");
+          const asset = ethers.Wallet.createRandom().address;
+          await borrowManager.setHealthFactor(asset , minHealthFactor)
+
+          const ret = await borrowManager.defaultHealthFactors2(asset);
+
+          expect(ret).equal(minHealthFactor);
         });
       });
+    });
+    describe("Bad paths", () => {
       describe("Health factor is less then min value", () => {
         it("should revert", async () => {
           const minHealthFactor = 120;
@@ -454,6 +581,55 @@ describe("BorrowManager", () => {
           await expect(
             borrowManager.setHealthFactor(ethers.Wallet.createRandom().address, minHealthFactor - 1)
           ).revertedWith("TC-3");
+        });
+      });
+      describe("Not governance", () => {
+        it("should revert", async () => {
+          const minHealthFactor = 120;
+          const borrowManager = await prepareBorrowManagerWithGivenHealthFactor(minHealthFactor);
+          const bmAsNotGov = BorrowManager__factory.connect(
+            borrowManager.address,
+            await DeployerUtils.startImpersonate(user3.address)
+          );
+          await expect(
+            bmAsNotGov.setHealthFactor(ethers.Wallet.createRandom().address, minHealthFactor - 1)
+          ).revertedWith("TC-9"); //GOVERNANCE_ONLY
+        });
+      });
+    });
+
+  });
+
+  describe("setRewardsFactor", () => {
+    describe("Good paths", () => {
+      it("should set expected value", async () => {
+        const rewardsFactor = getBigNumberFrom(9, 17);
+
+        const controller = await CoreContractsHelper.createController(signer);
+        const borrowManager = await CoreContractsHelper.createBorrowManager(signer, controller);
+
+        await borrowManager.setRewardsFactor(rewardsFactor);
+        const ret = (await borrowManager.rewardsFactor()).toString();
+        const expected = rewardsFactor.toString();
+
+        expect(ret).equal(expected);
+      });
+    });
+    describe("Bad paths", () => {
+      describe("Not governance", () => {
+        it("should revert", async () => {
+          const rewardsFactor = getBigNumberFrom(9, 17);
+
+          const controller = await CoreContractsHelper.createController(signer);
+          const borrowManager = await CoreContractsHelper.createBorrowManager(signer, controller);
+
+          const bmAsNotGov = BorrowManager__factory.connect(
+            borrowManager.address,
+            await DeployerUtils.startImpersonate(user3.address)
+          );
+          await expect(
+            bmAsNotGov.setRewardsFactor(rewardsFactor)
+          ).revertedWith("TC-9"); //GOVERNANCE_ONLY
         });
       });
     });
@@ -906,11 +1082,12 @@ describe("BorrowManager", () => {
               ethers.utils.formatUnits(ret.outApr36.div(Misc.WEI), p.targetDecimals)
             ].join();
 
+            const expectedApr36 = getBigNumberFrom(bestBorrowRate, 36);
             const sexpected = [
               1, //best pool
               "500.0", // Use https://docs.google.com/spreadsheets/d/1oLeF7nlTefoN0_9RWCuNc62Y7W72-Yk7/edit?usp=sharing&ouid=116979561535348539867&rtpof=true&sd=true
                        // to calculate expected amounts
-              ethers.utils.formatUnits(getBigNumberFrom(bestBorrowRate, p.targetDecimals), p.targetDecimals)
+              ethers.utils.formatUnits(expectedApr36.div(Misc.WEI), p.targetDecimals),
             ].join();
 
             expect(sret).equal(sexpected);
@@ -958,11 +1135,12 @@ describe("BorrowManager", () => {
               ethers.utils.formatUnits(ret.outApr36.div(Misc.WEI), input.targetDecimals)
             ].join();
 
+            const expectedApr36 = getBigNumberFrom(bestBorrowRate, 36);
             const sexpected = [
               3, //best pool
               "2250.0", // Use https://docs.google.com/spreadsheets/d/1oLeF7nlTefoN0_9RWCuNc62Y7W72-Yk7/edit?usp=sharing&ouid=116979561535348539867&rtpof=true&sd=true
               // to calculate expected amounts
-              ethers.utils.formatUnits(getBigNumberFrom(bestBorrowRate, input.targetDecimals), input.targetDecimals)
+              ethers.utils.formatUnits(expectedApr36.div(Misc.WEI), input.targetDecimals),
             ].join();
 
             expect(sret).equal(sexpected);
@@ -1002,11 +1180,12 @@ describe("BorrowManager", () => {
               ethers.utils.formatUnits(ret.outApr36.div(Misc.WEI), input.targetDecimals)
             ].join();
 
+            const expectedApr36 = getBigNumberFrom(bestBorrowRate, 36);
             const sexpected = [
               0, //best pool
               "6250.0", // Use https://docs.google.com/spreadsheets/d/1oLeF7nlTefoN0_9RWCuNc62Y7W72-Yk7/edit?usp=sharing&ouid=116979561535348539867&rtpof=true&sd=true
                         // to calculate expected amounts
-              ethers.utils.formatUnits(getBigNumberFrom(bestBorrowRate, input.targetDecimals), input.targetDecimals)
+              ethers.utils.formatUnits(expectedApr36.div(Misc.WEI), input.targetDecimals),
             ].join();
 
             expect(sret).equal(sexpected);
@@ -1183,7 +1362,7 @@ describe("BorrowManager", () => {
           // create borrow manager (BM) with single pool
           const tt = BorrowManagerHelper.getBmInputParamsSinglePool();
           const {
-            borrowManager, sourceToken, targetToken, pools
+            borrowManager, sourceToken, targetToken, pools, controller
           } = await BorrowManagerHelper.createBmTwoAssets(signer, tt);
 
           // register pool adapter
@@ -1191,8 +1370,14 @@ describe("BorrowManager", () => {
           const user = ethers.Wallet.createRandom().address;
           const collateral = sourceToken.address;
 
-          await borrowManager.registerPoolAdapter(converter, user, collateral, targetToken.address);
-          const poolAdapter = await borrowManager.getPoolAdapter(converter, user, collateral, targetToken.address);
+          const tc = ITetuConverter__factory.connect(await controller.tetuConverter(), signer);
+          const bmAsTc = IBorrowManager__factory.connect(
+            borrowManager.address,
+            await DeployerUtils.startImpersonate(tc.address)
+          );
+
+          await bmAsTc.registerPoolAdapter(converter, user, collateral, targetToken.address);
+          const poolAdapter = await bmAsTc.getPoolAdapter(converter, user, collateral, targetToken.address);
 
           // get data from the pool adapter
           const pa: IPoolAdapter = IPoolAdapter__factory.connect(
@@ -1218,60 +1403,79 @@ describe("BorrowManager", () => {
           expect(ret).equal(expected);
         });
       });
-      describe("Create pool adapters for several converters, users, assets", () => {
-        it("should create separate pool adapter for each set of params", async () => {
-          const tt = {
-            collateralFactor: 0.8,
-            priceSourceUSD: 0.1,
-            priceTargetUSD: 4,
-            sourceDecimals: 24,
-            targetDecimals: 12,
-            availablePools: [
-              {   // source, target
-                borrowRateInTokens: [0, 0],
-                availableLiquidityInTokens: [0, 200_000]
-              },
-              {   // source, target
-                borrowRateInTokens: [0, 0],
-                availableLiquidityInTokens: [0, 100_000]
-              },
-            ]
-          };
+      describe("Create pool adapters for several sets of converters, users, assets twice", () => {
+        it("should register expected number of pool adapters", async () => {
+          const countConverters = 2; // see implementation of getUniquePoolAdaptersForTwoPoolsAndTwoPairs
+          const countPairs = 2; // see implementation of getUniquePoolAdaptersForTwoPoolsAndTwoPairs
 
-          const {
-            borrowManager, sourceToken, targetToken, pools
-          } = await BorrowManagerHelper.createBmTwoAssets(signer, tt);
+          const countUsers = 5;
 
-          // register pool adapter
-          const converters = [pools[0].converter, pools[1].converter];
-          const users = [
-            ethers.Wallet.createRandom().address,
-            ethers.Wallet.createRandom().address,
-            ethers.Wallet.createRandom().address
-          ];
-          const assetPairs = [
-            {
-              collateral: sourceToken.address,
-              borrow: targetToken.address
-            },
-            {
-              collateral: targetToken.address,
-              borrow: sourceToken.address
-            },
-          ];
+          const uniquePoolAdapters = await getUniquePoolAdaptersForTwoPoolsAndTwoPairs(countUsers);
 
-          const poolAdapters = await registerPoolAdapters(borrowManager, converters, users, assetPairs, 2);
+          const ret = uniquePoolAdapters.out.length;
+          const expected = countConverters * countUsers * countPairs;
 
-          //TODO: https://stackoverflow.com/questions/1960473/get-all-unique-values-in-a-javascript-array-remove-duplicates
+          expect(ret).equal(expected);
+        });
+        it("should initialize pool adapters by expected values", async () => {
+          const countConverters = 2; // see implementation of getUniquePoolAdaptersForTwoPoolsAndTwoPairs
+          const countPairs = 2; // see implementation of getUniquePoolAdaptersForTwoPoolsAndTwoPairs
+
+          const countUsers = 5;
+
+          const uniquePoolAdapters = await getUniquePoolAdaptersForTwoPoolsAndTwoPairs(countUsers);
+
+          const ret = uniquePoolAdapters.out.filter(
+            x => x.initConfig.originConverter == x.resultConfig.originConverter
+              && x.initConfig.user == x.resultConfig.user
+              && x.initConfig.collateralAsset == x.resultConfig.collateralAsset
+              && x.initConfig.borrowAsset == x.resultConfig.borrowAsset
+          ).length;
+          const expected = countConverters * countUsers * countPairs;
 
           expect(ret).equal(expected);
         });
       });
     });
     describe("Bad paths", () => {
-      describe("Wrong pool address", () => {
-        it("should revert with template contract not found", async () => {
-          expect.fail("TODO");
+      describe("Wrong converter address", () => {
+        it("should revert", async () => {
+          const tt = BorrowManagerHelper.getBmInputParamsSinglePool();
+          const {
+            borrowManager, sourceToken, targetToken, pools, controller
+          } = await BorrowManagerHelper.createBmTwoAssets(signer, tt);
+
+          const tc = ITetuConverter__factory.connect(await controller.tetuConverter(), signer);
+          const bmAsTc = IBorrowManager__factory.connect(
+            borrowManager.address,
+            await DeployerUtils.startImpersonate(tc.address)
+          );
+
+          const converter = ethers.Wallet.createRandom().address; // (!)
+          const user = ethers.Wallet.createRandom().address;
+          const collateral = sourceToken.address;
+
+          await expect(
+            bmAsTc.registerPoolAdapter(converter, user, collateral, targetToken.address)
+          ).revertedWith("TC-6"); // PLATFORM_ADAPTER_NOT_FOUND
+        });
+      });
+      describe("Not TetuConverter", () => {
+        it("should revert", async () => {
+          const tt = BorrowManagerHelper.getBmInputParamsSinglePool();
+          const {
+            borrowManager, sourceToken, targetToken, pools
+          } = await BorrowManagerHelper.createBmTwoAssets(signer, tt);
+
+          const bmAsNotTc = IBorrowManager__factory.connect(borrowManager.address, signer);
+
+          const converter = pools[0].converter;
+          const user = ethers.Wallet.createRandom().address;
+          const collateral = sourceToken.address;
+
+          await expect(
+            bmAsNotTc.registerPoolAdapter(converter, user, collateral, targetToken.address)
+          ).revertedWith("TC-8"); // TETU_CONVERTER_ONLY
         });
       });
     });
@@ -1279,56 +1483,171 @@ describe("BorrowManager", () => {
 
   describe("getPlatformAdapter", () => {
     describe("Good paths", () => {
-      it("should TODO", async () => {
-        expect.fail("TODO");
+      it("should return expected platform adapter", async () => {
+        const borrowManager = await initializeApp();
+        const controller = Controller__factory.connect(await borrowManager.controller(), signer);
+
+        const platformAdapterSets = [
+          await setUpSinglePlatformAdapterTestSet(borrowManager),
+          await setUpSinglePlatformAdapterTestSet(borrowManager),
+          await setUpSinglePlatformAdapterTestSet(borrowManager)
+        ];
+
+        const tc = ITetuConverter__factory.connect(await controller.tetuConverter(), signer);
+        const bmAsTc = BorrowManager__factory.connect(
+          borrowManager.address,
+          await DeployerUtils.startImpersonate(tc.address)
+        );
+
+        // register pool adapter
+        const ret: string[] = [];
+        const expected: string[] = [];
+        for (const platformAdapterSet of platformAdapterSets) {
+          const converter = platformAdapterSet.converters[0];
+          const user = ethers.Wallet.createRandom().address;
+          const pair = platformAdapterSet.pairs[0];
+
+          const poolAdapters = await registerPoolAdapters(bmAsTc,
+            [converter],
+            [user],
+            [{collateral: pair.biggerAddress, borrow: pair.smallerAddress}]
+          );
+          ret.push(
+            await bmAsTc.getPlatformAdapter(converter)
+          );
+          expected.push(platformAdapterSet.platformAdapter);
+        }
+        expect(ret.join()).equal(expected.join());
       });
     });
     describe("Bad paths", () => {
-      it("should TODO", async () => {
-        expect.fail("TODO");
+      describe("converter address is not registered", () => {
+        it("should revert", async () => {
+          const borrowManager = await initializeApp();
+          await expect(
+            borrowManager.getPlatformAdapter(ethers.Wallet.createRandom().address)
+          ).revertedWith("TC-6"); // PLATFORM_ADAPTER_NOT_FOUND
+        });
       });
     });
   });
 
   describe("isPoolAdapter", () => {
     describe("Good paths", () => {
-      it("should TODO", async () => {
-        expect.fail("TODO");
-      });
-    });
-    describe("Bad paths", () => {
-      it("should TODO", async () => {
-        expect.fail("TODO");
+      it("should return true for registered pool adapters", async () => {
+        const r = await getUniquePoolAdaptersForTwoPoolsAndTwoPairs(2);
+        const addressesToCheck = [
+          ethers.Wallet.createRandom().address,
+          ethers.Wallet.createRandom().address,
+          ...r.out.map(x => x.poolAdapterAddress)
+        ];
+        const ret = (await Promise.all(
+          addressesToCheck.map(
+            async x => await r.app.borrowManager.isPoolAdapter(x)
+          )
+        )).join();
+        const expected = [
+          false,
+          false,
+          [...Array(r.out.length).keys()].map(x => true)
+        ].join();
+
+        expect(ret).equal(expected);
       });
     });
   });
 
   describe("getPoolAdapter", () => {
     describe("Good paths", () => {
-      it("should TODO", async () => {
-        expect.fail("TODO");
-      });
-    });
-    describe("Bad paths", () => {
-      it("should TODO", async () => {
-        expect.fail("TODO");
+      it("should return expected addresses", async () => {
+        const r = await getUniquePoolAdaptersForTwoPoolsAndTwoPairs(2);
+        const firstItem = r.out[0].initConfig;
+
+        // unregistered pool adapters
+        const ret: string[] = [
+          await r.app.borrowManager.getPoolAdapter(
+            ethers.Wallet.createRandom().address,
+            firstItem.user,
+            firstItem.collateralAsset,
+            firstItem.borrowAsset
+          ),
+          await r.app.borrowManager.getPoolAdapter(
+            firstItem.originConverter,
+            ethers.Wallet.createRandom().address,
+            firstItem.collateralAsset,
+            firstItem.borrowAsset
+          ),
+          await r.app.borrowManager.getPoolAdapter(
+            firstItem.originConverter,
+            firstItem.user,
+            ethers.Wallet.createRandom().address,
+            firstItem.borrowAsset
+          ),
+          await r.app.borrowManager.getPoolAdapter(
+            firstItem.originConverter,
+            firstItem.user,
+            firstItem.collateralAsset,
+            ethers.Wallet.createRandom().address,
+          )
+        ];
+        const expected: string[] = [
+          Misc.ZERO_ADDRESS,
+          Misc.ZERO_ADDRESS,
+          Misc.ZERO_ADDRESS,
+          Misc.ZERO_ADDRESS,
+        ];
+
+        // registered pool adapters
+        for (const item of r.out) {
+          const poolAdapter = await r.app.borrowManager.getPoolAdapter(
+            item.initConfig.originConverter,
+            item.initConfig.user,
+            item.initConfig.collateralAsset,
+            item.initConfig.borrowAsset
+          );
+          ret.push(poolAdapter);
+          expected.push(item.poolAdapterAddress);
+        }
+
+        expect(ret.join()).equal(expected.join());
       });
     });
   });
 
-  describe("Access to arrays", () => {
-    describe("Good paths", () => {
-      it("should TODO", async () => {
-        expect.fail("TODO");
-      });
-    });
-    describe("Bad paths", () => {
-      it("should TODO", async () => {
-        expect.fail("TODO");
-      });
+  describe("getPoolAdapterKey", () => {
+    it("should return not zero", async () => {
+      const borrowManager = await initializeApp();
+      const key = await borrowManager.getPoolAdapterKey(
+        ethers.Wallet.createRandom().address,
+        ethers.Wallet.createRandom().address,
+        ethers.Wallet.createRandom().address,
+        ethers.Wallet.createRandom().address
+      );
+      const ret = key.eq(0);
+      expect(ret).eq(false);
     });
   });
 
+  describe("getAssetPairKey", () => {
+    it("should return not zero", async () => {
+      const borrowManager = await initializeApp();
+      const key = await borrowManager.getAssetPairKey(
+        ethers.Wallet.createRandom().address,
+        ethers.Wallet.createRandom().address,
+      );
+      const ret = key.eq(0);
+      expect(ret).eq(false);
+    });
+    it("should return same value for (A, B) and (B, A)", async () => {
+      const borrowManager = await initializeApp();
+      const address1 = ethers.Wallet.createRandom().address;
+      const address2 = ethers.Wallet.createRandom().address;
+      const ret12 = await borrowManager.getAssetPairKey(address1, address2);
+      const ret21 = await borrowManager.getAssetPairKey(address2, address1);
+      const ret = ret12.eq(ret21)
+      expect(ret).eq(true);
+    });
+  });
 //endregion Unit tests
 
 });

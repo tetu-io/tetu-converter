@@ -15,6 +15,7 @@ import "../openzeppelin/SafeERC20.sol";
 import "../openzeppelin/EnumerableSet.sol";
 import "../integrations/market/ICErc20.sol";
 import "../integrations/IERC20Extended.sol";
+import "../interfaces/ITetuConverter.sol";
 import "hardhat/console.sol";
 
 /// @notice Contains list of lending pools. Allow to select most efficient pool for the given collateral/borrow pair
@@ -90,6 +91,19 @@ contract BorrowManager is IBorrowManager {
     rewardsFactor = rewardsFactor_;
   }
 
+  ///////////////////////////////////////////////////////
+  ///               Access rights
+  ///////////////////////////////////////////////////////
+
+  /// @notice Ensure that msg.sender is registered pool adapter
+  function _onlyTetuConverter() internal view {
+    require(msg.sender == controller.tetuConverter(), AppErrors.TETU_CONVERTER_ONLY);
+  }
+
+  /// @notice Ensure that msg.sender is registered pool adapter
+  function _onlyGovernance() internal view {
+    require(msg.sender == controller.governance(), AppErrors.GOVERNANCE_ONLY);
+  }
 
   ///////////////////////////////////////////////////////
   ///               Configuration
@@ -98,11 +112,13 @@ contract BorrowManager is IBorrowManager {
   /// @notice Set default health factor for {asset}. Default value is used only if user hasn't provided custom value
   /// @param healthFactor_ Health factor with decimals 2; must be greater or equal to MIN_HEALTH_FACTOR; for 1.5 use 150
   function setHealthFactor(address asset, uint16 healthFactor_) external override {
+    _onlyGovernance();
     require(healthFactor_ >= controller.getMinHealthFactor2(), AppErrors.WRONG_HEALTH_FACTOR);
     defaultHealthFactors2[asset] = healthFactor_;
   }
 
   function setRewardsFactor(uint rewardsFactor_) external override {
+    _onlyGovernance();
     rewardsFactor = rewardsFactor_;
   }
 
@@ -112,6 +128,8 @@ contract BorrowManager is IBorrowManager {
     address[] calldata rightAssets_
   )
   external override {
+    _onlyGovernance();
+
     uint lenAssets = rightAssets_.length;
     require(leftAssets_.length == lenAssets, AppErrors.WRONG_LENGTHS);
 
@@ -153,6 +171,8 @@ contract BorrowManager is IBorrowManager {
     address[] calldata leftAssets_,
     address[] calldata rightAssets_
   ) external override {
+    _onlyGovernance();
+
     uint lenAssets = rightAssets_.length;
     require(leftAssets_.length == lenAssets, AppErrors.WRONG_LENGTHS);
     require(_platformAdapters.contains(platformAdapter_), AppErrors.PLATFORM_ADAPTER_NOT_FOUND);
@@ -281,10 +301,13 @@ contract BorrowManager is IBorrowManager {
     address collateralAsset_,
     address borrowAsset_
   ) external override returns (address) {
+    _onlyTetuConverter();
+
     uint poolAdapterKey = getPoolAdapterKey(converter_, user_, collateralAsset_, borrowAsset_);
     address dest = poolAdapters[poolAdapterKey];
     if (dest == address(0) ) {
-      // create an instance of the pool adapter using minimal proxy pattern, initialize newly created contract
+      // pool adapter is not yet registered
+      // create a new instance of the pool adapter using minimal proxy pattern, initialize newly created contract
       dest = converter_.clone();
       IPlatformAdapter(_getPlatformAdapter(converter_)).initializePoolAdapter(
         converter_,

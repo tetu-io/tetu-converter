@@ -57,8 +57,10 @@ export class BorrowManagerHelper {
         const controller = await CoreContractsHelper.createController(signer);
         const borrowManager = await CoreContractsHelper.createBorrowManager(signer, controller);
         const debtMonitor = await MocksHelper.createDebtsMonitorStub(signer, false);
+        const tetuConverter = await CoreContractsHelper.createTetuConverter(signer, controller);
         await controller.setBorrowManager(borrowManager.address);
         await controller.setDebtMonitor(debtMonitor.address);
+        await controller.setTetuConverter(tetuConverter.address);
 
         const pools: PoolInstanceInfo[] = [];
 
