@@ -27,6 +27,7 @@ import {
 } from "../../../typechain";
 import {IPoolInfo} from "./BorrowManagerHelper";
 import {getBigNumberFrom} from "../../../scripts/utils/NumberUtils";
+import {IAssetPair} from "../utils/AssetPairUtils";
 
 export interface IPooAdapterStabInitParams {
   controller: string;

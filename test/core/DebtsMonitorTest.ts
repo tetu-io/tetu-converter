@@ -4,10 +4,19 @@ import {expect} from "chai";
 import {
   Controller,
   DebtMonitor,
-  DebtMonitor__factory, IPoolAdapter,
+  DebtMonitor__factory,
+  IPoolAdapter,
   IPoolAdapter__factory,
-  MockERC20, MockERC20__factory, PoolAdapterMock,
-  PoolAdapterMock__factory, PriceOracleMock, PriceOracleMock__factory, Borrower, BorrowManager, BorrowManager__factory
+  MockERC20,
+  MockERC20__factory,
+  PoolAdapterMock,
+  PoolAdapterMock__factory,
+  PriceOracleMock,
+  PriceOracleMock__factory,
+  Borrower,
+  BorrowManager,
+  BorrowManager__factory,
+  TetuConverter__factory
 } from "../../typechain";
 import {TimeUtils} from "../../scripts/utils/TimeUtils";
 import {
@@ -22,6 +31,8 @@ import {getBigNumberFrom} from "../../scripts/utils/NumberUtils";
 import {CoreContractsHelper} from "../baseUT/helpers/CoreContractsHelper";
 import {MocksHelper} from "../baseUT/helpers/MocksHelper";
 import {CoreContracts} from "../baseUT/types/CoreContracts";
+import {generateAssetPairs} from "../baseUT/utils/AssetPairUtils";
+import {core} from "../../typechain/contracts";
 
 describe("DebtsMonitor", () => {
 //region Global vars for all tests
@@ -527,6 +538,92 @@ describe("DebtsMonitor", () => {
 
   describe("onClosePosition", () => {
     describe("Good paths", () => {
+//region Utils
+      async function preparePoolAdapters(
+        countConvertersPerPlatformAdapter: number[],
+        countUsers: number = 2,
+        countAssets: number = 2
+      ) : Promise<{poolAdapters: string[], core: CoreContracts}>{
+        const assets = await MocksHelper.createAssets(countAssets);
+        const users = [...Array(countUsers).keys()].map(x => ethers.Wallet.createRandom().address);
+
+        // prepare platform adapters and available assets na converters
+        const poolParams: MockPoolParams[] = [];
+        for (let i = 0; i < countConvertersPerPlatformAdapter.length; ++i) {
+          const pp: MockPoolParams = {
+            assets: assets.map(x => x.address),
+            cTokens: (await MocksHelper.createCTokensMocks(
+              deployer,
+              assets.map(x => x.address),
+              assets.map(x => 18)
+            )).map(x => x.address),
+            pool: (await MocksHelper.createPoolStub(deployer)).address,
+            converters: (
+              await MocksHelper.createConverters(deployer, countConvertersPerPlatformAdapter[i])
+            ).map(x => x.address),
+            assetPrices: assets.map(x => getBigNumberFrom(1, 18)),
+            assetLiquidityInPool: assets.map(x => getBigNumberFrom(1000, 18)),
+          }
+          poolParams.push(pp);
+        }
+
+        // initialize the app
+        const r = await BorrowManagerHelper.initAppWithMockPools(deployer, poolParams);
+        const bmAsTc = BorrowManager__factory.connect(
+          r.core.bm.address,
+          await DeployerUtils.startImpersonate(r.core.tc.address)
+        );
+
+        // register all possible pool adapters for the given count of users
+        const poolAdapters: string[] = [];
+        for (let i = 0; i < countUsers; ++i) {
+          for (const p of r.pools) {
+            const assetPairs = generateAssetPairs([...p.asset2cTokens.keys()]);
+            for (const pair of await assetPairs) {
+              await bmAsTc.registerPoolAdapter(p.converter, users[i], pair.smallerAddress, pair.biggerAddress);
+              await bmAsTc.registerPoolAdapter(p.converter, users[i], pair.biggerAddress, pair.smallerAddress);
+
+              poolAdapters.push(
+                await r.core.bm.getPoolAdapter(p.converter, users[i], pair.smallerAddress, pair.biggerAddress)
+              );
+              poolAdapters.push(
+                await r.core.bm.getPoolAdapter(p.converter, users[i], pair.biggerAddress, pair.smallerAddress)
+              );
+            }
+          }
+        }
+
+        // now open all positions
+        for (const poolAdapter of poolAdapters) {
+          const dmAsPA = DebtMonitor__factory.connect(
+            r.core.dm.address,
+            await DeployerUtils.startImpersonate(poolAdapter)
+          );
+          await dmAsPA.onOpenPosition();
+        }
+
+        return {
+          poolAdapters,
+          core: r.core
+        };
+      }
+      async function getRegisteredPositions(dm: DebtMonitor) : Promise<string[]> {
+        const count = (await dm.getCountPositions()).toNumber();
+        const items = await Promise.all(
+          [...Array(count).keys()].map(
+            async index => await dm.positions(index)
+          )
+        );
+        return items.sort();
+      }
+      function removeItem(items: string[], itemToRemove: string): string[] {
+        return items.filter(
+          function (item) {
+            return item !== itemToRemove;
+          }
+        )
+      }
+//endregion Utils
       describe("Single borrow, single repay", () => {
         it("should set expected state", async () => {
           const user = ethers.Wallet.createRandom().address;
@@ -607,37 +704,72 @@ describe("DebtsMonitor", () => {
         });
       });
 
-      describe("Open N positions, close one of them", () => {
-        it("should set debtMonitor to expected state", async () => {
-          const countUsers = 5;
-          const countConvertersPerPlatformAdapter = [1, 2, 3, 4, 5];
-          const countPlatformAdapters = countConvertersPerPlatformAdapter.length;
-          const countAssets = 5;
+      describe("Open N positions, close one of them", async () => {
+        it("should set debtMonitor.positions to expected state", async () => {
+          const r = await preparePoolAdapters([1, 2]);
+          let snapshot: string;
+          for (const poolAdapterToRemove of r.poolAdapters) {
+            snapshot = await TimeUtils.snapshot();
 
-          const assets = await MocksHelper.createAssets(countAssets);
+            // get current state
+            const before = await getRegisteredPositions(r.core.dm);
 
-          const poolParams: MockPoolParams[] = [];
-          for (let i = 0; i < countPlatformAdapters; ++i) {
-            const pp: MockPoolParams = {
-              assets: assets.map(x => x.address),
-              cTokens: (await MocksHelper.createCTokensMocks(
-                deployer,
-                assets.map(x => x.address),
-                assets.map(x => 18)
-              )).map(x => x.address),
-              pool: (await MocksHelper.createPoolStub(deployer)).address,
-              converters: (
-                await MocksHelper.createConverters(deployer, countConvertersPerPlatformAdapter[i])
-              ).map(x => x.address),
-              assetPrices: assets.map(x => getBigNumberFrom(1, 18)),
-              assetLiquidityInPool: assets.map(x => getBigNumberFrom(1000, 18)),
+            // close single position
+            for (const poolAdapter of r.poolAdapters) {
+              if (poolAdapter == poolAdapterToRemove) {
+                const dmAsPA = DebtMonitor__factory.connect(
+                  r.core.dm.address,
+                  await DeployerUtils.startImpersonate(poolAdapter)
+                );
+                await dmAsPA.onClosePosition();
+                break;
+              }
             }
-            poolParams.push(pp);
+
+            // get new state
+            const after = await getRegisteredPositions(r.core.dm);
+            const beforeMinusPoolAdapter = removeItem(before, poolAdapterToRemove);
+            const ret = after.join();
+            const expected = beforeMinusPoolAdapter.join();
+
+            await TimeUtils.rollback(snapshot);
+
+            expect(ret).equal(expected);
           }
+        });
+      });
 
-          await BorrowManagerHelper.initAppWithMockPools(deployer, poolParams);
+      describe("Create two positions for single converter, close both", async () => {
+        it("should set debtMonitor._poolAdaptersForConverters to expected state", async () => {
+          const r = await preparePoolAdapters([1], 1, 2);
 
-          expect.fail("TODO");
+          const poolAdapter1 = r.poolAdapters[0];
+          const poolAdapter2 = r.poolAdapters[1];
+
+          const config = await IPoolAdapter__factory.connect(poolAdapter1, deployer).getConfig();
+          const converter = (await config).originConverter;
+
+          const before = await r.core.dm.isConverterInUse(converter);
+
+          const dmAsPA1 = DebtMonitor__factory.connect(
+            r.core.dm.address,
+            await DeployerUtils.startImpersonate(poolAdapter1)
+          );
+          await dmAsPA1.onClosePosition();
+          const middle = await r.core.dm.isConverterInUse(converter);
+
+          const dmAsPA2 = DebtMonitor__factory.connect(
+            r.core.dm.address,
+            await DeployerUtils.startImpersonate(poolAdapter2)
+          );
+          await dmAsPA2.onClosePosition();
+
+          const after = await r.core.dm.isConverterInUse(converter);
+
+          const ret = [before, middle, after].join();
+          const expected = [true, true, false].join();
+
+          expect(ret).equal(expected);
         });
       });
     });
