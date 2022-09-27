@@ -82,11 +82,12 @@ describe("TetuLiquidatorMock", () => {
 //endregion Utils
 
 //region Unit tests
-  describe("Price calc", () => {
-    it("Should return right prices", async () => {
-      const ONE18 = parseUnits('1', 18);
-      const ONE6 = parseUnits('1', 6);
+  const ONE18 = parseUnits('1', 18);
+  const ONE6 = parseUnits('1', 6);
 
+  describe("getPrice", () => {
+
+    it("Should return right prices", async () => {
       expect(await mock.getPrice(_usdc, _usdt, ONE6)).equal(ONE6);
       expect(await mock.getPrice(_usdt, _usdc, ONE6)).equal(ONE6);
 
@@ -102,6 +103,73 @@ describe("TetuLiquidatorMock", () => {
       expect(await mock.getPrice(_weth, _matic, ONE18)).equal(ONE18.mul('2400'));
 
     });
+    it("Should revert", async () => {
+      await expect(mock.getPrice(_usdc, _unknown, ONE6)).revertedWith('L: Not found pool for tokenOut');
+      await expect(mock.getPrice(_unknown, _usdt, ONE18)).revertedWith('L: Not found pool for tokenIn');
+
+    });
+  });
+
+  describe("liquidate", () => {
+    const liquidate = async (
+      tokenIn: MockERC20,
+      tokenOut: MockERC20,
+      amount: BigNumber,
+      priceImpactTolerance: BigNumber = BigNumber.from('1000') // 1%
+    ) => {
+      await tokenIn.mint(mock.address, amount);
+
+      const balanceOutBefore = await tokenOut.balanceOf(deployer.address);
+      await mock.liquidate(tokenIn.address, tokenOut.address, amount, priceImpactTolerance);
+      const balanceOutAfter = await tokenOut.balanceOf(deployer.address);
+
+      return balanceOutAfter.sub(balanceOutBefore);
+    };
+
+    it("Should return right prices", async () => {
+      expect(await liquidate(usdc, usdt, ONE6)).equal(ONE6);
+      expect(await liquidate(usdt, usdc, ONE6)).equal(ONE6);
+
+      expect(await liquidate(usdt, dai, ONE6)).equal(ONE18);
+      expect(await liquidate(dai, usdc, ONE18)).equal(ONE6);
+
+      expect(await liquidate(matic, usdc, ONE18)).equal(ONE6.div(2));
+      expect(await liquidate(matic, dai, ONE18.mul(2))).equal(ONE18);
+
+      expect(await liquidate(weth, usdc, ONE18)).equal(ONE6.mul(1200));
+      expect(await liquidate(weth, dai, ONE18)).equal(ONE18.mul(1200));
+
+      expect(await liquidate(weth, matic, ONE18)).equal(ONE18.mul('2400'));
+
+    });
+
+    it("Should revert", async () => {
+      await expect(liquidate(usdc, unknown, ONE6)).revertedWith('L: Not found pool for tokenOut');
+      await expect(liquidate(unknown, usdt, ONE18)).revertedWith('L: Not found pool for tokenIn');
+    });
+
+    it("Should revert priceImpactTolerance", async () => {
+      await expect(await liquidate(usdc, usdt, ONE6, BigNumber.from('1000'))).equal(ONE6);
+      await mock.setPriceImpact('2000'); // 2%
+      await expect(liquidate(usdc, usdt, ONE6, BigNumber.from('1000'))).revertedWith('!PRICE');
+    });
+  });
+
+  describe("isRouteExist", () => {
+
+    it("Should return true", async () => {
+      for (const assetIn of assets)
+        for (const assetOut of assets)
+          expect(await mock.isRouteExist(assetIn, assetOut)).equal(true);
+    });
+
+    it("Should return false", async () => {
+      for (const asset of assets) {
+          expect(await mock.isRouteExist(asset, _unknown)).equal(false);
+          expect(await mock.isRouteExist(_unknown, asset)).equal(false);
+        }
+    });
+
   });
 
   describe("Set up functions", () => {
@@ -132,8 +200,8 @@ describe("TetuLiquidatorMock", () => {
       expect(await mock.prices(_matic)).equal($matic);
       expect(await mock.prices(_weth)).equal($weth);
 
-      const assets2 = [_usdc, _usdt, _dai, _matic, _weth];
-      const prices2 = [$usdc.mul(2), $usdt.mul(2), $dai.mul(2), $matic.mul(2), $weth.mul(2)];
+      const assets2 = [_usdc, _usdt, _dai, _matic];
+      const prices2 = [$usdc.mul(2), $usdt.mul(2), $dai.mul(2), $matic.mul(2)];
 
       await mock.changePrices(assets2, prices2);
 
@@ -141,8 +209,25 @@ describe("TetuLiquidatorMock", () => {
       expect(await mock.prices(_usdt)).equal($usdt.mul(2));
       expect(await mock.prices(_dai)).equal($dai.mul(2));
       expect(await mock.prices(_matic)).equal($matic.mul(2));
-      expect(await mock.prices(_weth)).equal($weth.mul(2));
+
+      // leaved unchanged
+      expect(await mock.prices(_weth)).equal($weth);
     });
+
+    it("Should revert on changePrices", async () => {
+      await expect(mock.changePrices(assets, prices.slice(0,-1))).revertedWith('wrong lengths');
+    });
+
+  });
+
+  describe("Coverage", () => {
+    it("Not implemented", async () => {
+      const errorText = 'Not implemented';
+      await expect(mock.getPriceForRoute([], 0)).revertedWith(errorText);
+      await expect(mock.buildRoute(_usdc, _usdt)).revertedWith(errorText);
+      await expect(mock.liquidateWithRoute([], 0, 0)).revertedWith(errorText);
+    });
+
   });
 //endregion Unit tests
 

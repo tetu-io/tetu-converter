@@ -38,7 +38,6 @@ contract TetuLiquidatorMock is ITetuLiquidator {
     require(assets.length == pricesInUSD.length, "wrong lengths");
     for (uint i = 0; i < assets.length; ++i) {
       prices[assets[i]] = pricesInUSD[i];
-      console.log("Price for %s is %d USD", assets[i], pricesInUSD[i]);
     }
   }
 
@@ -48,16 +47,13 @@ contract TetuLiquidatorMock is ITetuLiquidator {
 
   function getPrice(address tokenIn, address tokenOut, uint amount)
   public override view returns (uint) {
-    console.log('amount  ', amount);
     uint priceIn = prices[tokenIn];
-    console.log('priceIn ', priceIn);
     require(priceIn != 0, 'L: Not found pool for tokenIn');
     uint8 decimalsIn = IMockERC20(tokenIn).decimals();
 
     uint priceOut = prices[tokenOut];
     require(priceOut != 0, 'L: Not found pool for tokenOut');
     uint8 decimalsOut = IMockERC20(tokenOut).decimals();
-    console.log('priceOut', priceOut);
 
     return (priceIn * amount * 10**decimalsOut) / (priceOut * 10**decimalsIn);
   }
@@ -82,9 +78,9 @@ contract TetuLiquidatorMock is ITetuLiquidator {
     revert('Not implemented');
   }
 
-  function isRouteExist(address /*tokenIn*/, address /*tokenOut*/)
-  external override pure returns (bool) {
-    revert('Not implemented');
+  function isRouteExist(address tokenIn, address tokenOut)
+  external override view returns (bool) {
+    return prices[tokenIn] != 0 && prices[tokenOut] != 0;
   }
 
   function buildRoute(
