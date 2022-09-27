@@ -16,7 +16,7 @@ import {
   Borrower,
   BorrowManager,
   BorrowManager__factory,
-  TetuConverter__factory
+  TetuConverter__factory, PoolAdapterStub, PoolAdapterStub__factory
 } from "../../typechain";
 import {TimeUtils} from "../../scripts/utils/TimeUtils";
 import {
@@ -88,6 +88,13 @@ describe("DebtsMonitor", () => {
     collateralFactor: OldNewValue;
     countPassedBlocks: number;
     borrowRate: number; // i.e. 1e-18
+  }
+
+  interface IPoolAdapterConfig {
+    originConverter: string;
+    user: string;
+    collateralAsset: string;
+    borrowAsset: string;
   }
 //endregion Data types
 
@@ -334,7 +341,7 @@ describe("DebtsMonitor", () => {
     for (let i = 0; i < countUsers; ++i) {
       for (const p of r.pools) {
         const assetPairs = generateAssetPairs([...p.asset2cTokens.keys()]);
-        for (const pair of await assetPairs) {
+        for (const pair of assetPairs) {
           await bmAsTc.registerPoolAdapter(p.converter, users[i], pair.smallerAddress, pair.biggerAddress);
           await bmAsTc.registerPoolAdapter(p.converter, users[i], pair.biggerAddress, pair.smallerAddress);
 
@@ -362,6 +369,7 @@ describe("DebtsMonitor", () => {
       core: r.core
     };
   }
+
   async function getRegisteredPositions(dm: DebtMonitor) : Promise<string[]> {
     const count = (await dm.getCountPositions()).toNumber();
     const items = await Promise.all(
@@ -371,6 +379,18 @@ describe("DebtsMonitor", () => {
     );
     return items.sort();
   }
+
+  async function getRegisteredPoolAdapters(dm: DebtMonitor, config: IPoolAdapterConfig) : Promise<string[]> {
+    const key = await dm.getPoolAdapterKey(config.user, config.collateralAsset, config.borrowAsset);
+    const length = (await dm.poolAdaptersLength(config.user, config.collateralAsset, config.borrowAsset)).toNumber();
+    const items = await Promise.all(
+      [...Array(length).keys()].map(
+        async index => await dm.poolAdapters(key, index)
+      )
+    );
+    return items.sort();
+  }
+
   function removeItem(items: string[], itemToRemove: string): string[] {
     return items.filter(
       function (item) {
@@ -378,6 +398,8 @@ describe("DebtsMonitor", () => {
       }
     )
   }
+
+
 //endregion Utils for onClosePosition
 
 //region Unit tests
@@ -716,22 +738,59 @@ describe("DebtsMonitor", () => {
             const before = await getRegisteredPositions(r.core.dm);
 
             // close single position
-            for (const poolAdapter of r.poolAdapters) {
-              if (poolAdapter == poolAdapterToRemove) {
-                const dmAsPA = DebtMonitor__factory.connect(
-                  r.core.dm.address,
-                  await DeployerUtils.startImpersonate(poolAdapter)
-                );
-                await dmAsPA.onClosePosition();
-                break;
-              }
-            }
+            const dmAsPA = DebtMonitor__factory.connect(
+              r.core.dm.address,
+              await DeployerUtils.startImpersonate(poolAdapterToRemove)
+            );
+            await dmAsPA.onClosePosition();
 
             // get new state
             const after = await getRegisteredPositions(r.core.dm);
             const beforeMinusPoolAdapter = removeItem(before, poolAdapterToRemove);
-            const ret = after.join();
-            const expected = beforeMinusPoolAdapter.join();
+            const ret = [
+              after.join(),
+              after.length
+            ].join();
+            const expected = [
+              beforeMinusPoolAdapter.join(),
+              before.length - 1
+            ].join();
+
+            await TimeUtils.rollback(snapshot);
+
+            expect(ret).equal(expected);
+          }
+        });
+        it("should set debtMonitor.poolAdapters to expected state", async () => {
+          const r = await preparePoolAdapters([1, 2]);
+          let snapshot: string;
+          for (const poolAdapterToRemove of r.poolAdapters) {
+            snapshot = await TimeUtils.snapshot();
+
+            const poolAdapter = IPoolAdapter__factory.connect(poolAdapterToRemove, deployer);
+            const config = await poolAdapter.getConfig();
+
+            // get current state
+            const before = await getRegisteredPoolAdapters(r.core.dm, config);
+
+            // close single position
+            const dmAsPA = DebtMonitor__factory.connect(
+              r.core.dm.address,
+              await DeployerUtils.startImpersonate(poolAdapterToRemove)
+            );
+            await dmAsPA.onClosePosition();
+
+            // get new state
+            const after = await getRegisteredPoolAdapters(r.core.dm, config);
+            const beforeMinusPoolAdapter = removeItem(before, poolAdapterToRemove);
+            const ret = [
+              after.join(),
+              after.length
+            ].join();
+            const expected = [
+              beforeMinusPoolAdapter.join(),
+              before.length - 1
+            ].join();
 
             await TimeUtils.rollback(snapshot);
 
@@ -792,8 +851,43 @@ describe("DebtsMonitor", () => {
       });
 
       describe("Attempt to close not empty position", () => {
-        it("should set debtMonitor to expected state", async () => {
-          expect.fail("TODO");
+        async function prepareTest(collateralAmount: number, amountToPay: number): Promise<DebtMonitor> {
+          const r = await preparePoolAdapters([1], 1, 2);
+          const poolAdapter = r.poolAdapters[0];
+          const stub: PoolAdapterStub = await PoolAdapterStub__factory.connect(poolAdapter, deployer);
+          await stub.setManualStatus(
+            collateralAmount,
+            amountToPay,
+            0,
+            false
+          );
+
+          return DebtMonitor__factory.connect(
+            r.core.dm.address,
+            await DeployerUtils.startImpersonate(poolAdapter)
+          );
+        }
+        describe("collateralAmount is not zero", () => {
+          it("should set debtMonitor to expected state", async () => {
+            const dmAsPa = await prepareTest(
+              1, // (!)
+              0
+            );
+            await expect(
+              dmAsPa.onClosePosition()
+            ).revertedWith("TC-10"); // ATTEMPT_TO_CLOSE_NOT_EMPTY_BORROW_POSITION
+          });
+        });
+        describe("amountToPay is not zero", () => {
+          it("should set debtMonitor to expected state", async () => {
+            const dmAsPa = await prepareTest(
+              0,
+              1 // (!)
+            );
+            await expect(
+              dmAsPa.onClosePosition()
+            ).revertedWith("TC-10"); // ATTEMPT_TO_CLOSE_NOT_EMPTY_BORROW_POSITION
+          });
         });
       });
     });
@@ -801,8 +895,26 @@ describe("DebtsMonitor", () => {
 
   describe("getPositions", () => {
     describe("Good paths", () => {
-      it("should TODO", async () => {
-        expect.fail("TODO");
+      it("should return pool adapters with expected params", async () => {
+        const countUsers = 2;
+        const countAssets = 4;
+        const countConvertersPerPlatformAdapters = [1, 2];
+        const r = await preparePoolAdapters(countConvertersPerPlatformAdapters, countUsers, countAssets);
+
+        const ret: number[] = [];
+        for (const poolAdapterAddress of r.poolAdapters) {
+          const poolAdapter = IPoolAdapter__factory.connect(poolAdapterAddress, deployer);
+          const config = await poolAdapter.getConfig();
+          const positions = await r.core.dm.getPositions(config.user, config.collateralAsset, config.borrowAsset);
+          ret.push(positions.length);
+        }
+
+        const sret = ret.join();
+        const sexpected = r.poolAdapters.map(
+          x => (countConvertersPerPlatformAdapters[0] + countConvertersPerPlatformAdapters[1])
+        ).join();
+
+        expect(sret).equal(sexpected);
       });
     });
     describe("Bad paths", () => {
@@ -1060,56 +1172,29 @@ describe("DebtsMonitor", () => {
   });
 
   describe("getPoolAdapterKey", () => {
-    describe("Good paths", () => {
-      describe("All pool adapters are in good state", () => {
-        it("should return no pool adapters ", async () => {
-          expect.fail("TODO");
-        });
-      });
-      describe("Single unhealthy PA", () => {
-        describe("Single unhealthy borrowed token", () => {
-          it("should TODO", async () => {
-            expect.fail("TODO");
-          });
-        });
-        describe("Multiple unhealthy borrowed tokens", () => {
-          describe("Multiple calls of findFirst", () => {
-            it("should return all unhealthy pool adapters", async () => {
-              expect.fail("TODO");
-            });
-          });
-        });
-      });
-
-      describe("First pool adapter is unhealthy", () => {
-        it("should TODO", async () => {
-          expect.fail("TODO");
-        });
-      });
-      describe("Last pool adapter is unhealthy", () => {
-        it("should TODO", async () => {
-          expect.fail("TODO");
-        });
-      });
-
-    });
-    describe("Bad paths", () => {
-      it("should TODO", async () => {
-        expect.fail("TODO");
-      });
+    it("should return no pool adapters ", async () => {
+        const r = await preparePoolAdapters([1], 1, 2);
+        const ret = (await r.core.dm.getPoolAdapterKey(
+          ethers.Wallet.createRandom().address,
+          ethers.Wallet.createRandom().address,
+          ethers.Wallet.createRandom().address
+        )).eq(0);
+        expect(ret).false;
     });
   });
 
   describe("getCountPositions", () => {
-    describe("Good paths", () => {
-      it("should TODO", async () => {
-        expect.fail("TODO");
-      });
-    });
-    describe("Bad paths", () => {
-      it("should TODO", async () => {
-        expect.fail("TODO");
-      });
+    it("should return expected value", async () => {
+      const countUsers = 2;
+      const countAssets = 2;
+      const countConvertersPerPlatformAdapters = [1, 2];
+      const r = await preparePoolAdapters(countConvertersPerPlatformAdapters, countUsers, countAssets);
+
+      const ret = (await r.core.dm.getCountPositions()).toNumber();
+      const expected = countUsers * countAssets
+        * (countConvertersPerPlatformAdapters[0] + countConvertersPerPlatformAdapters[1]);
+
+      expect(ret).equal(expected);
     });
   });
 //endregion Unit tests

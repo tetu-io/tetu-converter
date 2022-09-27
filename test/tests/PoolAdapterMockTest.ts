@@ -2,6 +2,7 @@ import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import {ethers} from "hardhat";
 import {expect} from "chai";
 import {
+  BorrowManager__factory,
   CTokenMock__factory,
   IPoolAdapter,
   IPoolAdapter__factory, MockERC20__factory,
@@ -89,7 +90,11 @@ describe("PoolAdapterMock", () => {
           const user = ethers.Wallet.createRandom().address;
           const collateral = sourceToken.address;
 
-          await core.bm.registerPoolAdapter(pools[0].converter, user, collateral, targetToken.address);
+          const bmAsTc = BorrowManager__factory.connect(
+            core.bm.address,
+            await DeployerUtils.startImpersonate(core.tc.address)
+          );
+          await bmAsTc.registerPoolAdapter(pools[0].converter, user, collateral, targetToken.address);
 
           // pool adapter is a copy of templatePoolAdapter, created using minimal-proxy pattern
           // this is a mock, we need to configure it

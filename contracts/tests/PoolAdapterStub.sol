@@ -7,6 +7,15 @@ import "hardhat/console.sol";
 
 /// @notice Simple implementation of pool adapter, all params are set through constructor
 contract PoolAdapterStub is IPoolAdapter {
+
+  /// @notice Allows to set getStatus result explicitly
+  struct ManualStatus {
+    uint collateralAmount;
+    uint amountToPay;
+    uint healthFactor18;
+    bool opened;
+  }
+
   address public controller;
   address private _pool;
   address private _user;
@@ -22,6 +31,10 @@ contract PoolAdapterStub is IPoolAdapter {
 
   address public priceOracle;
   address public originConverter;
+
+  /// @notice Allows to set getStatus result explicitly
+  ManualStatus private _manualStatus;
+
 
   /// @notice Real implementation of IPoolAdapter cannot use constructors  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
   ///         because pool-adapters are created using minimanl-proxy pattern
@@ -54,6 +67,15 @@ contract PoolAdapterStub is IPoolAdapter {
     _borrowRatePerBlock = borrowRatePerBlock_;
     priceOracle = priceOracle_;
     originConverter = originConverter_;
+  }
+
+  function setManualStatus(uint collateralAmount, uint amountToPay, uint healthFactor18, bool opened) external {
+    _manualStatus = ManualStatus({
+      collateralAmount: collateralAmount,
+      amountToPay: amountToPay,
+      healthFactor18: healthFactor18,
+      opened: opened
+    });
   }
 
   function syncBalance(bool beforeBorrow) external override {
@@ -103,10 +125,12 @@ contract PoolAdapterStub is IPoolAdapter {
     uint healthFactor18,
     bool opened
   ) {
-    if (_syncedHideWarning) {
-      // hide warning for pure
-    }
-    return (collateralAmount, amountToPay, healthFactor18, false);
+    return (
+      _manualStatus.collateralAmount,
+      _manualStatus.amountToPay,
+      _manualStatus.healthFactor18,
+      _manualStatus.opened
+    );
   }
 
   /// @notice Compute current cost of the money

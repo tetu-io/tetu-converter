@@ -63,7 +63,7 @@ contract LendingPlatformMock is IPlatformAdapter {
     }
   }
 
-  function setSupplyRates(address[] memory asset, uint[] memory supplyRateBt_) external {
+  function setSupplyRates(address[] memory assets_, uint[] memory supplyRateBt_) external {
     for (uint i = 0; i < assets_.length; ++i) {
       supplyRatesBt18[assets_[i]] = supplyRateBt_[i];
     }
