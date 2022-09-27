@@ -10,7 +10,7 @@ import {
   PoolAdapterMock__factory, PriceOracleMock, PriceOracleMock__factory, Borrower, BorrowManager
 } from "../../typechain";
 import {TimeUtils} from "../../scripts/utils/TimeUtils";
-import {BorrowManagerHelper, IBorrowInputParams} from "../baseUT/helpers/BorrowManagerHelper";
+import {BorrowManagerHelper, IBorrowInputParams, PoolInstanceInfo} from "../baseUT/helpers/BorrowManagerHelper";
 import {DeployerUtils} from "../../scripts/utils/DeployerUtils";
 import {BigNumber} from "ethers";
 import {getBigNumberFrom} from "../../scripts/utils/NumberUtils";
@@ -81,21 +81,19 @@ describe("DebtsMonitor", () => {
     user: string,
   ) : Promise<{
     core: CoreContracts,
-    pool: string,
-    cToken: string,
     userContract: Borrower,
     sourceToken: MockERC20,
     targetToken: MockERC20,
-    poolAdapter: string
+    pools: PoolInstanceInfo[],
+    poolAdapters: string[]
   }>{
     const healthFactor2 = 200;
     const periodInBlocks = 117;
-    const converter = await MocksHelper.createPoolAdapterMock(deployer);
 
     const {borrowManager, sourceToken, targetToken, pools, controller}
       = await BorrowManagerHelper.createBmTwoAssets(deployer
       , tt
-      , async () => converter.address
+      , async () => (await MocksHelper.createPoolAdapterMock(deployer)).address
     );
     const tc = await CoreContractsHelper.createTetuConverter(deployer, controller);
     const debtMonitor = await CoreContractsHelper.createDebtMonitor(deployer, controller);
@@ -104,77 +102,35 @@ describe("DebtsMonitor", () => {
     await controller.setTetuConverter(tc.address);
 
     const core = new CoreContracts(controller, tc, borrowManager, debtMonitor);
-
-    const pool = pools[0].pool;
-    const cToken = pools[0].underlyingTocTokens.get(sourceToken.address) || "";
     const userContract = await MocksHelper.deployBorrower(user, core.controller, healthFactor2, periodInBlocks);
 
-    // we need to set up a pool adapter
-    await core.bm.registerPoolAdapter(
-      converter.address,
-      userContract.address,
-      sourceToken.address,
-      targetToken.address
-    );
-    const poolAdapterAddress: string = await core.bm.getPoolAdapter(
-      converter.address,
-      userContract.address,
-      sourceToken.address,
-      targetToken.address
-    );
-
-    return {core,  pool, cToken, userContract, sourceToken, targetToken, poolAdapter: poolAdapterAddress};
-  }
-
-  async function preparePoolAdapter(
-    tt: IBorrowInputParams
-  ) : Promise<{
-    userTC: string,
-    controller: Controller,
-    sourceToken: MockERC20,
-    targetToken: MockERC20,
-    pool: string,
-    cTokenAddress: string,
-    poolAdapterMock: PoolAdapterMock
-  }> {
-    // create template-pool-adapter
-    const converter = await MocksHelper.createPoolAdapterMock(deployer);
-
-    // create borrow manager (BM) with single pool and DebtMonitor (DM)
-    const {borrowManager, sourceToken, targetToken, pools, controller}
-      = await BorrowManagerHelper.createBmTwoAssets(deployer
-      , tt
-      , async () => converter.address
-    );
-    const dm = await CoreContractsHelper.createDebtMonitor(deployer, controller);
-    const tc =  await CoreContractsHelper.createTetuConverter(deployer, controller);
-    await controller.setBorrowManager(borrowManager.address);
-    await controller.setDebtMonitor(dm.address);
-    await controller.setTetuConverter(tc.address);
-
-    // register pool adapter
-    const pool = pools[0].pool;
-    const cTokenAddress = pools[0].underlyingTocTokens.get(sourceToken.address) || "";
-    const userTC = ethers.Wallet.createRandom().address;
-    const collateral = sourceToken.address;
-    await borrowManager.registerPoolAdapter(converter.address,
-      userTC,
-      collateral,
-      targetToken.address
-    );
-
-    // pool adapter is a copy of templatePoolAdapter, created using minimal-proxy pattern
-    // this is a mock, we need to configure it
-    const poolAdapterAddress = await borrowManager.getPoolAdapter(converter.address,
-      userTC,
-      collateral,
-      targetToken.address
-    );
-    const poolAdapterMock = await PoolAdapterMock__factory.connect(poolAdapterAddress, deployer);
+    const poolAdapters: string[] = [];
+    for (const p of pools) {
+      // we need to set up a pool adapter
+      await core.bm.registerPoolAdapter(
+        p.converter,
+        userContract.address,
+        sourceToken.address,
+        targetToken.address
+      );
+      poolAdapters.push(
+        await core.bm.getPoolAdapter(
+          p.converter,
+          userContract.address,
+          sourceToken.address,
+          targetToken.address
+        )
+      );
+    }
 
     return {
-      userTC, controller, sourceToken, targetToken, pool, cTokenAddress, poolAdapterMock
-    }
+      core,
+      userContract,
+      sourceToken,
+      targetToken,
+      pools,
+      poolAdapters
+    };
   }
 //endregion Initialization utils
 
@@ -215,8 +171,7 @@ describe("DebtsMonitor", () => {
     targetToken: MockERC20,
     userTC: string,
     controller: Controller,
-    pool: string,
-    cTokenAddress: string,
+    pool: string
   }> {
     const user = ethers.Wallet.createRandom().address;
     const tt: IBorrowInputParams = {
@@ -233,8 +188,11 @@ describe("DebtsMonitor", () => {
 
     const amountBorrowLiquidityInPool = getBigNumberFrom(1e10, tt.targetDecimals);
 
-    const {core,  pool, cToken, userContract, sourceToken, targetToken, poolAdapter} =
-      await initializeApp(tt, user);
+    const {core, pools, userContract, sourceToken, targetToken, poolAdapters} = await initializeApp(tt, user);
+    // there is only one available pool above
+    const poolAdapter = poolAdapters[0];
+    const pool = pools[0].pool;
+
     const poolAdapterMock = await PoolAdapterMock__factory.connect(poolAdapter, deployer);
 
     const dm = DebtMonitor__factory.connect(await core.controller.debtMonitor(), deployer);
@@ -279,8 +237,7 @@ describe("DebtsMonitor", () => {
       targetToken,
       userTC: userContract.address,
       controller: core.controller,
-      pool,
-      cTokenAddress: cToken
+      pool
     };
   }
 //endregion Test impl
@@ -289,7 +246,6 @@ describe("DebtsMonitor", () => {
   async function setUpSinglePool() : Promise<{
     core: CoreContracts,
     pool: string,
-    cToken: string,
     userContract: Borrower,
     sourceToken: MockERC20,
     targetToken: MockERC20,
@@ -314,7 +270,15 @@ describe("DebtsMonitor", () => {
       ]
     };
 
-    return await initializeApp(tt, user);
+    const r = await initializeApp(tt, user);
+    return {
+      core: r.core,
+      pool: r.pools[0].pool,
+      poolAdapter: r.poolAdapters[0],
+      sourceToken: r.sourceToken,
+      targetToken: r.targetToken,
+      userContract: r.userContract,
+    }
   }
 //endregion Setup app
 
@@ -409,88 +373,153 @@ describe("DebtsMonitor", () => {
 
   describe("onOpenPosition", () => {
     describe("Good paths", () => {
-      describe("Single borrow", () => {
+      describe("Open single position twice", () => {
         it("should set expected state", async () => {
           const user = ethers.Wallet.createRandom().address;
-          const targetDecimals = 12;
-          const sourceDecimals = 24;
-          const availableBorrowLiquidityNumber = 200_000_000;
           const tt: IBorrowInputParams = {
             collateralFactor: 0.8,
             priceSourceUSD: 0.1,
             priceTargetUSD: 4,
-            sourceDecimals: sourceDecimals,
-            targetDecimals: targetDecimals,
+            sourceDecimals: 12,
+            targetDecimals: 24,
             availablePools: [
               {   // source, target
-                borrowRateInTokens: [
-                  getBigNumberFrom(0, targetDecimals),
-                  getBigNumberFrom(1, targetDecimals - 6), //1e-6
-                ],
-                availableLiquidityInTokens: [0, availableBorrowLiquidityNumber]
+                borrowRateInTokens: [1, 1],
+                availableLiquidityInTokens: [0, 200_000_000]
               }
             ]
           };
 
-          const {core, userContract, sourceToken, targetToken, poolAdapter} =
-            await initializeApp(tt, user);
+          const {core, userContract, sourceToken, targetToken, poolAdapters} = await initializeApp(tt, user);
+          const poolAdapter = poolAdapters[0];
 
           const dmAsPa = DebtMonitor__factory.connect(core.dm.address
             , await DeployerUtils.startImpersonate(poolAdapter)
           );
 
-          const before = [
-            await dmAsPa.poolAdaptersLength(userContract.address
-              , sourceToken.address
-              , targetToken.address
-            ),
-            await dmAsPa.getCountPositions(),
-            !(await dmAsPa.positionLastAccess(poolAdapter)).eq(0)
-          ];
+          const poolAdapterInstance = await IPoolAdapter__factory.connect(poolAdapter, deployer);
+          const config = await poolAdapterInstance.getConfig();
 
+          const funcGetState = async function () : Promise<string> {
+            const poolAdapterKey = await dmAsPa.getPoolAdapterKey(
+              userContract.address,
+              sourceToken.address,
+              targetToken.address
+            );
+            const poolAdaptersLength = await dmAsPa.poolAdaptersLength(
+              userContract.address,
+              sourceToken.address,
+              targetToken.address
+            );
+            const countPositions = await dmAsPa.getCountPositions();
+            return [
+              poolAdaptersLength,
+              poolAdaptersLength.eq(0) ? "" : await dmAsPa.poolAdapters(poolAdapterKey, 0),
+              !(await dmAsPa.positionLastAccess(poolAdapter)).eq(0),
+              countPositions,
+              countPositions.eq(0) ? "" : await dmAsPa.positions(0),
+              await dmAsPa.isConverterInUse(config.originConverter),
+            ].join("\n");
+          }
+
+          const before = await funcGetState();
           await dmAsPa.onOpenPosition();
+          const after1 = await funcGetState();
+          await dmAsPa.onOpenPosition();
+          const after2 = await funcGetState();
 
-          const after = [
-            await dmAsPa.poolAdaptersLength(userContract.address
-              , sourceToken.address
-              , targetToken.address
-            ),
-            await dmAsPa.getCountPositions(),
-            !(await dmAsPa.positionLastAccess(poolAdapter)).eq(0)
-          ];
-
-          const ret = [...before, ...after].join("\n");
+          const ret = [
+            before,
+            after1,
+            after2
+          ].join("\n");
 
           const expected = [
             //before
-            0, 0, false,
-            //after
-            1, 1, true
+            0, "", false, 0, "", false,
+            //after1
+            1, poolAdapter, true, 1, poolAdapter, true,
+            //after2
+            1, poolAdapter, true, 1, poolAdapter, true,
           ].join("\n");
 
           expect(ret).equal(expected);
         });
       });
-      describe("Two borrows, same borrowed token", () => {
-        it("should combine two borrows to single amount", async () => {
-          expect.fail("TODO");
-        });
-      });
-      describe("Two borrows, different borrowed tokens", () => {
-        it("should set DM to expected state", async () => {
-          expect.fail("TODO");
-        });
-      });
-      describe("Two pool adapters, each makes two borrows with different borrowed tokens", () => {
-        it("should set DM to expected state", async () => {
-          expect.fail("TODO");
-        });
-      });
-    });
-    describe("Bad paths", () => {
-      describe("Wrong pool address", () => {
-        it("should revert with template contract not found", async () => {
-          expect.fail("TODO");
+      describe("Open two same positions in different two pools", () => {
+        it("should set expected state", async () => {
+          const user = ethers.Wallet.createRandom().address;
+           const tt: IBorrowInputParams = {
+            collateralFactor: 0.8,
+            priceSourceUSD: 0.1,
+            priceTargetUSD: 4,
+            sourceDecimals: 12,
+            targetDecimals: 24,
+            availablePools: [
+              {   // source, target
+                borrowRateInTokens: [1, 1],
+                availableLiquidityInTokens: [0, 200_000_000]
+              },
+              {   // source, target
+                borrowRateInTokens: [1, 1],
+                availableLiquidityInTokens: [0, 200_000_000]
+              },
+            ]
+          };
+
+          const {core, poolAdapters} = await initializeApp(tt, user);
+          // there are two available pools above
+          const poolAdapter1 = poolAdapters[0];
+          const poolAdapter2 = poolAdapters[1];
+
+          const dmAsPa1 = DebtMonitor__factory.connect(core.dm.address
+            , await DeployerUtils.startImpersonate(poolAdapter1)
+          );
+          const dmAsPa2 = DebtMonitor__factory.connect(core.dm.address
+            , await DeployerUtils.startImpersonate(poolAdapter2)
+          );
+
+          await dmAsPa1.onOpenPosition();
+          await dmAsPa2.onOpenPosition();
+
+          const poolAdapterInstance1 = await IPoolAdapter__factory.connect(poolAdapter1, deployer);
+          const poolAdapterInstance2 = await IPoolAdapter__factory.connect(poolAdapter2, deployer);
+          const config1 = await poolAdapterInstance1.getConfig();
+          const config2 = await poolAdapterInstance2.getConfig();
+          const poolAdapterKey = await dmAsPa1.getPoolAdapterKey(
+            config1.user,
+            config1.collateralAsset,
+            config1.borrowAsset
+          );
+
+          const ret = [
+            await dmAsPa1.poolAdaptersLength(
+              config1.user,
+              config1.collateralAsset,
+              config1.borrowAsset
+            ),
+            await dmAsPa1.poolAdapters(poolAdapterKey, 0),
+            await dmAsPa1.poolAdapters(poolAdapterKey, 1),
+
+            !(await dmAsPa1.positionLastAccess(poolAdapter1)).eq(0),
+            !(await dmAsPa1.positionLastAccess(poolAdapter2)).eq(0),
+
+            await dmAsPa1.getCountPositions(),
+            await dmAsPa1.positions(0),
+            await dmAsPa1.positions(1),
+
+            await dmAsPa1.isConverterInUse(config1.originConverter),
+            await dmAsPa1.isConverterInUse(config2.originConverter),
+          ].join("\n");
+
+          const expected = [
+            2, poolAdapter1, poolAdapter2,
+            true, true,
+            2, poolAdapter1, poolAdapter2,
+            true, true,
+          ].join("\n");
+
+          expect(ret).equal(expected);
         });
       });
     });
@@ -521,57 +550,63 @@ describe("DebtsMonitor", () => {
             ]
           };
 
-          const {core, userContract, sourceToken, targetToken, poolAdapter} =
-            await initializeApp(tt, user);
+          const {core, userContract, sourceToken, targetToken, poolAdapters} = await initializeApp(tt, user);
+          const poolAdapter = poolAdapters[0];
 
           const dmAsPa = DebtMonitor__factory.connect(core.dm.address
             , await DeployerUtils.startImpersonate(poolAdapter)
           );
 
-          const before = [
-            await dmAsPa.poolAdaptersLength(userContract.address
-              , sourceToken.address
-              , targetToken.address
-            ),
-            await dmAsPa.getCountPositions(),
-            !(await dmAsPa.positionLastAccess(poolAdapter)).eq(0)
-          ];
+          const poolAdapterInstance = await IPoolAdapter__factory.connect(poolAdapter, deployer);
+          const config = await poolAdapterInstance.getConfig();
 
+          const funcGetState = async function() : Promise<string> {
+            const poolAdapterKey = await dmAsPa.getPoolAdapterKey(
+              userContract.address,
+              sourceToken.address,
+              targetToken.address
+            );
+            const poolAdaptersLength = await dmAsPa.poolAdaptersLength(
+              userContract.address,
+              sourceToken.address,
+              targetToken.address
+            );
+            const countPositions = await dmAsPa.getCountPositions();
+            return [
+              poolAdaptersLength,
+              poolAdaptersLength.eq(0) ? "" : await dmAsPa.poolAdapters(poolAdapterKey, 0),
+              !(await dmAsPa.positionLastAccess(poolAdapter)).eq(0),
+              countPositions,
+              countPositions.eq(0) ? "" : await dmAsPa.positions(0),
+              await dmAsPa.isConverterInUse(config.originConverter),
+            ].join("\n");
+          }
+
+          const before = await funcGetState();
           await dmAsPa.onOpenPosition();
-          const afterBorrow = [
-            await dmAsPa.poolAdaptersLength(userContract.address
-              , sourceToken.address
-              , targetToken.address
-            ),
-            await dmAsPa.getCountPositions(),
-            !(await dmAsPa.positionLastAccess(poolAdapter)).eq(0)
-          ];
-
+          const afterBorrow = await funcGetState();
           await dmAsPa.onClosePosition();
+          const afterRepay = await funcGetState();
 
-          const afterRepay = [
-            await dmAsPa.poolAdaptersLength(userContract.address
-              , sourceToken.address
-              , targetToken.address
-            ),
-            await dmAsPa.getCountPositions(),
-            !(await dmAsPa.positionLastAccess(poolAdapter)).eq(0)
-          ];
-
-          const ret = [...before, ...afterBorrow, ...afterRepay].join("\n");
+          const ret = [
+            before,
+            afterBorrow,
+            afterRepay
+          ].join("\n");
 
           const expected = [
             //before
-            0, 0, false,
-            //after
-            1, 1, true,
-            //before
-            0, 0, false,
+            0, "", false, 0, "", false,
+            //after open
+            1, poolAdapter, true, 1, poolAdapter, true,
+            //after close
+            0, "", false, 0, "", false,
           ].join("\n");
 
           expect(ret).equal(expected);
         });
       });
+
       describe("Two borrows, same borrowed token", () => {
         describe("Repay single borrow only", () => {
           it("should combine two borrows to single amount", async () => {
@@ -591,8 +626,8 @@ describe("DebtsMonitor", () => {
           });
         });
       });
-
     });
+
     describe("Bad paths", () => {
       it("should TODO", async () => {
         expect.fail("TODO");
