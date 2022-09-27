@@ -7,6 +7,7 @@ import {
     Controller,
     MockERC20,
 } from "../../../typechain";
+import {CoreContracts} from "../types/CoreContracts";
 
 export interface IPoolInfo {
     /** The length of array should be equal to the count of underlyings */
@@ -38,11 +39,10 @@ export class BorrowManagerHelper {
         tt: IBorrowInputParams,
         converterFabric?: () => Promise<string>
     ) : Promise<{
-        borrowManager: BorrowManager,
+        core: CoreContracts,
         sourceToken: MockERC20,
         targetToken: MockERC20,
         pools: PoolInstanceInfo[],
-        controller: Controller
     }>{
         const sourceDecimals = tt.sourceDecimals || 18;
         const targetDecimals = tt.targetDecimals || 6;
@@ -56,11 +56,13 @@ export class BorrowManagerHelper {
 
         const controller = await CoreContractsHelper.createController(signer);
         const borrowManager = await CoreContractsHelper.createBorrowManager(signer, controller);
-        const debtMonitor = await MocksHelper.createDebtsMonitorStub(signer, false);
+        const debtMonitor = await CoreContractsHelper.createDebtMonitor(signer, controller);
         const tetuConverter = await CoreContractsHelper.createTetuConverter(signer, controller);
         await controller.setBorrowManager(borrowManager.address);
         await controller.setDebtMonitor(debtMonitor.address);
         await controller.setTetuConverter(tetuConverter.address);
+
+        const core = new CoreContracts(controller, tetuConverter, borrowManager, debtMonitor);
 
         const pools: PoolInstanceInfo[] = [];
 
@@ -101,7 +103,7 @@ export class BorrowManagerHelper {
         const sourceToken = assets[0];
         const targetToken = assets[1];
 
-        return {borrowManager: borrowManager, sourceToken, targetToken, pools, controller};
+        return {core, sourceToken, targetToken, pools};
     }
 
     static getBmInputParamsSinglePool(

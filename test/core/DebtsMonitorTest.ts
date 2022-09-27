@@ -90,18 +90,10 @@ describe("DebtsMonitor", () => {
     const healthFactor2 = 200;
     const periodInBlocks = 117;
 
-    const {borrowManager, sourceToken, targetToken, pools, controller}
-      = await BorrowManagerHelper.createBmTwoAssets(deployer
+    const {core, sourceToken, targetToken, pools} = await BorrowManagerHelper.createBmTwoAssets(deployer
       , tt
       , async () => (await MocksHelper.createPoolAdapterMock(deployer)).address
     );
-    const tc = await CoreContractsHelper.createTetuConverter(deployer, controller);
-    const debtMonitor = await CoreContractsHelper.createDebtMonitor(deployer, controller);
-    await controller.setBorrowManager(borrowManager.address);
-    await controller.setDebtMonitor(debtMonitor.address);
-    await controller.setTetuConverter(tc.address);
-
-    const core = new CoreContracts(controller, tc, borrowManager, debtMonitor);
     const userContract = await MocksHelper.deployBorrower(user, core.controller, healthFactor2, periodInBlocks);
 
     const poolAdapters: string[] = [];

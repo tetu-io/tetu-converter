@@ -79,25 +79,21 @@ describe("PoolAdapterMock", () => {
           const amountBorrowedUserInitial = getBigNumberFrom(1000, tt.targetDecimals);
 
           // create borrow manager (BM) with single pool and DebtMonitor (DM)
-          const {borrowManager, sourceToken, targetToken, pools, controller}
-            = await BorrowManagerHelper.createBmTwoAssets(deployer
+          const {core, sourceToken, targetToken, pools} = await BorrowManagerHelper.createBmTwoAssets(deployer
             , tt
             , async () => converter.address
           );
-          const dm = await CoreContractsHelper.createDebtMonitor(deployer, controller);
-          await controller.setBorrowManager(borrowManager.address);
-          await controller.setDebtMonitor(dm.address);
 
           // register pool adapter
           const pool = pools[0].pool;
           const user = ethers.Wallet.createRandom().address;
           const collateral = sourceToken.address;
 
-          await borrowManager.registerPoolAdapter(pools[0].converter, user, collateral, targetToken.address);
+          await core.bm.registerPoolAdapter(pools[0].converter, user, collateral, targetToken.address);
 
           // pool adapter is a copy of templatePoolAdapter, created using minimal-proxy pattern
           // this is a mock, we need to configure it
-          const poolAdapterAddress = await borrowManager.getPoolAdapter(pools[0].converter, user, collateral
+          const poolAdapterAddress = await core.bm.getPoolAdapter(pools[0].converter, user, collateral
             , targetToken.address);
           const cToken = CTokenMock__factory.connect(
             pools[0].underlyingTocTokens.get(sourceToken.address) || ""

@@ -22,9 +22,6 @@ import {CoreContractsHelper} from "../baseUT/helpers/CoreContractsHelper";
 import {generateAssetPairs, getAssetPair, IAssetPair} from "../baseUT/utils/AssetPairUtils";
 import {Misc} from "../../scripts/utils/Misc";
 import {DeployerUtils} from "../../scripts/utils/DeployerUtils";
-import exp from "constants";
-import {sign} from "crypto";
-import {tetu} from "../../typechain/contracts/integrations";
 
 describe("BorrowManager", () => {
 //region Global vars for all tests
@@ -217,7 +214,12 @@ describe("BorrowManager", () => {
     converters: string[],
     assets: string[]
   }> {
-    const converters: string[] = [...Array(countConverters).keys()].map(x => ethers.Wallet.createRandom().address);
+
+    const converters: string[] = await Promise.all(
+        [...Array(countConverters).keys()].map(
+          async x => (await MocksHelper.createPoolAdapterMock(signer)).address
+        )
+    );
     const assets = [...Array(countAssets).keys()].map(x => ethers.Wallet.createRandom().address);
 
     // register platform adapters
@@ -256,11 +258,10 @@ describe("BorrowManager", () => {
     outGas?: BigNumber
   }> {
     // There are TWO underlyings: source, target
-    const {borrowManager, sourceToken, targetToken, pools}
-      = await BorrowManagerHelper.createBmTwoAssets(signer, tt);
+    const {core, sourceToken, targetToken, pools} = await BorrowManagerHelper.createBmTwoAssets(signer, tt);
 
     console.log("Source amount:", getBigNumberFrom(sourceAmount, await sourceToken.decimals()).toString());
-    const ret = await borrowManager.findConverter({
+    const ret = await core.bm.findConverter({
       sourceToken: sourceToken.address,
       sourceAmount: getBigNumberFrom(sourceAmount, await sourceToken.decimals()),
       targetToken: targetToken.address,
@@ -268,7 +269,7 @@ describe("BorrowManager", () => {
       periodInBlocks: 1
     });
     const gas = estimateGas
-      ? await borrowManager.estimateGas.findConverter({
+      ? await core.bm.estimateGas.findConverter({
         sourceToken: sourceToken.address,
         sourceAmount: getBigNumberFrom(sourceAmount, await sourceToken.decimals()),
         targetToken: targetToken.address,
@@ -304,24 +305,22 @@ describe("BorrowManager", () => {
     };
 
     // initialize app
-    const {
-      borrowManager, sourceToken, targetToken, controller
-    } = await BorrowManagerHelper.createBmTwoAssets(signer, p);
+    const {core, sourceToken, targetToken} = await BorrowManagerHelper.createBmTwoAssets(signer, p);
 
     const bmAsGov = IBorrowManager__factory.connect(
-      borrowManager.address,
-      await DeployerUtils.startImpersonate(await controller.governance())
+      core.bm.address,
+      await DeployerUtils.startImpersonate(await core.controller.governance())
     );
 
     if (setDefaultHealthFactorForBorrowAsset) {
       await bmAsGov.setHealthFactor(targetToken.address, defaultHealthFactor2);
     }
     if (setMinHealthFactor) {
-      await controller.setMinHealthFactor2(defaultHealthFactor2);
+      await core.controller.setMinHealthFactor2(defaultHealthFactor2);
     }
 
     // try to find converter without giving a value of health factor
-    const r = await borrowManager.findConverter({
+    const r = await core.bm.findConverter({
       sourceToken: sourceToken.address,
       sourceAmount: getBigNumberFrom(sourceAmount, await sourceToken.decimals()),
       targetToken: targetToken.address,
@@ -376,11 +375,9 @@ describe("BorrowManager", () => {
     };
 
     // initialize app
-    const {
-      borrowManager, sourceToken, targetToken, pools
-    } = await BorrowManagerHelper.createBmTwoAssets(signer, p);
+    const {core, sourceToken, targetToken, pools} = await BorrowManagerHelper.createBmTwoAssets(signer, p);
 
-    await borrowManager.setRewardsFactor(rewardsFactor);
+    await core.bm.setRewardsFactor(rewardsFactor);
 
     // set up APR
     const platformAdapter = await LendingPlatformMock__factory.connect(pools[0].platformAdapter, signer);
@@ -399,7 +396,7 @@ describe("BorrowManager", () => {
       rewardsAmountBt36
     );
 
-    const r = await borrowManager.findConverter({
+    const r = await core.bm.findConverter({
       sourceToken: sourceToken.address,
       sourceAmount: getBigNumberFrom(sourceAmount, await sourceToken.decimals()),
       targetToken: targetToken.address,
@@ -484,13 +481,11 @@ describe("BorrowManager", () => {
       ]
     };
 
-    const {
-      borrowManager, sourceToken, targetToken, pools, controller
-    } = await BorrowManagerHelper.createBmTwoAssets(signer, tt);
+    const {core, sourceToken, targetToken, pools} = await BorrowManagerHelper.createBmTwoAssets(signer, tt);
 
-    const tc = ITetuConverter__factory.connect(await controller.tetuConverter(), signer);
+    const tc = ITetuConverter__factory.connect(await core.controller.tetuConverter(), signer);
     const bmAsTc = BorrowManager__factory.connect(
-      borrowManager.address,
+      core.bm.address,
       await DeployerUtils.startImpersonate(tc.address)
     );
 
@@ -521,8 +516,8 @@ describe("BorrowManager", () => {
         }
       ),
       app: {
-        borrowManager,
-        controller,
+        borrowManager: core.bm,
+        controller: core.controller,
         pools
       }
     };
@@ -1361,18 +1356,16 @@ describe("BorrowManager", () => {
         it("should create and initialize an instance of the converter contract", async () => {
           // create borrow manager (BM) with single pool
           const tt = BorrowManagerHelper.getBmInputParamsSinglePool();
-          const {
-            borrowManager, sourceToken, targetToken, pools, controller
-          } = await BorrowManagerHelper.createBmTwoAssets(signer, tt);
+          const {core, sourceToken, targetToken, pools} = await BorrowManagerHelper.createBmTwoAssets(signer, tt);
 
           // register pool adapter
           const converter = pools[0].converter;
           const user = ethers.Wallet.createRandom().address;
           const collateral = sourceToken.address;
 
-          const tc = ITetuConverter__factory.connect(await controller.tetuConverter(), signer);
+          const tc = ITetuConverter__factory.connect(await core.controller.tetuConverter(), signer);
           const bmAsTc = IBorrowManager__factory.connect(
-            borrowManager.address,
+            core.bm.address,
             await DeployerUtils.startImpersonate(tc.address)
           );
 
@@ -1441,14 +1434,11 @@ describe("BorrowManager", () => {
       describe("Wrong converter address", () => {
         it("should revert", async () => {
           const tt = BorrowManagerHelper.getBmInputParamsSinglePool();
-          const {
-            borrowManager, sourceToken, targetToken, pools, controller
-          } = await BorrowManagerHelper.createBmTwoAssets(signer, tt);
+          const {core, sourceToken, targetToken} = await BorrowManagerHelper.createBmTwoAssets(signer, tt);
 
-          const tc = ITetuConverter__factory.connect(await controller.tetuConverter(), signer);
           const bmAsTc = IBorrowManager__factory.connect(
-            borrowManager.address,
-            await DeployerUtils.startImpersonate(tc.address)
+            core.bm.address,
+            await DeployerUtils.startImpersonate(core.tc.address)
           );
 
           const converter = ethers.Wallet.createRandom().address; // (!)
@@ -1463,11 +1453,9 @@ describe("BorrowManager", () => {
       describe("Not TetuConverter", () => {
         it("should revert", async () => {
           const tt = BorrowManagerHelper.getBmInputParamsSinglePool();
-          const {
-            borrowManager, sourceToken, targetToken, pools
-          } = await BorrowManagerHelper.createBmTwoAssets(signer, tt);
+          const {core, sourceToken, targetToken, pools} = await BorrowManagerHelper.createBmTwoAssets(signer, tt);
 
-          const bmAsNotTc = IBorrowManager__factory.connect(borrowManager.address, signer);
+          const bmAsNotTc = IBorrowManager__factory.connect(core.bm.address, signer);
 
           const converter = pools[0].converter;
           const user = ethers.Wallet.createRandom().address;

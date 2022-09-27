@@ -72,13 +72,12 @@ describe("TetuConverterTest", () => {
     borrowManager: BorrowManager,
     pools: PoolInstanceInfo[]
   }> {
-    const {borrowManager, sourceToken, targetToken, pools, controller}
-      = await BorrowManagerHelper.createBmTwoAssets(deployer, tt);
+    const {core, sourceToken, targetToken, pools} = await BorrowManagerHelper.createBmTwoAssets(deployer, tt);
 
     const tetuConveter = await DeployUtils.deployContract(deployer
-      , "TetuConverter", controller.address) as TetuConverter;
+      , "TetuConverter", core.controller.address) as TetuConverter;
 
-    return {tetuConveter, sourceToken, targetToken, borrowManager: borrowManager, pools};
+    return {tetuConveter, sourceToken, targetToken, borrowManager: core.bm, pools};
   }
 
   async function prepareContracts(
@@ -96,17 +95,10 @@ describe("TetuConverterTest", () => {
     const healthFactor2 = 200;
     const periodInBlocks = 117;
 
-    const {borrowManager, sourceToken, targetToken, pools, controller}
-      = await BorrowManagerHelper.createBmTwoAssets(deployer
+    const {core, sourceToken, targetToken, pools} = await BorrowManagerHelper.createBmTwoAssets(deployer
       , tt
       , async () => (await MocksHelper.createPoolAdapterMock(deployer)).address
     );
-    const tc = await CoreContractsHelper.createTetuConverter(deployer, controller);
-    const dm = await CoreContractsHelper.createDebtMonitor(deployer, controller);
-    await controller.setTetuConverter(tc.address);
-    await controller.setDebtMonitor(dm.address);
-
-    const core = new CoreContracts(controller, tc, borrowManager, dm);
     const userContract = await MocksHelper.deployBorrower(deployer.address
       , core.controller
       , healthFactor2
