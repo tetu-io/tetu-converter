@@ -11,7 +11,7 @@ contract LendingPlatformMock is IPlatformAdapter {
   using AppUtils for uint;
 
   address private _pool;
-  address private _converter;
+  address[] private _converters;
   address private _controller;
   /// @notice asset => liquidation threshold18
   mapping(address => uint256) public liquidationThresholds18;
@@ -31,37 +31,43 @@ contract LendingPlatformMock is IPlatformAdapter {
   constructor(
     address controller_,
     address pool_,
-    address converter_,
+    address priceOracle_,
+    address[] memory converters_,
     address[] memory assets_,
-    uint[] memory liquidationThresholds18_,
-    uint[] memory borrowRates_,
-    uint[] memory liquidity_,
     address[] memory cTokens_,
-    address priceOracle_
+    uint[] memory liquidity_
   ) {
-    console.log("LendingPlatformMock converter=%s pool=%s", converter_, pool_);
-    console.log("LendingPlatformMock this=%s", address(this));
     _pool = pool_;
-    _converter = converter_;
     _controller = controller_;
     _priceOracle = priceOracle_;
+    _converters = converters_;
 
     for (uint i = 0; i < assets_.length; ++i) {
-      liquidationThresholds18[assets_[i]] = liquidationThresholds18_[i];
-      borrowRates[assets_[i]] = borrowRates_[i];
       liquidity[assets_[i]] = liquidity_[i];
       cTokens[assets_[i]] = cTokens_[i];
-
-      console.log("LendingPlatformMock underlying=%s", assets_[i]);
-      console.log("liquidationThreshold18=%d", liquidationThresholds18_[i]);
-      console.log("borrowRate=%d", borrowRates_[i]);
-      console.log("liquidity=%d", liquidity_[i]);
-      console.log("cTokens=%s", cTokens_[i]);
     }
   }
   ///////////////////////////////////////////////////////////////////////////////
   ///  initialization
   ///////////////////////////////////////////////////////////////////////////////
+
+  function setBorrowRates(address[] memory assets_, uint[] memory borrowRates_) external {
+    for (uint i = 0; i < assets_.length; ++i) {
+      borrowRates[assets_[i]] = borrowRates_[i];
+    }
+  }
+
+  function setLiquidationThresholds(address[] memory assets_, uint[] memory liquidationThresholds18_) external {
+    for (uint i = 0; i < assets_.length; ++i) {
+      borrowRates[assets_[i]] = liquidationThresholds18_[i];
+    }
+  }
+
+  function setSupplyRates(address[] memory asset, uint[] memory supplyRateBt_) external {
+    for (uint i = 0; i < assets_.length; ++i) {
+      supplyRatesBt18[assets_[i]] = supplyRateBt_[i];
+    }
+  }
 
   /// @dev for simplicity, we set supply rate in BORROW tokens
   function setSupplyRate(address asset, uint supplyRateBt_) external {
@@ -99,7 +105,7 @@ contract LendingPlatformMock is IPlatformAdapter {
     uint amountToBorrow = amountToBorrow18.toMantissa(18, uint8(decimalsBorrowAsset));
 
     return AppDataTypes.ConversionPlan({
-      converter: _converter,
+      converter: _converters[0], //TODO: make converter selectable
       liquidationThreshold18: liquidationThresholds18[collateralAsset_],
       ltv18: liquidationThresholds18[collateralAsset_],
       maxAmountToBorrow: liquidity[borrowAsset_],
@@ -113,9 +119,7 @@ contract LendingPlatformMock is IPlatformAdapter {
   }
 
   function converters() external view override returns (address[] memory) {
-    address[] memory dest = new address[](1);
-    dest[0] = _converter;
-    return dest;
+    return _converters;
   }
 
   /// @notice Returns the prices of the supported assets in BASE_CURRENCY of the market. Decimals 18

@@ -79,7 +79,7 @@ describe("PoolAdapterMock", () => {
           const amountBorrowedUserInitial = getBigNumberFrom(1000, tt.targetDecimals);
 
           // create borrow manager (BM) with single pool and DebtMonitor (DM)
-          const {core, sourceToken, targetToken, pools} = await BorrowManagerHelper.createBmTwoAssets(deployer
+          const {core, sourceToken, targetToken, pools} = await BorrowManagerHelper.initAppPoolsWithTwoAssets(deployer
             , tt
             , async () => converter.address
           );
@@ -96,7 +96,7 @@ describe("PoolAdapterMock", () => {
           const poolAdapterAddress = await core.bm.getPoolAdapter(pools[0].converter, user, collateral
             , targetToken.address);
           const cToken = CTokenMock__factory.connect(
-            pools[0].underlyingTocTokens.get(sourceToken.address) || ""
+            pools[0].asset2cTokens.get(sourceToken.address) || ""
             , deployer
           );
 

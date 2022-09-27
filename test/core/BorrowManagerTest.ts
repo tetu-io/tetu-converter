@@ -258,7 +258,7 @@ describe("BorrowManager", () => {
     outGas?: BigNumber
   }> {
     // There are TWO underlyings: source, target
-    const {core, sourceToken, targetToken, pools} = await BorrowManagerHelper.createBmTwoAssets(signer, tt);
+    const {core, sourceToken, targetToken, pools} = await BorrowManagerHelper.initAppPoolsWithTwoAssets(signer, tt);
 
     console.log("Source amount:", getBigNumberFrom(sourceAmount, await sourceToken.decimals()).toString());
     const ret = await core.bm.findConverter({
@@ -305,7 +305,7 @@ describe("BorrowManager", () => {
     };
 
     // initialize app
-    const {core, sourceToken, targetToken} = await BorrowManagerHelper.createBmTwoAssets(signer, p);
+    const {core, sourceToken, targetToken} = await BorrowManagerHelper.initAppPoolsWithTwoAssets(signer, p);
 
     const bmAsGov = IBorrowManager__factory.connect(
       core.bm.address,
@@ -375,7 +375,7 @@ describe("BorrowManager", () => {
     };
 
     // initialize app
-    const {core, sourceToken, targetToken, pools} = await BorrowManagerHelper.createBmTwoAssets(signer, p);
+    const {core, sourceToken, targetToken, pools} = await BorrowManagerHelper.initAppPoolsWithTwoAssets(signer, p);
 
     await core.bm.setRewardsFactor(rewardsFactor);
 
@@ -481,7 +481,7 @@ describe("BorrowManager", () => {
       ]
     };
 
-    const {core, sourceToken, targetToken, pools} = await BorrowManagerHelper.createBmTwoAssets(signer, tt);
+    const {core, sourceToken, targetToken, pools} = await BorrowManagerHelper.initAppPoolsWithTwoAssets(signer, tt);
 
     const tc = ITetuConverter__factory.connect(await core.controller.tetuConverter(), signer);
     const bmAsTc = BorrowManager__factory.connect(
@@ -1356,7 +1356,7 @@ describe("BorrowManager", () => {
         it("should create and initialize an instance of the converter contract", async () => {
           // create borrow manager (BM) with single pool
           const tt = BorrowManagerHelper.getBmInputParamsSinglePool();
-          const {core, sourceToken, targetToken, pools} = await BorrowManagerHelper.createBmTwoAssets(signer, tt);
+          const {core, sourceToken, targetToken, pools} = await BorrowManagerHelper.initAppPoolsWithTwoAssets(signer, tt);
 
           // register pool adapter
           const converter = pools[0].converter;
@@ -1434,7 +1434,7 @@ describe("BorrowManager", () => {
       describe("Wrong converter address", () => {
         it("should revert", async () => {
           const tt = BorrowManagerHelper.getBmInputParamsSinglePool();
-          const {core, sourceToken, targetToken} = await BorrowManagerHelper.createBmTwoAssets(signer, tt);
+          const {core, sourceToken, targetToken} = await BorrowManagerHelper.initAppPoolsWithTwoAssets(signer, tt);
 
           const bmAsTc = IBorrowManager__factory.connect(
             core.bm.address,
@@ -1453,7 +1453,7 @@ describe("BorrowManager", () => {
       describe("Not TetuConverter", () => {
         it("should revert", async () => {
           const tt = BorrowManagerHelper.getBmInputParamsSinglePool();
-          const {core, sourceToken, targetToken, pools} = await BorrowManagerHelper.createBmTwoAssets(signer, tt);
+          const {core, sourceToken, targetToken, pools} = await BorrowManagerHelper.initAppPoolsWithTwoAssets(signer, tt);
 
           const bmAsNotTc = IBorrowManager__factory.connect(core.bm.address, signer);
 

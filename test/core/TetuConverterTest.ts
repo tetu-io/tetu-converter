@@ -72,7 +72,7 @@ describe("TetuConverterTest", () => {
     borrowManager: BorrowManager,
     pools: PoolInstanceInfo[]
   }> {
-    const {core, sourceToken, targetToken, pools} = await BorrowManagerHelper.createBmTwoAssets(deployer, tt);
+    const {core, sourceToken, targetToken, pools} = await BorrowManagerHelper.initAppPoolsWithTwoAssets(deployer, tt);
 
     const tetuConveter = await DeployUtils.deployContract(deployer
       , "TetuConverter", core.controller.address) as TetuConverter;
@@ -95,7 +95,7 @@ describe("TetuConverterTest", () => {
     const healthFactor2 = 200;
     const periodInBlocks = 117;
 
-    const {core, sourceToken, targetToken, pools} = await BorrowManagerHelper.createBmTwoAssets(deployer
+    const {core, sourceToken, targetToken, pools} = await BorrowManagerHelper.initAppPoolsWithTwoAssets(deployer
       , tt
       , async () => (await MocksHelper.createPoolAdapterMock(deployer)).address
     );
@@ -109,7 +109,7 @@ describe("TetuConverterTest", () => {
     const poolAdapters: string[] = [];
     for (const pi of pools) {
       if (! cToken) {
-        cToken = pi.underlyingTocTokens.get(sourceToken.address) || "";
+        cToken = pi.asset2cTokens.get(sourceToken.address) || "";
       }
 
       // we need to set up a pool adapter

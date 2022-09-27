@@ -7,10 +7,15 @@ import {
   DebtMonitor__factory, IPoolAdapter,
   IPoolAdapter__factory,
   MockERC20, MockERC20__factory, PoolAdapterMock,
-  PoolAdapterMock__factory, PriceOracleMock, PriceOracleMock__factory, Borrower, BorrowManager
+  PoolAdapterMock__factory, PriceOracleMock, PriceOracleMock__factory, Borrower, BorrowManager, BorrowManager__factory
 } from "../../typechain";
 import {TimeUtils} from "../../scripts/utils/TimeUtils";
-import {BorrowManagerHelper, IBorrowInputParams, PoolInstanceInfo} from "../baseUT/helpers/BorrowManagerHelper";
+import {
+  BorrowManagerHelper,
+  IBorrowInputParams,
+  MockPoolParams,
+  PoolInstanceInfo
+} from "../baseUT/helpers/BorrowManagerHelper";
 import {DeployerUtils} from "../../scripts/utils/DeployerUtils";
 import {BigNumber} from "ethers";
 import {getBigNumberFrom} from "../../scripts/utils/NumberUtils";
@@ -90,16 +95,19 @@ describe("DebtsMonitor", () => {
     const healthFactor2 = 200;
     const periodInBlocks = 117;
 
-    const {core, sourceToken, targetToken, pools} = await BorrowManagerHelper.createBmTwoAssets(deployer
+    const {core, sourceToken, targetToken, pools} = await BorrowManagerHelper.initAppPoolsWithTwoAssets(deployer
       , tt
       , async () => (await MocksHelper.createPoolAdapterMock(deployer)).address
     );
     const userContract = await MocksHelper.deployBorrower(user, core.controller, healthFactor2, periodInBlocks);
+    const bmAsTc = BorrowManager__factory.connect(core.bm.address,
+      await DeployerUtils.startImpersonate(core.tc.address)
+    );
 
     const poolAdapters: string[] = [];
     for (const p of pools) {
       // we need to set up a pool adapter
-      await core.bm.registerPoolAdapter(
+      await bmAsTc.registerPoolAdapter(
         p.converter,
         userContract.address,
         sourceToken.address,
@@ -599,30 +607,51 @@ describe("DebtsMonitor", () => {
         });
       });
 
-      describe("Two borrows, same borrowed token", () => {
-        describe("Repay single borrow only", () => {
-          it("should combine two borrows to single amount", async () => {
-            expect.fail("TODO");
-          });
-        });
-      });
-      describe("Two borrows, different borrowed tokens", () => {
-        describe("Repay first borrow only", () => {
-          it("should set DM to expected state", async () => {
-            expect.fail("TODO");
-          });
-        });
-        describe("Repay second borrow only", () => {
-          it("should set DM to expected state", async () => {
-            expect.fail("TODO");
-          });
+      describe("Open N positions, close one of them", () => {
+        it("should set debtMonitor to expected state", async () => {
+          const countUsers = 5;
+          const countConvertersPerPlatformAdapter = [1, 2, 3, 4, 5];
+          const countPlatformAdapters = countConvertersPerPlatformAdapter.length;
+          const countAssets = 5;
+
+          const assets = await MocksHelper.createAssets(countAssets);
+
+          const poolParams: MockPoolParams[] = [];
+          for (let i = 0; i < countPlatformAdapters; ++i) {
+            const pp: MockPoolParams = {
+              assets: assets.map(x => x.address),
+              cTokens: (await MocksHelper.createCTokensMocks(
+                deployer,
+                assets.map(x => x.address),
+                assets.map(x => 18)
+              )).map(x => x.address),
+              pool: (await MocksHelper.createPoolStub(deployer)).address,
+              converters: (
+                await MocksHelper.createConverters(deployer, countConvertersPerPlatformAdapter[i])
+              ).map(x => x.address),
+              assetPrices: assets.map(x => getBigNumberFrom(1, 18)),
+              assetLiquidityInPool: assets.map(x => getBigNumberFrom(1000, 18)),
+            }
+            poolParams.push(pp);
+          }
+
+          await BorrowManagerHelper.initAppWithMockPools(deployer, poolParams);
+
+          expect.fail("TODO");
         });
       });
     });
 
     describe("Bad paths", () => {
-      it("should TODO", async () => {
-        expect.fail("TODO");
+      describe("Borrow position is not registered", () => {
+        it("should set debtMonitor to expected state", async () => {
+          expect.fail("TODO");
+        });
+      });
+      describe("Attempt to close not empty position", () => {
+        it("should set debtMonitor to expected state", async () => {
+          expect.fail("TODO");
+        });
       });
     });
   });

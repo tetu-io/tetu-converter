@@ -3,11 +3,14 @@ import {CoreContractsHelper} from "./CoreContractsHelper";
 import {BigNumber} from "ethers";
 import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import {
-    BorrowManager,
-    Controller,
-    MockERC20,
+    BorrowManager, BorrowManager__factory,
+    Controller, CTokenMock,
+    MockERC20, PoolAdapterStub, PriceOracleMock,
 } from "../../../typechain";
 import {CoreContracts} from "../types/CoreContracts";
+import {IAssetPair} from "../utils/AssetPairUtils";
+import {DeployUtils} from "../../../scripts/utils/DeployUtils";
+import {getBigNumberFrom} from "../../../scripts/utils/NumberUtils";
 
 export interface IPoolInfo {
     /** The length of array should be equal to the count of underlyings */
@@ -30,11 +33,33 @@ export interface PoolInstanceInfo {
     pool: string;
     platformAdapter: string;
     converter: string;
-    underlyingTocTokens: Map<string, string>;
+    asset2cTokens: Map<string, string>;
+}
+
+export interface MockPoolParams {
+    pool: string;
+    converters: string[];
+    assets: string[];
+    cTokens: string[];
+    assetPrices: BigNumber[];
+    assetLiquidityInPool: BigNumber[];
 }
 
 export class BorrowManagerHelper {
-    static async createBmTwoAssets(
+    /** Create full set of core contracts */
+    static async initializeApp(signer: SignerWithAddress) : Promise<CoreContracts> {
+        const controller = await CoreContractsHelper.createController(signer);
+        const borrowManager = await CoreContractsHelper.createBorrowManager(signer, controller);
+        const debtMonitor = await CoreContractsHelper.createDebtMonitor(signer, controller);
+        const tetuConverter = await CoreContractsHelper.createTetuConverter(signer, controller);
+        await controller.setBorrowManager(borrowManager.address);
+        await controller.setDebtMonitor(debtMonitor.address);
+        await controller.setTetuConverter(tetuConverter.address);
+
+        return new CoreContracts(controller, tetuConverter, borrowManager, debtMonitor);
+    }
+
+    static async initAppPoolsWithTwoAssets(
         signer: SignerWithAddress,
         tt: IBorrowInputParams,
         converterFabric?: () => Promise<string>
@@ -44,6 +69,8 @@ export class BorrowManagerHelper {
         targetToken: MockERC20,
         pools: PoolInstanceInfo[],
     }>{
+        const core = await this.initializeApp(signer);
+
         const sourceDecimals = tt.sourceDecimals || 18;
         const targetDecimals = tt.targetDecimals || 6;
 
@@ -54,28 +81,18 @@ export class BorrowManagerHelper {
 
         const assets = await MocksHelper.createTokens(assetDecimals);
 
-        const controller = await CoreContractsHelper.createController(signer);
-        const borrowManager = await CoreContractsHelper.createBorrowManager(signer, controller);
-        const debtMonitor = await CoreContractsHelper.createDebtMonitor(signer, controller);
-        const tetuConverter = await CoreContractsHelper.createTetuConverter(signer, controller);
-        await controller.setBorrowManager(borrowManager.address);
-        await controller.setDebtMonitor(debtMonitor.address);
-        await controller.setTetuConverter(tetuConverter.address);
-
-        const core = new CoreContracts(controller, tetuConverter, borrowManager, debtMonitor);
-
         const pools: PoolInstanceInfo[] = [];
 
         for (const poolInfo of tt.availablePools) {
             const cTokens = await MocksHelper.createCTokensMocks(
                 signer,
+                assets.map(x => x.address),
                 cTokenDecimals,
-                assets.map(x => x.address)
             );
             const pool = await MocksHelper.createPoolStub(signer);
 
-            const r = await CoreContractsHelper.addPool(signer,
-                controller,
+            const r = await MocksHelper.addMockPool(signer,
+                core.controller,
                 pool,
                 poolInfo,
                 collateralFactors,
@@ -96,7 +113,7 @@ export class BorrowManagerHelper {
                 pool: pool.address,
                 platformAdapter: r.platformAdapter.address,
                 converter: r.templatePoolAdapter,
-                underlyingTocTokens: mapCTokens
+                asset2cTokens: mapCTokens
             });
         }
 
@@ -124,5 +141,60 @@ export class BorrowManagerHelper {
                 }
             ]
         };
+    }
+
+    static async initAppWithMockPools(
+      signer: SignerWithAddress,
+      poolParams: MockPoolParams[]
+    ) : Promise<{
+        core: CoreContracts,
+        pools: PoolInstanceInfo[],
+    }>{
+        // initialize app
+        const core = await this.initializeApp(signer);
+
+        // create all platform adapters
+        // and register all possible asset-pairs for each platform adapter in the borrow manager
+        // we assume here, that all assets, converters and cToken are proper created and initialized
+        const pools: PoolInstanceInfo[] = [];
+        for (const pp of poolParams) {
+            const priceOracle = (await DeployUtils.deployContract(signer,
+              "PriceOracleMock",
+              pp.assets,
+              pp.assetPrices
+            )) as PriceOracleMock;
+
+            const platformAdapter = await MocksHelper.createPlatformAdapterMock(
+              signer,
+              pp.pool,
+              core.controller.address,
+              priceOracle.address,
+              pp.converters,
+              pp.assets,
+              pp.cTokens,
+              pp.assetLiquidityInPool,
+            );
+
+            await MocksHelper.registerAllAssetPairs(
+              platformAdapter.address,
+              core.bm,
+              pp.assets
+            );
+
+            for (const converter of pp.converters) {
+                const asset2cTokens = new Map<string, string>;
+                for (let i = 0; i < pp.assets.length; ++i) {
+                    asset2cTokens.set(pp.assets[i], pp.cTokens[i]);
+                }
+                pools.push({
+                    pool: pp.pool,
+                    converter: converter,
+                    platformAdapter: platformAdapter.address,
+                    asset2cTokens
+                })
+            }
+        }
+
+        return {core, pools};
     }
 }
