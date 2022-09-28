@@ -6,7 +6,6 @@ import "../core/AppDataTypes.sol";
 import "../interfaces/ITetuLiquidator.sol";
 import "../openzeppelin/IERC20.sol";
 import "../tests/IMockERC20.sol";
-import "hardhat/console.sol";
 
 // @notice This mock should be used with mockERC20 for liquidate
 contract TetuLiquidatorMock is ITetuLiquidator {
