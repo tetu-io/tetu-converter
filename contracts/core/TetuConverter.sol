@@ -107,9 +107,13 @@ contract TetuConverter is ITetuConverter {
     address targetToken_,
     uint targetAmount_,
     address receiver_
-  ) external override {
+//    uint priceImpactTolerance_,
+//    uint slippageTolerance_
+) external override {
     _convert(converter_, sourceToken_, sourceAmount_, targetToken_, targetAmount_, receiver_, msg.sender);
   }
+
+  // TODO dv discuss parameters (may be split borrow and swap params to 2 structures)
 
   function _convert(
     address converter_,
@@ -148,6 +152,9 @@ contract TetuConverter is ITetuConverter {
     } if (IConverter(converter_).getConversionKind() == AppDataTypes.ConversionKind.SWAP_1) {
       IERC20(sourceToken_).transfer(converter_, sourceAmount_);
       // TODO move to fn params
+      // Bogdoslav: I guess better do that after merge -
+      // because _convert function params could be changed
+      // and tests should be fixed
       uint priceImpactTolerance_ = 2000; // 2%
       uint slippageTolerance_ = 1000; // 1%
       ISwapConverter(converter_).swap(

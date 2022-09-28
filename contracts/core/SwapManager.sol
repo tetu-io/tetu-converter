@@ -14,7 +14,6 @@ import "./AppDataTypes.sol";
 /// @author bogdoslav
 contract SwapManager is ISwapManager, ISwapConverter {
   IController public immutable controller;
-  ITetuLiquidator public tetuLiquidator;
 
   ///////////////////////////////////////////////////////
   ///               Constants
@@ -26,13 +25,12 @@ contract SwapManager is ISwapManager, ISwapConverter {
   ///               Initialization
   ///////////////////////////////////////////////////////
 
-  constructor (address controller_, address tetuLiquidator_) {
+  constructor (address controller_) {
     require(
-      controller_ != address(0) && tetuLiquidator_ != address(0),
+      controller_ != address(0),
       AppErrors.ZERO_ADDRESS
     );
     controller = IController(controller_);
-    tetuLiquidator = ITetuLiquidator(tetuLiquidator_);
   }
 
 
@@ -47,7 +45,8 @@ contract SwapManager is ISwapManager, ISwapConverter {
     int aprForPeriod36
   ) {
     converter = address(this);
-    maxTargetAmount = tetuLiquidator.getPrice(p_.sourceToken, p_.targetToken, p_.sourceAmount);
+    maxTargetAmount = ITetuLiquidator(controller.tetuLiquidator())
+      .getPrice(p_.sourceToken, p_.targetToken, p_.sourceAmount);
     aprForPeriod36 = 0;
   }
 
@@ -70,6 +69,8 @@ contract SwapManager is ISwapManager, ISwapConverter {
     uint slippageTolerance_
   ) override external returns (uint outputAmount) {
     uint targetTokenBalanceBefore = IERC20(targetToken_).balanceOf(address(this));
+
+    ITetuLiquidator tetuLiquidator = ITetuLiquidator(controller.tetuLiquidator());
     IERC20(sourceToken_).transfer(address(tetuLiquidator), sourceAmount_);
 
     tetuLiquidator.liquidate(sourceToken_, targetToken_, sourceAmount_, priceImpactTolerance_);

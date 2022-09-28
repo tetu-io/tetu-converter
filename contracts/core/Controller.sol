@@ -7,7 +7,7 @@ import "../interfaces/IController.sol";
 import "./AppErrors.sol";
 
 /// @notice Keep and provide addresses of all application contracts
-contract Controller is IController {
+contract Controller is IController, Initializable {
 
   uint16 constant MIN_ALLOWED_MIN_HEALTH_FACTOR = 100;
 
@@ -51,7 +51,7 @@ contract Controller is IController {
     address borrower_,
     address tetuLiquidator_,
     address swapManager_
-  ) external {
+  ) external initializer {
     require(
       tetuConverter_ != address(0)
       && borrowManager_ != address(0)
