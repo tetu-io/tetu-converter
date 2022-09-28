@@ -15,13 +15,23 @@ import {AprDForce} from "../baseUT/apr/aprDForce";
 import {appendTestResultsToFile} from "../baseUT/apr/aprUtils";
 import {areAlmostEqual} from "../baseUT/utils/CommonUtils";
 import {expect} from "chai";
+import {Misc} from "../../scripts/utils/Misc";
+import {AprHundredFinance} from "../baseUT/apr/aprHundredFinance";
 
+/**
+ * Script to generate
+ *        compareResults.csv
+ * For each pair of assets do follow:
+ * - predict APR
+ * - make borrow and estimate real APR
+ * - save predicted and real values to result comparative file
+ */
 describe("CompareAprUsesCaseTest", () => {
 //region Constants
   const PATH_OUT = "tmp/compareResults.csv";
   const HEALTH_FACTOR2 = 400;
-  const COUNT_BLOCKS_SMALL = 2;
-  const COUNT_BLOCKS_HUGE = 10_000;
+  const COUNT_BLOCKS_SMALL = 1_00;
+  const COUNT_BLOCKS_LARGE = 2_000;
 
   const assets: IAssetInfo[] = [
     {
@@ -74,6 +84,8 @@ describe("CompareAprUsesCaseTest", () => {
     , {
       asset: MaticAddresses.EURS, title: "EURS", holders: [
         MaticAddresses.HOLDER_EURS
+        , MaticAddresses.HOLDER_EURS_2
+        , MaticAddresses.HOLDER_EURS_3
       ]
     }
     // , {
@@ -154,7 +166,7 @@ describe("CompareAprUsesCaseTest", () => {
   });
 //endregion before, after
 
-//region Utils
+//region Utils to generate amounts and validate results
   /**
    * For each asset generate small amount
    *        0.1 * 10^AssetDecimals
@@ -172,9 +184,25 @@ describe("CompareAprUsesCaseTest", () => {
 
   /**
    * For each asset generate middle amount
-   *     1000 * 10^AssetDecimals
+   *     100 * 10^AssetDecimals
    * */
   async function getMiddleAmounts(assets: IAssetInfo[]) : Promise<BigNumber[]> {
+    return getAmounts(assets, 100);
+  }
+
+  /**
+   * For each asset generate middle amount
+   *     100 * 10^AssetDecimals
+   * */
+  async function getHugeAmounts(assets: IAssetInfo[]) : Promise<BigNumber[]> {
+    return getAmounts(assets, 10_000);
+  }
+
+  /**
+   * For each asset generate middle amount
+   *     factor * 10^AssetDecimals
+   * */
+  async function getAmounts(assets: IAssetInfo[], factor: number) : Promise<BigNumber[]> {
     return Promise.all(
       assets.map(
         async x => {
@@ -182,8 +210,8 @@ describe("CompareAprUsesCaseTest", () => {
           return getBigNumberFrom(1, decimals)
             .mul(
               x.asset === MaticAddresses.WBTC
-                  ? 5
-                  : 100
+                ? factor / 20
+                : factor
             );
         }
       )
@@ -204,7 +232,7 @@ describe("CompareAprUsesCaseTest", () => {
           && x.results?.predicted.aprBt36.collateral
           && areAlmostEqual(
             x.results?.resultsBlock.aprBt36.collateral,
-            x.results?.predicted.aprBt36.collateral.div(getBigNumberFrom(1, 18)),
+            x.results?.predicted.aprBt36.collateral,
           2
           )
       ).length
@@ -219,7 +247,7 @@ describe("CompareAprUsesCaseTest", () => {
       sexpected: expected.join()
     }
   }
-//endregion Utils
+//endregion Utils to generate amounts and validate results
 
 //region Test impl
   async function makeTestAave3(countBlocks: number, tasks: IBorrowTask[]): Promise<IBorrowTestResults[]> {
@@ -312,272 +340,231 @@ describe("CompareAprUsesCaseTest", () => {
       )).results
     );
   }
+
+  async function makeTestHundredFinance(countBlocks: number, tasks: IBorrowTask[]): Promise<IBorrowTestResults[]> {
+    const controller = await CoreContractsHelper.createController(deployer);
+    const templateAdapterStub = ethers.Wallet.createRandom().address;
+
+    return await CompareAprUsesCase.makePossibleBorrowsOnPlatform(
+      deployer
+      , "HundredFinance"
+      , await AdaptersHelper.createHundredFinancePlatformAdapter(deployer
+        , controller.address
+        , MaticAddresses.HUNDRED_FINANCE_COMPTROLLER
+        , templateAdapterStub
+        , [
+          MaticAddresses.hDAI,
+          MaticAddresses.hMATIC,
+          MaticAddresses.hUSDC,
+          MaticAddresses.hETH,
+          MaticAddresses.hUSDT,
+          MaticAddresses.hWBTC,
+          MaticAddresses.hLINK,
+          MaticAddresses.hFRAX,
+        ]
+        , MaticAddresses.HUNDRED_FINANCE_PRICE_ORACLE
+      )
+      , tasks
+      , countBlocks
+      , HEALTH_FACTOR2
+      , async (
+        deployer
+        , amountToBorrow0
+        , p
+        , additionalPoints
+      ) => (await AprHundredFinance.makeBorrowTest(
+        deployer
+        , amountToBorrow0
+        , p
+        , additionalPoints
+      )).results
+    );
+  }
 //endregion Test impl
 
   describe("Make all borrow tests", () => {
-    describe("Small count of blocks (2 days)", () => {
+    describe("Small count of blocks", () => {
       const COUNT_BLOCKS = COUNT_BLOCKS_SMALL;
       describe("Exact small amount", () => {
         it("AAVE3", async () => {
-          const tasks: IBorrowTask[] = CompareAprUsesCase.generateTasks(assets
-            , true
-            , await getSmallAmounts(assets)
-          );
+          const tasks: IBorrowTask[] = CompareAprUsesCase.generateTasks(assets, await getSmallAmounts(assets));
           const ret = await makeTestAave3(COUNT_BLOCKS, tasks);
           appendTestResultsToFile(PATH_OUT, ret);
         })
         it("AAVETwo", async () => {
-          const tasks: IBorrowTask[] = CompareAprUsesCase.generateTasks(assets
-            , true
-            , await getSmallAmounts(assets)
-          );
+          const tasks: IBorrowTask[] = CompareAprUsesCase.generateTasks(assets, await getSmallAmounts(assets));
           const ret = await makeTestAaveTwo(COUNT_BLOCKS, tasks);
           appendTestResultsToFile(PATH_OUT, ret);
         })
         it("DForce", async () => {
-          const tasks: IBorrowTask[] = CompareAprUsesCase.generateTasks(assets
-            , true
-            , await getSmallAmounts(assets)
-          );
+          const tasks: IBorrowTask[] = CompareAprUsesCase.generateTasks(assets, await getSmallAmounts(assets));
           const ret = await makeTestDForce(COUNT_BLOCKS, tasks);
           appendTestResultsToFile(PATH_OUT, ret);
         })
       });
       describe("Exact middle amount", () => {
         it("AAVE3", async () => {
-          const tasks: IBorrowTask[] = CompareAprUsesCase.generateTasks(assets
-            , true
-            , await getMiddleAmounts(assets)
-          );
+          const tasks: IBorrowTask[] = CompareAprUsesCase.generateTasks(assets, await getMiddleAmounts(assets));
           const ret = await makeTestAave3(COUNT_BLOCKS, tasks);
           appendTestResultsToFile(PATH_OUT, ret);
         })
         it("AAVETwo", async () => {
-          const tasks: IBorrowTask[] = CompareAprUsesCase.generateTasks(assets
-            , true
-            , await getMiddleAmounts(assets)
-          );
+          const tasks: IBorrowTask[] = CompareAprUsesCase.generateTasks(assets, await getMiddleAmounts(assets));
           const ret = await makeTestAaveTwo(COUNT_BLOCKS, tasks);
           appendTestResultsToFile(PATH_OUT, ret);
         })
         it("DForce", async () => {
-          const tasks: IBorrowTask[] = CompareAprUsesCase.generateTasks(assets
-            , true
-            , await getMiddleAmounts(assets)
-          );
+          const tasks: IBorrowTask[] = CompareAprUsesCase.generateTasks(assets, await getMiddleAmounts(assets));
           const ret = await makeTestDForce(COUNT_BLOCKS, tasks);
           appendTestResultsToFile(PATH_OUT, ret);
         })
       });
-      describe("Half of max allowed amount", () => {
+      describe("Exact huge amount", () => {
         it("AAVE3", async () => {
-          const tasks: IBorrowTask[] = CompareAprUsesCase.generateTasks(assets
-            , false
-            , assets.map(x => getBigNumberFrom(5, 17))
-          );
+          const tasks: IBorrowTask[] = CompareAprUsesCase.generateTasks(assets, await getHugeAmounts(assets));
           const ret = await makeTestAave3(COUNT_BLOCKS, tasks);
           appendTestResultsToFile(PATH_OUT, ret);
         })
         it("AAVETwo", async () => {
-          const tasks: IBorrowTask[] = CompareAprUsesCase.generateTasks(assets
-            , false
-            , assets.map(x => getBigNumberFrom(5, 17))
-          );
+          const tasks: IBorrowTask[] = CompareAprUsesCase.generateTasks(assets, await getHugeAmounts(assets));
           const ret = await makeTestAaveTwo(COUNT_BLOCKS, tasks);
           appendTestResultsToFile(PATH_OUT, ret);
         })
         it("DForce", async () => {
-          const tasks: IBorrowTask[] = CompareAprUsesCase.generateTasks(assets
-            , false
-            , assets.map(x => getBigNumberFrom(5, 17))
-          );
+          const tasks: IBorrowTask[] = CompareAprUsesCase.generateTasks(assets, await getHugeAmounts(assets));
           const ret = await makeTestDForce(COUNT_BLOCKS, tasks);
           appendTestResultsToFile(PATH_OUT, ret);
-        })
-      });
-      describe.skip("Debug AAVE3", () => {
-        it("AAVE3 DAI:USDC", async () => {
-          const tasks: IBorrowTask[] = [
-            {
-              collateralAsset: assets.find(x => x.title == "DAI")!,
-              borrowAsset: assets.find(x => x.title == "USDC")!,
-              amountToBorrow: getBigNumberFrom(100, 6),
-              exactAmountToBorrow: true
-            }
-          ];
-          const ret = await makeTestAave3(COUNT_BLOCKS, tasks);
-          appendTestResultsToFile(PATH_OUT, ret);
-          const {sret, sexpected} = validate(ret);
-          expect(sret).eq(sexpected);
-        })
-        it("AAVE3 WBTC:DAI", async () => {
-          const tasks: IBorrowTask[] = [
-            {
-              collateralAsset: assets.find(x => x.title == "WBTC")!,
-              borrowAsset: assets.find(x => x.title == "DAI")!,
-              amountToBorrow: getBigNumberFrom(100, 18),
-              exactAmountToBorrow: true
-            }
-          ];
-          const ret = await makeTestAave3(COUNT_BLOCKS, tasks);
-          appendTestResultsToFile(PATH_OUT, ret);
-          const {sret, sexpected} = validate(ret);
-          expect(sret).eq(sexpected);
-        })
-        it("AAVE3 Dai:ChainLink", async () => {
-          const tasks: IBorrowTask[] = [
-            {
-              collateralAsset: assets.find(x => x.title == "DAI")!,
-              borrowAsset: assets.find(x => x.title == "ChainLink")!,
-              amountToBorrow: getBigNumberFrom(100, 18),
-              exactAmountToBorrow: true
-            }
-          ];
-          const ret = await makeTestAave3(COUNT_BLOCKS, tasks);
-          appendTestResultsToFile(PATH_OUT, ret);
-          const {sret, sexpected} = validate(ret);
-          expect(sret).eq(sexpected);
-        })
-        it("AAVE3 Sushi:WBTC", async () => {
-          const tasks: IBorrowTask[] = [
-            {
-              collateralAsset: assets.find(x => x.title == "SUSHI")!,
-              borrowAsset: assets.find(x => x.title == "WBTC")!,
-              amountToBorrow: getBigNumberFrom(1, 7), //0.1 WBTC
-              exactAmountToBorrow: true
-            }
-          ];
-          const ret = await makeTestAave3(COUNT_BLOCKS, tasks);
-          appendTestResultsToFile(PATH_OUT, ret);
-          const {sret, sexpected} = validate(ret);
-          expect(sret).eq(sexpected);
-        })
-        it("AAVE3 BALANCER:WETH", async () => {
-          const tasks: IBorrowTask[] = [
-            {
-              collateralAsset: assets.find(x => x.title == "BALANCER")!,
-              borrowAsset: assets.find(x => x.title == "WETH")!,
-              amountToBorrow: getBigNumberFrom(1, 18),
-              exactAmountToBorrow: true
-            }
-          ];
-          const ret = await makeTestAave3(COUNT_BLOCKS, tasks);
-          appendTestResultsToFile(PATH_OUT, ret);
-          const {sret, sexpected} = validate(ret);
-          expect(sret).eq(sexpected);
-        })
-      })
-      describe.skip("Debug DForce", () => {
-        it("AAVE3 DAI:WBTC", async () => {
-          const tasks: IBorrowTask[] = [
-            {
-              collateralAsset: assets.find(x => x.title == "DAI")!,
-              borrowAsset: assets.find(x => x.title == "WBTC")!,
-              amountToBorrow: getBigNumberFrom(1, 8),
-              exactAmountToBorrow: true
-            }
-          ];
-          const ret = await makeTestDForce(COUNT_BLOCKS_SMALL, tasks);
-          appendTestResultsToFile(PATH_OUT, ret);
-          const {sret, sexpected} = validate(ret);
-          expect(sret).eq(sexpected);
-        })
-        it("AAVE3 WMATIC:WETH", async () => {
-          const tasks: IBorrowTask[] = [
-            {
-              collateralAsset: assets.find(x => x.title == "WMATIC")!,
-              borrowAsset: assets.find(x => x.title == "WETH")!,
-              amountToBorrow: getBigNumberFrom(1, 18),
-              exactAmountToBorrow: true
-            }
-          ];
-          const ret = await makeTestDForce(COUNT_BLOCKS_SMALL, tasks);
-          appendTestResultsToFile(PATH_OUT, ret);
-          const {sret, sexpected} = validate(ret);
-          expect(sret).eq(sexpected);
         })
       });
     });
-    describe("Huge count of blocks (10 days)", () => {
-      const COUNT_BLOCKS = COUNT_BLOCKS_HUGE;
+    describe("Large count of blocks", () => {
+      const COUNT_BLOCKS = COUNT_BLOCKS_LARGE;
       describe("Exact small amount", () => {
         it("AAVE3", async () => {
-          const tasks: IBorrowTask[] = CompareAprUsesCase.generateTasks(assets
-            , true
-            , await getSmallAmounts(assets)
-          );
+          const tasks: IBorrowTask[] = CompareAprUsesCase.generateTasks(assets, await getSmallAmounts(assets));
           const ret = await makeTestAave3(COUNT_BLOCKS, tasks);
           appendTestResultsToFile(PATH_OUT, ret);
         })
         it("AAVETwo", async () => {
-          const tasks: IBorrowTask[] = CompareAprUsesCase.generateTasks(assets
-            , true
-            , await getSmallAmounts(assets)
-          );
+          const tasks: IBorrowTask[] = CompareAprUsesCase.generateTasks(assets, await getSmallAmounts(assets));
           const ret = await makeTestAaveTwo(COUNT_BLOCKS, tasks);
           appendTestResultsToFile(PATH_OUT, ret);
         })
         it("DForce", async () => {
-          const tasks: IBorrowTask[] = CompareAprUsesCase.generateTasks(assets
-            , true
-            , await getSmallAmounts(assets)
-          );
+          const tasks: IBorrowTask[] = CompareAprUsesCase.generateTasks(assets, await getSmallAmounts(assets));
           const ret = await makeTestDForce(COUNT_BLOCKS, tasks);
+          appendTestResultsToFile(PATH_OUT, ret);
+        })
+        it("HundredFinance", async () => {
+          const tasks: IBorrowTask[] = CompareAprUsesCase.generateTasks(assets, await getSmallAmounts(assets));
+          const ret = await makeTestHundredFinance(COUNT_BLOCKS, tasks);
           appendTestResultsToFile(PATH_OUT, ret);
         })
       });
       describe("Exact middle amount", () => {
         it("AAVE3", async () => {
-          const tasks: IBorrowTask[] = CompareAprUsesCase.generateTasks(assets
-            , true
-            , await getMiddleAmounts(assets)
-          );
+          const tasks: IBorrowTask[] = CompareAprUsesCase.generateTasks(assets, await getMiddleAmounts(assets));
           const ret = await makeTestAave3(COUNT_BLOCKS, tasks);
           appendTestResultsToFile(PATH_OUT, ret);
         })
         it("AAVETwo", async () => {
-          const tasks: IBorrowTask[] = CompareAprUsesCase.generateTasks(assets
-            , true
-            , await getMiddleAmounts(assets)
-          );
+          const tasks: IBorrowTask[] = CompareAprUsesCase.generateTasks(assets, await getMiddleAmounts(assets));
           const ret = await makeTestAaveTwo(COUNT_BLOCKS, tasks);
           appendTestResultsToFile(PATH_OUT, ret);
         })
         it("DForce", async () => {
-          const tasks: IBorrowTask[] = CompareAprUsesCase.generateTasks(assets
-            , true
-            , await getMiddleAmounts(assets)
-          );
+          const tasks: IBorrowTask[] = CompareAprUsesCase.generateTasks(assets, await getMiddleAmounts(assets));
           const ret = await makeTestDForce(COUNT_BLOCKS, tasks);
           appendTestResultsToFile(PATH_OUT, ret);
         })
+        it("HundredFinance", async () => {
+          const tasks: IBorrowTask[] = CompareAprUsesCase.generateTasks(assets, await getMiddleAmounts(assets));
+          const ret = await makeTestHundredFinance(COUNT_BLOCKS, tasks);
+          appendTestResultsToFile(PATH_OUT, ret);
+        })
       });
-      describe("Half of max allowed amount", () => {
+      describe("Exact huge amount", () => {
         it("AAVE3", async () => {
-          const tasks: IBorrowTask[] = CompareAprUsesCase.generateTasks(assets
-            , false
-            , assets.map(x => getBigNumberFrom(5, 17))
-          );
+          const tasks: IBorrowTask[] = CompareAprUsesCase.generateTasks(assets, await getHugeAmounts(assets));
           const ret = await makeTestAave3(COUNT_BLOCKS, tasks);
           appendTestResultsToFile(PATH_OUT, ret);
         })
         it("AAVETwo", async () => {
-          const tasks: IBorrowTask[] = CompareAprUsesCase.generateTasks(assets
-            , false
-            , assets.map(x => getBigNumberFrom(5, 17))
-          );
+          const tasks: IBorrowTask[] = CompareAprUsesCase.generateTasks(assets, await getHugeAmounts(assets));
           const ret = await makeTestAaveTwo(COUNT_BLOCKS, tasks);
           appendTestResultsToFile(PATH_OUT, ret);
         })
         it("DForce", async () => {
-          const tasks: IBorrowTask[] = CompareAprUsesCase.generateTasks(assets
-            , false
-            , assets.map(x => getBigNumberFrom(5, 17))
-          );
+          const tasks: IBorrowTask[] = CompareAprUsesCase.generateTasks(assets, await getHugeAmounts(assets));
           const ret = await makeTestDForce(COUNT_BLOCKS, tasks);
           appendTestResultsToFile(PATH_OUT, ret);
         })
+        it("HundredFinance", async () => {
+          const tasks: IBorrowTask[] = CompareAprUsesCase.generateTasks(assets, await getHugeAmounts(assets));
+          const ret = await makeTestHundredFinance(COUNT_BLOCKS, tasks);
+          appendTestResultsToFile(PATH_OUT, ret);
+        })
       });
+    });
+    describe.skip("Debug DForce USDT:USDC", () => {
+      it("Dforce USDT:USDC", async () => {
+        const tasks: IBorrowTask[] = [
+          {
+            collateralAsset: assets.find(x => x.title == "USDT")!,
+            borrowAsset: assets.find(x => x.title == "USDC")!,
+            collateralAmount: BigNumber.from("3355000000"),
+          }
+        ];
+        const ret = await makeTestDForce(COUNT_BLOCKS_LARGE, tasks);
+        appendTestResultsToFile(PATH_OUT, ret);
+        const {sret, sexpected} = validate(ret);
+        expect(sret).eq(sexpected);
+      })
+    });
+    describe.skip("Debug DForce WETH:USDC", () => {
+      it("Dforce WETH:DAI", async () => {
+        const tasks: IBorrowTask[] = [
+          {
+            collateralAsset: assets.find(x => x.title == "WETH")!,
+            borrowAsset: assets.find(x => x.title == "USDC")!,
+            collateralAmount: Misc.WEI,
+          }
+        ];
+        const ret = await makeTestDForce(COUNT_BLOCKS_LARGE, tasks);
+        appendTestResultsToFile(PATH_OUT, ret);
+        const {sret, sexpected} = validate(ret);
+        expect(sret).eq(sexpected);
+      })
+    });
+    describe.skip("Debug AAVE3 USDC:USDT", () => {
+      it("AAVE3 USDC:USDT", async () => {
+        const tasks: IBorrowTask[] = [
+          {
+            collateralAsset: assets.find(x => x.title == "USDC")!,
+            borrowAsset: assets.find(x => x.title == "USDT")!,
+            collateralAmount: getBigNumberFrom(1, 8),
+          }
+        ];
+        const ret = await makeTestAave3(COUNT_BLOCKS_LARGE, tasks);
+        appendTestResultsToFile(PATH_OUT, ret);
+        const {sret, sexpected} = validate(ret);
+        expect(sret).eq(sexpected);
+      })
+    });
+    describe.skip("Debug HundredFinance WETH:USDC", () => {
+      it("Dforce WETH:DAI", async () => {
+        const tasks: IBorrowTask[] = [
+          {
+            collateralAsset: assets.find(x => x.title == "WETH")!,
+            borrowAsset: assets.find(x => x.title == "USDC")!,
+            collateralAmount: Misc.WEI,
+          }
+        ];
+        const ret = await makeTestHundredFinance(COUNT_BLOCKS_LARGE, tasks);
+        appendTestResultsToFile(PATH_OUT, ret);
+        const {sret, sexpected} = validate(ret);
+        expect(sret).eq(sexpected);
+      })
     });
   });
 });

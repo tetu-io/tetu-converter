@@ -16,7 +16,7 @@ import {DeployUtils} from "../../../scripts/utils/DeployUtils";
 import {generateAssetPairs} from "../utils/AssetPairUtils";
 
 export class MockPlatformFabric implements ILendingPlatformFabric {
-  public underlyings: string[];
+  public assets: string[];
   public borrowRates: BigNumber[];
   public collateralFactors: number[];
   public liquidityNumbers: number[];
@@ -33,7 +33,7 @@ export class MockPlatformFabric implements ILendingPlatformFabric {
     , cTokens: CTokenMock[]
     , prices: BigNumber[]
   ) {
-    this.underlyings = underlyings;
+    this.assets = underlyings;
     this.borrowRates = borrowRates;
     this.collateralFactors = collateralFactors;
     this.liquidityNumbers = liquidity;
@@ -45,7 +45,7 @@ export class MockPlatformFabric implements ILendingPlatformFabric {
     const pool = await MocksHelper.createPoolStub(deployer);
     const converter = await MocksHelper.createPoolAdapterMock(deployer);
     const priceOracle = (await DeployUtils.deployContract(deployer, "PriceOracleMock"
-      , this.underlyings || []
+      , this.assets || []
       , this.prices || []
     )) as PriceOracleMock;
 
@@ -55,7 +55,7 @@ export class MockPlatformFabric implements ILendingPlatformFabric {
       })
     );
     for (let i = 0; i < this.holders.length; ++i) {
-      await BalanceUtils.getAmountFromHolder(this.underlyings[i]
+      await BalanceUtils.getAmountFromHolder(this.assets[i]
         , this.holders[i]
         , pool.address
         , this.liquidityNumbers[i]
@@ -63,20 +63,20 @@ export class MockPlatformFabric implements ILendingPlatformFabric {
     }
 
     const platformAdapter = await MocksHelper.createPlatformAdapterMock(
-      deployer
-      , pool
-      , controller.address
-      , converter.address
-      , this.underlyings
-      , this.borrowRates
-      , this.collateralFactors
-      , liquidity
-      , this.cTokens
-      , priceOracle.address
+      deployer,
+      pool.address,
+      controller.address,
+      priceOracle.address,
+      [converter.address],
+      this.assets,
+      this.cTokens,
+      liquidity,
+      this.borrowRates,
+      this.collateralFactors,
     );
 
     const bm = IBorrowManager__factory.connect(await controller.borrowManager(), deployer);
-    const assetPairs = generateAssetPairs(this.underlyings);
+    const assetPairs = generateAssetPairs(this.assets);
     await bm.addAssetPairs(platformAdapter.address
       , assetPairs.map(x => x.smallerAddress)
       , assetPairs.map(x => x.biggerAddress)

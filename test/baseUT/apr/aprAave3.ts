@@ -9,7 +9,7 @@ import {
   IAaveToken__factory, IERC20Extended__factory
 } from "../../../typechain";
 import {
-  baseToBt18, prepareExactBorrowAmount,
+  baseToBt18,
   convertUnits,
   IBaseToBorrowParams,
   makeBorrow, baseToBt
@@ -28,6 +28,7 @@ import {
   IPointResults
 } from "./aprDataTypes";
 import {ConfigurableAmountToBorrow} from "./ConfigurableAmountToBorrow";
+import {Misc} from "../../../scripts/utils/Misc";
 
 //region Data types
 interface IAaveReserveData {
@@ -240,7 +241,7 @@ export async function getAprBeforeAAVE3(
     countBlocks,
     blocksPerDay,
     operationTimestamp,
-    getBigNumberFrom(1, 18) // multiplier to increase the precision
+    Misc.WEI // multiplier to increase the precision
   );
   console.log("getAprBeforeAAVE3Base.getAprForPeriodBefore returns:", value);
   console.log("getAprBeforeAAVE3Base.blocksPerDay", blocksPerDay);
@@ -256,7 +257,7 @@ export async function getAprBeforeAAVE3(
   return {
     aprBase18: value
       .mul(price)
-      .div(getBigNumberFrom(1, 18))
+      .div(Misc.WEI)
       .div(getBigNumberFrom(1, decimalsAmount)),
     aprMultiplied18: value
   };
@@ -280,7 +281,7 @@ export class AprAave3 {
    */
   static async makeBorrowTest(
     deployer: SignerWithAddress
-    , amountToBorrow0: ConfigurableAmountToBorrow
+    , amountToBorrow0: number | BigNumber
     , p: TestSingleBorrowParams
     , additionalPoints: number[]
   ) : Promise<{
@@ -337,7 +338,7 @@ export class AprAave3 {
     // make borrow
     const borrowResults = await makeBorrow(deployer
       , p
-      , prepareExactBorrowAmount(amountToBorrow0, borrowToken.decimals)
+      , getBigNumberFrom(amountToBorrow0, borrowToken.decimals)
       , new Aave3PlatformFabric()
     );
     const userAddress = borrowResults.poolAdapter;
@@ -472,7 +473,7 @@ export class AprAave3 {
       , keyValues.borrow.next
       , blocksPerDay
       , borrowToken.decimals
-      , getBigNumberFrom(1, 18)
+      , Misc.WEI
     );
     console.log("borrowAprBaseExactMul18", borrowAprBaseExactMul18);
 
@@ -537,14 +538,16 @@ export class AprAave3 {
         }, balances: {
           collateral: current.userAccount!.totalCollateralBase,
           borrow: current.userAccount!.totalDebtBase
-        }, costsBT18: {
-          collateral: baseToBt18(
+        }, costsBT36: {
+          collateral: baseToBt(
             current.userAccount!.totalCollateralBase.sub(prev.userAccount!.totalCollateralBase)
             , bbp
+            , 36
           ),
-          borrow: baseToBt18(
+          borrow: baseToBt(
             current.userAccount!.totalDebtBase.sub(prev.userAccount!.totalDebtBase)
             , bbp
+            , 36
           ),
         }
       })
@@ -604,12 +607,12 @@ export class AprAave3 {
         }, predicted: {
           aprBt36: {
             collateral: supplyAprBaseApprox.aprMultiplied18
-              .mul(getBigNumberFrom(1, 18))
+              .mul(Misc.WEI)
               .mul(priceCollateral)
               .div(priceBorrow)
               .div(getBigNumberFrom(1, collateralToken.decimals)),
             borrow: borrowAprBaseApprox.aprMultiplied18
-              .mul(getBigNumberFrom(1, 18))
+              .mul(Misc.WEI)
               .div(getBigNumberFrom(1, borrowToken.decimals)),
           },
           rates: {
@@ -814,7 +817,7 @@ export class AprAave3 {
     // console.log("decimalsBorrow", decimalsBorrow);
 
     return borrowApr.aprMultiplied18
-      .mul(getBigNumberFrom(1, 18))
+      .mul(Misc.WEI)
       .div(getBigNumberFrom(1, decimalsBorrow));
   }
 }

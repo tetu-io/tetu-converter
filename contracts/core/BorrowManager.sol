@@ -2,19 +2,20 @@
 pragma solidity 0.8.4;
 
 import "./AppDataTypes.sol";
-import "../interfaces/IPlatformAdapter.sol";
-import "../integrations/market/ICErc20.sol";
-import "../integrations/IERC20Extended.sol";
-import "../interfaces/IBorrowManager.sol";
-import "../interfaces/IPriceOracle.sol";
-import "../openzeppelin/IERC20.sol";
-import "../openzeppelin/SafeERC20.sol";
 import "./AppErrors.sol";
 import "../core/AppUtils.sol";
-import "../openzeppelin/Clones.sol";
+import "../interfaces/IPlatformAdapter.sol";
+import "../interfaces/IBorrowManager.sol";
+import "../interfaces/IPriceOracle.sol";
 import "../interfaces/IController.sol";
-import "../openzeppelin/EnumerableSet.sol";
 import "../interfaces/IDebtsMonitor.sol";
+import "../openzeppelin/Clones.sol";
+import "../openzeppelin/IERC20.sol";
+import "../openzeppelin/SafeERC20.sol";
+import "../openzeppelin/EnumerableSet.sol";
+import "../integrations/market/ICErc20.sol";
+import "../integrations/IERC20Extended.sol";
+import "../interfaces/ITetuConverter.sol";
 import "hardhat/console.sol";
 
 /// @notice Contains list of lending pools. Allow to select most efficient pool for the given collateral/borrow pair
@@ -25,22 +26,15 @@ contract BorrowManager is IBorrowManager {
   using EnumerableSet for EnumerableSet.AddressSet;
   using EnumerableSet for EnumerableSet.UintSet;
 
-  uint constant public BLOCKS_PER_DAY = 40000;
-  uint constant public SECONDS_PER_DAY = 86400;
+  /// @notice Reward APR is taken into account with given factor
+  ///         Result APR = borrow-apr - supply-apr - Factor/Denominator * rewards-APR
+  uint constant public REWARDS_FACTOR_DENOMINATOR_18 = 1e18;
 
   IController public immutable controller;
 
   ///////////////////////////////////////////////////////
   ///                Structs and enums
   ///////////////////////////////////////////////////////
-
-  /// @dev Additional input params for _findPool; 18 means that decimals 18 is used
-  struct BorrowInput {
-    uint8 targetDecimals;
-    /// @notice collateral, borrow (to get prices)
-    address[] assets;
-    uint sourceAmount18;
-  }
 
   /// @notice Pair of two assets. Asset 1 can be converted to asset 2 and vice versa.
   /// @dev There are no restrictions for {assetLeft} and {assertRight}. Each can be smaller than the other.
@@ -53,11 +47,15 @@ contract BorrowManager is IBorrowManager {
   ///                    Members
   ///////////////////////////////////////////////////////
 
+  /// @notice Reward APR is taken into account with given factor
+  /// @dev decimals 18. The value is divided on {REWARDS_FACTOR_DENOMINATOR_18}
+  uint public rewardsFactor;
+
   /// @notice all registered platform adapters
   EnumerableSet.AddressSet private _platformAdapters;
 
   /// @notice all asset pairs registered for the platform adapter
-  /// @dev PlatformAdapter : key of asset pair
+  /// @dev PlatformAdapter : [key of asset pair]
   mapping(address => EnumerableSet.UintSet) private _platformAdapterPairs;
 
   /// @notice all platform adapters for which the asset pair is registered
@@ -68,7 +66,7 @@ contract BorrowManager is IBorrowManager {
   mapping(uint => AssetPair) private _assetPairs;
 
   /// @notice Converter : platform adapter
-  mapping(address => address) public converters;
+  mapping(address => address) public converterToPlatformAdapter;
 
   /// @notice Complete list ever created pool adapters
   /// @dev PoolAdapterKey(== keccak256(converter, user, collateral, borrowToken)) => address of the pool adapter
@@ -86,11 +84,26 @@ contract BorrowManager is IBorrowManager {
   ///               Initialization
   ///////////////////////////////////////////////////////
 
-  constructor (address controller_) {
+  constructor (address controller_, uint rewardsFactor_) {
     require(controller_ != address(0), AppErrors.ZERO_ADDRESS);
     controller = IController(controller_);
+
+    rewardsFactor = rewardsFactor_;
   }
 
+  ///////////////////////////////////////////////////////
+  ///               Access rights
+  ///////////////////////////////////////////////////////
+
+  /// @notice Ensure that msg.sender is registered pool adapter
+  function _onlyTetuConverter() internal view {
+    require(msg.sender == controller.tetuConverter(), AppErrors.TETU_CONVERTER_ONLY);
+  }
+
+  /// @notice Ensure that msg.sender is registered pool adapter
+  function _onlyGovernance() internal view {
+    require(msg.sender == controller.governance(), AppErrors.GOVERNANCE_ONLY);
+  }
 
   ///////////////////////////////////////////////////////
   ///               Configuration
@@ -99,8 +112,14 @@ contract BorrowManager is IBorrowManager {
   /// @notice Set default health factor for {asset}. Default value is used only if user hasn't provided custom value
   /// @param healthFactor_ Health factor with decimals 2; must be greater or equal to MIN_HEALTH_FACTOR; for 1.5 use 150
   function setHealthFactor(address asset, uint16 healthFactor_) external override {
-    require(healthFactor_ > controller.getMinHealthFactor2(), AppErrors.WRONG_HEALTH_FACTOR);
+    _onlyGovernance();
+    require(healthFactor_ >= controller.getMinHealthFactor2(), AppErrors.WRONG_HEALTH_FACTOR);
     defaultHealthFactors2[asset] = healthFactor_;
+  }
+
+  function setRewardsFactor(uint rewardsFactor_) external override {
+    _onlyGovernance();
+    rewardsFactor = rewardsFactor_;
   }
 
   function addAssetPairs(
@@ -109,6 +128,8 @@ contract BorrowManager is IBorrowManager {
     address[] calldata rightAssets_
   )
   external override {
+    _onlyGovernance();
+
     uint lenAssets = rightAssets_.length;
     require(leftAssets_.length == lenAssets, AppErrors.WRONG_LENGTHS);
 
@@ -121,11 +142,15 @@ contract BorrowManager is IBorrowManager {
     address[] memory paConverters = IPlatformAdapter(platformAdapter_).converters();
     uint lenConverters = paConverters.length;
     for (uint i = 0; i < lenConverters; i = i.uncheckedInc()) {
-      require(!_dm().isConverterInUse(paConverters[i]), AppErrors.PLATFORM_ADAPTER_IS_IN_USE);
-      converters[paConverters[i]] = platformAdapter_;
+      // the relation "platform adapter - converter" is invariant
+      address platformAdapterForConverter = converterToPlatformAdapter[paConverters[i]];
+      if (platformAdapter_ != platformAdapterForConverter) {
+        require(platformAdapterForConverter == address(0), AppErrors.ONLY_SINGLE_PLATFORM_ADAPTER_CAN_USE_CONVERTER);
+        converterToPlatformAdapter[paConverters[i]] = platformAdapter_;
+      }
     }
 
-    // register all supported asset pairs
+    // register all provided asset pairs
     for (uint i = 0; i < lenAssets; i = i.uncheckedInc()) {
       uint assetPairKey = getAssetPairKey(leftAssets_[i], rightAssets_[i]);
       if (_assetPairs[assetPairKey].assetLeft == address(0)) {
@@ -146,8 +171,11 @@ contract BorrowManager is IBorrowManager {
     address[] calldata leftAssets_,
     address[] calldata rightAssets_
   ) external override {
+    _onlyGovernance();
+
     uint lenAssets = rightAssets_.length;
     require(leftAssets_.length == lenAssets, AppErrors.WRONG_LENGTHS);
+    require(_platformAdapters.contains(platformAdapter_), AppErrors.PLATFORM_ADAPTER_NOT_FOUND);
 
     // unregister the asset pairs
     for (uint i = 0; i < lenAssets; i = i.uncheckedInc()) {
@@ -164,7 +192,9 @@ contract BorrowManager is IBorrowManager {
       address[] memory paConverters = IPlatformAdapter(platformAdapter_).converters();
       uint lenConverters = paConverters.length;
       for (uint i = 0; i < lenConverters; i = i.uncheckedInc()) {
-        converters[paConverters[i]] = address(0);
+        // If there is active pool adapter for the platform adapter, we cannot unregister the platform adapter
+        require(!_debtMonitor().isConverterInUse(paConverters[i]), AppErrors.PLATFORM_ADAPTER_IS_IN_USE);
+        converterToPlatformAdapter[paConverters[i]] = address(0);
       }
 
       // unregister platform adapter
@@ -176,10 +206,10 @@ contract BorrowManager is IBorrowManager {
   ///           Find best pool for borrowing
   /// Input params:
   /// Health factor = HF [-], Collateral amount = C [USD]
-  /// Source amount that can be used for the collateral = SA [SA}, Borrow amount = BS [USD]
+  /// Source amount that can be used for the collateral = SA [SA], Borrow amount = BS [USD]
   /// Price of the source amount = PS [USD/SA] (1 [SA] = PS[USD])
-  /// Price of the target amount = PT [USD/TA] (1[TA] = PT[USD]), Available cash in the pool = PTA[TA]
-  /// Pool params: Collateral factor of the pool = PCF [-], Free cash in the pool = PTA [TA]
+  /// Price of the target amount = PT [USD/TA] (1 [TA] = PT[USD])
+  /// Pool params: Collateral factor of the pool = PCF [-], Available cash in the pool = PTA [TA]
   ///
   /// C = SA * PS, CM = C / HF, BS = CM * PCF
   /// Max target amount capable to be borrowed: ResultTA = BS / PT [TA].
@@ -191,9 +221,8 @@ contract BorrowManager is IBorrowManager {
     uint maxTargetAmount,
     int aprForPeriod36
   ) {
-
-    // get all available pools from poolsForAssets[smaller-address][higher-address]
-    EnumerableSet.AddressSet storage pas = _pairsList[getAssetPairKey(p_.sourceToken, p_.targetToken )];
+    // get all platform adapters that support required pair of assets
+    EnumerableSet.AddressSet storage pas = _pairsList[getAssetPairKey(p_.sourceToken, p_.targetToken)];
 
     if (p_.healthFactor2 == 0) {
       p_.healthFactor2 = defaultHealthFactors2[p_.targetToken];
@@ -205,30 +234,17 @@ contract BorrowManager is IBorrowManager {
       require(p_.healthFactor2 >= controller.getMinHealthFactor2(), AppErrors.WRONG_HEALTH_FACTOR);
     }
 
-    address[] memory assets = new address[](2);
-    assets[0] = p_.sourceToken;
-    assets[1] = p_.targetToken;
-
     if (pas.length() != 0) {
-      (converter, maxTargetAmount, aprForPeriod36) = _findPool(
-        pas
-        , p_
-        , BorrowInput({
-          sourceAmount18: p_.sourceAmount.toMantissa(uint8(IERC20Extended(p_.sourceToken).decimals()), 18),
-          targetDecimals: IERC20Extended(p_.targetToken).decimals(),
-          assets: assets
-        })
-      );
+      (converter, maxTargetAmount, aprForPeriod36) = _findPool(pas, p_);
     }
 
     return (converter, maxTargetAmount, aprForPeriod36);
   }
 
-  /// @notice Enumerate all pools and select a pool suitable for borrowing with min borrow rate and enough underlying
+  /// @notice Enumerate all pools and select a pool suitable for borrowing with min APR and enough liquidity
   function _findPool(
     EnumerableSet.AddressSet storage platformAdapters_,
-    AppDataTypes.InputConversionParams memory p_,
-    BorrowInput memory pp_
+    AppDataTypes.InputConversionParams memory p_
   ) internal view returns (
     address converter,
     uint maxTargetAmount,
@@ -236,47 +252,34 @@ contract BorrowManager is IBorrowManager {
   ) {
     uint lenPools = platformAdapters_.length();
 
-    uint[] memory pricesCB18;
-    if (lenPools > 0) {
-      // we can take prices only once; we use only their relation, not absolute values
-      pricesCB18 = IPlatformAdapter(platformAdapters_.at(0)).getAssetsPrices(pp_.assets);
-      require(pricesCB18[1] != 0 && pricesCB18[0] != 0, AppErrors.ZERO_PRICE);
-    }
-
-    // borrow-to-amount = borrowAmountFactor18 * liquidationThreshold18 / 1e18
+    // borrow-to-amount = borrowAmountFactor18 * (priceCollateral18/priceBorrow18) * liquidationThreshold18 / 1e18
     // Platform-adapters use borrowAmountFactor18 to calculate result borrow-to-amount
-    uint borrowAmountFactor18 = 1e18
-      * pp_.sourceAmount18
-      * pricesCB18[0]
-      / (pricesCB18[1] * uint(p_.healthFactor2) * 10**(18-2));
+    uint borrowAmountFactor18 = 100
+      * p_.sourceAmount.toMantissa(uint8(IERC20Extended(p_.sourceToken).decimals()), 18)
+      / uint(p_.healthFactor2);
 
     for (uint i = 0; i < lenPools; i = i.uncheckedInc()) {
       AppDataTypes.ConversionPlan memory plan = IPlatformAdapter(platformAdapters_.at(i)).getConversionPlan(
         p_.sourceToken,
-        pp_.sourceAmount18,
+        p_.sourceAmount,
         p_.targetToken,
-        borrowAmountFactor18.toMantissa(18, pp_.targetDecimals),
+        borrowAmountFactor18,
         p_.periodInBlocks
       );
 
-      // combine three found APR to single one
+      // combine three found APRs to single one
       int planApr36 = int(plan.borrowApr36)
         - int(plan.supplyAprBt36)
-        - int(plan.rewardsAmountBt36);
+        - int(plan.rewardsAmountBt36 * rewardsFactor / REWARDS_FACTOR_DENOMINATOR_18 / p_.periodInBlocks);
 
       if (plan.converter != address(0)) {
         // check if we are able to supply required collateral
-        if (plan.maxAmountToSupplyCT > p_.sourceAmount) {
+        if (plan.maxAmountToSupply > p_.sourceAmount) {
           if (converter == address(0) || planApr36 < apr36) {
-            // how much target asset we are able to get for the provided collateral with given health factor
-            // TargetTA = BS / PT [TA], C = SA * PS, CM = C / HF, BS = CM * PCF
-            uint resultTa18 = plan.liquidationThreshold18 * borrowAmountFactor18 / 1e18;
-
-            // the pool should have enough liquidity
-            if (plan.maxAmountToBorrowBT.toMantissa(pp_.targetDecimals, 18) >= resultTa18) {
-              // take the pool with lowest borrow rate
+            // take the pool with lowest APR and with enough liquidity
+            if (plan.maxAmountToBorrow >= plan.amountToBorrow) {
               converter = plan.converter;
-              maxTargetAmount = resultTa18.toMantissa(18, pp_.targetDecimals);
+              maxTargetAmount = plan.amountToBorrow;
               apr36 = planApr36;
             }
           }
@@ -295,20 +298,23 @@ contract BorrowManager is IBorrowManager {
   function registerPoolAdapter(
     address converter_,
     address user_,
-    address collateral_,
-    address borrowToken_
+    address collateralAsset_,
+    address borrowAsset_
   ) external override returns (address) {
-    uint poolAdapterKey = getPoolAdapterKey(converter_, user_, collateral_, borrowToken_);
+    _onlyTetuConverter();
+
+    uint poolAdapterKey = getPoolAdapterKey(converter_, user_, collateralAsset_, borrowAsset_);
     address dest = poolAdapters[poolAdapterKey];
     if (dest == address(0) ) {
-      // create an instance of the pool adapter using minimal proxy pattern, initialize newly created contract
+      // pool adapter is not yet registered
+      // create a new instance of the pool adapter using minimal proxy pattern, initialize newly created contract
       dest = converter_.clone();
       IPlatformAdapter(_getPlatformAdapter(converter_)).initializePoolAdapter(
         converter_,
         dest,
         user_,
-        collateral_,
-        borrowToken_
+        collateralAsset_,
+        borrowAsset_
       );
 
       // register newly created pool adapter in the list of the pool adapters forever
@@ -342,7 +348,7 @@ contract BorrowManager is IBorrowManager {
   }
 
   function _getPlatformAdapter(address converter_) internal view returns(address) {
-    address platformAdapter = converters[converter_];
+    address platformAdapter = converterToPlatformAdapter[converter_];
     require(platformAdapter != address(0), AppErrors.PLATFORM_ADAPTER_NOT_FOUND);
     return platformAdapter;
   }
@@ -397,7 +403,7 @@ contract BorrowManager is IBorrowManager {
   ///////////////////////////////////////////////////////
   ///       Inline functions
   ///////////////////////////////////////////////////////
-  function _dm() internal view returns (IDebtMonitor) {
+  function _debtMonitor() internal view returns (IDebtMonitor) {
     return IDebtMonitor(controller.debtMonitor());
   }
 }

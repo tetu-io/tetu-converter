@@ -6,8 +6,7 @@ import {
     IHfCToken__factory,
     IHfInterestRateModel,
     IHfInterestRateModel__factory,
-    IHfOracle__factory,
-    IHfOracle, IERC20__factory, IERC20Extended__factory,
+    IERC20Extended__factory, IHfPriceOracle, IHfPriceOracle__factory,
 } from "../../../typechain";
 import {BigNumber, Signer} from "ethers";
 import {Aave3Helper} from "./Aave3Helper";
@@ -73,8 +72,8 @@ export class HundredFinanceHelper {
         return IHfComptroller__factory.connect(MaticAddresses.HUNDRED_FINANCE_COMPTROLLER, signer);
     }
 
-    public static getPriceOracle(signer: SignerWithAddress) : IHfOracle {
-        return IHfOracle__factory.connect(MaticAddresses.HUNDRED_FINANCE_ORACLE, signer);
+    public static getPriceOracle(signer: SignerWithAddress) : IHfPriceOracle {
+        return IHfPriceOracle__factory.connect(MaticAddresses.HUNDRED_FINANCE_PRICE_ORACLE, signer);
     }
 //endregion Access
 
@@ -113,7 +112,7 @@ export class HundredFinanceHelper {
     ) : Promise<IHfData> {
         const m = await comptroller.markets(cToken.address);
         const irm = IHfInterestRateModel__factory.connect(await cToken.interestRateModel(), signer);
-        const priceOracle = IHfOracle__factory.connect(MaticAddresses.HUNDRED_FINANCE_ORACLE, signer);
+        const priceOracle = IHfPriceOracle__factory.connect(MaticAddresses.HUNDRED_FINANCE_PRICE_ORACLE, signer);
 
 
         return {

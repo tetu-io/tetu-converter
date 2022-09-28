@@ -2,7 +2,7 @@ import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import {ethers} from "hardhat";
 import {TimeUtils} from "../../../../../scripts/utils/TimeUtils";
 import {
-  DForcePlatformAdapter__factory, IDForceInterestRateModel,
+  DForcePlatformAdapter__factory, IDForceInterestRateModel, IDForceInterestRateModel__factory,
 } from "../../../../../typechain";
 import {expect} from "chai";
 import {isPolygonForkInUse} from "../../../../baseUT/utils/NetworkUtils";
@@ -117,7 +117,7 @@ describe("DForceHelper tests", () => {
     rewardsReceived: BigNumber,
     predictData: IBorrowRewardsPredictionInput,
     blockUpdateDistributionState: BigNumber,
-    interestRateModel: IDForceInterestRateModel,
+    interestRateModelAddress: string,
     supplyPoint: ISupplyRewardsStatePoint,
   }>{
     const collateralToken = await TokenDataTypes.Build(deployer, collateralAsset);
@@ -193,7 +193,7 @@ describe("DForceHelper tests", () => {
             expect(sret).eq(sexpected);
           });
         });
-        describe("300 USDC, 10_000 blocks", () => {
+        describe("Supply USDC, 2_000 blocks", () => {
           it("should return amount of rewards same to really received", async () => {
             if (!await isPolygonForkInUse()) return;
 
@@ -202,8 +202,8 @@ describe("DForceHelper tests", () => {
               MaticAddresses.USDC,
               MaticAddresses.dForce_iUSDC,
               MaticAddresses.HOLDER_USDC,
-              300,
-              10_000
+              1642,
+              2_000
             );
 
             // estimate amount of supply-rewards using DForceHelper utils
@@ -211,6 +211,59 @@ describe("DForceHelper tests", () => {
             const ret = DForceHelper.getSupplyRewardsAmount(pt, r.blockUpdateDistributionState);
 
             console.log(`Generate source data for DForceRewardsLibTest`, r);
+            console.log(ret);
+
+            const sret = ret.rewardsAmount.toString();
+            const sexpected = r.rewardsEarnedActual.toString();
+
+            expect(sret).eq(sexpected);
+          });
+        });
+        describe("Supply USDT, 2_000 blocks", () => {
+          it("should return amount of rewards same to really received", async () => {
+            if (!await isPolygonForkInUse()) return;
+
+            // get amount of really earned supply-rewards
+            const r = await makeTestSupplyRewardsOnly(
+              MaticAddresses.USDT,
+              MaticAddresses.dForce_iUSDT,
+              MaticAddresses.HOLDER_USDT,
+              3355,
+              2_000
+            );
+
+            // estimate amount of supply-rewards using DForceHelper utils
+            const pt = DForceHelper.predictRewardsStatePointAfterSupply(r.supplyPoint);
+            const ret = DForceHelper.getSupplyRewardsAmount(pt, r.blockUpdateDistributionState);
+
+            console.log(`Generate source data for DForceRewardsLibTest`, r);
+            console.log(ret);
+
+            const sret = ret.rewardsAmount.toString();
+            const sexpected = r.rewardsEarnedActual.toString();
+
+            expect(sret).eq(sexpected);
+          });
+        });
+        describe("Supply WETH, 2_000 blocks", () => {
+          it("should return amount of rewards same to really received", async () => {
+            if (!await isPolygonForkInUse()) return;
+
+            // get amount of really earned supply-rewards
+            const r = await makeTestSupplyRewardsOnly(
+              MaticAddresses.WETH,
+              MaticAddresses.dForce_iWETH,
+              MaticAddresses.HOLDER_WETH,
+              1000,
+              2_000
+            );
+
+            // estimate amount of supply-rewards using DForceHelper utils
+            const pt = DForceHelper.predictRewardsStatePointAfterSupply(r.supplyPoint);
+            const ret = DForceHelper.getSupplyRewardsAmount(pt, r.blockUpdateDistributionState);
+
+            console.log(`Generate source data for DForceRewardsLibTest`, r);
+            console.log(ret);
 
             const sret = ret.rewardsAmount.toString();
             const sexpected = r.rewardsEarnedActual.toString();
@@ -243,7 +296,8 @@ describe("DForceHelper tests", () => {
             const sret = await DForceHelper.predictRewardsAfterBorrow(
               r.predictData,
               async function (cash: BigNumber, totalBorrows: BigNumber, totalReserve: BigNumber) : Promise<BigNumber> {
-                const br = await r.interestRateModel.getBorrowRate(cash, totalBorrows, totalReserve);
+                const br = await IDForceInterestRateModel__factory.connect(r.interestRateModelAddress, deployer)
+                  .getBorrowRate(cash, totalBorrows, totalReserve);
                 cashesAndBorrowRates.push(cash);
                 cashesAndBorrowRates.push(br);
                 return br;
@@ -361,6 +415,46 @@ describe("DForceHelper tests", () => {
             console.log("ret2", ret2);
 
             expect(ret.rewardsAmount.toString()).eq("210932052718815335");
+          });
+        });
+        describe("Borrow 100 USDC, 1000 blocks", () => {
+          it("should return amount of rewards same to really received", async () => {
+            if (!await isPolygonForkInUse()) return;
+
+            // get amount of really earned supply-rewards
+            const r = await makeTestBorrowRewardsOnly(
+              MaticAddresses.WETH, //WETH doesn't have supply-rewards
+              MaticAddresses.dForce_iWETH,
+              MaticAddresses.HOLDER_WETH,
+              1,
+              MaticAddresses.USDC,
+              MaticAddresses.dForce_iUSDC,
+              MaticAddresses.HOLDER_USDC,
+              351,
+              2_000
+            );
+
+            const cashesAndBorrowRates: BigNumber[] = [];
+            const sret = await DForceHelper.predictRewardsAfterBorrow(
+              r.predictData,
+              async function (cash: BigNumber, totalBorrows: BigNumber, totalReserve: BigNumber) : Promise<BigNumber> {
+                const br = await IDForceInterestRateModel__factory.connect(r.interestRateModelAddress, deployer)
+                  .getBorrowRate(cash, totalBorrows, totalReserve);
+                cashesAndBorrowRates.push(cash);
+                cashesAndBorrowRates.push(br);
+                return br;
+              },
+              r.blockUpdateDistributionState
+            );
+            const sexpected = r.rewardsEarnedActual.toString();
+            console.log(`rewardsEarnedActual=${sexpected} predicted=${sret}`);
+
+            // we need to display full objects, so we use util.inspect, see
+            // https://stackoverflow.com/questions/10729276/how-can-i-get-the-full-object-in-node-jss-console-log-rather-than-object
+            require("util").inspect.defaultOptions.depth = null;
+            console.log(`Generate source data for DForceRewardsLibTest`, r, cashesAndBorrowRates);
+
+            expect(sret).eq(sexpected);
           });
         });
       });

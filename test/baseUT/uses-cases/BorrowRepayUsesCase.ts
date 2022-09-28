@@ -236,7 +236,7 @@ export class BorrowRepayUsesCase {
     const underlyings = [p.collateral.asset, p.borrow.asset];
     const pricesUSD = [1, 1];
     const cTokenDecimals = [m.collateral.decimals, m.borrow.decimals];
-    const cTokens = await MocksHelper.createCTokensMocks(deployer, cTokenDecimals, underlyings);
+    const cTokens = await MocksHelper.createCTokensMocks(deployer, underlyings, cTokenDecimals);
 
     const fabric = new MockPlatformFabric(
       underlyings,
@@ -416,7 +416,7 @@ export class BorrowRepayUsesCase {
     const underlyings = [p.collateral.asset, p.borrow.asset];
     const pricesUSD = [1, 1];
     const cTokenDecimals = [m.collateral.decimals, m.borrow.decimals];
-    const cTokens = await MocksHelper.createCTokensMocks(deployer, cTokenDecimals, underlyings);
+    const cTokens = await MocksHelper.createCTokensMocks(deployer, underlyings, cTokenDecimals);
 
     const fabric = new MockPlatformFabric(
       underlyings,

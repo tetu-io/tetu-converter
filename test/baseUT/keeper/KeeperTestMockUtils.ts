@@ -42,7 +42,7 @@ export class KeeperTestMockUtils {
     const underlying = [p.collateral.asset, p.borrow.asset];
     const pricesUSD = [1, 1];
     const cTokenDecimals = [m.collateral.decimals, m.borrow.decimals];
-    const cTokens = await MocksHelper.createCTokensMocks(deployer, cTokenDecimals, underlying);
+    const cTokens = await MocksHelper.createCTokensMocks(deployer, underlying, cTokenDecimals);
 
     const fabrics = [...Array(countMockFabrics).keys()].map(
       () => new MockPlatformFabric(

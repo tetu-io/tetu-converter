@@ -7,10 +7,10 @@ import {MocksHelper} from "../helpers/MocksHelper";
 import {TokenDataTypes} from "../types/TokenDataTypes";
 import {setInitialBalance} from "../utils/CommonUtils";
 import {getBigNumberFrom} from "../../../scripts/utils/NumberUtils";
-import {ConfigurableAmountToBorrow} from "./ConfigurableAmountToBorrow";
 import {existsSync, writeFileSync} from "fs";
 import {Aave3Helper} from "../../../scripts/integration/helpers/Aave3Helper";
 import {IBorrowTestResults} from "../uses-cases/CompareAprUsesCase";
+import {IPointResults} from "./aprDataTypes";
 
 //region Make borrow
 /**
@@ -22,7 +22,7 @@ import {IBorrowTestResults} from "../uses-cases/CompareAprUsesCase";
 export async function makeBorrow (
   deployer: SignerWithAddress,
   p: TestSingleBorrowParams,
-  amountToBorrow: ConfigurableAmountToBorrow,
+  amountToBorrow: BigNumber,
   fabric: ILendingPlatformFabric,
 ) : Promise<{
   poolAdapter: string,
@@ -46,8 +46,8 @@ export async function makeBorrow (
     , collateralAmount
     , p.borrow.asset
     , uc.address
-    , amountToBorrow.exact
-    , ConfigurableAmountToBorrow.getValue(amountToBorrow, borrowToken.decimals)
+    , true
+    , amountToBorrow
   );
   console.log("Borrow is done, borrowed amount is", await uc.totalBorrowedAmount());
 
@@ -117,155 +117,192 @@ export function changeDecimals(amount: BigNumber, from: number, to: number) : Bi
 }
 //endregion Conversion of amounts
 
-//region ConfigurableAmountToBorrow
-/** Convert numerical borrowAmount to BigNumer */
-export function prepareExactBorrowAmount(
-  data: ConfigurableAmountToBorrow,
-  assetDecimals: number
-): ConfigurableAmountToBorrow {
-  if (
-    (data.exact && !data.exactAmountToBorrow)
-    || (!data.exact && !data.ratio18)
-  ) {
-    throw "Incorrect ConfigurableAmountToBorrowNumeric";
-  }
-
-  return data.exact
-    ? new ConfigurableAmountToBorrow(
-        true
-      , ConfigurableAmountToBorrow.getValue(data, assetDecimals)
-    )
-    : data;
-}
-
-//endregion ConfigurableAmountToBorrow
-
 //region Save borrow test results to CSV
 export function appendTestResultsToFile(path: string, data: IBorrowTestResults[]) {
   console.log("appendTestResultsToFile", path);
   const lines: string[] = [];
 
   // write headers
+  // Abbreviations in the headers:
+  // P1 = point 1, RW - rewards, R - results, P - predicted, C - collateral, B - borrow
   if (! existsSync(path)) {
     const headers: string[] = [
-      "platformTitle"
-      , "period.blocks"
-      , "error"
+      "platformTitle",
+      "period.blocks",
+      "error",
 
-      , "Collateral"
-      , "Borrow"
+      "Collateral",
+      "Borrow",
 
-      , "amount.C"
-      , "amount.B"
-      , "amountBT18.C"
+      "amount.C",
+      "amount.B",
+      "amountBT18.C",
 
-      , "plan.S.AprBt36"
-      , "plan.B.Apr36"
-      , "plan.R.AmountBt36"
+      "planP.RW.AmountBt36",
+      "P1.RW..AmountBt36",
+      "P/R.%",
 
-      , "P.C.aprBt36"
-      , "R.C.aprBt36"
+      "P.C.aprBt36",
+      "R.C.aprBt36",
+      "P/R.%",
 
-      , "P.B.aprBt36"
-      , "R.B.aprBt36"
+      "P.B.aprBt36",
+      "R.B.aprBt36",
+      "P/R.%",
 
-      , "price.C"
-      , "price.B"
+      "P1.costsBT36.C",
+      "C.blocks",
+      "P1.costsBT36.B",
+      "B.blocks",
 
-      , "P.C.supplyRate"
-      , "R.C.supplyRate"
+      "price.C",
+      "price.B",
 
-      , "P.C.borrowRate"
-      , "R.C.borrowRate"
+      "plan1.S.AprBt36",
+      "plan1.B.Apr36",
 
-      , "block0"
-      , "block1"
-      , "timestamp0"
-      , "timestamp1"
+      "P.C.supplyRate",
+      "R.C.supplyRate",
 
-      , "Collateral.address"
-      , "Borrow.address"
+      "P.C.borrowRate",
+      "R.C.borrowRate",
 
-// plan
-      , "plan.converter"
-      , "plan.ltv18"
-      , "plan.liquidationThreshold18"
-      , "plan.maxAmountToSupplyCT"
-      , "plan.maxAmountToBorrowBT"
+      "block0",
+      "block1",
+      "timestamp0",
+      "timestamp1",
+
+      "Collateral.address",
+      "Borrow.address",
+
+// plan single block
+      "plan1.converter",
+      "plan1.RW.AmountBt36",
+      "plan1.ltv18",
+      "plan1.liquidationThreshold18",
+      "plan1.maxAmountToSupplyCT",
+      "plan1.maxAmountToBorrowBT",
+
+// plan full period
+      "planP.converter",
+      "planP.S.AprBt36",
+      "planP.B.Apr36",
+      "planP.ltv18",
+      "planP.liquidationThreshold18",
+      "planP.maxAmountToSupplyCT",
+      "planP.maxAmountToBorrowBT",
 
 // point 0
-      , "costsBT18.C"
-      , "costsBT18.B"
-      , "rewardsTotal"
+      "costsBT36.C",
+      "costsBT36.B",
+      "rewardsTotal",
+      "rewardsTotalBt36",
 
-      , "balances.C"
-      , "balances.B"
+      "balances.C",
+      "balances.B",
 
-      , "point.supplyRate"
-      , "point.borrowRate"
+      "point.supplyRate",
+      "point.borrowRate",
 
-      , "point.block0"
-      , "point.block1"
+      "point.block0",
+      "point.block1",
 
-      , "point.timestamp0"
-      , "point.timestamp1"
+      "point.timestamp0",
+      "point.timestamp1",
     ]
     lines.push(headers.join(","));
   }
 
   for (const row of data) {
+    const firstPoint: IPointResults | undefined = row.results?.points ? row.results?.points[0] : undefined;
     const line = [
-      row.platformTitle
-      , row.countBlocks
-      , row.error
+      row.platformTitle,
+      row.countBlocks,
+      row.error,
 
-      , row.assetCollateral.title
-      , row.assetBorrow.title
+      row.assetCollateral.title,
+      row.assetBorrow.title,
 
-      , row.results?.init.collateralAmount
-      , row.results?.init.borrowAmount
-      , row.results?.init.collateralAmountBT18
+      row.results?.init.collateralAmount,
+      row.results?.init.borrowAmount,
+      row.results?.init.collateralAmountBT18,
 
-      , row.plan.supplyAprBt36
-      , row.plan.borrowApr36
-      , row.plan.rewardsAmountBt36
+      row.planFullPeriod.rewardsAmountBt36,
+      firstPoint?.totalAmountRewardsBt36,
+      row.planFullPeriod.rewardsAmountBt36 && !row.planFullPeriod.rewardsAmountBt36.eq(0)
+          ? firstPoint?.totalAmountRewardsBt36?.mul(100).div(row.planFullPeriod.rewardsAmountBt36)
+          : undefined,
 
-      , row.results?.predicted.aprBt36.collateral
-      , row.results?.resultsBlock.aprBt36.collateral
+      row.results?.predicted.aprBt36.collateral,
+      row.results?.resultsBlock.aprBt36.collateral,
+      row.results?.resultsBlock.aprBt36.collateral && !row.results?.resultsBlock.aprBt36.collateral.eq(0)
+        ? row.results?.predicted.aprBt36.collateral.mul(100).div(row.results?.resultsBlock.aprBt36.collateral)
+        : undefined,
 
-      , row.results?.predicted.aprBt36.borrow
-      , row.results?.resultsBlock.aprBt36.borrow
+      row.results?.predicted.aprBt36.borrow,
+      row.results?.resultsBlock.aprBt36.borrow,
+      row.results?.resultsBlock.aprBt36.borrow && !row.results?.resultsBlock.aprBt36.borrow.eq(0)
+        ? row.results?.predicted.aprBt36.borrow.mul(100).div(row.results?.resultsBlock.aprBt36.borrow)
+        : undefined,
 
-      , row.results?.prices.collateral
-      , row.results?.prices.borrow
+      firstPoint?.costsBT36.collateral,
+      firstPoint?.costsBT36.collateral
+        && row.results?.predicted.aprBt36.collateral
+        && !row.results?.predicted.aprBt36.collateral.eq(0)
+          ? firstPoint?.costsBT36.collateral.div(row.results?.predicted.aprBt36.collateral)
+          : undefined,
+      firstPoint?.costsBT36.borrow,
+      firstPoint?.costsBT36.borrow
+        && row.results?.predicted.aprBt36.borrow
+        && !row.results?.predicted.aprBt36.borrow.eq(0)
+        ? firstPoint?.costsBT36.borrow.div(row.results?.predicted.aprBt36.borrow)
+        : undefined,
 
-      , row.results?.predicted.rates.supplyRate
-      , row.results?.resultsBlock.rates.supplyRate
+      row.results?.prices.collateral,
+      row.results?.prices.borrow,
 
-      , row.results?.predicted.rates.borrowRate
-      , row.results?.resultsBlock.rates.borrowRate
+      row.planSingleBlock.supplyAprBt36,
+      row.planSingleBlock.borrowApr36,
 
-      , row.results?.resultsBlock.period.block0
-      , row.results?.resultsBlock.period.block1
-      , row.results?.resultsBlock.period.blockTimestamp0
-      , row.results?.resultsBlock.period.blockTimestamp1
+      row.results?.predicted.rates.supplyRate,
+      row.results?.resultsBlock.rates.supplyRate,
 
-      , row.assetCollateral.asset
-      , row.assetBorrow.asset
+      row.results?.predicted.rates.borrowRate,
+      row.results?.resultsBlock.rates.borrowRate,
 
-      , row.plan.converter
-      , row.plan.ltv18
-      , row.plan.liquidationThreshold18
-      , row.plan.maxAmountToSupplyCT
-      , row.plan.maxAmountToBorrowBT
+      row.results?.resultsBlock.period.block0,
+      row.results?.resultsBlock.period.block1,
+      row.results?.resultsBlock.period.blockTimestamp0,
+      row.results?.resultsBlock.period.blockTimestamp1,
+
+      row.assetCollateral.asset,
+      row.assetBorrow.asset,
+
+// plan single block
+      row.planSingleBlock.converter,
+      row.planSingleBlock.rewardsAmountBt36,
+      row.planSingleBlock.ltv18,
+      row.planSingleBlock.liquidationThreshold18,
+      row.planSingleBlock.maxAmountToSupplyCT,
+      row.planSingleBlock.maxAmountToBorrowBT,
+
+// plan full period
+      row.planFullPeriod.converter,
+      row.planFullPeriod.supplyAprBt36,
+      row.planFullPeriod.borrowApr36,
+      row.planFullPeriod.ltv18,
+      row.planFullPeriod.liquidationThreshold18,
+      row.planFullPeriod.maxAmountToSupplyCT,
+      row.planFullPeriod.maxAmountToBorrowBT,
     ];
 
     if (row.results) {
       for (const point of row.results?.points) {
         const linePoint = [
-          point.costsBT18.collateral
-          , point.costsBT18.borrow
+          point.costsBT36.collateral
+          , point.costsBT36.borrow
           , point.totalAmountRewards
+          , point.totalAmountRewardsBt36
 
           , point.balances.collateral
           , point.balances.borrow
@@ -289,7 +326,7 @@ export function appendTestResultsToFile(path: string, data: IBorrowTestResults[]
   // write data
   writeFileSync(
     path
-    , lines.join("\n")
+    , lines.join("\n") + "\n"
     , {
       encoding: 'utf8'
       , flag: "a" //appending

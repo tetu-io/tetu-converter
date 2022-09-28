@@ -18,6 +18,7 @@ import {CoreContractsHelper} from "../../../../baseUT/helpers/CoreContractsHelpe
 import {MaticAddresses} from "../../../../../scripts/addresses/MaticAddresses";
 import {MocksHelper} from "../../../../baseUT/helpers/MocksHelper";
 import {TokenDataTypes} from "../../../../baseUT/types/TokenDataTypes";
+import {Misc} from "../../../../../scripts/utils/Misc";
 
 describe("Aave3PoolAdapterTest", () => {
 //region Constants
@@ -520,7 +521,7 @@ describe("Aave3PoolAdapterTest", () => {
                   , collateralHolders
                   , borrowAsset
                   , borrowHolders
-                  , getBigNumberFrom(1, 18) // 1 DAI
+                  , Misc.WEI // 1 DAI
                 )
               ).revertedWith("VM Exception while processing transaction: reverted with reason string '53'");
             });
@@ -573,7 +574,7 @@ describe("Aave3PoolAdapterTest", () => {
                   , collateralHolders
                   , borrowAsset
                   , borrowHolders
-                  , getBigNumberFrom(1, 18) // 1 DAI
+                  , Misc.WEI // 1 DAI
                 )
               ).revertedWith("VM Exception while processing transaction: reverted with reason string '60'");
             });

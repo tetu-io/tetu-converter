@@ -17,7 +17,7 @@ import {CoreContractsHelper} from "../../../../baseUT/helpers/CoreContractsHelpe
 import {BigNumber} from "ethers";
 import {IPlatformActor, PredictBrUsesCase} from "../../../../baseUT/uses-cases/PredictBrUsesCase";
 import {DForceHelper} from "../../../../../scripts/integration/helpers/DForceHelper";
-import {areAlmostEqual} from "../../../../baseUT/utils/CommonUtils";
+import {areAlmostEqual, toMantissa} from "../../../../baseUT/utils/CommonUtils";
 import {TokenDataTypes} from "../../../../baseUT/types/TokenDataTypes";
 import {getBigNumberFrom} from "../../../../../scripts/utils/NumberUtils";
 import {SupplyBorrowUsingDForce} from "../../../../baseUT/uses-cases/dforce/SupplyBorrowUsingDForce";
@@ -124,7 +124,7 @@ describe("DForce integration tests, platform adapter", () => {
         comptroller.address,
         templateAdapterNormalStub.address,
         [collateralCToken, borrowCToken],
-        MaticAddresses.HUNDRED_FINANCE_ORACLE
+        MaticAddresses.HUNDRED_FINANCE_PRICE_ORACLE
       ),
       collateralAsset,
       borrowAsset,
@@ -134,129 +134,131 @@ describe("DForce integration tests, platform adapter", () => {
   }
 //endregion Test predict-br impl
 
-//region Unit tests
-  describe("getConversionPlan", () => {
-    /**
-     * Ensure, that getConversionPlan returns same APR
-     * as directly calculated one using DForceAprLibFacade
-     */
-    async function makeTest(
-      collateralAsset: string,
-      collateralAmount: BigNumber,
-      borrowAsset: string,
-      collateralCToken: string,
-      borrowCToken: string
-    ) : Promise<{sret: string, sexpected: string}> {
-      const controller = await CoreContractsHelper.createController(deployer);
-      const countBlocks = 10;
-      const healthFactor18 = getBigNumberFrom(2, 18);
+//region Get conversion plan test impl
+  /**
+   * Ensure, that getConversionPlan returns same APR
+   * as directly calculated one using DForceAprLibFacade
+   */
+  async function makeTestComparePlanWithDirectCalculations(
+    collateralAsset: string,
+    collateralAmount: BigNumber,
+    borrowAsset: string,
+    collateralCToken: string,
+    borrowCToken: string
+  ) : Promise<{sret: string, sexpected: string}> {
+    const controller = await CoreContractsHelper.createController(deployer);
+    const countBlocks = 10;
+    const healthFactor18 = getBigNumberFrom(4, 18);
 
-      const comptroller = await DForceHelper.getController(deployer);
-      const dForcePlatformAdapter = await AdaptersHelper.createDForcePlatformAdapter(
-        deployer,
-        controller.address,
-        comptroller.address,
-        ethers.Wallet.createRandom().address,
-        [collateralCToken, borrowCToken],
-      );
-      const priceOracle = await DForceHelper.getPriceOracle(comptroller, deployer);
-      const cTokenBorrow = IDForceCToken__factory.connect(borrowCToken, deployer);
-      const cTokenCollateral = IDForceCToken__factory.connect(collateralCToken, deployer);
+    const comptroller = await DForceHelper.getController(deployer);
+    const dForcePlatformAdapter = await AdaptersHelper.createDForcePlatformAdapter(
+      deployer,
+      controller.address,
+      comptroller.address,
+      ethers.Wallet.createRandom().address,
+      [collateralCToken, borrowCToken],
+    );
+    const priceOracle = await DForceHelper.getPriceOracle(comptroller, deployer);
+    const cTokenBorrow = IDForceCToken__factory.connect(borrowCToken, deployer);
+    const cTokenCollateral = IDForceCToken__factory.connect(collateralCToken, deployer);
 
-      const cTokenBorrowDecimals = await cTokenBorrow.decimals();
-      const cTokenCollateralDecimals = await cTokenCollateral.decimals();
+    const borrowAssetDecimals = await (IERC20Extended__factory.connect(borrowAsset, deployer)).decimals();
+    const collateralAssetDecimals = await (IERC20Extended__factory.connect(collateralAsset, deployer)).decimals();
 
-      // getUnderlyingPrice returns price/1e(36-underlineDecimals)
-      const priceBorrow = await priceOracle.getUnderlyingPrice(borrowCToken);
-      const priceCollateral = await priceOracle.getUnderlyingPrice(collateralCToken);
-      console.log("priceBorrow", priceBorrow);
-      console.log("priceCollateral", priceCollateral);
 
-      const priceBorrow18 = (priceBorrow)
-        .mul(getBigNumberFrom(1, cTokenBorrowDecimals))
-        .div(getBigNumberFrom(1, 18));
-      const priceCollateral18 = (priceCollateral)
-        .mul(getBigNumberFrom(1, cTokenCollateralDecimals))
-        .div(getBigNumberFrom(1, 18));
-      console.log("priceBorrow18", priceBorrow18);
-      console.log("priceCollateral18", priceCollateral18);
+    // getUnderlyingPrice returns price/1e(36-underlineDecimals)
+    const priceBorrow = await priceOracle.getUnderlyingPrice(borrowCToken);
+    const priceCollateral = await priceOracle.getUnderlyingPrice(collateralCToken);
+    console.log("priceBorrow", priceBorrow);
+    console.log("priceCollateral", priceCollateral);
 
-      const collateralAssetData = await DForceHelper.getCTokenData(deployer, comptroller, cTokenCollateral);
-      console.log("collateralAssetData", collateralAssetData);
-      const borrowAssetData = await DForceHelper.getCTokenData(deployer, comptroller, cTokenBorrow);
-      console.log("borrowAssetData", borrowAssetData);
+    const priceBorrow36 = priceBorrow.mul(getBigNumberFrom(1, borrowAssetDecimals));
+    const priceCollateral36 = priceCollateral.mul(getBigNumberFrom(1, collateralAssetDecimals));
+    console.log("priceBorrow18", priceBorrow36);
+    console.log("priceCollateral18", priceCollateral36);
 
-      const borrowAmountFactor18 = getBigNumberFrom(1, 18)
-        .mul(collateralAmount)
-        .mul(priceCollateral18)
-        .div(priceBorrow18)
-        .div(healthFactor18);
-      console.log("borrowAmountFactor18", borrowAmountFactor18, collateralAmount);
+    const collateralAssetData = await DForceHelper.getCTokenData(deployer, comptroller, cTokenCollateral);
+    console.log("collateralAssetData", collateralAssetData);
+    const borrowAssetData = await DForceHelper.getCTokenData(deployer, comptroller, cTokenBorrow);
+    console.log("borrowAssetData", borrowAssetData);
 
-      const ret = await dForcePlatformAdapter.getConversionPlan(
-        collateralAsset,
-        collateralAmount,
-        borrowAsset,
-        borrowAmountFactor18,
-        countBlocks
-      );
-      console.log("getConversionPlan", ret);
+    const borrowAmountFactor18 = Misc.WEI
+      .mul(toMantissa(collateralAmount, await cTokenCollateral.decimals(), 18))
+      .div(healthFactor18);
+    console.log("borrowAmountFactor18", borrowAmountFactor18, collateralAmount);
 
-      let amountToBorrow = borrowAmountFactor18.mul(ret.liquidationThreshold18).div(getBigNumberFrom(1, 18));
-      if (amountToBorrow.gt(ret.maxAmountToBorrowBT)) {
-        amountToBorrow = ret.maxAmountToBorrowBT;
-      }
+    const ret = await dForcePlatformAdapter.getConversionPlan(
+      collateralAsset,
+      collateralAmount,
+      borrowAsset,
+      borrowAmountFactor18,
+      countBlocks
+    );
+    console.log("getConversionPlan", ret);
 
-      // predict APR
-      const libFacade = await DeployUtils.deployContract(deployer, "DForceAprLibFacade") as DForceAprLibFacade;
-      const borrowRatePredicted = await AprDForce.getEstimatedBorrowRate(libFacade
-        , cTokenBorrow
-        , amountToBorrow
-      );
-      const supplyRatePredicted = await AprDForce.getEstimatedSupplyRate(libFacade
-        , await getDForceStateInfo(comptroller, cTokenCollateral, cTokenBorrow, Misc.ZERO_ADDRESS)
-        , collateralAmount
-        , await cTokenCollateral.interestRateModel()
-      );
-      const supplyApr = await libFacade.getSupplyApr36(
-        supplyRatePredicted
-        , countBlocks
-        , cTokenCollateralDecimals
-        , priceCollateral18
-        , priceBorrow18
-        , collateralAmount
-      );
-      const borrowApr = await libFacade.getBorrowApr36(
-        borrowRatePredicted
-        , amountToBorrow
-        , countBlocks
-        , cTokenBorrowDecimals
-      );
-
-      const sret = [
-        ret.borrowApr36,
-        ret.supplyAprBt36,
-        ret.ltv18,
-        ret.liquidationThreshold18,
-        ret.maxAmountToBorrowBT,
-        ret.maxAmountToSupplyCT,
-      ].map(x => BalanceUtils.toString(x)) .join("\n");
-      console.log("amountToBorrow", amountToBorrow);
-      console.log("borrowAssetData.borrowRatePerBlock", borrowAssetData.borrowRatePerBlock);
-      console.log("countBlocks", countBlocks);
-
-      const sexpected = [
-        borrowApr,
-        supplyApr,
-        borrowAssetData.collateralFactorMantissa,
-        borrowAssetData.collateralFactorMantissa,
-        borrowAssetData.cash,
-        BigNumber.from(2).pow(256).sub(1), // === type(uint).max
-      ].map(x => BalanceUtils.toString(x)) .join("\n");
-
-      return {sret, sexpected};
+    const amountToBorrow18 = borrowAmountFactor18
+      .mul(ret.liquidationThreshold18)
+      .div(Misc.WEI);
+    let amountToBorrow = toMantissa(amountToBorrow18, 18, await cTokenBorrow.decimals());
+    if (amountToBorrow.gt(ret.maxAmountToBorrowBT)) {
+      amountToBorrow = ret.maxAmountToBorrowBT;
     }
 
+    // predict APR
+    const libFacade = await DeployUtils.deployContract(deployer, "DForceAprLibFacade") as DForceAprLibFacade;
+    const borrowRatePredicted = await AprDForce.getEstimatedBorrowRate(libFacade
+      , cTokenBorrow
+      , amountToBorrow
+    );
+    const supplyRatePredicted = await AprDForce.getEstimatedSupplyRate(libFacade
+      , await getDForceStateInfo(comptroller, cTokenCollateral, cTokenBorrow, Misc.ZERO_ADDRESS)
+      , collateralAmount
+      , await cTokenCollateral.interestRateModel()
+    );
+    const supplyApr = await libFacade.getSupplyApr36(
+      supplyRatePredicted
+      , countBlocks
+      , collateralAssetDecimals
+      , priceCollateral36
+      , priceBorrow36
+      , collateralAmount
+    );
+    const borrowApr = await libFacade.getBorrowApr36(
+      borrowRatePredicted
+      , amountToBorrow
+      , countBlocks
+      , borrowAssetDecimals
+    );
+
+    const sret = [
+      ret.borrowApr36,
+      ret.supplyAprBt36,
+      ret.ltv18,
+      ret.liquidationThreshold18,
+      ret.maxAmountToBorrowBT,
+      ret.maxAmountToSupplyCT,
+    ].map(x => BalanceUtils.toString(x)) .join("\n");
+    console.log("amountToBorrow", amountToBorrow);
+    console.log("borrowAssetData.borrowRatePerBlock", borrowAssetData.borrowRatePerBlock);
+    console.log("countBlocks", countBlocks);
+
+    const sexpected = [
+      borrowApr,
+      supplyApr,
+      collateralAssetData.collateralFactorMantissa
+        .mul(borrowAssetData.borrowFactorMantissa)
+        .div(Misc.WEI),
+      collateralAssetData.collateralFactorMantissa,
+      borrowAssetData.cash,
+      BigNumber.from(2).pow(256).sub(1), // === type(uint).max
+    ].map(x => BalanceUtils.toString(x)) .join("\n");
+
+    return {sret, sexpected};
+  }
+//endregion Get conversion plan test impl
+
+//region Unit tests
+  describe("getConversionPlan", () => {
     describe("Good paths", () => {
       describe("DAI : usdc", () => {
         it("should return expected values", async () => {
@@ -268,7 +270,53 @@ describe("DForce integration tests, platform adapter", () => {
           const borrowCToken = MaticAddresses.dForce_iUSDC;
 
           const collateralAmount = getBigNumberFrom(1000, 18);
-          const ret = await makeTest(
+          const ret = await makeTestComparePlanWithDirectCalculations(
+            collateralAsset,
+            collateralAmount,
+            borrowAsset,
+            collateralCToken,
+            borrowCToken
+          );
+          console.log(ret);
+
+          expect(ret.sret).eq(ret.sexpected);
+        });
+      });
+      describe("USDC : USDT", () => {
+        it("should return expected values", async () => {
+          if (!await isPolygonForkInUse()) return;
+
+          const collateralAsset = MaticAddresses.USDC;
+          const collateralCToken = MaticAddresses.dForce_iUSDC;
+
+          const borrowAsset = MaticAddresses.USDT;
+          const borrowCToken = MaticAddresses.dForce_iUSDT;
+
+          const collateralAmount = getBigNumberFrom(100, 6);
+          const ret = await makeTestComparePlanWithDirectCalculations(
+            collateralAsset,
+            collateralAmount,
+            borrowAsset,
+            collateralCToken,
+            borrowCToken
+          );
+          console.log(ret);
+
+          expect(ret.sret).eq(ret.sexpected);
+        });
+      });
+      describe("WMATIC : USDC", () => {
+        it("should return expected values", async () => {
+          if (!await isPolygonForkInUse()) return;
+
+          const collateralAsset = MaticAddresses.WMATIC;
+          const collateralCToken = MaticAddresses.dForce_iMATIC;
+
+          const borrowAsset = MaticAddresses.USDC;
+          const borrowCToken = MaticAddresses.dForce_iUSDC;
+
+          const collateralAmount = getBigNumberFrom(100, 18);
+          const ret = await makeTestComparePlanWithDirectCalculations(
             collateralAsset,
             collateralAmount,
             borrowAsset,

@@ -12,6 +12,7 @@ import {getBigNumberFrom} from "../../../scripts/utils/NumberUtils";
 import {MocksHelper} from "./MocksHelper";
 import {IPoolInfo} from "./BorrowManagerHelper";
 import {COUNT_BLOCKS_PER_DAY} from "../utils/aprUtils";
+import {Misc} from "../../../scripts/utils/Misc";
 
 export class CoreContractsHelper {
   static async createController(
@@ -68,7 +69,8 @@ export class CoreContractsHelper {
     return (await DeployUtils.deployContract(
       signer,
       "BorrowManager",
-      controller.address
+      controller.address,
+      Misc.WEI // by default, set rewardsFactor = 1
     )) as BorrowManager;
   }
 

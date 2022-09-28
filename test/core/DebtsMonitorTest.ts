@@ -4,19 +4,35 @@ import {expect} from "chai";
 import {
   Controller,
   DebtMonitor,
-  DebtMonitor__factory, IPoolAdapter,
+  DebtMonitor__factory,
+  IPoolAdapter,
   IPoolAdapter__factory,
-  MockERC20, MockERC20__factory, PoolAdapterMock,
-  PoolAdapterMock__factory, PriceOracleMock, PriceOracleMock__factory, Borrower
+  MockERC20,
+  MockERC20__factory,
+  PoolAdapterMock,
+  PoolAdapterMock__factory,
+  PriceOracleMock,
+  PriceOracleMock__factory,
+  Borrower,
+  BorrowManager,
+  BorrowManager__factory,
+  TetuConverter__factory, PoolAdapterStub, PoolAdapterStub__factory
 } from "../../typechain";
 import {TimeUtils} from "../../scripts/utils/TimeUtils";
-import {BorrowManagerHelper, IBmInputParams} from "../baseUT/helpers/BorrowManagerHelper";
+import {
+  BorrowManagerHelper,
+  IBorrowInputParams,
+  MockPoolParams,
+  PoolInstanceInfo
+} from "../baseUT/helpers/BorrowManagerHelper";
 import {DeployerUtils} from "../../scripts/utils/DeployerUtils";
 import {BigNumber} from "ethers";
 import {getBigNumberFrom} from "../../scripts/utils/NumberUtils";
 import {CoreContractsHelper} from "../baseUT/helpers/CoreContractsHelper";
 import {MocksHelper} from "../baseUT/helpers/MocksHelper";
 import {CoreContracts} from "../baseUT/types/CoreContracts";
+import {generateAssetPairs} from "../baseUT/utils/AssetPairUtils";
+import {core} from "../../typechain/contracts";
 
 describe("DebtsMonitor", () => {
 //region Global vars for all tests
@@ -56,7 +72,87 @@ describe("DebtsMonitor", () => {
   });
 //endregion before, after
 
-//region Utils
+//region Data types
+  interface OldNewValue {
+    initial: number;
+    updated: number;
+  }
+
+  interface TestParams {
+    amountCollateral: number;
+    sourceDecimals: number;
+    targetDecimals: number;
+    amountToBorrow: number;
+    priceSourceUSD: OldNewValue;
+    priceTargetUSD: OldNewValue;
+    collateralFactor: OldNewValue;
+    countPassedBlocks: number;
+    borrowRate: number; // i.e. 1e-18
+  }
+
+  interface IPoolAdapterConfig {
+    originConverter: string;
+    user: string;
+    collateralAsset: string;
+    borrowAsset: string;
+  }
+//endregion Data types
+
+//region Initialization utils
+  async function initializeApp(
+    tt: IBorrowInputParams,
+    user: string,
+  ) : Promise<{
+    core: CoreContracts,
+    userContract: Borrower,
+    sourceToken: MockERC20,
+    targetToken: MockERC20,
+    pools: PoolInstanceInfo[],
+    poolAdapters: string[]
+  }>{
+    const healthFactor2 = 200;
+    const periodInBlocks = 117;
+
+    const {core, sourceToken, targetToken, pools} = await BorrowManagerHelper.initAppPoolsWithTwoAssets(deployer
+      , tt
+      , async () => (await MocksHelper.createPoolAdapterMock(deployer)).address
+    );
+    const userContract = await MocksHelper.deployBorrower(user, core.controller, healthFactor2, periodInBlocks);
+    const bmAsTc = BorrowManager__factory.connect(core.bm.address,
+      await DeployerUtils.startImpersonate(core.tc.address)
+    );
+
+    const poolAdapters: string[] = [];
+    for (const p of pools) {
+      // we need to set up a pool adapter
+      await bmAsTc.registerPoolAdapter(
+        p.converter,
+        userContract.address,
+        sourceToken.address,
+        targetToken.address
+      );
+      poolAdapters.push(
+        await core.bm.getPoolAdapter(
+          p.converter,
+          userContract.address,
+          sourceToken.address,
+          targetToken.address
+        )
+      );
+    }
+
+    return {
+      core,
+      userContract,
+      sourceToken,
+      targetToken,
+      pools,
+      poolAdapters
+    };
+  }
+//endregion Initialization utils
+
+//region Test impl
   async function makeBorrow(
     userTC: string,
     pool: string,
@@ -84,122 +180,6 @@ describe("DebtsMonitor", () => {
     await pa.borrow(amountCollateral, amountToBorrow, userTC);
   }
 
-  async function preparePoolAdapter(
-    tt: IBmInputParams
-  ) : Promise<{
-    userTC: string,
-    controller: Controller,
-    sourceToken: MockERC20,
-    targetToken: MockERC20,
-    pool: string,
-    cTokenAddress: string,
-    poolAdapterMock: PoolAdapterMock
-  }> {
-    // create template-pool-adapter
-    const converter = await MocksHelper.createPoolAdapterMock(deployer);
-
-    // create borrow manager (BM) with single pool and DebtMonitor (DM)
-    const {bm, sourceToken, targetToken, pools, controller}
-      = await BorrowManagerHelper.createBmTwoUnderlyings(deployer
-      , tt
-      , async () => converter.address
-    );
-    const dm = await CoreContractsHelper.createDebtMonitor(deployer, controller);
-    const tc =  await CoreContractsHelper.createTetuConverter(deployer, controller);
-    await controller.setBorrowManager(bm.address);
-    await controller.setDebtMonitor(dm.address);
-    await controller.setTetuConverter(tc.address);
-
-    // register pool adapter
-    const pool = pools[0].pool;
-    const cTokenAddress = pools[0].underlyingTocTokens.get(sourceToken.address) || "";
-    const userTC = ethers.Wallet.createRandom().address;
-    const collateral = sourceToken.address;
-    await bm.registerPoolAdapter(converter.address, userTC, collateral, targetToken.address);
-
-    // pool adapter is a copy of templatePoolAdapter, created using minimal-proxy pattern
-    // this is a mock, we need to configure it
-    const poolAdapterAddress = await bm.getPoolAdapter(converter.address, userTC, collateral, targetToken.address);
-    const poolAdapterMock = await PoolAdapterMock__factory.connect(poolAdapterAddress, deployer);
-
-    return {
-      userTC, controller, sourceToken, targetToken, pool, cTokenAddress, poolAdapterMock
-    }
-  }
-
-  async function prepareContracts(
-    tt: IBmInputParams,
-    user: string,
-    borrowRatePerBlock18: BigNumber
-  ) : Promise<{
-    core: CoreContracts,
-    pool: string,
-    cToken: string,
-    userContract: Borrower,
-    sourceToken: MockERC20,
-    targetToken: MockERC20,
-    poolAdapter: string
-  }>{
-    const healthFactor2 = 200;
-    const periodInBlocks = 117;
-    const converter = await MocksHelper.createPoolAdapterMock(deployer);
-
-    const {bm, sourceToken, targetToken, pools, controller}
-      = await BorrowManagerHelper.createBmTwoUnderlyings(deployer
-      , tt
-      , async () => converter.address
-    );
-    const tc = await CoreContractsHelper.createTetuConverter(deployer, controller);
-    const dm = await CoreContractsHelper.createDebtMonitor(deployer, controller);
-    await controller.setBorrowManager(bm.address);
-    await controller.setDebtMonitor(dm.address);
-    await controller.setTetuConverter(tc.address);
-
-    const core = new CoreContracts(controller, tc, bm, dm);
-
-    const pool = pools[0].pool;
-    const cToken = pools[0].underlyingTocTokens.get(sourceToken.address) || "";
-    const userContract = await MocksHelper.deployBorrower(user, core.controller, healthFactor2, periodInBlocks);
-
-    // we need to set up a pool adapter
-    await core.bm.registerPoolAdapter(
-      converter.address,
-      userContract.address,
-      sourceToken.address,
-      targetToken.address
-    );
-    const poolAdapter: string = await core.bm.getPoolAdapter(
-      converter.address,
-      userContract.address,
-      sourceToken.address,
-      targetToken.address
-    );
-    const poolAdapterMock = PoolAdapterMock__factory.connect(poolAdapter, deployer);
-    // cToken,
-    // getBigNumberFrom(tt.targetCollateralFactor*10, 17),
-    // borrowRatePerBlock18
-    console.log("poolAdapter-mock is configured:", poolAdapter, targetToken.address);
-
-    return {core,  pool, cToken, userContract, sourceToken, targetToken, poolAdapter};
-  }
-
-  interface OldNewValue {
-    initial: number;
-    updated: number;
-  }
-
-  interface TestParams {
-    amountCollateral: number;
-    sourceDecimals: number;
-    targetDecimals: number;
-    amountToBorrow: number;
-    priceSourceUSD: OldNewValue;
-    priceTargetUSD: OldNewValue;
-    collateralFactor: OldNewValue;
-    countPassedBlocks: number;
-    borrowRate: number; // i.e. 1e-18
-  }
-
   async function prepareTest(
     pp: TestParams
   ) : Promise<{
@@ -209,10 +189,10 @@ describe("DebtsMonitor", () => {
     targetToken: MockERC20,
     userTC: string,
     controller: Controller,
-    pool: string,
-    cTokenAddress: string,
+    pool: string
   }> {
-    const tt: IBmInputParams = {
+    const user = ethers.Wallet.createRandom().address;
+    const tt: IBorrowInputParams = {
       collateralFactor: pp.collateralFactor.initial,
       priceSourceUSD: pp.priceSourceUSD.initial,
       priceTargetUSD: pp.priceTargetUSD.initial,
@@ -226,17 +206,17 @@ describe("DebtsMonitor", () => {
 
     const amountBorrowLiquidityInPool = getBigNumberFrom(1e10, tt.targetDecimals);
 
-    const {userTC, controller, sourceToken, targetToken, pool, cTokenAddress, poolAdapterMock} =
-      await preparePoolAdapter(tt);
+    const {core, pools, userContract, sourceToken, targetToken, poolAdapters} = await initializeApp(tt, user);
+    // there is only one available pool above
+    const poolAdapter = poolAdapters[0];
+    const pool = pools[0].pool;
 
-    const dm = DebtMonitor__factory.connect(await controller.debtMonitor(), deployer);
+    const poolAdapterMock = await PoolAdapterMock__factory.connect(poolAdapter, deployer);
 
-    // cTokenAddress,
-    // collateralFactor18,
-    // getBigNumberFrom(1e18*pp.borrowRate)
+    const dm = DebtMonitor__factory.connect(await core.controller.debtMonitor(), deployer);
 
     await makeBorrow(
-      userTC,
+      userContract.address,
       pool,
       poolAdapterMock.address,
       sourceToken,
@@ -268,96 +248,398 @@ describe("DebtsMonitor", () => {
       ]
     );
 
-    return {dm, poolAdapterMock, sourceToken, targetToken, userTC, controller, pool, cTokenAddress};
+    return {
+      dm,
+      poolAdapterMock,
+      sourceToken,
+      targetToken,
+      userTC: userContract.address,
+      controller: core.controller,
+      pool
+    };
   }
-//endregion Utils
+//endregion Test impl
+
+//region Setup app
+  async function setUpSinglePool() : Promise<{
+    core: CoreContracts,
+    pool: string,
+    userContract: Borrower,
+    sourceToken: MockERC20,
+    targetToken: MockERC20,
+    poolAdapter: string
+  }>{
+    const user = ethers.Wallet.createRandom().address;
+    const targetDecimals = 12;
+    const tt: IBorrowInputParams = {
+      collateralFactor: 0.8,
+      priceSourceUSD: 0.1,
+      priceTargetUSD: 4,
+      sourceDecimals: 24,
+      targetDecimals: targetDecimals,
+      availablePools: [
+        {   // source, target
+          borrowRateInTokens: [
+            getBigNumberFrom(0, targetDecimals),
+            getBigNumberFrom(1, targetDecimals - 6), //1e-6
+          ],
+          availableLiquidityInTokens: [0, 200_000_000]
+        }
+      ]
+    };
+
+    const r = await initializeApp(tt, user);
+    return {
+      core: r.core,
+      pool: r.pools[0].pool,
+      poolAdapter: r.poolAdapters[0],
+      sourceToken: r.sourceToken,
+      targetToken: r.targetToken,
+      userContract: r.userContract,
+    }
+  }
+//endregion Setup app
+
+//region Utils for onClosePosition
+  async function preparePoolAdapters(
+    countConvertersPerPlatformAdapter: number[],
+    countUsers: number = 2,
+    countAssets: number = 2
+  ) : Promise<{poolAdapters: string[], core: CoreContracts}>{
+    const assets = await MocksHelper.createAssets(countAssets);
+    const users = [...Array(countUsers).keys()].map(x => ethers.Wallet.createRandom().address);
+
+    // prepare platform adapters and available assets na converters
+    const poolParams: MockPoolParams[] = [];
+    for (let i = 0; i < countConvertersPerPlatformAdapter.length; ++i) {
+      const pp: MockPoolParams = {
+        assets: assets.map(x => x.address),
+        cTokens: (await MocksHelper.createCTokensMocks(
+          deployer,
+          assets.map(x => x.address),
+          assets.map(x => 18)
+        )).map(x => x.address),
+        pool: (await MocksHelper.createPoolStub(deployer)).address,
+        converters: (
+          await MocksHelper.createConverters(deployer, countConvertersPerPlatformAdapter[i])
+        ).map(x => x.address),
+        assetPrices: assets.map(x => getBigNumberFrom(1, 18)),
+        assetLiquidityInPool: assets.map(x => getBigNumberFrom(1000, 18)),
+      }
+      poolParams.push(pp);
+    }
+
+    // initialize the app
+    const r = await BorrowManagerHelper.initAppWithMockPools(deployer, poolParams);
+    const bmAsTc = BorrowManager__factory.connect(
+      r.core.bm.address,
+      await DeployerUtils.startImpersonate(r.core.tc.address)
+    );
+
+    // register all possible pool adapters for the given count of users
+    const poolAdapters: string[] = [];
+    for (let i = 0; i < countUsers; ++i) {
+      for (const p of r.pools) {
+        const assetPairs = generateAssetPairs([...p.asset2cTokens.keys()]);
+        for (const pair of assetPairs) {
+          await bmAsTc.registerPoolAdapter(p.converter, users[i], pair.smallerAddress, pair.biggerAddress);
+          await bmAsTc.registerPoolAdapter(p.converter, users[i], pair.biggerAddress, pair.smallerAddress);
+
+          poolAdapters.push(
+            await r.core.bm.getPoolAdapter(p.converter, users[i], pair.smallerAddress, pair.biggerAddress)
+          );
+          poolAdapters.push(
+            await r.core.bm.getPoolAdapter(p.converter, users[i], pair.biggerAddress, pair.smallerAddress)
+          );
+        }
+      }
+    }
+
+    // now open all positions
+    for (const poolAdapter of poolAdapters) {
+      const dmAsPA = DebtMonitor__factory.connect(
+        r.core.dm.address,
+        await DeployerUtils.startImpersonate(poolAdapter)
+      );
+      await dmAsPA.onOpenPosition();
+    }
+
+    return {
+      poolAdapters,
+      core: r.core
+    };
+  }
+
+  async function getRegisteredPositions(dm: DebtMonitor) : Promise<string[]> {
+    const count = (await dm.getCountPositions()).toNumber();
+    const items = await Promise.all(
+      [...Array(count).keys()].map(
+        async index => await dm.positions(index)
+      )
+    );
+    return items.sort();
+  }
+
+  async function getRegisteredPoolAdapters(dm: DebtMonitor, config: IPoolAdapterConfig) : Promise<string[]> {
+    const key = await dm.getPoolAdapterKey(config.user, config.collateralAsset, config.borrowAsset);
+    const length = (await dm.poolAdaptersLength(config.user, config.collateralAsset, config.borrowAsset)).toNumber();
+    const items = await Promise.all(
+      [...Array(length).keys()].map(
+        async index => await dm.poolAdapters(key, index)
+      )
+    );
+    return items.sort();
+  }
+
+  function removeItem(items: string[], itemToRemove: string): string[] {
+    return items.filter(
+      function (item) {
+        return item !== itemToRemove;
+      }
+    )
+  }
+
+
+//endregion Utils for onClosePosition
 
 //region Unit tests
+  describe("setThresholdAPR", () => {
+    describe("Good paths", () => {
+      describe("Set thresholdAPR equal to 0", () => {
+        it("should set expected value", async () => {
+          const r = await setUpSinglePool();
+          await r.core.dm.setThresholdAPR(0);
+          const ret = await r.core.dm.thresholdAPR();
+          const expected = 0;
+          expect(ret).equal(expected);
+        });
+      });
+      describe("Set thresholdAPR less then 100", () => {
+        it("should set expected value", async () => {
+          const thresholdApr = 99;
+          const r = await setUpSinglePool();
+          await r.core.dm.setThresholdAPR(thresholdApr);
+          const ret = await r.core.dm.thresholdAPR();
+          expect(ret).equal(thresholdApr);
+        });
+      });
+    });
+    describe("Bad paths", () => {
+      describe("Set thresholdAPR equal to 100", () => {
+        it("should revert", async () => {
+          const thresholdApr = 100; //(!)
+          const r = await setUpSinglePool();
+          await expect(
+            r.core.dm.setThresholdAPR(thresholdApr)
+          ).revertedWith("TC-29") // INCORRECT_VALUE
+        });
+      });
+      describe("Set thresholdAPR greater then 100 and not 0", () => {
+        it("should revert", async () => {
+          const thresholdApr = 101; //(!)
+          const r = await setUpSinglePool();
+          await expect(
+            r.core.dm.setThresholdAPR(thresholdApr)
+          ).revertedWith("TC-29") // INCORRECT_VALUE
+        });
+      });
+      describe("Not governance", () => {
+        it("should revert", async () => {
+          const thresholdApr = 30;
+          const r = await setUpSinglePool();
+          const dmNotGov = await DebtMonitor__factory.connect(r.core.dm.address, user4); // (!)
+          await expect(
+            dmNotGov.setThresholdAPR(thresholdApr)
+          ).revertedWith("TC-9") // GOVERNANCE_ONLY
+        });
+      });
+    });
+  });
+
+  describe("setThresholdCountBlocks", () => {
+    describe("Good paths", () => {
+      describe("Set setThresholdCountBlocks equal to 0", () => {
+        it("should set expected value", async () => {
+          const r = await setUpSinglePool();
+          await r.core.dm.setThresholdCountBlocks(0);
+          const ret = await r.core.dm.thresholdCountBlocks();
+          const expected = 0;
+          expect(ret).equal(expected);
+        });
+      });
+      describe("Set thresholdCountBlocks not 0", () => {
+        it("should set expected value", async () => {
+          const thresholdCountBlocks = 99;
+          const r = await setUpSinglePool();
+          await r.core.dm.setThresholdCountBlocks(thresholdCountBlocks);
+          const ret = await r.core.dm.thresholdCountBlocks();
+          expect(ret).equal(thresholdCountBlocks);
+        });
+      });
+    });
+    describe("Bad paths", () => {
+      describe("Not governance", () => {
+        it("should revert", async () => {
+          const thresholdCountBlocks = 30;
+          const r = await setUpSinglePool();
+          const dmNotGov = await DebtMonitor__factory.connect(r.core.dm.address, user4); // (!)
+          await expect(
+            dmNotGov.setThresholdCountBlocks(thresholdCountBlocks)
+          ).revertedWith("TC-9") // GOVERNANCE_ONLY
+        });
+      });
+    });
+  });
+
   describe("onOpenPosition", () => {
     describe("Good paths", () => {
-      describe("Single borrow", () => {
+      describe("Open single position twice", () => {
         it("should set expected state", async () => {
           const user = ethers.Wallet.createRandom().address;
-          const targetDecimals = 12;
-          const sourceDecimals = 24;
-          const availableBorrowLiquidityNumber = 200_000_000;
-          const borrowRatePerBlock18 = getBigNumberFrom(1);
-          const tt: IBmInputParams = {
+          const tt: IBorrowInputParams = {
             collateralFactor: 0.8,
             priceSourceUSD: 0.1,
             priceTargetUSD: 4,
-            sourceDecimals: sourceDecimals,
-            targetDecimals: targetDecimals,
+            sourceDecimals: 12,
+            targetDecimals: 24,
             availablePools: [
               {   // source, target
-                borrowRateInTokens: [
-                  getBigNumberFrom(0, targetDecimals),
-                  getBigNumberFrom(1, targetDecimals - 6), //1e-6
-                ],
-                availableLiquidityInTokens: [0, availableBorrowLiquidityNumber]
+                borrowRateInTokens: [1, 1],
+                availableLiquidityInTokens: [0, 200_000_000]
               }
             ]
           };
 
-          const {core,  pool, cToken, userContract, sourceToken, targetToken, poolAdapter} =
-            await prepareContracts(tt, user, borrowRatePerBlock18);
+          const {core, userContract, sourceToken, targetToken, poolAdapters} = await initializeApp(tt, user);
+          const poolAdapter = poolAdapters[0];
 
           const dmAsPa = DebtMonitor__factory.connect(core.dm.address
             , await DeployerUtils.startImpersonate(poolAdapter)
           );
 
-          const before = [
-            await dmAsPa.poolAdaptersLength(userContract.address
-              , sourceToken.address
-              , targetToken.address
-            ),
-            await dmAsPa.getCountPositions(),
-            !(await dmAsPa.positionLastAccess(poolAdapter)).eq(0)
-          ];
+          const poolAdapterInstance = await IPoolAdapter__factory.connect(poolAdapter, deployer);
+          const config = await poolAdapterInstance.getConfig();
 
+          const funcGetState = async function () : Promise<string> {
+            const poolAdapterKey = await dmAsPa.getPoolAdapterKey(
+              userContract.address,
+              sourceToken.address,
+              targetToken.address
+            );
+            const poolAdaptersLength = await dmAsPa.poolAdaptersLength(
+              userContract.address,
+              sourceToken.address,
+              targetToken.address
+            );
+            const countPositions = await dmAsPa.getCountPositions();
+            return [
+              poolAdaptersLength,
+              poolAdaptersLength.eq(0) ? "" : await dmAsPa.poolAdapters(poolAdapterKey, 0),
+              !(await dmAsPa.positionLastAccess(poolAdapter)).eq(0),
+              countPositions,
+              countPositions.eq(0) ? "" : await dmAsPa.positions(0),
+              await dmAsPa.isConverterInUse(config.originConverter),
+            ].join("\n");
+          }
+
+          const before = await funcGetState();
           await dmAsPa.onOpenPosition();
+          const after1 = await funcGetState();
+          await dmAsPa.onOpenPosition();
+          const after2 = await funcGetState();
 
-          const after = [
-            await dmAsPa.poolAdaptersLength(userContract.address
-              , sourceToken.address
-              , targetToken.address
-            ),
-            await dmAsPa.getCountPositions(),
-            !(await dmAsPa.positionLastAccess(poolAdapter)).eq(0)
-          ];
-
-          const ret = [...before, ...after].join("\n");
+          const ret = [
+            before,
+            after1,
+            after2
+          ].join("\n");
 
           const expected = [
             //before
-            0, 0, false,
-            //after
-            1, 1, true
+            0, "", false, 0, "", false,
+            //after1
+            1, poolAdapter, true, 1, poolAdapter, true,
+            //after2
+            1, poolAdapter, true, 1, poolAdapter, true,
           ].join("\n");
 
           expect(ret).equal(expected);
         });
       });
-      describe("Two borrows, same borrowed token", () => {
-        it("should combine two borrows to single amount", async () => {
-          expect.fail("TODO");
-        });
-      });
-      describe("Two borrows, different borrowed tokens", () => {
-        it("should set DM to expected state", async () => {
-          expect.fail("TODO");
-        });
-      });
-      describe("Two pool adapters, each makes two borrows with different borrowed tokens", () => {
-        it("should set DM to expected state", async () => {
-          expect.fail("TODO");
-        });
-      });
-    });
-    describe("Bad paths", () => {
-      describe("Wrong pool address", () => {
-        it("should revert with template contract not found", async () => {
-          expect.fail("TODO");
+      describe("Open two same positions in different two pools", () => {
+        it("should set expected state", async () => {
+          const user = ethers.Wallet.createRandom().address;
+           const tt: IBorrowInputParams = {
+            collateralFactor: 0.8,
+            priceSourceUSD: 0.1,
+            priceTargetUSD: 4,
+            sourceDecimals: 12,
+            targetDecimals: 24,
+            availablePools: [
+              {   // source, target
+                borrowRateInTokens: [1, 1],
+                availableLiquidityInTokens: [0, 200_000_000]
+              },
+              {   // source, target
+                borrowRateInTokens: [1, 1],
+                availableLiquidityInTokens: [0, 200_000_000]
+              },
+            ]
+          };
+
+          const {core, poolAdapters} = await initializeApp(tt, user);
+          // there are two available pools above
+          const poolAdapter1 = poolAdapters[0];
+          const poolAdapter2 = poolAdapters[1];
+
+          const dmAsPa1 = DebtMonitor__factory.connect(core.dm.address
+            , await DeployerUtils.startImpersonate(poolAdapter1)
+          );
+          const dmAsPa2 = DebtMonitor__factory.connect(core.dm.address
+            , await DeployerUtils.startImpersonate(poolAdapter2)
+          );
+
+          await dmAsPa1.onOpenPosition();
+          await dmAsPa2.onOpenPosition();
+
+          const poolAdapterInstance1 = await IPoolAdapter__factory.connect(poolAdapter1, deployer);
+          const poolAdapterInstance2 = await IPoolAdapter__factory.connect(poolAdapter2, deployer);
+          const config1 = await poolAdapterInstance1.getConfig();
+          const config2 = await poolAdapterInstance2.getConfig();
+          const poolAdapterKey = await dmAsPa1.getPoolAdapterKey(
+            config1.user,
+            config1.collateralAsset,
+            config1.borrowAsset
+          );
+
+          const ret = [
+            await dmAsPa1.poolAdaptersLength(
+              config1.user,
+              config1.collateralAsset,
+              config1.borrowAsset
+            ),
+            await dmAsPa1.poolAdapters(poolAdapterKey, 0),
+            await dmAsPa1.poolAdapters(poolAdapterKey, 1),
+
+            !(await dmAsPa1.positionLastAccess(poolAdapter1)).eq(0),
+            !(await dmAsPa1.positionLastAccess(poolAdapter2)).eq(0),
+
+            await dmAsPa1.getCountPositions(),
+            await dmAsPa1.positions(0),
+            await dmAsPa1.positions(1),
+
+            await dmAsPa1.isConverterInUse(config1.originConverter),
+            await dmAsPa1.isConverterInUse(config2.originConverter),
+          ].join("\n");
+
+          const expected = [
+            2, poolAdapter1, poolAdapter2,
+            true, true,
+            2, poolAdapter1, poolAdapter2,
+            true, true,
+          ].join("\n");
+
+          expect(ret).equal(expected);
         });
       });
     });
@@ -371,8 +653,7 @@ describe("DebtsMonitor", () => {
           const targetDecimals = 12;
           const sourceDecimals = 24;
           const availableBorrowLiquidityNumber = 200_000_000;
-          const borrowRatePerBlock18 = getBigNumberFrom(1);
-          const tt: IBmInputParams = {
+          const tt: IBorrowInputParams = {
             collateralFactor: 0.8,
             priceSourceUSD: 0.1,
             priceTargetUSD: 4,
@@ -389,89 +670,251 @@ describe("DebtsMonitor", () => {
             ]
           };
 
-          const {core,  pool, cToken, userContract, sourceToken, targetToken, poolAdapter} =
-            await prepareContracts(tt, user, borrowRatePerBlock18);
+          const {core, userContract, sourceToken, targetToken, poolAdapters} = await initializeApp(tt, user);
+          const poolAdapter = poolAdapters[0];
 
           const dmAsPa = DebtMonitor__factory.connect(core.dm.address
             , await DeployerUtils.startImpersonate(poolAdapter)
           );
 
-          const before = [
-            await dmAsPa.poolAdaptersLength(userContract.address
-              , sourceToken.address
-              , targetToken.address
-            ),
-            await dmAsPa.getCountPositions(),
-            !(await dmAsPa.positionLastAccess(poolAdapter)).eq(0)
-          ];
+          const poolAdapterInstance = await IPoolAdapter__factory.connect(poolAdapter, deployer);
+          const config = await poolAdapterInstance.getConfig();
 
+          const funcGetState = async function() : Promise<string> {
+            const poolAdapterKey = await dmAsPa.getPoolAdapterKey(
+              userContract.address,
+              sourceToken.address,
+              targetToken.address
+            );
+            const poolAdaptersLength = await dmAsPa.poolAdaptersLength(
+              userContract.address,
+              sourceToken.address,
+              targetToken.address
+            );
+            const countPositions = await dmAsPa.getCountPositions();
+            return [
+              poolAdaptersLength,
+              poolAdaptersLength.eq(0) ? "" : await dmAsPa.poolAdapters(poolAdapterKey, 0),
+              !(await dmAsPa.positionLastAccess(poolAdapter)).eq(0),
+              countPositions,
+              countPositions.eq(0) ? "" : await dmAsPa.positions(0),
+              await dmAsPa.isConverterInUse(config.originConverter),
+            ].join("\n");
+          }
+
+          const before = await funcGetState();
           await dmAsPa.onOpenPosition();
-          const afterBorrow = [
-            await dmAsPa.poolAdaptersLength(userContract.address
-              , sourceToken.address
-              , targetToken.address
-            ),
-            await dmAsPa.getCountPositions(),
-            !(await dmAsPa.positionLastAccess(poolAdapter)).eq(0)
-          ];
-
+          const afterBorrow = await funcGetState();
           await dmAsPa.onClosePosition();
+          const afterRepay = await funcGetState();
 
-          const afterRepay = [
-            await dmAsPa.poolAdaptersLength(userContract.address
-              , sourceToken.address
-              , targetToken.address
-            ),
-            await dmAsPa.getCountPositions(),
-            !(await dmAsPa.positionLastAccess(poolAdapter)).eq(0)
-          ];
-
-          const ret = [...before, ...afterBorrow, ...afterRepay].join("\n");
+          const ret = [
+            before,
+            afterBorrow,
+            afterRepay
+          ].join("\n");
 
           const expected = [
             //before
-            0, 0, false,
-            //after
-            1, 1, true,
-            //before
-            0, 0, false,
+            0, "", false, 0, "", false,
+            //after open
+            1, poolAdapter, true, 1, poolAdapter, true,
+            //after close
+            0, "", false, 0, "", false,
           ].join("\n");
 
           expect(ret).equal(expected);
         });
       });
-      describe("Two borrows, same borrowed token", () => {
-        describe("Repay single borrow only", () => {
-          it("should combine two borrows to single amount", async () => {
-            expect.fail("TODO");
-          });
+
+      describe("Open N positions, close one of them", async () => {
+        it("should set debtMonitor.positions to expected state", async () => {
+          const r = await preparePoolAdapters([1, 2]);
+          let snapshot: string;
+          for (const poolAdapterToRemove of r.poolAdapters) {
+            snapshot = await TimeUtils.snapshot();
+
+            // get current state
+            const before = await getRegisteredPositions(r.core.dm);
+
+            // close single position
+            const dmAsPA = DebtMonitor__factory.connect(
+              r.core.dm.address,
+              await DeployerUtils.startImpersonate(poolAdapterToRemove)
+            );
+            await dmAsPA.onClosePosition();
+
+            // get new state
+            const after = await getRegisteredPositions(r.core.dm);
+            const beforeMinusPoolAdapter = removeItem(before, poolAdapterToRemove);
+            const ret = [
+              after.join(),
+              after.length
+            ].join();
+            const expected = [
+              beforeMinusPoolAdapter.join(),
+              before.length - 1
+            ].join();
+
+            await TimeUtils.rollback(snapshot);
+
+            expect(ret).equal(expected);
+          }
         });
-      });
-      describe("Two borrows, different borrowed tokens", () => {
-        describe("Repay first borrow only", () => {
-          it("should set DM to expected state", async () => {
-            expect.fail("TODO");
-          });
-        });
-        describe("Repay second borrow only", () => {
-          it("should set DM to expected state", async () => {
-            expect.fail("TODO");
-          });
+        it("should set debtMonitor.poolAdapters to expected state", async () => {
+          const r = await preparePoolAdapters([1, 2]);
+          let snapshot: string;
+          for (const poolAdapterToRemove of r.poolAdapters) {
+            snapshot = await TimeUtils.snapshot();
+
+            const poolAdapter = IPoolAdapter__factory.connect(poolAdapterToRemove, deployer);
+            const config = await poolAdapter.getConfig();
+
+            // get current state
+            const before = await getRegisteredPoolAdapters(r.core.dm, config);
+
+            // close single position
+            const dmAsPA = DebtMonitor__factory.connect(
+              r.core.dm.address,
+              await DeployerUtils.startImpersonate(poolAdapterToRemove)
+            );
+            await dmAsPA.onClosePosition();
+
+            // get new state
+            const after = await getRegisteredPoolAdapters(r.core.dm, config);
+            const beforeMinusPoolAdapter = removeItem(before, poolAdapterToRemove);
+            const ret = [
+              after.join(),
+              after.length
+            ].join();
+            const expected = [
+              beforeMinusPoolAdapter.join(),
+              before.length - 1
+            ].join();
+
+            await TimeUtils.rollback(snapshot);
+
+            expect(ret).equal(expected);
+          }
         });
       });
 
+      describe("Create two positions for single converter, close both", async () => {
+        it("should set debtMonitor._poolAdaptersForConverters to expected state", async () => {
+          const r = await preparePoolAdapters([1], 1, 2);
+
+          const poolAdapter1 = r.poolAdapters[0];
+          const poolAdapter2 = r.poolAdapters[1];
+
+          const config = await IPoolAdapter__factory.connect(poolAdapter1, deployer).getConfig();
+          const converter = (await config).originConverter;
+
+          const before = await r.core.dm.isConverterInUse(converter);
+
+          const dmAsPA1 = DebtMonitor__factory.connect(
+            r.core.dm.address,
+            await DeployerUtils.startImpersonate(poolAdapter1)
+          );
+          await dmAsPA1.onClosePosition();
+          const middle = await r.core.dm.isConverterInUse(converter);
+
+          const dmAsPA2 = DebtMonitor__factory.connect(
+            r.core.dm.address,
+            await DeployerUtils.startImpersonate(poolAdapter2)
+          );
+          await dmAsPA2.onClosePosition();
+
+          const after = await r.core.dm.isConverterInUse(converter);
+
+          const ret = [before, middle, after].join();
+          const expected = [true, true, false].join();
+
+          expect(ret).equal(expected);
+        });
+      });
     });
+
     describe("Bad paths", () => {
-      it("should TODO", async () => {
-        expect.fail("TODO");
+      describe("Borrow position is not registered", () => {
+        it("should set debtMonitor to expected state", async () => {
+          const r = await preparePoolAdapters([1], 1, 2);
+          const poolAdapterNotRegistered = ethers.Wallet.createRandom().address;
+          const dmAsPa = await DebtMonitor__factory.connect(
+            r.core.dm.address,
+            await DeployerUtils.startImpersonate(poolAdapterNotRegistered)
+          );
+
+          await expect(
+            dmAsPa.onClosePosition()
+          ).revertedWith("TC-11"); // BORROW_POSITION_IS_NOT_REGISTERED
+        });
+      });
+
+      describe("Attempt to close not empty position", () => {
+        async function prepareTest(collateralAmount: number, amountToPay: number): Promise<DebtMonitor> {
+          const r = await preparePoolAdapters([1], 1, 2);
+          const poolAdapter = r.poolAdapters[0];
+          const stub: PoolAdapterStub = await PoolAdapterStub__factory.connect(poolAdapter, deployer);
+          await stub.setManualStatus(
+            collateralAmount,
+            amountToPay,
+            0,
+            false
+          );
+
+          return DebtMonitor__factory.connect(
+            r.core.dm.address,
+            await DeployerUtils.startImpersonate(poolAdapter)
+          );
+        }
+        describe("collateralAmount is not zero", () => {
+          it("should set debtMonitor to expected state", async () => {
+            const dmAsPa = await prepareTest(
+              1, // (!)
+              0
+            );
+            await expect(
+              dmAsPa.onClosePosition()
+            ).revertedWith("TC-10"); // ATTEMPT_TO_CLOSE_NOT_EMPTY_BORROW_POSITION
+          });
+        });
+        describe("amountToPay is not zero", () => {
+          it("should set debtMonitor to expected state", async () => {
+            const dmAsPa = await prepareTest(
+              0,
+              1 // (!)
+            );
+            await expect(
+              dmAsPa.onClosePosition()
+            ).revertedWith("TC-10"); // ATTEMPT_TO_CLOSE_NOT_EMPTY_BORROW_POSITION
+          });
+        });
       });
     });
   });
 
-  describe("findBorrows", () => {
+  describe("getPositions", () => {
     describe("Good paths", () => {
-      it("should TODO", async () => {
-        expect.fail("TODO");
+      it("should return pool adapters with expected params", async () => {
+        const countUsers = 2;
+        const countAssets = 4;
+        const countConvertersPerPlatformAdapters = [1, 2];
+        const r = await preparePoolAdapters(countConvertersPerPlatformAdapters, countUsers, countAssets);
+
+        const ret: number[] = [];
+        for (const poolAdapterAddress of r.poolAdapters) {
+          const poolAdapter = IPoolAdapter__factory.connect(poolAdapterAddress, deployer);
+          const config = await poolAdapter.getConfig();
+          const positions = await r.core.dm.getPositions(config.user, config.collateralAsset, config.borrowAsset);
+          ret.push(positions.length);
+        }
+
+        const sret = ret.join();
+        const sexpected = r.poolAdapters.map(
+          x => (countConvertersPerPlatformAdapters[0] + countConvertersPerPlatformAdapters[1])
+        ).join();
+
+        expect(sret).equal(sexpected);
       });
     });
     describe("Bad paths", () => {
@@ -728,57 +1171,30 @@ describe("DebtsMonitor", () => {
     });
   });
 
-  describe("findFirstUnhealthyPoolAdapter", () => {
-    describe("Good paths", () => {
-      describe("All pool adapters are in good state", () => {
-        it("should return no pool adapters ", async () => {
-          expect.fail("TODO");
-        });
-      });
-      describe("Single unhealthy PA", () => {
-        describe("Single unhealthy borrowed token", () => {
-          it("should TODO", async () => {
-            expect.fail("TODO");
-          });
-        });
-        describe("Multiple unhealthy borrowed tokens", () => {
-          describe("Multiple calls of findFirst", () => {
-            it("should return all unhealthy pool adapters", async () => {
-              expect.fail("TODO");
-            });
-          });
-        });
-      });
-
-      describe("First pool adapter is unhealthy", () => {
-        it("should TODO", async () => {
-          expect.fail("TODO");
-        });
-      });
-      describe("Last pool adapter is unhealthy", () => {
-        it("should TODO", async () => {
-          expect.fail("TODO");
-        });
-      });
-
-    });
-    describe("Bad paths", () => {
-      it("should TODO", async () => {
-        expect.fail("TODO");
-      });
+  describe("getPoolAdapterKey", () => {
+    it("should return no pool adapters ", async () => {
+        const r = await preparePoolAdapters([1], 1, 2);
+        const ret = (await r.core.dm.getPoolAdapterKey(
+          ethers.Wallet.createRandom().address,
+          ethers.Wallet.createRandom().address,
+          ethers.Wallet.createRandom().address
+        )).eq(0);
+        expect(ret).false;
     });
   });
 
-  describe("getCountActivePoolAdapters", () => {
-    describe("Good paths", () => {
-      it("should TODO", async () => {
-        expect.fail("TODO");
-      });
-    });
-    describe("Bad paths", () => {
-      it("should TODO", async () => {
-        expect.fail("TODO");
-      });
+  describe("getCountPositions", () => {
+    it("should return expected value", async () => {
+      const countUsers = 2;
+      const countAssets = 2;
+      const countConvertersPerPlatformAdapters = [1, 2];
+      const r = await preparePoolAdapters(countConvertersPerPlatformAdapters, countUsers, countAssets);
+
+      const ret = (await r.core.dm.getCountPositions()).toNumber();
+      const expected = countUsers * countAssets
+        * (countConvertersPerPlatformAdapters[0] + countConvertersPerPlatformAdapters[1]);
+
+      expect(ret).equal(expected);
     });
   });
 //endregion Unit tests

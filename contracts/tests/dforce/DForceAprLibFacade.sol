@@ -3,7 +3,7 @@ pragma solidity 0.8.4;
 
 import "../../protocols/lending/dforce/DForceAprLib.sol";
 
-/// @notice Facade for DForceRewardsLib to make external functions available for tests
+/// @notice Facade for DForceAprLib to make external functions available for tests
 contract DForceAprLibFacade {
   function getCore(
     IDForceController comptroller,
@@ -61,7 +61,9 @@ contract DForceAprLibFacade {
     DForceAprLib.DForceCore memory core,
     uint collateralAmount_,
     uint countBlocks_,
-    uint amountToBorrow_
+    uint amountToBorrow_,
+    uint priceCollateral36_,
+    uint priceBorrow36_
   ) external view returns (
     uint borrowApr36,
     uint supplyAprBt36,
@@ -71,7 +73,9 @@ contract DForceAprLibFacade {
       core,
       collateralAmount_,
       countBlocks_,
-      amountToBorrow_
+      amountToBorrow_,
+      priceCollateral36_,
+      priceBorrow36_
     );
   }
 

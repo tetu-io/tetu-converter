@@ -2,6 +2,8 @@
 
 pragma solidity 0.8.4;
 
+import "../core/AppDataTypes.sol";
+
 /// @notice Return predefined list of converters
 contract PlatformAdapterStub {
   address[] _converters;
@@ -12,6 +14,50 @@ contract PlatformAdapterStub {
   }
   function converters() external view returns (address[] memory) {
     return _converters;
+  }
+
+  function getConversionPlan (
+    address collateralAsset_,
+    uint collateralAmount_,
+    address borrowAsset_,
+    uint borrowAmountFactor18_,
+    uint countBlocks_
+  ) external pure returns (
+    AppDataTypes.ConversionPlan memory plan
+  ) {
+    collateralAsset_;
+    collateralAmount_;
+    borrowAsset_;
+    borrowAmountFactor18_;
+    countBlocks_;
+
+    return plan;
+  }
+
+  function getAssetsPrices(address[] calldata assets_) external pure returns (uint[] memory prices18){
+    assets_;
+    return prices18;
+  }
+
+  function initializePoolAdapter(
+    address converter_,
+    address poolAdapter_,
+    address user_,
+    address collateralAsset_,
+    address borrowAsset_
+  ) external pure {
+    converter_;
+    poolAdapter_;
+    user_;
+    collateralAsset_;
+    borrowAsset_;
+  }
+
+  function getBorrowRateAfterBorrow(address borrowAsset_, uint amountToBorrow_) external pure returns (uint) {
+    borrowAsset_;
+    amountToBorrow_;
+
+    return 0;
   }
 }
 

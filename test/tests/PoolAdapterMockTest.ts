@@ -2,6 +2,7 @@ import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import {ethers} from "hardhat";
 import {expect} from "chai";
 import {
+  BorrowManager__factory,
   CTokenMock__factory,
   IPoolAdapter,
   IPoolAdapter__factory, MockERC20__factory,
@@ -79,28 +80,28 @@ describe("PoolAdapterMock", () => {
           const amountBorrowedUserInitial = getBigNumberFrom(1000, tt.targetDecimals);
 
           // create borrow manager (BM) with single pool and DebtMonitor (DM)
-          const {bm, sourceToken, targetToken, pools, controller}
-            = await BorrowManagerHelper.createBmTwoUnderlyings(deployer
+          const {core, sourceToken, targetToken, pools} = await BorrowManagerHelper.initAppPoolsWithTwoAssets(deployer
             , tt
             , async () => converter.address
           );
-          const dm = await CoreContractsHelper.createDebtMonitor(deployer, controller);
-          await controller.setBorrowManager(bm.address);
-          await controller.setDebtMonitor(dm.address);
 
           // register pool adapter
           const pool = pools[0].pool;
           const user = ethers.Wallet.createRandom().address;
           const collateral = sourceToken.address;
 
-          await bm.registerPoolAdapter(pools[0].converter, user, collateral, targetToken.address);
+          const bmAsTc = BorrowManager__factory.connect(
+            core.bm.address,
+            await DeployerUtils.startImpersonate(core.tc.address)
+          );
+          await bmAsTc.registerPoolAdapter(pools[0].converter, user, collateral, targetToken.address);
 
           // pool adapter is a copy of templatePoolAdapter, created using minimal-proxy pattern
           // this is a mock, we need to configure it
-          const poolAdapterAddress = await bm.getPoolAdapter(pools[0].converter, user, collateral
+          const poolAdapterAddress = await core.bm.getPoolAdapter(pools[0].converter, user, collateral
             , targetToken.address);
           const cToken = CTokenMock__factory.connect(
-            pools[0].underlyingTocTokens.get(sourceToken.address) || ""
+            pools[0].asset2cTokens.get(sourceToken.address) || ""
             , deployer
           );
 

@@ -31,6 +31,10 @@ library AppDataTypes {
     /// TODO: probably we need to use different decimals for the collateral factor to reduce size of this struct
     uint liquidationThreshold18;
 
+    /// @notice Amount to borrow in terms of borrow tokens
+    ///         = borrowAmountFactor18 * (priceCollateral18/priceBorrow18) * liquidationThreshold18 / 1e18
+    uint amountToBorrow;
+
     /// @notice APR for the period calculated using borrow rate in terms of borrow tokens, decimals 36
     /// @dev It doesn't take into account supply increment and rewards
     uint borrowApr36;
@@ -43,12 +47,14 @@ library AppDataTypes {
     /// TODO: uint16? see aave..
     uint ltv18;
     /// @notice How much borrow asset we can borrow in the pool (in borrow tokens)
-    uint maxAmountToBorrowBT;
+    uint maxAmountToBorrow;
     /// @notice How much collateral asset can be supplied (in collateral tokens).
     ///         type(uint).max - unlimited, 0 - no supply is possible
-    uint maxAmountToSupplyCT;
+    uint maxAmountToSupply;
   }
 
+  /// @notice A struct to combine all params of getConversionPlan implementation to single struct
+  /// @dev Workaround for - stack is too deep problem... - problem
   struct ParamsGetConversionPlan {
     address collateralAsset;
     uint collateralAmount;

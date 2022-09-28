@@ -44,7 +44,7 @@ describe("DForce rewards tests", () => {
   describe("Rewards manual calculations", () => {
     describe("Good paths", () => {
       describe("Supply amount and claim supply-rewards", () => {
-        describe("DAI-18 : usdc-6", () => {
+        describe("DAI-18 : XXX", () => {
           it("should return expected amount of rewards", async () => {
             if (!await isPolygonForkInUse()) return;
 
@@ -55,9 +55,9 @@ describe("DForce rewards tests", () => {
             const collateralToken = await TokenDataTypes.Build(deployer, collateralAsset);
             const collateralCToken = await TokenDataTypes.Build(deployer, collateralCTokenAddress);
 
-            const collateralAmount1 = getBigNumberFrom(20_000, collateralToken.decimals);
+            const collateralAmount1 = getBigNumberFrom(2_000, collateralToken.decimals);
 
-            const periodInBlocks = 1_000;
+            const periodInBlocks = 2_000;
 
             const r = await SupplyBorrowUsingDForce.makeSupplyRewardsTest(
               deployer
@@ -67,7 +67,44 @@ describe("DForce rewards tests", () => {
               , collateralAmount1
               , periodInBlocks
             );
-            console.log(r.results);
+            console.log(r);
+
+            const ret = [
+              r.rewardsEarnedManual.toString()
+              , r.rewardsReceived.gt(r.rewardsEarnedManual)
+            ].join("\n");
+            const expected = [
+              r.rewardsEarnedActual.toString()
+              , true
+            ].join("\n");
+
+            expect(ret).eq(expected);
+          });
+        });
+        describe("USDC-6 : XXX", () => {
+          it("should return expected amount of rewards", async () => {
+            if (!await isPolygonForkInUse()) return;
+
+            const collateralAsset = MaticAddresses.USDC;
+            const collateralHolder = MaticAddresses.HOLDER_USDC;
+            const collateralCTokenAddress = MaticAddresses.dForce_iUSDC;
+
+            const collateralToken = await TokenDataTypes.Build(deployer, collateralAsset);
+            const collateralCToken = await TokenDataTypes.Build(deployer, collateralCTokenAddress);
+
+            const collateralAmount1 = getBigNumberFrom(2_000, collateralToken.decimals);
+
+            const periodInBlocks = 2_000;
+
+            const r = await SupplyBorrowUsingDForce.makeSupplyRewardsTest(
+              deployer
+              , collateralToken
+              , collateralCToken
+              , collateralHolder
+              , collateralAmount1
+              , periodInBlocks
+            );
+            console.log(r);
 
             const ret = [
               r.rewardsEarnedManual.toString()

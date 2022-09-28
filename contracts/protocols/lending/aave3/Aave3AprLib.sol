@@ -9,7 +9,6 @@ import "../../../integrations/aave3/IAaveToken.sol";
 import "../../../integrations/aave3/IAaveStableDebtToken.sol";
 import "../../../integrations/aave3/Aave3ReserveConfiguration.sol";
 import "../aaveShared/AaveSharedLib.sol";
-import "hardhat/console.sol";
 
 /// @notice Library for AAVE v2 to calculate APR: borrow APR and supply APR
 library Aave3AprLib {
@@ -58,15 +57,6 @@ library Aave3AprLib {
     uint totalStableDebt_,
     uint totalVariableDebt_
   ) internal view returns (uint) {
-//    console.log("getVariableBorrowRateRays");
-//    console.log("borrowAsset_", borrowAsset_);
-//    console.log("amountToBorrow_", amountToBorrow_);
-//    console.log("totalStableDebt_", totalStableDebt_);
-//    console.log("totalVariableDebt_", totalVariableDebt_);
-//    console.log("rb_.interestRateStrategyAddress", rb_.interestRateStrategyAddress);
-//    console.log("rb_.currentStableBorrowRate", rb_.currentStableBorrowRate);
-//    console.log("rb_.configuration.getReserveFactor()", rb_.configuration.getReserveFactor());
-//    console.log("rb_.aTokenAddress", rb_.aTokenAddress);
 
     if (amountToBorrow_ == 0) {
       return rb_.currentVariableBorrowRate;
@@ -102,20 +92,9 @@ library Aave3AprLib {
     uint totalStableDebt_,
     uint totalVariableDebt_
   ) internal view returns (uint) {
-//    console.log("getLiquidityRateRays");
-//    console.log("collateralAsset_", collateralAsset_);
-//    console.log("amountToSupply_", amountToSupply_);
-//    console.log("totalStableDebt_", totalStableDebt_);
-//    console.log("totalVariableDebt_", totalVariableDebt_);
-//    console.log("rc_.interestRateStrategyAddress", rc_.interestRateStrategyAddress);
-//    console.log("rc_.stableDebtTokenAddress", rc_.stableDebtTokenAddress);
-//    console.log("rc_.unbacked", rc_.unbacked);
-//    console.log("rc_.configuration.getReserveFactor()", rc_.configuration.getReserveFactor());
-//    console.log("rc_.aTokenAddress", rc_.aTokenAddress);
 
     // see aave-v3-core, ReserveLogic.sol, updateInterestRates
     (, uint avgStableRate) = IAaveStableDebtToken(rc_.stableDebtTokenAddress).getTotalSupplyAndAvgRate();
-//    console.log("avgStableRate", avgStableRate);
 
     // see aave-v3-core, DefaultReserveInterestRateStrategy, calculateInterestRates impl
     (uint liquidityRateRays,,) = IAaveReserveInterestRateStrategy(

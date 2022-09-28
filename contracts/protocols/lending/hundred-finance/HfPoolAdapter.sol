@@ -10,7 +10,7 @@ import "../../../core/AppErrors.sol";
 import "../../../integrations/hundred-finance/IHfComptroller.sol";
 import "../../../interfaces/IPoolAdapterInitializerWithAP.sol";
 import "../../../integrations/hundred-finance/IHfCToken.sol";
-import "../../../integrations/hundred-finance/IHfOracle.sol";
+import "../../../integrations/hundred-finance/IHfPriceOracle.sol";
 import "../../../interfaces/ITokenAddressProvider.sol";
 import "../../../integrations/hundred-finance/IHfHMatic.sol";
 import "../../../integrations/IWmatic.sol";
@@ -30,8 +30,8 @@ contract HfPoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP {
 
   IController public controller;
   IHfComptroller private _comptroller;
-  /// @notice Implementation of IHfOracle
-  IHfOracle private _priceOracle;
+  /// @notice Implementation of IHfPriceOracle
+  IHfPriceOracle private _priceOracle;
 
   /// @notice Address of original PoolAdapter contract that was cloned to make the instance of the pool adapter
   address public originConverter;
@@ -83,7 +83,7 @@ contract HfPoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP {
 
     collateralCToken = cTokenCollateral;
     borrowCToken = cTokenBorrow;
-    _priceOracle = IHfOracle(priceOracle);
+    _priceOracle = IHfPriceOracle(priceOracle);
 
     _comptroller = IHfComptroller(comptroller_);
   }

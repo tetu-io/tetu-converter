@@ -27,7 +27,7 @@ export class HundredFinancePlatformFabric implements ILendingPlatformFabric {
                 MaticAddresses.hFRAX,
                 MaticAddresses.hLINK,
             ]
-            , MaticAddresses.HUNDRED_FINANCE_ORACLE
+            , MaticAddresses.HUNDRED_FINANCE_PRICE_ORACLE
         );
 
         const bm: IBorrowManager = IBorrowManager__factory.connect(await controller.borrowManager(), deployer);

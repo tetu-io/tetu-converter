@@ -8,51 +8,83 @@ import "hardhat/console.sol";
 import "./PoolAdapterMock.sol";
 
 contract LendingPlatformMock is IPlatformAdapter {
+  using AppUtils for uint;
+
   address private _pool;
-  address private _converter;
+  address[] private _converters;
   address private _controller;
   /// @notice asset => liquidation threshold18
   mapping(address => uint256) public liquidationThresholds18;
   address private _priceOracle;
 
-  /// @notice underlying => borrowRates
+  /// @notice asset => borrowRates in terms of borrow tokens, decimals is the decimals of the borrow token
   mapping(address => uint256) public borrowRates;
-  /// @notice underlying => liquidity
+  /// @notice asset => supplyRate in terms of BORROW tokens, decimals is the decimals of the BORROW token
+  mapping(address => uint256) public supplyRatesBt18;
+  /// @notice asset => total reward amount, decimals 36
+  mapping(address => uint256) public rewardsAmountsBt36;
+  /// @notice asset => liquidity
   mapping(address => uint256) public liquidity;
-  /// @notice underlying => cToken
+  /// @notice asset => cToken
   mapping(address => address) public cTokens;
 
   constructor(
     address controller_,
     address pool_,
-    address converter_,
-    address[] memory underlyings_,
-    uint[] memory liquidationThresholds18_,
-    uint[] memory borrowRates_,
-    uint[] memory liquidity_,
+    address priceOracle_,
+    address[] memory converters_,
+    address[] memory assets_,
     address[] memory cTokens_,
-    address priceOracle_
+    uint[] memory liquidity_
   ) {
-    console.log("LendingPlatformMock converter=%s pool=%s", converter_, pool_);
-    console.log("LendingPlatformMock this=%s", address(this));
     _pool = pool_;
-    _converter = converter_;
     _controller = controller_;
     _priceOracle = priceOracle_;
+    _converters = converters_;
 
-    for (uint i = 0; i < underlyings_.length; ++i) {
-      liquidationThresholds18[underlyings_[i]] = liquidationThresholds18_[i];
-      borrowRates[underlyings_[i]] = borrowRates_[i];
-      liquidity[underlyings_[i]] = liquidity_[i];
-      cTokens[underlyings_[i]] = cTokens_[i];
-
-      console.log("LendingPlatformMock underlying=%s", underlyings_[i]);
-      console.log("liquidationThreshold18=%d", liquidationThresholds18_[i]);
-      console.log("borrowRate=%d", borrowRates_[i]);
-      console.log("liquidity=%d", liquidity_[i]);
-      console.log("cTokens=%s", cTokens_[i]);
+    for (uint i = 0; i < assets_.length; ++i) {
+      liquidity[assets_[i]] = liquidity_[i];
+      cTokens[assets_[i]] = cTokens_[i];
     }
   }
+  ///////////////////////////////////////////////////////////////////////////////
+  ///  initialization
+  ///////////////////////////////////////////////////////////////////////////////
+
+  function setBorrowRates(address[] memory assets_, uint[] memory borrowRates_) external {
+    for (uint i = 0; i < assets_.length; ++i) {
+      borrowRates[assets_[i]] = borrowRates_[i];
+    }
+  }
+
+  function setLiquidationThresholds(address[] memory assets_, uint[] memory liquidationThresholds18_) external {
+    for (uint i = 0; i < assets_.length; ++i) {
+      borrowRates[assets_[i]] = liquidationThresholds18_[i];
+    }
+  }
+
+  function setSupplyRates(address[] memory assets_, uint[] memory supplyRateBt_) external {
+    for (uint i = 0; i < assets_.length; ++i) {
+      supplyRatesBt18[assets_[i]] = supplyRateBt_[i];
+    }
+  }
+
+  /// @dev for simplicity, we set supply rate in BORROW tokens
+  function setSupplyRate(address asset, uint supplyRateBt_) external {
+    supplyRatesBt18[asset] = supplyRateBt_;
+  }
+
+  function setRewardsAmount(address asset, uint rewardsAmountsBt36_) external {
+    rewardsAmountsBt36[asset] = rewardsAmountsBt36_;
+  }
+
+  function changeBorrowRate(address asset_, uint borrowRate_) external {
+    borrowRates[asset_] = borrowRate_;
+  }
+
+  ///////////////////////////////////////////////////////////////////////////////
+  ///  get conversion plan
+  ///////////////////////////////////////////////////////////////////////////////
 
   function getConversionPlan (
     address collateralAsset_,
@@ -63,25 +95,31 @@ contract LendingPlatformMock is IPlatformAdapter {
   ) external view override returns (
     AppDataTypes.ConversionPlan memory plan
   ) {
-    borrowAmountFactor18_;
     collateralAmount_;
+    uint amountToBorrow18 = borrowAmountFactor18_
+      * liquidationThresholds18[collateralAsset_]
+      * IPriceOracle(_priceOracle).getAssetPrice(collateralAsset_)
+      / IPriceOracle(_priceOracle).getAssetPrice(borrowAsset_)
+      / 1e18;
+    uint decimalsBorrowAsset = IERC20Extended(borrowAsset_).decimals();
+    uint amountToBorrow = amountToBorrow18.toMantissa(18, uint8(decimalsBorrowAsset));
 
     return AppDataTypes.ConversionPlan({
-      converter: _converter,
+      converter: _converters[0], //TODO: make converter selectable
       liquidationThreshold18: liquidationThresholds18[collateralAsset_],
-      borrowApr36: borrowRates[borrowAsset_] * countBlocks_ * 1e18,
       ltv18: liquidationThresholds18[collateralAsset_],
-      maxAmountToBorrowBT: liquidity[borrowAsset_],
-      maxAmountToSupplyCT: type(uint).max,
-      supplyAprBt36: 0, //TODO
-      rewardsAmountBt36: 0 //TODO
+      maxAmountToBorrow: liquidity[borrowAsset_],
+      maxAmountToSupply: type(uint).max,
+      amountToBorrow: amountToBorrow,
+// For simplicity, APR don't depend on amount of borrow
+      borrowApr36: borrowRates[borrowAsset_] * countBlocks_ * 1e36 / 10**decimalsBorrowAsset,
+      supplyAprBt36: supplyRatesBt18[collateralAsset_]  * countBlocks_ * 1e36 / 10**decimalsBorrowAsset,
+      rewardsAmountBt36: rewardsAmountsBt36[borrowAsset_]
     });
   }
 
   function converters() external view override returns (address[] memory) {
-    address[] memory dest = new address[](1);
-    dest[0] = _converter;
-    return dest;
+    return _converters;
   }
 
   /// @notice Returns the prices of the supported assets in BASE_CURRENCY of the market. Decimals 18
@@ -119,10 +157,6 @@ contract LendingPlatformMock is IPlatformAdapter {
       borrowRates[borrowAsset_],
       _priceOracle
     );
-  }
-
-  function changeBorrowRate(address asset_, uint borrowRate_) external {
-    borrowRates[asset_] = borrowRate_;
   }
 
   function getBorrowRateAfterBorrow(address borrowAsset_, uint amountToBorrow_) external pure override returns (uint) {

@@ -5,6 +5,7 @@ import "../../../openzeppelin/SafeERC20.sol";
 import "../../../openzeppelin/IERC20.sol";
 import "../../../core/AppDataTypes.sol";
 import "../../../core/AppErrors.sol";
+import "../../../core/AppUtils.sol";
 import "../../../interfaces/IPlatformAdapter.sol";
 import "../../../interfaces/IPoolAdapterInitializer.sol";
 import "../../../interfaces/IController.sol";
@@ -43,7 +44,6 @@ contract AaveTwoPlatformAdapter is IPlatformAdapter {
     uint availableLiquidity;
     uint totalStableDebt;
     uint totalVariableDebt;
-    uint amountToBorrow;
     uint blocksPerDay;
     address[] assets;
     uint[] prices;
@@ -131,12 +131,21 @@ contract AaveTwoPlatformAdapter is IPlatformAdapter {
         plan.converter = converter;
 
         // prepare to calculate supply/borrow APR
-        vars.amountToBorrow = plan.liquidationThreshold18 * params.borrowAmountFactor18 / 1e18;
         vars.blocksPerDay = IController(controller).blocksPerDay();
         vars.assets = new address[](2);
         vars.assets[0] = params.collateralAsset;
         vars.assets[1] = params.borrowAsset;
         vars.prices = _priceOracle.getAssetsPrices(vars.assets);
+
+        plan.amountToBorrow = AppUtils.toMantissa(
+          params.borrowAmountFactor18
+          * plan.liquidationThreshold18
+          * vars.prices[0]
+          / 1e18
+          / vars.prices[1]
+        , 18
+        , uint8(rb.configuration.getDecimals())
+        );
 
         // availableLiquidity is IERC20(borrowToken).balanceOf(atoken)
         (vars.availableLiquidity, vars.totalStableDebt, vars.totalVariableDebt,,,,,,,) = IAaveTwoProtocolDataProvider(
@@ -144,9 +153,9 @@ contract AaveTwoPlatformAdapter is IPlatformAdapter {
             .getAddress(bytes32(ID_DATA_PROVIDER))
         ).getReserveData(params.borrowAsset);
 
-        plan.maxAmountToBorrowBT = vars.availableLiquidity;
-        if (vars.amountToBorrow > plan.maxAmountToBorrowBT) {
-          vars.amountToBorrow = plan.maxAmountToBorrowBT;
+        plan.maxAmountToBorrow = vars.availableLiquidity;
+        if (plan.amountToBorrow > plan.maxAmountToBorrow) {
+          plan.amountToBorrow = plan.maxAmountToBorrow;
         }
 
         plan.borrowApr36 = AaveSharedLib.getAprForPeriodBefore(
@@ -155,12 +164,12 @@ contract AaveTwoPlatformAdapter is IPlatformAdapter {
             lastUpdateTimestamp: uint(rb.lastUpdateTimestamp),
             rate: rb.currentVariableBorrowRate
           }),
-          vars.amountToBorrow,
+          plan.amountToBorrow,
         //predicted borrow ray after the borrow
           AaveTwoAprLib.getVariableBorrowRateRays(
             rb,
             params.borrowAsset,
-            vars.amountToBorrow,
+            plan.amountToBorrow,
             vars.totalStableDebt,
             vars.totalVariableDebt
           ),
@@ -177,7 +186,7 @@ contract AaveTwoPlatformAdapter is IPlatformAdapter {
             .getAddress(bytes32(ID_DATA_PROVIDER))
         ).getReserveData(params.collateralAsset);
 
-        plan.maxAmountToSupplyCT = type(uint).max; // unlimited
+        plan.maxAmountToSupply = type(uint).max; // unlimited
 
         // calculate supply-APR, see detailed explanation in Aave3AprLib
         plan.supplyAprBt36 = AaveSharedLib.getAprForPeriodBefore(

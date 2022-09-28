@@ -17,6 +17,7 @@ import {MaticAddresses} from "../../../../../scripts/addresses/MaticAddresses";
 import {MocksHelper} from "../../../../baseUT/helpers/MocksHelper";
 import {TokenDataTypes} from "../../../../baseUT/types/TokenDataTypes";
 import {DForceHelper} from "../../../../../scripts/integration/helpers/DForceHelper";
+import {Misc} from "../../../../../scripts/utils/Misc";
 
 describe("DForce integration tests, pool adapter", () => {
 //region Global vars for all tests
@@ -179,7 +180,7 @@ describe("DForce integration tests, pool adapter", () => {
       const sexpected = [
         borrowAmount, // borrowed amount on user's balance
         collateralAmount
-          .mul(getBigNumberFrom(1, 18))
+          .mul(Misc.WEI)
           .div(collateralData.exchangeRateStored),
         expectedLiquiditiy,
         0,

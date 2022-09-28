@@ -17,15 +17,11 @@ import "../../../integrations/IERC20Extended.sol";
 import "../../../integrations/dforce/IDForceInterestRateModel.sol";
 import "../../../integrations/dforce/IDForceController.sol";
 import "../../../integrations/dforce/IDForceCToken.sol";
-import "hardhat/console.sol";
 
 /// @notice Adapter to read current pools info from DForce-protocol, see https://developers.dforce.network/
 contract DForcePlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
   using SafeERC20 for IERC20;
   using AppUtils for uint;
-
-  address private constant WMATIC = address(0x0d500B1d8E8eF31E21C99d1Db9A6444d3ADf1270);
-  address private constant iMATIC = address(0x6A3fE5342a4Bd09efcd44AC5B9387475A0678c74);
 
   IController public controller;
   IDForceController public comptroller;
@@ -69,9 +65,7 @@ contract DForcePlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
     if (makeActive_) {
       for (uint i = 0; i < lenCTokens; i = i.uncheckedInc()) {
         // Special case: there is no underlying for WMATIC, so we store iMATIC:WMATIC
-        address underlying = iMATIC == cTokens_[i]
-          ? WMATIC
-          : IDForceCToken(cTokens_[i]).underlying();
+        address underlying = DForceAprLib.getUnderlying(cTokens_[i]);
         activeAssets[underlying] = cTokens_[i];
       }
     } else {
@@ -109,13 +103,11 @@ contract DForcePlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
     uint lenAssets = assets_.length;
     prices18 = new uint[](lenAssets);
     for (uint i = 0; i < lenAssets; i = i.uncheckedInc()) {
-      console.log("Token", activeAssets[assets_[i]]);
       address cToken = activeAssets[assets_[i]];
 
       // we get a price with decimals = (36 - asset decimals)
       // let's convert it to decimals = 18
       (uint underlyingPrice, bool isPriceValid) = priceOracle.getUnderlyingPriceAndStatus(address(cToken));
-      console.log("underlyingPrice", underlyingPrice, isPriceValid);
       require(underlyingPrice != 0 && isPriceValid, AppErrors.ZERO_PRICE);
 
       prices18[i] = underlyingPrice / (10 ** (18 - IERC20Extended(assets_[i]).decimals()));
@@ -143,7 +135,6 @@ contract DForcePlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
   ) external override view returns (
     AppDataTypes.ConversionPlan memory plan
   ) {
-    console.log("getConversionPlan");
     IDForceController comptrollerLocal = comptroller;
     address cTokenCollateral = activeAssets[collateralAsset_];
     if (cTokenCollateral != address(0)) {
@@ -152,50 +143,67 @@ contract DForcePlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
       if (cTokenBorrow != address(0)) {
         (uint collateralFactor, uint supplyCapacity) = _getCollateralMarketData(comptrollerLocal, cTokenCollateral);
         if (collateralFactor != 0 && supplyCapacity != 0) {
-          (uint borrowFactorMantissa, uint borrowCapacity) = _getBorrowMarketData(comptrollerLocal, cTokenBorrow);
-
-          if (borrowFactorMantissa != 0 && borrowCapacity != 0) {
+          {
+            (uint borrowFactorMantissa, uint borrowCapacity) = _getBorrowMarketData(comptrollerLocal, cTokenBorrow);
+            if (borrowFactorMantissa != 0 && borrowCapacity != 0) {
             plan.converter = _converter;
 
             plan.liquidationThreshold18 = collateralFactor;
             plan.ltv18 = collateralFactor * borrowFactorMantissa / 10**18;
 
-            plan.maxAmountToBorrowBT = IDForceCToken(cTokenBorrow).getCash();
+            plan.maxAmountToBorrow = IDForceCToken(cTokenBorrow).getCash();
             if (borrowCapacity != type(uint).max) { // == uint(-1)
               // we shouldn't exceed borrowCapacity limit, see Controller.beforeBorrow
               uint totalBorrow = IDForceCToken(cTokenBorrow).totalBorrows();
               if (totalBorrow > borrowCapacity) {
-                plan.maxAmountToBorrowBT = 0;
+                plan.maxAmountToBorrow = 0;
               } else {
-                if (totalBorrow + plan.maxAmountToBorrowBT > borrowCapacity) {
-                  plan.maxAmountToBorrowBT = borrowCapacity - totalBorrow;
+                if (totalBorrow + plan.maxAmountToBorrow > borrowCapacity) {
+                  plan.maxAmountToBorrow = borrowCapacity - totalBorrow;
                 }
               }
             }
 
             if (supplyCapacity == type(uint).max) { // == uint(-1)
-              plan.maxAmountToSupplyCT = type(uint).max;
+              plan.maxAmountToSupply = type(uint).max;
             } else {
               // we shouldn't exceed supplyCapacity limit, see Controller.beforeMint
               uint totalSupply = IDForceCToken(cTokenCollateral).totalSupply()
                 * IDForceCToken(cTokenCollateral).exchangeRateStored();
-              plan.maxAmountToSupplyCT = totalSupply >= supplyCapacity
+              plan.maxAmountToSupply = totalSupply >= supplyCapacity
                 ? type(uint).max
                 : supplyCapacity - totalSupply;
             }
           }
+          }
+
+          IDForcePriceOracle priceOracle = IDForcePriceOracle(comptroller.priceOracle());
+          uint priceCollateral36 = DForceAprLib.getPrice(priceOracle, cTokenCollateral)
+            * 10**IERC20Extended(collateralAsset_).decimals();
+          uint priceBorrow36 = DForceAprLib.getPrice(priceOracle, cTokenBorrow)
+            * 10**IERC20Extended(borrowAsset_).decimals();
 
           // calculate current borrow rate and predicted APR after borrowing required amount
-          uint amountToBorrow = borrowAmountFactor18_ * plan.liquidationThreshold18 / 1e18;
-          if (amountToBorrow > plan.maxAmountToBorrowBT) {
-            amountToBorrow = plan.maxAmountToBorrowBT;
+          plan.amountToBorrow = AppUtils.toMantissa(
+            borrowAmountFactor18_
+              * plan.liquidationThreshold18
+              * priceCollateral36
+              / priceBorrow36
+              / 1e18, // amount to borrow, decimals 18
+            18,
+            IERC20Extended(borrowAsset_).decimals()
+          );
+          if (plan.amountToBorrow > plan.maxAmountToBorrow) {
+            plan.amountToBorrow = plan.maxAmountToBorrow;
           }
 
           (plan.borrowApr36, plan.supplyAprBt36, plan.rewardsAmountBt36) = DForceAprLib.getRawAprInfo36(
             DForceAprLib.getCore(comptroller, cTokenCollateral, cTokenBorrow),
             collateralAmount_,
             countBlocks_,
-            amountToBorrow
+            plan.amountToBorrow,
+            priceCollateral36,
+            priceBorrow36
           );
         }
       }
@@ -269,7 +277,7 @@ contract DForcePlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
         borrowAmount: borrowAmount_,
         countBlocks: countBlocks_,
         delayBlocks: delayBlocks_,
-        priceBorrow: priceBorrow
+        priceBorrow36: priceBorrow * 10**core.cRewardsToken.decimals()
       })
     );
   }

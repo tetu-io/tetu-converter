@@ -12,10 +12,11 @@ import {BigNumber} from "ethers";
 import {getBigNumberFrom} from "../../../scripts/utils/NumberUtils";
 import {Misc} from "../../../scripts/utils/Misc";
 import {ConfigurableAmountToBorrow} from "../apr/ConfigurableAmountToBorrow";
+import {toMantissa} from "../utils/CommonUtils";
 
 //region Data types
 interface IInputParams {
-  amountToBorrow: ConfigurableAmountToBorrow;
+  amountToBorrow: number | BigNumber;
   params: TestSingleBorrowParams;
   additionalPoints: number[];
 }
@@ -23,7 +24,7 @@ interface IInputParams {
 /** I.e. one of AprXXX.makeBorrowTest */
 export type BorrowTestMaker = (
   deployer: SignerWithAddress
-  , amountToBorrow0: ConfigurableAmountToBorrow
+  , amountToBorrow: number | BigNumber
   , p: TestSingleBorrowParams
   , additionalPoints: number[]
 ) => Promise<IBorrowResults>;
@@ -37,7 +38,10 @@ export interface IBorrowTestResults {
 
   assetBorrow: IAssetInfo;
 
-  plan: ConversionPlan;
+  /** Plan for 1 block - we need to compare borrow/supply APR*/
+  planSingleBlock: ConversionPlan;
+  /** Plan for full period - we need to compare reward amounts */
+  planFullPeriod: ConversionPlan;
   results?: IBorrowResults;
 
   error?: string;
@@ -46,8 +50,7 @@ export interface IBorrowTestResults {
 export interface IBorrowTask {
   collateralAsset: IAssetInfo;
   borrowAsset: IAssetInfo;
-  exactAmountToBorrow: boolean;
-  amountToBorrow: BigNumber;
+  collateralAmount: BigNumber;
 }
 //endregion Data types
 
@@ -91,8 +94,7 @@ export class CompareAprUsesCase {
 
   static generateTasks(
     assets: IAssetInfo[],
-    exactAmountToBorrow: boolean,
-    amountsToBorrow: BigNumber[],
+    collateralAmounts: BigNumber[]
   ) : IBorrowTask[] {
     const dest: IBorrowTask[] = [];
     for (const [indexSource, sourceAsset] of assets.entries()) {
@@ -101,8 +103,7 @@ export class CompareAprUsesCase {
         dest.push({
           collateralAsset: sourceAsset,
           borrowAsset: targetAsset,
-          exactAmountToBorrow: exactAmountToBorrow,
-          amountToBorrow: amountsToBorrow[indexTarget]
+          collateralAmount: collateralAmounts[indexSource],
         });
       }
     }
@@ -146,55 +147,48 @@ export class CompareAprUsesCase {
         const borrowDecimals = await IERC20Extended__factory.connect(task.borrowAsset.asset, deployer).decimals();
         const stPrices = await this.getPrices(platformAdapter, task.collateralAsset, task.borrowAsset);
         if (stPrices) {
-          let collateralAmount = this.getApproxCollateralAmount(task.amountToBorrow
+          console.log("makePossibleBorrowsOnPlatform.collateralAmount", task.collateralAmount);
+
+          const borrowAmountFactor18 = this.getBorrowAmountFactor18(
+            task.collateralAmount
             , healthFactor2
             , collateralDecimals
-            , stPrices
-            , borrowDecimals
           );
-          if (collateralAmount.gt(initialLiquidity)) {
-            console.log(`Required collateral ${collateralAmount.toString()} available: ${initialLiquidity.toString()}`);
-            collateralAmount = initialLiquidity;
-          }
-          console.log("collateralAmount", collateralAmount);
+          console.log("makePossibleBorrowsOnPlatform.borrowAmountFactor18", borrowAmountFactor18);
 
-          const borrowAmountFactor18 = this.getBorrowAmountFactor18(collateralAmount, stPrices, healthFactor2);
-
-          const plan = await platformAdapter.getConversionPlan(
+          const planSingleBlock = await platformAdapter.getConversionPlan(
             task.collateralAsset.asset
-            , collateralAmount
+            , task.collateralAmount
             , task.borrowAsset.asset
             , borrowAmountFactor18
-            // we need 1 block for next/last; countBlocks are used as additional-points
-            , 1 // countBlocks
+            , 1 // we need 1 block for next/last; countBlocks are used as additional-points
           );
-          console.log("plan", plan);
+          console.log("planSingleBlock", planSingleBlock);
 
-          const amountToBorrow: ConfigurableAmountToBorrow = {
-            exact: task.exactAmountToBorrow,
-            exactAmountToBorrow: task.exactAmountToBorrow ? task.amountToBorrow : undefined,
-            ratio18: task.exactAmountToBorrow ? undefined : task.amountToBorrow
-          }
-          console.log("borrowAmount", amountToBorrow);
+          const planFullPeriod = await platformAdapter.getConversionPlan(
+            task.collateralAsset.asset
+            , task.collateralAmount
+            , task.borrowAsset.asset
+            , borrowAmountFactor18
+            , countBlocks
+          );
+          console.log("planFullPeriod", planFullPeriod);
 
-          if (task.exactAmountToBorrow && !plan.maxAmountToBorrowBT.gt(task.amountToBorrow)) {
+          const borrowAmount18 = planFullPeriod.liquidationThreshold18
+            .mul(borrowAmountFactor18)
+            .div(Misc.WEI)
+          const amountToBorrow = toMantissa(borrowAmount18, 18, borrowDecimals);
+          console.log("makePossibleBorrowsOnPlatform.amountToBorrow", amountToBorrow);
+
+          if (planSingleBlock.converter == Misc.ZERO_ADDRESS) {
             dest.push({
               platformTitle: platformTitle,
               countBlocks: countBlocks,
               assetBorrow: task.borrowAsset,
               assetCollateral: task.collateralAsset,
-              collateralAmount: collateralAmount,
-              plan: plan,
-              error: `Borrow amount is greater than available amount ${plan.maxAmountToBorrowBT}`,
-            });
-          } else if (plan.converter == Misc.ZERO_ADDRESS) {
-            dest.push({
-              platformTitle: platformTitle,
-              countBlocks: countBlocks,
-              assetBorrow: task.borrowAsset,
-              assetCollateral: task.collateralAsset,
-              collateralAmount: collateralAmount,
-              plan: plan,
+              collateralAmount: task.collateralAmount,
+              planSingleBlock: planSingleBlock,
+              planFullPeriod: planFullPeriod,
               error: "Plan not found",
             });
           } else {
@@ -208,22 +202,26 @@ export class CompareAprUsesCase {
                 holder: task.borrowAsset.holders.join(";"),
                 initialLiquidity: 0,
               }
-              , collateralAmount: collateralAmount
+              , collateralAmount: task.collateralAmount
               , healthFactor2: healthFactor2
               , countBlocks: 1 // we need 1 block for next/last; countBlocks are used as additional-points
             };
             const res = await this.makeSingleBorrowTest(
               platformTitle
-              , {params: p, amountToBorrow, additionalPoints: [countBlocks]}
-              , testMaker
+              , {
+                params: p
+                , amountToBorrow
+                , additionalPoints: [countBlocks]
+              }, testMaker
             );
             dest.push({
               platformTitle: platformTitle,
               countBlocks: countBlocks,
               assetBorrow: task.borrowAsset,
               assetCollateral: task.collateralAsset,
-              collateralAmount: collateralAmount,
-              plan: plan,
+              collateralAmount: task.collateralAmount,
+              planSingleBlock: planSingleBlock,
+              planFullPeriod: planFullPeriod,
               results: res.results,
               error: res.error
             });
@@ -233,6 +231,10 @@ export class CompareAprUsesCase {
         await TimeUtils.rollback(snapshot);
       }
     }
+
+    // we need to display full objects, so we use util.inspect, see
+    // https://stackoverflow.com/questions/10729276/how-can-i-get-the-full-object-in-node-jss-console-log-rather-than-object
+    require("util").inspect.defaultOptions.depth = null;
 
     console.log("makePossibleBorrowsOnPlatform finished:", dest);
     return dest;
@@ -259,13 +261,11 @@ export class CompareAprUsesCase {
   /** see definition of borrowAmountFactor18 inside BorrowManager._findPool */
    private static getBorrowAmountFactor18(
     collateralAmount: BigNumber,
-    stPrices: {priceCollateral: BigNumber, priceBorrow: BigNumber},
-    healthFactor2: number
+    healthFactor2: number,
+    collateralDecimals: number
   ) {
     return getBigNumberFrom(1, 18)
-      .mul(collateralAmount)
-      .mul(stPrices.priceCollateral)
-      .div(stPrices.priceBorrow)
+      .mul(toMantissa(collateralAmount, collateralDecimals, 18) )
       .div(healthFactor2)
       .div(getBigNumberFrom(1, 18 - 2));
   }
