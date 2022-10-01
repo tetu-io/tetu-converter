@@ -3,6 +3,7 @@ pragma solidity 0.8.4;
 
 import "../interfaces/ITetuLiquidator.sol";
 import "../openzeppelin/IERC20.sol";
+import "../openzeppelin/SafeERC20.sol";
 import "../interfaces/ISwapManager.sol";
 import "../interfaces/IController.sol";
 import "../interfaces/ISwapConverter.sol";
@@ -13,6 +14,8 @@ import "./AppDataTypes.sol";
 /// @notice Combines Manager and Converter
 /// @author bogdoslav
 contract SwapManager is ISwapManager, ISwapConverter {
+  using SafeERC20 for IERC20;
+
   IController public immutable controller;
 
   ///////////////////////////////////////////////////////
@@ -32,7 +35,6 @@ contract SwapManager is ISwapManager, ISwapConverter {
     );
     controller = IController(controller_);
   }
-
 
   ///////////////////////////////////////////////////////
   ///           Return best amount for swap
@@ -71,7 +73,7 @@ contract SwapManager is ISwapManager, ISwapConverter {
     uint targetTokenBalanceBefore = IERC20(targetToken_).balanceOf(address(this));
 
     ITetuLiquidator tetuLiquidator = ITetuLiquidator(controller.tetuLiquidator());
-    IERC20(sourceToken_).transfer(address(tetuLiquidator), sourceAmount_);
+    IERC20(sourceToken_).safeTransfer(address(tetuLiquidator), sourceAmount_);
 
     tetuLiquidator.liquidate(sourceToken_, targetToken_, sourceAmount_, priceImpactTolerance_);
     outputAmount = IERC20(targetToken_).balanceOf(address(this)) - targetTokenBalanceBefore;
@@ -81,8 +83,7 @@ contract SwapManager is ISwapManager, ISwapConverter {
       : (targetAmount_ - outputAmount) * SLIPPAGE_DENOMINATOR / targetAmount_;
     require(slippage <= slippageTolerance_, AppErrors.SLIPPAGE_TOO_BIG);
 
-    IERC20(targetToken_).transfer(receiver_, outputAmount);
+    IERC20(targetToken_).safeTransfer(receiver_, outputAmount);
   }
-
 
 }
