@@ -58,8 +58,8 @@ describe("SwapManager", () => {
     $usdc = parseUnits('1');
     $usdt = parseUnits('1');
     $dai = parseUnits('1');
-    $matic = parseUnits('0.5');
-    $weth = parseUnits('1200');
+    $matic = parseUnits('0.4');
+    $weth = parseUnits('2000');
 
     tokens = [usdc, usdt, dai, matic, weth];
     assets = [_usdc, _usdt, _dai, _matic, _weth];
@@ -103,8 +103,8 @@ describe("SwapManager", () => {
 //region Unit tests
   describe("Constants", () => {
 
-    it("SLIPPAGE_DENOMINATOR", async () => {
-      expect(await swapManager.SLIPPAGE_DENOMINATOR()).eq(BigNumber.from('100000'))
+    it("SLIPPAGE_NUMERATOR", async () => {
+      expect(await swapManager.SLIPPAGE_NUMERATOR()).eq(BigNumber.from('100000'))
     });
 
     it("getConversionKind", async () => {
@@ -131,7 +131,7 @@ describe("SwapManager", () => {
             sourceToken,
             targetToken,
             periodInBlocks: ethers.constants.MaxUint256,
-            sourceAmount: parseUnits('1', tokenInDecimals)
+            sourceAmount: parseUnits('100', tokenInDecimals)
           }
           const converter = await swapManager.getConverter(params);
 

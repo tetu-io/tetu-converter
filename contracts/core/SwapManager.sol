@@ -2,6 +2,7 @@
 pragma solidity 0.8.4;
 
 import "../interfaces/ITetuLiquidator.sol";
+import "../integrations/IERC20Extended.sol"; // TODO move to interfaces?
 import "../openzeppelin/IERC20.sol";
 import "../openzeppelin/SafeERC20.sol";
 import "../interfaces/ISwapManager.sol";
@@ -9,6 +10,8 @@ import "../interfaces/IController.sol";
 import "../interfaces/ISwapConverter.sol";
 import "./AppErrors.sol";
 import "./AppDataTypes.sol";
+
+import "hardhat/console.sol"; // TODO remove
 
 /// @title Contract to find the best swap and make the swap
 /// @notice Combines Manager and Converter
@@ -22,7 +25,8 @@ contract SwapManager is ISwapManager, ISwapConverter {
   ///               Constants
   ///////////////////////////////////////////////////////
 
-  uint public constant SLIPPAGE_DENOMINATOR = 100_000;
+  uint public constant SLIPPAGE_NUMERATOR = 100_000;
+  int public constant APR_NUMERATOR = 10**36;
 
   ///////////////////////////////////////////////////////
   ///               Initialization
@@ -47,9 +51,19 @@ contract SwapManager is ISwapManager, ISwapConverter {
     int aprForPeriod36
   ) {
     converter = address(this);
-    maxTargetAmount = ITetuLiquidator(controller.tetuLiquidator())
-      .getPrice(p_.sourceToken, p_.targetToken, p_.sourceAmount);
-    aprForPeriod36 = 0;
+    ITetuLiquidator liquidator = ITetuLiquidator(controller.tetuLiquidator());
+    maxTargetAmount = liquidator.getPrice(
+      p_.sourceToken, p_.targetToken, p_.sourceAmount);
+
+    // how much we will get when sell target token back
+    uint returnAmount = liquidator.getPrice(
+      p_.targetToken, p_.sourceToken, maxTargetAmount);
+
+    console.log('p_.sourceAmount', p_.sourceAmount);
+    int loss = int(p_.sourceAmount) - int(returnAmount);
+    console.log('loss'); // TODO remove
+    console.logInt(loss);
+    aprForPeriod36 = loss * APR_NUMERATOR / int(p_.sourceAmount);
   }
 
   ///////////////////////////////////////////////////////
@@ -80,7 +94,7 @@ contract SwapManager is ISwapManager, ISwapConverter {
 
     uint slippage = (outputAmount >= targetAmount_)
       ? 0
-      : (targetAmount_ - outputAmount) * SLIPPAGE_DENOMINATOR / targetAmount_;
+      : (targetAmount_ - outputAmount) * SLIPPAGE_NUMERATOR / targetAmount_;
     require(slippage <= slippageTolerance_, AppErrors.SLIPPAGE_TOO_BIG);
 
     IERC20(targetToken_).safeTransfer(receiver_, outputAmount);
