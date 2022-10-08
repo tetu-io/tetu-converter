@@ -107,6 +107,22 @@ describe("SwapManager", () => {
       expect(await swapManager.SLIPPAGE_NUMERATOR()).eq(BigNumber.from('100000'))
     });
 
+    it("SLIPPAGE_TOLERANCE", async () => {
+      expect(await swapManager.SLIPPAGE_TOLERANCE()).eq(BigNumber.from('1000'))
+    });
+
+    it("PRICE_IMPACT_NUMERATOR", async () => {
+      expect(await swapManager.PRICE_IMPACT_NUMERATOR()).eq(BigNumber.from('100000'))
+    });
+
+    it("PRICE_IMPACT_TOLERANCE", async () => {
+      expect(await swapManager.PRICE_IMPACT_TOLERANCE()).eq(BigNumber.from('2000'))
+    });
+
+    it("APR_NUMERATOR", async () => {
+      expect(await swapManager.APR_NUMERATOR()).eq(BigNumber.from('10').pow(36))
+    });
+
     it("getConversionKind", async () => {
       expect(await swapManager.getConversionKind()).eq(BigNumber.from('1'))
     });
@@ -140,6 +156,41 @@ describe("SwapManager", () => {
         }
       }
     });
+
+    it("Should return right APR", async () => {
+      for (const sourceToken of assets) {
+        for (const targetToken of assets) {
+          if (sourceToken === targetToken) continue;
+
+          const tokenInDecimals = await IMockERC20__factory.connect(sourceToken, user).decimals();
+          const sourceAmount = parseUnits('100', tokenInDecimals);
+          const params = {
+            healthFactor2: BigNumber.from(100),
+            sourceToken,
+            targetToken,
+            periodInBlocks: ethers.constants.MaxUint256,
+            sourceAmount
+          }
+
+          for (let priceImpactPercent = 1; priceImpactPercent < 5; priceImpactPercent++) {
+
+            await liquidator.setPriceImpact(BigNumber.from(priceImpactPercent).mul('1000')); // 1 %
+
+            const converter = await swapManager.getConverter(params);
+            // decrease priceImpactPercent twice
+            const returnAmount = sourceAmount
+              .mul(100 - priceImpactPercent).div(100)
+              .mul(100 - priceImpactPercent).div(100);
+
+            const loss = sourceAmount.sub(returnAmount);
+            const one36 = BigNumber.from('10').pow(36);
+
+            expect(converter.converter).eq(swapManager.address);
+            expect(converter.aprForPeriod36).eq(loss.mul(one36).div(sourceAmount));
+          }
+        }
+      }
+    });
   });
 
   describe("swap", () => {
@@ -147,7 +198,6 @@ describe("SwapManager", () => {
     const swap = async (
       tokenIn: MockERC20,
       tokenOut: MockERC20,
-      slippageTolerance: string ='2000'
     ) => {
       const tokenInDecimals = await tokenIn.decimals();
       const sourceAmount = parseUnits('1', tokenInDecimals);
@@ -166,8 +216,7 @@ describe("SwapManager", () => {
       await tokenIn.mint(swapManager.address, sourceAmount);
       const balanceOutBefore = await tokenOut.balanceOf(user.address);
       await swapManager.swap(
-        tokenIn.address, sourceAmount, tokenOut.address, targetAmount, user.address, '5000', slippageTolerance
-      );
+        tokenIn.address, sourceAmount, tokenOut.address, targetAmount, user.address);
       const balanceOutAfter = await tokenOut.balanceOf(user.address);
 
       const amountOut = balanceOutAfter.sub(balanceOutBefore);

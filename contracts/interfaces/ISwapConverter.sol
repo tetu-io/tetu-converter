@@ -14,8 +14,6 @@ interface ISwapConverter is IConverter {
     uint sourceAmount_,
     address targetToken_,
     uint targetAmount_,
-    address receiver_,
-    uint priceImpactTolerance_,
-    uint slippageTolerance_)
-  external returns (uint outputAmount);
+    address receiver_
+  ) external returns (uint outputAmount);
 }

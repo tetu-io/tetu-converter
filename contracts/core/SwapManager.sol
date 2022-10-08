@@ -26,6 +26,11 @@ contract SwapManager is ISwapManager, ISwapConverter {
   ///////////////////////////////////////////////////////
 
   uint public constant SLIPPAGE_NUMERATOR = 100_000;
+  uint public constant SLIPPAGE_TOLERANCE = SLIPPAGE_NUMERATOR * 1 / 100; // 1 %
+
+  uint public constant PRICE_IMPACT_NUMERATOR = 100_000;
+  uint public constant PRICE_IMPACT_TOLERANCE = PRICE_IMPACT_NUMERATOR * 2 / 100; // 5%
+
   int public constant APR_NUMERATOR = 10**36;
 
   ///////////////////////////////////////////////////////
@@ -80,22 +85,20 @@ contract SwapManager is ISwapManager, ISwapConverter {
     uint sourceAmount_,
     address targetToken_,
     uint targetAmount_,
-    address receiver_,
-    uint priceImpactTolerance_,
-    uint slippageTolerance_
+    address receiver_
   ) override external returns (uint outputAmount) {
     uint targetTokenBalanceBefore = IERC20(targetToken_).balanceOf(address(this));
 
     ITetuLiquidator tetuLiquidator = ITetuLiquidator(controller.tetuLiquidator());
     IERC20(sourceToken_).safeTransfer(address(tetuLiquidator), sourceAmount_);
 
-    tetuLiquidator.liquidate(sourceToken_, targetToken_, sourceAmount_, priceImpactTolerance_);
+    tetuLiquidator.liquidate(sourceToken_, targetToken_, sourceAmount_, PRICE_IMPACT_TOLERANCE);
     outputAmount = IERC20(targetToken_).balanceOf(address(this)) - targetTokenBalanceBefore;
 
     uint slippage = (outputAmount >= targetAmount_)
       ? 0
       : (targetAmount_ - outputAmount) * SLIPPAGE_NUMERATOR / targetAmount_;
-    require(slippage <= slippageTolerance_, AppErrors.SLIPPAGE_TOO_BIG);
+    require(slippage <= SLIPPAGE_TOLERANCE, AppErrors.SLIPPAGE_TOO_BIG);
 
     IERC20(targetToken_).safeTransfer(receiver_, outputAmount);
   }

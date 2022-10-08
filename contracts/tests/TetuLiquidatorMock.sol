@@ -10,7 +10,8 @@ import "../tests/IMockERC20.sol";
 // @notice This mock should be used with mockERC20 for liquidate
 contract TetuLiquidatorMock is ITetuLiquidator {
 
-  uint public constant SLIPPAGE_DENOMINATOR = 100_000;
+  uint public constant SLIPPAGE_NOMINATOR = 100_000;
+  uint public constant PRICE_IMPACT_NUMERATOR = 100_000;
 
   /// how much 1 token costs in USD, in token decimals
   mapping(address => uint256) public prices;
@@ -45,7 +46,7 @@ contract TetuLiquidatorMock is ITetuLiquidator {
   ///////////////////////////////////////////////////////
 
   function getPrice(address tokenIn, address tokenOut, uint amount)
-  public override view returns (uint) {
+  public override view returns (uint amountOut) {
     uint priceIn = prices[tokenIn];
     require(priceIn != 0, 'L: Not found pool for tokenIn');
     uint8 decimalsIn = IMockERC20(tokenIn).decimals();
@@ -54,7 +55,9 @@ contract TetuLiquidatorMock is ITetuLiquidator {
     require(priceOut != 0, 'L: Not found pool for tokenOut');
     uint8 decimalsOut = IMockERC20(tokenOut).decimals();
 
-    return (priceIn * amount * 10**decimalsOut) / (priceOut * 10**decimalsIn);
+    amountOut = (priceIn * amount * 10**decimalsOut) / (priceOut * 10**decimalsIn);
+    amountOut = amountOut * uint(int(PRICE_IMPACT_NUMERATOR) - int(priceImpact)) / PRICE_IMPACT_NUMERATOR;
+
   }
 
   function liquidate(
@@ -66,7 +69,7 @@ contract TetuLiquidatorMock is ITetuLiquidator {
     IMockERC20(tokenIn).burn(address(this), amount);
 
     uint amountOut = getPrice(tokenIn, tokenOut, amount);
-    amountOut *= uint(int(SLIPPAGE_DENOMINATOR) - slippage) / SLIPPAGE_DENOMINATOR;
+    amountOut = amountOut * uint(int(SLIPPAGE_NOMINATOR) - slippage) / SLIPPAGE_NOMINATOR;
     require(priceImpactTolerance >= priceImpact, '!PRICE');
 
     IMockERC20(tokenOut).mint(msg.sender, amountOut);

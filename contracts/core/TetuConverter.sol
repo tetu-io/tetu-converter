@@ -155,16 +155,12 @@ contract TetuConverter is ITetuConverter {
       // Bogdoslav: I guess better do that after merge -
       // because _convert function params could be changed
       // and tests should be fixed
-      uint priceImpactTolerance_ = 2000; // 2%
-      uint slippageTolerance_ = 1000; // 1%
       ISwapConverter(converter_).swap(
         sourceToken_,
         sourceAmount_,
         targetToken_,
         targetAmount_,
-        receiver_,
-        priceImpactTolerance_,
-        slippageTolerance_
+        receiver_
       );
 
     }
