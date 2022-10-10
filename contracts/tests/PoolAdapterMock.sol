@@ -28,6 +28,7 @@ contract PoolAdapterMock is IPoolAdapter {
   uint private _collateralFactor;
 
   uint private _borrowedAmounts;
+  /// @notice decimals 18
   uint public borrowRate;
   address public priceOracle;
 

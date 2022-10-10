@@ -12,6 +12,7 @@ import "../interfaces/ITetuConverter.sol";
 import "./AppErrors.sol";
 import "../core/AppUtils.sol";
 import "../openzeppelin/EnumerableSet.sol";
+import "hardhat/console.sol";
 
 /// @notice Manage list of open borrow positions
 contract DebtMonitor is IDebtMonitor {
@@ -128,16 +129,53 @@ contract DebtMonitor is IDebtMonitor {
   }
 
   ///////////////////////////////////////////////////////
-  ///           Detect unhealthy positions
+  ///           Detect unhealthy/not-optimal positions
   ///////////////////////////////////////////////////////
 
-  function checkForReconversion(
+  function checkForBetterBorrow(
     uint startIndex0,
     uint maxCountToCheck,
     uint maxCountToReturn,
     uint16 healthFactor2,
     uint periodInBlocks
   ) external view override returns (
+    uint nextIndexToCheck0,
+    address[] memory outPoolAdapters
+  ) {
+    require(healthFactor2 > 0, AppErrors.INCORRECT_VALUE);
+    return _checkPositions(startIndex0,
+      maxCountToCheck,
+      maxCountToReturn,
+      healthFactor2,
+      periodInBlocks
+    );
+  }
+
+  function checkHealth(
+    uint startIndex0,
+    uint maxCountToCheck,
+    uint maxCountToReturn
+  ) external view override returns (
+    uint nextIndexToCheck0,
+    address[] memory outPoolAdapters
+  ) {
+    return _checkPositions(startIndex0,
+      maxCountToCheck,
+      maxCountToReturn,
+      0,
+      0
+    );
+  }
+
+  /// @param healthFactor2 Health factor for new borrow. We need this value to search better borrow way only.
+  ///        0 - check health, not 0 - search better borrow way
+  function _checkPositions(
+    uint startIndex0,
+    uint maxCountToCheck,
+    uint maxCountToReturn,
+    uint16 healthFactor2,
+    uint periodInBlocks
+  ) internal view returns (
     uint nextIndexToCheck0,
     address[] memory outPoolAdapters
   ) {
@@ -149,7 +187,11 @@ contract DebtMonitor is IDebtMonitor {
       maxCountToCheck = positions.length - startIndex0;
     }
 
-    uint minAllowedHealthFactor = uint(IController(controller).getMinHealthFactor2()) * 10**(18-2);
+    // We use minAllowedHealthFactor as a flag to know what check should be made below
+    // 0 - check health, not 0 - search better borrow way
+    uint minAllowedHealthFactor = healthFactor2 == 0
+      ? uint(IController(controller).getMinHealthFactor2()) * 10**(18-2)
+      : 0;
 
     // enumerate all pool adapters
     for (uint i = 0; i < maxCountToCheck; i = i.uncheckedInc()) {
@@ -159,8 +201,10 @@ contract DebtMonitor is IDebtMonitor {
       IPoolAdapter pa = IPoolAdapter(positions[startIndex0 + i]);
       (uint collateralAmount,, uint healthFactor18,) = pa.getStatus();
 
-      if (healthFactor18 < minAllowedHealthFactor
-        || _findBetterBorrowWay(tc, pa, collateralAmount, healthFactor2, periodInBlocks)
+      if (
+        minAllowedHealthFactor != 0 && healthFactor18 < minAllowedHealthFactor
+        || (minAllowedHealthFactor == 0
+            && _findBetterBorrowWay(tc, pa, collateralAmount, healthFactor2, periodInBlocks))
       ) {
         outPoolAdapters[countFoundItems] = positions[startIndex0 + i];
         countFoundItems += 1;

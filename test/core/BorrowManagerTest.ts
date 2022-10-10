@@ -16,7 +16,7 @@ import {
   GAS_LIMIT_BM_FIND_POOL_10,
   GAS_LIMIT_BM_FIND_POOL_100, GAS_LIMIT_BM_FIND_POOL_5
 } from "../baseUT/GasLimit";
-import {IBorrowInputParams, BorrowManagerHelper, PoolInstanceInfo} from "../baseUT/helpers/BorrowManagerHelper";
+import {IBorrowInputParams, BorrowManagerHelper, IPoolInstanceInfo} from "../baseUT/helpers/BorrowManagerHelper";
 import {MocksHelper} from "../baseUT/helpers/MocksHelper";
 import {CoreContractsHelper} from "../baseUT/helpers/CoreContractsHelper";
 import {generateAssetPairs, getAssetPair, IAssetPair} from "../baseUT/utils/AssetPairUtils";
@@ -370,7 +370,7 @@ describe("BorrowManager", () => {
       targetDecimals: targetDecimals,
       availablePools: [{   // source, target
         borrowRateInTokens: [0, 0],
-        availableLiquidityInTokens: [0, 1000] //not enough money
+        availableLiquidityInTokens: [0, 1000] // not enough money
       }]
     };
 
@@ -460,7 +460,7 @@ describe("BorrowManager", () => {
     app: {
       borrowManager: BorrowManager,
       controller: Controller,
-      pools: PoolInstanceInfo[]
+      pools: IPoolInstanceInfo[]
     }
   }> {
     const tt = {
@@ -678,7 +678,7 @@ describe("BorrowManager", () => {
                 , r.pairs.map(x => x.smallerAddress)
                 , r.pairs.map(x => x.biggerAddress)
               )
-            ).ok;
+            ).equal(true);
           });
         });
         describe("Add new asset pairs to exist platform adapter", () => {
@@ -695,7 +695,7 @@ describe("BorrowManager", () => {
                 , r.assets.map(x => newAsset)
                 , r.assets.map(x => x)
               )
-            ).ok;
+            ).equal(true);
           });
         });
       });

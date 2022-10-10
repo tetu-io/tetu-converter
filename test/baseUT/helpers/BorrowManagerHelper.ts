@@ -13,15 +13,14 @@ import {DeployUtils} from "../../../scripts/utils/DeployUtils";
 import {getBigNumberFrom} from "../../../scripts/utils/NumberUtils";
 
 export interface IPoolInfo {
-    /** The length of array should be equal to the count of underlyings */
+    /** The length of array should be equal to the count of underlying */
     borrowRateInTokens: (number|BigNumber)[],
-    /** The length of array should be equal to the count of underlyings */
+    /** The length of array should be equal to the count of underlying */
     availableLiquidityInTokens: number[]
 }
 
-export interface IBorrowInputParams {
-    availablePools: IPoolInfo[],
-    /** == liquidation threshold for collateral asset **/
+export interface IBorrowInputParamsBasic {
+    /* == liquidation threshold for collateral asset */
     collateralFactor: number;
     priceSourceUSD: number;
     priceTargetUSD: number;
@@ -29,14 +28,18 @@ export interface IBorrowInputParams {
     targetDecimals?: number;
 }
 
-export interface PoolInstanceInfo {
+export interface IBorrowInputParams extends IBorrowInputParamsBasic {
+    availablePools: IPoolInfo[],
+}
+
+export interface IPoolInstanceInfo {
     pool: string;
     platformAdapter: string;
     converter: string;
     asset2cTokens: Map<string, string>;
 }
 
-export interface MockPoolParams {
+export interface IMockPoolParams {
     pool: string;
     converters: string[];
     assets: string[];
@@ -67,7 +70,7 @@ export class BorrowManagerHelper {
         core: CoreContracts,
         sourceToken: MockERC20,
         targetToken: MockERC20,
-        pools: PoolInstanceInfo[],
+        pools: IPoolInstanceInfo[],
     }>{
         const core = await this.initializeApp(signer);
 
@@ -81,7 +84,7 @@ export class BorrowManagerHelper {
 
         const assets = await MocksHelper.createTokens(assetDecimals);
 
-        const pools: PoolInstanceInfo[] = [];
+        const pools: IPoolInstanceInfo[] = [];
 
         for (const poolInfo of tt.availablePools) {
             const cTokens = await MocksHelper.createCTokensMocks(
@@ -145,10 +148,10 @@ export class BorrowManagerHelper {
 
     static async initAppWithMockPools(
       signer: SignerWithAddress,
-      poolParams: MockPoolParams[]
+      poolParams: IMockPoolParams[]
     ) : Promise<{
         core: CoreContracts,
-        pools: PoolInstanceInfo[],
+        pools: IPoolInstanceInfo[],
     }>{
         // initialize app
         const core = await this.initializeApp(signer);
@@ -156,7 +159,7 @@ export class BorrowManagerHelper {
         // create all platform adapters
         // and register all possible asset-pairs for each platform adapter in the borrow manager
         // we assume here, that all assets, converters and cToken are proper created and initialized
-        const pools: PoolInstanceInfo[] = [];
+        const pools: IPoolInstanceInfo[] = [];
         for (const pp of poolParams) {
             const priceOracle = (await DeployUtils.deployContract(signer,
               "PriceOracleMock",

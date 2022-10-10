@@ -11,7 +11,7 @@ import {
   MockERC20__factory,
   TetuConverter, Borrower, PoolAdapterMock__factory, LendingPlatformMock__factory
 } from "../../typechain";
-import {IBorrowInputParams, BorrowManagerHelper, PoolInstanceInfo} from "../baseUT/helpers/BorrowManagerHelper";
+import {IBorrowInputParams, BorrowManagerHelper, IPoolInstanceInfo} from "../baseUT/helpers/BorrowManagerHelper";
 import {CoreContracts} from "../baseUT/types/CoreContracts";
 import {CoreContractsHelper} from "../baseUT/helpers/CoreContractsHelper";
 import {MocksHelper} from "../baseUT/helpers/MocksHelper";
@@ -70,7 +70,7 @@ describe("TetuConverterTest", () => {
     sourceToken: MockERC20,
     targetToken: MockERC20,
     borrowManager: BorrowManager,
-    pools: PoolInstanceInfo[]
+    pools: IPoolInstanceInfo[]
   }> {
     const {core, sourceToken, targetToken, pools} = await BorrowManagerHelper.initAppPoolsWithTwoAssets(deployer, tt);
 
@@ -359,7 +359,7 @@ describe("TetuConverterTest", () => {
               {   // source, target
                 borrowRateInTokens: [
                   getBigNumberFrom(0, targetDecimals),
-                  getBigNumberFrom(1, targetDecimals - 6), //1e-6
+                  getBigNumberFrom(1, targetDecimals - 6), // 1e-6
                 ],
                 availableLiquidityInTokens: [0, availableBorrowLiquidityNumber]
               }
@@ -465,7 +465,7 @@ describe("TetuConverterTest", () => {
               {   // source, target
                 borrowRateInTokens: [
                   getBigNumberFrom(0, targetDecimals),
-                  getBigNumberFrom(1, targetDecimals - 6), //1e-6
+                  getBigNumberFrom(1, targetDecimals - 6), // 1e-6
                 ],
                 availableLiquidityInTokens: [0, availableBorrowLiquidityNumber]
               }
