@@ -52,16 +52,16 @@ export class MocksHelper {
 
   /** Create platform adapter that supports a single pool with set of the given assets */
   public static async createPlatformAdapterMock(
-    signer: SignerWithAddress
-    , pool: string
-    , controllerAddress: string
-    , priceOracleAddress: string
-    , converters: string[]
-    , assets: string[]
-    , cTokens: string[]
-    , liquidity: BigNumber[]
-    , borrowRates?: BigNumber[]
-    , collateralFactors?: number[]
+    signer: SignerWithAddress,
+    pool: string,
+    controllerAddress: string,
+    priceOracleAddress: string,
+    converters: string[],
+    assets: string[],
+    cTokens: string[],
+    liquidity: BigNumber[],
+    borrowRates?: BigNumber[],
+    collateralFactors?: number[]
   ) : Promise<LendingPlatformMock> {
     const platformAdapter = (await DeployUtils.deployContract(
       signer,

@@ -257,7 +257,7 @@ describe("BorrowManager", () => {
     outMaxTargetAmount: BigNumber;
     outGas?: BigNumber
   }> {
-    // There are TWO underlyings: source, target
+    // There are TWO underlying: source, target
     const {core, sourceToken, targetToken, pools} = await BorrowManagerHelper.initAppPoolsWithTwoAssets(signer, tt);
 
     console.log("Source amount:", getBigNumberFrom(sourceAmount, await sourceToken.decimals()).toString());
@@ -278,7 +278,7 @@ describe("BorrowManager", () => {
       })
       : undefined;
     return {
-      outPoolIndex0: pools.findIndex(x => x.converter == ret.converter),
+      outPoolIndex0: pools.findIndex(x => x.converter === ret.converter),
       outApr36: ret.aprForPeriod36,
       outMaxTargetAmount: ret.maxTargetAmount,
       outGas: gas
@@ -1057,20 +1057,21 @@ describe("BorrowManager", () => {
               availablePools: [
                 {   // source, target
                   borrowRateInTokens: [0, bestBorrowRate],
-                  availableLiquidityInTokens: [0, 100] //not enough money
+                  availableLiquidityInTokens: [0, 100] // not enough money
                 },
                 {   // source, target
-                  borrowRateInTokens: [0, bestBorrowRate], //best rate
-                  availableLiquidityInTokens: [0, 2000] //enough cash
+                  borrowRateInTokens: [0, bestBorrowRate], // best rate
+                  availableLiquidityInTokens: [0, 2000] // enough cash
                 },
                 {   // source, target   -   pool 2 is the best
-                  borrowRateInTokens: [0, bestBorrowRate+1], //the rate is worse
-                  availableLiquidityInTokens: [0, 2000000000] //a lot of cash
+                  borrowRateInTokens: [0, bestBorrowRate+1], // the rate is worse
+                  availableLiquidityInTokens: [0, 2000000000] // a lot of cash
                 },
               ]
             };
 
             const ret = await makeTestFindConverter(p, sourceAmount, healthFactor);
+            console.log(ret);
             const sret = [
               ret.outPoolIndex0,
               ethers.utils.formatUnits(ret.outMaxTargetAmount, p.targetDecimals),
@@ -1079,7 +1080,7 @@ describe("BorrowManager", () => {
 
             const expectedApr36 = getBigNumberFrom(bestBorrowRate, 36);
             const sexpected = [
-              1, //best pool
+              1, // best pool
               "500.0", // Use https://docs.google.com/spreadsheets/d/1oLeF7nlTefoN0_9RWCuNc62Y7W72-Yk7/edit?usp=sharing&ouid=116979561535348539867&rtpof=true&sd=true
                        // to calculate expected amounts
               ethers.utils.formatUnits(expectedApr36.div(Misc.WEI), p.targetDecimals),
@@ -1102,23 +1103,23 @@ describe("BorrowManager", () => {
               availablePools: [
                 {   // source, target
                   borrowRateInTokens: [0, bestBorrowRate],
-                  availableLiquidityInTokens: [0, 100] //not enough money
+                  availableLiquidityInTokens: [0, 100] // not enough money
                 },
                 {   // source, target
-                  borrowRateInTokens: [0, bestBorrowRate * 5], //too high borrow rate
-                  availableLiquidityInTokens: [0, 2000] //enough cash
+                  borrowRateInTokens: [0, bestBorrowRate * 5], // too high borrow rate
+                  availableLiquidityInTokens: [0, 2000] // enough cash
                 },
                 {   // source, target
-                  borrowRateInTokens: [0, bestBorrowRate], //the rate is best
-                  availableLiquidityInTokens: [0, 2000] //enough cash
+                  borrowRateInTokens: [0, bestBorrowRate], // the rate is best
+                  availableLiquidityInTokens: [0, 2000] // enough cash
                 },
                 {   // source, target
-                  borrowRateInTokens: [0, bestBorrowRate], //the rate is best
-                  availableLiquidityInTokens: [0, 2000000000] //even more cash than in prev.pool
+                  borrowRateInTokens: [0, bestBorrowRate], // the rate is best
+                  availableLiquidityInTokens: [0, 2000000000] // even more cash than in prev.pool
                 },
                 {   // source, target   -   pool 2 is the best
-                  borrowRateInTokens: [0, bestBorrowRate+1], //the rate is not best
-                  availableLiquidityInTokens: [0, 2000000000] //a lot of cash
+                  borrowRateInTokens: [0, bestBorrowRate+1], // the rate is not best
+                  availableLiquidityInTokens: [0, 2000000000] // a lot of cash
                 },
               ]
             };
@@ -1132,7 +1133,7 @@ describe("BorrowManager", () => {
 
             const expectedApr36 = getBigNumberFrom(bestBorrowRate, 36);
             const sexpected = [
-              3, //best pool
+              3, // best pool
               "2250.0", // Use https://docs.google.com/spreadsheets/d/1oLeF7nlTefoN0_9RWCuNc62Y7W72-Yk7/edit?usp=sharing&ouid=116979561535348539867&rtpof=true&sd=true
               // to calculate expected amounts
               ethers.utils.formatUnits(expectedApr36.div(Misc.WEI), input.targetDecimals),
@@ -1158,7 +1159,7 @@ describe("BorrowManager", () => {
                   availableLiquidityInTokens: [0, 10000]
                 },
                 {   // source, target
-                  borrowRateInTokens: [0, bestBorrowRate], //the rate is worse than in the pool 2
+                  borrowRateInTokens: [0, bestBorrowRate], // the rate is worse than in the pool 2
                   availableLiquidityInTokens: [0, 20000]
                 },
                 {   // source, target   -   pool 2 is the best
@@ -1177,7 +1178,7 @@ describe("BorrowManager", () => {
 
             const expectedApr36 = getBigNumberFrom(bestBorrowRate, 36);
             const sexpected = [
-              0, //best pool
+              0, // best pool
               "6250.0", // Use https://docs.google.com/spreadsheets/d/1oLeF7nlTefoN0_9RWCuNc62Y7W72-Yk7/edit?usp=sharing&ouid=116979561535348539867&rtpof=true&sd=true
                         // to calculate expected amounts
               ethers.utils.formatUnits(expectedApr36.div(Misc.WEI), input.targetDecimals),
@@ -1256,7 +1257,7 @@ describe("BorrowManager", () => {
           const healthFactor = 2;
           const expectedMaxAmountToBorrow = sourceAmount / healthFactor * collateralFactor;
           const input: IBorrowInputParams = {
-            collateralFactor: collateralFactor,
+            collateralFactor,
             priceSourceUSD: 1,
             priceTargetUSD: 1,
             sourceDecimals: 18,
@@ -1301,7 +1302,7 @@ describe("BorrowManager", () => {
             availablePools: [...Array(countPools).keys()].map(
               x => ({   // source, target
                 borrowRateInTokens: [0, bestBorrowRate - x], // next pool is better then previous
-                availableLiquidityInTokens: [0, 2000000] //enough money
+                availableLiquidityInTokens: [0, 2000000] // enough money
               }),
             )
           };
@@ -1316,7 +1317,7 @@ describe("BorrowManager", () => {
           ].join();
 
           const sexpected = [
-            countPools - 1 //best pool
+            countPools - 1 // best pool
           ].join();
 
           console.log(`findPools: estimated gas for ${countPools} pools`, ret.outGas);

@@ -59,7 +59,7 @@ contract LendingPlatformMock is IPlatformAdapter {
 
   function setLiquidationThresholds(address[] memory assets_, uint[] memory liquidationThresholds18_) external {
     for (uint i = 0; i < assets_.length; ++i) {
-      borrowRates[assets_[i]] = liquidationThresholds18_[i];
+      liquidationThresholds18[assets_[i]] = liquidationThresholds18_[i];
     }
   }
 
