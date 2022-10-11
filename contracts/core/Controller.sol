@@ -20,8 +20,19 @@ contract Controller is IController, Initializable {
   address public override swapManager;
 
   /// @notice Min allowed health factor = collateral / min allowed collateral, decimals 2
+  ///         If a health factor is below given value, we need to repay a part of borrow back
   /// @dev Health factor < 1 produces liquidation immediately
-  uint16 private _minHealthFactor2;
+  uint16 public override minHealthFactor2;
+
+  /// @notice max allowed health factor with decimals 2
+  /// @dev If a health factor is above given value, we CAN make additional borrow
+  ///      using exist collateral
+  uint16 public override maxHealthFactor2;
+
+  /// @notice target health factor with decimals 2
+  /// @dev If the health factor is below/above min/max threshold, we need to make repay
+  ///      or additional borrow and restore the health factor to the given target value
+  uint16 public override targetHealthFactor2;
 
   uint private _blocksPerDay;
 
@@ -31,17 +42,22 @@ contract Controller is IController, Initializable {
 
   constructor(
     uint blocksPerDay_,
+    address governance_,
     uint16 minHealthFactor_,
-    address governance_
+    uint16 maxHealthFactor_,
+    uint16 targetHealthFactor_
   ) {
     require(governance_ != address(0), AppErrors.ZERO_ADDRESS);
-    require(minHealthFactor_ > MIN_ALLOWED_MIN_HEALTH_FACTOR, AppErrors.WRONG_HEALTH_FACTOR);
     require(blocksPerDay_ != 0, AppErrors.INCORRECT_VALUE);
+    require(minHealthFactor_ > MIN_ALLOWED_MIN_HEALTH_FACTOR, AppErrors.WRONG_HEALTH_FACTOR);
+    require(minHealthFactor_ < maxHealthFactor_, AppErrors.WRONG_HEALTH_FACTOR);
+    require(minHealthFactor_ < targetHealthFactor_, AppErrors.WRONG_HEALTH_FACTOR);
+    require(targetHealthFactor_ < maxHealthFactor_, AppErrors.WRONG_HEALTH_FACTOR);
 
     governance = governance_;
 
     _blocksPerDay = blocksPerDay_;
-    _minHealthFactor2 = minHealthFactor_;
+    minHealthFactor2 = minHealthFactor_;
   }
 
   function initialize(
@@ -88,13 +104,26 @@ contract Controller is IController, Initializable {
     _blocksPerDay = value_;
   }
 
-  function getMinHealthFactor2() external view override returns (uint16) {
-    return _minHealthFactor2;
-  }
+  ///////////////////////////////////////////////////////
+  ///             Set up health factors
+  ///  min/max thresholds and a target value for reconversion
+  ///////////////////////////////////////////////////////
 
   function setMinHealthFactor2(uint16 value_) external override {
     require(value_ > MIN_ALLOWED_MIN_HEALTH_FACTOR, AppErrors.WRONG_HEALTH_FACTOR);
-    _minHealthFactor2 = value_;
+    require(value_ < targetHealthFactor2, AppErrors.WRONG_HEALTH_FACTOR);
+    minHealthFactor2 = value_;
+  }
+
+  function setMaxHealthFactor2(uint16 value_) external override {
+    require(value_ > targetHealthFactor2, AppErrors.WRONG_HEALTH_FACTOR);
+    maxHealthFactor2 = value_;
+  }
+
+  function setTargetHealthFactor2(uint16 value_) external override {
+    require(value_ > minHealthFactor2, AppErrors.WRONG_HEALTH_FACTOR);
+    require(value_ < maxHealthFactor2, AppErrors.WRONG_HEALTH_FACTOR);
+    targetHealthFactor2 = value_;
   }
 
   ///////////////////////////////////////////////////////

@@ -7,8 +7,18 @@ interface IController {
   function governance() external view returns (address);
 
   /// @notice min allowed health factor with decimals 2
-  function getMinHealthFactor2() external view returns (uint16);
+  function minHealthFactor2() external view returns (uint16);
   function setMinHealthFactor2(uint16 value_) external;
+
+  /// @notice max allowed health factor with decimals 2
+  function maxHealthFactor2() external view returns (uint16);
+  function setMaxHealthFactor2(uint16 value_) external;
+
+  /// @notice target health factor with decimals 2
+  /// @dev If the health factor is below/above min/max threshold, we need to make repay
+  ///      or additional borrow and restore the health factor to the given target value
+  function targetHealthFactor2() external view returns (uint16);
+  function setTargetHealthFactor2(uint16 value_) external;
 
   function blocksPerDay() external view returns (uint);
   function setBlocksPerDay(uint value_) external;

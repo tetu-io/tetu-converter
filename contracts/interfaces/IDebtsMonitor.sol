@@ -14,17 +14,33 @@ interface IDebtMonitor {
   function onClosePosition() external;
 
   /// @notice Enumerate {maxCountToCheck} pool adapters starting from {index0} and return unhealthy pool-adapters
+  ///         i.e. adapters with health factor below min allowed value
   /// @return nextIndexToCheck0 Index of next pool-adapter to check; 0: all pool-adapters were checked
-  /// @return poolAdapters List of pool adapters that should be reconverted
-  /// @return outAmountToRepay What amount should be repay to pool adapter to restore health factor
+  /// @return outPoolAdapters List of pool adapters that should be reconverted
+  /// @return outAmountsToRepay What amount should be repay to pool adapter to restore health factor
   function checkHealth(
     uint startIndex0,
     uint maxCountToCheck,
     uint maxCountToReturn
   ) external view returns (
     uint nextIndexToCheck0,
-    address[] memory poolAdapters,
-    uint[] memory outAmountToRepay
+    address[] memory outPoolAdapters,
+    uint[] memory outAmountsToRepay
+  );
+
+  /// @notice Enumerate {maxCountToCheck} pool adapters starting from {index0} and return all pool-adapters
+  ///         with health factor exceeds max allowed value. In other words, it's safe to make additional borrow.
+  /// @return nextIndexToCheck0 Index of next pool-adapter to check; 0: all pool-adapters were checked
+  /// @return outPoolAdapters List of pool adapters that should be reconverted
+  /// @return outAmountsToBorrow What amount can be additionally borrowed using exist collateral
+  function checkAdditionalBorrow(
+    uint startIndex0,
+    uint maxCountToCheck,
+    uint maxCountToReturn
+  ) external view returns (
+    uint nextIndexToCheck0,
+    address[] memory outPoolAdapters,
+    uint[] memory outAmountsToBorrow
   );
 
   /// @notice Enumerate {maxCountToCheck} pool adapters starting from {index0} and return not-optimal pool-adapters
@@ -32,7 +48,7 @@ interface IDebtMonitor {
   /// @param periodInBlocks Period in blocks that should be used in rebalancing
   /// @return nextIndexToCheck0 Index of next pool-adapter to check; 0: all pool-adapters were checked
   /// @return poolAdapters List of pool adapters that should be reconverted
-  function checkForBetterBorrow(
+  function checkBetterBorrowExists(
       uint startIndex0,
       uint maxCountToCheck,
       uint maxCountToReturn,

@@ -339,7 +339,7 @@ contract AaveTwoPoolAdapter is IPoolAdapter, IPoolAdapterInitializer {
   ///////////////////////////////////////////////////////
 
   function _validateHealthFactor(uint hf18) internal view {
-    require(hf18 >= uint(controller.getMinHealthFactor2())*10**(18-2), AppErrors.WRONG_HEALTH_FACTOR);
+    require(hf18 >= uint(controller.minHealthFactor2())*10**(18-2), AppErrors.WRONG_HEALTH_FACTOR);
   }
 
 }

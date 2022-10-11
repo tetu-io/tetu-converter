@@ -45,4 +45,19 @@ library AppUtils {
 
     return dest;
   }
+
+  /// @dev We assume, that trivial case countItemsToKeep_ == 0 is excluded, the function is not called in that case
+  function removeLastItems(uint[] memory items_, uint countItemsToKeep_) internal pure returns (uint[] memory) {
+    uint lenItems = items_.length;
+    if (lenItems == countItemsToKeep_) {
+      return items_;
+    }
+
+    uint[] memory dest = new uint[](countItemsToKeep_);
+    for (uint i = 0; i < countItemsToKeep_; i = uncheckedInc(i)) {
+      dest[i] = items_[i];
+    }
+
+    return dest;
+  }
 }

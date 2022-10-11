@@ -113,7 +113,7 @@ contract BorrowManager is IBorrowManager {
   /// @param healthFactor_ Health factor with decimals 2; must be greater or equal to MIN_HEALTH_FACTOR; for 1.5 use 150
   function setHealthFactor(address asset, uint16 healthFactor_) external override {
     _onlyGovernance();
-    require(healthFactor_ >= controller.getMinHealthFactor2(), AppErrors.WRONG_HEALTH_FACTOR);
+    require(healthFactor_ >= controller.minHealthFactor2(), AppErrors.WRONG_HEALTH_FACTOR);
     defaultHealthFactors2[asset] = healthFactor_;
   }
 
@@ -228,9 +228,9 @@ contract BorrowManager is IBorrowManager {
     }
 
     if (p_.healthFactor2 == 0) {
-      p_.healthFactor2 = controller.getMinHealthFactor2();
+      p_.healthFactor2 = controller.minHealthFactor2();
     } else {
-      require(p_.healthFactor2 >= controller.getMinHealthFactor2(), AppErrors.WRONG_HEALTH_FACTOR);
+      require(p_.healthFactor2 >= controller.minHealthFactor2(), AppErrors.WRONG_HEALTH_FACTOR);
     }
 
     if (pas.length() != 0) {

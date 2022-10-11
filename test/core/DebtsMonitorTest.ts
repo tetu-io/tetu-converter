@@ -1382,7 +1382,7 @@ describe("DebtsMonitor", () => {
     });
   });
 
-  describe("TODO: checkForBetterBorrow", () => {
+  describe("TODO: checkBetterBorrowExists", () => {
     describe("Good paths", () => {
       describe("Threshold APR enabled", () => {
         describe("Threshold count blocks enabled", () => {
