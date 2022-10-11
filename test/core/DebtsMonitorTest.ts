@@ -1263,85 +1263,126 @@ describe("DebtsMonitor", () => {
           });
         });
       });
-      describe("Three borrowed tokens", () => {
-        describe("All tokens are healthy", () => {
-          it("should return empty", async () => {
-            const index = 0;
-            const count = 100; // find all pools
+      describe("Multiple borrowed tokens", () => {
+        async function checkAllBorrows(
+          portionSize: number,
+          countBorrows: number,
+          filterToMakeUnhealthy?: (borrowIndex: number) => boolean,
+        ) : Promise<number> {
+          let index = 0;
 
-            const pp: IMultiplePoolAdaptersTestParams = {
-              sourceDecimals: 6,
-              targetDecimals: 24,
-              priceSourceUSD: 1,
-              priceTargetUSD: 2,
-              collateralFactor: 0.5,
-              countPassedBlocks: 0, // no debts
+          const pp: IMultiplePoolAdaptersTestParams = {
+            sourceDecimals: 6,
+            targetDecimals: 24,
+            priceSourceUSD: 1,
+            priceTargetUSD: 1,
+            collateralFactor: 0.9,
+            countPassedBlocks: 0, // no debts
+          }
+          const {dm, poolAdapterMocks} = await prepareMultiplePoolAdaptersHealthTest(
+            pp,
+            [...Array(countBorrows).keys()].map(n => ({
+              borrowRateInTokens: 1000 * (n + 1), availableLiquidityInTokens: 100_000 * (n + 1)
+            })),
+            [...Array(countBorrows).keys()].map(n => ({
+              amountCollateral: 1000 * (n + 1), amountToBorrow: 500 * (n + 1)
+            })),
+          );
+
+          if (filterToMakeUnhealthy) {
+            for (let i = 0; i < poolAdapterMocks.length; ++i) {
+              if (filterToMakeUnhealthy(i)) {
+                // move the pool adapter to unhealthy state
+                // let's reduce collateral factor significantly
+                await poolAdapterMocks[i].changeCollateralFactor(getBigNumberFrom(1, 17));
+              }
             }
-            const {dm, poolAdapterMocks, controller} = await prepareMultiplePoolAdaptersHealthTest(
-              pp,
-              [
-                {borrowRateInTokens: 1000, availableLiquidityInTokens: 100_000},
-                {borrowRateInTokens: 1000, availableLiquidityInTokens: 100_000},
-                {borrowRateInTokens: 1000, availableLiquidityInTokens: 100_000},
-              ],
-              [
-                {amountCollateral: 100, amountToBorrow: 10},
-                {amountCollateral: 100, amountToBorrow: 10},
-                {amountCollateral: 100, amountToBorrow: 10},
-              ]
-            );
+          }
 
-            const ret = await dm.checkHealth(index, count, count);
+          let countUnhealthy = 0;
+          do {
+            const ret = await dm.checkHealth(index, portionSize, portionSize);
+            countUnhealthy += ret.outPoolAdapters.length;
+            index = ret.nextIndexToCheck0.toNumber();
+          } while (index !== 0);
 
-            const sret = [
-              ret.nextIndexToCheck0.toNumber(),
-              ret.outPoolAdapters.length,
-              ret.outPoolAdapters,
-            ].join();
+          return countUnhealthy;
+        }
 
-            const sexpected = [
-              0,
-              0,
-              [],
-            ].join();
-
-            expect(sret).equal(sexpected);
+        describe("All borrows are healthy", () => {
+          describe("Check all borrows at once", () => {
+            it("should return empty", async () => {
+              const ret = await checkAllBorrows(100, 5);
+              expect(ret).equal(0);
+            });
           });
-        });
-        describe("All tokens are unhealthy", () => {
-          describe("Tokens have different decimals", () => {
-            it("should return all tokens", async () => {
-              expect.fail("TODO");
+          describe("Check the borrows by parts", () => {
+            it("should return empty", async () => {
+              const ret = await checkAllBorrows(3, 5);
+              expect(ret).equal(0);
             });
           });
         });
-        describe("First token is unhealthy", () => {
-          it("should return first token only", async () => {
-            expect.fail("TODO");
+        describe("All borrows are unhealthy", () => {
+          describe("Check all borrows at once", () => {
+            it("should return all borrows", async () => {
+              const countPoolAdapters = 5;
+              const ret = await checkAllBorrows(
+                100,
+                countPoolAdapters,
+                _ => true
+              );
+              expect(ret).equal(countPoolAdapters);
+            });
+          });
+          describe("Check the borrows by parts", () => {
+            it("should return all borrows", async () => {
+              const countPoolAdapters = 5;
+              const ret = await checkAllBorrows(
+                3,
+                countPoolAdapters,
+                _ => true
+              );
+              expect(ret).equal(countPoolAdapters);
+            });
+            it("should return all borrows", async () => {
+              const countPoolAdapters = 7;
+              const ret = await checkAllBorrows(
+                2,
+                countPoolAdapters,
+                _ => true
+              );
+              expect(ret).equal(countPoolAdapters);
+            });
           });
         });
-        describe("Last token is unhealthy", () => {
-          it("should return last token only", async () => {
-            expect.fail("TODO");
+        describe("First borrow is unhealthy", () => {
+          it("should return single borrow only", async () => {
+            const countPoolAdapters = 5;
+            const ret = await checkAllBorrows(
+              3,
+              countPoolAdapters,
+              borrowIndex => borrowIndex === 0
+            );
+            expect(ret).equal(1);
           });
         });
-      });
-    });
-    describe("Bad paths", () => {
-      describe("Unknown pool adapter", () => {
-        it("should revert", async () => {
-          expect.fail("TODO");
-        });
-      });
-      describe("Price oracle returns zero price", () => {
-        it("should revert", async () => {
-          expect.fail("TODO");
+        describe("Last borrow is unhealthy", () => {
+          it("should return last borrow only", async () => {
+            const countPoolAdapters = 7;
+            const ret = await checkAllBorrows(
+              2,
+              countPoolAdapters,
+              borrowIndex => borrowIndex === countPoolAdapters - 1
+            );
+            expect(ret).equal(1);
+          });
         });
       });
     });
   });
 
-  describe("checkForBetterBorrow", () => {
+  describe("TODO: checkForBetterBorrow", () => {
     describe("Good paths", () => {
       describe("Threshold APR enabled", () => {
         describe("Threshold count blocks enabled", () => {

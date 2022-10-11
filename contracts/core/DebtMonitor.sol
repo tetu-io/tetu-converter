@@ -180,6 +180,8 @@ contract DebtMonitor is IDebtMonitor {
     address[] memory outPoolAdapters
   ) {
     uint countFoundItems = 0;
+    nextIndexToCheck0 = startIndex0;
+
     ITetuConverter tc = ITetuConverter(controller.tetuConverter());
     outPoolAdapters = new address[](maxCountToReturn);
 
