@@ -223,18 +223,8 @@ contract BorrowManager is IBorrowManager {
     // get all platform adapters that support required pair of assets
     EnumerableSet.AddressSet storage pas = _pairsList[getAssetPairKey(p_.sourceToken, p_.targetToken)];
 
-    if (p_.healthFactor2 == 0) {
-      p_.healthFactor2 = defaultHealthFactors2[p_.targetToken];
-    }
-
-    if (p_.healthFactor2 == 0) {
-      p_.healthFactor2 = controller.minHealthFactor2();
-    } else {
-      require(p_.healthFactor2 >= controller.minHealthFactor2(), AppErrors.WRONG_HEALTH_FACTOR);
-    }
-
     if (pas.length() != 0) {
-      (converter, maxTargetAmount, aprForPeriod36) = _findPool(pas, p_);
+      (converter, maxTargetAmount, aprForPeriod36) = _findPool(pas, p_, _getTargetHealthFactor2(p_.targetToken));
     }
 
     return (converter, maxTargetAmount, aprForPeriod36);
@@ -243,7 +233,8 @@ contract BorrowManager is IBorrowManager {
   /// @notice Enumerate all pools and select a pool suitable for borrowing with min APR and enough liquidity
   function _findPool(
     EnumerableSet.AddressSet storage platformAdapters_,
-    AppDataTypes.InputConversionParams memory p_
+    AppDataTypes.InputConversionParams memory p_,
+    uint16 healthFactor2_
   ) internal view returns (
     address converter,
     uint maxTargetAmount,
@@ -255,7 +246,7 @@ contract BorrowManager is IBorrowManager {
     // Platform-adapters use borrowAmountFactor18 to calculate result borrow-to-amount
     uint borrowAmountFactor18 = 100
       * p_.sourceAmount.toMantissa(uint8(IERC20Extended(p_.sourceToken).decimals()), 18)
-      / uint(p_.healthFactor2);
+      / uint(healthFactor2_);
 
     for (uint i = 0; i < lenPools; i = i.uncheckedInc()) {
       AppDataTypes.ConversionPlan memory plan = IPlatformAdapter(platformAdapters_.at(i)).getConversionPlan(
@@ -352,6 +343,17 @@ contract BorrowManager is IBorrowManager {
     return platformAdapter;
   }
 
+  function getTargetHealthFactor2(address asset) external view override returns (uint) {
+    return _getTargetHealthFactor2(asset);
+  }
+
+  function _getTargetHealthFactor2(address asset) internal view returns (uint16) {
+    uint16 dest = defaultHealthFactors2[asset];
+    if (dest == 0) {
+      dest = controller.targetHealthFactor2();
+    }
+    return dest;
+  }
   ///////////////////////////////////////////////////////
   ///                 keccak256 keys
   ///////////////////////////////////////////////////////

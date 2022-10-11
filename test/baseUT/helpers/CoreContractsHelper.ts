@@ -21,8 +21,10 @@ export class CoreContractsHelper {
     const controller = (await DeployUtils.deployContract(deployer
       , "Controller"
       , COUNT_BLOCKS_PER_DAY
-      , 101
       , deployer.address
+      , 101
+      , 200
+      , 400
     )) as Controller;
     await controller.initialize(
       ethers.Wallet.createRandom().address,
@@ -88,77 +90,77 @@ export class CoreContractsHelper {
     )) as SwapManager;
   }
 
-  /**
-   * Generate single platform adapter (with attached pool).
-   * Create new BorrowManager and add the pool there
-   */
-  public static async addPool(
-    signer: SignerWithAddress,
-    controller: IController,
-    pool: PoolStub,
-    poolsInfo: IPoolInfo,
-    collateralFactors: number[],
-    underlying: MockERC20[],
-    cTokens: MockERC20[],
-    prices: BigNumber[],
-    templateAdapterPoolOptional?: string,
-  ) : Promise <{
-    platformAdapter: LendingPlatformMock,
-    templatePoolAdapter: string
-  }>{
-    const borrowRates = await Promise.all(underlying.map(
-      async (token, index) => {
-        const br = poolsInfo.borrowRateInTokens[index];
-        return typeof br === "object"
-          ? br
-          : getBigNumberFrom(
-            poolsInfo.borrowRateInTokens[index],
-            await underlying[index].decimals()
-          );
-      }
-    ));
-    const availableLiquidity = await Promise.all(underlying.map(
-      async (token, index) => getBigNumberFrom(
-        poolsInfo.availableLiquidityInTokens[index],
-        await underlying[index].decimals()
-      )
-    ));
-
-    const templatePoolAdapter = templateAdapterPoolOptional
-      || (await MocksHelper.createPoolAdapterStub(signer, getBigNumberFrom(1))).address;
-
-    const priceOracle = (await DeployUtils.deployContract(signer, "PriceOracleMock"
-      , underlying ? underlying.map(x => x.address) : []
-      , prices || []
-    )) as PriceOracleMock;
-
-    const platformAdapter = await MocksHelper.createPlatformAdapterMock(
-      signer,
-      pool,
-      controller.address,
-      templatePoolAdapter,
-      underlying.map(x => x.address),
-      borrowRates,
-      collateralFactors,
-      availableLiquidity,
-      cTokens,
-      priceOracle.address
-    );
-
-    const bm = BorrowManager__factory.connect(await controller.borrowManager(), signer);
-
-    // generate all possible pairs of underlying
-    const left: string[] = [];
-    const right: string[] = [];
-    for (let i = 0; i < underlying.length; ++i) {
-      for (let j = i + 1; j < underlying.length; ++j) {
-        left.push(underlying[i].address);
-        right.push(underlying[j].address);
-      }
-    }
-
-    await bm.addAssetPairs(platformAdapter.address, left, right);
-
-    return {platformAdapter, templatePoolAdapter};
-  }
+  // /**
+  //  * Generate single platform adapter (with attached pool).
+  //  * Create new BorrowManager and add the pool there
+  //  */
+  // public static async addPool(
+  //   signer: SignerWithAddress,
+  //   controller: IController,
+  //   pool: PoolStub,
+  //   poolsInfo: IPoolInfo,
+  //   collateralFactors: number[],
+  //   underlying: MockERC20[],
+  //   cTokens: MockERC20[],
+  //   prices: BigNumber[],
+  //   templateAdapterPoolOptional?: string,
+  // ) : Promise <{
+  //   platformAdapter: LendingPlatformMock,
+  //   templatePoolAdapter: string
+  // }>{
+  //   const borrowRates = await Promise.all(underlying.map(
+  //     async (token, index) => {
+  //       const br = poolsInfo.borrowRateInTokens[index];
+  //       return typeof br === "object"
+  //         ? br
+  //         : getBigNumberFrom(
+  //           poolsInfo.borrowRateInTokens[index],
+  //           await underlying[index].decimals()
+  //         );
+  //     }
+  //   ));
+  //   const availableLiquidity = await Promise.all(underlying.map(
+  //     async (token, index) => getBigNumberFrom(
+  //       poolsInfo.availableLiquidityInTokens[index],
+  //       await underlying[index].decimals()
+  //     )
+  //   ));
+  //
+  //   const templatePoolAdapter = templateAdapterPoolOptional
+  //     || (await MocksHelper.createPoolAdapterStub(signer, getBigNumberFrom(1))).address;
+  //
+  //   const priceOracle = (await DeployUtils.deployContract(signer, "PriceOracleMock"
+  //     , underlying ? underlying.map(x => x.address) : []
+  //     , prices || []
+  //   )) as PriceOracleMock;
+  //
+  //   const platformAdapter = await MocksHelper.createPlatformAdapterMock(
+  //     signer,
+  //     pool.address,
+  //     controller.address,
+  //     templatePoolAdapter,
+  //     underlying.map(x => x.address),
+  //     borrowRates,
+  //     collateralFactors,
+  //     availableLiquidity,
+  //     cTokens,
+  //     priceOracle.address
+  //   );
+  //
+  //   const bm = BorrowManager__factory.connect(await controller.borrowManager(), signer);
+  //
+  //   // generate all possible pairs of underlying
+  //   const left: string[] = [];
+  //   const right: string[] = [];
+  //   for (let i = 0; i < underlying.length; ++i) {
+  //     for (let j = i + 1; j < underlying.length; ++j) {
+  //       left.push(underlying[i].address);
+  //       right.push(underlying[j].address);
+  //     }
+  //   }
+  //
+  //   await bm.addAssetPairs(platformAdapter.address, left, right);
+  //
+  //   return {platformAdapter, templatePoolAdapter};
+  // }
 }

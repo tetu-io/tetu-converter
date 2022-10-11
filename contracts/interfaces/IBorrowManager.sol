@@ -46,4 +46,8 @@ interface IBorrowManager is IPoolAdaptersManager {
 
   /// @notice Get platformAdapter to which the converter belongs
   function getPlatformAdapter(address converter_) external view returns (address);
+
+  /// @notice Return health factor with decimals 2 for the asset
+  ///         If there is no custom value for asset, target health factor from the controller should be used
+  function getTargetHealthFactor2(address asset) external view returns (uint);
 }

@@ -142,13 +142,11 @@ contract DebtMonitor is IDebtMonitor {
     uint[] memory outAmountsToRepay
   ) {
     uint16 minHealthFactor2 = IController(controller).minHealthFactor2();
-    uint16 targetHealthFactor2 = IController(controller).targetHealthFactor2();
 
     return _checkHealthFactor(startIndex0
       , maxCountToCheck
       , maxCountToReturn
       , uint(minHealthFactor2) * 10**(18-2)
-      , uint(targetHealthFactor2) * 10**(18-2)
     );
   }
 
@@ -162,13 +160,11 @@ contract DebtMonitor is IDebtMonitor {
     uint[] memory outAmountsToBorrow
   ) {
     uint16 maxHealthFactor2 = IController(controller).maxHealthFactor2();
-    uint16 targetHealthFactor2 = IController(controller).targetHealthFactor2();
 
     return _checkHealthFactor(startIndex0
       , maxCountToCheck
       , maxCountToReturn
       , uint(maxHealthFactor2) * 10**(18-2)
-      , uint(targetHealthFactor2) * 10**(18-2)
     );
   }
 
@@ -176,8 +172,7 @@ contract DebtMonitor is IDebtMonitor {
     uint startIndex0,
     uint maxCountToCheck,
     uint maxCountToReturn,
-    uint healthFactorThreshold18,
-    uint healthFactorTarget18
+    uint healthFactorThreshold18
   ) internal view returns (
     uint nextIndexToCheck0,
     address[] memory outPoolAdapters,
@@ -200,6 +195,8 @@ contract DebtMonitor is IDebtMonitor {
       // check if we need to make reconversion because the health factor is too low/high
       IPoolAdapter pa = IPoolAdapter(positions[startIndex0 + i]);
       (, uint amountToPay, uint healthFactor18,) = pa.getStatus();
+      (,,, address borrowAsset) = pa.getConfig();
+      uint healthFactorTarget18 = uint(_borrowManager().getTargetHealthFactor2(borrowAsset)) * 10**(18-2);
 
       // healthFactorTarget18 < healthFactorThreshold18 means, that we check low board, otherwise up board
       if (
@@ -245,13 +242,11 @@ contract DebtMonitor is IDebtMonitor {
     uint startIndex0,
     uint maxCountToCheck,
     uint maxCountToReturn,
-    uint16 healthFactor2,
     uint periodInBlocks
   ) external view override returns (
     uint nextIndexToCheck0,
     address[] memory outPoolAdapters
   ) {
-    require(healthFactor2 > 0, AppErrors.INCORRECT_VALUE);
     uint countFoundItems = 0;
     nextIndexToCheck0 = startIndex0;
 
@@ -270,7 +265,7 @@ contract DebtMonitor is IDebtMonitor {
       IPoolAdapter pa = IPoolAdapter(positions[startIndex0 + i]);
       (uint collateralAmount,,,) = pa.getStatus();
 
-      if (_findBetterBorrowWay(tc, pa, collateralAmount, healthFactor2, periodInBlocks)) {
+      if (_findBetterBorrowWay(tc, pa, collateralAmount, periodInBlocks)) {
         outPoolAdapters[countFoundItems] = positions[startIndex0 + i];
         countFoundItems += 1;
         if (countFoundItems == maxCountToReturn) {
@@ -296,14 +291,13 @@ contract DebtMonitor is IDebtMonitor {
     ITetuConverter tc_,
     IPoolAdapter pa_,
     uint sourceAmount_,
-    uint16 healthFactor2_,
     uint periodInBlocks_
   ) internal view returns (bool) {
 
     // check if we can re-borrow the asset in different place with higher profit
     (address origin,, address sourceToken, address targetToken) = pa_.getConfig();
     (address converter,, int aprForPeriod18) = tc_.findConversionStrategy(
-      sourceToken, sourceAmount_, targetToken, healthFactor2_, periodInBlocks_
+      sourceToken, sourceAmount_, targetToken, periodInBlocks_, uint8(AppDataTypes.ConversionKind.UNKNOWN_0)
     );
     int currentApr18 = pa_.getAPR18() * int(periodInBlocks_);
 
@@ -376,6 +370,12 @@ contract DebtMonitor is IDebtMonitor {
     return poolAdapters[getPoolAdapterKey(user_, collateral_, borrowToken_)].length;
   }
 
+  ///////////////////////////////////////////////////////
+  ///          Access to other contracts
+  ///////////////////////////////////////////////////////
 
+  function _borrowManager() internal view returns (IBorrowManager) {
+    return IBorrowManager(controller.borrowManager());
+  }
 
 }

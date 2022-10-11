@@ -250,7 +250,7 @@ export class BorrowRepayUsesCase {
         .mul(x * 100))
     );
     const {tc, controller} = await TetuConverterApp.buildApp(deployer, [fabric]);
-    const uc = await MocksHelper.deployBorrower(deployer.address, controller, p.healthFactor2, p.countBlocks);
+    const uc = await MocksHelper.deployBorrower(deployer.address, controller, p.countBlocks);
 
     const c0 = await setInitialBalance(deployer
       , collateralToken.address
@@ -308,7 +308,7 @@ export class BorrowRepayUsesCase {
     borrowBalances: BigNumber[],
   }>{
     const {controller} = await TetuConverterApp.buildApp(deployer, [fabric]);
-    const uc = await MocksHelper.deployBorrower(deployer.address, controller, p.healthFactor2, p.countBlocks);
+    const uc = await MocksHelper.deployBorrower(deployer.address, controller, p.countBlocks);
 
     const collateralToken = await TokenDataTypes.Build(deployer, p.collateral.asset);
     const borrowToken = await TokenDataTypes.Build(deployer, p.borrow.asset);
@@ -430,7 +430,7 @@ export class BorrowRepayUsesCase {
         .mul(x * 100))
     );
     const {tc, controller, pools} = await TetuConverterApp.buildApp(deployer, [fabric]);
-    const uc = await MocksHelper.deployBorrower(deployer.address, controller, p.healthFactor2, p.countBlocks);
+    const uc = await MocksHelper.deployBorrower(deployer.address, controller, p.countBlocks);
 
     const c0 = await setInitialBalance(deployer, collateralToken.address
       , p.collateral.holder, p.collateral.initialLiquidity, uc.address);
@@ -510,7 +510,7 @@ export class BorrowRepayUsesCase {
     expectations: IResultExpectations,
   ) : Promise<{sret: string, sexpected: string}> {
     const {tc, controller} = await TetuConverterApp.buildApp(deployer, [fabric]);
-    const uc = await MocksHelper.deployBorrower(deployer.address, controller, p.healthFactor2, p.countBlocks);
+    const uc = await MocksHelper.deployBorrower(deployer.address, controller, p.countBlocks);
 
     const collateralToken = await TokenDataTypes.Build(deployer, p.collateral.asset);
     const borrowToken = await TokenDataTypes.Build(deployer, p.borrow.asset);

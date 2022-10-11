@@ -19,8 +19,10 @@ export class TetuConverterApp {
     const controller = (await DeployUtils.deployContract(deployer
       , "Controller"
       , COUNT_BLOCKS_PER_DAY
-      , 101
       , deployer.address
+      , 101
+      , 200
+      , 400
     )) as Controller;
 
     const bm = await CoreContractsHelper.createBorrowManager(deployer, controller);

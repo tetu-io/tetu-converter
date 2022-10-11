@@ -137,7 +137,7 @@ describe("DebtsMonitor", () => {
       , tt
       , async () => (await MocksHelper.createPoolAdapterMock(deployer)).address
     );
-    const userContract = await MocksHelper.deployBorrower(user, core.controller, healthFactor2, periodInBlocks);
+    const userContract = await MocksHelper.deployBorrower(user, core.controller, periodInBlocks);
     const bmAsTc = BorrowManager__factory.connect(core.bm.address,
       await DeployerUtils.startImpersonate(core.tc.address)
     );

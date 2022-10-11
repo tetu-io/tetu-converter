@@ -44,13 +44,12 @@ contract Controller is IController, Initializable {
     uint blocksPerDay_,
     address governance_,
     uint16 minHealthFactor_,
-    uint16 maxHealthFactor_,
-    uint16 targetHealthFactor_
+    uint16 targetHealthFactor_,
+    uint16 maxHealthFactor_
   ) {
     require(governance_ != address(0), AppErrors.ZERO_ADDRESS);
     require(blocksPerDay_ != 0, AppErrors.INCORRECT_VALUE);
     require(minHealthFactor_ > MIN_ALLOWED_MIN_HEALTH_FACTOR, AppErrors.WRONG_HEALTH_FACTOR);
-    require(minHealthFactor_ < maxHealthFactor_, AppErrors.WRONG_HEALTH_FACTOR);
     require(minHealthFactor_ < targetHealthFactor_, AppErrors.WRONG_HEALTH_FACTOR);
     require(targetHealthFactor_ < maxHealthFactor_, AppErrors.WRONG_HEALTH_FACTOR);
 

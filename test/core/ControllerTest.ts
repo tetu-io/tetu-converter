@@ -100,8 +100,10 @@ describe("Controller", () => {
     const controller = (await DeployUtils.deployContract(deployer
       , 'Controller'
       , COUNT_BLOCKS_PER_DAY
-      , 101
       , a.governance
+      , 101
+      , 200
+      , 400
     )) as Controller;
 
     const gasUsed = await getGasUsed(

@@ -46,14 +46,19 @@ contract TetuConverter is ITetuConverter {
     address sourceToken_,
     uint sourceAmount_,
     address targetToken_,
-    uint16 healthFactor2_,
-    uint periodInBlocks_
+    uint periodInBlocks_,
+    uint8 conversionKind
   ) external view override returns (
     address converter,
     uint maxTargetAmount,
     int aprForPeriod36
   ) {
-    return _findConversionStrategy(sourceToken_, sourceAmount_, targetToken_, healthFactor2_, periodInBlocks_);
+    return _findConversionStrategy(sourceToken_,
+      sourceAmount_,
+      targetToken_,
+      periodInBlocks_,
+      AppDataTypes.ConversionKind(conversionKind)
+    );
   }
 
   /// @param periodInBlocks_ how long you want hold targetToken. When 0 - always borrows, when uint.max - always swaps
@@ -61,37 +66,31 @@ contract TetuConverter is ITetuConverter {
     address sourceToken_,
     uint sourceAmount_,
     address targetToken_,
-    uint16 healthFactor2_,
-    uint periodInBlocks_
+    uint periodInBlocks_,
+    AppDataTypes.ConversionKind conversionKind
   ) internal view returns (
     address converter,
     uint maxTargetAmount,
     int aprForPeriod36
   ) {
     AppDataTypes.InputConversionParams memory params = AppDataTypes.InputConversionParams({
-      healthFactor2: healthFactor2_,
       sourceToken: sourceToken_,
       targetToken: targetToken_,
       sourceAmount: sourceAmount_,
       periodInBlocks: periodInBlocks_
     });
 
-    // always swap when period is max
-    if (periodInBlocks_ == type(uint).max) {
+    if (conversionKind == AppDataTypes.ConversionKind.SWAP_1) {
       // get swap
       return _swapManager().getConverter(params);
-
-    // always borrow when period is 0
-    } else if (periodInBlocks_ == 0) {
+    } else if (conversionKind == AppDataTypes.ConversionKind.BORROW_2) {
       // find best lending platform
-      return _bm().findConverter(params);
-
+      return _borrowManager().findConverter(params);
     } else {
       // TODO develop decision making function, that can be tested separately
       // use healthFactor2_, calculate cost of swap (forward and back)
       // for now just use borrow manager for dv tests compatibility
-      return _bm().findConverter(params);
-
+      return _borrowManager().findConverter(params);
     }
 
   }
@@ -100,7 +99,7 @@ contract TetuConverter is ITetuConverter {
   ///       Make conversion
   ///////////////////////////////////////////////////////
 
-  function convert(
+  function borrow(
     address converter_,
     address sourceToken_,
     uint sourceAmount_,
@@ -128,9 +127,9 @@ contract TetuConverter is ITetuConverter {
       // make borrow
 
       // get exist or register new pool adapter
-      address poolAdapter = _bm().getPoolAdapter(converter_, msg.sender, sourceToken_, targetToken_);
+      address poolAdapter = _borrowManager().getPoolAdapter(converter_, msg.sender, sourceToken_, targetToken_);
       if (poolAdapter == address(0)) {
-        poolAdapter = _bm().registerPoolAdapter(
+        poolAdapter = _borrowManager().registerPoolAdapter(
           converter_,
           msg.sender,
           sourceToken_,
@@ -170,7 +169,6 @@ contract TetuConverter is ITetuConverter {
 
   function reconvert(
     address poolAdapter_,
-    uint16 healthFactor2_,
     uint periodInBlocks_,
     address receiver_
   ) external override {
@@ -195,8 +193,8 @@ contract TetuConverter is ITetuConverter {
         collateralAsset,
         deltaCollateral,
         borrowAsset,
-        healthFactor2_,
-        periodInBlocks_
+        periodInBlocks_,
+        AppDataTypes.ConversionKind.UNKNOWN_0
     );
     require(converter != originConverter, AppErrors.RECONVERSION_WITH_SAME_CONVERTER_FORBIDDEN);
 
@@ -228,7 +226,7 @@ contract TetuConverter is ITetuConverter {
   ///////////////////////////////////////////////////////
   ///       Inline functions
   ///////////////////////////////////////////////////////
-  function _bm() internal view returns (IBorrowManager) {
+  function _borrowManager() internal view returns (IBorrowManager) {
     return IBorrowManager(controller.borrowManager());
   }
 

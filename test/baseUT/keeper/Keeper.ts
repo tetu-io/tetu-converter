@@ -49,7 +49,7 @@ export class Keeper {
       console.log("makeKeeperJob.checkForReconversion found items:", ret.poolAdapters.length);
       poolAdaptersToReconvert.push(...ret.poolAdapters);
       startIndex0 = ret.nextIndexToCheck0.toNumber();
-    } while (startIndex0 != 0);
+    } while (startIndex0 !== 0);
 
     // let's reconvert all found pool adapters, each in the separate transaction
     for (let i = 0; i < poolAdaptersToReconvert.length; ++i) {

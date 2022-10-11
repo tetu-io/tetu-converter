@@ -30,7 +30,7 @@ export async function makeBorrow (
 }> {
   console.log("makeBorrow:", p, amountToBorrow);
   const {controller} = await TetuConverterApp.buildApp(deployer, [fabric]);
-  const uc = await MocksHelper.deployBorrower(deployer.address, controller, p.healthFactor2, p.countBlocks);
+  const uc = await MocksHelper.deployBorrower(deployer.address, controller, p.countBlocks);
 
   const collateralToken = await TokenDataTypes.Build(deployer, p.collateral.asset);
   const borrowToken = await TokenDataTypes.Build(deployer, p.borrow.asset);

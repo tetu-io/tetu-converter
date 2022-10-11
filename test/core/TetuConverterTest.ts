@@ -99,13 +99,9 @@ describe("TetuConverterTest", () => {
       , tt
       , async () => (await MocksHelper.createPoolAdapterMock(deployer)).address
     );
-    const userContract = await MocksHelper.deployBorrower(deployer.address
-      , core.controller
-      , healthFactor2
-      , periodInBlocks
-    );
+    const userContract = await MocksHelper.deployBorrower(deployer.address, core.controller, periodInBlocks);
 
-    let cToken: string | undefined = undefined;
+    let cToken: string | undefined;
     const poolAdapters: string[] = [];
     for (const pi of pools) {
       if (! cToken) {

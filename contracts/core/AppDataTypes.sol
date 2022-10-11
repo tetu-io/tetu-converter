@@ -12,9 +12,6 @@ library AppDataTypes {
 
   /// @notice Input params for BorrowManager.findPool (stack is too deep problem)
   struct InputConversionParams {
-    /// @notice if 0 than default health factor specified for the target asset will be used, decimals 2
-    uint16 healthFactor2;
-
     address sourceToken;
     address targetToken;
 

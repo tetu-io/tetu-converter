@@ -61,7 +61,6 @@ export class KeeperTestMockUtils {
     const {tc, controller} = await TetuConverterApp.buildApp(deployer, fabrics);
     const uc: Borrower = await MocksHelper.deployBorrower(deployer.address
       , controller
-      , p.healthFactor2
       , p.countBlocks
     );
     const collateralAmount = getBigNumberFrom(p.collateralAmount, collateralToken.decimals);

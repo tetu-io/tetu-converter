@@ -44,7 +44,6 @@ interface IDebtMonitor {
   );
 
   /// @notice Enumerate {maxCountToCheck} pool adapters starting from {index0} and return not-optimal pool-adapters
-  /// @param healthFactor2 Health factor that should be used in rebalancing, decimals 2
   /// @param periodInBlocks Period in blocks that should be used in rebalancing
   /// @return nextIndexToCheck0 Index of next pool-adapter to check; 0: all pool-adapters were checked
   /// @return poolAdapters List of pool adapters that should be reconverted
@@ -52,7 +51,6 @@ interface IDebtMonitor {
       uint startIndex0,
       uint maxCountToCheck,
       uint maxCountToReturn,
-      uint16 healthFactor2,
       uint periodInBlocks
   ) external view returns (
       uint nextIndexToCheck0,

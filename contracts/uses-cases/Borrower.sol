@@ -24,16 +24,13 @@ contract Borrower is IBorrower {
 
   uint public totalBorrowedAmount;
   uint public totalRepaidAmount;
-  uint16 private _healthFactor2;
   uint private _borrowPeriodInBlocks;
 
   constructor (
     address controller_,
-    uint16 healthFactor2_,
     uint borrowPeriodInBlocks_
   ) {
     _controller = IController(controller_);
-    _healthFactor2 = healthFactor2_;
     _borrowPeriodInBlocks = borrowPeriodInBlocks_;
   }
 
@@ -52,8 +49,8 @@ contract Borrower is IBorrower {
     (address converter, uint maxTargetAmount,) = _tc().findConversionStrategy(sourceAsset_,
       sourceAmount_,
       targetAsset_,
-      _healthFactor2,
-      _borrowPeriodInBlocks
+      _borrowPeriodInBlocks,
+      uint8(AppDataTypes.ConversionKind.UNKNOWN_0)
     );
     require(converter != address(0), "Conversion strategy wasn't found");
     require(maxTargetAmount != 0, "maxTargetAmount is 0");
@@ -68,7 +65,7 @@ contract Borrower is IBorrower {
 
     // borrow and receive borrowed-amount to receiver's balance
     ITetuConverter tc = _tc();
-    tc.convert(
+    tc.borrow(
       converter,
       sourceAsset_,
       sourceAmount_,
@@ -99,14 +96,13 @@ contract Borrower is IBorrower {
     console.log("makeBorrowExactAmount sourceAsset_", sourceAsset_);
     console.log("makeBorrowExactAmount sourceAmount_", sourceAmount_);
     console.log("makeBorrowExactAmount targetAsset_", targetAsset_);
-    console.log("makeBorrowExactAmount _healthFactor2", _healthFactor2);
     console.log("makeBorrowExactAmount _borrowPeriodInBlocks", _borrowPeriodInBlocks);
     // ask TC for the best conversion strategy
     (address converter, uint maxTargetAmount,) = _tc().findConversionStrategy(sourceAsset_,
       sourceAmount_,
       targetAsset_,
-      _healthFactor2,
-      _borrowPeriodInBlocks
+      _borrowPeriodInBlocks,
+      uint8(AppDataTypes.ConversionKind.UNKNOWN_0)
     );
     require(converter != address(0), "Conversion strategy wasn't found");
     require(maxTargetAmount != 0, "maxTargetAmount is 0");
@@ -125,7 +121,7 @@ contract Borrower is IBorrower {
 
     // borrow and receive borrowed-amount to receiver's balance
     ITetuConverter tc = _tc();
-    tc.convert(
+    tc.borrow(
       converter,
       sourceAsset_,
       sourceAmount_,
@@ -256,12 +252,8 @@ contract Borrower is IBorrower {
     IERC20(borrowAsset).safeTransfer(poolAdapter, amountToPay);
 
     //reconvert
-    console.log("reconvert poolAdapter, hf2, period", poolAdapter, _healthFactor2, _borrowPeriodInBlocks);
-    _tc().reconvert(poolAdapter
-      , _healthFactor2
-      , _borrowPeriodInBlocks
-      , receiver
-    );
+    console.log("reconvert poolAdapter, period", poolAdapter, _borrowPeriodInBlocks);
+    _tc().reconvert(poolAdapter, _borrowPeriodInBlocks, receiver);
     console.log("requireReconversion end gasleft", gasleft());
   }
 
@@ -297,8 +289,8 @@ contract Borrower is IBorrower {
     (address converter,,) = _tc().findConversionStrategy(sourceAsset_,
       sourceAmount_,
       targetAsset_,
-      _healthFactor2,
-      _borrowPeriodInBlocks
+      _borrowPeriodInBlocks,
+      uint8(AppDataTypes.ConversionKind.UNKNOWN_0)
     );
 
     console.log("preInitializePoolAdapter findConversionStrategy.completed gasleft", gasleft());

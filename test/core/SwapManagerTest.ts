@@ -69,8 +69,14 @@ describe("SwapManager", () => {
       assets, prices) as TetuLiquidatorMock;
 
     // Deploy Controller
-    controller = await DeployUtils.deployContract(deployer, "Controller",
-      COUNT_BLOCKS_PER_DAY, 500, deployer.address) as Controller;
+    controller = await DeployUtils.deployContract(deployer,
+      "Controller",
+      COUNT_BLOCKS_PER_DAY,
+      deployer.address,
+      500, // min health factor
+      600, // target health factor
+      700 // max health factor
+  ) as Controller;
 
     // Deploy SwapManager
     swapManager = await DeployUtils.deployContract(deployer, "SwapManager",

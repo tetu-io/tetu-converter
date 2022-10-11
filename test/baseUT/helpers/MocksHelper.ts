@@ -264,14 +264,12 @@ export class MocksHelper {
   public static async deployBorrower(
     deployer: string,
     controller: IController,
-    healthFactor2: number,
     periodInBlocks: number
   ) : Promise<Borrower> {
     return (await DeployUtils.deployContract(
       await DeployerUtils.startImpersonate(deployer),
       "Borrower",
       controller.address,
-      healthFactor2,
       periodInBlocks
     )) as Borrower;
   }
