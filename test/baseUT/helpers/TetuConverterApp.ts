@@ -1,7 +1,7 @@
 import {
   Controller,
   IERC20,
-  ITetuConverter
+  ITetuConverter,
 } from "../../../typechain";
 import {CoreContractsHelper} from "./CoreContractsHelper";
 import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
@@ -27,7 +27,10 @@ export class TetuConverterApp {
     const tc = await CoreContractsHelper.createTetuConverter(deployer, controller);
     const dm = await CoreContractsHelper.createDebtMonitor(deployer, controller);
 
-    await controller.initialize(tc.address, bm.address, dm.address, ethers.Wallet.createRandom().address);
+    const tetuLiquidatorAddress = '0x67e14A8Ebe89639945e4209CE3fE19e721633AC3';
+    const swapManager = await CoreContractsHelper.createSwapManager(deployer, controller, tetuLiquidatorAddress);
+
+    await controller.initialize(tc.address, bm.address, dm.address, ethers.Wallet.createRandom().address, tetuLiquidatorAddress, swapManager.address);
 
     const pools: IERC20[] = [];
     for (const fabric of fabrics) {

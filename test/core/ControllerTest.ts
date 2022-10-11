@@ -60,7 +60,11 @@ describe("Controller", () => {
     debtMonitor: string;
 
     borrower: string;
+    tetuLiquidator: string,
+    swapManager: string,
   }
+
+  type ControllerAddressesKeys = keyof IControllerAddresses;
 
   function getAddressesArray(a: IControllerAddresses): string[] {
     return [
@@ -71,6 +75,8 @@ describe("Controller", () => {
       , a.debtMonitor
 
       , a.borrower
+      , a.tetuLiquidator
+      , a.swapManager
     ];
   }
 
@@ -83,13 +89,15 @@ describe("Controller", () => {
       , await controller.debtMonitor()
 
       , await controller.borrower()
+      , await controller.tetuLiquidator()
+      , await controller.swapManager()
     ];
   }
 
   async function createTestController(
     a: IControllerAddresses
   ) : Promise<{controller: Controller, gasUsed: BigNumber}> {
-    let controller = (await DeployUtils.deployContract(deployer
+    const controller = (await DeployUtils.deployContract(deployer
       , 'Controller'
       , COUNT_BLOCKS_PER_DAY
       , 101
@@ -102,6 +110,8 @@ describe("Controller", () => {
         , a.borrowManager
         , a.debtMonitor
         , a.borrower
+        , a.tetuLiquidator
+        , a.swapManager
       )
     );
 
@@ -117,18 +127,24 @@ describe("Controller", () => {
       debtMonitor: ethers.Wallet.createRandom().address,
 
       borrower: ethers.Wallet.createRandom().address,
+      tetuLiquidator: ethers.Wallet.createRandom().address,
+      swapManager: ethers.Wallet.createRandom().address,
     }
   }
 
   async function setAddresses(
-    controller: Controller
-    , a: IControllerAddresses
+    controller: Controller,
+    a: IControllerAddresses
   ) : Promise<{gasUsed: BigNumber[]}> {
+    console.log('a', a);
     const gasUsed = [
       await getGasUsed(controller.setTetuConverter(a.tetuConverter)),
       await getGasUsed(controller.setBorrowManager(a.borrowManager)),
       await getGasUsed(controller.setDebtMonitor(a.debtMonitor)),
       await getGasUsed(controller.setBorrower(a.borrower)),
+      await getGasUsed(controller.setSwapManager(a.swapManager)),
+      await getGasUsed(controller.setTetuLiquidator(a.tetuLiquidator)),
+      // Governance must be set at the end to avoid check error. Add new setXXX above
       await getGasUsed(controller.setGovernance(a.governance)),
     ];
 
@@ -159,14 +175,12 @@ describe("Controller", () => {
       describe ("Zero address", () => {
         it("should revert", async () => {
           const a = getRandomControllerAddresses();
-          type ta = typeof a;
           for (const key of Object.keys(a)) {
             const b = getRandomControllerAddresses();
 
             // let's set one of address to 0
 
-            // @ts-ignore
-            b[key] = Misc.ZERO_ADDRESS;
+            b[key as ControllerAddressesKeys] = Misc.ZERO_ADDRESS;
 
             await expect(
               createTestController(b)
@@ -181,7 +195,9 @@ describe("Controller", () => {
     describe ("Good paths", () => {
       it("should initialize addresses correctly", async () => {
         const initialAddresses = getRandomControllerAddresses();
+        console.log('initialAddresses', initialAddresses);
         const updatedAddresses = getRandomControllerAddresses();
+        console.log('updatedAddresses', updatedAddresses);
 
         const {controller} = await createTestController(initialAddresses);
         const controllerAsGov = Controller__factory.connect(
@@ -189,14 +205,15 @@ describe("Controller", () => {
           , await DeployerUtils.startImpersonate(initialAddresses.governance)
         );
         const {gasUsed} = await setAddresses(controllerAsGov, updatedAddresses);
+        console.log('gasUsed', gasUsed);
 
         const ret = (await getValuesArray(controller)).join();
         const expected = getAddressesArray(updatedAddresses).join();
 
         expect(ret).to.be.equal(expected);
         controlGasLimitsEx(
-          //get max value
-          gasUsed.reduce((prev, cur) => prev.gt(cur) ? prev : cur )
+          // get max value
+          gasUsed.reduce((prev, cur) => prev.gt(cur) ? prev : cur)
           , GAS_LIMIT_CONTROLLER_SET_XXX
           , (u, t) => {
             expect(u).to.be.below(t);
@@ -216,19 +233,19 @@ describe("Controller", () => {
             , await DeployerUtils.startImpersonate(initialAddresses.governance)
           );
 
-          type ta = typeof initialAddresses;
           for (const key of Object.keys(initialAddresses)) {
             const updatedAddresses: IControllerAddresses = {
               governance: await controller.governance(),
               borrower: await controller.borrower(),
               debtMonitor: await controller.debtMonitor(),
               borrowManager: await controller.borrowManager(),
-              tetuConverter: await controller.tetuConverter()
+              tetuConverter: await controller.tetuConverter(),
+              tetuLiquidator: await controller.tetuLiquidator(),
+              swapManager: await controller.swapManager(),
             };
             // let's set one of address to 0
 
-            // @ts-ignore
-            updatedAddresses[key] = Misc.ZERO_ADDRESS;
+            updatedAddresses[key as ControllerAddressesKeys] = Misc.ZERO_ADDRESS;
 
             console.log("initialAddresses", initialAddresses);
             console.log("updatedAddresses", updatedAddresses);

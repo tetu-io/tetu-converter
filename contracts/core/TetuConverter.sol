@@ -6,6 +6,7 @@ import "../interfaces/ITetuConverter.sol";
 import "../integrations/market/ICErc20.sol";
 import "../integrations/IERC20Extended.sol";
 import "../interfaces/IBorrowManager.sol";
+import "../interfaces/ISwapManager.sol";
 import "../openzeppelin/SafeERC20.sol";
 import "../openzeppelin/IERC20.sol";
 import "../interfaces/IPlatformAdapter.sol";
@@ -15,6 +16,7 @@ import "../interfaces/IPoolAdapter.sol";
 import "../interfaces/IController.sol";
 import "../interfaces/IDebtsMonitor.sol";
 import "../interfaces/IConverter.sol";
+import "../interfaces/ISwapConverter.sol";
 
 /// @notice Main application contract
 contract TetuConverter is ITetuConverter {
@@ -54,6 +56,7 @@ contract TetuConverter is ITetuConverter {
     return _findConversionStrategy(sourceToken_, sourceAmount_, targetToken_, healthFactor2_, periodInBlocks_);
   }
 
+  /// @param periodInBlocks_ how long you want hold targetToken. When 0 - always borrows, when uint.max - always swaps
   function _findConversionStrategy(
     address sourceToken_,
     uint sourceAmount_,
@@ -73,11 +76,24 @@ contract TetuConverter is ITetuConverter {
       periodInBlocks: periodInBlocks_
     });
 
-    // find best DEX platform
-    // TODO: if periodInBlocks_ === max then swap
+    // always swap when period is max
+    if (periodInBlocks_ == type(uint).max) {
+      // get swap
+      return _swapManager().getConverter(params);
 
-    // find best lending platform
-    return _bm().findConverter(params);
+    // always borrow when period is 0
+    } else if (periodInBlocks_ == 0) {
+      // find best lending platform
+      return _bm().findConverter(params);
+
+    } else {
+      // TODO develop decision making function, that can be tested separately
+      // use healthFactor2_, calculate cost of swap (forward and back)
+      // for now just use borrow manager for dv tests compatibility
+      return _bm().findConverter(params);
+
+    }
+
   }
 
   ///////////////////////////////////////////////////////
@@ -91,9 +107,13 @@ contract TetuConverter is ITetuConverter {
     address targetToken_,
     uint targetAmount_,
     address receiver_
-  ) external override {
+//    uint priceImpactTolerance_,
+//    uint slippageTolerance_
+) external override {
     _convert(converter_, sourceToken_, sourceAmount_, targetToken_, targetAmount_, receiver_, msg.sender);
   }
+
+  // TODO dv discuss parameters (may be split borrow and swap params to 2 structures)
 
   function _convert(
     address converter_,
@@ -128,10 +148,24 @@ contract TetuConverter is ITetuConverter {
       }
       // borrow target-amount and transfer borrowed amount to the receiver
       IPoolAdapter(poolAdapter).borrow(sourceAmount_, targetAmount_, receiver_);
-    } else {
-      // make swap
-      //TODO
+
+    } if (IConverter(converter_).getConversionKind() == AppDataTypes.ConversionKind.SWAP_1) {
+      IERC20(sourceToken_).transfer(converter_, sourceAmount_);
+      // TODO move to fn params
+      // Bogdoslav: I guess better do that after merge -
+      // because _convert function params could be changed
+      // and tests should be fixed
+      ISwapConverter(converter_).swap(
+        sourceToken_,
+        sourceAmount_,
+        targetToken_,
+        targetAmount_,
+        receiver_
+      );
+
     }
+
+    revert(AppErrors.UNSUPPORTED_CONVERSION_KIND);
   }
 
   function reconvert(
@@ -201,5 +235,8 @@ contract TetuConverter is ITetuConverter {
   function _dm() internal view returns (IDebtMonitor) {
     return IDebtMonitor(controller.debtMonitor());
   }
-}
 
+  function _swapManager() internal view returns (ISwapManager) {
+    return ISwapManager(controller.swapManager());
+  }
+}

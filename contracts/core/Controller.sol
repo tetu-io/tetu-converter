@@ -7,15 +7,17 @@ import "../interfaces/IController.sol";
 import "./AppErrors.sol";
 
 /// @notice Keep and provide addresses of all application contracts
-contract Controller is IController {
+contract Controller is IController, Initializable {
 
   uint16 constant MIN_ALLOWED_MIN_HEALTH_FACTOR = 100;
 
-  address private _governance;
-  address private _tetuConverter;
-  address private _borrowManager;
-  address private _debtMonitor;
-  address private _borrower;
+  address public override governance;
+  address public override tetuConverter;
+  address public override borrowManager;
+  address public override debtMonitor;
+  address public override borrower;
+  address public override tetuLiquidator;
+  address public override swapManager;
 
   /// @notice Min allowed health factor = collateral / min allowed collateral, decimals 2
   /// @dev Health factor < 1 produces liquidation immediately
@@ -36,7 +38,7 @@ contract Controller is IController {
     require(minHealthFactor_ > MIN_ALLOWED_MIN_HEALTH_FACTOR, AppErrors.WRONG_HEALTH_FACTOR);
     require(blocksPerDay_ != 0, AppErrors.INCORRECT_VALUE);
 
-    _governance = governance_;
+    governance = governance_;
 
     _blocksPerDay = blocksPerDay_;
     _minHealthFactor2 = minHealthFactor_;
@@ -46,23 +48,29 @@ contract Controller is IController {
     address tetuConverter_,
     address borrowManager_,
     address debtMonitor_,
-    address borrower_
-  ) external {
+    address borrower_,
+    address tetuLiquidator_,
+    address swapManager_
+  ) external initializer {
     require(
       tetuConverter_ != address(0)
       && borrowManager_ != address(0)
       && debtMonitor_ != address(0)
       && borrower_ != address(0)
+      && tetuLiquidator_ != address(0)
+      && swapManager_ != address(0)
       , AppErrors.ZERO_ADDRESS
     );
-    _tetuConverter = tetuConverter_;
-    _borrowManager = borrowManager_;
-    _debtMonitor = debtMonitor_;
-    _borrower = borrower_;
+    tetuConverter = tetuConverter_;
+    borrowManager = borrowManager_;
+    debtMonitor = debtMonitor_;
+    borrower = borrower_;
+    tetuLiquidator = tetuLiquidator_;
+    swapManager = swapManager_;
   }
 
   function _onlyGovernance() internal view {
-    require (msg.sender == _governance, AppErrors.GOVERNANCE_ONLY);
+    require (msg.sender == governance, AppErrors.GOVERNANCE_ONLY);
   }
 
   ///////////////////////////////////////////////////////
@@ -93,34 +101,13 @@ contract Controller is IController {
   ///               Governance
   ///////////////////////////////////////////////////////
 
-  function governance() external view override returns (address) {
-    return _governance;
-  }
   function _ensureSenderIsGovernance() internal view {
-    require (msg.sender == _governance, AppErrors.GOVERNANCE_ONLY);
+    require (msg.sender == governance, AppErrors.GOVERNANCE_ONLY);
   }
   function setGovernance(address governance_) external {
     require(governance_ != address(0), AppErrors.ZERO_ADDRESS);
     _onlyGovernance();
-    _governance = governance_;
-  }
-
-  ///////////////////////////////////////////////////////
-  ///              Get addresses
-  ///////////////////////////////////////////////////////
-
-  function tetuConverter() external view override returns (address) {
-    return _tetuConverter;
-  }
-  function borrowManager() external view override returns (address) {
-    return _borrowManager;
-  }
-  function debtMonitor() external view override returns (address) {
-    return _debtMonitor;
-  }
-  /// @notice External instance of IBorrower to claim repay in emergency
-  function borrower() external view override returns (address) {
-    return _borrower;
+    governance = governance_;
   }
 
   ///////////////////////////////////////////////////////
@@ -130,22 +117,37 @@ contract Controller is IController {
   function setTetuConverter(address tetuConverter_) external {
     require(tetuConverter_ != address(0), AppErrors.ZERO_ADDRESS);
     _onlyGovernance();
-    _tetuConverter = tetuConverter_;
+    tetuConverter = tetuConverter_;
   }
+
   function setBorrowManager(address borrowManager_) external {
     require(borrowManager_ != address(0), AppErrors.ZERO_ADDRESS);
     _onlyGovernance();
-    _borrowManager = borrowManager_;
+    borrowManager = borrowManager_;
   }
+
   function setDebtMonitor(address debtMonitor_) external {
     require(debtMonitor_ != address(0), AppErrors.ZERO_ADDRESS);
     _onlyGovernance();
-    _debtMonitor = debtMonitor_;
+    debtMonitor = debtMonitor_;
   }
+
   /// @notice External instance of IBorrower to claim repay in emergency
   function setBorrower(address borrower_) external {
     require(borrower_ != address(0), AppErrors.ZERO_ADDRESS);
     _onlyGovernance();
-    _borrower = borrower_;
+    borrower = borrower_;
+  }
+
+  function setTetuLiquidator(address tetuLiquidator_) external {
+    require(tetuLiquidator_ != address(0), AppErrors.ZERO_ADDRESS);
+    _onlyGovernance();
+    tetuLiquidator = tetuLiquidator_;
+  }
+
+  function setSwapManager(address swapManager_) external {
+    require(swapManager_ != address(0), AppErrors.ZERO_ADDRESS);
+    _onlyGovernance();
+    swapManager = swapManager_;
   }
 }
