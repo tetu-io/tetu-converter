@@ -129,27 +129,8 @@ contract DebtMonitor is IDebtMonitor {
   }
 
   ///////////////////////////////////////////////////////
-  ///           Detect unhealthy/not-optimal positions
+  ///           Detect unhealthy positions
   ///////////////////////////////////////////////////////
-
-  function checkForBetterBorrow(
-    uint startIndex0,
-    uint maxCountToCheck,
-    uint maxCountToReturn,
-    uint16 healthFactor2,
-    uint periodInBlocks
-  ) external view override returns (
-    uint nextIndexToCheck0,
-    address[] memory outPoolAdapters
-  ) {
-    require(healthFactor2 > 0, AppErrors.INCORRECT_VALUE);
-    return _checkPositions(startIndex0,
-      maxCountToCheck,
-      maxCountToReturn,
-      healthFactor2,
-      periodInBlocks
-    );
-  }
 
   function checkHealth(
     uint startIndex0,
@@ -157,27 +138,8 @@ contract DebtMonitor is IDebtMonitor {
     uint maxCountToReturn
   ) external view override returns (
     uint nextIndexToCheck0,
-    address[] memory outPoolAdapters
-  ) {
-    return _checkPositions(startIndex0,
-      maxCountToCheck,
-      maxCountToReturn,
-      0,
-      0
-    );
-  }
-
-  /// @param healthFactor2 Health factor for new borrow. We need this value to search better borrow way only.
-  ///        0 - check health, not 0 - search better borrow way
-  function _checkPositions(
-    uint startIndex0,
-    uint maxCountToCheck,
-    uint maxCountToReturn,
-    uint16 healthFactor2,
-    uint periodInBlocks
-  ) internal view returns (
-    uint nextIndexToCheck0,
-    address[] memory outPoolAdapters
+    address[] memory outPoolAdapters,
+    uint[] memory outAmountToRepay
   ) {
     uint countFoundItems = 0;
     nextIndexToCheck0 = startIndex0;
@@ -189,25 +151,17 @@ contract DebtMonitor is IDebtMonitor {
       maxCountToCheck = positions.length - startIndex0;
     }
 
-    // We use minAllowedHealthFactor as a flag to know what check should be made below
-    // 0 - check health, not 0 - search better borrow way
-    uint minAllowedHealthFactor = healthFactor2 == 0
-      ? uint(IController(controller).getMinHealthFactor2()) * 10**(18-2)
-      : 0;
+    uint minAllowedHealthFactor = uint(IController(controller).getMinHealthFactor2()) * 10**(18-2);
 
     // enumerate all pool adapters
     for (uint i = 0; i < maxCountToCheck; i = i.uncheckedInc()) {
       nextIndexToCheck0 += 1;
 
-      // check if we need to make reconversion because the health factor is too low or a better borrow way exists
+      // check if we need to make reconversion because the health factor is too low
       IPoolAdapter pa = IPoolAdapter(positions[startIndex0 + i]);
       (uint collateralAmount,, uint healthFactor18,) = pa.getStatus();
 
-      if (
-        minAllowedHealthFactor != 0 && healthFactor18 < minAllowedHealthFactor
-        || (minAllowedHealthFactor == 0
-            && _findBetterBorrowWay(tc, pa, collateralAmount, healthFactor2, periodInBlocks))
-      ) {
+      if (healthFactor18 < minAllowedHealthFactor) {
         outPoolAdapters[countFoundItems] = positions[startIndex0 + i];
         countFoundItems += 1;
         if (countFoundItems == maxCountToReturn) {
@@ -222,11 +176,66 @@ contract DebtMonitor is IDebtMonitor {
 
     // we need to keep only found items in result array and remove others
     return (nextIndexToCheck0
-      , countFoundItems == 0
-        ? new address[](0)
-        : AppUtils.removeLastItems(outPoolAdapters, countFoundItems)
+    , countFoundItems == 0
+      ? new address[](0)
+      : AppUtils.removeLastItems(outPoolAdapters, countFoundItems)
     );
   }
+
+  ///////////////////////////////////////////////////////
+  ///         Detect not-optimal positions
+  ///////////////////////////////////////////////////////
+
+  function checkForBetterBorrow(
+    uint startIndex0,
+    uint maxCountToCheck,
+    uint maxCountToReturn,
+    uint16 healthFactor2,
+    uint periodInBlocks
+  ) external view override returns (
+    uint nextIndexToCheck0,
+    address[] memory outPoolAdapters
+  ) {
+    require(healthFactor2 > 0, AppErrors.INCORRECT_VALUE);
+    uint countFoundItems = 0;
+    nextIndexToCheck0 = startIndex0;
+
+    ITetuConverter tc = ITetuConverter(controller.tetuConverter());
+    outPoolAdapters = new address[](maxCountToReturn);
+
+    if (startIndex0 + maxCountToCheck > positions.length) {
+      maxCountToCheck = positions.length - startIndex0;
+    }
+
+    // enumerate all pool adapters
+    for (uint i = 0; i < maxCountToCheck; i = i.uncheckedInc()) {
+      nextIndexToCheck0 += 1;
+
+      // check if we need to make reconversion because a MUCH better borrow way exists
+      IPoolAdapter pa = IPoolAdapter(positions[startIndex0 + i]);
+      (uint collateralAmount,, uint healthFactor18,) = pa.getStatus();
+
+      if (_findBetterBorrowWay(tc, pa, collateralAmount, healthFactor2, periodInBlocks)) {
+        outPoolAdapters[countFoundItems] = positions[startIndex0 + i];
+        countFoundItems += 1;
+        if (countFoundItems == maxCountToReturn) {
+          break;
+        }
+      }
+    }
+
+    if (nextIndexToCheck0 == positions.length) {
+      nextIndexToCheck0 = 0; // all items were checked
+    }
+
+    // we need to keep only found items in result array and remove others
+    return (nextIndexToCheck0
+    , countFoundItems == 0
+      ? new address[](0)
+      : AppUtils.removeLastItems(outPoolAdapters, countFoundItems)
+    );
+  }
+
 
   function _findBetterBorrowWay(
     ITetuConverter tc_,

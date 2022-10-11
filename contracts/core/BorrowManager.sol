@@ -126,8 +126,7 @@ contract BorrowManager is IBorrowManager {
     address platformAdapter_,
     address[] calldata leftAssets_,
     address[] calldata rightAssets_
-  )
-  external override {
+  ) external override {
     _onlyGovernance();
 
     uint lenAssets = rightAssets_.length;

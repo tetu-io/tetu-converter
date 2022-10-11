@@ -16,13 +16,15 @@ interface IDebtMonitor {
   /// @notice Enumerate {maxCountToCheck} pool adapters starting from {index0} and return unhealthy pool-adapters
   /// @return nextIndexToCheck0 Index of next pool-adapter to check; 0: all pool-adapters were checked
   /// @return poolAdapters List of pool adapters that should be reconverted
+  /// @return outAmountToRepay What amount should be repay to pool adapter to restore health factor
   function checkHealth(
     uint startIndex0,
     uint maxCountToCheck,
     uint maxCountToReturn
   ) external view returns (
     uint nextIndexToCheck0,
-    address[] memory poolAdapters
+    address[] memory poolAdapters,
+    uint[] memory outAmountToRepay
   );
 
   /// @notice Enumerate {maxCountToCheck} pool adapters starting from {index0} and return not-optimal pool-adapters
