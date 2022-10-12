@@ -11,7 +11,7 @@ library AppErrors {
   /// @notice Pool adapter for the given set {converter, user, collateral, borrowToken} not found and cannot be created
   string public constant POOL_ADAPTER_NOT_FOUND = "TC-2";
   /// @notice Health factor is not set or it's less then min allowed value
-  string public constant WRONG_HEALTH_FACTOR = "TC-3";
+  string public constant WRONG_HEALTH_FACTOR = "TC-3: wrong health factor";
   /// @notice Received price is zero
   string public constant ZERO_PRICE = "TC-4";
   /// @notice Given platform adapter is not found in Borrow Manager
@@ -70,5 +70,9 @@ library AppErrors {
   /// @notice The relation "platform adapter - converter" is invariant.
   ///         It's not allowed to assign new platform adapter to the converter
   string public constant ONLY_SINGLE_PLATFORM_ADAPTER_CAN_USE_CONVERTER = "TC-37";
+
+  /// @notice Provided health factor value is not applicable for other health factors
+  ///         Invariant: min health factor < target health factor < max health factor
+  string public constant WRONG_HEALTH_FACTOR_CONFIG = "TC-38: wrong health factor config";
 
 }

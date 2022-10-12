@@ -5,6 +5,7 @@ pragma solidity 0.8.4;
 import "../openzeppelin/Initializable.sol";
 import "../interfaces/IController.sol";
 import "./AppErrors.sol";
+import "hardhat/console.sol";
 
 /// @notice Keep and provide addresses of all application contracts
 contract Controller is IController, Initializable {
@@ -50,13 +51,15 @@ contract Controller is IController, Initializable {
     require(governance_ != address(0), AppErrors.ZERO_ADDRESS);
     require(blocksPerDay_ != 0, AppErrors.INCORRECT_VALUE);
     require(minHealthFactor_ > MIN_ALLOWED_MIN_HEALTH_FACTOR, AppErrors.WRONG_HEALTH_FACTOR);
-    require(minHealthFactor_ < targetHealthFactor_, AppErrors.WRONG_HEALTH_FACTOR);
-    require(targetHealthFactor_ < maxHealthFactor_, AppErrors.WRONG_HEALTH_FACTOR);
+    require(minHealthFactor_ < targetHealthFactor_, AppErrors.WRONG_HEALTH_FACTOR_CONFIG);
+    require(targetHealthFactor_ < maxHealthFactor_, AppErrors.WRONG_HEALTH_FACTOR_CONFIG);
 
     governance = governance_;
 
     _blocksPerDay = blocksPerDay_;
     minHealthFactor2 = minHealthFactor_;
+    maxHealthFactor2 = maxHealthFactor_;
+    targetHealthFactor2 = targetHealthFactor_;
   }
 
   function initialize(
@@ -109,19 +112,23 @@ contract Controller is IController, Initializable {
   ///////////////////////////////////////////////////////
 
   function setMinHealthFactor2(uint16 value_) external override {
+    console.log("setMinHealthFactor2");
+    console.log("value_", value_);
+    console.log("MIN_ALLOWED_MIN_HEALTH_FACTOR", MIN_ALLOWED_MIN_HEALTH_FACTOR);
+    console.log("targetHealthFactor2", targetHealthFactor2);
     require(value_ > MIN_ALLOWED_MIN_HEALTH_FACTOR, AppErrors.WRONG_HEALTH_FACTOR);
-    require(value_ < targetHealthFactor2, AppErrors.WRONG_HEALTH_FACTOR);
+    require(value_ < targetHealthFactor2, AppErrors.WRONG_HEALTH_FACTOR_CONFIG);
     minHealthFactor2 = value_;
   }
 
   function setMaxHealthFactor2(uint16 value_) external override {
-    require(value_ > targetHealthFactor2, AppErrors.WRONG_HEALTH_FACTOR);
+    require(value_ > targetHealthFactor2, AppErrors.WRONG_HEALTH_FACTOR_CONFIG);
     maxHealthFactor2 = value_;
   }
 
   function setTargetHealthFactor2(uint16 value_) external override {
-    require(value_ > minHealthFactor2, AppErrors.WRONG_HEALTH_FACTOR);
-    require(value_ < maxHealthFactor2, AppErrors.WRONG_HEALTH_FACTOR);
+    require(value_ > minHealthFactor2, AppErrors.WRONG_HEALTH_FACTOR_CONFIG);
+    require(value_ < maxHealthFactor2, AppErrors.WRONG_HEALTH_FACTOR_CONFIG);
     targetHealthFactor2 = value_;
   }
 
