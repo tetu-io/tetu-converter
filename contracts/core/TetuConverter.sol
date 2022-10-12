@@ -213,8 +213,7 @@ contract TetuConverter is ITetuConverter {
   ///       Check and claim rewards
   ///////////////////////////////////////////////////////
 
-  /// @notice Check if any reward tokens exist on the balance of the pool adapter
-  function claimRewards() external override returns (
+  function claimRewards(address receiver_) external override returns (
     address[] memory rewardTokens,
     uint[] memory amounts
   ) {

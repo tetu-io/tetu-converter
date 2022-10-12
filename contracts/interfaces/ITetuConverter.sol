@@ -4,18 +4,19 @@ pragma solidity 0.8.4;
 
 /// @notice Main contract of the TetuConverter application
 interface ITetuConverter {
+  /// @notice Allow to select conversion kind (swap, borrowing) automatically or manually
   enum ConversionMode {
     AUTO_0,
     SWAP_1,
     BORROW_2
   }
 
-//todo rename lending to borrowing
   /// @notice Find best conversion strategy (swap or borrow) and provide "cost of money" as interest for the period
   /// @param sourceAmount_ Amount to be converted
   /// @param periodInBlocks_ Estimated period to keep target amount. It's required to compute APR
   /// @param conversionMode Allow to select conversion kind (swap, borrowing) automatically or manually
   /// @return converter Result contract that should be used for conversion; it supports IConverter
+  ///                   This address should be passed to borrow-function during conversion.
   /// @return maxTargetAmount Max available amount of target tokens that we can get after conversion
   /// @return aprForPeriod36 Interest on the use of {outMaxTargetAmount} during the given period, decimals 36
   function findConversionStrategy(
@@ -32,10 +33,11 @@ interface ITetuConverter {
 
   /// @notice Convert {collateralAmount_} to {amountToBorrow_} using {converter_}
   ///         Target amount will be transferred to {receiver_}
-  /// @dev Transferring of {collateralAmount_} should be approved by the caller
+  /// @dev Transferring of {collateralAmount_} by TetuConverter-contract must be approved by the caller before the call
   /// @param converter_ A converter received from findBestConversionStrategy.
   /// @param collateralAmount_ Amount of {collateralAsset_}. This amount must be approved for TetuConverter.
   /// @param amountToBorrow_ Amount of {borrowAsset_} to be borrowed and sent to {receiver_}
+  /// @param receiver_ A receiver of borrowed amount
   function borrow(
     address converter_,
     address collateralAsset_,
@@ -47,6 +49,7 @@ interface ITetuConverter {
 
   /// @notice Full or partial repay of the borrow
   /// @param amountToRepay_ Amount of borrowed asset to repay. Pass type(uint).max to make full repayment.
+  /// @param collateralReceiver_ A receiver of the collateral that will be withdrawn after the repay
   /// @param poolAdapterOptional_ Allow to make repayment of specified loan (i.e the unhealthy loan)
   ///        If 0, then exist loans will be repaid in order of creation, one by one.
   function repay(
@@ -57,18 +60,25 @@ interface ITetuConverter {
     address poolAdapterOptional_
   ) external;
 
-  /// @notice Calculate total amount of borrow tokens that should be repaid to close the loan completely.
-  function getDebtAmount(address collateralAsset_, address borrowAsset_) external view returns (uint);
+  /// @notice Total amount of borrow tokens that should be repaid to close the borrow completely.
+  function getDebtAmount(
+    address collateralAsset_,
+    address borrowAsset_
+  ) external view returns (uint);
 
-  /// @notice User needs to redeem some collateral amount. Calculate an amount that should be repaid
+  /// @notice User needs to redeem some collateral amount. Calculate an amount of borrow token that should be repaid
   function estimateRepay(
     address collateralAsset_,
     uint collateralAmountRequired_,
     address borrowAsset_
-  ) external view returns (uint borrowAssetAmount);
+  ) external view returns (
+    uint borrowAssetAmount
+  );
 
-  /// @notice Transfer all given reward tokens to {receiver_}
-  function claimRewards() external returns (
+  /// @notice Transfer all reward tokens to {receiver_}
+  /// @return rewardTokens What tokens were transferred. Same reward token can appear in the array several times
+  /// @return amounts Amounts of transferred rewards, the array is synced with {rewardTokens}
+  function claimRewards(address receiver_) external returns (
     address[] memory rewardTokens,
     uint[] memory amounts
   );

@@ -2,4 +2,7 @@ Keeper:
 - we need 3 keepers: check health, check borrow possibility, check better way borrow
 - keeper should send notification to the borrower once per period; it should not
   send same notification again and again, it will produce unproductive lost of gas
--
+
+
+Tetu converter contracts
+- check and rename "lending" to "borrowing" if necessary
