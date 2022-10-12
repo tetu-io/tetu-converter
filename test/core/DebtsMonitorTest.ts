@@ -30,6 +30,7 @@ import {getBigNumberFrom} from "../../scripts/utils/NumberUtils";
 import {MocksHelper} from "../baseUT/helpers/MocksHelper";
 import {CoreContracts} from "../baseUT/types/CoreContracts";
 import {generateAssetPairs} from "../baseUT/utils/AssetPairUtils";
+import {resolveProjectPaths} from "hardhat/internal/core/config/config-resolution";
 
 describe("DebtsMonitor", () => {
 //region Global vars for all tests
@@ -511,7 +512,7 @@ describe("DebtsMonitor", () => {
     describe("Bad paths", () => {
       describe("Set thresholdAPR equal to 100", () => {
         it("should revert", async () => {
-          const thresholdApr = 100; //(!)
+          const thresholdApr = 100; // (!)
           const r = await setUpSinglePool();
           await expect(
             r.core.dm.setThresholdAPR(thresholdApr)
@@ -520,7 +521,7 @@ describe("DebtsMonitor", () => {
       });
       describe("Set thresholdAPR greater then 100 and not 0", () => {
         it("should revert", async () => {
-          const thresholdApr = 101; //(!)
+          const thresholdApr = 101; // (!)
           const r = await setUpSinglePool();
           await expect(
             r.core.dm.setThresholdAPR(thresholdApr)
@@ -639,11 +640,11 @@ describe("DebtsMonitor", () => {
           ].join("\n");
 
           const expected = [
-            //before
+            // before
             0, "", false, 0, "", false,
-            //after1
+            // after1
             1, poolAdapter, true, 1, poolAdapter, true,
-            //after2
+            // after2
             1, poolAdapter, true, 1, poolAdapter, true,
           ].join("\n");
 
@@ -653,7 +654,7 @@ describe("DebtsMonitor", () => {
       describe("Open two same positions in different two pools", () => {
         it("should set expected state", async () => {
           const user = ethers.Wallet.createRandom().address;
-           const tt: IBorrowInputParams = {
+          const tt: IBorrowInputParams = {
             collateralFactor: 0.8,
             priceSourceUSD: 0.1,
             priceTargetUSD: 4,
@@ -747,7 +748,7 @@ describe("DebtsMonitor", () => {
               {   // source, target
                 borrowRateInTokens: [
                   getBigNumberFrom(0, targetDecimals),
-                  getBigNumberFrom(1, targetDecimals - 6), //1e-6
+                  getBigNumberFrom(1, targetDecimals - 6), // 1e-6
                 ],
                 availableLiquidityInTokens: [0, availableBorrowLiquidityNumber]
               }
@@ -799,11 +800,11 @@ describe("DebtsMonitor", () => {
           ].join("\n");
 
           const expected = [
-            //before
+            // before
             0, "", false, 0, "", false,
-            //after open
+            // after open
             1, poolAdapter, true, 1, poolAdapter, true,
-            //after close
+            // after close
             0, "", false, 0, "", false,
           ].join("\n");
 
@@ -814,9 +815,9 @@ describe("DebtsMonitor", () => {
       describe("Open N positions, close one of them", async () => {
         it("should set debtMonitor.positions to expected state", async () => {
           const r = await preparePoolAdapters([1, 2]);
-          let snapshot: string;
+          let localSnapshot: string;
           for (const poolAdapterToRemove of r.poolAdapters) {
-            snapshot = await TimeUtils.snapshot();
+            localSnapshot = await TimeUtils.snapshot();
 
             // get current state
             const before = await getRegisteredPositions(r.core.dm);
@@ -840,16 +841,16 @@ describe("DebtsMonitor", () => {
               before.length - 1
             ].join();
 
-            await TimeUtils.rollback(snapshot);
+            await TimeUtils.rollback(localSnapshot);
 
             expect(ret).equal(expected);
           }
         });
         it("should set debtMonitor.poolAdapters to expected state", async () => {
           const r = await preparePoolAdapters([1, 2]);
-          let snapshot: string;
+          let localSnapshot: string;
           for (const poolAdapterToRemove of r.poolAdapters) {
-            snapshot = await TimeUtils.snapshot();
+            localSnapshot = await TimeUtils.snapshot();
 
             const poolAdapter = IPoolAdapter__factory.connect(poolAdapterToRemove, deployer);
             const config = await poolAdapter.getConfig();
@@ -876,7 +877,7 @@ describe("DebtsMonitor", () => {
               before.length - 1
             ].join();
 
-            await TimeUtils.rollback(snapshot);
+            await TimeUtils.rollback(localSnapshot);
 
             expect(ret).equal(expected);
           }
@@ -1003,6 +1004,33 @@ describe("DebtsMonitor", () => {
     });
   });
 
+  describe("getPoolAdapterKey", () => {
+    it("should return no pool adapters ", async () => {
+        const r = await preparePoolAdapters([1], 1, 2);
+        const ret = (await r.core.dm.getPoolAdapterKey(
+          ethers.Wallet.createRandom().address,
+          ethers.Wallet.createRandom().address,
+          ethers.Wallet.createRandom().address
+        )).eq(0);
+        expect(ret).equal(false);
+    });
+  });
+
+  describe("getCountPositions", () => {
+    it("should return expected value", async () => {
+      const countUsers = 2;
+      const countAssets = 2;
+      const countConvertersPerPlatformAdapters = [1, 2];
+      const r = await preparePoolAdapters(countConvertersPerPlatformAdapters, countUsers, countAssets);
+
+      const ret = (await r.core.dm.getCountPositions()).toNumber();
+      const expected = countUsers * countAssets
+        * (countConvertersPerPlatformAdapters[0] + countConvertersPerPlatformAdapters[1]);
+
+      expect(ret).equal(expected);
+    });
+  });
+
   describe("checkHealth", () => {
     describe("Good paths", () => {
       describe("Single borrowed token", () => {
@@ -1021,7 +1049,7 @@ describe("DebtsMonitor", () => {
                 priceTargetUSD: {initial: 2, updated: 2},
                 collateralFactor: {initial: 0.5, updated: 0.5},
                 countPassedBlocks: 0, // no debts
-                borrowRate: 1e-10
+                borrowRate: 1e8
               }
               const {dm, poolAdapterMock, controller} = await prepareSinglePoolAdapterHealthTest(pp);
 
@@ -1044,14 +1072,16 @@ describe("DebtsMonitor", () => {
                 ret.nextIndexToCheck0.toNumber(),
                 ret.outPoolAdapters.length,
                 ret.outPoolAdapters,
-                expectedHealthFactor > minAllowedHealthFactor2 / 100
+                expectedHealthFactor > minAllowedHealthFactor2 / 100,
+                ret.outAmountsToRepay.length
               ].join();
 
               const sexpected = [
                 0,
                 0,
                 [],
-                true
+                true,
+                0
               ].join();
 
               expect(sret).equal(sexpected);
@@ -1072,7 +1102,7 @@ describe("DebtsMonitor", () => {
                 priceTargetUSD: {initial: 2, updated: 2},
                 collateralFactor: {initial: 0.5, updated: 0.5},
                 countPassedBlocks: 0, // no debts
-                borrowRate: 1e-10
+                borrowRate: 1e8
               }
               const {dm, poolAdapterMock, controller} = await prepareSinglePoolAdapterHealthTest(pp);
 
@@ -1080,6 +1110,8 @@ describe("DebtsMonitor", () => {
               const minAllowedHealthFactor2 = currentHealthFactor18
                 .div(getBigNumberFrom(1, 18-2))
                 .toNumber();
+              await controller.setMaxHealthFactor2(minAllowedHealthFactor2 * 10);
+              await controller.setTargetHealthFactor2(minAllowedHealthFactor2 * 8);
               await controller.setMinHealthFactor2(minAllowedHealthFactor2);
 
               const expectedHealthFactor =
@@ -1094,14 +1126,16 @@ describe("DebtsMonitor", () => {
                 ret.nextIndexToCheck0.toNumber(),
                 ret.outPoolAdapters.length,
                 ret.outPoolAdapters,
-                expectedHealthFactor === minAllowedHealthFactor2 / 100
+                expectedHealthFactor === minAllowedHealthFactor2 / 100,
+                ret.outAmountsToRepay.length
               ].join();
 
               const sexpected = [
                 0,
                 0,
                 [],
-                true
+                true,
+                0,
               ].join();
 
               expect(sret).equal(sexpected);
@@ -1126,9 +1160,19 @@ describe("DebtsMonitor", () => {
                   updated: 0.1 // (!)
                 },
                 countPassedBlocks: 0, // no debts
-                borrowRate: 1e-10
+                borrowRate: 1e8
               }
-              const {dm, poolAdapterMock} = await prepareSinglePoolAdapterHealthTest(pp);
+
+              // Set up target health factor
+              // Let's do it 5 times bigger than current health factor
+              const timesToReduceHF = 5.;
+              const {dm, poolAdapterMock, controller} = await prepareSinglePoolAdapterHealthTest(pp);
+              const currentHealthFactor18 = (await poolAdapterMock.getStatus()).healthFactor18;
+              await controller.setTargetHealthFactor2(
+                currentHealthFactor18
+                  .div(getBigNumberFrom(1, 16)) // decimals 18 => 2
+                  .mul(timesToReduceHF)
+              );
 
               const ret = await dm.checkHealth(index, count, count);
 
@@ -1136,12 +1180,20 @@ describe("DebtsMonitor", () => {
                 ret.nextIndexToCheck0.toNumber(),
                 ret.outPoolAdapters.length,
                 ret.outPoolAdapters,
+                ret.outAmountsToRepay.length,
+                ret.outAmountsToRepay
               ].join();
+
+              // Current health factor is 5 times fewer than target one
+              // deltaBorrowAmount = BorrowAmount * (1 - HealthFactorCurrent/HealthFactorTarget)
+              const expectedAmountToRepay = pp.amountToBorrow * (1 - 1./timesToReduceHF);
 
               const sexpected = [
                 0,
                 1,
                 [poolAdapterMock.address],
+                1,
+                [getBigNumberFrom(expectedAmountToRepay, pp.targetDecimals)]
               ].join();
 
               expect(sret).equal(sexpected);
@@ -1164,7 +1216,7 @@ describe("DebtsMonitor", () => {
                   updated: 0.5
                 },
                 countPassedBlocks: 0, // no debts
-                borrowRate: 1e-10
+                borrowRate: 1e8
               }
               const {dm, poolAdapterMock} = await prepareSinglePoolAdapterHealthTest(pp);
 
@@ -1174,12 +1226,14 @@ describe("DebtsMonitor", () => {
                 ret.nextIndexToCheck0.toNumber(),
                 ret.outPoolAdapters.length,
                 ret.outPoolAdapters,
+                ret.outAmountsToRepay.length
               ].join();
 
               const sexpected = [
                 0,
                 1,
                 [poolAdapterMock.address],
+                1
               ].join();
 
               expect(sret).equal(sexpected);
@@ -1202,7 +1256,7 @@ describe("DebtsMonitor", () => {
                   updated: 0.5
                 },
                 countPassedBlocks: 0, // no debts
-                borrowRate: 1e-10
+                borrowRate: 1e8
               }
               const {dm, poolAdapterMock} = await prepareSinglePoolAdapterHealthTest(pp);
 
@@ -1212,12 +1266,14 @@ describe("DebtsMonitor", () => {
                 ret.nextIndexToCheck0.toNumber(),
                 ret.outPoolAdapters.length,
                 ret.outPoolAdapters,
+                ret.outAmountsToRepay.length
               ].join();
 
               const sexpected = [
                 0,
                 1,
                 [poolAdapterMock.address],
+                1
               ].join();
 
               expect(sret).equal(sexpected);
@@ -1250,12 +1306,14 @@ describe("DebtsMonitor", () => {
                 ret.nextIndexToCheck0.toNumber(),
                 ret.outPoolAdapters.length,
                 ret.outPoolAdapters,
+                ret.outAmountsToRepay.length
               ].join();
 
               const sexpected = [
                 0,
                 1,
                 [poolAdapterMock.address],
+                1,
               ].join();
 
               expect(sret).equal(sexpected);
@@ -1268,7 +1326,7 @@ describe("DebtsMonitor", () => {
           portionSize: number,
           countBorrows: number,
           filterToMakeUnhealthy?: (borrowIndex: number) => boolean,
-        ) : Promise<number> {
+        ) : Promise<{countAdapters: number, countAmounts: number}> {
           let index = 0;
 
           const pp: IMultiplePoolAdaptersTestParams = {
@@ -1300,26 +1358,32 @@ describe("DebtsMonitor", () => {
           }
 
           let countUnhealthy = 0;
+          let countAmounts = 0;
           do {
             const ret = await dm.checkHealth(index, portionSize, portionSize);
             countUnhealthy += ret.outPoolAdapters.length;
+            countAmounts += ret.outAmountsToRepay.length;
             index = ret.nextIndexToCheck0.toNumber();
           } while (index !== 0);
 
-          return countUnhealthy;
+          return {countAdapters: countUnhealthy, countAmounts};
         }
 
         describe("All borrows are healthy", () => {
           describe("Check all borrows at once", () => {
             it("should return empty", async () => {
               const ret = await checkAllBorrows(100, 5);
-              expect(ret).equal(0);
+              const sret = [ret.countAdapters, ret.countAmounts].join();
+              const sexpected = [0, 0].join();
+              expect(sret).equal(sexpected);
             });
           });
           describe("Check the borrows by parts", () => {
             it("should return empty", async () => {
               const ret = await checkAllBorrows(3, 5);
-              expect(ret).equal(0);
+              const sret = [ret.countAdapters, ret.countAmounts].join();
+              const sexpected = [0, 0].join();
+              expect(sret).equal(sexpected);
             });
           });
         });
@@ -1332,7 +1396,9 @@ describe("DebtsMonitor", () => {
                 countPoolAdapters,
                 _ => true
               );
-              expect(ret).equal(countPoolAdapters);
+              const sret = [ret.countAdapters, ret.countAmounts].join();
+              const sexpected = [countPoolAdapters, countPoolAdapters].join();
+              expect(sret).equal(sexpected);
             });
           });
           describe("Check the borrows by parts", () => {
@@ -1343,7 +1409,9 @@ describe("DebtsMonitor", () => {
                 countPoolAdapters,
                 _ => true
               );
-              expect(ret).equal(countPoolAdapters);
+              const sret = [ret.countAdapters, ret.countAmounts].join();
+              const sexpected = [countPoolAdapters, countPoolAdapters].join();
+              expect(sret).equal(sexpected);
             });
             it("should return all borrows", async () => {
               const countPoolAdapters = 7;
@@ -1352,7 +1420,9 @@ describe("DebtsMonitor", () => {
                 countPoolAdapters,
                 _ => true
               );
-              expect(ret).equal(countPoolAdapters);
+              const sret = [ret.countAdapters, ret.countAmounts].join();
+              const sexpected = [countPoolAdapters, countPoolAdapters].join();
+              expect(sret).equal(sexpected);
             });
           });
         });
@@ -1364,7 +1434,9 @@ describe("DebtsMonitor", () => {
               countPoolAdapters,
               borrowIndex => borrowIndex === 0
             );
-            expect(ret).equal(1);
+            const sret = [ret.countAdapters, ret.countAmounts].join();
+            const sexpected = [1, 1].join();
+            expect(sret).equal(sexpected);
           });
         });
         describe("Last borrow is unhealthy", () => {
@@ -1375,60 +1447,29 @@ describe("DebtsMonitor", () => {
               countPoolAdapters,
               borrowIndex => borrowIndex === countPoolAdapters - 1
             );
-            expect(ret).equal(1);
+            const sret = [ret.countAdapters, ret.countAmounts].join();
+            const sexpected = [1, 1].join();
+            expect(sret).equal(sexpected);
           });
         });
       });
     });
   });
 
-  describe("TODO: checkBetterBorrowExists", () => {
+  describe("checkAdditionalBorrow", () => {
     describe("Good paths", () => {
-      describe("Threshold APR enabled", () => {
-        describe("Threshold count blocks enabled", () => {
-          it("should return empty", async () => {
-            expect.fail("TODO");
-          });
-        });
-        describe("Threshold count blocks disabled", () => {
-          it("should return empty", async () => {
-            expect.fail("TODO");
-          });
-        });
+      it("should return expected values", async () => {
+        expect.fail("TODO");
       });
-
     });
-    describe("Bad paths", () =>{
-
-    });
-  });
-
-  describe("getPoolAdapterKey", () => {
-    it("should return no pool adapters ", async () => {
-        const r = await preparePoolAdapters([1], 1, 2);
-        const ret = (await r.core.dm.getPoolAdapterKey(
-          ethers.Wallet.createRandom().address,
-          ethers.Wallet.createRandom().address,
-          ethers.Wallet.createRandom().address
-        )).eq(0);
-        expect(ret).equal(false);
+    describe("Bad paths", () => {
+      it("should revert", async () => {
+        expect.fail("TODO");
+      });
     });
   });
 
-  describe("getCountPositions", () => {
-    it("should return expected value", async () => {
-      const countUsers = 2;
-      const countAssets = 2;
-      const countConvertersPerPlatformAdapters = [1, 2];
-      const r = await preparePoolAdapters(countConvertersPerPlatformAdapters, countUsers, countAssets);
-
-      const ret = (await r.core.dm.getCountPositions()).toNumber();
-      const expected = countUsers * countAssets
-        * (countConvertersPerPlatformAdapters[0] + countConvertersPerPlatformAdapters[1]);
-
-      expect(ret).equal(expected);
-    });
-  });
+  describe("TODO: checkBetterBorrowExists", () => {});
 //endregion Unit tests
 
 });

@@ -142,6 +142,7 @@ contract DebtMonitor is IDebtMonitor {
     uint[] memory outAmountsToRepay
   ) {
     uint16 minHealthFactor2 = IController(controller).minHealthFactor2();
+    console.log("checkHealth", minHealthFactor2);
 
     return _checkHealthFactor(startIndex0
       , maxCountToCheck
@@ -197,22 +198,26 @@ contract DebtMonitor is IDebtMonitor {
       (, uint amountToPay, uint healthFactor18,) = pa.getStatus();
       (,,, address borrowAsset) = pa.getConfig();
       uint healthFactorTarget18 = uint(_borrowManager().getTargetHealthFactor2(borrowAsset)) * 10**(18-2);
+      console.log("_checkHealthFactor healthFactorTarget18", healthFactorTarget18);
+      console.log("_checkHealthFactor healthFactorThreshold18", healthFactorThreshold18);
 
       // healthFactorTarget18 < healthFactorThreshold18 means, that we check low board, otherwise up board
       if (
-        (healthFactorTarget18 < healthFactorThreshold18 && healthFactor18 < healthFactorThreshold18)
-        || (!(healthFactorTarget18 < healthFactorThreshold18) && healthFactor18 > healthFactorThreshold18)
+        (healthFactorThreshold18 < healthFactorTarget18 && healthFactor18 < healthFactorThreshold18)
+        || (!(healthFactorThreshold18 < healthFactorTarget18) && healthFactor18 > healthFactorThreshold18)
       ) {
         outPoolAdapters[countFoundItems] = positions[startIndex0 + i];
         // Health Factor = Collateral Factor * CollateralAmount * Price_collateral
         //                 -------------------------------------------------
         //                               BorrowAmount * Price_borrow
         // => AmountToRepay = BorrowAmount * (HealthFactorCurrent/HealthFactorTarget - 1)
-        outAmounts[countFoundItems] = amountToPay * (
-          healthFactorTarget18 < healthFactorThreshold18
-            ? (1 - healthFactor18 / healthFactorTarget18)
-            : (healthFactor18 / healthFactorTarget18 - 1)
-        );
+        outAmounts[countFoundItems] = healthFactorThreshold18 < healthFactorTarget18
+            ? (amountToPay - amountToPay * healthFactor18 / healthFactorTarget18)
+            : (amountToPay * healthFactor18 / healthFactorTarget18 - amountToPay);
+        console.log("amountToPay", amountToPay);
+        console.log("healthFactor18", healthFactor18);
+        console.log("healthFactorTarget18", healthFactorTarget18);
+        console.log("healthFactorTarget18", outAmounts[countFoundItems]);
         countFoundItems += 1;
         if (countFoundItems == maxCountToReturn) {
           break;

@@ -672,14 +672,12 @@ describe("BorrowManager", () => {
 
             // register the platform adapter with exactly same parameters second time
 
-            await borrowManager.addAssetPairs(
+            const cr = await (await borrowManager.addAssetPairs(
               r.platformAdapter
               , r.pairs.map(x => x.smallerAddress)
               , r.pairs.map(x => x.biggerAddress)
-            );
-
-            // tslint:disable-next-line:no-unused-expression
-            expect(true).true; // we didn't have exception above
+            )).wait();
+            expect(cr.status).eq(1); // we don't have any exception
           });
         });
         describe("Add new asset pairs to exist platform adapter", () => {
@@ -690,14 +688,12 @@ describe("BorrowManager", () => {
             const newAsset = ethers.Wallet.createRandom().address;
 
             // register the platform adapter with exactly same parameters second time
-            await borrowManager.addAssetPairs(
+            const cr = await (await borrowManager.addAssetPairs(
                 r.platformAdapter
                 , r.assets.map(x => newAsset)
                 , r.assets.map(x => x)
-            );
-
-            // tslint:disable-next-line:no-unused-expression
-            expect(true).true; // we didn't have exception above
+            )).wait();
+            expect(cr.status).eq(1); // we don't have any exception
           });
         });
       });
