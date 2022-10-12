@@ -96,7 +96,7 @@ contract TetuConverter is ITetuConverter {
   }
 
   ///////////////////////////////////////////////////////
-  ///       Make conversion
+  ///       Make conversion, open position
   ///////////////////////////////////////////////////////
 
   function borrow(
@@ -106,13 +106,9 @@ contract TetuConverter is ITetuConverter {
     address targetToken_,
     uint targetAmount_,
     address receiver_
-//    uint priceImpactTolerance_,
-//    uint slippageTolerance_
 ) external override {
     _convert(converter_, sourceToken_, sourceAmount_, targetToken_, targetAmount_, receiver_, msg.sender);
   }
-
-  // TODO dv discuss parameters (may be split borrow and swap params to 2 structures)
 
   function _convert(
     address converter_,
@@ -167,6 +163,76 @@ contract TetuConverter is ITetuConverter {
     revert(AppErrors.UNSUPPORTED_CONVERSION_KIND);
   }
 
+  ///////////////////////////////////////////////////////
+  ///       Make repay, close position
+  ///////////////////////////////////////////////////////
+
+  function repay(
+    address collateralAsset_,
+    address borrowAsset_,
+    uint amountToRepay_,
+    address collateralReceiver_,
+    address poolAdapterOptional_
+  ) external override {
+    // TODO
+    collateralAsset_;
+    borrowAsset_;
+    amountToRepay_;
+    collateralReceiver_;
+    poolAdapterOptional_;
+  }
+
+  /// @notice Calculate total amount of borrow tokens that should be repaid to close the loan completely.
+  function getAmountToRepay(
+    address collateralAsset_,
+    address borrowAsset_
+  ) external view override returns (uint) {
+    // TODO
+    collateralAsset_;
+    borrowAsset_;
+    return 0;
+  }
+
+  /// @notice User needs to redeem some collateral amount. Calculate an amount that should be repaid
+  function estimateRepay(
+    address collateralAsset_,
+    uint collateralAmountToRedeem_,
+    address borrowAsset_
+  ) external view override returns (uint) {
+    // TODO
+    collateralAsset_;
+    collateralAmountToRedeem_;
+    borrowAsset_;
+    return 0;
+  }
+
+  ///////////////////////////////////////////////////////
+  ///       Check and claim rewards
+  ///////////////////////////////////////////////////////
+
+  /// @notice Check if any reward tokens exist on the balance of the pool adapter
+  function checkRewards() external view override returns (
+    address[] memory rewardTokens,
+    uint[] memory amounts
+  ) {
+    // TODO
+    return (rewardTokens, amounts);
+  }
+
+  /// @notice Transfer all given reward tokens to {receiver_}
+  function claimRewards(
+    address receiver_,
+    address[] memory rewardTokens_
+  ) external override {
+    // TODO
+    receiver_;
+    rewardTokens_;
+  }
+
+  ///////////////////////////////////////////////////////
+  ///  Additional functions, not required by strategies
+  ///////////////////////////////////////////////////////
+
   function reconvert(
     address poolAdapter_,
     uint periodInBlocks_,
@@ -190,11 +256,11 @@ contract TetuConverter is ITetuConverter {
 
     // find new plan
     (address converter, uint maxTargetAmount,) = _findConversionStrategy(
-        collateralAsset,
-        deltaCollateral,
-        borrowAsset,
-        periodInBlocks_,
-        AppDataTypes.ConversionKind.UNKNOWN_0
+      collateralAsset,
+      deltaCollateral,
+      borrowAsset,
+      periodInBlocks_,
+      AppDataTypes.ConversionKind.UNKNOWN_0
     );
     require(converter != originConverter, AppErrors.RECONVERSION_WITH_SAME_CONVERTER_FORBIDDEN);
 
@@ -210,17 +276,13 @@ contract TetuConverter is ITetuConverter {
     );
   }
 
-  ///////////////////////////////////////////////////////
-  ///       Find opened borrow-positions
-  ///////////////////////////////////////////////////////
-
   function findBorrows (
     address collateralToken_,
     address borrowedToken_
   ) external view override returns (
     address[] memory poolAdapters
   ) {
-    return _dm().getPositions(msg.sender, collateralToken_, borrowedToken_);
+    return _debtMonitor().getPositions(msg.sender, collateralToken_, borrowedToken_);
   }
 
   ///////////////////////////////////////////////////////
@@ -230,7 +292,7 @@ contract TetuConverter is ITetuConverter {
     return IBorrowManager(controller.borrowManager());
   }
 
-  function _dm() internal view returns (IDebtMonitor) {
+  function _debtMonitor() internal view returns (IDebtMonitor) {
     return IDebtMonitor(controller.debtMonitor());
   }
 
