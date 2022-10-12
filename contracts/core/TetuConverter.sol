@@ -144,7 +144,7 @@ contract TetuConverter is ITetuConverter {
       // borrow target-amount and transfer borrowed amount to the receiver
       IPoolAdapter(poolAdapter).borrow(collateralAmount_, amountToBorrow_, receiver_);
 
-    } if (IConverter(converter_).getConversionKind() == AppDataTypes.ConversionKind.SWAP_1) {
+    } else if (IConverter(converter_).getConversionKind() == AppDataTypes.ConversionKind.SWAP_1) {
       IERC20(collateralAsset_).transfer(converter_, collateralAmount_);
       // TODO move to fn params
       // Bogdoslav: I guess better do that after merge -
@@ -157,10 +157,9 @@ contract TetuConverter is ITetuConverter {
         amountToBorrow_,
         receiver_
       );
-
+    } else {
+      revert(AppErrors.UNSUPPORTED_CONVERSION_KIND);
     }
-
-    revert(AppErrors.UNSUPPORTED_CONVERSION_KIND);
   }
 
   ///////////////////////////////////////////////////////
@@ -201,7 +200,9 @@ contract TetuConverter is ITetuConverter {
     address collateralAsset_,
     uint collateralAmountToRedeem_,
     address borrowAsset_
-  ) external view override returns (uint) {
+  ) external view override returns (
+    uint borrowAssetAmount
+  ) {
     // TODO
     collateralAsset_;
     collateralAmountToRedeem_;

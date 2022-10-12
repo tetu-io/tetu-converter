@@ -250,13 +250,13 @@ export class AprAaveTwo {
    * @param additionalPoints
    */
   static async makeBorrowTest(
-    deployer: SignerWithAddress
-    , amountToBorrow0: number | BigNumber
-    , p: TestSingleBorrowParams
-    , additionalPoints: number[]
+    deployer: SignerWithAddress,
+    amountToBorrow0: number | BigNumber,
+    p: TestSingleBorrowParams,
+    additionalPoints: number[]
   ) : Promise<{
-    details: IAprAaveTwoResults
-    , results: IBorrowResults
+    details: IAprAaveTwoResults,
+    results: IBorrowResults
   }> {
     const collateralToken = await TokenDataTypes.Build(deployer, p.collateral.asset);
     const borrowToken = await TokenDataTypes.Build(deployer, p.borrow.asset);

@@ -26,11 +26,11 @@ export class TetuConverterApp {
     )) as Controller;
 
     const bm = await CoreContractsHelper.createBorrowManager(deployer, controller);
-    const tc = await CoreContractsHelper.createTetuConverter(deployer, controller);
+    const tc: ITetuConverter = await CoreContractsHelper.createTetuConverter(deployer, controller);
     const dm = await CoreContractsHelper.createDebtMonitor(deployer, controller);
 
     const tetuLiquidatorAddress = '0x67e14A8Ebe89639945e4209CE3fE19e721633AC3';
-    const swapManager = await CoreContractsHelper.createSwapManager(deployer, controller, tetuLiquidatorAddress);
+    const swapManager = await CoreContractsHelper.createSwapManager(deployer, controller);
 
     await controller.initialize(tc.address, bm.address, dm.address, ethers.Wallet.createRandom().address, tetuLiquidatorAddress, swapManager.address);
 

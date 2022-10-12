@@ -18,6 +18,7 @@ import {RegisterPoolAdapterAction} from "../actions/RegisterPoolAdapterAction";
 import {MockPlatformFabric} from "../fabrics/MockPlatformFabric";
 import {BorrowMockAction} from "../actions/BorrowMockAction";
 import {RepayMockAction} from "../actions/RepayMockAction";
+import {DeployerUtils} from "../../../scripts/utils/DeployerUtils";
 
 export interface IBorrowAction {
   collateralToken: TokenDataTypes,
@@ -129,7 +130,7 @@ export class BorrowRepayUsesCase {
       // contract borrow balance == borrowed amount
       , totalBorrowedAmount
 
-      //after repay
+      // after repay
       // collateral >= initial collateral
       // TODO: hundred finance has supply fee, so we check collateral ~ initial collateral
       , true
@@ -231,15 +232,15 @@ export class BorrowRepayUsesCase {
     const collateralToken = await TokenDataTypes.Build(deployer, p.collateral.asset);
     const borrowToken = await TokenDataTypes.Build(deployer, p.borrow.asset);
 
-    const amountToRepay = undefined; //full repay
+    const amountToRepay = undefined; // full repay
 
-    const underlyings = [p.collateral.asset, p.borrow.asset];
+    const underlying = [p.collateral.asset, p.borrow.asset];
     const pricesUSD = [1, 1];
     const cTokenDecimals = [m.collateral.decimals, m.borrow.decimals];
-    const cTokens = await MocksHelper.createCTokensMocks(deployer, underlyings, cTokenDecimals);
+    const cTokens = await MocksHelper.createCTokensMocks(deployer, underlying, cTokenDecimals);
 
     const fabric = new MockPlatformFabric(
-      underlyings,
+      underlying,
       [m.collateral.borrowRate, m.borrow.borrowRate],
       [m.collateral.collateralFactor, m.borrow.collateralFactor],
       [m.collateral.liquidity, m.borrow.liquidity],
@@ -249,7 +250,7 @@ export class BorrowRepayUsesCase {
         .pow(18 - 2)
         .mul(x * 100))
     );
-    const {tc, controller} = await TetuConverterApp.buildApp(deployer, [fabric]);
+    const {controller} = await TetuConverterApp.buildApp(deployer, [fabric]);
     const uc = await MocksHelper.deployBorrower(deployer.address, controller, p.countBlocks);
 
     const c0 = await setInitialBalance(deployer
@@ -281,14 +282,14 @@ export class BorrowRepayUsesCase {
     );
 
     return BorrowRepayUsesCase.getSingleBorrowSingleRepayResults(
-      c0
-      , b0
-      , collateralAmount
-      , userBalances
-      , borrowBalances
-      , await uc.totalBorrowedAmount()
-      , await uc.totalRepaidAmount()
-      , {
+      c0,
+      b0,
+      collateralAmount,
+      userBalances,
+      borrowBalances,
+      await uc.totalBorrowedAmount(),
+      await uc.totalRepaidAmount(),
+      {
         resultCollateralCanBeLessThenInitial: false
       }
     );
@@ -313,7 +314,7 @@ export class BorrowRepayUsesCase {
     const collateralToken = await TokenDataTypes.Build(deployer, p.collateral.asset);
     const borrowToken = await TokenDataTypes.Build(deployer, p.borrow.asset);
 
-    const amountToRepay = undefined; //full repay
+    const amountToRepay = undefined; // full repay
 
     const c0 = await setInitialBalance(deployer, collateralToken.address
       , p.collateral.holder, p.collateral.initialLiquidity, uc.address);
@@ -411,7 +412,7 @@ export class BorrowRepayUsesCase {
     const borrowToken = await TokenDataTypes.Build(deployer, p.borrow.asset);
 
     const amountToRepay1 = getBigNumberFrom(p.repayAmount1, borrowToken.decimals);
-    const amountToRepay2 = undefined; //full repay
+    const amountToRepay2 = undefined; // full repay
 
     const underlyings = [p.collateral.asset, p.borrow.asset];
     const pricesUSD = [1, 1];
@@ -443,8 +444,11 @@ export class BorrowRepayUsesCase {
     // we need an address of the mock pool adapter, so let's initialize the pool adapter right now
     const bm = BorrowManager__factory.connect(await controller.borrowManager(), deployer);
     const platformAdapter = IPlatformAdapter__factory.connect(await bm.platformAdaptersAt(0), deployer);
+    const bmAsTc = BorrowManager__factory.connect(await controller.borrowManager()
+      , await DeployerUtils.startImpersonate(await controller.tetuConverter())
+    );
     const converter = (await platformAdapter.converters())[0];
-    await bm.registerPoolAdapter(converter
+    await bmAsTc.registerPoolAdapter(converter
       , uc.address
       , collateralToken.address
       , borrowToken.address
@@ -516,7 +520,7 @@ export class BorrowRepayUsesCase {
     const borrowToken = await TokenDataTypes.Build(deployer, p.borrow.asset);
 
     const amountToRepay1 = getBigNumberFrom(p.repayAmount1, borrowToken.decimals);
-    const amountToRepay2 = undefined; //full repay
+    const amountToRepay2 = undefined; // full repay
 
     const c0 = await setInitialBalance(deployer, collateralToken.address
       , p.collateral.holder, p.collateral.initialLiquidity, uc.address);

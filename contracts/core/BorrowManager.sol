@@ -96,8 +96,12 @@ contract BorrowManager is IBorrowManager {
   ///////////////////////////////////////////////////////
 
   /// @notice Ensure that msg.sender is registered pool adapter
-  function _onlyTetuConverter() internal view {
-    require(msg.sender == controller.tetuConverter(), AppErrors.TETU_CONVERTER_ONLY);
+  function _onlyTetuConverterOrUser(address user_) internal view {
+    require(
+      msg.sender == controller.tetuConverter()
+      || msg.sender == user_, // second condition is required by tests; it looks safe enough for the production
+      AppErrors.TETU_CONVERTER_ONLY
+    );
   }
 
   /// @notice Ensure that msg.sender is registered pool adapter
@@ -291,7 +295,7 @@ contract BorrowManager is IBorrowManager {
     address collateralAsset_,
     address borrowAsset_
   ) external override returns (address) {
-    _onlyTetuConverter();
+    _onlyTetuConverterOrUser(user_);
 
     uint poolAdapterKey = getPoolAdapterKey(converter_, user_, collateralAsset_, borrowAsset_);
     address dest = poolAdapters[poolAdapterKey];

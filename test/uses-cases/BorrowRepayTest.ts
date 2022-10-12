@@ -83,24 +83,27 @@ describe("BorrowRepayTest", () => {
                     asset: ASSET_COLLATERAL,
                     holder: HOLDER_COLLATERAL,
                     initialLiquidity: INITIAL_LIQUIDITY_COLLATERAL,
-                  }, borrow: {
+                  },
+                  borrow: {
                     asset: ASSET_BORROW,
                     holder: HOLDER_BORROW,
                     initialLiquidity: INITIAL_LIQUIDITY_BORROW,
-                  }, collateralAmount: AMOUNT_COLLATERAL
-                  , healthFactor2: HEALTH_FACTOR2
-                  , countBlocks: COUNT_BLOCKS
+                  },
+                  collateralAmount: AMOUNT_COLLATERAL,
+                  healthFactor2: HEALTH_FACTOR2,
+                  countBlocks: COUNT_BLOCKS
                 }, {
                   collateral: {
-                    liquidity: INITIAL_LIQUIDITY_COLLATERAL * 2
-                    , collateralFactor: 0.5
-                    , borrowRate: getBigNumberFrom(1, 10)
-                    , decimals: 6
-                  }, borrow: {
-                    liquidity: INITIAL_LIQUIDITY_COLLATERAL * 2
-                    , collateralFactor: 0.8
-                    , borrowRate: getBigNumberFrom(1, 8)
-                    , decimals: 24
+                    liquidity: INITIAL_LIQUIDITY_COLLATERAL * 2,
+                    collateralFactor: 0.5,
+                    borrowRate: getBigNumberFrom(1, 10),
+                    decimals: 6
+                  },
+                  borrow: {
+                    liquidity: INITIAL_LIQUIDITY_COLLATERAL * 2,
+                    collateralFactor: 0.8,
+                    borrowRate: getBigNumberFrom(1, 8),
+                    decimals: 24
                   }
                 }
               );
@@ -636,28 +639,31 @@ describe("BorrowRepayTest", () => {
                     asset: ASSET_COLLATERAL,
                     holder: HOLDER_COLLATERAL,
                     initialLiquidity: INITIAL_LIQUIDITY_COLLATERAL,
-                  }, borrow: {
+                  },
+                  borrow: {
                     asset: ASSET_BORROW,
                     holder: HOLDER_BORROW,
                     initialLiquidity: INITIAL_LIQUIDITY_BORROW,
-                  }, collateralAmount: AMOUNT_COLLATERAL
-                  , healthFactor2: HEALTH_FACTOR2
-                  , countBlocks: COUNT_BLOCKS
-                  , collateralAmount2: AMOUNT_COLLATERAL2
-                  , deltaBlocksBetweenBorrows: DELTA_BLOCKS_BORROW
-                  , deltaBlocksBetweenRepays: DELTA_BLOCKS_REPAY
-                  , repayAmount1: AMOUNT_REPAY1
+                  },
+                  collateralAmount: AMOUNT_COLLATERAL,
+                  healthFactor2: HEALTH_FACTOR2,
+                  countBlocks: COUNT_BLOCKS,
+                  collateralAmount2: AMOUNT_COLLATERAL2,
+                  deltaBlocksBetweenBorrows: DELTA_BLOCKS_BORROW,
+                  deltaBlocksBetweenRepays: DELTA_BLOCKS_REPAY,
+                  repayAmount1: AMOUNT_REPAY1
                 }, {
                   collateral: {
-                    liquidity: INITIAL_LIQUIDITY_COLLATERAL * 2
-                    , collateralFactor: 0.5
-                    , borrowRate: getBigNumberFrom(1, 10)
-                    , decimals: 6
-                  }, borrow: {
-                    liquidity: INITIAL_LIQUIDITY_COLLATERAL * 2
-                    , collateralFactor: 0.8
-                    , borrowRate: getBigNumberFrom(1, 8)
-                    , decimals: 24
+                    liquidity: INITIAL_LIQUIDITY_COLLATERAL * 2,
+                    collateralFactor: 0.5,
+                    borrowRate: getBigNumberFrom(1, 10),
+                    decimals: 6,
+                  },
+                  borrow: {
+                    liquidity: INITIAL_LIQUIDITY_COLLATERAL * 2,
+                    collateralFactor: 0.8,
+                    borrowRate: getBigNumberFrom(1, 8),
+                    decimals: 24
                   }
                 }
               );
@@ -799,13 +805,15 @@ describe("BorrowRepayTest", () => {
                     asset: ASSET_COLLATERAL,
                     holder: HOLDER_COLLATERAL,
                     initialLiquidity: INITIAL_LIQUIDITY_COLLATERAL,
-                  }, borrow: {
+                  },
+                  borrow: {
                     asset: ASSET_BORROW,
                     holder: HOLDER_BORROW,
                     initialLiquidity: INITIAL_LIQUIDITY_BORROW,
-                  }, collateralAmount: AMOUNT_COLLATERAL
-                  , healthFactor2: HEALTH_FACTOR2
-                  , countBlocks: COUNT_BLOCKS
+                  },
+                  collateralAmount: AMOUNT_COLLATERAL,
+                  healthFactor2: HEALTH_FACTOR2,
+                  countBlocks: COUNT_BLOCKS,
                 }, new Aave3PlatformFabric()
                 , {}
                 , true
@@ -830,18 +838,20 @@ describe("BorrowRepayTest", () => {
                     asset: ASSET_COLLATERAL,
                     holder: HOLDER_COLLATERAL,
                     initialLiquidity: INITIAL_LIQUIDITY_COLLATERAL,
-                  }, borrow: {
+                  },
+                  borrow: {
                     asset: ASSET_BORROW,
                     holder: HOLDER_BORROW,
                     initialLiquidity: INITIAL_LIQUIDITY_BORROW,
-                  }, collateralAmount: AMOUNT_COLLATERAL
-                  , healthFactor2: HEALTH_FACTOR2
-                  , countBlocks: COUNT_BLOCKS
-                }, new HundredFinancePlatformFabric()
-                , {
+                  },
+                  collateralAmount: AMOUNT_COLLATERAL,
+                  healthFactor2: HEALTH_FACTOR2,
+                  countBlocks: COUNT_BLOCKS,
+                },
+                new HundredFinancePlatformFabric(), {
                   resultCollateralCanBeLessThenInitial: true
-                }
-                , true
+                },
+                true
               );
               controlGasLimitsEx(r.gasUsedByPaInitialization!, GAS_LIMIT_SINGLE_BORROW_SINGLE_REPAY_INITIALIZE_PA, (u, t) => {
                 expect(u).to.be.below(t);
@@ -863,13 +873,15 @@ describe("BorrowRepayTest", () => {
                     asset: ASSET_COLLATERAL,
                     holder: HOLDER_COLLATERAL,
                     initialLiquidity: INITIAL_LIQUIDITY_COLLATERAL,
-                  }, borrow: {
+                  },
+                  borrow: {
                     asset: ASSET_BORROW,
                     holder: HOLDER_BORROW,
                     initialLiquidity: INITIAL_LIQUIDITY_BORROW,
-                  }, collateralAmount: AMOUNT_COLLATERAL
-                  , healthFactor2: HEALTH_FACTOR2
-                  , countBlocks: COUNT_BLOCKS
+                  },
+                  collateralAmount: AMOUNT_COLLATERAL,
+                  healthFactor2: HEALTH_FACTOR2,
+                  countBlocks: COUNT_BLOCKS
                 }, new DForcePlatformFabric()
                 , {}
                 , true
@@ -894,13 +906,15 @@ describe("BorrowRepayTest", () => {
                     asset: ASSET_COLLATERAL,
                     holder: HOLDER_COLLATERAL,
                     initialLiquidity: INITIAL_LIQUIDITY_COLLATERAL,
-                  }, borrow: {
+                  },
+                  borrow: {
                     asset: ASSET_BORROW,
                     holder: HOLDER_BORROW,
                     initialLiquidity: INITIAL_LIQUIDITY_BORROW,
-                  }, collateralAmount: AMOUNT_COLLATERAL
-                  , healthFactor2: HEALTH_FACTOR2
-                  , countBlocks: COUNT_BLOCKS
+                  },
+                  collateralAmount: AMOUNT_COLLATERAL,
+                  healthFactor2: HEALTH_FACTOR2,
+                  countBlocks: COUNT_BLOCKS
                 }, new AaveTwoPlatformFabric()
                 , {}
                 , true

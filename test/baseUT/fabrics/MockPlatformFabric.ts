@@ -69,7 +69,7 @@ export class MockPlatformFabric implements ILendingPlatformFabric {
       priceOracle.address,
       [converter.address],
       this.assets,
-      this.cTokens,
+      this.cTokens.map(x => x.address),
       liquidity,
       this.borrowRates,
       this.collateralFactors,

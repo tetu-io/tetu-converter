@@ -80,13 +80,11 @@ export class CoreContractsHelper {
   public static async createSwapManager (
     signer: SignerWithAddress,
     controller: IController,
-    tetuLiquidatorAddress: string,
   ) : Promise<SwapManager> {
     return (await DeployUtils.deployContract(
       signer,
       "SwapManager",
       controller.address,
-      tetuLiquidatorAddress,
     )) as SwapManager;
   }
 
