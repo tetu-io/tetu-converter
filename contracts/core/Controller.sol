@@ -112,24 +112,20 @@ contract Controller is IController, Initializable {
   ///////////////////////////////////////////////////////
 
   function setMinHealthFactor2(uint16 value_) external override {
-    console.log("setMinHealthFactor2");
-    console.log("value_", value_);
-    console.log("MIN_ALLOWED_MIN_HEALTH_FACTOR", MIN_ALLOWED_MIN_HEALTH_FACTOR);
-    console.log("targetHealthFactor2", targetHealthFactor2);
     require(value_ > MIN_ALLOWED_MIN_HEALTH_FACTOR, AppErrors.WRONG_HEALTH_FACTOR);
     require(value_ < targetHealthFactor2, AppErrors.WRONG_HEALTH_FACTOR_CONFIG);
     minHealthFactor2 = value_;
-  }
-
-  function setMaxHealthFactor2(uint16 value_) external override {
-    require(value_ > targetHealthFactor2, AppErrors.WRONG_HEALTH_FACTOR_CONFIG);
-    maxHealthFactor2 = value_;
   }
 
   function setTargetHealthFactor2(uint16 value_) external override {
     require(value_ > minHealthFactor2, AppErrors.WRONG_HEALTH_FACTOR_CONFIG);
     require(value_ < maxHealthFactor2, AppErrors.WRONG_HEALTH_FACTOR_CONFIG);
     targetHealthFactor2 = value_;
+  }
+
+  function setMaxHealthFactor2(uint16 value_) external override {
+    require(value_ > targetHealthFactor2, AppErrors.WRONG_HEALTH_FACTOR_CONFIG);
+    maxHealthFactor2 = value_;
   }
 
   ///////////////////////////////////////////////////////

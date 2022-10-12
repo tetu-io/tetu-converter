@@ -95,15 +95,19 @@ describe("Controller", () => {
   }
 
   async function createTestController(
-    a: IControllerAddresses
+    a: IControllerAddresses,
+    minHealthFactor: number = 101,
+    targetHealthFactor: number = 200,
+    maxHealthFactor: number = 400,
+    blocksPerDay: number = COUNT_BLOCKS_PER_DAY
   ) : Promise<{controller: Controller, gasUsed: BigNumber}> {
     const controller = (await DeployUtils.deployContract(deployer
       , 'Controller'
-      , COUNT_BLOCKS_PER_DAY
+      , blocksPerDay
       , a.governance
-      , 101
-      , 200
-      , 400
+      , minHealthFactor
+      , targetHealthFactor
+      , maxHealthFactor
     )) as Controller;
 
     const gasUsed = await getGasUsed(
@@ -152,6 +156,23 @@ describe("Controller", () => {
 
     return {gasUsed};
   }
+
+  async function prepareTestController() : Promise<Controller> {
+    const a = getRandomControllerAddresses();
+    // initial values
+    const minHealthFactor = 310;
+    const targetHealthFactor = 320;
+    const maxHealthFactor = 330;
+
+    const {controller} = await createTestController(
+      a,
+      minHealthFactor,
+      targetHealthFactor,
+      maxHealthFactor,
+    );
+
+    return controller;
+  }
 //endregion Utils
 
 //region Unit tests
@@ -164,6 +185,41 @@ describe("Controller", () => {
 
         const ret = (await getValuesArray(controller)).join();
         const expected = getAddressesArray(a).join();
+
+        expect(ret).to.be.equal(expected);
+        controlGasLimitsEx(gasUsed, GAS_LIMIT_CONTROLLER_INITIALIZE, (u, t) => {
+            expect(u).to.be.below(t);
+          }
+        );
+      });
+
+      it("should initialize health factors and blocks per day correctly", async () => {
+        const a = getRandomControllerAddresses();
+        const minHealthFactor = 300;
+        const targetHealthFactor = 301;
+        const maxHealthFactor = 302;
+        const blocksPerDay = 417;
+
+        const {controller, gasUsed} = await createTestController(
+          a,
+          minHealthFactor,
+          targetHealthFactor,
+          maxHealthFactor,
+          blocksPerDay
+        );
+
+        const ret = [
+          await controller.minHealthFactor2(),
+          await controller.targetHealthFactor2(),
+          await controller.maxHealthFactor2(),
+          await controller.blocksPerDay()
+        ].join();
+        const expected = [
+          minHealthFactor,
+          targetHealthFactor,
+          maxHealthFactor,
+          blocksPerDay
+        ].join();
 
         expect(ret).to.be.equal(expected);
         controlGasLimitsEx(gasUsed, GAS_LIMIT_CONTROLLER_INITIALIZE, (u, t) => {
@@ -186,14 +242,84 @@ describe("Controller", () => {
 
             await expect(
               createTestController(b)
-            ).revertedWith("1");
+            ).revertedWith("TC-1");
           }
+        });
+      });
+      describe ("Min health factor is too small", () => {
+        it("should revert", async () => {
+          const a = getRandomControllerAddresses();
+          const minHealthFactor = 99; // (!)
+          const targetHealthFactor = 301;
+          const maxHealthFactor = 302;
+
+          await expect(
+            createTestController(
+              a,
+              minHealthFactor,
+              targetHealthFactor,
+              maxHealthFactor
+            )
+          ).revertedWith("TC-3: wrong health factor");
+        });
+      });
+      describe ("Min health factor is not less then target health factor", () => {
+        it("should revert", async () => {
+          const a = getRandomControllerAddresses();
+          const minHealthFactor = 300;
+          const targetHealthFactor = minHealthFactor; // (!)
+          const maxHealthFactor = 302;
+
+          await expect(
+            createTestController(
+              a,
+              minHealthFactor,
+              targetHealthFactor,
+              maxHealthFactor
+            )
+          ).revertedWith("TC-38: wrong health factor config");
+        });
+      });
+      describe ("Target health factor is not less then max health factor", () => {
+        it("should revert", async () => {
+          const a = getRandomControllerAddresses();
+          const minHealthFactor = 300;
+          const targetHealthFactor = 302;
+          const maxHealthFactor = targetHealthFactor; // (!)
+
+          await expect(
+            createTestController(
+              a,
+              minHealthFactor,
+              targetHealthFactor,
+              maxHealthFactor
+            )
+          ).revertedWith("TC-38: wrong health factor config");
+        });
+      });
+      describe ("Blocks per day = 0", () => {
+        it("should revert", async () => {
+          const a = getRandomControllerAddresses();
+          const minHealthFactor = 300;
+          const targetHealthFactor = 302;
+          const maxHealthFactor = 303;
+          const blocksPerDay = 0; // (!)
+
+          await expect(
+            createTestController(
+              a,
+              minHealthFactor,
+              targetHealthFactor,
+              maxHealthFactor,
+              blocksPerDay
+            )
+          ).revertedWith("TC-29");
         });
       });
     });
   });
 
-  describe ("setXXX", () => {
+  describe ("set addresses", () => {
     describe ("Good paths", () => {
       it("should initialize addresses correctly", async () => {
         const initialAddresses = getRandomControllerAddresses();
@@ -256,6 +382,203 @@ describe("Controller", () => {
               setAddresses(controllerAsGov, updatedAddresses)
             ).revertedWith("TC-1");
           }
+        });
+      });
+    });
+  });
+
+  describe ("setBlocksPerDay", () => {
+    describe ("Good paths", () => {
+      it("should set expected value", async () => {
+        const a = getRandomControllerAddresses();
+        // initial values
+        const minHealthFactor = 300;
+        const targetHealthFactor = 301;
+        const maxHealthFactor = 302;
+        const blocksPerDay = 417;
+        // updated values
+        const blocksPerDayUpdated = 418;
+
+        const {controller} = await createTestController(
+          a,
+          minHealthFactor,
+          targetHealthFactor,
+          maxHealthFactor,
+          blocksPerDay
+        );
+
+        const before = await controller.blocksPerDay();
+        await controller.setBlocksPerDay(blocksPerDayUpdated);
+        const after = await controller.blocksPerDay();
+
+        const ret = [before, after].join();
+        const expected = [blocksPerDay, blocksPerDayUpdated].join();
+
+        expect(ret).to.be.equal(expected);
+      });
+    });
+    describe ("Bad paths", () => {
+      describe ("Set ZERO blocks per day", () => {
+        it("should set expected value", async () => {
+          const a = getRandomControllerAddresses();
+          // initial values
+          const minHealthFactor = 300;
+          const targetHealthFactor = 301;
+          const maxHealthFactor = 302;
+          const blocksPerDay = 417;
+          // updated values
+          const blocksPerDayUpdated = 0; // (!)
+
+          const {controller} = await createTestController(
+            a,
+            minHealthFactor,
+            targetHealthFactor,
+            maxHealthFactor,
+            blocksPerDay
+          );
+
+          await expect(
+            controller.setBlocksPerDay(blocksPerDayUpdated)
+          ).revertedWith("TC-29");
+        });
+      });
+    });
+  });
+  describe ("setMinHealthFactor2", () => {
+    describe ("Good paths", () => {
+      it("should set expected value", async () => {
+        const a = getRandomControllerAddresses();
+        // initial values
+        const minHealthFactor = 300;
+        const targetHealthFactor = 310;
+        const maxHealthFactor = 320;
+        // updated values
+        const minHealthFactorUpdated = 205;
+
+        const {controller} = await createTestController(
+          a,
+          minHealthFactor,
+          targetHealthFactor,
+          maxHealthFactor,
+        );
+
+        const before = await controller.minHealthFactor2();
+        await controller.setMinHealthFactor2(minHealthFactorUpdated);
+        const after = await controller.minHealthFactor2();
+
+        const ret = [before, after].join();
+        const expected = [minHealthFactor, minHealthFactorUpdated].join();
+
+        expect(ret).to.be.equal(expected);
+      });
+    });
+    describe ("Bad paths", () => {
+      describe ("Set too small min health factor", () => {
+        it("should set expected value", async () => {
+          const controller = await prepareTestController();
+          await expect(
+            controller.setMinHealthFactor2(1) // (!) 1 < 100
+          ).revertedWith("TC-3: wrong health factor");
+        });
+      });
+      describe ("Set too min health factor bigger then target health factor", () => {
+        it("should set expected value", async () => {
+          const controller = await prepareTestController();
+          await expect(
+            controller.setMinHealthFactor2(1000) // (!) 1000 > target health factor
+          ).revertedWith("TC-38: wrong health factor config");
+        });
+      });
+    });
+  });
+  describe ("setTargetHealthFactor2", () => {
+    describe ("Good paths", () => {
+      it("should set expected value", async () => {
+        const a = getRandomControllerAddresses();
+        // initial values
+        const minHealthFactor = 300;
+        const targetHealthFactor = 310;
+        const maxHealthFactor = 320;
+        // updated values
+        const targetHealthFactorUpdated = 319;
+
+        const {controller} = await createTestController(
+          a,
+          minHealthFactor,
+          targetHealthFactor,
+          maxHealthFactor,
+        );
+
+        const before = await controller.targetHealthFactor2();
+        await controller.setTargetHealthFactor2(targetHealthFactorUpdated);
+        const after = await controller.targetHealthFactor2();
+
+        const ret = [before, after].join();
+        const expected = [targetHealthFactor, targetHealthFactorUpdated].join();
+
+        expect(ret).to.be.equal(expected);
+      });
+    });
+    describe ("Bad paths", () => {
+      describe ("Target health factor is equal to MIN health factor", () => {
+        it("should set expected value", async () => {
+          const controller = await prepareTestController();
+          await expect(
+            controller.setTargetHealthFactor2(
+              await controller.minHealthFactor2()
+            )
+          ).revertedWith("TC-38: wrong health factor config");
+        });
+      });
+      describe ("Target health factor is equal to MAX health factor", () => {
+        it("should set expected value", async () => {
+          const controller = await prepareTestController();
+          await expect(
+            controller.setTargetHealthFactor2(
+              await controller.maxHealthFactor2()
+            )
+          ).revertedWith("TC-38: wrong health factor config");
+        });
+      });
+    });
+  });
+  describe ("setMaxHealthFactor2", () => {
+    describe ("Good paths", () => {
+      it("should set expected value", async () => {
+        const a = getRandomControllerAddresses();
+        // initial values
+        const minHealthFactor = 300;
+        const targetHealthFactor = 310;
+        const maxHealthFactor = 320;
+        // updated values
+        const maxHealthFactorUpdated = 400;
+
+        const {controller} = await createTestController(
+          a,
+          minHealthFactor,
+          targetHealthFactor,
+          maxHealthFactor,
+        );
+
+        const before = await controller.maxHealthFactor2();
+        await controller.setMaxHealthFactor2(maxHealthFactorUpdated);
+        const after = await controller.maxHealthFactor2();
+
+        const ret = [before, after].join();
+        const expected = [maxHealthFactor, maxHealthFactorUpdated].join();
+
+        expect(ret).to.be.equal(expected);
+      });
+    });
+    describe ("Bad paths", () => {
+      describe ("MAX health factor is equal to TARGET health factor", () => {
+        it("should set expected value", async () => {
+          const controller = await prepareTestController();
+          await expect(
+            controller.setMaxHealthFactor2(
+              await controller.targetHealthFactor2()
+            )
+          ).revertedWith("TC-38: wrong health factor config");
         });
       });
     });
