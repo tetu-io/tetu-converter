@@ -13,6 +13,7 @@ import "../openzeppelin/Clones.sol";
 import "../openzeppelin/IERC20.sol";
 import "../openzeppelin/SafeERC20.sol";
 import "../openzeppelin/EnumerableSet.sol";
+import "../openzeppelin/EnumerableMap.sol";
 import "../integrations/market/ICErc20.sol";
 import "../integrations/IERC20Extended.sol";
 import "../interfaces/ITetuConverter.sol";
@@ -25,6 +26,7 @@ contract BorrowManager is IBorrowManager {
   using Clones for address;
   using EnumerableSet for EnumerableSet.AddressSet;
   using EnumerableSet for EnumerableSet.UintSet;
+  using EnumerableMap for EnumerableMap.UintToAddressMap;
 
   /// @notice Reward APR is taken into account with given factor
   ///         Result APR = borrow-apr - supply-apr - Factor/Denominator * rewards-APR
@@ -69,8 +71,8 @@ contract BorrowManager is IBorrowManager {
   mapping(address => address) public converterToPlatformAdapter;
 
   /// @notice Complete list ever created pool adapters
-  /// @dev PoolAdapterKey(== keccak256(converter, user, collateral, borrowToken)) => address of the pool adapter
-  mapping (uint => address) public poolAdapters;
+  /// @dev user => PoolAdapterKey(== keccak256(converter, collateral, borrowToken)) => address of the pool adapter
+  mapping (address => EnumerableMap.UintToAddressMap) private _poolAdapters;
 
   /// @notice Pool adapter => is registered
   mapping (address => bool) poolAdaptersRegistered;
@@ -297,9 +299,9 @@ contract BorrowManager is IBorrowManager {
   ) external override returns (address) {
     _onlyTetuConverterOrUser(user_);
 
-    uint poolAdapterKey = getPoolAdapterKey(converter_, user_, collateralAsset_, borrowAsset_);
-    address dest = poolAdapters[poolAdapterKey];
-    if (dest == address(0) ) {
+    uint poolAdapterKey = getPoolAdapterKey(converter_, collateralAsset_, borrowAsset_);
+    (bool found, address dest) = _poolAdapters[user_].tryGet(poolAdapterKey);
+    if (! found) {
       // pool adapter is not yet registered
       // create a new instance of the pool adapter using minimal proxy pattern, initialize newly created contract
       dest = converter_.clone();
@@ -312,7 +314,7 @@ contract BorrowManager is IBorrowManager {
       );
 
       // register newly created pool adapter in the list of the pool adapters forever
-      poolAdapters[poolAdapterKey] = dest;
+      _poolAdapters[user_].set(poolAdapterKey, dest);
       poolAdaptersRegistered[dest] = true;
     }
 
@@ -338,7 +340,8 @@ contract BorrowManager is IBorrowManager {
     address collateral_,
     address borrowToken_
   ) external view override returns (address) {
-    return poolAdapters[getPoolAdapterKey(converter_, user_, collateral_, borrowToken_)];
+    (bool found, address dest) = _poolAdapters[user_].tryGet(getPoolAdapterKey(converter_, collateral_, borrowToken_));
+    return found ? dest : address(0);
   }
 
   function _getPlatformAdapter(address converter_) internal view returns(address) {
@@ -363,11 +366,10 @@ contract BorrowManager is IBorrowManager {
   ///////////////////////////////////////////////////////
 
   function getPoolAdapterKey(address converter_,
-    address user_,
     address collateral_,
     address borrowToken_
   ) public pure returns (uint){
-    return uint(keccak256(abi.encodePacked(converter_, user_, collateral_, borrowToken_)));
+    return uint(keccak256(abi.encodePacked(converter_, collateral_, borrowToken_)));
   }
 
   function getAssetPairKey(address assetLeft_, address assetRight_) public pure returns (uint) {

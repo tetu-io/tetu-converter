@@ -6,3 +6,7 @@ Keeper:
 
 Tetu converter contracts
 - check and rename "lending" to "borrowing" if necessary
+
+Fix IBorrower interface
+
+Borrow, repay should return transferred amounts

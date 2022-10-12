@@ -819,13 +819,13 @@ describe("BorrowRepayTest", () => {
                 , true
               );
               controlGasLimitsEx(r.gasUsedByPaInitialization!, GAS_LIMIT_SINGLE_BORROW_SINGLE_REPAY_INITIALIZE_PA, (u, t) => {
-                expect(u).to.be.below(t);
+                expect(u).to.be.below(t + 1);
               });
               controlGasLimitsEx(r.gasUsedByBorrow!, GAS_LIMIT_SINGLE_BORROW_SINGLE_REPAY_AAVE3_BORROW, (u, t) => {
-                expect(u).to.be.below(t);
+                expect(u).to.be.below(t + 1);
               });
               controlGasLimitsEx(r.gasUsedByRepay!, GAS_LIMIT_SINGLE_BORROW_SINGLE_REPAY_AAVE3_REPAY, (u, t) => {
-                expect(u).to.be.below(t);
+                expect(u).to.be.below(t + 1);
               });
             });
           });
@@ -854,13 +854,13 @@ describe("BorrowRepayTest", () => {
                 true
               );
               controlGasLimitsEx(r.gasUsedByPaInitialization!, GAS_LIMIT_SINGLE_BORROW_SINGLE_REPAY_INITIALIZE_PA, (u, t) => {
-                expect(u).to.be.below(t);
+                expect(u).to.be.below(t + 1);
               });
               controlGasLimitsEx(r.gasUsedByBorrow!, GAS_LIMIT_SINGLE_BORROW_SINGLE_REPAY_HUNDRED_FINANCE_BORROW, (u, t) => {
-                expect(u).to.be.below(t);
+                expect(u).to.be.below(t + 1);
               });
               controlGasLimitsEx(r.gasUsedByRepay!, GAS_LIMIT_SINGLE_BORROW_SINGLE_REPAY_HUNDRED_FINANCE_REPAY, (u, t) => {
-                expect(u).to.be.below(t);
+                expect(u).to.be.below(t + 1);
               });
             });
           });
@@ -887,13 +887,13 @@ describe("BorrowRepayTest", () => {
                 , true
               );
               controlGasLimitsEx(r.gasUsedByPaInitialization!, GAS_LIMIT_SINGLE_BORROW_SINGLE_REPAY_INITIALIZE_PA, (u, t) => {
-                expect(u).to.be.below(t);
+                expect(u).to.be.below(t + 1);
               });
               controlGasLimitsEx(r.gasUsedByBorrow!, GAS_LIMIT_SINGLE_BORROW_SINGLE_REPAY_DFORCE_BORROW, (u, t) => {
-                expect(u).to.be.below(t);
+                expect(u).to.be.below(t + 1);
               });
               controlGasLimitsEx(r.gasUsedByRepay!, GAS_LIMIT_SINGLE_BORROW_SINGLE_REPAY_DFORCE_REPAY, (u, t) => {
-                expect(u).to.be.below(t);
+                expect(u).to.be.below(t + 1);
               });
             });
           });
@@ -920,13 +920,13 @@ describe("BorrowRepayTest", () => {
                 , true
               );
               controlGasLimitsEx(r.gasUsedByPaInitialization!, GAS_LIMIT_SINGLE_BORROW_SINGLE_REPAY_INITIALIZE_PA, (u, t) => {
-                expect(u).to.be.below(t);
+                expect(u).to.be.below(t + 1);
               });
               controlGasLimitsEx(r.gasUsedByBorrow!, GAS_LIMIT_SINGLE_BORROW_SINGLE_REPAY_AAVE_TWO_BORROW, (u, t) => {
-                expect(u).to.be.below(t);
+                expect(u).to.be.below(t + 1);
               });
               controlGasLimitsEx(r.gasUsedByRepay!, GAS_LIMIT_SINGLE_BORROW_SINGLE_REPAY_AAVE_TWO_REPAY, (u, t) => {
-                expect(u).to.be.below(t);
+                expect(u).to.be.below(t + 1);
               });
             });
           });
