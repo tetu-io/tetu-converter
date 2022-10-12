@@ -221,7 +221,7 @@ describe("DebtsMonitor", () => {
       targetDecimals: pp.targetDecimals,
       availablePools: [{
         borrowRateInTokens: [0, getBigNumberFrom(pp.borrowRate)],
-        availableLiquidityInTokens: [0, 200_000]
+        availableLiquidityInTokens: [0, 500_000]
       }]
     };
 
@@ -1033,8 +1033,8 @@ describe("DebtsMonitor", () => {
 
   describe("checkHealth", () => {
     describe("Good paths", () => {
-      describe("Single borrowed token", () => {
-        describe("The token is healthy", () => {
+      describe("Single borrow", () => {
+        describe("Pool adapter is healthy", () => {
           describe("Health factor > min", () => {
             it("should return empty", async () => {
               const index = 0;
@@ -1142,7 +1142,7 @@ describe("DebtsMonitor", () => {
             });
           });
         });
-        describe("The token is unhealthy", () => {
+        describe("Pool adapter is unhealthy", () => {
           describe("Collateral factor becomes too small", () => {
             it("should found problem pool adapter", async () => {
               const index = 0;
@@ -1321,7 +1321,7 @@ describe("DebtsMonitor", () => {
           });
         });
       });
-      describe("Multiple borrowed tokens", () => {
+      describe("Multiple borrows", () => {
         async function checkAllBorrows(
           portionSize: number,
           countBorrows: number,
@@ -1458,13 +1458,301 @@ describe("DebtsMonitor", () => {
 
   describe("checkAdditionalBorrow", () => {
     describe("Good paths", () => {
-      it("should return expected values", async () => {
-        expect.fail("TODO");
+      describe("Single borrow", () => {
+        describe("Pool adapter is unhealthy", () => {
+          describe("Health factor < max", () => {
+            it("should return empty", async () => {
+              const index = 0;
+              const count = 100; // find all pools
+
+              const pp: ISinglePoolAdapterTestParams = {
+                amountCollateral:  10_000,
+                sourceDecimals: 6,
+                targetDecimals: 24,
+                amountToBorrow: 1000,
+                priceSourceUSD: {initial: 1, updated: 1},
+                priceTargetUSD: {initial: 2, updated: 2},
+                collateralFactor: {initial: 0.5, updated: 0.5},
+                countPassedBlocks: 0, // no debts
+                borrowRate: 1e8
+              }
+              const {dm, poolAdapterMock, controller} = await prepareSinglePoolAdapterHealthTest(pp);
+
+              const currentHealthFactor18 = (await poolAdapterMock.getStatus()).healthFactor18;
+              const maxAllowedHealthFactor2 = currentHealthFactor18
+                .mul(2)
+                .div(getBigNumberFrom(1, 18-2))
+                .toNumber();
+              await controller.setMaxHealthFactor2(maxAllowedHealthFactor2);
+
+              const expectedHealthFactor =
+                pp.collateralFactor.updated
+                * pp.priceSourceUSD.updated * pp.amountCollateral
+                / (pp.priceTargetUSD.updated * pp.amountToBorrow + pp.borrowRate * pp.countPassedBlocks);
+              console.log("Expected healthy factor", expectedHealthFactor);
+
+              const ret = await dm.checkHealth(index, count, count);
+
+              const sret = [
+                ret.nextIndexToCheck0.toNumber(),
+                ret.outPoolAdapters.length,
+                ret.outPoolAdapters,
+                expectedHealthFactor < maxAllowedHealthFactor2 / 100,
+                ret.outAmountsToRepay.length
+              ].join();
+
+              const sexpected = [
+                0,
+                0,
+                [],
+                true,
+                0
+              ].join();
+
+              expect(sret).equal(sexpected);
+            });
+          });
+          describe("Health factor == max", () => {
+            it("should return empty", async () => {
+              const index = 0;
+              const count = 100; // find all pools
+
+              const pp: ISinglePoolAdapterTestParams = {
+                amountCollateral:  10_000,
+                sourceDecimals: 6,
+                targetDecimals: 24,
+                amountToBorrow: 1000,
+                priceSourceUSD: {initial: 1, updated: 1},
+                priceTargetUSD: {initial: 2, updated: 2},
+                collateralFactor: {initial: 0.9, updated: 0.9},
+                countPassedBlocks: 0, // no debts
+                borrowRate: 1e8
+              }
+              const {dm, poolAdapterMock, controller} = await prepareSinglePoolAdapterHealthTest(pp);
+
+              const currentHealthFactor18 = (await poolAdapterMock.getStatus()).healthFactor18;
+              const maxAllowedHealthFactor2 = currentHealthFactor18
+                .div(getBigNumberFrom(1, 18-2))
+                .toNumber();
+              await controller.setMinHealthFactor2(maxAllowedHealthFactor2 / 3);
+              await controller.setTargetHealthFactor2(maxAllowedHealthFactor2 / 1.5);
+              await controller.setMaxHealthFactor2(maxAllowedHealthFactor2);
+
+              const expectedHealthFactor =
+                pp.collateralFactor.updated
+                * pp.priceSourceUSD.updated * pp.amountCollateral
+                / (pp.priceTargetUSD.updated * pp.amountToBorrow + pp.borrowRate * pp.countPassedBlocks);
+              console.log("Expected healthy factor", expectedHealthFactor);
+
+              const ret = await dm.checkHealth(index, count, count);
+
+              const sret = [
+                ret.nextIndexToCheck0.toNumber(),
+                ret.outPoolAdapters.length,
+                ret.outPoolAdapters,
+                expectedHealthFactor === maxAllowedHealthFactor2 / 100,
+                ret.outAmountsToRepay.length
+              ].join();
+
+              const sexpected = [
+                0,
+                0,
+                [],
+                true,
+                0,
+              ].join();
+
+              expect(sret).equal(sexpected);
+            });
+          });
+        });
+        describe("Health factor exceeds max", () => {
+          it("should found problem pool adapter", async () => {
+            const index = 0;
+            const count = 100; // find all pools
+
+            const pp: ISinglePoolAdapterTestParams = {
+              amountCollateral:  10_000,
+              sourceDecimals: 6,
+              targetDecimals: 24,
+              amountToBorrow: 500,
+              priceSourceUSD: {initial: 1, updated: 1},
+              priceTargetUSD: {initial: 2, updated: 2},
+              collateralFactor: {
+                initial: 0.1,
+                updated: 0.5 // (!)
+              },
+              countPassedBlocks: 0, // no debts
+              borrowRate: 1e8
+            }
+
+            // Set up target health factor
+            // Let's do it 4 times smaller than current health factor
+            const timesToIncreaseHealthFactor = 4.;
+            const {dm, poolAdapterMock, controller} = await prepareSinglePoolAdapterHealthTest(pp);
+            const currentHealthFactor2 = (await poolAdapterMock.getStatus()).healthFactor18
+              .div(getBigNumberFrom(1, 16)); // decimals 18 => 2
+
+            await controller.setMaxHealthFactor2(currentHealthFactor2.div(2));
+            await controller.setTargetHealthFactor2(currentHealthFactor2.div(timesToIncreaseHealthFactor));
+
+            const ret = await dm.checkAdditionalBorrow(index, count, count);
+
+            const sret = [
+              ret.nextIndexToCheck0.toNumber(),
+              ret.outPoolAdapters.length,
+              ret.outPoolAdapters,
+              ret.outAmountsToBorrow.length,
+              ret.outAmountsToBorrow
+            ].join();
+
+            // Current health factor is 4 times fewer than target one
+            //    additionalAmountToBeBorrowed = BorrowAmount * (HealthFactorCurrent/HealthFactorTarget - 1)
+            const expectedAmountToBeBorrowed = pp.amountToBorrow * (timesToIncreaseHealthFactor - 1);
+
+            const sexpected = [
+              0,
+              1,
+              [poolAdapterMock.address],
+              1,
+              [getBigNumberFrom(expectedAmountToBeBorrowed, pp.targetDecimals)]
+            ].join();
+
+            expect(sret).equal(sexpected);
+          });
+        });
       });
-    });
-    describe("Bad paths", () => {
-      it("should revert", async () => {
-        expect.fail("TODO");
+      describe("Multiple borrows", () => {
+        async function checkAllBorrows(
+          portionSize: number,
+          countBorrows: number,
+          filterToMakeTooHealthy?: (borrowIndex: number) => boolean,
+        ) : Promise<{countAdapters: number, countAmounts: number}> {
+          let index = 0;
+
+          const pp: IMultiplePoolAdaptersTestParams = {
+            sourceDecimals: 6,
+            targetDecimals: 24,
+            priceSourceUSD: 1,
+            priceTargetUSD: 1,
+            collateralFactor: 0.1,
+            countPassedBlocks: 0, // no debts
+          }
+          const {dm, poolAdapterMocks} = await prepareMultiplePoolAdaptersHealthTest(
+            pp,
+            [...Array(countBorrows).keys()].map(n => ({
+              borrowRateInTokens: 1000 * (n + 1), availableLiquidityInTokens: 100_000 * (n + 1)
+            })),
+            [...Array(countBorrows).keys()].map(n => ({
+              amountCollateral: 2000 * (n + 1), amountToBorrow: 100 * (n + 1)
+            })),
+          );
+
+          if (filterToMakeTooHealthy) {
+            for (let i = 0; i < poolAdapterMocks.length; ++i) {
+              if (filterToMakeTooHealthy(i)) {
+                // move the pool adapter to too-healthy state
+                // let's increase collateral factor significantly from 0.1 to 0.9
+                await poolAdapterMocks[i].changeCollateralFactor(getBigNumberFrom(9, 17));
+              }
+            }
+          }
+
+          let countUnhealthy = 0;
+          let countAmounts = 0;
+          do {
+            const ret = await dm.checkAdditionalBorrow(index, portionSize, portionSize);
+            countUnhealthy += ret.outPoolAdapters.length;
+            countAmounts += ret.outAmountsToBorrow.length;
+            index = ret.nextIndexToCheck0.toNumber();
+          } while (index !== 0);
+
+          return {countAdapters: countUnhealthy, countAmounts};
+        }
+
+        describe("All borrows are healthy", () => {
+          describe("Check all borrows at once", () => {
+            it("should return empty", async () => {
+              const ret = await checkAllBorrows(100, 5);
+              const sret = [ret.countAdapters, ret.countAmounts].join();
+              const sexpected = [0, 0].join();
+              expect(sret).equal(sexpected);
+            });
+          });
+          describe("Check the borrows by parts", () => {
+            it("should return empty", async () => {
+              const ret = await checkAllBorrows(3, 5);
+              const sret = [ret.countAdapters, ret.countAmounts].join();
+              const sexpected = [0, 0].join();
+              expect(sret).equal(sexpected);
+            });
+          });
+        });
+        describe("All borrows are too-healthy", () => {
+          describe("Check all borrows at once", () => {
+            it("should return all borrows", async () => {
+              const countPoolAdapters = 5;
+              const ret = await checkAllBorrows(
+                100,
+                countPoolAdapters,
+                _ => true
+              );
+              const sret = [ret.countAdapters, ret.countAmounts].join();
+              const sexpected = [countPoolAdapters, countPoolAdapters].join();
+              expect(sret).equal(sexpected);
+            });
+          });
+          describe("Check the borrows by parts", () => {
+            it("should return all borrows", async () => {
+              const countPoolAdapters = 5;
+              const ret = await checkAllBorrows(
+                3,
+                countPoolAdapters,
+                _ => true
+              );
+              const sret = [ret.countAdapters, ret.countAmounts].join();
+              const sexpected = [countPoolAdapters, countPoolAdapters].join();
+              expect(sret).equal(sexpected);
+            });
+            it("should return all borrows", async () => {
+              const countPoolAdapters = 7;
+              const ret = await checkAllBorrows(
+                2,
+                countPoolAdapters,
+                _ => true
+              );
+              const sret = [ret.countAdapters, ret.countAmounts].join();
+              const sexpected = [countPoolAdapters, countPoolAdapters].join();
+              expect(sret).equal(sexpected);
+            });
+          });
+        });
+        describe("First borrow is too-healthy", () => {
+          it("should return single borrow only", async () => {
+            const countPoolAdapters = 5;
+            const ret = await checkAllBorrows(
+              3,
+              countPoolAdapters,
+              borrowIndex => borrowIndex === 0
+            );
+            const sret = [ret.countAdapters, ret.countAmounts].join();
+            const sexpected = [1, 1].join();
+            expect(sret).equal(sexpected);
+          });
+        });
+        describe("Last borrow is too-healthy", () => {
+          it("should return last borrow only", async () => {
+            const countPoolAdapters = 7;
+            const ret = await checkAllBorrows(
+              2,
+              countPoolAdapters,
+              borrowIndex => borrowIndex === countPoolAdapters - 1
+            );
+            const sret = [ret.countAdapters, ret.countAmounts].join();
+            const sexpected = [1, 1].join();
+            expect(sret).equal(sexpected);
+          });
+        });
       });
     });
   });
