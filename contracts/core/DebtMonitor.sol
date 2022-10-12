@@ -302,7 +302,7 @@ contract DebtMonitor is IDebtMonitor {
     // check if we can re-borrow the asset in different place with higher profit
     (address origin,, address sourceToken, address targetToken) = pa_.getConfig();
     (address converter,, int aprForPeriod18) = tc_.findConversionStrategy(
-      sourceToken, sourceAmount_, targetToken, periodInBlocks_, uint8(AppDataTypes.ConversionKind.UNKNOWN_0)
+      sourceToken, sourceAmount_, targetToken, periodInBlocks_, ITetuConverter.ConversionMode.AUTO_0
     );
     int currentApr18 = pa_.getAPR18() * int(periodInBlocks_);
 

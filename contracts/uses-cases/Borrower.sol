@@ -50,7 +50,7 @@ contract Borrower is IBorrower {
       sourceAmount_,
       targetAsset_,
       _borrowPeriodInBlocks,
-      uint8(AppDataTypes.ConversionKind.UNKNOWN_0)
+      ITetuConverter.ConversionMode.AUTO_0
     );
     require(converter != address(0), "Conversion strategy wasn't found");
     require(maxTargetAmount != 0, "maxTargetAmount is 0");
@@ -102,7 +102,7 @@ contract Borrower is IBorrower {
       sourceAmount_,
       targetAsset_,
       _borrowPeriodInBlocks,
-      uint8(AppDataTypes.ConversionKind.UNKNOWN_0)
+      ITetuConverter.ConversionMode.AUTO_0
     );
     require(converter != address(0), "Conversion strategy wasn't found");
     require(maxTargetAmount != 0, "maxTargetAmount is 0");
@@ -290,7 +290,7 @@ contract Borrower is IBorrower {
       sourceAmount_,
       targetAsset_,
       _borrowPeriodInBlocks,
-      uint8(AppDataTypes.ConversionKind.UNKNOWN_0)
+      ITetuConverter.ConversionMode.AUTO_0
     );
 
     console.log("preInitializePoolAdapter findConversionStrategy.completed gasleft", gasleft());

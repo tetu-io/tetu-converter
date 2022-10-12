@@ -4,11 +4,17 @@ pragma solidity 0.8.4;
 
 /// @notice Main contract of the TetuConverter application
 interface ITetuConverter {
+  enum ConversionMode {
+    AUTO_0,
+    SWAP_1,
+    BORROW_2
+  }
+
 //todo rename lending to borrowing
   /// @notice Find best conversion strategy (swap or borrow) and provide "cost of money" as interest for the period
   /// @param sourceAmount_ Amount to be converted
   /// @param periodInBlocks_ Estimated period to keep target amount. It's required to compute APR
-  /// @param conversionKind See AppDataTypes.ConversionKind, use UNKNOWN_0 to auto select best strategy
+  /// @param conversionMode Allow to select conversion kind (swap, borrowing) automatically or manually
   /// @return converter Result contract that should be used for conversion; it supports IConverter
   /// @return maxTargetAmount Max available amount of target tokens that we can get after conversion
   /// @return aprForPeriod36 Interest on the use of {outMaxTargetAmount} during the given period, decimals 36
@@ -17,25 +23,25 @@ interface ITetuConverter {
     uint sourceAmount_,
     address targetToken_,
     uint periodInBlocks_,
-    uint8 conversionKind  // todo new enum
+    ConversionMode conversionMode
   ) external view returns (
     address converter,
     uint maxTargetAmount,
     int aprForPeriod36
   );
 
-  /// @notice Convert {sourceAmount_} to {targetAmount_} using {converter_}
+  /// @notice Convert {collateralAmount_} to {amountToBorrow_} using {converter_}
   ///         Target amount will be transferred to {receiver_}
-  /// @dev Transferring of sourceAmount_ should be approved by the caller
+  /// @dev Transferring of {collateralAmount_} should be approved by the caller
   /// @param converter_ A converter received from findBestConversionStrategy.
-  /// @param sourceAmount_ Amount of {sourceToken_}. This amount should be already sent to balance of the TetuConverter
-  /// @param targetAmount_ Amount of {targetToken_} to be borrowed and sent to {receiver_}
+  /// @param collateralAmount_ Amount of {collateralAsset_}. This amount must be approved for TetuConverter.
+  /// @param amountToBorrow_ Amount of {borrowAsset_} to be borrowed and sent to {receiver_}
   function borrow(
     address converter_,
-    address sourceToken_, //todo rename source and target
-    uint sourceAmount_,
-    address targetToken_,
-    uint targetAmount_,
+    address collateralAsset_,
+    uint collateralAmount_,
+    address borrowAsset_,
+    uint amountToBorrow_,
     address receiver_
   ) external;
 
@@ -44,8 +50,8 @@ interface ITetuConverter {
   /// @param poolAdapterOptional_ Allow to make repayment of specified loan (i.e the unhealthy loan)
   ///        If 0, then exist loans will be repaid in order of creation, one by one.
   function repay(
-    address collateralAsset_, // repay don't make any rebalance
-    address borrowAsset_,  // start to repay from worst loan
+    address collateralAsset_,
+    address borrowAsset_,
     uint amountToRepay_,
     address collateralReceiver_,
     address poolAdapterOptional_
@@ -61,11 +67,11 @@ interface ITetuConverter {
     address borrowAsset_
   ) external view returns (uint borrowAssetAmount);
 
-  /// @notice Check if any reward tokens exist on the balance of the pool adapter
-  function checkRewards() external view returns (address[] memory rewardTokens, uint[] memory amounts); //todo remove
-
   /// @notice Transfer all given reward tokens to {receiver_}
-  function claimRewards(address receiver_, address[] memory rewardTokens) external; //todo return amounts and tokens
+  function claimRewards() external returns (
+    address[] memory rewardTokens,
+    uint[] memory amounts
+  );
 
 
 

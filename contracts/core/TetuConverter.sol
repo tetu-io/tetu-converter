@@ -47,7 +47,7 @@ contract TetuConverter is ITetuConverter {
     uint sourceAmount_,
     address targetToken_,
     uint periodInBlocks_,
-    uint8 conversionKind
+    ConversionMode conversionMode
   ) external view override returns (
     address converter,
     uint maxTargetAmount,
@@ -57,7 +57,7 @@ contract TetuConverter is ITetuConverter {
       sourceAmount_,
       targetToken_,
       periodInBlocks_,
-      AppDataTypes.ConversionKind(conversionKind)
+      conversionMode
     );
   }
 
@@ -67,7 +67,7 @@ contract TetuConverter is ITetuConverter {
     uint sourceAmount_,
     address targetToken_,
     uint periodInBlocks_,
-    AppDataTypes.ConversionKind conversionKind
+    ConversionMode conversionMode
   ) internal view returns (
     address converter,
     uint maxTargetAmount,
@@ -80,10 +80,10 @@ contract TetuConverter is ITetuConverter {
       periodInBlocks: periodInBlocks_
     });
 
-    if (conversionKind == AppDataTypes.ConversionKind.SWAP_1) {
+    if (conversionMode == ITetuConverter.ConversionMode.SWAP_1) {
       // get swap
       return _swapManager().getConverter(params);
-    } else if (conversionKind == AppDataTypes.ConversionKind.BORROW_2) {
+    } else if (conversionMode == ITetuConverter.ConversionMode.BORROW_2) {
       // find best lending platform
       return _borrowManager().findConverter(params);
     } else {
@@ -101,21 +101,21 @@ contract TetuConverter is ITetuConverter {
 
   function borrow(
     address converter_,
-    address sourceToken_,
-    uint sourceAmount_,
-    address targetToken_,
-    uint targetAmount_,
+    address collateralAsset_,
+    uint collateralAmount_,
+    address borrowAsset_,
+    uint amountToBorrow_,
     address receiver_
 ) external override {
-    _convert(converter_, sourceToken_, sourceAmount_, targetToken_, targetAmount_, receiver_, msg.sender);
+    _convert(converter_, collateralAsset_, collateralAmount_, borrowAsset_, amountToBorrow_, receiver_, msg.sender);
   }
 
   function _convert(
     address converter_,
-    address sourceToken_,
-    uint sourceAmount_,
-    address targetToken_,
-    uint targetAmount_,
+    address collateralAsset_,
+    uint collateralAmount_,
+    address borrowAsset_,
+    uint amountToBorrow_,
     address receiver_,
     address collateralProvider_
   ) internal {
@@ -123,13 +123,13 @@ contract TetuConverter is ITetuConverter {
       // make borrow
 
       // get exist or register new pool adapter
-      address poolAdapter = _borrowManager().getPoolAdapter(converter_, msg.sender, sourceToken_, targetToken_);
+      address poolAdapter = _borrowManager().getPoolAdapter(converter_, msg.sender, collateralAsset_, borrowAsset_);
       if (poolAdapter == address(0)) {
         poolAdapter = _borrowManager().registerPoolAdapter(
           converter_,
           msg.sender,
-          sourceToken_,
-          targetToken_
+          collateralAsset_,
+          borrowAsset_
         );
       }
       require(poolAdapter != address(0), AppErrors.POOL_ADAPTER_NOT_FOUND);
@@ -137,24 +137,24 @@ contract TetuConverter is ITetuConverter {
       // transfer the collateral from the user directly to the pool adapter; assume, that the transfer is approved
       IPoolAdapter(poolAdapter).syncBalance(true);
       if (collateralProvider_ == address(this)) {
-        IERC20(sourceToken_).transfer(poolAdapter, sourceAmount_);
+        IERC20(collateralAsset_).transfer(poolAdapter, collateralAmount_);
       } else {
-        IERC20(sourceToken_).transferFrom(collateralProvider_, poolAdapter, sourceAmount_);
+        IERC20(collateralAsset_).transferFrom(collateralProvider_, poolAdapter, collateralAmount_);
       }
       // borrow target-amount and transfer borrowed amount to the receiver
-      IPoolAdapter(poolAdapter).borrow(sourceAmount_, targetAmount_, receiver_);
+      IPoolAdapter(poolAdapter).borrow(collateralAmount_, amountToBorrow_, receiver_);
 
     } if (IConverter(converter_).getConversionKind() == AppDataTypes.ConversionKind.SWAP_1) {
-      IERC20(sourceToken_).transfer(converter_, sourceAmount_);
+      IERC20(collateralAsset_).transfer(converter_, collateralAmount_);
       // TODO move to fn params
       // Bogdoslav: I guess better do that after merge -
       // because _convert function params could be changed
       // and tests should be fixed
       ISwapConverter(converter_).swap(
-        sourceToken_,
-        sourceAmount_,
-        targetToken_,
-        targetAmount_,
+        collateralAsset_,
+        collateralAmount_,
+        borrowAsset_,
+        amountToBorrow_,
         receiver_
       );
 
@@ -180,10 +180,13 @@ contract TetuConverter is ITetuConverter {
     amountToRepay_;
     collateralReceiver_;
     poolAdapterOptional_;
+
+    // repay don't make any rebalance
+    // start to repay from worst loan
   }
 
   /// @notice Calculate total amount of borrow tokens that should be repaid to close the loan completely.
-  function getAmountToRepay(
+  function getDebtAmount(
     address collateralAsset_,
     address borrowAsset_
   ) external view override returns (uint) {
@@ -211,22 +214,12 @@ contract TetuConverter is ITetuConverter {
   ///////////////////////////////////////////////////////
 
   /// @notice Check if any reward tokens exist on the balance of the pool adapter
-  function checkRewards() external view override returns (
+  function claimRewards() external override returns (
     address[] memory rewardTokens,
     uint[] memory amounts
   ) {
     // TODO
     return (rewardTokens, amounts);
-  }
-
-  /// @notice Transfer all given reward tokens to {receiver_}
-  function claimRewards(
-    address receiver_,
-    address[] memory rewardTokens_
-  ) external override {
-    // TODO
-    receiver_;
-    rewardTokens_;
   }
 
   ///////////////////////////////////////////////////////
@@ -260,7 +253,7 @@ contract TetuConverter is ITetuConverter {
       deltaCollateral,
       borrowAsset,
       periodInBlocks_,
-      AppDataTypes.ConversionKind.UNKNOWN_0
+      ITetuConverter.ConversionMode.AUTO_0
     );
     require(converter != originConverter, AppErrors.RECONVERSION_WITH_SAME_CONVERTER_FORBIDDEN);
 
