@@ -4,8 +4,8 @@ pragma solidity 0.8.4;
 
 /// @notice Main contract of the TetuConverter application
 interface ITetuConverter {
-
-  /// @notice Find best conversion strategy (swap or lending) and provide "cost of money" as interest for the period
+//todo rename lending to borrowing
+  /// @notice Find best conversion strategy (swap or borrow) and provide "cost of money" as interest for the period
   /// @param sourceAmount_ Amount to be converted
   /// @param periodInBlocks_ Estimated period to keep target amount. It's required to compute APR
   /// @param conversionKind See AppDataTypes.ConversionKind, use UNKNOWN_0 to auto select best strategy
@@ -17,7 +17,7 @@ interface ITetuConverter {
     uint sourceAmount_,
     address targetToken_,
     uint periodInBlocks_,
-    uint8 conversionKind
+    uint8 conversionKind  // todo new enum
   ) external view returns (
     address converter,
     uint maxTargetAmount,
@@ -32,7 +32,7 @@ interface ITetuConverter {
   /// @param targetAmount_ Amount of {targetToken_} to be borrowed and sent to {receiver_}
   function borrow(
     address converter_,
-    address sourceToken_,
+    address sourceToken_, //todo rename source and target
     uint sourceAmount_,
     address targetToken_,
     uint targetAmount_,
@@ -44,28 +44,28 @@ interface ITetuConverter {
   /// @param poolAdapterOptional_ Allow to make repayment of specified loan (i.e the unhealthy loan)
   ///        If 0, then exist loans will be repaid in order of creation, one by one.
   function repay(
-    address collateralAsset_,
-    address borrowAsset_,
+    address collateralAsset_, // repay don't make any rebalance
+    address borrowAsset_,  // start to repay from worst loan
     uint amountToRepay_,
     address collateralReceiver_,
     address poolAdapterOptional_
   ) external;
 
   /// @notice Calculate total amount of borrow tokens that should be repaid to close the loan completely.
-  function getAmountToRepay(address collateralAsset_, address borrowAsset_) external view returns (uint);
+  function getDebtAmount(address collateralAsset_, address borrowAsset_) external view returns (uint);
 
   /// @notice User needs to redeem some collateral amount. Calculate an amount that should be repaid
   function estimateRepay(
     address collateralAsset_,
-    uint collateralAmountToRedeem_,
+    uint collateralAmountRequired_,
     address borrowAsset_
-  ) external view returns (uint);
+  ) external view returns (uint borrowAssetAmount);
 
   /// @notice Check if any reward tokens exist on the balance of the pool adapter
-  function checkRewards() external view returns (address[] memory rewardTokens, uint[] memory amounts);
+  function checkRewards() external view returns (address[] memory rewardTokens, uint[] memory amounts); //todo remove
 
   /// @notice Transfer all given reward tokens to {receiver_}
-  function claimRewards(address receiver_, address[] memory rewardTokens) external;
+  function claimRewards(address receiver_, address[] memory rewardTokens) external; //todo return amounts and tokens
 
 
 
