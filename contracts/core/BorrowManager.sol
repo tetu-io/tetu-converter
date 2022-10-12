@@ -322,12 +322,8 @@ contract BorrowManager is IBorrowManager {
   }
 
   ///////////////////////////////////////////////////////
-  ///                  Getters
+  ///         Getters - pool adapters
   ///////////////////////////////////////////////////////
-
-  function getPlatformAdapter(address converter_) external view override returns (address) {
-    return _getPlatformAdapter(converter_);
-  }
 
   function isPoolAdapter(address poolAdapter_) external view override returns (bool) {
     return poolAdaptersRegistered[poolAdapter_];
@@ -344,11 +340,38 @@ contract BorrowManager is IBorrowManager {
     return found ? dest : address(0);
   }
 
+  function getPoolAdaptersForUser(
+    address user_,
+    address collateralAsset_,
+    address borrowAsset_
+  ) external view override returns (
+    address[] memory poolAdapters
+  ) {
+    EnumerableMap.UintToAddressMap storage map = _poolAdapters[user_];
+    uint size = map.length();
+    poolAdapters = new address[](size);
+    for (uint i = 0; i < size; i = i.uncheckedInc()) {
+      (,poolAdapters[i]) = map.at(i);
+    }
+  }
+
+  ///////////////////////////////////////////////////////
+  ///         Getters - platform adapters
+  ///////////////////////////////////////////////////////
+
+  function getPlatformAdapter(address converter_) external view override returns (address) {
+    return _getPlatformAdapter(converter_);
+  }
+
   function _getPlatformAdapter(address converter_) internal view returns(address) {
     address platformAdapter = converterToPlatformAdapter[converter_];
     require(platformAdapter != address(0), AppErrors.PLATFORM_ADAPTER_NOT_FOUND);
     return platformAdapter;
   }
+
+  ///////////////////////////////////////////////////////
+  ///         Getters - health factor
+  ///////////////////////////////////////////////////////
 
   function getTargetHealthFactor2(address asset) external view override returns (uint) {
     return _getTargetHealthFactor2(asset);
@@ -361,6 +384,7 @@ contract BorrowManager is IBorrowManager {
     }
     return dest;
   }
+
   ///////////////////////////////////////////////////////
   ///                 keccak256 keys
   ///////////////////////////////////////////////////////
