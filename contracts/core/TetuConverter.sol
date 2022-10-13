@@ -17,10 +17,10 @@ import "../interfaces/IController.sol";
 import "../interfaces/IDebtsMonitor.sol";
 import "../interfaces/IConverter.sol";
 import "../interfaces/ISwapConverter.sol";
-import "../interfaces/ITetuConverterCallback.sol";
+import "../interfaces/IKeeperCallback.sol";
 
 /// @notice Main application contract
-contract TetuConverter is ITetuConverter, ITetuConverterCallback {
+contract TetuConverter is ITetuConverter, IKeeperCallback {
   using SafeERC20 for IERC20;
 
   ///////////////////////////////////////////////////////

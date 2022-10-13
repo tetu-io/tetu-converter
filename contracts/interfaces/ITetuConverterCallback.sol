@@ -1,39 +1,29 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.4;
 
-/// @notice Keeper sends notifications to TetuConverter using following interface
+/// @notice TetuConverter sends callback notifications to its user via this interface
 interface ITetuConverterCallback {
-
-  /// @notice This function is called by a keeper if there is unhealthy borrow
-  ///         and it's necessary to return a part of borrowed amount back
-  /// @param collateralAsset_ Address of collateral asset
-  /// @param borrowAsset_ Address of borrowed asset
-  /// @param amountToRepay_ The borrower must return given amount back to the TetuConverter
-  ///                       in order to restore health factor to target value
-  /// @param lendingPoolAdapter_ Address of the pool adapter that has problem health factor
-  function requireRepay(
+  /// @notice TetuConverter calls this function when it needs to return some borrowed amount back
+  ///         i.e. for re-balancing or re-conversion
+  /// @param collateralAsset_ Collateral asset of the borrow to identify the borrow on the borrower's side
+  /// @param borrowAsset_ Borrow asset of the borrow to identify the borrow on the borrower's side
+  /// @param amountToReturn_ What amount of borrow asset the Borrower should send back to TetuConverter
+  /// @return amountBorrowAssetReturned Exact amount that borrower has sent to balance of TetuConverter
+  ///                                   It should be equal to amountToReturn_
+  function requireBorrowedAmountBack (
     address collateralAsset_,
     address borrowAsset_,
-    uint amountToRepay_,
-    address lendingPoolAdapter_
-  ) external;
+    uint amountToReturn_
+  ) external returns (uint amountBorrowAssetReturned);
 
-  /// @notice This function is called by a keeper if the health factor of the borrow is too big,
-  ///         and so it's possible to borrow additional amount using the exist collateral amount
-  /// @param collateralAsset_ Address of collateral asset
-  /// @param borrowAsset_ Address of borrowed asset
-  /// @param amountToBorrow_ It's safe to borrow given amount. As result health factor will reduce to target value.
-  /// @param lendingPoolAdapter_ Address of the pool adapter that has too big health factor
-  function requireAdditionalBorrow(
+  /// @notice TetuConverter calls this function when it makes additional borrow (using exist collateral).
+  ///         The given amount has already be sent to balance of the user, the user just should use it.
+  /// @param collateralAsset_ Collateral asset of the borrow to identify the borrow on the borrower's side
+  /// @param borrowAsset_ Borrow asset of the borrow to identify the borrow on the borrower's side
+  /// @param amountBorrowAssetSentToBorrower_ This amount has been sent to the borrower's balance
+  function onTransferBorrowedAmount (
     address collateralAsset_,
     address borrowAsset_,
-    uint amountToBorrow_,
-    address lendingPoolAdapter_
+    uint amountBorrowAssetSentToBorrower_
   ) external;
-
-  /// @notice This function is called by a keeper if the keeper has found MUCH better way of borrow than current one
-  function requireReconversion(
-    address lendingPoolAdapter_
-  ) external;
-
 }

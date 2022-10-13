@@ -7,10 +7,10 @@ import "../interfaces/ITetuConverter.sol";
 import "../openzeppelin/IERC20.sol";
 import "../interfaces/IPoolAdapter.sol";
 import "../openzeppelin/SafeERC20.sol";
-import "../interfaces/ITetuConverterCallback.sol";
+import "../interfaces/IKeeperCallback.sol";
 import "../interfaces/IBorrowManager.sol";
 import "hardhat/console.sol";
-import "../interfaces/IBorrowerCallback.sol";
+import "../interfaces/ITetuConverterCallback.sol";
 
 /// @notice This contract imitates real TetuConverter-user behavior
 /// Terms:
@@ -18,7 +18,7 @@ import "../interfaces/IBorrowerCallback.sol";
 ///   TC: TestConverter contract
 ///   PA: selected PoolAdapter
 ///   DM: DebtsMonitor
-contract Borrower is IBorrowerCallback {
+contract Borrower is ITetuConverterCallback {
   using SafeERC20 for IERC20;
 
   IController immutable private _controller;
