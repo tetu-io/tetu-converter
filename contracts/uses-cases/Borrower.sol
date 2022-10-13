@@ -27,6 +27,12 @@ contract Borrower is ITetuConverterCallback {
   uint public totalRepaidAmount;
   uint private _borrowPeriodInBlocks;
 
+  ////////////////////////////////////////////////////////////////////
+  // Last results passed to onTransferBorrowedAmount
+  address public onTransferBorrowedAmountLastResultCollateralAsset;
+  address public onTransferBorrowedAmountLastResultBorrowAsset;
+  uint public onTransferBorrowedAmountLastResultAmountBorrowAssetSentToBorrower;
+
   constructor (
     address controller_,
     uint borrowPeriodInBlocks_
@@ -251,9 +257,9 @@ contract Borrower is ITetuConverterCallback {
     address borrowAsset_,
     uint amountBorrowAssetSentToBorrower_
   ) external override {
-    collateralAsset_;
-    borrowAsset_;
-    amountBorrowAssetSentToBorrower_;
+    onTransferBorrowedAmountLastResultCollateralAsset = collateralAsset_;
+    onTransferBorrowedAmountLastResultBorrowAsset = borrowAsset_;
+    onTransferBorrowedAmountLastResultAmountBorrowAssetSentToBorrower = amountBorrowAssetSentToBorrower_;
   }
 
 //  function requireRepay(

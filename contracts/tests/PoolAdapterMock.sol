@@ -28,7 +28,7 @@ contract PoolAdapterMock is IPoolAdapter {
   uint private _collateralFactor;
 
   uint private _borrowedAmounts;
-  /// @notice decimals 18
+  /// @notice decimals of the borrow asset
   uint public borrowRate;
   address public priceOracle;
 
@@ -54,9 +54,9 @@ contract PoolAdapterMock is IPoolAdapter {
     _collateralFactor = collateralFactor_;
   }
 
-  function changeBorrowRate(uint value_) external {
-    console.log("PoolAdapterMock.changeBorrowRate", address(this), borrowRate, value_);
-    borrowRate = value_;
+  function changeBorrowRate(uint amountBorrowAsset_) external {
+    console.log("PoolAdapterMock.changeBorrowRate", address(this), borrowRate, amountBorrowAsset_);
+    borrowRate = amountBorrowAsset_;
   }
 
   ///////////////////////////////////////////////////////
@@ -74,7 +74,7 @@ contract PoolAdapterMock is IPoolAdapter {
     address originConverter_,
     address cTokenMock_,
     uint collateralFactor_,
-    uint borrowRatePerBlock_,
+    uint borrowRatePerBlockInBorrowTokens_,
     address priceOracle_
   ) external {
     console.log("PoolAdapterMock is initialized:", address(this));
@@ -86,7 +86,7 @@ contract PoolAdapterMock is IPoolAdapter {
     _borrowAsset = borrowAsset_;
     _cTokenMock = MockERC20(cTokenMock_);
     _collateralFactor = collateralFactor_;
-    borrowRate = borrowRatePerBlock_;
+    borrowRate = borrowRatePerBlockInBorrowTokens_;
     priceOracle = priceOracle_;
     originConverter = originConverter_;
   }
@@ -109,6 +109,15 @@ contract PoolAdapterMock is IPoolAdapter {
     uint healthFactor18,
     bool opened
   ) {
+    return _getStatus();
+  }
+
+  function _getStatus() internal view returns (
+    uint collateralAmount,
+    uint amountToPay,
+    uint healthFactor18,
+    bool opened
+  ) {
     uint priceCollateral = getPrice18(_collateralAsset);
     uint priceBorrowedUSD = getPrice18(_borrowAsset);
 
@@ -122,10 +131,10 @@ contract PoolAdapterMock is IPoolAdapter {
     console.log("priceBorrowedUSD = %d", priceBorrowedUSD);
 
     healthFactor18 = amountToPay == 0
-      ? type(uint).max
-      : _collateralFactor
-        * collateralAmount.toMantissa(decimalsCollateral, 18) * priceCollateral
-        / (amountToPay.toMantissa(decimalsBorrow, 18) * priceBorrowedUSD);
+    ? type(uint).max
+    : _collateralFactor
+    * collateralAmount.toMantissa(decimalsCollateral, 18) * priceCollateral
+    / (amountToPay.toMantissa(decimalsBorrow, 18) * priceBorrowedUSD);
 
     console.log("healthFactor18=%d", healthFactor18);
     console.log("_collateralFactor=%d", _collateralFactor);
@@ -135,10 +144,10 @@ contract PoolAdapterMock is IPoolAdapter {
     console.log("priceBorrowedUSD=%d", priceBorrowedUSD);
 
     return (
-      collateralAmount,
-      amountToPay,
-      healthFactor18,
-      collateralAmount != 0 || amountToPay != 0
+    collateralAmount,
+    amountToPay,
+    healthFactor18,
+    collateralAmount != 0 || amountToPay != 0
     );
   }
 
@@ -170,9 +179,6 @@ contract PoolAdapterMock is IPoolAdapter {
     uint borrowAmount_,
     address receiver_
   ) external override returns (uint) {
-    console.log("Pool adapter.borrow sender=%s", msg.sender);
-    console.log("collateralAmount_=%d borrowAmount_=%d", collateralAmount_, borrowAmount_);
-
     // ensure we have received expected collateral amount
     require(collateralAmount_ >= IERC20(_collateralAsset).balanceOf(address(this)) - reserveBalances[_collateralAsset]
     , AppErrors.WRONG_COLLATERAL_BALANCE);
@@ -188,21 +194,14 @@ contract PoolAdapterMock is IPoolAdapter {
     // price of the collateral and borrowed token in USD
     uint priceCollateral = getPrice18(_collateralAsset);
     uint priceBorrowedUSD = getPrice18(_borrowAsset);
-    console.log("1");
 
     // ensure that we can borrow allowed amount
     uint maxAmountToBorrowUSD = _collateralFactor
       * (collateralAmount_.toMantissa(IERC20Extended(_collateralAsset).decimals(), 18) * priceCollateral)
       / 1e18
       / 1e18;
-    console.log("2 %d", maxAmountToBorrowUSD);
-    console.log("collateralAmount_=%d", collateralAmount_);
-    console.log("priceCollateral=%d", priceCollateral);
-    console.log("borrowAmount_=%d", borrowAmount_.toMantissa(IERC20Extended(_borrowAsset).decimals(), 18));
-    console.log("priceBorrowedUSD=%d", priceBorrowedUSD);
+
     uint claimedAmount = borrowAmount_.toMantissa(IERC20Extended(_borrowAsset).decimals(), 18) * priceBorrowedUSD / 1e18;
-    console.log("claimedAmount=%d", claimedAmount);
-    console.log("maxAmountToBorrowUSD=%d", maxAmountToBorrowUSD);
     require(maxAmountToBorrowUSD >= claimedAmount, "borrow amount is too big");
 
     // send the borrow amount to the receiver
@@ -220,10 +219,21 @@ contract PoolAdapterMock is IPoolAdapter {
     uint resultHealthFactor18,
     uint borrowedAmountOut
   ) {
-    //TODO
-    borrowAmount_;
-    receiver_;
-    return (resultHealthFactor18, borrowedAmountOut);
+    // let's assume here, that the pool always has enough borrow tokens
+
+    // send the borrow amount to the receiver
+    PoolStub thePool = PoolStub(_pool);
+    thePool.transferToReceiver(_borrowAsset, borrowAmount_, receiver_);
+
+    // increment the debt
+    _addBorrow(borrowAmount_);
+
+    // ensure that result health factor exceeds min allowed value
+    (,, resultHealthFactor18,) = _getStatus();
+    uint minAllowedHealthFactor18 = uint(IController(controller).minHealthFactor2()) * 10**(18-2);
+    require(minAllowedHealthFactor18 < resultHealthFactor18, AppErrors.WRONG_HEALTH_FACTOR);
+
+    return (resultHealthFactor18, borrowAmount_);
   }
 
   function _addBorrow(uint borrowedAmount_) internal {
@@ -301,7 +311,7 @@ contract PoolAdapterMock is IPoolAdapter {
       + borrowRate
         * _borrowedAmounts
         * _passedBlocks
-        / 1e18 //br has decimals 18
+        / IERC20Extended(_borrowAsset).decimals() //borrowRate is in borrow tokens
     ;
   }
 
@@ -324,7 +334,7 @@ contract PoolAdapterMock is IPoolAdapter {
     console.log("PoolAdapterMock address=", address(this));
     console.log("PoolAdapterMock br=", borrowRate);
     console.log("APR18 =", borrowRate);
-    return int(borrowRate);
+    return int(borrowRate * 10**18 / IERC20Extended(_borrowAsset).decimals());
   }
 
   ///////////////////////////////////////////////////////

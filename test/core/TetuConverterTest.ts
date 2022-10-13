@@ -9,7 +9,12 @@ import {
   IERC20__factory,
   MockERC20,
   MockERC20__factory,
-  TetuConverter, Borrower, PoolAdapterMock__factory, LendingPlatformMock__factory
+  TetuConverter,
+  Borrower,
+  PoolAdapterMock__factory,
+  LendingPlatformMock__factory,
+  BorrowManager__factory,
+  IPoolAdapter__factory
 } from "../../typechain";
 import {IBorrowInputParams, BorrowManagerHelper, IPoolInstanceInfo} from "../baseUT/helpers/BorrowManagerHelper";
 import {CoreContracts} from "../baseUT/types/CoreContracts";
@@ -23,6 +28,8 @@ import {Misc} from "../../scripts/utils/Misc";
 describe("TetuConverterTest", () => {
 //region Constants
   const BLOCKS_PER_DAY = 6456;
+  const CONVERSION_MODE_BORROW = 2;
+  const CONVERSION_MODE_SWAP = 1;
 //endregion Constants
 
 //region Global vars for all tests
@@ -100,6 +107,9 @@ describe("TetuConverterTest", () => {
       , async () => (await MocksHelper.createPoolAdapterMock(deployer)).address
     );
     const userContract = await MocksHelper.deployBorrower(deployer.address, core.controller, periodInBlocks);
+    const bmAsTc = BorrowManager__factory.connect(core.bm.address,
+      await DeployerUtils.startImpersonate(core.tc.address)
+    );
 
     let cToken: string | undefined;
     const poolAdapters: string[] = [];
@@ -109,7 +119,7 @@ describe("TetuConverterTest", () => {
       }
 
       // we need to set up a pool adapter
-      await core.bm.registerPoolAdapter(
+      await bmAsTc.registerPoolAdapter(
         pi.converter,
         userContract.address,
         sourceToken.address,
@@ -126,14 +136,14 @@ describe("TetuConverterTest", () => {
     }
 
     return {
-      core
-      , pools: pools.map(x => x.pool)
-      , cToken: cToken || ""
-      , userContract
-      , sourceToken
-      , targetToken
-      , poolAdapters
-      , platformAdapters: pools.map(x => x.platformAdapter)
+      core,
+      pools: pools.map(x => x.pool),
+      cToken: cToken || "",
+      userContract,
+      sourceToken,
+      targetToken,
+      poolAdapters,
+      platformAdapters: pools.map(x => x.platformAdapter)
     };
   }
 //endregion Utils
@@ -174,8 +184,8 @@ describe("TetuConverterTest", () => {
     const contractsToInvestigate: ContractToInvestigate[] = [
       {name: "userContract", contract: userContract.address},
       {name: "tc", contract: core.tc.address},
-      ...pools.map( (x, index) => ({name: `pool ${index}`, contract: x})),
-      ...poolAdapters.map( (x, index) => ({name: `PA ${index}`, contract: x})),
+      ...pools.map((x, index) => ({name: `pool ${index}`, contract: x})),
+      ...poolAdapters.map((x, index) => ({name: `PA ${index}`, contract: x})),
     ];
     const tokensToInvestigate = [sourceToken.address, targetToken.address, cToken];
 
@@ -228,7 +238,7 @@ describe("TetuConverterTest", () => {
     console.log(`Borrow token, balance of user contract=${borrowTokenAsUser.balanceOf(userContract.address)}`);
     console.log(`Amount to pay=${(await status).amountToPay}`);
 
-    await userContract.requireReconversion(borrowsAfterBorrow[0]);
+    // TODO: await userContract.requireReconversion(borrowsAfterBorrow[0]);
 
     // get address of PA where the new borrow was made
     const borrowsAfterReconversion = await userContract.getBorrows(sourceToken.address, targetToken.address);
@@ -270,7 +280,7 @@ describe("TetuConverterTest", () => {
               priceSourceUSD: 0.1,
               priceTargetUSD: 4,
               sourceDecimals: 24,
-              targetDecimals: targetDecimals,
+              targetDecimals,
               availablePools: [
                 {   // source, target
                   borrowRateInTokens: [
@@ -288,8 +298,8 @@ describe("TetuConverterTest", () => {
               data.sourceToken.address,
               getBigNumberFrom(sourceAmount, input.sourceDecimals),
               data.targetToken.address,
-              getBigNumberFrom(healthFactor, 2),
-              period
+              period,
+              CONVERSION_MODE_BORROW
             );
 
             const expectedTargetAmount =
@@ -308,7 +318,10 @@ describe("TetuConverterTest", () => {
             const sexpected = [
               data.pools[0].converter
               , getBigNumberFrom(expectedTargetAmount, input.targetDecimals)
-              , bestBorrowRate.mul(period).mul(Misc.WEI)
+              , bestBorrowRate
+                .mul(period)
+                .mul(Misc.WEI_DOUBLE)
+                .div(getBigNumberFrom(1, targetDecimals))
             ].join();
 
             expect(sret).equal(sexpected);
@@ -335,7 +348,7 @@ describe("TetuConverterTest", () => {
     });
   });
 
-  describe("convert", () => {
+  describe("borrow", () => {
     describe("Good paths", () => {
       describe("UC11, mock", () => {
         it("should update balances in proper way", async () => {
@@ -349,8 +362,8 @@ describe("TetuConverterTest", () => {
             collateralFactor: 0.8,
             priceSourceUSD: 0.1,
             priceTargetUSD: 4,
-            sourceDecimals: sourceDecimals,
-            targetDecimals: targetDecimals,
+            sourceDecimals,
+            targetDecimals,
             availablePools: [
               {   // source, target
                 borrowRateInTokens: [
@@ -413,29 +426,29 @@ describe("TetuConverterTest", () => {
           );
 
           const expected = [
-            //before
-            //userContract, source, target, cToken
+            // before
+            // userContract, source, target, cToken
             "userContract", sourceAmount, 0, 0,
-            //user: source, target, cToken
+            // user: source, target, cToken
             "user", 0, 0, 0,
-            //pool: source, target, cToken
+            // pool: source, target, cToken
             "pool", 0, availableBorrowLiquidity, 0,
-            //tc: source, target, cToken
+            // tc: source, target, cToken
             "tc", 0, 0, 0,
-            //pa: source, target, cToken
+            // pa: source, target, cToken
             "poolAdapter", 0, 0, 0,
             "after",
-            //after borrowing
-            //userContract: source, target, cToken
+            // after borrowing
+            // userContract: source, target, cToken
             "userContract", 0, 0, 0,
-            //user: source, target, cToken
+            // user: source, target, cToken
             "user", 0, expectedTargetAmount, 0,
-            //pool: source, target, cToken
+            // pool: source, target, cToken
             "pool", sourceAmount, availableBorrowLiquidity.sub(expectedTargetAmount), 0,
-            //tc: source, target, cToken
+            // tc: source, target, cToken
             "tc", 0, 0, 0,
-            //pa: source, target, cToken
-            "poolAdapter", 0, 0, sourceAmount //!TODO: we assume exchange rate 1:1
+            // pa: source, target, cToken
+            "poolAdapter", 0, 0, sourceAmount // !TODO: we assume exchange rate 1:1
 
           ].map(x => BalanceUtils.toString(x)).join("\r");
 
@@ -445,18 +458,16 @@ describe("TetuConverterTest", () => {
       describe("UC12, mock", () => {
         it("should update balances in proper way", async () => {
           const user = ethers.Wallet.createRandom().address;
-          const period = BLOCKS_PER_DAY * 31;
           const targetDecimals = 12;
           const sourceDecimals = 24;
           const sourceAmountNumber = 100_000;
           const availableBorrowLiquidityNumber = 200_000_000;
-          const healthFactor = 2;
           const tt: IBorrowInputParams = {
             collateralFactor: 0.8,
             priceSourceUSD: 0.1,
             priceTargetUSD: 4,
-            sourceDecimals: sourceDecimals,
-            targetDecimals: targetDecimals,
+            sourceDecimals,
+            targetDecimals,
             availablePools: [
               {   // source, target
                 borrowRateInTokens: [
@@ -530,16 +541,16 @@ describe("TetuConverterTest", () => {
           const ret = [...before, "after", ...after].map(x => BalanceUtils.toString(x)).join("\r");
 
           const beforeExpected = [
-            //before
-            //userContract, source, target, cToken
+            // before
+            // userContract, source, target, cToken
             "userContract", sourceAmount, 0, 0,
-            //user: source, target, cToken
+            // user: source, target, cToken
             "user", 0, 0, 0,
-            //pool: source, target, cToken
+            // pool: source, target, cToken
             "pool", 0, availableBorrowLiquidity, 0,
-            //tc: source, target, cToken
+            // tc: source, target, cToken
             "tc", 0, 0, 0,
-            //pa: source, target, cToken
+            // pa: source, target, cToken
             "poolAdapter", 0, 0, 0,
           ];
 
@@ -561,6 +572,197 @@ describe("TetuConverterTest", () => {
     });
   });
 
+  describe("repay", () => {
+    describe("Good paths", () => {
+      it("should return expected values", async () => {
+        expect.fail("TODO");
+      });
+    });
+    describe("Bad paths", () => {
+      it("should revert", async () => {
+        expect.fail("TODO");
+      });
+    });
+  });
+
+  describe("requireRepay", () => {
+    describe("Good paths", () => {
+      it("should return expected values", async () => {
+        expect.fail("TODO");
+      });
+    });
+    describe("Bad paths", () => {
+      it("should revert", async () => {
+        expect.fail("TODO");
+      });
+    });
+  });
+
+  describe("requireAdditionalBorrow", () => {
+    /**
+     * Make borrow, reduce all health factors twice, make additional borrow of the same amount
+     */
+    async function makeTest() : Promise<{
+      userContract: Borrower,
+      borrowedAmount: BigNumber,
+      poolAdapter: string,
+      targetHealthFactor2: number,
+      userContractBalanceBorrowAssetAfterBorrow: BigNumber
+      userContractFinalBalanceBorrowAsset: BigNumber
+    }>{
+      // prepare app
+      const user = ethers.Wallet.createRandom().address;
+      const targetDecimals = 6;
+      const sourceAmountNumber = 100_000;
+      const availableBorrowLiquidityNumber = 200_000_000;
+      const tt: IBorrowInputParams = {
+        collateralFactor: 0.5,
+        priceSourceUSD: 1,
+        priceTargetUSD: 2,
+        sourceDecimals: 18,
+        targetDecimals,
+        availablePools: [{   // source, target
+          borrowRateInTokens: [BigNumber.from(0), BigNumber.from(0)],
+          availableLiquidityInTokens: [0, availableBorrowLiquidityNumber]
+        }]
+      };
+      const collateralAmount = getBigNumberFrom(sourceAmountNumber, tt.sourceDecimals);
+      const availableBorrowLiquidity = getBigNumberFrom(availableBorrowLiquidityNumber, targetDecimals);
+
+      const {core, pools, userContract, sourceToken, targetToken, poolAdapters} = await prepareContracts(tt);
+      const pool = pools[0];
+      const poolAdapter = poolAdapters[0];
+
+      // initialize balances
+      await MockERC20__factory.connect(sourceToken.address, deployer).mint(userContract.address, collateralAmount);
+      await MockERC20__factory.connect(targetToken.address, deployer).mint(pool, availableBorrowLiquidity);
+
+      // setup high values for all health factors
+      const minHealthFactorInitial2 = 1000;
+      const targetHealthFactorInitial2 = 2000;
+      const maxHealthFactorInitial2 = 4000;
+      await core.controller.setMaxHealthFactor2(maxHealthFactorInitial2);
+      await core.controller.setTargetHealthFactor2(targetHealthFactorInitial2);
+      await core.controller.setMinHealthFactor2(minHealthFactorInitial2);
+
+      // make borrow
+      await userContract.makeBorrowUC1_1(
+        sourceToken.address,
+        collateralAmount,
+        targetToken.address,
+        user
+      );
+      const borrowedAmount = userContract.totalBorrowedAmount();
+      const userContractBalanceBorrowAssetAfterBorrow = await targetToken.balanceOf(userContract.address);
+
+      // reduce all health factors down on 2 times to have possibility for additional borrow
+      const minHealthFactorUpdated2 = 500;
+      const targetHealthFactorUpdated2 = 1000;
+      const maxHealthFactorUpdated2 = 2000;
+      await core.controller.setMinHealthFactor2(minHealthFactorUpdated2);
+      await core.controller.setTargetHealthFactor2(targetHealthFactorUpdated2);
+      await core.controller.setMaxHealthFactor2(maxHealthFactorUpdated2);
+
+      // make additional borrow
+      // health factors were reduced twice, so we should be able to borrow same amount as before
+      await core.tc.requireAdditionalBorrow(borrowedAmount, poolAdapter);
+
+      return {
+        poolAdapter,
+        borrowedAmount,
+        userContract,
+        targetHealthFactor2: targetHealthFactorUpdated2,
+        userContractBalanceBorrowAssetAfterBorrow,
+        userContractFinalBalanceBorrowAsset: await targetToken.balanceOf(userContract.address)
+      }
+    }
+    describe("Good paths", () => {
+      describe("Make borrow, change health factors, make additional borrow", async () => {
+        const testResults = await makeTest();
+        it("should return expected health factor", async () => {
+          const poolAdapter = IPoolAdapter__factory.connect(testResults.poolAdapter, deployer);
+          const poolAdapterStatus = await poolAdapter.getStatus();
+          const ret = poolAdapterStatus.healthFactor18.div(1e16).toNumber();
+          const expected = testResults.targetHealthFactor2;
+          expect(ret).eq(expected);
+        });
+        it("should send notification to user-contract", async () => {
+          expect.fail("TODO");
+        });
+        it("should send expected amount on balance of the user-contract", async () => {
+
+          expect.fail("TODO");
+        });
+      });
+    });
+    describe("Bad paths", () => {
+      describe("Rebalancing put health factor down too much", () => {
+        it("should revert", async () => {
+          expect.fail("TODO");
+        });
+      });
+      describe("Rebalancing put health factor down not enough", () => {
+        it("should revert", async () => {
+          expect.fail("TODO");
+        });
+      });
+    });
+  });
+
+  describe("requireReconversion", () => {
+    describe("Good paths", () => {
+      it("should return expected values", async () => {
+        expect.fail("TODO");
+      });
+    });
+    describe("Bad paths", () => {
+      it("should revert", async () => {
+        expect.fail("TODO");
+      });
+    });
+  });
+
+  describe("getDebtAmount", () => {
+    describe("Good paths", () => {
+      it("should return expected values", async () => {
+        expect.fail("TODO");
+      });
+    });
+    describe("Bad paths", () => {
+      it("should revert", async () => {
+        expect.fail("TODO");
+      });
+    });
+  });
+
+  describe("estimateRepay", () => {
+    describe("Good paths", () => {
+      it("should return expected values", async () => {
+        expect.fail("TODO");
+      });
+    });
+    describe("Bad paths", () => {
+      it("should revert", async () => {
+        expect.fail("TODO");
+      });
+    });
+  });
+
+  describe("claimRewards", () => {
+    describe("Good paths", () => {
+      it("should return expected values", async () => {
+        expect.fail("TODO");
+      });
+    });
+    describe("Bad paths", () => {
+      it("should revert", async () => {
+        expect.fail("TODO");
+      });
+    });
+  });
+
+
+
   describe("findBorrows", () => {
     describe("Good paths", () => {
       describe("TODO", () => {
@@ -579,7 +781,7 @@ describe("TetuConverterTest", () => {
     });
   });
 
-  describe("reconvert", () => {
+  describe.skip("TODO: reconvert", () => {
     describe("Good paths", () => {
       it("should make reconversion", async () => {
         const sourceAmountNumber = 100_000;
