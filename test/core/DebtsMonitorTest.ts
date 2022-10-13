@@ -978,6 +978,33 @@ describe("DebtsMonitor", () => {
     });
   });
 
+  describe("isPositionOpened", () => {
+    describe("Good paths", () => {
+      describe("The position is opened", () => {
+        it("should return true", async () => {
+          expect.fail("TODO");
+        });
+      });
+      describe("The position is not opened", () => {
+        it("should return false", async () => {
+          expect.fail("TODO");
+        });
+      });
+      describe("The position is closed", () => {
+        it("should return false", async () => {
+          expect.fail("TODO");
+        });
+      });
+    });
+    describe("Bad paths", () => {
+      describe("Not pool adapter", () => {
+        it("should revert", async () => {
+          expect.fail("TODO");
+        });
+      });
+    });
+  });
+
   describe("getPositions", () => {
     describe("Good paths", () => {
       it("should return pool adapters with expected params", async () => {

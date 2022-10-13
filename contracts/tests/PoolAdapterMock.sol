@@ -169,7 +169,7 @@ contract PoolAdapterMock is IPoolAdapter {
     uint collateralAmount_,
     uint borrowAmount_,
     address receiver_
-  ) external override {
+  ) external override returns (uint) {
     console.log("Pool adapter.borrow sender=%s", msg.sender);
     console.log("collateralAmount_=%d borrowAmount_=%d", collateralAmount_, borrowAmount_);
 
@@ -209,6 +209,21 @@ contract PoolAdapterMock is IPoolAdapter {
     PoolStub thePool = PoolStub(_pool);
     thePool.transferToReceiver(_borrowAsset, borrowAmount_, receiver_);
     _addBorrow(borrowAmount_);
+
+    return borrowAmount_;
+  }
+
+  function borrowToRebalance(
+    uint borrowAmount_,
+    address receiver_
+  ) external override returns (
+    uint resultHealthFactor18,
+    uint borrowedAmountOut
+  ) {
+    //TODO
+    borrowAmount_;
+    receiver_;
+    return (resultHealthFactor18, borrowedAmountOut);
   }
 
   function _addBorrow(uint borrowedAmount_) internal {

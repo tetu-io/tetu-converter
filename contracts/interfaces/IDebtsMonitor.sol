@@ -13,6 +13,9 @@ interface IDebtMonitor {
   /// @dev This function is called from a pool adapter when the borrow is completely repaid
   function onClosePosition() external;
 
+  /// @notice Check if the pool-adapter-caller has an opened position
+  function isPositionOpened() external view returns (bool);
+
   /// @notice Enumerate {maxCountToCheck} pool adapters starting from {index0} and return unhealthy pool-adapters
   ///         i.e. adapters with health factor below min allowed value
   /// @return nextIndexToCheck0 Index of next pool-adapter to check; 0: all pool-adapters were checked

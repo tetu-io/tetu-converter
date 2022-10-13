@@ -109,12 +109,12 @@ contract AaveTwoPoolAdapter is IPoolAdapter, IPoolAdapterInitializer {
   ///////////////////////////////////////////////////////
 
   /// @notice Supply collateral to the pool and borrow {borrowedAmount_}
-  /// @dev Caller should call "syncBalance" before transferring borrow amount and call "borrow"
+  /// @dev Caller should call "syncBalance" before transferring collateral amount and call "borrow"
   function borrow(
     uint collateralAmount_,
     uint borrowAmount_,
     address receiver_
-  ) external override {
+  ) external override returns (uint) {
     _onlyTC();
     address assetCollateral = collateralAsset;
     address assetBorrow = borrowAsset;
@@ -167,6 +167,46 @@ contract AaveTwoPoolAdapter is IPoolAdapter, IPoolAdapterInitializer {
     // ensure that current health factor is greater than min allowed
     (,,,,, uint256 healthFactor) = _pool.getUserAccountData(address(this));
     _validateHealthFactor(healthFactor);
+
+    return borrowAmount_;
+  }
+
+  function borrowToRebalance(
+    uint borrowAmount_,
+    address receiver_
+  ) external override returns (
+    uint resultHealthFactor18,
+    uint borrowedAmountOut
+  ) {
+    _onlyTC();
+    address assetBorrow = borrowAsset;
+
+    // ensure that the position is opened
+    require(IDebtMonitor(controller.debtMonitor()).isPositionOpened(), AppErrors.BORROW_POSITION_IS_NOT_REGISTERED);
+
+    // make borrow, send borrowed amount to the receiver
+    // we cannot transfer borrowed amount directly to receiver because the debt is incurred by amount receiver
+    _pool.borrow(
+      assetBorrow,
+      borrowAmount_,
+      RATE_MODE,
+      0, // no referral code
+      address(this)
+    );
+
+    // ensure that we have received required borrowed amount, send the amount to the receiver
+    // we assume here, that syncBalance(true) is called before the call of this function
+    require(
+      borrowAmount_ == IERC20(assetBorrow).balanceOf(address(this)) - reserveBalances[assetBorrow]
+    , AppErrors.WRONG_BORROWED_BALANCE
+    );
+    IERC20(assetBorrow).safeTransfer(receiver_, borrowAmount_);
+
+    // ensure that current health factor is greater than min allowed
+    (,,,,, resultHealthFactor18) = _pool.getUserAccountData(address(this));
+    _validateHealthFactor(resultHealthFactor18);
+
+    return (resultHealthFactor18, borrowAmount_);
   }
 
   ///////////////////////////////////////////////////////

@@ -128,6 +128,13 @@ contract DebtMonitor is IDebtMonitor {
     _poolAdaptersForConverters[origin].remove(msg.sender);
   }
 
+  /// @notice Check if the pool-adapter-caller has an opened position
+  function isPositionOpened() external override view returns (bool) {
+    _onlyPoolAdapter();
+
+    return positionLastAccess[msg.sender] != 0;
+  }
+
   ///////////////////////////////////////////////////////
   ///           Detect unhealthy positions
   ///////////////////////////////////////////////////////

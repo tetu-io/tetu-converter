@@ -92,10 +92,24 @@ contract PoolAdapterStub is IPoolAdapter {
     uint collateralAmount_,
     uint borrowAmount_,
     address receiver_
-  ) override external {
+  ) override external returns (uint) {
     console.log("borrow collateral=%s receiver=%s", collateralAmount_, receiver_);
     console.log("borrow borrowAmount=%d ", borrowAmount_);
-  _borrowHideWarning = true;
+    _borrowHideWarning = true;
+    return 0;
+  }
+
+  function borrowToRebalance(
+    uint borrowAmount_,
+    address receiver_
+  ) external override returns (
+    uint resultHealthFactor18,
+    uint borrowedAmountOut
+  ) {
+    //TODO
+    borrowAmount_;
+    receiver_;
+    return (resultHealthFactor18, borrowedAmountOut);
   }
 
   /// @notice Repay borrowed amount, return collateral to the user

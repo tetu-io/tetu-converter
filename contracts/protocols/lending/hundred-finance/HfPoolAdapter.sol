@@ -130,7 +130,7 @@ contract HfPoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP {
     uint collateralAmount_,
     uint borrowAmount_,
     address receiver_
-  ) external override {
+  ) external override returns (uint) {
     _onlyTC();
     uint error;
     IHfComptroller comptroller = _comptroller;
@@ -183,13 +183,16 @@ contract HfPoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP {
 
     // ensure that current health factor is greater than min allowed
     _validateHealthStatusAfterBorrow(comptroller, cTokenCollateral, cTokenBorrow);
+
+    return borrowAmount_;
   }
 
+  /// @return Result health factor, decimals 18
   function _validateHealthStatusAfterBorrow(
     IHfComptroller comptroller_,
     address cTokenCollateral_,
     address cTokenBorrow_
-  ) internal view {
+  ) internal view returns (uint) {
     (,, uint collateralBase, uint borrowBase, ) = _getStatus(cTokenCollateral_, cTokenBorrow_);
     (uint sumCollateralSafe, uint healthFactor18) = _getHealthFactor(
       cTokenCollateral_,
@@ -211,6 +214,45 @@ contract HfPoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP {
     );
 
     _validateHealthFactor(healthFactor18);
+    return healthFactor18;
+  }
+
+  function borrowToRebalance(
+    uint borrowAmount_,
+    address receiver_
+  ) external override returns (
+    uint resultHealthFactor18,
+    uint borrowedAmountOut
+  ) {
+    _onlyTC();
+    uint error;
+    IHfComptroller comptroller = _comptroller;
+
+    address cTokenBorrow = borrowCToken;
+    address assetBorrow = borrowAsset;
+
+    // ensure that the position is opened
+    require(IDebtMonitor(controller.debtMonitor()).isPositionOpened(), AppErrors.BORROW_POSITION_IS_NOT_REGISTERED);
+
+    // make borrow
+    error = IHfCToken(cTokenBorrow).borrow(borrowAmount_);
+    require(error == 0, AppErrors.BORROW_FAILED);
+
+    // ensure that we have received required borrowed amount, send the amount to the receiver
+    if (_isMatic(assetBorrow)) {
+      IWmatic(WMATIC).deposit{value : borrowAmount_}();
+    }
+    // we assume here, that syncBalance(true) is called before the call of this function
+    require(
+      borrowAmount_ == IERC20(assetBorrow).balanceOf(address(this)) - reserveBalances[assetBorrow]
+    , AppErrors.WRONG_BORROWED_BALANCE
+    );
+    IERC20(assetBorrow).safeTransfer(receiver_, borrowAmount_);
+
+    // ensure that current health factor is greater than min allowed
+    resultHealthFactor18 = _validateHealthStatusAfterBorrow(comptroller, collateralCToken, cTokenBorrow);
+
+    return (resultHealthFactor18, borrowAmount_);
   }
 
   ///////////////////////////////////////////////////////
