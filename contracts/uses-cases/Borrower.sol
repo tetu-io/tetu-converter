@@ -232,7 +232,60 @@ contract Borrower is IBorrower {
   ///////////////////////////////////////////////////////
   ///                   IBorrower impl
   ///////////////////////////////////////////////////////
-  function requireReconversion(address poolAdapter) external override {
+
+  function requireRepay(
+    address collateralAsset_,
+    address borrowAsset_,
+    uint amountToRepay_,
+    address converter_
+  ) external override returns (Status) {
+//    console.log("requireRepay start poolAdapter, gasleft", poolAdapter, gasleft());
+
+    collateralAsset_;
+    borrowAsset_;
+    amountToRepay_;
+    converter_;
+
+    ITetuConverter tc = _tc();
+
+    // TODO refactoring
+//    IPoolAdapter pa = IPoolAdapter(poolAdapter);
+//
+//    // get amount to pay
+//    (,uint amountToPay,,) = pa.getStatus();
+//    (,,, address borrowAsset) = pa.getConfig();
+//    console.log("requireRepay amountToPay=", amountToPay);
+//    console.log("requireRepay borrowAsset=", borrowAsset);
+//
+//    // transfer borrowed amount directly to the Pool Adapter
+//    pa.syncBalance(false);
+//    require(IERC20(borrowAsset).balanceOf(address(this)) >= amountToPay, "not enough balance of borrow asset");
+//    IERC20(borrowAsset).safeTransfer(poolAdapter, amountToPay);
+//
+//    console.log("requireRepay end gasleft", gasleft());
+    return Status.DONE_1;
+  }
+
+  function recommendBorrow(
+    address collateralAsset_,
+    address borrowAsset_,
+    uint amountToBorrow_,
+    address converter_
+  ) external override returns (Status) {
+    //TODO refactoring
+    collateralAsset_;
+    borrowAsset_;
+    amountToBorrow_;
+    converter_;
+
+    ITetuConverter tc = _tc();
+
+    return Status.IGNORED_2;
+  }
+
+  function requireReconversion(
+    address poolAdapter
+  ) external override returns (Status) {
     console.log("requireReconversion start poolAdapter, gasleft", poolAdapter, gasleft());
     IPoolAdapter pa = IPoolAdapter(poolAdapter);
 
@@ -255,25 +308,11 @@ contract Borrower is IBorrower {
     console.log("reconvert poolAdapter, period", poolAdapter, _borrowPeriodInBlocks);
     _tc().reconvert(poolAdapter, _borrowPeriodInBlocks, receiver);
     console.log("requireReconversion end gasleft", gasleft());
+
+    return Status.DONE_1;
   }
 
-  function requireRepay(address poolAdapter) external override {
-    console.log("requireRepay start poolAdapter, gasleft", poolAdapter, gasleft());
-    IPoolAdapter pa = IPoolAdapter(poolAdapter);
 
-    // get amount to pay
-    (,uint amountToPay,,) = pa.getStatus();
-    (,,, address borrowAsset) = pa.getConfig();
-    console.log("requireRepay amountToPay=", amountToPay);
-    console.log("requireRepay borrowAsset=", borrowAsset);
-
-    // transfer borrowed amount directly to the Pool Adapter
-    pa.syncBalance(false);
-    require(IERC20(borrowAsset).balanceOf(address(this)) >= amountToPay, "not enough balance of borrow asset");
-    IERC20(borrowAsset).safeTransfer(poolAdapter, amountToPay);
-
-    console.log("requireRepay end gasleft", gasleft());
-  }
 
   ///////////////////////////////////////////////////////
   ///        Pre-initialize pool adapter

@@ -106,8 +106,11 @@ contract TetuConverter is ITetuConverter {
     address borrowAsset_,
     uint amountToBorrow_,
     address receiver_
-) external override {
+) external override returns (
+    uint borrowedAmountTransferred
+  ) {
     _convert(converter_, collateralAsset_, collateralAmount_, borrowAsset_, amountToBorrow_, receiver_, msg.sender);
+    return 0; // TODO
   }
 
   function _convert(
@@ -172,7 +175,9 @@ contract TetuConverter is ITetuConverter {
     uint amountToRepay_,
     address collateralReceiver_,
     address poolAdapterOptional_
-  ) external override {
+  ) external override returns (
+    uint collateralAmountTransferred
+  ) {
     // TODO
     collateralAsset_;
     borrowAsset_;
@@ -182,6 +187,8 @@ contract TetuConverter is ITetuConverter {
 
     // repay don't make any rebalance
     // start to repay from worst loan
+
+    return 0; // TODO
   }
 
   /// @notice Calculate total amount of borrow tokens that should be repaid to close the loan completely.
