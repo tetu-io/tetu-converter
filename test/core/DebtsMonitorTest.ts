@@ -484,6 +484,29 @@ describe("DebtsMonitor", () => {
     )
   }
 
+  async function prepareDebtMonitorSignerPoolAdapter() : Promise<DebtMonitor> {
+    const user = ethers.Wallet.createRandom().address;
+    const tt: IBorrowInputParams = {
+      collateralFactor: 0.8,
+      priceSourceUSD: 0.1,
+      priceTargetUSD: 4,
+      sourceDecimals: 12,
+      targetDecimals: 24,
+      availablePools: [
+        {   // source, target
+          borrowRateInTokens: [1, 1],
+          availableLiquidityInTokens: [0, 200_000_000]
+        }
+      ]
+    };
+
+    const {core, poolAdapters} = await initializeApp(tt, user);
+    const poolAdapter = poolAdapters[0];
+
+    return DebtMonitor__factory.connect(core.dm.address
+      , await DeployerUtils.startImpersonate(poolAdapter)
+    );
+  }
 
 //endregion Utils for onClosePosition
 
@@ -728,6 +751,21 @@ describe("DebtsMonitor", () => {
         });
       });
     });
+    describe("Bad paths", () => {
+      describe("Not pool adapter", () => {
+        it("should revert", async () => {
+          const dmAsPa = await prepareDebtMonitorSignerPoolAdapter();
+          const notPoolAdapter = ethers.Wallet.createRandom();
+          const dmAsNotPa = DebtMonitor__factory.connect(
+            dmAsPa.address,
+            await DeployerUtils.startImpersonate(notPoolAdapter.address)
+          );
+          await expect(
+            dmAsNotPa.onOpenPosition()
+          ).revertedWith("TC-7");
+        });
+      });
+    });
   });
 
   describe("onClosePosition", () => {
@@ -934,7 +972,6 @@ describe("DebtsMonitor", () => {
           ).revertedWith("TC-11"); // BORROW_POSITION_IS_NOT_REGISTERED
         });
       });
-
       describe("Attempt to close not empty position", () => {
         async function prepareTest(collateralAmount: number, amountToPay: number): Promise<DebtMonitor> {
           const r = await preparePoolAdapters([1], 1, 2);
@@ -975,6 +1012,20 @@ describe("DebtsMonitor", () => {
           });
         });
       });
+      describe("Not pool adapter", () => {
+        it("should revert", async () => {
+          const dmAsPa = await prepareDebtMonitorSignerPoolAdapter();
+          const notPoolAdapter = ethers.Wallet.createRandom();
+          const dmAsNotPa = DebtMonitor__factory.connect(
+            dmAsPa.address,
+            await DeployerUtils.startImpersonate(notPoolAdapter.address)
+          );
+          await dmAsPa.onOpenPosition();
+          await expect(
+            dmAsNotPa.onClosePosition()
+          ).revertedWith("TC-11");
+        });
+      });
     });
   });
 
@@ -982,24 +1033,46 @@ describe("DebtsMonitor", () => {
     describe("Good paths", () => {
       describe("The position is opened", () => {
         it("should return true", async () => {
-          expect.fail("TODO");
+          const dmAsPa = await prepareDebtMonitorSignerPoolAdapter();
+          await dmAsPa.onOpenPosition();
+
+          const ret = await dmAsPa.isPositionOpened();
+          expect(ret).eq(true);
         });
       });
       describe("The position is not opened", () => {
         it("should return false", async () => {
-          expect.fail("TODO");
+          const dmAsPa = await prepareDebtMonitorSignerPoolAdapter();
+
+          const ret = await dmAsPa.isPositionOpened();
+          expect(ret).eq(false);
         });
       });
       describe("The position is closed", () => {
         it("should return false", async () => {
-          expect.fail("TODO");
+          const dmAsPa = await prepareDebtMonitorSignerPoolAdapter();
+          await dmAsPa.onOpenPosition();
+          await dmAsPa.onClosePosition();
+
+          const ret = await dmAsPa.isPositionOpened();
+          expect(ret).eq(false);
         });
       });
     });
     describe("Bad paths", () => {
       describe("Not pool adapter", () => {
         it("should revert", async () => {
-          expect.fail("TODO");
+          const dmAsPa = await prepareDebtMonitorSignerPoolAdapter();
+          const notPoolAdapter = ethers.Wallet.createRandom();
+          const dmAsNotPa = DebtMonitor__factory.connect(
+            dmAsPa.address,
+            await DeployerUtils.startImpersonate(notPoolAdapter.address)
+          );
+          await dmAsPa.onOpenPosition();
+
+          await expect(
+            dmAsNotPa.isPositionOpened()
+          ).revertedWith("TC-7");
         });
       });
     });
