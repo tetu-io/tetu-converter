@@ -25,8 +25,10 @@ interface IPoolAdapter is IConverter {
     uint borrowedAmountOut
   );
 
-  /// @notice Borrow additional amount using exist collateral
+  /// @notice Borrow additional amount {borrowAmount_} using exist collateral and send it to {receiver_}
   /// @dev Re-balance: too big health factor => target health factor; syncBalance(true) must be called before
+  /// @return resultHealthFactor18 Result health factor after borrow
+  /// @return borrowedAmountOut Exact amount sent to the borrower
   function borrowToRebalance(
     uint borrowAmount_,
     address receiver_

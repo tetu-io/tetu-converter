@@ -18,6 +18,7 @@ import "../interfaces/IDebtsMonitor.sol";
 import "../interfaces/IConverter.sol";
 import "../interfaces/ISwapConverter.sol";
 import "../interfaces/IKeeperCallback.sol";
+import "../interfaces/ITetuConverterCallback.sol";
 
 /// @notice Main application contract
 contract TetuConverter is ITetuConverter, IKeeperCallback {
@@ -37,6 +38,13 @@ contract TetuConverter is ITetuConverter, IKeeperCallback {
     require(controller_ != address(0), AppErrors.ZERO_ADDRESS);
 
     controller = IController(controller_);
+  }
+
+  ///////////////////////////////////////////////////////
+  ///                Access control
+  ///////////////////////////////////////////////////////
+  function onlyKeeper() internal view {
+    //TODO
   }
 
   ///////////////////////////////////////////////////////
@@ -188,7 +196,7 @@ contract TetuConverter is ITetuConverter, IKeeperCallback {
   ) external override returns (
     uint collateralAmountOut
   ) {
-    // repay don't make any re-balancing here
+    // repay don't make any rebalancing here
 
     // we need to repay exact amount using any pool adapters
     // simplest strategy: use first available pool adapter
@@ -208,56 +216,52 @@ contract TetuConverter is ITetuConverter, IKeeperCallback {
   ///////////////////////////////////////////////////////
 
   function requireRepay(
-    address collateralAsset_,
-    address borrowAsset_,
     uint amountToRepay_,
-    address converter_
+    address poolAdapter_
   ) external override {
-    // we know exactly what pool adapter should be used for repaying
-    IPoolAdapter pa = IPoolAdapter(_borrowManager().getPoolAdapter(
-        converter_,
-        msg.sender,
-        collateralAsset_,
-        borrowAsset_
-    ));
+    onlyKeeper();
+
+    IPoolAdapter pa = IPoolAdapter(poolAdapter_);
     (,uint amountToPay,,) = pa.getStatus();
+    (, address user, address collateralAsset, address borrowAsset) = pa.getConfig();
 
-    (address originConverter,
-     address user,
-     address collateralAsset,
-     address borrowAsset
-    ) = pa.getConfig();
-
-    require(
-      originConverter == converter_
-      && user == msg.sender
-      && collateralAsset == collateralAsset_
-      && borrowAsset == borrowAsset_,
-      AppErrors.INCORRECT_VALUE
-    );
-
-    return pa.repay(amountToRepay_,
-      address(0), // TODO
-      amountToRepay_ == amountToPay
-    );
+    //TODO
+//    return pa.repay(amountToRepay_,
+//      address(0), // TODO
+//      amountToRepay_ == amountToPay
+//    );
   }
 
   function requireAdditionalBorrow(
-    address collateralAsset_,
-    address borrowAsset_,
     uint amountToBorrow_,
-    address lendingPoolAdapter_
+    address poolAdapter_
   ) external override {
-    //TODO
-    collateralAsset_;
-    borrowAsset_;
-    amountToBorrow_;
-    lendingPoolAdapter_;
+    onlyKeeper();
+
+    IPoolAdapter pa = IPoolAdapter(poolAdapter_);
+
+    (, address user, address collateralAsset, address borrowAsset) = pa.getConfig();
+
+    // make rebalancing
+    (uint resultHealthFactor18, uint borrowedAmountOut) = pa.borrowToRebalance(amountToBorrow_, user);
+
+    // after rebalancing we should have health factor ALMOST equal to the target health factor
+    // but the equality is not exact
+    // let's allow small difference < 1/10 * (target health factor - min health factor)
+    uint targetHealthFactor18 = uint(_borrowManager().getTargetHealthFactor2(borrowAsset)) * 10**(18-2);
+    uint minHealthFactor18 = uint(controller.minHealthFactor2()) * 10**(18-2);
+    uint delta = (targetHealthFactor18 - minHealthFactor18) / 10;
+    require(resultHealthFactor18 + delta > targetHealthFactor18, AppErrors.WRONG_REBALANCING);
+
+    // notify the borrower about new available borrowed amount
+    ITetuConverterCallback(user).onTransferBorrowedAmount(collateralAsset, borrowAsset, borrowedAmountOut);
   }
 
   function requireReconversion(
     address lendingPoolAdapter_
   ) external override {
+    onlyKeeper();
+
     //TODO
     lendingPoolAdapter_;
   }

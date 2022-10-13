@@ -75,4 +75,7 @@ library AppErrors {
   ///         Invariant: min health factor < target health factor < max health factor
   string public constant WRONG_HEALTH_FACTOR_CONFIG = "TC-38: wrong health factor config";
 
+  /// @notice Health factor is not good after rebalancing
+  string public constant WRONG_REBALANCING = "TC-39: wrong rebalancing";
+
 }

@@ -37,6 +37,7 @@ interface IController {
   ///        External contracts
   ///////////////////////////////////////////////////////
   /// @notice External instance of IBorrower to claim repay in emergency
+  /// !TODO: remove it from controller. Pool adapter knows "user" === borrower
   function borrower() external view returns (address);
 
 }
