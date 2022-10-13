@@ -16,7 +16,7 @@ contract Controller is IController, Initializable {
   address public override tetuConverter;
   address public override borrowManager;
   address public override debtMonitor;
-  address public override borrower;
+  address public override keeper;
   address public override tetuLiquidator;
   address public override swapManager;
 
@@ -66,7 +66,7 @@ contract Controller is IController, Initializable {
     address tetuConverter_,
     address borrowManager_,
     address debtMonitor_,
-    address borrower_,
+    address keeper_,
     address tetuLiquidator_,
     address swapManager_
   ) external initializer {
@@ -74,7 +74,7 @@ contract Controller is IController, Initializable {
       tetuConverter_ != address(0)
       && borrowManager_ != address(0)
       && debtMonitor_ != address(0)
-      && borrower_ != address(0)
+      && keeper_ != address(0)
       && tetuLiquidator_ != address(0)
       && swapManager_ != address(0)
       , AppErrors.ZERO_ADDRESS
@@ -82,7 +82,7 @@ contract Controller is IController, Initializable {
     tetuConverter = tetuConverter_;
     borrowManager = borrowManager_;
     debtMonitor = debtMonitor_;
-    borrower = borrower_;
+    keeper = keeper_;
     tetuLiquidator = tetuLiquidator_;
     swapManager = swapManager_;
   }
@@ -163,11 +163,11 @@ contract Controller is IController, Initializable {
     debtMonitor = debtMonitor_;
   }
 
-  /// @notice External instance of IBorrower to claim repay in emergency
-  function setBorrower(address borrower_) external {
-    require(borrower_ != address(0), AppErrors.ZERO_ADDRESS);
+  /// @notice Keeper to control health and efficiency of the borrows
+  function setKeeper(address keeper_) external {
+    require(keeper_ != address(0), AppErrors.ZERO_ADDRESS);
     _onlyGovernance();
-    borrower = borrower_;
+    keeper = keeper_;
   }
 
   function setTetuLiquidator(address tetuLiquidator_) external {

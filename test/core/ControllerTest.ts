@@ -59,7 +59,7 @@ describe("Controller", () => {
     borrowManager: string;
     debtMonitor: string;
 
-    borrower: string;
+    keeper: string;
     tetuLiquidator: string,
     swapManager: string,
   }
@@ -74,7 +74,7 @@ describe("Controller", () => {
       , a.borrowManager
       , a.debtMonitor
 
-      , a.borrower
+      , a.keeper
       , a.tetuLiquidator
       , a.swapManager
     ];
@@ -88,7 +88,7 @@ describe("Controller", () => {
       , await controller.borrowManager()
       , await controller.debtMonitor()
 
-      , await controller.borrower()
+      , await controller.keeper()
       , await controller.tetuLiquidator()
       , await controller.swapManager()
     ];
@@ -115,7 +115,7 @@ describe("Controller", () => {
         a.tetuConverter
         , a.borrowManager
         , a.debtMonitor
-        , a.borrower
+        , a.keeper
         , a.tetuLiquidator
         , a.swapManager
       )
@@ -132,7 +132,7 @@ describe("Controller", () => {
       borrowManager: ethers.Wallet.createRandom().address,
       debtMonitor: ethers.Wallet.createRandom().address,
 
-      borrower: ethers.Wallet.createRandom().address,
+      keeper: ethers.Wallet.createRandom().address,
       tetuLiquidator: ethers.Wallet.createRandom().address,
       swapManager: ethers.Wallet.createRandom().address,
     }
@@ -147,7 +147,7 @@ describe("Controller", () => {
       await getGasUsed(controller.setTetuConverter(a.tetuConverter)),
       await getGasUsed(controller.setBorrowManager(a.borrowManager)),
       await getGasUsed(controller.setDebtMonitor(a.debtMonitor)),
-      await getGasUsed(controller.setBorrower(a.borrower)),
+      await getGasUsed(controller.setKeeper(a.keeper)),
       await getGasUsed(controller.setSwapManager(a.swapManager)),
       await getGasUsed(controller.setTetuLiquidator(a.tetuLiquidator)),
       // Governance must be set at the end to avoid check error. Add new setXXX above
@@ -364,7 +364,7 @@ describe("Controller", () => {
           for (const key of Object.keys(initialAddresses)) {
             const updatedAddresses: IControllerAddresses = {
               governance: await controller.governance(),
-              borrower: await controller.borrower(),
+              keeper: await controller.keeper(),
               debtMonitor: await controller.debtMonitor(),
               borrowManager: await controller.borrowManager(),
               tetuConverter: await controller.tetuConverter(),
