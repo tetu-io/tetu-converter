@@ -17,6 +17,9 @@ interface IPoolAdapter is IConverter {
     uint borrowAmount_,
     address receiver_
   ) external;
+//  returns (
+//    uint borrowedAmountTransferred
+//  );
 
   /// @notice Repay borrowed amount, return collateral to the user
   /// @param closePosition_ true to pay full borrowed amount
@@ -25,6 +28,9 @@ interface IPoolAdapter is IConverter {
     address receiver_,
     bool closePosition_
   ) external;
+//  returns (
+//    uint collateralAmountTransferred
+//  );
 
   /// @return originConverter Address of original PoolAdapter contract that was cloned to make the instance of the pool adapter
   function getConfig() external view returns (

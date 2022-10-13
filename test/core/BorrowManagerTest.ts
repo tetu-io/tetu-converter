@@ -22,6 +22,7 @@ import {CoreContractsHelper} from "../baseUT/helpers/CoreContractsHelper";
 import {generateAssetPairs, getAssetPair, IAssetPair} from "../baseUT/utils/AssetPairUtils";
 import {Misc} from "../../scripts/utils/Misc";
 import {DeployerUtils} from "../../scripts/utils/DeployerUtils";
+import {deprecate} from "util";
 
 describe("BorrowManager", () => {
 //region Global vars for all tests
@@ -1539,7 +1540,6 @@ describe("BorrowManager", () => {
       const key = await borrowManager.getPoolAdapterKey(
         ethers.Wallet.createRandom().address,
         ethers.Wallet.createRandom().address,
-        ethers.Wallet.createRandom().address,
         ethers.Wallet.createRandom().address
       );
       const ret = key.eq(0);
@@ -1565,6 +1565,100 @@ describe("BorrowManager", () => {
       const ret21 = await borrowManager.getAssetPairKey(address2, address1);
       const ret = ret12.eq(ret21)
       expect(ret).eq(true);
+    });
+  });
+
+  describe("getPoolAdaptersForUser", () => {
+    describe("Good paths", () => {
+      describe("Create N borrows for the user", () => {
+        it("should return N pool adapters", async () => {
+          const countBorrows = 3;
+          const countUsers = 2;
+
+          const borrowManager = await initializeApp();
+          const controller = Controller__factory.connect(await borrowManager.controller(), signer);
+          const tetuConverter = await controller.tetuConverter();
+          const bmAsTc = BorrowManager__factory.connect(borrowManager.address,
+            await DeployerUtils.startImpersonate(tetuConverter)
+          );
+
+          const users: string[] = [...Array(countUsers).keys()].map(x => ethers.Wallet.createRandom().address);
+
+          const asset1 = ethers.Wallet.createRandom().address;
+          const asset2 = ethers.Wallet.createRandom().address;
+
+          const converters: string[] = [...Array(countBorrows).keys()].map(x => ethers.Wallet.createRandom().address);
+          const platformAdapters = await Promise.all(
+            converters.map(
+              async converter => MocksHelper.createPlatformAdapterStub(signer, [converter])
+            )
+          );
+
+          await Promise.all(
+            platformAdapters.map(
+              async platformAdapter => borrowManager.addAssetPairs(platformAdapter.address, [asset1], [asset2])
+            )
+          );
+
+          for (const user of users) {
+            await Promise.all(
+              converters.map(
+                async converter => bmAsTc.registerPoolAdapter(converter, user, asset1, asset2)
+              )
+            );
+          }
+          const ret = await Promise.all(
+            users.map(
+              async user => (await borrowManager.getPoolAdaptersForUser(user, asset1, asset2)).length
+            )
+          );
+          const sret = ret.join();
+          const sexpected = users.map(x => countBorrows).join();
+
+          expect(sret).eq(sexpected);
+        });
+      });
+      describe("User doesn't have any pool adapters", () => {
+        it("should return 0", async () => {
+          const countBorrows = 3;
+          const countUsers = 2;
+
+          const borrowManager = await initializeApp();
+          const controller = Controller__factory.connect(await borrowManager.controller(), signer);
+          const tetuConverter = await controller.tetuConverter();
+          const bmAsTc = BorrowManager__factory.connect(borrowManager.address,
+            await DeployerUtils.startImpersonate(tetuConverter)
+          );
+
+          const users: string[] = [...Array(countUsers).keys()].map(x => ethers.Wallet.createRandom().address);
+
+          const asset1 = ethers.Wallet.createRandom().address;
+          const asset2 = ethers.Wallet.createRandom().address;
+
+          const converters: string[] = [...Array(countBorrows).keys()].map(x => ethers.Wallet.createRandom().address);
+          const platformAdapters = await Promise.all(
+            converters.map(
+              async converter => MocksHelper.createPlatformAdapterStub(signer, [converter])
+            )
+          );
+
+          await Promise.all(
+            platformAdapters.map(
+              async platformAdapter => borrowManager.addAssetPairs(platformAdapter.address, [asset1], [asset2])
+            )
+          );
+
+          const ret = await Promise.all(
+            users.map(
+              async user => (await borrowManager.getPoolAdaptersForUser(user, asset1, asset2)).length
+            )
+          );
+          const sret = ret.join();
+          const sexpected = users.map(x => 0).join();
+
+          expect(sret).eq(sexpected);
+        });
+      });
     });
   });
 //endregion Unit tests

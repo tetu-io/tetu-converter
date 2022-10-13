@@ -179,6 +179,7 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer 
     // ensure that current health factor is greater than min allowed
     (,,,,, uint256 healthFactor) = _pool.getUserAccountData(address(this));
     _validateHealthFactor(healthFactor);
+
   }
 
   ///////////////////////////////////////////////////////

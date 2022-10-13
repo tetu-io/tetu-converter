@@ -17,9 +17,10 @@ import "../interfaces/IController.sol";
 import "../interfaces/IDebtsMonitor.sol";
 import "../interfaces/IConverter.sol";
 import "../interfaces/ISwapConverter.sol";
+import "../interfaces/ITetuConverterCallback.sol";
 
 /// @notice Main application contract
-contract TetuConverter is ITetuConverter {
+contract TetuConverter is ITetuConverter, ITetuConverterCallback {
   using SafeERC20 for IERC20;
 
   ///////////////////////////////////////////////////////
@@ -106,8 +107,11 @@ contract TetuConverter is ITetuConverter {
     address borrowAsset_,
     uint amountToBorrow_,
     address receiver_
-) external override {
+) external override returns (
+    uint borrowedAmountTransferred
+  ) {
     _convert(converter_, collateralAsset_, collateralAmount_, borrowAsset_, amountToBorrow_, receiver_, msg.sender);
+    return 0; // TODO
   }
 
   function _convert(
@@ -170,19 +174,86 @@ contract TetuConverter is ITetuConverter {
     address collateralAsset_,
     address borrowAsset_,
     uint amountToRepay_,
-    address collateralReceiver_,
-    address poolAdapterOptional_
-  ) external override {
+    address collateralReceiver_
+  ) external override returns (
+    uint collateralAmountTransferred
+  ) {
+    // repay don't make any re-balancing here
+
+    // we need to repay exact amount using any pool adapters
+    // simplest strategy: use first available pool adapter
+    address[] memory poolAdapters = _borrowManager().getPoolAdaptersForUser(
+      msg.sender,
+      collateralAsset_,
+      borrowAsset_
+    );
+    uint amountToPay = amountToRepay_;
     // TODO
+
+    return 0;
+  }
+
+  ///////////////////////////////////////////////////////
+  ///       ITetuConverterCallback
+  ///////////////////////////////////////////////////////
+
+  function requireRepay(
+    address collateralAsset_,
+    address borrowAsset_,
+    uint amountToRepay_,
+    address converter_
+  ) external override {
+    // we know exactly what pool adapter should be used for repaying
+    IPoolAdapter pa = IPoolAdapter(_borrowManager().getPoolAdapter(
+        converter_,
+        msg.sender,
+        collateralAsset_,
+        borrowAsset_
+    ));
+    (,uint amountToPay,,) = pa.getStatus();
+
+    (address originConverter,
+     address user,
+     address collateralAsset,
+     address borrowAsset
+    ) = pa.getConfig();
+
+    require(
+      originConverter == converter_
+      && user == msg.sender
+      && collateralAsset == collateralAsset_
+      && borrowAsset == borrowAsset_,
+      AppErrors.INCORRECT_VALUE
+    );
+
+    return pa.repay(amountToRepay_,
+      address(0), // TODO
+      amountToRepay_ == amountToPay
+    );
+  }
+
+  function requireAdditionalBorrow(
+    address collateralAsset_,
+    address borrowAsset_,
+    uint amountToBorrow_,
+    address lendingPoolAdapter_
+  ) external override {
+    //TODO
     collateralAsset_;
     borrowAsset_;
-    amountToRepay_;
-    collateralReceiver_;
-    poolAdapterOptional_;
-
-    // repay don't make any rebalance
-    // start to repay from worst loan
+    amountToBorrow_;
+    lendingPoolAdapter_;
   }
+
+  function requireReconversion(
+    address lendingPoolAdapter_
+  ) external override {
+    //TODO
+    lendingPoolAdapter_;
+  }
+  ///////////////////////////////////////////////////////
+  ///       Get debt/repay info
+  ///////////////////////////////////////////////////////
 
   /// @notice Calculate total amount of borrow tokens that should be repaid to close the loan completely.
   function getDebtAmount(
