@@ -1,7 +1,7 @@
 import {TestSingleBorrowParams} from "../types/BorrowRepayDataTypes";
 import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import {
-  ConversionPlan,
+  IConversionPlan,
   IAssetInfo,
   IBorrowResults
 } from "../apr/aprDataTypes";
@@ -23,10 +23,10 @@ interface IInputParams {
 
 /** I.e. one of AprXXX.makeBorrowTest */
 export type BorrowTestMaker = (
-  deployer: SignerWithAddress
-  , amountToBorrow: number | BigNumber
-  , p: TestSingleBorrowParams
-  , additionalPoints: number[]
+  deployer: SignerWithAddress,
+  amountToBorrow: number | BigNumber,
+  p: TestSingleBorrowParams,
+  additionalPoints: number[]
 ) => Promise<IBorrowResults>;
 
 export interface IBorrowTestResults {
@@ -38,10 +38,10 @@ export interface IBorrowTestResults {
 
   assetBorrow: IAssetInfo;
 
-  /** Plan for 1 block - we need to compare borrow/supply APR*/
-  planSingleBlock: ConversionPlan;
-  /** Plan for full period - we need to compare reward amounts */
-  planFullPeriod: ConversionPlan;
+  /* Plan for 1 block - we need to compare borrow/supply APR*/
+  planSingleBlock: IConversionPlan;
+  /* Plan for full period - we need to compare reward amounts */
+  planFullPeriod: IConversionPlan;
   results?: IBorrowResults;
 
   error?: string;
@@ -180,15 +180,15 @@ export class CompareAprUsesCase {
           const amountToBorrow = toMantissa(borrowAmount18, 18, borrowDecimals);
           console.log("makePossibleBorrowsOnPlatform.amountToBorrow", amountToBorrow);
 
-          if (planSingleBlock.converter == Misc.ZERO_ADDRESS) {
+          if (planSingleBlock.converter === Misc.ZERO_ADDRESS) {
             dest.push({
-              platformTitle: platformTitle,
-              countBlocks: countBlocks,
+              platformTitle,
+              countBlocks,
               assetBorrow: task.borrowAsset,
               assetCollateral: task.collateralAsset,
               collateralAmount: task.collateralAmount,
-              planSingleBlock: planSingleBlock,
-              planFullPeriod: planFullPeriod,
+              planSingleBlock,
+              planFullPeriod,
               error: "Plan not found",
             });
           } else {
@@ -196,32 +196,34 @@ export class CompareAprUsesCase {
               collateral: {
                 asset: task.collateralAsset.asset,
                 holder: task.collateralAsset.holders.join(";"),
-                initialLiquidity: initialLiquidity,
-              }, borrow: {
+                initialLiquidity,
+              },
+              borrow: {
                 asset: task.borrowAsset.asset,
                 holder: task.borrowAsset.holders.join(";"),
                 initialLiquidity: 0,
-              }
-              , collateralAmount: task.collateralAmount
-              , healthFactor2: healthFactor2
-              , countBlocks: 1 // we need 1 block for next/last; countBlocks are used as additional-points
+              },
+              collateralAmount: task.collateralAmount,
+              healthFactor2,
+              countBlocks: 1 // we need 1 block for next/last; countBlocks are used as additional-points
             };
             const res = await this.makeSingleBorrowTest(
-              platformTitle
-              , {
-                params: p
-                , amountToBorrow
-                , additionalPoints: [countBlocks]
-              }, testMaker
+              platformTitle,
+              {
+                params: p,
+                amountToBorrow,
+                additionalPoints: [countBlocks]
+              },
+              testMaker
             );
             dest.push({
-              platformTitle: platformTitle,
-              countBlocks: countBlocks,
+              platformTitle,
+              countBlocks,
               assetBorrow: task.borrowAsset,
               assetCollateral: task.collateralAsset,
               collateralAmount: task.collateralAmount,
-              planSingleBlock: planSingleBlock,
-              planFullPeriod: planFullPeriod,
+              planSingleBlock,
+              planFullPeriod,
               results: res.results,
               error: res.error
             });
@@ -241,9 +243,9 @@ export class CompareAprUsesCase {
   }
 
   private static async getPrices(
-    platformAdapter: IPlatformAdapter
-    , sourceAsset: IAssetInfo
-    , targetAsset: IAssetInfo
+    platformAdapter: IPlatformAdapter,
+    sourceAsset: IAssetInfo,
+    targetAsset: IAssetInfo
   ) : Promise<{
    priceCollateral: BigNumber,
    priceBorrow: BigNumber
@@ -259,24 +261,24 @@ export class CompareAprUsesCase {
 
 
   /** see definition of borrowAmountFactor18 inside BorrowManager._findPool */
-   private static getBorrowAmountFactor18(
+  public static getBorrowAmountFactor18(
     collateralAmount: BigNumber,
     healthFactor2: number,
     collateralDecimals: number
   ) {
     return getBigNumberFrom(1, 18)
-      .mul(toMantissa(collateralAmount, collateralDecimals, 18) )
+      .mul(toMantissa(collateralAmount, collateralDecimals, 18))
       .div(healthFactor2)
       .div(getBigNumberFrom(1, 18 - 2));
   }
 
   /** calculate approx amount of collateral required to borrow required amount with collateral factor = 0.2 */
   private static getApproxCollateralAmount(
-    amountToBorrow: BigNumber
-    , healthFactor2: number
-    , collateralDecimals: number
-    , stPrices: {priceCollateral: BigNumber, priceBorrow: BigNumber}
-    , borrowDecimals: number
+    amountToBorrow: BigNumber,
+    healthFactor2: number,
+    collateralDecimals: number,
+    stPrices: {priceCollateral: BigNumber, priceBorrow: BigNumber},
+    borrowDecimals: number
   ) {
     return amountToBorrow
       .mul(5) //cf = 0.2

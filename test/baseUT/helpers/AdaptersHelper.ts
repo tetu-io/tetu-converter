@@ -15,11 +15,11 @@ import {DeployUtils} from "../../../scripts/utils/DeployUtils";
 export class AdaptersHelper {
 //region AAVE.v3
   public static async createAave3PlatformAdapter(
-    signer: SignerWithAddress
-    , controller: string
-    , poolAave: string
-    , templateAdapterNormal: string
-    , templateAdapterEMode: string
+    signer: SignerWithAddress,
+    controller: string,
+    poolAave: string,
+    templateAdapterNormal: string,
+    templateAdapterEMode: string
   ) : Promise<Aave3PlatformAdapter> {
     return (await DeployUtils.deployContract(
       signer,
@@ -41,10 +41,10 @@ export class AdaptersHelper {
 
 //region AAVE.v3
   public static async createAaveTwoPlatformAdapter(
-    signer: SignerWithAddress
-    , controller: string
-    , poolAave: string
-    , templateAdapterNormal: string
+    signer: SignerWithAddress,
+    controller: string,
+    poolAave: string,
+    templateAdapterNormal: string
   ) : Promise<AaveTwoPlatformAdapter> {
     return (await DeployUtils.deployContract(
       signer,
@@ -62,12 +62,12 @@ export class AdaptersHelper {
 
 //region Hundred finance
   public static async createHundredFinancePlatformAdapter(
-    signer: SignerWithAddress
-    , controller: string
-    , comptroller: string
-    , templateAdapterNormal: string
-    , cTokensActive: string[]
-    , priceOracle: string
+    signer: SignerWithAddress,
+    controller: string,
+    comptroller: string,
+    templateAdapterNormal: string,
+    cTokensActive: string[],
+    priceOracle: string
   ) : Promise<HfPlatformAdapter> {
     return (await DeployUtils.deployContract(
       signer,
@@ -87,11 +87,11 @@ export class AdaptersHelper {
 
 //region dForce
   public static async createDForcePlatformAdapter(
-    signer: SignerWithAddress
-    , controller: string
-    , comptroller: string
-    , templateAdapterNormal: string
-    , cTokensActive: string[]
+    signer: SignerWithAddress,
+    controller: string,
+    comptroller: string,
+    templateAdapterNormal: string,
+    cTokensActive: string[]
   ) : Promise<DForcePlatformAdapter> {
     return (await DeployUtils.deployContract(
       signer,

@@ -91,15 +91,15 @@ export interface IAaveKeyTestValues {
   },
 }
 
-export interface ConversionPlan {
+export interface IConversionPlan {
   converter: string;
   liquidationThreshold18: BigNumber;
   borrowApr36: BigNumber;
   supplyAprBt36: BigNumber;
   rewardsAmountBt36: BigNumber;
   ltv18: BigNumber;
-  maxAmountToBorrowBT: BigNumber;
-  maxAmountToSupplyCT: BigNumber;
+  maxAmountToBorrow: BigNumber;
+  maxAmountToSupply: BigNumber;
 }
 
 export interface IAssetInfo {

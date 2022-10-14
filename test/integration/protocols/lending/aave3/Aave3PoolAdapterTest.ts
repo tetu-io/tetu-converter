@@ -3,10 +3,10 @@ import {ethers} from "hardhat";
 import {TimeUtils} from "../../../../../scripts/utils/TimeUtils";
 import {
   Aave3PoolAdapter,
-  Borrower, Controller,
+  Controller,
   IAavePool, IAavePool__factory, IAavePriceOracle, IAaveProtocolDataProvider,
   IERC20__factory,
-  IERC20Extended__factory, MockERC20__factory
+  IERC20Extended__factory, IPoolAdapter__factory
 } from "../../../../../typechain";
 import {expect} from "chai";
 import {BigNumber, Wallet} from "ethers";
@@ -21,8 +21,8 @@ import {MaticAddresses} from "../../../../../scripts/addresses/MaticAddresses";
 import {MocksHelper} from "../../../../baseUT/helpers/MocksHelper";
 import {TokenDataTypes} from "../../../../baseUT/types/TokenDataTypes";
 import {Misc} from "../../../../../scripts/utils/Misc";
-import {IBorrowInputParams} from "../../../../baseUT/helpers/BorrowManagerHelper";
 import {IAave3UserAccountDataResults} from "../../../../baseUT/apr/aprAave3";
+import {CompareAprUsesCase} from "../../../../baseUT/uses-cases/CompareAprUsesCase";
 
 describe("Aave3PoolAdapterTest", () => {
 //region Constants
@@ -67,6 +67,8 @@ describe("Aave3PoolAdapterTest", () => {
     aavePrices: IAavePriceOracle;
 
     controller: Controller;
+
+    amountToBorrow: BigNumber;
   }
 
   /**
@@ -78,15 +80,19 @@ describe("Aave3PoolAdapterTest", () => {
     collateralHolder: string,
     collateralAmount: BigNumber,
     borrowToken: TokenDataTypes,
+    targetHealthFactor2?: number
   ) : Promise<IPrepareToBorrowResults> {
     const user = ethers.Wallet.createRandom();
-    const tetuConveterStab = ethers.Wallet.createRandom();
+    const tetuConveterStub = ethers.Wallet.createRandom();
+    const templateAdapterNormalStub = ethers.Wallet.createRandom().address;
+    const templateAdapterHighEfficientModeStub = ethers.Wallet.createRandom().address;
 
     // initialize pool, adapters and helper for the adapters
     const h: Aave3Helper = new Aave3Helper(deployer);
     const aavePoolAdapterAsTC = await AdaptersHelper.createAave3PoolAdapter(
-      await DeployerUtils.startImpersonate(tetuConveterStab.address)
+      await DeployerUtils.startImpersonate(tetuConveterStub.address)
     );
+
     const aavePool = await Aave3Helper.getAavePool(deployer);
     const dataProvider = await Aave3Helper.getAaveProtocolDataProvider(deployer);
     const aavePrices = await Aave3Helper.getAavePriceOracle(deployer);
@@ -97,7 +103,11 @@ describe("Aave3PoolAdapterTest", () => {
     const bm = await MocksHelper.createBorrowManagerStub(deployer, true);
     await controller.setBorrowManager(bm.address);
     await controller.setDebtMonitor(dm.address);
-    await controller.setTetuConverter(tetuConveterStab.address);
+    await controller.setTetuConverter(tetuConveterStub.address);
+
+    const aavePlatformAdapter = await AdaptersHelper.createAave3PlatformAdapter(
+      deployer, controller.address, aavePool.address, templateAdapterNormalStub, templateAdapterHighEfficientModeStub
+    );
 
     // put collateral amount on deployer's balance
     await collateralToken.token
@@ -117,6 +127,23 @@ describe("Aave3PoolAdapterTest", () => {
     await aavePoolAdapterAsTC.syncBalance(true);
     await collateralToken.token.transfer(aavePoolAdapterAsTC.address, collateralAmount);
 
+    // calculate max allowed amount to borrow
+    const countBlocks = 1;
+    const borrowAmountFactor18 = CompareAprUsesCase.getBorrowAmountFactor18(
+      collateralAmount,
+      targetHealthFactor2 || await controller.targetHealthFactor2(),
+      collateralToken.decimals
+    );
+
+    const plan = await aavePlatformAdapter.getConversionPlan(
+      collateralToken.address,
+      collateralAmount,
+      borrowToken.address,
+      borrowAmountFactor18,
+      countBlocks
+    );
+    console.log("plan", plan);
+
     return {
       controller,
       h,
@@ -124,7 +151,8 @@ describe("Aave3PoolAdapterTest", () => {
       aavePrices,
       aavePool,
       aavePoolAdapterAsTC,
-      dataProvider
+      dataProvider,
+      amountToBorrow: plan.amountToBorrow
     }
   }
 //endregion Test impl
@@ -132,14 +160,19 @@ describe("Aave3PoolAdapterTest", () => {
 //region Unit tests
   describe("borrow", () => {
     describe("Good paths", () => {
-      async function makeTestBorrow(
+      async function makeTestBorrowFixedAmount(
         collateralToken: TokenDataTypes,
         collateralHolder: string,
         collateralAmount: BigNumber,
         borrowToken: TokenDataTypes,
         borrowAmount: BigNumber
       ) : Promise<{sret: string, sexpected: string}>{
-        const d = await prepareToBorrow(collateralToken, collateralHolder, collateralAmount, borrowToken);
+        const d = await prepareToBorrow(
+          collateralToken,
+          collateralHolder,
+          collateralAmount,
+          borrowToken
+        );
         const collateralData = await d.h.getReserveInfo(deployer, d.aavePool, d.dataProvider, collateralToken.address);
 
         await d.aavePoolAdapterAsTC.borrow(
@@ -173,6 +206,74 @@ describe("Aave3PoolAdapterTest", () => {
 
         return {sret, sexpected};
       }
+      async function makeTestBorrowMaxAmount(
+        collateralToken: TokenDataTypes,
+        collateralHolder: string,
+        collateralAmount: BigNumber,
+        borrowToken: TokenDataTypes,
+      ) : Promise<{sret: string, sexpected: string}>{
+        const minHealthFactor2 = 101;
+        const targetHealthFactor2 = 202;
+        const d = await prepareToBorrow(
+          collateralToken,
+          collateralHolder,
+          collateralAmount,
+          borrowToken,
+          targetHealthFactor2
+        );
+        await d.controller.setMinHealthFactor2(minHealthFactor2);
+        await d.controller.setTargetHealthFactor2(targetHealthFactor2);
+        const collateralData = await d.h.getReserveInfo(deployer, d.aavePool, d.dataProvider, collateralToken.address);
+        console.log("collateralData", collateralData);
+
+        // prices of assets in base currency
+        const prices = await d.aavePrices.getAssetsPrices([collateralToken.address, borrowToken.address]);
+        const baseCurrencyUnit = await d.aavePrices.BASE_CURRENCY_UNIT();
+        console.log("prices", prices);
+
+        // let's manually calculate max allowed amount to borrow
+        const collateralAmountInBase18 = collateralAmount
+          .mul(prices[0])
+          .div(getBigNumberFrom(1, collateralToken.decimals));
+        const maxAllowedAmountToBorrowInBase18 = collateralAmountInBase18
+          .mul(100) // let's take into account min allowed health factor
+          .div(minHealthFactor2)
+          .mul(collateralData.data.ltv)
+          .div(1e4);
+        const maxAllowedAmountToBorrow = maxAllowedAmountToBorrowInBase18
+          .div(prices[1])
+          .mul(getBigNumberFrom(1, borrowToken.decimals));
+        console.log("collateralAmountInBase18", collateralAmountInBase18);
+        console.log("maxAllowedAmountToBorrowInBase18", maxAllowedAmountToBorrowInBase18);
+        console.log("maxAllowedAmountToBorrow", maxAllowedAmountToBorrow);
+
+        await d.aavePoolAdapterAsTC.borrow(
+          collateralAmount,
+          maxAllowedAmountToBorrow,
+          d.user.address
+        );
+        console.log("amountToBorrow", maxAllowedAmountToBorrow);
+
+        // check results
+        const ret = await d.aavePool.getUserAccountData(d.aavePoolAdapterAsTC.address);
+        console.log(ret);
+
+        const sret = [
+          ret.totalCollateralBase.mul(prices[0]).mul(getBigNumberFrom(1, collateralToken.decimals)).div(Misc.WEI),
+          ret.totalDebtBase.mul(prices[1]).mul(getBigNumberFrom(1, collateralToken.decimals)).div(Misc.WEI),
+          ret.availableBorrowsBase.mul(prices[1]).mul(getBigNumberFrom(1, collateralToken.decimals)).div(Misc.WEI),
+          ret.healthFactor.div(getBigNumberFrom(1, 16))
+        ].map(x => BalanceUtils.toString(x)).join("\n");
+
+        const sexpected = [
+          collateralAmount,
+          d.amountToBorrow,
+          0,
+          targetHealthFactor2
+        ].map(x => BalanceUtils.toString(x)).join("\n");
+
+        return {sret, sexpected};
+      }
       describe("Borrow modest amount", () => {
         describe("DAI-18 : matic-18", () => {
           it("should return expected balances", async () => {
@@ -188,7 +289,7 @@ describe("Aave3PoolAdapterTest", () => {
             const collateralAmount = getBigNumberFrom(100_000, collateralToken.decimals);
             const borrowAmount = getBigNumberFrom(10, borrowToken.decimals);
 
-            const r = await makeTestBorrow(
+            const r = await makeTestBorrowFixedAmount(
               collateralToken
               , collateralHolder
               , collateralAmount
@@ -212,7 +313,7 @@ describe("Aave3PoolAdapterTest", () => {
             const collateralAmount = getBigNumberFrom(100_000, collateralToken.decimals);
             const borrowAmount = getBigNumberFrom(10, borrowToken.decimals);
 
-            const r = await makeTestBorrow(
+            const r = await makeTestBorrowFixedAmount(
               collateralToken
               , collateralHolder
               , collateralAmount
@@ -236,7 +337,7 @@ describe("Aave3PoolAdapterTest", () => {
             const collateralAmount = getBigNumberFrom(100_000, collateralToken.decimals);
             const borrowAmount = getBigNumberFrom(10, borrowToken.decimals);
 
-            const r = await makeTestBorrow(
+            const r = await makeTestBorrowFixedAmount(
               collateralToken
               , collateralHolder
               , collateralAmount
@@ -260,7 +361,7 @@ describe("Aave3PoolAdapterTest", () => {
             const collateralAmount = getBigNumberFrom(100_000, collateralToken.decimals);
             const borrowAmount = getBigNumberFrom(10, borrowToken.decimals);
 
-            const r = await makeTestBorrow(
+            const r = await makeTestBorrowFixedAmount(
               collateralToken
               , collateralHolder
               , collateralAmount
@@ -282,6 +383,26 @@ describe("Aave3PoolAdapterTest", () => {
               expect.fail("TODO");
             });
           });
+        });
+      });
+      describe.skip('Try to borrow max allowed amount and see results in console', function () {
+        it("should move user account in the pool to expected state", async () => {
+          const collateralAsset = MaticAddresses.DAI;
+          const collateralHolder = MaticAddresses.HOLDER_DAI;
+          const borrowAsset = MaticAddresses.WMATIC;
+
+          const collateralToken = await TokenDataTypes.Build(deployer, collateralAsset);
+          const borrowToken = await TokenDataTypes.Build(deployer, borrowAsset);
+
+          const collateralAmount = getBigNumberFrom(100_000, collateralToken.decimals);
+
+          const r = await makeTestBorrowMaxAmount(
+            collateralToken
+            , collateralHolder
+            , collateralAmount
+            , borrowToken
+           );
+          console.log(r);
         });
       });
     });
@@ -627,12 +748,24 @@ describe("Aave3PoolAdapterTest", () => {
   });
 
   describe("borrowToRebalance", () => {
+    const minHealthFactorInitial2 = 1000;
+    const targetHealthFactorInitial2 = 2000;
+    const maxHealthFactorInitial2 = 4000;
+    const minHealthFactorUpdated2 = 500;
+    const targetHealthFactorUpdated2 = 1000;
+    const maxHealthFactorUpdated2 = 2000;
+
     interface IMakeTestBorrowToRebalanceResults {
       afterBorrow: IAave3UserAccountDataResults;
       afterBorrowToRebalance: IAave3UserAccountDataResults;
       userBalanceAfterBorrow: BigNumber;
       userBalanceAfterBorrowToRebalance: BigNumber;
       expectedAdditionalBorrowAmount: BigNumber;
+    }
+    interface IMakeTestBorrowToRebalanceBadPathParams {
+      makeBorrowToRebalanceAsDeployer?: boolean;
+      skipBorrow?: boolean;
+      additionalAmountCorrectionFactor?: number;
     }
 
     /**
@@ -647,19 +780,22 @@ describe("Aave3PoolAdapterTest", () => {
       collateralHolder: string,
       collateralAmount: BigNumber,
       borrowToken: TokenDataTypes,
-      borrowAmount: BigNumber
+      badPathsParams?: IMakeTestBorrowToRebalanceBadPathParams
     ) : Promise<IMakeTestBorrowToRebalanceResults>{
-      const minHealthFactorInitial2 = 1000;
-      const targetHealthFactorInitial2 = 2000;
-      const maxHealthFactorInitial2 = 4000;
-      const minHealthFactorUpdated2 = 500;
-      const targetHealthFactorUpdated2 = 1000;
-      const maxHealthFactorUpdated2 = 2000;
-
-      const d = await prepareToBorrow(collateralToken, collateralHolder, collateralAmount, borrowToken);
+      const d = await prepareToBorrow(
+        collateralToken,
+        collateralHolder,
+        collateralAmount,
+        borrowToken,
+        targetHealthFactorInitial2
+      );
+      const collateralAssetData = await d.h.getReserveInfo(deployer, d.aavePool, d.dataProvider, collateralToken.address);
+      console.log("collateralAssetData", collateralAssetData);
       const borrowAssetData = await d.h.getReserveInfo(deployer, d.aavePool, d.dataProvider, borrowToken.address);
-      const collateralFactor = borrowAssetData.data.ltv;
-      console.log("collateralFactor", collateralFactor, borrowAssetData);
+      console.log("borrowAssetData", borrowAssetData);
+
+      const collateralFactor = collateralAssetData.data.ltv;
+      console.log("collateralFactor", collateralFactor);
 
       // prices of assets in base currency
       const prices = await d.aavePrices.getAssetsPrices([collateralToken.address, borrowToken.address]);
@@ -671,11 +807,14 @@ describe("Aave3PoolAdapterTest", () => {
       await d.controller.setMinHealthFactor2(minHealthFactorInitial2);
 
       // make borrow
-      await d.aavePoolAdapterAsTC.borrow(
-        collateralAmount,
-        borrowAmount,
-        d.user.address // receiver
-      );
+      const amountToBorrow = d.amountToBorrow;
+      if (! badPathsParams?.skipBorrow) {
+        await d.aavePoolAdapterAsTC.borrow(
+          collateralAmount,
+          amountToBorrow,
+          d.user.address // receiver
+        );
+      }
       const afterBorrow: IAave3UserAccountDataResults = await d.aavePool.getUserAccountData(d.aavePoolAdapterAsTC.address);
       const userBalanceAfterBorrow = await borrowToken.token.balanceOf(d.user.address);
       console.log("after borrow:", afterBorrow, userBalanceAfterBorrow);
@@ -685,20 +824,18 @@ describe("Aave3PoolAdapterTest", () => {
       await d.controller.setTargetHealthFactor2(targetHealthFactorUpdated2);
       await d.controller.setMaxHealthFactor2(maxHealthFactorUpdated2);
 
-      const expectedAdditionalBorrowAmount = getBigNumberFrom(
-        collateralAmount
-          .mul(collateralFactor)
-          .mul(prices[0]) // price of collateral asset
-          .div(prices[1]) // price of borrow asset
-          .div(1000) // ltv has decimals 1e4
-          .mul(100) // health factor has decimals 1e2
-          .div(targetHealthFactorInitial2),
-        borrowToken.decimals
+      const expectedAdditionalBorrowAmount = amountToBorrow.mul(
+        badPathsParams?.additionalAmountCorrectionFactor
+          ? badPathsParams.additionalAmountCorrectionFactor
+          : 1
       );
       console.log("expectedAdditionalBorrowAmount", expectedAdditionalBorrowAmount);
 
       // make additional borrow
-      await d.aavePoolAdapterAsTC.borrowToRebalance(
+      const poolAdapterSigner = badPathsParams?.makeBorrowToRebalanceAsDeployer
+        ? IPoolAdapter__factory.connect(d.aavePoolAdapterAsTC.address, deployer)
+        : d.aavePoolAdapterAsTC;
+      await poolAdapterSigner.borrowToRebalance(
         expectedAdditionalBorrowAmount,
         d.user.address // receiver
       );
@@ -715,50 +852,82 @@ describe("Aave3PoolAdapterTest", () => {
         expectedAdditionalBorrowAmount
       }
     }
+    async function testDaiWMatic(
+      badPathParams?: IMakeTestBorrowToRebalanceBadPathParams
+    ) : Promise<IMakeTestBorrowToRebalanceResults> {
+      const collateralAsset = MaticAddresses.DAI;
+      const collateralHolder = MaticAddresses.HOLDER_DAI;
+      const borrowAsset = MaticAddresses.WMATIC;
+
+      const collateralToken = await TokenDataTypes.Build(deployer, collateralAsset);
+      const borrowToken = await TokenDataTypes.Build(deployer, borrowAsset);
+      console.log("collateralToken.decimals", collateralToken.decimals);
+      console.log("borrowToken.decimals", borrowToken.decimals);
+
+      const collateralAmount = getBigNumberFrom(100_000, collateralToken.decimals);
+      console.log(collateralAmount, collateralAmount);
+
+      const r = await makeTestBorrowToRebalance(
+        collateralToken
+        , collateralHolder
+        , collateralAmount
+        , borrowToken
+        , badPathParams
+      );
+
+      console.log(r);
+      return r;
+    }
     describe("Good paths", () => {
       it("should return expected values", async () => {
         if (!await isPolygonForkInUse()) return;
-
-        const collateralAsset = MaticAddresses.DAI;
-        const collateralHolder = MaticAddresses.HOLDER_DAI;
-        const borrowAsset = MaticAddresses.WMATIC;
-
-        const collateralToken = await TokenDataTypes.Build(deployer, collateralAsset);
-        const borrowToken = await TokenDataTypes.Build(deployer, borrowAsset);
-
-        const collateralAmount = getBigNumberFrom(100_000, collateralToken.decimals);
-        const borrowAmount = getBigNumberFrom(10, borrowToken.decimals);
-
-        const r = await makeTestBorrowToRebalance(
-          collateralToken
-          , collateralHolder
-          , collateralAmount
-          , borrowToken
-          , borrowAmount
-        );
-
-        console.log(r);
+        const r = await testDaiWMatic();
+        const ret = [
+          Math.round(r.afterBorrow.healthFactor.div(getBigNumberFrom(1, 15)).toNumber() / 10.),
+          Math.round(r.afterBorrowToRebalance.healthFactor.div(getBigNumberFrom(1, 15)).toNumber() / 10.),
+          ethers.utils.formatUnits(r.userBalanceAfterBorrow, 18),
+          ethers.utils.formatUnits(r.userBalanceAfterBorrowToRebalance, 18),
+        ].join();
+        const expected = [
+          targetHealthFactorInitial2,
+          targetHealthFactorUpdated2,
+          ethers.utils.formatUnits(r.expectedAdditionalBorrowAmount, 18),
+          ethers.utils.formatUnits(r.expectedAdditionalBorrowAmount.mul(2), 18),
+        ].join();
+        expect(ret).eq(expected);
       });
     });
     describe("Bad paths", () => {
       describe("Not TetuConverter", () => {
         it("should revert", async () => {
-          expect.fail("TODO");
+          if (!await isPolygonForkInUse()) return;
+          await expect(
+            testDaiWMatic({makeBorrowToRebalanceAsDeployer: true})
+          ).revertedWith("TC-8");
         });
       });
       describe("Position is not registered", () => {
         it("should revert", async () => {
-          expect.fail("TODO");
+          if (!await isPolygonForkInUse()) return;
+          await expect(
+            testDaiWMatic({skipBorrow: true})
+          ).revertedWith("TC-11");
         });
       });
-      describe("Wrong borrow balance", () => {
-        it("should revert", async () => {
-          expect.fail("TODO");
-        });
+      describe.skip("Wrong borrow balance - how to check it?", () => {
+        // it("should revert", async () => {
+        //   if (!await isPolygonForkInUse()) return;
+        //   await expect(
+        //     testDaiWMatic({skipBorrow: true})
+        //   ).revertedWith("TC-11");
+        // });
       });
       describe("Result health factor is less min allowed one", () => {
         it("should revert", async () => {
-          expect.fail("TODO");
+          if (!await isPolygonForkInUse()) return;
+          await expect(
+            testDaiWMatic({additionalAmountCorrectionFactor: 10})
+          ).revertedWith("TC-3: wrong health factor");
         });
       });
     });

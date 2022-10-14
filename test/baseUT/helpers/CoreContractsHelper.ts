@@ -16,15 +16,18 @@ import {Misc} from "../../../scripts/utils/Misc";
 
 export class CoreContractsHelper {
   static async createController(
-    deployer: SignerWithAddress
+    deployer: SignerWithAddress,
+    minHealthFactor2: number = 101,
+    targetHealthFactor2: number = 200,
+    maxHealthFactor2: number = 400
   ) : Promise<Controller>{
     const controller = (await DeployUtils.deployContract(deployer
       , "Controller"
       , COUNT_BLOCKS_PER_DAY
       , deployer.address
-      , 101
-      , 200
-      , 400
+      , minHealthFactor2
+      , targetHealthFactor2
+      , maxHealthFactor2
     )) as Controller;
     await controller.initialize(
       ethers.Wallet.createRandom().address,

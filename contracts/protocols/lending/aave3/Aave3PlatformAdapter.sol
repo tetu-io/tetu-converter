@@ -17,6 +17,7 @@ import "../../../integrations/aave3/Aave3ReserveConfiguration.sol";
 import "../../../integrations/aave3/IAavePriceOracle.sol";
 import "../../../integrations/aave3/IAaveToken.sol";
 import "hardhat/console.sol";
+import "..\..\..\interfaces\IBorrowManager.sol";
 
 /// @notice Adapter to read current pools info from AAVE-v3-protocol, see https://docs.aave.com/hub/
 contract Aave3PlatformAdapter is IPlatformAdapter {
@@ -90,6 +91,7 @@ contract Aave3PlatformAdapter is IPlatformAdapter {
   /// @notice Returns the prices of the supported assets in BASE_CURRENCY of the market. Decimals 18
   /// @dev Different markets can have different BASE_CURRENCY
   function getAssetsPrices(address[] calldata assets) external view override returns (uint[] memory prices18) {
+    //TODO: the prices are in BASE_CURRENCY_UNIT = 100000000, we need to recalculate them to 1e18
     return _priceOracle.getAssetsPrices(assets);
   }
 
@@ -125,7 +127,9 @@ contract Aave3PlatformAdapter is IPlatformAdapter {
               plan.liquidationThreshold18 = uint(categoryData.liquidationThreshold) * 10**(18-4);
               plan.converter = _converters[INDEX_E_MODE];
             } else {
-              plan.ltv18 = uint(rb.configuration.getLtv()) * 10**(18-4);
+              // we should use both LTV and liquidationThreshold of collateral asset (not borrow asset)
+              // see test "Try to borrow max allowed amount and see results in console"
+              plan.ltv18 = uint(rc.configuration.getLtv()) * 10**(18-4);
               plan.liquidationThreshold18 = uint(rc.configuration.getLiquidationThreshold()) * 10**(18-4);
               plan.converter = _converters[INDEX_NORMAL_MODE];
             }
@@ -197,14 +201,18 @@ contract Aave3PlatformAdapter is IPlatformAdapter {
           vars.assets[1] = params.borrowAsset;
           vars.prices = _priceOracle.getAssetsPrices(vars.assets);
 
+          // we assume here, that required health factor is configured correctly
+          // and it's greater than h = liquidation-threshold (LT) / loan-to-value (LTV)
+          // otherwise AAVE-pool will revert the borrow
+          // see comment to IBorrowManager.setHealthFactor
           plan.amountToBorrow = AppUtils.toMantissa(
             params.borrowAmountFactor18
               * vars.prices[0]
               * plan.liquidationThreshold18
               / vars.prices[1]
-              / 1e18
-            , 18
-            , uint8(rb.configuration.getDecimals())
+              / 1e18,
+            18,
+            uint8(rb.configuration.getDecimals())
           );
           if (plan.amountToBorrow > plan.maxAmountToBorrow) {
             plan.amountToBorrow = plan.maxAmountToBorrow;

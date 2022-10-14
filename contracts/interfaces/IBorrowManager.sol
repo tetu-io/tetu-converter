@@ -27,8 +27,15 @@ interface IBorrowManager is IPoolAdaptersManager {
   ) external;
 
   /// @notice Set default health factor for {asset}. Default value is used only if user hasn't provided custom value
+  ///      For AAVE v2/v3: health factor value must be greater than
+  ///            h = liquidation-threshold (LT) / loan-to-value (LTV)
+  ///      for the selected asset
+  ///      The health factor is calculated using liquidation threshold value.
+  ///      Following situation is ok:  0 ... 1/health factor ... LTV ... LT .. 1
+  ///      Following situation is NOT allowed:  0 ... LTV ... 1/health factor ... LT .. 1
+  ///      because AAVE-pool won't allow to make a borrow.
   /// @param value2 Health factor must be greater then 1, decimals 2
-  function setHealthFactor(address asset, uint16 value2) external;
+  function setHealthFactor(address asset, uint16 healthFactor2_) external;
 
   /// @notice Reward APR is taken into account with given factor
   ///         Result APR = borrow-apr - supply-apr - [REWARD-FACTOR]/Denominator * rewards-APR

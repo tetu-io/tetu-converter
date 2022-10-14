@@ -13,6 +13,7 @@ import "../../../integrations/aave3/IAaveAddressesProvider.sol";
 import "../../../integrations/aave3/Aave3ReserveConfiguration.sol";
 import "../../../integrations/aave3/IAaveToken.sol";
 import "../../../integrations/dforce/SafeRatioMath.sol";
+import "hardhat/console.sol";
 
 /// @notice Implementation of IPoolAdapter for AAVE-v3-protocol, see https://docs.aave.com/hub/
 /// @dev Instances of this contract are created using proxy-minimal pattern, so no constructor
@@ -221,6 +222,7 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer 
 
     // ensure that current health factor is greater than min allowed
     (,,,,, resultHealthFactor18) = _pool.getUserAccountData(address(this));
+console.log("resultHealthFactor18", resultHealthFactor18);
     _validateHealthFactor(resultHealthFactor18);
 
     return (resultHealthFactor18, borrowedAmountOut);
