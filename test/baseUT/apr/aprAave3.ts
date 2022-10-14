@@ -68,19 +68,21 @@ interface IAave3AssetStateRaw {
   scaledBalance: BigNumber,
 }
 
+export interface IAave3UserAccountDataResults {
+  totalCollateralBase: BigNumber;
+  totalDebtBase: BigNumber;
+  availableBorrowsBase: BigNumber;
+  currentLiquidationThreshold: BigNumber;
+  ltv: BigNumber;
+  healthFactor: BigNumber;
+}
+
 interface IAave3StateInfo {
   collateral: IAave3AssetStateRaw;
   borrow: IAave3AssetStateRaw;
   block: number,
   blockTimestamp: number,
-  userAccount?: {
-    totalCollateralBase: BigNumber;
-    totalDebtBase: BigNumber;
-    availableBorrowsBase: BigNumber;
-    currentLiquidationThreshold: BigNumber;
-    ltv: BigNumber;
-    healthFactor: BigNumber;
-  }
+  userAccount?: IAave3UserAccountDataResults
 }
 
 export interface IAprAave3Results {
