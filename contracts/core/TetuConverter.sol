@@ -24,6 +24,9 @@ import "../interfaces/ITetuConverterCallback.sol";
 contract TetuConverter is ITetuConverter, IKeeperCallback {
   using SafeERC20 for IERC20;
 
+  /// @notice After additional borrow result health factor should be near to target value, the difference is limited.
+  uint constant public ADDITIONAL_BORROW_DELTA_DENOMINATOR = 10;
+
   ///////////////////////////////////////////////////////
   ///                Members
   ///////////////////////////////////////////////////////
@@ -250,8 +253,12 @@ contract TetuConverter is ITetuConverter, IKeeperCallback {
     // let's allow small difference < 1/10 * (target health factor - min health factor)
     uint targetHealthFactor18 = uint(_borrowManager().getTargetHealthFactor2(borrowAsset)) * 10**(18-2);
     uint minHealthFactor18 = uint(controller.minHealthFactor2()) * 10**(18-2);
-    uint delta = (targetHealthFactor18 - minHealthFactor18) / 10;
-    require(resultHealthFactor18 + delta > targetHealthFactor18, AppErrors.WRONG_REBALANCING);
+    uint delta = (targetHealthFactor18 - minHealthFactor18) / ADDITIONAL_BORROW_DELTA_DENOMINATOR;
+    require(
+      resultHealthFactor18 + delta > targetHealthFactor18
+      && resultHealthFactor18 - delta < targetHealthFactor18,
+      AppErrors.WRONG_REBALANCING
+    );
 
     // notify the borrower about new available borrowed amount
     ITetuConverterCallback(user).onTransferBorrowedAmount(collateralAsset, borrowAsset, borrowedAmountOut);
