@@ -61,19 +61,21 @@ interface IAaveTwoAssetStateRaw {
   scaledBalance: BigNumber,
 }
 
+export interface IAaveTwoUserAccountDataResults {
+  totalCollateralETH: BigNumber;
+  totalDebtETH: BigNumber;
+  availableBorrowsETH: BigNumber;
+  currentLiquidationThreshold: BigNumber;
+  ltv: BigNumber;
+  healthFactor: BigNumber;
+}
+
 interface IAaveTwoStateInfo {
   collateral: IAaveTwoAssetStateRaw;
   borrow: IAaveTwoAssetStateRaw;
-  block: number,
-  blockTimestamp: number,
-  userAccount?: {
-    totalCollateralETH: BigNumber;
-    totalDebtETH: BigNumber;
-    availableBorrowsETH: BigNumber;
-    currentLiquidationThreshold: BigNumber;
-    ltv: BigNumber;
-    healthFactor: BigNumber;
-  }
+  block: number;
+  blockTimestamp: number;
+  userAccount?: IAaveTwoUserAccountDataResults;
 }
 
 interface IAprData {

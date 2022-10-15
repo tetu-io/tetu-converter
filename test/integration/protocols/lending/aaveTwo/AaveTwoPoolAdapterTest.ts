@@ -3,7 +3,7 @@ import {ethers} from "hardhat";
 import {TimeUtils} from "../../../../../scripts/utils/TimeUtils";
 import {
   AaveTwoPoolAdapter, Controller, IAaveTwoPool, IAaveTwoPriceOracle, IAaveTwoProtocolDataProvider,
-  IERC20Extended__factory
+  IERC20Extended__factory, IPoolAdapter__factory
 } from "../../../../../typechain";
 import {expect} from "chai";
 import {BigNumber, Wallet} from "ethers";
@@ -18,7 +18,7 @@ import {MaticAddresses} from "../../../../../scripts/addresses/MaticAddresses";
 import {MocksHelper} from "../../../../baseUT/helpers/MocksHelper";
 import {TokenDataTypes} from "../../../../baseUT/types/TokenDataTypes";
 import {CompareAprUsesCase} from "../../../../baseUT/uses-cases/CompareAprUsesCase";
-import {createUpdatableTargetProxy} from "@nomiclabs/hardhat-ethers/internal/updatable-target-proxy";
+import {IAaveTwoUserAccountDataResults} from "../../../../baseUT/apr/aprAaveTwo";
 
 describe("AaveTwoPoolAdapterTest", () => {
 //region Global vars for all tests
@@ -334,6 +334,195 @@ describe("AaveTwoPoolAdapterTest", () => {
     });
 
   });
+
+  describe("borrowToRebalance", () => {
+    const minHealthFactorInitial2 = 1000;
+    const targetHealthFactorInitial2 = 2000;
+    const maxHealthFactorInitial2 = 4000;
+    const minHealthFactorUpdated2 = 500;
+    const targetHealthFactorUpdated2 = 1000;
+    const maxHealthFactorUpdated2 = 2000;
+
+    interface IMakeTestBorrowToRebalanceResults {
+      afterBorrow: IAaveTwoUserAccountDataResults;
+      afterBorrowToRebalance: IAaveTwoUserAccountDataResults;
+      userBalanceAfterBorrow: BigNumber;
+      userBalanceAfterBorrowToRebalance: BigNumber;
+      expectedAdditionalBorrowAmount: BigNumber;
+    }
+    interface IMakeTestBorrowToRebalanceBadPathParams {
+      makeBorrowToRebalanceAsDeployer?: boolean;
+      skipBorrow?: boolean;
+      additionalAmountCorrectionFactor?: number;
+    }
+
+    /**
+     * Prepare aave3 pool adapter.
+     * Set high health factors.
+     * Make borrow.
+     * Reduce health factor twice.
+     * Make additional borrow.
+     */
+    async function makeTestBorrowToRebalance (
+      collateralToken: TokenDataTypes,
+      collateralHolder: string,
+      collateralAmount: BigNumber,
+      borrowToken: TokenDataTypes,
+      badPathsParams?: IMakeTestBorrowToRebalanceBadPathParams
+    ) : Promise<IMakeTestBorrowToRebalanceResults>{
+      const d = await prepareToBorrow(
+        collateralToken,
+        collateralHolder,
+        collateralAmount,
+        borrowToken,
+        targetHealthFactorInitial2
+      );
+      const collateralAssetData = await AaveTwoHelper.getReserveInfo(deployer, d.aavePool, d.dataProvider, collateralToken.address);
+      console.log("collateralAssetData", collateralAssetData);
+      const borrowAssetData = await AaveTwoHelper.getReserveInfo(deployer, d.aavePool, d.dataProvider, borrowToken.address);
+      console.log("borrowAssetData", borrowAssetData);
+
+      const collateralFactor = collateralAssetData.data.ltv;
+      console.log("collateralFactor", collateralFactor);
+
+      // prices of assets in base currency
+      const prices = await d.aavePrices.getAssetsPrices([collateralToken.address, borrowToken.address]);
+      console.log("prices", prices);
+
+      // setup high values for all health factors
+      await d.controller.setMaxHealthFactor2(maxHealthFactorInitial2);
+      await d.controller.setTargetHealthFactor2(targetHealthFactorInitial2);
+      await d.controller.setMinHealthFactor2(minHealthFactorInitial2);
+
+      // make borrow
+      const amountToBorrow = d.amountToBorrow;
+      if (! badPathsParams?.skipBorrow) {
+        await d.aavePoolAdapterAsTC.borrow(
+          collateralAmount,
+          amountToBorrow,
+          d.user.address // receiver
+        );
+      }
+      const afterBorrow: IAaveTwoUserAccountDataResults = await d.aavePool.getUserAccountData(d.aavePoolAdapterAsTC.address);
+      const userBalanceAfterBorrow = await borrowToken.token.balanceOf(d.user.address);
+      console.log("after borrow:", afterBorrow, userBalanceAfterBorrow);
+
+      // reduce all health factors down on 2 times to have possibility for additional borrow
+      await d.controller.setMinHealthFactor2(minHealthFactorUpdated2);
+      await d.controller.setTargetHealthFactor2(targetHealthFactorUpdated2);
+      await d.controller.setMaxHealthFactor2(maxHealthFactorUpdated2);
+
+      const expectedAdditionalBorrowAmount = amountToBorrow.mul(
+        badPathsParams?.additionalAmountCorrectionFactor
+          ? badPathsParams.additionalAmountCorrectionFactor
+          : 1
+      );
+      console.log("expectedAdditionalBorrowAmount", expectedAdditionalBorrowAmount);
+
+      // make additional borrow
+      const poolAdapterSigner = badPathsParams?.makeBorrowToRebalanceAsDeployer
+        ? IPoolAdapter__factory.connect(d.aavePoolAdapterAsTC.address, deployer)
+        : d.aavePoolAdapterAsTC;
+      await poolAdapterSigner.borrowToRebalance(
+        expectedAdditionalBorrowAmount,
+        d.user.address // receiver
+      );
+
+      const afterBorrowToRebalance: IAaveTwoUserAccountDataResults = await d.aavePool.getUserAccountData(
+        d.aavePoolAdapterAsTC.address
+      );
+      const userBalanceAfterBorrowToRebalance = await borrowToken.token.balanceOf(d.user.address);
+      console.log("after borrow to rebalance:", afterBorrowToRebalance, userBalanceAfterBorrowToRebalance);
+
+      return {
+        afterBorrow,
+        afterBorrowToRebalance,
+        userBalanceAfterBorrow,
+        userBalanceAfterBorrowToRebalance,
+        expectedAdditionalBorrowAmount
+      }
+    }
+    async function testDaiWMatic(
+      badPathParams?: IMakeTestBorrowToRebalanceBadPathParams
+    ) : Promise<IMakeTestBorrowToRebalanceResults> {
+      const collateralAsset = MaticAddresses.DAI;
+      const collateralHolder = MaticAddresses.HOLDER_DAI;
+      const borrowAsset = MaticAddresses.WMATIC;
+
+      const collateralToken = await TokenDataTypes.Build(deployer, collateralAsset);
+      const borrowToken = await TokenDataTypes.Build(deployer, borrowAsset);
+      console.log("collateralToken.decimals", collateralToken.decimals);
+      console.log("borrowToken.decimals", borrowToken.decimals);
+
+      const collateralAmount = getBigNumberFrom(100_000, collateralToken.decimals);
+      console.log(collateralAmount, collateralAmount);
+
+      const r = await makeTestBorrowToRebalance(
+        collateralToken
+        , collateralHolder
+        , collateralAmount
+        , borrowToken
+        , badPathParams
+      );
+
+      console.log(r);
+      return r;
+    }
+    describe("Good paths", () => {
+      it("should return expected values", async () => {
+        if (!await isPolygonForkInUse()) return;
+        const r = await testDaiWMatic();
+        const ret = [
+          Math.round(r.afterBorrow.healthFactor.div(getBigNumberFrom(1, 15)).toNumber() / 10.),
+          Math.round(r.afterBorrowToRebalance.healthFactor.div(getBigNumberFrom(1, 15)).toNumber() / 10.),
+          ethers.utils.formatUnits(r.userBalanceAfterBorrow, 18),
+          ethers.utils.formatUnits(r.userBalanceAfterBorrowToRebalance, 18),
+        ].join();
+        const expected = [
+          targetHealthFactorInitial2,
+          targetHealthFactorUpdated2,
+          ethers.utils.formatUnits(r.expectedAdditionalBorrowAmount, 18),
+          ethers.utils.formatUnits(r.expectedAdditionalBorrowAmount.mul(2), 18),
+        ].join();
+        expect(ret).eq(expected);
+      });
+    });
+    describe("Bad paths", () => {
+      describe("Not TetuConverter", () => {
+        it("should revert", async () => {
+          if (!await isPolygonForkInUse()) return;
+          await expect(
+            testDaiWMatic({makeBorrowToRebalanceAsDeployer: true})
+          ).revertedWith("TC-8");
+        });
+      });
+      describe("Position is not registered", () => {
+        it("should revert", async () => {
+          if (!await isPolygonForkInUse()) return;
+          await expect(
+            testDaiWMatic({skipBorrow: true})
+          ).revertedWith("TC-11");
+        });
+      });
+      describe.skip("Wrong borrow balance - how to check it?", () => {
+        // it("should revert", async () => {
+        //   if (!await isPolygonForkInUse()) return;
+        //   await expect(
+        //     testDaiWMatic({skipBorrow: true})
+        //   ).revertedWith("TC-11");
+        // });
+      });
+      describe("Result health factor is less min allowed one", () => {
+        it("should revert", async () => {
+          if (!await isPolygonForkInUse()) return;
+          await expect(
+            testDaiWMatic({additionalAmountCorrectionFactor: 10})
+          ).revertedWith("TC-3: wrong health factor");
+        });
+      });
+    });
+  });
+
 
   describe("repay", () =>{
     async function makeTest(
