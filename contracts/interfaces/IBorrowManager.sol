@@ -34,7 +34,7 @@ interface IBorrowManager is IPoolAdaptersManager {
   ///      Following situation is ok:  0 ... 1/health factor ... LTV ... LT .. 1
   ///      Following situation is NOT allowed:  0 ... LTV ... 1/health factor ... LT .. 1
   ///      because AAVE-pool won't allow to make a borrow.
-  /// @param value2 Health factor must be greater then 1, decimals 2
+  /// @param healthFactor2_ Health factor must be greater then 1, decimals 2
   function setHealthFactor(address asset, uint16 healthFactor2_) external;
 
   /// @notice Reward APR is taken into account with given factor

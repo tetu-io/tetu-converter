@@ -95,13 +95,16 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer 
   ///        Sync balances before borrow/repay
   ///////////////////////////////////////////////////////
 
+  /// @notice Save current balance of collateral/borrow BEFORE transferring amount of collateral/borrow to the adapter
   /// @dev TC calls this function before transferring any amounts to balance of this contract
   function syncBalance(bool beforeBorrow_) external override {
     if (beforeBorrow_) {
+      // borrow: we are going to transfer collateral asset to the balance of this contract
       reserveBalances[collateralAsset] = IERC20(collateralAsset).balanceOf(address(this));
+    } else {
+      // repay: we are going to transfer borrow asset to the balance of this contract
+      reserveBalances[borrowAsset] = IERC20(borrowAsset).balanceOf(address(this));
     }
-
-    reserveBalances[borrowAsset] = IERC20(borrowAsset).balanceOf(address(this));
   }
 
   ///////////////////////////////////////////////////////
@@ -159,6 +162,7 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer 
 
     // make borrow, send borrowed amount to the receiver
     // we cannot transfer borrowed amount directly to receiver because the debt is incurred by amount receiver
+    uint balanceBorrowAsset0 = IERC20(assetBorrow).balanceOf(address(this));
     _pool.borrow(
       assetBorrow,
       borrowAmount_,
@@ -169,7 +173,7 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer 
 
     // ensure that we have received required borrowed amount, send the amount to the receiver
     require(
-      borrowAmount_ == IERC20(assetBorrow).balanceOf(address(this)) - reserveBalances[assetBorrow]
+      borrowAmount_ == IERC20(assetBorrow).balanceOf(address(this)) - balanceBorrowAsset0
       , AppErrors.WRONG_BORROWED_BALANCE
     );
     IERC20(assetBorrow).safeTransfer(receiver_, borrowAmount_);
@@ -204,6 +208,7 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer 
 
     // make borrow, send borrowed amount to the receiver
     // we cannot transfer borrowed amount directly to receiver because the debt is incurred by amount receiver
+    uint balanceBorrowAsset0 = IERC20(assetBorrow).balanceOf(address(this));
     _pool.borrow(
       assetBorrow,
       borrowAmount_,
@@ -215,14 +220,13 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer 
     // ensure that we have received required borrowed amount, send the amount to the receiver
     // we assume here, that syncBalance(true) is called before the call of this function
     require(
-      borrowAmount_ == IERC20(assetBorrow).balanceOf(address(this)) - reserveBalances[assetBorrow]
+      borrowAmount_ == IERC20(assetBorrow).balanceOf(address(this)) - balanceBorrowAsset0
     , AppErrors.WRONG_BORROWED_BALANCE
     );
     IERC20(assetBorrow).safeTransfer(receiver_, borrowAmount_);
 
     // ensure that current health factor is greater than min allowed
     (,,,,, resultHealthFactor18) = _pool.getUserAccountData(address(this));
-console.log("resultHealthFactor18", resultHealthFactor18);
     _validateHealthFactor(resultHealthFactor18);
 
     return (resultHealthFactor18, borrowedAmountOut);

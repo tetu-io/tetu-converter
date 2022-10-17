@@ -118,10 +118,10 @@ contract HfPoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP {
     } else {
       // Update borrowBalance to actual value
       IHfCToken(borrowCToken).borrowBalanceCurrent(address(this));
-    }
 
-    address assetBorrow = borrowAsset;
-    reserveBalances[assetBorrow] = _getBalance(assetBorrow);
+      address assetBorrow = borrowAsset;
+      reserveBalances[assetBorrow] = _getBalance(assetBorrow);
+    }
   }
 
   /// @notice Supply collateral to the pool and borrow {borrowedAmount_} in {borrowedToken_}
@@ -165,6 +165,7 @@ contract HfPoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP {
     }
 
     // make borrow
+    uint balanceBorrowAsset0 = _getBalance(assetBorrow);
     error = IHfCToken(cTokenBorrow).borrow(borrowAmount_);
     require(error == 0, AppErrors.BORROW_FAILED);
 
@@ -173,7 +174,7 @@ contract HfPoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP {
       IWmatic(WMATIC).deposit{value : borrowAmount_}();
     }
     require(
-      borrowAmount_ == IERC20(assetBorrow).balanceOf(address(this)) - reserveBalances[assetBorrow]
+      borrowAmount_ == IERC20(assetBorrow).balanceOf(address(this)) - balanceBorrowAsset0
       , AppErrors.WRONG_BORROWED_BALANCE
     );
     IERC20(assetBorrow).safeTransfer(receiver_, borrowAmount_);
@@ -235,6 +236,7 @@ contract HfPoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP {
     require(IDebtMonitor(controller.debtMonitor()).isPositionOpened(), AppErrors.BORROW_POSITION_IS_NOT_REGISTERED);
 
     // make borrow
+    uint balanceBorrowAsset0 = _getBalance(assetBorrow);
     error = IHfCToken(cTokenBorrow).borrow(borrowAmount_);
     require(error == 0, AppErrors.BORROW_FAILED);
 
@@ -244,7 +246,7 @@ contract HfPoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP {
     }
     // we assume here, that syncBalance(true) is called before the call of this function
     require(
-      borrowAmount_ == IERC20(assetBorrow).balanceOf(address(this)) - reserveBalances[assetBorrow]
+      borrowAmount_ == IERC20(assetBorrow).balanceOf(address(this)) - balanceBorrowAsset0
     , AppErrors.WRONG_BORROWED_BALANCE
     );
     IERC20(assetBorrow).safeTransfer(receiver_, borrowAmount_);

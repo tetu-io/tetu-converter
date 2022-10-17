@@ -118,13 +118,13 @@ contract DForcePoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP {
     if (beforeBorrow_) {
       address assetCollateral = collateralAsset;
       reserveBalances[assetCollateral] = _getBalance(assetCollateral);
-    } else {
+    } else { // before repay
       // Update borrowBalance to actual value
       IDForceCToken(borrowCToken).borrowBalanceCurrent(address(this));
-    }
 
-    address assetBorrow = borrowAsset;
-    reserveBalances[assetBorrow] = _getBalance(assetBorrow);
+      address assetBorrow = borrowAsset;
+      reserveBalances[assetBorrow] = _getBalance(assetBorrow);
+    }
   }
 
   /// @notice Supply collateral to the pool and borrow {borrowedAmount_} in {borrowedToken_}
@@ -164,6 +164,7 @@ contract DForcePoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP {
     }
 
     // make borrow
+    uint balanceBorrowAsset0 = _getBalance(assetBorrow);
     IDForceCToken(cTokenBorrow).borrow(borrowAmount_);
 
     // ensure that we have received required borrowed amount, send the amount to the receiver
@@ -171,7 +172,7 @@ contract DForcePoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP {
       IWmatic(WMATIC).deposit{value : borrowAmount_}();
     }
     require(
-      borrowAmount_ == IERC20(assetBorrow).balanceOf(address(this)) - reserveBalances[address(assetBorrow)]
+      borrowAmount_ == IERC20(assetBorrow).balanceOf(address(this)) - balanceBorrowAsset0
       , AppErrors.WRONG_BORROWED_BALANCE
     );
     IERC20(assetBorrow).safeTransfer(receiver_, borrowAmount_);
@@ -228,6 +229,7 @@ contract DForcePoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP {
     require(IDebtMonitor(controller.debtMonitor()).isPositionOpened(), AppErrors.BORROW_POSITION_IS_NOT_REGISTERED);
 
     // make borrow
+    uint balanceBorrowAsset0 = _getBalance(assetBorrow);
     IDForceCToken(cTokenBorrow).borrow(borrowAmount_);
 
     // ensure that we have received required borrowed amount, send the amount to the receiver
@@ -236,7 +238,7 @@ contract DForcePoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP {
     }
     // we assume here, that syncBalance(true) is called before the call of this function
     require(
-      borrowAmount_ == IERC20(assetBorrow).balanceOf(address(this)) - reserveBalances[address(assetBorrow)]
+      borrowAmount_ == IERC20(assetBorrow).balanceOf(address(this)) - balanceBorrowAsset0
     , AppErrors.WRONG_BORROWED_BALANCE
     );
     IERC20(assetBorrow).safeTransfer(receiver_, borrowAmount_);
