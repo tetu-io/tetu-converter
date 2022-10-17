@@ -460,7 +460,6 @@ describe("AaveTwoPoolAdapterTest", () => {
       makeBorrowToRebalanceAsDeployer?: boolean;
       skipBorrow?: boolean;
       additionalAmountCorrectionFactor?: number;
-      wrongBorrowBalance?: boolean;
     }
 
     /**
@@ -533,16 +532,6 @@ describe("AaveTwoPoolAdapterTest", () => {
         : d.aavePoolAdapterAsTC;
 
       await poolAdapterSigner.syncBalance(true);
-      if (badPathsParams?.wrongBorrowBalance) {
-        // let's emulate situation when received borrow amount is greater than expected
-        const borrowTokenAsHolder = IERC20__factory.connect(
-          borrowToken.address,
-          await DeployerUtils.startImpersonate(borrowHolder)
-        );
-        await borrowTokenAsHolder.transfer(d.aavePool.address
-          , 1e5 // any number - it will make an equality inside the require-call incorrect
-        );
-      }
       await poolAdapterSigner.borrowToRebalance(
         expectedAdditionalBorrowAmount,
         d.user.address // receiver
@@ -624,14 +613,6 @@ describe("AaveTwoPoolAdapterTest", () => {
           await expect(
             testDaiWMatic({skipBorrow: true})
           ).revertedWith("TC-11");
-        });
-      });
-      describe("Wrong borrow balance", () => {
-        it("should revert", async () => {
-          if (!await isPolygonForkInUse()) return;
-          await expect(
-            testDaiWMatic({wrongBorrowBalance: true})
-          ).revertedWith("TC-15");
         });
       });
       describe("Result health factor is less min allowed one", () => {

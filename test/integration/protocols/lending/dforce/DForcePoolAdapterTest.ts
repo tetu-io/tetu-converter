@@ -386,7 +386,6 @@ describe("DForce integration tests, pool adapter", () => {
       makeBorrowToRebalanceAsDeployer?: boolean;
       skipBorrow?: boolean;
       additionalAmountCorrectionFactor?: number;
-      wrongBorrowBalance?: boolean;
     }
     /**
      * Prepare aave3 pool adapter.
@@ -453,16 +452,6 @@ describe("DForce integration tests, pool adapter", () => {
         ? IPoolAdapter__factory.connect(d.dfPoolAdapterTC.address, deployer)
         : d.dfPoolAdapterTC;
       await poolAdapterSigner.syncBalance(true);
-      if (badPathsParams?.wrongBorrowBalance) {
-        // let's emulate situation when received borrow amount is greater than expected
-        const borrowTokenAsHolder = IERC20__factory.connect(
-          borrowToken.address,
-          await DeployerUtils.startImpersonate(borrowHolder)
-        );
-        await borrowTokenAsHolder.transfer(d.dfPoolAdapterTC.address
-          , 1e5 // any number - it will make an equality inside the require-call incorrect
-        );
-      }
       await poolAdapterSigner.borrowToRebalance(
         expectedAdditionalBorrowAmount,
         d.user.address // receiver
@@ -552,14 +541,6 @@ describe("DForce integration tests, pool adapter", () => {
           await expect(
             testDaiUSDC({skipBorrow: true})
           ).revertedWith("TC-11");
-        });
-      });
-      describe("Wrong borrow balance", () => {
-        it("should revert", async () => {
-          if (!await isPolygonForkInUse()) return;
-          await expect(
-            testDaiUSDC({wrongBorrowBalance: true})
-          ).revertedWith("TC-15");
         });
       });
       describe("Result health factor is less min allowed one", () => {

@@ -36,7 +36,13 @@ interface IHfMarketState {
   totalSupply: BigNumber;
 }
 
-interface IHfUserAccountState {
+export interface IHfAccountLiquidity {
+  error: BigNumber;
+  liquidity: BigNumber;
+  shortfall: BigNumber;
+}
+
+export interface IHfUserAccountState {
   balance: BigNumber;
   borrowBalanceStored: BigNumber;
   borrowInterestIndex: BigNumber;

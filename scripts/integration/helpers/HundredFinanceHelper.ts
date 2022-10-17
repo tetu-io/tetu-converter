@@ -18,7 +18,7 @@ import {MaticAddresses} from "../../addresses/MaticAddresses";
 //endregion Constants
 
 //region Data types
-interface InterestRateModel {
+export interface IHundredFinanceInterestRateModel {
     address: string;
     name: string;
     borrowRate18: BigNumber;
@@ -27,7 +27,7 @@ interface InterestRateModel {
     baseRatePerBlock: BigNumber;
 }
 
-interface IHfData {
+export interface IHundredFinanceMarketData {
     comptroller: string;
     name: string;
     symbol: string;
@@ -51,7 +51,7 @@ interface IHfData {
     isListed: boolean;
     /** collateralFactorMantissa, scaled by 1e18, is multiplied by a supply balance to determine how much value can be borrowed */
     collateralFactorMantissa: BigNumber;
-    /** isComped indicates whether or not suppliers and borrowers are distributed COMP tokens. */
+    /** isComped indicates whether suppliers and borrowers are distributed COMP tokens. */
     isComped: boolean;
     closeFactorMantissa: BigNumber;
     /** Model which tells what the current interest rate should be */
@@ -81,9 +81,9 @@ export class HundredFinanceHelper {
     public static async getInterestRateModel(
         irm: IHfInterestRateModel,
         cToken: IHfCToken
-    ) : Promise<InterestRateModel> {
+    ) : Promise<IHundredFinanceInterestRateModel> {
         console.log(`getInterestRateModel ${await irm.name()}`);
-        const dest: InterestRateModel = {
+        const dest: IHundredFinanceInterestRateModel = {
             name: await irm.name(),
             baseRatePerBlock: await irm.baseRatePerBlock(),
             borrowRate18: await irm.getBorrowRate(
@@ -109,7 +109,7 @@ export class HundredFinanceHelper {
         comptroller: IHfComptroller,
         cToken: IHfCToken,
 
-    ) : Promise<IHfData> {
+    ) : Promise<IHundredFinanceMarketData> {
         const m = await comptroller.markets(cToken.address);
         const irm = IHfInterestRateModel__factory.connect(await cToken.interestRateModel(), signer);
         const priceOracle = IHfPriceOracle__factory.connect(MaticAddresses.HUNDRED_FINANCE_PRICE_ORACLE, signer);
@@ -118,8 +118,8 @@ export class HundredFinanceHelper {
         return {
             comptroller: await cToken.comptroller(),
             ctoken: cToken.address,
-            underlying: cToken.address == MaticAddresses.hMATIC
-                ? "" //hMATIC doesn't support CErc20Storage and doesn't have underlying property
+            underlying: cToken.address === MaticAddresses.hMATIC
+                ? "" // hMATIC doesn't support CErc20Storage and doesn't have underlying property
                 : await cToken.underlying(),
             name: await cToken.name(),
             symbol: await cToken.symbol(),
@@ -141,7 +141,7 @@ export class HundredFinanceHelper {
             bprotocol: await comptroller.bprotocol(cToken.address),
             price: await priceOracle.getUnderlyingPrice(cToken.address),
             underlyingDecimals: await IERC20Extended__factory.connect(
-                cToken.address == MaticAddresses.hMATIC
+                cToken.address === MaticAddresses.hMATIC
                     ? MaticAddresses.WMATIC
                     : await cToken.underlying()
                 , signer
