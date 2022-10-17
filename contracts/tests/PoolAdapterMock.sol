@@ -302,6 +302,29 @@ contract PoolAdapterMock is IPoolAdapter {
     return collateralToReturn;
   }
 
+  function repayToRebalance(
+    uint amountToRepay_
+  ) external override returns (
+    uint resultHealthFactor18
+  ) {
+    require(amountToRepay_ > 0, "nothing to repay");
+    // add debts to the borrowed amount
+    _accumulateDebt(0);
+    require(_borrowedAmounts >= amountToRepay_, "try to repay too much");
+
+    // ensure that we have received enough money on our balance just before repay was called
+    uint amountReceivedBT = IERC20(_borrowAsset).balanceOf(address(this));
+    require(amountReceivedBT == amountToRepay_, "not enough money received");
+
+    // transfer borrow amount back to the pool
+    IERC20(_borrowAsset).transfer(_pool, amountToRepay_);
+
+    // update status
+    _borrowedAmounts -= amountReceivedBT;
+
+    (,,uint healthFactor18,) = _getStatus();
+    return healthFactor18;
+  }
 
   ///////////////////////////////////////////////////////
   ///           Get-state functions

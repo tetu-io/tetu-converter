@@ -307,6 +307,46 @@ contract AaveTwoPoolAdapter is IPoolAdapter, IPoolAdapterInitializer {
       / prices[0];
   }
 
+  function repayToRebalance(
+    uint amountToRepay_
+  ) external override returns (
+    uint resultHealthFactor18
+  ) {
+    _onlyUserOrTC();
+    address assetBorrow = borrowAsset;
+    IAaveTwoPool pool = _pool;
+
+    // ensure, that amount to repay is less then the total debt
+    (,uint256 totalDebtBase0,,,,) = _pool.getUserAccountData(address(this));
+    uint priceBorrowAsset = _priceOracle.getAssetPrice(assetBorrow);
+    uint totalAmountToPay = totalDebtBase0 == 0
+      ? 0
+      : totalDebtBase0 * (10 ** _pool.getConfiguration(assetBorrow).getDecimals()) / priceBorrowAsset;
+    require(totalDebtBase0 > 0 && amountToRepay_ < totalAmountToPay, AppErrors.REPAY_TO_REBALANCE_NOT_ALLOWED);
+
+    // ensure that we have received enough money on our balance just before repay was called
+    require(
+      amountToRepay_ == IERC20(assetBorrow).balanceOf(address(this)) - reserveBalances[assetBorrow]
+    , AppErrors.WRONG_BORROWED_BALANCE
+    );
+
+    // transfer borrow amount back to the pool
+    IERC20(assetBorrow).approve(address(pool), 0);
+    IERC20(assetBorrow).approve(address(pool), amountToRepay_);
+
+    pool.repay(assetBorrow,
+      amountToRepay_,
+      RATE_MODE,
+      address(this)
+    );
+
+    // validate result status
+    (uint totalCollateralBase, uint totalDebtBase,,,, uint256 healthFactor) = pool.getUserAccountData(address(this));
+    _validateHealthFactor(healthFactor);
+
+    return healthFactor;
+  }
+
   ///////////////////////////////////////////////////////
   ///         View current status
   ///////////////////////////////////////////////////////

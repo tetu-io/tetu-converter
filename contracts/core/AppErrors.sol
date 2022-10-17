@@ -78,4 +78,8 @@ library AppErrors {
   /// @notice Health factor is not good after rebalancing
   string public constant WRONG_REBALANCING = "TC-39: wrong rebalancing";
 
+  /// @notice It's not allowed to pay debt completely using repayToRebalance
+  ///         Please use ordinal repay for this purpose (it allows to receive the collateral)
+  string public constant REPAY_TO_REBALANCE_NOT_ALLOWED = "TC-40";
+
 }

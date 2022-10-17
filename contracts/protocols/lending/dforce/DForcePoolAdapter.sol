@@ -346,6 +346,45 @@ contract DForcePoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP {
     return tokenBalance * amountToRepay_ / borrowBalance;
   }
 
+  function repayToRebalance(
+    uint amountToRepay_
+  ) external override returns (
+    uint resultHealthFactor18
+  ) {
+    _onlyUserOrTC();
+
+    address assetBorrow = borrowAsset;
+    address cTokenBorrow = borrowCToken;
+    address cTokenCollateral = collateralCToken;
+
+    // ensure, that amount to repay is less then the total debt
+    (, uint borrowBalance,,,) = _getStatus(cTokenCollateral, cTokenBorrow);
+    require(borrowBalance > 0 && amountToRepay_ < borrowBalance, AppErrors.REPAY_TO_REBALANCE_NOT_ALLOWED);
+
+    // ensure that we have received enough money on our balance just before repay was called
+    require(
+      amountToRepay_ == IERC20(assetBorrow).balanceOf(address(this)) - reserveBalances[assetBorrow]
+    , AppErrors.WRONG_BORROWED_BALANCE
+    );
+
+    // transfer borrow amount back to the pool
+    if (_isMatic(address(assetBorrow))) {
+      require(IERC20(WMATIC).balanceOf(address(this)) >= amountToRepay_, AppErrors.MINT_FAILED);
+      IWmatic(WMATIC).withdraw(amountToRepay_);
+      IDForceCTokenMatic(cTokenBorrow).repayBorrow{value : amountToRepay_}();
+    } else {
+      IERC20(assetBorrow).approve(cTokenBorrow, 0);
+      IERC20(assetBorrow).approve(cTokenBorrow, amountToRepay_);
+      IDForceCToken(cTokenBorrow).repayBorrow(amountToRepay_);
+    }
+
+    // validate result status
+    (,, uint collateralBase, uint sumBorrowPlusEffects,) = _getStatus(cTokenCollateral, cTokenBorrow);
+    (, uint healthFactor18) = _getHealthFactor(cTokenCollateral, collateralBase, sumBorrowPlusEffects);
+    _validateHealthFactor(healthFactor18);
+    return healthFactor18;
+  }
+
   ///////////////////////////////////////////////////////
   ///                 Rewards
   ///////////////////////////////////////////////////////

@@ -353,6 +353,49 @@ contract HfPoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP {
     return tokenBalance * amountToRepay_ / borrowBalance;
   }
 
+  function repayToRebalance(
+    uint amountToRepay_
+  ) external override returns (
+    uint resultHealthFactor18
+  ) {
+    _onlyUserOrTC();
+
+    uint error;
+    address assetBorrow = borrowAsset;
+    address cTokenBorrow = borrowCToken;
+    address cTokenCollateral = collateralCToken;
+
+    // ensure, that amount to repay is less then the total debt
+    (, uint outBorrowBalance,,,) = _getStatus(cTokenCollateral, cTokenBorrow);
+    require(outBorrowBalance > 0 && amountToRepay_ < outBorrowBalance, AppErrors.REPAY_TO_REBALANCE_NOT_ALLOWED);
+
+    // ensure that we have received enough money on our balance just before repay was called
+    require(
+      amountToRepay_ == IERC20(assetBorrow).balanceOf(address(this)) - reserveBalances[assetBorrow]
+    , AppErrors.WRONG_BORROWED_BALANCE
+    );
+
+    // transfer borrow amount back to the pool
+    if (_isMatic(assetBorrow)) {
+      require(IERC20(WMATIC).balanceOf(address(this)) >= amountToRepay_, AppErrors.MINT_FAILED);
+      IWmatic(WMATIC).withdraw(amountToRepay_);
+      IHfHMatic(payable(cTokenBorrow)).repayBorrow{value : amountToRepay_}();
+    } else {
+      IERC20(assetBorrow).approve(cTokenBorrow, 0);
+      IERC20(assetBorrow).approve(cTokenBorrow, amountToRepay_);
+      error = IHfCToken(cTokenBorrow).repayBorrow(amountToRepay_);
+      require(error == 0, AppErrors.REPAY_FAILED);
+    }
+
+    // validate result status
+    (,, uint collateralBase, uint borrowBase,) = _getStatus(cTokenCollateral, cTokenBorrow);
+    (, uint healthFactor18) = _getHealthFactor(cTokenCollateral, collateralBase, borrowBase);
+
+    _validateHealthFactor(healthFactor18);
+
+    return healthFactor18;
+  }
+
   ///////////////////////////////////////////////////////
   ///                 Rewards
   ///////////////////////////////////////////////////////

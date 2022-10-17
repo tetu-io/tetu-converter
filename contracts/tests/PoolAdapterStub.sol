@@ -123,6 +123,15 @@ contract PoolAdapterStub is IPoolAdapter {
     return 0;
   }
 
+  function repayToRebalance(
+    uint amountToRepay_
+  ) external override returns (
+    uint resultHealthFactor18
+  ) {
+    amountToRepay_;
+    return 0; //TODO
+  }
+
   function getConfig() external view override returns (
     address origin,
     address user,

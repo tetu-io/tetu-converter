@@ -278,7 +278,8 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer 
       uint borrowBalance = IERC20(assetBorrow).balanceOf(address(this));
       if (borrowBalance > reserveBalances[assetBorrow]) {
         IERC20(assetBorrow).safeTransfer(receiver_, borrowBalance - reserveBalances[assetBorrow]);
-      }}
+      }
+    }
 
     // validate result status
     (uint totalCollateralBase, uint totalDebtBase,,,, uint256 healthFactor) = pool.getUserAccountData(address(this));
@@ -322,6 +323,48 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer 
       totalCollateralBase * (10 ** IERC20Extended(assetCollateral_).decimals())
       * part / 10**18
       / prices[0];
+  }
+
+  function repayToRebalance(
+    uint amountToRepay_
+  ) external override returns (
+    uint resultHealthFactor18
+  ) {
+    _onlyUserOrTC();
+
+    address assetBorrow = borrowAsset;
+    IAavePool pool = _pool;
+
+    // ensure, that amount to repay is less then the total debt
+    (,uint256 totalDebtBase0,,,,) = _pool.getUserAccountData(address(this));
+    uint priceBorrowAsset = _priceOracle.getAssetPrice(assetBorrow);
+    uint totalAmountToPay = totalDebtBase0 == 0
+      ? 0
+      : totalDebtBase0 * (10 ** _pool.getConfiguration(assetBorrow).getDecimals()) / priceBorrowAsset;
+    require(totalDebtBase0 > 0 && amountToRepay_ < totalAmountToPay, AppErrors.REPAY_TO_REBALANCE_NOT_ALLOWED);
+
+    // ensure that we have received enough money on our balance just before repay was called
+    // the correct sequence of calls are following: syncBalance(false); transfer amount-to-repay; repay()
+    require(
+      amountToRepay_ == IERC20(assetBorrow).balanceOf(address(this)) - reserveBalances[assetBorrow]
+    , AppErrors.WRONG_BORROWED_BALANCE
+    );
+
+    // transfer borrowed amount back to the pool
+    IERC20(assetBorrow).approve(address(pool), 0);
+    IERC20(assetBorrow).approve(address(pool), amountToRepay_);
+
+    pool.repay(assetBorrow,
+      amountToRepay_,
+      RATE_MODE,
+      address(this)
+    );
+
+    // validate result health factor
+    (uint totalCollateralBase, uint totalDebtBase,,,, uint256 healthFactor) = pool.getUserAccountData(address(this));
+    _validateHealthFactor(healthFactor);
+
+    return healthFactor;
   }
 
   ///////////////////////////////////////////////////////
@@ -378,15 +421,15 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer 
     return (
     // Total amount of provided collateral in [collateral asset]
       totalCollateralBase * (10 ** _pool.getConfiguration(assetCollateral).getDecimals()) / prices[0],
-    // Total amount of borrowed debt in [borrow asset]. 0 - for closed borrow positions.
-    totalDebtBase == 0
-      ? 0
-      : totalDebtBase * targetDecimals / prices[1]
+      // Total amount of borrowed debt in [borrow asset]. 0 - for closed borrow positions.
+      totalDebtBase == 0
+        ? 0
+        : totalDebtBase * targetDecimals / prices[1]
       // we ask to pay a bit more amount to exclude dust tokens
       // i.e. for USD we need to pay only 1 cent
       // this amount allows us to pass type(uint).max to repay function
-      + targetDecimals / 100,
-    // Current health factor, decimals 18
+        + targetDecimals / 100,
+      // Current health factor, decimals 18
       hf18,
       totalCollateralBase != 0 || totalDebtBase != 0
     );
