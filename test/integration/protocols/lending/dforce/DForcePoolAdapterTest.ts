@@ -3,8 +3,8 @@ import {ethers} from "hardhat";
 import {TimeUtils} from "../../../../../scripts/utils/TimeUtils";
 import {
   Controller, DForcePlatformAdapter, DForcePoolAdapter, IDForceController,
-  IDForceCToken__factory, IDForcePriceOracle,
-  IERC20Extended__factory,
+  IDForceCToken__factory, IDForcePriceOracle, IERC20__factory,
+  IERC20Extended__factory, IPoolAdapter__factory,
 } from "../../../../../typechain";
 import {expect} from "chai";
 import {BigNumber, Wallet} from "ethers";
@@ -20,6 +20,7 @@ import {TokenDataTypes} from "../../../../baseUT/types/TokenDataTypes";
 import {DForceHelper, IDForceMarketData} from "../../../../../scripts/integration/helpers/DForceHelper";
 import {Misc} from "../../../../../scripts/utils/Misc";
 import {CompareAprUsesCase} from "../../../../baseUT/uses-cases/CompareAprUsesCase";
+import {IDForceCalcAccountEquityResults, IDForceUserAccountState} from "../../../../baseUT/apr/aprDForce";
 
 describe("DForce integration tests, pool adapter", () => {
 //region Global vars for all tests
@@ -77,10 +78,10 @@ describe("DForce integration tests, pool adapter", () => {
   async function prepareToBorrow(
     collateralToken: TokenDataTypes,
     collateralHolder: string,
-    collateralCToken: string,
+    collateralCTokenAddress: string,
     collateralAmount: BigNumber,
     borrowToken: TokenDataTypes,
-    borrowCToken: string,
+    borrowCTokenAddress: string,
     targetHealthFactor2?: number
   ) : Promise<IPrepareToBorrowResults> {
     const user = ethers.Wallet.createRandom();
@@ -104,7 +105,7 @@ describe("DForce integration tests, pool adapter", () => {
       controller.address,
       comptroller.address,
       dfPoolAdapterTC.address,
-      [collateralCToken, borrowCToken],
+      [collateralCTokenAddress, borrowCTokenAddress],
     )
     const priceOracle = await DForceHelper.getPriceOracle(comptroller, deployer);
 
@@ -158,23 +159,23 @@ describe("DForce integration tests, pool adapter", () => {
 
   async function getMarketsInfo(
     d: IPrepareToBorrowResults,
-    collateralCToken: string,
-    borrowCToken: string
+    collateralCTokenAddress: string,
+    borrowCTokenAddress: string
   ) : Promise<IMarketsInfo> {
     // tokens data
     const borrowData = await DForceHelper.getCTokenData(deployer, d.comptroller
-      , IDForceCToken__factory.connect(borrowCToken, deployer)
+      , IDForceCToken__factory.connect(borrowCTokenAddress, deployer)
     );
     const collateralData = await DForceHelper.getCTokenData(deployer, d.comptroller
-      , IDForceCToken__factory.connect(collateralCToken, deployer)
+      , IDForceCToken__factory.connect(collateralCTokenAddress, deployer)
     );
 
     // prices of assets in base currency
     // From sources: The underlying asset price mantissa (scaled by 1e18).
     // WRONG: The price of the asset in USD as an unsigned integer scaled up by 10 ^ (36 - underlying asset decimals).
     // WRONG: see https://compound.finance/docs/prices#price
-    const priceCollateral = await d.priceOracle.getUnderlyingPrice(collateralCToken);
-    const priceBorrow = await d.priceOracle.getUnderlyingPrice(borrowCToken);
+    const priceCollateral = await d.priceOracle.getUnderlyingPrice(collateralCTokenAddress);
+    const priceBorrow = await d.priceOracle.getUnderlyingPrice(borrowCTokenAddress);
     console.log("priceCollateral", priceCollateral);
     console.log("priceBorrow", priceBorrow);
 
@@ -275,7 +276,7 @@ describe("DForce integration tests, pool adapter", () => {
         collateralCToken.address, deployer
       ).balanceOf(d.dfPoolAdapterTC.address);
 
-      const expectedLiquiditiy = getExpectedLiquidity(
+      const expectedLiquidity = getExpectedLiquidity(
         info.collateralData,
         info.priceCollateral,
         info.priceBorrow,
@@ -295,7 +296,7 @@ describe("DForce integration tests, pool adapter", () => {
         collateralAmount
           .mul(Misc.WEI)
           .div(info.collateralData.exchangeRateStored),
-        expectedLiquiditiy,
+        expectedLiquidity,
         0,
       ].map(x => BalanceUtils.toString(x)).join("\n");
 
@@ -359,6 +360,214 @@ describe("DForce integration tests, pool adapter", () => {
       describe("Not usable as collateral", () => {
         it("", async () =>{
           expect.fail("TODO");
+        });
+      });
+    });
+  });
+
+  describe("borrowToRebalance", () => {
+    const minHealthFactorInitial2 = 1000;
+    const targetHealthFactorInitial2 = 2000;
+    const maxHealthFactorInitial2 = 4000;
+    const minHealthFactorUpdated2 = 500;
+    const targetHealthFactorUpdated2 = 1000;
+    const maxHealthFactorUpdated2 = 2000;
+
+    interface IMakeTestBorrowToRebalanceResults {
+      afterBorrow: IDForceCalcAccountEquityResults;
+      afterBorrowHealthFactor18: BigNumber;
+      afterBorrowToRebalance: IDForceCalcAccountEquityResults;
+      afterBorrowToRebalanceHealthFactor18: BigNumber;
+      userBalanceAfterBorrow: BigNumber;
+      userBalanceAfterBorrowToRebalance: BigNumber;
+      expectedAdditionalBorrowAmount: BigNumber;
+    }
+    interface IMakeTestBorrowToRebalanceBadPathParams {
+      makeBorrowToRebalanceAsDeployer?: boolean;
+      skipBorrow?: boolean;
+      additionalAmountCorrectionFactor?: number;
+      wrongBorrowBalance?: boolean;
+    }
+    /**
+     * Prepare aave3 pool adapter.
+     * Set high health factors.
+     * Make borrow.
+     * Reduce health factor twice.
+     * Make additional borrow.
+     */
+    async function makeTestBorrowToRebalance (
+      collateralToken: TokenDataTypes,
+      collateralHolder: string,
+      collateralCTokenAddress: string,
+      collateralAmount: BigNumber,
+      borrowToken: TokenDataTypes,
+      borrowCTokenAddress: string,
+      borrowHolder: string,
+      badPathsParams?: IMakeTestBorrowToRebalanceBadPathParams
+    ) : Promise<IMakeTestBorrowToRebalanceResults>{
+      const d = await prepareToBorrow(
+        collateralToken,
+        collateralHolder,
+        collateralCTokenAddress,
+        collateralAmount,
+        borrowToken,
+        borrowCTokenAddress,
+        targetHealthFactorInitial2
+      );
+
+      const info = await getMarketsInfo(d, collateralCTokenAddress, borrowCTokenAddress);
+
+      // setup high values for all health factors
+      await d.controller.setMaxHealthFactor2(maxHealthFactorInitial2);
+      await d.controller.setTargetHealthFactor2(targetHealthFactorInitial2);
+      await d.controller.setMinHealthFactor2(minHealthFactorInitial2);
+
+      // make borrow
+      const amountToBorrow = d.amountToBorrow;
+      if (! badPathsParams?.skipBorrow) {
+        await d.dfPoolAdapterTC.borrow(
+          collateralAmount,
+          amountToBorrow,
+          d.user.address // receiver
+        );
+      }
+      const afterBorrow = await d.comptroller.calcAccountEquity(d.dfPoolAdapterTC.address);
+      const statusAfterBorrow = await d.dfPoolAdapterTC.getStatus();
+      const userBalanceAfterBorrow = await borrowToken.token.balanceOf(d.user.address);
+      console.log("after borrow:", afterBorrow, userBalanceAfterBorrow);
+
+      // reduce all health factors down on 2 times to have possibility for additional borrow
+      await d.controller.setMinHealthFactor2(minHealthFactorUpdated2);
+      await d.controller.setTargetHealthFactor2(targetHealthFactorUpdated2);
+      await d.controller.setMaxHealthFactor2(maxHealthFactorUpdated2);
+
+      const expectedAdditionalBorrowAmount = amountToBorrow.mul(
+        badPathsParams?.additionalAmountCorrectionFactor
+          ? badPathsParams.additionalAmountCorrectionFactor
+          : 1
+      );
+      console.log("expectedAdditionalBorrowAmount", expectedAdditionalBorrowAmount);
+
+      // make additional borrow
+      const poolAdapterSigner = badPathsParams?.makeBorrowToRebalanceAsDeployer
+        ? IPoolAdapter__factory.connect(d.dfPoolAdapterTC.address, deployer)
+        : d.dfPoolAdapterTC;
+      await poolAdapterSigner.syncBalance(true);
+      if (badPathsParams?.wrongBorrowBalance) {
+        // let's emulate situation when received borrow amount is greater than expected
+        const borrowTokenAsHolder = IERC20__factory.connect(
+          borrowToken.address,
+          await DeployerUtils.startImpersonate(borrowHolder)
+        );
+        await borrowTokenAsHolder.transfer(d.dfPoolAdapterTC.address
+          , 1e5 // any number - it will make an equality inside the require-call incorrect
+        );
+      }
+      await poolAdapterSigner.borrowToRebalance(
+        expectedAdditionalBorrowAmount,
+        d.user.address // receiver
+      );
+
+      const afterBorrowToRebalance = await d.comptroller.calcAccountEquity(d.dfPoolAdapterTC.address);
+      const statusAfterBorrowToRebalance = await d.dfPoolAdapterTC.getStatus();
+      const userBalanceAfterBorrowToRebalance = await borrowToken.token.balanceOf(d.user.address);
+      console.log("after borrow to rebalance:", afterBorrowToRebalance, userBalanceAfterBorrowToRebalance);
+
+      return {
+        afterBorrow,
+        afterBorrowHealthFactor18: statusAfterBorrow.healthFactor18,
+        afterBorrowToRebalance,
+        afterBorrowToRebalanceHealthFactor18: statusAfterBorrowToRebalance.healthFactor18,
+        userBalanceAfterBorrow,
+        userBalanceAfterBorrowToRebalance,
+        expectedAdditionalBorrowAmount
+      }
+    }
+
+    async function testDaiUSDC(
+      badPathParams?: IMakeTestBorrowToRebalanceBadPathParams
+    ) : Promise<IMakeTestBorrowToRebalanceResults> {
+      const collateralAsset = MaticAddresses.DAI;
+      const collateralHolder = MaticAddresses.HOLDER_DAI;
+      const collateralCTokenAddress = MaticAddresses.dForce_iDAI;
+
+      const borrowAsset = MaticAddresses.USDC;
+      const borrowCTokenAddress = MaticAddresses.dForce_iUSDC;
+      const borrowHolder = MaticAddresses.HOLDER_USDC;
+
+      const collateralToken = await TokenDataTypes.Build(deployer, collateralAsset);
+      const borrowToken = await TokenDataTypes.Build(deployer, borrowAsset);
+      console.log("collateralToken.decimals", collateralToken.decimals);
+      console.log("borrowToken.decimals", borrowToken.decimals);
+
+      const collateralAmount = getBigNumberFrom(100_000, collateralToken.decimals);
+      console.log(collateralAmount, collateralAmount);
+
+      const r = await makeTestBorrowToRebalance(
+        collateralToken,
+        collateralHolder,
+        collateralCTokenAddress,
+        collateralAmount,
+        borrowToken,
+        borrowCTokenAddress,
+        borrowHolder,
+        badPathParams
+      );
+
+      console.log(r);
+      return r;
+    }
+
+    describe("Good paths", () => {
+      it("should return expected values", async () => {
+        if (!await isPolygonForkInUse()) return;
+        const r = await testDaiUSDC();
+        const ret = [
+          Math.round(r.afterBorrowHealthFactor18.div(getBigNumberFrom(1, 15)).toNumber() / 10.),
+          Math.round(r.afterBorrowToRebalanceHealthFactor18.div(getBigNumberFrom(1, 15)).toNumber() / 10.),
+          ethers.utils.formatUnits(r.userBalanceAfterBorrow, 18),
+          ethers.utils.formatUnits(r.userBalanceAfterBorrowToRebalance, 18),
+        ].join();
+        const expected = [
+          targetHealthFactorInitial2,
+          targetHealthFactorUpdated2,
+          ethers.utils.formatUnits(r.expectedAdditionalBorrowAmount, 18),
+          ethers.utils.formatUnits(r.expectedAdditionalBorrowAmount.mul(2), 18),
+        ].join();
+        expect(ret).eq(expected);
+      });
+    });
+    describe("Bad paths", () => {
+      describe("Not TetuConverter", () => {
+        it("should revert", async () => {
+          if (!await isPolygonForkInUse()) return;
+          await expect(
+            testDaiUSDC({makeBorrowToRebalanceAsDeployer: true})
+          ).revertedWith("TC-8");
+        });
+      });
+      describe("Position is not registered", () => {
+        it("should revert", async () => {
+          if (!await isPolygonForkInUse()) return;
+          await expect(
+            testDaiUSDC({skipBorrow: true})
+          ).revertedWith("TC-11");
+        });
+      });
+      describe("Wrong borrow balance", () => {
+        it("should revert", async () => {
+          if (!await isPolygonForkInUse()) return;
+          await expect(
+            testDaiUSDC({wrongBorrowBalance: true})
+          ).revertedWith("TC-15");
+        });
+      });
+      describe("Result health factor is less min allowed one", () => {
+        it("should revert", async () => {
+          if (!await isPolygonForkInUse()) return;
+          await expect(
+            testDaiUSDC({additionalAmountCorrectionFactor: 10})
+          ).revertedWith("TC-3: wrong health factor");
         });
       });
     });

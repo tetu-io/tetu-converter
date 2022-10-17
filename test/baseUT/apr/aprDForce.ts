@@ -2,14 +2,13 @@ import {BigNumber} from "ethers";
 import {IBorrowResults, IPointResults} from "./aprDataTypes";
 import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import {TestSingleBorrowParams} from "../types/BorrowRepayDataTypes";
-import {TokenDataTypes} from "../types/TokenDataTypes";
 import {DForceHelper} from "../../../scripts/integration/helpers/DForceHelper";
 import {
   DForceAprLibFacade, DForceTestHelper,
   IDForceController,
   IDForceCToken,
   IDForceCToken__factory,
-  IERC20__factory, IERC20Extended__factory
+  IERC20Extended__factory
 } from "../../../typechain";
 import {getBigNumberFrom} from "../../../scripts/utils/NumberUtils";
 import {DeployUtils} from "../../../scripts/utils/DeployUtils";
@@ -20,8 +19,6 @@ import {
 } from "./aprUtils";
 import {DForcePlatformFabric} from "../fabrics/DForcePlatformFabric";
 import {TimeUtils} from "../../../scripts/utils/TimeUtils";
-import {ConfigurableAmountToBorrow} from "./ConfigurableAmountToBorrow";
-import {Misc} from "../../../scripts/utils/Misc";
 import {DForceUtils} from "../utils/DForceUtils";
 
 //region Data types
@@ -38,17 +35,20 @@ interface IDForceMarketState {
   totalSupply: BigNumber;
 }
 
-interface IDForceUserAccountState {
+export interface IDForceCalcAccountEquityResults {
+  // calcAccountEquity
+  accountEquity: BigNumber;
+  shortfall: BigNumber;
+  collateralValue: BigNumber;
+  borrowedValue: BigNumber;
+}
+
+export interface IDForceUserAccountState extends IDForceCalcAccountEquityResults {
   balance: BigNumber;
   borrowBalanceStored: BigNumber;
   borrowPrincipal: BigNumber;
   borrowInterestIndex: BigNumber;
 
-  // calcAccountEquity
-  accountEquity: BigNumber;
-  accountShortfall: BigNumber;
-  accountCollateralValue: BigNumber;
-  accountBorrowedValue: BigNumber;
 }
 
 interface IDForceState {
@@ -125,9 +125,9 @@ async function getDForceUserAccountState(
     borrowPrincipal: snapshot.principal,
 
     accountEquity: e.accountEquity,
-    accountShortfall: e.shortfall,
-    accountBorrowedValue: e.borrowedValue,
-    accountCollateralValue: e.collateralValue
+    shortfall: e.shortfall,
+    borrowedValue: e.borrowedValue,
+    collateralValue: e.collateralValue
   }
 }
 

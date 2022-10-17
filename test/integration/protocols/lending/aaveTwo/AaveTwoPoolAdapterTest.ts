@@ -2,7 +2,7 @@ import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import {ethers} from "hardhat";
 import {TimeUtils} from "../../../../../scripts/utils/TimeUtils";
 import {
-  AaveTwoPoolAdapter, Controller, IAaveTwoPool, IAaveTwoPriceOracle, IAaveTwoProtocolDataProvider,
+  AaveTwoPoolAdapter, Controller, IAaveTwoPool, IAaveTwoPriceOracle, IAaveTwoProtocolDataProvider, IERC20__factory,
   IERC20Extended__factory, IPoolAdapter__factory
 } from "../../../../../typechain";
 import {expect} from "chai";
@@ -460,6 +460,7 @@ describe("AaveTwoPoolAdapterTest", () => {
       makeBorrowToRebalanceAsDeployer?: boolean;
       skipBorrow?: boolean;
       additionalAmountCorrectionFactor?: number;
+      wrongBorrowBalance?: boolean;
     }
 
     /**
@@ -474,6 +475,7 @@ describe("AaveTwoPoolAdapterTest", () => {
       collateralHolder: string,
       collateralAmount: BigNumber,
       borrowToken: TokenDataTypes,
+      borrowHolder: string,
       badPathsParams?: IMakeTestBorrowToRebalanceBadPathParams
     ) : Promise<IMakeTestBorrowToRebalanceResults>{
       const d = await prepareToBorrow(
@@ -529,6 +531,18 @@ describe("AaveTwoPoolAdapterTest", () => {
       const poolAdapterSigner = badPathsParams?.makeBorrowToRebalanceAsDeployer
         ? IPoolAdapter__factory.connect(d.aavePoolAdapterAsTC.address, deployer)
         : d.aavePoolAdapterAsTC;
+
+      await poolAdapterSigner.syncBalance(true);
+      if (badPathsParams?.wrongBorrowBalance) {
+        // let's emulate situation when received borrow amount is greater than expected
+        const borrowTokenAsHolder = IERC20__factory.connect(
+          borrowToken.address,
+          await DeployerUtils.startImpersonate(borrowHolder)
+        );
+        await borrowTokenAsHolder.transfer(d.aavePool.address
+          , 1e5 // any number - it will make an equality inside the require-call incorrect
+        );
+      }
       await poolAdapterSigner.borrowToRebalance(
         expectedAdditionalBorrowAmount,
         d.user.address // receiver
@@ -554,6 +568,7 @@ describe("AaveTwoPoolAdapterTest", () => {
       const collateralAsset = MaticAddresses.DAI;
       const collateralHolder = MaticAddresses.HOLDER_DAI;
       const borrowAsset = MaticAddresses.WMATIC;
+      const borrowHolder = MaticAddresses.HOLDER_WMATIC;
 
       const collateralToken = await TokenDataTypes.Build(deployer, collateralAsset);
       const borrowToken = await TokenDataTypes.Build(deployer, borrowAsset);
@@ -568,6 +583,7 @@ describe("AaveTwoPoolAdapterTest", () => {
         , collateralHolder
         , collateralAmount
         , borrowToken
+        , borrowHolder
         , badPathParams
       );
 
@@ -610,13 +626,13 @@ describe("AaveTwoPoolAdapterTest", () => {
           ).revertedWith("TC-11");
         });
       });
-      describe.skip("Wrong borrow balance - how to check it?", () => {
-        // it("should revert", async () => {
-        //   if (!await isPolygonForkInUse()) return;
-        //   await expect(
-        //     testDaiWMatic({skipBorrow: true})
-        //   ).revertedWith("TC-11");
-        // });
+      describe("Wrong borrow balance", () => {
+        it("should revert", async () => {
+          if (!await isPolygonForkInUse()) return;
+          await expect(
+            testDaiWMatic({wrongBorrowBalance: true})
+          ).revertedWith("TC-15");
+        });
       });
       describe("Result health factor is less min allowed one", () => {
         it("should revert", async () => {
@@ -628,7 +644,6 @@ describe("AaveTwoPoolAdapterTest", () => {
       });
     });
   });
-
 
   describe("repay", () =>{
     async function makeTest(
