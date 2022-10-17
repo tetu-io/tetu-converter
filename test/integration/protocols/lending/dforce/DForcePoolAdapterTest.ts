@@ -60,7 +60,9 @@ describe("DForce integration tests, pool adapter", () => {
     controller: Controller;
 
     amountToBorrow: BigNumber;
+  }
 
+  interface IMarketsInfo {
     borrowData: IDForceMarketData;
     collateralData: IDForceMarketData;
 
@@ -143,24 +145,6 @@ describe("DForce integration tests, pool adapter", () => {
     );
     console.log("plan", plan);
 
-
-    // tokens data
-    const borrowData = await DForceHelper.getCTokenData(deployer, comptroller
-      , IDForceCToken__factory.connect(borrowCToken, deployer)
-    );
-    const collateralData = await DForceHelper.getCTokenData(deployer, comptroller
-      , IDForceCToken__factory.connect(collateralCToken, deployer)
-    );
-
-    // prices of assets in base currency
-    // From sources: The underlying asset price mantissa (scaled by 1e18).
-    // WRONG: The price of the asset in USD as an unsigned integer scaled up by 10 ^ (36 - underlying asset decimals).
-    // WRONG: see https://compound.finance/docs/prices#price
-    const priceCollateral = await priceOracle.getUnderlyingPrice(collateralCToken);
-    const priceBorrow = await priceOracle.getUnderlyingPrice(borrowCToken);
-    console.log("priceCollateral", priceCollateral);
-    console.log("priceBorrow", priceBorrow);
-
     return {
       controller,
       comptroller,
@@ -169,6 +153,32 @@ describe("DForce integration tests, pool adapter", () => {
       amountToBorrow: plan.amountToBorrow,
       user,
       priceOracle,
+    }
+  }
+
+  async function getMarketsInfo(
+    d: IPrepareToBorrowResults,
+    collateralCToken: string,
+    borrowCToken: string
+  ) : Promise<IMarketsInfo> {
+    // tokens data
+    const borrowData = await DForceHelper.getCTokenData(deployer, d.comptroller
+      , IDForceCToken__factory.connect(borrowCToken, deployer)
+    );
+    const collateralData = await DForceHelper.getCTokenData(deployer, d.comptroller
+      , IDForceCToken__factory.connect(collateralCToken, deployer)
+    );
+
+    // prices of assets in base currency
+    // From sources: The underlying asset price mantissa (scaled by 1e18).
+    // WRONG: The price of the asset in USD as an unsigned integer scaled up by 10 ^ (36 - underlying asset decimals).
+    // WRONG: see https://compound.finance/docs/prices#price
+    const priceCollateral = await d.priceOracle.getUnderlyingPrice(collateralCToken);
+    const priceBorrow = await d.priceOracle.getUnderlyingPrice(borrowCToken);
+    console.log("priceCollateral", priceCollateral);
+    console.log("priceBorrow", priceBorrow);
+
+    return {
       borrowData,
       collateralData,
       priceBorrow,
@@ -228,6 +238,13 @@ describe("DForce integration tests, pool adapter", () => {
       );
       console.log(`borrow: success`);
 
+      // get market's info afer borrowing
+      const info = await getMarketsInfo(
+        d,
+        collateralCToken.address,
+        borrowCToken.address
+      );
+
       // check results
 
       // https://developers.dforce.network/lend/lend-and-synth/controller#calcaccountequity
@@ -259,9 +276,9 @@ describe("DForce integration tests, pool adapter", () => {
       ).balanceOf(d.dfPoolAdapterTC.address);
 
       const expectedLiquiditiy = getExpectedLiquidity(
-        d.collateralData,
-        d.priceCollateral,
-        d.priceBorrow,
+        info.collateralData,
+        info.priceCollateral,
+        info.priceBorrow,
         cTokenBalance,
         bBorrowBalance
       )
@@ -277,7 +294,7 @@ describe("DForce integration tests, pool adapter", () => {
         borrowAmount, // borrowed amount on user's balance
         collateralAmount
           .mul(Misc.WEI)
-          .div(d.collateralData.exchangeRateStored),
+          .div(info.collateralData.exchangeRateStored),
         expectedLiquiditiy,
         0,
       ].map(x => BalanceUtils.toString(x)).join("\n");
