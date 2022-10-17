@@ -14,7 +14,7 @@ import {getBigNumberFrom} from "../../../../../scripts/utils/NumberUtils";
 import {DeployerUtils} from "../../../../../scripts/utils/DeployerUtils";
 import {AdaptersHelper} from "../../../../baseUT/helpers/AdaptersHelper";
 import {isPolygonForkInUse} from "../../../../baseUT/utils/NetworkUtils";
-import {Aave3Helper, ReserveInfo} from "../../../../../scripts/integration/helpers/Aave3Helper";
+import {Aave3Helper, IAave3ReserveInfo} from "../../../../../scripts/integration/helpers/Aave3Helper";
 import {BalanceUtils, IUserBalances} from "../../../../baseUT/utils/BalanceUtils";
 import {CoreContractsHelper} from "../../../../baseUT/helpers/CoreContractsHelper";
 import {MaticAddresses} from "../../../../../scripts/addresses/MaticAddresses";
@@ -166,7 +166,7 @@ describe("Aave3PoolAdapterTest", () => {
         collateralAmount: BigNumber,
         borrowToken: TokenDataTypes,
         borrowAmount: BigNumber
-      ) : Promise<{sret: string, sexpected: string}>{
+      ): Promise<{ sret: string, sexpected: string }> {
         const d = await prepareToBorrow(
           collateralToken,
           collateralHolder,
@@ -202,74 +202,6 @@ describe("Aave3PoolAdapterTest", () => {
             .div(getBigNumberFrom(1, collateralToken.decimals)),
           borrowAmount.mul(prices[1]) // registered debt in the pool
             .div(getBigNumberFrom(1, borrowToken.decimals)),
-        ].map(x => BalanceUtils.toString(x)).join("\n");
-
-        return {sret, sexpected};
-      }
-      async function makeTestBorrowMaxAmount(
-        collateralToken: TokenDataTypes,
-        collateralHolder: string,
-        collateralAmount: BigNumber,
-        borrowToken: TokenDataTypes,
-      ) : Promise<{sret: string, sexpected: string}>{
-        const minHealthFactor2 = 101;
-        const targetHealthFactor2 = 202;
-        const d = await prepareToBorrow(
-          collateralToken,
-          collateralHolder,
-          collateralAmount,
-          borrowToken,
-          targetHealthFactor2
-        );
-        await d.controller.setMinHealthFactor2(minHealthFactor2);
-        await d.controller.setTargetHealthFactor2(targetHealthFactor2);
-        const collateralData = await d.h.getReserveInfo(deployer, d.aavePool, d.dataProvider, collateralToken.address);
-        console.log("collateralData", collateralData);
-
-        // prices of assets in base currency
-        const prices = await d.aavePrices.getAssetsPrices([collateralToken.address, borrowToken.address]);
-        const baseCurrencyUnit = await d.aavePrices.BASE_CURRENCY_UNIT();
-        console.log("prices", prices);
-
-        // let's manually calculate max allowed amount to borrow
-        const collateralAmountInBase18 = collateralAmount
-          .mul(prices[0])
-          .div(getBigNumberFrom(1, collateralToken.decimals));
-        const maxAllowedAmountToBorrowInBase18 = collateralAmountInBase18
-          .mul(100) // let's take into account min allowed health factor
-          .div(minHealthFactor2)
-          .mul(collateralData.data.ltv)
-          .div(1e4);
-        const maxAllowedAmountToBorrow = maxAllowedAmountToBorrowInBase18
-          .div(prices[1])
-          .mul(getBigNumberFrom(1, borrowToken.decimals));
-        console.log("collateralAmountInBase18", collateralAmountInBase18);
-        console.log("maxAllowedAmountToBorrowInBase18", maxAllowedAmountToBorrowInBase18);
-        console.log("maxAllowedAmountToBorrow", maxAllowedAmountToBorrow);
-
-        await d.aavePoolAdapterAsTC.borrow(
-          collateralAmount,
-          maxAllowedAmountToBorrow,
-          d.user.address
-        );
-        console.log("amountToBorrow", maxAllowedAmountToBorrow);
-
-        // check results
-        const ret = await d.aavePool.getUserAccountData(d.aavePoolAdapterAsTC.address);
-        console.log(ret);
-
-        const sret = [
-          ret.totalCollateralBase.mul(prices[0]).mul(getBigNumberFrom(1, collateralToken.decimals)).div(Misc.WEI),
-          ret.totalDebtBase.mul(prices[1]).mul(getBigNumberFrom(1, collateralToken.decimals)).div(Misc.WEI),
-          ret.availableBorrowsBase.mul(prices[1]).mul(getBigNumberFrom(1, collateralToken.decimals)).div(Misc.WEI),
-          ret.healthFactor.div(getBigNumberFrom(1, 16))
-        ].map(x => BalanceUtils.toString(x)).join("\n");
-
-        const sexpected = [
-          collateralAmount,
-          d.amountToBorrow,
-          0,
-          targetHealthFactor2
         ].map(x => BalanceUtils.toString(x)).join("\n");
 
         return {sret, sexpected};
@@ -375,7 +307,8 @@ describe("Aave3PoolAdapterTest", () => {
       describe("Borrow extremely huge amount", () => {
         describe("DAI : matic", () => {
           it("should return expected values", async () => {
-            expect.fail("TODO");                    });
+            expect.fail("TODO");
+          });
         });
         describe("", () => {
           it("should return expected values", async () => {
@@ -385,27 +318,7 @@ describe("Aave3PoolAdapterTest", () => {
           });
         });
       });
-      describe.skip('Try to borrow max allowed amount and see results in console', function () {
-        it("should move user account in the pool to expected state", async () => {
-          const collateralAsset = MaticAddresses.DAI;
-          const collateralHolder = MaticAddresses.HOLDER_DAI;
-          const borrowAsset = MaticAddresses.WMATIC;
-
-          const collateralToken = await TokenDataTypes.Build(deployer, collateralAsset);
-          const borrowToken = await TokenDataTypes.Build(deployer, borrowAsset);
-
-          const collateralAmount = getBigNumberFrom(100_000, collateralToken.decimals);
-
-          const r = await makeTestBorrowMaxAmount(
-            collateralToken
-            , collateralHolder
-            , collateralAmount
-            , borrowToken
-           );
-          console.log(r);
-        });
-      });
-    });
+     });
     describe("Bad paths", () => {
       describe("Not borrowable", () => {
         it("", async () =>{
@@ -416,6 +329,113 @@ describe("Aave3PoolAdapterTest", () => {
         it("", async () =>{
           expect.fail("TODO");
         });
+      });
+    });
+  });
+
+
+  /**
+   *                LTV                LiquidationThreshold
+   * DAI:           0.75               0.8
+   * WMATIC:        0.65               0.7
+   *
+   * LTV: what amount of collateral we can use to borrow
+   * LiquidationThreshold: if borrow amount exceeds collateral*LiquidationThreshold => liquidation
+   *
+   * Let's ensure in following test, that LTV and LiquidationThreshold of collateral are used
+   * in calculations inside getUserAccountData. The values of borrow asset don't matter there
+   */
+  describe("Borrow: check LTV and liquidationThreshold", () => {
+    async function makeTestBorrowMaxAmount(
+      collateralToken: TokenDataTypes,
+      collateralHolder: string,
+      collateralAmount: BigNumber,
+      borrowToken: TokenDataTypes,
+    ): Promise<{userAccountData: IAave3UserAccountDataResults, collateralData: IAave3ReserveInfo}> {
+      const minHealthFactor2 = 101;
+      const targetHealthFactor2 = 202;
+      const d = await prepareToBorrow(
+        collateralToken,
+        collateralHolder,
+        collateralAmount,
+        borrowToken,
+        targetHealthFactor2
+      );
+      await d.controller.setMinHealthFactor2(minHealthFactor2);
+      await d.controller.setTargetHealthFactor2(targetHealthFactor2);
+      const collateralData = await d.h.getReserveInfo(deployer, d.aavePool, d.dataProvider, collateralToken.address);
+      console.log("collateralData", collateralData);
+
+      // prices of assets in base currency
+      const prices = await d.aavePrices.getAssetsPrices([collateralToken.address, borrowToken.address]);
+      console.log("prices", prices);
+
+      // let's manually calculate max allowed amount to borrow
+      const collateralAmountInBase18 = collateralAmount
+        .mul(prices[0])
+        .div(getBigNumberFrom(1, collateralToken.decimals));
+      const maxAllowedAmountToBorrowInBase18 = collateralAmountInBase18
+        .mul(100) // let's take into account min allowed health factor
+        .div(minHealthFactor2)
+        .mul(collateralData.data.ltv)
+        .div(1e4);
+      const maxAllowedAmountToBorrow = maxAllowedAmountToBorrowInBase18
+        .div(prices[1])
+        .mul(getBigNumberFrom(1, borrowToken.decimals));
+      console.log("collateralAmountInBase18", collateralAmountInBase18);
+      console.log("maxAllowedAmountToBorrowInBase18", maxAllowedAmountToBorrowInBase18);
+      console.log("maxAllowedAmountToBorrow", maxAllowedAmountToBorrow);
+
+      await d.aavePoolAdapterAsTC.borrow(
+        collateralAmount,
+        maxAllowedAmountToBorrow,
+        d.user.address
+      );
+      console.log("amountToBorrow", maxAllowedAmountToBorrow);
+
+      // check results
+      const ret = await d.aavePool.getUserAccountData(d.aavePoolAdapterAsTC.address);
+      console.log(ret);
+      return {
+        userAccountData: ret,
+        collateralData
+      }
+    }
+    describe("Good paths", () => {
+      it("should move user account in the pool to expected state", async () => {
+        const collateralAsset = MaticAddresses.DAI;
+        const collateralHolder = MaticAddresses.HOLDER_DAI;
+        const borrowAsset = MaticAddresses.WMATIC;
+
+        const collateralToken = await TokenDataTypes.Build(deployer, collateralAsset);
+        const borrowToken = await TokenDataTypes.Build(deployer, borrowAsset);
+
+        const collateralAmount = getBigNumberFrom(100_000, collateralToken.decimals);
+
+        const r = await makeTestBorrowMaxAmount(
+          collateralToken
+          , collateralHolder
+          , collateralAmount
+          , borrowToken
+        );
+        console.log(r);
+
+        const ret = [
+          r.userAccountData.ltv,
+          r.userAccountData.currentLiquidationThreshold,
+          r.userAccountData.totalDebtBase
+            .add(r.userAccountData.availableBorrowsBase)
+            .mul(1e4)
+            .div(r.userAccountData.totalCollateralBase)
+        ].map(x => BalanceUtils.toString(x)).join("\n");
+
+        const expected = [
+          r.collateralData.data.ltv,
+          r.collateralData.data.liquidationThreshold,
+          r.collateralData.data.ltv
+        ].map(x => BalanceUtils.toString(x)).join("\n");
+
+        expect(ret).eq(expected);
       });
     });
   });
@@ -464,8 +484,8 @@ describe("Aave3PoolAdapterTest", () => {
     }
 
     async function getMaxAmountToBorrow(
-      collateralDataBefore: ReserveInfo,
-      borrowDataBefore: ReserveInfo
+      collateralDataBefore: IAave3ReserveInfo,
+      borrowDataBefore: IAave3ReserveInfo
     ) : Promise<BigNumber> {
       // get max allowed amount to borrow
       // amount = (debt-ceiling - total-isolation-debt) * 10^{6 - 2}

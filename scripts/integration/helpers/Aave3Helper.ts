@@ -76,13 +76,13 @@ const MAX_RESERVES_COUNT = 128;
 //endregion aave-v3-core: ReserveConfiguration.sol
 
 //region Data types
-export interface ReserveLiquidity {
+export interface IAave3ReserveLiquidity {
   totalAToken: BigNumber;
   totalStableDebt: BigNumber;
   totalVariableDebt: BigNumber;
 }
 
-export interface ReserveData {
+export interface IAave3ReserveData {
   ltv: BigNumber;
   liquidationThreshold: BigNumber;
   liquidationBonus: BigNumber;
@@ -120,7 +120,7 @@ export interface ReserveData {
   price: BigNumber;
 }
 
-export interface CategoryData {
+export interface IAave3CategoryData {
   ltv: BigNumber | number;
   liquidationThreshold: BigNumber | number;
   liquidationBonus: BigNumber | number;
@@ -128,7 +128,7 @@ export interface CategoryData {
   label: string;
 }
 
-export interface ReserveInfo {
+export interface IAave3ReserveInfo {
   reserveName: string;
   reserveSymbol: string;
   reserveAddress: string;
@@ -136,9 +136,9 @@ export interface ReserveInfo {
   aTokenAddress: string;
   aTokenSymbol: string;
 
-  liquidity: ReserveLiquidity;
-  data: ReserveData;
-  category?: CategoryData;
+  liquidity: IAave3ReserveLiquidity;
+  data: IAave3ReserveData;
+  category?: IAave3CategoryData;
 }
 
 export interface ReserveLtvConfig {
@@ -150,7 +150,7 @@ export interface ReserveLtvConfig {
 
 export class Aave3Helper {
 //region Instance
-  private funcGetECategoryData: (category: number) => Promise<CategoryData>;
+  private funcGetECategoryData: (category: number) => Promise<IAave3CategoryData>;
 
   constructor(signer: SignerWithAddress) {
     this.funcGetECategoryData = Aave3Helper.memoize(category => Aave3Helper.getEModeCategory(
@@ -175,7 +175,7 @@ export class Aave3Helper {
     aavePool: IAavePool,
     dp: IAaveProtocolDataProvider,
     reserve: string
-  ) : Promise<ReserveInfo> {
+  ) : Promise<IAave3ReserveInfo> {
     const rd: Aave3DataTypes.ReserveDataStruct = await aavePool.getReserveData(reserve);
     const priceOracle = await Aave3Helper.getAavePriceOracle(signer);
 
@@ -188,19 +188,19 @@ export class Aave3Helper {
     const decimals = await IERC20Extended__factory.connect(reserve, signer).decimals();
     const category = Aave3Helper.get(rawData, EMODE_CATEGORY_MASK, EMODE_CATEGORY_START_BIT_POSITION).toNumber();
 
-    const categoryData: CategoryData | undefined = category
+    const categoryData: IAave3CategoryData | undefined = category
       ? await this.funcGetECategoryData(category)
       : undefined;
 
     const reserveData = await dp.getReserveData(reserve);
 
-    const liquidityData: ReserveLiquidity = {
+    const liquidityData: IAave3ReserveLiquidity = {
       totalAToken: reserveData.totalAToken,
       totalStableDebt: reserveData.totalStableDebt,
       totalVariableDebt: reserveData.totalVariableDebt
     }
 
-    const data: ReserveData = {
+    const data: IAave3ReserveData = {
       ltv: Aave3Helper.get(rawData, LTV_MASK, 0),
       liquidationThreshold: Aave3Helper.get(rawData, LIQUIDATION_THRESHOLD_MASK, LIQUIDATION_THRESHOLD_START_BIT_POSITION),
       liquidationBonus: Aave3Helper.get(rawData, LIQUIDATION_BONUS_MASK, LIQUIDATION_BONUS_START_BIT_POSITION),
@@ -274,7 +274,7 @@ export class Aave3Helper {
 //endregion Access
 
 //region Read data
-  public static async getEModeCategory(aavePool: IAavePool, category: number) : Promise<CategoryData> {
+  public static async getEModeCategory(aavePool: IAavePool, category: number) : Promise<IAave3CategoryData> {
     console.log("getEModeCategory", category);
     const data = await aavePool.getEModeCategoryData(category);
 

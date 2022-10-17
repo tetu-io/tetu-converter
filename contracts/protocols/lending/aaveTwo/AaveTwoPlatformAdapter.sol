@@ -127,7 +127,7 @@ contract AaveTwoPlatformAdapter is IPlatformAdapter {
       if (_isUsable(rc.configuration) && rb.configuration.getBorrowingEnabled()) {
         // get liquidation threshold (== collateral factor) and loan-to-value (LTV)
         // we should use both LTV and liquidationThreshold of collateral asset (not borrow asset)
-        // see test "Try to borrow max allowed amount and see results in console" for aave3
+        // see test "Borrow: check LTV and liquidationThreshold"
         plan.ltv18 = uint(rc.configuration.getLtv()) * 10**(18-4);
         plan.liquidationThreshold18 = uint(rc.configuration.getLiquidationThreshold()) * 10**(18-4);
         plan.converter = converter;

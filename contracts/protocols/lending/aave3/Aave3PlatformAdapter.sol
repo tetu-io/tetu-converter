@@ -128,7 +128,7 @@ contract Aave3PlatformAdapter is IPlatformAdapter {
               plan.converter = _converters[INDEX_E_MODE];
             } else {
               // we should use both LTV and liquidationThreshold of collateral asset (not borrow asset)
-              // see test "Try to borrow max allowed amount and see results in console"
+              // see test "Borrow: check LTV and liquidationThreshold"
               plan.ltv18 = uint(rc.configuration.getLtv()) * 10**(18-4);
               plan.liquidationThreshold18 = uint(rc.configuration.getLiquidationThreshold()) * 10**(18-4);
               plan.converter = _converters[INDEX_NORMAL_MODE];

@@ -47,13 +47,13 @@ const MAX_VALID_RESERVE_FACTOR = 65535;
 //endregion aave-v3-core: ReserveConfiguration.sol
 
 //region Data types
-export interface ReserveLiquidity {
+export interface IAaveTwoReserveLiquidity {
   availableLiquidity: BigNumber;
   totalStableDebt: BigNumber;
   totalVariableDebt: BigNumber;
 }
 
-export interface ReserveData {
+export interface IAaveTwoReserveData {
   ltv: BigNumber;
   liquidationThreshold: BigNumber;
   liquidationBonus: BigNumber;
@@ -78,16 +78,7 @@ export interface ReserveData {
 
   price: BigNumber;
 }
-
-export interface CategoryData {
-  ltv: BigNumber | number;
-  liquidationThreshold: BigNumber | number;
-  liquidationBonus: BigNumber | number;
-  priceSource: string;
-  label: string;
-}
-
-export interface ReserveInfo {
+export interface IAaveTwoReserveInfo {
   reserveName: string;
   reserveSymbol: string;
   reserveAddress: string;
@@ -95,8 +86,8 @@ export interface ReserveInfo {
   aTokenAddress: string;
   aTokenSymbol: string;
 
-  liquidity: ReserveLiquidity;
-  data: ReserveData;
+  liquidity: IAaveTwoReserveLiquidity;
+  data: IAaveTwoReserveData;
 }
 //endregion Data types
 
@@ -107,7 +98,7 @@ export class AaveTwoHelper {
     aavePool: IAaveTwoPool,
     dp: IAaveTwoProtocolDataProvider,
     reserve: string
-  ) : Promise<ReserveInfo> {
+  ) : Promise<IAaveTwoReserveInfo> {
     const rd: DataTypes.ReserveDataStruct = await aavePool.getReserveData(reserve);
     const priceOracle = await AaveTwoHelper.getAavePriceOracle(signer);
 
@@ -121,13 +112,13 @@ export class AaveTwoHelper {
 
     const reserveData = await dp.getReserveData(reserve);
 
-    const liquidityData: ReserveLiquidity = {
+    const liquidityData: IAaveTwoReserveLiquidity = {
       availableLiquidity: reserveData.availableLiquidity,
       totalStableDebt: reserveData.totalStableDebt,
       totalVariableDebt: reserveData.totalVariableDebt
     }
 
-    const data: ReserveData = {
+    const data: IAaveTwoReserveData = {
       ltv: AaveTwoHelper.get(rawData, LTV_MASK, 0),
       liquidationThreshold: AaveTwoHelper.get(rawData, LIQUIDATION_THRESHOLD_MASK, LIQUIDATION_THRESHOLD_START_BIT_POSITION),
       liquidationBonus: AaveTwoHelper.get(rawData, LIQUIDATION_BONUS_MASK, LIQUIDATION_BONUS_START_BIT_POSITION),

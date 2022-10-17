@@ -148,8 +148,8 @@ describe("AaveTwoPlatformAdapterTest", () => {
       console.log("ret", ret);
       const borrowAmount18 = ret.liquidationThreshold18.mul(borrowAmountFactor18).div(Misc.WEI);
       let borrowAmount = toMantissa(borrowAmount18, 18, borrowAssetData.data.decimals);
-      if (borrowAmount.gt(ret.maxAmountToBorrowBT)) {
-        borrowAmount = ret.maxAmountToBorrowBT;
+      if (borrowAmount.gt(ret.maxAmountToBorrow)) {
+        borrowAmount = ret.maxAmountToBorrow;
       }
 
       // calculate expected supply and borrow values
@@ -185,8 +185,8 @@ describe("AaveTwoPlatformAdapterTest", () => {
         ret.rewardsAmountBt36,
         ret.ltv18,
         ret.liquidationThreshold18,
-        ret.maxAmountToBorrowBT,
-        ret.maxAmountToSupplyCT,
+        ret.maxAmountToBorrow,
+        ret.maxAmountToSupply,
       ].map(x => BalanceUtils.toString(x)) .join("\n");
 
       const sexpected = [
@@ -312,7 +312,7 @@ describe("AaveTwoPlatformAdapterTest", () => {
         const dp = await AaveTwoHelper.getAaveProtocolDataProvider(deployer);
         const aavePool = await AaveTwoHelper.getAavePool(deployer);
 
-        return await PredictBrUsesCase.makeTest(
+        return PredictBrUsesCase.makeTest(
           deployer,
           new AaveTwoPlatformActor(
             deployer,
@@ -351,7 +351,7 @@ describe("AaveTwoPlatformAdapterTest", () => {
           const r = await makeTest(collateralAsset, borrowAsset, collateralHolders, part10000);
 
           const ret = areAlmostEqual(r.br, r.brPredicted, 5);
-          expect(ret).true;
+          expect(ret).eq(true);
         });
       });
 
@@ -372,7 +372,7 @@ describe("AaveTwoPlatformAdapterTest", () => {
           const r = await makeTest(collateralAsset, borrowAsset, collateralHolders, part10000);
 
           const ret = areAlmostEqual(r.br, r.brPredicted, 5);
-          expect(ret).true;
+          expect(ret).eq(true);
         });
       });
     });

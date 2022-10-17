@@ -286,6 +286,7 @@ contract DForcePlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
   ///                    Utils
   ///////////////////////////////////////////////////////
 
+  /// @dev See LendingContractsV2, Controller.sol, calcAccountEquityWithEffect
   /// @return collateralFactorMantissa Multiplier representing the most one can borrow against their collateral in
   ///         this market. For instance, 0.9 to allow borrowing 90% of collateral value.
   /// @return supplyCapacity iToken's supply capacity, -1 means no limit
@@ -300,6 +301,7 @@ contract DForcePlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
       : (collateralFactorMantissa0, supplyCapacity0);
   }
 
+  /// @dev See LendingContractsV2, Controller.sol, calcAccountEquityWithEffect
   /// @return borrowFactorMantissa Multiplier representing the most one can borrow the asset.
   ///         For instance, 0.5 to allow borrowing this asset 50% * collateral value * collateralFactor.
   /// @return borrowCapacity iToken's borrow capacity, -1 means no limit
