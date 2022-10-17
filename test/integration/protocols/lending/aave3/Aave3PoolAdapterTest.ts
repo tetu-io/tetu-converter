@@ -115,7 +115,7 @@ describe("Aave3PoolAdapterTest", () => {
       .transfer(deployer.address, collateralAmount);
     const collateralData = await h.getReserveInfo(deployer, aavePool, dataProvider, collateralToken.address);
 
-    // make borrow
+    // prepare to borrow
     await aavePoolAdapterAsTC.initialize(
       controller.address,
       aavePool.address,

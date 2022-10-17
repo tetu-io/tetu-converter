@@ -22,7 +22,7 @@ import {DeployerUtils} from "../../utils/DeployerUtils";
 import {getBigNumberFrom} from "../../utils/NumberUtils";
 
 //region Data types
-interface IDForceMarketData {
+export interface IDForceMarketData {
   controller: string;
   name: string;
   symbol: string;
