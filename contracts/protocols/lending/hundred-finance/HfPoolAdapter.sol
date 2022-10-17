@@ -267,7 +267,7 @@ contract HfPoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP {
     uint amountToRepay_,
     address receiver_,
     bool closePosition
-  ) external override {
+  ) external override returns (uint) {
     _onlyUserOrTC();
 
     uint error;
@@ -308,11 +308,11 @@ contract HfPoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP {
     require(error == 0, AppErrors.REDEEM_FAILED);
 
     // transfer collateral back to the user
-    uint amountToReturn = _getBalance(assetCollateral) - balanceCollateralAsset;
+    uint collateralAmountToReturn = _getBalance(assetCollateral) - balanceCollateralAsset;
     if (_isMatic(assetCollateral)) {
-      IWmatic(WMATIC).deposit{value : amountToReturn}();
+      IWmatic(WMATIC).deposit{value : collateralAmountToReturn}();
     }
-    IERC20(assetCollateral).safeTransfer(receiver_, amountToReturn);
+    IERC20(assetCollateral).safeTransfer(receiver_, collateralAmountToReturn);
 
     // validate result status
     (uint tokenBalance,
@@ -329,6 +329,8 @@ contract HfPoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP {
       (, uint healthFactor18) = _getHealthFactor(cTokenCollateral, collateralBase, borrowBase);
       _validateHealthFactor(healthFactor18);
     }
+
+    return collateralAmountToReturn;
   }
 
   function _getCollateralTokensToRedeem(

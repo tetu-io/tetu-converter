@@ -224,7 +224,7 @@ contract AaveTwoPoolAdapter is IPoolAdapter, IPoolAdapterInitializer {
     uint amountToRepay_,
     address receiver_,
     bool closePosition_
-  ) external override {
+  ) external override returns (uint) {
     _onlyUserOrTC();
     address assetCollateral = collateralAsset;
     address assetBorrow = borrowAsset;
@@ -271,6 +271,8 @@ contract AaveTwoPoolAdapter is IPoolAdapter, IPoolAdapterInitializer {
       require(!closePosition_, AppErrors.CLOSE_POSITION_FAILED);
       _validateHealthFactor(healthFactor);
     }
+
+    return amountCollateralToWithdraw;
   }
 
   /// @notice Get a part of collateral safe to return after repaying {amountToRepay_}

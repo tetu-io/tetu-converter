@@ -106,7 +106,6 @@ contract PoolAdapterStub is IPoolAdapter {
     uint resultHealthFactor18,
     uint borrowedAmountOut
   ) {
-    //TODO
     borrowAmount_;
     receiver_;
     return (resultHealthFactor18, borrowedAmountOut);
@@ -117,10 +116,11 @@ contract PoolAdapterStub is IPoolAdapter {
     uint amountToRepay_,
     address receiver_,
     bool closePosition_
-  ) override external {
+  ) override external returns (uint){
     console.log("repay receiver=%s", receiver_);
     console.log("repay amountToRepay_=%d closePosition_=%d", amountToRepay_, closePosition_ ? 1 : 0);
     _borrowHideWarning = false;
+    return 0;
   }
 
   function getConfig() external view override returns (

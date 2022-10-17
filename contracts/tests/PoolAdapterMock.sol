@@ -259,7 +259,7 @@ contract PoolAdapterMock is IPoolAdapter {
     uint amountToRepay_,
     address receiver_,
     bool closePosition_
-  ) external override {
+  ) external override returns (uint) {
     console.log("repay", amountToRepay_, _borrowedAmounts);
     require(amountToRepay_ > 0, "nothing to repay");
     // add debts to the borrowed amount
@@ -298,6 +298,8 @@ contract PoolAdapterMock is IPoolAdapter {
       IDebtMonitor dm = IDebtMonitor(IController(controller).debtMonitor());
       dm.onClosePosition();
     }
+
+    return collateralToReturn;
   }
 
 

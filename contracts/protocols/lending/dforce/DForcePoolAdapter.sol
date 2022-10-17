@@ -259,7 +259,7 @@ contract DForcePoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP {
     uint amountToRepay_,
     address receiver_,
     bool closePosition_
-  ) external override {
+  ) external override returns (uint) {
     _onlyUserOrTC();
     console.log("REPAY", amountToRepay_, closePosition_ ? 1 : 0);
 
@@ -301,12 +301,12 @@ contract DForcePoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP {
     console.log("collateralTokensToWithdraw", collateralTokensToWithdraw);
 
     // transfer collateral back to the user
-    uint amountToReturn = _getBalance(assetCollateral) - balanceCollateralAsset;
+    uint collateralAmountToReturn = _getBalance(assetCollateral) - balanceCollateralAsset;
     if (_isMatic(assetCollateral)) {
-      IWmatic(WMATIC).deposit{value : amountToReturn}();
+      IWmatic(WMATIC).deposit{value : collateralAmountToReturn}();
     }
-    IERC20(assetCollateral).safeTransfer(receiver_, amountToReturn);
-    console.log("amountToReturn", amountToReturn);
+    IERC20(assetCollateral).safeTransfer(receiver_, collateralAmountToReturn);
+    console.log("amountToReturn", collateralAmountToReturn);
 
     // validate result status
     (uint tokenBalance,
@@ -317,12 +317,14 @@ contract DForcePoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP {
 
     if (tokenBalance == 0 && borrowBalance == 0) {
       IDebtMonitor(controller.debtMonitor()).onClosePosition();
-      //!TODO: do we need exit the markets?
+      //!TODO: do we need to exit the markets?
     } else {
       require(!closePosition_, AppErrors.CLOSE_POSITION_FAILED);
       (, uint healthFactor18) = _getHealthFactor(cTokenCollateral, collateralBase, sumBorrowPlusEffects);
       _validateHealthFactor(healthFactor18);
     }
+
+    return collateralAmountToReturn;
   }
 
   function _getCollateralTokensToRedeem(

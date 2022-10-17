@@ -242,7 +242,7 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer 
     uint amountToRepay_,
     address receiver_,
     bool closePosition_
-  ) external override {
+  ) external override returns (uint) {
     _onlyUserOrTC();
     address assetBorrow = borrowAsset;
     address assetCollateral = collateralAsset;
@@ -288,6 +288,8 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer 
       require(!closePosition_, AppErrors.CLOSE_POSITION_FAILED);
       _validateHealthFactor(healthFactor);
     }
+
+    return amountCollateralToWithdraw;
   }
 
   /// @notice Get a part of collateral safe to return after repaying {amountToRepay_}
