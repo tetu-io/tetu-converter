@@ -522,7 +522,7 @@ describe("TetuConverterTest", () => {
           );
 
           // user receives collateral and transfers it back to UserContract to restore same state as before
-          await userContract.makeRepayUC1_2(
+          await userContract.makeRepayComplete(
             sourceToken.address,
             targetToken.address,
             user
@@ -574,13 +574,56 @@ describe("TetuConverterTest", () => {
 
   describe("repay", () => {
     describe("Good paths", () => {
-      it("should return expected values", async () => {
-        expect.fail("TODO");
+      describe("Single borrow", () => {
+        describe("Partial repay", () => {
+          it("should return expected values", async () => {
+            expect.fail("TODO");
+          });
+        });
+        describe("Full repay", () => {
+          it("should return expected values", async () => {
+            expect.fail("TODO");
+          });
+        });
+      });
+      describe("Multiple borrows", () => {
+        describe("Partial repay, single pool adapter", () => {
+          it("should return expected values", async () => {
+            expect.fail("TODO");
+          });
+        });
+        describe("Partial repay, two pool adapters", () => {
+          it("should return expected values", async () => {
+            expect.fail("TODO");
+          });
+        });
+        describe("Partial repay, all pool adapters", () => {
+          it("should return expected values", async () => {
+            expect.fail("TODO");
+          });
+        });
+        describe("Full repay", () => {
+          it("should return expected values", async () => {
+            expect.fail("TODO");
+          });
+        });
       });
     });
     describe("Bad paths", () => {
-      it("should revert", async () => {
-        expect.fail("TODO");
+      describe("Try to repay too much", () => {
+        it("should revert", async () => {
+          expect.fail("TODO");
+        });
+      });
+      describe("Receiver is null", () => {
+        it("should revert", async () => {
+          expect.fail("TODO");
+        });
+      });
+      describe("Send incorrect amount-to-repay to TetuConverter", () => {
+        it("should revert", async () => {
+          expect.fail("TODO");
+        });
       });
     });
   });
@@ -592,8 +635,30 @@ describe("TetuConverterTest", () => {
       });
     });
     describe("Bad paths", () => {
-      it("should revert", async () => {
-        expect.fail("TODO");
+      describe("Not keeper", () => {
+        it("should revert", async () => {
+          expect.fail("TODO");
+        });
+      });
+      describe("Try to repay too much", () => {
+        it("should revert", async () => {
+          expect.fail("TODO");
+        });
+      });
+      describe("Try to repay zero", () => {
+        it("should revert", async () => {
+          expect.fail("TODO");
+        });
+      });
+      describe("Send incorrect amount-to-repay to TetuConverter", () => {
+        it("should revert", async () => {
+          expect.fail("TODO");
+        });
+      });
+      describe("Wrong result health factor", () => {
+        it("should revert", async () => {
+          expect.fail("TODO");
+        });
       });
     });
   });

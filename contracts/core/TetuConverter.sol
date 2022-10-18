@@ -19,10 +19,12 @@ import "../interfaces/IConverter.sol";
 import "../interfaces/ISwapConverter.sol";
 import "../interfaces/IKeeperCallback.sol";
 import "../interfaces/ITetuConverterCallback.sol";
+import "./AppUtils.sol";
 
 /// @notice Main application contract
 contract TetuConverter is ITetuConverter, IKeeperCallback {
   using SafeERC20 for IERC20;
+  using AppUtils for uint;
 
   /// @notice After additional borrow result health factor should be near to target value, the difference is limited.
   uint constant public ADDITIONAL_BORROW_DELTA_DENOMINATOR = 10;
@@ -199,6 +201,8 @@ contract TetuConverter is ITetuConverter, IKeeperCallback {
   ) external override returns (
     uint collateralAmountOut
   ) {
+    require(collateralReceiver_ != address(0), AppErrors.ZERO_ADDRESS);
+
     // repay don't make any rebalancing here
 
     // we need to repay exact amount using any pool adapters
@@ -208,10 +212,35 @@ contract TetuConverter is ITetuConverter, IKeeperCallback {
       collateralAsset_,
       borrowAsset_
     );
-    uint amountToPay = amountToRepay_;
-    // TODO
+    uint lenPoolAdapters = poolAdapters.length;
 
-    return 0;
+    uint amountToPay = amountToRepay_;
+    for (uint i = 0; i < lenPoolAdapters; i = i.uncheckedInc()) {
+      if (amountToPay == 0) {
+        break;
+      }
+      IPoolAdapter pa = IPoolAdapter(poolAdapters[i]);
+      (,uint totalDebtForPoolAdapter,,) = pa.getStatus();
+      if (amountToPay >= totalDebtForPoolAdapter) {
+        // repay all amount to the pool adapter, close position
+        collateralAmountOut += pa.repay(
+          totalDebtForPoolAdapter,
+          collateralReceiver_,
+          true
+        );
+        amountToPay -= totalDebtForPoolAdapter;
+      } else {
+        // partial repay, keep the position opened
+        collateralAmountOut += pa.repay(
+          amountToPay,
+          collateralReceiver_,
+          false
+        );
+        amountToPay = 0;
+      }
+    }
+
+    return collateralAmountOut;
   }
 
   ///////////////////////////////////////////////////////
@@ -225,14 +254,27 @@ contract TetuConverter is ITetuConverter, IKeeperCallback {
     onlyKeeper();
 
     IPoolAdapter pa = IPoolAdapter(poolAdapter_);
-    (,uint amountToPay,,) = pa.getStatus();
-    (, address user, address collateralAsset, address borrowAsset) = pa.getConfig();
+    (,address user, address collateralAsset, address borrowAsset) = pa.getConfig();
 
-    //TODO
-//    return pa.repay(amountToRepay_,
-//      address(0), // TODO
-//      amountToRepay_ == amountToPay
-//    );
+    //!TODO: we have exactly same checking inside pool adapters... we need to check this condition only once
+    (,uint amountToPay,,) = pa.getStatus();
+    require(amountToPay > 0 && amountToRepay_ < amountToPay, AppErrors.REPAY_TO_REBALANCE_NOT_ALLOWED);
+
+    // ask the borrower to send us required part of the borrowed amount
+    uint balanceBorrowedAsset = IERC20(borrowAsset).balanceOf(address(this));
+    ITetuConverterCallback(user).requireBorrowedAmountBack(collateralAsset, borrowAsset, amountToRepay_);
+    require(
+      IERC20(borrowAsset).balanceOf(address(this)) - balanceBorrowedAsset == amountToRepay_,
+      AppErrors.WRONG_AMOUNT_RECEIVED
+    );
+
+    // re-send amount-to-repay to the pool adapter and make rebalancing
+    pa.syncBalance(false);
+    IERC20(borrowAsset).transfer(poolAdapter_, amountToRepay_);
+    uint resultHealthFactor18 = pa.repayToRebalance(amountToRepay_);
+
+    // ensure that the health factor was restored to ~target health factor value
+    _ensureApproxSameToTargetHealthFactor(borrowAsset, resultHealthFactor18);
   }
 
   function requireAdditionalBorrow(
@@ -247,18 +289,7 @@ contract TetuConverter is ITetuConverter, IKeeperCallback {
 
     // make rebalancing
     (uint resultHealthFactor18, uint borrowedAmountOut) = pa.borrowToRebalance(amountToBorrow_, user);
-
-    // after rebalancing we should have health factor ALMOST equal to the target health factor
-    // but the equality is not exact
-    // let's allow small difference < 1/10 * (target health factor - min health factor)
-    uint targetHealthFactor18 = uint(_borrowManager().getTargetHealthFactor2(borrowAsset)) * 10**(18-2);
-    uint minHealthFactor18 = uint(controller.minHealthFactor2()) * 10**(18-2);
-    uint delta = (targetHealthFactor18 - minHealthFactor18) / ADDITIONAL_BORROW_DELTA_DENOMINATOR;
-    require(
-      resultHealthFactor18 + delta > targetHealthFactor18
-      && resultHealthFactor18 - delta < targetHealthFactor18,
-      AppErrors.WRONG_REBALANCING
-    );
+    _ensureApproxSameToTargetHealthFactor(borrowAsset, resultHealthFactor18);
 
     // notify the borrower about new available borrowed amount
     ITetuConverterCallback(user).onTransferBorrowedAmount(collateralAsset, borrowAsset, borrowedAmountOut);
@@ -271,6 +302,23 @@ contract TetuConverter is ITetuConverter, IKeeperCallback {
 
     //TODO
     lendingPoolAdapter_;
+  }
+
+  function _ensureApproxSameToTargetHealthFactor(
+    address borrowAsset_,
+    uint resultHealthFactor18_
+  ) internal view {
+    // after rebalancing we should have health factor ALMOST equal to the target health factor
+    // but the equality is not exact
+    // let's allow small difference < 1/10 * (target health factor - min health factor)
+    uint targetHealthFactor18 = uint(_borrowManager().getTargetHealthFactor2(borrowAsset_)) * 10**(18-2);
+    uint minHealthFactor18 = uint(controller.minHealthFactor2()) * 10**(18-2);
+    uint delta = (targetHealthFactor18 - minHealthFactor18) / ADDITIONAL_BORROW_DELTA_DENOMINATOR;
+    require(
+      resultHealthFactor18_ + delta > targetHealthFactor18
+      && resultHealthFactor18_ - delta < targetHealthFactor18,
+      AppErrors.WRONG_REBALANCING
+    );
   }
   ///////////////////////////////////////////////////////
   ///       Get debt/repay info

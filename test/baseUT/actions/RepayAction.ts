@@ -6,7 +6,7 @@ import {DeployerUtils} from "../../../scripts/utils/DeployerUtils";
 import {TimeUtils} from "../../../scripts/utils/TimeUtils";
 import {TokenDataTypes} from "../types/TokenDataTypes";
 
-export interface RepayActionOptionalParams {
+export interface IRepayActionOptionalParams {
   countBlocksToSkipAfterAction?: number,
   controlGas?: boolean;
   repayFirstPositionOnly?: boolean;
@@ -17,13 +17,13 @@ export class RepayAction implements IRepayAction {
   public borrowToken: TokenDataTypes;
   /** if undefined - repay all */
   public amountToRepay: BigNumber | undefined;
-  public params: RepayActionOptionalParams;
+  public params: IRepayActionOptionalParams;
 
   constructor(
     collateralToken: TokenDataTypes,
     borrowToken: TokenDataTypes,
     amountToRepay: BigNumber | undefined,
-    params: RepayActionOptionalParams
+    params: IRepayActionOptionalParams
   ) {
     this.collateralToken = collateralToken;
     this.borrowToken = borrowToken;
@@ -36,8 +36,8 @@ export class RepayAction implements IRepayAction {
 
     if (this.amountToRepay) {
       if (this.params.controlGas) {
-        console.log("doAction.start makeRepayUC1_3");
-        gasUsed = await user.estimateGas.makeRepayUC1_3(
+        console.log("doAction.start makeRepayPartial");
+        gasUsed = await user.estimateGas.makeRepayPartial(
           this.collateralToken.address,
           this.borrowToken.address,
           user.address,
@@ -45,7 +45,7 @@ export class RepayAction implements IRepayAction {
         );
         console.log("doAction.end", gasUsed);
       }
-      await user.makeRepayUC1_3(
+      await user.makeRepayPartial(
         this.collateralToken.address,
         this.borrowToken.address,
         user.address,
@@ -54,30 +54,30 @@ export class RepayAction implements IRepayAction {
     } else {
       if (this.params.repayFirstPositionOnly) {
         if (this.params.controlGas) {
-          console.log("doAction.start makeRepayUC1_2_firstPositionOnly");
-          gasUsed = await user.estimateGas.makeRepayUC1_2_firstPositionOnly(
+          console.log("doAction.start makeRepayComplete_firstPositionOnly");
+          gasUsed = await user.estimateGas.makeRepayComplete_firstPositionOnly(
             this.collateralToken.address,
             this.borrowToken.address,
             user.address
           );
           console.log("doAction.end", gasUsed);
         }
-        await user.makeRepayUC1_2_firstPositionOnly(
+        await user.makeRepayComplete_firstPositionOnly(
           this.collateralToken.address,
           this.borrowToken.address,
           user.address
         );
       } else {
         if (this.params.controlGas) {
-          console.log("doAction.start makeRepayUC1_2");
-          gasUsed = await user.estimateGas.makeRepayUC1_2(
+          console.log("doAction.start makeRepayComplete");
+          gasUsed = await user.estimateGas.makeRepayComplete(
             this.collateralToken.address,
             this.borrowToken.address,
             user.address
           );
           console.log("doAction.end", gasUsed);
         }
-        await user.makeRepayUC1_2(
+        await user.makeRepayComplete(
           this.collateralToken.address,
           this.borrowToken.address,
           user.address

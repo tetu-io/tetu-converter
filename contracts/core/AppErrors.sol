@@ -82,4 +82,7 @@ library AppErrors {
   ///         Please use ordinal repay for this purpose (it allows to receive the collateral)
   string public constant REPAY_TO_REBALANCE_NOT_ALLOWED = "TC-40";
 
+  /// @notice Received amount is different from expected one
+  string public constant WRONG_AMOUNT_RECEIVED = "TC-41";
+
 }

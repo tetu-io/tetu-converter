@@ -155,7 +155,7 @@ describe("Keeper test", () => {
    * Now the keeper should suggest to make reconversion.
    *
    * It doesn't matter what is PA1 and what is PA2, they can be AAVE3/Two or Two/3.
-   * */
+   */
   async function makeTestForReconversionAave3andTwo(
     reconverter: IReConverter,
     p: TestSingleBorrowParams,
@@ -249,7 +249,7 @@ describe("Keeper test", () => {
       );
       await keeper.makeKeeperJob(deployer);
 
-      if (i == 0) {
+      if (i === 0) {
         // modify platform state
         console.log("Modify platform state", i);
 
@@ -266,7 +266,7 @@ describe("Keeper test", () => {
             new RepayAction(
               collateralToken
               , borrowToken
-              , undefined //complete repay
+              , undefined // complete repay
               , {
                 repayFirstPositionOnly: true
               }

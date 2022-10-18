@@ -46,7 +46,6 @@ export async function makeBorrow (
     , collateralAmount
     , p.borrow.asset
     , uc.address
-    , true
     , amountToBorrow
   );
   console.log("Borrow is done, borrowed amount is", await uc.totalBorrowedAmount());

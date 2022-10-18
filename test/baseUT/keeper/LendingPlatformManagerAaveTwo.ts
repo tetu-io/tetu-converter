@@ -205,7 +205,7 @@ export class LendingPlatformManagerAaveTwo implements ILendingPlatformManager {
     console.log("AAVETwo Borrower balance of borrow token (before repay)"
       , await IERC20__factory.connect(this.borrowHolder.asset, signer).balanceOf(this.borrower.address));
 
-    await this.borrower.makeRepayUC1_2(
+    await this.borrower.makeRepayComplete(
       this.collateralHolder.asset
       , borrowAssetAsHolder.address
       , this.collateralHolder.holder

@@ -42,7 +42,7 @@ contract Borrower is ITetuConverterCallback {
   }
 
   ///////////////////////////////////////////////////////
-  /// Uses cases UC1.1, UC1.2, UC1.3 see project scope
+  ///               Borrow
   ///////////////////////////////////////////////////////
   /// @notice See US1.1 in the project scope. Borrow MAX allowed amount
   function makeBorrowUC1_1(
@@ -86,18 +86,12 @@ contract Borrower is ITetuConverterCallback {
   }
 
   /// @notice Borrow exact amount
-  /// @param exact_ Meaning of the value_: exact or relative
-  ///     true  - value contains exact amount to borrow
-  ///     false - value contains RATIO, amount to borrow will be calculated as
-  ///             amount to borrow = max allowed amount * RATIO
-  ///             The ratio has decimals 18
   function makeBorrowExactAmount(
     address sourceAsset_,
     uint sourceAmount_,
     address targetAsset_,
     address receiver_,
-    bool exact_,
-    uint value_
+    uint amountToBorrow_
   ) external {
     console.log("makeBorrowExactAmount start gasleft", gasleft());
     console.log("makeBorrowExactAmount sourceAsset_", sourceAsset_);
@@ -114,11 +108,7 @@ contract Borrower is ITetuConverterCallback {
     require(converter != address(0), "Conversion strategy wasn't found");
     require(maxTargetAmount != 0, "maxTargetAmount is 0");
 
-    uint amountToBorrow = exact_
-      ? value_
-      : value_ * maxTargetAmount / 10**18; // value_contains RATIO with decimals 18
-
-    console.log("we will borrow:", amountToBorrow, "gasleft", gasleft());
+    console.log("we will borrow:", amountToBorrow_, "gasleft", gasleft());
     console.log("sourceAmount_", sourceAmount_);
     console.log("balance st on tc", IERC20(sourceAsset_).balanceOf(address(this)));
     // transfer collateral to TC
@@ -133,47 +123,56 @@ contract Borrower is ITetuConverterCallback {
       sourceAsset_,
       sourceAmount_,
       targetAsset_,
-      amountToBorrow,
+      amountToBorrow_,
       receiver_
     );
     console.log("makeBorrowExactAmount done gasleft6", gasleft());
 
-    totalBorrowedAmount += amountToBorrow;
+    totalBorrowedAmount += amountToBorrow_;
   }
 
-  /// @notice See US1.2 in the project scope
-  function makeRepayUC1_2(
+  ///////////////////////////////////////////////////////
+  ///               Repay
+  ///////////////////////////////////////////////////////
+  /// @notice Complete repay, see US1.2 in the project scope
+  function makeRepayComplete(
     address collateralAsset_,
     address borrowedAsset_,
     address receiver_
   ) external {
-    console.log("makeRepayUC1.2 started gasleft", gasleft());
+    console.log("makeRepayComplete started gasleft", gasleft());
 
-    address[] memory poolAdapters = _tc().findBorrows(collateralAsset_, borrowedAsset_);
-    uint lenPoolAdapters = poolAdapters.length;
+    uint amountToPay = _tc().getDebtAmount(collateralAsset_, borrowedAsset_);
+    IERC20(borrowedAsset_).safeTransfer(address(_tc()), amountToPay);
+    totalRepaidAmount += _tc().repay(collateralAsset_, borrowedAsset_, amountToPay, receiver_);
+    _tc().claimRewards(address(this));
 
-    for (uint i = 0; i < lenPoolAdapters; ++i) {
-      IPoolAdapter pa = IPoolAdapter(poolAdapters[i]);
-      pa.syncBalance(false);
-      (uint collateralAmount, uint amountToPay,,) = pa.getStatus();
-      if (amountToPay > 0) {
-        console.log("makeRepayUC1.2: repay", amountToPay, collateralAmount);
-        // transfer borrowed amount to Pool Adapter
-        IERC20(borrowedAsset_).safeTransfer(poolAdapters[i], amountToPay);
-
-        // repay borrowed amount and receive collateral to receiver's balance
-        pa.repay(amountToPay, receiver_, true);
-
-        totalRepaidAmount += amountToPay;
-
-        // claim rewards
-        pa.claimRewards(address(this));
-      }
-    }
-    console.log("makeRepayUC1.2 done gasleft", gasleft());
+    console.log("makeRepayComplete done gasleft", gasleft());
   }
 
-  function makeRepayUC1_2_firstPositionOnly(
+  /// @notice Partial repay, see US1.3 in the project scope
+  function makeRepayPartial(
+    address collateralAsset_,
+    address borrowedAsset_,
+    address receiver_,
+    uint amountToPay_
+  ) external {
+    console.log("makeRepayPartial started - partial pay gasleft", gasleft());
+
+    IERC20(borrowedAsset_).safeTransfer(address(_tc()), amountToPay_);
+    totalRepaidAmount += _tc().repay(collateralAsset_, borrowedAsset_, amountToPay_, receiver_);
+    _tc().claimRewards(address(this));
+
+    console.log("makeRepayPartial done gasleft", gasleft());
+  }
+
+  ///////////////////////////////////////////////////////
+  ///  Direct repay for unit tests only
+  ///  The contract uses interface IPoolAdapter directly,
+  ///  real strategy never does it
+  ///////////////////////////////////////////////////////
+
+  function makeRepayComplete_firstPositionOnly(
     address collateralAsset_,
     address borrowedAsset_,
     address receiver_
@@ -202,38 +201,6 @@ contract Borrower is ITetuConverterCallback {
       }
     }
     console.log("makeRepayUC1.2 done gasleft", gasleft());
-  }
-
-  /// @notice See US1.3 in the project scope
-  function makeRepayUC1_3(
-    address collateralAsset_,
-    address borrowedAsset_,
-    address receiver_,
-    uint amountToPay_
-  ) external {
-    console.log("makeRepayUS1.3 started - partial pay gasleft", gasleft());
-    address[] memory poolAdapters = _tc().findBorrows(collateralAsset_, borrowedAsset_);
-    uint lenPoolAdapters = poolAdapters.length;
-    for (uint i = 0; i < lenPoolAdapters; ++i) {
-      IPoolAdapter pa = IPoolAdapter(poolAdapters[i]);
-      pa.syncBalance(false);
-      (, uint amountToPay,,) = pa.getStatus();
-
-      uint amountToPayToPA = amountToPay_ >= amountToPay ? amountToPay : amountToPay_;
-      bool closePosition = amountToPayToPA == amountToPay;
-
-      // transfer borrowed amount to Pool Adapter
-      IERC20(borrowedAsset_).safeTransfer(poolAdapters[i], amountToPayToPA);
-
-      // repay borrowed amount and receive collateral to receiver's balance
-      pa.repay(amountToPayToPA, receiver_, closePosition);
-
-      // claim rewards
-      pa.claimRewards(address(this));
-
-      totalRepaidAmount += amountToPayToPA;
-    }
-    console.log("makeRepayUS1.3 done gasleft", gasleft());
   }
 
   ///////////////////////////////////////////////////////
