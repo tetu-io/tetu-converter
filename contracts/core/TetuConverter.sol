@@ -245,7 +245,7 @@ contract TetuConverter is ITetuConverter, IKeeperCallback {
       );
       amountToPay -= amountToPayToPoolAdapter;
     }
-    require(amountToPay == 0, AppErrors.TRY_TO_REPAY_TOO_MUCH);
+    require(amountToPay == 0, AppErrors.WRONG_AMOUNT_RECEIVED);
 
     return collateralAmountOut;
   }
@@ -266,6 +266,7 @@ contract TetuConverter is ITetuConverter, IKeeperCallback {
     //!TODO: we have exactly same checking inside pool adapters... we need to check this condition only once
     (,uint amountToPay,,) = pa.getStatus();
     require(amountToPay > 0 && amountToRepay_ < amountToPay, AppErrors.REPAY_TO_REBALANCE_NOT_ALLOWED);
+    console.log("requireRepay amountToPay", amountToPay);
 
     // ask the borrower to send us required part of the borrowed amount
     uint balanceBorrowedAsset = IERC20(borrowAsset).balanceOf(address(this));
@@ -274,11 +275,13 @@ contract TetuConverter is ITetuConverter, IKeeperCallback {
       IERC20(borrowAsset).balanceOf(address(this)) - balanceBorrowedAsset == amountToRepay_,
       AppErrors.WRONG_AMOUNT_RECEIVED
     );
+    console.log("requireRepay amountToRepay_", amountToRepay_);
 
     // re-send amount-to-repay to the pool adapter and make rebalancing
     pa.syncBalance(false);
     IERC20(borrowAsset).transfer(poolAdapter_, amountToRepay_);
     uint resultHealthFactor18 = pa.repayToRebalance(amountToRepay_);
+    console.log("requireRepay resultHealthFactor18", resultHealthFactor18);
 
     // ensure that the health factor was restored to ~target health factor value
     _ensureApproxSameToTargetHealthFactor(borrowAsset, resultHealthFactor18);
@@ -315,12 +318,17 @@ contract TetuConverter is ITetuConverter, IKeeperCallback {
     address borrowAsset_,
     uint resultHealthFactor18_
   ) internal view {
+    console.log("_ensureApproxSameToTargetHealthFactor");
     // after rebalancing we should have health factor ALMOST equal to the target health factor
     // but the equality is not exact
     // let's allow small difference < 1/10 * (target health factor - min health factor)
     uint targetHealthFactor18 = uint(_borrowManager().getTargetHealthFactor2(borrowAsset_)) * 10**(18-2);
     uint minHealthFactor18 = uint(controller.minHealthFactor2()) * 10**(18-2);
     uint delta = (targetHealthFactor18 - minHealthFactor18) / ADDITIONAL_BORROW_DELTA_DENOMINATOR;
+
+    console.log("targetHealthFactor18", targetHealthFactor18);
+    console.log("minHealthFactor18", minHealthFactor18);
+    console.log("delta", delta);
     require(
       resultHealthFactor18_ + delta > targetHealthFactor18
       && resultHealthFactor18_ - delta < targetHealthFactor18,

@@ -161,9 +161,9 @@ describe("TetuConverterTest", () => {
     const sourceAmountNumber = 100_000_000_000;
     const availableBorrowLiquidityNumber = 100_000_000_000;
     const tt: IBorrowInputParams = {
-      collateralFactor: 0.8,
+      collateralFactor: 0.5,
       priceSourceUSD: 1,
-      priceTargetUSD: 2,
+      priceTargetUSD: 1, // let's make prices equal for simplicity of health factor calculations in the tests...
       sourceDecimals,
       targetDecimals,
       availablePools: [...Array(countPlatforms).keys()].map(
@@ -936,7 +936,7 @@ describe("TetuConverterTest", () => {
             [exactBorrowAmount],
               amountToRepay
             )
-          ).revertedWith("TC-42");
+          ).revertedWith("TC-41");
         });
       });
       describe("Receiver is null", () => {
@@ -971,13 +971,181 @@ describe("TetuConverterTest", () => {
   });
 
   describe("requireRepay", () => {
+    interface IPoolAdapterStatus {
+      collateralAmount: BigNumber;
+      amountToPay: BigNumber;
+      healthFactor18: BigNumber;
+      opened: boolean;
+    }
+    interface IRequireRepayBadPathParams {
+      notKeeper?: boolean,
+      sendIncorrectAmountToTetuConverter?: boolean,
+      wrongResultHealthFactor?: boolean
+    }
+    interface IHealthFactorParams {
+      minHealthFactor2: number;
+      targetHealthFactor2: number;
+      maxHealthFactor2: number;
+    }
+    async function makeRequireRepayTest(
+      collateralAmounts: number[],
+      exactBorrowAmounts: number[],
+      amountToRepayNum: number,
+      indexPoolAdapter: number,
+      repayBadPathParams?: IRequireRepayBadPathParams,
+      healthFactorsBeforeBorrow?: IHealthFactorParams,
+      healthFactorsBeforeRepay?: IHealthFactorParams,
+    ) : Promise<{
+      openedPositions: string[],
+      totalDebt: BigNumber,
+      init: IPrepareResults,
+      poolAdapterStatusBefore: IPoolAdapterStatus,
+      poolAdapterStatusAfter: IPoolAdapterStatus
+    }> {
+      const init = await prepareTetuAppWithMultipleLendingPlatforms(collateralAmounts.length);
+      const targetTokenDecimals = await init.targetToken.decimals();
+
+      if (healthFactorsBeforeBorrow) {
+        await init.core.controller.setMaxHealthFactor2(healthFactorsBeforeBorrow.maxHealthFactor2);
+        await init.core.controller.setTargetHealthFactor2(healthFactorsBeforeBorrow.targetHealthFactor2);
+        await init.core.controller.setMinHealthFactor2(healthFactorsBeforeBorrow.minHealthFactor2);
+      }
+
+      // make borrows
+      await makeBorrows(
+        init,
+        collateralAmounts,
+        BigNumber.from(100),
+        BigNumber.from(100_000),
+        exactBorrowAmounts
+      );
+
+      if (healthFactorsBeforeRepay) {
+        await init.core.controller.setMaxHealthFactor2(healthFactorsBeforeRepay.maxHealthFactor2);
+        await init.core.controller.setTargetHealthFactor2(healthFactorsBeforeRepay.targetHealthFactor2);
+        await init.core.controller.setMinHealthFactor2(healthFactorsBeforeRepay.minHealthFactor2);
+      }
+
+      // assume, the keeper detects problem health factor in the given pool adapter
+      const tcAsKeeper = repayBadPathParams?.notKeeper
+        ? init.core.tc
+        : init.core.tc; // TODO
+      const poolAdapter = init.poolAdapters[indexPoolAdapter];
+      const paAsUc = IPoolAdapter__factory.connect(
+        poolAdapter,
+        await DeployerUtils.startImpersonate(init.userContract.address)
+      );
+
+      // ... so we need to claim soma borrow amount back from user contract
+      // put the amount on user contract and require repay
+      const amountToRepay = await getBigNumberFrom(amountToRepayNum, targetTokenDecimals);
+      const amountUserSendsToTetuConverter = repayBadPathParams?.sendIncorrectAmountToTetuConverter
+        ? amountToRepay.div(2)
+        : amountToRepay;
+      await init.targetToken.mint(init.userContract.address, amountUserSendsToTetuConverter);
+
+      if (repayBadPathParams?.sendIncorrectAmountToTetuConverter) {
+        // user will send less amount than required to TetuConverter
+        await init.userContract.setAmountToSendOnRequireBorrowedAmountBack(amountUserSendsToTetuConverter);
+      }
+      const poolAdapterStatusBefore: IPoolAdapterStatus = await paAsUc.getStatus();
+      console.log("poolAdapterStatusBefore", poolAdapterStatusBefore);
+      await tcAsKeeper.requireRepay(
+        amountToRepay,
+        poolAdapter
+      );
+
+      const tcAsUc = ITetuConverter__factory.connect(
+        init.core.tc.address,
+        await DeployerUtils.startImpersonate(init.userContract.address)
+      );
+
+      const poolAdapterStatusAfter: IPoolAdapterStatus = await paAsUc.getStatus();
+      console.log("poolAdapterStatusAfter", poolAdapterStatusAfter);
+
+      const openedPositions = await tcAsUc.findBorrows(init.sourceToken.address, init.targetToken.address);
+      const totalDebt = await tcAsUc.getDebtAmount(init.sourceToken.address, init.targetToken.address);
+
+      return {
+        openedPositions,
+        totalDebt,
+        init,
+        poolAdapterStatusBefore,
+        poolAdapterStatusAfter
+      }
+    }
+
     describe("Good paths", () => {
       it("should return expected values", async () => {
-        expect.fail("TODO");
+        const selectedPoolAdapterCollateral = 2_000_000;
+        const selectedPoolAdapterBorrow = 250_000; // 2_000_000 * 0.5 / 4
+        const collateralAmounts = [1_000_000, 1_500_000, selectedPoolAdapterCollateral];
+        const exactBorrowAmounts = [100, 200, selectedPoolAdapterBorrow];
+        const amountToRepay = 150_000;
+        const poolAdapterIndex = 2;
+        const exactBorrowAmountsSum = exactBorrowAmounts.reduce((prev, cur) => prev += cur, 0);
+
+        const minHealthFactor2 = 400;
+        const targetHealthFactor2 = 500;
+        const maxHealthFactor2 = 1000;
+
+        const r = await makeRequireRepayTest(
+          collateralAmounts,
+          exactBorrowAmounts,
+          amountToRepay,
+          poolAdapterIndex,
+          undefined,
+          {
+            minHealthFactor2,
+            maxHealthFactor2,
+            targetHealthFactor2
+          },
+          {
+            minHealthFactor2: minHealthFactor2 * 2,
+            maxHealthFactor2: maxHealthFactor2 * 2,
+            targetHealthFactor2: targetHealthFactor2 * 2
+          }
+        );
+        console.log(r);
+        const targetDecimals = await r.init.targetToken.decimals();
+        const sourceDecimals = await r.init.sourceToken.decimals();
+
+        const ret = [
+          r.openedPositions.length,
+          r.totalDebt,
+
+          r.poolAdapterStatusBefore.amountToPay,
+          r.poolAdapterStatusBefore.collateralAmount,
+          r.poolAdapterStatusBefore.opened,
+
+          r.poolAdapterStatusAfter.amountToPay,
+          r.poolAdapterStatusAfter.collateralAmount,
+          r.poolAdapterStatusAfter.opened,
+        ].map(x => BalanceUtils.toString(x)).join("\n");
+
+        const expected = [
+          3,
+          getBigNumberFrom(exactBorrowAmountsSum-amountToRepay, targetDecimals),
+
+          getBigNumberFrom(selectedPoolAdapterBorrow, targetDecimals),
+          getBigNumberFrom(selectedPoolAdapterCollateral, sourceDecimals),
+          true,
+
+          getBigNumberFrom(selectedPoolAdapterBorrow - amountToRepay, targetDecimals),
+          getBigNumberFrom(selectedPoolAdapterCollateral, sourceDecimals),
+          true,
+        ].map(x => BalanceUtils.toString(x)).join("\n");
+
+        expect(ret).eq(expected);
       });
     });
     describe("Bad paths", () => {
       describe("Not keeper", () => {
+        it("should revert", async () => {
+          expect.fail("TODO");
+        });
+      });
+      describe("Try to full repay", () => {
         it("should revert", async () => {
           expect.fail("TODO");
         });

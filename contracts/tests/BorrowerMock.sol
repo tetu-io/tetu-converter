@@ -32,6 +32,7 @@ contract Borrower is ITetuConverterCallback {
   address public onTransferBorrowedAmountLastResultCollateralAsset;
   address public onTransferBorrowedAmountLastResultBorrowAsset;
   uint public onTransferBorrowedAmountLastResultAmountBorrowAssetSentToBorrower;
+  uint public amountToSendOnRequireBorrowedAmountBack;
 
   constructor (
     address controller_,
@@ -177,7 +178,7 @@ contract Borrower is ITetuConverterCallback {
     address borrowedAsset_,
     address receiver_
   ) external {
-    console.log("makeRepayUC1.2 started gasleft", gasleft());
+    console.log("makeRepayComplete_firstPositionOnly started gasleft", gasleft());
 
     address[] memory poolAdapters = _tc().findBorrows(collateralAsset_, borrowedAsset_);
     uint lenPoolAdapters = poolAdapters.length;
@@ -200,23 +201,30 @@ contract Borrower is ITetuConverterCallback {
         pa.claimRewards(address(this));
       }
     }
-    console.log("makeRepayUC1.2 done gasleft", gasleft());
+    console.log("makeRepayComplete_firstPositionOnly done gasleft", gasleft());
   }
 
   ///////////////////////////////////////////////////////
   ///                   IBorrower impl
   ///////////////////////////////////////////////////////
 
+  /// @notice Set up behavior of requireBorrowedAmountBack()
+  function setAmountToSendOnRequireBorrowedAmountBack(uint value) external {
+    amountToSendOnRequireBorrowedAmountBack = value;
+  }
+
   function requireBorrowedAmountBack (
     address collateralAsset_,
     address borrowAsset_,
     uint amountToReturn_
   ) external override returns (uint) {
-    collateralAsset_;
-    borrowAsset_;
-    amountToReturn_;
+    uint amountToSend = amountToSendOnRequireBorrowedAmountBack == 0
+      ? amountToReturn_
+      : amountToSendOnRequireBorrowedAmountBack;
 
-    return 0; // TODO
+    require(IERC20(borrowAsset_).balanceOf(address(this)) >= amountToSend, "Not enough borrow asset on balance");
+    IERC20(borrowAsset_).transfer(address(_tc()), amountToSend);
+    return amountToSend;
   }
 
   function onTransferBorrowedAmount (

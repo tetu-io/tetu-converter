@@ -85,7 +85,4 @@ library AppErrors {
   /// @notice Received amount is different from expected one
   string public constant WRONG_AMOUNT_RECEIVED = "TC-41";
 
-  /// @notice Amount to repay passed to repay() exceeds total debts for all pool adapters
-  string public constant TRY_TO_REPAY_TOO_MUCH = "TC-42";
-
 }
