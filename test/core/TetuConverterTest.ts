@@ -1482,13 +1482,61 @@ describe("TetuConverterTest", () => {
 
   describe("estimateRepay", () => {
     describe("Good paths", () => {
-      it("should return expected values", async () => {
-        expect.fail("TODO");
+      describe("Single pool adapter", () => {
+        describe("Partial repay is required", () => {
+          it("should return expected values", async () => {
+            expect.fail("TODO");
+          });
+          describe("Make repayment", () => {
+            it("should receive expected collateral amount", async () => {
+              expect.fail("TODO");
+            });
+          });
+        });
+        describe("Full repay is required", () => {
+          it("should return expected values", async () => {
+            expect.fail("TODO");
+          });
+          describe("Make repayment", () => {
+            it("should receive expected collateral amount", async () => {
+              expect.fail("TODO");
+            });
+          });
+        });
+      });
+      describe("Multiple pool adapters", () => {
+        describe("Partial repay is required", () => {
+          it("should return expected values", async () => {
+            expect.fail("TODO");
+          });
+          describe("Make repayment", () => {
+            it("should receive expected collateral amount", async () => {
+              expect.fail("TODO");
+            });
+          });
+        });
+        describe("Full repay is required", () => {
+          it("should return expected values", async () => {
+            expect.fail("TODO");
+          });
+          describe("Make repayment", () => {
+            it("should receive expected collateral amount", async () => {
+              expect.fail("TODO");
+            });
+          });
+        });
       });
     });
     describe("Bad paths", () => {
-      it("should revert", async () => {
-        expect.fail("TODO");
+      describe("Ask too much collateral", () => {
+        it("should revert", async () => {
+          expect.fail("TODO");
+        });
+      });
+      describe("Ask zero collateral", () => {
+        it("should revert", async () => {
+          expect.fail("TODO");
+        });
       });
     });
   });
