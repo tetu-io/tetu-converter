@@ -204,6 +204,7 @@ contract TetuConverter is ITetuConverter, IKeeperCallback {
   ) external override returns (
     uint collateralAmountOut
   ) {
+    console.log("repay");
     require(collateralReceiver_ != address(0), AppErrors.ZERO_ADDRESS);
 
     // repay don't make any rebalancing here
@@ -224,24 +225,27 @@ contract TetuConverter is ITetuConverter, IKeeperCallback {
       }
       IPoolAdapter pa = IPoolAdapter(poolAdapters[i]);
       (,uint totalDebtForPoolAdapter,,) = pa.getStatus();
-      if (amountToPay >= totalDebtForPoolAdapter) {
-        // repay all amount to the pool adapter, close position
-        collateralAmountOut += pa.repay(
-          totalDebtForPoolAdapter,
-          collateralReceiver_,
-          true
-        );
-        amountToPay -= totalDebtForPoolAdapter;
-      } else {
-        // partial repay, keep the position opened
-        collateralAmountOut += pa.repay(
-          amountToPay,
-          collateralReceiver_,
-          false
-        );
-        amountToPay = 0;
-      }
+      uint amountToPayToPoolAdapter = amountToPay >= totalDebtForPoolAdapter
+        ? totalDebtForPoolAdapter
+        : amountToPay;
+
+      // send amount to pool adapter
+      pa.syncBalance(false);
+      require(
+        IERC20(borrowAsset_).balanceOf(address(this)) >= amountToPayToPoolAdapter,
+          AppErrors.WRONG_BORROWED_BALANCE
+      );
+      IERC20(borrowAsset_).transfer(address(pa), amountToPayToPoolAdapter);
+
+      // make repayment
+      collateralAmountOut += pa.repay(
+        amountToPayToPoolAdapter,
+        collateralReceiver_,
+        amountToPayToPoolAdapter == totalDebtForPoolAdapter // close position
+      );
+      amountToPay -= amountToPayToPoolAdapter;
     }
+    require(amountToPay == 0, AppErrors.TRY_TO_REPAY_TOO_MUCH);
 
     return collateralAmountOut;
   }

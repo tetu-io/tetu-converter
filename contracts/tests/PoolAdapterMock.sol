@@ -163,9 +163,9 @@ contract PoolAdapterMock is IPoolAdapter {
 
     if (beforeBorrow) {
       reserveBalances[_collateralAsset] = collateralBalance;
+    } else {
+      reserveBalances[_borrowAsset] = borrowBalance;
     }
-
-    reserveBalances[_borrowAsset] = borrowBalance;
 
     //_accumulateDebt(_getAmountToRepay() - _borrowedAmounts);
   }
@@ -268,19 +268,19 @@ contract PoolAdapterMock is IPoolAdapter {
     console.log("_borrowedAmounts", _borrowedAmounts);
 
     // ensure that we have received enough money on our balance just before repay was called
-    uint amountReceivedBT = IERC20(_borrowAsset).balanceOf(address(this));
-    require(amountReceivedBT == amountToRepay_, "not enough money received");
+    uint borrowAmountReceived = IERC20(_borrowAsset).balanceOf(address(this)) - reserveBalances[_borrowAsset];
+    require(borrowAmountReceived == amountToRepay_, "not enough money received");
 
     // transfer borrow amount back to the pool
     IERC20(_borrowAsset).transfer(_pool, amountToRepay_);
 
     //return collateral
     console.log("_borrowedAmounts %s", _borrowedAmounts);
-    console.log("amountReceivedBT %s", amountReceivedBT);
+    console.log("amountReceivedBT %s", borrowAmountReceived);
     uint collateralBalance = _cTokenMock.balanceOf(address(this));
-    uint collateralToReturn = _borrowedAmounts == amountReceivedBT
+    uint collateralToReturn = _borrowedAmounts == borrowAmountReceived
       ? collateralBalance
-      : collateralBalance * amountReceivedBT / _borrowedAmounts;
+      : collateralBalance * borrowAmountReceived / _borrowedAmounts;
 
     console.log("collateralBalance %d", collateralBalance);
     console.log("collateralToReturn %d", collateralToReturn);
@@ -292,7 +292,7 @@ contract PoolAdapterMock is IPoolAdapter {
     thePool.transferToReceiver(_collateralAsset, collateralToReturn, receiver_);
 
     // update status
-    _borrowedAmounts -= amountReceivedBT;
+    _borrowedAmounts -= borrowAmountReceived;
 
     if (closePosition_) {
       IDebtMonitor dm = IDebtMonitor(IController(controller).debtMonitor());
