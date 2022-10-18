@@ -66,6 +66,10 @@ interface ITetuConverter {
   );
 
   /// @notice Total amount of borrow tokens that should be repaid to close the borrow completely.
+  /// @dev Actual debt amount can be a little LESS then the amount returned by this function.
+  ///      I.e. AAVE's pool adapter returns (amount of debt + tiny addon ~ 1 cent)
+  ///      The addon is required to workaround dust-tokens problem.
+  ///      After repaying the remaining amount is transferred back on the balance of the caller strategy.
   function getDebtAmount(
     address collateralAsset_,
     address borrowAsset_

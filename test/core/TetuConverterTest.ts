@@ -847,13 +847,20 @@ describe("TetuConverterTest", () => {
 
   describe("getDebtAmount", () => {
     describe("Good paths", () => {
-      it("should return expected values", async () => {
-        expect.fail("TODO");
+      describe("No opened positions", () => {
+        it("should return zero", async () => {
+          expect.fail("TODO");
+        });
       });
-    });
-    describe("Bad paths", () => {
-      it("should revert", async () => {
-        expect.fail("TODO");
+      describe("Single opened position", () => {
+        it("should return the debt of the opened position", async () => {
+          expect.fail("TODO");
+        });
+      });
+      describe("Multiple opened positions", () => {
+        it("should return sum of debts of all opened positions", async () => {
+          expect.fail("TODO");
+        });
       });
     });
   });

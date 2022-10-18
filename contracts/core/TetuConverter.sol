@@ -328,11 +328,21 @@ contract TetuConverter is ITetuConverter, IKeeperCallback {
   function getDebtAmount(
     address collateralAsset_,
     address borrowAsset_
-  ) external view override returns (uint) {
-    // TODO
-    collateralAsset_;
-    borrowAsset_;
-    return 0;
+  ) external view override returns (uint outTotalDebtBorrowAsset) {
+    address[] memory poolAdapters = _borrowManager().getPoolAdaptersForUser(
+      msg.sender,
+      collateralAsset_,
+      borrowAsset_
+    );
+    uint lenPoolAdapters = poolAdapters.length;
+
+    for (uint i = 0; i < lenPoolAdapters; i = i.uncheckedInc()) {
+      IPoolAdapter pa = IPoolAdapter(poolAdapters[i]);
+      (,uint totalDebtForPoolAdapter,,) = pa.getStatus();
+      outTotalDebtBorrowAsset += totalDebtForPoolAdapter;
+    }
+
+    return outTotalDebtBorrowAsset;
   }
 
   /// @notice User needs to redeem some collateral amount. Calculate an amount that should be repaid
