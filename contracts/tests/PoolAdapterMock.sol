@@ -314,7 +314,10 @@ contract PoolAdapterMock is IPoolAdapter {
 
     // ensure that we have received enough money on our balance just before repay was called
     uint amountReceivedBT = IERC20(_borrowAsset).balanceOf(address(this));
-    require(amountReceivedBT == amountToRepay_, "not enough money received");
+    require(
+      amountReceivedBT == amountToRepay_,
+      AppErrors.REPAY_TO_REBALANCE_NOT_ALLOWED // same error as in the real pool adapters
+    );
 
     // transfer borrow amount back to the pool
     IERC20(_borrowAsset).transfer(_pool, amountToRepay_);

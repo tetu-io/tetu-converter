@@ -84,5 +84,7 @@ library AppErrors {
 
   /// @notice Received amount is different from expected one
   string public constant WRONG_AMOUNT_RECEIVED = "TC-41";
+  /// @notice Only one of the keepers is allowed to make such operation
+  string public constant KEEPER_ONLY = "TC-42";
 
 }

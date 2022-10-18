@@ -14,7 +14,7 @@ import {
   PoolAdapterMock__factory,
   LendingPlatformMock__factory,
   BorrowManager__factory,
-  IPoolAdapter__factory, IPoolAdapter, PoolAdapterMock, ITetuConverter__factory
+  IPoolAdapter__factory, IPoolAdapter, PoolAdapterMock, ITetuConverter__factory, TetuConverter__factory
 } from "../../typechain";
 import {IBorrowInputParams, BorrowManagerHelper, IPoolInstanceInfo} from "../baseUT/helpers/BorrowManagerHelper";
 import {CoreContracts} from "../baseUT/types/CoreContracts";
@@ -1029,7 +1029,10 @@ describe("TetuConverterTest", () => {
       // assume, the keeper detects problem health factor in the given pool adapter
       const tcAsKeeper = repayBadPathParams?.notKeeper
         ? init.core.tc
-        : init.core.tc; // TODO
+        : TetuConverter__factory.connect(
+            init.core.tc.address,
+            await DeployerUtils.startImpersonate(await init.core.controller.keeper())
+        );
       const poolAdapter = init.poolAdapters[indexPoolAdapter];
       const paAsUc = IPoolAdapter__factory.connect(
         poolAdapter,
@@ -1140,34 +1143,100 @@ describe("TetuConverterTest", () => {
       });
     });
     describe("Bad paths", () => {
+      const selectedPoolAdapterBorrow = 250_000; // 2_000_000 * 0.5 / 4
+      const correctAmountToRepay = 150_000;
+
+      async function tryToRepayWrongAmount(
+        amountToRepay: number,
+        repayBadPathParams?: IRequireRepayBadPathParams,
+      ) {
+        const selectedPoolAdapterCollateral = 2_000_000;
+
+        const collateralAmounts = [1_000_000, 1_500_000, selectedPoolAdapterCollateral];
+        const exactBorrowAmounts = [100, 200, selectedPoolAdapterBorrow];
+        const poolAdapterIndex = 2;
+
+        const minHealthFactor2 = 400;
+        const targetHealthFactor2 = 500;
+        const maxHealthFactor2 = 1000;
+
+        const r = await makeRequireRepayTest(
+          collateralAmounts,
+          exactBorrowAmounts,
+          amountToRepay,
+          poolAdapterIndex,
+          repayBadPathParams,
+          {
+            minHealthFactor2,
+            maxHealthFactor2,
+            targetHealthFactor2
+          },
+          {
+            minHealthFactor2: minHealthFactor2 * 2,
+            maxHealthFactor2: maxHealthFactor2 * 2,
+            targetHealthFactor2: targetHealthFactor2 * 2
+          }
+        );
+      }
       describe("Not keeper", () => {
         it("should revert", async () => {
-          expect.fail("TODO");
+          await expect(
+            tryToRepayWrongAmount(
+              correctAmountToRepay,
+              {notKeeper: true}
+            )
+          ).revertedWith("TC-42"); // KEEPER_ONLY
         });
       });
-      describe("Try to full repay", () => {
+      describe("Try to make full repay", () => {
         it("should revert", async () => {
-          expect.fail("TODO");
+          await expect(
+            tryToRepayWrongAmount(selectedPoolAdapterBorrow) // full repay
+          ).revertedWith("TC-40"); // REPAY_TO_REBALANCE_NOT_ALLOWED
         });
       });
       describe("Try to repay too much", () => {
         it("should revert", async () => {
-          expect.fail("TODO");
+          await expect(
+            tryToRepayWrongAmount(2 * selectedPoolAdapterBorrow)
+          ).revertedWith("TC-40"); // REPAY_TO_REBALANCE_NOT_ALLOWED
         });
       });
       describe("Try to repay zero", () => {
         it("should revert", async () => {
-          expect.fail("TODO");
+          await expect(
+            tryToRepayWrongAmount(0)
+          ).revertedWith("TC-29"); // INCORRECT_VALUE
         });
       });
       describe("Send incorrect amount-to-repay to TetuConverter", () => {
         it("should revert", async () => {
-          expect.fail("TODO");
+          await expect(
+            tryToRepayWrongAmount(
+              correctAmountToRepay,
+              {
+                sendIncorrectAmountToTetuConverter: true
+              }
+            )
+          ).revertedWith("TC-41"); // WRONG_AMOUNT_RECEIVED
         });
       });
-      describe("Wrong result health factor", () => {
+      describe("Result health factor is too big", () => {
         it("should revert", async () => {
-          expect.fail("TODO");
+          await expect(
+            tryToRepayWrongAmount(
+              180_000
+            )
+          ).revertedWith("TC-39"); // WRONG_REBALANCING
+        });
+      });
+      describe("Result health factor is too small", () => {
+        it("should revert", async () => {
+          await expect(
+            tryToRepayWrongAmount(
+              100_000
+            )
+          ).revertedWith("TC-39"); // WRONG_REBALANCING
         });
       });
     });
@@ -1249,7 +1318,11 @@ describe("TetuConverterTest", () => {
 
       // make additional borrow
       // health factors were reduced twice, so we should be able to borrow same amount as before
-      await core.tc.requireAdditionalBorrow(
+      const tcAsKeeper = TetuConverter__factory.connect(
+        core.tc.address,
+        await DeployerUtils.startImpersonate(await core.controller.keeper())
+      );
+      await tcAsKeeper.requireAdditionalBorrow(
         borrowedAmount.mul(100 * amountTestCorrectionFactor).div(100),
         poolAdapter
       );

@@ -50,7 +50,7 @@ contract TetuConverter is ITetuConverter, IKeeperCallback {
   ///                Access control
   ///////////////////////////////////////////////////////
   function onlyKeeper() internal view {
-    //TODO
+    require(controller.keeper() == msg.sender, AppErrors.KEEPER_ONLY);
   }
 
   ///////////////////////////////////////////////////////
@@ -204,7 +204,6 @@ contract TetuConverter is ITetuConverter, IKeeperCallback {
   ) external override returns (
     uint collateralAmountOut
   ) {
-    console.log("repay");
     require(collateralReceiver_ != address(0), AppErrors.ZERO_ADDRESS);
 
     // repay don't make any rebalancing here
@@ -259,6 +258,7 @@ contract TetuConverter is ITetuConverter, IKeeperCallback {
     address poolAdapter_
   ) external override {
     onlyKeeper();
+    require(amountToRepay_ > 0, AppErrors.INCORRECT_VALUE);
 
     IPoolAdapter pa = IPoolAdapter(poolAdapter_);
     (,address user, address collateralAsset, address borrowAsset) = pa.getConfig();
@@ -266,7 +266,6 @@ contract TetuConverter is ITetuConverter, IKeeperCallback {
     //!TODO: we have exactly same checking inside pool adapters... we need to check this condition only once
     (,uint amountToPay,,) = pa.getStatus();
     require(amountToPay > 0 && amountToRepay_ < amountToPay, AppErrors.REPAY_TO_REBALANCE_NOT_ALLOWED);
-    console.log("requireRepay amountToPay", amountToPay);
 
     // ask the borrower to send us required part of the borrowed amount
     uint balanceBorrowedAsset = IERC20(borrowAsset).balanceOf(address(this));
@@ -275,13 +274,11 @@ contract TetuConverter is ITetuConverter, IKeeperCallback {
       IERC20(borrowAsset).balanceOf(address(this)) - balanceBorrowedAsset == amountToRepay_,
       AppErrors.WRONG_AMOUNT_RECEIVED
     );
-    console.log("requireRepay amountToRepay_", amountToRepay_);
 
     // re-send amount-to-repay to the pool adapter and make rebalancing
     pa.syncBalance(false);
     IERC20(borrowAsset).transfer(poolAdapter_, amountToRepay_);
     uint resultHealthFactor18 = pa.repayToRebalance(amountToRepay_);
-    console.log("requireRepay resultHealthFactor18", resultHealthFactor18);
 
     // ensure that the health factor was restored to ~target health factor value
     _ensureApproxSameToTargetHealthFactor(borrowAsset, resultHealthFactor18);
