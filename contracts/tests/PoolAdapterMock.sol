@@ -131,10 +131,10 @@ contract PoolAdapterMock is IPoolAdapter {
     console.log("priceBorrowedUSD = %d", priceBorrowedUSD);
 
     healthFactor18 = amountToPay == 0
-    ? type(uint).max
-    : _collateralFactor
-    * collateralAmount.toMantissa(decimalsCollateral, 18) * priceCollateral
-    / (amountToPay.toMantissa(decimalsBorrow, 18) * priceBorrowedUSD);
+        ? type(uint).max
+        : _collateralFactor
+      * collateralAmount.toMantissa(decimalsCollateral, 18) * priceCollateral
+      / (amountToPay.toMantissa(decimalsBorrow, 18) * priceBorrowedUSD);
 
     console.log("healthFactor18=%d", healthFactor18);
     console.log("_collateralFactor=%d", _collateralFactor);
@@ -144,10 +144,10 @@ contract PoolAdapterMock is IPoolAdapter {
     console.log("priceBorrowedUSD=%d", priceBorrowedUSD);
 
     return (
-    collateralAmount,
-    amountToPay,
-    healthFactor18,
-    collateralAmount != 0 || amountToPay != 0
+      collateralAmount,
+      amountToPay,
+      healthFactor18,
+      collateralAmount != 0 || amountToPay != 0
     );
   }
 

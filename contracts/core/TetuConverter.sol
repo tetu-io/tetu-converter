@@ -20,6 +20,7 @@ import "../interfaces/ISwapConverter.sol";
 import "../interfaces/IKeeperCallback.sol";
 import "../interfaces/ITetuConverterCallback.sol";
 import "./AppUtils.sol";
+import "hardhat/console.sol";
 
 /// @notice Main application contract
 contract TetuConverter is ITetuConverter, IKeeperCallback {
@@ -159,6 +160,8 @@ contract TetuConverter is ITetuConverter, IKeeperCallback {
         );
       }
       require(poolAdapter != address(0), AppErrors.POOL_ADAPTER_NOT_FOUND);
+      console.log("Sender", msg.sender);
+      console.log("Pool adapter", poolAdapter);
 
       // transfer the collateral from the borrower directly to the pool adapter; assume, that the transfer is approved
       IPoolAdapter(poolAdapter).syncBalance(true);
@@ -207,7 +210,7 @@ contract TetuConverter is ITetuConverter, IKeeperCallback {
 
     // we need to repay exact amount using any pool adapters
     // simplest strategy: use first available pool adapter
-    address[] memory poolAdapters = _borrowManager().getPoolAdaptersForUser(
+    address[] memory poolAdapters = _debtMonitor().getPositions(
       msg.sender,
       collateralAsset_,
       borrowAsset_
@@ -296,12 +299,12 @@ contract TetuConverter is ITetuConverter, IKeeperCallback {
   }
 
   function requireReconversion(
-    address lendingPoolAdapter_
+    address poolAdapter_
   ) external override {
     onlyKeeper();
 
     //TODO
-    lendingPoolAdapter_;
+    poolAdapter_;
   }
 
   function _ensureApproxSameToTargetHealthFactor(
@@ -329,12 +332,13 @@ contract TetuConverter is ITetuConverter, IKeeperCallback {
     address collateralAsset_,
     address borrowAsset_
   ) external view override returns (uint outTotalDebtBorrowAsset) {
-    address[] memory poolAdapters = _borrowManager().getPoolAdaptersForUser(
+    address[] memory poolAdapters = _debtMonitor().getPositions(
       msg.sender,
       collateralAsset_,
       borrowAsset_
     );
     uint lenPoolAdapters = poolAdapters.length;
+    console.log("getDebtAmount", lenPoolAdapters);
 
     for (uint i = 0; i < lenPoolAdapters; i = i.uncheckedInc()) {
       IPoolAdapter pa = IPoolAdapter(poolAdapters[i]);

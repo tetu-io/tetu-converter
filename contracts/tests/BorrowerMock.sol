@@ -44,8 +44,8 @@ contract Borrower is ITetuConverterCallback {
   ///////////////////////////////////////////////////////
   ///               Borrow
   ///////////////////////////////////////////////////////
-  /// @notice See US1.1 in the project scope. Borrow MAX allowed amount
-  function makeBorrowUC1_1(
+  /// @notice Borrow MAX allowed amount
+  function borrowMaxAmount(
     address sourceAsset_,
     uint sourceAmount_,
     address targetAsset_,
@@ -86,18 +86,18 @@ contract Borrower is ITetuConverterCallback {
   }
 
   /// @notice Borrow exact amount
-  function makeBorrowExactAmount(
+  function borrowExactAmount(
     address sourceAsset_,
     uint sourceAmount_,
     address targetAsset_,
     address receiver_,
     uint amountToBorrow_
   ) external {
-    console.log("makeBorrowExactAmount start gasleft", gasleft());
-    console.log("makeBorrowExactAmount sourceAsset_", sourceAsset_);
-    console.log("makeBorrowExactAmount sourceAmount_", sourceAmount_);
-    console.log("makeBorrowExactAmount targetAsset_", targetAsset_);
-    console.log("makeBorrowExactAmount _borrowPeriodInBlocks", _borrowPeriodInBlocks);
+    console.log("borrowExactAmount start gasleft", gasleft());
+    console.log("borrowExactAmount sourceAsset_", sourceAsset_);
+    console.log("borrowExactAmount sourceAmount_", sourceAmount_);
+    console.log("borrowExactAmount targetAsset_", targetAsset_);
+    console.log("borrowExactAmount _borrowPeriodInBlocks", _borrowPeriodInBlocks);
     // ask TC for the best conversion strategy
     (address converter, uint maxTargetAmount,) = _tc().findConversionStrategy(sourceAsset_,
       sourceAmount_,
@@ -126,7 +126,7 @@ contract Borrower is ITetuConverterCallback {
       amountToBorrow_,
       receiver_
     );
-    console.log("makeBorrowExactAmount done gasleft6", gasleft());
+    console.log("borrowExactAmount done gasleft6", gasleft());
 
     totalBorrowedAmount += amountToBorrow_;
   }

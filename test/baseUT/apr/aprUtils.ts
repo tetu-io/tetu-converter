@@ -41,7 +41,7 @@ export async function makeBorrow (
     , p.borrow.holder, p.borrow.initialLiquidity, uc.address);
   const collateralAmount = getBigNumberFrom(p.collateralAmount, collateralToken.decimals);
 
-  await uc.makeBorrowExactAmount(
+  await uc.borrowExactAmount(
     p.collateral.asset
     , collateralAmount
     , p.borrow.asset

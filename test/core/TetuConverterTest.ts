@@ -14,7 +14,7 @@ import {
   PoolAdapterMock__factory,
   LendingPlatformMock__factory,
   BorrowManager__factory,
-  IPoolAdapter__factory
+  IPoolAdapter__factory, IPoolAdapter, PoolAdapterMock, ITetuConverter__factory
 } from "../../typechain";
 import {IBorrowInputParams, BorrowManagerHelper, IPoolInstanceInfo} from "../baseUT/helpers/BorrowManagerHelper";
 import {CoreContracts} from "../baseUT/types/CoreContracts";
@@ -69,7 +69,10 @@ describe("TetuConverterTest", () => {
   });
 //endregion before, after
 
-//region Utils
+//region Initialization
+  /**
+   * Create TetuConverter, register a pair of assets and N platform adapters to convert the asset pair.
+   */
   async function createTetuConverter(
     tt: IBorrowInputParams
   ) : Promise<{
@@ -87,19 +90,23 @@ describe("TetuConverterTest", () => {
     return {tetuConveter, sourceToken, targetToken, borrowManager: core.bm, pools};
   }
 
+  interface IPrepareResults {
+    core: CoreContracts;
+    pools: string[];
+    cToken: string;
+    userContract: Borrower;
+    sourceToken: MockERC20;
+    targetToken: MockERC20;
+    poolAdapters: string[];
+    platformAdapters: string[];
+  }
+
+  /**
+   * Deploy BorrowerMock. Create TetuConverter-app and pre-register all pool adapters (implemented by PoolAdapterMock).
+   */
   async function prepareContracts(
     tt: IBorrowInputParams,
-  ) : Promise<{
-    core: CoreContracts,
-    pools: string[],
-    cToken: string,
-    userContract: Borrower,
-    sourceToken: MockERC20,
-    targetToken: MockERC20,
-    poolAdapters: string[],
-    platformAdapters: string[]
-  }>{
-    const healthFactor2 = 200;
+  ) : Promise<IPrepareResults>{
     const periodInBlocks = 117;
 
     const {core, sourceToken, targetToken, pools} = await BorrowManagerHelper.initAppPoolsWithTwoAssets(deployer
@@ -146,7 +153,111 @@ describe("TetuConverterTest", () => {
       platformAdapters: pools.map(x => x.platformAdapter)
     };
   }
-//endregion Utils
+
+  /** prepareContracts with sample assets settings and huge amounts of collateral and borrow assets */
+  async function prepareTetuAppWithMultipleLendingPlatforms(countPlatforms: number) : Promise<IPrepareResults> {
+    const targetDecimals = 6;
+    const sourceDecimals = 17;
+    const sourceAmountNumber = 100_000_000_000;
+    const availableBorrowLiquidityNumber = 100_000_000_000;
+    const tt: IBorrowInputParams = {
+      collateralFactor: 0.8,
+      priceSourceUSD: 0.1,
+      priceTargetUSD: 4,
+      sourceDecimals,
+      targetDecimals,
+      availablePools: [...Array(countPlatforms).keys()].map(
+        x => ({   // source, target
+          borrowRateInTokens: [BigNumber.from(0), BigNumber.from(0)],
+          availableLiquidityInTokens: [0, availableBorrowLiquidityNumber]
+        })
+      )
+    };
+    const sourceAmount = getBigNumberFrom(sourceAmountNumber, sourceDecimals);
+    const availableBorrowLiquidity = getBigNumberFrom(availableBorrowLiquidityNumber, targetDecimals);
+
+    const r = await prepareContracts(tt);
+
+    // put a lot of collateral asset on user's balance
+    await MockERC20__factory.connect(r.sourceToken.address, deployer).mint(r.userContract.address, sourceAmount);
+
+    // put a lot of borrow assets to pool-stubs
+    for (const poolAddress of r.pools) {
+      await MockERC20__factory.connect(r.targetToken.address, deployer)
+        .mint(poolAddress, availableBorrowLiquidity);
+    }
+
+    return r;
+  }
+//endregion Initialization
+
+//region Prepare borrows
+  interface IBorrowStatus {
+    poolAdapter: PoolAdapterMock;
+    collateralAmount: BigNumber;
+    amountToPay: BigNumber;
+    healthFactor18: BigNumber;
+  }
+
+  /**
+   * Make a borrow in each pool adapter using provided collateral amount.
+   */
+  async function makeBorrows(
+    pp: IPrepareResults,
+    collateralAmounts: number[],
+    bestBorrowRateInBorrowAsset: BigNumber,
+    ordinalBorrowRateInBorrowAsset: BigNumber
+  ) : Promise<IBorrowStatus[]> {
+    const dest: IBorrowStatus[] = [];
+    const sourceTokenDecimals = await pp.sourceToken.decimals();
+
+    // enumerate all pool adapters and make a borrow in each one
+    for (let i = 0; i < pp.poolAdapters.length; ++i) {
+      const selectedPoolAdapterAddress = pp.poolAdapters[i];
+      const collateralAmount = getBigNumberFrom(collateralAmounts[i], sourceTokenDecimals);
+
+      // set best borrow rate to the selected pool adapter
+      // set ordinal borrow rate to others
+      for (const poolAdapterAddress of pp.poolAdapters) {
+        const poolAdapter = PoolAdapterMock__factory.connect(poolAdapterAddress, deployer);
+        const borrowRate = poolAdapterAddress === selectedPoolAdapterAddress
+          ? bestBorrowRateInBorrowAsset
+          : ordinalBorrowRateInBorrowAsset
+        const poolAdapterConfig = await poolAdapter.getConfig();
+        const platformAdapterAddress = await pp.core.bm.getPlatformAdapter(poolAdapterConfig.origin);
+        const platformAdapter = await LendingPlatformMock__factory.connect(platformAdapterAddress, deployer);
+
+        await platformAdapter.changeBorrowRate(pp.targetToken.address, borrowRate);
+        await poolAdapter.changeBorrowRate(borrowRate);
+      }
+
+      // ask TetuConverter to make a borrow
+      // the pool adapter with best borrow rate will be selected
+      await pp.userContract.borrowMaxAmount(
+        pp.sourceToken.address,
+        collateralAmount,
+        pp.targetToken.address,
+        pp.userContract.address
+      );
+    }
+
+    // get final pool adapter statuses
+    for (const poolAdapterAddress of pp.poolAdapters) {
+      // check the borrow status
+      const selectedPoolAdapter = PoolAdapterMock__factory.connect(poolAdapterAddress, deployer);
+      const status = await selectedPoolAdapter.getStatus();
+
+      dest.push({
+        collateralAmount: status.collateralAmount,
+        amountToPay: status.amountToPay,
+        poolAdapter: selectedPoolAdapter,
+        healthFactor18: status.healthFactor18
+      });
+    }
+
+    return dest;
+  }
+//endregion Prepare borrows
 
 //region Test impl
   /**
@@ -202,7 +313,7 @@ describe("TetuConverterTest", () => {
     console.log("before", before);
 
     // borrow
-    await userContract.makeBorrowUC1_1(
+    await userContract.borrowMaxAmount(
       sourceToken.address,
       sourceAmount,
       targetToken.address,
@@ -404,7 +515,7 @@ describe("TetuConverterTest", () => {
           console.log("before", before);
 
           // borrow
-          await userContract.makeBorrowUC1_1(
+          await userContract.borrowMaxAmount(
             sourceToken.address,
             sourceAmount,
             targetToken.address,
@@ -506,7 +617,7 @@ describe("TetuConverterTest", () => {
           console.log("before", before);
 
           // borrow
-          await userContract.makeBorrowUC1_1(
+          await userContract.borrowMaxAmount(
             sourceToken.address,
             sourceAmount,
             targetToken.address,
@@ -723,7 +834,7 @@ describe("TetuConverterTest", () => {
       await core.controller.setMinHealthFactor2(minHealthFactorInitial2);
 
       // make borrow
-      await userContract.makeBorrowUC1_1(
+      await userContract.borrowMaxAmount(
         sourceToken.address,
         collateralAmount,
         targetToken.address,
@@ -847,19 +958,51 @@ describe("TetuConverterTest", () => {
 
   describe("getDebtAmount", () => {
     describe("Good paths", () => {
+      async function makeGetDebtAmountTest(collateralAmounts: number[]) : Promise<{sret: string, sexpected: string}> {
+        const pr = await prepareTetuAppWithMultipleLendingPlatforms(collateralAmounts.length);
+        const sourceTokenDecimals = await pr.sourceToken.decimals();
+        const borrows: IBorrowStatus[] = await makeBorrows(
+          pr,
+          collateralAmounts,
+          BigNumber.from(100),
+          BigNumber.from(100_000)
+        );
+
+        const tcAsUc = ITetuConverter__factory.connect(
+          pr.core.tc.address,
+          await DeployerUtils.startImpersonate(pr.userContract.address)
+        );
+
+        const sret = [
+          (await tcAsUc.getDebtAmount(pr.sourceToken.address, pr.targetToken.address)),
+          ...borrows.map(x => x.collateralAmount)
+        ].map(x => BalanceUtils.toString(x)).join("\n");
+        const sexpected = [
+          borrows.reduce(
+            (prev, cur) => prev = prev.add(cur.amountToPay),
+            BigNumber.from(0)
+          ),
+          ...collateralAmounts.map(a => getBigNumberFrom(a, sourceTokenDecimals))
+        ].map(x => BalanceUtils.toString(x)).join("\n");
+
+        return {sret, sexpected};
+      }
       describe("No opened positions", () => {
         it("should return zero", async () => {
-          expect.fail("TODO");
+          const ret = await makeGetDebtAmountTest([]);
+          expect(ret.sret).eq(ret.sexpected);
         });
       });
       describe("Single opened position", () => {
         it("should return the debt of the opened position", async () => {
-          expect.fail("TODO");
+          const ret = await makeGetDebtAmountTest([1000]);
+          expect(ret.sret).eq(ret.sexpected);
         });
       });
       describe("Multiple opened positions", () => {
         it("should return sum of debts of all opened positions", async () => {
-          expect.fail("TODO");
+          const ret = await makeGetDebtAmountTest([1000, 2000, 3000, 50]);
+          expect(ret.sret).eq(ret.sexpected);
         });
       });
     });
@@ -921,11 +1064,11 @@ describe("TetuConverterTest", () => {
         const targetDecimals = 12;
         const sourceDecimals = 24;
         // initial borrow rates
-        const brPA1 = getBigNumberFrom(3, targetDecimals - 6); //3e-6 (lower)
-        const brPA2 = getBigNumberFrom(5, targetDecimals - 6); //5e-6 (higher)
+        const brPA1 = getBigNumberFrom(3, targetDecimals - 6); // 3e-6 (lower)
+        const brPA2 = getBigNumberFrom(5, targetDecimals - 6); // 5e-6 (higher)
         // changed borrow rates
-        const brPA1new = getBigNumberFrom(7, targetDecimals - 6); //7e-6 (higher)
-        const brPA2new = getBigNumberFrom(2, targetDecimals - 6); //2e-6 (lower)
+        const brPA1new = getBigNumberFrom(7, targetDecimals - 6); // 7e-6 (higher)
+        const brPA2new = getBigNumberFrom(2, targetDecimals - 6); // 2e-6 (lower)
 
         const tt: IBorrowInputParams = {
           collateralFactor: 0.8,

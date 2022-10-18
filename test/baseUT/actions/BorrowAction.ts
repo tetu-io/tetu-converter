@@ -31,8 +31,8 @@ export class BorrowAction implements IBorrowAction {
     let gasUsed: BigNumber | undefined;
 
     if (this.controlGas) {
-      console.log("doAction.start makeBorrowUC1_1");
-      gasUsed = await user.estimateGas.makeBorrowUC1_1(
+      console.log("doAction.start borrowMaxAmount");
+      gasUsed = await user.estimateGas.borrowMaxAmount(
         this.collateralToken.address,
         this.collateralAmount,
         this.borrowToken.address,
@@ -40,7 +40,7 @@ export class BorrowAction implements IBorrowAction {
       );
       console.log("doAction.end", gasUsed);
     }
-    await user.makeBorrowUC1_1(
+    await user.borrowMaxAmount(
       this.collateralToken.address,
       this.collateralAmount,
       this.borrowToken.address,

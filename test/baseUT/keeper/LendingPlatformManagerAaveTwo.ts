@@ -170,7 +170,7 @@ export class LendingPlatformManagerAaveTwo implements ILendingPlatformManager {
     console.log("Borrower balance of collateral"
       , await IERC20__factory.connect(collateralAsset, signer).balanceOf(this.borrower.address));
 
-    await this.borrower.makeBorrowUC1_1(
+    await this.borrower.borrowMaxAmount(
       collateralAsset
       , collateralAmount
       , borrowAsset
