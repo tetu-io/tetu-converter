@@ -23,6 +23,7 @@ import {TokenDataTypes} from "../../../baseUT/types/TokenDataTypes";
 import {Misc} from "../../../../scripts/utils/Misc";
 import {IAave3UserAccountDataResults} from "../../../baseUT/apr/aprAave3";
 import {CompareAprUsesCase} from "../../../baseUT/uses-cases/CompareAprUsesCase";
+import {areAlmostEqual} from "../../../baseUT/utils/CommonUtils";
 
 describe("Aave3PoolAdapterTest", () => {
 //region Global vars for all tests
@@ -1039,29 +1040,14 @@ describe("Aave3PoolAdapterTest", () => {
           false
         );
       } else {
-        const status = await d.aavePoolAdapterAsTC.getStatus();
-
-        // ensure that the user has enough amount of borrow asset on its balance
-        // take missed amount from borrow asset holder if necessary
-        const amountBorrowAssetOnUserBalance = await borrowTokenAsUser.balanceOf(d.userContract.address);
-        const requiredAmountBorrowAssetOnUserBalance =
-          status.amountsToPay.add(getBigNumberFrom(100, borrowToken.decimals));
-        if (requiredAmountBorrowAssetOnUserBalance.gt(amountBorrowAssetOnUserBalance)) {
-          await IERC20__factory.connect(
-            borrowToken.address,
-            await DeployerUtils.startImpersonate(borrowHolder)
-          ).transfer(
-            d.userContract.address,
-            requiredAmountBorrowAssetOnUserBalance.sub(amountBorrowAssetOnUserBalance)
-          );
-        }
-
+        console.log("user balance borrow asset before repay", await borrowTokenAsUser.balanceOf(d.userContract.address));
         // make full repayment
         await d.userContract.makeRepayComplete(
           collateralToken.address,
           borrowToken.address,
           d.userContract.address
         );
+        console.log("user balance borrow asset after repay", await borrowTokenAsUser.balanceOf(d.userContract.address));
       }
 
       // check results
@@ -1085,7 +1071,8 @@ describe("Aave3PoolAdapterTest", () => {
     describe("Good paths", () => {
       describe("Borrow and repay modest amount", () => {
         async function makeBorrowAndRepayDaiWmatic(
-          fullRepay: boolean
+          fullRepay: boolean,
+          initialBorrowAmountOnUserBalanceNumber?: number
         ) : Promise<{ret: string, expected: string}> {
           const collateralAsset = MaticAddresses.DAI;
           const collateralHolder = MaticAddresses.HOLDER_DAI;
@@ -1098,6 +1085,10 @@ describe("Aave3PoolAdapterTest", () => {
           const collateralAmount = getBigNumberFrom(100_000, collateralToken.decimals);
           const borrowAmount = getBigNumberFrom(10, borrowToken.decimals);
 
+          const initialBorrowAmountOnUserBalance = getBigNumberFrom(
+            initialBorrowAmountOnUserBalanceNumber || 0,
+            borrowToken.decimals
+          );
           const r = await makeBorrowAndRepay(
             collateralToken,
             collateralHolder,
@@ -1106,7 +1097,10 @@ describe("Aave3PoolAdapterTest", () => {
             borrowHolder,
             borrowAmount,
             fullRepay ? undefined : borrowAmount, // amount to repay
+            initialBorrowAmountOnUserBalance
           );
+          console.log(r);
+          console.log(collateralAmount);
 
           const statusAfterRepay = await IPoolAdapter__factory.connect(r.poolAdapter, deployer).getStatus();
 
@@ -1114,24 +1108,75 @@ describe("Aave3PoolAdapterTest", () => {
             r.userBalancesBeforeBorrow.collateral, r.userBalancesBeforeBorrow.borrow,
             r.userBalancesAfterBorrow.collateral, r.userBalancesAfterBorrow.borrow,
 
-            // original collateral > returned collateral ...
-            collateralAmount.gt(r.userBalancesAfterRepay.collateral),
-            // ... the difference is less than 1%
-            collateralAmount.sub(r.userBalancesAfterRepay.collateral)
-              .mul(100)
-              .div(collateralAmount)
-              .toNumber() < 1,
-            r.userBalancesAfterRepay.borrow,
+            // original collateral ~ returned collateral
+            areAlmostEqual(collateralAmount, r.userBalancesAfterRepay.collateral, 5),
+            areAlmostEqual(r.userBalancesAfterRepay.borrow, initialBorrowAmountOnUserBalance, 5),
             statusAfterRepay.opened
           ].map(x => BalanceUtils.toString(x)).join("\n");
 
           const expected = [
-            collateralAmount, 0,
-            0, borrowAmount,
+            collateralAmount, initialBorrowAmountOnUserBalance,
+            0, borrowAmount.add(initialBorrowAmountOnUserBalance),
 
-            true, // original collateral > returned collateral ...
-            true, // the difference is less than 1%
-            0,
+            true, // original collateral ~ returned collateral
+            true,
+
+            !fullRepay // the position is closed after full repaying
+          ].map(x => BalanceUtils.toString(x)).join("\n");
+
+          return {ret, expected};
+        }
+        async function makeBorrowAndRepayWmaticDai(
+          fullRepay: boolean,
+          initialBorrowAmountOnUserBalanceNumber?: number
+        ) : Promise<{ret: string, expected: string}> {
+          const collateralAsset = MaticAddresses.WMATIC;
+          const collateralHolder = MaticAddresses.HOLDER_WMATIC;
+          const borrowAsset = MaticAddresses.DAI;
+          const borrowHolder = MaticAddresses.HOLDER_DAI;
+
+          const collateralToken = await TokenDataTypes.Build(deployer, collateralAsset);
+          const borrowToken = await TokenDataTypes.Build(deployer, borrowAsset);
+
+          const collateralAmount = getBigNumberFrom(100_000, collateralToken.decimals);
+          const borrowAmount = getBigNumberFrom(10, borrowToken.decimals);
+
+          const initialBorrowAmountOnUserBalance = getBigNumberFrom(
+            initialBorrowAmountOnUserBalanceNumber || 0,
+            borrowToken.decimals
+          );
+
+          const r = await makeBorrowAndRepay(
+            collateralToken,
+            collateralHolder,
+            collateralAmount,
+            borrowToken,
+            borrowHolder,
+            borrowAmount,
+            fullRepay ? undefined : borrowAmount, // amount to repay
+            initialBorrowAmountOnUserBalance,
+          );
+          console.log(r);
+          console.log(collateralAmount);
+
+          const statusAfterRepay = await IPoolAdapter__factory.connect(r.poolAdapter, deployer).getStatus();
+
+          const ret = [
+            r.userBalancesBeforeBorrow.collateral, r.userBalancesBeforeBorrow.borrow,
+            r.userBalancesAfterBorrow.collateral, r.userBalancesAfterBorrow.borrow,
+
+            // original collateral ~ returned collateral
+            areAlmostEqual(collateralAmount, r.userBalancesAfterRepay.collateral, 5),
+            areAlmostEqual(r.userBalancesAfterRepay.borrow, initialBorrowAmountOnUserBalance, 5),
+            statusAfterRepay.opened
+          ].map(x => BalanceUtils.toString(x)).join("\n");
+
+          const expected = [
+            collateralAmount, initialBorrowAmountOnUserBalance,
+            0, borrowAmount.add(initialBorrowAmountOnUserBalance),
+
+            true, // original collateral ~ returned collateral
+            true,
 
             !fullRepay // the position is closed after full repaying
           ].map(x => BalanceUtils.toString(x)).join("\n");
@@ -1139,23 +1184,33 @@ describe("Aave3PoolAdapterTest", () => {
           return {ret, expected};
         }
         describe("Partial repay of borrowed amount", () => {
-          it("should return expected balances", async () => {
-            if (!await isPolygonForkInUse()) return;
-            const r = await makeBorrowAndRepayDaiWmatic(false);
-            expect(r.ret).eq(r.expected);
+          describe("DAI => WMATIC", () => {
+            it("should return expected balances", async () => {
+              if (!await isPolygonForkInUse()) return;
+              const r = await makeBorrowAndRepayDaiWmatic(false);
+              expect(r.ret).eq(r.expected);
+            });
+          });
+          describe("WMATIC => DAI", () => {
+            it("should return expected balances", async () => {
+              if (!await isPolygonForkInUse()) return;
+              const r = await makeBorrowAndRepayWmaticDai(false);
+              expect(r.ret).eq(r.expected);
+            });
           });
         });
         describe("Full repay of borrowed amount", () => {
           it("should return expected balances", async () => {
             if (!await isPolygonForkInUse()) return;
-            const r = await makeBorrowAndRepayDaiWmatic(true);
+            const initialBorrowAmountOnUserBalance = 1;
+            const r = await makeBorrowAndRepayDaiWmatic(true, initialBorrowAmountOnUserBalance);
             expect(r.ret).eq(r.expected);
           });
         });
       });
     });
     describe("Bad paths", () =>{
-
+// TODO
     });
 
   });
