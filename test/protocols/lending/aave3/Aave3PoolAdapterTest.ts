@@ -975,7 +975,7 @@ describe("Aave3PoolAdapterTest", () => {
   });
 
   describe("repay", () => {
-    interface IMakeBorrowAndRepay {
+    interface IMakeBorrowAndRepayResults {
       userBalancesBeforeBorrow: IUserBalances;
       userBalancesAfterBorrow: IUserBalances;
       userBalancesAfterRepay: IUserBalances;
@@ -994,7 +994,7 @@ describe("Aave3PoolAdapterTest", () => {
       borrowAmount: BigNumber,
       amountToRepay?: BigNumber,
       initialBorrowAmountOnUserBalance?: BigNumber,
-    ) : Promise<IMakeBorrowAndRepay>{
+    ) : Promise<IMakeBorrowAndRepayResults>{
       const d = await prepareToBorrow(collateralToken, collateralHolder, collateralAmount, borrowToken, false);
       const collateralData = await d.h.getReserveInfo(deployer, d.aavePool, d.dataProvider, collateralToken.address);
 
@@ -1216,15 +1216,217 @@ describe("Aave3PoolAdapterTest", () => {
   });
 
   describe("repayToRebalance", () => {
+    const minHealthFactorInitial2 = 500;
+    const targetHealthFactorInitial2 = 1000;
+    const maxHealthFactorInitial2 = 2000;
+    const minHealthFactorUpdated2 = 1000+300; // we need small addon for bad paths
+    const targetHealthFactorUpdated2 = 2000;
+    const maxHealthFactorUpdated2 = 4000;
+
+    interface IMakeRepayToRebalanceResults {
+      afterBorrow: IAave3UserAccountDataResults;
+      afterBorrowToRebalance: IAave3UserAccountDataResults;
+      userBalanceAfterBorrow: BigNumber;
+      userBalanceAfterRepayToRebalance: BigNumber;
+      expectedAmountToRepay: BigNumber;
+    }
+    interface IMakeRepayRebalanceBadPathParams {
+      makeRepayToRebalanceAsDeployer?: boolean;
+      skipBorrow?: boolean;
+      additionalAmountCorrectionFactorMul?: number;
+      additionalAmountCorrectionFactorDiv?: number;
+    }
+
+    /**
+     * Prepare aave3 pool adapter.
+     * Set low health factors.
+     * Make borrow.
+     * Increase health factor twice.
+     * Make repay to rebalance.
+     */
+    async function makeRepayToRebalance (
+      collateralToken: TokenDataTypes,
+      collateralHolder: string,
+      collateralAmount: BigNumber,
+      borrowToken: TokenDataTypes,
+      borrowHolder: string,
+      badPathsParams?: IMakeRepayRebalanceBadPathParams
+    ) : Promise<IMakeRepayToRebalanceResults>{
+      const d = await prepareToBorrow(
+        collateralToken,
+        collateralHolder,
+        collateralAmount,
+        borrowToken,
+        false,
+        targetHealthFactorInitial2
+      );
+      const collateralAssetData = await d.h.getReserveInfo(deployer, d.aavePool, d.dataProvider, collateralToken.address);
+      console.log("collateralAssetData", collateralAssetData);
+      const borrowAssetData = await d.h.getReserveInfo(deployer, d.aavePool, d.dataProvider, borrowToken.address);
+      console.log("borrowAssetData", borrowAssetData);
+
+      // prices of assets in base currency
+      const prices = await d.aavePrices.getAssetsPrices([collateralToken.address, borrowToken.address]);
+      console.log("prices", prices);
+
+      // setup low values for all health factors
+      await d.controller.setMaxHealthFactor2(maxHealthFactorInitial2);
+      await d.controller.setTargetHealthFactor2(targetHealthFactorInitial2);
+      await d.controller.setMinHealthFactor2(minHealthFactorInitial2);
+
+      // make borrow
+      const amountToBorrow = d.amountToBorrow;
+
+      if (! badPathsParams?.skipBorrow) {
+        await d.aavePoolAdapterAsTC.syncBalance(true);
+        await IERC20__factory.connect(collateralToken.address, await DeployerUtils.startImpersonate(d.userContract.address))
+          .transfer(d.aavePoolAdapterAsTC.address, collateralAmount);
+        await d.aavePoolAdapterAsTC.borrow(
+          collateralAmount,
+          amountToBorrow,
+          d.userContract.address // receiver
+        );
+      }
+
+      const afterBorrow: IAave3UserAccountDataResults = await d.aavePool.getUserAccountData(d.aavePoolAdapterAsTC.address);
+      const userBalanceAfterBorrow = await borrowToken.token.balanceOf(d.userContract.address);
+      console.log("after borrow:", afterBorrow, userBalanceAfterBorrow);
+
+      // increase all health factors down on 2 times to have possibility for additional borrow
+      await d.controller.setMaxHealthFactor2(maxHealthFactorUpdated2);
+      await d.controller.setTargetHealthFactor2(targetHealthFactorUpdated2);
+      await d.controller.setMinHealthFactor2(minHealthFactorUpdated2);
+      console.log("controller", d.controller.address);
+      console.log("min", await d.controller.minHealthFactor2());
+      console.log("target", await d.controller.targetHealthFactor2());
+
+      let expectedAmountToRepay = amountToBorrow.div(2); // health factor was increased twice
+      if (badPathsParams?.additionalAmountCorrectionFactorMul) {
+        expectedAmountToRepay = expectedAmountToRepay.mul(badPathsParams.additionalAmountCorrectionFactorMul);
+      }
+      if (badPathsParams?.additionalAmountCorrectionFactorDiv) {
+        expectedAmountToRepay = expectedAmountToRepay.div(badPathsParams.additionalAmountCorrectionFactorDiv);
+      }
+      if (badPathsParams) {
+        // we try to repay too much in bad-paths-test, so we need to give additional borrow asset to user
+        const userBorrowAssetBalance = await IERC20__factory.connect(borrowToken.address, deployer)
+          .balanceOf(d.userContract.address);
+        if (userBorrowAssetBalance.lt(expectedAmountToRepay)) {
+          await IERC20__factory.connect(borrowToken.address,
+            await DeployerUtils.startImpersonate(borrowHolder)
+          ).transfer(d.userContract.address, expectedAmountToRepay.sub(userBorrowAssetBalance));
+        }
+      }
+      console.log("expectedAmountToRepay", expectedAmountToRepay);
+
+      // make repayment to rebalance
+      const poolAdapterSigner = badPathsParams?.makeRepayToRebalanceAsDeployer
+        ? IPoolAdapter__factory.connect(d.aavePoolAdapterAsTC.address, deployer)
+        : d.aavePoolAdapterAsTC;
+      await poolAdapterSigner.syncBalance(false);
+      await IERC20__factory.connect(
+        borrowToken.address,
+        await DeployerUtils.startImpersonate(d.userContract.address)
+      ).transfer(
+        poolAdapterSigner.address,
+        expectedAmountToRepay
+      );
+
+      await poolAdapterSigner.repayToRebalance(expectedAmountToRepay);
+
+      const afterBorrowToRebalance: IAave3UserAccountDataResults = await d.aavePool.getUserAccountData(d.aavePoolAdapterAsTC.address);
+      const userBalanceAfterRepayToRebalance = await borrowToken.token.balanceOf(d.userContract.address);
+      console.log("after repay to rebalance:", afterBorrowToRebalance, userBalanceAfterRepayToRebalance);
+
+      return {
+        afterBorrow,
+        afterBorrowToRebalance,
+        userBalanceAfterBorrow,
+        userBalanceAfterRepayToRebalance,
+        expectedAmountToRepay
+      }
+    }
+
+    async function testRepayToRebalanceDaiWMatic(
+      badPathParams?: IMakeRepayRebalanceBadPathParams
+    ) : Promise<IMakeRepayToRebalanceResults> {
+      const collateralAsset = MaticAddresses.DAI;
+      const collateralHolder = MaticAddresses.HOLDER_DAI;
+      const borrowAsset = MaticAddresses.WMATIC;
+      const borrowHolder = MaticAddresses.HOLDER_WMATIC;
+
+      const collateralToken = await TokenDataTypes.Build(deployer, collateralAsset);
+      const borrowToken = await TokenDataTypes.Build(deployer, borrowAsset);
+      console.log("collateralToken.decimals", collateralToken.decimals);
+      console.log("borrowToken.decimals", borrowToken.decimals);
+
+      const collateralAmount = getBigNumberFrom(100_000, collateralToken.decimals);
+      console.log(collateralAmount, collateralAmount);
+
+      const r = await makeRepayToRebalance(
+        collateralToken
+        , collateralHolder
+        , collateralAmount
+        , borrowToken
+        , borrowHolder
+        , badPathParams
+      );
+
+      console.log(r);
+      return r;
+    }
+
     describe("Good paths", () => {
       it("should return expected values", async () => {
-        expect.fail("TODO");
+        if (!await isPolygonForkInUse()) return;
+        const r = await testRepayToRebalanceDaiWMatic();
+        const ret = [
+          Math.round(r.afterBorrow.healthFactor.div(getBigNumberFrom(1, 15)).toNumber() / 10.),
+          Math.round(r.afterBorrowToRebalance.healthFactor.div(getBigNumberFrom(1, 15)).toNumber() / 10.),
+          ethers.utils.formatUnits(r.userBalanceAfterBorrow, 18),
+          ethers.utils.formatUnits(r.userBalanceAfterRepayToRebalance, 18),
+        ].join("\n");
+        const expected = [
+          targetHealthFactorInitial2,
+          targetHealthFactorUpdated2,
+          ethers.utils.formatUnits(r.expectedAmountToRepay.mul(2), 18),
+          ethers.utils.formatUnits(r.expectedAmountToRepay, 18),
+        ].join("\n");
+        expect(ret).eq(expected);
       });
     });
+
     describe("Bad paths", () => {
-      describe("", () => {
+      describe("Not TetuConverter and not user", () => {
         it("should revert", async () => {
-          expect.fail("TODO");
+          if (!await isPolygonForkInUse()) return;
+          await expect(
+            testRepayToRebalanceDaiWMatic({makeRepayToRebalanceAsDeployer: true})
+          ).revertedWith("TC-32");
+        });
+      });
+      describe("Position is not registered", () => {
+        it("should revert", async () => {
+          if (!await isPolygonForkInUse()) return;
+          await expect(
+            testRepayToRebalanceDaiWMatic({skipBorrow: true})
+          ).revertedWith("TC-11");
+        });
+      });
+      describe("Result health factor is less min allowed one", () => {
+        it("should revert", async () => {
+          if (!await isPolygonForkInUse()) return;
+          await expect(
+            testRepayToRebalanceDaiWMatic({additionalAmountCorrectionFactorDiv: 100})
+          ).revertedWith("TC-3: wrong health factor");
+        });
+      });
+      describe("Try to repay amount greater then the debt", () => {
+        it("should revert", async () => {
+          if (!await isPolygonForkInUse()) return;
+          await expect(
+            testRepayToRebalanceDaiWMatic({additionalAmountCorrectionFactorMul: 100})
+          ).revertedWith("TC-40"); // REPAY_TO_REBALANCE_NOT_ALLOWED
         });
       });
     });
