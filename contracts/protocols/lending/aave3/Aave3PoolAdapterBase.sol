@@ -330,7 +330,6 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer 
   ) external override returns (
     uint resultHealthFactor18
   ) {
-    console.log("repayToRebalance.start", amountToRepay_);
     _onlyUserOrTC();
 
     address assetBorrow = borrowAsset;
@@ -345,7 +344,6 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer 
     uint totalAmountToPay = totalDebtBase0 == 0
       ? 0
       : totalDebtBase0 * (10 ** _pool.getConfiguration(assetBorrow).getDecimals()) / priceBorrowAsset;
-    console.log("repayToRebalance.totalDebtBase0", totalDebtBase0, totalAmountToPay);
     require(totalDebtBase0 > 0 && amountToRepay_ < totalAmountToPay, AppErrors.REPAY_TO_REBALANCE_NOT_ALLOWED);
 
     // ensure that we have received enough money on our balance just before repay was called
@@ -452,9 +450,6 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer 
   ///////////////////////////////////////////////////////
 
   function _validateHealthFactor(uint hf18) internal view {
-    console.log("controller", address(controller));
-    console.log("_validateHealthFactor", hf18);
-    console.log("min hf", uint(controller.minHealthFactor2())*10**(18-2));
     require(hf18 >= uint(controller.minHealthFactor2())*10**(18-2), AppErrors.WRONG_HEALTH_FACTOR);
   }
 
