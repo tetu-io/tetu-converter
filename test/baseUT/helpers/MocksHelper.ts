@@ -3,7 +3,7 @@
  */
 import {DeployUtils} from "../../../scripts/utils/DeployUtils";
 import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
-import {BigNumber, Signer} from "ethers";
+import {BigNumber} from "ethers";
 import {ethers} from "hardhat";
 import {DeployerUtils} from "../../../scripts/utils/DeployerUtils";
 import {
@@ -22,7 +22,6 @@ import {
   DForceInterestRateModelMock,
   PriceOracleMock,
   BorrowManager__factory,
-  IBorrowManager,
   BorrowManager
 } from "../../../typechain";
 import {IPoolInfo} from "./BorrowManagerHelper";
@@ -331,7 +330,7 @@ export class MocksHelper {
 
 //region Batch functions
   public static async createAssets(countAssets: number) : Promise<MockERC20[]> {
-    return await Promise.all(
+    return Promise.all(
       [...Array(countAssets).keys()].map(
         async _ => (await MocksHelper.createTokens([18]))[0]
       )
@@ -339,9 +338,9 @@ export class MocksHelper {
   }
 
   public static async createConverters(signer: SignerWithAddress, countConverters: number) : Promise<PoolAdapterStub[]> {
-    return await Promise.all(
+    return Promise.all(
       [...Array(countConverters).keys()].map(
-        async x => await MocksHelper.createPoolAdapterStub(signer, getBigNumberFrom(1))
+        async x => MocksHelper.createPoolAdapterStub(signer, getBigNumberFrom(1))
       )
     );
   }
