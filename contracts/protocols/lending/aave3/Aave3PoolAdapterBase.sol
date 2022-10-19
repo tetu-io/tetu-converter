@@ -361,7 +361,7 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer 
     );
 
     // validate result health factor
-    (uint totalCollateralBase, uint totalDebtBase,,,, uint256 healthFactor) = pool.getUserAccountData(address(this));
+    (,,,,, uint256 healthFactor) = pool.getUserAccountData(address(this));
     _validateHealthFactor(healthFactor);
 
     return healthFactor;

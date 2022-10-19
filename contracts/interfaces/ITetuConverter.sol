@@ -76,12 +76,19 @@ interface ITetuConverter {
   ) external view returns (uint);
 
   /// @notice User needs to redeem some collateral amount. Calculate an amount of borrow token that should be repaid
+  /// @param collateralAmountRequired_ Amount of collateral required by the user
+  /// @return borrowAssetAmount Borrowed amount that should be repaid to receive back following amount of collateral:
+  ///                           amountToReceive = collateralAmountRequired_ - unobtainableCollateralAssetAmount
+  /// @return unobtainableCollateralAssetAmount A part of collateral that cannot be obtained in any case
+  ///                                           even if all borrowed amount will be returned.
+  ///                                           If this amount is not 0, you ask to get too much collateral.
   function estimateRepay(
     address collateralAsset_,
     uint collateralAmountRequired_,
     address borrowAsset_
   ) external view returns (
-    uint borrowAssetAmount
+    uint borrowAssetAmount,
+    uint unobtainableCollateralAssetAmount
   );
 
   /// @notice Transfer all reward tokens to {receiver_}

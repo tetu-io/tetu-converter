@@ -58,9 +58,9 @@ interface IBorrowManager is IPoolAdaptersManager {
   ///         If there is no custom value for asset, target health factor from the controller should be used
   function getTargetHealthFactor2(address asset) external view returns (uint);
 
+  /// @notice Get all pool adapters registered for the user
+  /// @dev Return both opened and closed positions
   function getPoolAdaptersForUser(
-    address user_,
-    address collateralAsset_,
-    address borrowAsset_
+    address user_
   ) external view returns (address[] memory poolAdapters);
 }

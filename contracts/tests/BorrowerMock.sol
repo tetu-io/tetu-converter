@@ -218,6 +218,8 @@ contract Borrower is ITetuConverterCallback {
     address borrowAsset_,
     uint amountToReturn_
   ) external override returns (uint) {
+    collateralAsset_;
+
     uint amountToSend = amountToSendOnRequireBorrowedAmountBack == 0
       ? amountToReturn_
       : amountToSendOnRequireBorrowedAmountBack;

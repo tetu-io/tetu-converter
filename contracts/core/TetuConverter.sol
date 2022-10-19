@@ -389,7 +389,6 @@ contract TetuConverter is ITetuConverter, IKeeperCallback {
       borrowAsset_
     );
     uint lenPoolAdapters = poolAdapters.length;
-    console.log("getDebtAmount", lenPoolAdapters);
 
     for (uint i = 0; i < lenPoolAdapters; i = i.uncheckedInc()) {
       IPoolAdapter pa = IPoolAdapter(poolAdapters[i]);
@@ -406,13 +405,35 @@ contract TetuConverter is ITetuConverter, IKeeperCallback {
     uint collateralAmountToRedeem_,
     address borrowAsset_
   ) external view override returns (
-    uint borrowAssetAmount
+    uint borrowAssetAmount,
+    uint unobtainableCollateralAssetAmount
   ) {
-    // TODO
-    collateralAsset_;
-    collateralAmountToRedeem_;
-    borrowAsset_;
-    return 0;
+    address[] memory poolAdapters = _debtMonitor().getPositions(
+      msg.sender,
+      collateralAsset_,
+      borrowAsset_
+    );
+    uint lenPoolAdapters = poolAdapters.length;
+
+    uint collateralAmountRemained = collateralAmountToRedeem_;
+    for (uint i = 0; i < lenPoolAdapters; i = i.uncheckedInc()) {
+      if (collateralAmountRemained == 0) {
+        break;
+      }
+
+      IPoolAdapter pa = IPoolAdapter(poolAdapters[i]);
+      (uint collateralAmount, uint borrowedAmount,,) = pa.getStatus();
+
+      if (collateralAmountRemained >= collateralAmount) {
+        collateralAmountRemained -= collateralAmount;
+        borrowAssetAmount += borrowedAmount;
+      } else {
+        collateralAmountRemained = 0;
+        borrowAssetAmount += borrowedAmount * collateralAmountRemained / collateralAmount;
+      }
+    }
+
+    return (borrowAssetAmount, collateralAmountRemained);
   }
 
   ///////////////////////////////////////////////////////

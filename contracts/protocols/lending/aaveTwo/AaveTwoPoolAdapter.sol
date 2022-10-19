@@ -341,7 +341,7 @@ contract AaveTwoPoolAdapter is IPoolAdapter, IPoolAdapterInitializer {
     );
 
     // validate result status
-    (uint totalCollateralBase, uint totalDebtBase,,,, uint256 healthFactor) = pool.getUserAccountData(address(this));
+    (,,,,, uint256 healthFactor) = pool.getUserAccountData(address(this));
     _validateHealthFactor(healthFactor);
 
     return healthFactor;

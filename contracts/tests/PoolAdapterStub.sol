@@ -102,7 +102,7 @@ contract PoolAdapterStub is IPoolAdapter {
   function borrowToRebalance(
     uint borrowAmount_,
     address receiver_
-  ) external override returns (
+  ) external pure override returns (
     uint resultHealthFactor18,
     uint borrowedAmountOut
   ) {
@@ -125,11 +125,11 @@ contract PoolAdapterStub is IPoolAdapter {
 
   function repayToRebalance(
     uint amountToRepay_
-  ) external override returns (
+  ) external pure override returns (
     uint resultHealthFactor18
   ) {
     amountToRepay_;
-    return 0; //TODO
+    return 0;
   }
 
   function getConfig() external view override returns (

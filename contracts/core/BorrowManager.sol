@@ -341,9 +341,7 @@ contract BorrowManager is IBorrowManager {
   }
 
   function getPoolAdaptersForUser(
-    address user_,
-    address collateralAsset_,
-    address borrowAsset_
+    address user_
   ) external view override returns (
     address[] memory poolAdapters
   ) {
