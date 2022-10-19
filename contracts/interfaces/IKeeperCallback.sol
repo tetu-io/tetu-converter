@@ -25,8 +25,11 @@ interface IKeeperCallback {
   ) external;
 
   /// @notice This function is called by a keeper if the keeper has found MUCH better way of borrow than current one
+  /// @param lendingPoolAdapter_ Position to be closed
+  /// @param periodInBlocks_ Estimated period for new borrow, in blocks
   function requireReconversion(
-    address lendingPoolAdapter_
+    address lendingPoolAdapter_,
+    uint periodInBlocks_
   ) external;
 
 }

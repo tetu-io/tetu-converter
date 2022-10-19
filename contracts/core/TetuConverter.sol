@@ -250,7 +250,7 @@ contract TetuConverter is ITetuConverter, IKeeperCallback {
   }
 
   ///////////////////////////////////////////////////////
-  ///       ITetuConverterCallback
+  ///       IKeeperCallback
   ///////////////////////////////////////////////////////
 
   function requireRepay(
@@ -303,12 +303,54 @@ contract TetuConverter is ITetuConverter, IKeeperCallback {
   }
 
   function requireReconversion(
-    address poolAdapter_
+    address poolAdapter_,
+    uint periodInBlocks_
   ) external override {
     onlyKeeper();
 
-    //TODO
-    poolAdapter_;
+    //TODO: draft (not tested) implementation
+
+    IPoolAdapter pa = IPoolAdapter(poolAdapter_);
+    (address originConverter, address user, address collateralAsset, address borrowAsset) = pa.getConfig();
+    (,uint amountToPay,,) = pa.getStatus();
+
+    // require borrowed amount back
+    uint balanceBorrowedAsset = IERC20(borrowAsset).balanceOf(address(this));
+    ITetuConverterCallback(user).requireBorrowedAmountBack(collateralAsset, borrowAsset, amountToPay);
+    require(
+      IERC20(borrowAsset).balanceOf(address(this)) - balanceBorrowedAsset == amountToPay,
+      AppErrors.WRONG_AMOUNT_RECEIVED
+    );
+
+    //make repay and close position
+    uint balanceCollateralAsset = IERC20(collateralAsset).balanceOf(address(this));
+    pa.syncBalance(false);
+    IERC20(borrowAsset).transfer(poolAdapter_, amountToPay);
+    pa.repay(amountToPay, address(this), true);
+    uint collateralAmount = IERC20(collateralAsset).balanceOf(address(this)) - balanceCollateralAsset;
+
+    // find new plan
+    (address converter, uint maxTargetAmount,) = _findConversionStrategy(
+      collateralAsset,
+      collateralAmount,
+      borrowAsset,
+      periodInBlocks_,
+      ITetuConverter.ConversionMode.AUTO_0
+    );
+    require(converter != originConverter, AppErrors.RECONVERSION_WITH_SAME_CONVERTER_FORBIDDEN);
+    require(converter != address(0), AppErrors.CONVERTER_NOT_FOUND);
+
+    // make conversion using new pool adapter, transfer borrowed amount back to user
+    uint newBorrowedAmount = _convert(
+      converter,
+      collateralAsset,
+      collateralAmount,
+      borrowAsset,
+      maxTargetAmount,
+      user,
+      address(this)
+    );
+    ITetuConverterCallback(user).onTransferBorrowedAmount(collateralAsset, borrowAsset, newBorrowedAmount);
   }
 
   function _ensureApproxSameToTargetHealthFactor(
@@ -388,50 +430,6 @@ contract TetuConverter is ITetuConverter, IKeeperCallback {
   ///////////////////////////////////////////////////////
   ///  Additional functions, not required by strategies
   ///////////////////////////////////////////////////////
-
-  function reconvert(
-    address poolAdapter_,
-    uint periodInBlocks_,
-    address receiver_
-  ) external override {
-    // we assume, that the caller has already transferred borrowed amount back to the pool adapter
-
-    // prepare to repay
-    IPoolAdapter pa = IPoolAdapter(poolAdapter_);
-    (address originConverter, address user, address collateralAsset, address borrowAsset) = pa.getConfig();
-    require(user == msg.sender, AppErrors.USER_ONLY);
-
-    (, uint amountToPay,,) = pa.getStatus();
-
-    // temporary store current balance of the collateral - we need to know balance delta after and before repay
-    uint deltaCollateral = IERC20(collateralAsset).balanceOf(address(this));
-
-    // repay
-    pa.repay(amountToPay, address(this), true);
-    deltaCollateral = IERC20(collateralAsset).balanceOf(address(this)) - deltaCollateral;
-
-    // find new plan
-    (address converter, uint maxTargetAmount,) = _findConversionStrategy(
-      collateralAsset,
-      deltaCollateral,
-      borrowAsset,
-      periodInBlocks_,
-      ITetuConverter.ConversionMode.AUTO_0
-    );
-    require(converter != originConverter, AppErrors.RECONVERSION_WITH_SAME_CONVERTER_FORBIDDEN);
-
-    // make conversion using new pool adapter, transfer borrowed amount {receiver_}
-    _convert(
-      converter,
-      collateralAsset,
-      deltaCollateral,
-      borrowAsset,
-      maxTargetAmount,
-      receiver_,
-      address(this)
-    );
-  }
-
   function findBorrows (
     address collateralToken_,
     address borrowedToken_

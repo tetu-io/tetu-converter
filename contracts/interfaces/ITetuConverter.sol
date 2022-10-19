@@ -106,17 +106,4 @@ interface ITetuConverter {
   ) external view returns (
     address[] memory poolAdapters
   );
-
-  /// @notice Repay the borrow completely and re-convert (borrow or swap) from zero
-  /// @dev Revert if re-borrow uses same PA as before
-  /// @param poolAdapter_ TODO: current implementation assumes, that the borrower directly works with pool adapter -
-  ///                     TODO: gets status, transfers borrowed amount on balance of the pool adapter and so on
-  ///                     TODO: probably we need to hide all pool-adapter-implementation details behind
-  ///                     TODO: interface of the TetuConverter in same way as it was done for borrow/repay
-  /// @param periodInBlocks_ Estimated period to keep target amount. It's required to compute APR
-  function reconvert(
-    address poolAdapter_,
-    uint periodInBlocks_,
-    address receiver_
-  ) external;
 }
