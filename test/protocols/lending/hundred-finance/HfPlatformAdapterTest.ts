@@ -1,25 +1,25 @@
 import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import {ethers} from "hardhat";
-import {TimeUtils} from "../../../../../scripts/utils/TimeUtils";
+import {TimeUtils} from "../../../../scripts/utils/TimeUtils";
 import {
   HfAprLibFacade,
   IERC20Extended__factory, IHfComptroller, IHfCToken,
   IHfCToken__factory
-} from "../../../../../typechain";
+} from "../../../../typechain";
 import {expect} from "chai";
-import {AdaptersHelper} from "../../../../baseUT/helpers/AdaptersHelper";
-import {isPolygonForkInUse} from "../../../../baseUT/utils/NetworkUtils";
-import {BalanceUtils} from "../../../../baseUT/utils/BalanceUtils";
-import {HundredFinanceHelper} from "../../../../../scripts/integration/helpers/HundredFinanceHelper";
-import {MaticAddresses} from "../../../../../scripts/addresses/MaticAddresses";
-import {CoreContractsHelper} from "../../../../baseUT/helpers/CoreContractsHelper";
+import {AdaptersHelper} from "../../../baseUT/helpers/AdaptersHelper";
+import {isPolygonForkInUse} from "../../../baseUT/utils/NetworkUtils";
+import {BalanceUtils} from "../../../baseUT/utils/BalanceUtils";
+import {HundredFinanceHelper} from "../../../../scripts/integration/helpers/HundredFinanceHelper";
+import {MaticAddresses} from "../../../../scripts/addresses/MaticAddresses";
+import {CoreContractsHelper} from "../../../baseUT/helpers/CoreContractsHelper";
 import {BigNumber} from "ethers";
-import {areAlmostEqual, toMantissa} from "../../../../baseUT/utils/CommonUtils";
-import {IPlatformActor, PredictBrUsesCase} from "../../../../baseUT/uses-cases/PredictBrUsesCase";
-import {Misc} from "../../../../../scripts/utils/Misc";
-import {getBigNumberFrom} from "../../../../../scripts/utils/NumberUtils";
-import {DeployUtils} from "../../../../../scripts/utils/DeployUtils";
-import {AprHundredFinance, getHfStateInfo} from "../../../../baseUT/apr/aprHundredFinance";
+import {areAlmostEqual, toMantissa} from "../../../baseUT/utils/CommonUtils";
+import {IPlatformActor, PredictBrUsesCase} from "../../../baseUT/uses-cases/PredictBrUsesCase";
+import {Misc} from "../../../../scripts/utils/Misc";
+import {getBigNumberFrom} from "../../../../scripts/utils/NumberUtils";
+import {DeployUtils} from "../../../../scripts/utils/DeployUtils";
+import {AprHundredFinance, getHfStateInfo} from "../../../baseUT/apr/aprHundredFinance";
 
 describe("Hundred finance integration tests, platform adapter", () => {
 //region Global vars for all tests

@@ -1,24 +1,24 @@
 import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import {ethers} from "hardhat";
-import {TimeUtils} from "../../../../../scripts/utils/TimeUtils";
+import {TimeUtils} from "../../../../scripts/utils/TimeUtils";
 import {
   DForcePlatformAdapter__factory, IDForceInterestRateModel, IDForceInterestRateModel__factory,
-} from "../../../../../typechain";
+} from "../../../../typechain";
 import {expect} from "chai";
-import {isPolygonForkInUse} from "../../../../baseUT/utils/NetworkUtils";
-import {MaticAddresses} from "../../../../../scripts/addresses/MaticAddresses";
-import {CoreContractsHelper} from "../../../../baseUT/helpers/CoreContractsHelper";
+import {isPolygonForkInUse} from "../../../baseUT/utils/NetworkUtils";
+import {MaticAddresses} from "../../../../scripts/addresses/MaticAddresses";
+import {CoreContractsHelper} from "../../../baseUT/helpers/CoreContractsHelper";
 import {
   DForceHelper, IBorrowRewardsPredictionInput,
   IBorrowRewardsStatePoint, IRewardsStatePoint,
   ISupplyRewardsStatePoint
-} from "../../../../../scripts/integration/helpers/DForceHelper";
-import {TokenDataTypes} from "../../../../baseUT/types/TokenDataTypes";
-import {getBigNumberFrom} from "../../../../../scripts/utils/NumberUtils";
-import {SupplyBorrowUsingDForce} from "../../../../baseUT/uses-cases/dforce/SupplyBorrowUsingDForce";
-import {DForcePlatformFabric} from "../../../../baseUT/fabrics/DForcePlatformFabric";
-import {MocksHelper} from "../../../../baseUT/helpers/MocksHelper";
-import {DeployerUtils} from "../../../../../scripts/utils/DeployerUtils";
+} from "../../../../scripts/integration/helpers/DForceHelper";
+import {TokenDataTypes} from "../../../baseUT/types/TokenDataTypes";
+import {getBigNumberFrom} from "../../../../scripts/utils/NumberUtils";
+import {SupplyBorrowUsingDForce} from "../../../baseUT/uses-cases/dforce/SupplyBorrowUsingDForce";
+import {DForcePlatformFabric} from "../../../baseUT/fabrics/DForcePlatformFabric";
+import {MocksHelper} from "../../../baseUT/helpers/MocksHelper";
+import {DeployerUtils} from "../../../../scripts/utils/DeployerUtils";
 import {BigNumber} from "ethers";
 
 describe("DForceHelper tests", () => {

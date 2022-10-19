@@ -1,12 +1,12 @@
 import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import {ethers} from "hardhat";
-import {TimeUtils} from "../../../../../scripts/utils/TimeUtils";
+import {TimeUtils} from "../../../../scripts/utils/TimeUtils";
 import {expect} from "chai";
-import {getBigNumberFrom} from "../../../../../scripts/utils/NumberUtils";
-import {isPolygonForkInUse} from "../../../../baseUT/utils/NetworkUtils";
-import {MaticAddresses} from "../../../../../scripts/addresses/MaticAddresses";
-import {TokenDataTypes} from "../../../../baseUT/types/TokenDataTypes";
-import {SupplyBorrowUsingDForce} from "../../../../baseUT/uses-cases/dforce/SupplyBorrowUsingDForce";
+import {getBigNumberFrom} from "../../../../scripts/utils/NumberUtils";
+import {isPolygonForkInUse} from "../../../baseUT/utils/NetworkUtils";
+import {MaticAddresses} from "../../../../scripts/addresses/MaticAddresses";
+import {TokenDataTypes} from "../../../baseUT/types/TokenDataTypes";
+import {SupplyBorrowUsingDForce} from "../../../baseUT/uses-cases/dforce/SupplyBorrowUsingDForce";
 
 /**
  * Supply amount => claim rewards in specified period

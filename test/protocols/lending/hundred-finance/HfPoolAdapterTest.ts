@@ -1,25 +1,25 @@
 import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import {ethers} from "hardhat";
-import {TimeUtils} from "../../../../../scripts/utils/TimeUtils";
+import {TimeUtils} from "../../../../scripts/utils/TimeUtils";
 import {
   Controller, HfPlatformAdapter, HfPoolAdapter,
   IERC20Extended__factory, IHfComptroller, IHfCToken__factory, IHfPriceOracle, IPoolAdapter__factory
-} from "../../../../../typechain";
+} from "../../../../typechain";
 import {expect} from "chai";
 import {BigNumber, Wallet} from "ethers";
-import {getBigNumberFrom} from "../../../../../scripts/utils/NumberUtils";
-import {DeployerUtils} from "../../../../../scripts/utils/DeployerUtils";
-import {AdaptersHelper} from "../../../../baseUT/helpers/AdaptersHelper";
-import {isPolygonForkInUse} from "../../../../baseUT/utils/NetworkUtils";
-import {BalanceUtils, IUserBalances} from "../../../../baseUT/utils/BalanceUtils";
-import {CoreContractsHelper} from "../../../../baseUT/helpers/CoreContractsHelper";
-import {HundredFinanceHelper, IHundredFinanceMarketData} from "../../../../../scripts/integration/helpers/HundredFinanceHelper";
-import {MaticAddresses} from "../../../../../scripts/addresses/MaticAddresses";
-import {MocksHelper} from "../../../../baseUT/helpers/MocksHelper";
-import {TokenDataTypes} from "../../../../baseUT/types/TokenDataTypes";
-import {Misc} from "../../../../../scripts/utils/Misc";
-import {CompareAprUsesCase} from "../../../../baseUT/uses-cases/CompareAprUsesCase";
-import {IHfAccountLiquidity} from "../../../../baseUT/apr/aprHundredFinance";
+import {getBigNumberFrom} from "../../../../scripts/utils/NumberUtils";
+import {DeployerUtils} from "../../../../scripts/utils/DeployerUtils";
+import {AdaptersHelper} from "../../../baseUT/helpers/AdaptersHelper";
+import {isPolygonForkInUse} from "../../../baseUT/utils/NetworkUtils";
+import {BalanceUtils, IUserBalances} from "../../../baseUT/utils/BalanceUtils";
+import {CoreContractsHelper} from "../../../baseUT/helpers/CoreContractsHelper";
+import {HundredFinanceHelper, IHundredFinanceMarketData} from "../../../../scripts/integration/helpers/HundredFinanceHelper";
+import {MaticAddresses} from "../../../../scripts/addresses/MaticAddresses";
+import {MocksHelper} from "../../../baseUT/helpers/MocksHelper";
+import {TokenDataTypes} from "../../../baseUT/types/TokenDataTypes";
+import {Misc} from "../../../../scripts/utils/Misc";
+import {CompareAprUsesCase} from "../../../baseUT/uses-cases/CompareAprUsesCase";
+import {IHfAccountLiquidity} from "../../../baseUT/apr/aprHundredFinance";
 
 describe("Hundred Finance integration tests, pool adapter", () => {
 

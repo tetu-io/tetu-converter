@@ -1,26 +1,26 @@
 import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import {ethers} from "hardhat";
-import {TimeUtils} from "../../../../../scripts/utils/TimeUtils";
+import {TimeUtils} from "../../../../scripts/utils/TimeUtils";
 import {
   Controller, DForcePlatformAdapter, DForcePoolAdapter, IDForceController,
   IDForceCToken__factory, IDForcePriceOracle, IERC20__factory,
   IERC20Extended__factory, IPoolAdapter__factory,
-} from "../../../../../typechain";
+} from "../../../../typechain";
 import {expect} from "chai";
 import {BigNumber, Wallet} from "ethers";
-import {getBigNumberFrom} from "../../../../../scripts/utils/NumberUtils";
-import {DeployerUtils} from "../../../../../scripts/utils/DeployerUtils";
-import {AdaptersHelper} from "../../../../baseUT/helpers/AdaptersHelper";
-import {isPolygonForkInUse} from "../../../../baseUT/utils/NetworkUtils";
-import {BalanceUtils, IUserBalances} from "../../../../baseUT/utils/BalanceUtils";
-import {CoreContractsHelper} from "../../../../baseUT/helpers/CoreContractsHelper";
-import {MaticAddresses} from "../../../../../scripts/addresses/MaticAddresses";
-import {MocksHelper} from "../../../../baseUT/helpers/MocksHelper";
-import {TokenDataTypes} from "../../../../baseUT/types/TokenDataTypes";
-import {DForceHelper, IDForceMarketData} from "../../../../../scripts/integration/helpers/DForceHelper";
-import {Misc} from "../../../../../scripts/utils/Misc";
-import {CompareAprUsesCase} from "../../../../baseUT/uses-cases/CompareAprUsesCase";
-import {IDForceCalcAccountEquityResults, IDForceUserAccountState} from "../../../../baseUT/apr/aprDForce";
+import {getBigNumberFrom} from "../../../../scripts/utils/NumberUtils";
+import {DeployerUtils} from "../../../../scripts/utils/DeployerUtils";
+import {AdaptersHelper} from "../../../baseUT/helpers/AdaptersHelper";
+import {isPolygonForkInUse} from "../../../baseUT/utils/NetworkUtils";
+import {BalanceUtils, IUserBalances} from "../../../baseUT/utils/BalanceUtils";
+import {CoreContractsHelper} from "../../../baseUT/helpers/CoreContractsHelper";
+import {MaticAddresses} from "../../../../scripts/addresses/MaticAddresses";
+import {MocksHelper} from "../../../baseUT/helpers/MocksHelper";
+import {TokenDataTypes} from "../../../baseUT/types/TokenDataTypes";
+import {DForceHelper, IDForceMarketData} from "../../../../scripts/integration/helpers/DForceHelper";
+import {Misc} from "../../../../scripts/utils/Misc";
+import {CompareAprUsesCase} from "../../../baseUT/uses-cases/CompareAprUsesCase";
+import {IDForceCalcAccountEquityResults, IDForceUserAccountState} from "../../../baseUT/apr/aprDForce";
 
 describe("DForce integration tests, pool adapter", () => {
 //region Global vars for all tests

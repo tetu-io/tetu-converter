@@ -1415,7 +1415,7 @@ describe("TetuConverterTest", () => {
     });
   });
 
-  describe("requireReconversion", () => {
+  describe("TODO:requireReconversion", () => {
     describe("Good paths", () => {
       it("should return expected values", async () => {
         expect.fail("TODO");
@@ -1661,7 +1661,7 @@ describe("TetuConverterTest", () => {
     });
   });
 
-  describe("claimRewards", () => {
+  describe("TODO:claimRewards", () => {
     describe("Good paths", () => {
       it("should return expected values", async () => {
         expect.fail("TODO");
@@ -1674,9 +1674,7 @@ describe("TetuConverterTest", () => {
     });
   });
 
-
-
-  describe("findBorrows", () => {
+  describe("TODO:findBorrows", () => {
     describe("Good paths", () => {
       describe("TODO", () => {
         it("should update balance in proper way", async () => {
