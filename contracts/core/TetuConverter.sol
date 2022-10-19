@@ -425,11 +425,12 @@ contract TetuConverter is ITetuConverter, IKeeperCallback {
       (uint collateralAmount, uint borrowedAmount,,) = pa.getStatus();
 
       if (collateralAmountRemained >= collateralAmount) {
+        console.log(">=");
         collateralAmountRemained -= collateralAmount;
         borrowAssetAmount += borrowedAmount;
       } else {
-        collateralAmountRemained = 0;
         borrowAssetAmount += borrowedAmount * collateralAmountRemained / collateralAmount;
+        collateralAmountRemained = 0;
       }
     }
 

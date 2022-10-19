@@ -1481,61 +1481,181 @@ describe("TetuConverterTest", () => {
   });
 
   describe("estimateRepay", () => {
+    /* Make N borrows, ask to return given amount of collateral.
+    * Return borrowed amount that should be return
+    * and amount of unobtainable collateral (not zero if we ask too much)
+    * */
+    async function makeEstimateRepay(
+      collateralAmounts: number[],
+      exactBorrowAmounts: number[],
+      collateralAmountToRedeem: number
+    ) : Promise<{
+      borrowAssetAmount: BigNumber,
+      unobtainableCollateralAssetAmount: BigNumber,
+      init: IPrepareResults
+    }> {
+      const init = await prepareTetuAppWithMultipleLendingPlatforms(collateralAmounts.length);
+      const targetTokenDecimals = await init.targetToken.decimals();
+      const collateralTokenDecimals = await init.sourceToken.decimals();
+
+      await makeBorrows(
+        init,
+        collateralAmounts,
+        BigNumber.from(100),
+        BigNumber.from(100_000),
+        exactBorrowAmounts
+      );
+
+      const tcAsUser = ITetuConverter__factory.connect(
+        init.core.tc.address,
+        await DeployerUtils.startImpersonate(init.userContract.address)
+      );
+
+      const {borrowAssetAmount, unobtainableCollateralAssetAmount} = await tcAsUser.estimateRepay(
+        init.sourceToken.address,
+        getBigNumberFrom(collateralAmountToRedeem, collateralTokenDecimals),
+        init.targetToken.address
+      );
+
+      return {
+        init,
+        borrowAssetAmount,
+        unobtainableCollateralAssetAmount
+      }
+    }
+    async function makeEstimateRepayTest(
+      collateralAmounts: number[],
+      borrowedAmounts: number[],
+      collateralAmountToRedeem: number,
+      borrowedAmountToRepay: number,
+      unobtainableCollateralAssetAmount?: number
+    ) : Promise<{ret: string, expected: string}>{
+      const r = await makeEstimateRepay(
+        collateralAmounts,
+        borrowedAmounts,
+        collateralAmountToRedeem
+      );
+      const ret = [
+        r.borrowAssetAmount,
+        r.unobtainableCollateralAssetAmount
+      ].map(x => BalanceUtils.toString(x)).join("\n");
+      const expected = [
+        getBigNumberFrom(borrowedAmountToRepay, await r.init.targetToken.decimals()),
+        getBigNumberFrom(unobtainableCollateralAssetAmount || 0, await r.init.sourceToken.decimals())
+      ].map(x => BalanceUtils.toString(x)).join("\n");
+      return {ret, expected};
+    }
+
     describe("Good paths", () => {
       describe("Single pool adapter", () => {
         describe("Partial repay is required", () => {
           it("should return expected values", async () => {
-            expect.fail("TODO");
-          });
-          describe("Make repayment", () => {
-            it("should receive expected collateral amount", async () => {
-              expect.fail("TODO");
-            });
+            const collateralAmounts = [100_000];
+            const borrowedAmounts = [25_000];
+            const collateralAmountToRedeem = 10_000;
+            const borrowedAmountToRepay = 2_500;
+            const r = await makeEstimateRepayTest(
+              collateralAmounts,
+              borrowedAmounts,
+              collateralAmountToRedeem,
+              borrowedAmountToRepay
+            );
+            expect(r.ret).eq(r.expected);
           });
         });
         describe("Full repay is required", () => {
           it("should return expected values", async () => {
-            expect.fail("TODO");
-          });
-          describe("Make repayment", () => {
-            it("should receive expected collateral amount", async () => {
-              expect.fail("TODO");
-            });
+            const collateralAmounts = [100_000];
+            const borrowedAmounts = [25_000];
+            const collateralAmountToRedeem = 100_000;
+            const borrowedAmountToRepay = 25_000;
+            const r = await makeEstimateRepayTest(
+              collateralAmounts,
+              borrowedAmounts,
+              collateralAmountToRedeem,
+              borrowedAmountToRepay
+            );
+            expect(r.ret).eq(r.expected);
           });
         });
       });
       describe("Multiple pool adapters", () => {
         describe("Partial repay is required", () => {
           it("should return expected values", async () => {
-            expect.fail("TODO");
+            const collateralAmounts = [100_000, 200_000, 300_000];
+            const borrowedAmounts = [25_000, 40_000, 20_000];
+            const collateralAmountToRedeem = 300_000;
+            const borrowedAmountToRepay = 65_000;
+            const r = await makeEstimateRepayTest(
+              collateralAmounts,
+              borrowedAmounts,
+              collateralAmountToRedeem,
+              borrowedAmountToRepay
+            );
+            expect(r.ret).eq(r.expected);
           });
-          describe("Make repayment", () => {
-            it("should receive expected collateral amount", async () => {
-              expect.fail("TODO");
-            });
+          it("should return expected values", async () => {
+            const collateralAmounts = [100_000, 200_000, 300_000];
+            const borrowedAmounts = [25_000, 40_000, 20_000];
+            const collateralAmountToRedeem = 450_000;
+            const borrowedAmountToRepay = 75_000;
+            const r = await makeEstimateRepayTest(
+              collateralAmounts,
+              borrowedAmounts,
+              collateralAmountToRedeem,
+              borrowedAmountToRepay
+            );
+            expect(r.ret).eq(r.expected);
           });
         });
         describe("Full repay is required", () => {
           it("should return expected values", async () => {
-            expect.fail("TODO");
-          });
-          describe("Make repayment", () => {
-            it("should receive expected collateral amount", async () => {
-              expect.fail("TODO");
-            });
+            const collateralAmounts = [100_000, 200_000, 300_000];
+            const borrowedAmounts = [25_000, 40_000, 20_000];
+            const collateralAmountToRedeem = 600_000;
+            const borrowedAmountToRepay = 85_000;
+            const r = await makeEstimateRepayTest(
+              collateralAmounts,
+              borrowedAmounts,
+              collateralAmountToRedeem,
+              borrowedAmountToRepay
+            );
+            expect(r.ret).eq(r.expected);
           });
         });
       });
-    });
-    describe("Bad paths", () => {
-      describe("Ask too much collateral", () => {
-        it("should revert", async () => {
-          expect.fail("TODO");
+      describe("Require incorrect amount of collateral", () => {
+        describe("Ask too much collateral", () => {
+          it("should revert", async () => {
+            const collateralAmounts = [100_000, 200_000, 300_000];
+            const borrowedAmounts = [25_000, 40_000, 20_000];
+            const unobtainableCollateralAssetAmount = 1_000_000;
+            const collateralAmountToRedeem = 600_000 + unobtainableCollateralAssetAmount;
+            const borrowedAmountToRepay = 85_000;
+            const r = await makeEstimateRepayTest(
+              collateralAmounts,
+              borrowedAmounts,
+              collateralAmountToRedeem,
+              borrowedAmountToRepay,
+              unobtainableCollateralAssetAmount
+            );
+            expect(r.ret).eq(r.expected);
+          });
         });
-      });
-      describe("Ask zero collateral", () => {
-        it("should revert", async () => {
-          expect.fail("TODO");
+        describe("Ask zero collateral", () => {
+          it("should revert", async () => {
+            const collateralAmounts = [100_000, 200_000, 300_000];
+            const borrowedAmounts = [25_000, 40_000, 20_000];
+            const collateralAmountToRedeem = 0;
+            const borrowedAmountToRepay = 0;
+            const r = await makeEstimateRepayTest(
+              collateralAmounts,
+              borrowedAmounts,
+              collateralAmountToRedeem,
+              borrowedAmountToRepay,
+            );
+            expect(r.ret).eq(r.expected);
+          });
         });
       });
     });
@@ -1574,83 +1694,84 @@ describe("TetuConverterTest", () => {
     });
   });
 
-  describe.skip("TODO: reconvert", () => {
-    describe("Good paths", () => {
-      it("should make reconversion", async () => {
-        const sourceAmountNumber = 100_000;
-        const availableBorrowLiquidityNumber = 200_000_000;
+// describe.skip("TODO: reconvert", () => {
+//   describe("Good paths", () => {
+//     it("should make reconversion", async () => {
+//       const sourceAmountNumber = 100_000;
+//       const availableBorrowLiquidityNumber = 200_000_000;
+//
+//       const bn0 = BigNumber.from(0);
+//       const targetDecimals = 12;
+//       const sourceDecimals = 24;
+//       // initial borrow rates
+//       const brPA1 = getBigNumberFrom(3, targetDecimals - 6); // 3e-6 (lower)
+//       const brPA2 = getBigNumberFrom(5, targetDecimals - 6); // 5e-6 (higher)
+//       // changed borrow rates
+//       const brPA1new = getBigNumberFrom(7, targetDecimals - 6); // 7e-6 (higher)
+//       const brPA2new = getBigNumberFrom(2, targetDecimals - 6); // 2e-6 (lower)
+//
+//       const tt: IBorrowInputParams = {
+//         collateralFactor: 0.8,
+//         priceSourceUSD: 0.1,
+//         priceTargetUSD: 4,
+//         sourceDecimals,
+//         targetDecimals,
+//         availablePools: [
+//           // POOL 1
+//           {   // source, target
+//             borrowRateInTokens: [bn0, brPA1],
+//             availableLiquidityInTokens: [0, availableBorrowLiquidityNumber]
+//           },
+//           // POOL 2
+//           {   // source, target
+//             borrowRateInTokens: [bn0, brPA2],
+//             availableLiquidityInTokens: [0, availableBorrowLiquidityNumber]
+//           },
+//         ]
+//       };
+//       const mapOldNewBr = new Map<string, BigNumber>();
+//       mapOldNewBr.set(brPA1.toString(), brPA1new);
+//       mapOldNewBr.set(brPA2.toString(), brPA2new);
+//
+//       const ret = await makeReconversion(
+//         tt,
+//         sourceAmountNumber,
+//         availableBorrowLiquidityNumber,
+//         mapOldNewBr
+//       );
+//
+//       const INDEX_BORROW_TOKEN = 1;
+//
+//       const sret = [
+//         ret.borrowsAfterBorrow[0] === ret.poolAdapters[0],
+//         ret.borrowsAfterReconversion[0] === ret.poolAdapters[1],
+//
+//         // user balance of borrow token
+//         ret.balancesAfterBorrow.get("userContract")![INDEX_BORROW_TOKEN].toString(),
+//         ret.balancesAfterReconversion?.get("userContract")![INDEX_BORROW_TOKEN].toString(),
+//       ].join("\n");
+//
+//       console.log(ret);
+//
+//       const borrowedAmount = ret.balancesInitial.get("pool 0")![INDEX_BORROW_TOKEN]
+//         .sub(ret.balancesAfterBorrow.get("pool 0")![INDEX_BORROW_TOKEN]);
+//       const initialUserBalance = BigNumber.from(ret.balancesInitial.get("userContract")![INDEX_BORROW_TOKEN]);
+//
+//       const sexpected = [
+//         true,
+//         true,
+//
+//         initialUserBalance.add(borrowedAmount).toString(),
+//         initialUserBalance.add(borrowedAmount).toString()
+//       ].join("\n");
+//
+//       expect(sret).eq(sexpected);
+//     });
+//   });
+//   describe("Bad paths", () => {
+//
+//   });
+// });
 
-        const bn0 = BigNumber.from(0);
-        const targetDecimals = 12;
-        const sourceDecimals = 24;
-        // initial borrow rates
-        const brPA1 = getBigNumberFrom(3, targetDecimals - 6); // 3e-6 (lower)
-        const brPA2 = getBigNumberFrom(5, targetDecimals - 6); // 5e-6 (higher)
-        // changed borrow rates
-        const brPA1new = getBigNumberFrom(7, targetDecimals - 6); // 7e-6 (higher)
-        const brPA2new = getBigNumberFrom(2, targetDecimals - 6); // 2e-6 (lower)
-
-        const tt: IBorrowInputParams = {
-          collateralFactor: 0.8,
-          priceSourceUSD: 0.1,
-          priceTargetUSD: 4,
-          sourceDecimals,
-          targetDecimals,
-          availablePools: [
-            // POOL 1
-            {   // source, target
-              borrowRateInTokens: [bn0, brPA1],
-              availableLiquidityInTokens: [0, availableBorrowLiquidityNumber]
-            },
-            // POOL 2
-            {   // source, target
-              borrowRateInTokens: [bn0, brPA2],
-              availableLiquidityInTokens: [0, availableBorrowLiquidityNumber]
-            },
-          ]
-        };
-        const mapOldNewBr = new Map<string, BigNumber>();
-        mapOldNewBr.set(brPA1.toString(), brPA1new);
-        mapOldNewBr.set(brPA2.toString(), brPA2new);
-
-        const ret = await makeReconversion(
-          tt,
-          sourceAmountNumber,
-          availableBorrowLiquidityNumber,
-          mapOldNewBr
-        );
-
-        const INDEX_BORROW_TOKEN = 1;
-
-        const sret = [
-          ret.borrowsAfterBorrow[0] === ret.poolAdapters[0],
-          ret.borrowsAfterReconversion[0] === ret.poolAdapters[1],
-
-          // user balance of borrow token
-          ret.balancesAfterBorrow.get("userContract")![INDEX_BORROW_TOKEN].toString(),
-          ret.balancesAfterReconversion?.get("userContract")![INDEX_BORROW_TOKEN].toString(),
-        ].join("\n");
-
-        console.log(ret);
-
-        const borrowedAmount = ret.balancesInitial.get("pool 0")![INDEX_BORROW_TOKEN]
-          .sub(ret.balancesAfterBorrow.get("pool 0")![INDEX_BORROW_TOKEN]);
-        const initialUserBalance = BigNumber.from(ret.balancesInitial.get("userContract")![INDEX_BORROW_TOKEN]);
-
-        const sexpected = [
-          true,
-          true,
-
-          initialUserBalance.add(borrowedAmount).toString(),
-          initialUserBalance.add(borrowedAmount).toString()
-        ].join("\n");
-
-        expect(sret).eq(sexpected);
-      });
-    });
-    describe("Bad paths", () => {
-
-    });
-  });
 //endregion Unit tests
 });
