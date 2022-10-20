@@ -73,7 +73,7 @@ interface ITetuConverter {
   function getDebtAmount(
     address collateralAsset_,
     address borrowAsset_
-  ) external view returns (uint);
+  ) external view returns (uint); // TODO: return total amount of collateral
 
   /// @notice User needs to redeem some collateral amount. Calculate an amount of borrow token that should be repaid
   /// @param collateralAmountRequired_ Amount of collateral required by the user

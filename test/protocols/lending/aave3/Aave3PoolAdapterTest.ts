@@ -9,7 +9,7 @@ import {
   IERC20Extended__factory, IPoolAdapter__factory
 } from "../../../../typechain";
 import {expect} from "chai";
-import {BigNumber, Wallet} from "ethers";
+import {BigNumber} from "ethers";
 import {getBigNumberFrom} from "../../../../scripts/utils/NumberUtils";
 import {DeployerUtils} from "../../../../scripts/utils/DeployerUtils";
 import {AdaptersHelper} from "../../../baseUT/helpers/AdaptersHelper";
@@ -37,6 +37,7 @@ import {
   IMakeBorrowToRebalanceBadPathParams,
   IMakeBorrowToRebalanceResults
 } from "../../../baseUT/protocols/aaveShared/aaveBorrowToRebalanceUtils";
+import {AaveBorrowUtils} from "../../../baseUT/protocols/aaveShared/aaveBorrowUtils";
 
 describe("Aave3PoolAdapterTest", () => {
 //region Global vars for all tests
@@ -184,7 +185,7 @@ describe("Aave3PoolAdapterTest", () => {
 
 //region Unit tests
   describe("borrow", () => {
-    async function makeTestBorrowFixedAmount(
+    async function makeBorrow(
       collateralToken: TokenDataTypes,
       collateralHolder: string,
       collateralAmount: BigNumber,
@@ -240,97 +241,55 @@ describe("Aave3PoolAdapterTest", () => {
         describe("DAI-18 : matic-18", () => {
           it("should return expected balances", async () => {
             if (!await isPolygonForkInUse()) return;
-
-            const collateralAsset = MaticAddresses.DAI;
-            const collateralHolder = MaticAddresses.HOLDER_DAI;
-            const borrowAsset = MaticAddresses.WMATIC;
-
-            const collateralToken = await TokenDataTypes.Build(deployer, collateralAsset);
-            const borrowToken = await TokenDataTypes.Build(deployer, borrowAsset);
-
-            const collateralAmount = getBigNumberFrom(100_000, collateralToken.decimals);
-            const borrowAmount = getBigNumberFrom(10, borrowToken.decimals);
-
-            const r = await makeTestBorrowFixedAmount(
-              collateralToken
-              , collateralHolder
-              , collateralAmount
-              , borrowToken
-              , borrowAmount
+            const r = await AaveBorrowUtils.daiWMatic(
+              deployer,
+              makeBorrow
             );
-            expect(r.sret).eq(r.sexpected);
+            expect(r.ret).eq(r.expected);
           });
         });
         describe("DAI-18 : USDC-6", () => {
           it("should return expected balances", async () => {
             if (!await isPolygonForkInUse()) return;
 
-            const collateralAsset = MaticAddresses.DAI;
-            const collateralHolder = MaticAddresses.HOLDER_DAI;
-            const borrowAsset = MaticAddresses.USDC;
-
-            const collateralToken = await TokenDataTypes.Build(deployer, collateralAsset);
-            const borrowToken = await TokenDataTypes.Build(deployer, borrowAsset);
-
-            const collateralAmount = getBigNumberFrom(100_000, collateralToken.decimals);
-            const borrowAmount = getBigNumberFrom(10, borrowToken.decimals);
-
-            const r = await makeTestBorrowFixedAmount(
-              collateralToken
-              , collateralHolder
-              , collateralAmount
-              , borrowToken
-              , borrowAmount
+            const r = await AaveBorrowUtils.daiUsdc(
+              deployer,
+              makeBorrow
             );
-            expect(r.sret).eq(r.sexpected);
+            expect(r.ret).eq(r.expected);
           });
         });
         describe("STASIS EURS-2 : Tether-6", () => {
           it("should return expected balances", async () => {
             if (!await isPolygonForkInUse()) return;
 
-            const collateralAsset = MaticAddresses.EURS;
-            const collateralHolder = MaticAddresses.HOLDER_EURS;
-            const borrowAsset = MaticAddresses.USDT;
-
-            const collateralToken = await TokenDataTypes.Build(deployer, collateralAsset);
-            const borrowToken = await TokenDataTypes.Build(deployer, borrowAsset);
-
-            const collateralAmount = getBigNumberFrom(100_000, collateralToken.decimals);
-            const borrowAmount = getBigNumberFrom(10, borrowToken.decimals);
-
-            const r = await makeTestBorrowFixedAmount(
-              collateralToken
-              , collateralHolder
-              , collateralAmount
-              , borrowToken
-              , borrowAmount
+            const r = await AaveBorrowUtils.eursTether(
+              deployer,
+              makeBorrow
             );
-            expect(r.sret).eq(r.sexpected);
+            expect(r.ret).eq(r.expected);
           });
         });
         describe("USDC-6 : DAI-18", () => {
           it("should return expected balances", async () => {
             if (!await isPolygonForkInUse()) return;
 
-            const collateralAsset = MaticAddresses.USDC;
-            const collateralHolder = MaticAddresses.HOLDER_USDC;
-            const borrowAsset = MaticAddresses.DAI;
-
-            const collateralToken = await TokenDataTypes.Build(deployer, collateralAsset);
-            const borrowToken = await TokenDataTypes.Build(deployer, borrowAsset);
-
-            const collateralAmount = getBigNumberFrom(100_000, collateralToken.decimals);
-            const borrowAmount = getBigNumberFrom(10, borrowToken.decimals);
-
-            const r = await makeTestBorrowFixedAmount(
-              collateralToken
-              , collateralHolder
-              , collateralAmount
-              , borrowToken
-              , borrowAmount
+            const r = await AaveBorrowUtils.eursTether(
+              deployer,
+              makeBorrow
             );
-            expect(r.sret).eq(r.sexpected);
+            expect(r.ret).eq(r.expected);
+          });
+        });
+        describe("WBTC-2 : Tether-6", () => {
+          it("should return expected balances", async () => {
+            if (!await isPolygonForkInUse()) return;
+
+            const r = await AaveBorrowUtils.wbtcTether(
+              deployer,
+              makeBorrow
+            );
+            expect(r.ret).eq(r.expected);
           });
         });
       });

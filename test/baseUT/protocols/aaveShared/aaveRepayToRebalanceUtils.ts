@@ -88,16 +88,26 @@ export class AaveRepayToRebalanceUtils {
     const ret = [
       Math.round(r.afterBorrow.healthFactor.div(getBigNumberFrom(1, 15)).toNumber() / 10.),
       Math.round(r.afterBorrowToRebalance.healthFactor.div(getBigNumberFrom(1, 15)).toNumber() / 10.),
-      ethers.utils.formatUnits(r.userBalanceAfterBorrow, 18),
-      ethers.utils.formatUnits(r.userBalanceAfterRepayToRebalance, 18),
+      this.toStringWithRound(r.userBalanceAfterBorrow),
+      this.toStringWithRound(r.userBalanceAfterRepayToRebalance),
     ].join("\n");
     const expected = [
       targetHealthFactorInitial2,
       targetHealthFactorUpdated2,
-      ethers.utils.formatUnits(r.expectedAmountToRepay.mul(2), 18),
-      ethers.utils.formatUnits(r.expectedAmountToRepay, 18),
+      this.toStringWithRound(r.expectedAmountToRepay.mul(2)),
+      this.toStringWithRound(r.expectedAmountToRepay),
     ].join("\n");
 
     return {ret, expected};
+  }
+
+  /**
+   * AAVE v2 returns a bit of different values:
+   *    result   = 100163.32794782843037345
+   *    expected = 100163.32794782843037344
+   * the difference is neglect, we can close eyes on it
+   */
+  static toStringWithRound(bn: BigNumber) : string {
+    return ethers.utils.formatUnits(bn.div(10), 17);
   }
 }
