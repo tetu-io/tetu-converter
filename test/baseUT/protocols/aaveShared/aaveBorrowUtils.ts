@@ -7,17 +7,17 @@ import {BigNumber} from "ethers";
 type MakeBorrowFixedAmountFunc = (
   collateralToken: TokenDataTypes,
   collateralHolder: string,
-  collateralAmount: BigNumber,
+  collateralAmountRequired: BigNumber | undefined,
   borrowToken: TokenDataTypes,
-  borrowAmount: BigNumber
+  borrowAmountRequired: BigNumber | undefined
 ) => Promise<{ sret: string, sexpected: string }>;
 
 export class AaveBorrowUtils {
   static async daiWMatic(
     deployer: SignerWithAddress,
     makeBorrowFunc : MakeBorrowFixedAmountFunc,
-    collateralAmountNum: number = 100_000,
-    borrowAmountNum: number = 10
+    collateralAmountNum: number | undefined,
+    borrowAmountNum: number | undefined
   ) : Promise<{ret: string, expected: string}> {
     const collateralAsset = MaticAddresses.DAI;
     const collateralHolder = MaticAddresses.HOLDER_DAI;
@@ -26,15 +26,19 @@ export class AaveBorrowUtils {
     const collateralToken = await TokenDataTypes.Build(deployer, collateralAsset);
     const borrowToken = await TokenDataTypes.Build(deployer, borrowAsset);
 
-    const collateralAmount = getBigNumberFrom(collateralAmountNum, collateralToken.decimals);
-    const borrowAmount = getBigNumberFrom(borrowAmountNum, borrowToken.decimals);
+    const collateralAmount = collateralAmountNum
+      ? getBigNumberFrom(collateralAmountNum, collateralToken.decimals)
+      : undefined;
+    const borrowAmount = borrowAmountNum
+      ? getBigNumberFrom(borrowAmountNum, borrowToken.decimals)
+      : undefined;
 
     const r = await makeBorrowFunc(
-      collateralToken
-      , collateralHolder
-      , collateralAmount
-      , borrowToken
-      , borrowAmount
+      collateralToken,
+      collateralHolder,
+      collateralAmount,
+      borrowToken,
+      borrowAmount,
     );
 
     return {ret: r.sret, expected: r.sexpected};
@@ -43,8 +47,8 @@ export class AaveBorrowUtils {
   static async daiUsdc(
     deployer: SignerWithAddress,
     makeBorrowFunc : MakeBorrowFixedAmountFunc,
-    collateralAmountNum: number = 100_000,
-    borrowAmountNum: number = 10
+    collateralAmountNum: number | undefined,
+    borrowAmountNum: number | undefined
   ) : Promise<{ret: string, expected: string}> {
     const collateralAsset = MaticAddresses.DAI;
     const collateralHolder = MaticAddresses.HOLDER_DAI;
@@ -53,8 +57,12 @@ export class AaveBorrowUtils {
     const collateralToken = await TokenDataTypes.Build(deployer, collateralAsset);
     const borrowToken = await TokenDataTypes.Build(deployer, borrowAsset);
 
-    const collateralAmount = getBigNumberFrom(collateralAmountNum, collateralToken.decimals);
-    const borrowAmount = getBigNumberFrom(borrowAmountNum, borrowToken.decimals);
+    const collateralAmount = collateralAmountNum
+      ? getBigNumberFrom(collateralAmountNum, collateralToken.decimals)
+      : undefined;
+    const borrowAmount = borrowAmountNum
+      ? getBigNumberFrom(borrowAmountNum, borrowToken.decimals)
+      : undefined;
 
     const r = await makeBorrowFunc(
       collateralToken
@@ -69,8 +77,8 @@ export class AaveBorrowUtils {
   static async eursTether(
     deployer: SignerWithAddress,
     makeBorrowFunc: MakeBorrowFixedAmountFunc,
-    collateralAmountNum: number = 100_000,
-    borrowAmountNum: number = 10
+    collateralAmountNum: number | undefined,
+    borrowAmountNum: number | undefined
   ) : Promise<{ret: string, expected: string}> {
     const collateralAsset = MaticAddresses.EURS;
     const collateralHolder = MaticAddresses.HOLDER_EURS;
@@ -79,8 +87,12 @@ export class AaveBorrowUtils {
     const collateralToken = await TokenDataTypes.Build(deployer, collateralAsset);
     const borrowToken = await TokenDataTypes.Build(deployer, borrowAsset);
 
-    const collateralAmount = getBigNumberFrom(collateralAmountNum, collateralToken.decimals);
-    const borrowAmount = getBigNumberFrom(borrowAmountNum, borrowToken.decimals);
+    const collateralAmount = collateralAmountNum
+      ? getBigNumberFrom(collateralAmountNum, collateralToken.decimals)
+      : undefined;
+    const borrowAmount = borrowAmountNum
+      ? getBigNumberFrom(borrowAmountNum, borrowToken.decimals)
+      : undefined;
 
     const r = await makeBorrowFunc(
       collateralToken
@@ -95,8 +107,8 @@ export class AaveBorrowUtils {
   static async usdcDai(
     deployer: SignerWithAddress,
     makeBorrowFunc: MakeBorrowFixedAmountFunc,
-    collateralAmountNum: number = 100_000,
-    borrowAmountNum: number = 10
+    collateralAmountNum: number | undefined,
+    borrowAmountNum: number | undefined
   ) : Promise<{ret: string, expected: string}> {
     const collateralAsset = MaticAddresses.USDC;
     const collateralHolder = MaticAddresses.HOLDER_USDC;
@@ -105,8 +117,12 @@ export class AaveBorrowUtils {
     const collateralToken = await TokenDataTypes.Build(deployer, collateralAsset);
     const borrowToken = await TokenDataTypes.Build(deployer, borrowAsset);
 
-    const collateralAmount = getBigNumberFrom(collateralAmountNum, collateralToken.decimals);
-    const borrowAmount = getBigNumberFrom(borrowAmountNum, borrowToken.decimals);
+    const collateralAmount = collateralAmountNum
+      ? getBigNumberFrom(collateralAmountNum, collateralToken.decimals)
+      : undefined;
+    const borrowAmount = borrowAmountNum
+      ? getBigNumberFrom(borrowAmountNum, borrowToken.decimals)
+      : undefined;
 
     const r = await makeBorrowFunc(
       collateralToken
@@ -122,8 +138,8 @@ export class AaveBorrowUtils {
   static async wbtcTether(
     deployer: SignerWithAddress,
     makeBorrowFunc: MakeBorrowFixedAmountFunc,
-    collateralAmountNum: number = 100,
-    borrowAmountNum: number = 10
+    collateralAmountNum: number | undefined,
+    borrowAmountNum: number | undefined
   ) : Promise<{ret: string, expected: string}> {
     const collateralAsset = MaticAddresses.WBTC;
     const collateralHolder = MaticAddresses.HOLDER_WBTC;
@@ -132,8 +148,12 @@ export class AaveBorrowUtils {
     const collateralToken = await TokenDataTypes.Build(deployer, collateralAsset);
     const borrowToken = await TokenDataTypes.Build(deployer, borrowAsset);
 
-    const collateralAmount = getBigNumberFrom(collateralAmountNum, collateralToken.decimals);
-    const borrowAmount = getBigNumberFrom(borrowAmountNum, borrowToken.decimals);
+    const collateralAmount = collateralAmountNum
+      ? getBigNumberFrom(collateralAmountNum, collateralToken.decimals)
+      : undefined;
+    const borrowAmount = borrowAmountNum
+      ? getBigNumberFrom(borrowAmountNum, borrowToken.decimals)
+      : undefined;
 
     const r = await makeBorrowFunc(
       collateralToken

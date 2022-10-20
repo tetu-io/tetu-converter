@@ -81,17 +81,22 @@ describe("AaveTwoPoolAdapterTest", () => {
 
     controller: Controller;
 
+    /** Amount that can be borrowed according to the conversion plan */
     amountToBorrow: BigNumber;
+    /** Actual amount that was used as collateral */
+    collateralAmount: BigNumber;
   }
 
   /**
    * Initialize TetuConverter app and aave pool adapter.
    * Put the collateral amount on pool-adapter's balance.
+   *
+   * If collateralAmount is undefined, we should use all available amount as the collateral.
    */
   async function prepareToBorrow(
     collateralToken: TokenDataTypes,
     collateralHolder: string,
-    collateralAmount: BigNumber,
+    collateralAmountRequired: BigNumber | undefined,
     borrowToken: TokenDataTypes,
     targetHealthFactor2?: number
   ) : Promise<IPrepareToBorrowResults> {
@@ -145,6 +150,11 @@ describe("AaveTwoPoolAdapterTest", () => {
     );
 
     // put collateral amount on user's balance
+    const holderBalance = await collateralToken.token.balanceOf(collateralHolder);
+    const collateralAmount = collateralAmountRequired && holderBalance.gt(collateralAmountRequired)
+      ? collateralAmountRequired
+      : holderBalance;
+
     await collateralToken.token
       .connect(await DeployerUtils.startImpersonate(collateralHolder))
       .transfer(userContract.address, collateralAmount);
@@ -173,7 +183,8 @@ describe("AaveTwoPoolAdapterTest", () => {
       aavePool,
       aavePoolAdapterAsTC,
       dataProvider,
-      amountToBorrow: plan.amountToBorrow
+      amountToBorrow: plan.amountToBorrow,
+      collateralAmount
     }
   }
 //endregion Test Impl
@@ -183,9 +194,9 @@ describe("AaveTwoPoolAdapterTest", () => {
     async function makeBorrow(
       collateralToken: TokenDataTypes,
       collateralHolder: string,
-      collateralAmount: BigNumber,
+      collateralAmountRequired: BigNumber | undefined,
       borrowToken: TokenDataTypes,
-      borrowAmount: BigNumber
+      borrowAmountRequired: BigNumber | undefined
     ) : Promise<{sret: string, sexpected: string}>{
       const minHealthFactor2 = 101;
       const targetHealthFactor2 = 202;
@@ -193,7 +204,7 @@ describe("AaveTwoPoolAdapterTest", () => {
       const d = await prepareToBorrow(
         collateralToken,
         collateralHolder,
-        collateralAmount,
+        collateralAmountRequired,
         borrowToken,
         targetHealthFactor2
       );
@@ -207,14 +218,17 @@ describe("AaveTwoPoolAdapterTest", () => {
         d.dataProvider,
         collateralToken.address
       );
+      const borrowAmount = borrowAmountRequired
+        ? borrowAmountRequired
+        : d.amountToBorrow;
 
       // make borrow
       await d.aavePoolAdapterAsTC.syncBalance(true);
       await IERC20__factory.connect(collateralToken.address,
         await DeployerUtils.startImpersonate(d.userContract.address)
-      ).transfer(d.aavePoolAdapterAsTC.address, collateralAmount);
+      ).transfer(d.aavePoolAdapterAsTC.address, d.collateralAmount);
       await d.aavePoolAdapterAsTC.borrow(
-        collateralAmount,
+        d.collateralAmount,
         borrowAmount,
         d.userContract.address
       );
@@ -236,8 +250,8 @@ describe("AaveTwoPoolAdapterTest", () => {
 
       const sexpected = [
         borrowAmount, // borrowed amount on user's balance
-        collateralAmount, // amount of collateral tokens on pool-adapter's balance
-        collateralAmount.mul(prices[0])  // registered collateral in the pool
+        d.collateralAmount, // amount of collateral tokens on pool-adapter's balance
+        d.collateralAmount.mul(prices[0])  // registered collateral in the pool
           .div(getBigNumberFrom(1, collateralToken.decimals)),
         borrowAmount.mul(prices[1]) // registered debt in the pool
           .div(getBigNumberFrom(1, borrowToken.decimals)),
@@ -246,13 +260,15 @@ describe("AaveTwoPoolAdapterTest", () => {
       return {sret, sexpected};
     }
     describe("Good paths", () => {
-      describe("Borrow modest amount", () => {
+      describe("Borrow small fixed amount", () => {
         describe("DAI-18 : matic-18", () => {
           it("should return expected balances", async () => {
             if (!await isPolygonForkInUse()) return;
             const r = await AaveBorrowUtils.daiWMatic(
               deployer,
-              makeBorrow
+              makeBorrow,
+              100_000,
+              10
             );
             expect(r.ret).eq(r.expected);
           });
@@ -263,7 +279,9 @@ describe("AaveTwoPoolAdapterTest", () => {
 
             const r = await AaveBorrowUtils.daiUsdc(
               deployer,
-              makeBorrow
+              makeBorrow,
+              100_000,
+              10
             );
             expect(r.ret).eq(r.expected);
           });
@@ -274,33 +292,77 @@ describe("AaveTwoPoolAdapterTest", () => {
 
             const r = await AaveBorrowUtils.eursTether(
               deployer,
-              makeBorrow
+              makeBorrow,
+              100_000,
+              10
             );
             expect(r.ret).eq(r.expected);
           });
         });
-        describe("WBTC-2 : Tether-6", () => {
+        describe("WBTC-8 : Tether-6", () => {
           it("should return expected balances", async () => {
             if (!await isPolygonForkInUse()) return;
 
             const r = await AaveBorrowUtils.wbtcTether(
               deployer,
-              makeBorrow
+              makeBorrow,
+              100,
+              10
             );
             expect(r.ret).eq(r.expected);
           });
         });
       });
-      describe("Borrow extremely huge amount", () => {
-        describe("DAI : matic", () => {
-          it("should return expected values", async () => {
-            expect.fail("TODO");                    });
+      describe("Borrow max available amount using all available collateral", () => {
+        describe("DAI-18 : matic-18", () => {
+          it("should return expected balances", async () => {
+            if (!await isPolygonForkInUse()) return;
+            const r = await AaveBorrowUtils.daiWMatic(
+              deployer,
+              makeBorrow,
+              undefined,
+              undefined
+            );
+            expect(r.ret).eq(r.expected);
+          });
         });
-        describe("", () => {
-          it("should return expected values", async () => {
-            it("", async () => {
-              expect.fail("TODO");
-            });
+        describe("DAI-18 : USDC-6", () => {
+          it("should return expected balances", async () => {
+            if (!await isPolygonForkInUse()) return;
+
+            const r = await AaveBorrowUtils.daiUsdc(
+              deployer,
+              makeBorrow,
+              undefined,
+              undefined
+            );
+            expect(r.ret).eq(r.expected);
+          });
+        });
+        describe("USDC-6 : DAI-18", () => {
+          it("should return expected balances", async () => {
+            if (!await isPolygonForkInUse()) return;
+
+            const r = await AaveBorrowUtils.eursTether(
+              deployer,
+              makeBorrow,
+              undefined,
+              undefined
+            );
+            expect(r.ret).eq(r.expected);
+          });
+        });
+        describe("WBTC-8 : Tether-6", () => {
+          it("should return expected balances", async () => {
+            if (!await isPolygonForkInUse()) return;
+
+            const r = await AaveBorrowUtils.wbtcTether(
+              deployer,
+              makeBorrow,
+              undefined,
+              undefined
+            );
+            expect(r.ret).eq(r.expected);
           });
         });
       });
