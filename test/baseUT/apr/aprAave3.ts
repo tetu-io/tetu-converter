@@ -112,14 +112,16 @@ export interface IAprAave3Results {
   /** total increment of borrowed amount from NEXT to LAST in terms of base currency */
   totalDebtBaseDelta: BigNumber;
 
-  /** Supply APR in terms of borrow currency calculated using predictSupplyApr18
+  /**
+   * Supply APR in terms of borrow currency calculated using predictSupplyApr18
    * (we need it to ensure that predictSupplyApr18 works fine)
-   *  */
+   */
   predictedSupplyAprBt36: BigNumber;
 
-  /** Borrow APR in terms of borrow currency calculated using predictBorrowApr18
+  /**
+   * Borrow APR in terms of borrow currency calculated using predictBorrowApr18
    * (we need it to ensure that predictBorrowApr18 works fine)
-   *  */
+   */
   predictedBorrowAprBt36: BigNumber;
 
 }

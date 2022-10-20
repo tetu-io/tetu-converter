@@ -4,7 +4,7 @@ import {DeployerUtils} from "../../../scripts/utils/DeployerUtils";
 import {getBigNumberFrom} from "../../../scripts/utils/NumberUtils";
 import {IERC20__factory, IERC20Extended__factory} from "../../../typechain";
 
-export interface ContractToInvestigate {
+export interface IContractToInvestigate {
   name: string;
   contract: string;
 }
@@ -23,7 +23,7 @@ export class BalanceUtils {
    */
   static async getBalances(
     signer: SignerWithAddress,
-    contracts: ContractToInvestigate[],
+    contracts: IContractToInvestigate[],
     tokens: string[]
   ) : Promise<(BigNumber | string)[]> {
     const dest: (BigNumber | string)[] = [];
@@ -47,7 +47,7 @@ export class BalanceUtils {
    */
   static async getBalancesObj(
     signer: SignerWithAddress,
-    contracts: ContractToInvestigate[],
+    contracts: IContractToInvestigate[],
     tokens: string[]
   ) : Promise<Map<string, (BigNumber | string)[]>> {
     const dest: Map<string, (BigNumber | string)[]> = new Map<string, (BigNumber | string)[]>();

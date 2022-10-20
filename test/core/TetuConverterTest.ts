@@ -21,7 +21,7 @@ import {CoreContracts} from "../baseUT/types/CoreContracts";
 import {CoreContractsHelper} from "../baseUT/helpers/CoreContractsHelper";
 import {MocksHelper} from "../baseUT/helpers/MocksHelper";
 import {DeployerUtils} from "../../scripts/utils/DeployerUtils";
-import {BalanceUtils, ContractToInvestigate} from "../baseUT/utils/BalanceUtils";
+import {BalanceUtils, IContractToInvestigate} from "../baseUT/utils/BalanceUtils";
 import {BigNumber} from "ethers";
 import {Misc} from "../../scripts/utils/Misc";
 
@@ -304,7 +304,7 @@ describe("TetuConverterTest", () => {
     console.log("Pool adapters:", poolAdapters.join("\n"));
     console.log("Pools:", pools.join("\n"));
 
-    const contractsToInvestigate: ContractToInvestigate[] = [
+    const contractsToInvestigate: IContractToInvestigate[] = [
       {name: "userContract", contract: userContract.address},
       {name: "tc", contract: core.tc.address},
       ...pools.map((x, index) => ({name: `pool ${index}`, contract: x})),
@@ -507,7 +507,7 @@ describe("TetuConverterTest", () => {
 
           console.log("cToken is", cToken);
 
-          const contractsToInvestigate: ContractToInvestigate[] = [
+          const contractsToInvestigate: IContractToInvestigate[] = [
             {name: "userContract", contract: userContract.address},
             {name: "user", contract: user},
             {name: "pool", contract: pool},
@@ -609,7 +609,7 @@ describe("TetuConverterTest", () => {
           const pool = pools[0];
           const poolAdapter = poolAdapters[0];
 
-          const contractsToInvestigate: ContractToInvestigate[] = [
+          const contractsToInvestigate: IContractToInvestigate[] = [
             {name: "userContract", contract: userContract.address},
             {name: "user", contract: user},
             {name: "pool", contract: pool},

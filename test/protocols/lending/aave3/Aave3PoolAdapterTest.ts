@@ -23,7 +23,20 @@ import {TokenDataTypes} from "../../../baseUT/types/TokenDataTypes";
 import {Misc} from "../../../../scripts/utils/Misc";
 import {IAave3UserAccountDataResults} from "../../../baseUT/apr/aprAave3";
 import {CompareAprUsesCase} from "../../../baseUT/uses-cases/CompareAprUsesCase";
-import {areAlmostEqual} from "../../../baseUT/utils/CommonUtils";
+import {
+  AaveMakeBorrowAndRepayUtils,
+  IMakeBorrowAndRepayResults
+} from "../../../baseUT/protocols/aaveShared/aaveBorrowAndRepayUtils";
+import {
+  AaveRepayToRebalanceUtils,
+  IMakeRepayRebalanceBadPathParams,
+  IMakeRepayToRebalanceResults
+} from "../../../baseUT/protocols/aaveShared/aaveRepayToRebalanceUtils";
+import {
+  AaveBorrowToRebalanceUtils,
+  IMakeBorrowToRebalanceBadPathParams,
+  IMakeBorrowToRebalanceResults
+} from "../../../baseUT/protocols/aaveShared/aaveBorrowToRebalanceUtils";
 
 describe("Aave3PoolAdapterTest", () => {
 //region Global vars for all tests
@@ -796,19 +809,6 @@ describe("Aave3PoolAdapterTest", () => {
     const targetHealthFactorUpdated2 = 1000;
     const maxHealthFactorUpdated2 = 2000;
 
-    interface IMakeTestBorrowToRebalanceResults {
-      afterBorrow: IAave3UserAccountDataResults;
-      afterBorrowToRebalance: IAave3UserAccountDataResults;
-      userBalanceAfterBorrow: BigNumber;
-      userBalanceAfterBorrowToRebalance: BigNumber;
-      expectedAdditionalBorrowAmount: BigNumber;
-    }
-    interface IMakeTestBorrowToRebalanceBadPathParams {
-      makeBorrowToRebalanceAsDeployer?: boolean;
-      skipBorrow?: boolean;
-      additionalAmountCorrectionFactor?: number;
-    }
-
     /**
      * Prepare aave3 pool adapter.
      * Set high health factors.
@@ -816,14 +816,14 @@ describe("Aave3PoolAdapterTest", () => {
      * Reduce health factor twice.
      * Make additional borrow.
      */
-    async function makeTestBorrowToRebalance (
+    async function makeBorrowToRebalance (
       collateralToken: TokenDataTypes,
       collateralHolder: string,
       collateralAmount: BigNumber,
       borrowToken: TokenDataTypes,
       borrowHolder: string,
-      badPathsParams?: IMakeTestBorrowToRebalanceBadPathParams
-    ) : Promise<IMakeTestBorrowToRebalanceResults>{
+      badPathsParams?: IMakeBorrowToRebalanceBadPathParams
+    ) : Promise<IMakeBorrowToRebalanceResults>{
       const d = await prepareToBorrow(
         collateralToken,
         collateralHolder,
@@ -899,54 +899,30 @@ describe("Aave3PoolAdapterTest", () => {
         expectedAdditionalBorrowAmount
       }
     }
-    async function testDaiWMatic(
-      badPathParams?: IMakeTestBorrowToRebalanceBadPathParams
-    ) : Promise<IMakeTestBorrowToRebalanceResults> {
-      const collateralAsset = MaticAddresses.DAI;
-      const collateralHolder = MaticAddresses.HOLDER_DAI;
-      const borrowAsset = MaticAddresses.WMATIC;
-      const borrowHolder = MaticAddresses.HOLDER_WMATIC;
 
-      const collateralToken = await TokenDataTypes.Build(deployer, collateralAsset);
-      const borrowToken = await TokenDataTypes.Build(deployer, borrowAsset);
-      console.log("collateralToken.decimals", collateralToken.decimals);
-      console.log("borrowToken.decimals", borrowToken.decimals);
-
-      const collateralAmount = getBigNumberFrom(100_000, collateralToken.decimals);
-      console.log(collateralAmount, collateralAmount);
-
-      const r = await makeTestBorrowToRebalance(
-        collateralToken
-        , collateralHolder
-        , collateralAmount
-        , borrowToken
-        , borrowHolder
-        , badPathParams
-      );
-
-      console.log(r);
-      return r;
-    }
     describe("Good paths", () => {
       it("should return expected values", async () => {
         if (!await isPolygonForkInUse()) return;
-        const r = await testDaiWMatic();
-        const ret = [
-          Math.round(r.afterBorrow.healthFactor.div(getBigNumberFrom(1, 15)).toNumber() / 10.),
-          Math.round(r.afterBorrowToRebalance.healthFactor.div(getBigNumberFrom(1, 15)).toNumber() / 10.),
-          ethers.utils.formatUnits(r.userBalanceAfterBorrow, 18),
-          ethers.utils.formatUnits(r.userBalanceAfterBorrowToRebalance, 18),
-        ].join();
-        const expected = [
+        const r = await AaveBorrowToRebalanceUtils.testDaiWMatic(
+          deployer,
+          makeBorrowToRebalance,
           targetHealthFactorInitial2,
-          targetHealthFactorUpdated2,
-          ethers.utils.formatUnits(r.expectedAdditionalBorrowAmount, 18),
-          ethers.utils.formatUnits(r.expectedAdditionalBorrowAmount.mul(2), 18),
-        ].join();
-        expect(ret).eq(expected);
+          targetHealthFactorUpdated2
+        );
+
+        expect(r.ret).eq(r.expected);
       });
     });
     describe("Bad paths", () => {
+      async function testDaiWMatic(badPathsParams?: IMakeBorrowToRebalanceBadPathParams) {
+        await AaveBorrowToRebalanceUtils.testDaiWMatic(
+          deployer,
+          makeBorrowToRebalance,
+          targetHealthFactorInitial2,
+          targetHealthFactorUpdated2,
+          badPathsParams
+        );
+      }
       describe("Not TetuConverter", () => {
         it("should revert", async () => {
           if (!await isPolygonForkInUse()) return;
@@ -975,15 +951,6 @@ describe("Aave3PoolAdapterTest", () => {
   });
 
   describe("repay", () => {
-    interface IMakeBorrowAndRepayResults {
-      userBalancesBeforeBorrow: IUserBalances;
-      userBalancesAfterBorrow: IUserBalances;
-      userBalancesAfterRepay: IUserBalances;
-      paATokensBalance: BigNumber;
-      totalCollateralBase: BigNumber;
-      totalDebtBase: BigNumber;
-      poolAdapter: string;
-    }
     /* Make full or partial repay. Set amountToRepay for partial repay, leave it undefined to full repay */
     async function makeBorrowAndRepay(
       collateralToken: TokenDataTypes,
@@ -995,7 +962,12 @@ describe("Aave3PoolAdapterTest", () => {
       amountToRepay?: BigNumber,
       initialBorrowAmountOnUserBalance?: BigNumber,
     ) : Promise<IMakeBorrowAndRepayResults>{
-      const d = await prepareToBorrow(collateralToken, collateralHolder, collateralAmount, borrowToken, false);
+      const d = await prepareToBorrow(collateralToken,
+        collateralHolder,
+        collateralAmount,
+        borrowToken,
+        false
+      );
       const collateralData = await d.h.getReserveInfo(deployer, d.aavePool, d.dataProvider, collateralToken.address);
 
       // borrow asset
@@ -1070,131 +1042,26 @@ describe("Aave3PoolAdapterTest", () => {
     }
     describe("Good paths", () => {
       describe("Borrow and repay modest amount", () => {
-        async function makeBorrowAndRepayDaiWmatic(
-          fullRepay: boolean,
-          initialBorrowAmountOnUserBalanceNumber?: number
-        ) : Promise<{ret: string, expected: string}> {
-          const collateralAsset = MaticAddresses.DAI;
-          const collateralHolder = MaticAddresses.HOLDER_DAI;
-          const borrowAsset = MaticAddresses.WMATIC;
-          const borrowHolder = MaticAddresses.HOLDER_WMATIC;
-
-          const collateralToken = await TokenDataTypes.Build(deployer, collateralAsset);
-          const borrowToken = await TokenDataTypes.Build(deployer, borrowAsset);
-
-          const collateralAmount = getBigNumberFrom(100_000, collateralToken.decimals);
-          const borrowAmount = getBigNumberFrom(10, borrowToken.decimals);
-
-          const initialBorrowAmountOnUserBalance = getBigNumberFrom(
-            initialBorrowAmountOnUserBalanceNumber || 0,
-            borrowToken.decimals
-          );
-          const r = await makeBorrowAndRepay(
-            collateralToken,
-            collateralHolder,
-            collateralAmount,
-            borrowToken,
-            borrowHolder,
-            borrowAmount,
-            fullRepay ? undefined : borrowAmount, // amount to repay
-            initialBorrowAmountOnUserBalance
-          );
-          console.log(r);
-          console.log(collateralAmount);
-
-          const statusAfterRepay = await IPoolAdapter__factory.connect(r.poolAdapter, deployer).getStatus();
-
-          const ret = [
-            r.userBalancesBeforeBorrow.collateral, r.userBalancesBeforeBorrow.borrow,
-            r.userBalancesAfterBorrow.collateral, r.userBalancesAfterBorrow.borrow,
-
-            // original collateral ~ returned collateral
-            areAlmostEqual(collateralAmount, r.userBalancesAfterRepay.collateral, 5),
-            areAlmostEqual(r.userBalancesAfterRepay.borrow, initialBorrowAmountOnUserBalance, 5),
-            statusAfterRepay.opened
-          ].map(x => BalanceUtils.toString(x)).join("\n");
-
-          const expected = [
-            collateralAmount, initialBorrowAmountOnUserBalance,
-            0, borrowAmount.add(initialBorrowAmountOnUserBalance),
-
-            true, // original collateral ~ returned collateral
-            true,
-
-            !fullRepay // the position is closed after full repaying
-          ].map(x => BalanceUtils.toString(x)).join("\n");
-
-          return {ret, expected};
-        }
-        async function makeBorrowAndRepayWmaticDai(
-          fullRepay: boolean,
-          initialBorrowAmountOnUserBalanceNumber?: number
-        ) : Promise<{ret: string, expected: string}> {
-          const collateralAsset = MaticAddresses.WMATIC;
-          const collateralHolder = MaticAddresses.HOLDER_WMATIC;
-          const borrowAsset = MaticAddresses.DAI;
-          const borrowHolder = MaticAddresses.HOLDER_DAI;
-
-          const collateralToken = await TokenDataTypes.Build(deployer, collateralAsset);
-          const borrowToken = await TokenDataTypes.Build(deployer, borrowAsset);
-
-          const collateralAmount = getBigNumberFrom(100_000, collateralToken.decimals);
-          const borrowAmount = getBigNumberFrom(10, borrowToken.decimals);
-
-          const initialBorrowAmountOnUserBalance = getBigNumberFrom(
-            initialBorrowAmountOnUserBalanceNumber || 0,
-            borrowToken.decimals
-          );
-
-          const r = await makeBorrowAndRepay(
-            collateralToken,
-            collateralHolder,
-            collateralAmount,
-            borrowToken,
-            borrowHolder,
-            borrowAmount,
-            fullRepay ? undefined : borrowAmount, // amount to repay
-            initialBorrowAmountOnUserBalance,
-          );
-          console.log(r);
-          console.log(collateralAmount);
-
-          const statusAfterRepay = await IPoolAdapter__factory.connect(r.poolAdapter, deployer).getStatus();
-
-          const ret = [
-            r.userBalancesBeforeBorrow.collateral, r.userBalancesBeforeBorrow.borrow,
-            r.userBalancesAfterBorrow.collateral, r.userBalancesAfterBorrow.borrow,
-
-            // original collateral ~ returned collateral
-            areAlmostEqual(collateralAmount, r.userBalancesAfterRepay.collateral, 5),
-            areAlmostEqual(r.userBalancesAfterRepay.borrow, initialBorrowAmountOnUserBalance, 5),
-            statusAfterRepay.opened
-          ].map(x => BalanceUtils.toString(x)).join("\n");
-
-          const expected = [
-            collateralAmount, initialBorrowAmountOnUserBalance,
-            0, borrowAmount.add(initialBorrowAmountOnUserBalance),
-
-            true, // original collateral ~ returned collateral
-            true,
-
-            !fullRepay // the position is closed after full repaying
-          ].map(x => BalanceUtils.toString(x)).join("\n");
-
-          return {ret, expected};
-        }
         describe("Partial repay of borrowed amount", () => {
           describe("DAI => WMATIC", () => {
             it("should return expected balances", async () => {
               if (!await isPolygonForkInUse()) return;
-              const r = await makeBorrowAndRepayDaiWmatic(false);
+              const r = await AaveMakeBorrowAndRepayUtils.daiWmatic(
+                deployer,
+                makeBorrowAndRepay,
+                false
+              );
               expect(r.ret).eq(r.expected);
             });
           });
           describe("WMATIC => DAI", () => {
             it("should return expected balances", async () => {
               if (!await isPolygonForkInUse()) return;
-              const r = await makeBorrowAndRepayWmaticDai(false);
+              const r = await AaveMakeBorrowAndRepayUtils.daiWmatic(
+                deployer,
+                makeBorrowAndRepay,
+                false
+              );
               expect(r.ret).eq(r.expected);
             });
           });
@@ -1203,7 +1070,12 @@ describe("Aave3PoolAdapterTest", () => {
           it("should return expected balances", async () => {
             if (!await isPolygonForkInUse()) return;
             const initialBorrowAmountOnUserBalance = 1;
-            const r = await makeBorrowAndRepayDaiWmatic(true, initialBorrowAmountOnUserBalance);
+            const r = await AaveMakeBorrowAndRepayUtils.daiWmatic(
+              deployer,
+              makeBorrowAndRepay,
+              true,
+              initialBorrowAmountOnUserBalance
+            );
             expect(r.ret).eq(r.expected);
           });
         });
@@ -1222,20 +1094,6 @@ describe("Aave3PoolAdapterTest", () => {
     const minHealthFactorUpdated2 = 1000+300; // we need small addon for bad paths
     const targetHealthFactorUpdated2 = 2000;
     const maxHealthFactorUpdated2 = 4000;
-
-    interface IMakeRepayToRebalanceResults {
-      afterBorrow: IAave3UserAccountDataResults;
-      afterBorrowToRebalance: IAave3UserAccountDataResults;
-      userBalanceAfterBorrow: BigNumber;
-      userBalanceAfterRepayToRebalance: BigNumber;
-      expectedAmountToRepay: BigNumber;
-    }
-    interface IMakeRepayRebalanceBadPathParams {
-      makeRepayToRebalanceAsDeployer?: boolean;
-      skipBorrow?: boolean;
-      additionalAmountCorrectionFactorMul?: number;
-      additionalAmountCorrectionFactorDiv?: number;
-    }
 
     /**
      * Prepare aave3 pool adapter.
@@ -1347,56 +1205,30 @@ describe("Aave3PoolAdapterTest", () => {
       }
     }
 
-    async function testRepayToRebalanceDaiWMatic(
-      badPathParams?: IMakeRepayRebalanceBadPathParams
-    ) : Promise<IMakeRepayToRebalanceResults> {
-      const collateralAsset = MaticAddresses.DAI;
-      const collateralHolder = MaticAddresses.HOLDER_DAI;
-      const borrowAsset = MaticAddresses.WMATIC;
-      const borrowHolder = MaticAddresses.HOLDER_WMATIC;
-
-      const collateralToken = await TokenDataTypes.Build(deployer, collateralAsset);
-      const borrowToken = await TokenDataTypes.Build(deployer, borrowAsset);
-      console.log("collateralToken.decimals", collateralToken.decimals);
-      console.log("borrowToken.decimals", borrowToken.decimals);
-
-      const collateralAmount = getBigNumberFrom(100_000, collateralToken.decimals);
-      console.log(collateralAmount, collateralAmount);
-
-      const r = await makeRepayToRebalance(
-        collateralToken
-        , collateralHolder
-        , collateralAmount
-        , borrowToken
-        , borrowHolder
-        , badPathParams
-      );
-
-      console.log(r);
-      return r;
-    }
-
     describe("Good paths", () => {
       it("should return expected values", async () => {
         if (!await isPolygonForkInUse()) return;
-        const r = await testRepayToRebalanceDaiWMatic();
-        const ret = [
-          Math.round(r.afterBorrow.healthFactor.div(getBigNumberFrom(1, 15)).toNumber() / 10.),
-          Math.round(r.afterBorrowToRebalance.healthFactor.div(getBigNumberFrom(1, 15)).toNumber() / 10.),
-          ethers.utils.formatUnits(r.userBalanceAfterBorrow, 18),
-          ethers.utils.formatUnits(r.userBalanceAfterRepayToRebalance, 18),
-        ].join("\n");
-        const expected = [
+        const r = await AaveRepayToRebalanceUtils.daiWMatic(
+          deployer,
+          makeRepayToRebalance,
           targetHealthFactorInitial2,
-          targetHealthFactorUpdated2,
-          ethers.utils.formatUnits(r.expectedAmountToRepay.mul(2), 18),
-          ethers.utils.formatUnits(r.expectedAmountToRepay, 18),
-        ].join("\n");
-        expect(ret).eq(expected);
+          targetHealthFactorUpdated2
+        );
+
+        expect(r.ret).eq(r.expected);
       });
     });
 
     describe("Bad paths", () => {
+      async function testRepayToRebalanceDaiWMatic(badPathParams?: IMakeRepayRebalanceBadPathParams) {
+        await AaveRepayToRebalanceUtils.daiWMatic(
+          deployer,
+          makeRepayToRebalance,
+          targetHealthFactorInitial2,
+          targetHealthFactorUpdated2,
+          badPathParams
+        );
+      }
       describe("Not TetuConverter and not user", () => {
         it("should revert", async () => {
           if (!await isPolygonForkInUse()) return;

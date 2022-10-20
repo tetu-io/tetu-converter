@@ -15,7 +15,7 @@ import {BigNumber} from "ethers";
 import {getBigNumberFrom} from "../../scripts/utils/NumberUtils";
 import {CoreContractsHelper} from "../baseUT/helpers/CoreContractsHelper";
 import {MocksHelper} from "../baseUT/helpers/MocksHelper";
-import {BalanceUtils, ContractToInvestigate} from "../baseUT/utils/BalanceUtils";
+import {BalanceUtils, IContractToInvestigate} from "../baseUT/utils/BalanceUtils";
 
 describe("PoolAdapterMock", () => {
 //region Global vars for all tests
@@ -120,7 +120,7 @@ describe("PoolAdapterMock", () => {
           await targetToken.mint(user, amountBorrowedUserInitial);
           console.log("Mint borrowed token to user", amountBorrowedUserInitial);
 
-          const contractsToInvestigate: ContractToInvestigate[] = [
+          const contractsToInvestigate: IContractToInvestigate[] = [
             {name: "user", contract: user},
             {name: "pa", contract: pa.address},
             {name: "pool", contract: pool},

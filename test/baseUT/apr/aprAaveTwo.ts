@@ -19,14 +19,12 @@ import {TokenDataTypes} from "../types/TokenDataTypes";
 import {AaveTwoHelper} from "../../../scripts/integration/helpers/AaveTwoHelper";
 import {DeployUtils} from "../../../scripts/utils/DeployUtils";
 import {
-  baseToBt18,
   convertUnits,
   IBaseToBorrowParams,
   makeBorrow, baseToBt
 } from "./aprUtils";
 import {AaveTwoPlatformFabric} from "../fabrics/AaveTwoPlatformFabric";
 import {TimeUtils} from "../../../scripts/utils/TimeUtils";
-import {ConfigurableAmountToBorrow} from "./ConfigurableAmountToBorrow";
 import {Misc} from "../../../scripts/utils/Misc";
 
 //region Data types
