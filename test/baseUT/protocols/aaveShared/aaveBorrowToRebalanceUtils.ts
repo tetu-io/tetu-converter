@@ -6,6 +6,7 @@ import {TokenDataTypes} from "../../types/TokenDataTypes";
 import {getBigNumberFrom} from "../../../../scripts/utils/NumberUtils";
 import {ethers} from "hardhat";
 import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
+import {toStringWithRound} from "../../utils/CommonUtils";
 
 export interface IMakeBorrowToRebalanceResults {
   afterBorrow: IUserAccountDataResults;
@@ -64,14 +65,14 @@ export class AaveBorrowToRebalanceUtils {
     const ret = [
       Math.round(r.afterBorrow.healthFactor.div(getBigNumberFrom(1, 15)).toNumber() / 10.),
       Math.round(r.afterBorrowToRebalance.healthFactor.div(getBigNumberFrom(1, 15)).toNumber() / 10.),
-      ethers.utils.formatUnits(r.userBalanceAfterBorrow, 18),
-      ethers.utils.formatUnits(r.userBalanceAfterBorrowToRebalance, 18),
+      toStringWithRound(r.userBalanceAfterBorrow),
+      toStringWithRound(r.userBalanceAfterBorrowToRebalance),
     ].join();
     const expected = [
       targetHealthFactorInitial2,
       targetHealthFactorUpdated2,
-      ethers.utils.formatUnits(r.expectedAdditionalBorrowAmount, 18),
-      ethers.utils.formatUnits(r.expectedAdditionalBorrowAmount.mul(2), 18),
+      toStringWithRound(r.expectedAdditionalBorrowAmount),
+      toStringWithRound(r.expectedAdditionalBorrowAmount.mul(2)),
     ].join();
 
     return {ret, expected};
