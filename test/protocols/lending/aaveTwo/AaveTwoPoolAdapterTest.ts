@@ -223,7 +223,7 @@ describe("AaveTwoPoolAdapterTest", () => {
         : d.amountToBorrow;
 
       // make borrow
-      await d.aavePoolAdapterAsTC.syncBalance(true);
+      await d.aavePoolAdapterAsTC.syncBalance(true, true);
       await IERC20__factory.connect(collateralToken.address,
         await DeployerUtils.startImpersonate(d.userContract.address)
       ).transfer(d.aavePoolAdapterAsTC.address, d.collateralAmount);
@@ -379,7 +379,6 @@ describe("AaveTwoPoolAdapterTest", () => {
         });
       });
     });
-
   });
 
   /**
@@ -435,7 +434,7 @@ describe("AaveTwoPoolAdapterTest", () => {
       console.log("maxAllowedAmountToBorrowInBase18", maxAllowedAmountToBorrowInBase18);
       console.log("maxAllowedAmountToBorrow", maxAllowedAmountToBorrow);
 
-      await d.aavePoolAdapterAsTC.syncBalance(true);
+      await d.aavePoolAdapterAsTC.syncBalance(true, true);
       await IERC20__factory.connect(collateralToken.address,
         await DeployerUtils.startImpersonate(d.userContract.address)
       ).transfer(d.aavePoolAdapterAsTC.address, collateralAmount);
@@ -543,7 +542,7 @@ describe("AaveTwoPoolAdapterTest", () => {
       // make borrow
       const amountToBorrow = d.amountToBorrow;
       if (! badPathsParams?.skipBorrow) {
-        await d.aavePoolAdapterAsTC.syncBalance(true);
+        await d.aavePoolAdapterAsTC.syncBalance(true, true);
         await IERC20__factory.connect(collateralToken.address,
           await DeployerUtils.startImpersonate(d.userContract.address)
         ).transfer(d.aavePoolAdapterAsTC.address, collateralAmount);
@@ -574,7 +573,7 @@ describe("AaveTwoPoolAdapterTest", () => {
         ? IPoolAdapter__factory.connect(d.aavePoolAdapterAsTC.address, deployer)
         : d.aavePoolAdapterAsTC;
 
-      await poolAdapterSigner.syncBalance(true);
+      await poolAdapterSigner.syncBalance(true, true);
       await poolAdapterSigner.borrowToRebalance(
         expectedAdditionalBorrowAmount,
         d.userContract.address // receiver
@@ -693,7 +692,7 @@ describe("AaveTwoPoolAdapterTest", () => {
       };
 
       // make borrow
-      await d.aavePoolAdapterAsTC.syncBalance(true);
+      await d.aavePoolAdapterAsTC.syncBalance(true, true);
       await IERC20Extended__factory.connect(collateralToken.address
         , await DeployerUtils.startImpersonate(d.userContract.address)
       ).transfer(d.aavePoolAdapterAsTC.address, collateralAmount);
@@ -715,7 +714,7 @@ describe("AaveTwoPoolAdapterTest", () => {
       );
       if (amountToRepay) {
         // make partial repay
-        await d.aavePoolAdapterAsTC.syncBalance(false);
+        await d.aavePoolAdapterAsTC.syncBalance(false, true);
         await borrowTokenAsUser.transfer(d.aavePoolAdapterAsTC.address, amountToRepay);
         await d.aavePoolAdapterAsTC.repay(
           amountToRepay,
@@ -846,7 +845,7 @@ describe("AaveTwoPoolAdapterTest", () => {
       const amountToBorrow = d.amountToBorrow;
 
       if (! badPathsParams?.skipBorrow) {
-        await d.aavePoolAdapterAsTC.syncBalance(true);
+        await d.aavePoolAdapterAsTC.syncBalance(true, true);
         await IERC20__factory.connect(collateralToken.address,
           await DeployerUtils.startImpersonate(d.userContract.address)
         ).transfer(d.aavePoolAdapterAsTC.address, collateralAmount);
@@ -892,7 +891,7 @@ describe("AaveTwoPoolAdapterTest", () => {
       const poolAdapterSigner = badPathsParams?.makeRepayToRebalanceAsDeployer
         ? IPoolAdapter__factory.connect(d.aavePoolAdapterAsTC.address, deployer)
         : d.aavePoolAdapterAsTC;
-      await poolAdapterSigner.syncBalance(false);
+      await poolAdapterSigner.syncBalance(false, true);
       await IERC20__factory.connect(
         borrowToken.address,
         await DeployerUtils.startImpersonate(d.userContract.address)

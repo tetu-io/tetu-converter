@@ -65,6 +65,13 @@ interface ITetuConverter {
     uint collateralAmountOut
   );
 
+  /// @notice Update status in all opened positions
+  ///         and calculate exact total amount of borrowed and collateral assets
+  function getStatusCurrent(
+    address collateralAsset_,
+    address borrowAsset_
+  ) external returns (uint totalDebtAmountOut, uint totalCollateralAmountOut);
+
   /// @notice Total amount of borrow tokens that should be repaid to close the borrow completely.
   /// @dev Actual debt amount can be a little LESS then the amount returned by this function.
   ///      I.e. AAVE's pool adapter returns (amount of debt + tiny addon ~ 1 cent)
@@ -73,7 +80,7 @@ interface ITetuConverter {
   function getDebtAmount(
     address collateralAsset_,
     address borrowAsset_
-  ) external view returns (uint); // TODO: return total amount of collateral
+  ) external view returns (uint totalDebtAmountOut, uint totalCollateralAmountOut);
 
   /// @notice User needs to redeem some collateral amount. Calculate an amount of borrow token that should be repaid
   /// @param collateralAmountRequired_ Amount of collateral required by the user

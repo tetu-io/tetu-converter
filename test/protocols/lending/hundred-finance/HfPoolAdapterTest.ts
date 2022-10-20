@@ -126,7 +126,7 @@ describe("Hundred Finance integration tests, pool adapter", () => {
     );
 
     // prepare to borrow
-    await hfPoolAdapterTC.syncBalance(true);
+    await hfPoolAdapterTC.syncBalance(true, true);
     await collateralToken.token.transfer(hfPoolAdapterTC.address, collateralAmount);
 
     // calculate max allowed amount to borrow
@@ -431,7 +431,7 @@ describe("Hundred Finance integration tests, pool adapter", () => {
       const poolAdapterSigner = badPathsParams?.makeBorrowToRebalanceAsDeployer
         ? IPoolAdapter__factory.connect(d.hfPoolAdapterTC.address, deployer)
         : d.hfPoolAdapterTC;
-      await poolAdapterSigner.syncBalance(true);
+      await poolAdapterSigner.syncBalance(true, true);
       await poolAdapterSigner.borrowToRebalance(
         expectedAdditionalBorrowAmount,
         d.user.address // receiver
@@ -602,7 +602,7 @@ describe("Hundred Finance integration tests, pool adapter", () => {
       };
 
       // make borrow
-      await hfPoolAdapterTC.syncBalance(true);
+      await hfPoolAdapterTC.syncBalance(true, true);
       await IERC20Extended__factory.connect(collateralToken.address
         , await DeployerUtils.startImpersonate(user.address)
       ).transfer(hfPoolAdapterTC.address, collateralAmount);
@@ -620,7 +620,7 @@ describe("Hundred Finance integration tests, pool adapter", () => {
       console.log(afterBorrow);
 
       // make repay
-      await hfPoolAdapterTC.syncBalance(false);
+      await hfPoolAdapterTC.syncBalance(false, true);
       await IERC20Extended__factory.connect(borrowToken.address
         , await DeployerUtils.startImpersonate(user.address)
       ).transfer(hfPoolAdapterTC.address, amountToRepay);

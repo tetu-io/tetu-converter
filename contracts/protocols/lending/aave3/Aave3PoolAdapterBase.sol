@@ -97,7 +97,7 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer 
 
   /// @notice Save current balance of collateral/borrow BEFORE transferring amount of collateral/borrow to the adapter
   /// @dev TC calls this function before transferring any amounts to balance of this contract
-  function syncBalance(bool beforeBorrow_) external override {
+  function syncBalance(bool beforeBorrow_, bool) external override {
     if (beforeBorrow_) {
       // borrow: we are going to transfer collateral asset to the balance of this contract
       reserveBalances[collateralAsset] = IERC20(collateralAsset).balanceOf(address(this));
@@ -107,6 +107,9 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer 
     }
   }
 
+  function updateStatus() external override {
+    // nothing to do; getStatus always return actual amounts in AAVE
+  }
   ///////////////////////////////////////////////////////
   ///             Adapter customization
   ///////////////////////////////////////////////////////
@@ -431,7 +434,7 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer 
       // we ask to pay a bit more amount to exclude dust tokens
       // i.e. for USD we need to pay only 1 cent
       // this amount allows us to pass type(uint).max to repay function
-        + targetDecimals / 100,
+          + targetDecimals / 100,
       // Current health factor, decimals 18
       hf18,
       totalCollateralBase != 0 || totalDebtBase != 0

@@ -143,10 +143,10 @@ async function getAave3PoolReserves(
   return dest;
 }
 
-/** Download detailed info for all available AAVE pools
- *
- *  npx hardhat run scripts/integration/lending/aave/DownloadAave3Pools.ts
- * */
+/**
+ * Download detailed info for all available AAVE pools
+ *     npx hardhat run scripts/integration/lending/aave3/DownloadAave3Pools.ts
+ */
 async function main() {
   const signer = (await ethers.getSigners())[0];
   console.log("Collect info for AAVE v3 pools");

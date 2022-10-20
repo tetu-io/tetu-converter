@@ -97,7 +97,7 @@ contract AaveTwoPoolAdapter is IPoolAdapter, IPoolAdapterInitializer {
 
   /// @notice Save current balance of collateral/borrow BEFORE transferring amount of collateral/borrow to the adapter
   /// @dev TC calls this function before transferring any amounts to balance of this contract
-  function syncBalance(bool beforeBorrow_) external override {
+  function syncBalance(bool beforeBorrow_, bool) external override {
     if (beforeBorrow_) {
       // borrow: we are going to transfer collateral asset to the balance of this contract
       reserveBalances[collateralAsset] = IERC20(collateralAsset).balanceOf(address(this));
@@ -107,6 +107,9 @@ contract AaveTwoPoolAdapter is IPoolAdapter, IPoolAdapterInitializer {
     }
   }
 
+  function updateStatus() external override {
+    // nothing to do; getStatus always return actual amounts in AAVE
+  }
   ///////////////////////////////////////////////////////
   ///                 Borrow logic
   ///////////////////////////////////////////////////////

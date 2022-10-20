@@ -101,10 +101,10 @@ async function getAaveTwoPoolReserves(
   return dest;
 }
 
-/** Download detailed info for all available AAVE pools
- *
- * npx hardhat run scripts/integration/lending/aave/DownloadAaveTwoPools.ts
- * */
+/**
+ * Download detailed info for all available AAVE pools
+ *    npx hardhat run scripts/integration/lending/aaveTwo/DownloadAaveTwoPools.ts
+ */
 async function main() {
   const signer = (await ethers.getSigners())[0];
   console.log("Get AAVEv2 pool info");

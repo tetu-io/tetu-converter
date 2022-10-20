@@ -3,10 +3,10 @@ import {writeFileSync} from "fs";
 import {IHfComptroller} from "../../../../typechain";
 import {HundredFinanceHelper} from "../../helpers/HundredFinanceHelper";
 
-/** Download detailed info for all available Hundred-finance pool(s) and tokens
- *
- * npx hardhat run scripts/integration/lending/hundred-finance/DownloadHfMarkets.ts
- * */
+/**
+ * Download detailed info for all available Hundred-finance pool(s) and tokens
+ *      npx hardhat run scripts/integration/lending/hundred-finance/DownloadHfMarkets.ts
+ */
 async function main() {
     const signer = (await ethers.getSigners())[0];
     console.log("getInfoAboutHundredFinanceMarkets");

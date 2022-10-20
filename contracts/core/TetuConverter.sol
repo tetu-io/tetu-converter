@@ -164,7 +164,7 @@ contract TetuConverter is ITetuConverter, IKeeperCallback {
       console.log("Pool adapter", poolAdapter);
 
       // transfer the collateral from the borrower directly to the pool adapter; assume, that the transfer is approved
-      IPoolAdapter(poolAdapter).syncBalance(true);
+      IPoolAdapter(poolAdapter).syncBalance(true, true);
       if (collateralProvider_ == address(this)) {
         IERC20(collateralAsset_).transfer(poolAdapter, collateralAmount_);
       } else {
@@ -223,13 +223,15 @@ contract TetuConverter is ITetuConverter, IKeeperCallback {
         break;
       }
       IPoolAdapter pa = IPoolAdapter(poolAdapters[i]);
+      pa.syncBalance(false, true);
+
       (,uint totalDebtForPoolAdapter,,) = pa.getStatus();
       uint amountToPayToPoolAdapter = amountToPay >= totalDebtForPoolAdapter
         ? totalDebtForPoolAdapter
         : amountToPay;
+      console.log("repay.i.totalDebtForPoolAdapter.beforeSyncBalance", i, totalDebtForPoolAdapter);
 
       // send amount to pool adapter
-      pa.syncBalance(false);
       require(
         IERC20(borrowAsset_).balanceOf(address(this)) >= amountToPayToPoolAdapter,
           AppErrors.WRONG_BORROWED_BALANCE
@@ -262,6 +264,7 @@ contract TetuConverter is ITetuConverter, IKeeperCallback {
 
     IPoolAdapter pa = IPoolAdapter(poolAdapter_);
     (,address user, address collateralAsset, address borrowAsset) = pa.getConfig();
+    pa.updateStatus();
 
     //!TODO: we have exactly same checking inside pool adapters... we need to check this condition only once
     (,uint amountToPay,,) = pa.getStatus();
@@ -276,7 +279,7 @@ contract TetuConverter is ITetuConverter, IKeeperCallback {
     );
 
     // re-send amount-to-repay to the pool adapter and make rebalancing
-    pa.syncBalance(false);
+    pa.syncBalance(false, false);
     IERC20(borrowAsset).transfer(poolAdapter_, amountToRepay_);
     uint resultHealthFactor18 = pa.repayToRebalance(amountToRepay_);
 
@@ -324,7 +327,7 @@ contract TetuConverter is ITetuConverter, IKeeperCallback {
 
     //make repay and close position
     uint balanceCollateralAsset = IERC20(collateralAsset).balanceOf(address(this));
-    pa.syncBalance(false);
+    pa.syncBalance(false, false);
     IERC20(borrowAsset).transfer(poolAdapter_, amountToPay);
     pa.repay(amountToPay, address(this), true);
     uint collateralAmount = IERC20(collateralAsset).balanceOf(address(this)) - balanceCollateralAsset;
@@ -374,15 +377,17 @@ contract TetuConverter is ITetuConverter, IKeeperCallback {
       AppErrors.WRONG_REBALANCING
     );
   }
+
   ///////////////////////////////////////////////////////
   ///       Get debt/repay info
   ///////////////////////////////////////////////////////
 
-  /// @notice Calculate total amount of borrow tokens that should be repaid to close the loan completely.
-  function getDebtAmount(
+  /// @notice Update status in all opened positions
+  ///         After this call getDebtAmount will be able to return exact amount to repay
+  function getStatusCurrent(
     address collateralAsset_,
     address borrowAsset_
-  ) external view override returns (uint outTotalDebtBorrowAsset) {
+  ) external override returns (uint totalDebtAmountOut, uint totalCollateralAmountOut) {
     address[] memory poolAdapters = _debtMonitor().getPositions(
       msg.sender,
       collateralAsset_,
@@ -392,11 +397,35 @@ contract TetuConverter is ITetuConverter, IKeeperCallback {
 
     for (uint i = 0; i < lenPoolAdapters; i = i.uncheckedInc()) {
       IPoolAdapter pa = IPoolAdapter(poolAdapters[i]);
-      (,uint totalDebtForPoolAdapter,,) = pa.getStatus();
-      outTotalDebtBorrowAsset += totalDebtForPoolAdapter;
+      pa.updateStatus();
+      (uint collateralAmount, uint totalDebtForPoolAdapter,,) = pa.getStatus();
+      totalDebtAmountOut += totalDebtForPoolAdapter;
+      totalCollateralAmountOut += collateralAmount;
     }
 
-    return outTotalDebtBorrowAsset;
+    return (totalDebtAmountOut, totalCollateralAmountOut);
+  }
+
+  /// @notice Calculate total amount of borrow tokens that should be repaid to close the loan completely.
+  function getDebtAmount(
+    address collateralAsset_,
+    address borrowAsset_
+  ) external view override returns (uint totalDebtAmountOut, uint totalCollateralAmountOut) {
+    address[] memory poolAdapters = _debtMonitor().getPositions(
+      msg.sender,
+      collateralAsset_,
+      borrowAsset_
+    );
+    uint lenPoolAdapters = poolAdapters.length;
+
+    for (uint i = 0; i < lenPoolAdapters; i = i.uncheckedInc()) {
+      IPoolAdapter pa = IPoolAdapter(poolAdapters[i]);
+      (uint collateralAmount, uint totalDebtForPoolAdapter,,) = pa.getStatus();
+      totalDebtAmountOut += totalDebtForPoolAdapter;
+      totalCollateralAmountOut += collateralAmount;
+    }
+
+    return (totalDebtAmountOut, totalCollateralAmountOut);
   }
 
   /// @notice User needs to redeem some collateral amount. Calculate an amount that should be repaid

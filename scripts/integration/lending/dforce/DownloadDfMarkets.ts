@@ -3,9 +3,9 @@ import {writeFileSync} from "fs";
 import {IDForceController} from "../../../../typechain";
 import {DForceHelper} from "../../helpers/DForceHelper";
 
-/** Download detailed info for all available Hundred-finance pool(s) and tokens
- *
- * npx hardhat run scripts/integration/lending/dforce/downloaddfmarkets.ts
+/**
+ * Download detailed info for all available Hundred-finance pool(s) and tokens
+ *    npx hardhat run scripts/integration/lending/dforce/downloaddfmarkets.ts
  * */
 async function main() {
     const signer = (await ethers.getSigners())[0];

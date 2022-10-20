@@ -143,7 +143,7 @@ contract Borrower is ITetuConverterCallback {
   ) external {
     console.log("makeRepayComplete started gasleft", gasleft());
 
-    uint amountToPay = _tc().getDebtAmount(collateralAsset_, borrowedAsset_);
+    (uint amountToPay,) = _tc().getDebtAmount(collateralAsset_, borrowedAsset_);
     IERC20(borrowedAsset_).safeTransfer(address(_tc()), amountToPay);
     totalRepaidAmount += _tc().repay(collateralAsset_, borrowedAsset_, amountToPay, receiver_);
     _tc().claimRewards(address(this));
@@ -185,7 +185,7 @@ contract Borrower is ITetuConverterCallback {
 
     if (lenPoolAdapters > 0) {
       IPoolAdapter pa = IPoolAdapter(poolAdapters[0]);
-      pa.syncBalance(false);
+      pa.syncBalance(false, true);
       (uint collateralAmount, uint amountToPay,,) = pa.getStatus();
       if (amountToPay > 0) {
         console.log("makeRepayUC1.2: repay", amountToPay, collateralAmount);

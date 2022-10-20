@@ -8,8 +8,14 @@ import "./IConverter.sol";
 ///         There is Template-Pool-Adapter contract for each platform (AAVE, HF, etc).
 /// @dev Terms: "pool adapter" is an instance of "converter" created using minimal-proxy-pattern
 interface IPoolAdapter is IConverter {
-  /// @dev Must be called before borrow (true) or repay/reconvert (false) to sync current balances
-  function syncBalance(bool beforeBorrow) external;
+  /// @dev Must be called before borrow (true) or repay/reconvert (false)
+  ///      to save current balance of collateral/borrow assets
+  /// @param updateStatus_ if true do same actions as updateStatus()
+  function syncBalance(bool beforeBorrow, bool updateStatus_) external;
+
+  /// @notice Update all interests, recalculate borrowed amount;
+  ///         After this call, getStatus will return exact amount-to-repay
+  function updateStatus() external;
 
   /// @notice Supply collateral to the pool and borrow specified amount
   /// @dev No re-balancing here; syncBalance(true) must be called before the call of this function
@@ -42,6 +48,7 @@ interface IPoolAdapter is IConverter {
   /// @param amountToRepay_ Exact amount of borrow asset that should be repaid
   ///                       The amount should be sent to balance of the pool adapter before the call of repay()
   ///                       The sequence of the calls must be:  syncBalance(false); transfer borrowed asset ; repay()
+  ///                       To know exact full amount to repay, call updateStatus and then getStatus
   /// @param closePosition_ true to pay full borrowed amount
   /// @param receiver_ Receiver of withdrawn collateral
   /// @return collateralAmountOut Amount of collateral asset sent to the {receiver_}
@@ -59,7 +66,10 @@ interface IPoolAdapter is IConverter {
   /// @param amountToRepay_ Exact amount of borrow asset that should be repaid.
   ///                       It must be stronger less then total borrow debt.
   ///                       The amount should be sent to balance of the pool adapter:
-  ///                       The sequence of the calls must be:   syncBalance(false); transfer borrowed asset ; repay()
+  ///                       The sequence of the calls must be:
+  ///                         1) syncBalance(false);
+  ///                         2) transfer the amount to balance of the pool adapter;
+  ///                         3) repay()
   /// @return resultHealthFactor18 Result health factor after repay, decimals 18
   function repayToRebalance(
     uint amountToRepay_
@@ -76,6 +86,8 @@ interface IPoolAdapter is IConverter {
   );
 
   /// @notice Get current status of the borrow position
+  /// @dev It returns STORED status. To get current status it's necessary to call updateStatus
+  ///      at first to update interest and recalculate status.
   /// @return collateralAmount Total amount of provided collateral, collateral currency
   /// @return amountToPay Total amount of borrowed debt in [borrow asset]. 0 - for closed borrow positions.
   /// @return healthFactor18 Current health factor, decimals 18

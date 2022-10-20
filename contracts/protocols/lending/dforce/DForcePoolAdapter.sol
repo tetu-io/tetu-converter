@@ -114,17 +114,23 @@ contract DForcePoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP {
   ///////////////////////////////////////////////////////
 
   /// @dev TC calls this function before transferring any amounts to balance of this contract
-  function syncBalance(bool beforeBorrow_) external override {
+  function syncBalance(bool beforeBorrow_, bool updateStatus_) external override {
     if (beforeBorrow_) {
       address assetCollateral = collateralAsset;
       reserveBalances[assetCollateral] = _getBalance(assetCollateral);
     } else { // before repay
-      // Update borrowBalance to actual value
-      IDForceCToken(borrowCToken).borrowBalanceCurrent(address(this));
-
       address assetBorrow = borrowAsset;
       reserveBalances[assetBorrow] = _getBalance(assetBorrow);
     }
+    if (updateStatus_) {
+      // Update borrowBalance to actual value
+      IDForceCToken(borrowCToken).borrowBalanceCurrent(address(this));
+    }
+  }
+
+  function updateStatus() external override {
+    // Update borrowBalance to actual value
+    IDForceCToken(borrowCToken).borrowBalanceCurrent(address(this));
   }
 
   /// @notice Supply collateral to the pool and borrow {borrowedAmount_} in {borrowedToken_}
