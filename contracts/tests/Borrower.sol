@@ -143,9 +143,13 @@ contract Borrower is ITetuConverterCallback {
   ) external {
     console.log("makeRepayComplete started gasleft", gasleft());
 
-    (uint amountToPay,) = _tc().getDebtAmount(collateralAsset_, borrowedAsset_);
+    (uint amountToPay,) = _tc().getStatusCurrent(collateralAsset_, borrowedAsset_);
+    console.log("makeRepayComplete amountToPay", amountToPay);
+    console.log("makeRepayComplete borrowed asset balance", IERC20(borrowedAsset_).balanceOf(address(this)));
     IERC20(borrowedAsset_).safeTransfer(address(_tc()), amountToPay);
+    console.log("makeRepayComplete repay - start");
     totalRepaidAmount += _tc().repay(collateralAsset_, borrowedAsset_, amountToPay, receiver_);
+    console.log("makeRepayComplete repay - finish");
     _tc().claimRewards(address(this));
 
     console.log("makeRepayComplete done gasleft", gasleft());

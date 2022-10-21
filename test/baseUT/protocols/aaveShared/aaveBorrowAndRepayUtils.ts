@@ -15,6 +15,8 @@ export interface IMakeBorrowAndRepayResults {
   totalCollateralBase: BigNumber;
   totalDebtBase: BigNumber;
   poolAdapter: string;
+  borrowAmount: BigNumber;
+  collateralAmount: BigNumber;
 }
 
 /**
@@ -24,10 +26,10 @@ export interface IMakeBorrowAndRepayResults {
 type MakeBorrowAndRepayFunc = (
   collateralToken: TokenDataTypes,
   collateralHolder: string,
-  collateralAmount: BigNumber,
+  collateralAmountRequired: BigNumber | undefined,
   borrowToken: TokenDataTypes,
   borrowHolder: string,
-  borrowAmount: BigNumber,
+  borrowAmount: BigNumber | undefined,
   amountToRepay?: BigNumber,
   initialBorrowAmountOnUserBalance?: BigNumber,
 ) => Promise<IMakeBorrowAndRepayResults>;
@@ -42,6 +44,7 @@ export class AaveMakeBorrowAndRepayUtils {
     deployer: SignerWithAddress,
     funcMakeBorrowAndRepay: MakeBorrowAndRepayFunc,
     fullRepay: boolean,
+    useMaxAvailableCollateral: boolean,
     initialBorrowAmountOnUserBalanceNumber?: number
   ) : Promise<{ret: string, expected: string}> {
     const collateralAsset = MaticAddresses.DAI;
@@ -52,8 +55,12 @@ export class AaveMakeBorrowAndRepayUtils {
     const collateralToken = await TokenDataTypes.Build(deployer, collateralAsset);
     const borrowToken = await TokenDataTypes.Build(deployer, borrowAsset);
 
-    const collateralAmount = getBigNumberFrom(100_000, collateralToken.decimals);
-    const borrowAmount = getBigNumberFrom(10, borrowToken.decimals);
+    const collateralAmount = useMaxAvailableCollateral
+      ? undefined
+      : getBigNumberFrom(100_000, collateralToken.decimals);
+    const borrowAmount = useMaxAvailableCollateral
+      ? undefined
+      : getBigNumberFrom(10, borrowToken.decimals);
 
     const initialBorrowAmountOnUserBalance = getBigNumberFrom(
       initialBorrowAmountOnUserBalanceNumber || 0,
@@ -79,14 +86,14 @@ export class AaveMakeBorrowAndRepayUtils {
       r.userBalancesAfterBorrow.collateral, r.userBalancesAfterBorrow.borrow,
 
       // original collateral ~ returned collateral
-      areAlmostEqual(collateralAmount, r.userBalancesAfterRepay.collateral, 5),
+      areAlmostEqual(r.collateralAmount, r.userBalancesAfterRepay.collateral, 5),
       areAlmostEqual(r.userBalancesAfterRepay.borrow, initialBorrowAmountOnUserBalance, 5),
       statusAfterRepay.opened
     ].map(x => BalanceUtils.toString(x)).join("\n");
 
     const expected = [
-      collateralAmount, initialBorrowAmountOnUserBalance,
-      0, borrowAmount.add(initialBorrowAmountOnUserBalance),
+      r.collateralAmount, initialBorrowAmountOnUserBalance,
+      0, r.borrowAmount.add(initialBorrowAmountOnUserBalance),
 
       true, // original collateral ~ returned collateral
       true,

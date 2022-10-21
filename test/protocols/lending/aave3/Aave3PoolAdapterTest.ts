@@ -994,20 +994,27 @@ describe("Aave3PoolAdapterTest", () => {
     async function makeBorrowAndRepay(
       collateralToken: TokenDataTypes,
       collateralHolder: string,
-      collateralAmount: BigNumber,
+      collateralAmountRequired: BigNumber | undefined,
       borrowToken: TokenDataTypes,
       borrowHolder: string,
-      borrowAmount: BigNumber,
+      borrowAmountRequired: BigNumber | undefined,
       amountToRepay?: BigNumber,
       initialBorrowAmountOnUserBalance?: BigNumber,
     ) : Promise<IMakeBorrowAndRepayResults>{
       const d = await prepareToBorrow(collateralToken,
         collateralHolder,
-        collateralAmount,
+        collateralAmountRequired,
         borrowToken,
         false
       );
       const collateralData = await d.h.getReserveInfo(deployer, d.aavePool, d.dataProvider, collateralToken.address);
+      const borrowAmount = borrowAmountRequired
+        ? borrowAmountRequired
+        : d.amountToBorrow;
+      console.log("collateralAmountRequired", collateralAmountRequired);
+      console.log("borrowAmountRequired", borrowAmountRequired);
+      console.log("d.collateralAmount", d.collateralAmount);
+      console.log("borrowAmount", borrowAmount);
 
       // borrow asset
       if (initialBorrowAmountOnUserBalance) {
@@ -1024,9 +1031,9 @@ describe("Aave3PoolAdapterTest", () => {
       // make borrow
       await d.aavePoolAdapterAsTC.syncBalance(true, true);
       await IERC20__factory.connect(collateralToken.address, await DeployerUtils.startImpersonate(d.userContract.address))
-        .transfer(d.aavePoolAdapterAsTC.address, collateralAmount);
+        .transfer(d.aavePoolAdapterAsTC.address, d.collateralAmount);
       await d.aavePoolAdapterAsTC.borrow(
-        collateralAmount,
+        d.collateralAmount,
         borrowAmount,
         d.userContract.address
       );
@@ -1076,7 +1083,9 @@ describe("Aave3PoolAdapterTest", () => {
           .balanceOf(d.aavePoolAdapterAsTC.address),
         totalCollateralBase: ret.totalCollateralBase,
         totalDebtBase: ret.totalDebtBase,
-        poolAdapter: d.aavePoolAdapterAsTC.address
+        poolAdapter: d.aavePoolAdapterAsTC.address,
+        collateralAmount: d.collateralAmount,
+        borrowAmount
       }
     }
     describe("Good paths", () => {
@@ -1088,6 +1097,7 @@ describe("Aave3PoolAdapterTest", () => {
               const r = await AaveMakeBorrowAndRepayUtils.daiWmatic(
                 deployer,
                 makeBorrowAndRepay,
+                false,
                 false
               );
               expect(r.ret).eq(r.expected);
@@ -1099,6 +1109,7 @@ describe("Aave3PoolAdapterTest", () => {
               const r = await AaveMakeBorrowAndRepayUtils.daiWmatic(
                 deployer,
                 makeBorrowAndRepay,
+                false,
                 false
               );
               expect(r.ret).eq(r.expected);
@@ -1113,9 +1124,42 @@ describe("Aave3PoolAdapterTest", () => {
               deployer,
               makeBorrowAndRepay,
               true,
+              false,
               initialBorrowAmountOnUserBalance
             );
             expect(r.ret).eq(r.expected);
+          });
+        });
+      });
+      describe("Borrow max available amount using all available collateral", () => {
+        describe("Full repay of borrowed amount", () => {
+          describe("DAI => WMATIC", () => {
+            it("should return expected balances", async () => {
+              if (!await isPolygonForkInUse()) return;
+              const initialBorrowAmountOnUserBalance = 1000;
+              const r = await AaveMakeBorrowAndRepayUtils.daiWmatic(
+                deployer,
+                makeBorrowAndRepay,
+                true,
+                true,
+                initialBorrowAmountOnUserBalance
+              );
+              expect(r.ret).eq(r.expected);
+            });
+          });
+          describe("WMATIC => DAI", () => {
+            it("should return expected balances", async () => {
+              if (!await isPolygonForkInUse()) return;
+              const initialBorrowAmountOnUserBalance = 1000;
+              const r = await AaveMakeBorrowAndRepayUtils.daiWmatic(
+                deployer,
+                makeBorrowAndRepay,
+                true,
+                true,
+                initialBorrowAmountOnUserBalance
+              );
+              expect(r.ret).eq(r.expected);
+            });
           });
         });
       });
