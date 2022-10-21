@@ -22,6 +22,27 @@ export interface IMakeBorrowAndRepayResults {
 }
 
 /**
+ * Allow to emulate various bad-paths-problems for repay()
+ */
+export interface IBorrowAndRepayBadParams {
+  /**
+   * Try to make repay without borrowing
+   */
+  skipBorrow?: boolean;
+
+  /**
+   * What amount of borrow asset should be transferred to pool adapter's balance
+   * before calling of repay().
+   * We can emulate following problems:
+   *    Try to transfer an amount LARGER than amount-to-pay - should revert
+   *    Try to transfer an amount less than amount-to-pay - should revert
+   */
+  wrongAmountToRepayToTransfer?: BigNumber;
+
+  forceToClosePosition?: boolean;
+}
+
+/**
  * A function to make borrow and then full/partial repay.
  * Implementations depend on the version of AAVE protocol,
  */
@@ -34,6 +55,7 @@ type MakeBorrowAndRepayFunc = (
   borrowAmount: BigNumber | undefined,
   amountToRepay?: BigNumber,
   initialBorrowAmountOnUserBalance?: BigNumber,
+  badParams?: IBorrowAndRepayBadParams
 ) => Promise<IMakeBorrowAndRepayResults>;
 
 /**
@@ -47,7 +69,8 @@ export class AaveMakeBorrowAndRepayUtils {
     funcMakeBorrowAndRepay: MakeBorrowAndRepayFunc,
     fullRepay: boolean,
     useMaxAvailableCollateral: boolean,
-    initialBorrowAmountOnUserBalanceNumber?: number
+    initialBorrowAmountOnUserBalanceNumber?: number,
+    badParams?: IBorrowAndRepayBadParams
   ) : Promise<{ret: string, expected: string}> {
     const collateralAsset = MaticAddresses.DAI;
     const collateralHolder = MaticAddresses.HOLDER_DAI;
@@ -76,7 +99,8 @@ export class AaveMakeBorrowAndRepayUtils {
       borrowHolder,
       borrowAmount,
       fullRepay ? undefined : borrowAmount, // amount to repay
-      initialBorrowAmountOnUserBalance
+      initialBorrowAmountOnUserBalance,
+      badParams
     );
     console.log(r);
     console.log(collateralAmount);
@@ -110,7 +134,9 @@ export class AaveMakeBorrowAndRepayUtils {
     deployer: SignerWithAddress,
     funcMakeBorrowAndRepay: MakeBorrowAndRepayFunc,
     fullRepay: boolean,
-    initialBorrowAmountOnUserBalanceNumber?: number
+    useMaxAvailableCollateral: boolean,
+    initialBorrowAmountOnUserBalanceNumber?: number,
+    badParams?: IBorrowAndRepayBadParams
   ) : Promise<{ret: string, expected: string}> {
     const collateralAsset = MaticAddresses.WMATIC;
     const collateralHolder = MaticAddresses.HOLDER_WMATIC;
@@ -120,8 +146,12 @@ export class AaveMakeBorrowAndRepayUtils {
     const collateralToken = await TokenDataTypes.Build(deployer, collateralAsset);
     const borrowToken = await TokenDataTypes.Build(deployer, borrowAsset);
 
-    const collateralAmount = getBigNumberFrom(100_000, collateralToken.decimals);
-    const borrowAmount = getBigNumberFrom(10, borrowToken.decimals);
+    const collateralAmount = useMaxAvailableCollateral
+      ? undefined
+      : getBigNumberFrom(100_000, collateralToken.decimals);
+    const borrowAmount = useMaxAvailableCollateral
+      ? undefined
+      : getBigNumberFrom(10, borrowToken.decimals);
 
     const initialBorrowAmountOnUserBalance = getBigNumberFrom(
       initialBorrowAmountOnUserBalanceNumber || 0,
@@ -137,6 +167,7 @@ export class AaveMakeBorrowAndRepayUtils {
       borrowAmount,
       fullRepay ? undefined : borrowAmount, // amount to repay
       initialBorrowAmountOnUserBalance,
+      badParams,
     );
     console.log(r);
     console.log(collateralAmount);
@@ -148,14 +179,14 @@ export class AaveMakeBorrowAndRepayUtils {
       r.userBalancesAfterBorrow.collateral, r.userBalancesAfterBorrow.borrow,
 
       // original collateral ~ returned collateral
-      areAlmostEqual(collateralAmount, r.userBalancesAfterRepay.collateral, 5),
+      areAlmostEqual(r.collateralAmount, r.userBalancesAfterRepay.collateral, 5),
       areAlmostEqual(r.userBalancesAfterRepay.borrow, initialBorrowAmountOnUserBalance, 5),
       statusAfterRepay.opened
     ].map(x => BalanceUtils.toString(x)).join("\n");
 
     const expected = [
-      collateralAmount, initialBorrowAmountOnUserBalance,
-      0, borrowAmount.add(initialBorrowAmountOnUserBalance),
+      r.collateralAmount, initialBorrowAmountOnUserBalance,
+      0, r.borrowAmount.add(initialBorrowAmountOnUserBalance),
 
       true, // original collateral ~ returned collateral
       true,

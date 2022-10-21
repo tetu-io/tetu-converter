@@ -240,9 +240,13 @@ contract AaveTwoPoolAdapter is IPoolAdapter, IPoolAdapterInitializer {
     );
 
     // how much collateral we are going to return
-    uint amountCollateralToWithdraw = closePosition_
-      ? type(uint).max
-      : _getCollateralAmountToReturn(_pool, amountToRepay_, assetCollateral, assetBorrow);
+    uint amountCollateralToWithdraw = _getCollateralAmountToReturn(
+      pool,
+      amountToRepay_,
+      assetCollateral,
+      assetBorrow,
+      closePosition_
+    );
 
     // transfer borrow amount back to the pool
     IERC20(assetBorrow).approve(address(pool), 0);
@@ -281,11 +285,13 @@ contract AaveTwoPoolAdapter is IPoolAdapter, IPoolAdapterInitializer {
   /// @notice Get a part of collateral safe to return after repaying {amountToRepay_}
   /// @param amountToRepay_ Amount to be repaid [in borrowed tokens]
   /// @return Amount of collateral [in collateral tokens] to be returned in exchange of {borrowedAmount_}
+  ///         Return type(uint).max if it's full repay and the position should be closed
   function _getCollateralAmountToReturn(
     IAaveTwoPool pool_,
     uint amountToRepay_,
     address assetCollateral_,
-    address assetBorrow_
+    address assetBorrow_,
+    bool closePosition_
   ) internal view returns (uint) {
     // get total amount of the borrow position
     (uint256 totalCollateralBase, uint256 totalDebtBase,,,,) = pool_.getUserAccountData(address(this));
@@ -300,6 +306,12 @@ contract AaveTwoPoolAdapter is IPoolAdapter, IPoolAdapterInitializer {
     require(prices[0] != 0, AppErrors.ZERO_PRICE);
 
     uint amountToRepayBase = amountToRepay_ * prices[1] / (10 ** IERC20Extended(assetBorrow_).decimals());
+    require(!closePosition_ || totalDebtBase <= amountToRepayBase, AppErrors.CLOSE_POSITION_FAILED);
+
+    if (closePosition_) {
+      return type(uint).max;
+    }
+
     uint part = amountToRepayBase >= totalDebtBase
       ? 10**18
       : 10**18 * amountToRepayBase / totalDebtBase;

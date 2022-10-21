@@ -653,7 +653,11 @@ describe("Hundred Finance integration tests, pool adapter", () => {
     }
 
     interface IBorrowAndRepayBadParams {
-      skipBorrow: boolean;
+      transferWrongAmount?: boolean;
+      skipBorrow?: boolean;
+      failToClosePosition?: boolean;
+      wrongResultHealthFactor?: boolean;
+      transferTooBigAmountToRepay?: boolean;
     }
 
     interface IAssetInfo {
@@ -1099,7 +1103,31 @@ describe("Hundred Finance integration tests, pool adapter", () => {
       });
     });
     describe("Bad paths", () => {
-// TODO
+      describe("Transfer amount different from specified amount to repay", () => {
+        it("should revert", async () => {
+          expect.fail("TODO");
+        });
+      });
+      describe("Try to repay not opened position", () => {
+        it("should revert", async () => {
+          expect.fail("TODO");
+        });
+      });
+      describe("Try to close position with not zero debt", () => {
+        it("should revert", async () => {
+          expect.fail("TODO");
+        });
+      });
+      describe("Wrong result health factor", () => {
+        it("should revert", async () => {
+          expect.fail("TODO");
+        });
+      });
+      describe("Amount to repay is too larger", () => {
+        it("should return remain amount to user's balance", async () => {
+          expect.fail("TODO");
+        });
+      });
     });
 
   });

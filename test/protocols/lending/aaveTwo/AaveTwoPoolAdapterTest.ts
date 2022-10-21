@@ -27,7 +27,7 @@ import {TokenDataTypes} from "../../../baseUT/types/TokenDataTypes";
 import {CompareAprUsesCase} from "../../../baseUT/uses-cases/CompareAprUsesCase";
 import {IAaveTwoUserAccountDataResults} from "../../../baseUT/apr/aprAaveTwo";
 import {
-  AaveMakeBorrowAndRepayUtils,
+  AaveMakeBorrowAndRepayUtils, IBorrowAndRepayBadParams,
   IMakeBorrowAndRepayResults
 } from "../../../baseUT/protocols/aaveShared/aaveBorrowAndRepayUtils";
 import {
@@ -667,6 +667,7 @@ describe("AaveTwoPoolAdapterTest", () => {
       borrowAmountRequired: BigNumber | undefined,
       amountToRepay?: BigNumber,
       initialBorrowAmountOnUserBalance?: BigNumber,
+      badParams?: IBorrowAndRepayBadParams
     ) : Promise<IMakeBorrowAndRepayResults>{
       const d = await prepareToBorrow(collateralToken,
         collateralHolder,
@@ -695,15 +696,17 @@ describe("AaveTwoPoolAdapterTest", () => {
       };
 
       // make borrow
-      await d.aavePoolAdapterAsTC.syncBalance(true, true);
-      await IERC20Extended__factory.connect(collateralToken.address
-        , await DeployerUtils.startImpersonate(d.userContract.address)
-      ).transfer(d.aavePoolAdapterAsTC.address, d.collateralAmount);
-      await d.aavePoolAdapterAsTC.borrow(
-        d.collateralAmount,
-        borrowAmount,
-        d.userContract.address
-      );
+      if (! badParams?.skipBorrow) {
+        await d.aavePoolAdapterAsTC.syncBalance(true, true);
+        await IERC20Extended__factory.connect(collateralToken.address
+          , await DeployerUtils.startImpersonate(d.userContract.address)
+        ).transfer(d.aavePoolAdapterAsTC.address, d.collateralAmount);
+        await d.aavePoolAdapterAsTC.borrow(
+          d.collateralAmount,
+          borrowAmount,
+          d.userContract.address
+        );
+      }
 
       const afterBorrow: IUserBalances = {
         collateral: await collateralToken.token.balanceOf(d.userContract.address),
@@ -718,11 +721,18 @@ describe("AaveTwoPoolAdapterTest", () => {
       if (amountToRepay) {
         // make partial repay
         await d.aavePoolAdapterAsTC.syncBalance(false, true);
-        await borrowTokenAsUser.transfer(d.aavePoolAdapterAsTC.address, amountToRepay);
+        await borrowTokenAsUser.transfer(
+          d.aavePoolAdapterAsTC.address,
+          badParams?.wrongAmountToRepayToTransfer
+            ? badParams?.wrongAmountToRepayToTransfer
+            : amountToRepay
+        );
         await d.aavePoolAdapterAsTC.repay(
           amountToRepay,
           d.userContract.address,
-          false
+          // normally we don't close position here
+          // but in bad paths we need to emulate attempts to close the position
+          badParams?.forceToClosePosition || false
         );
       } else {
         console.log("user balance borrow asset before repay", await borrowTokenAsUser.balanceOf(d.userContract.address));
@@ -826,10 +836,83 @@ describe("AaveTwoPoolAdapterTest", () => {
           });
         });
       });
-
     });
-    describe("Bad paths", () =>{
+    describe("Bad paths", () => {
+      describe("Transfer amount less than specified amount to repay", () => {
+        it("should revert", async () => {
+          if (!await isPolygonForkInUse()) return;
 
+          const daiDecimals = await IERC20Extended__factory.connect(MaticAddresses.DAI, deployer).decimals();
+          await expect(
+            AaveMakeBorrowAndRepayUtils.wmaticDai(
+              deployer,
+              makeBorrowAndRepay,
+              false,
+              false,
+              undefined,
+              {
+                // try to transfer too small amount on balance of the pool adapter
+                wrongAmountToRepayToTransfer: getBigNumberFrom(1, daiDecimals)
+              }
+            )
+          ).revertedWith("TC-15"); // WRONG_BORROWED_BALANCE
+        });
+      });
+      describe("Transfer amount larger than specified amount to repay", () => {
+        it("should revert", async () => {
+          if (!await isPolygonForkInUse()) return;
+
+          const daiDecimals = await IERC20Extended__factory.connect(MaticAddresses.DAI, deployer).decimals();
+          const initialBorrowAmountOnUserBalanceNumber = 1000;
+          await expect(
+            AaveMakeBorrowAndRepayUtils.wmaticDai(
+              deployer,
+              makeBorrowAndRepay,
+              false,
+              false,
+              initialBorrowAmountOnUserBalanceNumber,
+              {
+                // try to transfer too LARGE amount on balance of the pool adapter
+                wrongAmountToRepayToTransfer: getBigNumberFrom(
+                  initialBorrowAmountOnUserBalanceNumber,
+                  daiDecimals
+                )
+              }
+            )
+          ).revertedWith("TC-15"); // WRONG_BORROWED_BALANCE
+        });
+      });
+      describe("Try to repay not opened position", () => {
+        it("should revert", async () => {
+          if (!await isPolygonForkInUse()) return;
+          const initialBorrowAmountOnUserBalanceNumber = 1000;
+          await expect(
+            AaveMakeBorrowAndRepayUtils.daiWmatic(
+              deployer,
+              makeBorrowAndRepay,
+              false,
+              false,
+              initialBorrowAmountOnUserBalanceNumber,
+              {skipBorrow: true}
+            )
+          ).revertedWith("TC-28"); // ZERO_BALANCE
+        });
+      });
+      describe("Try to close position with not zero debt", () => {
+        it("should revert", async () => {
+          if (!await isPolygonForkInUse()) return;
+          await expect(
+            AaveMakeBorrowAndRepayUtils.daiWmatic(
+              deployer,
+              makeBorrowAndRepay,
+              false,
+              false,
+              undefined,
+              {forceToClosePosition: true}
+            )
+          ).revertedWith("TC-24"); // CLOSE_POSITION_FAILED
+        });
+      });
     });
 
   });

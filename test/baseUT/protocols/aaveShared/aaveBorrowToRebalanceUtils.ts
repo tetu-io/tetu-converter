@@ -1,10 +1,8 @@
-import {IAave3UserAccountDataResults} from "../../apr/aprAave3";
 import {BigNumber} from "ethers";
 import {IUserAccountDataResults} from "./aaveRepayToRebalanceUtils";
 import {MaticAddresses} from "../../../../scripts/addresses/MaticAddresses";
 import {TokenDataTypes} from "../../types/TokenDataTypes";
 import {getBigNumberFrom} from "../../../../scripts/utils/NumberUtils";
-import {ethers} from "hardhat";
 import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import {toStringWithRound} from "../../utils/CommonUtils";
 

@@ -258,9 +258,13 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer 
     );
 
     // how much collateral we are going to return
-    uint amountCollateralToWithdraw = closePosition_
-      ? type(uint).max
-      : _getCollateralAmountToReturn(pool, amountToRepay_, assetCollateral, assetBorrow);
+    uint amountCollateralToWithdraw = _getCollateralAmountToReturn(
+        pool,
+        amountToRepay_,
+        assetCollateral,
+        assetBorrow,
+        closePosition_
+    );
 
     // transfer borrow amount back to the pool
     IERC20(assetBorrow).approve(address(pool), 0);
@@ -285,7 +289,7 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer 
     }
 
     // validate result status
-    (uint totalCollateralBase, uint totalDebtBase,,,, uint256 healthFactor) = pool.getUserAccountData(address(this));
+    (uint totalCollateralBase, uint totalDebtBase,,,, uint healthFactor) = pool.getUserAccountData(address(this));
     if (totalCollateralBase == 0 && totalDebtBase == 0) {
       IDebtMonitor(controller.debtMonitor()).onClosePosition();
     } else {
@@ -299,13 +303,15 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer 
   /// @notice Get a part of collateral safe to return after repaying {amountToRepay_}
   /// @param amountToRepay_ Amount to be repaid [in borrowed tokens]
   /// @return Amount of collateral [in collateral tokens] to be returned in exchange of {borrowedAmount_}
+  ///         Return type(uint).max if it's full repay and the position should be closed
   function _getCollateralAmountToReturn(
     IAavePool pool_,
     uint amountToRepay_,
     address assetCollateral_,
-    address assetBorrow_
+    address assetBorrow_,
+    bool closePosition_
   ) internal view returns (uint) {
-    // get total amount of the borrow position
+    // ensure that we really have a debt
     (uint256 totalCollateralBase, uint256 totalDebtBase,,,,) = pool_.getUserAccountData(address(this));
     require(totalDebtBase != 0, AppErrors.ZERO_BALANCE);
 
@@ -317,7 +323,14 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer 
     uint[] memory prices = _priceOracle.getAssetsPrices(assets);
     require(prices[0] != 0, AppErrors.ZERO_PRICE);
 
+    // we cannot close position if the debt is repaying only partly
     uint amountToRepayBase = amountToRepay_ * prices[1] / (10 ** IERC20Extended(assetBorrow_).decimals());
+    require(!closePosition_ || totalDebtBase <= amountToRepayBase, AppErrors.CLOSE_POSITION_FAILED);
+
+    if (closePosition_) {
+      return type(uint).max;
+    }
+
     uint part = amountToRepayBase >= totalDebtBase
       ? 10**18
       : 10**18 * amountToRepayBase / totalDebtBase;
