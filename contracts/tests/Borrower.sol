@@ -24,7 +24,7 @@ contract Borrower is ITetuConverterCallback {
   IController immutable private _controller;
 
   uint public totalBorrowedAmount;
-  uint public totalRepaidAmount;
+  uint public totalAmountBorrowAssetRepaid;
   uint private _borrowPeriodInBlocks;
 
   ////////////////////////////////////////////////////////////////////
@@ -150,7 +150,9 @@ contract Borrower is ITetuConverterCallback {
     IERC20(borrowedAsset_).safeTransfer(address(_tc()), amountToPay);
 
     console.log("makeRepayComplete repay - start");
-    totalRepaidAmount += _tc().repay(collateralAsset_, borrowedAsset_, amountToPay, receiver_);
+    _tc().repay(collateralAsset_, borrowedAsset_, amountToPay, receiver_);
+    totalAmountBorrowAssetRepaid += amountToPay;
+
     console.log("makeRepayComplete repay - finish");
     _tc().claimRewards(address(this));
 
@@ -167,7 +169,8 @@ contract Borrower is ITetuConverterCallback {
     console.log("makeRepayPartial started - partial pay gasleft", gasleft());
 
     IERC20(borrowedAsset_).safeTransfer(address(_tc()), amountToPay_);
-    totalRepaidAmount += _tc().repay(collateralAsset_, borrowedAsset_, amountToPay_, receiver_);
+    _tc().repay(collateralAsset_, borrowedAsset_, amountToPay_, receiver_);
+    totalAmountBorrowAssetRepaid += amountToPay_;
     _tc().claimRewards(address(this));
 
     console.log("makeRepayPartial done gasleft", gasleft());
@@ -201,7 +204,7 @@ contract Borrower is ITetuConverterCallback {
         // repay borrowed amount and receive collateral to receiver's balance
         pa.repay(amountToPay, receiver_, true);
 
-        totalRepaidAmount += amountToPay;
+        totalAmountBorrowAssetRepaid += amountToPay;
 
         // claim rewards
         pa.claimRewards(address(this));

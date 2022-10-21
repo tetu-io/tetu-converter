@@ -52,17 +52,26 @@ interface ITetuConverter {
   );
 
   /// @notice Full or partial repay of the borrow
-  /// @dev We use converter address, not pool adapter, to make set of params in borrow/repay similar
-  /// @param amountToRepay_ Amount of borrowed asset to repay. Pass type(uint).max to make full repayment.
-  /// @param collateralReceiver_ A receiver of the collateral that will be withdrawn after the repay
+  /// @dev A user should transfer {amountToRepay_} to TetuConverter before calling repay()
+  /// @param amountToRepay_ Amount of borrowed asset to repay.
+  ///                       You can know exact total amount of debt using {getStatusCurrent}.
+  ///                       if the amount exceed total amount of the debt:
+  ///                       - the debt will be fully repaid
+  ///                       - remain amount will be swapped from {borrowAsset_} to {collateralAsset_}
+  /// @param receiver_ A receiver of the collateral that will be withdrawn after the repay
+  ///                  The remained amount of borrow asset will be returned to the {receiver_} too
   /// @return collateralAmountOut Exact collateral amount transferred to {collateralReceiver_}
+  /// @return returnedBorrowAmountOut A part of amount-to-repay that wasn't converted to collateral asset
+  ///                                 because of any reasons (i.e. there is no available conversion strategy)
+  ///                                 This amount is returned back to the collateralReceiver_
   function repay(
     address collateralAsset_,
     address borrowAsset_,
     uint amountToRepay_,
-    address collateralReceiver_
+    address receiver_
   ) external returns (
-    uint collateralAmountOut
+    uint collateralAmountOut,
+    uint returnedBorrowAmountOut
   );
 
   /// @notice Update status in all opened positions

@@ -200,13 +200,18 @@ contract TetuConverter is ITetuConverter, IKeeperCallback {
     address collateralAsset_,
     address borrowAsset_,
     uint amountToRepay_,
-    address collateralReceiver_
+    address receiver_
   ) external override returns (
-    uint collateralAmountOut
+    uint collateralAmountOut,
+    uint returnedBorrowAmountOut
   ) {
-    require(collateralReceiver_ != address(0), AppErrors.ZERO_ADDRESS);
+    require(receiver_ != address(0), AppErrors.ZERO_ADDRESS);
 
-    // repay don't make any rebalancing here
+    // ensure that we have received required amount
+    require(amountToRepay_ == IERC20(borrowAsset_).balanceOf(address(this)), AppErrors.WRONG_AMOUNT_RECEIVED);
+
+    // how much is left to convert from borrow asset to collateral asset
+    uint amountToPay = amountToRepay_;
 
     // we need to repay exact amount using any pool adapters
     // simplest strategy: use first available pool adapter
@@ -217,7 +222,8 @@ contract TetuConverter is ITetuConverter, IKeeperCallback {
     );
     uint lenPoolAdapters = poolAdapters.length;
 
-    uint amountToPay = amountToRepay_;
+    // at first repay debts for any opened positions
+    // repay don't make any rebalancing here
     for (uint i = 0; i < lenPoolAdapters; i = i.uncheckedInc()) {
       if (amountToPay == 0) {
         break;
@@ -229,26 +235,50 @@ contract TetuConverter is ITetuConverter, IKeeperCallback {
       uint amountToPayToPoolAdapter = amountToPay >= totalDebtForPoolAdapter
         ? totalDebtForPoolAdapter
         : amountToPay;
-      console.log("repay.i.totalDebtForPoolAdapter.beforeSyncBalance", i, totalDebtForPoolAdapter);
 
       // send amount to pool adapter
-      require(
-        IERC20(borrowAsset_).balanceOf(address(this)) >= amountToPayToPoolAdapter,
-          AppErrors.WRONG_BORROWED_BALANCE
-      );
       IERC20(borrowAsset_).transfer(address(pa), amountToPayToPoolAdapter);
 
       // make repayment
       collateralAmountOut += pa.repay(
         amountToPayToPoolAdapter,
-        collateralReceiver_,
+        receiver_,
         amountToPayToPoolAdapter == totalDebtForPoolAdapter // close position
       );
       amountToPay -= amountToPayToPoolAdapter;
     }
-    require(amountToPay == 0, AppErrors.WRONG_AMOUNT_RECEIVED);
 
-    return collateralAmountOut;
+    // if all debts were paid but we still have some amount of borrow asset
+    // let's swap it to collateral asset and send to collateral-receiver
+    if (amountToPay > 0) {
+      AppDataTypes.InputConversionParams memory params = AppDataTypes.InputConversionParams({
+        sourceToken: borrowAsset_,
+        targetToken: collateralAsset_,
+        sourceAmount: amountToPay,
+        periodInBlocks: 1 // optimal converter strategy doesn't depend on the period of blocks
+      });
+      (address converter, uint collateralAmount,) = _swapManager().getConverter(params);
+      if (converter == address(0)) {
+        // there is no swap-strategy to convert remain {amountToPay} to {collateralAsset_}
+        // let's return this amount back to the {receiver_}
+        returnedBorrowAmountOut = amountToPay;
+        IERC20(borrowAsset_).transfer(receiver_, amountToPay);
+      } else {
+        // conversion strategy is found
+        // let's convert all remaining {amountToPay} to {collateralAsset}
+        IERC20(borrowAsset_).transfer(converter, amountToPay);
+        ISwapConverter(converter).swap(
+          borrowAsset_,
+          amountToPay,
+          collateralAsset_,
+          collateralAmount,
+          receiver_
+        );
+        collateralAmountOut += collateralAmount;
+      }
+    }
+
+    return (collateralAmountOut, returnedBorrowAmountOut);
   }
 
   ///////////////////////////////////////////////////////
