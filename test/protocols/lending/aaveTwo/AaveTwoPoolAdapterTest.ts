@@ -714,6 +714,8 @@ describe("AaveTwoPoolAdapterTest", () => {
       };
       console.log(afterBorrow);
 
+      await TimeUtils.advanceNBlocks(1000);
+
       const borrowTokenAsUser = IERC20Extended__factory.connect(
         borrowToken.address,
         await DeployerUtils.startImpersonate(d.userContract.address)
@@ -819,11 +821,13 @@ describe("AaveTwoPoolAdapterTest", () => {
           describe("DAI => WMATIC", () => {
             it("should return expected balances", async () => {
               if (!await isPolygonForkInUse()) return;
+              const initialBorrowAmountOnUserBalance = 100;
               const r = await AaveMakeBorrowAndRepayUtils.daiWmatic(
                 deployer,
                 makeBorrowAndRepay,
                 true,
-                true
+                true,
+                initialBorrowAmountOnUserBalance
               );
               expect(r.ret).eq(r.expected);
             });
@@ -831,11 +835,13 @@ describe("AaveTwoPoolAdapterTest", () => {
           describe("WMATIC => DAI", () => {
             it("should return expected balances", async () => {
               if (!await isPolygonForkInUse()) return;
+              const initialBorrowAmountOnUserBalance = 100;
               const r = await AaveMakeBorrowAndRepayUtils.daiWmatic(
                 deployer,
                 makeBorrowAndRepay,
                 true,
-                true
+                true,
+                initialBorrowAmountOnUserBalance
               );
               expect(r.ret).eq(r.expected);
             });

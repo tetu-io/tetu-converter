@@ -1047,6 +1047,8 @@ describe("Aave3PoolAdapterTest", () => {
       };
       console.log("afterBorrow", afterBorrow);
 
+      await TimeUtils.advanceNBlocks(1000);
+
       const borrowTokenAsUser = IERC20Extended__factory.connect(
         borrowToken.address,
         await DeployerUtils.startImpersonate(d.userContract.address)

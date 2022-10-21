@@ -115,7 +115,8 @@ export class AaveMakeBorrowAndRepayUtils {
 
       // original collateral ~ returned collateral
       areAlmostEqual(r.collateralAmount, r.userBalancesAfterRepay.collateral, 5),
-      areAlmostEqual(r.userBalancesAfterRepay.borrow, initialBorrowAmountOnUserBalance, 5),
+      // borrow asset balance ~ initial borrow asset balance
+      areAlmostEqual(r.userBalancesAfterRepay.borrow, initialBorrowAmountOnUserBalance, 1),
       statusAfterRepay.opened
     ].map(x => BalanceUtils.toString(x)).join("\n");
 
