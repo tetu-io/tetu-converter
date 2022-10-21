@@ -653,11 +653,21 @@ describe("Hundred Finance integration tests, pool adapter", () => {
     }
 
     interface IBorrowAndRepayBadParams {
-      transferWrongAmount?: boolean;
+      /**
+       * Try to make repay without borrowing
+       */
       skipBorrow?: boolean;
-      failToClosePosition?: boolean;
-      wrongResultHealthFactor?: boolean;
-      transferTooBigAmountToRepay?: boolean;
+
+      /**
+       * What amount of borrow asset should be transferred to pool adapter's balance
+       * before calling of repay().
+       * We can emulate following problems:
+       *    Try to transfer an amount LARGER than amount-to-pay - should revert
+       *    Try to transfer an amount less than amount-to-pay - should revert
+       */
+      wrongAmountToRepayToTransfer?: BigNumber;
+
+      forceToClosePosition?: boolean;
     }
 
     interface IAssetInfo {
@@ -677,6 +687,7 @@ describe("Hundred Finance integration tests, pool adapter", () => {
       borrowAmountRequired: BigNumber | undefined,
       amountToRepay?: BigNumber,
       initialBorrowAmountOnUserBalance?: BigNumber,
+      badParams?: IBorrowAndRepayBadParams
     ) : Promise<IBorrowAndRepayResults>{
       const d = await prepareToBorrow(collateralToken,
         collateralHolder,
@@ -706,15 +717,17 @@ describe("Hundred Finance integration tests, pool adapter", () => {
       };
 
       // make borrow
-      await d.hfPoolAdapterTC.syncBalance(true, true);
-      await IERC20Extended__factory.connect(collateralToken.address
-        , await DeployerUtils.startImpersonate(d.userContract.address)
-      ).transfer(d.hfPoolAdapterTC.address, d.collateralAmount);
-      await d.hfPoolAdapterTC.borrow(
-        d.collateralAmount,
-        borrowAmount,
-        d.userContract.address
-      );
+      if (! badParams?.skipBorrow) {
+        await d.hfPoolAdapterTC.syncBalance(true, true);
+        await IERC20Extended__factory.connect(collateralToken.address
+          , await DeployerUtils.startImpersonate(d.userContract.address)
+        ).transfer(d.hfPoolAdapterTC.address, d.collateralAmount);
+        await d.hfPoolAdapterTC.borrow(
+          d.collateralAmount,
+          borrowAmount,
+          d.userContract.address
+        );
+      }
 
       const statusAfterBorrow = await d.hfPoolAdapterTC.getStatus();
       const afterBorrow: IUserBalances = {
@@ -733,11 +746,16 @@ describe("Hundred Finance integration tests, pool adapter", () => {
       if (amountToRepay) {
         // make partial repay
         await d.hfPoolAdapterTC.syncBalance(false, true);
-        await borrowTokenAsUser.transfer(d.hfPoolAdapterTC.address, amountToRepay);
+        await borrowTokenAsUser.transfer(
+          d.hfPoolAdapterTC.address,
+          badParams?.wrongAmountToRepayToTransfer
+            ? badParams?.wrongAmountToRepayToTransfer
+            : amountToRepay
+        );
         await d.hfPoolAdapterTC.repay(
           amountToRepay,
           d.userContract.address,
-          false
+          badParams?.forceToClosePosition || false
         );
       } else {
         console.log("user balance borrow asset before repay", await borrowTokenAsUser.balanceOf(d.userContract.address));
@@ -776,211 +794,214 @@ describe("Hundred Finance integration tests, pool adapter", () => {
         collateralAmount: d.collateralAmount
       }
     }
-    describe("Good paths", () => {
-//region Utils
-      async function collateralToBorrow(
-        useMaxAvailableCollateral: boolean,
-        fullRepay: boolean,
-        initialBorrowAmountOnUserBalanceNum: number | undefined,
-        collateral: IAssetInfo,
-        borrow: IAssetInfo,
-        defaultCollateralAmount: number = 100_000,
-        defaultBorrowAmount: number = 10,
-        badPathParams?: IBorrowAndRepayBadParams
-      ) : Promise<{ret: string, expected: string}> {
-        const collateralToken = await TokenDataTypes.Build(deployer, collateral.asset);
-        const borrowToken = await TokenDataTypes.Build(deployer, borrow.asset);
-        const collateralCToken = await TokenDataTypes.Build(deployer, collateral.cToken);
-        const borrowCToken = await TokenDataTypes.Build(deployer, borrow.cToken);
 
-        const collateralAmount = useMaxAvailableCollateral
-          ? undefined
-          : getBigNumberFrom(defaultCollateralAmount, collateralToken.decimals);
-        const borrowAmount = useMaxAvailableCollateral
-          ? undefined
-          : getBigNumberFrom(defaultBorrowAmount, borrowToken.decimals);
-        const initialBorrowAmountOnUserBalance = getBigNumberFrom(
-          initialBorrowAmountOnUserBalanceNum || 0,
-          borrowToken.decimals
-        );
+    //region Utils
+    async function collateralToBorrow(
+      useMaxAvailableCollateral: boolean,
+      fullRepay: boolean,
+      initialBorrowAmountOnUserBalanceNum: number | undefined,
+      collateral: IAssetInfo,
+      borrow: IAssetInfo,
+      defaultCollateralAmount: number = 100_000,
+      defaultBorrowAmount: number = 10,
+      badPathParams?: IBorrowAndRepayBadParams
+    ) : Promise<{ret: string, expected: string}> {
+      const collateralToken = await TokenDataTypes.Build(deployer, collateral.asset);
+      const borrowToken = await TokenDataTypes.Build(deployer, borrow.asset);
+      const collateralCToken = await TokenDataTypes.Build(deployer, collateral.cToken);
+      const borrowCToken = await TokenDataTypes.Build(deployer, borrow.cToken);
 
-        const r = await makeBorrowAndRepay(
-          collateralToken,
-          collateralCToken,
-          collateral.holder,
-          collateralAmount,
-          borrowToken,
-          borrowCToken,
-          borrow.holder,
-          borrowAmount,
-          fullRepay ? undefined : borrowAmount,
-          initialBorrowAmountOnUserBalance,
-        );
+      const collateralAmount = useMaxAvailableCollateral
+        ? undefined
+        : getBigNumberFrom(defaultCollateralAmount, collateralToken.decimals);
+      const borrowAmount = useMaxAvailableCollateral
+        ? undefined
+        : getBigNumberFrom(defaultBorrowAmount, borrowToken.decimals);
+      const initialBorrowAmountOnUserBalance = getBigNumberFrom(
+        initialBorrowAmountOnUserBalanceNum || 0,
+        borrowToken.decimals
+      );
 
-        console.log(`r`, r);
-        const ret = [
-          r.userBalancesBeforeBorrow.collateral, r.userBalancesBeforeBorrow.borrow,
-          r.userBalancesAfterBorrow.collateral, r.userBalancesAfterBorrow.borrow,
+      const r = await makeBorrowAndRepay(
+        collateralToken,
+        collateralCToken,
+        collateral.holder,
+        collateralAmount,
+        borrowToken,
+        borrowCToken,
+        borrow.holder,
+        borrowAmount,
+        fullRepay ? undefined : borrowAmount,
+        initialBorrowAmountOnUserBalance,
+        badPathParams
+      );
 
-          // result collateral is almost same as initial, the difference is less than 1%
-          r.collateralAmount.sub(r.userBalancesAfterRepay.collateral)
-            .div(r.collateralAmount)
-            .mul(100).toNumber() < 1,
+      console.log(`r`, r);
+      const ret = [
+        r.userBalancesBeforeBorrow.collateral, r.userBalancesBeforeBorrow.borrow,
+        r.userBalancesAfterBorrow.collateral, r.userBalancesAfterBorrow.borrow,
 
-          // result borrow balance either 0 or a bit less than initial balance
-          initialBorrowAmountOnUserBalance.eq(0)
-            ? r.userBalancesAfterRepay.borrow.eq(0)
-            : r.userBalancesAfterRepay.borrow.lte(initialBorrowAmountOnUserBalance),
+        // result collateral is almost same as initial, the difference is less than 1%
+        r.collateralAmount.sub(r.userBalancesAfterRepay.collateral)
+          .div(r.collateralAmount)
+          .mul(100).toNumber() < 1,
 
-        ].map(x => BalanceUtils.toString(x)).join("\n");
+        // result borrow balance either 0 or a bit less than initial balance
+        initialBorrowAmountOnUserBalance.eq(0)
+          ? r.userBalancesAfterRepay.borrow.eq(0)
+          : r.userBalancesAfterRepay.borrow.lte(initialBorrowAmountOnUserBalance),
 
-        const expected = [
-          r.collateralAmount, initialBorrowAmountOnUserBalance,
-          0, r.borrowAmount.add(initialBorrowAmountOnUserBalance),
+      ].map(x => BalanceUtils.toString(x)).join("\n");
 
-          true,
-          true
-        ].map(x => BalanceUtils.toString(x)).join("\n");
+      const expected = [
+        r.collateralAmount, initialBorrowAmountOnUserBalance,
+        0, r.borrowAmount.add(initialBorrowAmountOnUserBalance),
 
-        return {ret, expected};
-      }
+        true,
+        true
+      ].map(x => BalanceUtils.toString(x)).join("\n");
 
-      async function daiWMatic(
-        useMaxAvailableCollateral: boolean,
-        fullRepay: boolean,
-        initialBorrowAmountOnUserBalanceNum?: number,
-        badPathParams?: IBorrowAndRepayBadParams
-      ) : Promise<{ret: string, expected: string}> {
-        const collateralAsset = MaticAddresses.DAI;
-        const collateralHolder = MaticAddresses.HOLDER_DAI;
-        const collateralCTokenAddress = MaticAddresses.hDAI;
+      return {ret, expected};
+    }
 
-        const borrowAsset = MaticAddresses.WMATIC;
-        const borrowHolder = MaticAddresses.HOLDER_WMATIC;
-        const borrowCTokenAddress = MaticAddresses.hMATIC;
+    async function daiWMatic(
+      useMaxAvailableCollateral: boolean,
+      fullRepay: boolean,
+      initialBorrowAmountOnUserBalanceNum?: number,
+      badPathParams?: IBorrowAndRepayBadParams
+    ) : Promise<{ret: string, expected: string}> {
+      const collateralAsset = MaticAddresses.DAI;
+      const collateralHolder = MaticAddresses.HOLDER_DAI;
+      const collateralCTokenAddress = MaticAddresses.hDAI;
 
-        return collateralToBorrow(
-          useMaxAvailableCollateral,
-          fullRepay,
-          initialBorrowAmountOnUserBalanceNum,
-          {
-            asset: collateralAsset,
-            holder: collateralHolder,
-            cToken: collateralCTokenAddress
-          },
-          {
-            asset: borrowAsset,
-            holder: borrowHolder,
-            cToken: borrowCTokenAddress
-          },
-          100_000,
-          10,
-          badPathParams
-        );
-      }
+      const borrowAsset = MaticAddresses.WMATIC;
+      const borrowHolder = MaticAddresses.HOLDER_WMATIC;
+      const borrowCTokenAddress = MaticAddresses.hMATIC;
 
-      async function daiUSDC(
-        useMaxAvailableCollateral: boolean,
-        fullRepay: boolean,
-        initialBorrowAmountOnUserBalanceNum?: number,
-        badPathParams?: IBorrowAndRepayBadParams
-      ) : Promise<{ret: string, expected: string}> {
-        const collateralAsset = MaticAddresses.DAI;
-        const collateralHolder = MaticAddresses.HOLDER_DAI;
-        const collateralCTokenAddress = MaticAddresses.hDAI;
+      return collateralToBorrow(
+        useMaxAvailableCollateral,
+        fullRepay,
+        initialBorrowAmountOnUserBalanceNum,
+        {
+          asset: collateralAsset,
+          holder: collateralHolder,
+          cToken: collateralCTokenAddress
+        },
+        {
+          asset: borrowAsset,
+          holder: borrowHolder,
+          cToken: borrowCTokenAddress
+        },
+        100_000,
+        10,
+        badPathParams
+      );
+    }
 
-        const borrowAsset = MaticAddresses.USDC;
-        const borrowHolder = MaticAddresses.HOLDER_USDC;
-        const borrowCTokenAddress = MaticAddresses.hUSDC;
+    async function daiUSDC(
+      useMaxAvailableCollateral: boolean,
+      fullRepay: boolean,
+      initialBorrowAmountOnUserBalanceNum?: number,
+      badPathParams?: IBorrowAndRepayBadParams
+    ) : Promise<{ret: string, expected: string}> {
+      const collateralAsset = MaticAddresses.DAI;
+      const collateralHolder = MaticAddresses.HOLDER_DAI;
+      const collateralCTokenAddress = MaticAddresses.hDAI;
 
-        return collateralToBorrow(
-          useMaxAvailableCollateral,
-          fullRepay,
-          initialBorrowAmountOnUserBalanceNum,
-          {
-            asset: collateralAsset,
-            holder: collateralHolder,
-            cToken: collateralCTokenAddress
-          },
-          {
-            asset: borrowAsset,
-            holder: borrowHolder,
-            cToken: borrowCTokenAddress
-          },
-          100_000,
-          10,
-          badPathParams
-        );
-      }
+      const borrowAsset = MaticAddresses.USDC;
+      const borrowHolder = MaticAddresses.HOLDER_USDC;
+      const borrowCTokenAddress = MaticAddresses.hUSDC;
 
-      async function usdtWETH(
-        useMaxAvailableCollateral: boolean,
-        fullRepay: boolean,
-        initialBorrowAmountOnUserBalanceNum?: number,
-        badPathParams?: IBorrowAndRepayBadParams
-      ) : Promise<{ret: string, expected: string}> {
-        const collateralAsset = MaticAddresses.USDT;
-        const collateralHolder = MaticAddresses.HOLDER_USDT;
-        const collateralCTokenAddress = MaticAddresses.hUSDT;
+      return collateralToBorrow(
+        useMaxAvailableCollateral,
+        fullRepay,
+        initialBorrowAmountOnUserBalanceNum,
+        {
+          asset: collateralAsset,
+          holder: collateralHolder,
+          cToken: collateralCTokenAddress
+        },
+        {
+          asset: borrowAsset,
+          holder: borrowHolder,
+          cToken: borrowCTokenAddress
+        },
+        100_000,
+        10,
+        badPathParams
+      );
+    }
 
-        const borrowAsset = MaticAddresses.WETH;
-        const borrowHolder = MaticAddresses.HOLDER_WETH;
-        const borrowCTokenAddress = MaticAddresses.hETH;
+    async function usdtWETH(
+      useMaxAvailableCollateral: boolean,
+      fullRepay: boolean,
+      initialBorrowAmountOnUserBalanceNum?: number,
+      badPathParams?: IBorrowAndRepayBadParams
+    ) : Promise<{ret: string, expected: string}> {
+      const collateralAsset = MaticAddresses.USDT;
+      const collateralHolder = MaticAddresses.HOLDER_USDT;
+      const collateralCTokenAddress = MaticAddresses.hUSDT;
 
-        return collateralToBorrow(
-          useMaxAvailableCollateral,
-          fullRepay,
-          initialBorrowAmountOnUserBalanceNum,
-          {
-            asset: collateralAsset,
-            holder: collateralHolder,
-            cToken: collateralCTokenAddress
-          },
-          {
-            asset: borrowAsset,
-            holder: borrowHolder,
-            cToken: borrowCTokenAddress
-          },
-          100_000_000,
-          1,
-          badPathParams
-        );
-      }
+      const borrowAsset = MaticAddresses.WETH;
+      const borrowHolder = MaticAddresses.HOLDER_WETH;
+      const borrowCTokenAddress = MaticAddresses.hETH;
 
-      async function usdtUSDC(
-        useMaxAvailableCollateral: boolean,
-        fullRepay: boolean,
-        initialBorrowAmountOnUserBalanceNum?: number,
-        badPathParams?: IBorrowAndRepayBadParams
-      ) : Promise<{ret: string, expected: string}> {
-        const collateralAsset = MaticAddresses.USDT;
-        const collateralHolder = MaticAddresses.HOLDER_USDT;
-        const collateralCTokenAddress = MaticAddresses.hUSDT;
+      return collateralToBorrow(
+        useMaxAvailableCollateral,
+        fullRepay,
+        initialBorrowAmountOnUserBalanceNum,
+        {
+          asset: collateralAsset,
+          holder: collateralHolder,
+          cToken: collateralCTokenAddress
+        },
+        {
+          asset: borrowAsset,
+          holder: borrowHolder,
+          cToken: borrowCTokenAddress
+        },
+        100_000_000,
+        1,
+        badPathParams
+      );
+    }
 
-        const borrowAsset = MaticAddresses.USDC;
-        const borrowHolder = MaticAddresses.HOLDER_USDC;
-        const borrowCTokenAddress = MaticAddresses.hUSDC;
+    async function usdtUSDC(
+      useMaxAvailableCollateral: boolean,
+      fullRepay: boolean,
+      initialBorrowAmountOnUserBalanceNum?: number,
+      badPathParams?: IBorrowAndRepayBadParams
+    ) : Promise<{ret: string, expected: string}> {
+      const collateralAsset = MaticAddresses.USDT;
+      const collateralHolder = MaticAddresses.HOLDER_USDT;
+      const collateralCTokenAddress = MaticAddresses.hUSDT;
 
-        return collateralToBorrow(
-          useMaxAvailableCollateral,
-          fullRepay,
-          initialBorrowAmountOnUserBalanceNum,
-          {
-            asset: collateralAsset,
-            holder: collateralHolder,
-            cToken: collateralCTokenAddress
-          },
-          {
-            asset: borrowAsset,
-            holder: borrowHolder,
-            cToken: borrowCTokenAddress
-          },
-          100_000,
-          10,
-          badPathParams
-        );
-      }
+      const borrowAsset = MaticAddresses.USDC;
+      const borrowHolder = MaticAddresses.HOLDER_USDC;
+      const borrowCTokenAddress = MaticAddresses.hUSDC;
+
+      return collateralToBorrow(
+        useMaxAvailableCollateral,
+        fullRepay,
+        initialBorrowAmountOnUserBalanceNum,
+        {
+          asset: collateralAsset,
+          holder: collateralHolder,
+          cToken: collateralCTokenAddress
+        },
+        {
+          asset: borrowAsset,
+          holder: borrowHolder,
+          cToken: borrowCTokenAddress
+        },
+        100_000,
+        10,
+        badPathParams
+      );
+    }
 //endregion Utils
+
+    describe("Good paths", () => {
       describe("Borrow and repay fixed small amount", () =>{
         describe("Partial repay of borrowed amount", () => {
           describe("DAI => USDC", () => {
@@ -1103,33 +1124,74 @@ describe("Hundred Finance integration tests, pool adapter", () => {
       });
     });
     describe("Bad paths", () => {
-      describe("Transfer amount different from specified amount to repay", () => {
+      describe("Transfer amount less than specified amount to repay", () => {
         it("should revert", async () => {
-          expect.fail("TODO");
+          if (!await isPolygonForkInUse()) return;
+
+          const usdcDecimals = await IERC20Extended__factory.connect(MaticAddresses.USDC, deployer).decimals();
+          await expect(
+            daiUSDC(
+              false,
+              false,
+              undefined,
+              {
+                // try to transfer too small amount on balance of the pool adapter
+                wrongAmountToRepayToTransfer: getBigNumberFrom(1, usdcDecimals)
+              }
+            )
+          ).revertedWith("TC-15"); // WRONG_BORROWED_BALANCE
+        });
+      });
+      describe("Transfer amount larger than specified amount to repay", () => {
+        it("should revert", async () => {
+          if (!await isPolygonForkInUse()) return;
+
+          const usdcDecimals = await IERC20Extended__factory.connect(MaticAddresses.USDC, deployer).decimals();
+          const initialBorrowAmountOnUserBalanceNumber = 1000;
+          await expect(
+            daiUSDC(
+              false,
+              false,
+              initialBorrowAmountOnUserBalanceNumber,
+              {
+                // try to transfer too LARGE amount on balance of the pool adapter
+                wrongAmountToRepayToTransfer: getBigNumberFrom(
+                  initialBorrowAmountOnUserBalanceNumber,
+                  usdcDecimals
+                )
+              }
+            )
+          ).revertedWith("TC-15"); // WRONG_BORROWED_BALANCE
         });
       });
       describe("Try to repay not opened position", () => {
         it("should revert", async () => {
-          expect.fail("TODO");
+          if (!await isPolygonForkInUse()) return;
+          const initialBorrowAmountOnUserBalanceNumber = 1000;
+          await expect(
+            daiUSDC(
+              false,
+              false,
+              initialBorrowAmountOnUserBalanceNumber,
+              {skipBorrow: true}
+            )
+          ).revertedWith("TC-28"); // ZERO_BALANCE
         });
       });
       describe("Try to close position with not zero debt", () => {
         it("should revert", async () => {
-          expect.fail("TODO");
-        });
-      });
-      describe("Wrong result health factor", () => {
-        it("should revert", async () => {
-          expect.fail("TODO");
-        });
-      });
-      describe("Amount to repay is too larger", () => {
-        it("should return remain amount to user's balance", async () => {
-          expect.fail("TODO");
+          if (!await isPolygonForkInUse()) return;
+          await expect(
+            daiUSDC(
+              false,
+              false,
+              undefined,
+              {forceToClosePosition: true}
+            )
+          ).revertedWith("TC-24"); // CLOSE_POSITION_FAILED
         });
       });
     });
-
   });
 
   describe("repayToRebalance", () => {

@@ -348,14 +348,15 @@ contract HfPoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP {
     (uint error, uint tokenBalance,,) = IHfCToken(cTokenCollateral_).getAccountSnapshot(address(this));
     require(error == 0, AppErrors.CTOKEN_GET_ACCOUNT_SNAPSHOT_FAILED);
 
-    if (closePosition_) {
-      return tokenBalance;
-    }
-
     (uint error2,, uint borrowBalance,) = IHfCToken(cTokenBorrow_).getAccountSnapshot(address(this));
     require(error2 == 0, AppErrors.CTOKEN_GET_ACCOUNT_SNAPSHOT_FAILED);
-    require(borrowBalance != 0 && amountToRepay_ <= borrowBalance, AppErrors.WRONG_BORROWED_BALANCE);
-
+    require(borrowBalance != 0, AppErrors.ZERO_BALANCE);
+    if (closePosition_) {
+      require(borrowBalance <= amountToRepay_, AppErrors.CLOSE_POSITION_FAILED);
+      return tokenBalance;
+    } else {
+      require(amountToRepay_ <= borrowBalance, AppErrors.WRONG_BORROWED_BALANCE);
+    }
     return tokenBalance * amountToRepay_ / borrowBalance;
   }
 

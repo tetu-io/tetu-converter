@@ -274,10 +274,15 @@ contract DForcePoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP {
     address cTokenBorrow = borrowCToken;
     address cTokenCollateral = collateralCToken;
 
+    console.log("repayToRebalance");
+    console.log("repayToRebalance amountToRepay_", amountToRepay_);
+    console.log("IERC20(assetBorrow).balanceOf(address(this))", IERC20(assetBorrow).balanceOf(address(this)));
+    console.log("reserveBalances[assetBorrow]", reserveBalances[assetBorrow]);
+
     // ensure that we have received enough money on our balance just before repay was called
     require(
-      amountToRepay_ == IERC20(assetBorrow).balanceOf(address(this)) - reserveBalances[assetBorrow]
-    , AppErrors.WRONG_BORROWED_BALANCE
+      amountToRepay_ == IERC20(assetBorrow).balanceOf(address(this)) - reserveBalances[assetBorrow],
+      AppErrors.WRONG_BORROWED_BALANCE
     );
 
     // how much collateral we are going to return
@@ -341,12 +346,14 @@ contract DForcePoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP {
   ) internal view returns (uint) {
     uint tokenBalance = IERC20(cTokenCollateral_).balanceOf(address(this));
 
-    if (closePosition_) {
-      return tokenBalance;
-    }
-
     uint borrowBalance = IDForceCToken(cTokenBorrow_).borrowBalanceStored(address(this));
-    require(borrowBalance != 0 && amountToRepay_ <= borrowBalance, AppErrors.WRONG_BORROWED_BALANCE);
+    require(borrowBalance != 0, AppErrors.ZERO_BALANCE);
+    if (closePosition_) {
+      require(borrowBalance <= amountToRepay_, AppErrors.CLOSE_POSITION_FAILED);
+      return tokenBalance;
+    } else {
+      require(amountToRepay_ <= borrowBalance, AppErrors.WRONG_BORROWED_BALANCE);
+    }
 
     console.log("_getCollateralTokensToRedeem", tokenBalance, amountToRepay_, borrowBalance);
     return tokenBalance * amountToRepay_ / borrowBalance;
@@ -369,8 +376,8 @@ contract DForcePoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP {
 
     // ensure that we have received enough money on our balance just before repay was called
     require(
-      amountToRepay_ == IERC20(assetBorrow).balanceOf(address(this)) - reserveBalances[assetBorrow]
-    , AppErrors.WRONG_BORROWED_BALANCE
+      amountToRepay_ == IERC20(assetBorrow).balanceOf(address(this)) - reserveBalances[assetBorrow],
+      AppErrors.WRONG_BORROWED_BALANCE
     );
 
     // transfer borrow amount back to the pool
