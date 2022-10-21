@@ -40,6 +40,8 @@ export interface IBorrowAndRepayBadParams {
   wrongAmountToRepayToTransfer?: BigNumber;
 
   forceToClosePosition?: boolean;
+
+  repayAsNotUserAndNotTC?: boolean;
 }
 
 /**

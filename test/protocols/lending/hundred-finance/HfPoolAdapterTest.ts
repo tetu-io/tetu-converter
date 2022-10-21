@@ -668,6 +668,8 @@ describe("Hundred Finance integration tests, pool adapter", () => {
       wrongAmountToRepayToTransfer?: BigNumber;
 
       forceToClosePosition?: boolean;
+
+      repayAsNotUserAndNotTC?: boolean;
     }
 
     interface IAssetInfo {
@@ -744,15 +746,22 @@ describe("Hundred Finance integration tests, pool adapter", () => {
         await DeployerUtils.startImpersonate(d.userContract.address)
       );
       if (amountToRepay) {
+        const poolAdapter = badParams?.repayAsNotUserAndNotTC
+          ? IPoolAdapter__factory.connect(
+            d.hfPoolAdapterTC.address,
+            deployer // not TC, not user
+          )
+          : d.hfPoolAdapterTC;
+
         // make partial repay
-        await d.hfPoolAdapterTC.syncBalance(false, true);
+        await poolAdapter.syncBalance(false, true);
         await borrowTokenAsUser.transfer(
-          d.hfPoolAdapterTC.address,
+          poolAdapter.address,
           badParams?.wrongAmountToRepayToTransfer
             ? badParams?.wrongAmountToRepayToTransfer
             : amountToRepay
         );
-        await d.hfPoolAdapterTC.repay(
+        await poolAdapter.repay(
           amountToRepay,
           d.userContract.address,
           badParams?.forceToClosePosition || false

@@ -683,6 +683,8 @@ describe("DForce integration tests, pool adapter", () => {
       wrongAmountToRepayToTransfer?: BigNumber;
 
       forceToClosePosition?: boolean;
+
+      repayAsNotUserAndNotTC?: boolean;
     }
 
     interface IAssetInfo {
@@ -760,16 +762,23 @@ describe("DForce integration tests, pool adapter", () => {
         await DeployerUtils.startImpersonate(d.userContract.address)
       );
       if (amountToRepay) {
+        const poolAdapter = badParams?.repayAsNotUserAndNotTC
+          ? IPoolAdapter__factory.connect(
+              d.dfPoolAdapterTC.address,
+              deployer // not TC, not user
+          )
+          : d.dfPoolAdapterTC;
+
         // make partial repay
-        await d.dfPoolAdapterTC.syncBalance(false, true);
+        await poolAdapter.syncBalance(false, true);
         console.log("Balance borrow asset", await borrowTokenAsUser.balanceOf(d.userContract.address));
         await borrowTokenAsUser.transfer(
-          d.dfPoolAdapterTC.address,
+          poolAdapter.address,
           badParams?.wrongAmountToRepayToTransfer
             ? badParams?.wrongAmountToRepayToTransfer
             : amountToRepay
         );
-        await d.dfPoolAdapterTC.repay(
+        await poolAdapter.repay(
           amountToRepay,
           d.userContract.address,
           badParams?.forceToClosePosition || false
@@ -1141,6 +1150,23 @@ describe("DForce integration tests, pool adapter", () => {
       });
     });
     describe("Bad paths", () => {
+      describe("Not user, not TC", () => {
+        it("should return expected values", async () => {
+          if (!await isPolygonForkInUse()) return;
+
+          const usdcDecimals = await IERC20Extended__factory.connect(MaticAddresses.USDC, deployer).decimals();
+          await expect(
+            daiUSDC(
+              false,
+              false,
+              undefined,
+              {
+                repayAsNotUserAndNotTC: true
+              }
+            )
+          ).revertedWith("TC-32"); // USER_OR_TETU_CONVERTER_ONLY
+        });
+      });
       describe("Transfer amount less than specified amount to repay", () => {
         it("should revert", async () => {
           if (!await isPolygonForkInUse()) return;

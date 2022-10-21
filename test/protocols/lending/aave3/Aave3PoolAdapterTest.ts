@@ -1052,15 +1052,21 @@ describe("Aave3PoolAdapterTest", () => {
         await DeployerUtils.startImpersonate(d.userContract.address)
       );
       if (amountToRepay) {
+        const poolAdapter = badParams?.repayAsNotUserAndNotTC
+          ? IPoolAdapter__factory.connect(
+            d.aavePoolAdapterAsTC.address,
+            deployer // not TC, not user
+          )
+          : d.aavePoolAdapterAsTC;
         // make partial repay
-        await d.aavePoolAdapterAsTC.syncBalance(false, true);
+        await poolAdapter.syncBalance(false, true);
         await borrowTokenAsUser.transfer(
-          d.aavePoolAdapterAsTC.address,
+          poolAdapter.address,
           badParams?.wrongAmountToRepayToTransfer
             ? badParams?.wrongAmountToRepayToTransfer
             : amountToRepay
         );
-        await d.aavePoolAdapterAsTC.repay(
+        await poolAdapter.repay(
           amountToRepay,
           d.userContract.address,
           // normally we don't close position here
