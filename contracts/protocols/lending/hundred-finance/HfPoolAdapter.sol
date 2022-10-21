@@ -371,6 +371,9 @@ contract HfPoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP {
     address cTokenBorrow = borrowCToken;
     address cTokenCollateral = collateralCToken;
 
+    // ensure that the position is opened
+    require(IDebtMonitor(controller.debtMonitor()).isPositionOpened(), AppErrors.BORROW_POSITION_IS_NOT_REGISTERED);
+
     // ensure, that amount to repay is less then the total debt
     (, uint outBorrowBalance,,,) = _getStatus(cTokenCollateral, cTokenBorrow);
     require(outBorrowBalance > 0 && amountToRepay_ < outBorrowBalance, AppErrors.REPAY_TO_REBALANCE_NOT_ALLOWED);

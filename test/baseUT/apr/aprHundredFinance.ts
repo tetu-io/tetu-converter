@@ -2,7 +2,6 @@ import {BigNumber} from "ethers";
 import {IBorrowResults, IPointResults} from "./aprDataTypes";
 import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import {ITestSingleBorrowParams} from "../types/BorrowRepayDataTypes";
-import {TokenDataTypes} from "../types/TokenDataTypes";
 import {HundredFinanceHelper} from "../../../scripts/integration/helpers/HundredFinanceHelper";
 import {
   HfAprLibFacade, HfTestHelper, IERC20Extended__factory, IHfComptroller,
@@ -17,10 +16,8 @@ import {
   convertUnits, makeBorrow
 } from "./aprUtils";
 import {TimeUtils} from "../../../scripts/utils/TimeUtils";
-import {Misc} from "../../../scripts/utils/Misc";
 import {HundredFinancePlatformFabric} from "../fabrics/HundredFinancePlatformFabric";
 import {HundredFinanceUtils} from "../utils/HundredFinanceUtils";
-import {DForceHelper} from "../../../scripts/integration/helpers/DForceHelper";
 
 //region Data types
 interface IHfMarketState {

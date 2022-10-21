@@ -172,9 +172,9 @@ contract HfPlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
           plan.amountToBorrow = AppUtils.toMantissa(
             borrowAmountFactor18_
               * plan.liquidationThreshold18
-              * priceCollateral36
-              / priceBorrow36
-              / 1e18, // amount to borrow, decimals 18
+              / 1e18
+              * (priceCollateral36 * 1e18 / priceBorrow36)
+              / 1e18,
             18,
             IERC20Extended(borrowAsset_).decimals()
           );

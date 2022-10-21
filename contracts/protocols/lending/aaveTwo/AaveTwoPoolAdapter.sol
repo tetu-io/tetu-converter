@@ -319,9 +319,6 @@ contract AaveTwoPoolAdapter is IPoolAdapter, IPoolAdapterInitializer {
     address assetBorrow = borrowAsset;
     IAaveTwoPool pool = _pool;
 
-    // ensure that the position is opened
-    require(IDebtMonitor(controller.debtMonitor()).isPositionOpened(), AppErrors.BORROW_POSITION_IS_NOT_REGISTERED);
-
     // ensure, that amount to repay is less then the total debt
     (,uint256 totalDebtBase0,,,,) = _pool.getUserAccountData(address(this));
     uint priceBorrowAsset = _priceOracle.getAssetPrice(assetBorrow);

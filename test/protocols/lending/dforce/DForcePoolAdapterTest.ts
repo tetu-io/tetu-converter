@@ -750,10 +750,8 @@ describe("DForce integration tests, pool adapter", () => {
       const cTokenCollateral = await IDForceCToken__factory.connect(collateralCToken.address, deployer);
       const cTokenBorrow = await IDForceCToken__factory.connect(borrowCToken.address, deployer);
 
-      const bBorrowBalance = await IDForceCToken__factory.connect(borrowCToken.address, deployer)
-        .borrowBalanceStored(d.dfPoolAdapterTC.address);
-      const cTokenBalance = await IDForceCToken__factory.connect(collateralCToken.address, deployer)
-        .balanceOf(d.dfPoolAdapterTC.address);
+      const bBorrowBalance = await cTokenBorrow.borrowBalanceStored(d.dfPoolAdapterTC.address);
+      const cTokenBalance = await cTokenCollateral.balanceOf(d.dfPoolAdapterTC.address);
 
       return {
         userBalancesBeforeBorrow: beforeBorrow,
@@ -1132,7 +1130,7 @@ describe("DForce integration tests, pool adapter", () => {
           if (!await isPolygonForkInUse()) return;
           await expect(
             daiWMatic({skipBorrow: true})
-          ).revertedWith("TC-11");
+          ).revertedWith("TC-40"); // REPAY_TO_REBALANCE_NOT_ALLOWED
         });
       });
       describe("Result health factor is less min allowed one", () => {
@@ -1155,6 +1153,21 @@ describe("DForce integration tests, pool adapter", () => {
   });
 
   describe("TODO:syncBalance", () => {
+    describe("Good paths", () => {
+      it("should return expected values", async () => {
+        expect.fail("TODO");
+      });
+    });
+    describe("Bad paths", () => {
+      describe("", () => {
+        it("should revert", async () => {
+          expect.fail("TODO");
+        });
+      });
+    });
+  });
+
+  describe("TODO:updateBalance", () => {
     describe("Good paths", () => {
       it("should return expected values", async () => {
         expect.fail("TODO");

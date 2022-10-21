@@ -966,7 +966,7 @@ describe("AaveTwoPoolAdapterTest", () => {
           if (!await isPolygonForkInUse()) return;
           await expect(
             testRepayToRebalanceDaiWMatic({skipBorrow: true})
-          ).revertedWith("TC-11");
+          ).revertedWith("TC-40"); // REPAY_TO_REBALANCE_NOT_ALLOWED
         });
       });
       describe("Result health factor is less min allowed one", () => {
@@ -989,6 +989,21 @@ describe("AaveTwoPoolAdapterTest", () => {
   });
 
   describe("TODO:syncBalance", () => {
+    describe("Good paths", () => {
+      it("should return expected values", async () => {
+        expect.fail("TODO");
+      });
+    });
+    describe("Bad paths", () => {
+      describe("", () => {
+        it("should revert", async () => {
+          expect.fail("TODO");
+        });
+      });
+    });
+  });
+
+  describe("TODO:updateBalance", () => {
     describe("Good paths", () => {
       it("should return expected values", async () => {
         expect.fail("TODO");
