@@ -15,7 +15,9 @@ export interface IMakeBorrowAndRepayResults {
   totalCollateralBase: BigNumber;
   totalDebtBase: BigNumber;
   poolAdapter: string;
+  /* Actually borrowed amount */
   borrowAmount: BigNumber;
+  /* Actual collateral amount*/
   collateralAmount: BigNumber;
 }
 
