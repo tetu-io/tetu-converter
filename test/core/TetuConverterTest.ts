@@ -701,16 +701,17 @@ describe("TetuConverterTest", () => {
       receiverIsNull?: boolean,
       userSendsNotEnoughAmountToTetuConverter?: boolean
     }
+    interface IRepayResults {
+      countOpenedPositions: number;
+      totalDebt: BigNumber;
+      init: IPrepareResults;
+    }
     async function makeRepayTest(
       collateralAmounts: number[],
       exactBorrowAmounts: number[],
       amountToRepayNum: number,
       repayBadPathParams?: IRepayBadPathParams
-    ) : Promise<{
-      countOpenedPositions: number,
-      totalDebt: BigNumber,
-      init: IPrepareResults
-    }> {
+    ) : Promise<IRepayResults> {
       const init = await prepareTetuAppWithMultipleLendingPlatforms(collateralAmounts.length);
       const targetTokenDecimals = await init.targetToken.decimals();
 
@@ -800,6 +801,16 @@ describe("TetuConverterTest", () => {
             ].join();
 
             expect(ret).eq(expected);
+          });
+        });
+        describe("TODO: Pure swap", () => {
+          it("should return expected values", async () => {
+            expect.fail("TODO");
+          });
+        });
+        describe("TODO: Full repay with swap", () => {
+          it("should return expected values", async () => {
+            expect.fail("TODO");
           });
         });
       });
@@ -924,6 +935,16 @@ describe("TetuConverterTest", () => {
             expect(ret).eq(expected);
           });
         });
+        describe("TODO: Pure swap", () => {
+          it("should return expected values", async () => {
+            expect.fail("TODO");
+          });
+        });
+        describe("TODO: Full repay with swap", () => {
+          it("should return expected values", async () => {
+            expect.fail("TODO");
+          });
+        });
       });
     });
     describe("Bad paths", () => {
@@ -966,6 +987,16 @@ describe("TetuConverterTest", () => {
               { userSendsNotEnoughAmountToTetuConverter: true }
             )
           ).revertedWith("TC-15");
+        });
+      });
+      describe("TODO: Pure swap - no conversion strategy found", () => {
+        it("should return expected values", async () => {
+          expect.fail("TODO");
+        });
+      });
+      describe("TODO: Amount to swap is too small (dust)", () => {
+        it("should return expected values", async () => {
+          expect.fail("TODO");
         });
       });
     });
