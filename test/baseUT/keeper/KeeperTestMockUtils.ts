@@ -1,4 +1,4 @@
-import {MockTestInputParams, TestSingleBorrowParams} from "../types/BorrowRepayDataTypes";
+import {IMockTestInputParams, ITestSingleBorrowParams} from "../types/BorrowRepayDataTypes";
 import {Borrower, Controller, ITetuConverter} from "../../../typechain";
 import {TokenDataTypes} from "../types/TokenDataTypes";
 import {MocksHelper} from "../helpers/MocksHelper";
@@ -26,8 +26,8 @@ export class KeeperTestMockUtils {
    */
   static async makeSingleBorrow_Mock (
     deployer: SignerWithAddress,
-    p: TestSingleBorrowParams,
-    m: MockTestInputParams,
+    p: ITestSingleBorrowParams,
+    m: IMockTestInputParams,
     countMockFabrics: number = 1
   ) : Promise<{
     uc: Borrower

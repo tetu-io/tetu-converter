@@ -1,7 +1,7 @@
 import {BigNumber} from "ethers";
 import {IBorrowResults, IPointResults} from "./aprDataTypes";
 import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
-import {TestSingleBorrowParams} from "../types/BorrowRepayDataTypes";
+import {ITestSingleBorrowParams} from "../types/BorrowRepayDataTypes";
 import {TokenDataTypes} from "../types/TokenDataTypes";
 import {HundredFinanceHelper} from "../../../scripts/integration/helpers/HundredFinanceHelper";
 import {
@@ -172,7 +172,7 @@ export class AprHundredFinance {
   static async makeBorrowTest(
     deployer: SignerWithAddress
     , amountToBorrow0: number | BigNumber
-    , p: TestSingleBorrowParams
+    , p: ITestSingleBorrowParams
     , additionalPoints: number[]
   ): Promise<{
     details: IAprHfTwoResults

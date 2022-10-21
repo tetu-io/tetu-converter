@@ -1,6 +1,6 @@
 import {BigNumber} from "ethers";
 import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
-import {TestSingleBorrowParams} from "../types/BorrowRepayDataTypes";
+import {ITestSingleBorrowParams} from "../types/BorrowRepayDataTypes";
 import {
   IAaveKeyState,
   IAaveKeyTestValues,
@@ -252,7 +252,7 @@ export class AprAaveTwo {
   static async makeBorrowTest(
     deployer: SignerWithAddress,
     amountToBorrow0: number | BigNumber,
-    p: TestSingleBorrowParams,
+    p: ITestSingleBorrowParams,
     additionalPoints: number[]
   ) : Promise<{
     details: IAprAaveTwoResults,

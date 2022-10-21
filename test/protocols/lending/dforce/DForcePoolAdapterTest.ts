@@ -23,6 +23,7 @@ import {Misc} from "../../../../scripts/utils/Misc";
 import {CompareAprUsesCase} from "../../../baseUT/uses-cases/CompareAprUsesCase";
 import {IDForceCalcAccountEquityResults} from "../../../baseUT/apr/aprDForce";
 import {areAlmostEqual, toStringWithRound} from "../../../baseUT/utils/CommonUtils";
+import {IPoolAdapterStatus} from "../../../baseUT/types/BorrowRepayDataTypes";
 
 describe("DForce integration tests, pool adapter", () => {
 //region Global vars for all tests
@@ -114,7 +115,7 @@ describe("DForce integration tests, pool adapter", () => {
     const dfPlatformAdapter = await AdaptersHelper.createDForcePlatformAdapter(
       deployer,
       controller.address,
-      comptroller.address,
+      MaticAddresses.DFORCE_CONTROLLER,
       converterNormal.address,
       [collateralCTokenAddress, borrowCTokenAddress],
     );
@@ -919,6 +920,8 @@ describe("DForce integration tests, pool adapter", () => {
     interface IMakeRepayToRebalanceResults {
       afterBorrow: IDForceCalcAccountEquityResults;
       afterBorrowToRebalance: IDForceCalcAccountEquityResults;
+      afterBorrowStatus: IPoolAdapterStatus;
+      afterBorrowToRebalanceStatus: IPoolAdapterStatus;
       userBalanceAfterBorrow: BigNumber;
       userBalanceAfterRepayToRebalance: BigNumber;
       expectedAmountToRepay: BigNumber;
@@ -944,8 +947,8 @@ describe("DForce integration tests, pool adapter", () => {
       collateralCTokenAddress: string,
       collateralAmount: BigNumber,
       borrowToken: TokenDataTypes,
-      borrowCTokenAddress: string,
       borrowHolder: string,
+      borrowCTokenAddress: string,
       badPathsParams?: IMakeRepayRebalanceBadPathParams
     ) : Promise<IMakeRepayToRebalanceResults>{
       const d = await prepareToBorrow(
@@ -971,8 +974,8 @@ describe("DForce integration tests, pool adapter", () => {
       console.log("borrowAssetData", borrowAssetData);
 
       // prices of assets in base currency
-      const priceCollateral = await d.priceOracle.getUnderlyingPrice(d.collateralCToken);
-      const priceBorrow = await d.priceOracle.getUnderlyingPrice(d.borrowCToken);
+      const priceCollateral = await d.priceOracle.getUnderlyingPrice(d.collateralCToken.address);
+      const priceBorrow = await d.priceOracle.getUnderlyingPrice(d.borrowCToken.address);
       console.log("prices", priceCollateral, priceBorrow);
 
       // setup low values for all health factors
@@ -997,6 +1000,7 @@ describe("DForce integration tests, pool adapter", () => {
 
       const afterBorrow: IDForceCalcAccountEquityResults = await d.comptroller.calcAccountEquity(d.dfPoolAdapterTC.address);
       const userBalanceAfterBorrow = await borrowToken.token.balanceOf(d.userContract.address);
+      const afterBorrowStatus = await d.dfPoolAdapterTC.getStatus();
       console.log("after borrow:", afterBorrow, userBalanceAfterBorrow);
 
       // increase all health factors down on 2 times to have possibility for additional borrow
@@ -1043,6 +1047,7 @@ describe("DForce integration tests, pool adapter", () => {
 
       const afterBorrowToRebalance: IDForceCalcAccountEquityResults = await d.comptroller.calcAccountEquity(d.dfPoolAdapterTC.address);
       const userBalanceAfterRepayToRebalance = await borrowToken.token.balanceOf(d.userContract.address);
+      const afterBorrowToRebalanceStatus = await d.dfPoolAdapterTC.getStatus();
       console.log("after repay to rebalance:", afterBorrowToRebalance, userBalanceAfterRepayToRebalance);
 
       return {
@@ -1050,7 +1055,9 @@ describe("DForce integration tests, pool adapter", () => {
         afterBorrowToRebalance,
         userBalanceAfterBorrow,
         userBalanceAfterRepayToRebalance,
-        expectedAmountToRepay
+        expectedAmountToRepay,
+        afterBorrowStatus,
+        afterBorrowToRebalanceStatus
       }
     }
 
@@ -1080,14 +1087,15 @@ describe("DForce integration tests, pool adapter", () => {
         collateralAmount,
         borrowToken,
         borrowHolder,
-        borrowCToken
+        borrowCToken,
+        badPathParams
       );
 
       console.log(r);
 
       const ret = [
-        Math.round(r.afterBorrow.healthFactor.div(getBigNumberFrom(1, 15)).toNumber() / 10.),
-        Math.round(r.afterBorrowToRebalance.healthFactor.div(getBigNumberFrom(1, 15)).toNumber() / 10.),
+        Math.round(r.afterBorrowStatus.healthFactor18.div(getBigNumberFrom(1, 15)).toNumber() / 10.),
+        Math.round(r.afterBorrowToRebalanceStatus.healthFactor18.div(getBigNumberFrom(1, 15)).toNumber() / 10.),
         toStringWithRound(r.userBalanceAfterBorrow),
         toStringWithRound(r.userBalanceAfterRepayToRebalance),
       ].join("\n");
@@ -1104,32 +1112,18 @@ describe("DForce integration tests, pool adapter", () => {
     describe("Good paths", () => {
       it("should return expected values", async () => {
         if (!await isPolygonForkInUse()) return;
-        const r = await AaveRepayToRebalanceUtils.daiWMatic(
-          deployer,
-          makeRepayToRebalance,
-          targetHealthFactorInitial2,
-          targetHealthFactorUpdated2
-        );
+        const r = await daiWMatic();
 
         expect(r.ret).eq(r.expected);
       });
     });
 
     describe("Bad paths", () => {
-      async function testRepayToRebalanceDaiWMatic(badPathParams?: IMakeRepayRebalanceBadPathParams) {
-        await AaveRepayToRebalanceUtils.daiWMatic(
-          deployer,
-          makeRepayToRebalance,
-          targetHealthFactorInitial2,
-          targetHealthFactorUpdated2,
-          badPathParams
-        );
-      }
       describe("Not TetuConverter and not user", () => {
         it("should revert", async () => {
           if (!await isPolygonForkInUse()) return;
           await expect(
-            testRepayToRebalanceDaiWMatic({makeRepayToRebalanceAsDeployer: true})
+            daiWMatic({makeRepayToRebalanceAsDeployer: true})
           ).revertedWith("TC-32");
         });
       });
@@ -1137,7 +1131,7 @@ describe("DForce integration tests, pool adapter", () => {
         it("should revert", async () => {
           if (!await isPolygonForkInUse()) return;
           await expect(
-            testRepayToRebalanceDaiWMatic({skipBorrow: true})
+            daiWMatic({skipBorrow: true})
           ).revertedWith("TC-11");
         });
       });
@@ -1145,7 +1139,7 @@ describe("DForce integration tests, pool adapter", () => {
         it("should revert", async () => {
           if (!await isPolygonForkInUse()) return;
           await expect(
-            testRepayToRebalanceDaiWMatic({additionalAmountCorrectionFactorDiv: 100})
+            daiWMatic({additionalAmountCorrectionFactorDiv: 100})
           ).revertedWith("TC-3: wrong health factor");
         });
       });
@@ -1153,7 +1147,7 @@ describe("DForce integration tests, pool adapter", () => {
         it("should revert", async () => {
           if (!await isPolygonForkInUse()) return;
           await expect(
-            testRepayToRebalanceDaiWMatic({additionalAmountCorrectionFactorMul: 100})
+            daiWMatic({additionalAmountCorrectionFactorMul: 100})
           ).revertedWith("TC-40"); // REPAY_TO_REBALANCE_NOT_ALLOWED
         });
       });

@@ -18,7 +18,7 @@ import {Aave3PlatformFabric} from "../fabrics/Aave3PlatformFabric";
 import {TimeUtils} from "../../../scripts/utils/TimeUtils";
 import {BigNumber} from "ethers";
 import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
-import {TestSingleBorrowParams} from "../types/BorrowRepayDataTypes";
+import {ITestSingleBorrowParams} from "../types/BorrowRepayDataTypes";
 import {Aave3DataTypes} from "../../../typechain/contracts/integrations/aave3/IAavePool";
 import hre from "hardhat";
 import {
@@ -286,7 +286,7 @@ export class AprAave3 {
   static async makeBorrowTest(
     deployer: SignerWithAddress
     , amountToBorrow0: number | BigNumber
-    , p: TestSingleBorrowParams
+    , p: ITestSingleBorrowParams
     , additionalPoints: number[]
   ) : Promise<{
     details: IAprAave3Results

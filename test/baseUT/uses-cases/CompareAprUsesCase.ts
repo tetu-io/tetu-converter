@@ -1,4 +1,4 @@
-import {TestSingleBorrowParams} from "../types/BorrowRepayDataTypes";
+import {ITestSingleBorrowParams} from "../types/BorrowRepayDataTypes";
 import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import {
   IConversionPlan,
@@ -17,7 +17,7 @@ import {toMantissa} from "../utils/CommonUtils";
 //region Data types
 interface IInputParams {
   amountToBorrow: number | BigNumber;
-  params: TestSingleBorrowParams;
+  params: ITestSingleBorrowParams;
   additionalPoints: number[];
 }
 
@@ -25,7 +25,7 @@ interface IInputParams {
 export type BorrowTestMaker = (
   deployer: SignerWithAddress,
   amountToBorrow: number | BigNumber,
-  p: TestSingleBorrowParams,
+  p: ITestSingleBorrowParams,
   additionalPoints: number[]
 ) => Promise<IBorrowResults>;
 
@@ -192,7 +192,7 @@ export class CompareAprUsesCase {
               error: "Plan not found",
             });
           } else {
-            const p: TestSingleBorrowParams = {
+            const p: ITestSingleBorrowParams = {
               collateral: {
                 asset: task.collateralAsset.asset,
                 holder: task.collateralAsset.holders.join(";"),

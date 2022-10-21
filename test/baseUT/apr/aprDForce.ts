@@ -1,7 +1,7 @@
 import {BigNumber} from "ethers";
 import {IBorrowResults, IPointResults} from "./aprDataTypes";
 import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
-import {TestSingleBorrowParams} from "../types/BorrowRepayDataTypes";
+import {ITestSingleBorrowParams} from "../types/BorrowRepayDataTypes";
 import {DForceHelper} from "../../../scripts/integration/helpers/DForceHelper";
 import {
   DForceAprLibFacade, DForceTestHelper,
@@ -169,7 +169,7 @@ export class AprDForce {
   static async makeBorrowTest(
     deployer: SignerWithAddress
     , amountToBorrow0: number | BigNumber
-    , p: TestSingleBorrowParams
+    , p: ITestSingleBorrowParams
     , additionalPoints: number[]
   ): Promise<{
     details: IAprDForceTwoResults

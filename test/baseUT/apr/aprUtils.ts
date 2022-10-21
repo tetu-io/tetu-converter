@@ -1,5 +1,5 @@
 import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
-import {TestSingleBorrowParams} from "../types/BorrowRepayDataTypes";
+import {ITestSingleBorrowParams} from "../types/BorrowRepayDataTypes";
 import {BigNumber} from "ethers";
 import {ILendingPlatformFabric} from "../fabrics/ILendingPlatformFabric";
 import {TetuConverterApp} from "../helpers/TetuConverterApp";
@@ -21,7 +21,7 @@ import {IPointResults} from "./aprDataTypes";
  */
 export async function makeBorrow (
   deployer: SignerWithAddress,
-  p: TestSingleBorrowParams,
+  p: ITestSingleBorrowParams,
   amountToBorrow: BigNumber,
   fabric: ILendingPlatformFabric,
 ) : Promise<{

@@ -6,7 +6,7 @@ import {
 } from "../../../typechain";
 import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import {TokenDataTypes} from "../types/TokenDataTypes";
-import {MockTestInputParams, TestSingleBorrowParams, TestTwoBorrowsParams} from "../types/BorrowRepayDataTypes";
+import {IMockTestInputParams, ITestSingleBorrowParams, ITestTwoBorrowsParams} from "../types/BorrowRepayDataTypes";
 import {ILendingPlatformFabric} from "../fabrics/ILendingPlatformFabric";
 import {TetuConverterApp} from "../helpers/TetuConverterApp";
 import {MocksHelper} from "../helpers/MocksHelper";
@@ -226,8 +226,8 @@ export class BorrowRepayUsesCase {
 //region Test single borrow, single repay
   static async makeTestSingleBorrowInstantRepay_Mock(
     deployer: SignerWithAddress,
-    p: TestSingleBorrowParams,
-    m: MockTestInputParams
+    p: ITestSingleBorrowParams,
+    m: IMockTestInputParams
   ) : Promise<{sret: string, sexpected: string}> {
     const collateralToken = await TokenDataTypes.Build(deployer, p.collateral.asset);
     const borrowToken = await TokenDataTypes.Build(deployer, p.borrow.asset);
@@ -297,7 +297,7 @@ export class BorrowRepayUsesCase {
 
   static async makeTestSingleBorrowInstantRepayBase(
     deployer: SignerWithAddress,
-    p: TestSingleBorrowParams,
+    p: ITestSingleBorrowParams,
     fabric: ILendingPlatformFabric,
     checkGasUsed: boolean = false,
   ) : Promise<{
@@ -368,7 +368,7 @@ export class BorrowRepayUsesCase {
 
   static async makeTestSingleBorrowInstantRepay(
     deployer: SignerWithAddress,
-    p: TestSingleBorrowParams,
+    p: ITestSingleBorrowParams,
     fabric: ILendingPlatformFabric,
     expectations: IResultExpectations,
     checkGasUsed: boolean = false,
@@ -405,8 +405,8 @@ export class BorrowRepayUsesCase {
 //region Test two borrows, two repays
   static async makeTestTwoBorrowsTwoRepays_Mock(
     deployer: SignerWithAddress,
-    p: TestTwoBorrowsParams,
-    m: MockTestInputParams
+    p: ITestTwoBorrowsParams,
+    m: IMockTestInputParams
   ) : Promise<{sret: string, sexpected: string}> {
     const collateralToken = await TokenDataTypes.Build(deployer, p.collateral.asset);
     const borrowToken = await TokenDataTypes.Build(deployer, p.borrow.asset);
@@ -509,7 +509,7 @@ export class BorrowRepayUsesCase {
 
   static async makeTestTwoBorrowsTwoRepays(
     deployer: SignerWithAddress,
-    p: TestTwoBorrowsParams,
+    p: ITestTwoBorrowsParams,
     fabric: ILendingPlatformFabric,
     expectations: IResultExpectations,
   ) : Promise<{sret: string, sexpected: string}> {

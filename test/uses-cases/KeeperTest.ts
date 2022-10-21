@@ -31,7 +31,7 @@ import {isPolygonForkInUse} from "../baseUT/utils/NetworkUtils";
 import {IReConverter, ReConverterMock, ReConverterUsingPA} from "../baseUT/keeper/ReСonverters";
 import {LendingPlatformManagerMock} from "../baseUT/keeper/LendingPlatformManagerMock";
 import {PoolAdapterState01} from "../baseUT/keeper/ILendingPlatformManager";
-import {TestSingleBorrowParams} from "../baseUT/types/BorrowRepayDataTypes";
+import {ITestSingleBorrowParams} from "../baseUT/types/BorrowRepayDataTypes";
 import {setInitialBalance} from "../baseUT/utils/CommonUtils";
 import {LendingPlatformManagerAave3} from "../baseUT/keeper/LendingPlatformManagerAave3";
 import {ILendingPlatformFabric} from "../baseUT/fabrics/ILendingPlatformFabric";
@@ -90,7 +90,7 @@ describe("Keeper test", () => {
 
 //region Tests implementations
   async function prepareToBorrow(
-    p: TestSingleBorrowParams,
+    p: ITestSingleBorrowParams,
     fabrics: ILendingPlatformFabric[]
   ) : Promise<{uc: Borrower, controller: Controller}> {
     console.log("prepareToBorrow.start");
@@ -112,7 +112,7 @@ describe("Keeper test", () => {
   }
 
   async function makeSingleBorrow (
-    p: TestSingleBorrowParams,
+    p: ITestSingleBorrowParams,
     fabrics: ILendingPlatformFabric[]
   ) : Promise<{uc: Borrower, controller: Controller, poolAdapter: string}> {
     console.log("makeSingleBorrow.start");
@@ -158,7 +158,7 @@ describe("Keeper test", () => {
    */
   async function makeTestForReconversionAave3andTwo(
     reconverter: IReConverter,
-    p: TestSingleBorrowParams,
+    p: ITestSingleBorrowParams,
     collateralHolders: string[]
   ): Promise<{
     statusAfterMaxBorrow: string[],

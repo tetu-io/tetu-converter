@@ -24,6 +24,7 @@ import {DeployerUtils} from "../../scripts/utils/DeployerUtils";
 import {BalanceUtils, IContractToInvestigate} from "../baseUT/utils/BalanceUtils";
 import {BigNumber} from "ethers";
 import {Misc} from "../../scripts/utils/Misc";
+import {IPoolAdapterStatus} from "../baseUT/types/BorrowRepayDataTypes";
 
 describe("TetuConverterTest", () => {
 //region Constants
@@ -971,12 +972,7 @@ describe("TetuConverterTest", () => {
   });
 
   describe("requireRepay", () => {
-    interface IPoolAdapterStatus {
-      collateralAmount: BigNumber;
-      amountToPay: BigNumber;
-      healthFactor18: BigNumber;
-      opened: boolean;
-    }
+
     interface IRequireRepayBadPathParams {
       notKeeper?: boolean,
       sendIncorrectAmountToTetuConverter?: boolean,
@@ -1117,11 +1113,11 @@ describe("TetuConverterTest", () => {
           r.openedPositions.length,
           r.totalDebt,
 
-          r.poolAdapterStatusBefore.amountToPay,
+          r.poolAdapterStatusBefore.amountsToPay,
           r.poolAdapterStatusBefore.collateralAmount,
           r.poolAdapterStatusBefore.opened,
 
-          r.poolAdapterStatusAfter.amountToPay,
+          r.poolAdapterStatusAfter.amountsToPay,
           r.poolAdapterStatusAfter.collateralAmount,
           r.poolAdapterStatusAfter.opened,
         ].map(x => BalanceUtils.toString(x)).join("\n");
