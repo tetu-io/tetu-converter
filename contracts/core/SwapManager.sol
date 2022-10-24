@@ -55,7 +55,6 @@ contract SwapManager is ISwapManager, ISwapConverter {
     uint maxTargetAmount,
     int aprForPeriod36
   ) {
-    converter = address(this);
     ITetuLiquidator liquidator = ITetuLiquidator(controller.tetuLiquidator());
     maxTargetAmount = liquidator.getPrice(
       p_.sourceToken, p_.targetToken, p_.sourceAmount);
@@ -63,6 +62,12 @@ contract SwapManager is ISwapManager, ISwapConverter {
     // how much we will get when sell target token back
     uint returnAmount = liquidator.getPrice(
       p_.targetToken, p_.sourceToken, maxTargetAmount);
+
+    // getPrice returns 0 if conversion way is not found
+    // in this case, we should return converter = 0 in same way as ITetuConverter does
+    converter = (maxTargetAmount == 0 || returnAmount == 0)
+      ? address(0)
+      : address(this);
 
     console.log('p_.sourceAmount', p_.sourceAmount);
     int loss = int(p_.sourceAmount) - int(returnAmount);

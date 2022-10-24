@@ -62,13 +62,17 @@ interface ITetuConverter {
   ///                  The remained amount of borrow asset will be returned to the {receiver_} too
   /// @return collateralAmountOut Exact collateral amount transferred to {collateralReceiver_}
   ///         If TetuConverter is not able to make the swap, it reverts
+  /// @return returnedBorrowAmountOut A part of amount-to-repay that wasn't converted to collateral asset
+  ///                                 because of any reasons (i.e. there is no available conversion strategy)
+  ///                                 This amount is returned back to the collateralReceiver_
   function repay(
     address collateralAsset_,
     address borrowAsset_,
     uint amountToRepay_,
     address receiver_
   ) external returns (
-    uint collateralAmountOut
+    uint collateralAmountOut,
+    uint returnedBorrowAmountOut
   );
 
   /// @notice Update status in all opened positions

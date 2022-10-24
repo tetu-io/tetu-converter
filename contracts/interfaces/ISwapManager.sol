@@ -7,7 +7,8 @@ interface ISwapManager {
 
   /// @notice Find a way to convert collateral asset to borrow asset in most efficient way
   /// @return converter Address of ISwapConverter
-  ///         This address cannot be 0. If SwapManager cannot find a conversion way, it reverts
+  ///         If SwapManager cannot find a conversion way,
+  ///         it returns converter == 0 (in the same way as ITetuConverter)
   function getConverter(
     AppDataTypes.InputConversionParams memory params
   ) external view returns (

@@ -202,7 +202,8 @@ contract TetuConverter is ITetuConverter, IKeeperCallback {
     uint amountToRepay_,
     address receiver_
   ) external override returns (
-    uint collateralAmountOut
+    uint collateralAmountOut,
+    uint returnedBorrowAmountOut
   ) {
     require(receiver_ != address(0), AppErrors.ZERO_ADDRESS);
 
@@ -258,21 +259,27 @@ contract TetuConverter is ITetuConverter, IKeeperCallback {
         periodInBlocks: 1 // optimal converter strategy doesn't depend on the period of blocks
       });
       (address converter, uint collateralAmount,) = _swapManager().getConverter(params);
-      require(converter != address(0), AppErrors.CONVERTER_NOT_FOUND);
-
-      // conversion strategy is found
-      // let's convert all remaining {amountToPay} to {collateralAsset}
-      IERC20(borrowAsset_).transfer(converter, amountToPay);
-      collateralAmountOut += ISwapConverter(converter).swap(
-        borrowAsset_,
-        amountToPay,
-        collateralAsset_,
-        collateralAmount,
-        receiver_
-      );
+      if (converter == address(0)) {
+        // there is no swap-strategy to convert remain {amountToPay} to {collateralAsset_}
+        // let's return this amount back to the {receiver_}
+        returnedBorrowAmountOut = amountToPay;
+        IERC20(borrowAsset_).transfer(receiver_, amountToPay);
+      } else {
+        // conversion strategy is found
+        // let's convert all remaining {amountToPay} to {collateralAsset}
+        IERC20(borrowAsset_).transfer(converter, amountToPay);
+        ISwapConverter(converter).swap(
+          borrowAsset_,
+          amountToPay,
+          collateralAsset_,
+          collateralAmount,
+          receiver_
+        );
+        collateralAmountOut += collateralAmount;
+      }
     }
 
-    return collateralAmountOut;
+    return (collateralAmountOut, returnedBorrowAmountOut);
   }
 
   ///////////////////////////////////////////////////////

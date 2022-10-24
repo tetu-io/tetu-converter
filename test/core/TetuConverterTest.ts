@@ -721,6 +721,8 @@ describe("TetuConverterTest", () => {
       init: IPrepareResults;
       receiverCollateralBalanceBeforeRepay: BigNumber;
       receiverCollateralBalanceAfterRepay: BigNumber;
+      receiverBorrowAssetBalanceBeforeRepay: BigNumber;
+      receiverBorrowAssetBalanceAfterRepay: BigNumber;
     }
     async function makeRepayTest(
       collateralAmounts: number[],
@@ -765,6 +767,9 @@ describe("TetuConverterTest", () => {
       const receiverCollateralBalanceBeforeRepay = receiver === Misc.ZERO_ADDRESS
         ? BigNumber.from(0)
         : await init.sourceToken.balanceOf(receiver);
+      const receiverBorrowAssetBalanceBeforeRepay = receiver === Misc.ZERO_ADDRESS
+        ? BigNumber.from(0)
+        : await init.targetToken.balanceOf(receiver);
 
       await tcAsUc.repay(
         init.sourceToken.address,
@@ -776,6 +781,9 @@ describe("TetuConverterTest", () => {
       const receiverCollateralBalanceAfterRepay = receiver === Misc.ZERO_ADDRESS
         ? BigNumber.from(0)
         : await init.sourceToken.balanceOf(receiver);
+      const receiverBorrowAssetBalanceAfterRepay = receiver === Misc.ZERO_ADDRESS
+        ? BigNumber.from(0)
+        : await init.targetToken.balanceOf(receiver);
 
       const borrowsAfterRepay = await tcAsUc.findBorrows(init.sourceToken.address, init.targetToken.address);
       const {totalDebtAmountOut, totalCollateralAmountOut} = await tcAsUc.getDebtAmountStored(
@@ -789,7 +797,9 @@ describe("TetuConverterTest", () => {
         totalCollateralAmountOut,
         init,
         receiverCollateralBalanceAfterRepay,
-        receiverCollateralBalanceBeforeRepay
+        receiverCollateralBalanceBeforeRepay,
+        receiverBorrowAssetBalanceBeforeRepay,
+        receiverBorrowAssetBalanceAfterRepay
       }
     }
 
@@ -807,13 +817,13 @@ describe("TetuConverterTest", () => {
 
             const ret = [
               r.countOpenedPositions,
-              r.totalDebtAmountOut.toString()
-            ].join();
+              r.totalDebtAmountOut
+            ].map(x => BalanceUtils.toString(x)).join("\n");
 
             const expected = [
               1,
               getBigNumberFrom(exactBorrowAmount - amountToRepay, await r.init.targetToken.decimals())
-            ].join();
+            ].map(x => BalanceUtils.toString(x)).join("\n");
 
             expect(ret).eq(expected);
           });
@@ -830,13 +840,13 @@ describe("TetuConverterTest", () => {
 
             const ret = [
               r.countOpenedPositions,
-              r.totalDebtAmountOut.toString()
-            ].join();
+              r.totalDebtAmountOut
+            ].map(x => BalanceUtils.toString(x)).join("\n");
 
             const expected = [
               0,
               getBigNumberFrom(exactBorrowAmount - amountToRepay, await r.init.targetToken.decimals())
-            ].join();
+            ].map(x => BalanceUtils.toString(x)).join("\n");
 
             expect(ret).eq(expected);
           });
@@ -870,6 +880,33 @@ describe("TetuConverterTest", () => {
 
               expect(ret).eq(expected);
             });
+            describe("SwapManager wap doesn't have a conversion way", () => {
+              it("should return unswapped borrow asset back to receiver", async () => {
+                const exactBorrowAmount = 120;
+                const amountToSwap = 100;
+                const amountToRepay = exactBorrowAmount + amountToSwap;
+                const r = await makeRepayTest(
+                  [1_000_000],
+                  [exactBorrowAmount],
+                  amountToRepay,
+                  false // swapManager doesn't have a conversion way
+                );
+
+                const ret = [
+                  r.countOpenedPositions,
+                  r.totalDebtAmountOut,
+                  r.receiverBorrowAssetBalanceAfterRepay.sub(r.receiverBorrowAssetBalanceBeforeRepay)
+                ].map(x => BalanceUtils.toString(x)).join("\n");
+
+                const expected = [
+                  0,
+                  0,
+                  getBigNumberFrom(amountToSwap, await r.init.targetToken.decimals()),
+                ].map(x => BalanceUtils.toString(x)).join("\n");
+
+                expect(ret).eq(expected);
+              });
+            });
           });
         });
         describe("Full repay with swap", () => {
@@ -892,20 +929,21 @@ describe("TetuConverterTest", () => {
 
             const ret = [
               r.countOpenedPositions,
-              r.totalDebtAmountOut.toString(),
-              r.receiverCollateralBalanceAfterRepay.sub(r.receiverCollateralBalanceBeforeRepay).toString(),
-            ].join("\n");
+              r.totalDebtAmountOut,
+              r.receiverCollateralBalanceAfterRepay.sub(r.receiverCollateralBalanceBeforeRepay),
+            ].map(x => BalanceUtils.toString(x)).join("\n");
 
             const expected = [
               0,
               0,
               expectedCollateralAmountToReceive.toString()
-            ].join("\n");
+            ].map(x => BalanceUtils.toString(x)).join("\n");
 
             expect(ret).eq(expected);
           });
 
         });
+
       });
       describe("Multiple borrows", () => {
         describe("Partial repay of single pool adapter", () => {
@@ -921,13 +959,13 @@ describe("TetuConverterTest", () => {
 
             const ret = [
               r.countOpenedPositions,
-              r.totalDebtAmountOut.toString()
-            ].join();
+              r.totalDebtAmountOut
+            ].map(x => BalanceUtils.toString(x)).join("\n");
 
             const expected = [
               3,
               getBigNumberFrom(1600-100, await r.init.targetToken.decimals())
-            ].join();
+            ].map(x => BalanceUtils.toString(x)).join("\n");
 
             expect(ret).eq(expected);
           });
@@ -945,13 +983,13 @@ describe("TetuConverterTest", () => {
 
             const ret = [
               r.countOpenedPositions,
-              r.totalDebtAmountOut.toString()
-            ].join();
+              r.totalDebtAmountOut
+            ].map(x => BalanceUtils.toString(x)).join("\n");
 
             const expected = [
               2,
               getBigNumberFrom(1600-200, await r.init.targetToken.decimals())
-            ].join();
+            ].map(x => BalanceUtils.toString(x)).join("\n");
 
             expect(ret).eq(expected);
           });
@@ -969,13 +1007,13 @@ describe("TetuConverterTest", () => {
 
             const ret = [
               r.countOpenedPositions,
-              r.totalDebtAmountOut.toString()
-            ].join();
+              r.totalDebtAmountOut
+            ].map(x => BalanceUtils.toString(x)).join("\n");
 
             const expected = [
               1,
               getBigNumberFrom(1600-600, await r.init.targetToken.decimals())
-            ].join();
+            ].map(x => BalanceUtils.toString(x)).join("\n");
 
             expect(ret).eq(expected);
           });
@@ -993,13 +1031,13 @@ describe("TetuConverterTest", () => {
 
             const ret = [
               r.countOpenedPositions,
-              r.totalDebtAmountOut.toString()
-            ].join();
+              r.totalDebtAmountOut
+            ].map(x => BalanceUtils.toString(x)).join("\n");
 
             const expected = [
               1,
               getBigNumberFrom(1600-1500, await r.init.targetToken.decimals())
-            ].join();
+            ].map(x => BalanceUtils.toString(x)).join("\n");
 
             expect(ret).eq(expected);
           });
@@ -1018,42 +1056,55 @@ describe("TetuConverterTest", () => {
             const ret = [
               r.countOpenedPositions,
               r.totalDebtAmountOut.toString()
-            ].join();
+            ].map(x => BalanceUtils.toString(x)).join("\n");
 
             const expected = [
               0,
               getBigNumberFrom(0, await r.init.targetToken.decimals())
-            ].join();
+            ].map(x => BalanceUtils.toString(x)).join("\n");
 
             expect(ret).eq(expected);
           });
         });
-        describe("TODO: Pure swap", () => {
+        describe("Full repay with swap", () => {
           it("should return expected values", async () => {
-            expect.fail("TODO");
-          });
-        });
-        describe("TODO: Full repay with swap", () => {
-          it("should return expected values", async () => {
-            expect.fail("TODO");
+            const collateralAmounts = [1_000_000, 2_000_000, 3_000_000];
+            const exactBorrowAmounts = [200, 400, 1000];
+            const totalBorrowAmount = exactBorrowAmounts.reduce((prev, cur) => prev += cur, 0);
+            const totalCollateralAmount = collateralAmounts.reduce((prev, cur) => prev += cur, 0);
+            const amountToSwap = 170;
+            const expectedCollateralAfterSwap = amountToSwap; // prices 1:1
+            const amountToRepay = totalBorrowAmount + amountToSwap;
+            const r = await makeRepayTest(
+              collateralAmounts,
+              exactBorrowAmounts,
+              amountToRepay,
+              true
+            );
+
+            const ret = [
+              r.countOpenedPositions,
+              r.totalDebtAmountOut.toString(),
+              r.receiverCollateralBalanceAfterRepay.sub(r.receiverCollateralBalanceBeforeRepay),
+              r.receiverBorrowAssetBalanceAfterRepay.sub(r.receiverBorrowAssetBalanceBeforeRepay)
+            ].map(x => BalanceUtils.toString(x)).join("\n");
+
+            const expected = [
+              0,
+              getBigNumberFrom(0, await r.init.targetToken.decimals()),
+              getBigNumberFrom(
+                totalCollateralAmount + expectedCollateralAfterSwap,
+                await r.init.sourceToken.decimals()
+              ),
+              0
+            ].map(x => BalanceUtils.toString(x)).join("\n");
+
+            expect(ret).eq(expected);
           });
         });
       });
     });
     describe("Bad paths", () => {
-      describe("Try to repay too much", () => {
-        it("should revert", async () => {
-          const exactBorrowAmount = 120;
-          const amountToRepay = exactBorrowAmount + 1; // (!)
-          await expect(
-            makeRepayTest(
-            [1_000_000],
-            [exactBorrowAmount],
-              amountToRepay
-            )
-          ).revertedWith("TC-25"); // CONVERTER_NOT_FOUND
-        });
-      });
       describe("Receiver is null", () => {
         it("should revert", async () => {
           const exactBorrowAmount = 120;
@@ -1082,23 +1133,6 @@ describe("TetuConverterTest", () => {
               { userSendsNotEnoughAmountToTetuConverter: true }
             )
           ).revertedWith("TC-41"); // WRONG_AMOUNT_RECEIVED
-        });
-      });
-      describe("TODO: Pure swap - no conversion strategy found", () => {
-        it("should repay", async () => {
-          const amountToRepay = 1000;
-          await expect(
-            makeRepayTest(
-              [],
-              [],
-              amountToRepay
-            )
-          ).revertedWith("L: Not found pool for tokenIn"); // Exception of Tetu Liquidator
-        });
-      });
-      describe("TODO: Amount to swap is too small (dust)", () => {
-        it("should return expected values", async () => {
-          expect.fail("TODO");
         });
       });
     });
@@ -1553,18 +1587,7 @@ describe("TetuConverterTest", () => {
     });
   });
 
-  describe("TODO:requireReconversion", () => {
-    describe("Good paths", () => {
-      it("should return expected values", async () => {
-        expect.fail("TODO");
-      });
-    });
-    describe("Bad paths", () => {
-      it("should revert", async () => {
-        expect.fail("TODO");
-      });
-    });
-  });
+
 
   describe("getDebtAmountStored", () => {
     describe("Good paths", () => {
@@ -1842,6 +1865,18 @@ describe("TetuConverterTest", () => {
     });
   });
 
+  describe("TODO:requireReconversion", () => {
+    describe("Good paths", () => {
+      it("should return expected values", async () => {
+        expect.fail("TODO");
+      });
+    });
+    describe("Bad paths", () => {
+      it("should revert", async () => {
+        expect.fail("TODO");
+      });
+    });
+  });
 // describe.skip("TODO: reconvert", () => {
 //   describe("Good paths", () => {
 //     it("should make reconversion", async () => {
