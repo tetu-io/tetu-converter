@@ -3,14 +3,10 @@ import {CoreContractsHelper} from "./CoreContractsHelper";
 import {BigNumber} from "ethers";
 import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import {
-    BorrowManager, BorrowManager__factory,
-    Controller, CTokenMock,
-    MockERC20, PoolAdapterStub, PriceOracleMock,
+    MockERC20, PriceOracleMock,
 } from "../../../typechain";
 import {CoreContracts} from "../types/CoreContracts";
-import {IAssetPair} from "../utils/AssetPairUtils";
 import {DeployUtils} from "../../../scripts/utils/DeployUtils";
-import {getBigNumberFrom} from "../../../scripts/utils/NumberUtils";
 
 export interface IPoolInfo {
     /** The length of array should be equal to the count of underlying */
@@ -55,9 +51,14 @@ export class BorrowManagerHelper {
         const borrowManager = await CoreContractsHelper.createBorrowManager(signer, controller);
         const debtMonitor = await CoreContractsHelper.createDebtMonitor(signer, controller);
         const tetuConverter = await CoreContractsHelper.createTetuConverter(signer, controller);
+        const swapManager = await CoreContractsHelper.createSwapManager(signer, controller);
+        const tetuLiquidatorMockEmpty = await MocksHelper.createTetuLiquidator(signer, [], []);
+
         await controller.setBorrowManager(borrowManager.address);
         await controller.setDebtMonitor(debtMonitor.address);
         await controller.setTetuConverter(tetuConverter.address);
+        await controller.setSwapManager(swapManager.address);
+        await controller.setTetuLiquidator(tetuLiquidatorMockEmpty.address);
 
         return new CoreContracts(controller, tetuConverter, borrowManager, debtMonitor);
     }

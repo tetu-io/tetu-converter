@@ -703,7 +703,8 @@ describe("TetuConverterTest", () => {
     }
     interface IRepayResults {
       countOpenedPositions: number;
-      totalDebt: BigNumber;
+      totalDebtAmountOut: BigNumber;
+      totalCollateralAmountOut: BigNumber;
       init: IPrepareResults;
     }
     async function makeRepayTest(
@@ -723,7 +724,7 @@ describe("TetuConverterTest", () => {
         exactBorrowAmounts
       );
 
-      const tcAsUc = ITetuConverter__factory.connect(
+      const tcAsUc = TetuConverter__factory.connect(
         init.core.tc.address,
         await DeployerUtils.startImpersonate(init.userContract.address)
       );
@@ -746,11 +747,15 @@ describe("TetuConverterTest", () => {
       );
 
       const borrowsAfterRepay = await tcAsUc.findBorrows(init.sourceToken.address, init.targetToken.address);
-      const totalDebt = await tcAsUc.getDebtAmount(init.sourceToken.address, init.targetToken.address);
+      const {totalDebtAmountOut, totalCollateralAmountOut} = await tcAsUc.getDebtAmountStored(
+        init.sourceToken.address,
+        init.targetToken.address
+      );
 
       return {
         countOpenedPositions: borrowsAfterRepay.length,
-        totalDebt,
+        totalDebtAmountOut,
+        totalCollateralAmountOut,
         init
       }
     }
@@ -769,7 +774,7 @@ describe("TetuConverterTest", () => {
 
             const ret = [
               r.countOpenedPositions,
-              r.totalDebt.toString()
+              r.totalDebtAmountOut.toString()
             ].join();
 
             const expected = [
@@ -792,7 +797,7 @@ describe("TetuConverterTest", () => {
 
             const ret = [
               r.countOpenedPositions,
-              r.totalDebt.toString()
+              r.totalDebtAmountOut.toString()
             ].join();
 
             const expected = [
@@ -828,7 +833,7 @@ describe("TetuConverterTest", () => {
 
             const ret = [
               r.countOpenedPositions,
-              r.totalDebt.toString()
+              r.totalDebtAmountOut.toString()
             ].join();
 
             const expected = [
@@ -852,7 +857,7 @@ describe("TetuConverterTest", () => {
 
             const ret = [
               r.countOpenedPositions,
-              r.totalDebt.toString()
+              r.totalDebtAmountOut.toString()
             ].join();
 
             const expected = [
@@ -876,7 +881,7 @@ describe("TetuConverterTest", () => {
 
             const ret = [
               r.countOpenedPositions,
-              r.totalDebt.toString()
+              r.totalDebtAmountOut.toString()
             ].join();
 
             const expected = [
@@ -900,7 +905,7 @@ describe("TetuConverterTest", () => {
 
             const ret = [
               r.countOpenedPositions,
-              r.totalDebt.toString()
+              r.totalDebtAmountOut.toString()
             ].join();
 
             const expected = [
@@ -924,7 +929,7 @@ describe("TetuConverterTest", () => {
 
             const ret = [
               r.countOpenedPositions,
-              r.totalDebt.toString()
+              r.totalDebtAmountOut.toString()
             ].join();
 
             const expected = [
@@ -958,7 +963,7 @@ describe("TetuConverterTest", () => {
             [exactBorrowAmount],
               amountToRepay
             )
-          ).revertedWith("TC-41");
+          ).revertedWith("L: Not found pool for tokenIn"); // Exception of Tetu Liquidator
         });
       });
       describe("Receiver is null", () => {
@@ -986,7 +991,7 @@ describe("TetuConverterTest", () => {
               amountToRepay,
               { userSendsNotEnoughAmountToTetuConverter: true }
             )
-          ).revertedWith("TC-15");
+          ).revertedWith("TC-41"); // WRONG_AMOUNT_RECEIVED
         });
       });
       describe("TODO: Pure swap - no conversion strategy found", () => {
@@ -1014,6 +1019,14 @@ describe("TetuConverterTest", () => {
       targetHealthFactor2: number;
       maxHealthFactor2: number;
     }
+    interface IRequireRepayResults {
+      openedPositions: string[];
+      totalDebtAmountOut: BigNumber;
+      totalCollateralAmountOut: BigNumber;
+      init: IPrepareResults;
+      poolAdapterStatusBefore: IPoolAdapterStatus;
+      poolAdapterStatusAfter: IPoolAdapterStatus;
+    }
     async function makeRequireRepayTest(
       collateralAmounts: number[],
       exactBorrowAmounts: number[],
@@ -1022,13 +1035,7 @@ describe("TetuConverterTest", () => {
       repayBadPathParams?: IRequireRepayBadPathParams,
       healthFactorsBeforeBorrow?: IHealthFactorParams,
       healthFactorsBeforeRepay?: IHealthFactorParams,
-    ) : Promise<{
-      openedPositions: string[],
-      totalDebt: BigNumber,
-      init: IPrepareResults,
-      poolAdapterStatusBefore: IPoolAdapterStatus,
-      poolAdapterStatusAfter: IPoolAdapterStatus
-    }> {
+    ) : Promise<IRequireRepayResults> {
       const init = await prepareTetuAppWithMultipleLendingPlatforms(collateralAmounts.length);
       const targetTokenDecimals = await init.targetToken.decimals();
 
@@ -1094,11 +1101,15 @@ describe("TetuConverterTest", () => {
       console.log("poolAdapterStatusAfter", poolAdapterStatusAfter);
 
       const openedPositions = await tcAsUc.findBorrows(init.sourceToken.address, init.targetToken.address);
-      const totalDebt = await tcAsUc.getDebtAmount(init.sourceToken.address, init.targetToken.address);
+      const {
+        totalDebtAmountOut,
+        totalCollateralAmountOut
+      } = await tcAsUc.getDebtAmountStored(init.sourceToken.address, init.targetToken.address);
 
       return {
         openedPositions,
-        totalDebt,
+        totalDebtAmountOut,
+        totalCollateralAmountOut,
         init,
         poolAdapterStatusBefore,
         poolAdapterStatusAfter
@@ -1114,6 +1125,7 @@ describe("TetuConverterTest", () => {
         const amountToRepay = 150_000;
         const poolAdapterIndex = 2;
         const exactBorrowAmountsSum = exactBorrowAmounts.reduce((prev, cur) => prev += cur, 0);
+        const exactCollateralAmountsSum = collateralAmounts.reduce((prev, cur) => prev += cur, 0);
 
         const minHealthFactor2 = 400;
         const targetHealthFactor2 = 500;
@@ -1142,13 +1154,14 @@ describe("TetuConverterTest", () => {
 
         const ret = [
           r.openedPositions.length,
-          r.totalDebt,
+          r.totalDebtAmountOut,
+          r.totalCollateralAmountOut,
 
-          r.poolAdapterStatusBefore.amountsToPay,
+          r.poolAdapterStatusBefore.amountToPay,
           r.poolAdapterStatusBefore.collateralAmount,
           r.poolAdapterStatusBefore.opened,
 
-          r.poolAdapterStatusAfter.amountsToPay,
+          r.poolAdapterStatusAfter.amountToPay,
           r.poolAdapterStatusAfter.collateralAmount,
           r.poolAdapterStatusAfter.opened,
         ].map(x => BalanceUtils.toString(x)).join("\n");
@@ -1156,6 +1169,7 @@ describe("TetuConverterTest", () => {
         const expected = [
           3,
           getBigNumberFrom(exactBorrowAmountsSum-amountToRepay, targetDecimals),
+          getBigNumberFrom(exactCollateralAmountsSum, sourceDecimals),
 
           getBigNumberFrom(selectedPoolAdapterBorrow, targetDecimals),
           getBigNumberFrom(selectedPoolAdapterCollateral, sourceDecimals),
@@ -1455,7 +1469,7 @@ describe("TetuConverterTest", () => {
     });
   });
 
-  describe("getDebtAmount", () => {
+  describe("getDebtAmountStored", () => {
     describe("Good paths", () => {
       async function makeGetDebtAmountTest(collateralAmounts: number[]) : Promise<{sret: string, sexpected: string}> {
         const pr = await prepareTetuAppWithMultipleLendingPlatforms(collateralAmounts.length);
@@ -1472,13 +1486,25 @@ describe("TetuConverterTest", () => {
           await DeployerUtils.startImpersonate(pr.userContract.address)
         );
 
+        const {
+          totalDebtAmountOut,
+          totalCollateralAmountOut
+        } =(await tcAsUc.getDebtAmountStored(pr.sourceToken.address, pr.targetToken.address));
+
         const sret = [
-          (await tcAsUc.getDebtAmount(pr.sourceToken.address, pr.targetToken.address)),
+          totalDebtAmountOut,
+          totalCollateralAmountOut,
           ...borrows.map(x => x.collateralAmount)
         ].map(x => BalanceUtils.toString(x)).join("\n");
         const sexpected = [
           borrows.reduce(
             (prev, cur) => prev = prev.add(cur.amountToPay),
+            BigNumber.from(0)
+          ),
+          collateralAmounts.reduce(
+            (prev, cur) => prev = prev.add(
+              getBigNumberFrom(cur, sourceTokenDecimals)
+            ),
             BigNumber.from(0)
           ),
           ...collateralAmounts.map(a => getBigNumberFrom(a, sourceTokenDecimals))

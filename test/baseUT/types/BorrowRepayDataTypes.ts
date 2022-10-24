@@ -38,7 +38,7 @@ export interface IMockTestInputParams {
 
 export interface IPoolAdapterStatus {
   collateralAmount: BigNumber;
-  amountsToPay: BigNumber;
+  amountToPay: BigNumber;
   healthFactor18: BigNumber;
   opened: boolean;
 }

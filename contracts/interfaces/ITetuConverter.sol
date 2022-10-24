@@ -61,35 +61,38 @@ interface ITetuConverter {
   /// @param receiver_ A receiver of the collateral that will be withdrawn after the repay
   ///                  The remained amount of borrow asset will be returned to the {receiver_} too
   /// @return collateralAmountOut Exact collateral amount transferred to {collateralReceiver_}
-  /// @return returnedBorrowAmountOut A part of amount-to-repay that wasn't converted to collateral asset
-  ///                                 because of any reasons (i.e. there is no available conversion strategy)
-  ///                                 This amount is returned back to the collateralReceiver_
+  ///         If TetuConverter is not able to make the swap, it reverts
   function repay(
     address collateralAsset_,
     address borrowAsset_,
     uint amountToRepay_,
     address receiver_
   ) external returns (
-    uint collateralAmountOut,
-    uint returnedBorrowAmountOut
+    uint collateralAmountOut
   );
 
   /// @notice Update status in all opened positions
   ///         and calculate exact total amount of borrowed and collateral assets
-  function getStatusCurrent(
+  function getDebtAmountCurrent(
     address collateralAsset_,
     address borrowAsset_
-  ) external returns (uint totalDebtAmountOut, uint totalCollateralAmountOut);
+  ) external returns (
+    uint totalDebtAmountOut,
+    uint totalCollateralAmountOut
+  );
 
   /// @notice Total amount of borrow tokens that should be repaid to close the borrow completely.
   /// @dev Actual debt amount can be a little LESS then the amount returned by this function.
   ///      I.e. AAVE's pool adapter returns (amount of debt + tiny addon ~ 1 cent)
   ///      The addon is required to workaround dust-tokens problem.
   ///      After repaying the remaining amount is transferred back on the balance of the caller strategy.
-  function getDebtAmount(
+  function getDebtAmountStored(
     address collateralAsset_,
     address borrowAsset_
-  ) external view returns (uint totalDebtAmountOut, uint totalCollateralAmountOut);
+  ) external view returns (
+    uint totalDebtAmountOut,
+    uint totalCollateralAmountOut
+  );
 
   /// @notice User needs to redeem some collateral amount. Calculate an amount of borrow token that should be repaid
   /// @param collateralAmountRequired_ Amount of collateral required by the user

@@ -202,8 +202,7 @@ contract TetuConverter is ITetuConverter, IKeeperCallback {
     uint amountToRepay_,
     address receiver_
   ) external override returns (
-    uint collateralAmountOut,
-    uint returnedBorrowAmountOut
+    uint collateralAmountOut
   ) {
     require(receiver_ != address(0), AppErrors.ZERO_ADDRESS);
 
@@ -251,6 +250,7 @@ contract TetuConverter is ITetuConverter, IKeeperCallback {
     // if all debts were paid but we still have some amount of borrow asset
     // let's swap it to collateral asset and send to collateral-receiver
     if (amountToPay > 0) {
+      console.log("Repay.too.much.1", amountToPay);
       AppDataTypes.InputConversionParams memory params = AppDataTypes.InputConversionParams({
         sourceToken: borrowAsset_,
         targetToken: collateralAsset_,
@@ -258,27 +258,20 @@ contract TetuConverter is ITetuConverter, IKeeperCallback {
         periodInBlocks: 1 // optimal converter strategy doesn't depend on the period of blocks
       });
       (address converter, uint collateralAmount,) = _swapManager().getConverter(params);
-      if (converter == address(0)) {
-        // there is no swap-strategy to convert remain {amountToPay} to {collateralAsset_}
-        // let's return this amount back to the {receiver_}
-        returnedBorrowAmountOut = amountToPay;
-        IERC20(borrowAsset_).transfer(receiver_, amountToPay);
-      } else {
-        // conversion strategy is found
-        // let's convert all remaining {amountToPay} to {collateralAsset}
-        IERC20(borrowAsset_).transfer(converter, amountToPay);
-        ISwapConverter(converter).swap(
-          borrowAsset_,
-          amountToPay,
-          collateralAsset_,
-          collateralAmount,
-          receiver_
-        );
-        collateralAmountOut += collateralAmount;
-      }
+
+      // conversion strategy is found
+      // let's convert all remaining {amountToPay} to {collateralAsset}
+      IERC20(borrowAsset_).transfer(converter, amountToPay);
+      collateralAmountOut += ISwapConverter(converter).swap(
+        borrowAsset_,
+        amountToPay,
+        collateralAsset_,
+        collateralAmount,
+        receiver_
+      );
     }
 
-    return (collateralAmountOut, returnedBorrowAmountOut);
+    return collateralAmountOut;
   }
 
   ///////////////////////////////////////////////////////
@@ -414,10 +407,13 @@ contract TetuConverter is ITetuConverter, IKeeperCallback {
 
   /// @notice Update status in all opened positions
   ///         After this call getDebtAmount will be able to return exact amount to repay
-  function getStatusCurrent(
+  function getDebtAmountCurrent(
     address collateralAsset_,
     address borrowAsset_
-  ) external override returns (uint totalDebtAmountOut, uint totalCollateralAmountOut) {
+  ) external override returns (
+    uint totalDebtAmountOut,
+    uint totalCollateralAmountOut
+  ) {
     address[] memory poolAdapters = _debtMonitor().getPositions(
       msg.sender,
       collateralAsset_,
@@ -436,11 +432,13 @@ contract TetuConverter is ITetuConverter, IKeeperCallback {
     return (totalDebtAmountOut, totalCollateralAmountOut);
   }
 
-  /// @notice Calculate total amount of borrow tokens that should be repaid to close the loan completely.
-  function getDebtAmount(
+  function getDebtAmountStored(
     address collateralAsset_,
     address borrowAsset_
-  ) external view override returns (uint totalDebtAmountOut, uint totalCollateralAmountOut) {
+  ) external view override returns (
+    uint totalDebtAmountOut,
+    uint totalCollateralAmountOut
+  ) {
     address[] memory poolAdapters = _debtMonitor().getPositions(
       msg.sender,
       collateralAsset_,

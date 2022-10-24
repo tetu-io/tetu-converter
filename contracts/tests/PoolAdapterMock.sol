@@ -301,6 +301,7 @@ contract PoolAdapterMock is IPoolAdapter {
       dm.onClosePosition();
     }
 
+    console.log("repay.done collateralToReturn=", collateralToReturn);
     return collateralToReturn;
   }
 

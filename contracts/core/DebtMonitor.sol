@@ -123,8 +123,8 @@ contract DebtMonitor is IDebtMonitor {
      address collateralAsset,
      address borrowAsset
     ) = IPoolAdapter(msg.sender).getConfig();
-    AppUtils.removeItemFromArray(poolAdapters[getPoolAdapterKey(user, collateralAsset, borrowAsset)], msg.sender);
 
+    AppUtils.removeItemFromArray(poolAdapters[getPoolAdapterKey(user, collateralAsset, borrowAsset)], msg.sender);
     _poolAdaptersForConverters[origin].remove(msg.sender);
   }
 

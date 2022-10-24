@@ -5,7 +5,12 @@ import "../core/AppDataTypes.sol";
 
 interface ISwapManager {
 
-  function getConverter(AppDataTypes.InputConversionParams memory params) external view returns (
+  /// @notice Find a way to convert collateral asset to borrow asset in most efficient way
+  /// @return converter Address of ISwapConverter
+  ///         This address cannot be 0. If SwapManager cannot find a conversion way, it reverts
+  function getConverter(
+    AppDataTypes.InputConversionParams memory params
+  ) external view returns (
     address converter,
     uint maxTargetAmount,
     int aprForPeriod36
