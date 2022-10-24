@@ -258,6 +258,7 @@ contract TetuConverter is ITetuConverter, IKeeperCallback {
         periodInBlocks: 1 // optimal converter strategy doesn't depend on the period of blocks
       });
       (address converter, uint collateralAmount,) = _swapManager().getConverter(params);
+      require(converter != address(0), AppErrors.CONVERTER_NOT_FOUND);
 
       // conversion strategy is found
       // let's convert all remaining {amountToPay} to {collateralAsset}

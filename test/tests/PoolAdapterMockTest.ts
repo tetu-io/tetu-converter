@@ -80,9 +80,12 @@ describe("PoolAdapterMock", () => {
           const amountBorrowedUserInitial = getBigNumberFrom(1000, tt.targetDecimals);
 
           // create borrow manager (BM) with single pool and DebtMonitor (DM)
-          const {core, sourceToken, targetToken, pools} = await BorrowManagerHelper.initAppPoolsWithTwoAssets(deployer
-            , tt
-            , async () => converter.address
+          const {core, sourceToken, targetToken, pools} = await BorrowManagerHelper.initAppPoolsWithTwoAssets(
+            deployer,
+            tt,
+            {
+              converterFabric: async () => converter.address
+            }
           );
 
           // register pool adapter

@@ -48,11 +48,17 @@ contract TetuLiquidatorMock is ITetuLiquidator {
   function getPrice(address tokenIn, address tokenOut, uint amount)
   public override view returns (uint amountOut) {
     uint priceIn = prices[tokenIn];
-    require(priceIn != 0, 'L: Not found pool for tokenIn');
+    if (priceIn == 0) {
+      // there is no conversion way, return 0 in same way as the real liquidator
+      return 0;
+    }
     uint8 decimalsIn = IMockERC20(tokenIn).decimals();
 
     uint priceOut = prices[tokenOut];
-    require(priceOut != 0, 'L: Not found pool for tokenOut');
+    if (priceOut == 0) {
+      // there is no conversion way, return 0 in same way as the real liquidator
+      return 0;
+    }
     uint8 decimalsOut = IMockERC20(tokenOut).decimals();
 
     amountOut = (priceIn * amount * 10**decimalsOut) / (priceOut * 10**decimalsIn);

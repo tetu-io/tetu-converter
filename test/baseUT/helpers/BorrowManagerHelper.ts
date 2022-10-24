@@ -44,15 +44,30 @@ export interface IMockPoolParams {
     assetLiquidityInPool: BigNumber[];
 }
 
+export interface ITetuLiquidatorMockParams {
+    assets: string[];
+    prices: BigNumber[];
+}
+
+export interface ITetuAppSetupExParams {
+    setupTetuLiquidatorToSwapBorrowToCollateral?: boolean;
+}
+
 export class BorrowManagerHelper {
     /** Create full set of core contracts */
-    static async initializeApp(signer: SignerWithAddress) : Promise<CoreContracts> {
+    static async initializeApp(
+      signer: SignerWithAddress
+    ) : Promise<CoreContracts> {
         const controller = await CoreContractsHelper.createController(signer);
         const borrowManager = await CoreContractsHelper.createBorrowManager(signer, controller);
         const debtMonitor = await CoreContractsHelper.createDebtMonitor(signer, controller);
         const tetuConverter = await CoreContractsHelper.createTetuConverter(signer, controller);
         const swapManager = await CoreContractsHelper.createSwapManager(signer, controller);
-        const tetuLiquidatorMockEmpty = await MocksHelper.createTetuLiquidator(signer, [], []);
+        const tetuLiquidatorMockEmpty = await MocksHelper.createTetuLiquidator(
+          signer,
+          [],
+          []
+        );
 
         await controller.setBorrowManager(borrowManager.address);
         await controller.setDebtMonitor(debtMonitor.address);
@@ -66,7 +81,8 @@ export class BorrowManagerHelper {
     static async initAppPoolsWithTwoAssets(
         signer: SignerWithAddress,
         tt: IBorrowInputParams,
-        converterFabric?: () => Promise<string>
+        converterFabric?: () => Promise<string>,
+        tetuAppSetupParams?: ITetuAppSetupExParams
     ) : Promise<{
         core: CoreContracts,
         sourceToken: MockERC20,
@@ -81,11 +97,23 @@ export class BorrowManagerHelper {
         const assetDecimals = [sourceDecimals, targetDecimals];
         const cTokenDecimals = [sourceDecimals, targetDecimals];
         const collateralFactors = [tt.collateralFactor, 0.6];
-        const pricesUSD = [tt.priceSourceUSD, tt.priceTargetUSD];
+        const pricesNum = [tt.priceSourceUSD, tt.priceTargetUSD];
+        const prices = pricesNum.map((x, index) => BigNumber.from(10)
+            .pow(18 - 2)
+            .mul(x * 100));
 
         const assets = await MocksHelper.createTokens(assetDecimals);
 
         const pools: IPoolInstanceInfo[] = [];
+
+        if (tetuAppSetupParams?.setupTetuLiquidatorToSwapBorrowToCollateral) {
+            const tetuLiquidatorMockEmpty = await MocksHelper.createTetuLiquidator(
+              signer,
+              [assets[0].address, assets[1].address],
+              [prices[0], prices[1]]
+            );
+            await core.controller.setTetuLiquidator(tetuLiquidatorMockEmpty.address);
+        }
 
         for (const poolInfo of tt.availablePools) {
             const cTokens = await MocksHelper.createCTokensMocks(
@@ -102,12 +130,10 @@ export class BorrowManagerHelper {
                 collateralFactors,
                 assets,
                 cTokens,
-                pricesUSD.map((x, index) => BigNumber.from(10)
-                    .pow(18 - 2)
-                    .mul(x * 100)),
+                prices,
               converterFabric
-                    ? await converterFabric()
-                    : undefined
+                ? await converterFabric()
+                : undefined
             );
             const mapCTokens = new Map<string, string>();
             for (let i = 0; i < assets.length; ++i) {

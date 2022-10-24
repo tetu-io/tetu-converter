@@ -134,9 +134,10 @@ describe("DebtsMonitor", () => {
     const healthFactor2 = 200;
     const periodInBlocks = 117;
 
-    const {core, sourceToken, targetToken, pools} = await BorrowManagerHelper.initAppPoolsWithTwoAssets(deployer
-      , tt
-      , async () => (await MocksHelper.createPoolAdapterMock(deployer)).address
+    const {core, sourceToken, targetToken, pools} = await BorrowManagerHelper.initAppPoolsWithTwoAssets(
+      deployer,
+      tt,
+      () => (await MocksHelper.createPoolAdapterMock(deployer)).address,
     );
     const userContract = await MocksHelper.deployBorrower(user, core.controller, periodInBlocks);
     const bmAsTc = BorrowManager__factory.connect(core.bm.address,

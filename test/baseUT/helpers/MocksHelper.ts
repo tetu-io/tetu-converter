@@ -156,7 +156,7 @@ export class MocksHelper {
     assets: MockERC20[],
     cTokens: MockERC20[],
     prices: BigNumber[],
-    templateAdapterPoolOptional?: string,
+    templatePoolAdapterOptional?: string,
   ) : Promise <{
     platformAdapter: LendingPlatformMock,
     templatePoolAdapter: string
@@ -179,7 +179,7 @@ export class MocksHelper {
       )
     ));
 
-    const templatePoolAdapter = templateAdapterPoolOptional
+    const templatePoolAdapter = templatePoolAdapterOptional
       || (await MocksHelper.createPoolAdapterStub(signer, getBigNumberFrom(1))).address;
 
     const priceOracle = (await DeployUtils.deployContract(signer, "PriceOracleMock"

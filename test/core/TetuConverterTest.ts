@@ -16,7 +16,12 @@ import {
   BorrowManager__factory,
   IPoolAdapter__factory, IPoolAdapter, PoolAdapterMock, ITetuConverter__factory, TetuConverter__factory
 } from "../../typechain";
-import {IBorrowInputParams, BorrowManagerHelper, IPoolInstanceInfo} from "../baseUT/helpers/BorrowManagerHelper";
+import {
+  IBorrowInputParams,
+  BorrowManagerHelper,
+  IPoolInstanceInfo,
+  ITetuLiquidatorMockParams, ITetuAppSetupExParams
+} from "../baseUT/helpers/BorrowManagerHelper";
 import {CoreContracts} from "../baseUT/types/CoreContracts";
 import {CoreContractsHelper} from "../baseUT/helpers/CoreContractsHelper";
 import {MocksHelper} from "../baseUT/helpers/MocksHelper";
@@ -25,6 +30,7 @@ import {BalanceUtils, IContractToInvestigate} from "../baseUT/utils/BalanceUtils
 import {BigNumber} from "ethers";
 import {Misc} from "../../scripts/utils/Misc";
 import {IPoolAdapterStatus} from "../baseUT/types/BorrowRepayDataTypes";
+import {tetu} from "../../typechain/contracts/integrations";
 
 describe("TetuConverterTest", () => {
 //region Constants
@@ -107,12 +113,15 @@ describe("TetuConverterTest", () => {
    */
   async function prepareContracts(
     tt: IBorrowInputParams,
+    tetuAppSetupParams?: ITetuAppSetupExParams
   ) : Promise<IPrepareResults>{
     const periodInBlocks = 117;
 
-    const {core, sourceToken, targetToken, pools} = await BorrowManagerHelper.initAppPoolsWithTwoAssets(deployer
-      , tt
-      , async () => (await MocksHelper.createPoolAdapterMock(deployer)).address
+    const {core, sourceToken, targetToken, pools} = await BorrowManagerHelper.initAppPoolsWithTwoAssets(
+      deployer,
+      tt,
+      async () => (await MocksHelper.createPoolAdapterMock(deployer)).address,
+      tetuAppSetupParams
     );
     const userContract = await MocksHelper.deployBorrower(deployer.address, core.controller, periodInBlocks);
     const bmAsTc = BorrowManager__factory.connect(core.bm.address,
@@ -156,7 +165,10 @@ describe("TetuConverterTest", () => {
   }
 
   /** prepareContracts with sample assets settings and huge amounts of collateral and borrow assets */
-  async function prepareTetuAppWithMultipleLendingPlatforms(countPlatforms: number) : Promise<IPrepareResults> {
+  async function prepareTetuAppWithMultipleLendingPlatforms(
+    countPlatforms: number,
+    tetuAppSetupParams?: ITetuAppSetupExParams
+  ) : Promise<IPrepareResults> {
     const targetDecimals = 6;
     const sourceDecimals = 17;
     const sourceAmountNumber = 100_000_000_000;
@@ -174,10 +186,11 @@ describe("TetuConverterTest", () => {
         })
       )
     };
+
     const sourceAmount = getBigNumberFrom(sourceAmountNumber, sourceDecimals);
     const availableBorrowLiquidity = getBigNumberFrom(availableBorrowLiquidityNumber, targetDecimals);
 
-    const r = await prepareContracts(tt);
+    const r = await prepareContracts(tt, tetuAppSetupParams);
 
     // put a lot of collateral asset on user's balance
     await MockERC20__factory.connect(r.sourceToken.address, deployer).mint(r.userContract.address, sourceAmount);
@@ -706,23 +719,33 @@ describe("TetuConverterTest", () => {
       totalDebtAmountOut: BigNumber;
       totalCollateralAmountOut: BigNumber;
       init: IPrepareResults;
+      receiverCollateralBalanceBeforeRepay: BigNumber;
+      receiverCollateralBalanceAfterRepay: BigNumber;
     }
     async function makeRepayTest(
       collateralAmounts: number[],
       exactBorrowAmounts: number[],
       amountToRepayNum: number,
+      setupTetuLiquidatorToSwapBorrowToCollateral: boolean = false,
       repayBadPathParams?: IRepayBadPathParams
     ) : Promise<IRepayResults> {
-      const init = await prepareTetuAppWithMultipleLendingPlatforms(collateralAmounts.length);
+      const init = await prepareTetuAppWithMultipleLendingPlatforms(
+        collateralAmounts.length,
+        {
+          setupTetuLiquidatorToSwapBorrowToCollateral
+        }
+      );
       const targetTokenDecimals = await init.targetToken.decimals();
 
-      await makeBorrows(
-        init,
-        collateralAmounts,
-        BigNumber.from(100),
-        BigNumber.from(100_000),
-        exactBorrowAmounts
-      );
+      if (collateralAmounts.length) {
+        await makeBorrows(
+          init,
+          collateralAmounts,
+          BigNumber.from(100),
+          BigNumber.from(100_000),
+          exactBorrowAmounts
+        );
+      }
 
       const tcAsUc = TetuConverter__factory.connect(
         init.core.tc.address,
@@ -739,12 +762,20 @@ describe("TetuConverterTest", () => {
         ? Misc.ZERO_ADDRESS
         : init.userContract.address;
 
+      const receiverCollateralBalanceBeforeRepay = receiver === Misc.ZERO_ADDRESS
+        ? BigNumber.from(0)
+        : await init.sourceToken.balanceOf(receiver);
+
       await tcAsUc.repay(
         init.sourceToken.address,
         init.targetToken.address,
         amountToRepay,
         receiver
       );
+
+      const receiverCollateralBalanceAfterRepay = receiver === Misc.ZERO_ADDRESS
+        ? BigNumber.from(0)
+        : await init.sourceToken.balanceOf(receiver);
 
       const borrowsAfterRepay = await tcAsUc.findBorrows(init.sourceToken.address, init.targetToken.address);
       const {totalDebtAmountOut, totalCollateralAmountOut} = await tcAsUc.getDebtAmountStored(
@@ -756,7 +787,9 @@ describe("TetuConverterTest", () => {
         countOpenedPositions: borrowsAfterRepay.length,
         totalDebtAmountOut,
         totalCollateralAmountOut,
-        init
+        init,
+        receiverCollateralBalanceAfterRepay,
+        receiverCollateralBalanceBeforeRepay
       }
     }
 
@@ -808,15 +841,70 @@ describe("TetuConverterTest", () => {
             expect(ret).eq(expected);
           });
         });
-        describe("TODO: Pure swap", () => {
-          it("should return expected values", async () => {
-            expect.fail("TODO");
+        describe("Pure swap", () => {
+          describe("Collateral and borrow prices are equal", () => {
+            it("should return expected values", async () => {
+              const amountToRepay = 70;
+              const r = await makeRepayTest(
+                [],
+                [],
+                amountToRepay,
+                true
+              );
+              const expectedCollateralAmountToReceive = getBigNumberFrom(
+                amountToRepay, // the prices are equal
+                await r.init.sourceToken.decimals()
+              );
+
+              const ret = [
+                r.countOpenedPositions,
+                r.totalDebtAmountOut.toString(),
+                r.receiverCollateralBalanceAfterRepay.sub(r.receiverCollateralBalanceBeforeRepay).toString(),
+              ].join();
+
+              const expected = [
+                0,
+                0,
+                expectedCollateralAmountToReceive.toString()
+              ].join();
+
+              expect(ret).eq(expected);
+            });
           });
         });
-        describe("TODO: Full repay with swap", () => {
+        describe("Full repay with swap", () => {
           it("should return expected values", async () => {
-            expect.fail("TODO");
+            const initialCollateralAmount = 1_000_000;
+            const exactBorrowAmount = 120;
+            const amountBorrowAssetToSwap = 400;
+            const amountToRepay = exactBorrowAmount + amountBorrowAssetToSwap;
+            const r = await makeRepayTest(
+              [initialCollateralAmount],
+              [exactBorrowAmount],
+              amountToRepay,
+              true
+            );
+
+            const expectedCollateralAmountToReceive = getBigNumberFrom(
+              initialCollateralAmount + amountBorrowAssetToSwap, // the prices are equal
+              await r.init.sourceToken.decimals()
+            );
+
+            const ret = [
+              r.countOpenedPositions,
+              r.totalDebtAmountOut.toString(),
+              r.receiverCollateralBalanceAfterRepay.sub(r.receiverCollateralBalanceBeforeRepay).toString(),
+            ].join("\n");
+
+            const expected = [
+              0,
+              0,
+              expectedCollateralAmountToReceive.toString()
+            ].join("\n");
+
+            expect(ret).eq(expected);
           });
+
         });
       });
       describe("Multiple borrows", () => {
@@ -963,7 +1051,7 @@ describe("TetuConverterTest", () => {
             [exactBorrowAmount],
               amountToRepay
             )
-          ).revertedWith("L: Not found pool for tokenIn"); // Exception of Tetu Liquidator
+          ).revertedWith("TC-25"); // CONVERTER_NOT_FOUND
         });
       });
       describe("Receiver is null", () => {
@@ -975,6 +1063,7 @@ describe("TetuConverterTest", () => {
               [1_000_000],
               [exactBorrowAmount],
               amountToRepay,
+              false,
               { receiverIsNull: true }
             )
           ).revertedWith("TC-1");
@@ -989,14 +1078,22 @@ describe("TetuConverterTest", () => {
               [1_000_000],
               [exactBorrowAmount],
               amountToRepay,
+              false,
               { userSendsNotEnoughAmountToTetuConverter: true }
             )
           ).revertedWith("TC-41"); // WRONG_AMOUNT_RECEIVED
         });
       });
       describe("TODO: Pure swap - no conversion strategy found", () => {
-        it("should return expected values", async () => {
-          expect.fail("TODO");
+        it("should repay", async () => {
+          const amountToRepay = 1000;
+          await expect(
+            makeRepayTest(
+              [],
+              [],
+              amountToRepay
+            )
+          ).revertedWith("L: Not found pool for tokenIn"); // Exception of Tetu Liquidator
         });
       });
       describe("TODO: Amount to swap is too small (dust)", () => {
