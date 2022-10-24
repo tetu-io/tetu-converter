@@ -254,7 +254,7 @@ contract DebtMonitor is IDebtMonitor {
     uint startIndex0,
     uint maxCountToCheck,
     uint maxCountToReturn,
-    uint periodInBlocks
+    uint periodInBlocks // TODO: this period is set individually for each borrow...
   ) external view override returns (
     uint nextIndexToCheck0,
     address[] memory outPoolAdapters

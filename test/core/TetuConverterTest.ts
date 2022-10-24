@@ -434,81 +434,234 @@ describe("TetuConverterTest", () => {
 //region Unit tests
   describe("findBestConversionStrategy", () => {
     describe("Good paths", () => {
-      describe("Lending is more efficient", () => {
-        describe("Single suitable lending pool", () => {
-          it("should return expected data", async () => {
-            const period = BLOCKS_PER_DAY * 31;
-            const targetDecimals = 12;
-            const bestBorrowRate = getBigNumberFrom(1, targetDecimals - 8);
-
-            const healthFactor = 2;
-            const sourceAmount = 100_000;
-            const input: IBorrowInputParams = {
-              collateralFactor: 0.8,
-              priceSourceUSD: 0.1,
-              priceTargetUSD: 4,
-              sourceDecimals: 24,
-              targetDecimals,
-              availablePools: [
-                {   // source, target
-                  borrowRateInTokens: [
-                    getBigNumberFrom(0, targetDecimals),
-                    bestBorrowRate
-                  ],
-                  availableLiquidityInTokens: [0, 200_000]
-                }
-              ]
-            };
-
-            const data = await createTetuConverter(input);
-
-            const ret = await data.tetuConveter.findConversionStrategy(
-              data.sourceToken.address,
-              getBigNumberFrom(sourceAmount, input.sourceDecimals),
-              data.targetToken.address,
-              period,
-              CONVERSION_MODE_BORROW
-            );
-
-            const expectedTargetAmount =
-              input.collateralFactor
-              * sourceAmount * input.priceSourceUSD
-              / (input.priceTargetUSD)
-              / healthFactor;
-
-
-            const sret = [
-              ret.converter,
-              ret.maxTargetAmount,
-              ret.aprForPeriod36
-            ].join();
-
-            const sexpected = [
-              data.pools[0].converter
-              , getBigNumberFrom(expectedTargetAmount, input.targetDecimals)
-              , bestBorrowRate
-                .mul(period)
-                .mul(Misc.WEI_DOUBLE)
-                .div(getBigNumberFrom(1, targetDecimals))
-            ].join();
-
-            expect(sret).equal(sexpected);
+      describe("Check output converter value", () => {
+        describe("Conversion mode is AUTO", () => {
+          describe("Neither borrowing no swap are available", () => {
+            it("should return zero converter", async () => {
+              expect.fail("TODO");
+            });
+          });
+          describe("Only borrowing is available", () => {
+            it("should return borrowing-converter", async () => {
+              expect.fail("TODO");
+            });
+          });
+          describe("Only swap is available", () => {
+            it("should return swap-converter", async () => {
+              expect.fail("TODO");
+            });
+          });
+          describe("Both borrowing and swap are available", () => {
+            describe("APR of borrowing is lower", () => {
+              it("should return borrowing-converter", async () => {
+                expect.fail("TODO");
+              });
+            });
+            describe("APR of swapping is lower", () => {
+              it("should return swap-converter", async () => {
+                expect.fail("TODO");
+              });
+            });
+          });
+        });
+        describe("Conversion mode is SWAP", () => {
+          describe("Neither borrowing no swap are available", () => {
+            it("should return zero converter", async () => {
+              expect.fail("TODO");
+            });
+          });
+          describe("Only swap is available", () => {
+            it("should return swap-converter", async () => {
+              expect.fail("TODO");
+            });
+          });
+          describe("Only borrowing is available", () => {
+            it("should return zero converter", async () => {
+              expect.fail("TODO");
+            });
+          });
+          describe("Both borrowing and swap are available", () => {
+            describe("APR of borrowing is lower", () => {
+              it("should return swap-converter", async () => {
+                expect.fail("TODO");
+              });
+            });
+            describe("APR of swapping is lower", () => {
+              it("should return swap-converter", async () => {
+                expect.fail("TODO");
+              });
+            });
+          });
+        });
+        describe("Conversion mode is BORROW", () => {
+          describe("Neither borrowing no swap are available", () => {
+            it("should return zero converter", async () => {
+              expect.fail("TODO");
+            });
+          });
+          describe("Only swap is available", () => {
+            it("should return zero converter", async () => {
+              expect.fail("TODO");
+            });
+          });
+          describe("Only borrowing is available", () => {
+            it("should return borrow-converter", async () => {
+              expect.fail("TODO");
+            });
+          });
+          describe("Both borrowing and swap are available", () => {
+            describe("APR of borrowing is lower", () => {
+              it("should return borrow-converter", async () => {
+                expect.fail("TODO");
+              });
+            });
+            describe("APR of swapping is lower", () => {
+              it("should return borrow-converter", async () => {
+                expect.fail("TODO");
+              });
+            });
           });
         });
       });
-      describe("Swap is more efficient", () => {
-        it("TODO", async () => {
-          expect.fail();
+
+      describe("Single borrow-converter", () => {
+        it("should return expected values", async () => {
+          const period = BLOCKS_PER_DAY * 31;
+          const targetDecimals = 12;
+          const bestBorrowRate = getBigNumberFrom(1, targetDecimals - 8);
+
+          const healthFactor = 2;
+          const sourceAmount = 100_000;
+          const input: IBorrowInputParams = {
+            collateralFactor: 0.8,
+            priceSourceUSD: 0.1,
+            priceTargetUSD: 4,
+            sourceDecimals: 24,
+            targetDecimals,
+            availablePools: [
+              {   // source, target
+                borrowRateInTokens: [
+                  getBigNumberFrom(0, targetDecimals),
+                  bestBorrowRate
+                ],
+                availableLiquidityInTokens: [0, 200_000]
+              }
+            ]
+          };
+
+          const data = await createTetuConverter(input);
+
+          const ret = await data.tetuConveter.findConversionStrategy(
+            data.sourceToken.address,
+            getBigNumberFrom(sourceAmount, input.sourceDecimals),
+            data.targetToken.address,
+            period,
+            CONVERSION_MODE_BORROW
+          );
+
+          const expectedTargetAmount =
+            input.collateralFactor
+            * sourceAmount * input.priceSourceUSD
+            / (input.priceTargetUSD)
+            / healthFactor;
+
+
+          const sret = [
+            ret.converter,
+            ret.maxTargetAmount,
+            ret.aprForPeriod36
+          ].join();
+
+          const sexpected = [
+            data.pools[0].converter
+            , getBigNumberFrom(expectedTargetAmount, input.targetDecimals)
+            , bestBorrowRate
+              .mul(period)
+              .mul(Misc.WEI_DOUBLE)
+              .div(getBigNumberFrom(1, targetDecimals))
+          ].join();
+
+          expect(sret).equal(sexpected);
+        });
+      });
+      describe("Single swap-converter", () => {
+        it("should return expected values", async () => {
+          const period = BLOCKS_PER_DAY * 31;
+          const targetDecimals = 12;
+          const bestBorrowRate = getBigNumberFrom(1, targetDecimals - 8);
+
+          const healthFactor = 2;
+          const sourceAmount = 100_000;
+          const input: IBorrowInputParams = {
+            collateralFactor: 0.8,
+            priceSourceUSD: 0.1,
+            priceTargetUSD: 4,
+            sourceDecimals: 24,
+            targetDecimals,
+            availablePools: [
+              {   // source, target
+                borrowRateInTokens: [
+                  getBigNumberFrom(0, targetDecimals),
+                  bestBorrowRate
+                ],
+                availableLiquidityInTokens: [0, 200_000]
+              }
+            ]
+          };
+
+          const data = await createTetuConverter(input);
+
+          const ret = await data.tetuConveter.findConversionStrategy(
+            data.sourceToken.address,
+            getBigNumberFrom(sourceAmount, input.sourceDecimals),
+            data.targetToken.address,
+            period,
+            CONVERSION_MODE_BORROW
+          );
+
+          const expectedTargetAmount =
+            input.collateralFactor
+            * sourceAmount * input.priceSourceUSD
+            / (input.priceTargetUSD)
+            / healthFactor;
+
+
+          const sret = [
+            ret.converter,
+            ret.maxTargetAmount,
+            ret.aprForPeriod36
+          ].join();
+
+          const sexpected = [
+            data.pools[0].converter
+            , getBigNumberFrom(expectedTargetAmount, input.targetDecimals)
+            , bestBorrowRate
+              .mul(period)
+              .mul(Misc.WEI_DOUBLE)
+              .div(getBigNumberFrom(1, targetDecimals))
+          ].join();
+
+          expect(sret).equal(sexpected);
         });
       });
     });
     describe("Bad paths", () => {
-      describe("Unsupported source asset", () => {
+      describe("Unsupported asset's pair", () => {
         it("should return 0", async () => {
           expect.fail();
         });
       });
-      describe("Pool don't have enough liquidity", () => {
+      describe("Source amount is 0", () => {
+        it("should return 0", async () => {
+          expect.fail();
+        });
+      });
+      describe("Period is 0", () => {
+        it("should return 0", async () => {
+          expect.fail();
+        });
+      });
+      describe("Incorrect conversion mode", () => {
         it("should return 0", async () => {
           expect.fail();
         });
@@ -517,9 +670,59 @@ describe("TetuConverterTest", () => {
   });
 
   describe("borrow", () => {
-
     describe("Good paths", () => {
-      interface IMakeBorrowTestResults {
+      describe("Convert using borrowing", () => {
+        it("should return expected values", async () => {
+          expect.fail("TODO");
+        });
+      });
+      describe("Convert using swapping", () => {
+        it("should return expected values", async () => {
+          expect.fail("TODO");
+        });
+      });
+    });
+    describe("Bad paths", () => {
+      describe("Converter is null", () => {
+        it("should revert", async () => {
+          expect.fail();
+        });
+      });
+      describe("Converter is incorrect", () => {
+        it("should revert", async () => {
+          expect.fail();
+        });
+      });
+      describe("Receiver is null", () => {
+        it("should revert", async () => {
+          expect.fail();
+        });
+      });
+      describe("amount to borrow is 0", () => {
+        it("should revert", async () => {
+          expect.fail();
+        });
+      });
+      describe("Collateral amount is 0", () => {
+        it("should revert", async () => {
+          expect.fail();
+        });
+      });
+      describe("Converter returns incorrect conversion kind", () => {
+        it("should return UNSUPPORTED_CONVERSION_KIND", async () => {
+          expect.fail();
+        });
+      });
+    });
+  });
+
+  /**
+   * Check balances of all participants before and after borrow/repay
+   * All borrow/repay operations are made using Borrower-functions
+   */
+  describe("Check balances", () => {
+    describe("Good paths", () => {
+      interface IMakeConversionUsingBorrowingResults {
         init: ISetupResults;
         contractsToInvestigate: IContractToInvestigate[];
         tokensToInvestigate: string[];
@@ -528,11 +731,11 @@ describe("TetuConverterTest", () => {
         balancesAfterBorrow: (BigNumber | string)[];
       }
 
-      async function makeBorrowTest(
+      async function makeConversionUsingBorrowing(
         collateralAmounts: number[],
         exactBorrowAmounts: number[] | undefined,
         setupTetuLiquidatorToSwapBorrowToCollateral: boolean = false,
-      ) : Promise<IMakeBorrowTestResults> {
+      ) : Promise<IMakeConversionUsingBorrowingResults > {
         const receiver = ethers.Wallet.createRandom().address;
 
         const init = await prepareTetuAppWithMultipleLendingPlatforms(
@@ -577,207 +780,181 @@ describe("TetuConverterTest", () => {
           balancesBeforeBorrow
         }
       }
-      describe("Single borrow", () => {
-        describe("Borrow max amount", () => {
-          it("should update balances in proper way", async () => {
-            const amountToUseAsCollateralNum = 100_000;
-            const r = await makeBorrowTest(
-              [amountToUseAsCollateralNum],
-              undefined, // let's borrow max available amount
-              false
-            );
 
-            const ret = [
-              ...r.balancesBeforeBorrow,
-              "after",
-              ...r.balancesAfterBorrow
-            ].map(x => BalanceUtils.toString(x)).join("\r");
+      describe("Borrow", () => {
+        describe("Check balances", () => {
+          describe("Borrow max amount", () => {
+            it("should update balances in proper way", async () => {
+              const amountToUseAsCollateralNum = 100_000;
+              const r = await makeConversionUsingBorrowing(
+                [amountToUseAsCollateralNum],
+                undefined, // let's borrow max available amount
+                false
+              );
 
-            const healthFactorTarget = await r.init.core.controller.targetHealthFactor2();
-            const amountCollateral = getBigNumberFrom(
-              amountToUseAsCollateralNum,
-              r.init.borrowInputParams.sourceDecimals
-            );
+              const ret = [
+                ...r.balancesBeforeBorrow,
+                "after",
+                ...r.balancesAfterBorrow
+              ].map(x => BalanceUtils.toString(x)).join("\r");
 
-            const expectedTargetAmount = getBigNumberFrom(
-              r.init.borrowInputParams.collateralFactor
-              * amountToUseAsCollateralNum * r.init.borrowInputParams.priceSourceUSD
-              / r.init.borrowInputParams.priceTargetUSD
-              / healthFactorTarget * 100 // health factor has 2 decimals, i.e. we have 100, 200 instead of 1, 2...
-              , await r.init.targetToken.decimals()
-            );
+              const healthFactorTarget = await r.init.core.controller.targetHealthFactor2();
+              const amountCollateral = getBigNumberFrom(
+                amountToUseAsCollateralNum,
+                r.init.borrowInputParams.sourceDecimals
+              );
 
-            const expected = [
-              // before
-              // userContract, source, target, cToken
-              "userContract", r.init.initialCollateralAmount, 0, 0,
-              // user: source, target, cToken
-              "receiver", 0, 0, 0,
-              // pool: source, target, cToken
-              "pool", 0, r.init.availableBorrowLiquidityPerPool, 0,
-              // tc: source, target, cToken
-              "tc", 0, 0, 0,
-              // pa: source, target, cToken
-              "poolAdapter", 0, 0, 0,
+              const expectedTargetAmount = getBigNumberFrom(
+                r.init.borrowInputParams.collateralFactor
+                * amountToUseAsCollateralNum * r.init.borrowInputParams.priceSourceUSD
+                / r.init.borrowInputParams.priceTargetUSD
+                / healthFactorTarget * 100 // health factor has 2 decimals, i.e. we have 100, 200 instead of 1, 2...
+                , await r.init.targetToken.decimals()
+              );
+
+              const expected = [
+                // before
+                // userContract, source, target, cToken
+                "userContract", r.init.initialCollateralAmount, 0, 0,
+                // user: source, target, cToken
+                "receiver", 0, 0, 0,
+                // pool: source, target, cToken
+                "pool", 0, r.init.availableBorrowLiquidityPerPool, 0,
+                // tc: source, target, cToken
+                "tc", 0, 0, 0,
+                // pa: source, target, cToken
+                "poolAdapter", 0, 0, 0,
 
 
-              "after",
-              // after borrowing
-              // userContract: source, target, cToken
-              "userContract", r.init.initialCollateralAmount.sub(amountCollateral), 0, 0,
-              // user: source, target, cToken
-              "receiver", 0, expectedTargetAmount, 0,
-              // pool: source, target, cToken
-              "pool", amountCollateral, r.init.availableBorrowLiquidityPerPool.sub(expectedTargetAmount), 0,
-              // tc: source, target, cToken
-              "tc", 0, 0, 0,
-              // pa: source, target, cToken
-              "poolAdapter", 0, 0, amountCollateral // !TODO: we assume exchange rate 1:1
+                "after",
+                // after borrowing
+                // userContract: source, target, cToken
+                "userContract", r.init.initialCollateralAmount.sub(amountCollateral), 0, 0,
+                // user: source, target, cToken
+                "receiver", 0, expectedTargetAmount, 0,
+                // pool: source, target, cToken
+                "pool", amountCollateral, r.init.availableBorrowLiquidityPerPool.sub(expectedTargetAmount), 0,
+                // tc: source, target, cToken
+                "tc", 0, 0, 0,
+                // pa: source, target, cToken
+                "poolAdapter", 0, 0, amountCollateral // !TODO: we assume exchange rate 1:1
 
-            ].map(x => BalanceUtils.toString(x)).join("\r");
+              ].map(x => BalanceUtils.toString(x)).join("\r");
 
-            expect(ret).equal(expected);
+              expect(ret).equal(expected);
+            });
+          });
+          describe("Borrow max amount, make full repay", () => {
+            it("should update balances in proper way", async () => {
+              const user = ethers.Wallet.createRandom().address;
+              const targetDecimals = 12;
+              const sourceDecimals = 24;
+              const sourceAmountNumber = 100_000;
+              const availableBorrowLiquidityNumber = 200_000_000;
+              const tt: IBorrowInputParams = {
+                collateralFactor: 0.8,
+                priceSourceUSD: 0.1,
+                priceTargetUSD: 4,
+                sourceDecimals,
+                targetDecimals,
+                availablePools: [
+                  {   // source, target
+                    borrowRateInTokens: [
+                      getBigNumberFrom(0, targetDecimals),
+                      getBigNumberFrom(1, targetDecimals - 6), // 1e-6
+                    ],
+                    availableLiquidityInTokens: [0, availableBorrowLiquidityNumber]
+                  }
+                ]
+              };
+              const sourceAmount = getBigNumberFrom(sourceAmountNumber, sourceDecimals);
+              const availableBorrowLiquidity = getBigNumberFrom(availableBorrowLiquidityNumber, targetDecimals);
+
+              const {core, pools, cToken, userContract, sourceToken, targetToken, poolAdapters} =
+                await prepareContracts(tt);
+              const pool = pools[0];
+              const poolAdapter = poolAdapters[0];
+
+              const contractsToInvestigate: IContractToInvestigate[] = [
+                {name: "userContract", contract: userContract.address},
+                {name: "user", contract: user},
+                {name: "pool", contract: pool},
+                {name: "tc", contract: core.tc.address},
+                {name: "poolAdapter", contract: poolAdapter},
+              ];
+              const tokensToInvestigate = [sourceToken.address, targetToken.address, cToken];
+
+              // initialize balances
+              await MockERC20__factory.connect(sourceToken.address, deployer)
+                .mint(userContract.address, sourceAmount);
+              await MockERC20__factory.connect(targetToken.address, deployer)
+                .mint(pool, availableBorrowLiquidity);
+
+              // get balances before start
+              const before = await BalanceUtils.getBalances(deployer, contractsToInvestigate, tokensToInvestigate);
+              console.log("before", before);
+
+              // borrow
+              await userContract.borrowMaxAmount(
+                sourceToken.address,
+                sourceAmount,
+                targetToken.address,
+                user
+              );
+
+              // repay back immediately
+              const targetTokenAsUser = IERC20__factory.connect(targetToken.address
+                , await DeployerUtils.startImpersonate(user)
+              );
+              await targetTokenAsUser.transfer(userContract.address
+                , targetTokenAsUser.balanceOf(user)
+              );
+
+              // user receives collateral and transfers it back to UserContract to restore same state as before
+              await userContract.makeRepayComplete(
+                sourceToken.address,
+                targetToken.address,
+                user
+              );
+              const sourceTokenAsUser = IERC20__factory.connect(sourceToken.address
+                , await DeployerUtils.startImpersonate(user)
+              );
+              await sourceTokenAsUser.transfer(userContract.address
+                , sourceAmount
+              );
+
+              // get result balances
+              const after = await BalanceUtils.getBalances(deployer, contractsToInvestigate, tokensToInvestigate);
+              console.log("after", after);
+
+              const ret = [...before, "after", ...after].map(x => BalanceUtils.toString(x)).join("\r");
+
+              const beforeExpected = [
+                // before
+                // userContract, source, target, cToken
+                "userContract", sourceAmount, 0, 0,
+                // user: source, target, cToken
+                "user", 0, 0, 0,
+                // pool: source, target, cToken
+                "pool", 0, availableBorrowLiquidity, 0,
+                // tc: source, target, cToken
+                "tc", 0, 0, 0,
+                // pa: source, target, cToken
+                "poolAdapter", 0, 0, 0,
+              ];
+
+              // balances should be restarted in exactly same state as they were before the borrow
+              const expected = [...beforeExpected, "after", ...beforeExpected]
+                .map(x => BalanceUtils.toString(x)).join("\r");
+
+              expect(ret).equal(expected);
+            });
           });
         });
-        describe("Borrow max amount, make full repay", () => {
-          it("should update balances in proper way", async () => {
-            const user = ethers.Wallet.createRandom().address;
-            const targetDecimals = 12;
-            const sourceDecimals = 24;
-            const sourceAmountNumber = 100_000;
-            const availableBorrowLiquidityNumber = 200_000_000;
-            const tt: IBorrowInputParams = {
-              collateralFactor: 0.8,
-              priceSourceUSD: 0.1,
-              priceTargetUSD: 4,
-              sourceDecimals,
-              targetDecimals,
-              availablePools: [
-                {   // source, target
-                  borrowRateInTokens: [
-                    getBigNumberFrom(0, targetDecimals),
-                    getBigNumberFrom(1, targetDecimals - 6), // 1e-6
-                  ],
-                  availableLiquidityInTokens: [0, availableBorrowLiquidityNumber]
-                }
-              ]
-            };
-            const sourceAmount = getBigNumberFrom(sourceAmountNumber, sourceDecimals);
-            const availableBorrowLiquidity = getBigNumberFrom(availableBorrowLiquidityNumber, targetDecimals);
-
-            const {core, pools, cToken, userContract, sourceToken, targetToken, poolAdapters} =
-              await prepareContracts(tt);
-            const pool = pools[0];
-            const poolAdapter = poolAdapters[0];
-
-            const contractsToInvestigate: IContractToInvestigate[] = [
-              {name: "userContract", contract: userContract.address},
-              {name: "user", contract: user},
-              {name: "pool", contract: pool},
-              {name: "tc", contract: core.tc.address},
-              {name: "poolAdapter", contract: poolAdapter},
-            ];
-            const tokensToInvestigate = [sourceToken.address, targetToken.address, cToken];
-
-            // initialize balances
-            await MockERC20__factory.connect(sourceToken.address, deployer)
-              .mint(userContract.address, sourceAmount);
-            await MockERC20__factory.connect(targetToken.address, deployer)
-              .mint(pool, availableBorrowLiquidity);
-
-            // get balances before start
-            const before = await BalanceUtils.getBalances(deployer, contractsToInvestigate, tokensToInvestigate);
-            console.log("before", before);
-
-            // borrow
-            await userContract.borrowMaxAmount(
-              sourceToken.address,
-              sourceAmount,
-              targetToken.address,
-              user
-            );
-
-            // repay back immediately
-            const targetTokenAsUser = IERC20__factory.connect(targetToken.address
-              , await DeployerUtils.startImpersonate(user)
-            );
-            await targetTokenAsUser.transfer(userContract.address
-              , targetTokenAsUser.balanceOf(user)
-            );
-
-            // user receives collateral and transfers it back to UserContract to restore same state as before
-            await userContract.makeRepayComplete(
-              sourceToken.address,
-              targetToken.address,
-              user
-            );
-            const sourceTokenAsUser = IERC20__factory.connect(sourceToken.address
-              , await DeployerUtils.startImpersonate(user)
-            );
-            await sourceTokenAsUser.transfer(userContract.address
-              , sourceAmount
-            );
-
-            // get result balances
-            const after = await BalanceUtils.getBalances(deployer, contractsToInvestigate, tokensToInvestigate);
-            console.log("after", after);
-
-            const ret = [...before, "after", ...after].map(x => BalanceUtils.toString(x)).join("\r");
-
-            const beforeExpected = [
-              // before
-              // userContract, source, target, cToken
-              "userContract", sourceAmount, 0, 0,
-              // user: source, target, cToken
-              "user", 0, 0, 0,
-              // pool: source, target, cToken
-              "pool", 0, availableBorrowLiquidity, 0,
-              // tc: source, target, cToken
-              "tc", 0, 0, 0,
-              // pa: source, target, cToken
-              "poolAdapter", 0, 0, 0,
-            ];
-
-            // balances should be restarted in exactly same state as they were before the borrow
-            const expected = [...beforeExpected, "after", ...beforeExpected]
-              .map(x => BalanceUtils.toString(x)).join("\r");
-
-            expect(ret).equal(expected);
-          });
-        });
       });
-    });
 
-    describe("Bad paths", () => {
-      describe("Converter is null", () => {
-        it("should revert", async () => {
-          expect.fail();
-        });
-      });
-      describe("Converter is incorrect", () => {
-        it("should revert", async () => {
-          expect.fail();
-        });
-      });
-      describe("Receiver is null", () => {
-        it("should revert", async () => {
-          expect.fail();
-        });
-      });
-      describe("amount to borrow is 0", () => {
-        it("should revert", async () => {
-          expect.fail();
-        });
-      });
-      describe("Collateral amount is 0", () => {
-        it("should revert", async () => {
-          expect.fail();
-        });
-      });
-      describe("Converter returns incorrect conversion kind", () => {
-        it("should return UNSUPPORTED_CONVERSION_KIND", async () => {
-          expect.fail();
-        });
+      describe("Swap", () => {
+// TODO
       });
     });
   });
@@ -1016,7 +1193,6 @@ describe("TetuConverterTest", () => {
           });
 
         });
-
       });
       describe("Multiple borrows", () => {
         describe("Partial repay of single pool adapter", () => {

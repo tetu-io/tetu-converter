@@ -102,12 +102,29 @@ contract TetuConverter is ITetuConverter, IKeeperCallback {
       // find best lending platform
       return _borrowManager().findConverter(params);
     } else {
-      // TODO develop decision making function, that can be tested separately
-      // use healthFactor2_, calculate cost of swap (forward and back)
-      // for now just use borrow manager for dv tests compatibility
-      return _borrowManager().findConverter(params);
-    }
+      (
+        address borrowConverter,
+        uint borrowMaxTargetAmount,
+        int borrowAprForPeriod36
+      ) = _borrowManager().findConverter(params);
 
+      (
+        address swapConverter,
+        uint swapMaxTargetAmount,
+        int swapAprForPeriod36
+      ) = _swapManager().getConverter(params);
+
+      bool useBorrow =
+        swapConverter == address(0)
+        || (
+          borrowConverter != address(0)
+          && swapAprForPeriod36 > borrowAprForPeriod36
+        );
+
+      return useBorrow
+        ? (borrowConverter, borrowMaxTargetAmount, borrowAprForPeriod36)
+        : (swapConverter, swapMaxTargetAmount, swapAprForPeriod36);
+    }
   }
 
   ///////////////////////////////////////////////////////
@@ -121,7 +138,7 @@ contract TetuConverter is ITetuConverter, IKeeperCallback {
     address borrowAsset_,
     uint amountToBorrow_,
     address receiver_
-) external override returns (
+  ) external override returns (
     uint borrowedAmountOut
   ) {
     return _convert(
