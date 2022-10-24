@@ -83,9 +83,7 @@ describe("PoolAdapterMock", () => {
           const {core, sourceToken, targetToken, pools} = await BorrowManagerHelper.initAppPoolsWithTwoAssets(
             deployer,
             tt,
-            {
-              converterFabric: async () => converter.address
-            }
+            async () => converter.address
           );
 
           // register pool adapter

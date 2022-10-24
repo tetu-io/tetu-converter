@@ -49,8 +49,14 @@ export interface ITetuLiquidatorMockParams {
     prices: BigNumber[];
 }
 
-export interface ITetuAppSetupExParams {
+export interface ISwapManagerConfig {
     setupTetuLiquidatorToSwapBorrowToCollateral?: boolean;
+    /**
+     * Optional price impact for Swap Manager.
+     * It should be in the range [0... TetuLiquidatorMock.PRICE_IMPACT_NUMERATOR]
+     * === [0...100_000]
+     */
+    priceImpact?: number;
 }
 
 export class BorrowManagerHelper {
@@ -63,7 +69,7 @@ export class BorrowManagerHelper {
         const debtMonitor = await CoreContractsHelper.createDebtMonitor(signer, controller);
         const tetuConverter = await CoreContractsHelper.createTetuConverter(signer, controller);
         const swapManager = await CoreContractsHelper.createSwapManager(signer, controller);
-        const tetuLiquidatorMockEmpty = await MocksHelper.createTetuLiquidator(
+        const tetuLiquidator = await MocksHelper.createTetuLiquidator(
           signer,
           [],
           []
@@ -73,16 +79,16 @@ export class BorrowManagerHelper {
         await controller.setDebtMonitor(debtMonitor.address);
         await controller.setTetuConverter(tetuConverter.address);
         await controller.setSwapManager(swapManager.address);
-        await controller.setTetuLiquidator(tetuLiquidatorMockEmpty.address);
+        await controller.setTetuLiquidator(tetuLiquidator.address);
 
-        return new CoreContracts(controller, tetuConverter, borrowManager, debtMonitor);
+        return new CoreContracts(controller, tetuConverter, borrowManager, debtMonitor, swapManager);
     }
 
     static async initAppPoolsWithTwoAssets(
         signer: SignerWithAddress,
         tt: IBorrowInputParams,
         converterFabric?: () => Promise<string>,
-        tetuAppSetupParams?: ITetuAppSetupExParams
+        tetuAppSetupParams?: ISwapManagerConfig
     ) : Promise<{
         core: CoreContracts,
         sourceToken: MockERC20,
@@ -113,6 +119,9 @@ export class BorrowManagerHelper {
               [prices[0], prices[1]]
             );
             await core.controller.setTetuLiquidator(tetuLiquidatorMockEmpty.address);
+            if (tetuAppSetupParams.priceImpact) {
+                await tetuLiquidatorMockEmpty.setPriceImpact(tetuAppSetupParams.priceImpact);
+            }
         }
 
         for (const poolInfo of tt.availablePools) {

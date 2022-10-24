@@ -14,13 +14,18 @@ import {
   PoolAdapterMock__factory,
   LendingPlatformMock__factory,
   BorrowManager__factory,
-  IPoolAdapter__factory, IPoolAdapter, PoolAdapterMock, ITetuConverter__factory, TetuConverter__factory
+  IPoolAdapter__factory,
+  IPoolAdapter,
+  PoolAdapterMock,
+  ITetuConverter__factory,
+  TetuConverter__factory,
+  SwapManager__factory, TetuLiquidatorMock__factory
 } from "../../typechain";
 import {
   IBorrowInputParams,
   BorrowManagerHelper,
   IPoolInstanceInfo,
-  ITetuLiquidatorMockParams, ITetuAppSetupExParams
+  ITetuLiquidatorMockParams, ISwapManagerConfig
 } from "../baseUT/helpers/BorrowManagerHelper";
 import {CoreContracts} from "../baseUT/types/CoreContracts";
 import {CoreContractsHelper} from "../baseUT/helpers/CoreContractsHelper";
@@ -31,12 +36,14 @@ import {BigNumber} from "ethers";
 import {Misc} from "../../scripts/utils/Misc";
 import {IPoolAdapterStatus} from "../baseUT/types/BorrowRepayDataTypes";
 import {tetu} from "../../typechain/contracts/integrations";
+import exp from "constants";
 
 describe("TetuConverterTest", () => {
 //region Constants
   const BLOCKS_PER_DAY = 6456;
-  const CONVERSION_MODE_BORROW = 2;
+  const CONVERSION_MODE_AUTO = 0;
   const CONVERSION_MODE_SWAP = 1;
+  const CONVERSION_MODE_BORROW = 2;
 //endregion Constants
 
 //region Global vars for all tests
@@ -121,7 +128,7 @@ describe("TetuConverterTest", () => {
    */
   async function prepareContracts(
     tt: IBorrowInputParams,
-    tetuAppSetupParams?: ITetuAppSetupExParams
+    tetuAppSetupParams?: ISwapManagerConfig
   ) : Promise<IPrepareResults>{
     const periodInBlocks = 117;
 
@@ -175,7 +182,7 @@ describe("TetuConverterTest", () => {
   /** prepareContracts with sample assets settings and huge amounts of collateral and borrow assets */
   async function prepareTetuAppWithMultipleLendingPlatforms(
     countPlatforms: number,
-    tetuAppSetupParams?: ITetuAppSetupExParams
+    tetuAppSetupParams?: ISwapManagerConfig
   ) : Promise<ISetupResults> {
     const targetDecimals = 6;
     const sourceDecimals = 17;
@@ -433,22 +440,123 @@ describe("TetuConverterTest", () => {
 
 //region Unit tests
   describe("findBestConversionStrategy", () => {
+    interface IFindConversionStrategyResults {
+      converter: string;
+      maxTargetAmount: BigNumber;
+      aprForPeriod36: BigNumber;
+    }
+    interface IMakeFindConversionStrategyResults {
+      init: ISetupResults;
+      results: IFindConversionStrategyResults;
+      /* Converter of the lending pool adapter */
+      poolAdapterConverter: string;
+    }
+
+    /**
+     * Set up test for findConversionStrategy
+     * @param sourceAmount
+     * @param periodInBlocks
+     * @param conversionMode
+     * @param borrowRateNum Borrow rate (as num, no decimals); undefined if there is no lending pool
+     * @param swapConfig Swap manager config; undefined if there is no DEX
+     */
+    async function makeFindConversionStrategy(
+      sourceAmount: number,
+      periodInBlocks: number,
+      conversionMode: number,
+      borrowRateNum?: number,
+      swapConfig?: ISwapManagerConfig
+    ) : Promise<IMakeFindConversionStrategyResults> {
+      const init = await prepareTetuAppWithMultipleLendingPlatforms(
+        borrowRateNum ? 1: 0,
+        swapConfig
+      );
+
+      if (borrowRateNum) {
+        await PoolAdapterMock__factory.connect(
+          init.poolAdapters[0],
+          deployer
+        ).changeBorrowRate(borrowRateNum);
+        await LendingPlatformMock__factory.connect(
+          init.platformAdapters[0],
+          deployer
+        ).changeBorrowRate(init.targetToken.address, borrowRateNum);
+      }
+
+      const results: IFindConversionStrategyResults = await init.core.tc.findConversionStrategy(
+        init.sourceToken.address,
+        getBigNumberFrom(sourceAmount, await init.sourceToken.decimals()),
+        init.targetToken.address,
+        periodInBlocks,
+        conversionMode
+      );
+
+      const poolAdapterConverter = init.poolAdapters.length
+        ? (await PoolAdapterMock__factory.connect(
+          init.poolAdapters[0],
+          deployer
+        ).getConfig()).origin
+        : Misc.ZERO_ADDRESS;
+
+      return {
+        init,
+        results,
+        poolAdapterConverter
+      }
+    }
+
+    async function makeFindConversionStrategyTest(
+      conversionMode: number,
+      useLendingPool: boolean,
+      useDexPool: boolean
+    ) : Promise<IMakeFindConversionStrategyResults> {
+      return makeFindConversionStrategy(
+        1000,
+        100,
+        conversionMode,
+        useLendingPool ? 1000 : undefined,
+        useDexPool
+          ? {
+            priceImpact: 1_000,
+            setupTetuLiquidatorToSwapBorrowToCollateral: true
+          }
+          : undefined
+      );
+    }
+
     describe("Good paths", () => {
       describe("Check output converter value", () => {
         describe("Conversion mode is AUTO", () => {
           describe("Neither borrowing no swap are available", () => {
             it("should return zero converter", async () => {
-              expect.fail("TODO");
+              const r = await makeFindConversionStrategyTest(CONVERSION_MODE_AUTO, false, false);
+              expect(r.results.converter).eq(Misc.ZERO_ADDRESS);
             });
           });
           describe("Only borrowing is available", () => {
-            it("should return borrowing-converter", async () => {
-              expect.fail("TODO");
+            it("should return a converter for borrowing", async () => {
+              const r = await makeFindConversionStrategyTest(CONVERSION_MODE_AUTO, true, false);
+              const ret = [
+                r.results.converter === Misc.ZERO_ADDRESS,
+                r.results.converter
+              ].join();
+              const expected = [
+                false,
+                r.poolAdapterConverter
+              ].join();
+              expect(ret).eq(expected);
             });
           });
           describe("Only swap is available", () => {
-            it("should return swap-converter", async () => {
-              expect.fail("TODO");
+            it("should return a converter to swap", async () => {
+              const r = await makeFindConversionStrategyTest(CONVERSION_MODE_AUTO, false, true);
+              const ret = [
+                r.results.converter
+              ].join();
+              const expected = [
+                r.init.core.swapManager.address
+              ].join();
+              expect(ret).eq(expected);
             });
           });
           describe("Both borrowing and swap are available", () => {
@@ -524,122 +632,93 @@ describe("TetuConverterTest", () => {
         });
       });
 
-      describe("Single borrow-converter", () => {
+      describe("Single swap-converter", () => {
         it("should return expected values", async () => {
           const period = BLOCKS_PER_DAY * 31;
-          const targetDecimals = 12;
-          const bestBorrowRate = getBigNumberFrom(1, targetDecimals - 8);
-
-          const healthFactor = 2;
-          const sourceAmount = 100_000;
-          const input: IBorrowInputParams = {
-            collateralFactor: 0.8,
-            priceSourceUSD: 0.1,
-            priceTargetUSD: 4,
-            sourceDecimals: 24,
-            targetDecimals,
-            availablePools: [
-              {   // source, target
-                borrowRateInTokens: [
-                  getBigNumberFrom(0, targetDecimals),
-                  bestBorrowRate
-                ],
-                availableLiquidityInTokens: [0, 200_000]
-              }
-            ]
-          };
-
-          const data = await createTetuConverter(input);
-
-          const ret = await data.tetuConveter.findConversionStrategy(
-            data.sourceToken.address,
-            getBigNumberFrom(sourceAmount, input.sourceDecimals),
-            data.targetToken.address,
+          const sourceAmountNum = 100_000;
+          const priceImpact = 1_000; // 1%
+          const r = await makeFindConversionStrategy(
+            sourceAmountNum,
             period,
-            CONVERSION_MODE_BORROW
-          );
+            CONVERSION_MODE_SWAP,
+            undefined, // no lending platforms are available
+            {
+              priceImpact,
+              setupTetuLiquidatorToSwapBorrowToCollateral: true
+            }
+          )
+          const PRICE_IMPACT_NUMERATOR = (await r.init.core.swapManager.PRICE_IMPACT_NUMERATOR()).toNumber();
+          const APR_NUMERATOR = (await r.init.core.swapManager.APR_NUMERATOR());
 
           const expectedTargetAmount =
-            input.collateralFactor
-            * sourceAmount * input.priceSourceUSD
-            / (input.priceTargetUSD)
-            / healthFactor;
+            sourceAmountNum
+            * r.init.borrowInputParams.priceSourceUSD
+            / (r.init.borrowInputParams.priceTargetUSD)
+            * (PRICE_IMPACT_NUMERATOR - priceImpact) / PRICE_IMPACT_NUMERATOR
+          ;
 
+          // The code from SwapManager.getConverter to calculate expectedApr36
+          const tetuLiquidator = TetuLiquidatorMock__factory.connect(
+            await r.init.core.controller.tetuLiquidator(),
+            deployer
+          );
+          const returnAmount = await tetuLiquidator.getPrice(
+            r.init.targetToken.address,
+            r.init.sourceToken.address,
+            r.results.maxTargetAmount
+          );
+          const sourceAmount = getBigNumberFrom(sourceAmountNum, await r.init.sourceToken.decimals());
+          const loss = sourceAmount.sub(returnAmount);
+          const expectedApr36 = loss.mul(APR_NUMERATOR).div(sourceAmount);
 
           const sret = [
-            ret.converter,
-            ret.maxTargetAmount,
-            ret.aprForPeriod36
-          ].join();
+            r.results.converter,
+            r.results.maxTargetAmount,
+            r.results.aprForPeriod36
+          ].join("\n");
 
           const sexpected = [
-            data.pools[0].converter
-            , getBigNumberFrom(expectedTargetAmount, input.targetDecimals)
-            , bestBorrowRate
-              .mul(period)
-              .mul(Misc.WEI_DOUBLE)
-              .div(getBigNumberFrom(1, targetDecimals))
-          ].join();
+            r.init.core.swapManager.address,
+            getBigNumberFrom(expectedTargetAmount, await r.init.targetToken.decimals()),
+            expectedApr36
+          ].join("\n");
 
           expect(sret).equal(sexpected);
         });
       });
-      describe("Single swap-converter", () => {
+      describe("Single borrow-converter", () => {
         it("should return expected values", async () => {
           const period = BLOCKS_PER_DAY * 31;
-          const targetDecimals = 12;
-          const bestBorrowRate = getBigNumberFrom(1, targetDecimals - 8);
-
-          const healthFactor = 2;
           const sourceAmount = 100_000;
-          const input: IBorrowInputParams = {
-            collateralFactor: 0.8,
-            priceSourceUSD: 0.1,
-            priceTargetUSD: 4,
-            sourceDecimals: 24,
-            targetDecimals,
-            availablePools: [
-              {   // source, target
-                borrowRateInTokens: [
-                  getBigNumberFrom(0, targetDecimals),
-                  bestBorrowRate
-                ],
-                availableLiquidityInTokens: [0, 200_000]
-              }
-            ]
-          };
-
-          const data = await createTetuConverter(input);
-
-          const ret = await data.tetuConveter.findConversionStrategy(
-            data.sourceToken.address,
-            getBigNumberFrom(sourceAmount, input.sourceDecimals),
-            data.targetToken.address,
+          const borrowRateNum = 1000;
+          const r = await makeFindConversionStrategy(
+            sourceAmount,
             period,
-            CONVERSION_MODE_BORROW
-          );
+            CONVERSION_MODE_BORROW,
+            borrowRateNum,
+          )
+          const targetHealthFactor = await r.init.core.controller.targetHealthFactor2();
 
           const expectedTargetAmount =
-            input.collateralFactor
-            * sourceAmount * input.priceSourceUSD
-            / (input.priceTargetUSD)
-            / healthFactor;
-
+            r.init.borrowInputParams.collateralFactor
+            * sourceAmount * r.init.borrowInputParams.priceSourceUSD
+            / (r.init.borrowInputParams.priceTargetUSD)
+            / targetHealthFactor * 100;
 
           const sret = [
-            ret.converter,
-            ret.maxTargetAmount,
-            ret.aprForPeriod36
-          ].join();
+            r.results.converter,
+            r.results.maxTargetAmount,
+            r.results.aprForPeriod36
+          ].join("\n");
 
           const sexpected = [
-            data.pools[0].converter
-            , getBigNumberFrom(expectedTargetAmount, input.targetDecimals)
-            , bestBorrowRate
+            r.poolAdapterConverter,
+            getBigNumberFrom(expectedTargetAmount, await r.init.targetToken.decimals()),
+            BigNumber.from(borrowRateNum)
               .mul(period)
               .mul(Misc.WEI_DOUBLE)
-              .div(getBigNumberFrom(1, targetDecimals))
-          ].join();
+              .div(getBigNumberFrom(1, await r.init.targetToken.decimals()))
+          ].join("\n");
 
           expect(sret).equal(sexpected);
         });
