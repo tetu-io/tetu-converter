@@ -438,19 +438,98 @@ describe("TetuConverterTest", () => {
 
 //endregion Test impl
 
+//region Conversion results
+  interface IFindConversionStrategyResults {
+    converter: string;
+    maxTargetAmount: BigNumber;
+    aprForPeriod36: BigNumber;
+  }
+
+  interface IMakeFindConversionStrategyResults {
+    init: ISetupResults;
+    results: IFindConversionStrategyResults;
+    /* Converter of the lending pool adapter */
+    poolAdapterConverter: string;
+  }
+
+
+  /**
+   * The code from SwapManager.getConverter to calculate expectedApr36 and maxTargetAmount
+   */
+  async function getExpectedSwapResults(
+    r: IMakeFindConversionStrategyResults,
+    sourceAmountNum: number,
+  ) : Promise<IFindConversionStrategyResults> {
+    const tetuLiquidator = TetuLiquidatorMock__factory.connect(
+      await r.init.core.controller.tetuLiquidator(),
+      deployer
+    );
+
+    const priceImpact = (await tetuLiquidator.priceImpact()).toNumber();
+
+    const PRICE_IMPACT_NUMERATOR = (await r.init.core.swapManager.PRICE_IMPACT_NUMERATOR()).toNumber();
+    const APR_NUMERATOR = (await r.init.core.swapManager.APR_NUMERATOR());
+
+    const maxTargetAmount = getBigNumberFrom(
+      sourceAmountNum
+      * r.init.borrowInputParams.priceSourceUSD
+      / (r.init.borrowInputParams.priceTargetUSD)
+      * (PRICE_IMPACT_NUMERATOR - priceImpact) / PRICE_IMPACT_NUMERATOR,
+      await r.init.targetToken.decimals()
+    );
+
+    const returnAmount = await tetuLiquidator.getPrice(
+      r.init.targetToken.address,
+      r.init.sourceToken.address,
+      r.results.maxTargetAmount
+    );
+    const sourceAmount = getBigNumberFrom(sourceAmountNum, await r.init.sourceToken.decimals());
+    const loss = sourceAmount.sub(returnAmount);
+    const aprForPeriod36 = loss.mul(APR_NUMERATOR).div(sourceAmount);
+
+    return {
+      maxTargetAmount,
+      aprForPeriod36,
+      converter: r.init.core.swapManager.address
+    }
+  }
+
+  async function getExpectedBorrowingResults(
+    r: IMakeFindConversionStrategyResults,
+    sourceAmountNum: number,
+    period: number
+  ) : Promise<IFindConversionStrategyResults> {
+    const targetHealthFactor = await r.init.core.controller.targetHealthFactor2();
+
+    const maxTargetAmount = getBigNumberFrom(
+      r.init.borrowInputParams.collateralFactor
+      * sourceAmountNum * r.init.borrowInputParams.priceSourceUSD
+      / (r.init.borrowInputParams.priceTargetUSD)
+      / targetHealthFactor * 100
+      , await r.init.targetToken.decimals()
+    );
+
+    const borrowRate = await LendingPlatformMock__factory.connect(
+      r.init.platformAdapters[0],
+      deployer
+    ).borrowRates(r.init.targetToken.address);
+
+    const aprForPeriod36 = borrowRate
+      .mul(period)
+      .mul(Misc.WEI_DOUBLE)
+      .div(getBigNumberFrom(1, await r.init.targetToken.decimals()));
+
+    return {
+      converter: r.poolAdapterConverter,
+      maxTargetAmount,
+      aprForPeriod36
+    }
+  }
+//endregion Conversion results
+
 //region Unit tests
   describe("findBestConversionStrategy", () => {
-    interface IFindConversionStrategyResults {
-      converter: string;
-      maxTargetAmount: BigNumber;
-      aprForPeriod36: BigNumber;
-    }
-    interface IMakeFindConversionStrategyResults {
-      init: ISetupResults;
-      results: IFindConversionStrategyResults;
-      /* Converter of the lending pool adapter */
-      poolAdapterConverter: string;
-    }
+
 
     /**
      * Set up test for findConversionStrategy
@@ -524,6 +603,36 @@ describe("TetuConverterTest", () => {
       );
     }
 
+    async function makeFindConversionStrategySwapAndBorrow(
+      period: number,
+      priceImpact: number,
+      conversionMode: number
+    ) : Promise<{
+      results: IFindConversionStrategyResults,
+      expectedSwap: IFindConversionStrategyResults,
+      expectedBorrowing: IFindConversionStrategyResults
+    }> {
+      const sourceAmountNum = 100_000;
+      const borrowRateNum = 1000;
+      const r = await makeFindConversionStrategy(
+        sourceAmountNum,
+        period,
+        conversionMode,
+        borrowRateNum,
+        {
+          priceImpact,
+          setupTetuLiquidatorToSwapBorrowToCollateral: true
+        }
+      )
+      const expectedSwap = await getExpectedSwapResults(r, sourceAmountNum);
+      const expectedBorrowing = await getExpectedBorrowingResults(r, sourceAmountNum, period);
+      return {
+        results: r.results,
+        expectedSwap,
+        expectedBorrowing
+      }
+    }
+
     describe("Good paths", () => {
       describe("Check output converter value", () => {
         describe("Conversion mode is AUTO", () => {
@@ -560,14 +669,47 @@ describe("TetuConverterTest", () => {
             });
           });
           describe("Both borrowing and swap are available", () => {
-            describe("APR of borrowing is lower", () => {
+            describe("APR of borrowing is better", () => {
               it("should return borrowing-converter", async () => {
-                expect.fail("TODO");
+                const r = await makeFindConversionStrategySwapAndBorrow(
+                  1,
+                  10_000,
+                  CONVERSION_MODE_AUTO
+                );
+                console.log(r);
+                const ret = [
+                  r.results.converter,
+                  r.results.maxTargetAmount,
+                  r.results.aprForPeriod36
+                ].map(x => BalanceUtils.toString(x)).join("\r");
+                const expected = [
+                  r.expectedBorrowing.converter,
+                  r.expectedBorrowing.maxTargetAmount,
+                  r.expectedBorrowing.aprForPeriod36
+                ].map(x => BalanceUtils.toString(x)).join("\r");
+
+                expect(ret).eq(expected);
               });
             });
-            describe("APR of swapping is lower", () => {
+            describe("APR of swap is better", () => {
               it("should return swap-converter", async () => {
-                expect.fail("TODO");
+                const r = await makeFindConversionStrategySwapAndBorrow(
+                  10_000,
+                  0,
+                  CONVERSION_MODE_AUTO
+                );
+                const ret = [
+                  r.results.converter,
+                  r.results.maxTargetAmount,
+                  r.results.aprForPeriod36
+                ].map(x => BalanceUtils.toString(x)).join("\r");
+                const expected = [
+                  r.expectedSwap.converter,
+                  r.expectedSwap.maxTargetAmount,
+                  r.expectedSwap.aprForPeriod36
+                ].map(x => BalanceUtils.toString(x)).join("\r");
+
+                expect(ret).eq(expected);
               });
             });
           });
@@ -575,28 +717,41 @@ describe("TetuConverterTest", () => {
         describe("Conversion mode is SWAP", () => {
           describe("Neither borrowing no swap are available", () => {
             it("should return zero converter", async () => {
-              expect.fail("TODO");
+              const r = await makeFindConversionStrategyTest(CONVERSION_MODE_SWAP, false, false);
+              expect(r.results.converter).eq(Misc.ZERO_ADDRESS);
             });
           });
           describe("Only swap is available", () => {
             it("should return swap-converter", async () => {
-              expect.fail("TODO");
+              const r = await makeFindConversionStrategyTest(CONVERSION_MODE_SWAP, false, true);
+              expect(r.results.converter).eq(r.init.core.swapManager.address);
             });
           });
           describe("Only borrowing is available", () => {
             it("should return zero converter", async () => {
-              expect.fail("TODO");
+              const r = await makeFindConversionStrategyTest(CONVERSION_MODE_SWAP, true, false);
+              expect(r.results.converter).eq(Misc.ZERO_ADDRESS);
             });
           });
           describe("Both borrowing and swap are available", () => {
-            describe("APR of borrowing is lower", () => {
+            describe("APR of borrowing is better", () => {
               it("should return swap-converter", async () => {
-                expect.fail("TODO");
+                const r = await makeFindConversionStrategySwapAndBorrow(
+                  1,
+                  10_000,
+                  CONVERSION_MODE_SWAP
+                );
+                expect(r.results.converter).eq(r.expectedSwap.converter);
               });
             });
-            describe("APR of swapping is lower", () => {
+            describe("APR of swapping is better", () => {
               it("should return swap-converter", async () => {
-                expect.fail("TODO");
+                const r = await makeFindConversionStrategySwapAndBorrow(
+                  10_000,
+                  0,
+                  CONVERSION_MODE_SWAP
+                );
+                expect(r.results.converter).eq(r.expectedSwap.converter);
               });
             });
           });
@@ -604,28 +759,43 @@ describe("TetuConverterTest", () => {
         describe("Conversion mode is BORROW", () => {
           describe("Neither borrowing no swap are available", () => {
             it("should return zero converter", async () => {
-              expect.fail("TODO");
+              const r = await makeFindConversionStrategyTest(CONVERSION_MODE_BORROW, false, false);
+              expect(r.results.converter).eq(Misc.ZERO_ADDRESS);
             });
           });
           describe("Only swap is available", () => {
             it("should return zero converter", async () => {
-              expect.fail("TODO");
+              const r = await makeFindConversionStrategyTest(CONVERSION_MODE_BORROW, false, true);
+              expect(r.results.converter).eq(Misc.ZERO_ADDRESS);
             });
           });
           describe("Only borrowing is available", () => {
             it("should return borrow-converter", async () => {
-              expect.fail("TODO");
+              const r = await makeFindConversionStrategyTest(CONVERSION_MODE_BORROW, true, false);
+              expect(r.results.converter).eq(r.poolAdapterConverter);
             });
           });
           describe("Both borrowing and swap are available", () => {
-            describe("APR of borrowing is lower", () => {
+            describe("APR of borrowing is better", () => {
               it("should return borrow-converter", async () => {
-                expect.fail("TODO");
+                const r = await makeFindConversionStrategySwapAndBorrow(
+                  1,
+                  10_000,
+                  CONVERSION_MODE_BORROW
+                );
+                expect(r.results.converter).eq(r.expectedBorrowing.converter);
+
               });
             });
-            describe("APR of swapping is lower", () => {
+            describe("APR of swapping is better", () => {
               it("should return borrow-converter", async () => {
-                expect.fail("TODO");
+                const r = await makeFindConversionStrategySwapAndBorrow(
+                  10_000,
+                  0,
+                  CONVERSION_MODE_BORROW
+                );
+                expect(r.results.converter).eq(r.expectedBorrowing.converter);
+
               });
             });
           });
@@ -647,29 +817,7 @@ describe("TetuConverterTest", () => {
               setupTetuLiquidatorToSwapBorrowToCollateral: true
             }
           )
-          const PRICE_IMPACT_NUMERATOR = (await r.init.core.swapManager.PRICE_IMPACT_NUMERATOR()).toNumber();
-          const APR_NUMERATOR = (await r.init.core.swapManager.APR_NUMERATOR());
-
-          const expectedTargetAmount =
-            sourceAmountNum
-            * r.init.borrowInputParams.priceSourceUSD
-            / (r.init.borrowInputParams.priceTargetUSD)
-            * (PRICE_IMPACT_NUMERATOR - priceImpact) / PRICE_IMPACT_NUMERATOR
-          ;
-
-          // The code from SwapManager.getConverter to calculate expectedApr36
-          const tetuLiquidator = TetuLiquidatorMock__factory.connect(
-            await r.init.core.controller.tetuLiquidator(),
-            deployer
-          );
-          const returnAmount = await tetuLiquidator.getPrice(
-            r.init.targetToken.address,
-            r.init.sourceToken.address,
-            r.results.maxTargetAmount
-          );
-          const sourceAmount = getBigNumberFrom(sourceAmountNum, await r.init.sourceToken.decimals());
-          const loss = sourceAmount.sub(returnAmount);
-          const expectedApr36 = loss.mul(APR_NUMERATOR).div(sourceAmount);
+          const expected = await getExpectedSwapResults(r, sourceAmountNum);
 
           const sret = [
             r.results.converter,
@@ -678,9 +826,9 @@ describe("TetuConverterTest", () => {
           ].join("\n");
 
           const sexpected = [
-            r.init.core.swapManager.address,
-            getBigNumberFrom(expectedTargetAmount, await r.init.targetToken.decimals()),
-            expectedApr36
+            expected.converter,
+            expected.maxTargetAmount,
+            expected.aprForPeriod36
           ].join("\n");
 
           expect(sret).equal(sexpected);
@@ -697,13 +845,7 @@ describe("TetuConverterTest", () => {
             CONVERSION_MODE_BORROW,
             borrowRateNum,
           )
-          const targetHealthFactor = await r.init.core.controller.targetHealthFactor2();
-
-          const expectedTargetAmount =
-            r.init.borrowInputParams.collateralFactor
-            * sourceAmount * r.init.borrowInputParams.priceSourceUSD
-            / (r.init.borrowInputParams.priceTargetUSD)
-            / targetHealthFactor * 100;
+          const expected = await getExpectedBorrowingResults(r, sourceAmount, period);
 
           const sret = [
             r.results.converter,
@@ -712,12 +854,9 @@ describe("TetuConverterTest", () => {
           ].join("\n");
 
           const sexpected = [
-            r.poolAdapterConverter,
-            getBigNumberFrom(expectedTargetAmount, await r.init.targetToken.decimals()),
-            BigNumber.from(borrowRateNum)
-              .mul(period)
-              .mul(Misc.WEI_DOUBLE)
-              .div(getBigNumberFrom(1, await r.init.targetToken.decimals()))
+            expected.converter,
+            expected.maxTargetAmount,
+            expected.aprForPeriod36
           ].join("\n");
 
           expect(sret).equal(sexpected);
