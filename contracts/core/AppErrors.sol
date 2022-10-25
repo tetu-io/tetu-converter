@@ -90,4 +90,7 @@ library AppErrors {
   /// @notice The amount cannot be zero
   string public constant ZERO_AMOUNT = "TC-43";
 
+  /// @notice Value of "converter" passed to TetuConverter.borrow is incorrect ( != SwapManager address)
+  string public constant INCORRECT_CONVERTER_TO_SWAP = "TC-44";
+
 }

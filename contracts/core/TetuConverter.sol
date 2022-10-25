@@ -149,8 +149,7 @@ contract TetuConverter is ITetuConverter, IKeeperCallback {
       collateralAmount_,
       borrowAsset_,
       amountToBorrow_,
-      receiver_,
-      msg.sender
+      receiver_
     );
   }
 
@@ -160,12 +159,14 @@ contract TetuConverter is ITetuConverter, IKeeperCallback {
     uint collateralAmount_,
     address borrowAsset_,
     uint amountToBorrow_,
-    address receiver_,
-    address collateralProvider_
+    address receiver_
   ) internal returns (
     uint borrowedAmountOut
   ) {
-    if (IConverter(converter_).getConversionKind() == AppDataTypes.ConversionKind.BORROW_2) {
+    require(IERC20(collateralAsset_).balanceOf(address(this)) >= collateralAmount_, AppErrors.WRONG_AMOUNT_RECEIVED);
+
+    AppDataTypes.ConversionKind conversionKind = IConverter(converter_).getConversionKind();
+    if (conversionKind == AppDataTypes.ConversionKind.BORROW_2) {
       // make borrow
 
       // get exist or register new pool adapter
@@ -179,33 +180,24 @@ contract TetuConverter is ITetuConverter, IKeeperCallback {
         );
       }
       require(poolAdapter != address(0), AppErrors.POOL_ADAPTER_NOT_FOUND);
-      console.log("Sender", msg.sender);
-      console.log("Pool adapter", poolAdapter);
 
-      // transfer the collateral from the borrower directly to the pool adapter; assume, that the transfer is approved
+      // transfer the collateral from the balance of TetuConverter to the pool adapter;
       IPoolAdapter(poolAdapter).syncBalance(true, true);
-      if (collateralProvider_ == address(this)) {
-        IERC20(collateralAsset_).transfer(poolAdapter, collateralAmount_);
-      } else {
-        IERC20(collateralAsset_).transferFrom(collateralProvider_, poolAdapter, collateralAmount_);
-      }
+      IERC20(collateralAsset_).safeTransfer(poolAdapter, collateralAmount_);
       // borrow target-amount and transfer borrowed amount to the receiver
       return IPoolAdapter(poolAdapter).borrow(collateralAmount_, amountToBorrow_, receiver_);
 
-    } else if (IConverter(converter_).getConversionKind() == AppDataTypes.ConversionKind.SWAP_1) {
-      IERC20(collateralAsset_).transfer(converter_, collateralAmount_);
-      // TODO move to fn params
-      // Bogdoslav: I guess better do that after merge -
-      // because _convert function params could be changed
-      // and tests should be fixed
-      ISwapConverter(converter_).swap(
+    } else if (conversionKind == AppDataTypes.ConversionKind.SWAP_1) {
+      require(converter_ == address(_swapManager()), AppErrors.INCORRECT_CONVERTER_TO_SWAP);
+
+      IERC20(collateralAsset_).safeTransfer(converter_, collateralAmount_); //TODO
+      return ISwapConverter(converter_).swap(
         collateralAsset_,
         collateralAmount_,
         borrowAsset_,
         amountToBorrow_,
         receiver_
       );
-      return 0; //TODO bogdoslav: return amount transferred to the borrower
     } else {
       revert(AppErrors.UNSUPPORTED_CONVERSION_KIND);
     }
@@ -256,7 +248,7 @@ contract TetuConverter is ITetuConverter, IKeeperCallback {
         : amountToPay;
 
       // send amount to pool adapter
-      IERC20(borrowAsset_).transfer(address(pa), amountToPayToPoolAdapter);
+      IERC20(borrowAsset_).safeTransfer(address(pa), amountToPayToPoolAdapter);
 
       // make repayment
       collateralAmountOut += pa.repay(
@@ -282,11 +274,11 @@ contract TetuConverter is ITetuConverter, IKeeperCallback {
         // there is no swap-strategy to convert remain {amountToPay} to {collateralAsset_}
         // let's return this amount back to the {receiver_}
         returnedBorrowAmountOut = amountToPay;
-        IERC20(borrowAsset_).transfer(receiver_, amountToPay);
+        IERC20(borrowAsset_).safeTransfer(receiver_, amountToPay);
       } else {
         // conversion strategy is found
         // let's convert all remaining {amountToPay} to {collateralAsset}
-        IERC20(borrowAsset_).transfer(converter, amountToPay);
+        IERC20(borrowAsset_).safeTransfer(converter, amountToPay);
         ISwapConverter(converter).swap(
           borrowAsset_,
           amountToPay,
@@ -330,7 +322,7 @@ contract TetuConverter is ITetuConverter, IKeeperCallback {
 
     // re-send amount-to-repay to the pool adapter and make rebalancing
     pa.syncBalance(false, false);
-    IERC20(borrowAsset).transfer(poolAdapter_, amountToRepay_);
+    IERC20(borrowAsset).safeTransfer(poolAdapter_, amountToRepay_);
     uint resultHealthFactor18 = pa.repayToRebalance(amountToRepay_);
 
     // ensure that the health factor was restored to ~target health factor value
@@ -378,7 +370,7 @@ contract TetuConverter is ITetuConverter, IKeeperCallback {
     //make repay and close position
     uint balanceCollateralAsset = IERC20(collateralAsset).balanceOf(address(this));
     pa.syncBalance(false, false);
-    IERC20(borrowAsset).transfer(poolAdapter_, amountToPay);
+    IERC20(borrowAsset).safeTransfer(poolAdapter_, amountToPay);
     pa.repay(amountToPay, address(this), true);
     uint collateralAmount = IERC20(collateralAsset).balanceOf(address(this)) - balanceCollateralAsset;
 
@@ -400,8 +392,7 @@ contract TetuConverter is ITetuConverter, IKeeperCallback {
       collateralAmount,
       borrowAsset,
       maxTargetAmount,
-      user,
-      address(this)
+      user
     );
     ITetuConverterCallback(user).onTransferBorrowedAmount(collateralAsset, borrowAsset, newBorrowedAmount);
   }

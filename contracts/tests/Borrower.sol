@@ -69,7 +69,7 @@ contract Borrower is ITetuConverterCallback {
     // transfer collateral to TC
     require(IERC20(sourceAsset_).balanceOf(address(this)) >= sourceAmount_
       , "wrong balance st on tc");
-    IERC20(sourceAsset_).safeApprove(_controller.tetuConverter(), sourceAmount_);
+    IERC20(sourceAsset_).safeTransfer(_controller.tetuConverter(), sourceAmount_);
 
     // borrow and receive borrowed-amount to receiver's balance
     ITetuConverter tc = _tc();
@@ -115,7 +115,7 @@ contract Borrower is ITetuConverterCallback {
     // transfer collateral to TC
     require(IERC20(sourceAsset_).balanceOf(address(this)) >= sourceAmount_
     , "wrong balance st on tc");
-    IERC20(sourceAsset_).safeApprove(_controller.tetuConverter(), sourceAmount_);
+    IERC20(sourceAsset_).safeTransfer(_controller.tetuConverter(), sourceAmount_);
 
     // borrow and receive borrowed-amount to receiver's balance
     ITetuConverter tc = _tc();

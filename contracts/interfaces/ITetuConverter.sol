@@ -36,7 +36,8 @@ interface ITetuConverter {
   ///         Target amount will be transferred to {receiver_}. No re-balancing here.
   /// @dev Transferring of {collateralAmount_} by TetuConverter-contract must be approved by the caller before the call
   /// @param converter_ A converter received from findBestConversionStrategy.
-  /// @param collateralAmount_ Amount of {collateralAsset_}. This amount must be approved for TetuConverter.
+  /// @param collateralAmount_ Amount of {collateralAsset_}.
+  ///                          This amount must be transferred to TetuConverter before the call.
   /// @param amountToBorrow_ Amount of {borrowAsset_} to be borrowed and sent to {receiver_}
   /// @param receiver_ A receiver of borrowed amount
   /// @return borrowedAmountOut Exact borrowed amount transferred to {receiver_}
@@ -122,7 +123,7 @@ interface ITetuConverter {
     uint[] memory amounts
   );
 
-
+  //TODO: salvage
 
   //////////////////////////////////////////////////////////////////////////////
   /// Additional functions, remove somewhere?

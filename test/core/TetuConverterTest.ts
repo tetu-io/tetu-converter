@@ -322,7 +322,7 @@ describe("TetuConverterTest", () => {
   }
 //endregion Prepare borrows
 
-//region Test impl
+//region Make reconversion
   interface IMakeReconversionResults {
     balancesInitial: Map<string, (BigNumber | string)[]>;
     balancesAfterBorrow: Map<string, (BigNumber | string)[]>;
@@ -436,9 +436,9 @@ describe("TetuConverterTest", () => {
     }
   }
 
-//endregion Test impl
+//endregion Make reconversion
 
-//region Conversion results
+//region Predict conversion results
   interface IFindConversionStrategyResults {
     converter: string;
     maxTargetAmount: BigNumber;
@@ -525,7 +525,7 @@ describe("TetuConverterTest", () => {
       aprForPeriod36
     }
   }
-//endregion Conversion results
+//endregion Predict conversion results
 
 //region Unit tests
   describe("findBestConversionStrategy", () => {
@@ -945,12 +945,17 @@ describe("TetuConverterTest", () => {
       });
     });
     describe("Bad paths", () => {
-      describe("Converter is null", () => {
+      describe("Converter is zero", () => {
         it("should revert", async () => {
           expect.fail();
         });
       });
-      describe("Converter is incorrect", () => {
+      describe("Incorrect converter to borrow (pool adapter is not found)", () => {
+        it("should revert", async () => {
+          expect.fail();
+        });
+      });
+      describe("Incorrect converter to swap (the passed address is not the address of the swap manager)", () => {
         it("should revert", async () => {
           expect.fail();
         });
@@ -966,6 +971,16 @@ describe("TetuConverterTest", () => {
         });
       });
       describe("Collateral amount is 0", () => {
+        it("should revert", async () => {
+          expect.fail();
+        });
+      });
+      describe("Too little collateral amount on balance of TetuConverter", () => {
+        it("should revert", async () => {
+          expect.fail();
+        });
+      });
+      describe("Too much collateral amount on balance of TetuConverter", () => {
         it("should revert", async () => {
           expect.fail();
         });
