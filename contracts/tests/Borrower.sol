@@ -51,7 +51,7 @@ contract Borrower is ITetuConverterCallback {
     uint sourceAmount_,
     address targetAsset_,
     address receiver_
-  ) external {
+  ) external returns (uint borrowedAmountOut) {
     console.log("makeBorrowUC1.1 start gasleft", gasleft());
     // ask TC for the best conversion strategy
     (address converter, uint maxTargetAmount,) = _tc().findConversionStrategy(sourceAsset_,
@@ -73,7 +73,7 @@ contract Borrower is ITetuConverterCallback {
 
     // borrow and receive borrowed-amount to receiver's balance
     ITetuConverter tc = _tc();
-    tc.borrow(
+    borrowedAmountOut = tc.borrow(
       converter,
       sourceAsset_,
       sourceAmount_,
@@ -93,7 +93,7 @@ contract Borrower is ITetuConverterCallback {
     address targetAsset_,
     address receiver_,
     uint amountToBorrow_
-  ) external {
+  ) external returns (uint borrowedAmountOut) {
     console.log("borrowExactAmount start gasleft", gasleft());
     console.log("borrowExactAmount sourceAsset_", sourceAsset_);
     console.log("borrowExactAmount sourceAmount_", sourceAmount_);
@@ -119,7 +119,7 @@ contract Borrower is ITetuConverterCallback {
 
     // borrow and receive borrowed-amount to receiver's balance
     ITetuConverter tc = _tc();
-    tc.borrow(
+    borrowedAmountOut = tc.borrow(
       converter,
       sourceAsset_,
       sourceAmount_,

@@ -15,28 +15,24 @@ import {
   LendingPlatformMock__factory,
   BorrowManager__factory,
   IPoolAdapter__factory,
-  IPoolAdapter,
   PoolAdapterMock,
   ITetuConverter__factory,
   TetuConverter__factory,
-  SwapManager__factory, TetuLiquidatorMock__factory
+  TetuLiquidatorMock__factory
 } from "../../typechain";
 import {
   IBorrowInputParams,
   BorrowManagerHelper,
   IPoolInstanceInfo,
-  ITetuLiquidatorMockParams, ISwapManagerConfig
+  IPrepareContractsSetupParams
 } from "../baseUT/helpers/BorrowManagerHelper";
 import {CoreContracts} from "../baseUT/types/CoreContracts";
-import {CoreContractsHelper} from "../baseUT/helpers/CoreContractsHelper";
 import {MocksHelper} from "../baseUT/helpers/MocksHelper";
 import {DeployerUtils} from "../../scripts/utils/DeployerUtils";
 import {BalanceUtils, IContractToInvestigate} from "../baseUT/utils/BalanceUtils";
 import {BigNumber} from "ethers";
 import {Misc} from "../../scripts/utils/Misc";
 import {IPoolAdapterStatus} from "../baseUT/types/BorrowRepayDataTypes";
-import {tetu} from "../../typechain/contracts/integrations";
-import exp from "constants";
 
 describe("TetuConverterTest", () => {
 //region Constants
@@ -94,25 +90,24 @@ describe("TetuConverterTest", () => {
     sourceToken: MockERC20,
     targetToken: MockERC20,
     borrowManager: BorrowManager,
-    pools: IPoolInstanceInfo[]
+    poolInstances: IPoolInstanceInfo[]
   }> {
     const {core, sourceToken, targetToken, pools} = await BorrowManagerHelper.initAppPoolsWithTwoAssets(deployer, tt);
 
     const tetuConveter = await DeployUtils.deployContract(deployer
       , "TetuConverter", core.controller.address) as TetuConverter;
 
-    return {tetuConveter, sourceToken, targetToken, borrowManager: core.bm, pools};
+    return {tetuConveter, sourceToken, targetToken, borrowManager: core.bm, poolInstances: pools};
   }
 
   interface IPrepareResults {
     core: CoreContracts;
-    pools: string[];
+    poolInstances: IPoolInstanceInfo[];
     cToken: string;
     userContract: Borrower;
     sourceToken: MockERC20;
     targetToken: MockERC20;
     poolAdapters: string[];
-    platformAdapters: string[];
   }
 
   interface ISetupResults extends IPrepareResults {
@@ -128,7 +123,7 @@ describe("TetuConverterTest", () => {
    */
   async function prepareContracts(
     tt: IBorrowInputParams,
-    tetuAppSetupParams?: ISwapManagerConfig
+    tetuAppSetupParams?: IPrepareContractsSetupParams
   ) : Promise<IPrepareResults>{
     const periodInBlocks = 117;
 
@@ -150,39 +145,40 @@ describe("TetuConverterTest", () => {
         cToken = pi.asset2cTokens.get(sourceToken.address) || "";
       }
 
-      // we need to set up a pool adapter
-      await bmAsTc.registerPoolAdapter(
-        pi.converter,
-        userContract.address,
-        sourceToken.address,
-        targetToken.address
-      );
-      const poolAdapter: string = await core.bm.getPoolAdapter(
-        pi.converter,
-        userContract.address,
-        sourceToken.address,
-        targetToken.address
-      );
-      poolAdapters.push(poolAdapter);
-      console.log("poolAdapter-mock is configured:", poolAdapter, targetToken.address);
+      if (!tetuAppSetupParams?.skipPreregistrationOfPoolAdapters) {
+        // we need to set up a pool adapter
+        await bmAsTc.registerPoolAdapter(
+          pi.converter,
+          userContract.address,
+          sourceToken.address,
+          targetToken.address
+        );
+        const poolAdapter: string = await core.bm.getPoolAdapter(
+          pi.converter,
+          userContract.address,
+          sourceToken.address,
+          targetToken.address
+        );
+        poolAdapters.push(poolAdapter);
+        console.log("poolAdapter-mock is configured:", poolAdapter, targetToken.address);
+      }
     }
 
     return {
       core,
-      pools: pools.map(x => x.pool),
+      poolInstances: pools,
       cToken: cToken || "",
       userContract,
       sourceToken,
       targetToken,
       poolAdapters,
-      platformAdapters: pools.map(x => x.platformAdapter)
     };
   }
 
   /** prepareContracts with sample assets settings and huge amounts of collateral and borrow assets */
   async function prepareTetuAppWithMultipleLendingPlatforms(
     countPlatforms: number,
-    tetuAppSetupParams?: ISwapManagerConfig
+    tetuAppSetupParams?: IPrepareContractsSetupParams
   ) : Promise<ISetupResults> {
     const targetDecimals = 6;
     const sourceDecimals = 17;
@@ -214,23 +210,22 @@ describe("TetuConverterTest", () => {
     );
 
     // put a lot of borrow assets to pool-stubs
-    for (const poolAddress of r.pools) {
+    for (const pi of r.poolInstances) {
       await MockERC20__factory.connect(r.targetToken.address, deployer)
-        .mint(poolAddress, availableBorrowLiquidityPerPool);
+        .mint(pi.pool, availableBorrowLiquidityPerPool);
     }
 
     return {
       core: r.core,
       sourceToken: r.sourceToken,
       targetToken: r.targetToken,
-      pools: r.pools,
+      poolInstances: r.poolInstances,
       initialCollateralAmount,
       availableBorrowLiquidityPerPool,
       poolAdapters: r.poolAdapters,
       userContract: r.userContract,
       borrowInputParams: tt,
-      cToken: r.cToken,
-      platformAdapters: r.platformAdapters
+      cToken: r.cToken
     }
   }
 //endregion Initialization
@@ -241,6 +236,7 @@ describe("TetuConverterTest", () => {
     collateralAmount: BigNumber;
     amountToPay: BigNumber;
     healthFactor18: BigNumber;
+    borrowedAmountOut: BigNumber;
   }
 
   /**
@@ -264,25 +260,47 @@ describe("TetuConverterTest", () => {
     const sourceTokenDecimals = await pp.sourceToken.decimals();
     const targetTokenDecimals = await pp.targetToken.decimals();
 
-    // enumerate all pool adapters and make a borrow in each one
-    for (let i = 0; i < pp.poolAdapters.length; ++i) {
-      const selectedPoolAdapterAddress = pp.poolAdapters[i];
+    // let's remember all exactBorrowAmounts for each adapter
+    const borrowedAmountOuts: BigNumber[] = [];
+
+    // enumerate converters and make a borrow using each one
+    for (let i = 0; i < pp.poolInstances.length; ++i) {
       const collateralAmount = getBigNumberFrom(collateralAmounts[i], sourceTokenDecimals);
+      if (pp.poolInstances.length === pp.poolAdapters.length) {
+        // The pool adapters are pre-initialized
+        // set best borrow rate to the selected pool adapter
+        // set ordinal borrow rate to others
+        const selectedPoolAdapterAddress = pp.poolAdapters[i];
+        for (const poolAdapterAddress of pp.poolAdapters) {
+          const poolAdapter = PoolAdapterMock__factory.connect(poolAdapterAddress, deployer);
+          const borrowRate = poolAdapterAddress === selectedPoolAdapterAddress
+            ? bestBorrowRateInBorrowAsset
+            : ordinalBorrowRateInBorrowAsset
+          const poolAdapterConfig = await poolAdapter.getConfig();
+          const platformAdapterAddress = await pp.core.bm.getPlatformAdapter(poolAdapterConfig.origin);
+          const platformAdapter = await LendingPlatformMock__factory.connect(platformAdapterAddress, deployer);
 
-      // set best borrow rate to the selected pool adapter
-      // set ordinal borrow rate to others
-      for (const poolAdapterAddress of pp.poolAdapters) {
-        const poolAdapter = PoolAdapterMock__factory.connect(poolAdapterAddress, deployer);
-        const borrowRate = poolAdapterAddress === selectedPoolAdapterAddress
-          ? bestBorrowRateInBorrowAsset
-          : ordinalBorrowRateInBorrowAsset
-        const poolAdapterConfig = await poolAdapter.getConfig();
-        const platformAdapterAddress = await pp.core.bm.getPlatformAdapter(poolAdapterConfig.origin);
-        const platformAdapter = await LendingPlatformMock__factory.connect(platformAdapterAddress, deployer);
-
-        await platformAdapter.changeBorrowRate(pp.targetToken.address, borrowRate);
-        await poolAdapter.changeBorrowRate(borrowRate);
+          await platformAdapter.changeBorrowRate(pp.targetToken.address, borrowRate);
+          await poolAdapter.changeBorrowRate(borrowRate);
+        }
       }
+
+      // emulate on-chain call to get borrowedAmountOut
+      const borrowedAmountOut: BigNumber = exactBorrowAmounts
+        ? await pp.userContract.callStatic.borrowExactAmount(
+            pp.sourceToken.address,
+            collateralAmount,
+            pp.targetToken.address,
+            receiver || pp.userContract.address,
+            getBigNumberFrom(exactBorrowAmounts[i], targetTokenDecimals)
+        )
+        : await pp.userContract.callStatic.borrowMaxAmount(
+            pp.sourceToken.address,
+            collateralAmount,
+            pp.targetToken.address,
+            receiver || pp.userContract.address
+        );
+      borrowedAmountOuts.push(borrowedAmountOut);
 
       // ask TetuConverter to make a borrow
       // the pool adapter with best borrow rate will be selected
@@ -305,16 +323,17 @@ describe("TetuConverterTest", () => {
     }
 
     // get final pool adapter statuses
-    for (const poolAdapterAddress of pp.poolAdapters) {
+    for (let i = 0; i < pp.poolAdapters.length; ++i) {
       // check the borrow status
-      const selectedPoolAdapter = PoolAdapterMock__factory.connect(poolAdapterAddress, deployer);
+      const selectedPoolAdapter = PoolAdapterMock__factory.connect(pp.poolAdapters[i], deployer);
       const status = await selectedPoolAdapter.getStatus();
 
       dest.push({
         collateralAmount: status.collateralAmount,
         amountToPay: status.amountToPay,
         poolAdapter: selectedPoolAdapter,
-        healthFactor18: status.healthFactor18
+        healthFactor18: status.healthFactor18,
+        borrowedAmountOut: borrowedAmountOuts[i]
       });
     }
 
@@ -327,7 +346,7 @@ describe("TetuConverterTest", () => {
     balancesInitial: Map<string, (BigNumber | string)[]>;
     balancesAfterBorrow: Map<string, (BigNumber | string)[]>;
     balancesAfterReconversion: Map<string, (BigNumber | string)[]>;
-    pools: string[];
+    poolInstances: IPoolInstanceInfo[];
     poolAdapters: string[];
     borrowsAfterBorrow: string[];
     borrowsAfterReconversion: string[];
@@ -349,25 +368,25 @@ describe("TetuConverterTest", () => {
     const sourceAmount = getBigNumberFrom(sourceAmountNumber, tt.sourceDecimals);
     const availableBorrowLiquidity = getBigNumberFrom(availableBorrowLiquidityNumber, tt.targetDecimals);
 
-    const {core, pools, cToken, userContract, sourceToken, targetToken, poolAdapters, platformAdapters} =
+    const {core, poolInstances, cToken, userContract, sourceToken, targetToken, poolAdapters} =
       await prepareContracts(tt);
 
     console.log("cToken is", cToken);
     console.log("Pool adapters:", poolAdapters.join("\n"));
-    console.log("Pools:", pools.join("\n"));
+    console.log("Pools:", poolInstances.join("\n"));
 
     const contractsToInvestigate: IContractToInvestigate[] = [
       {name: "userContract", contract: userContract.address},
       {name: "tc", contract: core.tc.address},
-      ...pools.map((x, index) => ({name: `pool ${index}`, contract: x})),
+      ...poolInstances.map((x, index) => ({name: `pool ${index}`, contract: x.pool})),
       ...poolAdapters.map((x, index) => ({name: `PA ${index}`, contract: x})),
     ];
     const tokensToInvestigate = [sourceToken.address, targetToken.address, cToken];
 
     // initialize balances
     await MockERC20__factory.connect(sourceToken.address, deployer).mint(userContract.address, sourceAmount);
-    for (const pool of pools) {
-      await MockERC20__factory.connect(targetToken.address, deployer).mint(pool, availableBorrowLiquidity);
+    for (const pi of poolInstances) {
+      await MockERC20__factory.connect(targetToken.address, deployer).mint(pi.pool, availableBorrowLiquidity);
     }
     // we need to put some amount on user balance - to be able to return debts
     await MockERC20__factory.connect(targetToken.address, deployer).mint(userContract.address, availableBorrowLiquidity);
@@ -396,7 +415,7 @@ describe("TetuConverterTest", () => {
       // we need to change borrow rate in platform adapter (to select strategy correctly)
       // and in the already created pool adapters (to make new borrow correctly)
       // Probably it worth to move borrow rate to pool stub to avoid possibility of br-unsync
-      const platformAdapter = await LendingPlatformMock__factory.connect(platformAdapters[i], deployer);
+      const platformAdapter = await LendingPlatformMock__factory.connect(poolInstances[i].platformAdapter, deployer);
       const brOld = await platformAdapter.borrowRates(targetToken.address);
       const brNewValue = mapOldNewBR.get(brOld.toString()) || brOld;
 
@@ -430,7 +449,7 @@ describe("TetuConverterTest", () => {
       balancesAfterBorrow,
       balancesAfterReconversion,
       poolAdapters,
-      pools,
+      poolInstances,
       borrowsAfterBorrow,
       borrowsAfterReconversion,
     }
@@ -510,7 +529,7 @@ describe("TetuConverterTest", () => {
     );
 
     const borrowRate = await LendingPlatformMock__factory.connect(
-      r.init.platformAdapters[0],
+      r.init.poolInstances[0].platformAdapter,
       deployer
     ).borrowRates(r.init.targetToken.address);
 
@@ -547,7 +566,7 @@ describe("TetuConverterTest", () => {
       periodInBlocks: number,
       conversionMode: number,
       borrowRateNum?: number,
-      swapConfig?: ISwapManagerConfig
+      swapConfig?: IPrepareContractsSetupParams
     ) : Promise<IMakeFindConversionStrategyResults> {
       const init = await prepareTetuAppWithMultipleLendingPlatforms(
         borrowRateNum ? 1: 0,
@@ -560,7 +579,7 @@ describe("TetuConverterTest", () => {
           deployer
         ).changeBorrowRate(borrowRateNum);
         await LendingPlatformMock__factory.connect(
-          init.platformAdapters[0],
+          init.poolInstances[0].platformAdapter,
           deployer
         ).changeBorrowRate(init.targetToken.address, borrowRateNum);
       }
@@ -932,14 +951,142 @@ describe("TetuConverterTest", () => {
   });
 
   describe("borrow", () => {
+    interface IMakeBorrowWithLogResults {
+      init: ISetupResults;
+      receiver: string;
+      borrowStatus: IBorrowStatus[];
+    }
+    async function makeBorrowWithLog(
+      collateralAmounts: number[],
+      exactBorrowAmounts: number[] | undefined,
+      setupTetuLiquidatorToSwapBorrowToCollateral: boolean = false,
+      skipPreregistrationOfPoolAdapters: boolean = false
+    ) : Promise<IMakeBorrowWithLogResults > {
+      const receiver = ethers.Wallet.createRandom().address;
+
+      const init = await prepareTetuAppWithMultipleLendingPlatforms(
+        collateralAmounts.length,
+        {
+          setupTetuLiquidatorToSwapBorrowToCollateral,
+          skipPreregistrationOfPoolAdapters
+        }
+      );
+
+      // enable log in all pool adapters
+      for (const poolAdapter of init.poolAdapters) {
+        await PoolAdapterMock__factory.connect(poolAdapter, deployer).enableBorrowLog(true);
+      }
+
+      const borrowStatus = await makeBorrows(
+        init,
+        collateralAmounts,
+        BigNumber.from(100),
+        BigNumber.from(100_000),
+        exactBorrowAmounts,
+        receiver
+      );
+
+      return {
+        init,
+        receiver,
+        borrowStatus
+      }
+    }
     describe("Good paths", () => {
       describe("Convert using borrowing", () => {
-        it("should return expected values", async () => {
-          expect.fail("TODO");
+        it("should return expected borrowedAmountOut", async () => {
+          const amountToBorrowNum = 100;
+          const r = await makeBorrowWithLog(
+            [100_000],
+            [amountToBorrowNum],
+            false
+          );
+          const retBorrowedAmountOut = r.borrowStatus.reduce(
+            (prev, cur) => prev = prev.add(cur.borrowedAmountOut),
+            BigNumber.from(0)
+          );
+          const expectedBorrowedAmount = getBigNumberFrom(amountToBorrowNum, await r.init.targetToken.decimals());
+
+          expect(retBorrowedAmountOut).eq(expectedBorrowedAmount);
+        });
+        it("should transfer expected collateralAmount to the pool adapter", async () => {
+          const amountToBorrowNum = 100;
+          const collateralAmount = 100_000;
+          const r = await makeBorrowWithLog(
+            [collateralAmount],
+            [amountToBorrowNum],
+            false
+          );
+          const poolAdapter = await PoolAdapterMock__factory.connect(
+            r.init.poolAdapters[0],
+            deployer
+          );
+
+          const ret = (await poolAdapter.borrowParamsLog()).collateralAmountTransferredToPoolAdapter;
+          const expected = getBigNumberFrom(collateralAmount, await r.init.sourceToken.decimals());
+
+          expect(ret).eq(expected);
+        });
+
+        describe("Pool adapter is already registered for the converter", () => {
+          it("should call syncBalance() and borrow() in correct sequence", async () => {
+            const amountToBorrowNum = 100;
+            const collateralAmount = 100_000;
+            const r = await makeBorrowWithLog(
+              [collateralAmount],
+              [amountToBorrowNum],
+              false,
+              false // use pre-registered pool adapter
+            );
+
+            const poolAdapter = await PoolAdapterMock__factory.connect(
+              r.init.poolAdapters[0],
+              deployer
+            );
+
+            const ret = await poolAdapter.borrowLog();
+
+            // we asuume, that expected sequence of functions were called in pre-registered pool adapter:
+            // syncBalance(true, true); transfer-amount-of-collateral-to-pool-adapter; borrow()
+            const expected = 3; // PoolAdapterMock.FINAL_BORROW_3
+
+            expect(ret).eq(expected);
+          });
+        });
+        describe("Pool adapter is not registered for the converter", () => {
+          it("should use exist pool adapter", async () => {
+            const amountToBorrowNum = 100;
+            const collateralAmount = 100_000;
+            const r = await makeBorrowWithLog(
+              [collateralAmount],
+              [amountToBorrowNum],
+              false,
+              true // SKIP pre-registration of pool adapters
+            );
+
+            // r.init.poolAdapters is empty
+            // because pre-registration was skipped
+            const poolAdapterRegisteredInsideBorrowCall = await r.init.core.bm.getPoolAdapter(
+              r.init.poolInstances[0].converter,
+              r.init.userContract.address,
+              r.init.sourceToken.address,
+              r.init.targetToken.address
+            );
+
+            const ret = poolAdapterRegisteredInsideBorrowCall !== Misc.ZERO_ADDRESS;
+            expect(ret).eq(true);
+          });
         });
       });
+
       describe("Convert using swapping", () => {
-        it("should return expected values", async () => {
+        it("should return expected borrowedAmountOut", async () => {
+          expect.fail("TODO");
+        });
+        it("should transfer expected collateralAmount to the swap manager", async () => {
+          expect.fail("TODO");
+        });
+        it("should call swap() with expected params", async () => {
           expect.fail("TODO");
         });
       });
@@ -1025,7 +1172,7 @@ describe("TetuConverterTest", () => {
         const contractsToInvestigate: IContractToInvestigate[] = [
           {name: "userContract", contract: init.userContract.address},
           {name: "receiver", contract: receiver},
-          {name: "pool", contract: init.pools[0]},
+          {name: "pool", contract: init.poolInstances[0].pool},
           {name: "tc", contract: init.core.tc.address},
           {name: "poolAdapter", contract: init.poolAdapters[0]},
         ];
@@ -1147,15 +1294,15 @@ describe("TetuConverterTest", () => {
               const sourceAmount = getBigNumberFrom(sourceAmountNumber, sourceDecimals);
               const availableBorrowLiquidity = getBigNumberFrom(availableBorrowLiquidityNumber, targetDecimals);
 
-              const {core, pools, cToken, userContract, sourceToken, targetToken, poolAdapters} =
+              const {core, poolInstances, cToken, userContract, sourceToken, targetToken, poolAdapters} =
                 await prepareContracts(tt);
-              const pool = pools[0];
+              const poolInstance = poolInstances[0];
               const poolAdapter = poolAdapters[0];
 
               const contractsToInvestigate: IContractToInvestigate[] = [
                 {name: "userContract", contract: userContract.address},
                 {name: "user", contract: user},
-                {name: "pool", contract: pool},
+                {name: "pool", contract: poolInstance.pool},
                 {name: "tc", contract: core.tc.address},
                 {name: "poolAdapter", contract: poolAdapter},
               ];
@@ -1165,7 +1312,7 @@ describe("TetuConverterTest", () => {
               await MockERC20__factory.connect(sourceToken.address, deployer)
                 .mint(userContract.address, sourceAmount);
               await MockERC20__factory.connect(targetToken.address, deployer)
-                .mint(pool, availableBorrowLiquidity);
+                .mint(poolInstance.pool, availableBorrowLiquidity);
 
               // get balances before start
               const before = await BalanceUtils.getBalances(deployer, contractsToInvestigate, tokensToInvestigate);
@@ -1986,13 +2133,13 @@ describe("TetuConverterTest", () => {
       const collateralAmount = getBigNumberFrom(sourceAmountNumber, tt.sourceDecimals);
       const availableBorrowLiquidity = getBigNumberFrom(availableBorrowLiquidityNumber, targetDecimals);
 
-      const {core, pools, userContract, sourceToken, targetToken, poolAdapters} = await prepareContracts(tt);
-      const pool = pools[0];
+      const {core, poolInstances, userContract, sourceToken, targetToken, poolAdapters} = await prepareContracts(tt);
+      const poolInstance = poolInstances[0];
       const poolAdapter = poolAdapters[0];
 
       // initialize balances
       await MockERC20__factory.connect(sourceToken.address, deployer).mint(userContract.address, collateralAmount);
-      await MockERC20__factory.connect(targetToken.address, deployer).mint(pool, availableBorrowLiquidity);
+      await MockERC20__factory.connect(targetToken.address, deployer).mint(poolInstance.pool, availableBorrowLiquidity);
 
       // setup high values for all health factors
       await core.controller.setMaxHealthFactor2(maxHealthFactorInitial2);

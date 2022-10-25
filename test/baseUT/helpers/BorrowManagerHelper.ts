@@ -49,7 +49,7 @@ export interface ITetuLiquidatorMockParams {
     prices: BigNumber[];
 }
 
-export interface ISwapManagerConfig {
+export interface IPrepareContractsSetupParams {
     setupTetuLiquidatorToSwapBorrowToCollateral?: boolean;
     /**
      * Optional price impact for Swap Manager.
@@ -57,6 +57,12 @@ export interface ISwapManagerConfig {
      * === [0...100_000]
      */
     priceImpact?: number;
+
+    /**
+     * Don't register pool adaptera in prepareContracts
+     * Leave the registration for TetuConverter.borrow()
+     */
+    skipPreregistrationOfPoolAdapters?: boolean;
 }
 
 export class BorrowManagerHelper {
@@ -88,7 +94,7 @@ export class BorrowManagerHelper {
         signer: SignerWithAddress,
         tt: IBorrowInputParams,
         converterFabric?: () => Promise<string>,
-        tetuAppSetupParams?: ISwapManagerConfig
+        tetuAppSetupParams?: IPrepareContractsSetupParams
     ) : Promise<{
         core: CoreContracts,
         sourceToken: MockERC20,

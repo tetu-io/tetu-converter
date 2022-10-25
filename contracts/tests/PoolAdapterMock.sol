@@ -42,6 +42,25 @@ contract PoolAdapterMock is IPoolAdapter {
   mapping(address => uint) public reserveBalances;
 
   ///////////////////////////////////////////////////////
+  //  Check sequence of calls: syncBalance, borrow
+  enum BorrowLogStates {
+    DISABLED_0,
+    ENABLED_1,
+    SYNC_BALANCE_TRUE_TRUE_2,
+    FINAL_BORROW_3
+  }
+  struct BorrowParamsLog {
+    uint collateralAmount;
+    uint borrowAmount;
+    address receiver;
+    uint collateralAmountTransferredToPoolAdapter;
+  }
+  BorrowLogStates public borrowLog;
+  BorrowParamsLog public borrowParamsLog;
+
+
+
+  ///////////////////////////////////////////////////////
   ///           Setup mock behavior
   ///////////////////////////////////////////////////////
   function setPassedBlocks(uint countPassedBlocks_) external {
@@ -57,6 +76,14 @@ contract PoolAdapterMock is IPoolAdapter {
   function changeBorrowRate(uint amountBorrowAsset_) external {
     console.log("PoolAdapterMock.changeBorrowRate", address(this), borrowRate, amountBorrowAsset_);
     borrowRate = amountBorrowAsset_;
+  }
+
+  /// @notice Start to record sequence of calls: syncBalance, borrow
+  function enableBorrowLog(bool setEnabled_) external {
+    borrowLog = setEnabled_
+      ? BorrowLogStates.DISABLED_0
+      : BorrowLogStates.ENABLED_1;
+    delete borrowParamsLog;
   }
 
   ///////////////////////////////////////////////////////
@@ -155,7 +182,7 @@ contract PoolAdapterMock is IPoolAdapter {
     return AppDataTypes.ConversionKind.BORROW_2;
   }
 
-  function syncBalance(bool beforeBorrow, bool) external override {
+  function syncBalance(bool beforeBorrow, bool updateStatus) external override {
     console.log("syncBalance beforeBorrow=%d", beforeBorrow ? 1 : 0);
     uint collateralBalance = IERC20(_collateralAsset).balanceOf(address(this));
     uint borrowBalance = IERC20(_borrowAsset).balanceOf(address(this));
@@ -165,6 +192,13 @@ contract PoolAdapterMock is IPoolAdapter {
       reserveBalances[_collateralAsset] = collateralBalance;
     } else {
       reserveBalances[_borrowAsset] = borrowBalance;
+    }
+
+    // ensure, that syncBalance(true, true) is called before the borrow
+    if (borrowLog == BorrowLogStates.DISABLED_0) {
+      if (beforeBorrow && updateStatus) {
+        borrowLog = BorrowLogStates.SYNC_BALANCE_TRUE_TRUE_2;
+      }
     }
   }
 
@@ -181,9 +215,27 @@ contract PoolAdapterMock is IPoolAdapter {
     uint borrowAmount_,
     address receiver_
   ) external override returns (uint) {
+    // ensure, that borrow() is called after syncBalance(true, true) and after transferring given amount to the balance
+    if (borrowLog == BorrowLogStates.SYNC_BALANCE_TRUE_TRUE_2) {
+      uint collateralAmountTransferredToPoolAdapter =
+        IERC20(_collateralAsset).balanceOf(address(this)) - reserveBalances[_collateralAsset];
+      if (collateralAmount_ == collateralAmountTransferredToPoolAdapter) {
+        borrowLog = BorrowLogStates.FINAL_BORROW_3;
+      }
+      borrowParamsLog = BorrowParamsLog({
+        collateralAmount: collateralAmount_,
+        borrowAmount: borrowAmount_,
+        receiver: receiver_,
+        collateralAmountTransferredToPoolAdapter: collateralAmountTransferredToPoolAdapter
+      });
+    }
+
+
     // ensure we have received expected collateral amount
-    require(collateralAmount_ >= IERC20(_collateralAsset).balanceOf(address(this)) - reserveBalances[_collateralAsset]
-    , AppErrors.WRONG_COLLATERAL_BALANCE);
+    require(
+      collateralAmount_ >= IERC20(_collateralAsset).balanceOf(address(this)) - reserveBalances[_collateralAsset],
+      AppErrors.WRONG_COLLATERAL_BALANCE
+    );
 
     // send the collateral to the pool
     IERC20(_collateralAsset).transfer(_pool, collateralAmount_);
