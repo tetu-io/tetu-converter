@@ -164,6 +164,9 @@ contract TetuConverter is ITetuConverter, IKeeperCallback {
     uint borrowedAmountOut
   ) {
     require(IERC20(collateralAsset_).balanceOf(address(this)) >= collateralAmount_, AppErrors.WRONG_AMOUNT_RECEIVED);
+    require(receiver_ != address(0), AppErrors.ZERO_ADDRESS);
+    require(collateralAmount_ != 0, AppErrors.ZERO_AMOUNT);
+    require(amountToBorrow_ != 0, AppErrors.ZERO_AMOUNT);
 
     AppDataTypes.ConversionKind conversionKind = IConverter(converter_).getConversionKind();
     if (conversionKind == AppDataTypes.ConversionKind.BORROW_2) {

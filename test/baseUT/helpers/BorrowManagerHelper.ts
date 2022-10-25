@@ -75,7 +75,7 @@ export class BorrowManagerHelper {
         const debtMonitor = await CoreContractsHelper.createDebtMonitor(signer, controller);
         const tetuConverter = await CoreContractsHelper.createTetuConverter(signer, controller);
         const swapManager = await CoreContractsHelper.createSwapManager(signer, controller);
-        const tetuLiquidator = await MocksHelper.createTetuLiquidator(
+        const tetuLiquidator = await MocksHelper.createTetuLiquidatorMock(
           signer,
           [],
           []
@@ -119,7 +119,7 @@ export class BorrowManagerHelper {
         const pools: IPoolInstanceInfo[] = [];
 
         if (tetuAppSetupParams?.setupTetuLiquidatorToSwapBorrowToCollateral) {
-            const tetuLiquidatorMockEmpty = await MocksHelper.createTetuLiquidator(
+            const tetuLiquidatorMockEmpty = await MocksHelper.createTetuLiquidatorMock(
               signer,
               [assets[0].address, assets[1].address],
               [prices[0], prices[1]]

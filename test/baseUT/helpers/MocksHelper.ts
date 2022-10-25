@@ -22,7 +22,7 @@ import {
   DForceInterestRateModelMock,
   PriceOracleMock,
   BorrowManager__factory,
-  BorrowManager, TetuLiquidatorMock
+  BorrowManager, TetuLiquidatorMock, SwapManagerMock
 } from "../../../typechain";
 import {IPoolInfo} from "./BorrowManagerHelper";
 import {getBigNumberFrom} from "../../../scripts/utils/NumberUtils";
@@ -371,8 +371,8 @@ export class MocksHelper {
 
 //endregion Batch functions
 
-//region Tetuliquidator
-  public static async createTetuLiquidator(
+//region TetuLiquidator and SwapManager
+  public static async createTetuLiquidatorMock(
     deployer: SignerWithAddress,
     assets: string[],
     prices: BigNumber[]
@@ -380,5 +380,11 @@ export class MocksHelper {
     return await DeployUtils.deployContract(deployer, "TetuLiquidatorMock",
       assets, prices) as TetuLiquidatorMock;
   }
-//endregion TetuLiquidator
+
+  public static async createSwapManagerMock(
+    deployer: SignerWithAddress,
+  ) : Promise<SwapManagerMock> {
+    return await DeployUtils.deployContract(deployer,"SwapManagerMock") as SwapManagerMock;
+  }
+//endregion TetuLiquidator and SwapManager
 }
