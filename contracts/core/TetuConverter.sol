@@ -68,6 +68,8 @@ contract TetuConverter is ITetuConverter, IKeeperCallback {
     uint maxTargetAmount,
     int aprForPeriod36
   ) {
+    require(sourceAmount_ > 0, AppErrors.ZERO_AMOUNT);
+    require(periodInBlocks_ > 0 || conversionMode == ConversionMode.SWAP_1, AppErrors.INCORRECT_VALUE);
     return _findConversionStrategy(sourceToken_,
       sourceAmount_,
       targetToken_,

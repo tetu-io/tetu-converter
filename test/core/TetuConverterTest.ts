@@ -529,7 +529,10 @@ describe("TetuConverterTest", () => {
 
 //region Unit tests
   describe("findBestConversionStrategy", () => {
-
+    interface IFindConversionStrategyBadParams {
+      zeroSourceAmount?: boolean;
+      zeroPeriod?: boolean;
+    }
 
     /**
      * Set up test for findConversionStrategy
@@ -587,11 +590,12 @@ describe("TetuConverterTest", () => {
     async function makeFindConversionStrategyTest(
       conversionMode: number,
       useLendingPool: boolean,
-      useDexPool: boolean
+      useDexPool: boolean,
+      badPathsParams?: IFindConversionStrategyBadParams
     ) : Promise<IMakeFindConversionStrategyResults> {
       return makeFindConversionStrategy(
-        1000,
-        100,
+        badPathsParams?.zeroSourceAmount ? 0 : 1000,
+         badPathsParams?.zeroPeriod ? 0 : 100,
         conversionMode,
         useLendingPool ? 1000 : undefined,
         useDexPool
@@ -864,26 +868,66 @@ describe("TetuConverterTest", () => {
       });
     });
     describe("Bad paths", () => {
-      describe("Unsupported asset's pair", () => {
-        it("should return 0", async () => {
-          expect.fail();
-        });
-      });
       describe("Source amount is 0", () => {
-        it("should return 0", async () => {
-          expect.fail();
+        it("should revert", async () => {
+          await expect(
+            makeFindConversionStrategyTest(
+              CONVERSION_MODE_AUTO,
+              false,
+              false,
+              {
+                zeroSourceAmount: true
+              }
+            )
+          ).revertedWith("TC-43"); // ZERO_AMOUNT
         });
       });
       describe("Period is 0", () => {
-        it("should return 0", async () => {
-          expect.fail();
+        describe("Conversion mode is AUTO", () => {
+          it("should revert", async () => {
+            await expect(
+              makeFindConversionStrategyTest(
+                CONVERSION_MODE_AUTO,
+                false,
+                false,
+                {
+                  zeroPeriod: true
+                }
+              )
+            ).revertedWith("TC-29"); // INCORRECT_VALUE
+          });
+        });
+        describe("Conversion mode is BORROW", () => {
+          it("should revert", async () => {
+            await expect(
+              makeFindConversionStrategyTest(
+                CONVERSION_MODE_BORROW,
+                false,
+                false,
+                {
+                  zeroPeriod: true
+                }
+              )
+            ).revertedWith("TC-29"); // INCORRECT_VALUE
+          });
+        });
+        describe("Conversion mode is SWAP", () => {
+          it("should NOT revert", async () => {
+            const r = await makeFindConversionStrategyTest(
+                CONVERSION_MODE_SWAP,
+                false,
+                false,
+                {
+                  zeroPeriod: true
+                }
+            );
+            expect(r.results.converter).eq(Misc.ZERO_ADDRESS);
+          });
         });
       });
-      describe("Incorrect conversion mode", () => {
-        it("should return 0", async () => {
-          expect.fail();
-        });
-      });
+      // we don't need a test to check "incorrect conversion mode value"
+      // because Solidity generates an exception like following
+      // "value out-of-bounds (argument="conversionMode", value=777, code=INVALID_ARGUMENT, version=abi/5.6.4)"
     });
   });
 

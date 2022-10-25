@@ -87,4 +87,7 @@ library AppErrors {
   /// @notice Only one of the keepers is allowed to make such operation
   string public constant KEEPER_ONLY = "TC-42";
 
+  /// @notice The amount cannot be zero
+  string public constant ZERO_AMOUNT = "TC-43";
+
 }
