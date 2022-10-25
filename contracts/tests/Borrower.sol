@@ -248,6 +248,27 @@ contract Borrower is ITetuConverterCallback {
     onTransferBorrowedAmountLastResultAmountBorrowAssetSentToBorrower = amountBorrowAssetSentToBorrower_;
   }
 
+  function requireCollateralAmount(
+    address collateralAsset_,
+    address borrowAsset_,
+    uint requiredCollateralAmount_
+  ) external override returns (uint amountCollateralAssetOut) {
+    collateralAsset_;
+    borrowAsset_;
+    requiredCollateralAmount_;
+    return amountCollateralAssetOut; //TODO
+  }
+
+  function onTransferCollateralAmount (
+    address collateralAsset_,
+    address borrowAsset_,
+    uint amountCollateralAssetSentToBorrower_
+  ) external override {
+    collateralAsset_;
+    borrowAsset_;
+    amountCollateralAssetSentToBorrower_; //TODO
+  }
+
 //  function requireRepay(
 //    address collateralAsset_,
 //    address borrowAsset_,
