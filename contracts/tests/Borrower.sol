@@ -96,6 +96,7 @@ contract Borrower is ITetuConverterCallback {
     uint amountToBorrow_
   ) external returns (uint borrowedAmountOut) {
     console.log("borrowExactAmount start gasleft", gasleft());
+    console.log("borrowExactAmount msg.sender", msg.sender);
     console.log("borrowExactAmount sourceAsset_", sourceAsset_);
     console.log("borrowExactAmount sourceAmount_", sourceAmount_);
     console.log("borrowExactAmount targetAsset_", targetAsset_);
@@ -113,10 +114,10 @@ contract Borrower is ITetuConverterCallback {
 
     console.log("we will borrow:", amountToBorrow_, "gasleft", gasleft());
     console.log("sourceAmount_", sourceAmount_);
+    console.log("converter", converter);
     console.log("balance st on tc", IERC20(sourceAsset_).balanceOf(address(this)));
     // transfer collateral to TC
-    require(IERC20(sourceAsset_).balanceOf(address(this)) >= sourceAmount_
-    , "wrong balance st on tc");
+    require(IERC20(sourceAsset_).balanceOf(address(this)) >= sourceAmount_, "wrong balance st on tc");
     IERC20(sourceAsset_).safeTransfer(_controller.tetuConverter(), sourceAmount_);
 
     // borrow and receive borrowed-amount to receiver's balance

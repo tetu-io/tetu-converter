@@ -170,10 +170,13 @@ contract TetuConverter is ITetuConverter, IKeeperCallback {
     AppDataTypes.ConversionKind conversionKind = IConverter(converter_).getConversionKind();
     if (conversionKind == AppDataTypes.ConversionKind.BORROW_2) {
       // make borrow
+      console.log("_convert converter_", converter_);
+      console.log("_convert msg.sender", msg.sender);
 
       // get exist or register new pool adapter
       address poolAdapter = _borrowManager().getPoolAdapter(converter_, msg.sender, collateralAsset_, borrowAsset_);
       if (poolAdapter == address(0)) {
+        console.log("Pool adapter is not found, register new one");
         poolAdapter = _borrowManager().registerPoolAdapter(
           converter_,
           msg.sender,
@@ -217,6 +220,7 @@ contract TetuConverter is ITetuConverter, IKeeperCallback {
     uint collateralAmountOut,
     uint returnedBorrowAmountOut
   ) {
+    console.log("TetuConverter.repay", amountToRepay_);
     require(receiver_ != address(0), AppErrors.ZERO_ADDRESS);
 
     // ensure that we have received required amount
@@ -233,6 +237,7 @@ contract TetuConverter is ITetuConverter, IKeeperCallback {
       borrowAsset_
     );
     uint lenPoolAdapters = poolAdapters.length;
+    console.log("TetuConverter.repay.lenPoolAdapters", lenPoolAdapters);
 
     // at first repay debts for any opened positions
     // repay don't make any rebalancing here
@@ -247,6 +252,7 @@ contract TetuConverter is ITetuConverter, IKeeperCallback {
       uint amountToPayToPoolAdapter = amountToPay >= totalDebtForPoolAdapter
         ? totalDebtForPoolAdapter
         : amountToPay;
+      console.log("TetuConverter.repay.amountToPayToPoolAdapter", i, amountToPayToPoolAdapter);
 
       // send amount to pool adapter
       IERC20(borrowAsset_).safeTransfer(address(pa), amountToPayToPoolAdapter);
@@ -259,6 +265,9 @@ contract TetuConverter is ITetuConverter, IKeeperCallback {
       );
       amountToPay -= amountToPayToPoolAdapter;
     }
+
+    console.log("collateralAmountOut1", collateralAmountOut);
+    console.log("returnedBorrowAmountOut1", returnedBorrowAmountOut);
 
     // if all debts were paid but we still have some amount of borrow asset
     // let's swap it to collateral asset and send to collateral-receiver
@@ -291,6 +300,8 @@ contract TetuConverter is ITetuConverter, IKeeperCallback {
       }
     }
 
+    console.log("collateralAmountOut2", collateralAmountOut);
+    console.log("returnedBorrowAmountOut2", returnedBorrowAmountOut);
     return (collateralAmountOut, returnedBorrowAmountOut);
   }
 

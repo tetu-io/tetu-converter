@@ -1657,12 +1657,14 @@ describe("TetuConverterTest", () => {
       exactBorrowAmounts: number[],
       amountToRepayNum: number,
       setupTetuLiquidatorToSwapBorrowToCollateral: boolean = false,
-      repayBadPathParams?: IRepayBadPathParams
+      repayBadPathParams?: IRepayBadPathParams,
+      priceImpact?: number,
     ) : Promise<IRepayResults> {
       const init = await prepareTetuAppWithMultipleLendingPlatforms(
         collateralAmounts.length,
         {
-          setupTetuLiquidatorToSwapBorrowToCollateral
+          setupTetuLiquidatorToSwapBorrowToCollateral,
+          priceImpact
         }
       );
       const targetTokenDecimals = await init.targetToken.decimals();
@@ -1842,16 +1844,28 @@ describe("TetuConverterTest", () => {
             const initialCollateralAmount = 1_000_000;
             const exactBorrowAmount = 120;
             const amountBorrowAssetToSwap = 400;
+
+            // We need to set big price impact
+            // TetuConverter should prefer to use borrowing instead swapping
+            const PRICE_IMPACT_NUMERATOR = 100_000; // SwapManager.PRICE_IMPACT_NUMERATOR
+            const priceImpact = PRICE_IMPACT_NUMERATOR / 100; // 1%
+
             const amountToRepay = exactBorrowAmount + amountBorrowAssetToSwap;
             const r = await makeRepayTest(
               [initialCollateralAmount],
               [exactBorrowAmount],
               amountToRepay,
-              true
+              true,
+              undefined,
+              priceImpact
             );
 
+            // the prices of borrow and collateral assets are equal
+            const expectedCollateralAmountFromSwapping = amountBorrowAssetToSwap
+              * (PRICE_IMPACT_NUMERATOR - priceImpact) / PRICE_IMPACT_NUMERATOR;
+
             const expectedCollateralAmountToReceive = getBigNumberFrom(
-              initialCollateralAmount + amountBorrowAssetToSwap, // the prices are equal
+              initialCollateralAmount + expectedCollateralAmountFromSwapping,
               await r.init.sourceToken.decimals()
             );
 
@@ -1999,14 +2013,21 @@ describe("TetuConverterTest", () => {
             const exactBorrowAmounts = [200, 400, 1000];
             const totalBorrowAmount = exactBorrowAmounts.reduce((prev, cur) => prev += cur, 0);
             const totalCollateralAmount = collateralAmounts.reduce((prev, cur) => prev += cur, 0);
-            const amountToSwap = 170;
-            const expectedCollateralAfterSwap = amountToSwap; // prices 1:1
+            const amountToSwap = 300;
             const amountToRepay = totalBorrowAmount + amountToSwap;
+
+            // We need to set big price impact
+            // TetuConverter should prefer to use borrowing instead swapping
+            const PRICE_IMPACT_NUMERATOR = 100_000; // SwapManager.PRICE_IMPACT_NUMERATOR
+            const priceImpact = PRICE_IMPACT_NUMERATOR / 100; // 1%
+
             const r = await makeRepayTest(
               collateralAmounts,
               exactBorrowAmounts,
               amountToRepay,
-              true
+              true,
+              undefined,
+              priceImpact
             );
 
             const ret = [
@@ -2016,13 +2037,19 @@ describe("TetuConverterTest", () => {
               r.receiverBorrowAssetBalanceAfterRepay.sub(r.receiverBorrowAssetBalanceBeforeRepay)
             ].map(x => BalanceUtils.toString(x)).join("\n");
 
+            // the prices of borrow and collateral assets are equal
+            const expectedCollateralAmountFromSwapping = amountToSwap
+              * (PRICE_IMPACT_NUMERATOR - priceImpact) / PRICE_IMPACT_NUMERATOR;
+
+            const expectedCollateralAmountToReceive = getBigNumberFrom(
+              totalCollateralAmount + expectedCollateralAmountFromSwapping,
+              await r.init.sourceToken.decimals()
+            );
+
             const expected = [
               0,
               getBigNumberFrom(0, await r.init.targetToken.decimals()),
-              getBigNumberFrom(
-                totalCollateralAmount + expectedCollateralAfterSwap,
-                await r.init.sourceToken.decimals()
-              ),
+              expectedCollateralAmountToReceive,
               0
             ].map(x => BalanceUtils.toString(x)).join("\n");
 
