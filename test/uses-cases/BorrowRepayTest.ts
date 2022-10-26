@@ -113,21 +113,24 @@ describe("BorrowRepayTest", () => {
           describe("AAVE.v3", () => {
             it("should return expected balances", async () => {
               if (!await isPolygonForkInUse()) return;
-              const ret = await BorrowRepayUsesCase.makeTestSingleBorrowInstantRepay(deployer
-                , {
+              const ret = await BorrowRepayUsesCase.makeTestSingleBorrowInstantRepay(deployer,
+                {
                   collateral: {
                     asset: ASSET_COLLATERAL,
                     holder: HOLDER_COLLATERAL,
                     initialLiquidity: INITIAL_LIQUIDITY_COLLATERAL,
-                  }, borrow: {
+                  },
+                  borrow: {
                     asset: ASSET_BORROW,
                     holder: HOLDER_BORROW,
                     initialLiquidity: INITIAL_LIQUIDITY_BORROW,
-                  }, collateralAmount: AMOUNT_COLLATERAL
-                  , healthFactor2: HEALTH_FACTOR2
-                  , countBlocks: COUNT_BLOCKS
-                }, new Aave3PlatformFabric()
-                , {}
+                  },
+                  collateralAmount: AMOUNT_COLLATERAL,
+                  healthFactor2: HEALTH_FACTOR2,
+                  countBlocks: COUNT_BLOCKS,
+                },
+                new Aave3PlatformFabric(),
+                {}
               );
               expect(ret.sret).eq(ret.sexpected);
             });
@@ -135,21 +138,24 @@ describe("BorrowRepayTest", () => {
           describe("Hundred finance", () => {
             it("should return expected balances", async () => {
               if (!await isPolygonForkInUse()) return;
-              const ret = await BorrowRepayUsesCase.makeTestSingleBorrowInstantRepay(deployer
-                , {
+              const ret = await BorrowRepayUsesCase.makeTestSingleBorrowInstantRepay(deployer,
+                {
                   collateral: {
                     asset: ASSET_COLLATERAL,
                     holder: HOLDER_COLLATERAL,
                     initialLiquidity: INITIAL_LIQUIDITY_COLLATERAL,
-                  }, borrow: {
+                  },
+                  borrow: {
                     asset: ASSET_BORROW,
                     holder: HOLDER_BORROW,
                     initialLiquidity: INITIAL_LIQUIDITY_BORROW,
-                  }, collateralAmount: AMOUNT_COLLATERAL
-                  , healthFactor2: HEALTH_FACTOR2
-                  , countBlocks: COUNT_BLOCKS
-                }, new HundredFinancePlatformFabric()
-                , {
+                  },
+                  collateralAmount: AMOUNT_COLLATERAL,
+                  healthFactor2: HEALTH_FACTOR2,
+                  countBlocks: COUNT_BLOCKS,
+                },
+                new HundredFinancePlatformFabric(),
+                {
                   resultCollateralCanBeLessThenInitial: true
                 }
               );
@@ -159,21 +165,24 @@ describe("BorrowRepayTest", () => {
           describe("dForce", () => {
             it("should return expected balances", async () => {
               if (!await isPolygonForkInUse()) return;
-              const ret = await BorrowRepayUsesCase.makeTestSingleBorrowInstantRepay(deployer
-                , {
+              const ret = await BorrowRepayUsesCase.makeTestSingleBorrowInstantRepay(deployer,
+                {
                   collateral: {
                     asset: ASSET_COLLATERAL,
                     holder: HOLDER_COLLATERAL,
                     initialLiquidity: INITIAL_LIQUIDITY_COLLATERAL,
-                  }, borrow: {
+                  },
+                  borrow: {
                     asset: ASSET_BORROW,
                     holder: HOLDER_BORROW,
                     initialLiquidity: INITIAL_LIQUIDITY_BORROW,
-                  }, collateralAmount: AMOUNT_COLLATERAL
-                  , healthFactor2: HEALTH_FACTOR2
-                  , countBlocks: COUNT_BLOCKS
-                }, new DForcePlatformFabric()
-                , {}
+                  },
+                  collateralAmount: AMOUNT_COLLATERAL,
+                  healthFactor2: HEALTH_FACTOR2,
+                  countBlocks: COUNT_BLOCKS,
+                },
+                new DForcePlatformFabric(),
+                {}
               );
               expect(ret.sret).eq(ret.sexpected);
             });
@@ -181,21 +190,24 @@ describe("BorrowRepayTest", () => {
           describe("AAVE.v2", () => {
             it("should return expected balances", async () => {
               if (!await isPolygonForkInUse()) return;
-              const ret = await BorrowRepayUsesCase.makeTestSingleBorrowInstantRepay(deployer
-                , {
+              const ret = await BorrowRepayUsesCase.makeTestSingleBorrowInstantRepay(deployer,
+                {
                   collateral: {
                     asset: ASSET_COLLATERAL,
                     holder: HOLDER_COLLATERAL,
                     initialLiquidity: INITIAL_LIQUIDITY_COLLATERAL,
-                  }, borrow: {
+                  },
+                  borrow: {
                     asset: ASSET_BORROW,
                     holder: HOLDER_BORROW,
                     initialLiquidity: INITIAL_LIQUIDITY_BORROW,
-                  }, collateralAmount: AMOUNT_COLLATERAL
-                  , healthFactor2: HEALTH_FACTOR2
-                  , countBlocks: COUNT_BLOCKS
-                }, new AaveTwoPlatformFabric()
-                , {}
+                  },
+                  collateralAmount: AMOUNT_COLLATERAL,
+                  healthFactor2: HEALTH_FACTOR2,
+                  countBlocks: COUNT_BLOCKS,
+                },
+                new AaveTwoPlatformFabric(),
+                {}
               );
               expect(ret.sret).eq(ret.sexpected);
             });
@@ -214,30 +226,34 @@ describe("BorrowRepayTest", () => {
           describe("Mock", () => {
             it("should return expected balances", async () => {
               if (!await isPolygonForkInUse()) return;
-              const ret = await BorrowRepayUsesCase.makeTestSingleBorrowInstantRepay_Mock(deployer
-                , {
+              const ret = await BorrowRepayUsesCase.makeTestSingleBorrowInstantRepay_Mock(deployer,
+                {
                   collateral: {
                     asset: ASSET_COLLATERAL,
                     holder: HOLDER_COLLATERAL,
                     initialLiquidity: INITIAL_LIQUIDITY_COLLATERAL,
-                  }, borrow: {
+                  },
+                  borrow: {
                     asset: ASSET_BORROW,
                     holder: HOLDER_BORROW,
                     initialLiquidity: INITIAL_LIQUIDITY_BORROW,
-                  }, collateralAmount: AMOUNT_COLLATERAL
-                  , healthFactor2: HEALTH_FACTOR2
-                  , countBlocks: COUNT_BLOCKS
-                }, {
+                  },
+                  collateralAmount: AMOUNT_COLLATERAL,
+                  healthFactor2: HEALTH_FACTOR2,
+                  countBlocks: COUNT_BLOCKS,
+                },
+                {
                   collateral: {
-                    liquidity: INITIAL_LIQUIDITY_COLLATERAL * 10
-                    , collateralFactor: 0.5
-                    , borrowRate: getBigNumberFrom(1, 10)
-                    , decimals: 6
-                  }, borrow: {
-                    liquidity: INITIAL_LIQUIDITY_COLLATERAL * 10
-                    , collateralFactor: 0.8
-                    , borrowRate: getBigNumberFrom(1, 8)
-                    , decimals: 24
+                    liquidity: INITIAL_LIQUIDITY_COLLATERAL * 10,
+                    collateralFactor: 0.5,
+                    borrowRate: getBigNumberFrom(1, 10),
+                    decimals: 6,
+                  },
+                  borrow: {
+                    liquidity: INITIAL_LIQUIDITY_COLLATERAL * 10,
+                    collateralFactor: 0.8,
+                    borrowRate: getBigNumberFrom(1, 8),
+                    decimals: 24,
                   }
                 }
               );
@@ -247,21 +263,24 @@ describe("BorrowRepayTest", () => {
           describe("AAVE.v3", () => {
             it("should return expected balances", async () => {
               if (!await isPolygonForkInUse()) return;
-              const ret = await BorrowRepayUsesCase.makeTestSingleBorrowInstantRepay(deployer
-                , {
+              const ret = await BorrowRepayUsesCase.makeTestSingleBorrowInstantRepay(deployer,
+                {
                   collateral: {
                     asset: ASSET_COLLATERAL,
                     holder: HOLDER_COLLATERAL,
                     initialLiquidity: INITIAL_LIQUIDITY_COLLATERAL,
-                  }, borrow: {
+                  },
+                  borrow: {
                     asset: ASSET_BORROW,
                     holder: HOLDER_BORROW,
                     initialLiquidity: INITIAL_LIQUIDITY_BORROW,
-                  }, collateralAmount: AMOUNT_COLLATERAL
-                  , healthFactor2: HEALTH_FACTOR2
-                  , countBlocks: COUNT_BLOCKS
-                }, new Aave3PlatformFabric()
-                , {}
+                  },
+                  collateralAmount: AMOUNT_COLLATERAL,
+                  healthFactor2: HEALTH_FACTOR2,
+                  countBlocks: COUNT_BLOCKS,
+                },
+                new Aave3PlatformFabric(),
+                {}
               );
               expect(ret.sret).eq(ret.sexpected);
             });
@@ -269,19 +288,21 @@ describe("BorrowRepayTest", () => {
           describe("Hundred finance", () => {
             it("should return expected balances", async () => {
               if (!await isPolygonForkInUse()) return;
-              const ret = await BorrowRepayUsesCase.makeTestSingleBorrowInstantRepay(deployer
-                , {
+              const ret = await BorrowRepayUsesCase.makeTestSingleBorrowInstantRepay(deployer,
+                {
                   collateral: {
                     asset: ASSET_COLLATERAL,
                     holder: HOLDER_COLLATERAL,
                     initialLiquidity: INITIAL_LIQUIDITY_COLLATERAL,
-                  }, borrow: {
+                  },
+                  borrow: {
                     asset: ASSET_BORROW,
                     holder: HOLDER_BORROW,
                     initialLiquidity: INITIAL_LIQUIDITY_BORROW,
-                  }, collateralAmount: AMOUNT_COLLATERAL
-                  , healthFactor2: HEALTH_FACTOR2
-                  , countBlocks: COUNT_BLOCKS
+                  },
+                  collateralAmount: AMOUNT_COLLATERAL,
+                  healthFactor2: HEALTH_FACTOR2,
+                  countBlocks: COUNT_BLOCKS,
                 }, new HundredFinancePlatformFabric()
                 , {}
               );
@@ -291,21 +312,24 @@ describe("BorrowRepayTest", () => {
           describe("dForce", () => {
             it("should return expected balances", async () => {
               if (!await isPolygonForkInUse()) return;
-              const ret = await BorrowRepayUsesCase.makeTestSingleBorrowInstantRepay(deployer
-                , {
+              const ret = await BorrowRepayUsesCase.makeTestSingleBorrowInstantRepay(deployer,
+                {
                   collateral: {
                     asset: ASSET_COLLATERAL,
                     holder: HOLDER_COLLATERAL,
                     initialLiquidity: INITIAL_LIQUIDITY_COLLATERAL,
-                  }, borrow: {
+                  },
+                  borrow: {
                     asset: ASSET_BORROW,
                     holder: HOLDER_BORROW,
                     initialLiquidity: INITIAL_LIQUIDITY_BORROW,
-                  }, collateralAmount: AMOUNT_COLLATERAL
-                  , healthFactor2: HEALTH_FACTOR2
-                  , countBlocks: COUNT_BLOCKS
-                }, new DForcePlatformFabric()
-                , {}
+                  },
+                  collateralAmount: AMOUNT_COLLATERAL,
+                  healthFactor2: HEALTH_FACTOR2,
+                  countBlocks: COUNT_BLOCKS,
+                },
+                new DForcePlatformFabric(),
+                {}
               );
               expect(ret.sret).eq(ret.sexpected);
             });
@@ -313,21 +337,24 @@ describe("BorrowRepayTest", () => {
           describe("AAVE.v2", () => {
             it("should return expected balances", async () => {
               if (!await isPolygonForkInUse()) return;
-              const ret = await BorrowRepayUsesCase.makeTestSingleBorrowInstantRepay(deployer
-                , {
+              const ret = await BorrowRepayUsesCase.makeTestSingleBorrowInstantRepay(deployer,
+                {
                   collateral: {
                     asset: ASSET_COLLATERAL,
                     holder: HOLDER_COLLATERAL,
                     initialLiquidity: INITIAL_LIQUIDITY_COLLATERAL,
-                  }, borrow: {
+                  },
+                  borrow: {
                     asset: ASSET_BORROW,
                     holder: HOLDER_BORROW,
                     initialLiquidity: INITIAL_LIQUIDITY_BORROW,
-                  }, collateralAmount: AMOUNT_COLLATERAL
-                  , healthFactor2: HEALTH_FACTOR2
-                  , countBlocks: COUNT_BLOCKS
-                }, new AaveTwoPlatformFabric()
-                , {}
+                  },
+                  collateralAmount: AMOUNT_COLLATERAL,
+                  healthFactor2: HEALTH_FACTOR2,
+                  countBlocks: COUNT_BLOCKS,
+                },
+                new AaveTwoPlatformFabric(),
+                {}
               );
               expect(ret.sret).eq(ret.sexpected);
             });
@@ -346,30 +373,33 @@ describe("BorrowRepayTest", () => {
           describe("Mock", () => {
             it("should return expected balances", async () => {
               if (!await isPolygonForkInUse()) return;
-              const ret = await BorrowRepayUsesCase.makeTestSingleBorrowInstantRepay_Mock(deployer
-                , {
+              const ret = await BorrowRepayUsesCase.makeTestSingleBorrowInstantRepay_Mock(deployer,
+                {
                   collateral: {
                     asset: ASSET_COLLATERAL,
                     holder: HOLDER_COLLATERAL,
                     initialLiquidity: INITIAL_LIQUIDITY_COLLATERAL,
-                  }, borrow: {
+                  },
+                  borrow: {
                     asset: ASSET_BORROW,
                     holder: HOLDER_BORROW,
                     initialLiquidity: INITIAL_LIQUIDITY_BORROW,
-                  }, collateralAmount: AMOUNT_COLLATERAL
-                  , healthFactor2: HEALTH_FACTOR2
-                  , countBlocks: COUNT_BLOCKS
+                  },
+                  collateralAmount: AMOUNT_COLLATERAL,
+                  healthFactor2: HEALTH_FACTOR2,
+                  countBlocks: COUNT_BLOCKS,
                 }, {
                   collateral: {
-                    liquidity: INITIAL_LIQUIDITY_COLLATERAL * 10
-                    , collateralFactor: 0.5
-                    , borrowRate: getBigNumberFrom(1, 10)
-                    , decimals: 6
-                  }, borrow: {
-                    liquidity: INITIAL_LIQUIDITY_COLLATERAL * 10
-                    , collateralFactor: 0.8
-                    , borrowRate: getBigNumberFrom(1, 8)
-                    , decimals: 24
+                    liquidity: INITIAL_LIQUIDITY_COLLATERAL * 10,
+                    collateralFactor: 0.5,
+                    borrowRate: getBigNumberFrom(1, 10),
+                    decimals: 6,
+                  },
+                  borrow: {
+                    liquidity: INITIAL_LIQUIDITY_COLLATERAL * 10,
+                    collateralFactor: 0.8,
+                    borrowRate: getBigNumberFrom(1, 8),
+                    decimals: 24,
                   }
                 }
               );
@@ -379,21 +409,24 @@ describe("BorrowRepayTest", () => {
           describe("AAVE.v3", () => {
             it("should return expected balances", async () => {
               if (!await isPolygonForkInUse()) return;
-              const ret = await BorrowRepayUsesCase.makeTestSingleBorrowInstantRepay(deployer
-                , {
+              const ret = await BorrowRepayUsesCase.makeTestSingleBorrowInstantRepay(deployer,
+                {
                   collateral: {
                     asset: ASSET_COLLATERAL,
                     holder: HOLDER_COLLATERAL,
                     initialLiquidity: INITIAL_LIQUIDITY_COLLATERAL,
-                  }, borrow: {
+                  },
+                  borrow: {
                     asset: ASSET_BORROW,
                     holder: HOLDER_BORROW,
                     initialLiquidity: INITIAL_LIQUIDITY_BORROW,
-                  }, collateralAmount: AMOUNT_COLLATERAL
-                  , healthFactor2: HEALTH_FACTOR2
-                  , countBlocks: COUNT_BLOCKS
-                }, new Aave3PlatformFabric()
-                , {
+                  },
+                  collateralAmount: AMOUNT_COLLATERAL,
+                  healthFactor2: HEALTH_FACTOR2,
+                  countBlocks: COUNT_BLOCKS,
+                },
+                new Aave3PlatformFabric(),
+                {
                   resultCollateralCanBeLessThenInitial: false
                 }
               );
@@ -403,21 +436,24 @@ describe("BorrowRepayTest", () => {
           describe("Hundred finance", () => {
             it("should return expected balances", async () => {
               if (!await isPolygonForkInUse()) return;
-              const ret = await BorrowRepayUsesCase.makeTestSingleBorrowInstantRepay(deployer
-                , {
+              const ret = await BorrowRepayUsesCase.makeTestSingleBorrowInstantRepay(deployer,
+                {
                   collateral: {
                     asset: ASSET_COLLATERAL,
                     holder: HOLDER_COLLATERAL,
                     initialLiquidity: INITIAL_LIQUIDITY_COLLATERAL,
-                  }, borrow: {
+                  },
+                  borrow: {
                     asset: ASSET_BORROW,
                     holder: HOLDER_BORROW,
                     initialLiquidity: INITIAL_LIQUIDITY_BORROW,
-                  }, collateralAmount: AMOUNT_COLLATERAL
-                  , healthFactor2: HEALTH_FACTOR2
-                  , countBlocks: COUNT_BLOCKS
-                }, new HundredFinancePlatformFabric()
-                , {
+                  },
+                  collateralAmount: AMOUNT_COLLATERAL,
+                  healthFactor2: HEALTH_FACTOR2,
+                  countBlocks: COUNT_BLOCKS,
+                },
+                new HundredFinancePlatformFabric(),
+                {
                   resultCollateralCanBeLessThenInitial: true
                 }
               );
@@ -427,21 +463,24 @@ describe("BorrowRepayTest", () => {
           describe("dForce", () => {
             it("should return expected balances", async () => {
               if (!await isPolygonForkInUse()) return;
-              const ret = await BorrowRepayUsesCase.makeTestSingleBorrowInstantRepay(deployer
-                , {
+              const ret = await BorrowRepayUsesCase.makeTestSingleBorrowInstantRepay(deployer,
+                {
                   collateral: {
                     asset: ASSET_COLLATERAL,
                     holder: HOLDER_COLLATERAL,
                     initialLiquidity: INITIAL_LIQUIDITY_COLLATERAL,
-                  }, borrow: {
+                  },
+                  borrow: {
                     asset: ASSET_BORROW,
                     holder: HOLDER_BORROW,
                     initialLiquidity: INITIAL_LIQUIDITY_BORROW,
-                  }, collateralAmount: AMOUNT_COLLATERAL
-                  , healthFactor2: HEALTH_FACTOR2
-                  , countBlocks: COUNT_BLOCKS
-                }, new DForcePlatformFabric()
-                , {
+                  },
+                  collateralAmount: AMOUNT_COLLATERAL,
+                  healthFactor2: HEALTH_FACTOR2,
+                  countBlocks: COUNT_BLOCKS,
+                },
+                new DForcePlatformFabric(),
+               {
                   resultCollateralCanBeLessThenInitial: false
                 }
               );
@@ -451,21 +490,24 @@ describe("BorrowRepayTest", () => {
           describe("AAVE.v2", () => {
             it("should return expected balances", async () => {
               if (!await isPolygonForkInUse()) return;
-              const ret = await BorrowRepayUsesCase.makeTestSingleBorrowInstantRepay(deployer
-                , {
+              const ret = await BorrowRepayUsesCase.makeTestSingleBorrowInstantRepay(deployer,
+                {
                   collateral: {
                     asset: ASSET_COLLATERAL,
                     holder: HOLDER_COLLATERAL,
                     initialLiquidity: INITIAL_LIQUIDITY_COLLATERAL,
-                  }, borrow: {
+                  },
+                  borrow: {
                     asset: ASSET_BORROW,
                     holder: HOLDER_BORROW,
                     initialLiquidity: INITIAL_LIQUIDITY_BORROW,
-                  }, collateralAmount: AMOUNT_COLLATERAL
-                  , healthFactor2: HEALTH_FACTOR2
-                  , countBlocks: COUNT_BLOCKS
-                }, new AaveTwoPlatformFabric()
-                , {
+                  },
+                  collateralAmount: AMOUNT_COLLATERAL,
+                  healthFactor2: HEALTH_FACTOR2,
+                  countBlocks: COUNT_BLOCKS,
+                },
+                new AaveTwoPlatformFabric(),
+                {
                   resultCollateralCanBeLessThenInitial: false
                 }
               );
@@ -486,30 +528,33 @@ describe("BorrowRepayTest", () => {
           describe("Mock", () => {
             it("should return expected balances", async () => {
               if (!await isPolygonForkInUse()) return;
-              const ret = await BorrowRepayUsesCase.makeTestSingleBorrowInstantRepay_Mock(deployer
-                , {
+              const ret = await BorrowRepayUsesCase.makeTestSingleBorrowInstantRepay_Mock(deployer,
+                {
                   collateral: {
                     asset: ASSET_COLLATERAL,
                     holder: HOLDER_COLLATERAL,
                     initialLiquidity: INITIAL_LIQUIDITY_COLLATERAL,
-                  }, borrow: {
+                  },
+                  borrow: {
                     asset: ASSET_BORROW,
                     holder: HOLDER_BORROW,
                     initialLiquidity: INITIAL_LIQUIDITY_BORROW,
-                  }, collateralAmount: AMOUNT_COLLATERAL
-                  , healthFactor2: HEALTH_FACTOR2
-                  , countBlocks: COUNT_BLOCKS
+                  },
+                  collateralAmount: AMOUNT_COLLATERAL,
+                  healthFactor2: HEALTH_FACTOR2,
+                  countBlocks: COUNT_BLOCKS,
                 }, {
                   collateral: {
-                    liquidity: INITIAL_LIQUIDITY_COLLATERAL * 10
-                    , collateralFactor: 0.5
-                    , borrowRate: getBigNumberFrom(1, 10)
-                    , decimals: 6
-                  }, borrow: {
-                    liquidity: INITIAL_LIQUIDITY_COLLATERAL * 10
-                    , collateralFactor: 0.8
-                    , borrowRate: getBigNumberFrom(1, 8)
-                    , decimals: 24
+                    liquidity: INITIAL_LIQUIDITY_COLLATERAL * 10,
+                    collateralFactor: 0.5,
+                    borrowRate: getBigNumberFrom(1, 10),
+                    decimals: 6,
+                  },
+                  borrow: {
+                    liquidity: INITIAL_LIQUIDITY_COLLATERAL * 10,
+                    collateralFactor: 0.8,
+                    borrowRate: getBigNumberFrom(1, 8),
+                    decimals: 24,
                   }
                 }
               );
@@ -519,19 +564,21 @@ describe("BorrowRepayTest", () => {
           describe("AAVE.v3", () => {
             it("should return expected balances", async () => {
               if (!await isPolygonForkInUse()) return;
-              const ret = await BorrowRepayUsesCase.makeTestSingleBorrowInstantRepay(deployer
-                , {
+              const ret = await BorrowRepayUsesCase.makeTestSingleBorrowInstantRepay(deployer,
+                {
                   collateral: {
                     asset: ASSET_COLLATERAL,
                     holder: HOLDER_COLLATERAL,
                     initialLiquidity: INITIAL_LIQUIDITY_COLLATERAL,
-                  }, borrow: {
+                  },
+                  borrow: {
                     asset: ASSET_BORROW,
                     holder: HOLDER_BORROW,
                     initialLiquidity: INITIAL_LIQUIDITY_BORROW,
-                  }, collateralAmount: AMOUNT_COLLATERAL
-                  , healthFactor2: HEALTH_FACTOR2
-                  , countBlocks: COUNT_BLOCKS
+                  },
+                  collateralAmount: AMOUNT_COLLATERAL,
+                  healthFactor2: HEALTH_FACTOR2,
+                  countBlocks: COUNT_BLOCKS,
                 }, new Aave3PlatformFabric()
                 , {
                   resultCollateralCanBeLessThenInitial: false
@@ -543,19 +590,21 @@ describe("BorrowRepayTest", () => {
           describe("Hundred finance", () => {
             it("should return expected balances", async () => {
               if (!await isPolygonForkInUse()) return;
-              const ret = await BorrowRepayUsesCase.makeTestSingleBorrowInstantRepay(deployer
-                , {
+              const ret = await BorrowRepayUsesCase.makeTestSingleBorrowInstantRepay(deployer,
+                {
                   collateral: {
                     asset: ASSET_COLLATERAL,
                     holder: HOLDER_COLLATERAL,
                     initialLiquidity: INITIAL_LIQUIDITY_COLLATERAL,
-                  }, borrow: {
+                  },
+                  borrow: {
                     asset: ASSET_BORROW,
                     holder: HOLDER_BORROW,
                     initialLiquidity: INITIAL_LIQUIDITY_BORROW,
-                  }, collateralAmount: AMOUNT_COLLATERAL
-                  , healthFactor2: HEALTH_FACTOR2
-                  , countBlocks: COUNT_BLOCKS
+                  },
+                  collateralAmount: AMOUNT_COLLATERAL,
+                  healthFactor2: HEALTH_FACTOR2,
+                  countBlocks: COUNT_BLOCKS,
                 }, new HundredFinancePlatformFabric()
                 , {
                   resultCollateralCanBeLessThenInitial: true
@@ -567,19 +616,21 @@ describe("BorrowRepayTest", () => {
           describe("dForce", () => {
             it("should return expected balances", async () => {
               if (!await isPolygonForkInUse()) return;
-              const ret = await BorrowRepayUsesCase.makeTestSingleBorrowInstantRepay(deployer
-                , {
+              const ret = await BorrowRepayUsesCase.makeTestSingleBorrowInstantRepay(deployer,
+                {
                   collateral: {
                     asset: ASSET_COLLATERAL,
                     holder: HOLDER_COLLATERAL,
                     initialLiquidity: INITIAL_LIQUIDITY_COLLATERAL,
-                  }, borrow: {
+                  },
+                  borrow: {
                     asset: ASSET_BORROW,
                     holder: HOLDER_BORROW,
                     initialLiquidity: INITIAL_LIQUIDITY_BORROW,
-                  }, collateralAmount: AMOUNT_COLLATERAL
-                  , healthFactor2: HEALTH_FACTOR2
-                  , countBlocks: COUNT_BLOCKS
+                  },
+                  collateralAmount: AMOUNT_COLLATERAL,
+                  healthFactor2: HEALTH_FACTOR2,
+                  countBlocks: COUNT_BLOCKS,
                 }, new DForcePlatformFabric()
                 , {
                   resultCollateralCanBeLessThenInitial: false
@@ -591,19 +642,21 @@ describe("BorrowRepayTest", () => {
           describe("AAVE.v2", () => {
             it("should return expected balances", async () => {
               if (!await isPolygonForkInUse()) return;
-              const ret = await BorrowRepayUsesCase.makeTestSingleBorrowInstantRepay(deployer
-                , {
+              const ret = await BorrowRepayUsesCase.makeTestSingleBorrowInstantRepay(deployer,
+                {
                   collateral: {
                     asset: ASSET_COLLATERAL,
                     holder: HOLDER_COLLATERAL,
                     initialLiquidity: INITIAL_LIQUIDITY_COLLATERAL,
-                  }, borrow: {
+                  },
+                  borrow: {
                     asset: ASSET_BORROW,
                     holder: HOLDER_BORROW,
                     initialLiquidity: INITIAL_LIQUIDITY_BORROW,
-                  }, collateralAmount: AMOUNT_COLLATERAL
-                  , healthFactor2: HEALTH_FACTOR2
-                  , countBlocks: COUNT_BLOCKS
+                  },
+                  collateralAmount: AMOUNT_COLLATERAL,
+                  healthFactor2: HEALTH_FACTOR2,
+                  countBlocks: COUNT_BLOCKS,
                 }, new AaveTwoPlatformFabric()
                 , {
                   resultCollateralCanBeLessThenInitial: false
@@ -673,23 +726,25 @@ describe("BorrowRepayTest", () => {
           describe("AAVE.v3", () => {
             it("should return expected balances", async () => {
               if (!await isPolygonForkInUse()) return;
-              const ret = await BorrowRepayUsesCase.makeTestTwoBorrowsTwoRepays(deployer
-                , {
+              const ret = await BorrowRepayUsesCase.makeTestTwoBorrowsTwoRepays(deployer,
+                {
                   collateral: {
                     asset: ASSET_COLLATERAL,
                     holder: HOLDER_COLLATERAL,
                     initialLiquidity: INITIAL_LIQUIDITY_COLLATERAL,
-                  }, borrow: {
+                  },
+                  borrow: {
                     asset: ASSET_BORROW,
                     holder: HOLDER_BORROW,
                     initialLiquidity: INITIAL_LIQUIDITY_BORROW,
-                  }, collateralAmount: AMOUNT_COLLATERAL
-                  , healthFactor2: HEALTH_FACTOR2
-                  , countBlocks: COUNT_BLOCKS
-                  , collateralAmount2: AMOUNT_COLLATERAL2
-                  , deltaBlocksBetweenBorrows: DELTA_BLOCKS_BORROW
-                  , deltaBlocksBetweenRepays: DELTA_BLOCKS_REPAY
-                  , repayAmount1: AMOUNT_REPAY1
+                  },
+                  collateralAmount: AMOUNT_COLLATERAL,
+                  healthFactor2: HEALTH_FACTOR2,
+                  countBlocks: COUNT_BLOCKS,
+                  collateralAmount2: AMOUNT_COLLATERAL2,
+                  deltaBlocksBetweenBorrows: DELTA_BLOCKS_BORROW,
+                  deltaBlocksBetweenRepays: DELTA_BLOCKS_REPAY,
+                  repayAmount1: AMOUNT_REPAY1,
                 }, new Aave3PlatformFabric()
                 , {
                   resultCollateralCanBeLessThenInitial: false
@@ -701,23 +756,25 @@ describe("BorrowRepayTest", () => {
           describe("Hundred finance", () => {
             it("should return expected balances", async () => {
               if (!await isPolygonForkInUse()) return;
-              const ret = await BorrowRepayUsesCase.makeTestTwoBorrowsTwoRepays(deployer
-                , {
+              const ret = await BorrowRepayUsesCase.makeTestTwoBorrowsTwoRepays(deployer,
+                {
                   collateral: {
                     asset: ASSET_COLLATERAL,
                     holder: HOLDER_COLLATERAL,
                     initialLiquidity: INITIAL_LIQUIDITY_COLLATERAL,
-                  }, borrow: {
+                  },
+                  borrow: {
                     asset: ASSET_BORROW,
                     holder: HOLDER_BORROW,
                     initialLiquidity: INITIAL_LIQUIDITY_BORROW,
-                  }, collateralAmount: AMOUNT_COLLATERAL
-                  , healthFactor2: HEALTH_FACTOR2
-                  , countBlocks: COUNT_BLOCKS
-                  , collateralAmount2: AMOUNT_COLLATERAL2
-                  , deltaBlocksBetweenBorrows: DELTA_BLOCKS_BORROW
-                  , deltaBlocksBetweenRepays: DELTA_BLOCKS_REPAY
-                  , repayAmount1: AMOUNT_REPAY1
+                  },
+                  collateralAmount: AMOUNT_COLLATERAL,
+                  healthFactor2: HEALTH_FACTOR2,
+                  countBlocks: COUNT_BLOCKS,
+                  collateralAmount2: AMOUNT_COLLATERAL2,
+                  deltaBlocksBetweenBorrows: DELTA_BLOCKS_BORROW,
+                  deltaBlocksBetweenRepays: DELTA_BLOCKS_REPAY,
+                  repayAmount1: AMOUNT_REPAY1,
                 }, new HundredFinancePlatformFabric()
                 , {
                   resultCollateralCanBeLessThenInitial: false
@@ -729,23 +786,25 @@ describe("BorrowRepayTest", () => {
           describe("dForce", () => {
             it("should return expected balances", async () => {
               if (!await isPolygonForkInUse()) return;
-              const ret = await BorrowRepayUsesCase.makeTestTwoBorrowsTwoRepays(deployer
-                , {
+              const ret = await BorrowRepayUsesCase.makeTestTwoBorrowsTwoRepays(deployer,
+                {
                   collateral: {
                     asset: ASSET_COLLATERAL,
                     holder: HOLDER_COLLATERAL,
                     initialLiquidity: INITIAL_LIQUIDITY_COLLATERAL,
-                  }, borrow: {
+                  },
+                  borrow: {
                     asset: ASSET_BORROW,
                     holder: HOLDER_BORROW,
                     initialLiquidity: INITIAL_LIQUIDITY_BORROW,
-                  }, collateralAmount: AMOUNT_COLLATERAL
-                  , healthFactor2: HEALTH_FACTOR2
-                  , countBlocks: COUNT_BLOCKS
-                  , collateralAmount2: AMOUNT_COLLATERAL2
-                  , deltaBlocksBetweenBorrows: DELTA_BLOCKS_BORROW
-                  , deltaBlocksBetweenRepays: DELTA_BLOCKS_REPAY
-                  , repayAmount1: AMOUNT_REPAY1
+                  },
+                  collateralAmount: AMOUNT_COLLATERAL,
+                  healthFactor2: HEALTH_FACTOR2,
+                  countBlocks: COUNT_BLOCKS,
+                  collateralAmount2: AMOUNT_COLLATERAL2,
+                  deltaBlocksBetweenBorrows: DELTA_BLOCKS_BORROW,
+                  deltaBlocksBetweenRepays: DELTA_BLOCKS_REPAY,
+                  repayAmount1: AMOUNT_REPAY1,
                 }, new DForcePlatformFabric()
                 , {
                   resultCollateralCanBeLessThenInitial: false
@@ -757,23 +816,25 @@ describe("BorrowRepayTest", () => {
           describe("AAVE.v2", () => {
             it("should return expected balances", async () => {
               if (!await isPolygonForkInUse()) return;
-              const ret = await BorrowRepayUsesCase.makeTestTwoBorrowsTwoRepays(deployer
-                , {
+              const ret = await BorrowRepayUsesCase.makeTestTwoBorrowsTwoRepays(deployer,
+                {
                   collateral: {
                     asset: ASSET_COLLATERAL,
                     holder: HOLDER_COLLATERAL,
                     initialLiquidity: INITIAL_LIQUIDITY_COLLATERAL,
-                  }, borrow: {
+                  },
+                  borrow: {
                     asset: ASSET_BORROW,
                     holder: HOLDER_BORROW,
                     initialLiquidity: INITIAL_LIQUIDITY_BORROW,
-                  }, collateralAmount: AMOUNT_COLLATERAL
-                  , healthFactor2: HEALTH_FACTOR2
-                  , countBlocks: COUNT_BLOCKS
-                  , collateralAmount2: AMOUNT_COLLATERAL2
-                  , deltaBlocksBetweenBorrows: DELTA_BLOCKS_BORROW
-                  , deltaBlocksBetweenRepays: DELTA_BLOCKS_REPAY
-                  , repayAmount1: AMOUNT_REPAY1
+                  },
+                  collateralAmount: AMOUNT_COLLATERAL,
+                  healthFactor2: HEALTH_FACTOR2,
+                  countBlocks: COUNT_BLOCKS,
+                  collateralAmount2: AMOUNT_COLLATERAL2,
+                  deltaBlocksBetweenBorrows: DELTA_BLOCKS_BORROW,
+                  deltaBlocksBetweenRepays: DELTA_BLOCKS_REPAY,
+                  repayAmount1: AMOUNT_REPAY1,
                 }, new AaveTwoPlatformFabric()
                 , {
                   resultCollateralCanBeLessThenInitial: false
@@ -798,7 +859,7 @@ describe("BorrowRepayTest", () => {
           const COUNT_BLOCKS = 1;
           describe("AAVE.v3", () => {
             it("should not exceed gas limit", async () => {
-
+              if (!await isPolygonForkInUse()) return;
               const r = await BorrowRepayUsesCase.makeTestSingleBorrowInstantRepay(deployer
                 , {
                   collateral: {
@@ -818,15 +879,22 @@ describe("BorrowRepayTest", () => {
                 , {}
                 , true
               );
-              controlGasLimitsEx(r.gasUsedByPaInitialization!, GAS_LIMIT_SINGLE_BORROW_SINGLE_REPAY_INITIALIZE_PA, (u, t) => {
-                expect(u).to.be.below(t + 1);
-              });
-              controlGasLimitsEx(r.gasUsedByBorrow!, GAS_LIMIT_SINGLE_BORROW_SINGLE_REPAY_AAVE3_BORROW, (u, t) => {
-                expect(u).to.be.below(t + 1);
-              });
-              controlGasLimitsEx(r.gasUsedByRepay!, GAS_LIMIT_SINGLE_BORROW_SINGLE_REPAY_AAVE3_REPAY, (u, t) => {
-                expect(u).to.be.below(t + 1);
-              });
+              expect(r.gasUsedByPaInitialization && r.gasUsedByBorrow && r.gasUsedByRepay).eq(true);
+              if (r.gasUsedByPaInitialization) {
+                controlGasLimitsEx(r.gasUsedByPaInitialization, GAS_LIMIT_SINGLE_BORROW_SINGLE_REPAY_INITIALIZE_PA, (u, t) => {
+                  expect(u).to.be.below(t + 1);
+                });
+              }
+              if (r.gasUsedByBorrow) {
+                controlGasLimitsEx(r.gasUsedByBorrow, GAS_LIMIT_SINGLE_BORROW_SINGLE_REPAY_AAVE3_BORROW, (u, t) => {
+                  expect(u).to.be.below(t + 1);
+                });
+              }
+              if (r.gasUsedByRepay) {
+                controlGasLimitsEx(r.gasUsedByRepay, GAS_LIMIT_SINGLE_BORROW_SINGLE_REPAY_AAVE3_REPAY, (u, t) => {
+                  expect(u).to.be.below(t + 1);
+                });
+              }
             });
           });
           describe("Hundred finance", () => {
@@ -853,15 +921,22 @@ describe("BorrowRepayTest", () => {
                 },
                 true
               );
-              controlGasLimitsEx(r.gasUsedByPaInitialization!, GAS_LIMIT_SINGLE_BORROW_SINGLE_REPAY_INITIALIZE_PA, (u, t) => {
-                expect(u).to.be.below(t + 1);
-              });
-              controlGasLimitsEx(r.gasUsedByBorrow!, GAS_LIMIT_SINGLE_BORROW_SINGLE_REPAY_HUNDRED_FINANCE_BORROW, (u, t) => {
-                expect(u).to.be.below(t + 1);
-              });
-              controlGasLimitsEx(r.gasUsedByRepay!, GAS_LIMIT_SINGLE_BORROW_SINGLE_REPAY_HUNDRED_FINANCE_REPAY, (u, t) => {
-                expect(u).to.be.below(t + 1);
-              });
+              expect(r.gasUsedByPaInitialization && r.gasUsedByBorrow && r.gasUsedByRepay).eq(true);
+              if (r.gasUsedByPaInitialization) {
+                controlGasLimitsEx(r.gasUsedByPaInitialization, GAS_LIMIT_SINGLE_BORROW_SINGLE_REPAY_INITIALIZE_PA, (u, t) => {
+                  expect(u).to.be.below(t + 1);
+                });
+              }
+              if (r.gasUsedByBorrow) {
+                controlGasLimitsEx(r.gasUsedByBorrow, GAS_LIMIT_SINGLE_BORROW_SINGLE_REPAY_HUNDRED_FINANCE_BORROW, (u, t) => {
+                  expect(u).to.be.below(t + 1);
+                });
+              }
+              if (r.gasUsedByRepay) {
+                controlGasLimitsEx(r.gasUsedByRepay, GAS_LIMIT_SINGLE_BORROW_SINGLE_REPAY_HUNDRED_FINANCE_REPAY, (u, t) => {
+                  expect(u).to.be.below(t + 1);
+                });
+              }
             });
           });
           describe("dForce", () => {
@@ -886,15 +961,22 @@ describe("BorrowRepayTest", () => {
                 , {}
                 , true
               );
-              controlGasLimitsEx(r.gasUsedByPaInitialization!, GAS_LIMIT_SINGLE_BORROW_SINGLE_REPAY_INITIALIZE_PA, (u, t) => {
-                expect(u).to.be.below(t + 1);
-              });
-              controlGasLimitsEx(r.gasUsedByBorrow!, GAS_LIMIT_SINGLE_BORROW_SINGLE_REPAY_DFORCE_BORROW, (u, t) => {
-                expect(u).to.be.below(t + 1);
-              });
-              controlGasLimitsEx(r.gasUsedByRepay!, GAS_LIMIT_SINGLE_BORROW_SINGLE_REPAY_DFORCE_REPAY, (u, t) => {
-                expect(u).to.be.below(t + 1);
-              });
+              expect(r.gasUsedByPaInitialization && r.gasUsedByBorrow && r.gasUsedByRepay).eq(true);
+              if (r.gasUsedByPaInitialization) {
+                controlGasLimitsEx(r.gasUsedByPaInitialization, GAS_LIMIT_SINGLE_BORROW_SINGLE_REPAY_INITIALIZE_PA, (u, t) => {
+                  expect(u).to.be.below(t + 1);
+                });
+              }
+              if (r.gasUsedByBorrow) {
+                controlGasLimitsEx(r.gasUsedByBorrow, GAS_LIMIT_SINGLE_BORROW_SINGLE_REPAY_DFORCE_BORROW, (u, t) => {
+                  expect(u).to.be.below(t + 1);
+                });
+              }
+              if (r.gasUsedByRepay) {
+                controlGasLimitsEx(r.gasUsedByRepay, GAS_LIMIT_SINGLE_BORROW_SINGLE_REPAY_DFORCE_REPAY, (u, t) => {
+                  expect(u).to.be.below(t + 1);
+                });
+              }
             });
           });
           describe("AAVE.v2", () => {
@@ -919,21 +1001,26 @@ describe("BorrowRepayTest", () => {
                 , {}
                 , true
               );
-              controlGasLimitsEx(r.gasUsedByPaInitialization!, GAS_LIMIT_SINGLE_BORROW_SINGLE_REPAY_INITIALIZE_PA, (u, t) => {
-                expect(u).to.be.below(t + 1);
-              });
-              controlGasLimitsEx(r.gasUsedByBorrow!, GAS_LIMIT_SINGLE_BORROW_SINGLE_REPAY_AAVE_TWO_BORROW, (u, t) => {
-                expect(u).to.be.below(t + 1);
-              });
-              controlGasLimitsEx(r.gasUsedByRepay!, GAS_LIMIT_SINGLE_BORROW_SINGLE_REPAY_AAVE_TWO_REPAY, (u, t) => {
-                expect(u).to.be.below(t + 1);
-              });
+              expect(r.gasUsedByPaInitialization && r.gasUsedByBorrow && r.gasUsedByRepay).eq(true);
+              if (r.gasUsedByPaInitialization) {
+                controlGasLimitsEx(r.gasUsedByPaInitialization, GAS_LIMIT_SINGLE_BORROW_SINGLE_REPAY_INITIALIZE_PA, (u, t) => {
+                  expect(u).to.be.below(t + 1);
+                });
+              }
+              if (r.gasUsedByBorrow) {
+                controlGasLimitsEx(r.gasUsedByBorrow, GAS_LIMIT_SINGLE_BORROW_SINGLE_REPAY_AAVE_TWO_BORROW, (u, t) => {
+                  expect(u).to.be.below(t + 1);
+                });
+              }
+              if (r.gasUsedByRepay) {
+                controlGasLimitsEx(r.gasUsedByRepay, GAS_LIMIT_SINGLE_BORROW_SINGLE_REPAY_AAVE_TWO_REPAY, (u, t) => {
+                  expect(u).to.be.below(t + 1);
+                });
+              }
             });
           });
         });
       });
-    });
-    describe("Bad paths", () => {
     });
   });
 //endregion Unit tests

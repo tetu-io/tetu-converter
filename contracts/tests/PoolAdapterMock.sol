@@ -390,12 +390,7 @@ contract PoolAdapterMock is IPoolAdapter {
 
   function _getAmountToRepay() internal view returns (uint) {
     console.log("_getAmountToRepay _borrowedAmounts=%d _borrowRates=%d _passedBlocks=%d", _borrowedAmounts, borrowRate, _passedBlocks);
-    return _borrowedAmounts
-      + borrowRate
-        * _borrowedAmounts
-        * _passedBlocks
-        / IERC20Extended(_borrowAsset).decimals() //borrowRate is in borrow tokens
-    ;
+    return _borrowedAmounts + borrowRate * _passedBlocks;
   }
 
 

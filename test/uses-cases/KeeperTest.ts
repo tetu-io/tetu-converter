@@ -80,11 +80,11 @@ describe("Keeper test", () => {
 //endregion before, after
 
 //region Utils
-  async function getBorrowManager(deployer: SignerWithAddress, controller: Controller) : Promise<BorrowManager> {
-    return BorrowManager__factory.connect(await controller.borrowManager(), deployer);
+  async function getBorrowManager(signer: SignerWithAddress, controller: Controller) : Promise<BorrowManager> {
+    return BorrowManager__factory.connect(await controller.borrowManager(), signer);
   }
-  async function getDebtMonitor(deployer: SignerWithAddress, controller: Controller) : Promise<DebtMonitor> {
-    return DebtMonitor__factory.connect(await controller.debtMonitor(), deployer);
+  async function getDebtMonitor(signer: SignerWithAddress, controller: Controller) : Promise<DebtMonitor> {
+    return DebtMonitor__factory.connect(await controller.debtMonitor(), signer);
   }
 //endregion Utils
 
@@ -138,7 +138,7 @@ describe("Keeper test", () => {
     const poolAdapters = await uc.getBorrows(collateralToken.address, borrowToken.address);
     const poolAdapter = poolAdapters[0];
     if (! poolAdapter) {
-      throw "pool adapter not found";
+      throw new Error("pool adapter not found");
     }
 
     console.log("makeSingleBorrow.end", poolAdapters.length);
@@ -312,30 +312,33 @@ describe("Keeper test", () => {
           ): Promise<boolean[]> {
             // make a borrow
             const {uc, tc, controller, poolAdapter} = await KeeperTestMockUtils.makeSingleBorrow_Mock(
-              deployer
-              , {
+              deployer,
+              {
                 collateral: {
                   asset: ASSET_COLLATERAL,
                   holder: HOLDER_COLLATERAL,
                   initialLiquidity: INITIAL_LIQUIDITY_COLLATERAL,
-                }, borrow: {
+                },
+                borrow: {
                   asset: ASSET_BORROW,
                   holder: HOLDER_BORROW,
                   initialLiquidity: INITIAL_LIQUIDITY_BORROW,
-                }, collateralAmount: AMOUNT_COLLATERAL
-                , healthFactor2: HEALTH_FACTOR2
-                , countBlocks: COUNT_BLOCKS
+                },
+                collateralAmount: AMOUNT_COLLATERAL,
+                healthFactor2: HEALTH_FACTOR2,
+                countBlocks: COUNT_BLOCKS,
               }, {
                 collateral: {
-                  liquidity: INITIAL_LIQUIDITY_COLLATERAL * 2
-                  , collateralFactor: 0.5
-                  , borrowRate: getBigNumberFrom(1, 10)
-                  , decimals: 6
-                }, borrow: {
-                  liquidity: INITIAL_LIQUIDITY_COLLATERAL * 2
-                  , collateralFactor: 0.8
-                  , borrowRate: getBigNumberFrom(1, 8)
-                  , decimals: 24
+                  liquidity: INITIAL_LIQUIDITY_COLLATERAL * 2,
+                  collateralFactor: 0.5,
+                  borrowRate: getBigNumberFrom(1, 10),
+                  decimals: 6,
+                },
+                borrow: {
+                  liquidity: INITIAL_LIQUIDITY_COLLATERAL * 2,
+                  collateralFactor: 0.8,
+                  borrowRate: getBigNumberFrom(1, 8),
+                  decimals: 24,
                 }
               }
             );
@@ -360,7 +363,7 @@ describe("Keeper test", () => {
               console.log("keeperResult", keeperResult);
               dest.push(keeperResult);
 
-              if (i == 0) {
+              if (i === 0) {
                 // modify platform state
                 console.log("Modify platform state", i);
                 await platformStateModifierFabric(uc, tc, controller, poolAdapter);
@@ -373,13 +376,13 @@ describe("Keeper test", () => {
           describe("Mock", () => {
             describe("Collateral factor is decreased to 10", () => {
               it("should call reconvert", async () => {
-                if (!await isPolygonForkInUse()) return; //TODO: replace real DAI and USDC by own tokens
+                if (!await isPolygonForkInUse()) return; // TODO: replace real DAI and USDC by own tokens
 
                 const modifier = async (
-                  uc: Borrower
-                  , tc: ITetuConverter
-                  , controller: Controller
-                  , poolAdapter: string
+                  uc: Borrower,
+                  tc: ITetuConverter,
+                  controller: Controller,
+                  poolAdapter: string
                 ) => {
                   const bm: BorrowManager = await getBorrowManager(deployer, controller);
                   const pa = IPoolAdapter__factory.connect(poolAdapter, deployer);
@@ -408,10 +411,10 @@ describe("Keeper test", () => {
                 if (!await isPolygonForkInUse()) return;
 
                 const modifier = async (
-                  uc: Borrower
-                  , tc: ITetuConverter
-                  , controller: Controller
-                  , poolAdapter: string
+                  uc: Borrower,
+                  tc: ITetuConverter,
+                  controller: Controller,
+                  poolAdapter: string
                 ) => {
                   const bm: BorrowManager = await getBorrowManager(deployer, controller);
                   const pa = IPoolAdapter__factory.connect(poolAdapter, deployer);
@@ -440,10 +443,10 @@ describe("Keeper test", () => {
                 if (!await isPolygonForkInUse()) return;
 
                 const modifier = async (
-                  uc: Borrower
-                  , tc: ITetuConverter
-                  , controller: Controller
-                  , poolAdapter: string
+                  uc: Borrower,
+                  tc: ITetuConverter,
+                  controller: Controller,
+                  poolAdapter: string
                 ) => {
                   const bm: BorrowManager = await getBorrowManager(deployer, controller);
                   const pa = IPoolAdapter__factory.connect(poolAdapter, deployer);
@@ -493,13 +496,15 @@ describe("Keeper test", () => {
                   asset: ASSET_COLLATERAL,
                   holder: HOLDER_COLLATERAL,
                   initialLiquidity: INITIAL_LIQUIDITY_COLLATERAL,
-                }, borrow: {
+                },
+                borrow: {
                   asset: ASSET_BORROW,
                   holder: HOLDER_BORROW,
                   initialLiquidity: INITIAL_LIQUIDITY_BORROW,
-                }, collateralAmount: AMOUNT_COLLATERAL
-                , healthFactor2: HEALTH_FACTOR2
-                , countBlocks: COUNT_BLOCKS
+                },
+                collateralAmount: AMOUNT_COLLATERAL,
+                healthFactor2: HEALTH_FACTOR2,
+                countBlocks: COUNT_BLOCKS,
               }, [new Aave3PlatformFabric()]
             );
 
@@ -523,7 +528,7 @@ describe("Keeper test", () => {
               console.log("keeperResult", keeperResult);
               dest.push(keeperResult);
 
-              if (i == 0) {
+              if (i === 0) {
                 // modify platform state
                 console.log("Modify platform state", i);
                 await platformStateModifierFabric(uc, controller, poolAdapter);
@@ -534,9 +539,9 @@ describe("Keeper test", () => {
           }
 
           async function getLendingPlatformManagerAave3(
-            uc: Borrower
-            , controller: Controller
-            , poolAdapter: string
+            uc: Borrower,
+            controller: Controller,
+            poolAdapter: string
           ): Promise<LendingPlatformManagerAave3> {
             return new LendingPlatformManagerAave3(
               await Aave3PoolAdapter__factory.connect(poolAdapter, deployer)
@@ -555,12 +560,12 @@ describe("Keeper test", () => {
           describe("AAVE3", () => {
             describe("Collateral factor is decreased to 25", () => {
               it("should call reconvert", async () => {
-                if (!await isPolygonForkInUse()) return; //TODO: replace real DAI and USDC by own tokens
+                if (!await isPolygonForkInUse()) return; // TODO: replace real DAI and USDC by own tokens
 
                 const modifier = async (
-                  uc: Borrower
-                  , controller: Controller
-                  , poolAdapter: string
+                  uc: Borrower,
+                  controller: Controller,
+                  poolAdapter: string
                 ) => {
                   const m = await getLendingPlatformManagerAave3(uc, controller, poolAdapter);
                   return m.changeCollateralFactor(deployer, 25);
@@ -576,12 +581,12 @@ describe("Keeper test", () => {
             });
             describe("Collateral price is decreased 10 times", () => {
               it("should call reconvert", async () => {
-                if (!await isPolygonForkInUse()) return; //TODO: replace real DAI and USDC by own tokens
+                if (!await isPolygonForkInUse()) return; // TODO: replace real DAI and USDC by own tokens
 
                 const modifier = async (
-                  uc: Borrower
-                  , controller: Controller
-                  , poolAdapter: string
+                  uc: Borrower,
+                  controller: Controller,
+                  poolAdapter: string
                 ) => {
                   const m = await getLendingPlatformManagerAave3(uc, controller, poolAdapter);
                   return m.changeAssetPrice(deployer, ASSET_COLLATERAL, false, 10);
@@ -597,12 +602,12 @@ describe("Keeper test", () => {
             });
             describe("Borrow price is increased 8 times", () => {
               it("should call reconvert", async () => {
-                if (!await isPolygonForkInUse()) return; //TODO: replace real DAI and USDC by own tokens
+                if (!await isPolygonForkInUse()) return; // TODO: replace real DAI and USDC by own tokens
 
                 const modifier = async (
-                  uc: Borrower
-                  , controller: Controller
-                  , poolAdapter: string
+                  uc: Borrower,
+                  controller: Controller,
+                  poolAdapter: string,
                 ) => {
                   const m = await getLendingPlatformManagerAave3(uc, controller, poolAdapter);
                   return m.changeAssetPrice(deployer, ASSET_BORROW, true, 8);
@@ -649,30 +654,33 @@ describe("Keeper test", () => {
           ): Promise<boolean[]> {
             // make a borrow
             const {uc, tc, controller, poolAdapter} = await KeeperTestMockUtils.makeSingleBorrow_Mock(
-                deployer
-                , {
+                deployer,
+                {
                 collateral: {
                   asset: ASSET_COLLATERAL,
                   holder: HOLDER_COLLATERAL,
                   initialLiquidity: INITIAL_LIQUIDITY_COLLATERAL,
-                }, borrow: {
+                },
+                borrow: {
                   asset: ASSET_BORROW,
                   holder: HOLDER_BORROW,
                   initialLiquidity: INITIAL_LIQUIDITY_BORROW,
-                }, collateralAmount: AMOUNT_COLLATERAL
-                , healthFactor2: HEALTH_FACTOR2
-                , countBlocks: COUNT_BLOCKS
+                },
+                collateralAmount: AMOUNT_COLLATERAL,
+                healthFactor2: HEALTH_FACTOR2,
+                countBlocks: COUNT_BLOCKS,
               }, {
                 collateral: {
-                  liquidity: INITIAL_LIQUIDITY_COLLATERAL * 2
-                  , collateralFactor: 0.5
-                  , borrowRate: getBigNumberFrom(3, 10)
-                  , decimals: 6
-                }, borrow: {
-                  liquidity: INITIAL_LIQUIDITY_COLLATERAL * 2
-                  , collateralFactor: 0.8
-                  , borrowRate: getBigNumberFrom(4, 8)
-                  , decimals: 24
+                  liquidity: INITIAL_LIQUIDITY_COLLATERAL * 2,
+                  collateralFactor: 0.5,
+                  borrowRate: getBigNumberFrom(3, 10),
+                  decimals: 6,
+                },
+                borrow: {
+                  liquidity: INITIAL_LIQUIDITY_COLLATERAL * 2,
+                  collateralFactor: 0.8,
+                  borrowRate: getBigNumberFrom(4, 8),
+                  decimals: 24,
                 }
               }
               // we create 2 pool adapters, use first one to borrow and later change its borrow rate
@@ -700,7 +708,7 @@ describe("Keeper test", () => {
               console.log("keeperResult", keeperResult);
               dest.push(keeperResult);
 
-              if (i == 0) {
+              if (i === 0) {
                 // modify platform state
                 console.log("Modify platform state", i);
                 await platformStateModifierFabric(uc, controller, poolAdapter);
@@ -720,9 +728,9 @@ describe("Keeper test", () => {
             changeBorrowRateFactor: number
           ) : Promise<boolean[]> {
             const modifier = async (
-              uc: Borrower
-              , controller: Controller
-              , poolAdapter: string
+              uc: Borrower,
+              controller: Controller,
+              poolAdapter: string
             ) => {
               const bm: BorrowManager = await getBorrowManager(deployer, controller);
               const pa = IPoolAdapter__factory.connect(poolAdapter, deployer);
@@ -739,7 +747,7 @@ describe("Keeper test", () => {
               );
               return m.changeBorrowRate(deployer, true, changeBorrowRateFactor);
             };
-            return await makeTestForReconversionCall_Mock(modifier);
+            return makeTestForReconversionCall_Mock(modifier);
           }
 
           /**
@@ -752,9 +760,9 @@ describe("Keeper test", () => {
             periodBeforeCheckInBlocks: number
           ) : Promise<boolean[]> {
             const modifier = async (
-              uc: Borrower
-              , controller: Controller
-              , poolAdapter: string
+              uc: Borrower,
+              controller: Controller,
+              poolAdapter: string
             ) => {
               const bm: BorrowManager = await getBorrowManager(deployer, controller);
               const pa = IPoolAdapter__factory.connect(poolAdapter, deployer);
@@ -775,7 +783,7 @@ describe("Keeper test", () => {
               );
               return m.makeMaxBorrow(deployer);
             };
-            return await makeTestForReconversionCall_Mock(modifier);
+            return makeTestForReconversionCall_Mock(modifier);
           }
 //endregion Constants and utils
 
@@ -934,13 +942,15 @@ describe("Keeper test", () => {
                     asset: ASSET_COLLATERAL,
                     holder: HOLDER_COLLATERAL,
                     initialLiquidity: INITIAL_LIQUIDITY_COLLATERAL,
-                  }, borrow: {
+                  },
+                  borrow: {
                     asset: ASSET_BORROW,
                     holder: HOLDER_BORROW,
                     initialLiquidity: INITIAL_LIQUIDITY_BORROW,
-                  }, collateralAmount: AMOUNT_COLLATERAL
-                  , healthFactor2: HEALTH_FACTOR2
-                  , countBlocks: COUNT_BLOCKS
+                  },
+                  collateralAmount: AMOUNT_COLLATERAL,
+                  healthFactor2: HEALTH_FACTOR2,
+                  countBlocks: COUNT_BLOCKS,
                 };
 
                 const reconverter = new ReConverterMock();
@@ -1014,13 +1024,15 @@ describe("Keeper test", () => {
                 asset: ASSET_COLLATERAL,
                 holder: HOLDER_COLLATERAL,
                 initialLiquidity: INITIAL_LIQUIDITY_COLLATERAL,
-              }, borrow: {
+              },
+              borrow: {
                 asset: ASSET_BORROW,
                 holder: HOLDER_BORROW,
                 initialLiquidity: INITIAL_LIQUIDITY_BORROW,
-              }, collateralAmount: AMOUNT_COLLATERAL
-              , healthFactor2: HEALTH_FACTOR2
-              , countBlocks: COUNT_BLOCKS
+              },
+              collateralAmount: AMOUNT_COLLATERAL,
+              healthFactor2: HEALTH_FACTOR2,
+              countBlocks: COUNT_BLOCKS,
             };
             const ret = await makeTestForReconversionAave3andTwo(
               reconverter

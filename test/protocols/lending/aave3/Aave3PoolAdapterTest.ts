@@ -391,11 +391,13 @@ describe("Aave3PoolAdapterTest", () => {
     describe("Bad paths", () => {
       describe("Not borrowable", () => {
         it("", async () =>{
+          if (!await isPolygonForkInUse()) return;
           expect.fail("TODO");
         });
       });
       describe("Not usable as collateral", () => {
         it("", async () =>{
+          if (!await isPolygonForkInUse()) return;
           expect.fail("TODO");
         });
       });

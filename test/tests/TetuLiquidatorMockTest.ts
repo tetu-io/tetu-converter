@@ -76,11 +76,6 @@ describe("TetuLiquidatorMock", () => {
   });
 //endregion before, after
 
-//region Utils
-
-
-//endregion Utils
-
 //region Unit tests
   const ONE18 = parseUnits('1', 18);
   const ONE6 = parseUnits('1', 6);
@@ -103,9 +98,9 @@ describe("TetuLiquidatorMock", () => {
       expect(await mock.getPrice(_weth, _matic, ONE18)).equal(ONE18.mul('2400'));
 
     });
-    it("Should revert", async () => {
-      await expect(mock.getPrice(_usdc, _unknown, ONE6)).revertedWith('L: Not found pool for tokenOut');
-      await expect(mock.getPrice(_unknown, _usdt, ONE18)).revertedWith('L: Not found pool for tokenIn');
+    it("Should return 0", async () => {
+      expect(await mock.getPrice(_usdc, _unknown, ONE6)).equal(0);
+      expect(await mock.getPrice(_unknown, _usdt, ONE18)).equal(0);
 
     });
   });
@@ -143,9 +138,9 @@ describe("TetuLiquidatorMock", () => {
 
     });
 
-    it("Should revert", async () => {
-      await expect(liquidate(usdc, unknown, ONE6)).revertedWith('L: Not found pool for tokenOut');
-      await expect(liquidate(unknown, usdt, ONE18)).revertedWith('L: Not found pool for tokenIn');
+    it("Should return 0", async () => {
+      expect(await liquidate(usdc, unknown, ONE6)).eq(0);
+      expect(await liquidate(unknown, usdt, ONE18)).eq(0);
     });
 
     it("Should revert priceImpactTolerance", async () => {

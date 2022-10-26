@@ -5,7 +5,6 @@ import {
   SwapManager,
   TetuConverter,
 } from "../../../typechain";
-import {tetu} from "../../../typechain/contracts/integrations";
 
 export class CoreContracts {
   readonly controller: Controller;

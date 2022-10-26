@@ -13,7 +13,6 @@ import {BorrowManagerHelper} from "../baseUT/helpers/BorrowManagerHelper";
 import {DeployerUtils} from "../../scripts/utils/DeployerUtils";
 import {BigNumber} from "ethers";
 import {getBigNumberFrom} from "../../scripts/utils/NumberUtils";
-import {CoreContractsHelper} from "../baseUT/helpers/CoreContractsHelper";
 import {MocksHelper} from "../baseUT/helpers/MocksHelper";
 import {BalanceUtils, IContractToInvestigate} from "../baseUT/utils/BalanceUtils";
 
@@ -54,11 +53,6 @@ describe("PoolAdapterMock", () => {
     await TimeUtils.rollback(snapshotForEach);
   });
 //endregion before, after
-
-//region Utils
-
-
-//endregion Utils
 
 //region Unit tests
   describe("", () => {
@@ -138,6 +132,7 @@ describe("PoolAdapterMock", () => {
           console.log("Transfer collateral to PA", amountCollateral);
           await pa.borrow(amountCollateral, amountToBorrow, user);
           console.log("Borrow", amountToBorrow);
+          console.log("Balance of borrow asset on user account", await targetToken.balanceOf(user));
 
           const afterBorrow = await BalanceUtils.getBalances(deployer
             , contractsToInvestigate, tokensToInvestigate);
@@ -147,10 +142,7 @@ describe("PoolAdapterMock", () => {
           await PoolAdapterMock__factory.connect(pa.address, deployer)
             .setPassedBlocks(blocksBetweenBorrowAndRepay);
           console.log(`amountToBorrow=${amountToBorrow.toString()} blocksBetweenBorrowAndRepay=${blocksBetweenBorrowAndRepay.toString()} borrowRatePerBlock18=${borrowRatePerBlock18.toString()}`);
-          const expectedDebt = amountToBorrow
-            .mul(blocksBetweenBorrowAndRepay)
-            .mul(borrowRatePerBlock18)
-            .div(BigNumber.from(10).pow(18));
+          const expectedDebt = borrowRatePerBlock18.mul(blocksBetweenBorrowAndRepay);
           console.log("Time passed, blocks=", blocksBetweenBorrowAndRepay, "+debt", expectedDebt);
 
           // repay immediately
@@ -194,8 +186,6 @@ describe("PoolAdapterMock", () => {
           expect(ret).equal(expected);
         });
       });
-    });
-    describe("Bad paths", () => {
     });
   });
 //endregion Unit tests

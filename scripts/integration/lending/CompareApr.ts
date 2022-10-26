@@ -7,13 +7,14 @@ import {CoreContractsHelper} from "../../../test/baseUT/helpers/CoreContractsHel
 import {BigNumber} from "ethers";
 import {Misc} from "../../utils/Misc";
 import {Aave3Helper} from "../helpers/Aave3Helper";
+import {AppDataTypes} from "../../../typechain/contracts/core/SwapManager";
 
 interface IItem {
     platformAdapter: IPlatformAdapter;
     title: string;
 }
 
-interface Plan {
+interface IPlan {
     converter: string;
     borrowRateKind: number;
     liquidationThreshold18: BigNumber;
@@ -23,13 +24,13 @@ interface Plan {
     maxAmountToSupplyCT: BigNumber;
 }
 
-interface Strategy {
+interface IStrategy {
     collateralAsset: string;
     borrowAsset: string;
-    adapter: string;
+    adapterTitle: string;
     apr?: BigNumber;
     apy?: number;
-    plan?: Plan;
+    plan?: IPlan;
 }
 
 interface IAsset {
@@ -47,7 +48,6 @@ function getApy(ap: IItem, br: BigNumber): number {
     switch (ap.title) {
         case "aave3":
         case "aaveTwo":
-
             return Math.pow(+ethers.utils.formatUnits(br, 27) / SECONDS_PER_YEAR + 1, SECONDS_PER_YEAR) - 1;
         case "hunred finance":
             return Math.pow(+ethers.utils.formatUnits(br, 18) * BLOCKS_PER_YEAR_HR + 1, DAYS_PER_YEAR) - 1;
@@ -58,7 +58,8 @@ function getApy(ap: IItem, br: BigNumber): number {
     return 0;
 }
 
-/** Get APR for all pairs of assets and all platform adapters
+/*
+ *  Get APR for all pairs of assets and all platform adapters
  *
  *  npx hardhat run scripts/integration/lending/CompareApr.ts
  * */
@@ -91,31 +92,36 @@ async function main() {
     const controller = await CoreContractsHelper.createController(signer);
     const templateAdapterStub = ethers.Wallet.createRandom().address;
 
+    const swapManager = await CoreContractsHelper.createSwapManager(signer, controller.address);
+    const tetuLiquidatorAddress = '0x67e14A8Ebe89639945e4209CE3fE19e721633AC3';
+    await controller.setTetuLiquidator(tetuLiquidatorAddress);
+    await controller.setSwapManager(swapManager.address);
+
     const platformAdapters: IItem[] = [
         {
-            title: "aave3"
-            , platformAdapter: await AdaptersHelper.createAave3PlatformAdapter(signer
-                , controller.address
-                , MaticAddresses.AAVE_V3_POOL
-                , templateAdapterStub
-                , templateAdapterStub
+            title: "aave3",
+            platformAdapter: await AdaptersHelper.createAave3PlatformAdapter(signer,
+                controller.address,
+                MaticAddresses.AAVE_V3_POOL,
+                templateAdapterStub,
+                templateAdapterStub,
             )
-        }
-        , {
+        },
+        {
             title: "aaveTwo",
-            platformAdapter: await AdaptersHelper.createAaveTwoPlatformAdapter(signer
-                    , controller.address
-                    , MaticAddresses.AAVE_TWO_POOL
-                    , templateAdapterStub
-                )
-        }
-        , {
+            platformAdapter: await AdaptersHelper.createAaveTwoPlatformAdapter(signer,
+                controller.address,
+                MaticAddresses.AAVE_TWO_POOL,
+                templateAdapterStub,
+            )
+        },
+        {
             title: "hunred finance",
-            platformAdapter: await AdaptersHelper.createHundredFinancePlatformAdapter(signer
-                , controller.address
-                , MaticAddresses.HUNDRED_FINANCE_COMPTROLLER
-                , templateAdapterStub
-                , [
+            platformAdapter: await AdaptersHelper.createHundredFinancePlatformAdapter(signer,
+                controller.address,
+                MaticAddresses.HUNDRED_FINANCE_COMPTROLLER,
+                templateAdapterStub,
+                [
                     MaticAddresses.hDAI,
                     MaticAddresses.hMATIC,
                     MaticAddresses.hUSDC,
@@ -124,17 +130,17 @@ async function main() {
                     MaticAddresses.hWBTC,
                     MaticAddresses.hFRAX,
                     MaticAddresses.hLINK,
-                ]
-                , MaticAddresses.HUNDRED_FINANCE_PRICE_ORACLE
+                ],
+                MaticAddresses.HUNDRED_FINANCE_PRICE_ORACLE
             )
-        }
-        , {
+        },
+        {
             title: "DForce",
-            platformAdapter: await AdaptersHelper.createDForcePlatformAdapter(signer
-                , controller.address
-                , MaticAddresses.DFORCE_CONTROLLER
-                , templateAdapterStub
-                , [
+            platformAdapter: await AdaptersHelper.createDForcePlatformAdapter(signer,
+                controller.address,
+                MaticAddresses.DFORCE_CONTROLLER,
+                templateAdapterStub,
+                [
                     MaticAddresses.dForce_iUSDC,
                     MaticAddresses.dForce_iUSDT,
                     MaticAddresses.dForce_iUSX,
@@ -151,7 +157,7 @@ async function main() {
         }
     ]
 
-    const dest: Strategy[] = [];
+    const dest: IStrategy[] = [];
     const lines: string[] = [];
     lines.push([
         "collateralAsset",
@@ -173,24 +179,28 @@ async function main() {
 
     for (const collateral of assets) {
         for (const borrow of assets) {
-            if (collateral == borrow) continue;
+            if (collateral === borrow) continue;
 
+            // try to borrow on each lending platform
             for (const pa of platformAdapters) {
                 console.log(`Collateral ${collateral.t} borrow=${borrow.t} adapter=${pa.title}`);
-                const plan = await pa.platformAdapter.getConversionPlan(collateral.a, borrow.a);
-                if (plan.converter == Misc.ZERO_ADDRESS) {
+                const plan = await pa.platformAdapter.getConversionPlan(
+                  collateral.a,
+                  borrow.a
+                );
+                if (plan.converter === Misc.ZERO_ADDRESS) {
                     dest.push({
                         collateralAsset: collateral.t,
                         borrowAsset: borrow.t,
-                        adapter: pa.title
+                        adapterTitle: pa.title
                     });
                 } else {
                     dest.push({
                         collateralAsset: collateral.t,
                         borrowAsset: borrow.t,
-                        adapter: pa.title,
-                        plan: plan,
-                        apr: plan.borrowRateKind == 1
+                        adapterTitle: pa.title,
+                        plan,
+                        apr: plan.borrowRateKind === 1
                             ? plan.borrowRate
                             : plan.borrowRate.mul(SECONDS_PER_DAY).div(BLOCKS_PER_DAY),
                         apy: getApy(pa, plan.borrowRate) * 100
@@ -201,7 +211,7 @@ async function main() {
                 const line = [
                     st.collateralAsset,
                     st.borrowAsset,
-                    st.adapter,
+                    st.adapterTitle,
                     st.apr,
                     st.apy,
                     st.plan?.borrowRateKind,
@@ -215,6 +225,15 @@ async function main() {
 
                 lines.push(line.map(x => Aave3Helper.toString(x)).join(","));
             }
+
+            // try to swap
+            const swapResults = swapManager.getConverter(
+              {
+                sourceToken: collateral,
+                targetToken: borrow,
+                sourceAmount:
+              }
+            )
         }
     }
 

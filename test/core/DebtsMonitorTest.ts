@@ -359,12 +359,12 @@ describe("DebtsMonitor", () => {
       priceSourceUSD: 0.1,
       priceTargetUSD: 4,
       sourceDecimals: 24,
-      targetDecimals: targetDecimals,
+      targetDecimals,
       availablePools: [
         {   // source, target
           borrowRateInTokens: [
             getBigNumberFrom(0, targetDecimals),
-            getBigNumberFrom(1, targetDecimals - 6), //1e-6
+            getBigNumberFrom(1, targetDecimals - 6), // 1e-6
           ],
           availableLiquidityInTokens: [0, 200_000_000]
         }
@@ -1397,7 +1397,7 @@ describe("DebtsMonitor", () => {
                   updated: 0.5
                 },
                 countPassedBlocks: 10_000, // (!)
-                borrowRate: 1e2 // decimals 1e18
+                borrowRate: 1e10 // decimals 1e18
               }
               const {dm, poolAdapterMock} = await prepareSinglePoolAdapterHealthTest(pp);
 
