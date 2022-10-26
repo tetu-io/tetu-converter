@@ -27,6 +27,7 @@ import {DeployerUtils} from "../../../../scripts/utils/DeployerUtils";
 import {DeployUtils} from "../../../../scripts/utils/DeployUtils";
 import {AprDForce, getDForceStateInfo} from "../../../baseUT/apr/aprDForce";
 import {Misc} from "../../../../scripts/utils/Misc";
+import {AprUtils} from "../../../baseUT/utils/aprUtils";
 
 describe("DForce integration tests, platform adapter", () => {
 //region Global vars for all tests
@@ -148,7 +149,7 @@ describe("DForce integration tests, platform adapter", () => {
   ) : Promise<{sret: string, sexpected: string}> {
     const controller = await CoreContractsHelper.createController(deployer);
     const countBlocks = 10;
-    const healthFactor18 = getBigNumberFrom(4, 18);
+    const healthFactor2 = 400;
 
     const comptroller = await DForceHelper.getController(deployer);
     const dForcePlatformAdapter = await AdaptersHelper.createDForcePlatformAdapter(
@@ -182,24 +183,24 @@ describe("DForce integration tests, platform adapter", () => {
     const borrowAssetData = await DForceHelper.getCTokenData(deployer, comptroller, cTokenBorrow);
     console.log("borrowAssetData", borrowAssetData);
 
-    const borrowAmountFactor18 = Misc.WEI
-      .mul(toMantissa(collateralAmount, await cTokenCollateral.decimals(), 18))
-      .div(healthFactor18);
-    console.log("borrowAmountFactor18", borrowAmountFactor18, collateralAmount);
-
     const ret = await dForcePlatformAdapter.getConversionPlan(
       collateralAsset,
       collateralAmount,
       borrowAsset,
-      borrowAmountFactor18,
+      healthFactor2,
       countBlocks
     );
     console.log("getConversionPlan", ret);
 
-    const amountToBorrow18 = borrowAmountFactor18
-      .mul(ret.liquidationThreshold18)
-      .div(Misc.WEI);
-    let amountToBorrow = toMantissa(amountToBorrow18, 18, await cTokenBorrow.decimals());
+    let amountToBorrow = AprUtils.getBorrowAmount(
+      collateralAmount,
+      healthFactor2,
+      ret.liquidationThreshold18,
+      priceCollateral36,
+      priceBorrow36,
+      collateralAssetData.decimals,
+      borrowAssetData.decimals
+    );
     if (amountToBorrow.gt(ret.maxAmountToBorrow)) {
       amountToBorrow = ret.maxAmountToBorrow;
     }

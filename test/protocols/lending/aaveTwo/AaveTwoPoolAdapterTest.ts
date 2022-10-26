@@ -161,17 +161,11 @@ describe("AaveTwoPoolAdapterTest", () => {
 
     // calculate max allowed amount to borrow
     const countBlocks = 1;
-    const borrowAmountFactor18 = CompareAprUsesCase.getBorrowAmountFactor18(
-      collateralAmount,
-      targetHealthFactor2 || await controller.targetHealthFactor2(),
-      collateralToken.decimals
-    );
-
     const plan = await aavePlatformAdapter.getConversionPlan(
       collateralToken.address,
       collateralAmount,
       borrowToken.address,
-      borrowAmountFactor18,
+      targetHealthFactor2 || await controller.targetHealthFactor2(),
       countBlocks
     );
     console.log("plan", plan);

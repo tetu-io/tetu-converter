@@ -14,7 +14,7 @@ import {isPolygonForkInUse} from "../../../baseUT/utils/NetworkUtils";
 import {Aave3Helper} from "../../../../scripts/integration/helpers/Aave3Helper";
 import {BalanceUtils} from "../../../baseUT/utils/BalanceUtils";
 import {MaticAddresses} from "../../../../scripts/addresses/MaticAddresses";
-import {COUNT_BLOCKS_PER_DAY} from "../../../baseUT/utils/aprUtils";
+import {AprUtils, COUNT_BLOCKS_PER_DAY} from "../../../baseUT/utils/aprUtils";
 import {CoreContractsHelper} from "../../../baseUT/helpers/CoreContractsHelper";
 import {areAlmostEqual, toMantissa} from "../../../baseUT/utils/CommonUtils";
 import {IPlatformActor, PredictBrUsesCase} from "../../../baseUT/uses-cases/PredictBrUsesCase";
@@ -103,7 +103,7 @@ describe("Aave3PlatformAdapterTest", () => {
 
 //region Unit tests
   describe("getConversionPlan", () => {
-    async function makeTest(
+    async function makeGetConversionPlanTest(
       collateralAsset: string,
       collateralAmount: BigNumber,
       borrowAsset: string,
@@ -114,7 +114,7 @@ describe("Aave3PlatformAdapterTest", () => {
       const controller = await CoreContractsHelper.createController(deployer);
       const templateAdapterNormalStub = ethers.Wallet.createRandom();
       const templateAdapterEModeStub = ethers.Wallet.createRandom();
-      const healthFactor18 = getBigNumberFrom(2, 18);
+      const healthFactor2 = 200;
 
       const h: Aave3Helper = new Aave3Helper(deployer);
       const aavePool = await Aave3Helper.getAavePool(deployer);
@@ -125,17 +125,13 @@ describe("Aave3PlatformAdapterTest", () => {
         templateAdapterNormalStub.address,
         templateAdapterEModeStub.address
       );
-
       const priceOracle = await Aave3Helper.getAavePriceOracle(deployer);
+      const prices = await priceOracle.getAssetsPrices([collateralAsset, borrowAsset]);
 
       const dp = await Aave3Helper.getAaveProtocolDataProvider(deployer);
 
       const collateralAssetData = await h.getReserveInfo(deployer, aavePool, dp, collateralAsset);
       const borrowAssetData = await h.getReserveInfo(deployer, aavePool, dp, borrowAsset);
-
-      const borrowAmountFactor18 = Misc.WEI
-        .mul(toMantissa(collateralAmount, collateralAssetData.data.decimals, 18))
-        .div(healthFactor18);
 
       // data required to predict supply/borrow APR
       const block = await hre.ethers.provider.getBlock("latest");
@@ -147,14 +143,19 @@ describe("Aave3PlatformAdapterTest", () => {
       const ret = await aavePlatformAdapter.getConversionPlan(collateralAsset
         , collateralAmount
         , borrowAsset
-        , borrowAmountFactor18
+        , healthFactor2
         , countBlocks
       );
       console.log("ret", ret);
-      const borrowAmount18 = ret.liquidationThreshold18
-        .mul(borrowAmountFactor18)
-        .div(getBigNumberFrom(1, 18))
-      let borrowAmount = toMantissa(borrowAmount18, 18, borrowAssetData.data.decimals);
+      let borrowAmount = AprUtils.getBorrowAmount(
+        collateralAmount,
+        healthFactor2,
+        ret.liquidationThreshold18,
+        prices[0],
+        prices[1],
+        collateralAssetData.data.decimals,
+        borrowAssetData.data.decimals
+      );
 
       if (borrowAmount.gt(ret.maxAmountToBorrow)) {
         borrowAmount = ret.maxAmountToBorrow;
@@ -240,8 +241,8 @@ describe("Aave3PlatformAdapterTest", () => {
         predictedSupplyAprBtRay,
         0,
         BigNumber.from(highEfficientModeEnabled
-          ? borrowAssetData.category?.ltv
-          : borrowAssetData.data.ltv
+          ? collateralAssetData.category?.ltv
+          : collateralAssetData.data.ltv
         )
           .mul(Misc.WEI)
           .div(getBigNumberFrom(1, 4)),
@@ -272,7 +273,7 @@ describe("Aave3PlatformAdapterTest", () => {
           const borrowAsset = MaticAddresses.WMATIC;
           const collateralAmount = getBigNumberFrom(1000, 18);
 
-          const r = await makeTest(
+          const r = await makeGetConversionPlanTest(
             collateralAsset,
             collateralAmount,
             borrowAsset,
@@ -292,7 +293,7 @@ describe("Aave3PlatformAdapterTest", () => {
           const borrowAsset = MaticAddresses.USDC;
           const collateralAmount = getBigNumberFrom(100, 18);
 
-          const r = await makeTest(
+          const r = await makeGetConversionPlanTest(
             collateralAsset,
             collateralAmount,
             borrowAsset,
@@ -313,7 +314,7 @@ describe("Aave3PlatformAdapterTest", () => {
           const borrowAsset = MaticAddresses.WBTC;
           const collateralAmount = getBigNumberFrom(1000, 6);
 
-          const r = await makeTest(
+          const r = await makeGetConversionPlanTest(
             collateralAsset,
             collateralAmount,
             borrowAsset,
@@ -334,7 +335,7 @@ describe("Aave3PlatformAdapterTest", () => {
           const borrowAsset = MaticAddresses.USDT;
           const collateralAmount = BigNumber.from("1999909100")
 
-          const r = await makeTest(
+          const r = await makeGetConversionPlanTest(
             collateralAsset,
             collateralAmount,
             borrowAsset,
@@ -355,7 +356,7 @@ describe("Aave3PlatformAdapterTest", () => {
             const borrowAsset = MaticAddresses.USDT;
             const collateralAmount = getBigNumberFrom(1000, 2); // 2000 Euro
 
-            const r = await makeTest(
+            const r = await makeGetConversionPlanTest(
               collateralAsset,
               collateralAmount,
               borrowAsset,
@@ -375,7 +376,7 @@ describe("Aave3PlatformAdapterTest", () => {
           const borrowAsset = MaticAddresses.USDC;
           const collateralAmount = getBigNumberFrom(1000, 18); // 1000 Dai
 
-          const r = await makeTest(
+          const r = await makeGetConversionPlanTest(
             collateralAsset,
             collateralAmount,
             borrowAsset,

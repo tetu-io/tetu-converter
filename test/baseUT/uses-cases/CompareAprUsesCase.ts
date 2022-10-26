@@ -13,6 +13,7 @@ import {getBigNumberFrom} from "../../../scripts/utils/NumberUtils";
 import {Misc} from "../../../scripts/utils/Misc";
 import {ConfigurableAmountToBorrow} from "../apr/ConfigurableAmountToBorrow";
 import {toMantissa} from "../utils/CommonUtils";
+import {AprUtils} from "../utils/aprUtils";
 
 //region Data types
 interface IInputParams {
@@ -149,18 +150,11 @@ export class CompareAprUsesCase {
         if (stPrices) {
           console.log("makePossibleBorrowsOnPlatform.collateralAmount", task.collateralAmount);
 
-          const borrowAmountFactor18 = this.getBorrowAmountFactor18(
-            task.collateralAmount
-            , healthFactor2
-            , collateralDecimals
-          );
-          console.log("makePossibleBorrowsOnPlatform.borrowAmountFactor18", borrowAmountFactor18);
-
           const planSingleBlock = await platformAdapter.getConversionPlan(
             task.collateralAsset.asset
             , task.collateralAmount
             , task.borrowAsset.asset
-            , borrowAmountFactor18
+            , healthFactor2
             , 1 // we need 1 block for next/last; countBlocks are used as additional-points
           );
           console.log("planSingleBlock", planSingleBlock);
@@ -169,15 +163,20 @@ export class CompareAprUsesCase {
             task.collateralAsset.asset
             , task.collateralAmount
             , task.borrowAsset.asset
-            , borrowAmountFactor18
+            , healthFactor2
             , countBlocks
           );
           console.log("planFullPeriod", planFullPeriod);
 
-          const borrowAmount18 = planFullPeriod.liquidationThreshold18
-            .mul(borrowAmountFactor18)
-            .div(Misc.WEI)
-          const amountToBorrow = toMantissa(borrowAmount18, 18, borrowDecimals);
+          const amountToBorrow = AprUtils.getBorrowAmount(
+            task.collateralAmount,
+            healthFactor2,
+            planFullPeriod.liquidationThreshold18,
+            stPrices.priceCollateral,
+            stPrices.priceBorrow,
+            collateralDecimals,
+            borrowDecimals
+          );
           console.log("makePossibleBorrowsOnPlatform.amountToBorrow", amountToBorrow);
 
           if (planSingleBlock.converter === Misc.ZERO_ADDRESS) {
@@ -260,18 +259,6 @@ export class CompareAprUsesCase {
   }
 
 
-  /** see definition of borrowAmountFactor18 inside BorrowManager._findPool */
-  public static getBorrowAmountFactor18(
-    collateralAmount: BigNumber,
-    healthFactor2: number,
-    collateralDecimals: number
-  ) {
-    return getBigNumberFrom(1, 18)
-      .mul(toMantissa(collateralAmount, collateralDecimals, 18))
-      .div(healthFactor2)
-      .div(getBigNumberFrom(1, 18 - 2));
-  }
-
   /** calculate approx amount of collateral required to borrow required amount with collateral factor = 0.2 */
   private static getApproxCollateralAmount(
     amountToBorrow: BigNumber,
@@ -281,7 +268,7 @@ export class CompareAprUsesCase {
     borrowDecimals: number
   ) {
     return amountToBorrow
-      .mul(5) //cf = 0.2
+      .mul(5) // cf = 0.2
       .mul(healthFactor2).div(100)
       .mul(getBigNumberFrom(1, collateralDecimals))
       .mul(stPrices.priceBorrow)

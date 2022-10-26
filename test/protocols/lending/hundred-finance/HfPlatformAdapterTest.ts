@@ -20,6 +20,7 @@ import {Misc} from "../../../../scripts/utils/Misc";
 import {getBigNumberFrom} from "../../../../scripts/utils/NumberUtils";
 import {DeployUtils} from "../../../../scripts/utils/DeployUtils";
 import {AprHundredFinance} from "../../../baseUT/apr/aprHundredFinance";
+import {AprUtils} from "../../../baseUT/utils/aprUtils";
 
 describe("Hundred finance integration tests, platform adapter", () => {
 //region Global vars for all tests
@@ -105,7 +106,7 @@ describe("Hundred finance integration tests, platform adapter", () => {
     const controller = await CoreContractsHelper.createController(deployer);
     const templateAdapterNormalStub = ethers.Wallet.createRandom();
     const countBlocks = 10;
-    const healthFactor18 = getBigNumberFrom(4, 18);
+    const healthFactor2 = 400;
 
     const comptroller = await HundredFinanceHelper.getComptroller(deployer);
     const priceOracle = await HundredFinanceHelper.getPriceOracle(deployer);
@@ -138,22 +139,22 @@ describe("Hundred finance integration tests, platform adapter", () => {
     console.log("priceBorrow18", priceBorrow36);
     console.log("priceCollateral18", priceCollateral36);
 
-    const borrowAmountFactor18 = Misc.WEI
-      .mul(toMantissa(collateralAmount, await cTokenCollateral.decimals(), 18))
-      .div(healthFactor18);
-    console.log("borrowAmountFactor18", borrowAmountFactor18, collateralAmount);
-
     const ret = await hfPlatformAdapter.getConversionPlan(collateralAsset,
       collateralAmount,
       borrowAsset,
-      borrowAmountFactor18,
+      healthFactor2,
       countBlocks
     );
 
-    const amountToBorrow18 = borrowAmountFactor18
-      .mul(ret.liquidationThreshold18)
-      .div(Misc.WEI);
-    let amountToBorrow = toMantissa(amountToBorrow18, 18, await cTokenBorrow.decimals());
+    let amountToBorrow = AprUtils.getBorrowAmount(
+      collateralAmount,
+      healthFactor2,
+      ret.liquidationThreshold18,
+      priceCollateral36,
+      priceBorrow36,
+      collateralAssetData.decimals,
+      borrowAssetData.decimals
+    );
     if (amountToBorrow.gt(ret.maxAmountToBorrow)) {
       amountToBorrow = ret.maxAmountToBorrow;
     }

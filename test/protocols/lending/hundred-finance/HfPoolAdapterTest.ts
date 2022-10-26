@@ -27,7 +27,6 @@ import {MaticAddresses} from "../../../../scripts/addresses/MaticAddresses";
 import {MocksHelper} from "../../../baseUT/helpers/MocksHelper";
 import {TokenDataTypes} from "../../../baseUT/types/TokenDataTypes";
 import {Misc} from "../../../../scripts/utils/Misc";
-import {CompareAprUsesCase} from "../../../baseUT/uses-cases/CompareAprUsesCase";
 import {IHfAccountLiquidity} from "../../../baseUT/apr/aprHundredFinance";
 import {toStringWithRound} from "../../../baseUT/utils/CommonUtils";
 import {IPoolAdapterStatus} from "../../../baseUT/types/BorrowRepayDataTypes";
@@ -165,17 +164,11 @@ describe("Hundred Finance integration tests, pool adapter", () => {
 
     // calculate max allowed amount to borrow
     const countBlocks = 1;
-    const borrowAmountFactor18 = CompareAprUsesCase.getBorrowAmountFactor18(
-      collateralAmount,
-      targetHealthFactor2 || await controller.targetHealthFactor2(),
-      collateralToken.decimals
-    );
-
     const plan = await hfPlatformAdapter.getConversionPlan(
       collateralToken.address,
       collateralAmount,
       borrowToken.address,
-      borrowAmountFactor18,
+      targetHealthFactor2 || await controller.targetHealthFactor2(),
       countBlocks
     );
     console.log("plan", plan);

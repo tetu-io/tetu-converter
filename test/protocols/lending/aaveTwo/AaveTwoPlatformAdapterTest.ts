@@ -9,14 +9,14 @@ import {isPolygonForkInUse} from "../../../baseUT/utils/NetworkUtils";
 import {BalanceUtils} from "../../../baseUT/utils/BalanceUtils";
 import {MaticAddresses} from "../../../../scripts/addresses/MaticAddresses";
 import {AaveTwoHelper} from "../../../../scripts/integration/helpers/AaveTwoHelper";
-import {COUNT_BLOCKS_PER_DAY} from "../../../baseUT/utils/aprUtils";
+import {AprUtils, COUNT_BLOCKS_PER_DAY} from "../../../baseUT/utils/aprUtils";
 import {CoreContractsHelper} from "../../../baseUT/helpers/CoreContractsHelper";
 import {
   IAaveTwoPool,
   IAaveTwoProtocolDataProvider,
   IERC20Extended__factory
 } from "../../../../typechain";
-import {areAlmostEqual, toMantissa} from "../../../baseUT/utils/CommonUtils";
+import {areAlmostEqual} from "../../../baseUT/utils/CommonUtils";
 import {IPlatformActor, PredictBrUsesCase} from "../../../baseUT/uses-cases/PredictBrUsesCase";
 import {AprAaveTwo, getAaveTwoStateInfo} from "../../../baseUT/apr/aprAaveTwo";
 import {Aave3Helper} from "../../../../scripts/integration/helpers/Aave3Helper";
@@ -97,7 +97,7 @@ describe("AaveTwoPlatformAdapterTest", () => {
 
 //region Unit tests
   describe("getConversionPlan", () => {
-    async function makeTest(
+    async function makeGetConversionPlanTest(
       collateralAsset: string,
       collateralAmount: BigNumber,
       borrowAsset: string
@@ -105,7 +105,7 @@ describe("AaveTwoPlatformAdapterTest", () => {
       const countBlocks = 10;
       const controller = await CoreContractsHelper.createController(deployer);
       const templateAdapterNormalStub = ethers.Wallet.createRandom();
-      const healthFactor18 = getBigNumberFrom(2, 18);
+      const healthFactor2 = 200;
 
       const aavePool = await AaveTwoHelper.getAavePool(deployer);
       const aavePlatformAdapter = await AdaptersHelper.createAaveTwoPlatformAdapter(
@@ -124,11 +124,6 @@ describe("AaveTwoPlatformAdapterTest", () => {
       const collateralAssetData = await AaveTwoHelper.getReserveInfo(deployer, aavePool, dp, collateralAsset);
       const borrowAssetData = await AaveTwoHelper.getReserveInfo(deployer, aavePool, dp, borrowAsset);
 
-      const borrowAmountFactor18 = getBigNumberFrom(1, 18)
-        .mul(toMantissa(collateralAmount, collateralAssetData.data.decimals, 18))
-        .div(healthFactor18);
-      console.log("borrowAmountFactor18", borrowAmountFactor18, collateralAmount)
-
       // data required to predict supply/borrow APR
       const block = await hre.ethers.provider.getBlock("latest");
       const before = await getAaveTwoStateInfo(deployer, aavePool, collateralAsset, borrowAsset);
@@ -139,12 +134,21 @@ describe("AaveTwoPlatformAdapterTest", () => {
         collateralAsset,
         collateralAmount,
         borrowAsset,
-        borrowAmountFactor18,
+        healthFactor2,
         countBlocks
       );
       console.log("ret", ret);
-      const borrowAmount18 = ret.liquidationThreshold18.mul(borrowAmountFactor18).div(Misc.WEI);
-      let borrowAmount = toMantissa(borrowAmount18, 18, borrowAssetData.data.decimals);
+
+      let borrowAmount = AprUtils.getBorrowAmount(
+        collateralAmount,
+        healthFactor2,
+        ret.liquidationThreshold18,
+        priceCollateral,
+        priceBorrow,
+        collateralAssetData.data.decimals,
+        borrowAssetData.data.decimals
+      );
+
       if (borrowAmount.gt(ret.maxAmountToBorrow)) {
         borrowAmount = ret.maxAmountToBorrow;
       }
@@ -190,8 +194,7 @@ describe("AaveTwoPlatformAdapterTest", () => {
         predictedBorrowAprBtRay,
         predictedSupplyAprBtRay,
         0,
-        BigNumber.from(borrowAssetData.data.ltv
-        )
+        BigNumber.from(collateralAssetData.data.ltv)
           .mul(Misc.WEI)
           .div(getBigNumberFrom(1, 4)),
         BigNumber.from(collateralAssetData.data.liquidationThreshold
@@ -213,7 +216,7 @@ describe("AaveTwoPlatformAdapterTest", () => {
           const borrowAsset = MaticAddresses.WMATIC;
 
           const collateralAmount = getBigNumberFrom(1000, 18);
-          const r = await makeTest(collateralAsset, collateralAmount, borrowAsset);
+          const r = await makeGetConversionPlanTest(collateralAsset, collateralAmount, borrowAsset);
 
           expect(r.sret).eq(r.sexpected);
         });
@@ -226,7 +229,7 @@ describe("AaveTwoPlatformAdapterTest", () => {
           const borrowAsset = MaticAddresses.USDT;
           const collateralAmount = getBigNumberFrom(1000, 18);
 
-          const r = await makeTest(collateralAsset, collateralAmount, borrowAsset);
+          const r = await makeGetConversionPlanTest(collateralAsset, collateralAmount, borrowAsset);
 
           expect(r.sret).eq(r.sexpected);
         });
@@ -239,7 +242,7 @@ describe("AaveTwoPlatformAdapterTest", () => {
           const borrowAsset = MaticAddresses.USDC;
           const collateralAmount = getBigNumberFrom(1000, 18);
 
-          const r = await makeTest(collateralAsset, collateralAmount, borrowAsset);
+          const r = await makeGetConversionPlanTest(collateralAsset, collateralAmount, borrowAsset);
 
           expect(r.sret).eq(r.sexpected);
         });
@@ -252,7 +255,7 @@ describe("AaveTwoPlatformAdapterTest", () => {
           const borrowAsset = MaticAddresses.BALANCER;
           const collateralAmount = getBigNumberFrom(1000, 18);
 
-          const r = await makeTest(collateralAsset, collateralAmount, borrowAsset);
+          const r = await makeGetConversionPlanTest(collateralAsset, collateralAmount, borrowAsset);
 
           expect(r.sret).eq(r.sexpected);
         });

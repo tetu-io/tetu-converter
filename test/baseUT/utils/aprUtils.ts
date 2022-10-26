@@ -1,6 +1,7 @@
 import {BigNumber} from "ethers";
 import {getBigNumberFrom} from "../../../scripts/utils/NumberUtils";
 import {Misc} from "../../../scripts/utils/Misc";
+import {toMantissa} from "./CommonUtils";
 
 export const COUNT_BLOCKS_PER_DAY = 41142; // 15017140 / 365
 const COUNT_SECONDS_PER_YEAR = 31536000;
@@ -12,5 +13,30 @@ export class AprUtils {
       .div(COUNT_SECONDS_PER_YEAR).mul(365).mul(COUNT_BLOCKS_PER_DAY)
       .mul(Misc.WEI)
       .div(getBigNumberFrom(1, 27));
+  }
+
+  /**
+   * What amount can be borrowed using given collateral amount, health factor and liquidation threshold.
+   */
+  public static getBorrowAmount(
+    collateralAmount: BigNumber,
+    healthFactor2: number,
+    liquidationThreshold18: BigNumber,
+    priceCollateral: BigNumber,
+    priceBorrow: BigNumber,
+    collateralDecimals: number,
+    borrowDecimals: number
+  ) {
+    return toMantissa(
+      collateralAmount
+        .mul(100)
+        .div(healthFactor2)
+        .mul(liquidationThreshold18)
+        .mul(priceCollateral)
+        .div(priceBorrow)
+        .div(Misc.WEI),
+      collateralDecimals,
+      borrowDecimals
+    );
   }
 }
