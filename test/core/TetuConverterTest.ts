@@ -18,7 +18,7 @@ import {
   PoolAdapterMock,
   ITetuConverter__factory,
   TetuConverter__factory,
-  TetuLiquidatorMock__factory, SwapManagerMock
+  TetuLiquidatorMock__factory, SwapManagerMock, ConverterUnknownKind
 } from "../../typechain";
 import {
   IBorrowInputParams,
@@ -239,43 +239,70 @@ describe("TetuConverterTest", () => {
     borrowedAmountOut: BigNumber;
   }
 
-  async function callBorrow(
+  async function callBorrowerBorrow(
     pp: ISetupResults,
     receiver: string,
     exactBorrowAmount: number | undefined,
-    collateralAmount: BigNumber
+    collateralAmount: BigNumber,
+    badPathParamManualConverter?: string,
+    badPathTransferAmountMultiplier18?: BigNumber
   ) : Promise<BigNumber> {
-    const borrowedAmountOut: BigNumber = exactBorrowAmount
-      ? await pp.userContract.callStatic.borrowExactAmount(
-        pp.sourceToken.address,
-        collateralAmount,
-        pp.targetToken.address,
-        receiver || pp.userContract.address,
-        getBigNumberFrom(exactBorrowAmount, await pp.targetToken.decimals())
-      )
-      : await pp.userContract.callStatic.borrowMaxAmount(
-        pp.sourceToken.address,
-        collateralAmount,
-        pp.targetToken.address,
-        receiver || pp.userContract.address
-      );
+    const borrowedAmountOut: BigNumber = exactBorrowAmount === undefined
+      ? await pp.userContract.callStatic.borrowMaxAmount(
+          pp.sourceToken.address,
+          collateralAmount,
+          pp.targetToken.address,
+          receiver || pp.userContract.address
+        )
+      : badPathParamManualConverter === undefined
+        ? await pp.userContract.callStatic.borrowExactAmount(
+            pp.sourceToken.address,
+            collateralAmount,
+            pp.targetToken.address,
+            receiver || pp.userContract.address,
+            getBigNumberFrom(exactBorrowAmount, await pp.targetToken.decimals())
+          )
+        : await pp.userContract.callStatic.borrowExactAmountBadPaths(
+          pp.sourceToken.address,
+          collateralAmount,
+          pp.targetToken.address,
+          receiver || pp.userContract.address,
+          getBigNumberFrom(exactBorrowAmount, await pp.targetToken.decimals()),
+          badPathParamManualConverter,
+          badPathTransferAmountMultiplier18 || Misc.WEI
+        );
+
+
     // ask TetuConverter to make a borrow
     // the pool adapter with best borrow rate will be selected
-    if (exactBorrowAmount) {
-      await pp.userContract.borrowExactAmount(
-        pp.sourceToken.address,
-        collateralAmount,
-        pp.targetToken.address,
-        receiver || pp.userContract.address,
-        getBigNumberFrom(exactBorrowAmount, await pp.targetToken.decimals())
-      );
-    } else {
+    if (exactBorrowAmount === undefined) {
       await pp.userContract.borrowMaxAmount(
         pp.sourceToken.address,
         collateralAmount,
         pp.targetToken.address,
         receiver || pp.userContract.address
       );
+    } else {
+      if (badPathParamManualConverter === undefined) {
+        await pp.userContract.borrowExactAmount(
+          pp.sourceToken.address,
+          collateralAmount,
+          pp.targetToken.address,
+          receiver || pp.userContract.address,
+          getBigNumberFrom(exactBorrowAmount, await pp.targetToken.decimals())
+        );
+      } else {
+        await pp.userContract.borrowExactAmountBadPaths(
+          pp.sourceToken.address,
+          collateralAmount,
+          pp.targetToken.address,
+          receiver || pp.userContract.address,
+          getBigNumberFrom(exactBorrowAmount, await pp.targetToken.decimals()),
+          badPathParamManualConverter,
+          badPathTransferAmountMultiplier18 || Misc.WEI
+        );
+
+      }
     }
 
     return borrowedAmountOut;
@@ -289,6 +316,8 @@ describe("TetuConverterTest", () => {
    * @param ordinalBorrowRateInBorrowAsset
    * @param exactBorrowAmounts
    * @param receiver
+   * @param badPathParamManualConverter
+   * @param transferAmountMultiplier18
    */
   async function makeBorrow(
     pp: ISetupResults,
@@ -296,7 +325,9 @@ describe("TetuConverterTest", () => {
     bestBorrowRateInBorrowAsset: BigNumber,
     ordinalBorrowRateInBorrowAsset: BigNumber,
     exactBorrowAmounts?: number[],
-    receiver?: string
+    receiver?: string,
+    badPathParamManualConverter?: string,
+    transferAmountMultiplier18?: BigNumber
   ) : Promise<IBorrowStatus[]> {
     const dest: IBorrowStatus[] = [];
     const sourceTokenDecimals = await pp.sourceToken.decimals();
@@ -327,11 +358,15 @@ describe("TetuConverterTest", () => {
       }
 
       // emulate on-chain call to get borrowedAmountOut
-      const borrowedAmountOut = await callBorrow(
+      const borrowedAmountOut = await callBorrowerBorrow(
         pp,
         receiver || pp.userContract.address,
         exactBorrowAmounts ? exactBorrowAmounts[i] : undefined,
-        collateralAmount
+        collateralAmount,
+        transferAmountMultiplier18
+          ? pp.poolInstances[i].converter
+          : badPathParamManualConverter,
+        transferAmountMultiplier18
       );
       borrowedAmountOuts.push(borrowedAmountOut)
     }
@@ -972,6 +1007,9 @@ describe("TetuConverterTest", () => {
 
     interface IMakeConversionUsingBorrowingBadParams {
       zeroReceiver?: boolean;
+      incorrectConverterAddress?: string;
+      /* Allow to modify collateral amount that is sent to TetuConverter by the borrower. Default is 1e18 */
+      transferAmountMultiplier18?: BigNumber;
     }
 
     interface IMakeConversionUsingSwap {
@@ -997,15 +1035,15 @@ describe("TetuConverterTest", () => {
      * @param skipPreregistrationOfPoolAdapters
      *    Don't register pool adapters during initialization.
      *    The pool adapters will be registered inside TetuConverter
-     * @param badParams
+     * @param badPathParams
      */
     async function makeConversionUsingBorrowing (
       collateralAmounts: number[],
       exactBorrowAmounts: number[] | undefined,
       skipPreregistrationOfPoolAdapters: boolean = false,
-      badParams?: IMakeConversionUsingBorrowingBadParams
+      badPathParams?: IMakeConversionUsingBorrowingBadParams
     ) : Promise<IMakeConversionUsingBorrowing > {
-      const receiver = badParams?.zeroReceiver
+      const receiver = badPathParams?.zeroReceiver
         ? Misc.ZERO_ADDRESS
         : ethers.Wallet.createRandom().address;
 
@@ -1026,7 +1064,9 @@ describe("TetuConverterTest", () => {
         BigNumber.from(100),
         BigNumber.from(100_000),
         exactBorrowAmounts,
-        receiver
+        receiver,
+        badPathParams?.incorrectConverterAddress,
+        badPathParams?.transferAmountMultiplier18
       );
 
       return {
@@ -1070,7 +1110,7 @@ describe("TetuConverterTest", () => {
         swapManagerMockParams.aprForPeriod36
       );
 
-      const outBorrowedAmount = await callBorrow(
+      const outBorrowedAmount = await callBorrowerBorrow(
         init,
         receiver,
         exactBorrowAmountNum,
@@ -1217,33 +1257,69 @@ describe("TetuConverterTest", () => {
       });
     });
     describe("Bad paths", () => {
-      describe("Converter is zero", () => {
-        it("should revert", async () => {
-          expect.fail();
+      describe("Broken converter", () => {
+        describe("Converter is zero", () => {
+          it("should revert", async () => {
+            await expect(
+              makeConversionUsingBorrowing(
+                [100_000],
+                [1_00],
+                false,
+                {
+                  incorrectConverterAddress: Misc.ZERO_ADDRESS
+                }
+              )
+            ).revertedWith("TC-1"); // ZERO_ADDRESS
+          });
         });
-      });
-      describe("Incorrect converter to borrow (pool adapter is not found)", () => {
-        it("should revert", async () => {
-          expect.fail();
+        describe("Incorrect converter to borrow (pool adapter is not found)", () => {
+          it("should revert", async () => {
+            const manuallyCreatedConverter = await MocksHelper.createPoolAdapterMock(deployer);
+            await expect(
+              makeConversionUsingBorrowing(
+                [100_000],
+                [1_00],
+                false,
+                {
+                  incorrectConverterAddress: manuallyCreatedConverter.address
+                }
+              )
+            ).revertedWith("TC-6"); // PLATFORM_ADAPTER_NOT_FOUND
+          });
         });
-      });
-      describe("Incorrect converter to swap (the passed address is not the address of the swap manager)", () => {
-        it("should revert", async () => {
-          const amountCollateralNum = 100_000;
-          const amountToBorrowNum = 100;
-          const differentSwapManager = await MocksHelper.createSwapManagerMock(deployer);
-          await expect(
-            makeConversionUsingSwap(
-              {
-                targetAmountAfterSwap: amountToBorrowNum,
-                maxTargetAmount: amountToBorrowNum,
-                aprForPeriod36: BigNumber.from(1),
-                converter: differentSwapManager.address // (!)
-              },
-              amountCollateralNum,
-              amountToBorrowNum
-            )
-          ).revertedWith("TC-44"); // INCORRECT_CONVERTER_TO_SWAP
+        describe("Converter returns incorrect conversion kind", () => {
+          it("should revert with UNSUPPORTED_CONVERSION_KIND", async () => {
+            const converter: ConverterUnknownKind = await MocksHelper.createConverterUnknownKind(deployer);
+            await expect(
+              makeConversionUsingBorrowing(
+                [100_000],
+                [1_00],
+                false,
+                {
+                  incorrectConverterAddress: converter.address
+                }
+              )
+            ).revertedWith("TC-35: UNKNOWN CONVERSION"); // UNSUPPORTED_CONVERSION_KIND
+          });
+        });
+        describe("Incorrect converter to swap (the passed address is not the address of the swap manager)", () => {
+          it("should revert", async () => {
+            const amountCollateralNum = 100_000;
+            const amountToBorrowNum = 100;
+            const differentSwapManager = await MocksHelper.createSwapManagerMock(deployer);
+            await expect(
+              makeConversionUsingSwap(
+                {
+                  targetAmountAfterSwap: amountToBorrowNum,
+                  maxTargetAmount: amountToBorrowNum,
+                  aprForPeriod36: BigNumber.from(1),
+                  converter: differentSwapManager.address // (!)
+                },
+                amountCollateralNum,
+                amountToBorrowNum
+              )
+            ).revertedWith("TC-44"); // INCORRECT_CONVERTER_TO_SWAP
+          });
         });
       });
       describe("Receiver is null", () => {
@@ -1268,7 +1344,7 @@ describe("TetuConverterTest", () => {
               [0], // (!)
               false
             )
-          ).revertedWith("TC-29"); // INCORRECT_VALUE
+          ).revertedWith("TC-43"); // ZERO_AMOUNT
         });
       });
       describe("Collateral amount is 0", () => {
@@ -1282,19 +1358,37 @@ describe("TetuConverterTest", () => {
           ).revertedWith("TC-43"); // ZERO_AMOUNT
         });
       });
+
       describe("Too little collateral amount on balance of TetuConverter", () => {
         it("should revert", async () => {
-          expect.fail();
+          await expect(
+            makeConversionUsingBorrowing(
+              [100_000],
+              [1_00],
+              false,
+              {
+                transferAmountMultiplier18: Misc.WEI.div(2)
+              }
+            )
+          ).revertedWith("TC-41"); // WRONG_AMOUNT_RECEIVED
         });
       });
       describe("Too much collateral amount on balance of TetuConverter", () => {
-        it("should revert", async () => {
-          expect.fail();
-        });
-      });
-      describe("Converter returns incorrect conversion kind", () => {
-        it("should return UNSUPPORTED_CONVERSION_KIND", async () => {
-          expect.fail();
+        it("should keep exceed amount on the balance of TetuConverter", async () => {
+          const collateralAmountNum = 100_000;
+          const transferAmountMultiplier18 = Misc.WEI.mul(2);
+          const r = await makeConversionUsingBorrowing(
+            [collateralAmountNum],
+            [1_00],
+            false,
+            {
+              transferAmountMultiplier18
+            }
+          );
+          const balanceCollateralAssetOnTetuConverter = await r.init.sourceToken.balanceOf(r.init.core.tc.address);
+          const expected = getBigNumberFrom(collateralAmountNum, await r.init.sourceToken.decimals());
+
+          expect(balanceCollateralAssetOnTetuConverter).eq(expected);
         });
       });
     });

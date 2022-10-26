@@ -12,7 +12,7 @@ import "../interfaces/IBorrowManager.sol";
 import "hardhat/console.sol";
 import "../interfaces/ITetuConverterCallback.sol";
 
-/// @notice This contract imitates real TetuConverter-user behavior
+/// @notice This contract emulates real TetuConverter-user behavior
 /// Terms:
 ///   UC: user
 ///   TC: TestConverter contract
@@ -130,6 +130,41 @@ contract Borrower is ITetuConverterCallback {
       receiver_
     );
     console.log("borrowExactAmount done gasleft6", gasleft());
+
+    totalBorrowedAmount += amountToBorrow_;
+  }
+
+  /// @notice Borrow exact amount using giving converter
+  /// @dev To check bad paths: 1) unregistered converter is used 2) wrong amount is transferred to TetuConverter
+  function borrowExactAmountBadPaths(
+    address sourceAsset_,
+    uint sourceAmount_,
+    address targetAsset_,
+    address receiver_,
+    uint amountToBorrow_,
+    address converter_,
+    uint transferMultiplier18_
+  ) external returns (uint borrowedAmountOut) {
+    console.log("borrowExactAmountWithManualConverter start gasleft", gasleft());
+
+    // transfer collateral to TetuConverter
+    require(IERC20(sourceAsset_).balanceOf(address(this)) >= sourceAmount_, "wrong collateral asset balance");
+    IERC20(sourceAsset_).safeTransfer(
+      _controller.tetuConverter(),
+      sourceAmount_ * transferMultiplier18_ / 1e18
+    );
+
+    // borrow and receive borrowed-amount to receiver's balance
+    ITetuConverter tc = _tc();
+    borrowedAmountOut = tc.borrow(
+      converter_,
+      sourceAsset_,
+      sourceAmount_,
+      targetAsset_,
+      amountToBorrow_,
+      receiver_
+    );
+    console.log("borrowExactAmountWithManualConverter done gasleft6", gasleft());
 
     totalBorrowedAmount += amountToBorrow_;
   }

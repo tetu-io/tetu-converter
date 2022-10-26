@@ -164,9 +164,8 @@ contract TetuConverter is ITetuConverter, IKeeperCallback {
     uint borrowedAmountOut
   ) {
     require(IERC20(collateralAsset_).balanceOf(address(this)) >= collateralAmount_, AppErrors.WRONG_AMOUNT_RECEIVED);
-    require(receiver_ != address(0), AppErrors.ZERO_ADDRESS);
-    require(collateralAmount_ != 0, AppErrors.ZERO_AMOUNT);
-    require(amountToBorrow_ != 0, AppErrors.ZERO_AMOUNT);
+    require(receiver_ != address(0) && converter_ != address(0), AppErrors.ZERO_ADDRESS);
+    require(collateralAmount_ != 0 && amountToBorrow_ != 0, AppErrors.ZERO_AMOUNT);
 
     AppDataTypes.ConversionKind conversionKind = IConverter(converter_).getConversionKind();
     if (conversionKind == AppDataTypes.ConversionKind.BORROW_2) {
@@ -182,7 +181,6 @@ contract TetuConverter is ITetuConverter, IKeeperCallback {
           borrowAsset_
         );
       }
-      require(poolAdapter != address(0), AppErrors.POOL_ADAPTER_NOT_FOUND);
 
       // transfer the collateral from the balance of TetuConverter to the pool adapter;
       IPoolAdapter(poolAdapter).syncBalance(true, true);
@@ -193,7 +191,7 @@ contract TetuConverter is ITetuConverter, IKeeperCallback {
     } else if (conversionKind == AppDataTypes.ConversionKind.SWAP_1) {
       require(converter_ == address(_swapManager()), AppErrors.INCORRECT_CONVERTER_TO_SWAP);
 
-      IERC20(collateralAsset_).safeTransfer(converter_, collateralAmount_); //TODO
+      IERC20(collateralAsset_).safeTransfer(converter_, collateralAmount_);
       return ISwapConverter(converter_).swap(
         collateralAsset_,
         collateralAmount_,

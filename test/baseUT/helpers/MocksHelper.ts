@@ -22,7 +22,7 @@ import {
   DForceInterestRateModelMock,
   PriceOracleMock,
   BorrowManager__factory,
-  BorrowManager, TetuLiquidatorMock, SwapManagerMock
+  BorrowManager, TetuLiquidatorMock, SwapManagerMock, ConverterUnknownKind
 } from "../../../typechain";
 import {IPoolInfo} from "./BorrowManagerHelper";
 import {getBigNumberFrom} from "../../../scripts/utils/NumberUtils";
@@ -367,8 +367,6 @@ export class MocksHelper {
 
     return dest;
   }
-
-
 //endregion Batch functions
 
 //region TetuLiquidator and SwapManager
@@ -385,6 +383,12 @@ export class MocksHelper {
     deployer: SignerWithAddress,
   ) : Promise<SwapManagerMock> {
     return await DeployUtils.deployContract(deployer,"SwapManagerMock") as SwapManagerMock;
+  }
+
+  public static async createConverterUnknownKind(
+    deployer: SignerWithAddress,
+  ) : Promise<ConverterUnknownKind> {
+    return await DeployUtils.deployContract(deployer,"ConverterUnknownKind") as ConverterUnknownKind;
   }
 //endregion TetuLiquidator and SwapManager
 }
