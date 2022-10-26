@@ -205,12 +205,12 @@ contract Aave3PlatformAdapter is IPlatformAdapter {
           // otherwise AAVE-pool will revert the borrow
           // see comment to IBorrowManager.setHealthFactor
           plan.amountToBorrow = AppUtils.toMantissa(
-            params.borrowAmountFactor18
+              100 * params.collateralAmount / uint(params.healthFactor2)
               * vars.prices[0]
               * plan.liquidationThreshold18
               / vars.prices[1]
               / 1e18,
-            18,
+            uint8(rc.configuration.getDecimals()),
             uint8(rb.configuration.getDecimals())
           );
           if (plan.amountToBorrow > plan.maxAmountToBorrow) {
@@ -282,7 +282,7 @@ contract Aave3PlatformAdapter is IPlatformAdapter {
     address collateralAsset_,
     uint collateralAmount_,
     address borrowAsset_,
-    uint borrowAmountFactor18_,
+    uint16 healthFactor2_,
     uint countBlocks_
   ) external view override returns (
     AppDataTypes.ConversionPlan memory plan
@@ -292,7 +292,7 @@ contract Aave3PlatformAdapter is IPlatformAdapter {
         collateralAsset: collateralAsset_,
         collateralAmount: collateralAmount_,
         borrowAsset: borrowAsset_,
-        borrowAmountFactor18: borrowAmountFactor18_,
+        healthFactor2: healthFactor2_,
         countBlocks: countBlocks_
       })
     );

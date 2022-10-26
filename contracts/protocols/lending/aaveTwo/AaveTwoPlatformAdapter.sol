@@ -94,7 +94,7 @@ contract AaveTwoPlatformAdapter is IPlatformAdapter {
     address collateralAsset_,
     uint collateralAmount_,
     address borrowAsset_,
-    uint borrowAmountFactor18_,
+    uint16 healthFactor2_,
     uint countBlocks_
   ) external view override returns (
     AppDataTypes.ConversionPlan memory plan
@@ -104,7 +104,7 @@ contract AaveTwoPlatformAdapter is IPlatformAdapter {
         collateralAsset: collateralAsset_,
         collateralAmount: collateralAmount_,
         borrowAsset: borrowAsset_,
-        borrowAmountFactor18: borrowAmountFactor18_,
+        healthFactor2: healthFactor2_,
         countBlocks: countBlocks_
       })
     );
@@ -144,12 +144,12 @@ contract AaveTwoPlatformAdapter is IPlatformAdapter {
         // otherwise AAVE-pool will revert the borrow
         // see comment to IBorrowManager.setHealthFactor
         plan.amountToBorrow = AppUtils.toMantissa(
-          params.borrowAmountFactor18
-          * plan.liquidationThreshold18
-          * vars.prices[0]
-          / 1e18
-          / vars.prices[1],
-          18,
+            100 * params.collateralAmount / uint(params.healthFactor2)
+            * plan.liquidationThreshold18
+            * vars.prices[0]
+            / 1e18
+            / vars.prices[1],
+          uint8(rc.configuration.getDecimals()),
           uint8(rb.configuration.getDecimals())
         );
 

@@ -90,19 +90,22 @@ contract LendingPlatformMock is IPlatformAdapter {
     address collateralAsset_,
     uint collateralAmount_,
     address borrowAsset_,
-    uint borrowAmountFactor18_,
+    uint16 healthFactor2_,
     uint countBlocks_
   ) external view override returns (
     AppDataTypes.ConversionPlan memory plan
   ) {
-    collateralAmount_;
-    uint amountToBorrow18 = borrowAmountFactor18_
-      * liquidationThresholds18[collateralAsset_]
-      * IPriceOracle(_priceOracle).getAssetPrice(collateralAsset_)
-      / IPriceOracle(_priceOracle).getAssetPrice(borrowAsset_)
-      / 1e18;
     uint decimalsBorrowAsset = IERC20Extended(borrowAsset_).decimals();
-    uint amountToBorrow = amountToBorrow18.toMantissa(18, uint8(decimalsBorrowAsset));
+
+    uint amountToBorrow = AppUtils.toMantissa(
+        100 * collateralAmount_ / healthFactor2_
+        * liquidationThresholds18[collateralAsset_]
+        * IPriceOracle(_priceOracle).getAssetPrice(collateralAsset_)
+        / IPriceOracle(_priceOracle).getAssetPrice(borrowAsset_)
+        / 1e18
+      , uint8(IERC20Extended(collateralAsset_).decimals())
+      , uint8(decimalsBorrowAsset)
+    );
 
     return AppDataTypes.ConversionPlan({
       converter: _converters[0], //TODO: make converter selectable

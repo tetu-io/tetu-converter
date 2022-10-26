@@ -29,7 +29,6 @@ library AppDataTypes {
     uint liquidationThreshold18;
 
     /// @notice Amount to borrow in terms of borrow tokens
-    ///         = borrowAmountFactor18 * (priceCollateral18/priceBorrow18) * liquidationThreshold18 / 1e18
     uint amountToBorrow;
 
     /// @notice APR for the period calculated using borrow rate in terms of borrow tokens, decimals 36
@@ -56,7 +55,7 @@ library AppDataTypes {
     address collateralAsset;
     uint collateralAmount;
     address borrowAsset;
-    uint borrowAmountFactor18;
+    uint16 healthFactor2;
     uint countBlocks;
   }
 }

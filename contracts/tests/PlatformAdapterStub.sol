@@ -20,7 +20,7 @@ contract PlatformAdapterStub {
     address collateralAsset_,
     uint collateralAmount_,
     address borrowAsset_,
-    uint borrowAmountFactor18_,
+    uint16 healthFactor2_,
     uint countBlocks_
   ) external pure returns (
     AppDataTypes.ConversionPlan memory plan
@@ -28,7 +28,7 @@ contract PlatformAdapterStub {
     collateralAsset_;
     collateralAmount_;
     borrowAsset_;
-    borrowAmountFactor18_;
+    healthFactor2_;
     countBlocks_;
 
     return plan;

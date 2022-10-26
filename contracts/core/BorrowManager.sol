@@ -248,18 +248,12 @@ contract BorrowManager is IBorrowManager {
   ) {
     uint lenPools = platformAdapters_.length();
 
-    // borrow-to-amount = borrowAmountFactor18 * (priceCollateral18/priceBorrow18) * liquidationThreshold18 / 1e18
-    // Platform-adapters use borrowAmountFactor18 to calculate result borrow-to-amount
-    uint borrowAmountFactor18 = 100
-      * p_.sourceAmount.toMantissa(uint8(IERC20Extended(p_.sourceToken).decimals()), 18)
-      / uint(healthFactor2_);
-
     for (uint i = 0; i < lenPools; i = i.uncheckedInc()) {
       AppDataTypes.ConversionPlan memory plan = IPlatformAdapter(platformAdapters_.at(i)).getConversionPlan(
         p_.sourceToken,
         p_.sourceAmount,
         p_.targetToken,
-        borrowAmountFactor18,
+        healthFactor2_,
         p_.periodInBlocks
       );
 

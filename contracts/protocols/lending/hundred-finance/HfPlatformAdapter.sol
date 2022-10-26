@@ -132,7 +132,7 @@ contract HfPlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
     address collateralAsset_,
     uint collateralAmount_,
     address borrowAsset_,
-    uint borrowAmountFactor18_,
+    uint16 healthFactor2_,
     uint countBlocks_
   ) external override view returns (
     AppDataTypes.ConversionPlan memory plan
@@ -168,20 +168,22 @@ contract HfPlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
           uint priceBorrow36 = HfAprLib.getPrice(priceOracle, cTokenBorrow)
             * 10**IERC20Extended(borrowAsset_).decimals();
 
-          // calculate current borrow rate and predicted APR after borrowing required amount
+          // calculate amount that can be borrowed
+          // split calculation on several parts to avoid stack too deep
+          plan.amountToBorrow = 100 * collateralAmount_ / uint(healthFactor2_);
           plan.amountToBorrow = AppUtils.toMantissa(
-            borrowAmountFactor18_
-              * plan.liquidationThreshold18
+            plan.amountToBorrow * plan.liquidationThreshold18
               / 1e18
               * (priceCollateral36 * 1e18 / priceBorrow36)
               / 1e18,
-            18,
+            IERC20Extended(collateralAsset_).decimals(),
             IERC20Extended(borrowAsset_).decimals()
           );
           if (plan.amountToBorrow > plan.maxAmountToBorrow) {
             plan.amountToBorrow = plan.maxAmountToBorrow;
           }
 
+          // calculate current borrow rate and predicted APR after borrowing required amount
           (plan.borrowApr36, plan.supplyAprBt36) = HfAprLib.getRawAprInfo36(
             HfAprLib.getCore(comptroller, cTokenCollateral, cTokenBorrow),
             collateralAmount_,
