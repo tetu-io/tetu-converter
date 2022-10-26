@@ -152,8 +152,8 @@ describe("Hundred finance integration tests, platform adapter", () => {
       ret.liquidationThreshold18,
       priceCollateral36,
       priceBorrow36,
-      collateralAssetData.decimals,
-      borrowAssetData.decimals
+      collateralAssetDecimals,
+      borrowAssetDecimals
     );
     if (amountToBorrow.gt(ret.maxAmountToBorrow)) {
       amountToBorrow = ret.maxAmountToBorrow;

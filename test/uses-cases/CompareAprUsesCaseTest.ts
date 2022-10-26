@@ -256,18 +256,18 @@ describe("CompareAprUsesCaseTest", () => {
     const templateAdapterStub = ethers.Wallet.createRandom().address;
 
     return CompareAprUsesCase.makePossibleBorrowsOnPlatform(
-      deployer
-      , "AAVE3"
-      , await AdaptersHelper.createAave3PlatformAdapter(deployer
-        , controller.address
-        , MaticAddresses.AAVE_V3_POOL
-        , templateAdapterStub
-        , templateAdapterStub
-      )
-      , tasks
-      , countBlocks
-      , HEALTH_FACTOR2
-      , async (
+      deployer,
+      "AAVE3",
+      await AdaptersHelper.createAave3PlatformAdapter(deployer,
+        controller.address,
+        MaticAddresses.AAVE_V3_POOL,
+        templateAdapterStub,
+        templateAdapterStub,
+      ),
+      tasks,
+      countBlocks,
+      HEALTH_FACTOR2,
+      async (
           deployer0,
           amountToBorrow0,
           p,
@@ -281,17 +281,17 @@ describe("CompareAprUsesCaseTest", () => {
     const templateAdapterStub = ethers.Wallet.createRandom().address;
 
     return CompareAprUsesCase.makePossibleBorrowsOnPlatform(
-      deployer
-      , "AAVETwo"
-      , await AdaptersHelper.createAaveTwoPlatformAdapter(deployer
-        , controller.address
-        , MaticAddresses.AAVE_TWO_POOL
-        , templateAdapterStub
-      )
-      , tasks
-      , countBlocks
-      , HEALTH_FACTOR2
-      , async (
+      deployer,
+      "AAVETwo",
+      await AdaptersHelper.createAaveTwoPlatformAdapter(deployer,
+        controller.address,
+        MaticAddresses.AAVE_TWO_POOL,
+        templateAdapterStub,
+      ),
+      tasks,
+      countBlocks,
+      HEALTH_FACTOR2,
+      async (
         deployer0,
         amountToBorrow0,
         p,
@@ -305,13 +305,13 @@ describe("CompareAprUsesCaseTest", () => {
     const templateAdapterStub = ethers.Wallet.createRandom().address;
 
     return CompareAprUsesCase.makePossibleBorrowsOnPlatform(
-      deployer
-      , "DForce"
-      , await AdaptersHelper.createDForcePlatformAdapter(deployer
-        , controller.address
-        , MaticAddresses.DFORCE_CONTROLLER
-        , templateAdapterStub
-        , [
+      deployer,
+      "DForce",
+      await AdaptersHelper.createDForcePlatformAdapter(deployer,
+        controller.address,
+        MaticAddresses.DFORCE_CONTROLLER,
+        templateAdapterStub,
+        [
           MaticAddresses.dForce_iDAI,
           MaticAddresses.dForce_iMATIC,
           MaticAddresses.dForce_iUSDC,
@@ -324,20 +324,20 @@ describe("CompareAprUsesCaseTest", () => {
           MaticAddresses.dForce_iAAVE,
           MaticAddresses.dForce_iCRV
         ]
-      )
-      , tasks
-      , countBlocks
-      , HEALTH_FACTOR2
-      , async (
+      ),
+      tasks,
+      countBlocks,
+      HEALTH_FACTOR2,
+      async (
         deployer0,
         amountToBorrow0,
         p,
         additionalPoints,
       ) => (await AprDForce.makeBorrowTest(
-        deployer0
-        , amountToBorrow0
-        , p
-        , additionalPoints
+        deployer0,
+        amountToBorrow0,
+        p,
+        additionalPoints,
       )).results
     );
   }
@@ -347,13 +347,13 @@ describe("CompareAprUsesCaseTest", () => {
     const templateAdapterStub = ethers.Wallet.createRandom().address;
 
     return CompareAprUsesCase.makePossibleBorrowsOnPlatform(
-      deployer
-      , "HundredFinance"
-      , await AdaptersHelper.createHundredFinancePlatformAdapter(deployer
-        , controller.address
-        , MaticAddresses.HUNDRED_FINANCE_COMPTROLLER
-        , templateAdapterStub
-        , [
+      deployer,
+      "HundredFinance",
+      await AdaptersHelper.createHundredFinancePlatformAdapter(deployer,
+        controller.address,
+        MaticAddresses.HUNDRED_FINANCE_COMPTROLLER,
+        templateAdapterStub,
+        [
           MaticAddresses.hDAI,
           MaticAddresses.hMATIC,
           MaticAddresses.hUSDC,
@@ -362,22 +362,22 @@ describe("CompareAprUsesCaseTest", () => {
           MaticAddresses.hWBTC,
           MaticAddresses.hLINK,
           MaticAddresses.hFRAX,
-        ]
-        , MaticAddresses.HUNDRED_FINANCE_PRICE_ORACLE
-      )
-      , tasks
-      , countBlocks
-      , HEALTH_FACTOR2
-      , async (
+        ],
+        MaticAddresses.HUNDRED_FINANCE_PRICE_ORACLE
+      ),
+      tasks,
+      countBlocks,
+      HEALTH_FACTOR2,
+      async (
         deployer0,
         amountToBorrow0,
         p,
         additionalPoints
       ) => (await AprHundredFinance.makeBorrowTest(
-        deployer0
-        , amountToBorrow0
-        , p
-        , additionalPoints
+        deployer0,
+        amountToBorrow0,
+        p,
+        additionalPoints,
       )).results
     );
   }

@@ -132,10 +132,10 @@ async function getHfUserAccountState(
 }
 
 export async function getHfStateInfo(
-  comptroller: IHfComptroller
-  , cTokenCollateral: IHfCToken
-  , cTokenBorrow: IHfCToken
-  , user: string
+  comptroller: IHfComptroller,
+  cTokenCollateral: IHfCToken,
+  cTokenBorrow: IHfCToken,
+  user: string,
 ) : Promise<IHfState> {
   return {
     block: (await hre.ethers.provider.getBlock("latest")).number,
@@ -143,7 +143,8 @@ export async function getHfStateInfo(
     collateral: {
       market: await getHfMarketState(cTokenCollateral),
       account: await getHfUserAccountState(comptroller, cTokenCollateral, user),
-    }, borrow: {
+    },
+    borrow: {
       market: await getHfMarketState(cTokenBorrow),
       account: await getHfUserAccountState(comptroller, cTokenBorrow, user),
     }
@@ -167,13 +168,13 @@ export class AprHundredFinance {
    * @param additionalPoints
    */
   static async makeBorrowTest(
-    deployer: SignerWithAddress
-    , amountToBorrow0: number | BigNumber
-    , p: ITestSingleBorrowParams
-    , additionalPoints: number[]
+    deployer: SignerWithAddress,
+    amountToBorrow0: number | BigNumber,
+    p: ITestSingleBorrowParams,
+    additionalPoints: number[]
   ): Promise<{
-    details: IAprHfTwoResults
-    , results: IBorrowResults
+    details: IAprHfTwoResults,
+    results: IBorrowResults
   }> {
     const collateralCTokenAddress = HundredFinanceUtils.getCTokenAddressForAsset(p.collateral.asset);
     const borrowCTokenAddress = HundredFinanceUtils.getCTokenAddressForAsset(p.borrow.asset);
@@ -325,7 +326,7 @@ export class AprHundredFinance {
       await TimeUtils.advanceNBlocks(period);
       await hfHelper.accrueInterest(cTokenCollateral.address, cTokenBorrow.address);
 
-      let current = await getHfStateInfo(comptroller
+      const current = await getHfStateInfo(comptroller
         , cTokenCollateral
         , cTokenBorrow
         , userAddress
@@ -341,13 +342,16 @@ export class AprHundredFinance {
           blockTimestamp0: next.blockTimestamp,
           block1: current.block,
           blockTimestamp1: current.blockTimestamp,
-        }, rates: {
+        },
+        rates: {
           supplyRate: current.collateral.market.supplyRatePerBlock,
           borrowRate: current.borrow.market.borrowRatePerBlock
-        }, balances: {
+        },
+        balances: {
           collateral: current.collateral.account.balance,
           borrow: current.borrow.account.borrowBalanceStored
-        }, costsBT36: {
+        },
+        costsBT36: {
           collateral: changeDecimals(dc.mul(priceCollateral36).div(priceBorrow36), collateralAssetDecimals, 18),
           borrow: changeDecimals(db, borrowAssetDecimals, 36),
         }
@@ -360,7 +364,7 @@ export class AprHundredFinance {
         borrowAprExact,
         before,
         deltaBorrowBalance,
-        deltaCollateralMul18: deltaCollateralMul18,
+        deltaCollateralMul18,
         supplyApr,
         deltaCollateralBT: deltaCollateralBtMul18,
         borrowAmount,
@@ -368,16 +372,18 @@ export class AprHundredFinance {
         supplyAprExact,
         next,
         userAddress
-      }, results: {
+      },
+      results: {
         init: {
-          borrowAmount: borrowAmount,
+          borrowAmount,
           collateralAmount: amountCollateral,
           collateralAmountBT18: convertUnits(
             amountCollateral
             , priceCollateral, collateralAssetDecimals
             , priceBorrow, 18
           )
-        }, predicted: {
+        },
+        predicted: {
           aprBt36: {
             collateral: supplyApr,
             borrow: borrowApr
@@ -386,10 +392,12 @@ export class AprHundredFinance {
             borrowRate: borrowRatePredicted,
             supplyRate: supplyRatePredicted
           }
-        }, prices: {
+        },
+        prices: {
           collateral: priceCollateral,
           borrow: priceBorrow,
-        }, resultsBlock: {
+        },
+        resultsBlock: {
           period: {
             block0: next.block,
             blockTimestamp0: next.blockTimestamp,
@@ -404,8 +412,9 @@ export class AprHundredFinance {
             collateral: changeDecimals(
               deltaCollateralMul18.mul(priceCollateral).div(priceBorrow)
               , borrowAssetDecimals
-              , 18 //we need decimals 36, but deltaCollateralMul18 is already multiplied on 1e18
-            ), borrow: changeDecimals(deltaBorrowBalance, borrowAssetDecimals, 36)
+              , 18 // we need decimals 36, but deltaCollateralMul18 is already multiplied on 1e18
+            ),
+            borrow: changeDecimals(deltaBorrowBalance, borrowAssetDecimals, 36)
           }
         },
         points: pointsResults
@@ -418,7 +427,7 @@ export class AprHundredFinance {
     token: IHfCToken,
     amountCollateral: BigNumber,
   ) : Promise<BigNumber> {
-    return await libFacade.getEstimatedSupplyRate(
+    return libFacade.getEstimatedSupplyRate(
       await token.interestRateModel()
       , token.address
       , amountCollateral
@@ -430,7 +439,7 @@ export class AprHundredFinance {
     token: IHfCToken,
     borrowAmount: BigNumber
   ) : Promise<BigNumber> {
-    return await libFacade.getEstimatedBorrowRate(
+    return libFacade.getEstimatedBorrowRate(
       await token.interestRateModel()
       , token.address
       , borrowAmount

@@ -132,10 +132,10 @@ async function getDForceUserAccountState(
 }
 
 export async function getDForceStateInfo(
-  comptroller: IDForceController
-  , cTokenCollateral: IDForceCToken
-  , cTokenBorrow: IDForceCToken
-  , user: string
+  comptroller: IDForceController,
+  cTokenCollateral: IDForceCToken,
+  cTokenBorrow: IDForceCToken,
+  user: string,
 ) : Promise<IDForceState> {
   return {
     block: (await hre.ethers.provider.getBlock("latest")).number,
@@ -143,7 +143,8 @@ export async function getDForceStateInfo(
     collateral: {
       market: await getDForceMarketState(cTokenCollateral),
       account: await getDForceUserAccountState(comptroller, cTokenCollateral, user),
-    }, borrow: {
+    },
+    borrow: {
       market: await getDForceMarketState(cTokenBorrow),
       account: await getDForceUserAccountState(comptroller, cTokenBorrow, user),
     }
@@ -167,13 +168,13 @@ export class AprDForce {
    * @param additionalPoints
    */
   static async makeBorrowTest(
-    deployer: SignerWithAddress
-    , amountToBorrow0: number | BigNumber
-    , p: ITestSingleBorrowParams
-    , additionalPoints: number[]
+    deployer: SignerWithAddress,
+    amountToBorrow0: number | BigNumber,
+    p: ITestSingleBorrowParams,
+    additionalPoints: number[],
   ): Promise<{
-    details: IAprDForceTwoResults
-    , results: IBorrowResults
+    details: IAprDForceTwoResults,
+    results: IBorrowResults
   }> {
     const collateralCTokenAddress = DForceUtils.getCTokenAddressForAsset(p.collateral.asset);
     const borrowCTokenAddress = DForceUtils.getCTokenAddressForAsset(p.borrow.asset);
@@ -331,7 +332,7 @@ export class AprDForce {
 
       const totalAmountRewards = await rewardsDistributor.reward(userAddress);
 
-      //let's reconvert rewards to borrow tokens
+      // let's reconvert rewards to borrow tokens
       const rewardToken = await rewardsDistributor.rewardToken();
       const priceRewards = await priceOracle.getUnderlyingPrice(rewardToken);
       const rt = IDForceCToken__factory.connect(rewardToken, deployer);
@@ -347,7 +348,7 @@ export class AprDForce {
         .div(getBigNumberFrom(1, await rt.decimals()));
       console.log("totalAmountRewardsBt36", totalAmountRewardsBt36);
 
-      let current = await getDForceStateInfo(comptroller
+      const current = await getDForceStateInfo(comptroller
         , cTokenCollateral
         , cTokenBorrow
         , userAddress
@@ -364,18 +365,21 @@ export class AprDForce {
           blockTimestamp0: next.blockTimestamp,
           block1: current.block,
           blockTimestamp1: current.blockTimestamp,
-        }, rates: {
+        },
+        rates: {
           supplyRate: current.collateral.market.supplyRatePerBlock,
           borrowRate: current.borrow.market.borrowRatePerBlock
-        }, balances: {
+        },
+        balances: {
           collateral: current.collateral.account.balance,
           borrow: current.borrow.account.borrowBalanceStored
-        }, costsBT36: {
+        },
+        costsBT36: {
           collateral: changeDecimals(deltaCollateral.mul(priceCollateral36).div(priceBorrow36), collateralAssetDecimals, 18),
           borrow: changeDecimals(deltaBorrow, borrowAssetDecimals, 36),
         },
-        totalAmountRewards: totalAmountRewards,
-        totalAmountRewardsBt36: totalAmountRewardsBt36
+        totalAmountRewards,
+        totalAmountRewardsBt36
       })
     }
 
@@ -385,7 +389,7 @@ export class AprDForce {
         borrowAprExact,
         before,
         deltaBorrowBalance,
-        deltaCollateralMul18: deltaCollateralMul18,
+        deltaCollateralMul18,
         supplyApr,
         deltaCollateralBtMul18,
         borrowAmount,
@@ -393,16 +397,18 @@ export class AprDForce {
         supplyAprExact,
         next,
         userAddress
-      }, results: {
+      },
+      results: {
         init: {
-          borrowAmount: borrowAmount,
+          borrowAmount,
           collateralAmount: amountCollateral,
           collateralAmountBT18: convertUnits(
             amountCollateral
             , priceCollateral, collateralAssetDecimals
             , priceBorrow, 18
           )
-        }, predicted: {
+        },
+        predicted: {
           aprBt36: {
             collateral: supplyApr,
             borrow: borrowApr
@@ -411,10 +417,12 @@ export class AprDForce {
             borrowRate: borrowRatePredicted,
             supplyRate: supplyRatePredicted
           }
-        }, prices: {
+        },
+        prices: {
           collateral: priceCollateral,
           borrow: priceBorrow,
-        }, resultsBlock: {
+        },
+        resultsBlock: {
           period: {
             block0: next.block,
             blockTimestamp0: next.blockTimestamp,
@@ -431,9 +439,9 @@ export class AprDForce {
             collateral: changeDecimals(
               deltaCollateralMul18.mul(priceCollateral)
               , borrowAssetDecimals
-              , 18 //we need decimals 36, but deltaCollateralMul18 is already multiplied on 1e18
-            ).div(priceBorrow)
-            , borrow: changeDecimals(deltaBorrowBalance, borrowAssetDecimals, 36)
+              , 18 // we need decimals 36, but deltaCollateralMul18 is already multiplied on 1e18
+            ).div(priceBorrow),
+            borrow: changeDecimals(deltaBorrowBalance, borrowAssetDecimals, 36)
           }
         },
         points: pointsResults
@@ -447,7 +455,7 @@ export class AprDForce {
     amountCollateral: BigNumber,
     interestRateModel: string
   ) : Promise<BigNumber> {
-    return await libFacade.getEstimatedSupplyRatePure(
+    return libFacade.getEstimatedSupplyRatePure(
       state.collateral.market.totalSupply
       , amountCollateral
       , state.collateral.market.cash
@@ -464,7 +472,7 @@ export class AprDForce {
     token: IDForceCToken,
     borrowAmount: BigNumber
   ) : Promise<BigNumber> {
-    return await libFacade.getEstimatedBorrowRate(
+    return libFacade.getEstimatedBorrowRate(
       await token.interestRateModel()
       , token.address
       , borrowAmount

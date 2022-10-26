@@ -166,7 +166,6 @@ describe("DForce integration tests, platform adapter", () => {
     const borrowAssetDecimals = await (IERC20Extended__factory.connect(borrowAsset, deployer)).decimals();
     const collateralAssetDecimals = await (IERC20Extended__factory.connect(collateralAsset, deployer)).decimals();
 
-
     // getUnderlyingPrice returns price/1e(36-underlineDecimals)
     const priceBorrow = await priceOracle.getUnderlyingPrice(borrowCToken);
     const priceCollateral = await priceOracle.getUnderlyingPrice(collateralCToken);
@@ -198,8 +197,8 @@ describe("DForce integration tests, platform adapter", () => {
       ret.liquidationThreshold18,
       priceCollateral36,
       priceBorrow36,
-      collateralAssetData.decimals,
-      borrowAssetData.decimals
+      collateralAssetDecimals,
+      borrowAssetDecimals
     );
     if (amountToBorrow.gt(ret.maxAmountToBorrow)) {
       amountToBorrow = ret.maxAmountToBorrow;

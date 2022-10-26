@@ -146,14 +146,15 @@ export async function getAaveTwoStateInfo(
     : BigNumber.from(0);
 
   return {
-    userAccount: userAccount,
+    userAccount,
     block: block.number,
     blockTimestamp: block.timestamp,
     collateral: {
       data: collateralAssetData,
-      reserveNormalized: reserveNormalized,
+      reserveNormalized,
       scaledBalance: collateralScaledBalance
-    }, borrow: {
+    },
+    borrow: {
       data: borrowAssetDataAfterBorrow,
       reserveNormalized: borrowReserveNormalized,
       scaledBalance: borrowScaledBalance
@@ -161,9 +162,10 @@ export async function getAaveTwoStateInfo(
   }
 }
 
-/** Calc APR in the state AFTER the supply/borrow operation
+/**
+ * Calc APR in the state AFTER the supply/borrow operation
  * Return value in terms of base currency
- * */
+ */
 async function getAprAAVETwoBase(
   libFacade: AaveTwoAprLibFacade,
   amount: BigNumber,
@@ -182,7 +184,7 @@ async function getAprAAVETwoBase(
     predictedRate,
     countBlocks,
     blocksPerDay,
-    multiplier//additional multiplier to keep precision
+    multiplier // additional multiplier to keep precision
   );
   console.log("getAprAAVETwoBase value=", value);
   return (value)
@@ -192,9 +194,10 @@ async function getAprAAVETwoBase(
 
 }
 
-/** Calc APR in the state BEFORE the supply/borrow operation
+/**
+ * Calc APR in the state BEFORE the supply/borrow operation
  * Return value in terms of base currency
- * */
+ */
 async function getAprBeforeAAVETwo(
   libFacade: AaveTwoAprLibFacade,
   amount: BigNumber,
@@ -220,16 +223,16 @@ async function getAprBeforeAAVETwo(
     countBlocks,
     blocksPerDay,
     operationTimestamp,
-    Misc.WEI //additional multiplier to keep the precision
+    Misc.WEI // additional multiplier to keep the precision
   );
   console.log("getAprAAVETwoBase", value);
   return {
     aprBase18: value
       .mul(price)
       .div(Misc.WEI)
-      .div(getBigNumberFrom(1, decimalsAmount))
-    , nextLiquidityIndex
-    , aprMultiplied18: value
+      .div(getBigNumberFrom(1, decimalsAmount)),
+    nextLiquidityIndex,
+    aprMultiplied18: value
   };
 }
 //endregion Utils
@@ -345,7 +348,7 @@ export class AprAaveTwo {
           liquidityIndex: next.collateral.data.liquidityIndex,
           scaledBalance: next.collateral.scaledBalance,
           reserveNormalized: next.collateral.reserveNormalized,
-          userBalanceBase: next.userAccount!.totalCollateralETH,
+          userBalanceBase: next.userAccount?.totalCollateralETH || BigNumber.from(0),
           lastUpdateTimestamp: next.collateral.data.lastUpdateTimestamp
         },
         last: {
@@ -355,7 +358,7 @@ export class AprAaveTwo {
           liquidityIndex: last.collateral.data.liquidityIndex,
           scaledBalance: last.collateral.scaledBalance,
           reserveNormalized: last.collateral.reserveNormalized,
-          userBalanceBase: last.userAccount!.totalCollateralETH,
+          userBalanceBase: last.userAccount?.totalCollateralETH || BigNumber.from(0),
           lastUpdateTimestamp: last.collateral.data.lastUpdateTimestamp
         }
       },
@@ -377,7 +380,7 @@ export class AprAaveTwo {
           liquidityIndex: next.borrow.data.variableBorrowIndex,
           scaledBalance: next.borrow.scaledBalance,
           reserveNormalized: next.borrow.reserveNormalized,
-          userBalanceBase: next.userAccount!.totalDebtETH,
+          userBalanceBase: next.userAccount?.totalDebtETH || BigNumber.from(0),
           lastUpdateTimestamp: next.borrow.data.lastUpdateTimestamp
         },
         last: {
@@ -387,7 +390,7 @@ export class AprAaveTwo {
           liquidityIndex: last.borrow.data.variableBorrowIndex,
           scaledBalance: last.borrow.scaledBalance,
           reserveNormalized: last.borrow.reserveNormalized,
-          userBalanceBase: last.userAccount!.totalDebtETH,
+          userBalanceBase: last.userAccount?.totalDebtETH || BigNumber.from(0),
           lastUpdateTimestamp: last.borrow.data.lastUpdateTimestamp
         }
       },
@@ -410,7 +413,7 @@ export class AprAaveTwo {
       , keyValues.liquidity.next
       , blocksPerDay
       , collateralToken.decimals
-      , getBigNumberFrom(1, 18) //additional multiplier to keep precision
+      , getBigNumberFrom(1, 18) // additional multiplier to keep precision
     );
     console.log("supplyAprBaseExactMul18", supplyAprBaseExactMul18);
     const borrowAprBaseExactMul18 = await getAprAAVETwoBase(
@@ -422,7 +425,7 @@ export class AprAaveTwo {
       , keyValues.borrow.next
       , blocksPerDay
       , borrowToken.decimals
-      , Misc.WEI //additional multiplier to keep precision
+      , Misc.WEI // additional multiplier to keep precision
     );
     console.log("borrowAprBaseExactMul18", borrowAprBaseExactMul18);
 
@@ -454,22 +457,24 @@ export class AprAaveTwo {
     console.log("borrowAprApprox", borrowAprBaseApprox);
 
     // calculate real differences in user-account-balances for period [next block, last block]
-    const totalCollateralETH = last.userAccount!.totalCollateralETH.sub(next.userAccount!.totalCollateralETH);
-    const totalDebtETH = last.userAccount!.totalDebtETH.sub(next.userAccount!.totalDebtETH);
+    const totalCollateralETH = (last.userAccount?.totalCollateralETH || BigNumber.from(0))
+      .sub(next.userAccount?.totalCollateralETH || BigNumber.from(0));
+    const totalDebtETH = (last.userAccount?.totalDebtETH || BigNumber.from(0))
+      .sub(next.userAccount?.totalDebtETH || BigNumber.from(0));
     console.log("collateralAprETH", totalCollateralETH);
     console.log("borrowAprETH", totalDebtETH);
 
     const bbp: IBaseToBorrowParams = {
-      baseCurrencyDecimals: baseCurrencyDecimals,
+      baseCurrencyDecimals,
       priceBaseCurrency: priceBorrow,
       priceDecimals: baseCurrencyDecimals // all prices in AAVE TWO are in ETH
     }
 
     const pointsResults: IPointResults[] = [];
-    let prev = last;
+    const prev = last;
     for (const period of additionalPoints) {
       await TimeUtils.advanceNBlocks(period);
-      let current = await getAaveTwoStateInfo(deployer, aavePool, p.collateral.asset, p.borrow.asset, userAddress);
+      const current = await getAaveTwoStateInfo(deployer, aavePool, p.collateral.asset, p.borrow.asset, userAddress);
 
       pointsResults.push({
         period: {
@@ -477,20 +482,26 @@ export class AprAaveTwo {
           blockTimestamp0: prev.blockTimestamp,
           block1: current.block,
           blockTimestamp1: current.blockTimestamp,
-        }, rates: {
+        },
+        rates: {
           supplyRate: current.collateral.data.currentLiquidityRate,
           borrowRate: current.borrow.data.currentVariableBorrowRate
-        }, balances: {
-          collateral: current.userAccount!.totalCollateralETH,
-          borrow: current.userAccount!.totalDebtETH
-        }, costsBT36: {
+        },
+        balances: {
+          collateral: current.userAccount?.totalCollateralETH || BigNumber.from(0),
+          borrow: current.userAccount?.totalDebtETH || BigNumber.from(0)
+        },
+        costsBT36: {
           collateral: baseToBt(
-            current.userAccount!.totalCollateralETH.sub(prev.userAccount!.totalCollateralETH)
+            (current.userAccount?.totalCollateralETH || BigNumber.from(0))
+              .sub(prev.userAccount?.totalCollateralETH || BigNumber.from(0))
             , bbp
             , 36
           ),
           borrow: baseToBt(
-            current.userAccount!.totalDebtETH.sub(prev.userAccount!.totalDebtETH)
+            (current.userAccount?.totalDebtETH || BigNumber.from(0)).sub(
+              prev.userAccount?.totalDebtETH || BigNumber.from(0)
+            )
             , bbp
             , 36
           ),
@@ -500,28 +511,30 @@ export class AprAaveTwo {
 
     return {
       details: {
-        borrowAmount
-        , before
-        , borrowAprBaseApprox
-        , last
-        , borrowAprBaseExact: borrowAprBaseExactMul18
-        , next
-        , supplyAprBaseApprox
-        , keyValues
-        , supplyAprBaseExact: supplyAprBaseExactMul18
-        , userAddress
-        , totalCollateralETH
-        , totalDebtETH
-      }, results: {
+        borrowAmount,
+        before,
+        borrowAprBaseApprox,
+        last,
+        borrowAprBaseExact: borrowAprBaseExactMul18,
+        next,
+        supplyAprBaseApprox,
+        keyValues,
+        supplyAprBaseExact: supplyAprBaseExactMul18,
+        userAddress,
+        totalCollateralETH,
+        totalDebtETH,
+      },
+      results: {
         init: {
-          borrowAmount: borrowAmount,
+          borrowAmount,
           collateralAmount: amountCollateral,
           collateralAmountBT18: convertUnits(
             amountCollateral
             , priceCollateral, collateralToken.decimals
             , priceBorrow, 18
           )
-        }, predicted: {
+        },
+        predicted: {
           aprBt36: {
             collateral: supplyAprBaseApprox.aprMultiplied18
               .mul(Misc.WEI)
@@ -536,10 +549,12 @@ export class AprAaveTwo {
             borrowRate: brRaysPredicted,
             supplyRate: liquidityRateRaysPredicted
           }
-        }, prices: {
+        },
+        prices: {
           collateral: priceCollateral,
           borrow: priceBorrow,
-        }, resultsBlock: {
+        },
+        resultsBlock: {
           period: {
             block0: next.block,
             blockTimestamp0: next.blockTimestamp,
@@ -638,13 +653,6 @@ export class AprAaveTwo {
     console.log("operationTimestamp", operationTimestamp || before.blockTimestamp);
     console.log("decimalsCollateral", decimalsCollateral);
 
-    const baseCurrencyDecimals = await IERC20Extended__factory.connect(await priceOracle.WETH(), deployer).decimals();
-    const bbp: IBaseToBorrowParams = {
-      baseCurrencyDecimals: baseCurrencyDecimals,
-      priceBaseCurrency: priceBorrow,
-      priceDecimals: baseCurrencyDecimals // all prices in AAVE v3 are in base currency
-    }
-
     return supplyApr.aprMultiplied18
       .mul(getBigNumberFrom(1, 18))
       .mul(priceCollateral)
@@ -713,13 +721,6 @@ export class AprAaveTwo {
       , operationTimestamp || before.blockTimestamp
       , decimalsBorrow
     );
-
-    const baseCurrencyDecimals = await IERC20Extended__factory.connect(await priceOracle.WETH(), deployer).decimals();
-    const bbp: IBaseToBorrowParams = {
-      baseCurrencyDecimals: baseCurrencyDecimals,
-      priceBaseCurrency: priceBorrow,
-      priceDecimals: baseCurrencyDecimals // all prices in AAVE v3 are in base currency
-    }
 
     console.log("predictBorrowApr36 borrowApr=", borrowApr);
     console.log("amountToBorrow", amountToBorrow);
