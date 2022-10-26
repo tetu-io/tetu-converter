@@ -310,11 +310,13 @@ contract TetuConverter is ITetuConverter, IKeeperCallback {
   ///////////////////////////////////////////////////////
 
   function requireRepay(
-    uint amountToRepay_,
+    uint requiredAmountBorrowAsset_,
+    uint requiredAmountCollateralAsset_,
     address poolAdapter_
   ) external override {
     onlyKeeper();
-    require(amountToRepay_ > 0, AppErrors.INCORRECT_VALUE);
+    require(requiredAmountBorrowAsset_ > 0, AppErrors.INCORRECT_VALUE);
+    require(requiredAmountCollateralAsset_ > 0, AppErrors.INCORRECT_VALUE);
 
     IPoolAdapter pa = IPoolAdapter(poolAdapter_);
     (,address user, address collateralAsset, address borrowAsset) = pa.getConfig();
@@ -322,20 +324,27 @@ contract TetuConverter is ITetuConverter, IKeeperCallback {
 
     //!TODO: we have exactly same checking inside pool adapters... we need to check this condition only once
     (,uint amountToPay,,) = pa.getStatus();
-    require(amountToPay > 0 && amountToRepay_ < amountToPay, AppErrors.REPAY_TO_REBALANCE_NOT_ALLOWED);
+    require(amountToPay > 0 && requiredAmountBorrowAsset_ < amountToPay, AppErrors.REPAY_TO_REBALANCE_NOT_ALLOWED);
 
     // ask the borrower to send us required part of the borrowed amount
     uint balanceBorrowedAsset = IERC20(borrowAsset).balanceOf(address(this));
-    ITetuConverterCallback(user).requireBorrowedAmountBack(collateralAsset, borrowAsset, amountToRepay_);
+    (uint amountOut, bool isCollateral) = ITetuConverterCallback(user).requireAmountBack(
+      collateralAsset,
+      borrowAsset,
+      requiredAmountBorrowAsset_,
+      requiredAmountCollateralAsset_
+    );
+    require(!isCollateral, "TODO");
+
     require(
-      IERC20(borrowAsset).balanceOf(address(this)) - balanceBorrowedAsset == amountToRepay_,
+      IERC20(borrowAsset).balanceOf(address(this)) - balanceBorrowedAsset == requiredAmountBorrowAsset_,
       AppErrors.WRONG_AMOUNT_RECEIVED
     );
 
     // re-send amount-to-repay to the pool adapter and make rebalancing
     pa.syncBalance(false, false);
-    IERC20(borrowAsset).safeTransfer(poolAdapter_, amountToRepay_);
-    uint resultHealthFactor18 = pa.repayToRebalance(amountToRepay_);
+    IERC20(borrowAsset).safeTransfer(poolAdapter_, requiredAmountBorrowAsset_);
+    uint resultHealthFactor18 = pa.repayToRebalance(requiredAmountBorrowAsset_);
 
     // ensure that the health factor was restored to ~target health factor value
     _ensureApproxSameToTargetHealthFactor(borrowAsset, resultHealthFactor18);
@@ -373,7 +382,13 @@ contract TetuConverter is ITetuConverter, IKeeperCallback {
 
     // require borrowed amount back
     uint balanceBorrowedAsset = IERC20(borrowAsset).balanceOf(address(this));
-    ITetuConverterCallback(user).requireBorrowedAmountBack(collateralAsset, borrowAsset, amountToPay);
+    ITetuConverterCallback(user).requireAmountBack(
+      collateralAsset,
+      borrowAsset,
+      amountToPay,
+      0 // TODO if we allow to pass 0 as collateral amount it means that borrow amount MUST be returned
+        // TODO but currently it's not implemented
+    );
     require(
       IERC20(borrowAsset).balanceOf(address(this)) - balanceBorrowedAsset == amountToPay,
       AppErrors.WRONG_AMOUNT_RECEIVED

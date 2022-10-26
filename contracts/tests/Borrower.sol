@@ -260,20 +260,24 @@ contract Borrower is ITetuConverterCallback {
     amountToSendOnRequireBorrowedAmountBack = value;
   }
 
-  function requireBorrowedAmountBack (
+  function requireAmountBack (
     address collateralAsset_,
     address borrowAsset_,
-    uint amountToReturn_
-  ) external override returns (uint) {
+    uint requiredAmountBorrowAsset_,
+    uint requiredAmountCollateralAsset_
+  ) external override returns (
+    uint amountOut,
+    bool isCollateral
+  ) {
     collateralAsset_;
 
     uint amountToSend = amountToSendOnRequireBorrowedAmountBack == 0
-      ? amountToReturn_
+      ? requiredAmountBorrowAsset_
       : amountToSendOnRequireBorrowedAmountBack;
 
     require(IERC20(borrowAsset_).balanceOf(address(this)) >= amountToSend, "Not enough borrow asset on balance");
     IERC20(borrowAsset_).transfer(address(_tc()), amountToSend);
-    return amountToSend;
+    return (amountToSend, false); //TODO
   }
 
   function onTransferBorrowedAmount (
@@ -284,27 +288,6 @@ contract Borrower is ITetuConverterCallback {
     onTransferBorrowedAmountLastResultCollateralAsset = collateralAsset_;
     onTransferBorrowedAmountLastResultBorrowAsset = borrowAsset_;
     onTransferBorrowedAmountLastResultAmountBorrowAssetSentToBorrower = amountBorrowAssetSentToBorrower_;
-  }
-
-  function requireCollateralAmount(
-    address collateralAsset_,
-    address borrowAsset_,
-    uint requiredCollateralAmount_
-  ) external override returns (uint amountCollateralAssetOut) {
-    collateralAsset_;
-    borrowAsset_;
-    requiredCollateralAmount_;
-    return amountCollateralAssetOut; //TODO
-  }
-
-  function onTransferCollateralAmount (
-    address collateralAsset_,
-    address borrowAsset_,
-    uint amountCollateralAssetSentToBorrower_
-  ) external override {
-    collateralAsset_;
-    borrowAsset_;
-    amountCollateralAssetSentToBorrower_; //TODO
   }
 
 //  function requireRepay(

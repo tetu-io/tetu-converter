@@ -7,12 +7,9 @@ import {
 } from "../apr/aprDataTypes";
 import {TimeUtils} from "../../../scripts/utils/TimeUtils";
 import {ethers} from "hardhat";
-import {IERC20__factory, IERC20Extended__factory, IPlatformAdapter} from "../../../typechain";
+import {IERC20__factory, IERC20Extended__factory, IPlatformAdapter, ISwapManager} from "../../../typechain";
 import {BigNumber} from "ethers";
-import {getBigNumberFrom} from "../../../scripts/utils/NumberUtils";
 import {Misc} from "../../../scripts/utils/Misc";
-import {ConfigurableAmountToBorrow} from "../apr/ConfigurableAmountToBorrow";
-import {toMantissa} from "../utils/CommonUtils";
 import {AprUtils} from "../utils/aprUtils";
 
 //region Data types
@@ -56,6 +53,8 @@ export interface IBorrowTask {
 //endregion Data types
 
 export class CompareAprUsesCase {
+
+//region Utils
   static async makeSingleBorrowTest(
     title: string,
     p: IInputParams,
@@ -72,6 +71,7 @@ export class CompareAprUsesCase {
       return {
         results: await testMaker(deployer, p.amountToBorrow, p.params, p.additionalPoints)
       }
+      // tslint:disable-next-line:no-any
     } catch (e: any) {
       console.log(e);
       const re = /VM Exception while processing transaction: reverted with reason string\s*(.*)/i;
@@ -111,18 +111,46 @@ export class CompareAprUsesCase {
     return dest;
   }
 
+  private static async getPrices(
+    platformAdapter: IPlatformAdapter,
+    sourceAsset: IAssetInfo,
+    targetAsset: IAssetInfo
+  ) : Promise<{
+   priceCollateral: BigNumber,
+   priceBorrow: BigNumber
+  } | undefined > {
+    try {
+      const stPrices = await platformAdapter.getAssetsPrices([sourceAsset.asset, targetAsset.asset]);
+      console.log("prices", stPrices);
+      return {priceCollateral: stPrices[0], priceBorrow: stPrices[1]};
+    } catch {
+      console.log("Cannot get prices for the assets unsupported by the platform");
+    }
+  }
+
+  /** Get total balance of the asset for all holders */
+  static async getTotalAmount(
+    deployer: SignerWithAddress,
+    asset: string,
+    holders: string[]
+  ) : Promise<BigNumber> {
+    let dest = BigNumber.from(0);
+    for (const holder of holders) {
+      const balance = await IERC20__factory.connect(asset, deployer).balanceOf(holder);
+      console.log(`getTotalAmount holder=${holder} balance=${balance.toString()}`);
+      dest = dest.add(balance);
+    }
+    return dest;
+  }
+//endregion Utils
+
+//region Make borrow/swap
+
   /**
    * Enumerate all possible pairs of the asset.
    * Find all pairs for which the borrow is possible.
    * Use max available amount of source asset as collateral.
    * Make borrow test and grab results.
-   * @param deployer
-   * @param platformTitle
-   * @param platformAdapter
-   * @param tasks
-   * @param countBlocks
-   * @param healthFactor2
-   * @param testMaker
    */
   static async makePossibleBorrowsOnPlatform(
     deployer: SignerWithAddress,
@@ -241,53 +269,15 @@ export class CompareAprUsesCase {
     return dest;
   }
 
-  private static async getPrices(
-    platformAdapter: IPlatformAdapter,
-    sourceAsset: IAssetInfo,
-    targetAsset: IAssetInfo
-  ) : Promise<{
-   priceCollateral: BigNumber,
-   priceBorrow: BigNumber
-  } | undefined > {
-    try {
-      const stPrices = await platformAdapter.getAssetsPrices([sourceAsset.asset, targetAsset.asset]);
-      console.log("prices", stPrices);
-      return {priceCollateral: stPrices[0], priceBorrow: stPrices[1]};
-    } catch {
-      console.log("Cannot get prices for the assets unsupported by the platform");
-    }
-  }
+  // static async makePossibleSwaps(
+  //   deployer: SignerWithAddress,
+  //   swapManager: ISwapManager,
+  //   tasks: IBorrowTask[],
+  //   countBlocks: number,
+  //   healthFactor2: number,
+  // ) : Promise<IBorrowTestResults[]> {
+  //
+  // }
 
-
-  /** calculate approx amount of collateral required to borrow required amount with collateral factor = 0.2 */
-  private static getApproxCollateralAmount(
-    amountToBorrow: BigNumber,
-    healthFactor2: number,
-    collateralDecimals: number,
-    stPrices: {priceCollateral: BigNumber, priceBorrow: BigNumber},
-    borrowDecimals: number
-  ) {
-    return amountToBorrow
-      .mul(5) // cf = 0.2
-      .mul(healthFactor2).div(100)
-      .mul(getBigNumberFrom(1, collateralDecimals))
-      .mul(stPrices.priceBorrow)
-      .div(stPrices.priceCollateral)
-      .div(getBigNumberFrom(1, borrowDecimals));
-  }
-
-  /** Get total balance of the asset for all holders */
-  static async getTotalAmount(
-    deployer: SignerWithAddress
-    , asset: string
-    , holders: string[]
-  ) : Promise<BigNumber> {
-    let dest = BigNumber.from(0);
-    for (const holder of holders) {
-      const balance = await IERC20__factory.connect(asset, deployer).balanceOf(holder);
-      console.log(`getTotalAmount holder=${holder} balance=${balance.toString()}`);
-      dest = dest.add(balance);
-    }
-    return dest;
-  }
+//endregion Make borrow/swap
 }
