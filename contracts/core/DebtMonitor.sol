@@ -19,6 +19,13 @@ contract DebtMonitor is IDebtMonitor {
   using AppUtils for uint;
   using EnumerableSet for EnumerableSet.AddressSet;
 
+  struct CheckHealthFactorInputParams {
+    uint startIndex0;
+    uint maxCountToCheck;
+    uint maxCountToReturn;
+    uint healthFactorThreshold18;
+  }
+
   IController public immutable controller;
 
   /// @notice Pool adapters with active borrow positions
@@ -146,87 +153,70 @@ contract DebtMonitor is IDebtMonitor {
   ) external view override returns (
     uint nextIndexToCheck0,
     address[] memory outPoolAdapters,
-    uint[] memory outAmountsToRepay
+    uint[] memory outAmountBorrowAsset,
+    uint[] memory outAmountCollateralAsset
   ) {
     uint16 minHealthFactor2 = IController(controller).minHealthFactor2();
     console.log("checkHealth", minHealthFactor2);
 
-    return _checkHealthFactor(startIndex0
-      , maxCountToCheck
-      , maxCountToReturn
-      , uint(minHealthFactor2) * 10**(18-2)
-    );
-  }
-
-  function checkAdditionalBorrow(
-    uint startIndex0,
-    uint maxCountToCheck,
-    uint maxCountToReturn
-  ) external view override returns (
-    uint nextIndexToCheck0,
-    address[] memory outPoolAdapters,
-    uint[] memory outAmountsToBorrow
-  ) {
-    uint16 maxHealthFactor2 = IController(controller).maxHealthFactor2();
-
-    return _checkHealthFactor(startIndex0
-      , maxCountToCheck
-      , maxCountToReturn
-      , uint(maxHealthFactor2) * 10**(18-2)
+    return _checkHealthFactor(
+      CheckHealthFactorInputParams({
+        startIndex0: startIndex0,
+        maxCountToCheck: maxCountToCheck,
+        maxCountToReturn: maxCountToReturn,
+        healthFactorThreshold18: uint(minHealthFactor2) * 10**(18-2)
+      })
     );
   }
 
   function _checkHealthFactor (
-    uint startIndex0,
-    uint maxCountToCheck,
-    uint maxCountToReturn,
-    uint healthFactorThreshold18
+    CheckHealthFactorInputParams memory p
   ) internal view returns (
     uint nextIndexToCheck0,
     address[] memory outPoolAdapters,
-    uint[] memory outAmounts
+    uint[] memory outAmountBorrowAsset,
+    uint[] memory outAmountCollateralAsset
   ) {
     uint countFoundItems = 0;
-    nextIndexToCheck0 = startIndex0;
+    nextIndexToCheck0 = p.startIndex0;
 
-    outPoolAdapters = new address[](maxCountToReturn);
-    outAmounts = new uint[](maxCountToReturn);
+    outPoolAdapters = new address[](p.maxCountToReturn);
+    outAmountBorrowAsset = new uint[](p.maxCountToReturn);
+    outAmountCollateralAsset = new uint[](p.maxCountToReturn);
 
-    if (startIndex0 + maxCountToCheck > positions.length) {
-      maxCountToCheck = positions.length - startIndex0;
+    if (p.startIndex0 + p.maxCountToCheck > positions.length) {
+      p.maxCountToCheck = positions.length - p.startIndex0;
     }
 
     // enumerate all pool adapters
-    for (uint i = 0; i < maxCountToCheck; i = i.uncheckedInc()) {
+    for (uint i = 0; i < p.maxCountToCheck; i = i.uncheckedInc()) {
       nextIndexToCheck0 += 1;
 
       // check if we need to make reconversion because the health factor is too low/high
-      IPoolAdapter pa = IPoolAdapter(positions[startIndex0 + i]);
-      (, uint amountToPay, uint healthFactor18,) = pa.getStatus();
+      IPoolAdapter pa = IPoolAdapter(positions[p.startIndex0 + i]);
+      (uint collateralAmount, uint amountToPay, uint healthFactor18,) = pa.getStatus();
       (,,, address borrowAsset) = pa.getConfig();
       uint healthFactorTarget18 = uint(_borrowManager().getTargetHealthFactor2(borrowAsset)) * 10**(18-2);
-      console.log("_checkHealthFactor healthFactorTarget18", healthFactorTarget18);
-      console.log("_checkHealthFactor healthFactorThreshold18", healthFactorThreshold18);
 
-      // healthFactorTarget18 < healthFactorThreshold18 means, that we check low board, otherwise up board
       if (
-        (healthFactorThreshold18 < healthFactorTarget18 && healthFactor18 < healthFactorThreshold18)
-        || (!(healthFactorThreshold18 < healthFactorTarget18) && healthFactor18 > healthFactorThreshold18)
+        (p.healthFactorThreshold18 < healthFactorTarget18 && healthFactor18 < p.healthFactorThreshold18) // unhealthy
+        || (!(p.healthFactorThreshold18 < healthFactorTarget18) && healthFactor18 > p.healthFactorThreshold18) // too healthy
       ) {
-        outPoolAdapters[countFoundItems] = positions[startIndex0 + i];
+        outPoolAdapters[countFoundItems] = positions[p.startIndex0 + i];
         // Health Factor = Collateral Factor * CollateralAmount * Price_collateral
         //                 -------------------------------------------------
         //                               BorrowAmount * Price_borrow
-        // => AmountToRepay = BorrowAmount * (HealthFactorCurrent/HealthFactorTarget - 1)
-        outAmounts[countFoundItems] = healthFactorThreshold18 < healthFactorTarget18
-            ? (amountToPay - amountToPay * healthFactor18 / healthFactorTarget18)
-            : (amountToPay * healthFactor18 / healthFactorTarget18 - amountToPay);
-        console.log("amountToPay", amountToPay);
-        console.log("healthFactor18", healthFactor18);
-        console.log("healthFactorTarget18", healthFactorTarget18);
-        console.log("healthFactorTarget18", outAmounts[countFoundItems]);
+        // => requiredAmountBorrowAsset = BorrowAmount * (HealthFactorCurrent/HealthFactorTarget - 1)
+        // => requiredAmountCollateralAsset = CollateralAmount * (HealthFactorTarget/HealthFactorCurrent - 1)
+        outAmountBorrowAsset[countFoundItems] = p.healthFactorThreshold18 < healthFactorTarget18
+            ? (amountToPay - amountToPay * healthFactor18 / healthFactorTarget18) // unhealthy
+            : (amountToPay * healthFactor18 / healthFactorTarget18 - amountToPay); // too healthy
+        outAmountCollateralAsset[countFoundItems] = p.healthFactorThreshold18 < healthFactorTarget18
+            ? (collateralAmount * healthFactorTarget18 / healthFactor18 - collateralAmount) // unhealthy
+            : (collateralAmount - collateralAmount * healthFactorTarget18 / healthFactor18); // too healthy
         countFoundItems += 1;
-        if (countFoundItems == maxCountToReturn) {
+
+        if (countFoundItems == p.maxCountToReturn) {
           break;
         }
       }
@@ -243,90 +233,113 @@ contract DebtMonitor is IDebtMonitor {
         : AppUtils.removeLastItems(outPoolAdapters, countFoundItems),
       countFoundItems == 0
         ? new uint[](0)
-        : AppUtils.removeLastItems(outAmounts, countFoundItems)
+        : AppUtils.removeLastItems(outAmountBorrowAsset, countFoundItems),
+      countFoundItems == 0
+        ? new uint[](0)
+        : AppUtils.removeLastItems(outAmountCollateralAsset, countFoundItems)
     );
   }
+
   ///////////////////////////////////////////////////////
+  ///     Features for NEXT versions of the app
   ///         Detect not-optimal positions
+  ///         Check too healthy factor
   ///////////////////////////////////////////////////////
 
-  function checkBetterBorrowExists(
-    uint startIndex0,
-    uint maxCountToCheck,
-    uint maxCountToReturn,
-    uint periodInBlocks // TODO: this period is set individually for each borrow...
-  ) external view override returns (
-    uint nextIndexToCheck0,
-    address[] memory outPoolAdapters
-  ) {
-    uint countFoundItems = 0;
-    nextIndexToCheck0 = startIndex0;
+//  function checkAdditionalBorrow(
+//    uint startIndex0,
+//    uint maxCountToCheck,
+//    uint maxCountToReturn
+//  ) external view override returns (
+//    uint nextIndexToCheck0,
+//    address[] memory outPoolAdapters,
+//    uint[] memory outAmountsToBorrow
+//  ) {
+//    uint16 maxHealthFactor2 = IController(controller).maxHealthFactor2();
+//
+//    return _checkHealthFactor(startIndex0
+//      , maxCountToCheck
+//      , maxCountToReturn
+//      , uint(maxHealthFactor2) * 10**(18-2)
+//    );
+//  }
 
-    ITetuConverter tc = ITetuConverter(controller.tetuConverter());
-    outPoolAdapters = new address[](maxCountToReturn);
-
-    if (startIndex0 + maxCountToCheck > positions.length) {
-      maxCountToCheck = positions.length - startIndex0;
-    }
-
-    // enumerate all pool adapters
-    for (uint i = 0; i < maxCountToCheck; i = i.uncheckedInc()) {
-      nextIndexToCheck0 += 1;
-
-      // check if we need to make reconversion because a MUCH better borrow way exists
-      IPoolAdapter pa = IPoolAdapter(positions[startIndex0 + i]);
-      (uint collateralAmount,,,) = pa.getStatus();
-
-      if (_findBetterBorrowWay(tc, pa, collateralAmount, periodInBlocks)) {
-        outPoolAdapters[countFoundItems] = positions[startIndex0 + i];
-        countFoundItems += 1;
-        if (countFoundItems == maxCountToReturn) {
-          break;
-        }
-      }
-    }
-
-    if (nextIndexToCheck0 == positions.length) {
-      nextIndexToCheck0 = 0; // all items were checked
-    }
-
-    // we need to keep only found items in result array and remove others
-    return (nextIndexToCheck0
-    , countFoundItems == 0
-      ? new address[](0)
-      : AppUtils.removeLastItems(outPoolAdapters, countFoundItems)
-    );
-  }
-
-
-  function _findBetterBorrowWay(
-    ITetuConverter tc_,
-    IPoolAdapter pa_,
-    uint sourceAmount_,
-    uint periodInBlocks_
-  ) internal view returns (bool) {
-
-    // check if we can re-borrow the asset in different place with higher profit
-    (address origin,, address sourceToken, address targetToken) = pa_.getConfig();
-    (address converter,, int aprForPeriod18) = tc_.findConversionStrategy(
-      sourceToken, sourceAmount_, targetToken, periodInBlocks_, ITetuConverter.ConversionMode.AUTO_0
-    );
-    int currentApr18 = pa_.getAPR18() * int(periodInBlocks_);
-
-    // make decision if the new conversion-strategy is worth to be used instead current one
-    if (origin != converter) {
-      //1) threshold for APRs difference exceeds threshold, i.e. (apr0-apr1)/apr0 > 20%
-      if (currentApr18 > aprForPeriod18
-         && (thresholdAPR == 0 || currentApr18 - aprForPeriod18 > currentApr18 * int(thresholdAPR) / 100)
-      ) {
-        //2) threshold for block number: count blocks since prev rebalancing should exceed the threshold.
-        if (thresholdCountBlocks == 0 || block.number - positionLastAccess[address(pa_)] > thresholdCountBlocks) {
-          return true;
-        }
-      }
-    }
-    return false;
-  }
+//  function checkBetterBorrowExists(
+//    uint startIndex0,
+//    uint maxCountToCheck,
+//    uint maxCountToReturn,
+//    uint periodInBlocks // TODO: this period is set individually for each borrow...
+//  ) external view override returns (
+//    uint nextIndexToCheck0,
+//    address[] memory outPoolAdapters
+//  ) {
+//    uint countFoundItems = 0;
+//    nextIndexToCheck0 = startIndex0;
+//
+//    ITetuConverter tc = ITetuConverter(controller.tetuConverter());
+//    outPoolAdapters = new address[](maxCountToReturn);
+//
+//    if (startIndex0 + maxCountToCheck > positions.length) {
+//      maxCountToCheck = positions.length - startIndex0;
+//    }
+//
+//    // enumerate all pool adapters
+//    for (uint i = 0; i < maxCountToCheck; i = i.uncheckedInc()) {
+//      nextIndexToCheck0 += 1;
+//
+//      // check if we need to make reconversion because a MUCH better borrow way exists
+//      IPoolAdapter pa = IPoolAdapter(positions[startIndex0 + i]);
+//      (uint collateralAmount,,,) = pa.getStatus();
+//
+//      if (_findBetterBorrowWay(tc, pa, collateralAmount, periodInBlocks)) {
+//        outPoolAdapters[countFoundItems] = positions[startIndex0 + i];
+//        countFoundItems += 1;
+//        if (countFoundItems == maxCountToReturn) {
+//          break;
+//        }
+//      }
+//    }
+//
+//    if (nextIndexToCheck0 == positions.length) {
+//      nextIndexToCheck0 = 0; // all items were checked
+//    }
+//
+//    // we need to keep only found items in result array and remove others
+//    return (nextIndexToCheck0
+//    , countFoundItems == 0
+//      ? new address[](0)
+//      : AppUtils.removeLastItems(outPoolAdapters, countFoundItems)
+//    );
+//  }
+//
+//  function _findBetterBorrowWay(
+//    ITetuConverter tc_,
+//    IPoolAdapter pa_,
+//    uint sourceAmount_,
+//    uint periodInBlocks_
+//  ) internal view returns (bool) {
+//
+//    // check if we can re-borrow the asset in different place with higher profit
+//    (address origin,, address sourceToken, address targetToken) = pa_.getConfig();
+//    (address converter,, int aprForPeriod18) = tc_.findConversionStrategy(
+//      sourceToken, sourceAmount_, targetToken, periodInBlocks_, ITetuConverter.ConversionMode.AUTO_0
+//    );
+//    int currentApr18 = pa_.getAPR18() * int(periodInBlocks_);
+//
+//    // make decision if the new conversion-strategy is worth to be used instead current one
+//    if (origin != converter) {
+//      //1) threshold for APRs difference exceeds threshold, i.e. (apr0-apr1)/apr0 > 20%
+//      if (currentApr18 > aprForPeriod18
+//         && (thresholdAPR == 0 || currentApr18 - aprForPeriod18 > currentApr18 * int(thresholdAPR) / 100)
+//      ) {
+//        //2) threshold for block number: count blocks since prev rebalancing should exceed the threshold.
+//        if (thresholdCountBlocks == 0 || block.number - positionLastAccess[address(pa_)] > thresholdCountBlocks) {
+//          return true;
+//        }
+//      }
+//    }
+//    return false;
+//  }
 
   ///////////////////////////////////////////////////////
   ///                   Views
