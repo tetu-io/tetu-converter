@@ -154,8 +154,8 @@ describe("Hundred finance integration tests, platform adapter", () => {
       .mul(ret.liquidationThreshold18)
       .div(Misc.WEI);
     let amountToBorrow = toMantissa(amountToBorrow18, 18, await cTokenBorrow.decimals());
-    if (amountToBorrow.gt(ret.maxAmountToBorrowBT)) {
-      amountToBorrow = ret.maxAmountToBorrowBT;
+    if (amountToBorrow.gt(ret.maxAmountToBorrow)) {
+      amountToBorrow = ret.maxAmountToBorrow;
     }
     console.log("amountToBorrow", amountToBorrow);
 
@@ -201,8 +201,8 @@ describe("Hundred finance integration tests, platform adapter", () => {
       ret.rewardsAmountBt36,
       ret.ltv18,
       ret.liquidationThreshold18,
-      ret.maxAmountToBorrowBT,
-      ret.maxAmountToSupplyCT,
+      ret.maxAmountToBorrow,
+      ret.maxAmountToSupply,
     ].map(x => BalanceUtils.toString(x)) .join("\n");
 
     const sexpected = [
@@ -272,7 +272,7 @@ describe("Hundred finance integration tests, platform adapter", () => {
       describe("inactive", () => {
         describe("collateral token is inactive", () => {
           it("", async () =>{
-            //TODO: expect.fail("TODO");
+            // TODO: expect.fail("TODO");
           });
         });
       });
@@ -294,10 +294,10 @@ describe("Hundred finance integration tests, platform adapter", () => {
         const comptroller = await HundredFinanceHelper.getComptroller(deployer);
         const templateAdapterNormalStub = ethers.Wallet.createRandom();
 
-        return await PredictBrUsesCase.makeTest(
+        return PredictBrUsesCase.makeTest(
           deployer,
           new HfPlatformActor(borrowToken, collateralToken, comptroller),
-          async controller => await AdaptersHelper.createHundredFinancePlatformAdapter(
+          async controller => AdaptersHelper.createHundredFinancePlatformAdapter(
             deployer,
             controller.address,
             comptroller.address,
@@ -339,7 +339,7 @@ describe("Hundred finance integration tests, platform adapter", () => {
           );
 
           const ret = areAlmostEqual(r.br, r.brPredicted, 5);
-          expect(ret).true;
+          expect(ret).eq(true);
         });
       });
 
@@ -370,7 +370,7 @@ describe("Hundred finance integration tests, platform adapter", () => {
           );
 
           const ret = areAlmostEqual(r.br, r.brPredicted, 5);
-          expect(ret).true;
+          expect(ret).eq(true);
         });
       });
     });

@@ -288,7 +288,7 @@ export class BorrowRepayUsesCase {
       userBalances,
       borrowBalances,
       await uc.totalBorrowedAmount(),
-      await uc.totalRepaidAmount(),
+      await uc.totalAmountBorrowAssetRepaid(),
       {
         resultCollateralCanBeLessThenInitial: false
       }
@@ -388,7 +388,7 @@ export class BorrowRepayUsesCase {
       , r.userBalances
       , r.borrowBalances
       , await r.uc.totalBorrowedAmount()
-      , await r.uc.totalRepaidAmount()
+      , await r.uc.totalAmountBorrowAssetRepaid()
       , expectations
     );
 
@@ -500,7 +500,7 @@ export class BorrowRepayUsesCase {
       , userBalances
       , borrowBalances
       , await uc.totalBorrowedAmount()
-      , await uc.totalRepaidAmount()
+      , await uc.totalAmountBorrowAssetRepaid()
       , {
         resultCollateralCanBeLessThenInitial: false
       }
@@ -573,7 +573,7 @@ export class BorrowRepayUsesCase {
       , userBalances
       , borrowBalances
       , await uc.totalBorrowedAmount()
-      , await uc.totalRepaidAmount()
+      , await uc.totalAmountBorrowAssetRepaid()
       , expectations
     );
   }

@@ -1609,7 +1609,7 @@ describe("BorrowManager", () => {
           }
           const ret = await Promise.all(
             users.map(
-              async user => (await borrowManager.getPoolAdaptersForUser(user, asset1, asset2)).length
+              async user => (await borrowManager.getPoolAdaptersForUser(user)).length
             )
           );
           const sret = ret.join();
@@ -1650,7 +1650,7 @@ describe("BorrowManager", () => {
 
           const ret = await Promise.all(
             users.map(
-              async user => (await borrowManager.getPoolAdaptersForUser(user, asset1, asset2)).length
+              async user => (await borrowManager.getPoolAdaptersForUser(user)).length
             )
           );
           const sret = ret.join();

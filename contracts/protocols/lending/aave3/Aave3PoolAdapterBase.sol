@@ -413,7 +413,7 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer 
 
   function getStatus() external view override returns (
     uint collateralAmount,
-    uint amountsToPay,
+    uint amountToPay,
     uint healthFactor18,
     bool opened
   ) {

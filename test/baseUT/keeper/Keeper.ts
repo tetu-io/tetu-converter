@@ -1,10 +1,10 @@
-import {IBorrower__factory, IDebtMonitor, IPoolAdapter__factory, ITetuConverter} from "../../../typechain";
+import {IDebtMonitor} from "../../../typechain";
 import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import {IReConverter} from "./ReСonverters";
 
-/**
+/*
  * Implementation of UC2.4
- * */
+ */
 export class Keeper {
   dm: IDebtMonitor;
   healthFactor2: number;
@@ -39,12 +39,11 @@ export class Keeper {
     do {
       console.log("makeKeeperJob.checkForReconversion", startIndex0);
 
-      const ret = await this.dm.checkForReconversion(
-        startIndex0
-        , this.maxCountToCheck
-        , this.maxCountToReturn
-        , this.healthFactor2
-        , this.periodBlocks
+      const ret = await this.dm.checkBetterBorrowExists(
+        startIndex0,
+        this.maxCountToCheck,
+        this.maxCountToReturn,
+        this.periodBlocks,
       );
       console.log("makeKeeperJob.checkForReconversion found items:", ret.poolAdapters.length);
       poolAdaptersToReconvert.push(...ret.poolAdapters);

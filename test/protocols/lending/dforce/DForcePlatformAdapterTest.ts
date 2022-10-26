@@ -115,10 +115,10 @@ describe("DForce integration tests, platform adapter", () => {
     const comptroller = await DForceHelper.getController(deployer);
     const templateAdapterNormalStub = ethers.Wallet.createRandom();
 
-    return await PredictBrUsesCase.makeTest(
+    return PredictBrUsesCase.makeTest(
       deployer,
       new DForcePlatformActor(collateralToken, borrowToken, comptroller),
-      async controller => await AdaptersHelper.createHundredFinancePlatformAdapter(
+      async controller => AdaptersHelper.createHundredFinancePlatformAdapter(
         deployer,
         controller.address,
         comptroller.address,
@@ -200,8 +200,8 @@ describe("DForce integration tests, platform adapter", () => {
       .mul(ret.liquidationThreshold18)
       .div(Misc.WEI);
     let amountToBorrow = toMantissa(amountToBorrow18, 18, await cTokenBorrow.decimals());
-    if (amountToBorrow.gt(ret.maxAmountToBorrowBT)) {
-      amountToBorrow = ret.maxAmountToBorrowBT;
+    if (amountToBorrow.gt(ret.maxAmountToBorrow)) {
+      amountToBorrow = ret.maxAmountToBorrow;
     }
 
     // predict APR
@@ -235,8 +235,8 @@ describe("DForce integration tests, platform adapter", () => {
       ret.supplyAprBt36,
       ret.ltv18,
       ret.liquidationThreshold18,
-      ret.maxAmountToBorrowBT,
-      ret.maxAmountToSupplyCT,
+      ret.maxAmountToBorrow,
+      ret.maxAmountToSupply,
     ].map(x => BalanceUtils.toString(x)) .join("\n");
     console.log("amountToBorrow", amountToBorrow);
     console.log("borrowAssetData.borrowRatePerBlock", borrowAssetData.borrowRatePerBlock);
@@ -333,7 +333,7 @@ describe("DForce integration tests, platform adapter", () => {
       describe("inactive", () => {
         describe("collateral token is inactive", () => {
           it("", async () =>{
-            //expect.fail("TODO");
+            // expect.fail("TODO");
           });
         });
       });
@@ -369,7 +369,7 @@ describe("DForce integration tests, platform adapter", () => {
           );
 
           const ret = areAlmostEqual(r.br, r.brPredicted, 4);
-          expect(ret).true;
+          expect(ret).eq(true);
         });
       });
 
@@ -400,7 +400,7 @@ describe("DForce integration tests, platform adapter", () => {
           );
 
           const ret = areAlmostEqual(r.br, r.brPredicted, 4);
-          expect(ret).true;
+          expect(ret).eq(true);
 
         });
       });
@@ -432,7 +432,7 @@ describe("DForce integration tests, platform adapter", () => {
           );
 
           const ret = areAlmostEqual(r.br, r.brPredicted, 4);
-          expect(ret).true;
+          expect(ret).eq(true);
         });
       });
     });

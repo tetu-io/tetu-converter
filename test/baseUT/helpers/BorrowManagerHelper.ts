@@ -227,13 +227,13 @@ export class BorrowManagerHelper {
             );
 
             for (const converter of pp.converters) {
-                const asset2cTokens = new Map<string, string>;
+                const asset2cTokens = new Map<string, string>();
                 for (let i = 0; i < pp.assets.length; ++i) {
                     asset2cTokens.set(pp.assets[i], pp.cTokens[i]);
                 }
                 pools.push({
                     pool: pp.pool,
-                    converter: converter,
+                    converter,
                     platformAdapter: platformAdapter.address,
                     asset2cTokens
                 })

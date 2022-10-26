@@ -1328,7 +1328,7 @@ describe("DForce integration tests, pool adapter", () => {
 
       const afterBorrow: IDForceCalcAccountEquityResults = await d.comptroller.calcAccountEquity(d.dfPoolAdapterTC.address);
       const userBalanceAfterBorrow = await borrowToken.token.balanceOf(d.userContract.address);
-      const afterBorrowStatus = await d.dfPoolAdapterTC.getStatus();
+      const afterBorrowStatus: IPoolAdapterStatus = await d.dfPoolAdapterTC.getStatus();
       console.log("after borrow:", afterBorrow, userBalanceAfterBorrow);
 
       // increase all health factors down on 2 times to have possibility for additional borrow

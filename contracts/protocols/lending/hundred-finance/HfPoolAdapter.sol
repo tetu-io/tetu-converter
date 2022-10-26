@@ -433,7 +433,7 @@ contract HfPoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP {
 
   function getStatus() external view override returns (
     uint collateralAmount,
-    uint amountsToPay,
+    uint amountToPay,
     uint healthFactor18,
     bool opened
   ) {

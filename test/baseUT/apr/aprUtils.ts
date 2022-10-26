@@ -282,8 +282,8 @@ export function appendTestResultsToFile(path: string, data: IBorrowTestResults[]
       row.planSingleBlock.rewardsAmountBt36,
       row.planSingleBlock.ltv18,
       row.planSingleBlock.liquidationThreshold18,
-      row.planSingleBlock.maxAmountToSupplyCT,
-      row.planSingleBlock.maxAmountToBorrowBT,
+      row.planSingleBlock.maxAmountToSupply,
+      row.planSingleBlock.maxAmountToBorrow,
 
 // plan full period
       row.planFullPeriod.converter,
@@ -291,8 +291,8 @@ export function appendTestResultsToFile(path: string, data: IBorrowTestResults[]
       row.planFullPeriod.borrowApr36,
       row.planFullPeriod.ltv18,
       row.planFullPeriod.liquidationThreshold18,
-      row.planFullPeriod.maxAmountToSupplyCT,
-      row.planFullPeriod.maxAmountToBorrowBT,
+      row.planFullPeriod.maxAmountToSupply,
+      row.planFullPeriod.maxAmountToBorrow,
     ];
 
     if (row.results) {

@@ -161,8 +161,8 @@ describe("Aave3PlatformAdapterTest", () => {
         .div(getBigNumberFrom(1, 18))
       let borrowAmount = toMantissa(borrowAmount18, 18, borrowAssetData.data.decimals);
 
-      if (borrowAmount.gt(ret.maxAmountToBorrowBT)) {
-        borrowAmount = ret.maxAmountToBorrowBT;
+      if (borrowAmount.gt(ret.maxAmountToBorrow)) {
+        borrowAmount = ret.maxAmountToBorrow;
       }
 
       // calculate expected supply and borrow values
@@ -196,8 +196,8 @@ describe("Aave3PlatformAdapterTest", () => {
         ret.rewardsAmountBt36,
         ret.ltv18,
         ret.liquidationThreshold18,
-        ret.maxAmountToBorrowBT,
-        ret.maxAmountToSupplyCT,
+        ret.maxAmountToBorrow,
+        ret.maxAmountToSupply,
         // ensure that high efficiency mode is not available
         highEfficientModeEnabled
           ? collateralAssetData.data.emodeCategory != 0

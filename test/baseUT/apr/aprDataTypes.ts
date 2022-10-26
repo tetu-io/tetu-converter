@@ -20,14 +20,14 @@ export interface IAmounts {
 export interface IPointResults {
   period: IPeriod;
   rates: IRates;
-  /** Result balances.
+  /* Result balances.
    * Supply is in terms of collateral token, borrow - in terms of borrow tokens, rewards - in terms of rewards token
    **/
   balances: IAmounts;
 
-  /** Actual costs for period, all values are given in terms of borrow token, decimals 18*/
+  /* Actual costs for period, all values are given in terms of borrow token, decimals 18 */
   costsBT36: IAmounts;
-  /** both supply and borrow rewards in total (starting from the beginning) */
+  /* both supply and borrow rewards in total (starting from the beginning) */
   totalAmountRewards?: BigNumber;
   /** both supply and borrow rewards in total (starting from the beginning) in terms of borrow tokens, decimals 36 */
   totalAmountRewardsBt36?: BigNumber;

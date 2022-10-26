@@ -1,5 +1,5 @@
 import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
-import {IBorrower__factory, IPoolAdapter__factory} from "../../../typechain";
+import {Borrower__factory, IPoolAdapter__factory} from "../../../typechain";
 
 export interface IReConverter {
   do: (poolAdapter: string, signer: SignerWithAddress) => Promise<void>;
@@ -12,8 +12,8 @@ export class ReConverterUsingPA implements  IReConverter {
     const poolAdapterConfig = await poolAdapter.getConfig();
     const user = poolAdapterConfig.user;
 
-    const userAsSigner = IBorrower__factory.connect(user, signer);
-    await userAsSigner.requireReconversion(poolAdapterAddress);
+    const userAsSigner = Borrower__factory.connect(user, signer);
+    // TODO: await userAsSigner.requireReconversion(poolAdapterAddress);
   }
 }
 

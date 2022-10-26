@@ -197,7 +197,7 @@ export class LendingPlatformManagerAave3 implements ILendingPlatformManager {
     console.log("AAVE3 Collateral holder's balance of collateral token (before repay)"
       , await collateralAssetAsHolder.balanceOf(this.collateralHolder.holder));
 
-    await borrowAssetAsHolder.transfer(this.borrower.address, status.amountsToPay.mul(2));
+    await borrowAssetAsHolder.transfer(this.borrower.address, status.amountToPay.mul(2));
     console.log("AAVE3 Borrower balance of borrow token (before repay)"
       , await IERC20__factory.connect(this.borrowHolder.asset, signer).balanceOf(this.borrower.address));
 
