@@ -53,20 +53,17 @@ describe("Aave3PlatformAdapterTest", () => {
 
 //region IPlatformActor impl
   class Aave3PlatformActor implements IPlatformActor {
-    deployer: SignerWithAddress;
     dp: IAaveProtocolDataProvider;
     pool: IAavePool;
     collateralAsset: string;
     borrowAsset: string;
     private h: Aave3Helper;
     constructor(
-      deployer: SignerWithAddress,
       dp: IAaveProtocolDataProvider,
       pool: IAavePool,
       collateralAsset: string,
       borrowAsset: string
     ) {
-      this.deployer = deployer;
       this.h = new Aave3Helper(deployer);
       this.dp = dp;
       this.pool = pool;
@@ -130,8 +127,6 @@ describe("Aave3PlatformAdapterTest", () => {
       );
 
       const priceOracle = await Aave3Helper.getAavePriceOracle(deployer);
-      const priceCollateral = await priceOracle.getAssetPrice(collateralAsset);
-      const priceBorrow = await priceOracle.getAssetPrice(borrowAsset);
 
       const dp = await Aave3Helper.getAaveProtocolDataProvider(deployer);
 
@@ -200,9 +195,9 @@ describe("Aave3PlatformAdapterTest", () => {
         ret.maxAmountToSupply,
         // ensure that high efficiency mode is not available
         highEfficientModeEnabled
-          ? collateralAssetData.data.emodeCategory != 0
-          && borrowAssetData.data.emodeCategory == collateralAssetData.data.emodeCategory
-          : collateralAssetData.data.emodeCategory == 0 || borrowAssetData.data.emodeCategory == 0,
+          ? collateralAssetData.data.emodeCategory !== 0
+          && borrowAssetData.data.emodeCategory === collateralAssetData.data.emodeCategory
+          : collateralAssetData.data.emodeCategory === 0 || borrowAssetData.data.emodeCategory === 0,
 
         !ret.borrowApr36.eq(0),
         !ret.supplyAprBt36.eq(0)
@@ -231,8 +226,8 @@ describe("Aave3PlatformAdapterTest", () => {
         const totalSupply =
           (await IAaveToken__factory.connect(collateralAssetData.aTokenAddress, deployer).scaledTotalSupply())
             .mul(collateralAssetData.data.liquidityIndex)
-            .add(getBigNumberFrom(5, 26)) //HALF_RAY = 0.5e27
-            .div(getBigNumberFrom(1, 27)); //RAY = 1e27
+            .add(getBigNumberFrom(5, 26)) // HALF_RAY = 0.5e27
+            .div(getBigNumberFrom(1, 27)); // RAY = 1e27
         const supplyCap = collateralAssetData.data.supplyCap
           .mul(getBigNumberFrom(1, collateralAssetData.data.decimals));
         expectedMaxAmountToSupply = supplyCap.gt(totalSupply)
@@ -462,7 +457,7 @@ describe("Aave3PlatformAdapterTest", () => {
 
   describe("getBorrowRateAfterBorrow", () => {
     describe("Good paths", () => {
-      async function makeTest(
+      async function makeGetBorrowRateAfterBorrowTest(
         collateralAsset: string,
         borrowAsset: string,
         collateralHolders: string[],
@@ -473,16 +468,15 @@ describe("Aave3PlatformAdapterTest", () => {
         const dp = await Aave3Helper.getAaveProtocolDataProvider(deployer);
         const aavePool = await Aave3Helper.getAavePool(deployer);
 
-        return await PredictBrUsesCase.makeTest(
+        return PredictBrUsesCase.makeTest(
           deployer,
           new Aave3PlatformActor(
-            deployer,
             dp,
             aavePool,
             collateralAsset,
             borrowAsset
           ),
-          async controller => await AdaptersHelper.createAave3PlatformAdapter(
+          async controller => AdaptersHelper.createAave3PlatformAdapter(
             deployer,
             controller.address,
             aavePool.address,
@@ -498,6 +492,8 @@ describe("Aave3PlatformAdapterTest", () => {
 
       describe("small amount", () => {
         it("Predicted borrow rate should be same to real rate after the borrow", async () => {
+          if (!await isPolygonForkInUse()) return;
+
           const collateralAsset = MaticAddresses.DAI;
           const borrowAsset = MaticAddresses.USDC;
           const collateralHolders = [
@@ -510,15 +506,17 @@ describe("Aave3PlatformAdapterTest", () => {
           ];
           const part10000 = 1;
 
-          const r = await makeTest(collateralAsset, borrowAsset, collateralHolders, part10000);
+          const r = await makeGetBorrowRateAfterBorrowTest(collateralAsset, borrowAsset, collateralHolders, part10000);
 
           const ret = areAlmostEqual(r.br, r.brPredicted, 5);
-          expect(ret).true;
+          expect(ret).eq(true);
         });
       });
 
       describe("Huge amount", () => {
         it("Predicted borrow rate should be same to real rate after the borrow", async () => {
+          if (!await isPolygonForkInUse()) return;
+
           const collateralAsset = MaticAddresses.DAI;
           const borrowAsset = MaticAddresses.USDC;
           const collateralHolders = [
@@ -531,10 +529,10 @@ describe("Aave3PlatformAdapterTest", () => {
           ];
           const part10000 = 3000;
 
-          const r = await makeTest(collateralAsset, borrowAsset, collateralHolders, part10000);
+          const r = await makeGetBorrowRateAfterBorrowTest(collateralAsset, borrowAsset, collateralHolders, part10000);
 
           const ret = areAlmostEqual(r.br, r.brPredicted, 5);
-          expect(ret).true;
+          expect(ret).eq(true);
         });
       });
     });

@@ -11,7 +11,7 @@ import {
 import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import {MaticAddresses} from "../../addresses/MaticAddresses";
 import {DataTypes} from "../../../typechain/contracts/integrations/aaveTwo/IAaveTwoPool";
-import {ReserveLtvConfig} from "./Aave3Helper";
+import {IReserveLtvConfig} from "./Aave3Helper";
 
 const AAVE_POOL = MaticAddresses.AAVE_TWO_POOL;
 
@@ -157,7 +157,7 @@ export class AaveTwoHelper {
     }
   }
 
-  public static async getReserveLtvConfig(aavePool: IAaveTwoPool, reserve: string): Promise<ReserveLtvConfig> {
+  public static async getReserveLtvConfig(aavePool: IAaveTwoPool, reserve: string): Promise<IReserveLtvConfig> {
     const rd: DataTypes.ReserveDataStruct = await aavePool.getReserveData(reserve);
     const rawData: BigNumber = BigNumber.from(rd.configuration.data);
 

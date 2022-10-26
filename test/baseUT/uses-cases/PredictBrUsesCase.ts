@@ -49,7 +49,7 @@ export class PredictBrUsesCase {
     // we assume, that total amount of collateral on holders accounts should be enough to borrow required amount
     for (const h of collateralHolders) {
       const cAsH = IERC20Extended__factory.connect(collateralAsset, await DeployerUtils.startImpersonate(h));
-      await cAsH.transfer(deployer.address, await cAsH.balanceOf(h) );
+      await cAsH.transfer(deployer.address, await cAsH.balanceOf(h));
     }
     const collateralAmount = await IERC20Extended__factory.connect(collateralAsset, deployer)
       .balanceOf(deployer.address);

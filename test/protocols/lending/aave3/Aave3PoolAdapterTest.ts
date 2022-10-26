@@ -476,6 +476,8 @@ describe("Aave3PoolAdapterTest", () => {
     }
     describe("Good paths", () => {
       it("should move user account in the pool to expected state", async () => {
+        if (!await isPolygonForkInUse()) return;
+
         const collateralAsset = MaticAddresses.DAI;
         const collateralHolder = MaticAddresses.HOLDER_DAI;
         const borrowAsset = MaticAddresses.WMATIC;
@@ -694,6 +696,7 @@ describe("Aave3PoolAdapterTest", () => {
 //endregion Constants
         describe("Try to borrow max amount allowed by debt ceiling", () => {
           it("should return expected values", async () => {
+            if (!await isPolygonForkInUse()) return;
             const ret = await borrowMaxAmountInIsolationMode(collateralAsset, collateralHolders, borrowAsset, borrowHolders);
 
             const sret = ret.maxBorrowAmount.toString();
@@ -716,6 +719,7 @@ describe("Aave3PoolAdapterTest", () => {
 
         describe("Try to borrow max amount allowed by debt ceiling", () => {
           it("should return expected values", async () => {
+            if (!await isPolygonForkInUse()) return;
             const ret = await borrowMaxAmountInIsolationMode(collateralAsset, collateralHolders, borrowAsset, borrowHolders);
 
             const sret = ret.maxBorrowAmount.toString();
@@ -738,6 +742,7 @@ describe("Aave3PoolAdapterTest", () => {
 
         describe("Try to borrow max amount allowed by debt ceiling", () => {
           it("should return expected values", async () => {
+            if (!await isPolygonForkInUse()) return;
             const ret = await borrowMaxAmountInIsolationMode(collateralAsset, collateralHolders, borrowAsset, borrowHolders);
 
             const sret = ret.maxBorrowAmount.toString();
@@ -772,6 +777,7 @@ describe("Aave3PoolAdapterTest", () => {
 //endregion Constants
           describe("Try to borrow max amount allowed by debt ceiling", () => {
             it("should return expected values", async () => {
+              if (!await isPolygonForkInUse()) return;
               await expect(
                 borrowMaxAmountInIsolationMode(collateralAsset
                   , collateralHolders
@@ -796,6 +802,7 @@ describe("Aave3PoolAdapterTest", () => {
 
           describe("Try to borrow max amount allowed by debt ceiling", () => {
             it("should return expected values", async () => {
+              if (!await isPolygonForkInUse()) return;
               await expect(
                 borrowMaxAmountInIsolationMode(collateralAsset
                   , collateralHolders
@@ -825,6 +832,7 @@ describe("Aave3PoolAdapterTest", () => {
 //endregion Constants
           describe("Try to borrow max amount allowed by debt ceiling", () => {
             it("should return expected values", async () => {
+              if (!await isPolygonForkInUse()) return;
               await expect(
                 borrowMaxAmountInIsolationMode(collateralAsset
                   , collateralHolders
@@ -1443,12 +1451,14 @@ describe("Aave3PoolAdapterTest", () => {
   describe("TODO:syncBalance", () => {
     describe("Good paths", () => {
       it("should return expected values", async () => {
+        if (!await isPolygonForkInUse()) return;
         expect.fail("TODO");
       });
     });
     describe("Bad paths", () => {
       describe("", () => {
         it("should revert", async () => {
+          if (!await isPolygonForkInUse()) return;
           expect.fail("TODO");
         });
       });
@@ -1458,12 +1468,14 @@ describe("Aave3PoolAdapterTest", () => {
   describe("TODO:updateBalance", () => {
     describe("Good paths", () => {
       it("should return expected values", async () => {
+        if (!await isPolygonForkInUse()) return;
         expect.fail("TODO");
       });
     });
     describe("Bad paths", () => {
       describe("", () => {
         it("should revert", async () => {
+          if (!await isPolygonForkInUse()) return;
           expect.fail("TODO");
         });
       });
@@ -1473,12 +1485,14 @@ describe("Aave3PoolAdapterTest", () => {
   describe("TODO:initialize", () => {
     describe("Good paths", () => {
       it("should return expected values", async () => {
+        if (!await isPolygonForkInUse()) return;
         expect.fail("TODO");
       });
     });
     describe("Bad paths", () => {
       describe("", () => {
         it("should revert", async () => {
+          if (!await isPolygonForkInUse()) return;
           expect.fail("TODO");
         });
       });
@@ -1488,12 +1502,14 @@ describe("Aave3PoolAdapterTest", () => {
   describe("TODO:hasRewards", () => {
     describe("Good paths", () => {
       it("should return expected values", async () => {
+        if (!await isPolygonForkInUse()) return;
         expect.fail("TODO");
       });
     });
     describe("Bad paths", () => {
       describe("", () => {
         it("should revert", async () => {
+          if (!await isPolygonForkInUse()) return;
           expect.fail("TODO");
         });
       });
@@ -1503,12 +1519,14 @@ describe("Aave3PoolAdapterTest", () => {
   describe("TODO:claimRewards", () => {
     describe("Good paths", () => {
       it("should return expected values", async () => {
+        if (!await isPolygonForkInUse()) return;
         expect.fail("TODO");
       });
     });
     describe("Bad paths", () => {
       describe("", () => {
         it("should revert", async () => {
+          if (!await isPolygonForkInUse()) return;
           expect.fail("TODO");
         });
       });
@@ -1518,12 +1536,14 @@ describe("Aave3PoolAdapterTest", () => {
   describe("TODO:getConversionKind", () => {
     describe("Good paths", () => {
       it("should return expected values", async () => {
+        if (!await isPolygonForkInUse()) return;
         expect.fail("TODO");
       });
     });
     describe("Bad paths", () => {
       describe("", () => {
         it("should revert", async () => {
+          if (!await isPolygonForkInUse()) return;
           expect.fail("TODO");
         });
       });
@@ -1533,12 +1553,14 @@ describe("Aave3PoolAdapterTest", () => {
   describe("TODO:getConfig", () => {
     describe("Good paths", () => {
       it("should return expected values", async () => {
+        if (!await isPolygonForkInUse()) return;
         expect.fail("TODO");
       });
     });
     describe("Bad paths", () => {
       describe("", () => {
         it("should revert", async () => {
+          if (!await isPolygonForkInUse()) return;
           expect.fail("TODO");
         });
       });
@@ -1548,12 +1570,14 @@ describe("Aave3PoolAdapterTest", () => {
   describe("TODO:getStatus", () => {
     describe("Good paths", () => {
       it("should return expected values", async () => {
+        if (!await isPolygonForkInUse()) return;
         expect.fail("TODO");
       });
     });
     describe("Bad paths", () => {
       describe("", () => {
         it("should revert", async () => {
+          if (!await isPolygonForkInUse()) return;
           expect.fail("TODO");
         });
       });
@@ -1563,12 +1587,14 @@ describe("Aave3PoolAdapterTest", () => {
   describe("TODO:getAPR18", () => {
     describe("Good paths", () => {
       it("should return expected values", async () => {
+        if (!await isPolygonForkInUse()) return;
         expect.fail("TODO");
       });
     });
     describe("Bad paths", () => {
       describe("", () => {
         it("should revert", async () => {
+          if (!await isPolygonForkInUse()) return;
           expect.fail("TODO");
         });
       });

@@ -54,19 +54,16 @@ describe("AaveTwoPlatformAdapterTest", () => {
 
 //region IPlatformActor impl
   class AaveTwoPlatformActor implements IPlatformActor {
-    deployer: SignerWithAddress;
     dp: IAaveTwoProtocolDataProvider;
     pool: IAaveTwoPool;
     collateralAsset: string;
     borrowAsset: string;
     constructor(
-      deployer: SignerWithAddress,
       dp: IAaveTwoProtocolDataProvider,
       pool: IAaveTwoPool,
       collateralAsset: string,
       borrowAsset: string
     ) {
-      this.deployer = deployer;
       this.dp = dp;
       this.pool = pool;
       this.collateralAsset = collateralAsset;
@@ -315,13 +312,12 @@ describe("AaveTwoPlatformAdapterTest", () => {
         return PredictBrUsesCase.makeTest(
           deployer,
           new AaveTwoPlatformActor(
-            deployer,
             dp,
             aavePool,
             collateralAsset,
             borrowAsset
           ),
-          async controller => await AdaptersHelper.createAaveTwoPlatformAdapter(
+          async controller => AdaptersHelper.createAaveTwoPlatformAdapter(
             deployer,
             controller.address,
             aavePool.address,
@@ -336,6 +332,8 @@ describe("AaveTwoPlatformAdapterTest", () => {
 
       describe("small amount", () => {
         it("Predicted borrow rate should be same to real rate after the borrow", async () => {
+          if (!await isPolygonForkInUse()) return;
+
           const collateralAsset = MaticAddresses.DAI;
           const borrowAsset = MaticAddresses.USDC;
           const collateralHolders = [
@@ -357,6 +355,8 @@ describe("AaveTwoPlatformAdapterTest", () => {
 
       describe("Huge amount", () => {
         it("Predicted borrow rate should be same to real rate after the borrow", async () => {
+          if (!await isPolygonForkInUse()) return;
+
           const collateralAsset = MaticAddresses.DAI;
           const borrowAsset = MaticAddresses.USDC;
           const collateralHolders = [

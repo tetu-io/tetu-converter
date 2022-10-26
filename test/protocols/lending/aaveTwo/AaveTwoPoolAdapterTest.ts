@@ -455,6 +455,8 @@ describe("AaveTwoPoolAdapterTest", () => {
     }
     describe("Good paths", () => {
       it("should move user account in the pool to expected state", async () => {
+        if (!await isPolygonForkInUse()) return;
+
         const collateralAsset = MaticAddresses.DAI;
         const collateralHolder = MaticAddresses.HOLDER_DAI;
         const borrowAsset = MaticAddresses.WMATIC;
@@ -1123,12 +1125,14 @@ describe("AaveTwoPoolAdapterTest", () => {
   describe("TODO:syncBalance", () => {
     describe("Good paths", () => {
       it("should return expected values", async () => {
+        if (!await isPolygonForkInUse()) return;
         expect.fail("TODO");
       });
     });
     describe("Bad paths", () => {
       describe("", () => {
         it("should revert", async () => {
+          if (!await isPolygonForkInUse()) return;
           expect.fail("TODO");
         });
       });
@@ -1138,12 +1142,14 @@ describe("AaveTwoPoolAdapterTest", () => {
   describe("TODO:updateBalance", () => {
     describe("Good paths", () => {
       it("should return expected values", async () => {
+        if (!await isPolygonForkInUse()) return;
         expect.fail("TODO");
       });
     });
     describe("Bad paths", () => {
       describe("", () => {
         it("should revert", async () => {
+          if (!await isPolygonForkInUse()) return;
           expect.fail("TODO");
         });
       });
@@ -1153,12 +1159,14 @@ describe("AaveTwoPoolAdapterTest", () => {
   describe("TODO:initialize", () => {
     describe("Good paths", () => {
       it("should return expected values", async () => {
+        if (!await isPolygonForkInUse()) return;
         expect.fail("TODO");
       });
     });
     describe("Bad paths", () => {
       describe("", () => {
         it("should revert", async () => {
+          if (!await isPolygonForkInUse()) return;
           expect.fail("TODO");
         });
       });
@@ -1168,12 +1176,14 @@ describe("AaveTwoPoolAdapterTest", () => {
   describe("TODO:hasRewards", () => {
     describe("Good paths", () => {
       it("should return expected values", async () => {
+        if (!await isPolygonForkInUse()) return;
         expect.fail("TODO");
       });
     });
     describe("Bad paths", () => {
       describe("", () => {
         it("should revert", async () => {
+          if (!await isPolygonForkInUse()) return;
           expect.fail("TODO");
         });
       });
@@ -1183,12 +1193,14 @@ describe("AaveTwoPoolAdapterTest", () => {
   describe("TODO:claimRewards", () => {
     describe("Good paths", () => {
       it("should return expected values", async () => {
+        if (!await isPolygonForkInUse()) return;
         expect.fail("TODO");
       });
     });
     describe("Bad paths", () => {
       describe("", () => {
         it("should revert", async () => {
+          if (!await isPolygonForkInUse()) return;
           expect.fail("TODO");
         });
       });
@@ -1198,12 +1210,14 @@ describe("AaveTwoPoolAdapterTest", () => {
   describe("TODO:getConversionKind", () => {
     describe("Good paths", () => {
       it("should return expected values", async () => {
+        if (!await isPolygonForkInUse()) return;
         expect.fail("TODO");
       });
     });
     describe("Bad paths", () => {
       describe("", () => {
         it("should revert", async () => {
+          if (!await isPolygonForkInUse()) return;
           expect.fail("TODO");
         });
       });
@@ -1213,12 +1227,14 @@ describe("AaveTwoPoolAdapterTest", () => {
   describe("TODO:getConfig", () => {
     describe("Good paths", () => {
       it("should return expected values", async () => {
+        if (!await isPolygonForkInUse()) return;
         expect.fail("TODO");
       });
     });
     describe("Bad paths", () => {
       describe("", () => {
         it("should revert", async () => {
+          if (!await isPolygonForkInUse()) return;
           expect.fail("TODO");
         });
       });
@@ -1228,12 +1244,14 @@ describe("AaveTwoPoolAdapterTest", () => {
   describe("TODO:getStatus", () => {
     describe("Good paths", () => {
       it("should return expected values", async () => {
+        if (!await isPolygonForkInUse()) return;
         expect.fail("TODO");
       });
     });
     describe("Bad paths", () => {
       describe("", () => {
         it("should revert", async () => {
+          if (!await isPolygonForkInUse()) return;
           expect.fail("TODO");
         });
       });
@@ -1243,12 +1261,14 @@ describe("AaveTwoPoolAdapterTest", () => {
   describe("TODO:getAPR18", () => {
     describe("Good paths", () => {
       it("should return expected values", async () => {
+        if (!await isPolygonForkInUse()) return;
         expect.fail("TODO");
       });
     });
     describe("Bad paths", () => {
       describe("", () => {
         it("should revert", async () => {
+          if (!await isPolygonForkInUse()) return;
           expect.fail("TODO");
         });
       });

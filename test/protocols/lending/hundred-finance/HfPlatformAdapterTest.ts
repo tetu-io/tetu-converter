@@ -19,7 +19,7 @@ import {IPlatformActor, PredictBrUsesCase} from "../../../baseUT/uses-cases/Pred
 import {Misc} from "../../../../scripts/utils/Misc";
 import {getBigNumberFrom} from "../../../../scripts/utils/NumberUtils";
 import {DeployUtils} from "../../../../scripts/utils/DeployUtils";
-import {AprHundredFinance, getHfStateInfo} from "../../../baseUT/apr/aprHundredFinance";
+import {AprHundredFinance} from "../../../baseUT/apr/aprHundredFinance";
 
 describe("Hundred finance integration tests, platform adapter", () => {
 //region Global vars for all tests
@@ -272,6 +272,7 @@ describe("Hundred finance integration tests, platform adapter", () => {
       describe("inactive", () => {
         describe("collateral token is inactive", () => {
           it("", async () =>{
+            if (!await isPolygonForkInUse()) return;
             // TODO: expect.fail("TODO");
           });
         });
@@ -314,6 +315,8 @@ describe("Hundred finance integration tests, platform adapter", () => {
 
       describe("small amount", () => {
         it("Predicted borrow rate should be same to real rate after the borrow", async () => {
+          if (!await isPolygonForkInUse()) return;
+
           const collateralAsset = MaticAddresses.DAI;
           const collateralCToken = MaticAddresses.hDAI;
           const borrowAsset = MaticAddresses.USDC;
@@ -345,6 +348,8 @@ describe("Hundred finance integration tests, platform adapter", () => {
 
       describe("Huge amount", () => {
         it("Predicted borrow rate should be same to real rate after the borrow", async () => {
+          if (!await isPolygonForkInUse()) return;
+
           const collateralAsset = MaticAddresses.DAI;
           const collateralCToken = MaticAddresses.hDAI;
           const borrowAsset = MaticAddresses.USDC;

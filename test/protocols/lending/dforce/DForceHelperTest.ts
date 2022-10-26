@@ -10,7 +10,7 @@ import {MaticAddresses} from "../../../../scripts/addresses/MaticAddresses";
 import {CoreContractsHelper} from "../../../baseUT/helpers/CoreContractsHelper";
 import {
   DForceHelper, IBorrowRewardsPredictionInput,
-  IBorrowRewardsStatePoint, IRewardsStatePoint,
+  IRewardsStatePoint,
   ISupplyRewardsStatePoint
 } from "../../../../scripts/integration/helpers/DForceHelper";
 import {TokenDataTypes} from "../../../baseUT/types/TokenDataTypes";
@@ -91,7 +91,7 @@ describe("DForceHelper tests", () => {
     console.log("user", user.address);
 
     // make supply, wait period, get actual amount of rewards
-    return await SupplyBorrowUsingDForce.makeSupplyRewardsTestMinimumTransactions(
+    return SupplyBorrowUsingDForce.makeSupplyRewardsTestMinimumTransactions(
       deployer
       , user
       , collateralToken
@@ -149,7 +149,7 @@ describe("DForceHelper tests", () => {
     console.log("user", user.address);
 
     // make supply, wait period, get actual amount of rewards
-    return await SupplyBorrowUsingDForce.makeBorrowRewardsOnlyTest(
+    return SupplyBorrowUsingDForce.makeBorrowRewardsOnlyTest(
       deployer
       , collateralToken
       , collateralCToken
@@ -281,7 +281,7 @@ describe("DForceHelper tests", () => {
 
             // get amount of really earned supply-rewards
             const r = await makeTestBorrowRewardsOnly(
-              MaticAddresses.WETH, //WETH doesn't have supply-rewards
+              MaticAddresses.WETH, // WETH doesn't have supply-rewards
               MaticAddresses.dForce_iWETH,
               MaticAddresses.HOLDER_WETH,
               1_000,
@@ -382,11 +382,11 @@ describe("DForceHelper tests", () => {
               stateBlock: stateBlock1,
               accountIndex: stateIndex1,
               distributionSpeed: BigNumber.from("15972314654598696"),
-              accountBalance: accountBalance,
-              totalToken: totalToken,
+              accountBalance,
+              totalToken,
             }
             const blockUpdateDistributionState: BigNumber = BigNumber.from("32291588");
-            //const pt = DForceHelper.predictRewardsStatePointAfterBorrow(borrowPoint);
+            // const pt = DForceHelper.predictRewardsStatePointAfterBorrow(borrowPoint);
             console.log("PT", pt);
             const ret = DForceHelper.getBorrowRewardsAmount(pt, blockUpdateDistributionState);
             console.log(ret);
@@ -405,8 +405,8 @@ describe("DForceHelper tests", () => {
                 stateBlock: stateBlock0,
                 stateIndex: stateIndex0
               },
-              async function (cash: BigNumber, totalBorrows: BigNumber, totalReserve: BigNumber) : Promise<BigNumber> {
-                return cash == getCash0
+              async function (cash: BigNumber) : Promise<BigNumber> {
+                return cash === getCash0
                   ? borrowRate1
                   : borrowRate2
               },
@@ -423,7 +423,7 @@ describe("DForceHelper tests", () => {
 
             // get amount of really earned supply-rewards
             const r = await makeTestBorrowRewardsOnly(
-              MaticAddresses.WETH, //WETH doesn't have supply-rewards
+              MaticAddresses.WETH, // WETH doesn't have supply-rewards
               MaticAddresses.dForce_iWETH,
               MaticAddresses.HOLDER_WETH,
               1,

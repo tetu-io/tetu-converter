@@ -141,7 +141,7 @@ export interface IAave3ReserveInfo {
   category?: IAave3CategoryData;
 }
 
-export interface ReserveLtvConfig {
+export interface IReserveLtvConfig {
   ltv: BigNumber;
   liquidationThreshold: BigNumber;
   liquidationBonus: BigNumber;
@@ -159,7 +159,7 @@ export class Aave3Helper {
     ));
   }
 
-  public static async getReserveLtvConfig(aavePool: IAavePool, reserve: string): Promise<ReserveLtvConfig> {
+  public static async getReserveLtvConfig(aavePool: IAavePool, reserve: string): Promise<IReserveLtvConfig> {
     const rd: Aave3DataTypes.ReserveDataStruct = await aavePool.getReserveData(reserve);
     const rawData: BigNumber = BigNumber.from(rd.configuration.data);
 
@@ -240,15 +240,15 @@ export class Aave3Helper {
     }
 
     return {
-      reserveName: reserveName,
-      reserveSymbol: reserveSymbol,
+      reserveName,
+      reserveSymbol,
       reserveAddress: reserve,
-      aTokenSymbol: aTokenSymbol,
+      aTokenSymbol,
       aTokenAddress: await rd.aTokenAddress,
-      aTokenName: aTokenName,
+      aTokenName,
       category: categoryData,
       liquidity: liquidityData,
-      data: data
+      data
     }
   }
 //endregion Instance

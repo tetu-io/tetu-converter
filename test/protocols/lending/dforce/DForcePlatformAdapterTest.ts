@@ -344,6 +344,8 @@ describe("DForce integration tests, platform adapter", () => {
     describe("Good paths", () => {
       describe("small amount DAI => USDC", () => {
         it("Predicted borrow rate should be same to real rate after the borrow", async () => {
+          if (!await isPolygonForkInUse()) return;
+
           const collateralAsset = MaticAddresses.DAI;
           const collateralCToken = MaticAddresses.dForce_iDAI;
           const borrowAsset = MaticAddresses.USDC;
@@ -375,6 +377,8 @@ describe("DForce integration tests, platform adapter", () => {
 
       describe("Huge amount DAI => USDC", () => {
         it("Predicted borrow rate should be same to real rate after the borrow", async () => {
+          if (!await isPolygonForkInUse()) return;
+
           const collateralAsset = MaticAddresses.DAI;
           const collateralCToken = MaticAddresses.dForce_iDAI;
           const borrowAsset = MaticAddresses.USDC;
@@ -407,6 +411,8 @@ describe("DForce integration tests, platform adapter", () => {
 
       describe("Huge amount DAI => WBTC", () => {
         it("Predicted borrow rate should be same to real rate after the borrow", async () => {
+          if (!await isPolygonForkInUse()) return;
+
           const collateralAsset = MaticAddresses.DAI;
           const collateralCToken = MaticAddresses.dForce_iDAI;
           const borrowAsset = MaticAddresses.WBTC;

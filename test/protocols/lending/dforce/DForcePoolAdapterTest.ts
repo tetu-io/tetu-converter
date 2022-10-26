@@ -449,11 +449,13 @@ describe("DForce integration tests, pool adapter", () => {
     describe("Bad paths", () => {
       describe("Not borrowable", () => {
         it("", async () =>{
+          if (!await isPolygonForkInUse()) return;
           expect.fail("TODO");
         });
       });
       describe("Not usable as collateral", () => {
         it("", async () =>{
+          if (!await isPolygonForkInUse()) return;
           expect.fail("TODO");
         });
       });
@@ -1485,12 +1487,14 @@ describe("DForce integration tests, pool adapter", () => {
   describe("TODO:syncBalance", () => {
     describe("Good paths", () => {
       it("should return expected values", async () => {
+        if (!await isPolygonForkInUse()) return;
         expect.fail("TODO");
       });
     });
     describe("Bad paths", () => {
       describe("", () => {
         it("should revert", async () => {
+          if (!await isPolygonForkInUse()) return;
           expect.fail("TODO");
         });
       });
@@ -1500,12 +1504,14 @@ describe("DForce integration tests, pool adapter", () => {
   describe("TODO:updateBalance", () => {
     describe("Good paths", () => {
       it("should return expected values", async () => {
+        if (!await isPolygonForkInUse()) return;
         expect.fail("TODO");
       });
     });
     describe("Bad paths", () => {
       describe("", () => {
         it("should revert", async () => {
+          if (!await isPolygonForkInUse()) return;
           expect.fail("TODO");
         });
       });
@@ -1515,12 +1521,14 @@ describe("DForce integration tests, pool adapter", () => {
   describe("TODO:initialize", () => {
     describe("Good paths", () => {
       it("should return expected values", async () => {
+        if (!await isPolygonForkInUse()) return;
         expect.fail("TODO");
       });
     });
     describe("Bad paths", () => {
       describe("", () => {
         it("should revert", async () => {
+          if (!await isPolygonForkInUse()) return;
           expect.fail("TODO");
         });
       });
@@ -1530,12 +1538,14 @@ describe("DForce integration tests, pool adapter", () => {
   describe("TODO:hasRewards", () => {
     describe("Good paths", () => {
       it("should return expected values", async () => {
+        if (!await isPolygonForkInUse()) return;
         expect.fail("TODO");
       });
     });
     describe("Bad paths", () => {
       describe("", () => {
         it("should revert", async () => {
+          if (!await isPolygonForkInUse()) return;
           expect.fail("TODO");
         });
       });
@@ -1545,12 +1555,14 @@ describe("DForce integration tests, pool adapter", () => {
   describe("TODO:claimRewards", () => {
     describe("Good paths", () => {
       it("should return expected values", async () => {
+        if (!await isPolygonForkInUse()) return;
         expect.fail("TODO");
       });
     });
     describe("Bad paths", () => {
       describe("", () => {
         it("should revert", async () => {
+          if (!await isPolygonForkInUse()) return;
           expect.fail("TODO");
         });
       });
@@ -1560,12 +1572,14 @@ describe("DForce integration tests, pool adapter", () => {
   describe("TODO:getConversionKind", () => {
     describe("Good paths", () => {
       it("should return expected values", async () => {
+        if (!await isPolygonForkInUse()) return;
         expect.fail("TODO");
       });
     });
     describe("Bad paths", () => {
       describe("", () => {
         it("should revert", async () => {
+          if (!await isPolygonForkInUse()) return;
           expect.fail("TODO");
         });
       });
@@ -1575,12 +1589,14 @@ describe("DForce integration tests, pool adapter", () => {
   describe("TODO:getConfig", () => {
     describe("Good paths", () => {
       it("should return expected values", async () => {
+        if (!await isPolygonForkInUse()) return;
         expect.fail("TODO");
       });
     });
     describe("Bad paths", () => {
       describe("", () => {
         it("should revert", async () => {
+          if (!await isPolygonForkInUse()) return;
           expect.fail("TODO");
         });
       });
@@ -1590,12 +1606,14 @@ describe("DForce integration tests, pool adapter", () => {
   describe("TODO:getStatus", () => {
     describe("Good paths", () => {
       it("should return expected values", async () => {
+        if (!await isPolygonForkInUse()) return;
         expect.fail("TODO");
       });
     });
     describe("Bad paths", () => {
       describe("", () => {
         it("should revert", async () => {
+          if (!await isPolygonForkInUse()) return;
           expect.fail("TODO");
         });
       });
@@ -1605,12 +1623,14 @@ describe("DForce integration tests, pool adapter", () => {
   describe("TODO:getAPR18", () => {
     describe("Good paths", () => {
       it("should return expected values", async () => {
+        if (!await isPolygonForkInUse()) return;
         expect.fail("TODO");
       });
     });
     describe("Bad paths", () => {
       describe("", () => {
         it("should revert", async () => {
+          if (!await isPolygonForkInUse()) return;
           expect.fail("TODO");
         });
       });
