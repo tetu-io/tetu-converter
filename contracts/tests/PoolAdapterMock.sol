@@ -180,7 +180,7 @@ contract PoolAdapterMock is IPoolAdapter {
     return AppDataTypes.ConversionKind.BORROW_2;
   }
 
-  function syncBalance(bool beforeBorrow, bool updateStatus) external override {
+  function syncBalance(bool beforeBorrow, bool updateStatus_) external override {
     console.log("syncBalance beforeBorrow=%d", beforeBorrow ? 1 : 0);
     uint collateralBalance = IERC20(_collateralAsset).balanceOf(address(this));
     uint borrowBalance = IERC20(_borrowAsset).balanceOf(address(this));
@@ -193,7 +193,7 @@ contract PoolAdapterMock is IPoolAdapter {
 
     // ensure, that syncBalance(true, true) is called before the borrow
     if (borrowLog == BorrowLogStates.DISABLED_0) {
-      if (beforeBorrow && updateStatus) {
+      if (beforeBorrow && updateStatus_) {
         borrowLog = BorrowLogStates.SYNC_BALANCE_TRUE_TRUE_2;
       }
     }

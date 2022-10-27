@@ -98,11 +98,12 @@ contract AaveTwoPoolAdapter is IPoolAdapter, IPoolAdapterInitializer {
   /// @notice Save current balance of collateral/borrow BEFORE transferring amount of collateral/borrow to the adapter
   /// @dev TC calls this function before transferring any amounts to balance of this contract
   function syncBalance(bool beforeBorrow_, bool) external override {
-    if (beforeBorrow_) {
-      // borrow: we are going to transfer collateral asset to the balance of this contract
-      reserveBalances[collateralAsset] = IERC20(collateralAsset).balanceOf(address(this));
-    } else {
+    // borrow: we are going to transfer collateral asset to the balance of this contract
+    reserveBalances[collateralAsset] = IERC20(collateralAsset).balanceOf(address(this));
+
+    if (!beforeBorrow_) {
       // repay: we are going to transfer borrow asset to the balance of this contract
+      // repayToRebalance: borrow/collateral asset can be transferred
       reserveBalances[borrowAsset] = IERC20(borrowAsset).balanceOf(address(this));
     }
   }
@@ -122,38 +123,16 @@ contract AaveTwoPoolAdapter is IPoolAdapter, IPoolAdapterInitializer {
     address receiver_
   ) external override returns (uint) {
     _onlyTC();
-    address assetCollateral = collateralAsset;
+
+    IAaveTwoPool pool = _pool;
     address assetBorrow = borrowAsset;
 
-    //a-tokens
-    DataTypes.ReserveData memory d = _pool.getReserveData(assetCollateral);
-    uint aTokensBalanceBeforeSupply = IERC20(d.aTokenAddress).balanceOf(address(this));
-
-    // ensure we have received expected collateral amount
-    require(
-      collateralAmount_ >= IERC20(assetCollateral).balanceOf(address(this)) - reserveBalances[assetCollateral]
-      , AppErrors.WRONG_COLLATERAL_BALANCE
-    );
-
-    // Supplies an `amount` of underlying asset into the reserve, receiving in return overlying aTokens.
-    // E.g. User supplies 100 USDC and gets in return 100 aUSDC
-    IERC20(assetCollateral).approve(address(_pool), collateralAmount_);
-    _pool.deposit(
-      assetCollateral,
-      collateralAmount_,
-      address(this),
-      0 // no referral code
-    );
-    _pool.setUserUseReserveAsCollateral(assetCollateral, true);
-
-
-    uint aTokensAmount = IERC20(d.aTokenAddress).balanceOf(address(this)) - aTokensBalanceBeforeSupply;
-    require(aTokensAmount + ATOKEN_MAX_DELTA >= collateralAmount_, AppErrors.WRONG_DERIVATIVE_TOKENS_BALANCE);
+    _supply(pool, collateralAsset, collateralAmount_);
 
     // make borrow, send borrowed amount to the receiver
     // we cannot transfer borrowed amount directly to receiver because the debt is incurred by amount receiver
     uint balanceBorrowAsset0 = IERC20(assetBorrow).balanceOf(address(this));
-    _pool.borrow(
+    pool.borrow(
       assetBorrow,
       borrowAmount_,
       RATE_MODE,
@@ -172,10 +151,41 @@ contract AaveTwoPoolAdapter is IPoolAdapter, IPoolAdapterInitializer {
     IDebtMonitor(controller.debtMonitor()).onOpenPosition();
 
     // ensure that current health factor is greater than min allowed
-    (,,,,, uint256 healthFactor) = _pool.getUserAccountData(address(this));
+    (,,,,, uint256 healthFactor) = pool.getUserAccountData(address(this));
     _validateHealthFactor(healthFactor);
 
     return borrowAmount_;
+  }
+
+  /// @notice Supply collateral to AAVE-pool
+  function _supply(
+    IAaveTwoPool pool_,
+    address assetCollateral_,
+    uint collateralAmount_
+  ) internal {
+    //a-tokens
+    DataTypes.ReserveData memory d = pool_.getReserveData(assetCollateral_);
+    uint aTokensBalanceBeforeSupply = IERC20(d.aTokenAddress).balanceOf(address(this));
+
+    // ensure we have received expected collateral amount
+    require(
+      collateralAmount_ >= IERC20(assetCollateral_).balanceOf(address(this)) - reserveBalances[assetCollateral_]
+    , AppErrors.WRONG_COLLATERAL_BALANCE
+    );
+
+    // Supplies an `amount` of underlying asset into the reserve, receiving in return overlying aTokens.
+    // E.g. User supplies 100 USDC and gets in return 100 aUSDC
+    IERC20(assetCollateral_).approve(address(pool_), collateralAmount_);
+    pool_.deposit(
+      assetCollateral_,
+      collateralAmount_,
+      address(this),
+      0 // no referral code
+    );
+    pool_.setUserUseReserveAsCollateral(assetCollateral_, true);
+
+    uint aTokensAmount = IERC20(d.aTokenAddress).balanceOf(address(this)) - aTokensBalanceBeforeSupply;
+    require(aTokensAmount + ATOKEN_MAX_DELTA >= collateralAmount_, AppErrors.WRONG_DERIVATIVE_TOKENS_BALANCE);
   }
 
   function borrowToRebalance(
@@ -332,29 +342,41 @@ contract AaveTwoPoolAdapter is IPoolAdapter, IPoolAdapterInitializer {
     address assetBorrow = borrowAsset;
     IAaveTwoPool pool = _pool;
 
-    // ensure, that amount to repay is less then the total debt
-    (,uint256 totalDebtBase0,,,,) = _pool.getUserAccountData(address(this));
-    uint priceBorrowAsset = _priceOracle.getAssetPrice(assetBorrow);
-    uint totalAmountToPay = totalDebtBase0 == 0
-      ? 0
-      : totalDebtBase0 * (10 ** _pool.getConfiguration(assetBorrow).getDecimals()) / priceBorrowAsset;
-    require(totalDebtBase0 > 0 && amount_ < totalAmountToPay, AppErrors.REPAY_TO_REBALANCE_NOT_ALLOWED);
+    if (isCollateral_) {
+      address assetCollateral = collateralAsset;
+      // ensure that we have received expected amount on our balance just before repay was called
+      // the correct sequence of calls are following: syncBalance(false); transfer amount-to-repay; repay()
+      require(
+        amount_ == IERC20(assetCollateral).balanceOf(address(this)) - reserveBalances[assetCollateral],
+        AppErrors.WRONG_BORROWED_BALANCE
+      );
 
-    // ensure that we have received enough money on our balance just before repay was called
-    require(
-      amount_ == IERC20(assetBorrow).balanceOf(address(this)) - reserveBalances[assetBorrow]
-    , AppErrors.WRONG_BORROWED_BALANCE
-    );
+      _supply(_pool, assetCollateral, amount_);
+    } else {
+      // ensure, that amount to repay is less then the total debt
+      (,uint256 totalDebtBase0,,,,) = _pool.getUserAccountData(address(this));
+      uint priceBorrowAsset = _priceOracle.getAssetPrice(assetBorrow);
+      uint totalAmountToPay = totalDebtBase0 == 0
+        ? 0
+        : totalDebtBase0 * (10 ** _pool.getConfiguration(assetBorrow).getDecimals()) / priceBorrowAsset;
+      require(totalDebtBase0 > 0 && amount_ < totalAmountToPay, AppErrors.REPAY_TO_REBALANCE_NOT_ALLOWED);
 
-    // transfer borrow amount back to the pool
-    IERC20(assetBorrow).approve(address(pool), 0);
-    IERC20(assetBorrow).approve(address(pool), amount_);
+      // ensure that we have received enough money on our balance just before repay was called
+      require(
+        amount_ == IERC20(assetBorrow).balanceOf(address(this)) - reserveBalances[assetBorrow]
+      , AppErrors.WRONG_BORROWED_BALANCE
+      );
 
-    pool.repay(assetBorrow,
-      amount_,
-      RATE_MODE,
-      address(this)
-    );
+      // transfer borrow amount back to the pool
+      IERC20(assetBorrow).approve(address(pool), 0);
+      IERC20(assetBorrow).approve(address(pool), amount_);
+
+      pool.repay(assetBorrow,
+        amount_,
+        RATE_MODE,
+        address(this)
+      );
+    }
 
     // validate result status
     (,,,,, uint256 healthFactor) = pool.getUserAccountData(address(this));

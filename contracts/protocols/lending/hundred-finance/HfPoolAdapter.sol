@@ -112,13 +112,14 @@ contract HfPoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP {
 
   /// @dev TC calls this function before transferring any amounts to balance of this contract
   function syncBalance(bool beforeBorrow_, bool updateStatus_) external override {
-    if (beforeBorrow_) {
-      address assetCollateral = collateralAsset;
-      reserveBalances[assetCollateral] = _getBalance(assetCollateral);
-    } else {
+    address assetCollateral = collateralAsset;
+    reserveBalances[assetCollateral] = _getBalance(assetCollateral);
+
+    if (!beforeBorrow_) {
       address assetBorrow = borrowAsset;
       reserveBalances[assetBorrow] = _getBalance(assetBorrow);
     }
+
     if (updateStatus_) {
       // Update borrowBalance to actual value
       IHfCToken(borrowCToken).borrowBalanceCurrent(address(this));
@@ -159,16 +160,7 @@ contract HfPoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP {
     comptroller.enterMarkets(markets);
 
     // supply collateral
-    if (_isMatic(assetCollateral)) {
-      require(IERC20(WMATIC).balanceOf(address(this)) >= collateralAmount_, AppErrors.MINT_FAILED);
-      IWmatic(WMATIC).withdraw(collateralAmount_);
-      IHfHMatic(payable(cTokenCollateral)).mint{value : collateralAmount_}();
-    } else {
-      IERC20(assetCollateral).approve(cTokenCollateral, 0);
-      IERC20(assetCollateral).approve(cTokenCollateral, collateralAmount_);
-      error = IHfCToken(cTokenCollateral).mint(collateralAmount_);
-      require(error == 0, AppErrors.MINT_FAILED);
-    }
+    _supply(cTokenCollateral, assetCollateral, collateralAmount_);
 
     // make borrow
     uint balanceBorrowAsset0 = _getBalance(assetBorrow);
@@ -192,6 +184,24 @@ contract HfPoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP {
     _validateHealthStatusAfterBorrow(comptroller, cTokenCollateral, cTokenBorrow);
 
     return borrowAmount_;
+  }
+
+  /// @notice Supply collateral to Hundred finance market
+  function _supply(
+    address cTokenCollateral_,
+    address assetCollateral_,
+    uint collateralAmount_
+  ) internal {
+    if (_isMatic(assetCollateral_)) {
+      require(IERC20(WMATIC).balanceOf(address(this)) >= collateralAmount_, AppErrors.MINT_FAILED);
+      IWmatic(WMATIC).withdraw(collateralAmount_);
+      IHfHMatic(payable(cTokenCollateral_)).mint{value : collateralAmount_}();
+    } else {
+      IERC20(assetCollateral_).approve(cTokenCollateral_, 0);
+      IERC20(assetCollateral_).approve(cTokenCollateral_, collateralAmount_);
+      uint error = IHfCToken(cTokenCollateral_).mint(collateralAmount_);
+      require(error == 0, AppErrors.MINT_FAILED);
+    }
   }
 
   /// @return Result health factor, decimals 18
@@ -369,33 +379,45 @@ contract HfPoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP {
     _onlyUserOrTC();
 
     uint error;
-    address assetBorrow = borrowAsset;
     address cTokenBorrow = borrowCToken;
     address cTokenCollateral = collateralCToken;
 
     // ensure that the position is opened
     require(IDebtMonitor(controller.debtMonitor()).isPositionOpened(), AppErrors.BORROW_POSITION_IS_NOT_REGISTERED);
 
-    // ensure, that amount to repay is less then the total debt
-    (, uint outBorrowBalance,,,) = _getStatus(cTokenCollateral, cTokenBorrow);
-    require(outBorrowBalance > 0 && amount_ < outBorrowBalance, AppErrors.REPAY_TO_REBALANCE_NOT_ALLOWED);
+    if (isCollateral_) {
+      address assetCollateral = collateralAsset;
+      // ensure that we have received expected amount on our balance just before repay was called
+      // the correct sequence of calls are following: syncBalance(false); transfer amount-to-repay; repay()
+      require(
+        amount_ == IERC20(assetCollateral).balanceOf(address(this)) - reserveBalances[assetCollateral],
+        AppErrors.WRONG_BORROWED_BALANCE
+      );
 
-    // ensure that we have received enough money on our balance just before repay was called
-    require(
-      amount_ == IERC20(assetBorrow).balanceOf(address(this)) - reserveBalances[assetBorrow]
-    , AppErrors.WRONG_BORROWED_BALANCE
-    );
-
-    // transfer borrow amount back to the pool
-    if (_isMatic(assetBorrow)) {
-      require(IERC20(WMATIC).balanceOf(address(this)) >= amount_, AppErrors.MINT_FAILED);
-      IWmatic(WMATIC).withdraw(amount_);
-      IHfHMatic(payable(cTokenBorrow)).repayBorrow{value : amount_}();
+      _supply(cTokenCollateral, assetCollateral, amount_);
     } else {
-      IERC20(assetBorrow).approve(cTokenBorrow, 0);
-      IERC20(assetBorrow).approve(cTokenBorrow, amount_);
-      error = IHfCToken(cTokenBorrow).repayBorrow(amount_);
-      require(error == 0, AppErrors.REPAY_FAILED);
+      address assetBorrow = borrowAsset;
+      // ensure, that amount to repay is less then the total debt
+      (, uint outBorrowBalance,,,) = _getStatus(cTokenCollateral, cTokenBorrow);
+      require(outBorrowBalance > 0 && amount_ < outBorrowBalance, AppErrors.REPAY_TO_REBALANCE_NOT_ALLOWED);
+
+      // ensure that we have received enough money on our balance just before repay was called
+      require(
+        amount_ == IERC20(assetBorrow).balanceOf(address(this)) - reserveBalances[assetBorrow]
+      , AppErrors.WRONG_BORROWED_BALANCE
+      );
+
+      // transfer borrow amount back to the pool
+      if (_isMatic(assetBorrow)) {
+        require(IERC20(WMATIC).balanceOf(address(this)) >= amount_, AppErrors.MINT_FAILED);
+        IWmatic(WMATIC).withdraw(amount_);
+        IHfHMatic(payable(cTokenBorrow)).repayBorrow{value : amount_}();
+      } else {
+        IERC20(assetBorrow).approve(cTokenBorrow, 0);
+        IERC20(assetBorrow).approve(cTokenBorrow, amount_);
+        error = IHfCToken(cTokenBorrow).repayBorrow(amount_);
+        require(error == 0, AppErrors.REPAY_FAILED);
+      }
     }
 
     // validate result status
