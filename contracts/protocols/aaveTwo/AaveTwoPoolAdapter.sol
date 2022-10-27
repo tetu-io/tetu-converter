@@ -414,6 +414,10 @@ contract AaveTwoPoolAdapter is IPoolAdapter, IPoolAdapterInitializer {
      uint256 hf18
     ) = _pool.getUserAccountData(address(this));
 
+    console.log("Status.totalCollateralBase", totalCollateralBase);
+    console.log("Status.totalDebtBase", totalDebtBase);
+    console.log("Status.hf18", hf18);
+
     address assetCollateral = collateralAsset;
     address assetBorrow = borrowAsset;
 
