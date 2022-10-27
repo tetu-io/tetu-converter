@@ -202,17 +202,19 @@ describe("DebtsMonitor", () => {
     await pa.borrow(amountCollateral, amountToBorrow, userTC);
   }
 
+  interface IPrepareSinglePoolAdapterHealthTestResults {
+    dm: DebtMonitor;
+    poolAdapterMock: PoolAdapterMock;
+    sourceToken: MockERC20;
+    targetToken: MockERC20;
+    userTC: string;
+    controller: Controller;
+    pool: string;
+  }
+
   async function prepareSinglePoolAdapterHealthTest(
     pp: ISinglePoolAdapterTestParams
-  ) : Promise<{
-    dm: DebtMonitor,
-    poolAdapterMock: PoolAdapterMock,
-    sourceToken: MockERC20,
-    targetToken: MockERC20,
-    userTC: string,
-    controller: Controller,
-    pool: string
-  }> {
+  ) : Promise<IPrepareSinglePoolAdapterHealthTestResults> {
     const user = ethers.Wallet.createRandom().address;
     const tt: IBorrowInputParams = {
       collateralFactor: pp.collateralFactor.initial,
@@ -281,19 +283,21 @@ describe("DebtsMonitor", () => {
     };
   }
 
+  interface IPrepareMultiplePoolAdaptersHealthTest {
+    dm: DebtMonitor;
+    sourceToken: MockERC20;
+    targetToken: MockERC20;
+    userTC: string;
+    controller: Controller;
+    poolAdapterMocks: PoolAdapterMock[];
+    pools: string[];
+  }
+
   async function prepareMultiplePoolAdaptersHealthTest(
     pp: IMultiplePoolAdaptersTestParams,
     poolsInfo: IPoolInfoForBorrowOnly[],
     amounts: IAssetsAmounts[]
-  ) : Promise<{
-    dm: DebtMonitor,
-    sourceToken: MockERC20,
-    targetToken: MockERC20,
-    userTC: string,
-    controller: Controller,
-    poolAdapterMocks: PoolAdapterMock[],
-    pools: string[]
-  }> {
+  ) : Promise<IPrepareMultiplePoolAdaptersHealthTest> {
     const user = ethers.Wallet.createRandom().address;
     const tt: IBorrowInputParams = {
       collateralFactor: pp.collateralFactor,
