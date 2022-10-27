@@ -3,20 +3,20 @@
 pragma solidity 0.8.4;
 
 import "./DForceAprLib.sol";
-import "../../../core/AppDataTypes.sol";
-import "../../../core/AppErrors.sol";
-import "../../../core/AppUtils.sol";
-import "../../../openzeppelin/SafeERC20.sol";
-import "../../../openzeppelin/IERC20.sol";
-import "../../../interfaces/IPlatformAdapter.sol";
-import "../../../interfaces/IController.sol";
-import "../../../interfaces/IPoolAdapterInitializerWithAP.sol";
-import "../../../interfaces/ITokenAddressProvider.sol";
-import "../../../integrations/dforce/IDForcePriceOracle.sol";
-import "../../../integrations/IERC20Extended.sol";
-import "../../../integrations/dforce/IDForceInterestRateModel.sol";
-import "../../../integrations/dforce/IDForceController.sol";
-import "../../../integrations/dforce/IDForceCToken.sol";
+import "../../core/AppDataTypes.sol";
+import "../../core/AppErrors.sol";
+import "../../core/AppUtils.sol";
+import "../../openzeppelin/SafeERC20.sol";
+import "../../openzeppelin/IERC20.sol";
+import "../../interfaces/IPlatformAdapter.sol";
+import "../../interfaces/IController.sol";
+import "../../interfaces/IPoolAdapterInitializerWithAP.sol";
+import "../../interfaces/ITokenAddressProvider.sol";
+import "../../integrations/dforce/IDForcePriceOracle.sol";
+import "../../integrations/IERC20Extended.sol";
+import "../../integrations/dforce/IDForceInterestRateModel.sol";
+import "../../integrations/dforce/IDForceController.sol";
+import "../../integrations/dforce/IDForceCToken.sol";
 import "hardhat/console.sol";
 
 /// @notice Adapter to read current pools info from DForce-protocol, see https://developers.dforce.network/

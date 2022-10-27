@@ -2,7 +2,7 @@
 pragma solidity 0.8.4;
 
 import "../../integrations/aave3/Aave3DataTypes.sol";
-import "../../protocols/lending/aave3/Aave3AprLib.sol";
+import "../../protocols/aave3/Aave3AprLib.sol";
 
 contract Aave3AprLibFacade {
   function getVariableBorrowRateRays(

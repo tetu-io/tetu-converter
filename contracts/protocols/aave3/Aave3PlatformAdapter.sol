@@ -1,21 +1,21 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.4;
 
-import "../../../openzeppelin/SafeERC20.sol";
-import "../../../openzeppelin/IERC20.sol";
+import "../../openzeppelin/SafeERC20.sol";
+import "../../openzeppelin/IERC20.sol";
 import "./Aave3AprLib.sol";
-import "../../../core/AppUtils.sol";
-import "../../../core/AppDataTypes.sol";
-import "../../../core/AppErrors.sol";
-import "../../../interfaces/IPlatformAdapter.sol";
-import "../../../interfaces/IPoolAdapterInitializer.sol";
-import "../../../interfaces/IController.sol";
-import "../../../integrations/aave3/IAavePool.sol";
-import "../../../integrations/aave3/IAaveAddressesProvider.sol";
-import "../../../integrations/aave3/IAaveProtocolDataProvider.sol";
-import "../../../integrations/aave3/Aave3ReserveConfiguration.sol";
-import "../../../integrations/aave3/IAavePriceOracle.sol";
-import "../../../integrations/aave3/IAaveToken.sol";
+import "../../core/AppUtils.sol";
+import "../../core/AppDataTypes.sol";
+import "../../core/AppErrors.sol";
+import "../../interfaces/IPlatformAdapter.sol";
+import "../../interfaces/IPoolAdapterInitializer.sol";
+import "../../interfaces/IController.sol";
+import "../../integrations/aave3/IAavePool.sol";
+import "../../integrations/aave3/IAaveAddressesProvider.sol";
+import "../../integrations/aave3/IAaveProtocolDataProvider.sol";
+import "../../integrations/aave3/Aave3ReserveConfiguration.sol";
+import "../../integrations/aave3/IAavePriceOracle.sol";
+import "../../integrations/aave3/IAaveToken.sol";
 import "hardhat/console.sol";
 
 /// @notice Adapter to read current pools info from AAVE-v3-protocol, see https://docs.aave.com/hub/

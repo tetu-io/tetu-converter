@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.4;
 
-import "../../protocols/lending/hundred-finance/HfAprLib.sol";
+import "../../protocols/hundred-finance/HfAprLib.sol";
 import "../../integrations/hundred-finance/IHfInterestRateModel.sol";
 import "../../integrations/hundred-finance/IHfComptroller.sol";
 import "../../integrations/hundred-finance/IHfCToken.sol";

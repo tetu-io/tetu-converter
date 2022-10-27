@@ -1,18 +1,18 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.4;
 
-import "../../../openzeppelin/SafeERC20.sol";
-import "../../../openzeppelin/IERC20.sol";
-import "../../../core/DebtMonitor.sol";
-import "../../../core/AppErrors.sol";
-import "../../../interfaces/IPoolAdapter.sol";
-import "../../../interfaces/IPoolAdapterInitializer.sol";
-import "../../../integrations/aave3/IAavePool.sol";
-import "../../../integrations/aave3/IAavePriceOracle.sol";
-import "../../../integrations/aave3/IAaveAddressesProvider.sol";
-import "../../../integrations/aave3/Aave3ReserveConfiguration.sol";
-import "../../../integrations/aave3/IAaveToken.sol";
-import "../../../integrations/dforce/SafeRatioMath.sol";
+import "../../openzeppelin/SafeERC20.sol";
+import "../../openzeppelin/IERC20.sol";
+import "../../core/DebtMonitor.sol";
+import "../../core/AppErrors.sol";
+import "../../interfaces/IPoolAdapter.sol";
+import "../../interfaces/IPoolAdapterInitializer.sol";
+import "../../integrations/aave3/IAavePool.sol";
+import "../../integrations/aave3/IAavePriceOracle.sol";
+import "../../integrations/aave3/IAaveAddressesProvider.sol";
+import "../../integrations/aave3/Aave3ReserveConfiguration.sol";
+import "../../integrations/aave3/IAaveToken.sol";
+import "../../integrations/dforce/SafeRatioMath.sol";
 import "hardhat/console.sol";
 
 /// @notice Implementation of IPoolAdapter for AAVE-v3-protocol, see https://docs.aave.com/hub/

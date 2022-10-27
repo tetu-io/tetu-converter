@@ -1,17 +1,17 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.4;
 
-import "../../../integrations/IERC20Extended.sol";
-import "../../../openzeppelin/SafeERC20.sol";
-import "../../../openzeppelin/IERC20.sol";
-import "../../../integrations/dforce/IDForceController.sol";
-import "../../../integrations/dforce/IDForceCToken.sol";
-import "../../../integrations/dforce/IDForcePriceOracle.sol";
-import "../../../integrations/dforce/IDForceInterestRateModel.sol";
-import "../../../integrations/dforce/IDForceRewardDistributor.sol";
-import "../../../core/AppErrors.sol";
-import "../../../core/AppUtils.sol";
-import "../../../integrations/IERC20Extended.sol";
+import "../../integrations/IERC20Extended.sol";
+import "../../openzeppelin/SafeERC20.sol";
+import "../../openzeppelin/IERC20.sol";
+import "../../integrations/dforce/IDForceController.sol";
+import "../../integrations/dforce/IDForceCToken.sol";
+import "../../integrations/dforce/IDForcePriceOracle.sol";
+import "../../integrations/dforce/IDForceInterestRateModel.sol";
+import "../../integrations/dforce/IDForceRewardDistributor.sol";
+import "../../core/AppErrors.sol";
+import "../../core/AppUtils.sol";
+import "../../integrations/IERC20Extended.sol";
 
 /// @notice DForce utils: estimate reward tokens, predict borrow rate in advance
 library DForceAprLib {

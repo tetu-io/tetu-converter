@@ -1,21 +1,20 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.4;
 
-import "../../../openzeppelin/SafeERC20.sol";
-import "../../../openzeppelin/IERC20.sol";
-import "../../../core/AppDataTypes.sol";
-import "../../../core/AppErrors.sol";
-import "../../../core/AppUtils.sol";
-import "../../../interfaces/IPlatformAdapter.sol";
-import "../../../interfaces/IPoolAdapterInitializer.sol";
-import "../../../interfaces/IController.sol";
-import "../../../integrations/aaveTwo/IAaveTwoPool.sol";
-import "../../../integrations/aaveTwo/IAaveTwoLendingPoolAddressesProvider.sol";
-import "../../../integrations/aaveTwo/IAaveTwoPriceOracle.sol";
-import "../../../integrations/aaveTwo/IAaveTwoProtocolDataProvider.sol";
-import "../../../integrations/aaveTwo/IAaveTwoAToken.sol";
-import "../../../integrations/aaveTwo/AaveTwoReserveConfiguration.sol";
-import "../../../integrations/aaveTwo/IAaveTwoReserveInterestRateStrategy.sol";
+import "../../openzeppelin/SafeERC20.sol";
+import "../../openzeppelin/IERC20.sol";
+import "../../core/AppDataTypes.sol";
+import "../../core/AppUtils.sol";
+import "../../interfaces/IPlatformAdapter.sol";
+import "../../interfaces/IPoolAdapterInitializer.sol";
+import "../../interfaces/IController.sol";
+import "../../integrations/aaveTwo/IAaveTwoPool.sol";
+import "../../integrations/aaveTwo/IAaveTwoLendingPoolAddressesProvider.sol";
+import "../../integrations/aaveTwo/IAaveTwoPriceOracle.sol";
+import "../../integrations/aaveTwo/IAaveTwoProtocolDataProvider.sol";
+import "../../integrations/aaveTwo/IAaveTwoAToken.sol";
+import "../../integrations/aaveTwo/AaveTwoReserveConfiguration.sol";
+import "../../integrations/aaveTwo/IAaveTwoReserveInterestRateStrategy.sol";
 import "./AaveTwoAprLib.sol";
 
 /// @notice Adapter to read current pools info from AAVE-v2-protocol, see https://docs.aave.com/hub/

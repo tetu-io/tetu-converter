@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.4;
 
-import "../../protocols/lending/dforce/DForceAprLib.sol";
+import "../../protocols/dforce/DForceAprLib.sol";
 
 /// @notice Facade for DForceAprLib to make external functions available for tests
 contract DForceAprLibFacade {

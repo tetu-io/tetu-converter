@@ -3,7 +3,7 @@
 pragma solidity 0.8.4;
 
 import "./Aave3PoolAdapterBase.sol";
-import "../../../integrations/aave3/Aave3ReserveConfiguration.sol";
+import "../../integrations/aave3/Aave3ReserveConfiguration.sol";
 
 /// @notice PoolAdapter for AAVE-v3-protocol that uses high efficiency borrow mode (E-mode)
 /// @dev https://docs.aave.com/faq/aave-v3-features#high-efficiency-mode-e-mode
