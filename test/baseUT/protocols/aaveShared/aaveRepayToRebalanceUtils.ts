@@ -23,9 +23,12 @@ export interface IUserAccountDataResults {
 export interface IMakeRepayToRebalanceResults {
   afterBorrow: IUserAccountDataResults;
   afterBorrowToRebalance: IUserAccountDataResults;
-  userBalanceAfterBorrow: BigNumber;
-  userBalanceAfterRepayToRebalance: BigNumber;
-  expectedAmountToRepay: BigNumber;
+  userAccountBorrowBalanceAfterBorrow: BigNumber;
+  userAccountBorrowBalanceAfterRepayToRebalance: BigNumber;
+  userAccountCollateralBalanceAfterBorrow: BigNumber;
+  userAccountCollateralBalanceAfterRepayToRebalance: BigNumber;
+  expectedBorrowAssetAmountToRepay: BigNumber;
+  expectedCollateralAssetAmountToRepay: BigNumber;
 }
 
 export interface IMakeRepayRebalanceBadPathParams {
@@ -35,18 +38,29 @@ export interface IMakeRepayRebalanceBadPathParams {
   additionalAmountCorrectionFactorDiv?: number;
 }
 
+export interface IMakeRepayToRebalanceInputParams {
+  collateralToken: TokenDataTypes;
+  collateralHolder: string;
+  collateralAmount: BigNumber;
+  borrowToken: TokenDataTypes;
+  borrowHolder: string;
+  useCollateralAssetToRepay: boolean;
+  badPathsParams?: IMakeRepayRebalanceBadPathParams;
+}
+
 /**
  * A function to make borrow, increase health factor and make repay with rebalance.
  * Implementations depend on the version of AAVE protocol,
  */
-type MakeRepayToRebalanceFunc = (
-  collateralToken: TokenDataTypes,
-  collateralHolder: string,
-  collateralAmount: BigNumber,
-  borrowToken: TokenDataTypes,
-  borrowHolder: string,
-  badPathsParams?: IMakeRepayRebalanceBadPathParams
-) => Promise<IMakeRepayToRebalanceResults>;
+type MakeRepayToRebalanceFunc = (p: IMakeRepayToRebalanceInputParams) => Promise<IMakeRepayToRebalanceResults>;
+
+interface IAssetsInputParams {
+  collateralAsset: string;
+  collateralHolder: string;
+  borrowAsset: string;
+  borrowHolder: string;
+  collateralAmountNum: number;
+}
 
 /**
  * Common implementation of
@@ -55,11 +69,71 @@ type MakeRepayToRebalanceFunc = (
  * for different asset pairs.
  */
 export class AaveRepayToRebalanceUtils {
+
+  static async makeRepayToRebalanceTest(
+    assets: IAssetsInputParams,
+    deployer: SignerWithAddress,
+    makeRepayToRebalanceFunc: MakeRepayToRebalanceFunc,
+    targetHealthFactorInitial2: number,
+    targetHealthFactorUpdated2: number,
+    useCollateralAssetToRepay: boolean,
+    badPathsParams?: IMakeRepayRebalanceBadPathParams
+  ) : Promise<{ret: string, expected: string}> {
+
+    const collateralToken = await TokenDataTypes.Build(deployer, assets.collateralAsset);
+    const borrowToken = await TokenDataTypes.Build(deployer, assets.borrowAsset);
+    console.log("collateralToken.decimals", collateralToken.decimals);
+    console.log("borrowToken.decimals", borrowToken.decimals);
+
+    const collateralAmount = getBigNumberFrom(assets.collateralAmountNum, collateralToken.decimals);
+    console.log(collateralAmount, collateralAmount);
+
+    const r = await makeRepayToRebalanceFunc({
+      collateralToken,
+      collateralHolder: assets.collateralHolder,
+      collateralAmount,
+      borrowToken,
+      borrowHolder: assets.borrowHolder,
+      badPathsParams,
+      useCollateralAssetToRepay
+    });
+
+    console.log(r);
+
+    const ret = [
+      Math.round(r.afterBorrow.healthFactor.div(
+        getBigNumberFrom(1, 15)).toNumber() / 10.
+      ),
+      Math.round(r.afterBorrowToRebalance.healthFactor.div(
+        getBigNumberFrom(1, 15)).toNumber() / 10.
+      ),
+      r.userAccountBorrowBalanceAfterRepayToRebalance
+        .div(getBigNumberFrom(1, borrowToken.decimals)),
+      r.userAccountCollateralBalanceAfterRepayToRebalance
+        .div(getBigNumberFrom(1, collateralToken.decimals))
+    ].join("\n");
+    const expected = [
+      targetHealthFactorInitial2,
+      targetHealthFactorUpdated2,
+      r.userAccountBorrowBalanceAfterBorrow
+        .sub(r.expectedBorrowAssetAmountToRepay)
+        .div(getBigNumberFrom(1, borrowToken.decimals)),
+      r.userAccountCollateralBalanceAfterBorrow
+        .add(r.expectedCollateralAssetAmountToRepay)
+        .div(getBigNumberFrom(1, collateralToken.decimals))
+    ].join("\n");
+    console.log("ret", ret);
+    console.log("expected", expected);
+
+    return {ret, expected};
+  }
+
   static async daiWMatic(
     deployer: SignerWithAddress,
     makeRepayToRebalanceFunc: MakeRepayToRebalanceFunc,
     targetHealthFactorInitial2: number,
     targetHealthFactorUpdated2: number,
+    useCollateralAssetToRepay: boolean,
     badPathParams?: IMakeRepayRebalanceBadPathParams
   ) : Promise<{ret: string, expected: string}> {
     const collateralAsset = MaticAddresses.DAI;
@@ -67,40 +141,50 @@ export class AaveRepayToRebalanceUtils {
     const borrowAsset = MaticAddresses.WMATIC;
     const borrowHolder = MaticAddresses.HOLDER_WMATIC;
 
-    const collateralToken = await TokenDataTypes.Build(deployer, collateralAsset);
-    const borrowToken = await TokenDataTypes.Build(deployer, borrowAsset);
-    console.log("collateralToken.decimals", collateralToken.decimals);
-    console.log("borrowToken.decimals", borrowToken.decimals);
-
-    const collateralAmount = getBigNumberFrom(100_000, collateralToken.decimals);
-    console.log(collateralAmount, collateralAmount);
-
-    const r = await makeRepayToRebalanceFunc(
-      collateralToken
-      , collateralHolder
-      , collateralAmount
-      , borrowToken
-      , borrowHolder
-      , badPathParams
-    );
-
-    console.log(r);
-
-    const ret = [
-      Math.round(r.afterBorrow.healthFactor.div(getBigNumberFrom(1, 15)).toNumber() / 10.),
-      Math.round(r.afterBorrowToRebalance.healthFactor.div(getBigNumberFrom(1, 15)).toNumber() / 10.),
-      toStringWithRound(r.userBalanceAfterBorrow),
-      toStringWithRound(r.userBalanceAfterRepayToRebalance),
-    ].join("\n");
-    const expected = [
+    return  this.makeRepayToRebalanceTest(
+      {
+        collateralAsset,
+        borrowAsset,
+        borrowHolder,
+        collateralHolder,
+        collateralAmountNum: 100_000,
+      },
+      deployer,
+      makeRepayToRebalanceFunc,
       targetHealthFactorInitial2,
       targetHealthFactorUpdated2,
-      toStringWithRound(r.expectedAmountToRepay.mul(2)),
-      toStringWithRound(r.expectedAmountToRepay),
-    ].join("\n");
-
-    return {ret, expected};
+      useCollateralAssetToRepay,
+      badPathParams
+    );
   }
 
+  static async usdcUsdt(
+    deployer: SignerWithAddress,
+    makeRepayToRebalanceFunc: MakeRepayToRebalanceFunc,
+    targetHealthFactorInitial2: number,
+    targetHealthFactorUpdated2: number,
+    useCollateralAssetToRepay: boolean,
+    badPathsParams?: IMakeRepayRebalanceBadPathParams
+  ) : Promise<{ret: string, expected: string}> {
+    const collateralAsset = MaticAddresses.USDC;
+    const collateralHolder = MaticAddresses.HOLDER_USDC;
+    const borrowAsset = MaticAddresses.USDT;
+    const borrowHolder = MaticAddresses.HOLDER_USDT;
 
+    return  this.makeRepayToRebalanceTest(
+      {
+        collateralAsset,
+        borrowAsset,
+        borrowHolder,
+        collateralHolder,
+        collateralAmountNum: 100_000,
+      },
+      deployer,
+      makeRepayToRebalanceFunc,
+      targetHealthFactorInitial2,
+      targetHealthFactorUpdated2,
+      useCollateralAssetToRepay,
+      badPathsParams
+    );
+  }
 }

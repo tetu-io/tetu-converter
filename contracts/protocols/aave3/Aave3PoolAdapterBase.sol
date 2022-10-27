@@ -456,6 +456,9 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer 
 
     uint targetDecimals = (10 ** _pool.getConfiguration(assetBorrow).getDecimals());
 
+    console.log("Status.totalCollateralBase", totalCollateralBase);
+    console.log("Status.totalDebtBase", totalDebtBase);
+    console.log("Status.hf18", hf18);
     return (
     // Total amount of provided collateral in [collateral asset]
       totalCollateralBase * (10 ** _pool.getConfiguration(assetCollateral).getDecimals()) / prices[0],

@@ -1,26 +1,26 @@
 import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import hre, {ethers} from "hardhat";
-import {TimeUtils} from "../../../../scripts/utils/TimeUtils";
+import {TimeUtils} from "../../../scripts/utils/TimeUtils";
 import {expect} from "chai";
 import {BigNumber} from "ethers";
-import {getBigNumberFrom} from "../../../../scripts/utils/NumberUtils";
-import {AdaptersHelper} from "../../../baseUT/helpers/AdaptersHelper";
-import {isPolygonForkInUse} from "../../../baseUT/utils/NetworkUtils";
-import {BalanceUtils} from "../../../baseUT/utils/BalanceUtils";
-import {MaticAddresses} from "../../../../scripts/addresses/MaticAddresses";
-import {AaveTwoHelper} from "../../../../scripts/integration/helpers/AaveTwoHelper";
-import {AprUtils, COUNT_BLOCKS_PER_DAY} from "../../../baseUT/utils/aprUtils";
-import {CoreContractsHelper} from "../../../baseUT/helpers/CoreContractsHelper";
+import {getBigNumberFrom} from "../../../scripts/utils/NumberUtils";
+import {AdaptersHelper} from "../../baseUT/helpers/AdaptersHelper";
+import {isPolygonForkInUse} from "../../baseUT/utils/NetworkUtils";
+import {BalanceUtils} from "../../baseUT/utils/BalanceUtils";
+import {MaticAddresses} from "../../../scripts/addresses/MaticAddresses";
+import {AaveTwoHelper} from "../../../scripts/integration/helpers/AaveTwoHelper";
+import {AprUtils, COUNT_BLOCKS_PER_DAY} from "../../baseUT/utils/aprUtils";
+import {CoreContractsHelper} from "../../baseUT/helpers/CoreContractsHelper";
 import {
   IAaveTwoPool,
   IAaveTwoProtocolDataProvider,
   IERC20Extended__factory
-} from "../../../../typechain";
-import {areAlmostEqual} from "../../../baseUT/utils/CommonUtils";
-import {IPlatformActor, PredictBrUsesCase} from "../../../baseUT/uses-cases/PredictBrUsesCase";
-import {AprAaveTwo, getAaveTwoStateInfo} from "../../../baseUT/apr/aprAaveTwo";
-import {Aave3Helper} from "../../../../scripts/integration/helpers/Aave3Helper";
-import {Misc} from "../../../../scripts/utils/Misc";
+} from "../../../typechain";
+import {areAlmostEqual} from "../../baseUT/utils/CommonUtils";
+import {IPlatformActor, PredictBrUsesCase} from "../../baseUT/uses-cases/PredictBrUsesCase";
+import {AprAaveTwo, getAaveTwoStateInfo} from "../../baseUT/apr/aprAaveTwo";
+import {Aave3Helper} from "../../../scripts/integration/helpers/Aave3Helper";
+import {Misc} from "../../../scripts/utils/Misc";
 
 describe("AaveTwoPlatformAdapterTest", () => {
 //region Global vars for all tests

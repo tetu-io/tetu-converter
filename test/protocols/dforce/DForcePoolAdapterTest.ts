@@ -1,30 +1,30 @@
 import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import {ethers} from "hardhat";
-import {TimeUtils} from "../../../../scripts/utils/TimeUtils";
+import {TimeUtils} from "../../../scripts/utils/TimeUtils";
 import {
   Borrower,
   BorrowManager__factory,
   Controller, DForcePlatformAdapter, DForcePoolAdapter, DForcePoolAdapter__factory, IDForceController, IDForceCToken,
   IDForceCToken__factory, IDForcePriceOracle, IERC20__factory, IERC20Extended__factory, IPoolAdapter__factory,
-} from "../../../../typechain";
+} from "../../../typechain";
 import {expect} from "chai";
 import {BigNumber} from "ethers";
-import {getBigNumberFrom} from "../../../../scripts/utils/NumberUtils";
-import {DeployerUtils} from "../../../../scripts/utils/DeployerUtils";
-import {AdaptersHelper} from "../../../baseUT/helpers/AdaptersHelper";
-import {isPolygonForkInUse} from "../../../baseUT/utils/NetworkUtils";
-import {BalanceUtils, IUserBalances} from "../../../baseUT/utils/BalanceUtils";
-import {CoreContractsHelper} from "../../../baseUT/helpers/CoreContractsHelper";
-import {MaticAddresses} from "../../../../scripts/addresses/MaticAddresses";
-import {MocksHelper} from "../../../baseUT/helpers/MocksHelper";
-import {TokenDataTypes} from "../../../baseUT/types/TokenDataTypes";
-import {DForceHelper, IDForceMarketData} from "../../../../scripts/integration/helpers/DForceHelper";
-import {Misc} from "../../../../scripts/utils/Misc";
-import {CompareAprUsesCase} from "../../../baseUT/uses-cases/CompareAprUsesCase";
-import {IDForceCalcAccountEquityResults} from "../../../baseUT/apr/aprDForce";
-import {areAlmostEqual, toStringWithRound} from "../../../baseUT/utils/CommonUtils";
-import {IPoolAdapterStatus} from "../../../baseUT/types/BorrowRepayDataTypes";
-import {AaveMakeBorrowAndRepayUtils} from "../../../baseUT/protocols/aaveShared/aaveBorrowAndRepayUtils";
+import {getBigNumberFrom} from "../../../scripts/utils/NumberUtils";
+import {DeployerUtils} from "../../../scripts/utils/DeployerUtils";
+import {AdaptersHelper} from "../../baseUT/helpers/AdaptersHelper";
+import {isPolygonForkInUse} from "../../baseUT/utils/NetworkUtils";
+import {BalanceUtils, IUserBalances} from "../../baseUT/utils/BalanceUtils";
+import {CoreContractsHelper} from "../../baseUT/helpers/CoreContractsHelper";
+import {MaticAddresses} from "../../../scripts/addresses/MaticAddresses";
+import {MocksHelper} from "../../baseUT/helpers/MocksHelper";
+import {TokenDataTypes} from "../../baseUT/types/TokenDataTypes";
+import {DForceHelper, IDForceMarketData} from "../../../scripts/integration/helpers/DForceHelper";
+import {Misc} from "../../../scripts/utils/Misc";
+import {CompareAprUsesCase} from "../../baseUT/uses-cases/CompareAprUsesCase";
+import {IDForceCalcAccountEquityResults} from "../../baseUT/apr/aprDForce";
+import {areAlmostEqual, toStringWithRound} from "../../baseUT/utils/CommonUtils";
+import {IPoolAdapterStatus} from "../../baseUT/types/BorrowRepayDataTypes";
+import {AaveMakeBorrowAndRepayUtils} from "../../baseUT/protocols/aaveShared/aaveBorrowAndRepayUtils";
 
 describe("DForce integration tests, pool adapter", () => {
 //region Global vars for all tests
@@ -609,14 +609,14 @@ describe("DForce integration tests, pool adapter", () => {
         const ret = [
           Math.round(r.afterBorrowHealthFactor18.div(getBigNumberFrom(1, 15)).toNumber() / 10.),
           Math.round(r.afterBorrowToRebalanceHealthFactor18.div(getBigNumberFrom(1, 15)).toNumber() / 10.),
-          toStringWithRound(r.userBalanceAfterBorrow),
-          toStringWithRound(r.userBalanceAfterBorrowToRebalance),
+          toStringWithRound(r.userBalanceAfterBorrow, 18),
+          toStringWithRound(r.userBalanceAfterBorrowToRebalance, 18),
         ].join();
         const expected = [
           targetHealthFactorInitial2,
           targetHealthFactorUpdated2,
-          toStringWithRound(r.expectedAdditionalBorrowAmount),
-          toStringWithRound(r.expectedAdditionalBorrowAmount.mul(2)),
+          toStringWithRound(r.expectedAdditionalBorrowAmount, 6), // TODO: decimals
+          toStringWithRound(r.expectedAdditionalBorrowAmount.mul(2), 6), // TODO: decimals
         ].join();
         expect(ret).eq(expected);
       });
@@ -1420,14 +1420,14 @@ describe("DForce integration tests, pool adapter", () => {
       const ret = [
         Math.round(r.afterBorrowStatus.healthFactor18.div(getBigNumberFrom(1, 15)).toNumber() / 10.),
         Math.round(r.afterBorrowToRebalanceStatus.healthFactor18.div(getBigNumberFrom(1, 15)).toNumber() / 10.),
-        toStringWithRound(r.userBalanceAfterBorrow),
-        toStringWithRound(r.userBalanceAfterRepayToRebalance),
+        toStringWithRound(r.userBalanceAfterBorrow, 18),
+        toStringWithRound(r.userBalanceAfterRepayToRebalance, 18),
       ].join("\n");
       const expected = [
         targetHealthFactorInitial2,
         targetHealthFactorUpdated2,
-        toStringWithRound(r.expectedAmountToRepay.mul(2)),
-        toStringWithRound(r.expectedAmountToRepay),
+        toStringWithRound(r.expectedAmountToRepay.mul(2), 18),
+        toStringWithRound(r.expectedAmountToRepay, 18),
       ].join("\n");
 
       return {ret, expected};

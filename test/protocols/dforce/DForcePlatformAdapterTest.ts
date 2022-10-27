@@ -1,33 +1,33 @@
 import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import {ethers} from "hardhat";
-import {TimeUtils} from "../../../../scripts/utils/TimeUtils";
+import {TimeUtils} from "../../../scripts/utils/TimeUtils";
 import {
   IERC20Extended__factory,
   IDForceController,
   IDForceCToken,
   IDForceCToken__factory,
   DForcePlatformAdapter__factory, IDForceInterestRateModel__factory, DForceAprLibFacade,
-} from "../../../../typechain";
+} from "../../../typechain";
 import {expect} from "chai";
-import {AdaptersHelper} from "../../../baseUT/helpers/AdaptersHelper";
-import {isPolygonForkInUse} from "../../../baseUT/utils/NetworkUtils";
-import {BalanceUtils} from "../../../baseUT/utils/BalanceUtils";
-import {MaticAddresses} from "../../../../scripts/addresses/MaticAddresses";
-import {CoreContractsHelper} from "../../../baseUT/helpers/CoreContractsHelper";
+import {AdaptersHelper} from "../../baseUT/helpers/AdaptersHelper";
+import {isPolygonForkInUse} from "../../baseUT/utils/NetworkUtils";
+import {BalanceUtils} from "../../baseUT/utils/BalanceUtils";
+import {MaticAddresses} from "../../../scripts/addresses/MaticAddresses";
+import {CoreContractsHelper} from "../../baseUT/helpers/CoreContractsHelper";
 import {BigNumber} from "ethers";
-import {IPlatformActor, PredictBrUsesCase} from "../../../baseUT/uses-cases/PredictBrUsesCase";
-import {DForceHelper} from "../../../../scripts/integration/helpers/DForceHelper";
-import {areAlmostEqual, toMantissa} from "../../../baseUT/utils/CommonUtils";
-import {TokenDataTypes} from "../../../baseUT/types/TokenDataTypes";
-import {getBigNumberFrom} from "../../../../scripts/utils/NumberUtils";
-import {SupplyBorrowUsingDForce} from "../../../baseUT/uses-cases/dforce/SupplyBorrowUsingDForce";
-import {DForcePlatformFabric} from "../../../baseUT/fabrics/DForcePlatformFabric";
-import {MocksHelper} from "../../../baseUT/helpers/MocksHelper";
-import {DeployerUtils} from "../../../../scripts/utils/DeployerUtils";
-import {DeployUtils} from "../../../../scripts/utils/DeployUtils";
-import {AprDForce, getDForceStateInfo} from "../../../baseUT/apr/aprDForce";
-import {Misc} from "../../../../scripts/utils/Misc";
-import {AprUtils} from "../../../baseUT/utils/aprUtils";
+import {IPlatformActor, PredictBrUsesCase} from "../../baseUT/uses-cases/PredictBrUsesCase";
+import {DForceHelper} from "../../../scripts/integration/helpers/DForceHelper";
+import {areAlmostEqual, toMantissa} from "../../baseUT/utils/CommonUtils";
+import {TokenDataTypes} from "../../baseUT/types/TokenDataTypes";
+import {getBigNumberFrom} from "../../../scripts/utils/NumberUtils";
+import {SupplyBorrowUsingDForce} from "../../baseUT/uses-cases/dforce/SupplyBorrowUsingDForce";
+import {DForcePlatformFabric} from "../../baseUT/fabrics/DForcePlatformFabric";
+import {MocksHelper} from "../../baseUT/helpers/MocksHelper";
+import {DeployerUtils} from "../../../scripts/utils/DeployerUtils";
+import {DeployUtils} from "../../../scripts/utils/DeployUtils";
+import {AprDForce, getDForceStateInfo} from "../../baseUT/apr/aprDForce";
+import {Misc} from "../../../scripts/utils/Misc";
+import {AprUtils} from "../../baseUT/utils/aprUtils";
 
 describe("DForce integration tests, platform adapter", () => {
 //region Global vars for all tests

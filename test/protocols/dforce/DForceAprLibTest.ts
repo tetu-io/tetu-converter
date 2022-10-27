@@ -1,15 +1,15 @@
 import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import {ethers} from "hardhat";
-import {TimeUtils} from "../../../../scripts/utils/TimeUtils";
+import {TimeUtils} from "../../../scripts/utils/TimeUtils";
 import {expect} from "chai";
 import {
   IBorrowRewardsPredictionInput,
   ISupplyRewardsStatePoint
-} from "../../../../scripts/integration/helpers/DForceHelper";
+} from "../../../scripts/integration/helpers/DForceHelper";
 import {BigNumber} from "ethers";
-import {DeployUtils} from "../../../../scripts/utils/DeployUtils";
-import {MocksHelper} from "../../../baseUT/helpers/MocksHelper";
-import {DForceAprLibFacade} from "../../../../typechain";
+import {DeployUtils} from "../../../scripts/utils/DeployUtils";
+import {MocksHelper} from "../../baseUT/helpers/MocksHelper";
+import {DForceAprLibFacade} from "../../../typechain";
 
 describe("DForceHelper unit tests", () => {
 //region Global vars for all tests

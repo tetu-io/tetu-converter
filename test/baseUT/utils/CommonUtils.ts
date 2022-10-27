@@ -49,6 +49,6 @@ export function toMantissa(amount: BigNumber, from: number, to: number): BigNumb
  *    expected = 100163.32794782843037344
  * the difference is neglect, we can close eyes on it
  */
-export function toStringWithRound(bn: BigNumber) : string {
-  return ethers.utils.formatUnits(bn.div(10), 17);
+export function toStringWithRound(bn: BigNumber, decimals: number) : string {
+  return ethers.utils.formatUnits(bn.div(10), decimals - 1);
 }
