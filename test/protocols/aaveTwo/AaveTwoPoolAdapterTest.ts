@@ -24,15 +24,13 @@ import {AaveTwoHelper, IAaveTwoReserveInfo} from "../../../scripts/integration/h
 import {MaticAddresses} from "../../../scripts/addresses/MaticAddresses";
 import {MocksHelper} from "../../baseUT/helpers/MocksHelper";
 import {TokenDataTypes} from "../../baseUT/types/TokenDataTypes";
-import {CompareAprUsesCase} from "../../baseUT/uses-cases/CompareAprUsesCase";
 import {IAaveTwoUserAccountDataResults} from "../../baseUT/apr/aprAaveTwo";
 import {
   AaveMakeBorrowAndRepayUtils, IBorrowAndRepayBadParams,
   IMakeBorrowAndRepayResults
 } from "../../baseUT/protocols/aaveShared/aaveBorrowAndRepayUtils";
 import {
-  AaveRepayToRebalanceUtils, IAmountToRepay,
-  IMakeRepayRebalanceBadPathParams, IMakeRepayToRebalanceInputParams,
+  AaveRepayToRebalanceUtils,
   IMakeRepayToRebalanceResults
 } from "../../baseUT/protocols/aaveShared/aaveRepayToRebalanceUtils";
 import {
@@ -41,6 +39,12 @@ import {
   IMakeBorrowToRebalanceResults
 } from "../../baseUT/protocols/aaveShared/aaveBorrowToRebalanceUtils";
 import {AaveBorrowUtils} from "../../baseUT/protocols/aaveShared/aaveBorrowUtils";
+import {
+  IAmountToRepay,
+  IMakeRepayRebalanceBadPathParams,
+  IMakeRepayToRebalanceInputParams
+} from "../../baseUT/protocols/shared/sharedDataTypes";
+import {SharedRepayToRebalanceUtils} from "../../baseUT/protocols/shared/sharedRepayToRebalanceUtils";
 
 describe("AaveTwoPoolAdapterTest", () => {
 //region Global vars for all tests
@@ -997,7 +1001,7 @@ describe("AaveTwoPoolAdapterTest", () => {
       console.log("target", await d.controller.targetHealthFactor2());
 
       // calculate amount-to-repay and (if necessary) put the amount on userContract's balance
-      const amountsToRepay = await AaveRepayToRebalanceUtils.prepareAmountsToRepayToRebalance(
+      const amountsToRepay = await SharedRepayToRebalanceUtils.prepareAmountsToRepayToRebalance(
         deployer,
         amountToBorrow,
         p.collateralAmount,
@@ -1010,23 +1014,14 @@ describe("AaveTwoPoolAdapterTest", () => {
         ? IPoolAdapter__factory.connect(d.aavePoolAdapterAsTC.address, deployer)
         : d.aavePoolAdapterAsTC;
       await poolAdapterSigner.syncBalance(false, true);
-      if (amountsToRepay.useCollateral) {
-        await IERC20__factory.connect(
-          p.collateralToken.address,
-          await DeployerUtils.startImpersonate(d.userContract.address)
-        ).transfer(
-          poolAdapterSigner.address,
-          amountsToRepay.amountCollateralAsset
-        );
-      } else {
-        await IERC20__factory.connect(
-          p.borrowToken.address,
-          await DeployerUtils.startImpersonate(d.userContract.address)
-        ).transfer(
-          poolAdapterSigner.address,
-          amountsToRepay.amountBorrowAsset
-        );
-      }
+
+      await SharedRepayToRebalanceUtils.transferAmountToRepayToUserContract(
+        poolAdapterSigner.address,
+        p.collateralToken.address,
+        p.borrowToken.address,
+        amountsToRepay,
+        d.userContract.address
+      );
 
       await poolAdapterSigner.repayToRebalance(
         amountsToRepay.useCollateral
