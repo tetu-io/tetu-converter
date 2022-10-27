@@ -188,9 +188,8 @@ contract PoolAdapterMock is IPoolAdapter {
     uint borrowBalance = IERC20(_borrowAsset).balanceOf(address(this));
     console.log("Pool adapter balances: collateral=%d, borrow=%d", collateralBalance, borrowBalance);
 
-    if (beforeBorrow) {
-      reserveBalances[_collateralAsset] = collateralBalance;
-    } else {
+    reserveBalances[_collateralAsset] = collateralBalance;
+    if (!beforeBorrow) {
       reserveBalances[_borrowAsset] = borrowBalance;
     }
 
@@ -229,7 +228,6 @@ contract PoolAdapterMock is IPoolAdapter {
         collateralAmountTransferredToPoolAdapter: collateralAmountTransferredToPoolAdapter
       });
     }
-
 
     // ensure we have received expected collateral amount
     require(
@@ -358,27 +356,44 @@ contract PoolAdapterMock is IPoolAdapter {
   }
 
   function repayToRebalance(
-    uint amountToRepay_
+    uint amount_,
+    bool isCollateral_
   ) external override returns (
     uint resultHealthFactor18
   ) {
-    require(amountToRepay_ > 0, "nothing to repay");
+    require(amount_ > 0, "nothing to transfer");
     // add debts to the borrowed amount
     _accumulateDebt(0);
-    require(_borrowedAmounts >= amountToRepay_, "try to repay too much");
+    require(isCollateral_ || _borrowedAmounts >= amount_, "try to repay too much");
 
-    // ensure that we have received enough money on our balance just before repay was called
-    uint amountReceivedBT = IERC20(_borrowAsset).balanceOf(address(this));
-    require(
-      amountReceivedBT == amountToRepay_,
-      AppErrors.REPAY_TO_REBALANCE_NOT_ALLOWED // same error as in the real pool adapters
-    );
+    if (isCollateral_) {
+      // ensure that we have received enough money on our balance just before repay was called
+      uint collateralAssetBalance = IERC20(_collateralAsset).balanceOf(address(this));
+      require(
+        collateralAssetBalance == amount_,
+        AppErrors.WRONG_AMOUNT_RECEIVED // same error as in the real pool adapters
+      );
 
-    // transfer borrow amount back to the pool
-    IERC20(_borrowAsset).transfer(_pool, amountToRepay_);
+      // transfer additional collateral amount to the pool
+      IERC20(_collateralAsset).transfer(_pool, amount_);
+      // mint ctokens and keep them on our balance
+      uint amountCTokens = amount_; //TODO: exchange rate 1:1, it's not always true
+      _cTokenMock.mint(address(this), amountCTokens);
+      console.log("mint ctokens %s amount=%d to=%s", address(_cTokenMock), amountCTokens, address(this));
+    } else {
+      // ensure that we have received enough money on our balance just before repay was called
+      uint borrowAssetBalance = IERC20(_borrowAsset).balanceOf(address(this));
+      require(
+        borrowAssetBalance == amount_,
+        AppErrors.WRONG_AMOUNT_RECEIVED // same error as in the real pool adapters
+      );
 
-    // update status
-    _borrowedAmounts -= amountReceivedBT;
+      // transfer borrow amount back to the pool
+      IERC20(_borrowAsset).transfer(_pool, amount_);
+
+      // update status
+      _borrowedAmounts -= borrowAssetBalance;
+    }
 
     (,,uint healthFactor18,) = _getStatus();
     return healthFactor18;

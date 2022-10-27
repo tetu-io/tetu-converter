@@ -360,7 +360,8 @@ contract DForcePoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP {
   }
 
   function repayToRebalance(
-    uint amountToRepay_
+    uint amount_,
+    bool isCollateral_
   ) external override returns (
     uint resultHealthFactor18
   ) {
@@ -372,23 +373,23 @@ contract DForcePoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP {
 
     // ensure, that amount to repay is less then the total debt
     (, uint borrowBalance,,,) = _getStatus(cTokenCollateral, cTokenBorrow);
-    require(borrowBalance > 0 && amountToRepay_ < borrowBalance, AppErrors.REPAY_TO_REBALANCE_NOT_ALLOWED);
+    require(borrowBalance > 0 && amount_ < borrowBalance, AppErrors.REPAY_TO_REBALANCE_NOT_ALLOWED);
 
     // ensure that we have received enough money on our balance just before repay was called
     require(
-      amountToRepay_ == IERC20(assetBorrow).balanceOf(address(this)) - reserveBalances[assetBorrow],
+      amount_ == IERC20(assetBorrow).balanceOf(address(this)) - reserveBalances[assetBorrow],
       AppErrors.WRONG_BORROWED_BALANCE
     );
 
     // transfer borrow amount back to the pool
     if (_isMatic(address(assetBorrow))) {
-      require(IERC20(WMATIC).balanceOf(address(this)) >= amountToRepay_, AppErrors.MINT_FAILED);
-      IWmatic(WMATIC).withdraw(amountToRepay_);
-      IDForceCTokenMatic(cTokenBorrow).repayBorrow{value : amountToRepay_}();
+      require(IERC20(WMATIC).balanceOf(address(this)) >= amount_, AppErrors.MINT_FAILED);
+      IWmatic(WMATIC).withdraw(amount_);
+      IDForceCTokenMatic(cTokenBorrow).repayBorrow{value : amount_}();
     } else {
       IERC20(assetBorrow).approve(cTokenBorrow, 0);
-      IERC20(assetBorrow).approve(cTokenBorrow, amountToRepay_);
-      IDForceCToken(cTokenBorrow).repayBorrow(amountToRepay_);
+      IERC20(assetBorrow).approve(cTokenBorrow, amount_);
+      IDForceCToken(cTokenBorrow).repayBorrow(amount_);
     }
 
     // validate result status

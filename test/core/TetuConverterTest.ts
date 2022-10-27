@@ -2737,178 +2737,178 @@ describe("TetuConverterTest", () => {
 //   });
 // });
 
+// describe("requireAdditionalBorrow", () => {
+//   interface ITestResults {
+//     userContract: Borrower;
+//     borrowedAmount: BigNumber;
+//     expectedBorrowAmount: BigNumber;
+//     poolAdapter: string;
+//     targetHealthFactor2: number;
+//     userContractBalanceBorrowAssetAfterBorrow: BigNumber;
+//     userContractFinalBalanceBorrowAsset: BigNumber;
+//   }
+//   /**
+//    * Make borrow, reduce all health factors twice, make additional borrow of the same amount
+//    */
+//   async function makeTest(amountTestCorrectionFactor: number = 1) : Promise<ITestResults> {
+//     // prepare app
+//     const targetDecimals = 6;
+//
+//     const collateralFactor = 0.5;
+//     const sourceAmountNumber = 100_000;
+//     const minHealthFactorInitial2 = 1000;
+//     const targetHealthFactorInitial2 = 2000;
+//     const maxHealthFactorInitial2 = 4000;
+//     const minHealthFactorUpdated2 = 500;
+//     const targetHealthFactorUpdated2 = 1000;
+//     const maxHealthFactorUpdated2 = 2000;
+//
+//     const expectedBorrowAmount = getBigNumberFrom(
+//       sourceAmountNumber * collateralFactor * 100 / targetHealthFactorInitial2, // == 2500
+//       targetDecimals
+//     );
+//
+//     const availableBorrowLiquidityNumber = 200_000_000;
+//     const tt: IBorrowInputParams = {
+//       collateralFactor,
+//       priceSourceUSD: 1,
+//       priceTargetUSD: 1,
+//       sourceDecimals: 18,
+//       targetDecimals,
+//       availablePools: [{   // source, target
+//         borrowRateInTokens: [BigNumber.from(0), BigNumber.from(0)],
+//         availableLiquidityInTokens: [0, availableBorrowLiquidityNumber]
+//       }]
+//     };
+//     const collateralAmount = getBigNumberFrom(sourceAmountNumber, tt.sourceDecimals);
+//     const availableBorrowLiquidity = getBigNumberFrom(availableBorrowLiquidityNumber, targetDecimals);
+//
+//     const {core, poolInstances, userContract, sourceToken, targetToken, poolAdapters} = await prepareContracts(tt);
+//     const poolInstance = poolInstances[0];
+//     const poolAdapter = poolAdapters[0];
+//
+//     // initialize balances
+//     await MockERC20__factory.connect(sourceToken.address, deployer).mint(userContract.address, collateralAmount);
+//     await MockERC20__factory.connect(targetToken.address, deployer).mint(poolInstance.pool, availableBorrowLiquidity);
+//
+//     // setup high values for all health factors
+//     await core.controller.setMaxHealthFactor2(maxHealthFactorInitial2);
+//     await core.controller.setTargetHealthFactor2(targetHealthFactorInitial2);
+//     await core.controller.setMinHealthFactor2(minHealthFactorInitial2);
+//
+//     // make borrow
+//     await userContract.borrowMaxAmount(
+//       sourceToken.address,
+//       collateralAmount,
+//       targetToken.address,
+//       userContract.address // receiver
+//     );
+//     const borrowedAmount = await userContract.totalBorrowedAmount();
+//     const userContractBalanceBorrowAssetAfterBorrow = await targetToken.balanceOf(userContract.address);
+//
+//     // reduce all health factors down on 2 times to have possibility for additional borrow
+//     await core.controller.setMinHealthFactor2(minHealthFactorUpdated2);
+//     await core.controller.setTargetHealthFactor2(targetHealthFactorUpdated2);
+//     await core.controller.setMaxHealthFactor2(maxHealthFactorUpdated2);
+//
+//     // make additional borrow
+//     // health factors were reduced twice, so we should be able to borrow same amount as before
+//     const tcAsKeeper = TetuConverter__factory.connect(
+//       core.tc.address,
+//       await DeployerUtils.startImpersonate(await core.controller.keeper())
+//     );
+//     await tcAsKeeper.requireAdditionalBorrow(
+//       borrowedAmount.mul(100 * amountTestCorrectionFactor).div(100),
+//       poolAdapter
+//     );
+//
+//     return {
+//       poolAdapter,
+//       borrowedAmount,
+//       expectedBorrowAmount,
+//       userContract,
+//       targetHealthFactor2: targetHealthFactorUpdated2,
+//       userContractBalanceBorrowAssetAfterBorrow,
+//       userContractFinalBalanceBorrowAsset: await targetToken.balanceOf(userContract.address)
+//     }
+//   }
+//   describe("Good paths", () => {
+//     describe("Borrow exact expected amount", () => {
+//       let testResults: ITestResults;
+//       before(async function () {
+//         testResults = await makeTest();
+//       })
+//       describe("Make borrow, change health factors, make additional borrow", async () => {
+//         it("should return expected borrowed amount", async () => {
+//           const ret = testResults.borrowedAmount.eq(testResults.expectedBorrowAmount);
+//           expect(ret).eq(true);
+//         });
+//         it("pool adapter should have expected health factor", async () => {
+//           const poolAdapter = IPoolAdapter__factory.connect(testResults.poolAdapter, deployer);
+//           const poolAdapterStatus = await poolAdapter.getStatus();
+//           const ret = poolAdapterStatus.healthFactor18.div(getBigNumberFrom(1, 16)).toNumber();
+//           const expected = testResults.targetHealthFactor2;
+//           expect(ret).eq(expected);
+//         });
+//         it("should send notification to user-contract", async () => {
+//           const config = await IPoolAdapter__factory.connect(testResults.poolAdapter, deployer).getConfig();
+//           const ret = [
+//             (await testResults.userContract.onTransferBorrowedAmountLastResultBorrowAsset()).toString(),
+//             (await testResults.userContract.onTransferBorrowedAmountLastResultCollateralAsset()).toString(),
+//             (await testResults.userContract.onTransferBorrowedAmountLastResultAmountBorrowAssetSentToBorrower()).toString(),
+//           ].join();
+//           const expected = [
+//             config.borrowAsset,
+//             config.collateralAsset,
+//             testResults.expectedBorrowAmount.toString()
+//           ].join();
+//           expect(ret).eq(expected);
+//         });
+//         it("should send expected amount on balance of the user-contract", async () => {
+//           const ret = [
+//             (await testResults.userContractBalanceBorrowAssetAfterBorrow).toString(),
+//             (await testResults.userContractFinalBalanceBorrowAsset).toString(),
+//           ].join();
+//           const expected = [
+//             testResults.expectedBorrowAmount.toString(),
+//             testResults.expectedBorrowAmount.mul(2).toString()
+//           ].join();
+//           expect(ret).eq(expected);
+//         });
+//       });
+//     });
+//     describe('Borrow approx amount, difference is allowed', function () {
+//       it('should not revert', async () => {
+//         await makeTest(0.99);
+//         expect(true).eq(true); // no exception above
+//       });
+//       it('should not revert', async () => {
+//         await makeTest(1.01);
+//         expect(true).eq(true); // no exception above
+//       });
+//     });
+//   });
+//   describe("Bad paths", () => {
+//     describe("Rebalancing put health factor down too much", () => {
+//       it("should revert", async () => {
+//         await expect(
+//           makeTest(
+//             5 // we try to borrow too big additional amount = 5 * borrowedAmount (!)
+//           )
+//         ).revertedWith("TC-3: wrong health factor");
+//       });
+//     });
+//     describe("Rebalancing put health factor down not enough", () => {
+//       it("should revert", async () => {
+//         await expect(
+//           makeTest(
+//             0.1 // we try to borrow too small additional amount = 0.1 * borrowedAmount (!)
+//           )
+//         ).revertedWith("");
+//       });
+//     });
+//   });
+// });
 
-  // describe("requireAdditionalBorrow", () => {
-  //   interface ITestResults {
-  //     userContract: Borrower;
-  //     borrowedAmount: BigNumber;
-  //     expectedBorrowAmount: BigNumber;
-  //     poolAdapter: string;
-  //     targetHealthFactor2: number;
-  //     userContractBalanceBorrowAssetAfterBorrow: BigNumber;
-  //     userContractFinalBalanceBorrowAsset: BigNumber;
-  //   }
-  //   /**
-  //    * Make borrow, reduce all health factors twice, make additional borrow of the same amount
-  //    */
-  //   async function makeTest(amountTestCorrectionFactor: number = 1) : Promise<ITestResults> {
-  //     // prepare app
-  //     const targetDecimals = 6;
-  //
-  //     const collateralFactor = 0.5;
-  //     const sourceAmountNumber = 100_000;
-  //     const minHealthFactorInitial2 = 1000;
-  //     const targetHealthFactorInitial2 = 2000;
-  //     const maxHealthFactorInitial2 = 4000;
-  //     const minHealthFactorUpdated2 = 500;
-  //     const targetHealthFactorUpdated2 = 1000;
-  //     const maxHealthFactorUpdated2 = 2000;
-  //
-  //     const expectedBorrowAmount = getBigNumberFrom(
-  //       sourceAmountNumber * collateralFactor * 100 / targetHealthFactorInitial2, // == 2500
-  //       targetDecimals
-  //     );
-  //
-  //     const availableBorrowLiquidityNumber = 200_000_000;
-  //     const tt: IBorrowInputParams = {
-  //       collateralFactor,
-  //       priceSourceUSD: 1,
-  //       priceTargetUSD: 1,
-  //       sourceDecimals: 18,
-  //       targetDecimals,
-  //       availablePools: [{   // source, target
-  //         borrowRateInTokens: [BigNumber.from(0), BigNumber.from(0)],
-  //         availableLiquidityInTokens: [0, availableBorrowLiquidityNumber]
-  //       }]
-  //     };
-  //     const collateralAmount = getBigNumberFrom(sourceAmountNumber, tt.sourceDecimals);
-  //     const availableBorrowLiquidity = getBigNumberFrom(availableBorrowLiquidityNumber, targetDecimals);
-  //
-  //     const {core, poolInstances, userContract, sourceToken, targetToken, poolAdapters} = await prepareContracts(tt);
-  //     const poolInstance = poolInstances[0];
-  //     const poolAdapter = poolAdapters[0];
-  //
-  //     // initialize balances
-  //     await MockERC20__factory.connect(sourceToken.address, deployer).mint(userContract.address, collateralAmount);
-  //     await MockERC20__factory.connect(targetToken.address, deployer).mint(poolInstance.pool, availableBorrowLiquidity);
-  //
-  //     // setup high values for all health factors
-  //     await core.controller.setMaxHealthFactor2(maxHealthFactorInitial2);
-  //     await core.controller.setTargetHealthFactor2(targetHealthFactorInitial2);
-  //     await core.controller.setMinHealthFactor2(minHealthFactorInitial2);
-  //
-  //     // make borrow
-  //     await userContract.borrowMaxAmount(
-  //       sourceToken.address,
-  //       collateralAmount,
-  //       targetToken.address,
-  //       userContract.address // receiver
-  //     );
-  //     const borrowedAmount = await userContract.totalBorrowedAmount();
-  //     const userContractBalanceBorrowAssetAfterBorrow = await targetToken.balanceOf(userContract.address);
-  //
-  //     // reduce all health factors down on 2 times to have possibility for additional borrow
-  //     await core.controller.setMinHealthFactor2(minHealthFactorUpdated2);
-  //     await core.controller.setTargetHealthFactor2(targetHealthFactorUpdated2);
-  //     await core.controller.setMaxHealthFactor2(maxHealthFactorUpdated2);
-  //
-  //     // make additional borrow
-  //     // health factors were reduced twice, so we should be able to borrow same amount as before
-  //     const tcAsKeeper = TetuConverter__factory.connect(
-  //       core.tc.address,
-  //       await DeployerUtils.startImpersonate(await core.controller.keeper())
-  //     );
-  //     await tcAsKeeper.requireAdditionalBorrow(
-  //       borrowedAmount.mul(100 * amountTestCorrectionFactor).div(100),
-  //       poolAdapter
-  //     );
-  //
-  //     return {
-  //       poolAdapter,
-  //       borrowedAmount,
-  //       expectedBorrowAmount,
-  //       userContract,
-  //       targetHealthFactor2: targetHealthFactorUpdated2,
-  //       userContractBalanceBorrowAssetAfterBorrow,
-  //       userContractFinalBalanceBorrowAsset: await targetToken.balanceOf(userContract.address)
-  //     }
-  //   }
-  //   describe("Good paths", () => {
-  //     describe("Borrow exact expected amount", () => {
-  //       let testResults: ITestResults;
-  //       before(async function () {
-  //         testResults = await makeTest();
-  //       })
-  //       describe("Make borrow, change health factors, make additional borrow", async () => {
-  //         it("should return expected borrowed amount", async () => {
-  //           const ret = testResults.borrowedAmount.eq(testResults.expectedBorrowAmount);
-  //           expect(ret).eq(true);
-  //         });
-  //         it("pool adapter should have expected health factor", async () => {
-  //           const poolAdapter = IPoolAdapter__factory.connect(testResults.poolAdapter, deployer);
-  //           const poolAdapterStatus = await poolAdapter.getStatus();
-  //           const ret = poolAdapterStatus.healthFactor18.div(getBigNumberFrom(1, 16)).toNumber();
-  //           const expected = testResults.targetHealthFactor2;
-  //           expect(ret).eq(expected);
-  //         });
-  //         it("should send notification to user-contract", async () => {
-  //           const config = await IPoolAdapter__factory.connect(testResults.poolAdapter, deployer).getConfig();
-  //           const ret = [
-  //             (await testResults.userContract.onTransferBorrowedAmountLastResultBorrowAsset()).toString(),
-  //             (await testResults.userContract.onTransferBorrowedAmountLastResultCollateralAsset()).toString(),
-  //             (await testResults.userContract.onTransferBorrowedAmountLastResultAmountBorrowAssetSentToBorrower()).toString(),
-  //           ].join();
-  //           const expected = [
-  //             config.borrowAsset,
-  //             config.collateralAsset,
-  //             testResults.expectedBorrowAmount.toString()
-  //           ].join();
-  //           expect(ret).eq(expected);
-  //         });
-  //         it("should send expected amount on balance of the user-contract", async () => {
-  //           const ret = [
-  //             (await testResults.userContractBalanceBorrowAssetAfterBorrow).toString(),
-  //             (await testResults.userContractFinalBalanceBorrowAsset).toString(),
-  //           ].join();
-  //           const expected = [
-  //             testResults.expectedBorrowAmount.toString(),
-  //             testResults.expectedBorrowAmount.mul(2).toString()
-  //           ].join();
-  //           expect(ret).eq(expected);
-  //         });
-  //       });
-  //     });
-  //     describe('Borrow approx amount, difference is allowed', function () {
-  //       it('should not revert', async () => {
-  //         await makeTest(0.99);
-  //         expect(true).eq(true); // no exception above
-  //       });
-  //       it('should not revert', async () => {
-  //         await makeTest(1.01);
-  //         expect(true).eq(true); // no exception above
-  //       });
-  //     });
-  //   });
-  //   describe("Bad paths", () => {
-  //     describe("Rebalancing put health factor down too much", () => {
-  //       it("should revert", async () => {
-  //         await expect(
-  //           makeTest(
-  //             5 // we try to borrow too big additional amount = 5 * borrowedAmount (!)
-  //           )
-  //         ).revertedWith("TC-3: wrong health factor");
-  //       });
-  //     });
-  //     describe("Rebalancing put health factor down not enough", () => {
-  //       it("should revert", async () => {
-  //         await expect(
-  //           makeTest(
-  //             0.1 // we try to borrow too small additional amount = 0.1 * borrowedAmount (!)
-  //           )
-  //         ).revertedWith("");
-  //       });
-  //     });
-  //   });
-  // });
 //endregion Unit tests
 });

@@ -128,11 +128,13 @@ contract PoolAdapterStub is IPoolAdapter {
   }
 
   function repayToRebalance(
-    uint amountToRepay_
+    uint amount_,
+    bool isCollateral_
   ) external pure override returns (
     uint resultHealthFactor18
   ) {
-    amountToRepay_;
+    amount_;
+    isCollateral_;
     return 0;
   }
 

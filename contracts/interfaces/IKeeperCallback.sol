@@ -17,6 +17,7 @@ interface IKeeperCallback {
     address lendingPoolAdapter_
   ) external;
 
+  // TODO for next versions of the application
 //  /// @notice This function is called by a keeper if the health factor of the borrow is too big,
 //  ///         and so it's possible to borrow additional amount using the exist collateral amount.
 //  ///         The borrowed amount is sent to the balance of the pool-adapter's user.

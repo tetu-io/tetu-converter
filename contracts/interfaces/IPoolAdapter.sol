@@ -60,19 +60,22 @@ interface IPoolAdapter is IConverter {
     uint collateralAmountOut
   );
 
-  /// @notice Repay with rebalancing. Partially return borrowed amount to restore health factor to target state.
-  /// @dev No collateral is withdrawn;
-  ////     It's not allowed to close position here (pay full debt) because no collateral will be returned.
-  /// @param amountToRepay_ Exact amount of borrow asset that should be repaid.
-  ///                       It must be stronger less then total borrow debt.
-  ///                       The amount should be sent to balance of the pool adapter:
-  ///                       The sequence of the calls must be:
+  /// @notice Repay with rebalancing. Send amount of collateral/borrow asset to the pool adapter
+  ///         to recover the health factor to target state.
+  /// @dev It's not allowed to close position here (pay full debt) because no collateral will be returned.
+  /// @param amount_ Exact amount of asset that is transferred to the balance of the pool adapter.
+  ///                It can be amount of collateral asset or borrow asset depended on {isCollateral_}
+  ///                It must be stronger less then total borrow debt.
+  ///                The amount should be sent to balance of the pool adapter:
+  ///                The sequence of the calls must be:
   ///                         1) syncBalance(false);
   ///                         2) transfer the amount to balance of the pool adapter;
   ///                         3) repay()
+  /// @param isCollateral_ true/false indicates that {amount_} is the amount of collateral/borrow asset
   /// @return resultHealthFactor18 Result health factor after repay, decimals 18
   function repayToRebalance(
-    uint amountToRepay_
+    uint amount_,
+    bool isCollateral_
   ) external returns (
     uint resultHealthFactor18
   );

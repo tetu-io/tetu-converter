@@ -328,23 +328,37 @@ contract TetuConverter is ITetuConverter, IKeeperCallback {
 
     // ask the borrower to send us required part of the borrowed amount
     uint balanceBorrowedAsset = IERC20(borrowAsset).balanceOf(address(this));
-    (uint amountOut, bool isCollateral) = ITetuConverterCallback(user).requireAmountBack(
+    uint balanceCollateralAsset = IERC20(collateralAsset).balanceOf(address(this));
+    (, bool isCollateral) = ITetuConverterCallback(user).requireAmountBack(
       collateralAsset,
       borrowAsset,
       requiredAmountBorrowAsset_,
       requiredAmountCollateralAsset_
     );
-    require(!isCollateral, "TODO");
-
-    require(
-      IERC20(borrowAsset).balanceOf(address(this)) - balanceBorrowedAsset == requiredAmountBorrowAsset_,
-      AppErrors.WRONG_AMOUNT_RECEIVED
-    );
 
     // re-send amount-to-repay to the pool adapter and make rebalancing
     pa.syncBalance(false, false);
-    IERC20(borrowAsset).safeTransfer(poolAdapter_, requiredAmountBorrowAsset_);
-    uint resultHealthFactor18 = pa.repayToRebalance(requiredAmountBorrowAsset_);
+
+    if (isCollateral) {
+      // the borrower has sent us the amount of collateral asset
+      require(
+        IERC20(collateralAsset).balanceOf(address(this)) - balanceCollateralAsset == requiredAmountCollateralAsset_,
+        AppErrors.WRONG_AMOUNT_RECEIVED
+      );
+      IERC20(collateralAsset).safeTransfer(poolAdapter_, requiredAmountCollateralAsset_);
+    } else {
+      // the borrower has sent us the amount of borrow asset
+      require(
+        IERC20(borrowAsset).balanceOf(address(this)) - balanceBorrowedAsset == requiredAmountBorrowAsset_,
+        AppErrors.WRONG_AMOUNT_RECEIVED
+      );
+      IERC20(borrowAsset).safeTransfer(poolAdapter_, requiredAmountBorrowAsset_);
+    }
+
+    uint resultHealthFactor18 = pa.repayToRebalance(
+      isCollateral ? requiredAmountCollateralAsset_ : requiredAmountBorrowAsset_,
+      isCollateral
+    );
 
     // ensure that the health factor was restored to ~target health factor value
     _ensureApproxSameToTargetHealthFactor(borrowAsset, resultHealthFactor18);
