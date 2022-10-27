@@ -331,13 +331,13 @@ contract TetuConverter is ITetuConverter, IKeeperCallback {
     uint balanceCollateralAsset = IERC20(collateralAsset).balanceOf(address(this));
     (, bool isCollateral) = ITetuConverterCallback(user).requireAmountBack(
       collateralAsset,
+      requiredAmountCollateralAsset_,
       borrowAsset,
-      requiredAmountBorrowAsset_,
-      requiredAmountCollateralAsset_
+      requiredAmountBorrowAsset_
     );
 
     // re-send amount-to-repay to the pool adapter and make rebalancing
-    pa.syncBalance(false, false);
+    pa.syncBalance(false, true);
 
     if (isCollateral) {
       // the borrower has sent us the amount of collateral asset
@@ -376,6 +376,7 @@ contract TetuConverter is ITetuConverter, IKeeperCallback {
     uint minHealthFactor18 = uint(controller.minHealthFactor2()) * 10**(18-2);
     uint delta = (targetHealthFactor18 - minHealthFactor18) / ADDITIONAL_BORROW_DELTA_DENOMINATOR;
 
+    console.log("resultHealthFactor18_", resultHealthFactor18_);
     console.log("targetHealthFactor18", targetHealthFactor18);
     console.log("minHealthFactor18", minHealthFactor18);
     console.log("delta", delta);

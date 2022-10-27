@@ -163,12 +163,10 @@ contract PoolAdapterMock is IPoolAdapter {
       * collateralAmount.toMantissa(decimalsCollateral, 18) * priceCollateral
       / (amountToPay.toMantissa(decimalsBorrow, 18) * priceBorrowedUSD);
 
+    console.log("getStatus:");
+    console.log("collateralAmount=%d", collateralAmount);
+    console.log("amountToPay=%d", amountToPay);
     console.log("healthFactor18=%d", healthFactor18);
-    console.log("_collateralFactor=%d", _collateralFactor);
-    console.log("collateralAmount=%d", collateralAmount.toMantissa(decimalsCollateral, 18));
-    console.log("amountToPay18=%d", amountToPay.toMantissa(decimalsBorrow, 18));
-    console.log("priceCollateral=%d", priceCollateral);
-    console.log("priceBorrowedUSD=%d", priceBorrowedUSD);
 
     return (
       collateralAmount,

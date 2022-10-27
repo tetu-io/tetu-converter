@@ -32,7 +32,14 @@ contract Borrower is ITetuConverterCallback {
   address public onTransferBorrowedAmountLastResultCollateralAsset;
   address public onTransferBorrowedAmountLastResultBorrowAsset;
   uint public onTransferBorrowedAmountLastResultAmountBorrowAssetSentToBorrower;
-  uint public amountToSendOnRequireBorrowedAmountBack;
+
+  struct RequireAmountBackParams {
+    uint amount;
+    // we need TWO different variables here to be able to test bad-paths
+    bool isCollateral;
+    bool sendCollateral;
+  }
+  RequireAmountBackParams public requireAmountBackParams;
 
   constructor (
     address controller_,
@@ -255,29 +262,45 @@ contract Borrower is ITetuConverterCallback {
   ///                   IBorrower impl
   ///////////////////////////////////////////////////////
 
-  /// @notice Set up behavior of requireBorrowedAmountBack()
-  function setAmountToSendOnRequireBorrowedAmountBack(uint value) external {
-    amountToSendOnRequireBorrowedAmountBack = value;
+  /// @notice Set up behavior of requireAmountBack()
+  function setUpRequireAmountBack(
+    uint amount_,
+    bool isCollateral_,
+    bool sendCollateral_
+  ) external {
+    requireAmountBackParams = RequireAmountBackParams({
+      amount: amount_,
+      isCollateral: isCollateral_,
+      sendCollateral: sendCollateral_
+    });
   }
 
   function requireAmountBack (
     address collateralAsset_,
+    uint requiredAmountCollateralAsset_,
     address borrowAsset_,
-    uint requiredAmountBorrowAsset_,
-    uint requiredAmountCollateralAsset_
+    uint requiredAmountBorrowAsset_
   ) external override returns (
     uint amountOut,
-    bool isCollateral
+    bool isCollateralOut
   ) {
-    collateralAsset_;
-
-    uint amountToSend = amountToSendOnRequireBorrowedAmountBack == 0
+    uint amountToSend = requireAmountBackParams.amount == 0
       ? requiredAmountBorrowAsset_
-      : amountToSendOnRequireBorrowedAmountBack;
+      : requireAmountBackParams.amount;
+    // we use two different variables here to be able to implement bad-path
+    // (user sends one asset but returns a value of isCollateralOut for the different asset)
+    bool isCollateral = requireAmountBackParams.amount != 0 && requireAmountBackParams.isCollateral;
+    bool sendCollateral = requireAmountBackParams.amount != 0 && requireAmountBackParams.sendCollateral;
 
-    require(IERC20(borrowAsset_).balanceOf(address(this)) >= amountToSend, "Not enough borrow asset on balance");
-    IERC20(borrowAsset_).transfer(address(_tc()), amountToSend);
-    return (amountToSend, false); //TODO
+    if (sendCollateral) {
+      require(IERC20(collateralAsset_).balanceOf(address(this)) >= amountToSend, "Not enough collateral asset on balance");
+      IERC20(collateralAsset_).transfer(address(_tc()), amountToSend);
+    } else {
+      require(IERC20(borrowAsset_).balanceOf(address(this)) >= amountToSend, "Not enough borrow asset on balance");
+      IERC20(borrowAsset_).transfer(address(_tc()), amountToSend);
+    }
+
+    return (amountToSend, isCollateral);
   }
 
   function onTransferBorrowedAmount (
