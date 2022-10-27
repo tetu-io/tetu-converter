@@ -533,6 +533,11 @@ contract DForcePoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP {
 
     sumBorrowBase36 = borrowBalance * underlyingPrice;
 
+    console.log("Status.tokenBalance", tokenBalance);
+    console.log("Status.borrowBalance", borrowBalance);
+    console.log("Status.collateralAmountBase36", collateralAmountBase36);
+    console.log("Status.sumBorrowBase36", sumBorrowBase36);
+    console.log("Status.underlyingPrice", underlyingPrice);
     return (tokenBalance, borrowBalance, collateralAmountBase36, sumBorrowBase36, underlyingPrice);
   }
 

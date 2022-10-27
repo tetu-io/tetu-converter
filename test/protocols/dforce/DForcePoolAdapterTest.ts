@@ -1463,19 +1463,23 @@ describe("DForce integration tests, pool adapter", () => {
 
     describe("Good paths", () => {
       describe("Use borrow asset to repay", () => {
-        it("should return expected values", async () => {
-          if (!await isPolygonForkInUse()) return;
-          const r = await daiWMatic(false);
+        describe("Dai : WMatic", () => {
+          it("should return expected values", async () => {
+            if (!await isPolygonForkInUse()) return;
+            const r = await daiWMatic(false);
 
-          expect(r.ret).eq(r.expected);
+            expect(r.ret).eq(r.expected);
+          });
         });
       });
       describe("Use collateral asset to repay", () => {
-        it("should return expected values", async () => {
-          if (!await isPolygonForkInUse()) return;
-          const r = await daiWMatic(true);
+        describe("Dai : WMatic", () => {
+          it("should return expected values", async () => {
+            if (!await isPolygonForkInUse()) return;
+            const r = await daiWMatic(true);
 
-          expect(r.ret).eq(r.expected);
+            expect(r.ret).eq(r.expected);
+          });
         });
       });
     });
