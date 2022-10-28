@@ -475,7 +475,7 @@ contract HfPoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP {
     );
     return (
     // Total amount of provided collateral [collateral asset]
-      collateralBase / priceCollateral,
+      collateralBase * 10 ** IERC20Extended(collateralAsset).decimals() / 10**18,
     // Total amount of borrowed debt in [borrow asset]. 0 - for closed borrow positions.
       borrowBalance,
     // Current health factor, decimals 18

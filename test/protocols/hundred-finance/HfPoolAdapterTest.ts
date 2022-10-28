@@ -28,7 +28,7 @@ import {MocksHelper} from "../../baseUT/helpers/MocksHelper";
 import {TokenDataTypes} from "../../baseUT/types/TokenDataTypes";
 import {Misc} from "../../../scripts/utils/Misc";
 import {IHfAccountLiquidity} from "../../baseUT/apr/aprHundredFinance";
-import {toStringWithRound} from "../../baseUT/utils/CommonUtils";
+import {areAlmostEqual, toStringWithRound} from "../../baseUT/utils/CommonUtils";
 import {IPoolAdapterStatus} from "../../baseUT/types/BorrowRepayDataTypes";
 import {
   IAssetsInputParamsWithCTokens,
@@ -1379,20 +1379,43 @@ describe("Hundred Finance integration tests, pool adapter", () => {
         Math.round(r.afterRepayToRebalanceStatus.healthFactor18.div(
           getBigNumberFrom(1, 15)).toNumber() / 10.
         ),
+        // actual collateral amount after borrow is a bit less than the initial amount
+        areAlmostEqual(r.afterBorrowStatus.collateralAmount, collateralAmount, 2),
+
+        // total collateral amount is increased on expected amount after repay-to-rebalance
+        areAlmostEqual(
+          r.afterRepayToRebalanceStatus.collateralAmount,
+          r.afterBorrowStatus.collateralAmount.add(r.expectedCollateralAssetAmountToRepay),
+          2
+        ),
+
+        // total collateral amount was increased twice after repay-to-rebalance
+        // when the repayment was made using collateral asset
+        !useCollateralAssetToRepay || areAlmostEqual(r.afterRepayToRebalanceStatus.collateralAmount,
+          r.afterBorrowStatus.collateralAmount.mul(2),
+          3
+        ),
+
         r.afterRepayToRebalanceStatus.amountToPay
           .div(getBigNumberFrom(1, borrowToken.decimals)),
-        r.afterRepayToRebalanceStatus.collateralAmount
-          .div(getBigNumberFrom(1, collateralToken.decimals))
       ].join("\n");
       const expected = [
         targetHealthFactorInitial2,
         targetHealthFactorUpdated2,
+
+        // actual collateral amount after borrow is a bit less than the initial amount
+        true,
+
+        // total collateral amount is increased on expected amount after repay-to-rebalance
+        true,
+
+        // total collateral amount was increased twice after repay-to-rebalance
+        // when the repayment was made using collateral asset
+        true,
+
         r.afterBorrowStatus.amountToPay
           .sub(r.expectedBorrowAssetAmountToRepay)
           .div(getBigNumberFrom(1, borrowToken.decimals)),
-        r.afterBorrowStatus.collateralAmount
-          .add(r.expectedCollateralAssetAmountToRepay)
-          .div(getBigNumberFrom(1, collateralToken.decimals))
       ].join("\n");
       console.log("ret", ret);
       console.log("expected", expected);
@@ -1427,21 +1450,68 @@ describe("Hundred Finance integration tests, pool adapter", () => {
       );
     }
 
+    async function usdcUsdt(
+      useCollateralAssetToRepay: boolean,
+      badPathsParams?: IMakeRepayRebalanceBadPathParams
+    ) : Promise<{ret: string, expected: string}> {
+      const collateralAsset = MaticAddresses.USDC;
+      const collateralHolder = MaticAddresses.HOLDER_USDC;
+      const collateralCTokenAddress = MaticAddresses.hUSDC;
+
+      const borrowAsset = MaticAddresses.USDT;
+      const borrowHolder = MaticAddresses.HOLDER_USDT;
+      const borrowCTokenAddress = MaticAddresses.hUSDT;
+
+      return makeRepayToRebalanceTest(
+        {
+          borrowCTokenAddress,
+          collateralCTokenAddress,
+          collateralAsset,
+          borrowAsset,
+          borrowHolder,
+          collateralAmountNum: 100_000,
+          collateralHolder
+        },
+        useCollateralAssetToRepay,
+        badPathsParams
+      );
+    }
+
     describe("Good paths", () => {
       describe("Use borrow asset to repay", () => {
-        it("should return expected values", async () => {
-          if (!await isPolygonForkInUse()) return;
-          const r = await daiWMatic(false);
+        describe("Dai : WMatic", () => {
+          it("should return expected values", async () => {
+            if (!await isPolygonForkInUse()) return;
+            const r = await daiWMatic(false);
 
-          expect(r.ret).eq(r.expected);
+            expect(r.ret).eq(r.expected);
+          });
+        });
+        describe("USDC : USDT", () => {
+          it("should return expected values", async () => {
+            if (!await isPolygonForkInUse()) return;
+            const r = await usdcUsdt(false);
+
+            expect(r.ret).eq(r.expected);
+          });
         });
       });
       describe("Use collateral asset to repay", () => {
-        it("should return expected values", async () => {
-          if (!await isPolygonForkInUse()) return;
-          const r = await daiWMatic(true);
+        describe("Dai : WMatic", () => {
+          it("should return expected values", async () => {
+            if (!await isPolygonForkInUse()) return;
+            const r = await daiWMatic(true);
 
-          expect(r.ret).eq(r.expected);
+            expect(r.ret).eq(r.expected);
+          });
+        });
+        describe("USDC : USDT", () => {
+          it("should return expected values", async () => {
+            if (!await isPolygonForkInUse()) return;
+            const r = await usdcUsdt(true);
+
+            expect(r.ret).eq(r.expected);
+          });
         });
       });
     });
