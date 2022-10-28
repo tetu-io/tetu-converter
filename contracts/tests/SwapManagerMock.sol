@@ -20,7 +20,7 @@ contract SwapManagerMock is ISwapManager, ISwapConverter {
   /// @dev Values that getConverter returns
   address public converter;
   uint public maxTargetAmount;
-  int public aprForPeriod36;
+  int public apr18;
 
   /// @dev swap() returns following value
   uint public targetAmountAfterSwap;
@@ -33,11 +33,11 @@ contract SwapManagerMock is ISwapManager, ISwapConverter {
   function setupGetConverter(
     address converter_,
     uint maxTargetAmount_,
-    int aprForPeriod36_
+    int apr18_
   ) external {
     converter = converter_;
     maxTargetAmount = maxTargetAmount_;
-    aprForPeriod36 = aprForPeriod36_;
+    apr18 = apr18_;
   }
 
   function setupSwap(uint targetAmountAfterSwap_) external {
@@ -52,11 +52,11 @@ contract SwapManagerMock is ISwapManager, ISwapConverter {
   external view override returns (
     address converter_,
     uint maxTargetAmount_,
-    int aprForPeriod36_
+    int apr18
   ) {
     console.log("SwapManagerMock.getConverter", converter, maxTargetAmount);
-    console.logInt(aprForPeriod36);
-    return (converter, maxTargetAmount, aprForPeriod36);
+    console.logInt(apr18);
+    return (converter, maxTargetAmount, apr18);
   }
 
   function getConversionKind()

@@ -163,7 +163,7 @@ contract AaveTwoPlatformAdapter is IPlatformAdapter {
           plan.amountToBorrow = plan.maxAmountToBorrow;
         }
 
-        plan.borrowApr36 = AaveSharedLib.getAprForPeriodBefore(
+        plan.borrowCost36 = AaveSharedLib.getCostForPeriodBefore(
           AaveSharedLib.State({
             liquidityIndex: rb.variableBorrowIndex,
             lastUpdateTimestamp: uint(rb.lastUpdateTimestamp),
@@ -194,7 +194,7 @@ contract AaveTwoPlatformAdapter is IPlatformAdapter {
         plan.maxAmountToSupply = type(uint).max; // unlimited
 
         // calculate supply-APR, see detailed explanation in Aave3AprLib
-        plan.supplyAprBt36 = AaveSharedLib.getAprForPeriodBefore(
+        plan.supplyIncomeInBorrowAsset36 = AaveSharedLib.getCostForPeriodBefore(
           AaveSharedLib.State({
             liquidityIndex: rc.liquidityIndex,
             lastUpdateTimestamp: uint(rc.lastUpdateTimestamp),
@@ -219,6 +219,12 @@ contract AaveTwoPlatformAdapter is IPlatformAdapter {
         / vars.prices[1] // borrow price
         / 10**rc.configuration.getDecimals();
       }
+
+      plan.amountCollateralInBorrowAsset36 = AppUtils.toMantissa(
+        params.collateralAmount * vars.prices[0] / vars.prices[1],
+        uint8(rc.configuration.getDecimals()),
+        36
+      );
     }
 
     return plan;

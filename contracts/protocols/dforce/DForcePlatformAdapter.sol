@@ -24,6 +24,15 @@ contract DForcePlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
   using SafeERC20 for IERC20;
   using AppUtils for uint;
 
+  /// @notice Local vars inside _getConversionPlan - to avoid stack too deep
+  struct LocalsGetConversionPlan {
+    IDForcePriceOracle priceOracle;
+    uint8 collateralAssetDecimals;
+    uint8 borrowAssetDecimals;
+    uint priceCollateral36;
+    uint priceBorrow36;
+  }
+
   IController public controller;
   IDForceController public comptroller;
 
@@ -177,11 +186,14 @@ contract DForcePlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
             }
           }
 
-          IDForcePriceOracle priceOracle = IDForcePriceOracle(comptroller.priceOracle());
-          uint priceCollateral36 = DForceAprLib.getPrice(priceOracle, cTokenCollateral)
-            * 10**IERC20Extended(collateralAsset_).decimals();
-          uint priceBorrow36 = DForceAprLib.getPrice(priceOracle, cTokenBorrow)
-            * 10**IERC20Extended(borrowAsset_).decimals();
+          LocalsGetConversionPlan memory vars;
+          vars.collateralAssetDecimals = IERC20Extended(collateralAsset_).decimals();
+          vars.borrowAssetDecimals = IERC20Extended(borrowAsset_).decimals();
+          vars.priceOracle = IDForcePriceOracle(comptroller.priceOracle());
+          vars.priceCollateral36 = DForceAprLib.getPrice(vars.priceOracle, cTokenCollateral)
+            * 10**vars.collateralAssetDecimals ;
+          vars.priceBorrow36 = DForceAprLib.getPrice(vars.priceOracle, cTokenBorrow)
+            * 10**vars.borrowAssetDecimals;
 
           // calculate amount that can be borrowed
           // split calculation on several parts to avoid stack too deep
@@ -189,22 +201,31 @@ contract DForcePlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
           plan.amountToBorrow = AppUtils.toMantissa(
             plan.amountToBorrow * plan.liquidationThreshold18
               / 1e18
-              * (priceCollateral36 * 1e18 / priceBorrow36)
+              * (vars.priceCollateral36 * 1e18 / vars.priceBorrow36)
               / 1e18,
-            IERC20Extended(collateralAsset_).decimals(),
-            IERC20Extended(borrowAsset_).decimals()
+            vars.collateralAssetDecimals,
+            vars.borrowAssetDecimals
           );
           if (plan.amountToBorrow > plan.maxAmountToBorrow) {
             plan.amountToBorrow = plan.maxAmountToBorrow;
           }
           // calculate current borrow rate and predicted APR after borrowing required amount
-          (plan.borrowApr36, plan.supplyAprBt36, plan.rewardsAmountBt36) = DForceAprLib.getRawAprInfo36(
+          (plan.borrowCost36,
+           plan.supplyIncomeInBorrowAsset36,
+           plan.rewardsAmountInBorrowAsset36
+          ) = DForceAprLib.getRawCostAndIncomes(
             DForceAprLib.getCore(comptroller, cTokenCollateral, cTokenBorrow),
             collateralAmount_,
             countBlocks_,
             plan.amountToBorrow,
-            priceCollateral36,
-            priceBorrow36
+            vars.priceCollateral36,
+            vars.priceBorrow36
+          );
+
+          plan.amountCollateralInBorrowAsset36 = AppUtils.toMantissa(
+            collateralAmount_ * vars.priceCollateral36 / vars.priceBorrow36,
+            vars.collateralAssetDecimals,
+            36
           );
         }
       }
@@ -272,7 +293,7 @@ contract DForcePlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
     (uint priceBorrow, bool isPriceValid) = core.priceOracle.getUnderlyingPriceAndStatus(address(core.cTokenBorrow));
     require(priceBorrow != 0 && isPriceValid, AppErrors.ZERO_PRICE);
 
-    return DForceAprLib.getRewardAmountsBt(core,
+    return DForceAprLib.getRewardAmountInBorrowAsset(core,
       DForceAprLib.RewardsAmountInput({
         collateralAmount: collateralAmount_,
         borrowAmount: borrowAmount_,

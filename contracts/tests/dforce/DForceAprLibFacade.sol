@@ -57,7 +57,7 @@ contract DForceAprLibFacade {
     );
   }
 
-  function getRawAprInfo36(
+  function getRawCostAndIncomes(
     DForceAprLib.DForceCore memory core,
     uint collateralAmount_,
     uint countBlocks_,
@@ -65,11 +65,11 @@ contract DForceAprLibFacade {
     uint priceCollateral36_,
     uint priceBorrow36_
   ) external view returns (
-    uint borrowApr36,
-    uint supplyAprBt36,
-    uint rewardsAmountBt36
+    uint borrowCost36,
+    uint supplyIncomeInBorrowAsset36,
+    uint rewardsAmountInBorrowAsset36
   ) {
-    return DForceAprLib.getRawAprInfo36(
+    return DForceAprLib.getRawCostAndIncomes(
       core,
       collateralAmount_,
       countBlocks_,
@@ -79,7 +79,7 @@ contract DForceAprLibFacade {
     );
   }
 
-  function getSupplyApr36(
+  function getSupplyIncomeInBorrowAsset36(
     uint supplyRatePerBlock,
     uint countBlocks,
     uint8 collateralDecimals,
@@ -87,7 +87,7 @@ contract DForceAprLibFacade {
     uint priceBorrow,
     uint suppliedAmount
   ) external pure returns (uint) {
-    return DForceAprLib.getSupplyApr36(
+    return DForceAprLib.getSupplyIncomeInBorrowAsset36(
       supplyRatePerBlock,
       countBlocks,
       collateralDecimals,
@@ -97,13 +97,13 @@ contract DForceAprLibFacade {
     );
   }
 
-  function getBorrowApr36(
+  function getBorrowCost36(
     uint borrowRatePerBlock,
     uint borrowedAmount,
     uint countBlocks,
     uint8 borrowDecimals
   ) external pure returns (uint) {
-    return DForceAprLib.getBorrowApr36(borrowRatePerBlock, borrowedAmount, countBlocks, borrowDecimals);
+    return DForceAprLib.getBorrowCost36(borrowRatePerBlock, borrowedAmount, countBlocks, borrowDecimals);
   }
 
   function getRewardAmountsBt(
@@ -114,7 +114,7 @@ contract DForceAprLibFacade {
     uint rewardAmountBorrow,
     uint totalRewardsBT
   ) {
-    return DForceAprLib.getRewardAmountsBt(core, p_);
+    return DForceAprLib.getRewardAmountInBorrowAsset(core, p_);
   }
 
   function supplyRewardAmount(

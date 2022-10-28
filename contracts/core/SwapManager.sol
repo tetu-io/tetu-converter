@@ -31,7 +31,7 @@ contract SwapManager is ISwapManager, ISwapConverter {
   uint public constant PRICE_IMPACT_NUMERATOR = 100_000;
   uint public constant PRICE_IMPACT_TOLERANCE = PRICE_IMPACT_NUMERATOR * 2 / 100; // 5%
 
-  int public constant APR_NUMERATOR = 10**36;
+  int public constant APR_NUMERATOR = 10**18;
 
   ///////////////////////////////////////////////////////
   ///               Initialization
@@ -53,7 +53,7 @@ contract SwapManager is ISwapManager, ISwapConverter {
   external view override returns (
     address converter,
     uint maxTargetAmount,
-    int aprForPeriod36
+    int aprForPeriod18
   ) {
     ITetuLiquidator liquidator = ITetuLiquidator(controller.tetuLiquidator());
     maxTargetAmount = liquidator.getPrice(
@@ -73,7 +73,7 @@ contract SwapManager is ISwapManager, ISwapConverter {
     int loss = int(p_.sourceAmount) - int(returnAmount);
     console.log('loss'); // TODO remove
     console.logInt(loss);
-    aprForPeriod36 = loss * APR_NUMERATOR / int(p_.sourceAmount);
+    aprForPeriod18 = loss * APR_NUMERATOR / int(p_.sourceAmount);
   }
 
   ///////////////////////////////////////////////////////

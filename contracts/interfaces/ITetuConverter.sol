@@ -19,7 +19,7 @@ interface ITetuConverter {
   /// @return converter Result contract that should be used for conversion; it supports IConverter
   ///                   This address should be passed to borrow-function during conversion.
   /// @return maxTargetAmount Max available amount of target tokens that we can get after conversion
-  /// @return aprForPeriod36 Interest on the use of {outMaxTargetAmount} during the given period, decimals 36
+  /// @return apr18 Interest on the use of {outMaxTargetAmount} during the given period, decimals 18
   function findConversionStrategy(
     address sourceToken_,
     uint sourceAmount_,
@@ -29,7 +29,7 @@ interface ITetuConverter {
   ) external view returns (
     address converter,
     uint maxTargetAmount,
-    int aprForPeriod36
+    int apr18
   );
 
   /// @notice Convert {collateralAmount_} to {amountToBorrow_} using {converter_}

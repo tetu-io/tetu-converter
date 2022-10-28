@@ -102,9 +102,17 @@ contract LendingPlatformMock is IPlatformAdapter {
         * liquidationThresholds18[collateralAsset_]
         * IPriceOracle(_priceOracle).getAssetPrice(collateralAsset_)
         / IPriceOracle(_priceOracle).getAssetPrice(borrowAsset_)
-        / 1e18
-      , uint8(IERC20Extended(collateralAsset_).decimals())
-      , uint8(decimalsBorrowAsset)
+        / 1e18,
+      uint8(IERC20Extended(collateralAsset_).decimals()),
+      uint8(decimalsBorrowAsset)
+    );
+
+    uint amountCollateralInBorrowAsset36 = AppUtils.toMantissa(
+      collateralAmount_
+        * IPriceOracle(_priceOracle).getAssetPrice(collateralAsset_)
+        / IPriceOracle(_priceOracle).getAssetPrice(borrowAsset_),
+      uint8(IERC20Extended(collateralAsset_).decimals()),
+      36
     );
 
     return AppDataTypes.ConversionPlan({
@@ -114,10 +122,11 @@ contract LendingPlatformMock is IPlatformAdapter {
       maxAmountToBorrow: liquidity[borrowAsset_],
       maxAmountToSupply: type(uint).max,
       amountToBorrow: amountToBorrow,
-// For simplicity, APR don't depend on amount of borrow
-      borrowApr36: borrowRates[borrowAsset_] * countBlocks_ * 1e36 / 10**decimalsBorrowAsset,
-      supplyAprBt36: supplyRatesBt18[collateralAsset_]  * countBlocks_ * 1e36 / 10**decimalsBorrowAsset,
-      rewardsAmountBt36: rewardsAmountsBt36[borrowAsset_]
+      amountCollateralInBorrowAsset36: amountCollateralInBorrowAsset36,
+// For simplicity, costs and incomes don't depend on amount of borrow
+      borrowCost36: borrowRates[borrowAsset_] * countBlocks_ * 1e36 / 10**decimalsBorrowAsset,
+      supplyIncomeInBorrowAsset36: supplyRatesBt18[collateralAsset_]  * countBlocks_ * 1e36 / 10**decimalsBorrowAsset,
+      rewardsAmountInBorrowAsset36: rewardsAmountsBt36[borrowAsset_]
     });
   }
 

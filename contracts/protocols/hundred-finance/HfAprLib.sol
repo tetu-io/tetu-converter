@@ -56,10 +56,10 @@ library HfAprLib {
   //                  Estimate APR
   ///////////////////////////////////////////////////////
 
-  /// @notice Calculate APR, take into account all borrow rate, supply rate, borrow and supply tokens.
-  /// @return borrowApr36 Estimated borrow APR for the period, borrow tokens, decimals 36
-  /// @return supplyAprBt36 Current supply APR for the period (in terms of borrow tokens), decimals 36
-  function getRawAprInfo36(
+  /// @notice Calculate cost and incomes, take into account borrow rate and supply rate.
+  /// @return borrowCost36 Estimated borrow cost for the period, borrow tokens, decimals 36
+  /// @return supplyIncomeInBorrowAsset36 Current supply income for the period (in terms of borrow tokens), decimals 36
+  function getRawCostAndIncomes(
     HfCore memory core,
     uint collateralAmount_,
     uint countBlocks_,
@@ -67,13 +67,13 @@ library HfAprLib {
     uint priceCollateral36_,
     uint priceBorrow36_
   ) internal view returns (
-    uint borrowApr36,
-    uint supplyAprBt36
+    uint borrowCost36,
+    uint supplyIncomeInBorrowAsset36
   ) {
     uint8 collateralDecimals = IERC20Extended(core.collateralAsset).decimals();
     uint8 borrowDecimals = IERC20Extended(core.borrowAsset).decimals();
 
-    supplyAprBt36 = getSupplyApr36(
+    supplyIncomeInBorrowAsset36 = getSupplyIncomeInBorrowAsset36(
       getEstimatedSupplyRate(
         IHfInterestRateModel(core.cTokenCollateral.interestRateModel()),
         core.cTokenCollateral,
@@ -87,7 +87,7 @@ library HfAprLib {
     );
 
     // estimate borrow rate value after the borrow and calculate result APR
-    borrowApr36 = getBorrowApr36(
+    borrowCost36 = getBorrowCost36(
       getEstimatedBorrowRate(
         core.borrowInterestRateModel,
         core.cTokenBorrow,
@@ -99,8 +99,8 @@ library HfAprLib {
     );
   }
 
-  /// @notice Calculate supply APR in terms of borrow tokens with decimals 36
-  function getSupplyApr36(
+  /// @notice Calculate supply income in terms of borrow asset with decimals 36
+  function getSupplyIncomeInBorrowAsset36(
     uint supplyRatePerBlock,
     uint countBlocks,
     uint8 collateralDecimals,
@@ -119,9 +119,9 @@ library HfAprLib {
     );
   }
 
-  /// @notice Calculate borrow APR in terms of borrow tokens with decimals 36
+  /// @notice Calculate borrow cost in terms of borrow tokens with decimals 36
   /// @dev see LendingContractsV2, Base.sol, _updateInterest
-  function getBorrowApr36(
+  function getBorrowCost36(
     uint borrowRatePerBlock,
     uint borrowedAmount,
     uint countBlocks,

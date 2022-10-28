@@ -23,6 +23,15 @@ contract HfPlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
   using SafeERC20 for IERC20;
   using AppUtils for uint;
 
+  /// @notice Local vars inside _getConversionPlan - to avoid stack too deep
+  struct LocalsGetConversionPlan {
+    IHfPriceOracle priceOracle;
+    uint8 collateralAssetDecimals;
+    uint8 borrowAssetDecimals;
+    uint priceCollateral36;
+    uint priceBorrow36;
+  }
+
   IController public controller;
   IHfComptroller public comptroller;
   /// @notice Implementation of IHfPriceOracle
@@ -162,11 +171,14 @@ contract HfPlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
           // it seems that supply is not limited in HundredFinance protocol
           plan.maxAmountToSupply = type(uint).max; // unlimited
 
-          IHfPriceOracle priceOracle = IHfPriceOracle(comptroller.oracle());
-          uint priceCollateral36 = HfAprLib.getPrice(priceOracle, cTokenCollateral)
-            * 10**IERC20Extended(collateralAsset_).decimals();
-          uint priceBorrow36 = HfAprLib.getPrice(priceOracle, cTokenBorrow)
-            * 10**IERC20Extended(borrowAsset_).decimals();
+          LocalsGetConversionPlan memory vars;
+          vars.collateralAssetDecimals = IERC20Extended(collateralAsset_).decimals();
+          vars.borrowAssetDecimals = IERC20Extended(borrowAsset_).decimals();
+          vars.priceOracle = IHfPriceOracle(comptroller.oracle());
+          vars.priceCollateral36 = HfAprLib.getPrice(vars.priceOracle, cTokenCollateral)
+            * 10**vars.collateralAssetDecimals;
+          vars.priceBorrow36 = HfAprLib.getPrice(vars.priceOracle, cTokenBorrow)
+            * 10**vars.borrowAssetDecimals;
 
           // calculate amount that can be borrowed
           // split calculation on several parts to avoid stack too deep
@@ -174,25 +186,32 @@ contract HfPlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
           plan.amountToBorrow = AppUtils.toMantissa(
             plan.amountToBorrow * plan.liquidationThreshold18
               / 1e18
-              * (priceCollateral36 * 1e18 / priceBorrow36)
+              * (vars.priceCollateral36 * 1e18 / vars.priceBorrow36)
               / 1e18,
-            IERC20Extended(collateralAsset_).decimals(),
-            IERC20Extended(borrowAsset_).decimals()
+            vars.collateralAssetDecimals,
+            vars.borrowAssetDecimals
           );
           if (plan.amountToBorrow > plan.maxAmountToBorrow) {
             plan.amountToBorrow = plan.maxAmountToBorrow;
           }
 
           // calculate current borrow rate and predicted APR after borrowing required amount
-          (plan.borrowApr36, plan.supplyAprBt36) = HfAprLib.getRawAprInfo36(
+          (plan.borrowCost36,
+           plan.supplyIncomeInBorrowAsset36
+          ) = HfAprLib.getRawCostAndIncomes(
             HfAprLib.getCore(comptroller, cTokenCollateral, cTokenBorrow),
             collateralAmount_,
             countBlocks_,
             plan.amountToBorrow,
-            priceCollateral36,
-            priceBorrow36
+            vars.priceCollateral36,
+            vars.priceBorrow36
           );
 
+          plan.amountCollateralInBorrowAsset36 = AppUtils.toMantissa(
+            collateralAmount_ * vars.priceCollateral36 / vars.priceBorrow36,
+            vars.collateralAssetDecimals,
+            36
+          );
         }
       }
     }

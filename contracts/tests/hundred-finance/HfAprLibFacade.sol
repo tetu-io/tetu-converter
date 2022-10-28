@@ -40,7 +40,7 @@ contract HfAprLibFacade {
     );
   }
 
-  function getRawAprInfo36(
+  function getRawCostAndIncomes(
     HfAprLib.HfCore memory core,
     uint collateralAmount_,
     uint countBlocks_,
@@ -48,10 +48,10 @@ contract HfAprLibFacade {
     uint priceCollateral36_,
     uint priceBorrow36_
   ) external view returns (
-    uint borrowApr36,
-    uint supplyAprBt36
+    uint borrowCost36,
+    uint supplyIncomeInBorrowAsset36
   ) {
-    return HfAprLib.getRawAprInfo36(
+    return HfAprLib.getRawCostAndIncomes(
       core,
       collateralAmount_,
       countBlocks_,
@@ -61,7 +61,7 @@ contract HfAprLibFacade {
     );
   }
 
-  function getSupplyApr36(
+  function getSupplyIncomeInBorrowAsset36(
     uint supplyRatePerBlock,
     uint countBlocks,
     uint8 collateralDecimals,
@@ -69,7 +69,7 @@ contract HfAprLibFacade {
     uint priceBorrow,
     uint suppliedAmount
   ) external pure returns (uint) {
-    return HfAprLib.getSupplyApr36(
+    return HfAprLib.getSupplyIncomeInBorrowAsset36(
       supplyRatePerBlock,
       countBlocks,
       collateralDecimals,
@@ -79,12 +79,12 @@ contract HfAprLibFacade {
     );
   }
 
-  function getBorrowApr36(
+  function getBorrowCost36(
     uint borrowRatePerBlock,
     uint borrowedAmount,
     uint countBlocks,
     uint8 borrowDecimals
   ) external pure returns (uint) {
-    return HfAprLib.getBorrowApr36(borrowRatePerBlock, borrowedAmount, countBlocks, borrowDecimals);
+    return HfAprLib.getBorrowCost36(borrowRatePerBlock, borrowedAmount, countBlocks, borrowDecimals);
   }
 }

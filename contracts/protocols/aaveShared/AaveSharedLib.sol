@@ -29,8 +29,9 @@ library AaveSharedLib {
   //       LI = liquidity index
   //////////////////////////////////////////////////////////////////////////
 
-  /// @notice Calculate APR for period {countBlocks} in the point AFTER supply/borrow operation
-  ///         APR is total amount of generated income/debt for the period in the terms of amount's asset
+  /// @notice Calculate APR for period {countBlocks}.
+  ///         Assume that the calculations are made in the point AFTER supply/borrow operation.
+  ///         "Cost" is total amount of generated income/debt for the period in the terms of amount's asset
   /// @param amount Amount of collateral or borrow
   /// @param reserveNormalized Current value of normalized income / debt
   /// @param liquidityIndex Value of liquidityIndex / variableBorrowIndex
@@ -38,8 +39,8 @@ library AaveSharedLib {
   /// @param countBlocks Duration of the period in blocks
   /// @param blocksPerDay Count blocks per day (about 40 ths)
   /// @param aprMultiplier Multiplier for result value (to increase precision)
-  /// @return APR value in terms of source amount's asset tokens multiplied on aprMultiplier
-  function getAprForPeriodAfter(
+  /// @return Cost value in terms of source amount's asset tokens multiplied on aprMultiplier
+  function getCostForPeriodAfter(
     uint amount,
     uint reserveNormalized,
     uint liquidityIndex,
@@ -64,16 +65,17 @@ library AaveSharedLib {
         / reserveNormalized;
   }
 
-  /// @notice Calculate APR for period {countBlocks} in the point before the supply/borrow operation
-  ///         APR is total amount of generated income/debt for the period in the terms of amount's asset
+  /// @notice Calculate costs for period {countBlocks}.
+  ///         We assume, that the calculation is made just before the supply/borrow operation
+  ///         "Costs" is total amount of generated income/debt for the period in the terms of amount's asset
   /// @param amount Amount of collateral or borrow
   /// @param state Current state (before the supply/borrow operation)
   /// @param predictedRate Predicted value of liquidity/borrow rate
   /// @param countBlocks Duration of the period in blocks
   /// @param blocksPerDay Count blocks per day (about 40 ths)
   /// @param aprMultiplier Multiplier for result value (to increase precision)
-  /// @return APR value in terms of source amount's asset tokens multiplied on aprMultiplier
-  function getAprForPeriodBefore(
+  /// @return Cost value in terms of source amount's asset tokens multiplied on aprMultiplier
+  function getCostForPeriodBefore(
     State memory state,
     uint amount,
     uint predictedRate,
@@ -87,7 +89,7 @@ library AaveSharedLib {
     // for the period [state.lastUpdateTimestamp ... operationTimestamp]
     uint liquidityIndexAfter = getNextLiquidityIndex(state, operationTimestamp);
 
-    return getAprForPeriodAfter(
+    return getCostForPeriodAfter(
       amount,
       liquidityIndexAfter, // reserveNormalizedAfter is the same as liquidityIndexAfter
       liquidityIndexAfter,

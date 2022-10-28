@@ -14,7 +14,7 @@ interface ISwapManager {
   ) external view returns (
     address converter,
     uint maxTargetAmount,
-    int aprForPeriod36
+    int apr18
   );
 
 }

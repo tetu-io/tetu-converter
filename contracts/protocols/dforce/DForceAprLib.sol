@@ -91,11 +91,12 @@ library DForceAprLib {
   //                  Estimate APR
   ///////////////////////////////////////////////////////
 
-  /// @notice Calculate APR, take into account all borrow rate, supply rate, borrow and supply tokens.
-  /// @return borrowApr36 Estimated borrow APR for the period, borrow tokens, decimals 36
-  /// @return supplyAprBt36 Current supply APR for the period (in terms of borrow tokens), decimals 36
-  /// @return rewardsAmountBt36 Estimated total amount of rewards at the end of the period (in terms of borrow tokens)
-  function getRawAprInfo36(
+  /// @notice Calculate costs and incomes, take into account all borrow rate, supply rate, borrow and supply tokens.
+  /// @return borrowCost36 Estimated borrow APR for the period, borrow tokens, decimals 36
+  /// @return supplyIncomeInBorrowAsset36 Current supply APR for the period (in terms of borrow tokens), decimals 36
+  /// @return rewardsAmountInBorrowAsset36 Estimated total amount of rewards at the end of the period
+  ///         (in terms of borrow tokens), decimals 36
+  function getRawCostAndIncomes(
     DForceCore memory core,
     uint collateralAmount_,
     uint countBlocks_,
@@ -103,12 +104,12 @@ library DForceAprLib {
     uint priceCollateral36_,
     uint priceBorrow36_
   ) internal view returns (
-    uint borrowApr36,
-    uint supplyAprBt36,
-    uint rewardsAmountBt36
+    uint borrowCost36,
+    uint supplyIncomeInBorrowAsset36,
+    uint rewardsAmountInBorrowAsset36
   ) {
     // estimate amount of supply+borrow rewards in terms of borrow asset
-    (,, rewardsAmountBt36) = getRewardAmountsBt(core,
+    (,, rewardsAmountInBorrowAsset36) = getRewardAmountInBorrowAsset(core,
       RewardsAmountInput({
         collateralAmount: collateralAmount_,
         borrowAmount: amountToBorrow_,
@@ -120,7 +121,7 @@ library DForceAprLib {
 
     {
       uint8 collateralDecimals = IERC20Extended(core.collateralAsset).decimals();
-      supplyAprBt36 = getSupplyApr36(
+      supplyIncomeInBorrowAsset36 = getSupplyIncomeInBorrowAsset36(
         getEstimatedSupplyRate(core.cTokenCollateral, collateralAmount_),
         countBlocks_,
         collateralDecimals,
@@ -131,7 +132,7 @@ library DForceAprLib {
     }
 
     // estimate borrow rate value after the borrow and calculate result APR
-    borrowApr36 = getBorrowApr36(
+    borrowCost36 = getBorrowCost36(
       getEstimatedBorrowRate(
         core.borrowInterestRateModel,
         core.cTokenBorrow,
@@ -143,8 +144,8 @@ library DForceAprLib {
     );
   }
 
-  /// @notice Calculate supply APR in terms of borrow tokens with decimals 36
-  function getSupplyApr36(
+  /// @notice Calculate supply income in terms of borrow tokens with decimals 36
+  function getSupplyIncomeInBorrowAsset36(
     uint supplyRatePerBlock,
     uint countBlocks,
     uint8 collateralDecimals,
@@ -165,7 +166,7 @@ library DForceAprLib {
 
   /// @notice Calculate borrow APR in terms of borrow tokens with decimals 36
   /// @dev see LendingContractsV2, Base.sol, _updateInterest
-  function getBorrowApr36(
+  function getBorrowCost36(
     uint borrowRatePerBlock,
     uint borrowedAmount,
     uint countBlocks,
@@ -273,13 +274,13 @@ library DForceAprLib {
   ///       Calculate supply and borrow rewards
   ///////////////////////////////////////////////////////
 
-  function getRewardAmountsBt(
+  function getRewardAmountInBorrowAsset(
     DForceCore memory core,
     RewardsAmountInput memory p_
   ) internal view returns (
     uint rewardAmountSupply,
     uint rewardAmountBorrow,
-    uint totalRewardsBt36
+    uint totalRewardsInBorrowAsset36
   ) {
     uint distributionSpeed = core.rd.distributionSupplySpeed(address(core.cTokenCollateral));
     if (distributionSpeed != 0) {
@@ -308,7 +309,7 @@ library DForceAprLib {
     if (rewardAmountSupply + rewardAmountBorrow != 0) {
       // EA(x) = ( RA_supply(x) + RA_borrow(x) ) * PriceRewardToken / PriceBorrowUnderlying
       // recalculate the amount from [rewards tokens] to [borrow tokens]
-      totalRewardsBt36 = (rewardAmountSupply + rewardAmountBorrow)
+      totalRewardsInBorrowAsset36 = (rewardAmountSupply + rewardAmountBorrow)
         * getPrice(core.priceOracle, address(core.cRewardsToken)) // * 10**core.cRewardsToken.decimals()
         * 10**18
         / p_.priceBorrow36
@@ -317,7 +318,7 @@ library DForceAprLib {
       ;
     }
 
-    return (rewardAmountSupply, rewardAmountBorrow, totalRewardsBt36);
+    return (rewardAmountSupply, rewardAmountBorrow, totalRewardsInBorrowAsset36);
   }
 
   /// @notice Calculate amount of supply rewards inside the supply-block

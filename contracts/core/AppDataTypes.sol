@@ -20,7 +20,7 @@ library AppDataTypes {
     uint sourceAmount;
   }
 
-  /// @notice Explain how a given pool can make specified conversion
+  /// @notice Explain how a given lending pool can make specified conversion
   struct ConversionPlan {
     /// @notice Template adapter contract that implements required strategy.
     address converter;
@@ -28,16 +28,18 @@ library AppDataTypes {
     /// TODO: probably we need to use different decimals for the collateral factor to reduce size of this struct
     uint liquidationThreshold18;
 
-    /// @notice Amount to borrow in terms of borrow tokens
+    /// @notice Amount to borrow in terms of borrow asset
     uint amountToBorrow;
 
-    /// @notice APR for the period calculated using borrow rate in terms of borrow tokens, decimals 36
+    /// @notice Cost for the period calculated using borrow rate in terms of borrow tokens, decimals 36
     /// @dev It doesn't take into account supply increment and rewards
-    uint borrowApr36;
-    /// @notice Potential supply increment after borrow period in terms of Borrow Tokens (BT), decimals 36
-    uint supplyAprBt36;
-    /// @notice Potential rewards amount after borrow period in terms of Borrow Tokens (BT), decimals 36
-    uint rewardsAmountBt36;
+    uint borrowCost36;
+    /// @notice Potential supply increment after borrow period recalculated to Borrow Token, decimals 36
+    uint supplyIncomeInBorrowAsset36;
+    /// @notice Potential rewards amount after borrow period in terms of Borrow Tokens, decimals 36
+    uint rewardsAmountInBorrowAsset36;
+    /// @notice Amount of collateral in terms of borrow asset, decimals 36
+    uint amountCollateralInBorrowAsset36;
 
     /// @notice Loan-to-value, decimals = 18 (wad)
     /// TODO: uint16? see aave..

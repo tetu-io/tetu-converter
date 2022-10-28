@@ -217,14 +217,14 @@ contract Aave3PlatformAdapter is IPlatformAdapter {
             plan.amountToBorrow = plan.maxAmountToBorrow;
           }
 
-          plan.borrowApr36 = AaveSharedLib.getAprForPeriodBefore(
+          plan.borrowCost36 = AaveSharedLib.getCostForPeriodBefore(
             AaveSharedLib.State({
               liquidityIndex: rb.variableBorrowIndex,
               lastUpdateTimestamp: uint(rb.lastUpdateTimestamp),
               rate: rb.currentVariableBorrowRate
             }),
-              plan.amountToBorrow,
-        //predicted borrow ray after the borrow
+            plan.amountToBorrow,
+        //predicted borrow rate after the borrow
             Aave3AprLib.getVariableBorrowRateRays(
               rb,
               params.borrowAsset,
@@ -247,7 +247,7 @@ contract Aave3PlatformAdapter is IPlatformAdapter {
           vars.totalVariableDebt
           ,,,,,,,) = _dp(vars.poolLocal).getReserveData(params.collateralAsset);
 
-          plan.supplyAprBt36 = AaveSharedLib.getAprForPeriodBefore(
+          plan.supplyIncomeInBorrowAsset36 = AaveSharedLib.getCostForPeriodBefore(
             AaveSharedLib.State({
               liquidityIndex: rc.liquidityIndex,
               lastUpdateTimestamp: uint(rc.lastUpdateTimestamp),
@@ -271,6 +271,12 @@ contract Aave3PlatformAdapter is IPlatformAdapter {
           * 10**18 // we need decimals 36, but the result is already multiplied on 1e18 by multiplier above
           / vars.prices[1] // borrow price
           / 10**rc.configuration.getDecimals();
+
+          plan.amountCollateralInBorrowAsset36 = AppUtils.toMantissa(
+            params.collateralAmount * vars.prices[0] / vars.prices[1],
+            uint8(rc.configuration.getDecimals()),
+            36
+          );
         }
       }
     }

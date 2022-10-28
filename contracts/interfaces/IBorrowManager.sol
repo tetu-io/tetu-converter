@@ -44,11 +44,11 @@ interface IBorrowManager is IPoolAdaptersManager {
   /// @notice Find lending pool capable of providing {targetAmount} and having best normalized borrow rate
   /// @return converter Result template-pool-adapter or 0 if a pool is not found
   /// @return maxTargetAmount Max available amount of target tokens that we can borrow using {sourceAmount}
-  /// @return aprForPeriod36 Annual Percentage Rate (normalized borrow rate) == APR-per-block * count blocks
+  /// @return apr18 Annual Percentage Rate == (total cost - total income) / amount of collateral, decimals 18
   function findConverter(AppDataTypes.InputConversionParams memory params) external view returns (
     address converter,
     uint maxTargetAmount,
-    int aprForPeriod36
+    int apr18
   );
 
   /// @notice Get platformAdapter to which the converter belongs

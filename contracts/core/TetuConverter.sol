@@ -66,7 +66,7 @@ contract TetuConverter is ITetuConverter, IKeeperCallback {
   ) external view override returns (
     address converter,
     uint maxTargetAmount,
-    int aprForPeriod36
+    int apr18
   ) {
     require(sourceAmount_ > 0, AppErrors.ZERO_AMOUNT);
     require(periodInBlocks_ > 0 || conversionMode == ConversionMode.SWAP_1, AppErrors.INCORRECT_VALUE);
@@ -88,7 +88,7 @@ contract TetuConverter is ITetuConverter, IKeeperCallback {
   ) internal view returns (
     address converter,
     uint maxTargetAmount,
-    int aprForPeriod36
+    int apr18
   ) {
     AppDataTypes.InputConversionParams memory params = AppDataTypes.InputConversionParams({
       sourceToken: sourceToken_,
@@ -107,25 +107,25 @@ contract TetuConverter is ITetuConverter, IKeeperCallback {
       (
         address borrowConverter,
         uint borrowMaxTargetAmount,
-        int borrowAprForPeriod36
+        int borrowingApr18
       ) = _borrowManager().findConverter(params);
 
       (
         address swapConverter,
         uint swapMaxTargetAmount,
-        int swapAprForPeriod36
+        int swapApr18
       ) = _swapManager().getConverter(params);
 
       bool useBorrow =
         swapConverter == address(0)
         || (
           borrowConverter != address(0)
-          && swapAprForPeriod36 > borrowAprForPeriod36
+          && swapApr18 > borrowingApr18
         );
 
       return useBorrow
-        ? (borrowConverter, borrowMaxTargetAmount, borrowAprForPeriod36)
-        : (swapConverter, swapMaxTargetAmount, swapAprForPeriod36);
+        ? (borrowConverter, borrowMaxTargetAmount, borrowingApr18)
+        : (swapConverter, swapMaxTargetAmount, swapApr18);
     }
   }
 

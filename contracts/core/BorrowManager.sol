@@ -224,16 +224,16 @@ contract BorrowManager is IBorrowManager {
   function findConverter(AppDataTypes.InputConversionParams memory p_) external view override returns (
     address converter,
     uint maxTargetAmount,
-    int aprForPeriod36
+    int aprForPeriod18
   ) {
     // get all platform adapters that support required pair of assets
     EnumerableSet.AddressSet storage pas = _pairsList[getAssetPairKey(p_.sourceToken, p_.targetToken)];
 
     if (pas.length() != 0) {
-      (converter, maxTargetAmount, aprForPeriod36) = _findPool(pas, p_, _getTargetHealthFactor2(p_.targetToken));
+      (converter, maxTargetAmount, aprForPeriod18) = _findPool(pas, p_, _getTargetHealthFactor2(p_.targetToken));
     }
 
-    return (converter, maxTargetAmount, aprForPeriod36);
+    return (converter, maxTargetAmount, aprForPeriod18);
   }
 
   /// @notice Enumerate all pools and select a pool suitable for borrowing with min APR and enough liquidity
@@ -244,8 +244,9 @@ contract BorrowManager is IBorrowManager {
   ) internal view returns (
     address converter,
     uint maxTargetAmount,
-    int apr36
+    int apr18
   ) {
+    uint8 sourceAssetDecimals = IERC20Extended(p_.sourceToken).decimals();
     uint lenPools = platformAdapters_.length();
 
     for (uint i = 0; i < lenPools; i = i.uncheckedInc()) {
@@ -257,27 +258,33 @@ contract BorrowManager is IBorrowManager {
         p_.periodInBlocks
       );
 
-      // combine three found APRs to single one
-      int planApr36 = int(plan.borrowApr36)
-        - int(plan.supplyAprBt36)
-        - int(plan.rewardsAmountBt36 * rewardsFactor / REWARDS_FACTOR_DENOMINATOR_18 / p_.periodInBlocks);
+      // combine all costs and incomes and calculate result APR. Rewards are taken with the given weight.
+      // Positive value means cost, negative - income
+      // APR = (cost - income) / collateralAmount, decimals 18, all amounts are given in terms of borrow asset.
+      int planApr18 = (
+        int(plan.borrowCost36)
+        - int(plan.supplyIncomeInBorrowAsset36)
+        - int(plan.rewardsAmountInBorrowAsset36 * rewardsFactor / REWARDS_FACTOR_DENOMINATOR_18)
+      )
+      * int(10**18)
+      / int(plan.amountCollateralInBorrowAsset36);
 
       if (plan.converter != address(0)) {
         // check if we are able to supply required collateral
         if (plan.maxAmountToSupply > p_.sourceAmount) {
-          if (converter == address(0) || planApr36 < apr36) {
+          if (converter == address(0) || planApr18 < apr18) {
             // take the pool with lowest APR and with enough liquidity
             if (plan.maxAmountToBorrow >= plan.amountToBorrow) {
               converter = plan.converter;
               maxTargetAmount = plan.amountToBorrow;
-              apr36 = planApr36;
+              apr18 = planApr18;
             }
           }
         }
       }
     }
 
-    return (converter, maxTargetAmount, apr36);
+    return (converter, maxTargetAmount, apr18);
   }
 
   ///////////////////////////////////////////////////////
