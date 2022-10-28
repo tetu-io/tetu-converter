@@ -56,7 +56,7 @@ export interface IBorrowResults {
 
   resultsBlock: {
     period: IPeriod;
-    /** APR for single block, all values are given in terms of borrow token */
+    /** Real APR for the period, all values are given in terms of borrow token */
     aprBt36: IAmounts;
     rates: IRates;
   }
@@ -106,4 +106,17 @@ export interface IAssetInfo {
   asset: string;
   title: string;
   holders: string[];
+}
+
+export interface ISwapResults {
+  collateralAmount: BigNumber;
+  maxTargetAmount: BigNumber;
+  borrowAmount: BigNumber;
+  aprBt36: BigNumber;
+}
+
+export interface IStrategyToConvert {
+  converter: string;
+  maxTargetAmount: BigNumber;
+  aprForPeriod36: BigNumber;
 }

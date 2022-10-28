@@ -3,14 +3,20 @@ import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import {
   IConversionPlan,
   IAssetInfo,
-  IBorrowResults
+  IBorrowResults, ISwapResults, IStrategyToConvert
 } from "../apr/aprDataTypes";
 import {TimeUtils} from "../../../scripts/utils/TimeUtils";
 import {ethers} from "hardhat";
-import {IERC20__factory, IERC20Extended__factory, IPlatformAdapter, ISwapManager} from "../../../typechain";
+import {
+  IERC20__factory,
+  IERC20Extended__factory,
+  IPlatformAdapter,
+  ISwapManager
+} from "../../../typechain";
 import {BigNumber} from "ethers";
 import {Misc} from "../../../scripts/utils/Misc";
 import {AprUtils} from "../utils/aprUtils";
+import {DeployerUtils} from "../../../scripts/utils/DeployerUtils";
 
 //region Data types
 interface IInputParams {
@@ -27,7 +33,7 @@ export type BorrowTestMaker = (
   additionalPoints: number[]
 ) => Promise<IBorrowResults>;
 
-export interface IBorrowTestResults {
+export interface IBorrowingTestResults {
   platformTitle: string;
   countBlocks: number;
 
@@ -45,6 +51,18 @@ export interface IBorrowTestResults {
   error?: string;
 }
 
+export interface ISwapTestResults {
+  assetCollateral: IAssetInfo;
+  collateralAmount: BigNumber;
+
+  assetBorrow: IAssetInfo;
+
+  strategyToConvert: IStrategyToConvert;
+  results?: ISwapResults;
+
+  error?: string;
+}
+
 export interface IBorrowTask {
   collateralAsset: IAssetInfo;
   borrowAsset: IAssetInfo;
@@ -54,7 +72,7 @@ export interface IBorrowTask {
 
 export class CompareAprUsesCase {
 
-//region Utils
+//region Borrowing
   static async makeSingleBorrowTest(
     title: string,
     p: IInputParams,
@@ -93,6 +111,25 @@ export class CompareAprUsesCase {
     }
   }
 
+  private static async getPrices(
+    platformAdapter: IPlatformAdapter,
+    sourceAsset: IAssetInfo,
+    targetAsset: IAssetInfo
+  ) : Promise<{
+    priceCollateral: BigNumber,
+    priceBorrow: BigNumber
+  } | undefined > {
+    try {
+      const stPrices = await platformAdapter.getAssetsPrices([sourceAsset.asset, targetAsset.asset]);
+      console.log("prices", stPrices);
+      return {priceCollateral: stPrices[0], priceBorrow: stPrices[1]};
+    } catch {
+      console.log("Cannot get prices for the assets unsupported by the platform");
+    }
+  }
+//endregion Borrowing
+
+//region Utils
   static generateTasks(
     assets: IAssetInfo[],
     collateralAmounts: BigNumber[]
@@ -111,23 +148,6 @@ export class CompareAprUsesCase {
     return dest;
   }
 
-  private static async getPrices(
-    platformAdapter: IPlatformAdapter,
-    sourceAsset: IAssetInfo,
-    targetAsset: IAssetInfo
-  ) : Promise<{
-   priceCollateral: BigNumber,
-   priceBorrow: BigNumber
-  } | undefined > {
-    try {
-      const stPrices = await platformAdapter.getAssetsPrices([sourceAsset.asset, targetAsset.asset]);
-      console.log("prices", stPrices);
-      return {priceCollateral: stPrices[0], priceBorrow: stPrices[1]};
-    } catch {
-      console.log("Cannot get prices for the assets unsupported by the platform");
-    }
-  }
-
   /** Get total balance of the asset for all holders */
   static async getTotalAmount(
     deployer: SignerWithAddress,
@@ -143,6 +163,67 @@ export class CompareAprUsesCase {
     return dest;
   }
 //endregion Utils
+
+//region Swap
+  static async makeSingleSwapTest(
+    swapManager: ISwapManager,
+    title: string,
+    collateralAsset: string,
+    collateralAmount: BigNumber,
+    borrowAsset: string,
+    strategyToConvert: IStrategyToConvert,
+  ) : Promise<{
+    results?: ISwapResults
+    error?: string
+  } > {
+    const receiver = ethers.Wallet.createRandom().address;
+
+    try {
+      console.log("START swap", title);
+      await swapManager.swap(
+        collateralAsset,
+        collateralAmount,
+        borrowAsset,
+        strategyToConvert.maxTargetAmount,
+        receiver
+      );
+      return {
+        results: {
+          aprBt36: strategyToConvert.aprForPeriod36,
+          collateralAmount,
+
+          // actually received amount
+          borrowAmount: IERC20Extended__factory.connect(
+            borrowAsset,
+            await DeployerUtils.startImpersonate(receiver)
+          ).balanceOf(receiver),
+
+          // initially planned amount to receive
+          maxTargetAmount: strategyToConvert.maxTargetAmount
+        }
+      }
+      // tslint:disable-next-line:no-any
+    } catch (e: any) {
+      console.log(e);
+      const re = /VM Exception while processing transaction: reverted with reason string\s*(.*)/i;
+      if (e.message) {
+        const found = e.message.match(re);
+        console.log("found", found)
+        if (found && found[1]) {
+          return {
+            error: found[1]
+          }
+        }
+      }
+    } finally {
+      console.log("FINISH swap", title);
+    }
+
+    return {
+      error: "Unknown error"
+    }
+  }
+//endregion Swap
 
 //region Make borrow/swap
 
@@ -160,9 +241,9 @@ export class CompareAprUsesCase {
     countBlocks: number,
     healthFactor2: number,
     testMaker: BorrowTestMaker
-  ) : Promise<IBorrowTestResults[]> {
+  ) : Promise<IBorrowingTestResults[]> {
     console.log("makePossibleBorrowsOnPlatform:", platformTitle);
-    const dest: IBorrowTestResults[] = [];
+    const dest: IBorrowingTestResults[] = [];
 
     for (const task of tasks) {
       const holders = task.collateralAsset.holders;
@@ -269,15 +350,86 @@ export class CompareAprUsesCase {
     return dest;
   }
 
-  // static async makePossibleSwaps(
-  //   deployer: SignerWithAddress,
-  //   swapManager: ISwapManager,
-  //   tasks: IBorrowTask[],
-  //   countBlocks: number,
-  //   healthFactor2: number,
-  // ) : Promise<IBorrowTestResults[]> {
-  //
-  // }
+  static async makePossibleSwaps(
+    deployer: SignerWithAddress,
+    swapManager: ISwapManager,
+    tasks: IBorrowTask[],
+    countBlocks: number,
+    healthFactor2: number,
+  ) : Promise<ISwapTestResults[]> {
+    console.log("makePossibleSwaps");
+    const dest: ISwapTestResults[] = [];
+    const platformTitle = "SWAP";
+
+    for (const task of tasks) {
+      const holders = task.collateralAsset.holders;
+      const initialLiquidity = await CompareAprUsesCase.getTotalAmount(deployer, task.collateralAsset.asset, holders);
+
+      console.log("makePossibleSwaps, task:", task);
+
+      const snapshot = await TimeUtils.snapshot();
+      try {
+        const strategyToConvert: IStrategyToConvert = await swapManager.getConverter(
+          {
+            periodInBlocks: countBlocks,
+            sourceAmount: task.collateralAmount,
+            sourceToken: task.collateralAsset,
+            targetToken: task.borrowAsset
+          }
+        );
+        if (strategyToConvert.converter === Misc.ZERO_ADDRESS) {
+          dest.push({
+            assetBorrow: task.borrowAsset,
+            assetCollateral: task.collateralAsset,
+            collateralAmount: task.collateralAmount,
+            strategyToConvert,
+            error: "Plan not found",
+          });
+        } else {
+          const p: ITestSingleBorrowParams = {
+            collateral: {
+              asset: task.collateralAsset.asset,
+              holder: task.collateralAsset.holders.join(";"),
+              initialLiquidity,
+            },
+            borrow: {
+              asset: task.borrowAsset.asset,
+              holder: task.borrowAsset.holders.join(";"),
+              initialLiquidity: 0,
+            },
+            collateralAmount: task.collateralAmount,
+            healthFactor2,
+            countBlocks: 1 // swap doesn't use it
+          };
+          const res = await this.makeSingleSwapTest(
+            swapManager,
+            platformTitle,
+            task.collateralAsset.asset,
+            task.collateralAmount,
+            task.borrowAsset.asset,
+            strategyToConvert,
+          );
+          dest.push({
+            assetBorrow: task.borrowAsset,
+            assetCollateral: task.collateralAsset,
+            collateralAmount: task.collateralAmount,
+            strategyToConvert,
+            results: res.results,
+            error: res.error
+          });
+        }
+      } finally {
+        await TimeUtils.rollback(snapshot);
+      }
+    }
+
+    // we need to display full objects, so we use util.inspect, see
+    // https://stackoverflow.com/questions/10729276/how-can-i-get-the-full-object-in-node-jss-console-log-rather-than-object
+    require("util").inspect.defaultOptions.depth = null;
+
+    console.log("makePossibleBorrowsOnPlatform finished:", dest);
+    return dest;
+  }
 
 //endregion Make borrow/swap
 }

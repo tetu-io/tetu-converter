@@ -9,7 +9,7 @@ import {setInitialBalance} from "../utils/CommonUtils";
 import {getBigNumberFrom} from "../../../scripts/utils/NumberUtils";
 import {existsSync, writeFileSync} from "fs";
 import {Aave3Helper} from "../../../scripts/integration/helpers/Aave3Helper";
-import {IBorrowTestResults} from "../uses-cases/CompareAprUsesCase";
+import {IBorrowingTestResults, ISwapTestResults} from "../uses-cases/CompareAprUsesCase";
 import {IPointResults} from "./aprDataTypes";
 
 //region Make borrow
@@ -116,99 +116,105 @@ export function changeDecimals(amount: BigNumber, from: number, to: number) : Bi
 }
 //endregion Conversion of amounts
 
-//region Save borrow test results to CSV
-export function appendTestResultsToFile(path: string, data: IBorrowTestResults[]) {
-  console.log("appendTestResultsToFile", path);
-  const lines: string[] = [];
+//region Save borrow/swap test results to CSV
+/**
+ *   Prepare set of headers
+ *   Abbreviations in the headers:
+ *   P1 = point 1, RW - rewards, R - results, P - predicted, C - collateral, B - borrow
+ */
+function getHeadersLine(): string[] {
+  return [
+    "platformTitle",
+    "period.blocks",
+    "error",
 
-  // write headers
-  // Abbreviations in the headers:
-  // P1 = point 1, RW - rewards, R - results, P - predicted, C - collateral, B - borrow
-  if (! existsSync(path)) {
-    const headers: string[] = [
-      "platformTitle",
-      "period.blocks",
-      "error",
-
-      "Collateral",
-      "Borrow",
-
-      "amount.C",
-      "amount.B",
-      "amountBT18.C",
-
-      "planP.RW.AmountBt36",
-      "P1.RW..AmountBt36",
-      "P/R.%",
-
-      "P.C.aprBt36",
-      "R.C.aprBt36",
-      "P/R.%",
-
-      "P.B.aprBt36",
-      "R.B.aprBt36",
-      "P/R.%",
-
-      "P1.costsBT36.C",
-      "C.blocks",
-      "P1.costsBT36.B",
-      "B.blocks",
-
-      "price.C",
-      "price.B",
-
-      "plan1.S.AprBt36",
-      "plan1.B.Apr36",
-
-      "P.C.supplyRate",
-      "R.C.supplyRate",
-
-      "P.C.borrowRate",
-      "R.C.borrowRate",
-
-      "block0",
-      "block1",
-      "timestamp0",
-      "timestamp1",
-
-      "Collateral.address",
-      "Borrow.address",
+    "Collateral",
+    "Borrow",
+// amounts
+    "amount.C",
+    "amount.B",
+    "amountBT18.C",
+// rewards
+    "planP.RW.AmountBt36",
+    "P1.RW.AmountBt36",
+    "P/R.%",
+// collateral apr
+    "P.C.aprBt36",
+    "R.C.aprBt36",
+    "P/R.%",
+// borrow apr
+    "P.B.aprBt36",
+    "R.B.aprBt36",
+    "P/R.%",
+// costs
+    "P1.costsBT36.C",
+    "C.blocks",
+    "P1.costsBT36.B",
+    "B.blocks",
+// prices
+    "price.C",
+    "price.B",
+// plan1 - apr
+    "plan1.S.AprBt36",
+    "plan1.B.Apr36",
+// supply rates
+    "P.C.supplyRate",
+    "R.C.supplyRate",
+// borrow rates
+    "P.C.borrowRate",
+    "R.C.borrowRate",
+// periods
+    "block0",
+    "block1",
+    "timestamp0",
+    "timestamp1",
+// addresses
+    "Collateral.address",
+    "Borrow.address",
 
 // plan single block
-      "plan1.converter",
-      "plan1.RW.AmountBt36",
-      "plan1.ltv18",
-      "plan1.liquidationThreshold18",
-      "plan1.maxAmountToSupplyCT",
-      "plan1.maxAmountToBorrowBT",
+    "plan1.converter",
+    "plan1.RW.AmountBt36",
+    "plan1.ltv18",
+    "plan1.liquidationThreshold18",
+    "plan1.maxAmountToSupplyCT",
+    "plan1.maxAmountToBorrowBT",
 
 // plan full period
-      "planP.converter",
-      "planP.S.AprBt36",
-      "planP.B.Apr36",
-      "planP.ltv18",
-      "planP.liquidationThreshold18",
-      "planP.maxAmountToSupplyCT",
-      "planP.maxAmountToBorrowBT",
+    "planP.converter",
+    "planP.S.AprBt36",
+    "planP.B.Apr36",
+    "planP.ltv18",
+    "planP.liquidationThreshold18",
+    "planP.maxAmountToSupplyCT",
+    "planP.maxAmountToBorrowBT",
 
 // point 0
-      "costsBT36.C",
-      "costsBT36.B",
-      "rewardsTotal",
-      "rewardsTotalBt36",
+    "costsBT36.C",
+    "costsBT36.B",
+    "rewardsTotal",
+    "rewardsTotalBt36",
 
-      "balances.C",
-      "balances.B",
+    "balances.C",
+    "balances.B",
 
-      "point.supplyRate",
-      "point.borrowRate",
+    "point.supplyRate",
+    "point.borrowRate",
 
-      "point.block0",
-      "point.block1",
+    "point.block0",
+    "point.block1",
 
-      "point.timestamp0",
-      "point.timestamp1",
-    ]
+    "point.timestamp0",
+    "point.timestamp1",
+  ]
+}
+
+export function appendBorrowingTestResultsToFile(path: string, data: IBorrowingTestResults[]) {
+  console.log("appendBorrowingTestResultsToFile", path);
+  const lines: string[] = [];
+
+  if (! existsSync(path)) {
+    const headers = getHeadersLine();
     lines.push(headers.join(","));
   }
 
@@ -324,13 +330,76 @@ export function appendTestResultsToFile(path: string, data: IBorrowTestResults[]
 
   // write data
   writeFileSync(
-    path
-    , lines.join("\n") + "\n"
-    , {
-      encoding: 'utf8'
-      , flag: "a" //appending
+    path,
+    lines.join("\n") + "\n",
+    {
+      encoding: 'utf8',
+      flag: "a" // appending
     }
   );
 }
 
-//endregion Save borrow test results to CSV
+export function appendSwapTestResultsToFile(path: string, data: ISwapTestResults[]) {
+  console.log("appendSwapTestResultsToFile", path);
+  const lines: string[] = [];
+
+  if (! existsSync(path)) {
+    const headers = getHeadersLine();
+    lines.push(headers.join(","));
+  }
+
+  for (const row of data) {
+    const line = [
+      "SWAP",
+      "",
+      row.error,
+
+      row.assetCollateral.title,
+      row.assetBorrow.title,
+// amounts
+      row.results?.collateralAmount,
+      row.results?.borrowAmount,
+      "", // row.results?.init.collateralAmountBT18,
+// rewards
+      undefined, // row.planFullPeriod.rewardsAmountBt36,
+      undefined, // firstPoint?.totalAmountRewardsBt36,
+      undefined,
+// collateral apr
+      undefined, undefined, undefined,
+// borrow apr
+      undefined, // row.results?.predicted.aprBt36.borrow,
+      row.results?.aprBt36, // row.results?.resultsBlock.aprBt36.borrow,
+      undefined,
+// costs
+      undefined, undefined, undefined, undefined,
+// prices
+      undefined, undefined,
+// plan1 - apr
+      undefined, undefined,
+// supply rates
+      undefined, undefined,
+// borrow rates
+      undefined, undefined,
+// periods
+      undefined, undefined, undefined, undefined,
+// addresses
+      row.assetCollateral.asset, row.assetBorrow.asset,
+// plan single block
+      undefined, undefined, undefined, undefined, undefined,
+      row.results?.maxTargetAmount,
+    ];
+
+    lines.push(line.map(x => Aave3Helper.toString(x)).join(","));
+  }
+
+  // write data
+  writeFileSync(
+    path,
+    lines.join("\n") + "\n",
+    {
+      encoding: 'utf8',
+      flag: "a" // appending
+    }
+  );
+}
+//endregion Save borrow/swap test results to CSV

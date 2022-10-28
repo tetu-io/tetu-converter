@@ -549,15 +549,15 @@ export class AprAave3 {
         costsBT36: {
           collateral: baseToBt(
             (current.userAccount?.totalCollateralBase || BigNumber.from(0))
-              .sub(prev.userAccount?.totalCollateralBase || BigNumber.from(0))
-            , bbp
-            , 36
+              .sub(prev.userAccount?.totalCollateralBase || BigNumber.from(0)),
+            bbp,
+            36
           ),
           borrow: baseToBt(
             (current.userAccount?.totalDebtBase || BigNumber.from(0))
-              .sub(prev.userAccount?.totalDebtBase || BigNumber.from(0))
-            , bbp
-            , 36
+              .sub(prev.userAccount?.totalDebtBase || BigNumber.from(0)),
+            bbp,
+            36,
           ),
         }
       })
