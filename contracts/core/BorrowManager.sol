@@ -224,16 +224,16 @@ contract BorrowManager is IBorrowManager {
   function findConverter(AppDataTypes.InputConversionParams memory p_) external view override returns (
     address converter,
     uint maxTargetAmount,
-    int aprForPeriod18
+    int apr18
   ) {
     // get all platform adapters that support required pair of assets
     EnumerableSet.AddressSet storage pas = _pairsList[getAssetPairKey(p_.sourceToken, p_.targetToken)];
 
     if (pas.length() != 0) {
-      (converter, maxTargetAmount, aprForPeriod18) = _findPool(pas, p_, _getTargetHealthFactor2(p_.targetToken));
+      (converter, maxTargetAmount, apr18) = _findPool(pas, p_, _getTargetHealthFactor2(p_.targetToken));
     }
 
-    return (converter, maxTargetAmount, aprForPeriod18);
+    return (converter, maxTargetAmount, apr18);
   }
 
   /// @notice Enumerate all pools and select a pool suitable for borrowing with min APR and enough liquidity
@@ -268,6 +268,13 @@ contract BorrowManager is IBorrowManager {
       )
       * int(10**18)
       / int(plan.amountCollateralInBorrowAsset36);
+
+      console.log("borrowCost36", plan.borrowCost36);
+      console.log("supplyIncomeInBorrowAsset36", plan.supplyIncomeInBorrowAsset36);
+      console.log("rewardsAmountInBorrowAsset36", plan.rewardsAmountInBorrowAsset36);
+      console.log("rewardsFactor", rewardsFactor);
+      console.log("amountCollateralInBorrowAsset36", plan.amountCollateralInBorrowAsset36);
+
 
       if (plan.converter != address(0)) {
         // check if we are able to supply required collateral

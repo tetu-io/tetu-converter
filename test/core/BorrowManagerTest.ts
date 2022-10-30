@@ -23,6 +23,7 @@ import {generateAssetPairs, getAssetPair, IAssetPair} from "../baseUT/utils/Asse
 import {Misc} from "../../scripts/utils/Misc";
 import {DeployerUtils} from "../../scripts/utils/DeployerUtils";
 import {deprecate} from "util";
+import {getExpectedApr18} from "../baseUT/apr/aprUtils";
 
 describe("BorrowManager", () => {
 //region Global vars for all tests
@@ -247,17 +248,21 @@ describe("BorrowManager", () => {
 //endregion Set up asset pairs
 
 //region Test impl
+  interface IMakeTestFindConverterResults {
+    outPoolIndex0: number;
+    outApr18: BigNumber;
+    outMaxTargetAmount: BigNumber;
+    outGas?: BigNumber;
+    rewardsFactor: BigNumber;
+    amountCollateralInBorrowAsset36: BigNumber;
+  }
   async function makeTestFindConverter(
     tt: IBorrowInputParams,
-    sourceAmount: number,
+    sourceAmountNum: number,
+    periodInBlocks: number,
     targetHealthFactor?: number,
-    estimateGas: boolean = false
-  ) : Promise<{
-    outPoolIndex0: number;
-    outApr36: BigNumber;
-    outMaxTargetAmount: BigNumber;
-    outGas?: BigNumber
-  }> {
+    estimateGas: boolean = false,
+  ) : Promise<IMakeTestFindConverterResults> {
     // There are TWO underlying: source, target
     const {core, sourceToken, targetToken, pools} = await BorrowManagerHelper.initAppPoolsWithTwoAssets(signer, tt);
     if (targetHealthFactor) {
@@ -265,86 +270,39 @@ describe("BorrowManager", () => {
       await core.controller.setTargetHealthFactor2(targetHealthFactor * 100);
     }
 
-    console.log("Source amount:", getBigNumberFrom(sourceAmount, await sourceToken.decimals()).toString());
+    console.log("Source amount:", getBigNumberFrom(sourceAmountNum, await sourceToken.decimals()).toString());
     const ret = await core.bm.findConverter({
       sourceToken: sourceToken.address,
-      sourceAmount: getBigNumberFrom(sourceAmount, await sourceToken.decimals()),
+      sourceAmount: getBigNumberFrom(sourceAmountNum, await sourceToken.decimals()),
       targetToken: targetToken.address,
-      periodInBlocks: 1
+      periodInBlocks
     });
     const gas = estimateGas
       ? await core.bm.estimateGas.findConverter({
         sourceToken: sourceToken.address,
-        sourceAmount: getBigNumberFrom(sourceAmount, await sourceToken.decimals()),
+        sourceAmount: getBigNumberFrom(sourceAmountNum, await sourceToken.decimals()),
         targetToken: targetToken.address,
-        periodInBlocks: 1
+        periodInBlocks
       })
       : undefined;
+
     return {
       outPoolIndex0: pools.findIndex(x => x.converter === ret.converter),
-      outApr36: ret.aprForPeriod36,
+      outApr18: ret.apr18,
       outMaxTargetAmount: ret.maxTargetAmount,
-      outGas: gas
+      outGas: gas,
+      rewardsFactor: await core.bm.rewardsFactor(),
+      amountCollateralInBorrowAsset36: getBigNumberFrom(
+        sourceAmountNum * tt.priceSourceUSD / tt.priceTargetUSD,
+        36
+      )
     }
   }
 
-  async function makeTestWithHealthFactor(
-    defaultHealthFactor2: number,
-    setDefaultHealthFactorForBorrowAsset: boolean,
-    targetHealthFactor2: number,
-    setTargetHealthFactor: boolean
-  ) : Promise<{ret: string, expected: string}> {
-    const sourceAmount = 1000;
-    const p: IBorrowInputParams = {
-      collateralFactor: 0.8,
-      priceSourceUSD: 0.1,
-      priceTargetUSD: 2,
-      sourceDecimals: 14,
-      targetDecimals: 17,
-      availablePools: [{   // source, target
-        borrowRateInTokens: [0, 1],
-        availableLiquidityInTokens: [0, 1000] // not enough money
-      }]
-    };
-
-    // initialize app
-    const {core, sourceToken, targetToken} = await BorrowManagerHelper.initAppPoolsWithTwoAssets(signer, p);
-
-    const bmAsGov = IBorrowManager__factory.connect(
-      core.bm.address,
-      await DeployerUtils.startImpersonate(await core.controller.governance())
-    );
-
-    if (setDefaultHealthFactorForBorrowAsset) {
-      await bmAsGov.setHealthFactor(targetToken.address, defaultHealthFactor2);
-    }
-    if (setTargetHealthFactor) {
-      await core.controller.setTargetHealthFactor2(targetHealthFactor2);
-    }
-
-    // try to find converter without giving a value of health factor
-    const r = await core.bm.findConverter({
-      sourceToken: sourceToken.address,
-      sourceAmount: getBigNumberFrom(sourceAmount, await sourceToken.decimals()),
-      targetToken: targetToken.address,
-      periodInBlocks: 1
-    });
-
-    // we can borrow:
-    // sourceAmount * (priceSource / priceTarget) / healthFactor * collateralFactor
-    const expectedAmountToBorrow = sourceAmount
-      * p.priceSourceUSD
-      / p.priceTargetUSD
-      * p.collateralFactor
-      / (targetHealthFactor2 || defaultHealthFactor2)
-      * 100;
-
-    const expected = getBigNumberFrom(expectedAmountToBorrow, p.targetDecimals).toString();
-    const ret = r.maxTargetAmount.toString();
-
-    return {ret, expected};
+  interface ITestAprCalculationsResults {
+    apr18: BigNumber;
+    amountCollateralInBorrowAsset36: BigNumber;
   }
-
   /**
    * Find conversion plan, return result Apr36
    * @param borrowRate Borrow rate in terms of borrow token
@@ -361,8 +319,8 @@ describe("BorrowManager", () => {
     countBlocks: number,
     targetDecimals: number,
     rewardsFactor: BigNumber
-  ) : Promise<BigNumber> {
-    const sourceAmount = 1000;
+  ) : Promise<ITestAprCalculationsResults> {
+    const sourceAmountNum = 1000;
     const p: IBorrowInputParams = {
       collateralFactor: 0.8,
       priceSourceUSD: 0.1,
@@ -397,14 +355,21 @@ describe("BorrowManager", () => {
       rewardsAmountBt36
     );
 
+    const sourceAmount = getBigNumberFrom(sourceAmountNum, await sourceToken.decimals());
     const r = await core.bm.findConverter({
       sourceToken: sourceToken.address,
-      sourceAmount: getBigNumberFrom(sourceAmount, await sourceToken.decimals()),
+      sourceAmount,
       targetToken: targetToken.address,
       periodInBlocks: countBlocks
     });
 
-    return r.aprForPeriod36;
+    return {
+      apr18: r.apr18,
+      amountCollateralInBorrowAsset36: getBigNumberFrom(
+        sourceAmountNum * p.priceSourceUSD / p.priceTargetUSD,
+        36
+      )
+    };
   }
 //endregion Test impl
 
@@ -1013,7 +978,7 @@ describe("BorrowManager", () => {
           const targetDecimals = 17;
           const rewardsFactor = getBigNumberFrom(3, 17);
 
-          const retApr = await testAprCalculations(
+          const ret = await testAprCalculations(
             borrowRate,
             supplyRateBt,
             rewardsAmountBt36,
@@ -1022,22 +987,24 @@ describe("BorrowManager", () => {
             rewardsFactor
           );
 
-          const expectedApr =
-            getBigNumberFrom(borrowRate * countBlocks, 36)
-            .sub(
-              getBigNumberFrom(supplyRateBt * countBlocks, 36)
-            )
-            .sub(
-              rewardsAmountBt36
-                .div(countBlocks)
-                .mul(rewardsFactor)
-                .div(Misc.WEI)
-            );
+          const expectedApr = getExpectedApr18(
+            getBigNumberFrom(borrowRate * countBlocks, 36),
+            getBigNumberFrom(supplyRateBt * countBlocks, 36),
+            rewardsAmountBt36,
+            ret.amountCollateralInBorrowAsset36,
+            rewardsFactor
+          );
 
-          const ret = retApr.toString();
-          const expected = expectedApr.toString();
+          console.log("expected.borrowCost36", getBigNumberFrom(borrowRate * countBlocks, 36));
+          console.log("expected.supplyIncomeInBorrowAsset36", getBigNumberFrom(supplyRateBt * countBlocks, 36));
+          console.log("expected.rewardsAmountInBorrowAsset36", rewardsAmountBt36);
+          console.log("expected.rewardsFactor", rewardsFactor);
+          console.log("expected.amountCollateralInBorrowAsset36", ret.amountCollateralInBorrowAsset36);
 
-          expect(ret).equal(expected);
+          const sret = ret.apr18.toString();
+          const sexpected = expectedApr.toString();
+
+          expect(sret).equal(sexpected);
         });
       });
 
@@ -1047,6 +1014,7 @@ describe("BorrowManager", () => {
             const bestBorrowRate = 27;
             const sourceAmount = 100_000;
             const targetHealthFactor = 4;
+            const period = 1;
             const p: IBorrowInputParams = {
               collateralFactor: 0.8,
               priceSourceUSD: 0.1,
@@ -1069,20 +1037,27 @@ describe("BorrowManager", () => {
               ]
             };
 
-            const ret = await makeTestFindConverter(p, sourceAmount, targetHealthFactor);
+            const ret = await makeTestFindConverter(p, sourceAmount, period, targetHealthFactor);
             console.log(ret);
             const sret = [
               ret.outPoolIndex0,
               ethers.utils.formatUnits(ret.outMaxTargetAmount, p.targetDecimals),
-              ethers.utils.formatUnits(ret.outApr36.div(Misc.WEI), p.targetDecimals)
+              ethers.utils.formatUnits(ret.outApr18, p.targetDecimals)
             ].join();
 
-            const expectedApr36 = getBigNumberFrom(bestBorrowRate, 36);
+            const expectedApr18 = getExpectedApr18(
+              getBigNumberFrom(bestBorrowRate * period, 36),
+              BigNumber.from(0),
+              BigNumber.from(0),
+              ret.amountCollateralInBorrowAsset36,
+              ret.rewardsFactor
+            );
+
             const sexpected = [
               1, // best pool
               "500.0", // Use https://docs.google.com/spreadsheets/d/1oLeF7nlTefoN0_9RWCuNc62Y7W72-Yk7/edit?usp=sharing&ouid=116979561535348539867&rtpof=true&sd=true
                        // to calculate expected amounts
-              ethers.utils.formatUnits(expectedApr36.div(Misc.WEI), p.targetDecimals),
+              ethers.utils.formatUnits(expectedApr18, p.targetDecimals),
             ].join();
 
             expect(sret).equal(sexpected);
@@ -1093,6 +1068,7 @@ describe("BorrowManager", () => {
             const bestBorrowRate = 270;
             const sourceAmount = 1000;
             const targetHealthFactor = 1.6;
+            const period = 1;
             const input: IBorrowInputParams = {
               collateralFactor: 0.9,
               priceSourceUSD: 2,
@@ -1123,19 +1099,25 @@ describe("BorrowManager", () => {
               ]
             };
 
-            const ret = await makeTestFindConverter(input, sourceAmount, targetHealthFactor);
+            const ret = await makeTestFindConverter(input, sourceAmount, period, targetHealthFactor);
             const sret = [
               ret.outPoolIndex0,
               ethers.utils.formatUnits(ret.outMaxTargetAmount, input.targetDecimals),
-              ethers.utils.formatUnits(ret.outApr36.div(Misc.WEI), input.targetDecimals)
+              ethers.utils.formatUnits(ret.outApr18, input.targetDecimals)
             ].join();
 
-            const expectedApr36 = getBigNumberFrom(bestBorrowRate, 36);
+            const expectedApr18 = getExpectedApr18(
+              getBigNumberFrom(bestBorrowRate * period, 36),
+              BigNumber.from(0),
+              BigNumber.from(0),
+              ret.amountCollateralInBorrowAsset36,
+              ret.rewardsFactor
+            );
             const sexpected = [
               3, // best pool
               "2250.0", // Use https://docs.google.com/spreadsheets/d/1oLeF7nlTefoN0_9RWCuNc62Y7W72-Yk7/edit?usp=sharing&ouid=116979561535348539867&rtpof=true&sd=true
               // to calculate expected amounts
-              ethers.utils.formatUnits(expectedApr36.div(Misc.WEI), input.targetDecimals),
+              ethers.utils.formatUnits(expectedApr18, input.targetDecimals),
             ].join();
 
             expect(sret).equal(sexpected);
@@ -1145,6 +1127,7 @@ describe("BorrowManager", () => {
           it("should return Pool 0", async () => {
             const bestBorrowRate = 7;
             const sourceAmount = 10000;
+            const period = 1;
             const input: IBorrowInputParams = {
               collateralFactor: 0.5,
               priceSourceUSD: 0.5,
@@ -1157,7 +1140,7 @@ describe("BorrowManager", () => {
                   availableLiquidityInTokens: [0, 10000]
                 },
                 {   // source, target
-                  borrowRateInTokens: [0, bestBorrowRate], // the rate is worse than in the pool 2
+                  borrowRateInTokens: [0, bestBorrowRate],
                   availableLiquidityInTokens: [0, 20000]
                 },
                 {   // source, target   -   pool 2 is the best
@@ -1167,19 +1150,25 @@ describe("BorrowManager", () => {
               ]
             };
 
-            const ret = await makeTestFindConverter(input, sourceAmount);
+            const ret = await makeTestFindConverter(input, sourceAmount, period);
             const sret = [
               ret.outPoolIndex0,
               ethers.utils.formatUnits(ret.outMaxTargetAmount, input.targetDecimals),
-              ethers.utils.formatUnits(ret.outApr36.div(Misc.WEI), input.targetDecimals)
+              ethers.utils.formatUnits(ret.outApr18, input.targetDecimals)
             ].join();
 
-            const expectedApr36 = getBigNumberFrom(bestBorrowRate, 36);
+            const expectedApr18 = getExpectedApr18(
+              getBigNumberFrom(bestBorrowRate * period, 36),
+              BigNumber.from(0),
+              BigNumber.from(0),
+              ret.amountCollateralInBorrowAsset36,
+              ret.rewardsFactor
+            );
             const sexpected = [
               0, // best pool
               "6250.0", // Use https://docs.google.com/spreadsheets/d/1oLeF7nlTefoN0_9RWCuNc62Y7W72-Yk7/edit?usp=sharing&ouid=116979561535348539867&rtpof=true&sd=true
                         // to calculate expected amounts
-              ethers.utils.formatUnits(expectedApr36.div(Misc.WEI), input.targetDecimals),
+              ethers.utils.formatUnits(expectedApr18, input.targetDecimals),
             ].join();
 
             expect(sret).equal(sexpected);
@@ -1195,6 +1184,7 @@ describe("BorrowManager", () => {
           const collateralFactor = 0.5;
           const targetHealthFactor = 2;
           const expectedMaxAmountToBorrow = sourceAmount / targetHealthFactor * collateralFactor;
+          const period = 1;
           const input: IBorrowInputParams = {
             collateralFactor,
             priceSourceUSD: 1,
@@ -1213,11 +1203,11 @@ describe("BorrowManager", () => {
             ]
           };
 
-          const ret = await makeTestFindConverter(input, sourceAmount, targetHealthFactor);
+          const ret = await makeTestFindConverter(input, sourceAmount, period, targetHealthFactor);
           const sret = [
             ret.outPoolIndex0,
             ethers.utils.formatUnits(ret.outMaxTargetAmount, input.targetDecimals),
-            ethers.utils.formatUnits(ret.outApr36, input.targetDecimals)
+            ethers.utils.formatUnits(ret.outApr18, input.targetDecimals)
           ].join();
 
           const sexpected = [-1, "0.0", "0.0"].join();
@@ -1232,6 +1222,7 @@ describe("BorrowManager", () => {
           const bestBorrowRate = 270;
           const sourceAmount = 100_000;
           const healthFactor = 4;
+          const period = 1;
           const input: IBorrowInputParams = {
             collateralFactor: 0.8,
             priceSourceUSD: 0.1,
@@ -1246,10 +1237,11 @@ describe("BorrowManager", () => {
             )
           };
 
-          const ret = await makeTestFindConverter(input
-            , sourceAmount
-            , healthFactor
-            , true // we need to estimate gas
+          const ret = await makeTestFindConverter(input,
+            sourceAmount,
+            healthFactor,
+            period,
+            true // we need to estimate gas
           );
           console.log(`findPools: estimated gas for ${countPools} pools`, ret.outGas);
           return ret.outGas || BigNumber.from(0);

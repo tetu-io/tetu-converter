@@ -158,7 +158,7 @@ describe("SwapManager", () => {
           const converter = await swapManager.getConverter(params);
 
           expect(converter.converter).eq(swapManager.address)
-          expect(converter.aprForPeriod36).eq(BigNumber.from('0'))
+          expect(converter.aprForPeriod18).eq(BigNumber.from('0'))
         }
       }
     });
@@ -192,7 +192,7 @@ describe("SwapManager", () => {
             const one36 = BigNumber.from('10').pow(36);
 
             expect(converter.converter).eq(swapManager.address);
-            expect(converter.aprForPeriod36).eq(loss.mul(one36).div(sourceAmount));
+            expect(converter.apr18).eq(loss.mul(one36).div(sourceAmount));
           }
         }
       }

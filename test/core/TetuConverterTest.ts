@@ -509,7 +509,7 @@ describe("TetuConverterTest", () => {
   interface IFindConversionStrategyResults {
     converter: string;
     maxTargetAmount: BigNumber;
-    aprForPeriod36: BigNumber;
+    apr18: BigNumber;
   }
 
   interface IMakeFindConversionStrategyResults {
@@ -552,11 +552,11 @@ describe("TetuConverterTest", () => {
     );
     const sourceAmount = getBigNumberFrom(sourceAmountNum, await r.init.sourceToken.decimals());
     const loss = sourceAmount.sub(returnAmount);
-    const aprForPeriod36 = loss.mul(APR_NUMERATOR).div(sourceAmount);
+    const apr18 = loss.mul(APR_NUMERATOR).div(sourceAmount);
 
     return {
       maxTargetAmount,
-      aprForPeriod36,
+      apr18,
       converter: r.init.core.swapManager.address
     }
   }
@@ -581,7 +581,7 @@ describe("TetuConverterTest", () => {
       deployer
     ).borrowRates(r.init.targetToken.address);
 
-    const aprForPeriod36 = borrowRate
+    const apr18 = borrowRate
       .mul(period)
       .mul(Misc.WEI_DOUBLE)
       .div(getBigNumberFrom(1, await r.init.targetToken.decimals()));
@@ -589,7 +589,7 @@ describe("TetuConverterTest", () => {
     return {
       converter: r.poolAdapterConverter,
       maxTargetAmount,
-      aprForPeriod36
+      apr18
     }
   }
 //endregion Predict conversion results
@@ -751,12 +751,12 @@ describe("TetuConverterTest", () => {
                 const ret = [
                   r.results.converter,
                   r.results.maxTargetAmount,
-                  r.results.aprForPeriod36
+                  r.results.apr18
                 ].map(x => BalanceUtils.toString(x)).join("\r");
                 const expected = [
                   r.expectedBorrowing.converter,
                   r.expectedBorrowing.maxTargetAmount,
-                  r.expectedBorrowing.aprForPeriod36
+                  r.expectedBorrowing.apr18
                 ].map(x => BalanceUtils.toString(x)).join("\r");
 
                 expect(ret).eq(expected);
@@ -772,12 +772,12 @@ describe("TetuConverterTest", () => {
                 const ret = [
                   r.results.converter,
                   r.results.maxTargetAmount,
-                  r.results.aprForPeriod36
+                  r.results.apr18
                 ].map(x => BalanceUtils.toString(x)).join("\r");
                 const expected = [
                   r.expectedSwap.converter,
                   r.expectedSwap.maxTargetAmount,
-                  r.expectedSwap.aprForPeriod36
+                  r.expectedSwap.apr18
                 ].map(x => BalanceUtils.toString(x)).join("\r");
 
                 expect(ret).eq(expected);
@@ -893,13 +893,13 @@ describe("TetuConverterTest", () => {
           const sret = [
             r.results.converter,
             r.results.maxTargetAmount,
-            r.results.aprForPeriod36
+            r.results.apr18
           ].join("\n");
 
           const sexpected = [
             expected.converter,
             expected.maxTargetAmount,
-            expected.aprForPeriod36
+            expected.apr18
           ].join("\n");
 
           expect(sret).equal(sexpected);
@@ -921,13 +921,13 @@ describe("TetuConverterTest", () => {
           const sret = [
             r.results.converter,
             r.results.maxTargetAmount,
-            r.results.aprForPeriod36
+            r.results.apr18
           ].join("\n");
 
           const sexpected = [
             expected.converter,
             expected.maxTargetAmount,
-            expected.aprForPeriod36
+            expected.apr18
           ].join("\n");
 
           expect(sret).equal(sexpected);
@@ -1023,7 +1023,7 @@ describe("TetuConverterTest", () => {
       /* By default, converter is equal to the address of the swap-manager */
       converter?: string;
       maxTargetAmount: number;
-      aprForPeriod36: BigNumber;
+      apr18: BigNumber;
       targetAmountAfterSwap: number;
     }
 
@@ -1107,7 +1107,7 @@ describe("TetuConverterTest", () => {
       await swapManagerMock.setupGetConverter(
         swapManagerMockParams.converter || swapManagerMock.address,
         getBigNumberFrom(swapManagerMockParams.maxTargetAmount, await init.targetToken.decimals()),
-        swapManagerMockParams.aprForPeriod36
+        swapManagerMockParams.apr18
       );
 
       const outBorrowedAmount = await callBorrowerBorrow(
@@ -1217,7 +1217,7 @@ describe("TetuConverterTest", () => {
             {
               targetAmountAfterSwap: amountToBorrowNum,
               maxTargetAmount: amountToBorrowNum,
-              aprForPeriod36: BigNumber.from(1)
+              apr18: BigNumber.from(1)
             },
             amountCollateralNum,
             amountToBorrowNum
@@ -1312,7 +1312,7 @@ describe("TetuConverterTest", () => {
                 {
                   targetAmountAfterSwap: amountToBorrowNum,
                   maxTargetAmount: amountToBorrowNum,
-                  aprForPeriod36: BigNumber.from(1),
+                  apr18: BigNumber.from(1),
                   converter: differentSwapManager.address // (!)
                 },
                 amountCollateralNum,

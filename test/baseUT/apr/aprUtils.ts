@@ -11,6 +11,7 @@ import {existsSync, writeFileSync} from "fs";
 import {Aave3Helper} from "../../../scripts/integration/helpers/Aave3Helper";
 import {IBorrowingTestResults, ISwapTestResults} from "../uses-cases/CompareAprUsesCase";
 import {IPointResults} from "./aprDataTypes";
+import {Misc} from "../../../scripts/utils/Misc";
 
 //region Make borrow
 /**
@@ -403,3 +404,23 @@ export function appendSwapTestResultsToFile(path: string, data: ISwapTestResults
   );
 }
 //endregion Save borrow/swap test results to CSV
+
+//region Expected APR
+/**
+ * Repeat the algo of APR calculation
+ * from BorrowManager.findConverter
+ */
+export function getExpectedApr18(
+  borrowCost: BigNumber,
+  supplyIncomeInBorrowAsset: BigNumber,
+  rewardsAmountInBorrowAsset: BigNumber,
+  amountCollateralInBorrowAsset: BigNumber,
+  rewardsFactor18: BigNumber
+) : BigNumber {
+  return borrowCost
+    .sub(supplyIncomeInBorrowAsset)
+    .sub(rewardsAmountInBorrowAsset.mul(rewardsFactor18).div(Misc.WEI))
+    .mul(Misc.WEI)
+    .div(amountCollateralInBorrowAsset);
+}
+//endregion Expected APR

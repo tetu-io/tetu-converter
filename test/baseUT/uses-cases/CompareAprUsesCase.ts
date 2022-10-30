@@ -189,7 +189,7 @@ export class CompareAprUsesCase {
       );
       return {
         results: {
-          aprBt36: strategyToConvert.aprForPeriod36,
+          aprBt36: strategyToConvert.apr18,
           collateralAmount,
 
           // actually received amount

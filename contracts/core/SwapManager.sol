@@ -53,7 +53,7 @@ contract SwapManager is ISwapManager, ISwapConverter {
   external view override returns (
     address converter,
     uint maxTargetAmount,
-    int aprForPeriod18
+    int apr18
   ) {
     ITetuLiquidator liquidator = ITetuLiquidator(controller.tetuLiquidator());
     maxTargetAmount = liquidator.getPrice(
@@ -73,7 +73,7 @@ contract SwapManager is ISwapManager, ISwapConverter {
     int loss = int(p_.sourceAmount) - int(returnAmount);
     console.log('loss'); // TODO remove
     console.logInt(loss);
-    aprForPeriod18 = loss * APR_NUMERATOR / int(p_.sourceAmount);
+    apr18 = loss * APR_NUMERATOR / int(p_.sourceAmount);
   }
 
   ///////////////////////////////////////////////////////
