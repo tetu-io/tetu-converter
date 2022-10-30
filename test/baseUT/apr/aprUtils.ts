@@ -417,6 +417,13 @@ export function getExpectedApr18(
   amountCollateralInBorrowAsset: BigNumber,
   rewardsFactor18: BigNumber
 ) : BigNumber {
+  console.log("expected.borrowCost36", borrowCost);
+  console.log("expected.supplyIncomeInBorrowAsset36", supplyIncomeInBorrowAsset);
+  console.log("expected.rewardsAmountInBorrowAsset36", rewardsAmountInBorrowAsset);
+  console.log("expected.rewardsFactor", rewardsFactor18);
+  console.log("expected.amountCollateralInBorrowAsset36", amountCollateralInBorrowAsset);
+
+
   return borrowCost
     .sub(supplyIncomeInBorrowAsset)
     .sub(rewardsAmountInBorrowAsset.mul(rewardsFactor18).div(Misc.WEI))

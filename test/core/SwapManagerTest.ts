@@ -126,7 +126,7 @@ describe("SwapManager", () => {
     });
 
     it("APR_NUMERATOR", async () => {
-      expect(await swapManager.APR_NUMERATOR()).eq(BigNumber.from('10').pow(36))
+      expect(await swapManager.APR_NUMERATOR()).eq(BigNumber.from('10').pow(18))
     });
 
     it("getConversionKind", async () => {
@@ -158,7 +158,7 @@ describe("SwapManager", () => {
           const converter = await swapManager.getConverter(params);
 
           expect(converter.converter).eq(swapManager.address)
-          expect(converter.aprForPeriod18).eq(BigNumber.from('0'))
+          expect(converter.apr18).eq(BigNumber.from('0'))
         }
       }
     });
@@ -189,10 +189,10 @@ describe("SwapManager", () => {
               .mul(100 - priceImpactPercent).div(100);
 
             const loss = sourceAmount.sub(returnAmount);
-            const one36 = BigNumber.from('10').pow(36);
+            const one18 = BigNumber.from('10').pow(18);
 
             expect(converter.converter).eq(swapManager.address);
-            expect(converter.apr18).eq(loss.mul(one36).div(sourceAmount));
+            expect(converter.apr18).eq(loss.mul(one18).div(sourceAmount));
           }
         }
       }

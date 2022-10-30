@@ -33,6 +33,7 @@ import {BalanceUtils, IContractToInvestigate} from "../baseUT/utils/BalanceUtils
 import {BigNumber} from "ethers";
 import {Misc} from "../../scripts/utils/Misc";
 import {IPoolAdapterStatus} from "../baseUT/types/BorrowRepayDataTypes";
+import {getExpectedApr18} from "../baseUT/apr/aprUtils";
 
 describe("TetuConverterTest", () => {
 //region Constants
@@ -581,10 +582,20 @@ describe("TetuConverterTest", () => {
       deployer
     ).borrowRates(r.init.targetToken.address);
 
-    const apr18 = borrowRate
-      .mul(period)
-      .mul(Misc.WEI_DOUBLE)
-      .div(getBigNumberFrom(1, await r.init.targetToken.decimals()));
+    const apr18 = getExpectedApr18(
+      borrowRate
+        .mul(period)
+        .mul(Misc.WEI_DOUBLE)
+        .div(getBigNumberFrom(1, await r.init.targetToken.decimals())),
+      BigNumber.from(0),
+      BigNumber.from(0),
+      getBigNumberFrom(
+        sourceAmountNum * r.init.borrowInputParams.priceSourceUSD / r.init.borrowInputParams.priceTargetUSD,
+        36
+      ),
+      Misc.WEI // rewards factor value doesn't matter because total amount of rewards is 0
+    );
+
 
     return {
       converter: r.poolAdapterConverter,

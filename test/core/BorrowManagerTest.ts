@@ -995,12 +995,6 @@ describe("BorrowManager", () => {
             rewardsFactor
           );
 
-          console.log("expected.borrowCost36", getBigNumberFrom(borrowRate * countBlocks, 36));
-          console.log("expected.supplyIncomeInBorrowAsset36", getBigNumberFrom(supplyRateBt * countBlocks, 36));
-          console.log("expected.rewardsAmountInBorrowAsset36", rewardsAmountBt36);
-          console.log("expected.rewardsFactor", rewardsFactor);
-          console.log("expected.amountCollateralInBorrowAsset36", ret.amountCollateralInBorrowAsset36);
-
           const sret = ret.apr18.toString();
           const sexpected = expectedApr.toString();
 
