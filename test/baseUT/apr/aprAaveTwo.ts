@@ -491,7 +491,7 @@ export class AprAaveTwo {
           collateral: current.userAccount?.totalCollateralETH || BigNumber.from(0),
           borrow: current.userAccount?.totalDebtETH || BigNumber.from(0)
         },
-        costsBT36: {
+        costsInBorrowTokens36: {
           collateral: baseToBt(
             (current.userAccount?.totalCollateralETH || BigNumber.from(0))
               .sub(prev.userAccount?.totalCollateralETH || BigNumber.from(0))
@@ -528,7 +528,7 @@ export class AprAaveTwo {
         init: {
           borrowAmount,
           collateralAmount: amountCollateral,
-          collateralAmountBT18: convertUnits(
+          collateralAmountInBorrowTokens18: convertUnits(
             amountCollateral
             , priceCollateral, collateralToken.decimals
             , priceBorrow, 18

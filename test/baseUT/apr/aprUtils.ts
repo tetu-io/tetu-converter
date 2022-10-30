@@ -5,7 +5,7 @@ import {ILendingPlatformFabric} from "../fabrics/ILendingPlatformFabric";
 import {TetuConverterApp} from "../helpers/TetuConverterApp";
 import {MocksHelper} from "../helpers/MocksHelper";
 import {TokenDataTypes} from "../types/TokenDataTypes";
-import {setInitialBalance} from "../utils/CommonUtils";
+import {getDifference, getRatioMul100, setInitialBalance} from "../utils/CommonUtils";
 import {getBigNumberFrom} from "../../../scripts/utils/NumberUtils";
 import {existsSync, writeFileSync} from "fs";
 import {Aave3Helper} from "../../../scripts/integration/helpers/Aave3Helper";
@@ -229,9 +229,9 @@ export function appendBorrowingTestResultsToFile(path: string, data: IBorrowingT
       row.assetCollateral.title,
       row.assetBorrow.title,
 
-      row.results?.init.collateralAmount,
-      row.results?.init.borrowAmount,
-      row.results?.init.collateralAmountBT18,
+      row.results?.collateralAmount,
+      row.results?.borrowAmount,
+      row.results?.collateralAmountInBorrowTokens18,
 
       row.planFullPeriod.rewardsAmountBt36,
       firstPoint?.totalAmountRewardsBt36,
@@ -239,29 +239,31 @@ export function appendBorrowingTestResultsToFile(path: string, data: IBorrowingT
           ? firstPoint?.totalAmountRewardsBt36?.mul(100).div(row.planFullPeriod.rewardsAmountBt36)
           : undefined,
 
-      row.results?.predicted.aprBt36.collateral,
-      row.results?.resultsBlock.aprBt36.collateral,
-      row.results?.resultsBlock.aprBt36.collateral && !row.results?.resultsBlock.aprBt36.collateral.eq(0)
-        ? row.results?.predicted.aprBt36.collateral.mul(100).div(row.results?.resultsBlock.aprBt36.collateral)
-        : undefined,
+      row.results?.predictedAmounts.supplyIncomeInBorrowTokens36,
+      row.results?.resultAmounts.supplyIncomeInBorrowTokens36,
+      getRatioMul100(
+        row.results?.predictedAmounts.supplyIncomeInBorrowTokens36,
+        row.results?.resultAmounts.supplyIncomeInBorrowTokens36
+      ),
 
-      row.results?.predicted.aprBt36.borrow,
-      row.results?.resultsBlock.aprBt36.borrow,
-      row.results?.resultsBlock.aprBt36.borrow && !row.results?.resultsBlock.aprBt36.borrow.eq(0)
-        ? row.results?.predicted.aprBt36.borrow.mul(100).div(row.results?.resultsBlock.aprBt36.borrow)
-        : undefined,
+      row.results?.predictedAmounts.costBorrow36,
+      row.results?.resultAmounts.costBorrow36,
+      getRatioMul100(
+        row.results?.predictedAmounts.costBorrow36,
+        row.results?.resultAmounts.costBorrow36
+      ),
 
-      firstPoint?.costsBT36.collateral,
-      firstPoint?.costsBT36.collateral
-        && row.results?.predicted.aprBt36.collateral
-        && !row.results?.predicted.aprBt36.collateral.eq(0)
-          ? firstPoint?.costsBT36.collateral.div(row.results?.predicted.aprBt36.collateral)
+      firstPoint?.costsInBorrowTokens36.collateral,
+      firstPoint?.costsInBorrowTokens36.collateral
+        && row.results?.predictedAmounts.supplyIncomeInBorrowTokens36
+        && !row.results?.predictedAmounts.supplyIncomeInBorrowTokens36.eq(0)
+          ? firstPoint?.costsInBorrowTokens36.collateral.div(row.results?.predictedAmounts.supplyIncomeInBorrowTokens36)
           : undefined,
-      firstPoint?.costsBT36.borrow,
-      firstPoint?.costsBT36.borrow
-        && row.results?.predicted.aprBt36.borrow
-        && !row.results?.predicted.aprBt36.borrow.eq(0)
-        ? firstPoint?.costsBT36.borrow.div(row.results?.predicted.aprBt36.borrow)
+      firstPoint?.costsInBorrowTokens36.borrow,
+      firstPoint?.costsInBorrowTokens36.borrow
+        && row.results?.predictedAmounts.costBorrow36
+        && !row.results?.predictedAmounts.costBorrow36.eq(0)
+        ? firstPoint?.costsInBorrowTokens36.borrow.div(row.results?.predictedAmounts.costBorrow36)
         : undefined,
 
       row.results?.prices.collateral,
@@ -270,16 +272,16 @@ export function appendBorrowingTestResultsToFile(path: string, data: IBorrowingT
       row.planSingleBlock.supplyAprBt36,
       row.planSingleBlock.borrowApr36,
 
-      row.results?.predicted.rates.supplyRate,
-      row.results?.resultsBlock.rates.supplyRate,
+      row.results?.predictedRates.supplyRate,
+      row.results?.resultRates.supplyRate,
 
-      row.results?.predicted.rates.borrowRate,
-      row.results?.resultsBlock.rates.borrowRate,
+      row.results?.predictedRates.borrowRate,
+      row.results?.resultRates.borrowRate,
 
-      row.results?.resultsBlock.period.block0,
-      row.results?.resultsBlock.period.block1,
-      row.results?.resultsBlock.period.blockTimestamp0,
-      row.results?.resultsBlock.period.blockTimestamp1,
+      row.results?.period.block0,
+      row.results?.period.block1,
+      row.results?.period.blockTimestamp0,
+      row.results?.period.blockTimestamp1,
 
       row.assetCollateral.asset,
       row.assetBorrow.asset,
@@ -305,8 +307,8 @@ export function appendBorrowingTestResultsToFile(path: string, data: IBorrowingT
     if (row.results) {
       for (const point of row.results?.points) {
         const linePoint = [
-          point.costsBT36.collateral
-          , point.costsBT36.borrow
+          point.costsInBorrowTokens36.collateral
+          , point.costsInBorrowTokens36.borrow
           , point.totalAmountRewards
           , point.totalAmountRewardsBt36
 
@@ -417,11 +419,11 @@ export function getExpectedApr18(
   amountCollateralInBorrowAsset: BigNumber,
   rewardsFactor18: BigNumber
 ) : BigNumber {
-  console.log("expected.borrowCost36", borrowCost);
-  console.log("expected.supplyIncomeInBorrowAsset36", supplyIncomeInBorrowAsset);
-  console.log("expected.rewardsAmountInBorrowAsset36", rewardsAmountInBorrowAsset);
+  console.log("expected.borrowCost", borrowCost);
+  console.log("expected.supplyIncomeInBorrowAsset", supplyIncomeInBorrowAsset);
+  console.log("expected.rewardsAmountInBorrowAsset", rewardsAmountInBorrowAsset);
   console.log("expected.rewardsFactor", rewardsFactor18);
-  console.log("expected.amountCollateralInBorrowAsset36", amountCollateralInBorrowAsset);
+  console.log("expected.amountCollateralInBorrowAsset", amountCollateralInBorrowAsset);
 
 
   return borrowCost

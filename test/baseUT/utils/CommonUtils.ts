@@ -52,3 +52,15 @@ export function toMantissa(amount: BigNumber, from: number, to: number): BigNumb
 export function toStringWithRound(bn: BigNumber, decimals: number) : string {
   return ethers.utils.formatUnits(bn.div(10), decimals - 1);
 }
+
+
+export function getDifference(bn1?: BigNumber, bn2?: BigNumber) : BigNumber {
+  return (bn1 || BigNumber.from(0)).sub(bn2 || BigNumber.from(0));
+}
+
+export function getRatioMul100(bn1?: BigNumber, bn2?: BigNumber) : BigNumber | undefined {
+  if (bn1 && bn2) {
+    return bn1.mul(100).div(bn2);
+  }
+  return undefined;
+}

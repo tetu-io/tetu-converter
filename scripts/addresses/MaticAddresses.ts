@@ -16,7 +16,7 @@ export class MaticAddresses {
   public static WMATIC = "0x0d500B1d8E8eF31E21C99d1Db9A6444d3ADf1270";
   public static SUSHI = "0x0b3F868E0BE5597D5DB7fEB59E1CADBb0fdDa50a";
   public static CRV = "0x172370d5Cd63279eFa6d502DAB29171933a610AF";
-//AAVE
+// AAVE
   public static agEUR = "0xE0B52e49357Fd4DAf2c15e02058DCE6BC0057db4";
   public static EURS = "0xe111178a87a3bff0c8d18decba5798827539ae99";
   public static jEUR = "0x4e3Decbb3645551B8A19f0eA1678079FCB33fB4c";
@@ -24,9 +24,9 @@ export class MaticAddresses {
   public static AaveToken = "0xD6DF932A45C0f255f85145f286eA0b292B21C90B";
   public static AavegotchiGHST = "0x385Eeac5cB85A38A9a07A70c73e0a3271CfB54A7";
   public static DefiPulseToken = "0x85955046DF4668e1DD369D2DE9f3AEB98DD2A369";
-//Hundred Finance
+// Hundred Finance
   public static FRAX = "0x45c32fa6df82ead1e2ef74d17b76547eddfaff89";
-//DForce
+// DForce
   public static dForce_USD = "0xCf66EB3D546F0415b368d98A95EAF56DeD7aA752";
 //endregion Assets
 
@@ -83,9 +83,10 @@ export class MaticAddresses {
 //region AAVE-v3
   // https://docs.aave.com/developers/deployed-contracts/v3-mainnet/polygon
   public static AAVE_V3_POOL = "0x794a61358D6845594F94dc1DB02A252b5b4814aD";
-  /** See first event for of ACLManager
+  /*
+   *  See first event for of ACLManager
    *  https://polygonscan.com/address/0xa72636cbcaa8f5ff95b2cc47f3cdee83f3294a0b#readContract
-   * */
+   */
   public static AAVE_V3_POOL_ADMIN = "0x4365f8e70cf38c6ca67de41448508f2da8825500";
   public static AAVE_V3_POOL_OWNER = "0xdc9a35b16db4e126cfedc41322b3a36454b1f772";
 

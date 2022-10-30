@@ -16,7 +16,7 @@ import {BalanceUtils} from "../../baseUT/utils/BalanceUtils";
 import {MaticAddresses} from "../../../scripts/addresses/MaticAddresses";
 import {AprUtils, COUNT_BLOCKS_PER_DAY} from "../../baseUT/utils/aprUtils";
 import {CoreContractsHelper} from "../../baseUT/helpers/CoreContractsHelper";
-import {areAlmostEqual, toMantissa} from "../../baseUT/utils/CommonUtils";
+import {areAlmostEqual} from "../../baseUT/utils/CommonUtils";
 import {IPlatformActor, PredictBrUsesCase} from "../../baseUT/uses-cases/PredictBrUsesCase";
 import {AprAave3, getAave3StateInfo} from "../../baseUT/apr/aprAave3";
 import {Misc} from "../../../scripts/utils/Misc";
@@ -131,7 +131,9 @@ describe("Aave3PlatformAdapterTest", () => {
       const dp = await Aave3Helper.getAaveProtocolDataProvider(deployer);
 
       const collateralAssetData = await h.getReserveInfo(deployer, aavePool, dp, collateralAsset);
+      console.log("collateralAssetData", collateralAssetData);
       const borrowAssetData = await h.getReserveInfo(deployer, aavePool, dp, borrowAsset);
+      console.log("borrowAssetData", borrowAssetData);
 
       // data required to predict supply/borrow APR
       const block = await hre.ethers.provider.getBlock("latest");
@@ -162,7 +164,7 @@ describe("Aave3PlatformAdapterTest", () => {
       }
 
       // calculate expected supply and borrow values
-      const predictedSupplyAprBtRay = await AprAave3.predictSupplyApr36(deployer
+      const predictedSupplyIncomeInBorrowAssetRay = await AprAave3.predictSupplyIncomeRays(deployer
         , aavePool
         , collateralAsset
         , collateralAmount
@@ -174,7 +176,7 @@ describe("Aave3PlatformAdapterTest", () => {
         , block.timestamp
       );
 
-      const predictedBorrowAprBtRay = await AprAave3.predictBorrowApr36(deployer
+      const predictedBorrowCostInBorrowAssetRay = await AprAave3.predictBorrowAprRays(deployer
         , aavePool
         , collateralAsset
         , borrowAsset
@@ -187,9 +189,9 @@ describe("Aave3PlatformAdapterTest", () => {
       );
 
       const sret = [
-        ret.borrowApr36,
-        ret.supplyAprBt36,
-        ret.rewardsAmountBt36,
+        ret.borrowCost36,
+        ret.supplyIncomeInBorrowAsset36,
+        ret.rewardsAmountInBorrowAsset36,
         ret.ltv18,
         ret.liquidationThreshold18,
         ret.maxAmountToBorrow,
@@ -197,11 +199,11 @@ describe("Aave3PlatformAdapterTest", () => {
         // ensure that high efficiency mode is not available
         highEfficientModeEnabled
           ? collateralAssetData.data.emodeCategory !== 0
-          && borrowAssetData.data.emodeCategory === collateralAssetData.data.emodeCategory
-          : collateralAssetData.data.emodeCategory === 0 || borrowAssetData.data.emodeCategory === 0,
+            && borrowAssetData.data.emodeCategory === collateralAssetData.data.emodeCategory
+          : collateralAssetData.data.emodeCategory !== borrowAssetData.data.emodeCategory,
 
-        !ret.borrowApr36.eq(0),
-        !ret.supplyAprBt36.eq(0)
+        !ret.borrowCost36.eq(0),
+        !ret.supplyIncomeInBorrowAsset36.eq(0)
       ].map(x => BalanceUtils.toString(x)) .join("\n");
 
       let expectedMaxAmountToBorrow = BigNumber.from(borrowAssetData.liquidity.totalAToken)
@@ -237,8 +239,8 @@ describe("Aave3PlatformAdapterTest", () => {
       }
 
       const sexpected = [
-        predictedBorrowAprBtRay,
-        predictedSupplyAprBtRay,
+        predictedBorrowCostInBorrowAssetRay,
+        predictedSupplyIncomeInBorrowAssetRay,
         0,
         BigNumber.from(highEfficientModeEnabled
           ? collateralAssetData.category?.ltv
@@ -260,8 +262,6 @@ describe("Aave3PlatformAdapterTest", () => {
         true, // supply APR is not 0
       ].map(x => BalanceUtils.toString(x)) .join("\n");
 
-      console.log(`Result APR: borrowApr36=${ret.borrowApr36} supplyAprBt36=${ret.supplyAprBt36}`);
-      console.log(`Predicted APR: borrowApr18=${predictedBorrowAprBtRay} supplyAprBT18=${predictedSupplyAprBtRay}`);
       return {sret, sexpected};
     }
     describe("Good paths", () => {

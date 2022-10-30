@@ -374,7 +374,7 @@ export class AprDForce {
           collateral: current.collateral.account.balance,
           borrow: current.borrow.account.borrowBalanceStored
         },
-        costsBT36: {
+        costsInBorrowTokens36: {
           collateral: changeDecimals(deltaCollateral.mul(priceCollateral36).div(priceBorrow36), collateralAssetDecimals, 18),
           borrow: changeDecimals(deltaBorrow, borrowAssetDecimals, 36),
         },
@@ -402,7 +402,7 @@ export class AprDForce {
         init: {
           borrowAmount,
           collateralAmount: amountCollateral,
-          collateralAmountBT18: convertUnits(
+          collateralAmountInBorrowTokens18: convertUnits(
             amountCollateral
             , priceCollateral, collateralAssetDecimals
             , priceBorrow, 18

@@ -101,7 +101,7 @@ describe("CompareAprBeforeAfterBorrow", () => {
         const sret = [
           ret.details.totalCollateralBaseDelta.toString(), ret.details.totalDebtBaseDelta.toString(),
           ret.details.totalCollateralBaseDelta.toString(), ret.details.totalDebtBaseDelta.toString(),
-          ret.details.predictedSupplyAprBt36.toString(), ret.details.predictedBorrowAprBt36.toString(),
+          ret.details.predictedSupplyIncomeRays.toString(), ret.details.predictedBorrowIncomeRays.toString(),
           ret.results.resultsBlock.aprBt36.collateral.toString(), ret.results.resultsBlock.aprBt36.borrow.toString(),
         ].join("\n");
 
@@ -426,7 +426,7 @@ describe("CompareAprBeforeAfterBorrow", () => {
         const sret = [
           ret.details.totalCollateralBaseDelta.toString(), ret.details.totalDebtBaseDelta.toString(),
           ret.details.totalCollateralBaseDelta.toString(), ret.details.totalDebtBaseDelta.toString(),
-          ret.details.predictedSupplyAprBt36.toString(), ret.details.predictedBorrowAprBt36.toString(),
+          ret.details.predictedSupplyIncomeRays.toString(), ret.details.predictedBorrowIncomeRays.toString(),
           ret.results.resultsBlock.aprBt36.collateral.toString(), ret.results.resultsBlock.aprBt36.borrow.toString(),
         ].join("\n");
 

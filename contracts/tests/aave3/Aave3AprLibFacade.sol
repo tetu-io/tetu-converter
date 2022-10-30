@@ -35,7 +35,7 @@ contract Aave3AprLibFacade {
     );
   }
 
-  function getAprForPeriodAfter(
+  function getCostForPeriodAfter(
     uint amount,
     uint reserveNormalized,
     uint liquidityIndex,
@@ -54,7 +54,7 @@ contract Aave3AprLibFacade {
     );
   }
 
-  function getAprForPeriodBefore(
+  function getCostForPeriodBefore(
     AaveSharedLib.State memory state,
     uint amount,
     uint predictedRate,

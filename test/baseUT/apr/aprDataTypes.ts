@@ -17,6 +17,13 @@ export interface IAmounts {
   borrow: BigNumber;
 }
 
+export interface IResultAmounts {
+  costBorrow36: BigNumber;
+  supplyIncomeInBorrowTokens36: BigNumber;
+  rewardsAmountInBorrowTokens36?: BigNumber;
+  apr18: BigNumber;
+}
+
 export interface IPointResults {
   period: IPeriod;
   rates: IRates;
@@ -26,9 +33,11 @@ export interface IPointResults {
   balances: IAmounts;
 
   /* Actual costs for period, all values are given in terms of borrow token, decimals 18 */
-  costsBT36: IAmounts;
+  costsInBorrowTokens36: IAmounts;
+
   /* both supply and borrow rewards in total (starting from the beginning) */
   totalAmountRewards?: BigNumber;
+
   /** both supply and borrow rewards in total (starting from the beginning) in terms of borrow tokens, decimals 36 */
   totalAmountRewardsBt36?: BigNumber;
 }
@@ -41,25 +50,18 @@ export interface IPointResults {
  * 3. Check current collateral and borrow balances.
  */
 export interface IBorrowResults {
-  init: {
-    collateralAmount: BigNumber;
-    collateralAmountBT18: BigNumber;
-    borrowAmount: BigNumber;
-  }
+  collateralAmount: BigNumber;
+  collateralAmountInBorrowTokens18: BigNumber;
+  borrowAmount: BigNumber;
+
   prices: IAmounts;
 
-  predicted: {
-    /** Predicted APR, all values are given in terms of borrow token */
-    aprBt36: IAmounts;
-    rates: IRates;
-  }
+  predictedAmounts: IResultAmounts;
+  predictedRates: IRates;
 
-  resultsBlock: {
-    period: IPeriod;
-    /** Real APR for the period, all values are given in terms of borrow token */
-    aprBt36: IAmounts;
-    rates: IRates;
-  }
+  period: IPeriod;
+  resultAmounts: IResultAmounts;
+  resultRates: IRates;
 
   points: IPointResults[];
 }
