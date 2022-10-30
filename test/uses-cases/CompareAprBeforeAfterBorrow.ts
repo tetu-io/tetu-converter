@@ -195,9 +195,9 @@ describe("CompareAprBeforeAfterBorrow", () => {
         console.log("ret", ret);
 
         const sret = [
-          areAlmostEqual(ret.details.totalCollateralETH, ret.details.supplyAprBaseExact, 6),
-          areAlmostEqual(ret.details.totalDebtETH, ret.details.borrowAprBaseExact, 8),
-          ret.details.supplyAprBaseExact.toString(),
+          areAlmostEqual(ret.details.totalCollateralETH, ret.details.supplyIncomeBaseExactMul18, 6),
+          areAlmostEqual(ret.details.totalDebtETH, ret.details.borrowIncomeBaseExactMul18, 8),
+          ret.details.supplyIncomeBaseExactMul18.toString(),
           ret.details.keyValues.liquidity.next.liquidityIndex,
 
           // borrowApr.toString(),
@@ -208,8 +208,8 @@ describe("CompareAprBeforeAfterBorrow", () => {
         const sexpected = [
           true,
           true,
-          ret.details.supplyAprBaseApprox.aprBase18.toString(),
-          ret.details.supplyAprBaseApprox.nextLiquidityIndex.toString(),
+          ret.details.supplyIncomeBaseApprox.valueBase.toString(),
+          ret.details.supplyIncomeBaseApprox.nextLiquidityIndex.toString(),
 
           /////////////////////////////////////////////////////////////////////
           // TODO: nextLiquidityIndex for borrow is a bit different from expected
@@ -469,9 +469,9 @@ describe("CompareAprBeforeAfterBorrow", () => {
         console.log("ret", ret);
 
         const sret = [
-          areAlmostEqual(ret.details.totalCollateralETH, ret.details.supplyAprBaseExact, 3),
-          areAlmostEqual(ret.details.totalDebtETH, ret.details.borrowAprBaseExact, 8),
-          ret.details.supplyAprBaseExact.toString(),
+          areAlmostEqual(ret.details.totalCollateralETH, ret.details.supplyIncomeBaseExactMul18, 3),
+          areAlmostEqual(ret.details.totalDebtETH, ret.details.borrowIncomeBaseExactMul18, 8),
+          ret.details.supplyIncomeBaseExactMul18.toString(),
           ret.details.keyValues.liquidity.next.liquidityIndex,
 
           // borrowApr.toString(),
@@ -482,8 +482,8 @@ describe("CompareAprBeforeAfterBorrow", () => {
         const sexpected = [
           true,
           true,
-          ret.details.supplyAprBaseApprox.aprBase18.toString(),
-          ret.details.supplyAprBaseApprox.nextLiquidityIndex.toString(),
+          ret.details.supplyIncomeBaseApprox.valueBase.toString(),
+          ret.details.supplyIncomeBaseApprox.nextLiquidityIndex.toString(),
 
           /////////////////////////////////////////////////////////////////////
           // TODO: nextLiquidityIndex for borrow is a bit different from expected

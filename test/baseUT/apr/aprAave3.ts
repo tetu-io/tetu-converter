@@ -44,6 +44,7 @@ interface IAaveReserveData {
   variableBorrowIndex: BigNumber;
   lastUpdateTimestamp: number;
 }
+
 interface IAave3AssetStateRaw {
   data: {
     configuration: Aave3DataTypes.ReserveConfigurationMapStructOutput;
@@ -279,7 +280,6 @@ export class AprAave3 {
     details: IAprAave3Results,
     results: IBorrowResults
   }> {
-    console.log("makeBorrowTest:", amountToBorrow0, p, additionalPoints);
     const collateralToken = await TokenDataTypes.Build(deployer, p.collateral.asset);
     const borrowToken = await TokenDataTypes.Build(deployer, p.borrow.asset);
 
@@ -482,7 +482,7 @@ export class AprAave3 {
       keyValues.liquidity.next.blockTimeStamp,
       collateralToken.decimals
     ));
-    console.log("supplyAprBaseApprox", supplyIncomeBaseApprox);
+    console.log("supplyIncomeBaseApprox", supplyIncomeBaseApprox);
 
     const borrowCostBaseApprox = (await getCostValueBeforeAAVE3(
       libFacade,
@@ -495,7 +495,7 @@ export class AprAave3 {
       keyValues.borrow.next.blockTimeStamp,
       borrowToken.decimals
     ));
-    console.log("borrowAprBaseApprox", borrowCostBaseApprox);
+    console.log("borrowCostBaseApprox", borrowCostBaseApprox);
 
     const totalCollateralBaseDelta = getDifference(
       last.userAccount?.totalCollateralBase,
@@ -736,15 +736,6 @@ export class AprAave3 {
       , operationTimestamp || before.blockTimestamp
       , decimalsCollateral
     );
-    // console.log("predictSupplyApr36.supplyApr=", supplyApr);
-    // console.log("collateralAmount", collateralAmount);
-    // console.log("liquidityRateRaysPredicted", liquidityRateRaysPredicted);
-    // console.log("priceCollateral", priceCollateral);
-    // console.log("countBlocks", countBlocks);
-    // console.log("state", state);
-    // console.log("blocksPerDay", blocksPerDay);
-    // console.log("operationTimestamp", operationTimestamp || before.blockTimestamp);
-    // console.log("decimalsCollateral", decimalsCollateral);
 
     const baseCurrencyDecimals = Math.log10((await priceOracle.BASE_CURRENCY_UNIT()).toNumber());
     const bbp: IBaseToBorrowParams = {

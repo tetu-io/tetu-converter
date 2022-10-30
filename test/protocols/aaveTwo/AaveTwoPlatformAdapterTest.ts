@@ -154,7 +154,7 @@ describe("AaveTwoPlatformAdapterTest", () => {
       }
 
       // calculate expected supply and borrow values
-      const predictedSupplyAprBtRay = await AprAaveTwo.predictSupplyApr36(deployer
+      const predictedSupplyIncomeInBorrowAssetRay = await AprAaveTwo.predictSupplyIncomeRays(deployer
         , aavePool
         , collateralAsset
         , collateralAmount
@@ -165,9 +165,9 @@ describe("AaveTwoPlatformAdapterTest", () => {
         , before
         , block.timestamp
       );
-      console.log("predictedSupplyAprBT18", predictedSupplyAprBtRay);
+      console.log("predictedSupplyIncomeInBorrowAssetRay", predictedSupplyIncomeInBorrowAssetRay);
 
-      const predictedBorrowAprBtRay = await AprAaveTwo.predictBorrowApr36(deployer
+      const predictedBorrowCostRay = await AprAaveTwo.predictBorrowCostRays(deployer
         , aavePool
         , collateralAsset
         , borrowAsset
@@ -178,12 +178,12 @@ describe("AaveTwoPlatformAdapterTest", () => {
         , before
         , block.timestamp
       );
-      console.log("predictedBorrowAprBT18", predictedBorrowAprBtRay);
+      console.log("predictedBorrowCostRay", predictedBorrowCostRay);
 
       const sret = [
-        ret.borrowApr36,
-        ret.supplyAprBt36,
-        ret.rewardsAmountBt36,
+        ret.borrowCost36,
+        ret.supplyIncomeInBorrowAsset36,
+        ret.rewardsAmountInBorrowAsset36,
         ret.ltv18,
         ret.liquidationThreshold18,
         ret.maxAmountToBorrow,
@@ -191,8 +191,8 @@ describe("AaveTwoPlatformAdapterTest", () => {
       ].map(x => BalanceUtils.toString(x)) .join("\n");
 
       const sexpected = [
-        predictedBorrowAprBtRay,
-        predictedSupplyAprBtRay,
+        predictedBorrowCostRay,
+        predictedSupplyIncomeInBorrowAssetRay,
         0,
         BigNumber.from(collateralAssetData.data.ltv)
           .mul(Misc.WEI)
