@@ -291,10 +291,10 @@ export class AprAaveTwo {
 
     // make borrow
     const borrowResults = await makeBorrow(
-      deployer
-      , p
-      , getBigNumberFrom(amountToBorrow0, borrowToken.decimals)
-      , new AaveTwoPlatformFabric()
+      deployer,
+      p,
+      getBigNumberFrom(amountToBorrow0, borrowToken.decimals),
+      new AaveTwoPlatformFabric(),
     );
     const userAddress = borrowResults.poolAdapter;
     const borrowAmount = borrowResults.borrowAmount;
@@ -739,6 +739,17 @@ export class AprAaveTwo {
       , operationTimestamp || before.blockTimestamp
       , decimalsBorrow
     );
+
+    console.log("predictBorrowApr36 borrowApr=", cost);
+    console.log("amountToBorrow", amountToBorrow);
+    console.log("brRaysPredicted", borrowRatePredictedRays);
+    console.log("priceBorrow", priceBorrow);
+    console.log("countBlocks", countBlocks);
+    console.log("state", state);
+    console.log("blocksPerDay", blocksPerDay);
+    console.log("operationTimestamp", operationTimestamp || before.blockTimestamp);
+    console.log("decimalsBorrow", decimalsBorrow);
+
 
     return cost.valueMultiplied18
       .mul(Misc.WEI)

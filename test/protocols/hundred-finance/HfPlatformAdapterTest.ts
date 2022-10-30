@@ -14,9 +14,8 @@ import {HundredFinanceHelper} from "../../../scripts/integration/helpers/Hundred
 import {MaticAddresses} from "../../../scripts/addresses/MaticAddresses";
 import {CoreContractsHelper} from "../../baseUT/helpers/CoreContractsHelper";
 import {BigNumber} from "ethers";
-import {areAlmostEqual, toMantissa} from "../../baseUT/utils/CommonUtils";
+import {areAlmostEqual} from "../../baseUT/utils/CommonUtils";
 import {IPlatformActor, PredictBrUsesCase} from "../../baseUT/uses-cases/PredictBrUsesCase";
-import {Misc} from "../../../scripts/utils/Misc";
 import {getBigNumberFrom} from "../../../scripts/utils/NumberUtils";
 import {DeployUtils} from "../../../scripts/utils/DeployUtils";
 import {AprHundredFinance} from "../../baseUT/apr/aprHundredFinance";
@@ -173,8 +172,8 @@ describe("Hundred finance integration tests, platform adapter", () => {
     );
     console.log("supplyRatePredicted", supplyRatePredicted);
 
-    console.log("libFacade.getSupplyApr36");
-    const supplyApr = await libFacade.getSupplyApr36(
+    console.log("libFacade.getSupplyIncomeInBorrowAsset36");
+    const supplyIncomeInBorrowAsset36 = await libFacade.getSupplyIncomeInBorrowAsset36(
       supplyRatePredicted
       , countBlocks
       , collateralAssetDecimals
@@ -189,7 +188,7 @@ describe("Hundred finance integration tests, platform adapter", () => {
     console.log("priceBorrow18", priceBorrow36);
     console.log("collateralAmount", collateralAmount);
 
-    const borrowApr = await libFacade.getBorrowApr36(
+    const borrowCost36 = await libFacade.getBorrowCost36(
       borrowRatePredicted
       , amountToBorrow
       , countBlocks
@@ -197,9 +196,9 @@ describe("Hundred finance integration tests, platform adapter", () => {
     );
 
     const sret = [
-      ret.borrowApr36,
-      ret.supplyAprBt36,
-      ret.rewardsAmountBt36,
+      ret.borrowCost36,
+      ret.supplyIncomeInBorrowAsset36,
+      ret.rewardsAmountInBorrowAsset36,
       ret.ltv18,
       ret.liquidationThreshold18,
       ret.maxAmountToBorrow,
@@ -207,8 +206,8 @@ describe("Hundred finance integration tests, platform adapter", () => {
     ].map(x => BalanceUtils.toString(x)) .join("\n");
 
     const sexpected = [
-      borrowApr,
-      supplyApr,
+      borrowCost36,
+      supplyIncomeInBorrowAsset36,
       BigNumber.from(0), // no rewards
       borrowAssetData.collateralFactorMantissa,
       collateralAssetData.collateralFactorMantissa,

@@ -6,7 +6,7 @@ import {
   IDForceController,
   IDForceCToken,
   IDForceCToken__factory,
-  DForcePlatformAdapter__factory, IDForceInterestRateModel__factory, DForceAprLibFacade,
+  DForcePlatformAdapter__factory, DForceAprLibFacade,
 } from "../../../typechain";
 import {expect} from "chai";
 import {AdaptersHelper} from "../../baseUT/helpers/AdaptersHelper";
@@ -215,7 +215,7 @@ describe("DForce integration tests, platform adapter", () => {
       , collateralAmount
       , await cTokenCollateral.interestRateModel()
     );
-    const supplyApr = await libFacade.getSupplyApr36(
+    const supplyIncomeInBorrowAsset36 = await libFacade.getSupplyIncomeInBorrowAsset36(
       supplyRatePredicted
       , countBlocks
       , collateralAssetDecimals
@@ -223,7 +223,7 @@ describe("DForce integration tests, platform adapter", () => {
       , priceBorrow36
       , collateralAmount
     );
-    const borrowApr = await libFacade.getBorrowApr36(
+    const borrowCost36 = await libFacade.getBorrowCost36(
       borrowRatePredicted
       , amountToBorrow
       , countBlocks
@@ -231,8 +231,8 @@ describe("DForce integration tests, platform adapter", () => {
     );
 
     const sret = [
-      ret.borrowApr36,
-      ret.supplyAprBt36,
+      ret.borrowCost36,
+      ret.supplyIncomeInBorrowAsset36,
       ret.ltv18,
       ret.liquidationThreshold18,
       ret.maxAmountToBorrow,
@@ -243,8 +243,8 @@ describe("DForce integration tests, platform adapter", () => {
     console.log("countBlocks", countBlocks);
 
     const sexpected = [
-      borrowApr,
-      supplyApr,
+      borrowCost36,
+      supplyIncomeInBorrowAsset36,
       collateralAssetData.collateralFactorMantissa
         .mul(borrowAssetData.borrowFactorMantissa)
         .div(Misc.WEI),

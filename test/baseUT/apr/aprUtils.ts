@@ -36,9 +36,9 @@ export async function makeBorrow (
   const collateralToken = await TokenDataTypes.Build(deployer, p.collateral.asset);
   const borrowToken = await TokenDataTypes.Build(deployer, p.borrow.asset);
 
-  const c0 = await setInitialBalance(deployer, collateralToken.address
+  await setInitialBalance(deployer, collateralToken.address
     , p.collateral.holder, p.collateral.initialLiquidity, uc.address);
-  const b0 = await setInitialBalance(deployer, borrowToken.address
+  await setInitialBalance(deployer, borrowToken.address
     , p.borrow.holder, p.borrow.initialLiquidity, uc.address);
   const collateralAmount = getBigNumberFrom(p.collateralAmount, collateralToken.decimals);
 

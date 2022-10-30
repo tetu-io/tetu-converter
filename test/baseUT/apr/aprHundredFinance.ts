@@ -13,11 +13,12 @@ import {DeployUtils} from "../../../scripts/utils/DeployUtils";
 import hre, {ethers} from "hardhat";
 import {
   changeDecimals,
-  convertUnits, makeBorrow
+  convertUnits, getExpectedApr18, makeBorrow
 } from "./aprUtils";
 import {TimeUtils} from "../../../scripts/utils/TimeUtils";
 import {HundredFinancePlatformFabric} from "../fabrics/HundredFinancePlatformFabric";
 import {HundredFinanceUtils} from "../utils/HundredFinanceUtils";
+import {Misc} from "../../../scripts/utils/Misc";
 
 //region Data types
 interface IHfMarketState {
@@ -79,13 +80,13 @@ interface IAprHfTwoResults {
 //// next : last  results
 
   /** Supply APR in terms of base currency calculated using predicted supply rate */
-  supplyAprExact: BigNumber;
+  supplyIncomeInBorrowAsset36Exact: BigNumber;
   /** Supply APR in terms of base currency calculated using exact supply rate taken from next step */
-  supplyApr: BigNumber;
+  supplyIncomeInBorrowAsset36: BigNumber;
   /** Borrow APR in terms of base currency calculated using predicted borrow rate */
-  borrowAprExact: BigNumber;
+  borrowCost36Exact: BigNumber;
   /** borrow APR in terms of base currency calculated using exact borrow rate taken from next step */
-  borrowApr: BigNumber;
+  borrowCost36: BigNumber;
   /** total increment of collateral amount from NEXT to LAST in terms of COLLATERAL currency */
   deltaCollateralMul18: BigNumber;
   /** total increment of collateral amount from NEXT to LAST in terms of BORROW currency */
@@ -268,7 +269,7 @@ export class AprHundredFinance {
     // we use state-values "after-borrow" and exact values of supply/borrow rates after borrow
     const countBlocksNextToLast = 1;
 
-    const supplyApr = await libFacade.getSupplyApr36(
+    const supplyIncomeInBorrowAsset36 = await libFacade.getSupplyIncomeInBorrowAsset36(
       supplyRatePredicted
       , countBlocksNextToLast
       , collateralAssetDecimals
@@ -276,8 +277,8 @@ export class AprHundredFinance {
       , priceBorrow36
       , amountCollateral
     );
-    console.log("supplyApr", supplyApr);
-    const supplyAprExact = await libFacade.getSupplyApr36(
+    console.log("supplyIncomeInBorrowAsset36", supplyIncomeInBorrowAsset36);
+    const supplyIncomeInBorrowAsset36Exact = await libFacade.getSupplyIncomeInBorrowAsset36(
       next.collateral.market.supplyRatePerBlock
       , countBlocksNextToLast
       , collateralAssetDecimals
@@ -285,23 +286,23 @@ export class AprHundredFinance {
       , priceBorrow36
       , amountCollateral
     );
-    console.log("supplyAprExact", supplyAprExact);
+    console.log("supplyAprExact", supplyIncomeInBorrowAsset36Exact);
 
-    const borrowApr = await libFacade.getBorrowApr36(
+    const borrowCost36 = await libFacade.getBorrowCost36(
       borrowRatePredicted
       , borrowAmount
       , countBlocksNextToLast
       , borrowAssetDecimals
     );
-    console.log("borrowApr", borrowApr);
+    console.log("borrowApr", borrowCost36);
 
-    const borrowAprExact = await libFacade.getBorrowApr36(
+    const borrowCost36Exact = await libFacade.getBorrowCost36(
       last.borrow.market.borrowRatePerBlock
       , borrowAmount
       , countBlocksNextToLast
       , borrowAssetDecimals
     );
-    console.log("borrowAprExact", borrowApr);
+    console.log("borrowAprExact", borrowCost36);
 
     // get collateral (in terms of collateral tokens) for next and last points
     const collateralNextMul18 = next.collateral.account.balance
@@ -358,64 +359,82 @@ export class AprHundredFinance {
       })
     }
 
+    const collateralAmountInBorrowTokens36 = convertUnits(amountCollateral,
+      priceCollateral,
+      collateralAssetDecimals,
+      priceBorrow,
+      36
+    );
+
+    const predictedApr18 =  getExpectedApr18(
+      borrowCost36,
+      supplyIncomeInBorrowAsset36,
+      BigNumber.from(0),
+      collateralAmountInBorrowTokens36,
+      Misc.WEI // rewards = 0, not used
+    );
+
+    const resultSupplyIncomeInBorrowTokens36 = changeDecimals(
+      deltaCollateralMul18.mul(priceCollateral).div(priceBorrow)
+      , borrowAssetDecimals
+      , 18 // we need decimals 36, but deltaCollateralMul18 is already multiplied on 1e18
+    );
+
+    const resultCostBorrow36 = changeDecimals(deltaBorrowBalance, borrowAssetDecimals, 36);
+    const resultApr18 = getExpectedApr18(
+      resultCostBorrow36,
+      resultSupplyIncomeInBorrowTokens36,
+      BigNumber.from(0),
+      collateralAmountInBorrowTokens36,
+      Misc.WEI // rewards = 0, not used
+    );
+
     return {
       details: {
-        borrowApr,
-        borrowAprExact,
+        borrowCost36,
+        borrowCost36Exact,
         before,
         deltaBorrowBalance,
         deltaCollateralMul18,
-        supplyApr,
+        supplyIncomeInBorrowAsset36,
         deltaCollateralBT: deltaCollateralBtMul18,
         borrowAmount,
         last,
-        supplyAprExact,
+        supplyIncomeInBorrowAsset36Exact,
         next,
         userAddress
       },
       results: {
-        init: {
-          borrowAmount,
-          collateralAmount: amountCollateral,
-          collateralAmountInBorrowTokens18: convertUnits(
-            amountCollateral
-            , priceCollateral, collateralAssetDecimals
-            , priceBorrow, 18
-          )
+        borrowAmount,
+        collateralAmount: amountCollateral,
+        collateralAmountInBorrowTokens18: collateralAmountInBorrowTokens36.div(Misc.WEI),
+        predictedAmounts: {
+          costBorrow36: borrowCost36,
+          supplyIncomeInBorrowTokens36: supplyIncomeInBorrowAsset36,
+          apr18: predictedApr18
         },
-        predicted: {
-          aprBt36: {
-            collateral: supplyApr,
-            borrow: borrowApr
-          },
-          rates: {
-            borrowRate: borrowRatePredicted,
-            supplyRate: supplyRatePredicted
-          }
+        predictedRates: {
+          borrowRate: borrowRatePredicted,
+          supplyRate: supplyRatePredicted
         },
         prices: {
           collateral: priceCollateral,
           borrow: priceBorrow,
         },
-        resultsBlock: {
-          period: {
-            block0: next.block,
-            blockTimestamp0: next.blockTimestamp,
-            block1: last.block,
-            blockTimestamp1: last.blockTimestamp,
-          },
-          rates: {
-            borrowRate: next.borrow.market.borrowRatePerBlock,
-            supplyRate: next.collateral.market.supplyRatePerBlock
-          },
-          aprBt36: {
-            collateral: changeDecimals(
-              deltaCollateralMul18.mul(priceCollateral).div(priceBorrow)
-              , borrowAssetDecimals
-              , 18 // we need decimals 36, but deltaCollateralMul18 is already multiplied on 1e18
-            ),
-            borrow: changeDecimals(deltaBorrowBalance, borrowAssetDecimals, 36)
-          }
+        period: {
+          block0: next.block,
+          blockTimestamp0: next.blockTimestamp,
+          block1: last.block,
+          blockTimestamp1: last.blockTimestamp,
+        },
+        resultRates: {
+          borrowRate: next.borrow.market.borrowRatePerBlock,
+          supplyRate: next.collateral.market.supplyRatePerBlock
+        },
+        resultAmounts: {
+          supplyIncomeInBorrowTokens36: resultSupplyIncomeInBorrowTokens36,
+          costBorrow36: resultCostBorrow36,
+          apr18: resultApr18
         },
         points: pointsResults
       }
