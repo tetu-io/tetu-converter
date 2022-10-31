@@ -19,24 +19,28 @@ export class CoreContractsHelper {
     deployer: SignerWithAddress,
     minHealthFactor2: number = 101,
     targetHealthFactor2: number = 200,
-    maxHealthFactor2: number = 400
+    maxHealthFactor2: number = 400,
+    countBlocksPerDay: number = COUNT_BLOCKS_PER_DAY,
+    initializeByEmptyAddresses: boolean = true
   ) : Promise<Controller>{
     const controller = (await DeployUtils.deployContract(deployer
       , "Controller"
-      , COUNT_BLOCKS_PER_DAY
+      , countBlocksPerDay
       , deployer.address
       , minHealthFactor2
       , targetHealthFactor2
       , maxHealthFactor2
     )) as Controller;
-    await controller.initialize(
-      ethers.Wallet.createRandom().address,
-      ethers.Wallet.createRandom().address,
-      ethers.Wallet.createRandom().address,
-      ethers.Wallet.createRandom().address,
-      ethers.Wallet.createRandom().address,
-      ethers.Wallet.createRandom().address,
-    );
+    if (initializeByEmptyAddresses) {
+      await controller.initialize(
+        ethers.Wallet.createRandom().address,
+        ethers.Wallet.createRandom().address,
+        ethers.Wallet.createRandom().address,
+        ethers.Wallet.createRandom().address,
+        ethers.Wallet.createRandom().address,
+        ethers.Wallet.createRandom().address,
+      );
+    }
     return controller;
   }
 
@@ -70,12 +74,12 @@ export class CoreContractsHelper {
   public static async createBorrowManager (
     signer: SignerWithAddress,
     controller: IController,
+    rewardsFactor: BigNumber = Misc.WEI // by default, set rewardsFactor = 1
   ) : Promise<BorrowManager> {
     return (await DeployUtils.deployContract(
       signer,
       "BorrowManager",
       controller.address,
-      Misc.WEI // by default, set rewardsFactor = 1
     )) as BorrowManager;
   }
 
