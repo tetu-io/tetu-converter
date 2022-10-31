@@ -103,6 +103,7 @@ export interface IConversionPlan {
   ltv18: BigNumber;
   maxAmountToBorrow: BigNumber;
   maxAmountToSupply: BigNumber;
+  amountToBorrow: BigNumber;
 }
 
 export interface IAssetInfo {

@@ -2,7 +2,7 @@ import {BigNumber} from "ethers";
 import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import {DeployerUtils} from "../../../scripts/utils/DeployerUtils";
 import {getBigNumberFrom} from "../../../scripts/utils/NumberUtils";
-import {IERC20__factory, IERC20Extended__factory} from "../../../typechain";
+import {IERC20__factory, IERC20Extended, IERC20Extended__factory} from "../../../typechain";
 
 export interface IContractToInvestigate {
   name: string;
@@ -74,10 +74,10 @@ export class BalanceUtils {
   }
 
   static async getAmountFromHolder(
-    asset: string
-    , holder: string
-    , recipient: string
-    , amount: number | BigNumber
+    asset: string,
+    holder: string,
+    recipient: string,
+    amount: number | BigNumber
   ) : Promise<BigNumber> {
     const connection = await IERC20Extended__factory.connect(
       asset
@@ -104,5 +104,36 @@ export class BalanceUtils {
     }
 
     return amountToClaim;
+  }
+
+  /**
+   * Transfer {requiredAmount} from holders to the receiver.
+   * If the {requiredAmount} is undefined, transfer all available amount.
+   * Return transferred amount
+   */
+  static async getRequiredAmountFromHolders(
+    requiredAmount: BigNumber | undefined,
+    token: IERC20Extended,
+    holders: string[],
+    receiver: string
+  ) : Promise<BigNumber> {
+    let dest: BigNumber = BigNumber.from(0);
+    for (const holder of holders) {
+      const holderBalance = await token.balanceOf(holder);
+      const amountToTransfer = requiredAmount && holderBalance.gt(requiredAmount)
+        ? requiredAmount
+        : holderBalance;
+
+      await token
+        .connect(await DeployerUtils.startImpersonate(holder))
+        .transfer(receiver, amountToTransfer);
+
+      dest = dest.add(amountToTransfer);
+      if (requiredAmount) {
+        requiredAmount = requiredAmount?.sub(amountToTransfer);
+      }
+    }
+
+    return dest;
   }
 }
