@@ -148,7 +148,7 @@ export class DeploySolutionUtils {
 
     ///////////////////////////////////////////////////////////////////////////////////////////////////
     const net = await ethers.provider.getNetwork();
-    console.log(net, network.name);
+    console.log(net, "network name=", network.name);
 
     const localHardhatIsInUse = network.name === "localhost";
     if (localHardhatIsInUse) {
@@ -163,6 +163,7 @@ export class DeploySolutionUtils {
       ? await DeployerUtils.startImpersonate(
         process?.env.APP_PRIVATE_GOVERNANCE_ACCOUNT_FOR_HARDHAT || "please add governance account to env")
       : (await ethers.getSigners())[0];
+
     console.log("signer", signer.address);
 
     // Deploy all core contracts

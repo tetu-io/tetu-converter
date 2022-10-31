@@ -80,6 +80,7 @@ export class CoreContractsHelper {
       signer,
       "BorrowManager",
       controller.address,
+      rewardsFactor
     )) as BorrowManager;
   }
 
