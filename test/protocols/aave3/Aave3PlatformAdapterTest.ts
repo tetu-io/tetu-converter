@@ -104,13 +104,21 @@ describe("Aave3PlatformAdapterTest", () => {
 
 //region Unit tests
   describe("getConversionPlan", () => {
+    interface IGetConversionPlanBadPaths {
+      zeroCollateralAsset?: boolean;
+      zeroBorrowAsset?: boolean;
+      zeroCountBlocks?: boolean;
+      zeroCollateralAmount?: boolean;
+      incorrectHealthFactor2?: number;
+    }
     async function makeGetConversionPlanTest(
       collateralAsset: string,
       collateralAmount: BigNumber,
       borrowAsset: string,
       highEfficientModeEnabled: boolean,
       isolationModeEnabled: boolean,
-      countBlocks: number = 10
+      countBlocks: number = 10,
+      badPathsParams?: IGetConversionPlanBadPaths
     ) : Promise<{sret: string, sexpected: string}> {
       const controller = await CoreContractsHelper.createController(deployer);
       const templateAdapterNormalStub = ethers.Wallet.createRandom();
@@ -143,11 +151,12 @@ describe("Aave3PlatformAdapterTest", () => {
       const collateralReserveData = await dp.getReserveData(collateralAsset);
 
       // get conversion plan
-      const ret = await aavePlatformAdapter.getConversionPlan(collateralAsset
-        , collateralAmount
-        , borrowAsset
-        , healthFactor2
-        , countBlocks
+      const ret = await aavePlatformAdapter.getConversionPlan(
+        badPathsParams?.zeroCollateralAsset ? Misc.ZERO_ADDRESS : collateralAsset,
+        badPathsParams?.zeroCollateralAmount ? 0 : collateralAmount,
+        badPathsParams?.zeroBorrowAsset ? Misc.ZERO_ADDRESS : borrowAsset,
+        badPathsParams?.incorrectHealthFactor2 || healthFactor2,
+        badPathsParams?.zeroCountBlocks ? 0 : countBlocks,
       );
       console.log("ret", ret);
 
@@ -404,69 +413,123 @@ describe("Aave3PlatformAdapterTest", () => {
       });
     });
     describe("Bad paths", () => {
-      // describe("inactive", () => {
-      //   describe("collateral token is inactive", () => {
-      //     it("should revert", async () =>{
-      //       expect.fail("TODO");
-      //     });
-      //   });
-      //   describe("borrow token is inactive", () => {
-      //     it("should revert", async () =>{
-      //       expect.fail("TODO");
-      //     });
-      //   });
-      // });
-      // describe("paused", () => {
-      //   describe("collateral token is paused", () => {
-      //     it("should revert", async () =>{
-      //       expect.fail("TODO");
-      //     });
-      //   });
-      //   describe("borrow token is paused", () => {
-      //     it("should revert", async () =>{
-      //       expect.fail("TODO");
-      //     });
-      //   });
-      // });
-      // describe("Borrow token is frozen", () => {
-      //   describe("collateral token is frozen", () => {
-      //     it("should revert", async () =>{
-      //       expect.fail("TODO");
-      //     });
-      //   });
-      //   describe("borrow token is frozen", () => {
-      //     it("should revert", async () =>{
-      //       expect.fail("TODO");
-      //     });
-      //   });
-      // });
-      // describe("Not borrowable", () => {
-      //   it("should revert", async () =>{
-      //     expect.fail("TODO");
-      //   });
-      // });
-      // describe("Not usable as collateral", () => {
-      //   it("should revert", async () =>{
-      //     expect.fail("TODO");
-      //   });
-      // });
-      // describe("Isolation mode is enabled for collateral, borrow token is not borrowable", () => {
-      //   describe("STASIS EURS-2 : SushiToken (PoS)", () => {
-      //     it("should revert", async () =>{
-      //       expect.fail("TODO");
-      //     });
-      //   });
-      // });
-      // describe("Try to supply more than allowed by supply cap", () => {
-      //   it("should revert", async () =>{
-      //     expect.fail("TODO");
-      //   });
-      // });
-      // describe("Try to borrow more than allowed by borrow cap", () => {
-      //   it("should revert", async () =>{
-      //     expect.fail("TODO");
-      //   });
-      // });
+      async function tryGetConversionPlan(badPathsParams: IGetConversionPlanBadPaths) {
+        if (!await isPolygonForkInUse()) return;
+
+        const collateralAsset = MaticAddresses.DAI;
+        const borrowAsset = MaticAddresses.WMATIC;
+        const collateralAmount = getBigNumberFrom(1000, 18);
+
+        await makeGetConversionPlanTest(
+          collateralAsset,
+          collateralAmount,
+          borrowAsset,
+          false,
+          false,
+          10,
+          badPathsParams
+        );
+      }
+      describe("incorrect input params", () => {
+        describe("collateral token is zero", () => {
+          it("should revert", async () =>{
+            await expect(
+              tryGetConversionPlan({ zeroCollateralAsset: true })
+            ).revertedWith("TC-1"); // ZERO_ADDRESS
+          });
+        });
+        describe("borrow token is zero", () => {
+          it("should revert", async () =>{
+            await expect(
+              tryGetConversionPlan({ zeroBorrowAsset: true })
+            ).revertedWith("TC-1"); // ZERO_ADDRESS
+          });
+        });
+        describe("healthFactor2_ is less than min allowed", () => {
+          it("should revert", async () =>{
+            await expect(
+              tryGetConversionPlan({ incorrectHealthFactor2: 100 })
+            ).revertedWith("TC-3: wrong health factor"); // WRONG_HEALTH_FACTOR
+          });
+        });
+        describe("countBlocks_ is zero", () => {
+          it("should revert", async () =>{
+            await expect(
+              tryGetConversionPlan({ zeroCountBlocks: true })
+            ).revertedWith("TC-29"); // INCORRECT_VALUE
+          });
+        });
+        describe("collateralAmount_ is zero", () => {
+          it("should revert", async () =>{
+            await expect(
+              tryGetConversionPlan({ zeroCollateralAmount: true })
+            ).revertedWith("TC-29"); // INCORRECT_VALUE
+          });
+        });
+      });
+      describe("inactive", () => {
+        describe("collateral token is inactive", () => {
+          it("should revert", async () =>{
+            expect.fail("TODO");
+          });
+        });
+        describe("borrow token is inactive", () => {
+          it("should revert", async () =>{
+            expect.fail("TODO");
+          });
+        });
+      });
+      describe("paused", () => {
+        describe("collateral token is paused", () => {
+          it("should revert", async () =>{
+            expect.fail("TODO");
+          });
+        });
+        describe("borrow token is paused", () => {
+          it("should revert", async () =>{
+            expect.fail("TODO");
+          });
+        });
+      });
+      describe("Borrow token is frozen", () => {
+        describe("collateral token is frozen", () => {
+          it("should revert", async () =>{
+            expect.fail("TODO");
+          });
+        });
+        describe("borrow token is frozen", () => {
+          it("should revert", async () =>{
+            expect.fail("TODO");
+          });
+        });
+      });
+      describe("Not borrowable", () => {
+        it("should revert", async () =>{
+          expect.fail("TODO");
+        });
+      });
+      describe("Not usable as collateral", () => {
+        it("should revert", async () =>{
+          expect.fail("TODO");
+        });
+      });
+      describe("Isolation mode is enabled for collateral, borrow token is not borrowable", () => {
+        describe("STASIS EURS-2 : SushiToken (PoS)", () => {
+          it("should revert", async () =>{
+            expect.fail("TODO");
+          });
+        });
+      });
+      describe("Try to supply more than allowed by supply cap", () => {
+        it("should revert", async () =>{
+          expect.fail("TODO");
+        });
+      });
+      describe("Try to borrow more than allowed by borrow cap", () => {
+        it("should revert", async () =>{
+          expect.fail("TODO");
+        });
+      });
     });
 
   });

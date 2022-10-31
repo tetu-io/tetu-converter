@@ -21,6 +21,7 @@ import {DeployUtils} from "../../../scripts/utils/DeployUtils";
 import {AprHundredFinance} from "../../baseUT/apr/aprHundredFinance";
 import {AprUtils} from "../../baseUT/utils/aprUtils";
 import {convertUnits} from "../../baseUT/apr/aprUtils";
+import {Misc} from "../../../scripts/utils/Misc";
 
 describe("Hundred finance integration tests, platform adapter", () => {
 //region Global vars for all tests
@@ -96,12 +97,20 @@ describe("Hundred finance integration tests, platform adapter", () => {
 //endregion IPlatformActor impl
 
 //region getConversionPlan tests impl
+  interface IGetConversionPlanBadPaths {
+    zeroCollateralAsset?: boolean;
+    zeroBorrowAsset?: boolean;
+    zeroCountBlocks?: boolean;
+    zeroCollateralAmount?: boolean;
+    incorrectHealthFactor2?: number;
+  }
   async function makeTestComparePlanWithDirectCalculations(
     collateralAsset: string,
     collateralAmount: BigNumber,
     borrowAsset: string,
     collateralCToken: string,
-    borrowCToken: string
+    borrowCToken: string,
+    badPathsParams?: IGetConversionPlanBadPaths
   ) : Promise<{sret: string, sexpected: string}> {
     const controller = await CoreContractsHelper.createController(deployer);
     const templateAdapterNormalStub = ethers.Wallet.createRandom();
@@ -138,11 +147,12 @@ describe("Hundred finance integration tests, platform adapter", () => {
     console.log("priceBorrow18", priceBorrow36);
     console.log("priceCollateral18", priceCollateral36);
 
-    const ret = await hfPlatformAdapter.getConversionPlan(collateralAsset,
-      collateralAmount,
-      borrowAsset,
-      healthFactor2,
-      countBlocks
+    const ret = await hfPlatformAdapter.getConversionPlan(
+      badPathsParams?.zeroCollateralAsset ? Misc.ZERO_ADDRESS : collateralAsset,
+      badPathsParams?.zeroCollateralAmount ? 0 : collateralAmount,
+      badPathsParams?.zeroBorrowAsset ? Misc.ZERO_ADDRESS : borrowAsset,
+      badPathsParams?.incorrectHealthFactor2 || healthFactor2,
+      badPathsParams?.zeroCountBlocks ? 0 : countBlocks,
     );
 
     let amountToBorrow = AprUtils.getBorrowAmount(
@@ -280,6 +290,61 @@ describe("Hundred finance integration tests, platform adapter", () => {
       });
     });
     describe("Bad paths", () => {
+      async function tryGetConversionPlan(badPathsParams: IGetConversionPlanBadPaths) {
+        if (!await isPolygonForkInUse()) return;
+
+        const collateralAsset = MaticAddresses.DAI;
+        const borrowAsset = MaticAddresses.USDC;
+        const collateralCToken = MaticAddresses.hDAI;
+        const borrowCToken = MaticAddresses.hUSDC;
+        const collateralAmount = getBigNumberFrom(1000, 18);
+
+        await makeTestComparePlanWithDirectCalculations(
+          collateralAsset,
+          collateralAmount,
+          borrowAsset,
+          collateralCToken,
+          borrowCToken,
+          badPathsParams
+        );
+      }
+      describe("incorrect input params", () => {
+        describe("collateral token is zero", () => {
+          it("should revert", async () =>{
+            await expect(
+              tryGetConversionPlan({ zeroCollateralAsset: true })
+            ).revertedWith("TC-1"); // ZERO_ADDRESS
+          });
+        });
+        describe("borrow token is zero", () => {
+          it("should revert", async () =>{
+            await expect(
+              tryGetConversionPlan({ zeroBorrowAsset: true })
+            ).revertedWith("TC-1"); // ZERO_ADDRESS
+          });
+        });
+        describe("healthFactor2_ is less than min allowed", () => {
+          it("should revert", async () =>{
+            await expect(
+              tryGetConversionPlan({ incorrectHealthFactor2: 100 })
+            ).revertedWith("TC-3: wrong health factor"); // WRONG_HEALTH_FACTOR
+          });
+        });
+        describe("countBlocks_ is zero", () => {
+          it("should revert", async () =>{
+            await expect(
+              tryGetConversionPlan({ zeroCountBlocks: true })
+            ).revertedWith("TC-29"); // INCORRECT_VALUE
+          });
+        });
+        describe("collateralAmount_ is zero", () => {
+          it("should revert", async () =>{
+            await expect(
+              tryGetConversionPlan({ zeroCollateralAmount: true })
+            ).revertedWith("TC-29"); // INCORRECT_VALUE
+          });
+        });
+      });
       describe("inactive", () => {
         describe("collateral token is inactive", () => {
           it("", async () =>{

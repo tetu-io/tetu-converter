@@ -97,10 +97,18 @@ describe("AaveTwoPlatformAdapterTest", () => {
 
 //region Unit tests
   describe("getConversionPlan", () => {
+    interface IGetConversionPlanBadPaths {
+      zeroCollateralAsset?: boolean;
+      zeroBorrowAsset?: boolean;
+      zeroCountBlocks?: boolean;
+      zeroCollateralAmount?: boolean;
+      incorrectHealthFactor2?: number;
+    }
     async function makeGetConversionPlanTest(
       collateralAsset: string,
       collateralAmount: BigNumber,
-      borrowAsset: string
+      borrowAsset: string,
+      badPathsParams?: IGetConversionPlanBadPaths
     ) : Promise<{sret: string, sexpected: string}> {
       const countBlocks = 10;
       const controller = await CoreContractsHelper.createController(deployer);
@@ -131,11 +139,11 @@ describe("AaveTwoPlatformAdapterTest", () => {
       const collateralReserveData = await dp.getReserveData(collateralAsset);
 
       const ret = await aavePlatformAdapter.getConversionPlan(
-        collateralAsset,
-        collateralAmount,
-        borrowAsset,
-        healthFactor2,
-        countBlocks
+        badPathsParams?.zeroCollateralAsset ? Misc.ZERO_ADDRESS : collateralAsset,
+        badPathsParams?.zeroCollateralAmount ? 0 : collateralAmount,
+        badPathsParams?.zeroBorrowAsset ? Misc.ZERO_ADDRESS : borrowAsset,
+        badPathsParams?.incorrectHealthFactor2 || healthFactor2,
+        badPathsParams?.zeroCountBlocks ? 0 : countBlocks,
       );
       console.log("ret", ret);
 
@@ -281,6 +289,57 @@ describe("AaveTwoPlatformAdapterTest", () => {
       });
     });
     describe("Bad paths", () => {
+      async function tryGetConversionPlan(badPathsParams: IGetConversionPlanBadPaths) {
+        if (!await isPolygonForkInUse()) return;
+
+        const collateralAsset = MaticAddresses.DAI;
+        const borrowAsset = MaticAddresses.WMATIC;
+        const collateralAmount = getBigNumberFrom(1000, 18);
+
+        await makeGetConversionPlanTest(
+          collateralAsset,
+          collateralAmount,
+          borrowAsset,
+          badPathsParams
+        );
+      }
+      describe("incorrect input params", () => {
+        describe("collateral token is zero", () => {
+          it("should revert", async () =>{
+            await expect(
+              tryGetConversionPlan({ zeroCollateralAsset: true })
+            ).revertedWith("TC-1"); // ZERO_ADDRESS
+          });
+        });
+        describe("borrow token is zero", () => {
+          it("should revert", async () =>{
+            await expect(
+              tryGetConversionPlan({ zeroBorrowAsset: true })
+            ).revertedWith("TC-1"); // ZERO_ADDRESS
+          });
+        });
+        describe("healthFactor2_ is less than min allowed", () => {
+          it("should revert", async () =>{
+            await expect(
+              tryGetConversionPlan({ incorrectHealthFactor2: 100 })
+            ).revertedWith("TC-3: wrong health factor"); // WRONG_HEALTH_FACTOR
+          });
+        });
+        describe("countBlocks_ is zero", () => {
+          it("should revert", async () =>{
+            await expect(
+              tryGetConversionPlan({ zeroCountBlocks: true })
+            ).revertedWith("TC-29"); // INCORRECT_VALUE
+          });
+        });
+        describe("collateralAmount_ is zero", () => {
+          it("should revert", async () =>{
+            await expect(
+              tryGetConversionPlan({ zeroCollateralAmount: true })
+            ).revertedWith("TC-29"); // INCORRECT_VALUE
+          });
+        });
+      });
       // describe("inactive", () => {
       //   describe("collateral token is inactive", () => {
       //     it("should revert", async () =>{

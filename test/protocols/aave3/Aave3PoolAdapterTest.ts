@@ -649,7 +649,8 @@ describe("Aave3PoolAdapterTest", () => {
         0,
         borrowAsset,
         0,
-        countBlocks);
+        countBlocks
+      );
 
       // now, let's ensure that we can borrow max amount
       console.log("Max allowed amount to borrow", maxBorrowAmount);
