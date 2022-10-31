@@ -193,7 +193,6 @@ contract TetuConverter is ITetuConverter, IKeeperCallback {
 
     } else if (conversionKind == AppDataTypes.ConversionKind.SWAP_1) {
       require(converter_ == address(_swapManager()), AppErrors.INCORRECT_CONVERTER_TO_SWAP);
-
       IERC20(collateralAsset_).safeTransfer(converter_, collateralAmount_);
       return ISwapConverter(converter_).swap(
         collateralAsset_,

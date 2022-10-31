@@ -17,6 +17,9 @@ import {AprAaveTwo} from "../baseUT/apr/aprAaveTwo";
 import {AprDForce} from "../baseUT/apr/aprDForce";
 import {Misc} from "../../scripts/utils/Misc";
 import {AprHundredFinance} from "../baseUT/apr/aprHundredFinance";
+import {AprSwap} from "../baseUT/apr/aprSwap";
+import {TokenDataTypes} from "../baseUT/types/TokenDataTypes";
+import {BalanceUtils} from "../baseUT/utils/BalanceUtils";
 
 /**
  * For any landing platform:
@@ -382,6 +385,43 @@ describe("CompareAprBeforeAfterBorrow", () => {
         });
       })
     });
+
+    describe("SWAP", () => {
+      it("predicted APR should be equal to real APR", async () => {
+        if (!await isPolygonForkInUse()) return;
+
+        const collateralAsset = MaticAddresses.DAI;
+        const collateralHolders = [ MaticAddresses.HOLDER_DAI ];
+        const borrowAsset = MaticAddresses.WETH;
+        const collateralAmountNum = 100_000;
+
+        const collateralToken = await TokenDataTypes.Build(deployer, collateralAsset);
+        const borrowToken = await TokenDataTypes.Build(deployer, borrowAsset);
+        const collateralAmount = getBigNumberFrom(collateralAmountNum, collateralToken.decimals);
+
+        const ret = await AprSwap.makeSwapTest(
+          deployer,
+          collateralToken,
+          collateralHolders,
+          collateralAmount,
+          borrowToken,
+          undefined
+        );
+
+        const sret = [
+          ret.amountToBorrow,
+          ret.strategyToConvert.converter
+        ].map(x => BalanceUtils.toString(x)).join("\n");
+
+        const sexpected = [
+          ret.userContractBorrowAssetBalanceAfterSwap,
+          ret.swapManagerAddress
+        ].map(x => BalanceUtils.toString(x)).join("\n");
+
+        expect(sret).equals(sexpected);
+      });
+    });
+
   });
 
   describe("USDC-6 => WBTC-8", () => {
@@ -674,6 +714,72 @@ describe("CompareAprBeforeAfterBorrow", () => {
         console.log("last.exchangeRateStored", ret.details.last.collateral.market.exchangeRateStored);
 
         expect(sret).equals(sexpected);
+      });
+    });
+    describe("SWAP", () => {
+      describe("1 USDC", () => {
+        it("predicted APR should be equal to real APR", async () => {
+          if (!await isPolygonForkInUse()) return;
+
+          const collateralAmountNum = 1;
+
+          const collateralToken = await TokenDataTypes.Build(deployer, ASSET_COLLATERAL);
+          const borrowToken = await TokenDataTypes.Build(deployer, ASSET_BORROW);
+          const collateralAmount = getBigNumberFrom(collateralAmountNum, collateralToken.decimals);
+
+          const ret = await AprSwap.makeSwapTest(
+            deployer,
+            collateralToken,
+            [HOLDER_COLLATERAL],
+            collateralAmount,
+            borrowToken,
+            undefined
+          );
+
+          const sret = [
+            ret.amountToBorrow,
+            ret.strategyToConvert.converter
+          ].map(x => BalanceUtils.toString(x)).join("\n");
+
+          const sexpected = [
+            ret.userContractBorrowAssetBalanceAfterSwap,
+            ret.swapManagerAddress
+          ].map(x => BalanceUtils.toString(x)).join("\n");
+
+          expect(sret).equals(sexpected);
+        });
+      });
+      describe("1_000_000 USDC", () => {
+        it("predicted APR should be equal to real APR", async () => {
+          if (!await isPolygonForkInUse()) return;
+
+          const collateralAmountNum = 1_000_000;
+
+          const collateralToken = await TokenDataTypes.Build(deployer, ASSET_COLLATERAL);
+          const borrowToken = await TokenDataTypes.Build(deployer, ASSET_BORROW);
+          const collateralAmount = getBigNumberFrom(collateralAmountNum, collateralToken.decimals);
+
+          const ret = await AprSwap.makeSwapTest(
+            deployer,
+            collateralToken,
+            [HOLDER_COLLATERAL],
+            collateralAmount,
+            borrowToken,
+            undefined
+          );
+
+          const sret = [
+            ret.amountToBorrow,
+            ret.strategyToConvert.converter
+          ].map(x => BalanceUtils.toString(x)).join("\n");
+
+          const sexpected = [
+            ret.userContractBorrowAssetBalanceAfterSwap,
+            ret.swapManagerAddress
+          ].map(x => BalanceUtils.toString(x)).join("\n");
+
+          expect(sret).equals(sexpected);
+        });
       });
     });
   });

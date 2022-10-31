@@ -73,6 +73,8 @@ contract TetuLiquidatorMock is ITetuLiquidator {
     uint amount,
     uint priceImpactTolerance
   ) external override {
+    // real tetu liquidator requires approve() before calling liquidate()
+    IERC20(tokenIn).transferFrom(msg.sender, address(this), amount);
     IMockERC20(tokenIn).burn(address(this), amount);
 
     uint amountOut = getPrice(tokenIn, tokenOut, amount);

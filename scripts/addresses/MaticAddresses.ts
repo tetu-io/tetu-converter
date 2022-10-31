@@ -6,6 +6,11 @@ export class MaticAddresses {
   public static MARKET_POOL_LENS = '0xe4D84b252308645098846312286E6c6D2846DbB0'.toLowerCase();
 //endregion MARKET.XYZ
 
+//region TETU
+  /* https://github.com/tetu-io/tetu-liquidator */
+  public static TETU_LIQUIDATOR = "0xC737eaB847Ae6A92028862fE38b828db41314772"; // 0x67e14A8Ebe89639945e4209CE3fE19e721633AC3
+//endregion TETU
+
 //region Assets
   public static DAI = "0x8f3Cf7ad23Cd3CaDbD9735AFf958023239c6A063";
   public static USDC = "0x2791bca1f2de4661ed88a30c99a7a9449aa84174";

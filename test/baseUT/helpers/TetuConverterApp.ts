@@ -9,6 +9,7 @@ import {DeployUtils} from "../../../scripts/utils/DeployUtils";
 import {COUNT_BLOCKS_PER_DAY} from "../utils/aprUtils";
 import {ILendingPlatformFabric} from "../fabrics/ILendingPlatformFabric";
 import {ethers} from "ethers";
+import {MaticAddresses} from "../../../scripts/addresses/MaticAddresses";
 
 
 export class TetuConverterApp {
@@ -29,7 +30,7 @@ export class TetuConverterApp {
     const tc: ITetuConverter = await CoreContractsHelper.createTetuConverter(deployer, controller);
     const dm = await CoreContractsHelper.createDebtMonitor(deployer, controller);
 
-    const tetuLiquidatorAddress = '0x67e14A8Ebe89639945e4209CE3fE19e721633AC3';
+    const tetuLiquidatorAddress = MaticAddresses.TETU_LIQUIDATOR;
     const swapManager = await CoreContractsHelper.createSwapManager(deployer, controller);
 
     await controller.initialize(tc.address,

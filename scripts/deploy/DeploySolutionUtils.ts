@@ -64,7 +64,7 @@ export class DeploySolutionUtils {
     /// Initial settings
     const destPathTxt = "tmp/deployed.txt";
     const keeperAddress = ethers.Wallet.createRandom().address; // TODO
-    const tetuLiquidatorAddress = '0x67e14A8Ebe89639945e4209CE3fE19e721633AC3';
+    const tetuLiquidatorAddress = MaticAddresses.TETU_LIQUIDATOR;
     const controllerSetupParams: IControllerSetupParams = {
       blocksPerDay: 41142,
       minHealthFactor2: 120,

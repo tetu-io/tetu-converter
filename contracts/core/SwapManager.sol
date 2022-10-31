@@ -92,19 +92,24 @@ contract SwapManager is ISwapManager, ISwapConverter {
     uint targetAmount_,
     address receiver_
   ) override external returns (uint outputAmount) {
+    console.log("swap.1");
     uint targetTokenBalanceBefore = IERC20(targetToken_).balanceOf(address(this));
 
+    console.log("swap.2");
     ITetuLiquidator tetuLiquidator = ITetuLiquidator(controller.tetuLiquidator());
-    IERC20(sourceToken_).safeTransfer(address(tetuLiquidator), sourceAmount_);
+    IERC20(sourceToken_).safeApprove(address(tetuLiquidator), sourceAmount_);
 
+    console.log("swap.3");
     tetuLiquidator.liquidate(sourceToken_, targetToken_, sourceAmount_, PRICE_IMPACT_TOLERANCE);
     outputAmount = IERC20(targetToken_).balanceOf(address(this)) - targetTokenBalanceBefore;
 
+    console.log("swap.4");
     uint slippage = (outputAmount >= targetAmount_)
       ? 0
       : (targetAmount_ - outputAmount) * SLIPPAGE_NUMERATOR / targetAmount_;
     require(slippage <= SLIPPAGE_TOLERANCE, AppErrors.SLIPPAGE_TOO_BIG);
 
+    console.log("swap.5", outputAmount);
     IERC20(targetToken_).safeTransfer(receiver_, outputAmount);
   }
 
