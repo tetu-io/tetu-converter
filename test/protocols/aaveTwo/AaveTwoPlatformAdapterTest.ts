@@ -19,8 +19,8 @@ import {
 import {areAlmostEqual} from "../../baseUT/utils/CommonUtils";
 import {IPlatformActor, PredictBrUsesCase} from "../../baseUT/uses-cases/PredictBrUsesCase";
 import {AprAaveTwo, getAaveTwoStateInfo} from "../../baseUT/apr/aprAaveTwo";
-import {Aave3Helper} from "../../../scripts/integration/helpers/Aave3Helper";
 import {Misc} from "../../../scripts/utils/Misc";
+import {convertUnits} from "../../baseUT/apr/aprUtils";
 
 describe("AaveTwoPlatformAdapterTest", () => {
 //region Global vars for all tests
@@ -115,7 +115,7 @@ describe("AaveTwoPlatformAdapterTest", () => {
         templateAdapterNormalStub.address,
       );
 
-      const priceOracle = await Aave3Helper.getAavePriceOracle(deployer);
+      const priceOracle = await AaveTwoHelper.getAavePriceOracle(deployer);
       const priceCollateral = await priceOracle.getAssetPrice(collateralAsset);
       const priceBorrow = await priceOracle.getAssetPrice(borrowAsset);
 
@@ -148,10 +148,25 @@ describe("AaveTwoPlatformAdapterTest", () => {
         collateralAssetData.data.decimals,
         borrowAssetData.data.decimals
       );
+      console.log("AprUtils.getBorrowAmount");
+      console.log("collateralAmount", collateralAmount);
+      console.log("healthFactor2", healthFactor2);
+      console.log("ret.liquidationThreshold18", ret.liquidationThreshold18);
+      console.log("priceCollateral", priceCollateral);
+      console.log("priceBorrow", priceBorrow);
+      console.log("collateralAssetData.data.decimals", collateralAssetData.data.decimals);
+      console.log("borrowAssetData.data.decimals", borrowAssetData.data.decimals);
 
       if (borrowAmount.gt(ret.maxAmountToBorrow)) {
         borrowAmount = ret.maxAmountToBorrow;
       }
+
+      const amountCollateralInBorrowAsset36 =  convertUnits(collateralAmount,
+        priceCollateral,
+        collateralAssetData.data.decimals,
+        priceBorrow,
+        36
+      );
 
       // calculate expected supply and borrow values
       const predictedSupplyIncomeInBorrowAssetRay = await AprAaveTwo.predictSupplyIncomeRays(deployer
@@ -188,6 +203,8 @@ describe("AaveTwoPlatformAdapterTest", () => {
         ret.liquidationThreshold18,
         ret.maxAmountToBorrow,
         ret.maxAmountToSupply,
+        ret.amountToBorrow,
+        ret.amountCollateralInBorrowAsset36
       ].map(x => BalanceUtils.toString(x)) .join("\n");
 
       const sexpected = [
@@ -203,6 +220,8 @@ describe("AaveTwoPlatformAdapterTest", () => {
           .div(getBigNumberFrom(1, 4)),
         BigNumber.from(borrowAssetData.liquidity.availableLiquidity),
         BigNumber.from(2).pow(256).sub(1), // === type(uint).max
+        borrowAmount,
+        amountCollateralInBorrowAsset36
       ].map(x => BalanceUtils.toString(x)) .join("\n");
 
       return {sret, sexpected};

@@ -16,6 +16,7 @@ import "../../integrations/aaveTwo/IAaveTwoAToken.sol";
 import "../../integrations/aaveTwo/AaveTwoReserveConfiguration.sol";
 import "../../integrations/aaveTwo/IAaveTwoReserveInterestRateStrategy.sol";
 import "./AaveTwoAprLib.sol";
+//import "hardhat/console.sol";
 
 /// @notice Adapter to read current pools info from AAVE-v2-protocol, see https://docs.aave.com/hub/
 contract AaveTwoPlatformAdapter is IPlatformAdapter {
@@ -221,9 +222,9 @@ contract AaveTwoPlatformAdapter is IPlatformAdapter {
       }
 
       plan.amountCollateralInBorrowAsset36 = AppUtils.toMantissa(
-        params.collateralAmount * vars.prices[0] / vars.prices[1],
+        params.collateralAmount * 10**18 * vars.prices[0] / vars.prices[1],
         uint8(rc.configuration.getDecimals()),
-        36
+        18
       );
     }
 
