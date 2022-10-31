@@ -1,14 +1,6 @@
-import {ethers, network} from "hardhat";
-import {DeployerUtils} from "../utils/DeployerUtils";
 import {
-  DeploySolutionUtils,
-  IBorrowManagerSetupParams,
-  IControllerSetupParams, IPlatformAdapterAssets,
-  IPlatformAdapterResult
+  DeploySolutionUtils
 } from "./DeploySolutionUtils";
-import {Misc} from "../utils/Misc";
-import {MaticAddresses} from "../addresses/MaticAddresses";
-import {IBorrowManager__factory} from "../../typechain";
 
 /**
  * Deploy TetuConverter application to blockchain.
