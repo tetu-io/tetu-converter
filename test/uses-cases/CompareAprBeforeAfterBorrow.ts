@@ -102,7 +102,8 @@ describe("CompareAprBeforeAfterBorrow", () => {
           ret.details.totalCollateralBaseDelta.toString(), ret.details.totalDebtBaseDelta.toString(),
           ret.details.totalCollateralBaseDelta.toString(), ret.details.totalDebtBaseDelta.toString(),
           ret.details.predictedSupplyIncomeRays.toString(), ret.details.predictedBorrowIncomeRays.toString(),
-          ret.results.resultsBlock.aprBt36.collateral.toString(), ret.results.resultsBlock.aprBt36.borrow.toString(),
+          ret.results.resultAmounts.supplyIncomeInBorrowTokens36.toString(),
+          ret.results.resultAmounts.costBorrow36.toString(),
         ].join("\n");
 
         const rays = getBigNumberFrom(1, 36);
@@ -110,8 +111,9 @@ describe("CompareAprBeforeAfterBorrow", () => {
         const sexpected = [
           ret.details.supplyAprBaseExactMul18.div(rays).toString(), ret.details.borrowAprBaseExactMul18.div(rays).toString(),
           ret.details.supplyAprBaseApprox.div(rays).toString(), ret.details.borrowAprBaseApprox.div(rays).toString(),
-          ret.results.predicted.aprBt36.collateral.toString(), ret.results.predicted.aprBt36.borrow.toString(),
-          ret.results.predicted.aprBt36.collateral.toString(), ret.results.predicted.aprBt36.borrow.toString()
+          ret.results.predictedRates.supplyRate.toString(), ret.results.predictedRates.borrowRate.toString(),
+          ret.results.predictedAmounts.supplyIncomeInBorrowTokens36.toString(),
+          ret.results.predictedAmounts.costBorrow36.toString()
         ].join("\n");
 
         expect(sret).equals(sexpected);
@@ -426,16 +428,18 @@ describe("CompareAprBeforeAfterBorrow", () => {
         const sret = [
           ret.details.totalCollateralBaseDelta.toString(), ret.details.totalDebtBaseDelta.toString(),
           ret.details.totalCollateralBaseDelta.toString(), ret.details.totalDebtBaseDelta.toString(),
-          ret.details.predictedSupplyIncomeRays.toString(), ret.details.predictedBorrowIncomeRays.toString(),
-          ret.results.resultsBlock.aprBt36.collateral.toString(), ret.results.resultsBlock.aprBt36.borrow.toString(),
+          ret.results.resultRates.supplyRate.toString(), ret.results.resultRates.borrowRate.toString(),
+          ret.results.resultAmounts.supplyIncomeInBorrowTokens36.toString(),
+          ret.results.resultAmounts.costBorrow36.toString(),
         ].join("\n");
 
         // these differences must be equal to exact supply/borrow APR
         const sexpected = [
           ret.details.supplyAprBaseExactMul18.toString(), ret.details.borrowAprBaseExactMul18.toString(),
           ret.details.supplyAprBaseApprox.toString(), ret.details.borrowAprBaseApprox.toString(),
-          ret.results.predicted.aprBt36.collateral.toString(), ret.results.predicted.aprBt36.borrow.toString(),
-          ret.results.predicted.aprBt36.collateral.toString(), ret.results.predicted.aprBt36.borrow.toString(),
+          ret.results.predictedRates.supplyRate.toString(), ret.results.predictedRates.borrowRate.toString(),
+          ret.results.predictedAmounts.supplyIncomeInBorrowTokens36.toString(),
+          ret.results.predictedAmounts.costBorrow36.toString(),
         ].join("\n");
 
         expect(sret).equals(sexpected);
@@ -596,12 +600,12 @@ describe("CompareAprBeforeAfterBorrow", () => {
 
         // calculate real differences in user-account-balances for period [next block, last block]
         const sret = [
-          areAlmostEqual(ret.results.resultsBlock.aprBt36.collateral, ret.details.supplyIncomeInBorrowAsset36, 2)
-          , areAlmostEqual(ret.results.resultsBlock.aprBt36.borrow, ret.details.borrowCost36, 2)
+          areAlmostEqual(ret.results.resultAmounts.supplyIncomeInBorrowTokens36, ret.details.supplyIncomeInBorrowAsset36, 2)
+          , areAlmostEqual(ret.results.resultAmounts.costBorrow36, ret.details.borrowCost36, 2)
 
           // not exact because real supply and borrow rate are rounded
-          , areAlmostEqual(ret.results.resultsBlock.aprBt36.collateral, ret.details.supplyIncomeInBorrowAsset36Exact, 2)
-          , areAlmostEqual(ret.results.resultsBlock.aprBt36.borrow, ret.details.borrowCost36Exact, 2)
+          , areAlmostEqual(ret.results.resultAmounts.supplyIncomeInBorrowTokens36, ret.details.supplyIncomeInBorrowAsset36Exact, 2)
+          , areAlmostEqual(ret.results.resultAmounts.costBorrow36, ret.details.borrowCost36Exact, 2)
         ].join("\n");
 
         // these differences must be equal to exact supply/borrow APR
@@ -611,13 +615,6 @@ describe("CompareAprBeforeAfterBorrow", () => {
           , true
           , true
         ].join("\n");
-
-        console.log("next.balance", ret.details.next.collateral.account.balance);
-        console.log("next.exchangeRateStored", ret.details.next.collateral.market.exchangeRateStored);
-        console.log("last.balance", ret.details.last.collateral.account.balance);
-        console.log("last.exchangeRateStored", ret.details.last.collateral.market.exchangeRateStored);
-        console.log("predicted.aprBt36", ret.results.predicted.aprBt36);
-        console.log("results.aprBt36", ret.results.resultsBlock.aprBt36);
 
         expect(sret).equals(sexpected);
       });
@@ -655,12 +652,12 @@ describe("CompareAprBeforeAfterBorrow", () => {
 
         // calculate real differences in user-account-balances for period [next block, last block]
         const sret = [
-          areAlmostEqual(ret.results.resultsBlock.aprBt36.collateral, ret.details.supplyIncomeInBorrowAsset36, 2)
-          , areAlmostEqual(ret.results.resultsBlock.aprBt36.borrow, ret.details.borrowCost36, 2)
+          areAlmostEqual(ret.results.resultAmounts.supplyIncomeInBorrowTokens36, ret.details.supplyIncomeInBorrowAsset36, 2)
+          , areAlmostEqual(ret.results.resultAmounts.costBorrow36, ret.details.borrowCost36, 2)
 
           // not exact because real supply and borrow rate are rounded
-          , areAlmostEqual(ret.results.resultsBlock.aprBt36.collateral, ret.details.supplyIncomeInBorrowAsset36Exact, 2)
-          , areAlmostEqual(ret.results.resultsBlock.aprBt36.borrow, ret.details.borrowCost36Exact, 2)
+          , areAlmostEqual(ret.results.resultAmounts.supplyIncomeInBorrowTokens36, ret.details.supplyIncomeInBorrowAsset36Exact, 2)
+          , areAlmostEqual(ret.results.resultAmounts.costBorrow36, ret.details.borrowCost36Exact, 2)
         ].join("\n");
 
         // these differences must be equal to exact supply/borrow APR
@@ -675,8 +672,6 @@ describe("CompareAprBeforeAfterBorrow", () => {
         console.log("next.exchangeRateStored", ret.details.next.collateral.market.exchangeRateStored);
         console.log("last.balance", ret.details.last.collateral.account.balance);
         console.log("last.exchangeRateStored", ret.details.last.collateral.market.exchangeRateStored);
-        console.log("predicted.aprBt36", ret.results.predicted.aprBt36);
-        console.log("results.aprBt36", ret.results.resultsBlock.aprBt36);
 
         expect(sret).equals(sexpected);
       });
@@ -729,12 +724,12 @@ describe("CompareAprBeforeAfterBorrow", () => {
 
         // calculate real differences in user-account-balances for period [next block, last block]
         const sret = [
-          areAlmostEqual(ret.results.resultsBlock.aprBt36.collateral, ret.details.supplyIncomeInBorrowAsset36, 4)
-          , areAlmostEqual(ret.results.resultsBlock.aprBt36.borrow, ret.details.borrowCost36, 5)
+          areAlmostEqual(ret.results.resultAmounts.supplyIncomeInBorrowTokens36, ret.details.supplyIncomeInBorrowAsset36, 4)
+          , areAlmostEqual(ret.results.resultAmounts.costBorrow36, ret.details.borrowCost36, 5)
 
           // not exact because real supply and borrow rate are rounded
-          , areAlmostEqual(ret.results.resultsBlock.aprBt36.collateral, ret.details.supplyIncomeInBorrowAsset36Exact, 9)
-          , areAlmostEqual(ret.results.resultsBlock.aprBt36.borrow, ret.details.borrowCost36Exact, 9)
+          , areAlmostEqual(ret.results.resultAmounts.supplyIncomeInBorrowTokens36, ret.details.supplyIncomeInBorrowAsset36Exact, 9)
+          , areAlmostEqual(ret.results.resultAmounts.costBorrow36, ret.details.borrowCost36Exact, 9)
         ].join("\n");
 
         // these differences must be equal to exact supply/borrow APR
@@ -781,12 +776,12 @@ describe("CompareAprBeforeAfterBorrow", () => {
 
         // calculate real differences in user-account-balances for period [next block, last block]
         const sret = [
-          areAlmostEqual(ret.results.resultsBlock.aprBt36.collateral, ret.details.supplyIncomeInBorrowAsset36, 4)
-          , areAlmostEqual(ret.results.resultsBlock.aprBt36.borrow, ret.details.borrowCost36, 5)
+          areAlmostEqual(ret.results.resultAmounts.supplyIncomeInBorrowTokens36, ret.details.supplyIncomeInBorrowAsset36, 4)
+          , areAlmostEqual(ret.results.resultAmounts.costBorrow36, ret.details.borrowCost36, 5)
 
           // not exact because real supply and borrow rate are rounded
-          , areAlmostEqual(ret.results.resultsBlock.aprBt36.collateral, ret.details.supplyIncomeInBorrowAsset36Exact, 9)
-          , areAlmostEqual(ret.results.resultsBlock.aprBt36.borrow, ret.details.borrowCost36Exact, 9)
+          , areAlmostEqual(ret.results.resultAmounts.supplyIncomeInBorrowTokens36, ret.details.supplyIncomeInBorrowAsset36Exact, 9)
+          , areAlmostEqual(ret.results.resultAmounts.costBorrow36, ret.details.borrowCost36Exact, 9)
         ].join("\n");
 
         // these differences must be equal to exact supply/borrow APR
@@ -848,12 +843,12 @@ describe("CompareAprBeforeAfterBorrow", () => {
 
         // calculate real differences in user-account-balances for period [next block, last block]
         const sret = [
-          areAlmostEqual(ret.results.resultsBlock.aprBt36.collateral, ret.details.supplyIncomeInBorrowAsset36, 4)
-          , areAlmostEqual(ret.results.resultsBlock.aprBt36.borrow, ret.details.borrowCost36, 5)
+          areAlmostEqual(ret.results.resultAmounts.supplyIncomeInBorrowTokens36, ret.details.supplyIncomeInBorrowAsset36, 4)
+          , areAlmostEqual(ret.results.resultAmounts.costBorrow36, ret.details.borrowCost36, 5)
 
           // not exact because real supply and borrow rate are rounded
-          , areAlmostEqual(ret.results.resultsBlock.aprBt36.collateral, ret.details.supplyIncomeInBorrowAsset36Exact, 9)
-          , areAlmostEqual(ret.results.resultsBlock.aprBt36.borrow, ret.details.borrowCost36Exact, 9)
+          , areAlmostEqual(ret.results.resultAmounts.supplyIncomeInBorrowTokens36, ret.details.supplyIncomeInBorrowAsset36Exact, 9)
+          , areAlmostEqual(ret.results.resultAmounts.costBorrow36, ret.details.borrowCost36Exact, 9)
         ].join("\n");
 
         // these differences must be equal to exact supply/borrow APR
@@ -900,12 +895,12 @@ describe("CompareAprBeforeAfterBorrow", () => {
 
         // calculate real differences in user-account-balances for period [next block, last block]
         const sret = [
-          areAlmostEqual(ret.results.resultsBlock.aprBt36.collateral, ret.details.supplyIncomeInBorrowAsset36, 4)
-          , areAlmostEqual(ret.results.resultsBlock.aprBt36.borrow, ret.details.borrowCost36, 5)
+          areAlmostEqual(ret.results.resultAmounts.supplyIncomeInBorrowTokens36, ret.details.supplyIncomeInBorrowAsset36, 4)
+          , areAlmostEqual(ret.results.resultAmounts.costBorrow36, ret.details.borrowCost36, 5)
 
           // not exact because real supply and borrow rate are rounded
-          , areAlmostEqual(ret.results.resultsBlock.aprBt36.collateral, ret.details.supplyIncomeInBorrowAsset36Exact, 9)
-          , areAlmostEqual(ret.results.resultsBlock.aprBt36.borrow, ret.details.borrowCost36Exact, 9)
+          , areAlmostEqual(ret.results.resultAmounts.supplyIncomeInBorrowTokens36, ret.details.supplyIncomeInBorrowAsset36Exact, 9)
+          , areAlmostEqual(ret.results.resultAmounts.costBorrow36, ret.details.borrowCost36Exact, 9)
         ].join("\n");
 
         // these differences must be equal to exact supply/borrow APR
@@ -966,12 +961,12 @@ describe("CompareAprBeforeAfterBorrow", () => {
 
         // calculate real differences in user-account-balances for period [next block, last block]
         const sret = [
-          areAlmostEqual(ret.results.resultsBlock.aprBt36.collateral, ret.details.supplyIncomeInBorrowAsset36, 2)
-          , areAlmostEqual(ret.results.resultsBlock.aprBt36.borrow, ret.details.borrowCost36, 2)
+          areAlmostEqual(ret.results.resultAmounts.supplyIncomeInBorrowTokens36, ret.details.supplyIncomeInBorrowAsset36, 2)
+          , areAlmostEqual(ret.results.resultAmounts.costBorrow36, ret.details.borrowCost36, 2)
 
           // not exact because real supply and borrow rate are rounded
-          , areAlmostEqual(ret.results.resultsBlock.aprBt36.collateral, ret.details.supplyIncomeInBorrowAsset36Exact, 2)
-          , areAlmostEqual(ret.results.resultsBlock.aprBt36.borrow, ret.details.borrowCost36Exact, 2)
+          , areAlmostEqual(ret.results.resultAmounts.supplyIncomeInBorrowTokens36, ret.details.supplyIncomeInBorrowAsset36Exact, 2)
+          , areAlmostEqual(ret.results.resultAmounts.costBorrow36, ret.details.borrowCost36Exact, 2)
         ].join("\n");
 
         // these differences must be equal to exact supply/borrow APR
@@ -986,8 +981,6 @@ describe("CompareAprBeforeAfterBorrow", () => {
         console.log("next.exchangeRateStored", ret.details.next.collateral.market.exchangeRateStored);
         console.log("last.balance", ret.details.last.collateral.account.balance);
         console.log("last.exchangeRateStored", ret.details.last.collateral.market.exchangeRateStored);
-        console.log("predicted.aprBt36", ret.results.predicted.aprBt36);
-        console.log("results.aprBt36", ret.results.resultsBlock.aprBt36);
 
         expect(sret).equals(sexpected);
       });
@@ -1025,12 +1018,12 @@ describe("CompareAprBeforeAfterBorrow", () => {
 
         // calculate real differences in user-account-balances for period [next block, last block]
         const sret = [
-          areAlmostEqual(ret.results.resultsBlock.aprBt36.collateral, ret.details.supplyIncomeInBorrowAsset36, 2)
-          , areAlmostEqual(ret.results.resultsBlock.aprBt36.borrow, ret.details.borrowCost36, 2)
+          areAlmostEqual(ret.results.resultAmounts.supplyIncomeInBorrowTokens36, ret.details.supplyIncomeInBorrowAsset36, 2)
+          , areAlmostEqual(ret.results.resultAmounts.costBorrow36, ret.details.borrowCost36, 2)
 
           // not exact because real supply and borrow rate are rounded
-          , areAlmostEqual(ret.results.resultsBlock.aprBt36.collateral, ret.details.supplyIncomeInBorrowAsset36Exact, 2)
-          , areAlmostEqual(ret.results.resultsBlock.aprBt36.borrow, ret.details.borrowCost36Exact, 2)
+          , areAlmostEqual(ret.results.resultAmounts.supplyIncomeInBorrowTokens36, ret.details.supplyIncomeInBorrowAsset36Exact, 2)
+          , areAlmostEqual(ret.results.resultAmounts.costBorrow36, ret.details.borrowCost36Exact, 2)
         ].join("\n");
 
         // these differences must be equal to exact supply/borrow APR
@@ -1045,8 +1038,6 @@ describe("CompareAprBeforeAfterBorrow", () => {
         console.log("next.exchangeRateStored", ret.details.next.collateral.market.exchangeRateStored);
         console.log("last.balance", ret.details.last.collateral.account.balance);
         console.log("last.exchangeRateStored", ret.details.last.collateral.market.exchangeRateStored);
-        console.log("predicted.aprBt36", ret.results.predicted.aprBt36);
-        console.log("results.aprBt36", ret.results.resultsBlock.aprBt36);
 
         expect(sret).equals(sexpected);
       });

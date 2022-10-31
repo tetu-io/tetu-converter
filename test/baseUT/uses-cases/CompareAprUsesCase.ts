@@ -11,12 +11,13 @@ import {
   IERC20__factory,
   IERC20Extended__factory,
   IPlatformAdapter,
-  ISwapManager
+  SwapManager
 } from "../../../typechain";
 import {BigNumber} from "ethers";
 import {Misc} from "../../../scripts/utils/Misc";
 import {AprUtils} from "../utils/aprUtils";
 import {DeployerUtils} from "../../../scripts/utils/DeployerUtils";
+import {AppDataTypes} from "../../../typechain/contracts/core/SwapManager";
 
 //region Data types
 interface IInputParams {
@@ -166,7 +167,7 @@ export class CompareAprUsesCase {
 
 //region Swap
   static async makeSingleSwapTest(
-    swapManager: ISwapManager,
+    swapManager: SwapManager,
     title: string,
     collateralAsset: string,
     collateralAmount: BigNumber,
@@ -193,7 +194,7 @@ export class CompareAprUsesCase {
           collateralAmount,
 
           // actually received amount
-          borrowAmount: IERC20Extended__factory.connect(
+          borrowAmount: await IERC20Extended__factory.connect(
             borrowAsset,
             await DeployerUtils.startImpersonate(receiver)
           ).balanceOf(receiver),
@@ -352,7 +353,7 @@ export class CompareAprUsesCase {
 
   static async makePossibleSwaps(
     deployer: SignerWithAddress,
-    swapManager: ISwapManager,
+    swapManager: SwapManager,
     tasks: IBorrowTask[],
     countBlocks: number,
     healthFactor2: number,
@@ -369,14 +370,13 @@ export class CompareAprUsesCase {
 
       const snapshot = await TimeUtils.snapshot();
       try {
-        const strategyToConvert: IStrategyToConvert = await swapManager.getConverter(
-          {
-            periodInBlocks: countBlocks,
-            sourceAmount: task.collateralAmount,
-            sourceToken: task.collateralAsset,
-            targetToken: task.borrowAsset
-          }
-        );
+        const params: AppDataTypes.InputConversionParamsStruct = {
+          periodInBlocks: countBlocks,
+          sourceAmount: task.collateralAmount,
+          sourceToken: task.collateralAsset.asset,
+          targetToken: task.borrowAsset.asset
+        };
+        const strategyToConvert: IStrategyToConvert = await swapManager.getConverter(params);
         if (strategyToConvert.converter === Misc.ZERO_ADDRESS) {
           dest.push({
             assetBorrow: task.borrowAsset,
@@ -386,21 +386,6 @@ export class CompareAprUsesCase {
             error: "Plan not found",
           });
         } else {
-          const p: ITestSingleBorrowParams = {
-            collateral: {
-              asset: task.collateralAsset.asset,
-              holder: task.collateralAsset.holders.join(";"),
-              initialLiquidity,
-            },
-            borrow: {
-              asset: task.borrowAsset.asset,
-              holder: task.borrowAsset.holders.join(";"),
-              initialLiquidity: 0,
-            },
-            collateralAmount: task.collateralAmount,
-            healthFactor2,
-            countBlocks: 1 // swap doesn't use it
-          };
           const res = await this.makeSingleSwapTest(
             swapManager,
             platformTitle,

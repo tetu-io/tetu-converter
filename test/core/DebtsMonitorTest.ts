@@ -30,7 +30,6 @@ import {getBigNumberFrom} from "../../scripts/utils/NumberUtils";
 import {MocksHelper} from "../baseUT/helpers/MocksHelper";
 import {CoreContracts} from "../baseUT/types/CoreContracts";
 import {generateAssetPairs} from "../baseUT/utils/AssetPairUtils";
-import {resolveProjectPaths} from "hardhat/internal/core/config/config-resolution";
 import {BalanceUtils} from "../baseUT/utils/BalanceUtils";
 import {areAlmostEqual} from "../baseUT/utils/CommonUtils";
 

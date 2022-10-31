@@ -8,9 +8,9 @@ import {
   ISwapTestResults
 } from "../baseUT/uses-cases/CompareAprUsesCase";
 import {MaticAddresses} from "../../scripts/addresses/MaticAddresses";
-import {IAssetInfo, ISwapResults} from "../baseUT/apr/aprDataTypes";
+import {IAssetInfo} from "../baseUT/apr/aprDataTypes";
 import {BigNumber} from "ethers";
-import {IERC20Extended__factory, ISwapManager__factory} from "../../typechain";
+import {IERC20Extended__factory, SwapManager__factory} from "../../typechain";
 import {getBigNumberFrom} from "../../scripts/utils/NumberUtils";
 import {AprAave3} from "../baseUT/apr/aprAave3";
 import {CoreContractsHelper} from "../baseUT/helpers/CoreContractsHelper";
@@ -228,18 +228,18 @@ describe("CompareAprUsesCaseTest", () => {
   function validate(items: IBorrowingTestResults[]) : {sret: string, sexpected: string} {
     const ret = [
       // predicted apr-supply is undefined or zero
-      items.filter(x => !x.results?.predicted.aprBt36.collateral).length,
+      items.filter(x => !x.results?.predictedAmounts.supplyIncomeInBorrowTokens36).length,
       // predicted apr-borrow is undefined or zero
-      items.filter(x => !x.results?.predicted.aprBt36.borrow).length,
+      items.filter(x => !x.results?.predictedAmounts.costBorrow36).length,
 
       // predicted apr-supply is almost equal to real one
       items.filter(
         x =>
-          x.results?.resultsBlock.aprBt36.collateral
-          && x.results?.predicted.aprBt36.collateral
+          x.results?.resultAmounts.supplyIncomeInBorrowTokens36
+          && x.results?.predictedAmounts.supplyIncomeInBorrowTokens36
           && areAlmostEqual(
-            x.results?.resultsBlock.aprBt36.collateral,
-            x.results?.predicted.aprBt36.collateral,
+            x.results?.resultAmounts.supplyIncomeInBorrowTokens36,
+            x.results?.predictedAmounts.supplyIncomeInBorrowTokens36,
           2
           )
       ).length
@@ -260,7 +260,7 @@ describe("CompareAprUsesCaseTest", () => {
   async function makeTestSwap(countBlocks: number, tasks: IBorrowTask[]): Promise<ISwapTestResults[]> {
     const {controller} = await TetuConverterApp.buildApp(deployer);
 
-    const swapManager = ISwapManager__factory.connect(await controller.swapManager(), deployer);
+    const swapManager = SwapManager__factory.connect(await controller.swapManager(), deployer);
 
     return CompareAprUsesCase.makePossibleSwaps(
       deployer,
@@ -624,8 +624,8 @@ describe("CompareAprUsesCaseTest", () => {
         if (!await isPolygonForkInUse()) return;
         const tasks: IBorrowTask[] = [
           {
-            collateralAsset: listAssets.find(x => x.title == "WETH")!,
-            borrowAsset: listAssets.find(x => x.title == "USDC")!,
+            collateralAsset: listAssets.find(x => x.title === "WETH")!,
+            borrowAsset: listAssets.find(x => x.title === "USDC")!,
             collateralAmount: Misc.WEI,
           }
         ];
@@ -640,8 +640,8 @@ describe("CompareAprUsesCaseTest", () => {
         if (!await isPolygonForkInUse()) return;
         const tasks: IBorrowTask[] = [
           {
-            collateralAsset: listAssets.find(x => x.title == "USDC")!,
-            borrowAsset: listAssets.find(x => x.title == "USDT")!,
+            collateralAsset: listAssets.find(x => x.title === "USDC")!,
+            borrowAsset: listAssets.find(x => x.title === "USDT")!,
             collateralAmount: getBigNumberFrom(1, 8),
           }
         ];
@@ -656,8 +656,8 @@ describe("CompareAprUsesCaseTest", () => {
         if (!await isPolygonForkInUse()) return;
         const tasks: IBorrowTask[] = [
           {
-            collateralAsset: listAssets.find(x => x.title == "WETH")!,
-            borrowAsset: listAssets.find(x => x.title == "USDC")!,
+            collateralAsset: listAssets.find(x => x.title === "WETH")!,
+            borrowAsset: listAssets.find(x => x.title === "USDC")!,
             collateralAmount: Misc.WEI,
           }
         ];

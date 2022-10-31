@@ -233,10 +233,10 @@ export function appendBorrowingTestResultsToFile(path: string, data: IBorrowingT
       row.results?.borrowAmount,
       row.results?.collateralAmountInBorrowTokens18,
 
-      row.planFullPeriod.rewardsAmountBt36,
+      row.planFullPeriod.rewardsAmountInBorrowAsset36,
       firstPoint?.totalAmountRewardsBt36,
-      row.planFullPeriod.rewardsAmountBt36 && !row.planFullPeriod.rewardsAmountBt36.eq(0)
-          ? firstPoint?.totalAmountRewardsBt36?.mul(100).div(row.planFullPeriod.rewardsAmountBt36)
+      row.planFullPeriod.rewardsAmountInBorrowAsset36 && !row.planFullPeriod.rewardsAmountInBorrowAsset36.eq(0)
+          ? firstPoint?.totalAmountRewardsBt36?.mul(100).div(row.planFullPeriod.rewardsAmountInBorrowAsset36)
           : undefined,
 
       row.results?.predictedAmounts.supplyIncomeInBorrowTokens36,
@@ -269,8 +269,8 @@ export function appendBorrowingTestResultsToFile(path: string, data: IBorrowingT
       row.results?.prices.collateral,
       row.results?.prices.borrow,
 
-      row.planSingleBlock.supplyAprBt36,
-      row.planSingleBlock.borrowApr36,
+      row.planSingleBlock.supplyIncomeInBorrowAsset36,
+      row.planSingleBlock.borrowCost36,
 
       row.results?.predictedRates.supplyRate,
       row.results?.resultRates.supplyRate,
@@ -288,7 +288,7 @@ export function appendBorrowingTestResultsToFile(path: string, data: IBorrowingT
 
 // plan single block
       row.planSingleBlock.converter,
-      row.planSingleBlock.rewardsAmountBt36,
+      row.planSingleBlock.rewardsAmountInBorrowAsset36,
       row.planSingleBlock.ltv18,
       row.planSingleBlock.liquidationThreshold18,
       row.planSingleBlock.maxAmountToSupply,
@@ -296,8 +296,8 @@ export function appendBorrowingTestResultsToFile(path: string, data: IBorrowingT
 
 // plan full period
       row.planFullPeriod.converter,
-      row.planFullPeriod.supplyAprBt36,
-      row.planFullPeriod.borrowApr36,
+      row.planFullPeriod.supplyIncomeInBorrowAsset36,
+      row.planFullPeriod.borrowCost36,
       row.planFullPeriod.ltv18,
       row.planFullPeriod.liquidationThreshold18,
       row.planFullPeriod.maxAmountToSupply,
