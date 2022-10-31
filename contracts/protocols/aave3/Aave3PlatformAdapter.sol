@@ -272,11 +272,9 @@ contract Aave3PlatformAdapter is IPlatformAdapter {
           / vars.prices[1] // borrow price
           / 10**rc.configuration.getDecimals();
 
-          plan.amountCollateralInBorrowAsset36 = AppUtils.toMantissa(
-            params.collateralAmount * vars.prices[0] / vars.prices[1],
-            uint8(rc.configuration.getDecimals()),
-            36
-          );
+          plan.amountCollateralInBorrowAsset36 = params.collateralAmount
+            * (10**36 * vars.prices[0] / vars.prices[1])
+            / 10 ** rc.configuration.getDecimals();
         }
       }
     }

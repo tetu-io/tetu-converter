@@ -208,9 +208,9 @@ contract HfPlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
           );
 
           plan.amountCollateralInBorrowAsset36 = AppUtils.toMantissa(
-            collateralAmount_ * vars.priceCollateral36 / vars.priceBorrow36,
+            collateralAmount_ * 10**18 * vars.priceCollateral36 / vars.priceBorrow36,
             vars.collateralAssetDecimals,
-            36
+            18
           );
         }
       }

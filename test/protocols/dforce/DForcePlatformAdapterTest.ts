@@ -28,6 +28,7 @@ import {DeployUtils} from "../../../scripts/utils/DeployUtils";
 import {AprDForce, getDForceStateInfo} from "../../baseUT/apr/aprDForce";
 import {Misc} from "../../../scripts/utils/Misc";
 import {AprUtils} from "../../baseUT/utils/aprUtils";
+import {convertUnits} from "../../baseUT/apr/aprUtils";
 
 describe("DForce integration tests, platform adapter", () => {
 //region Global vars for all tests
@@ -204,6 +205,17 @@ describe("DForce integration tests, platform adapter", () => {
       amountToBorrow = ret.maxAmountToBorrow;
     }
 
+    const amountCollateralInBorrowAsset36 =  convertUnits(collateralAmount,
+      priceCollateral36,
+      collateralAssetDecimals,
+      priceBorrow36,
+      36
+    );
+    console.log("collateralAmount", collateralAmount);
+    console.log("priceCollateral", priceCollateral);
+    console.log("priceBorrow", priceBorrow);
+    console.log("collateralAssetDecimals", collateralAssetDecimals);
+
     // predict APR
     const libFacade = await DeployUtils.deployContract(deployer, "DForceAprLibFacade") as DForceAprLibFacade;
     const borrowRatePredicted = await AprDForce.getEstimatedBorrowRate(libFacade
@@ -237,6 +249,8 @@ describe("DForce integration tests, platform adapter", () => {
       ret.liquidationThreshold18,
       ret.maxAmountToBorrow,
       ret.maxAmountToSupply,
+      ret.amountToBorrow,
+      ret.amountCollateralInBorrowAsset36
     ].map(x => BalanceUtils.toString(x)) .join("\n");
     console.log("amountToBorrow", amountToBorrow);
     console.log("borrowAssetData.borrowRatePerBlock", borrowAssetData.borrowRatePerBlock);
@@ -251,6 +265,8 @@ describe("DForce integration tests, platform adapter", () => {
       collateralAssetData.collateralFactorMantissa,
       borrowAssetData.cash,
       BigNumber.from(2).pow(256).sub(1), // === type(uint).max
+      amountToBorrow,
+      amountCollateralInBorrowAsset36,
     ].map(x => BalanceUtils.toString(x)) .join("\n");
 
     return {sret, sexpected};

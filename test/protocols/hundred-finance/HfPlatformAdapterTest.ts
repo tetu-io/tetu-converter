@@ -20,6 +20,7 @@ import {getBigNumberFrom} from "../../../scripts/utils/NumberUtils";
 import {DeployUtils} from "../../../scripts/utils/DeployUtils";
 import {AprHundredFinance} from "../../baseUT/apr/aprHundredFinance";
 import {AprUtils} from "../../baseUT/utils/aprUtils";
+import {convertUnits} from "../../baseUT/apr/aprUtils";
 
 describe("Hundred finance integration tests, platform adapter", () => {
 //region Global vars for all tests
@@ -122,7 +123,6 @@ describe("Hundred finance integration tests, platform adapter", () => {
     const borrowAssetDecimals = await (IERC20Extended__factory.connect(borrowAsset, deployer)).decimals();
     const collateralAssetDecimals = await (IERC20Extended__factory.connect(collateralAsset, deployer)).decimals();
 
-    const cTokenBorrowDecimals = await cTokenBorrow.decimals();
     const cTokenCollateralDecimals = await cTokenCollateral.decimals();
 
     const borrowAssetData = await HundredFinanceHelper.getCTokenData(deployer, comptroller, cTokenBorrow);
@@ -158,6 +158,13 @@ describe("Hundred finance integration tests, platform adapter", () => {
       amountToBorrow = ret.maxAmountToBorrow;
     }
     console.log("amountToBorrow", amountToBorrow);
+
+    const amountCollateralInBorrowAsset36 =  convertUnits(collateralAmount,
+      priceCollateral36,
+      collateralAssetDecimals,
+      priceBorrow36,
+      36
+    );
 
     // predict APR
     const libFacade = await DeployUtils.deployContract(deployer, "HfAprLibFacade") as HfAprLibFacade;
@@ -203,6 +210,8 @@ describe("Hundred finance integration tests, platform adapter", () => {
       ret.liquidationThreshold18,
       ret.maxAmountToBorrow,
       ret.maxAmountToSupply,
+      ret.amountToBorrow,
+      ret.amountCollateralInBorrowAsset36
     ].map(x => BalanceUtils.toString(x)) .join("\n");
 
     const sexpected = [
@@ -213,6 +222,8 @@ describe("Hundred finance integration tests, platform adapter", () => {
       collateralAssetData.collateralFactorMantissa,
       borrowAssetData.cash,
       BigNumber.from(2).pow(256).sub(1), // === type(uint).max
+      amountToBorrow,
+      amountCollateralInBorrowAsset36,
     ].map(x => BalanceUtils.toString(x)) .join("\n");
 
     return {sret, sexpected};

@@ -223,10 +223,14 @@ contract DForcePlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
           );
 
           plan.amountCollateralInBorrowAsset36 = AppUtils.toMantissa(
-            collateralAmount_ * vars.priceCollateral36 / vars.priceBorrow36,
+            collateralAmount_ * 10**18 * vars.priceCollateral36 / vars.priceBorrow36,
             vars.collateralAssetDecimals,
-            36
+            18
           );
+          console.log("collateralAmount_", collateralAmount_);
+          console.log("vars.priceCollateral36", vars.priceCollateral36);
+          console.log("vars.priceBorrow36", vars.priceBorrow36);
+          console.log("vars.collateralAssetDecimals", vars.collateralAssetDecimals);
         }
       }
     }

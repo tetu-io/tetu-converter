@@ -20,6 +20,7 @@ import {areAlmostEqual} from "../../baseUT/utils/CommonUtils";
 import {IPlatformActor, PredictBrUsesCase} from "../../baseUT/uses-cases/PredictBrUsesCase";
 import {AprAave3, getAave3StateInfo} from "../../baseUT/apr/aprAave3";
 import {Misc} from "../../../scripts/utils/Misc";
+import {convertUnits} from "../../baseUT/apr/aprUtils";
 
 describe("Aave3PlatformAdapterTest", () => {
 //region Global vars for all tests
@@ -149,6 +150,7 @@ describe("Aave3PlatformAdapterTest", () => {
         , countBlocks
       );
       console.log("ret", ret);
+
       let borrowAmount = AprUtils.getBorrowAmount(
         collateralAmount,
         healthFactor2,
@@ -162,6 +164,13 @@ describe("Aave3PlatformAdapterTest", () => {
       if (borrowAmount.gt(ret.maxAmountToBorrow)) {
         borrowAmount = ret.maxAmountToBorrow;
       }
+
+      const amountCollateralInBorrowAsset36 =  convertUnits(collateralAmount,
+        prices[0],
+        collateralAssetData.data.decimals,
+        prices[1],
+        36
+      );
 
       // calculate expected supply and borrow values
       const predictedSupplyIncomeInBorrowAssetRay = await AprAave3.predictSupplyIncomeRays(deployer
@@ -203,7 +212,10 @@ describe("Aave3PlatformAdapterTest", () => {
           : collateralAssetData.data.emodeCategory !== borrowAssetData.data.emodeCategory,
 
         !ret.borrowCost36.eq(0),
-        !ret.supplyIncomeInBorrowAsset36.eq(0)
+        !ret.supplyIncomeInBorrowAsset36.eq(0),
+        ret.amountToBorrow,
+        // we lost precision a bit in USDC : WBTC, so almost equal only
+        areAlmostEqual(ret.amountCollateralInBorrowAsset36, amountCollateralInBorrowAsset36)
       ].map(x => BalanceUtils.toString(x)) .join("\n");
 
       let expectedMaxAmountToBorrow = BigNumber.from(borrowAssetData.liquidity.totalAToken)
@@ -260,6 +272,9 @@ describe("Aave3PlatformAdapterTest", () => {
 
         true, // borrow APR is not 0
         true, // supply APR is not 0
+
+        borrowAmount,
+        true
       ].map(x => BalanceUtils.toString(x)) .join("\n");
 
       return {sret, sexpected};
