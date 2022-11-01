@@ -10,7 +10,7 @@ import "@typechain/hardhat";
 import "hardhat-contract-sizer";
 import "hardhat-gas-reporter";
 import "hardhat-tracer";
-//import "hardhat-etherscan-abi";
+// import "hardhat-etherscan-abi";
 import "solidity-coverage"
 import "hardhat-abi-exporter"
 
@@ -40,17 +40,17 @@ const argv = require('yargs/yargs')()
         type: "string",
         default: ''
       },
-			fujiRpcUrl: {
-      	type: "string",
-	      default: 'https://api.avax-test.network/ext/bc/C/rpc'
-  	  },
+      fujiRpcUrl: {
+        type: "string",
+        default: 'https://api.avax-test.network/ext/bc/C/rpc'
+      },
       networkScanKey: {
         type: "string",
         default: ''
       },
-    	networkScanKeyRinkeby: {
-      	type: "string",
-    	},
+      networkScanKeyRinkeby: {
+        type: "string",
+      },
       privateKey: {
         type: "string",
         default: "b55c9fcc2c60993e5c539f37ffd27d2058e7f77014823b461323db5eba817518" // random account
@@ -67,9 +67,9 @@ const argv = require('yargs/yargs')()
       rinkebyForkBlock: {
         type: "number",
       },
-			networkScanKeyAvalanche: {
+      networkScanKeyAvalanche: {
         type: "string",
-			}
+      }
     }).argv;
 
 export default {
@@ -130,7 +130,7 @@ export default {
     },
     fuji: { // Avalanche FUJI C-Chain, see https://docs.avax.network/dapps/launch-your-ethereum-dapp
       url: argv.fujiRpcUrl || '',
-      //timeout: 99999,
+      // timeout: 99999,
       chainId: 43113,
       accounts: [argv.privateKey],
     },
@@ -143,7 +143,7 @@ export default {
       mainnet: argv.networkScanKey,
       polygon: argv.networkScanKeyMatic || argv.networkScanKey,
       rinkeby: argv.networkScanKeyRinkeby || argv.networkScanKey,
-			avalancheFujiTestnet: argv.networkScanKeyFuji || argv.networkScanKey
+      avalancheFujiTestnet: argv.networkScanKeyFuji || argv.networkScanKey
     },
 
   },
@@ -169,20 +169,20 @@ export default {
   mocha: {
     timeout: 9999999999
   },
-	contractSizer: {
+  contractSizer: {
     alphaSort: true,
     disambiguatePaths: false,
     runOnCompile: false,
     strict: true,
-		only: [
-		]
-	},
+    only: [
+    ]
+  },
   gasReporter: {
     enabled: false,
     currency: 'USD',
     gasPrice: 21,
-		outputFile: "./gasreport.txt",
-		noColors: true
+    outputFile: "./gasreport.txt",
+    noColors: true
   },
   typechain: {
     outDir: "typechain",

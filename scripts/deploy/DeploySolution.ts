@@ -15,6 +15,7 @@ import {
  *      npx hardhat run --network localhost scripts/deploy/DeploySolution.ts
  */
 async function main() {
+  // TODO: limit gas price of the execution
   await DeploySolutionUtils.runMain();
 }
 

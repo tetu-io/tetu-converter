@@ -120,7 +120,6 @@ contract BorrowManager is IBorrowManager {
   ///                        The factors must be greater or equal to MIN_HEALTH_FACTOR; for 1.5 use 150
   function setTargetHealthFactors(address[] calldata assets_, uint16[] calldata healthFactors2_) external override {
     _onlyGovernance();
-
     uint countItems = assets_.length;
     require(countItems == healthFactors2_.length, AppErrors.WRONG_LENGTHS);
 
