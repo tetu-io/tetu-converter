@@ -18,6 +18,7 @@ import {Misc} from "../../../scripts/utils/Misc";
 import {AprUtils} from "../utils/aprUtils";
 import {DeployerUtils} from "../../../scripts/utils/DeployerUtils";
 import {AppDataTypes} from "../../../typechain/contracts/core/SwapManager";
+import {BalanceUtils} from "../utils/BalanceUtils";
 
 //region Data types
 interface IInputParams {
@@ -170,6 +171,7 @@ export class CompareAprUsesCase {
     swapManager: SwapManager,
     title: string,
     collateralAsset: string,
+    collateralHolders: string[],
     collateralAmount: BigNumber,
     borrowAsset: string,
     strategyToConvert: IStrategyToConvert,
@@ -181,6 +183,14 @@ export class CompareAprUsesCase {
 
     try {
       console.log("START swap", title);
+
+      await BalanceUtils.getRequiredAmountFromHolders(
+        collateralAmount,
+        IERC20Extended__factory.connect(collateralAsset, await DeployerUtils.startImpersonate(receiver)),
+        collateralHolders,
+        swapManager.address
+      );
+
       await swapManager.swap(
         collateralAsset,
         collateralAmount,
@@ -356,15 +366,13 @@ export class CompareAprUsesCase {
     swapManager: SwapManager,
     tasks: IBorrowTask[],
     countBlocks: number,
-    healthFactor2: number,
   ) : Promise<ISwapTestResults[]> {
     console.log("makePossibleSwaps");
     const dest: ISwapTestResults[] = [];
     const platformTitle = "SWAP";
 
     for (const task of tasks) {
-      const holders = task.collateralAsset.holders;
-      const initialLiquidity = await CompareAprUsesCase.getTotalAmount(deployer, task.collateralAsset.asset, holders);
+      const collateralHolders = task.collateralAsset.holders;
 
       console.log("makePossibleSwaps, task:", task);
 
@@ -390,6 +398,7 @@ export class CompareAprUsesCase {
             swapManager,
             platformTitle,
             task.collateralAsset.asset,
+            collateralHolders,
             task.collateralAmount,
             task.borrowAsset.asset,
             strategyToConvert,

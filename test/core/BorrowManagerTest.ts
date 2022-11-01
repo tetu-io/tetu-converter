@@ -490,46 +490,84 @@ describe("BorrowManager", () => {
 //endregion registerPoolAdapter utils
 
 //region Unit tests
-  describe("setHealthFactor", () => {
+  describe("setTargetHealthFactors", () => {
     async function prepareBorrowManagerWithGivenHealthFactor(minHealthFactor2: number) : Promise<BorrowManager> {
       const controller = await CoreContractsHelper.createController(signer);
       await controller.setMinHealthFactor2(minHealthFactor2);
       return CoreContractsHelper.createBorrowManager(signer, controller);
     }
     describe("Good paths", () => {
-      it("should save specified value to defaultHealthFactors", async () => {
-        const asset = ethers.Wallet.createRandom().address;
-        const healthFactor = 400;
-
-        const controller = await CoreContractsHelper.createController(signer);
-        const borrowManager = await CoreContractsHelper.createBorrowManager(signer, controller);
-
-        const before = await borrowManager.defaultHealthFactors2(asset);
-        await borrowManager.setHealthFactor(asset, healthFactor);
-        const after = await borrowManager.defaultHealthFactors2(asset);
-
-        const ret = [
-          ethers.utils.formatUnits(before),
-          ethers.utils.formatUnits(after)
-        ].join();
-
-        const expected = [
-          ethers.utils.formatUnits(0),
-          ethers.utils.formatUnits(healthFactor)
-        ].join();
-
-        expect(ret).equal(expected);
-      });
-      describe("Health factor is equal to min value", () => {
-        it("should not revert", async () => {
-          const minHealthFactor = 120;
-          const borrowManager = await prepareBorrowManagerWithGivenHealthFactor(minHealthFactor);
+      describe("Set health factor for a single asset", () => {
+        it("should set target health factor for the asset", async () => {
           const asset = ethers.Wallet.createRandom().address;
-          await borrowManager.setHealthFactor(asset , minHealthFactor)
+          const healthFactor = 400;
 
-          const ret = await borrowManager.defaultHealthFactors2(asset);
+          const controller = await CoreContractsHelper.createController(signer);
+          const borrowManager = await CoreContractsHelper.createBorrowManager(signer, controller);
 
-          expect(ret).equal(minHealthFactor);
+          const before = await borrowManager.targetHealthFactorsForAssets(asset);
+          await borrowManager.setTargetHealthFactors([asset], [healthFactor]);
+          const after = await borrowManager.targetHealthFactorsForAssets(asset);
+
+          const ret = [
+            ethers.utils.formatUnits(before),
+            ethers.utils.formatUnits(after)
+          ].join();
+
+          const expected = [
+            ethers.utils.formatUnits(0),
+            ethers.utils.formatUnits(healthFactor)
+          ].join();
+
+          expect(ret).equal(expected);
+        });
+        describe("Health factor is equal to min value", () => {
+          it("should not revert", async () => {
+            const minHealthFactor = 120;
+            const borrowManager = await prepareBorrowManagerWithGivenHealthFactor(minHealthFactor);
+            const asset = ethers.Wallet.createRandom().address;
+            await borrowManager.setTargetHealthFactors([asset], [minHealthFactor]);
+
+            const ret = await borrowManager.targetHealthFactorsForAssets(asset);
+
+            expect(ret).equal(minHealthFactor);
+          });
+        });
+      });
+      describe("Set health factor for multiple assets", () => {
+        it("should set target health factor for the assets", async () => {
+          const asset1 = ethers.Wallet.createRandom().address;
+          const asset2 = ethers.Wallet.createRandom().address;
+          const healthFactor1 = 250;
+          const healthFactor2 = 300;
+
+          const controller = await CoreContractsHelper.createController(signer);
+          const borrowManager = await CoreContractsHelper.createBorrowManager(signer, controller);
+
+          const before = [
+            await borrowManager.targetHealthFactorsForAssets(asset1),
+            await borrowManager.targetHealthFactorsForAssets(asset2),
+          ].join();
+          await borrowManager.setTargetHealthFactors(
+            [asset1, asset2],
+            [healthFactor1, healthFactor2]
+          );
+          const after = [
+            await borrowManager.targetHealthFactorsForAssets(asset1),
+            await borrowManager.targetHealthFactorsForAssets(asset2),
+          ].join();
+
+          const ret = [
+            before,
+            after
+          ].join();
+
+          const expected = [
+            [0, 0].join(),
+            [healthFactor1, healthFactor2].join()
+          ].join();
+
+          expect(ret).equal(expected);
         });
       });
     });
@@ -539,7 +577,10 @@ describe("BorrowManager", () => {
           const minHealthFactor = 120;
           const borrowManager = await prepareBorrowManagerWithGivenHealthFactor(minHealthFactor);
           await expect(
-            borrowManager.setHealthFactor(ethers.Wallet.createRandom().address, minHealthFactor - 1)
+            borrowManager.setTargetHealthFactors(
+              [ethers.Wallet.createRandom().address],
+              [minHealthFactor - 1]
+            )
           ).revertedWith("TC-3");
         });
       });
@@ -552,8 +593,23 @@ describe("BorrowManager", () => {
             await DeployerUtils.startImpersonate(user3.address)
           );
           await expect(
-            bmAsNotGov.setHealthFactor(ethers.Wallet.createRandom().address, minHealthFactor - 1)
+            bmAsNotGov.setTargetHealthFactors(
+              [ethers.Wallet.createRandom().address],
+              [minHealthFactor - 1]
+            )
           ).revertedWith("TC-9"); // GOVERNANCE_ONLY
+        });
+      });
+      describe("Wrong lengths", () => {
+        it("should revert", async () => {
+          const minHealthFactor = 120;
+          const borrowManager = await prepareBorrowManagerWithGivenHealthFactor(minHealthFactor);
+          await expect(
+            borrowManager.setTargetHealthFactors(
+              [ethers.Wallet.createRandom().address, ethers.Wallet.createRandom().address],
+              [minHealthFactor - 1]
+            )
+          ).revertedWith("TC-12"); // WRONG_LENGTHS
         });
       });
     });

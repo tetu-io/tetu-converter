@@ -79,7 +79,7 @@ contract BorrowManager is IBorrowManager {
 
   /// @notice Default health factors (HF) for assets. Default HF is used if user hasn't provided HF value, decimals 2
   /// @dev Health factor = collateral / minimum collateral. It should be greater then MIN_HEALTH_FACTOR
-  mapping(address => uint16) public defaultHealthFactors2;
+  mapping(address => uint16) public targetHealthFactorsForAssets;
 
 
   ///////////////////////////////////////////////////////
@@ -115,12 +115,19 @@ contract BorrowManager is IBorrowManager {
   ///               Configuration
   ///////////////////////////////////////////////////////
 
-  /// @notice Set default health factor for {asset}. Default value is used only if user hasn't provided custom value
-  /// @param healthFactor_ Health factor with decimals 2; must be greater or equal to MIN_HEALTH_FACTOR; for 1.5 use 150
-  function setHealthFactor(address asset, uint16 healthFactor_) external override {
+  /// @notice Set target health factors for the assets
+  /// @param healthFactors2_ Health factors with decimals 2;
+  ///                        The factors must be greater or equal to MIN_HEALTH_FACTOR; for 1.5 use 150
+  function setTargetHealthFactors(address[] calldata assets_, uint16[] calldata healthFactors2_) external override {
     _onlyGovernance();
-    require(healthFactor_ >= controller.minHealthFactor2(), AppErrors.WRONG_HEALTH_FACTOR);
-    defaultHealthFactors2[asset] = healthFactor_;
+
+    uint countItems = assets_.length;
+    require(countItems == healthFactors2_.length, AppErrors.WRONG_LENGTHS);
+
+    for (uint i = 0; i < countItems; i = i.uncheckedInc()) {
+      require(healthFactors2_[i] >= controller.minHealthFactor2(), AppErrors.WRONG_HEALTH_FACTOR);
+      targetHealthFactorsForAssets[assets_[i]] = healthFactors2_[i];
+    }
   }
 
   function setRewardsFactor(uint rewardsFactor_) external override {
@@ -384,7 +391,7 @@ contract BorrowManager is IBorrowManager {
   }
 
   function _getTargetHealthFactor2(address asset) internal view returns (uint16) {
-    uint16 dest = defaultHealthFactors2[asset];
+    uint16 dest = targetHealthFactorsForAssets[asset];
     if (dest == 0) {
       dest = controller.targetHealthFactor2();
     }

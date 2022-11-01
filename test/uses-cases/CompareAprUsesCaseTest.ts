@@ -267,7 +267,6 @@ describe("CompareAprUsesCaseTest", () => {
       swapManager,
       tasks,
       countBlocks,
-      HEALTH_FACTOR2,
     );
   }
 
@@ -402,6 +401,33 @@ describe("CompareAprUsesCaseTest", () => {
     );
   }
 //endregion Test impl
+  describe("Make only swap tests", () =>{
+    const COUNT_BLOCKS = COUNT_BLOCKS_LARGE;
+    describe("Exact small amount", () => {
+      it("SWAP", async () => {
+        if (!await isPolygonForkInUse()) return;
+        const tasks: IBorrowTask[] = CompareAprUsesCase.generateTasks(listAssets, await getSmallAmounts(listAssets));
+        const ret = await makeTestSwap(COUNT_BLOCKS, tasks);
+        appendSwapTestResultsToFile(PATH_OUT, ret);
+      })
+    });
+    describe("Exact middle amount", () => {
+      it("SWAP", async () => {
+        if (!await isPolygonForkInUse()) return;
+        const tasks: IBorrowTask[] = CompareAprUsesCase.generateTasks(listAssets, await getMiddleAmounts(listAssets));
+        const ret = await makeTestSwap(COUNT_BLOCKS, tasks);
+        appendSwapTestResultsToFile(PATH_OUT, ret);
+      })
+    });
+    describe("Exact huge amount", () => {
+      it("SWAP", async () => {
+        if (!await isPolygonForkInUse()) return;
+        const tasks: IBorrowTask[] = CompareAprUsesCase.generateTasks(listAssets, await getHugeAmounts(listAssets));
+        const ret = await makeTestSwap(COUNT_BLOCKS, tasks);
+        appendSwapTestResultsToFile(PATH_OUT, ret);
+      })
+    });
+  });
 
   describe("Make all borrow tests", () => {
     describe("Small count of blocks", () => {
@@ -539,6 +565,12 @@ describe("CompareAprUsesCaseTest", () => {
         })
       });
       describe("Exact middle amount", () => {
+        it("SWAP", async () => {
+          if (!await isPolygonForkInUse()) return;
+          const tasks: IBorrowTask[] = CompareAprUsesCase.generateTasks(listAssets, await getMiddleAmounts(listAssets));
+          const ret = await makeTestSwap(COUNT_BLOCKS, tasks);
+          appendSwapTestResultsToFile(PATH_OUT, ret);
+        })
         it("AAVE3", async () => {
           if (!await isPolygonForkInUse()) return;
           const tasks: IBorrowTask[] = CompareAprUsesCase.generateTasks(listAssets, await getMiddleAmounts(listAssets));
@@ -563,12 +595,7 @@ describe("CompareAprUsesCaseTest", () => {
           const ret = await makeTestHundredFinance(COUNT_BLOCKS, tasks);
           appendBorrowingTestResultsToFile(PATH_OUT, ret);
         })
-        it("SWAP", async () => {
-          if (!await isPolygonForkInUse()) return;
-          const tasks: IBorrowTask[] = CompareAprUsesCase.generateTasks(listAssets, await getMiddleAmounts(listAssets));
-          const ret = await makeTestSwap(COUNT_BLOCKS, tasks);
-          appendSwapTestResultsToFile(PATH_OUT, ret);
-        })
+
       });
       describe("Exact huge amount", () => {
         it("AAVE3", async () => {
@@ -595,7 +622,7 @@ describe("CompareAprUsesCaseTest", () => {
           const ret = await makeTestHundredFinance(COUNT_BLOCKS, tasks);
           appendBorrowingTestResultsToFile(PATH_OUT, ret);
         })
-        it("HundredFinance", async () => {
+        it("SWAP", async () => {
           if (!await isPolygonForkInUse()) return;
           const tasks: IBorrowTask[] = CompareAprUsesCase.generateTasks(listAssets, await getHugeAmounts(listAssets));
           const ret = await makeTestSwap(COUNT_BLOCKS, tasks);

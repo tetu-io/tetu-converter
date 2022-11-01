@@ -210,6 +210,12 @@ function getHeadersLine(): string[] {
   ]
 }
 
+function escapeCsvText(text?: string) : string | undefined {
+  if (!text) return text;
+
+  return text.replace(/[,;]/g, " ");
+}
+
 export function appendBorrowingTestResultsToFile(path: string, data: IBorrowingTestResults[]) {
   console.log("appendBorrowingTestResultsToFile", path);
   const lines: string[] = [];
@@ -224,7 +230,7 @@ export function appendBorrowingTestResultsToFile(path: string, data: IBorrowingT
     const line = [
       row.platformTitle,
       row.countBlocks,
-      row.error,
+      escapeCsvText(row.error),
 
       row.assetCollateral.title,
       row.assetBorrow.title,
@@ -307,22 +313,22 @@ export function appendBorrowingTestResultsToFile(path: string, data: IBorrowingT
     if (row.results) {
       for (const point of row.results?.points) {
         const linePoint = [
-          point.costsInBorrowTokens36.collateral
-          , point.costsInBorrowTokens36.borrow
-          , point.totalAmountRewards
-          , point.totalAmountRewardsBt36
+          point.costsInBorrowTokens36.collateral,
+          point.costsInBorrowTokens36.borrow,
+          point.totalAmountRewards,
+          point.totalAmountRewardsBt36,
 
-          , point.balances.collateral
-          , point.balances.borrow
+          point.balances.collateral,
+          point.balances.borrow,
 
-          , point.rates.supplyRate
-          , point.rates.borrowRate
+          point.rates.supplyRate,
+          point.rates.borrowRate,
 
-          , point.period.block0
-          , point.period.block1
+          point.period.block0,
+          point.period.block1,
 
-          , point.period.blockTimestamp0
-          , point.period.blockTimestamp1
+          point.period.blockTimestamp0,
+          point.period.blockTimestamp1,
         ];
         line.push(...linePoint);
       }
@@ -355,12 +361,12 @@ export function appendSwapTestResultsToFile(path: string, data: ISwapTestResults
     const line = [
       "SWAP",
       "",
-      row.error,
+      escapeCsvText(row.error),
 
       row.assetCollateral.title,
       row.assetBorrow.title,
 // amounts
-      row.results?.collateralAmount,
+      row.results?.collateralAmount || row.collateralAmount,
       row.results?.borrowAmount,
       "", // row.results?.init.collateralAmountBT18,
 // rewards

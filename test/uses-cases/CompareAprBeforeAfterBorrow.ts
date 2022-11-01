@@ -1149,5 +1149,89 @@ describe("CompareAprBeforeAfterBorrow", () => {
       });
     });
   });
+
+  describe("DAI-18 => USDT-6", () => {
+//region Constants
+    const ASSET_COLLATERAL = MaticAddresses.DAI;
+    const HOLDER_COLLATERAL = [
+      MaticAddresses.HOLDER_DAI,
+      MaticAddresses.HOLDER_DAI_2,
+      MaticAddresses.HOLDER_DAI_3,
+      MaticAddresses.HOLDER_DAI_4,
+      MaticAddresses.HOLDER_DAI_5,
+      MaticAddresses.HOLDER_DAI_6
+    ];
+    const ASSET_BORROW = MaticAddresses.USDT;
+//endregion Constants
+
+    describe("SWAP", () => {
+      async function makeSwapTest(collateralAmountNum: number) : Promise<{ret: string, expected: string}> {
+        const collateralAsset = ASSET_COLLATERAL;
+        const collateralHolders = HOLDER_COLLATERAL;
+        const borrowAsset = ASSET_BORROW;
+
+        const collateralToken = await TokenDataTypes.Build(deployer, collateralAsset);
+        const borrowToken = await TokenDataTypes.Build(deployer, borrowAsset);
+        const collateralAmount = getBigNumberFrom(collateralAmountNum, collateralToken.decimals);
+
+        const r = await AprSwap.makeSwapTest(
+          deployer,
+          collateralToken,
+          collateralHolders,
+          collateralAmount,
+          borrowToken,
+          undefined
+        );
+
+        const ret = [
+          r.amountToBorrow,
+          r.strategyToConvert.converter
+        ].map(x => BalanceUtils.toString(x)).join("\n");
+
+        const expected = [
+          r.userContractBorrowAssetBalanceAfterSwap,
+          r.swapManagerAddress
+        ].map(x => BalanceUtils.toString(x)).join("\n");
+
+        return {ret, expected};
+      }
+      describe("500", () => {
+        it("predicted APR should be equal to real APR", async () => {
+          if (!await isPolygonForkInUse()) return;
+          const r = await makeSwapTest(500);
+          expect(r.ret).equals(r.expected);
+        });
+      });
+      describe("1_000", () => {
+        it("predicted APR should be equal to real APR", async () => {
+          if (!await isPolygonForkInUse()) return;
+          const r = await makeSwapTest(1_000);
+          expect(r.ret).equals(r.expected);
+        });
+      });
+      describe("25000", () => {
+        it("predicted APR should be equal to real APR", async () => {
+          if (!await isPolygonForkInUse()) return;
+          const r = await makeSwapTest(35_000);
+          expect(r.ret).equals(r.expected);
+        });
+      });
+      describe("100_000", () => {
+        it("predicted APR should be equal to real APR", async () => {
+          if (!await isPolygonForkInUse()) return;
+          const r = await makeSwapTest(100_000);
+          expect(r.ret).equals(r.expected);
+        });
+      });
+      describe("5_000_000", () => {
+        it("predicted APR should be equal to real APR", async () => {
+          if (!await isPolygonForkInUse()) return;
+          const r = await makeSwapTest(5_000_000);
+          expect(r.ret).equals(r.expected);
+        });
+      });
+    });
+
+  });
 });
 

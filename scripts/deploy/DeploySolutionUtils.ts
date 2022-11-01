@@ -55,6 +55,11 @@ export interface IPlatformAdapterAssets {
   leftAssets: string[];
   rightAssets: string[];
 }
+
+export interface ITargetHealthFactorValue {
+  asset: string;
+  healthFactor2: number;
+}
 //endregion Data types
 
 export class DeploySolutionUtils {
@@ -74,6 +79,27 @@ export class DeploySolutionUtils {
     const borrowManagerSetupParams: IBorrowManagerSetupParams = {
       rewardsFactor: Misc.WEI.div(2) // 0.5e18
     };
+
+    const targetHealthFactorsAssets = [
+      MaticAddresses.USDC,
+      MaticAddresses.USDT,
+      MaticAddresses.DAI,
+      MaticAddresses.EURS,
+      MaticAddresses.jEUR,
+      MaticAddresses.WETH,
+      MaticAddresses.WMATIC,
+      MaticAddresses.WBTC
+    ];
+    const targetHealthFactorsValues = [
+      200, // MaticAddresses.USDC,
+      200, // MaticAddresses.USDT,
+      200, // MaticAddresses.DAI,
+      200, // MaticAddresses.EURS,
+      200, // MaticAddresses.jEUR,
+      200, // MaticAddresses.WETH,
+      200, // MaticAddresses.WMATIC,
+      200, // MaticAddresses.WBTC
+    ];
 
     const deployAave3 = true;
     const aave3Pool = MaticAddresses.AAVE_V3_POOL;
@@ -177,6 +203,7 @@ export class DeploySolutionUtils {
 
     const borrowManager = IBorrowManager__factory.connect(deployCoreResults.borrowManager, signer);
     const deployedPlatformAdapters: IPlatformAdapterResult[] = [];
+
     // Deploy all Platform adapters and pool adapters
     const platformAdapterAave3 = deployAave3
       ? await DeploySolutionUtils.createPlatformAdapterAAVE3(signer,
@@ -242,11 +269,18 @@ export class DeploySolutionUtils {
       );
     }
 
+    // set target health factors
+    await borrowManager.setTargetHealthFactors(targetHealthFactorsAssets, targetHealthFactorsValues);
+
+    // save deploy results to file
     await DeploySolutionUtils.writeResultsToFile(
       destPathTxt,
       deployCoreResults,
-      deployedPlatformAdapters
+      deployedPlatformAdapters,
+      targetHealthFactorsAssets,
+      targetHealthFactorsValues
     );
+
   }
 //endregion Main script
 
@@ -423,7 +457,9 @@ export class DeploySolutionUtils {
   static async writeResultsToFile(
     destPathTxt: string,
     deployCoreResults: IDeployCoreResults,
-    deployedPlatformAdapters: IPlatformAdapterResult[]
+    deployedPlatformAdapters: IPlatformAdapterResult[],
+    targetHealthFactorsAssets: string[],
+    targetHealthFactorsValues: number[]
   ) {
     appendFileSync(destPathTxt, '\n-----------\n', 'utf8');
     appendFileSync(destPathTxt, `${new Date().toISOString()}\n`, 'utf8');
@@ -447,7 +483,16 @@ export class DeploySolutionUtils {
       }
       appendFileSync(destPathTxt, `\n\n`, 'utf8');
     }
-
+    const targetHealthFactors: ITargetHealthFactorValue[] = [...Array(targetHealthFactorsAssets.length).keys()].map(
+      (_, index) => ({
+        asset: targetHealthFactorsAssets[index],
+        healthFactor2: targetHealthFactorsValues[index]
+      })
+    );
+    const sTargetHealthFactors = targetHealthFactors.map(x => `${x.asset}=${x.healthFactor2}`);
+    appendFileSync(destPathTxt, `Assigned target health factors:\n`, 'utf8');
+    appendFileSync(destPathTxt, `${sTargetHealthFactors.join("\n")}`, 'utf8');
+    appendFileSync(destPathTxt, `\n\n`, 'utf8');
   }
 //endregion Utils
 
