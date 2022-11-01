@@ -3,7 +3,7 @@
 pragma solidity 0.8.4;
 
 import "hardhat/console.sol";
-import "../openzeppelin/IERC20.sol";
+import "../../openzeppelin/IERC20.sol";
 
 /// @notice Partial implementation of IComptroller
 contract PoolStub {

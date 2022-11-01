@@ -2,8 +2,8 @@
 
 pragma solidity 0.8.4;
 
-import "../core/AppDataTypes.sol";
-import "../interfaces/IPlatformAdapter.sol";
+import "../../core/AppDataTypes.sol";
+import "../../interfaces/IPlatformAdapter.sol";
 import "hardhat/console.sol";
 import "./MockERC20.sol";
 

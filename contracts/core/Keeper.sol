@@ -15,10 +15,14 @@ import "../interfaces/IKeeperCallback.sol";
 contract Keeper is OpsReady, IHealthKeeperCallback, IResolver {
   using AppUtils for uint;
 
+  /// @notice Max count of opened positions to be checked in single request
   uint constant public maxCountToCheck = 500;
+
+  /// @notice Max count of unhealthy positions to be returned in single request
   uint constant public maxCountToReturn = 1;
 
-  /// @notice Result of previous calling of IDebtMonitor.checkHealth
+  /// @notice Start index of pool adapter that for next request
+  ///         We store here result of previous call of IDebtMonitor.checkHealth
   uint256 public override nextIndexToCheck0;
   address public controller;
 
@@ -53,18 +57,21 @@ contract Keeper is OpsReady, IHealthKeeperCallback, IResolver {
     IDebtMonitor debtMonitor = IDebtMonitor(IController(controller).debtMonitor());
     IHealthKeeperCallback keeper = IHealthKeeperCallback(IController(controller).keeper());
 
+    uint startIndex = keeper.nextIndexToCheck0();
+
     (
-    uint nextIndexToCheck0,
-    address[] memory outPoolAdapters,
-    uint[] memory outAmountBorrowAsset,
-    uint[] memory outAmountCollateralAsset
+      uint nextIndexToCheck0,
+      address[] memory outPoolAdapters,
+      uint[] memory outAmountBorrowAsset,
+      uint[] memory outAmountCollateralAsset
     ) = debtMonitor.checkHealth(
-      keeper.nextIndexToCheck0(),
+      startIndex,
       maxCountToCheck,
       maxCountToReturn
     );
 
-    canExecOut = !(outPoolAdapters.length == 0 && nextIndexToCheck0 == 0);
+    canExecOut = outPoolAdapters.length != 0 || nextIndexToCheck0 != startIndex;
+
     execPayloadOut = abi.encodeWithSelector(
       IHealthKeeperCallback.fixHealth.selector,
       nextIndexToCheck0,

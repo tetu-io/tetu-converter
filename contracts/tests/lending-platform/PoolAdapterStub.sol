@@ -2,7 +2,7 @@
 
 pragma solidity 0.8.4;
 
-import "../interfaces/IPoolAdapter.sol";
+import "../../interfaces/IPoolAdapter.sol";
 import "hardhat/console.sol";
 
 /// @notice Simple implementation of pool adapter, all params are set through constructor

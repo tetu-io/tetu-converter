@@ -2,17 +2,17 @@
 
 pragma solidity 0.8.4;
 
-import "../interfaces/IPoolAdapter.sol";
+import "../../interfaces/IPoolAdapter.sol";
 import "hardhat/console.sol";
-import "../interfaces/IPriceOracle.sol";
-import "../openzeppelin/IERC20.sol";
-import "./MockERC20.sol";
-import "../integrations/IERC20Extended.sol";
-import "../interfaces/IDebtsMonitor.sol";
+import "../../interfaces/IPriceOracle.sol";
+import "../../openzeppelin/IERC20.sol";
+import "../tokens/MockERC20.sol";
+import "../../integrations/IERC20Extended.sol";
+import "../../interfaces/IDebtsMonitor.sol";
 import "./PoolStub.sol";
-import "../interfaces/IController.sol";
-import "../core/AppErrors.sol";
-import "../core/AppUtils.sol";
+import "../../interfaces/IController.sol";
+import "../../core/AppErrors.sol";
+import "../../core/AppUtils.sol";
 
 contract PoolAdapterMock is IPoolAdapter {
   using AppUtils for uint;

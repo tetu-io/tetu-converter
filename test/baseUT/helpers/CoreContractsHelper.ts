@@ -2,7 +2,7 @@ import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import {
   BorrowManager, BorrowManager__factory,
   Controller, DebtMonitor,
-  IController, LendingPlatformMock,
+  IController, Keeper, LendingPlatformMock,
   MockERC20, PoolStub,
   PriceOracleMock, SwapManager, TetuConverter,
 } from "../../../typechain";
@@ -96,77 +96,16 @@ export class CoreContractsHelper {
     )) as SwapManager;
   }
 
-  // /**
-  //  * Generate single platform adapter (with attached pool).
-  //  * Create new BorrowManager and add the pool there
-  //  */
-  // public static async addPool(
-  //   signer: SignerWithAddress,
-  //   controller: IController,
-  //   pool: PoolStub,
-  //   poolsInfo: IPoolInfo,
-  //   collateralFactors: number[],
-  //   underlying: MockERC20[],
-  //   cTokens: MockERC20[],
-  //   prices: BigNumber[],
-  //   templateAdapterPoolOptional?: string,
-  // ) : Promise <{
-  //   platformAdapter: LendingPlatformMock,
-  //   templatePoolAdapter: string
-  // }>{
-  //   const borrowRates = await Promise.all(underlying.map(
-  //     async (token, index) => {
-  //       const br = poolsInfo.borrowRateInTokens[index];
-  //       return typeof br === "object"
-  //         ? br
-  //         : getBigNumberFrom(
-  //           poolsInfo.borrowRateInTokens[index],
-  //           await underlying[index].decimals()
-  //         );
-  //     }
-  //   ));
-  //   const availableLiquidity = await Promise.all(underlying.map(
-  //     async (token, index) => getBigNumberFrom(
-  //       poolsInfo.availableLiquidityInTokens[index],
-  //       await underlying[index].decimals()
-  //     )
-  //   ));
-  //
-  //   const templatePoolAdapter = templateAdapterPoolOptional
-  //     || (await MocksHelper.createPoolAdapterStub(signer, getBigNumberFrom(1))).address;
-  //
-  //   const priceOracle = (await DeployUtils.deployContract(signer, "PriceOracleMock"
-  //     , underlying ? underlying.map(x => x.address) : []
-  //     , prices || []
-  //   )) as PriceOracleMock;
-  //
-  //   const platformAdapter = await MocksHelper.createPlatformAdapterMock(
-  //     signer,
-  //     pool.address,
-  //     controller.address,
-  //     templatePoolAdapter,
-  //     underlying.map(x => x.address),
-  //     borrowRates,
-  //     collateralFactors,
-  //     availableLiquidity,
-  //     cTokens,
-  //     priceOracle.address
-  //   );
-  //
-  //   const bm = BorrowManager__factory.connect(await controller.borrowManager(), signer);
-  //
-  //   // generate all possible pairs of underlying
-  //   const left: string[] = [];
-  //   const right: string[] = [];
-  //   for (let i = 0; i < underlying.length; ++i) {
-  //     for (let j = i + 1; j < underlying.length; ++j) {
-  //       left.push(underlying[i].address);
-  //       right.push(underlying[j].address);
-  //     }
-  //   }
-  //
-  //   await bm.addAssetPairs(platformAdapter.address, left, right);
-  //
-  //   return {platformAdapter, templatePoolAdapter};
-  // }
+  public static async createKeeper(
+    signer: SignerWithAddress,
+    controller: IController,
+    gelatoOpsAddress: string
+  ) : Promise<Keeper>{
+    return (await DeployUtils.deployContract(
+      signer,
+      "Keeper",
+      controller.address,
+      gelatoOpsAddress
+    )) as Keeper;
+  }
 }

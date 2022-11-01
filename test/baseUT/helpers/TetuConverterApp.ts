@@ -26,17 +26,23 @@ export class TetuConverterApp {
       , 400
     )) as Controller;
 
-    const bm = await CoreContractsHelper.createBorrowManager(deployer, controller);
-    const tc: ITetuConverter = await CoreContractsHelper.createTetuConverter(deployer, controller);
-    const dm = await CoreContractsHelper.createDebtMonitor(deployer, controller);
+    const borrowManager = await CoreContractsHelper.createBorrowManager(deployer, controller);
+    const tetuConverter: ITetuConverter = await CoreContractsHelper.createTetuConverter(deployer, controller);
+    const debtMonitor = await CoreContractsHelper.createDebtMonitor(deployer, controller);
 
     const tetuLiquidatorAddress = MaticAddresses.TETU_LIQUIDATOR;
     const swapManager = await CoreContractsHelper.createSwapManager(deployer, controller);
 
-    await controller.initialize(tc.address,
-      bm.address,
-      dm.address,
-      ethers.Wallet.createRandom().address, // keeper
+    const keeper = await CoreContractsHelper.createKeeper(
+      deployer,
+      controller,
+      ethers.Wallet.createRandom().address // gelato OpsReady
+    );
+
+    await controller.initialize(tetuConverter.address,
+      borrowManager.address,
+      debtMonitor.address,
+      keeper.address,
       tetuLiquidatorAddress,
       swapManager.address
     );
@@ -49,6 +55,6 @@ export class TetuConverterApp {
       }
     }
 
-    return {tc, controller, pools};
+    return {tc: tetuConverter, controller, pools};
   }
 }

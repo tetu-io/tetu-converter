@@ -2,7 +2,7 @@
 
 pragma solidity 0.8.4;
 
-import "../interfaces/IPriceOracle.sol";
+import "../../interfaces/IPriceOracle.sol";
 
 contract PriceOracleStub is IPriceOracle {
   uint public priceValue;

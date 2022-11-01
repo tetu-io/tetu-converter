@@ -287,7 +287,7 @@ export class DeploySolutionUtils {
 //region Setup core
   static async deployCoreContracts(
     deployer: SignerWithAddress,
-    keeper: string,
+    gelatoOpsReady: string,
     tetuLiquidator: string,
     controllerSetupParams: IControllerSetupParams,
     borrowManagerSetupParams: IBorrowManagerSetupParams
@@ -308,6 +308,7 @@ export class DeploySolutionUtils {
     const debtMonitor = await CoreContractsHelper.createDebtMonitor(deployer, controller);
     const tetuConverter = await CoreContractsHelper.createTetuConverter(deployer, controller);
     const swapManager = await CoreContractsHelper.createSwapManager(deployer, controller);
+    const keeper = await CoreContractsHelper.createKeeper(deployer, controller, gelatoOpsReady);
 
     await RunHelper.runAndWait(
       () => controller.initialize(
@@ -326,7 +327,7 @@ export class DeploySolutionUtils {
       borrowManager: borrowManager.address,
       debtMonitor: debtMonitor.address,
       swapManager: swapManager.address,
-      keeper,
+      keeper: keeper.address,
       tetuLiquidator,
       controllerSetupParams,
       borrowManagerSetupParams

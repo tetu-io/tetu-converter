@@ -2,8 +2,8 @@
 
 pragma solidity 0.8.4;
 
-import "../core/AppDataTypes.sol";
-import "../interfaces/IPriceOracle.sol";
+import "../../core/AppDataTypes.sol";
+import "../../interfaces/IPriceOracle.sol";
 import "hardhat/console.sol";
 
 contract PriceOracleMock is IPriceOracle {
