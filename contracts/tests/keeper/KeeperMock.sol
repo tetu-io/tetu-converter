@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.4;
 
-import "../interfaces/IHealthKeeperCallback.sol";
+import "../../interfaces/IHealthKeeperCallback.sol";
 
 /// @notice Allow to control calls of fixHealth
 contract KeeperMock is IHealthKeeperCallback {

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.4;
 
-import "../integrations/gelato/IResolver.sol";
+import "../../integrations/gelato/IResolver.sol";
 
 contract KeeperCaller {
   enum LastCallResults {
