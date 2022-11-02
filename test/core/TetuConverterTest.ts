@@ -2732,50 +2732,49 @@ describe("TetuConverterTest", () => {
     });
   });
 
-  // TODO
-  // describe("TODO:claimRewards", () => {
-  //   describe("Good paths", () => {
-  //     it("should return expected values", async () => {
-  //       expect.fail("TODO");
-  //     });
-  //   });
-  //   describe("Bad paths", () => {
-  //     it("should revert", async () => {
-  //       expect.fail("TODO");
-  //     });
-  //   });
-  // });
-  //
-  // describe("TODO:findBorrows", () => {
-  //   describe("Good paths", () => {
-  //     describe("TODO", () => {
-  //       it("should update balance in proper way", async () => {
-  //         expect.fail();
-  //       });
-  //     });
-  //   });
-  //
-  //   describe("Bad paths", () => {
-  //     describe("TODO", () => {
-  //       it("TODO", async () => {
-  //         expect.fail();
-  //       });
-  //     });
-  //   });
-  // });
-  //
-  // describe("TODO:requireReconversion", () => {
-  //   describe("Good paths", () => {
-  //     it("should return expected values", async () => {
-  //       expect.fail("TODO");
-  //     });
-  //   });
-  //   describe("Bad paths", () => {
-  //     it("should revert", async () => {
-  //       expect.fail("TODO");
-  //     });
-  //   });
-  // });
+  describe("TODO:claimRewards", () => {
+    describe("Good paths", () => {
+      it("should return expected values", async () => {
+        expect.fail("TODO");
+      });
+    });
+    describe("Bad paths", () => {
+      it("should revert", async () => {
+        expect.fail("TODO");
+      });
+    });
+  });
+
+//   describe("TODO:findBorrows", () => {
+//   describe("Good paths", () => {
+//     describe("TODO", () => {
+//       it("should update balance in proper way", async () => {
+//         expect.fail();
+//       });
+//     });
+//   });
+//
+//   describe("Bad paths", () => {
+//     describe("TODO", () => {
+//       it("TODO", async () => {
+//         expect.fail();
+//       });
+//     });
+//   });
+// });
+//
+//   describe("TODO:requireReconversion", () => {
+//     describe("Good paths", () => {
+//       it("should return expected values", async () => {
+//         expect.fail("TODO");
+//       });
+//     });
+//     describe("Bad paths", () => {
+//       it("should revert", async () => {
+//         expect.fail("TODO");
+//       });
+//     });
+//   });
 
 
 // describe.skip("TODO: reconvert", () => {

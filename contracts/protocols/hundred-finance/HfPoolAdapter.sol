@@ -436,8 +436,12 @@ contract HfPoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP {
     return false; // Currently we don't support rewards on HF (if any)
   }
 
-  function claimRewards(address receiver_) external pure override {
+  function claimRewards(address receiver_) external pure override returns (
+    address rewardToken,
+    uint amount
+  ) {
     receiver_;
+    return (rewardToken, amount);
   }
 
 
@@ -466,7 +470,7 @@ contract HfPoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP {
       uint borrowBalance,
       uint collateralBase,
       uint borrowBase,
-      uint priceCollateral) = _getStatus(cTokenCollateral, cTokenBorrow);
+    ) = _getStatus(cTokenCollateral, cTokenBorrow);
 
     (, healthFactor18) = _getHealthFactor(
       cTokenCollateral,

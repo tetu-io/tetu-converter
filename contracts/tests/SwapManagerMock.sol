@@ -52,7 +52,7 @@ contract SwapManagerMock is ISwapManager, ISwapConverter {
   external view override returns (
     address converter_,
     uint maxTargetAmount_,
-    int apr18
+    int outApr18
   ) {
     console.log("SwapManagerMock.getConverter", converter, maxTargetAmount);
     console.logInt(apr18);

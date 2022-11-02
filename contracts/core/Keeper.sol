@@ -64,7 +64,7 @@ contract Keeper is OpsReady, IHealthKeeperCallback, IResolver {
     uint startIndex = keeper.nextIndexToCheck0();
 
     (
-      uint nextIndexToCheck0,
+      uint newNextIndexToCheck0,
       address[] memory outPoolAdapters,
       uint[] memory outAmountBorrowAsset,
       uint[] memory outAmountCollateralAsset
@@ -74,11 +74,11 @@ contract Keeper is OpsReady, IHealthKeeperCallback, IResolver {
       maxCountToReturn
     );
 
-    canExecOut = outPoolAdapters.length != 0 || nextIndexToCheck0 != startIndex;
+    canExecOut = outPoolAdapters.length != 0 || newNextIndexToCheck0 != startIndex;
 
     execPayloadOut = abi.encodeWithSelector(
       IHealthKeeperCallback.fixHealth.selector,
-      nextIndexToCheck0,
+      newNextIndexToCheck0,
       outPoolAdapters,
       outAmountBorrowAsset,
       outAmountCollateralAsset

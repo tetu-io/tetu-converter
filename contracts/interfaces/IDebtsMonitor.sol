@@ -39,13 +39,19 @@ interface IDebtMonitor {
   function getCountPositions() external view returns (uint);
 
   /// @notice Get active borrows of the user with given collateral/borrowToken
-  /// @return poolAdapters An instance of IPoolAdapter
+  /// @return poolAdaptersOut The instances of IPoolAdapter
   function getPositions (
     address user_,
     address collateralToken_,
     address borrowedToken_
   ) external view returns (
-    address[] memory poolAdapters
+    address[] memory poolAdaptersOut
+  );
+
+  /// @notice Get active borrows of the given user
+  /// @return poolAdaptersOut The instances of IPoolAdapter
+  function getPositionsForUser(address user_) external view returns(
+    address[] memory poolAdaptersOut
   );
 
   /// @notice Return true if there is a least once active pool adapter created on the base of the {converter_}

@@ -174,8 +174,12 @@ contract PoolAdapterStub is IPoolAdapter {
     return false;
   }
 
-  function claimRewards(address receiver_) external pure override {
+  function claimRewards(address receiver_) external pure override returns (
+    address rewardToken,
+    uint amount
+  ) {
     receiver_;
+    return (rewardToken, amount);
   }
 
 }

@@ -110,5 +110,7 @@ interface IPoolAdapter is IConverter {
   function hasRewards() external view returns (bool);
 
   /// @notice Transfer all reward tokens to {receiver_}
-  function claimRewards(address receiver_) external;
+  /// @return rewardToken Address of the transferred reward token
+  /// @return amount Amount of the transferred reward token
+  function claimRewards(address receiver_) external returns (address rewardToken, uint amount);
 }

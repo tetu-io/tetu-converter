@@ -35,8 +35,13 @@ contract DebtMonitor is IDebtMonitor {
   /// @notice Pool adapter => block number of last call of onOpenPosition
   mapping(address => uint) public positionLastAccess;
 
-  /// @notice PoolAdapterKey(== keccak256(user, collateral, borrowToken)) => poolAdapters
+  /// @notice List of oepened positions for the given set (user, collateral, borrowToken)
+  /// @dev PoolAdapterKey(== keccak256(user, collateral, borrowToken)) => poolAdapters
   mapping(uint => address[]) public poolAdapters;
+
+  /// @notice List of opened positions for the given user
+  /// @dev User => List of pool adapters
+  mapping(address => EnumerableSet.AddressSet) private _poolAdaptersForUser;
 
   /// @notice Template pool adapter => list of ACTIVE pool adapters created on the base of the template
   /// @dev We need it to prevent removing a pool from the borrow manager when the pool is in use
@@ -110,6 +115,7 @@ contract DebtMonitor is IDebtMonitor {
        address borrowAsset
       ) = IPoolAdapter(msg.sender).getConfig();
       poolAdapters[getPoolAdapterKey(user, collateralAsset, borrowAsset)].push(msg.sender);
+      _poolAdaptersForUser[user].add(msg.sender);
 
       _poolAdaptersForConverters[origin].add(msg.sender);
     }
@@ -132,6 +138,7 @@ contract DebtMonitor is IDebtMonitor {
     ) = IPoolAdapter(msg.sender).getConfig();
 
     AppUtils.removeItemFromArray(poolAdapters[getPoolAdapterKey(user, collateralAsset, borrowAsset)], msg.sender);
+    _poolAdaptersForUser[user].remove(msg.sender);
     _poolAdaptersForConverters[origin].remove(msg.sender);
   }
 
@@ -349,18 +356,33 @@ contract DebtMonitor is IDebtMonitor {
     address collateralToken_,
     address borrowedToken_
   ) external view override returns (
-    address[] memory outPoolAdapters
+    address[] memory poolAdaptersOut
   ) {
     address[] memory adapters = poolAdapters[getPoolAdapterKey(user_, collateralToken_, borrowedToken_)];
     uint countAdapters = adapters.length;
 
-    outPoolAdapters = new address[](countAdapters);
+    poolAdaptersOut = new address[](countAdapters);
 
     for (uint i = 0; i < countAdapters; i = i.uncheckedInc()) {
-      outPoolAdapters[i] = adapters[i];
+      poolAdaptersOut[i] = adapters[i];
     }
 
-    return outPoolAdapters;
+    return poolAdaptersOut;
+  }
+
+  function getPositionsForUser(address user_) external view override returns(
+    address[] memory poolAdaptersOut
+  ) {
+    EnumerableSet.AddressSet storage set = _poolAdaptersForUser[user_];
+    uint countAdapters = set.length();
+
+    poolAdaptersOut = new address[](countAdapters);
+
+    for (uint i = 0; i < countAdapters; i = i.uncheckedInc()) {
+      poolAdaptersOut[i] = set.at(i);
+    }
+
+    return poolAdaptersOut;
   }
 
   function isConverterInUse(address converter_) external view override returns (bool) {

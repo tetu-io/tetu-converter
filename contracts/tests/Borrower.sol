@@ -285,6 +285,7 @@ contract Borrower is ITetuConverterCallback {
     uint amountOut,
     bool isCollateralOut
   ) {
+    // TODO: implement path to use requiredAmountCollateralAsset_
     uint amountToSend = requireAmountBackParams.amount == 0
       ? requiredAmountBorrowAsset_
       : requireAmountBackParams.amount;

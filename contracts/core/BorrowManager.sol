@@ -252,7 +252,6 @@ contract BorrowManager is IBorrowManager {
     uint maxTargetAmount,
     int apr18
   ) {
-    uint8 sourceAssetDecimals = IERC20Extended(p_.sourceToken).decimals();
     uint lenPools = platformAdapters_.length();
 
     for (uint i = 0; i < lenPools; i = i.uncheckedInc()) {

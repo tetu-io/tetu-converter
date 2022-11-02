@@ -458,8 +458,12 @@ contract AaveTwoPoolAdapter is IPoolAdapter, IPoolAdapterInitializer {
     return false; //Currently AAVE2 has no rewards on Polygon
   }
 
-  function claimRewards(address receiver_) external pure override {
+  function claimRewards(address receiver_) external pure override returns (
+    address rewardToken,
+    uint amount
+  ) {
     receiver_;
+    return (rewardToken, amount);
   }
 
 

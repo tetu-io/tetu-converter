@@ -437,21 +437,27 @@ contract DForcePoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP {
     return rd.reward(address(this)) != 0;
   }
 
-  function claimRewards(address receiver_) external override {
+  function claimRewards(address receiver_) external override returns (
+    address rewardTokenOut,
+    uint amountOut
+  ) {
     IDForceRewardDistributor rd = IDForceRewardDistributor(_comptroller.rewardDistributor());
-    uint amountRewards = rd.reward(address(this));
-    if (amountRewards != 0) {
+    rewardTokenOut = rd.rewardToken();
+    amountOut = rd.reward(address(this));
+    if (amountOut != 0) {
       address[] memory holders = new address[](1);
       holders[0] = address(this);
       rd.claimAllReward(holders);
 
       uint balance = IERC20(rd.rewardToken()).balanceOf(address(this));
 
-      console.log("claimRewards", amountRewards, balance);
-      if (amountRewards != 0) {
+      console.log("claimRewards", amountOut, balance);
+      if (amountOut != 0) {
         IERC20(rd.rewardToken()).safeTransfer(receiver_, balance);
       }
     }
+
+    return (rewardTokenOut, amountOut);
   }
 
   ///////////////////////////////////////////////////////
@@ -480,7 +486,6 @@ contract DForcePoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP {
       uint borrowBalance,
       uint collateralBase36,
       uint borrowBase36,
-      uint priceCollateral
     ) = _getStatus(cTokenCollateral, cTokenBorrow);
 
     (, healthFactor18) = _getHealthFactor(

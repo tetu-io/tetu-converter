@@ -484,11 +484,33 @@ contract TetuConverter is ITetuConverter, IKeeperCallback {
   ///////////////////////////////////////////////////////
 
   function claimRewards(address receiver_) external override returns (
-    address[] memory rewardTokens,
-    uint[] memory amounts
+    address[] memory rewardTokensOut,
+    uint[] memory amountsOut
   ) {
-    // TODO
-    return (rewardTokens, amounts);
+    address[] memory poolAdapters = _debtMonitor().getPositionsForUser(msg.sender);
+    uint lenPoolAdapters = poolAdapters.length;
+    uint countPositionsWithRewards = 0;
+
+    // let's find out how much positions have rewards
+    for (uint i = 0; i < lenPoolAdapters; i = i.uncheckedInc()) {
+      IPoolAdapter pa = IPoolAdapter(poolAdapters[i]);
+      if (pa.hasRewards()) {
+        countPositionsWithRewards++;
+      }
+    }
+
+    // claim all rewards if any
+    if (countPositionsWithRewards != 0) {
+      rewardTokensOut = new address[](countPositionsWithRewards);
+      amountsOut = new uint[](countPositionsWithRewards);
+
+      for (uint i = 0; i < lenPoolAdapters; i = i.uncheckedInc()) {
+        IPoolAdapter pa = IPoolAdapter(poolAdapters[i]);
+        (rewardTokensOut[i], amountsOut[i]) = pa.claimRewards(receiver_);
+      }
+    }
+
+    return (rewardTokensOut, amountsOut);
   }
 
   ///////////////////////////////////////////////////////
