@@ -9,7 +9,7 @@ import "../integrations/gelato/IResolver.sol";
 import "../interfaces/IController.sol";
 import "../interfaces/IDebtsMonitor.sol";
 import "../interfaces/IKeeperCallback.sol";
-import "hardhat/console.sol";
+//import "hardhat/console.sol";
 
 /// @notice Executor + Resolver for Gelato
 ///         to check health of opened positions and call requireRepay for unhealthy pool adapters
@@ -39,6 +39,7 @@ contract Keeper is OpsReady, IHealthKeeperCallback, IResolver {
   }
 
   function setController(address controller_) external {
+    require(controller_ != address(0), AppErrors.ZERO_ADDRESS);
     require(msg.sender == IController(controller).governance(), AppErrors.GOVERNANCE_ONLY);
     controller = controller_;
   }
@@ -55,7 +56,6 @@ contract Keeper is OpsReady, IHealthKeeperCallback, IResolver {
     bool canExecOut,
     bytes memory execPayloadOut
   ) {
-    console.log("Keeper.checker");
     IDebtMonitor debtMonitor = IDebtMonitor(IController(controller).debtMonitor());
 
     // IHealthKeeperCallback is implemented inside this class
@@ -75,10 +75,6 @@ contract Keeper is OpsReady, IHealthKeeperCallback, IResolver {
     );
 
     canExecOut = outPoolAdapters.length != 0 || nextIndexToCheck0 != startIndex;
-    console.log("Keeper.checker canExecOut", canExecOut);
-    console.log("Keeper.checker nextIndexToCheck0", nextIndexToCheck0);
-    console.log("Keeper.checker startIndex", startIndex);
-    console.log("Keeper instance is", address(this));
 
     execPayloadOut = abi.encodeWithSelector(
       IHealthKeeperCallback.fixHealth.selector,
@@ -99,7 +95,6 @@ contract Keeper is OpsReady, IHealthKeeperCallback, IResolver {
     uint[] memory amountBorrowAsset_,
     uint[] memory amountCollateralAsset_
   ) external override onlyOps {
-    console.log("Keeper.fixHealth", nextIndexToCheck0_, address(this));
     uint countPoolAdapters = poolAdapters_.length;
     require(
       countPoolAdapters == amountBorrowAsset_.length
@@ -107,15 +102,11 @@ contract Keeper is OpsReady, IHealthKeeperCallback, IResolver {
       AppErrors.WRONG_LENGTHS
     );
 
-    console.log("nextIndexToCheck0 before=", nextIndexToCheck0);
     nextIndexToCheck0 = nextIndexToCheck0_;
-    console.log("nextIndexToCheck0 after=", nextIndexToCheck0);
 
     if (countPoolAdapters > 0) {
-      console.log("Keeper.fixHealth.countPoolAdapters", countPoolAdapters);
       IKeeperCallback keeperCallback = IKeeperCallback(IController(controller).tetuConverter());
       for (uint i = 0; i < countPoolAdapters; i = i.uncheckedInc()) {
-        console.log("Keeper.fixHealth.call keeperCallback.requireRepay");
         keeperCallback.requireRepay(
           amountBorrowAsset_[i],
           amountCollateralAsset_[i],

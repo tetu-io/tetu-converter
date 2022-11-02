@@ -11,11 +11,16 @@ contract KeeperCaller is IOps {
     SUCCESS_1,
     FAILED_2
   }
-  address public keeper;
+  address public keeperChecker;
+  address public keeperExecutor;
   LastCallResults public lastCallResults;
 
-  function setupKeeper(address keeper_) external {
-    keeper = keeper_;
+  function setupKeeper(
+    address keeperChecker_,
+    address keeperExecutor_
+  ) external {
+    keeperChecker = keeperChecker_;
+    keeperExecutor = keeperExecutor_;
   }
 
   function gelato() external view override returns (address payable) {
@@ -24,15 +29,15 @@ contract KeeperCaller is IOps {
   }
 
   function callChecker() external {
-    console.log("KeeperCaller.callChecker");
+    console.log("KeeperCaller.callChecker", address(keeperChecker));
     (
       bool canExecOut,
       bytes memory execPayloadOut
-    ) = IResolver(keeper).checker();
+    ) = IResolver(keeperChecker).checker();
 
     if (canExecOut) {
-      console.log("KeeperCaller.execute", address(keeper));
-      (bool success, bytes memory returnData) = address(keeper).call(execPayloadOut);
+      console.log("KeeperCaller.execute", address(keeperExecutor));
+      (bool success, bytes memory returnData) = address(keeperExecutor).call(execPayloadOut);
       console.log("KeeperCaller.execute success", success);
       lastCallResults = success
         ? LastCallResults.SUCCESS_1
