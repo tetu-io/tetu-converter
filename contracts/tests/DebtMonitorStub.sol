@@ -3,7 +3,7 @@
 pragma solidity 0.8.4;
 
 /// @notice isConverterInUse returns always expected value
-contract DebtsMonitorStub {
+contract DebtMonitorStub {
   bool public valueIsConverterInUse;
   constructor (bool valueIsConverterInUse_) {
     valueIsConverterInUse = valueIsConverterInUse_;

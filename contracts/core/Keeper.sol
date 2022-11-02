@@ -55,9 +55,8 @@ contract Keeper is OpsReady, IHealthKeeperCallback, IResolver {
     bytes memory execPayloadOut
   ) {
     IDebtMonitor debtMonitor = IDebtMonitor(IController(controller).debtMonitor());
-    IHealthKeeperCallback keeper = IHealthKeeperCallback(IController(controller).keeper());
 
-    uint startIndex = keeper.nextIndexToCheck0();
+    uint startIndex = nextIndexToCheck0;
 
     (
       uint nextIndexToCheck0,

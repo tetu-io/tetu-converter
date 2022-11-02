@@ -16,13 +16,19 @@ import {
   MockERC20,
   PoolAdapterMock,
   PoolAdapterStub,
-  DebtsMonitorStub,
+  DebtMonitorStub,
   PoolStub,
   PlatformAdapterStub,
   DForceInterestRateModelMock,
   PriceOracleMock,
   BorrowManager__factory,
-  BorrowManager, TetuLiquidatorMock, SwapManagerMock, ConverterUnknownKind
+  BorrowManager,
+  TetuLiquidatorMock,
+  SwapManagerMock,
+  ConverterUnknownKind,
+  KeeperMock,
+  KeeperCaller,
+  DebtMonitorCheckHealthMock
 } from "../../../typechain";
 import {IPoolInfo} from "./BorrowManagerHelper";
 import {getBigNumberFrom} from "../../../scripts/utils/NumberUtils";
@@ -239,12 +245,12 @@ export class MocksHelper {
   public static async createDebtsMonitorStub(
     signer: SignerWithAddress,
     valueIsConverterInUse: boolean
-  ) : Promise<DebtsMonitorStub> {
+  ) : Promise<DebtMonitorStub> {
     return await DeployUtils.deployContract(
       signer
-      , "DebtsMonitorStub"
+      , "DebtMonitorStub"
       , valueIsConverterInUse
-    ) as DebtsMonitorStub;
+    ) as DebtMonitorStub;
   }
 
   public static async createPlatformAdapterStub(
@@ -391,4 +397,28 @@ export class MocksHelper {
     return await DeployUtils.deployContract(deployer,"ConverterUnknownKind") as ConverterUnknownKind;
   }
 //endregion TetuLiquidator and SwapManager
+
+//region Keeper helpers
+  public static async createKeeperMock(
+    deployer: SignerWithAddress,
+    nextIndexToCheck0?: number
+  ) : Promise<KeeperMock> {
+    return await DeployUtils.deployContract(deployer, "KeeperMock", nextIndexToCheck0 || 0) as KeeperMock;
+  }
+
+  public static async createKeeperCaller(
+    deployer: SignerWithAddress,
+    keeperAddress: string
+  ) : Promise<KeeperCaller> {
+    return await DeployUtils.deployContract(deployer, "KeeperCaller", keeperAddress) as KeeperCaller;
+  }
+
+  public static async createDebtMonitorCheckHealthMock(
+    deployer: SignerWithAddress,
+  ) : Promise<DebtMonitorCheckHealthMock> {
+    return await DeployUtils.deployContract(deployer,
+      "DebtMonitorCheckHealthMock"
+    ) as DebtMonitorCheckHealthMock;
+  }
+//endregion Keeper helpers
 }

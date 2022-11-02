@@ -37,6 +37,10 @@ describe("KeeperTest", () => {
   });
 //endregion before, after
 
+//region Initialization
+
+//endregion Initialization
+
 //region Unit tests
   describe("checker", () => {
     describe("Good paths", () => {
