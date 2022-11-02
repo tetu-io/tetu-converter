@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.4;
 
+import "hardhat/console.sol";
+
 /// @notice Allow to mock IDebtMonitor.checkHealth
 contract DebtMonitorCheckHealthMock {
   struct ReturnValues {
@@ -60,6 +62,7 @@ contract DebtMonitorCheckHealthMock {
     uint[] memory outAmountBorrowAsset,
     uint[] memory outAmountCollateralAsset
   ) {
+    console.log("DebtMonitorCheckHealthMock.checkHealth");
     require(
       !expectedInputParams.enabled
       || (

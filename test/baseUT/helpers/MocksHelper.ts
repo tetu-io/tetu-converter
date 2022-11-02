@@ -28,11 +28,10 @@ import {
   ConverterUnknownKind,
   KeeperMock,
   KeeperCaller,
-  DebtMonitorCheckHealthMock
+  DebtMonitorCheckHealthMock, KeeperCallbackMock
 } from "../../../typechain";
 import {IPoolInfo} from "./BorrowManagerHelper";
 import {getBigNumberFrom} from "../../../scripts/utils/NumberUtils";
-import {IAssetPair} from "../utils/AssetPairUtils";
 
 export interface IPooAdapterStabInitParams {
   controller: string;
@@ -408,9 +407,8 @@ export class MocksHelper {
 
   public static async createKeeperCaller(
     deployer: SignerWithAddress,
-    keeperAddress: string
   ) : Promise<KeeperCaller> {
-    return await DeployUtils.deployContract(deployer, "KeeperCaller", keeperAddress) as KeeperCaller;
+    return await DeployUtils.deployContract(deployer, "KeeperCaller") as KeeperCaller;
   }
 
   public static async createDebtMonitorCheckHealthMock(
@@ -420,5 +418,14 @@ export class MocksHelper {
       "DebtMonitorCheckHealthMock"
     ) as DebtMonitorCheckHealthMock;
   }
+
+  public static async createKeeperCallbackMock(
+    deployer: SignerWithAddress,
+  ) : Promise<KeeperCallbackMock> {
+    return await DeployUtils.deployContract(deployer,
+      "KeeperCallbackMock"
+    ) as KeeperCallbackMock;
+  }
+
 //endregion Keeper helpers
 }

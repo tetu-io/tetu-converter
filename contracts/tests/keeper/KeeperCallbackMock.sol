@@ -2,6 +2,7 @@
 pragma solidity 0.8.4;
 
 import "../../interfaces/IKeeperCallback.sol";
+import "hardhat/console.sol";
 
 /// @notice Register all calls of requireRepay
 contract KeeperCallbackMock is IKeeperCallback {
@@ -20,6 +21,7 @@ contract KeeperCallbackMock is IKeeperCallback {
     uint requiredAmountCollateralAsset_,
     address lendingPoolAdapter_
   ) external override {
+    console.log("KeeperCallbackMock.requireRepay");
     requireRepayCalls[lendingPoolAdapter_] = RequireRepayInputParams({
       countCalls: requireRepayCalls[lendingPoolAdapter_].countCalls + 1,
       requiredAmountBorrowAsset: requiredAmountBorrowAsset_,

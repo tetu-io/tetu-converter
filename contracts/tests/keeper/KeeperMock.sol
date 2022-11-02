@@ -2,6 +2,7 @@
 pragma solidity 0.8.4;
 
 import "../../interfaces/IHealthKeeperCallback.sol";
+import "hardhat/console.sol";
 
 /// @notice Allow to control calls of fixHealth
 contract KeeperMock is IHealthKeeperCallback {
@@ -30,6 +31,7 @@ contract KeeperMock is IHealthKeeperCallback {
     uint[] memory amountBorrowAsset_,
     uint[] memory amountCollateralAsset_
   ) external override {
+    console.log("KeeperMock.fixHealth");
     nextIndexToCheck0 = nextIndexToCheck0_;
 
     lastFixHealthParams = LastFixHealthParams({

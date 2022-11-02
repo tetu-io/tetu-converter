@@ -2,7 +2,7 @@
 pragma solidity 0.8.4;
 
 import "../../openzeppelin/SafeERC20.sol";
-
+import "hardhat/console.sol";
 
 interface IOps {
     function gelato() external view returns (address payable);
@@ -14,6 +14,7 @@ abstract contract OpsReady {
     address public constant ETH = 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE;
 
     modifier onlyOps() {
+        console.log("onlyOps");
         require(msg.sender == ops, "OpsReady: onlyOps");
         _;
     }
