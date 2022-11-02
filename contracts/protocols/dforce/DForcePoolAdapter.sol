@@ -441,6 +441,8 @@ contract DForcePoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP {
     address rewardTokenOut,
     uint amountOut
   ) {
+    _onlyTC();
+
     IDForceRewardDistributor rd = IDForceRewardDistributor(_comptroller.rewardDistributor());
     rewardTokenOut = rd.rewardToken();
     amountOut = rd.reward(address(this));

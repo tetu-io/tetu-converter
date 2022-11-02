@@ -116,11 +116,11 @@ interface ITetuConverter {
   );
 
   /// @notice Transfer all reward tokens to {receiver_}
-  /// @return rewardTokens What tokens were transferred. Same reward token can appear in the array several times
-  /// @return amounts Amounts of transferred rewards, the array is synced with {rewardTokens}
+  /// @return rewardTokensOut What tokens were transferred. Same reward token can appear in the array several times
+  /// @return amountsOut Amounts of transferred rewards, the array is synced with {rewardTokens}
   function claimRewards(address receiver_) external returns (
-    address[] memory rewardTokens,
-    uint[] memory amounts
+    address[] memory rewardTokensOut,
+    uint[] memory amountsOut
   );
 
   //TODO: salvage

@@ -41,6 +41,12 @@ contract PoolAdapterMock is IPoolAdapter {
   /// @notice Last synced amount of given token on the balance of this contract
   mapping(address => uint) public reserveBalances;
 
+  struct RewardsForUser {
+    address rewardToken;
+    uint rewardAmount;
+  }
+  mapping(address => RewardsForUser) public rewardsForUsers;
+
   ///////////////////////////////////////////////////////
   //  Check sequence of calls: syncBalance, borrow
   enum BorrowLogStates {
@@ -84,6 +90,20 @@ contract PoolAdapterMock is IPoolAdapter {
       ? BorrowLogStates.DISABLED_0
       : BorrowLogStates.ENABLED_1;
     delete borrowParamsLog;
+  }
+
+  function setRewards(address rewardToken_, uint amount_) external {
+    console.log("PoolAdapterMock.setRewards _user", _user);
+    console.log("PoolAdapterMock.setRewards rewardToken, amount", rewardToken_, amount_);
+    rewardsForUsers[_user] = RewardsForUser({
+      rewardToken: rewardToken_,
+      rewardAmount: amount_
+    });
+
+    require(
+      IERC20(rewardToken_).balanceOf(address(this)) == amount_,
+      "Reward token wasn't transferred to pool-adapter-mock"
+    );
   }
 
   ///////////////////////////////////////////////////////
@@ -431,15 +451,27 @@ contract PoolAdapterMock is IPoolAdapter {
   ///////////////////////////////////////////////////////
   ///                 Rewards
   ///////////////////////////////////////////////////////
-  function hasRewards() external pure override returns (bool) {
-    return false; //TODO: we need to implement rewards for tests
+  function hasRewards() external view override returns (bool ret) {
+    ret = rewardsForUsers[_user].rewardToken != address(0);
+    console.log("PoolAdapterMock.hasRewards sender", _user, ret);
+    return ret;
   }
 
-  function claimRewards(address receiver_) external pure override returns (
-    address rewardToken,
-    uint amount
+  function claimRewards(address receiver_) external override returns (
+    address rewardTokenOut,
+    uint amountOut
   ) {
-    receiver_;
-    return (rewardToken, amount);
+    console.log("PoolAdapterMock.claimRewards user, receiver", _user, receiver_);
+    console.log("PoolAdapterMock.rewardToken", rewardsForUsers[_user].rewardToken);
+    console.log("PoolAdapterMock.rewardAmount", rewardsForUsers[_user].rewardAmount);
+
+    IERC20(rewardsForUsers[_user].rewardToken).transfer(
+      receiver_,
+      rewardsForUsers[_user].rewardAmount
+    );
+    return (
+      rewardsForUsers[_user].rewardToken,
+      rewardsForUsers[_user].rewardAmount
+    );
   }
 }

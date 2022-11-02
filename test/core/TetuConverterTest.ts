@@ -1,7 +1,7 @@
 import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import {ethers} from "hardhat";
 import {TimeUtils} from "../../scripts/utils/TimeUtils";
-import {expect} from "chai";
+import {expect, use} from "chai";
 import {getBigNumberFrom} from "../../scripts/utils/NumberUtils";
 import {DeployUtils} from "../../scripts/utils/DeployUtils";
 import {
@@ -18,7 +18,7 @@ import {
   PoolAdapterMock,
   ITetuConverter__factory,
   TetuConverter__factory,
-  TetuLiquidatorMock__factory, SwapManagerMock, ConverterUnknownKind
+  TetuLiquidatorMock__factory, SwapManagerMock, ConverterUnknownKind, DebtMonitorMock, Controller
 } from "../../typechain";
 import {
   IBorrowInputParams,
@@ -34,6 +34,7 @@ import {BigNumber} from "ethers";
 import {Misc} from "../../scripts/utils/Misc";
 import {IPoolAdapterStatus} from "../baseUT/types/BorrowRepayDataTypes";
 import {getExpectedApr18} from "../baseUT/apr/aprUtils";
+import {CoreContractsHelper} from "../baseUT/helpers/CoreContractsHelper";
 
 describe("TetuConverterTest", () => {
 //region Constants
@@ -47,11 +48,6 @@ describe("TetuConverterTest", () => {
   let snapshot: string;
   let snapshotForEach: string;
   let deployer: SignerWithAddress;
-  let user1: SignerWithAddress;
-  let user2: SignerWithAddress;
-  let user3: SignerWithAddress;
-  let user4: SignerWithAddress;
-  let user5: SignerWithAddress;
 //endregion Global vars for all tests
 
 //region before, after
@@ -60,11 +56,6 @@ describe("TetuConverterTest", () => {
     snapshot = await TimeUtils.snapshot();
     const signers = await ethers.getSigners();
     deployer = signers[0];
-    user1 = signers[2];
-    user2 = signers[3];
-    user3 = signers[4];
-    user4 = signers[5];
-    user5 = signers[6];
   });
 
   after(async function () {
@@ -2732,15 +2723,170 @@ describe("TetuConverterTest", () => {
     });
   });
 
-  describe("TODO:claimRewards", () => {
+  describe("claimRewards", () => {
+    interface ISetupClaimRewards {
+      receiver: string;
+      user: string;
+      debtMonitorMock: DebtMonitorMock;
+      controller: Controller;
+      tetuConverter: TetuConverter;
+      poolAdapter: PoolAdapterMock;
+    }
+    async function setupPoolAdapter(controller: Controller, user: string) : Promise<PoolAdapterMock> {
+      const poolAdapter = await MocksHelper.createPoolAdapterMock(deployer);
+      await poolAdapter.initialize(
+        controller.address,
+        ethers.Wallet.createRandom().address, // pool
+        user,
+        ethers.Wallet.createRandom().address, // collateralAsset
+        ethers.Wallet.createRandom().address, // borrowAsset
+        ethers.Wallet.createRandom().address, // originConverter
+        ethers.Wallet.createRandom().address, // cTokenMock
+        getBigNumberFrom(1, 18), // collateralFactor
+        getBigNumberFrom(1, 18), // borrowRate
+        ethers.Wallet.createRandom().address  // priceOracle
+      );
+      return poolAdapter;
+    }
+    async function setupClaimRewards() : Promise<ISetupClaimRewards> {
+      const user = ethers.Wallet.createRandom().address;
+      const receiver = ethers.Wallet.createRandom().address;
+      const debtMonitorMock = await MocksHelper.createDebtMonitorMock(deployer);
+      const controller = await CoreContractsHelper.createController(deployer);
+      const tetuConverter = await CoreContractsHelper.createTetuConverter(deployer, controller);
+      await controller.setDebtMonitor(debtMonitorMock.address);
+      await controller.setTetuConverter(tetuConverter.address);
+      const poolAdapter = await setupPoolAdapter(controller, user);
+      return {
+        controller,
+        tetuConverter,
+        debtMonitorMock,
+        receiver,
+        user,
+        poolAdapter
+      }
+    }
     describe("Good paths", () => {
-      it("should return expected values", async () => {
-        expect.fail("TODO");
+      describe("No rewards", () => {
+        it("should return empty arrays", async () => {
+          const c = await setupClaimRewards();
+
+          const r = await c.tetuConverter.callStatic.claimRewards(c.receiver);
+          const ret = [
+            r.amountsOut.length,
+            r.rewardTokensOut.length
+          ].join();
+          const expected = [
+            0,
+            0
+          ].join();
+          expect(ret).eq(expected);
+        });
       });
-    });
-    describe("Bad paths", () => {
-      it("should revert", async () => {
-        expect.fail("TODO");
+      describe("One pool adapter has rewards", () => {
+        it("should return expected values and increase receiver amount", async () => {
+          const rewardToken = (await MocksHelper.createTokens([18]))[0];
+          const rewardsAmount = getBigNumberFrom(100, 18);
+
+          const c = await setupClaimRewards();
+
+          await c.debtMonitorMock.setPositionsForUser(c.user, [c.poolAdapter.address]);
+          await rewardToken.mint(c.poolAdapter.address, rewardsAmount);
+          await c.poolAdapter.setRewards(rewardToken.address, rewardsAmount);
+
+          const tetuConverterAsUser = TetuConverter__factory.connect(
+            c.tetuConverter.address,
+            await DeployerUtils.startImpersonate(c.user)
+          );
+
+          const balanceBefore = await rewardToken.balanceOf(c.receiver);
+          const r = await tetuConverterAsUser.callStatic.claimRewards(c.receiver);
+          await tetuConverterAsUser.claimRewards(c.receiver);
+          const balanceAfter = await rewardToken.balanceOf(c.receiver);
+
+          const ret = [
+            r.amountsOut.length,
+            r.amountsOut[0],
+            r.rewardTokensOut.length,
+            r.rewardTokensOut[0],
+
+            balanceBefore,
+            balanceAfter
+          ].map(x => BalanceUtils.toString(x)).join("\n");
+          const expected = [
+            1,
+            rewardsAmount,
+            1,
+            rewardToken.address,
+
+            0,
+            rewardsAmount
+          ].map(x => BalanceUtils.toString(x)).join("\n");
+          expect(ret).eq(expected);
+        });
+      });
+      describe("Two pool adapters have rewards", () => {
+        it("should claim rewards from two pools", async () => {
+          const rewardToken1 = (await MocksHelper.createTokens([18]))[0];
+          const rewardsAmount1 = getBigNumberFrom(100, 18);
+          const rewardToken2 = (await MocksHelper.createTokens([15]))[0];
+          const rewardsAmount2 = getBigNumberFrom(2222, 15);
+
+          const c = await setupClaimRewards();
+          const poolAdapter2 = await setupPoolAdapter(c.controller, c.user);
+
+          await c.debtMonitorMock.setPositionsForUser(
+            c.user,
+            [c.poolAdapter.address, poolAdapter2.address]
+          );
+          await rewardToken1.mint(c.poolAdapter.address, rewardsAmount1);
+          await c.poolAdapter.setRewards(rewardToken1.address, rewardsAmount1);
+
+          await rewardToken2.mint(poolAdapter2.address, rewardsAmount2);
+          await poolAdapter2.setRewards(rewardToken2.address, rewardsAmount2);
+
+          const tetuConverterAsUser = TetuConverter__factory.connect(
+            c.tetuConverter.address,
+            await DeployerUtils.startImpersonate(c.user)
+          );
+
+          const balanceBefore1 = await rewardToken1.balanceOf(c.receiver);
+          const balanceBefore2 = await rewardToken2.balanceOf(c.receiver);
+          const r = await tetuConverterAsUser.callStatic.claimRewards(c.receiver);
+          await tetuConverterAsUser.claimRewards(c.receiver);
+          const balanceAfter1 = await rewardToken1.balanceOf(c.receiver);
+          const balanceAfter2 = await rewardToken2.balanceOf(c.receiver);
+
+          const ret = [
+            r.amountsOut.length,
+            r.amountsOut[0],
+            r.amountsOut[1],
+            r.rewardTokensOut.length,
+            r.rewardTokensOut[0],
+            r.rewardTokensOut[1],
+
+            balanceBefore1,
+            balanceAfter1,
+
+            balanceBefore2,
+            balanceAfter2,
+          ].map(x => BalanceUtils.toString(x)).join("\n");
+          const expected = [
+            2,
+            rewardsAmount1,
+            rewardsAmount2,
+            2,
+            rewardToken1.address,
+            rewardToken2.address,
+
+            0,
+            rewardsAmount1,
+
+            0,
+            rewardsAmount2
+          ].map(x => BalanceUtils.toString(x)).join("\n");
+          expect(ret).eq(expected);
+        });
       });
     });
   });

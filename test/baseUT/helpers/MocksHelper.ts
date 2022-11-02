@@ -28,7 +28,7 @@ import {
   ConverterUnknownKind,
   KeeperMock,
   KeeperCaller,
-  DebtMonitorCheckHealthMock, KeeperCallbackMock
+  DebtMonitorCheckHealthMock, KeeperCallbackMock, DebtMonitorMock
 } from "../../../typechain";
 import {IPoolInfo} from "./BorrowManagerHelper";
 import {getBigNumberFrom} from "../../../scripts/utils/NumberUtils";
@@ -428,4 +428,12 @@ export class MocksHelper {
   }
 
 //endregion Keeper helpers
+
+//region DebtMonitor
+  public static async createDebtMonitorMock(
+    deployer: SignerWithAddress,
+  ) : Promise<DebtMonitorMock> {
+    return await DeployUtils.deployContract(deployer, "DebtMonitorMock") as DebtMonitorMock;
+  }
+//endregion DebtMonitor
 }

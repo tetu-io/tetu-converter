@@ -37,7 +37,7 @@ contract KeeperCaller is IOps {
 
     if (canExecOut) {
       console.log("KeeperCaller.execute", address(keeperExecutor));
-      (bool success, bytes memory returnData) = address(keeperExecutor).call(execPayloadOut);
+      (bool success,) = address(keeperExecutor).call(execPayloadOut);
       console.log("KeeperCaller.execute success", success);
       lastCallResults = success
         ? LastCallResults.SUCCESS_1
