@@ -12,9 +12,6 @@ describe("KeeperTest", () => {
   let deployer: SignerWithAddress;
   let user1: SignerWithAddress;
   let user2: SignerWithAddress;
-  let user3: SignerWithAddress;
-  let user4: SignerWithAddress;
-  let user5: SignerWithAddress;
 //endregion Global vars for all tests
 
 //region before, after
@@ -25,9 +22,6 @@ describe("KeeperTest", () => {
     deployer = signers[0];
     user1 = signers[2];
     user2 = signers[3];
-    user3 = signers[4];
-    user4 = signers[5];
-    user5 = signers[6];
   });
 
   after(async function () {

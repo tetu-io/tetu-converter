@@ -21,7 +21,7 @@ contract Keeper is OpsReady, IHealthKeeperCallback, IResolver {
   /// @notice Max count of unhealthy positions to be returned in single request
   uint constant public maxCountToReturn = 1;
 
-  /// @notice Start index of pool adapter that for next request
+  /// @notice Start index of pool adapter for next checkHealth-request
   ///         We store here result of previous call of IDebtMonitor.checkHealth
   uint256 public override nextIndexToCheck0;
   address public controller;
