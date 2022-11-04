@@ -848,7 +848,7 @@ describe("Aave3PoolAdapterTest", () => {
             MaticAddresses.HOLDER_USDT_3
           ];
           const borrowHolders = [
-            MaticAddresses.HOLDER_ChainLink,
+            MaticAddresses.HOLDER_CHAIN_LINK,
           ];
 //endregion Constants
           describe("Try to borrow max amount allowed by debt ceiling", () => {

@@ -59,7 +59,7 @@ export function getDifference(bn1?: BigNumber, bn2?: BigNumber) : BigNumber {
 }
 
 export function getRatioMul100(bn1?: BigNumber, bn2?: BigNumber) : BigNumber | undefined {
-  if (bn1 && bn2) {
+  if (bn1 && bn2 && !bn1.eq(0) && !bn2.eq(0)) {
     return bn1.mul(100).div(bn2);
   }
   return undefined;

@@ -16,6 +16,7 @@ import {Misc} from "../../../scripts/utils/Misc";
 //region Make borrow
 /**
  * Initialize tetu-converter-app.
+ * Disable swap.
  * Set initial collateral and borrow balances.
  * Make borrow using tetu-converter-app.
  * Return address of the pool adapter (borrower).
@@ -31,6 +32,10 @@ export async function makeBorrow (
 }> {
   console.log("makeBorrow:", p, amountToBorrow);
   const {controller} = await TetuConverterApp.buildApp(deployer, [fabric]);
+  // we need to disable swap because we are testing borrowing
+  const swapManagerStub = await MocksHelper.createSwapManagerMock(deployer);
+  await controller.setSwapManager(swapManagerStub.address);
+
   const uc = await MocksHelper.deployBorrower(deployer.address, controller, p.countBlocks);
 
   const collateralToken = await TokenDataTypes.Build(deployer, p.collateral.asset);
@@ -444,12 +449,12 @@ export function getExpectedApr18(
   console.log("expected.rewardsAmountInBorrowAsset", rewardsAmountInBorrowAsset);
   console.log("expected.rewardsFactor", rewardsFactor18);
   console.log("expected.amountCollateralInBorrowAsset", amountCollateralInBorrowAsset);
-
-
-  return borrowCost
-    .sub(supplyIncomeInBorrowAsset)
-    .sub(rewardsAmountInBorrowAsset.mul(rewardsFactor18).div(Misc.WEI))
-    .mul(Misc.WEI)
-    .div(amountCollateralInBorrowAsset);
+  return amountCollateralInBorrowAsset.eq(0)
+    ? BigNumber.from(0)
+    : borrowCost
+      .sub(supplyIncomeInBorrowAsset)
+      .sub(rewardsAmountInBorrowAsset.mul(rewardsFactor18).div(Misc.WEI))
+      .mul(Misc.WEI)
+      .div(amountCollateralInBorrowAsset);
 }
 //endregion Expected APR

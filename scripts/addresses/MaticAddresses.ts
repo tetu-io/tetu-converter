@@ -29,17 +29,17 @@ export class MaticAddresses {
   public static AaveToken = "0xD6DF932A45C0f255f85145f286eA0b292B21C90B";
   public static AavegotchiGHST = "0x385Eeac5cB85A38A9a07A70c73e0a3271CfB54A7";
   public static DefiPulseToken = "0x85955046DF4668e1DD369D2DE9f3AEB98DD2A369";
-// Hundred Finance
+// HundredFinance
   public static FRAX = "0x45c32fa6df82ead1e2ef74d17b76547eddfaff89";
 // DForce
   public static dForce_USD = "0xCf66EB3D546F0415b368d98A95EAF56DeD7aA752";
 //endregion Assets
 
 //region Asset biggest holders
-  public static HOLDER_DAI = "0x06959153b974d0d5fdfd87d561db6d8d4fa0bb0b";
+  public static HOLDER_DAI = "0xc5ed2333f8a2c351fca35e5ebadb2a82f5d254c3";
   public static HOLDER_DAI_2 = "0xf04adbf75cdfc5ed26eea4bbbb991db002036bdd";
   public static HOLDER_DAI_3 = "0x075e72a5edf65f0a5f44699c7654c1a76941ddc8";
-  public static HOLDER_DAI_4 = "0xc5ed2333f8a2c351fca35e5ebadb2a82f5d254c3";
+  public static HOLDER_DAI_4 = "0x06959153b974d0d5fdfd87d561db6d8d4fa0bb0b";
   public static HOLDER_DAI_5 = "0x9bdb521a97e95177bf252c253e256a60c3e14447";
   public static HOLDER_DAI_6 = "0x7344e478574acbe6dac9de1077430139e17eec3d";
 
@@ -48,9 +48,10 @@ export class MaticAddresses {
   public static HOLDER_USDT_1 = "0xf977814e90da44bfa03b6295a0616a897441acec";
   public static HOLDER_USDT_2 = "0xe7804c37c13166ff0b37f5ae0bb07a3aebb6e245";
   public static HOLDER_USDT_3 = "0xfa0b641678f5115ad8a8de5752016bd1359681b9";
-  public static HOLDER_WMATIC = "0x369582d2010b6ed950b571f4101e3bb9b554876f";
+
+  public static HOLDER_WMATIC_3 = "0x369582d2010b6ed950b571f4101e3bb9b554876f";
   public static HOLDER_WMATIC_2 = "0x6e7a5fafcec6bb1e78bae2a1f0b612012bf14827";
-  public static HOLDER_WMATIC_3 = "0xadbf1854e5883eb8aa7baf50705338739e558e5b";
+  public static HOLDER_WMATIC = "0xadbf1854e5883eb8aa7baf50705338739e558e5b";
 
   public static HOLDER_EURS = "0x6de2865067b65d4571c17f6b9eeb8dbdd5e36584";
   public static HOLDER_EURS_2 = "0x1bee4f735062cd00841d6997964f187f5f5f5ac9";
@@ -58,19 +59,22 @@ export class MaticAddresses {
   public static HOLDER_EURS_4 = "0xe65f3930aa2cc8711ef0d8c2244978a7f4a66c6a";
   public static HOLDER_EURS_5 = "0xd8d913aa463fcad08a66e922db515293c3563809";
   public static HOLDER_EURS_6 = "0x53e9e2eedacc5662fc539d7f15bd8e3ac03a6034";
+
   public static HOLDER_BALANCER = "0x4cd80aa0ce4881eb8679eda1f6fbe3d89aec0f7f";
   public static HOLDER_BALANCER_1 = "0x2aea39e27fc87de4a63963687c6e188f062197b4";
   public static HOLDER_BALANCER_2 = "0x75070bade864bf4fa4ccc491cb28f077c4473bff";
   public static HOLDER_BALANCER_3 = "0x428ab2ba90eba0a4be7af34c9ac451ab061ac010";
   public static HOLDER_BALANCER_4 = "0x2fedc4002a2398ac32d9d43a9b92a5cf16a36304";
   public static HOLDER_CRV = "0x06959153b974d0d5fdfd87d561db6d8d4fa0bb0b";
-  public static HOLDER_WBTC = "0xdc9232e2df177d7a12fdff6ecbab114e2231198d";
 
-  public static HOLDER_WETH = "0xded8c5159ca3673f543d0f72043e4c655b35b96a";
+  public static HOLDER_WBTC = "0xf9930a9d65cc57d024cf9149ae67e66c7a77e167";
+  public static HOLDER_WBTC_2 = "0xdc9232e2df177d7a12fdff6ecbab114e2231198d";
+
+  public static HOLDER_WETH_3 = "0xded8c5159ca3673f543d0f72043e4c655b35b96a";
   public static HOLDER_WETH_2 = "0xdc9232e2df177d7a12fdff6ecbab114e2231198d";
-  public static HOLDER_WETH_3 = "0xadbf1854e5883eb8aa7baf50705338739e558e5b";
+  public static HOLDER_WETH = "0xadbf1854e5883eb8aa7baf50705338739e558e5b";
 
-  public static HOLDER_ChainLink = "0x7344e478574acbe6dac9de1077430139e17eec3d";
+  public static HOLDER_CHAIN_LINK = "0x7344e478574acbe6dac9de1077430139e17eec3d";
   public static HOLDER_DefiPulseToken = "0xd1468a5e1ff399d7a4465fbdff3e3ccb013d149f";
   public static HOLDER_AavegotchiGHST = "0xf977814e90da44bfa03b6295a0616a897441acec";
   public static HOLDER_Sushi = "0x0f0c716b007c289c0011e470cc7f14de4fe9fc80";
@@ -80,8 +84,8 @@ export class MaticAddresses {
   public static HOLDER_Sushi_5 = "0x9bdb521a97e95177bf252c253e256a60c3e14447";
   public static HOLDER_Sushi_6 = "0x945bcf562085de2d5875b9e2012ed5fd5cfab927";
 
-  public static HOLDER_jEUR = "0x1cd222bc3dff00a51637438855b1da01cc6383aa";
-  public static HOLDER_jEUR_2 = "0xcded54e63ad80391822d591e0748b8a7dbfd6027";
+  public static HOLDER_JEUR = "0x1cd222bc3dff00a51637438855b1da01cc6383aa";
+  public static HOLDER_JEUR_2 = "0xcded54e63ad80391822d591e0748b8a7dbfd6027";
 
   public static HOLDER_FRAX = "0x0000000002ce79aacd54227d2163ff3791338975";
   public static HOLDER_FRAX_2 = "0xe7ec500e14edbe3ca3358bcde7df145968b2aead";

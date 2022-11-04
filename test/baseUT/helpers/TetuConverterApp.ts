@@ -10,6 +10,7 @@ import {COUNT_BLOCKS_PER_DAY} from "../utils/aprUtils";
 import {ILendingPlatformFabric} from "../fabrics/ILendingPlatformFabric";
 import {ethers} from "ethers";
 import {MaticAddresses} from "../../../scripts/addresses/MaticAddresses";
+import {MocksHelper} from "./MocksHelper";
 
 
 export class TetuConverterApp {
@@ -32,11 +33,12 @@ export class TetuConverterApp {
 
     const tetuLiquidatorAddress = MaticAddresses.TETU_LIQUIDATOR;
     const swapManager = await CoreContractsHelper.createSwapManager(deployer, controller);
+    const keeperCaller = await MocksHelper.createKeeperCaller(deployer);
 
     const keeper = await CoreContractsHelper.createKeeper(
       deployer,
       controller,
-      ethers.Wallet.createRandom().address // gelato OpsReady
+      keeperCaller.address // gelato OpsReady
     );
 
     await controller.initialize(tetuConverter.address,
