@@ -270,7 +270,13 @@ export class DeploySolutionUtils {
     }
 
     // set target health factors
-    await borrowManager.setTargetHealthFactors(targetHealthFactorsAssets, targetHealthFactorsValues);
+    await RunHelper.runAndWait(
+      () =>  borrowManager.setTargetHealthFactors(
+        targetHealthFactorsAssets,
+        targetHealthFactorsValues,
+        {gasLimit: 8_000_000}
+      )
+    );
 
     // save deploy results to file
     await DeploySolutionUtils.writeResultsToFile(
@@ -315,9 +321,10 @@ export class DeploySolutionUtils {
         tetuConverter.address,
         borrowManager.address,
         debtMonitor.address,
-        keeper,
+        keeper.address,
         tetuLiquidator,
-        swapManager.address
+        swapManager.address,
+        {gasLimit: 8_000_000}
       )
     );
 
@@ -438,7 +445,8 @@ export class DeploySolutionUtils {
       () => borrowManager.addAssetPairs(
         platformAdapter,
         assetPairs.leftAssets,
-        assetPairs.rightAssets
+        assetPairs.rightAssets,
+        {gasLimit: 8_000_000}
       )
     );
   }

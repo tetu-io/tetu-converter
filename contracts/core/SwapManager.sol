@@ -11,7 +11,8 @@ import "../interfaces/ISwapConverter.sol";
 import "./AppErrors.sol";
 import "./AppDataTypes.sol";
 
-import "hardhat/console.sol"; // TODO remove
+import "hardhat/console.sol";
+import ".\TetuConverter.sol"; // TODO remove
 
 /// @title Contract to find the best swap and make the swap
 /// @notice Combines Manager and Converter
@@ -55,26 +56,8 @@ contract SwapManager is ISwapManager, ISwapConverter {
     uint maxTargetAmount,
     int apr18
   ) {
-    console.log("getConverter.1, amount=", p_.sourceAmount);
     ITetuLiquidator liquidator = ITetuLiquidator(controller.tetuLiquidator());
-    console.log("getConverter.2", address(liquidator));
     maxTargetAmount = liquidator.getPrice(p_.sourceToken, p_.targetToken, p_.sourceAmount);
-    console.log("getConverter.3", maxTargetAmount);
-
-//    uint minAmountIn = p_.sourceAmount / 1_000_000;
-//    uint priceMinAmountIn = liquidator.getPrice(p_.sourceToken, p_.targetToken, minAmountIn);
-//    uint amountOutMax = priceMinAmountIn * p_.sourceAmount / minAmountIn;
-//    uint priceImpact = amountOutMax == 0 || maxTargetAmount >= amountOutMax
-//      ? 0
-//      : (amountOutMax - maxTargetAmount) * PRICE_IMPACT_NUMERATOR / amountOutMax;
-//    console.log("p_.sourceAmount", p_.sourceAmount);
-//    console.log("maxTargetAmount", maxTargetAmount);
-//    console.log("minAmountIn", minAmountIn);
-//    console.log("priceMinAmountIn", priceMinAmountIn);
-//    console.log("amountOutMax", amountOutMax);
-//    console.log("Predicted price impact", priceImpact);
-//    console.log("PRICE_IMPACT_TOLERANCE", PRICE_IMPACT_TOLERANCE);
-//    console.log("Price impact passed:", priceImpact < PRICE_IMPACT_TOLERANCE);
 
     // how much we will get when sell target token back
     uint returnAmount = liquidator.getPrice(p_.targetToken, p_.sourceToken, maxTargetAmount);
@@ -85,9 +68,7 @@ contract SwapManager is ISwapManager, ISwapConverter {
       ? address(0)
       : address(this);
 
-    console.log('p_.sourceAmount', p_.sourceAmount);
     int loss = int(p_.sourceAmount) - int(returnAmount);
-    console.log('loss'); // TODO remove
     console.logInt(loss);
     apr18 = loss * APR_NUMERATOR / int(p_.sourceAmount);
   }
@@ -108,24 +89,23 @@ contract SwapManager is ISwapManager, ISwapConverter {
     uint targetAmount_,
     address receiver_
   ) override external returns (uint outputAmount) {
-    console.log("swap.1 sourceAmount_=", sourceAmount_);
     uint targetTokenBalanceBefore = IERC20(targetToken_).balanceOf(address(this));
 
-    console.log("swap.2 targetAmount_=", targetAmount_);
     ITetuLiquidator tetuLiquidator = ITetuLiquidator(controller.tetuLiquidator());
     IERC20(sourceToken_).safeApprove(address(tetuLiquidator), sourceAmount_);
 
-    console.log("swap.3");
+    // If price impact is too big, getConverter will return high APR
+    // So TetuConverter will select borrow, not swap.
+    // If the swap was selected anyway, it is wrong case.
+    // liquidate() will revert here and it's ok.
     tetuLiquidator.liquidate(sourceToken_, targetToken_, sourceAmount_, PRICE_IMPACT_TOLERANCE);
     outputAmount = IERC20(targetToken_).balanceOf(address(this)) - targetTokenBalanceBefore;
 
-    console.log("swap.4");
     uint slippage = targetAmount_ == 0 || outputAmount >= targetAmount_
       ? 0
       : (targetAmount_ - outputAmount) * SLIPPAGE_NUMERATOR / targetAmount_;
     require(slippage <= SLIPPAGE_TOLERANCE, AppErrors.SLIPPAGE_TOO_BIG);
 
-    console.log("swap.5", outputAmount);
     IERC20(targetToken_).safeTransfer(receiver_, outputAmount);
   }
 

@@ -40,8 +40,7 @@ describe("TetuConverterTest", () => {
 //region Constants
   const BLOCKS_PER_DAY = 6456;
   const CONVERSION_MODE_AUTO = 0;
-  const CONVERSION_MODE_SWAP = 1;
-  const CONVERSION_MODE_BORROW = 2;
+  const CONVERSION_MODE_BORROW = 1;
 //endregion Constants
 
 //region Global vars for all tests
@@ -787,48 +786,6 @@ describe("TetuConverterTest", () => {
             });
           });
         });
-        describe("Conversion mode is SWAP", () => {
-          describe("Neither borrowing no swap are available", () => {
-            it("should return zero converter", async () => {
-              const r = await makeFindConversionStrategyTest(CONVERSION_MODE_SWAP, false, false);
-              expect(r.results.converter).eq(Misc.ZERO_ADDRESS);
-            });
-          });
-          describe("Only swap is available", () => {
-            it("should return swap-converter", async () => {
-              const r = await makeFindConversionStrategyTest(CONVERSION_MODE_SWAP, false, true);
-              expect(r.results.converter).eq(r.init.core.swapManager.address);
-            });
-          });
-          describe("Only borrowing is available", () => {
-            it("should return zero converter", async () => {
-              const r = await makeFindConversionStrategyTest(CONVERSION_MODE_SWAP, true, false);
-              expect(r.results.converter).eq(Misc.ZERO_ADDRESS);
-            });
-          });
-          describe("Both borrowing and swap are available", () => {
-            describe("APR of borrowing is better", () => {
-              it("should return swap-converter", async () => {
-                const r = await makeFindConversionStrategySwapAndBorrow(
-                  1,
-                  10_000,
-                  CONVERSION_MODE_SWAP
-                );
-                expect(r.results.converter).eq(r.expectedSwap.converter);
-              });
-            });
-            describe("APR of swapping is better", () => {
-              it("should return swap-converter", async () => {
-                const r = await makeFindConversionStrategySwapAndBorrow(
-                  10_000,
-                  0,
-                  CONVERSION_MODE_SWAP
-                );
-                expect(r.results.converter).eq(r.expectedSwap.converter);
-              });
-            });
-          });
-        });
         describe("Conversion mode is BORROW", () => {
           describe("Neither borrowing no swap are available", () => {
             it("should return zero converter", async () => {
@@ -875,38 +832,6 @@ describe("TetuConverterTest", () => {
         });
       });
 
-      describe("Single swap-converter", () => {
-        it("should return expected values", async () => {
-          const period = BLOCKS_PER_DAY * 31;
-          const sourceAmountNum = 100_000;
-          const priceImpact = 1_000; // 1%
-          const r = await makeFindConversionStrategy(
-            sourceAmountNum,
-            period,
-            CONVERSION_MODE_SWAP,
-            undefined, // no lending platforms are available
-            {
-              priceImpact,
-              setupTetuLiquidatorToSwapBorrowToCollateral: true
-            }
-          )
-          const expected = await getExpectedSwapResults(r, sourceAmountNum);
-
-          const sret = [
-            r.results.converter,
-            r.results.maxTargetAmount,
-            r.results.apr18
-          ].join("\n");
-
-          const sexpected = [
-            expected.converter,
-            expected.maxTargetAmount,
-            expected.apr18
-          ].join("\n");
-
-          expect(sret).equal(sexpected);
-        });
-      });
       describe("Single borrow-converter", () => {
         it("should return expected values", async () => {
           const period = BLOCKS_PER_DAY * 31;
@@ -978,19 +903,6 @@ describe("TetuConverterTest", () => {
                 }
               )
             ).revertedWith("TC-29"); // INCORRECT_VALUE
-          });
-        });
-        describe("Conversion mode is SWAP", () => {
-          it("should NOT revert", async () => {
-            const r = await makeFindConversionStrategyTest(
-                CONVERSION_MODE_SWAP,
-                false,
-                false,
-                {
-                  zeroPeriod: true
-                }
-            );
-            expect(r.results.converter).eq(Misc.ZERO_ADDRESS);
           });
         });
       });

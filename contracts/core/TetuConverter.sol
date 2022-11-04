@@ -69,7 +69,7 @@ contract TetuConverter is ITetuConverter, IKeeperCallback {
     int apr18
   ) {
     require(sourceAmount_ > 0, AppErrors.ZERO_AMOUNT);
-    require(periodInBlocks_ > 0 || conversionMode == ConversionMode.SWAP_1, AppErrors.INCORRECT_VALUE);
+    require(periodInBlocks_ > 0, AppErrors.INCORRECT_VALUE);
     return _findConversionStrategy(sourceToken_,
       sourceAmount_,
       targetToken_,
@@ -97,10 +97,7 @@ contract TetuConverter is ITetuConverter, IKeeperCallback {
       periodInBlocks: periodInBlocks_
     });
 
-    if (conversionMode == ITetuConverter.ConversionMode.SWAP_1) {
-      // get swap
-      return _swapManager().getConverter(params);
-    } else if (conversionMode == ITetuConverter.ConversionMode.BORROW_2) {
+    if (conversionMode == ITetuConverter.ConversionMode.BORROW_1) {
       // find best lending platform
       return _borrowManager().findConverter(params);
     } else {

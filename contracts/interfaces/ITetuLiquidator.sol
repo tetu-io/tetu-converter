@@ -34,6 +34,4 @@ interface ITetuLiquidator {
     uint amount,
     uint priceImpactTolerance
   ) external;
-
-
 }

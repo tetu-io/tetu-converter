@@ -39,9 +39,9 @@ describe("TetuLiquidatorSwapTest", () => {
       const tetuLiquidatorAddress = "0xC737eaB847Ae6A92028862fE38b828db41314772";
       const sourceAsset = MaticAddresses.DAI;
       const sourceAssetHolder = MaticAddresses.HOLDER_DAI;
-      const targetAsset = MaticAddresses.USDT;
+      const targetAsset = MaticAddresses.USDC;
       const user = deployer;
-      const sourceAmount = getBigNumberFrom(1_000, 18); // 1000 DAI, decimals 18
+      const sourceAmount = ethers.utils.parseUnits("1000", 18); // 1000 DAI, decimals 18
 
       // get amount on user balance from the holder
       await IERC20__factory.connect(
@@ -59,7 +59,11 @@ describe("TetuLiquidatorSwapTest", () => {
       const price = await tetuLiquidator.getPrice(sourceAsset, targetAsset, sourceAmount);
       console.log(price); // no problems here
 
+      const route = await tetuLiquidator.buildRoute(sourceAsset, targetAsset);
+      console.log(route);
+
       // (!) we have 'UniswapV2: INSUFFICIENT_INPUT_AMOUNT'" here
+      await tetuLiquidator.liquidateWithRoute(route.route, sourceAmount, 100_000 * 2 / 100);
       await tetuLiquidator.liquidate(sourceAsset, targetAsset, sourceAmount, 100_000 * 2 / 100);
     });
   });

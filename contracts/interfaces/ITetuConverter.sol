@@ -8,8 +8,8 @@ interface ITetuConverter {
   /// @notice Allow to select conversion kind (swap, borrowing) automatically or manually
   enum ConversionMode {
     AUTO_0,
-    SWAP_1,
-    BORROW_2
+    // SWAP_1, // Use TetuLiquidator directly to make pure swapping
+    BORROW_1
   }
 
   /// @notice Find best conversion strategy (swap or borrow) and provide "cost of money" as interest for the period
