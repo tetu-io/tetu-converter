@@ -133,6 +133,7 @@ function getHeadersLine(): string[] {
     "platformTitle",
     "period.blocks",
     "error",
+    "P.apr18",
     "apr18",
 
     "Collateral",
@@ -233,7 +234,7 @@ export function appendBorrowingTestResultsToFile(path: string, data: IBorrowingT
 
   for (const row of data) {
     const firstPoint: IPointResults | undefined = row.results?.points ? row.results?.points[0] : undefined;
-    const apr18 = row.planFullPeriod.amountCollateralInBorrowAsset36
+    const plannedApr18 = row.planFullPeriod.amountCollateralInBorrowAsset36
       ? getExpectedApr18(
         row.planFullPeriod.borrowCost36,
         row.planFullPeriod.supplyIncomeInBorrowAsset36,
@@ -247,7 +248,8 @@ export function appendBorrowingTestResultsToFile(path: string, data: IBorrowingT
       row.platformTitle,
       row.countBlocks,
       escapeCsvText(row.error),
-      apr18,
+      plannedApr18,
+      row.results?.resultAmounts?.apr18,
 
       row.assetCollateral.title,
       row.assetBorrow.title,
@@ -380,12 +382,13 @@ export function appendSwapTestResultsToFile(path: string, data: ISwapTestResults
       "",
       escapeCsvText(row.error),
       row.strategyToConvert.apr18,
+      row.results?.apr18,
 
       row.assetCollateral.title,
       row.assetBorrow.title,
 // amounts
       row.results?.collateralAmount || row.collateralAmount,
-      row.results?.borrowAmount,
+      row.results?.borrowedAmount,
       "", // row.results?.init.collateralAmountBT18,
 // rewards
       undefined, // row.planFullPeriod.rewardsAmountBt36,
@@ -395,7 +398,7 @@ export function appendSwapTestResultsToFile(path: string, data: ISwapTestResults
       undefined, undefined, undefined,
 // borrow apr
       undefined, // row.results?.predicted.aprBt36.borrow,
-      row.results?.aprBt36, // row.results?.resultsBlock.aprBt36.borrow,
+      undefined, // row.results?.resultsBlock.aprBt36.borrow,
       undefined,
 // costs
       undefined, undefined, undefined, undefined,
@@ -414,7 +417,6 @@ export function appendSwapTestResultsToFile(path: string, data: ISwapTestResults
       row.assetCollateral.asset, row.assetBorrow.asset,
 // plan single block
       undefined, undefined, undefined, undefined, undefined,
-      row.results?.maxTargetAmount,
     ];
 
     lines.push(line.map(x => Aave3Helper.toString(x)).join(","));

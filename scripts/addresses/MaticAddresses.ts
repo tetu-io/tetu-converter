@@ -36,7 +36,7 @@ export class MaticAddresses {
 //endregion Assets
 
 //region Asset biggest holders
-  public static HOLDER_DAI = "0xc5ed2333f8a2c351fca35e5ebadb2a82f5d254c3";
+  public static HOLDER_DAI = "0x4a35582a710e1f4b2030a3f826da20bfb6703c09";
   public static HOLDER_DAI_2 = "0xf04adbf75cdfc5ed26eea4bbbb991db002036bdd";
   public static HOLDER_DAI_3 = "0x075e72a5edf65f0a5f44699c7654c1a76941ddc8";
   public static HOLDER_DAI_4 = "0x06959153b974d0d5fdfd87d561db6d8d4fa0bb0b";

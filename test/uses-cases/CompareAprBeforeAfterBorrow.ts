@@ -60,18 +60,18 @@ describe("CompareAprBeforeAfterBorrow", () => {
   });
 //endregion before, after
 
-  describe("DAI-18 => WETH-18", () => {
+  describe("DAI-18 => USDC-6", () => {
 //region Constants
     const ASSET_COLLATERAL = MaticAddresses.DAI;
     const HOLDER_COLLATERAL = MaticAddresses.HOLDER_DAI;
-    const ASSET_BORROW = MaticAddresses.WETH;
-    const HOLDER_BORROW = MaticAddresses.HOLDER_WETH;
-    const AMOUNT_COLLATERAL = 200_000;
-    const INITIAL_LIQUIDITY_COLLATERAL = 1_000_000;
-    const INITIAL_LIQUIDITY_BORROW = 100;
+    const ASSET_BORROW = MaticAddresses.USDC;
+    const HOLDER_BORROW = MaticAddresses.HOLDER_USDC;
+    const AMOUNT_COLLATERAL = 5_000;
+    const INITIAL_LIQUIDITY_COLLATERAL = 10_000;
+    const INITIAL_LIQUIDITY_BORROW = 700;
     const HEALTH_FACTOR2 = 200;
     const COUNT_BLOCKS = 1;
-    const AMOUNT_TO_BORROW = 40;
+    const AMOUNT_TO_BORROW = 250;
 //endregion Constants
 
     describe("AAVE3", () => {
@@ -107,6 +107,7 @@ describe("CompareAprBeforeAfterBorrow", () => {
           ret.details.predictedSupplyIncomeRays.toString(), ret.details.predictedBorrowIncomeRays.toString(),
           ret.results.resultAmounts.supplyIncomeInBorrowTokens36.toString(),
           ret.results.resultAmounts.costBorrow36.toString(),
+          ret.results.resultAmounts.apr18.toString()
         ].join("\n");
 
         const rays = getBigNumberFrom(1, 36);
@@ -116,7 +117,8 @@ describe("CompareAprBeforeAfterBorrow", () => {
           ret.details.supplyAprBaseApprox.div(rays).toString(), ret.details.borrowAprBaseApprox.div(rays).toString(),
           ret.results.predictedRates.supplyRate.toString(), ret.results.predictedRates.borrowRate.toString(),
           ret.results.predictedAmounts.supplyIncomeInBorrowTokens36.toString(),
-          ret.results.predictedAmounts.costBorrow36.toString()
+          ret.results.predictedAmounts.costBorrow36.toString(),
+          ret.results.predictedAmounts.apr18.toString()
         ].join("\n");
 
         expect(sret).equals(sexpected);
@@ -201,7 +203,7 @@ describe("CompareAprBeforeAfterBorrow", () => {
 
         const sret = [
           areAlmostEqual(ret.details.totalCollateralETH, ret.details.supplyIncomeBaseExactMul18, 6),
-          areAlmostEqual(ret.details.totalDebtETH, ret.details.borrowIncomeBaseExactMul18, 8),
+          areAlmostEqual(ret.details.totalDebtETH, ret.details.borrowCostBaseExactMul18, 8),
           ret.details.supplyIncomeBaseExactMul18.toString(),
           ret.details.keyValues.liquidity.next.liquidityIndex,
 
@@ -514,7 +516,7 @@ describe("CompareAprBeforeAfterBorrow", () => {
 
         const sret = [
           areAlmostEqual(ret.details.totalCollateralETH, ret.details.supplyIncomeBaseExactMul18, 3),
-          areAlmostEqual(ret.details.totalDebtETH, ret.details.borrowIncomeBaseExactMul18, 8),
+          areAlmostEqual(ret.details.totalDebtETH, ret.details.borrowCostBaseExactMul18, 8),
           ret.details.supplyIncomeBaseExactMul18.toString(),
           ret.details.keyValues.liquidity.next.liquidityIndex,
 

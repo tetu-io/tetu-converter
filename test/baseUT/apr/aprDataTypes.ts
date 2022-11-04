@@ -114,9 +114,8 @@ export interface IAssetInfo {
 
 export interface ISwapResults {
   collateralAmount: BigNumber;
-  maxTargetAmount: BigNumber;
-  borrowAmount: BigNumber;
-  aprBt36: BigNumber;
+  borrowedAmount: BigNumber;
+  apr18: BigNumber;
 }
 
 export interface IStrategyToConvert {

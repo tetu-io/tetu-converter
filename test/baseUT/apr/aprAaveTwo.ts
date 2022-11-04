@@ -102,10 +102,10 @@ interface IAprAaveTwoResults {
 
   /** Supply APR in terms of base currency calculated using predicted supply rate */
   supplyIncomeBaseExactMul18: BigNumber;
-  /** Supply APR in terms of base currency calculated using exact supply rate taken from next step */
+  /** Supply income in terms of base currency calculated using exact supply rate taken from next step */
   supplyIncomeBaseApprox: ICostValue;
-  /** Borrow APR in terms of base currency calculated using predicted borrow rate */
-  borrowIncomeBaseExactMul18: BigNumber;
+  /** Borrow cost in terms of base currency calculated using predicted borrow rate */
+  borrowCostBaseExactMul18: BigNumber;
   /** borrow APR in terms of base currency calculated using exact borrow rate taken from next step */
   borrowCostBaseApprox: ICostValue;
   /** total increment of collateral amount from NEXT to LAST in terms of base currency */
@@ -556,7 +556,7 @@ export class AprAaveTwo {
         before,
         borrowCostBaseApprox,
         last,
-        borrowIncomeBaseExactMul18,
+        borrowCostBaseExactMul18: borrowIncomeBaseExactMul18,
         next,
         supplyIncomeBaseApprox,
         keyValues,

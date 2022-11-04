@@ -166,10 +166,57 @@ export class CompareAprUsesCase {
   }
 //endregion Utils
 
-//region Swap
+//region
+  static async makeSwapThereAndBack(
+    swapManager: SwapManager,
+    collateralAsset: string,
+    collateralHolders: string[],
+    collateralAmount: BigNumber,
+    borrowAsset: string,
+    strategyToConvert: IStrategyToConvert,
+  ) : Promise<ISwapResults> {
+    const receiverAddress = ethers.Wallet.createRandom().address;
+    const receiver = await DeployerUtils.startImpersonate(receiverAddress);
+
+    const collateralToken = IERC20Extended__factory.connect(collateralAsset, receiver);
+    const borrowToken = IERC20Extended__factory.connect(borrowAsset, receiver);
+    await BalanceUtils.getRequiredAmountFromHolders(collateralAmount, collateralToken, collateralHolders, swapManager.address);
+
+    const collateralBalanceBeforeSwap = await collateralToken.balanceOf(receiverAddress);
+    await swapManager.swap(collateralAsset, collateralAmount, borrowAsset, strategyToConvert.maxTargetAmount, receiverAddress);
+    const borrowedAmount = await borrowToken.balanceOf(receiverAddress);
+    await borrowToken.transfer(swapManager.address, borrowedAmount);
+    const planReverseSwap = await swapManager.getConverter({
+      sourceAmount: borrowedAmount,
+      sourceToken: borrowAsset,
+      targetToken: collateralAsset,
+      periodInBlocks: 0
+    })
+    await swapManager.swap(borrowAsset, borrowedAmount, collateralAsset, planReverseSwap.maxTargetAmount, receiverAddress);
+    const collateralBalanceAfterSwap = await collateralToken.balanceOf(receiverAddress);
+
+    const apr18 = collateralBalanceAfterSwap
+      .sub(collateralBalanceBeforeSwap)
+      .mul(Misc.WEI)
+      .div(collateralAmount);
+
+    console.log("makeSwapThereAndBack.collateralAmount", collateralAmount);
+    console.log("makeSwapThereAndBack.collateralBalanceBeforeSwap", collateralBalanceBeforeSwap);
+    console.log("makeSwapThereAndBack.borrowedAmount", borrowedAmount);
+    console.log("makeSwapThereAndBack.collateralBalanceAfterSwap", collateralBalanceAfterSwap);
+    console.log("makeSwapThereAndBack.apr18", apr18);
+
+    return {
+      apr18,
+      collateralAmount,
+
+      // actually received amount
+      borrowedAmount,
+    }
+  }
+
   static async makeSingleSwapTest(
     swapManager: SwapManager,
-    title: string,
     collateralAsset: string,
     collateralHolders: string[],
     collateralAmount: BigNumber,
@@ -179,39 +226,18 @@ export class CompareAprUsesCase {
     results?: ISwapResults
     error?: string
   } > {
-    const receiver = ethers.Wallet.createRandom().address;
-
     try {
-      console.log("START swap", title);
-
-      await BalanceUtils.getRequiredAmountFromHolders(
-        collateralAmount,
-        IERC20Extended__factory.connect(collateralAsset, await DeployerUtils.startImpersonate(receiver)),
-        collateralHolders,
-        swapManager.address
-      );
-
-      await swapManager.swap(
+      const swapResults = await this.makeSwapThereAndBack(
+        swapManager,
         collateralAsset,
+        collateralHolders,
         collateralAmount,
         borrowAsset,
-        strategyToConvert.maxTargetAmount,
-        receiver
-      );
+        strategyToConvert
+      )
+
       return {
-        results: {
-          aprBt36: strategyToConvert.apr18,
-          collateralAmount,
-
-          // actually received amount
-          borrowAmount: await IERC20Extended__factory.connect(
-            borrowAsset,
-            await DeployerUtils.startImpersonate(receiver)
-          ).balanceOf(receiver),
-
-          // initially planned amount to receive
-          maxTargetAmount: strategyToConvert.maxTargetAmount
-        }
+        results: swapResults
       }
       // tslint:disable-next-line:no-any
     } catch (e: any) {
@@ -227,7 +253,7 @@ export class CompareAprUsesCase {
         }
       }
     } finally {
-      console.log("FINISH swap", title);
+      console.log("FINISH swap");
     }
 
     return {
@@ -396,7 +422,6 @@ export class CompareAprUsesCase {
         } else {
           const res = await this.makeSingleSwapTest(
             swapManager,
-            platformTitle,
             task.collateralAsset.asset,
             collateralHolders,
             task.collateralAmount,

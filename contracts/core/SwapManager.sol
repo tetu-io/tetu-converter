@@ -12,7 +12,6 @@ import "./AppErrors.sol";
 import "./AppDataTypes.sol";
 
 import "hardhat/console.sol";
-import ".\TetuConverter.sol"; // TODO remove
 
 /// @title Contract to find the best swap and make the swap
 /// @notice Combines Manager and Converter
@@ -57,10 +56,20 @@ contract SwapManager is ISwapManager, ISwapConverter {
     int apr18
   ) {
     ITetuLiquidator liquidator = ITetuLiquidator(controller.tetuLiquidator());
+//    (ITetuLiquidator.PoolData[] memory route,) = liquidator.buildRoute(p_.sourceToken, p_.targetToken);
     maxTargetAmount = liquidator.getPrice(p_.sourceToken, p_.targetToken, p_.sourceAmount);
+    console.log("getConverter.liquidator", address(liquidator));
+    console.log("getConverter.p_.sourceAmount", p_.sourceAmount);
+    console.log("getConverter.maxTargetAmount", maxTargetAmount);
+//    console.log("getConverter.pool", route[0].pool);
+//    console.log("getConverter.swapper", route[0].swapper);
+//    console.log("getConverter.tokenIn", route[0].tokenIn);
+//    console.log("getConverter.tokenOut", route[0].tokenOut);
+//    console.log("getConverter.length", route.length);
 
     // how much we will get when sell target token back
     uint returnAmount = liquidator.getPrice(p_.targetToken, p_.sourceToken, maxTargetAmount);
+    console.log("getConverter.returnAmount", returnAmount);
 
     // getPrice returns 0 if conversion way is not found
     // in this case, we should return converter = 0 in same way as ITetuConverter does
@@ -69,6 +78,7 @@ contract SwapManager is ISwapManager, ISwapConverter {
       : address(this);
 
     int loss = int(p_.sourceAmount) - int(returnAmount);
+    console.log("loss"); // TODO remove
     console.logInt(loss);
     apr18 = loss * APR_NUMERATOR / int(p_.sourceAmount);
   }
