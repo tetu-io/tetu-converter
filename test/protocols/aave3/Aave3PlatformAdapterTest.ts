@@ -21,6 +21,7 @@ import {IPlatformActor, PredictBrUsesCase} from "../../baseUT/uses-cases/Predict
 import {AprAave3, getAave3StateInfo} from "../../baseUT/apr/aprAave3";
 import {Misc} from "../../../scripts/utils/Misc";
 import {convertUnits} from "../../baseUT/apr/aprUtils";
+import {Aave3Utils} from "../../baseUT/protocols/aave3/Aave3Utils";
 
 describe("Aave3PlatformAdapterTest", () => {
 //region Global vars for all tests
@@ -227,37 +228,8 @@ describe("Aave3PlatformAdapterTest", () => {
         areAlmostEqual(ret.amountCollateralInBorrowAsset36, amountCollateralInBorrowAsset36)
       ].map(x => BalanceUtils.toString(x)) .join("\n");
 
-      let expectedMaxAmountToBorrow = BigNumber.from(borrowAssetData.liquidity.totalAToken)
-        .sub(borrowAssetData.liquidity.totalVariableDebt)
-        .sub(borrowAssetData.liquidity.totalStableDebt);
-
-      if (!collateralAssetData.data.debtCeiling.eq(0)) {
-        // isolation mode
-        const expectedMaxAmountToBorrowDebtCeiling =
-          collateralAssetData.data.debtCeiling
-            .sub(collateralAssetData.data.isolationModeTotalDebt)
-            .mul(
-              getBigNumberFrom(1, borrowAssetData.data.decimals - 2)
-            );
-        if (expectedMaxAmountToBorrow.gt(expectedMaxAmountToBorrowDebtCeiling)) {
-          expectedMaxAmountToBorrow = expectedMaxAmountToBorrowDebtCeiling;
-        }
-      }
-
-      let expectedMaxAmountToSupply = BigNumber.from(2).pow(256).sub(1); // == type(uint).max
-      if (! collateralAssetData.data.supplyCap.eq(0)) {
-        // see sources of AAVE3\ValidationLogic.sol\validateSupply
-        const totalSupply =
-          (await IAaveToken__factory.connect(collateralAssetData.aTokenAddress, deployer).scaledTotalSupply())
-            .mul(collateralAssetData.data.liquidityIndex)
-            .add(getBigNumberFrom(5, 26)) // HALF_RAY = 0.5e27
-            .div(getBigNumberFrom(1, 27)); // RAY = 1e27
-        const supplyCap = collateralAssetData.data.supplyCap
-          .mul(getBigNumberFrom(1, collateralAssetData.data.decimals));
-        expectedMaxAmountToSupply = supplyCap.gt(totalSupply)
-          ? supplyCap.sub(totalSupply)
-          : BigNumber.from(0);
-      }
+      const expectedMaxAmountToBorrow = await Aave3Utils.getMaxAmountToBorrow(borrowAssetData, collateralAssetData);
+      const expectedMaxAmountToSupply = await Aave3Utils.getMaxAmountToSupply(deployer, collateralAssetData);
 
       const sexpected = [
         predictedBorrowCostInBorrowAssetRay,

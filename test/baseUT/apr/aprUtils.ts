@@ -128,6 +128,7 @@ function getHeadersLine(): string[] {
     "platformTitle",
     "period.blocks",
     "error",
+    "apr18",
 
     "Collateral",
     "Borrow",
@@ -227,10 +228,21 @@ export function appendBorrowingTestResultsToFile(path: string, data: IBorrowingT
 
   for (const row of data) {
     const firstPoint: IPointResults | undefined = row.results?.points ? row.results?.points[0] : undefined;
+    const apr18 = row.planFullPeriod.amountCollateralInBorrowAsset36
+      ? getExpectedApr18(
+        row.planFullPeriod.borrowCost36,
+        row.planFullPeriod.supplyIncomeInBorrowAsset36,
+        row.planFullPeriod.rewardsAmountInBorrowAsset36,
+        row.planFullPeriod.amountCollateralInBorrowAsset36,
+        Misc.WEI // TODO: take rewards factor from controller
+      )
+      : undefined;
+
     const line = [
       row.platformTitle,
       row.countBlocks,
       escapeCsvText(row.error),
+      apr18,
 
       row.assetCollateral.title,
       row.assetBorrow.title,
@@ -362,6 +374,7 @@ export function appendSwapTestResultsToFile(path: string, data: ISwapTestResults
       "SWAP",
       "",
       escapeCsvText(row.error),
+      row.strategyToConvert.apr18,
 
       row.assetCollateral.title,
       row.assetBorrow.title,
@@ -384,7 +397,8 @@ export function appendSwapTestResultsToFile(path: string, data: ISwapTestResults
 // prices
       undefined, undefined,
 // plan1 - apr
-      undefined, undefined,
+      undefined,
+      undefined,
 // supply rates
       undefined, undefined,
 // borrow rates
