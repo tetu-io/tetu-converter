@@ -78,11 +78,6 @@ contract PoolAdapterStub is IPoolAdapter {
     });
   }
 
-  function syncBalance(bool beforeBorrow, bool) external override {
-    console.log("syncBalance beforeBorrow=%d", beforeBorrow ? 1 : 0);
-    _syncedHideWarning = beforeBorrow;
-  }
-
   function updateStatus() external override {
     // nothing to do
   }

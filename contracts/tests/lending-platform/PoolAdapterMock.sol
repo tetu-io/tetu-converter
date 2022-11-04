@@ -13,8 +13,10 @@ import "./PoolStub.sol";
 import "../../interfaces/IController.sol";
 import "../../core/AppErrors.sol";
 import "../../core/AppUtils.sol";
+import "../../openzeppelin/SafeERC20.sol";
 
 contract PoolAdapterMock is IPoolAdapter {
+  using SafeERC20 for IERC20;
   using AppUtils for uint;
 
   address public controller;
@@ -38,9 +40,6 @@ contract PoolAdapterMock is IPoolAdapter {
 
   address public originConverter;
 
-  /// @notice Last synced amount of given token on the balance of this contract
-  mapping(address => uint) public reserveBalances;
-
   struct RewardsForUser {
     address rewardToken;
     uint rewardAmount;
@@ -48,20 +47,11 @@ contract PoolAdapterMock is IPoolAdapter {
   mapping(address => RewardsForUser) public rewardsForUsers;
 
   ///////////////////////////////////////////////////////
-  //  Check sequence of calls: syncBalance, borrow
-  enum BorrowLogStates {
-    DISABLED_0,
-    ENABLED_1,
-    SYNC_BALANCE_TRUE_TRUE_2,
-    FINAL_BORROW_3
-  }
   struct BorrowParamsLog {
     uint collateralAmount;
     uint borrowAmount;
     address receiver;
-    uint collateralAmountTransferredToPoolAdapter;
   }
-  BorrowLogStates public borrowLog;
   BorrowParamsLog public borrowParamsLog;
 
 
@@ -82,14 +72,6 @@ contract PoolAdapterMock is IPoolAdapter {
   function changeBorrowRate(uint amountBorrowAsset_) external {
     console.log("PoolAdapterMock.changeBorrowRate", address(this), borrowRate, amountBorrowAsset_);
     borrowRate = amountBorrowAsset_;
-  }
-
-  /// @notice Start to record sequence of calls: syncBalance, borrow
-  function enableBorrowLog(bool setEnabled_) external {
-    borrowLog = setEnabled_
-      ? BorrowLogStates.DISABLED_0
-      : BorrowLogStates.ENABLED_1;
-    delete borrowParamsLog;
   }
 
   function setRewards(address rewardToken_, uint amount_) external {
@@ -200,25 +182,6 @@ contract PoolAdapterMock is IPoolAdapter {
     return AppDataTypes.ConversionKind.BORROW_2;
   }
 
-  function syncBalance(bool beforeBorrow, bool updateStatus_) external override {
-    console.log("syncBalance beforeBorrow=%d", beforeBorrow ? 1 : 0);
-    uint collateralBalance = IERC20(_collateralAsset).balanceOf(address(this));
-    uint borrowBalance = IERC20(_borrowAsset).balanceOf(address(this));
-    console.log("Pool adapter balances: collateral=%d, borrow=%d", collateralBalance, borrowBalance);
-
-    reserveBalances[_collateralAsset] = collateralBalance;
-    if (!beforeBorrow) {
-      reserveBalances[_borrowAsset] = borrowBalance;
-    }
-
-    // ensure, that syncBalance(true, true) is called before the borrow
-    if (borrowLog == BorrowLogStates.DISABLED_0) {
-      if (beforeBorrow && updateStatus_) {
-        borrowLog = BorrowLogStates.SYNC_BALANCE_TRUE_TRUE_2;
-      }
-    }
-  }
-
   function updateStatus() external override {
     //_accumulateDebt(_getAmountToRepay() - _borrowedAmounts);
   }
@@ -232,26 +195,13 @@ contract PoolAdapterMock is IPoolAdapter {
     uint borrowAmount_,
     address receiver_
   ) external override returns (uint) {
-    // ensure, that borrow() is called after syncBalance(true, true) and after transferring given amount to the balance
-    if (borrowLog == BorrowLogStates.SYNC_BALANCE_TRUE_TRUE_2) {
-      uint collateralAmountTransferredToPoolAdapter =
-        IERC20(_collateralAsset).balanceOf(address(this)) - reserveBalances[_collateralAsset];
-      if (collateralAmount_ == collateralAmountTransferredToPoolAdapter) {
-        borrowLog = BorrowLogStates.FINAL_BORROW_3;
-      }
-      borrowParamsLog = BorrowParamsLog({
-        collateralAmount: collateralAmount_,
-        borrowAmount: borrowAmount_,
-        receiver: receiver_,
-        collateralAmountTransferredToPoolAdapter: collateralAmountTransferredToPoolAdapter
-      });
-    }
+    borrowParamsLog = BorrowParamsLog({
+      collateralAmount: collateralAmount_,
+      borrowAmount: borrowAmount_,
+      receiver: receiver_
+    });
 
-    // ensure we have received expected collateral amount
-    require(
-      collateralAmount_ >= IERC20(_collateralAsset).balanceOf(address(this)) - reserveBalances[_collateralAsset],
-      AppErrors.WRONG_COLLATERAL_BALANCE
-    );
+    IERC20(_collateralAsset).safeTransferFrom(msg.sender, address(this), collateralAmount_);
 
     // send the collateral to the pool
     IERC20(_collateralAsset).transfer(_pool, collateralAmount_);
@@ -337,20 +287,17 @@ contract PoolAdapterMock is IPoolAdapter {
     require(_borrowedAmounts >= amountToRepay_, "try to repay too much");
     console.log("_borrowedAmounts", _borrowedAmounts);
 
-    // ensure that we have received enough money on our balance just before repay was called
-    uint borrowAmountReceived = IERC20(_borrowAsset).balanceOf(address(this)) - reserveBalances[_borrowAsset];
-    require(borrowAmountReceived == amountToRepay_, "not enough money received");
+    IERC20(_borrowAsset).safeTransferFrom(msg.sender, address(this), amountToRepay_);
 
     // transfer borrow amount back to the pool
     IERC20(_borrowAsset).transfer(_pool, amountToRepay_);
 
     //return collateral
     console.log("_borrowedAmounts %s", _borrowedAmounts);
-    console.log("amountReceivedBT %s", borrowAmountReceived);
     uint collateralBalance = _cTokenMock.balanceOf(address(this));
-    uint collateralToReturn = _borrowedAmounts == borrowAmountReceived
+    uint collateralToReturn = _borrowedAmounts == amountToRepay_
       ? collateralBalance
-      : collateralBalance * borrowAmountReceived / _borrowedAmounts;
+      : collateralBalance * amountToRepay_ / _borrowedAmounts;
 
     console.log("collateralBalance %d", collateralBalance);
     console.log("collateralToReturn %d", collateralToReturn);
@@ -362,7 +309,7 @@ contract PoolAdapterMock is IPoolAdapter {
     thePool.transferToReceiver(_collateralAsset, collateralToReturn, receiver_);
 
     // update status
-    _borrowedAmounts -= borrowAmountReceived;
+    _borrowedAmounts -= amountToRepay_;
 
     if (closePosition_) {
       IDebtMonitor dm = IDebtMonitor(IController(controller).debtMonitor());
@@ -385,32 +332,18 @@ contract PoolAdapterMock is IPoolAdapter {
     require(isCollateral_ || _borrowedAmounts >= amount_, "try to repay too much");
 
     if (isCollateral_) {
-      // ensure that we have received enough money on our balance just before repay was called
-      uint collateralAssetBalance = IERC20(_collateralAsset).balanceOf(address(this));
-      require(
-        collateralAssetBalance == amount_,
-        AppErrors.WRONG_AMOUNT_RECEIVED // same error as in the real pool adapters
-      );
-
-      // transfer additional collateral amount to the pool
+      IERC20(_collateralAsset).safeTransferFrom(msg.sender, address(this), amount_);
       IERC20(_collateralAsset).transfer(_pool, amount_);
       // mint ctokens and keep them on our balance
       uint amountCTokens = amount_; //TODO: exchange rate 1:1, it's not always true
       _cTokenMock.mint(address(this), amountCTokens);
       console.log("mint ctokens %s amount=%d to=%s", address(_cTokenMock), amountCTokens, address(this));
     } else {
-      // ensure that we have received enough money on our balance just before repay was called
-      uint borrowAssetBalance = IERC20(_borrowAsset).balanceOf(address(this));
-      require(
-        borrowAssetBalance == amount_,
-        AppErrors.WRONG_AMOUNT_RECEIVED // same error as in the real pool adapters
-      );
-
-      // transfer borrow amount back to the pool
+      IERC20(_borrowAsset).safeTransferFrom(msg.sender, address(this), amount_);
       IERC20(_borrowAsset).transfer(_pool, amount_);
 
       // update status
-      _borrowedAmounts -= borrowAssetBalance;
+      _borrowedAmounts -= amount_;
     }
 
     (,,uint healthFactor18,) = _getStatus();

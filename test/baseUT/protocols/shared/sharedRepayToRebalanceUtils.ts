@@ -10,6 +10,7 @@ import {
 import {DeployerUtils} from "../../../../scripts/utils/DeployerUtils";
 import {TokenDataTypes} from "../../types/TokenDataTypes";
 import {getBigNumberFrom} from "../../../../scripts/utils/NumberUtils";
+import {transferAndApprove} from "../../utils/transferUtils";
 
 
 export class SharedRepayToRebalanceUtils {
@@ -71,28 +72,29 @@ export class SharedRepayToRebalanceUtils {
     }
   }
 
-  static async transferAmountToRepayToUserContract(
+  static async approveAmountToRepayToUserContract(
     poolAdapterAddress: string,
     collateralAsset: string,
     borrowAsset: string,
     amountsToRepay: IAmountToRepay,
-    userContractAddress: string
+    userContractAddress: string,
+    tetuConverter: string
   ) {
     if (amountsToRepay.useCollateral) {
-      await IERC20__factory.connect(
+      await transferAndApprove(
         collateralAsset,
-        await DeployerUtils.startImpersonate(userContractAddress)
-      ).transfer(
-        poolAdapterAddress,
-        amountsToRepay.amountCollateralAsset
+        userContractAddress,
+        tetuConverter,
+        amountsToRepay.amountCollateralAsset,
+        poolAdapterAddress
       );
     } else {
-      await IERC20__factory.connect(
+      await transferAndApprove(
         borrowAsset,
-        await DeployerUtils.startImpersonate(userContractAddress)
-      ).transfer(
-        poolAdapterAddress,
-        amountsToRepay.amountBorrowAsset
+        userContractAddress,
+        tetuConverter,
+        amountsToRepay.amountBorrowAsset,
+        poolAdapterAddress
       );
     }
   }

@@ -182,9 +182,9 @@ contract TetuConverter is ITetuConverter, IKeeperCallback {
         );
       }
 
-      // transfer the collateral from the balance of TetuConverter to the pool adapter;
-      IPoolAdapter(poolAdapter).syncBalance(true, true);
-      IERC20(collateralAsset_).safeTransfer(poolAdapter, collateralAmount_);
+      IERC20(collateralAsset_).safeApprove(poolAdapter, 0);
+      IERC20(collateralAsset_).safeApprove(poolAdapter, collateralAmount_);
+
       // borrow target-amount and transfer borrowed amount to the receiver
       return IPoolAdapter(poolAdapter).borrow(collateralAmount_, amountToBorrow_, receiver_);
 
@@ -242,7 +242,7 @@ contract TetuConverter is ITetuConverter, IKeeperCallback {
         break;
       }
       IPoolAdapter pa = IPoolAdapter(poolAdapters[i]);
-      pa.syncBalance(false, true);
+      pa.updateStatus();
 
       (,uint totalDebtForPoolAdapter,,) = pa.getStatus();
       uint amountToPayToPoolAdapter = amountToPay >= totalDebtForPoolAdapter
@@ -251,7 +251,8 @@ contract TetuConverter is ITetuConverter, IKeeperCallback {
       console.log("TetuConverter.repay.amountToPayToPoolAdapter", i, amountToPayToPoolAdapter);
 
       // send amount to pool adapter
-      IERC20(borrowAsset_).safeTransfer(address(pa), amountToPayToPoolAdapter);
+      IERC20(borrowAsset_).safeApprove(address(pa), 0);
+      IERC20(borrowAsset_).safeApprove(address(pa), amountToPayToPoolAdapter);
 
       // make repayment
       collateralAmountOut += pa.repay(
@@ -333,22 +334,22 @@ contract TetuConverter is ITetuConverter, IKeeperCallback {
     );
 
     // re-send amount-to-repay to the pool adapter and make rebalancing
-    pa.syncBalance(false, true);
-
     if (isCollateral) {
       // the borrower has sent us the amount of collateral asset
       require(
         IERC20(collateralAsset).balanceOf(address(this)) - balanceCollateralAsset == requiredAmountCollateralAsset_,
         AppErrors.WRONG_AMOUNT_RECEIVED
       );
-      IERC20(collateralAsset).safeTransfer(poolAdapter_, requiredAmountCollateralAsset_);
+      IERC20(collateralAsset).safeApprove(poolAdapter_, 0);
+      IERC20(collateralAsset).safeApprove(poolAdapter_, requiredAmountCollateralAsset_);
     } else {
       // the borrower has sent us the amount of borrow asset
       require(
         IERC20(borrowAsset).balanceOf(address(this)) - balanceBorrowedAsset == requiredAmountBorrowAsset_,
         AppErrors.WRONG_AMOUNT_RECEIVED
       );
-      IERC20(borrowAsset).safeTransfer(poolAdapter_, requiredAmountBorrowAsset_);
+      IERC20(borrowAsset).safeApprove(poolAdapter_, 0);
+      IERC20(borrowAsset).safeApprove(poolAdapter_, requiredAmountBorrowAsset_);
     }
 
     uint resultHealthFactor18 = pa.repayToRebalance(

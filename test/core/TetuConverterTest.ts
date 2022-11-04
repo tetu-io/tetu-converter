@@ -1,7 +1,7 @@
 import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import {ethers} from "hardhat";
 import {TimeUtils} from "../../scripts/utils/TimeUtils";
-import {expect, use} from "chai";
+import {expect} from "chai";
 import {getBigNumberFrom} from "../../scripts/utils/NumberUtils";
 import {DeployUtils} from "../../scripts/utils/DeployUtils";
 import {
@@ -967,10 +967,6 @@ describe("TetuConverterTest", () => {
           skipPreregistrationOfPoolAdapters
         }
       );
-      // enable log in all pool adapters
-      for (const poolAdapter of init.poolAdapters) {
-        await PoolAdapterMock__factory.connect(poolAdapter, deployer).enableBorrowLog(true);
-      }
 
       const borrowStatus = await makeBorrow(
         init,
@@ -1056,49 +1052,7 @@ describe("TetuConverterTest", () => {
 
           expect(retBorrowedAmountOut).eq(expectedBorrowedAmount);
         });
-        it("should transfer expected collateralAmount to the pool adapter", async () => {
-          const amountToBorrowNum = 100;
-          const collateralAmount = 100_000;
-          const r = await makeConversionUsingBorrowing (
-            [collateralAmount],
-            [amountToBorrowNum],
-            false
-          );
-          const poolAdapter = await PoolAdapterMock__factory.connect(
-            r.init.poolAdapters[0],
-            deployer
-          );
 
-          const ret = (await poolAdapter.borrowParamsLog()).collateralAmountTransferredToPoolAdapter;
-          const expected = getBigNumberFrom(collateralAmount, await r.init.sourceToken.decimals());
-
-          expect(ret).eq(expected);
-        });
-
-        describe("Pool adapter is already registered for the converter", () => {
-          it("should call syncBalance() and borrow() in correct sequence", async () => {
-            const amountToBorrowNum = 100;
-            const collateralAmount = 100_000;
-            const r = await makeConversionUsingBorrowing (
-              [collateralAmount],
-              [amountToBorrowNum],
-              false // use pre-registered pool adapter
-            );
-
-            const poolAdapter = await PoolAdapterMock__factory.connect(
-              r.init.poolAdapters[0],
-              deployer
-            );
-
-            const ret = await poolAdapter.borrowLog();
-
-            // we asuume, that expected sequence of functions were called in pre-registered pool adapter:
-            // syncBalance(true, true); transfer-amount-of-collateral-to-pool-adapter; borrow()
-            const expected = 3; // PoolAdapterMock.FINAL_BORROW_3
-
-            expect(ret).eq(expected);
-          });
-        });
         describe("Pool adapter is not registered for the converter", () => {
           it("should use exist pool adapter", async () => {
             const amountToBorrowNum = 100;

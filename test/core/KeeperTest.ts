@@ -384,12 +384,30 @@ describe("KeeperTest", () => {
     describe("Bad paths", () => {
       describe("Called by not Gelato", () => {
         it("should revert", async () => {
-          expect.fail("TODO");
+          const app = await setupMockedApp(deployer);
+
+          await expect(
+            app.keeper.fixHealth(0, [], [], [])
+          ).revertedWith("OpsReady: onlyOps");
         });
       });
       describe("Wrong lengths", () => {
         it("should revert", async () => {
-          expect.fail("TODO");
+          const newNextIndexToCheck = 10;
+
+          const app = await setupMockedApp(deployer);
+
+          // all pool adapters are healthy
+          await app.debtMonitorMock.setReturnValues(
+            newNextIndexToCheck,
+            [],
+            [1] // (!)
+            , [2, 3] // (!)
+          );
+
+          await app.keeperCaller.callChecker();
+          const ret = await app.keeperCaller.lastCallResults();
+          expect(ret).eq(FAILED_2);  // WRONG_LENGTHS
         });
       });
     });

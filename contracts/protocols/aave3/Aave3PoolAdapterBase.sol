@@ -40,9 +40,6 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer 
   /// @notice Address of original PoolAdapter contract that was cloned to make the instance of the pool adapter
   address originConverter;
 
-  /// @notice Last synced amount of given token on the balance of this contract
-  mapping(address => uint) public reserveBalances;
-
   ///////////////////////////////////////////////////////
   ///                Initialization
   ///////////////////////////////////////////////////////
@@ -91,26 +88,10 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer 
     );
   }
 
-  ///////////////////////////////////////////////////////
-  ///        Sync balances before borrow/repay
-  ///////////////////////////////////////////////////////
-
-  /// @notice Save current balance of collateral/borrow BEFORE transferring amount of collateral/borrow to the adapter
-  /// @dev TC calls this function before transferring any amounts to balance of this contract
-  function syncBalance(bool beforeBorrow_, bool) external override {
-    // borrow: we are going to transfer collateral asset to the balance of this contract
-    reserveBalances[collateralAsset] = IERC20(collateralAsset).balanceOf(address(this));
-
-    if (!beforeBorrow_) {
-      // repay: we are going to transfer borrow asset to the balance of this contract
-      // repayToRebalance: borrow/collateral asset can be transferred
-      reserveBalances[borrowAsset] = IERC20(borrowAsset).balanceOf(address(this));
-    }
-  }
-
   function updateStatus() external override {
     // nothing to do; getStatus always return actual amounts in AAVE
   }
+
   ///////////////////////////////////////////////////////
   ///             Adapter customization
   ///////////////////////////////////////////////////////
@@ -178,11 +159,7 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer 
     Aave3DataTypes.ReserveData memory d = pool_.getReserveData(assetCollateral_);
     uint aTokensBalanceBeforeSupply = IERC20(d.aTokenAddress).balanceOf(address(this));
 
-    // ensure we have received expected collateral amount
-    require(
-      collateralAmount_ >= IERC20(assetCollateral_).balanceOf(address(this)) - reserveBalances[assetCollateral_]
-    , AppErrors.WRONG_COLLATERAL_BALANCE
-    );
+    IERC20(assetCollateral_).safeTransferFrom(msg.sender, address(this), collateralAmount_);
 
     // Supplies an `amount` of underlying asset into the reserve, receiving in return overlying aTokens.
     // E.g. User supplies 100 USDC and gets in return 100 aUSDC
@@ -231,7 +208,6 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer 
     );
 
     // ensure that we have received required borrowed amount, send the amount to the receiver
-    // we assume here, that syncBalance(true) is called before the call of this function
     require(
       borrowAmount_ == IERC20(assetBorrow).balanceOf(address(this)) - balanceBorrowAsset0
     , AppErrors.WRONG_BORROWED_BALANCE
@@ -261,11 +237,7 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer 
     address assetCollateral = collateralAsset;
     IAavePool pool = _pool;
 
-    // ensure that we have received enough money on our balance just before repay was called
-    require(
-      amountToRepay_ == IERC20(assetBorrow).balanceOf(address(this)) - reserveBalances[assetBorrow]
-      , AppErrors.WRONG_BORROWED_BALANCE
-    );
+    IERC20(assetBorrow).safeTransferFrom(msg.sender, address(this), amountToRepay_);
 
     // how much collateral we are going to return
     uint amountCollateralToWithdraw = _getCollateralAmountToReturn(
@@ -277,8 +249,8 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer 
     );
 
     // transfer borrow amount back to the pool
-    IERC20(assetBorrow).approve(address(pool), 0);
-    IERC20(assetBorrow).approve(address(pool), amountToRepay_);
+    IERC20(assetBorrow).safeApprove(address(pool), 0);
+    IERC20(assetBorrow).safeApprove(address(pool), amountToRepay_);
 
     pool.repay(assetBorrow,
       closePosition_ ? type(uint).max : amountToRepay_,
@@ -293,8 +265,8 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer 
       // user has transferred a little bigger amount than actually need to close position
       // because of the dust-tokens problem. Let's return remain amount back to the user
       uint borrowBalance = IERC20(assetBorrow).balanceOf(address(this));
-      if (borrowBalance > reserveBalances[assetBorrow]) {
-        IERC20(assetBorrow).safeTransfer(receiver_, borrowBalance - reserveBalances[assetBorrow]);
+      if (borrowBalance > 0) {
+        IERC20(assetBorrow).safeTransfer(receiver_, borrowBalance);
       }
     }
 
@@ -361,15 +333,7 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer 
     IAavePool pool = _pool;
 
     if (isCollateral_) {
-      address assetCollateral = collateralAsset;
-      // ensure that we have received expected amount on our balance just before repay was called
-      // the correct sequence of calls are following: syncBalance(false); transfer amount-to-repay; repay()
-      require(
-        amount_ == IERC20(assetCollateral).balanceOf(address(this)) - reserveBalances[assetCollateral],
-        AppErrors.WRONG_BORROWED_BALANCE
-      );
-
-      _supply(_pool, assetCollateral, amount_);
+      _supply(_pool, collateralAsset, amount_);
     } else {
       address assetBorrow = borrowAsset;
       // ensure, that amount to repay is less then the total debt
@@ -380,12 +344,7 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer 
         : totalDebtBase0 * (10 ** _pool.getConfiguration(assetBorrow).getDecimals()) / priceBorrowAsset;
       require(totalDebtBase0 > 0 && amount_ < totalAmountToPay, AppErrors.REPAY_TO_REBALANCE_NOT_ALLOWED);
 
-      // ensure that we have received enough money on our balance just before repay was called
-      // the correct sequence of calls are following: syncBalance(false); transfer amount-to-repay; repay()
-      require(
-        amount_ == IERC20(assetBorrow).balanceOf(address(this)) - reserveBalances[assetBorrow],
-        AppErrors.WRONG_BORROWED_BALANCE
-      );
+      IERC20(assetBorrow).safeTransferFrom(msg.sender, address(this), amount_);
 
       // transfer borrowed amount back to the pool
       IERC20(assetBorrow).approve(address(pool), 0);

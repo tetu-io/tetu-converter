@@ -40,11 +40,11 @@ import {
 } from "../../baseUT/protocols/aaveShared/aaveBorrowToRebalanceUtils";
 import {AaveBorrowUtils} from "../../baseUT/protocols/aaveShared/aaveBorrowUtils";
 import {
-  IAmountToRepay,
   IMakeRepayRebalanceBadPathParams,
   IMakeRepayToRebalanceInputParams
 } from "../../baseUT/protocols/shared/sharedDataTypes";
 import {SharedRepayToRebalanceUtils} from "../../baseUT/protocols/shared/sharedRepayToRebalanceUtils";
+import {transferAndApprove} from "../../baseUT/utils/transferUtils";
 
 describe("AaveTwoPoolAdapterTest", () => {
 //region Global vars for all tests
@@ -221,10 +221,13 @@ describe("AaveTwoPoolAdapterTest", () => {
         : d.amountToBorrow;
 
       // make borrow
-      await d.aavePoolAdapterAsTC.syncBalance(true, true);
-      await IERC20__factory.connect(collateralToken.address,
-        await DeployerUtils.startImpersonate(d.userContract.address)
-      ).transfer(d.aavePoolAdapterAsTC.address, d.collateralAmount);
+      await transferAndApprove(
+        collateralToken.address,
+        d.userContract.address,
+        await d.controller.tetuConverter(),
+        d.collateralAmount,
+        d.aavePoolAdapterAsTC.address
+      );
       await d.aavePoolAdapterAsTC.borrow(
         d.collateralAmount,
         borrowAmount,
@@ -434,10 +437,13 @@ describe("AaveTwoPoolAdapterTest", () => {
       console.log("maxAllowedAmountToBorrowInBase18", maxAllowedAmountToBorrowInBase18);
       console.log("maxAllowedAmountToBorrow", maxAllowedAmountToBorrow);
 
-      await d.aavePoolAdapterAsTC.syncBalance(true, true);
-      await IERC20__factory.connect(collateralToken.address,
-        await DeployerUtils.startImpersonate(d.userContract.address)
-      ).transfer(d.aavePoolAdapterAsTC.address, collateralAmount);
+      await transferAndApprove(
+        collateralToken.address,
+        d.userContract.address,
+        await d.controller.tetuConverter(),
+        d.collateralAmount,
+        d.aavePoolAdapterAsTC.address
+      );
       await d.aavePoolAdapterAsTC.borrow(
         collateralAmount,
         maxAllowedAmountToBorrow,
@@ -544,10 +550,13 @@ describe("AaveTwoPoolAdapterTest", () => {
       // make borrow
       const amountToBorrow = d.amountToBorrow;
       if (! badPathsParams?.skipBorrow) {
-        await d.aavePoolAdapterAsTC.syncBalance(true, true);
-        await IERC20__factory.connect(collateralToken.address,
-          await DeployerUtils.startImpersonate(d.userContract.address)
-        ).transfer(d.aavePoolAdapterAsTC.address, collateralAmount);
+        await transferAndApprove(
+          collateralToken.address,
+          d.userContract.address,
+          await d.controller.tetuConverter(),
+          d.collateralAmount,
+          d.aavePoolAdapterAsTC.address
+        );
         await d.aavePoolAdapterAsTC.borrow(
           collateralAmount,
           amountToBorrow,
@@ -575,7 +584,6 @@ describe("AaveTwoPoolAdapterTest", () => {
         ? IPoolAdapter__factory.connect(d.aavePoolAdapterAsTC.address, deployer)
         : d.aavePoolAdapterAsTC;
 
-      await poolAdapterSigner.syncBalance(true, true);
       await poolAdapterSigner.borrowToRebalance(
         expectedAdditionalBorrowAmount,
         d.userContract.address // receiver
@@ -699,10 +707,13 @@ describe("AaveTwoPoolAdapterTest", () => {
 
       // make borrow
       if (! badParams?.skipBorrow) {
-        await d.aavePoolAdapterAsTC.syncBalance(true, true);
-        await IERC20Extended__factory.connect(collateralToken.address
-          , await DeployerUtils.startImpersonate(d.userContract.address)
-        ).transfer(d.aavePoolAdapterAsTC.address, d.collateralAmount);
+        await transferAndApprove(
+          collateralToken.address,
+          d.userContract.address,
+          await d.controller.tetuConverter(),
+          d.collateralAmount,
+          d.aavePoolAdapterAsTC.address
+        );
         await d.aavePoolAdapterAsTC.borrow(
           d.collateralAmount,
           borrowAmount,
@@ -723,21 +734,27 @@ describe("AaveTwoPoolAdapterTest", () => {
         await DeployerUtils.startImpersonate(d.userContract.address)
       );
       if (amountToRepay) {
-        const poolAdapter = badParams?.repayAsNotUserAndNotTC
-          ? IPoolAdapter__factory.connect(
-            d.aavePoolAdapterAsTC.address,
-            deployer // not TC, not user
-          )
-          : d.aavePoolAdapterAsTC
-        // make partial repay
-        await poolAdapter.syncBalance(false, true);
-        await borrowTokenAsUser.transfer(
-          poolAdapter.address,
-          badParams?.wrongAmountToRepayToTransfer
-            ? badParams?.wrongAmountToRepayToTransfer
-            : amountToRepay
+        const repayCaller = badParams?.repayAsNotUserAndNotTC
+          ? deployer.address // not TC, not user
+          : await d.controller.tetuConverter();
+
+        const poolAdapterAsCaller = IPoolAdapter__factory.connect(
+          d.aavePoolAdapterAsTC.address,
+          await DeployerUtils.startImpersonate(repayCaller)
         );
-        await poolAdapter.repay(
+        // make partial repay
+        const amountBorrowAssetToSendToPoolAdapter = badParams?.wrongAmountToRepayToTransfer
+          ? badParams?.wrongAmountToRepayToTransfer
+          : amountToRepay;
+
+        await transferAndApprove(
+          borrowToken.address,
+          d.userContract.address,
+          repayCaller,
+          amountBorrowAssetToSendToPoolAdapter,
+          d.aavePoolAdapterAsTC.address
+        );
+        await poolAdapterAsCaller.repay(
           amountToRepay,
           d.userContract.address,
           // normally we don't close position here
@@ -869,31 +886,7 @@ describe("AaveTwoPoolAdapterTest", () => {
                 wrongAmountToRepayToTransfer: getBigNumberFrom(1, daiDecimals)
               }
             )
-          ).revertedWith("TC-15"); // WRONG_BORROWED_BALANCE
-        });
-      });
-      describe("Transfer amount larger than specified amount to repay", () => {
-        it("should revert", async () => {
-          if (!await isPolygonForkInUse()) return;
-
-          const daiDecimals = await IERC20Extended__factory.connect(MaticAddresses.DAI, deployer).decimals();
-          const initialBorrowAmountOnUserBalanceNumber = 1000;
-          await expect(
-            AaveMakeBorrowAndRepayUtils.wmaticDai(
-              deployer,
-              makeBorrowAndRepay,
-              false,
-              false,
-              initialBorrowAmountOnUserBalanceNumber,
-              {
-                // try to transfer too LARGE amount on balance of the pool adapter
-                wrongAmountToRepayToTransfer: getBigNumberFrom(
-                  initialBorrowAmountOnUserBalanceNumber,
-                  daiDecimals
-                )
-              }
-            )
-          ).revertedWith("TC-15"); // WRONG_BORROWED_BALANCE
+          ).revertedWith("ERC20: transfer amount exceeds balance");
         });
       });
       describe("Try to repay not opened position", () => {
@@ -976,10 +969,13 @@ describe("AaveTwoPoolAdapterTest", () => {
       const amountToBorrow = d.amountToBorrow;
 
       if (! p.badPathsParams?.skipBorrow) {
-        await d.aavePoolAdapterAsTC.syncBalance(true, true);
-        await IERC20__factory.connect(p.collateralToken.address,
-          await DeployerUtils.startImpersonate(d.userContract.address)
-        ).transfer(d.aavePoolAdapterAsTC.address, p.collateralAmount);
+        await transferAndApprove(
+          p.collateralToken.address,
+          d.userContract.address,
+          await d.controller.tetuConverter(),
+          d.collateralAmount,
+          d.aavePoolAdapterAsTC.address
+        );
         await d.aavePoolAdapterAsTC.borrow(
           p.collateralAmount,
           amountToBorrow,
@@ -1013,14 +1009,14 @@ describe("AaveTwoPoolAdapterTest", () => {
       const poolAdapterSigner = p.badPathsParams?.makeRepayToRebalanceAsDeployer
         ? IPoolAdapter__factory.connect(d.aavePoolAdapterAsTC.address, deployer)
         : d.aavePoolAdapterAsTC;
-      await poolAdapterSigner.syncBalance(false, true);
 
-      await SharedRepayToRebalanceUtils.transferAmountToRepayToUserContract(
+      await SharedRepayToRebalanceUtils.approveAmountToRepayToUserContract(
         poolAdapterSigner.address,
         p.collateralToken.address,
         p.borrowToken.address,
         amountsToRepay,
-        d.userContract.address
+        d.userContract.address,
+        await d.controller.tetuConverter()
       );
 
       await poolAdapterSigner.repayToRebalance(
@@ -1186,23 +1182,6 @@ describe("AaveTwoPoolAdapterTest", () => {
           await expect(
             testRepayToRebalanceDaiWMatic({additionalAmountCorrectionFactorMul: 100})
           ).revertedWith("TC-40"); // REPAY_TO_REBALANCE_NOT_ALLOWED
-        });
-      });
-    });
-  });
-
-  describe("TODO:syncBalance", () => {
-    describe("Good paths", () => {
-      it("should return expected values", async () => {
-        if (!await isPolygonForkInUse()) return;
-        expect.fail("TODO");
-      });
-    });
-    describe("Bad paths", () => {
-      describe("", () => {
-        it("should revert", async () => {
-          if (!await isPolygonForkInUse()) return;
-          expect.fail("TODO");
         });
       });
     });

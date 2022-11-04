@@ -8,19 +8,13 @@ import "./IConverter.sol";
 ///         There is Template-Pool-Adapter contract for each platform (AAVE, HF, etc).
 /// @dev Terms: "pool adapter" is an instance of "converter" created using minimal-proxy-pattern
 interface IPoolAdapter is IConverter {
-  /// @dev Must be called before borrow (true) or repay/reconvert (false)
-  ///      to save current balance of collateral/borrow assets
-  /// @param updateStatus_ if true do same actions as updateStatus()
-  function syncBalance(bool beforeBorrow, bool updateStatus_) external;
-
   /// @notice Update all interests, recalculate borrowed amount;
   ///         After this call, getStatus will return exact amount-to-repay
   function updateStatus() external;
 
   /// @notice Supply collateral to the pool and borrow specified amount
   /// @dev No re-balancing here; syncBalance(true) must be called before the call of this function
-  /// @param collateralAmount_ Amount of collateral sent to the balance of the pool adapter before the call of borrow()
-  ///                          The sequence of the calls must be:   syncBalance(true); transfer collateral.. ; borrow()
+  /// @param collateralAmount_ Amount of collateral, must be approved to the pool adapter before the call of borrow()
   /// @param borrowAmount_ Amount that should be borrowed in result
   /// @param receiver_ Receiver of the borrowed amount
   /// @return borrowedAmountOut Result borrowed amount sent to the {receiver_}

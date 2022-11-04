@@ -36,6 +36,7 @@ import {
   IMakeRepayToRebalanceInputParamsWithCTokens
 } from "../../baseUT/protocols/shared/sharedDataTypes";
 import {SharedRepayToRebalanceUtils} from "../../baseUT/protocols/shared/sharedRepayToRebalanceUtils";
+import {transferAndApprove} from "../../baseUT/utils/transferUtils";
 
 describe("Hundred Finance integration tests, pool adapter", () => {
 
@@ -274,10 +275,13 @@ describe("Hundred Finance integration tests, pool adapter", () => {
       console.log("d.collateralAmount", d.collateralAmount);
       console.log("borrowAmount", borrowAmount);
 
-      await d.hfPoolAdapterTC.syncBalance(true, true);
-      await IERC20__factory.connect(collateralToken.address,
-        await DeployerUtils.startImpersonate(d.userContract.address)
-      ).transfer(d.hfPoolAdapterTC.address, d.collateralAmount);
+      await transferAndApprove(
+        collateralToken.address,
+        d.userContract.address,
+        await d.controller.tetuConverter(),
+        d.collateralAmount,
+        d.hfPoolAdapterTC.address
+      );
       await d.hfPoolAdapterTC.borrow(
         d.collateralAmount,
         borrowAmount,
@@ -504,10 +508,13 @@ describe("Hundred Finance integration tests, pool adapter", () => {
       // make borrow
       const amountToBorrow = d.amountToBorrow;
       if (! badPathsParams?.skipBorrow) {
-        await d.hfPoolAdapterTC.syncBalance(true, true);
-        await IERC20__factory.connect(collateralToken.address,
-          await DeployerUtils.startImpersonate(d.userContract.address)
-        ).transfer(d.hfPoolAdapterTC.address, d.collateralAmount);
+        await transferAndApprove(
+          collateralToken.address,
+          d.userContract.address,
+          await d.controller.tetuConverter(),
+          d.collateralAmount,
+          d.hfPoolAdapterTC.address
+        );
 
         await d.hfPoolAdapterTC.borrow(
           collateralAmount,
@@ -536,7 +543,6 @@ describe("Hundred Finance integration tests, pool adapter", () => {
       const poolAdapterSigner = badPathsParams?.makeBorrowToRebalanceAsDeployer
         ? IPoolAdapter__factory.connect(d.hfPoolAdapterTC.address, deployer)
         : d.hfPoolAdapterTC;
-      await poolAdapterSigner.syncBalance(true, true);
       await poolAdapterSigner.borrowToRebalance(
         expectedAdditionalBorrowAmount,
         d.userContract.address // receiver
@@ -721,10 +727,13 @@ describe("Hundred Finance integration tests, pool adapter", () => {
 
       // make borrow
       if (! badParams?.skipBorrow) {
-        await d.hfPoolAdapterTC.syncBalance(true, true);
-        await IERC20Extended__factory.connect(collateralToken.address
-          , await DeployerUtils.startImpersonate(d.userContract.address)
-        ).transfer(d.hfPoolAdapterTC.address, d.collateralAmount);
+        await transferAndApprove(
+          collateralToken.address,
+          d.userContract.address,
+          await d.controller.tetuConverter(),
+          d.collateralAmount,
+          d.hfPoolAdapterTC.address
+        );
         await d.hfPoolAdapterTC.borrow(
           d.collateralAmount,
           borrowAmount,
@@ -747,22 +756,29 @@ describe("Hundred Finance integration tests, pool adapter", () => {
         await DeployerUtils.startImpersonate(d.userContract.address)
       );
       if (amountToRepay) {
-        const poolAdapter = badParams?.repayAsNotUserAndNotTC
-          ? IPoolAdapter__factory.connect(
-            d.hfPoolAdapterTC.address,
-            deployer // not TC, not user
-          )
-          : d.hfPoolAdapterTC;
+        const repayCaller = badParams?.repayAsNotUserAndNotTC
+          ? deployer.address // not TC, not user
+          : await d.controller.tetuConverter();
+
+        const poolAdapterAsCaller = IPoolAdapter__factory.connect(
+          d.hfPoolAdapterTC.address,
+          await DeployerUtils.startImpersonate(repayCaller)
+        );
 
         // make partial repay
-        await poolAdapter.syncBalance(false, true);
-        await borrowTokenAsUser.transfer(
-          poolAdapter.address,
-          badParams?.wrongAmountToRepayToTransfer
-            ? badParams?.wrongAmountToRepayToTransfer
-            : amountToRepay
+        const amountBorrowAssetToSendToPoolAdapter = badParams?.wrongAmountToRepayToTransfer
+          ? badParams?.wrongAmountToRepayToTransfer
+          : amountToRepay;
+
+        await transferAndApprove(
+          borrowToken.address,
+          d.userContract.address,
+          repayCaller,
+          amountBorrowAssetToSendToPoolAdapter,
+          d.hfPoolAdapterTC.address
         );
-        await poolAdapter.repay(
+
+        await poolAdapterAsCaller.repay(
           amountToRepay,
           d.userContract.address,
           badParams?.forceToClosePosition || false
@@ -1269,10 +1285,13 @@ describe("Hundred Finance integration tests, pool adapter", () => {
       const amountToBorrow = d.amountToBorrow;
 
       if (! p.badPathsParams?.skipBorrow) {
-        await d.hfPoolAdapterTC.syncBalance(true, true);
-        await IERC20__factory.connect(p.collateralToken.address,
-          await DeployerUtils.startImpersonate(d.userContract.address)
-        ).transfer(d.hfPoolAdapterTC.address, p.collateralAmount);
+        await transferAndApprove(
+          p.collateralToken.address,
+          d.userContract.address,
+          await d.controller.tetuConverter(),
+          d.collateralAmount,
+          d.hfPoolAdapterTC.address
+        );
         await d.hfPoolAdapterTC.borrow(
           p.collateralAmount,
           amountToBorrow,
@@ -1306,14 +1325,13 @@ describe("Hundred Finance integration tests, pool adapter", () => {
       const poolAdapterSigner = p.badPathsParams?.makeRepayToRebalanceAsDeployer
         ? IPoolAdapter__factory.connect(d.hfPoolAdapterTC.address, deployer)
         : d.hfPoolAdapterTC;
-      await poolAdapterSigner.syncBalance(false, true);
-
-      await SharedRepayToRebalanceUtils.transferAmountToRepayToUserContract(
+      await SharedRepayToRebalanceUtils.approveAmountToRepayToUserContract(
         poolAdapterSigner.address,
         p.collateralToken.address,
         p.borrowToken.address,
         amountsToRepay,
-        d.userContract.address
+        d.userContract.address,
+        await d.controller.tetuConverter()
       );
 
       await poolAdapterSigner.repayToRebalance(
@@ -1547,23 +1565,6 @@ describe("Hundred Finance integration tests, pool adapter", () => {
           await expect(
             daiWMatic(false,{additionalAmountCorrectionFactorMul: 100})
           ).revertedWith("TC-40"); // REPAY_TO_REBALANCE_NOT_ALLOWED
-        });
-      });
-    });
-  });
-
-  describe("TODO:syncBalance", () => {
-    describe("Good paths", () => {
-      it("should return expected values", async () => {
-        if (!await isPolygonForkInUse()) return;
-        expect.fail("TODO");
-      });
-    });
-    describe("Bad paths", () => {
-      describe("", () => {
-        it("should revert", async () => {
-          if (!await isPolygonForkInUse()) return;
-          expect.fail("TODO");
         });
       });
     });

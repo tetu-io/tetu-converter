@@ -149,9 +149,8 @@ describe("PoolAdapterMock", () => {
           // how much we should repay?
           const amountToRepay = (await pa.getStatus()).amountToPay;
           console.log("We need to repay", amountToRepay);
-          await pa.syncBalance(false, true);
           await MockERC20__factory.connect(targetToken.address, await DeployerUtils.startImpersonate(user))
-            .transfer(pa.address, amountToRepay); // user transfers collateral to pool adapter
+            .approve(pa.address, amountToRepay); // user transfers collateral to pool adapter
           console.log("Transfer borrowed token to PA", amountToRepay);
           await pa.repay(amountToRepay, user, false);
 

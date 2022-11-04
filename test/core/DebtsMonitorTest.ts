@@ -195,9 +195,9 @@ describe("DebtsMonitor", () => {
     await targetToken.mint(pool, amountBorrowLiquidityInPool);
     await sourceToken.mint(userTC, amountCollateral);
 
-    // user transfers collateral to pool adapter
+    // user approve collateral to pool adapter
     await MockERC20__factory.connect(sourceToken.address, await DeployerUtils.startImpersonate(userTC))
-      .transfer(pa.address, amountCollateral);
+      .approve(pa.address, amountCollateral);
 
     // borrow
     await pa.borrow(amountCollateral, amountToBorrow, userTC);
@@ -1458,14 +1458,15 @@ describe("DebtsMonitor", () => {
               const unhealthyStatus = await r.poolAdapterMock.getStatus();
 
               // pass required amount of borrow asset to the pool adapter and make repayToRebalance
-              await r.poolAdapterMock.syncBalance(false, true);
               if (fixHealthUsingCollateralAmount) {
                 const amountToPay = unhealthyState.outAmountCollateralAsset[0];
-                await r.sourceToken.mint(r.poolAdapterMock.address, amountToPay)
+                await r.sourceToken.mint(deployer.address, amountToPay);
+                await r.sourceToken.approve(r.poolAdapterMock.address, amountToPay);
                 await r.poolAdapterMock.repayToRebalance(amountToPay, true);
               } else {
                 const amountToPay = unhealthyState.outAmountBorrowAsset[0];
-                await r.targetToken.mint(r.poolAdapterMock.address, amountToPay)
+                await r.targetToken.mint(deployer.address, amountToPay)
+                await r.targetToken.approve(r.poolAdapterMock.address, amountToPay);
                 await r.poolAdapterMock.repayToRebalance(amountToPay, false);
               }
 

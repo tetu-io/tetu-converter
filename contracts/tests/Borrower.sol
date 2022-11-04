@@ -240,12 +240,12 @@ contract Borrower is ITetuConverterCallback {
 
     if (lenPoolAdapters > 0) {
       IPoolAdapter pa = IPoolAdapter(poolAdapters[0]);
-      pa.syncBalance(false, true);
+      pa.updateStatus();
       (uint collateralAmount, uint amountToPay,,) = pa.getStatus();
       if (amountToPay > 0) {
         console.log("makeRepayUC1.2: repay", amountToPay, collateralAmount);
         // transfer borrowed amount to Pool Adapter
-        IERC20(borrowedAsset_).safeTransfer(poolAdapters[0], amountToPay);
+        IERC20(borrowedAsset_).safeApprove(poolAdapters[0], amountToPay);
 
         // repay borrowed amount and receive collateral to receiver's balance
         pa.repay(amountToPay, receiver_, true);

@@ -407,16 +407,15 @@ describe("CompareAprBeforeAfterBorrow", () => {
           collateralHolders,
           collateralAmount,
           borrowToken,
-          undefined
         );
 
         const sret = [
-          ret.amountToBorrow,
+          ret.swapResults?.borrowedAmount || BigNumber.from(0),
           ret.strategyToConvert.converter
         ].map(x => BalanceUtils.toString(x)).join("\n");
 
         const sexpected = [
-          ret.userContractBorrowAssetBalanceAfterSwap,
+          ret.strategyToConvert.maxTargetAmount,
           ret.swapManagerAddress
         ].map(x => BalanceUtils.toString(x)).join("\n");
 
@@ -735,16 +734,15 @@ describe("CompareAprBeforeAfterBorrow", () => {
             [HOLDER_COLLATERAL],
             collateralAmount,
             borrowToken,
-            undefined
           );
 
           const sret = [
-            ret.amountToBorrow,
+            ret.swapResults?.borrowedAmount || BigNumber.from(0),
             ret.strategyToConvert.converter
           ].map(x => BalanceUtils.toString(x)).join("\n");
 
           const sexpected = [
-            ret.userContractBorrowAssetBalanceAfterSwap,
+            ret.strategyToConvert.maxTargetAmount,
             ret.swapManagerAddress
           ].map(x => BalanceUtils.toString(x)).join("\n");
 
@@ -767,16 +765,15 @@ describe("CompareAprBeforeAfterBorrow", () => {
             [HOLDER_COLLATERAL],
             collateralAmount,
             borrowToken,
-            undefined
           );
 
           const sret = [
-            ret.amountToBorrow,
+            ret.swapResults?.borrowedAmount || BigNumber.from(0),
             ret.strategyToConvert.converter
           ].map(x => BalanceUtils.toString(x)).join("\n");
 
           const sexpected = [
-            ret.userContractBorrowAssetBalanceAfterSwap,
+            ret.strategyToConvert.maxTargetAmount,
             ret.swapManagerAddress
           ].map(x => BalanceUtils.toString(x)).join("\n");
 
@@ -1182,16 +1179,15 @@ describe("CompareAprBeforeAfterBorrow", () => {
           collateralHolders,
           collateralAmount,
           borrowToken,
-          undefined
         );
 
         const ret = [
-          r.amountToBorrow,
+          r.swapResults?.borrowedAmount || BigNumber.from(0),
           r.strategyToConvert.converter
         ].map(x => BalanceUtils.toString(x)).join("\n");
 
         const expected = [
-          r.userContractBorrowAssetBalanceAfterSwap,
+          r.strategyToConvert.maxTargetAmount,
           r.swapManagerAddress
         ].map(x => BalanceUtils.toString(x)).join("\n");
 

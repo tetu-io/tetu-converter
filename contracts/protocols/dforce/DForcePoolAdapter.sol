@@ -43,9 +43,6 @@ contract DForcePoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP {
   /// @notice Last synced amount of given token on the balance of this contract
   mapping(address => uint) public collateralBalance;
 
-  /// @notice Last synced amount of given token on the balance of this contract
-  mapping(address => uint) public reserveBalances;
-
   ///////////////////////////////////////////////////////
   ///                Initialization
   ///////////////////////////////////////////////////////
@@ -112,23 +109,6 @@ contract DForcePoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP {
   ///////////////////////////////////////////////////////
   ///                 Borrow logic
   ///////////////////////////////////////////////////////
-
-  /// @dev TC calls this function before transferring any amounts to balance of this contract
-  function syncBalance(bool beforeBorrow_, bool updateStatus_) external override {
-    address assetCollateral = collateralAsset;
-    reserveBalances[assetCollateral] = _getBalance(assetCollateral);
-
-    if (!beforeBorrow_) { // before repay
-      address assetBorrow = borrowAsset;
-      reserveBalances[assetBorrow] = _getBalance(assetBorrow);
-    }
-
-    if (updateStatus_) {
-      // Update borrowBalance to actual value
-      IDForceCToken(borrowCToken).borrowBalanceCurrent(address(this));
-    }
-  }
-
   function updateStatus() external override {
     // Update borrowBalance to actual value
     IDForceCToken(borrowCToken).borrowBalanceCurrent(address(this));
@@ -148,11 +128,7 @@ contract DForcePoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP {
     address assetCollateral = collateralAsset;
     address assetBorrow = borrowAsset;
 
-    // ensure we have received expected collateral amount
-    require(
-      collateralAmount_ >= _getBalance(assetCollateral) - reserveBalances[assetCollateral]
-      , AppErrors.WRONG_COLLATERAL_BALANCE
-    );
+    IERC20(assetCollateral).safeTransferFrom(msg.sender, address(this), collateralAmount_);
 
     // enter markets (repeat entering is not a problem)
     address[] memory markets = new address[](2);
@@ -288,13 +264,8 @@ contract DForcePoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP {
     console.log("repayToRebalance");
     console.log("repayToRebalance amountToRepay_", amountToRepay_);
     console.log("IERC20(assetBorrow).balanceOf(address(this))", IERC20(assetBorrow).balanceOf(address(this)));
-    console.log("reserveBalances[assetBorrow]", reserveBalances[assetBorrow]);
 
-    // ensure that we have received enough money on our balance just before repay was called
-    require(
-      amountToRepay_ == IERC20(assetBorrow).balanceOf(address(this)) - reserveBalances[assetBorrow],
-      AppErrors.WRONG_BORROWED_BALANCE
-    );
+    IERC20(assetBorrow).safeTransferFrom(msg.sender, address(this), amountToRepay_);
 
     // how much collateral we are going to return
     uint collateralTokensToWithdraw = _getCollateralTokensToRedeem(
@@ -388,26 +359,15 @@ contract DForcePoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP {
     if (isCollateral_) {
       console.log("repayToRebalance.1");
       address assetCollateral = collateralAsset;
-      // ensure that we have received expected amount on our balance just before repay was called
-      // the correct sequence of calls are following: syncBalance(false); transfer amount-to-repay; repay()
-      require(
-        amount_ == IERC20(assetCollateral).balanceOf(address(this)) - reserveBalances[assetCollateral],
-        AppErrors.WRONG_BORROWED_BALANCE
-      );
-
-      _supply(cTokenCollateral, assetCollateral, amount_);
+      IERC20(assetCollateral).safeTransferFrom(msg.sender, address(this), amount_);
+      _supply(cTokenCollateral, collateralAsset, amount_);
       console.log("repayToRebalance.2");
     } else {
       address assetBorrow = borrowAsset;
       // ensure, that amount to repay is less then the total debt
       (, uint borrowBalance,,,) = _getStatus(cTokenCollateral, cTokenBorrow);
       require(borrowBalance > 0 && amount_ < borrowBalance, AppErrors.REPAY_TO_REBALANCE_NOT_ALLOWED);
-
-      // ensure that we have received enough money on our balance just before repay was called
-      require(
-        amount_ == IERC20(assetBorrow).balanceOf(address(this)) - reserveBalances[assetBorrow],
-        AppErrors.WRONG_BORROWED_BALANCE
-      );
+      IERC20(assetBorrow).safeTransferFrom(msg.sender, address(this), amount_);
 
       // transfer borrow amount back to the pool
       if (_isMatic(address(assetBorrow))) {

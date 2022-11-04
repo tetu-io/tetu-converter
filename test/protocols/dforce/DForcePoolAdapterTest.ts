@@ -29,6 +29,7 @@ import {
   IMakeRepayToRebalanceInputParamsWithCTokens
 } from "../../baseUT/protocols/shared/sharedDataTypes";
 import {SharedRepayToRebalanceUtils} from "../../baseUT/protocols/shared/sharedRepayToRebalanceUtils";
+import {transferAndApprove} from "../../baseUT/utils/transferUtils";
 
 
 describe("DForce integration tests, pool adapter", () => {
@@ -269,10 +270,13 @@ describe("DForce integration tests, pool adapter", () => {
       console.log("d.collateralAmount", d.collateralAmount);
       console.log("borrowAmount", borrowAmount);
 
-      await d.dfPoolAdapterTC.syncBalance(true, true);
-      await IERC20__factory.connect(collateralToken.address,
-        await DeployerUtils.startImpersonate(d.userContract.address)
-      ).transfer(d.dfPoolAdapterTC.address, d.collateralAmount);
+      await transferAndApprove(
+        collateralToken.address,
+        d.userContract.address,
+        await d.controller.tetuConverter(),
+        d.collateralAmount,
+        d.dfPoolAdapterTC.address
+      );
       await d.dfPoolAdapterTC.borrow(
         d.collateralAmount,
         borrowAmount,
@@ -520,10 +524,13 @@ describe("DForce integration tests, pool adapter", () => {
       // make borrow
       const amountToBorrow = d.amountToBorrow;
       if (! badPathsParams?.skipBorrow) {
-        await d.dfPoolAdapterTC.syncBalance(true, true);
-        await IERC20__factory.connect(collateralToken.address,
-          await DeployerUtils.startImpersonate(d.userContract.address)
-        ).transfer(d.dfPoolAdapterTC.address, d.collateralAmount);
+        await transferAndApprove(
+          collateralToken.address,
+          d.userContract.address,
+          await d.controller.tetuConverter(),
+          d.collateralAmount,
+          d.dfPoolAdapterTC.address
+        );
         await d.dfPoolAdapterTC.borrow(
           collateralAmount,
           amountToBorrow,
@@ -551,7 +558,6 @@ describe("DForce integration tests, pool adapter", () => {
       const poolAdapterSigner = badPathsParams?.makeBorrowToRebalanceAsDeployer
         ? IPoolAdapter__factory.connect(d.dfPoolAdapterTC.address, deployer)
         : d.dfPoolAdapterTC;
-      await poolAdapterSigner.syncBalance(true, true);
       await poolAdapterSigner.borrowToRebalance(
         expectedAdditionalBorrowAmount,
         d.userContract.address // receiver
@@ -737,10 +743,13 @@ describe("DForce integration tests, pool adapter", () => {
 
       // make borrow
       if (! badParams?.skipBorrow) {
-        await d.dfPoolAdapterTC.syncBalance(true, true);
-        await IERC20Extended__factory.connect(collateralToken.address
-          , await DeployerUtils.startImpersonate(d.userContract.address)
-        ).transfer(d.dfPoolAdapterTC.address, d.collateralAmount);
+        await transferAndApprove(
+          collateralToken.address,
+          d.userContract.address,
+          await d.controller.tetuConverter(),
+          d.collateralAmount,
+          d.dfPoolAdapterTC.address
+        );
         await d.dfPoolAdapterTC.borrow(
           d.collateralAmount,
           borrowAmount,
@@ -763,23 +772,29 @@ describe("DForce integration tests, pool adapter", () => {
         await DeployerUtils.startImpersonate(d.userContract.address)
       );
       if (amountToRepay) {
-        const poolAdapter = badParams?.repayAsNotUserAndNotTC
-          ? IPoolAdapter__factory.connect(
-              d.dfPoolAdapterTC.address,
-              deployer // not TC, not user
-          )
-          : d.dfPoolAdapterTC;
+        const repayCaller = badParams?.repayAsNotUserAndNotTC
+          ? deployer.address // not TC, not user
+          : await d.controller.tetuConverter();
+
+        const poolAdapterAsCaller = IPoolAdapter__factory.connect(
+          d.dfPoolAdapterTC.address,
+          await DeployerUtils.startImpersonate(repayCaller)
+        );
 
         // make partial repay
-        await poolAdapter.syncBalance(false, true);
-        console.log("Balance borrow asset", await borrowTokenAsUser.balanceOf(d.userContract.address));
-        await borrowTokenAsUser.transfer(
-          poolAdapter.address,
-          badParams?.wrongAmountToRepayToTransfer
-            ? badParams?.wrongAmountToRepayToTransfer
-            : amountToRepay
+        const amountBorrowAssetToSendToPoolAdapter = badParams?.wrongAmountToRepayToTransfer
+          ? badParams?.wrongAmountToRepayToTransfer
+          : amountToRepay;
+
+        await transferAndApprove(
+          borrowToken.address,
+          d.userContract.address,
+          repayCaller,
+          amountBorrowAssetToSendToPoolAdapter,
+          d.dfPoolAdapterTC.address
         );
-        await poolAdapter.repay(
+
+        await poolAdapterAsCaller.repay(
           amountToRepay,
           d.userContract.address,
           badParams?.forceToClosePosition || false
@@ -1303,10 +1318,13 @@ describe("DForce integration tests, pool adapter", () => {
       const amountToBorrow = d.amountToBorrow;
 
       if (! p.badPathsParams?.skipBorrow) {
-        await d.dfPoolAdapterTC.syncBalance(true, true);
-        await IERC20__factory.connect(p.collateralToken.address,
-          await DeployerUtils.startImpersonate(d.userContract.address)
-        ).transfer(d.dfPoolAdapterTC.address, p.collateralAmount);
+        await transferAndApprove(
+          p.collateralToken.address,
+          d.userContract.address,
+          await d.controller.tetuConverter(),
+          d.collateralAmount,
+          d.dfPoolAdapterTC.address
+        );
         await d.dfPoolAdapterTC.borrow(
           p.collateralAmount,
           amountToBorrow,
@@ -1340,14 +1358,14 @@ describe("DForce integration tests, pool adapter", () => {
       const poolAdapterSigner = p.badPathsParams?.makeRepayToRebalanceAsDeployer
         ? IPoolAdapter__factory.connect(d.dfPoolAdapterTC.address, deployer)
         : d.dfPoolAdapterTC;
-      await poolAdapterSigner.syncBalance(false, true);
 
-      await SharedRepayToRebalanceUtils.transferAmountToRepayToUserContract(
+      await SharedRepayToRebalanceUtils.approveAmountToRepayToUserContract(
         poolAdapterSigner.address,
         p.collateralToken.address,
         p.borrowToken.address,
         amountsToRepay,
-        d.userContract.address
+        d.userContract.address,
+        await d.controller.tetuConverter()
       );
 
       await poolAdapterSigner.repayToRebalance(
@@ -1580,23 +1598,6 @@ describe("DForce integration tests, pool adapter", () => {
           await expect(
             daiWMatic(false,{additionalAmountCorrectionFactorMul: 100})
           ).revertedWith("TC-40"); // REPAY_TO_REBALANCE_NOT_ALLOWED
-        });
-      });
-    });
-  });
-
-  describe("TODO:syncBalance", () => {
-    describe("Good paths", () => {
-      it("should return expected values", async () => {
-        if (!await isPolygonForkInUse()) return;
-        expect.fail("TODO");
-      });
-    });
-    describe("Bad paths", () => {
-      describe("", () => {
-        it("should revert", async () => {
-          if (!await isPolygonForkInUse()) return;
-          expect.fail("TODO");
         });
       });
     });

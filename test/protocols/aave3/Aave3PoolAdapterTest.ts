@@ -42,6 +42,7 @@ import {
 } from "../../baseUT/protocols/shared/sharedDataTypes";
 import {SharedRepayToRebalanceUtils} from "../../baseUT/protocols/shared/sharedRepayToRebalanceUtils";
 import {IConversionPlan} from "../../baseUT/apr/aprDataTypes";
+import {transferAndApprove} from "../../baseUT/utils/transferUtils";
 
 describe("Aave3PoolAdapterTest", () => {
 //region Global vars for all tests
@@ -257,9 +258,14 @@ describe("Aave3PoolAdapterTest", () => {
       console.log("d.collateralAmount", d.collateralAmount);
       console.log("borrowAmount", borrowAmount);
 
-      await d.aavePoolAdapterAsTC.syncBalance(true, true);
-      await IERC20__factory.connect(collateralToken.address, await DeployerUtils.startImpersonate(d.userContract.address))
-        .transfer(d.aavePoolAdapterAsTC.address, d.collateralAmount);
+      await transferAndApprove(
+        collateralToken.address,
+        d.userContract.address,
+        await d.controller.tetuConverter(),
+        d.collateralAmount,
+        d.aavePoolAdapterAsTC.address
+      );
+
       await d.aavePoolAdapterAsTC.borrow(
         d.collateralAmount,
         borrowAmount,
@@ -496,9 +502,14 @@ describe("Aave3PoolAdapterTest", () => {
       console.log("maxAllowedAmountToBorrowInBase18", maxAllowedAmountToBorrowInBase18);
       console.log("maxAllowedAmountToBorrow", maxAllowedAmountToBorrow);
 
-      await d.aavePoolAdapterAsTC.syncBalance(true, true);
-      await IERC20__factory.connect(collateralToken.address, await DeployerUtils.startImpersonate(d.userContract.address))
-        .transfer(d.aavePoolAdapterAsTC.address, collateralAmount);
+      await transferAndApprove(
+        collateralToken.address,
+        d.userContract.address,
+        await d.controller.tetuConverter(),
+        d.collateralAmount,
+        d.aavePoolAdapterAsTC.address
+      );
+
       await d.aavePoolAdapterAsTC.borrow(
         collateralAmount,
         maxAllowedAmountToBorrow,
@@ -618,11 +629,13 @@ describe("Aave3PoolAdapterTest", () => {
       // calculate max amount to borrow manually
       const maxBorrowAmount = await getMaxAmountToBorrow(collateralDataBefore, borrowDataBefore);
 
-      await d.aavePoolAdapterAsTC.syncBalance(true, true);
-      await IERC20__factory.connect(
+      await transferAndApprove(
         collateralToken.address,
-        await DeployerUtils.startImpersonate(d.userContract.address)
-      ).transfer(d.aavePoolAdapterAsTC.address, d.collateralAmount);
+        d.userContract.address,
+        await d.controller.tetuConverter(),
+        d.collateralAmount,
+        d.aavePoolAdapterAsTC.address
+      );
 
       const amountToBorrow = deltaToMaxAmount
         ? maxBorrowAmount.add(deltaToMaxAmount)
@@ -924,9 +937,14 @@ describe("Aave3PoolAdapterTest", () => {
       // make borrow
       const amountToBorrow = d.amountToBorrow;
       if (! badPathsParams?.skipBorrow) {
-        await d.aavePoolAdapterAsTC.syncBalance(true, true);
-        await IERC20__factory.connect(collateralToken.address, await DeployerUtils.startImpersonate(d.userContract.address))
-          .transfer(d.aavePoolAdapterAsTC.address, collateralAmount);
+        await transferAndApprove(
+          collateralToken.address,
+          d.userContract.address,
+          await d.controller.tetuConverter(),
+          d.collateralAmount,
+          d.aavePoolAdapterAsTC.address
+        );
+
         await d.aavePoolAdapterAsTC.borrow(
           collateralAmount,
           amountToBorrow,
@@ -953,7 +971,6 @@ describe("Aave3PoolAdapterTest", () => {
       const poolAdapterSigner = badPathsParams?.makeBorrowToRebalanceAsDeployer
         ? IPoolAdapter__factory.connect(d.aavePoolAdapterAsTC.address, deployer)
         : d.aavePoolAdapterAsTC;
-      await poolAdapterSigner.syncBalance(true, true);
       await poolAdapterSigner.borrowToRebalance(
         expectedAdditionalBorrowAmount,
         d.userContract.address // receiver
@@ -1064,9 +1081,14 @@ describe("Aave3PoolAdapterTest", () => {
 
       // make borrow
       if (! badParams?.skipBorrow) {
-        await d.aavePoolAdapterAsTC.syncBalance(true, true);
-        await IERC20__factory.connect(collateralToken.address, await DeployerUtils.startImpersonate(d.userContract.address))
-          .transfer(d.aavePoolAdapterAsTC.address, d.collateralAmount);
+        await transferAndApprove(
+          collateralToken.address,
+          d.userContract.address,
+          await d.controller.tetuConverter(),
+          d.collateralAmount,
+          d.aavePoolAdapterAsTC.address
+        );
+
         await d.aavePoolAdapterAsTC.borrow(
           d.collateralAmount,
           borrowAmount,
@@ -1087,21 +1109,29 @@ describe("Aave3PoolAdapterTest", () => {
         await DeployerUtils.startImpersonate(d.userContract.address)
       );
       if (amountToRepay) {
-        const poolAdapter = badParams?.repayAsNotUserAndNotTC
-          ? IPoolAdapter__factory.connect(
+        const repayCaller = badParams?.repayAsNotUserAndNotTC
+          ? deployer.address // not TC, not user
+          : await d.controller.tetuConverter();
+
+        const poolAdapterAsCaller = IPoolAdapter__factory.connect(
             d.aavePoolAdapterAsTC.address,
-            deployer // not TC, not user
-          )
-          : d.aavePoolAdapterAsTC;
-        // make partial repay
-        await poolAdapter.syncBalance(false, true);
-        await borrowTokenAsUser.transfer(
-          poolAdapter.address,
-          badParams?.wrongAmountToRepayToTransfer
-            ? badParams?.wrongAmountToRepayToTransfer
-            : amountToRepay
+            await DeployerUtils.startImpersonate(repayCaller)
         );
-        await poolAdapter.repay(
+
+        // make partial repay
+        const amountBorrowAssetToSendToPoolAdapter = badParams?.wrongAmountToRepayToTransfer
+          ? badParams?.wrongAmountToRepayToTransfer
+          : amountToRepay;
+
+        await transferAndApprove(
+          borrowToken.address,
+          d.userContract.address,
+          repayCaller,
+          amountBorrowAssetToSendToPoolAdapter,
+          d.aavePoolAdapterAsTC.address
+        );
+
+        await poolAdapterAsCaller.repay(
           amountToRepay,
           d.userContract.address,
           // normally we don't close position here
@@ -1235,31 +1265,7 @@ describe("Aave3PoolAdapterTest", () => {
                 wrongAmountToRepayToTransfer: getBigNumberFrom(1, daiDecimals)
               }
             )
-          ).revertedWith("TC-15"); // WRONG_BORROWED_BALANCE
-        });
-      });
-      describe("Transfer amount larger than specified amount to repay", () => {
-        it("should revert", async () => {
-          if (!await isPolygonForkInUse()) return;
-
-          const daiDecimals = await IERC20Extended__factory.connect(MaticAddresses.DAI, deployer).decimals();
-          const initialBorrowAmountOnUserBalanceNumber = 1000;
-          await expect(
-            AaveMakeBorrowAndRepayUtils.wmaticDai(
-              deployer,
-              makeBorrowAndRepay,
-              false,
-              false,
-              initialBorrowAmountOnUserBalanceNumber,
-              {
-                // try to transfer too LARGE amount on balance of the pool adapter
-                wrongAmountToRepayToTransfer: getBigNumberFrom(
-                  initialBorrowAmountOnUserBalanceNumber,
-                  daiDecimals
-                )
-              }
-            )
-          ).revertedWith("TC-15"); // WRONG_BORROWED_BALANCE
+          ).revertedWith("ERC20: transfer amount exceeds balance");
         });
       });
       describe("Try to repay not opened position", () => {
@@ -1341,9 +1347,14 @@ describe("Aave3PoolAdapterTest", () => {
       const amountToBorrow = d.amountToBorrow;
 
       if (! p.badPathsParams?.skipBorrow) {
-        await d.aavePoolAdapterAsTC.syncBalance(true, true);
-        await IERC20__factory.connect(p.collateralToken.address, await DeployerUtils.startImpersonate(d.userContract.address))
-          .transfer(d.aavePoolAdapterAsTC.address, p.collateralAmount);
+        await transferAndApprove(
+          p.collateralToken.address,
+          d.userContract.address,
+          await d.controller.tetuConverter(),
+          d.collateralAmount,
+          d.aavePoolAdapterAsTC.address
+        );
+
         await d.aavePoolAdapterAsTC.borrow(
           p.collateralAmount,
           amountToBorrow,
@@ -1385,16 +1396,18 @@ describe("Aave3PoolAdapterTest", () => {
       const poolAdapterSigner = p.badPathsParams?.makeRepayToRebalanceAsDeployer
         ? IPoolAdapter__factory.connect(d.aavePoolAdapterAsTC.address, deployer)
         : d.aavePoolAdapterAsTC;
-      await poolAdapterSigner.syncBalance(false, true);
-
-      await SharedRepayToRebalanceUtils.transferAmountToRepayToUserContract(
+      await SharedRepayToRebalanceUtils.approveAmountToRepayToUserContract(
         poolAdapterSigner.address,
         p.collateralToken.address,
         p.borrowToken.address,
         amountsToRepay,
-        d.userContract.address
+        d.userContract.address,
+        await d.controller.tetuConverter()
       );
 
+      console.log("signer is", await poolAdapterSigner.signer.getAddress());
+      console.log("amountsToRepay.useCollateral", amountsToRepay.useCollateral);
+      console.log("amountsToRepay.amountCollateralAsset", amountsToRepay.amountCollateralAsset);
       await poolAdapterSigner.repayToRebalance(
         amountsToRepay.useCollateral
           ? amountsToRepay.amountCollateralAsset
@@ -1547,23 +1560,6 @@ describe("Aave3PoolAdapterTest", () => {
           await expect(
             testRepayToRebalanceDaiWMatic({additionalAmountCorrectionFactorMul: 100})
           ).revertedWith("TC-40"); // REPAY_TO_REBALANCE_NOT_ALLOWED
-        });
-      });
-    });
-  });
-
-  describe("TODO:syncBalance", () => {
-    describe("Good paths", () => {
-      it("should return expected values", async () => {
-        if (!await isPolygonForkInUse()) return;
-        expect.fail("TODO");
-      });
-    });
-    describe("Bad paths", () => {
-      describe("", () => {
-        it("should revert", async () => {
-          if (!await isPolygonForkInUse()) return;
-          expect.fail("TODO");
         });
       });
     });

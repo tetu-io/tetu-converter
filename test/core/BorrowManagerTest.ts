@@ -263,7 +263,6 @@ describe("BorrowManager", () => {
     targetHealthFactor?: number,
     estimateGas: boolean = false,
   ) : Promise<IMakeTestFindConverterResults> {
-    // There are TWO underlying: source, target
     const {core, sourceToken, targetToken, pools} = await BorrowManagerHelper.initAppPoolsWithTwoAssets(signer, tt);
     if (targetHealthFactor) {
       await core.controller.setMaxHealthFactor2(2 * targetHealthFactor * 100);
@@ -1289,8 +1288,8 @@ describe("BorrowManager", () => {
 
           const ret = await makeTestFindConverter(input,
             sourceAmount,
-            healthFactor,
             period,
+            healthFactor,
             true // we need to estimate gas
           );
           console.log(`findPools: estimated gas for ${countPools} pools`, ret.outGas);
