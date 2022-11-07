@@ -182,6 +182,7 @@ export class DeploySolutionUtils {
     // TODO: it allows us to test keeper
     const gelatoOpsReady = await MocksHelper.createKeeperCaller(signer);
 
+    console.log("Deploy contracts");
     // Deploy all core contracts
     const deployCoreResults = await DeploySolutionUtils.deployCoreContracts(
       signer,
@@ -191,6 +192,7 @@ export class DeploySolutionUtils {
       borrowManagerSetupParams
     );
 
+    console.log("Deploy platform adapters");
     const borrowManager = IBorrowManager__factory.connect(deployCoreResults.borrowManager, signer);
     const deployedPlatformAdapters: IPlatformAdapterResult[] = [];
 
@@ -202,6 +204,7 @@ export class DeploySolutionUtils {
       )
       : undefined;
     if (platformAdapterAave3) {
+      console.log("Register platform adapter AAVE3");
       deployedPlatformAdapters.push(platformAdapterAave3);
 
       await DeploySolutionUtils.registerPlatformAdapter(
@@ -218,6 +221,7 @@ export class DeploySolutionUtils {
       )
       : undefined;
     if (platformAdapterAaveTwo) {
+      console.log("Register platform adapter AAVE2");
       deployedPlatformAdapters.push(platformAdapterAaveTwo);
       await DeploySolutionUtils.registerPlatformAdapter(
         borrowManager,
@@ -234,6 +238,7 @@ export class DeploySolutionUtils {
       )
       : undefined;
     if (platformAdapterDForce) {
+      console.log("Register platform adapter DForce");
       deployedPlatformAdapters.push(platformAdapterDForce);
       await DeploySolutionUtils.registerPlatformAdapter(
         borrowManager,
@@ -251,6 +256,7 @@ export class DeploySolutionUtils {
       )
       : undefined;
     if (platformAdapterHundredFinance) {
+      console.log("Register platform adapter HundredFinance");
       deployedPlatformAdapters.push(platformAdapterHundredFinance);
       await DeploySolutionUtils.registerPlatformAdapter(
         borrowManager,
@@ -259,6 +265,7 @@ export class DeploySolutionUtils {
       );
     }
 
+    console.log("setTargetHealthFactors");
     // set target health factors
     await RunHelper.runAndWait(
       () =>  borrowManager.setTargetHealthFactors(
@@ -268,6 +275,7 @@ export class DeploySolutionUtils {
       )
     );
 
+    console.log("write results to file");
     // save deploy results to file
     await DeploySolutionUtils.writeResultsToFile(
       destPathTxt,
@@ -433,6 +441,7 @@ export class DeploySolutionUtils {
     platformAdapter: string,
     assetPairs: IPlatformAdapterAssets
   ) {
+    console.log("registerPlatformAdapter", platformAdapter, assetPairs);
     await RunHelper.runAndWait(
       () => borrowManager.addAssetPairs(
         platformAdapter,
