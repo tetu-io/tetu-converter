@@ -384,6 +384,29 @@ describe("Controller", () => {
           }
         });
       });
+      describe ("Not governance", () => {
+        it("should revert", async () => {
+          const initialAddresses = getRandomControllerAddresses();
+
+          const {controller} = await createTestController(initialAddresses);
+          const controllerAsNotGov = Controller__factory.connect(controller.address, user3);
+
+          for (const key of Object.keys(initialAddresses)) {
+            const updatedAddresses: IControllerAddresses = {
+              governance: await controller.governance(),
+              keeper: await controller.keeper(),
+              debtMonitor: await controller.debtMonitor(),
+              borrowManager: await controller.borrowManager(),
+              tetuConverter: await controller.tetuConverter(),
+              tetuLiquidator: await controller.tetuLiquidator(),
+              swapManager: await controller.swapManager(),
+            };
+            await expect(
+              setAddresses(controllerAsNotGov, updatedAddresses)
+            ).revertedWith("TC-9"); // GOVERNANCE_ONLY
+          }
+        });
+      });
     });
   });
 
@@ -408,7 +431,11 @@ describe("Controller", () => {
         );
 
         const before = await controller.blocksPerDay();
-        await controller.setBlocksPerDay(blocksPerDayUpdated);
+        const controllerAsGov = Controller__factory.connect(
+          controller.address
+          , await DeployerUtils.startImpersonate(await controller.governance())
+        );
+        await controllerAsGov.setBlocksPerDay(blocksPerDayUpdated);
         const after = await controller.blocksPerDay();
 
         const ret = [before, after].join();
@@ -442,8 +469,19 @@ describe("Controller", () => {
           ).revertedWith("TC-29");
         });
       });
+      describe ("Not governance", () => {
+        it("should set expected value", async () => {
+          const a = getRandomControllerAddresses();
+          const {controller} = await createTestController(a);
+          const controllerNotGov = Controller__factory.connect(controller.address, user3);
+          await expect(
+            controllerNotGov.setBlocksPerDay(4000)
+          ).revertedWith("TC-9"); // GOVERNANCE_ONLY
+        });
+      });
     });
   });
+
   describe ("setMinHealthFactor2", () => {
     describe ("Good paths", () => {
       it("should set expected value", async () => {
@@ -463,7 +501,11 @@ describe("Controller", () => {
         );
 
         const before = await controller.minHealthFactor2();
-        await controller.setMinHealthFactor2(minHealthFactorUpdated);
+        const controllerAsGov = Controller__factory.connect(
+          controller.address
+          , await DeployerUtils.startImpersonate(await controller.governance())
+        );
+        await controllerAsGov.setMinHealthFactor2(minHealthFactorUpdated);
         const after = await controller.minHealthFactor2();
 
         const ret = [before, after].join();
@@ -489,6 +531,16 @@ describe("Controller", () => {
           ).revertedWith("TC-38: wrong health factor config");
         });
       });
+      describe ("Not governance", () => {
+        it("should set expected value", async () => {
+          const a = getRandomControllerAddresses();
+          const {controller} = await createTestController(a);
+          const controllerNotGov = Controller__factory.connect(controller.address, user3);
+          await expect(
+            controllerNotGov.setMinHealthFactor2(125)
+          ).revertedWith("TC-9"); // GOVERNANCE_ONLY
+        });
+      });
     });
   });
   describe ("setTargetHealthFactor2", () => {
@@ -510,7 +562,11 @@ describe("Controller", () => {
         );
 
         const before = await controller.targetHealthFactor2();
-        await controller.setTargetHealthFactor2(targetHealthFactorUpdated);
+        const controllerAsGov = Controller__factory.connect(
+          controller.address
+          , await DeployerUtils.startImpersonate(await controller.governance())
+        );
+        await controllerAsGov.setTargetHealthFactor2(targetHealthFactorUpdated);
         const after = await controller.targetHealthFactor2();
 
         const ret = [before, after].join();
@@ -540,6 +596,16 @@ describe("Controller", () => {
           ).revertedWith("TC-38: wrong health factor config");
         });
       });
+      describe ("Not governance", () => {
+        it("should set expected value", async () => {
+          const a = getRandomControllerAddresses();
+          const {controller} = await createTestController(a);
+          const controllerNotGov = Controller__factory.connect(controller.address, user3);
+          await expect(
+            controllerNotGov.setTargetHealthFactor2(250)
+          ).revertedWith("TC-9"); // GOVERNANCE_ONLY
+        });
+      });
     });
   });
   describe ("setMaxHealthFactor2", () => {
@@ -561,7 +627,11 @@ describe("Controller", () => {
         );
 
         const before = await controller.maxHealthFactor2();
-        await controller.setMaxHealthFactor2(maxHealthFactorUpdated);
+        const controllerAsGov = Controller__factory.connect(
+          controller.address
+          , await DeployerUtils.startImpersonate(await controller.governance())
+        );
+        await controllerAsGov.setMaxHealthFactor2(maxHealthFactorUpdated);
         const after = await controller.maxHealthFactor2();
 
         const ret = [before, after].join();
@@ -579,6 +649,16 @@ describe("Controller", () => {
               await controller.targetHealthFactor2()
             )
           ).revertedWith("TC-38: wrong health factor config");
+        });
+      });
+      describe ("Not governance", () => {
+        it("should set expected value", async () => {
+          const a = getRandomControllerAddresses();
+          const {controller} = await createTestController(a);
+          const controllerNotGov = Controller__factory.connect(controller.address, user3);
+          await expect(
+            controllerNotGov.setMaxHealthFactor2(1250)
+          ).revertedWith("TC-9"); // GOVERNANCE_ONLY
         });
       });
     });

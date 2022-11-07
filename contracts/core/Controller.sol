@@ -102,6 +102,7 @@ contract Controller is IController, Initializable {
 
   function setBlocksPerDay(uint value_) external override {
     require(value_ != 0, AppErrors.INCORRECT_VALUE);
+    _onlyGovernance();
     _blocksPerDay = value_;
   }
 
@@ -113,17 +114,20 @@ contract Controller is IController, Initializable {
   function setMinHealthFactor2(uint16 value_) external override {
     require(value_ > MIN_ALLOWED_MIN_HEALTH_FACTOR, AppErrors.WRONG_HEALTH_FACTOR);
     require(value_ < targetHealthFactor2, AppErrors.WRONG_HEALTH_FACTOR_CONFIG);
+    _onlyGovernance();
     minHealthFactor2 = value_;
   }
 
   function setTargetHealthFactor2(uint16 value_) external override {
     require(value_ > minHealthFactor2, AppErrors.WRONG_HEALTH_FACTOR_CONFIG);
     require(value_ < maxHealthFactor2, AppErrors.WRONG_HEALTH_FACTOR_CONFIG);
+    _onlyGovernance();
     targetHealthFactor2 = value_;
   }
 
   function setMaxHealthFactor2(uint16 value_) external override {
     require(value_ > targetHealthFactor2, AppErrors.WRONG_HEALTH_FACTOR_CONFIG);
+    _onlyGovernance();
     maxHealthFactor2 = value_;
   }
 
@@ -131,9 +135,6 @@ contract Controller is IController, Initializable {
   ///               Governance
   ///////////////////////////////////////////////////////
 
-  function _ensureSenderIsGovernance() internal view {
-    require (msg.sender == governance, AppErrors.GOVERNANCE_ONLY);
-  }
   function setGovernance(address governance_) external {
     require(governance_ != address(0), AppErrors.ZERO_ADDRESS);
     _onlyGovernance();

@@ -62,6 +62,11 @@ export interface ITargetHealthFactorValue {
 }
 //endregion Data types
 
+const GAS_LIMIT = {
+  gasLimit: 8_000_000
+};
+
+
 export class DeploySolutionUtils {
 //region Main script
   static async runMain() {
@@ -274,7 +279,7 @@ export class DeploySolutionUtils {
       () =>  borrowManager.setTargetHealthFactors(
         targetHealthFactorsAssets,
         targetHealthFactorsValues,
-        {gasLimit: 8_000_000}
+        {gasLimit: GAS_LIMIT}
       )
     );
 
@@ -324,7 +329,7 @@ export class DeploySolutionUtils {
         keeper.address,
         tetuLiquidator,
         swapManager.address,
-        {gasLimit: 8_000_000}
+        {gasLimit: GAS_LIMIT}
       )
     );
 
@@ -446,7 +451,7 @@ export class DeploySolutionUtils {
         platformAdapter,
         assetPairs.leftAssets,
         assetPairs.rightAssets,
-        {gasLimit: 8_000_000}
+        {gasLimit: GAS_LIMIT}
       )
     );
   }
