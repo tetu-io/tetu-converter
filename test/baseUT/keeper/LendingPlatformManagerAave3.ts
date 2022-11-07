@@ -5,32 +5,32 @@ import {
   Aave3PriceOracleMock,
   Aave3PriceOracleMock__factory, Borrower,
   IAaveAddressesProvider__factory,
-  IAavePool, IAavePoolConigurator__factory, IAavePriceOracle__factory, IERC20__factory, ITetuConverter
+  IAavePoolConigurator__factory, IERC20__factory, ITetuConverter
 } from "../../../typechain";
 import {DeployUtils} from "../../../scripts/utils/DeployUtils";
 import {Aave3Helper} from "../../../scripts/integration/helpers/Aave3Helper";
 import {DeployerUtils} from "../../../scripts/utils/DeployerUtils";
 import {MaticAddresses} from "../../../scripts/addresses/MaticAddresses";
 import {ITokenWithHolder} from "../types/TokenDataTypes";
-import {BigNumber} from "ethers";
-import {MocksHelper} from "../helpers/MocksHelper";
+import {Aave3ChangePricesUtils} from "../protocols/aave3/Aave3ChangePricesUtils";
 
 export class LendingPlatformManagerAave3 implements ILendingPlatformManager {
   poolAdapter: Aave3PoolAdapter;
   borrower: Borrower;
   tc: ITetuConverter;
-  /** We can use ITetuConverter to make max allowed borrow,
+  /*
+   *  We can use ITetuConverter to make max allowed borrow,
    *  but we should use different pool adapter (not the one under the test)
    *  so we need different collateral asset.
    * */
   collateralHolder: ITokenWithHolder;
   borrowHolder: ITokenWithHolder;
   constructor(
-    pa: Aave3PoolAdapter
-    , borrower: Borrower
-    , tc: ITetuConverter
-    , collateralHolder: ITokenWithHolder
-    , borrowHolder: ITokenWithHolder
+    pa: Aave3PoolAdapter,
+    borrower: Borrower,
+    tc: ITetuConverter,
+    collateralHolder: ITokenWithHolder,
+    borrowHolder: ITokenWithHolder,
   ) {
     this.poolAdapter = pa;
     this.borrower = borrower;
@@ -39,69 +39,16 @@ export class LendingPlatformManagerAave3 implements ILendingPlatformManager {
     this.borrowHolder = borrowHolder;
   }
 
-//region Substitute mocks into the AAVE3-protocol
-  async setupPriceOracleMock(
-    deployer: SignerWithAddress,
-    aave3pool: IAavePool
-  ) {
-    // get access to AAVE price oracle
-    const aaveOracle = await Aave3Helper.getAavePriceOracle(deployer);
-
-    // get admin address
-    const aavePoolOwner = await DeployerUtils.startImpersonate(MaticAddresses.AAVE_V3_POOL_OWNER);
-
-    // deploy mock
-    const mock = (await DeployUtils.deployContract(deployer
-      , "Aave3PriceOracleMock"
-      , await aaveOracle.ADDRESSES_PROVIDER()
-      , await aaveOracle.BASE_CURRENCY()
-      , await aaveOracle.BASE_CURRENCY_UNIT()
-      , await aaveOracle.getFallbackOracle()
-    )) as Aave3PriceOracleMock;
-
-    // copy current prices from real price oracle to the mock
-    const aavePool = await Aave3Helper.getAavePool(deployer);
-    const reserves = await aavePool.getReservesList();
-    const prices = await aaveOracle.getAssetsPrices(reserves);
-    await mock.setPrices(reserves, prices);
-
-    // install the mock to the protocol
-    const aaveAddressProviderAsOwner = IAaveAddressesProvider__factory.connect(
-      await aavePool.ADDRESSES_PROVIDER()
-      , aavePoolOwner
-    );
-    await aaveAddressProviderAsOwner.setPriceOracle(mock.address);
-  }
-//endregion Substitute mocks into the AAVE3-protocol
-
 //region ILendingPlatformManager
   /** Increase or decrease a price of the asset on the given number of times */
   async changeAssetPrice(
-    signer: SignerWithAddress
-    , asset: string
-    , inc: boolean
-    , times: number
+    signer: SignerWithAddress,
+    asset: string,
+    inc: boolean,
+    times: number
   ): Promise<PoolAdapterState01>  {
     const before = await getPoolAdapterState(signer, this.poolAdapter.address);
-
-    // setup new price oracle
-    const aavePool = await Aave3Helper.getAavePool(signer);
-    await this.setupPriceOracleMock(signer, aavePool);
-
-    // change a price of the given asset
-    const oracle = Aave3PriceOracleMock__factory.connect(
-      (await Aave3Helper.getAavePriceOracle(signer)).address
-      , signer
-    );
-    const currentPrice: BigNumber = await oracle.getAssetPrice(asset);
-    await oracle.setPrices(
-      [
-        asset
-      ], [
-        inc ? currentPrice.mul(times) : currentPrice.div(times)
-      ]
-    );
-
+    await Aave3ChangePricesUtils.changeAssetPrice(signer, asset, inc, times);
     const after = await getPoolAdapterState(signer, this.poolAdapter.address);
     console.log("changeAssetPrice.2", before, after);
     return {before, after};
@@ -170,7 +117,7 @@ export class LendingPlatformManagerAave3 implements ILendingPlatformManager {
       collateralAsset
       , collateralAmount
       , borrowAsset
-      , this.collateralHolder.asset //put borrowed amount on the balance of borrow-holder
+      , this.collateralHolder.asset // put borrowed amount on the balance of borrow-holder
     );
 
     const after = await getPoolAdapterState(signer, this.poolAdapter.address);

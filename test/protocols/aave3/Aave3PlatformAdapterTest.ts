@@ -4,7 +4,7 @@ import {TimeUtils} from "../../../scripts/utils/TimeUtils";
 import {
   IAavePool,
   IAaveProtocolDataProvider,
-  IAaveToken__factory, IERC20Extended__factory, IPlatformAdapter
+  IERC20Extended__factory, IPlatformAdapter
 } from "../../../typechain";
 import {expect} from "chai";
 import {BigNumber} from "ethers";

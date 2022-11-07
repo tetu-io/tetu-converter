@@ -2,23 +2,16 @@ import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import {ethers} from "hardhat";
 import {TimeUtils} from "../../../scripts/utils/TimeUtils";
 import {
-  Aave3PoolAdapter, Aave3PoolAdapter__factory, Borrower, BorrowManager__factory,
-  Controller,
-  IAavePool, IAavePool__factory, IAavePriceOracle, IAaveProtocolDataProvider,
-  IERC20__factory,
   IERC20Extended__factory, IPoolAdapter__factory
 } from "../../../typechain";
 import {expect} from "chai";
 import {BigNumber} from "ethers";
 import {getBigNumberFrom} from "../../../scripts/utils/NumberUtils";
 import {DeployerUtils} from "../../../scripts/utils/DeployerUtils";
-import {AdaptersHelper} from "../../baseUT/helpers/AdaptersHelper";
 import {isPolygonForkInUse} from "../../baseUT/utils/NetworkUtils";
-import {Aave3Helper, IAave3ReserveInfo} from "../../../scripts/integration/helpers/Aave3Helper";
+import {IAave3ReserveInfo} from "../../../scripts/integration/helpers/Aave3Helper";
 import {BalanceUtils, IUserBalances} from "../../baseUT/utils/BalanceUtils";
-import {CoreContractsHelper} from "../../baseUT/helpers/CoreContractsHelper";
 import {MaticAddresses} from "../../../scripts/addresses/MaticAddresses";
-import {MocksHelper} from "../../baseUT/helpers/MocksHelper";
 import {TokenDataTypes} from "../../baseUT/types/TokenDataTypes";
 import {Misc} from "../../../scripts/utils/Misc";
 import {IAave3UserAccountDataResults} from "../../baseUT/apr/aprAave3";
@@ -41,8 +34,8 @@ import {
   IMakeRepayToRebalanceInputParams
 } from "../../baseUT/protocols/shared/sharedDataTypes";
 import {SharedRepayToRebalanceUtils} from "../../baseUT/protocols/shared/sharedRepayToRebalanceUtils";
-import {IConversionPlan} from "../../baseUT/apr/aprDataTypes";
 import {transferAndApprove} from "../../baseUT/utils/transferUtils";
+import {Aave3TestUtils, IPrepareToBorrowResults} from "../../baseUT/protocols/aave3/Aave3TestUtils";
 
 describe("Aave3PoolAdapterTest", () => {
 //region Global vars for all tests
@@ -72,172 +65,6 @@ describe("Aave3PoolAdapterTest", () => {
   });
 //endregion before, after
 
-//region Test impl
-  interface IPrepareToBorrowResults {
-    userContract: Borrower;
-    h: Aave3Helper;
-
-    aavePoolAdapterAsTC: Aave3PoolAdapter;
-    aavePool: IAavePool;
-    dataProvider: IAaveProtocolDataProvider;
-    aavePrices: IAavePriceOracle;
-
-    controller: Controller;
-    plan: IConversionPlan;
-
-    /** Amount that can be borrowed according to the conversion plan */
-    amountToBorrow: BigNumber;
-    /** Actual amount that was used as collateral */
-    collateralAmount: BigNumber;
-
-    converterNormal: string;
-    converterEMode: string;
-  }
-
-  interface IPrepareToBorrowOptionalSetup {
-    borrowHolders?: string[];
-    targetHealthFactor2?: number;
-  }
-
-  async function supplyEnoughBorrowAssetToAavePool(
-    aavePool: string,
-    borrowHolders: string[],
-    borrowAsset: string
-  ) {
-    const user2 = await DeployerUtils.startImpersonate(ethers.Wallet.createRandom().address);
-
-    // user2 provides DAI amount enough to borrow by user1
-    for (const h of borrowHolders) {
-      const caAsH = IERC20__factory.connect(borrowAsset, await DeployerUtils.startImpersonate(h));
-      const holderBalance = await caAsH.balanceOf(h);
-      console.log("Holder balance:", holderBalance.toString());
-      await caAsH.transfer(user2.address, await caAsH.balanceOf(h));
-      const userBalance = await caAsH.balanceOf(user2.address);
-      console.log("User balance:", userBalance.toString());
-    }
-
-    // supply all available borrow asset to aave pool
-    const user2CollateralBalance = await IERC20__factory.connect(borrowAsset, user2).balanceOf(user2.address);
-    await IERC20Extended__factory.connect(borrowAsset, user2).approve(aavePool, user2CollateralBalance);
-    console.log(`Supply collateral ${borrowAsset} amount ${user2CollateralBalance}`);
-    await IAavePool__factory.connect(aavePool, await DeployerUtils.startImpersonate(user2.address))
-      .supply(borrowAsset, user2CollateralBalance, user2.address, 0);
-  }
-
-  /**
-   * Initialize TetuConverter app and aave pool adapter.
-   * Put the collateral amount on pool-adapter's balance.
-   *
-   * If collateralAmount is undefined, we should use all available amount as the collateral.
-   */
-  async function prepareToBorrow(
-    collateralToken: TokenDataTypes,
-    collateralHolders: string[],
-    collateralAmountRequired: BigNumber | undefined,
-    borrowToken: TokenDataTypes,
-    useEMode: boolean,
-    additionalParams?: IPrepareToBorrowOptionalSetup
-  ) : Promise<IPrepareToBorrowResults> {
-    const periodInBlocks = 1000;
-
-    // initialize pool, adapters and helper for the adapters
-    const h: Aave3Helper = new Aave3Helper(deployer);
-
-    const aavePool = await Aave3Helper.getAavePool(deployer);
-    const dataProvider = await Aave3Helper.getAaveProtocolDataProvider(deployer);
-    const aavePrices = await Aave3Helper.getAavePriceOracle(deployer);
-
-    // controller: we need TC (as a caller) and DM (to register borrow position)
-    const controller = await CoreContractsHelper.createController(deployer);
-    const tetuConverter = await CoreContractsHelper.createTetuConverter(deployer, controller);
-    const dm = await CoreContractsHelper.createDebtMonitor(deployer, controller);
-    // const bm = await MocksHelper.createBorrowManagerStub(deployer, true);
-    const bm = await CoreContractsHelper.createBorrowManager(deployer, controller);
-    await controller.setBorrowManager(bm.address);
-    await controller.setDebtMonitor(dm.address);
-    await controller.setTetuConverter(tetuConverter.address);
-
-    const userContract = await MocksHelper.deployBorrower(deployer.address, controller, periodInBlocks);
-
-    const converterNormal = await AdaptersHelper.createAave3PoolAdapter(deployer);
-    const converterEMode = await AdaptersHelper.createAave3PoolAdapterEMode(deployer);
-    const aavePlatformAdapter = await AdaptersHelper.createAave3PlatformAdapter(
-      deployer, controller.address, aavePool.address,
-      converterNormal.address,
-      converterEMode.address
-    );
-
-    await bm.addAssetPairs(
-      aavePlatformAdapter.address,
-      [collateralToken.address],
-      [borrowToken.address]
-    );
-    const bmAsTc = BorrowManager__factory.connect(
-      bm.address,
-      await DeployerUtils.startImpersonate(tetuConverter.address)
-    );
-    await bmAsTc.registerPoolAdapter(
-      useEMode ? converterEMode.address : converterNormal.address,
-      userContract.address,
-      collateralToken.address,
-      borrowToken.address
-    );
-    const aavePoolAdapterAsTC = Aave3PoolAdapter__factory.connect(
-      await bm.getPoolAdapter(
-        useEMode ? converterEMode.address : converterNormal.address,
-        userContract.address,
-        collateralToken.address,
-        borrowToken.address
-      ),
-      await DeployerUtils.startImpersonate(tetuConverter.address)
-    );
-
-    // put collateral amount on user's balance
-    const collateralAmount = await BalanceUtils.getRequiredAmountFromHolders(
-      collateralAmountRequired,
-      collateralToken.token,
-      collateralHolders,
-      userContract.address
-    );
-    console.log(`Put collateral=${collateralAmount} on user balance`);
-
-    if (additionalParams?.borrowHolders) {
-      await supplyEnoughBorrowAssetToAavePool(
-        aavePool.address,
-        additionalParams?.borrowHolders,
-        borrowToken.address
-      );
-    }
-
-    // calculate max allowed amount to borrow
-    const countBlocks = 1;
-
-    const plan: IConversionPlan = await aavePlatformAdapter.getConversionPlan(
-      collateralToken.address,
-      collateralAmount,
-      borrowToken.address,
-      additionalParams?.targetHealthFactor2 || await controller.targetHealthFactor2(),
-      countBlocks
-    );
-    console.log("plan", plan);
-
-    return {
-      controller,
-      h,
-      userContract,
-      aavePrices,
-      aavePool,
-      aavePoolAdapterAsTC,
-      dataProvider,
-      amountToBorrow: plan.amountToBorrow,
-      collateralAmount,
-      plan,
-      converterNormal: converterNormal.address,
-      converterEMode: converterEMode.address
-    }
-  }
-//endregion Test impl
-
 //region Unit tests
   describe("borrow", () => {
     async function makeBorrowTest(
@@ -247,56 +74,30 @@ describe("Aave3PoolAdapterTest", () => {
       borrowToken: TokenDataTypes,
       borrowAmountRequired: BigNumber | undefined
     ): Promise<{ sret: string, sexpected: string }> {
-      const d = await prepareToBorrow(
+      const d = await Aave3TestUtils.prepareToBorrow(
+        deployer,
         collateralToken,
         [collateralHolder],
         collateralAmountRequired,
         borrowToken,
         false
       );
-      const collateralData = await d.h.getReserveInfo(deployer, d.aavePool, d.dataProvider, collateralToken.address);
-      const borrowAmount = borrowAmountRequired
-        ? borrowAmountRequired
-        : d.amountToBorrow;
-      console.log("collateralAmountRequired", collateralAmountRequired);
-      console.log("borrowAmountRequired", borrowAmountRequired);
-      console.log("d.collateralAmount", d.collateralAmount);
-      console.log("borrowAmount", borrowAmount);
-
-      await transferAndApprove(
-        collateralToken.address,
-        d.userContract.address,
-        await d.controller.tetuConverter(),
-        d.collateralAmount,
-        d.aavePoolAdapterAsTC.address
-      );
-
-      await d.aavePoolAdapterAsTC.borrow(
-        d.collateralAmount,
-        borrowAmount,
-        d.userContract.address
-      );
-
-      // prices of assets in base currency
-      const prices = await d.aavePrices.getAssetsPrices([collateralToken.address, borrowToken.address]);
-
-      // check results
-      const ret = await d.aavePool.getUserAccountData(d.aavePoolAdapterAsTC.address);
+      const ret = await Aave3TestUtils.makeBorrow(deployer, d, borrowAmountRequired);
 
       const sret = [
         await borrowToken.token.balanceOf(d.userContract.address),
-        await IERC20Extended__factory.connect(collateralData.data.aTokenAddress, deployer)
+        await IERC20Extended__factory.connect(ret.collateralData.data.aTokenAddress, deployer)
           .balanceOf(d.aavePoolAdapterAsTC.address),
-        ret.totalCollateralBase,
-        ret.totalDebtBase
+        ret.accountDataAfterBorrow.totalCollateralBase,
+        ret.accountDataAfterBorrow.totalDebtBase
       ].map(x => BalanceUtils.toString(x)).join("\n");
 
       const sexpected = [
-        borrowAmount, // borrowed amount on user's balance
+        ret.borrowedAmount, // borrowed amount on user's balance
         d.collateralAmount, // amount of collateral tokens on pool-adapter's balance
-        d.collateralAmount.mul(prices[0])  // registered collateral in the pool
+        d.collateralAmount.mul(d.priceCollateral)  // registered collateral in the pool
           .div(getBigNumberFrom(1, collateralToken.decimals)),
-        borrowAmount.mul(prices[1]) // registered debt in the pool
+        ret.borrowedAmount.mul(d.priceBorrow) // registered debt in the pool
           .div(getBigNumberFrom(1, borrowToken.decimals)),
       ].map(x => BalanceUtils.toString(x)).join("\n");
 
@@ -474,7 +275,7 @@ describe("Aave3PoolAdapterTest", () => {
     ): Promise<{userAccountData: IAave3UserAccountDataResults, collateralData: IAave3ReserveInfo}> {
       const minHealthFactor2 = 101;
       const targetHealthFactor2 = 202;
-      const d = await prepareToBorrow(
+      const d = await Aave3TestUtils.prepareToBorrow(deployer,
         collateralToken,
         [collateralHolder],
         collateralAmount,
@@ -617,7 +418,7 @@ describe("Aave3PoolAdapterTest", () => {
       borrowHolders: string[],
       deltaToMaxAmount?: BigNumber
     ) : Promise<IBorrowMaxAmountInIsolationModeResults>{
-      const d = await prepareToBorrow(
+      const d = await Aave3TestUtils.prepareToBorrow(deployer,
         collateralToken,
         collateralHolders,
         collateralAmountRequired,
@@ -914,7 +715,7 @@ describe("Aave3PoolAdapterTest", () => {
       borrowHolder: string,
       badPathsParams?: IMakeBorrowToRebalanceBadPathParams
     ) : Promise<IMakeBorrowToRebalanceResults>{
-      const d = await prepareToBorrow(
+      const d = await Aave3TestUtils.prepareToBorrow(deployer,
         collateralToken,
         [collateralHolder],
         collateralAmount,
@@ -1057,7 +858,8 @@ describe("Aave3PoolAdapterTest", () => {
       initialBorrowAmountOnUserBalance?: BigNumber,
       badParams?: IBorrowAndRepayBadParams
     ) : Promise<IMakeBorrowAndRepayResults>{
-      const d = await prepareToBorrow(collateralToken,
+      const d = await Aave3TestUtils.prepareToBorrow(deployer,
+        collateralToken,
         [collateralHolder],
         collateralAmountRequired,
         borrowToken,
@@ -1326,7 +1128,7 @@ describe("Aave3PoolAdapterTest", () => {
       p: IMakeRepayToRebalanceInputParams,
       useEMode: boolean = false
     ) : Promise<IMakeRepayToRebalanceResults>{
-      const d = await prepareToBorrow(
+      const d = await Aave3TestUtils.prepareToBorrow(deployer,
         p.collateralToken,
         [p.collateralHolder],
         p.collateralAmount,
@@ -1608,7 +1410,7 @@ describe("Aave3PoolAdapterTest", () => {
     it("should return expected values", async () => {
       if (!await isPolygonForkInUse()) return;
       const receiver = ethers.Wallet.createRandom().address;
-      const d = await prepareToBorrow(
+      const d = await Aave3TestUtils.prepareToBorrow(deployer,
         await TokenDataTypes.Build(deployer, MaticAddresses.DAI),
         [MaticAddresses.HOLDER_DAI],
         undefined,
@@ -1624,7 +1426,7 @@ describe("Aave3PoolAdapterTest", () => {
     describe("Good paths", () => {
       it("should return expected values", async () => {
         if (!await isPolygonForkInUse()) return;
-        const d = await prepareToBorrow(
+        const d = await Aave3TestUtils.prepareToBorrow(deployer,
           await TokenDataTypes.Build(deployer, MaticAddresses.DAI),
           [MaticAddresses.HOLDER_DAI],
           undefined,
@@ -1644,7 +1446,7 @@ describe("Aave3PoolAdapterTest", () => {
       borrowAsset: string,
       useEMode: boolean
     ): Promise<{ret: string, expected: string}> {
-      const d = await prepareToBorrow(
+      const d = await Aave3TestUtils.prepareToBorrow(deployer,
         await TokenDataTypes.Build(deployer, collateralAsset),
         [holderCollateralAsset],
         undefined,
