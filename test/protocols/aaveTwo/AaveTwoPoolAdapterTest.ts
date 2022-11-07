@@ -89,6 +89,8 @@ describe("AaveTwoPoolAdapterTest", () => {
     amountToBorrow: BigNumber;
     /** Actual amount that was used as collateral */
     collateralAmount: BigNumber;
+
+    converterNormal: string;
   }
 
   /**
@@ -182,7 +184,8 @@ describe("AaveTwoPoolAdapterTest", () => {
       aavePoolAdapterAsTC,
       dataProvider,
       amountToBorrow: plan.amountToBorrow,
-      collateralAmount
+      collateralAmount,
+      converterNormal: converterNormal.address
     }
   }
 //endregion Test Impl
@@ -1221,19 +1224,19 @@ describe("AaveTwoPoolAdapterTest", () => {
     });
   });
 
-  describe("TODO:hasRewards", () => {
+  describe("hasRewards", () => {
     describe("Good paths", () => {
       it("should return expected values", async () => {
         if (!await isPolygonForkInUse()) return;
-        expect.fail("TODO");
-      });
-    });
-    describe("Bad paths", () => {
-      describe("", () => {
-        it("should revert", async () => {
-          if (!await isPolygonForkInUse()) return;
-          expect.fail("TODO");
-        });
+        const d = await prepareToBorrow(
+          await TokenDataTypes.Build(deployer, MaticAddresses.DAI),
+          MaticAddresses.HOLDER_DAI,
+          undefined,
+          await TokenDataTypes.Build(deployer, MaticAddresses.WMATIC),
+          200
+        );
+        const ret = await d.aavePoolAdapterAsTC.hasRewards();
+        expect(ret).eq(false);
       });
     });
   });
@@ -1255,36 +1258,48 @@ describe("AaveTwoPoolAdapterTest", () => {
     });
   });
 
-  describe("TODO:getConversionKind", () => {
+  describe("getConversionKind", () => {
     describe("Good paths", () => {
       it("should return expected values", async () => {
         if (!await isPolygonForkInUse()) return;
-        expect.fail("TODO");
-      });
-    });
-    describe("Bad paths", () => {
-      describe("", () => {
-        it("should revert", async () => {
-          if (!await isPolygonForkInUse()) return;
-          expect.fail("TODO");
-        });
+        const d = await prepareToBorrow(
+          await TokenDataTypes.Build(deployer, MaticAddresses.DAI),
+          MaticAddresses.HOLDER_DAI,
+          undefined,
+          await TokenDataTypes.Build(deployer, MaticAddresses.WMATIC),
+          200
+        );
+        const ret = await d.aavePoolAdapterAsTC.getConversionKind();
+        expect(ret).eq(2); // CONVERSION_KIND_BORROW_2
       });
     });
   });
 
-  describe("TODO:getConfig", () => {
+  describe("getConfig", () => {
     describe("Good paths", () => {
       it("should return expected values", async () => {
         if (!await isPolygonForkInUse()) return;
-        expect.fail("TODO");
-      });
-    });
-    describe("Bad paths", () => {
-      describe("", () => {
-        it("should revert", async () => {
-          if (!await isPolygonForkInUse()) return;
-          expect.fail("TODO");
-        });
+        const d = await prepareToBorrow(
+          await TokenDataTypes.Build(deployer, MaticAddresses.DAI),
+          MaticAddresses.HOLDER_DAI,
+          undefined,
+          await TokenDataTypes.Build(deployer, MaticAddresses.WMATIC),
+          200
+        );
+        const r = await d.aavePoolAdapterAsTC.getConfig();
+        const ret = [
+          r.outCollateralAsset,
+          r.outBorrowAsset,
+          r.outUser,
+          r.origin
+        ].join();
+        const expected = [
+          MaticAddresses.DAI,
+          MaticAddresses.WMATIC,
+          d.userContract.address,
+          d.converterNormal
+        ].join();
+        expect(ret).eq(expected);
       });
     });
   });

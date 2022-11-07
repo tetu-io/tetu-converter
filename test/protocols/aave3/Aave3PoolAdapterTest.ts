@@ -89,6 +89,9 @@ describe("Aave3PoolAdapterTest", () => {
     amountToBorrow: BigNumber;
     /** Actual amount that was used as collateral */
     collateralAmount: BigNumber;
+
+    converterNormal: string;
+    converterEMode: string;
   }
 
   interface IPrepareToBorrowOptionalSetup {
@@ -228,7 +231,9 @@ describe("Aave3PoolAdapterTest", () => {
       dataProvider,
       amountToBorrow: plan.amountToBorrow,
       collateralAmount,
-      plan
+      plan,
+      converterNormal: converterNormal.address,
+      converterEMode: converterEMode.address
     }
   }
 //endregion Test impl
@@ -1599,19 +1604,19 @@ describe("Aave3PoolAdapterTest", () => {
     });
   });
 
-  describe("TODO:hasRewards", () => {
+  describe("hasRewards", () => {
     describe("Good paths", () => {
       it("should return expected values", async () => {
         if (!await isPolygonForkInUse()) return;
-        expect.fail("TODO");
-      });
-    });
-    describe("Bad paths", () => {
-      describe("", () => {
-        it("should revert", async () => {
-          if (!await isPolygonForkInUse()) return;
-          expect.fail("TODO");
-        });
+        const d = await prepareToBorrow(
+          await TokenDataTypes.Build(deployer, MaticAddresses.DAI),
+          [MaticAddresses.HOLDER_DAI],
+          undefined,
+          await TokenDataTypes.Build(deployer, MaticAddresses.WMATIC),
+          false
+        );
+        const ret = await d.aavePoolAdapterAsTC.hasRewards();
+        expect(ret).eq(false);
       });
     });
   });
@@ -1633,36 +1638,72 @@ describe("Aave3PoolAdapterTest", () => {
     });
   });
 
-  describe("TODO:getConversionKind", () => {
+  describe("getConversionKind", () => {
     describe("Good paths", () => {
       it("should return expected values", async () => {
         if (!await isPolygonForkInUse()) return;
-        expect.fail("TODO");
-      });
-    });
-    describe("Bad paths", () => {
-      describe("", () => {
-        it("should revert", async () => {
-          if (!await isPolygonForkInUse()) return;
-          expect.fail("TODO");
-        });
+        const d = await prepareToBorrow(
+          await TokenDataTypes.Build(deployer, MaticAddresses.DAI),
+          [MaticAddresses.HOLDER_DAI],
+          undefined,
+          await TokenDataTypes.Build(deployer, MaticAddresses.WMATIC),
+          false
+        );
+        const ret = await d.aavePoolAdapterAsTC.getConversionKind();
+        expect(ret).eq(2); // CONVERSION_KIND_BORROW_2
       });
     });
   });
 
-  describe("TODO:getConfig", () => {
+  describe("getConfig", () => {
+    async function getConfigTest(
+      collateralAsset: string,
+      holderCollateralAsset: string,
+      borrowAsset: string,
+      useEMode: boolean
+    ): Promise<{ret: string, expected: string}> {
+      const d = await prepareToBorrow(
+        await TokenDataTypes.Build(deployer, collateralAsset),
+        [holderCollateralAsset],
+        undefined,
+        await TokenDataTypes.Build(deployer, borrowAsset),
+        useEMode
+      );
+      const r = await d.aavePoolAdapterAsTC.getConfig();
+      const ret = [
+        r.outCollateralAsset,
+        r.outBorrowAsset,
+        r.outUser,
+        r.origin
+      ].join().toLowerCase();
+      const expected = [
+        collateralAsset,
+        borrowAsset,
+        d.userContract.address,
+        useEMode ? d.converterEMode : d.converterNormal
+      ].join().toLowerCase();
+      return {ret, expected};
+    }
     describe("Good paths", () => {
-      it("should return expected values", async () => {
+      it("normal mode: should return expected values", async () => {
         if (!await isPolygonForkInUse()) return;
-        expect.fail("TODO");
+        const r = await getConfigTest(
+          MaticAddresses.DAI,
+          MaticAddresses.HOLDER_DAI,
+          MaticAddresses.WMATIC,
+          false
+        );
+        expect(r.ret).eq(r.expected);
       });
-    });
-    describe("Bad paths", () => {
-      describe("", () => {
-        it("should revert", async () => {
-          if (!await isPolygonForkInUse()) return;
-          expect.fail("TODO");
-        });
+      it("emode: should return expected values", async () => {
+        if (!await isPolygonForkInUse()) return;
+        const r = await getConfigTest(
+          MaticAddresses.USDC,
+          MaticAddresses.HOLDER_USDC,
+          MaticAddresses.USDT,
+          true
+        );
+        expect(r.ret).eq(r.expected);
       });
     });
   });

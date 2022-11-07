@@ -270,6 +270,8 @@ contract HfPoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP {
 
     IERC20(assetBorrow).safeTransferFrom(msg.sender, address(this), amountToRepay_);
 
+    // Update borrowBalance to actual value, we must do it before calculation of collateral to withdraw
+    IHfCToken(borrowCToken).borrowBalanceCurrent(address(this));
     // how much collateral we are going to return
     uint collateralTokensToWithdraw = _getCollateralTokensToRedeem(
       cTokenCollateral,

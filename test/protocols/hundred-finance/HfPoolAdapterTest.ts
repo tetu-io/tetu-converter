@@ -84,6 +84,8 @@ describe("Hundred Finance integration tests, pool adapter", () => {
 
     collateralCToken: IHfCToken;
     borrowCToken: IHfCToken;
+
+    converterNormal: string;
   }
 
   interface IMarketsInfo {
@@ -190,7 +192,8 @@ describe("Hundred Finance integration tests, pool adapter", () => {
       priceOracle,
       collateralAmount,
       collateralCToken: IHfCToken__factory.connect(collateralCTokenAddress, deployer),
-      borrowCToken: IHfCToken__factory.connect(borrowCTokenAddress, deployer)
+      borrowCToken: IHfCToken__factory.connect(borrowCTokenAddress, deployer),
+      converterNormal: converter.address,
     }
   }
 
@@ -631,7 +634,7 @@ describe("Hundred Finance integration tests, pool adapter", () => {
           if (!await isPolygonForkInUse()) return;
           await expect(
             testDaiUSDC({skipBorrow: true})
-          ).revertedWith("TC-40"); // REPAY_TO_REBALANCE_NOT_ALLOWED
+          ).revertedWith("TC-11"); // BORROW_POSITION_IS_NOT_REGISTERED
         });
       });
       describe("Result health factor is less min allowed one", () => {
@@ -1165,29 +1168,7 @@ describe("Hundred Finance integration tests, pool adapter", () => {
                 wrongAmountToRepayToTransfer: getBigNumberFrom(1, usdcDecimals)
               }
             )
-          ).revertedWith("TC-15"); // WRONG_BORROWED_BALANCE
-        });
-      });
-      describe("Transfer amount larger than specified amount to repay", () => {
-        it("should revert", async () => {
-          if (!await isPolygonForkInUse()) return;
-
-          const usdcDecimals = await IERC20Extended__factory.connect(MaticAddresses.USDC, deployer).decimals();
-          const initialBorrowAmountOnUserBalanceNumber = 1000;
-          await expect(
-            daiUSDC(
-              false,
-              false,
-              initialBorrowAmountOnUserBalanceNumber,
-              {
-                // try to transfer too LARGE amount on balance of the pool adapter
-                wrongAmountToRepayToTransfer: getBigNumberFrom(
-                  initialBorrowAmountOnUserBalanceNumber,
-                  usdcDecimals
-                )
-              }
-            )
-          ).revertedWith("TC-15"); // WRONG_BORROWED_BALANCE
+          ).revertedWith("ERC20: transfer amount exceeds balance");
         });
       });
       describe("Try to repay not opened position", () => {
@@ -1638,36 +1619,50 @@ describe("Hundred Finance integration tests, pool adapter", () => {
     });
   });
 
-  describe("TODO:getConversionKind", () => {
+  describe("getConversionKind", () => {
     describe("Good paths", () => {
       it("should return expected values", async () => {
         if (!await isPolygonForkInUse()) return;
-        expect.fail("TODO");
-      });
-    });
-    describe("Bad paths", () => {
-      describe("", () => {
-        it("should revert", async () => {
-          if (!await isPolygonForkInUse()) return;
-          expect.fail("TODO");
-        });
+        const d = await prepareToBorrow(
+          await TokenDataTypes.Build(deployer, MaticAddresses.DAI),
+          MaticAddresses.HOLDER_DAI,
+          MaticAddresses.hDAI,
+          undefined,
+          await TokenDataTypes.Build(deployer, MaticAddresses.WMATIC),
+          MaticAddresses.hMATIC,
+        );
+        const ret = await d.hfPoolAdapterTC.getConversionKind();
+        expect(ret).eq(2); // CONVERSION_KIND_BORROW_2
       });
     });
   });
 
-  describe("TODO:getConfig", () => {
+  describe("getConfig", () => {
     describe("Good paths", () => {
       it("should return expected values", async () => {
         if (!await isPolygonForkInUse()) return;
-        expect.fail("TODO");
-      });
-    });
-    describe("Bad paths", () => {
-      describe("", () => {
-        it("should revert", async () => {
-          if (!await isPolygonForkInUse()) return;
-          expect.fail("TODO");
-        });
+        const d = await prepareToBorrow(
+          await TokenDataTypes.Build(deployer, MaticAddresses.DAI),
+          MaticAddresses.HOLDER_DAI,
+          MaticAddresses.hDAI,
+          undefined,
+          await TokenDataTypes.Build(deployer, MaticAddresses.WMATIC),
+          MaticAddresses.hMATIC,
+        );
+        const r = await d.hfPoolAdapterTC.getConfig();
+        const ret = [
+          r.outCollateralAsset,
+          r.outBorrowAsset,
+          r.outUser,
+          r.origin
+        ].join();
+        const expected = [
+          MaticAddresses.DAI,
+          MaticAddresses.WMATIC,
+          d.userContract.address,
+          d.converterNormal
+        ].join();
+        expect(ret).eq(expected);
       });
     });
   });

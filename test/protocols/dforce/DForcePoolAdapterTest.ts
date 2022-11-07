@@ -77,6 +77,8 @@ describe("DForce integration tests, pool adapter", () => {
 
     collateralCToken: IDForceCToken;
     borrowCToken: IDForceCToken;
+
+    converterNormal: string;
   }
 
   interface IMarketsInfo {
@@ -184,7 +186,8 @@ describe("DForce integration tests, pool adapter", () => {
       priceOracle,
       collateralAmount,
       collateralCToken: IDForceCToken__factory.connect(collateralCTokenAddress, deployer),
-      borrowCToken: IDForceCToken__factory.connect(borrowCTokenAddress, deployer)
+      borrowCToken: IDForceCToken__factory.connect(borrowCTokenAddress, deployer),
+      converterNormal: converterNormal.address,
     }
   }
 
@@ -332,7 +335,7 @@ describe("DForce integration tests, pool adapter", () => {
       const sret = [
         retBalanceBorrowUser,
         retBalanceCollateralTokensPoolAdapter,
-        accountEquity,
+        areAlmostEqual(accountEquity, expectedLiquidity),
         shortfall,
       ].map(x => BalanceUtils.toString(x)).join("\n");
 
@@ -341,7 +344,7 @@ describe("DForce integration tests, pool adapter", () => {
         d.collateralAmount
           .mul(Misc.WEI)
           .div(info.collateralData.exchangeRateStored),
-        expectedLiquidity,
+        true,
         0,
       ].map(x => BalanceUtils.toString(x)).join("\n");
 
@@ -620,8 +623,8 @@ describe("DForce integration tests, pool adapter", () => {
         const ret = [
           Math.round(r.afterBorrowHealthFactor18.div(getBigNumberFrom(1, 15)).toNumber() / 10.),
           Math.round(r.afterBorrowToRebalanceHealthFactor18.div(getBigNumberFrom(1, 15)).toNumber() / 10.),
-          toStringWithRound(r.userBalanceAfterBorrow, 18),
-          toStringWithRound(r.userBalanceAfterBorrowToRebalance, 18),
+          toStringWithRound(r.userBalanceAfterBorrow, 6),
+          toStringWithRound(r.userBalanceAfterBorrowToRebalance, 6),
         ].join();
         const expected = [
           targetHealthFactorInitial2,
@@ -730,7 +733,7 @@ describe("DForce integration tests, pool adapter", () => {
 
       console.log("borrowAmount", borrowAmount);
       // borrow asset
-      if (initialBorrowAmountOnUserBalance) {
+      if (initialBorrowAmountOnUserBalance && !initialBorrowAmountOnUserBalance.eq(0)) {
         await borrowToken.token
           .connect(await DeployerUtils.startImpersonate(borrowHolder))
           .transfer(d.userContract.address, initialBorrowAmountOnUserBalance);
@@ -1198,29 +1201,7 @@ describe("DForce integration tests, pool adapter", () => {
                 wrongAmountToRepayToTransfer: getBigNumberFrom(1, usdcDecimals)
               }
             )
-          ).revertedWith("TC-15"); // WRONG_BORROWED_BALANCE
-        });
-      });
-      describe("Transfer amount larger than specified amount to repay", () => {
-        it("should revert", async () => {
-          if (!await isPolygonForkInUse()) return;
-
-          const usdcDecimals = await IERC20Extended__factory.connect(MaticAddresses.USDC, deployer).decimals();
-          const initialBorrowAmountOnUserBalanceNumber = 1000;
-          await expect(
-            daiUSDC(
-              false,
-              false,
-              initialBorrowAmountOnUserBalanceNumber,
-              {
-                // try to transfer too LARGE amount on balance of the pool adapter
-                wrongAmountToRepayToTransfer: getBigNumberFrom(
-                  initialBorrowAmountOnUserBalanceNumber,
-                  usdcDecimals
-                )
-              }
-            )
-          ).revertedWith("TC-15"); // WRONG_BORROWED_BALANCE
+          ).revertedWith("ERC20: transfer amount exceeds balance");
         });
       });
       describe("Try to repay not opened position", () => {
@@ -1581,7 +1562,7 @@ describe("DForce integration tests, pool adapter", () => {
           if (!await isPolygonForkInUse()) return;
           await expect(
             daiWMatic(false,{skipBorrow: true})
-          ).revertedWith("TC-40"); // REPAY_TO_REBALANCE_NOT_ALLOWED
+          ).revertedWith("TC-11"); // BORROW_POSITION_IS_NOT_REGISTERED
         });
       });
       describe("Result health factor is less min allowed one", () => {
@@ -1671,36 +1652,50 @@ describe("DForce integration tests, pool adapter", () => {
     });
   });
 
-  describe("TODO:getConversionKind", () => {
+  describe("getConversionKind", () => {
     describe("Good paths", () => {
       it("should return expected values", async () => {
         if (!await isPolygonForkInUse()) return;
-        expect.fail("TODO");
-      });
-    });
-    describe("Bad paths", () => {
-      describe("", () => {
-        it("should revert", async () => {
-          if (!await isPolygonForkInUse()) return;
-          expect.fail("TODO");
-        });
+        const d = await prepareToBorrow(
+          await TokenDataTypes.Build(deployer, MaticAddresses.DAI),
+          MaticAddresses.HOLDER_DAI,
+          MaticAddresses.dForce_iDAI,
+          undefined,
+          await TokenDataTypes.Build(deployer, MaticAddresses.WMATIC),
+          MaticAddresses.dForce_iMATIC,
+        );
+        const ret = await d.dfPoolAdapterTC.getConversionKind();
+        expect(ret).eq(2); // CONVERSION_KIND_BORROW_2
       });
     });
   });
 
-  describe("TODO:getConfig", () => {
+  describe("getConfig", () => {
     describe("Good paths", () => {
       it("should return expected values", async () => {
         if (!await isPolygonForkInUse()) return;
-        expect.fail("TODO");
-      });
-    });
-    describe("Bad paths", () => {
-      describe("", () => {
-        it("should revert", async () => {
-          if (!await isPolygonForkInUse()) return;
-          expect.fail("TODO");
-        });
+        const d = await prepareToBorrow(
+          await TokenDataTypes.Build(deployer, MaticAddresses.DAI),
+          MaticAddresses.HOLDER_DAI,
+          MaticAddresses.dForce_iDAI,
+          undefined,
+          await TokenDataTypes.Build(deployer, MaticAddresses.WMATIC),
+          MaticAddresses.dForce_iMATIC,
+        );
+        const r = await d.dfPoolAdapterTC.getConfig();
+        const ret = [
+          r.outCollateralAsset,
+          r.outBorrowAsset,
+          r.outUser,
+          r.origin
+        ].join();
+        const expected = [
+          MaticAddresses.DAI,
+          MaticAddresses.WMATIC,
+          d.userContract.address,
+          d.converterNormal
+        ].join();
+        expect(ret).eq(expected);
       });
     });
   });

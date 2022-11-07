@@ -202,6 +202,9 @@ contract DForcePoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP {
     );
     console.log("liquidity", liquidity36);
     console.log("(sumCollateralSafe - borrowBase)", (sumCollateralSafe36 - borrowBase36) );
+    console.log("healthFactor18", healthFactor18);
+    console.log("sumCollateralSafe36", sumCollateralSafe36);
+    console.log("borrowBase36", borrowBase36);
 
     _validateHealthFactor(healthFactor18);
     return healthFactor18;
@@ -247,7 +250,7 @@ contract DForcePoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP {
   ///////////////////////////////////////////////////////
 
   /// @notice Repay borrowed amount, return collateral to the user
-  /// @dev Caller should call "syncBalance" before transferring amount to repay and call the "repay"
+  /// @dev Caller should approve the amount to repay before calling the repay()
   function repay(
     uint amountToRepay_,
     address receiver_,
@@ -266,7 +269,10 @@ contract DForcePoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP {
     console.log("IERC20(assetBorrow).balanceOf(address(this))", IERC20(assetBorrow).balanceOf(address(this)));
 
     IERC20(assetBorrow).safeTransferFrom(msg.sender, address(this), amountToRepay_);
+    console.log("IERC20(assetBorrow).balanceOf(address(this))", IERC20(assetBorrow).balanceOf(address(this)));
 
+    // Update borrowBalance to actual value, we must do it before calculation of collateral to withdraw
+    IDForceCToken(borrowCToken).borrowBalanceCurrent(address(this));
     // how much collateral we are going to return
     uint collateralTokensToWithdraw = _getCollateralTokensToRedeem(
       cTokenCollateral,
@@ -284,7 +290,7 @@ contract DForcePoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP {
       IERC20(assetBorrow).approve(cTokenBorrow, 0);
       IERC20(assetBorrow).approve(cTokenBorrow, amountToRepay_);
       IDForceCToken(cTokenBorrow).repayBorrow(amountToRepay_);
-      console.log("repayBorrow", amountToRepay_);
+      console.log("repay.repayBorrow", amountToRepay_);
     }
 
     // withdraw the collateral
