@@ -5,7 +5,6 @@ pragma solidity 0.8.4;
 import "../openzeppelin/Initializable.sol";
 import "../interfaces/IController.sol";
 import "./AppErrors.sol";
-import "hardhat/console.sol";
 
 /// @notice Keep and provide addresses of all application contracts
 contract Controller is IController, Initializable {

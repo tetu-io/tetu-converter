@@ -17,7 +17,6 @@ import "../../integrations/IERC20Extended.sol";
 import "../../integrations/dforce/IDForceInterestRateModel.sol";
 import "../../integrations/dforce/IDForceController.sol";
 import "../../integrations/dforce/IDForceCToken.sol";
-import "hardhat/console.sol";
 
 /// @notice Adapter to read current pools info from DForce-protocol, see https://developers.dforce.network/
 contract DForcePlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
@@ -231,10 +230,6 @@ contract DForcePlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
             vars.collateralAssetDecimals,
             18
           );
-          console.log("collateralAmount_", collateralAmount_);
-          console.log("vars.priceCollateral36", vars.priceCollateral36);
-          console.log("vars.priceBorrow36", vars.priceBorrow36);
-          console.log("vars.collateralAssetDecimals", vars.collateralAssetDecimals);
         }
       }
     }

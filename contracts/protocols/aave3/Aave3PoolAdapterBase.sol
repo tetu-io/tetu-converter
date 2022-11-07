@@ -13,7 +13,6 @@ import "../../integrations/aave3/IAaveAddressesProvider.sol";
 import "../../integrations/aave3/Aave3ReserveConfiguration.sol";
 import "../../integrations/aave3/IAaveToken.sol";
 import "../../integrations/dforce/SafeRatioMath.sol";
-import "hardhat/console.sol";
 
 /// @notice Implementation of IPoolAdapter for AAVE-v3-protocol, see https://docs.aave.com/hub/
 /// @dev Instances of this contract are created using proxy-minimal pattern, so no constructor
@@ -415,9 +414,6 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer 
 
     uint targetDecimals = (10 ** _pool.getConfiguration(assetBorrow).getDecimals());
 
-    console.log("Status.totalCollateralBase", totalCollateralBase);
-    console.log("Status.totalDebtBase", totalDebtBase);
-    console.log("Status.hf18", hf18);
     return (
     // Total amount of provided collateral in [collateral asset]
       totalCollateralBase * (10 ** _pool.getConfiguration(assetCollateral).getDecimals()) / prices[0],

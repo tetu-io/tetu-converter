@@ -17,7 +17,6 @@ import "../openzeppelin/EnumerableMap.sol";
 import "../integrations/market/ICErc20.sol";
 import "../integrations/IERC20Extended.sol";
 import "../interfaces/ITetuConverter.sol";
-import "hardhat/console.sol";
 
 /// @notice Contains list of lending pools. Allow to select most efficient pool for the given collateral/borrow pair
 contract BorrowManager is IBorrowManager {
@@ -273,13 +272,6 @@ contract BorrowManager is IBorrowManager {
       )
       * int(10**18)
       / int(plan.amountCollateralInBorrowAsset36);
-
-      console.log("borrowCost36", plan.borrowCost36);
-      console.log("supplyIncomeInBorrowAsset36", plan.supplyIncomeInBorrowAsset36);
-      console.log("rewardsAmountInBorrowAsset36", plan.rewardsAmountInBorrowAsset36);
-      console.log("rewardsFactor", rewardsFactor);
-      console.log("amountCollateralInBorrowAsset36", plan.amountCollateralInBorrowAsset36);
-
 
       if (plan.converter != address(0)) {
         // check if we are able to supply required collateral

@@ -20,7 +20,6 @@ import "../interfaces/ISwapConverter.sol";
 import "../interfaces/IKeeperCallback.sol";
 import "../interfaces/ITetuConverterCallback.sol";
 import "./AppUtils.sol";
-import "hardhat/console.sol";
 
 /// @notice Main application contract
 contract TetuConverter is ITetuConverter, IKeeperCallback {
@@ -167,13 +166,9 @@ contract TetuConverter is ITetuConverter, IKeeperCallback {
     AppDataTypes.ConversionKind conversionKind = IConverter(converter_).getConversionKind();
     if (conversionKind == AppDataTypes.ConversionKind.BORROW_2) {
       // make borrow
-      console.log("_convert converter_", converter_);
-      console.log("_convert msg.sender", msg.sender);
-
       // get exist or register new pool adapter
       address poolAdapter = _borrowManager().getPoolAdapter(converter_, msg.sender, collateralAsset_, borrowAsset_);
       if (poolAdapter == address(0)) {
-        console.log("Pool adapter is not found, register new one");
         poolAdapter = _borrowManager().registerPoolAdapter(
           converter_,
           msg.sender,
@@ -216,7 +211,6 @@ contract TetuConverter is ITetuConverter, IKeeperCallback {
     uint collateralAmountOut,
     uint returnedBorrowAmountOut
   ) {
-    console.log("TetuConverter.repay", amountToRepay_);
     require(receiver_ != address(0), AppErrors.ZERO_ADDRESS);
 
     // ensure that we have received required amount
@@ -233,7 +227,6 @@ contract TetuConverter is ITetuConverter, IKeeperCallback {
       borrowAsset_
     );
     uint lenPoolAdapters = poolAdapters.length;
-    console.log("TetuConverter.repay.lenPoolAdapters", lenPoolAdapters);
 
     // at first repay debts for any opened positions
     // repay don't make any rebalancing here
@@ -248,7 +241,6 @@ contract TetuConverter is ITetuConverter, IKeeperCallback {
       uint amountToPayToPoolAdapter = amountToPay >= totalDebtForPoolAdapter
         ? totalDebtForPoolAdapter
         : amountToPay;
-      console.log("TetuConverter.repay.amountToPayToPoolAdapter", i, amountToPayToPoolAdapter);
 
       // send amount to pool adapter
       IERC20(borrowAsset_).safeApprove(address(pa), 0);
@@ -263,13 +255,9 @@ contract TetuConverter is ITetuConverter, IKeeperCallback {
       amountToPay -= amountToPayToPoolAdapter;
     }
 
-    console.log("collateralAmountOut1", collateralAmountOut);
-    console.log("returnedBorrowAmountOut1", returnedBorrowAmountOut);
-
     // if all debts were paid but we still have some amount of borrow asset
     // let's swap it to collateral asset and send to collateral-receiver
     if (amountToPay > 0) {
-      console.log("Repay.too.much.1", amountToPay);
       AppDataTypes.InputConversionParams memory params = AppDataTypes.InputConversionParams({
         sourceToken: borrowAsset_,
         targetToken: collateralAsset_,
@@ -297,8 +285,6 @@ contract TetuConverter is ITetuConverter, IKeeperCallback {
       }
     }
 
-    console.log("collateralAmountOut2", collateralAmountOut);
-    console.log("returnedBorrowAmountOut2", returnedBorrowAmountOut);
     return (collateralAmountOut, returnedBorrowAmountOut);
   }
 
@@ -365,7 +351,6 @@ contract TetuConverter is ITetuConverter, IKeeperCallback {
     address borrowAsset_,
     uint resultHealthFactor18_
   ) internal view {
-    console.log("_ensureApproxSameToTargetHealthFactor");
     // after rebalancing we should have health factor ALMOST equal to the target health factor
     // but the equality is not exact
     // let's allow small difference < 1/10 * (target health factor - min health factor)
@@ -373,10 +358,6 @@ contract TetuConverter is ITetuConverter, IKeeperCallback {
     uint minHealthFactor18 = uint(controller.minHealthFactor2()) * 10**(18-2);
     uint delta = (targetHealthFactor18 - minHealthFactor18) / ADDITIONAL_BORROW_DELTA_DENOMINATOR;
 
-    console.log("resultHealthFactor18_", resultHealthFactor18_);
-    console.log("targetHealthFactor18", targetHealthFactor18);
-    console.log("minHealthFactor18", minHealthFactor18);
-    console.log("delta", delta);
     require(
       resultHealthFactor18_ + delta > targetHealthFactor18
       && resultHealthFactor18_ - delta < targetHealthFactor18,
@@ -465,7 +446,6 @@ contract TetuConverter is ITetuConverter, IKeeperCallback {
       (uint collateralAmount, uint borrowedAmount,,) = pa.getStatus();
 
       if (collateralAmountRemained >= collateralAmount) {
-        console.log(">=");
         collateralAmountRemained -= collateralAmount;
         borrowAssetAmount += borrowedAmount;
       } else {

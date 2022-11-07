@@ -12,7 +12,6 @@ import "../interfaces/ITetuConverter.sol";
 import "./AppErrors.sol";
 import "../core/AppUtils.sol";
 import "../openzeppelin/EnumerableSet.sol";
-import "hardhat/console.sol";
 
 /// @notice Manage list of open borrow positions
 contract DebtMonitor is IDebtMonitor {
@@ -164,7 +163,6 @@ contract DebtMonitor is IDebtMonitor {
     uint[] memory outAmountCollateralAsset
   ) {
     uint16 minHealthFactor2 = IController(controller).minHealthFactor2();
-    console.log("checkHealth", minHealthFactor2);
 
     return _checkHealthFactor(
       CheckHealthFactorInputParams({

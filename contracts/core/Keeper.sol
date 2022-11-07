@@ -9,7 +9,6 @@ import "../integrations/gelato/IResolver.sol";
 import "../interfaces/IController.sol";
 import "../interfaces/IDebtsMonitor.sol";
 import "../interfaces/IKeeperCallback.sol";
-//import "hardhat/console.sol";
 
 /// @notice Executor + Resolver for Gelato
 ///         to check health of opened positions and call requireRepay for unhealthy pool adapters

@@ -16,7 +16,6 @@ import "../../integrations/aave3/IAaveProtocolDataProvider.sol";
 import "../../integrations/aave3/Aave3ReserveConfiguration.sol";
 import "../../integrations/aave3/IAavePriceOracle.sol";
 import "../../integrations/aave3/IAaveToken.sol";
-import "hardhat/console.sol";
 
 /// @notice Adapter to read current pools info from AAVE-v3-protocol, see https://docs.aave.com/hub/
 contract Aave3PlatformAdapter is IPlatformAdapter {
@@ -141,10 +140,6 @@ contract Aave3PlatformAdapter is IPlatformAdapter {
           vars.totalVariableDebt
           ,,,,,,,) = _dp(vars.poolLocal).getReserveData(params.borrowAsset);
           plan.maxAmountToBorrow = vars.totalAToken - vars.totalStableDebt - vars.totalVariableDebt;
-          console.log("maxAmountToBorrowBT", plan.maxAmountToBorrow, params.borrowAsset);
-          console.log("totalAToken", vars.totalAToken);
-          console.log("totalStableDebt", vars.totalStableDebt);
-          console.log("totalVariableDebt", vars.totalVariableDebt);
 
           // supply/borrow caps are given in "whole tokens" == without decimals
           // see AAVE3-code, ValidationLogic.sol, validateSupply
@@ -157,7 +152,6 @@ contract Aave3PlatformAdapter is IPlatformAdapter {
                 plan.maxAmountToBorrow = 0;
               } else {
                 if (totalDebt + plan.maxAmountToBorrow > borrowCap) {
-                  console.log("maxAmountToBorrowBT.1", plan.maxAmountToBorrow, borrowCap, totalDebt);
                   plan.maxAmountToBorrow = borrowCap - totalDebt;
                 }
               }
@@ -172,7 +166,6 @@ contract Aave3PlatformAdapter is IPlatformAdapter {
 
               if (plan.maxAmountToBorrow > maxAmount) {
                 plan.maxAmountToBorrow = maxAmount;
-                console.log("maxAmountToBorrowBT.2", maxAmount, rc.configuration.getDebtCeiling(), rc.isolationModeTotalDebt);
               }
             }
           }
