@@ -1628,21 +1628,7 @@ describe("DForce integration tests, pool adapter", () => {
     });
   });
 
-  describe("hasRewards", () => {
-    describe("Good paths", () => {
-      it("should return expected values", async () => {
-        if (!await isPolygonForkInUse()) return;
-        // make a borrow
-        const r = await testBorrowDaiUsdc(100_000, undefined);
-        // wait a bit and check rewards
-        await TimeUtils.advanceNBlocks(1000);
-        const ret = r.prepareResults.dfPoolAdapterTC.hasRewards();
-        expect(ret).eq(true);
-      });
-    });
-  });
-
-  describe("hasRewards and claimRewards", () => {
+  describe("claimRewards", () => {
     describe("Good paths", () => {
       it("should return expected values", async () => {
         if (!await isPolygonForkInUse()) return;
@@ -1654,26 +1640,28 @@ describe("DForce integration tests, pool adapter", () => {
         // make a borrow
         const r = await testBorrowDaiUsdc(100_000, undefined);
         // wait a bit and check rewards
-        await TimeUtils.advanceNBlocks(1000);
+        await TimeUtils.advanceNBlocks(100);
 
-        const hasRewardsBefore = await r.prepareResults.dfPoolAdapterTC.hasRewards();
         const balanceRewardsBefore = await IERC20__factory.connect(rewardToken, deployer).balanceOf(receiver);
+        const {rewardTokenOut, amountOut} = await r.prepareResults.dfPoolAdapterTC.callStatic.claimRewards(receiver);
         await r.prepareResults.dfPoolAdapterTC.claimRewards(receiver);
         const balanceRewardsAfter = await IERC20__factory.connect(rewardToken, deployer).balanceOf(receiver);
-        const hasRewardsAfter = await r.prepareResults.dfPoolAdapterTC.hasRewards();
 
         console.log("balanceRewardsBefore", balanceRewardsBefore);
         console.log("balanceRewardsAfter", balanceRewardsAfter);
+        console.log("amountOut", amountOut);
+        console.log("rewardTokenOut", rewardTokenOut);
 
         const ret = [
-          hasRewardsBefore,
-          hasRewardsAfter,
+          rewardTokenOut,
+          amountOut.gt(0),
 
-          balanceRewardsAfter.gt(0),
+          // the amounts are not equal because callStatic.claimRewards gives a bit fewer values then next claimRewards
+          balanceRewardsAfter.gt(amountOut),
           balanceRewardsAfter.sub(balanceRewardsBefore).eq(0)
         ].join();
         const expected = [
-          false,
+          rewardToken,
           true,
 
           true,

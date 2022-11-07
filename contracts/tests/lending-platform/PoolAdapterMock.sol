@@ -384,12 +384,6 @@ contract PoolAdapterMock is IPoolAdapter {
   ///////////////////////////////////////////////////////
   ///                 Rewards
   ///////////////////////////////////////////////////////
-  function hasRewards() external view override returns (bool ret) {
-    ret = rewardsForUsers[_user].rewardToken != address(0);
-    console.log("PoolAdapterMock.hasRewards sender", _user, ret);
-    return ret;
-  }
-
   function claimRewards(address receiver_) external override returns (
     address rewardTokenOut,
     uint amountOut

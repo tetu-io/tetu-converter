@@ -487,25 +487,22 @@ contract TetuConverter is ITetuConverter, IKeeperCallback {
   ) {
     address[] memory poolAdapters = _debtMonitor().getPositionsForUser(msg.sender);
     uint lenPoolAdapters = poolAdapters.length;
-    uint countPositionsWithRewards = 0;
 
-    // let's find out how much positions have rewards
+    address[] memory rewardTokens = new address[](lenPoolAdapters);
+    uint[] memory amounts = new uint[](lenPoolAdapters);
+
+    uint countPositions = 0;
     for (uint i = 0; i < lenPoolAdapters; i = i.uncheckedInc()) {
       IPoolAdapter pa = IPoolAdapter(poolAdapters[i]);
-      if (pa.hasRewards()) {
-        countPositionsWithRewards++;
+      (rewardTokens[countPositions], amounts[countPositions]) = pa.claimRewards(receiver_);
+      if (amounts[countPositions] != 0) {
+        ++countPositions;
       }
     }
 
-    // claim all rewards if any
-    if (countPositionsWithRewards != 0) {
-      rewardTokensOut = new address[](countPositionsWithRewards);
-      amountsOut = new uint[](countPositionsWithRewards);
-
-      for (uint i = 0; i < lenPoolAdapters; i = i.uncheckedInc()) {
-        IPoolAdapter pa = IPoolAdapter(poolAdapters[i]);
-        (rewardTokensOut[i], amountsOut[i]) = pa.claimRewards(receiver_);
-      }
+    if (countPositions > 0) {
+      rewardTokensOut = AppUtils.removeLastItems(rewardTokensOut, countPositions);
+      amountsOut = AppUtils.removeLastItems(amountsOut, countPositions);
     }
 
     return (rewardTokensOut, amountsOut);

@@ -1224,10 +1224,11 @@ describe("AaveTwoPoolAdapterTest", () => {
     });
   });
 
-  describe("hasRewards", () => {
+  describe("claimRewards", () => {
     describe("Good paths", () => {
       it("should return expected values", async () => {
         if (!await isPolygonForkInUse()) return;
+        const receiver = ethers.Wallet.createRandom().address;
         const d = await prepareToBorrow(
           await TokenDataTypes.Build(deployer, MaticAddresses.DAI),
           MaticAddresses.HOLDER_DAI,
@@ -1235,25 +1236,8 @@ describe("AaveTwoPoolAdapterTest", () => {
           await TokenDataTypes.Build(deployer, MaticAddresses.WMATIC),
           200
         );
-        const ret = await d.aavePoolAdapterAsTC.hasRewards();
-        expect(ret).eq(false);
-      });
-    });
-  });
-
-  describe("TODO:claimRewards", () => {
-    describe("Good paths", () => {
-      it("should return expected values", async () => {
-        if (!await isPolygonForkInUse()) return;
-        expect.fail("TODO");
-      });
-    });
-    describe("Bad paths", () => {
-      describe("", () => {
-        it("should revert", async () => {
-          if (!await isPolygonForkInUse()) return;
-          expect.fail("TODO");
-        });
+        const ret = await d.aavePoolAdapterAsTC.callStatic.claimRewards(receiver);
+        expect(ret.amount.toNumber()).eq(0);
       });
     });
   });

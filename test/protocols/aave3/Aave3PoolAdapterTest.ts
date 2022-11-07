@@ -1604,37 +1604,19 @@ describe("Aave3PoolAdapterTest", () => {
     });
   });
 
-  describe("hasRewards", () => {
-    describe("Good paths", () => {
-      it("should return expected values", async () => {
-        if (!await isPolygonForkInUse()) return;
-        const d = await prepareToBorrow(
-          await TokenDataTypes.Build(deployer, MaticAddresses.DAI),
-          [MaticAddresses.HOLDER_DAI],
-          undefined,
-          await TokenDataTypes.Build(deployer, MaticAddresses.WMATIC),
-          false
-        );
-        const ret = await d.aavePoolAdapterAsTC.hasRewards();
-        expect(ret).eq(false);
-      });
-    });
-  });
-
-  describe("TODO:claimRewards", () => {
-    describe("Good paths", () => {
-      it("should return expected values", async () => {
-        if (!await isPolygonForkInUse()) return;
-        expect.fail("TODO");
-      });
-    });
-    describe("Bad paths", () => {
-      describe("", () => {
-        it("should revert", async () => {
-          if (!await isPolygonForkInUse()) return;
-          expect.fail("TODO");
-        });
-      });
+  describe("claimRewards", () => {
+    it("should return expected values", async () => {
+      if (!await isPolygonForkInUse()) return;
+      const receiver = ethers.Wallet.createRandom().address;
+      const d = await prepareToBorrow(
+        await TokenDataTypes.Build(deployer, MaticAddresses.DAI),
+        [MaticAddresses.HOLDER_DAI],
+        undefined,
+        await TokenDataTypes.Build(deployer, MaticAddresses.WMATIC),
+        false
+      );
+      const ret = await d.aavePoolAdapterAsTC.claimRewards(receiver);
+      expect(ret.amount.toNumber()).eq(0);
     });
   });
 
