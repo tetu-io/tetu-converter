@@ -12,6 +12,7 @@ import {ethers, network} from "hardhat";
 import {Misc} from "../utils/Misc";
 import {MaticAddresses} from "../addresses/MaticAddresses";
 import {DeployerUtils} from "../utils/DeployerUtils";
+import {MocksHelper} from "../../test/baseUT/helpers/MocksHelper";
 
 //region Data types
 export interface IControllerSetupParams {
@@ -39,6 +40,7 @@ export interface IDeployCoreResults {
   tetuLiquidator: string;
   controllerSetupParams: IControllerSetupParams;
   borrowManagerSetupParams: IBorrowManagerSetupParams;
+  gelatoOpsReady: string;
 }
 
 export interface IPlatformAdapterResult {
@@ -62,18 +64,15 @@ export interface ITargetHealthFactorValue {
 }
 //endregion Data types
 
-const GAS_LIMIT = {
-  gasLimit: 8_000_000
-};
-
+const GAS_DEPLOY_LIMIT = 8_000_000;
 
 export class DeploySolutionUtils {
 //region Main script
-  static async runMain() {
+  static async runMain(signer: SignerWithAddress) : Promise<IDeployCoreResults> {
+
     ///////////////////////////////////////////////////////////////////////////////////////////////////
     /// Initial settings
     const destPathTxt = "tmp/deployed.txt";
-    const keeperAddress = ethers.Wallet.createRandom().address; // TODO
     const tetuLiquidatorAddress = MaticAddresses.TETU_LIQUIDATOR;
     const controllerSetupParams: IControllerSetupParams = {
       blocksPerDay: 41142,
@@ -178,29 +177,15 @@ export class DeploySolutionUtils {
     ]);
 
     ///////////////////////////////////////////////////////////////////////////////////////////////////
-    const net = await ethers.provider.getNetwork();
-    console.log(net, "network name=", network.name);
 
-    const localHardhatIsInUse = network.name === "localhost";
-    if (localHardhatIsInUse) {
-      // reset local hardhat
-      await network.provider.request({
-        method: "hardhat_reset",
-        params: [],
-      });
-    }
-
-    const signer = localHardhatIsInUse
-      ? await DeployerUtils.startImpersonate(
-        process?.env.APP_PRIVATE_GOVERNANCE_ACCOUNT_FOR_HARDHAT || "please add governance account to env")
-      : (await ethers.getSigners())[0];
-
-    console.log("signer", signer.address);
+    // TODO: deploy KeeperCaller mock as replacement for gelato
+    // TODO: it allows us to test keeper
+    const gelatoOpsReady = await MocksHelper.createKeeperCaller(signer);
 
     // Deploy all core contracts
     const deployCoreResults = await DeploySolutionUtils.deployCoreContracts(
       signer,
-      keeperAddress,
+      gelatoOpsReady.address,
       tetuLiquidatorAddress,
       controllerSetupParams,
       borrowManagerSetupParams
@@ -279,7 +264,7 @@ export class DeploySolutionUtils {
       () =>  borrowManager.setTargetHealthFactors(
         targetHealthFactorsAssets,
         targetHealthFactorsValues,
-        {gasLimit: GAS_LIMIT}
+        {gasLimit: GAS_DEPLOY_LIMIT}
       )
     );
 
@@ -292,6 +277,7 @@ export class DeploySolutionUtils {
       targetHealthFactorsValues
     );
 
+    return deployCoreResults;
   }
 //endregion Main script
 
@@ -329,7 +315,7 @@ export class DeploySolutionUtils {
         keeper.address,
         tetuLiquidator,
         swapManager.address,
-        {gasLimit: GAS_LIMIT}
+        {gasLimit: GAS_DEPLOY_LIMIT}
       )
     );
 
@@ -342,7 +328,8 @@ export class DeploySolutionUtils {
       keeper: keeper.address,
       tetuLiquidator,
       controllerSetupParams,
-      borrowManagerSetupParams
+      borrowManagerSetupParams,
+      gelatoOpsReady
     }
   }
 //endregion Setup core
@@ -451,7 +438,7 @@ export class DeploySolutionUtils {
         platformAdapter,
         assetPairs.leftAssets,
         assetPairs.rightAssets,
-        {gasLimit: GAS_LIMIT}
+        {gasLimit: GAS_DEPLOY_LIMIT}
       )
     );
   }
