@@ -1585,20 +1585,19 @@ describe("Hundred Finance integration tests, pool adapter", () => {
     });
   });
 
-  describe("TODO:hasRewards", () => {
-    describe("Good paths", () => {
-      it("should return expected values", async () => {
-        if (!await isPolygonForkInUse()) return;
-        expect.fail("TODO");
-      });
-    });
-    describe("Bad paths", () => {
-      describe("", () => {
-        it("should revert", async () => {
-          if (!await isPolygonForkInUse()) return;
-          expect.fail("TODO");
-        });
-      });
+  describe("Good paths", () => {
+    it("should return expected values", async () => {
+      if (!await isPolygonForkInUse()) return;
+      const d = await prepareToBorrow(
+        await TokenDataTypes.Build(deployer, MaticAddresses.DAI),
+        MaticAddresses.HOLDER_DAI,
+        MaticAddresses.hDAI,
+        undefined,
+        await TokenDataTypes.Build(deployer, MaticAddresses.WMATIC),
+        MaticAddresses.hMATIC,
+      );
+      const ret = await d.hfPoolAdapterTC.hasRewards();
+      expect(ret).eq(false);
     });
   });
 

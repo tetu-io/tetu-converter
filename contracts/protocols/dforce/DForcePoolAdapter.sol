@@ -400,6 +400,7 @@ contract DForcePoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP {
   ///////////////////////////////////////////////////////
   function hasRewards() external view override returns (bool) {
     IDForceRewardDistributor rd = IDForceRewardDistributor(_comptroller.rewardDistributor());
+    console.log("DF.hasRewards", rd.reward(address(this)) != 0);
     return rd.reward(address(this)) != 0;
   }
 
@@ -407,11 +408,26 @@ contract DForcePoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP {
     address rewardTokenOut,
     uint amountOut
   ) {
+    console.log("DF.claimRewards");
     _onlyTC();
-
+    address cTokenBorrow = borrowCToken;
+    address cTokenCollateral = collateralCToken;
+    console.log("DF.claimRewards.01");
     IDForceRewardDistributor rd = IDForceRewardDistributor(_comptroller.rewardDistributor());
     rewardTokenOut = rd.rewardToken();
+    console.log("DF.claimRewards.02");
+
+    rd.updateDistributionState(cTokenCollateral, false);
+    console.log("DF.claimRewards.1");
+    rd.updateDistributionState(cTokenBorrow, true);
+    console.log("DF.claimRewards.2");
+    rd.updateReward(cTokenCollateral, address(this), false);
+    console.log("DF.claimRewards.3");
+    rd.updateReward(cTokenBorrow, address(this), true);
+    console.log("DF.claimRewards.4");
+
     amountOut = rd.reward(address(this));
+    console.log("DF.claimRewards.4", amountOut);
     if (amountOut != 0) {
       address[] memory holders = new address[](1);
       holders[0] = address(this);

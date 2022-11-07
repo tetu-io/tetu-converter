@@ -236,10 +236,10 @@ export class SupplyBorrowUsingDForce {
       , BigNumber.from(afterUDC.block)
     );
 
-    console.log(`Manual0: newSupplyStateIndex=${r0.newSupplyStateIndex} rewardsAmount=${r0.rewardsAmount}` );
-    console.log(`Manual1: newSupplyStateIndex=${r1.newSupplyStateIndex} rewardsAmount=${r1.rewardsAmount}` );
+    console.log(`Manual0: newSupplyStateIndex=${r0.newSupplyStateIndex} rewardsAmount=${r0.rewardsAmount}`);
+    console.log(`Manual1: newSupplyStateIndex=${r1.newSupplyStateIndex} rewardsAmount=${r1.rewardsAmount}`);
     const totalRewards = r0.rewardsAmount.add(r1.rewardsAmount);
-    console.log(`Total manual: rewardsAmount=${totalRewards}` );
+    console.log(`Total manual: rewardsAmount=${totalRewards}`);
     console.log(`Actual: newSupplyStateIndex=${after.market.distributionSupplyState_Index} rewardsAmount=${after.rewards}`);
 
     const rewardsBalance0 = await IERC20__factory.connect(before.market.rewardToken, user).balanceOf(user.address);
@@ -251,8 +251,8 @@ export class SupplyBorrowUsingDForce {
       rewardsEarnedActual: after.rewards,
       rewardsReceived: rewardsBalance1.sub(rewardsBalance0),
       results: {
-        before, afterSupply, middle, afterAdvance, afterUDC, after
-        , prediction: {
+        before, afterSupply, middle, afterAdvance, afterUDC, after,
+        prediction: {
           part1: r0,
           part2: r1
         }
@@ -400,7 +400,7 @@ export class SupplyBorrowUsingDForce {
     const predictData: IBorrowRewardsPredictionInput = {
       amountToBorrow: borrowAmount,
       distributionSpeed: afterSupply.market.distributionSpeed,
-      totalReserves: totalReserves,
+      totalReserves,
       totalBorrows: afterSupply.totalBorrows,
       totalCash: cash,
       accrualBlockNumber: accrualBlockNumberBeforeBorrow,
@@ -428,7 +428,7 @@ export class SupplyBorrowUsingDForce {
     console.log("totalBorrows", await bToken.totalBorrows());
     console.log("totalReserves", await bToken.totalReserves());
 
-    await bToken.updateInterest(); //see comments below
+    await bToken.updateInterest(); // see comments below
 
     const afterAdvance = await this.getStateBorrowToken(comptroller, rd, bToken, user.address);
     console.log("afterAdvance", afterAdvance);
