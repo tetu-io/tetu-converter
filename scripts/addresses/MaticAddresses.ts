@@ -128,10 +128,11 @@ export class MaticAddresses {
 
 //endregion AAVE-v3
 
-//region Hundred finance
+//region HundredFinance
   /** https://docs.hundred.finance/developers/protocol-contracts/polygon */
   public static HUNDRED_FINANCE_COMPTROLLER = "0xEdBA32185BAF7fEf9A26ca567bC4A6cbe426e499";
   public static HUNDRED_FINANCE_PRICE_ORACLE = "0x0b510A226F4A7A66c480988704eCd5306B6f1954";
+  public static HUNDRED_FINANCE_ADMIN = "0x829bcf5193645893979265b96d694d597f9bbbfb"; // "0xd0a27f0eba2b407f2cca8327b4adb50bbaddff24";
 
   public static hETH = "0x243E33aa7f6787154a8E59d3C27a66db3F8818ee";
   public static hDAI = "0xE4e43864ea18d5E5211352a4B810383460aB7fcC";
@@ -144,9 +145,9 @@ export class MaticAddresses {
 //endregion Hundred finance
 
 //region dForce
-  /** https://developers.dforce.network/lend/lend-and-synth/deployed-contracts */
+  /* https://developers.dforce.network/lend/lend-and-synth/deployed-contracts */
   public static DFORCE_CONTROLLER = "0x52eaCd19E38D501D006D2023C813d7E37F025f37";
-  /** https://developers.dforce.network/lend/lend-and-synth/distribution **/
+  /* https://developers.dforce.network/lend/lend-and-synth/distribution **/
   public static DFOCE_LENDING_DATA = "0xEb339b4EA1051C8064A124C959b531C89b834182";
 
   public static dForce_iUSDC = "0x5268b3c4afb0860D365a093C184985FCFcb65234";

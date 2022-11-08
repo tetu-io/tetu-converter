@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.4;
 
-/// @notice Restored from 0xB426c1b7fABEa9EA6A273E8427040568a8C7DF13 (events and _xxx were removed)
+/// @notice Restored from 0xB426c1b7fABEa9EA6A273E8427040568a8C7DF13 (events and (most) _xxx were removed)
 /// @dev 0xB426c1b7fABEa9EA6A273E8427040568a8C7DF13 is implementation of 0xEdBA32185BAF7fEf9A26ca567bC4A6cbe426e499
 ///      see https://docs.hundred.finance/developers/protocol-contracts/polygon
 interface IHfComptroller {
@@ -368,4 +368,8 @@ interface IHfComptroller {
      * @param contributor The address to calculate contributor rewards for
      */
   function updateContributorRewards(address contributor) external;
+
+
+
+  function _setPriceOracle(address newOracle) external returns (uint256);
 }
