@@ -10,15 +10,27 @@ import {Aave3ChangePricesUtils} from "../../baseUT/protocols/aave3/Aave3ChangePr
 import {isPolygonForkInUse} from "../../baseUT/utils/NetworkUtils";
 import {MaticAddresses} from "../../../scripts/addresses/MaticAddresses";
 import {getBigNumberFrom} from "../../../scripts/utils/NumberUtils";
-import {IERC20__factory} from "../../../typechain";
+import {IAavePool__factory, IERC20__factory} from "../../../typechain";
 import {BalanceUtils} from "../../baseUT/utils/BalanceUtils";
 import {DeployerUtils} from "../../../scripts/utils/DeployerUtils";
+import {Aave3Helper} from "../../../scripts/integration/helpers/Aave3Helper";
 
 describe("Aave3LiquidationTest", () => {
+//region Constants
+  const MAX_UINT_AMOUNT = '115792089237316195423570985008687907853269984665640564039457584007913129639935';
+  const collateralAsset = MaticAddresses.DAI;
+  const collateralHolder = MaticAddresses.HOLDER_DAI;
+  const borrowAsset = MaticAddresses.WMATIC;
+  const borrowHolder = MaticAddresses.HOLDER_WMATIC;
+
+  const collateralAmountNum = 100_000;
+//endregion Constants
+
 //region Global vars for all tests
   let snapshot: string;
   let snapshotForEach: string;
   let deployer: SignerWithAddress;
+  let init: IPrepareToLiquidationResults;
 //endregion Global vars for all tests
 
 //region before, after
@@ -27,6 +39,8 @@ describe("Aave3LiquidationTest", () => {
     snapshot = await TimeUtils.snapshot();
     const signers = await ethers.getSigners();
     deployer = signers[0];
+
+    init = await prepareToLiquidation();
   });
 
   after(async function () {
@@ -44,103 +58,126 @@ describe("Aave3LiquidationTest", () => {
 
 //region TestImpl
   interface IPrepareToLiquidationResults {
-    status: IPoolAdapterStatus
+    collateralToken: TokenDataTypes;
+    borrowToken: TokenDataTypes;
+    collateralAmount: BigNumber;
+    statusBeforeLiquidation: IPoolAdapterStatus;
+    d: IPrepareToBorrowResults;
   }
 
-  async function prepareToLiquidation(
-    d: IPrepareToBorrowResults,
-  ) : Promise<IPrepareToLiquidationResults> {
+  async function prepareToLiquidation() : Promise<IPrepareToLiquidationResults> {
+    const collateralToken = await TokenDataTypes.Build(deployer, collateralAsset);
+    const borrowToken = await TokenDataTypes.Build(deployer, borrowAsset);
+
+    const collateralAmount = getBigNumberFrom(100_000, collateralToken.decimals);
+
+    const d = await Aave3TestUtils.prepareToBorrow(deployer,
+      collateralToken,
+      [collateralHolder],
+      collateralAmount,
+      borrowToken,
+      false
+    );
     // make a borrow
     await Aave3TestUtils.makeBorrow(deployer, d, undefined);
 
     // reduce price of collateral to reduce health factor below 1
     await Aave3ChangePricesUtils.changeAssetPrice(deployer, d.collateralToken.address, false, 10);
 
-    const status = await d.aavePoolAdapterAsTC.getStatus();
-    return {status};
+    const statusBeforeLiquidation = await d.aavePoolAdapterAsTC.getStatus();
+    return {
+      collateralToken,
+      borrowToken,
+      collateralAmount,
+      statusBeforeLiquidation,
+      d
+    };
+  }
+
+  interface ILiquidationResults {
+    liquidatorAddress: string;
+    collateralAmountReceivedByLiquidator: BigNumber;
+  }
+  async function makeLiquidation() : Promise<ILiquidationResults> {
+    const liquidatorAddress = ethers.Wallet.createRandom().address;
+
+    const liquidator = await DeployerUtils.startImpersonate(liquidatorAddress);
+    const liquidatorBorrowAmountToPay = init.d.amountToBorrow;
+    const borrowerAddress = init.d.aavePoolAdapterAsTC.address;
+    await BalanceUtils.getAmountFromHolder(borrowAsset, borrowHolder, liquidatorAddress, liquidatorBorrowAmountToPay);
+    await IERC20__factory.connect(borrowAsset, liquidator).approve(init.d.aavePool.address, MAX_UINT_AMOUNT);
+
+    const aavePoolAsLiquidator = IAavePool__factory.connect(init.d.aavePool.address, liquidator);
+    const dataProvider = await Aave3Helper.getAaveProtocolDataProvider(liquidator);
+    const userReserveData = await dataProvider.getUserReserveData(borrowAsset, borrowerAddress);
+    const amountToLiquidate = userReserveData.currentVariableDebt.div(2);
+
+    console.log("Before liquidation, user account", await init.d.aavePool.getUserAccountData(borrowerAddress));
+    await aavePoolAsLiquidator.liquidationCall(
+      collateralAsset,
+      borrowAsset,
+      borrowerAddress,
+      amountToLiquidate,
+      false // we need to receive underlying
+    );
+    console.log("After liquidation, user account", await init.d.aavePool.getUserAccountData(borrowerAddress));
+
+    const collateralAmountReceivedByLiquidator = await IERC20__factory.connect(collateralAsset, deployer).balanceOf(liquidatorAddress);
+
+    return {
+      liquidatorAddress,
+      collateralAmountReceivedByLiquidator
+    }
   }
 //endregion TestImpl
 
 //region Unit tests
   describe("Make borrow, change prices, make health factor < 1", () => {
-    interface IMakeTestLiquidationResults {
-      d: IPrepareToBorrowResults;
-      results: IPrepareToLiquidationResults;
-    }
-    async function makeTestLiquidation(
-      collateralToken: TokenDataTypes,
-      collateralHolder: string,
-      collateralAmount: BigNumber,
-      borrowToken: TokenDataTypes,
-    ) : Promise<IMakeTestLiquidationResults> {
-      const d = await Aave3TestUtils.prepareToBorrow(deployer,
-        collateralToken,
-        [collateralHolder],
-        collateralAmount,
-        borrowToken,
-        false
-      );
-      const results = await prepareToLiquidation(d);
-      return {
-        d,
-        results
-      }
-    }
     describe("Good paths", () => {
-      it("should make health factor less 1", async () => {
+      it("health factor is less 1 before liquidation", async () => {
         if (!await isPolygonForkInUse()) return;
 
-        const collateralAsset = MaticAddresses.DAI;
-        const collateralHolder = MaticAddresses.HOLDER_DAI;
-        const borrowAsset = MaticAddresses.WMATIC;
-
-        const collateralToken = await TokenDataTypes.Build(deployer, collateralAsset);
-        const borrowToken = await TokenDataTypes.Build(deployer, borrowAsset);
-
-        const collateralAmount = getBigNumberFrom(100_000, collateralToken.decimals);
-
-        const ret = await makeTestLiquidation(collateralToken, collateralHolder, collateralAmount, borrowToken);
-        const healthFactorNum = Number(ethers.utils.formatUnits(ret.results.status.healthFactor18));
-        console.log(ret.results.status);
+        const healthFactorNum = Number(ethers.utils.formatUnits(init.statusBeforeLiquidation.healthFactor18));
         expect(healthFactorNum).below(1);
       });
 
-      it("should liquidate the borrow", async () => {
+      it("liquidator receives all collateral", async () => {
         if (!await isPolygonForkInUse()) return;
 
-        const liquidator = ethers.Wallet.createRandom().address;
-
-        const collateralAsset = MaticAddresses.DAI;
-        const collateralHolder = MaticAddresses.HOLDER_DAI;
-        const borrowAsset = MaticAddresses.WMATIC;
-        const borrowHolder = MaticAddresses.HOLDER_WMATIC;
-
-        const collateralToken = await TokenDataTypes.Build(deployer, collateralAsset);
-        const borrowToken = await TokenDataTypes.Build(deployer, borrowAsset);
-
-        const collateralAmountNum = 100_000;
-        const collateralAmount = getBigNumberFrom(collateralAmountNum, collateralToken.decimals);
-
-        const ret = await makeTestLiquidation(collateralToken, collateralHolder, collateralAmount, borrowToken);
-
-        await BalanceUtils.getAmountFromHolder(borrowAsset, borrowHolder, liquidator, ret.d.amountToBorrow);
-        await IERC20__factory.connect(
-          borrowAsset,
-          await DeployerUtils.startImpersonate(liquidator)
-        ).approve(ret.d.aavePool.address, ret.d.amountToBorrow);
-        const MAX_INT = BigNumber.from(2).pow(256).sub(1);
-        await ret.d.aavePool.liquidationCall(
-          collateralAsset,
-          borrowAsset,
-          ret.d.aavePoolAdapterAsTC.address,
-          ret.d.amountToBorrow, // MAX_INT,
-          false // we need to receive underlying
+        const r = await makeLiquidation();
+        const collateralAmountReceivedByLiquidator = ethers.utils.formatUnits(
+          r.collateralAmountReceivedByLiquidator,
+          init.collateralToken.decimals
         );
-        const balanceCollateralLiquidatorAfter = await IERC20__factory.connect(collateralAsset, deployer).balanceOf(liquidator);
-        const receivedCollateralAmount = ethers.utils.formatUnits(balanceCollateralLiquidatorAfter, collateralToken.decimals);
+        const collateralAmountStr = ethers.utils.formatUnits(
+          init.collateralAmount,
+          init.collateralToken.decimals
+        );
+        console.log("Amount received by liquidator", collateralAmountReceivedByLiquidator);
+        console.log("Original collateral amount", collateralAmountStr);
 
-        console.log(ret.results.status);
-        expect(receivedCollateralAmount).eq(receivedCollateralAmount);
+        console.log("Before liquidation", init.statusBeforeLiquidation);
+        console.log("After liquidation", await init.d.aavePoolAdapterAsTC.getStatus());
+
+        expect(r.collateralAmountReceivedByLiquidator.gt(0)).eq(true);
+      });
+
+      it("Try to make new borrow after liquidation", async () => {
+        if (!await isPolygonForkInUse()) return;
+
+        const r = await makeLiquidation();
+
+        // put collateral amount on user's balance
+        await BalanceUtils.getRequiredAmountFromHolders(
+          init.collateralAmount,
+          init.collateralToken.token,
+          [collateralHolder],
+          init.d.userContract.address
+        );
+
+        await expect(
+          Aave3TestUtils.makeBorrow(deployer, init.d, undefined)
+        ).revertedWith("35");
       });
     });
   });
