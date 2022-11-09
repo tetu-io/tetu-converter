@@ -124,7 +124,7 @@ contract DebtMonitor is IDebtMonitor {
   function onClosePosition() external override {
     require(positionLastAccess[msg.sender] != 0, AppErrors.BORROW_POSITION_IS_NOT_REGISTERED);
 
-    (uint collateralAmount, uint amountToPay,,) = IPoolAdapter(msg.sender).getStatus();
+    (uint collateralAmount, uint amountToPay,,,) = IPoolAdapter(msg.sender).getStatus();
     require(collateralAmount == 0 && amountToPay == 0, AppErrors.ATTEMPT_TO_CLOSE_NOT_EMPTY_BORROW_POSITION);
 
     positionLastAccess[msg.sender] = 0;
@@ -199,7 +199,7 @@ contract DebtMonitor is IDebtMonitor {
 
       // check if we need to make reconversion because the health factor is too low/high
       IPoolAdapter pa = IPoolAdapter(positions[p.startIndex0 + i]);
-      (uint collateralAmount, uint amountToPay, uint healthFactor18,) = pa.getStatus();
+      (uint collateralAmount, uint amountToPay, uint healthFactor18,,) = pa.getStatus();
       (,,, address borrowAsset) = pa.getConfig();
       uint healthFactorTarget18 = uint(_borrowManager().getTargetHealthFactor2(borrowAsset)) * 10**(18-2);
 

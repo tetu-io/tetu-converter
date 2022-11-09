@@ -39,8 +39,8 @@ contract DForcePoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP {
   /// @notice Address of original PoolAdapter contract that was cloned to make the instance of the pool adapter
   address public originConverter;
 
-  /// @notice Last synced amount of given token on the balance of this contract
-  mapping(address => uint) public collateralBalance;
+  /// @notice Total amount of all supplied and withdrawn amounts of collateral in collateral tokens
+  uint public collateralTokensBalance;
 
   ///////////////////////////////////////////////////////
   ///                Initialization
@@ -53,7 +53,7 @@ contract DForcePoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP {
     address user_,
     address collateralAsset_,
     address borrowAsset_,
-    address originConveter_
+    address originConverter_
   ) override external {
     require(
       controller_ != address(0)
@@ -69,7 +69,7 @@ contract DForcePoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP {
     user = user_;
     collateralAsset = collateralAsset_;
     borrowAsset = borrowAsset_;
-    originConverter = originConveter_;
+    originConverter = originConverter_;
 
     (address cTokenCollateral,
      address cTokenBorrow,
@@ -134,7 +134,7 @@ contract DForcePoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP {
     markets[1] = cTokenBorrow;
     _comptroller.enterMarkets(markets);
 
-    _supply(cTokenCollateral, assetCollateral, collateralAmount_);
+    uint tokenBalanceBefore = _supply(cTokenCollateral, assetCollateral, collateralAmount_);
 
     // make borrow
     uint balanceBorrowAsset0 = _getBalance(assetBorrow);
@@ -154,17 +154,20 @@ contract DForcePoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP {
     IDebtMonitor(controller.debtMonitor()).onOpenPosition();
 
     // ensure that current health factor is greater than min allowed
-    _validateHealthStatusAfterBorrow(cTokenCollateral, cTokenBorrow);
+    (, uint tokenBalanceAfter) = _validateHealthStatusAfterBorrow(cTokenCollateral, cTokenBorrow);
+    collateralTokensBalance += tokenBalanceAfter - tokenBalanceBefore;
 
     return borrowAmount_;
   }
 
   /// @notice Supply collateral to DForce market
+  /// @return Collateral token balance before supply
   function _supply(
     address cTokenCollateral_,
     address assetCollateral_,
     uint collateralAmount_
-  ) internal {
+  ) internal returns (uint) {
+    uint tokenBalanceBefore = IERC20(cTokenCollateral_).balanceOf(address(this));
     // supply collateral
     if (_isMatic(assetCollateral_)) {
       require(IERC20(WMATIC).balanceOf(address(this)) >= collateralAmount_, AppErrors.MINT_FAILED);
@@ -175,14 +178,19 @@ contract DForcePoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP {
       IERC20(assetCollateral_).approve(cTokenCollateral_, collateralAmount_);
       IDForceCToken(cTokenCollateral_).mint(address(this), collateralAmount_);
     }
+    return tokenBalanceBefore;
   }
 
-  /// @return Health factor, decimal 18
+  /// @return (Health factor, decimal 18; collateral-token-balance)
   function _validateHealthStatusAfterBorrow(
     address cTokenCollateral_,
     address cTokenBorrow_
-  ) internal view returns (uint) {
-    (,, uint collateralBase36, uint borrowBase36,) = _getStatus(cTokenCollateral_, cTokenBorrow_);
+  ) internal view returns (uint, uint) {
+    (uint tokenBalance,,
+     uint collateralBase36,
+     uint borrowBase36,,
+    ) = _getStatus(cTokenCollateral_, cTokenBorrow_);
+
     (uint sumCollateralSafe36,
      uint healthFactor18
     ) = _getHealthFactor(cTokenCollateral_, collateralBase36, borrowBase36);
@@ -200,7 +208,7 @@ contract DForcePoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP {
     );
 
     _validateHealthFactor(healthFactor18);
-    return healthFactor18;
+    return (healthFactor18, tokenBalance);
   }
 
   function borrowToRebalance(
@@ -233,7 +241,7 @@ contract DForcePoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP {
     IERC20(assetBorrow).safeTransfer(receiver_, borrowAmount_);
 
     // ensure that current health factor is greater than min allowed
-    resultHealthFactor18 = _validateHealthStatusAfterBorrow(collateralCToken, cTokenBorrow);
+    (resultHealthFactor18,) = _validateHealthStatusAfterBorrow(collateralCToken, cTokenBorrow);
 
     return (resultHealthFactor18, borrowAmount_);
   }
@@ -261,7 +269,7 @@ contract DForcePoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP {
     // Update borrowBalance to actual value, we must do it before calculation of collateral to withdraw
     IDForceCToken(borrowCToken).borrowBalanceCurrent(address(this));
     // how much collateral we are going to return
-    uint collateralTokensToWithdraw = _getCollateralTokensToRedeem(
+    (uint collateralTokensToWithdraw, uint tokenBalanceBefore) = _getCollateralTokensToRedeem(
       cTokenCollateral,
       cTokenBorrow,
       closePosition_,
@@ -291,13 +299,13 @@ contract DForcePoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP {
     IERC20(assetCollateral).safeTransfer(receiver_, collateralAmountToReturn);
 
     // validate result status
-    (uint tokenBalance,
+    (uint tokenBalanceAfter,
      uint borrowBalance,
      uint collateralBase,
-     uint sumBorrowPlusEffects,
+     uint sumBorrowPlusEffects,,
     ) = _getStatus(cTokenCollateral, cTokenBorrow);
 
-    if (tokenBalance == 0 && borrowBalance == 0) {
+    if (tokenBalanceAfter == 0 && borrowBalance == 0) {
       IDebtMonitor(controller.debtMonitor()).onClosePosition();
       //!TODO: do we need to exit the markets?
     } else {
@@ -306,27 +314,29 @@ contract DForcePoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP {
       _validateHealthFactor(healthFactor18);
     }
 
+    collateralTokensBalance -= tokenBalanceBefore - tokenBalanceAfter;
     return collateralAmountToReturn;
   }
 
+  /// @return Amount of collateral tokens to redeem, full balance of collateral tokens
   function _getCollateralTokensToRedeem(
     address cTokenCollateral_,
     address cTokenBorrow_,
     bool closePosition_,
     uint amountToRepay_
-  ) internal view returns (uint) {
+  ) internal view returns (uint, uint) {
     uint tokenBalance = IERC20(cTokenCollateral_).balanceOf(address(this));
 
     uint borrowBalance = IDForceCToken(cTokenBorrow_).borrowBalanceStored(address(this));
     require(borrowBalance != 0, AppErrors.ZERO_BALANCE);
     if (closePosition_) {
       require(borrowBalance <= amountToRepay_, AppErrors.CLOSE_POSITION_FAILED);
-      return tokenBalance;
+      return (tokenBalance, tokenBalance);
     } else {
       require(amountToRepay_ <= borrowBalance, AppErrors.WRONG_BORROWED_BALANCE);
     }
 
-    return tokenBalance * amountToRepay_ / borrowBalance;
+    return (tokenBalance * amountToRepay_ / borrowBalance, tokenBalance);
   }
 
   function repayToRebalance(
@@ -339,6 +349,7 @@ contract DForcePoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP {
 
     address cTokenBorrow = borrowCToken;
     address cTokenCollateral = collateralCToken;
+    uint tokenBalanceBefore;
 
     // ensure that the position is opened
     require(IDebtMonitor(controller.debtMonitor()).isPositionOpened(), AppErrors.BORROW_POSITION_IS_NOT_REGISTERED);
@@ -346,11 +357,12 @@ contract DForcePoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP {
     if (isCollateral_) {
       address assetCollateral = collateralAsset;
       IERC20(assetCollateral).safeTransferFrom(msg.sender, address(this), amount_);
-      _supply(cTokenCollateral, collateralAsset, amount_);
+      tokenBalanceBefore = _supply(cTokenCollateral, collateralAsset, amount_);
     } else {
+      uint borrowBalance;
       address assetBorrow = borrowAsset;
       // ensure, that amount to repay is less then the total debt
-      (, uint borrowBalance,,,) = _getStatus(cTokenCollateral, cTokenBorrow);
+      (tokenBalanceBefore, borrowBalance,,,,) = _getStatus(cTokenCollateral, cTokenBorrow);
       require(borrowBalance > 0 && amount_ < borrowBalance, AppErrors.REPAY_TO_REBALANCE_NOT_ALLOWED);
       IERC20(assetBorrow).safeTransferFrom(msg.sender, address(this), amount_);
 
@@ -366,9 +378,15 @@ contract DForcePoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP {
       }
     }
     // validate result status
-    (,, uint collateralBase, uint sumBorrowPlusEffects,) = _getStatus(cTokenCollateral, cTokenBorrow);
+    (uint tokenBalanceAfter,,
+     uint collateralBase,
+     uint sumBorrowPlusEffects,,
+    ) = _getStatus(cTokenCollateral, cTokenBorrow);
+
     (, uint healthFactor18) = _getHealthFactor(cTokenCollateral, collateralBase, sumBorrowPlusEffects);
     _validateHealthFactor(healthFactor18);
+
+    collateralTokensBalance -= tokenBalanceAfter - tokenBalanceBefore;
     return healthFactor18;
   }
 
@@ -424,7 +442,8 @@ contract DForcePoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP {
     uint collateralAmount,
     uint amountToPay,
     uint healthFactor18,
-    bool opened
+    bool opened,
+    uint collateralAmountLiquidated
   ) {
     address cTokenBorrow = borrowCToken;
     address cTokenCollateral = collateralCToken;
@@ -432,7 +451,8 @@ contract DForcePoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP {
     ( uint collateralTokens,
       uint borrowBalance,
       uint collateralBase36,
-      uint borrowBase36,
+      uint borrowBase36,,
+      uint collateralAmountLiquidatedBase36
     ) = _getStatus(cTokenCollateral, cTokenBorrow);
 
     (, healthFactor18) = _getHealthFactor(
@@ -448,44 +468,61 @@ contract DForcePoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP {
       borrowBalance,
     // Current health factor, decimals 18
       healthFactor18,
-      collateralTokens != 0 || borrowBalance != 0
+      collateralTokens != 0 || borrowBalance != 0,
+    // Amount of liquidated collateral == amount of lost
+      collateralAmountLiquidatedBase36 == 0
+        ? 0
+        : collateralAmountLiquidatedBase36 * 10 ** IERC20Extended(collateralAsset).decimals() / 10**36
     );
   }
 
-  /// @return tokenBalance Count of collateral tokens on balance
-  /// @return borrowBalance Borrow amount [borrow asset units]
+  /// @return tokenBalanceOut Count of collateral tokens on balance
+  /// @return borrowBalanceOut Borrow amount [borrow asset units]
   /// @return collateralAmountBase36 Total collateral in base currency, decimals 36
   /// @return sumBorrowBase36 Total borrow amount in base currency, decimals 36
   function _getStatus(address cTokenCollateral_, address cTokenBorrow_) internal view returns (
-    uint tokenBalance,
-    uint borrowBalance,
+    uint tokenBalanceOut,
+    uint borrowBalanceOut,
     uint collateralAmountBase36,
     uint sumBorrowBase36,
-    uint outPriceCollateral
+    uint priceCollateralOut,
+    uint collateralAmountLiquidatedBase36
   ) {
     // Calculate value of all collaterals, see ControllerV2.calcAccountEquityWithEffect
     // collateralValuePerToken = underlyingPrice * exchangeRate * collateralFactor
     // collateralValue = balance * collateralValuePerToken
     // sumCollateral += collateralValue
-    tokenBalance = IERC20(cTokenCollateral_).balanceOf(address(this));
-    uint exchangeRateMantissa = IDForceCToken(cTokenCollateral_).exchangeRateStored();
+    tokenBalanceOut = IERC20(cTokenCollateral_).balanceOf(address(this));
 
     (uint underlyingPrice, bool isPriceValid) = _priceOracle.getUnderlyingPriceAndStatus(address(cTokenCollateral_));
     require(underlyingPrice != 0 && isPriceValid, AppErrors.ZERO_PRICE);
 
-    collateralAmountBase36 = tokenBalance * underlyingPrice * exchangeRateMantissa / 10**18;
+    {
+      uint exchangeRateMantissa = IDForceCToken(cTokenCollateral_).exchangeRateStored();
+      collateralAmountBase36 = tokenBalanceOut * underlyingPrice * exchangeRateMantissa / 10**18;
+      collateralAmountLiquidatedBase36 =  tokenBalanceOut > collateralTokensBalance
+        ? 0
+        : (collateralTokensBalance - tokenBalanceOut) * underlyingPrice * exchangeRateMantissa / 10**18;
+    }
 
     // Calculate all borrowed value, see ControllerV2.calcAccountEquityWithEffect
     // borrowValue = underlyingPrice * underlyingBorrowed / borrowFactor
     // sumBorrowed += borrowValue
-    borrowBalance = IDForceCToken(cTokenBorrow_).borrowBalanceStored(address(this));
+    borrowBalanceOut = IDForceCToken(cTokenBorrow_).borrowBalanceStored(address(this));
 
     (underlyingPrice, isPriceValid) = _priceOracle.getUnderlyingPriceAndStatus(address(cTokenBorrow_));
     require(underlyingPrice != 0 && isPriceValid, AppErrors.ZERO_PRICE);
 
-    sumBorrowBase36 = borrowBalance * underlyingPrice;
+    sumBorrowBase36 = borrowBalanceOut * underlyingPrice;
 
-    return (tokenBalance, borrowBalance, collateralAmountBase36, sumBorrowBase36, underlyingPrice);
+    return (
+      tokenBalanceOut,
+      borrowBalanceOut,
+      collateralAmountBase36,
+      sumBorrowBase36,
+      underlyingPrice,
+      collateralAmountLiquidatedBase36
+    );
   }
 
   function getConversionKind() external pure override returns (AppDataTypes.ConversionKind) {

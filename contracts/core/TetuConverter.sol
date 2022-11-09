@@ -237,7 +237,7 @@ contract TetuConverter is ITetuConverter, IKeeperCallback {
       IPoolAdapter pa = IPoolAdapter(poolAdapters[i]);
       pa.updateStatus();
 
-      (,uint totalDebtForPoolAdapter,,) = pa.getStatus();
+      (,uint totalDebtForPoolAdapter,,,) = pa.getStatus();
       uint amountToPayToPoolAdapter = amountToPay >= totalDebtForPoolAdapter
         ? totalDebtForPoolAdapter
         : amountToPay;
@@ -306,7 +306,7 @@ contract TetuConverter is ITetuConverter, IKeeperCallback {
     pa.updateStatus();
 
     //!TODO: we have exactly same checking inside pool adapters... we need to check this condition only once
-    (,uint amountToPay,,) = pa.getStatus();
+    (,uint amountToPay,,,) = pa.getStatus();
     require(amountToPay > 0 && requiredAmountBorrowAsset_ < amountToPay, AppErrors.REPAY_TO_REBALANCE_NOT_ALLOWED);
 
     // ask the borrower to send us required part of the borrowed amount
@@ -388,7 +388,7 @@ contract TetuConverter is ITetuConverter, IKeeperCallback {
     for (uint i = 0; i < lenPoolAdapters; i = i.uncheckedInc()) {
       IPoolAdapter pa = IPoolAdapter(poolAdapters[i]);
       pa.updateStatus();
-      (uint collateralAmount, uint totalDebtForPoolAdapter,,) = pa.getStatus();
+      (uint collateralAmount, uint totalDebtForPoolAdapter,,,) = pa.getStatus();
       totalDebtAmountOut += totalDebtForPoolAdapter;
       totalCollateralAmountOut += collateralAmount;
     }
@@ -412,7 +412,7 @@ contract TetuConverter is ITetuConverter, IKeeperCallback {
 
     for (uint i = 0; i < lenPoolAdapters; i = i.uncheckedInc()) {
       IPoolAdapter pa = IPoolAdapter(poolAdapters[i]);
-      (uint collateralAmount, uint totalDebtForPoolAdapter,,) = pa.getStatus();
+      (uint collateralAmount, uint totalDebtForPoolAdapter,,,) = pa.getStatus();
       totalDebtAmountOut += totalDebtForPoolAdapter;
       totalCollateralAmountOut += collateralAmount;
     }
@@ -443,7 +443,7 @@ contract TetuConverter is ITetuConverter, IKeeperCallback {
       }
 
       IPoolAdapter pa = IPoolAdapter(poolAdapters[i]);
-      (uint collateralAmount, uint borrowedAmount,,) = pa.getStatus();
+      (uint collateralAmount, uint borrowedAmount,,,) = pa.getStatus();
 
       if (collateralAmountRemained >= collateralAmount) {
         collateralAmountRemained -= collateralAmount;

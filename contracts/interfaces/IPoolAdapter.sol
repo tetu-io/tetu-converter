@@ -89,11 +89,13 @@ interface IPoolAdapter is IConverter {
   /// @return amountToPay Total amount of borrowed debt in [borrow asset]. 0 - for closed borrow positions.
   /// @return healthFactor18 Current health factor, decimals 18
   /// @return opened The position is opened (there is not empty collateral/borrow balance)
+  /// @return collateralAmountLiquidated How much collateral was liquidated
   function getStatus() external view returns (
     uint collateralAmount,
     uint amountToPay,
     uint healthFactor18,
-    bool opened
+    bool opened,
+    uint collateralAmountLiquidated
   );
 
   /// @notice Compute current APR value, decimals 18

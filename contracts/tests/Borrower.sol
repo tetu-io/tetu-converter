@@ -241,7 +241,7 @@ contract Borrower is ITetuConverterCallback {
     if (lenPoolAdapters > 0) {
       IPoolAdapter pa = IPoolAdapter(poolAdapters[0]);
       pa.updateStatus();
-      (uint collateralAmount, uint amountToPay,,) = pa.getStatus();
+      (uint collateralAmount, uint amountToPay,,,) = pa.getStatus();
       if (amountToPay > 0) {
         console.log("makeRepayUC1.2: repay", amountToPay, collateralAmount);
         // transfer borrowed amount to Pool Adapter

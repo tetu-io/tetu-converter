@@ -14,6 +14,7 @@ contract PoolAdapterStub is IPoolAdapter {
     uint amountToPay;
     uint healthFactor18;
     bool opened;
+    uint collateralAmountLiquidated;
   }
 
   address public controller;
@@ -69,12 +70,19 @@ contract PoolAdapterStub is IPoolAdapter {
     originConverter = originConverter_;
   }
 
-  function setManualStatus(uint collateralAmount, uint amountToPay, uint healthFactor18, bool opened) external {
+  function setManualStatus(
+    uint collateralAmount,
+    uint amountToPay,
+    uint healthFactor18,
+    bool opened,
+    uint collateralAmountLiquidated
+  ) external {
     _manualStatus = ManualStatus({
       collateralAmount: collateralAmount,
       amountToPay: amountToPay,
       healthFactor18: healthFactor18,
-      opened: opened
+      opened: opened,
+      collateralAmountLiquidated: collateralAmountLiquidated
     });
   }
 
@@ -147,13 +155,15 @@ contract PoolAdapterStub is IPoolAdapter {
     uint collateralAmount,
     uint amountToPay,
     uint healthFactor18,
-    bool opened
+    bool opened,
+    uint collateralAmountLiquidated
   ) {
     return (
       _manualStatus.collateralAmount,
       _manualStatus.amountToPay,
       _manualStatus.healthFactor18,
-      _manualStatus.opened
+      _manualStatus.opened,
+      _manualStatus.collateralAmountLiquidated
     );
   }
 

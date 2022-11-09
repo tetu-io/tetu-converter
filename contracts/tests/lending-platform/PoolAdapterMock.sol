@@ -136,7 +136,8 @@ contract PoolAdapterMock is IPoolAdapter {
     uint collateralAmount,
     uint amountToPay,
     uint healthFactor18,
-    bool opened
+    bool opened,
+    uint collateralAmountLiquidated
   ) {
     return _getStatus();
   }
@@ -145,7 +146,8 @@ contract PoolAdapterMock is IPoolAdapter {
     uint collateralAmount,
     uint amountToPay,
     uint healthFactor18,
-    bool opened
+    bool opened,
+    uint collateralAmountLiquidated
   ) {
     uint priceCollateral = getPrice18(_collateralAsset);
     uint priceBorrowedUSD = getPrice18(_borrowAsset);
@@ -174,7 +176,8 @@ contract PoolAdapterMock is IPoolAdapter {
       collateralAmount,
       amountToPay,
       healthFactor18,
-      collateralAmount != 0 || amountToPay != 0
+      collateralAmount != 0 || amountToPay != 0,
+      0 // !TODO
     );
   }
 
@@ -249,7 +252,7 @@ contract PoolAdapterMock is IPoolAdapter {
     _addBorrow(borrowAmount_);
 
     // ensure that result health factor exceeds min allowed value
-    (,, resultHealthFactor18,) = _getStatus();
+    (,, resultHealthFactor18,,) = _getStatus();
     uint minAllowedHealthFactor18 = uint(IController(controller).minHealthFactor2()) * 10**(18-2);
     require(minAllowedHealthFactor18 < resultHealthFactor18, AppErrors.WRONG_HEALTH_FACTOR);
 
@@ -346,7 +349,7 @@ contract PoolAdapterMock is IPoolAdapter {
       _borrowedAmounts -= amount_;
     }
 
-    (,,uint healthFactor18,) = _getStatus();
+    (,,uint healthFactor18,,) = _getStatus();
     return healthFactor18;
   }
 
