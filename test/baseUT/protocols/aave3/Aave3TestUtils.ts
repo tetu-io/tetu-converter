@@ -4,7 +4,7 @@ import {
   Controller,
   IAavePool, IAavePool__factory,
   IAavePriceOracle,
-  IAaveProtocolDataProvider, IERC20__factory, IERC20Extended__factory
+  IAaveProtocolDataProvider, IERC20__factory, IERC20Extended__factory, IPoolAdapter__factory
 } from "../../../../typechain";
 import {Aave3Helper, IAave3ReserveInfo} from "../../../../scripts/integration/helpers/Aave3Helper";
 import {IConversionPlan} from "../../apr/aprDataTypes";
@@ -15,10 +15,13 @@ import {TokenDataTypes} from "../../types/TokenDataTypes";
 import {CoreContractsHelper} from "../../helpers/CoreContractsHelper";
 import {MocksHelper} from "../../helpers/MocksHelper";
 import {AdaptersHelper} from "../../helpers/AdaptersHelper";
-import {BalanceUtils} from "../../utils/BalanceUtils";
+import {BalanceUtils, IUserBalances} from "../../utils/BalanceUtils";
 import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import {transferAndApprove} from "../../utils/transferUtils";
 import {IAave3UserAccountDataResults} from "../../apr/aprAave3";
+import {IBorrowAndRepayBadParams, IMakeBorrowAndRepayResults} from "../aaveShared/aaveBorrowAndRepayUtils";
+import {TimeUtils} from "../../../../scripts/utils/TimeUtils";
+import {Aave3ChangePricesUtils} from "./Aave3ChangePricesUtils";
 
 //region Data types
 export interface IPrepareToBorrowResults {
@@ -240,5 +243,72 @@ export class Aave3TestUtils {
       accountDataAfterBorrow: await d.aavePool.getUserAccountData(d.aavePoolAdapterAsTC.address),
       borrowedAmount: borrowAmount
     };
+  }
+
+  public static async makeRepay(
+    d: IPrepareToBorrowResults,
+    amountToRepay?: BigNumber
+  ) : Promise<IAave3UserAccountDataResults>{
+    if (amountToRepay) {
+      // partial repay
+      const tetuConverter = await d.controller.tetuConverter();
+      const poolAdapterAsCaller = IPoolAdapter__factory.connect(
+        d.aavePoolAdapterAsTC.address,
+        await DeployerUtils.startImpersonate(tetuConverter)
+      );
+
+      await transferAndApprove(
+        d.borrowToken.address,
+        d.userContract.address,
+        tetuConverter,
+        amountToRepay,
+        d.aavePoolAdapterAsTC.address
+      );
+
+      await poolAdapterAsCaller.repay(
+        amountToRepay,
+        d.userContract.address,
+        false
+      );
+    } else {
+      // make full repayment
+      await d.userContract.makeRepayComplete(
+        d.collateralToken.address,
+        d.borrowToken.address,
+        d.userContract.address
+      );
+    }
+
+    return d.aavePool.getUserAccountData(d.aavePoolAdapterAsTC.address);
+  }
+
+  public static async makeLiquidation(
+    deployer: SignerWithAddress,
+    d: IPrepareToBorrowResults,
+    borrowHolder: string
+  ) {
+    const MAX_UINT_AMOUNT = '115792089237316195423570985008687907853269984665640564039457584007913129639935';
+    await Aave3ChangePricesUtils.changeAssetPrice(deployer, d.collateralToken.address, false, 10);
+
+    const liquidatorAddress = ethers.Wallet.createRandom().address;
+
+    const liquidator = await DeployerUtils.startImpersonate(liquidatorAddress);
+    const liquidatorBorrowAmountToPay = d.amountToBorrow;
+    const borrowerAddress = d.aavePoolAdapterAsTC.address;
+    await BalanceUtils.getAmountFromHolder(d.borrowToken.address, borrowHolder, liquidatorAddress, liquidatorBorrowAmountToPay);
+    await IERC20__factory.connect(d.borrowToken.address, liquidator).approve(d.aavePool.address, MAX_UINT_AMOUNT);
+
+    const aavePoolAsLiquidator = IAavePool__factory.connect(d.aavePool.address, liquidator);
+    const dataProvider = await Aave3Helper.getAaveProtocolDataProvider(liquidator);
+    const userReserveData = await dataProvider.getUserReserveData(d.borrowToken.address, borrowerAddress);
+    const amountToLiquidate = userReserveData.currentVariableDebt.div(2);
+
+    await aavePoolAsLiquidator.liquidationCall(
+      d.collateralToken.address,
+      d.borrowToken.address,
+      borrowerAddress,
+      amountToLiquidate,
+      false // we need to receive underlying
+    );
   }
 }

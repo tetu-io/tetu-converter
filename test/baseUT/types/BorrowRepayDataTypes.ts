@@ -41,5 +41,6 @@ export interface IPoolAdapterStatus {
   amountToPay: BigNumber;
   healthFactor18: BigNumber;
   opened: boolean;
+  collateralAmountLiquidated: BigNumber;
 }
 //endregion Data types

@@ -961,7 +961,7 @@ describe("Aave3PoolAdapterTest", () => {
         collateral: await collateralToken.token.balanceOf(d.userContract.address),
         borrow: await borrowToken.token.balanceOf(d.userContract.address)
       };
-      console.log("afterRepay", afterBorrow);
+      console.log("afterRepay", afterRepay);
 
       const ret = await d.aavePool.getUserAccountData(d.aavePoolAdapterAsTC.address);
 

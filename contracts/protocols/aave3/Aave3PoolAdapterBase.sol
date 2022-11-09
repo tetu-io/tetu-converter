@@ -13,6 +13,7 @@ import "../../integrations/aave3/IAaveAddressesProvider.sol";
 import "../../integrations/aave3/Aave3ReserveConfiguration.sol";
 import "../../integrations/aave3/IAaveToken.sol";
 import "../../integrations/dforce/SafeRatioMath.sol";
+import "hardhat/console.sol";
 
 /// @notice Implementation of IPoolAdapter for AAVE-v3-protocol, see https://docs.aave.com/hub/
 /// @dev Instances of this contract are created using proxy-minimal pattern, so no constructor
@@ -238,12 +239,13 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer 
     bool closePosition_
   ) external override returns (uint) {
     _onlyUserOrTC();
+    console.log("1");
     address assetBorrow = borrowAsset;
     address assetCollateral = collateralAsset;
     IAavePool pool = _pool;
-
+    console.log("2");
     IERC20(assetBorrow).safeTransferFrom(msg.sender, address(this), amountToRepay_);
-
+    console.log("3");
     // how much collateral we are going to return
     (uint amountCollateralToWithdraw, uint totalCollateralBaseBefore) = _getCollateralAmountToReturn(
         pool,
@@ -252,11 +254,11 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer 
         assetBorrow,
         closePosition_
     );
-
+    console.log("4");
     // transfer borrow amount back to the pool
     IERC20(assetBorrow).safeApprove(address(pool), 0);
     IERC20(assetBorrow).safeApprove(address(pool), amountToRepay_);
-
+    console.log("5");
     pool.repay(assetBorrow,
       closePosition_ ? type(uint).max : amountToRepay_,
       RATE_MODE,
@@ -284,7 +286,9 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer 
       _validateHealthFactor(healthFactor);
     }
 
-    collateralBalanceBase -= totalCollateralBaseBefore - totalCollateralBaseAfter;
+    collateralBalanceBase = totalCollateralBaseBefore - totalCollateralBaseAfter > collateralBalanceBase
+      ? 0
+      : collateralBalanceBase - (totalCollateralBaseBefore - totalCollateralBaseAfter);
 
     return amountCollateralToWithdraw;
   }

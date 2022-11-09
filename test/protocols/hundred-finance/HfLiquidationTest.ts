@@ -44,6 +44,7 @@ describe("HfLiquidationTest", () => {
     const signers = await ethers.getSigners();
     deployer = signers[0];
 
+    if (!await isPolygonForkInUse()) return;
     init = await prepareToLiquidation();
   });
 

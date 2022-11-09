@@ -17,8 +17,10 @@ export async function transferAndApprove(
     token,
     await DeployerUtils.startImpersonate(userContract)
   ).transfer(tetuConverter, amount);
+  console.log("Transfer", token, amount, "to tetu converter", tetuConverter);
   await IERC20__factory.connect(
     token,
     await DeployerUtils.startImpersonate(await tetuConverter)
   ).approve(poolAdapter, amount);
+  console.log("Approve", token, amount, "to pool adapter", poolAdapter);
 }
