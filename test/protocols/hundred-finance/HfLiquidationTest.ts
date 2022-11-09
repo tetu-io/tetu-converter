@@ -101,7 +101,7 @@ describe("HfLiquidationTest", () => {
     );
 
     // reduce price of collateral to reduce health factor below 1
-    await HundredFinanceChangePriceUtils.setupPriceOracleMock(
+    const priceOracleMock = await HundredFinanceChangePriceUtils.setupPriceOracleMock(
       deployer,
       [
         MaticAddresses.hDAI,
@@ -114,7 +114,9 @@ describe("HfLiquidationTest", () => {
         MaticAddresses.hLINK,
       ]
     );
+    console.log("HundredFinanceChangePriceUtils.changeCTokenPrice");
     await HundredFinanceChangePriceUtils.changeCTokenPrice(
+      priceOracleMock,
       deployer,
       collateralCTokenAddress,
       false,
@@ -175,6 +177,7 @@ describe("HfLiquidationTest", () => {
       it("health factor is less 1 before liquidation", async () => {
         if (!await isPolygonForkInUse()) return;
 
+        console.log(init.statusBeforeLiquidation);
         const healthFactorNum = Number(ethers.utils.formatUnits(init.statusBeforeLiquidation.healthFactor18));
         expect(healthFactorNum).below(1);
       });

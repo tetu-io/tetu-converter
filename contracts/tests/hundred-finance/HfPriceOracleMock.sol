@@ -1,10 +1,12 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.4;
+import "hardhat/console.sol";
 
 contract HfPriceOracleMock {
   mapping(address => uint) public prices;
 
   function setUnderlyingPrice(address cToken_, uint price_) external {
+    console.log("HfPriceOracleMock.setUnderlyingPrice");
     prices[cToken_] = price_;
   }
 
@@ -22,11 +24,12 @@ contract HfPriceOracleMock {
   }
 
   function getUnderlyingPrice(address cToken_) external view returns (uint256) {
+    console.log("HfPriceOracleMock.getUnderlyingPrice");
     return prices[cToken_];
   }
 
   function renounceOwnership() external {
-
+    console.log("HfPriceOracleMock.renounceOwnership");
   }
 
   function setEthUsdChainlinkAggregatorAddress(address addr) external pure {
@@ -38,18 +41,20 @@ contract HfPriceOracleMock {
     address[] memory chainlinkAggregatorAddress,
     uint256[] memory chainlinkPriceBase,
     uint256[] memory underlyingTokenDecimals
-  ) external pure {
+  ) external view {
     cTokenAddress;
     chainlinkAggregatorAddress;
     chainlinkPriceBase;
     underlyingTokenDecimals;
+    console.log("HfPriceOracleMock.setTokenConfigs");
   }
 
-  function tokenConfig(address) external pure returns (
+  function tokenConfig(address) external view returns (
     address chainlinkAggregatorAddress,
     uint256 chainlinkPriceBase,
     uint256 underlyingTokenDecimals
   ) {
+    console.log("HfPriceOracleMock.tokenConfig");
     return (chainlinkAggregatorAddress, chainlinkPriceBase, underlyingTokenDecimals);
   }
 

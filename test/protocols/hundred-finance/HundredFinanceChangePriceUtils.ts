@@ -1,7 +1,7 @@
 import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import {BigNumber} from "ethers";
 import {HundredFinanceHelper} from "../../../scripts/integration/helpers/HundredFinanceHelper";
-import {HfPriceOracleMock, HfPriceOracleMock__factory} from "../../../typechain";
+import {HfPriceOracleMock} from "../../../typechain";
 import {DeployerUtils} from "../../../scripts/utils/DeployerUtils";
 import {DeployUtils} from "../../../scripts/utils/DeployUtils";
 
@@ -9,11 +9,11 @@ export class HundredFinanceChangePriceUtils {
   public static async setupPriceOracleMock(
     deployer: SignerWithAddress,
     cTokensList: string[]
-  ) {
+  ) : Promise<HfPriceOracleMock> {
     const priceOracle = await HundredFinanceHelper.getPriceOracle(deployer);
 
     const comptroller = await HundredFinanceHelper.getComptroller(deployer);
-    const admin = "0x1001009911e3FE1d5B45FF8Efea7732C33a6C012"; // await comptroller.admin();
+    const admin = await comptroller.admin();
 
     // deploy mock
     const mock = (await DeployUtils.deployContract(deployer, "HfPriceOracleMock")) as HfPriceOracleMock;
@@ -28,19 +28,21 @@ export class HundredFinanceChangePriceUtils {
     }
 
     // install the mock to the protocol
+    console.log("Change price oracle...");
     await comptrollerAsAdmin._setPriceOracle(mock.address);
+    console.log("Price oracle is changed");
+
+    return mock;
   }
 
   public static async changeCTokenPrice(
+    oracle: HfPriceOracleMock,
     signer: SignerWithAddress,
     cToken: string,
     inc: boolean,
     times: number
   ) {
-    const oracle = HfPriceOracleMock__factory.connect(
-      (await HundredFinanceHelper.getPriceOracle(signer)).address,
-      signer
-    );
+    console.log("changeCTokenPrice");
     const currentPrice: BigNumber = await oracle.getUnderlyingPrice(cToken);
     await oracle.setUnderlyingPrice(
       cToken,
