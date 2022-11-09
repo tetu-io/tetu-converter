@@ -80,6 +80,11 @@ describe("HfLiquidationTest", () => {
 
     const collateralAmount = getBigNumberFrom(100_000, collateralToken.decimals);
 
+    // set up our own price oracle
+    // we should do it before creation of the pool adapter
+    const priceOracleMock = await HundredFinanceChangePriceUtils.setupPriceOracleMock(deployer);
+    console.log("priceOracleMock", priceOracleMock.address);
+
     const d = await HundredFinanceTestUtils.prepareToBorrow(deployer,
       collateralToken,
       collateralHolder,
@@ -87,33 +92,18 @@ describe("HfLiquidationTest", () => {
       collateralAmount,
       borrowToken,
       borrowCTokenAddress,
+      200,
+      {
+        hfPriceOracle: priceOracleMock.address
+      }
     );
     // make a borrow
-    await HundredFinanceTestUtils.makeBorrow(
-      deployer,
-      collateralToken,
-      collateralCToken,
-      collateralHolder,
-      collateralAmount,
-      borrowToken,
-      borrowCToken,
-      undefined
-    );
+    await HundredFinanceTestUtils.makeBorrow(deployer, d, undefined);
+    const statusAfterBorrow = await d.hfPoolAdapterTC.getStatus();
+    console.log("statusAfterBorrow", statusAfterBorrow);
 
     // reduce price of collateral to reduce health factor below 1
-    const priceOracleMock = await HundredFinanceChangePriceUtils.setupPriceOracleMock(
-      deployer,
-      [
-        MaticAddresses.hDAI,
-        MaticAddresses.hMATIC,
-        MaticAddresses.hUSDC,
-        MaticAddresses.hETH,
-        MaticAddresses.hUSDT,
-        MaticAddresses.hWBTC,
-        MaticAddresses.hFRAX,
-        MaticAddresses.hLINK,
-      ]
-    );
+
     console.log("HundredFinanceChangePriceUtils.changeCTokenPrice");
     await HundredFinanceChangePriceUtils.changeCTokenPrice(
       priceOracleMock,
@@ -124,6 +114,7 @@ describe("HfLiquidationTest", () => {
     );
 
     const statusBeforeLiquidation = await d.hfPoolAdapterTC.getStatus();
+    console.log("statusBeforeLiquidation", statusBeforeLiquidation);
     return {
       collateralToken,
       borrowToken,
@@ -177,7 +168,7 @@ describe("HfLiquidationTest", () => {
       it("health factor is less 1 before liquidation", async () => {
         if (!await isPolygonForkInUse()) return;
 
-        console.log(init.statusBeforeLiquidation);
+        console.log("Before liquidation", init.statusBeforeLiquidation);
         const healthFactorNum = Number(ethers.utils.formatUnits(init.statusBeforeLiquidation.healthFactor18));
         expect(healthFactorNum).below(1);
       });
@@ -217,17 +208,8 @@ describe("HfLiquidationTest", () => {
         );
 
         await expect(
-          HundredFinanceTestUtils.makeBorrow(
-            deployer,
-            init.collateralToken,
-            init.collateralCToken,
-            collateralHolder,
-            init.collateralAmount,
-            init.borrowToken,
-            init.borrowCToken,
-            undefined
-          )
-        ).revertedWith("35");
+          HundredFinanceTestUtils.makeBorrow(deployer, init.d, undefined)
+        ).revertedWith("TC-20"); // borrow failed
       });
     });
   });

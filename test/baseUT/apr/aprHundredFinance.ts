@@ -40,6 +40,13 @@ export interface IHfAccountLiquidity {
   shortfall: BigNumber;
 }
 
+export interface IHundredFinanceAccountSnapshot {
+  error: BigNumber;
+  tokenBalance: BigNumber;
+  borrowBalance: BigNumber;
+  exchangeRateMantissa: BigNumber;
+}
+
 export interface IHfUserAccountState {
   balance: BigNumber;
   borrowBalanceStored: BigNumber;

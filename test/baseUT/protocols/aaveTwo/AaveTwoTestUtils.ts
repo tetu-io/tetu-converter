@@ -56,36 +56,6 @@ export interface IPrepareToBorrowResults {
   priceBorrow: BigNumber;
 }
 
-export interface IPrepareToBorrowOptionalSetup {
-  borrowHolders?: string[];
-  targetHealthFactor2?: number;
-}
-
-async function supplyEnoughBorrowAssetToAavePool(
-  aavePool: string,
-  borrowHolders: string[],
-  borrowAsset: string
-) {
-  const user2 = await DeployerUtils.startImpersonate(ethers.Wallet.createRandom().address);
-
-  // user2 provides DAI amount enough to borrow by user1
-  for (const h of borrowHolders) {
-    const caAsH = IERC20__factory.connect(borrowAsset, await DeployerUtils.startImpersonate(h));
-    const holderBalance = await caAsH.balanceOf(h);
-    console.log("Holder balance:", holderBalance.toString());
-    await caAsH.transfer(user2.address, await caAsH.balanceOf(h));
-    const userBalance = await caAsH.balanceOf(user2.address);
-    console.log("User balance:", userBalance.toString());
-  }
-
-  // supply all available borrow asset to aave pool
-  const user2CollateralBalance = await IERC20__factory.connect(borrowAsset, user2).balanceOf(user2.address);
-  await IERC20Extended__factory.connect(borrowAsset, user2).approve(aavePool, user2CollateralBalance);
-  console.log(`Supply collateral ${borrowAsset} amount ${user2CollateralBalance}`);
-  await IAavePool__factory.connect(aavePool, await DeployerUtils.startImpersonate(user2.address))
-    .supply(borrowAsset, user2CollateralBalance, user2.address, 0);
-}
-
 interface IBorrowResults {
   collateralData: IAaveTwoReserveInfo;
   accountDataAfterBorrow: IAaveTwoUserAccountDataResults;
@@ -193,8 +163,8 @@ export class AaveTwoTestUtils {
       converterNormal: converterNormal.address,
       borrowToken,
       collateralToken,
-      priceBorrow: prices[0],
-      priceCollateral: prices[1],
+      priceCollateral: prices[0],
+      priceBorrow: prices[1],
     }
   }
 

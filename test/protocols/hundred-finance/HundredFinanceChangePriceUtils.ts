@@ -4,12 +4,20 @@ import {HundredFinanceHelper} from "../../../scripts/integration/helpers/Hundred
 import {HfPriceOracleMock} from "../../../typechain";
 import {DeployerUtils} from "../../../scripts/utils/DeployerUtils";
 import {DeployUtils} from "../../../scripts/utils/DeployUtils";
+import {MaticAddresses} from "../../../scripts/addresses/MaticAddresses";
 
 export class HundredFinanceChangePriceUtils {
-  public static async setupPriceOracleMock(
-    deployer: SignerWithAddress,
-    cTokensList: string[]
-  ) : Promise<HfPriceOracleMock> {
+  public static async setupPriceOracleMock(deployer: SignerWithAddress) : Promise<HfPriceOracleMock> {
+    const cTokensList = [
+      MaticAddresses.hDAI,
+      MaticAddresses.hMATIC,
+      MaticAddresses.hUSDC,
+      MaticAddresses.hETH,
+      MaticAddresses.hUSDT,
+      MaticAddresses.hWBTC,
+      MaticAddresses.hFRAX,
+      MaticAddresses.hLINK,
+    ];
     const priceOracle = await HundredFinanceHelper.getPriceOracle(deployer);
 
     const comptroller = await HundredFinanceHelper.getComptroller(deployer);

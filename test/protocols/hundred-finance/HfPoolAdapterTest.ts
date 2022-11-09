@@ -57,6 +57,48 @@ describe("Hundred Finance integration tests, pool adapter", () => {
   });
 //endregion before, after
 
+//region Test impl
+  async function makeBorrow(
+    collateralToken: TokenDataTypes,
+    collateralCToken: TokenDataTypes,
+    collateralHolder: string,
+    collateralAmountRequired: BigNumber | undefined,
+    borrowToken: TokenDataTypes,
+    borrowCToken: TokenDataTypes,
+    borrowAmountRequired: BigNumber | undefined
+) : Promise<{sret: string, sexpected: string}>{
+    const d = await HundredFinanceTestUtils.prepareToBorrow(
+      deployer,
+      collateralToken,
+      collateralHolder,
+      collateralCToken.address,
+      collateralAmountRequired,
+      borrowToken,
+      borrowCToken.address
+    );
+    const borrowResults = await HundredFinanceTestUtils.makeBorrow(deployer, d, borrowAmountRequired);
+    const sret = [
+      borrowResults.accountLiquidity.error,
+      borrowResults.userBalanceBorrowAsset,
+      borrowResults.poolAdapterBalanceCollateralCToken,
+      borrowResults.accountLiquidity.liquidity,
+      borrowResults.accountLiquidity.shortfall,
+    ].map(x => BalanceUtils.toString(x)).join("\n");
+
+    const sexpected = [
+      0,
+      borrowResults.borrowedAmount, // borrowed amount on user's balance
+      d.collateralAmount
+        .mul(Misc.WEI)
+        .div(borrowResults.marketsInfo.collateralData.exchangeRateStored),
+      borrowResults.expectedLiquidity,
+      0,
+    ].map(x => BalanceUtils.toString(x)).join("\n");
+
+    return {sret, sexpected};
+  }
+//endregion Test impl
+
 //region Unit tests
   describe("borrow", () => {
     describe("Good paths", () => {
@@ -84,8 +126,7 @@ describe("Hundred Finance integration tests, pool adapter", () => {
           ? getBigNumberFrom(borrowAmountNum, borrowToken.decimals)
           : undefined;
 
-        const r = await HundredFinanceTestUtils.makeBorrow(
-          deployer,
+        const r = await makeBorrow(
           collateralToken,
           collateralCToken,
           collateralHolder,
@@ -121,8 +162,7 @@ describe("Hundred Finance integration tests, pool adapter", () => {
           ? getBigNumberFrom(borrowAmountNum, borrowToken.decimals)
           : undefined;
 
-        const r = await HundredFinanceTestUtils.makeBorrow(
-          deployer,
+        const r = await makeBorrow(
           collateralToken,
           collateralCToken,
           collateralHolder,

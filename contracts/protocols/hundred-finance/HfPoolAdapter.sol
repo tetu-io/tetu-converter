@@ -14,6 +14,7 @@ import "../../integrations/hundred-finance/IHfPriceOracle.sol";
 import "../../interfaces/ITokenAddressProvider.sol";
 import "../../integrations/hundred-finance/IHfHMatic.sol";
 import "../../integrations/IWmatic.sol";
+import "hardhat/console.sol";
 
 /// @notice Implementation of IPoolAdapter for HundredFinance-protocol, see https://docs.hundred.finance/
 /// @dev Instances of this contract are created using proxy-minimal pattern, so no constructor
@@ -83,6 +84,7 @@ contract HfPoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP {
     _priceOracle = IHfPriceOracle(priceOracle);
 
     _comptroller = IHfComptroller(comptroller_);
+    console.log("initialize.priceOracle", priceOracle);
   }
 
   ///////////////////////////////////////////////////////
@@ -450,11 +452,8 @@ contract HfPoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP {
       uint collateralAmountLiquidatedBase
     ) = _getStatus(cTokenCollateral, cTokenBorrow);
 
-    (, healthFactor18) = _getHealthFactor(
-      cTokenCollateral,
-      collateralBase,
-      borrowBase
-    );
+    (, healthFactor18) = _getHealthFactor(cTokenCollateral, collateralBase, borrowBase);
+
     return (
     // Total amount of provided collateral [collateral asset]
       collateralBase * 10 ** IERC20Extended(collateralAsset).decimals() / 10**18,
@@ -506,6 +505,8 @@ contract HfPoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP {
     require(error == 0, AppErrors.CTOKEN_GET_ACCOUNT_SNAPSHOT_FAILED);
 
     uint priceCollateral = _priceOracle.getUnderlyingPrice(cTokenCollateral);
+    console.log("_getStatus.priceCollateral", priceCollateral);
+    console.log("_getStatus.priceBorrow", _priceOracle.getUnderlyingPrice(cTokenBorrow));
     collateralBaseOut = (priceCollateral * cExchangeRateMantissa / 10**18) * tokenBalanceOut / 10**18;
     borrowBaseOut = _priceOracle.getUnderlyingPrice(cTokenBorrow) * borrowBalanceOut / 10**18;
     outCollateralAmountLiquidatedBase = tokenBalanceOut > collateralTokensBalance

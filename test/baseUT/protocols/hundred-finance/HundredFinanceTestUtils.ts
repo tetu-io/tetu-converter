@@ -1,7 +1,18 @@
 import {
-  Borrower, BorrowManager__factory, Controller,
-  HfPlatformAdapter, HfPoolAdapter, HfPoolAdapter__factory, IERC20Extended__factory,
-  IHfComptroller, IHfCToken, IHfCToken__factory, IHfPriceOracle
+  Borrower,
+  BorrowManager__factory,
+  Controller,
+  HfPlatformAdapter,
+  HfPoolAdapter,
+  HfPoolAdapter__factory,
+  IAavePool__factory,
+  IERC20__factory,
+  IERC20Extended__factory,
+  IHfComptroller,
+  IHfCToken,
+  IHfCToken__factory,
+  IHfPriceOracle,
+  IPoolAdapter__factory
 } from "../../../../typechain";
 import {BigNumber} from "ethers";
 import {TokenDataTypes} from "../../types/TokenDataTypes";
@@ -19,6 +30,13 @@ import {
 } from "../../../../scripts/integration/helpers/HundredFinanceHelper";
 import {transferAndApprove} from "../../utils/transferUtils";
 import {BalanceUtils} from "../../utils/BalanceUtils";
+import {IHfAccountLiquidity, IHfUserAccountState} from "../../apr/aprHundredFinance";
+import {HundredFinanceChangePriceUtils} from "../../../protocols/hundred-finance/HundredFinanceChangePriceUtils";
+
+//region Data types
+export interface IPrepareToBorrowAdditionalParams {
+  hfPriceOracle?: string;
+}
 
 export interface IPrepareToBorrowResults {
   userContract: Borrower;
@@ -38,6 +56,12 @@ export interface IPrepareToBorrowResults {
   borrowCToken: IHfCToken;
 
   converterNormal: string;
+
+  collateralToken: TokenDataTypes;
+  borrowToken: TokenDataTypes;
+
+  priceCollateral: BigNumber;
+  priceBorrow: BigNumber;
 }
 
 export interface IMarketsInfo {
@@ -47,6 +71,17 @@ export interface IMarketsInfo {
   priceCollateral: BigNumber;
   priceBorrow: BigNumber;
 }
+
+interface IBorrowResults {
+  accountLiquidity: IHfAccountLiquidity;
+  userBalanceBorrowAsset: BigNumber;
+  poolAdapterBalanceCollateralCToken: BigNumber;
+  expectedLiquidity: BigNumber;
+  borrowedAmount: BigNumber;
+  marketsInfo: IMarketsInfo;
+}
+
+//endregion Data types
 
 export class HundredFinanceTestUtils {
   /**
@@ -61,7 +96,8 @@ export class HundredFinanceTestUtils {
     collateralAmountRequired: BigNumber | undefined,
     borrowToken: TokenDataTypes,
     borrowCTokenAddress: string,
-    targetHealthFactor2?: number
+    targetHealthFactor2?: number,
+    additionalParams?: IPrepareToBorrowAdditionalParams
   ) : Promise<IPrepareToBorrowResults> {
     const periodInBlocks = 1000;
 
@@ -88,7 +124,7 @@ export class HundredFinanceTestUtils {
       comptroller.address,
       converter.address,
       [collateralCTokenAddress, borrowCTokenAddress],
-      MaticAddresses.HUNDRED_FINANCE_PRICE_ORACLE
+      additionalParams?.hfPriceOracle || MaticAddresses.HUNDRED_FINANCE_PRICE_ORACLE
     )
 
     await borrowManager.addAssetPairs(
@@ -137,6 +173,9 @@ export class HundredFinanceTestUtils {
     );
     console.log("plan", plan);
 
+    const priceCollateral = await priceOracle.getUnderlyingPrice(collateralCTokenAddress);
+    const priceBorrow = await priceOracle.getUnderlyingPrice(borrowCTokenAddress);
+
     return {
       controller,
       userContract,
@@ -149,6 +188,10 @@ export class HundredFinanceTestUtils {
       collateralCToken: IHfCToken__factory.connect(collateralCTokenAddress, deployer),
       borrowCToken: IHfCToken__factory.connect(borrowCTokenAddress, deployer),
       converterNormal: converter.address,
+      borrowToken,
+      collateralToken,
+      priceBorrow,
+      priceCollateral
     }
   }
 
@@ -208,33 +251,14 @@ export class HundredFinanceTestUtils {
 
   static async makeBorrow(
     deployer: SignerWithAddress,
-    collateralToken: TokenDataTypes,
-    collateralCToken: TokenDataTypes,
-    collateralHolder: string,
-    collateralAmountRequired: BigNumber | undefined,
-    borrowToken: TokenDataTypes,
-    borrowCToken: TokenDataTypes,
+    d: IPrepareToBorrowResults,
     borrowAmountRequired: BigNumber | undefined
-  ) : Promise<{sret: string, sexpected: string}>{
-    const d = await HundredFinanceTestUtils.prepareToBorrow(
-      deployer,
-      collateralToken,
-      collateralHolder,
-      collateralCToken.address,
-      collateralAmountRequired,
-      borrowToken,
-      borrowCToken.address
-    );
+  ) : Promise<IBorrowResults>{
     const borrowAmount = borrowAmountRequired
       ? borrowAmountRequired
       : d.amountToBorrow;
-    console.log("collateralAmountRequired", collateralAmountRequired);
-    console.log("borrowAmountRequired", borrowAmountRequired);
-    console.log("d.collateralAmount", d.collateralAmount);
-    console.log("borrowAmount", borrowAmount);
-
     await transferAndApprove(
-      collateralToken.address,
+      d.collateralToken.address,
       d.userContract.address,
       await d.controller.tetuConverter(),
       d.collateralAmount,
@@ -247,47 +271,107 @@ export class HundredFinanceTestUtils {
     );
     console.log(`borrow: success`);
 
-    const info = await HundredFinanceTestUtils.getMarketsInfo(deployer, d, collateralCToken.address, borrowCToken.address);
+    const marketsInfo = await HundredFinanceTestUtils.getMarketsInfo(deployer,
+      d,
+      d.collateralCToken.address,
+      d.borrowCToken.address
+    );
 
     // check results
-    const {error, liquidity, shortfall} = await d.comptroller.getAccountLiquidity(d.hfPoolAdapterTC.address);
-    const sb = await IHfCToken__factory.connect(borrowCToken.address, deployer)
+    const accountLiquidity = await d.comptroller.getAccountLiquidity(d.hfPoolAdapterTC.address);
+    const sb = await IHfCToken__factory.connect(d.borrowCToken.address, deployer)
       .getAccountSnapshot(d.hfPoolAdapterTC.address);
     console.log(`Borrow token: balance=${sb.borrowBalance} tokenBalance=${sb.tokenBalance} exchangeRate=${sb.exchangeRateMantissa}`);
-    const sc = await IHfCToken__factory.connect(collateralCToken.address, deployer)
+    const sc = await IHfCToken__factory.connect(d.collateralCToken.address, deployer)
       .getAccountSnapshot(d.hfPoolAdapterTC.address);
     console.log(`Collateral token: balance=${sc.borrowBalance} tokenBalance=${sc.tokenBalance} exchangeRate=${sc.exchangeRateMantissa}`);
 
-    const retBalanceBorrowUser = await borrowToken.token.balanceOf(d.userContract.address);
-    const retBalanceCollateralTokensPoolAdapter = await IERC20Extended__factory.connect(
-      collateralCToken.address, deployer
+    const userBalanceBorrowAsset = await d.borrowToken.token.balanceOf(d.userContract.address);
+    const poolAdapterBalanceCollateralCToken = await IERC20Extended__factory.connect(
+      d.collateralCToken.address, deployer
     ).balanceOf(d.hfPoolAdapterTC.address);
 
-    const sret = [
-      error,
-      retBalanceBorrowUser,
-      retBalanceCollateralTokensPoolAdapter,
-      liquidity,
-      shortfall,
-    ].map(x => BalanceUtils.toString(x)).join("\n");
-
     const expectedLiquidity = HundredFinanceTestUtils.getExpectedLiquidity(
-      info.collateralData,
-      info.priceCollateral,
-      info.priceBorrow,
+      marketsInfo.collateralData,
+      marketsInfo.priceCollateral,
+      marketsInfo.priceBorrow,
       sc.tokenBalance,
       sb.borrowBalance
-    )
-    const sexpected = [
-      0,
-      borrowAmount, // borrowed amount on user's balance
-      d.collateralAmount
-        .mul(Misc.WEI)
-        .div(info.collateralData.exchangeRateStored),
-      expectedLiquidity,
-      0,
-    ].map(x => BalanceUtils.toString(x)).join("\n");
+    );
 
-    return {sret, sexpected};
+    return {
+      borrowedAmount: borrowAmount,
+      userBalanceBorrowAsset,
+      poolAdapterBalanceCollateralCToken,
+      accountLiquidity,
+      expectedLiquidity,
+      marketsInfo
+    }
+  }
+
+  public static async makeRepay(
+    d: IPrepareToBorrowResults,
+    amountToRepay?: BigNumber
+  ) {
+    if (amountToRepay) {
+      // partial repay
+      const tetuConverter = await d.controller.tetuConverter();
+      const poolAdapterAsCaller = IPoolAdapter__factory.connect(
+        d.hfPoolAdapterTC.address,
+        await DeployerUtils.startImpersonate(tetuConverter)
+      );
+
+      await transferAndApprove(
+        d.borrowToken.address,
+        d.userContract.address,
+        tetuConverter,
+        amountToRepay,
+        d.hfPoolAdapterTC.address
+      );
+
+      await poolAdapterAsCaller.repay(
+        amountToRepay,
+        d.userContract.address,
+        false
+      );
+    } else {
+      // make full repayment
+      await d.userContract.makeRepayComplete(
+        d.collateralToken.address,
+        d.borrowToken.address,
+        d.userContract.address
+      );
+    }
+  }
+
+  public static async makeLiquidation(
+    deployer: SignerWithAddress,
+    d: IPrepareToBorrowResults,
+    borrowHolder: string
+  ) {
+    const MAX_UINT_AMOUNT = '115792089237316195423570985008687907853269984665640564039457584007913129639935';
+    const liquidatorAddress = ethers.Wallet.createRandom().address;
+
+    const liquidator = await DeployerUtils.startImpersonate(liquidatorAddress);
+    const borrowerAddress = d.hfPoolAdapterTC.address;
+
+    const borrowCTokenAsLiquidator = IHfCToken__factory.connect(d.borrowCToken.address, liquidator);
+    const accountBefore = await d.comptroller.getAccountLiquidity(borrowerAddress);
+    const borrowPrice = await d.priceOracle.getUnderlyingPrice(d.borrowCToken.address);
+    const borrowDebt = accountBefore.shortfall.mul(borrowPrice);
+    console.log("borrowed amount", d.amountToBorrow);
+    console.log("debt", borrowDebt);
+
+    await BalanceUtils.getAmountFromHolder(d.borrowToken.address, borrowHolder, liquidatorAddress, borrowDebt);
+    await IERC20__factory.connect(d.borrowToken.address, liquidator).approve(d.comptroller.address, MAX_UINT_AMOUNT);
+
+    console.log("Before liquidation, user account", accountBefore);
+    await borrowCTokenAsLiquidator.liquidateBorrow(borrowerAddress, borrowDebt, d.collateralCToken.address);
+
+    const accountAfter = await d.comptroller.getAccountLiquidity(borrowerAddress);
+    console.log("Before liquidation, user account", accountAfter);
+
+    const collateralAmountReceivedByLiquidator = await IERC20__factory.connect(d.collateralToken.address, deployer).balanceOf(liquidatorAddress);
+
   }
 }
