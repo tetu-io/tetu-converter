@@ -239,13 +239,10 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer 
     bool closePosition_
   ) external override returns (uint) {
     _onlyUserOrTC();
-    console.log("1");
     address assetBorrow = borrowAsset;
     address assetCollateral = collateralAsset;
     IAavePool pool = _pool;
-    console.log("2");
     IERC20(assetBorrow).safeTransferFrom(msg.sender, address(this), amountToRepay_);
-    console.log("3");
     // how much collateral we are going to return
     (uint amountCollateralToWithdraw, uint totalCollateralBaseBefore) = _getCollateralAmountToReturn(
         pool,
@@ -254,11 +251,9 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer 
         assetBorrow,
         closePosition_
     );
-    console.log("4");
     // transfer borrow amount back to the pool
     IERC20(assetBorrow).safeApprove(address(pool), 0);
     IERC20(assetBorrow).safeApprove(address(pool), amountToRepay_);
-    console.log("5");
     pool.repay(assetBorrow,
       closePosition_ ? type(uint).max : amountToRepay_,
       RATE_MODE,
@@ -266,6 +261,7 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer 
     );
 
     // withdraw the collateral
+    // if the borrow was liquidated the collateral is zero and we will have revert here
     pool.withdraw(collateralAsset, amountCollateralToWithdraw, receiver_);
 
     if (closePosition_) {

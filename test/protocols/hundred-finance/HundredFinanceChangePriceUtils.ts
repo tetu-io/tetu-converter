@@ -3,7 +3,6 @@ import {BigNumber} from "ethers";
 import {HundredFinanceHelper} from "../../../scripts/integration/helpers/HundredFinanceHelper";
 import {HfPriceOracleMock, HfPriceOracleMock__factory} from "../../../typechain";
 import {DeployerUtils} from "../../../scripts/utils/DeployerUtils";
-import {MaticAddresses} from "../../../scripts/addresses/MaticAddresses";
 import {DeployUtils} from "../../../scripts/utils/DeployUtils";
 
 export class HundredFinanceChangePriceUtils {
@@ -14,7 +13,7 @@ export class HundredFinanceChangePriceUtils {
     const priceOracle = await HundredFinanceHelper.getPriceOracle(deployer);
 
     const comptroller = await HundredFinanceHelper.getComptroller(deployer);
-    const admin = await comptroller.admin();
+    const admin = "0x1001009911e3FE1d5B45FF8Efea7732C33a6C012"; // await comptroller.admin();
 
     // deploy mock
     const mock = (await DeployUtils.deployContract(deployer, "HfPriceOracleMock")) as HfPriceOracleMock;

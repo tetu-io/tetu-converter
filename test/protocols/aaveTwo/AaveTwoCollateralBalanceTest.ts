@@ -2,7 +2,6 @@ import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import {ethers} from "hardhat";
 import {TimeUtils} from "../../../scripts/utils/TimeUtils";
 import {expect} from "chai";
-import {Aave3TestUtils, IPrepareToBorrowResults} from "../../baseUT/protocols/aave3/Aave3TestUtils";
 import {TokenDataTypes} from "../../baseUT/types/TokenDataTypes";
 import {BigNumber} from "ethers";
 import {IPoolAdapterStatus} from "../../baseUT/types/BorrowRepayDataTypes";
@@ -11,14 +10,11 @@ import {MaticAddresses} from "../../../scripts/addresses/MaticAddresses";
 import {getBigNumberFrom} from "../../../scripts/utils/NumberUtils";
 import {BalanceUtils} from "../../baseUT/utils/BalanceUtils";
 import {SharedRepayToRebalanceUtils} from "../../baseUT/protocols/shared/sharedRepayToRebalanceUtils";
-import {IAave3UserAccountDataResults} from "../../baseUT/apr/aprAave3";
-import {Aave3ChangePricesUtils} from "../../baseUT/protocols/aave3/Aave3ChangePricesUtils";
-import {DeployerUtils} from "../../../scripts/utils/DeployerUtils";
-import {IAavePool__factory, IERC20__factory} from "../../../typechain";
-import {Aave3Helper} from "../../../scripts/integration/helpers/Aave3Helper";
 import {areAlmostEqual} from "../../baseUT/utils/CommonUtils";
+import {IAaveTwoUserAccountDataResults} from "../../baseUT/apr/aprAaveTwo";
+import {AaveTwoTestUtils, IPrepareToBorrowResults} from "../../baseUT/protocols/aaveTwo/AaveTwoTestUtils";
 
-describe("Aave3CollateralBalanceTest", () => {
+describe("AaveTwoCollateralBalanceTest", () => {
 //region Constants
   const MAX_UINT_AMOUNT = '115792089237316195423570985008687907853269984665640564039457584007913129639935';
   const collateralAsset = MaticAddresses.DAI;
@@ -64,7 +60,7 @@ describe("Aave3CollateralBalanceTest", () => {
   interface IState {
     status: IPoolAdapterStatus;
     collateralBalanceBase: BigNumber;
-    accountState: IAave3UserAccountDataResults;
+    accountState: IAaveTwoUserAccountDataResults;
   }
 
   interface IInitialBorrowResults {
@@ -81,15 +77,15 @@ describe("Aave3CollateralBalanceTest", () => {
 
     const collateralAmount = getBigNumberFrom(collateralAmountNum, collateralToken.decimals);
 
-    const d = await Aave3TestUtils.prepareToBorrow(deployer,
+    const d = await AaveTwoTestUtils.prepareToBorrow(deployer,
       collateralToken,
-      [collateralHolder],
+      collateralHolder,
       collateralAmount,
       borrowToken,
-      false
+      200
     );
     // make a borrow
-    await Aave3TestUtils.makeBorrow(deployer, d, undefined);
+    await AaveTwoTestUtils.makeBorrow(deployer, d, undefined);
 
 
     return {
@@ -133,15 +129,15 @@ describe("Aave3CollateralBalanceTest", () => {
         if (!await isPolygonForkInUse()) return;
 
         await putCollateralAmountOnUserBalance();
-        await Aave3TestUtils.makeBorrow(deployer, init.d, undefined);
+        await AaveTwoTestUtils.makeBorrow(deployer, init.d, undefined);
         const stateAfterSecondBorrow = await getState(init.d);
 
         const ret = [
           init.stateAfterBorrow.status.collateralAmountLiquidated.eq(0),
-          init.stateAfterBorrow.collateralBalanceBase.eq(init.stateAfterBorrow.accountState.totalCollateralBase),
+          init.stateAfterBorrow.collateralBalanceBase.eq(init.stateAfterBorrow.accountState.totalCollateralETH),
           stateAfterSecondBorrow.status.collateralAmountLiquidated.eq(0),
           stateAfterSecondBorrow.collateralBalanceBase.gt(init.stateAfterBorrow.collateralBalanceBase),
-          areAlmostEqual(stateAfterSecondBorrow.collateralBalanceBase, stateAfterSecondBorrow.accountState.totalCollateralBase, 5)
+          areAlmostEqual(stateAfterSecondBorrow.collateralBalanceBase, stateAfterSecondBorrow.accountState.totalCollateralETH, 5)
         ].join();
         const expected = [true, true, true, true, true].join();
 
@@ -152,9 +148,9 @@ describe("Aave3CollateralBalanceTest", () => {
       });
       it("make full repay, should return zero collateral balance", async () => {
         await putCollateralAmountOnUserBalance();
-        await Aave3TestUtils.makeBorrow(deployer, init.d, undefined);
+        await AaveTwoTestUtils.makeBorrow(deployer, init.d, undefined);
         await putDoubleBorrowAmountOnUserBalance();
-        await Aave3TestUtils.makeRepay(
+        await AaveTwoTestUtils.makeRepay(
           init.d,
           undefined // full repayment
         );
@@ -177,7 +173,7 @@ describe("Aave3CollateralBalanceTest", () => {
     describe("Make partial repay", () => {
       it("should return expected collateral balance", async () => {
         await putDoubleBorrowAmountOnUserBalance();
-        await Aave3TestUtils.makeRepay(
+        await AaveTwoTestUtils.makeRepay(
           init.d,
           init.d.amountToBorrow.div(2) // partial repayment
         );
@@ -185,10 +181,10 @@ describe("Aave3CollateralBalanceTest", () => {
 
         const ret = [
           init.stateAfterBorrow.status.collateralAmountLiquidated.eq(0),
-          init.stateAfterBorrow.collateralBalanceBase.eq(init.stateAfterBorrow.accountState.totalCollateralBase),
+          init.stateAfterBorrow.collateralBalanceBase.eq(init.stateAfterBorrow.accountState.totalCollateralETH),
           stateAfterRepay.status.collateralAmountLiquidated.eq(0),
           init.stateAfterBorrow.collateralBalanceBase.gt(stateAfterRepay.collateralBalanceBase),
-          areAlmostEqual(stateAfterRepay.collateralBalanceBase, stateAfterRepay.accountState.totalCollateralBase, 5)
+          areAlmostEqual(stateAfterRepay.collateralBalanceBase, stateAfterRepay.accountState.totalCollateralETH, 5)
         ].join();
         const expected = [true, true, true, true, true].join();
 
@@ -199,15 +195,15 @@ describe("Aave3CollateralBalanceTest", () => {
       });
       it("make full repay, should return zero collateral balance", async () => {
         await putCollateralAmountOnUserBalance();
-        await Aave3TestUtils.makeBorrow(deployer, init.d, undefined);
+        await AaveTwoTestUtils.makeBorrow(deployer, init.d, undefined);
 
         await putDoubleBorrowAmountOnUserBalance();
-        await Aave3TestUtils.makeRepay(
+        await AaveTwoTestUtils.makeRepay(
           init.d,
           init.d.amountToBorrow.div(2) // partial repayment
         );
 
-        await Aave3TestUtils.makeRepay(
+        await AaveTwoTestUtils.makeRepay(
           init.d,
           undefined // full repayment
         );
@@ -215,7 +211,7 @@ describe("Aave3CollateralBalanceTest", () => {
 
         const ret = [
           init.stateAfterBorrow.status.collateralAmountLiquidated.eq(0),
-          init.stateAfterBorrow.collateralBalanceBase.eq(init.stateAfterBorrow.accountState.totalCollateralBase),
+          init.stateAfterBorrow.collateralBalanceBase.eq(init.stateAfterBorrow.accountState.totalCollateralETH),
           stateAfterFullRepay.status.collateralAmountLiquidated.eq(0),
           stateAfterFullRepay.collateralBalanceBase.eq(0)
         ].join();
@@ -254,10 +250,10 @@ describe("Aave3CollateralBalanceTest", () => {
 
         const ret = [
           init.stateAfterBorrow.status.collateralAmountLiquidated.eq(0),
-          init.stateAfterBorrow.collateralBalanceBase.eq(init.stateAfterBorrow.accountState.totalCollateralBase),
+          init.stateAfterBorrow.collateralBalanceBase.eq(init.stateAfterBorrow.accountState.totalCollateralETH),
           stateAfterRepayToRebalance.status.collateralAmountLiquidated.eq(0),
           stateAfterRepayToRebalance.collateralBalanceBase.gt(init.stateAfterBorrow.collateralBalanceBase),
-          stateAfterRepayToRebalance.accountState.totalCollateralBase.gte(stateAfterRepayToRebalance.collateralBalanceBase),
+          stateAfterRepayToRebalance.accountState.totalCollateralETH.gte(stateAfterRepayToRebalance.collateralBalanceBase),
         ].join();
         const expected = [true, true, true, true, true].join();
 
@@ -289,7 +285,7 @@ describe("Aave3CollateralBalanceTest", () => {
         await init.d.aavePoolAdapterAsTC.repayToRebalance(amountToRepay, true);
 
         await putDoubleBorrowAmountOnUserBalance();
-        await Aave3TestUtils.makeRepay(
+        await AaveTwoTestUtils.makeRepay(
           init.d,
           undefined // full repayment
         );
@@ -336,7 +332,7 @@ describe("Aave3CollateralBalanceTest", () => {
 
         const ret = [
           init.stateAfterBorrow.status.collateralAmountLiquidated.eq(0),
-          init.stateAfterBorrow.collateralBalanceBase.eq(init.stateAfterBorrow.accountState.totalCollateralBase),
+          init.stateAfterBorrow.collateralBalanceBase.eq(init.stateAfterBorrow.accountState.totalCollateralETH),
           stateAfterRepayToRebalance.status.collateralAmountLiquidated.eq(0),
           stateAfterRepayToRebalance.collateralBalanceBase.eq(init.stateAfterBorrow.collateralBalanceBase),
         ].join();
@@ -365,12 +361,12 @@ describe("Aave3CollateralBalanceTest", () => {
 
         await init.d.aavePoolAdapterAsTC.repayToRebalance(amountToRepay, false);
 
-        await Aave3TestUtils.makeRepay(init.d,undefined);
+        await AaveTwoTestUtils.makeRepay(init.d,undefined);
         const stateAfterFullRepay = await getState(init.d);
 
         const ret = [
           init.stateAfterBorrow.status.collateralAmountLiquidated.eq(0),
-          init.stateAfterBorrow.collateralBalanceBase.eq(init.stateAfterBorrow.accountState.totalCollateralBase),
+          init.stateAfterBorrow.collateralBalanceBase.eq(init.stateAfterBorrow.accountState.totalCollateralETH),
           stateAfterFullRepay.status.collateralAmountLiquidated.eq(0),
           stateAfterFullRepay.collateralBalanceBase.eq(0),
         ].join();
@@ -381,13 +377,13 @@ describe("Aave3CollateralBalanceTest", () => {
     describe("Make liquidation", () => {
       it("should return not-zero collateralAmountLiquidated", async () => {
         if (!await isPolygonForkInUse()) return;
-        await Aave3TestUtils.makeLiquidation(deployer, init.d, borrowHolder);
+        await AaveTwoTestUtils.makeLiquidation(deployer, init.d, borrowHolder);
         const stateAfterLiquidation = await getState(init.d);
         const ret = [
           init.stateAfterBorrow.status.collateralAmountLiquidated.eq(0),
-          init.stateAfterBorrow.collateralBalanceBase.eq(init.stateAfterBorrow.accountState.totalCollateralBase),
+          init.stateAfterBorrow.collateralBalanceBase.eq(init.stateAfterBorrow.accountState.totalCollateralETH),
           stateAfterLiquidation.status.collateralAmountLiquidated.eq(0),
-          stateAfterLiquidation.collateralBalanceBase.eq(stateAfterLiquidation.accountState.totalCollateralBase),
+          stateAfterLiquidation.collateralBalanceBase.eq(stateAfterLiquidation.accountState.totalCollateralETH),
         ].join();
         const expected = [
           true,
@@ -403,18 +399,18 @@ describe("Aave3CollateralBalanceTest", () => {
       });
       it.skip("try to make full repay, aave reverts", async () => {
         if (!await isPolygonForkInUse()) return;
-        await Aave3TestUtils.makeLiquidation(deployer, init.d, borrowHolder);
+        await AaveTwoTestUtils.makeLiquidation(deployer, init.d, borrowHolder);
         const stateAfterLiquidation = await getState(init.d);
 
         await putDoubleBorrowAmountOnUserBalance();
-        await Aave3TestUtils.makeRepay(init.d,undefined);
+        await AaveTwoTestUtils.makeRepay(init.d,undefined);
 
         const ret = [
           init.stateAfterBorrow.status.collateralAmountLiquidated.eq(0),
-          init.stateAfterBorrow.collateralBalanceBase.eq(init.stateAfterBorrow.accountState.totalCollateralBase),
+          init.stateAfterBorrow.collateralBalanceBase.eq(init.stateAfterBorrow.accountState.totalCollateralETH),
           stateAfterLiquidation.status.collateralAmountLiquidated.eq(0),
           stateAfterLiquidation.collateralBalanceBase.eq(0),
-          stateAfterLiquidation.accountState.totalCollateralBase.eq(0)
+          stateAfterLiquidation.accountState.totalCollateralETH.eq(0)
         ].join();
         const expected = [
           true,

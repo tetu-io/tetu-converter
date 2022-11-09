@@ -19,23 +19,25 @@ import {
   ITetuConverter
 } from "../../../typechain";
 import {AaveTwoHelper} from "../../../scripts/integration/helpers/AaveTwoHelper";
+import {AaveTwoChangePricesUtils} from "../protocols/aaveTwo/AaveTwoChangePricesUtils";
 
 export class LendingPlatformManagerAaveTwo implements ILendingPlatformManager {
   poolAdapter: AaveTwoPoolAdapter;
   borrower: Borrower;
   tc: ITetuConverter;
-  /** We can use ITetuConverter to make max allowed borrow,
+  /*
+   *  We can use ITetuConverter to make max allowed borrow,
    *  but we should use different pool adapter (not the one under the test)
    *  so we need different collateral asset.
    * */
   collateralHolder: ITokenWithHolder;
   borrowHolder: ITokenWithHolder;
   constructor(
-    pa: AaveTwoPoolAdapter
-    , borrower: Borrower
-    , tc: ITetuConverter
-    , collateralHolder: ITokenWithHolder
-    , borrowHolder: ITokenWithHolder
+    pa: AaveTwoPoolAdapter,
+    borrower: Borrower,
+    tc: ITetuConverter,
+    collateralHolder: ITokenWithHolder,
+    borrowHolder: ITokenWithHolder
   ) {
     this.poolAdapter = pa;
     this.borrower = borrower;
@@ -44,53 +46,18 @@ export class LendingPlatformManagerAaveTwo implements ILendingPlatformManager {
     this.borrowHolder = borrowHolder;
   }
 
-//region Substitute mocks into the AAVE_TWO-protocol
-  async setupPriceOracleMock(
-    deployer: SignerWithAddress,
-    aave3pool: IAaveTwoPool
-  ) {
-    // get access to AAVE price oracle
-    const aaveOracle = await AaveTwoHelper.getAavePriceOracle(deployer);
-
-    // get admin address
-    const aavePoolOwner = await DeployerUtils.startImpersonate(MaticAddresses.AAVE_TWO_POOL);
-
-    // deploy mock
-    const mock = (await DeployUtils.deployContract(deployer
-      , "AaveTwoPriceOracleMock"
-      , await aaveOracle.owner()
-      , await aaveOracle.WETH()
-      , await aaveOracle.getFallbackOracle()
-    )) as AaveTwoPriceOracleMock;
-
-    // copy current prices from real price oracle to the mock
-    const aavePool = await AaveTwoHelper.getAavePool(deployer);
-    const reserves = await aavePool.getReservesList();
-    const prices = await aaveOracle.getAssetsPrices(reserves);
-    await mock.setPrices(reserves, prices);
-
-    // install the mock to the protocol
-    const aaveAddressProviderAsOwner = IAaveTwoLendingPoolAddressesProvider__factory.connect(
-      await aavePool.getAddressesProvider()
-      , aavePoolOwner
-    );
-    await aaveAddressProviderAsOwner.setPriceOracle(mock.address);
-  }
-//endregion Substitute mocks into the AAVE_TWO-protocol
-
 //region ILendingPlatformManager
   /** Increase or decrease a price of the asset on the given number of times */
   async changeAssetPrice(
-    signer: SignerWithAddress
-    , asset: string
-    , inc: boolean
-    , times: number
+    signer: SignerWithAddress,
+    asset: string,
+    inc: boolean,
+    times: number,
   ): Promise<PoolAdapterState01>  {
     const before = await getPoolAdapterState(signer, this.poolAdapter.address);
 
     // setup new price oracle
-    const aavePool = await AaveTwoHelper.getAavePool(signer);
-    await this.setupPriceOracleMock(signer, aavePool);
+    await AaveTwoChangePricesUtils.setupPriceOracleMock(signer);
 
     // change a price of the given asset
     const oracle = AaveTwoPriceOracleMock__factory.connect(
@@ -174,7 +141,7 @@ export class LendingPlatformManagerAaveTwo implements ILendingPlatformManager {
       collateralAsset
       , collateralAmount
       , borrowAsset
-      , this.collateralHolder.asset //put borrowed amount on the balance of borrow-holder
+      , this.collateralHolder.asset // put borrowed amount on the balance of borrow-holder
     );
 
     const after = await getPoolAdapterState(signer, this.poolAdapter.address);

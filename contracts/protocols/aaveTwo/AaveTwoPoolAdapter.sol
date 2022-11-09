@@ -265,7 +265,9 @@ contract AaveTwoPoolAdapter is IPoolAdapter, IPoolAdapterInitializer {
       require(!closePosition_, AppErrors.CLOSE_POSITION_FAILED);
       _validateHealthFactor(healthFactor);
     }
-    collateralBalanceBase -= totalCollateralBaseBefore - totalCollateralBaseAfter;
+    collateralBalanceBase = totalCollateralBaseBefore - totalCollateralBaseAfter > collateralBalanceBase
+      ? 0
+      : collateralBalanceBase - (totalCollateralBaseBefore - totalCollateralBaseAfter);
 
     return amountCollateralToWithdraw;
   }
