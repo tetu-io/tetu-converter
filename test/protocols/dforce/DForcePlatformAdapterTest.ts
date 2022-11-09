@@ -120,13 +120,12 @@ describe("DForce integration tests, platform adapter", () => {
     return PredictBrUsesCase.makeTest(
       deployer,
       new DForcePlatformActor(collateralToken, borrowToken, comptroller),
-      async controller => AdaptersHelper.createHundredFinancePlatformAdapter(
+      async controller => AdaptersHelper.createDForcePlatformAdapter(
         deployer,
         controller.address,
         comptroller.address,
         templateAdapterNormalStub.address,
         [collateralCToken, borrowCToken],
-        MaticAddresses.HUNDRED_FINANCE_PRICE_ORACLE
       ),
       collateralAsset,
       borrowAsset,

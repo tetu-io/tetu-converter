@@ -33,8 +33,6 @@ contract DForcePoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP {
 
   IController public controller;
   IDForceController private _comptroller;
-  /// @notice Implementation of IDForcePriceOracle
-  IDForcePriceOracle private _priceOracle;
 
   /// @notice Address of original PoolAdapter contract that was cloned to make the instance of the pool adapter
   address public originConverter;
@@ -72,17 +70,14 @@ contract DForcePoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP {
     originConverter = originConverter_;
 
     (address cTokenCollateral,
-     address cTokenBorrow,
-     address priceOracle
+     address cTokenBorrow
     ) = ITokenAddressProvider(cTokenAddressProvider_).getCTokenByUnderlying(collateralAsset_, borrowAsset_);
 
     require(cTokenCollateral != address(0), AppErrors.HF_DERIVATIVE_TOKEN_NOT_FOUND);
     require(cTokenBorrow != address(0), AppErrors.HF_DERIVATIVE_TOKEN_NOT_FOUND);
-    require(priceOracle != address(0), AppErrors.ZERO_ADDRESS);
 
     collateralCToken = cTokenCollateral;
     borrowCToken = cTokenBorrow;
-    _priceOracle = IDForcePriceOracle(priceOracle);
 
     _comptroller = IDForceController(comptroller_);
   }
@@ -494,7 +489,8 @@ contract DForcePoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP {
     // sumCollateral += collateralValue
     tokenBalanceOut = IERC20(cTokenCollateral_).balanceOf(address(this));
 
-    (uint underlyingPrice, bool isPriceValid) = _priceOracle.getUnderlyingPriceAndStatus(address(cTokenCollateral_));
+    IDForcePriceOracle priceOracle = IDForcePriceOracle(_comptroller.priceOracle());
+    (uint underlyingPrice, bool isPriceValid) = priceOracle.getUnderlyingPriceAndStatus(address(cTokenCollateral_));
     require(underlyingPrice != 0 && isPriceValid, AppErrors.ZERO_PRICE);
 
     {
@@ -510,7 +506,7 @@ contract DForcePoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP {
     // sumBorrowed += borrowValue
     borrowBalanceOut = IDForceCToken(cTokenBorrow_).borrowBalanceStored(address(this));
 
-    (underlyingPrice, isPriceValid) = _priceOracle.getUnderlyingPriceAndStatus(address(cTokenBorrow_));
+    (underlyingPrice, isPriceValid) = priceOracle.getUnderlyingPriceAndStatus(address(cTokenBorrow_));
     require(underlyingPrice != 0 && isPriceValid, AppErrors.ZERO_PRICE);
 
     sumBorrowBase36 = borrowBalanceOut * underlyingPrice;

@@ -124,7 +124,6 @@ export class HundredFinanceTestUtils {
       comptroller.address,
       converter.address,
       [collateralCTokenAddress, borrowCTokenAddress],
-      additionalParams?.hfPriceOracle || MaticAddresses.HUNDRED_FINANCE_PRICE_ORACLE
     )
 
     await borrowManager.addAssetPairs(

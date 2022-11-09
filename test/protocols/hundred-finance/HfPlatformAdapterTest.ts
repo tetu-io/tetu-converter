@@ -125,7 +125,6 @@ describe("Hundred finance integration tests, platform adapter", () => {
       comptroller.address,
       templateAdapterNormalStub.address,
       [collateralCToken, borrowCToken],
-      priceOracle.address
     );
     const cTokenBorrow = IHfCToken__factory.connect(borrowCToken, deployer);
     const cTokenCollateral = IHfCToken__factory.connect(collateralCToken, deployer);
@@ -380,7 +379,6 @@ describe("Hundred finance integration tests, platform adapter", () => {
             comptroller.address,
             templateAdapterNormalStub.address,
             [collateralCToken, borrowCToken],
-            MaticAddresses.HUNDRED_FINANCE_PRICE_ORACLE
           ),
           collateralAsset,
           borrowAsset,

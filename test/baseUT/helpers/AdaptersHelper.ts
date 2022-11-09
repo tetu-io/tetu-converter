@@ -60,14 +60,13 @@ export class AdaptersHelper {
   }
 //endregion AAVE.v2
 
-//region Hundred finance
+//region HundredFinance
   public static async createHundredFinancePlatformAdapter(
     signer: SignerWithAddress,
     controller: string,
     comptroller: string,
     templateAdapterNormal: string,
     cTokensActive: string[],
-    priceOracle: string
   ) : Promise<HfPlatformAdapter> {
     return (await DeployUtils.deployContract(
       signer,
@@ -76,14 +75,13 @@ export class AdaptersHelper {
       comptroller,
       templateAdapterNormal,
       cTokensActive,
-      priceOracle
     )) as HfPlatformAdapter;
   }
 
   public static async createHundredFinancePoolAdapter(signer: SignerWithAddress) : Promise<HfPoolAdapter> {
     return (await DeployUtils.deployContract(signer, "HfPoolAdapter")) as HfPoolAdapter;
   }
-//endregion Hundred finance
+//endregion HundredFinance
 
 //region dForce
   public static async createDForcePlatformAdapter(

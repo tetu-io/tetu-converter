@@ -252,7 +252,6 @@ export class DeploySolutionUtils {
         deployCoreResults.controller,
         hundredFinanceComptroller,
         hundredFinanceCTokens,
-        hundredFinancePriceOracle
       )
       : undefined;
     if (platformAdapterHundredFinance) {
@@ -413,7 +412,6 @@ export class DeploySolutionUtils {
     controller: string,
     comptroller: string,
     cTokensActive: string[],
-    priceOracle: string
   ) : Promise<IPlatformAdapterResult> {
     const converterNormal = await AdaptersHelper.createHundredFinancePoolAdapter(deployer);
     const platformAdapter = await AdaptersHelper.createHundredFinancePlatformAdapter(
@@ -422,7 +420,6 @@ export class DeploySolutionUtils {
       comptroller,
       converterNormal.address,
       cTokensActive,
-      priceOracle
     );
 
     return {

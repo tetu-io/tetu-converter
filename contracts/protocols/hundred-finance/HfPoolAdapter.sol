@@ -31,8 +31,6 @@ contract HfPoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP {
 
   IController public controller;
   IHfComptroller private _comptroller;
-  /// @notice Implementation of IHfPriceOracle
-  IHfPriceOracle private _priceOracle;
 
   /// @notice Address of original PoolAdapter contract that was cloned to make the instance of the pool adapter
   address public originConverter;
@@ -71,20 +69,15 @@ contract HfPoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP {
     originConverter = originConverter_;
 
     (address cTokenCollateral,
-     address cTokenBorrow,
-     address priceOracle
+     address cTokenBorrow
     ) = ITokenAddressProvider(cTokenAddressProvider_).getCTokenByUnderlying(collateralAsset_, borrowAsset_);
 
     require(cTokenCollateral != address(0), AppErrors.HF_DERIVATIVE_TOKEN_NOT_FOUND);
     require(cTokenBorrow != address(0), AppErrors.HF_DERIVATIVE_TOKEN_NOT_FOUND);
-    require(priceOracle != address(0), AppErrors.ZERO_ADDRESS);
 
     collateralCToken = cTokenCollateral;
     borrowCToken = cTokenBorrow;
-    _priceOracle = IHfPriceOracle(priceOracle);
-
     _comptroller = IHfComptroller(comptroller_);
-    console.log("initialize.priceOracle", priceOracle);
   }
 
   ///////////////////////////////////////////////////////
@@ -504,11 +497,12 @@ contract HfPoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP {
     (error,, borrowBalanceOut,) = IHfCToken(cTokenBorrow).getAccountSnapshot(address(this));
     require(error == 0, AppErrors.CTOKEN_GET_ACCOUNT_SNAPSHOT_FAILED);
 
-    uint priceCollateral = _priceOracle.getUnderlyingPrice(cTokenCollateral);
+    IHfPriceOracle priceOracle = IHfPriceOracle(_comptroller.oracle());
+    uint priceCollateral = priceOracle.getUnderlyingPrice(cTokenCollateral);
     console.log("_getStatus.priceCollateral", priceCollateral);
-    console.log("_getStatus.priceBorrow", _priceOracle.getUnderlyingPrice(cTokenBorrow));
+    console.log("_getStatus.priceBorrow", priceOracle.getUnderlyingPrice(cTokenBorrow));
     collateralBaseOut = (priceCollateral * cExchangeRateMantissa / 10**18) * tokenBalanceOut / 10**18;
-    borrowBaseOut = _priceOracle.getUnderlyingPrice(cTokenBorrow) * borrowBalanceOut / 10**18;
+    borrowBaseOut = priceOracle.getUnderlyingPrice(cTokenBorrow) * borrowBalanceOut / 10**18;
     outCollateralAmountLiquidatedBase = tokenBalanceOut > collateralTokensBalance
       ? 0
       : (collateralTokensBalance - tokenBalanceOut) * (priceCollateral * cExchangeRateMantissa / 10**18) / 10**18;

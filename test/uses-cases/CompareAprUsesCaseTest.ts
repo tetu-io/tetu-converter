@@ -382,7 +382,6 @@ describe("CompareAprUsesCaseTest", () => {
           MaticAddresses.hLINK,
           MaticAddresses.hFRAX,
         ],
-        MaticAddresses.HUNDRED_FINANCE_PRICE_ORACLE
       ),
       tasks,
       countBlocks,

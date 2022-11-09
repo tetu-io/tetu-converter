@@ -8,5 +8,5 @@ interface ITokenAddressProvider {
   /// @notice Get cTokens by underlying
   function getCTokenByUnderlying(address token1, address token2)
   external view
-  returns (address cToken1, address cToken2, address priceOracle);
+  returns (address cToken1, address cToken2);
 }

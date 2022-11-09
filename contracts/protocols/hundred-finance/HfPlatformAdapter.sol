@@ -34,8 +34,6 @@ contract HfPlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
 
   IController public controller;
   IHfComptroller public comptroller;
-  /// @notice Implementation of IHfPriceOracle
-  address public priceOracleAddress;
 
   /// @notice Template of pool adapter
   address _converter;
@@ -52,19 +50,16 @@ contract HfPlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
     address controller_,
     address comptroller_,
     address templatePoolAdapter_,
-    address[] memory activeCTokens_,
-    address priceOracle_
+    address[] memory activeCTokens_
   ) {
     require(
       comptroller_ != address(0)
       && templatePoolAdapter_ != address(0)
       && controller_ != address(0)
-      && priceOracle_ != address(0)
     , AppErrors.ZERO_ADDRESS);
 
     comptroller = IHfComptroller(comptroller_);
     controller = IController(controller_);
-    priceOracleAddress = priceOracle_;
 
     _converter = templatePoolAdapter_;
     _setupCTokens(activeCTokens_, true);
@@ -112,7 +107,7 @@ contract HfPlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
   /// @notice Returns the prices of the supported assets in BASE_CURRENCY of the market. Decimals 18
   /// @dev Different markets can have different BASE_CURRENCY
   function getAssetsPrices(address[] calldata assets_) external view override returns (uint[] memory prices18) {
-    IHfPriceOracle priceOracle = IHfPriceOracle(priceOracleAddress);
+    IHfPriceOracle priceOracle = IHfPriceOracle(comptroller.oracle());
 
     uint lenAssets = assets_.length;
     prices18 = new uint[](lenAssets);
@@ -129,8 +124,8 @@ contract HfPlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
 
   function getCTokenByUnderlying(address token1_, address token2_)
   external view override
-  returns (address cToken1, address cToken2, address priceOracle) {
-    return (activeAssets[token1_], activeAssets[token2_], priceOracleAddress);
+  returns (address cToken1, address cToken2) {
+    return (activeAssets[token1_], activeAssets[token2_]);
   }
 
   ///////////////////////////////////////////////////////

@@ -127,8 +127,8 @@ contract DForcePlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
 
   function getCTokenByUnderlying(address token1_, address token2_)
   external view override
-  returns (address cToken1, address cToken2, address priceOracle) {
-    return (activeAssets[token1_], activeAssets[token2_], comptroller.priceOracle());
+  returns (address cToken1, address cToken2) {
+    return (activeAssets[token1_], activeAssets[token2_]);
   }
 
   ///////////////////////////////////////////////////////
