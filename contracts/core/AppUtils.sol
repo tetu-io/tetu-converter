@@ -1,6 +1,5 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.4;
-
 /// @notice Common utils
 library AppUtils {
   /// @notice Convert {amount} with [sourceDecimals} to new amount with {targetDecimals}
@@ -34,7 +33,7 @@ library AppUtils {
   /// @dev We assume, that trivial case countItemsToKeep_ == 0 is excluded, the function is not called in that case
   function removeLastItems(address[] memory items_, uint countItemsToKeep_) internal pure returns (address[] memory) {
     uint lenItems = items_.length;
-    if (lenItems == countItemsToKeep_) {
+    if (lenItems <= countItemsToKeep_) {
       return items_;
     }
 
@@ -49,7 +48,7 @@ library AppUtils {
   /// @dev We assume, that trivial case countItemsToKeep_ == 0 is excluded, the function is not called in that case
   function removeLastItems(uint[] memory items_, uint countItemsToKeep_) internal pure returns (uint[] memory) {
     uint lenItems = items_.length;
-    if (lenItems == countItemsToKeep_) {
+    if (lenItems <= countItemsToKeep_) {
       return items_;
     }
 

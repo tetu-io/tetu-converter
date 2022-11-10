@@ -1,5 +1,4 @@
 // SPDX-License-Identifier: MIT
-
 pragma solidity 0.8.4;
 
 import "../interfaces/ITetuConverter.sol";
@@ -20,6 +19,7 @@ import "../interfaces/ISwapConverter.sol";
 import "../interfaces/IKeeperCallback.sol";
 import "../interfaces/ITetuConverterCallback.sol";
 import "./AppUtils.sol";
+import "hardhat/console.sol";
 
 /// @notice Main application contract
 contract TetuConverter is ITetuConverter, IKeeperCallback {
@@ -168,6 +168,10 @@ contract TetuConverter is ITetuConverter, IKeeperCallback {
       // make borrow
       // get exist or register new pool adapter
       address poolAdapter = _borrowManager().getPoolAdapter(converter_, msg.sender, collateralAsset_, borrowAsset_);
+      if (poolAdapter != address(0)) {
+        // if the pool adapter is unhealthy, we should mark it as dirty and create new pool adapter for the borrow
+        // !TODO
+      }
       if (poolAdapter == address(0)) {
         poolAdapter = _borrowManager().registerPoolAdapter(
           converter_,
@@ -470,7 +474,6 @@ contract TetuConverter is ITetuConverter, IKeeperCallback {
 
     address[] memory rewardTokens = new address[](lenPoolAdapters);
     uint[] memory amounts = new uint[](lenPoolAdapters);
-
     uint countPositions = 0;
     for (uint i = 0; i < lenPoolAdapters; i = i.uncheckedInc()) {
       IPoolAdapter pa = IPoolAdapter(poolAdapters[i]);
@@ -481,8 +484,8 @@ contract TetuConverter is ITetuConverter, IKeeperCallback {
     }
 
     if (countPositions > 0) {
-      rewardTokensOut = AppUtils.removeLastItems(rewardTokensOut, countPositions);
-      amountsOut = AppUtils.removeLastItems(amountsOut, countPositions);
+      rewardTokensOut = AppUtils.removeLastItems(rewardTokens, countPositions);
+      amountsOut = AppUtils.removeLastItems(amounts, countPositions);
     }
 
     return (rewardTokensOut, amountsOut);

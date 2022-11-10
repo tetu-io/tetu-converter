@@ -392,6 +392,7 @@ contract PoolAdapterMock is IPoolAdapter {
     uint amountOut
   ) {
     console.log("PoolAdapterMock.claimRewards user, receiver", _user, receiver_);
+    console.log("PoolAdapterMock.rewards balance of mock", IERC20(rewardsForUsers[_user].rewardToken).balanceOf(address(this)));
     console.log("PoolAdapterMock.rewardToken", rewardsForUsers[_user].rewardToken);
     console.log("PoolAdapterMock.rewardAmount", rewardsForUsers[_user].rewardAmount);
 
