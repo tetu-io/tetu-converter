@@ -5,18 +5,15 @@ import {expect} from "chai";
 import {isPolygonForkInUse} from "../../baseUT/utils/NetworkUtils";
 import {MaticAddresses} from "../../../scripts/addresses/MaticAddresses";
 import {BalanceUtils} from "../../baseUT/utils/BalanceUtils";
-import {
-  HundredFinanceTestUtils,
-  IPrepareToLiquidationResults
-} from "../../baseUT/protocols/hundred-finance/HundredFinanceTestUtils";
+import {DForceTestUtils, IPrepareToLiquidationResults} from "../../baseUT/protocols/dforce/DForceTestUtils";
 
-describe("HfLiquidationTest", () => {
+describe("DForceLiquidationTest", () => {
 //region Constants
   const collateralAsset = MaticAddresses.USDC;
   const collateralHolder = MaticAddresses.HOLDER_USDC;
-  const collateralCTokenAddress = MaticAddresses.hUSDC;
+  const collateralCTokenAddress = MaticAddresses.dForce_iUSDC;
   const borrowAsset = MaticAddresses.WETH;
-  const borrowCTokenAddress = MaticAddresses.hETH;
+  const borrowCTokenAddress = MaticAddresses.dForce_iWETH;
   const borrowHolder = MaticAddresses.HOLDER_WETH;
 
   const CHANGE_PRICE_FACTOR = 10;
@@ -38,7 +35,7 @@ describe("HfLiquidationTest", () => {
     deployer = signers[0];
 
     if (!await isPolygonForkInUse()) return;
-    init = await HundredFinanceTestUtils.prepareToLiquidation(
+    init = await DForceTestUtils.prepareToLiquidation(
       deployer,
       collateralAsset,
       collateralHolder,
@@ -70,14 +67,14 @@ describe("HfLiquidationTest", () => {
         if (!await isPolygonForkInUse()) return;
 
         console.log("Before liquidation", init.statusBeforeLiquidation);
-        const healthFactorNum = Number(ethers.utils.formatUnits(init.statusBeforeLiquidation.healthFactor18));
-        expect(healthFactorNum).below(1);
+        const healtDForceactorNum = Number(ethers.utils.formatUnits(init.statusBeforeLiquidation.healthFactor18));
+        expect(healtDForceactorNum).below(1);
       });
 
       it("liquidator receives all collateral", async () => {
         if (!await isPolygonForkInUse()) return;
 
-        const r = await HundredFinanceTestUtils.makeLiquidation(deployer, init.d, borrowHolder);
+        const r = await DForceTestUtils.makeLiquidation(deployer, init.d, borrowHolder);
         const collateralAmountReceivedByLiquidator = ethers.utils.formatUnits(
           r.collateralAmountReceivedByLiquidator,
           init.collateralToken.decimals
@@ -86,14 +83,14 @@ describe("HfLiquidationTest", () => {
           init.collateralAmount,
           init.collateralToken.decimals
         );
-        const accountLiquidator = await init.d.comptroller.getAccountLiquidity(r.liquidatorAddress);
+        const accountLiquidator = await init.d.comptroller.calcAccountEquity(r.liquidatorAddress);
         console.log("accountLiquidator", accountLiquidator);
 
         console.log("Amount received by liquidator", collateralAmountReceivedByLiquidator);
         console.log("Original collateral amount", collateralAmountStr);
 
         console.log("Before liquidation", init.statusBeforeLiquidation);
-        const statusAfterLiquidation = await init.d.hfPoolAdapterTC.getStatus();
+        const statusAfterLiquidation = await init.d.dfPoolAdapterTC.getStatus();
         console.log("After liquidation", statusAfterLiquidation);
 
         const ret = [
@@ -108,7 +105,7 @@ describe("HfLiquidationTest", () => {
       it("Try to make new borrow after liquidation", async () => {
         if (!await isPolygonForkInUse()) return;
 
-        const r = await HundredFinanceTestUtils.makeLiquidation(deployer, init.d, borrowHolder);
+        const r = await DForceTestUtils.makeLiquidation(deployer, init.d, borrowHolder);
 
         // put collateral amount on user's balance
         await BalanceUtils.getRequiredAmountFromHolders(
@@ -119,7 +116,7 @@ describe("HfLiquidationTest", () => {
         );
 
         await expect(
-          HundredFinanceTestUtils.makeBorrow(deployer, init.d, undefined)
+          DForceTestUtils.makeBorrow(deployer, init.d, undefined)
         ).revertedWith("TC-20"); // borrow failed
       });
     });

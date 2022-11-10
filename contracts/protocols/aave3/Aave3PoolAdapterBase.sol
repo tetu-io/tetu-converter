@@ -40,8 +40,8 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer 
   /// @notice Address of original PoolAdapter contract that was cloned to make the instance of the pool adapter
   address originConverter;
 
-  /// @notice Total amount of all supplied and withdrawn amounts of collateral in base-asset
-  uint public collateralBalanceBase;
+  /// @notice Total amount of all supplied and withdrawn amounts of collateral in ATokens
+  uint public collateralBalanceATokens;
 
   ///////////////////////////////////////////////////////
   ///                Initialization
@@ -119,7 +119,6 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer 
     IAavePool pool = _pool;
     address assetBorrow = borrowAsset;
 
-    (uint256 totalCollateralBaseBefore,,,,,) = pool.getUserAccountData(address(this));
     _supply(pool, collateralAsset, collateralAmount_);
 
     // enter to E-mode if necessary
@@ -147,10 +146,8 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer 
     IDebtMonitor(controller.debtMonitor()).onOpenPosition();
 
     // ensure that current health factor is greater than min allowed
-    (uint256 totalCollateralBaseAfter,,,,, uint256 healthFactor) = pool.getUserAccountData(address(this));
+    (,,,,, uint256 healthFactor) = pool.getUserAccountData(address(this));
     _validateHealthFactor(healthFactor);
-
-    collateralBalanceBase += totalCollateralBaseAfter - totalCollateralBaseBefore;
 
     return borrowAmount_;
   }
@@ -182,6 +179,8 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer 
     // !TODO: should we exclude following validation? AAVE-TWO has problems here
     uint aTokensAmount = IERC20(d.aTokenAddress).balanceOf(address(this)) - aTokensBalanceBeforeSupply;
     require(aTokensAmount + ATOKEN_MAX_DELTA >= collateralAmount_, AppErrors.WRONG_DERIVATIVE_TOKENS_BALANCE);
+
+    collateralBalanceATokens += aTokensAmount;
   }
 
   /// @notice Borrow {borrowedAmount_} using exist collateral to make rebalancing
@@ -243,8 +242,10 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer 
     address assetCollateral = collateralAsset;
     IAavePool pool = _pool;
     IERC20(assetBorrow).safeTransferFrom(msg.sender, address(this), amountToRepay_);
+    Aave3DataTypes.ReserveData memory rc = pool.getReserveData(assetCollateral);
+    uint aTokensBalanceBeforeSupply = IERC20(rc.aTokenAddress).balanceOf(address(this));
     // how much collateral we are going to return
-    (uint amountCollateralToWithdraw, uint totalCollateralBaseBefore) = _getCollateralAmountToReturn(
+    (uint amountCollateralToWithdraw,) = _getCollateralAmountToReturn(
         pool,
         amountToRepay_,
         assetCollateral,
@@ -282,9 +283,11 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer 
       _validateHealthFactor(healthFactor);
     }
 
-    collateralBalanceBase = totalCollateralBaseBefore - totalCollateralBaseAfter > collateralBalanceBase
+    uint aTokensBalanceAfterSupply = IERC20(rc.aTokenAddress).balanceOf(address(this));
+
+    collateralBalanceATokens = aTokensBalanceBeforeSupply - aTokensBalanceAfterSupply > collateralBalanceATokens
       ? 0
-      : collateralBalanceBase - (totalCollateralBaseBefore - totalCollateralBaseAfter);
+      : collateralBalanceATokens - (aTokensBalanceBeforeSupply - aTokensBalanceAfterSupply);
 
     return amountCollateralToWithdraw;
   }
@@ -344,10 +347,7 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer 
     IAavePool pool = _pool;
 
     if (isCollateral_) {
-      (uint amountCollateralBefore,,,,,) = _pool.getUserAccountData(address(this));
       _supply(_pool, collateralAsset, amount_);
-      (uint amountCollateralAfter,,,,,) = _pool.getUserAccountData(address(this));
-      collateralBalanceBase += amountCollateralAfter - amountCollateralBefore;
     } else {
       address assetBorrow = borrowAsset;
       // ensure, that amount to repay is less then the total debt
@@ -430,6 +430,10 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer 
 
     uint targetDecimals = (10 ** _pool.getConfiguration(assetBorrow).getDecimals());
 
+    Aave3DataTypes.ReserveData memory rc = _pool.getReserveData(assetCollateral);
+    uint aTokensBalance = IERC20(rc.aTokenAddress).balanceOf(address(this));
+    console.log("aTokensBalance", aTokensBalance);
+
     return (
     // Total amount of provided collateral in [collateral asset]
       totalCollateralBase * (10 ** _pool.getConfiguration(assetCollateral).getDecimals()) / prices[0],
@@ -444,11 +448,9 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer 
       // Current health factor, decimals 18
       hf18,
       totalCollateralBase != 0 || totalDebtBase != 0,
-      totalCollateralBase > collateralBalanceBase
+      aTokensBalance > collateralBalanceATokens
         ? 0
-        : (collateralBalanceBase - totalCollateralBase)
-            * (10 ** _pool.getConfiguration(assetCollateral).getDecimals())
-            / prices[0]
+        : (collateralBalanceATokens - aTokensBalance)
     );
   }
 

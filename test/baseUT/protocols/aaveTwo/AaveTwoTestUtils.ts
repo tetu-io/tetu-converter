@@ -1,22 +1,15 @@
 import {
   Aave3PoolAdapter__factory,
   AaveTwoPoolAdapter,
-  AaveTwoPoolAdapter__factory,
   Borrower,
   BorrowManager__factory,
   Controller,
-  IAavePool,
-  IAavePool__factory,
-  IAavePriceOracle,
-  IAaveProtocolDataProvider,
-  IAaveTwoPool,
+  IAaveTwoPool, IAaveTwoPool__factory,
   IAaveTwoPriceOracle, IAaveTwoProtocolDataProvider,
   IERC20__factory,
-  IERC20Extended__factory,
   IPoolAdapter__factory
 } from "../../../../typechain";
 import {AaveTwoHelper, IAaveTwoReserveInfo} from "../../../../scripts/integration/helpers/AaveTwoHelper";
-import {IConversionPlan} from "../../apr/aprDataTypes";
 import {BigNumber} from "ethers";
 import {DeployerUtils} from "../../../../scripts/utils/DeployerUtils";
 import {ethers} from "hardhat";
@@ -30,6 +23,8 @@ import {transferAndApprove} from "../../utils/transferUtils";
 import {IAaveTwoUserAccountDataResults} from "../../apr/aprAaveTwo";
 import {AaveTwoChangePricesUtils} from "./AaveTwoChangePricesUtils";
 import {getBigNumberFrom} from "../../../../scripts/utils/NumberUtils";
+import {Aave3Helper} from "../../../../scripts/integration/helpers/Aave3Helper";
+import {IPoolAdapterStatus} from "../../types/BorrowRepayDataTypes";
 
 //region Data types
 export interface IPrepareToBorrowResults {
@@ -54,12 +49,27 @@ export interface IPrepareToBorrowResults {
 
   priceCollateral: BigNumber;
   priceBorrow: BigNumber;
+
+  collateralReserveInfo: IAaveTwoReserveInfo;
 }
 
 interface IBorrowResults {
   collateralData: IAaveTwoReserveInfo;
   accountDataAfterBorrow: IAaveTwoUserAccountDataResults;
   borrowedAmount: BigNumber;
+}
+
+export interface IPrepareToLiquidationResults {
+  collateralToken: TokenDataTypes;
+  borrowToken: TokenDataTypes;
+  collateralAmount: BigNumber;
+  statusBeforeLiquidation: IPoolAdapterStatus;
+  d: IPrepareToBorrowResults;
+}
+
+export interface ILiquidationResults {
+  liquidatorAddress: string;
+  collateralAmountReceivedByLiquidator: BigNumber;
 }
 //endregion Data types
 
@@ -151,6 +161,8 @@ export class AaveTwoTestUtils {
     // prices of assets in base currency
     const prices = await aavePrices.getAssetsPrices([collateralToken.address, borrowToken.address]);
 
+    const collateralReserveInfo = await AaveTwoHelper.getReserveInfo(deployer, aavePool, dataProvider, collateralToken.address);
+
     return {
       controller,
       userContract,
@@ -165,6 +177,7 @@ export class AaveTwoTestUtils {
       collateralToken,
       priceCollateral: prices[0],
       priceBorrow: prices[1],
+      collateralReserveInfo,
     }
   }
 
@@ -244,14 +257,52 @@ export class AaveTwoTestUtils {
     return d.aavePool.getUserAccountData(d.aavePoolAdapterAsTC.address);
   }
 
+  public static async prepareToLiquidation(
+    deployer: SignerWithAddress,
+    collateralAsset: string,
+    collateralHolder: string,
+    collateralAmountNum: number,
+    borrowAsset: string,
+    changePriceFactor: number = 10
+  ) : Promise<IPrepareToLiquidationResults> {
+    const collateralToken = await TokenDataTypes.Build(deployer, collateralAsset);
+    const borrowToken = await TokenDataTypes.Build(deployer, borrowAsset);
+
+    const collateralAmount = getBigNumberFrom(collateralAmountNum, collateralToken.decimals);
+
+    const d = await AaveTwoTestUtils.prepareToBorrow(deployer,
+      collateralToken,
+      collateralHolder,
+      collateralAmount,
+      borrowToken,
+      200
+    );
+    // make a borrow
+    await AaveTwoTestUtils.makeBorrow(deployer, d, undefined);
+    const statusAfterBorrow = await d.aavePoolAdapterAsTC.getStatus();
+    console.log("statusAfterBorrow", statusAfterBorrow);
+
+    // reduce price of collateral to reduce health factor below 1
+    await AaveTwoChangePricesUtils.changeAssetPrice(deployer, d.collateralToken.address, false, changePriceFactor);
+
+    const statusBeforeLiquidation = await d.aavePoolAdapterAsTC.getStatus();
+    console.log("statusBeforeLiquidation", statusBeforeLiquidation);
+
+    return {
+      collateralToken,
+      borrowToken,
+      collateralAmount,
+      statusBeforeLiquidation,
+      d
+    };
+  }
+
   public static async makeLiquidation(
     deployer: SignerWithAddress,
     d: IPrepareToBorrowResults,
     borrowHolder: string
-  ) {
+  ) : Promise<ILiquidationResults> {
     const MAX_UINT_AMOUNT = '115792089237316195423570985008687907853269984665640564039457584007913129639935';
-    await AaveTwoChangePricesUtils.changeAssetPrice(deployer, d.collateralToken.address, false, 10);
-
     const liquidatorAddress = ethers.Wallet.createRandom().address;
 
     const liquidator = await DeployerUtils.startImpersonate(liquidatorAddress);
@@ -260,11 +311,12 @@ export class AaveTwoTestUtils {
     await BalanceUtils.getAmountFromHolder(d.borrowToken.address, borrowHolder, liquidatorAddress, liquidatorBorrowAmountToPay);
     await IERC20__factory.connect(d.borrowToken.address, liquidator).approve(d.aavePool.address, MAX_UINT_AMOUNT);
 
-    const aavePoolAsLiquidator = IAavePool__factory.connect(d.aavePool.address, liquidator);
-    const dataProvider = await AaveTwoHelper.getAaveProtocolDataProvider(liquidator);
+    const aavePoolAsLiquidator = IAaveTwoPool__factory.connect(d.aavePool.address, liquidator);
+    const dataProvider = await Aave3Helper.getAaveProtocolDataProvider(liquidator);
     const userReserveData = await dataProvider.getUserReserveData(d.borrowToken.address, borrowerAddress);
-    const amountToLiquidate = userReserveData.currentVariableDebt.div(2);
+    const amountToLiquidate = d.amountToBorrow.div(4); // userReserveData.currentVariableDebt.div(2);
 
+    console.log("Before liquidation, user account", await d.aavePool.getUserAccountData(borrowerAddress));
     await aavePoolAsLiquidator.liquidationCall(
       d.collateralToken.address,
       d.borrowToken.address,
@@ -272,5 +324,13 @@ export class AaveTwoTestUtils {
       amountToLiquidate,
       false // we need to receive underlying
     );
+    console.log("After liquidation, user account", await d.aavePool.getUserAccountData(borrowerAddress));
+
+    const collateralAmountReceivedByLiquidator = await IERC20__factory.connect(d.collateralToken.address, deployer).balanceOf(liquidatorAddress);
+
+    return {
+      liquidatorAddress,
+      collateralAmountReceivedByLiquidator
+    }
   }
 }

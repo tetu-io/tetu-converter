@@ -60,6 +60,47 @@ describe("DForce integration tests, pool adapter", () => {
 //endregion before, after
 
 //region Make borrow
+  async function makeBorrow(
+    collateralToken: TokenDataTypes,
+    collateralCToken: TokenDataTypes,
+    collateralHolder: string,
+    collateralAmountRequired: BigNumber | undefined,
+    borrowToken: TokenDataTypes,
+    borrowCToken: TokenDataTypes,
+    borrowAmountRequired: BigNumber | undefined
+  ) : Promise<{sret: string, sexpected: string, prepareResults: IPrepareToBorrowResults}>{
+    const d = await DForceTestUtils.prepareToBorrow(
+      deployer,
+      collateralToken,
+      collateralHolder,
+      collateralCToken.address,
+      collateralAmountRequired,
+      borrowToken,
+      borrowCToken.address
+    );
+
+    const borrowResults = await DForceTestUtils.makeBorrow(deployer, d, borrowAmountRequired);
+
+    const sret = [
+      borrowResults.userBalanceBorrowAsset,
+      borrowResults.poolAdapterBalanceCollateralCToken,
+      areAlmostEqual(borrowResults.accountLiquidity.accountEquity, borrowResults.expectedLiquidity),
+      borrowResults.accountLiquidity.shortfall,
+    ].map(x => BalanceUtils.toString(x)).join("\n");
+
+    const sexpected = [
+      d.amountToBorrow, // borrowed amount on user's balance
+      d.collateralAmount
+        .mul(Misc.WEI)
+        .div(borrowResults.marketsInfo.collateralData.exchangeRateStored),
+      true,
+      0,
+    ].map(x => BalanceUtils.toString(x)).join("\n");
+
+    return {sret, sexpected, prepareResults: d};
+  }
+
+
   async function testBorrowDaiUsdc(
     collateralAmountNum: number | undefined,
     borrowAmountNum: number | undefined
@@ -83,8 +124,7 @@ describe("DForce integration tests, pool adapter", () => {
       ? getBigNumberFrom(borrowAmountNum, borrowToken.decimals)
       : undefined;
 
-    const r = await DForceTestUtils.makeBorrow(
-      deployer,
+    const r = await makeBorrow(
       collateralToken,
       collateralCToken,
       collateralHolder,
@@ -120,8 +160,7 @@ describe("DForce integration tests, pool adapter", () => {
       ? getBigNumberFrom(borrowAmountNum, borrowToken.decimals)
       : undefined;
 
-    const r = await DForceTestUtils.makeBorrow(
-      deployer,
+    const r = await makeBorrow(
       collateralToken,
       collateralCToken,
       collateralHolder,

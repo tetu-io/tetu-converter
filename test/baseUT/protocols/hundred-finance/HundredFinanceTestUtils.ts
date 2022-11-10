@@ -31,13 +31,11 @@ import {
 import {transferAndApprove} from "../../utils/transferUtils";
 import {BalanceUtils} from "../../utils/BalanceUtils";
 import {IHfAccountLiquidity, IHfUserAccountState} from "../../apr/aprHundredFinance";
-import {HundredFinanceChangePriceUtils} from "../../../protocols/hundred-finance/HundredFinanceChangePriceUtils";
+import {HundredFinanceChangePriceUtils} from "./HundredFinanceChangePriceUtils";
+import {IPoolAdapterStatus} from "../../types/BorrowRepayDataTypes";
+import {getBigNumberFrom} from "../../../../scripts/utils/NumberUtils";
 
 //region Data types
-export interface IPrepareToBorrowAdditionalParams {
-  hfPriceOracle?: string;
-}
-
 export interface IPrepareToBorrowResults {
   userContract: Borrower;
   hfPoolAdapterTC: HfPoolAdapter;
@@ -81,6 +79,20 @@ interface IBorrowResults {
   marketsInfo: IMarketsInfo;
 }
 
+export interface ILiquidationResults {
+  liquidatorAddress: string;
+  collateralAmountReceivedByLiquidator: BigNumber;
+}
+
+export interface IPrepareToLiquidationResults {
+  collateralToken: TokenDataTypes;
+  borrowToken: TokenDataTypes;
+  collateralCToken: TokenDataTypes;
+  borrowCToken: TokenDataTypes;
+  collateralAmount: BigNumber;
+  statusBeforeLiquidation: IPoolAdapterStatus;
+  d: IPrepareToBorrowResults;
+}
 //endregion Data types
 
 export class HundredFinanceTestUtils {
@@ -97,7 +109,6 @@ export class HundredFinanceTestUtils {
     borrowToken: TokenDataTypes,
     borrowCTokenAddress: string,
     targetHealthFactor2?: number,
-    additionalParams?: IPrepareToBorrowAdditionalParams
   ) : Promise<IPrepareToBorrowResults> {
     const periodInBlocks = 1000;
 
@@ -343,11 +354,71 @@ export class HundredFinanceTestUtils {
     }
   }
 
+  public static async prepareToLiquidation(
+    deployer: SignerWithAddress,
+    collateralAsset: string,
+    collateralHolder: string,
+    collateralCTokenAddress: string,
+    collateralAmountNum: number,
+    borrowAsset: string,
+    borrowCTokenAddress: string,
+    changePriceFactor: number = 10
+  ) : Promise<IPrepareToLiquidationResults> {
+    const collateralToken = await TokenDataTypes.Build(deployer, collateralAsset);
+    const borrowToken = await TokenDataTypes.Build(deployer, borrowAsset);
+    const collateralCToken = await TokenDataTypes.Build(deployer, collateralCTokenAddress);
+    const borrowCToken = await TokenDataTypes.Build(deployer, borrowCTokenAddress);
+
+    const collateralAmount = getBigNumberFrom(collateralAmountNum, collateralToken.decimals);
+
+    // set up our own price oracle
+    // we should do it before creation of the pool adapter
+    const priceOracleMock = await HundredFinanceChangePriceUtils.setupPriceOracleMock(deployer);
+    console.log("priceOracleMock", priceOracleMock.address);
+
+    const d = await HundredFinanceTestUtils.prepareToBorrow(deployer,
+      collateralToken,
+      collateralHolder,
+      collateralCTokenAddress,
+      collateralAmount,
+      borrowToken,
+      borrowCTokenAddress,
+      200,
+    );
+    // make a borrow
+    await HundredFinanceTestUtils.makeBorrow(deployer, d, undefined);
+    const statusAfterBorrow = await d.hfPoolAdapterTC.getStatus();
+    console.log("statusAfterBorrow", statusAfterBorrow);
+
+    // reduce price of collateral to reduce health factor below 1
+
+    console.log("HundredFinanceChangePriceUtils.changeCTokenPrice");
+    await HundredFinanceChangePriceUtils.changeCTokenPrice(
+      priceOracleMock,
+      deployer,
+      collateralCTokenAddress,
+      false,
+      changePriceFactor
+    );
+
+    const statusBeforeLiquidation = await d.hfPoolAdapterTC.getStatus();
+    console.log("statusBeforeLiquidation", statusBeforeLiquidation);
+    return {
+      collateralToken,
+      borrowToken,
+      collateralCToken,
+      borrowCToken,
+      collateralAmount,
+      statusBeforeLiquidation,
+      d
+    };
+  }
+
   public static async makeLiquidation(
     deployer: SignerWithAddress,
     d: IPrepareToBorrowResults,
     borrowHolder: string
-  ) {
+  ) : Promise<ILiquidationResults> {
     const MAX_UINT_AMOUNT = '115792089237316195423570985008687907853269984665640564039457584007913129639935';
     const liquidatorAddress = ethers.Wallet.createRandom().address;
 
@@ -355,22 +426,56 @@ export class HundredFinanceTestUtils {
     const borrowerAddress = d.hfPoolAdapterTC.address;
 
     const borrowCTokenAsLiquidator = IHfCToken__factory.connect(d.borrowCToken.address, liquidator);
+    const collateralCTokenAsLiquidator = IHfCToken__factory.connect(d.collateralCToken.address, liquidator);
     const accountBefore = await d.comptroller.getAccountLiquidity(borrowerAddress);
     const borrowPrice = await d.priceOracle.getUnderlyingPrice(d.borrowCToken.address);
-    const borrowDebt = accountBefore.shortfall.mul(borrowPrice);
+    const borrowDebt = d.amountToBorrow.div(10); // accountBefore.shortfall.mul(borrowPrice).div(Misc.WEI);
     console.log("borrowed amount", d.amountToBorrow);
     console.log("debt", borrowDebt);
 
     await BalanceUtils.getAmountFromHolder(d.borrowToken.address, borrowHolder, liquidatorAddress, borrowDebt);
-    await IERC20__factory.connect(d.borrowToken.address, liquidator).approve(d.comptroller.address, MAX_UINT_AMOUNT);
+    await IERC20__factory.connect(d.borrowToken.address, liquidator).approve(borrowCTokenAsLiquidator.address, MAX_UINT_AMOUNT);
 
     console.log("Before liquidation, user account", accountBefore);
-    await borrowCTokenAsLiquidator.liquidateBorrow(borrowerAddress, borrowDebt, d.collateralCToken.address);
+    console.log("User collateral before liquidation, collateral token", await d.collateralCToken.getAccountSnapshot(d.hfPoolAdapterTC.address));
+    console.log("User borrow before liquidation, collateral token", await d.borrowCToken.getAccountSnapshot(d.hfPoolAdapterTC.address));
+    console.log("Liquidator collateral before liquidation, collateral token", await d.collateralCToken.getAccountSnapshot(liquidatorAddress));
+    console.log("Liquidator borrow before liquidation, collateral token", await d.borrowCToken.getAccountSnapshot(liquidatorAddress));
+    const liquidationAllowed = await d.comptroller.callStatic.liquidateBorrowAllowed(
+      borrowCTokenAsLiquidator.address,
+      d.collateralCToken.address,
+      liquidatorAddress,
+      borrowerAddress,
+      borrowDebt
+    );
+    console.log("liquidationAllowed", liquidationAllowed);
+    const liquidateBorrowResult = await borrowCTokenAsLiquidator.callStatic.liquidateBorrow(borrowerAddress, borrowDebt, d.collateralCToken.address);
+    console.log("liquidateBorrowResult", liquidateBorrowResult);
+
+    const tx = await borrowCTokenAsLiquidator.liquidateBorrow(borrowerAddress, borrowDebt, d.collateralCToken.address);
+    const receipt = await tx.wait();
+
+    // if (receipt?.events) {
+    //   for (const event of receipt.events) {
+    //     console.log("Event", event);
+    //   }
+    // }
 
     const accountAfter = await d.comptroller.getAccountLiquidity(borrowerAddress);
-    console.log("Before liquidation, user account", accountAfter);
+    console.log("After liquidation, user account", accountAfter);
+    console.log("User collateral after liquidation, collateral token", await d.collateralCToken.getAccountSnapshot(d.hfPoolAdapterTC.address));
+    console.log("User borrow after liquidation, collateral token", await d.borrowCToken.getAccountSnapshot(d.hfPoolAdapterTC.address));
+    const liquidatorCollateralSnapshotAfterLiquidation = await d.collateralCToken.getAccountSnapshot(liquidatorAddress);
+    console.log("Liquidator collateral after liquidation, collateral token", liquidatorCollateralSnapshotAfterLiquidation);
+    console.log("Liquidator borrow after liquidation, collateral token", await d.borrowCToken.getAccountSnapshot(liquidatorAddress));
 
+
+    await collateralCTokenAsLiquidator.redeem(liquidatorCollateralSnapshotAfterLiquidation.tokenBalance);
     const collateralAmountReceivedByLiquidator = await IERC20__factory.connect(d.collateralToken.address, deployer).balanceOf(liquidatorAddress);
 
+    return {
+      liquidatorAddress,
+      collateralAmountReceivedByLiquidator
+    }
   }
 }

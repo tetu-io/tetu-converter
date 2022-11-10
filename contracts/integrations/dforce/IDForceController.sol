@@ -257,4 +257,8 @@ interface IDForceController {
 
   /// @notice whether global transfer is paused
   function transferPaused() external view returns (bool);
+
+
+
+  function _setPriceOracle(address _newOracle) external;
 }

@@ -196,8 +196,11 @@ contract HfPoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP {
       borrowBase
     );
 
-    (uint256 dError, uint liquidity,) = comptroller_.getAccountLiquidity(address(this));
+    (uint256 dError, uint liquidity, uint shortfall) = comptroller_.getAccountLiquidity(address(this));
     require(dError == 0, AppErrors.CTOKEN_GET_ACCOUNT_LIQUIDITY_FAILED);
+
+    console.log("_validateHealthStatusAfterBorrow.liquidity", liquidity);
+    console.log("_validateHealthStatusAfterBorrow.shortfall", shortfall);
 
     require(
       sumCollateralSafe > borrowBase
@@ -493,6 +496,9 @@ contract HfPoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP {
     (error, tokenBalanceOut,, cExchangeRateMantissa) = IHfCToken(cTokenCollateral)
       .getAccountSnapshot(address(this));
     require(error == 0, AppErrors.CTOKEN_GET_ACCOUNT_SNAPSHOT_FAILED);
+    console.log("getStatus.tokenBalanceOut", tokenBalanceOut);
+    console.log("getStatus.cExchangeRateMantissa", cExchangeRateMantissa);
+    console.log("getStatus.borrowBalanceOut", borrowBalanceOut);
 
     (error,, borrowBalanceOut,) = IHfCToken(cTokenBorrow).getAccountSnapshot(address(this));
     require(error == 0, AppErrors.CTOKEN_GET_ACCOUNT_SNAPSHOT_FAILED);

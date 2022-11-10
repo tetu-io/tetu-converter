@@ -1,10 +1,10 @@
 import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import {BigNumber} from "ethers";
-import {HundredFinanceHelper} from "../../../scripts/integration/helpers/HundredFinanceHelper";
-import {HfPriceOracleMock} from "../../../typechain";
-import {DeployerUtils} from "../../../scripts/utils/DeployerUtils";
-import {DeployUtils} from "../../../scripts/utils/DeployUtils";
-import {MaticAddresses} from "../../../scripts/addresses/MaticAddresses";
+import {HundredFinanceHelper} from "../../../../scripts/integration/helpers/HundredFinanceHelper";
+import {HfPriceOracleMock} from "../../../../typechain";
+import {DeployerUtils} from "../../../../scripts/utils/DeployerUtils";
+import {DeployUtils} from "../../../../scripts/utils/DeployUtils";
+import {MaticAddresses} from "../../../../scripts/addresses/MaticAddresses";
 
 export class HundredFinanceChangePriceUtils {
   public static async setupPriceOracleMock(deployer: SignerWithAddress) : Promise<HfPriceOracleMock> {
@@ -52,11 +52,13 @@ export class HundredFinanceChangePriceUtils {
   ) {
     console.log("changeCTokenPrice");
     const currentPrice: BigNumber = await oracle.getUnderlyingPrice(cToken);
+    const newPrice = inc
+      ? currentPrice.mul(times)
+      : currentPrice.div(times);
     await oracle.setUnderlyingPrice(
       cToken,
-      inc
-        ? currentPrice.mul(times)
-        : currentPrice.div(times)
+      newPrice
     );
+    console.log(`Price of asset ${cToken} was changed from ${currentPrice} to ${newPrice}`);
   }
 }

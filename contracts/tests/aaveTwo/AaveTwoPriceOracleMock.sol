@@ -2,6 +2,7 @@
 pragma solidity 0.8.4;
 
 import "../../integrations/aaveTwo/IAaveTwoPriceOracle.sol";
+import "hardhat/console.sol";
 
 contract AaveTwoPriceOracleMock is IAaveTwoPriceOracle {
   address private _owner;
@@ -25,6 +26,7 @@ contract AaveTwoPriceOracleMock is IAaveTwoPriceOracle {
   /////////////////////////////////////////////////////////////////
   function setPrices(address[] memory assets_, uint[] memory values_) external {
     for (uint i = 0; i < assets_.length; ++i) {
+      console.log("Set price", assets_[i], values_[i]);
       _prices[assets_[i]] = values_[i];
     }
   }
@@ -43,6 +45,7 @@ contract AaveTwoPriceOracleMock is IAaveTwoPriceOracle {
    * @return The price of the asset
    **/
   function getAssetPrice(address asset) external view override returns (uint256) {
+    console.log("getAssetPrice", asset, _prices[asset]);
     return _prices[asset];
   }
   /**
@@ -53,6 +56,7 @@ contract AaveTwoPriceOracleMock is IAaveTwoPriceOracle {
   function getAssetsPrices(address[] memory assets) external view override returns (uint256[] memory) {
     uint[] memory dest = new uint[](assets.length);
     for (uint i = 0; i < assets.length; ++i) {
+      console.log("getAssetsPrices", assets[i], _prices[assets[i]]);
       dest[i] = _prices[assets[i]];
     }
     return dest;

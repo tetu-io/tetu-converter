@@ -24,7 +24,7 @@ contract HfPriceOracleMock {
   }
 
   function getUnderlyingPrice(address cToken_) external view returns (uint256) {
-    console.log("HfPriceOracleMock.getUnderlyingPrice");
+    console.log("HfPriceOracleMock.getUnderlyingPrice", cToken_, prices[cToken_]);
     return prices[cToken_];
   }
 

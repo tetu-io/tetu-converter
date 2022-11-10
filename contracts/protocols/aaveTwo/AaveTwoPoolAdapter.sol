@@ -39,8 +39,8 @@ contract AaveTwoPoolAdapter is IPoolAdapter, IPoolAdapterInitializer {
   /// @notice Address of original PoolAdapter contract that was cloned to make the instance of the pool adapter
   address originConverter;
 
-  /// @notice Total amount of all supplied and withdrawn amounts of collateral in base-asset
-  uint public collateralBalanceBase;
+  /// @notice Total amount of all supplied and withdrawn amounts of collateral in A-tokens
+  uint public collateralBalanceATokens;
 
   ///////////////////////////////////////////////////////
   ///                Initialization
@@ -109,7 +109,6 @@ contract AaveTwoPoolAdapter is IPoolAdapter, IPoolAdapterInitializer {
     IAaveTwoPool pool = _pool;
     address assetBorrow = borrowAsset;
 
-    (uint256 totalCollateralETHBefore,,,,,) = pool.getUserAccountData(address(this));
     _supply(pool, collateralAsset, collateralAmount_);
 
     // make borrow, send borrowed amount to the receiver
@@ -134,10 +133,8 @@ contract AaveTwoPoolAdapter is IPoolAdapter, IPoolAdapterInitializer {
     IDebtMonitor(controller.debtMonitor()).onOpenPosition();
 
     // ensure that current health factor is greater than min allowed
-    (uint256 totalCollateralETHAfter,,,,, uint256 healthFactor) = pool.getUserAccountData(address(this));
+    (,,,,, uint256 healthFactor) = pool.getUserAccountData(address(this));
     _validateHealthFactor(healthFactor);
-
-    collateralBalanceBase += totalCollateralETHAfter - totalCollateralETHBefore;
 
     return borrowAmount_;
   }
@@ -167,6 +164,8 @@ contract AaveTwoPoolAdapter is IPoolAdapter, IPoolAdapterInitializer {
 
     uint aTokensAmount = IERC20(d.aTokenAddress).balanceOf(address(this)) - aTokensBalanceBeforeSupply;
     require(aTokensAmount + ATOKEN_MAX_DELTA >= collateralAmount_, AppErrors.WRONG_DERIVATIVE_TOKENS_BALANCE);
+
+    collateralBalanceATokens += aTokensAmount;
   }
 
   function borrowToRebalance(
@@ -225,6 +224,8 @@ contract AaveTwoPoolAdapter is IPoolAdapter, IPoolAdapterInitializer {
     IAaveTwoPool pool = _pool;
 
     IERC20(assetBorrow).safeTransferFrom(msg.sender, address(this), amountToRepay_);
+    DataTypes.ReserveData memory rc = pool.getReserveData(assetCollateral);
+    uint aTokensBalanceBeforeSupply = IERC20(rc.aTokenAddress).balanceOf(address(this));
 
     // how much collateral we are going to return
     (uint amountCollateralToWithdraw, uint totalCollateralBaseBefore) = _getCollateralAmountToReturn(
@@ -265,9 +266,12 @@ contract AaveTwoPoolAdapter is IPoolAdapter, IPoolAdapterInitializer {
       require(!closePosition_, AppErrors.CLOSE_POSITION_FAILED);
       _validateHealthFactor(healthFactor);
     }
-    collateralBalanceBase = totalCollateralBaseBefore - totalCollateralBaseAfter > collateralBalanceBase
-      ? 0
-      : collateralBalanceBase - (totalCollateralBaseBefore - totalCollateralBaseAfter);
+
+    uint aTokensBalanceAfterSupply = IERC20(rc.aTokenAddress).balanceOf(address(this));
+
+    collateralBalanceATokens = aTokensBalanceBeforeSupply - aTokensBalanceAfterSupply > collateralBalanceATokens
+    ? 0
+    : collateralBalanceATokens - (aTokensBalanceBeforeSupply - aTokensBalanceAfterSupply);
 
     return amountCollateralToWithdraw;
   }
@@ -327,10 +331,7 @@ contract AaveTwoPoolAdapter is IPoolAdapter, IPoolAdapterInitializer {
     IAaveTwoPool pool = _pool;
 
     if (isCollateral_) {
-      (uint amountCollateralBefore,,,,,) = _pool.getUserAccountData(address(this));
       _supply(_pool, collateralAsset, amount_);
-      (uint amountCollateralAfter,,,,,) = _pool.getUserAccountData(address(this));
-      collateralBalanceBase += amountCollateralAfter - amountCollateralBefore;
     } else {
       // ensure, that amount to repay is less then the total debt
       (,uint256 totalDebtBase0,,,,) = _pool.getUserAccountData(address(this));
@@ -399,7 +400,10 @@ contract AaveTwoPoolAdapter is IPoolAdapter, IPoolAdapterInitializer {
     uint[] memory prices = _priceOracle.getAssetsPrices(assets);
     require(prices[1] != 0, AppErrors.ZERO_PRICE);
 
-    uint targetDecimals = (10 ** _pool.getConfiguration(assetBorrow).getDecimals());
+    DataTypes.ReserveData memory rc = _pool.getReserveData(assetCollateral);
+    uint aTokensBalance = IERC20(rc.aTokenAddress).balanceOf(address(this));
+
+  uint targetDecimals = (10 ** _pool.getConfiguration(assetBorrow).getDecimals());
     return (
     // Total amount of provided collateral in [collateral asset]
       totalCollateralBase * (10 ** _pool.getConfiguration(assetCollateral).getDecimals()) / prices[0],
@@ -414,11 +418,9 @@ contract AaveTwoPoolAdapter is IPoolAdapter, IPoolAdapterInitializer {
     // Current health factor, decimals 18
       hf18,
       totalCollateralBase != 0 || totalDebtBase != 0,
-      totalCollateralBase > collateralBalanceBase
+      aTokensBalance > collateralBalanceATokens
         ? 0
-        : (collateralBalanceBase - totalCollateralBase)
-          * (10 ** _pool.getConfiguration(assetCollateral).getDecimals())
-          / prices[0]
+        : (collateralBalanceATokens - aTokensBalance)
     );
   }
 

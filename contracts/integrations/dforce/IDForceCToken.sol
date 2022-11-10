@@ -84,7 +84,7 @@ interface IDForceCToken {
   function liquidateBorrow(
     address _borrower,
     uint256 _repayAmount,
-    address _assetCollateral
+    address _cTokenCollateral
   ) external;
 
   function mint(address _recipient, uint256 _mintAmount) external;
