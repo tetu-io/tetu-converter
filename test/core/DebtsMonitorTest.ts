@@ -987,7 +987,8 @@ describe("DebtsMonitor", () => {
             collateralAmount,
             amountToPay,
             0,
-            false
+            false,
+            0
           );
 
           return DebtMonitor__factory.connect(

@@ -427,7 +427,6 @@ export class DeploySolutionUtils {
       converters: [converterNormal.address],
       platformAdapterAddress: platformAdapter.address,
       cTokensActive,
-      priceOracle
     }
   }
 //endregion Platform adapters

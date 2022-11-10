@@ -403,7 +403,7 @@ contract HfPoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP {
     (, uint healthFactor18) = _getHealthFactor(cTokenCollateral, collateralBase, borrowBase);
     _validateHealthFactor(healthFactor18);
 
-    collateralTokensBalance -= tokenBalanceAfter - tokenBalanceBefore;
+    collateralTokensBalance += tokenBalanceAfter - tokenBalanceBefore;
     return healthFactor18;
   }
 

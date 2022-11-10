@@ -32,7 +32,7 @@ import {BalanceUtils} from "../baseUT/utils/BalanceUtils";
  *        (borrow-debt-2 - borrow-debt-1) == borrow apr
  *        (supply-profit-2 - supply-profit-1) = supply apr
  */
-describe("CompareAprBeforeAfterBorrow", () => {
+describe.skip("CompareAprBeforeAfterBorrow", () => {
 //region Global vars for all tests
   let snapshot: string;
   let snapshotForEach: string;

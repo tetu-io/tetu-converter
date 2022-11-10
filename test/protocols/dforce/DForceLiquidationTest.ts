@@ -117,7 +117,7 @@ describe("DForceLiquidationTest", () => {
 
         await expect(
           DForceTestUtils.makeBorrow(deployer, init.d, undefined)
-        ).revertedWith("TC-20"); // borrow failed
+        ).revertedWith("Account has some shortfall"); // borrow failed
       });
     });
   });

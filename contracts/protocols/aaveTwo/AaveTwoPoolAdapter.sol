@@ -228,7 +228,7 @@ contract AaveTwoPoolAdapter is IPoolAdapter, IPoolAdapterInitializer {
     uint aTokensBalanceBeforeSupply = IERC20(rc.aTokenAddress).balanceOf(address(this));
 
     // how much collateral we are going to return
-    (uint amountCollateralToWithdraw, uint totalCollateralBaseBefore) = _getCollateralAmountToReturn(
+    uint amountCollateralToWithdraw = _getCollateralAmountToReturn(
       pool,
       amountToRepay_,
       assetCollateral,
@@ -259,8 +259,8 @@ contract AaveTwoPoolAdapter is IPoolAdapter, IPoolAdapterInitializer {
     }
 
     // validate result status
-    (uint totalCollateralBaseAfter, uint totalDebtBase,,,, uint256 healthFactor) = pool.getUserAccountData(address(this));
-    if (totalCollateralBaseAfter == 0 && totalDebtBase == 0) {
+    (uint totalCollateralBase, uint totalDebtBase,,,, uint256 healthFactor) = pool.getUserAccountData(address(this));
+    if (totalCollateralBase == 0 && totalDebtBase == 0) {
       IDebtMonitor(controller.debtMonitor()).onClosePosition();
     } else {
       require(!closePosition_, AppErrors.CLOSE_POSITION_FAILED);
@@ -270,24 +270,23 @@ contract AaveTwoPoolAdapter is IPoolAdapter, IPoolAdapterInitializer {
     uint aTokensBalanceAfterSupply = IERC20(rc.aTokenAddress).balanceOf(address(this));
 
     collateralBalanceATokens = aTokensBalanceBeforeSupply - aTokensBalanceAfterSupply > collateralBalanceATokens
-    ? 0
-    : collateralBalanceATokens - (aTokensBalanceBeforeSupply - aTokensBalanceAfterSupply);
+      ? 0
+      : collateralBalanceATokens - (aTokensBalanceBeforeSupply - aTokensBalanceAfterSupply);
 
     return amountCollateralToWithdraw;
   }
 
   /// @notice Get a part of collateral safe to return after repaying {amountToRepay_}
   /// @param amountToRepay_ Amount to be repaid [in borrowed tokens]
-  /// @return 1) Amount of collateral [in collateral tokens] to be returned in exchange of {borrowedAmount_}
-  ///            Return type(uint).max if it's full repay and the position should be closed
-  ///         2) totalCollateralBase
+  /// @return Amount of collateral [in collateral tokens] to be returned in exchange of {borrowedAmount_}
+  ///         Return type(uint).max if it's full repay and the position should be closed
   function _getCollateralAmountToReturn(
     IAaveTwoPool pool_,
     uint amountToRepay_,
     address assetCollateral_,
     address assetBorrow_,
     bool closePosition_
-  ) internal view returns (uint, uint) {
+  ) internal view returns (uint) {
     // get total amount of the borrow position
     (uint256 totalCollateralBase, uint256 totalDebtBase,,,,) = pool_.getUserAccountData(address(this));
     require(totalDebtBase != 0, AppErrors.ZERO_BALANCE);
@@ -304,20 +303,18 @@ contract AaveTwoPoolAdapter is IPoolAdapter, IPoolAdapterInitializer {
     require(!closePosition_ || totalDebtBase <= amountToRepayBase, AppErrors.CLOSE_POSITION_FAILED);
 
     if (closePosition_) {
-      return (type(uint).max, totalCollateralBase);
+      return type(uint).max;
     }
 
     uint part = amountToRepayBase >= totalDebtBase
       ? 10**18
       : 10**18 * amountToRepayBase / totalDebtBase;
 
-    return (
+    return
       // == totalCollateral * amountToRepay / totalDebt
       totalCollateralBase * (10 ** IERC20Extended(assetCollateral_).decimals())
       * part / 10**18
-      / prices[0],
-      totalCollateralBase
-    );
+      / prices[0];
   }
 
   function repayToRebalance(

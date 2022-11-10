@@ -34,7 +34,7 @@ import {ITetuLiquidator__factory} from "../../typechain/factories/contracts/inte
  *        (borrow-debt-2 - borrow-debt-1) == borrow apr
  *        (supply-profit-2 - supply-profit-1) = supply apr
  */
-describe("CompareAprBeforeAfterBorrow", () => {
+describe.skip("CompareAprBeforeAfterBorrow", () => {
 //region Global vars for all tests
   let snapshot: string;
   let snapshotForEach: string;

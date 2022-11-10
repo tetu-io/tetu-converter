@@ -381,7 +381,7 @@ contract DForcePoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP {
     (, uint healthFactor18) = _getHealthFactor(cTokenCollateral, collateralBase, sumBorrowPlusEffects);
     _validateHealthFactor(healthFactor18);
 
-    collateralTokensBalance -= tokenBalanceAfter - tokenBalanceBefore;
+    collateralTokensBalance += tokenBalanceAfter - tokenBalanceBefore;
     return healthFactor18;
   }
 
