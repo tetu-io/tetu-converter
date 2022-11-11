@@ -19,7 +19,8 @@ describe("HfLiquidationTest", () => {
   const borrowCTokenAddress = MaticAddresses.hETH;
   const borrowHolder = MaticAddresses.HOLDER_WETH;
 
-  const CHANGE_PRICE_FACTOR = 10;
+  const CHANGE_PRICE_FACTOR_FULL_LIQUIDATION = 10;
+  const CHANGE_PRICE_FACTOR_PARTIAL_LIQUIDATION = 3;
   const collateralAmountNum = 1_000;
 //endregion Constants
 
@@ -27,7 +28,6 @@ describe("HfLiquidationTest", () => {
   let snapshot: string;
   let snapshotForEach: string;
   let deployer: SignerWithAddress;
-  let init: IPrepareToLiquidationResults;
 //endregion Global vars for all tests
 
 //region before, after
@@ -36,35 +36,123 @@ describe("HfLiquidationTest", () => {
     snapshot = await TimeUtils.snapshot();
     const signers = await ethers.getSigners();
     deployer = signers[0];
-
-    if (!await isPolygonForkInUse()) return;
-    init = await HundredFinanceTestUtils.prepareToLiquidation(
-      deployer,
-      collateralAsset,
-      collateralHolder,
-      collateralCTokenAddress,
-      collateralAmountNum,
-      borrowAsset,
-      borrowCTokenAddress,
-      CHANGE_PRICE_FACTOR
-    );
   });
 
   after(async function () {
     await TimeUtils.rollback(snapshot);
   });
 
-  beforeEach(async function () {
-    snapshotForEach = await TimeUtils.snapshot();
-  });
 
-  afterEach(async function () {
-    await TimeUtils.rollback(snapshotForEach);
-  });
 //endregion before, after
 
 //region Unit tests
-  describe("Make borrow, change prices, make health factor < 1", () => {
+  describe("Full liquidation: make borrow, change prices, make health factor < 1", () => {
+    let init: IPrepareToLiquidationResults;
+    before(async function () {
+      if (!await isPolygonForkInUse()) return;
+      init = await HundredFinanceTestUtils.prepareToLiquidation(
+        deployer,
+        collateralAsset,
+        collateralHolder,
+        collateralCTokenAddress,
+        collateralAmountNum,
+        borrowAsset,
+        borrowCTokenAddress,
+        CHANGE_PRICE_FACTOR_FULL_LIQUIDATION
+      );
+    });
+    beforeEach(async function () {
+      snapshotForEach = await TimeUtils.snapshot();
+    });
+    afterEach(async function () {
+      await TimeUtils.rollback(snapshotForEach);
+    });
+
+    describe("Good paths", () => {
+      it("health factor is less 1 before liquidation", async () => {
+        if (!await isPolygonForkInUse()) return;
+
+        console.log("Before liquidation", init.statusBeforeLiquidation);
+        const healthFactorNum = Number(ethers.utils.formatUnits(init.statusBeforeLiquidation.healthFactor18));
+        expect(healthFactorNum).below(1);
+      });
+
+      it("liquidator receives all collateral", async () => {
+        if (!await isPolygonForkInUse()) return;
+
+        const r = await HundredFinanceTestUtils.makeLiquidation(deployer, init.d, borrowHolder);
+        const collateralAmountReceivedByLiquidator = ethers.utils.formatUnits(
+          r.collateralAmountReceivedByLiquidator,
+          init.collateralToken.decimals
+        );
+        const collateralAmountStr = ethers.utils.formatUnits(
+          init.collateralAmount,
+          init.collateralToken.decimals
+        );
+        const accountLiquidator = await init.d.comptroller.getAccountLiquidity(r.liquidatorAddress);
+        console.log("accountLiquidator", accountLiquidator);
+
+        console.log("Amount received by liquidator", collateralAmountReceivedByLiquidator);
+        console.log("Original collateral amount", collateralAmountStr);
+
+        console.log("Status before liquidation", init.statusBeforeLiquidation);
+        const statusAfterLiquidation = await init.d.hfPoolAdapterTC.getStatus();
+        console.log("Status after liquidation", statusAfterLiquidation);
+
+        const accountLiquidityAfterLiquidation = await init.d.comptroller.getAccountLiquidity(init.d.hfPoolAdapterTC.address);
+        console.log("accountLiquidityAfterLiquidation", accountLiquidityAfterLiquidation);
+
+        const ret = [
+          r.collateralAmountReceivedByLiquidator.gt(0),
+          init.statusBeforeLiquidation.collateralAmountLiquidated.eq(0),
+          statusAfterLiquidation.collateralAmountLiquidated.gt(0)
+        ].join();
+        const expected = [true, true, true].join();
+        expect(ret).eq(expected);
+      });
+
+      it("Try to make new borrow after liquidation", async () => {
+        if (!await isPolygonForkInUse()) return;
+
+        const r = await HundredFinanceTestUtils.makeLiquidation(deployer, init.d, borrowHolder);
+
+        // put collateral amount on user's balance
+        await BalanceUtils.getRequiredAmountFromHolders(
+          init.collateralAmount,
+          init.collateralToken.token,
+          [collateralHolder],
+          init.d.userContract.address
+        );
+
+        await expect(
+          HundredFinanceTestUtils.makeBorrow(deployer, init.d, undefined)
+        ).revertedWith("TC-20"); // borrow failed
+      });
+    });
+  });
+
+  describe("Partial liquidation: make borrow, change prices, make health factor < 1", () => {
+    let init: IPrepareToLiquidationResults;
+    before(async function () {
+      if (!await isPolygonForkInUse()) return;
+      init = await HundredFinanceTestUtils.prepareToLiquidation(
+        deployer,
+        collateralAsset,
+        collateralHolder,
+        collateralCTokenAddress,
+        collateralAmountNum,
+        borrowAsset,
+        borrowCTokenAddress,
+        CHANGE_PRICE_FACTOR_PARTIAL_LIQUIDATION
+      );
+    });
+    beforeEach(async function () {
+      snapshotForEach = await TimeUtils.snapshot();
+    });
+    afterEach(async function () {
+      await TimeUtils.rollback(snapshotForEach);
+    });
+
     describe("Good paths", () => {
       it("health factor is less 1 before liquidation", async () => {
         if (!await isPolygonForkInUse()) return;
@@ -95,6 +183,9 @@ describe("HfLiquidationTest", () => {
         console.log("Before liquidation", init.statusBeforeLiquidation);
         const statusAfterLiquidation = await init.d.hfPoolAdapterTC.getStatus();
         console.log("After liquidation", statusAfterLiquidation);
+
+        const accountLiquidityAfterLiquidation = await init.d.comptroller.getAccountLiquidity(init.d.hfPoolAdapterTC.address);
+        console.log("accountLiquidityAfterLiquidation", accountLiquidityAfterLiquidation);
 
         const ret = [
           r.collateralAmountReceivedByLiquidator.gt(0),

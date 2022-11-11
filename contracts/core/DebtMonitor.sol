@@ -197,33 +197,40 @@ contract DebtMonitor is IDebtMonitor {
     for (uint i = 0; i < p.maxCountToCheck; i = i.uncheckedInc()) {
       nextIndexToCheck0 += 1;
 
-      // check if we need to make reconversion because the health factor is too low/high
+      // check if we need to make reconversion or completely close dirty position ("dirty" - liquidation happened)
       IPoolAdapter pa = IPoolAdapter(positions[p.startIndex0 + i]);
-      (uint collateralAmount, uint amountToPay, uint healthFactor18,,) = pa.getStatus();
+      (uint collateralAmount, uint amountToPay, uint healthFactor18,, uint collateralAmountLiquidated) = pa.getStatus();
+      if (collateralAmountLiquidated == 0) {
+        // check if we need to make reconversion because the health factor is too low/high
       (,,, address borrowAsset) = pa.getConfig();
-      uint healthFactorTarget18 = uint(_borrowManager().getTargetHealthFactor2(borrowAsset)) * 10**(18-2);
+        uint healthFactorTarget18 = uint(_borrowManager().getTargetHealthFactor2(borrowAsset)) * 10**(18-2);
 
-      if (
-        (p.healthFactorThreshold18 < healthFactorTarget18 && healthFactor18 < p.healthFactorThreshold18) // unhealthy
-        || (!(p.healthFactorThreshold18 < healthFactorTarget18) && healthFactor18 > p.healthFactorThreshold18) // too healthy
-      ) {
-        outPoolAdapters[countFoundItems] = positions[p.startIndex0 + i];
-        // Health Factor = Collateral Factor * CollateralAmount * Price_collateral
-        //                 -------------------------------------------------
-        //                               BorrowAmount * Price_borrow
-        // => requiredAmountBorrowAsset = BorrowAmount * (HealthFactorCurrent/HealthFactorTarget - 1)
-        // => requiredAmountCollateralAsset = CollateralAmount * (HealthFactorTarget/HealthFactorCurrent - 1)
-        outAmountBorrowAsset[countFoundItems] = p.healthFactorThreshold18 < healthFactorTarget18
-            ? (amountToPay - amountToPay * healthFactor18 / healthFactorTarget18) // unhealthy
-            : (amountToPay * healthFactor18 / healthFactorTarget18 - amountToPay); // too healthy
-        outAmountCollateralAsset[countFoundItems] = p.healthFactorThreshold18 < healthFactorTarget18
-            ? (collateralAmount * healthFactorTarget18 / healthFactor18 - collateralAmount) // unhealthy
-            : (collateralAmount - collateralAmount * healthFactorTarget18 / healthFactor18); // too healthy
-        countFoundItems += 1;
+        if (
+          (p.healthFactorThreshold18 < healthFactorTarget18 && healthFactor18 < p.healthFactorThreshold18) // unhealthy
+          || (!(p.healthFactorThreshold18 < healthFactorTarget18) && healthFactor18 > p.healthFactorThreshold18) // too healthy
+        ) {
+          outPoolAdapters[countFoundItems] = positions[p.startIndex0 + i];
+          // Health Factor = Collateral Factor * CollateralAmount * Price_collateral
+          //                 -------------------------------------------------
+          //                               BorrowAmount * Price_borrow
+          // => requiredAmountBorrowAsset = BorrowAmount * (HealthFactorCurrent/HealthFactorTarget - 1)
+          // => requiredAmountCollateralAsset = CollateralAmount * (HealthFactorTarget/HealthFactorCurrent - 1)
+          outAmountBorrowAsset[countFoundItems] = p.healthFactorThreshold18 < healthFactorTarget18
+              ? (amountToPay - amountToPay * healthFactor18 / healthFactorTarget18) // unhealthy
+              : (amountToPay * healthFactor18 / healthFactorTarget18 - amountToPay); // too healthy
+          outAmountCollateralAsset[countFoundItems] = p.healthFactorThreshold18 < healthFactorTarget18
+              ? (collateralAmount * healthFactorTarget18 / healthFactor18 - collateralAmount) // unhealthy
+              : (collateralAmount - collateralAmount * healthFactorTarget18 / healthFactor18); // too healthy
+          countFoundItems += 1;
 
-        if (countFoundItems == p.maxCountToReturn) {
-          break;
+          if (countFoundItems == p.maxCountToReturn) {
+            break;
+          }
         }
+      } else {
+        // this is a dirty position, a liquidation has happened inside
+        // we need to make a decision: either close the position or make full repay and withdraw remain collateral
+        // TODO
       }
     }
 
@@ -246,10 +253,91 @@ contract DebtMonitor is IDebtMonitor {
   }
 
   ///////////////////////////////////////////////////////
-  ///     Features for NEXT versions of the app
-  ///         Detect not-optimal positions
-  ///         Check too healthy factor
+  ///                   Views
   ///////////////////////////////////////////////////////
+  function getPositions (
+    address user_,
+    address collateralToken_,
+    address borrowedToken_
+  ) external view override returns (
+    address[] memory poolAdaptersOut
+  ) {
+    address[] memory adapters = poolAdapters[getPoolAdapterKey(user_, collateralToken_, borrowedToken_)];
+    uint countAdapters = adapters.length;
+
+    poolAdaptersOut = new address[](countAdapters);
+
+    for (uint i = 0; i < countAdapters; i = i.uncheckedInc()) {
+      poolAdaptersOut[i] = adapters[i];
+    }
+
+    return poolAdaptersOut;
+  }
+
+  function getPositionsForUser(address user_) external view override returns(
+    address[] memory poolAdaptersOut
+  ) {
+    EnumerableSet.AddressSet storage set = _poolAdaptersForUser[user_];
+    uint countAdapters = set.length();
+
+    poolAdaptersOut = new address[](countAdapters);
+
+    for (uint i = 0; i < countAdapters; i = i.uncheckedInc()) {
+      poolAdaptersOut[i] = set.at(i);
+    }
+
+    return poolAdaptersOut;
+  }
+
+  function isConverterInUse(address converter_) external view override returns (bool) {
+    return _poolAdaptersForConverters[converter_].length() != 0;
+  }
+
+  ///////////////////////////////////////////////////////
+  ///                     Utils
+  ///////////////////////////////////////////////////////
+  function getPoolAdapterKey(
+    address user_,
+    address collateral_,
+    address borrowToken_
+  ) public pure returns (uint){
+    return uint(keccak256(abi.encodePacked(user_, collateral_, borrowToken_)));
+  }
+
+  ///////////////////////////////////////////////////////
+  ///               Access to arrays
+  ///////////////////////////////////////////////////////
+
+  /// @notice Get total count of pool adapters with opened positions
+  function getCountPositions() external view override returns (uint) {
+    return positions.length;
+  }
+
+  function poolAdaptersLength(
+    address user_,
+    address collateral_,
+    address borrowToken_
+  ) external view returns (uint) {
+    return poolAdapters[getPoolAdapterKey(user_, collateral_, borrowToken_)].length;
+  }
+
+  ///////////////////////////////////////////////////////
+  ///          Access to other contracts
+  ///////////////////////////////////////////////////////
+
+  function _borrowManager() internal view returns (IBorrowManager) {
+    return IBorrowManager(controller.borrowManager());
+  }
+
+}
+
+
+
+///////////////////////////////////////////////////////
+///     Features for NEXT versions of the app
+///         Detect not-optimal positions
+///         Check too healthy factor
+///////////////////////////////////////////////////////
 
 //  function checkAdditionalBorrow(
 //    uint startIndex0,
@@ -345,82 +433,3 @@ contract DebtMonitor is IDebtMonitor {
 //    }
 //    return false;
 //  }
-
-  ///////////////////////////////////////////////////////
-  ///                   Views
-  ///////////////////////////////////////////////////////
-  function getPositions (
-    address user_,
-    address collateralToken_,
-    address borrowedToken_
-  ) external view override returns (
-    address[] memory poolAdaptersOut
-  ) {
-    address[] memory adapters = poolAdapters[getPoolAdapterKey(user_, collateralToken_, borrowedToken_)];
-    uint countAdapters = adapters.length;
-
-    poolAdaptersOut = new address[](countAdapters);
-
-    for (uint i = 0; i < countAdapters; i = i.uncheckedInc()) {
-      poolAdaptersOut[i] = adapters[i];
-    }
-
-    return poolAdaptersOut;
-  }
-
-  function getPositionsForUser(address user_) external view override returns(
-    address[] memory poolAdaptersOut
-  ) {
-    EnumerableSet.AddressSet storage set = _poolAdaptersForUser[user_];
-    uint countAdapters = set.length();
-
-    poolAdaptersOut = new address[](countAdapters);
-
-    for (uint i = 0; i < countAdapters; i = i.uncheckedInc()) {
-      poolAdaptersOut[i] = set.at(i);
-    }
-
-    return poolAdaptersOut;
-  }
-
-  function isConverterInUse(address converter_) external view override returns (bool) {
-    return _poolAdaptersForConverters[converter_].length() != 0;
-  }
-
-  ///////////////////////////////////////////////////////
-  ///                     Utils
-  ///////////////////////////////////////////////////////
-  function getPoolAdapterKey(
-    address user_,
-    address collateral_,
-    address borrowToken_
-  ) public pure returns (uint){
-    return uint(keccak256(abi.encodePacked(user_, collateral_, borrowToken_)));
-  }
-
-  ///////////////////////////////////////////////////////
-  ///               Access to arrays
-  ///////////////////////////////////////////////////////
-
-  /// @notice Get total count of pool adapters with opened positions
-  function getCountPositions() external view override returns (uint) {
-    return positions.length;
-  }
-
-  function poolAdaptersLength(
-    address user_,
-    address collateral_,
-    address borrowToken_
-  ) external view returns (uint) {
-    return poolAdapters[getPoolAdapterKey(user_, collateral_, borrowToken_)].length;
-  }
-
-  ///////////////////////////////////////////////////////
-  ///          Access to other contracts
-  ///////////////////////////////////////////////////////
-
-  function _borrowManager() internal view returns (IBorrowManager) {
-    return IBorrowManager(controller.borrowManager());
-  }
-
-}

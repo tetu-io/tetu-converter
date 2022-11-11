@@ -9,6 +9,9 @@ interface IDebtMonitor {
   ///         i.e. adapters with health factor below min allowed value
   ///         It calculates two amounts: amount of borrow asset and amount of collateral asset
   ///         To fix the health factor it's necessary to send EITHER one amount OR another one.
+  ///         There is special case: a liquidation happens inside the pool adapter.
+  ///         It means, that this is "dirty" pool adapter and this position must be closed and never used again.
+  ///         In this case, both amounts are zero (we need to make FULL repay)
   /// @return nextIndexToCheck0 Index of next pool-adapter to check; 0: all pool-adapters were checked
   /// @return outPoolAdapters List of pool adapters that should be reconverted
   /// @return outAmountBorrowAsset What borrow-asset amount should be send to pool adapter to fix health factor

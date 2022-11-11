@@ -34,6 +34,7 @@ import {IHfAccountLiquidity, IHfUserAccountState} from "../../apr/aprHundredFina
 import {HundredFinanceChangePriceUtils} from "./HundredFinanceChangePriceUtils";
 import {IPoolAdapterStatus} from "../../types/BorrowRepayDataTypes";
 import {getBigNumberFrom} from "../../../../scripts/utils/NumberUtils";
+import {parseUnits} from "ethers/lib/utils";
 
 //region Data types
 export interface IPrepareToBorrowResults {
@@ -429,7 +430,7 @@ export class HundredFinanceTestUtils {
     const collateralCTokenAsLiquidator = IHfCToken__factory.connect(d.collateralCToken.address, liquidator);
     const accountBefore = await d.comptroller.getAccountLiquidity(borrowerAddress);
     const borrowPrice = await d.priceOracle.getUnderlyingPrice(d.borrowCToken.address);
-    const borrowDebt = d.amountToBorrow.div(10); // accountBefore.shortfall.mul(borrowPrice).div(Misc.WEI);
+    const borrowDebt = d.amountToBorrow.div(2); // accountBefore.shortfall.mul(parseUnits("1", d.borrowToken.decimals)).div(borrowPrice).div(3);
     console.log("borrowed amount", d.amountToBorrow);
     console.log("debt", borrowDebt);
 
