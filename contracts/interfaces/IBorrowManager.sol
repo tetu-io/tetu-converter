@@ -92,10 +92,4 @@ interface IBorrowManager {
 
   /// @notice Get platformAdapter to which the converter belongs
   function getPlatformAdapter(address converter_) external view returns (address);
-
-  /// @notice Get all pool adapters registered for the user
-  /// @dev Return both opened and closed positions
-  function getPoolAdaptersForUser(
-    address user_
-  ) external view returns (address[] memory poolAdapters);
 }

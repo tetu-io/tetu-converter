@@ -356,19 +356,6 @@ contract BorrowManager is IBorrowManager {
     return found ? dest : address(0);
   }
 
-  function getPoolAdaptersForUser(
-    address user_
-  ) external view override returns (
-    address[] memory poolAdapters
-  ) {
-    EnumerableMap.UintToAddressMap storage map = _poolAdapters[user_];
-    uint size = map.length();
-    poolAdapters = new address[](size);
-    for (uint i = 0; i < size; i = i.uncheckedInc()) {
-      (,poolAdapters[i]) = map.at(i);
-    }
-  }
-
   ///////////////////////////////////////////////////////
   ///         Getters - platform adapters
   ///////////////////////////////////////////////////////
