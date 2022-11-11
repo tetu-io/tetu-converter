@@ -102,7 +102,8 @@ contract Borrower is ITetuConverterCallback {
     address receiver_,
     uint amountToBorrow_
   ) external returns (uint borrowedAmountOut) {
-    console.log("borrowExactAmount start gasleft", gasleft());
+    uint gasStart = gasleft();
+    console.log("borrowExactAmount start gasStart", gasStart);
     console.log("borrowExactAmount msg.sender", msg.sender);
     console.log("borrowExactAmount sourceAsset_", sourceAsset_);
     console.log("borrowExactAmount sourceAmount_", sourceAmount_);
@@ -119,7 +120,8 @@ contract Borrower is ITetuConverterCallback {
     require(converter != address(0), "Conversion strategy wasn't found");
     require(maxTargetAmount != 0, "maxTargetAmount is 0");
 
-    console.log("we will borrow:", amountToBorrow_, "gasleft", gasleft());
+    console.log("we will borrow:", amountToBorrow_);
+    console.log("gasleft/used by findConversionStrategy", gasStart - gasleft());
     console.log("sourceAmount_", sourceAmount_);
     console.log("converter", converter);
     console.log("balance st on tc", IERC20(sourceAsset_).balanceOf(address(this)));
@@ -138,7 +140,7 @@ contract Borrower is ITetuConverterCallback {
       amountToBorrow_,
       receiver_
     );
-    console.log("borrowExactAmount done gasleft6", gasleft());
+    console.log("borrowExactAmount done gasleft/used", gasStart - gasleft());
 
     totalBorrowedAmount += amountToBorrow_;
   }

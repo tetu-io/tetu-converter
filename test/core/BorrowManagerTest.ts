@@ -1609,96 +1609,90 @@ describe("BorrowManager", () => {
     });
   });
 
-  describe("getPoolAdaptersForUser", () => {
+  describe("markPoolAdapterAsDirty", () => {
     describe("Good paths", () => {
-      describe("Create N borrows for the user", () => {
-        it("should return N pool adapters", async () => {
-          const countBorrows = 3;
-          const countUsers = 2;
+      describe("Create two pool adapters, mark first one as dirty", () => {
+        it("should exclude first pool adapter from list of ready-to-borrow adapters", async () => {
+          const r = await getUniquePoolAdaptersForTwoPoolsAndTwoPairs(1);
+          const pa1 = r.out[0].initConfig;
+          const pa2 = r.out[1].initConfig;
 
-          const borrowManager = await initializeApp();
-          const controller = Controller__factory.connect(await borrowManager.controller(), signer);
-          const tetuConverter = await controller.tetuConverter();
-          const bmAsTc = BorrowManager__factory.connect(borrowManager.address,
-            await DeployerUtils.startImpersonate(tetuConverter)
-          );
+          const before1 = await r.app.borrowManager.getPoolAdapter(pa1.originConverter, pa1.user, pa1.collateralAsset, pa1.borrowAsset);
+          const before2 = await r.app.borrowManager.getPoolAdapter(pa2.originConverter, pa2.user, pa2.collateralAsset, pa2.borrowAsset);
 
-          const users: string[] = [...Array(countUsers).keys()].map(x => ethers.Wallet.createRandom().address);
+          await r.app.borrowManager.markPoolAdapterAsDirty(pa1.originConverter, pa1.user, pa1.collateralAsset, pa1.borrowAsset);
 
-          const asset1 = ethers.Wallet.createRandom().address;
-          const asset2 = ethers.Wallet.createRandom().address;
+          const after1 = await r.app.borrowManager.getPoolAdapter(pa1.originConverter, pa1.user, pa1.collateralAsset, pa1.borrowAsset);
+          const after2 = await r.app.borrowManager.getPoolAdapter(pa2.originConverter, pa2.user, pa2.collateralAsset, pa2.borrowAsset);
 
-          const converters: string[] = [...Array(countBorrows).keys()].map(x => ethers.Wallet.createRandom().address);
-          const platformAdapters = await Promise.all(
-            converters.map(
-              async converter => MocksHelper.createPlatformAdapterStub(signer, [converter])
-            )
-          );
+          const ret = [
+            before1 === r.out[0].poolAdapterAddress,
+            before2 === r.out[1].poolAdapterAddress,
+            after1 === Misc.ZERO_ADDRESS,
+            after2 === r.out[1].poolAdapterAddress,
+          ].join();
+          const expected = [true, true, true, true].join();
 
-          await Promise.all(
-            platformAdapters.map(
-              async platformAdapter => borrowManager.addAssetPairs(platformAdapter.address, [asset1], [asset2])
-            )
-          );
+          expect(ret).eq(expected);
+        });
+        it("should not change isPoolAdapter behavior", async () => {
+          const r = await getUniquePoolAdaptersForTwoPoolsAndTwoPairs(1);
+          const pa1 = r.out[0].initConfig;
 
-          for (const user of users) {
-            await Promise.all(
-              converters.map(
-                async converter => bmAsTc.registerPoolAdapter(converter, user, asset1, asset2)
-              )
-            );
-          }
-          const ret = await Promise.all(
-            users.map(
-              async user => (await borrowManager.getPoolAdaptersForUser(user)).length
-            )
-          );
-          const sret = ret.join();
-          const sexpected = users.map(x => countBorrows).join();
+          const before1 = await r.app.borrowManager.isPoolAdapter(r.out[0].poolAdapterAddress);
+          const before2 = await r.app.borrowManager.isPoolAdapter(r.out[1].poolAdapterAddress);
 
-          expect(sret).eq(sexpected);
+          await r.app.borrowManager.markPoolAdapterAsDirty(pa1.originConverter, pa1.user, pa1.collateralAsset, pa1.borrowAsset);
+
+          const after1 = await r.app.borrowManager.isPoolAdapter(r.out[0].poolAdapterAddress);
+          const after2 = await r.app.borrowManager.isPoolAdapter(r.out[1].poolAdapterAddress);
+
+          const ret = [before1, before2, after1, after2].join();
+          const expected = [true, true, true, true].join();
+
+          expect(ret).eq(expected);
+        });
+        it("should not change poolAdaptersRegistered behavior", async () => {
+          const r = await getUniquePoolAdaptersForTwoPoolsAndTwoPairs(1);
+          const pa1 = r.out[0].initConfig;
+
+          const before1 = await r.app.borrowManager.poolAdaptersRegistered(r.out[0].poolAdapterAddress);
+          const before2 = await r.app.borrowManager.poolAdaptersRegistered(r.out[1].poolAdapterAddress);
+
+          await r.app.borrowManager.markPoolAdapterAsDirty(pa1.originConverter, pa1.user, pa1.collateralAsset, pa1.borrowAsset);
+
+          const after1 = await r.app.borrowManager.poolAdaptersRegistered(r.out[0].poolAdapterAddress);
+          const after2 = await r.app.borrowManager.poolAdaptersRegistered(r.out[1].poolAdapterAddress);
+
+          const ret = [before1, before2, after1, after2].join();
+          const expected = [true, true, true, true].join();
+
+          expect(ret).eq(expected);
         });
       });
-      describe("User doesn't have any pool adapters", () => {
-        it("should return 0", async () => {
-          const countBorrows = 3;
-          const countUsers = 2;
+    });
+    describe("Bad paths", () => {
+      it("pool adapter not found", async () => {
+        const r = await getUniquePoolAdaptersForTwoPoolsAndTwoPairs(1);
+        const pa1 = r.out[0].initConfig;
+        const incorrectUser = ethers.Wallet.createRandom().address;
 
-          const borrowManager = await initializeApp();
-          const controller = Controller__factory.connect(await borrowManager.controller(), signer);
-          const tetuConverter = await controller.tetuConverter();
-          const bmAsTc = BorrowManager__factory.connect(borrowManager.address,
-            await DeployerUtils.startImpersonate(tetuConverter)
-          );
+        await expect(
+          r.app.borrowManager.markPoolAdapterAsDirty(pa1.originConverter,
+              incorrectUser, // (!)
+              pa1.collateralAsset,
+              pa1.borrowAsset
+          )
+        ).revertedWith("TC-2"); // POOL_ADAPTER_NOT_FOUND
+      });
+      it("try to mark as dirty the same pool adapters second time", async () => {
+        const r = await getUniquePoolAdaptersForTwoPoolsAndTwoPairs(1);
+        const pa1 = r.out[0].initConfig;
 
-          const users: string[] = [...Array(countUsers).keys()].map(x => ethers.Wallet.createRandom().address);
-
-          const asset1 = ethers.Wallet.createRandom().address;
-          const asset2 = ethers.Wallet.createRandom().address;
-
-          const converters: string[] = [...Array(countBorrows).keys()].map(x => ethers.Wallet.createRandom().address);
-          const platformAdapters = await Promise.all(
-            converters.map(
-              async converter => MocksHelper.createPlatformAdapterStub(signer, [converter])
-            )
-          );
-
-          await Promise.all(
-            platformAdapters.map(
-              async platformAdapter => borrowManager.addAssetPairs(platformAdapter.address, [asset1], [asset2])
-            )
-          );
-
-          const ret = await Promise.all(
-            users.map(
-              async user => (await borrowManager.getPoolAdaptersForUser(user)).length
-            )
-          );
-          const sret = ret.join();
-          const sexpected = users.map(x => 0).join();
-
-          expect(sret).eq(sexpected);
-        });
+        await r.app.borrowManager.markPoolAdapterAsDirty(pa1.originConverter, pa1.user, pa1.collateralAsset, pa1.borrowAsset);
+        await expect(
+          r.app.borrowManager.markPoolAdapterAsDirty(pa1.originConverter, pa1.user, pa1.collateralAsset, pa1.borrowAsset)
+        ).revertedWith("TC-2"); // POOL_ADAPTER_NOT_FOUND
       });
     });
   });
