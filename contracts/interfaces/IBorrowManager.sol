@@ -30,10 +30,12 @@ interface IBorrowManager {
     address borrowToken_
   ) external view returns (address);
 
+  /// @dev Returns true for NORMAL pool adapters and for active DIRTY pool adapters (=== borrow position is opened).
   function isPoolAdapter(address poolAdapter_) external view returns (bool);
 
-  /// @notice Notify borrow manager that the pool adapter with the given params is "dirty" and should be replaced
-  /// @dev "Dirty" means that a liquidation happens inside. The borrow position should be closed.
+  /// @notice Notify borrow manager that the pool adapter with the given params is "dirty".
+  ///         The pool adapter should be excluded from the list of ready-to-borrow pool adapters.
+  /// @dev "Dirty" means that a liquidation happens inside. The borrow position should be closed during health checking.
   function markPoolAdapterAsDirty (
     address converter_,
     address user_,

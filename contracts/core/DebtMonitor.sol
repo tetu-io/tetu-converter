@@ -34,7 +34,7 @@ contract DebtMonitor is IDebtMonitor {
   /// @notice Pool adapter => block number of last call of onOpenPosition
   mapping(address => uint) public positionLastAccess;
 
-  /// @notice List of oepened positions for the given set (user, collateral, borrowToken)
+  /// @notice List of opened positions for the given set (user, collateral, borrowToken)
   /// @dev PoolAdapterKey(== keccak256(user, collateral, borrowToken)) => poolAdapters
   mapping(uint => address[]) public poolAdapters;
 

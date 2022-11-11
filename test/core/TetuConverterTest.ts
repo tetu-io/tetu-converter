@@ -913,17 +913,20 @@ describe("TetuConverterTest", () => {
   });
 
   describe("borrow", () => {
+//region Test impl
     interface IMakeConversionUsingBorrowing {
       init: ISetupResults;
       receiver: string;
       borrowStatus: IBorrowStatus[];
     }
 
-    interface IMakeConversionUsingBorrowingBadParams {
+    interface IMakeConversionUsingBorrowingParams {
       zeroReceiver?: boolean;
       incorrectConverterAddress?: string;
       /* Allow to modify collateral amount that is sent to TetuConverter by the borrower. Default is 1e18 */
       transferAmountMultiplier18?: BigNumber;
+      /* Don't register pool adapters during initialization. The pool adapters will be registered inside TetuConverter*/
+      skipPreregistrationOfPoolAdapters?: boolean,
     }
 
     interface IMakeConversionUsingSwap {
@@ -944,27 +947,20 @@ describe("TetuConverterTest", () => {
     /**
      * Test for TetuConverter.borrow() using borrowing.
      * Both borrow converters are mocks with enabled log.
-     * @param collateralAmounts
-     * @param exactBorrowAmounts
-     * @param skipPreregistrationOfPoolAdapters
-     *    Don't register pool adapters during initialization.
-     *    The pool adapters will be registered inside TetuConverter
-     * @param badPathParams
      */
     async function makeConversionUsingBorrowing (
       collateralAmounts: number[],
       exactBorrowAmounts: number[] | undefined,
-      skipPreregistrationOfPoolAdapters: boolean = false,
-      badPathParams?: IMakeConversionUsingBorrowingBadParams
+      params?: IMakeConversionUsingBorrowingParams
     ) : Promise<IMakeConversionUsingBorrowing > {
-      const receiver = badPathParams?.zeroReceiver
+      const receiver = params?.zeroReceiver
         ? Misc.ZERO_ADDRESS
         : ethers.Wallet.createRandom().address;
 
       const init = await prepareTetuAppWithMultipleLendingPlatforms(
         collateralAmounts.length,
         {
-          skipPreregistrationOfPoolAdapters
+          skipPreregistrationOfPoolAdapters: params?.skipPreregistrationOfPoolAdapters
         }
       );
 
@@ -975,8 +971,8 @@ describe("TetuConverterTest", () => {
         BigNumber.from(100_000),
         exactBorrowAmounts,
         receiver,
-        badPathParams?.incorrectConverterAddress,
-        badPathParams?.transferAmountMultiplier18
+        params?.incorrectConverterAddress,
+        params?.transferAmountMultiplier18
       );
 
       return {
@@ -1034,6 +1030,7 @@ describe("TetuConverterTest", () => {
         outBorrowedAmount
       }
     }
+//endregion Test impl
 
     describe("Good paths", () => {
       describe("Convert using borrowing", () => {
@@ -1042,7 +1039,6 @@ describe("TetuConverterTest", () => {
           const r = await makeConversionUsingBorrowing (
             [100_000],
             [amountToBorrowNum],
-            false
           );
           const retBorrowedAmountOut = r.borrowStatus.reduce(
             (prev, cur) => prev = prev.add(cur.borrowedAmountOut),
@@ -1054,13 +1050,15 @@ describe("TetuConverterTest", () => {
         });
 
         describe("Pool adapter is not registered for the converter", () => {
-          it("should use exist pool adapter", async () => {
+          it("should register and use new pool adapter", async () => {
             const amountToBorrowNum = 100;
             const collateralAmount = 100_000;
             const r = await makeConversionUsingBorrowing (
               [collateralAmount],
               [amountToBorrowNum],
-              true // SKIP pre-registration of pool adapters
+              {
+                skipPreregistrationOfPoolAdapters: true
+              } // SKIP pre-registration of pool adapters
             );
 
             // r.init.poolAdapters is empty
@@ -1074,6 +1072,24 @@ describe("TetuConverterTest", () => {
 
             const ret = poolAdapterRegisteredInsideBorrowCall !== Misc.ZERO_ADDRESS;
             expect(ret).eq(true);
+          });
+        });
+
+        describe("Pool adapter is already registered for the converter", () => {
+          describe("Pool adapter is health and not dirty", () => {
+            it("should use exist pool adapter", async () => {
+              expect.fail("TODO");
+            });
+          });
+          describe("Pool adapter is unhealthy", () => {
+            it("should register and use new pool adapter", async () => {
+              expect.fail("TODO");
+            });
+          });
+          describe("Pool adapter is dirty (liquidation had happened)", () => {
+            it("should register and use new pool adapter", async () => {
+              expect.fail("TODO");
+            });
           });
         });
       });
@@ -1132,7 +1148,6 @@ describe("TetuConverterTest", () => {
               makeConversionUsingBorrowing(
                 [100_000],
                 [1_00],
-                false,
                 {
                   incorrectConverterAddress: Misc.ZERO_ADDRESS
                 }
@@ -1147,7 +1162,6 @@ describe("TetuConverterTest", () => {
               makeConversionUsingBorrowing(
                 [100_000],
                 [1_00],
-                false,
                 {
                   incorrectConverterAddress: manuallyCreatedConverter.address
                 }
@@ -1162,7 +1176,6 @@ describe("TetuConverterTest", () => {
               makeConversionUsingBorrowing(
                 [100_000],
                 [1_00],
-                false,
                 {
                   incorrectConverterAddress: converter.address
                 }
@@ -1196,7 +1209,6 @@ describe("TetuConverterTest", () => {
             makeConversionUsingBorrowing (
             [100_000],
             [100],
-            false,
               {
                 zeroReceiver: true
               }
@@ -1210,7 +1222,6 @@ describe("TetuConverterTest", () => {
             makeConversionUsingBorrowing (
               [100_000],
               [0], // (!)
-              false
             )
           ).revertedWith("TC-43"); // ZERO_AMOUNT
         });
@@ -1221,7 +1232,6 @@ describe("TetuConverterTest", () => {
             makeConversionUsingBorrowing (
               [0], // (!)
               [100],
-              false
             )
           ).revertedWith("TC-43"); // ZERO_AMOUNT
         });
@@ -1233,7 +1243,6 @@ describe("TetuConverterTest", () => {
             makeConversionUsingBorrowing(
               [100_000],
               [1_00],
-              false,
               {
                 transferAmountMultiplier18: Misc.WEI.div(2)
               }
@@ -1248,7 +1257,6 @@ describe("TetuConverterTest", () => {
           const r = await makeConversionUsingBorrowing(
             [collateralAmountNum],
             [1_00],
-            false,
             {
               transferAmountMultiplier18
             }

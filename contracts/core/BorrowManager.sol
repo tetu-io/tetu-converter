@@ -66,20 +66,21 @@ contract BorrowManager is IBorrowManager {
   /// @notice Key of pair asset => Asset pair
   mapping(uint => AssetPair) private _assetPairs;
 
+  /// @notice Default health factors (HF) for assets. Default HF is used if user hasn't provided HF value, decimals 2
+  /// @dev asset => Health factor (== collateral / minimum collateral. It should be greater then MIN_HEALTH_FACTOR)
+  mapping(address => uint16) public targetHealthFactorsForAssets;
+
   /// @notice Converter : platform adapter
   mapping(address => address) public converterToPlatformAdapter;
 
-  /// @notice Complete list ever created pool adapters
+  /// @notice List of pool adapters ready to borrow, i.e. with not-dirty state.
+  ///         Any pool adapter with state DIRTY is removed from this list as soon as its dirty-state is detected.
   /// @dev user => PoolAdapterKey(== keccak256(converter, collateral, borrowToken)) => address of the pool adapter
   mapping (address => EnumerableMap.UintToAddressMap) private _poolAdapters;
 
   /// @notice Pool adapter => is registered
+  /// @dev This list contains info for all ever created pool adapters (both for not-dirty and dirty ones).
   mapping (address => bool) poolAdaptersRegistered;
-
-  /// @notice Default health factors (HF) for assets. Default HF is used if user hasn't provided HF value, decimals 2
-  /// @dev Health factor = collateral / minimum collateral. It should be greater then MIN_HEALTH_FACTOR
-  mapping(address => uint16) public targetHealthFactorsForAssets;
-
 
   ///////////////////////////////////////////////////////
   ///               Initialization
@@ -326,15 +327,19 @@ contract BorrowManager is IBorrowManager {
     return dest;
   }
 
-  /// @notice Notify borrow manager that the pool adapter with the given params is unhealthy and should be replaced
-  /// @dev "Unhealthy" means that a liquidation happens. Borrow should be repaid or fixed in other way.
   function markPoolAdapterAsDirty(
     address converter_,
     address user_,
     address collateral_,
     address borrowToken_
   ) external override {
-    //TODO
+    uint key = getPoolAdapterKey(converter_, collateral_, borrowToken_);
+
+    (bool found, address poolAdapter) = _poolAdapters[user_].tryGet(key);
+    require(found, AppErrors.POOL_ADAPTER_NOT_FOUND);
+
+    // Dirty pool adapter is removed from _poolAdapters, so it will never be used for new borrows
+    _poolAdapters[user_].remove(key);
   }
 
   ///////////////////////////////////////////////////////
@@ -345,7 +350,6 @@ contract BorrowManager is IBorrowManager {
     return poolAdaptersRegistered[poolAdapter_];
   }
 
-  /// @notice Get pool adapter or 0 if the pool adapter is not registered
   function getPoolAdapter(
     address converter_,
     address user_,
