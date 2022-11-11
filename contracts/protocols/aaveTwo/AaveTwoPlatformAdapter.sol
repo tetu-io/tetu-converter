@@ -22,6 +22,7 @@ contract AaveTwoPlatformAdapter is IPlatformAdapter {
   using SafeERC20 for IERC20;
   using AaveTwoReserveConfiguration for DataTypes.ReserveConfigurationMap;
 
+  // todo immutable for all
   IController public controller;
   IAaveTwoPool public pool;
   IAaveTwoPriceOracle internal _priceOracle;
@@ -29,6 +30,7 @@ contract AaveTwoPlatformAdapter is IPlatformAdapter {
   /// @notice template-pool-adapter
   address public converter;
 
+  // todo constants first
   /// @notice https://docs.aave.com/developers/v/2.0/the-core-protocol/protocol-data-provider
   ///        Each market has a separate Protocol Data Provider.
   ///        To get the address for a particular market, call getAddress() using the value 0x1.
@@ -265,6 +267,7 @@ contract AaveTwoPlatformAdapter is IPlatformAdapter {
     address collateralAsset_,
     address borrowAsset_
   ) external override {
+    // todo restrictions?
     // All AAVE-pool-adapters support IPoolAdapterInitializer
     IPoolAdapterInitializer(poolAdapter_).initialize(
       address(controller),

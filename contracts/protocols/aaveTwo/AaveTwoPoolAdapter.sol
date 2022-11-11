@@ -25,6 +25,7 @@ contract AaveTwoPoolAdapter is IPoolAdapter, IPoolAdapterInitializer {
   /// @dev Sometime, we provide collateral=1000000000000000000000 and receive atokens=999999999999999999999
   uint constant public ATOKEN_MAX_DELTA = 10;
 
+  // todo constant?
   /// @notice 1 - stable, 2 - variable
   uint immutable public RATE_MODE = 2;
 
@@ -54,6 +55,7 @@ contract AaveTwoPoolAdapter is IPoolAdapter, IPoolAdapterInitializer {
     address borrowAsset_,
     address originConverter_
   ) override external {
+    // todo restrictions?
     require(
       controller_ != address(0)
       && user_ != address(0)
@@ -123,6 +125,7 @@ contract AaveTwoPoolAdapter is IPoolAdapter, IPoolAdapterInitializer {
     );
 
     // ensure that we have received required borrowed amount, send the amount to the receiver
+    // todo possible overflow
     require(
       borrowAmount_ == IERC20(assetBorrow).balanceOf(address(this)) - balanceBorrowAsset0,
       AppErrors.WRONG_BORROWED_BALANCE
@@ -153,6 +156,7 @@ contract AaveTwoPoolAdapter is IPoolAdapter, IPoolAdapterInitializer {
 
     // Supplies an `amount` of underlying asset into the reserve, receiving in return overlying aTokens.
     // E.g. User supplies 100 USDC and gets in return 100 aUSDC
+    // todo infinity approve
     IERC20(assetCollateral_).approve(address(pool_), collateralAmount_);
     pool_.deposit(
       assetCollateral_,
@@ -162,6 +166,7 @@ contract AaveTwoPoolAdapter is IPoolAdapter, IPoolAdapterInitializer {
     );
     pool_.setUserUseReserveAsCollateral(assetCollateral_, true);
 
+    // todo possible overflow
     uint aTokensAmount = IERC20(d.aTokenAddress).balanceOf(address(this)) - aTokensBalanceBeforeSupply;
     require(aTokensAmount + ATOKEN_MAX_DELTA >= collateralAmount_, AppErrors.WRONG_DERIVATIVE_TOKENS_BALANCE);
 
@@ -194,6 +199,7 @@ contract AaveTwoPoolAdapter is IPoolAdapter, IPoolAdapterInitializer {
 
     // ensure that we have received required borrowed amount, send the amount to the receiver
     // we assume here, that syncBalance(true) is called before the call of this function
+    // todo possible overflow
     require(
       borrowAmount_ == IERC20(assetBorrow).balanceOf(address(this)) - balanceBorrowAsset0,
       AppErrors.WRONG_BORROWED_BALANCE
@@ -218,6 +224,7 @@ contract AaveTwoPoolAdapter is IPoolAdapter, IPoolAdapterInitializer {
     address receiver_,
     bool closePosition_
   ) external override returns (uint) {
+    // todo reentrancy
     _onlyUserOrTC();
     address assetCollateral = collateralAsset;
     address assetBorrow = borrowAsset;
@@ -237,6 +244,7 @@ contract AaveTwoPoolAdapter is IPoolAdapter, IPoolAdapterInitializer {
     );
 
     // transfer borrow amount back to the pool
+    // todo infinity approve
     IERC20(assetBorrow).approve(address(pool), 0);
     IERC20(assetBorrow).approve(address(pool), amountToRepay_);
 
@@ -323,6 +331,7 @@ contract AaveTwoPoolAdapter is IPoolAdapter, IPoolAdapterInitializer {
   ) external override returns (
     uint resultHealthFactor18
   ) {
+    // todo reentrancy
     _onlyUserOrTC();
     address assetBorrow = borrowAsset;
     IAaveTwoPool pool = _pool;
@@ -341,6 +350,7 @@ contract AaveTwoPoolAdapter is IPoolAdapter, IPoolAdapterInitializer {
       IERC20(assetBorrow).safeTransferFrom(msg.sender, address(this), amount_);
 
       // transfer borrow amount back to the pool
+      // todo infinity approve
       IERC20(assetBorrow).safeApprove(address(pool), 0);
       IERC20(assetBorrow).safeApprove(address(pool), amount_);
 
@@ -434,6 +444,7 @@ contract AaveTwoPoolAdapter is IPoolAdapter, IPoolAdapterInitializer {
     address rewardToken,
     uint amount
   ) {
+    // todo TBD
     receiver_;
     return (rewardToken, amount);
   }

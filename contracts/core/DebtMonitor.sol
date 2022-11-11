@@ -66,6 +66,7 @@ contract DebtMonitor is IDebtMonitor {
     require(controller_ != address(0), AppErrors.ZERO_ADDRESS);
 
     controller = IController(controller_);
+    //todo check restrictions
     thresholdAPR = thresholdAPR_;
     thresholdCountBlocks = thresholdCountBlocks_;
   }
@@ -74,11 +75,14 @@ contract DebtMonitor is IDebtMonitor {
     _onlyGovernance();
     require(value100_ < 100, AppErrors.INCORRECT_VALUE);
     thresholdAPR = value100_;
+    // todo event
   }
 
   function setThresholdCountBlocks(uint countBlocks_) external {
     _onlyGovernance();
+    // todo restriction for amount
     thresholdCountBlocks = countBlocks_;
+    // todo event
   }
 
   ///////////////////////////////////////////////////////
@@ -122,6 +126,7 @@ contract DebtMonitor is IDebtMonitor {
 
   /// @dev This function is called from a pool adapter when the borrow is completely repaid
   function onClosePosition() external override {
+    // todo restrictions?
     require(positionLastAccess[msg.sender] != 0, AppErrors.BORROW_POSITION_IS_NOT_REGISTERED);
 
     (uint collateralAmount, uint amountToPay,,,) = IPoolAdapter(msg.sender).getStatus();
@@ -143,6 +148,7 @@ contract DebtMonitor is IDebtMonitor {
 
   /// @notice Check if the pool-adapter-caller has an opened position
   function isPositionOpened() external override view returns (bool) {
+    // todo you don not need restrictions for view function
     _onlyPoolAdapter();
 
     return positionLastAccess[msg.sender] != 0;
@@ -162,6 +168,7 @@ contract DebtMonitor is IDebtMonitor {
     uint[] memory outAmountBorrowAsset,
     uint[] memory outAmountCollateralAsset
   ) {
+    // todo controller already with interface
     uint16 minHealthFactor2 = IController(controller).minHealthFactor2();
 
     return _checkHealthFactor(
@@ -203,6 +210,7 @@ contract DebtMonitor is IDebtMonitor {
       if (collateralAmountLiquidated == 0) {
         // check if we need to make reconversion because the health factor is too low/high
       (,,, address borrowAsset) = pa.getConfig();
+        // todo move borrow manager to var outside loop, function not necessary (only 1 usage)
         uint healthFactorTarget18 = uint(_borrowManager().getTargetHealthFactor2(borrowAsset)) * 10**(18-2);
 
         if (

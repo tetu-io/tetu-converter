@@ -22,6 +22,7 @@ contract Aave3PlatformAdapter is IPlatformAdapter {
   using SafeERC20 for IERC20;
   using Aave3ReserveConfiguration for Aave3DataTypes.ReserveConfigurationMap;
 
+  // todo immutable for all
   IController public controller;
   IAavePool public pool;
   IAavePriceOracle internal _priceOracle;
@@ -29,6 +30,7 @@ contract Aave3PlatformAdapter is IPlatformAdapter {
   /// @notice Full list of supported template-pool-adapters
   address[] private _converters;
 
+  // todo place constant on top
   /// @notice Index of template pool adapter in {templatePoolAdapters} that should be used in normal borrowing mode
   uint constant public INDEX_NORMAL_MODE = 0;
   /// @notice Index of template pool adapter in {templatePoolAdapters} that should be used in E-mode of borrowing
@@ -74,6 +76,7 @@ contract Aave3PlatformAdapter is IPlatformAdapter {
 
     controller = IController(controller_);
 
+    // todo better and clear use immutable vars, no?
     _converters.push(templateAdapterNormal_); // add first, INDEX_NORMAL_MODE = 0
     _converters.push(templateAdapterEMode_); // add second, INDEX_E_MODE = 1
   }
@@ -89,7 +92,7 @@ contract Aave3PlatformAdapter is IPlatformAdapter {
   /// @notice Returns the prices of the supported assets in BASE_CURRENCY of the market. Decimals 18
   /// @dev Different markets can have different BASE_CURRENCY
   function getAssetsPrices(address[] calldata assets) external view override returns (uint[] memory prices18) {
-    //TODO: the prices are in BASE_CURRENCY_UNIT = 100000000, we need to recalculate them to 1e18
+    //TODO: the prices are in BASE_CURRENCY_UNIT = 100000000, we need to recalculate them to 1e18 -sooo, recalculate?
     return _priceOracle.getAssetsPrices(assets);
   }
 
@@ -326,6 +329,7 @@ contract Aave3PlatformAdapter is IPlatformAdapter {
   ///         Initialization of pool adapters
   ///////////////////////////////////////////////////////
 
+  // todo place init func on top of file
   function initializePoolAdapter(
     address converter_,
     address poolAdapter_,
@@ -333,6 +337,7 @@ contract Aave3PlatformAdapter is IPlatformAdapter {
     address collateralAsset_,
     address borrowAsset_
   ) external override {
+    // todo restrictions?
     // All AAVE-pool-adapters support IPoolAdapterInitializer
     IPoolAdapterInitializer(poolAdapter_).initialize(
       address(controller),

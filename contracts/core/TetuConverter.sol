@@ -56,6 +56,7 @@ contract TetuConverter is ITetuConverter, IKeeperCallback {
   ///       Find best strategy for conversion
   ///////////////////////////////////////////////////////
 
+  // todo docs
   function findConversionStrategy(
     address sourceToken_,
     uint sourceAmount_,
@@ -96,6 +97,7 @@ contract TetuConverter is ITetuConverter, IKeeperCallback {
       periodInBlocks: periodInBlocks_
     });
 
+    // todo need a comment why we not use SWAP mode
     if (conversionMode == ITetuConverter.ConversionMode.BORROW_1) {
       // find best lending platform
       return _borrowManager().findConverter(params);
@@ -129,6 +131,7 @@ contract TetuConverter is ITetuConverter, IKeeperCallback {
   ///       Make conversion, open position
   ///////////////////////////////////////////////////////
 
+  // todo docs
   function borrow(
     address converter_,
     address collateralAsset_,
@@ -139,6 +142,7 @@ contract TetuConverter is ITetuConverter, IKeeperCallback {
   ) external override returns (
     uint borrowedAmountOut
   ) {
+    // todo all open function should have reentrancy check
     return _convert(
       converter_,
       collateralAsset_,
@@ -173,7 +177,7 @@ contract TetuConverter is ITetuConverter, IKeeperCallback {
       if (poolAdapter != address(0)) {
         (,, uint healthFactor18,, uint collateralAmountLiquidated) = IPoolAdapter(poolAdapter).getStatus();
         if (collateralAmountLiquidated != 0
-            || healthFactor18 < (uint(controller.minHealthFactor2()) * 10**(18-2)) //TODO: do weed need this check?
+            || healthFactor18 < (uint(controller.minHealthFactor2()) * 10**(18-2)) //TODO: do weed need this check? -looks like not, if position exist why not to extend it? if it is unhealthy - remove position
         ) {
           // the pool adapter is unhealthy, we should mark it as dirty and create new pool adapter for the borrow
           _borrowManager().markPoolAdapterAsDirty(converter_, msg.sender, collateralAsset_, borrowAsset_);
@@ -191,6 +195,8 @@ contract TetuConverter is ITetuConverter, IKeeperCallback {
         );
       }
 
+      // todo you do not need refresh approve if you use the all
+      // todo and you can use infinity approve - this contract not suppose to hold any assets, make approve only if needed
       IERC20(collateralAsset_).safeApprove(poolAdapter, 0);
       IERC20(collateralAsset_).safeApprove(poolAdapter, collateralAmount_);
 
@@ -216,6 +222,7 @@ contract TetuConverter is ITetuConverter, IKeeperCallback {
   ///       Make repay, close position
   ///////////////////////////////////////////////////////
 
+  // todo docs
   function repay(
     address collateralAsset_,
     address borrowAsset_,
@@ -225,6 +232,7 @@ contract TetuConverter is ITetuConverter, IKeeperCallback {
     uint collateralAmountOut,
     uint returnedBorrowAmountOut
   ) {
+    // todo all open function should have reentrancy check
     require(receiver_ != address(0), AppErrors.ZERO_ADDRESS);
 
     // ensure that we have received required amount
@@ -256,6 +264,8 @@ contract TetuConverter is ITetuConverter, IKeeperCallback {
         ? totalDebtForPoolAdapter
         : amountToPay;
 
+      // todo you do not need refresh approve if you use the all
+      // todo and you can use infinity approve - this contract not suppose to hold any assets, make approve only if needed
       // send amount to pool adapter
       IERC20(borrowAsset_).safeApprove(address(pa), 0);
       IERC20(borrowAsset_).safeApprove(address(pa), amountToPayToPoolAdapter);
@@ -306,6 +316,7 @@ contract TetuConverter is ITetuConverter, IKeeperCallback {
   ///       IKeeperCallback
   ///////////////////////////////////////////////////////
 
+  // todo docs
   function requireRepay(
     uint requiredAmountBorrowAsset_,
     uint requiredAmountCollateralAsset_,
@@ -340,14 +351,19 @@ contract TetuConverter is ITetuConverter, IKeeperCallback {
         IERC20(collateralAsset).balanceOf(address(this)) - balanceCollateralAsset == requiredAmountCollateralAsset_,
         AppErrors.WRONG_AMOUNT_RECEIVED
       );
+      // todo you do not need refresh approve if you use the all
+      // todo and you can use infinity approve - this contract not suppose to hold any assets, make approve only if needed
       IERC20(collateralAsset).safeApprove(poolAdapter_, 0);
       IERC20(collateralAsset).safeApprove(poolAdapter_, requiredAmountCollateralAsset_);
     } else {
+      // todo IERC20(borrowAsset).balanceOf(address(this)) - balanceBorrowedAsset can throw overflow
       // the borrower has sent us the amount of borrow asset
       require(
         IERC20(borrowAsset).balanceOf(address(this)) - balanceBorrowedAsset == requiredAmountBorrowAsset_,
         AppErrors.WRONG_AMOUNT_RECEIVED
       );
+      // todo you do not need refresh approve if you use the all
+      // todo and you can use infinity approve - this contract not suppose to hold any assets, make approve only if needed
       IERC20(borrowAsset).safeApprove(poolAdapter_, 0);
       IERC20(borrowAsset).safeApprove(poolAdapter_, requiredAmountBorrowAsset_);
     }
@@ -370,10 +386,12 @@ contract TetuConverter is ITetuConverter, IKeeperCallback {
     // let's allow small difference < 1/10 * (target health factor - min health factor)
     uint targetHealthFactor18 = uint(_borrowManager().getTargetHealthFactor2(borrowAsset_)) * 10**(18-2);
     uint minHealthFactor18 = uint(controller.minHealthFactor2()) * 10**(18-2);
+    // todo can throw overflow
     uint delta = (targetHealthFactor18 - minHealthFactor18) / ADDITIONAL_BORROW_DELTA_DENOMINATOR;
 
     require(
       resultHealthFactor18_ + delta > targetHealthFactor18
+      // todo can throw overflow
       && resultHealthFactor18_ - delta < targetHealthFactor18,
       AppErrors.WRONG_REBALANCING
     );
@@ -392,6 +410,7 @@ contract TetuConverter is ITetuConverter, IKeeperCallback {
     uint totalDebtAmountOut,
     uint totalCollateralAmountOut
   ) {
+    // todo all open function should have reentrancy check
     address[] memory poolAdapters = _debtMonitor().getPositions(
       msg.sender,
       collateralAsset_,
@@ -410,6 +429,7 @@ contract TetuConverter is ITetuConverter, IKeeperCallback {
     return (totalDebtAmountOut, totalCollateralAmountOut);
   }
 
+  // todo docs
   function getDebtAmountStored(
     address collateralAsset_,
     address borrowAsset_
@@ -479,6 +499,7 @@ contract TetuConverter is ITetuConverter, IKeeperCallback {
     address[] memory rewardTokensOut,
     uint[] memory amountsOut
   ) {
+    // todo all open function should have reentrancy check
     address[] memory poolAdapters = _debtMonitor().getPositionsForUser(msg.sender);
     uint lenPoolAdapters = poolAdapters.length;
 
@@ -514,7 +535,7 @@ contract TetuConverter is ITetuConverter, IKeeperCallback {
   }
 
   ///////////////////////////////////////////////////////
-  ///       Inline functions
+  ///       Inline functions //todo check where better to use local vars
   ///////////////////////////////////////////////////////
   function _borrowManager() internal view returns (IBorrowManager) {
     return IBorrowManager(controller.borrowManager());

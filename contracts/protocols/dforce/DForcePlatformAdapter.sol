@@ -32,6 +32,7 @@ contract DForcePlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
     uint priceBorrow36;
   }
 
+  // todo immutable for all
   IController public controller;
   IDForceController public comptroller;
 
@@ -64,6 +65,7 @@ contract DForcePlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
     _setupCTokens(activeCTokens_, true);
   }
 
+  // todo why you suppose it will be changed?
   function setupCTokens(address[] memory cTokens_, bool makeActive_) external {
     _onlyGovernance();
     _setupCTokens(cTokens_, makeActive_);

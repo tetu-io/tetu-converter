@@ -196,6 +196,7 @@ library DForceAprLib {
     IDForceCToken cTokenBorrow_,
     uint amountToBorrow_
   ) internal view returns (uint) {
+    // todo overflow
     return interestRateModel_.getBorrowRate(
       cTokenBorrow_.getCash() - amountToBorrow_,
       cTokenBorrow_.totalBorrows() + amountToBorrow_,
@@ -252,6 +253,7 @@ library DForceAprLib {
       totalReserves_
     );
 
+    // todo overflow
     return tmul(
       borrowRatePerBlock,
       1e18 - reserveRatio_,
@@ -342,6 +344,7 @@ library DForceAprLib {
       totalSupply_
     );
 
+    // todo overflow
     return getRewardAmount(
       supplyAmount_,
       nextStateIndex,
@@ -426,6 +429,7 @@ library DForceAprLib {
     borrowIndex += rmul(simpleInterestFactor, borrowIndex);
     totalTokens = rdiv(p_.totalBorrows, borrowIndex);
 
+    // todo overflow
     return getRewardAmount(
       rdiv(divup(p_.amountToBorrow * borrowIndex, userInterest), borrowIndex),
       stateIndex,
@@ -477,6 +481,7 @@ library DForceAprLib {
     uint totalDistributed = distributionSpeed_ * countBlocks_;
     uint dt = rdiv(totalDistributed, totalToken_);
     uint ti = stateIndex_ + dt;
+    // todo overflow
     return rmul(accountBalance_, ti - accountIndex_);
   }
 

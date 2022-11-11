@@ -2,7 +2,7 @@
 pragma solidity 0.8.4;
 
 import "../interfaces/ITetuLiquidator.sol";
-import "../integrations/IERC20Extended.sol"; // TODO move to interfaces?
+import "../integrations/IERC20Extended.sol"; // TODO move to interfaces? use openzappelin.IERC20Metadata
 import "../openzeppelin/IERC20.sol";
 import "../openzeppelin/SafeERC20.sol";
 import "../interfaces/ISwapManager.sol";
@@ -27,7 +27,7 @@ contract SwapManager is ISwapManager, ISwapConverter {
   uint public constant SLIPPAGE_TOLERANCE = SLIPPAGE_NUMERATOR * 1 / 100; // 1 %
 
   uint public constant PRICE_IMPACT_NUMERATOR = 100_000;
-  uint public constant PRICE_IMPACT_TOLERANCE = PRICE_IMPACT_NUMERATOR * 2 / 100; // 5%
+  uint public constant PRICE_IMPACT_TOLERANCE = PRICE_IMPACT_NUMERATOR * 2 / 100; // 5% todo wrong!
 
   int public constant APR_NUMERATOR = 10**18;
 
@@ -47,6 +47,7 @@ contract SwapManager is ISwapManager, ISwapConverter {
   ///           Return best amount for swap
   ///////////////////////////////////////////////////////
 
+  // todo docs
   function getConverter(AppDataTypes.InputConversionParams memory p_)
   external view override returns (
     address converter,
@@ -67,6 +68,7 @@ contract SwapManager is ISwapManager, ISwapConverter {
       : address(this);
 
     int loss = int(p_.sourceAmount) - int(returnAmount);
+    // todo remove
     //console.log("loss");
     //console.logInt(loss);
     apr18 = loss * APR_NUMERATOR / int(p_.sourceAmount);
@@ -81,6 +83,7 @@ contract SwapManager is ISwapManager, ISwapConverter {
     return AppDataTypes.ConversionKind.SWAP_1;
   }
 
+  // todo docs
   function swap(
     address sourceToken_,
     uint sourceAmount_,
@@ -106,6 +109,7 @@ contract SwapManager is ISwapManager, ISwapConverter {
     require(slippage <= SLIPPAGE_TOLERANCE, AppErrors.SLIPPAGE_TOO_BIG);
 
     IERC20(targetToken_).safeTransfer(receiver_, outputAmount);
+    // todo event
   }
 
 }
