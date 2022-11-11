@@ -80,7 +80,7 @@ contract BorrowManager is IBorrowManager {
 
   /// @notice Pool adapter => is registered
   /// @dev This list contains info for all ever created pool adapters (both for not-dirty and dirty ones).
-  mapping (address => bool) poolAdaptersRegistered;
+  mapping (address => bool) public poolAdaptersRegistered;
 
   ///////////////////////////////////////////////////////
   ///               Initialization

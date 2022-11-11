@@ -198,6 +198,7 @@ contract PoolAdapterMock is IPoolAdapter {
     uint borrowAmount_,
     address receiver_
   ) external override returns (uint) {
+    console.log("PoolAdapterMock.borrow");
     borrowParamsLog = BorrowParamsLog({
       collateralAmount: collateralAmount_,
       borrowAmount: borrowAmount_,
@@ -205,9 +206,10 @@ contract PoolAdapterMock is IPoolAdapter {
     });
 
     IERC20(_collateralAsset).safeTransferFrom(msg.sender, address(this), collateralAmount_);
-
+    console.log("PoolAdapterMock.borrow.1");
     // send the collateral to the pool
     IERC20(_collateralAsset).transfer(_pool, collateralAmount_);
+    console.log("PoolAdapterMock.borrow.2");
 
     // mint ctokens and keep them on our balance
     uint amountCTokens = collateralAmount_; //TODO: exchange rate 1:1, it's not always true

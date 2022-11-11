@@ -18,7 +18,12 @@ import {
   PoolAdapterMock,
   ITetuConverter__factory,
   TetuConverter__factory,
-  TetuLiquidatorMock__factory, SwapManagerMock, ConverterUnknownKind, DebtMonitorMock, Controller
+  TetuLiquidatorMock__factory,
+  SwapManagerMock,
+  ConverterUnknownKind,
+  DebtMonitorMock,
+  Controller,
+  PoolAdapterStub__factory, IPoolAdapter
 } from "../../typechain";
 import {
   IBorrowInputParams,
@@ -35,6 +40,11 @@ import {Misc} from "../../scripts/utils/Misc";
 import {IPoolAdapterStatus} from "../baseUT/types/BorrowRepayDataTypes";
 import {getExpectedApr18} from "../baseUT/apr/aprUtils";
 import {CoreContractsHelper} from "../baseUT/helpers/CoreContractsHelper";
+import {parseUnits} from "ethers/lib/utils";
+import {controlGasLimitsEx} from "../../scripts/utils/hardhatUtils";
+import {
+  GAS_FIND_CONVERSION_STRATEGY_ONLY_BORROW_AVAILABLE,
+} from "../baseUT/GasLimit";
 
 describe("TetuConverterTest", () => {
 //region Constants
@@ -111,17 +121,25 @@ describe("TetuConverterTest", () => {
 
   /**
    * Deploy BorrowerMock. Create TetuConverter-app and pre-register all pool adapters (implemented by PoolAdapterMock).
+   * @param tt
+   * @param tetuAppSetupParams
+   * @param usePoolAdapterStub
+   *      true: use PoolAdapterStub to implement pool adapters
+   *      false: use PoolAdapterMock to implement pool adapters.
    */
   async function prepareContracts(
     tt: IBorrowInputParams,
-    tetuAppSetupParams?: IPrepareContractsSetupParams
+    tetuAppSetupParams?: IPrepareContractsSetupParams,
+    usePoolAdapterStub: boolean = false
   ) : Promise<IPrepareResults>{
     const periodInBlocks = 117;
 
     const {core, sourceToken, targetToken, pools} = await BorrowManagerHelper.initAppPoolsWithTwoAssets(
       deployer,
       tt,
-      async () => (await MocksHelper.createPoolAdapterMock(deployer)).address,
+      async () => usePoolAdapterStub
+        ? (await MocksHelper.createPoolAdapterStub(deployer, parseUnits("0.5"))).address
+        : (await MocksHelper.createPoolAdapterMock(deployer)).address,
       tetuAppSetupParams
     );
     const userContract = await MocksHelper.deployBorrower(deployer.address, core.controller, periodInBlocks);
@@ -151,7 +169,7 @@ describe("TetuConverterTest", () => {
           targetToken.address
         );
         poolAdapters.push(poolAdapter);
-        console.log("poolAdapter-mock is configured:", poolAdapter, targetToken.address);
+        console.log("poolAdapter is configured:", poolAdapter, targetToken.address);
       }
     }
 
@@ -169,7 +187,8 @@ describe("TetuConverterTest", () => {
   /** prepareContracts with sample assets settings and huge amounts of collateral and borrow assets */
   async function prepareTetuAppWithMultipleLendingPlatforms(
     countPlatforms: number,
-    tetuAppSetupParams?: IPrepareContractsSetupParams
+    tetuAppSetupParams?: IPrepareContractsSetupParams,
+    usePoolAdapterStub: boolean = false
   ) : Promise<ISetupResults> {
     const targetDecimals = 6;
     const sourceDecimals = 17;
@@ -192,7 +211,7 @@ describe("TetuConverterTest", () => {
     const initialCollateralAmount = getBigNumberFrom(sourceAmountNumber, sourceDecimals);
     const availableBorrowLiquidityPerPool = getBigNumberFrom(availableBorrowLiquidityNumber, targetDecimals);
 
-    const r = await prepareContracts(tt, tetuAppSetupParams);
+    const r = await prepareContracts(tt, tetuAppSetupParams, usePoolAdapterStub);
 
     // put a lot of collateral asset on user's balance
     await MockERC20__factory.connect(r.sourceToken.address, deployer).mint(
@@ -223,11 +242,14 @@ describe("TetuConverterTest", () => {
 
 //region Prepare borrows
   interface IBorrowStatus {
-    poolAdapter: PoolAdapterMock;
-    collateralAmount: BigNumber;
-    amountToPay: BigNumber;
-    healthFactor18: BigNumber;
+    poolAdapter?: IPoolAdapter;
+    status?: IPoolAdapterStatus;
+    conversionResult: IConversionResults;
+  }
+
+  interface IConversionResults {
     borrowedAmountOut: BigNumber;
+    gas: BigNumber;
   }
 
   async function callBorrowerBorrow(
@@ -237,66 +259,48 @@ describe("TetuConverterTest", () => {
     collateralAmount: BigNumber,
     badPathParamManualConverter?: string,
     badPathTransferAmountMultiplier18?: BigNumber
-  ) : Promise<BigNumber> {
+  ) : Promise<IConversionResults> {
+    const amountToBorrow = exactBorrowAmount
+      ? getBigNumberFrom(exactBorrowAmount, await pp.targetToken.decimals())
+      : 0;
+    const borrowAmountReceiver = receiver || pp.userContract.address;
+    const uc = pp.userContract;
+    const sourceToken = pp.sourceToken.address;
+    const targetToken = pp.targetToken.address;
+
     const borrowedAmountOut: BigNumber = exactBorrowAmount === undefined
-      ? await pp.userContract.callStatic.borrowMaxAmount(
-          pp.sourceToken.address,
-          collateralAmount,
-          pp.targetToken.address,
-          receiver || pp.userContract.address
-        )
+      ? await uc.callStatic.borrowMaxAmount(sourceToken, collateralAmount, targetToken, borrowAmountReceiver)
       : badPathParamManualConverter === undefined
-        ? await pp.userContract.callStatic.borrowExactAmount(
-            pp.sourceToken.address,
-            collateralAmount,
-            pp.targetToken.address,
-            receiver || pp.userContract.address,
-            getBigNumberFrom(exactBorrowAmount, await pp.targetToken.decimals())
-          )
-        : await pp.userContract.callStatic.borrowExactAmountBadPaths(
-          pp.sourceToken.address,
-          collateralAmount,
-          pp.targetToken.address,
-          receiver || pp.userContract.address,
-          getBigNumberFrom(exactBorrowAmount, await pp.targetToken.decimals()),
+        ? await uc.callStatic.borrowExactAmount(sourceToken, collateralAmount, targetToken, borrowAmountReceiver, amountToBorrow)
+        : await uc.callStatic.borrowExactAmountBadPaths(sourceToken, collateralAmount, targetToken, borrowAmountReceiver, amountToBorrow,
           badPathParamManualConverter,
           badPathTransferAmountMultiplier18 || Misc.WEI
         );
 
+    const gas: BigNumber = exactBorrowAmount === undefined
+      ? await uc.estimateGas.borrowMaxAmount(sourceToken, collateralAmount, targetToken, borrowAmountReceiver)
+      : badPathParamManualConverter === undefined
+        ? await uc.estimateGas.borrowExactAmount(sourceToken, collateralAmount, targetToken, borrowAmountReceiver, amountToBorrow)
+        : await uc.estimateGas.borrowExactAmountBadPaths(sourceToken, collateralAmount, targetToken, borrowAmountReceiver, amountToBorrow,
+          badPathParamManualConverter,
+          badPathTransferAmountMultiplier18 || Misc.WEI
+        );
 
-    // ask TetuConverter to make a borrow
-    // the pool adapter with best borrow rate will be selected
+    // ask TetuConverter to make a borrow, the pool adapter with best borrow rate will be selected
     if (exactBorrowAmount === undefined) {
-      await pp.userContract.borrowMaxAmount(
-        pp.sourceToken.address,
-        collateralAmount,
-        pp.targetToken.address,
-        receiver || pp.userContract.address
-      );
+      await uc.borrowMaxAmount(sourceToken, collateralAmount, targetToken, borrowAmountReceiver);
     } else {
       if (badPathParamManualConverter === undefined) {
-        await pp.userContract.borrowExactAmount(
-          pp.sourceToken.address,
-          collateralAmount,
-          pp.targetToken.address,
-          receiver || pp.userContract.address,
-          getBigNumberFrom(exactBorrowAmount, await pp.targetToken.decimals())
-        );
+        await uc.borrowExactAmount(sourceToken, collateralAmount, targetToken, borrowAmountReceiver, amountToBorrow);
       } else {
-        await pp.userContract.borrowExactAmountBadPaths(
-          pp.sourceToken.address,
-          collateralAmount,
-          pp.targetToken.address,
-          receiver || pp.userContract.address,
-          getBigNumberFrom(exactBorrowAmount, await pp.targetToken.decimals()),
+        await uc.borrowExactAmountBadPaths(sourceToken, collateralAmount, targetToken, borrowAmountReceiver, amountToBorrow,
           badPathParamManualConverter,
           badPathTransferAmountMultiplier18 || Misc.WEI
         );
-
       }
     }
 
-    return borrowedAmountOut;
+    return {borrowedAmountOut, gas};
   }
 
   /**
@@ -324,12 +328,13 @@ describe("TetuConverterTest", () => {
     const sourceTokenDecimals = await pp.sourceToken.decimals();
 
     // let's remember all exactBorrowAmounts for each adapter
-    const borrowedAmountOuts: BigNumber[] = [];
+    const borrowResults: IConversionResults[] = [];
+    const poolAdaptersPreregistered = pp.poolInstances.length === pp.poolAdapters.length;
 
     // enumerate converters and make a borrow using each one
     for (let i = 0; i < pp.poolInstances.length; ++i) {
       const collateralAmount = getBigNumberFrom(collateralAmounts[i], sourceTokenDecimals);
-      if (pp.poolInstances.length === pp.poolAdapters.length) {
+      if (pp.poolInstances.length > 1 && poolAdaptersPreregistered) {
         // The pool adapters are pre-initialized
         // set best borrow rate to the selected pool adapter
         // set ordinal borrow rate to others
@@ -349,7 +354,7 @@ describe("TetuConverterTest", () => {
       }
 
       // emulate on-chain call to get borrowedAmountOut
-      const borrowedAmountOut = await callBorrowerBorrow(
+      const borrowResult = await callBorrowerBorrow(
         pp,
         receiver || pp.userContract.address,
         exactBorrowAmounts ? exactBorrowAmounts[i] : undefined,
@@ -359,21 +364,23 @@ describe("TetuConverterTest", () => {
           : badPathParamManualConverter,
         transferAmountMultiplier18
       );
-      borrowedAmountOuts.push(borrowedAmountOut)
+      borrowResults.push(borrowResult)
     }
 
     // get final pool adapter statuses
-    for (let i = 0; i < pp.poolAdapters.length; ++i) {
+    for (let i = 0; i < pp.poolInstances.length; ++i) {
       // check the borrow status
-      const selectedPoolAdapter = PoolAdapterMock__factory.connect(pp.poolAdapters[i], deployer);
-      const status = await selectedPoolAdapter.getStatus();
+      const poolAdapter = poolAdaptersPreregistered
+        ? IPoolAdapter__factory.connect(pp.poolAdapters[i], deployer)
+        : undefined;
+      const status = poolAdaptersPreregistered
+        ? await poolAdapter?.getStatus()
+        : undefined;
 
       dest.push({
-        collateralAmount: status.collateralAmount,
-        amountToPay: status.amountToPay,
-        poolAdapter: selectedPoolAdapter,
-        healthFactor18: status.healthFactor18,
-        borrowedAmountOut: borrowedAmountOuts[i]
+        status,
+        poolAdapter,
+        conversionResult: borrowResults[i]
       });
     }
 
@@ -508,6 +515,7 @@ describe("TetuConverterTest", () => {
     results: IFindConversionStrategyResults;
     /* Converter of the lending pool adapter */
     poolAdapterConverter: string;
+    gas: BigNumber;
   }
 
 
@@ -597,6 +605,7 @@ describe("TetuConverterTest", () => {
 
 //region Unit tests
   describe("findBestConversionStrategy", () => {
+//region Test impl
     interface IFindConversionStrategyBadParams {
       zeroSourceAmount?: boolean;
       zeroPeriod?: boolean;
@@ -633,7 +642,14 @@ describe("TetuConverterTest", () => {
         ).changeBorrowRate(init.targetToken.address, borrowRateNum);
       }
 
-      const results: IFindConversionStrategyResults = await init.core.tc.findConversionStrategy(
+      const gas = await init.core.tc.estimateGas.findConversionStrategy(
+        init.sourceToken.address,
+        getBigNumberFrom(sourceAmount, await init.sourceToken.decimals()),
+        init.targetToken.address,
+        periodInBlocks,
+        conversionMode
+      );
+      const results = await init.core.tc.findConversionStrategy(
         init.sourceToken.address,
         getBigNumberFrom(sourceAmount, await init.sourceToken.decimals()),
         init.targetToken.address,
@@ -642,16 +658,14 @@ describe("TetuConverterTest", () => {
       );
 
       const poolAdapterConverter = init.poolAdapters.length
-        ? (await PoolAdapterMock__factory.connect(
-          init.poolAdapters[0],
-          deployer
-        ).getConfig()).origin
+        ? (await PoolAdapterMock__factory.connect(init.poolAdapters[0], deployer).getConfig()).origin
         : Misc.ZERO_ADDRESS;
 
       return {
         init,
         results,
-        poolAdapterConverter
+        poolAdapterConverter,
+        gas
       }
     }
 
@@ -704,6 +718,7 @@ describe("TetuConverterTest", () => {
         expectedBorrowing
       }
     }
+//endregion Test impl
 
     describe("Good paths", () => {
       describe("Check output converter value", () => {
@@ -726,6 +741,12 @@ describe("TetuConverterTest", () => {
                 r.poolAdapterConverter
               ].join();
               expect(ret).eq(expected);
+            });
+            it("Gas estimation @skip-on-coverage", async () => {
+              const r = await makeFindConversionStrategyTest(CONVERSION_MODE_AUTO, true, false);
+              controlGasLimitsEx(r.gas, GAS_FIND_CONVERSION_STRATEGY_ONLY_BORROW_AVAILABLE, (u, t) => {
+                expect(u).to.be.below(t);
+              });
             });
           });
           describe("Only swap is available", () => {
@@ -914,7 +935,7 @@ describe("TetuConverterTest", () => {
 
   describe("borrow", () => {
 //region Test impl
-    interface IMakeConversionUsingBorrowing {
+    interface IMakeConversionUsingBorrowingResults {
       init: ISetupResults;
       receiver: string;
       borrowStatus: IBorrowStatus[];
@@ -926,14 +947,16 @@ describe("TetuConverterTest", () => {
       /* Allow to modify collateral amount that is sent to TetuConverter by the borrower. Default is 1e18 */
       transferAmountMultiplier18?: BigNumber;
       /* Don't register pool adapters during initialization. The pool adapters will be registered inside TetuConverter*/
-      skipPreregistrationOfPoolAdapters?: boolean,
+      skipPreregistrationOfPoolAdapters?: boolean;
+      usePoolAdapterStub?: boolean;
+      setPoolAdaptersStatus?: IPoolAdapterStatus
     }
 
     interface IMakeConversionUsingSwap {
       init: ISetupResults;
       receiver: string;
       swapManagerMock: SwapManagerMock;
-      outBorrowedAmount: BigNumber;
+      conversionResult: IConversionResults;
     }
 
     interface ISwapManagerMockParams {
@@ -952,7 +975,7 @@ describe("TetuConverterTest", () => {
       collateralAmounts: number[],
       exactBorrowAmounts: number[] | undefined,
       params?: IMakeConversionUsingBorrowingParams
-    ) : Promise<IMakeConversionUsingBorrowing > {
+    ) : Promise<IMakeConversionUsingBorrowingResults > {
       const receiver = params?.zeroReceiver
         ? Misc.ZERO_ADDRESS
         : ethers.Wallet.createRandom().address;
@@ -961,8 +984,21 @@ describe("TetuConverterTest", () => {
         collateralAmounts.length,
         {
           skipPreregistrationOfPoolAdapters: params?.skipPreregistrationOfPoolAdapters
-        }
+        },
+        params?.usePoolAdapterStub
       );
+
+      if (params?.setPoolAdaptersStatus && params?.usePoolAdapterStub) {
+        for (const poolAdapter of init.poolAdapters) {
+          await PoolAdapterStub__factory.connect(poolAdapter, deployer).setManualStatus(
+            params?.setPoolAdaptersStatus.collateralAmount,
+            params?.setPoolAdaptersStatus.amountToPay,
+            params?.setPoolAdaptersStatus.healthFactor18,
+            params?.setPoolAdaptersStatus.opened,
+            params?.setPoolAdaptersStatus.collateralAmountLiquidated
+          )
+        }
+      }
 
       const borrowStatus = await makeBorrow(
         init,
@@ -1016,7 +1052,7 @@ describe("TetuConverterTest", () => {
         swapManagerMockParams.apr18
       );
 
-      const outBorrowedAmount = await callBorrowerBorrow(
+      const conversionResult = await callBorrowerBorrow(
         init,
         receiver,
         exactBorrowAmountNum,
@@ -1027,7 +1063,7 @@ describe("TetuConverterTest", () => {
         init,
         receiver,
         swapManagerMock,
-        outBorrowedAmount
+        conversionResult
       }
     }
 //endregion Test impl
@@ -1036,12 +1072,9 @@ describe("TetuConverterTest", () => {
       describe("Convert using borrowing", () => {
         it("should return expected borrowedAmountOut", async () => {
           const amountToBorrowNum = 100;
-          const r = await makeConversionUsingBorrowing (
-            [100_000],
-            [amountToBorrowNum],
-          );
+          const r = await makeConversionUsingBorrowing([100_000], [amountToBorrowNum]);
           const retBorrowedAmountOut = r.borrowStatus.reduce(
-            (prev, cur) => prev = prev.add(cur.borrowedAmountOut),
+            (prev, cur) => prev = prev.add(cur.conversionResult.borrowedAmountOut),
             BigNumber.from(0)
           );
           const expectedBorrowedAmount = getBigNumberFrom(amountToBorrowNum, await r.init.targetToken.decimals());
@@ -1051,18 +1084,13 @@ describe("TetuConverterTest", () => {
 
         describe("Pool adapter is not registered for the converter", () => {
           it("should register and use new pool adapter", async () => {
-            const amountToBorrowNum = 100;
-            const collateralAmount = 100_000;
             const r = await makeConversionUsingBorrowing (
-              [collateralAmount],
-              [amountToBorrowNum],
-              {
-                skipPreregistrationOfPoolAdapters: true
-              } // SKIP pre-registration of pool adapters
+              [100_000],
+              [100],
+              { skipPreregistrationOfPoolAdapters: true }
             );
 
-            // r.init.poolAdapters is empty
-            // because pre-registration was skipped
+            // r.init.poolAdapters is empty because pre-registration was skipped
             const poolAdapterRegisteredInsideBorrowCall = await r.init.core.bm.getPoolAdapter(
               r.init.poolInstances[0].converter,
               r.init.userContract.address,
@@ -1078,20 +1106,111 @@ describe("TetuConverterTest", () => {
         describe("Pool adapter is already registered for the converter", () => {
           describe("Pool adapter is health and not dirty", () => {
             it("should use exist pool adapter", async () => {
-              expect.fail("TODO");
+              const r = await makeConversionUsingBorrowing(
+                [100_000],
+                [100],
+                {
+                  usePoolAdapterStub: true,
+                  setPoolAdaptersStatus: { // healthy status
+                    collateralAmountLiquidated: parseUnits("0"),
+                    healthFactor18: parseUnits("10"),
+                    collateralAmount: parseUnits("1"),
+                    amountToPay: parseUnits("1"),
+                    opened: true
+                  }
+                }
+              );
+
+              const unhealthyPoolAdapter = r.init.poolAdapters[0];
+              const currentPoolAdapter = await r.init.core.bm.getPoolAdapter(
+                r.init.poolInstances[0].converter,
+                r.init.userContract.address,
+                r.init.sourceToken.address,
+                r.init.targetToken.address
+              );
+
+              const ret = [
+                currentPoolAdapter === Misc.ZERO_ADDRESS,
+                currentPoolAdapter === unhealthyPoolAdapter,
+                await r.init.core.bm.poolAdaptersRegistered(currentPoolAdapter),
+              ].join();
+              const expected = [false, true, true].join();
+              expect(ret).eq(expected);
             });
           });
           describe("Pool adapter is unhealthy", () => {
             it("should register and use new pool adapter", async () => {
-              expect.fail("TODO");
+              const r = await makeConversionUsingBorrowing(
+                [100_000],
+                [100],
+                {
+                  usePoolAdapterStub: true,
+                  setPoolAdaptersStatus: { // unhealthy status
+                    collateralAmountLiquidated: parseUnits("0"),
+                    healthFactor18: parseUnits("1"), // (!) unhealthy
+                    collateralAmount: parseUnits("1"),
+                    amountToPay: parseUnits("1"),
+                    opened: true
+                  }
+                }
+              );
+
+              const unhealthyPoolAdapter = r.init.poolAdapters[0];
+              const newlyCreatedPoolAdapter = await r.init.core.bm.getPoolAdapter(
+                r.init.poolInstances[0].converter,
+                r.init.userContract.address,
+                r.init.sourceToken.address,
+                r.init.targetToken.address
+              );
+
+              const ret = [
+                newlyCreatedPoolAdapter === Misc.ZERO_ADDRESS,
+                newlyCreatedPoolAdapter === unhealthyPoolAdapter,
+                await r.init.core.bm.poolAdaptersRegistered(newlyCreatedPoolAdapter),
+                await r.init.core.bm.poolAdaptersRegistered(unhealthyPoolAdapter),
+              ].join();
+              const expected = [false, false, true, true].join();
+              expect(ret).eq(expected);
             });
           });
           describe("Pool adapter is dirty (liquidation had happened)", () => {
             it("should register and use new pool adapter", async () => {
-              expect.fail("TODO");
+              const r = await makeConversionUsingBorrowing(
+                [100_000],
+                [100],
+                {
+                  usePoolAdapterStub: true,
+                  setPoolAdaptersStatus: { // dirty status
+                    collateralAmountLiquidated: parseUnits("1"), // (!) dirty, liquidation has happened
+                    healthFactor18: parseUnits("10"),
+                    collateralAmount: parseUnits("1"),
+                    amountToPay: parseUnits("1"),
+                    opened: true
+                  }
+                }
+              );
+
+              const unhealthyPoolAdapter = r.init.poolAdapters[0];
+              const newlyCreatedPoolAdapter = await r.init.core.bm.getPoolAdapter(
+                r.init.poolInstances[0].converter,
+                r.init.userContract.address,
+                r.init.sourceToken.address,
+                r.init.targetToken.address
+              );
+
+              const ret = [
+                newlyCreatedPoolAdapter === Misc.ZERO_ADDRESS,
+                newlyCreatedPoolAdapter === unhealthyPoolAdapter,
+                await r.init.core.bm.poolAdaptersRegistered(newlyCreatedPoolAdapter),
+                await r.init.core.bm.poolAdaptersRegistered(unhealthyPoolAdapter),
+              ].join();
+              const expected = [false, false, true, true].join();
+              expect(ret).eq(expected);
             });
           });
         });
+
+
       });
       describe("Convert using swapping", () => {
         it("should return expected values", async () => {
@@ -2378,11 +2497,11 @@ describe("TetuConverterTest", () => {
         const sret = [
           totalDebtAmountOut,
           totalCollateralAmountOut,
-          ...borrows.map(x => x.collateralAmount)
+          ...borrows.map(x => x.status?.collateralAmount || 0)
         ].map(x => BalanceUtils.toString(x)).join("\n");
         const sexpected = [
           borrows.reduce(
-            (prev, cur) => prev = prev.add(cur.amountToPay),
+            (prev, cur) => prev = prev.add(cur.status?.amountToPay || 0),
             BigNumber.from(0)
           ),
           collateralAmounts.reduce(
