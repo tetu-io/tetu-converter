@@ -2,10 +2,44 @@
 pragma solidity 0.8.4;
 
 import "../core/AppDataTypes.sol";
-import "./IPoolAdaptersManager.sol";
 
 /// @notice Manage list of available lending platforms
-interface IBorrowManager is IPoolAdaptersManager {
+///         Manager of pool-adapters.
+///         Pool adapter is an instance of a converter provided by the lending platform
+///         linked to one of platform's pools, address of user contract, collateral and borrow tokens.
+///         The pool adapter is real borrower of funds for AAVE, Compound and other lending protocols.
+///         Pool adapters are created using minimal-proxy pattern, see
+///         https://blog.openzeppelin.com/deep-dive-into-the-minimal-proxy-contract/
+interface IBorrowManager {
+
+  /// @notice Register a pool adapter for (pool, user, collateral) if the adapter wasn't created before
+  /// @param user_ Address of the caller contract who requires access to the pool adapter
+  /// @return Address of registered pool adapter
+  function registerPoolAdapter(
+    address converter_,
+    address user_,
+    address collateral_,
+    address borrowToken_
+  ) external returns (address);
+
+  /// @notice Get pool adapter or 0 if the pool adapter is not registered
+  function getPoolAdapter(
+    address converter_,
+    address user_,
+    address collateral_,
+    address borrowToken_
+  ) external view returns (address);
+
+  function isPoolAdapter(address poolAdapter_) external view returns (bool);
+
+  /// @notice Notify borrow manager that the pool adapter with the given params is "dirty" and should be replaced
+  /// @dev "Dirty" means that a liquidation happens inside. The borrow position should be closed.
+  function markPoolAdapterAsDirty (
+    address converter_,
+    address user_,
+    address collateral_,
+    address borrowToken_
+  ) external;
 
   /// @notice Register new lending platform with available pairs of assets
   ///         OR add new pairs of assets to the exist lending platform
@@ -38,6 +72,10 @@ interface IBorrowManager is IPoolAdaptersManager {
   /// @param healthFactors2_ Health factor must be greater then 1, decimals 2
   function setTargetHealthFactors(address[] calldata assets_, uint16[] calldata healthFactors2_) external;
 
+  /// @notice Return target health factor with decimals 2 for the asset
+  ///         If there is no custom value for asset, target health factor from the controller should be used
+  function getTargetHealthFactor2(address asset) external view returns (uint);
+
   /// @notice Reward APR is taken into account with given factor
   ///         Result APR = borrow-apr - supply-apr - [REWARD-FACTOR]/Denominator * rewards-APR
   function setRewardsFactor(uint rewardsFactor_) external;
@@ -54,10 +92,6 @@ interface IBorrowManager is IPoolAdaptersManager {
 
   /// @notice Get platformAdapter to which the converter belongs
   function getPlatformAdapter(address converter_) external view returns (address);
-
-  /// @notice Return health factor with decimals 2 for the asset
-  ///         If there is no custom value for asset, target health factor from the controller should be used
-  function getTargetHealthFactor2(address asset) external view returns (uint);
 
   /// @notice Get all pool adapters registered for the user
   /// @dev Return both opened and closed positions

@@ -172,7 +172,7 @@ contract TetuConverter is ITetuConverter, IKeeperCallback {
         (,, uint healthFactor18,,) = IPoolAdapter(poolAdapter).getStatus();
         if (healthFactor18 < IController(controller).minHealthFactor2() * 10**(18-2)) {
           // the pool adapter is unhealthy, we should mark it as dirty and create new pool adapter for the borrow
-          _borrowManager().markAsUnhealthy(converter_, msg.sender, collateralAsset_, borrowAsset_);
+          _borrowManager().markPoolAdapterAsDirty(converter_, msg.sender, collateralAsset_, borrowAsset_);
           poolAdapter = address(0);
         }
       }

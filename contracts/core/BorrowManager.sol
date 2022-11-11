@@ -328,7 +328,7 @@ contract BorrowManager is IBorrowManager {
 
   /// @notice Notify borrow manager that the pool adapter with the given params is unhealthy and should be replaced
   /// @dev "Unhealthy" means that a liquidation happens. Borrow should be repaid or fixed in other way.
-  function markAsUnhealthy(
+  function markPoolAdapterAsDirty(
     address converter_,
     address user_,
     address collateral_,
