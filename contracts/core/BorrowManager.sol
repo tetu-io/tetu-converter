@@ -90,6 +90,8 @@ contract BorrowManager is IBorrowManager {
     require(controller_ != address(0), AppErrors.ZERO_ADDRESS);
     controller = IController(controller_);
 
+    // we assume rewards amount should be downgraded in calcs coz liquidation gaps
+    // todo require(rewardsFactor_ < REWARDS_FACTOR_DENOMINATOR_18);
     rewardsFactor = rewardsFactor_;
   }
 
@@ -127,13 +129,18 @@ contract BorrowManager is IBorrowManager {
       require(healthFactors2_[i] >= controller.minHealthFactor2(), AppErrors.WRONG_HEALTH_FACTOR);
       targetHealthFactorsForAssets[assets_[i]] = healthFactors2_[i];
     }
+    // todo event
   }
 
+  // todo docs
   function setRewardsFactor(uint rewardsFactor_) external override {
     _onlyGovernance();
+    // todo require(rewardsFactor_ < REWARDS_FACTOR_DENOMINATOR_18);
     rewardsFactor = rewardsFactor_;
+    // todo event
   }
 
+  // todo docs, it is the most usable function by Operator, provide all possible details
   function addAssetPairs(
     address platformAdapter_,
     address[] calldata leftAssets_,
@@ -145,6 +152,7 @@ contract BorrowManager is IBorrowManager {
     require(leftAssets_.length == lenAssets, AppErrors.WRONG_LENGTHS);
 
     // register new platform adapter if necessary
+    // todo you don't need to check `contains`, see at `add` function, it just returns false if exist
     if (!_platformAdapters.contains(platformAdapter_)) {
       _platformAdapters.add(platformAdapter_);
     }
@@ -170,13 +178,16 @@ contract BorrowManager is IBorrowManager {
           assetRight: rightAssets_[i]
         });
       }
+      // todo you don't need to check `contains`, see at `add` function, it just returns false if exist
       if (!_pairsList[assetPairKey].contains(platformAdapter_)) {
         _pairsList[assetPairKey].add(platformAdapter_);
         _platformAdapterPairs[platformAdapter_].add(assetPairKey);
       }
     }
+    // todo event
   }
 
+  // todo docs
   function removeAssetPairs(
     address platformAdapter_,
     address[] calldata leftAssets_,
@@ -191,6 +202,7 @@ contract BorrowManager is IBorrowManager {
     // unregister the asset pairs
     for (uint i = 0; i < lenAssets; i = i.uncheckedInc()) {
       uint assetPairKey = getAssetPairKey(leftAssets_[i], rightAssets_[i]);
+      // todo you don't need to check `contains`, see at `remove` function, it just returns false if not exist
       if (_pairsList[assetPairKey].contains(platformAdapter_)) {
         _pairsList[assetPairKey].remove(platformAdapter_);
         _platformAdapterPairs[platformAdapter_].remove(assetPairKey);
@@ -211,8 +223,10 @@ contract BorrowManager is IBorrowManager {
       // unregister platform adapter
       _platformAdapters.remove(platformAdapter_);
     }
+    // todo event
   }
 
+  // todo convert to @notice
   ///////////////////////////////////////////////////////
   ///           Find best pool for borrowing
   /// Input params:
@@ -242,6 +256,7 @@ contract BorrowManager is IBorrowManager {
     return (converter, maxTargetAmount, apr18);
   }
 
+  // todo make public
   /// @notice Enumerate all pools and select a pool suitable for borrowing with min APR and enough liquidity
   function _findPool(
     EnumerableSet.AddressSet storage platformAdapters_,
@@ -274,6 +289,7 @@ contract BorrowManager is IBorrowManager {
       * int(10**18)
       / int(plan.amountCollateralInBorrowAsset36);
 
+      // todo maybe union with &&?
       if (plan.converter != address(0)) {
         // check if we are able to supply required collateral
         if (plan.maxAmountToSupply > p_.sourceAmount) {
@@ -324,15 +340,18 @@ contract BorrowManager is IBorrowManager {
       poolAdaptersRegistered[dest] = true;
     }
 
+    // todo event
     return dest;
   }
 
+  // todo docs
   function markPoolAdapterAsDirty(
     address converter_,
     address user_,
     address collateral_,
     address borrowToken_
   ) external override {
+    // todo restrictions?
     uint key = getPoolAdapterKey(converter_, collateral_, borrowToken_);
 
     (bool found, address poolAdapter) = _poolAdapters[user_].tryGet(key);
@@ -340,6 +359,7 @@ contract BorrowManager is IBorrowManager {
 
     // Dirty pool adapter is removed from _poolAdapters, so it will never be used for new borrows
     _poolAdapters[user_].remove(key);
+    // todo event
   }
 
   ///////////////////////////////////////////////////////
@@ -368,6 +388,7 @@ contract BorrowManager is IBorrowManager {
     return _getPlatformAdapter(converter_);
   }
 
+  // todo make public, same gas
   function _getPlatformAdapter(address converter_) internal view returns(address) {
     address platformAdapter = converterToPlatformAdapter[converter_];
     require(platformAdapter != address(0), AppErrors.PLATFORM_ADAPTER_NOT_FOUND);
@@ -382,6 +403,7 @@ contract BorrowManager is IBorrowManager {
     return _getTargetHealthFactor2(asset);
   }
 
+  // todo make public, same gas
   function _getTargetHealthFactor2(address asset) internal view returns (uint16) {
     uint16 dest = targetHealthFactorsForAssets[asset];
     if (dest == 0) {

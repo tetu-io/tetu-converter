@@ -13,6 +13,7 @@ import "../../integrations/aave3/IAaveAddressesProvider.sol";
 import "../../integrations/aave3/Aave3ReserveConfiguration.sol";
 import "../../integrations/aave3/IAaveToken.sol";
 import "../../integrations/dforce/SafeRatioMath.sol";
+// todo remove
 import "hardhat/console.sol";
 
 /// @notice Implementation of IPoolAdapter for AAVE-v3-protocol, see https://docs.aave.com/hub/
@@ -55,6 +56,7 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer 
     address borrowAsset_,
     address originConverter_
   ) override external {
+    // todo restrictions?
     require(
       controller_ != address(0)
       && user_ != address(0)
@@ -166,6 +168,7 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer 
 
     // Supplies an `amount` of underlying asset into the reserve, receiving in return overlying aTokens.
     // E.g. User supplies 100 USDC and gets in return 100 aUSDC
+    // todo infinity approve? safeApprove?
     IERC20(assetCollateral_).approve(address(pool_), collateralAmount_);
     pool_.supply(
       assetCollateral_,
@@ -237,6 +240,7 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer 
     address receiver_,
     bool closePosition_
   ) external override returns (uint) {
+    // todo reentrancy check
     _onlyUserOrTC();
     address assetBorrow = borrowAsset;
     address assetCollateral = collateralAsset;
@@ -253,6 +257,7 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer 
         assetBorrow,
         closePosition_
     );
+    // todo infinity approve?
     // transfer borrow amount back to the pool
     IERC20(assetBorrow).safeApprove(address(pool), 0);
     IERC20(assetBorrow).safeApprove(address(pool), amountToRepay_);
@@ -341,6 +346,7 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer 
   ) external override returns (
     uint resultHealthFactor18
   ) {
+    // todo reentrancy check
     _onlyUserOrTC();
     IAavePool pool = _pool;
 
@@ -358,6 +364,7 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer 
 
       IERC20(assetBorrow).safeTransferFrom(msg.sender, address(this), amount_);
 
+      // todo infinity approve?
       // transfer borrowed amount back to the pool
       IERC20(assetBorrow).approve(address(pool), 0);
       IERC20(assetBorrow).approve(address(pool), amount_);
@@ -383,6 +390,7 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer 
     address rewardToken,
     uint amount
   ) {
+    // todo tbd?
     receiver_;
     return (rewardToken, amount);
   }
@@ -430,6 +438,7 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer 
 
     Aave3DataTypes.ReserveData memory rc = _pool.getReserveData(assetCollateral);
     uint aTokensBalance = IERC20(rc.aTokenAddress).balanceOf(address(this));
+    // todo remove
     console.log("aTokensBalance", aTokensBalance);
 
     return (

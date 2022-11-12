@@ -12,6 +12,7 @@ contract Controller is IController, Initializable {
   uint16 constant MIN_ALLOWED_MIN_HEALTH_FACTOR = 100;
 
   address public override governance;
+  // todo docs + make all immutable
   address public override tetuConverter;
   address public override borrowManager;
   address public override debtMonitor;
@@ -61,6 +62,7 @@ contract Controller is IController, Initializable {
     targetHealthFactor2 = targetHealthFactor_;
   }
 
+  // todo move to constructor, OR! move everything from constructor to init
   function initialize(
     address tetuConverter_,
     address borrowManager_,
@@ -84,6 +86,7 @@ contract Controller is IController, Initializable {
     keeper = keeper_;
     tetuLiquidator = tetuLiquidator_;
     swapManager = swapManager_;
+    // todo event
   }
 
   function _onlyGovernance() internal view {
@@ -93,7 +96,7 @@ contract Controller is IController, Initializable {
   ///////////////////////////////////////////////////////
   ///               Blocks per day
   ///     TODO: there is idea to detect this value
-  ///     TODO: automatically on DebtMonitor side
+  ///     TODO: automatically on DebtMonitor side - good idea
   ///////////////////////////////////////////////////////
 
   function blocksPerDay() external view override returns (uint) {
@@ -111,36 +114,45 @@ contract Controller is IController, Initializable {
   ///  min/max thresholds and a target value for reconversion
   ///////////////////////////////////////////////////////
 
+  // todo docs
   function setMinHealthFactor2(uint16 value_) external override {
     require(value_ > MIN_ALLOWED_MIN_HEALTH_FACTOR, AppErrors.WRONG_HEALTH_FACTOR);
     require(value_ < targetHealthFactor2, AppErrors.WRONG_HEALTH_FACTOR_CONFIG);
     _onlyGovernance();
     minHealthFactor2 = value_;
+    // todo event
   }
 
+  // todo docs
   function setTargetHealthFactor2(uint16 value_) external override {
     require(value_ > minHealthFactor2, AppErrors.WRONG_HEALTH_FACTOR_CONFIG);
     require(value_ < maxHealthFactor2, AppErrors.WRONG_HEALTH_FACTOR_CONFIG);
     _onlyGovernance();
     targetHealthFactor2 = value_;
+    // todo event
   }
 
+  // todo docs
   function setMaxHealthFactor2(uint16 value_) external override {
     require(value_ > targetHealthFactor2, AppErrors.WRONG_HEALTH_FACTOR_CONFIG);
     _onlyGovernance();
     maxHealthFactor2 = value_;
+    // todo event
   }
 
   ///////////////////////////////////////////////////////
   ///               Governance
   ///////////////////////////////////////////////////////
 
+  // todo docs + change to "offer" and accept
   function setGovernance(address governance_) external {
     require(governance_ != address(0), AppErrors.ZERO_ADDRESS);
     _onlyGovernance();
     governance = governance_;
+    // todo event
   }
 
+  // todo REMOVE ALL SETTER, it can lead to malicious gov actions
   ///////////////////////////////////////////////////////
   ///             Set addresses
   ///////////////////////////////////////////////////////

@@ -10,6 +10,7 @@ import "../../integrations/aave3/Aave3ReserveConfiguration.sol";
 contract Aave3PoolAdapterEMode is Aave3PoolAdapterBase {
   using Aave3ReserveConfiguration for Aave3DataTypes.ReserveConfigurationMap;
 
+  // todo maybe it doesn;t worth to create a dedicated inheritances? just use some variable on constructor
   /// @notice Enter to E-mode
   function prepareToBorrow() internal override {
     Aave3DataTypes.ReserveData memory d = _pool.getReserveData(borrowAsset);
