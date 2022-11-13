@@ -15,10 +15,11 @@ import "../../integrations/dforce/IDForceCTokenMatic.sol";
 import "../../integrations/IWmatic.sol";
 import "../../integrations/dforce/IDForceInterestRateModel.sol";
 import "../../integrations/dforce/IDForceRewardDistributor.sol";
+import "../../openzeppelin/Initializable.sol";
 
 /// @notice Implementation of IPoolAdapter for dForce-protocol, see https://developers.dforce.network/
 /// @dev Instances of this contract are created using proxy-minimal pattern, so no constructor
-contract DForcePoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP {
+contract DForcePoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP, Initializable {
   using SafeERC20 for IERC20;
 
   /// @notice Max allowed difference for sumCollateralSafe - sumBorrowPlusEffects == liquidity
@@ -52,15 +53,20 @@ contract DForcePoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP {
     address collateralAsset_,
     address borrowAsset_,
     address originConverter_
-  ) override external {
+  ) override external
+    // Borrow Manager creates a pool adapter using minimal proxy pattern, adds it the the set of known pool adapters
+    // and initializes it immediately. We should ensure only that the re-initialization is not possible
+  initializer
+  {
     require(
       controller_ != address(0)
       && comptroller_ != address(0)
       && user_ != address(0)
       && collateralAsset_ != address(0)
       && borrowAsset_ != address(0)
-      && cTokenAddressProvider_ != address(0)
-      , AppErrors.ZERO_ADDRESS
+      && originConverter_ != address(0)
+      && cTokenAddressProvider_ != address(0),
+      AppErrors.ZERO_ADDRESS
     );
 
     controller = IController(controller_);

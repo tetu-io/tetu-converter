@@ -13,10 +13,11 @@ import "../../integrations/aaveTwo/IAaveTwoLendingPoolAddressesProvider.sol";
 import "../../integrations/aaveTwo/AaveTwoReserveConfiguration.sol";
 import "../../integrations/aaveTwo/IAaveTwoAToken.sol";
 import "../../integrations/dforce/SafeRatioMath.sol";
+import "../../openzeppelin/Initializable.sol";
 
 /// @notice Implementation of IPoolAdapter for AAVE-v2-protocol, see https://docs.aave.com/hub/
 /// @dev Instances of this contract are created using proxy-minimal pattern, so no constructor
-contract AaveTwoPoolAdapter is IPoolAdapter, IPoolAdapterInitializer {
+contract AaveTwoPoolAdapter is IPoolAdapter, IPoolAdapterInitializer, Initializable {
   using SafeERC20 for IERC20;
   using AaveTwoReserveConfiguration for DataTypes.ReserveConfigurationMap;
   using SafeRatioMath for uint;
@@ -54,15 +55,20 @@ contract AaveTwoPoolAdapter is IPoolAdapter, IPoolAdapterInitializer {
     address collateralAsset_,
     address borrowAsset_,
     address originConverter_
-  ) override external {
-    // todo restrictions?
+  ) override external
+    // Borrow Manager creates a pool adapter using minimal proxy pattern, adds it the the set of known pool adapters
+    // and initializes it immediately. We should ensure only that the re-initialization is not possible
+  initializer
+  {
     require(
       controller_ != address(0)
       && user_ != address(0)
+      && pool_ != address(0)
       && collateralAsset_ != address(0)
       && borrowAsset_ != address(0)
-      && originConverter_ != address(0)
-    , AppErrors.ZERO_ADDRESS);
+      && originConverter_ != address(0),
+      AppErrors.ZERO_ADDRESS
+    );
 
     controller = IController(controller_);
     user = user_;

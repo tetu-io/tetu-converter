@@ -13,12 +13,11 @@ import "../../integrations/aave3/IAaveAddressesProvider.sol";
 import "../../integrations/aave3/Aave3ReserveConfiguration.sol";
 import "../../integrations/aave3/IAaveToken.sol";
 import "../../integrations/dforce/SafeRatioMath.sol";
-// todo remove
-import "hardhat/console.sol";
+import "../../openzeppelin/Initializable.sol";
 
 /// @notice Implementation of IPoolAdapter for AAVE-v3-protocol, see https://docs.aave.com/hub/
 /// @dev Instances of this contract are created using proxy-minimal pattern, so no constructor
-abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer {
+abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer, Initializable {
   using SafeERC20 for IERC20;
   using Aave3ReserveConfiguration for Aave3DataTypes.ReserveConfigurationMap;
   using SafeRatioMath for uint;
@@ -55,15 +54,20 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer 
     address collateralAsset_,
     address borrowAsset_,
     address originConverter_
-  ) override external {
-    // todo restrictions?
+  ) override external
+    // Borrow Manager creates a pool adapter using minimal proxy pattern, adds it the the set of known pool adapters
+    // and initializes it immediately. We should ensure only that the re-initialization is not possible
+    initializer
+  {
     require(
       controller_ != address(0)
+      && pool_ != address(0)
       && user_ != address(0)
       && collateralAsset_ != address(0)
       && borrowAsset_ != address(0)
-      && originConverter_ != address(0)
-    , AppErrors.ZERO_ADDRESS);
+      && originConverter_ != address(0),
+      AppErrors.ZERO_ADDRESS
+    );
 
     controller = IController(controller_);
     user = user_;
@@ -79,7 +83,7 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer 
   ///               Restrictions
   ///////////////////////////////////////////////////////
 
-  /// @notice Ensure that the caller is TetuConveter
+  /// @notice Ensure that the caller is TetuConverter
   function _onlyTC() internal view {
     require(controller.tetuConverter() == msg.sender, AppErrors.TETU_CONVERTER_ONLY);
   }
@@ -438,8 +442,6 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer 
 
     Aave3DataTypes.ReserveData memory rc = _pool.getReserveData(assetCollateral);
     uint aTokensBalance = IERC20(rc.aTokenAddress).balanceOf(address(this));
-    // todo remove
-    console.log("aTokensBalance", aTokensBalance);
 
     return (
     // Total amount of provided collateral in [collateral asset]

@@ -2,6 +2,7 @@ import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import {ethers} from "hardhat";
 import {TimeUtils} from "../../../scripts/utils/TimeUtils";
 import {
+  Aave3PlatformAdapter__factory,
   IERC20Extended__factory, IPoolAdapter__factory
 } from "../../../typechain";
 import {expect} from "chai";
@@ -9,7 +10,7 @@ import {BigNumber} from "ethers";
 import {getBigNumberFrom} from "../../../scripts/utils/NumberUtils";
 import {DeployerUtils} from "../../../scripts/utils/DeployerUtils";
 import {isPolygonForkInUse} from "../../baseUT/utils/NetworkUtils";
-import {IAave3ReserveInfo} from "../../../scripts/integration/helpers/Aave3Helper";
+import {Aave3Helper, IAave3ReserveInfo} from "../../../scripts/integration/helpers/Aave3Helper";
 import {BalanceUtils, IUserBalances} from "../../baseUT/utils/BalanceUtils";
 import {MaticAddresses} from "../../../scripts/addresses/MaticAddresses";
 import {TokenDataTypes} from "../../baseUT/types/TokenDataTypes";
@@ -36,6 +37,8 @@ import {
 import {SharedRepayToRebalanceUtils} from "../../baseUT/protocols/shared/sharedRepayToRebalanceUtils";
 import {transferAndApprove} from "../../baseUT/utils/transferUtils";
 import {Aave3TestUtils, IPrepareToBorrowResults} from "../../baseUT/protocols/aave3/Aave3TestUtils";
+import {CoreContractsHelper} from "../../baseUT/helpers/CoreContractsHelper";
+import {AdaptersHelper} from "../../baseUT/helpers/AdaptersHelper";
 
 describe("Aave3PoolAdapterTest", () => {
 //region Global vars for all tests
@@ -1389,19 +1392,151 @@ describe("Aave3PoolAdapterTest", () => {
     });
   });
 
-  describe("TODO:initialize", () => {
+  describe("initialize", () => {
+    interface IInitializePoolAdapterBadPaths {
+      makeSecondInitialization?: boolean;
+      zeroController?: boolean;
+      zeroUser?: boolean;
+      zeroCollateralAsset?: boolean;
+      zeroBorrowAsset?: boolean;
+      zeroConverter?: boolean;
+      zeroPool?: boolean;
+    }
+    async function makeInitializePoolAdapterTest(
+      useEMode: boolean,
+      badParams?: IInitializePoolAdapterBadPaths
+    ) : Promise<{ret: string, expected: string}> {
+      const user = ethers.Wallet.createRandom().address;
+      const collateralAsset = ethers.Wallet.createRandom().address;
+      const borrowAsset = ethers.Wallet.createRandom().address;
+      const converter = ethers.Wallet.createRandom().address;
+
+      const controller = await CoreContractsHelper.createController(deployer);
+      const poolAdapter = useEMode
+        ? await AdaptersHelper.createAave3PoolAdapterEMode(deployer)
+        : await AdaptersHelper.createAave3PoolAdapter(deployer);
+
+      const countInitializationCalls = badParams?.makeSecondInitialization ? 2 : 1;
+      for (let i = 0; i < countInitializationCalls; ++i) {
+        await poolAdapter.initialize(
+          badParams?.zeroController ? Misc.ZERO_ADDRESS : controller.address,
+          badParams?.zeroPool ? Misc.ZERO_ADDRESS : MaticAddresses.AAVE_V3_POOL,
+          badParams?.zeroUser ? Misc.ZERO_ADDRESS : user,
+          badParams?.zeroCollateralAsset ? Misc.ZERO_ADDRESS : collateralAsset,
+          badParams?.zeroBorrowAsset ? Misc.ZERO_ADDRESS : borrowAsset,
+          badParams?.zeroConverter ? Misc.ZERO_ADDRESS : converter
+        );
+      }
+
+      const poolAdapterConfigAfter = await poolAdapter.getConfig();
+      const ret = [
+        poolAdapterConfigAfter.origin,
+        poolAdapterConfigAfter.outUser,
+        poolAdapterConfigAfter.outCollateralAsset,
+        poolAdapterConfigAfter.outBorrowAsset
+      ].join();
+      const expected = [
+        converter,
+        user,
+        collateralAsset,
+        borrowAsset
+      ].join();
+      return {ret, expected};
+    }
+
     describe("Good paths", () => {
-      it("should return expected values", async () => {
+      it("Normal mode: should return expected values", async () => {
         if (!await isPolygonForkInUse()) return;
-        expect.fail("TODO");
+        const r = await makeInitializePoolAdapterTest(false);
+        expect(r.ret).eq(r.expected);
+      });
+      it("EMode: should return expected values", async () => {
+        if (!await isPolygonForkInUse()) return;
+        const r = await makeInitializePoolAdapterTest(false);
+        expect(r.ret).eq(r.expected);
       });
     });
     describe("Bad paths", () => {
-      describe("", () => {
-        it("should revert", async () => {
-          if (!await isPolygonForkInUse()) return;
-          expect.fail("TODO");
-        });
+      it("should revert on zero controller", async () => {
+        if (!await isPolygonForkInUse()) return;
+        await expect(
+          makeInitializePoolAdapterTest(
+            false,
+            {zeroController: true}
+          )
+        ).revertedWith("TC-1"); // ZERO_ADDRESS
+      });
+      it("should revert on zero controller", async () => {
+        if (!await isPolygonForkInUse()) return;
+        await expect(
+          makeInitializePoolAdapterTest(
+            false,
+            {zeroController: true}
+          )
+        ).revertedWith("TC-1"); // ZERO_ADDRESS
+      });
+      it("should revert on zero controller", async () => {
+        if (!await isPolygonForkInUse()) return;
+        await expect(
+          makeInitializePoolAdapterTest(
+            false,
+            {zeroController: true}
+          )
+        ).revertedWith("TC-1"); // ZERO_ADDRESS
+      });
+      it("should revert on zero user", async () => {
+        if (!await isPolygonForkInUse()) return;
+        await expect(
+          makeInitializePoolAdapterTest(
+            false,
+            {zeroUser: true}
+          )
+        ).revertedWith("TC-1"); // ZERO_ADDRESS
+      });
+      it("should revert on zero pool", async () => {
+        if (!await isPolygonForkInUse()) return;
+        await expect(
+          makeInitializePoolAdapterTest(
+            false,
+            {zeroPool: true}
+          )
+        ).revertedWith("TC-1"); // ZERO_ADDRESS
+      });
+      it("should revert on zero converter", async () => {
+        if (!await isPolygonForkInUse()) return;
+        await expect(
+          makeInitializePoolAdapterTest(
+            false,
+            {zeroConverter: true}
+          )
+        ).revertedWith("TC-1"); // ZERO_ADDRESS
+      });
+      it("should revert on zero collateral asset", async () => {
+        if (!await isPolygonForkInUse()) return;
+        await expect(
+          makeInitializePoolAdapterTest(
+            false,
+            {zeroCollateralAsset: true}
+          )
+        ).revertedWith("TC-1"); // ZERO_ADDRESS
+      });
+      it("should revert on zero borrow asset", async () => {
+        if (!await isPolygonForkInUse()) return;
+        await expect(
+          makeInitializePoolAdapterTest(
+            false,
+            {zeroBorrowAsset: true}
+          )
+        ).revertedWith("TC-1"); // ZERO_ADDRESS
+      });
+      it("should revert on second initialization", async () => {
+        if (!await isPolygonForkInUse()) return;
+        await expect(
+          makeInitializePoolAdapterTest(
+            false,
+            {makeSecondInitialization: true}
+          )
+        ).revertedWith("ErrorAlreadyInitialized");
       });
     });
   });

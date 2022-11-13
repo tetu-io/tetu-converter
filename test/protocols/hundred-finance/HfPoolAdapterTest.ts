@@ -27,6 +27,8 @@ import {
 import {SharedRepayToRebalanceUtils} from "../../baseUT/protocols/shared/sharedRepayToRebalanceUtils";
 import {transferAndApprove} from "../../baseUT/utils/transferUtils";
 import {HundredFinanceTestUtils} from "../../baseUT/protocols/hundred-finance/HundredFinanceTestUtils";
+import {CoreContractsHelper} from "../../baseUT/helpers/CoreContractsHelper";
+import {AdaptersHelper} from "../../baseUT/helpers/AdaptersHelper";
 
 describe("Hundred Finance integration tests, pool adapter", () => {
 
@@ -1337,19 +1339,131 @@ describe("Hundred Finance integration tests, pool adapter", () => {
     });
   });
 
-  describe("TODO:initialize", () => {
+  describe("initialize", () => {
+    interface IInitializePoolAdapterBadPaths {
+      makeSecondInitialization?: boolean;
+      zeroController?: boolean;
+      zeroUser?: boolean;
+      zeroCollateralAsset?: boolean;
+      zeroBorrowAsset?: boolean;
+      zeroConverter?: boolean;
+      zeroPool?: boolean;
+      zeroTokenAddressProvider?: boolean;
+    }
+    async function makeInitializePoolAdapterTest(
+      badParams?: IInitializePoolAdapterBadPaths
+    ) : Promise<{ret: string, expected: string}> {
+      const user = ethers.Wallet.createRandom().address;
+      const converter = ethers.Wallet.createRandom().address;
+      const collateralAsset = MaticAddresses.DAI;
+      const borrowAsset = MaticAddresses.USDC;
+
+      const controller = await CoreContractsHelper.createController(deployer);
+      const poolAdapter = await AdaptersHelper.createHundredFinancePoolAdapter(deployer);
+      const tokenAddressProvider = await AdaptersHelper.createHundredFinancePlatformAdapter(
+        deployer,
+        controller.address,
+        MaticAddresses.HUNDRED_FINANCE_COMPTROLLER,
+        converter,
+        [MaticAddresses.hDAI, MaticAddresses.hUSDC]
+      );
+
+      const countInitializationCalls = badParams?.makeSecondInitialization ? 2 : 1;
+      for (let i = 0; i < countInitializationCalls; ++i) {
+        await poolAdapter.initialize(
+          badParams?.zeroController ? Misc.ZERO_ADDRESS : controller.address,
+          badParams?.zeroTokenAddressProvider ? Misc.ZERO_ADDRESS : tokenAddressProvider.address,
+          badParams?.zeroPool ? Misc.ZERO_ADDRESS : MaticAddresses.HUNDRED_FINANCE_COMPTROLLER,
+          badParams?.zeroUser ? Misc.ZERO_ADDRESS : user,
+          badParams?.zeroCollateralAsset ? Misc.ZERO_ADDRESS : collateralAsset,
+          badParams?.zeroBorrowAsset ? Misc.ZERO_ADDRESS : borrowAsset,
+          badParams?.zeroConverter ? Misc.ZERO_ADDRESS : converter
+        );
+      }
+
+      const poolAdapterConfigAfter = await poolAdapter.getConfig();
+      const ret = [
+        poolAdapterConfigAfter.origin,
+        poolAdapterConfigAfter.outUser,
+        poolAdapterConfigAfter.outCollateralAsset.toLowerCase(),
+        poolAdapterConfigAfter.outBorrowAsset.toLowerCase()
+      ].join("\n");
+      const expected = [
+        converter,
+        user,
+        collateralAsset.toLowerCase(),
+        borrowAsset.toLowerCase()
+      ].join("\n");
+      return {ret, expected};
+    }
+
     describe("Good paths", () => {
       it("should return expected values", async () => {
         if (!await isPolygonForkInUse()) return;
-        expect.fail("TODO");
+        const r = await makeInitializePoolAdapterTest();
+        expect(r.ret).eq(r.expected);
       });
     });
     describe("Bad paths", () => {
-      describe("", () => {
-        it("should revert", async () => {
-          if (!await isPolygonForkInUse()) return;
-          expect.fail("TODO");
-        });
+      it("should revert on zero controller", async () => {
+        if (!await isPolygonForkInUse()) return;
+        await expect(
+          makeInitializePoolAdapterTest({zeroController: true})
+        ).revertedWith("TC-1"); // ZERO_ADDRESS
+      });
+      it("should revert on zero controller", async () => {
+        if (!await isPolygonForkInUse()) return;
+        await expect(
+          makeInitializePoolAdapterTest({zeroController: true})
+        ).revertedWith("TC-1"); // ZERO_ADDRESS
+      });
+      it("should revert on zero controller", async () => {
+        if (!await isPolygonForkInUse()) return;
+        await expect(
+          makeInitializePoolAdapterTest({zeroController: true})
+        ).revertedWith("TC-1"); // ZERO_ADDRESS
+      });
+      it("should revert on zero user", async () => {
+        if (!await isPolygonForkInUse()) return;
+        await expect(
+          makeInitializePoolAdapterTest({zeroUser: true})
+        ).revertedWith("TC-1"); // ZERO_ADDRESS
+      });
+      it("should revert on zero pool", async () => {
+        if (!await isPolygonForkInUse()) return;
+        await expect(
+          makeInitializePoolAdapterTest({zeroPool: true})
+        ).revertedWith("TC-1"); // ZERO_ADDRESS
+      });
+      it("should revert on zero converter", async () => {
+        if (!await isPolygonForkInUse()) return;
+        await expect(
+          makeInitializePoolAdapterTest({zeroConverter: true})
+        ).revertedWith("TC-1"); // ZERO_ADDRESS
+      });
+      it("should revert on zero collateral asset", async () => {
+        if (!await isPolygonForkInUse()) return;
+        await expect(
+          makeInitializePoolAdapterTest({zeroCollateralAsset: true})
+        ).revertedWith("TC-1"); // ZERO_ADDRESS
+      });
+      it("should revert on zero borrow asset", async () => {
+        if (!await isPolygonForkInUse()) return;
+        await expect(
+          makeInitializePoolAdapterTest({zeroBorrowAsset: true})
+        ).revertedWith("TC-1"); // ZERO_ADDRESS
+      });
+      it("should revert on zero token address provider", async () => {
+        if (!await isPolygonForkInUse()) return;
+        await expect(
+          makeInitializePoolAdapterTest({zeroTokenAddressProvider: true})
+        ).revertedWith("TC-1"); // ZERO_ADDRESS
+      });
+      it("should revert on second initialization", async () => {
+        if (!await isPolygonForkInUse()) return;
+        await expect(
+          makeInitializePoolAdapterTest({makeSecondInitialization: true})
+        ).revertedWith("ErrorAlreadyInitialized");
       });
     });
   });
