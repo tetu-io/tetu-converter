@@ -22,23 +22,19 @@ contract AaveTwoPlatformAdapter is IPlatformAdapter {
   using SafeERC20 for IERC20;
   using AaveTwoReserveConfiguration for DataTypes.ReserveConfigurationMap;
 
-  // todo immutable for all
-  IController public controller;
-  IAaveTwoPool public pool;
-  IAaveTwoPriceOracle internal _priceOracle;
+  ///////////////////////////////////////////////////////
+  ///   Constants
+  ///////////////////////////////////////////////////////
 
-  /// @notice template-pool-adapter
-  address public converter;
-
-  // todo constants first
   /// @notice https://docs.aave.com/developers/v/2.0/the-core-protocol/protocol-data-provider
   ///        Each market has a separate Protocol Data Provider.
   ///        To get the address for a particular market, call getAddress() using the value 0x1.
   uint internal constant ID_DATA_PROVIDER = 0x1000000000000000000000000000000000000000000000000000000000000000;
 
   ///////////////////////////////////////////////////////
-  ///       Data types
+  ///   Data types
   ///////////////////////////////////////////////////////
+
   /// @notice Local vars inside _getConversionPlan - to avoid stack too deep
   struct LocalsGetConversionPlan {
     IAaveTwoPool poolLocal;
@@ -49,6 +45,15 @@ contract AaveTwoPlatformAdapter is IPlatformAdapter {
     address[] assets;
     uint[] prices;
   }
+
+  ///////////////////////////////////////////////////////
+  ///   Variables
+  ///////////////////////////////////////////////////////
+
+  IController immutable public controller;
+  IAaveTwoPool immutable public pool;
+  /// @notice template-pool-adapter
+  address immutable public converter;
 
   ///////////////////////////////////////////////////////
   ///       Constructor and initialization
@@ -65,10 +70,7 @@ contract AaveTwoPlatformAdapter is IPlatformAdapter {
       && controller_ != address(0),
       AppErrors.ZERO_ADDRESS
     );
-
     pool = IAaveTwoPool(poolAave_);
-    _priceOracle = IAaveTwoPriceOracle(IAaveTwoLendingPoolAddressesProvider(pool.getAddressesProvider()).getPriceOracle());
-
     controller = IController(controller_);
     converter = templateAdapterNormal_;
   }
@@ -107,7 +109,9 @@ contract AaveTwoPlatformAdapter is IPlatformAdapter {
   /// @notice Returns the prices of the supported assets in BASE_CURRENCY of the market. Decimals 18
   /// @dev Different markets can have different BASE_CURRENCY
   function getAssetsPrices(address[] calldata assets) external view override returns (uint[] memory prices18) {
-    return _priceOracle.getAssetsPrices(assets);
+    return IAaveTwoPriceOracle(
+      IAaveTwoLendingPoolAddressesProvider(pool.getAddressesProvider()).getPriceOracle()
+    ).getAssetsPrices(assets);
   }
 
   ///////////////////////////////////////////////////////
@@ -165,7 +169,9 @@ contract AaveTwoPlatformAdapter is IPlatformAdapter {
         vars.assets = new address[](2);
         vars.assets[0] = params.collateralAsset;
         vars.assets[1] = params.borrowAsset;
-        vars.prices = _priceOracle.getAssetsPrices(vars.assets);
+        vars.prices = IAaveTwoPriceOracle(
+          IAaveTwoLendingPoolAddressesProvider(vars.poolLocal.getAddressesProvider()).getPriceOracle()
+        ).getAssetsPrices(vars.assets);
 
         // we assume here, that required health factor is configured correctly
         // and it's greater than h = liquidation-threshold (LT) / loan-to-value (LTV)

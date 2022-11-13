@@ -22,26 +22,14 @@ contract Aave3PlatformAdapter is IPlatformAdapter {
   using SafeERC20 for IERC20;
   using Aave3ReserveConfiguration for Aave3DataTypes.ReserveConfigurationMap;
 
-  // todo immutable for all
-  IController public controller;
-  IAavePool public pool;
-  IAavePriceOracle internal _priceOracle;
-
-  /// @notice Full list of supported template-pool-adapters
-  address[] private _converters;
-
-  // todo place constant on top
-  /// @notice Index of template pool adapter in {templatePoolAdapters} that should be used in normal borrowing mode
-  uint constant public INDEX_NORMAL_MODE = 0;
-  /// @notice Index of template pool adapter in {templatePoolAdapters} that should be used in E-mode of borrowing
-  uint constant public INDEX_E_MODE = 1;
-
+  ///////////////////////////////////////////////////////
+  ///   Constants
+  ///////////////////////////////////////////////////////
   uint256 internal constant RAY = 1e27;
   uint256 internal constant HALF_RAY = 0.5e27;
 
-
   ///////////////////////////////////////////////////////
-  ///       Data types
+  ///   Data types
   ///////////////////////////////////////////////////////
   /// @notice Local vars inside _getConversionPlan - to avoid stack too deep
   struct LocalsGetConversionPlan {
@@ -54,6 +42,15 @@ contract Aave3PlatformAdapter is IPlatformAdapter {
     address[] assets;
     uint[] prices;
   }
+
+  ///////////////////////////////////////////////////////
+  ///   Variables
+  ///////////////////////////////////////////////////////
+  IController immutable public controller;
+  IAavePool immutable public pool;
+
+  address immutable public converterNormal;
+  address immutable public converterEMode;
 
   ///////////////////////////////////////////////////////
   ///       Constructor and initialization
@@ -74,13 +71,10 @@ contract Aave3PlatformAdapter is IPlatformAdapter {
     );
 
     pool = IAavePool(poolAave_);
-    _priceOracle = IAavePriceOracle(IAaveAddressesProvider(pool.ADDRESSES_PROVIDER()).getPriceOracle());
-
     controller = IController(controller_);
 
-    // todo better and clear use immutable vars, no?
-    _converters.push(templateAdapterNormal_); // add first, INDEX_NORMAL_MODE = 0
-    _converters.push(templateAdapterEMode_); // add second, INDEX_E_MODE = 1
+    converterNormal = templateAdapterNormal_;
+    converterEMode = templateAdapterEMode_;
   }
 
   function initializePoolAdapter(
@@ -91,7 +85,7 @@ contract Aave3PlatformAdapter is IPlatformAdapter {
     address borrowAsset_
   ) external override {
     require(msg.sender == controller.borrowManager(), AppErrors.BORROW_MANAGER_ONLY);
-    require(_converters[0] == converter_ || _converters[1] == converter_, AppErrors.CONVERTER_NOT_FOUND);
+    require(converterNormal == converter_ || converterEMode == converter_, AppErrors.CONVERTER_NOT_FOUND);
 
     // All AAVE-pool-adapters support IPoolAdapterInitializer
     IPoolAdapterInitializer(poolAdapter_).initialize(
@@ -109,14 +103,17 @@ contract Aave3PlatformAdapter is IPlatformAdapter {
   ///////////////////////////////////////////////////////
 
   function converters() external view override returns (address[] memory) {
-    return _converters;
+    address[] memory dest = new address[](2);
+    dest[0] = converterNormal;
+    dest[1] = converterEMode;
+    return dest;
   }
 
   /// @notice Returns the prices of the supported assets in BASE_CURRENCY of the market. Decimals 18
   /// @dev Different markets can have different BASE_CURRENCY
   function getAssetsPrices(address[] calldata assets) external view override returns (uint[] memory prices18) {
     //TODO: the prices are in BASE_CURRENCY_UNIT = 100000000, we need to recalculate them to 1e18 -sooo, recalculate?
-    return _priceOracle.getAssetsPrices(assets);
+    return IAavePriceOracle(IAaveAddressesProvider(pool.ADDRESSES_PROVIDER()).getPriceOracle()).getAssetsPrices(assets);
   }
 
   ///////////////////////////////////////////////////////
@@ -149,13 +146,13 @@ contract Aave3PlatformAdapter is IPlatformAdapter {
               // ltv: 8500 for 0.85, we need decimals 18.
               plan.ltv18 = uint(categoryData.ltv) * 10**(18-4);
               plan.liquidationThreshold18 = uint(categoryData.liquidationThreshold) * 10**(18-4);
-              plan.converter = _converters[INDEX_E_MODE];
+              plan.converter = converterEMode;
             } else {
               // we should use both LTV and liquidationThreshold of collateral asset (not borrow asset)
               // see test "Borrow: check LTV and liquidationThreshold"
               plan.ltv18 = uint(rc.configuration.getLtv()) * 10**(18-4);
               plan.liquidationThreshold18 = uint(rc.configuration.getLiquidationThreshold()) * 10**(18-4);
-              plan.converter = _converters[INDEX_NORMAL_MODE];
+              plan.converter = converterNormal;
             }
           }
 
@@ -217,7 +214,9 @@ contract Aave3PlatformAdapter is IPlatformAdapter {
           vars.assets = new address[](2);
           vars.assets[0] = params.collateralAsset;
           vars.assets[1] = params.borrowAsset;
-          vars.prices = _priceOracle.getAssetsPrices(vars.assets);
+          vars.prices = IAavePriceOracle(
+            IAaveAddressesProvider(vars.poolLocal.ADDRESSES_PROVIDER()).getPriceOracle()
+          ).getAssetsPrices(vars.assets);
 
           // we assume here, that required health factor is configured correctly
           // and it's greater than h = liquidation-threshold (LT) / loan-to-value (LTV)

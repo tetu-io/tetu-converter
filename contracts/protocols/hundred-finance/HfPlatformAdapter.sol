@@ -23,6 +23,10 @@ contract HfPlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
   using SafeERC20 for IERC20;
   using AppUtils for uint;
 
+  ///////////////////////////////////////////////////////
+  ///   Data types
+  ///////////////////////////////////////////////////////
+
   /// @notice Local vars inside _getConversionPlan - to avoid stack too deep
   struct LocalsGetConversionPlan {
     IHfPriceOracle priceOracle;
@@ -32,12 +36,13 @@ contract HfPlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
     uint priceBorrow36;
   }
 
-  IController public controller;
-  IHfComptroller public comptroller;
-
+  ///////////////////////////////////////////////////////
+  ///   Variables
+  ///////////////////////////////////////////////////////
+  IController immutable public controller;
+  IHfComptroller immutable public comptroller;
   /// @notice Template of pool adapter
-  address _converter;
-
+  address immutable public converter;
 
   /// @notice All enabled pairs underlying : cTokens. All assets usable for collateral/to borrow.
   /// @dev There is no underlying for WMATIC, we store hMATIC:WMATIC
@@ -46,6 +51,7 @@ contract HfPlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
   ///////////////////////////////////////////////////////
   ///       Constructor and initialization
   ///////////////////////////////////////////////////////
+
   constructor (
     address controller_,
     address comptroller_,
@@ -61,8 +67,8 @@ contract HfPlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
 
     comptroller = IHfComptroller(comptroller_);
     controller = IController(controller_);
+    converter = templatePoolAdapter_;
 
-    _converter = templatePoolAdapter_;
     _setupCTokens(activeCTokens_, true);
   }
 
@@ -75,7 +81,7 @@ contract HfPlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
     address borrowAsset_
   ) external override {
     require(msg.sender == controller.borrowManager(), AppErrors.BORROW_MANAGER_ONLY);
-    require(_converter == converter_, AppErrors.CONVERTER_NOT_FOUND);
+    require(converter == converter_, AppErrors.CONVERTER_NOT_FOUND);
 
     // HF-pool-adapters support IPoolAdapterInitializer
     IPoolAdapterInitializerWithAP(poolAdapter_).initialize(
@@ -124,7 +130,7 @@ contract HfPlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
 
   function converters() external view override returns (address[] memory) {
     address[] memory dest = new address[](1);
-    dest[0] = _converter;
+    dest[0] = converter;
     return dest;
   }
 
@@ -176,7 +182,7 @@ contract HfPlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
       if (cTokenBorrow != address(0)) {
         (plan.ltv18, plan.liquidationThreshold18) = _getMarketsInfo(cTokenCollateral, cTokenBorrow);
         if (plan.ltv18 != 0 && plan.liquidationThreshold18 != 0) {
-          plan.converter = _converter;
+          plan.converter = converter;
 
           plan.maxAmountToBorrow = IHfCToken(cTokenBorrow).getCash();
           uint borrowCap = comptroller.borrowCaps(cTokenBorrow);

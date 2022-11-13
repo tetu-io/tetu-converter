@@ -23,6 +23,9 @@ contract DForcePlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
   using SafeERC20 for IERC20;
   using AppUtils for uint;
 
+  ///////////////////////////////////////////////////////
+  ///   Data types
+  ///////////////////////////////////////////////////////
   /// @notice Local vars inside _getConversionPlan - to avoid stack too deep
   struct LocalsGetConversionPlan {
     IDForcePriceOracle priceOracle;
@@ -32,12 +35,13 @@ contract DForcePlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
     uint priceBorrow36;
   }
 
-  // todo immutable for all
-  IController public controller;
-  IDForceController public comptroller;
-
+  ///////////////////////////////////////////////////////
+  ///   Variables
+  ///////////////////////////////////////////////////////
+  IController immutable public controller;
+  IDForceController immutable public comptroller;
   /// @notice Template of pool adapter
-  address _converter;
+  address immutable public converter;
 
   /// @notice All enabled pairs underlying : cTokens. All assets usable for collateral/to borrow.
   /// @dev There is no underlying for WMATIC, we store iMATIC:WMATIC
@@ -61,8 +65,8 @@ contract DForcePlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
 
     comptroller = IDForceController(comptroller_);
     controller = IController(controller_);
+    converter = templatePoolAdapter_;
 
-    _converter = templatePoolAdapter_;
     _setupCTokens(activeCTokens_, true);
   }
 
@@ -75,7 +79,7 @@ contract DForcePlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
     address borrowAsset_
   ) external override {
     require(msg.sender == controller.borrowManager(), AppErrors.BORROW_MANAGER_ONLY);
-    require(_converter == converter_, AppErrors.CONVERTER_NOT_FOUND);
+    require(converter == converter_, AppErrors.CONVERTER_NOT_FOUND);
 
     // HF-pool-adapters support IPoolAdapterInitializer
     IPoolAdapterInitializerWithAP(poolAdapter_).initialize(
@@ -126,7 +130,7 @@ contract DForcePlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
 
   function converters() external view override returns (address[] memory) {
     address[] memory dest = new address[](1);
-    dest[0] = _converter;
+    dest[0] = converter;
     return dest;
   }
 
@@ -184,7 +188,7 @@ contract DForcePlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
           {
             (uint borrowFactorMantissa, uint borrowCapacity) = _getBorrowMarketData(comptrollerLocal, cTokenBorrow);
             if (borrowFactorMantissa != 0 && borrowCapacity != 0) {
-              plan.converter = _converter;
+              plan.converter = converter;
 
               plan.liquidationThreshold18 = collateralFactor;
               plan.ltv18 = collateralFactor * borrowFactorMantissa / 10**18;
