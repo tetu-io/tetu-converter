@@ -88,7 +88,7 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer,
     require(controller.tetuConverter() == msg.sender, AppErrors.TETU_CONVERTER_ONLY);
   }
 
-  /// @notice Ensure that the caller is the user or TetuConveter
+  /// @notice Ensure that the caller is the user or TetuConverter
   function _onlyUserOrTC() internal view {
     require(
       msg.sender == controller.tetuConverter()

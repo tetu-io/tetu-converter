@@ -88,12 +88,12 @@ contract HfPoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP, Initializ
   ///                 Restrictions
   ///////////////////////////////////////////////////////
 
-  /// @notice Ensure that the caller is TetuConveter
+  /// @notice Ensure that the caller is TetuConverter
   function _onlyTC() internal view {
     require(controller.tetuConverter() == msg.sender, AppErrors.TETU_CONVERTER_ONLY);
   }
 
-  /// @notice Ensure that the caller is the user or TetuConveter
+  /// @notice Ensure that the caller is the user or TetuConverter
   function _onlyUserOrTC() internal view {
     require(
       msg.sender == controller.tetuConverter()

@@ -18,7 +18,7 @@ library AppErrors {
   string public constant PLATFORM_ADAPTER_NOT_FOUND = "TC-6";
   /// @notice Only pool adapters are allowed to make such operation
   string public constant POOL_ADAPTER_ONLY = "TC-7";
-  /// @notice Only TetuConveter is allowed to make such operation
+  /// @notice Only TetuConverter is allowed to make such operation
   string public constant TETU_CONVERTER_ONLY = "TC-8";
   /// @notice Only Governance is allowed to make such operation
   string public constant GOVERNANCE_ONLY = "TC-9";
