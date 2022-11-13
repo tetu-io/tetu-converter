@@ -72,7 +72,7 @@ export class BorrowManagerHelper {
     ) : Promise<CoreContracts> {
         const controller = await CoreContractsHelper.createController(signer);
         const borrowManager = await CoreContractsHelper.createBorrowManager(signer, controller);
-        const debtMonitor = await CoreContractsHelper.createDebtMonitor(signer, controller);
+        const debtMonitor = await CoreContractsHelper.createDebtMonitor(signer, controller.address);
         const tetuConverter = await CoreContractsHelper.createTetuConverter(signer, controller);
         const swapManager = await CoreContractsHelper.createSwapManager(signer, controller);
         const tetuLiquidator = await MocksHelper.createTetuLiquidatorMock(

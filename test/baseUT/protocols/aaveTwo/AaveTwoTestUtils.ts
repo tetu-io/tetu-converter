@@ -97,7 +97,7 @@ export class AaveTwoTestUtils {
     // controller: we need TC (as a caller) and DM (to register borrow position)
     const controller = await CoreContractsHelper.createController(deployer);
     const tetuConverter = await CoreContractsHelper.createTetuConverter(deployer, controller);
-    const dm = await CoreContractsHelper.createDebtMonitor(deployer, controller);
+    const dm = await CoreContractsHelper.createDebtMonitor(deployer, controller.address);
     // const bm = await MocksHelper.createBorrowManagerStub(deployer, true);
     const bm = await CoreContractsHelper.createBorrowManager(deployer, controller);
     await controller.setBorrowManager(bm.address);

@@ -46,14 +46,14 @@ export class CoreContractsHelper {
 
   public static async createDebtMonitor(
     signer: SignerWithAddress,
-    controller: IController,
+    controllerAddress: string,
     thresholdAPR: number = 0,
     thresholdCountBlocks: number = 0
   ): Promise<DebtMonitor> {
     return (await DeployUtils.deployContract(
       signer,
       "DebtMonitor",
-      controller.address,
+      controllerAddress,
       thresholdAPR,
       thresholdCountBlocks
     )) as DebtMonitor;

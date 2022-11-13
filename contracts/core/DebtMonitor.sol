@@ -64,10 +64,13 @@ contract DebtMonitor is IDebtMonitor {
     uint thresholdCountBlocks_
   ) {
     require(controller_ != address(0), AppErrors.ZERO_ADDRESS);
-
     controller = IController(controller_);
-    //todo check restrictions
+
+    require(thresholdAPR_ < 100, AppErrors.INCORRECT_VALUE);
     thresholdAPR = thresholdAPR_;
+
+    // we don't need any restriction for countBlocks_
+    // 0 - means, that the threshold is disabled
     thresholdCountBlocks = thresholdCountBlocks_;
   }
 
@@ -80,7 +83,8 @@ contract DebtMonitor is IDebtMonitor {
 
   function setThresholdCountBlocks(uint countBlocks_) external {
     _onlyGovernance();
-    // todo restriction for amount
+    // we don't need any restriction for countBlocks_
+    // 0 - means, that the threshold is disabled
     thresholdCountBlocks = countBlocks_;
     // todo event
   }
@@ -126,8 +130,12 @@ contract DebtMonitor is IDebtMonitor {
 
   /// @dev This function is called from a pool adapter when the borrow is completely repaid
   function onClosePosition() external override {
-    // todo restrictions?
-    require(positionLastAccess[msg.sender] != 0, AppErrors.BORROW_POSITION_IS_NOT_REGISTERED);
+    // This method should be called by pool adapters only
+    // we check it through positionLastAccess
+    require(
+      positionLastAccess[msg.sender] != 0,
+      AppErrors.BORROW_POSITION_IS_NOT_REGISTERED
+    );
 
     (uint collateralAmount, uint amountToPay,,,) = IPoolAdapter(msg.sender).getStatus();
     require(collateralAmount == 0 && amountToPay == 0, AppErrors.ATTEMPT_TO_CLOSE_NOT_EMPTY_BORROW_POSITION);
@@ -148,9 +156,6 @@ contract DebtMonitor is IDebtMonitor {
 
   /// @notice Check if the pool-adapter-caller has an opened position
   function isPositionOpened() external override view returns (bool) {
-    // todo you don not need restrictions for view function
-    _onlyPoolAdapter();
-
     return positionLastAccess[msg.sender] != 0;
   }
 

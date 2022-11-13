@@ -104,7 +104,7 @@ export class DForceTestUtils {
     // controller, dm, bm
     const controller = await CoreContractsHelper.createController(deployer);
     const tetuConverter = await CoreContractsHelper.createTetuConverter(deployer, controller);
-    const debtMonitor = await CoreContractsHelper.createDebtMonitor(deployer, controller);
+    const debtMonitor = await CoreContractsHelper.createDebtMonitor(deployer, controller.address);
     // const borrowManager = await MocksHelper.createBorrowManagerStub(deployer, true);
     const borrowManager = await CoreContractsHelper.createBorrowManager(deployer, controller);
     await controller.setBorrowManager(borrowManager.address);

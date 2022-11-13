@@ -1620,7 +1620,11 @@ describe("BorrowManager", () => {
           const before1 = await r.app.borrowManager.getPoolAdapter(pa1.originConverter, pa1.user, pa1.collateralAsset, pa1.borrowAsset);
           const before2 = await r.app.borrowManager.getPoolAdapter(pa2.originConverter, pa2.user, pa2.collateralAsset, pa2.borrowAsset);
 
-          await r.app.borrowManager.markPoolAdapterAsDirty(pa1.originConverter, pa1.user, pa1.collateralAsset, pa1.borrowAsset);
+          const borrowManagerAsTetuConverter = IBorrowManager__factory.connect(
+            r.app.borrowManager.address,
+            await DeployerUtils.startImpersonate(await r.app.controller.tetuConverter())
+          );
+          await borrowManagerAsTetuConverter.markPoolAdapterAsDirty(pa1.originConverter, pa1.user, pa1.collateralAsset, pa1.borrowAsset);
 
           const after1 = await r.app.borrowManager.getPoolAdapter(pa1.originConverter, pa1.user, pa1.collateralAsset, pa1.borrowAsset);
           const after2 = await r.app.borrowManager.getPoolAdapter(pa2.originConverter, pa2.user, pa2.collateralAsset, pa2.borrowAsset);
@@ -1642,7 +1646,11 @@ describe("BorrowManager", () => {
           const before1 = await r.app.borrowManager.isPoolAdapter(r.out[0].poolAdapterAddress);
           const before2 = await r.app.borrowManager.isPoolAdapter(r.out[1].poolAdapterAddress);
 
-          await r.app.borrowManager.markPoolAdapterAsDirty(pa1.originConverter, pa1.user, pa1.collateralAsset, pa1.borrowAsset);
+          const borrowManagerAsTetuConverter = IBorrowManager__factory.connect(
+            r.app.borrowManager.address,
+            await DeployerUtils.startImpersonate(await r.app.controller.tetuConverter())
+          );
+          await borrowManagerAsTetuConverter.markPoolAdapterAsDirty(pa1.originConverter, pa1.user, pa1.collateralAsset, pa1.borrowAsset);
 
           const after1 = await r.app.borrowManager.isPoolAdapter(r.out[0].poolAdapterAddress);
           const after2 = await r.app.borrowManager.isPoolAdapter(r.out[1].poolAdapterAddress);
@@ -1659,7 +1667,11 @@ describe("BorrowManager", () => {
           const before1 = await r.app.borrowManager.poolAdaptersRegistered(r.out[0].poolAdapterAddress);
           const before2 = await r.app.borrowManager.poolAdaptersRegistered(r.out[1].poolAdapterAddress);
 
-          await r.app.borrowManager.markPoolAdapterAsDirty(pa1.originConverter, pa1.user, pa1.collateralAsset, pa1.borrowAsset);
+          const borrowManagerAsTetuConverter = IBorrowManager__factory.connect(
+            r.app.borrowManager.address,
+            await DeployerUtils.startImpersonate(await r.app.controller.tetuConverter())
+          );
+          await borrowManagerAsTetuConverter.markPoolAdapterAsDirty(pa1.originConverter, pa1.user, pa1.collateralAsset, pa1.borrowAsset);
 
           const after1 = await r.app.borrowManager.poolAdaptersRegistered(r.out[0].poolAdapterAddress);
           const after2 = await r.app.borrowManager.poolAdaptersRegistered(r.out[1].poolAdapterAddress);
@@ -1676,9 +1688,12 @@ describe("BorrowManager", () => {
         const r = await getUniquePoolAdaptersForTwoPoolsAndTwoPairs(1);
         const pa1 = r.out[0].initConfig;
         const incorrectUser = ethers.Wallet.createRandom().address;
-
+        const borrowManagerAsTetuConverter = IBorrowManager__factory.connect(
+          r.app.borrowManager.address,
+          await DeployerUtils.startImpersonate(await r.app.controller.tetuConverter())
+        );
         await expect(
-          r.app.borrowManager.markPoolAdapterAsDirty(pa1.originConverter,
+          borrowManagerAsTetuConverter.markPoolAdapterAsDirty(pa1.originConverter,
               incorrectUser, // (!)
               pa1.collateralAsset,
               pa1.borrowAsset
@@ -1688,11 +1703,25 @@ describe("BorrowManager", () => {
       it("try to mark as dirty the same pool adapters second time", async () => {
         const r = await getUniquePoolAdaptersForTwoPoolsAndTwoPairs(1);
         const pa1 = r.out[0].initConfig;
-
-        await r.app.borrowManager.markPoolAdapterAsDirty(pa1.originConverter, pa1.user, pa1.collateralAsset, pa1.borrowAsset);
+        const borrowManagerAsTetuConverter = IBorrowManager__factory.connect(
+          r.app.borrowManager.address,
+          await DeployerUtils.startImpersonate(await r.app.controller.tetuConverter())
+        );
+        await borrowManagerAsTetuConverter.markPoolAdapterAsDirty(pa1.originConverter, pa1.user, pa1.collateralAsset, pa1.borrowAsset);
         await expect(
-          r.app.borrowManager.markPoolAdapterAsDirty(pa1.originConverter, pa1.user, pa1.collateralAsset, pa1.borrowAsset)
+          borrowManagerAsTetuConverter.markPoolAdapterAsDirty(pa1.originConverter, pa1.user, pa1.collateralAsset, pa1.borrowAsset)
         ).revertedWith("TC-2"); // POOL_ADAPTER_NOT_FOUND
+      });
+      it("should revert if the sender is not TetuConverter", async () => {
+        const r = await getUniquePoolAdaptersForTwoPoolsAndTwoPairs(1);
+        const pa1 = r.out[0].initConfig;
+        const borrowManagerAsNotTetuConverter = IBorrowManager__factory.connect(
+          r.app.borrowManager.address,
+          await DeployerUtils.startImpersonate(ethers.Wallet.createRandom().address)
+        );
+        await expect(
+          borrowManagerAsNotTetuConverter.markPoolAdapterAsDirty(pa1.originConverter, pa1.user, pa1.collateralAsset, pa1.borrowAsset)
+        ).revertedWith("TC-8"); // TETU_CONVERTER_ONLY
       });
     });
   });

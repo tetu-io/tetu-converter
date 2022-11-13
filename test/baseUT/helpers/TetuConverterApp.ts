@@ -29,7 +29,7 @@ export class TetuConverterApp {
 
     const borrowManager = await CoreContractsHelper.createBorrowManager(deployer, controller);
     const tetuConverter: ITetuConverter = await CoreContractsHelper.createTetuConverter(deployer, controller);
-    const debtMonitor = await CoreContractsHelper.createDebtMonitor(deployer, controller);
+    const debtMonitor = await CoreContractsHelper.createDebtMonitor(deployer, controller.address);
 
     const tetuLiquidatorAddress = MaticAddresses.TETU_LIQUIDATOR;
     const swapManager = await CoreContractsHelper.createSwapManager(deployer, controller);

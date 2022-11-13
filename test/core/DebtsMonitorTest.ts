@@ -32,6 +32,8 @@ import {CoreContracts} from "../baseUT/types/CoreContracts";
 import {generateAssetPairs} from "../baseUT/utils/AssetPairUtils";
 import {BalanceUtils} from "../baseUT/utils/BalanceUtils";
 import {areAlmostEqual} from "../baseUT/utils/CommonUtils";
+import {CoreContractsHelper} from "../baseUT/helpers/CoreContractsHelper";
+import {Misc} from "../../scripts/utils/Misc";
 
 describe("DebtsMonitor", () => {
 //region Global vars for all tests
@@ -132,7 +134,6 @@ describe("DebtsMonitor", () => {
     pools: IPoolInstanceInfo[],
     poolAdapters: string[]
   }>{
-    const healthFactor2 = 200;
     const periodInBlocks = 117;
 
     const {core, sourceToken, targetToken, pools} = await BorrowManagerHelper.initAppPoolsWithTwoAssets(
@@ -517,6 +518,60 @@ describe("DebtsMonitor", () => {
 //endregion Utils for onClosePosition
 
 //region Unit tests
+  describe("constructor", () => {
+    async function makeConstructorTest(
+      thresholdAPR: number,
+      thresholdCountBlocks: number,
+      useZeroController?: boolean
+    ): Promise<{ret: string, expected: string}> {
+      const controller = await CoreContractsHelper.createController(deployer);
+      const debtMonitor = await CoreContractsHelper.createDebtMonitor(
+        deployer,
+        useZeroController ? Misc.ZERO_ADDRESS : controller.address,
+        thresholdAPR,
+        thresholdCountBlocks
+      );
+      const ret = [
+        await debtMonitor.thresholdAPR(),
+        await debtMonitor.thresholdCountBlocks()
+      ].map(x => BalanceUtils.toString(x)).join("\n");
+      const expected = [
+        thresholdAPR,
+        thresholdCountBlocks
+      ].map(x => BalanceUtils.toString(x)).join("\n");
+      return {ret, expected};
+    }
+    describe("Good paths", () => {
+      it("should enable both thresholds", async () => {
+        const r = await makeConstructorTest(20, 7000);
+        expect(r.ret).eq(r.expected);
+      });
+      it("should disable both thresholds", async () => {
+        const r = await makeConstructorTest(0, 0);
+        expect(r.ret).eq(r.expected);
+      });
+    });
+    describe("Bad paths", () => {
+      it("should revert on too big thresholdAPR", async () => {
+        await expect(
+          makeConstructorTest(
+            100, // (!) it must be less 100
+            0
+          )
+        ).revertedWith("TC-29"); // INCORRECT_VALUE
+      });
+      it("should revert if controller is zero", async () => {
+        await expect(
+          makeConstructorTest(
+            0,
+            0,
+            true // (!) controller is zero
+          )
+        ).revertedWith("TC-1"); // ZERO_ADDRESS
+      });
+    });
+  });
+
   describe("setThresholdAPR", () => {
     describe("Good paths", () => {
       describe("Set thresholdAPR equal to 0", () => {
@@ -1063,23 +1118,6 @@ describe("DebtsMonitor", () => {
 
           const ret = await dmAsPa.isPositionOpened();
           expect(ret).eq(false);
-        });
-      });
-    });
-    describe("Bad paths", () => {
-      describe("Not pool adapter", () => {
-        it("should revert", async () => {
-          const dmAsPa = await prepareDebtMonitorSignerPoolAdapter();
-          const notPoolAdapter = ethers.Wallet.createRandom();
-          const dmAsNotPa = DebtMonitor__factory.connect(
-            dmAsPa.address,
-            await DeployerUtils.startImpersonate(notPoolAdapter.address)
-          );
-          await dmAsPa.onOpenPosition();
-
-          await expect(
-            dmAsNotPa.isPositionOpened()
-          ).revertedWith("TC-7");
         });
       });
     });
