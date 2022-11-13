@@ -2,6 +2,7 @@ import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import hre, {ethers} from "hardhat";
 import {TimeUtils} from "../../../scripts/utils/TimeUtils";
 import {
+  Aave3PlatformAdapter__factory,
   IAavePool,
   IAaveProtocolDataProvider,
   IERC20Extended__factory, IPlatformAdapter
@@ -22,6 +23,7 @@ import {AprAave3, getAave3StateInfo} from "../../baseUT/apr/aprAave3";
 import {Misc} from "../../../scripts/utils/Misc";
 import {convertUnits} from "../../baseUT/apr/aprUtils";
 import {Aave3Utils} from "../../baseUT/protocols/aave3/Aave3Utils";
+import {DeployerUtils} from "../../../scripts/utils/DeployerUtils";
 
 describe("Aave3PlatformAdapterTest", () => {
 //region Global vars for all tests
@@ -61,13 +63,13 @@ describe("Aave3PlatformAdapterTest", () => {
     borrowAsset: string;
     private h: Aave3Helper;
     constructor(
-      dp: IAaveProtocolDataProvider,
+      dataProvider: IAaveProtocolDataProvider,
       pool: IAavePool,
       collateralAsset: string,
       borrowAsset: string
     ) {
       this.h = new Aave3Helper(deployer);
-      this.dp = dp;
+      this.dp = dataProvider;
       this.pool = pool;
       this.collateralAsset = collateralAsset;
       this.borrowAsset = borrowAsset;
@@ -588,6 +590,111 @@ describe("Aave3PlatformAdapterTest", () => {
       });
     });
 
+  });
+
+  describe("initializePoolAdapter", () => {
+    interface IInitializePoolAdapterBadPaths {
+      useWrongConverter?: boolean;
+      wrongCallerOfInitializePoolAdapter?: boolean;
+    }
+    async function makeInitializePoolAdapterTest(
+      useEMode: boolean,
+      badParams?: IInitializePoolAdapterBadPaths
+    ) : Promise<{ret: string, expected: string}> {
+      const user = ethers.Wallet.createRandom().address;
+      const collateralAsset = ethers.Wallet.createRandom().address;
+      const borrowAsset = ethers.Wallet.createRandom().address;
+
+      const controller = await CoreContractsHelper.createController(deployer);
+      const borrowManager = await CoreContractsHelper.createBorrowManager(deployer, controller);
+      await controller.setBorrowManager(borrowManager.address);
+
+      const converterNormal = await AdaptersHelper.createAave3PoolAdapter(deployer);
+      const converterEMode = await AdaptersHelper.createAave3PoolAdapterEMode(deployer);
+
+      const aavePool = await Aave3Helper.getAavePool(deployer);
+      const aavePlatformAdapter = await AdaptersHelper.createAave3PlatformAdapter(
+        deployer,
+        controller.address,
+        aavePool.address,
+        converterNormal.address,
+        converterEMode.address
+      );
+
+      const poolAdapter = useEMode
+        ? await AdaptersHelper.createAave3PoolAdapterEMode(deployer)
+        : await AdaptersHelper.createAave3PoolAdapter(deployer);
+      const aavePlatformAdapterAsBorrowManager = Aave3PlatformAdapter__factory.connect(
+        aavePlatformAdapter.address,
+        badParams?.wrongCallerOfInitializePoolAdapter
+          ? await DeployerUtils.startImpersonate(ethers.Wallet.createRandom().address)
+          : await DeployerUtils.startImpersonate(borrowManager.address)
+      );
+
+      await aavePlatformAdapterAsBorrowManager.initializePoolAdapter(
+        badParams?.useWrongConverter
+          ? ethers.Wallet.createRandom().address
+          : useEMode
+            ? converterEMode.address
+            : converterNormal.address,
+        poolAdapter.address,
+        user,
+        collateralAsset,
+        borrowAsset
+      );
+
+      const poolAdapterConfigAfter = await poolAdapter.getConfig();
+      const ret = [
+        poolAdapterConfigAfter.origin,
+        poolAdapterConfigAfter.outUser,
+        poolAdapterConfigAfter.outCollateralAsset,
+        poolAdapterConfigAfter.outBorrowAsset
+      ].join();
+      const expected = [
+        useEMode ? converterEMode.address : converterNormal.address,
+        user,
+        collateralAsset,
+        borrowAsset
+      ].join();
+      return {ret, expected};
+    }
+
+    describe("Good paths", () => {
+      it("Normal mode: initialized pool adapter should has expected values", async () => {
+        if (!await isPolygonForkInUse()) return;
+
+        const r = await makeInitializePoolAdapterTest(false);
+        expect(r.ret).eq(r.expected);
+      });
+      it("EMode mode: initialized pool adapter should has expected values", async () => {
+        if (!await isPolygonForkInUse()) return;
+
+        const r = await makeInitializePoolAdapterTest(false);
+        expect(r.ret).eq(r.expected);
+      });
+    });
+    describe("Bad paths", () => {
+      it("should revert if converter address is not registered", async () => {
+        if (!await isPolygonForkInUse()) return;
+
+        await expect(
+          makeInitializePoolAdapterTest(
+            false,
+            {useWrongConverter: true}
+          )
+        ).revertedWith("TC-25"); // CONVERTER_NOT_FOUND
+      });
+      it("should revert if it's called by not borrow-manager", async () => {
+        if (!await isPolygonForkInUse()) return;
+
+        await expect(
+          makeInitializePoolAdapterTest(
+            false,
+            {wrongCallerOfInitializePoolAdapter: true}
+          )
+        ).revertedWith("TC-45"); // BORROW_MANAGER_ONLY
+      });
+    });
   });
 //endregion Unit tests
 

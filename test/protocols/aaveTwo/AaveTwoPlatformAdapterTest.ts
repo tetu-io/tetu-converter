@@ -12,6 +12,7 @@ import {AaveTwoHelper} from "../../../scripts/integration/helpers/AaveTwoHelper"
 import {AprUtils, COUNT_BLOCKS_PER_DAY} from "../../baseUT/utils/aprUtils";
 import {CoreContractsHelper} from "../../baseUT/helpers/CoreContractsHelper";
 import {
+  AaveTwoPlatformAdapter__factory,
   IAaveTwoPool,
   IAaveTwoProtocolDataProvider,
   IERC20Extended__factory
@@ -21,6 +22,7 @@ import {IPlatformActor, PredictBrUsesCase} from "../../baseUT/uses-cases/Predict
 import {AprAaveTwo, getAaveTwoStateInfo} from "../../baseUT/apr/aprAaveTwo";
 import {Misc} from "../../../scripts/utils/Misc";
 import {convertUnits} from "../../baseUT/apr/aprUtils";
+import {DeployerUtils} from "../../../scripts/utils/DeployerUtils";
 
 describe("AaveTwoPlatformAdapterTest", () => {
 //region Global vars for all tests
@@ -458,6 +460,96 @@ describe("AaveTwoPlatformAdapterTest", () => {
       });
     });
 
+  });
+
+  describe("initializePoolAdapter", () => {
+    interface IInitializePoolAdapterBadPaths {
+      useWrongConverter?: boolean;
+      wrongCallerOfInitializePoolAdapter?: boolean;
+    }
+    async function makeInitializePoolAdapterTest(
+      badParams?: IInitializePoolAdapterBadPaths
+    ) : Promise<{ret: string, expected: string}> {
+      const user = ethers.Wallet.createRandom().address;
+      const collateralAsset = ethers.Wallet.createRandom().address;
+      const borrowAsset = ethers.Wallet.createRandom().address;
+
+      const controller = await CoreContractsHelper.createController(deployer);
+      const borrowManager = await CoreContractsHelper.createBorrowManager(deployer, controller);
+      await controller.setBorrowManager(borrowManager.address);
+
+      const converterNormal = await AdaptersHelper.createAaveTwoPoolAdapter(deployer);
+
+      const aavePool = await AaveTwoHelper.getAavePool(deployer);
+      const aavePlatformAdapter = await AdaptersHelper.createAaveTwoPlatformAdapter(
+        deployer,
+        controller.address,
+        aavePool.address,
+        converterNormal.address,
+      );
+
+      const poolAdapter = await AdaptersHelper.createAaveTwoPoolAdapter(deployer)
+      const aavePlatformAdapterAsBorrowManager = AaveTwoPlatformAdapter__factory.connect(
+        aavePlatformAdapter.address,
+        badParams?.wrongCallerOfInitializePoolAdapter
+          ? await DeployerUtils.startImpersonate(ethers.Wallet.createRandom().address)
+          : await DeployerUtils.startImpersonate(borrowManager.address)
+      );
+
+      await aavePlatformAdapterAsBorrowManager.initializePoolAdapter(
+        badParams?.useWrongConverter
+          ? ethers.Wallet.createRandom().address
+          : converterNormal.address,
+        poolAdapter.address,
+        user,
+        collateralAsset,
+        borrowAsset
+      );
+
+      const poolAdapterConfigAfter = await poolAdapter.getConfig();
+      const ret = [
+        poolAdapterConfigAfter.origin,
+        poolAdapterConfigAfter.outUser,
+        poolAdapterConfigAfter.outCollateralAsset,
+        poolAdapterConfigAfter.outBorrowAsset
+      ].join();
+      const expected = [
+        converterNormal.address,
+        user,
+        collateralAsset,
+        borrowAsset
+      ].join();
+      return {ret, expected};
+    }
+
+    describe("Good paths", () => {
+      it("initialized pool adapter should has expected values", async () => {
+        if (!await isPolygonForkInUse()) return;
+
+        const r = await makeInitializePoolAdapterTest();
+        expect(r.ret).eq(r.expected);
+      });
+    });
+    describe("Bad paths", () => {
+      it("should revert if converter address is not registered", async () => {
+        if (!await isPolygonForkInUse()) return;
+
+        await expect(
+          makeInitializePoolAdapterTest(
+            {useWrongConverter: true}
+          )
+        ).revertedWith("TC-25"); // CONVERTER_NOT_FOUND
+      });
+      it("should revert if it's called by not borrow-manager", async () => {
+        if (!await isPolygonForkInUse()) return;
+
+        await expect(
+          makeInitializePoolAdapterTest(
+            {wrongCallerOfInitializePoolAdapter: true}
+          )
+        ).revertedWith("TC-45"); // BORROW_MANAGER_ONLY
+      });
+    });
   });
 //endregion Unit tests
 

@@ -65,11 +65,13 @@ contract Aave3PlatformAdapter is IPlatformAdapter {
     address templateAdapterNormal_,
     address templateAdapterEMode_
   ) {
-    require(poolAave_ != address(0)
+    require(
+      poolAave_ != address(0)
       && templateAdapterNormal_ != address(0)
       && templateAdapterEMode_ != address(0)
-      && controller_ != address(0)
-    , AppErrors.ZERO_ADDRESS);
+      && controller_ != address(0),
+      AppErrors.ZERO_ADDRESS
+    );
 
     pool = IAavePool(poolAave_);
     _priceOracle = IAavePriceOracle(IAaveAddressesProvider(pool.ADDRESSES_PROVIDER()).getPriceOracle());
@@ -79,6 +81,27 @@ contract Aave3PlatformAdapter is IPlatformAdapter {
     // todo better and clear use immutable vars, no?
     _converters.push(templateAdapterNormal_); // add first, INDEX_NORMAL_MODE = 0
     _converters.push(templateAdapterEMode_); // add second, INDEX_E_MODE = 1
+  }
+
+  function initializePoolAdapter(
+    address converter_,
+    address poolAdapter_,
+    address user_,
+    address collateralAsset_,
+    address borrowAsset_
+  ) external override {
+    require(msg.sender == controller.borrowManager(), AppErrors.BORROW_MANAGER_ONLY);
+    require(_converters[0] == converter_ || _converters[1] == converter_, AppErrors.CONVERTER_NOT_FOUND);
+
+    // All AAVE-pool-adapters support IPoolAdapterInitializer
+    IPoolAdapterInitializer(poolAdapter_).initialize(
+      address(controller),
+      address(pool),
+      user_,
+      collateralAsset_,
+      borrowAsset_,
+      converter_
+    );
   }
 
   ///////////////////////////////////////////////////////
@@ -324,31 +347,6 @@ contract Aave3PlatformAdapter is IPlatformAdapter {
       totalVariableDebt
     );
   }
-
-  ///////////////////////////////////////////////////////
-  ///         Initialization of pool adapters
-  ///////////////////////////////////////////////////////
-
-  // todo place init func on top of file
-  function initializePoolAdapter(
-    address converter_,
-    address poolAdapter_,
-    address user_,
-    address collateralAsset_,
-    address borrowAsset_
-  ) external override {
-    // todo restrictions?
-    // All AAVE-pool-adapters support IPoolAdapterInitializer
-    IPoolAdapterInitializer(poolAdapter_).initialize(
-      address(controller),
-      address(pool),
-      user_,
-      collateralAsset_,
-      borrowAsset_,
-      converter_
-    );
-  }
-
 
   ///////////////////////////////////////////////////////
   ///                    Utils

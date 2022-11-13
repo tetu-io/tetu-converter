@@ -72,8 +72,8 @@ contract HfPoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP {
      address cTokenBorrow
     ) = ITokenAddressProvider(cTokenAddressProvider_).getCTokenByUnderlying(collateralAsset_, borrowAsset_);
 
-    require(cTokenCollateral != address(0), AppErrors.HF_DERIVATIVE_TOKEN_NOT_FOUND);
-    require(cTokenBorrow != address(0), AppErrors.HF_DERIVATIVE_TOKEN_NOT_FOUND);
+    require(cTokenCollateral != address(0), AppErrors.C_TOKEN_NOT_FOUND);
+    require(cTokenBorrow != address(0), AppErrors.C_TOKEN_NOT_FOUND);
 
     collateralCToken = cTokenCollateral;
     borrowCToken = cTokenBorrow;

@@ -584,6 +584,97 @@ describe("DForce integration tests, platform adapter", () => {
     });
 
   });
+
+  describe("initializePoolAdapter", () => {
+    interface IInitializePoolAdapterBadPaths {
+      useWrongConverter?: boolean;
+      wrongCallerOfInitializePoolAdapter?: boolean;
+    }
+    async function makeInitializePoolAdapterTest(
+      badParams?: IInitializePoolAdapterBadPaths
+    ) : Promise<{ret: string, expected: string}> {
+      const user = ethers.Wallet.createRandom().address;
+      const collateralAsset = MaticAddresses.DAI;
+      const borrowAsset = MaticAddresses.USDC;
+
+      const controller = await CoreContractsHelper.createController(deployer);
+      const borrowManager = await CoreContractsHelper.createBorrowManager(deployer, controller);
+      await controller.setBorrowManager(borrowManager.address);
+
+      const converterNormal = await AdaptersHelper.createDForcePoolAdapter(deployer);
+
+      const comptroller = await DForceHelper.getController(deployer);
+      const platformAdapter = await AdaptersHelper.createDForcePlatformAdapter(
+        deployer,
+        controller.address,
+        comptroller.address,
+        converterNormal.address,
+        [MaticAddresses.dForce_iDAI, MaticAddresses.dForce_iUSDC]
+      );
+
+      const poolAdapter = await AdaptersHelper.createDForcePoolAdapter(deployer)
+      const platformAdapterAsBorrowManager = DForcePlatformAdapter__factory.connect(
+        platformAdapter.address,
+        badParams?.wrongCallerOfInitializePoolAdapter
+          ? await DeployerUtils.startImpersonate(ethers.Wallet.createRandom().address)
+          : await DeployerUtils.startImpersonate(borrowManager.address)
+      );
+
+      await platformAdapterAsBorrowManager.initializePoolAdapter(
+        badParams?.useWrongConverter
+          ? ethers.Wallet.createRandom().address
+          : converterNormal.address,
+        poolAdapter.address,
+        user,
+        collateralAsset,
+        borrowAsset
+      );
+
+      const poolAdapterConfigAfter = await poolAdapter.getConfig();
+      const ret = [
+        poolAdapterConfigAfter.origin,
+        poolAdapterConfigAfter.outUser,
+        poolAdapterConfigAfter.outCollateralAsset.toLowerCase(),
+        poolAdapterConfigAfter.outBorrowAsset.toLowerCase()
+      ].join("\n");
+      const expected = [
+        converterNormal.address,
+        user,
+        collateralAsset.toLowerCase(),
+        borrowAsset.toLowerCase()
+      ].join("\n");
+      return {ret, expected};
+    }
+
+    describe("Good paths", () => {
+      it("initialized pool adapter should has expected values", async () => {
+        if (!await isPolygonForkInUse()) return;
+
+        const r = await makeInitializePoolAdapterTest();
+        expect(r.ret).eq(r.expected);
+      });
+    });
+    describe("Bad paths", () => {
+      it("should revert if converter address is not registered", async () => {
+        if (!await isPolygonForkInUse()) return;
+
+        await expect(
+          makeInitializePoolAdapterTest(
+            {useWrongConverter: true}
+          )
+        ).revertedWith("TC-25"); // CONVERTER_NOT_FOUND
+      });
+      it("should revert if it's called by not borrow-manager", async () => {
+        if (!await isPolygonForkInUse()) return;
+
+        await expect(
+          makeInitializePoolAdapterTest(
+            {wrongCallerOfInitializePoolAdapter: true}
+          )
+        ).revertedWith("TC-45"); // BORROW_MANAGER_ONLY
+      });
+    });
+  });
 //endregion Unit tests
 
 });

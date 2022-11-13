@@ -55,14 +55,38 @@ contract DForcePlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
     require(
       comptroller_ != address(0)
       && templatePoolAdapter_ != address(0)
-      && controller_ != address(0)
-    , AppErrors.ZERO_ADDRESS);
+      && controller_ != address(0),
+      AppErrors.ZERO_ADDRESS
+    );
 
     comptroller = IDForceController(comptroller_);
     controller = IController(controller_);
 
     _converter = templatePoolAdapter_;
     _setupCTokens(activeCTokens_, true);
+  }
+
+  /// @notice Initialize {poolAdapter_} created from {converter_} using minimal proxy pattern
+  function initializePoolAdapter(
+    address converter_,
+    address poolAdapter_,
+    address user_,
+    address collateralAsset_,
+    address borrowAsset_
+  ) external override {
+    require(msg.sender == controller.borrowManager(), AppErrors.BORROW_MANAGER_ONLY);
+    require(_converter == converter_, AppErrors.CONVERTER_NOT_FOUND);
+
+    // HF-pool-adapters support IPoolAdapterInitializer
+    IPoolAdapterInitializerWithAP(poolAdapter_).initialize(
+      address(controller),
+      address(this),
+      address(comptroller),
+      user_,
+      collateralAsset_,
+      borrowAsset_,
+      converter_
+    );
   }
 
   // todo why you suppose it will be changed?
@@ -237,31 +261,6 @@ contract DForcePlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
     }
 
     return plan;
-  }
-
-  ///////////////////////////////////////////////////////
-  ///         Initialization of pool adapters
-  ///////////////////////////////////////////////////////
-
-  /// @notice Initialize {poolAdapter_} created from {converter_} using minimal proxy pattern
-  function initializePoolAdapter(
-    address converter_,
-    address poolAdapter_,
-    address user_,
-    address collateralAsset_,
-    address borrowAsset_
-  ) external override {
-    require(_converter == converter_, AppErrors.CONVERTER_NOT_FOUND);
-    // HF-pool-adapters support IPoolAdapterInitializer
-    IPoolAdapterInitializerWithAP(poolAdapter_).initialize(
-      address(controller),
-      address(this),
-      address(comptroller),
-      user_,
-      collateralAsset_,
-      borrowAsset_,
-      converter_
-    );
   }
 
   ///////////////////////////////////////////////////////

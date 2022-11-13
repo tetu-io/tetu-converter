@@ -35,7 +35,7 @@ library AppErrors {
   /// @notice Pool adapter expects some amount of borrowed tokens on its balance
   string public constant WRONG_BORROWED_BALANCE="TC-15";
   /// @notice cToken is not found for provided underlying
-  string public constant HF_DERIVATIVE_TOKEN_NOT_FOUND = "TC-16";
+  string public constant C_TOKEN_NOT_FOUND = "TC-16";
   /// @notice cToken.mint failed
   string public constant MINT_FAILED = "TC-17";
   string public constant COMPTROLLER_GET_ACCOUNT_LIQUIDITY_FAILED = "TC-18";
@@ -92,5 +92,7 @@ library AppErrors {
 
   /// @notice Value of "converter" passed to TetuConverter.borrow is incorrect ( != SwapManager address)
   string public constant INCORRECT_CONVERTER_TO_SWAP = "TC-44";
+
+  string public constant BORROW_MANAGER_ONLY = "TC-45";
 
 }

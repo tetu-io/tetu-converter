@@ -59,16 +59,39 @@ contract AaveTwoPlatformAdapter is IPlatformAdapter {
     address poolAave_,
     address templateAdapterNormal_
   ) {
-    require(poolAave_ != address(0)
+    require(
+      poolAave_ != address(0)
       && templateAdapterNormal_ != address(0)
-      && controller_ != address(0)
-    , AppErrors.ZERO_ADDRESS);
+      && controller_ != address(0),
+      AppErrors.ZERO_ADDRESS
+    );
 
     pool = IAaveTwoPool(poolAave_);
     _priceOracle = IAaveTwoPriceOracle(IAaveTwoLendingPoolAddressesProvider(pool.getAddressesProvider()).getPriceOracle());
 
     controller = IController(controller_);
     converter = templateAdapterNormal_;
+  }
+
+  function initializePoolAdapter(
+    address converter_,
+    address poolAdapter_,
+    address user_,
+    address collateralAsset_,
+    address borrowAsset_
+  ) external override {
+    require(msg.sender == controller.borrowManager(), AppErrors.BORROW_MANAGER_ONLY);
+    require(converter == converter_, AppErrors.CONVERTER_NOT_FOUND);
+
+    // All AAVE-pool-adapters support IPoolAdapterInitializer
+    IPoolAdapterInitializer(poolAdapter_).initialize(
+      address(controller),
+      address(pool),
+      user_,
+      collateralAsset_,
+      borrowAsset_,
+      converter_
+    );
   }
 
   ///////////////////////////////////////////////////////
@@ -255,30 +278,6 @@ contract AaveTwoPlatformAdapter is IPlatformAdapter {
       totalVariableDebt
     );
   }
-
-  ///////////////////////////////////////////////////////
-  ///         Initialization of pool adapters
-  ///////////////////////////////////////////////////////
-
-  function initializePoolAdapter(
-    address converter_,
-    address poolAdapter_,
-    address user_,
-    address collateralAsset_,
-    address borrowAsset_
-  ) external override {
-    // todo restrictions?
-    // All AAVE-pool-adapters support IPoolAdapterInitializer
-    IPoolAdapterInitializer(poolAdapter_).initialize(
-      address(controller),
-      address(pool),
-      user_,
-      collateralAsset_,
-      borrowAsset_,
-      converter_
-    );
-  }
-
 
   ///////////////////////////////////////////////////////
   ///                    Utils
