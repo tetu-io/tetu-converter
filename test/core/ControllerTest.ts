@@ -1,20 +1,14 @@
 import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import {ethers} from "hardhat";
 import {expect} from "chai";
-import {DeployUtils} from "../../scripts/utils/DeployUtils";
 import {Controller, Controller__factory} from "../../typechain";
 import {TimeUtils} from "../../scripts/utils/TimeUtils";
 import {BigNumber} from "ethers";
 import {controlGasLimitsEx, getGasUsed} from "../../scripts/utils/hardhatUtils";
-import {
-  GAS_LIMIT_CONTROLLER_INITIALIZE,
-  GAS_LIMIT_CONTROLLER_SET_XXX
-} from "../baseUT/GasLimit";
+import {GAS_LIMIT_CONTROLLER_INITIALIZE, GAS_LIMIT_CONTROLLER_SET_XXX} from "../baseUT/GasLimit";
 import {Misc} from "../../scripts/utils/Misc";
 import {DeployerUtils} from "../../scripts/utils/DeployerUtils";
-import {COUNT_BLOCKS_PER_DAY} from "../baseUT/utils/aprUtils";
 import {randomInt} from "crypto";
-import {TetuConverterApp} from "../baseUT/helpers/TetuConverterApp";
 import {CoreContractsHelper} from "../baseUT/helpers/CoreContractsHelper";
 
 describe("Controller", () => {
@@ -226,26 +220,80 @@ describe("Controller", () => {
     });
   });
 
-  describe ("set governance", () => {
+  describe ("offer/acceptGovernanceChange", () => {
     describe ("Good paths", () => {
-      it("should initialize addresses correctly", async () => {
-        expect.fail("TODO");
+      it("should change the governance", async () => {
+        const {controller} = await createTestController(getRandomMembersValues());
+
+        const existGovernance = await controller.governance();
+        const newGovernance = ethers.Wallet.createRandom().address;
+
+        const controllerAsOldGov = Controller__factory.connect(controller.address,
+          await DeployerUtils.startImpersonate(existGovernance)
+        );
+        const controllerAsNewGov = Controller__factory.connect(controller.address,
+          await DeployerUtils.startImpersonate(newGovernance)
+        );
+
+        await controllerAsOldGov.offerGovernanceChange(newGovernance);
+        const afterOffer = await controller.governance();
+
+        await controllerAsNewGov.acceptGovernanceChange();
+        const afterAccepting = await controller.governance();
+
+        const ret = [afterOffer, afterAccepting].join();
+        const expected = [existGovernance, newGovernance].join();
+        expect(ret).eq(expected);
+      });
+      it("governance changes the governance to itself, success", async () => {
+        const {controller} = await createTestController(getRandomMembersValues());
+
+        const existGovernance = await controller.governance();
+
+        const controllerAsGov = Controller__factory.connect(controller.address,
+          await DeployerUtils.startImpersonate(existGovernance)
+        );
+
+        await controllerAsGov.offerGovernanceChange(existGovernance);
+        const afterOffer = await controller.governance();
+
+        await controllerAsGov.acceptGovernanceChange();
+        const afterAccepting = await controller.governance();
+
+        const ret = [afterOffer, afterAccepting].join();
+        const expected = [existGovernance, existGovernance].join();
+        expect(ret).eq(expected);
       });
     });
 
     describe ("Bad paths", () => {
-      describe ("Zero address", () => {
-        it("should revert", async () => {
-            //  await expect(
-            //   setAddresses(controllerAsGov, updatedAddresses)
-            // ).revertedWith("TC-1");
-          expect.fail("TODO");
-        });
+      it("should revert if zero address", async () => {
+        const {controller} = await createTestController(getRandomMembersValues());
+
+        const existGovernance = await controller.governance();
+        const newGovernance = Misc.ZERO_ADDRESS;  // (!)
+
+        const controllerAsOldGov = Controller__factory.connect(controller.address,
+          await DeployerUtils.startImpersonate(existGovernance)
+        );
+
+        await expect(
+          controllerAsOldGov.offerGovernanceChange(newGovernance)
+        ).revertedWith("TC-1"); // ZERO_ADDRESS
       });
-      describe ("Not governance", () => {
-        it("should revert", async () => {
-          expect.fail("TODO");
-        });
+      it("should revert if not governance", async () => {
+        const {controller} = await createTestController(getRandomMembersValues());
+
+        const notGovernance = ethers.Wallet.createRandom().address;
+        const newGovernance = ethers.Wallet.createRandom().address;
+
+        const controllerAsNotGov = Controller__factory.connect(controller.address,
+          await DeployerUtils.startImpersonate(notGovernance)
+        );
+
+        await expect(
+          controllerAsNotGov.offerGovernanceChange(newGovernance)
+        ).revertedWith("TC-9"); // GOVERNANCE_ONLY
       });
     });
   });

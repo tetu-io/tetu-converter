@@ -19,7 +19,10 @@ contract Controller is IController, Initializable {
   address public override tetuLiquidator;
   address public override swapManager;
 
+  /// @notice Curent governance. It can be changed by offer/accept scheme
   address public override governance;
+  /// @notice New governance suggested by exist governance
+  address public offeredGovernance;
 
   /// @notice Min allowed health factor = collateral / min allowed collateral, decimals 2
   ///         If a health factor is below given value, we need to repay a part of borrow back
@@ -138,11 +141,21 @@ contract Controller is IController, Initializable {
   ///               Governance
   ///////////////////////////////////////////////////////
 
-  // todo docs + change to "offer" and accept
-  function setGovernance(address governance_) external {
-    require(governance_ != address(0), AppErrors.ZERO_ADDRESS);
+  /// @notice Suggest to change governance
+  function offerGovernanceChange(address newGovernance_) external {
     _onlyGovernance();
-    governance = governance_;
+    require(newGovernance_ != address(0), AppErrors.ZERO_ADDRESS);
+
+    offeredGovernance = newGovernance_;
+    // todo event
+  }
+
+  /// @notice Old governance has suggested to change governance.
+  ///         Newly suggested governance must accept the change to actually change the governance.
+  function acceptGovernanceChange() external {
+    require(offeredGovernance == msg.sender, AppErrors.GOVERNANCE_ONLY);
+
+    governance = offeredGovernance;
     // todo event
   }
 }
