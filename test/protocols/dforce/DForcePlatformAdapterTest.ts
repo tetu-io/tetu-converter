@@ -6,7 +6,7 @@ import {
   IDForceController,
   IDForceCToken,
   IDForceCToken__factory,
-  DForcePlatformAdapter__factory, DForceAprLibFacade,
+  DForcePlatformAdapter__factory, DForceAprLibFacade, BorrowManager__factory,
 } from "../../../typechain";
 import {expect} from "chai";
 import {AdaptersHelper} from "../../baseUT/helpers/AdaptersHelper";
@@ -29,6 +29,7 @@ import {AprDForce, getDForceStateInfo} from "../../baseUT/apr/aprDForce";
 import {Misc} from "../../../scripts/utils/Misc";
 import {AprUtils} from "../../baseUT/utils/aprUtils";
 import {convertUnits} from "../../baseUT/apr/aprUtils";
+import {TetuConverterApp} from "../../baseUT/helpers/TetuConverterApp";
 
 describe("DForce integration tests, platform adapter", () => {
 //region Global vars for all tests
@@ -155,7 +156,10 @@ describe("DForce integration tests, platform adapter", () => {
     borrowCToken: string,
     badPathsParams?: IGetConversionPlanBadPaths
   ) : Promise<{sret: string, sexpected: string}> {
-    const controller = await CoreContractsHelper.createController(deployer);
+    const controller = await TetuConverterApp.createController(
+      deployer,
+      {tetuLiquidatorAddress: MaticAddresses.TETU_LIQUIDATOR}
+    );
     const countBlocks = 10;
     const healthFactor2 = 400;
 
@@ -539,18 +543,18 @@ describe("DForce integration tests, platform adapter", () => {
           const periodInBlocks = 1_000;
 
           // use DForce-platform adapter to predict amount of rewards
-          const controller = await CoreContractsHelper.createController(deployer);
-          const bm = await CoreContractsHelper.createBorrowManager(deployer, controller);
-          const dm = await MocksHelper.createDebtsMonitorStub(deployer, false);
-          await controller.setBorrowManager(bm.address);
-          await controller.setDebtMonitor(dm.address);
+          const controller = await TetuConverterApp.createController(
+            deployer,
+            {tetuLiquidatorAddress: MaticAddresses.TETU_LIQUIDATOR}
+          );
+          const borrowManager = BorrowManager__factory.connect(await controller.borrowManager(), deployer);
 
           const fabric: DForcePlatformFabric = new DForcePlatformFabric();
           await fabric.createAndRegisterPools(deployer, controller);
-          console.log("Count registered platform adapters", await bm.platformAdaptersLength());
+          console.log("Count registered platform adapters", await borrowManager.platformAdaptersLength());
 
           const platformAdapter = DForcePlatformAdapter__factory.connect(
-            await bm.platformAdaptersAt(0)
+            await borrowManager.platformAdaptersAt(0)
             , deployer
           );
           console.log("Platform adapter is created", platformAdapter.address);
@@ -597,9 +601,11 @@ describe("DForce integration tests, platform adapter", () => {
       const collateralAsset = MaticAddresses.DAI;
       const borrowAsset = MaticAddresses.USDC;
 
-      const controller = await CoreContractsHelper.createController(deployer);
-      const borrowManager = await CoreContractsHelper.createBorrowManager(deployer, controller);
-      await controller.setBorrowManager(borrowManager.address);
+      const controller = await TetuConverterApp.createController(
+        deployer,
+        {tetuLiquidatorAddress: MaticAddresses.TETU_LIQUIDATOR}
+      );
+      const borrowManager = BorrowManager__factory.connect(await controller.borrowManager(), deployer);
 
       const converterNormal = await AdaptersHelper.createDForcePoolAdapter(deployer);
 

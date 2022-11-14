@@ -2,6 +2,7 @@ import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import {ethers} from "hardhat";
 import {TimeUtils} from "../../../scripts/utils/TimeUtils";
 import {
+  BorrowManager__factory,
   IDForceCToken__factory,
   IDForceRewardDistributor__factory,
   IERC20__factory,
@@ -31,6 +32,7 @@ import {transferAndApprove} from "../../baseUT/utils/transferUtils";
 import {DForceTestUtils, IMarketsInfo, IPrepareToBorrowResults} from "../../baseUT/protocols/dforce/DForceTestUtils";
 import {CoreContractsHelper} from "../../baseUT/helpers/CoreContractsHelper";
 import {AdaptersHelper} from "../../baseUT/helpers/AdaptersHelper";
+import {TetuConverterApp} from "../../baseUT/helpers/TetuConverterApp";
 
 
 describe("DForce integration tests, pool adapter", () => {
@@ -1377,7 +1379,11 @@ describe("DForce integration tests, pool adapter", () => {
       const collateralAsset = MaticAddresses.DAI;
       const borrowAsset = MaticAddresses.USDC;
 
-      const controller = await CoreContractsHelper.createController(deployer);
+      const controller = await TetuConverterApp.createController(
+        deployer,
+        {tetuLiquidatorAddress: MaticAddresses.TETU_LIQUIDATOR}
+      );
+
       const poolAdapter = await AdaptersHelper.createDForcePoolAdapter(deployer);
       const tokenAddressProvider = await AdaptersHelper.createDForcePlatformAdapter(
         deployer,

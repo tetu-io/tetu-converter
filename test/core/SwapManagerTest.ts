@@ -3,12 +3,12 @@ import {ethers} from "hardhat";
 import {expect} from "chai";
 import {
   Controller, IMockERC20__factory,
-  MockERC20, SwapManager, TetuLiquidatorMock,
+  MockERC20, SwapManager, SwapManager__factory, TetuLiquidatorMock,
 } from "../../typechain";
 import {TimeUtils} from "../../scripts/utils/TimeUtils";
 import {DeployUtils} from "../../scripts/utils/DeployUtils";
 import {BigNumber} from "ethers";
-import {COUNT_BLOCKS_PER_DAY} from "../baseUT/utils/aprUtils";
+import {TetuConverterApp} from "../baseUT/helpers/TetuConverterApp";
 
 const parseUnits = ethers.utils.parseUnits;
 
@@ -68,29 +68,11 @@ describe("SwapManager", () => {
     liquidator = await DeployUtils.deployContract(deployer, "TetuLiquidatorMock",
       assets, prices) as TetuLiquidatorMock;
 
-    // Deploy Controller
-    controller = await DeployUtils.deployContract(deployer,
-      "Controller",
-      COUNT_BLOCKS_PER_DAY,
-      deployer.address,
-      500, // min health factor
-      600, // target health factor
-      700 // max health factor
-  ) as Controller;
+    // Deploy all application contracts
+    controller = await TetuConverterApp.createController(deployer, {tetuLiquidatorAddress: liquidator.address});
 
     // Deploy SwapManager
-    swapManager = await DeployUtils.deployContract(deployer, "SwapManager",
-      controller.address) as SwapManager;
-
-    // Init Controller
-    await controller.initialize(
-      ethers.Wallet.createRandom().address,
-      ethers.Wallet.createRandom().address,
-      ethers.Wallet.createRandom().address,
-      ethers.Wallet.createRandom().address,
-      liquidator.address,
-      swapManager.address
-    )
+    swapManager = SwapManager__factory.connect(await controller.swapManager(), deployer) as SwapManager;
   });
 
   after(async function () {

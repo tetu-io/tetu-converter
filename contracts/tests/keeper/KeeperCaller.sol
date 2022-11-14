@@ -34,6 +34,7 @@ contract KeeperCaller is IOps {
       bool canExecOut,
       bytes memory execPayloadOut
     ) = IResolver(keeperChecker).checker();
+    console.log("KeeperCaller.canExecOut", canExecOut);
 
     if (canExecOut) {
       console.log("KeeperCaller.execute", address(keeperExecutor));

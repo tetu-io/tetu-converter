@@ -2,17 +2,16 @@
 
 pragma solidity 0.8.4;
 
-import "../openzeppelin/Initializable.sol";
 import "../interfaces/IController.sol";
 import "./AppErrors.sol";
+import "../openzeppelin/Initializable.sol";
 
 /// @notice Keep and provide addresses of all application contracts
 contract Controller is IController, Initializable {
-
   uint16 constant MIN_ALLOWED_MIN_HEALTH_FACTOR = 100;
 
-  address public override governance;
-  // todo docs + make all immutable
+  //todo docs
+  // We cannot use immutable variables, because each contract should get address of the controller in the constructor
   address public override tetuConverter;
   address public override borrowManager;
   address public override debtMonitor;
@@ -20,20 +19,22 @@ contract Controller is IController, Initializable {
   address public override tetuLiquidator;
   address public override swapManager;
 
+  address public override governance;
+
   /// @notice Min allowed health factor = collateral / min allowed collateral, decimals 2
   ///         If a health factor is below given value, we need to repay a part of borrow back
   /// @dev Health factor < 1 produces liquidation immediately
   uint16 public override minHealthFactor2;
 
-  /// @notice max allowed health factor with decimals 2
-  /// @dev If a health factor is above given value, we CAN make additional borrow
-  ///      using exist collateral
-  uint16 public override maxHealthFactor2;
-
   /// @notice target health factor with decimals 2
   /// @dev If the health factor is below/above min/max threshold, we need to make repay
   ///      or additional borrow and restore the health factor to the given target value
   uint16 public override targetHealthFactor2;
+
+  /// @notice max allowed health factor with decimals 2
+  /// @dev If a health factor is above given value, we CAN make additional borrow
+  ///      using exist collateral
+  uint16 public override maxHealthFactor2;
 
   uint private _blocksPerDay;
 
@@ -41,29 +42,12 @@ contract Controller is IController, Initializable {
   ///        Constructor and Initialization
   ///////////////////////////////////////////////////////
 
-  constructor(
-    uint blocksPerDay_,
+  function initialize(
     address governance_,
+    uint blocksPerDay_,
     uint16 minHealthFactor_,
     uint16 targetHealthFactor_,
-    uint16 maxHealthFactor_
-  ) {
-    require(governance_ != address(0), AppErrors.ZERO_ADDRESS);
-    require(blocksPerDay_ != 0, AppErrors.INCORRECT_VALUE);
-    require(minHealthFactor_ > MIN_ALLOWED_MIN_HEALTH_FACTOR, AppErrors.WRONG_HEALTH_FACTOR);
-    require(minHealthFactor_ < targetHealthFactor_, AppErrors.WRONG_HEALTH_FACTOR_CONFIG);
-    require(targetHealthFactor_ < maxHealthFactor_, AppErrors.WRONG_HEALTH_FACTOR_CONFIG);
-
-    governance = governance_;
-
-    _blocksPerDay = blocksPerDay_;
-    minHealthFactor2 = minHealthFactor_;
-    maxHealthFactor2 = maxHealthFactor_;
-    targetHealthFactor2 = targetHealthFactor_;
-  }
-
-  // todo move to constructor, OR! move everything from constructor to init
-  function initialize(
+    uint16 maxHealthFactor_,
     address tetuConverter_,
     address borrowManager_,
     address debtMonitor_,
@@ -71,22 +55,32 @@ contract Controller is IController, Initializable {
     address tetuLiquidator_,
     address swapManager_
   ) external initializer {
+    require(blocksPerDay_ != 0, AppErrors.INCORRECT_VALUE);
+    require(minHealthFactor_ > MIN_ALLOWED_MIN_HEALTH_FACTOR, AppErrors.WRONG_HEALTH_FACTOR);
+    require(minHealthFactor_ < targetHealthFactor_, AppErrors.WRONG_HEALTH_FACTOR_CONFIG);
+    require(targetHealthFactor_ < maxHealthFactor_, AppErrors.WRONG_HEALTH_FACTOR_CONFIG);
     require(
-      tetuConverter_ != address(0)
+      governance_ != address(0)
+      && tetuConverter_ != address(0)
       && borrowManager_ != address(0)
       && debtMonitor_ != address(0)
       && keeper_ != address(0)
       && tetuLiquidator_ != address(0)
-      && swapManager_ != address(0)
-      , AppErrors.ZERO_ADDRESS
+      && swapManager_ != address(0),
+      AppErrors.ZERO_ADDRESS
     );
+    governance = governance_;
     tetuConverter = tetuConverter_;
     borrowManager = borrowManager_;
     debtMonitor = debtMonitor_;
     keeper = keeper_;
     tetuLiquidator = tetuLiquidator_;
     swapManager = swapManager_;
-    // todo event
+
+    _blocksPerDay = blocksPerDay_;
+    minHealthFactor2 = minHealthFactor_;
+    maxHealthFactor2 = maxHealthFactor_;
+    targetHealthFactor2 = targetHealthFactor_;
   }
 
   function _onlyGovernance() internal view {
@@ -150,47 +144,5 @@ contract Controller is IController, Initializable {
     _onlyGovernance();
     governance = governance_;
     // todo event
-  }
-
-  // todo REMOVE ALL SETTER, it can lead to malicious gov actions
-  ///////////////////////////////////////////////////////
-  ///             Set addresses
-  ///////////////////////////////////////////////////////
-
-  function setTetuConverter(address tetuConverter_) external {
-    require(tetuConverter_ != address(0), AppErrors.ZERO_ADDRESS);
-    _onlyGovernance();
-    tetuConverter = tetuConverter_;
-  }
-
-  function setBorrowManager(address borrowManager_) external {
-    require(borrowManager_ != address(0), AppErrors.ZERO_ADDRESS);
-    _onlyGovernance();
-    borrowManager = borrowManager_;
-  }
-
-  function setDebtMonitor(address debtMonitor_) external {
-    require(debtMonitor_ != address(0), AppErrors.ZERO_ADDRESS);
-    _onlyGovernance();
-    debtMonitor = debtMonitor_;
-  }
-
-  /// @notice Keeper to control health and efficiency of the borrows
-  function setKeeper(address keeper_) external {
-    require(keeper_ != address(0), AppErrors.ZERO_ADDRESS);
-    _onlyGovernance();
-    keeper = keeper_;
-  }
-
-  function setTetuLiquidator(address tetuLiquidator_) external {
-    require(tetuLiquidator_ != address(0), AppErrors.ZERO_ADDRESS);
-    _onlyGovernance();
-    tetuLiquidator = tetuLiquidator_;
-  }
-
-  function setSwapManager(address swapManager_) external {
-    require(swapManager_ != address(0), AppErrors.ZERO_ADDRESS);
-    _onlyGovernance();
-    swapManager = swapManager_;
   }
 }

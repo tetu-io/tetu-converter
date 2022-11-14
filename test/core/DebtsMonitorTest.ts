@@ -34,6 +34,7 @@ import {BalanceUtils} from "../baseUT/utils/BalanceUtils";
 import {areAlmostEqual} from "../baseUT/utils/CommonUtils";
 import {CoreContractsHelper} from "../baseUT/helpers/CoreContractsHelper";
 import {Misc} from "../../scripts/utils/Misc";
+import {TetuConverterApp} from "../baseUT/helpers/TetuConverterApp";
 
 describe("DebtsMonitor", () => {
 //region Global vars for all tests
@@ -136,7 +137,9 @@ describe("DebtsMonitor", () => {
   }>{
     const periodInBlocks = 117;
 
-    const {core, sourceToken, targetToken, pools} = await BorrowManagerHelper.initAppPoolsWithTwoAssets(
+    const core = await CoreContracts.build(await TetuConverterApp.createController(deployer));
+    const {sourceToken, targetToken, pools} = await BorrowManagerHelper.initAppPoolsWithTwoAssets(
+      core,
       deployer,
       tt,
       async () => (await MocksHelper.createPoolAdapterMock(deployer)).address,
@@ -524,7 +527,7 @@ describe("DebtsMonitor", () => {
       thresholdCountBlocks: number,
       useZeroController?: boolean
     ): Promise<{ret: string, expected: string}> {
-      const controller = await CoreContractsHelper.createController(deployer);
+      const controller = await CoreContractsHelper.deployController(deployer);
       const debtMonitor = await CoreContractsHelper.createDebtMonitor(
         deployer,
         useZeroController ? Misc.ZERO_ADDRESS : controller.address,

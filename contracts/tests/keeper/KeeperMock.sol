@@ -3,9 +3,10 @@ pragma solidity 0.8.4;
 
 import "../../interfaces/IHealthKeeperCallback.sol";
 import "hardhat/console.sol";
+import "../../integrations/gelato/IResolver.sol";
 
 /// @notice Allow to control calls of fixHealth
-contract KeeperMock is IHealthKeeperCallback {
+contract KeeperMock is IHealthKeeperCallback, IResolver {
   struct LastFixHealthParams {
     uint countCalls;
     uint nextIndexToCheck0;
@@ -16,9 +17,11 @@ contract KeeperMock is IHealthKeeperCallback {
   LastFixHealthParams public lastFixHealthParams;
 
   uint256 public override nextIndexToCheck0;
+  address private _checker;
 
-  constructor(uint nextIndexToCheck0_) {
+  constructor(uint nextIndexToCheck0_, address checker_) {
     nextIndexToCheck0 = nextIndexToCheck0_;
+    _checker = checker_;
   }
 
   function setNextIndexToCheck0(uint nextIndexToCheck0_) external {
@@ -41,5 +44,9 @@ contract KeeperMock is IHealthKeeperCallback {
       amountBorrowAsset: amountBorrowAsset_,
       amountCollateralAsset: amountCollateralAsset_
     });
+  }
+
+  function checker() external view override returns (bool canExec, bytes memory execPayload) {
+    return IResolver(_checker).checker();
   }
 }

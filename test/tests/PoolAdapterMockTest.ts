@@ -15,6 +15,8 @@ import {BigNumber} from "ethers";
 import {getBigNumberFrom} from "../../scripts/utils/NumberUtils";
 import {MocksHelper} from "../baseUT/helpers/MocksHelper";
 import {BalanceUtils, IContractToInvestigate} from "../baseUT/utils/BalanceUtils";
+import {CoreContracts} from "../baseUT/types/CoreContracts";
+import {TetuConverterApp} from "../baseUT/helpers/TetuConverterApp";
 
 describe("PoolAdapterMock", () => {
 //region Global vars for all tests
@@ -74,7 +76,9 @@ describe("PoolAdapterMock", () => {
           const amountBorrowedUserInitial = getBigNumberFrom(1000, tt.targetDecimals);
 
           // create borrow manager (BM) with single pool and DebtMonitor (DM)
-          const {core, sourceToken, targetToken, pools} = await BorrowManagerHelper.initAppPoolsWithTwoAssets(
+          const core = await CoreContracts.build(await TetuConverterApp.createController(deployer));
+          const {sourceToken, targetToken, pools} = await BorrowManagerHelper.initAppPoolsWithTwoAssets(
+            core,
             deployer,
             tt,
             async () => converter.address

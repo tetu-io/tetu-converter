@@ -13,6 +13,9 @@ import {
 import {Misc} from "../../scripts/utils/Misc";
 import {DeployerUtils} from "../../scripts/utils/DeployerUtils";
 import {COUNT_BLOCKS_PER_DAY} from "../baseUT/utils/aprUtils";
+import {randomInt} from "crypto";
+import {TetuConverterApp} from "../baseUT/helpers/TetuConverterApp";
+import {CoreContractsHelper} from "../baseUT/helpers/CoreContractsHelper";
 
 describe("Controller", () => {
 //region Global vars for all tests
@@ -53,78 +56,88 @@ describe("Controller", () => {
 //endregion before, after
 
 //region Utils
-  interface IControllerAddresses {
+  interface IControllerMembers {
     governance: string;
     tetuConverter: string;
     borrowManager: string;
     debtMonitor: string;
 
     keeper: string;
-    tetuLiquidator: string,
-    swapManager: string,
+    tetuLiquidator: string;
+    swapManager: string;
+
+    minHealthFactor2: number;
+    targetHealthFactor2: number;
+    maxHealthFactor2: number;
+
+    blocksPerDay: BigNumber;
   }
 
-  type ControllerAddressesKeys = keyof IControllerAddresses;
-
-  function getAddressesArray(a: IControllerAddresses): string[] {
+  function getMembersArray(a: IControllerMembers): string[] {
     return [
-      a.governance
+      a.governance,
 
-      , a.tetuConverter
-      , a.borrowManager
-      , a.debtMonitor
+      a.tetuConverter,
+      a.borrowManager,
+      a.debtMonitor,
 
-      , a.keeper
-      , a.tetuLiquidator
-      , a.swapManager
+      a.keeper,
+      a.tetuLiquidator,
+      a.swapManager,
+
+      a.minHealthFactor2.toString(),
+      a.targetHealthFactor2.toString(),
+      a.maxHealthFactor2.toString(),
+
+      a.blocksPerDay.toString()
     ];
   }
 
   async function getValuesArray(controller: Controller) : Promise<string[]> {
     return [
-      await controller.governance()
+      await controller.governance(),
 
-      , await controller.tetuConverter()
-      , await controller.borrowManager()
-      , await controller.debtMonitor()
+      await controller.tetuConverter(),
+      await controller.borrowManager(),
+      await controller.debtMonitor(),
 
-      , await controller.keeper()
-      , await controller.tetuLiquidator()
-      , await controller.swapManager()
+      await controller.keeper(),
+      await controller.tetuLiquidator(),
+      await controller.swapManager(),
+
+      (await controller.minHealthFactor2()).toString(),
+      (await controller.targetHealthFactor2()).toString(),
+      (await controller.maxHealthFactor2()).toString(),
+
+      (await controller.blocksPerDay()).toString(),
     ];
   }
 
   async function createTestController(
-    a: IControllerAddresses,
-    minHealthFactor: number = 101,
-    targetHealthFactor: number = 200,
-    maxHealthFactor: number = 400,
-    blocksPerDay: number = COUNT_BLOCKS_PER_DAY
+    a: IControllerMembers,
   ) : Promise<{controller: Controller, gasUsed: BigNumber}> {
-    const controller = (await DeployUtils.deployContract(deployer
-      , 'Controller'
-      , blocksPerDay
-      , a.governance
-      , minHealthFactor
-      , targetHealthFactor
-      , maxHealthFactor
-    )) as Controller;
+    const controller = await CoreContractsHelper.deployController(deployer);
 
     const gasUsed = await getGasUsed(
       controller.initialize(
-        a.tetuConverter
-        , a.borrowManager
-        , a.debtMonitor
-        , a.keeper
-        , a.tetuLiquidator
-        , a.swapManager
+        a.governance,
+        a.blocksPerDay,
+        a.minHealthFactor2,
+        a.targetHealthFactor2,
+        a.maxHealthFactor2,
+        a.tetuConverter,
+        a.borrowManager,
+        a.debtMonitor,
+        a.keeper,
+        a.tetuLiquidator,
+        a.swapManager,
       )
     );
 
     return {controller, gasUsed};
   }
 
-  function getRandomControllerAddresses() : IControllerAddresses {
+  function getRandomMembersValues() : IControllerMembers {
     return {
       governance: ethers.Wallet.createRandom().address,
 
@@ -135,91 +148,32 @@ describe("Controller", () => {
       keeper: ethers.Wallet.createRandom().address,
       tetuLiquidator: ethers.Wallet.createRandom().address,
       swapManager: ethers.Wallet.createRandom().address,
+
+      minHealthFactor2: 120 + randomInt(10),
+      targetHealthFactor2: 220 + randomInt(10),
+      maxHealthFactor2: 920 + randomInt(10),
+
+      blocksPerDay: BigNumber.from(1000 + randomInt(1000))
     }
   }
 
-  async function setAddresses(
-    controller: Controller,
-    a: IControllerAddresses
-  ) : Promise<{gasUsed: BigNumber[]}> {
-    console.log('a', a);
-    const gasUsed = [
-      await getGasUsed(controller.setTetuConverter(a.tetuConverter)),
-      await getGasUsed(controller.setBorrowManager(a.borrowManager)),
-      await getGasUsed(controller.setDebtMonitor(a.debtMonitor)),
-      await getGasUsed(controller.setKeeper(a.keeper)),
-      await getGasUsed(controller.setSwapManager(a.swapManager)),
-      await getGasUsed(controller.setTetuLiquidator(a.tetuLiquidator)),
-      // Governance must be set at the end to avoid check error. Add new setXXX above
-      await getGasUsed(controller.setGovernance(a.governance)),
-    ];
-
-    return {gasUsed};
-  }
-
   async function prepareTestController() : Promise<Controller> {
-    const a = getRandomControllerAddresses();
-    // initial values
-    const minHealthFactor = 310;
-    const targetHealthFactor = 320;
-    const maxHealthFactor = 330;
-
-    const {controller} = await createTestController(
-      a,
-      minHealthFactor,
-      targetHealthFactor,
-      maxHealthFactor,
-    );
-
+    const a = getRandomMembersValues();
+    const {controller} = await createTestController(a);
     return controller;
   }
 //endregion Utils
 
 //region Unit tests
-  describe ("constructor and initialize", () => {
+  describe ("initialize", () => {
     describe ("Good paths", () => {
-      it("should initialize addresses correctly", async () => {
-        const a = getRandomControllerAddresses();
+      it("should initialize values correctly", async () => {
+        const a = getRandomMembersValues();
 
         const {controller, gasUsed} = await createTestController(a);
 
         const ret = (await getValuesArray(controller)).join();
-        const expected = getAddressesArray(a).join();
-
-        expect(ret).to.be.equal(expected);
-        controlGasLimitsEx(gasUsed, GAS_LIMIT_CONTROLLER_INITIALIZE, (u, t) => {
-            expect(u).to.be.below(t);
-          }
-        );
-      });
-
-      it("should initialize health factors and blocks per day correctly", async () => {
-        const a = getRandomControllerAddresses();
-        const minHealthFactor = 300;
-        const targetHealthFactor = 301;
-        const maxHealthFactor = 302;
-        const blocksPerDay = 417;
-
-        const {controller, gasUsed} = await createTestController(
-          a,
-          minHealthFactor,
-          targetHealthFactor,
-          maxHealthFactor,
-          blocksPerDay
-        );
-
-        const ret = [
-          await controller.minHealthFactor2(),
-          await controller.targetHealthFactor2(),
-          await controller.maxHealthFactor2(),
-          await controller.blocksPerDay()
-        ].join();
-        const expected = [
-          minHealthFactor,
-          targetHealthFactor,
-          maxHealthFactor,
-          blocksPerDay
-        ].join();
+        const expected = getMembersArray(a).join();
 
         expect(ret).to.be.equal(expected);
         controlGasLimitsEx(gasUsed, GAS_LIMIT_CONTROLLER_INITIALIZE, (u, t) => {
@@ -230,181 +184,67 @@ describe("Controller", () => {
     });
 
     describe ("Bad paths", () => {
-      describe ("Zero address", () => {
-        it("should revert", async () => {
-          const a = getRandomControllerAddresses();
-          for (const key of Object.keys(a)) {
-            const b = getRandomControllerAddresses();
-
-            // let's set one of address to 0
-
-            b[key as ControllerAddressesKeys] = Misc.ZERO_ADDRESS;
-
-            await expect(
-              createTestController(b)
-            ).revertedWith("TC-1");
-          }
-        });
+      it("zero governance should revert", async () => {
+        const a = getRandomMembersValues();
+        a.governance = Misc.ZERO_ADDRESS;
+        await expect(
+          createTestController(a)
+        ).revertedWith("TC-1");
       });
-      describe ("Min health factor is too small", () => {
-        it("should revert", async () => {
-          const a = getRandomControllerAddresses();
-          const minHealthFactor = 99; // (!)
-          const targetHealthFactor = 301;
-          const maxHealthFactor = 302;
+      it("Min health factor is too small - should revert", async () => {
+        const a = getRandomMembersValues();
+        a.minHealthFactor2 = 99; // (!)
 
-          await expect(
-            createTestController(
-              a,
-              minHealthFactor,
-              targetHealthFactor,
-              maxHealthFactor
-            )
-          ).revertedWith("TC-3: wrong health factor");
-        });
+        await expect(
+          createTestController(a)
+        ).revertedWith("TC-3: wrong health factor");
       });
-      describe ("Min health factor is not less then target health factor", () => {
-        it("should revert", async () => {
-          const a = getRandomControllerAddresses();
-          const minHealthFactor = 300;
-          const targetHealthFactor = minHealthFactor; // (!)
-          const maxHealthFactor = 302;
+      it("Min health factor is not less then target health factor - should revert", async () => {
+        const a = getRandomMembersValues();
+        a.targetHealthFactor2 = a.minHealthFactor2; // (!)
 
-          await expect(
-            createTestController(
-              a,
-              minHealthFactor,
-              targetHealthFactor,
-              maxHealthFactor
-            )
-          ).revertedWith("TC-38: wrong health factor config");
-        });
+        await expect(
+          createTestController(a)
+        ).revertedWith("TC-38: wrong health factor config");
       });
-      describe ("Target health factor is not less then max health factor", () => {
-        it("should revert", async () => {
-          const a = getRandomControllerAddresses();
-          const minHealthFactor = 300;
-          const targetHealthFactor = 302;
-          const maxHealthFactor = targetHealthFactor; // (!)
+      it("Target health factor is not less then max health factor - should revert", async () => {
+        const a = getRandomMembersValues();
+        a.maxHealthFactor2 = a.targetHealthFactor2; // (!)
 
-          await expect(
-            createTestController(
-              a,
-              minHealthFactor,
-              targetHealthFactor,
-              maxHealthFactor
-            )
-          ).revertedWith("TC-38: wrong health factor config");
-        });
+        await expect(
+          createTestController(a)
+        ).revertedWith("TC-38: wrong health factor config");
       });
-      describe ("Blocks per day = 0", () => {
-        it("should revert", async () => {
-          const a = getRandomControllerAddresses();
-          const minHealthFactor = 300;
-          const targetHealthFactor = 302;
-          const maxHealthFactor = 303;
-          const blocksPerDay = 0; // (!)
+      it("should revert if Blocks per day = 0", async () => {
+        const a = getRandomMembersValues();
+        a.blocksPerDay = BigNumber.from(0); // (!)
 
-          await expect(
-            createTestController(
-              a,
-              minHealthFactor,
-              targetHealthFactor,
-              maxHealthFactor,
-              blocksPerDay
-            )
-          ).revertedWith("TC-29");
-        });
+        await expect(
+          createTestController(a)
+        ).revertedWith("TC-29");
       });
     });
   });
 
-  describe ("set addresses", () => {
+  describe ("set governance", () => {
     describe ("Good paths", () => {
       it("should initialize addresses correctly", async () => {
-        const initialAddresses = getRandomControllerAddresses();
-        console.log('initialAddresses', initialAddresses);
-        const updatedAddresses = getRandomControllerAddresses();
-        console.log('updatedAddresses', updatedAddresses);
-
-        const {controller} = await createTestController(initialAddresses);
-        const controllerAsGov = Controller__factory.connect(
-          controller.address
-          , await DeployerUtils.startImpersonate(initialAddresses.governance)
-        );
-        const {gasUsed} = await setAddresses(controllerAsGov, updatedAddresses);
-        console.log('gasUsed', gasUsed);
-
-        const ret = (await getValuesArray(controller)).join();
-        const expected = getAddressesArray(updatedAddresses).join();
-
-        expect(ret).to.be.equal(expected);
-        controlGasLimitsEx(
-          // get max value
-          gasUsed.reduce((prev, cur) => prev.gt(cur) ? prev : cur)
-          , GAS_LIMIT_CONTROLLER_SET_XXX
-          , (u, t) => {
-            expect(u).to.be.below(t);
-          }
-        );
+        expect.fail("TODO");
       });
     });
 
     describe ("Bad paths", () => {
       describe ("Zero address", () => {
         it("should revert", async () => {
-          const initialAddresses = getRandomControllerAddresses();
-
-          const {controller} = await createTestController(initialAddresses);
-          const controllerAsGov = Controller__factory.connect(
-            controller.address
-            , await DeployerUtils.startImpersonate(initialAddresses.governance)
-          );
-
-          for (const key of Object.keys(initialAddresses)) {
-            const updatedAddresses: IControllerAddresses = {
-              governance: await controller.governance(),
-              keeper: await controller.keeper(),
-              debtMonitor: await controller.debtMonitor(),
-              borrowManager: await controller.borrowManager(),
-              tetuConverter: await controller.tetuConverter(),
-              tetuLiquidator: await controller.tetuLiquidator(),
-              swapManager: await controller.swapManager(),
-            };
-            // let's set one of address to 0
-
-            updatedAddresses[key as ControllerAddressesKeys] = Misc.ZERO_ADDRESS;
-
-            console.log("initialAddresses", initialAddresses);
-            console.log("updatedAddresses", updatedAddresses);
-
-            await expect(
-              setAddresses(controllerAsGov, updatedAddresses)
-            ).revertedWith("TC-1");
-          }
+            //  await expect(
+            //   setAddresses(controllerAsGov, updatedAddresses)
+            // ).revertedWith("TC-1");
+          expect.fail("TODO");
         });
       });
       describe ("Not governance", () => {
         it("should revert", async () => {
-          const initialAddresses = getRandomControllerAddresses();
-
-          const {controller} = await createTestController(initialAddresses);
-          const controllerAsNotGov = Controller__factory.connect(controller.address, user3);
-
-          for (const key of Object.keys(initialAddresses)) {
-            const updatedAddresses: IControllerAddresses = {
-              governance: await controller.governance(),
-              keeper: await controller.keeper(),
-              debtMonitor: await controller.debtMonitor(),
-              borrowManager: await controller.borrowManager(),
-              tetuConverter: await controller.tetuConverter(),
-              tetuLiquidator: await controller.tetuLiquidator(),
-              swapManager: await controller.swapManager(),
-            };
-            await expect(
-              setAddresses(controllerAsNotGov, updatedAddresses)
-            ).revertedWith("TC-9"); // GOVERNANCE_ONLY
-          }
+          expect.fail("TODO");
         });
       });
     });
@@ -413,33 +253,21 @@ describe("Controller", () => {
   describe ("setBlocksPerDay", () => {
     describe ("Good paths", () => {
       it("should set expected value", async () => {
-        const a = getRandomControllerAddresses();
-        // initial values
-        const minHealthFactor = 300;
-        const targetHealthFactor = 301;
-        const maxHealthFactor = 302;
-        const blocksPerDay = 417;
-        // updated values
+        const a = getRandomMembersValues();
         const blocksPerDayUpdated = 418;
 
-        const {controller} = await createTestController(
-          a,
-          minHealthFactor,
-          targetHealthFactor,
-          maxHealthFactor,
-          blocksPerDay
-        );
+        const {controller} = await createTestController(a);
 
         const before = await controller.blocksPerDay();
         const controllerAsGov = Controller__factory.connect(
-          controller.address
-          , await DeployerUtils.startImpersonate(await controller.governance())
+          controller.address,
+          await DeployerUtils.startImpersonate(await controller.governance())
         );
         await controllerAsGov.setBlocksPerDay(blocksPerDayUpdated);
         const after = await controller.blocksPerDay();
 
         const ret = [before, after].join();
-        const expected = [blocksPerDay, blocksPerDayUpdated].join();
+        const expected = [a.blocksPerDay, blocksPerDayUpdated].join();
 
         expect(ret).to.be.equal(expected);
       });
@@ -447,22 +275,10 @@ describe("Controller", () => {
     describe ("Bad paths", () => {
       describe ("Set ZERO blocks per day", () => {
         it("should set expected value", async () => {
-          const a = getRandomControllerAddresses();
-          // initial values
-          const minHealthFactor = 300;
-          const targetHealthFactor = 301;
-          const maxHealthFactor = 302;
-          const blocksPerDay = 417;
-          // updated values
+          const a = getRandomMembersValues();
           const blocksPerDayUpdated = 0; // (!)
 
-          const {controller} = await createTestController(
-            a,
-            minHealthFactor,
-            targetHealthFactor,
-            maxHealthFactor,
-            blocksPerDay
-          );
+          const {controller} = await createTestController(a);
 
           await expect(
             controller.setBlocksPerDay(blocksPerDayUpdated)
@@ -471,7 +287,7 @@ describe("Controller", () => {
       });
       describe ("Not governance", () => {
         it("should set expected value", async () => {
-          const a = getRandomControllerAddresses();
+          const a = getRandomMembersValues();
           const {controller} = await createTestController(a);
           const controllerNotGov = Controller__factory.connect(controller.address, user3);
           await expect(
@@ -485,20 +301,10 @@ describe("Controller", () => {
   describe ("setMinHealthFactor2", () => {
     describe ("Good paths", () => {
       it("should set expected value", async () => {
-        const a = getRandomControllerAddresses();
-        // initial values
-        const minHealthFactor = 300;
-        const targetHealthFactor = 310;
-        const maxHealthFactor = 320;
-        // updated values
-        const minHealthFactorUpdated = 205;
+        const a = getRandomMembersValues();
+        const minHealthFactorUpdated = 101;
 
-        const {controller} = await createTestController(
-          a,
-          minHealthFactor,
-          targetHealthFactor,
-          maxHealthFactor,
-        );
+        const {controller} = await createTestController(a);
 
         const before = await controller.minHealthFactor2();
         const controllerAsGov = Controller__factory.connect(
@@ -509,7 +315,7 @@ describe("Controller", () => {
         const after = await controller.minHealthFactor2();
 
         const ret = [before, after].join();
-        const expected = [minHealthFactor, minHealthFactorUpdated].join();
+        const expected = [a.minHealthFactor2, minHealthFactorUpdated].join();
 
         expect(ret).to.be.equal(expected);
       });
@@ -533,7 +339,7 @@ describe("Controller", () => {
       });
       describe ("Not governance", () => {
         it("should set expected value", async () => {
-          const a = getRandomControllerAddresses();
+          const a = getRandomMembersValues();
           const {controller} = await createTestController(a);
           const controllerNotGov = Controller__factory.connect(controller.address, user3);
           await expect(
@@ -546,20 +352,10 @@ describe("Controller", () => {
   describe ("setTargetHealthFactor2", () => {
     describe ("Good paths", () => {
       it("should set expected value", async () => {
-        const a = getRandomControllerAddresses();
-        // initial values
-        const minHealthFactor = 300;
-        const targetHealthFactor = 310;
-        const maxHealthFactor = 320;
-        // updated values
-        const targetHealthFactorUpdated = 319;
+        const a = getRandomMembersValues();
+        const targetHealthFactorUpdated = 301;
 
-        const {controller} = await createTestController(
-          a,
-          minHealthFactor,
-          targetHealthFactor,
-          maxHealthFactor,
-        );
+        const {controller} = await createTestController(a);
 
         const before = await controller.targetHealthFactor2();
         const controllerAsGov = Controller__factory.connect(
@@ -570,7 +366,7 @@ describe("Controller", () => {
         const after = await controller.targetHealthFactor2();
 
         const ret = [before, after].join();
-        const expected = [targetHealthFactor, targetHealthFactorUpdated].join();
+        const expected = [a.targetHealthFactor2, targetHealthFactorUpdated].join();
 
         expect(ret).to.be.equal(expected);
       });
@@ -598,7 +394,7 @@ describe("Controller", () => {
       });
       describe ("Not governance", () => {
         it("should set expected value", async () => {
-          const a = getRandomControllerAddresses();
+          const a = getRandomMembersValues();
           const {controller} = await createTestController(a);
           const controllerNotGov = Controller__factory.connect(controller.address, user3);
           await expect(
@@ -611,20 +407,10 @@ describe("Controller", () => {
   describe ("setMaxHealthFactor2", () => {
     describe ("Good paths", () => {
       it("should set expected value", async () => {
-        const a = getRandomControllerAddresses();
-        // initial values
-        const minHealthFactor = 300;
-        const targetHealthFactor = 310;
-        const maxHealthFactor = 320;
-        // updated values
+        const a = getRandomMembersValues();
         const maxHealthFactorUpdated = 400;
 
-        const {controller} = await createTestController(
-          a,
-          minHealthFactor,
-          targetHealthFactor,
-          maxHealthFactor,
-        );
+        const {controller} = await createTestController(a);
 
         const before = await controller.maxHealthFactor2();
         const controllerAsGov = Controller__factory.connect(
@@ -635,7 +421,7 @@ describe("Controller", () => {
         const after = await controller.maxHealthFactor2();
 
         const ret = [before, after].join();
-        const expected = [maxHealthFactor, maxHealthFactorUpdated].join();
+        const expected = [a.maxHealthFactor2, maxHealthFactorUpdated].join();
 
         expect(ret).to.be.equal(expected);
       });
@@ -653,7 +439,7 @@ describe("Controller", () => {
       });
       describe ("Not governance", () => {
         it("should set expected value", async () => {
-          const a = getRandomControllerAddresses();
+          const a = getRandomMembersValues();
           const {controller} = await createTestController(a);
           const controllerNotGov = Controller__factory.connect(controller.address, user3);
           await expect(

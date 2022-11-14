@@ -4,8 +4,7 @@ import {expect} from "chai";
 import {
   BorrowManager, BorrowManager__factory, Controller, Controller__factory, IBorrowManager__factory,
   IPoolAdapter,
-  IPoolAdapter__factory, ITetuConverter__factory, LendingPlatformMock__factory, MockERC20,
-  PlatformAdapterStub
+  IPoolAdapter__factory, ITetuConverter__factory, LendingPlatformMock__factory
 } from "../../typechain";
 import {TimeUtils} from "../../scripts/utils/TimeUtils";
 import {BigNumber} from "ethers";
@@ -22,8 +21,9 @@ import {CoreContractsHelper} from "../baseUT/helpers/CoreContractsHelper";
 import {generateAssetPairs, getAssetPair, IAssetPair} from "../baseUT/utils/AssetPairUtils";
 import {Misc} from "../../scripts/utils/Misc";
 import {DeployerUtils} from "../../scripts/utils/DeployerUtils";
-import {deprecate} from "util";
 import {getExpectedApr18} from "../baseUT/apr/aprUtils";
+import {TetuConverterApp} from "../baseUT/helpers/TetuConverterApp";
+import {CoreContracts} from "../baseUT/types/CoreContracts";
 
 describe("BorrowManager", () => {
 //region Global vars for all tests
@@ -105,40 +105,22 @@ describe("BorrowManager", () => {
     return dest;
   }
 
-  async function initializeAssetPairs(
-    converters: string[],
-    pairs: IAssetPair[]
-  ) : Promise<{
-    borrowManager: BorrowManager,
-    platformAdapter: PlatformAdapterStub
-  }>{
-    const controller = await CoreContractsHelper.createController(signer);
-    const borrowManager = await CoreContractsHelper.createBorrowManager(signer, controller);
-    const debtsMonitor = await MocksHelper.createDebtsMonitorStub(signer, false);
-    await controller.setBorrowManager(borrowManager.address);
-    await controller.setDebtMonitor(debtsMonitor.address);
-
-    const platformAdapter = await MocksHelper.createPlatformAdapterStub(signer, converters);
-
-    // generate all possible pairs of underlying
-    await borrowManager.addAssetPairs(
-      platformAdapter.address
-      , pairs.map(x => x.smallerAddress)
-      , pairs.map(x => x.biggerAddress)
+  async function createController(valueIsConverterInUse: boolean = false) : Promise<Controller> {
+    return TetuConverterApp.createController(
+      signer,
+      {
+        borrowManagerFabric: async c => (await CoreContractsHelper.createBorrowManager(signer, c)).address,
+        tetuConverterFabric: async c => (await CoreContractsHelper.createTetuConverter(signer, c)).address,
+        debtMonitorFabric: async () => (await MocksHelper.createDebtsMonitorStub(signer, valueIsConverterInUse)).address,
+        keeperFabric: async () => ethers.Wallet.createRandom().address,
+        swapManagerFabric: async () => ethers.Wallet.createRandom().address,
+        tetuLiquidatorAddress: ethers.Wallet.createRandom().address
+      }
     );
-
-    return {borrowManager, platformAdapter};
   }
-
-  async function initializeApp(valueIsConverterInUse: boolean = false) : Promise<BorrowManager>{
-    const controller = await CoreContractsHelper.createController(signer);
-    const borrowManager = await CoreContractsHelper.createBorrowManager(signer, controller);
-    const debtsMonitor = await MocksHelper.createDebtsMonitorStub(signer, valueIsConverterInUse);
-    const tetuConverter = await CoreContractsHelper.createTetuConverter(signer, controller);
-    await controller.setBorrowManager(borrowManager.address);
-    await controller.setDebtMonitor(debtsMonitor.address);
-    await controller.setTetuConverter(tetuConverter.address);
-    return borrowManager;
+  async function initializeBorrowManager(valueIsConverterInUse: boolean = false) : Promise<BorrowManager>{
+    const controller = await createController(valueIsConverterInUse);
+    return BorrowManager__factory.connect(await controller.borrowManager(), controller.signer);
   }
 
   function pairToStr(pair: BorrowManager.AssetPairStructOutput) {
@@ -263,7 +245,8 @@ describe("BorrowManager", () => {
     targetHealthFactor?: number,
     estimateGas: boolean = false,
   ) : Promise<IMakeTestFindConverterResults> {
-    const {core, sourceToken, targetToken, pools} = await BorrowManagerHelper.initAppPoolsWithTwoAssets(signer, tt);
+    const core = await CoreContracts.build(await TetuConverterApp.createController(signer));
+    const {sourceToken, targetToken, pools} = await BorrowManagerHelper.initAppPoolsWithTwoAssets(core, signer, tt);
     if (targetHealthFactor) {
       await core.controller.setMaxHealthFactor2(2 * targetHealthFactor * 100);
       await core.controller.setTargetHealthFactor2(targetHealthFactor * 100);
@@ -333,7 +316,8 @@ describe("BorrowManager", () => {
     };
 
     // initialize app
-    const {core, sourceToken, targetToken, pools} = await BorrowManagerHelper.initAppPoolsWithTwoAssets(signer, p);
+    const core = await CoreContracts.build(await TetuConverterApp.createController(signer));
+    const {sourceToken, targetToken, pools} = await BorrowManagerHelper.initAppPoolsWithTwoAssets(core, signer, p);
 
     await core.bm.setRewardsFactor(rewardsFactor);
 
@@ -445,7 +429,8 @@ describe("BorrowManager", () => {
       ]
     };
 
-    const {core, sourceToken, targetToken, pools} = await BorrowManagerHelper.initAppPoolsWithTwoAssets(signer, tt);
+    const core = await CoreContracts.build(await TetuConverterApp.createController(signer));
+    const {sourceToken, targetToken, pools} = await BorrowManagerHelper.initAppPoolsWithTwoAssets(core, signer, tt);
 
     const tc = ITetuConverter__factory.connect(await core.controller.tetuConverter(), signer);
     const bmAsTc = BorrowManager__factory.connect(
@@ -491,7 +476,7 @@ describe("BorrowManager", () => {
 //region Unit tests
   describe("setTargetHealthFactors", () => {
     async function prepareBorrowManagerWithGivenHealthFactor(minHealthFactor2: number) : Promise<BorrowManager> {
-      const controller = await CoreContractsHelper.createController(signer);
+      const controller = await createController();
       await controller.setMinHealthFactor2(minHealthFactor2);
       return CoreContractsHelper.createBorrowManager(signer, controller);
     }
@@ -501,7 +486,7 @@ describe("BorrowManager", () => {
           const asset = ethers.Wallet.createRandom().address;
           const healthFactor = 400;
 
-          const controller = await CoreContractsHelper.createController(signer);
+          const controller = await createController();
           const borrowManager = await CoreContractsHelper.createBorrowManager(signer, controller);
 
           const before = await borrowManager.targetHealthFactorsForAssets(asset);
@@ -540,7 +525,7 @@ describe("BorrowManager", () => {
           const healthFactor1 = 250;
           const healthFactor2 = 300;
 
-          const controller = await CoreContractsHelper.createController(signer);
+          const controller = await createController();
           const borrowManager = await CoreContractsHelper.createBorrowManager(signer, controller);
 
           const before = [
@@ -620,7 +605,7 @@ describe("BorrowManager", () => {
       it("should set expected value", async () => {
         const rewardsFactor = getBigNumberFrom(9, 17);
 
-        const controller = await CoreContractsHelper.createController(signer);
+        const controller = await createController();
         const borrowManager = await CoreContractsHelper.createBorrowManager(signer, controller);
 
         await borrowManager.setRewardsFactor(rewardsFactor);
@@ -635,7 +620,7 @@ describe("BorrowManager", () => {
         it("should revert", async () => {
           const rewardsFactor = getBigNumberFrom(9, 17);
 
-          const controller = await CoreContractsHelper.createController(signer);
+          const controller = await createController();
           const borrowManager = await CoreContractsHelper.createBorrowManager(signer, controller);
 
           const bmAsNotGov = BorrowManager__factory.connect(
@@ -655,7 +640,7 @@ describe("BorrowManager", () => {
     describe("Good paths", () => {
       describe("Register single platform adapter first time", () => {
         it("should set borrow manager to expected state", async () => {
-          const borrowManager = await initializeApp();
+          const borrowManager = await initializeBorrowManager();
           const r = await setUpSinglePlatformAdapterTestSet(borrowManager);
 
           const registeredPairs = await getAllRegisteredPairs(borrowManager, r.platformAdapter);
@@ -687,7 +672,7 @@ describe("BorrowManager", () => {
 
         describe("Register same platform adapter second time", () => {
           it("should not throw exception", async () => {
-            const borrowManager = await initializeApp();
+            const borrowManager = await initializeBorrowManager();
             // initialize platform adapter first time
             const r = await setUpSinglePlatformAdapterTestSet(borrowManager);
 
@@ -703,7 +688,7 @@ describe("BorrowManager", () => {
         });
         describe("Add new asset pairs to exist platform adapter", () => {
           it("should not throw exception", async () => {
-            const borrowManager = await initializeApp();
+            const borrowManager = await initializeBorrowManager();
             // initialize platform adapter first time
             const r = await setUpSinglePlatformAdapterTestSet(borrowManager);
             const newAsset = ethers.Wallet.createRandom().address;
@@ -721,7 +706,7 @@ describe("BorrowManager", () => {
       describe("Register several platform adapters", () => {
         describe("Set up three pairs", () => {
           it("should setup pairsList correctly", async () => {
-            const borrowManager = await initializeApp();
+            const borrowManager = await initializeBorrowManager();
             const r = await setUpThreePairsTestSet(borrowManager);
 
             const list12 = await getPairsList(borrowManager, [r.pair12]);
@@ -743,7 +728,7 @@ describe("BorrowManager", () => {
           });
 
           it("should setup converterToPlatformAdapter correctly", async () => {
-            const borrowManager = await initializeApp();
+            const borrowManager = await initializeBorrowManager();
             const r = await setUpThreePairsTestSet(borrowManager);
 
             const ret = [
@@ -763,7 +748,7 @@ describe("BorrowManager", () => {
           });
 
           it("should setup _platformAdapters correctly", async () => {
-            const borrowManager = await initializeApp();
+            const borrowManager = await initializeBorrowManager();
             const r = await setUpThreePairsTestSet(borrowManager);
 
             const ret = [
@@ -783,7 +768,7 @@ describe("BorrowManager", () => {
           });
 
           it("should setup _platformAdapterPairs and _assetPairs correctly", async () => {
-            const borrowManager = await initializeApp();
+            const borrowManager = await initializeBorrowManager();
             const r = await setUpThreePairsTestSet(borrowManager);
 
             const ret = [
@@ -818,7 +803,7 @@ describe("BorrowManager", () => {
     describe("Bad paths", () => {
       describe("Wrong lengths", () => {
         it("should revert", async () => {
-          const borrowManager = await initializeApp();
+          const borrowManager = await initializeBorrowManager();
           const platformAdapter = await MocksHelper.createPlatformAdapterStub(signer,
             [ethers.Wallet.createRandom().address]
           );
@@ -834,7 +819,7 @@ describe("BorrowManager", () => {
       });
       describe("Converter is used by two platform adapters", () => {
         it("should revert", async () => {
-          const borrowManager = await initializeApp();
+          const borrowManager = await initializeBorrowManager();
           const converter = ethers.Wallet.createRandom().address;
 
           const asset1 = ethers.Wallet.createRandom().address;
@@ -860,7 +845,7 @@ describe("BorrowManager", () => {
       describe("Register single pool", () => {
         describe("Remove all asset pairs", () => {
           it("should completely unregister the platform adapter", async () => {
-            const borrowManager = await initializeApp();
+            const borrowManager = await initializeBorrowManager();
             const r = await setUpSinglePlatformAdapterTestSet(borrowManager
               , 1 // single converter
             );
@@ -903,7 +888,7 @@ describe("BorrowManager", () => {
         });
         describe("Remove not all pairs", () => {
           async function makeTestRemoveNotAllPairs(isConverterInUse: boolean): Promise<{ret: string, expected: string}> {
-            const borrowManager = await initializeApp();
+            const borrowManager = await initializeBorrowManager();
             const r = await setUpSinglePlatformAdapterTestSet(borrowManager
               , 1 // single converter
               , 3 // three assets (3 pairs)
@@ -977,7 +962,7 @@ describe("BorrowManager", () => {
     describe("Bad paths", () => {
       describe("Platform adapter is not registered", () => {
         it("should revert", async () => {
-          const borrowManager = await initializeApp();
+          const borrowManager = await initializeBorrowManager();
           const platformAdapterNotExist = ethers.Wallet.createRandom().address;
           const r = await setUpSinglePlatformAdapterTestSet(borrowManager);
 
@@ -992,7 +977,7 @@ describe("BorrowManager", () => {
       });
       describe("Wrong lengths", () => {
         it("should revert", async () => {
-          const borrowManager = await initializeApp();
+          const borrowManager = await initializeBorrowManager();
           const r = await setUpSinglePlatformAdapterTestSet(borrowManager);
 
           await expect(
@@ -1007,7 +992,7 @@ describe("BorrowManager", () => {
       describe("Converter is in use", () => {
         it("should revert", async () => {
           const isConverterInUse = true;
-          const borrowManager = await initializeApp(isConverterInUse);
+          const borrowManager = await initializeBorrowManager(isConverterInUse);
           const r = await setUpSinglePlatformAdapterTestSet(borrowManager);
 
           await expect(
@@ -1329,7 +1314,8 @@ describe("BorrowManager", () => {
         it("should create and initialize an instance of the converter contract", async () => {
           // create borrow manager (BM) with single pool
           const tt = BorrowManagerHelper.getBmInputParamsSinglePool();
-          const {core, sourceToken, targetToken, pools} = await BorrowManagerHelper.initAppPoolsWithTwoAssets(signer, tt);
+          const core = await CoreContracts.build(await TetuConverterApp.createController(signer));
+          const {sourceToken, targetToken, pools} = await BorrowManagerHelper.initAppPoolsWithTwoAssets(core, signer, tt);
 
           // register pool adapter
           const converter = pools[0].converter;
@@ -1407,7 +1393,8 @@ describe("BorrowManager", () => {
       describe("Wrong converter address", () => {
         it("should revert", async () => {
           const tt = BorrowManagerHelper.getBmInputParamsSinglePool();
-          const {core, sourceToken, targetToken} = await BorrowManagerHelper.initAppPoolsWithTwoAssets(signer, tt);
+          const core = await CoreContracts.build(await TetuConverterApp.createController(signer));
+          const {sourceToken, targetToken, pools} = await BorrowManagerHelper.initAppPoolsWithTwoAssets(core, signer, tt);
 
           const bmAsTc = IBorrowManager__factory.connect(
             core.bm.address,
@@ -1426,7 +1413,8 @@ describe("BorrowManager", () => {
       describe("Not TetuConverter", () => {
         it("should revert", async () => {
           const tt = BorrowManagerHelper.getBmInputParamsSinglePool();
-          const {core, sourceToken, targetToken, pools} = await BorrowManagerHelper.initAppPoolsWithTwoAssets(signer, tt);
+          const core = await CoreContracts.build(await TetuConverterApp.createController(signer));
+          const {sourceToken, targetToken, pools} = await BorrowManagerHelper.initAppPoolsWithTwoAssets(core, signer, tt);
 
           const bmAsNotTc = IBorrowManager__factory.connect(core.bm.address, signer);
 
@@ -1445,7 +1433,7 @@ describe("BorrowManager", () => {
   describe("getPlatformAdapter", () => {
     describe("Good paths", () => {
       it("should return expected platform adapter", async () => {
-        const borrowManager = await initializeApp();
+        const borrowManager = await initializeBorrowManager();
         const controller = Controller__factory.connect(await borrowManager.controller(), signer);
 
         const platformAdapterSets = [
@@ -1484,7 +1472,7 @@ describe("BorrowManager", () => {
     describe("Bad paths", () => {
       describe("converter address is not registered", () => {
         it("should revert", async () => {
-          const borrowManager = await initializeApp();
+          const borrowManager = await initializeBorrowManager();
           await expect(
             borrowManager.getPlatformAdapter(ethers.Wallet.createRandom().address)
           ).revertedWith("TC-6"); // PLATFORM_ADAPTER_NOT_FOUND
@@ -1577,7 +1565,7 @@ describe("BorrowManager", () => {
 
   describe("getPoolAdapterKey", () => {
     it("should return not zero", async () => {
-      const borrowManager = await initializeApp();
+      const borrowManager = await initializeBorrowManager();
       const key = await borrowManager.getPoolAdapterKey(
         ethers.Wallet.createRandom().address,
         ethers.Wallet.createRandom().address,
@@ -1590,7 +1578,7 @@ describe("BorrowManager", () => {
 
   describe("getAssetPairKey", () => {
     it("should return not zero", async () => {
-      const borrowManager = await initializeApp();
+      const borrowManager = await initializeBorrowManager();
       const key = await borrowManager.getAssetPairKey(
         ethers.Wallet.createRandom().address,
         ethers.Wallet.createRandom().address,
@@ -1599,7 +1587,7 @@ describe("BorrowManager", () => {
       expect(ret).eq(false);
     });
     it("should return same value for (A, B) and (B, A)", async () => {
-      const borrowManager = await initializeApp();
+      const borrowManager = await initializeBorrowManager();
       const address1 = ethers.Wallet.createRandom().address;
       const address2 = ethers.Wallet.createRandom().address;
       const ret12 = await borrowManager.getAssetPairKey(address1, address2);

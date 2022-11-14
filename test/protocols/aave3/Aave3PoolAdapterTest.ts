@@ -2,7 +2,6 @@ import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import {ethers} from "hardhat";
 import {TimeUtils} from "../../../scripts/utils/TimeUtils";
 import {
-  Aave3PlatformAdapter__factory,
   IERC20Extended__factory, IPoolAdapter__factory
 } from "../../../typechain";
 import {expect} from "chai";
@@ -10,7 +9,7 @@ import {BigNumber} from "ethers";
 import {getBigNumberFrom} from "../../../scripts/utils/NumberUtils";
 import {DeployerUtils} from "../../../scripts/utils/DeployerUtils";
 import {isPolygonForkInUse} from "../../baseUT/utils/NetworkUtils";
-import {Aave3Helper, IAave3ReserveInfo} from "../../../scripts/integration/helpers/Aave3Helper";
+import {IAave3ReserveInfo} from "../../../scripts/integration/helpers/Aave3Helper";
 import {BalanceUtils, IUserBalances} from "../../baseUT/utils/BalanceUtils";
 import {MaticAddresses} from "../../../scripts/addresses/MaticAddresses";
 import {TokenDataTypes} from "../../baseUT/types/TokenDataTypes";
@@ -39,6 +38,7 @@ import {transferAndApprove} from "../../baseUT/utils/transferUtils";
 import {Aave3TestUtils, IPrepareToBorrowResults} from "../../baseUT/protocols/aave3/Aave3TestUtils";
 import {CoreContractsHelper} from "../../baseUT/helpers/CoreContractsHelper";
 import {AdaptersHelper} from "../../baseUT/helpers/AdaptersHelper";
+import {TetuConverterApp} from "../../baseUT/helpers/TetuConverterApp";
 
 describe("Aave3PoolAdapterTest", () => {
 //region Global vars for all tests
@@ -1411,7 +1411,10 @@ describe("Aave3PoolAdapterTest", () => {
       const borrowAsset = ethers.Wallet.createRandom().address;
       const converter = ethers.Wallet.createRandom().address;
 
-      const controller = await CoreContractsHelper.createController(deployer);
+      const controller = await TetuConverterApp.createController(
+        deployer,
+        {tetuLiquidatorAddress: MaticAddresses.TETU_LIQUIDATOR}
+      );
       const poolAdapter = useEMode
         ? await AdaptersHelper.createAave3PoolAdapterEMode(deployer)
         : await AdaptersHelper.createAave3PoolAdapter(deployer);

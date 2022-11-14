@@ -2,6 +2,7 @@ import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import {ethers} from "hardhat";
 import {TimeUtils} from "../../../scripts/utils/TimeUtils";
 import {
+  BorrowManager__factory,
   IERC20Extended__factory,
   IHfCToken__factory,
   IPoolAdapter__factory
@@ -29,6 +30,7 @@ import {transferAndApprove} from "../../baseUT/utils/transferUtils";
 import {HundredFinanceTestUtils} from "../../baseUT/protocols/hundred-finance/HundredFinanceTestUtils";
 import {CoreContractsHelper} from "../../baseUT/helpers/CoreContractsHelper";
 import {AdaptersHelper} from "../../baseUT/helpers/AdaptersHelper";
+import {TetuConverterApp} from "../../baseUT/helpers/TetuConverterApp";
 
 describe("Hundred Finance integration tests, pool adapter", () => {
 
@@ -1358,7 +1360,10 @@ describe("Hundred Finance integration tests, pool adapter", () => {
       const collateralAsset = MaticAddresses.DAI;
       const borrowAsset = MaticAddresses.USDC;
 
-      const controller = await CoreContractsHelper.createController(deployer);
+      const controller = await TetuConverterApp.createController(
+        deployer,
+        {tetuLiquidatorAddress: MaticAddresses.TETU_LIQUIDATOR}
+      );
       const poolAdapter = await AdaptersHelper.createHundredFinancePoolAdapter(deployer);
       const tokenAddressProvider = await AdaptersHelper.createHundredFinancePlatformAdapter(
         deployer,

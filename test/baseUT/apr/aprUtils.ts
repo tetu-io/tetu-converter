@@ -12,6 +12,7 @@ import {Aave3Helper} from "../../../scripts/integration/helpers/Aave3Helper";
 import {IBorrowingTestResults, ISwapTestResults} from "../uses-cases/CompareAprUsesCase";
 import {IPointResults} from "./aprDataTypes";
 import {Misc} from "../../../scripts/utils/Misc";
+import {MaticAddresses} from "../../../scripts/addresses/MaticAddresses";
 
 //region Make borrow
 /**
@@ -31,11 +32,14 @@ export async function makeBorrow (
   borrowAmount: BigNumber
 }> {
   console.log("makeBorrow:", p, amountToBorrow);
-  const {controller} = await TetuConverterApp.buildApp(deployer, [fabric]);
-  // we need to disable swap because we are testing borrowing
-  const swapManagerStub = await MocksHelper.createSwapManagerMock(deployer);
-  await controller.setSwapManager(swapManagerStub.address);
-
+  const {controller} = await TetuConverterApp.buildApp(
+    deployer,
+    [fabric],
+    {
+      swapManagerFabric: async () => (await MocksHelper.createSwapManagerMock(deployer)).address,
+      tetuLiquidatorAddress: MaticAddresses.TETU_LIQUIDATOR
+    }
+  );
   const uc = await MocksHelper.deployBorrower(deployer.address, controller, p.countBlocks);
 
   const collateralToken = await TokenDataTypes.Build(deployer, p.collateral.asset);

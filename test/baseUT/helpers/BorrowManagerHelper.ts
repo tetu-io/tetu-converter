@@ -1,12 +1,12 @@
 import {MocksHelper} from "./MocksHelper";
-import {CoreContractsHelper} from "./CoreContractsHelper";
 import {BigNumber} from "ethers";
 import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import {
-    MockERC20, PriceOracleMock,
+    MockERC20, PriceOracleMock, TetuLiquidatorMock__factory,
 } from "../../../typechain";
 import {CoreContracts} from "../types/CoreContracts";
 import {DeployUtils} from "../../../scripts/utils/DeployUtils";
+import {TetuConverterApp} from "./TetuConverterApp";
 
 export interface IPoolInfo {
     /** The length of array should be equal to the count of underlying */
@@ -44,11 +44,6 @@ export interface IMockPoolParams {
     assetLiquidityInPool: BigNumber[];
 }
 
-export interface ITetuLiquidatorMockParams {
-    assets: string[];
-    prices: BigNumber[];
-}
-
 export interface IPrepareContractsSetupParams {
     setupTetuLiquidatorToSwapBorrowToCollateral?: boolean;
     /**
@@ -65,70 +60,49 @@ export interface IPrepareContractsSetupParams {
     skipPreregistrationOfPoolAdapters?: boolean;
 }
 
+export interface IInitAppPoolsWithTwoAssetsResults {
+    sourceToken: MockERC20,
+    targetToken: MockERC20,
+    pools: IPoolInstanceInfo[],
+}
+
 export class BorrowManagerHelper {
-    /** Create full set of core contracts */
-    static async initializeApp(
-      signer: SignerWithAddress
-    ) : Promise<CoreContracts> {
-        const controller = await CoreContractsHelper.createController(signer);
-        const borrowManager = await CoreContractsHelper.createBorrowManager(signer, controller);
-        const debtMonitor = await CoreContractsHelper.createDebtMonitor(signer, controller.address);
-        const tetuConverter = await CoreContractsHelper.createTetuConverter(signer, controller);
-        const swapManager = await CoreContractsHelper.createSwapManager(signer, controller);
-        const tetuLiquidator = await MocksHelper.createTetuLiquidatorMock(
-          signer,
-          [],
-          []
-        );
-
-        await controller.setBorrowManager(borrowManager.address);
-        await controller.setDebtMonitor(debtMonitor.address);
-        await controller.setTetuConverter(tetuConverter.address);
-        await controller.setSwapManager(swapManager.address);
-        await controller.setTetuLiquidator(tetuLiquidator.address);
-
-        return new CoreContracts(controller, tetuConverter, borrowManager, debtMonitor, swapManager);
-    }
-
     static async initAppPoolsWithTwoAssets(
+        core: CoreContracts,
         signer: SignerWithAddress,
         tt: IBorrowInputParams,
         converterFabric?: () => Promise<string>,
         tetuAppSetupParams?: IPrepareContractsSetupParams
-    ) : Promise<{
-        core: CoreContracts,
-        sourceToken: MockERC20,
-        targetToken: MockERC20,
-        pools: IPoolInstanceInfo[],
-    }>{
-        const core = await this.initializeApp(signer);
-
+    ) : Promise<IInitAppPoolsWithTwoAssetsResults>{
         const sourceDecimals = tt.sourceDecimals || 18;
         const targetDecimals = tt.targetDecimals || 6;
-
         const assetDecimals = [sourceDecimals, targetDecimals];
+        const assets = await MocksHelper.createTokens(assetDecimals);
         const cTokenDecimals = [sourceDecimals, targetDecimals];
         const collateralFactors = [tt.collateralFactor, 0.6];
         const pricesNum = [tt.priceSourceUSD, tt.priceTargetUSD];
         const prices = pricesNum.map((x, index) => BigNumber.from(10)
-            .pow(18 - 2)
-            .mul(x * 100));
+          .pow(18 - 2)
+          .mul(x * 100));
 
-        const assets = await MocksHelper.createTokens(assetDecimals);
-
-        const pools: IPoolInstanceInfo[] = [];
-
+        let tetuLiquidator = await MocksHelper.createTetuLiquidatorMock(
+          signer,
+          [],
+          []
+        );
         if (tetuAppSetupParams?.setupTetuLiquidatorToSwapBorrowToCollateral) {
-            const tetuLiquidatorMockEmpty = await MocksHelper.createTetuLiquidatorMock(
-              signer,
+            // we assume here, that mock tetu liquidator is used
+            tetuLiquidator = TetuLiquidatorMock__factory.connect(await core.controller.tetuLiquidator(), signer);
+            await tetuLiquidator.changePrices(
               [assets[0].address, assets[1].address],
               [prices[0], prices[1]]
             );
-            await core.controller.setTetuLiquidator(tetuLiquidatorMockEmpty.address);
             if (tetuAppSetupParams.priceImpact) {
-                await tetuLiquidatorMockEmpty.setPriceImpact(tetuAppSetupParams.priceImpact);
+                await tetuLiquidator.setPriceImpact(tetuAppSetupParams.priceImpact);
             }
         }
+
+        const pools: IPoolInstanceInfo[] = [];
 
         for (const poolInfo of tt.availablePools) {
             const cTokens = await MocksHelper.createCTokensMocks(
@@ -165,7 +139,7 @@ export class BorrowManagerHelper {
         const sourceToken = assets[0];
         const targetToken = assets[1];
 
-        return {core, sourceToken, targetToken, pools};
+        return {sourceToken, targetToken, pools};
     }
 
     static getBmInputParamsSinglePool(
@@ -196,7 +170,7 @@ export class BorrowManagerHelper {
         pools: IPoolInstanceInfo[],
     }>{
         // initialize app
-        const core = await this.initializeApp(signer);
+        const core = await CoreContracts.build(await TetuConverterApp.createController(signer));
 
         // create all platform adapters
         // and register all possible asset-pairs for each platform adapter in the borrow manager

@@ -2,6 +2,7 @@ import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import {ethers} from "hardhat";
 import {TimeUtils} from "../../../scripts/utils/TimeUtils";
 import {
+  BorrowManager__factory,
   HfAprLibFacade, HfPlatformAdapter__factory,
   IERC20Extended__factory, IHfComptroller, IHfCToken,
   IHfCToken__factory
@@ -24,6 +25,7 @@ import {convertUnits} from "../../baseUT/apr/aprUtils";
 import {Misc} from "../../../scripts/utils/Misc";
 import {DeployerUtils} from "../../../scripts/utils/DeployerUtils";
 import {HundredFinancePlatformFabric} from "../../baseUT/fabrics/HundredFinancePlatformFabric";
+import {TetuConverterApp} from "../../baseUT/helpers/TetuConverterApp";
 
 describe("Hundred finance integration tests, platform adapter", () => {
 //region Global vars for all tests
@@ -114,7 +116,10 @@ describe("Hundred finance integration tests, platform adapter", () => {
     borrowCToken: string,
     badPathsParams?: IGetConversionPlanBadPaths
   ) : Promise<{sret: string, sexpected: string}> {
-    const controller = await CoreContractsHelper.createController(deployer);
+    const controller = await TetuConverterApp.createController(
+      deployer,
+      {tetuLiquidatorAddress: MaticAddresses.TETU_LIQUIDATOR}
+    );
     const templateAdapterNormalStub = ethers.Wallet.createRandom();
     const countBlocks = 10;
     const healthFactor2 = 400;
@@ -470,8 +475,11 @@ describe("Hundred finance integration tests, platform adapter", () => {
       const collateralAsset = MaticAddresses.DAI;
       const borrowAsset = MaticAddresses.USDC;
 
-      const controller = await CoreContractsHelper.createController(deployer);
-      const borrowManager = await CoreContractsHelper.createBorrowManager(deployer, controller);
+      const controller = await TetuConverterApp.createController(
+        deployer,
+        {tetuLiquidatorAddress: MaticAddresses.TETU_LIQUIDATOR}
+      );
+      const borrowManager = BorrowManager__factory.connect(await controller.borrowManager(), deployer);
       await controller.setBorrowManager(borrowManager.address);
 
       const converterNormal = await AdaptersHelper.createHundredFinancePoolAdapter(deployer);

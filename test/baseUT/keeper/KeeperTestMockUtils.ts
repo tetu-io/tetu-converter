@@ -10,6 +10,7 @@ import {setInitialBalance} from "../utils/CommonUtils";
 import {BorrowRepayUsesCase} from "../uses-cases/BorrowRepayUsesCase";
 import {BorrowAction} from "../actions/BorrowAction";
 import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
+import {MaticAddresses} from "../../../scripts/addresses/MaticAddresses";
 
 export class KeeperTestMockUtils {
   /**
@@ -58,7 +59,13 @@ export class KeeperTestMockUtils {
       )
     )
 
-    const {tc, controller} = await TetuConverterApp.buildApp(deployer, fabrics);
+    const {tc, controller} = await TetuConverterApp.buildApp(
+      deployer,
+      fabrics,
+      {
+        tetuLiquidatorAddress: MaticAddresses.TETU_LIQUIDATOR
+      }
+    );
     const uc: Borrower = await MocksHelper.deployBorrower(deployer.address
       , controller
       , p.countBlocks

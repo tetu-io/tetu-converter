@@ -39,6 +39,7 @@ import {AaveTwoTestUtils} from "../../baseUT/protocols/aaveTwo/AaveTwoTestUtils"
 import {CoreContractsHelper} from "../../baseUT/helpers/CoreContractsHelper";
 import {AdaptersHelper} from "../../baseUT/helpers/AdaptersHelper";
 import {Misc} from "../../../scripts/utils/Misc";
+import {TetuConverterApp} from "../../baseUT/helpers/TetuConverterApp";
 
 describe("AaveTwoPoolAdapterTest", () => {
 //region Global vars for all tests
@@ -1084,7 +1085,10 @@ describe("AaveTwoPoolAdapterTest", () => {
       const borrowAsset = ethers.Wallet.createRandom().address;
       const converter = ethers.Wallet.createRandom().address;
 
-      const controller = await CoreContractsHelper.createController(deployer);
+      const controller = await TetuConverterApp.createController(
+        deployer,
+        {tetuLiquidatorAddress: MaticAddresses.TETU_LIQUIDATOR}
+      );
       const poolAdapter = await AdaptersHelper.createAaveTwoPoolAdapter(deployer);
 
       const countInitializationCalls = badParams?.makeSecondInitialization ? 2 : 1;

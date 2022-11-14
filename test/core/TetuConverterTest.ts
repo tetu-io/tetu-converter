@@ -3,9 +3,7 @@ import {ethers} from "hardhat";
 import {TimeUtils} from "../../scripts/utils/TimeUtils";
 import {expect} from "chai";
 import {getBigNumberFrom} from "../../scripts/utils/NumberUtils";
-import {DeployUtils} from "../../scripts/utils/DeployUtils";
 import {
-  BorrowManager,
   IERC20__factory,
   MockERC20,
   MockERC20__factory,
@@ -23,7 +21,7 @@ import {
   ConverterUnknownKind,
   DebtMonitorMock,
   Controller,
-  PoolAdapterStub__factory, IPoolAdapter
+  PoolAdapterStub__factory, IPoolAdapter, SwapManager__factory, DebtMonitorMock__factory, SwapManagerMock__factory
 } from "../../typechain";
 import {
   IBorrowInputParams,
@@ -45,6 +43,7 @@ import {controlGasLimitsEx} from "../../scripts/utils/hardhatUtils";
 import {
   GAS_FIND_CONVERSION_STRATEGY_ONLY_BORROW_AVAILABLE,
 } from "../baseUT/GasLimit";
+import {TetuConverterApp} from "../baseUT/helpers/TetuConverterApp";
 
 describe("TetuConverterTest", () => {
 //region Constants
@@ -81,26 +80,6 @@ describe("TetuConverterTest", () => {
 //endregion before, after
 
 //region Initialization
-  /**
-   * Create TetuConverter, register a pair of assets and N platform adapters to convert the asset pair.
-   */
-  async function createTetuConverter(
-    tt: IBorrowInputParams
-  ) : Promise<{
-    tetuConveter: TetuConverter,
-    sourceToken: MockERC20,
-    targetToken: MockERC20,
-    borrowManager: BorrowManager,
-    poolInstances: IPoolInstanceInfo[]
-  }> {
-    const {core, sourceToken, targetToken, pools} = await BorrowManagerHelper.initAppPoolsWithTwoAssets(deployer, tt);
-
-    const tetuConveter = await DeployUtils.deployContract(deployer
-      , "TetuConverter", core.controller.address) as TetuConverter;
-
-    return {tetuConveter, sourceToken, targetToken, borrowManager: core.bm, poolInstances: pools};
-  }
-
   interface IPrepareResults {
     core: CoreContracts;
     poolInstances: IPoolInstanceInfo[];
@@ -121,6 +100,7 @@ describe("TetuConverterTest", () => {
 
   /**
    * Deploy BorrowerMock. Create TetuConverter-app and pre-register all pool adapters (implemented by PoolAdapterMock).
+   * @param core
    * @param tt
    * @param tetuAppSetupParams
    * @param usePoolAdapterStub
@@ -128,13 +108,14 @@ describe("TetuConverterTest", () => {
    *      false: use PoolAdapterMock to implement pool adapters.
    */
   async function prepareContracts(
+    core: CoreContracts,
     tt: IBorrowInputParams,
     tetuAppSetupParams?: IPrepareContractsSetupParams,
     usePoolAdapterStub: boolean = false
   ) : Promise<IPrepareResults>{
     const periodInBlocks = 117;
-
-    const {core, sourceToken, targetToken, pools} = await BorrowManagerHelper.initAppPoolsWithTwoAssets(
+    const {sourceToken, targetToken, pools} = await BorrowManagerHelper.initAppPoolsWithTwoAssets(
+      core,
       deployer,
       tt,
       async () => usePoolAdapterStub
@@ -186,6 +167,7 @@ describe("TetuConverterTest", () => {
 
   /** prepareContracts with sample assets settings and huge amounts of collateral and borrow assets */
   async function prepareTetuAppWithMultipleLendingPlatforms(
+    core: CoreContracts,
     countPlatforms: number,
     tetuAppSetupParams?: IPrepareContractsSetupParams,
     usePoolAdapterStub: boolean = false
@@ -211,7 +193,7 @@ describe("TetuConverterTest", () => {
     const initialCollateralAmount = getBigNumberFrom(sourceAmountNumber, sourceDecimals);
     const availableBorrowLiquidityPerPool = getBigNumberFrom(availableBorrowLiquidityNumber, targetDecimals);
 
-    const r = await prepareContracts(tt, tetuAppSetupParams, usePoolAdapterStub);
+    const r = await prepareContracts(core, tt, tetuAppSetupParams, usePoolAdapterStub);
 
     // put a lot of collateral asset on user's balance
     await MockERC20__factory.connect(r.sourceToken.address, deployer).mint(
@@ -226,7 +208,7 @@ describe("TetuConverterTest", () => {
     }
 
     return {
-      core: r.core,
+      core,
       sourceToken: r.sourceToken,
       targetToken: r.targetToken,
       poolInstances: r.poolInstances,
@@ -415,8 +397,9 @@ describe("TetuConverterTest", () => {
     const sourceAmount = getBigNumberFrom(sourceAmountNumber, tt.sourceDecimals);
     const availableBorrowLiquidity = getBigNumberFrom(availableBorrowLiquidityNumber, tt.targetDecimals);
 
-    const {core, poolInstances, cToken, userContract, sourceToken, targetToken, poolAdapters} =
-      await prepareContracts(tt);
+    const core = await CoreContracts.build(await TetuConverterApp.createController(deployer));
+    const {poolInstances, cToken, userContract, sourceToken, targetToken, poolAdapters} =
+      await prepareContracts(core, tt);
 
     console.log("cToken is", cToken);
     console.log("Pool adapters:", poolAdapters.join("\n"));
@@ -626,7 +609,8 @@ describe("TetuConverterTest", () => {
       borrowRateNum?: number,
       swapConfig?: IPrepareContractsSetupParams
     ) : Promise<IMakeFindConversionStrategyResults> {
-      const init = await prepareTetuAppWithMultipleLendingPlatforms(
+      const core = await CoreContracts.build(await TetuConverterApp.createController(deployer));
+      const init = await prepareTetuAppWithMultipleLendingPlatforms(core,
         borrowRateNum ? 1: 0,
         swapConfig
       );
@@ -980,7 +964,8 @@ describe("TetuConverterTest", () => {
         ? Misc.ZERO_ADDRESS
         : ethers.Wallet.createRandom().address;
 
-      const init = await prepareTetuAppWithMultipleLendingPlatforms(
+      const core = await CoreContracts.build(await TetuConverterApp.createController(deployer));
+      const init = await prepareTetuAppWithMultipleLendingPlatforms(core,
         collateralAmounts.length,
         {
           skipPreregistrationOfPoolAdapters: params?.skipPreregistrationOfPoolAdapters
@@ -1034,15 +1019,22 @@ describe("TetuConverterTest", () => {
     ) : Promise<IMakeConversionUsingSwap > {
       const receiver = ethers.Wallet.createRandom().address;
 
-      const init = await prepareTetuAppWithMultipleLendingPlatforms(
+      const core = await CoreContracts.build(
+        await TetuConverterApp.createController(
+          deployer,
+          {
+            swapManagerFabric: async () => (await MocksHelper.createSwapManagerMock(deployer)).address
+          }
+        )
+      );
+      const init = await prepareTetuAppWithMultipleLendingPlatforms(core,
         0,
         {
           setupTetuLiquidatorToSwapBorrowToCollateral: true
         }
       );
       // let's replace real swap manager by mocked one
-      const swapManagerMock = await MocksHelper.createSwapManagerMock(deployer);
-      await init.core.controller.setSwapManager(swapManagerMock.address);
+      const swapManagerMock = SwapManagerMock__factory.connect(await core.controller.swapManager(), deployer);
       await swapManagerMock.setupSwap(
         getBigNumberFrom(swapManagerMockParams.targetAmountAfterSwap, await init.targetToken.decimals())
       );
@@ -1411,7 +1403,8 @@ describe("TetuConverterTest", () => {
       ) : Promise<IMakeConversionUsingBorrowingResults > {
         const receiver = ethers.Wallet.createRandom().address;
 
-        const init = await prepareTetuAppWithMultipleLendingPlatforms(
+        const core = await CoreContracts.build(await TetuConverterApp.createController(deployer));
+        const init = await prepareTetuAppWithMultipleLendingPlatforms(core,
           collateralAmounts.length,
           {
             setupTetuLiquidatorToSwapBorrowToCollateral
@@ -1543,8 +1536,9 @@ describe("TetuConverterTest", () => {
               const sourceAmount = getBigNumberFrom(sourceAmountNumber, sourceDecimals);
               const availableBorrowLiquidity = getBigNumberFrom(availableBorrowLiquidityNumber, targetDecimals);
 
-              const {core, poolInstances, cToken, userContract, sourceToken, targetToken, poolAdapters} =
-                await prepareContracts(tt);
+              const core = await CoreContracts.build(await TetuConverterApp.createController(deployer));
+              const {poolInstances, cToken, userContract, sourceToken, targetToken, poolAdapters} =
+                await prepareContracts(core, tt);
               const poolInstance = poolInstances[0];
               const poolAdapter = poolAdapters[0];
 
@@ -1655,7 +1649,8 @@ describe("TetuConverterTest", () => {
       repayBadPathParams?: IRepayBadPathParams,
       priceImpact?: number,
     ) : Promise<IRepayResults> {
-      const init = await prepareTetuAppWithMultipleLendingPlatforms(
+      const core = await CoreContracts.build(await TetuConverterApp.createController(deployer));
+      const init = await prepareTetuAppWithMultipleLendingPlatforms(core,
         collateralAmounts.length,
         {
           setupTetuLiquidatorToSwapBorrowToCollateral,
@@ -2160,7 +2155,8 @@ describe("TetuConverterTest", () => {
       healthFactorsBeforeBorrow?: IHealthFactorParams,
       healthFactorsBeforeRepay?: IHealthFactorParams,
     ) : Promise<IRequireRepayResults> {
-      const init = await prepareTetuAppWithMultipleLendingPlatforms(collateralAmounts.length);
+      const core = await CoreContracts.build(await TetuConverterApp.createController(deployer));
+      const init = await prepareTetuAppWithMultipleLendingPlatforms(core, collateralAmounts.length);
       const targetTokenDecimals = await init.targetToken.decimals();
       const sourceTokenDecimals = await init.sourceToken.decimals();
 
@@ -2475,7 +2471,8 @@ describe("TetuConverterTest", () => {
   describe("getDebtAmountStored", () => {
     describe("Good paths", () => {
       async function makeGetDebtAmountTest(collateralAmounts: number[]) : Promise<{sret: string, sexpected: string}> {
-        const pr = await prepareTetuAppWithMultipleLendingPlatforms(collateralAmounts.length);
+        const core = await CoreContracts.build(await TetuConverterApp.createController(deployer));
+        const pr = await prepareTetuAppWithMultipleLendingPlatforms(core, collateralAmounts.length);
         const sourceTokenDecimals = await pr.sourceToken.decimals();
         const borrows: IBorrowStatus[] = await makeBorrow(
           pr,
@@ -2550,7 +2547,8 @@ describe("TetuConverterTest", () => {
       unobtainableCollateralAssetAmount: BigNumber,
       init: ISetupResults
     }> {
-      const init = await prepareTetuAppWithMultipleLendingPlatforms(collateralAmounts.length);
+      const core = await CoreContracts.build(await TetuConverterApp.createController(deployer));
+      const init = await prepareTetuAppWithMultipleLendingPlatforms(core, collateralAmounts.length);
       const collateralTokenDecimals = await init.sourceToken.decimals();
 
       await makeBorrow(
@@ -2744,16 +2742,19 @@ describe("TetuConverterTest", () => {
     async function setupClaimRewards() : Promise<ISetupClaimRewards> {
       const user = ethers.Wallet.createRandom().address;
       const receiver = ethers.Wallet.createRandom().address;
-      const debtMonitorMock = await MocksHelper.createDebtMonitorMock(deployer);
-      const controller = await CoreContractsHelper.createController(deployer);
-      const tetuConverter = await CoreContractsHelper.createTetuConverter(deployer, controller);
-      await controller.setDebtMonitor(debtMonitorMock.address);
-      await controller.setTetuConverter(tetuConverter.address);
-      const poolAdapter = await setupPoolAdapter(controller, user);
+      const core = await CoreContracts.build(
+        await TetuConverterApp.createController(
+          deployer,
+          {
+            debtMonitorFabric: async () => (await MocksHelper.createDebtMonitorMock(deployer)).address
+          }
+        )
+      );
+      const poolAdapter = await setupPoolAdapter(core.controller, user);
       return {
-        controller,
-        tetuConverter,
-        debtMonitorMock,
+        controller: core.controller,
+        tetuConverter: core.tc,
+        debtMonitorMock: DebtMonitorMock__factory.connect(core.dm.address, deployer),
         receiver,
         user,
         poolAdapter

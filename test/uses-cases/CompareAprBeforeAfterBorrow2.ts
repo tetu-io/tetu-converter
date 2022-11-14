@@ -1,13 +1,10 @@
 import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import {ethers} from "hardhat";
 import {TimeUtils} from "../../scripts/utils/TimeUtils";
-import {BigNumber} from "ethers";
-import {areAlmostEqual} from "../baseUT/utils/CommonUtils";
 import {getBigNumberFrom} from "../../scripts/utils/NumberUtils";
 import {isPolygonForkInUse} from "../baseUT/utils/NetworkUtils";
 import {MaticAddresses} from "../../scripts/addresses/MaticAddresses";
 import {
-  DForceInterestRateModelMock__factory,
   IERC20__factory, IERC20Extended__factory
 } from "../../typechain";
 import {expect} from "chai";

@@ -296,14 +296,7 @@ export class DeploySolutionUtils {
     controllerSetupParams: IControllerSetupParams,
     borrowManagerSetupParams: IBorrowManagerSetupParams
   ) : Promise<IDeployCoreResults> {
-    const controller = await CoreContractsHelper.createController(
-      deployer,
-      controllerSetupParams.minHealthFactor2,
-      controllerSetupParams.targetHealthFactor2,
-      controllerSetupParams.maxHealthFactor2,
-      controllerSetupParams.blocksPerDay,
-      false // don't initialize controller using empty addresses
-    );
+    const controller = await CoreContractsHelper.deployController(deployer);
     const borrowManager = await CoreContractsHelper.createBorrowManager(
       deployer,
       controller,
@@ -316,6 +309,11 @@ export class DeploySolutionUtils {
 
     await RunHelper.runAndWait(
       () => controller.initialize(
+        deployer.address,
+        controllerSetupParams.blocksPerDay,
+        controllerSetupParams.minHealthFactor2,
+        controllerSetupParams.targetHealthFactor2,
+        controllerSetupParams.maxHealthFactor2,
         tetuConverter.address,
         borrowManager.address,
         debtMonitor.address,

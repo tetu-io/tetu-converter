@@ -4,17 +4,17 @@ import {TimeUtils} from "../../scripts/utils/TimeUtils";
 import {expect} from "chai";
 import {
   Controller,
-  DebtMonitorCheckHealthMock,
+  DebtMonitorCheckHealthMock, DebtMonitorCheckHealthMock__factory,
   Keeper, Keeper__factory,
-  KeeperCallbackMock,
-  KeeperCaller,
-  KeeperMock
+  KeeperCallbackMock, KeeperCallbackMock__factory,
+  KeeperCaller, KeeperMock__factory
 } from "../../typechain";
 import {CoreContractsHelper} from "../baseUT/helpers/CoreContractsHelper";
 import {MocksHelper} from "../baseUT/helpers/MocksHelper";
 import {Misc} from "../../scripts/utils/Misc";
 import {DeployerUtils} from "../../scripts/utils/DeployerUtils";
 import {DeployUtils} from "../../scripts/utils/DeployUtils";
+import {TetuConverterApp} from "../baseUT/helpers/TetuConverterApp";
 
 describe("KeeperTest", () => {
 //region Constants
@@ -64,35 +64,36 @@ describe("KeeperTest", () => {
   }
 
   async function setupMockedApp(
-    signer: SignerWithAddress
+    signer: SignerWithAddress,
+    wrapKeeper: boolean = false
   ) : Promise<ISetupMockedAppResults> {
-    const controller = await CoreContractsHelper.createController(signer);
-    const debtMonitorMock = await MocksHelper.createDebtMonitorCheckHealthMock(signer);
-    const tetuConverterMock = await MocksHelper.createKeeperCallbackMock(signer);
     const keeperCaller = await MocksHelper.createKeeperCaller(signer);
-    const keeper = await CoreContractsHelper.createKeeper(signer, controller, keeperCaller.address);
-    await keeperCaller.setupKeeper(keeper.address, keeper.address);
+    const controller: Controller = await TetuConverterApp.createController(
+      signer,
+      {
+        borrowManagerFabric: async c => (await CoreContractsHelper.createBorrowManager(signer, c)).address,
+        tetuConverterFabric: async () => (await MocksHelper.createKeeperCallbackMock(signer)).address,
+        debtMonitorFabric: async () => (await MocksHelper.createDebtMonitorCheckHealthMock(signer)).address,
+        keeperFabric: wrapKeeper
+          ? (async c => {
+            const realKeeper = await CoreContractsHelper.createKeeper(signer, c, keeperCaller.address);
+            return (await MocksHelper.createKeeperMock(deployer, realKeeper.address)).address;
+          })
+          : (async c => (await CoreContractsHelper.createKeeper(signer, c, keeperCaller.address)).address),
+        swapManagerFabric: async () => ethers.Wallet.createRandom().address,
+        tetuLiquidatorAddress: ethers.Wallet.createRandom().address,
+      }
+    );
 
-    await controller.setDebtMonitor(debtMonitorMock.address);
-    await controller.setTetuConverter(tetuConverterMock.address);
-    await controller.setKeeper(keeper.address);
+    const keeper = Keeper__factory.connect(await controller.keeper(), controller.signer);
 
     return {
       controller,
       keeper,
-      tetuConverterMock,
-      debtMonitorMock,
-      keeperCaller,
+      tetuConverterMock: KeeperCallbackMock__factory.connect(await controller.tetuConverter(), controller.signer),
+      debtMonitorMock: DebtMonitorCheckHealthMock__factory.connect(await controller.debtMonitor(), controller.signer),
+      keeperCaller
     }
-  }
-
-  async function setupKeeperMock(
-    signer: SignerWithAddress,
-    app: ISetupMockedAppResults
-  ) : Promise<KeeperMock> {
-    const keeperMock = await MocksHelper.createKeeperMock(signer);
-    await app.controller.setKeeper(keeperMock.address);
-    return keeperMock;
   }
 //endregion Initialization
 
@@ -105,11 +106,10 @@ describe("KeeperTest", () => {
             const startIndexToCheck = 0;
             const nextIndexToCheck = 0;
 
-            const app = await setupMockedApp(deployer);
+            const app = await setupMockedApp(deployer, true);
+            const keeperExecutorMock = KeeperMock__factory.connect(app.keeper.address, deployer);
             // setup app: checker should call keeperMock.fixHealth
-            const keeperExecutorMock = await setupKeeperMock(deployer, app);
             await keeperExecutorMock.setNextIndexToCheck0(nextIndexToCheck);
-            await app.controller.setKeeper(keeperExecutorMock.address);
             await app.keeperCaller.setupKeeper(app.keeper.address, keeperExecutorMock.address);
 
             // all pool adapters are healthy
@@ -132,12 +132,10 @@ describe("KeeperTest", () => {
             const startIndexToCheck = 0;
             const nextIndexToCheck = 100; // != 0
 
-            const app = await setupMockedApp(deployer);
-
+            const app = await setupMockedApp(deployer, true);
+            const keeperExecutorMock = KeeperMock__factory.connect(app.keeper.address, deployer);
             // setup app: checker should call keeperMock.fixHealth
-            const keeperExecutorMock = await setupKeeperMock(deployer, app);
             await keeperExecutorMock.setNextIndexToCheck0(nextIndexToCheck);
-            await app.controller.setKeeper(keeperExecutorMock.address);
             await app.keeperCaller.setupKeeper(app.keeper.address, keeperExecutorMock.address);
 
             // all pool adapters are healthy
@@ -162,12 +160,10 @@ describe("KeeperTest", () => {
           const nextIndexToCheck = 0;
           const unhealthyPoolAdapter = ethers.Wallet.createRandom().address;
 
-          const app = await setupMockedApp(deployer);
-
+          const app = await setupMockedApp(deployer, true);
+          const keeperExecutorMock = KeeperMock__factory.connect(app.keeper.address, deployer);
           // setup app: checker should call keeperMock.fixHealth
-          const keeperExecutorMock = await setupKeeperMock(deployer, app);
           await keeperExecutorMock.setNextIndexToCheck0(nextIndexToCheck);
-          await app.controller.setKeeper(keeperExecutorMock.address);
           await app.keeperCaller.setupKeeper(app.keeper.address, keeperExecutorMock.address);
 
           // all pool adapters are healthy
@@ -206,6 +202,7 @@ describe("KeeperTest", () => {
             );
 
             const before = (await app.keeper.nextIndexToCheck0()).toNumber();
+            await app.keeperCaller.setupKeeper(app.keeper.address, app.keeper.address);
             await app.keeperCaller.callChecker();
             const after = (await app.keeper.nextIndexToCheck0()).toNumber();
 
@@ -233,6 +230,7 @@ describe("KeeperTest", () => {
             , [collateralAssetAmountToRepay]
           );
 
+          await app.keeperCaller.setupKeeper(app.keeper.address, app.keeper.address);
           await app.keeperCaller.callChecker();
 
           const r = await app.tetuConverterMock.requireRepayCalls(unhealthyPoolAdapter);
@@ -277,6 +275,7 @@ describe("KeeperTest", () => {
               [collateralAssetAmountToRepay1, collateralAssetAmountToRepay2]
             );
 
+            await app.keeperCaller.setupKeeper(app.keeper.address, app.keeper.address);
             await app.keeperCaller.callChecker();
 
             const r1 = await app.tetuConverterMock.requireRepayCalls(unhealthyPoolAdapter1);
@@ -340,6 +339,7 @@ describe("KeeperTest", () => {
             , []
           );
 
+          await app.keeperCaller.setupKeeper(app.keeper.address, app.keeper.address);
           await app.keeperCaller.callChecker();
           const nextIndexToCheck0AfterFirstCall = (await app.keeper.nextIndexToCheck0()).toNumber();
 
@@ -405,6 +405,7 @@ describe("KeeperTest", () => {
             , [2, 3] // (!)
           );
 
+          await app.keeperCaller.setupKeeper(app.keeper.address, app.keeper.address);
           await app.keeperCaller.callChecker();
           const ret = await app.keeperCaller.lastCallResults();
           expect(ret).eq(FAILED_2);  // WRONG_LENGTHS
@@ -416,9 +417,8 @@ describe("KeeperTest", () => {
   describe("Initialization", () => {
     describe("Good paths", () => {
       it("should return expected values", async () => {
-        const controller = await CoreContractsHelper.createController(deployer);
-        const keeperCaller = await MocksHelper.createKeeperCaller(deployer);
-        const keeper = await CoreContractsHelper.createKeeper(deployer, controller, keeperCaller.address);
+        const controller = await TetuConverterApp.createController(deployer);
+        const keeper = Keeper__factory.connect(await controller.keeper(), controller.signer);
 
         const ret = await keeper.controller();
         expect(ret).eq(controller.address);
@@ -444,12 +444,11 @@ describe("KeeperTest", () => {
   describe("setController", () => {
     describe("Good paths", () => {
       it("should return expected values", async () => {
-        const controller = await CoreContractsHelper.createController(deployer);
-        const keeperCaller = await MocksHelper.createKeeperCaller(deployer);
-        const keeper = await CoreContractsHelper.createKeeper(deployer, controller, keeperCaller.address);
+        const controller = await TetuConverterApp.createController(deployer);
+        const keeper = Keeper__factory.connect(await controller.keeper(), controller.signer);
 
         const before = await keeper.controller();
-        const controller2 = await CoreContractsHelper.createController(deployer);
+        const controller2 = await TetuConverterApp.createController(deployer);
         await keeper.setController(controller2.address);
         const after = await keeper.controller();
 
@@ -461,19 +460,17 @@ describe("KeeperTest", () => {
     describe("Bad paths", () => {
       describe("Zero address", () => {
         it("should revert", async () => {
-          const controller = await CoreContractsHelper.createController(deployer);
-          const keeperCaller = await MocksHelper.createKeeperCaller(deployer);
-          const keeper = await CoreContractsHelper.createKeeper(deployer, controller, keeperCaller.address);
+          const controller = await TetuConverterApp.createController(deployer);
+          const keeper = Keeper__factory.connect(await controller.keeper(), controller.signer);
 
           await expect(keeper.setController(Misc.ZERO_ADDRESS)).revertedWith("TC-1"); // ZERO_ADDRESS
         });
       });
       describe("Not governance", () => {
         it("should revert", async () => {
-          const controller = await CoreContractsHelper.createController(deployer);
-          const keeperCaller = await MocksHelper.createKeeperCaller(deployer);
-          const keeper = await CoreContractsHelper.createKeeper(deployer, controller, keeperCaller.address);
-          const controller2 = await CoreContractsHelper.createController(deployer);
+          const controller = await TetuConverterApp.createController(deployer);
+          const keeper = Keeper__factory.connect(await controller.keeper(), controller.signer);
+          const controller2 = await TetuConverterApp.createController(deployer);
 
           const keeperNotGov = Keeper__factory.connect(
             keeper.address,

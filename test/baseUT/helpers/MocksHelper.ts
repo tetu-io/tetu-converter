@@ -400,9 +400,10 @@ export class MocksHelper {
 //region Keeper helpers
   public static async createKeeperMock(
     deployer: SignerWithAddress,
-    nextIndexToCheck0?: number
+    realKeeper: string,
+    nextIndexToCheck0?: number,
   ) : Promise<KeeperMock> {
-    return await DeployUtils.deployContract(deployer, "KeeperMock", nextIndexToCheck0 || 0) as KeeperMock;
+    return await DeployUtils.deployContract(deployer, "KeeperMock", nextIndexToCheck0 || 0, realKeeper) as KeeperMock;
   }
 
   public static async createKeeperCaller(

@@ -12,6 +12,7 @@ import {TetuConverterApp} from "../helpers/TetuConverterApp";
 import {BalanceUtils} from "../utils/BalanceUtils";
 import {MocksHelper} from "../helpers/MocksHelper";
 import {CompareAprUsesCase, ISwapTestResults} from "../uses-cases/CompareAprUsesCase";
+import {MaticAddresses} from "../../../scripts/addresses/MaticAddresses";
 
 export interface IMakeSwapTestResults {
   strategyToConvert: IStrategyToConvert;
@@ -37,7 +38,10 @@ export class AprSwap {
   ) : Promise<IMakeSwapTestResults> {
     const {controller} = await TetuConverterApp.buildApp(
       deployer,
-      undefined // there are no registered lending platforms, only swap is possible
+      undefined,// there are no registered lending platforms, only swap is possible
+      {
+        tetuLiquidatorAddress: MaticAddresses.TETU_LIQUIDATOR
+      }
     );
     const userContract = await MocksHelper.deployBorrower(deployer.address, controller, 4000);
 

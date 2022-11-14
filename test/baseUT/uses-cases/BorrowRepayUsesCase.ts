@@ -19,6 +19,7 @@ import {MockPlatformFabric} from "../fabrics/MockPlatformFabric";
 import {BorrowMockAction} from "../actions/BorrowMockAction";
 import {RepayMockAction} from "../actions/RepayMockAction";
 import {DeployerUtils} from "../../../scripts/utils/DeployerUtils";
+import {MaticAddresses} from "../../../scripts/addresses/MaticAddresses";
 
 export interface IBorrowAction {
   collateralToken: TokenDataTypes,
@@ -250,7 +251,11 @@ export class BorrowRepayUsesCase {
         .pow(18 - 2)
         .mul(x * 100))
     );
-    const {controller} = await TetuConverterApp.buildApp(deployer, [fabric]);
+    const {controller} = await TetuConverterApp.buildApp(
+      deployer,
+      [fabric],
+      {tetuLiquidatorAddress: MaticAddresses.TETU_LIQUIDATOR}
+    );
     const uc = await MocksHelper.deployBorrower(deployer.address, controller, p.countBlocks);
 
     const c0 = await setInitialBalance(deployer
@@ -308,7 +313,11 @@ export class BorrowRepayUsesCase {
     userBalances: IUserBalances[],
     borrowBalances: BigNumber[],
   }>{
-    const {controller} = await TetuConverterApp.buildApp(deployer, [fabric]);
+    const {controller} = await TetuConverterApp.buildApp(
+      deployer,
+      [fabric],
+      {tetuLiquidatorAddress: MaticAddresses.TETU_LIQUIDATOR}
+    );
     const uc = await MocksHelper.deployBorrower(deployer.address, controller, p.countBlocks);
 
     const collateralToken = await TokenDataTypes.Build(deployer, p.collateral.asset);
@@ -430,7 +439,11 @@ export class BorrowRepayUsesCase {
         .pow(18 - 2)
         .mul(x * 100))
     );
-    const {tc, controller, pools} = await TetuConverterApp.buildApp(deployer, [fabric]);
+    const {controller} = await TetuConverterApp.buildApp(
+      deployer,
+      [fabric],
+      {tetuLiquidatorAddress: MaticAddresses.TETU_LIQUIDATOR}
+    );
     const uc = await MocksHelper.deployBorrower(deployer.address, controller, p.countBlocks);
 
     const c0 = await setInitialBalance(deployer, collateralToken.address
@@ -513,7 +526,11 @@ export class BorrowRepayUsesCase {
     fabric: ILendingPlatformFabric,
     expectations: IResultExpectations,
   ) : Promise<{sret: string, sexpected: string}> {
-    const {tc, controller} = await TetuConverterApp.buildApp(deployer, [fabric]);
+    const {controller} = await TetuConverterApp.buildApp(
+      deployer,
+      [fabric],
+      {tetuLiquidatorAddress: MaticAddresses.TETU_LIQUIDATOR}
+    );
     const uc = await MocksHelper.deployBorrower(deployer.address, controller, p.countBlocks);
 
     const collateralToken = await TokenDataTypes.Build(deployer, p.collateral.asset);

@@ -23,6 +23,7 @@ import {AprAaveTwo, getAaveTwoStateInfo} from "../../baseUT/apr/aprAaveTwo";
 import {Misc} from "../../../scripts/utils/Misc";
 import {convertUnits} from "../../baseUT/apr/aprUtils";
 import {DeployerUtils} from "../../../scripts/utils/DeployerUtils";
+import {TetuConverterApp} from "../../baseUT/helpers/TetuConverterApp";
 
 describe("AaveTwoPlatformAdapterTest", () => {
 //region Global vars for all tests
@@ -113,7 +114,10 @@ describe("AaveTwoPlatformAdapterTest", () => {
       badPathsParams?: IGetConversionPlanBadPaths
     ) : Promise<{sret: string, sexpected: string}> {
       const countBlocks = 10;
-      const controller = await CoreContractsHelper.createController(deployer);
+      const controller = await TetuConverterApp.createController(
+        deployer,
+        {tetuLiquidatorAddress: MaticAddresses.TETU_LIQUIDATOR}
+      );
       const templateAdapterNormalStub = ethers.Wallet.createRandom();
       const healthFactor2 = 200;
 
@@ -474,9 +478,10 @@ describe("AaveTwoPlatformAdapterTest", () => {
       const collateralAsset = ethers.Wallet.createRandom().address;
       const borrowAsset = ethers.Wallet.createRandom().address;
 
-      const controller = await CoreContractsHelper.createController(deployer);
-      const borrowManager = await CoreContractsHelper.createBorrowManager(deployer, controller);
-      await controller.setBorrowManager(borrowManager.address);
+      const controller = await TetuConverterApp.createController(
+        deployer,
+        {tetuLiquidatorAddress: MaticAddresses.TETU_LIQUIDATOR}
+      );
 
       const converterNormal = await AdaptersHelper.createAaveTwoPoolAdapter(deployer);
 

@@ -24,6 +24,7 @@ import {Misc} from "../../../scripts/utils/Misc";
 import {convertUnits} from "../../baseUT/apr/aprUtils";
 import {Aave3Utils} from "../../baseUT/protocols/aave3/Aave3Utils";
 import {DeployerUtils} from "../../../scripts/utils/DeployerUtils";
+import {TetuConverterApp} from "../../baseUT/helpers/TetuConverterApp";
 
 describe("Aave3PlatformAdapterTest", () => {
 //region Global vars for all tests
@@ -123,7 +124,10 @@ describe("Aave3PlatformAdapterTest", () => {
       countBlocks: number = 10,
       badPathsParams?: IGetConversionPlanBadPaths
     ) : Promise<{sret: string, sexpected: string}> {
-      const controller = await CoreContractsHelper.createController(deployer);
+      const controller = await TetuConverterApp.createController(
+        deployer,
+        {tetuLiquidatorAddress: MaticAddresses.TETU_LIQUIDATOR}
+      );
       const templateAdapterNormalStub = ethers.Wallet.createRandom();
       const templateAdapterEModeStub = ethers.Wallet.createRandom();
       const healthFactor2 = 200;

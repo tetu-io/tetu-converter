@@ -258,7 +258,11 @@ describe.skip("CompareAprUsesCaseTest", () => {
 
 //region Test impl
   async function makeTestSwap(countBlocks: number, tasks: IBorrowTask[]): Promise<ISwapTestResults[]> {
-    const {controller} = await TetuConverterApp.buildApp(deployer);
+    const {controller} = await TetuConverterApp.buildApp(
+      deployer,
+      undefined,
+      {tetuLiquidatorAddress: MaticAddresses.TETU_LIQUIDATOR}
+    );
 
     const swapManager = SwapManager__factory.connect(await controller.swapManager(), deployer);
 
