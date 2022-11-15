@@ -5,6 +5,7 @@ import {MaticAddresses} from "../../../scripts/addresses/MaticAddresses";
 import {getBigNumberFrom} from "../../../scripts/utils/NumberUtils";
 import {IERC20__factory, ITetuLiquidator__factory} from "../../../typechain";
 import {DeployerUtils} from "../../../scripts/utils/DeployerUtils";
+import {isPolygonForkInUse} from "../../baseUT/utils/NetworkUtils";
 
 describe("TetuLiquidatorSwapTest", () => {
 //region Global vars for all tests
@@ -36,6 +37,8 @@ describe("TetuLiquidatorSwapTest", () => {
 
   describe("Try to swap DAI to USDT using TetuLiquidator deployed to Polygon", () => {
     it("should return expected values", async () => {
+      if (!await isPolygonForkInUse()) return;
+
       const tetuLiquidatorAddress = "0xC737eaB847Ae6A92028862fE38b828db41314772";
       const sourceAsset = MaticAddresses.DAI;
       const sourceAssetHolder = MaticAddresses.HOLDER_DAI;

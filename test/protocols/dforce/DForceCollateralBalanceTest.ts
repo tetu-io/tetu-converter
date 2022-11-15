@@ -161,6 +161,8 @@ describe("DForceCollateralBalanceTest", () => {
         expect(ret).eq(expected);
       });
       it("make full repay, should return zero collateral balance", async () => {
+        if (!await isPolygonForkInUse()) return;
+
         await putCollateralAmountOnUserBalance();
         await DForceTestUtils.makeBorrow(deployer, init.d, undefined);
         await putDoubleBorrowAmountOnUserBalance();
@@ -186,6 +188,8 @@ describe("DForceCollateralBalanceTest", () => {
     });
     describe("Make partial repay", () => {
       it("should return expected collateral balance", async () => {
+        if (!await isPolygonForkInUse()) return;
+
         await putDoubleBorrowAmountOnUserBalance();
         await DForceTestUtils.makeRepay(
           init.d,
@@ -208,6 +212,8 @@ describe("DForceCollateralBalanceTest", () => {
         expect(ret).eq(expected);
       });
       it("make full repay, should return zero collateral balance", async () => {
+        if (!await isPolygonForkInUse()) return;
+
         await putCollateralAmountOnUserBalance();
         await DForceTestUtils.makeBorrow(deployer, init.d, undefined);
 
@@ -240,6 +246,7 @@ describe("DForceCollateralBalanceTest", () => {
     describe("Make repay to rebalance using collateral asset", () => {
       it("add collateral, should return updated collateral balance", async () => {
         if (!await isPolygonForkInUse()) return;
+
         // increase target health factor from 200 to 300
         await init.d.controller.setTargetHealthFactor2(300);
         const amountToRepay = await init.d.collateralAmount.mul(2).div(3);
@@ -278,6 +285,7 @@ describe("DForceCollateralBalanceTest", () => {
       });
       it("make full repay, should return zero collateral balance", async () => {
         if (!await isPolygonForkInUse()) return;
+
         // increase target health factor from 200 to 300
         await init.d.controller.setTargetHealthFactor2(300);
         const amountToRepay = await init.d.collateralAmount.mul(2).div(3);
@@ -322,6 +330,7 @@ describe("DForceCollateralBalanceTest", () => {
     describe("Make repay to rebalance using borrow asset", () => {
       it("add borrow, should not change internal collateral balance", async () => {
         if (!await isPolygonForkInUse()) return;
+
         // increase target health factor from 200 to 300
         await init.d.controller.setTargetHealthFactor2(300);
         const amountToRepay = await init.d.amountToBorrow.mul(2).div(3);
@@ -429,6 +438,7 @@ describe("DForceCollateralBalanceTest", () => {
       });
       it.skip("try to make full repay, protocol reverts", async () => {
         if (!await isPolygonForkInUse()) return;
+
         await DForceTestUtils.makeLiquidation(deployer, init.d, borrowHolder);
         const stateAfterLiquidation = await getState(init.d);
 

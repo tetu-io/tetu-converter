@@ -154,6 +154,8 @@ describe("Aave3CollateralBalanceTest", () => {
         expect(ret).eq(expected);
       });
       it("make full repay, should return zero collateral balance", async () => {
+        if (!await isPolygonForkInUse()) return;
+
         await putCollateralAmountOnUserBalance();
         await Aave3TestUtils.makeBorrow(deployer, init.d, undefined);
         await putDoubleBorrowAmountOnUserBalance();
@@ -179,6 +181,8 @@ describe("Aave3CollateralBalanceTest", () => {
     });
     describe("Make partial repay", () => {
       it("should return expected collateral balance", async () => {
+        if (!await isPolygonForkInUse()) return;
+
         await putDoubleBorrowAmountOnUserBalance();
         await Aave3TestUtils.makeRepay(
           init.d,
@@ -201,6 +205,8 @@ describe("Aave3CollateralBalanceTest", () => {
         expect(ret).eq(expected);
       });
       it("make full repay, should return zero collateral balance", async () => {
+        if (!await isPolygonForkInUse()) return;
+
         await putCollateralAmountOnUserBalance();
         await Aave3TestUtils.makeBorrow(deployer, init.d, undefined);
 

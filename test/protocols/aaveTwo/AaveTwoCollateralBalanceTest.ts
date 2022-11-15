@@ -154,6 +154,8 @@ describe("AaveTwoCollateralBalanceTest", () => {
         expect(ret).eq(expected);
       });
       it("make full repay, should return zero collateral balance", async () => {
+        if (!await isPolygonForkInUse()) return;
+
         await putCollateralAmountOnUserBalance();
         await AaveTwoTestUtils.makeBorrow(deployer, init.d, undefined);
         await putDoubleBorrowAmountOnUserBalance();
@@ -179,6 +181,8 @@ describe("AaveTwoCollateralBalanceTest", () => {
     });
     describe("Make partial repay", () => {
       it("should return expected collateral balance", async () => {
+        if (!await isPolygonForkInUse()) return;
+
         await putDoubleBorrowAmountOnUserBalance();
         await AaveTwoTestUtils.makeRepay(
           init.d,
@@ -201,6 +205,8 @@ describe("AaveTwoCollateralBalanceTest", () => {
         expect(ret).eq(expected);
       });
       it("make full repay, should return zero collateral balance", async () => {
+        if (!await isPolygonForkInUse()) return;
+
         await putCollateralAmountOnUserBalance();
         await AaveTwoTestUtils.makeBorrow(deployer, init.d, undefined);
 
@@ -233,6 +239,7 @@ describe("AaveTwoCollateralBalanceTest", () => {
     describe("Make repay to rebalance using collateral asset", () => {
       it("add collateral, should return updated collateral balance", async () => {
         if (!await isPolygonForkInUse()) return;
+
         // increase target health factor from 200 to 300
         await init.d.controller.setTargetHealthFactor2(300);
         const amountToRepay = await init.d.collateralAmount.mul(2).div(3);
@@ -315,6 +322,7 @@ describe("AaveTwoCollateralBalanceTest", () => {
     describe("Make repay to rebalance using borrow asset", () => {
       it("add borrow, should not change internal collateral balance", async () => {
         if (!await isPolygonForkInUse()) return;
+
         // increase target health factor from 200 to 300
         await init.d.controller.setTargetHealthFactor2(300);
         const amountToRepay = await init.d.amountToBorrow.mul(2).div(3);
@@ -348,6 +356,7 @@ describe("AaveTwoCollateralBalanceTest", () => {
       });
       it("make full repay, should return zero collateral balance", async () => {
         if (!await isPolygonForkInUse()) return;
+
         // increase target health factor from 200 to 300
         await init.d.controller.setTargetHealthFactor2(300);
         const amountToRepay = await init.d.amountToBorrow.mul(2).div(3);
@@ -384,6 +393,7 @@ describe("AaveTwoCollateralBalanceTest", () => {
     describe("Make liquidation", () => {
       it("should return not-zero collateralAmountLiquidated", async () => {
         if (!await isPolygonForkInUse()) return;
+
         // reduce price of collateral to reduce health factor below 1
         await AaveTwoChangePricesUtils.changeAssetPrice(deployer, init.d.collateralToken.address, false, 10);
 
@@ -409,6 +419,7 @@ describe("AaveTwoCollateralBalanceTest", () => {
       });
       it.skip("try to make full repay, aave reverts", async () => {
         if (!await isPolygonForkInUse()) return;
+
         await AaveTwoTestUtils.makeLiquidation(deployer, init.d, borrowHolder);
         const stateAfterLiquidation = await getState(init.d);
 

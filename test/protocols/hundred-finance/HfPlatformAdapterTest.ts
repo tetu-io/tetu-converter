@@ -13,7 +13,6 @@ import {isPolygonForkInUse} from "../../baseUT/utils/NetworkUtils";
 import {BalanceUtils} from "../../baseUT/utils/BalanceUtils";
 import {HundredFinanceHelper} from "../../../scripts/integration/helpers/HundredFinanceHelper";
 import {MaticAddresses} from "../../../scripts/addresses/MaticAddresses";
-import {CoreContractsHelper} from "../../baseUT/helpers/CoreContractsHelper";
 import {BigNumber} from "ethers";
 import {areAlmostEqual} from "../../baseUT/utils/CommonUtils";
 import {IPlatformActor, PredictBrUsesCase} from "../../baseUT/uses-cases/PredictBrUsesCase";
@@ -24,7 +23,6 @@ import {AprUtils} from "../../baseUT/utils/aprUtils";
 import {convertUnits} from "../../baseUT/apr/aprUtils";
 import {Misc} from "../../../scripts/utils/Misc";
 import {DeployerUtils} from "../../../scripts/utils/DeployerUtils";
-import {HundredFinancePlatformFabric} from "../../baseUT/fabrics/HundredFinancePlatformFabric";
 import {TetuConverterApp} from "../../baseUT/helpers/TetuConverterApp";
 
 describe("Hundred finance integration tests, platform adapter", () => {
@@ -316,35 +314,42 @@ describe("Hundred finance integration tests, platform adapter", () => {
       }
       describe("incorrect input params", () => {
         describe("collateral token is zero", () => {
-          it("should revert", async () =>{
+          it("should revert", async () => {
+            if (!await isPolygonForkInUse()) return;
+
             await expect(
               tryGetConversionPlan({ zeroCollateralAsset: true })
             ).revertedWith("TC-1"); // ZERO_ADDRESS
           });
         });
         describe("borrow token is zero", () => {
-          it("should revert", async () =>{
+          it("should revert", async () => {
+            if (!await isPolygonForkInUse()) return;
+
             await expect(
               tryGetConversionPlan({ zeroBorrowAsset: true })
             ).revertedWith("TC-1"); // ZERO_ADDRESS
           });
         });
         describe("healthFactor2_ is less than min allowed", () => {
-          it("should revert", async () =>{
+          it("should revert", async () => {
+            if (!await isPolygonForkInUse()) return;
             await expect(
               tryGetConversionPlan({ incorrectHealthFactor2: 100 })
             ).revertedWith("TC-3: wrong health factor"); // WRONG_HEALTH_FACTOR
           });
         });
         describe("countBlocks_ is zero", () => {
-          it("should revert", async () =>{
+          it("should revert", async () => {
+            if (!await isPolygonForkInUse()) return;
             await expect(
               tryGetConversionPlan({ zeroCountBlocks: true })
             ).revertedWith("TC-29"); // INCORRECT_VALUE
           });
         });
         describe("collateralAmount_ is zero", () => {
-          it("should revert", async () =>{
+          it("should revert", async () => {
+            if (!await isPolygonForkInUse()) return;
             await expect(
               tryGetConversionPlan({ zeroCollateralAmount: true })
             ).revertedWith("TC-29"); // INCORRECT_VALUE
@@ -353,7 +358,7 @@ describe("Hundred finance integration tests, platform adapter", () => {
       });
       describe("inactive", () => {
         describe("collateral token is inactive", () => {
-          it("", async () =>{
+          it("", async () => {
             if (!await isPolygonForkInUse()) return;
             // TODO: expect.fail("TODO");
           });

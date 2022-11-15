@@ -131,9 +131,12 @@ describe("PoolAdapterMock", () => {
           console.log("Before borrow", before);
 
           // borrow
-          await MockERC20__factory.connect(sourceToken.address, await DeployerUtils.startImpersonate(user))
-            .transfer(pa.address, amountCollateral); // user transfers collateral to pool adapter
+          await MockERC20__factory.connect(
+            sourceToken.address,
+            await DeployerUtils.startImpersonate(user)
+          ).approve(pa.address, amountCollateral); // user transfers collateral to pool adapter
           console.log("Transfer collateral to PA", amountCollateral);
+
           await pa.borrow(amountCollateral, amountToBorrow, user);
           console.log("Borrow", amountToBorrow);
           console.log("Balance of borrow asset on user account", await targetToken.balanceOf(user));

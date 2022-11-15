@@ -1725,7 +1725,7 @@ describe("BorrowManager", () => {
         );
         await expect(
           borrowManagerAsNotTetuConverter.markPoolAdapterAsDirty(pa1.originConverter, pa1.user, pa1.collateralAsset, pa1.borrowAsset)
-        ).revertedWith("TC-8"); // TETU_CONVERTER_ONLY
+        ).revertedWith("TC-48"); // ACCESS_DENIED
       });
     });
   });

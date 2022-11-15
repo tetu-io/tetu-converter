@@ -2,12 +2,14 @@ import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import {ethers} from "hardhat";
 import {expect} from "chai";
 import {
+  IERC20__factory,
   MockERC20,
   TetuLiquidatorMock,
 } from "../../typechain";
 import {TimeUtils} from "../../scripts/utils/TimeUtils";
 import {BigNumber} from "ethers";
 import {DeployUtils} from "../../scripts/utils/DeployUtils";
+import {DeployerUtils} from "../../scripts/utils/DeployerUtils";
 const parseUnits = ethers.utils.parseUnits;
 
 describe("TetuLiquidatorMock", () => {
@@ -112,7 +114,11 @@ describe("TetuLiquidatorMock", () => {
       amount: BigNumber,
       priceImpactTolerance: BigNumber = BigNumber.from('1000') // 1%
     ) => {
-      await tokenIn.mint(mock.address, amount);
+      await tokenIn.mint(deployer.address, amount);
+      await IERC20__factory.connect(
+        tokenIn.address,
+        deployer
+      ).approve(mock.address, amount);
 
       const balanceOutBefore = await tokenOut.balanceOf(deployer.address);
       await mock.liquidate(tokenIn.address, tokenOut.address, amount, priceImpactTolerance);

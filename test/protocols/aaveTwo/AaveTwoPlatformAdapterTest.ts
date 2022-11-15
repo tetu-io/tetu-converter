@@ -311,21 +311,27 @@ describe("AaveTwoPlatformAdapterTest", () => {
       }
       describe("incorrect input params", () => {
         describe("collateral token is zero", () => {
-          it("should revert", async () =>{
+          it("should revert", async () => {
+            if (!await isPolygonForkInUse()) return;
+
             await expect(
               tryGetConversionPlan({ zeroCollateralAsset: true })
             ).revertedWith("TC-1"); // ZERO_ADDRESS
           });
         });
         describe("borrow token is zero", () => {
-          it("should revert", async () =>{
+          it("should revert", async () => {
+            if (!await isPolygonForkInUse()) return;
+
             await expect(
               tryGetConversionPlan({ zeroBorrowAsset: true })
             ).revertedWith("TC-1"); // ZERO_ADDRESS
           });
         });
         describe("healthFactor2_ is less than min allowed", () => {
-          it("should revert", async () =>{
+          it("should revert", async () => {
+            if (!await isPolygonForkInUse()) return;
+
             await expect(
               tryGetConversionPlan({ incorrectHealthFactor2: 100 })
             ).revertedWith("TC-3: wrong health factor"); // WRONG_HEALTH_FACTOR
@@ -333,13 +339,17 @@ describe("AaveTwoPlatformAdapterTest", () => {
         });
         describe("countBlocks_ is zero", () => {
           it("should revert", async () =>{
+            if (!await isPolygonForkInUse()) return;
+
             await expect(
               tryGetConversionPlan({ zeroCountBlocks: true })
             ).revertedWith("TC-29"); // INCORRECT_VALUE
           });
         });
         describe("collateralAmount_ is zero", () => {
-          it("should revert", async () =>{
+          it("should revert", async () => {
+            if (!await isPolygonForkInUse()) return;
+
             await expect(
               tryGetConversionPlan({ zeroCollateralAmount: true })
             ).revertedWith("TC-29"); // INCORRECT_VALUE

@@ -392,8 +392,6 @@ describe("Aave3PlatformAdapterTest", () => {
     });
     describe("Bad paths", () => {
       async function tryGetConversionPlan(badPathsParams: IGetConversionPlanBadPaths) {
-        if (!await isPolygonForkInUse()) return;
-
         const collateralAsset = MaticAddresses.DAI;
         const borrowAsset = MaticAddresses.WMATIC;
         const collateralAmount = getBigNumberFrom(1000, 18);
@@ -410,35 +408,45 @@ describe("Aave3PlatformAdapterTest", () => {
       }
       describe("incorrect input params", () => {
         describe("collateral token is zero", () => {
-          it("should revert", async () =>{
+          it("should revert", async () => {
+            if (!await isPolygonForkInUse()) return;
+
             await expect(
               tryGetConversionPlan({ zeroCollateralAsset: true })
             ).revertedWith("TC-1"); // ZERO_ADDRESS
           });
         });
         describe("borrow token is zero", () => {
-          it("should revert", async () =>{
+          it("should revert", async () => {
+            if (!await isPolygonForkInUse()) return;
+
             await expect(
               tryGetConversionPlan({ zeroBorrowAsset: true })
             ).revertedWith("TC-1"); // ZERO_ADDRESS
           });
         });
         describe("healthFactor2_ is less than min allowed", () => {
-          it("should revert", async () =>{
+          it("should revert", async () => {
+            if (!await isPolygonForkInUse()) return;
+
             await expect(
               tryGetConversionPlan({ incorrectHealthFactor2: 100 })
             ).revertedWith("TC-3: wrong health factor"); // WRONG_HEALTH_FACTOR
           });
         });
         describe("countBlocks_ is zero", () => {
-          it("should revert", async () =>{
+          it("should revert", async () => {
+            if (!await isPolygonForkInUse()) return;
+
             await expect(
               tryGetConversionPlan({ zeroCountBlocks: true })
             ).revertedWith("TC-29"); // INCORRECT_VALUE
           });
         });
         describe("collateralAmount_ is zero", () => {
-          it("should revert", async () =>{
+          it("should revert", async () => {
+            if (!await isPolygonForkInUse()) return;
+
             await expect(
               tryGetConversionPlan({ zeroCollateralAmount: true })
             ).revertedWith("TC-29"); // INCORRECT_VALUE
@@ -448,63 +456,74 @@ describe("Aave3PlatformAdapterTest", () => {
       describe("inactive", () => {
         describe("collateral token is inactive", () => {
           it("should revert", async () =>{
+            if (!await isPolygonForkInUse()) return;
             expect.fail("TODO");
           });
         });
         describe("borrow token is inactive", () => {
-          it("should revert", async () =>{
+          it("should revert", async () => {
+            if (!await isPolygonForkInUse()) return;
             expect.fail("TODO");
           });
         });
       });
       describe("paused", () => {
         describe("collateral token is paused", () => {
-          it("should revert", async () =>{
+          it("should revert", async () => {
+            if (!await isPolygonForkInUse()) return;
             expect.fail("TODO");
           });
         });
         describe("borrow token is paused", () => {
-          it("should revert", async () =>{
+          it("should revert", async () => {
+            if (!await isPolygonForkInUse()) return;
             expect.fail("TODO");
           });
         });
       });
       describe("Borrow token is frozen", () => {
         describe("collateral token is frozen", () => {
-          it("should revert", async () =>{
+          it("should revert", async () => {
+            if (!await isPolygonForkInUse()) return;
             expect.fail("TODO");
           });
         });
         describe("borrow token is frozen", () => {
-          it("should revert", async () =>{
+          it("should revert", async () => {
+            if (!await isPolygonForkInUse()) return;
             expect.fail("TODO");
           });
         });
       });
       describe("Not borrowable", () => {
-        it("should revert", async () =>{
+        it("should revert", async () => {
+          if (!await isPolygonForkInUse()) return;
           expect.fail("TODO");
         });
       });
       describe("Not usable as collateral", () => {
-        it("should revert", async () =>{
+        it("should revert", async () => {
+          if (!await isPolygonForkInUse()) return;
           expect.fail("TODO");
         });
       });
       describe("Isolation mode is enabled for collateral, borrow token is not borrowable", () => {
         describe("STASIS EURS-2 : SushiToken (PoS)", () => {
-          it("should revert", async () =>{
+          it("should revert", async () => {
+            if (!await isPolygonForkInUse()) return;
             expect.fail("TODO");
           });
         });
       });
       describe("Try to supply more than allowed by supply cap", () => {
-        it("should revert", async () =>{
+        it("should revert", async () => {
+          if (!await isPolygonForkInUse()) return;
           expect.fail("TODO");
         });
       });
       describe("Try to borrow more than allowed by borrow cap", () => {
-        it("should revert", async () =>{
+        it("should revert", async () => {
+          if (!await isPolygonForkInUse()) return;
           expect.fail("TODO");
         });
       });

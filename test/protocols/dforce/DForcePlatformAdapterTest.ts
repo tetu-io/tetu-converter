@@ -13,7 +13,6 @@ import {AdaptersHelper} from "../../baseUT/helpers/AdaptersHelper";
 import {isPolygonForkInUse} from "../../baseUT/utils/NetworkUtils";
 import {BalanceUtils} from "../../baseUT/utils/BalanceUtils";
 import {MaticAddresses} from "../../../scripts/addresses/MaticAddresses";
-import {CoreContractsHelper} from "../../baseUT/helpers/CoreContractsHelper";
 import {BigNumber} from "ethers";
 import {IPlatformActor, PredictBrUsesCase} from "../../baseUT/uses-cases/PredictBrUsesCase";
 import {DForceHelper} from "../../../scripts/integration/helpers/DForceHelper";
@@ -22,7 +21,6 @@ import {TokenDataTypes} from "../../baseUT/types/TokenDataTypes";
 import {getBigNumberFrom} from "../../../scripts/utils/NumberUtils";
 import {SupplyBorrowUsingDForce} from "../../baseUT/uses-cases/dforce/SupplyBorrowUsingDForce";
 import {DForcePlatformFabric} from "../../baseUT/fabrics/DForcePlatformFabric";
-import {MocksHelper} from "../../baseUT/helpers/MocksHelper";
 import {DeployerUtils} from "../../../scripts/utils/DeployerUtils";
 import {DeployUtils} from "../../../scripts/utils/DeployUtils";
 import {AprDForce, getDForceStateInfo} from "../../baseUT/apr/aprDForce";
@@ -377,7 +375,9 @@ describe("DForce integration tests, platform adapter", () => {
       }
       describe("incorrect input params", () => {
         describe("collateral token is zero", () => {
-          it("should revert", async () =>{
+          it("should revert", async () => {
+            if (!await isPolygonForkInUse()) return;
+
             await expect(
               tryGetConversionPlan({ zeroCollateralAsset: true })
             ).revertedWith("TC-1"); // ZERO_ADDRESS
@@ -385,6 +385,8 @@ describe("DForce integration tests, platform adapter", () => {
         });
         describe("borrow token is zero", () => {
           it("should revert", async () =>{
+            if (!await isPolygonForkInUse()) return;
+
             await expect(
               tryGetConversionPlan({ zeroBorrowAsset: true })
             ).revertedWith("TC-1"); // ZERO_ADDRESS
@@ -392,20 +394,26 @@ describe("DForce integration tests, platform adapter", () => {
         });
         describe("healthFactor2_ is less than min allowed", () => {
           it("should revert", async () =>{
+            if (!await isPolygonForkInUse()) return;
+
             await expect(
               tryGetConversionPlan({ incorrectHealthFactor2: 100 })
             ).revertedWith("TC-3: wrong health factor"); // WRONG_HEALTH_FACTOR
           });
         });
         describe("countBlocks_ is zero", () => {
-          it("should revert", async () =>{
+          it("should revert", async () => {
+            if (!await isPolygonForkInUse()) return;
+
             await expect(
               tryGetConversionPlan({ zeroCountBlocks: true })
             ).revertedWith("TC-29"); // INCORRECT_VALUE
           });
         });
         describe("collateralAmount_ is zero", () => {
-          it("should revert", async () =>{
+          it("should revert", async () => {
+            if (!await isPolygonForkInUse()) return;
+
             await expect(
               tryGetConversionPlan({ zeroCollateralAmount: true })
             ).revertedWith("TC-29"); // INCORRECT_VALUE
