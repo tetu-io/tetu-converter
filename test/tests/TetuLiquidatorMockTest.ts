@@ -9,7 +9,6 @@ import {
 import {TimeUtils} from "../../scripts/utils/TimeUtils";
 import {BigNumber} from "ethers";
 import {DeployUtils} from "../../scripts/utils/DeployUtils";
-import {DeployerUtils} from "../../scripts/utils/DeployerUtils";
 const parseUnits = ethers.utils.parseUnits;
 
 describe("TetuLiquidatorMock", () => {

@@ -6,7 +6,6 @@ import "../core/AppDataTypes.sol";
 import "../interfaces/ITetuLiquidator.sol";
 import "../openzeppelin/IERC20.sol";
 import "../tests/tokens/IMockERC20.sol";
-import "hardhat/console.sol";
 
 // @notice This mock should be used with mockERC20 for liquidate
 contract TetuLiquidatorMock is ITetuLiquidator {
@@ -73,18 +72,12 @@ contract TetuLiquidatorMock is ITetuLiquidator {
     uint amount,
     uint priceImpactTolerance
   ) external override {
-    console.log("liquidate.1");
     // real tetu liquidator requires approve() before calling liquidate()
     IERC20(tokenIn).transferFrom(msg.sender, address(this), amount);
-    console.log("liquidate.2");
     IMockERC20(tokenIn).burn(address(this), amount);
-    console.log("liquidate.3");
     uint amountOut = getPrice(tokenIn, tokenOut, amount);
-    console.log("liquidate.4");
     amountOut = amountOut * uint(int(SLIPPAGE_NOMINATOR) - slippage) / SLIPPAGE_NOMINATOR;
-    console.log("liquidate.5");
     require(priceImpactTolerance >= priceImpact, '!PRICE');
-    console.log("liquidate.6");
     IMockERC20(tokenOut).mint(msg.sender, amountOut);
   }
 

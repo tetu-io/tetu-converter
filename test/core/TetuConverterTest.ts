@@ -587,6 +587,50 @@ describe("TetuConverterTest", () => {
 //endregion Predict conversion results
 
 //region Unit tests
+  describe("constructor", () => {
+    interface IMakeConstructorTestParams {
+      useZeroController?: boolean;
+    }
+    async function makeConstructorTest(
+      params?: IMakeConstructorTestParams
+    ) : Promise<TetuConverter> {
+      const controller = await TetuConverterApp.createController(
+        deployer,
+        {
+          tetuConverterFabric: async c => (await CoreContractsHelper.createTetuConverter(
+            deployer,
+            params?.useZeroController
+              ? Misc.ZERO_ADDRESS
+              : c.address
+          )).address,
+          borrowManagerFabric: async () => ethers.Wallet.createRandom().address,
+          debtMonitorFabric: async () => ethers.Wallet.createRandom().address,
+          keeperFabric: async () => ethers.Wallet.createRandom().address,
+          swapManagerFabric: async () => ethers.Wallet.createRandom().address,
+          tetuLiquidatorAddress: ethers.Wallet.createRandom().address
+        }
+      );
+      return TetuConverter__factory.connect(await controller.tetuConverter(), deployer);
+    }
+    describe("Good paths", () => {
+      it("should return expected values", async () => {
+        // we can call any function of TetuConverter to ensure that it was created correctly
+        // let's check it using ADDITIONAL_BORROW_DELTA_DENOMINATOR()
+        const tetuConverter = await makeConstructorTest();
+        const ret = await tetuConverter.ADDITIONAL_BORROW_DELTA_DENOMINATOR();
+
+        expect(ret.eq(0)).eq(false);
+      });
+    });
+    describe("Bad paths", () => {
+      it("should revert if controller is zero", async () => {
+        await expect(
+          makeConstructorTest({useZeroController: true})
+        ).revertedWith("TC-1"); // ZERO_ADDRESS
+      });
+    });
+  });
+
   describe("findBestConversionStrategy", () => {
 //region Test impl
     interface IFindConversionStrategyBadParams {

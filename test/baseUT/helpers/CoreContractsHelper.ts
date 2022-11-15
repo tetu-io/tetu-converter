@@ -68,12 +68,12 @@ export class CoreContractsHelper {
 
   public static async createTetuConverter(
     signer: SignerWithAddress,
-    controller: Controller,
+    controller: string,
   ): Promise<TetuConverter> {
     return (await DeployUtils.deployContract(
       signer,
       "TetuConverter",
-      controller.address
+      controller
     )) as TetuConverter;
   }
 

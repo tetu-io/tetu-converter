@@ -158,6 +158,8 @@ describe("HundredFinanceCollateralBalanceTest", () => {
         expect(ret).eq(expected);
       });
       it("make full repay, should return zero collateral balance", async () => {
+        if (!await isPolygonForkInUse()) return;
+
         await putCollateralAmountOnUserBalance();
         await HundredFinanceTestUtils.makeBorrow(deployer, init.d, undefined);
         await putDoubleBorrowAmountOnUserBalance();
@@ -183,6 +185,8 @@ describe("HundredFinanceCollateralBalanceTest", () => {
     });
     describe("Make partial repay", () => {
       it("should return expected collateral balance", async () => {
+        if (!await isPolygonForkInUse()) return;
+
         await putDoubleBorrowAmountOnUserBalance();
         await HundredFinanceTestUtils.makeRepay(
           init.d,
@@ -205,6 +209,8 @@ describe("HundredFinanceCollateralBalanceTest", () => {
         expect(ret).eq(expected);
       });
       it("make full repay, should return zero collateral balance", async () => {
+        if (!await isPolygonForkInUse()) return;
+
         await putCollateralAmountOnUserBalance();
         await HundredFinanceTestUtils.makeBorrow(deployer, init.d, undefined);
 

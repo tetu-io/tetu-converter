@@ -95,12 +95,6 @@ contract DebtMonitor is IDebtMonitor {
 
 
   /// @notice Ensure that msg.sender is registered pool adapter
-  function _onlyPoolAdapter() internal view {
-    IBorrowManager bm = IBorrowManager(controller.borrowManager());
-    require(bm.isPoolAdapter(msg.sender), AppErrors.POOL_ADAPTER_ONLY);
-  }
-
-  /// @notice Ensure that msg.sender is registered pool adapter
   function _onlyGovernance() internal view {
     require(msg.sender == controller.governance(), AppErrors.GOVERNANCE_ONLY);
   }
@@ -116,7 +110,7 @@ contract DebtMonitor is IDebtMonitor {
 
   /// @dev This function is called from a pool adapter after any borrow
   function onOpenPosition() external override {
-    _onlyPoolAdapter();
+    require(IBorrowManager(controller.borrowManager()).isPoolAdapter(msg.sender), AppErrors.POOL_ADAPTER_ONLY);
 
     if (positionLastAccess[msg.sender] == 0) {
       positionLastAccess[msg.sender] = block.number;
@@ -197,15 +191,12 @@ contract DebtMonitor is IDebtMonitor {
     uint[] memory outAmountBorrowAsset,
     uint[] memory outAmountCollateralAsset
   ) {
-    // todo controller already with interface
-    uint16 minHealthFactor2 = IController(controller).minHealthFactor2();
-
     return _checkHealthFactor(
       CheckHealthFactorInputParams({
         startIndex0: startIndex0,
         maxCountToCheck: maxCountToCheck,
         maxCountToReturn: maxCountToReturn,
-        healthFactorThreshold18: uint(minHealthFactor2) * 10**(18-2)
+        healthFactorThreshold18: uint(controller.minHealthFactor2()) * 10**(18-2)
       })
     );
   }

@@ -198,6 +198,7 @@ contract BorrowManager is IBorrowManager {
     uint lenAssets = rightAssets_.length;
     require(leftAssets_.length == lenAssets, AppErrors.WRONG_LENGTHS);
     require(_platformAdapters.contains(platformAdapter_), AppErrors.PLATFORM_ADAPTER_NOT_FOUND);
+    IDebtMonitor debtMonitor = IDebtMonitor(controller.debtMonitor());
 
     // unregister the asset pairs
     for (uint i = 0; i < lenAssets; i = i.uncheckedInc()) {
@@ -213,7 +214,7 @@ contract BorrowManager is IBorrowManager {
       uint lenConverters = paConverters.length;
       for (uint i = 0; i < lenConverters; i = i.uncheckedInc()) {
         // If there is active pool adapter for the platform adapter, we cannot unregister the platform adapter
-        require(!_debtMonitor().isConverterInUse(paConverters[i]), AppErrors.PLATFORM_ADAPTER_IS_IN_USE);
+        require(!debtMonitor.isConverterInUse(paConverters[i]), AppErrors.PLATFORM_ADAPTER_IS_IN_USE);
         converterToPlatformAdapter[paConverters[i]] = address(0);
       }
 
@@ -443,13 +444,5 @@ contract BorrowManager is IBorrowManager {
 
   function platformAdapterPairsAt(address platformAdapter_, uint index) public view returns (AssetPair memory) {
     return _assetPairs[_platformAdapterPairs[platformAdapter_].at(index)];
-  }
-
-
-  ///////////////////////////////////////////////////////
-  ///       Inline functions
-  ///////////////////////////////////////////////////////
-  function _debtMonitor() internal view returns (IDebtMonitor) {
-    return IDebtMonitor(controller.debtMonitor());
   }
 }

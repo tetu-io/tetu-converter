@@ -45,13 +45,6 @@ contract TetuConverter is ITetuConverter, IKeeperCallback {
   }
 
   ///////////////////////////////////////////////////////
-  ///                Access control
-  ///////////////////////////////////////////////////////
-  function onlyKeeper() internal view {
-    require(controller.keeper() == msg.sender, AppErrors.KEEPER_ONLY);
-  }
-
-  ///////////////////////////////////////////////////////
   ///       Find best strategy for conversion
   ///////////////////////////////////////////////////////
 
@@ -69,26 +62,7 @@ contract TetuConverter is ITetuConverter, IKeeperCallback {
   ) {
     require(sourceAmount_ > 0, AppErrors.ZERO_AMOUNT);
     require(periodInBlocks_ > 0, AppErrors.INCORRECT_VALUE);
-    return _findConversionStrategy(sourceToken_,
-      sourceAmount_,
-      targetToken_,
-      periodInBlocks_,
-      conversionMode
-    );
-  }
 
-  /// @param periodInBlocks_ how long you want hold targetToken. When 0 - always borrows, when uint.max - always swaps
-  function _findConversionStrategy(
-    address sourceToken_,
-    uint sourceAmount_,
-    address targetToken_,
-    uint periodInBlocks_,
-    ConversionMode conversionMode
-  ) internal view returns (
-    address converter,
-    uint maxTargetAmount,
-    int apr18
-  ) {
     AppDataTypes.InputConversionParams memory params = AppDataTypes.InputConversionParams({
       sourceToken: sourceToken_,
       targetToken: targetToken_,
@@ -96,16 +70,17 @@ contract TetuConverter is ITetuConverter, IKeeperCallback {
       periodInBlocks: periodInBlocks_
     });
 
-    // todo need a comment why we not use SWAP mode
+    // There are only two modes - BORROW and AUTO (SWAP or BORROW)
+    // To make pure SWAP it's necessary to use TetuLiquidator directly
     if (conversionMode == ITetuConverter.ConversionMode.BORROW_1) {
       // find best lending platform
-      return _borrowManager().findConverter(params);
+      return IBorrowManager(controller.borrowManager()).findConverter(params);
     } else {
       (
         address borrowConverter,
         uint borrowMaxTargetAmount,
         int borrowingApr18
-      ) = _borrowManager().findConverter(params);
+      ) = IBorrowManager(controller.borrowManager()).findConverter(params);
 
       (
         address swapConverter,
@@ -165,12 +140,13 @@ contract TetuConverter is ITetuConverter, IKeeperCallback {
     require(IERC20(collateralAsset_).balanceOf(address(this)) >= collateralAmount_, AppErrors.WRONG_AMOUNT_RECEIVED);
     require(receiver_ != address(0) && converter_ != address(0), AppErrors.ZERO_ADDRESS);
     require(collateralAmount_ != 0 && amountToBorrow_ != 0, AppErrors.ZERO_AMOUNT);
+    IBorrowManager borrowManager = IBorrowManager(controller.borrowManager());
 
     AppDataTypes.ConversionKind conversionKind = IConverter(converter_).getConversionKind();
     if (conversionKind == AppDataTypes.ConversionKind.BORROW_2) {
       // make borrow
       // get exist or register new pool adapter
-      address poolAdapter = _borrowManager().getPoolAdapter(converter_, msg.sender, collateralAsset_, borrowAsset_);
+      address poolAdapter = borrowManager.getPoolAdapter(converter_, msg.sender, collateralAsset_, borrowAsset_);
 
       if (poolAdapter != address(0)) {
         // the pool adapter can have three possible states:
@@ -181,7 +157,7 @@ contract TetuConverter is ITetuConverter, IKeeperCallback {
         (,, uint healthFactor18,,) = IPoolAdapter(poolAdapter).getStatus();
         if (healthFactor18 < 1e18) {
           // the pool adapter is unhealthy, we should mark it as dirty and create new pool adapter for the borrow
-          _borrowManager().markPoolAdapterAsDirty(converter_, msg.sender, collateralAsset_, borrowAsset_);
+          borrowManager.markPoolAdapterAsDirty(converter_, msg.sender, collateralAsset_, borrowAsset_);
           poolAdapter = address(0);
         } else if (healthFactor18 <= (uint(controller.minHealthFactor2()) * 10**(18-2))) {
           // this is not normal situation
@@ -192,7 +168,7 @@ contract TetuConverter is ITetuConverter, IKeeperCallback {
 
       // create new pool adapter if we don't have ready-to-borrow one
       if (poolAdapter == address(0)) {
-        poolAdapter = _borrowManager().registerPoolAdapter(
+        poolAdapter = borrowManager.registerPoolAdapter(
           converter_,
           msg.sender,
           collateralAsset_,
@@ -327,7 +303,7 @@ contract TetuConverter is ITetuConverter, IKeeperCallback {
     uint requiredAmountCollateralAsset_,
     address poolAdapter_
   ) external override {
-    onlyKeeper();
+    require(controller.keeper() == msg.sender, AppErrors.KEEPER_ONLY);
     require(requiredAmountBorrowAsset_ > 0, AppErrors.INCORRECT_VALUE);
 
     IPoolAdapter pa = IPoolAdapter(poolAdapter_);
@@ -384,18 +360,20 @@ contract TetuConverter is ITetuConverter, IKeeperCallback {
       );
 
       // ensure that the health factor was restored to ~target health factor value
-      _ensureApproxSameToTargetHealthFactor(borrowAsset, resultHealthFactor18);
+      ensureApproxSameToTargetHealthFactor(borrowAsset, resultHealthFactor18);
     }
   }
 
-  function _ensureApproxSameToTargetHealthFactor(
+  function ensureApproxSameToTargetHealthFactor(
     address borrowAsset_,
     uint resultHealthFactor18_
-  ) internal view {
+  ) public view {
     // after rebalancing we should have health factor ALMOST equal to the target health factor
     // but the equality is not exact
     // let's allow small difference < 1/10 * (target health factor - min health factor)
-    uint targetHealthFactor18 = uint(_borrowManager().getTargetHealthFactor2(borrowAsset_)) * 10**(18-2);
+    uint targetHealthFactor18 = uint(
+      IBorrowManager(controller.borrowManager()).getTargetHealthFactor2(borrowAsset_)
+    ) * 10**(18-2);
     uint minHealthFactor18 = uint(controller.minHealthFactor2()) * 10**(18-2);
     // todo can throw overflow
     uint delta = (targetHealthFactor18 - minHealthFactor18) / ADDITIONAL_BORROW_DELTA_DENOMINATOR;
@@ -548,10 +526,6 @@ contract TetuConverter is ITetuConverter, IKeeperCallback {
   ///////////////////////////////////////////////////////
   ///       Inline functions //todo check where better to use local vars
   ///////////////////////////////////////////////////////
-  function _borrowManager() internal view returns (IBorrowManager) {
-    return IBorrowManager(controller.borrowManager());
-  }
-
   function _debtMonitor() internal view returns (IDebtMonitor) {
     return IDebtMonitor(controller.debtMonitor());
   }

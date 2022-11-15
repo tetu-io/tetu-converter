@@ -303,7 +303,7 @@ export class DeploySolutionUtils {
       borrowManagerSetupParams.rewardsFactor
     );
     const debtMonitor = await CoreContractsHelper.createDebtMonitor(deployer, controller.address);
-    const tetuConverter = await CoreContractsHelper.createTetuConverter(deployer, controller);
+    const tetuConverter = await CoreContractsHelper.createTetuConverter(deployer, controller.address);
     const swapManager = await CoreContractsHelper.createSwapManager(deployer, controller);
     const keeper = await CoreContractsHelper.createKeeper(deployer, controller, gelatoOpsReady);
 
