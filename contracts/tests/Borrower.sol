@@ -11,6 +11,7 @@ import "../interfaces/IKeeperCallback.sol";
 import "../interfaces/IBorrowManager.sol";
 import "hardhat/console.sol";
 import "../interfaces/ITetuConverterCallback.sol";
+import "../interfaces/IDebtsMonitor.sol";
 
 /// @notice This contract emulates real TetuConverter-user behavior
 /// Terms:
@@ -237,7 +238,7 @@ contract Borrower is ITetuConverterCallback {
   ) external {
     console.log("makeRepayComplete_firstPositionOnly started gasleft", gasleft());
 
-    address[] memory poolAdapters = _tc().findBorrows(collateralAsset_, borrowedAsset_);
+    address[] memory poolAdapters = _debtMonitor().getPositions(address(this), collateralAsset_, borrowedAsset_);
     uint lenPoolAdapters = poolAdapters.length;
 
     if (lenPoolAdapters > 0) {
@@ -439,7 +440,7 @@ contract Borrower is ITetuConverterCallback {
     address[] memory poolAdapters
   ) {
     console.log("getBorrows start gasleft", gasleft());
-    poolAdapters = _tc().findBorrows(collateralAsset_, borrowedAsset_);
+    poolAdapters = _debtMonitor().getPositions(address(this), collateralAsset_, borrowedAsset_);
     console.log("getBorrows end gasleft", gasleft());
   }
 
@@ -448,5 +449,8 @@ contract Borrower is ITetuConverterCallback {
   ///////////////////////////////////////////////////////
   function _tc() internal view returns (ITetuConverter) {
     return ITetuConverter(_controller.tetuConverter());
+  }
+  function _debtMonitor() internal view returns (IDebtMonitor) {
+    return IDebtMonitor(_controller.debtMonitor());
   }
 }

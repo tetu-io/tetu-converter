@@ -1742,7 +1742,7 @@ describe("TetuConverterTest", () => {
         ? BigNumber.from(0)
         : await init.targetToken.balanceOf(receiver);
 
-      const borrowsAfterRepay = await tcAsUc.findBorrows(init.sourceToken.address, init.targetToken.address);
+      const borrowsAfterRepay = await core.dm.getPositions(init.userContract.address, init.sourceToken.address, init.targetToken.address);
       const {totalDebtAmountOut, totalCollateralAmountOut} = await tcAsUc.getDebtAmountStored(
         init.sourceToken.address,
         init.targetToken.address
@@ -2260,7 +2260,7 @@ describe("TetuConverterTest", () => {
       const poolAdapterStatusAfter: IPoolAdapterStatus = await paAsUc.getStatus();
       console.log("poolAdapterStatusAfter", poolAdapterStatusAfter);
 
-      const openedPositions = await tcAsUc.findBorrows(init.sourceToken.address, init.targetToken.address);
+      const openedPositions = await core.dm.getPositions(init.userContract.address, init.sourceToken.address, init.targetToken.address);
       const {
         totalDebtAmountOut,
         totalCollateralAmountOut
@@ -2958,24 +2958,6 @@ describe("TetuConverterTest", () => {
     });
   });
 
-//   describe("TODO:findBorrows", () => {
-//   describe("Good paths", () => {
-//     describe("TODO", () => {
-//       it("should update balance in proper way", async () => {
-//         expect.fail();
-//       });
-//     });
-//   });
-//
-//   describe("Bad paths", () => {
-//     describe("TODO", () => {
-//       it("TODO", async () => {
-//         expect.fail();
-//       });
-//     });
-//   });
-// });
-//
 //   describe("TODO:requireReconversion", () => {
 //     describe("Good paths", () => {
 //       it("should return expected values", async () => {

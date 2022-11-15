@@ -124,17 +124,4 @@ interface ITetuConverter {
   );
 
   //TODO: salvage
-
-  //////////////////////////////////////////////////////////////////////////////
-  /// Additional functions, remove somewhere?
-  //////////////////////////////////////////////////////////////////////////////
-
-  /// @notice Get active borrow positions for the given collateral/borrowToken
-  /// @return poolAdapters An instance of IPoolAdapter (with repay function)
-  function findBorrows (
-    address collateralToken_,
-    address borrowedToken_
-  ) external view returns (
-    address[] memory poolAdapters
-  );
 }

@@ -512,18 +512,6 @@ contract TetuConverter is ITetuConverter, IKeeperCallback {
   }
 
   ///////////////////////////////////////////////////////
-  ///  Additional functions, not required by strategies
-  ///////////////////////////////////////////////////////
-  function findBorrows (
-    address collateralToken_,
-    address borrowedToken_
-  ) external view override returns (
-    address[] memory poolAdapters
-  ) {
-    return _debtMonitor().getPositions(msg.sender, collateralToken_, borrowedToken_);
-  }
-
-  ///////////////////////////////////////////////////////
   ///       Inline functions //todo check where better to use local vars
   ///////////////////////////////////////////////////////
   function _debtMonitor() internal view returns (IDebtMonitor) {
