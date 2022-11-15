@@ -536,9 +536,9 @@ describe("BorrowManager", () => {
         ).revertedWith("TC-1"); // ZERO_ADDRESS
       });
       it("should revert if reward factor is too large", async () => {
-        const rewardFactor = parseUnits("1"); // BorrowManager.REWARDS_FACTOR_DENOMINATOR_18
+        const tooLargeRewardFactor = parseUnits("1"); // BorrowManager.REWARDS_FACTOR_DENOMINATOR_18
         await expect(
-          makeConstructorTest({rewardFactor})
+          makeConstructorTest({rewardFactor: tooLargeRewardFactor})
         ).revertedWith("TC-29"); // INCORRECT_VALUE
       });
     });
@@ -700,6 +700,14 @@ describe("BorrowManager", () => {
           await expect(
             bmAsNotGov.setRewardsFactor(rewardsFactor)
           ).revertedWith("TC-9"); // GOVERNANCE_ONLY
+        });
+        it("should revert if reward factor is too large", async () => {
+          const tooLargeRewardFactor = parseUnits("1"); // BorrowManager.REWARDS_FACTOR_DENOMINATOR_18
+          const controller = await createController();
+          const borrowManager = BorrowManager__factory.connect(await controller.borrowManager(), signer);
+          await expect(
+            borrowManager.setRewardsFactor(tooLargeRewardFactor)
+          ).revertedWith("TC-29"); // INCORRECT_VALUE
         });
       });
     });

@@ -135,7 +135,7 @@ contract BorrowManager is IBorrowManager {
   // todo docs
   function setRewardsFactor(uint rewardsFactor_) external override {
     _onlyGovernance();
-    // todo require(rewardsFactor_ < REWARDS_FACTOR_DENOMINATOR_18);
+    require(rewardsFactor_ < REWARDS_FACTOR_DENOMINATOR_18, AppErrors.INCORRECT_VALUE);
     rewardsFactor = rewardsFactor_;
     // todo event
   }
