@@ -174,12 +174,14 @@ contract TetuConverter is ITetuConverter, IKeeperCallback {
           collateralAsset_,
           borrowAsset_
         );
+
+        // TetuConverter doesn't keep assets on its balance, so it's safe to use infinite approve
+        // All approves replaced by infinite one were commented in the code below
+        IERC20(collateralAsset_).safeApprove(poolAdapter, type(uint).max);
+        IERC20(borrowAsset_).safeApprove(poolAdapter, type(uint).max);
       }
 
-      // todo you do not need refresh approve if you use the all
-      // todo and you can use infinity approve - this contract not suppose to hold any assets, make approve only if needed
-      IERC20(collateralAsset_).safeApprove(poolAdapter, 0);
-      IERC20(collateralAsset_).safeApprove(poolAdapter, collateralAmount_);
+      // replaced by infinite approve: IERC20(collateralAsset_).safeApprove(poolAdapter, collateralAmount_);
 
       // borrow target-amount and transfer borrowed amount to the receiver
       return IPoolAdapter(poolAdapter).borrow(collateralAmount_, amountToBorrow_, receiver_);
@@ -245,11 +247,7 @@ contract TetuConverter is ITetuConverter, IKeeperCallback {
         ? totalDebtForPoolAdapter
         : amountToPay;
 
-      // todo you do not need refresh approve if you use the all
-      // todo and you can use infinity approve - this contract not suppose to hold any assets, make approve only if needed
-      // send amount to pool adapter
-      IERC20(borrowAsset_).safeApprove(address(pa), 0);
-      IERC20(borrowAsset_).safeApprove(address(pa), amountToPayToPoolAdapter);
+      // replaced by infinite approve: IERC20(borrowAsset_).safeApprove(address(pa), amountToPayToPoolAdapter);
 
       // make repayment
       collateralAmountOut += pa.repay(
@@ -337,10 +335,7 @@ contract TetuConverter is ITetuConverter, IKeeperCallback {
           IERC20(collateralAsset).balanceOf(address(this)) - balanceCollateralAsset == requiredAmountCollateralAsset_,
           AppErrors.WRONG_AMOUNT_RECEIVED
         );
-        // todo you do not need refresh approve if you use the all
-        // todo and you can use infinity approve - this contract not suppose to hold any assets, make approve only if needed
-        IERC20(collateralAsset).safeApprove(poolAdapter_, 0);
-        IERC20(collateralAsset).safeApprove(poolAdapter_, requiredAmountCollateralAsset_);
+        // replaced by infinite approve: IERC20(collateralAsset).safeApprove(poolAdapter_, requiredAmountCollateralAsset_);
       } else {
         // todo IERC20(borrowAsset).balanceOf(address(this)) - balanceBorrowedAsset can throw overflow
         // the borrower has sent us the amount of borrow asset
@@ -348,10 +343,7 @@ contract TetuConverter is ITetuConverter, IKeeperCallback {
           IERC20(borrowAsset).balanceOf(address(this)) - balanceBorrowedAsset == requiredAmountBorrowAsset_,
           AppErrors.WRONG_AMOUNT_RECEIVED
         );
-        // todo you do not need refresh approve if you use the all
-        // todo and you can use infinity approve - this contract not suppose to hold any assets, make approve only if needed
-        IERC20(borrowAsset).safeApprove(poolAdapter_, 0);
-        IERC20(borrowAsset).safeApprove(poolAdapter_, requiredAmountBorrowAsset_);
+        // replaced by infinite approve: IERC20(borrowAsset).safeApprove(poolAdapter_, requiredAmountBorrowAsset_);
       }
 
       uint resultHealthFactor18 = pa.repayToRebalance(

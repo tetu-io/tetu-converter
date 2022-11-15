@@ -10,7 +10,7 @@ import "../openzeppelin/Initializable.sol";
 contract Controller is IController, Initializable {
   uint16 constant MIN_ALLOWED_MIN_HEALTH_FACTOR = 100;
 
-  //todo docs
+  // todo docs
   // We cannot use immutable variables, because each contract should get address of the controller in the constructor
   address public override tetuConverter;
   address public override borrowManager;
