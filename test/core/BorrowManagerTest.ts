@@ -1600,7 +1600,9 @@ describe("BorrowManager", () => {
   describe("markPoolAdapterAsDirty", () => {
     describe("Good paths", () => {
       describe("Create two pool adapters, mark first one as dirty", () => {
-        it("should exclude first pool adapter from list of ready-to-borrow adapters", async () => {
+        async function makeMarkPoolAdapterAsDirtyTest(
+          signerIsTetuConverter: boolean
+        ) : Promise<{ret: string, expected: string}> {
           const r = await getUniquePoolAdaptersForTwoPoolsAndTwoPairs(1);
           const pa1 = r.out[0].initConfig;
           const pa2 = r.out[1].initConfig;
@@ -1608,11 +1610,15 @@ describe("BorrowManager", () => {
           const before1 = await r.app.borrowManager.getPoolAdapter(pa1.originConverter, pa1.user, pa1.collateralAsset, pa1.borrowAsset);
           const before2 = await r.app.borrowManager.getPoolAdapter(pa2.originConverter, pa2.user, pa2.collateralAsset, pa2.borrowAsset);
 
-          const borrowManagerAsTetuConverter = IBorrowManager__factory.connect(
+          const borrowManagerAsSigner = IBorrowManager__factory.connect(
             r.app.borrowManager.address,
-            await DeployerUtils.startImpersonate(await r.app.controller.tetuConverter())
+            await DeployerUtils.startImpersonate(
+              signerIsTetuConverter
+                ? await r.app.controller.tetuConverter()
+                : await r.app.controller.debtMonitor()
+            )
           );
-          await borrowManagerAsTetuConverter.markPoolAdapterAsDirty(pa1.originConverter, pa1.user, pa1.collateralAsset, pa1.borrowAsset);
+          await borrowManagerAsSigner.markPoolAdapterAsDirty(pa1.originConverter, pa1.user, pa1.collateralAsset, pa1.borrowAsset);
 
           const after1 = await r.app.borrowManager.getPoolAdapter(pa1.originConverter, pa1.user, pa1.collateralAsset, pa1.borrowAsset);
           const after2 = await r.app.borrowManager.getPoolAdapter(pa2.originConverter, pa2.user, pa2.collateralAsset, pa2.borrowAsset);
@@ -1625,8 +1631,18 @@ describe("BorrowManager", () => {
           ].join();
           const expected = [true, true, true, true].join();
 
-          expect(ret).eq(expected);
-        });
+          return {ret, expected};
+        }
+        describe("should exclude first pool adapter from list of ready-to-borrow adapters", () => {
+          it("sign as TetuConverter", async () => {
+            const r = await makeMarkPoolAdapterAsDirtyTest(true);
+            expect(r.ret).eq(r.expected);
+          });
+          it("sign as DebtMonitors", async () => {
+            const r = await makeMarkPoolAdapterAsDirtyTest(false);
+            expect(r.ret).eq(r.expected);
+          });
+        })
         it("should not change isPoolAdapter behavior", async () => {
           const r = await getUniquePoolAdaptersForTwoPoolsAndTwoPairs(1);
           const pa1 = r.out[0].initConfig;
@@ -1700,7 +1716,7 @@ describe("BorrowManager", () => {
           borrowManagerAsTetuConverter.markPoolAdapterAsDirty(pa1.originConverter, pa1.user, pa1.collateralAsset, pa1.borrowAsset)
         ).revertedWith("TC-2"); // POOL_ADAPTER_NOT_FOUND
       });
-      it("should revert if the sender is not TetuConverter", async () => {
+      it("should revert if the sender is not TetuConverter and not DebtMonitor", async () => {
         const r = await getUniquePoolAdaptersForTwoPoolsAndTwoPairs(1);
         const pa1 = r.out[0].initConfig;
         const borrowManagerAsNotTetuConverter = IBorrowManager__factory.connect(

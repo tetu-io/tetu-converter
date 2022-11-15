@@ -12,6 +12,7 @@ import "../interfaces/ITetuConverter.sol";
 import "./AppErrors.sol";
 import "../core/AppUtils.sol";
 import "../openzeppelin/EnumerableSet.sol";
+import "hardhat/console.sol";
 
 /// @notice Manage list of open borrow positions
 contract DebtMonitor is IDebtMonitor {
@@ -93,6 +94,7 @@ contract DebtMonitor is IDebtMonitor {
   ///               Access rights
   ///////////////////////////////////////////////////////
 
+
   /// @notice Ensure that msg.sender is registered pool adapter
   function _onlyPoolAdapter() internal view {
     IBorrowManager bm = IBorrowManager(controller.borrowManager());
@@ -105,8 +107,13 @@ contract DebtMonitor is IDebtMonitor {
   }
 
   ///////////////////////////////////////////////////////
-  ///       On-borrow and on-repay logic
+  ///       Operations with positions
   ///////////////////////////////////////////////////////
+
+  /// @notice Check if the pool-adapter-caller has an opened position
+  function isPositionOpened() external override view returns (bool) {
+    return positionLastAccess[msg.sender] != 0;
+  }
 
   /// @dev This function is called from a pool adapter after any borrow
   function onOpenPosition() external override {
@@ -125,6 +132,7 @@ contract DebtMonitor is IDebtMonitor {
       _poolAdaptersForUser[user].add(msg.sender);
 
       _poolAdaptersForConverters[origin].add(msg.sender);
+      //TODO: event
     }
   }
 
@@ -140,25 +148,42 @@ contract DebtMonitor is IDebtMonitor {
     (uint collateralAmount, uint amountToPay,,,) = IPoolAdapter(msg.sender).getStatus();
     require(collateralAmount == 0 && amountToPay == 0, AppErrors.ATTEMPT_TO_CLOSE_NOT_EMPTY_BORROW_POSITION);
 
-    positionLastAccess[msg.sender] = 0;
-    AppUtils.removeItemFromArray(positions, msg.sender);
-
-    (address origin,
-     address user,
-     address collateralAsset,
-     address borrowAsset
-    ) = IPoolAdapter(msg.sender).getConfig();
-
-    AppUtils.removeItemFromArray(poolAdapters[getPoolAdapterKey(user, collateralAsset, borrowAsset)], msg.sender);
-    _poolAdaptersForUser[user].remove(msg.sender);
-    _poolAdaptersForConverters[origin].remove(msg.sender);
+    _closePosition(msg.sender, false);
+    //TODO: event
   }
 
-  /// @notice Check if the pool-adapter-caller has an opened position
-  function isPositionOpened() external override view returns (bool) {
-    return positionLastAccess[msg.sender] != 0;
+  /// @notice Remove the pool adapter from all lists of the opened positions
+  /// @param poolAdapter_ Pool adapter to be closed
+  /// @param markAsDirty_ Mark the pool adapter as "dirty" in borrow manager
+  ///                     to exclude the pool adapter from any new borrows
+  function _closePosition(address poolAdapter_, bool markAsDirty_) internal {
+    positionLastAccess[poolAdapter_] = 0;
+    AppUtils.removeItemFromArray(positions, poolAdapter_);
+    (address origin, address user, address collateralAsset, address borrowAsset) = IPoolAdapter(poolAdapter_).getConfig();
+
+    AppUtils.removeItemFromArray(poolAdapters[getPoolAdapterKey(user, collateralAsset, borrowAsset)], poolAdapter_);
+    _poolAdaptersForUser[user].remove(poolAdapter_);
+    _poolAdaptersForConverters[origin].remove(poolAdapter_);
+
+    if (markAsDirty_) {
+      // We have dropped away the pool adapter. It cannot be used any more for new borrows
+      // Mark the pool adapter as dirty in borrow manager to exclude the pool adapter from any new borrows
+      IBorrowManager borrowManager = IBorrowManager(controller.borrowManager());
+      if (poolAdapter_ == borrowManager.getPoolAdapter(origin, user, collateralAsset, borrowAsset)) {
+        borrowManager.markPoolAdapterAsDirty(origin, user, collateralAsset, borrowAsset);
+      }
+    }
   }
 
+  function closeLiquidatedPosition(address poolAdapter_) external override {
+    require(msg.sender == controller.tetuConverter(), AppErrors.TETU_CONVERTER_ONLY);
+
+    (uint collateralAmount, uint amountToPay,,,) = IPoolAdapter(poolAdapter_).getStatus();
+    require(collateralAmount == 0, AppErrors.CANNOT_CLOSE_LIVE_POSITION);
+    _closePosition(poolAdapter_, true);
+
+    //TODO: event
+  }
   ///////////////////////////////////////////////////////
   ///           Detect unhealthy positions
   ///////////////////////////////////////////////////////
@@ -205,45 +230,44 @@ contract DebtMonitor is IDebtMonitor {
       p.maxCountToCheck = positions.length - p.startIndex0;
     }
 
+    IBorrowManager borrowManager = IBorrowManager(controller.borrowManager());
+
     // enumerate all pool adapters
     for (uint i = 0; i < p.maxCountToCheck; i = i.uncheckedInc()) {
       nextIndexToCheck0 += 1;
 
-      // check if we need to make reconversion or completely close dirty position ("dirty" - liquidation happened)
+      // check if we need to make reconversion because the health factor is too low/high
       IPoolAdapter pa = IPoolAdapter(positions[p.startIndex0 + i]);
-      (uint collateralAmount, uint amountToPay, uint healthFactor18,, uint collateralAmountLiquidated) = pa.getStatus();
-      if (collateralAmountLiquidated == 0) {
-        // check if we need to make reconversion because the health factor is too low/high
+
+      (uint collateralAmount, uint amountToPay, uint healthFactor18,,) = pa.getStatus();
+      // If full liquidation happens we will have collateralAmount = 0 and amountToPay > 0
+      // In this case the open position should be just closed (we lost all collateral)
+      // We cannot do it here because it's read-only function.
+      // We should call a IKeeperCallback in the same way as for rebalancing, but with requiredAmountCollateralAsset=0
+
       (,,, address borrowAsset) = pa.getConfig();
-        // todo move borrow manager to var outside loop, function not necessary (only 1 usage)
-        uint healthFactorTarget18 = uint(_borrowManager().getTargetHealthFactor2(borrowAsset)) * 10**(18-2);
+      uint healthFactorTarget18 = uint(borrowManager.getTargetHealthFactor2(borrowAsset)) * 10**(18-2);
+      if (
+        (p.healthFactorThreshold18 < healthFactorTarget18 && healthFactor18 < p.healthFactorThreshold18) // unhealthy
+        || (!(p.healthFactorThreshold18 < healthFactorTarget18) && healthFactor18 > p.healthFactorThreshold18) // too healthy
+      ) {
+        outPoolAdapters[countFoundItems] = positions[p.startIndex0 + i];
+        // Health Factor = Collateral Factor * CollateralAmount * Price_collateral
+        //                 -------------------------------------------------
+        //                               BorrowAmount * Price_borrow
+        // => requiredAmountBorrowAsset = BorrowAmount * (HealthFactorCurrent/HealthFactorTarget - 1)
+        // => requiredAmountCollateralAsset = CollateralAmount * (HealthFactorTarget/HealthFactorCurrent - 1)
+        outAmountBorrowAsset[countFoundItems] = p.healthFactorThreshold18 < healthFactorTarget18
+            ? (amountToPay - amountToPay * healthFactor18 / healthFactorTarget18) // unhealthy
+            : (amountToPay * healthFactor18 / healthFactorTarget18 - amountToPay); // too healthy
+        outAmountCollateralAsset[countFoundItems] = p.healthFactorThreshold18 < healthFactorTarget18
+            ? (collateralAmount * healthFactorTarget18 / healthFactor18 - collateralAmount) // unhealthy
+            : (collateralAmount - collateralAmount * healthFactorTarget18 / healthFactor18); // too healthy
+        countFoundItems += 1;
 
-        if (
-          (p.healthFactorThreshold18 < healthFactorTarget18 && healthFactor18 < p.healthFactorThreshold18) // unhealthy
-          || (!(p.healthFactorThreshold18 < healthFactorTarget18) && healthFactor18 > p.healthFactorThreshold18) // too healthy
-        ) {
-          outPoolAdapters[countFoundItems] = positions[p.startIndex0 + i];
-          // Health Factor = Collateral Factor * CollateralAmount * Price_collateral
-          //                 -------------------------------------------------
-          //                               BorrowAmount * Price_borrow
-          // => requiredAmountBorrowAsset = BorrowAmount * (HealthFactorCurrent/HealthFactorTarget - 1)
-          // => requiredAmountCollateralAsset = CollateralAmount * (HealthFactorTarget/HealthFactorCurrent - 1)
-          outAmountBorrowAsset[countFoundItems] = p.healthFactorThreshold18 < healthFactorTarget18
-              ? (amountToPay - amountToPay * healthFactor18 / healthFactorTarget18) // unhealthy
-              : (amountToPay * healthFactor18 / healthFactorTarget18 - amountToPay); // too healthy
-          outAmountCollateralAsset[countFoundItems] = p.healthFactorThreshold18 < healthFactorTarget18
-              ? (collateralAmount * healthFactorTarget18 / healthFactor18 - collateralAmount) // unhealthy
-              : (collateralAmount - collateralAmount * healthFactorTarget18 / healthFactor18); // too healthy
-          countFoundItems += 1;
-
-          if (countFoundItems == p.maxCountToReturn) {
-            break;
-          }
+        if (countFoundItems == p.maxCountToReturn) {
+          break;
         }
-      } else {
-        // this is a dirty position, a liquidation has happened inside
-        // we need to make a decision: either close the position or make full repay and withdraw remain collateral
-        // TODO
       }
     }
 
@@ -333,15 +357,6 @@ contract DebtMonitor is IDebtMonitor {
   ) external view returns (uint) {
     return poolAdapters[getPoolAdapterKey(user_, collateral_, borrowToken_)].length;
   }
-
-  ///////////////////////////////////////////////////////
-  ///          Access to other contracts
-  ///////////////////////////////////////////////////////
-
-  function _borrowManager() internal view returns (IBorrowManager) {
-    return IBorrowManager(controller.borrowManager());
-  }
-
 }
 
 

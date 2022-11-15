@@ -355,7 +355,10 @@ contract BorrowManager is IBorrowManager {
     address collateral_,
     address borrowToken_
   ) external override {
-    _onlyTetuConverter();
+    require(
+      msg.sender == controller.tetuConverter() || msg.sender == controller.debtMonitor(),
+      AppErrors.ACCESS_DENIED
+    );
     uint key = getPoolAdapterKey(converter_, collateral_, borrowToken_);
 
     (bool found, address poolAdapter) = _poolAdapters[user_].tryGet(key);

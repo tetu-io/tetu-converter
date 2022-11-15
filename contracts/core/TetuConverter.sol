@@ -173,15 +173,23 @@ contract TetuConverter is ITetuConverter, IKeeperCallback {
       // get exist or register new pool adapter
       address poolAdapter = _borrowManager().getPoolAdapter(converter_, msg.sender, collateralAsset_, borrowAsset_);
 
-      // the pool adapter should be healthy and not-dirty, otherwise it's not usable..
       if (poolAdapter != address(0)) {
-        (,, uint healthFactor18,, uint collateralAmountLiquidated) = IPoolAdapter(poolAdapter).getStatus();
-        if (collateralAmountLiquidated != 0
-            || healthFactor18 < (uint(controller.minHealthFactor2()) * 10**(18-2)) //TODO: do weed need this check? -looks like not, if position exist why not to extend it? if it is unhealthy - remove position
-        ) {
+        // the pool adapter can have three possible states:
+        // - healthy (normal), it's ok to make new borrow using the pool adapter
+        // - unhealthy, health factor is less 1. It means that liquidation happens and the pool adapter is not usable.
+        // - unhealthy, health factor is greater 1 but it's less min-allowed-value.
+        //              It means, that because of some reasons keeper doesn't make rebalance
+        (,, uint healthFactor18,,) = IPoolAdapter(poolAdapter).getStatus();
+        console.log("_convert.healthFactor18", healthFactor18);
+        console.log("_convert.min", (uint(controller.minHealthFactor2()) * 10**(18-2)));
+        if (healthFactor18 < 1e18) {
           // the pool adapter is unhealthy, we should mark it as dirty and create new pool adapter for the borrow
           _borrowManager().markPoolAdapterAsDirty(converter_, msg.sender, collateralAsset_, borrowAsset_);
           poolAdapter = address(0);
+        } else if (healthFactor18 <= (uint(controller.minHealthFactor2()) * 10**(18-2))) {
+          // this is not normal situation
+          // keeper doesn't work? it's too risky to make new borrow
+          revert(AppErrors.REBALANCING_IS_REQUIRED);
         }
       }
 
@@ -324,57 +332,63 @@ contract TetuConverter is ITetuConverter, IKeeperCallback {
   ) external override {
     onlyKeeper();
     require(requiredAmountBorrowAsset_ > 0, AppErrors.INCORRECT_VALUE);
-    require(requiredAmountCollateralAsset_ > 0, AppErrors.INCORRECT_VALUE);
 
     IPoolAdapter pa = IPoolAdapter(poolAdapter_);
     (,address user, address collateralAsset, address borrowAsset) = pa.getConfig();
     pa.updateStatus();
+    (, uint amountToPay,,,) = pa.getStatus();
 
-    //!TODO: we have exactly same checking inside pool adapters... we need to check this condition only once
-    (,uint amountToPay,,,) = pa.getStatus();
-    require(amountToPay > 0 && requiredAmountBorrowAsset_ < amountToPay, AppErrors.REPAY_TO_REBALANCE_NOT_ALLOWED);
-
-    // ask the borrower to send us required part of the borrowed amount
-    uint balanceBorrowedAsset = IERC20(borrowAsset).balanceOf(address(this));
-    uint balanceCollateralAsset = IERC20(collateralAsset).balanceOf(address(this));
-    (, bool isCollateral) = ITetuConverterCallback(user).requireAmountBack(
-      collateralAsset,
-      requiredAmountCollateralAsset_,
-      borrowAsset,
-      requiredAmountBorrowAsset_
-    );
-
-    // re-send amount-to-repay to the pool adapter and make rebalancing
-    if (isCollateral) {
-      // the borrower has sent us the amount of collateral asset
-      require(
-        IERC20(collateralAsset).balanceOf(address(this)) - balanceCollateralAsset == requiredAmountCollateralAsset_,
-        AppErrors.WRONG_AMOUNT_RECEIVED
-      );
-      // todo you do not need refresh approve if you use the all
-      // todo and you can use infinity approve - this contract not suppose to hold any assets, make approve only if needed
-      IERC20(collateralAsset).safeApprove(poolAdapter_, 0);
-      IERC20(collateralAsset).safeApprove(poolAdapter_, requiredAmountCollateralAsset_);
+    if (requiredAmountCollateralAsset_ == 0) {
+      // Full liquidation happens, we have lost all collateral amount
+      // We need to close the position as is and drop away the pool adapter without paying any debt
+      _debtMonitor().closeLiquidatedPosition(address(pa));
     } else {
-      // todo IERC20(borrowAsset).balanceOf(address(this)) - balanceBorrowedAsset can throw overflow
-      // the borrower has sent us the amount of borrow asset
-      require(
-        IERC20(borrowAsset).balanceOf(address(this)) - balanceBorrowedAsset == requiredAmountBorrowAsset_,
-        AppErrors.WRONG_AMOUNT_RECEIVED
+      // rebalancing
+      //!TODO: we have exactly same checking inside pool adapters... we need to check this condition only once
+      require(amountToPay > 0 && requiredAmountBorrowAsset_ < amountToPay, AppErrors.REPAY_TO_REBALANCE_NOT_ALLOWED);
+
+      // ask the borrower to send us required part of the borrowed amount
+      uint balanceBorrowedAsset = IERC20(borrowAsset).balanceOf(address(this));
+      uint balanceCollateralAsset = IERC20(collateralAsset).balanceOf(address(this));
+      (, bool isCollateral) = ITetuConverterCallback(user).requireAmountBack(
+        collateralAsset,
+        requiredAmountCollateralAsset_,
+        borrowAsset,
+        requiredAmountBorrowAsset_
       );
-      // todo you do not need refresh approve if you use the all
-      // todo and you can use infinity approve - this contract not suppose to hold any assets, make approve only if needed
-      IERC20(borrowAsset).safeApprove(poolAdapter_, 0);
-      IERC20(borrowAsset).safeApprove(poolAdapter_, requiredAmountBorrowAsset_);
+
+      // re-send amount-to-repay to the pool adapter and make rebalancing
+      if (isCollateral) {
+        // the borrower has sent us the amount of collateral asset
+        require(
+          IERC20(collateralAsset).balanceOf(address(this)) - balanceCollateralAsset == requiredAmountCollateralAsset_,
+          AppErrors.WRONG_AMOUNT_RECEIVED
+        );
+        // todo you do not need refresh approve if you use the all
+        // todo and you can use infinity approve - this contract not suppose to hold any assets, make approve only if needed
+        IERC20(collateralAsset).safeApprove(poolAdapter_, 0);
+        IERC20(collateralAsset).safeApprove(poolAdapter_, requiredAmountCollateralAsset_);
+      } else {
+        // todo IERC20(borrowAsset).balanceOf(address(this)) - balanceBorrowedAsset can throw overflow
+        // the borrower has sent us the amount of borrow asset
+        require(
+          IERC20(borrowAsset).balanceOf(address(this)) - balanceBorrowedAsset == requiredAmountBorrowAsset_,
+          AppErrors.WRONG_AMOUNT_RECEIVED
+        );
+        // todo you do not need refresh approve if you use the all
+        // todo and you can use infinity approve - this contract not suppose to hold any assets, make approve only if needed
+        IERC20(borrowAsset).safeApprove(poolAdapter_, 0);
+        IERC20(borrowAsset).safeApprove(poolAdapter_, requiredAmountBorrowAsset_);
+      }
+
+      uint resultHealthFactor18 = pa.repayToRebalance(
+        isCollateral ? requiredAmountCollateralAsset_ : requiredAmountBorrowAsset_,
+        isCollateral
+      );
+
+      // ensure that the health factor was restored to ~target health factor value
+      _ensureApproxSameToTargetHealthFactor(borrowAsset, resultHealthFactor18);
     }
-
-    uint resultHealthFactor18 = pa.repayToRebalance(
-      isCollateral ? requiredAmountCollateralAsset_ : requiredAmountBorrowAsset_,
-      isCollateral
-    );
-
-    // ensure that the health factor was restored to ~target health factor value
-    _ensureApproxSameToTargetHealthFactor(borrowAsset, resultHealthFactor18);
   }
 
   function _ensureApproxSameToTargetHealthFactor(

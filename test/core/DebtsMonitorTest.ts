@@ -35,6 +35,7 @@ import {areAlmostEqual} from "../baseUT/utils/CommonUtils";
 import {CoreContractsHelper} from "../baseUT/helpers/CoreContractsHelper";
 import {Misc} from "../../scripts/utils/Misc";
 import {TetuConverterApp} from "../baseUT/helpers/TetuConverterApp";
+import {parseUnits} from "ethers/lib/utils";
 
 describe("DebtsMonitor", () => {
 //region Global vars for all tests
@@ -127,6 +128,7 @@ describe("DebtsMonitor", () => {
   async function initializeApp(
     tt: IBorrowInputParams,
     user: string,
+    usePoolAdapterStub: boolean = false
   ) : Promise<{
     core: CoreContracts,
     userContract: Borrower,
@@ -142,7 +144,9 @@ describe("DebtsMonitor", () => {
       core,
       deployer,
       tt,
-      async () => (await MocksHelper.createPoolAdapterMock(deployer)).address,
+      async () => usePoolAdapterStub
+        ? (await MocksHelper.createPoolAdapterStub(deployer, parseUnits("0.5"))).address
+        : (await MocksHelper.createPoolAdapterMock(deployer)).address,
     );
     const userContract = await MocksHelper.deployBorrower(user, core.controller, periodInBlocks);
     const bmAsTc = BorrowManager__factory.connect(core.bm.address,
@@ -517,8 +521,156 @@ describe("DebtsMonitor", () => {
       , await DeployerUtils.startImpersonate(poolAdapter)
     );
   }
-
 //endregion Utils for onClosePosition
+
+//region Close position test
+  interface IStateAfterClosingPosition {
+  // debtMonitor:
+    poolAdaptersLength: BigNumber;
+    firstPoolAdapterAddress: string;
+    lastAccessIsZero: boolean;
+    countPositions: BigNumber;
+    firstPositionAddress: string;
+    isConverterInUse: boolean;
+    getPositionsForUserLength: number;
+    firstGetPositionsForUser: string;
+  // borrowManager:
+    getPoolAdapterResult: string;
+    isPoolAdapterRegistered: boolean;
+  }
+
+  interface IMakeClosePositionTestResults {
+    initial: IStateAfterClosingPosition;
+    afterOpen: IStateAfterClosingPosition;
+    afterClose: IStateAfterClosingPosition;
+    poolAdapterAddress: string;
+  }
+
+  interface IMakeClosePositionTestParams {
+    manuallyMakePoolAdapterAsDirtyBeforeClosing?: boolean;
+    callCloseLiquidatedPositionAsNotTetuConverter?: boolean;
+    callCloseLiquidatedPositionHavingNotZeroCollateral?: boolean;
+  }
+
+  /**
+   * Tests for closing positions in two ways:
+   *  - onClosePosition (by pool adapter)
+   *  - closeLiquidatedPosition (by DebtMonitor)
+   */
+  async function makeClosePositionTest(
+    closeLiquidatedPosition: boolean,
+    params?: IMakeClosePositionTestParams
+  ) : Promise<IMakeClosePositionTestResults> {
+    const user = ethers.Wallet.createRandom().address;
+    const targetDecimals = 12;
+    const sourceDecimals = 24;
+    const tt: IBorrowInputParams = {
+      collateralFactor: 0.8,
+      priceSourceUSD: 0.1,
+      priceTargetUSD: 4,
+      sourceDecimals,
+      targetDecimals,
+      availablePools: [
+        {   // source, target
+          borrowRateInTokens: [
+            getBigNumberFrom(0, targetDecimals),
+            getBigNumberFrom(1, targetDecimals - 6), // 1e-6
+          ],
+          availableLiquidityInTokens: [0, 200_000_000]
+        }
+      ]
+    };
+
+    const {core, userContract, sourceToken, targetToken, poolAdapters} = await initializeApp(
+      tt,
+      user,
+      true
+    );
+    const poolAdapter = poolAdapters[0];
+
+    const dmAsPa = DebtMonitor__factory.connect(core.dm.address
+      , await DeployerUtils.startImpersonate(poolAdapter)
+    );
+
+    const poolAdapterInstance = await IPoolAdapter__factory.connect(poolAdapter, deployer);
+    const config: IPoolAdapterConfig = await poolAdapterInstance.getConfig();
+
+    const funcGetState = async function() : Promise<IStateAfterClosingPosition> {
+      const poolAdapterKey = await dmAsPa.getPoolAdapterKey(
+        userContract.address,
+        sourceToken.address,
+        targetToken.address
+      );
+      const poolAdaptersLength = await dmAsPa.poolAdaptersLength(
+        userContract.address,
+        sourceToken.address,
+        targetToken.address
+      );
+      const countPositions = await dmAsPa.getCountPositions();
+      const resultsGetPositionsForUser = await dmAsPa.getPositionsForUser(config.user);
+      return {
+        poolAdaptersLength,
+        firstPoolAdapterAddress: poolAdaptersLength.eq(0) ? "" : await dmAsPa.poolAdapters(poolAdapterKey, 0),
+        lastAccessIsZero: (await dmAsPa.positionLastAccess(poolAdapter)).eq(0),
+        countPositions,
+        firstPositionAddress: countPositions.eq(0) ? "" : await dmAsPa.positions(0),
+        isConverterInUse: await dmAsPa.isConverterInUse(config.originConverter),
+        getPositionsForUserLength: resultsGetPositionsForUser.length,
+        firstGetPositionsForUser: resultsGetPositionsForUser.length === 0 ? "" : resultsGetPositionsForUser[0],
+        getPoolAdapterResult: await core.bm.getPoolAdapter(
+          config.originConverter,
+          config.user,
+          config.collateralAsset,
+          config.borrowAsset
+        ),
+        isPoolAdapterRegistered: await core.bm.poolAdaptersRegistered(poolAdapter)
+      };
+    }
+
+    const initial = await funcGetState();
+    await dmAsPa.onOpenPosition();
+    const afterOpen = await funcGetState();
+    if (closeLiquidatedPosition) {
+      const dmAsTetuConverter = DebtMonitor__factory.connect(core.dm.address
+        , await DeployerUtils.startImpersonate(core.tc.address)
+      );
+
+      // let's imitate complete liquidation
+      await PoolAdapterStub__factory.connect(poolAdapter, deployer).setManualStatus(
+        params?.callCloseLiquidatedPositionHavingNotZeroCollateral
+          ? parseUnits("1", sourceDecimals) // (!) not zero collateral
+          : parseUnits("0"), // collateral amount is zero - full liquidation happens
+        parseUnits("1", targetDecimals),
+        parseUnits("0.4"), // health factor is less than 1
+        true,
+        parseUnits("1", sourceDecimals)
+      );
+
+      if (params?.manuallyMakePoolAdapterAsDirtyBeforeClosing) {
+        const borrowManagerAsTetuConverter = BorrowManager__factory.connect(core.bm.address
+          , await DeployerUtils.startImpersonate(core.tc.address)
+        );
+        await borrowManagerAsTetuConverter.markPoolAdapterAsDirty(
+          config.originConverter,
+          config.user,
+          config.collateralAsset,
+          config.borrowAsset
+        );
+      }
+
+      if (params?.callCloseLiquidatedPositionAsNotTetuConverter) {
+        await core.dm.closeLiquidatedPosition(poolAdapter);
+      } else {
+        await dmAsTetuConverter.closeLiquidatedPosition(poolAdapter);
+      }
+    } else {
+      await dmAsPa.onClosePosition();
+    }
+    const afterClose = await funcGetState();
+
+    return {initial, afterOpen, afterClose, poolAdapterAddress: poolAdapter};
+  }
+//endregion Close position test
 
 //region Unit tests
   describe("constructor", () => {
@@ -836,79 +988,59 @@ describe("DebtsMonitor", () => {
     describe("Good paths", () => {
       describe("Single borrow, single repay", () => {
         it("should set expected state", async () => {
-          const user = ethers.Wallet.createRandom().address;
-          const targetDecimals = 12;
-          const sourceDecimals = 24;
-          const availableBorrowLiquidityNumber = 200_000_000;
-          const tt: IBorrowInputParams = {
-            collateralFactor: 0.8,
-            priceSourceUSD: 0.1,
-            priceTargetUSD: 4,
-            sourceDecimals,
-            targetDecimals,
-            availablePools: [
-              {   // source, target
-                borrowRateInTokens: [
-                  getBigNumberFrom(0, targetDecimals),
-                  getBigNumberFrom(1, targetDecimals - 6), // 1e-6
-                ],
-                availableLiquidityInTokens: [0, availableBorrowLiquidityNumber]
-              }
-            ]
-          };
-
-          const {core, userContract, sourceToken, targetToken, poolAdapters} = await initializeApp(tt, user);
-          const poolAdapter = poolAdapters[0];
-
-          const dmAsPa = DebtMonitor__factory.connect(core.dm.address
-            , await DeployerUtils.startImpersonate(poolAdapter)
-          );
-
-          const poolAdapterInstance = await IPoolAdapter__factory.connect(poolAdapter, deployer);
-          const config = await poolAdapterInstance.getConfig();
-
-          const funcGetState = async function() : Promise<string> {
-            const poolAdapterKey = await dmAsPa.getPoolAdapterKey(
-              userContract.address,
-              sourceToken.address,
-              targetToken.address
-            );
-            const poolAdaptersLength = await dmAsPa.poolAdaptersLength(
-              userContract.address,
-              sourceToken.address,
-              targetToken.address
-            );
-            const countPositions = await dmAsPa.getCountPositions();
-            return [
-              poolAdaptersLength,
-              poolAdaptersLength.eq(0) ? "" : await dmAsPa.poolAdapters(poolAdapterKey, 0),
-              !(await dmAsPa.positionLastAccess(poolAdapter)).eq(0),
-              countPositions,
-              countPositions.eq(0) ? "" : await dmAsPa.positions(0),
-              await dmAsPa.isConverterInUse(config.originConverter),
-            ].join("\n");
-          }
-
-          const before = await funcGetState();
-          await dmAsPa.onOpenPosition();
-          const afterBorrow = await funcGetState();
-          await dmAsPa.onClosePosition();
-          const afterRepay = await funcGetState();
+          const r = await makeClosePositionTest(false);
 
           const ret = [
-            before,
-            afterBorrow,
-            afterRepay
-          ].join("\n");
-
+            ...Object.values(r.initial),
+            ...Object.values(r.afterOpen),
+            ...Object.values(r.afterClose)
+          ].map(x => BalanceUtils.toString(x)).join("\n");
+          const e: IMakeClosePositionTestResults = {
+            initial: {
+              poolAdaptersLength: parseUnits("0"),
+              firstPoolAdapterAddress: "",
+              lastAccessIsZero: true,
+              countPositions: parseUnits("0"),
+              firstPositionAddress: "",
+              isConverterInUse: false,
+              getPositionsForUserLength: 0,
+              firstGetPositionsForUser: "",
+              getPoolAdapterResult: r.poolAdapterAddress,
+              isPoolAdapterRegistered: true
+            },
+            afterOpen: {
+              poolAdaptersLength: BigNumber.from(1),
+              firstPoolAdapterAddress: r.poolAdapterAddress,
+              lastAccessIsZero: false,
+              countPositions: BigNumber.from(1),
+              firstPositionAddress: r.poolAdapterAddress,
+              isConverterInUse: true,
+              getPositionsForUserLength: 1,
+              firstGetPositionsForUser: r.poolAdapterAddress,
+              getPoolAdapterResult: r.poolAdapterAddress,
+              isPoolAdapterRegistered: true
+            },
+            afterClose: {
+              poolAdaptersLength: parseUnits("0"),
+              firstPoolAdapterAddress: "",
+              lastAccessIsZero: true,
+              countPositions: parseUnits("0"),
+              firstPositionAddress: "",
+              isConverterInUse: false,
+              getPositionsForUserLength: 0,
+              firstGetPositionsForUser: "",
+              getPoolAdapterResult: r.poolAdapterAddress,
+              isPoolAdapterRegistered: true
+            },
+            poolAdapterAddress: r.poolAdapterAddress
+          }
           const expected = [
-            // before
-            0, "", false, 0, "", false,
-            // after open
-            1, poolAdapter, true, 1, poolAdapter, true,
-            // after close
-            0, "", false, 0, "", false,
-          ].join("\n");
+            ...Object.values(e.initial),
+            ...Object.values(e.afterOpen),
+            ...Object.values(e.afterClose)
+          ].map(x => BalanceUtils.toString(x)).join("\n");
+          console.log("ret", ret);
+          console.log("expected", expected);
 
           expect(ret).equal(expected);
         });
@@ -1090,6 +1222,99 @@ describe("DebtsMonitor", () => {
             dmAsNotPa.onClosePosition()
           ).revertedWith("TC-11");
         });
+      });
+    });
+  });
+
+  describe("closeLiquidatedPosition", () => {
+    describe("Good paths", () => {
+      async function makeCloseLiquidatedPositionNormalBehaviorTest(
+        params: IMakeClosePositionTestParams
+      ): Promise<{ret: string, expected: string}> {
+        const r = await makeClosePositionTest(true, params);
+
+        const ret = [
+          ...Object.values(r.initial),
+          ...Object.values(r.afterOpen),
+          ...Object.values(r.afterClose)
+        ].map(x => BalanceUtils.toString(x)).join("\n");
+        const e: IMakeClosePositionTestResults = {
+          initial: {
+            poolAdaptersLength: parseUnits("0"),
+            firstPoolAdapterAddress: "",
+            lastAccessIsZero: true,
+            countPositions: parseUnits("0"),
+            firstPositionAddress: "",
+            isConverterInUse: false,
+            getPositionsForUserLength: 0,
+            firstGetPositionsForUser: "",
+            getPoolAdapterResult: r.poolAdapterAddress,
+            isPoolAdapterRegistered: true
+          },
+          afterOpen: {
+            poolAdaptersLength: BigNumber.from(1),
+            firstPoolAdapterAddress: r.poolAdapterAddress,
+            lastAccessIsZero: false,
+            countPositions: BigNumber.from(1),
+            firstPositionAddress: r.poolAdapterAddress,
+            isConverterInUse: true,
+            getPositionsForUserLength: 1,
+            firstGetPositionsForUser: r.poolAdapterAddress,
+            getPoolAdapterResult: r.poolAdapterAddress,
+            isPoolAdapterRegistered: true
+          },
+          afterClose: {
+            poolAdaptersLength: parseUnits("0"),
+            firstPoolAdapterAddress: "",
+            lastAccessIsZero: true,
+            countPositions: parseUnits("0"),
+            firstPositionAddress: "",
+            isConverterInUse: false,
+            getPositionsForUserLength: 0,
+            firstGetPositionsForUser: "",
+            getPoolAdapterResult: Misc.ZERO_ADDRESS, // (!)
+            isPoolAdapterRegistered: true
+          },
+          poolAdapterAddress: r.poolAdapterAddress
+        }
+        const expected = [
+          ...Object.values(e.initial),
+          ...Object.values(e.afterOpen),
+          ...Object.values(e.afterClose)
+        ].map(x => BalanceUtils.toString(x)).join("\n");
+        console.log("ret", ret);
+        console.log("expected", expected);
+        return {ret, expected};
+      }
+      it("Pool adapter is not dirty - should set expected state", async () => {
+        const r = await makeCloseLiquidatedPositionNormalBehaviorTest(
+          {manuallyMakePoolAdapterAsDirtyBeforeClosing: false}
+        );
+        expect(r.ret).equal(r.expected);
+      });
+      it("Pool adapter is already dirty - should set expected state", async () => {
+        const r = await makeCloseLiquidatedPositionNormalBehaviorTest(
+          {manuallyMakePoolAdapterAsDirtyBeforeClosing: true}
+        );
+        expect(r.ret).equal(r.expected);
+      });
+    });
+    describe("Bad paths", () => {
+      it("should revert if not TetuConverter", async () => {
+        await expect(
+          makeClosePositionTest(
+            true,
+            {callCloseLiquidatedPositionAsNotTetuConverter: true}
+          )
+        ).revertedWith("TC-8");
+      });
+      it("should revert if collateral is not zero", async () => {
+        await expect(
+          makeClosePositionTest(
+            true,
+            {callCloseLiquidatedPositionHavingNotZeroCollateral: true}
+          )
+        ).revertedWith("TC-47"); // CANNOT_CLOSE_LIVE_POSITION
       });
     });
   });

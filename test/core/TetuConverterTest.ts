@@ -933,7 +933,8 @@ describe("TetuConverterTest", () => {
       /* Don't register pool adapters during initialization. The pool adapters will be registered inside TetuConverter*/
       skipPreregistrationOfPoolAdapters?: boolean;
       usePoolAdapterStub?: boolean;
-      setPoolAdaptersStatus?: IPoolAdapterStatus
+      setPoolAdaptersStatus?: IPoolAdapterStatus;
+      minHealthFactor2?: number;
     }
 
     interface IMakeConversionUsingSwap {
@@ -964,7 +965,12 @@ describe("TetuConverterTest", () => {
         ? Misc.ZERO_ADDRESS
         : ethers.Wallet.createRandom().address;
 
-      const core = await CoreContracts.build(await TetuConverterApp.createController(deployer));
+      const core = await CoreContracts.build(await TetuConverterApp.createController(
+        deployer,
+        {
+          minHealthFactor2: params?.minHealthFactor2
+        }
+      ));
       const init = await prepareTetuAppWithMultipleLendingPlatforms(core,
         collateralAmounts.length,
         {
@@ -1130,51 +1136,38 @@ describe("TetuConverterTest", () => {
               expect(ret).eq(expected);
             });
           });
-          describe("Pool adapter is unhealthy", () => {
+          describe("Pool adapter is unhealthy (rebalancing is missed)", () => {
             it("should register and use new pool adapter", async () => {
-              const r = await makeConversionUsingBorrowing(
-                [100_000],
-                [100],
-                {
-                  usePoolAdapterStub: true,
-                  setPoolAdaptersStatus: { // unhealthy status
-                    collateralAmountLiquidated: parseUnits("0"),
-                    healthFactor18: parseUnits("1"), // (!) unhealthy
-                    collateralAmount: parseUnits("1"),
-                    amountToPay: parseUnits("1"),
-                    opened: true
+              await expect(
+                  makeConversionUsingBorrowing(
+                  [100_000],
+                  [100],
+                  {
+                    usePoolAdapterStub: true,
+                    minHealthFactor2: 120,
+                    setPoolAdaptersStatus: { // unhealthy status
+                      collateralAmountLiquidated: parseUnits("0"),
+                      healthFactor18: parseUnits("119", 16), // (!) unhealthy, less then minHealthFactor
+                      collateralAmount: parseUnits("1"),
+                      amountToPay: parseUnits("1"),
+                      opened: true
+                    }
                   }
-                }
-              );
-
-              const unhealthyPoolAdapter = r.init.poolAdapters[0];
-              const newlyCreatedPoolAdapter = await r.init.core.bm.getPoolAdapter(
-                r.init.poolInstances[0].converter,
-                r.init.userContract.address,
-                r.init.sourceToken.address,
-                r.init.targetToken.address
-              );
-
-              const ret = [
-                newlyCreatedPoolAdapter === Misc.ZERO_ADDRESS,
-                newlyCreatedPoolAdapter === unhealthyPoolAdapter,
-                await r.init.core.bm.poolAdaptersRegistered(newlyCreatedPoolAdapter),
-                await r.init.core.bm.poolAdaptersRegistered(unhealthyPoolAdapter),
-              ].join();
-              const expected = [false, false, true, true].join();
-              expect(ret).eq(expected);
+                )
+              ).revertedWith("TC-46"); // REBALANCING_IS_REQUIRED
             });
           });
-          describe("Pool adapter is dirty (liquidation had happened)", () => {
+          describe("Pool adapter is dirty (full liquidation has happened)", () => {
             it("should register and use new pool adapter", async () => {
               const r = await makeConversionUsingBorrowing(
                 [100_000],
                 [100],
                 {
                   usePoolAdapterStub: true,
+                  minHealthFactor2: 120,
                   setPoolAdaptersStatus: { // dirty status
-                    collateralAmountLiquidated: parseUnits("1"), // (!) dirty, liquidation has happened
-                    healthFactor18: parseUnits("10"),
+                    collateralAmountLiquidated: parseUnits("0"), // this value doesn't matter
+                    healthFactor18: parseUnits("0.5"), // (!) liquidation has happened
                     collateralAmount: parseUnits("1"),
                     amountToPay: parseUnits("1"),
                     opened: true
@@ -2341,6 +2334,41 @@ describe("TetuConverterTest", () => {
           expect(r.ret).eq(r.expected);
         });
       });
+      describe("Repay with zero collateral repay-amount", () => {
+        it("should call DebtMonitor.closeLiquidatedPosition", async () => {
+          const core = await CoreContracts.build(
+            await TetuConverterApp.createController(
+              deployer,
+              {
+                debtMonitorFabric: async () => (await MocksHelper.createDebtMonitorMock(deployer)).address,
+              }
+            )
+          );
+          const init = await prepareTetuAppWithMultipleLendingPlatforms(
+            core,
+            1,
+            undefined,
+            true
+          );
+          const poolAdapter = PoolAdapterStub__factory.connect(init.poolAdapters[0], deployer);
+
+          const tcAsKeeper = TetuConverter__factory.connect(
+            core.tc.address,
+            await DeployerUtils.startImpersonate(await core.controller.keeper())
+          );
+
+          await tcAsKeeper.requireRepay(
+            parseUnits("1", init.borrowInputParams.targetDecimals),
+            BigNumber.from(0), // (!) liquidation happens, there is no collateral on user's balance in the pool
+            poolAdapter.address
+          );
+
+          const debtMonitorMock = DebtMonitorMock__factory.connect(core.dm.address, deployer);
+          const ret = await debtMonitorMock.isCloseLiquidatedPositionCalled();
+
+          expect(ret).eq(true);
+        });
+      });
     });
     describe("Bad paths", () => {
       const selectedPoolAdapterBorrow = 250_000; // 2_000_000 * 0.5 / 4
@@ -2406,7 +2434,7 @@ describe("TetuConverterTest", () => {
           ).revertedWith("TC-40"); // REPAY_TO_REBALANCE_NOT_ALLOWED
         });
       });
-      describe("Try to repay zero", () => {
+      describe("Try to require zero amount of borrow asset", () => {
         it("should revert", async () => {
           await expect(
             tryToRepayWrongAmount(0)

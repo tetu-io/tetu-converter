@@ -95,4 +95,14 @@ library AppErrors {
 
   string public constant BORROW_MANAGER_ONLY = "TC-45";
 
+  /// @notice Attempt to make a borrow using unhealthy pool adapter
+  ///         This is not normal situation.
+  ///         Health factor is greater 1 but it's less then minimum allowed value.
+  ///         Keeper doesn't work?
+  string public constant REBALANCING_IS_REQUIRED = "TC-46";
+
+  /// @notice Position can be closed as "liquidated" only if there is no collateral on it
+  string public constant CANNOT_CLOSE_LIVE_POSITION = "TC-47";
+
+  string public constant ACCESS_DENIED = "TC-48";
 }
