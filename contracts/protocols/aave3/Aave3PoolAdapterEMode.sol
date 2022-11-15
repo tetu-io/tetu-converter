@@ -7,10 +7,15 @@ import "../../integrations/aave3/Aave3ReserveConfiguration.sol";
 
 /// @notice PoolAdapter for AAVE-v3-protocol that uses high efficiency borrow mode (E-mode)
 /// @dev https://docs.aave.com/faq/aave-v3-features#high-efficiency-mode-e-mode
-contract Aave3PoolAdapterEMode is Aave3PoolAdapterBase {
+contract Aave3PoolAdapterEMode
+  // we use inheritance to split normal/E-mode
+  // because all pool adapters are created using minimal proxy pattern
+  // and there is no way to pass additional params to standard initialize function
+  is Aave3PoolAdapterBase
+{
+
   using Aave3ReserveConfiguration for Aave3DataTypes.ReserveConfigurationMap;
 
-  // todo maybe it doesn;t worth to create a dedicated inheritances? just use some variable on constructor
   /// @notice Enter to E-mode
   function prepareToBorrow() internal override {
     Aave3DataTypes.ReserveData memory d = _pool.getReserveData(borrowAsset);

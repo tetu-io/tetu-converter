@@ -415,7 +415,8 @@ contract HfPoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP, Initializ
     address rewardToken,
     uint amount
   ) {
-    receiver_;
+    //nothing to do, HundredFinance doesn't have rewards on polygon anymore
+    receiver_; // hide warning
     return (rewardToken, amount);
   }
 

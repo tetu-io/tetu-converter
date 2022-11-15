@@ -394,8 +394,8 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer,
     address rewardToken,
     uint amount
   ) {
-    // todo tbd?
-    receiver_;
+    //nothing to do, AAVE3 doesn't have rewards on polygon
+    receiver_; // hide warning
     return (rewardToken, amount);
   }
 

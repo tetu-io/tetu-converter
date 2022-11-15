@@ -450,8 +450,8 @@ contract AaveTwoPoolAdapter is IPoolAdapter, IPoolAdapterInitializer, Initializa
     address rewardToken,
     uint amount
   ) {
-    // todo TBD
-    receiver_;
+    //nothing to do, AAVE v2 doesn't have rewards on polygon anymore
+    receiver_; // hide warning
     return (rewardToken, amount);
   }
 
