@@ -68,9 +68,6 @@ contract SwapManager is ISwapManager, ISwapConverter {
       : address(this);
 
     int loss = int(p_.sourceAmount) - int(returnAmount);
-    // todo remove
-    //console.log("loss");
-    //console.logInt(loss);
     apr18 = loss * APR_NUMERATOR / int(p_.sourceAmount);
   }
 

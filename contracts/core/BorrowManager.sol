@@ -152,10 +152,7 @@ contract BorrowManager is IBorrowManager {
     require(leftAssets_.length == lenAssets, AppErrors.WRONG_LENGTHS);
 
     // register new platform adapter if necessary
-    // todo you don't need to check `contains`, see at `add` function, it just returns false if exist
-    if (!_platformAdapters.contains(platformAdapter_)) {
-      _platformAdapters.add(platformAdapter_);
-    }
+    _platformAdapters.add(platformAdapter_);
 
     // register all available template pool adapters
     address[] memory paConverters = IPlatformAdapter(platformAdapter_).converters();
@@ -178,11 +175,8 @@ contract BorrowManager is IBorrowManager {
           assetRight: rightAssets_[i]
         });
       }
-      // todo you don't need to check `contains`, see at `add` function, it just returns false if exist
-      if (!_pairsList[assetPairKey].contains(platformAdapter_)) {
-        _pairsList[assetPairKey].add(platformAdapter_);
-        _platformAdapterPairs[platformAdapter_].add(assetPairKey);
-      }
+      _pairsList[assetPairKey].add(platformAdapter_);
+      _platformAdapterPairs[platformAdapter_].add(assetPairKey);
     }
     // todo event
   }
