@@ -15,6 +15,7 @@ import {COUNT_BLOCKS_PER_DAY} from "../utils/aprUtils";
 import {Misc} from "../../../scripts/utils/Misc";
 import {tetu} from "../../../typechain/contracts/integrations";
 import {TetuConverterApp} from "./TetuConverterApp";
+import {parseUnits} from "ethers/lib/utils";
 
 export class CoreContractsHelper {
   static async deployController(deployer: SignerWithAddress): Promise<Controller> {
@@ -79,13 +80,13 @@ export class CoreContractsHelper {
   /** Create BorrowManager with mock as adapter */
   public static async createBorrowManager (
     signer: SignerWithAddress,
-    controller: IController,
-    rewardsFactor: BigNumber = Misc.WEI // by default, set rewardsFactor = 1
+    controller: string,
+    rewardsFactor: BigNumber = parseUnits("0.9") // rewardsFactor must be less 1
   ) : Promise<BorrowManager> {
     return (await DeployUtils.deployContract(
       signer,
       "BorrowManager",
-      controller.address,
+      controller,
       rewardsFactor
     )) as BorrowManager;
   }

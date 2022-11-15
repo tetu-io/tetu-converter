@@ -299,7 +299,7 @@ export class DeploySolutionUtils {
     const controller = await CoreContractsHelper.deployController(deployer);
     const borrowManager = await CoreContractsHelper.createBorrowManager(
       deployer,
-      controller,
+      controller.address,
       borrowManagerSetupParams.rewardsFactor
     );
     const debtMonitor = await CoreContractsHelper.createDebtMonitor(deployer, controller.address);

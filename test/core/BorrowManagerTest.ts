@@ -24,6 +24,8 @@ import {DeployerUtils} from "../../scripts/utils/DeployerUtils";
 import {getExpectedApr18} from "../baseUT/apr/aprUtils";
 import {TetuConverterApp} from "../baseUT/helpers/TetuConverterApp";
 import {CoreContracts} from "../baseUT/types/CoreContracts";
+import {deprecate} from "util";
+import {parseUnits} from "ethers/lib/utils";
 
 describe("BorrowManager", () => {
 //region Global vars for all tests
@@ -109,7 +111,7 @@ describe("BorrowManager", () => {
     return TetuConverterApp.createController(
       signer,
       {
-        borrowManagerFabric: async c => (await CoreContractsHelper.createBorrowManager(signer, c)).address,
+        borrowManagerFabric: async c => (await CoreContractsHelper.createBorrowManager(signer, c.address)).address,
         tetuConverterFabric: async c => (await CoreContractsHelper.createTetuConverter(signer, c)).address,
         debtMonitorFabric: async () => (await MocksHelper.createDebtsMonitorStub(signer, valueIsConverterInUse)).address,
         keeperFabric: async () => ethers.Wallet.createRandom().address,
@@ -474,11 +476,63 @@ describe("BorrowManager", () => {
 //endregion registerPoolAdapter utils
 
 //region Unit tests
+  describe("constructor", () => {
+    interface IMakeConstructorTestParams {
+      rewardFactor?: BigNumber;
+      useZeroController?: boolean;
+    }
+    async function makeConstructorTest(
+      params?: IMakeConstructorTestParams
+    ) : Promise<BorrowManager> {
+      const controller = await TetuConverterApp.createController(
+        signer,
+        {
+          borrowManagerFabric: async c => (await CoreContractsHelper.createBorrowManager(
+            signer,
+            params?.useZeroController ? Misc.ZERO_ADDRESS : c.address,
+            params?.rewardFactor
+          )).address,
+          tetuConverterFabric: async () => ethers.Wallet.createRandom().address,
+          debtMonitorFabric: async () => ethers.Wallet.createRandom().address,
+          keeperFabric: async () => ethers.Wallet.createRandom().address,
+          swapManagerFabric: async () => ethers.Wallet.createRandom().address,
+          tetuLiquidatorAddress: ethers.Wallet.createRandom().address
+        }
+      );
+      return BorrowManager__factory.connect(await controller.borrowManager(), signer);
+    }
+    describe("Good paths", () => {
+      it("should return expected values", async () => {
+        // we can call any function of BorrowManager to ensure that it was created correctly
+        // let's check it using rewardFactor()
+
+        const rewardFactor = parseUnits("0.5");
+        const borrowManager = await makeConstructorTest({rewardFactor});
+        const ret = await borrowManager.rewardsFactor();
+
+        expect(ret.eq(rewardFactor)).eq(true);
+      });
+    });
+    describe("Bad paths", () => {
+      it("should revert if controller is zero", async () => {
+        await expect(
+          makeConstructorTest({useZeroController: true})
+        ).revertedWith("TC-1"); // ZERO_ADDRESS
+      });
+      it("should revert if reward factor is too large", async () => {
+        const rewardFactor = parseUnits("1"); // BorrowManager.REWARDS_FACTOR_DENOMINATOR_18
+        await expect(
+          makeConstructorTest({rewardFactor})
+        ).revertedWith("TC-29"); // INCORRECT_VALUE
+      });
+    });
+  });
+
   describe("setTargetHealthFactors", () => {
     async function prepareBorrowManagerWithGivenHealthFactor(minHealthFactor2: number) : Promise<BorrowManager> {
       const controller = await createController();
       await controller.setMinHealthFactor2(minHealthFactor2);
-      return CoreContractsHelper.createBorrowManager(signer, controller);
+      return CoreContractsHelper.createBorrowManager(signer, controller.address);
     }
     describe("Good paths", () => {
       describe("Set health factor for a single asset", () => {
@@ -487,7 +541,7 @@ describe("BorrowManager", () => {
           const healthFactor = 400;
 
           const controller = await createController();
-          const borrowManager = await CoreContractsHelper.createBorrowManager(signer, controller);
+          const borrowManager = await CoreContractsHelper.createBorrowManager(signer, controller.address);
 
           const before = await borrowManager.targetHealthFactorsForAssets(asset);
           await borrowManager.setTargetHealthFactors([asset], [healthFactor]);
@@ -526,7 +580,7 @@ describe("BorrowManager", () => {
           const healthFactor2 = 300;
 
           const controller = await createController();
-          const borrowManager = await CoreContractsHelper.createBorrowManager(signer, controller);
+          const borrowManager = await CoreContractsHelper.createBorrowManager(signer, controller.address);
 
           const before = [
             await borrowManager.targetHealthFactorsForAssets(asset1),
@@ -606,7 +660,7 @@ describe("BorrowManager", () => {
         const rewardsFactor = getBigNumberFrom(9, 17);
 
         const controller = await createController();
-        const borrowManager = await CoreContractsHelper.createBorrowManager(signer, controller);
+        const borrowManager = await CoreContractsHelper.createBorrowManager(signer, controller.address);
 
         await borrowManager.setRewardsFactor(rewardsFactor);
         const ret = (await borrowManager.rewardsFactor()).toString();
@@ -621,7 +675,7 @@ describe("BorrowManager", () => {
           const rewardsFactor = getBigNumberFrom(9, 17);
 
           const controller = await createController();
-          const borrowManager = await CoreContractsHelper.createBorrowManager(signer, controller);
+          const borrowManager = await CoreContractsHelper.createBorrowManager(signer, controller.address);
 
           const bmAsNotGov = BorrowManager__factory.connect(
             borrowManager.address,

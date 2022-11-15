@@ -33,7 +33,7 @@ export class TetuConverterApp {
     return CoreContractsHelper.createController(
       deployer,
       p?.tetuConverterFabric || (async c => (await CoreContractsHelper.createTetuConverter(deployer, c)).address),
-      p?.borrowManagerFabric || (async c => (await CoreContractsHelper.createBorrowManager(deployer, c)).address),
+      p?.borrowManagerFabric || (async c => (await CoreContractsHelper.createBorrowManager(deployer, c.address)).address),
       p?.debtMonitorFabric || (async c => (await CoreContractsHelper.createDebtMonitor(deployer, c.address)).address),
       p?.keeperFabric || (async c => (await CoreContractsHelper.createKeeper(
         deployer,

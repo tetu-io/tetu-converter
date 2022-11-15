@@ -295,6 +295,25 @@ describe("Controller", () => {
           controllerAsNotGov.offerGovernanceChange(newGovernance)
         ).revertedWith("TC-9"); // GOVERNANCE_ONLY
       });
+      it("should revert if not new-governance tries to accept", async () => {
+        const {controller} = await createTestController(getRandomMembersValues());
+
+        const existGovernance = await controller.governance();
+        const newGovernance = ethers.Wallet.createRandom().address;
+        const notNewGovernance = ethers.Wallet.createRandom().address;
+
+        const controllerAsOldGov = Controller__factory.connect(controller.address,
+          await DeployerUtils.startImpersonate(existGovernance)
+        );
+        const controllerAsNotNewGov = Controller__factory.connect(controller.address,
+          await DeployerUtils.startImpersonate(notNewGovernance)
+        );
+
+        await controllerAsOldGov.offerGovernanceChange(newGovernance);
+        await expect(
+          controllerAsNotNewGov.acceptGovernanceChange()
+        ).revertedWith("TC-9"); // GOVERNANCE_ONLY
+      });
     });
   });
 

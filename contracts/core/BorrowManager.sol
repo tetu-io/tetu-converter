@@ -91,7 +91,7 @@ contract BorrowManager is IBorrowManager {
     controller = IController(controller_);
 
     // we assume rewards amount should be downgraded in calcs coz liquidation gaps
-    // todo require(rewardsFactor_ < REWARDS_FACTOR_DENOMINATOR_18);
+    require(rewardsFactor_ < REWARDS_FACTOR_DENOMINATOR_18, AppErrors.INCORRECT_VALUE);
     rewardsFactor = rewardsFactor_;
   }
 

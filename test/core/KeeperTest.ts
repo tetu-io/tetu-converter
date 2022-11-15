@@ -71,7 +71,7 @@ describe("KeeperTest", () => {
     const controller: Controller = await TetuConverterApp.createController(
       signer,
       {
-        borrowManagerFabric: async c => (await CoreContractsHelper.createBorrowManager(signer, c)).address,
+        borrowManagerFabric: async c => (await CoreContractsHelper.createBorrowManager(signer, c.address)).address,
         tetuConverterFabric: async () => (await MocksHelper.createKeeperCallbackMock(signer)).address,
         debtMonitorFabric: async () => (await MocksHelper.createDebtMonitorCheckHealthMock(signer)).address,
         keeperFabric: wrapKeeper
