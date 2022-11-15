@@ -114,7 +114,7 @@ describe("TetuConverterTest", () => {
     usePoolAdapterStub: boolean = false
   ) : Promise<IPrepareResults>{
     const periodInBlocks = 117;
-    const {sourceToken, targetToken, pools} = await BorrowManagerHelper.initAppPoolsWithTwoAssets(
+    const {sourceToken, targetToken, poolsInfo} = await BorrowManagerHelper.initAppPoolsWithTwoAssets(
       core,
       deployer,
       tt,
@@ -130,7 +130,7 @@ describe("TetuConverterTest", () => {
 
     let cToken: string | undefined;
     const poolAdapters: string[] = [];
-    for (const pi of pools) {
+    for (const pi of poolsInfo) {
       if (! cToken) {
         cToken = pi.asset2cTokens.get(sourceToken.address) || "";
       }
@@ -156,7 +156,7 @@ describe("TetuConverterTest", () => {
 
     return {
       core,
-      poolInstances: pools,
+      poolInstances: poolsInfo,
       cToken: cToken || "",
       userContract,
       sourceToken,

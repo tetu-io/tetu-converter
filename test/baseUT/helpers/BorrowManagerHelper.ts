@@ -63,7 +63,7 @@ export interface IPrepareContractsSetupParams {
 export interface IInitAppPoolsWithTwoAssetsResults {
     sourceToken: MockERC20,
     targetToken: MockERC20,
-    pools: IPoolInstanceInfo[],
+    poolsInfo: IPoolInstanceInfo[],
 }
 
 export class BorrowManagerHelper {
@@ -139,7 +139,7 @@ export class BorrowManagerHelper {
         const sourceToken = assets[0];
         const targetToken = assets[1];
 
-        return {sourceToken, targetToken, pools};
+        return {sourceToken, targetToken, poolsInfo: pools};
     }
 
     static getBmInputParamsSinglePool(

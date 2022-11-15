@@ -76,7 +76,7 @@ interface IBorrowManager {
 
   /// @notice Return target health factor with decimals 2 for the asset
   ///         If there is no custom value for asset, target health factor from the controller should be used
-  function getTargetHealthFactor2(address asset) external view returns (uint);
+  function getTargetHealthFactor2(address asset) external view returns (uint16);
 
   /// @notice Reward APR is taken into account with given factor
   ///         Result APR = borrow-apr - supply-apr - [REWARD-FACTOR]/Denominator * rewards-APR

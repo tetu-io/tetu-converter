@@ -19,7 +19,6 @@ import "../interfaces/ISwapConverter.sol";
 import "../interfaces/IKeeperCallback.sol";
 import "../interfaces/ITetuConverterCallback.sol";
 import "./AppUtils.sol";
-import "hardhat/console.sol";
 
 /// @notice Main application contract
 contract TetuConverter is ITetuConverter, IKeeperCallback {
@@ -180,8 +179,6 @@ contract TetuConverter is ITetuConverter, IKeeperCallback {
         // - unhealthy, health factor is greater 1 but it's less min-allowed-value.
         //              It means, that because of some reasons keeper doesn't make rebalance
         (,, uint healthFactor18,,) = IPoolAdapter(poolAdapter).getStatus();
-        console.log("_convert.healthFactor18", healthFactor18);
-        console.log("_convert.min", (uint(controller.minHealthFactor2()) * 10**(18-2)));
         if (healthFactor18 < 1e18) {
           // the pool adapter is unhealthy, we should mark it as dirty and create new pool adapter for the borrow
           _borrowManager().markPoolAdapterAsDirty(converter_, msg.sender, collateralAsset_, borrowAsset_);

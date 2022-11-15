@@ -26,6 +26,7 @@ import {TetuConverterApp} from "../baseUT/helpers/TetuConverterApp";
 import {CoreContracts} from "../baseUT/types/CoreContracts";
 import {deprecate} from "util";
 import {parseUnits} from "ethers/lib/utils";
+import {BalanceUtils} from "../baseUT/utils/BalanceUtils";
 
 describe("BorrowManager", () => {
 //region Global vars for all tests
@@ -240,28 +241,43 @@ describe("BorrowManager", () => {
     rewardsFactor: BigNumber;
     amountCollateralInBorrowAsset36: BigNumber;
   }
+  interface IMakeTestFindConverterParams {
+    setTinyMaxAmountToSupply?: boolean;
+    targetHealthFactor?: number;
+    estimateGas?: boolean;
+    targetAssetToSearch?: string;
+  }
   async function makeTestFindConverter(
     tt: IBorrowInputParams,
     sourceAmountNum: number,
     periodInBlocks: number,
-    targetHealthFactor?: number,
-    estimateGas: boolean = false,
+    params?: IMakeTestFindConverterParams
   ) : Promise<IMakeTestFindConverterResults> {
     const core = await CoreContracts.build(await TetuConverterApp.createController(signer));
-    const {sourceToken, targetToken, pools} = await BorrowManagerHelper.initAppPoolsWithTwoAssets(core, signer, tt);
-    if (targetHealthFactor) {
-      await core.controller.setMaxHealthFactor2(2 * targetHealthFactor * 100);
-      await core.controller.setTargetHealthFactor2(targetHealthFactor * 100);
+    const {sourceToken, targetToken, poolsInfo} = await BorrowManagerHelper.initAppPoolsWithTwoAssets(core, signer, tt);
+
+    if (params?.targetHealthFactor) {
+      await core.controller.setMaxHealthFactor2(2 * params.targetHealthFactor * 100);
+      await core.controller.setTargetHealthFactor2(params.targetHealthFactor * 100);
+    }
+
+    if (params?.setTinyMaxAmountToSupply) {
+      for (const pi of poolsInfo) {
+        await LendingPlatformMock__factory.connect(pi.platformAdapter, signer).setMaxAmountToSupply(
+          sourceToken.address,
+          BigNumber.from("1") // tiny amount
+        );
+      }
     }
 
     console.log("Source amount:", getBigNumberFrom(sourceAmountNum, await sourceToken.decimals()).toString());
     const ret = await core.bm.findConverter({
       sourceToken: sourceToken.address,
       sourceAmount: getBigNumberFrom(sourceAmountNum, await sourceToken.decimals()),
-      targetToken: targetToken.address,
+      targetToken: params?.targetAssetToSearch || targetToken.address,
       periodInBlocks
     });
-    const gas = estimateGas
+    const gas = params?.estimateGas
       ? await core.bm.estimateGas.findConverter({
         sourceToken: sourceToken.address,
         sourceAmount: getBigNumberFrom(sourceAmountNum, await sourceToken.decimals()),
@@ -271,7 +287,7 @@ describe("BorrowManager", () => {
       : undefined;
 
     return {
-      outPoolIndex0: pools.findIndex(x => x.converter === ret.converter),
+      outPoolIndex0: poolsInfo.findIndex(x => x.converter === ret.converter),
       outApr18: ret.apr18,
       outMaxTargetAmount: ret.maxTargetAmount,
       outGas: gas,
@@ -319,12 +335,12 @@ describe("BorrowManager", () => {
 
     // initialize app
     const core = await CoreContracts.build(await TetuConverterApp.createController(signer));
-    const {sourceToken, targetToken, pools} = await BorrowManagerHelper.initAppPoolsWithTwoAssets(core, signer, p);
+    const {sourceToken, targetToken, poolsInfo} = await BorrowManagerHelper.initAppPoolsWithTwoAssets(core, signer, p);
 
     await core.bm.setRewardsFactor(rewardsFactor);
 
     // set up APR
-    const platformAdapter = await LendingPlatformMock__factory.connect(pools[0].platformAdapter, signer);
+    const platformAdapter = await LendingPlatformMock__factory.connect(poolsInfo[0].platformAdapter, signer);
     await platformAdapter.changeBorrowRate(
       targetToken.address,
       getBigNumberFrom(borrowRate, p.targetDecimals)
@@ -432,7 +448,7 @@ describe("BorrowManager", () => {
     };
 
     const core = await CoreContracts.build(await TetuConverterApp.createController(signer));
-    const {sourceToken, targetToken, pools} = await BorrowManagerHelper.initAppPoolsWithTwoAssets(core, signer, tt);
+    const {sourceToken, targetToken, poolsInfo} = await BorrowManagerHelper.initAppPoolsWithTwoAssets(core, signer, tt);
 
     const tc = ITetuConverter__factory.connect(await core.controller.tetuConverter(), signer);
     const bmAsTc = BorrowManager__factory.connect(
@@ -441,7 +457,7 @@ describe("BorrowManager", () => {
     );
 
     // register pool adapter
-    const converters = [pools[0].converter, pools[1].converter];
+    const converters = [poolsInfo[0].converter, poolsInfo[1].converter];
     const users = [...Array(countUsers).keys()].map(x => ethers.Wallet.createRandom().address);
     const assetPairs = [
       {
@@ -469,7 +485,7 @@ describe("BorrowManager", () => {
       app: {
         borrowManager: core.bm,
         controller: core.controller,
-        pools
+        pools: poolsInfo
       }
     };
   }
@@ -541,7 +557,7 @@ describe("BorrowManager", () => {
           const healthFactor = 400;
 
           const controller = await createController();
-          const borrowManager = await CoreContractsHelper.createBorrowManager(signer, controller.address);
+          const borrowManager = BorrowManager__factory.connect(await controller.borrowManager(), signer);
 
           const before = await borrowManager.targetHealthFactorsForAssets(asset);
           await borrowManager.setTargetHealthFactors([asset], [healthFactor]);
@@ -580,7 +596,7 @@ describe("BorrowManager", () => {
           const healthFactor2 = 300;
 
           const controller = await createController();
-          const borrowManager = await CoreContractsHelper.createBorrowManager(signer, controller.address);
+          const borrowManager = BorrowManager__factory.connect(await controller.borrowManager(), signer);
 
           const before = [
             await borrowManager.targetHealthFactorsForAssets(asset1),
@@ -660,7 +676,7 @@ describe("BorrowManager", () => {
         const rewardsFactor = getBigNumberFrom(9, 17);
 
         const controller = await createController();
-        const borrowManager = await CoreContractsHelper.createBorrowManager(signer, controller.address);
+        const borrowManager = BorrowManager__factory.connect(await controller.borrowManager(), signer);
 
         await borrowManager.setRewardsFactor(rewardsFactor);
         const ret = (await borrowManager.rewardsFactor()).toString();
@@ -675,7 +691,7 @@ describe("BorrowManager", () => {
           const rewardsFactor = getBigNumberFrom(9, 17);
 
           const controller = await createController();
-          const borrowManager = await CoreContractsHelper.createBorrowManager(signer, controller.address);
+          const borrowManager = BorrowManager__factory.connect(await controller.borrowManager(), signer);
 
           const bmAsNotGov = BorrowManager__factory.connect(
             borrowManager.address,
@@ -1125,7 +1141,7 @@ describe("BorrowManager", () => {
               ]
             };
 
-            const ret = await makeTestFindConverter(p, sourceAmount, period, targetHealthFactor);
+            const ret = await makeTestFindConverter(p, sourceAmount, period, {targetHealthFactor});
             console.log(ret);
             const sret = [
               ret.outPoolIndex0,
@@ -1152,10 +1168,19 @@ describe("BorrowManager", () => {
           });
         });
         describe("Example 4: Pool 3 has a lowest borrow rate", () => {
-          it("should return Pool 3 and expected amount", async () => {
+          interface IExample4Results {
+            poolIndex0: number;
+            outMaxTargetAmount: string;
+            apr18: string;
+            expectedApr18: string;
+            input: IBorrowInputParams;
+          }
+
+          async function makeExample4Test(
+            params?: IMakeTestFindConverterParams
+          ): Promise<IExample4Results>{
             const bestBorrowRate = 270;
             const sourceAmount = 1000;
-            const targetHealthFactor = 1.6;
             const period = 1;
             const input: IBorrowInputParams = {
               collateralFactor: 0.9,
@@ -1187,26 +1212,57 @@ describe("BorrowManager", () => {
               ]
             };
 
-            const ret = await makeTestFindConverter(input, sourceAmount, period, targetHealthFactor);
+            const ret = await makeTestFindConverter(
+              input,
+              sourceAmount,
+              period,
+              params
+            );
+            return {
+              poolIndex0: ret.outPoolIndex0,
+              outMaxTargetAmount: ethers.utils.formatUnits(ret.outMaxTargetAmount, input.targetDecimals),
+              apr18: ethers.utils.formatUnits(ret.outApr18, input.targetDecimals),
+              expectedApr18: ethers.utils.formatUnits(
+                getExpectedApr18(
+                  getBigNumberFrom(bestBorrowRate * period, 36),
+                  BigNumber.from(0),
+                  BigNumber.from(0),
+                  ret.amountCollateralInBorrowAsset36,
+                  ret.rewardsFactor
+                ),
+                input.targetDecimals
+              ),
+              input
+            };
+          }
+
+          it("should return Pool 3 and expected amount", async () => {
+            const r = await makeExample4Test({targetHealthFactor: 1.6});
             const sret = [
-              ret.outPoolIndex0,
-              ethers.utils.formatUnits(ret.outMaxTargetAmount, input.targetDecimals),
-              ethers.utils.formatUnits(ret.outApr18, input.targetDecimals)
+              r.poolIndex0,
+              r.outMaxTargetAmount,
+              r.apr18
             ].join();
 
-            const expectedApr18 = getExpectedApr18(
-              getBigNumberFrom(bestBorrowRate * period, 36),
-              BigNumber.from(0),
-              BigNumber.from(0),
-              ret.amountCollateralInBorrowAsset36,
-              ret.rewardsFactor
-            );
             const sexpected = [
               3, // best pool
               "2250.0", // Use https://docs.google.com/spreadsheets/d/1oLeF7nlTefoN0_9RWCuNc62Y7W72-Yk7/edit?usp=sharing&ouid=116979561535348539867&rtpof=true&sd=true
-              // to calculate expected amounts
-              ethers.utils.formatUnits(expectedApr18, input.targetDecimals),
+              r.expectedApr18,
             ].join();
+
+            expect(sret).equal(sexpected);
+          });
+          it("should not find pool if all pools have too small max allowed amount to supply", async () => {
+            const r = await makeExample4Test({setTinyMaxAmountToSupply: true});
+            const sret = [r.poolIndex0, r.outMaxTargetAmount, r.apr18].join();
+            const sexpected = [-1, "0.0", "0.0"].join();
+
+            expect(sret).equal(sexpected);
+          });
+          it("should not find a pool for different target asset", async () => {
+            const r = await makeExample4Test({targetAssetToSearch: ethers.Wallet.createRandom().address});
+            const sret = [r.poolIndex0, r.outMaxTargetAmount, r.apr18].join();
+            const sexpected = [-1, "0.0", "0.0"].join();
 
             expect(sret).equal(sexpected);
           });
@@ -1291,7 +1347,7 @@ describe("BorrowManager", () => {
             ]
           };
 
-          const ret = await makeTestFindConverter(input, sourceAmount, period, targetHealthFactor);
+          const ret = await makeTestFindConverter(input, sourceAmount, period, {targetHealthFactor});
           const sret = [
             ret.outPoolIndex0,
             ethers.utils.formatUnits(ret.outMaxTargetAmount, input.targetDecimals),
@@ -1328,8 +1384,7 @@ describe("BorrowManager", () => {
           const ret = await makeTestFindConverter(input,
             sourceAmount,
             period,
-            healthFactor,
-            true // we need to estimate gas
+            {targetHealthFactor: healthFactor, estimateGas: true} // we need to estimate gas
           );
           console.log(`findPools: estimated gas for ${countPools} pools`, ret.outGas);
           return ret.outGas || BigNumber.from(0);
@@ -1369,10 +1424,10 @@ describe("BorrowManager", () => {
           // create borrow manager (BM) with single pool
           const tt = BorrowManagerHelper.getBmInputParamsSinglePool();
           const core = await CoreContracts.build(await TetuConverterApp.createController(signer));
-          const {sourceToken, targetToken, pools} = await BorrowManagerHelper.initAppPoolsWithTwoAssets(core, signer, tt);
+          const {sourceToken, targetToken, poolsInfo} = await BorrowManagerHelper.initAppPoolsWithTwoAssets(core, signer, tt);
 
           // register pool adapter
-          const converter = pools[0].converter;
+          const converter = poolsInfo[0].converter;
           const user = ethers.Wallet.createRandom().address;
           const collateral = sourceToken.address;
 
@@ -1400,7 +1455,7 @@ describe("BorrowManager", () => {
           ].join("\n");
 
           const expected = [
-            pools[0].converter,
+            poolsInfo[0].converter,
             sourceToken.address,
             user,
             targetToken.address
@@ -1448,7 +1503,7 @@ describe("BorrowManager", () => {
         it("should revert", async () => {
           const tt = BorrowManagerHelper.getBmInputParamsSinglePool();
           const core = await CoreContracts.build(await TetuConverterApp.createController(signer));
-          const {sourceToken, targetToken, pools} = await BorrowManagerHelper.initAppPoolsWithTwoAssets(core, signer, tt);
+          const {sourceToken, targetToken, poolsInfo} = await BorrowManagerHelper.initAppPoolsWithTwoAssets(core, signer, tt);
 
           const bmAsTc = IBorrowManager__factory.connect(
             core.bm.address,
@@ -1468,11 +1523,11 @@ describe("BorrowManager", () => {
         it("should revert", async () => {
           const tt = BorrowManagerHelper.getBmInputParamsSinglePool();
           const core = await CoreContracts.build(await TetuConverterApp.createController(signer));
-          const {sourceToken, targetToken, pools} = await BorrowManagerHelper.initAppPoolsWithTwoAssets(core, signer, tt);
+          const {sourceToken, targetToken, poolsInfo} = await BorrowManagerHelper.initAppPoolsWithTwoAssets(core, signer, tt);
 
           const bmAsNotTc = IBorrowManager__factory.connect(core.bm.address, signer);
 
-          const converter = pools[0].converter;
+          const converter = poolsInfo[0].converter;
           const user = ethers.Wallet.createRandom().address;
           const collateral = sourceToken.address;
 
@@ -1781,6 +1836,46 @@ describe("BorrowManager", () => {
           borrowManagerAsNotTetuConverter.markPoolAdapterAsDirty(pa1.originConverter, pa1.user, pa1.collateralAsset, pa1.borrowAsset)
         ).revertedWith("TC-48"); // ACCESS_DENIED
       });
+    });
+  });
+
+  describe("getTargetHealthFactor2", () => {
+    it("should return target factor for the given asset", async () => {
+      const asset = ethers.Wallet.createRandom().address;
+      const healthFactorForAsset = 207;
+      const defaultTargetHealthFactor = 217;
+
+      const controller = await createController();
+      const borrowManager = BorrowManager__factory.connect(await controller.borrowManager(), signer);
+
+      await controller.setTargetHealthFactor2(defaultTargetHealthFactor);
+      await borrowManager.setTargetHealthFactors([asset], [healthFactorForAsset]);
+
+      const ret = await borrowManager.getTargetHealthFactor2(asset);
+
+      expect(ret).equal(healthFactorForAsset);
+    });
+    it("should return default value if there is not specific value for the given asset", async () => {
+      const asset = ethers.Wallet.createRandom().address;
+      const defaultTargetHealthFactor = 217;
+
+      const controller = await createController();
+      const borrowManager = BorrowManager__factory.connect(await controller.borrowManager(), signer);
+
+      await controller.setTargetHealthFactor2(defaultTargetHealthFactor);
+      const targetFactorForAsset = await borrowManager.targetHealthFactorsForAssets(asset);
+
+      const ret = [
+        targetFactorForAsset,
+        await borrowManager.getTargetHealthFactor2(asset)
+      ].map(x => BalanceUtils.toString(x)).join("\n");
+
+      const expected = [
+        0,
+        defaultTargetHealthFactor
+      ].map(x => BalanceUtils.toString(x)).join("\n");
+
+      expect(ret).equal(expected);
     });
   });
 //endregion Unit tests

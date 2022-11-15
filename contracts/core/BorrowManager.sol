@@ -108,10 +108,6 @@ contract BorrowManager is IBorrowManager {
     );
   }
 
-  function _onlyTetuConverter() internal view {
-    require(msg.sender == controller.tetuConverter(), AppErrors.TETU_CONVERTER_ONLY);
-  }
-
   /// @notice Ensure that msg.sender is registered pool adapter
   function _onlyGovernance() internal view {
     require(msg.sender == controller.governance(), AppErrors.GOVERNANCE_ONLY);
@@ -206,11 +202,8 @@ contract BorrowManager is IBorrowManager {
     // unregister the asset pairs
     for (uint i = 0; i < lenAssets; i = i.uncheckedInc()) {
       uint assetPairKey = getAssetPairKey(leftAssets_[i], rightAssets_[i]);
-      // todo you don't need to check `contains`, see at `remove` function, it just returns false if not exist
-      if (_pairsList[assetPairKey].contains(platformAdapter_)) {
-        _pairsList[assetPairKey].remove(platformAdapter_);
-        _platformAdapterPairs[platformAdapter_].remove(assetPairKey);
-      }
+      _pairsList[assetPairKey].remove(platformAdapter_);
+      _platformAdapterPairs[platformAdapter_].remove(assetPairKey);
     }
 
     // if platform adapter doesn't have any asset pairs, we unregister it
@@ -254,7 +247,7 @@ contract BorrowManager is IBorrowManager {
     EnumerableSet.AddressSet storage pas = _pairsList[getAssetPairKey(p_.sourceToken, p_.targetToken)];
 
     if (pas.length() != 0) {
-      (converter, maxTargetAmount, apr18) = _findPool(pas, p_, _getTargetHealthFactor2(p_.targetToken));
+      (converter, maxTargetAmount, apr18) = _findPool(pas, p_, getTargetHealthFactor2(p_.targetToken));
     }
 
     return (converter, maxTargetAmount, apr18);
@@ -293,19 +286,18 @@ contract BorrowManager is IBorrowManager {
       * int(10**18)
       / int(plan.amountCollateralInBorrowAsset36);
 
-      // todo maybe union with &&?
-      if (plan.converter != address(0)) {
+      if (
+        plan.converter != address(0)
         // check if we are able to supply required collateral
-        if (plan.maxAmountToSupply > p_.sourceAmount) {
-          if (converter == address(0) || planApr18 < apr18) {
-            // take the pool with lowest APR and with enough liquidity
-            if (plan.maxAmountToBorrow >= plan.amountToBorrow) {
-              converter = plan.converter;
-              maxTargetAmount = plan.amountToBorrow;
-              apr18 = planApr18;
-            }
-          }
-        }
+        && plan.maxAmountToSupply > p_.sourceAmount
+        // take the pool with lowest APR ..
+        && (converter == address(0) || planApr18 < apr18)
+        // ... and with enough liquidity
+        && plan.maxAmountToBorrow >= plan.amountToBorrow
+      ) {
+        converter = plan.converter;
+        maxTargetAmount = plan.amountToBorrow;
+        apr18 = planApr18;
       }
     }
 
@@ -401,17 +393,11 @@ contract BorrowManager is IBorrowManager {
   ///         Getters - health factor
   ///////////////////////////////////////////////////////
 
-  function getTargetHealthFactor2(address asset) external view override returns (uint) {
-    return _getTargetHealthFactor2(asset);
-  }
-
-  // todo make public, same gas
-  function _getTargetHealthFactor2(address asset) internal view returns (uint16) {
-    uint16 dest = targetHealthFactorsForAssets[asset];
-    if (dest == 0) {
-      dest = controller.targetHealthFactor2();
-    }
-    return dest;
+  function getTargetHealthFactor2(address asset_) public view override returns (uint16) {
+    uint16 dest = targetHealthFactorsForAssets[asset_];
+    return dest == 0
+      ? controller.targetHealthFactor2()
+      : dest;
   }
 
   ///////////////////////////////////////////////////////

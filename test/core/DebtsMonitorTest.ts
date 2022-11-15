@@ -140,7 +140,7 @@ describe("DebtsMonitor", () => {
     const periodInBlocks = 117;
 
     const core = await CoreContracts.build(await TetuConverterApp.createController(deployer));
-    const {sourceToken, targetToken, pools} = await BorrowManagerHelper.initAppPoolsWithTwoAssets(
+    const {sourceToken, targetToken, poolsInfo} = await BorrowManagerHelper.initAppPoolsWithTwoAssets(
       core,
       deployer,
       tt,
@@ -154,7 +154,7 @@ describe("DebtsMonitor", () => {
     );
 
     const poolAdapters: string[] = [];
-    for (const p of pools) {
+    for (const p of poolsInfo) {
       // we need to set up a pool adapter
       await bmAsTc.registerPoolAdapter(
         p.converter,
@@ -177,7 +177,7 @@ describe("DebtsMonitor", () => {
       userContract,
       sourceToken,
       targetToken,
-      pools,
+      pools: poolsInfo,
       poolAdapters
     };
   }

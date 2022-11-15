@@ -23,8 +23,9 @@ contract LendingPlatformMock is IPlatformAdapter {
   mapping(address => uint256) public supplyRatesBt18;
   /// @notice asset => total reward amount, decimals 36
   mapping(address => uint256) public rewardsAmountsBt36;
-  /// @notice asset => liquidity
-  mapping(address => uint256) public liquidity;
+  /// @notice asset => max available liquidity to borrow
+  mapping(address => uint256) public liquidityToBorrow;
+  mapping(address => uint) public maxAmountToSupply;
   /// @notice asset => cToken
   mapping(address => address) public cTokens;
 
@@ -43,7 +44,7 @@ contract LendingPlatformMock is IPlatformAdapter {
     _converters = converters_;
 
     for (uint i = 0; i < assets_.length; ++i) {
-      liquidity[assets_[i]] = liquidity_[i];
+      liquidityToBorrow[assets_[i]] = liquidity_[i];
       cTokens[assets_[i]] = cTokens_[i];
     }
   }
@@ -80,6 +81,11 @@ contract LendingPlatformMock is IPlatformAdapter {
 
   function changeBorrowRate(address asset_, uint borrowRate_) external {
     borrowRates[asset_] = borrowRate_;
+  }
+
+  function setMaxAmountToSupply(address asset_, uint maxAmountToSupply_) external {
+    maxAmountToSupply[asset_] = maxAmountToSupply_;
+    console.log("setMaxAmountToSupply", asset_, maxAmountToSupply_, address(this));
   }
 
   ///////////////////////////////////////////////////////////////////////////////
@@ -119,8 +125,10 @@ contract LendingPlatformMock is IPlatformAdapter {
       converter: _converters[0], //TODO: make converter selectable
       liquidationThreshold18: liquidationThresholds18[collateralAsset_],
       ltv18: liquidationThresholds18[collateralAsset_],
-      maxAmountToBorrow: liquidity[borrowAsset_],
-      maxAmountToSupply: type(uint).max,
+      maxAmountToBorrow: liquidityToBorrow[borrowAsset_],
+      maxAmountToSupply: maxAmountToSupply[collateralAsset_] == 0
+        ? type(uint).max
+        : maxAmountToSupply[collateralAsset_],
       amountToBorrow: amountToBorrow,
       amountCollateralInBorrowAsset36: amountCollateralInBorrowAsset36,
 // For simplicity, costs and incomes don't depend on amount of borrow
