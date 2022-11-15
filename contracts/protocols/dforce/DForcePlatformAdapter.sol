@@ -67,7 +67,7 @@ contract DForcePlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
     controller = IController(controller_);
     converter = templatePoolAdapter_;
 
-    _setupCTokens(activeCTokens_, true);
+    _registerCTokens(activeCTokens_);
   }
 
   /// @notice Initialize {poolAdapter_} created from {converter_} using minimal proxy pattern
@@ -93,24 +93,18 @@ contract DForcePlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
     );
   }
 
-  // todo why you suppose it will be changed?
-  function setupCTokens(address[] memory cTokens_, bool makeActive_) external {
+  /// @notice Register new CTokens supported by the market
+  /// @dev It's possible to add CTokens only because, we can add unregister function if necessary
+  function registerCTokens(address[] memory cTokens_) external {
     _onlyGovernance();
-    _setupCTokens(cTokens_, makeActive_);
+    _registerCTokens(cTokens_);
   }
 
-  function _setupCTokens(address[] memory cTokens_, bool makeActive_) internal {
+  function _registerCTokens(address[] memory cTokens_) internal {
     uint lenCTokens = cTokens_.length;
-    if (makeActive_) {
-      for (uint i = 0; i < lenCTokens; i = i.uncheckedInc()) {
-        // Special case: there is no underlying for WMATIC, so we store iMATIC:WMATIC
-        address underlying = DForceAprLib.getUnderlying(cTokens_[i]);
-        activeAssets[underlying] = cTokens_[i];
-      }
-    } else {
-      for (uint i = 0; i < lenCTokens; i = i.uncheckedInc()) {
-        delete activeAssets[cTokens_[i]];
-      }
+    for (uint i = 0; i < lenCTokens; i = i.uncheckedInc()) {
+      // Special case: there is no underlying for WMATIC, so we store iMATIC:WMATIC
+      activeAssets[DForceAprLib.getUnderlying(cTokens_[i])] = cTokens_[i];
     }
   }
 

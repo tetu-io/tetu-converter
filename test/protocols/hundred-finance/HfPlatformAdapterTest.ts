@@ -559,6 +559,78 @@ describe("Hundred finance integration tests, platform adapter", () => {
       });
     });
   });
+
+  describe("registerCTokens", () => {
+    describe("Good paths", () => {
+      it("should return expected values", async () => {
+        const controller = await TetuConverterApp.createController(deployer);
+        const platformAdapter = await AdaptersHelper.createHundredFinancePlatformAdapter(
+          deployer,
+          controller.address,
+          HundredFinanceHelper.getComptroller(deployer).address,
+          ethers.Wallet.createRandom().address,
+          [MaticAddresses.hUSDC, MaticAddresses.hETH]
+        );
+        await platformAdapter.registerCTokens(
+          [MaticAddresses.hDAI, MaticAddresses.hDAI, MaticAddresses.hETH]
+        );
+
+        const ret = [
+          await platformAdapter.activeAssets(MaticAddresses.USDC),
+          await platformAdapter.activeAssets(MaticAddresses.WETH),
+          await platformAdapter.activeAssets(MaticAddresses.DAI),
+          await platformAdapter.activeAssets(MaticAddresses.USDT), // (!) not registered
+        ].join();
+
+        const expected = [
+          MaticAddresses.hUSDC,
+          MaticAddresses.hETH,
+          MaticAddresses.hDAI,
+          Misc.ZERO_ADDRESS
+        ].join();
+
+        expect(ret).eq(expected);
+      });
+    });
+    describe("Bad paths", () => {
+      describe("Not governance", () => {
+        it("should revert", async () => {
+          const controller = await TetuConverterApp.createController(deployer);
+          const platformAdapter = await AdaptersHelper.createHundredFinancePlatformAdapter(
+            deployer,
+            controller.address,
+            HundredFinanceHelper.getComptroller(deployer).address,
+            ethers.Wallet.createRandom().address,
+            [MaticAddresses.hUSDC, MaticAddresses.hETH]
+          );
+          const platformAdapterAsNotGov = HfPlatformAdapter__factory.connect(
+            platformAdapter.address,
+            await DeployerUtils.startImpersonate(ethers.Wallet.createRandom().address)
+          );
+          await expect(
+            platformAdapterAsNotGov.registerCTokens([MaticAddresses.hUSDT])
+          ).revertedWith("TC-9"); // GOVERNANCE_ONLY
+        });
+      });
+      describe("Try to add not CToken", () => {
+        it("should revert", async () => {
+          const controller = await TetuConverterApp.createController(deployer);
+          const platformAdapter = await AdaptersHelper.createHundredFinancePlatformAdapter(
+            deployer,
+            controller.address,
+            HundredFinanceHelper.getComptroller(deployer).address,
+            ethers.Wallet.createRandom().address,
+            [MaticAddresses.hUSDC, MaticAddresses.hETH]
+          );
+          await expect(
+            platformAdapter.registerCTokens(
+              [ethers.Wallet.createRandom().address] // (!)
+            )
+          ).revertedWith("");
+        });
+      });
+    });
+  });
 //endregion Unit tests
 
 });

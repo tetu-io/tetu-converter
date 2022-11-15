@@ -689,6 +689,80 @@ describe("DForce integration tests, platform adapter", () => {
       });
     });
   });
+
+  describe("registerCTokens", () => {
+    describe("Good paths", () => {
+      it("should return expected values", async () => {
+        const controller = await TetuConverterApp.createController(deployer);
+        const platformAdapter = await AdaptersHelper.createDForcePlatformAdapter(
+          deployer,
+          controller.address,
+          DForceHelper.getController(deployer).address,
+          ethers.Wallet.createRandom().address,
+          [MaticAddresses.dForce_iUSDC, MaticAddresses.dForce_iWETH]
+        );
+        await platformAdapter.registerCTokens(
+          [MaticAddresses.dForce_iCRV, MaticAddresses.dForce_iCRV, MaticAddresses.dForce_iWETH]
+        );
+
+        const ret = [
+          await platformAdapter.activeAssets(MaticAddresses.USDC),
+          await platformAdapter.activeAssets(MaticAddresses.WETH),
+          await platformAdapter.activeAssets(MaticAddresses.CRV),
+          await platformAdapter.activeAssets(MaticAddresses.USDT), // (!) not registered
+        ].join();
+
+        const expected = [
+          MaticAddresses.dForce_iUSDC,
+          MaticAddresses.dForce_iWETH,
+          MaticAddresses.dForce_iCRV,
+          Misc.ZERO_ADDRESS
+        ].join();
+
+        expect(ret).eq(expected);
+      });
+    });
+    describe("Bad paths", () => {
+      describe("Not governance", () => {
+        it("should revert", async () => {
+          const controller = await TetuConverterApp.createController(deployer);
+          const platformAdapter = await AdaptersHelper.createDForcePlatformAdapter(
+            deployer,
+            controller.address,
+            DForceHelper.getController(deployer).address,
+            ethers.Wallet.createRandom().address,
+            [MaticAddresses.dForce_iUSDC, MaticAddresses.dForce_iWETH]
+          );
+          const platformAdapterAsNotGov = DForcePlatformAdapter__factory.connect(
+            platformAdapter.address,
+            await DeployerUtils.startImpersonate(ethers.Wallet.createRandom().address)
+          );
+          await expect(
+            platformAdapterAsNotGov.registerCTokens(
+              [MaticAddresses.dForce_iCRV, MaticAddresses.dForce_iCRV, MaticAddresses.dForce_iWETH]
+            )
+          ).revertedWith("TC-9"); // GOVERNANCE_ONLY
+        });
+      });
+      describe("Try to add not CToken", () => {
+        it("should revert", async () => {
+          const controller = await TetuConverterApp.createController(deployer);
+          const platformAdapter = await AdaptersHelper.createDForcePlatformAdapter(
+            deployer,
+            controller.address,
+            DForceHelper.getController(deployer).address,
+            ethers.Wallet.createRandom().address,
+            [MaticAddresses.dForce_iUSDC, MaticAddresses.dForce_iWETH]
+          );
+          await expect(
+            platformAdapter.registerCTokens(
+              [ethers.Wallet.createRandom().address] // (!)
+            )
+          ).revertedWith("");
+        });
+      });
+    });
+  });
 //endregion Unit tests
 
 });
