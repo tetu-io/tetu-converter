@@ -28,7 +28,7 @@ contract HfPriceOracleMock {
     return prices[cToken_];
   }
 
-  function renounceOwnership() external {
+  function renounceOwnership() external view {
     console.log("HfPriceOracleMock.renounceOwnership");
   }
 

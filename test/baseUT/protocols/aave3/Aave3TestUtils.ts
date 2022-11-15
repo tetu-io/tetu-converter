@@ -24,6 +24,7 @@ import {TimeUtils} from "../../../../scripts/utils/TimeUtils";
 import {Aave3ChangePricesUtils} from "./Aave3ChangePricesUtils";
 import {IPoolAdapterStatus} from "../../types/BorrowRepayDataTypes";
 import {getBigNumberFrom} from "../../../../scripts/utils/NumberUtils";
+import {TetuConverterApp} from "../../helpers/TetuConverterApp";
 
 //region Data types
 export interface IPrepareToBorrowResults {
@@ -131,15 +132,7 @@ export class Aave3TestUtils {
     const aavePrices = await Aave3Helper.getAavePriceOracle(deployer);
 
     // controller: we need TC (as a caller) and DM (to register borrow position)
-    const controller = await CoreContractsHelper.createController(deployer);
-    const tetuConverter = await CoreContractsHelper.createTetuConverter(deployer, controller);
-    const dm = await CoreContractsHelper.createDebtMonitor(deployer, controller.address);
-    // const bm = await MocksHelper.createBorrowManagerStub(deployer, true);
-    const bm = await CoreContractsHelper.createBorrowManager(deployer, controller);
-    await controller.setBorrowManager(bm.address);
-    await controller.setDebtMonitor(dm.address);
-    await controller.setTetuConverter(tetuConverter.address);
-
+    const controller = await TetuConverterApp.createController(deployer);
     const userContract = await MocksHelper.deployBorrower(deployer.address, controller, periodInBlocks);
 
     const converterNormal = await AdaptersHelper.createAave3PoolAdapter(deployer);
@@ -150,14 +143,18 @@ export class Aave3TestUtils {
       converterEMode.address
     );
 
-    await bm.addAssetPairs(
+    const borrowManager = BorrowManager__factory.connect(
+      await controller.borrowManager(),
+      deployer
+    );
+    await borrowManager.addAssetPairs(
       aavePlatformAdapter.address,
       [collateralToken.address],
       [borrowToken.address]
     );
     const bmAsTc = BorrowManager__factory.connect(
-      bm.address,
-      await DeployerUtils.startImpersonate(tetuConverter.address)
+      await controller.borrowManager(),
+      await DeployerUtils.startImpersonate(await controller.tetuConverter())
     );
     await bmAsTc.registerPoolAdapter(
       useEMode ? converterEMode.address : converterNormal.address,
@@ -166,13 +163,13 @@ export class Aave3TestUtils {
       borrowToken.address
     );
     const aavePoolAdapterAsTC = Aave3PoolAdapter__factory.connect(
-      await bm.getPoolAdapter(
+      await borrowManager.getPoolAdapter(
         useEMode ? converterEMode.address : converterNormal.address,
         userContract.address,
         collateralToken.address,
         borrowToken.address
       ),
-      await DeployerUtils.startImpersonate(tetuConverter.address)
+      await DeployerUtils.startImpersonate(await controller.tetuConverter())
     );
 
     // put collateral amount on user's balance

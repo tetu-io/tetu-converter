@@ -480,8 +480,6 @@ describe("Hundred finance integration tests, platform adapter", () => {
         {tetuLiquidatorAddress: MaticAddresses.TETU_LIQUIDATOR}
       );
       const borrowManager = BorrowManager__factory.connect(await controller.borrowManager(), deployer);
-      await controller.setBorrowManager(borrowManager.address);
-
       const converterNormal = await AdaptersHelper.createHundredFinancePoolAdapter(deployer);
 
       const comptroller = await HundredFinanceHelper.getComptroller(deployer);

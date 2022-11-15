@@ -178,7 +178,7 @@ contract DebtMonitor is IDebtMonitor {
   function closeLiquidatedPosition(address poolAdapter_) external override {
     require(msg.sender == controller.tetuConverter(), AppErrors.TETU_CONVERTER_ONLY);
 
-    (uint collateralAmount, uint amountToPay,,,) = IPoolAdapter(poolAdapter_).getStatus();
+    (uint collateralAmount,,,,) = IPoolAdapter(poolAdapter_).getStatus();
     require(collateralAmount == 0, AppErrors.CANNOT_CLOSE_LIVE_POSITION);
     _closePosition(poolAdapter_, true);
 

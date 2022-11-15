@@ -5,7 +5,6 @@ import {
   HfPlatformAdapter,
   HfPoolAdapter,
   HfPoolAdapter__factory,
-  IAavePool__factory,
   IERC20__factory,
   IERC20Extended__factory,
   IHfComptroller,
@@ -19,7 +18,6 @@ import {TokenDataTypes} from "../../types/TokenDataTypes";
 import {CoreContractsHelper} from "../../helpers/CoreContractsHelper";
 import {MocksHelper} from "../../helpers/MocksHelper";
 import {AdaptersHelper} from "../../helpers/AdaptersHelper";
-import {MaticAddresses} from "../../../../scripts/addresses/MaticAddresses";
 import {DeployerUtils} from "../../../../scripts/utils/DeployerUtils";
 import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import {Misc} from "../../../../scripts/utils/Misc";
@@ -34,7 +32,7 @@ import {IHfAccountLiquidity, IHfUserAccountState} from "../../apr/aprHundredFina
 import {HundredFinanceChangePriceUtils} from "./HundredFinanceChangePriceUtils";
 import {IPoolAdapterStatus} from "../../types/BorrowRepayDataTypes";
 import {getBigNumberFrom} from "../../../../scripts/utils/NumberUtils";
-import {parseUnits} from "ethers/lib/utils";
+import {TetuConverterApp} from "../../helpers/TetuConverterApp";
 
 //region Data types
 export interface IPrepareToBorrowResults {
@@ -114,15 +112,7 @@ export class HundredFinanceTestUtils {
     const periodInBlocks = 1000;
 
     // controller, dm, bm
-    const controller = await CoreContractsHelper.createController(deployer);
-    const tetuConverter = await CoreContractsHelper.createTetuConverter(deployer, controller);
-    const debtMonitor = await CoreContractsHelper.createDebtMonitor(deployer, controller.address);
-    // const borrowManager = await MocksHelper.createBorrowManagerStub(deployer, true);
-    const borrowManager = await CoreContractsHelper.createBorrowManager(deployer, controller);
-    await controller.setBorrowManager(borrowManager.address);
-    await controller.setDebtMonitor(debtMonitor.address);
-    await controller.setTetuConverter(tetuConverter.address);
-
+    const controller = await TetuConverterApp.createController(deployer);
     const userContract = await MocksHelper.deployBorrower(deployer.address, controller, periodInBlocks);
 
     const converter = await AdaptersHelper.createHundredFinancePoolAdapter(deployer);
@@ -136,8 +126,12 @@ export class HundredFinanceTestUtils {
       comptroller.address,
       converter.address,
       [collateralCTokenAddress, borrowCTokenAddress],
-    )
+    );
 
+    const borrowManager = BorrowManager__factory.connect(
+      await controller.borrowManager(),
+      deployer
+    );
     await borrowManager.addAssetPairs(
       hfPlatformAdapter.address,
       [collateralToken.address],
@@ -145,7 +139,7 @@ export class HundredFinanceTestUtils {
     );
     const bmAsTc = BorrowManager__factory.connect(
       borrowManager.address,
-      await DeployerUtils.startImpersonate(tetuConverter.address)
+      await DeployerUtils.startImpersonate(await controller.tetuConverter())
     );
     await bmAsTc.registerPoolAdapter(
       converter.address,
@@ -160,7 +154,7 @@ export class HundredFinanceTestUtils {
         collateralToken.address,
         borrowToken.address
       ),
-      await DeployerUtils.startImpersonate(tetuConverter.address)
+      await DeployerUtils.startImpersonate(await controller.tetuConverter())
     );
 
     // put collateral amount on user's balance

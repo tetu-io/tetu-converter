@@ -4,6 +4,7 @@ import {Controller, IERC20__factory, IERC20Extended__factory, IPlatformAdapter} 
 import {BigNumber} from "ethers";
 import {DeployerUtils} from "../../../scripts/utils/DeployerUtils";
 import {areAlmostEqual} from "../utils/CommonUtils";
+import {TetuConverterApp} from "../helpers/TetuConverterApp";
 
 export interface IPlatformActor {
   getAvailableLiquidity: () => Promise<BigNumber>,
@@ -34,7 +35,7 @@ export class PredictBrUsesCase {
   ) : Promise<{br: BigNumber, brPredicted: BigNumber}> {
     console.log(`collateral ${collateralAsset} borrow ${borrowAsset}`);
 
-    const controller = await CoreContractsHelper.createController(deployer);
+    const controller = await TetuConverterApp.createController(deployer);
     const platformAdapter = await platformAdapterFabric(controller);
 
     // get available liquidity

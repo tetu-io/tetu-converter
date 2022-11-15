@@ -260,8 +260,8 @@ contract BorrowManager is IBorrowManager {
     return (converter, maxTargetAmount, apr18);
   }
 
-  // todo make public
   /// @notice Enumerate all pools and select a pool suitable for borrowing with min APR and enough liquidity
+  /// @dev We cannot make this function public because storage-param is used
   function _findPool(
     EnumerableSet.AddressSet storage platformAdapters_,
     AppDataTypes.InputConversionParams memory p_,
@@ -331,7 +331,7 @@ contract BorrowManager is IBorrowManager {
       // pool adapter is not yet registered
       // create a new instance of the pool adapter using minimal proxy pattern, initialize newly created contract
       dest = converter_.clone();
-      IPlatformAdapter(_getPlatformAdapter(converter_)).initializePoolAdapter(
+      IPlatformAdapter(getPlatformAdapter(converter_)).initializePoolAdapter(
         converter_,
         dest,
         user_,
@@ -361,7 +361,7 @@ contract BorrowManager is IBorrowManager {
     );
     uint key = getPoolAdapterKey(converter_, collateral_, borrowToken_);
 
-    (bool found, address poolAdapter) = _poolAdapters[user_].tryGet(key);
+    (bool found,) = _poolAdapters[user_].tryGet(key);
     require(found, AppErrors.POOL_ADAPTER_NOT_FOUND);
 
     // Dirty pool adapter is removed from _poolAdapters, so it will never be used for new borrows
@@ -391,12 +391,7 @@ contract BorrowManager is IBorrowManager {
   ///         Getters - platform adapters
   ///////////////////////////////////////////////////////
 
-  function getPlatformAdapter(address converter_) external view override returns (address) {
-    return _getPlatformAdapter(converter_);
-  }
-
-  // todo make public, same gas
-  function _getPlatformAdapter(address converter_) internal view returns(address) {
+  function getPlatformAdapter(address converter_) public view override returns (address) {
     address platformAdapter = converterToPlatformAdapter[converter_];
     require(platformAdapter != address(0), AppErrors.PLATFORM_ADAPTER_NOT_FOUND);
     return platformAdapter;

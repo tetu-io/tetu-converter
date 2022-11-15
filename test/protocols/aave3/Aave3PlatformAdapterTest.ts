@@ -2,7 +2,7 @@ import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import hre, {ethers} from "hardhat";
 import {TimeUtils} from "../../../scripts/utils/TimeUtils";
 import {
-  Aave3PlatformAdapter__factory,
+  Aave3PlatformAdapter__factory, BorrowManager__factory,
   IAavePool,
   IAaveProtocolDataProvider,
   IERC20Extended__factory, IPlatformAdapter
@@ -609,9 +609,11 @@ describe("Aave3PlatformAdapterTest", () => {
       const collateralAsset = ethers.Wallet.createRandom().address;
       const borrowAsset = ethers.Wallet.createRandom().address;
 
-      const controller = await CoreContractsHelper.createController(deployer);
-      const borrowManager = await CoreContractsHelper.createBorrowManager(deployer, controller);
-      await controller.setBorrowManager(borrowManager.address);
+      const controller = await TetuConverterApp.createController(deployer);
+      const borrowManager = BorrowManager__factory.connect(
+        await controller.borrowManager(),
+        deployer
+      );
 
       const converterNormal = await AdaptersHelper.createAave3PoolAdapter(deployer);
       const converterEMode = await AdaptersHelper.createAave3PoolAdapterEMode(deployer);

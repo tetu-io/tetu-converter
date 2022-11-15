@@ -498,7 +498,7 @@ describe("AaveTwoPlatformAdapterTest", () => {
         aavePlatformAdapter.address,
         badParams?.wrongCallerOfInitializePoolAdapter
           ? await DeployerUtils.startImpersonate(ethers.Wallet.createRandom().address)
-          : await DeployerUtils.startImpersonate(borrowManager.address)
+          : await DeployerUtils.startImpersonate(await controller.borrowManager())
       );
 
       await aavePlatformAdapterAsBorrowManager.initializePoolAdapter(

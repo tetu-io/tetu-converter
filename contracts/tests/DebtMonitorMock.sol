@@ -3,7 +3,7 @@ pragma solidity 0.8.4;
 
 contract DebtMonitorMock {
   mapping(address => address[]) poolAdaptersByUsers;
-  bool public isCloseLiquidatedPositionCalled;
+  address public closeLiquidatedPositionLastCalledParam;
 
   function setPositionsForUser(address user_, address[] memory poolAdapters_) external {
     for (uint i = 0; i < poolAdapters_.length; ++i) {
@@ -21,6 +21,6 @@ contract DebtMonitorMock {
   }
 
   function closeLiquidatedPosition(address poolAdapter_) external {
-    isCloseLiquidatedPositionCalled = true;
+    closeLiquidatedPositionLastCalledParam = poolAdapter_;
   }
 }

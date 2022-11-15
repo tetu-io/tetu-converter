@@ -1,8 +1,7 @@
 import {getPoolAdapterState, ILendingPlatformManager, PoolAdapterState01} from "./ILendingPlatformManager";
 import {
-  IPoolAdaptersManager__factory, LendingPlatformMock,
+  LendingPlatformMock,
   PoolAdapterMock,
-  PoolAdapterMock__factory,
   PriceOracleMock__factory
 } from "../../../typechain";
 import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
@@ -13,8 +12,8 @@ export class LendingPlatformManagerMock implements ILendingPlatformManager {
   poolAdapter: PoolAdapterMock;
   platform: LendingPlatformMock;
   constructor(
-    pa: PoolAdapterMock
-    , platform: LendingPlatformMock
+    pa: PoolAdapterMock,
+    platform: LendingPlatformMock
   ) {
     this.poolAdapter = pa;
     this.platform = platform;
@@ -22,10 +21,10 @@ export class LendingPlatformManagerMock implements ILendingPlatformManager {
 
   /** Increase or decrease a price of the asset on the given number of times */
   async changeAssetPrice(
-    signer: SignerWithAddress
-    , asset: string
-    , inc: boolean
-    , times: number
+    signer: SignerWithAddress,
+    asset: string,
+    inc: boolean,
+    times: number,
   ) : Promise<PoolAdapterState01> {
     console.log("LendingPlatformManagerMock.changeAssetPrice.start");
     const before = await getPoolAdapterState(signer, this.poolAdapter.address);
@@ -50,7 +49,7 @@ export class LendingPlatformManagerMock implements ILendingPlatformManager {
     console.log("LendingPlatformManagerMock.changeCollateralFactor.start", this.poolAdapter.address);
     const before = await getPoolAdapterState(signer, this.poolAdapter.address);
 
-    await this.poolAdapter.changeCollateralFactor(BigNumber.from(newValue2).mul(getBigNumberFrom(1, 18-2)) );
+    await this.poolAdapter.changeCollateralFactor(BigNumber.from(newValue2).mul(getBigNumberFrom(1, 18-2)));
 
     const after = await getPoolAdapterState(signer, this.poolAdapter.address);
     console.log("LendingPlatformManagerMock.changeCollateralFactor.end", before, after);
@@ -82,15 +81,15 @@ export class LendingPlatformManagerMock implements ILendingPlatformManager {
 
   /** Borrow max possible amount (and significantly increase the borrow rate) */
   async makeMaxBorrow(signer: SignerWithAddress): Promise<PoolAdapterState01> {
-    return await this.changeBorrowRate(signer, true, 200);
+    return this.changeBorrowRate(signer, true, 200);
   }
 
   /** Return previously borrowed amount back (reverse to makeMaxBorrow) */
   async releaseMaxBorrow(signer: SignerWithAddress): Promise<PoolAdapterState01> {
-    return await this.changeBorrowRate(signer, false, 200);
+    return this.changeBorrowRate(signer, false, 200);
   }
 
   async setActive(signer: SignerWithAddress, asset: string, active: boolean) {
-    //TODO
+    // TODO
   }
 }

@@ -275,7 +275,7 @@ describe.skip("CompareAprUsesCaseTest", () => {
   }
 
   async function makeTestAave3(countBlocks: number, tasks: IBorrowTask[]): Promise<IBorrowingTestResults[]> {
-    const controller = await CoreContractsHelper.createController(deployer);
+    const controller = await TetuConverterApp.createController(deployer);
     const templateAdapterStub = ethers.Wallet.createRandom().address;
 
     return CompareAprUsesCase.makePossibleBorrowsOnPlatform(
@@ -300,7 +300,7 @@ describe.skip("CompareAprUsesCaseTest", () => {
   }
 
   async function makeTestAaveTwo(countBlocks: number, tasks: IBorrowTask[]): Promise<IBorrowingTestResults[]> {
-    const controller = await CoreContractsHelper.createController(deployer);
+    const controller = await TetuConverterApp.createController(deployer);
     const templateAdapterStub = ethers.Wallet.createRandom().address;
 
     return CompareAprUsesCase.makePossibleBorrowsOnPlatform(
@@ -324,7 +324,7 @@ describe.skip("CompareAprUsesCaseTest", () => {
   }
 
   async function makeTestDForce(countBlocks: number, tasks: IBorrowTask[]): Promise<IBorrowingTestResults[]> {
-    const controller = await CoreContractsHelper.createController(deployer);
+    const controller = await TetuConverterApp.createController(deployer);
     const templateAdapterStub = ethers.Wallet.createRandom().address;
 
     return CompareAprUsesCase.makePossibleBorrowsOnPlatform(
@@ -366,7 +366,7 @@ describe.skip("CompareAprUsesCaseTest", () => {
   }
 
   async function makeTestHundredFinance(countBlocks: number, tasks: IBorrowTask[]): Promise<IBorrowingTestResults[]> {
-    const controller = await CoreContractsHelper.createController(deployer);
+    const controller = await TetuConverterApp.createController(deployer);
     const templateAdapterStub = ethers.Wallet.createRandom().address;
 
     return CompareAprUsesCase.makePossibleBorrowsOnPlatform(

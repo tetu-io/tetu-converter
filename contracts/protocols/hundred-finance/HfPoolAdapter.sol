@@ -200,7 +200,7 @@ contract HfPoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP, Initializ
       borrowBase
     );
 
-    (uint256 dError, uint liquidity, uint shortfall) = comptroller_.getAccountLiquidity(address(this));
+    (uint256 dError, uint liquidity,) = comptroller_.getAccountLiquidity(address(this));
     require(dError == 0, AppErrors.CTOKEN_GET_ACCOUNT_LIQUIDITY_FAILED);
 
     require(

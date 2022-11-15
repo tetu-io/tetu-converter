@@ -2364,9 +2364,10 @@ describe("TetuConverterTest", () => {
           );
 
           const debtMonitorMock = DebtMonitorMock__factory.connect(core.dm.address, deployer);
-          const ret = await debtMonitorMock.isCloseLiquidatedPositionCalled();
+          const ret = await debtMonitorMock.closeLiquidatedPositionLastCalledParam();
+          const expected = poolAdapter.address;
 
-          expect(ret).eq(true);
+          expect(ret).eq(expected);
         });
       });
     });

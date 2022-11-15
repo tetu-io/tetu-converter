@@ -22,6 +22,7 @@ import {getBigNumberFrom} from "../../../../scripts/utils/NumberUtils";
 import {IDForceCalcAccountEquityResults} from "../../apr/aprDForce";
 import {DForceChangePriceUtils} from "./DForceChangePriceUtils";
 import {IPoolAdapterStatus} from "../../types/BorrowRepayDataTypes";
+import {TetuConverterApp} from "../../helpers/TetuConverterApp";
 
 //region Data types
 export interface IPrepareToBorrowResults {
@@ -102,15 +103,7 @@ export class DForceTestUtils {
     const periodInBlocks = 1000;
 
     // controller, dm, bm
-    const controller = await CoreContractsHelper.createController(deployer);
-    const tetuConverter = await CoreContractsHelper.createTetuConverter(deployer, controller);
-    const debtMonitor = await CoreContractsHelper.createDebtMonitor(deployer, controller.address);
-    // const borrowManager = await MocksHelper.createBorrowManagerStub(deployer, true);
-    const borrowManager = await CoreContractsHelper.createBorrowManager(deployer, controller);
-    await controller.setBorrowManager(borrowManager.address);
-    await controller.setDebtMonitor(debtMonitor.address);
-    await controller.setTetuConverter(tetuConverter.address);
-
+    const controller = await TetuConverterApp.createController(deployer);
     const userContract = await MocksHelper.deployBorrower(deployer.address, controller, periodInBlocks);
 
     const converterNormal = await AdaptersHelper.createDForcePoolAdapter(deployer);
@@ -126,6 +119,10 @@ export class DForceTestUtils {
       [collateralCTokenAddress, borrowCTokenAddress],
     );
 
+    const borrowManager = BorrowManager__factory.connect(
+      await controller.borrowManager(),
+      deployer
+    );
     await borrowManager.addAssetPairs(
       dfPlatformAdapter.address,
       [collateralToken.address],
@@ -133,7 +130,7 @@ export class DForceTestUtils {
     );
     const bmAsTc = BorrowManager__factory.connect(
       borrowManager.address,
-      await DeployerUtils.startImpersonate(tetuConverter.address)
+      await DeployerUtils.startImpersonate(await controller.tetuConverter())
     );
     await bmAsTc.registerPoolAdapter(
       converterNormal.address,
@@ -148,7 +145,7 @@ export class DForceTestUtils {
         collateralToken.address,
         borrowToken.address
       ),
-      await DeployerUtils.startImpersonate(tetuConverter.address)
+      await DeployerUtils.startImpersonate(await controller.tetuConverter())
     );
 
     // put collateral amount on user's balance
