@@ -89,6 +89,7 @@ contract BorrowManager is IBorrowManager {
   event OnSetRewardsFactor(uint rewardsFactor);
   event OnAddAssetPairs(address platformAdapter, address[] leftAssets, address[] rightAssets);
   event OnRemoveAssetPairs(address platformAdapter, address[] leftAssets, address[] rightAssets);
+  event OnUnregisterPlatformAdapter(address platformAdapter);
   event OnRegisterPoolAdapter(address poolAdapter, address converter, address user, address collateralAsset, address borrowAsset);
   event OnMarkPoolAdapterAsDirty(address poolAdapter);
 
@@ -233,6 +234,7 @@ contract BorrowManager is IBorrowManager {
 
       // unregister platform adapter
       _platformAdapters.remove(platformAdapter_);
+      emit OnUnregisterPlatformAdapter(platformAdapter_);
     }
 
     emit OnRemoveAssetPairs(platformAdapter_, leftAssets_, rightAssets_);

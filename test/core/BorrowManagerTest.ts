@@ -1,10 +1,11 @@
 import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
+import {anyValue } from "@nomicfoundation/hardhat-chai-matchers/withArgs";
 import {ethers} from "hardhat";
 import {expect} from "chai";
 import {
   BorrowManager, BorrowManager__factory, Controller, Controller__factory, IBorrowManager__factory,
   IPoolAdapter,
-  IPoolAdapter__factory, ITetuConverter__factory, LendingPlatformMock__factory
+  IPoolAdapter__factory, ITetuConverter__factory, LendingPlatformMock__factory, MockERC20__factory
 } from "../../typechain";
 import {TimeUtils} from "../../scripts/utils/TimeUtils";
 import {BigNumber} from "ethers";
@@ -24,7 +25,6 @@ import {DeployerUtils} from "../../scripts/utils/DeployerUtils";
 import {getExpectedApr18} from "../baseUT/apr/aprUtils";
 import {TetuConverterApp} from "../baseUT/helpers/TetuConverterApp";
 import {CoreContracts} from "../baseUT/types/CoreContracts";
-import {deprecate} from "util";
 import {parseUnits} from "ethers/lib/utils";
 import {BalanceUtils} from "../baseUT/utils/BalanceUtils";
 
@@ -490,6 +490,7 @@ describe("BorrowManager", () => {
     };
   }
 //endregion registerPoolAdapter utils
+
 
 //region Unit tests
   describe("constructor", () => {
@@ -1886,6 +1887,93 @@ describe("BorrowManager", () => {
       expect(ret).equal(expected);
     });
   });
+
+  describe("events", () => {
+    it("should emit expected events (check all except OnRemoveAssetPairs)", async () => {
+      const controller = await TetuConverterApp.createController(
+        signer, {
+          borrowManagerFabric: async c => (await CoreContractsHelper.createBorrowManager(signer, c.address)).address,
+          tetuConverterFabric: async () => ethers.Wallet.createRandom().address,
+          debtMonitorFabric: async () => ethers.Wallet.createRandom().address,
+          keeperFabric: async () => ethers.Wallet.createRandom().address,
+          swapManagerFabric: async () => ethers.Wallet.createRandom().address,
+          tetuLiquidatorAddress: ethers.Wallet.createRandom().address
+      });
+      const borrowManagerAdGov = BorrowManager__factory.connect(
+        await controller.borrowManager(),
+        await DeployerUtils.startImpersonate(await controller.governance())
+      );
+      const borrowManagerAdTetuConverter = BorrowManager__factory.connect(
+        await controller.borrowManager(),
+        await DeployerUtils.startImpersonate(await controller.tetuConverter())
+      );
+
+      const converter = ethers.Wallet.createRandom().address;
+      const user = ethers.Wallet.createRandom().address;
+      const platformAdapter = (await MocksHelper.createPlatformAdapterStub(signer, [converter])).address;
+      const left = (await MocksHelper.createMockedCToken(signer)).address;
+      const right = (await MocksHelper.createMockedCToken(signer)).address;
+
+      await expect(
+        borrowManagerAdGov.addAssetPairs(platformAdapter, [left], [right])
+      ).to.emit(borrowManagerAdGov, "OnAddAssetPairs").withArgs(platformAdapter, [left], [right]);
+
+      await expect(
+        borrowManagerAdGov.setRewardsFactor(parseUnits("0.1"))
+      ).to.emit(borrowManagerAdGov, "OnSetRewardsFactor").withArgs(parseUnits("0.1"));
+
+      await expect(
+        borrowManagerAdGov.setTargetHealthFactors([left, right], [205, 200])
+      ).to.emit(borrowManagerAdGov, "OnSetTargetHealthFactors").withArgs([left, right], [205, 200]);
+
+      await expect(
+        borrowManagerAdGov.setRewardsFactor(parseUnits("0.1"))
+      ).to.emit(borrowManagerAdGov, "OnSetRewardsFactor").withArgs(parseUnits("0.1"));
+
+      await expect(
+        borrowManagerAdTetuConverter.registerPoolAdapter(converter, user, left, right)
+      ).to.emit(borrowManagerAdGov, "OnRegisterPoolAdapter").withArgs(anyValue, converter, user, left, right);
+
+      const poolAdapter = await borrowManagerAdTetuConverter.getPoolAdapter(converter, user, left, right)
+      await expect(
+        borrowManagerAdTetuConverter.markPoolAdapterAsDirty(converter, user, left, right)
+      ).to.emit(borrowManagerAdGov, "OnMarkPoolAdapterAsDirty").withArgs(poolAdapter);
+    });
+
+    it("should emit expected events", async () => {
+      const controller = await TetuConverterApp.createController(
+        signer, {
+          borrowManagerFabric: async c => (await CoreContractsHelper.createBorrowManager(signer, c.address)).address,
+          tetuConverterFabric: async () => ethers.Wallet.createRandom().address,
+          debtMonitorFabric: async () => (await MocksHelper.createDebtsMonitorStub(signer, false)).address,
+          keeperFabric: async () => ethers.Wallet.createRandom().address,
+          swapManagerFabric: async () => ethers.Wallet.createRandom().address,
+          tetuLiquidatorAddress: ethers.Wallet.createRandom().address
+        });
+      const borrowManagerAdGov = BorrowManager__factory.connect(
+        await controller.borrowManager(),
+        await DeployerUtils.startImpersonate(await controller.governance())
+      );
+
+      const converter = ethers.Wallet.createRandom().address;
+      const platformAdapter = (await MocksHelper.createPlatformAdapterStub(signer, [converter])).address;
+      const left1 = (await MocksHelper.createMockedCToken(signer)).address;
+      const left2 = (await MocksHelper.createMockedCToken(signer)).address;
+      const right1 = (await MocksHelper.createMockedCToken(signer)).address;
+      const right2 = (await MocksHelper.createMockedCToken(signer)).address;
+
+      await borrowManagerAdGov.addAssetPairs(platformAdapter, [left1, left2], [right1, right2]);
+
+      await expect(
+        borrowManagerAdGov.removeAssetPairs(platformAdapter, [left1], [right1])
+      ).to.emit(borrowManagerAdGov, "OnRemoveAssetPairs").withArgs(platformAdapter, [left1], [right1]);
+
+      await expect(
+        borrowManagerAdGov.removeAssetPairs(platformAdapter, [left2], [right2])
+      ).to.emit(borrowManagerAdGov, "OnRemoveAssetPairs").withArgs(platformAdapter, [left2], [right2])
+       .to.emit(borrowManagerAdGov, "OnUnregisterPlatformAdapter").withArgs(platformAdapter)
+    });
+  });
 //endregion Unit tests
 
-});
+})

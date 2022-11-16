@@ -1,7 +1,7 @@
 import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import {ethers} from "hardhat";
 import {expect} from "chai";
-import {Controller, Controller__factory} from "../../typechain";
+import {Controller, Controller__factory, IController__factory} from "../../typechain";
 import {TimeUtils} from "../../scripts/utils/TimeUtils";
 import {BigNumber} from "ethers";
 import {controlGasLimitsEx, getGasUsed} from "../../scripts/utils/hardhatUtils";
@@ -514,6 +514,43 @@ describe("Controller", () => {
           ).revertedWith("TC-9"); // GOVERNANCE_ONLY
         });
       });
+    });
+  });
+
+  describe ("events", () => {
+    it("should emit expected events", async () => {
+      const {controller} = await createTestController(getRandomMembersValues());
+      const controllerAsGov = await Controller__factory.connect(
+        controller.address,
+        await DeployerUtils.startImpersonate(await controller.governance())
+      );
+      await expect(
+        controllerAsGov.setBlocksPerDay(100)
+      ).to.emit(controller, "OnSetBlocksPerDay").withArgs(100);
+
+      await expect(
+        controllerAsGov.setMinHealthFactor2(111)
+      ).to.emit(controller, "OnSetMinHealthFactor2").withArgs(111);
+
+      await expect(
+        controllerAsGov.setTargetHealthFactor2(213)
+      ).to.emit(controller, "OnSetTargetHealthFactor2").withArgs(213);
+
+      await expect(
+        controllerAsGov.setMaxHealthFactor2(516)
+      ).to.emit(controller, "OnSetMaxHealthFactor2").withArgs(516);
+
+      const newGovernance = ethers.Wallet.createRandom().address;
+      await expect(
+        controllerAsGov.setGovernance(newGovernance)
+      ).to.emit(controller, "OnSetGovernance").withArgs(newGovernance);
+
+      await expect(
+        Controller__factory.connect(
+          controller.address,
+          await DeployerUtils.startImpersonate(newGovernance)
+        ).acceptGovernance()
+      ).to.emit(controller, "OnAcceptGovernance").withArgs(newGovernance);
     });
   });
 //endregion Unit tests
