@@ -53,6 +53,17 @@ contract Aave3PlatformAdapter is IPlatformAdapter {
   address immutable public converterEMode;
 
   ///////////////////////////////////////////////////////
+  ///               Events
+  ///////////////////////////////////////////////////////
+  event OnPoolAdapterInitialized(
+    address converter,
+    address poolAdapter,
+    address user,
+    address collateralAsset,
+    address borrowAsset
+  );
+
+  ///////////////////////////////////////////////////////
   ///       Constructor and initialization
   ///////////////////////////////////////////////////////
 
@@ -96,6 +107,8 @@ contract Aave3PlatformAdapter is IPlatformAdapter {
       borrowAsset_,
       converter_
     );
+
+    emit OnPoolAdapterInitialized(converter_, poolAdapter_, user_, collateralAsset_, borrowAsset_);
   }
 
   ///////////////////////////////////////////////////////

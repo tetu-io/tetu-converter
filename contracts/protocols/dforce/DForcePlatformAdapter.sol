@@ -48,6 +48,18 @@ contract DForcePlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
   mapping(address => address) public activeAssets;
 
   ///////////////////////////////////////////////////////
+  ///               Events
+  ///////////////////////////////////////////////////////
+  event OnPoolAdapterInitialized(
+    address converter,
+    address poolAdapter,
+    address user,
+    address collateralAsset,
+    address borrowAsset
+  );
+  event OnRegisterCTokens(address[] cTokens);
+
+  ///////////////////////////////////////////////////////
   ///       Constructor and initialization
   ///////////////////////////////////////////////////////
   constructor (
@@ -91,6 +103,8 @@ contract DForcePlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
       borrowAsset_,
       converter_
     );
+
+    emit OnPoolAdapterInitialized(converter_, poolAdapter_, user_, collateralAsset_, borrowAsset_);
   }
 
   /// @notice Register new CTokens supported by the market
@@ -98,6 +112,7 @@ contract DForcePlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
   function registerCTokens(address[] memory cTokens_) external {
     _onlyGovernance();
     _registerCTokens(cTokens_);
+    emit OnRegisterCTokens(cTokens_);
   }
 
   function _registerCTokens(address[] memory cTokens_) internal {

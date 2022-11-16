@@ -111,4 +111,6 @@ library AppErrors {
   string public constant WEIRD_OVERFLOW = "TC-49";
 
   string public constant AMOUNT_TOO_BIG = "TC-50";
+
+  string public constant NOT_PENDING_GOVERNANCE = "TC-51";
 }

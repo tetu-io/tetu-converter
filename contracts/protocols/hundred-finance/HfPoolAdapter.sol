@@ -21,6 +21,22 @@ import "../../openzeppelin/Initializable.sol";
 contract HfPoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP, Initializable {
   using SafeERC20 for IERC20;
 
+  ///////////////////////////////////////////////////////
+  ///    Data types
+  ///////////////////////////////////////////////////////
+
+  /// @notice To avoid stack too deep
+  struct LocalRepayVars {
+    uint error;
+    uint healthFactor18;
+    address assetBorrow;
+    address assetCollateral;
+    address cTokenBorrow;
+    address cTokenCollateral;
+  }
+  ///////////////////////////////////////////////////////
+  ///    Constants and variables
+  ///////////////////////////////////////////////////////
   address private constant WMATIC = address(0x0d500B1d8E8eF31E21C99d1Db9A6444d3ADf1270);
 
   address public collateralAsset;
@@ -37,6 +53,23 @@ contract HfPoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP, Initializ
 
   /// @notice Total amount of all supplied and withdrawn amounts of collateral in collateral tokens
   uint public collateralTokensBalance;
+
+  ///////////////////////////////////////////////////////
+  ///                Events
+  ///////////////////////////////////////////////////////
+  event OnInitialized(
+    address controller,
+    address cTokenAddressProvider,
+    address comptroller,
+    address user,
+    address collateralAsset,
+    address borrowAsset,
+    address originConverter
+  );
+  event OnBorrow(uint collateralAmount, uint borrowAmount, address receiver, uint resultHealthFactor18);
+  event OnBorrowToRebalance(uint borrowAmount, address receiver, uint resultHealthFactor18);
+  event OnRepay(uint amountToRepay, address receiver, bool closePosition, uint resultHealthFactor18);
+  event OnRepayToRebalance(uint amount, bool isCollateral, uint resultHealthFactor18);
 
   ///////////////////////////////////////////////////////
   ///                Initialization
@@ -87,6 +120,8 @@ contract HfPoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP, Initializ
     // All approves replaced by infinity-approve were commented in the code below
     IERC20(collateralAsset_).safeApprove(cTokenCollateral, type(uint).max);
     IERC20(borrowAsset_).safeApprove(cTokenBorrow, type(uint).max);
+
+    emit OnInitialized(controller_, cTokenAddressProvider_, comptroller_, user_, collateralAsset_, borrowAsset_, originConverter_);
   }
 
   ///////////////////////////////////////////////////////
@@ -152,10 +187,11 @@ contract HfPoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP, Initializ
     IDebtMonitor(controller.debtMonitor()).onOpenPosition();
 
     // ensure that current health factor is greater than min allowed
-    (, uint tokenBalanceAfterBorrow) = _validateHealthStatusAfterBorrow(comptroller, cTokenCollateral, cTokenBorrow);
+    (uint healthFactor, uint tokenBalanceAfterBorrow) = _validateHealthStatusAfterBorrow(comptroller, cTokenCollateral, cTokenBorrow);
     require(tokenBalanceAfterBorrow >= tokenBalanceBeforeBorrow, AppErrors.WEIRD_OVERFLOW);
     collateralTokensBalance += tokenBalanceAfterBorrow - tokenBalanceBeforeBorrow;
 
+    emit OnBorrow(collateralAmount_, borrowAmount_, receiver_, healthFactor);
     return borrowAmount_;
   }
 
@@ -249,6 +285,7 @@ contract HfPoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP, Initializ
     // ensure that current health factor is greater than min allowed
     (resultHealthFactor18,) = _validateHealthStatusAfterBorrow(comptroller, collateralCToken, cTokenBorrow);
 
+    emit OnBorrowToRebalance(borrowAmount_, receiver_, resultHealthFactor18);
     return (resultHealthFactor18, borrowAmount_);
   }
 
@@ -261,67 +298,67 @@ contract HfPoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP, Initializ
   function repay(
     uint amountToRepay_,
     address receiver_,
-    bool closePosition
+    bool closePosition_
   ) external override returns (uint) {
     _onlyTetuConverter();
 
-    uint error;
-    address assetBorrow = borrowAsset;
-    address assetCollateral = collateralAsset;
-    address cTokenBorrow = borrowCToken;
-    address cTokenCollateral = collateralCToken;
+    LocalRepayVars memory vars;
+    vars.assetBorrow = borrowAsset;
+    vars.assetCollateral = collateralAsset;
+    vars.cTokenBorrow = borrowCToken;
+    vars.cTokenCollateral = collateralCToken;
 
-    IERC20(assetBorrow).safeTransferFrom(msg.sender, address(this), amountToRepay_);
+    IERC20(vars.assetBorrow).safeTransferFrom(msg.sender, address(this), amountToRepay_);
 
     // Update borrowBalance to actual value, we must do it before calculation of collateral to withdraw
     IHfCToken(borrowCToken).borrowBalanceCurrent(address(this));
     // how much collateral we are going to return
     (uint collateralTokensToWithdraw, uint tokenBalanceBefore) = _getCollateralTokensToRedeem(
-      cTokenCollateral,
-      cTokenBorrow,
-      closePosition,
+      vars.cTokenCollateral,
+      vars.cTokenBorrow,
+      closePosition_,
       amountToRepay_
     );
 
     // transfer borrow amount back to the pool
-    if (_isMatic(assetBorrow)) {
+    if (_isMatic(vars.assetBorrow)) {
       require(IERC20(WMATIC).balanceOf(address(this)) >= amountToRepay_, AppErrors.MINT_FAILED);
       IWmatic(WMATIC).withdraw(amountToRepay_);
-      IHfHMatic(payable(cTokenBorrow)).repayBorrow{value : amountToRepay_}();
+      IHfHMatic(payable(vars.cTokenBorrow)).repayBorrow{value : amountToRepay_}();
     } else {
       // replaced by infinity approve: IERC20(assetBorrow).approve(cTokenBorrow, amountToRepay_);
-      error = IHfCToken(cTokenBorrow).repayBorrow(amountToRepay_);
-      require(error == 0, AppErrors.REPAY_FAILED);
+      vars.error = IHfCToken(vars.cTokenBorrow).repayBorrow(amountToRepay_);
+      require(vars.error == 0, AppErrors.REPAY_FAILED);
     }
 
     // withdraw the collateral
-    uint balanceCollateralAssetBeforeRedeem = _getBalance(assetCollateral);
-    error = IHfCToken(cTokenCollateral).redeem(collateralTokensToWithdraw);
-    require(error == 0, AppErrors.REDEEM_FAILED);
+    uint balanceCollateralAssetBeforeRedeem = _getBalance(vars.assetCollateral);
+    vars.error = IHfCToken(vars.cTokenCollateral).redeem(collateralTokensToWithdraw);
+    require(vars.error == 0, AppErrors.REDEEM_FAILED);
 
     // transfer collateral back to the user
-    uint balanceCollateralAssetAfterRedeem = _getBalance(assetCollateral);
+    uint balanceCollateralAssetAfterRedeem = _getBalance(vars.assetCollateral);
     require(balanceCollateralAssetAfterRedeem >= balanceCollateralAssetBeforeRedeem, AppErrors.WEIRD_OVERFLOW);
     uint collateralAmountToReturn = balanceCollateralAssetAfterRedeem - balanceCollateralAssetBeforeRedeem;
-    if (_isMatic(assetCollateral)) {
+    if (_isMatic(vars.assetCollateral)) {
       IWmatic(WMATIC).deposit{value : collateralAmountToReturn}();
     }
-    IERC20(assetCollateral).safeTransfer(receiver_, collateralAmountToReturn);
+    IERC20(vars.assetCollateral).safeTransfer(receiver_, collateralAmountToReturn);
 
     // validate result status
     (uint tokenBalanceAfter,
      uint borrowBalance,
      uint collateralBase,
      uint borrowBase,,
-    ) = _getStatus(cTokenCollateral, cTokenBorrow);
+    ) = _getStatus(vars.cTokenCollateral, vars.cTokenBorrow);
 
     if (tokenBalanceAfter == 0 && borrowBalance == 0) {
       IDebtMonitor(controller.debtMonitor()).onClosePosition();
-      //!TODO: do we need to exit the markets?
+      // We don't exit the market to avoid additional gas consumption
     } else {
-      require(!closePosition, AppErrors.CLOSE_POSITION_FAILED);
-      (, uint healthFactor18) = _getHealthFactor(cTokenCollateral, collateralBase, borrowBase);
-      _validateHealthFactor(healthFactor18);
+      require(!closePosition_, AppErrors.CLOSE_POSITION_FAILED);
+      (, vars.healthFactor18) = _getHealthFactor(vars.cTokenCollateral, collateralBase, borrowBase);
+      _validateHealthFactor(vars.healthFactor18);
     }
 
     require(
@@ -330,6 +367,8 @@ contract HfPoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP, Initializ
       AppErrors.WEIRD_OVERFLOW
     );
     collateralTokensBalance -= tokenBalanceBefore - tokenBalanceAfter;
+
+    emit OnRepay(amountToRepay_, receiver_, closePosition_, vars.healthFactor18);
     return collateralAmountToReturn;
   }
 
@@ -407,6 +446,8 @@ contract HfPoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP, Initializ
 
     require(tokenBalanceAfter >= tokenBalanceBefore, AppErrors.WEIRD_OVERFLOW);
     collateralTokensBalance += tokenBalanceAfter - tokenBalanceBefore;
+
+    emit OnRepayToRebalance(amount_, isCollateral_, healthFactor18);
     return healthFactor18;
   }
 

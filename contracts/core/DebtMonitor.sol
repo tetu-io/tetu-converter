@@ -55,6 +55,15 @@ contract DebtMonitor is IDebtMonitor {
   uint public thresholdCountBlocks;
 
   ///////////////////////////////////////////////////////
+  ///               Events
+  ///////////////////////////////////////////////////////
+  event OnSetThresholdAPR(uint value100);
+  event OnSetThresholdCountBlocks(uint counbBlocks);
+  event OnOpenPosition(address poolAdapter);
+  event OnClosePosition(address poolAdapter);
+  event OnCloseLiquidatedPosition(address poolAdapter, uint amountToPay);
+
+  ///////////////////////////////////////////////////////
   ///       Constructor and initialization
   ///////////////////////////////////////////////////////
 
@@ -78,7 +87,7 @@ contract DebtMonitor is IDebtMonitor {
     _onlyGovernance();
     require(value100_ < 100, AppErrors.INCORRECT_VALUE);
     thresholdAPR = value100_;
-    // todo event
+    emit OnSetThresholdAPR(value100_);
   }
 
   function setThresholdCountBlocks(uint countBlocks_) external {
@@ -86,7 +95,7 @@ contract DebtMonitor is IDebtMonitor {
     // we don't need any restriction for countBlocks_
     // 0 - means, that the threshold is disabled
     thresholdCountBlocks = countBlocks_;
-    // todo event
+    emit OnSetThresholdCountBlocks(countBlocks_);
   }
 
   ///////////////////////////////////////////////////////
@@ -126,7 +135,7 @@ contract DebtMonitor is IDebtMonitor {
       _poolAdaptersForUser[user].add(msg.sender);
 
       _poolAdaptersForConverters[origin].add(msg.sender);
-      //TODO: event
+      emit OnOpenPosition(msg.sender);
     }
   }
 
@@ -144,7 +153,7 @@ contract DebtMonitor is IDebtMonitor {
     require(collateralAmount == 0 && amountToPay == 0, AppErrors.ATTEMPT_TO_CLOSE_NOT_EMPTY_BORROW_POSITION);
 
     _closePosition(msg.sender, false);
-    //TODO: event
+    emit OnClosePosition(msg.sender);
   }
 
   /// @notice Remove the pool adapter from all lists of the opened positions
@@ -175,11 +184,11 @@ contract DebtMonitor is IDebtMonitor {
   function closeLiquidatedPosition(address poolAdapter_) external override {
     require(msg.sender == controller.tetuConverter(), AppErrors.TETU_CONVERTER_ONLY);
 
-    (uint collateralAmount,,,,) = IPoolAdapter(poolAdapter_).getStatus();
+    (uint collateralAmount, uint amountToPay,,,) = IPoolAdapter(poolAdapter_).getStatus();
     require(collateralAmount == 0, AppErrors.CANNOT_CLOSE_LIVE_POSITION);
     _closePosition(poolAdapter_, true);
 
-    //TODO: event
+    emit OnCloseLiquidatedPosition(poolAdapter_, amountToPay);
   }
   ///////////////////////////////////////////////////////
   ///           Detect unhealthy positions

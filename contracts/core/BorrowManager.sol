@@ -83,6 +83,16 @@ contract BorrowManager is IBorrowManager {
   mapping (address => bool) public poolAdaptersRegistered;
 
   ///////////////////////////////////////////////////////
+  ///               Events
+  ///////////////////////////////////////////////////////
+  event OnSetTargetHealthFactors(address[] assets, uint16[] healthFactors2);
+  event OnSetRewardsFactor(uint rewardsFactor);
+  event OnAddAssetPairs(address platformAdapter, address[] leftAssets, address[] rightAssets);
+  event OnRemoveAssetPairs(address platformAdapter, address[] leftAssets, address[] rightAssets);
+  event OnRegisterPoolAdapter(address poolAdapter, address converter, address user, address collateralAsset, address borrowAsset);
+  event OnMarkPoolAdapterAsDirty(address poolAdapter);
+
+  ///////////////////////////////////////////////////////
   ///               Initialization
   ///////////////////////////////////////////////////////
 
@@ -129,7 +139,8 @@ contract BorrowManager is IBorrowManager {
       require(healthFactors2_[i] >= controller.minHealthFactor2(), AppErrors.WRONG_HEALTH_FACTOR);
       targetHealthFactorsForAssets[assets_[i]] = healthFactors2_[i];
     }
-    // todo event
+
+    emit OnSetTargetHealthFactors(assets_, healthFactors2_);
   }
 
   /// @notice Reward APR is taken into account with given factor
@@ -138,7 +149,8 @@ contract BorrowManager is IBorrowManager {
     _onlyGovernance();
     require(rewardsFactor_ < REWARDS_FACTOR_DENOMINATOR_18, AppErrors.INCORRECT_VALUE);
     rewardsFactor = rewardsFactor_;
-    // todo event
+
+    emit OnSetRewardsFactor(rewardsFactor_);
   }
 
   /// @notice Register new lending platform with available pairs of assets
@@ -183,7 +195,8 @@ contract BorrowManager is IBorrowManager {
       _pairsList[assetPairKey].add(platformAdapter_);
       _platformAdapterPairs[platformAdapter_].add(assetPairKey);
     }
-    // todo event
+
+    emit OnAddAssetPairs(platformAdapter_, leftAssets_, rightAssets_);
   }
 
   /// @notice Remove available pairs of asset from the platform adapter.
@@ -221,7 +234,8 @@ contract BorrowManager is IBorrowManager {
       // unregister platform adapter
       _platformAdapters.remove(platformAdapter_);
     }
-    // todo event
+
+    emit OnRemoveAssetPairs(platformAdapter_, leftAssets_, rightAssets_);
   }
 
   ///////////////////////////////////////////////////////
@@ -337,12 +351,13 @@ contract BorrowManager is IBorrowManager {
         borrowAsset_
       );
 
-      // register newly created pool adapter in the list of the pool adapters forever
+      // register newly created pool adapter in the list of the pool adapters
       _poolAdapters[user_].set(poolAdapterKey, dest);
       poolAdaptersRegistered[dest] = true;
+
+      emit OnRegisterPoolAdapter(dest, converter_, user_, collateralAsset_, borrowAsset_);
     }
 
-    // todo event
     return dest;
   }
 
@@ -361,12 +376,13 @@ contract BorrowManager is IBorrowManager {
     );
     uint key = getPoolAdapterKey(converter_, collateral_, borrowToken_);
 
-    (bool found,) = _poolAdapters[user_].tryGet(key);
+    (bool found, address poolAdapter) = _poolAdapters[user_].tryGet(key);
     require(found, AppErrors.POOL_ADAPTER_NOT_FOUND);
 
     // Dirty pool adapter is removed from _poolAdapters, so it will never be used for new borrows
     _poolAdapters[user_].remove(key);
-    // todo event
+
+    emit OnMarkPoolAdapterAsDirty(poolAdapter);
   }
 
   ///////////////////////////////////////////////////////

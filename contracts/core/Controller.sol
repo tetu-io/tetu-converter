@@ -33,7 +33,7 @@ contract Controller is IController, Initializable {
   /// @notice Curent governance. It can be changed by offer/accept scheme
   address public override governance;
   /// @notice New governance suggested by exist governance
-  address public offeredGovernance;
+  address public pendingGovernance;
 
   /// @notice Min allowed health factor = collateral / min allowed collateral, decimals 2
   ///         If a health factor is below given value, we need to repay a part of borrow back
@@ -52,6 +52,16 @@ contract Controller is IController, Initializable {
 
   /// @notice Count of blocks per day, updatable
   uint private _blocksPerDay;
+
+  ///////////////////////////////////////////////////////
+  ///               Events
+  ///////////////////////////////////////////////////////
+  event OnSetBlocksPerDay(uint blocksPerDay);
+  event OnSetMinHealthFactor2(uint16 value);
+  event OnSetTargetHealthFactor2(uint16 value);
+  event OnSetMaxHealthFactor2(uint16 value);
+  event OnSetGovernance(address newGovernance);
+  event OnAcceptGovernance(address pendingGovernance);
 
   ///////////////////////////////////////////////////////
   ///        Constructor and Initialization
@@ -116,6 +126,7 @@ contract Controller is IController, Initializable {
     require(value_ != 0, AppErrors.INCORRECT_VALUE);
     _onlyGovernance();
     _blocksPerDay = value_;
+    emit OnSetBlocksPerDay(value_);
   }
 
   ///////////////////////////////////////////////////////
@@ -129,7 +140,7 @@ contract Controller is IController, Initializable {
     require(value_ < targetHealthFactor2, AppErrors.WRONG_HEALTH_FACTOR_CONFIG);
     _onlyGovernance();
     minHealthFactor2 = value_;
-    // todo event
+    emit OnSetMinHealthFactor2(value_);
   }
 
   /// @notice target health factor with decimals 2
@@ -140,7 +151,7 @@ contract Controller is IController, Initializable {
     require(value_ < maxHealthFactor2, AppErrors.WRONG_HEALTH_FACTOR_CONFIG);
     _onlyGovernance();
     targetHealthFactor2 = value_;
-    // todo event
+    emit OnSetTargetHealthFactor2(value_);
   }
 
   /// @notice max allowed health factor with decimals 2
@@ -148,7 +159,7 @@ contract Controller is IController, Initializable {
     require(value_ > targetHealthFactor2, AppErrors.WRONG_HEALTH_FACTOR_CONFIG);
     _onlyGovernance();
     maxHealthFactor2 = value_;
-    // todo event
+    emit OnSetMaxHealthFactor2(value_);
   }
 
   ///////////////////////////////////////////////////////
@@ -156,20 +167,20 @@ contract Controller is IController, Initializable {
   ///////////////////////////////////////////////////////
 
   /// @notice Suggest to change governance
-  function offerGovernanceChange(address newGovernance_) external {
+  function setGovernance(address newGovernance_) external {
     _onlyGovernance();
     require(newGovernance_ != address(0), AppErrors.ZERO_ADDRESS);
 
-    offeredGovernance = newGovernance_;
-    // todo event
+    pendingGovernance = newGovernance_;
+    emit OnSetGovernance(newGovernance_);
   }
 
   /// @notice Old governance has suggested to change governance.
   ///         Newly suggested governance must accept the change to actually change the governance.
-  function acceptGovernanceChange() external {
-    require(offeredGovernance == msg.sender, AppErrors.GOVERNANCE_ONLY);
+  function acceptGovernance() external {
+    require(pendingGovernance == msg.sender, AppErrors.NOT_PENDING_GOVERNANCE);
 
-    governance = offeredGovernance;
-    // todo event
+    governance = pendingGovernance;
+    emit OnAcceptGovernance(pendingGovernance);
   }
 }

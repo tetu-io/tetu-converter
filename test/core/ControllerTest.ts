@@ -220,7 +220,7 @@ describe("Controller", () => {
     });
   });
 
-  describe ("offer/acceptGovernanceChange", () => {
+  describe ("set/acceptGovernance", () => {
     describe ("Good paths", () => {
       it("should change the governance", async () => {
         const {controller} = await createTestController(getRandomMembersValues());
@@ -235,10 +235,10 @@ describe("Controller", () => {
           await DeployerUtils.startImpersonate(newGovernance)
         );
 
-        await controllerAsOldGov.offerGovernanceChange(newGovernance);
+        await controllerAsOldGov.setGovernance(newGovernance);
         const afterOffer = await controller.governance();
 
-        await controllerAsNewGov.acceptGovernanceChange();
+        await controllerAsNewGov.acceptGovernance();
         const afterAccepting = await controller.governance();
 
         const ret = [afterOffer, afterAccepting].join();
@@ -254,10 +254,10 @@ describe("Controller", () => {
           await DeployerUtils.startImpersonate(existGovernance)
         );
 
-        await controllerAsGov.offerGovernanceChange(existGovernance);
+        await controllerAsGov.setGovernance(existGovernance);
         const afterOffer = await controller.governance();
 
-        await controllerAsGov.acceptGovernanceChange();
+        await controllerAsGov.acceptGovernance();
         const afterAccepting = await controller.governance();
 
         const ret = [afterOffer, afterAccepting].join();
@@ -278,7 +278,7 @@ describe("Controller", () => {
         );
 
         await expect(
-          controllerAsOldGov.offerGovernanceChange(newGovernance)
+          controllerAsOldGov.setGovernance(newGovernance)
         ).revertedWith("TC-1"); // ZERO_ADDRESS
       });
       it("should revert if not governance", async () => {
@@ -292,7 +292,7 @@ describe("Controller", () => {
         );
 
         await expect(
-          controllerAsNotGov.offerGovernanceChange(newGovernance)
+          controllerAsNotGov.setGovernance(newGovernance)
         ).revertedWith("TC-9"); // GOVERNANCE_ONLY
       });
       it("should revert if not new-governance tries to accept", async () => {
@@ -309,9 +309,9 @@ describe("Controller", () => {
           await DeployerUtils.startImpersonate(notNewGovernance)
         );
 
-        await controllerAsOldGov.offerGovernanceChange(newGovernance);
+        await controllerAsOldGov.setGovernance(newGovernance);
         await expect(
-          controllerAsNotNewGov.acceptGovernanceChange()
+          controllerAsNotNewGov.acceptGovernance()
         ).revertedWith("TC-9"); // GOVERNANCE_ONLY
       });
     });

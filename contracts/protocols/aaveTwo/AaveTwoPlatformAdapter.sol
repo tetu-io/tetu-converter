@@ -47,13 +47,24 @@ contract AaveTwoPlatformAdapter is IPlatformAdapter {
   }
 
   ///////////////////////////////////////////////////////
-  ///   Variables
+  ///         Variables
   ///////////////////////////////////////////////////////
 
   IController immutable public controller;
   IAaveTwoPool immutable public pool;
   /// @notice template-pool-adapter
   address immutable public converter;
+
+  ///////////////////////////////////////////////////////
+  ///               Events
+  ///////////////////////////////////////////////////////
+  event OnPoolAdapterInitialized(
+    address converter,
+    address poolAdapter,
+    address user,
+    address collateralAsset,
+    address borrowAsset
+  );
 
   ///////////////////////////////////////////////////////
   ///       Constructor and initialization
@@ -94,6 +105,8 @@ contract AaveTwoPlatformAdapter is IPlatformAdapter {
       borrowAsset_,
       converter_
     );
+
+    emit OnPoolAdapterInitialized(converter_, poolAdapter_, user_, collateralAsset_, borrowAsset_);
   }
 
   ///////////////////////////////////////////////////////

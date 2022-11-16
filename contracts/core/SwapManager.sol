@@ -32,6 +32,17 @@ contract SwapManager is ISwapManager, ISwapConverter {
   int public constant APR_NUMERATOR = 10**18;
 
   ///////////////////////////////////////////////////////
+  ///               Events
+  ///////////////////////////////////////////////////////
+  event OnSwap(address sourceToken,
+    uint sourceAmount,
+    address targetToken,
+    uint targetAmount,
+    address receiver,
+    uint outputAmount
+  );
+
+  ///////////////////////////////////////////////////////
   ///               Initialization
   ///////////////////////////////////////////////////////
 
@@ -113,7 +124,7 @@ contract SwapManager is ISwapManager, ISwapConverter {
     require(slippage <= SLIPPAGE_TOLERANCE, AppErrors.SLIPPAGE_TOO_BIG);
 
     IERC20(targetToken_).safeTransfer(receiver_, outputAmount);
-    // todo event
+    emit OnSwap(sourceToken_, sourceAmount_, targetToken_, targetAmount_, receiver_, outputAmount);
   }
 
 }

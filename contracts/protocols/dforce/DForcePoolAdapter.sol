@@ -42,6 +42,25 @@ contract DForcePoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP, Initi
   uint public collateralTokensBalance;
 
   ///////////////////////////////////////////////////////
+  ///                Events
+  ///////////////////////////////////////////////////////
+  event OnInitialized(
+    address controller,
+    address cTokenAddressProvider,
+    address comptroller,
+    address user,
+    address collateralAsset,
+    address borrowAsset,
+    address originConverter
+  );
+  event OnBorrow(uint collateralAmount, uint borrowAmount, address receiver, uint resultHealthFactor18);
+  event OnBorrowToRebalance(uint borrowAmount, address receiver, uint resultHealthFactor18);
+  event OnRepay(uint amountToRepay, address receiver, bool closePosition, uint resultHealthFactor18);
+  event OnRepayToRebalance(uint amount, bool isCollateral, uint resultHealthFactor18);
+  /// @notice On claim not empty {amount} of reward tokens
+  event OnClaimRewards(address rewardToken, uint amount, address receiver);
+
+  ///////////////////////////////////////////////////////
   ///                Initialization
   ///////////////////////////////////////////////////////
 
@@ -91,6 +110,8 @@ contract DForcePoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP, Initi
     // All approves replaced by infinity-approve were commented in the code below
     IERC20(collateralAsset_).safeApprove(cTokenCollateral, type(uint).max);
     IERC20(borrowAsset_).safeApprove(cTokenBorrow, type(uint).max);
+
+    emit OnInitialized(controller_, cTokenAddressProvider_, comptroller_, user_, collateralAsset_, borrowAsset_, originConverter_);
   }
 
   ///////////////////////////////////////////////////////
@@ -151,10 +172,11 @@ contract DForcePoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP, Initi
     IDebtMonitor(controller.debtMonitor()).onOpenPosition();
 
     // ensure that current health factor is greater than min allowed
-    (, uint tokenBalanceAfter) = _validateHealthStatusAfterBorrow(cTokenCollateral, cTokenBorrow);
+    (uint healthFactor, uint tokenBalanceAfter) = _validateHealthStatusAfterBorrow(cTokenCollateral, cTokenBorrow);
     require(tokenBalanceAfter >= tokenBalanceBefore, AppErrors.INCORRECT_VALUE); // overflow below is not possible
     collateralTokensBalance += tokenBalanceAfter - tokenBalanceBefore;
 
+    emit OnBorrow(collateralAmount_, borrowAmount_, receiver_, healthFactor);
     return borrowAmount_;
   }
 
@@ -240,6 +262,7 @@ contract DForcePoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP, Initi
     // ensure that current health factor is greater than min allowed
     (resultHealthFactor18,) = _validateHealthStatusAfterBorrow(collateralCToken, cTokenBorrow);
 
+    emit OnBorrowToRebalance(borrowAmount_, receiver_, resultHealthFactor18);
     return (resultHealthFactor18, borrowAmount_);
   }
 
@@ -253,71 +276,77 @@ contract DForcePoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP, Initi
     uint amountToRepay_,
     address receiver_,
     bool closePosition_
-  ) external override returns (uint) {
+  ) external override returns (uint collateralAmountToReturn) {
     _onlyTetuConverter();
 
-    address assetBorrow = borrowAsset;
-    address assetCollateral = collateralAsset;
-    address cTokenBorrow = borrowCToken;
-    address cTokenCollateral = collateralCToken;
+    uint healthFactor18;
+    {
+      address assetBorrow = borrowAsset;
+      address assetCollateral = collateralAsset;
+      address cTokenBorrow = borrowCToken;
+      address cTokenCollateral = collateralCToken;
 
-    IERC20(assetBorrow).safeTransferFrom(msg.sender, address(this), amountToRepay_);
+      IERC20(assetBorrow).safeTransferFrom(msg.sender, address(this), amountToRepay_);
 
-    // Update borrowBalance to actual value, we must do it before calculation of collateral to withdraw
-    IDForceCToken(borrowCToken).borrowBalanceCurrent(address(this));
-    // how much collateral we are going to return
-    (uint collateralTokensToWithdraw, uint tokenBalanceBefore) = _getCollateralTokensToRedeem(
-      cTokenCollateral,
-      cTokenBorrow,
-      closePosition_,
-      amountToRepay_
-    );
+      // Update borrowBalance to actual value, we must do it before calculation of collateral to withdraw
+      IDForceCToken(borrowCToken).borrowBalanceCurrent(address(this));
+      // how much collateral we are going to return
+      (uint collateralTokensToWithdraw, uint tokenBalanceBefore) = _getCollateralTokensToRedeem(
+        cTokenCollateral,
+        cTokenBorrow,
+        closePosition_,
+        amountToRepay_
+      );
 
-    // transfer borrow amount back to the pool
-    if (_isMatic(address(assetBorrow))) {
-      require(IERC20(WMATIC).balanceOf(address(this)) >= amountToRepay_, AppErrors.MINT_FAILED);
-      IWmatic(WMATIC).withdraw(amountToRepay_);
-      IDForceCTokenMatic(cTokenBorrow).repayBorrow{value : amountToRepay_}();
-    } else {
-      // replaced by infinity approve: IERC20(assetBorrow).safeApprove(cTokenBorrow, amountToRepay_);
-      IDForceCToken(cTokenBorrow).repayBorrow(amountToRepay_);
+      // transfer borrow amount back to the pool
+      if (_isMatic(address(assetBorrow))) {
+        require(IERC20(WMATIC).balanceOf(address(this)) >= amountToRepay_, AppErrors.MINT_FAILED);
+        IWmatic(WMATIC).withdraw(amountToRepay_);
+        IDForceCTokenMatic(cTokenBorrow).repayBorrow{value : amountToRepay_}();
+      } else {
+        // replaced by infinity approve: IERC20(assetBorrow).safeApprove(cTokenBorrow, amountToRepay_);
+        IDForceCToken(cTokenBorrow).repayBorrow(amountToRepay_);
+      }
+
+      // withdraw the collateral
+      uint balanceCollateralAsset = _getBalance(assetCollateral);
+      IDForceCToken(cTokenCollateral).redeem(address(this), collateralTokensToWithdraw);
+      uint balanceCollateralAssetAfterRedeem = _getBalance(assetCollateral);
+
+      // transfer collateral back to the user
+      require(balanceCollateralAssetAfterRedeem >= balanceCollateralAsset, AppErrors.WEIRD_OVERFLOW); // overflow is not possible below
+      collateralAmountToReturn = balanceCollateralAssetAfterRedeem - balanceCollateralAsset;
+      if (_isMatic(assetCollateral)) {
+        IWmatic(WMATIC).deposit{value : collateralAmountToReturn}();
+      }
+      IERC20(assetCollateral).safeTransfer(receiver_, collateralAmountToReturn);
+
+      // validate result status
+      (uint tokenBalanceAfter,
+       uint borrowBalance,
+       uint collateralBase,
+       uint sumBorrowPlusEffects,,
+      ) = _getStatus(cTokenCollateral, cTokenBorrow);
+
+
+      if (tokenBalanceAfter == 0 && borrowBalance == 0) {
+        IDebtMonitor(controller.debtMonitor()).onClosePosition();
+        // We don't exit the market to avoid additional gas consumption
+      } else {
+        require(!closePosition_, AppErrors.CLOSE_POSITION_FAILED);
+        (, healthFactor18) = _getHealthFactor(cTokenCollateral, collateralBase, sumBorrowPlusEffects);
+        _validateHealthFactor(healthFactor18);
+      }
+
+      require(
+        tokenBalanceBefore >= tokenBalanceAfter
+        && collateralTokensBalance >= tokenBalanceBefore - tokenBalanceAfter,
+        AppErrors.WEIRD_OVERFLOW
+      );
+      collateralTokensBalance -= tokenBalanceBefore - tokenBalanceAfter;
     }
 
-    // withdraw the collateral
-    uint balanceCollateralAsset = _getBalance(assetCollateral);
-    IDForceCToken(cTokenCollateral).redeem(address(this), collateralTokensToWithdraw);
-    uint balanceCollateralAssetAfterRedeem = _getBalance(assetCollateral);
-
-    // transfer collateral back to the user
-    require(balanceCollateralAssetAfterRedeem >= balanceCollateralAsset, AppErrors.WEIRD_OVERFLOW); // overflow is not possible below
-    uint collateralAmountToReturn = balanceCollateralAssetAfterRedeem - balanceCollateralAsset;
-    if (_isMatic(assetCollateral)) {
-      IWmatic(WMATIC).deposit{value : collateralAmountToReturn}();
-    }
-    IERC20(assetCollateral).safeTransfer(receiver_, collateralAmountToReturn);
-
-    // validate result status
-    (uint tokenBalanceAfter,
-     uint borrowBalance,
-     uint collateralBase,
-     uint sumBorrowPlusEffects,,
-    ) = _getStatus(cTokenCollateral, cTokenBorrow);
-
-    if (tokenBalanceAfter == 0 && borrowBalance == 0) {
-      IDebtMonitor(controller.debtMonitor()).onClosePosition();
-      //!TODO: do we need to exit the markets?
-    } else {
-      require(!closePosition_, AppErrors.CLOSE_POSITION_FAILED);
-      (, uint healthFactor18) = _getHealthFactor(cTokenCollateral, collateralBase, sumBorrowPlusEffects);
-      _validateHealthFactor(healthFactor18);
-    }
-
-    require(
-      tokenBalanceBefore >= tokenBalanceAfter
-      && collateralTokensBalance >= tokenBalanceBefore - tokenBalanceAfter,
-      AppErrors.WEIRD_OVERFLOW
-    );
-    collateralTokensBalance -= tokenBalanceBefore - tokenBalanceAfter;
+    emit OnRepay(amountToRepay_, receiver_, closePosition_, healthFactor18);
     return collateralAmountToReturn;
   }
 
@@ -390,6 +419,8 @@ contract DForcePoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP, Initi
 
     require(tokenBalanceAfter >= tokenBalanceBefore, AppErrors.WEIRD_OVERFLOW);
     collateralTokensBalance += tokenBalanceAfter - tokenBalanceBefore;
+
+    emit OnRepayToRebalance(amount_, isCollateral_, healthFactor18);
     return healthFactor18;
   }
 
@@ -418,11 +449,12 @@ contract DForcePoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP, Initi
       holders[0] = address(this);
       rd.claimAllReward(holders);
 
-      uint balance = IERC20(rd.rewardToken()).balanceOf(address(this));
+      uint balance = IERC20(rewardTokenOut).balanceOf(address(this));
 
       if (amountOut != 0) {
-        IERC20(rd.rewardToken()).safeTransfer(receiver_, balance);
+        IERC20(rewardTokenOut).safeTransfer(receiver_, balance);
       }
+      emit OnClaimRewards(rewardTokenOut, amountOut, receiver_);
     }
 
     return (rewardTokenOut, amountOut);

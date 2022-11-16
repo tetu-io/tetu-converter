@@ -44,6 +44,22 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer,
   uint public collateralBalanceATokens;
 
   ///////////////////////////////////////////////////////
+  ///                Events
+  ///////////////////////////////////////////////////////
+  event OnInitialized(
+    address controller,
+    address pool,
+    address user,
+    address collateralAsset,
+    address borrowAsset,
+    address originConverter
+  );
+  event OnBorrow(uint collateralAmount, uint borrowAmount, address receiver, uint resultHealthFactor18);
+  event OnBorrowToRebalance(uint borrowAmount, address receiver, uint resultHealthFactor18);
+  event OnRepay(uint amountToRepay, address receiver, bool closePosition, uint resultHealthFactor18);
+  event OnRepayToRebalance(uint amount, bool isCollateral, uint resultHealthFactor18);
+
+  ///////////////////////////////////////////////////////
   ///                Initialization
   ///////////////////////////////////////////////////////
 
@@ -82,6 +98,8 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer,
     // All approves replaced by infinity-approve were commented in the code below
     IERC20(collateralAsset_).safeApprove(pool_, type(uint).max);
     IERC20(borrowAsset_).safeApprove(pool_, type(uint).max);
+
+    emit OnInitialized(controller_, pool_, user_, collateralAsset_, borrowAsset_, originConverter_);
   }
 
   ///////////////////////////////////////////////////////
@@ -151,6 +169,7 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer,
     (,,,,, uint256 healthFactor) = pool.getUserAccountData(address(this));
     _validateHealthFactor(healthFactor);
 
+    emit OnBorrow(collateralAmount_, borrowAmount_, receiver_, healthFactor);
     return borrowAmount_;
   }
 
@@ -228,7 +247,8 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer,
     (,,,,, resultHealthFactor18) = _pool.getUserAccountData(address(this));
     _validateHealthFactor(resultHealthFactor18);
 
-    return (resultHealthFactor18, borrowedAmountOut);
+    emit OnBorrowToRebalance(borrowAmount_, receiver_, resultHealthFactor18);
+    return (resultHealthFactor18, borrowAmount_);
   }
 
   ///////////////////////////////////////////////////////
@@ -295,6 +315,7 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer,
       ? 0
       : collateralBalanceATokens - (aTokensBalanceBeforeRepay - aTokensBalanceAfterRepay);
 
+    emit OnRepay(amountToRepay_, receiver_, closePosition_, healthFactor);
     return amountCollateralToWithdraw;
   }
 
@@ -377,6 +398,7 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer,
     (,,,,, uint256 healthFactor) = pool.getUserAccountData(address(this));
     _validateHealthFactor(healthFactor);
 
+    emit OnRepayToRebalance(amount_, isCollateral_, healthFactor);
     return healthFactor;
   }
 
