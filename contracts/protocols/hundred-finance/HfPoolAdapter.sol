@@ -94,17 +94,8 @@ contract HfPoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP, Initializ
   ///////////////////////////////////////////////////////
 
   /// @notice Ensure that the caller is TetuConverter
-  function _onlyTC() internal view {
+  function _onlyTetuConverter() internal view {
     require(controller.tetuConverter() == msg.sender, AppErrors.TETU_CONVERTER_ONLY);
-  }
-
-  /// @notice Ensure that the caller is the user or TetuConverter
-  function _onlyUserOrTC() internal view {
-    require(
-      msg.sender == controller.tetuConverter()
-      || msg.sender == user
-    , AppErrors.USER_OR_TETU_CONVERTER_ONLY
-    );
   }
 
   ///////////////////////////////////////////////////////
@@ -122,7 +113,7 @@ contract HfPoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP, Initializ
     uint borrowAmount_,
     address receiver_
   ) external override returns (uint) {
-    _onlyTC();
+    _onlyTetuConverter();
     uint error;
     IHfComptroller comptroller = _comptroller;
 
@@ -140,7 +131,7 @@ contract HfPoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP, Initializ
     comptroller.enterMarkets(markets);
 
     // supply collateral
-    uint tokenBalanceBefore = _supply(cTokenCollateral, assetCollateral, collateralAmount_);
+    uint tokenBalanceBeforeBorrow = _supply(cTokenCollateral, assetCollateral, collateralAmount_);
 
     // make borrow
     uint balanceBorrowAsset0 = _getBalance(assetBorrow);
@@ -152,8 +143,8 @@ contract HfPoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP, Initializ
       IWmatic(WMATIC).deposit{value : borrowAmount_}();
     }
     require(
-      borrowAmount_ == IERC20(assetBorrow).balanceOf(address(this)) - balanceBorrowAsset0
-      , AppErrors.WRONG_BORROWED_BALANCE
+      borrowAmount_ + balanceBorrowAsset0 == IERC20(assetBorrow).balanceOf(address(this)),
+      AppErrors.WRONG_BORROWED_BALANCE
     );
     IERC20(assetBorrow).safeTransfer(receiver_, borrowAmount_);
 
@@ -161,8 +152,9 @@ contract HfPoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP, Initializ
     IDebtMonitor(controller.debtMonitor()).onOpenPosition();
 
     // ensure that current health factor is greater than min allowed
-    (, uint tokenBalanceAfter) = _validateHealthStatusAfterBorrow(comptroller, cTokenCollateral, cTokenBorrow);
-    collateralTokensBalance += tokenBalanceAfter - tokenBalanceBefore;
+    (, uint tokenBalanceAfterBorrow) = _validateHealthStatusAfterBorrow(comptroller, cTokenCollateral, cTokenBorrow);
+    require(tokenBalanceAfterBorrow >= tokenBalanceBeforeBorrow, AppErrors.WEIRD_OVERFLOW);
+    collateralTokensBalance += tokenBalanceAfterBorrow - tokenBalanceBeforeBorrow;
 
     return borrowAmount_;
   }
@@ -213,8 +205,8 @@ contract HfPoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP, Initializ
     // here we should have: sumCollateralSafe - sumBorrowPlusEffects == liquidity
     // but it seems like round-error can happen, we can check only sumCollateralSafe - sumBorrowPlusEffects ~ liquidity
     // let's ensure that liquidity has a reasonable value //TODO: remove this check at all?
-      && liquidity > (sumCollateralSafe - borrowBase) / 2
-      , AppErrors.INCORRECT_RESULT_LIQUIDITY
+      && liquidity > (sumCollateralSafe - borrowBase) / 2,
+      AppErrors.INCORRECT_RESULT_LIQUIDITY
     );
 
     _validateHealthFactor(healthFactor18);
@@ -228,7 +220,7 @@ contract HfPoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP, Initializ
     uint resultHealthFactor18,
     uint borrowedAmountOut
   ) {
-    _onlyTC();
+    _onlyTetuConverter();
     uint error;
     IHfComptroller comptroller = _comptroller;
 
@@ -249,8 +241,8 @@ contract HfPoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP, Initializ
     }
     // we assume here, that syncBalance(true) is called before the call of this function
     require(
-      borrowAmount_ == IERC20(assetBorrow).balanceOf(address(this)) - balanceBorrowAsset0
-    , AppErrors.WRONG_BORROWED_BALANCE
+      borrowAmount_ + balanceBorrowAsset0 == IERC20(assetBorrow).balanceOf(address(this)),
+      AppErrors.WRONG_BORROWED_BALANCE
     );
     IERC20(assetBorrow).safeTransfer(receiver_, borrowAmount_);
 
@@ -271,7 +263,7 @@ contract HfPoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP, Initializ
     address receiver_,
     bool closePosition
   ) external override returns (uint) {
-    _onlyUserOrTC();
+    _onlyTetuConverter();
 
     uint error;
     address assetBorrow = borrowAsset;
@@ -303,12 +295,14 @@ contract HfPoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP, Initializ
     }
 
     // withdraw the collateral
-    uint balanceCollateralAsset = _getBalance(assetCollateral);
+    uint balanceCollateralAssetBeforeRedeem = _getBalance(assetCollateral);
     error = IHfCToken(cTokenCollateral).redeem(collateralTokensToWithdraw);
     require(error == 0, AppErrors.REDEEM_FAILED);
 
     // transfer collateral back to the user
-    uint collateralAmountToReturn = _getBalance(assetCollateral) - balanceCollateralAsset;
+    uint balanceCollateralAssetAfterRedeem = _getBalance(assetCollateral);
+    require(balanceCollateralAssetAfterRedeem >= balanceCollateralAssetBeforeRedeem, AppErrors.WEIRD_OVERFLOW);
+    uint collateralAmountToReturn = balanceCollateralAssetAfterRedeem - balanceCollateralAssetBeforeRedeem;
     if (_isMatic(assetCollateral)) {
       IWmatic(WMATIC).deposit{value : collateralAmountToReturn}();
     }
@@ -330,6 +324,11 @@ contract HfPoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP, Initializ
       _validateHealthFactor(healthFactor18);
     }
 
+    require(
+      tokenBalanceBefore >= tokenBalanceAfter
+      && collateralTokensBalance >= tokenBalanceBefore - tokenBalanceAfter,
+      AppErrors.WEIRD_OVERFLOW
+    );
     collateralTokensBalance -= tokenBalanceBefore - tokenBalanceAfter;
     return collateralAmountToReturn;
   }
@@ -362,7 +361,7 @@ contract HfPoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP, Initializ
   ) external override returns (
     uint resultHealthFactor18
   ) {
-    _onlyUserOrTC();
+    _onlyTetuConverter();
 
     uint error;
     address cTokenBorrow = borrowCToken;
@@ -406,6 +405,7 @@ contract HfPoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP, Initializ
     (, uint healthFactor18) = _getHealthFactor(cTokenCollateral, collateralBase, borrowBase);
     _validateHealthFactor(healthFactor18);
 
+    require(tokenBalanceAfter >= tokenBalanceBefore, AppErrors.WEIRD_OVERFLOW);
     collateralTokensBalance += tokenBalanceAfter - tokenBalanceBefore;
     return healthFactor18;
   }

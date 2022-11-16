@@ -1,16 +1,18 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.4;
 
-import "../interfaces/ITetuConverter.sol";
 import "../integrations/market/ICErc20.sol";
 import "../integrations/IERC20Extended.sol";
-import "../interfaces/IBorrowManager.sol";
-import "../interfaces/ISwapManager.sol";
 import "../openzeppelin/SafeERC20.sol";
 import "../openzeppelin/IERC20.sol";
-import "../interfaces/IPlatformAdapter.sol";
+import "../openzeppelin/ReentrancyGuard.sol";
 import "./AppDataTypes.sol";
 import "./AppErrors.sol";
+import "./AppUtils.sol";
+import "../interfaces/IBorrowManager.sol";
+import "../interfaces/ISwapManager.sol";
+import "../interfaces/ITetuConverter.sol";
+import "../interfaces/IPlatformAdapter.sol";
 import "../interfaces/IPoolAdapter.sol";
 import "../interfaces/IController.sol";
 import "../interfaces/IDebtsMonitor.sol";
@@ -18,11 +20,9 @@ import "../interfaces/IConverter.sol";
 import "../interfaces/ISwapConverter.sol";
 import "../interfaces/IKeeperCallback.sol";
 import "../interfaces/ITetuConverterCallback.sol";
-import "./AppUtils.sol";
-import "hardhat/console.sol";
 
 /// @notice Main application contract
-contract TetuConverter is ITetuConverter, IKeeperCallback {
+contract TetuConverter is ITetuConverter, IKeeperCallback, ReentrancyGuard {
   using SafeERC20 for IERC20;
   using AppUtils for uint;
 
@@ -49,7 +49,14 @@ contract TetuConverter is ITetuConverter, IKeeperCallback {
   ///       Find best strategy for conversion
   ///////////////////////////////////////////////////////
 
-  // todo docs
+  /// @notice Find best conversion strategy (swap or borrow) and provide "cost of money" as interest for the period
+  /// @param sourceAmount_ Amount to be converted
+  /// @param periodInBlocks_ Estimated period to keep target amount. It's required to compute APR
+  /// @param conversionMode Allow to select conversion kind (swap, borrowing) automatically or manually
+  /// @return converter Result contract that should be used for conversion; it supports IConverter
+  ///                   This address should be passed to borrow-function during conversion.
+  /// @return maxTargetAmount Max available amount of target tokens that we can get after conversion
+  /// @return apr18 Interest on the use of {outMaxTargetAmount} during the given period, decimals 18
   function findConversionStrategy(
     address sourceToken_,
     uint sourceAmount_,
@@ -106,7 +113,15 @@ contract TetuConverter is ITetuConverter, IKeeperCallback {
   ///       Make conversion, open position
   ///////////////////////////////////////////////////////
 
-  // todo docs
+  /// @notice Convert {collateralAmount_} to {amountToBorrow_} using {converter_}
+  ///         Target amount will be transferred to {receiver_}. No re-balancing here.
+  /// @dev Transferring of {collateralAmount_} by TetuConverter-contract must be approved by the caller before the call
+  /// @param converter_ A converter received from findBestConversionStrategy.
+  /// @param collateralAmount_ Amount of {collateralAsset_}.
+  ///                          This amount must be transferred to TetuConverter before the call.
+  /// @param amountToBorrow_ Amount of {borrowAsset_} to be borrowed and sent to {receiver_}
+  /// @param receiver_ A receiver of borrowed amount
+  /// @return borrowedAmountOut Exact borrowed amount transferred to {receiver_}
   function borrow(
     address converter_,
     address collateralAsset_,
@@ -114,10 +129,9 @@ contract TetuConverter is ITetuConverter, IKeeperCallback {
     address borrowAsset_,
     uint amountToBorrow_,
     address receiver_
-  ) external override returns (
+  ) external override nonReentrant returns (
     uint borrowedAmountOut
   ) {
-    // todo all open function should have reentrancy check
     return _convert(
       converter_,
       collateralAsset_,
@@ -180,7 +194,6 @@ contract TetuConverter is ITetuConverter, IKeeperCallback {
         // All approves replaced by infinity-approve were commented in the code below
         IERC20(collateralAsset_).safeApprove(poolAdapter, type(uint).max);
         IERC20(borrowAsset_).safeApprove(poolAdapter, type(uint).max);
-        console.log("infinity approve");
       }
 
       // replaced by infinity approve: IERC20(collateralAsset_).safeApprove(poolAdapter, collateralAmount_);
@@ -207,17 +220,29 @@ contract TetuConverter is ITetuConverter, IKeeperCallback {
   ///       Make repay, close position
   ///////////////////////////////////////////////////////
 
-  // todo docs
+  /// @notice Full or partial repay of the borrow
+  /// @dev A user should transfer {amountToRepay_} to TetuConverter before calling repay()
+  /// @param amountToRepay_ Amount of borrowed asset to repay.
+  ///                       You can know exact total amount of debt using {getStatusCurrent}.
+  ///                       if the amount exceed total amount of the debt:
+  ///                       - the debt will be fully repaid
+  ///                       - remain amount will be swapped from {borrowAsset_} to {collateralAsset_}
+  /// @param receiver_ A receiver of the collateral that will be withdrawn after the repay
+  ///                  The remained amount of borrow asset will be returned to the {receiver_} too
+  /// @return collateralAmountOut Exact collateral amount transferred to {collateralReceiver_}
+  ///         If TetuConverter is not able to make the swap, it reverts
+  /// @return returnedBorrowAmountOut A part of amount-to-repay that wasn't converted to collateral asset
+  ///                                 because of any reasons (i.e. there is no available conversion strategy)
+  ///                                 This amount is returned back to the collateralReceiver_
   function repay(
     address collateralAsset_,
     address borrowAsset_,
     uint amountToRepay_,
     address receiver_
-  ) external override returns (
+  ) external override nonReentrant returns (
     uint collateralAmountOut,
     uint returnedBorrowAmountOut
   ) {
-    // todo all open function should have reentrancy check
     require(receiver_ != address(0), AppErrors.ZERO_ADDRESS);
 
     // ensure that we have received required amount
@@ -297,12 +322,18 @@ contract TetuConverter is ITetuConverter, IKeeperCallback {
   ///       IKeeperCallback
   ///////////////////////////////////////////////////////
 
-  // todo docs
+  /// @notice This function is called by a keeper if there is unhealthy borrow
+  ///         The called contract should send either collateral-amount or borrowed-amount to TetuConverter
+  /// @param requiredAmountBorrowAsset_ The borrower should return given borrowed amount back to TetuConverter
+  ///                                   in order to restore health factor to target value
+  /// @param requiredAmountCollateralAsset_ The borrower should send given amount of collateral to TetuConverter
+  ///                                       in order to restore health factor to target value
+  /// @param poolAdapter_ Address of the pool adapter that has problem health factor
   function requireRepay(
     uint requiredAmountBorrowAsset_,
     uint requiredAmountCollateralAsset_,
     address poolAdapter_
-  ) external override {
+  ) external nonReentrant override {
     require(controller.keeper() == msg.sender, AppErrors.KEEPER_ONLY);
     require(requiredAmountBorrowAsset_ > 0, AppErrors.INCORRECT_VALUE);
 
@@ -339,10 +370,9 @@ contract TetuConverter is ITetuConverter, IKeeperCallback {
         );
         // replaced by infinity approve: IERC20(collateralAsset).safeApprove(poolAdapter_, requiredAmountCollateralAsset_);
       } else {
-        // todo IERC20(borrowAsset).balanceOf(address(this)) - balanceBorrowedAsset can throw overflow
         // the borrower has sent us the amount of borrow asset
         require(
-          IERC20(borrowAsset).balanceOf(address(this)) - balanceBorrowedAsset == requiredAmountBorrowAsset_,
+          IERC20(borrowAsset).balanceOf(address(this)) == requiredAmountBorrowAsset_ + balanceBorrowedAsset,
           AppErrors.WRONG_AMOUNT_RECEIVED
         );
         // replaced by infinity approve: IERC20(borrowAsset).safeApprove(poolAdapter_, requiredAmountBorrowAsset_);
@@ -369,13 +399,13 @@ contract TetuConverter is ITetuConverter, IKeeperCallback {
       IBorrowManager(controller.borrowManager()).getTargetHealthFactor2(borrowAsset_)
     ) * 10**(18-2);
     uint minHealthFactor18 = uint(controller.minHealthFactor2()) * 10**(18-2);
-    // todo can throw overflow
+
+    require(targetHealthFactor18 > minHealthFactor18, AppErrors.WRONG_HEALTH_FACTOR);
     uint delta = (targetHealthFactor18 - minHealthFactor18) / ADDITIONAL_BORROW_DELTA_DENOMINATOR;
 
     require(
       resultHealthFactor18_ + delta > targetHealthFactor18
-      // todo can throw overflow
-      && resultHealthFactor18_ - delta < targetHealthFactor18,
+      && resultHealthFactor18_ < targetHealthFactor18 + delta,
       AppErrors.WRONG_REBALANCING
     );
   }
@@ -389,11 +419,10 @@ contract TetuConverter is ITetuConverter, IKeeperCallback {
   function getDebtAmountCurrent(
     address collateralAsset_,
     address borrowAsset_
-  ) external override returns (
+  ) external override nonReentrant returns (
     uint totalDebtAmountOut,
     uint totalCollateralAmountOut
   ) {
-    // todo all open function should have reentrancy check
     address[] memory poolAdapters = _debtMonitor().getPositions(
       msg.sender,
       collateralAsset_,
@@ -412,7 +441,11 @@ contract TetuConverter is ITetuConverter, IKeeperCallback {
     return (totalDebtAmountOut, totalCollateralAmountOut);
   }
 
-  // todo docs
+  /// @notice Total amount of borrow tokens that should be repaid to close the borrow completely.
+  /// @dev Actual debt amount can be a little LESS then the amount returned by this function.
+  ///      I.e. AAVE's pool adapter returns (amount of debt + tiny addon ~ 1 cent)
+  ///      The addon is required to workaround dust-tokens problem.
+  ///      After repaying the remaining amount is transferred back on the balance of the caller strategy.
   function getDebtAmountStored(
     address collateralAsset_,
     address borrowAsset_
@@ -437,7 +470,13 @@ contract TetuConverter is ITetuConverter, IKeeperCallback {
     return (totalDebtAmountOut, totalCollateralAmountOut);
   }
 
-  /// @notice User needs to redeem some collateral amount. Calculate an amount that should be repaid
+  /// @notice User needs to redeem some collateral amount. Calculate an amount of borrow token that should be repaid
+  /// @param collateralAmountToRedeem_ Amount of collateral required by the user
+  /// @return borrowAssetAmount Borrowed amount that should be repaid to receive back following amount of collateral:
+  ///                           amountToReceive = collateralAmountRequired_ - unobtainableCollateralAssetAmount
+  /// @return unobtainableCollateralAssetAmount A part of collateral that cannot be obtained in any case
+  ///                                           even if all borrowed amount will be returned.
+  ///                                           If this amount is not 0, you ask to get too much collateral.
   function estimateRepay(
     address collateralAsset_,
     uint collateralAmountToRedeem_,
@@ -478,11 +517,13 @@ contract TetuConverter is ITetuConverter, IKeeperCallback {
   ///       Check and claim rewards
   ///////////////////////////////////////////////////////
 
-  function claimRewards(address receiver_) external override returns (
+  /// @notice Transfer all reward tokens to {receiver_}
+  /// @return rewardTokensOut What tokens were transferred. Same reward token can appear in the array several times
+  /// @return amountsOut Amounts of transferred rewards, the array is synced with {rewardTokens}
+  function claimRewards(address receiver_) external override nonReentrant returns (
     address[] memory rewardTokensOut,
     uint[] memory amountsOut
   ) {
-    // todo all open function should have reentrancy check
     address[] memory poolAdapters = _debtMonitor().getPositionsForUser(msg.sender);
     uint lenPoolAdapters = poolAdapters.length;
 

@@ -10,13 +10,24 @@ import "../openzeppelin/Initializable.sol";
 contract Controller is IController, Initializable {
   uint16 constant MIN_ALLOWED_MIN_HEALTH_FACTOR = 100;
 
-  // todo docs
   // We cannot use immutable variables, because each contract should get address of the controller in the constructor
+
+  /// @notice Main application contract, strategy works only with it
   address public override tetuConverter;
+
+  /// @notice Contains list of lending pools. Allow to select most efficient pool for the given collateral/borrow pair
   address public override borrowManager;
+
+  /// @notice Contains list of opened borrows, check healths of the borrows
   address public override debtMonitor;
+
+  /// @notice A keeper to control health of the borrows
   address public override keeper;
+
+  /// @notice Allow to swap assets
   address public override tetuLiquidator;
+
+  /// @notice Wrapper around tetu-liquidator
   address public override swapManager;
 
   /// @notice Curent governance. It can be changed by offer/accept scheme
@@ -39,6 +50,7 @@ contract Controller is IController, Initializable {
   ///      using exist collateral
   uint16 public override maxHealthFactor2;
 
+  /// @notice Count of blocks per day, updatable
   uint private _blocksPerDay;
 
   ///////////////////////////////////////////////////////
@@ -111,7 +123,7 @@ contract Controller is IController, Initializable {
   ///  min/max thresholds and a target value for reconversion
   ///////////////////////////////////////////////////////
 
-  // todo docs
+  /// @notice min allowed health factor with decimals 2
   function setMinHealthFactor2(uint16 value_) external override {
     require(value_ > MIN_ALLOWED_MIN_HEALTH_FACTOR, AppErrors.WRONG_HEALTH_FACTOR);
     require(value_ < targetHealthFactor2, AppErrors.WRONG_HEALTH_FACTOR_CONFIG);
@@ -120,7 +132,9 @@ contract Controller is IController, Initializable {
     // todo event
   }
 
-  // todo docs
+  /// @notice target health factor with decimals 2
+  /// @dev If the health factor is below/above min/max threshold, we need to make repay
+  ///      or additional borrow and restore the health factor to the given target value
   function setTargetHealthFactor2(uint16 value_) external override {
     require(value_ > minHealthFactor2, AppErrors.WRONG_HEALTH_FACTOR_CONFIG);
     require(value_ < maxHealthFactor2, AppErrors.WRONG_HEALTH_FACTOR_CONFIG);
@@ -129,7 +143,7 @@ contract Controller is IController, Initializable {
     // todo event
   }
 
-  // todo docs
+  /// @notice max allowed health factor with decimals 2
   function setMaxHealthFactor2(uint16 value_) external override {
     require(value_ > targetHealthFactor2, AppErrors.WRONG_HEALTH_FACTOR_CONFIG);
     _onlyGovernance();

@@ -105,4 +105,8 @@ library AppErrors {
   string public constant CANNOT_CLOSE_LIVE_POSITION = "TC-47";
 
   string public constant ACCESS_DENIED = "TC-48";
+
+  /// @notice Value A is less then B, so we will have overflow on A - B, but it's weird situation
+  ///         If balance is decreased after a supply or increased after a deposit
+  string public constant WEIRD_OVERFLOW = "TC-49";
 }

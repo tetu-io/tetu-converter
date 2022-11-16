@@ -24,7 +24,7 @@ contract Keeper is OpsReady, IHealthKeeperCallback, IResolver {
   /// @notice Start index of pool adapter for next checkHealth-request
   ///         We store here result of previous call of IDebtMonitor.checkHealth
   uint256 public override nextIndexToCheck0;
-  address public controller;
+  IController immutable public controller;
 
   ///////////////////////////////////////////////////////////////////
   ///              Initialization and configuration
@@ -34,19 +34,17 @@ contract Keeper is OpsReady, IHealthKeeperCallback, IResolver {
     address payable ops_
   ) OpsReady(ops_) {
     require(controller_ != address(0), AppErrors.ZERO_ADDRESS);
-    controller = controller_;
-  }
-
-  function setController(address controller_) external {
-    require(controller_ != address(0), AppErrors.ZERO_ADDRESS);
-    require(msg.sender == IController(controller).governance(), AppErrors.GOVERNANCE_ONLY);
-    controller = controller_;
+    controller = IController(controller_);
   }
 
   ///////////////////////////////////////////////////////////////////
   ///              Read-only gelato-resolver
   ///////////////////////////////////////////////////////////////////
 
+  /// @notice Check health of opened positions starting from nth-position, where n = nextIndexToCheck0
+  /// @dev Read-only checker function called by Gelato.
+  /// @return canExecOut True if it's necessary to call rebalancing write-function
+  /// @return execPayloadOut Wrapped call of the rebalancing function (it will be called by Gelato)
   function checker()
   external
   view
@@ -55,11 +53,11 @@ contract Keeper is OpsReady, IHealthKeeperCallback, IResolver {
     bool canExecOut,
     bytes memory execPayloadOut
   ) {
-    IDebtMonitor debtMonitor = IDebtMonitor(IController(controller).debtMonitor());
+    IDebtMonitor debtMonitor = IDebtMonitor(controller.debtMonitor());
 
     // IHealthKeeperCallback is implemented inside this class
     // but we access it through controller to be able to split checker and executor in unit tests
-    IHealthKeeperCallback keeper = IHealthKeeperCallback(IController(controller).keeper());
+    IHealthKeeperCallback keeper = IHealthKeeperCallback(controller.keeper());
     uint startIndex = keeper.nextIndexToCheck0();
 
     (
@@ -88,6 +86,8 @@ contract Keeper is OpsReady, IHealthKeeperCallback, IResolver {
   ///            Executor to fix unhealthy pool adapters
   ///////////////////////////////////////////////////////////////////
 
+  /// @notice Make rebalancing of the given unhealthy positions (a position == pool adapter)
+  ///         Call TetuConverter.requireRepay for each position
   function fixHealth(
     uint nextIndexToCheck0_,
     address[] memory poolAdapters_,
@@ -104,7 +104,7 @@ contract Keeper is OpsReady, IHealthKeeperCallback, IResolver {
     nextIndexToCheck0 = nextIndexToCheck0_;
 
     if (countPoolAdapters > 0) {
-      IKeeperCallback keeperCallback = IKeeperCallback(IController(controller).tetuConverter());
+      IKeeperCallback keeperCallback = IKeeperCallback(controller.tetuConverter());
       for (uint i = 0; i < countPoolAdapters; i = i.uncheckedInc()) {
         keeperCallback.requireRepay(
           amountBorrowAsset_[i],

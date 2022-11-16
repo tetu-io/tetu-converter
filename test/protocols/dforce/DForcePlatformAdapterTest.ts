@@ -693,6 +693,8 @@ describe("DForce integration tests, platform adapter", () => {
   describe("registerCTokens", () => {
     describe("Good paths", () => {
       it("should return expected values", async () => {
+        if (!await isPolygonForkInUse()) return;
+
         const controller = await TetuConverterApp.createController(deployer);
         const platformAdapter = await AdaptersHelper.createDForcePlatformAdapter(
           deployer,
@@ -725,6 +727,8 @@ describe("DForce integration tests, platform adapter", () => {
     describe("Bad paths", () => {
       describe("Not governance", () => {
         it("should revert", async () => {
+          if (!await isPolygonForkInUse()) return;
+
           const controller = await TetuConverterApp.createController(deployer);
           const platformAdapter = await AdaptersHelper.createDForcePlatformAdapter(
             deployer,
@@ -746,6 +750,8 @@ describe("DForce integration tests, platform adapter", () => {
       });
       describe("Try to add not CToken", () => {
         it("should revert", async () => {
+          if (!await isPolygonForkInUse()) return;
+
           const controller = await TetuConverterApp.createController(deployer);
           const platformAdapter = await AdaptersHelper.createDForcePlatformAdapter(
             deployer,

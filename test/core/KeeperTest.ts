@@ -440,47 +440,5 @@ describe("KeeperTest", () => {
       });
     });
   });
-
-  describe("setController", () => {
-    describe("Good paths", () => {
-      it("should return expected values", async () => {
-        const controller = await TetuConverterApp.createController(deployer);
-        const keeper = Keeper__factory.connect(await controller.keeper(), controller.signer);
-
-        const before = await keeper.controller();
-        const controller2 = await TetuConverterApp.createController(deployer);
-        await keeper.setController(controller2.address);
-        const after = await keeper.controller();
-
-        const ret = [before, after].join();
-        const expected = [controller.address, controller2.address].join();
-        expect(ret).eq(expected);
-      });
-    });
-    describe("Bad paths", () => {
-      describe("Zero address", () => {
-        it("should revert", async () => {
-          const controller = await TetuConverterApp.createController(deployer);
-          const keeper = Keeper__factory.connect(await controller.keeper(), controller.signer);
-
-          await expect(keeper.setController(Misc.ZERO_ADDRESS)).revertedWith("TC-1"); // ZERO_ADDRESS
-        });
-      });
-      describe("Not governance", () => {
-        it("should revert", async () => {
-          const controller = await TetuConverterApp.createController(deployer);
-          const keeper = Keeper__factory.connect(await controller.keeper(), controller.signer);
-          const controller2 = await TetuConverterApp.createController(deployer);
-
-          const keeperNotGov = Keeper__factory.connect(
-            keeper.address,
-            await DeployerUtils.startImpersonate(ethers.Wallet.createRandom().address)
-          );
-
-          await expect(keeperNotGov.setController(controller2.address)).revertedWith("TC-9"); // GOVERNANCE_ONLY
-        });
-      });
-    });
-  });
 //endregion Unit tests
 });

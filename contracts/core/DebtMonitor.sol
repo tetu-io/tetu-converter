@@ -108,6 +108,7 @@ contract DebtMonitor is IDebtMonitor {
     return positionLastAccess[msg.sender] != 0;
   }
 
+  /// @notice Register new borrow position if it's not yet registered
   /// @dev This function is called from a pool adapter after any borrow
   function onOpenPosition() external override {
     require(IBorrowManager(controller.borrowManager()).isPoolAdapter(msg.sender), AppErrors.POOL_ADAPTER_ONLY);
@@ -129,6 +130,7 @@ contract DebtMonitor is IDebtMonitor {
     }
   }
 
+  /// @notice Unregister the borrow position if it's completely repaid
   /// @dev This function is called from a pool adapter when the borrow is completely repaid
   function onClosePosition() external override {
     // This method should be called by pool adapters only
@@ -168,6 +170,8 @@ contract DebtMonitor is IDebtMonitor {
     }
   }
 
+  /// @notice Pool adapter has opened borrow, but full liquidation happens and we've lost all collateral
+  ///         Close position without paying the debt and never use the pool adapter again.
   function closeLiquidatedPosition(address poolAdapter_) external override {
     require(msg.sender == controller.tetuConverter(), AppErrors.TETU_CONVERTER_ONLY);
 
@@ -181,6 +185,17 @@ contract DebtMonitor is IDebtMonitor {
   ///           Detect unhealthy positions
   ///////////////////////////////////////////////////////
 
+  /// @notice Enumerate {maxCountToCheck} pool adapters starting from {index0} and return unhealthy pool-adapters
+  ///         i.e. adapters with health factor below min allowed value
+  ///         It calculates two amounts: amount of borrow asset and amount of collateral asset
+  ///         To fix the health factor it's necessary to send EITHER one amount OR another one.
+  ///         There is special case: a liquidation happens inside the pool adapter.
+  ///         It means, that this is "dirty" pool adapter and this position must be closed and never used again.
+  ///         In this case, both amounts are zero (we need to make FULL repay)
+  /// @return nextIndexToCheck0 Index of next pool-adapter to check; 0: all pool-adapters were checked
+  /// @return outPoolAdapters List of pool adapters that should be reconverted
+  /// @return outAmountBorrowAsset What borrow-asset amount should be send to pool adapter to fix health factor
+  /// @return outAmountCollateralAsset What collateral-asset amount should be send to pool adapter to fix health factor
   function checkHealth(
     uint startIndex0,
     uint maxCountToCheck,
@@ -282,6 +297,9 @@ contract DebtMonitor is IDebtMonitor {
   ///////////////////////////////////////////////////////
   ///                   Views
   ///////////////////////////////////////////////////////
+
+  /// @notice Get active borrows of the user with given collateral/borrowToken
+  /// @return poolAdaptersOut The instances of IPoolAdapter
   function getPositions (
     address user_,
     address collateralToken_,
@@ -301,6 +319,8 @@ contract DebtMonitor is IDebtMonitor {
     return poolAdaptersOut;
   }
 
+  /// @notice Get active borrows of the given user
+  /// @return poolAdaptersOut The instances of IPoolAdapter
   function getPositionsForUser(address user_) external view override returns(
     address[] memory poolAdaptersOut
   ) {
@@ -316,6 +336,7 @@ contract DebtMonitor is IDebtMonitor {
     return poolAdaptersOut;
   }
 
+  /// @notice Return true if there is a least once active pool adapter created on the base of the {converter_}
   function isConverterInUse(address converter_) external view override returns (bool) {
     return _poolAdaptersForConverters[converter_].length() != 0;
   }

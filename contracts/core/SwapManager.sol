@@ -47,7 +47,10 @@ contract SwapManager is ISwapManager, ISwapConverter {
   ///           Return best amount for swap
   ///////////////////////////////////////////////////////
 
-  // todo docs
+  /// @notice Find a way to convert collateral asset to borrow asset in most efficient way
+  /// @return converter Address of ISwapConverter
+  ///         If SwapManager cannot find a conversion way,
+  ///         it returns converter == 0 (in the same way as ITetuConverter)
   function getConverter(AppDataTypes.InputConversionParams memory p_)
   external view override returns (
     address converter,
@@ -80,7 +83,11 @@ contract SwapManager is ISwapManager, ISwapConverter {
     return AppDataTypes.ConversionKind.SWAP_1;
   }
 
-  // todo docs
+  /// @notice Swap {sourceAmount_} of {sourceToken_} to {targetToken_} and send result amount to {receiver_}
+  ///         The swapping is made using TetuLiquidator.
+  /// @param targetAmount_ Amount that should be received after swapping.
+  ///                      Result amount can be a bit different from the target amount because of slippage.
+  /// @return outputAmount The amount that has been sent to the receiver
   function swap(
     address sourceToken_,
     uint sourceAmount_,

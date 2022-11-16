@@ -2,12 +2,12 @@
  * Approx up-limits by gas for various operations under test
  */
 export const GAS_LIMIT_BM_FIND_POOL_1 = 90_000;
-export const GAS_LIMIT_BM_FIND_POOL_5 = 262_000;
+export const GAS_LIMIT_BM_FIND_POOL_5 = 270_000;
 export const GAS_LIMIT_BM_FIND_POOL_10 = 383_000;
 export const GAS_LIMIT_BM_FIND_POOL_100 = 3_710_000;
 
 export const GAS_LIMIT_CONTROLLER_SET_XXX = 45_000;
-export const GAS_LIMIT_CONTROLLER_INITIALIZE = 210_000;
+export const GAS_LIMIT_CONTROLLER_INITIALIZE = 230_000;
 
 export const GAS_LIMIT_SINGLE_BORROW_SINGLE_REPAY_AAVE3_BORROW = 1_129_056; // 910_000;
 export const GAS_LIMIT_SINGLE_BORROW_SINGLE_REPAY_AAVE3_REPAY = 664_205; // 910_000;

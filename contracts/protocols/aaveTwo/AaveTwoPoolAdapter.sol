@@ -26,9 +26,8 @@ contract AaveTwoPoolAdapter is IPoolAdapter, IPoolAdapterInitializer, Initializa
   /// @dev Sometime, we provide collateral=1000000000000000000000 and receive atokens=999999999999999999999
   uint constant public ATOKEN_MAX_DELTA = 10;
 
-  // todo constant?
   /// @notice 1 - stable, 2 - variable
-  uint immutable public RATE_MODE = 2;
+  uint constant public RATE_MODE = 2;
 
   address public collateralAsset;
   address public borrowAsset;
@@ -90,17 +89,8 @@ contract AaveTwoPoolAdapter is IPoolAdapter, IPoolAdapterInitializer, Initializa
   ///////////////////////////////////////////////////////
 
   /// @notice Ensure that the caller is TetuConverter
-  function _onlyTC() internal view {
+  function _onlyTetuConverter() internal view {
     require(controller.tetuConverter() == msg.sender, AppErrors.TETU_CONVERTER_ONLY);
-  }
-
-  /// @notice Ensure that the caller is the user or TetuConverter
-  function _onlyUserOrTC() internal view {
-    require(
-      msg.sender == controller.tetuConverter()
-      || msg.sender == user
-    , AppErrors.USER_OR_TETU_CONVERTER_ONLY
-    );
   }
 
   function updateStatus() external override {
@@ -117,7 +107,7 @@ contract AaveTwoPoolAdapter is IPoolAdapter, IPoolAdapterInitializer, Initializa
     uint borrowAmount_,
     address receiver_
   ) external override returns (uint) {
-    _onlyTC();
+    _onlyTetuConverter();
 
     IAaveTwoPool pool = _pool;
     address assetBorrow = borrowAsset;
@@ -136,9 +126,8 @@ contract AaveTwoPoolAdapter is IPoolAdapter, IPoolAdapterInitializer, Initializa
     );
 
     // ensure that we have received required borrowed amount, send the amount to the receiver
-    // todo possible overflow
     require(
-      borrowAmount_ == IERC20(assetBorrow).balanceOf(address(this)) - balanceBorrowAsset0,
+      borrowAmount_ + balanceBorrowAsset0 == IERC20(assetBorrow).balanceOf(address(this)),
       AppErrors.WRONG_BORROWED_BALANCE
     );
     IERC20(assetBorrow).safeTransfer(receiver_, borrowAmount_);
@@ -176,8 +165,13 @@ contract AaveTwoPoolAdapter is IPoolAdapter, IPoolAdapterInitializer, Initializa
     );
     pool_.setUserUseReserveAsCollateral(assetCollateral_, true);
 
-    // todo possible overflow
-    uint aTokensAmount = IERC20(d.aTokenAddress).balanceOf(address(this)) - aTokensBalanceBeforeSupply;
+    uint aTokensBalanceAfterSupply = IERC20(d.aTokenAddress).balanceOf(address(this));
+
+    // deposit() shouldn't reduce balance..
+    // but let's check it to avoid even possibility of the overflow in aTokensAmount calculation
+    require(aTokensBalanceAfterSupply > aTokensBalanceBeforeSupply, AppErrors.WEIRD_OVERFLOW);
+
+    uint aTokensAmount = aTokensBalanceAfterSupply - aTokensBalanceBeforeSupply;
     require(aTokensAmount + ATOKEN_MAX_DELTA >= collateralAmount_, AppErrors.WRONG_DERIVATIVE_TOKENS_BALANCE);
 
     collateralBalanceATokens += aTokensAmount;
@@ -190,7 +184,7 @@ contract AaveTwoPoolAdapter is IPoolAdapter, IPoolAdapterInitializer, Initializa
     uint resultHealthFactor18,
     uint borrowedAmountOut
   ) {
-    _onlyTC();
+    _onlyTetuConverter();
     address assetBorrow = borrowAsset;
 
     // ensure that the position is opened
@@ -209,9 +203,8 @@ contract AaveTwoPoolAdapter is IPoolAdapter, IPoolAdapterInitializer, Initializa
 
     // ensure that we have received required borrowed amount, send the amount to the receiver
     // we assume here, that syncBalance(true) is called before the call of this function
-    // todo possible overflow
     require(
-      borrowAmount_ == IERC20(assetBorrow).balanceOf(address(this)) - balanceBorrowAsset0,
+      borrowAmount_ + balanceBorrowAsset0 == IERC20(assetBorrow).balanceOf(address(this)),
       AppErrors.WRONG_BORROWED_BALANCE
     );
     IERC20(assetBorrow).safeTransfer(receiver_, borrowAmount_);
@@ -235,7 +228,7 @@ contract AaveTwoPoolAdapter is IPoolAdapter, IPoolAdapterInitializer, Initializa
     bool closePosition_
   ) external override returns (uint) {
     // todo reentrancy
-    _onlyUserOrTC();
+    _onlyTetuConverter();
     address assetCollateral = collateralAsset;
     address assetBorrow = borrowAsset;
     IAaveTwoPool pool = _pool;
@@ -285,6 +278,7 @@ contract AaveTwoPoolAdapter is IPoolAdapter, IPoolAdapterInitializer, Initializa
 
     uint aTokensBalanceAfterSupply = IERC20(rc.aTokenAddress).balanceOf(address(this));
 
+    require(aTokensBalanceBeforeSupply >= aTokensBalanceAfterSupply, AppErrors.WEIRD_OVERFLOW);
     collateralBalanceATokens = aTokensBalanceBeforeSupply - aTokensBalanceAfterSupply > collateralBalanceATokens
       ? 0
       : collateralBalanceATokens - (aTokensBalanceBeforeSupply - aTokensBalanceAfterSupply);
@@ -339,8 +333,7 @@ contract AaveTwoPoolAdapter is IPoolAdapter, IPoolAdapterInitializer, Initializa
   ) external override returns (
     uint resultHealthFactor18
   ) {
-    // todo reentrancy
-    _onlyUserOrTC();
+    _onlyTetuConverter();
     address assetBorrow = borrowAsset;
     IAaveTwoPool pool = _pool;
 

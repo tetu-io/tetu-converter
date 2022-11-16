@@ -475,7 +475,7 @@ export class BorrowRepayUsesCase {
     // TetuConverter gives infinity approve to the pool adapter after pool adapter creation (see TetuConverter.convert implementation)
     await makeInfinityApprove(
       await controller.tetuConverter(),
-      poolAdapter.address,
+      poolAdapter,
       collateralToken.address,
       borrowToken.address
     );

@@ -42,7 +42,7 @@ interface IDebtMonitor {
   ///         Close position without paying the debt and never use the pool adapter again.
   function closeLiquidatedPosition(address poolAdapter_) external;
 
-    /// @notice Get total count of pool adapters with opened positions
+  /// @notice Get total count of pool adapters with opened positions
   function getCountPositions() external view returns (uint);
 
   /// @notice Get active borrows of the user with given collateral/borrowToken

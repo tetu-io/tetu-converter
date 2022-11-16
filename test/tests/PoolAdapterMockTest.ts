@@ -107,7 +107,7 @@ describe("PoolAdapterMock", () => {
           // TetuConverter gives infinity approve to the pool adapter after pool adapter creation (see TetuConverter.convert implementation)
           await makeInfinityApprove(
             await core.controller.tetuConverter(),
-            poolAdapterAddress.address,
+            poolAdapterAddress,
             sourceToken.address,
             targetToken.address
           );

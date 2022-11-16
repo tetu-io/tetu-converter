@@ -27,7 +27,7 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer,
   uint constant public ATOKEN_MAX_DELTA = 10;
 
   /// @notice 1 - stable, 2 - variable
-  uint immutable public RATE_MODE = 2;
+  uint constant public RATE_MODE = 2;
   uint constant public SECONDS_PER_YEAR = 31536000;
 
   address public collateralAsset;
@@ -89,17 +89,8 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer,
   ///////////////////////////////////////////////////////
 
   /// @notice Ensure that the caller is TetuConverter
-  function _onlyTC() internal view {
+  function _onlyTetuConverter() internal view {
     require(controller.tetuConverter() == msg.sender, AppErrors.TETU_CONVERTER_ONLY);
-  }
-
-  /// @notice Ensure that the caller is the user or TetuConverter
-  function _onlyUserOrTC() internal view {
-    require(
-      msg.sender == controller.tetuConverter()
-      || msg.sender == user
-    , AppErrors.USER_OR_TETU_CONVERTER_ONLY
-    );
   }
 
   function updateStatus() external override {
@@ -125,7 +116,7 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer,
     uint borrowAmount_,
     address receiver_
   ) external override returns (uint) {
-    _onlyTC();
+    _onlyTetuConverter();
 
     IAavePool pool = _pool;
     address assetBorrow = borrowAsset;
@@ -148,8 +139,8 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer,
 
     // ensure that we have received required borrowed amount, send the amount to the receiver
     require(
-      borrowAmount_ == IERC20(assetBorrow).balanceOf(address(this)) - balanceBorrowAsset0
-      , AppErrors.WRONG_BORROWED_BALANCE
+      borrowAmount_ + balanceBorrowAsset0 == IERC20(assetBorrow).balanceOf(address(this)),
+      AppErrors.WRONG_BORROWED_BALANCE
     );
     IERC20(assetBorrow).safeTransfer(receiver_, borrowAmount_);
 
@@ -188,8 +179,10 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer,
     pool_.setUserUseReserveAsCollateral(assetCollateral_, true);
 
     // ensure that we received a-tokens; don't transfer them anywhere
-    // !TODO: should we exclude following validation? AAVE-TWO has problems here
-    uint aTokensAmount = IERC20(d.aTokenAddress).balanceOf(address(this)) - aTokensBalanceBeforeSupply;
+    uint aTokensBalanceAfterSupply = IERC20(d.aTokenAddress).balanceOf(address(this));
+    require(aTokensBalanceAfterSupply >= aTokensBalanceBeforeSupply, AppErrors.WEIRD_OVERFLOW);
+
+    uint aTokensAmount = aTokensBalanceAfterSupply - aTokensBalanceBeforeSupply;
     require(aTokensAmount + ATOKEN_MAX_DELTA >= collateralAmount_, AppErrors.WRONG_DERIVATIVE_TOKENS_BALANCE);
 
     collateralBalanceATokens += aTokensAmount;
@@ -203,7 +196,7 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer,
     uint resultHealthFactor18,
     uint borrowedAmountOut
   ) {
-    _onlyTC();
+    _onlyTetuConverter();
 
     address assetBorrow = borrowAsset;
 
@@ -226,8 +219,8 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer,
 
     // ensure that we have received required borrowed amount, send the amount to the receiver
     require(
-      borrowAmount_ == IERC20(assetBorrow).balanceOf(address(this)) - balanceBorrowAsset0
-    , AppErrors.WRONG_BORROWED_BALANCE
+      borrowAmount_ + balanceBorrowAsset0 == IERC20(assetBorrow).balanceOf(address(this)),
+      AppErrors.WRONG_BORROWED_BALANCE
     );
     IERC20(assetBorrow).safeTransfer(receiver_, borrowAmount_);
 
@@ -249,15 +242,14 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer,
     address receiver_,
     bool closePosition_
   ) external override returns (uint) {
-    // todo reentrancy check
-    _onlyUserOrTC();
+    _onlyTetuConverter();
     address assetBorrow = borrowAsset;
     address assetCollateral = collateralAsset;
     IAavePool pool = _pool;
     IERC20(assetBorrow).safeTransferFrom(msg.sender, address(this), amountToRepay_);
 
     Aave3DataTypes.ReserveData memory rc = pool.getReserveData(assetCollateral);
-    uint aTokensBalanceBeforeSupply = IERC20(rc.aTokenAddress).balanceOf(address(this));
+    uint aTokensBalanceBeforeRepay = IERC20(rc.aTokenAddress).balanceOf(address(this));
     // how much collateral we are going to return
     uint amountCollateralToWithdraw = _getCollateralAmountToReturn(
         pool,
@@ -296,11 +288,12 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer,
       _validateHealthFactor(healthFactor);
     }
 
-    uint aTokensBalanceAfterSupply = IERC20(rc.aTokenAddress).balanceOf(address(this));
+    uint aTokensBalanceAfterRepay = IERC20(rc.aTokenAddress).balanceOf(address(this));
+    require(aTokensBalanceBeforeRepay >= aTokensBalanceAfterRepay, AppErrors.WEIRD_OVERFLOW);
 
-    collateralBalanceATokens = aTokensBalanceBeforeSupply - aTokensBalanceAfterSupply > collateralBalanceATokens
+    collateralBalanceATokens = aTokensBalanceBeforeRepay - aTokensBalanceAfterRepay > collateralBalanceATokens
       ? 0
-      : collateralBalanceATokens - (aTokensBalanceBeforeSupply - aTokensBalanceAfterSupply);
+      : collateralBalanceATokens - (aTokensBalanceBeforeRepay - aTokensBalanceAfterRepay);
 
     return amountCollateralToWithdraw;
   }
@@ -353,8 +346,7 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer,
   ) external override returns (
     uint resultHealthFactor18
   ) {
-    // todo reentrancy check
-    _onlyUserOrTC();
+    _onlyTetuConverter();
     IAavePool pool = _pool;
 
     if (isCollateral_) {
