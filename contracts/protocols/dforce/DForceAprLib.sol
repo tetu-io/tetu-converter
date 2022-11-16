@@ -196,9 +196,11 @@ library DForceAprLib {
     IDForceCToken cTokenBorrow_,
     uint amountToBorrow_
   ) internal view returns (uint) {
-    // todo overflow
+    uint cash = cTokenBorrow_.getCash();
+    require(cash >= amountToBorrow_, AppErrors.AMOUNT_TOO_BIG);
+
     return interestRateModel_.getBorrowRate(
-      cTokenBorrow_.getCash() - amountToBorrow_,
+      cash - amountToBorrow_,
       cTokenBorrow_.totalBorrows() + amountToBorrow_,
       cTokenBorrow_.totalReserves()
     );
@@ -235,6 +237,8 @@ library DForceAprLib {
     uint reserveRatio_,
     uint currentExchangeRate_
   ) internal view returns(uint) {
+    require(reserveRatio_ <= 1e18, AppErrors.WEIRD_OVERFLOW);
+
     uint totalSupply = totalSupply_ + amountToSupply_ * 10**18 / currentExchangeRate_;
 
     uint exchangeRateInternal = getEstimatedExchangeRate(
@@ -253,7 +257,6 @@ library DForceAprLib {
       totalReserves_
     );
 
-    // todo overflow
     return tmul(
       borrowRatePerBlock,
       1e18 - reserveRatio_,
@@ -267,6 +270,7 @@ library DForceAprLib {
     uint totalBorrows_,
     uint totalReserves_
   ) internal pure returns (uint) {
+    require(cash_ + totalBorrows_ >= totalReserves_, AppErrors.WEIRD_OVERFLOW);
     return totalSupply_ == 0
       ? 0
       : rdiv(cash_ + totalBorrows_ - totalReserves_, totalSupply_);
@@ -337,21 +341,25 @@ library DForceAprLib {
     uint supplyAmount_,
     uint targetBlock_
   ) internal pure returns (uint) {
-
     // nextStateIndex = stateIndex_ +  distributedPerToken
     uint nextStateIndex = stateIndex_ + rdiv(
-      distributionSpeed_ * (blockSupply_ - stateBlock_),
+      distributionSpeed_ * (
+        blockSupply_ > stateBlock_
+          ? blockSupply_ - stateBlock_
+          : 0
+      ),
       totalSupply_
     );
 
-    // todo overflow
     return getRewardAmount(
       supplyAmount_,
       nextStateIndex,
       distributionSpeed_,
       totalSupply_ + supplyAmount_,
       nextStateIndex,
-      targetBlock_ - blockSupply_
+      targetBlock_ > blockSupply_
+        ? targetBlock_ - blockSupply_
+        : 0
     );
   }
 
@@ -396,6 +404,7 @@ library DForceAprLib {
     uint blockToClaimRewards_
   ) internal view returns (uint rewardAmountBorrow) {
     // borrow block: before borrow
+    require(p_.blockNumber >= p_.accrualBlockNumber, AppErrors.WEIRD_OVERFLOW);
     uint simpleInterestFactor = (p_.blockNumber - p_.accrualBlockNumber)
       * IDForceInterestRateModel(p_.interestRateModel).getBorrowRate(
           p_.totalCash,
@@ -413,11 +422,16 @@ library DForceAprLib {
     uint stateIndex = p_.stateIndex + (
       totalTokens == 0
         ? 0
-        : rdiv(p_.distributionSpeed * (p_.blockNumber - p_.stateBlock), totalTokens)
+        : rdiv(p_.distributionSpeed * (
+            p_.blockNumber > p_.stateBlock
+              ? p_.blockNumber - p_.stateBlock
+              : 0
+        ), totalTokens)
     );
     p_.totalBorrows += p_.amountToBorrow;
 
     // target block (where we are going to claim the rewards)
+    require(blockToClaimRewards_ >= 1 + p_.blockNumber, AppErrors.WEIRD_OVERFLOW);
     simpleInterestFactor = (blockToClaimRewards_ - 1 - p_.blockNumber)
       * IDForceInterestRateModel(p_.interestRateModel).getBorrowRate(
           p_.totalCash + p_.amountToBorrow,
@@ -429,14 +443,13 @@ library DForceAprLib {
     borrowIndex += rmul(simpleInterestFactor, borrowIndex);
     totalTokens = rdiv(p_.totalBorrows, borrowIndex);
 
-    // todo overflow
     return getRewardAmount(
       rdiv(divup(p_.amountToBorrow * borrowIndex, userInterest), borrowIndex),
       stateIndex,
       p_.distributionSpeed,
       totalTokens,
       stateIndex,
-      blockToClaimRewards_ - p_.blockNumber
+      blockToClaimRewards_ - p_.blockNumber // no overflow, see require above
     );
   }
 
@@ -481,7 +494,8 @@ library DForceAprLib {
     uint totalDistributed = distributionSpeed_ * countBlocks_;
     uint dt = rdiv(totalDistributed, totalToken_);
     uint ti = stateIndex_ + dt;
-    // todo overflow
+
+    require(ti >= accountIndex_, AppErrors.WEIRD_OVERFLOW);
     return rmul(accountBalance_, ti - accountIndex_);
   }
 

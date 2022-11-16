@@ -227,7 +227,6 @@ contract AaveTwoPoolAdapter is IPoolAdapter, IPoolAdapterInitializer, Initializa
     address receiver_,
     bool closePosition_
   ) external override returns (uint) {
-    // todo reentrancy
     _onlyTetuConverter();
     address assetCollateral = collateralAsset;
     address assetBorrow = borrowAsset;

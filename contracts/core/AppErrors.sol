@@ -109,4 +109,6 @@ library AppErrors {
   /// @notice Value A is less then B, so we will have overflow on A - B, but it's weird situation
   ///         If balance is decreased after a supply or increased after a deposit
   string public constant WEIRD_OVERFLOW = "TC-49";
+
+  string public constant AMOUNT_TOO_BIG = "TC-50";
 }
