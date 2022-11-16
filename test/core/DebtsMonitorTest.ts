@@ -15,6 +15,7 @@ import {
   PriceOracleMock__factory,
   Borrower,
   BorrowManager__factory,
+  BorrowManagerStub__factory,
   PoolAdapterStub, PoolAdapterStub__factory
 } from "../../typechain";
 import {TimeUtils} from "../../scripts/utils/TimeUtils";
@@ -34,7 +35,7 @@ import {BalanceUtils} from "../baseUT/utils/BalanceUtils";
 import {areAlmostEqual} from "../baseUT/utils/CommonUtils";
 import {CoreContractsHelper} from "../baseUT/helpers/CoreContractsHelper";
 import {Misc} from "../../scripts/utils/Misc";
-import {TetuConverterApp} from "../baseUT/helpers/TetuConverterApp";
+import {ICreateControllerParams, TetuConverterApp} from "../baseUT/helpers/TetuConverterApp";
 import {parseUnits} from "ethers/lib/utils";
 
 describe("DebtsMonitor", () => {
@@ -1915,6 +1916,77 @@ describe("DebtsMonitor", () => {
           });
         });
       });
+    });
+  });
+
+  describe("events", () => {
+    it("should emit expected events", async () => {
+      const p: ICreateControllerParams = {
+        borrowManagerFabric: async () => (await MocksHelper.createBorrowManagerStub(deployer, true)).address,
+        tetuConverterFabric: async () => ethers.Wallet.createRandom().address,
+        keeperFabric: async () => ethers.Wallet.createRandom().address,
+        swapManagerFabric: async () => ethers.Wallet.createRandom().address,
+        tetuLiquidatorAddress: ethers.Wallet.createRandom().address,
+        debtMonitorFabric: (async c => (await CoreContractsHelper.createDebtMonitor(deployer, c.address, 1, 1)).address),
+      };
+      const controller = await TetuConverterApp.createController(deployer, p);
+      const debtMonitorAsGov = DebtMonitor__factory.connect(
+        await controller.debtMonitor(),
+        await DeployerUtils.startImpersonate(await controller.governance())
+      );
+      const debtMonitorAsTetuConverter = DebtMonitor__factory.connect(
+        await controller.debtMonitor(),
+        await DeployerUtils.startImpersonate(await controller.tetuConverter())
+      );
+      const borrowManager = BorrowManagerStub__factory.connect(
+        await controller.borrowManager(),
+        await DeployerUtils.startImpersonate(await controller.borrowManager())
+      );
+
+      await expect(
+        debtMonitorAsGov.setThresholdAPR(14)
+      ).to.emit(debtMonitorAsGov, "OnSetThresholdAPR").withArgs(14);
+
+      await expect(
+        debtMonitorAsGov.setThresholdCountBlocks(141)
+      ).to.emit(debtMonitorAsGov, "OnSetThresholdCountBlocks").withArgs(141);
+
+      const poolAdapter = await MocksHelper.createPoolAdapterStub(deployer, parseUnits("0.5"));
+      // const collateralAsset = ethers.Wallet.createRandom().address;
+      // const borrowAsset = ethers.Wallet.createRandom().address;
+      // const converter = ethers.Wallet.createRandom().address;
+      // await poolAdapter.initialize(
+      //   controller.address,
+      //   ethers.Wallet.createRandom().address,
+      //   ethers.Wallet.createRandom().address,
+      //   collateralAsset,
+      //   borrowAsset,
+      //   converter,
+      //   ethers.Wallet.createRandom().address,
+      //   parseUnits("0.5"),
+      //   parseUnits("0.5"),
+      //   ethers.Wallet.createRandom().address
+      // );
+
+      const debtMonitorAsPoolAdapter = DebtMonitor__factory.connect(
+        await controller.debtMonitor(),
+        await DeployerUtils.startImpersonate(await poolAdapter.address)
+      );
+
+      await expect(
+        debtMonitorAsPoolAdapter.onOpenPosition()
+      ).to.emit(debtMonitorAsTetuConverter, "OnOpenPosition").withArgs(poolAdapter.address);
+
+      await expect(
+        debtMonitorAsPoolAdapter.onClosePosition()
+      ).to.emit(debtMonitorAsTetuConverter, "OnClosePosition").withArgs(poolAdapter.address);
+
+      await debtMonitorAsPoolAdapter.onOpenPosition();
+      await poolAdapter.setManualStatus(0, parseUnits("0.3"), 0, true, parseUnits("0.5"));
+
+      await expect(
+        debtMonitorAsTetuConverter.closeLiquidatedPosition(poolAdapter.address)
+      ).to.emit(debtMonitorAsTetuConverter, "OnCloseLiquidatedPosition").withArgs(poolAdapter.address, parseUnits("0.3"));
     });
   });
 
