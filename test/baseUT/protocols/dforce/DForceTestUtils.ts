@@ -417,7 +417,6 @@ export class DForceTestUtils {
     d: IPrepareToBorrowResults,
     borrowHolder: string
   ) : Promise<ILiquidationResults> {
-    const MAX_UINT_AMOUNT = '115792089237316195423570985008687907853269984665640564039457584007913129639935';
     const liquidatorAddress = ethers.Wallet.createRandom().address;
 
     const liquidator = await DeployerUtils.startImpersonate(liquidatorAddress);
@@ -432,7 +431,7 @@ export class DForceTestUtils {
     console.log("debt", borrowDebt);
 
     await BalanceUtils.getAmountFromHolder(d.borrowToken.address, borrowHolder, liquidatorAddress, borrowDebt);
-    await IERC20__factory.connect(d.borrowToken.address, liquidator).approve(borrowCTokenAsLiquidator.address, MAX_UINT_AMOUNT);
+    await IERC20__factory.connect(d.borrowToken.address, liquidator).approve(borrowCTokenAsLiquidator.address, Misc.MAX_UINT);
 
     console.log("Before liquidation, user account", accountBefore);
     console.log("User collateral before liquidation, collateral token", await d.collateralCToken.balanceOf(d.dfPoolAdapterTC.address));

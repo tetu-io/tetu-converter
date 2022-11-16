@@ -86,6 +86,11 @@ contract DForcePoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP, Initi
     borrowCToken = cTokenBorrow;
 
     _comptroller = IDForceController(comptroller_);
+
+    // The pool adapter doesn't keep assets on its balance, so it's safe to use infinity approve
+    // All approves replaced by infinity-approve were commented in the code below
+    IERC20(collateralAsset_).safeApprove(cTokenCollateral, type(uint).max);
+    IERC20(borrowAsset_).safeApprove(cTokenBorrow, type(uint).max);
   }
 
   ///////////////////////////////////////////////////////
@@ -175,8 +180,7 @@ contract DForcePoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP, Initi
       IWmatic(WMATIC).withdraw(collateralAmount_);
       IDForceCTokenMatic(cTokenCollateral_).mint{value : collateralAmount_}(address(this));
     } else {
-      IERC20(assetCollateral_).approve(cTokenCollateral_, 0);
-      IERC20(assetCollateral_).approve(cTokenCollateral_, collateralAmount_);
+      // replaced by infinity approve: IERC20(assetCollateral_).safeApprove(cTokenCollateral_, collateralAmount_);
       IDForceCToken(cTokenCollateral_).mint(address(this), collateralAmount_);
     }
     return tokenBalanceBefore;
@@ -283,8 +287,7 @@ contract DForcePoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP, Initi
       IWmatic(WMATIC).withdraw(amountToRepay_);
       IDForceCTokenMatic(cTokenBorrow).repayBorrow{value : amountToRepay_}();
     } else {
-      IERC20(assetBorrow).approve(cTokenBorrow, 0);
-      IERC20(assetBorrow).approve(cTokenBorrow, amountToRepay_);
+      // replaced by infinity approve: IERC20(assetBorrow).safeApprove(cTokenBorrow, amountToRepay_);
       IDForceCToken(cTokenBorrow).repayBorrow(amountToRepay_);
     }
 

@@ -26,7 +26,7 @@ interface IHfCToken {
      * @notice Get the current allowance from `owner` for `spender`
      * @param owner The address of the account which owns the tokens to be spent
      * @param spender The address of the account which may transfer tokens
-     * @return The number of tokens allowed to be spent (-1 means infinite)
+     * @return The number of tokens allowed to be spent (-1 means infinity)
      */
     function allowance(address owner, address spender) external view returns (uint256);
 
@@ -35,7 +35,7 @@ interface IHfCToken {
      * @dev This will overwrite the approval amount for `spender`
      *  and is subject to issues noted [here](https://eips.ethereum.org/EIPS/eip-20#approve)
      * @param spender The address of the account which may transfer tokens
-     * @param amount The number of tokens that are approved (uint256.max means infinite)
+     * @param amount The number of tokens that are approved (uint256.max means infinity)
      * @return Whether or not the approval succeeded
      */
     function approve(address spender, uint256 amount) external returns (bool);

@@ -82,6 +82,11 @@ contract HfPoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP, Initializ
     collateralCToken = cTokenCollateral;
     borrowCToken = cTokenBorrow;
     _comptroller = IHfComptroller(comptroller_);
+
+    // The pool adapter doesn't keep assets on its balance, so it's safe to use infinity approve
+    // All approves replaced by infinity-approve were commented in the code below
+    IERC20(collateralAsset_).safeApprove(cTokenCollateral, type(uint).max);
+    IERC20(borrowAsset_).safeApprove(cTokenBorrow, type(uint).max);
   }
 
   ///////////////////////////////////////////////////////
@@ -175,8 +180,7 @@ contract HfPoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP, Initializ
       IWmatic(WMATIC).withdraw(collateralAmount_);
       IHfHMatic(payable(cTokenCollateral_)).mint{value : collateralAmount_}();
     } else {
-      IERC20(assetCollateral_).approve(cTokenCollateral_, 0);
-      IERC20(assetCollateral_).approve(cTokenCollateral_, collateralAmount_);
+      // replaced by infinity approve: IERC20(assetCollateral_).approve(cTokenCollateral_, collateralAmount_);
       uint error = IHfCToken(cTokenCollateral_).mint(collateralAmount_);
       require(error == 0, AppErrors.MINT_FAILED);
     }
@@ -293,8 +297,7 @@ contract HfPoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP, Initializ
       IWmatic(WMATIC).withdraw(amountToRepay_);
       IHfHMatic(payable(cTokenBorrow)).repayBorrow{value : amountToRepay_}();
     } else {
-      IERC20(assetBorrow).approve(cTokenBorrow, 0);
-      IERC20(assetBorrow).approve(cTokenBorrow, amountToRepay_);
+      // replaced by infinity approve: IERC20(assetBorrow).approve(cTokenBorrow, amountToRepay_);
       error = IHfCToken(cTokenBorrow).repayBorrow(amountToRepay_);
       require(error == 0, AppErrors.REPAY_FAILED);
     }
@@ -388,8 +391,7 @@ contract HfPoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP, Initializ
         IWmatic(WMATIC).withdraw(amount_);
         IHfHMatic(payable(cTokenBorrow)).repayBorrow{value : amount_}();
       } else {
-        IERC20(assetBorrow).approve(cTokenBorrow, 0);
-        IERC20(assetBorrow).approve(cTokenBorrow, amount_);
+        // replaced by infinity approve: IERC20(assetBorrow).approve(cTokenBorrow, amount_);
         error = IHfCToken(cTokenBorrow).repayBorrow(amount_);
         require(error == 0, AppErrors.REPAY_FAILED);
       }

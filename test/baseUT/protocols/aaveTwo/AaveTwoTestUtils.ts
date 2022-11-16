@@ -26,6 +26,7 @@ import {getBigNumberFrom} from "../../../../scripts/utils/NumberUtils";
 import {Aave3Helper} from "../../../../scripts/integration/helpers/Aave3Helper";
 import {IPoolAdapterStatus} from "../../types/BorrowRepayDataTypes";
 import {TetuConverterApp} from "../../helpers/TetuConverterApp";
+import {Misc} from "../../../../scripts/utils/Misc";
 
 //region Data types
 export interface IPrepareToBorrowResults {
@@ -299,14 +300,13 @@ export class AaveTwoTestUtils {
     d: IPrepareToBorrowResults,
     borrowHolder: string
   ) : Promise<ILiquidationResults> {
-    const MAX_UINT_AMOUNT = '115792089237316195423570985008687907853269984665640564039457584007913129639935';
     const liquidatorAddress = ethers.Wallet.createRandom().address;
 
     const liquidator = await DeployerUtils.startImpersonate(liquidatorAddress);
     const liquidatorBorrowAmountToPay = d.amountToBorrow;
     const borrowerAddress = d.aavePoolAdapterAsTC.address;
     await BalanceUtils.getAmountFromHolder(d.borrowToken.address, borrowHolder, liquidatorAddress, liquidatorBorrowAmountToPay);
-    await IERC20__factory.connect(d.borrowToken.address, liquidator).approve(d.aavePool.address, MAX_UINT_AMOUNT);
+    await IERC20__factory.connect(d.borrowToken.address, liquidator).approve(d.aavePool.address, Misc.MAX_UINT);
 
     const aavePoolAsLiquidator = IAaveTwoPool__factory.connect(d.aavePool.address, liquidator);
     const dataProvider = await Aave3Helper.getAaveProtocolDataProvider(liquidator);

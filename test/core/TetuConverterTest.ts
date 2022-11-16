@@ -149,6 +149,22 @@ describe("TetuConverterTest", () => {
           sourceToken.address,
           targetToken.address
         );
+        // TetuConverter gives infinity approve to the pool adapter (see TetuConverter.convert implementation)
+        await IERC20__factory.connect(
+          sourceToken.address,
+          await DeployerUtils.startImpersonate(core.tc.address)
+        ).approve(
+          poolAdapter,
+          Misc.MAX_UINT
+        );
+        await IERC20__factory.connect(
+          targetToken.address,
+          await DeployerUtils.startImpersonate(core.tc.address)
+        ).approve(
+          poolAdapter,
+          Misc.MAX_UINT
+        );
+
         poolAdapters.push(poolAdapter);
         console.log("poolAdapter is configured:", poolAdapter, targetToken.address);
       }

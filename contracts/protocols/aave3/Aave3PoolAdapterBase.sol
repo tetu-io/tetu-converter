@@ -77,6 +77,11 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer,
 
     _pool = IAavePool(pool_);
     _priceOracle = IAavePriceOracle(IAaveAddressesProvider(_pool.ADDRESSES_PROVIDER()).getPriceOracle());
+
+    // The pool adapter doesn't keep assets on its balance, so it's safe to use infinity approve
+    // All approves replaced by infinity-approve were commented in the code below
+    IERC20(collateralAsset_).safeApprove(pool_, type(uint).max);
+    IERC20(borrowAsset_).safeApprove(pool_, type(uint).max);
   }
 
   ///////////////////////////////////////////////////////
@@ -172,8 +177,8 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer,
 
     // Supplies an `amount` of underlying asset into the reserve, receiving in return overlying aTokens.
     // E.g. User supplies 100 USDC and gets in return 100 aUSDC
-    // todo infinity approve? safeApprove?
-    IERC20(assetCollateral_).approve(address(pool_), collateralAmount_);
+
+    // replaced by infinity approve: IERC20(assetCollateral_).safeApprove(address(pool_), collateralAmount_);
     pool_.supply(
       assetCollateral_,
       collateralAmount_,
@@ -261,10 +266,8 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer,
         assetBorrow,
         closePosition_
     );
-    // todo infinity approve?
     // transfer borrow amount back to the pool
-    IERC20(assetBorrow).safeApprove(address(pool), 0);
-    IERC20(assetBorrow).safeApprove(address(pool), amountToRepay_);
+    // replaced by infinity approve: IERC20(assetBorrow).safeApprove(address(pool), amountToRepay_);
     pool.repay(assetBorrow,
       closePosition_ ? type(uint).max : amountToRepay_,
       RATE_MODE,
@@ -368,10 +371,8 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer,
 
       IERC20(assetBorrow).safeTransferFrom(msg.sender, address(this), amount_);
 
-      // todo infinity approve?
       // transfer borrowed amount back to the pool
-      IERC20(assetBorrow).approve(address(pool), 0);
-      IERC20(assetBorrow).approve(address(pool), amount_);
+      // replaced by infinity approve: IERC20(assetBorrow).approve(address(pool), amount_);
 
       pool.repay(assetBorrow,
         amount_,
