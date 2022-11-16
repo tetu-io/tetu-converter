@@ -26,7 +26,7 @@ import {
   HundredFinanceHelper,
   IHundredFinanceMarketData
 } from "../../../../scripts/integration/helpers/HundredFinanceHelper";
-import {transferAndApprove} from "../../utils/transferUtils";
+import {makeInfinityApprove, transferAndApprove} from "../../utils/transferUtils";
 import {BalanceUtils} from "../../utils/BalanceUtils";
 import {IHfAccountLiquidity, IHfUserAccountState} from "../../apr/aprHundredFinance";
 import {HundredFinanceChangePriceUtils} from "./HundredFinanceChangePriceUtils";
@@ -155,6 +155,13 @@ export class HundredFinanceTestUtils {
         borrowToken.address
       ),
       await DeployerUtils.startImpersonate(await controller.tetuConverter())
+    );
+    // TetuConverter gives infinity approve to the pool adapter after pool adapter creation (see TetuConverter.convert implementation)
+    await makeInfinityApprove(
+      await controller.tetuConverter(),
+      hfPoolAdapterTC.address,
+      collateralToken.address,
+      borrowToken.address
     );
 
     // put collateral amount on user's balance

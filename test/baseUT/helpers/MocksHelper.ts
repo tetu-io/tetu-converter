@@ -358,20 +358,29 @@ export class MocksHelper {
     const dest: CTokenMock[] = [];
 
     for (let i = 0; i < decimals.length; ++i) {
-      const d = decimals[i];
-      const token = await DeployUtils.deployContract(
-        signer
-        , "CTokenMock"
-        , `cToken-${i}-${d}`
-        , `cToken-${i}-${d}`
-        , d
-        , assets[i]
-      ) as CTokenMock;
+      const token = await this.createMockedCToken(signer, assets[i], decimals[i], i);
       dest.push(token);
     }
 
     return dest;
   }
+
+  public static async createMockedCToken(
+    signer: SignerWithAddress,
+    asset: string = ethers.Wallet.createRandom().address,
+    decimals: number = 18,
+    index: number = 0
+  ) : Promise<CTokenMock> {
+    return await DeployUtils.deployContract(
+      signer,
+      "CTokenMock",
+      `cToken-${index}-${decimals}`,
+      `cToken-${index}-${decimals}`,
+      decimals,
+      asset,
+    ) as CTokenMock;
+  }
+
 //endregion Batch functions
 
 //region TetuLiquidator and SwapManager

@@ -39,6 +39,7 @@ import {Aave3TestUtils, IPrepareToBorrowResults} from "../../baseUT/protocols/aa
 import {CoreContractsHelper} from "../../baseUT/helpers/CoreContractsHelper";
 import {AdaptersHelper} from "../../baseUT/helpers/AdaptersHelper";
 import {TetuConverterApp} from "../../baseUT/helpers/TetuConverterApp";
+import {MocksHelper} from "../../baseUT/helpers/MocksHelper";
 
 describe("Aave3PoolAdapterTest", () => {
 //region Global vars for all tests
@@ -1407,8 +1408,8 @@ describe("Aave3PoolAdapterTest", () => {
       badParams?: IInitializePoolAdapterBadPaths
     ) : Promise<{ret: string, expected: string}> {
       const user = ethers.Wallet.createRandom().address;
-      const collateralAsset = ethers.Wallet.createRandom().address;
-      const borrowAsset = ethers.Wallet.createRandom().address;
+      const collateralAsset = (await MocksHelper.createMockedCToken(deployer)).address;
+      const borrowAsset = (await MocksHelper.createMockedCToken(deployer)).address;
       const converter = ethers.Wallet.createRandom().address;
 
       const controller = await TetuConverterApp.createController(

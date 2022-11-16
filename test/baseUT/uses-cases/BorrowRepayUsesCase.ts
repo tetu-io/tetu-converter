@@ -20,6 +20,7 @@ import {BorrowMockAction} from "../actions/BorrowMockAction";
 import {RepayMockAction} from "../actions/RepayMockAction";
 import {DeployerUtils} from "../../../scripts/utils/DeployerUtils";
 import {MaticAddresses} from "../../../scripts/addresses/MaticAddresses";
+import {makeInfinityApprove} from "../utils/transferUtils";
 
 export interface IBorrowAction {
   collateralToken: TokenDataTypes,
@@ -470,6 +471,13 @@ export class BorrowRepayUsesCase {
       , uc.address
       , collateralToken.address
       , borrowToken.address
+    );
+    // TetuConverter gives infinity approve to the pool adapter after pool adapter creation (see TetuConverter.convert implementation)
+    await makeInfinityApprove(
+      await controller.tetuConverter(),
+      poolAdapter.address,
+      collateralToken.address,
+      borrowToken.address
     );
 
     const {

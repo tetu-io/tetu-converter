@@ -2,7 +2,6 @@ import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import {ethers} from "hardhat";
 import {TimeUtils} from "../../../scripts/utils/TimeUtils";
 import {
-  BorrowManager__factory,
   IDForceCToken__factory,
   IDForceRewardDistributor__factory,
   IERC20__factory,

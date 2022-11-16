@@ -5,7 +5,7 @@ import {
   Aave3PlatformAdapter__factory, BorrowManager__factory,
   IAavePool,
   IAaveProtocolDataProvider,
-  IERC20Extended__factory, IPlatformAdapter
+  IERC20Extended__factory
 } from "../../../typechain";
 import {expect} from "chai";
 import {BigNumber} from "ethers";
@@ -25,6 +25,7 @@ import {convertUnits} from "../../baseUT/apr/aprUtils";
 import {Aave3Utils} from "../../baseUT/protocols/aave3/Aave3Utils";
 import {DeployerUtils} from "../../../scripts/utils/DeployerUtils";
 import {TetuConverterApp} from "../../baseUT/helpers/TetuConverterApp";
+import {MocksHelper} from "../../baseUT/helpers/MocksHelper";
 
 describe("Aave3PlatformAdapterTest", () => {
 //region Global vars for all tests
@@ -625,8 +626,8 @@ describe("Aave3PlatformAdapterTest", () => {
       badParams?: IInitializePoolAdapterBadPaths
     ) : Promise<{ret: string, expected: string}> {
       const user = ethers.Wallet.createRandom().address;
-      const collateralAsset = ethers.Wallet.createRandom().address;
-      const borrowAsset = ethers.Wallet.createRandom().address;
+      const collateralAsset = (await MocksHelper.createMockedCToken(deployer)).address;
+      const borrowAsset = (await MocksHelper.createMockedCToken(deployer)).address;
 
       const controller = await TetuConverterApp.createController(deployer);
       const borrowManager = BorrowManager__factory.connect(

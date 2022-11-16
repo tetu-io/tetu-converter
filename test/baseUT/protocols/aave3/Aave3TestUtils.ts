@@ -17,7 +17,7 @@ import {MocksHelper} from "../../helpers/MocksHelper";
 import {AdaptersHelper} from "../../helpers/AdaptersHelper";
 import {BalanceUtils, IUserBalances} from "../../utils/BalanceUtils";
 import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
-import {transferAndApprove} from "../../utils/transferUtils";
+import {makeInfinityApprove, transferAndApprove} from "../../utils/transferUtils";
 import {IAave3UserAccountDataResults} from "../../apr/aprAave3";
 import {IBorrowAndRepayBadParams, IMakeBorrowAndRepayResults} from "../aaveShared/aaveBorrowAndRepayUtils";
 import {TimeUtils} from "../../../../scripts/utils/TimeUtils";
@@ -172,7 +172,13 @@ export class Aave3TestUtils {
       ),
       await DeployerUtils.startImpersonate(await controller.tetuConverter())
     );
-
+    // TetuConverter gives infinity approve to the pool adapter after pool adapter creation (see TetuConverter.convert implementation)
+    await makeInfinityApprove(
+      await controller.tetuConverter(),
+      aavePoolAdapterAsTC.address,
+      collateralToken.address,
+      borrowToken.address
+    );
     // put collateral amount on user's balance
     const collateralAmount = await BalanceUtils.getRequiredAmountFromHolders(
       collateralAmountRequired,

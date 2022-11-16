@@ -10,7 +10,6 @@ import {BalanceUtils} from "../../baseUT/utils/BalanceUtils";
 import {MaticAddresses} from "../../../scripts/addresses/MaticAddresses";
 import {AaveTwoHelper} from "../../../scripts/integration/helpers/AaveTwoHelper";
 import {AprUtils, COUNT_BLOCKS_PER_DAY} from "../../baseUT/utils/aprUtils";
-import {CoreContractsHelper} from "../../baseUT/helpers/CoreContractsHelper";
 import {
   AaveTwoPlatformAdapter__factory,
   IAaveTwoPool,
@@ -24,6 +23,7 @@ import {Misc} from "../../../scripts/utils/Misc";
 import {convertUnits} from "../../baseUT/apr/aprUtils";
 import {DeployerUtils} from "../../../scripts/utils/DeployerUtils";
 import {TetuConverterApp} from "../../baseUT/helpers/TetuConverterApp";
+import {MocksHelper} from "../../baseUT/helpers/MocksHelper";
 
 describe("AaveTwoPlatformAdapterTest", () => {
 //region Global vars for all tests
@@ -485,8 +485,8 @@ describe("AaveTwoPlatformAdapterTest", () => {
       badParams?: IInitializePoolAdapterBadPaths
     ) : Promise<{ret: string, expected: string}> {
       const user = ethers.Wallet.createRandom().address;
-      const collateralAsset = ethers.Wallet.createRandom().address;
-      const borrowAsset = ethers.Wallet.createRandom().address;
+      const collateralAsset = (await MocksHelper.createMockedCToken(deployer)).address;
+      const borrowAsset = (await MocksHelper.createMockedCToken(deployer)).address;
 
       const controller = await TetuConverterApp.createController(
         deployer,

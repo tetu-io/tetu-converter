@@ -17,6 +17,7 @@ import {MocksHelper} from "../baseUT/helpers/MocksHelper";
 import {BalanceUtils, IContractToInvestigate} from "../baseUT/utils/BalanceUtils";
 import {CoreContracts} from "../baseUT/types/CoreContracts";
 import {TetuConverterApp} from "../baseUT/helpers/TetuConverterApp";
+import {makeInfinityApprove} from "../baseUT/utils/transferUtils";
 
 describe("PoolAdapterMock", () => {
 //region Global vars for all tests
@@ -103,7 +104,13 @@ describe("PoolAdapterMock", () => {
             poolsInfo[0].asset2cTokens.get(sourceToken.address) || ""
             , deployer
           );
-
+          // TetuConverter gives infinity approve to the pool adapter after pool adapter creation (see TetuConverter.convert implementation)
+          await makeInfinityApprove(
+            await core.controller.tetuConverter(),
+            poolAdapterAddress.address,
+            sourceToken.address,
+            targetToken.address
+          );
           // get data from the pool adapter
           const pa: IPoolAdapter = IPoolAdapter__factory.connect(
             poolAdapterAddress, await DeployerUtils.startImpersonate(user)

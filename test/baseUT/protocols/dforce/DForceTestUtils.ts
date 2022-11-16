@@ -14,7 +14,7 @@ import {AdaptersHelper} from "../../helpers/AdaptersHelper";
 import {MaticAddresses} from "../../../../scripts/addresses/MaticAddresses";
 import {DeployerUtils} from "../../../../scripts/utils/DeployerUtils";
 import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
-import {transferAndApprove} from "../../utils/transferUtils";
+import {makeInfinityApprove, transferAndApprove} from "../../utils/transferUtils";
 import {BalanceUtils} from "../../utils/BalanceUtils";
 import {Misc} from "../../../../scripts/utils/Misc";
 import {ethers} from "hardhat";
@@ -146,6 +146,13 @@ export class DForceTestUtils {
         borrowToken.address
       ),
       await DeployerUtils.startImpersonate(await controller.tetuConverter())
+    );
+    // TetuConverter gives infinity approve to the pool adapter after pool adapter creation (see TetuConverter.convert implementation)
+    await makeInfinityApprove(
+      await controller.tetuConverter(),
+      dfPoolAdapterTC.address,
+      collateralToken.address,
+      borrowToken.address
     );
 
     // put collateral amount on user's balance
