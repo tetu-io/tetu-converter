@@ -261,4 +261,9 @@ interface IDForceController {
 
 
   function _setPriceOracle(address _newOracle) external;
+
+  /// @notice Sets the borrowCapacity for a iToken
+  function _setBorrowCapacity(address _iToken, uint256 _newBorrowCapacity) external;
+  /// @notice Sets the supplyCapacity for a iToken
+  function _setSupplyCapacity(address _iToken, uint256 _newSupplyCapacity) external;
 }

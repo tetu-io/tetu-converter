@@ -15,7 +15,7 @@ import {BalanceUtils} from "../../baseUT/utils/BalanceUtils";
 import {MaticAddresses} from "../../../scripts/addresses/MaticAddresses";
 import {BigNumber} from "ethers";
 import {IPlatformActor, PredictBrUsesCase} from "../../baseUT/uses-cases/PredictBrUsesCase";
-import {DForceHelper} from "../../../scripts/integration/helpers/DForceHelper";
+import {DForceHelper, IDForceMarketData} from "../../../scripts/integration/helpers/DForceHelper";
 import {areAlmostEqual} from "../../baseUT/utils/CommonUtils";
 import {TokenDataTypes} from "../../baseUT/types/TokenDataTypes";
 import {getBigNumberFrom} from "../../../scripts/utils/NumberUtils";
@@ -28,7 +28,8 @@ import {Misc} from "../../../scripts/utils/Misc";
 import {AprUtils} from "../../baseUT/utils/aprUtils";
 import {convertUnits} from "../../baseUT/apr/aprUtils";
 import {TetuConverterApp} from "../../baseUT/helpers/TetuConverterApp";
-import {MocksHelper} from "../../baseUT/helpers/MocksHelper";
+import {IConversionPlan} from "../../baseUT/apr/aprDataTypes";
+import {DForceChangePriceUtils} from "../../baseUT/protocols/dforce/DForceChangePriceUtils";
 
 describe("DForce integration tests, platform adapter", () => {
 //region Global vars for all tests
@@ -142,19 +143,35 @@ describe("DForce integration tests, platform adapter", () => {
     zeroCountBlocks?: boolean;
     zeroCollateralAmount?: boolean;
     incorrectHealthFactor2?: number;
+    setMinBorrowCapacity?: boolean;
+    setMinSupplyCapacity?: boolean;
   }
-  /**
-   * Ensure, that getConversionPlan returns same APR
-   * as directly calculated one using DForceAprLibFacade
-   */
-  async function makeTestComparePlanWithDirectCalculations(
+
+  interface IPreparePlanResults {
+    plan: IConversionPlan;
+    healthFactor2: number;
+    priceCollateral: BigNumber;
+    priceBorrow: BigNumber;
+    priceCollateral36: BigNumber;
+    priceBorrow36: BigNumber;
+    comptroller: IDForceController;
+    countBlocks: number;
+    borrowAssetDecimals: number;
+    collateralAssetDecimals: number;
+    collateralAssetData: IDForceMarketData;
+    borrowAssetData: IDForceMarketData;
+    cTokenBorrow: IDForceCToken;
+    cTokenCollateral: IDForceCToken;
+  }
+
+  async function preparePlan(
     collateralAsset: string,
     collateralAmount: BigNumber,
     borrowAsset: string,
     collateralCToken: string,
     borrowCToken: string,
     badPathsParams?: IGetConversionPlanBadPaths
-  ) : Promise<{sret: string, sexpected: string}> {
+  ) : Promise<IPreparePlanResults> {
     const controller = await TetuConverterApp.createController(
       deployer,
       {tetuLiquidatorAddress: MaticAddresses.TETU_LIQUIDATOR}
@@ -193,90 +210,145 @@ describe("DForce integration tests, platform adapter", () => {
     const borrowAssetData = await DForceHelper.getCTokenData(deployer, comptroller, cTokenBorrow);
     console.log("borrowAssetData", borrowAssetData);
 
-    const ret = await dForcePlatformAdapter.getConversionPlan(
+    if (badPathsParams?.setMinSupplyCapacity) {
+
+      await DForceChangePriceUtils.setSupplyCapacity(
+        deployer,
+        collateralCToken,
+        collateralAssetData.totalSupply
+      );
+    }
+    if (badPathsParams?.setMinBorrowCapacity) {
+      await DForceChangePriceUtils.setBorrowCapacity(
+        deployer,
+        collateralCToken,
+        borrowAssetData.totalBorrows
+      );
+    }
+
+    const plan = await dForcePlatformAdapter.getConversionPlan(
       badPathsParams?.zeroCollateralAsset ? Misc.ZERO_ADDRESS : collateralAsset,
       badPathsParams?.zeroCollateralAmount ? 0 : collateralAmount,
       badPathsParams?.zeroBorrowAsset ? Misc.ZERO_ADDRESS : borrowAsset,
       badPathsParams?.incorrectHealthFactor2 || healthFactor2,
       badPathsParams?.zeroCountBlocks ? 0 : countBlocks,
     );
-    console.log("getConversionPlan", ret);
+
+    return {
+      plan,
+      countBlocks,
+      borrowAssetDecimals,
+      comptroller,
+      collateralAssetDecimals,
+      priceCollateral36,
+      priceBorrow36,
+      borrowAssetData,
+      collateralAssetData,
+      healthFactor2,
+      priceCollateral,
+      priceBorrow,
+      cTokenBorrow,
+      cTokenCollateral
+    }
+  }
+
+  /**
+   * Ensure, that getConversionPlan returns same APR
+   * as directly calculated one using DForceAprLibFacade
+   */
+  async function makeTestComparePlanWithDirectCalculations(
+    collateralAsset: string,
+    collateralAmount: BigNumber,
+    borrowAsset: string,
+    collateralCToken: string,
+    borrowCToken: string,
+    badPathsParams?: IGetConversionPlanBadPaths
+  ) : Promise<{sret: string, sexpected: string}> {
+    const d = await preparePlan(
+      collateralAsset,
+      collateralAmount,
+      borrowAsset,
+      collateralCToken,
+      borrowCToken,
+      badPathsParams
+    );
+    console.log("getConversionPlan", d.plan);
 
     let amountToBorrow = AprUtils.getBorrowAmount(
       collateralAmount,
-      healthFactor2,
-      ret.liquidationThreshold18,
-      priceCollateral36,
-      priceBorrow36,
-      collateralAssetDecimals,
-      borrowAssetDecimals
+      d.healthFactor2,
+      d.plan.liquidationThreshold18,
+      d.priceCollateral36,
+      d.priceBorrow36,
+      d.collateralAssetDecimals,
+      d.borrowAssetDecimals
     );
-    if (amountToBorrow.gt(ret.maxAmountToBorrow)) {
-      amountToBorrow = ret.maxAmountToBorrow;
+    if (amountToBorrow.gt(d.plan.maxAmountToBorrow)) {
+      amountToBorrow = d.plan.maxAmountToBorrow;
     }
 
     const amountCollateralInBorrowAsset36 =  convertUnits(collateralAmount,
-      priceCollateral36,
-      collateralAssetDecimals,
-      priceBorrow36,
+      d.priceCollateral36,
+      d.collateralAssetDecimals,
+      d.priceBorrow36,
       36
     );
     console.log("collateralAmount", collateralAmount);
-    console.log("priceCollateral", priceCollateral);
-    console.log("priceBorrow", priceBorrow);
-    console.log("collateralAssetDecimals", collateralAssetDecimals);
+    console.log("priceCollateral", d.priceCollateral);
+    console.log("priceBorrow", d.priceBorrow);
+    console.log("collateralAssetDecimals", d.collateralAssetDecimals);
 
     // predict APR
     const libFacade = await DeployUtils.deployContract(deployer, "DForceAprLibFacade") as DForceAprLibFacade;
-    const borrowRatePredicted = await AprDForce.getEstimatedBorrowRate(libFacade
-      , cTokenBorrow
-      , amountToBorrow
+    const borrowRatePredicted = await AprDForce.getEstimatedBorrowRate(libFacade,
+      d.cTokenBorrow,
+      amountToBorrow
     );
-    const supplyRatePredicted = await AprDForce.getEstimatedSupplyRate(libFacade
-      , await getDForceStateInfo(comptroller, cTokenCollateral, cTokenBorrow, Misc.ZERO_ADDRESS)
-      , collateralAmount
-      , await cTokenCollateral.interestRateModel()
+    const supplyRatePredicted = await AprDForce.getEstimatedSupplyRate(libFacade,
+      await getDForceStateInfo(d.comptroller, d.cTokenCollateral, d.cTokenBorrow, Misc.ZERO_ADDRESS),
+      collateralAmount,
+      await d.cTokenCollateral.interestRateModel()
     );
     const supplyIncomeInBorrowAsset36 = await libFacade.getSupplyIncomeInBorrowAsset36(
-      supplyRatePredicted
-      , countBlocks
-      , collateralAssetDecimals
-      , priceCollateral36
-      , priceBorrow36
-      , collateralAmount
+      supplyRatePredicted,
+      d.countBlocks,
+      d.collateralAssetDecimals,
+      d.priceCollateral36,
+      d.priceBorrow36,
+      collateralAmount,
     );
     const borrowCost36 = await libFacade.getBorrowCost36(
-      borrowRatePredicted
-      , amountToBorrow
-      , countBlocks
-      , borrowAssetDecimals
+      borrowRatePredicted,
+      amountToBorrow,
+      d.countBlocks,
+      d.borrowAssetDecimals,
     );
 
     const sret = [
-      ret.borrowCost36,
-      ret.supplyIncomeInBorrowAsset36,
-      ret.ltv18,
-      ret.liquidationThreshold18,
-      ret.maxAmountToBorrow,
-      ret.maxAmountToSupply,
-      ret.amountToBorrow,
-      ret.amountCollateralInBorrowAsset36
+      d.plan.borrowCost36,
+      d.plan.supplyIncomeInBorrowAsset36,
+      d.plan.ltv18,
+      d.plan.liquidationThreshold18,
+      d.plan.maxAmountToBorrow,
+      d.plan.maxAmountToSupply,
+      d.plan.amountToBorrow,
+      areAlmostEqual(d.plan.amountCollateralInBorrowAsset36, amountCollateralInBorrowAsset36)
     ].map(x => BalanceUtils.toString(x)) .join("\n");
     console.log("amountToBorrow", amountToBorrow);
-    console.log("borrowAssetData.borrowRatePerBlock", borrowAssetData.borrowRatePerBlock);
-    console.log("countBlocks", countBlocks);
+    console.log("borrowAssetData.borrowRatePerBlock", d.borrowAssetData.borrowRatePerBlock);
+    console.log("countBlocks", d.countBlocks);
 
     const sexpected = [
       borrowCost36,
       supplyIncomeInBorrowAsset36,
-      collateralAssetData.collateralFactorMantissa
-        .mul(borrowAssetData.borrowFactorMantissa)
+      d.collateralAssetData.collateralFactorMantissa
+        .mul(d.borrowAssetData.borrowFactorMantissa)
         .div(Misc.WEI),
-      collateralAssetData.collateralFactorMantissa,
-      borrowAssetData.cash,
+      d.collateralAssetData.collateralFactorMantissa,
+      d.borrowAssetData.cash,
       BigNumber.from(2).pow(256).sub(1), // === type(uint).max
       amountToBorrow,
-      amountCollateralInBorrowAsset36,
+      true
     ].map(x => BalanceUtils.toString(x)) .join("\n");
 
     return {sret, sexpected};
@@ -396,23 +468,22 @@ describe("DForce integration tests, platform adapter", () => {
       });
     });
     describe("Bad paths", () => {
-      async function tryGetConversionPlan(badPathsParams: IGetConversionPlanBadPaths) {
-        if (!await isPolygonForkInUse()) return;
-
-        const collateralAsset = MaticAddresses.DAI;
-        const borrowAsset = MaticAddresses.USDC;
-        const collateralCToken = MaticAddresses.dForce_iDAI;
-        const borrowCToken = MaticAddresses.dForce_iUSDC;
-        const collateralAmount = getBigNumberFrom(1000, 18);
-
-        await makeTestComparePlanWithDirectCalculations(
+      async function tryGetConversionPlan(
+        badPathsParams: IGetConversionPlanBadPaths,
+        collateralAsset: string = MaticAddresses.DAI,
+        borrowAsset: string = MaticAddresses.USDC,
+        collateralCToken: string = MaticAddresses.dForce_iDAI,
+        borrowCToken: string = MaticAddresses.dForce_iUSDC,
+        collateralAmount: BigNumber = getBigNumberFrom(1000, 18)
+      ) : Promise<IConversionPlan> {
+        return (await preparePlan(
           collateralAsset,
           collateralAmount,
           borrowAsset,
           collateralCToken,
           borrowCToken,
           badPathsParams
-        );
+        )).plan;
       }
       describe("incorrect input params", () => {
         describe("collateral token is zero", () => {
@@ -461,11 +532,46 @@ describe("DForce integration tests, platform adapter", () => {
           });
         });
       });
-      describe("inactive", () => {
-        describe("collateral token is inactive", () => {
-          it("", async () =>{
-            // expect.fail("TODO");
-          });
+
+      describe("cToken is not registered", () => {
+        it("should fail if collateral token is not registered", async () => {
+          if (!await isPolygonForkInUse()) return;
+
+          expect((await tryGetConversionPlan(
+            {},
+            MaticAddresses.agEUR
+          )).converter).eq(Misc.ZERO_ADDRESS);
+        });
+        it("should fail if borrow token is not registered", async () => {
+          if (!await isPolygonForkInUse()) return;
+
+          expect((await tryGetConversionPlan(
+            {},
+            MaticAddresses.DAI,
+            MaticAddresses.agEUR,
+          )).converter).eq(Misc.ZERO_ADDRESS);
+        });
+      });
+
+      describe("capacity", () => {
+        it("should return expected maxAmountToBorrow if borrowCapacity is limited", async () =>{
+          const plan = await tryGetConversionPlan({setMinBorrowCapacity: true});
+          console.log(plan);
+          expect(plan.converter).eq(Misc.ZERO_ADDRESS);
+        });
+        it("should return expected maxAmountToSupply if supplyCapacity is limited", async () =>{
+          const plan = await tryGetConversionPlan({setMinSupplyCapacity: true});
+          console.log(plan);
+          expect(plan.converter).eq(Misc.ZERO_ADDRESS);
+        });
+      });
+
+      describe("paused", () => {
+        it("should fail if mintPaused is true for collateral", async () =>{
+          // expect.fail("TODO");
+        });
+        it("should fail if redeemPaused or borrowPaused for borrow", async () =>{
+          // expect.fail("TODO");
         });
       });
     });

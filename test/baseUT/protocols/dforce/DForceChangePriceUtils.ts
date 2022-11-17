@@ -3,7 +3,7 @@ import {BigNumber} from "ethers";
 import {DeployerUtils} from "../../../../scripts/utils/DeployerUtils";
 import {DeployUtils} from "../../../../scripts/utils/DeployUtils";
 import {MaticAddresses} from "../../../../scripts/addresses/MaticAddresses";
-import {DForcePriceOracleMock, IDForcePriceOracle} from "../../../../typechain";
+import {DForcePriceOracleMock, IDForceController__factory, IDForceCToken__factory} from "../../../../typechain";
 import {DForceHelper} from "../../../../scripts/integration/helpers/DForceHelper";
 
 export class DForceChangePriceUtils {
@@ -62,5 +62,35 @@ export class DForceChangePriceUtils {
       newPrice
     );
     console.log(`Price of asset ${cToken} was changed from ${currentPrice} to ${newPrice}`);
+  }
+
+  public static async setBorrowCapacity(
+    deployer: SignerWithAddress,
+    cToken: string,
+    amount: BigNumber
+  ) {
+    const comptroller = await DForceHelper.getController(deployer);
+    const owner = await comptroller.owner();
+
+    const comptrollerAsOwner = IDForceController__factory.connect(
+      comptroller.address,
+      await DeployerUtils.startImpersonate(owner)
+    );
+    await comptrollerAsOwner._setBorrowCapacity(cToken, amount);
+  }
+
+  public static async setSupplyCapacity(
+    deployer: SignerWithAddress,
+    cToken: string,
+    amount: BigNumber
+  ) {
+    const comptroller = await DForceHelper.getController(deployer);
+    const owner = await comptroller.owner();
+
+    const comptrollerAsOwner = IDForceController__factory.connect(
+      comptroller.address,
+      await DeployerUtils.startImpersonate(owner)
+    );
+    await comptrollerAsOwner._setSupplyCapacity(cToken, amount);
   }
 }

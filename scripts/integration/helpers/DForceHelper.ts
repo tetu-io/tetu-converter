@@ -191,22 +191,22 @@ export class DForceHelper {
   }
 
   public static async getPriceOracle(
-    controller: IDForceController
-    , signer: SignerWithAddress
+    controller: IDForceController,
+    signer: SignerWithAddress
   ) : Promise<IDForcePriceOracle> {
     return IDForcePriceOracle__factory.connect(await controller.priceOracle(), signer);
   }
 
   public static async getRewardDistributor(
-    controller: IDForceController
-    , signer: SignerWithAddress
+    controller: IDForceController,
+    signer: SignerWithAddress
   ) : Promise<IDForceRewardDistributor> {
     return IDForceRewardDistributor__factory.connect(await controller.rewardDistributor(), signer);
   }
 
   public static async getLendingData (
-    controller: IDForceController
-    , signer: SignerWithAddress
+    controller: IDForceController,
+    signer: SignerWithAddress
   ) : Promise<IDForceLendingData> {
     return IDForceLendingData__factory.connect(MaticAddresses.DFOCE_LENDING_DATA, signer);
   }

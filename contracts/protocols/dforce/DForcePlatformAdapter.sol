@@ -264,11 +264,9 @@ contract DForcePlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
             vars.priceBorrow36
           );
 
-          plan.amountCollateralInBorrowAsset36 = AppUtils.toMantissa(
-            collateralAmount_ * (10**18 * vars.priceCollateral36 / vars.priceBorrow36),
-            vars.collateralAssetDecimals,
-            18
-          );
+          plan.amountCollateralInBorrowAsset36 =
+            collateralAmount_ * (10**36 * vars.priceCollateral36 / vars.priceBorrow36)
+            / 10**vars.collateralAssetDecimals;
         }
       }
     }
