@@ -168,8 +168,7 @@ contract AaveTwoPlatformAdapter is IPlatformAdapter {
 
     if (_isUsable(rc.configuration) &&  _isCollateralUsageAllowed(rc.configuration)) {
       DataTypes.ReserveData memory rb = vars.poolLocal.getReserveData(params.borrowAsset);
-
-      if (_isUsable(rc.configuration) && rb.configuration.getBorrowingEnabled()) {
+      if (_isUsable(rb.configuration) && rb.configuration.getBorrowingEnabled()) {
         // get liquidation threshold (== collateral factor) and loan-to-value (LTV)
         // we should use both LTV and liquidationThreshold of collateral asset (not borrow asset)
         // see test "Borrow: check LTV and liquidationThreshold"
@@ -199,7 +198,6 @@ contract AaveTwoPlatformAdapter is IPlatformAdapter {
           uint8(rc.configuration.getDecimals()),
           uint8(rb.configuration.getDecimals())
         );
-
         // availableLiquidity is IERC20(borrowToken).balanceOf(atoken)
         (vars.availableLiquidity, vars.totalStableDebt, vars.totalVariableDebt,,,,,,,) = IAaveTwoProtocolDataProvider(
           IAaveTwoLendingPoolAddressesProvider(vars.poolLocal.getAddressesProvider())
@@ -210,7 +208,6 @@ contract AaveTwoPlatformAdapter is IPlatformAdapter {
         if (plan.amountToBorrow > plan.maxAmountToBorrow) {
           plan.amountToBorrow = plan.maxAmountToBorrow;
         }
-
         plan.borrowCost36 = AaveSharedLib.getCostForPeriodBefore(
           AaveSharedLib.State({
             liquidityIndex: rb.variableBorrowIndex,
@@ -266,13 +263,13 @@ contract AaveTwoPlatformAdapter is IPlatformAdapter {
         * 10**18 // we need decimals 36, but the result is already multiplied on 1e18 by multiplier above
         / vars.prices[1] // borrow price
         / 10**rc.configuration.getDecimals();
-      }
 
-      plan.amountCollateralInBorrowAsset36 = AppUtils.toMantissa(
-        params.collateralAmount * 10**18 * vars.prices[0] / vars.prices[1],
-        uint8(rc.configuration.getDecimals()),
-        18
-      );
+        plan.amountCollateralInBorrowAsset36 = AppUtils.toMantissa(
+          params.collateralAmount * 10**18 * vars.prices[0] / vars.prices[1],
+          uint8(rc.configuration.getDecimals()),
+          18
+        );
+      }
     }
 
     return plan;

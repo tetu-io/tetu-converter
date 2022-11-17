@@ -29,7 +29,7 @@ import {Misc} from "../../../scripts/utils/Misc";
 import {getDifference} from "../utils/CommonUtils";
 
 //region Data types
-interface IAaveTwoReserveData {
+export interface IAaveTwoReserveData {
   availableLiquidity: BigNumber;
   totalStableDebt: BigNumber;
   totalVariableDebt: BigNumber;
@@ -70,7 +70,7 @@ export interface IAaveTwoUserAccountDataResults {
   healthFactor: BigNumber;
 }
 
-interface IAaveTwoStateInfo {
+export interface IAaveTwoStateInfo {
   collateral: IAaveTwoAssetStateRaw;
   borrow: IAaveTwoAssetStateRaw;
   block: number;

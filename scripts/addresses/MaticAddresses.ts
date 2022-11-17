@@ -129,6 +129,8 @@ export class MaticAddresses {
   public static AAVE_TWO_POOL = "0x8dFf5E27EA6b7AC08EbFdf9eB090F32ee9a30fcf";
   public static AAVE_TWO_POOL_ADMIN = "0x4365f8e70cf38c6ca67de41448508f2da8825500";
   public static AAVE_TWO_POOL_OWNER = "0xdc9a35b16db4e126cfedc41322b3a36454b1f772";
+  // https://polygonscan.com/address/0xd05e3e715d945b59290df0ae8ef85c1bdb684744#readContract
+  public static AAVE_TWO_LENDING_POOL_CONFIGURATOR_POOL_ADMIN = "0xdc9a35b16db4e126cfedc41322b3a36454b1f772";
 
 //endregion AAVE-v3
 

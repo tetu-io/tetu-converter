@@ -6,7 +6,8 @@ import {DeployUtils} from "../../../../scripts/utils/DeployUtils";
 import {
   AaveTwoPriceOracleMock,
   AaveTwoPriceOracleMock__factory,
-  IAaveTwoLendingPoolAddressesProvider__factory
+  IAaveTwoLendingPoolAddressesProvider__factory,
+  IAaveTwoLendingPoolConfigurator__factory
 } from "../../../../typechain";
 import {BigNumber} from "ethers";
 
@@ -62,5 +63,31 @@ export class AaveTwoChangePricesUtils {
         inc ? currentPrice.mul(times) : currentPrice.div(times)
       ]
     );
+  }
+
+  public static async setReserveFreeze(
+    signer: SignerWithAddress,
+    reserve: string,
+    freeze: boolean = true
+  ) {
+    const aavePoolAdmin = await DeployerUtils.startImpersonate(
+      MaticAddresses.AAVE_TWO_POOL_ADMIN
+    );
+    const aavePoolOwner = await DeployerUtils.startImpersonate(
+      MaticAddresses.AAVE_TWO_POOL_OWNER
+    );
+    const aavePool = await AaveTwoHelper.getAavePool(signer);
+    const aaveAddressProviderAsOwner = IAaveTwoLendingPoolAddressesProvider__factory.connect(
+      await aavePool.getAddressesProvider(),
+      aavePoolOwner
+    );
+
+    const poolConfiguratorAsAdmin = IAaveTwoLendingPoolConfigurator__factory.connect(
+      await aaveAddressProviderAsOwner.getLendingPoolConfigurator(),
+      await DeployerUtils.startImpersonate(MaticAddresses.AAVE_TWO_LENDING_POOL_CONFIGURATOR_POOL_ADMIN)
+    );
+    console.log("freezeReserve");
+    await poolConfiguratorAsAdmin.freezeReserve(reserve);
+    console.log("successs");
   }
 }
