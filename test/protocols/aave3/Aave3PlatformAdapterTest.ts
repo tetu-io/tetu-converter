@@ -16,7 +16,6 @@ import {Aave3Helper} from "../../../scripts/integration/helpers/Aave3Helper";
 import {BalanceUtils} from "../../baseUT/utils/BalanceUtils";
 import {MaticAddresses} from "../../../scripts/addresses/MaticAddresses";
 import {AprUtils, COUNT_BLOCKS_PER_DAY} from "../../baseUT/utils/aprUtils";
-import {CoreContractsHelper} from "../../baseUT/helpers/CoreContractsHelper";
 import {areAlmostEqual} from "../../baseUT/utils/CommonUtils";
 import {IPlatformActor, PredictBrUsesCase} from "../../baseUT/uses-cases/PredictBrUsesCase";
 import {AprAave3, getAave3StateInfo} from "../../baseUT/apr/aprAave3";
@@ -108,6 +107,45 @@ describe("Aave3PlatformAdapterTest", () => {
 //endregion IPlatformActor impl
 
 //region Unit tests
+  describe("constructor and converters()", () => {
+    it("should return expected values", async () => {
+      if (!await isPolygonForkInUse()) return;
+
+      const controller = await TetuConverterApp.createController(
+        deployer,
+        {tetuLiquidatorAddress: MaticAddresses.TETU_LIQUIDATOR}
+      );
+      const templateAdapterNormalStub = ethers.Wallet.createRandom();
+      const templateAdapterEModeStub = ethers.Wallet.createRandom();
+
+      const aavePool = await Aave3Helper.getAavePool(deployer);
+      const platformAdapter = await AdaptersHelper.createAave3PlatformAdapter(
+        deployer,
+        controller.address,
+        MaticAddresses.AAVE_V3_POOL,
+        templateAdapterNormalStub.address,
+        templateAdapterEModeStub.address
+      );
+
+      const ret = [
+        await platformAdapter.controller(),
+        await platformAdapter.pool(),
+        await platformAdapter.converterNormal(),
+        await platformAdapter.converterEMode(),
+        (await platformAdapter.converters()).join()
+      ].join();
+      const expected = [
+        controller.address,
+        aavePool.address,
+        templateAdapterNormalStub.address,
+        templateAdapterEModeStub.address,
+        [templateAdapterNormalStub.address, templateAdapterEModeStub.address].join()
+      ].join();
+
+      expect(ret).eq(expected);
+    });
+  });
+
   describe("getConversionPlan", () => {
     interface IGetConversionPlanBadPaths {
       zeroCollateralAsset?: boolean;
@@ -190,28 +228,28 @@ describe("Aave3PlatformAdapterTest", () => {
       );
 
       // calculate expected supply and borrow values
-      const predictedSupplyIncomeInBorrowAssetRay = await AprAave3.predictSupplyIncomeRays(deployer
-        , aavePool
-        , collateralAsset
-        , collateralAmount
-        , borrowAsset
-        , countBlocks
-        , COUNT_BLOCKS_PER_DAY
-        , collateralReserveData
-        , before
-        , block.timestamp
+      const predictedSupplyIncomeInBorrowAssetRay = await AprAave3.predictSupplyIncomeRays(deployer,
+        aavePool,
+        collateralAsset,
+        collateralAmount,
+        borrowAsset,
+        countBlocks,
+        COUNT_BLOCKS_PER_DAY,
+        collateralReserveData,
+        before,
+        block.timestamp,
       );
 
-      const predictedBorrowCostInBorrowAssetRay = await AprAave3.predictBorrowAprRays(deployer
-        , aavePool
-        , collateralAsset
-        , borrowAsset
-        , borrowAmount
-        , countBlocks
-        , COUNT_BLOCKS_PER_DAY
-        , borrowReserveData
-        , before
-        , block.timestamp
+      const predictedBorrowCostInBorrowAssetRay = await AprAave3.predictBorrowAprRays(deployer,
+        aavePool,
+        collateralAsset,
+        borrowAsset,
+        borrowAmount,
+        countBlocks,
+        COUNT_BLOCKS_PER_DAY,
+        borrowReserveData,
+        before,
+        block.timestamp,
       );
 
       const sret = [
@@ -529,7 +567,6 @@ describe("Aave3PlatformAdapterTest", () => {
         });
       });
     });
-
   });
 
   describe("getBorrowRateAfterBorrow", () => {
@@ -720,6 +757,48 @@ describe("Aave3PlatformAdapterTest", () => {
           )
         ).revertedWith("TC-45"); // BORROW_MANAGER_ONLY
       });
+    });
+  });
+
+  describe("events", () => {
+    it("should emit expected values", async () => {
+      if (!await isPolygonForkInUse()) return;
+
+      const user = ethers.Wallet.createRandom().address;
+      const collateralAsset = (await MocksHelper.createMockedCToken(deployer)).address;
+      const borrowAsset = (await MocksHelper.createMockedCToken(deployer)).address;
+
+      const controller = await TetuConverterApp.createController(deployer);
+      const converterNormal = await AdaptersHelper.createAave3PoolAdapter(deployer);
+      const aavePlatformAdapter = await AdaptersHelper.createAave3PlatformAdapter(
+        deployer,
+        controller.address,
+        MaticAddresses.AAVE_V3_POOL,
+        converterNormal.address,
+        ethers.Wallet.createRandom().address
+      );
+
+      const poolAdapter = await AdaptersHelper.createAave3PoolAdapter(deployer);
+      const aavePlatformAdapterAsBorrowManager = Aave3PlatformAdapter__factory.connect(
+        aavePlatformAdapter.address,
+        await DeployerUtils.startImpersonate(await controller.borrowManager())
+      );
+
+      await expect(
+        aavePlatformAdapterAsBorrowManager.initializePoolAdapter(
+          converterNormal.address,
+          poolAdapter.address,
+          user,
+          collateralAsset,
+          borrowAsset
+        )
+      ).to.emit(aavePlatformAdapter, "OnPoolAdapterInitialized").withArgs(
+        converterNormal.address,
+        poolAdapter.address,
+        user,
+        collateralAsset,
+        borrowAsset
+      );
     });
   });
 //endregion Unit tests
