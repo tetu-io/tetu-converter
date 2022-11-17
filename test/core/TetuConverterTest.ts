@@ -2975,8 +2975,271 @@ describe("TetuConverterTest", () => {
   });
 
   describe("events", () => {
-    it("should emit expected events", async () => {
-      expect.fail("TODO");
+    describe("Borrow, partial repay", () => {
+      it("should emit expected events", async () => {
+        const core = await CoreContracts.build(await TetuConverterApp.createController(deployer));
+        const init = await prepareTetuAppWithMultipleLendingPlatforms(core, 1);
+
+        await expect(
+          init.userContract.borrowExactAmount(
+            init.sourceToken.address,
+            parseUnits("19000", await init.sourceToken.decimals()),
+            init.targetToken.address,
+            init.userContract.address,
+            parseUnits("117", await init.targetToken.decimals())
+          )
+        ).to.emit(core.tc, "OnBorrow").withArgs(
+          init.poolAdapters[0],
+          parseUnits("19000", await init.sourceToken.decimals()),
+          parseUnits("117", await init.targetToken.decimals()),
+          init.userContract.address,
+          parseUnits("117", await init.targetToken.decimals())
+        );
+
+        const tcAsUc = TetuConverter__factory.connect(
+          init.core.tc.address,
+          await DeployerUtils.startImpersonate(init.userContract.address)
+        );
+
+        const amountToRepay = parseUnits("100", await init.targetToken.decimals());
+        await init.targetToken.mint(tcAsUc.address, amountToRepay);
+
+        await expect(
+          tcAsUc.repay(
+            init.sourceToken.address,
+            init.targetToken.address,
+            amountToRepay,
+            init.userContract.address
+          )
+        ).to.emit(core.tc, "OnRepayBorrow").withArgs(
+          init.poolAdapters[0],
+          amountToRepay,
+          init.userContract.address,
+          false
+        );
+      });
+    });
+
+    describe("Borrow, repay too much", () => {
+      describe("swap is not available, return un-paid amount", () => {
+        it("should emit expected events", async () => {
+          const core = await CoreContracts.build(await TetuConverterApp.createController(deployer));
+          const init = await prepareTetuAppWithMultipleLendingPlatforms(core, 1);
+
+          await expect(
+            init.userContract.borrowExactAmount(
+              init.sourceToken.address,
+              parseUnits("19000", await init.sourceToken.decimals()),
+              init.targetToken.address,
+              init.userContract.address,
+              parseUnits("117", await init.targetToken.decimals())
+            )
+          ).to.emit(core.tc, "OnBorrow").withArgs(
+            init.poolAdapters[0],
+            parseUnits("19000", await init.sourceToken.decimals()),
+            parseUnits("117", await init.targetToken.decimals()),
+            init.userContract.address,
+            parseUnits("117", await init.targetToken.decimals())
+          );
+
+          const tcAsUc = TetuConverter__factory.connect(
+            init.core.tc.address,
+            await DeployerUtils.startImpersonate(init.userContract.address)
+          );
+
+          // ask to repay TOO much
+          const amountToRepay = parseUnits("517", await init.targetToken.decimals());
+          await init.targetToken.mint(tcAsUc.address, amountToRepay);
+
+          await expect(
+            tcAsUc.repay(
+              init.sourceToken.address,
+              init.targetToken.address,
+              amountToRepay,
+              init.userContract.address
+            )
+          ).to.emit(core.tc, "OnRepayBorrow").withArgs(
+            init.poolAdapters[0],
+            parseUnits("117", await init.targetToken.decimals()),
+            init.userContract.address,
+            true
+          ).to.emit(core.tc, "OnRepayReturn").withArgs(
+            init.targetToken.address,
+            init.userContract.address,
+            parseUnits("400", await init.targetToken.decimals()),
+          );
+        });
+      });
+      describe("swap is available, swap un-paid amount", () => {
+        it("should emit expected events", async () => {
+          const core = await CoreContracts.build(await TetuConverterApp.createController(deployer));
+          const init = await prepareTetuAppWithMultipleLendingPlatforms(core, 1);
+
+          await expect(
+            init.userContract.borrowExactAmount(
+              init.sourceToken.address,
+              parseUnits("19000", await init.sourceToken.decimals()),
+              init.targetToken.address,
+              init.userContract.address,
+              parseUnits("117", await init.targetToken.decimals())
+            )
+          ).to.emit(core.tc, "OnBorrow").withArgs(
+            init.poolAdapters[0],
+            parseUnits("19000", await init.sourceToken.decimals()),
+            parseUnits("117", await init.targetToken.decimals()),
+            init.userContract.address,
+            parseUnits("117", await init.targetToken.decimals())
+          );
+
+          const tcAsUc = TetuConverter__factory.connect(
+            init.core.tc.address,
+            await DeployerUtils.startImpersonate(init.userContract.address)
+          );
+
+          // ask to repay TOO much
+          const amountToRepay = parseUnits("517", await init.targetToken.decimals());
+          await init.targetToken.mint(tcAsUc.address, amountToRepay);
+
+          // enable swap
+          await TetuLiquidatorMock__factory.connect(await core.controller.tetuLiquidator(), deployer).changePrices(
+            [init.sourceToken.address, init.targetToken.address],
+            [parseUnits("1"), parseUnits("2")]
+          );
+
+          await expect(
+            tcAsUc.repay(
+              init.sourceToken.address,
+              init.targetToken.address,
+              amountToRepay,
+              init.userContract.address
+            )
+          ).to.emit(core.tc, "OnRepayBorrow").withArgs(
+            init.poolAdapters[0],
+            parseUnits("117", await init.targetToken.decimals()),
+            init.userContract.address,
+            true
+          ).to.emit(core.tc, "OnSwap").withArgs(
+            init.userContract.address,
+            await core.controller.swapManager(),
+            init.targetToken.address,
+            parseUnits("400", await init.targetToken.decimals()),
+            init.sourceToken.address,
+            parseUnits("800", await init.sourceToken.decimals()),
+            init.userContract.address,
+            parseUnits("800", await init.sourceToken.decimals()),
+          );
+        });
+      });
+    });
+
+    describe("Require repay", () => {
+      describe("Rebalancing", () => {
+        it("should emit expected events", async () => {
+          const core = await CoreContracts.build(await TetuConverterApp.createController(deployer));
+          const init = await prepareTetuAppWithMultipleLendingPlatforms(core, 1);
+
+          await init.userContract.borrowExactAmount(
+            init.sourceToken.address,
+            parseUnits("1000", await init.sourceToken.decimals()),
+            init.targetToken.address,
+            init.userContract.address,
+            parseUnits("250", await init.targetToken.decimals())
+          );
+
+          const tcAsKeeper = TetuConverter__factory.connect(
+            init.core.tc.address,
+            await DeployerUtils.startImpersonate(await core.controller.keeper())
+          );
+
+          await init.userContract.setUpRequireAmountBack(
+            parseUnits("1", await init.targetToken.decimals()),
+            false,
+            false
+          );
+
+          await init.targetToken.mint(init.userContract.address, parseUnits("1", await init.targetToken.decimals()));
+          await init.targetToken.mint(init.userContract.address, parseUnits("2", await init.sourceToken.decimals()));
+
+          await expect(
+            tcAsKeeper.requireRepay(
+              parseUnits("1", await init.targetToken.decimals()),
+              parseUnits("2", await init.sourceToken.decimals()),
+              init.poolAdapters[0],
+            )
+          ).to.emit(core.tc, "OnRequireRepayRebalancing").withArgs(
+            init.poolAdapters[0],
+            parseUnits("1", await init.targetToken.decimals()),
+            false,
+            parseUnits("250", await init.targetToken.decimals())
+          );
+        });
+      });
+      describe("Close liquidated position", () => {
+        it("should emit expected events", async () => {
+          const core = await CoreContracts.build(await TetuConverterApp.createController(deployer));
+          const init = await prepareTetuAppWithMultipleLendingPlatforms(core, 1, undefined, true);
+
+          const tcAsKeeper = TetuConverter__factory.connect(
+            init.core.tc.address,
+            await DeployerUtils.startImpersonate(await core.controller.keeper())
+          );
+
+          await PoolAdapterStub__factory.connect(init.poolAdapters[0], deployer).setManualStatus(
+            parseUnits("0"), // no collateral, the position was liquidated
+            parseUnits("207", await init.targetToken.decimals()),
+            parseUnits("0.1"), // < 1
+            true,
+            parseUnits("1000", await init.sourceToken.decimals()),
+          );
+
+          await expect(
+            tcAsKeeper.requireRepay(
+              parseUnits("1", await init.targetToken.decimals()),
+              parseUnits("0", await init.sourceToken.decimals()),
+              init.poolAdapters[0],
+            )
+          ).to.emit(core.tc, "OnRequireRepayCloseLiquidatedPosition").withArgs(
+            init.poolAdapters[0],
+            parseUnits("207", await init.targetToken.decimals()),
+          );
+        });
+      });
+    });
+
+    describe("Claim rewards", () => {
+      it("should emit expected events", async () => {
+        const core = await CoreContracts.build(await TetuConverterApp.createController(deployer));
+        const init = await prepareTetuAppWithMultipleLendingPlatforms(core, 1);
+
+        await init.userContract.borrowExactAmount(
+          init.sourceToken.address,
+          parseUnits("1000", await init.sourceToken.decimals()),
+          init.targetToken.address,
+          init.userContract.address,
+          parseUnits("250", await init.targetToken.decimals())
+        );
+
+        const tcAsUser = TetuConverter__factory.connect(
+          init.core.tc.address,
+          await DeployerUtils.startImpersonate(init.userContract.address)
+        );
+
+        const rewardToken = await MocksHelper.createMockedCToken(deployer);
+        await rewardToken.mint(init.poolAdapters[0], parseUnits("71"));
+        await PoolAdapterMock__factory.connect(init.poolAdapters[0], deployer).setRewards(
+          rewardToken.address,
+          parseUnits("71")
+        );
+
+        await expect(
+          tcAsUser.claimRewards(init.userContract.address)
+        ).to.emit(core.tc, "OnClaimRewards").withArgs(
+          init.poolAdapters[0],
+          rewardToken.address,
+          parseUnits("71"),
+          init.userContract.address
+        );
+      });
     });
   });
 

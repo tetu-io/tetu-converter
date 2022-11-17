@@ -604,7 +604,6 @@ contract TetuConverter is ITetuConverter, IKeeperCallback, ReentrancyGuard {
   ) {
     address[] memory poolAdapters = _debtMonitor().getPositionsForUser(msg.sender);
     uint lenPoolAdapters = poolAdapters.length;
-
     address[] memory rewardTokens = new address[](lenPoolAdapters);
     uint[] memory amounts = new uint[](lenPoolAdapters);
     uint countPositions = 0;
@@ -612,8 +611,8 @@ contract TetuConverter is ITetuConverter, IKeeperCallback, ReentrancyGuard {
       IPoolAdapter pa = IPoolAdapter(poolAdapters[i]);
       (rewardTokens[countPositions], amounts[countPositions]) = pa.claimRewards(receiver_);
       if (amounts[countPositions] != 0) {
-        ++countPositions;
         emit OnClaimRewards(address(pa), rewardTokens[countPositions], amounts[countPositions], receiver_);
+        ++countPositions;
       }
     }
 

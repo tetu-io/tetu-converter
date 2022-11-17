@@ -6,6 +6,7 @@ import "../core/AppDataTypes.sol";
 import "../interfaces/ITetuLiquidator.sol";
 import "../openzeppelin/IERC20.sol";
 import "../tests/tokens/IMockERC20.sol";
+import "hardhat/console.sol";
 
 // @notice This mock should be used with mockERC20 for liquidate
 contract TetuLiquidatorMock is ITetuLiquidator {
@@ -63,7 +64,6 @@ contract TetuLiquidatorMock is ITetuLiquidator {
 
     amountOut = (priceIn * amount * 10**decimalsOut) / (priceOut * 10**decimalsIn);
     amountOut = amountOut * uint(int(PRICE_IMPACT_NUMERATOR) - int(priceImpact)) / PRICE_IMPACT_NUMERATOR;
-
   }
 
   function liquidate(

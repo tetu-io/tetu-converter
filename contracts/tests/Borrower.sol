@@ -288,6 +288,10 @@ contract Borrower is ITetuConverterCallback {
     uint amountOut,
     bool isCollateralOut
   ) {
+    console.log("requireAmountBack.collateralAsset_", collateralAsset_);
+    console.log("requireAmountBack.requiredAmountCollateralAsset_", requiredAmountCollateralAsset_);
+    console.log("requireAmountBack.borrowAsset_", borrowAsset_);
+    console.log("requireAmountBack.requiredAmountBorrowAsset_", requiredAmountBorrowAsset_);
     // TODO: implement path to use requiredAmountCollateralAsset_
     uint amountToSend = requireAmountBackParams.amount == 0
       ? requiredAmountBorrowAsset_
