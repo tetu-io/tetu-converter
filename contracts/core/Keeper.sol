@@ -26,6 +26,11 @@ contract Keeper is OpsReady, IHealthKeeperCallback, IResolver {
   uint256 public override nextIndexToCheck0;
   IController immutable public controller;
 
+  ///////////////////////////////////////////////////////
+  ///               Events
+  ///////////////////////////////////////////////////////
+  event OnFixHealth(uint nextIndexToCheck0, address[] poolAdapters, uint[] amountBorrowAsset, uint[] amountCollateralAsset);
+
   ///////////////////////////////////////////////////////////////////
   ///              Initialization and configuration
   ///////////////////////////////////////////////////////////////////
@@ -114,5 +119,11 @@ contract Keeper is OpsReady, IHealthKeeperCallback, IResolver {
       }
     }
 
+    emit OnFixHealth(
+      nextIndexToCheck0_,
+      poolAdapters_,
+      amountBorrowAsset_,
+      amountCollateralAsset_
+    );
   }
 }

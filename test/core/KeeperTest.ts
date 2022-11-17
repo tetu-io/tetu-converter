@@ -113,12 +113,7 @@ describe("KeeperTest", () => {
             await app.keeperCaller.setupKeeper(app.keeper.address, keeperExecutorMock.address);
 
             // all pool adapters are healthy
-            await app.debtMonitorMock.setReturnValues(
-              startIndexToCheck,
-              [],
-              []
-              , []
-            );
+            await app.debtMonitorMock.setReturnValues(startIndexToCheck, [], [], []);
 
             await app.keeperCaller.callChecker();
 
@@ -139,12 +134,7 @@ describe("KeeperTest", () => {
             await app.keeperCaller.setupKeeper(app.keeper.address, keeperExecutorMock.address);
 
             // all pool adapters are healthy
-            await app.debtMonitorMock.setReturnValues(
-              startIndexToCheck,
-              [],
-              []
-              , []
-            );
+            await app.debtMonitorMock.setReturnValues(startIndexToCheck, [], [], []);
 
             await app.keeperCaller.callChecker();
 
@@ -167,12 +157,7 @@ describe("KeeperTest", () => {
           await app.keeperCaller.setupKeeper(app.keeper.address, keeperExecutorMock.address);
 
           // all pool adapters are healthy
-          await app.debtMonitorMock.setReturnValues(
-            startIndexToCheck,
-            [unhealthyPoolAdapter],
-            [1]
-            , [2]
-          );
+          await app.debtMonitorMock.setReturnValues(startIndexToCheck, [unhealthyPoolAdapter], [1], [2]);
 
           await app.keeperCaller.callChecker();
 
@@ -194,12 +179,7 @@ describe("KeeperTest", () => {
             const app = await setupMockedApp(deployer);
 
             // all pool adapters are healthy
-            await app.debtMonitorMock.setReturnValues(
-              newNextIndexToCheck,
-              [],
-              []
-              , []
-            );
+            await app.debtMonitorMock.setReturnValues(newNextIndexToCheck, [], [], []);
 
             const before = (await app.keeper.nextIndexToCheck0()).toNumber();
             await app.keeperCaller.setupKeeper(app.keeper.address, app.keeper.address);
@@ -438,6 +418,34 @@ describe("KeeperTest", () => {
           ).revertedWith("TC-1"); // ZERO_ADDRESS
         });
       });
+    });
+  });
+
+  describe("events", () => {
+    it("should emit expected events", async () => {
+      const startIndexToCheck = 7;
+      const unhealthyPoolAdapter1 = ethers.Wallet.createRandom().address;
+      const unhealthyPoolAdapter2 = ethers.Wallet.createRandom().address;
+
+      const app = await setupMockedApp(deployer, false);
+      await app.keeperCaller.setupKeeper(app.keeper.address, app.keeper.address);
+
+      // all pool adapters are healthy
+      await app.debtMonitorMock.setReturnValues(
+        startIndexToCheck,
+        [unhealthyPoolAdapter1, unhealthyPoolAdapter2],
+        [1, 14],
+        [2, 39]
+      );
+
+      await expect(
+        app.keeperCaller.callChecker()
+      ).to.emit(app.keeper, "OnFixHealth").withArgs(
+        startIndexToCheck,
+        [unhealthyPoolAdapter1, unhealthyPoolAdapter2],
+        [1, 14],
+        [2, 39]
+      );
     });
   });
 //endregion Unit tests
