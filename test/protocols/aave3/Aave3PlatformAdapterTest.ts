@@ -241,8 +241,8 @@ describe("Aave3PlatformAdapterTest", () => {
         borrowReserveData: await dp.getReserveData(borrowAsset),
         collateralReserveData: await dp.getReserveData(collateralAsset),
         healthFactor2,
-        priceBorrow: prices[0],
-        priceCollateral: prices[1],
+        priceCollateral: prices[0],
+        priceBorrow: prices[1],
         before,
         blockTimeStamp: block.timestamp
       }
@@ -366,6 +366,7 @@ describe("Aave3PlatformAdapterTest", () => {
 
       return {sret, sexpected};
     }
+
     describe("Good paths", () => {
       describe("DAI : matic", () => {
         it("should return expected values", async () => {
