@@ -16,6 +16,7 @@ import "../../integrations/aave3/IAaveProtocolDataProvider.sol";
 import "../../integrations/aave3/Aave3ReserveConfiguration.sol";
 import "../../integrations/aave3/IAavePriceOracle.sol";
 import "../../integrations/aave3/IAaveToken.sol";
+import "hardhat/console.sol";
 
 /// @notice Adapter to read current pools info from AAVE-v3-protocol, see https://docs.aave.com/hub/
 contract Aave3PlatformAdapter is IPlatformAdapter {
@@ -145,7 +146,7 @@ contract Aave3PlatformAdapter is IPlatformAdapter {
     if (_isUsable(rc.configuration) &&  _isCollateralUsageAllowed(rc.configuration)) {
       Aave3DataTypes.ReserveData memory rb = vars.poolLocal.getReserveData(params.borrowAsset);
 
-      if (_isUsable(rc.configuration) && rb.configuration.getBorrowingEnabled()) {
+      if (_isUsable(rb.configuration) && rb.configuration.getBorrowingEnabled()) {
 
         vars.isolationMode = _isIsolationModeEnabled(rc.configuration);
         if (!vars.isolationMode || _isUsableInIsolationMode(rb.configuration)) {

@@ -102,6 +102,9 @@ export class MaticAddresses {
    */
   public static AAVE_V3_POOL_ADMIN = "0x4365f8e70cf38c6ca67de41448508f2da8825500";
   public static AAVE_V3_POOL_OWNER = "0xdc9a35b16db4e126cfedc41322b3a36454b1f772";
+  public static AAVE_V3_RISK_ADMIN = "0xAcDAB5377dAd9895FDad8FFCd4AC54a19DC8d6b7";
+  /* see https://polygonscan.com/address/0xa72636cbcaa8f5ff95b2cc47f3cdee83f3294a0b#readContract */
+  public static AAVE_V3_EMERGENCY_ADMIN = "0x1450F2898D6bA2710C98BE9CAF3041330eD5ae58";
 
   public static Aave3_Polygon_DAI = "0x82E64f49Ed5EC1bC6e43DAD4FC8Af9bb3A2312EE";
   public static Aave3_Polygon_LINK = "0x191c10Aa4AF7C30e871E70C95dB0E4eb77237530";

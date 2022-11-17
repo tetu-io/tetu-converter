@@ -64,13 +64,13 @@ export class LendingPlatformManagerAave3 implements ILendingPlatformManager {
     const aavePoolAdmin = await DeployerUtils.startImpersonate(MaticAddresses.AAVE_V3_POOL_ADMIN);
     const aavePool = await Aave3Helper.getAavePool(signer);
     const aaveAddressProvider = IAaveAddressesProvider__factory.connect(
-      await aavePool.ADDRESSES_PROVIDER()
-      , signer
+      await aavePool.ADDRESSES_PROVIDER(),
+      signer
     );
 
     const poolConfiguratorAsAdmin = IAavePoolConigurator__factory.connect(
-      await aaveAddressProvider.getPoolConfigurator()
-      , aavePoolAdmin
+      await aaveAddressProvider.getPoolConfigurator(),
+      aavePoolAdmin
     );
     const ltvConfig = await Aave3Helper.getReserveLtvConfig(aavePool, collateralAsset);
     await aavePool.getReserveData(collateralAsset);
@@ -82,9 +82,9 @@ export class LendingPlatformManagerAave3 implements ILendingPlatformManager {
     console.log(`OLd ltv=${ltvConfig.ltv.toNumber()} old liquidationThreshold=${ltvConfig.liquidationThreshold.toNumber()}`);
 
     await poolConfiguratorAsAdmin.configureReserveAsCollateral(collateralAsset,
-      ltv
-      , liquidationThreshold
-      , ltvConfig.liquidationBonus
+      ltv,
+      liquidationThreshold,
+      ltvConfig.liquidationBonus
     );
 
     const after = await getPoolAdapterState(signer, this.poolAdapter.address);

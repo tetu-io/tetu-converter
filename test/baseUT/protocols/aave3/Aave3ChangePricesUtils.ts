@@ -6,9 +6,12 @@ import {DeployUtils} from "../../../../scripts/utils/DeployUtils";
 import {
   Aave3PriceOracleMock,
   Aave3PriceOracleMock__factory,
-  IAaveAddressesProvider__factory
+  IAaveAddressesProvider__factory,
+  IAavePoolConigurator__factory,
+  IERC20Extended__factory
 } from "../../../../typechain";
 import {BigNumber} from "ethers";
+import {parseUnits} from "ethers/lib/utils";
 
 export class Aave3ChangePricesUtils {
   public static async setupPriceOracleMock(deployer: SignerWithAddress) {
@@ -63,5 +66,114 @@ export class Aave3ChangePricesUtils {
         inc ? currentPrice.mul(times) : currentPrice.div(times)
       ]
     );
+  }
+
+  public static async setReservePaused(
+    signer: SignerWithAddress,
+    reserve: string,
+    paused: boolean = true
+  ) {
+    const aaveEmergencyAdmin = await DeployerUtils.startImpersonate(
+      MaticAddresses.AAVE_V3_EMERGENCY_ADMIN
+    );
+    const aavePool = await Aave3Helper.getAavePool(signer);
+    const aaveAddressProvider = IAaveAddressesProvider__factory.connect(
+      await aavePool.ADDRESSES_PROVIDER(),
+      signer
+    );
+
+    const poolConfiguratorAsAdmin = IAavePoolConigurator__factory.connect(
+      await aaveAddressProvider.getPoolConfigurator(),
+      aaveEmergencyAdmin
+    );
+    console.log("setReservePause");
+    await poolConfiguratorAsAdmin.setReservePause(reserve, paused);
+    console.log("success");
+  }
+
+  public static async setReserveFreeze(
+    signer: SignerWithAddress,
+    reserve: string,
+    freeze: boolean = true
+  ) {
+    const aavePoolAdmin = await DeployerUtils.startImpersonate(
+      MaticAddresses.AAVE_V3_POOL_OWNER
+    );
+    const aavePool = await Aave3Helper.getAavePool(signer);
+    const aaveAddressProvider = IAaveAddressesProvider__factory.connect(
+      await aavePool.ADDRESSES_PROVIDER(),
+      signer
+    );
+
+    const poolConfiguratorAsAdmin = IAavePoolConigurator__factory.connect(
+      await aaveAddressProvider.getPoolConfigurator(),
+      aavePoolAdmin
+    );
+    console.log("setReserveFreeze");
+    await poolConfiguratorAsAdmin.setReserveFreeze(reserve, freeze);
+    console.log("successs");
+  }
+
+  /**
+   * Get total supply value
+   * and set supply cap to almost same value.
+   * So, next attempt to supply of large enough amount should fail.
+   */
+  public static async setMinSupplyCap(
+    signer: SignerWithAddress,
+    reserve: string
+  ) {
+    const aavePoolAdmin = await DeployerUtils.startImpersonate(
+      MaticAddresses.AAVE_V3_POOL_OWNER
+    );
+    const aavePool = await Aave3Helper.getAavePool(signer);
+    const aaveAddressProvider = IAaveAddressesProvider__factory.connect(
+      await aavePool.ADDRESSES_PROVIDER(),
+      signer
+    );
+
+    const poolConfiguratorAsAdmin = IAavePoolConigurator__factory.connect(
+      await aaveAddressProvider.getPoolConfigurator(),
+      aavePoolAdmin
+    );
+
+    const dp = await Aave3Helper.getAaveProtocolDataProvider(signer);
+    const r = await dp.getReserveData(reserve);
+    const capValue = r.totalAToken.div(
+      parseUnits("1", await IERC20Extended__factory.connect(reserve, signer).decimals())
+    );
+
+    console.log("setSupplyCap", capValue);
+    await poolConfiguratorAsAdmin.setSupplyCap(reserve, capValue);
+    console.log("successs");
+  }
+
+  public static async setMinBorrowCap(
+    signer: SignerWithAddress,
+    reserve: string
+  ) {
+    const aavePoolAdmin = await DeployerUtils.startImpersonate(
+      MaticAddresses.AAVE_V3_POOL_OWNER
+    );
+    const aavePool = await Aave3Helper.getAavePool(signer);
+    const aaveAddressProvider = IAaveAddressesProvider__factory.connect(
+      await aavePool.ADDRESSES_PROVIDER(),
+      signer
+    );
+
+    const poolConfiguratorAsAdmin = IAavePoolConigurator__factory.connect(
+      await aaveAddressProvider.getPoolConfigurator(),
+      aavePoolAdmin
+    );
+
+    const dp = await Aave3Helper.getAaveProtocolDataProvider(signer);
+    const r = await dp.getReserveData(reserve);
+    const capValue = r.totalVariableDebt.add(r.totalStableDebt).div(
+      parseUnits("1", await IERC20Extended__factory.connect(reserve, signer).decimals())
+    );
+
+    console.log("setBorrowCap", capValue);
+    await poolConfiguratorAsAdmin.setBorrowCap(reserve, capValue);
+    console.log("successs");
   }
 }
