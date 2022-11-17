@@ -2974,6 +2974,12 @@ describe("TetuConverterTest", () => {
     });
   });
 
+  describe("events", () => {
+    it("should emit expected events", async () => {
+      expect.fail("TODO");
+    });
+  });
+
 //   describe("TODO:requireReconversion", () => {
 //     describe("Good paths", () => {
 //       it("should return expected values", async () => {

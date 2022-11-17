@@ -9,6 +9,9 @@ import {TimeUtils} from "../../scripts/utils/TimeUtils";
 import {DeployUtils} from "../../scripts/utils/DeployUtils";
 import {BigNumber} from "ethers";
 import {TetuConverterApp} from "../baseUT/helpers/TetuConverterApp";
+import {CoreContractsHelper} from "../baseUT/helpers/CoreContractsHelper";
+import {MocksHelper} from "../baseUT/helpers/MocksHelper";
+import {Misc} from "../../scripts/utils/Misc";
 
 const parseUnits = ethers.utils.parseUnits;
 
@@ -228,6 +231,46 @@ describe("SwapManager", () => {
     });
   });
 
+  describe("events", () => {
+    it("should emit expected events", async () => {
+      const sourceAsset = (await MocksHelper.createMockedCToken(deployer))
+      const targetAsset = (await MocksHelper.createMockedCToken(deployer));
+      const receiver = ethers.Wallet.createRandom().address;
+      const tetuLiquidator = (await MocksHelper.createTetuLiquidatorMock(deployer,
+        [sourceAsset.address, targetAsset.address],
+        [Misc.WEI, Misc.WEI]
+      )).address;
+      const controller = await TetuConverterApp.createController(
+        deployer, {
+          borrowManagerFabric: async () => ethers.Wallet.createRandom().address,
+          tetuConverterFabric: async () => ethers.Wallet.createRandom().address,
+          debtMonitorFabric: async () => ethers.Wallet.createRandom().address,
+          keeperFabric: async () => ethers.Wallet.createRandom().address,
+          swapManagerFabric: async c => (await CoreContractsHelper.createSwapManager(deployer, c)).address,
+          tetuLiquidatorAddress: tetuLiquidator
+        }
+      );
+
+      const swapManager = SwapManager__factory.connect(await controller.swapManager(), deployer);
+      await sourceAsset.mint(swapManager.address, parseUnits("1"));
+      await expect(
+        swapManager.swap(
+          sourceAsset.address,
+          parseUnits("1"),
+          targetAsset.address,
+          parseUnits("1"),
+          receiver
+        )
+      ).to.emit(swapManager, "OnSwap").withArgs(
+        sourceAsset.address,
+        parseUnits("1"),
+        targetAsset.address,
+        parseUnits("1"),
+        receiver,
+        parseUnits("1"),
+      );
+    });
+  });
 //endregion Unit tests
 
 });
