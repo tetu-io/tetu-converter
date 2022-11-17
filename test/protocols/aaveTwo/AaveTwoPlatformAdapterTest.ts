@@ -99,6 +99,41 @@ describe("AaveTwoPlatformAdapterTest", () => {
 //endregion IPlatformActor impl
 
 //region Unit tests
+  describe("constructor and converters()", () => {
+    it("should return expected values", async () => {
+      if (!await isPolygonForkInUse()) return;
+
+      const controller = await TetuConverterApp.createController(
+        deployer,
+        {tetuLiquidatorAddress: MaticAddresses.TETU_LIQUIDATOR}
+      );
+      const templateAdapterNormalStub = ethers.Wallet.createRandom();
+
+      const aavePool = await AaveTwoHelper.getAavePool(deployer);
+      const platformAdapter = await AdaptersHelper.createAaveTwoPlatformAdapter(
+        deployer,
+        controller.address,
+        MaticAddresses.AAVE_TWO_POOL,
+        templateAdapterNormalStub.address,
+      );
+
+      const ret = [
+        await platformAdapter.controller(),
+        await platformAdapter.pool(),
+        await platformAdapter.converter(),
+        (await platformAdapter.converters()).join()
+      ].join();
+      const expected = [
+        controller.address,
+        aavePool.address,
+        templateAdapterNormalStub.address,
+        [templateAdapterNormalStub.address].join()
+      ].join();
+
+      expect(ret).eq(expected);
+    });
+  });
+
   describe("getConversionPlan", () => {
     interface IGetConversionPlanBadPaths {
       zeroCollateralAsset?: boolean;
@@ -564,6 +599,47 @@ describe("AaveTwoPlatformAdapterTest", () => {
           )
         ).revertedWith("TC-45"); // BORROW_MANAGER_ONLY
       });
+    });
+  });
+
+  describe("events", () => {
+    it("should emit expected values", async () => {
+      if (!await isPolygonForkInUse()) return;
+
+      const user = ethers.Wallet.createRandom().address;
+      const collateralAsset = (await MocksHelper.createMockedCToken(deployer)).address;
+      const borrowAsset = (await MocksHelper.createMockedCToken(deployer)).address;
+
+      const controller = await TetuConverterApp.createController(deployer);
+      const converterNormal = await AdaptersHelper.createAaveTwoPoolAdapter(deployer);
+      const aavePlatformAdapter = await AdaptersHelper.createAaveTwoPlatformAdapter(
+        deployer,
+        controller.address,
+        MaticAddresses.AAVE_TWO_POOL,
+        converterNormal.address,
+      );
+
+      const poolAdapter = await AdaptersHelper.createAaveTwoPoolAdapter(deployer);
+      const aavePlatformAdapterAsBorrowManager = AaveTwoPlatformAdapter__factory.connect(
+        aavePlatformAdapter.address,
+        await DeployerUtils.startImpersonate(await controller.borrowManager())
+      );
+
+      await expect(
+        aavePlatformAdapterAsBorrowManager.initializePoolAdapter(
+          converterNormal.address,
+          poolAdapter.address,
+          user,
+          collateralAsset,
+          borrowAsset
+        )
+      ).to.emit(aavePlatformAdapter, "OnPoolAdapterInitialized").withArgs(
+        converterNormal.address,
+        poolAdapter.address,
+        user,
+        collateralAsset,
+        borrowAsset
+      );
     });
   });
 //endregion Unit tests

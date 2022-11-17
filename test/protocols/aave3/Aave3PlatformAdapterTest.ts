@@ -716,7 +716,7 @@ describe("Aave3PlatformAdapterTest", () => {
             MaticAddresses.HOLDER_DAI_5,
             MaticAddresses.HOLDER_DAI_6,
           ];
-          const part10000 = 3000;
+          const part10000 = 1000;
 
           const r = await makeGetBorrowRateAfterBorrowTest(collateralAsset, borrowAsset, collateralHolders, part10000);
 
