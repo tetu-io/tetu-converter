@@ -245,6 +245,46 @@ describe("Hundred finance integration tests, platform adapter", () => {
 //endregion getConversionPlan tests impl
 
 //region Unit tests
+  describe("constructor and converters()", () => {
+    it("should return expected values", async () => {
+      if (!await isPolygonForkInUse()) return;
+
+      const controller = await TetuConverterApp.createController(
+        deployer,
+        {tetuLiquidatorAddress: MaticAddresses.TETU_LIQUIDATOR}
+      );
+      const templateAdapterNormalStub = ethers.Wallet.createRandom();
+
+      const comptroller = await HundredFinanceHelper.getComptroller(deployer);
+      const platformAdapter = await AdaptersHelper.createHundredFinancePlatformAdapter(
+        deployer,
+        controller.address,
+        MaticAddresses.HUNDRED_FINANCE_COMPTROLLER,
+        templateAdapterNormalStub.address,
+        [MaticAddresses.hDAI]
+      );
+
+      const ret = [
+        await platformAdapter.controller(),
+        await platformAdapter.comptroller(),
+        await platformAdapter.converter(),
+        (await platformAdapter.converters()).join(),
+        await platformAdapter.activeAssets(MaticAddresses.DAI),
+        await platformAdapter.activeAssets(MaticAddresses.USDC)
+      ].join("\n");
+      const expected = [
+        controller.address,
+        comptroller.address,
+        templateAdapterNormalStub.address,
+        [templateAdapterNormalStub.address].join(),
+        MaticAddresses.hDAI,
+        Misc.ZERO_ADDRESS
+      ].join("\n");
+
+      expect(ret).eq(expected);
+    });
+  });
+
   describe("getConversionPlan", () => {
     describe("Good paths", () => {
       describe("DAI : usdc", () => {
@@ -635,6 +675,51 @@ describe("Hundred finance integration tests, platform adapter", () => {
           ).revertedWith("");
         });
       });
+    });
+  });
+
+  describe("events", () => {
+    it("should emit expected values", async () => {
+      if (!await isPolygonForkInUse()) return;
+
+      const user = ethers.Wallet.createRandom().address;
+      const collateralAsset = MaticAddresses.DAI;
+      const borrowAsset = MaticAddresses.USDC;
+
+      const controller = await TetuConverterApp.createController(deployer);
+      const converterNormal = await AdaptersHelper.createHundredFinancePoolAdapter(deployer);
+      const platformAdapter = await AdaptersHelper.createHundredFinancePlatformAdapter(
+        deployer,
+        controller.address,
+        MaticAddresses.HUNDRED_FINANCE_COMPTROLLER,
+        converterNormal.address,
+        [MaticAddresses.hDAI, MaticAddresses.hUSDC]
+      );
+
+      const poolAdapter = await AdaptersHelper.createHundredFinancePoolAdapter(deployer);
+      const platformAdapterAsBorrowManager = HfPlatformAdapter__factory.connect(
+        platformAdapter.address,
+        await DeployerUtils.startImpersonate(await controller.borrowManager())
+      );
+
+      function stringsEqualCaseInsensitive(s1: string, s2: string): boolean {
+        return s1.toUpperCase() === s2.toUpperCase();
+      }
+      await expect(
+        platformAdapterAsBorrowManager.initializePoolAdapter(
+          converterNormal.address,
+          poolAdapter.address,
+          user,
+          collateralAsset,
+          borrowAsset
+        )
+      ).to.emit(platformAdapter, "OnPoolAdapterInitialized").withArgs(
+        (s: string) => stringsEqualCaseInsensitive(s, converterNormal.address),
+        (s: string) => stringsEqualCaseInsensitive(s, poolAdapter.address),
+        (s: string) => stringsEqualCaseInsensitive(s, user),
+        (s: string) => stringsEqualCaseInsensitive(s, collateralAsset),
+        (s: string) => stringsEqualCaseInsensitive(s, borrowAsset)
+      );
     });
   });
 //endregion Unit tests

@@ -16,7 +16,7 @@ import {MaticAddresses} from "../../../scripts/addresses/MaticAddresses";
 import {BigNumber} from "ethers";
 import {IPlatformActor, PredictBrUsesCase} from "../../baseUT/uses-cases/PredictBrUsesCase";
 import {DForceHelper} from "../../../scripts/integration/helpers/DForceHelper";
-import {areAlmostEqual, toMantissa} from "../../baseUT/utils/CommonUtils";
+import {areAlmostEqual} from "../../baseUT/utils/CommonUtils";
 import {TokenDataTypes} from "../../baseUT/types/TokenDataTypes";
 import {getBigNumberFrom} from "../../../scripts/utils/NumberUtils";
 import {SupplyBorrowUsingDForce} from "../../baseUT/uses-cases/dforce/SupplyBorrowUsingDForce";
@@ -28,6 +28,7 @@ import {Misc} from "../../../scripts/utils/Misc";
 import {AprUtils} from "../../baseUT/utils/aprUtils";
 import {convertUnits} from "../../baseUT/apr/aprUtils";
 import {TetuConverterApp} from "../../baseUT/helpers/TetuConverterApp";
+import {MocksHelper} from "../../baseUT/helpers/MocksHelper";
 
 describe("DForce integration tests, platform adapter", () => {
 //region Global vars for all tests
@@ -283,6 +284,46 @@ describe("DForce integration tests, platform adapter", () => {
 //endregion Get conversion plan test impl
 
 //region Unit tests
+  describe("constructor and converters()", () => {
+    it("should return expected values", async () => {
+      if (!await isPolygonForkInUse()) return;
+
+      const controller = await TetuConverterApp.createController(
+        deployer,
+        {tetuLiquidatorAddress: MaticAddresses.TETU_LIQUIDATOR}
+      );
+      const templateAdapterNormalStub = ethers.Wallet.createRandom();
+
+      const comptroller = await DForceHelper.getController(deployer);
+      const platformAdapter = await AdaptersHelper.createDForcePlatformAdapter(
+        deployer,
+        controller.address,
+        MaticAddresses.DFORCE_CONTROLLER,
+        templateAdapterNormalStub.address,
+        [MaticAddresses.dForce_iDAI]
+      );
+
+      const ret = [
+        await platformAdapter.controller(),
+        await platformAdapter.comptroller(),
+        await platformAdapter.converter(),
+        (await platformAdapter.converters()).join(),
+        await platformAdapter.activeAssets(MaticAddresses.DAI),
+        await platformAdapter.activeAssets(MaticAddresses.USDC)
+      ].join("\n");
+      const expected = [
+        controller.address,
+        comptroller.address,
+        templateAdapterNormalStub.address,
+        [templateAdapterNormalStub.address].join(),
+        MaticAddresses.dForce_iDAI,
+        Misc.ZERO_ADDRESS
+      ].join("\n");
+
+      expect(ret).eq(expected);
+    });
+  });
+
   describe("getConversionPlan", () => {
     describe("Good paths", () => {
       describe("DAI : usdc", () => {
@@ -767,6 +808,51 @@ describe("DForce integration tests, platform adapter", () => {
           ).revertedWith("");
         });
       });
+    });
+  });
+
+  describe("events", () => {
+    it("should emit expected values", async () => {
+      if (!await isPolygonForkInUse()) return;
+
+      const user = ethers.Wallet.createRandom().address;
+      const collateralAsset = MaticAddresses.DAI;
+      const borrowAsset = MaticAddresses.USDC;
+
+      const controller = await TetuConverterApp.createController(deployer);
+      const converterNormal = await AdaptersHelper.createDForcePoolAdapter(deployer);
+      const platformAdapter = await AdaptersHelper.createDForcePlatformAdapter(
+        deployer,
+        controller.address,
+        MaticAddresses.DFORCE_CONTROLLER,
+        converterNormal.address,
+        [MaticAddresses.dForce_iDAI, MaticAddresses.dForce_iUSDC]
+      );
+
+      const poolAdapter = await AdaptersHelper.createDForcePoolAdapter(deployer);
+      const platformAdapterAsBorrowManager = DForcePlatformAdapter__factory.connect(
+        platformAdapter.address,
+        await DeployerUtils.startImpersonate(await controller.borrowManager())
+      );
+
+      function stringsEqualCaseInsensitive(s1: string, s2: string): boolean {
+        return s1.toUpperCase() === s2.toUpperCase();
+      }
+      await expect(
+        platformAdapterAsBorrowManager.initializePoolAdapter(
+          converterNormal.address,
+          poolAdapter.address,
+          user,
+          collateralAsset,
+          borrowAsset
+        )
+      ).to.emit(platformAdapter, "OnPoolAdapterInitialized").withArgs(
+        (s: string) => stringsEqualCaseInsensitive(s, converterNormal.address),
+        (s: string) => stringsEqualCaseInsensitive(s, poolAdapter.address),
+        (s: string) => stringsEqualCaseInsensitive(s, user),
+        (s: string) => stringsEqualCaseInsensitive(s, collateralAsset),
+        (s: string) => stringsEqualCaseInsensitive(s, borrowAsset)
+      );
     });
   });
 //endregion Unit tests
