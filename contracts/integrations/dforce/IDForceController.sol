@@ -266,4 +266,8 @@ interface IDForceController {
   function _setBorrowCapacity(address _iToken, uint256 _newBorrowCapacity) external;
   /// @notice Sets the supplyCapacity for a iToken
   function _setSupplyCapacity(address _iToken, uint256 _newSupplyCapacity) external;
+  function _setMintPaused(address _iToken, bool _paused) external;
+  function _setRedeemPaused(address _iToken, bool _paused) external;
+  function _setBorrowPaused(address _iToken, bool _paused) external;
+
 }

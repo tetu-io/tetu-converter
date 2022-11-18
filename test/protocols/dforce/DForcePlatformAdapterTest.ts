@@ -30,6 +30,7 @@ import {convertUnits} from "../../baseUT/apr/aprUtils";
 import {TetuConverterApp} from "../../baseUT/helpers/TetuConverterApp";
 import {IConversionPlan} from "../../baseUT/apr/aprDataTypes";
 import {DForceChangePriceUtils} from "../../baseUT/protocols/dforce/DForceChangePriceUtils";
+import {parseUnits} from "ethers/lib/utils";
 
 describe("DForce integration tests, platform adapter", () => {
 //region Global vars for all tests
@@ -145,6 +146,9 @@ describe("DForce integration tests, platform adapter", () => {
     incorrectHealthFactor2?: number;
     setMinBorrowCapacity?: boolean;
     setMinSupplyCapacity?: boolean;
+    setCollateralMintPaused?: boolean;
+    setBorrowPaused?: boolean;
+    setRedeemPaused?: boolean;
   }
 
   interface IPreparePlanResults {
@@ -221,9 +225,18 @@ describe("DForce integration tests, platform adapter", () => {
     if (badPathsParams?.setMinBorrowCapacity) {
       await DForceChangePriceUtils.setBorrowCapacity(
         deployer,
-        collateralCToken,
+        borrowCToken,
         borrowAssetData.totalBorrows
       );
+    }
+    if (badPathsParams?.setCollateralMintPaused) {
+      await DForceChangePriceUtils.setMintPaused(deployer, collateralCToken);
+    }
+    if (badPathsParams?.setBorrowPaused) {
+      await DForceChangePriceUtils.setBorrowPaused(deployer, borrowCToken);
+    }
+    if (badPathsParams?.setRedeemPaused) {
+      await DForceChangePriceUtils.setRedeemPaused(deployer, borrowCToken);
     }
 
     const plan = await dForcePlatformAdapter.getConversionPlan(
@@ -338,6 +351,12 @@ describe("DForce integration tests, platform adapter", () => {
     console.log("borrowAssetData.borrowRatePerBlock", d.borrowAssetData.borrowRatePerBlock);
     console.log("countBlocks", d.countBlocks);
 
+    const MAX_INT = BigNumber.from(2).pow(256).sub(1);
+    const totalSupply = d.collateralAssetData.totalSupply // see Controller.beforeMint
+        .mul(
+          d.collateralAssetData.exchangeRateStored
+        ).div(Misc.WEI);
+
     const sexpected = [
       borrowCost36,
       supplyIncomeInBorrowAsset36,
@@ -346,7 +365,11 @@ describe("DForce integration tests, platform adapter", () => {
         .div(Misc.WEI),
       d.collateralAssetData.collateralFactorMantissa,
       d.borrowAssetData.cash,
-      BigNumber.from(2).pow(256).sub(1), // === type(uint).max
+      d.collateralAssetData.supplyCapacity.eq(MAX_INT)
+        ? MAX_INT
+        : totalSupply.gte(d.collateralAssetData.supplyCapacity)
+          ? BigNumber.from(0)
+          : d.collateralAssetData.supplyCapacity.sub(totalSupply),
       amountToBorrow,
       true
     ].map(x => BalanceUtils.toString(x)) .join("\n");
@@ -554,24 +577,59 @@ describe("DForce integration tests, platform adapter", () => {
       });
 
       describe("capacity", () => {
-        it("should return expected maxAmountToBorrow if borrowCapacity is limited", async () =>{
-          const plan = await tryGetConversionPlan({setMinBorrowCapacity: true});
-          console.log(plan);
-          expect(plan.converter).eq(Misc.ZERO_ADDRESS);
+        it("should return expected maxAmountToBorrow if borrowCapacity is limited", async () => {
+          const planBorrowCapacityNotLimited = await tryGetConversionPlan(
+            {},
+            MaticAddresses.DAI,
+            MaticAddresses.USDC,
+            MaticAddresses.dForce_iDAI,
+            MaticAddresses.dForce_iUSDC,
+            getBigNumberFrom(12345, 18)
+          );
+          const plan = await tryGetConversionPlan(
+            {setMinBorrowCapacity: true},
+            MaticAddresses.DAI,
+            MaticAddresses.USDC,
+            MaticAddresses.dForce_iDAI,
+            MaticAddresses.dForce_iUSDC,
+            getBigNumberFrom(12345, 18)
+          );
+          console.log("planBorrowCapacityNotLimited", planBorrowCapacityNotLimited);
+          console.log("plan", plan);
+          const ret = [
+            plan.amountToBorrow.eq(plan.maxAmountToBorrow),
+            plan.amountToBorrow.lt(planBorrowCapacityNotLimited.maxAmountToBorrow),
+            planBorrowCapacityNotLimited.amountToBorrow.lt(planBorrowCapacityNotLimited.maxAmountToBorrow)
+          ].join("\n");
+          const expected = [true, true, true].join("\n");
+          expect(ret).eq(expected);
         });
         it("should return expected maxAmountToSupply if supplyCapacity is limited", async () =>{
-          const plan = await tryGetConversionPlan({setMinSupplyCapacity: true});
+          const plan = await tryGetConversionPlan(
+            {setMinSupplyCapacity: true},
+            MaticAddresses.DAI,
+            MaticAddresses.USDC,
+            MaticAddresses.dForce_iDAI,
+            MaticAddresses.dForce_iUSDC,
+            getBigNumberFrom(12345, 18)
+          );
           console.log(plan);
-          expect(plan.converter).eq(Misc.ZERO_ADDRESS);
+          expect(plan.maxAmountToSupply.lt(parseUnits("12345"))).eq(true);
         });
       });
 
       describe("paused", () => {
-        it("should fail if mintPaused is true for collateral", async () =>{
-          // expect.fail("TODO");
+        it("should fail if mintPaused is true for collateral", async () => {
+          if (!await isPolygonForkInUse()) return;
+          expect((await tryGetConversionPlan({setCollateralMintPaused: true})).converter).eq(Misc.ZERO_ADDRESS);
         });
-        it("should fail if redeemPaused or borrowPaused for borrow", async () =>{
-          // expect.fail("TODO");
+        it("should fail if redeemPaused for borrow", async () => {
+          if (!await isPolygonForkInUse()) return;
+          expect((await tryGetConversionPlan({setBorrowPaused: true})).converter).eq(Misc.ZERO_ADDRESS);
+        });
+        it("should fail if borrowPaused for borrow", async () => {
+          if (!await isPolygonForkInUse()) return;
+          expect((await tryGetConversionPlan({setRedeemPaused: true})).converter).eq(Misc.ZERO_ADDRESS);
         });
       });
     });
@@ -911,7 +969,7 @@ describe("DForce integration tests, platform adapter", () => {
             platformAdapter.registerCTokens(
               [ethers.Wallet.createRandom().address] // (!)
             )
-          ).revertedWith("");
+          ).revertedWithoutReason();
         });
       });
     });

@@ -17,6 +17,7 @@ import "../../integrations/IERC20Extended.sol";
 import "../../integrations/dforce/IDForceInterestRateModel.sol";
 import "../../integrations/dforce/IDForceController.sol";
 import "../../integrations/dforce/IDForceCToken.sol";
+import "hardhat/console.sol";
 
 /// @notice Adapter to read current pools info from DForce-protocol, see https://developers.dforce.network/
 contract DForcePlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
@@ -220,9 +221,10 @@ contract DForcePlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
               } else {
                 // we shouldn't exceed supplyCapacity limit, see Controller.beforeMint
                 uint totalSupply = IDForceCToken(cTokenCollateral).totalSupply()
-                  * IDForceCToken(cTokenCollateral).exchangeRateStored();
+                  * IDForceCToken(cTokenCollateral).exchangeRateStored()
+                  / 1e18;
                 plan.maxAmountToSupply = totalSupply >= supplyCapacity
-                  ? type(uint).max
+                  ? 0
                   : supplyCapacity - totalSupply;
               }
             }

@@ -93,4 +93,37 @@ export class DForceChangePriceUtils {
     );
     await comptrollerAsOwner._setSupplyCapacity(cToken, amount);
   }
+
+  public static async setMintPaused(deployer: SignerWithAddress, cToken: string, paused: boolean = true) {
+    const comptroller = await DForceHelper.getController(deployer);
+    const owner = await comptroller.owner();
+
+    const comptrollerAsOwner = IDForceController__factory.connect(
+      comptroller.address,
+      await DeployerUtils.startImpersonate(owner)
+    );
+    await comptrollerAsOwner._setMintPaused(cToken, paused);
+  }
+
+  public static async setRedeemPaused(deployer: SignerWithAddress, cToken: string, paused: boolean = true) {
+    const comptroller = await DForceHelper.getController(deployer);
+    const owner = await comptroller.owner();
+
+    const comptrollerAsOwner = IDForceController__factory.connect(
+      comptroller.address,
+      await DeployerUtils.startImpersonate(owner)
+    );
+    await comptrollerAsOwner._setRedeemPaused(cToken, paused);
+  }
+
+  public static async setBorrowPaused(deployer: SignerWithAddress, cToken: string, paused: boolean = true) {
+    const comptroller = await DForceHelper.getController(deployer);
+    const owner = await comptroller.owner();
+
+    const comptrollerAsOwner = IDForceController__factory.connect(
+      comptroller.address,
+      await DeployerUtils.startImpersonate(owner)
+    );
+    await comptrollerAsOwner._setBorrowPaused(cToken, paused);
+  }
 }
