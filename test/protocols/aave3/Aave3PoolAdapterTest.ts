@@ -258,7 +258,6 @@ describe("Aave3PoolAdapterTest", () => {
     });
   });
 
-
   /**
    *                LTV                LiquidationThreshold
    * DAI:           0.75               0.8
@@ -1376,23 +1375,6 @@ describe("Aave3PoolAdapterTest", () => {
     });
   });
 
-  describe("TODO:updateBalance", () => {
-    describe("Good paths", () => {
-      it("should return expected values", async () => {
-        if (!await isPolygonForkInUse()) return;
-        expect.fail("TODO");
-      });
-    });
-    describe("Bad paths", () => {
-      describe("", () => {
-        it("should revert", async () => {
-          if (!await isPolygonForkInUse()) return;
-          expect.fail("TODO");
-        });
-      });
-    });
-  });
-
   describe("initialize", () => {
     interface IInitializePoolAdapterBadPaths {
       makeSecondInitialization?: boolean;
@@ -1631,6 +1613,12 @@ describe("Aave3PoolAdapterTest", () => {
     });
   });
 
+  describe("events", () => {
+    it("should return expected values", async () => {
+      expect.fail("TODO");
+    });
+  });
+
   describe("TODO:getStatus", () => {
     describe("Good paths", () => {
       it("should return expected values", async () => {
@@ -1649,6 +1637,23 @@ describe("Aave3PoolAdapterTest", () => {
   });
 
   describe("TODO:getAPR18", () => {
+    describe("Good paths", () => {
+      it("should return expected values", async () => {
+        if (!await isPolygonForkInUse()) return;
+        expect.fail("TODO");
+      });
+    });
+    describe("Bad paths", () => {
+      describe("", () => {
+        it("should revert", async () => {
+          if (!await isPolygonForkInUse()) return;
+          expect.fail("TODO");
+        });
+      });
+    });
+  });
+
+  describe("TODO:updateBalance", () => {
     describe("Good paths", () => {
       it("should return expected values", async () => {
         if (!await isPolygonForkInUse()) return;

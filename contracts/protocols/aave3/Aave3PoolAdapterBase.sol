@@ -54,10 +54,12 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer,
     address borrowAsset,
     address originConverter
   );
-  event OnBorrow(uint collateralAmount, uint borrowAmount, address receiver, uint resultHealthFactor18);
+  event OnBorrow(uint collateralAmount, uint borrowAmount, address receiver, uint resultHealthFactor18,
+    uint collateralBalanceATokens);
   event OnBorrowToRebalance(uint borrowAmount, address receiver, uint resultHealthFactor18);
-  event OnRepay(uint amountToRepay, address receiver, bool closePosition, uint resultHealthFactor18);
-  event OnRepayToRebalance(uint amount, bool isCollateral, uint resultHealthFactor18);
+  event OnRepay(uint amountToRepay, address receiver, bool closePosition, uint resultHealthFactor18,
+    uint amountCollateralToWithdraw, uint collateralBalanceATokens);
+  event OnRepayToRebalance(uint amount, bool isCollateral, uint resultHealthFactor18, uint collateralBalanceATokens);
 
   ///////////////////////////////////////////////////////
   ///                Initialization
@@ -139,7 +141,8 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer,
     IAavePool pool = _pool;
     address assetBorrow = borrowAsset;
 
-    _supply(pool, collateralAsset, collateralAmount_);
+    uint newCollateralBalanceATokens = _supply(pool, collateralAsset, collateralAmount_) + collateralBalanceATokens;
+    collateralBalanceATokens = newCollateralBalanceATokens;
 
     // enter to E-mode if necessary
     prepareToBorrow();
@@ -169,16 +172,17 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer,
     (,,,,, uint256 healthFactor) = pool.getUserAccountData(address(this));
     _validateHealthFactor(healthFactor);
 
-    emit OnBorrow(collateralAmount_, borrowAmount_, receiver_, healthFactor);
+    emit OnBorrow(collateralAmount_, borrowAmount_, receiver_, healthFactor, newCollateralBalanceATokens);
     return borrowAmount_;
   }
 
   /// @notice Supply collateral to AAVE-pool
+  /// @return Amount of received A-tokens
   function _supply(
     IAavePool pool_,
     address assetCollateral_,
     uint collateralAmount_
-  ) internal {
+  ) internal returns (uint) {
     //a-tokens
     Aave3DataTypes.ReserveData memory d = pool_.getReserveData(assetCollateral_);
     uint aTokensBalanceBeforeSupply = IERC20(d.aTokenAddress).balanceOf(address(this));
@@ -204,7 +208,7 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer,
     uint aTokensAmount = aTokensBalanceAfterSupply - aTokensBalanceBeforeSupply;
     require(aTokensAmount + ATOKEN_MAX_DELTA >= collateralAmount_, AppErrors.WRONG_DERIVATIVE_TOKENS_BALANCE);
 
-    collateralBalanceATokens += aTokensAmount;
+    return aTokensAmount;
   }
 
   /// @notice Borrow {borrowedAmount_} using exist collateral to make rebalancing
@@ -311,11 +315,13 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer,
     uint aTokensBalanceAfterRepay = IERC20(rc.aTokenAddress).balanceOf(address(this));
     require(aTokensBalanceBeforeRepay >= aTokensBalanceAfterRepay, AppErrors.WEIRD_OVERFLOW);
 
-    collateralBalanceATokens = aTokensBalanceBeforeRepay - aTokensBalanceAfterRepay > collateralBalanceATokens
+    uint localCollateralBalanceATokens = collateralBalanceATokens;
+    localCollateralBalanceATokens = aTokensBalanceBeforeRepay - aTokensBalanceAfterRepay > localCollateralBalanceATokens
       ? 0
-      : collateralBalanceATokens - (aTokensBalanceBeforeRepay - aTokensBalanceAfterRepay);
+      : localCollateralBalanceATokens - (aTokensBalanceBeforeRepay - aTokensBalanceAfterRepay);
+    collateralBalanceATokens = localCollateralBalanceATokens;
 
-    emit OnRepay(amountToRepay_, receiver_, closePosition_, healthFactor);
+    emit OnRepay(amountToRepay_, receiver_, closePosition_, healthFactor, amountCollateralToWithdraw, localCollateralBalanceATokens);
     return amountCollateralToWithdraw;
   }
 
@@ -370,8 +376,10 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer,
     _onlyTetuConverter();
     IAavePool pool = _pool;
 
+    uint newCollateralBalanceATokens = collateralBalanceATokens;
     if (isCollateral_) {
-      _supply(_pool, collateralAsset, amount_);
+      newCollateralBalanceATokens = _supply(_pool, collateralAsset, amount_) + newCollateralBalanceATokens;
+      collateralBalanceATokens = newCollateralBalanceATokens;
     } else {
       address assetBorrow = borrowAsset;
       // ensure, that amount to repay is less then the total debt
@@ -398,7 +406,7 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer,
     (,,,,, uint256 healthFactor) = pool.getUserAccountData(address(this));
     _validateHealthFactor(healthFactor);
 
-    emit OnRepayToRebalance(amount_, isCollateral_, healthFactor);
+    emit OnRepayToRebalance(amount_, isCollateral_, healthFactor, newCollateralBalanceATokens);
     return healthFactor;
   }
 
