@@ -23,6 +23,7 @@ import {IPoolAdapterStatus} from "../../types/BorrowRepayDataTypes";
 import {getBigNumberFrom} from "../../../../scripts/utils/NumberUtils";
 import {TetuConverterApp} from "../../helpers/TetuConverterApp";
 import {Misc} from "../../../../scripts/utils/Misc";
+import {tetu} from "../../../../typechain/contracts/integrations";
 
 //region Data types
 export interface IPrepareToBorrowResults {
@@ -103,8 +104,23 @@ export interface ILiquidationResults {
   collateralAmountReceivedByLiquidator: BigNumber;
 }
 
-export interface IMakeBorrowBadPathsParams {
-  makeBorrowAsNotTc?: boolean;
+export interface IMakeBorrowOrRepayBadPathsParams {
+  makeOperationAsNotTc?: boolean;
+}
+
+export interface IAave3PoolAdapterState {
+  status: IPoolAdapterStatus;
+  collateralBalanceATokens: BigNumber;
+  balanceATokensForCollateral: BigNumber;
+  accountState: IAave3UserAccountDataResults;
+}
+
+export interface IInitialBorrowResults {
+  d: IPrepareToBorrowResults;
+  collateralToken: TokenDataTypes;
+  borrowToken: TokenDataTypes;
+  collateralAmount: BigNumber;
+  stateAfterBorrow: IAave3PoolAdapterState;
 }
 //endregion Data types
 
@@ -239,7 +255,7 @@ export class Aave3TestUtils {
     deployer: SignerWithAddress,
     d: IPrepareToBorrowResults,
     borrowAmountRequired: BigNumber | undefined,
-    badPathsParams?: IMakeBorrowBadPathsParams
+    badPathsParams?: IMakeBorrowOrRepayBadPathsParams
   ): Promise<IBorrowResults> {
     const collateralData = await d.h.getReserveInfo(deployer, d.aavePool, d.dataProvider, d.collateralToken.address);
     const borrowAmount = borrowAmountRequired
@@ -257,7 +273,7 @@ export class Aave3TestUtils {
       d.aavePoolAdapterAsTC.address
     );
 
-    const borrower = badPathsParams?.makeBorrowAsNotTc
+    const borrower = badPathsParams?.makeOperationAsNotTc
       ? Aave3PoolAdapter__factory.connect(d.aavePoolAdapterAsTC.address, deployer)
       : d.aavePoolAdapterAsTC;
 
@@ -276,7 +292,9 @@ export class Aave3TestUtils {
 
   public static async makeRepay(
     d: IPrepareToBorrowResults,
-    amountToRepay?: BigNumber
+    amountToRepay?: BigNumber,
+    closePosition?: boolean,
+    badPathsParams?: IMakeBorrowOrRepayBadPathsParams
   ) : Promise<IAave3UserAccountDataResults>{
     if (amountToRepay) {
       // partial repay
@@ -294,10 +312,16 @@ export class Aave3TestUtils {
         d.aavePoolAdapterAsTC.address
       );
 
-      await poolAdapterAsCaller.repay(
+      const repayer = badPathsParams?.makeOperationAsNotTc
+        ? Aave3PoolAdapter__factory.connect(
+          d.aavePoolAdapterAsTC.address,
+          await DeployerUtils.startImpersonate(ethers.Wallet.createRandom().address)
+        )
+        : poolAdapterAsCaller;
+      await repayer.repay(
         amountToRepay,
         d.userContract.address,
-        false
+        closePosition === undefined ? false : closePosition
       );
     } else {
       // make full repayment
@@ -382,5 +406,33 @@ export class Aave3TestUtils {
       liquidatorAddress,
       collateralAmountReceivedByLiquidator
     }
+  }
+
+  public static async getState(d: IPrepareToBorrowResults) : Promise<IAave3PoolAdapterState> {
+    const status = await d.aavePoolAdapterAsTC.getStatus();
+    const collateralBalanceBase = await d.aavePoolAdapterAsTC.collateralBalanceATokens();
+    const accountState = await d.aavePool.getUserAccountData(d.aavePoolAdapterAsTC.address);
+    const balanceATokensForCollateral = await IERC20__factory.connect(
+      d.collateralReserveInfo.aTokenAddress,
+      await DeployerUtils.startImpersonate(d.aavePoolAdapterAsTC.address)
+    ).balanceOf(d.aavePoolAdapterAsTC.address);
+    return {status, collateralBalanceATokens: collateralBalanceBase, accountState, balanceATokensForCollateral};
+  }
+
+  public static async putCollateralAmountOnUserBalance(init: IInitialBorrowResults, collateralHolder: string) {
+    await BalanceUtils.getRequiredAmountFromHolders(
+      init.collateralAmount,
+      init.collateralToken.token,
+      [collateralHolder],
+      init.d.userContract.address
+    );
+  }
+  public static async putDoubleBorrowAmountOnUserBalance(init: IPrepareToBorrowResults, borrowHolder: string) {
+    await BalanceUtils.getRequiredAmountFromHolders(
+      init.amountToBorrow.mul(2),
+      init.borrowToken.token,
+      [borrowHolder],
+      init.userContract.address
+    );
   }
 }
