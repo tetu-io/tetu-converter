@@ -1,7 +1,7 @@
 import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import {BigNumber} from "ethers";
 import {HundredFinanceHelper} from "../../../../scripts/integration/helpers/HundredFinanceHelper";
-import {HfPriceOracleMock} from "../../../../typechain";
+import {HfPriceOracleMock, IHfComptroller__factory} from "../../../../typechain";
 import {DeployerUtils} from "../../../../scripts/utils/DeployerUtils";
 import {DeployUtils} from "../../../../scripts/utils/DeployUtils";
 import {MaticAddresses} from "../../../../scripts/addresses/MaticAddresses";
@@ -60,5 +60,38 @@ export class HundredFinanceChangePriceUtils {
       newPrice
     );
     console.log(`Price of asset ${cToken} was changed from ${currentPrice} to ${newPrice}`);
+  }
+
+  public static async setBorrowCapacity(deployer: SignerWithAddress, cToken: string, amount: BigNumber) {
+    const comptroller = await HundredFinanceHelper.getComptroller(deployer);
+    const admin = await comptroller.admin();
+
+    const comptrollerAsAdmin = IHfComptroller__factory.connect(
+      comptroller.address,
+      await DeployerUtils.startImpersonate(admin)
+    );
+    await comptrollerAsAdmin._setMarketBorrowCaps([cToken], [amount]);
+  }
+
+  public static async setMintPaused(deployer: SignerWithAddress, cToken: string, paused: boolean = true) {
+    const comptroller = await HundredFinanceHelper.getComptroller(deployer);
+    const admin = await comptroller.admin();
+
+    const comptrollerAsAdmin = IHfComptroller__factory.connect(
+      comptroller.address,
+      await DeployerUtils.startImpersonate(admin)
+    );
+    await comptrollerAsAdmin._setMintPaused(cToken, paused);
+  }
+
+  public static async setBorrowPaused(deployer: SignerWithAddress, cToken: string, paused: boolean = true) {
+    const comptroller = await HundredFinanceHelper.getComptroller(deployer);
+    const admin = await comptroller.admin();
+
+    const comptrollerAsAdmin = IHfComptroller__factory.connect(
+      comptroller.address,
+      await DeployerUtils.startImpersonate(admin)
+    );
+    await comptrollerAsAdmin._setBorrowPaused(cToken, paused);
   }
 }

@@ -625,11 +625,11 @@ describe("DForce integration tests, platform adapter", () => {
         });
         it("should fail if redeemPaused for borrow", async () => {
           if (!await isPolygonForkInUse()) return;
-          expect((await tryGetConversionPlan({setBorrowPaused: true})).converter).eq(Misc.ZERO_ADDRESS);
+          expect((await tryGetConversionPlan({setRedeemPaused: true})).converter).eq(Misc.ZERO_ADDRESS);
         });
         it("should fail if borrowPaused for borrow", async () => {
           if (!await isPolygonForkInUse()) return;
-          expect((await tryGetConversionPlan({setRedeemPaused: true})).converter).eq(Misc.ZERO_ADDRESS);
+          expect((await tryGetConversionPlan({setBorrowPaused: true})).converter).eq(Misc.ZERO_ADDRESS);
         });
       });
     });

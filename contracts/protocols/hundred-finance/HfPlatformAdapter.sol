@@ -245,11 +245,9 @@ contract HfPlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
             vars.priceBorrow36
           );
 
-          plan.amountCollateralInBorrowAsset36 = AppUtils.toMantissa(
-            collateralAmount_ * (10**18 * vars.priceCollateral36 / vars.priceBorrow36),
-            vars.collateralAssetDecimals,
-            18
-          );
+          plan.amountCollateralInBorrowAsset36 =
+            collateralAmount_ * (10**36 * vars.priceCollateral36 / vars.priceBorrow36)
+            / 10**vars.collateralAssetDecimals;
         }
       }
     }
@@ -281,12 +279,17 @@ contract HfPlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
     uint liquidityThreshold18
   ) {
     IHfComptroller comptrollerLocal = comptroller;
-    (bool isListed, uint256 collateralFactorMantissa,) = comptrollerLocal.markets(cTokenBorrow_);
-    if (isListed) {
-      ltv18 = collateralFactorMantissa;
-      (isListed, collateralFactorMantissa,) = comptrollerLocal.markets(cTokenCollateral_);
+    if (
+      !comptroller.borrowGuardianPaused(cTokenBorrow_) // borrowing is not paused
+      && !comptroller.mintGuardianPaused(cTokenCollateral_) // minting is not paused
+    ) {
+      (bool isListed, uint256 collateralFactorMantissa,) = comptrollerLocal.markets(cTokenBorrow_);
       if (isListed) {
-        liquidityThreshold18 = collateralFactorMantissa;
+        ltv18 = collateralFactorMantissa;
+        (isListed, collateralFactorMantissa,) = comptrollerLocal.markets(cTokenCollateral_);
+        if (isListed) {
+          liquidityThreshold18 = collateralFactorMantissa;
+        }
       }
     }
 

@@ -372,4 +372,12 @@ interface IHfComptroller {
 
 
   function _setPriceOracle(address newOracle) external returns (uint256);
+
+  function _setMarketBorrowCaps(address[] memory cTokens, uint256[] memory newBorrowCaps) external;
+  function _setMintPaused(address cToken, bool state) external returns (bool);
+  function _setBorrowPaused(address cToken, bool state) external returns (bool);
+  function _setTransferPaused(bool state) external returns (bool);
+
+
+
 }

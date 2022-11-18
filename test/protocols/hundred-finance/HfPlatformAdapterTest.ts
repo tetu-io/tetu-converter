@@ -11,7 +11,10 @@ import {expect} from "chai";
 import {AdaptersHelper} from "../../baseUT/helpers/AdaptersHelper";
 import {isPolygonForkInUse} from "../../baseUT/utils/NetworkUtils";
 import {BalanceUtils} from "../../baseUT/utils/BalanceUtils";
-import {HundredFinanceHelper} from "../../../scripts/integration/helpers/HundredFinanceHelper";
+import {
+  HundredFinanceHelper,
+  IHundredFinanceMarketData
+} from "../../../scripts/integration/helpers/HundredFinanceHelper";
 import {MaticAddresses} from "../../../scripts/addresses/MaticAddresses";
 import {BigNumber} from "ethers";
 import {areAlmostEqual} from "../../baseUT/utils/CommonUtils";
@@ -24,6 +27,8 @@ import {convertUnits} from "../../baseUT/apr/aprUtils";
 import {Misc} from "../../../scripts/utils/Misc";
 import {DeployerUtils} from "../../../scripts/utils/DeployerUtils";
 import {TetuConverterApp} from "../../baseUT/helpers/TetuConverterApp";
+import {IConversionPlan} from "../../baseUT/apr/aprDataTypes";
+import {HundredFinanceChangePriceUtils} from "../../baseUT/protocols/hundred-finance/HundredFinanceChangePriceUtils";
 
 describe("Hundred finance integration tests, platform adapter", () => {
 //region Global vars for all tests
@@ -105,15 +110,36 @@ describe("Hundred finance integration tests, platform adapter", () => {
     zeroCountBlocks?: boolean;
     zeroCollateralAmount?: boolean;
     incorrectHealthFactor2?: number;
+    setMinBorrowCapacity?: boolean;
+    setCollateralMintPaused?: boolean;
+    setBorrowPaused?: boolean;
   }
-  async function makeTestComparePlanWithDirectCalculations(
+
+  interface IPreparePlanResults {
+    plan: IConversionPlan;
+    healthFactor2: number;
+    priceCollateral: BigNumber;
+    priceBorrow: BigNumber;
+    priceCollateral36: BigNumber;
+    priceBorrow36: BigNumber;
+    comptroller: IHfComptroller;
+    countBlocks: number;
+    borrowAssetDecimals: number;
+    collateralAssetDecimals: number;
+    collateralAssetData: IHundredFinanceMarketData;
+    borrowAssetData: IHundredFinanceMarketData;
+    cTokenBorrow: IHfCToken;
+    cTokenCollateral: IHfCToken;
+  }
+
+  async function preparePlan(
     collateralAsset: string,
     collateralAmount: BigNumber,
     borrowAsset: string,
     collateralCToken: string,
     borrowCToken: string,
     badPathsParams?: IGetConversionPlanBadPaths
-  ) : Promise<{sret: string, sexpected: string}> {
+  ) : Promise<IPreparePlanResults> {
     const controller = await TetuConverterApp.createController(
       deployer,
       {tetuLiquidatorAddress: MaticAddresses.TETU_LIQUIDATOR}
@@ -151,7 +177,17 @@ describe("Hundred finance integration tests, platform adapter", () => {
     console.log("priceBorrow18", priceBorrow36);
     console.log("priceCollateral18", priceCollateral36);
 
-    const ret = await hfPlatformAdapter.getConversionPlan(
+    if (badPathsParams?.setMinBorrowCapacity) {
+      await HundredFinanceChangePriceUtils.setBorrowCapacity(deployer, borrowCToken, borrowAssetData.totalBorrows);
+    }
+    if (badPathsParams?.setCollateralMintPaused) {
+      await HundredFinanceChangePriceUtils.setMintPaused(deployer, collateralCToken);
+    }
+    if (badPathsParams?.setBorrowPaused) {
+      await HundredFinanceChangePriceUtils.setBorrowPaused(deployer, borrowCToken);
+    }
+
+    const plan = await hfPlatformAdapter.getConversionPlan(
       badPathsParams?.zeroCollateralAsset ? Misc.ZERO_ADDRESS : collateralAsset,
       badPathsParams?.zeroCollateralAmount ? 0 : collateralAmount,
       badPathsParams?.zeroBorrowAsset ? Misc.ZERO_ADDRESS : borrowAsset,
@@ -159,85 +195,108 @@ describe("Hundred finance integration tests, platform adapter", () => {
       badPathsParams?.zeroCountBlocks ? 0 : countBlocks,
     );
 
-    let amountToBorrow = AprUtils.getBorrowAmount(
-      collateralAmount,
-      healthFactor2,
-      ret.liquidationThreshold18,
+    return {
+      plan,
+      countBlocks,
+      borrowAssetDecimals,
+      comptroller,
+      collateralAssetDecimals,
       priceCollateral36,
       priceBorrow36,
-      collateralAssetDecimals,
-      borrowAssetDecimals
+      borrowAssetData,
+      collateralAssetData,
+      healthFactor2,
+      priceCollateral,
+      priceBorrow,
+      cTokenBorrow,
+      cTokenCollateral
+    }
+  }
+
+  async function makeTestComparePlanWithDirectCalculations(
+    collateralAsset: string,
+    collateralAmount: BigNumber,
+    borrowAsset: string,
+    collateralCToken: string,
+    borrowCToken: string,
+    badPathsParams?: IGetConversionPlanBadPaths
+  ) : Promise<{sret: string, sexpected: string}> {
+    const d: IPreparePlanResults = await preparePlan(
+      collateralAsset,
+      collateralAmount,
+      borrowAsset,
+      collateralCToken,
+      borrowCToken,
+      badPathsParams
     );
-    if (amountToBorrow.gt(ret.maxAmountToBorrow)) {
-      amountToBorrow = ret.maxAmountToBorrow;
+
+    let amountToBorrow = AprUtils.getBorrowAmount(
+      collateralAmount,
+      d.healthFactor2,
+      d.plan.liquidationThreshold18,
+      d.priceCollateral36,
+      d.priceBorrow36,
+      d.collateralAssetDecimals,
+      d.borrowAssetDecimals
+    );
+    if (amountToBorrow.gt(d.plan.maxAmountToBorrow)) {
+      amountToBorrow = d.plan.maxAmountToBorrow;
     }
     console.log("amountToBorrow", amountToBorrow);
 
     const amountCollateralInBorrowAsset36 =  convertUnits(collateralAmount,
-      priceCollateral36,
-      collateralAssetDecimals,
-      priceBorrow36,
+      d.priceCollateral36,
+      d.collateralAssetDecimals,
+      d.priceBorrow36,
       36
     );
 
     // predict APR
     const libFacade = await DeployUtils.deployContract(deployer, "HfAprLibFacade") as HfAprLibFacade;
-    const borrowRatePredicted = await AprHundredFinance.getEstimatedBorrowRate(libFacade
-      , cTokenBorrow
-      , amountToBorrow
-    );
+    const borrowRatePredicted = await AprHundredFinance.getEstimatedBorrowRate(libFacade, d.cTokenBorrow, amountToBorrow);
     console.log("borrowRatePredicted", borrowRatePredicted);
-    const supplyRatePredicted = await AprHundredFinance.getEstimatedSupplyRate(libFacade
-      , cTokenCollateral
-      , collateralAmount
-    );
+    const supplyRatePredicted = await AprHundredFinance.getEstimatedSupplyRate(libFacade, d.cTokenCollateral, collateralAmount);
     console.log("supplyRatePredicted", supplyRatePredicted);
 
     console.log("libFacade.getSupplyIncomeInBorrowAsset36");
     const supplyIncomeInBorrowAsset36 = await libFacade.getSupplyIncomeInBorrowAsset36(
-      supplyRatePredicted
-      , countBlocks
-      , collateralAssetDecimals
-      , priceCollateral36
-      , priceBorrow36
-      , collateralAmount
+      supplyRatePredicted,
+      d.countBlocks,
+      d.collateralAssetDecimals,
+      d.priceCollateral36,
+      d.priceBorrow36,
+      collateralAmount
     );
-    console.log("supplyRatePredicted", supplyRatePredicted);
-    console.log("countBlocks", countBlocks);
-    console.log("cTokenCollateralDecimals", cTokenCollateralDecimals);
-    console.log("priceCollateral18", priceCollateral36);
-    console.log("priceBorrow18", priceBorrow36);
-    console.log("collateralAmount", collateralAmount);
 
     const borrowCost36 = await libFacade.getBorrowCost36(
-      borrowRatePredicted
-      , amountToBorrow
-      , countBlocks
-      , borrowAssetDecimals
+      borrowRatePredicted,
+      amountToBorrow,
+      d.countBlocks,
+      d.borrowAssetDecimals,
     );
 
     const sret = [
-      ret.borrowCost36,
-      ret.supplyIncomeInBorrowAsset36,
-      ret.rewardsAmountInBorrowAsset36,
-      ret.ltv18,
-      ret.liquidationThreshold18,
-      ret.maxAmountToBorrow,
-      ret.maxAmountToSupply,
-      ret.amountToBorrow,
-      ret.amountCollateralInBorrowAsset36
+      d.plan.borrowCost36,
+      d.plan.supplyIncomeInBorrowAsset36,
+      d.plan.rewardsAmountInBorrowAsset36,
+      d.plan.ltv18,
+      d.plan.liquidationThreshold18,
+      d.plan.maxAmountToBorrow,
+      d.plan.maxAmountToSupply,
+      d.plan.amountToBorrow,
+      areAlmostEqual(d.plan.amountCollateralInBorrowAsset36, amountCollateralInBorrowAsset36)
     ].map(x => BalanceUtils.toString(x)) .join("\n");
 
     const sexpected = [
       borrowCost36,
       supplyIncomeInBorrowAsset36,
       BigNumber.from(0), // no rewards
-      borrowAssetData.collateralFactorMantissa,
-      collateralAssetData.collateralFactorMantissa,
-      borrowAssetData.cash,
+      d.borrowAssetData.collateralFactorMantissa,
+      d.collateralAssetData.collateralFactorMantissa,
+      d.borrowAssetData.cash,
       BigNumber.from(2).pow(256).sub(1), // === type(uint).max
       amountToBorrow,
-      amountCollateralInBorrowAsset36,
+      true
     ].map(x => BalanceUtils.toString(x)) .join("\n");
 
     return {sret, sexpected};
@@ -334,23 +393,22 @@ describe("Hundred finance integration tests, platform adapter", () => {
       });
     });
     describe("Bad paths", () => {
-      async function tryGetConversionPlan(badPathsParams: IGetConversionPlanBadPaths) {
-        if (!await isPolygonForkInUse()) return;
-
-        const collateralAsset = MaticAddresses.DAI;
-        const borrowAsset = MaticAddresses.USDC;
-        const collateralCToken = MaticAddresses.hDAI;
-        const borrowCToken = MaticAddresses.hUSDC;
-        const collateralAmount = getBigNumberFrom(1000, 18);
-
-        await makeTestComparePlanWithDirectCalculations(
+      async function tryGetConversionPlan(
+        badPathsParams: IGetConversionPlanBadPaths,
+        collateralAsset: string = MaticAddresses.DAI,
+        borrowAsset: string = MaticAddresses.USDC,
+        collateralCToken: string = MaticAddresses.hDAI,
+        borrowCToken: string = MaticAddresses.hUSDC,
+        collateralAmount: BigNumber = getBigNumberFrom(1000, 18)
+      ) : Promise<IConversionPlan> {
+        return (await preparePlan(
           collateralAsset,
           collateralAmount,
           borrowAsset,
           collateralCToken,
           borrowCToken,
           badPathsParams
-        );
+        )).plan;
       }
       describe("incorrect input params", () => {
         describe("collateral token is zero", () => {
@@ -396,12 +454,62 @@ describe("Hundred finance integration tests, platform adapter", () => {
           });
         });
       });
-      describe("inactive", () => {
-        describe("collateral token is inactive", () => {
-          it("", async () => {
-            if (!await isPolygonForkInUse()) return;
-            // TODO: expect.fail("TODO");
-          });
+      describe("cToken is not registered", () => {
+        it("should fail if collateral token is not registered", async () => {
+          if (!await isPolygonForkInUse()) return;
+
+          expect((await tryGetConversionPlan(
+            {},
+            MaticAddresses.agEUR
+          )).converter).eq(Misc.ZERO_ADDRESS);
+        });
+        it("should fail if borrow token is not registered", async () => {
+          if (!await isPolygonForkInUse()) return;
+
+          expect((await tryGetConversionPlan(
+            {},
+            MaticAddresses.DAI,
+            MaticAddresses.agEUR,
+          )).converter).eq(Misc.ZERO_ADDRESS);
+        });
+      });
+      describe("capacity", () => {
+        it("should return expected maxAmountToBorrow if borrowCapacity is limited", async () => {
+          const planBorrowCapacityNotLimited = await tryGetConversionPlan(
+            {},
+            MaticAddresses.DAI,
+            MaticAddresses.USDC,
+            MaticAddresses.hDAI,
+            MaticAddresses.hUSDC,
+            getBigNumberFrom(12345, 18)
+          );
+          console.log("planBorrowCapacityNotLimited", planBorrowCapacityNotLimited);
+          const plan = await tryGetConversionPlan(
+            {setMinBorrowCapacity: true},
+            MaticAddresses.DAI,
+            MaticAddresses.USDC,
+            MaticAddresses.hDAI,
+            MaticAddresses.hUSDC,
+            getBigNumberFrom(12345, 18)
+          );
+          console.log("plan", plan);
+          const ret = [
+            plan.amountToBorrow.eq(plan.maxAmountToBorrow),
+            plan.amountToBorrow.lt(planBorrowCapacityNotLimited.maxAmountToBorrow),
+            planBorrowCapacityNotLimited.amountToBorrow.lt(planBorrowCapacityNotLimited.maxAmountToBorrow)
+          ].join("\n");
+          const expected = [true, true, true].join("\n");
+          expect(ret).eq(expected);
+        });
+      });
+      describe("paused", () => {
+        it("should fail if mintPaused is true for collateral", async () => {
+          if (!await isPolygonForkInUse()) return;
+          expect((await tryGetConversionPlan({setCollateralMintPaused: true})).converter).eq(Misc.ZERO_ADDRESS);
+        });
+        it("should fail if borrowPaused for borrow", async () => {
+          if (!await isPolygonForkInUse()) return;
+          expect((await tryGetConversionPlan({setBorrowPaused: true})).converter).eq(Misc.ZERO_ADDRESS);
         });
       });
     });
