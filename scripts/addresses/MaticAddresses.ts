@@ -56,10 +56,13 @@ export class MaticAddresses {
 
   public static HOLDER_EURS = "0x6de2865067b65d4571c17f6b9eeb8dbdd5e36584";
   public static HOLDER_EURS_2 = "0x1bee4f735062cd00841d6997964f187f5f5f5ac9";
-  public static HOLDER_EURS_3 = "0x6cf2656c825656bb07a6630855618df37bec7725";
-  public static HOLDER_EURS_4 = "0xe65f3930aa2cc8711ef0d8c2244978a7f4a66c6a";
-  public static HOLDER_EURS_5 = "0xd8d913aa463fcad08a66e922db515293c3563809";
+  public static HOLDER_EURS_3 = "0x5d0ac389c669d6efe3ba96b9878d8156f180c539";
+  public static HOLDER_EURS_4 = "0x8332c9c551e658fc172b55fb6093346f157b99b1";
+  public static HOLDER_EURS_5 = "0x6cf2656c825656bb07a6630855618df37bec7725";
   public static HOLDER_EURS_6 = "0x53e9e2eedacc5662fc539d7f15bd8e3ac03a6034";
+  public static HOLDER_EURS_7 = "0xe65f3930aa2cc8711ef0d8c2244978a7f4a66c6a";
+  public static HOLDER_EURS_8 = "0xa1cbc6ab627c68b32117ab7290dc45aa683f629c";
+  public static HOLDER_EURS_9 = "0x1795e6d533a5420c2871e43eb06c80acffc4855a";
 
   public static HOLDER_BALANCER = "0x4cd80aa0ce4881eb8679eda1f6fbe3d89aec0f7f";
   public static HOLDER_BALANCER_1 = "0x2aea39e27fc87de4a63963687c6e188f062197b4";

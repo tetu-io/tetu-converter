@@ -3,6 +3,7 @@ import {ethers} from "hardhat";
 import {TimeUtils} from "../../../scripts/utils/TimeUtils";
 import {
   Aave3PoolAdapter__factory,
+  DebtMonitor__factory,
   BorrowManager__factory,
   IERC20Extended__factory, IPoolAdapter__factory
 } from "../../../typechain";
@@ -37,7 +38,12 @@ import {
 } from "../../baseUT/protocols/shared/sharedDataTypes";
 import {SharedRepayToRebalanceUtils} from "../../baseUT/protocols/shared/sharedRepayToRebalanceUtils";
 import {makeInfinityApprove, transferAndApprove} from "../../baseUT/utils/transferUtils";
-import {Aave3TestUtils, IPrepareToBorrowResults} from "../../baseUT/protocols/aave3/Aave3TestUtils";
+import {
+  Aave3TestUtils,
+  IPrepareToBorrowResults,
+  IBorrowResults,
+  IMakeBorrowBadPathsParams
+} from "../../baseUT/protocols/aave3/Aave3TestUtils";
 import {AdaptersHelper} from "../../baseUT/helpers/AdaptersHelper";
 import {TetuConverterApp} from "../../baseUT/helpers/TetuConverterApp";
 import {MocksHelper} from "../../baseUT/helpers/MocksHelper";
@@ -74,7 +80,7 @@ describe("Aave3PoolAdapterTest", () => {
 //endregion before, after
 
 //region Unit tests
-  describe("borrow", () => {
+  describe("borrow-it", () => {
     async function makeBorrowTest(
       collateralToken: TokenDataTypes,
       collateralHolder: string,
@@ -246,18 +252,91 @@ describe("Aave3PoolAdapterTest", () => {
         });
       });
      });
-    describe("Bad paths", () => {
-      describe("Not borrowable", () => {
-        it("", async () =>{
-          if (!await isPolygonForkInUse()) return;
-          expect.fail("TODO");
-        });
+  });
+
+  describe("borrow-ut", () => {
+    const collateralAsset = MaticAddresses.DAI;
+    const collateralHolder = MaticAddresses.HOLDER_DAI;
+    const borrowAsset = MaticAddresses.WMATIC;
+
+    interface IMakeBorrowTestResults {
+      init: IPrepareToBorrowResults;
+      borrowResults: IBorrowResults;
+      collateralToken: TokenDataTypes,
+      borrowToken: TokenDataTypes,
+    }
+
+    async function makeBorrowTest(
+      collateralAmountStr: string,
+      badPathsParams?: IMakeBorrowBadPathsParams
+    ): Promise<IMakeBorrowTestResults> {
+      const collateralToken = await TokenDataTypes.Build(deployer, collateralAsset);
+      const borrowToken = await TokenDataTypes.Build(deployer, borrowAsset);
+
+      const init = await Aave3TestUtils.prepareToBorrow(
+        deployer,
+        collateralToken,
+        [collateralHolder],
+        parseUnits(collateralAmountStr, collateralToken.decimals),
+        borrowToken,
+        false
+      );
+      const borrowResults = await Aave3TestUtils.makeBorrow(deployer, init, undefined, badPathsParams);
+      return {
+        init,
+        borrowResults,
+        collateralToken,
+        borrowToken
+      }
+    }
+
+    describe("Good paths", () => {
+      let results: IMakeBorrowTestResults;
+      before(async function () {
+        results = await makeBorrowTest("1999");
       });
-      describe("Not usable as collateral", () => {
-        it("", async () =>{
-          if (!await isPolygonForkInUse()) return;
-          expect.fail("TODO");
-        });
+      it("should get expected status", async () => {
+        const status = await results.init.aavePoolAdapterAsTC.getStatus();
+
+        const collateralTargetHealthFactor2 = await BorrowManager__factory.connect(
+          await results.init.controller.borrowManager(), deployer
+        ).getTargetHealthFactor2(collateralAsset);
+
+        const ret = [
+          areAlmostEqual(parseUnits(collateralTargetHealthFactor2.toString(), 16), status.healthFactor18),
+          areAlmostEqual(results.borrowResults.borrowedAmount, status.amountToPay, 4),
+          status.collateralAmountLiquidated.eq(0),
+          status.collateralAmount.eq(parseUnits("1999", results.init.collateralToken.decimals))
+        ].join();
+        const expected = [true, true, true, true].join();
+        expect(ret).eq(expected);
+      });
+      it("should open position in debt monitor", async () => {
+        const ret = await DebtMonitor__factory.connect(
+          await results.init.controller.debtMonitor(),
+          await DeployerUtils.startImpersonate(results.init.aavePoolAdapterAsTC.address)
+        ).isPositionOpened();
+        expect(ret).eq(true);
+      });
+      it("should transfer expected amount to the user", async () => {
+        const status = await results.init.aavePoolAdapterAsTC.getStatus();
+        const receivedBorrowAmount = await results.borrowToken.token.balanceOf(results.init.userContract.address);
+        expect(receivedBorrowAmount.toString()).eq(results.borrowResults.borrowedAmount.toString());
+      });
+      it("should change collateralBalanceATokens", async () => {
+        const collateralBalanceATokens = await results.init.aavePoolAdapterAsTC.collateralBalanceATokens();
+        const aaveTokensBalance = await IERC20Extended__factory.connect(
+          results.init.collateralReserveInfo.aTokenAddress,
+          deployer
+        ).balanceOf(results.init.aavePoolAdapterAsTC.address);
+        expect(collateralBalanceATokens.eq(aaveTokensBalance)).eq(true);
+      });
+    });
+    describe("Bad paths", () => {
+      it("should revert if not tetu converter", async () => {
+        await expect(
+          makeBorrowTest("1999", {makeBorrowAsNotTc: true})
+        ).revertedWith("TC-8"); // TETU_CONVERTER_ONLY
       });
     });
   });
@@ -381,36 +460,16 @@ describe("Aave3PoolAdapterTest", () => {
 
   describe("Borrow in isolated mode", () => {
 //region Utils
-    async function getMaxAmountToBorrow(
-      collateralDataBefore: IAave3ReserveInfo,
-      borrowDataBefore: IAave3ReserveInfo
-    ) : Promise<BigNumber> {
-      // get max allowed amount to borrow
-      // amount = (debt-ceiling - total-isolation-debt) * 10^{6 - 2}
-      // see aave-v3-core: validateBorrow()
-      const debtCeiling = collateralDataBefore.data.debtCeiling;
-      const totalIsolationDebt = collateralDataBefore.data.isolationModeTotalDebt;
-      const decimalsBorrow = borrowDataBefore.data.decimals;
-      const precisionDebtCeiling = 2; // Aave3ReserveConfiguration.DEBT_CEILING_DECIMALS
-      console.log("debtCeiling", debtCeiling);
-      console.log("totalIsolationDebt", totalIsolationDebt);
-      console.log("decimalsBorrow", decimalsBorrow);
-      console.log("precisionDebtCeiling", precisionDebtCeiling);
-
-      // calculate max amount manually
-      const dest = debtCeiling
-        .sub(totalIsolationDebt)
-        .mul(getBigNumberFrom(1, decimalsBorrow - precisionDebtCeiling));
-
-      console.log("Max amount to borrow in isolation mode:", dest);
-      return dest;
-    }
-
     interface IBorrowMaxAmountInIsolationModeResults {
       init: IPrepareToBorrowResults;
       maxBorrowAmount: BigNumber;
       maxBorrowAmountByPlan: BigNumber;
       isolationModeTotalDebtDelta: BigNumber;
+    }
+
+    interface IBorrowMaxAmountInIsolationModeBadPaths {
+      customAmountToBorrow?: BigNumber;
+      deltaToMaxAmount?: BigNumber;
     }
 
     /**
@@ -423,7 +482,7 @@ describe("Aave3PoolAdapterTest", () => {
       collateralAmountRequired: BigNumber | undefined,
       borrowToken: TokenDataTypes,
       borrowHolders: string[],
-      deltaToMaxAmount?: BigNumber
+      badPathsParams?: IBorrowMaxAmountInIsolationModeBadPaths
     ) : Promise<IBorrowMaxAmountInIsolationModeResults>{
       const d = await Aave3TestUtils.prepareToBorrow(deployer,
         collateralToken,
@@ -440,7 +499,7 @@ describe("Aave3PoolAdapterTest", () => {
       console.log("collateralDataBefore", collateralDataBefore);
 
       // calculate max amount to borrow manually
-      const maxBorrowAmount = await getMaxAmountToBorrow(collateralDataBefore, borrowDataBefore);
+      const maxBorrowAmount = d.plan.maxAmountToBorrow;
 
       await transferAndApprove(
         collateralToken.address,
@@ -450,9 +509,14 @@ describe("Aave3PoolAdapterTest", () => {
         d.aavePoolAdapterAsTC.address
       );
 
-      const amountToBorrow = deltaToMaxAmount
-        ? maxBorrowAmount.add(deltaToMaxAmount)
-        : maxBorrowAmount;
+      const amountToBorrow = badPathsParams?.deltaToMaxAmount
+        ? maxBorrowAmount // restore real max amount
+          .mul(100) // Aave3PlatformAdapter.MAX_BORROW_AMOUNT_FACTOR_DENOMINATOR
+          .div(90)  // Aave3PlatformAdapter.MAX_BORROW_AMOUNT_FACTOR
+          .add(badPathsParams?.deltaToMaxAmount)
+        : badPathsParams?.customAmountToBorrow
+          ? badPathsParams?.customAmountToBorrow
+          : maxBorrowAmount;
 
       console.log("Try to borrow", maxBorrowAmount);
 
@@ -520,6 +584,7 @@ describe("Aave3PoolAdapterTest", () => {
           });
         });
       });
+
       describe("EURS : USDC", () => {
         const collateralAsset = MaticAddresses.EURS;
         const borrowAsset = MaticAddresses.USDC;
@@ -550,10 +615,12 @@ describe("Aave3PoolAdapterTest", () => {
             const sret = ret.maxBorrowAmount.toString();
             const sexpected = ret.maxBorrowAmountByPlan.toString();
 
+            // Error 36 means "there is not enough EURO on balances of the EURO holders
             expect(sret).eq(sexpected);
           });
         });
       });
+
       describe("EURS : USDT", () => {
         const collateralAsset = MaticAddresses.EURS;
         const borrowAsset = MaticAddresses.USDT;
@@ -563,7 +630,10 @@ describe("Aave3PoolAdapterTest", () => {
           MaticAddresses.HOLDER_EURS_3,
           MaticAddresses.HOLDER_EURS_4,
           MaticAddresses.HOLDER_EURS_5,
-          MaticAddresses.HOLDER_EURS_6
+          MaticAddresses.HOLDER_EURS_6,
+          MaticAddresses.HOLDER_EURS_7,
+          MaticAddresses.HOLDER_EURS_8,
+          MaticAddresses.HOLDER_EURS_9,
         ];
         const borrowHolders = [MaticAddresses.HOLDER_USDT];
 
@@ -584,6 +654,7 @@ describe("Aave3PoolAdapterTest", () => {
             const sret = ret.maxBorrowAmount.toString();
             const sexpected = ret.maxBorrowAmountByPlan.toString();
 
+            // Error 36 means "there is not enough EURO on balances of the EURO holders
             expect(sret).eq(sexpected);
           });
         });
@@ -625,9 +696,9 @@ describe("Aave3PoolAdapterTest", () => {
                   undefined,
                   borrowToken,
                   borrowHolders,
-                  Misc.WEI // 1 DAI
+                  {deltaToMaxAmount: Misc.WEI} // 1 DAI
                 )
-              ).revertedWith("VM Exception while processing transaction: reverted with reason string '53'");
+              ).revertedWith("50"); // 50 or 53 are allowed here
             });
           });
         });
@@ -655,18 +726,18 @@ describe("Aave3PoolAdapterTest", () => {
                   undefined,
                   borrowToken,
                   borrowHolders,
-                  getBigNumberFrom(1, 6) // 1 USDC
+                  {deltaToMaxAmount: parseUnits("1", 6)} // 1 USDC
                 )
-              ).revertedWith("VM Exception while processing transaction: reverted with reason string '53'");
+              ).revertedWith("53");
             });
           });
         });
       });
       describe("Not borrowable in isolation mode", () => {
-        describe("USDT : Chainlink", () => {
+        describe("USDT : WETH", () => {
 //region Constants
           const collateralAsset = MaticAddresses.USDT;
-          const borrowAsset = MaticAddresses.ChainLink;
+          const borrowAsset = MaticAddresses.WETH;
           const collateralHolders = [
             MaticAddresses.HOLDER_USDT,
             MaticAddresses.HOLDER_USDT_1,
@@ -674,10 +745,10 @@ describe("Aave3PoolAdapterTest", () => {
             MaticAddresses.HOLDER_USDT_3
           ];
           const borrowHolders = [
-            MaticAddresses.HOLDER_CHAIN_LINK,
+            MaticAddresses.HOLDER_WETH,
           ];
 //endregion Constants
-          describe("Try to borrow max amount allowed by debt ceiling", () => {
+          describe("Try to borrow not zero amount", () => {
             it("should return expected values", async () => {
               if (!await isPolygonForkInUse()) return;
               const collateralToken = await TokenDataTypes.Build(deployer, collateralAsset);
@@ -690,8 +761,11 @@ describe("Aave3PoolAdapterTest", () => {
                   undefined,
                   borrowToken,
                   borrowHolders,
+                  {
+                    customAmountToBorrow: parseUnits("1")
+                  }
                 )
-              ).revertedWith("VM Exception while processing transaction: reverted with reason string '60'");
+              ).revertedWith("60");
             });
           });
         });
@@ -1344,12 +1418,12 @@ describe("Aave3PoolAdapterTest", () => {
           badPathParams
         );
       }
-      describe("Not TetuConverter and not user", () => {
+      describe("Not TetuConverter", () => {
         it("should revert", async () => {
           if (!await isPolygonForkInUse()) return;
           await expect(
             testRepayToRebalanceDaiWMatic({makeRepayToRebalanceAsDeployer: true})
-          ).revertedWith("TC-32");
+          ).revertedWith("TC-8");
         });
       });
       describe("Position is not registered", () => {
@@ -1521,12 +1595,16 @@ describe("Aave3PoolAdapterTest", () => {
       });
       it("should revert on second initialization", async () => {
         if (!await isPolygonForkInUse()) return;
+
+        // we need an instance of aave3-pool-adapter to pass to revertedWithCustomError
+        const aave3poolAdapterContract = await AdaptersHelper.createAave3PoolAdapter(deployer);
+
         await expect(
           makeInitializePoolAdapterTest(
             false,
             {makeSecondInitialization: true}
           )
-        ).revertedWith("ErrorAlreadyInitialized");
+        ).revertedWithCustomError(aave3poolAdapterContract, "ErrorAlreadyInitialized");
       });
     });
   });
@@ -1623,12 +1701,7 @@ describe("Aave3PoolAdapterTest", () => {
         if (!await isPolygonForkInUse()) return;
 
         const collateralAsset = MaticAddresses.DAI;
-        const collateralHolder = MaticAddresses.HOLDER_DAI;
         const borrowAsset = MaticAddresses.WMATIC;
-        const borrowHolder = MaticAddresses.HOLDER_WMATIC;
-        const collateralToken = await TokenDataTypes.Build(deployer, collateralAsset);
-        const borrowToken = await TokenDataTypes.Build(deployer, borrowAsset);
-        const collateralAmount = parseUnits("1000", collateralToken.decimals);
 
         const controller = await TetuConverterApp.createController(deployer);
         const userContract = await MocksHelper.deployBorrower(deployer.address, controller, 1000);

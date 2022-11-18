@@ -84,7 +84,7 @@ async function supplyEnoughBorrowAssetToAavePool(
     .supply(borrowAsset, user2CollateralBalance, user2.address, 0);
 }
 
-interface IBorrowResults {
+export interface IBorrowResults {
   collateralData: IAave3ReserveInfo;
   accountDataAfterBorrow: IAave3UserAccountDataResults;
   borrowedAmount: BigNumber;
@@ -101,6 +101,10 @@ export interface IPrepareToLiquidationResults {
 export interface ILiquidationResults {
   liquidatorAddress: string;
   collateralAmountReceivedByLiquidator: BigNumber;
+}
+
+export interface IMakeBorrowBadPathsParams {
+  makeBorrowAsNotTc?: boolean;
 }
 //endregion Data types
 
@@ -234,7 +238,8 @@ export class Aave3TestUtils {
   public static async makeBorrow(
     deployer: SignerWithAddress,
     d: IPrepareToBorrowResults,
-    borrowAmountRequired: BigNumber | undefined
+    borrowAmountRequired: BigNumber | undefined,
+    badPathsParams?: IMakeBorrowBadPathsParams
   ): Promise<IBorrowResults> {
     const collateralData = await d.h.getReserveInfo(deployer, d.aavePool, d.dataProvider, d.collateralToken.address);
     const borrowAmount = borrowAmountRequired
@@ -252,7 +257,11 @@ export class Aave3TestUtils {
       d.aavePoolAdapterAsTC.address
     );
 
-    await d.aavePoolAdapterAsTC.borrow(
+    const borrower = badPathsParams?.makeBorrowAsNotTc
+      ? Aave3PoolAdapter__factory.connect(d.aavePoolAdapterAsTC.address, deployer)
+      : d.aavePoolAdapterAsTC;
+
+    await borrower.borrow(
       d.collateralAmount,
       borrowAmount,
       d.userContract.address

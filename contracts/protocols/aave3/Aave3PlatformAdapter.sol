@@ -29,6 +29,10 @@ contract Aave3PlatformAdapter is IPlatformAdapter {
   uint256 internal constant RAY = 1e27;
   uint256 internal constant HALF_RAY = 0.5e27;
 
+  /// @notice We allow to borrow only 90% of max allowed amount, see the code below for explanation
+  uint public constant MAX_BORROW_AMOUNT_FACTOR = 90;
+  uint constant public MAX_BORROW_AMOUNT_FACTOR_DENOMINATOR = 100;
+
   ///////////////////////////////////////////////////////
   ///   Data types
   ///////////////////////////////////////////////////////
@@ -179,7 +183,7 @@ contract Aave3PlatformAdapter is IPlatformAdapter {
           plan.maxAmountToBorrow = vars.totalAToken - vars.totalStableDebt - vars.totalVariableDebt;
 
           // supply/borrow caps are given in "whole tokens" == without decimals
-          // see AAVE3-code, ValidationLogic.sol, validateSupply
+          // see AAVE3-code, ValidationLogic.sol, validateBorrow
           { // take into account borrow cap, supply cap and debts ceiling
             uint borrowCap = rb.configuration.getBorrowCap();
             if (borrowCap != 0) {
@@ -189,7 +193,14 @@ contract Aave3PlatformAdapter is IPlatformAdapter {
                 plan.maxAmountToBorrow = 0;
               } else {
                 if (totalDebt + plan.maxAmountToBorrow > borrowCap) {
-                  plan.maxAmountToBorrow = borrowCap - totalDebt;
+                  // we should use actual values of totalStableDebt and totalVariableDebt
+                  // they can be a bit different from stored values
+                  // as result, it's not possible to borrow exact max amount
+                  // it's necessary to borrow a bit less amount
+                  // so, we allow to borrow only 90% of max amount
+                  plan.maxAmountToBorrow = (borrowCap - totalDebt)
+                    * MAX_BORROW_AMOUNT_FACTOR
+                    / MAX_BORROW_AMOUNT_FACTOR_DENOMINATOR;
                 }
               }
             }

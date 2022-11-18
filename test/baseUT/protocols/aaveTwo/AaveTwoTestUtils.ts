@@ -1,5 +1,5 @@
 import {
-  Aave3PoolAdapter__factory,
+  AaveTwoPoolAdapter__factory,
   AaveTwoPoolAdapter,
   Borrower,
   BorrowManager__factory,
@@ -23,7 +23,6 @@ import {makeInfinityApprove, transferAndApprove} from "../../utils/transferUtils
 import {IAaveTwoUserAccountDataResults} from "../../apr/aprAaveTwo";
 import {AaveTwoChangePricesUtils} from "./AaveTwoChangePricesUtils";
 import {getBigNumberFrom} from "../../../../scripts/utils/NumberUtils";
-import {Aave3Helper} from "../../../../scripts/integration/helpers/Aave3Helper";
 import {IPoolAdapterStatus} from "../../types/BorrowRepayDataTypes";
 import {TetuConverterApp} from "../../helpers/TetuConverterApp";
 import {Misc} from "../../../../scripts/utils/Misc";
@@ -125,7 +124,7 @@ export class AaveTwoTestUtils {
       collateralToken.address,
       borrowToken.address
     );
-    const aavePoolAdapterAsTC = Aave3PoolAdapter__factory.connect(
+    const aavePoolAdapterAsTC = AaveTwoPoolAdapter__factory.connect(
       await borrowManager.getPoolAdapter(
         converterNormal.address,
         userContract.address,
@@ -316,7 +315,7 @@ export class AaveTwoTestUtils {
     await IERC20__factory.connect(d.borrowToken.address, liquidator).approve(d.aavePool.address, Misc.MAX_UINT);
 
     const aavePoolAsLiquidator = IAaveTwoPool__factory.connect(d.aavePool.address, liquidator);
-    const dataProvider = await Aave3Helper.getAaveProtocolDataProvider(liquidator);
+    const dataProvider = await AaveTwoHelper.getAaveProtocolDataProvider(liquidator);
     const userReserveData = await dataProvider.getUserReserveData(d.borrowToken.address, borrowerAddress);
     const amountToLiquidate = d.amountToBorrow.div(4); // userReserveData.currentVariableDebt.div(2);
 
