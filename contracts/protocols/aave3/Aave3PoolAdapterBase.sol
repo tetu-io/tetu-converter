@@ -14,6 +14,7 @@ import "../../integrations/aave3/Aave3ReserveConfiguration.sol";
 import "../../integrations/aave3/IAaveToken.sol";
 import "../../integrations/dforce/SafeRatioMath.sol";
 import "../../openzeppelin/Initializable.sol";
+import "hardhat/console.sol";
 
 /// @notice Implementation of IPoolAdapter for AAVE-v3-protocol, see https://docs.aave.com/hub/
 /// @dev Instances of this contract are created using proxy-minimal pattern, so no constructor
@@ -46,19 +47,12 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer,
   ///////////////////////////////////////////////////////
   ///                Events
   ///////////////////////////////////////////////////////
-  event OnInitialized(
-    address controller,
-    address pool,
-    address user,
-    address collateralAsset,
-    address borrowAsset,
-    address originConverter
-  );
+  event OnInitialized(address controller, address pool, address user, address collateralAsset, address borrowAsset, address originConverter);
   event OnBorrow(uint collateralAmount, uint borrowAmount, address receiver, uint resultHealthFactor18,
     uint collateralBalanceATokens);
   event OnBorrowToRebalance(uint borrowAmount, address receiver, uint resultHealthFactor18);
   event OnRepay(uint amountToRepay, address receiver, bool closePosition, uint resultHealthFactor18,
-    uint amountCollateralToWithdraw, uint collateralBalanceATokens);
+    uint collateralBalanceATokens);
   event OnRepayToRebalance(uint amount, bool isCollateral, uint resultHealthFactor18, uint collateralBalanceATokens);
 
   ///////////////////////////////////////////////////////
@@ -101,6 +95,7 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer,
     IERC20(collateralAsset_).safeApprove(pool_, type(uint).max);
     IERC20(borrowAsset_).safeApprove(pool_, type(uint).max);
 
+    console.log("OnInitialized event", address(this));
     emit OnInitialized(controller_, pool_, user_, collateralAsset_, borrowAsset_, originConverter_);
   }
 
@@ -321,7 +316,7 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer,
       : localCollateralBalanceATokens - (aTokensBalanceBeforeRepay - aTokensBalanceAfterRepay);
     collateralBalanceATokens = localCollateralBalanceATokens;
 
-    emit OnRepay(amountToRepay_, receiver_, closePosition_, healthFactor, amountCollateralToWithdraw, localCollateralBalanceATokens);
+    emit OnRepay(amountToRepay_, receiver_, closePosition_, healthFactor, localCollateralBalanceATokens);
     return amountCollateralToWithdraw;
   }
 

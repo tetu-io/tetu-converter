@@ -2,6 +2,8 @@ import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import {ethers} from "hardhat";
 import {TimeUtils} from "../../../scripts/utils/TimeUtils";
 import {
+  Aave3PoolAdapter__factory,
+  BorrowManager__factory,
   IERC20Extended__factory, IPoolAdapter__factory
 } from "../../../typechain";
 import {expect} from "chai";
@@ -34,12 +36,14 @@ import {
   IMakeRepayToRebalanceInputParams
 } from "../../baseUT/protocols/shared/sharedDataTypes";
 import {SharedRepayToRebalanceUtils} from "../../baseUT/protocols/shared/sharedRepayToRebalanceUtils";
-import {transferAndApprove} from "../../baseUT/utils/transferUtils";
+import {makeInfinityApprove, transferAndApprove} from "../../baseUT/utils/transferUtils";
 import {Aave3TestUtils, IPrepareToBorrowResults} from "../../baseUT/protocols/aave3/Aave3TestUtils";
-import {CoreContractsHelper} from "../../baseUT/helpers/CoreContractsHelper";
 import {AdaptersHelper} from "../../baseUT/helpers/AdaptersHelper";
 import {TetuConverterApp} from "../../baseUT/helpers/TetuConverterApp";
 import {MocksHelper} from "../../baseUT/helpers/MocksHelper";
+import {parseUnits} from "ethers/lib/utils";
+import {IConversionPlan} from "../../baseUT/apr/aprDataTypes";
+import {areAlmostEqual} from "../../baseUT/utils/CommonUtils";
 
 describe("Aave3PoolAdapterTest", () => {
 //region Global vars for all tests
@@ -1614,8 +1618,173 @@ describe("Aave3PoolAdapterTest", () => {
   });
 
   describe("events", () => {
-    it("should return expected values", async () => {
-      expect.fail("TODO");
+    describe("OnInitialized", () => {
+      it("should return expected values", async () => {
+        if (!await isPolygonForkInUse()) return;
+
+        const collateralAsset = MaticAddresses.DAI;
+        const collateralHolder = MaticAddresses.HOLDER_DAI;
+        const borrowAsset = MaticAddresses.WMATIC;
+        const borrowHolder = MaticAddresses.HOLDER_WMATIC;
+        const collateralToken = await TokenDataTypes.Build(deployer, collateralAsset);
+        const borrowToken = await TokenDataTypes.Build(deployer, borrowAsset);
+        const collateralAmount = parseUnits("1000", collateralToken.decimals);
+
+        const controller = await TetuConverterApp.createController(deployer);
+        const userContract = await MocksHelper.deployBorrower(deployer.address, controller, 1000);
+
+        const converterNormal = (await AdaptersHelper.createAave3PoolAdapter(deployer)).address;
+        const platformAdapter = await AdaptersHelper.createAave3PlatformAdapter(
+          deployer, controller.address, MaticAddresses.AAVE_V3_POOL,
+          converterNormal,
+          (await AdaptersHelper.createAave3PoolAdapterEMode(deployer)).address
+        );
+
+        const tetuConverterSigner = await DeployerUtils.startImpersonate(await controller.tetuConverter());
+
+        const borrowManager = BorrowManager__factory.connect(await controller.borrowManager(), deployer);
+        await borrowManager.addAssetPairs(platformAdapter.address, [collateralAsset], [borrowAsset]);
+
+        const bmAsTc = BorrowManager__factory.connect(await controller.borrowManager(), tetuConverterSigner);
+
+        // we need to catch event "OnInitialized" of pool adapter ... but we don't know address of the pool adapter yet
+        const tx = await bmAsTc.registerPoolAdapter(converterNormal, userContract.address, collateralAsset, borrowAsset);
+        const cr = await tx.wait();
+
+        // now, we know the address of the pool adapter...
+        const aavePoolAdapterAsTC = Aave3PoolAdapter__factory.connect(
+          await borrowManager.getPoolAdapter(converterNormal, userContract.address, collateralAsset, borrowAsset),
+          tetuConverterSigner
+        );
+
+        // ... and so, we can check the event in tricky way, see how to parse event: https://github.com/ethers-io/ethers.js/issues/487
+        let abi = ["event OnInitialized(address controller, address pool, address user, address collateralAsset, address borrowAsset, address originConverter)"];
+        let iface = new ethers.utils.Interface(abi);
+        // let's find an event with required address
+        let eventIndex = 0;
+        for (let i = 0; i < cr.logs.length; ++i) {
+          if (cr.logs[i].address == aavePoolAdapterAsTC.address) {
+            eventIndex = i;
+            break;
+          }
+        }
+        let logOnInitialized = iface.parseLog(cr.logs[2]);
+        const retLog = [
+          logOnInitialized.name,
+          logOnInitialized.args[0],
+          logOnInitialized.args[1],
+          logOnInitialized.args[2],
+          logOnInitialized.args[3],
+          logOnInitialized.args[4],
+          logOnInitialized.args[5],
+        ].join();
+        const expectedLog = [
+          "OnInitialized",
+          controller.address,
+          MaticAddresses.AAVE_V3_POOL,
+          userContract.address,
+          collateralAsset,
+          borrowAsset,
+          converterNormal
+        ].join();
+        expect(retLog).eq(expectedLog);
+      });
+    });
+
+    describe("OnBorrow, OnRepay", () => {
+      it("should return expected values", async () => {
+        if (!await isPolygonForkInUse()) return;
+
+        const collateralAsset = MaticAddresses.DAI;
+        const collateralHolder = MaticAddresses.HOLDER_DAI;
+        const borrowAsset = MaticAddresses.WMATIC;
+        const borrowHolder = MaticAddresses.HOLDER_WMATIC;
+        const collateralToken = await TokenDataTypes.Build(deployer, collateralAsset);
+        const borrowToken = await TokenDataTypes.Build(deployer, borrowAsset);
+        const collateralAmount = parseUnits("1000", collateralToken.decimals);
+
+        const controller = await TetuConverterApp.createController(deployer);
+        const userContract = await MocksHelper.deployBorrower(deployer.address, controller, 1000);
+
+        const converterNormal = (await AdaptersHelper.createAave3PoolAdapter(deployer)).address;
+        const platformAdapter = await AdaptersHelper.createAave3PlatformAdapter(
+          deployer, controller.address, MaticAddresses.AAVE_V3_POOL,
+          converterNormal,
+          (await AdaptersHelper.createAave3PoolAdapterEMode(deployer)).address
+        );
+
+        const tetuConverterSigner = await DeployerUtils.startImpersonate(await controller.tetuConverter());
+
+        const borrowManager = BorrowManager__factory.connect(await controller.borrowManager(), deployer);
+        await borrowManager.addAssetPairs(platformAdapter.address, [collateralAsset], [borrowAsset]);
+
+        const bmAsTc = BorrowManager__factory.connect(await controller.borrowManager(), tetuConverterSigner);
+
+        await bmAsTc.registerPoolAdapter(converterNormal, userContract.address, collateralAsset, borrowAsset);
+        const aavePoolAdapterAsTC = Aave3PoolAdapter__factory.connect(
+          await borrowManager.getPoolAdapter(converterNormal, userContract.address, collateralAsset, borrowAsset),
+          tetuConverterSigner
+        );
+        const targetHealthFactor2 = await controller.targetHealthFactor2();
+
+        // TetuConverter gives infinity approve to the pool adapter after pool adapter creation (see TetuConverter.convert implementation)
+        await makeInfinityApprove(tetuConverterSigner.address, aavePoolAdapterAsTC.address, collateralAsset, borrowAsset);
+        await BalanceUtils.getRequiredAmountFromHolders(collateralAmount, collateralToken.token, [collateralHolder], userContract.address);
+        const plan = await platformAdapter.getConversionPlan(collateralAsset, collateralAmount, borrowAsset, targetHealthFactor2, 1);
+        await transferAndApprove(collateralAsset, userContract.address, tetuConverterSigner.address, collateralAmount, aavePoolAdapterAsTC.address);
+
+        await expect(
+          aavePoolAdapterAsTC.borrow(collateralAmount, plan.amountToBorrow, userContract.address)
+        ).to.emit(aavePoolAdapterAsTC, "OnBorrow").withArgs(
+          collateralAmount,
+          plan.amountToBorrow,
+          userContract.address,
+          (resultHealthFactor18: BigNumber) => areAlmostEqual(
+            resultHealthFactor18,
+            parseUnits("1", 16).mul(targetHealthFactor2)
+          ),
+          (collateralBalanceATokens: BigNumber) => collateralBalanceATokens.gte(collateralAmount)
+        );
+
+        await borrowToken.token
+          .connect(await DeployerUtils.startImpersonate(borrowHolder))
+          .transfer(userContract.address, plan.amountToBorrow.mul(2));
+
+        await BalanceUtils.getRequiredAmountFromHolders(
+          parseUnits("1", borrowToken.decimals),
+          borrowToken.token,
+          [borrowHolder],
+          tetuConverterSigner.address
+        );
+
+        const status0 = await aavePoolAdapterAsTC.getStatus();
+        const collateralBalanceATokens = await aavePoolAdapterAsTC.collateralBalanceATokens();
+        await expect(
+          aavePoolAdapterAsTC.repayToRebalance(parseUnits("1", borrowToken.decimals), false)
+        ).to.emit(aavePoolAdapterAsTC, "OnRepayToRebalance").withArgs(
+          parseUnits("1", borrowToken.decimals),
+          false,
+          (newHealthFactor: BigNumber) => newHealthFactor.gt(status0.healthFactor18),
+          collateralBalanceATokens
+        );
+
+        const status = await aavePoolAdapterAsTC.getStatus();
+        await expect(
+          userContract.makeRepayComplete(collateralAsset, borrowAsset, userContract.address)
+        ).to.emit(aavePoolAdapterAsTC, "OnRepay").withArgs(
+          (amountToRepay: BigNumber) => areAlmostEqual(amountToRepay, status.amountToPay, 3),
+          userContract.address,
+          true,
+          Misc.MAX_UINT,
+          parseUnits("0")
+        );
+      });
+    });
+
+    describe("OnBorrowToRebalance", () => {
+      it("should return expected values", async () => {
+        //TODO: not implemented
+      });
     });
   });
 
