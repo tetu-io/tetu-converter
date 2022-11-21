@@ -44,6 +44,7 @@ import {MocksHelper} from "../../baseUT/helpers/MocksHelper";
 import {parseUnits} from "ethers/lib/utils";
 import {areAlmostEqual} from "../../baseUT/utils/CommonUtils";
 import {IPoolAdapterStatus} from "../../baseUT/types/BorrowRepayDataTypes";
+import {Aave3TestUtils} from "../../baseUT/protocols/aave3/Aave3TestUtils";
 
 describe("AaveTwoPoolAdapterTest", () => {
 //region Global vars for all tests
@@ -1107,7 +1108,96 @@ describe("AaveTwoPoolAdapterTest", () => {
     });
   });
 
-  describe("TODO:getStatus", () => {
+  describe("getStatus", () => {
+    it("user has made a borrow, should return expected status", async () => {
+      if (!await isPolygonForkInUse()) return;
+
+      const collateralAsset = MaticAddresses.DAI;
+      const collateralHolder = MaticAddresses.HOLDER_DAI;
+      const borrowAsset = MaticAddresses.WMATIC;
+
+      const results = await makeBorrowTest(
+        collateralAsset,
+        collateralHolder,
+        borrowAsset,
+        "1999"
+      );
+      const status = await results.init.aavePoolAdapterAsTC.getStatus();
+
+      const collateralTargetHealthFactor2 = await BorrowManager__factory.connect(
+        await results.init.controller.borrowManager(), deployer
+      ).getTargetHealthFactor2(collateralAsset);
+
+      const ret = [
+        areAlmostEqual(parseUnits(collateralTargetHealthFactor2.toString(), 16), status.healthFactor18),
+        areAlmostEqual(results.borrowResults.borrowedAmount, status.amountToPay, 4),
+        status.collateralAmountLiquidated.eq(0),
+        status.collateralAmount.eq(parseUnits("1999", results.init.collateralToken.decimals))
+      ].join();
+      const expected = [true, true, true, true].join();
+      expect(ret).eq(expected);
+    });
+    it("user has not made a borrow, should return expected status", async () => {
+      if (!await isPolygonForkInUse()) return;
+
+      const collateralAsset = MaticAddresses.DAI;
+      const collateralHolder = MaticAddresses.HOLDER_DAI;
+      const borrowAsset = MaticAddresses.WMATIC;
+
+      const collateralToken = await TokenDataTypes.Build(deployer, collateralAsset);
+      const borrowToken = await TokenDataTypes.Build(deployer, borrowAsset);
+
+      // we only prepare to borrow, but don't make a borrow
+      const init = await Aave3TestUtils.prepareToBorrow(
+        deployer,
+        collateralToken,
+        [collateralHolder],
+        parseUnits("999", collateralToken.decimals),
+        borrowToken,
+        false
+      );
+      const status = await init.aavePoolAdapterAsTC.getStatus();
+
+      const collateralTargetHealthFactor2 = await BorrowManager__factory.connect(
+        await init.controller.borrowManager(), deployer
+      ).getTargetHealthFactor2(collateralAsset);
+
+      const ret = [
+        status.healthFactor18.eq(Misc.MAX_UINT),
+        status.amountToPay.eq(0),
+        status.collateralAmountLiquidated.eq(0),
+        status.collateralAmount.eq(0),
+        status.opened
+      ].join();
+      const expected = [true, true, true, true, false].join();
+      expect(ret).eq(expected);
+    });
+  });
+
+  describe("updateBalance", () => {
+    it("the function is callable", async () => {
+      if (!await isPolygonForkInUse()) return;
+
+      const collateralAsset = MaticAddresses.DAI;
+      const collateralHolder = MaticAddresses.HOLDER_DAI;
+      const borrowAsset = MaticAddresses.WMATIC;
+
+      const results = await makeBorrowTest(
+        collateralAsset,
+        collateralHolder,
+        borrowAsset,
+        "1999"
+      );
+
+      await results.init.aavePoolAdapterAsTC.updateStatus();
+      const statusAfter = await results.init.aavePoolAdapterAsTC.getStatus();
+
+      // ensure that updateStatus doesn't revert
+      expect(statusAfter.opened).eq(true);
+    });
+  });
+
+  describe("TODO:getAPR18 (for next versions)", () => {
     describe("Good paths", () => {
       it("should return expected values", async () => {
         if (!await isPolygonForkInUse()) return;
@@ -1124,39 +1214,6 @@ describe("AaveTwoPoolAdapterTest", () => {
     });
   });
 
-  describe("TODO:getAPR18", () => {
-    describe("Good paths", () => {
-      it("should return expected values", async () => {
-        if (!await isPolygonForkInUse()) return;
-        expect.fail("TODO");
-      });
-    });
-    describe("Bad paths", () => {
-      describe("", () => {
-        it("should revert", async () => {
-          if (!await isPolygonForkInUse()) return;
-          expect.fail("TODO");
-        });
-      });
-    });
-  });
-
-  describe("TODO:updateBalance", () => {
-    describe("Good paths", () => {
-      it("should return expected values", async () => {
-        if (!await isPolygonForkInUse()) return;
-        expect.fail("TODO");
-      });
-    });
-    describe("Bad paths", () => {
-      describe("", () => {
-        it("should revert", async () => {
-          if (!await isPolygonForkInUse()) return;
-          expect.fail("TODO");
-        });
-      });
-    });
-  });
 //endregion Unit tests
 
 });
