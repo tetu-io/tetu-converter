@@ -80,47 +80,56 @@ describe("Aave3PoolAdapterUnitTest", () => {
   });
 //endregion before, after
 
+//region Test impl
+  interface IMakeBorrowTestResults {
+    init: IPrepareToBorrowResults;
+    borrowResults: IBorrowResults;
+    collateralToken: TokenDataTypes,
+    borrowToken: TokenDataTypes,
+  }
+  async function makeBorrowTest(
+    collateralAsset: string,
+    collateralHolder: string,
+    borrowAsset: string,
+    collateralAmountStr: string,
+    badPathsParams?: IMakeBorrowOrRepayBadPathsParams
+  ): Promise<IMakeBorrowTestResults> {
+    const collateralToken = await TokenDataTypes.Build(deployer, collateralAsset);
+    const borrowToken = await TokenDataTypes.Build(deployer, borrowAsset);
+
+    const init = await Aave3TestUtils.prepareToBorrow(
+      deployer,
+      collateralToken,
+      [collateralHolder],
+      parseUnits(collateralAmountStr, collateralToken.decimals),
+      borrowToken,
+      false
+    );
+    const borrowResults = await Aave3TestUtils.makeBorrow(deployer, init, undefined, badPathsParams);
+    return {
+      init,
+      borrowResults,
+      collateralToken,
+      borrowToken
+    }
+  }
+//endregion Test impl
+
 //region Unit tests
   describe("borrow", () => {
     const collateralAsset = MaticAddresses.DAI;
     const collateralHolder = MaticAddresses.HOLDER_DAI;
     const borrowAsset = MaticAddresses.WMATIC;
 
-    interface IMakeBorrowTestResults {
-      init: IPrepareToBorrowResults;
-      borrowResults: IBorrowResults;
-      collateralToken: TokenDataTypes,
-      borrowToken: TokenDataTypes,
-    }
-
-    async function makeBorrowTest(
-      collateralAmountStr: string,
-      badPathsParams?: IMakeBorrowOrRepayBadPathsParams
-    ): Promise<IMakeBorrowTestResults> {
-      const collateralToken = await TokenDataTypes.Build(deployer, collateralAsset);
-      const borrowToken = await TokenDataTypes.Build(deployer, borrowAsset);
-
-      const init = await Aave3TestUtils.prepareToBorrow(
-        deployer,
-        collateralToken,
-        [collateralHolder],
-        parseUnits(collateralAmountStr, collateralToken.decimals),
-        borrowToken,
-        false
-      );
-      const borrowResults = await Aave3TestUtils.makeBorrow(deployer, init, undefined, badPathsParams);
-      return {
-        init,
-        borrowResults,
-        collateralToken,
-        borrowToken
-      }
-    }
-
     describe("Good paths", () => {
       let results: IMakeBorrowTestResults;
       before(async function () {
-        results = await makeBorrowTest("1999");
+        results = await makeBorrowTest(
+          collateralAsset,
+          collateralHolder,
+          borrowAsset,
+          "1999"
+        );
       });
       it("should get expected status", async () => {
         const status = await results.init.aavePoolAdapterAsTC.getStatus();
@@ -162,7 +171,13 @@ describe("Aave3PoolAdapterUnitTest", () => {
     describe("Bad paths", () => {
       it("should revert if not tetu converter", async () => {
         await expect(
-          makeBorrowTest("1999", {makeOperationAsNotTc: true})
+          makeBorrowTest(
+            collateralAsset,
+            collateralHolder,
+            borrowAsset,
+            "1999",
+            {makeOperationAsNotTc: true}
+          )
         ).revertedWith("TC-8"); // TETU_CONVERTER_ONLY
       });
     });
@@ -584,6 +599,159 @@ describe("Aave3PoolAdapterUnitTest", () => {
     });
   });
 
+  describe("borrowToRebalance", () => {
+    const minHealthFactorInitial2 = 1000;
+    const targetHealthFactorInitial2 = 2000;
+    const maxHealthFactorInitial2 = 4000;
+    const minHealthFactorUpdated2 = 500;
+    const targetHealthFactorUpdated2 = 1000;
+    const maxHealthFactorUpdated2 = 2000;
+
+    /**
+     * Prepare aave3 pool adapter.
+     * Set high health factors.
+     * Make borrow.
+     * Reduce health factor twice.
+     * Make additional borrow.
+     */
+    async function makeBorrowToRebalance (
+      collateralToken: TokenDataTypes,
+      collateralHolder: string,
+      collateralAmount: BigNumber,
+      borrowToken: TokenDataTypes,
+      borrowHolder: string,
+      badPathsParams?: IMakeBorrowToRebalanceBadPathParams
+    ) : Promise<IMakeBorrowToRebalanceResults>{
+      const d = await Aave3TestUtils.prepareToBorrow(deployer,
+        collateralToken,
+        [collateralHolder],
+        collateralAmount,
+        borrowToken,
+        false,
+        {targetHealthFactor2: targetHealthFactorInitial2}
+      );
+      const collateralAssetData = await d.h.getReserveInfo(deployer, d.aavePool, d.dataProvider, collateralToken.address);
+      console.log("collateralAssetData", collateralAssetData);
+      const borrowAssetData = await d.h.getReserveInfo(deployer, d.aavePool, d.dataProvider, borrowToken.address);
+      console.log("borrowAssetData", borrowAssetData);
+
+      const collateralFactor = collateralAssetData.data.ltv;
+      console.log("collateralFactor", collateralFactor);
+
+      // prices of assets in base currency
+      const prices = await d.aavePrices.getAssetsPrices([collateralToken.address, borrowToken.address]);
+      console.log("prices", prices);
+
+      // setup high values for all health factors
+      await d.controller.setMaxHealthFactor2(maxHealthFactorInitial2);
+      await d.controller.setTargetHealthFactor2(targetHealthFactorInitial2);
+      await d.controller.setMinHealthFactor2(minHealthFactorInitial2);
+
+      // make borrow
+      const amountToBorrow = d.amountToBorrow;
+      if (! badPathsParams?.skipBorrow) {
+        await transferAndApprove(
+          collateralToken.address,
+          d.userContract.address,
+          await d.controller.tetuConverter(),
+          d.collateralAmount,
+          d.aavePoolAdapterAsTC.address
+        );
+
+        await d.aavePoolAdapterAsTC.borrow(
+          collateralAmount,
+          amountToBorrow,
+          d.userContract.address // receiver
+        );
+      }
+      const afterBorrow: IAave3UserAccountDataResults = await d.aavePool.getUserAccountData(d.aavePoolAdapterAsTC.address);
+      const userBalanceAfterBorrow = await borrowToken.token.balanceOf(d.userContract.address);
+      console.log("after borrow:", afterBorrow, userBalanceAfterBorrow);
+
+      // reduce all health factors down on 2 times to have possibility for additional borrow
+      await d.controller.setMinHealthFactor2(minHealthFactorUpdated2);
+      await d.controller.setTargetHealthFactor2(targetHealthFactorUpdated2);
+      await d.controller.setMaxHealthFactor2(maxHealthFactorUpdated2);
+
+      const expectedAdditionalBorrowAmount = amountToBorrow.mul(
+        badPathsParams?.additionalAmountCorrectionFactor
+          ? badPathsParams.additionalAmountCorrectionFactor
+          : 1
+      );
+      console.log("expectedAdditionalBorrowAmount", expectedAdditionalBorrowAmount);
+
+      // make additional borrow
+      const poolAdapterSigner = badPathsParams?.makeBorrowToRebalanceAsDeployer
+        ? IPoolAdapter__factory.connect(d.aavePoolAdapterAsTC.address, deployer)
+        : d.aavePoolAdapterAsTC;
+      await poolAdapterSigner.borrowToRebalance(
+        expectedAdditionalBorrowAmount,
+        d.userContract.address // receiver
+      );
+
+      const afterBorrowToRebalance: IAave3UserAccountDataResults = await d.aavePool.getUserAccountData(d.aavePoolAdapterAsTC.address);
+      const userBalanceAfterBorrowToRebalance = await borrowToken.token.balanceOf(d.userContract.address);
+      console.log("after borrow to rebalance:", afterBorrowToRebalance, userBalanceAfterBorrowToRebalance);
+
+      return {
+        afterBorrow,
+        afterBorrowToRebalance,
+        userBalanceAfterBorrow,
+        userBalanceAfterBorrowToRebalance,
+        expectedAdditionalBorrowAmount
+      }
+    }
+
+    describe("Good paths", () => {
+      it("should return expected values", async () => {
+        if (!await isPolygonForkInUse()) return;
+        const r = await AaveBorrowToRebalanceUtils.testDaiWMatic(
+          deployer,
+          makeBorrowToRebalance,
+          targetHealthFactorInitial2,
+          targetHealthFactorUpdated2
+        );
+
+        expect(r.ret).eq(r.expected);
+      });
+    });
+    describe("Bad paths", () => {
+      async function testDaiWMatic(badPathsParams?: IMakeBorrowToRebalanceBadPathParams) {
+        await AaveBorrowToRebalanceUtils.testDaiWMatic(
+          deployer,
+          makeBorrowToRebalance,
+          targetHealthFactorInitial2,
+          targetHealthFactorUpdated2,
+          badPathsParams
+        );
+      }
+      describe("Not TetuConverter", () => {
+        it("should revert", async () => {
+          if (!await isPolygonForkInUse()) return;
+          await expect(
+            testDaiWMatic({makeBorrowToRebalanceAsDeployer: true})
+          ).revertedWith("TC-8");
+        });
+      });
+      describe("Position is not registered", () => {
+        it("should revert", async () => {
+          if (!await isPolygonForkInUse()) return;
+          await expect(
+            testDaiWMatic({skipBorrow: true})
+          ).revertedWith("TC-11");
+        });
+      });
+      describe("Result health factor is less min allowed one", () => {
+        it("should revert", async () => {
+          if (!await isPolygonForkInUse()) return;
+          await expect(
+            testDaiWMatic({additionalAmountCorrectionFactor: 10})
+          ).revertedWith("TC-3: wrong health factor");
+        });
+      });
+    });
+  });
+
   describe("initialize", () => {
     interface IInitializePoolAdapterBadPaths {
       makeSecondInitialization?: boolean;
@@ -992,7 +1160,96 @@ describe("Aave3PoolAdapterUnitTest", () => {
     });
   });
 
-  describe("TODO:getStatus", () => {
+  describe("getStatus", () => {
+    it("user has made a borrow, should return expected status", async () => {
+      if (!await isPolygonForkInUse()) return;
+
+      const collateralAsset = MaticAddresses.DAI;
+      const collateralHolder = MaticAddresses.HOLDER_DAI;
+      const borrowAsset = MaticAddresses.WMATIC;
+
+      const results = await makeBorrowTest(
+        collateralAsset,
+        collateralHolder,
+        borrowAsset,
+        "1999"
+      );
+      const status = await results.init.aavePoolAdapterAsTC.getStatus();
+
+      const collateralTargetHealthFactor2 = await BorrowManager__factory.connect(
+        await results.init.controller.borrowManager(), deployer
+      ).getTargetHealthFactor2(collateralAsset);
+
+      const ret = [
+        areAlmostEqual(parseUnits(collateralTargetHealthFactor2.toString(), 16), status.healthFactor18),
+        areAlmostEqual(results.borrowResults.borrowedAmount, status.amountToPay, 4),
+        status.collateralAmountLiquidated.eq(0),
+        status.collateralAmount.eq(parseUnits("1999", results.init.collateralToken.decimals))
+      ].join();
+      const expected = [true, true, true, true].join();
+      expect(ret).eq(expected);
+    });
+    it("user has not made a borrow, should return expected status", async () => {
+      if (!await isPolygonForkInUse()) return;
+
+      const collateralAsset = MaticAddresses.DAI;
+      const collateralHolder = MaticAddresses.HOLDER_DAI;
+      const borrowAsset = MaticAddresses.WMATIC;
+
+      const collateralToken = await TokenDataTypes.Build(deployer, collateralAsset);
+      const borrowToken = await TokenDataTypes.Build(deployer, borrowAsset);
+
+      // we only prepare to borrow, but don't make a borrow
+      const init = await Aave3TestUtils.prepareToBorrow(
+        deployer,
+        collateralToken,
+        [collateralHolder],
+        parseUnits("999", collateralToken.decimals),
+        borrowToken,
+        false
+      );
+      const status = await init.aavePoolAdapterAsTC.getStatus();
+
+      const collateralTargetHealthFactor2 = await BorrowManager__factory.connect(
+        await init.controller.borrowManager(), deployer
+      ).getTargetHealthFactor2(collateralAsset);
+
+      const ret = [
+        status.healthFactor18.eq(Misc.MAX_UINT),
+        status.amountToPay.eq(0),
+        status.collateralAmountLiquidated.eq(0),
+        status.collateralAmount.eq(0),
+        status.opened
+      ].join();
+      const expected = [true, true, true, true, false].join();
+      expect(ret).eq(expected);
+    });
+  });
+
+  describe("updateBalance", () => {
+    it("the function is callable", async () => {
+      if (!await isPolygonForkInUse()) return;
+
+      const collateralAsset = MaticAddresses.DAI;
+      const collateralHolder = MaticAddresses.HOLDER_DAI;
+      const borrowAsset = MaticAddresses.WMATIC;
+
+      const results = await makeBorrowTest(
+        collateralAsset,
+        collateralHolder,
+        borrowAsset,
+        "1999"
+      );
+
+      await results.init.aavePoolAdapterAsTC.updateStatus();
+      const statusAfter = await results.init.aavePoolAdapterAsTC.getStatus();
+
+      // ensure that updateStatus doesn't revert
+      expect(statusAfter.opened).eq(true);
+    });
+  });
+
+  describe("TODO:getAPR18 (next versions)", () => {
     describe("Good paths", () => {
       it("should return expected values", async () => {
         if (!await isPolygonForkInUse()) return;
@@ -1009,39 +1266,7 @@ describe("Aave3PoolAdapterUnitTest", () => {
     });
   });
 
-  describe("TODO:getAPR18", () => {
-    describe("Good paths", () => {
-      it("should return expected values", async () => {
-        if (!await isPolygonForkInUse()) return;
-        expect.fail("TODO");
-      });
-    });
-    describe("Bad paths", () => {
-      describe("", () => {
-        it("should revert", async () => {
-          if (!await isPolygonForkInUse()) return;
-          expect.fail("TODO");
-        });
-      });
-    });
-  });
 
-  describe("TODO:updateBalance", () => {
-    describe("Good paths", () => {
-      it("should return expected values", async () => {
-        if (!await isPolygonForkInUse()) return;
-        expect.fail("TODO");
-      });
-    });
-    describe("Bad paths", () => {
-      describe("", () => {
-        it("should revert", async () => {
-          if (!await isPolygonForkInUse()) return;
-          expect.fail("TODO");
-        });
-      });
-    });
-  });
 
 //endregion Unit tests
 
