@@ -489,7 +489,8 @@ contract HfPoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP, Initializ
     ( uint collateralTokens,
       uint borrowBalance,
       uint collateralBase,
-      uint borrowBase,,
+      uint borrowBase,
+      uint collateralPrice,
       uint collateralAmountLiquidatedBase
     ) = _getStatus(cTokenCollateral, cTokenBorrow);
 
@@ -497,7 +498,7 @@ contract HfPoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP, Initializ
 
     return (
     // Total amount of provided collateral [collateral asset]
-      collateralBase * 10 ** IERC20Extended(collateralAsset).decimals() / 10**18,
+      collateralBase36 / collateralPrice,
     // Total amount of borrowed debt in [borrow asset]. 0 - for closed borrow positions.
       borrowBalance,
     // Current health factor, decimals 18

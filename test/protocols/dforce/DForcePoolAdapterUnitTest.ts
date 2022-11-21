@@ -35,7 +35,7 @@ import {AdaptersHelper} from "../../baseUT/helpers/AdaptersHelper";
 import {TetuConverterApp} from "../../baseUT/helpers/TetuConverterApp";
 import {parseUnits} from "ethers/lib/utils";
 
-describe("DForce integration tests, pool adapter", () => {
+describe("DForce unit tests, pool adapter", () => {
 //region Global vars for all tests
   let snapshot: string;
   let snapshotForEach: string;
@@ -111,9 +111,9 @@ describe("DForce integration tests, pool adapter", () => {
         const collateralHolder = MaticAddresses.HOLDER_DAI;
         const borrowAsset = MaticAddresses.WMATIC;
         const borrowCToken = MaticAddresses.dForce_iMATIC;
-        it("should return expected status", async () => {
-          if (!await isPolygonForkInUse()) return;
-          const results = await makeBorrowTest(
+        let results: IMakeBorrowTestResults;
+        before(async function () {
+          results = await makeBorrowTest(
             collateralAsset,
             collateralCToken,
             collateralHolder,
@@ -121,7 +121,9 @@ describe("DForce integration tests, pool adapter", () => {
             borrowCToken,
             "1999"
           );
-
+        });
+        it("should return expected status", async () => {
+          if (!await isPolygonForkInUse()) return;
           const status = await results.init.dfPoolAdapterTC.getStatus();
 
           const collateralTargetHealthFactor2 = await BorrowManager__factory.connect(
@@ -134,11 +136,31 @@ describe("DForce integration tests, pool adapter", () => {
             areAlmostEqual(parseUnits(collateralTargetHealthFactor2.toString(), 16), status.healthFactor18),
             areAlmostEqual(results.borrowResults.borrowedAmount, status.amountToPay, 4),
             status.collateralAmountLiquidated.eq(0),
-            status.collateralAmount.gte(parseUnits("1999", results.init.collateralToken.decimals))
+            areAlmostEqual(status.collateralAmount, parseUnits("1999", results.init.collateralToken.decimals), 4)
           ].join();
           const expected = [true, true, true, true].join();
           expect(ret).eq(expected);
 
+        });
+        it("should open position in debt monitor", async () => {
+          const ret = await DebtMonitor__factory.connect(
+            await results.init.controller.debtMonitor(),
+            await DeployerUtils.startImpersonate(results.init.dfPoolAdapterTC.address)
+          ).isPositionOpened();
+          expect(ret).eq(true);
+        });
+        it("should transfer expected amount to the user", async () => {
+          const status = await results.init.dfPoolAdapterTC.getStatus();
+          const receivedBorrowAmount = await results.borrowToken.token.balanceOf(results.init.userContract.address);
+          expect(receivedBorrowAmount.toString()).eq(results.borrowResults.borrowedAmount.toString());
+        });
+        it("should change collateralBalanceATokens", async () => {
+          const collateralBalanceATokens = await results.init.dfPoolAdapterTC.collateralTokensBalance();
+          const aaveTokensBalance = await IERC20Extended__factory.connect(
+            collateralCToken,
+            deployer
+          ).balanceOf(results.init.dfPoolAdapterTC.address);
+          expect(collateralBalanceATokens.gte(aaveTokensBalance)).eq(true);
         });
       });
       describe("Supply matic", () => {
@@ -147,9 +169,9 @@ describe("DForce integration tests, pool adapter", () => {
         const collateralHolder = MaticAddresses.HOLDER_WMATIC;
         const borrowAsset = MaticAddresses.USDC;
         const borrowCToken = MaticAddresses.dForce_iUSDC;
-        it("should return expected status", async () => {
-          if (!await isPolygonForkInUse()) return;
-          const results = await makeBorrowTest(
+        let results: IMakeBorrowTestResults;
+        before(async function () {
+          results = await makeBorrowTest(
             collateralAsset,
             collateralCToken,
             collateralHolder,
@@ -157,7 +179,9 @@ describe("DForce integration tests, pool adapter", () => {
             borrowCToken,
             "1999"
           );
-
+        });
+        it("should return expected status", async () => {
+          if (!await isPolygonForkInUse()) return;
           const status = await results.init.dfPoolAdapterTC.getStatus();
 
           const collateralTargetHealthFactor2 = await BorrowManager__factory.connect(
@@ -168,17 +192,37 @@ describe("DForce integration tests, pool adapter", () => {
             areAlmostEqual(parseUnits(collateralTargetHealthFactor2.toString(), 16), status.healthFactor18),
             areAlmostEqual(results.borrowResults.borrowedAmount, status.amountToPay, 4),
             status.collateralAmountLiquidated.eq(0),
-            status.collateralAmount.gte(parseUnits("1999", results.init.collateralToken.decimals))
+            areAlmostEqual(status.collateralAmount, parseUnits("1999", results.init.collateralToken.decimals), 4)
           ].join();
           console.log(status);
           const expected = [true, true, true, true].join();
           expect(ret).eq(expected);
         });
+        it("should open position in debt monitor", async () => {
+          const ret = await DebtMonitor__factory.connect(
+            await results.init.controller.debtMonitor(),
+            await DeployerUtils.startImpersonate(results.init.dfPoolAdapterTC.address)
+          ).isPositionOpened();
+          expect(ret).eq(true);
+        });
+        it("should transfer expected amount to the user", async () => {
+          const status = await results.init.dfPoolAdapterTC.getStatus();
+          const receivedBorrowAmount = await results.borrowToken.token.balanceOf(results.init.userContract.address);
+          expect(receivedBorrowAmount.toString()).eq(results.borrowResults.borrowedAmount.toString());
+        });
+        it("should change collateralBalanceATokens", async () => {
+          const collateralBalanceATokens = await results.init.dfPoolAdapterTC.collateralTokensBalance();
+          const aaveTokensBalance = await IERC20Extended__factory.connect(
+            collateralCToken,
+            deployer
+          ).balanceOf(results.init.dfPoolAdapterTC.address);
+          expect(collateralBalanceATokens.gte(aaveTokensBalance)).eq(true);
+        });
       });
-      describe("Supply and borrow not-matic", () => {
-        const collateralAsset = MaticAddresses.DAI;
-        const collateralCToken = MaticAddresses.dForce_iDAI;
-        const collateralHolder = MaticAddresses.HOLDER_DAI;
+      describe("Supply and borrow not-matic (CRV, USDC)", () => {
+        const collateralAsset = MaticAddresses.CRV;
+        const collateralCToken = MaticAddresses.dForce_iCRV;
+        const collateralHolder = MaticAddresses.HOLDER_CRV;
         const borrowAsset = MaticAddresses.USDC;
         const borrowCToken = MaticAddresses.dForce_iUSDC;
         let results: IMakeBorrowTestResults;
@@ -206,7 +250,65 @@ describe("DForce integration tests, pool adapter", () => {
             areAlmostEqual(parseUnits(collateralTargetHealthFactor2.toString(), 16), status.healthFactor18),
             areAlmostEqual(results.borrowResults.borrowedAmount, status.amountToPay, 4),
             status.collateralAmountLiquidated.eq(0),
-            status.collateralAmount.gte(parseUnits("1999", results.init.collateralToken.decimals))
+            areAlmostEqual(status.collateralAmount, parseUnits("1999", results.init.collateralToken.decimals), 4)
+          ].join();
+          const expected = [true, true, true, true].join();
+          expect(ret).eq(expected);
+
+        });
+        it("should open position in debt monitor", async () => {
+          const ret = await DebtMonitor__factory.connect(
+            await results.init.controller.debtMonitor(),
+            await DeployerUtils.startImpersonate(results.init.dfPoolAdapterTC.address)
+          ).isPositionOpened();
+          expect(ret).eq(true);
+        });
+        it("should transfer expected amount to the user", async () => {
+          const status = await results.init.dfPoolAdapterTC.getStatus();
+          const receivedBorrowAmount = await results.borrowToken.token.balanceOf(results.init.userContract.address);
+          expect(receivedBorrowAmount.toString()).eq(results.borrowResults.borrowedAmount.toString());
+        });
+        it("should change collateralBalanceATokens", async () => {
+          const collateralBalanceATokens = await results.init.dfPoolAdapterTC.collateralTokensBalance();
+          const aaveTokensBalance = await IERC20Extended__factory.connect(
+            collateralCToken,
+            deployer
+          ).balanceOf(results.init.dfPoolAdapterTC.address);
+          expect(collateralBalanceATokens.gte(aaveTokensBalance)).eq(true);
+        });
+      });
+      describe("Supply and borrow not-matic (WBTC:ETH)", () => {
+        const collateralAsset = MaticAddresses.WBTC;
+        const collateralCToken = MaticAddresses.dForce_iWBTC;
+        const collateralHolder = MaticAddresses.HOLDER_WBTC;
+        const borrowAsset = MaticAddresses.USDC;
+        const borrowCToken = MaticAddresses.dForce_iUSDC;
+        let results: IMakeBorrowTestResults;
+        before(async function () {
+          results = await makeBorrowTest(
+            collateralAsset,
+            collateralCToken,
+            collateralHolder,
+            borrowAsset,
+            borrowCToken,
+            "1.999"
+          );
+        });
+        it("should return expected status", async () => {
+          if (!await isPolygonForkInUse()) return;
+          const status = await results.init.dfPoolAdapterTC.getStatus();
+
+          const collateralTargetHealthFactor2 = await BorrowManager__factory.connect(
+            await results.init.controller.borrowManager(), deployer
+          ).getTargetHealthFactor2(collateralAsset);
+
+          console.log(status);
+
+          const ret = [
+            areAlmostEqual(parseUnits(collateralTargetHealthFactor2.toString(), 16), status.healthFactor18),
+            areAlmostEqual(results.borrowResults.borrowedAmount, status.amountToPay, 4),
+            status.collateralAmountLiquidated.eq(0),
+            areAlmostEqual(status.collateralAmount, parseUnits("1.999", results.init.collateralToken.decimals), 4)
           ].join();
           const expected = [true, true, true, true].join();
           expect(ret).eq(expected);
@@ -331,14 +433,15 @@ describe("DForce integration tests, pool adapter", () => {
 
     describe("Good paths", () => {
       describe("Supply matic", () => {
-        it("should get expected status", async () => {
-          const collateralAsset = MaticAddresses.WMATIC;
-          const collateralCToken = MaticAddresses.dForce_iMATIC;
-          const collateralHolder = MaticAddresses.HOLDER_WMATIC;
-          const borrowAsset = MaticAddresses.DAI;
-          const borrowCToken = MaticAddresses.dForce_iDAI;
-          const borrowHolder = MaticAddresses.HOLDER_DAI;
-          const results = await makeFullRepayTest(
+        const collateralAsset = MaticAddresses.WMATIC;
+        const collateralCToken = MaticAddresses.dForce_iMATIC;
+        const collateralHolder = MaticAddresses.HOLDER_WMATIC;
+        const borrowAsset = MaticAddresses.DAI;
+        const borrowCToken = MaticAddresses.dForce_iDAI;
+        const borrowHolder = MaticAddresses.HOLDER_DAI;
+        let results: IMakeFullRepayTestResults;
+        before(async function () {
+          results = await makeFullRepayTest(
             collateralAsset,
             collateralCToken,
             collateralHolder,
@@ -347,7 +450,8 @@ describe("DForce integration tests, pool adapter", () => {
             borrowCToken,
             borrowHolder
           );
-
+        });
+        it("should get expected status", async () => {
           const status = await results.init.dfPoolAdapterTC.getStatus();
           console.log("userBorrowAssetBalanceAfterRepay", results.userBorrowAssetBalanceAfterRepay);
           console.log("userBorrowAssetBalanceBeforeRepay", results.userBorrowAssetBalanceBeforeRepay);
@@ -365,16 +469,38 @@ describe("DForce integration tests, pool adapter", () => {
           const expected = [true, true, true, true].join();
           expect(ret).eq(expected);
         });
+        it("should close position after full repay", async () => {
+          const ret = await DebtMonitor__factory.connect(
+            await results.init.controller.debtMonitor(),
+            await DeployerUtils.startImpersonate(results.init.dfPoolAdapterTC.address)
+          ).isPositionOpened();
+          expect(ret).eq(false);
+        });
+        it("should assign expected value to collateralBalanceATokens", async () => {
+          const collateralBalanceATokens = await results.init.dfPoolAdapterTC.collateralTokensBalance();
+          const aaveTokensBalance = await IERC20Extended__factory.connect(
+            collateralCToken,
+            deployer
+          ).balanceOf(results.init.dfPoolAdapterTC.address);
+          expect(collateralBalanceATokens.eq(aaveTokensBalance)).eq(true);
+
+        });
+        it("should withdraw expected collateral amount", async () => {
+          const status = await results.init.dfPoolAdapterTC.getStatus();
+          const receivedCollateralAmount = await results.collateralToken.token.balanceOf(results.init.userContract.address);
+          expect(areAlmostEqual(receivedCollateralAmount, results.init.collateralAmount)).eq(true);
+        });
       });
       describe("Borrow matic", () => {
-        it("should get expected status", async () => {
-          const collateralAsset = MaticAddresses.USDC;
-          const collateralCToken = MaticAddresses.dForce_iUSDC;
-          const collateralHolder = MaticAddresses.HOLDER_USDC;
-          const borrowAsset = MaticAddresses.WMATIC;
-          const borrowCToken = MaticAddresses.dForce_iMATIC;
-          const borrowHolder = MaticAddresses.HOLDER_WMATIC;
-          const results = await makeFullRepayTest(
+        const collateralAsset = MaticAddresses.USDC;
+        const collateralCToken = MaticAddresses.dForce_iUSDC;
+        const collateralHolder = MaticAddresses.HOLDER_USDC;
+        const borrowAsset = MaticAddresses.WMATIC;
+        const borrowCToken = MaticAddresses.dForce_iMATIC;
+        const borrowHolder = MaticAddresses.HOLDER_WMATIC;
+        let results: IMakeFullRepayTestResults;
+        before(async function () {
+          results = await makeFullRepayTest(
             collateralAsset,
             collateralCToken,
             collateralHolder,
@@ -383,6 +509,8 @@ describe("DForce integration tests, pool adapter", () => {
             borrowCToken,
             borrowHolder
           );
+        });
+        it("should get expected status", async () => {
           const status = await results.init.dfPoolAdapterTC.getStatus();
           console.log("userBorrowAssetBalanceAfterRepay", results.userBorrowAssetBalanceAfterRepay);
           console.log("userBorrowAssetBalanceBeforeRepay", results.userBorrowAssetBalanceBeforeRepay);
@@ -399,6 +527,27 @@ describe("DForce integration tests, pool adapter", () => {
           ].join();
           const expected = [true, true, true, true].join();
           expect(ret).eq(expected);
+        });
+        it("should close position after full repay", async () => {
+          const ret = await DebtMonitor__factory.connect(
+            await results.init.controller.debtMonitor(),
+            await DeployerUtils.startImpersonate(results.init.dfPoolAdapterTC.address)
+          ).isPositionOpened();
+          expect(ret).eq(false);
+        });
+        it("should assign expected value to collateralBalanceATokens", async () => {
+          const collateralBalanceATokens = await results.init.dfPoolAdapterTC.collateralTokensBalance();
+          const aaveTokensBalance = await IERC20Extended__factory.connect(
+            collateralCToken,
+            deployer
+          ).balanceOf(results.init.dfPoolAdapterTC.address);
+          expect(collateralBalanceATokens.eq(aaveTokensBalance)).eq(true);
+
+        });
+        it("should withdraw expected collateral amount", async () => {
+          const status = await results.init.dfPoolAdapterTC.getStatus();
+          const receivedCollateralAmount = await results.collateralToken.token.balanceOf(results.init.userContract.address);
+          expect(areAlmostEqual(receivedCollateralAmount, results.init.collateralAmount)).eq(true);
         });
       });
       describe("Supply and borrow not-matic", () => {

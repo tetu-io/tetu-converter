@@ -503,9 +503,9 @@ library DForceAprLib {
   ///                 Utils to inline
   ///////////////////////////////////////////////////////
   function getPrice(IDForcePriceOracle priceOracle, address token) internal view returns (uint) {
-    (uint price, bool isPriceValid) = priceOracle.getUnderlyingPriceAndStatus(token);
-    require(price != 0 && isPriceValid, AppErrors.ZERO_PRICE);
-    return price;
+      (uint price, bool isPriceValid) = priceOracle.getUnderlyingPriceAndStatus(token);
+      require(price != 0 && isPriceValid, AppErrors.ZERO_PRICE);
+      return price;
   }
 
   function getUnderlying(address token) internal view returns (address) {
