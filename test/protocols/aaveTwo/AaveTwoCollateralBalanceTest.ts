@@ -4,21 +4,12 @@ import {TimeUtils} from "../../../scripts/utils/TimeUtils";
 import {expect} from "chai";
 import {TokenDataTypes} from "../../baseUT/types/TokenDataTypes";
 import {BigNumber} from "ethers";
-import {IPoolAdapterStatus} from "../../baseUT/types/BorrowRepayDataTypes";
 import {isPolygonForkInUse} from "../../baseUT/utils/NetworkUtils";
 import {MaticAddresses} from "../../../scripts/addresses/MaticAddresses";
 import {getBigNumberFrom} from "../../../scripts/utils/NumberUtils";
-import {BalanceUtils} from "../../baseUT/utils/BalanceUtils";
 import {SharedRepayToRebalanceUtils} from "../../baseUT/protocols/shared/sharedRepayToRebalanceUtils";
 import {areAlmostEqual} from "../../baseUT/utils/CommonUtils";
-import {IAaveTwoUserAccountDataResults} from "../../baseUT/apr/aprAaveTwo";
-import {
-  AaveTwoTestUtils,
-  IInitialBorrowResults,
-  IPrepareToBorrowResults
-} from "../../baseUT/protocols/aaveTwo/AaveTwoTestUtils";
-import {IERC20__factory} from "../../../typechain";
-import {DeployerUtils} from "../../../scripts/utils/DeployerUtils";
+import {AaveTwoTestUtils, IInitialBorrowResults} from "../../baseUT/protocols/aaveTwo/AaveTwoTestUtils";
 import {AaveTwoChangePricesUtils} from "../../baseUT/protocols/aaveTwo/AaveTwoChangePricesUtils";
 
 describe("AaveTwoCollateralBalanceTest", () => {

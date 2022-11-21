@@ -14,7 +14,6 @@ import {getBigNumberFrom} from "../../../scripts/utils/NumberUtils";
 import {DeployUtils} from "../../../scripts/utils/DeployUtils";
 import hre, {ethers} from "hardhat";
 import {
-  baseToBt,
   changeDecimals,
   convertUnits, getExpectedApr18, makeBorrow
 } from "./aprUtils";

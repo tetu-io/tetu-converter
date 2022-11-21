@@ -8,7 +8,6 @@ import {
 import {BigNumber} from "ethers";
 import {DForceHelper, IDForceMarketData} from "../../../../scripts/integration/helpers/DForceHelper";
 import {TokenDataTypes} from "../../types/TokenDataTypes";
-import {CoreContractsHelper} from "../../helpers/CoreContractsHelper";
 import {MocksHelper} from "../../helpers/MocksHelper";
 import {AdaptersHelper} from "../../helpers/AdaptersHelper";
 import {MaticAddresses} from "../../../../scripts/addresses/MaticAddresses";
@@ -83,6 +82,25 @@ export interface ILiquidationResults {
   collateralAmountReceivedByLiquidator: BigNumber;
 }
 
+export interface IMakeBorrowOrRepayBadPathsParams {
+  makeOperationAsNotTc?: boolean;
+}
+
+export interface IDForcePoolAdapterState {
+  status: IPoolAdapterStatus;
+  collateralBalanceBase: BigNumber;
+  accountLiquidity: IDForceCalcAccountEquityResults;
+  accountCollateralTokenBalance: BigNumber;
+  accountBorrowTokenBalance: BigNumber;
+}
+
+export interface IInitialBorrowResults {
+  d: IPrepareToBorrowResults;
+  collateralToken: TokenDataTypes;
+  borrowToken: TokenDataTypes;
+  collateralAmount: BigNumber;
+  stateAfterBorrow: IDForcePoolAdapterState;
+}
 //endregion Data types
 
 export class DForceTestUtils {
@@ -199,7 +217,8 @@ export class DForceTestUtils {
   static async makeBorrow(
     deployer: SignerWithAddress,
     d: IPrepareToBorrowResults,
-    borrowAmountRequired: BigNumber | undefined
+    borrowAmountRequired: BigNumber | undefined,
+    badPathsParams?: IMakeBorrowOrRepayBadPathsParams
   ) : Promise<IBorrowResults>{
     const borrowAmount = borrowAmountRequired
       ? borrowAmountRequired
@@ -212,7 +231,13 @@ export class DForceTestUtils {
       d.collateralAmount,
       d.dfPoolAdapterTC.address
     );
-    await d.dfPoolAdapterTC.borrow(
+    const borrower = badPathsParams?.makeOperationAsNotTc
+      ? DForcePoolAdapter__factory.connect(d.dfPoolAdapterTC.address,
+        await DeployerUtils.startImpersonate(ethers.Wallet.createRandom().address)
+      )
+      : d.dfPoolAdapterTC;
+
+    await borrower.borrow(
       d.collateralAmount,
       borrowAmount,
       d.userContract.address
@@ -326,8 +351,10 @@ export class DForceTestUtils {
 
   public static async makeRepay(
     d: IPrepareToBorrowResults,
-    amountToRepay?: BigNumber
-  ) {
+    amountToRepay?: BigNumber,
+    closePosition?: boolean,
+    badPathsParams?: IMakeBorrowOrRepayBadPathsParams
+  ) : Promise<IDForceCalcAccountEquityResults> {
     if (amountToRepay) {
       // partial repay
       const tetuConverter = await d.controller.tetuConverter();
@@ -344,10 +371,17 @@ export class DForceTestUtils {
         d.dfPoolAdapterTC.address
       );
 
-      await poolAdapterAsCaller.repay(
+      const payer = badPathsParams?.makeOperationAsNotTc
+        ? DForcePoolAdapter__factory.connect(
+            d.dfPoolAdapterTC.address,
+            await DeployerUtils.startImpersonate(ethers.Wallet.createRandom().address)
+          )
+        : poolAdapterAsCaller;
+
+      await payer.repay(
         amountToRepay,
         d.userContract.address,
-        false
+        closePosition === undefined ? false : closePosition
       );
     } else {
       // make full repayment
@@ -357,6 +391,8 @@ export class DForceTestUtils {
         d.userContract.address
       );
     }
+
+    return d.comptroller.calcAccountEquity(d.dfPoolAdapterTC.address);
   }
 
   public static async prepareToLiquidation(
@@ -474,5 +510,37 @@ export class DForceTestUtils {
       liquidatorAddress,
       collateralAmountReceivedByLiquidator
     }
+  }
+
+  public static async getState(d: IPrepareToBorrowResults) : Promise<IDForcePoolAdapterState> {
+    const status = await d.dfPoolAdapterTC.getStatus();
+    const collateralBalanceBase = await d.dfPoolAdapterTC.collateralTokensBalance();
+    const accountLiquidity = await d.comptroller.calcAccountEquity(d.dfPoolAdapterTC.address);
+    const accountCollateralTokenBalance = await d.collateralCToken.balanceOf(d.dfPoolAdapterTC.address);
+    const accountBorrowTokenBalance = await d.borrowCToken.balanceOf(d.dfPoolAdapterTC.address);
+    return {
+      status,
+      collateralBalanceBase,
+      accountLiquidity,
+      accountCollateralTokenBalance,
+      accountBorrowTokenBalance
+    };
+  }
+
+  public static async putCollateralAmountOnUserBalance(init: IInitialBorrowResults, collateralHolder: string) {
+    await BalanceUtils.getRequiredAmountFromHolders(
+      init.collateralAmount,
+      init.collateralToken.token,
+      [collateralHolder],
+      init.d.userContract.address
+    );
+  }
+  public static async putDoubleBorrowAmountOnUserBalance(d: IPrepareToBorrowResults, borrowHolder: string) {
+    await BalanceUtils.getRequiredAmountFromHolders(
+      d.amountToBorrow.mul(2),
+      d.borrowToken.token,
+      [borrowHolder],
+      d.userContract.address
+    );
   }
 }
