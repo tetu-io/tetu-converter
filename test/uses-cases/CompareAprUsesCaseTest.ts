@@ -84,7 +84,7 @@ describe.skip("CompareAprUsesCaseTest", () => {
       ]
     },
     {
-      asset: MaticAddresses.ChainLink, title: "ChainLink", holders: [
+      asset: MaticAddresses.CHAIN_LINK, title: "ChainLink", holders: [
         MaticAddresses.HOLDER_CHAIN_LINK
       ]
     },

@@ -4,17 +4,13 @@ import {TimeUtils} from "../../../scripts/utils/TimeUtils";
 import {expect} from "chai";
 import {TokenDataTypes} from "../../baseUT/types/TokenDataTypes";
 import {BigNumber} from "ethers";
-import {IPoolAdapterStatus} from "../../baseUT/types/BorrowRepayDataTypes";
 import {isPolygonForkInUse} from "../../baseUT/utils/NetworkUtils";
 import {MaticAddresses} from "../../../scripts/addresses/MaticAddresses";
 import {getBigNumberFrom} from "../../../scripts/utils/NumberUtils";
-import {BalanceUtils} from "../../baseUT/utils/BalanceUtils";
 import {SharedRepayToRebalanceUtils} from "../../baseUT/protocols/shared/sharedRepayToRebalanceUtils";
 import {areAlmostEqual} from "../../baseUT/utils/CommonUtils";
-import {IHfAccountLiquidity, IHundredFinanceAccountSnapshot} from "../../baseUT/apr/aprHundredFinance";
 import {
-  HundredFinanceTestUtils,
-  IPrepareToBorrowResults
+  HundredFinanceTestUtils, IInitialBorrowResults
 } from "../../baseUT/protocols/hundred-finance/HundredFinanceTestUtils";
 import {HundredFinanceChangePriceUtils} from "../../baseUT/protocols/hundred-finance/HundredFinanceChangePriceUtils";
 
@@ -62,21 +58,7 @@ describe("HundredFinanceCollateralBalanceTest", () => {
 //endregion before, after
 
 //region TestImpl
-  interface IState {
-    status: IPoolAdapterStatus;
-    collateralBalanceBase: BigNumber;
-    accountLiquidity: IHfAccountLiquidity;
-    accountSnapshotCollateral: IHundredFinanceAccountSnapshot;
-    accountSnapshotBorrow: IHundredFinanceAccountSnapshot;
-  }
 
-  interface IInitialBorrowResults {
-    d: IPrepareToBorrowResults;
-    collateralToken: TokenDataTypes;
-    borrowToken: TokenDataTypes;
-    collateralAmount: BigNumber;
-    stateAfterBorrow: IState;
-  }
 
   async function makeInitialBorrow() : Promise<IInitialBorrowResults> {
     const collateralToken = await TokenDataTypes.Build(deployer, collateralAsset);
@@ -101,35 +83,9 @@ describe("HundredFinanceCollateralBalanceTest", () => {
       collateralToken,
       borrowToken,
       collateralAmount,
-      stateAfterBorrow: await getState(d),
+      stateAfterBorrow: await HundredFinanceTestUtils.getState(d),
       d
     };
-  }
-
-  async function getState(d: IPrepareToBorrowResults) : Promise<IState> {
-    const status = await d.hfPoolAdapterTC.getStatus();
-    const collateralBalanceBase = await d.hfPoolAdapterTC.collateralTokensBalance();
-    const accountLiquidity = await d.comptroller.getAccountLiquidity(d.hfPoolAdapterTC.address);
-    const accountSnapshotCollateral = await d.collateralCToken.getAccountSnapshot(d.hfPoolAdapterTC.address);
-    const accountSnapshotBorrow = await d.borrowCToken.getAccountSnapshot(d.hfPoolAdapterTC.address);
-    return {status, collateralBalanceBase, accountLiquidity, accountSnapshotCollateral, accountSnapshotBorrow};
-  }
-
-  async function putCollateralAmountOnUserBalance() {
-    await BalanceUtils.getRequiredAmountFromHolders(
-      init.collateralAmount,
-      init.collateralToken.token,
-      [collateralHolder],
-      init.d.userContract.address
-    );
-  }
-  async function putDoubleBorrowAmountOnUserBalance() {
-    await BalanceUtils.getRequiredAmountFromHolders(
-      init.d.amountToBorrow.mul(2),
-      init.borrowToken.token,
-      [borrowHolder],
-      init.d.userContract.address
-    );
   }
 //endregion TestImpl
 
@@ -139,9 +95,9 @@ describe("HundredFinanceCollateralBalanceTest", () => {
       it("should return expected collateral balance", async () => {
         if (!await isPolygonForkInUse()) return;
 
-        await putCollateralAmountOnUserBalance();
+        await HundredFinanceTestUtils.putCollateralAmountOnUserBalance(init, collateralHolder);
         await HundredFinanceTestUtils.makeBorrow(deployer, init.d, undefined);
-        const stateAfterSecondBorrow = await getState(init.d);
+        const stateAfterSecondBorrow = await HundredFinanceTestUtils.getState(init.d);
 
         const ret = [
           init.stateAfterBorrow.status.collateralAmountLiquidated.eq(0),
@@ -160,14 +116,14 @@ describe("HundredFinanceCollateralBalanceTest", () => {
       it("make full repay, should return zero collateral balance", async () => {
         if (!await isPolygonForkInUse()) return;
 
-        await putCollateralAmountOnUserBalance();
+        await HundredFinanceTestUtils.putCollateralAmountOnUserBalance(init, collateralHolder);
         await HundredFinanceTestUtils.makeBorrow(deployer, init.d, undefined);
-        await putDoubleBorrowAmountOnUserBalance();
+        await HundredFinanceTestUtils.putDoubleBorrowAmountOnUserBalance(init.d, borrowHolder);
         await HundredFinanceTestUtils.makeRepay(
           init.d,
           undefined // full repayment
         );
-        const stateAfterFullRepay = await getState(init.d);
+        const stateAfterFullRepay = await HundredFinanceTestUtils.getState(init.d);
 
         const ret = [
           init.stateAfterBorrow.status.collateralAmountLiquidated.eq(0),
@@ -187,12 +143,12 @@ describe("HundredFinanceCollateralBalanceTest", () => {
       it("should return expected collateral balance", async () => {
         if (!await isPolygonForkInUse()) return;
 
-        await putDoubleBorrowAmountOnUserBalance();
+        await HundredFinanceTestUtils.putDoubleBorrowAmountOnUserBalance(init.d, borrowHolder);
         await HundredFinanceTestUtils.makeRepay(
           init.d,
           init.d.amountToBorrow.div(2) // partial repayment
         );
-        const stateAfterRepay = await getState(init.d);
+        const stateAfterRepay = await HundredFinanceTestUtils.getState(init.d);
 
         const ret = [
           init.stateAfterBorrow.status.collateralAmountLiquidated.eq(0),
@@ -211,10 +167,10 @@ describe("HundredFinanceCollateralBalanceTest", () => {
       it("make full repay, should return zero collateral balance", async () => {
         if (!await isPolygonForkInUse()) return;
 
-        await putCollateralAmountOnUserBalance();
+        await HundredFinanceTestUtils.putCollateralAmountOnUserBalance(init, collateralHolder);
         await HundredFinanceTestUtils.makeBorrow(deployer, init.d, undefined);
 
-        await putDoubleBorrowAmountOnUserBalance();
+        await HundredFinanceTestUtils.putDoubleBorrowAmountOnUserBalance(init.d, borrowHolder);
         await HundredFinanceTestUtils.makeRepay(
           init.d,
           init.d.amountToBorrow.div(2) // partial repayment
@@ -224,7 +180,7 @@ describe("HundredFinanceCollateralBalanceTest", () => {
           init.d,
           undefined // full repayment
         );
-        const stateAfterFullRepay = await getState(init.d);
+        const stateAfterFullRepay = await HundredFinanceTestUtils.getState(init.d);
 
         const ret = [
           init.stateAfterBorrow.status.collateralAmountLiquidated.eq(0),
@@ -246,7 +202,7 @@ describe("HundredFinanceCollateralBalanceTest", () => {
         // increase target health factor from 200 to 300
         await init.d.controller.setTargetHealthFactor2(300);
         const amountToRepay = await init.d.collateralAmount.mul(2).div(3);
-        await putCollateralAmountOnUserBalance();
+        await HundredFinanceTestUtils.putCollateralAmountOnUserBalance(init, collateralHolder);
 
         await SharedRepayToRebalanceUtils.approveAmountToRepayToUserContract(
           init.d.hfPoolAdapterTC.address,
@@ -263,7 +219,7 @@ describe("HundredFinanceCollateralBalanceTest", () => {
 
         await init.d.hfPoolAdapterTC.repayToRebalance(amountToRepay, true);
 
-        const stateAfterRepayToRebalance = await getState(init.d);
+        const stateAfterRepayToRebalance = await HundredFinanceTestUtils.getState(init.d);
         console.log("init.stateAfterBorrow", init.stateAfterBorrow);
         console.log("stateAfterRepayToRebalance", stateAfterRepayToRebalance);
 
@@ -286,7 +242,7 @@ describe("HundredFinanceCollateralBalanceTest", () => {
         // increase target health factor from 200 to 300
         await init.d.controller.setTargetHealthFactor2(300);
         const amountToRepay = await init.d.collateralAmount.mul(2).div(3);
-        await putCollateralAmountOnUserBalance();
+        await HundredFinanceTestUtils.putCollateralAmountOnUserBalance(init, collateralHolder);
 
         await SharedRepayToRebalanceUtils.approveAmountToRepayToUserContract(
           init.d.hfPoolAdapterTC.address,
@@ -303,12 +259,12 @@ describe("HundredFinanceCollateralBalanceTest", () => {
 
         await init.d.hfPoolAdapterTC.repayToRebalance(amountToRepay, true);
 
-        await putDoubleBorrowAmountOnUserBalance();
+        await HundredFinanceTestUtils.putDoubleBorrowAmountOnUserBalance(init.d, borrowHolder);
         await HundredFinanceTestUtils.makeRepay(
           init.d,
           undefined // full repayment
         );
-        const stateAfterFullRepay = await getState(init.d);
+        const stateAfterFullRepay = await HundredFinanceTestUtils.getState(init.d);
 
         const ret = [
           init.stateAfterBorrow.status.collateralAmountLiquidated.eq(0),
@@ -330,7 +286,7 @@ describe("HundredFinanceCollateralBalanceTest", () => {
         // increase target health factor from 200 to 300
         await init.d.controller.setTargetHealthFactor2(300);
         const amountToRepay = await init.d.amountToBorrow.mul(2).div(3);
-        await putDoubleBorrowAmountOnUserBalance();
+        await HundredFinanceTestUtils.putDoubleBorrowAmountOnUserBalance(init.d, borrowHolder);
 
         await SharedRepayToRebalanceUtils.approveAmountToRepayToUserContract(
           init.d.hfPoolAdapterTC.address,
@@ -347,7 +303,7 @@ describe("HundredFinanceCollateralBalanceTest", () => {
 
         await init.d.hfPoolAdapterTC.repayToRebalance(amountToRepay, false);
 
-        const stateAfterRepayToRebalance = await getState(init.d);
+        const stateAfterRepayToRebalance = await HundredFinanceTestUtils.getState(init.d);
 
         const ret = [
           init.stateAfterBorrow.status.collateralAmountLiquidated.eq(0),
@@ -363,7 +319,7 @@ describe("HundredFinanceCollateralBalanceTest", () => {
         // increase target health factor from 200 to 300
         await init.d.controller.setTargetHealthFactor2(300);
         const amountToRepay = await init.d.amountToBorrow.mul(2).div(3);
-        await putDoubleBorrowAmountOnUserBalance();
+        await HundredFinanceTestUtils.putDoubleBorrowAmountOnUserBalance(init.d, borrowHolder);
 
         await SharedRepayToRebalanceUtils.approveAmountToRepayToUserContract(
           init.d.hfPoolAdapterTC.address,
@@ -381,7 +337,7 @@ describe("HundredFinanceCollateralBalanceTest", () => {
         await init.d.hfPoolAdapterTC.repayToRebalance(amountToRepay, false);
 
         await HundredFinanceTestUtils.makeRepay(init.d,undefined);
-        const stateAfterFullRepay = await getState(init.d);
+        const stateAfterFullRepay = await HundredFinanceTestUtils.getState(init.d);
 
         const ret = [
           init.stateAfterBorrow.status.collateralAmountLiquidated.eq(0),
@@ -411,7 +367,7 @@ describe("HundredFinanceCollateralBalanceTest", () => {
         console.log("statusBeforeLiquidation", statusBeforeLiquidation);
 
         await HundredFinanceTestUtils.makeLiquidation(deployer, init.d, borrowHolder);
-        const stateAfterLiquidation = await getState(init.d);
+        const stateAfterLiquidation = await HundredFinanceTestUtils.getState(init.d);
         const ret = [
           init.stateAfterBorrow.status.collateralAmountLiquidated.eq(0),
           init.stateAfterBorrow.collateralBalanceBase.eq(init.stateAfterBorrow.accountSnapshotCollateral.tokenBalance),
@@ -433,9 +389,9 @@ describe("HundredFinanceCollateralBalanceTest", () => {
       it.skip("try to make full repay, protocol reverts", async () => {
         if (!await isPolygonForkInUse()) return;
         await HundredFinanceTestUtils.makeLiquidation(deployer, init.d, borrowHolder);
-        const stateAfterLiquidation = await getState(init.d);
+        const stateAfterLiquidation = await HundredFinanceTestUtils.getState(init.d);
 
-        await putDoubleBorrowAmountOnUserBalance();
+        await HundredFinanceTestUtils.putDoubleBorrowAmountOnUserBalance(init.d, borrowHolder);
         await HundredFinanceTestUtils.makeRepay(init.d,undefined);
 
         const ret = [

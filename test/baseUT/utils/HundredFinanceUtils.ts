@@ -8,7 +8,7 @@ export class HundredFinanceUtils {
       case MaticAddresses.DAI: return MaticAddresses.hDAI;
       case MaticAddresses.WETH: return MaticAddresses.hETH;
       case MaticAddresses.WBTC: return MaticAddresses.hWBTC;
-      case MaticAddresses.ChainLink: return MaticAddresses.hLINK;
+      case MaticAddresses.CHAIN_LINK: return MaticAddresses.hLINK;
       case MaticAddresses.FRAX: return MaticAddresses.hFRAX;
       case MaticAddresses.WMATIC: return MaticAddresses.hMATIC;
     }

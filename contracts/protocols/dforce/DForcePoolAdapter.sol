@@ -17,7 +17,6 @@ import "../../integrations/IWmatic.sol";
 import "../../integrations/dforce/IDForceInterestRateModel.sol";
 import "../../integrations/dforce/IDForceRewardDistributor.sol";
 import "../../openzeppelin/Initializable.sol";
-import "hardhat/console.sol";
 
 /// @notice Implementation of IPoolAdapter for dForce-protocol, see https://developers.dforce.network/
 /// @dev Instances of this contract are created using proxy-minimal pattern, so no constructor
@@ -197,8 +196,6 @@ contract DForcePoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP, Initi
       require(IERC20(WMATIC).balanceOf(address(this)) >= collateralAmount_, AppErrors.MINT_FAILED);
       IWmatic(WMATIC).withdraw(collateralAmount_);
       IDForceCTokenMatic(cTokenCollateral_).mint{value : collateralAmount_}(address(this));
-      console.log("_supply.collateralAmount_", collateralAmount_);
-      console.log("_supply.IDForceCTokenMatic(cTokenCollateral_).balance", IERC20(cTokenCollateral_).balanceOf(address(this)));
     } else {
       // replaced by infinity approve: IERC20(assetCollateral_).safeApprove(cTokenCollateral_, collateralAmount_);
       IDForceCToken(cTokenCollateral_).mint(address(this), collateralAmount_);
@@ -224,9 +221,6 @@ contract DForcePoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP, Initi
     // see https://developers.dforce.network/lend/lend-and-synth/controller#calcaccountequity
     (uint liquidity36,,,) = _comptroller.calcAccountEquity(address(this));
 
-    console.log("_validateHealthStatusAfterBorrow.sumCollateralSafe36", sumCollateralSafe36);
-    console.log("_validateHealthStatusAfterBorrow.liquidity36", liquidity36);
-    console.log("_validateHealthStatusAfterBorrow.borrowBase36", borrowBase36);
     require(
       sumCollateralSafe36 > borrowBase36
       && borrowBase36 > 0
@@ -538,12 +532,9 @@ contract DForcePoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP, Initi
     // collateralValue = balance * collateralValuePerToken
     // sumCollateral += collateralValue
     tokenBalanceOut = IERC20(cTokenCollateral_).balanceOf(address(this));
-    console.log("_getStatus.tokenBalanceOut", tokenBalanceOut);
-    console.log("_getStatus.cTokenCollateral_", cTokenCollateral_);
 
     IDForcePriceOracle priceOracle = IDForcePriceOracle(_comptroller.priceOracle());
     collateralPrice = DForceAprLib.getPrice(priceOracle, cTokenCollateral_);
-    console.log("_getStatus.underlyingPrice.collateral", collateralPrice, cTokenCollateral_);
 
     {
       uint exchangeRateMantissa = IDForceCToken(cTokenCollateral_).exchangeRateStored();
@@ -551,7 +542,6 @@ contract DForcePoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP, Initi
       collateralAmountLiquidatedBase36 =  tokenBalanceOut > collateralTokensBalance
         ? 0
         : (collateralTokensBalance - tokenBalanceOut) * collateralPrice * exchangeRateMantissa / 10**18;
-      console.log("_getStatus.exchangeRateMantissa", exchangeRateMantissa);
     }
 
     // Calculate all borrowed value, see ControllerV2.calcAccountEquityWithEffect
@@ -560,7 +550,6 @@ contract DForcePoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP, Initi
     borrowBalanceOut = IDForceCToken(cTokenBorrow_).borrowBalanceStored(address(this));
 
     uint underlyingPrice = DForceAprLib.getPrice(priceOracle, cTokenBorrow_);
-    console.log("_getStatus.underlyingPrice.borrow", underlyingPrice, cTokenBorrow_);
 
     sumBorrowBase36 = borrowBalanceOut * underlyingPrice;
 
@@ -599,9 +588,6 @@ contract DForcePoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP, Initi
     healthFactor18 = sumBorrowBase36_ == 0
       ? type(uint).max
       : sumCollateralSafe36 * 10**18 / sumBorrowBase36_;
-    console.log("_getHealthFactor.sumCollateralSafe36", sumCollateralSafe36);
-    console.log("_getHealthFactor.sumBorrowBase36_", sumBorrowBase36_);
-    console.log("_getHealthFactor.healthFactor18", healthFactor18);
     return (sumCollateralSafe36, healthFactor18);
   }
 

@@ -15,7 +15,6 @@ import {
 } from "../../../../typechain";
 import {BigNumber} from "ethers";
 import {TokenDataTypes} from "../../types/TokenDataTypes";
-import {CoreContractsHelper} from "../../helpers/CoreContractsHelper";
 import {MocksHelper} from "../../helpers/MocksHelper";
 import {AdaptersHelper} from "../../helpers/AdaptersHelper";
 import {DeployerUtils} from "../../../../scripts/utils/DeployerUtils";
@@ -28,7 +27,7 @@ import {
 } from "../../../../scripts/integration/helpers/HundredFinanceHelper";
 import {makeInfinityApprove, transferAndApprove} from "../../utils/transferUtils";
 import {BalanceUtils} from "../../utils/BalanceUtils";
-import {IHfAccountLiquidity, IHfUserAccountState} from "../../apr/aprHundredFinance";
+import {IHfAccountLiquidity, IHundredFinanceAccountSnapshot} from "../../apr/aprHundredFinance";
 import {HundredFinanceChangePriceUtils} from "./HundredFinanceChangePriceUtils";
 import {IPoolAdapterStatus} from "../../types/BorrowRepayDataTypes";
 import {getBigNumberFrom} from "../../../../scripts/utils/NumberUtils";
@@ -69,7 +68,7 @@ export interface IMarketsInfo {
   priceBorrow: BigNumber;
 }
 
-interface IBorrowResults {
+export interface IBorrowResults {
   accountLiquidity: IHfAccountLiquidity;
   userBalanceBorrowAsset: BigNumber;
   poolAdapterBalanceCollateralCToken: BigNumber;
@@ -91,6 +90,26 @@ export interface IPrepareToLiquidationResults {
   collateralAmount: BigNumber;
   statusBeforeLiquidation: IPoolAdapterStatus;
   d: IPrepareToBorrowResults;
+}
+
+export interface IMakeBorrowOrRepayBadPathsParams {
+  makeOperationAsNotTc?: boolean;
+}
+
+export interface IHundredFinancePoolAdapterState {
+  status: IPoolAdapterStatus;
+  collateralBalanceBase: BigNumber;
+  accountLiquidity: IHfAccountLiquidity;
+  accountSnapshotCollateral: IHundredFinanceAccountSnapshot;
+  accountSnapshotBorrow: IHundredFinanceAccountSnapshot;
+}
+
+export interface IInitialBorrowResults {
+  d: IPrepareToBorrowResults;
+  collateralToken: TokenDataTypes;
+  borrowToken: TokenDataTypes;
+  collateralAmount: BigNumber;
+  stateAfterBorrow: IHundredFinancePoolAdapterState;
 }
 //endregion Data types
 
@@ -264,7 +283,8 @@ export class HundredFinanceTestUtils {
   static async makeBorrow(
     deployer: SignerWithAddress,
     d: IPrepareToBorrowResults,
-    borrowAmountRequired: BigNumber | undefined
+    borrowAmountRequired: BigNumber | undefined,
+    badPathsParams?: IMakeBorrowOrRepayBadPathsParams
   ) : Promise<IBorrowResults>{
     const borrowAmount = borrowAmountRequired
       ? borrowAmountRequired
@@ -276,7 +296,12 @@ export class HundredFinanceTestUtils {
       d.collateralAmount,
       d.hfPoolAdapterTC.address
     );
-    await d.hfPoolAdapterTC.borrow(
+    const borrower = badPathsParams?.makeOperationAsNotTc
+      ? HfPoolAdapter__factory.connect(d.hfPoolAdapterTC.address,
+        await DeployerUtils.startImpersonate(ethers.Wallet.createRandom().address)
+      )
+      : d.hfPoolAdapterTC;
+    await borrower.borrow(
       d.collateralAmount,
       borrowAmount,
       d.userContract.address
@@ -323,8 +348,10 @@ export class HundredFinanceTestUtils {
 
   public static async makeRepay(
     d: IPrepareToBorrowResults,
-    amountToRepay?: BigNumber
-  ) {
+    amountToRepay?: BigNumber,
+    closePosition?: boolean,
+    badPathsParams?: IMakeBorrowOrRepayBadPathsParams
+  ) : Promise<IHfAccountLiquidity> {
     if (amountToRepay) {
       // partial repay
       const tetuConverter = await d.controller.tetuConverter();
@@ -341,10 +368,17 @@ export class HundredFinanceTestUtils {
         d.hfPoolAdapterTC.address
       );
 
-      await poolAdapterAsCaller.repay(
+      const payer = badPathsParams?.makeOperationAsNotTc
+        ? HfPoolAdapter__factory.connect(
+          d.hfPoolAdapterTC.address,
+          await DeployerUtils.startImpersonate(ethers.Wallet.createRandom().address)
+        )
+        : poolAdapterAsCaller;
+
+      await payer.repay(
         amountToRepay,
         d.userContract.address,
-        false
+        closePosition === undefined ? false : closePosition
       );
     } else {
       // make full repayment
@@ -354,6 +388,8 @@ export class HundredFinanceTestUtils {
         d.userContract.address
       );
     }
+
+    return d.comptroller.getAccountLiquidity(d.userContract.address);
   }
 
   public static async prepareToLiquidation(
@@ -478,5 +514,31 @@ export class HundredFinanceTestUtils {
       liquidatorAddress,
       collateralAmountReceivedByLiquidator
     }
+  }
+
+  public static async getState(d: IPrepareToBorrowResults) : Promise<IHundredFinancePoolAdapterState> {
+    const status = await d.hfPoolAdapterTC.getStatus();
+    const collateralBalanceBase = await d.hfPoolAdapterTC.collateralTokensBalance();
+    const accountLiquidity = await d.comptroller.getAccountLiquidity(d.hfPoolAdapterTC.address);
+    const accountSnapshotCollateral = await d.collateralCToken.getAccountSnapshot(d.hfPoolAdapterTC.address);
+    const accountSnapshotBorrow = await d.borrowCToken.getAccountSnapshot(d.hfPoolAdapterTC.address);
+    return {status, collateralBalanceBase, accountLiquidity, accountSnapshotCollateral, accountSnapshotBorrow};
+  }
+
+  public static async putCollateralAmountOnUserBalance(init: IInitialBorrowResults, collateralHolder: string) {
+    await BalanceUtils.getRequiredAmountFromHolders(
+      init.collateralAmount,
+      init.collateralToken.token,
+      [collateralHolder],
+      init.d.userContract.address
+    );
+  }
+  public static async putDoubleBorrowAmountOnUserBalance(d: IPrepareToBorrowResults, borrowHolder: string) {
+    await BalanceUtils.getRequiredAmountFromHolders(
+      d.amountToBorrow.mul(2),
+      d.borrowToken.token,
+      [borrowHolder],
+      d.userContract.address
+    );
   }
 }

@@ -28,7 +28,7 @@ export class AaveTwoPlatformFabric implements ILendingPlatformFabric {
       , MaticAddresses.WMATIC
       , MaticAddresses.SUSHI
       , MaticAddresses.CRV
-      , MaticAddresses.ChainLink
+      , MaticAddresses.CHAIN_LINK
       , MaticAddresses.AavegotchiGHST
       , MaticAddresses.DefiPulseToken
     ];

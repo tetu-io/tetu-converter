@@ -26,7 +26,7 @@ export class MaticAddresses {
   public static agEUR = "0xE0B52e49357Fd4DAf2c15e02058DCE6BC0057db4";
   public static EURS = "0xe111178a87a3bff0c8d18decba5798827539ae99";
   public static jEUR = "0x4e3Decbb3645551B8A19f0eA1678079FCB33fB4c";
-  public static ChainLink = "0x53E0bca35eC356BD5ddDFebbD1Fc0fD03FaBad39";
+  public static CHAIN_LINK = "0x53E0bca35eC356BD5ddDFebbD1Fc0fD03FaBad39";
   public static AaveToken = "0xD6DF932A45C0f255f85145f286eA0b292B21C90B";
   public static AavegotchiGHST = "0x385Eeac5cB85A38A9a07A70c73e0a3271CfB54A7";
   public static DefiPulseToken = "0x85955046DF4668e1DD369D2DE9f3AEB98DD2A369";
