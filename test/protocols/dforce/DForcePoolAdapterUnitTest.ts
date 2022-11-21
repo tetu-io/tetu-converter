@@ -618,7 +618,14 @@ describe("DForce unit tests, pool adapter", () => {
       const borrowAsset = MaticAddresses.USDC;
       const borrowCToken = MaticAddresses.dForce_iUSDC;
       const borrowHolder = MaticAddresses.HOLDER_USDC;
-      it("should return exceeded amount if user tries to pay too much", async () => {
+      /**
+       * Exceeded amount is returned by aave adapters
+       * because AAVE-pool adapter takes a bit more amount than necessary
+       * to cover possible dust. There is no such problem in DForce, so
+       * DForce pool-adapter doesn't check and doesn't return
+       * exceeded amount.
+       */
+      it.skip("should return exceeded amount if user tries to pay too much", async () => {
         const results = await makeFullRepayTest(
           collateralAsset,
           collateralCToken,
@@ -1024,7 +1031,7 @@ describe("DForce unit tests, pool adapter", () => {
       console.log("collateralToken.decimals", collateralToken.decimals);
       console.log("borrowToken.decimals", borrowToken.decimals);
 
-      const collateralAmount = getBigNumberFrom(assets.collateralAmountNum, collateralToken.decimals);
+      const collateralAmount = parseUnits(assets.collateralAmountStr, collateralToken.decimals);
       console.log(collateralAmount, collateralAmount);
 
       const r = await makeRepayToRebalance({
@@ -1110,7 +1117,7 @@ describe("DForce unit tests, pool adapter", () => {
           collateralAsset,
           borrowAsset,
           borrowHolder,
-          collateralAmountNum: 100_000,
+          collateralAmountStr: "100000",
           collateralHolder
         },
         useCollateralAssetToRepay,
@@ -1137,7 +1144,34 @@ describe("DForce unit tests, pool adapter", () => {
           collateralAsset,
           borrowAsset,
           borrowHolder,
-          collateralAmountNum: 100_000,
+          collateralAmountStr: "100000",
+          collateralHolder
+        },
+        useCollateralAssetToRepay,
+        badPathsParams
+      );
+    }
+
+    async function wbtcWETH(
+      useCollateralAssetToRepay: boolean,
+      badPathsParams?: IMakeRepayRebalanceBadPathParams
+    ) : Promise<{ret: string, expected: string}> {
+      const collateralAsset = MaticAddresses.WBTC;
+      const collateralHolder = MaticAddresses.HOLDER_WBTC;
+      const collateralCTokenAddress = MaticAddresses.dForce_iWBTC;
+
+      const borrowAsset = MaticAddresses.WETH;
+      const borrowHolder = MaticAddresses.HOLDER_WETH;
+      const borrowCTokenAddress = MaticAddresses.dForce_iWETH;
+
+      return makeRepayToRebalanceTest(
+        {
+          borrowCTokenAddress,
+          collateralCTokenAddress,
+          collateralAsset,
+          borrowAsset,
+          borrowHolder,
+          collateralAmountStr: "1.3",
           collateralHolder
         },
         useCollateralAssetToRepay,
@@ -1163,6 +1197,14 @@ describe("DForce unit tests, pool adapter", () => {
             expect(r.ret).eq(r.expected);
           });
         });
+        describe("WBTC : WETH", () => {
+          it("should return expected values", async () => {
+            if (!await isPolygonForkInUse()) return;
+            const r = await wbtcWETH(false);
+
+            expect(r.ret).eq(r.expected);
+          });
+        });
       });
       describe("Use collateral asset to repay", () => {
         describe("Dai : WMatic", () => {
@@ -1181,6 +1223,14 @@ describe("DForce unit tests, pool adapter", () => {
             expect(r.ret).eq(r.expected);
           });
         });
+        describe("WBTC : WETH", () => {
+          it("should return expected values", async () => {
+            if (!await isPolygonForkInUse()) return;
+            const r = await wbtcWETH(true);
+
+            expect(r.ret).eq(r.expected);
+          });
+        });
       });
     });
 
@@ -1190,7 +1240,7 @@ describe("DForce unit tests, pool adapter", () => {
           if (!await isPolygonForkInUse()) return;
           await expect(
             daiWMatic(false,{makeRepayToRebalanceAsDeployer: true})
-          ).revertedWith("TC-32");
+          ).revertedWith("TC-8"); // USER_OR_TETU_CONVERTER_ONLY
         });
       });
       describe("Position is not registered", () => {
@@ -1403,37 +1453,110 @@ describe("DForce unit tests, pool adapter", () => {
     });
   });
 
-  describe("TODO:getStatus", () => {
-    describe("Good paths", () => {
-      it("should return expected values", async () => {
-        if (!await isPolygonForkInUse()) return;
-        expect.fail("TODO");
-      });
+  describe("getStatus", () => {
+    it("user has made a borrow, should return expected status", async () => {
+      if (!await isPolygonForkInUse()) return;
+
+      const collateralAsset = MaticAddresses.USDT;
+      const collateralCToken = MaticAddresses.dForce_iUSDT;
+      const collateralHolder = MaticAddresses.HOLDER_USDT;
+      const borrowAsset = MaticAddresses.USDC;
+      const borrowCToken = MaticAddresses.dForce_iUSDC;
+
+      const results = await makeBorrowTest(
+        collateralAsset,
+        collateralCToken,
+        collateralHolder,
+        borrowAsset,
+        borrowCToken,
+        "1999"
+      );
+      const status = await results.init.dfPoolAdapterTC.getStatus();
+
+      const collateralTargetHealthFactor2 = await BorrowManager__factory.connect(
+        await results.init.controller.borrowManager(), deployer
+      ).getTargetHealthFactor2(collateralAsset);
+
+      const ret = [
+        areAlmostEqual(parseUnits(collateralTargetHealthFactor2.toString(), 16), status.healthFactor18),
+        areAlmostEqual(results.borrowResults.borrowedAmount, status.amountToPay, 4),
+        status.collateralAmountLiquidated.eq(0),
+        areAlmostEqual(status.collateralAmount, parseUnits("1999", results.init.collateralToken.decimals), 4)
+      ].join();
+      const expected = [true, true, true, true].join();
+      expect(ret).eq(expected);
     });
-    describe("Bad paths", () => {
-      describe("", () => {
-        it("should revert", async () => {
-          if (!await isPolygonForkInUse()) return;
-          expect.fail("TODO");
-        });
-      });
+    it("user has not made a borrow, should return expected status", async () => {
+      if (!await isPolygonForkInUse()) return;
+
+      const collateralAsset = MaticAddresses.USDT;
+      const collateralCToken = MaticAddresses.dForce_iUSDT;
+      const collateralHolder = MaticAddresses.HOLDER_USDT;
+      const borrowAsset = MaticAddresses.USDC;
+      const borrowCToken = MaticAddresses.dForce_iUSDC;
+
+      const collateralToken = await TokenDataTypes.Build(deployer, collateralAsset);
+      const borrowToken = await TokenDataTypes.Build(deployer, borrowAsset);
+
+      // we only prepare to borrow, but don't make a borrow
+      const init = await DForceTestUtils.prepareToBorrow(
+        deployer,
+        collateralToken,
+        collateralHolder,
+        collateralCToken,
+        parseUnits("999", collateralToken.decimals),
+        borrowToken,
+        borrowCToken
+      );
+      const status = await init.dfPoolAdapterTC.getStatus();
+
+      const collateralTargetHealthFactor2 = await BorrowManager__factory.connect(
+        await init.controller.borrowManager(), deployer
+      ).getTargetHealthFactor2(collateralAsset);
+
+      const ret = [
+        status.healthFactor18.eq(Misc.MAX_UINT),
+        status.amountToPay.eq(0),
+        status.collateralAmountLiquidated.eq(0),
+        status.collateralAmount.eq(0),
+        status.opened
+      ].join();
+      const expected = [true, true, true, true, false].join();
+      expect(ret).eq(expected);
     });
   });
 
-  describe("TODO:updateBalance", () => {
-    describe("Good paths", () => {
-      it("should return expected values", async () => {
-        if (!await isPolygonForkInUse()) return;
-        expect.fail("TODO");
-      });
-    });
-    describe("Bad paths", () => {
-      describe("", () => {
-        it("should revert", async () => {
-          if (!await isPolygonForkInUse()) return;
-          expect.fail("TODO");
-        });
-      });
+  describe("updateBalance", () => {
+    it("should change stored balance", async () => {
+      if (!await isPolygonForkInUse()) return;
+
+      const collateralAsset = MaticAddresses.DAI;
+      const collateralCToken = MaticAddresses.dForce_iDAI;
+      const collateralHolder = MaticAddresses.HOLDER_DAI;
+      const borrowAsset = MaticAddresses.USDC;
+      const borrowCToken = MaticAddresses.dForce_iUSDC;
+
+      const results = await makeBorrowTest(
+        collateralAsset,
+        collateralCToken,
+        collateralHolder,
+        borrowAsset,
+        borrowCToken,
+        "1999"
+      );
+      const status0 = await results.init.dfPoolAdapterTC.getStatus();
+      await TimeUtils.advanceNBlocks(100);
+      const status1 = await results.init.dfPoolAdapterTC.getStatus();
+
+      await results.init.dfPoolAdapterTC.updateStatus();
+      const status2 = await results.init.dfPoolAdapterTC.getStatus();
+
+      const ret = [
+        status1.amountToPay.eq(status0.amountToPay),
+        status2.amountToPay.gt(status1.amountToPay)
+      ].join();
+      const expected = [true, true].join();
+      expect(ret).eq(expected);
     });
   });
 

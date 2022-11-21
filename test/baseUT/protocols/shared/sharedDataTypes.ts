@@ -34,7 +34,7 @@ export interface IAssetsInputParams {
   collateralHolder: string;
   borrowAsset: string;
   borrowHolder: string;
-  collateralAmountNum: number;
+  collateralAmountStr: string;
 }
 
 export interface IAssetsInputParamsWithCTokens extends IAssetsInputParams {

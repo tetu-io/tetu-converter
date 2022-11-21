@@ -68,7 +68,7 @@ export class AaveRepayToRebalanceUtils {
     console.log("collateralToken.decimals", collateralToken.decimals);
     console.log("borrowToken.decimals", borrowToken.decimals);
 
-    const collateralAmount = getBigNumberFrom(assets.collateralAmountNum, collateralToken.decimals);
+    const collateralAmount = getBigNumberFrom(assets.collateralAmountStr, collateralToken.decimals);
     console.log(collateralAmount, collateralAmount);
 
     const r = await makeRepayToRebalanceFunc({
@@ -130,7 +130,7 @@ export class AaveRepayToRebalanceUtils {
         borrowAsset,
         borrowHolder,
         collateralHolder,
-        collateralAmountNum: 100_000,
+        collateralAmountStr: 100_000,
       },
       deployer,
       makeRepayToRebalanceFunc,
@@ -160,7 +160,7 @@ export class AaveRepayToRebalanceUtils {
         borrowAsset,
         borrowHolder,
         collateralHolder,
-        collateralAmountNum: 100_000,
+        collateralAmountStr: 100_000,
       },
       deployer,
       makeRepayToRebalanceFunc,

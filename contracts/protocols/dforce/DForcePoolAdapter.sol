@@ -129,6 +129,8 @@ contract DForcePoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP, Initi
   ///                 Borrow logic
   ///////////////////////////////////////////////////////
   function updateStatus() external override {
+    // no restrictions, anybody can call this function
+
     // Update borrowBalance to actual value
     IDForceCToken(borrowCToken).borrowBalanceCurrent(address(this));
   }

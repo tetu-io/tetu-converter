@@ -1126,7 +1126,7 @@ describe("Hundred Finance integration tests, pool adapter", () => {
       console.log("collateralToken.decimals", collateralToken.decimals);
       console.log("borrowToken.decimals", borrowToken.decimals);
 
-      const collateralAmount = getBigNumberFrom(assets.collateralAmountNum, collateralToken.decimals);
+      const collateralAmount = getBigNumberFrom(assets.collateralAmountStr, collateralToken.decimals);
       console.log(collateralAmount, collateralAmount);
 
       const r = await makeRepayToRebalance({
@@ -1213,7 +1213,7 @@ describe("Hundred Finance integration tests, pool adapter", () => {
           collateralAsset,
           borrowAsset,
           borrowHolder,
-          collateralAmountNum: 100_000,
+          collateralAmountStr: 100_000,
           collateralHolder
         },
         useCollateralAssetToRepay,
@@ -1240,7 +1240,7 @@ describe("Hundred Finance integration tests, pool adapter", () => {
           collateralAsset,
           borrowAsset,
           borrowHolder,
-          collateralAmountNum: 100_000,
+          collateralAmountStr: 100_000,
           collateralHolder
         },
         useCollateralAssetToRepay,
