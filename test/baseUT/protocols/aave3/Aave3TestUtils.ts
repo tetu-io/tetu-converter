@@ -23,7 +23,6 @@ import {IPoolAdapterStatus} from "../../types/BorrowRepayDataTypes";
 import {getBigNumberFrom} from "../../../../scripts/utils/NumberUtils";
 import {TetuConverterApp} from "../../helpers/TetuConverterApp";
 import {Misc} from "../../../../scripts/utils/Misc";
-import {tetu} from "../../../../typechain/contracts/integrations";
 
 //region Data types
 export interface IPrepareToBorrowResults {
@@ -312,13 +311,13 @@ export class Aave3TestUtils {
         d.aavePoolAdapterAsTC.address
       );
 
-      const repayer = badPathsParams?.makeOperationAsNotTc
+      const payer = badPathsParams?.makeOperationAsNotTc
         ? Aave3PoolAdapter__factory.connect(
           d.aavePoolAdapterAsTC.address,
           await DeployerUtils.startImpersonate(ethers.Wallet.createRandom().address)
         )
         : poolAdapterAsCaller;
-      await repayer.repay(
+      await payer.repay(
         amountToRepay,
         d.userContract.address,
         closePosition === undefined ? false : closePosition
