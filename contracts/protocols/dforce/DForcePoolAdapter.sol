@@ -509,9 +509,7 @@ contract DForcePoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP, Initi
       healthFactor18,
       collateralTokens != 0 || borrowBalance != 0,
     // Amount of liquidated collateral == amount of lost
-      collateralAmountLiquidatedBase36 == 0
-        ? 0
-        : collateralAmountLiquidatedBase36 * 10 ** IERC20Extended(collateralAsset).decimals() / 10**18 / collateralPrice
+      collateralAmountLiquidatedBase36 / collateralPrice
     );
   }
 
