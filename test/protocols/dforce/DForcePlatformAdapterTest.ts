@@ -657,12 +657,12 @@ describe("DForce integration tests, platform adapter", () => {
           const part10000 = 1;
 
           const r = await makePredictBrTest(
-            collateralAsset
-            , collateralCToken
-            , borrowAsset
-            , borrowCToken
-            , collateralHolders
-            , part10000
+            collateralAsset,
+            collateralCToken,
+            borrowAsset,
+            borrowCToken,
+            collateralHolders,
+            part10000,
           );
 
           const ret = areAlmostEqual(r.br, r.brPredicted, 4);
@@ -690,12 +690,12 @@ describe("DForce integration tests, platform adapter", () => {
           const part10000 = 500;
 
           const r = await makePredictBrTest(
-            collateralAsset
-            , collateralCToken
-            , borrowAsset
-            , borrowCToken
-            , collateralHolders
-            , part10000
+            collateralAsset,
+            collateralCToken,
+            borrowAsset,
+            borrowCToken,
+            collateralHolders,
+            part10000,
           );
 
           const ret = areAlmostEqual(r.br, r.brPredicted, 4);
@@ -724,15 +724,15 @@ describe("DForce integration tests, platform adapter", () => {
           const part10000 = 500;
 
           const r = await makePredictBrTest(
-            collateralAsset
-            , collateralCToken
-            , borrowAsset
-            , borrowCToken
-            , collateralHolders
-            , part10000
+            collateralAsset,
+            collateralCToken,
+            borrowAsset,
+            borrowCToken,
+            collateralHolders,
+            part10000,
           );
 
-          const ret = areAlmostEqual(r.br, r.brPredicted, 4);
+          const ret = areAlmostEqual(r.br, r.brPredicted, 3);
           expect(ret).eq(true);
         });
       });

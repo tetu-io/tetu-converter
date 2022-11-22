@@ -20,6 +20,7 @@ import {DForcePlatformFabric} from "../../baseUT/fabrics/DForcePlatformFabric";
 import {DeployerUtils} from "../../../scripts/utils/DeployerUtils";
 import {BigNumber} from "ethers";
 import {TetuConverterApp} from "../../baseUT/helpers/TetuConverterApp";
+import {areAlmostEqual} from "../../baseUT/utils/CommonUtils";
 
 describe("DForceHelper tests", () => {
 //region Global vars for all tests
@@ -436,7 +437,7 @@ describe("DForceHelper tests", () => {
             );
 
             const cashesAndBorrowRates: BigNumber[] = [];
-            const sret = await DForceHelper.predictRewardsAfterBorrow(
+            const ret = await DForceHelper.predictRewardsAfterBorrow(
               r.predictData,
               async function (cash: BigNumber, totalBorrows: BigNumber, totalReserve: BigNumber) : Promise<BigNumber> {
                 const br = await IDForceInterestRateModel__factory.connect(r.interestRateModelAddress, deployer)
@@ -447,15 +448,14 @@ describe("DForceHelper tests", () => {
               },
               r.blockUpdateDistributionState
             );
-            const sexpected = r.rewardsEarnedActual.toString();
-            console.log(`rewardsEarnedActual=${sexpected} predicted=${sret}`);
+            console.log(`rewardsEarnedActual=${r.rewardsEarnedActual} predicted=${ret}`);
 
             // we need to display full objects, so we use util.inspect, see
             // https://stackoverflow.com/questions/10729276/how-can-i-get-the-full-object-in-node-jss-console-log-rather-than-object
             require("util").inspect.defaultOptions.depth = null;
             console.log(`Generate source data for DForceRewardsLibTest`, r, cashesAndBorrowRates);
 
-            expect(sret).eq(sexpected);
+            expect(areAlmostEqual(ret, r.rewardsEarnedActual)).eq(true);
           });
         });
       });

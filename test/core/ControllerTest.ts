@@ -312,7 +312,7 @@ describe("Controller", () => {
         await controllerAsOldGov.setGovernance(newGovernance);
         await expect(
           controllerAsNotNewGov.acceptGovernance()
-        ).revertedWith("TC-9"); // GOVERNANCE_ONLY
+        ).revertedWith("TC-51"); // NOT_PENDING_GOVERNANCE
       });
     });
   });

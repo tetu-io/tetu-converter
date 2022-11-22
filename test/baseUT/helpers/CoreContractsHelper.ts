@@ -2,7 +2,7 @@ import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import {
   BorrowManager, BorrowManager__factory,
   Controller, DebtMonitor,
-  IController, Keeper, LendingPlatformMock,
+  IController, IERC20__factory, Keeper, LendingPlatformMock,
   MockERC20, PoolStub,
   PriceOracleMock, SwapManager, TetuConverter,
 } from "../../../typechain";
@@ -16,6 +16,7 @@ import {Misc} from "../../../scripts/utils/Misc";
 import {tetu} from "../../../typechain/contracts/integrations";
 import {TetuConverterApp} from "./TetuConverterApp";
 import {parseUnits} from "ethers/lib/utils";
+import {MaticAddresses} from "../../../scripts/addresses/MaticAddresses";
 
 export class CoreContractsHelper {
   static async deployController(deployer: SignerWithAddress): Promise<Controller> {
@@ -70,11 +71,13 @@ export class CoreContractsHelper {
     signer: SignerWithAddress,
     controller: string,
   ): Promise<TetuConverter> {
-    return (await DeployUtils.deployContract(
+    const dest = (await DeployUtils.deployContract(
       signer,
       "TetuConverter",
       controller
     )) as TetuConverter;
+    console.log("Balance TC--0000", await IERC20__factory.connect(MaticAddresses.USDC, signer).balanceOf(dest.address));
+    return dest;
   }
 
   /** Create BorrowManager with mock as adapter */

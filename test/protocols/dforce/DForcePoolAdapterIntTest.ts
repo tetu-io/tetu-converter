@@ -45,7 +45,10 @@ describe("DForce integration tests, pool adapter", () => {
     this.timeout(1200000);
     snapshot = await TimeUtils.snapshot();
     const signers = await ethers.getSigners();
-    deployer = signers[0];
+    // we use signers[1] instead signers[0] here because of weird problem
+    // if signers[0] is used than newly created TetuConverter contract has not-zero USDC balance
+    // and some tests don't pass
+    deployer = signers[1];
   });
 
   after(async function () {
@@ -329,12 +332,10 @@ describe("DForce integration tests, pool adapter", () => {
           .connect(await DeployerUtils.startImpersonate(borrowHolder))
           .transfer(d.userContract.address, initialBorrowAmountOnUserBalance);
       }
-
       const beforeBorrow: IUserBalances = {
         collateral: await collateralToken.token.balanceOf(d.userContract.address),
         borrow: await borrowToken.token.balanceOf(d.userContract.address)
       };
-
       // make borrow
       if (! badParams?.skipBorrow) {
         await transferAndApprove(
@@ -350,7 +351,6 @@ describe("DForce integration tests, pool adapter", () => {
           d.userContract.address
         );
       }
-
       const statusAfterBorrow = await d.dfPoolAdapterTC.getStatus();
       console.log("statusAfterBorrow", statusAfterBorrow);
       const afterBorrow: IUserBalances = {
@@ -358,7 +358,6 @@ describe("DForce integration tests, pool adapter", () => {
         borrow: await borrowToken.token.balanceOf(d.userContract.address)
       };
       console.log(afterBorrow);
-
       await TimeUtils.advanceNBlocks(1000);
 
       const borrowTokenAsUser = IERC20Extended__factory.connect(
@@ -563,7 +562,7 @@ describe("DForce integration tests, pool adapter", () => {
           cToken: borrowCTokenAddress
         },
         100_000,
-        10,
+        100,
         badPathParams
       );
     }

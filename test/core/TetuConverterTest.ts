@@ -2542,7 +2542,7 @@ describe("TetuConverterTest", () => {
             tryToRepayWrongAmount(
               180_000
             )
-          ).revertedWith("TC-39"); // WRONG_REBALANCING
+          ).revertedWith("TC-39: wrong rebalancing"); // WRONG_REBALANCING
         });
       });
       describe("Result health factor is too small", () => {
@@ -2551,7 +2551,7 @@ describe("TetuConverterTest", () => {
             tryToRepayWrongAmount(
               100_000
             )
-          ).revertedWith("TC-39"); // WRONG_REBALANCING
+          ).revertedWith("TC-39: wrong rebalancing"); // WRONG_REBALANCING
         });
       });
     });

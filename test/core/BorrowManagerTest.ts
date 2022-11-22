@@ -636,7 +636,7 @@ describe("BorrowManager", () => {
               [ethers.Wallet.createRandom().address],
               [minHealthFactor - 1]
             )
-          ).revertedWith("TC-3");
+          ).revertedWith("TC-3: wrong health factor");
         });
       });
       describe("Not governance", () => {

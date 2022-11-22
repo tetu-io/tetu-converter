@@ -122,12 +122,17 @@ export class DForceTestUtils {
 
     // controller, dm, bm
     const controller = await TetuConverterApp.createController(deployer);
+
+    console.log("Balance TC--0", await IERC20__factory.connect(borrowToken.address, deployer).balanceOf(await controller.tetuConverter()));
+    console.log("Balance TC--0", await IERC20__factory.connect(collateralToken.address, deployer).balanceOf(await controller.tetuConverter()));
+
     const userContract = await MocksHelper.deployBorrower(deployer.address, controller, periodInBlocks);
 
     const converterNormal = await AdaptersHelper.createDForcePoolAdapter(deployer);
 
     const comptroller = await DForceHelper.getController(deployer);
     const priceOracle = await DForceHelper.getPriceOracle(comptroller, deployer);
+    console.log("Balance TC--1", await IERC20__factory.connect(borrowToken.address, deployer).balanceOf(await controller.tetuConverter()));
 
     const dfPlatformAdapter = await AdaptersHelper.createDForcePlatformAdapter(
       deployer,
@@ -136,6 +141,7 @@ export class DForceTestUtils {
       converterNormal.address,
       [collateralCTokenAddress, borrowCTokenAddress],
     );
+    console.log("Balance TC--2", await IERC20__factory.connect(borrowToken.address, deployer).balanceOf(await controller.tetuConverter()));
 
     const borrowManager = BorrowManager__factory.connect(
       await controller.borrowManager(),
@@ -146,6 +152,8 @@ export class DForceTestUtils {
       [collateralToken.address],
       [borrowToken.address]
     );
+    console.log("Balance TC--3", await IERC20__factory.connect(borrowToken.address, deployer).balanceOf(await controller.tetuConverter()));
+
     const bmAsTc = BorrowManager__factory.connect(
       borrowManager.address,
       await DeployerUtils.startImpersonate(await controller.tetuConverter())
@@ -165,6 +173,8 @@ export class DForceTestUtils {
       ),
       await DeployerUtils.startImpersonate(await controller.tetuConverter())
     );
+    console.log("Balance TC--4", await IERC20__factory.connect(borrowToken.address, deployer).balanceOf(await controller.tetuConverter()));
+
     // TetuConverter gives infinity approve to the pool adapter after pool adapter creation (see TetuConverter.convert implementation)
     await makeInfinityApprove(
       await controller.tetuConverter(),
@@ -178,11 +188,13 @@ export class DForceTestUtils {
     const collateralAmount = collateralAmountRequired && holderBalance.gt(collateralAmountRequired)
       ? collateralAmountRequired
       : holderBalance;
+    console.log("Balance TC--5", await IERC20__factory.connect(borrowToken.address, deployer).balanceOf(await controller.tetuConverter()));
 
     // collateral asset
     await collateralToken.token
       .connect(await DeployerUtils.startImpersonate(collateralHolder))
       .transfer(userContract.address, collateralAmount);
+    console.log("Balance TC--6", await IERC20__factory.connect(borrowToken.address, deployer).balanceOf(await controller.tetuConverter()));
 
     // calculate max allowed amount to borrow
     const countBlocks = 1;
@@ -194,6 +206,7 @@ export class DForceTestUtils {
       countBlocks
     );
     console.log("plan", plan);
+    console.log("Balance TC--7", await IERC20__factory.connect(borrowToken.address, deployer).balanceOf(await controller.tetuConverter()));
 
     return {
       controller,
