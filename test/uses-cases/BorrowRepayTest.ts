@@ -27,11 +27,6 @@ describe("BorrowRepayTest", () => {
   let snapshot: string;
   let snapshotForEach: string;
   let deployer: SignerWithAddress;
-  let user1: SignerWithAddress;
-  let user2: SignerWithAddress;
-  let user3: SignerWithAddress;
-  let user4: SignerWithAddress;
-  let user5: SignerWithAddress;
 //endregion Global vars for all tests
 
 //region before, after
@@ -39,12 +34,10 @@ describe("BorrowRepayTest", () => {
     this.timeout(1200000);
     snapshot = await TimeUtils.snapshot();
     const signers = await ethers.getSigners();
-    deployer = signers[0];
-    user1 = signers[2];
-    user2 = signers[3];
-    user3 = signers[4];
-    user4 = signers[5];
-    user5 = signers[6];
+    // we use signers[1] instead signers[0] here because of weird problem
+    // if signers[0] is used than newly created TetuConverter contract has not-zero USDC balance
+    // and some tests don't pass
+    deployer = signers[1];
   });
 
   after(async function () {
@@ -77,8 +70,8 @@ describe("BorrowRepayTest", () => {
           describe("Mock", () => {
             it("should return expected balances", async () => {
               if (!await isPolygonForkInUse()) return;
-              const ret = await BorrowRepayUsesCase.makeTestSingleBorrowInstantRepay_Mock(deployer
-                , {
+              const ret = await BorrowRepayUsesCase.makeTestSingleBorrowInstantRepay_Mock(deployer,
+                {
                   collateral: {
                     asset: ASSET_COLLATERAL,
                     holder: HOLDER_COLLATERAL,
@@ -364,10 +357,10 @@ describe("BorrowRepayTest", () => {
           const ASSET_COLLATERAL = MaticAddresses.WMATIC;
           const HOLDER_COLLATERAL = MaticAddresses.HOLDER_WMATIC;
           const ASSET_BORROW = MaticAddresses.USDC;
-          const HOLDER_BORROW = MaticAddresses.HOLDER_USDC;
+          const HOLDERS_BORROW = MaticAddresses.HOLDER_USDC;
           const AMOUNT_COLLATERAL = 1_000;
-          const INITIAL_LIQUIDITY_COLLATERAL = 1_000_000;
-          const INITIAL_LIQUIDITY_BORROW = 80_000;
+          const INITIAL_LIQUIDITY_COLLATERAL = 10_000;
+          const INITIAL_LIQUIDITY_BORROW = 8_000;
           const HEALTH_FACTOR2 = 200;
           const COUNT_BLOCKS = 1;
           describe("Mock", () => {
@@ -382,7 +375,7 @@ describe("BorrowRepayTest", () => {
                   },
                   borrow: {
                     asset: ASSET_BORROW,
-                    holder: HOLDER_BORROW,
+                    holder: HOLDERS_BORROW,
                     initialLiquidity: INITIAL_LIQUIDITY_BORROW,
                   },
                   collateralAmount: AMOUNT_COLLATERAL,
@@ -418,7 +411,7 @@ describe("BorrowRepayTest", () => {
                   },
                   borrow: {
                     asset: ASSET_BORROW,
-                    holder: HOLDER_BORROW,
+                    holder: HOLDERS_BORROW,
                     initialLiquidity: INITIAL_LIQUIDITY_BORROW,
                   },
                   collateralAmount: AMOUNT_COLLATERAL,
@@ -445,7 +438,7 @@ describe("BorrowRepayTest", () => {
                   },
                   borrow: {
                     asset: ASSET_BORROW,
-                    holder: HOLDER_BORROW,
+                    holder: HOLDERS_BORROW,
                     initialLiquidity: INITIAL_LIQUIDITY_BORROW,
                   },
                   collateralAmount: AMOUNT_COLLATERAL,
@@ -472,7 +465,7 @@ describe("BorrowRepayTest", () => {
                   },
                   borrow: {
                     asset: ASSET_BORROW,
-                    holder: HOLDER_BORROW,
+                    holder: HOLDERS_BORROW,
                     initialLiquidity: INITIAL_LIQUIDITY_BORROW,
                   },
                   collateralAmount: AMOUNT_COLLATERAL,
@@ -499,7 +492,7 @@ describe("BorrowRepayTest", () => {
                   },
                   borrow: {
                     asset: ASSET_BORROW,
-                    holder: HOLDER_BORROW,
+                    holder: HOLDERS_BORROW,
                     initialLiquidity: INITIAL_LIQUIDITY_BORROW,
                   },
                   collateralAmount: AMOUNT_COLLATERAL,
@@ -521,8 +514,8 @@ describe("BorrowRepayTest", () => {
           const ASSET_BORROW = MaticAddresses.USDT;
           const HOLDER_BORROW = MaticAddresses.HOLDER_USDT;
           const AMOUNT_COLLATERAL = 100_000;
-          const INITIAL_LIQUIDITY_COLLATERAL = 1_000_000;
-          const INITIAL_LIQUIDITY_BORROW = 80_000;
+          const INITIAL_LIQUIDITY_COLLATERAL = 130_000;
+          const INITIAL_LIQUIDITY_BORROW = 8_000;
           const HEALTH_FACTOR2 = 200;
           const COUNT_BLOCKS = 1;
           describe("Mock", () => {
@@ -677,8 +670,8 @@ describe("BorrowRepayTest", () => {
           const AMOUNT_COLLATERAL = 1_000;
           const AMOUNT_COLLATERAL2 = 3_000;
           const AMOUNT_REPAY1 = 10;
-          const INITIAL_LIQUIDITY_COLLATERAL = 100_000;
-          const INITIAL_LIQUIDITY_BORROW = 80_000;
+          const INITIAL_LIQUIDITY_COLLATERAL = 10_000;
+          const INITIAL_LIQUIDITY_BORROW = 8_000;
           const HEALTH_FACTOR2 = 200;
           const COUNT_BLOCKS = 1;
           const DELTA_BLOCKS_BORROW = 100;
@@ -686,8 +679,8 @@ describe("BorrowRepayTest", () => {
           describe("Mock", () => {
             it("should return expected balances", async () => {
               if (!await isPolygonForkInUse()) return;
-              const ret = await BorrowRepayUsesCase.makeTestTwoBorrowsTwoRepays_Mock(deployer
-                , {
+              const ret = await BorrowRepayUsesCase.makeTestTwoBorrowsTwoRepays_Mock(deployer,
+                {
                   collateral: {
                     asset: ASSET_COLLATERAL,
                     holder: HOLDER_COLLATERAL,
@@ -847,21 +840,21 @@ describe("BorrowRepayTest", () => {
       });
 
       describe("Check gas limits - single borrow, single instant complete repay", () => {
-        describe("Dai=>USDC", () => {
-          const ASSET_COLLATERAL = MaticAddresses.DAI;
-          const HOLDER_COLLATERAL = MaticAddresses.HOLDER_DAI;
-          const ASSET_BORROW = MaticAddresses.USDC;
-          const HOLDER_BORROW = MaticAddresses.HOLDER_USDC;
-          const AMOUNT_COLLATERAL = 1_000;
-          const INITIAL_LIQUIDITY_COLLATERAL = 100_000;
-          const INITIAL_LIQUIDITY_BORROW = 80_000;
+        describe("USDC=>USDT", () => {
+          const ASSET_COLLATERAL = MaticAddresses.USDC;
+          const HOLDER_COLLATERAL = MaticAddresses.HOLDER_USDC;
+          const ASSET_BORROW = MaticAddresses.USDT;
+          const HOLDER_BORROW = MaticAddresses.HOLDER_USDT;
+          const AMOUNT_COLLATERAL = 100_000;
+          const INITIAL_LIQUIDITY_COLLATERAL = 130_000;
+          const INITIAL_LIQUIDITY_BORROW = 8_000;
           const HEALTH_FACTOR2 = 200;
           const COUNT_BLOCKS = 1;
           describe("AAVE.v3", () => {
             it("should not exceed gas limit", async () => {
               if (!await isPolygonForkInUse()) return;
-              const r = await BorrowRepayUsesCase.makeTestSingleBorrowInstantRepay(deployer
-                , {
+              const r = await BorrowRepayUsesCase.makeTestSingleBorrowInstantRepay(deployer,
+                {
                   collateral: {
                     asset: ASSET_COLLATERAL,
                     holder: HOLDER_COLLATERAL,
@@ -875,9 +868,9 @@ describe("BorrowRepayTest", () => {
                   collateralAmount: AMOUNT_COLLATERAL,
                   healthFactor2: HEALTH_FACTOR2,
                   countBlocks: COUNT_BLOCKS,
-                }, new Aave3PlatformFabric()
-                , {}
-                , true
+                }, new Aave3PlatformFabric(),
+                {},
+                true
               );
               expect(r.gasUsedByPaInitialization && r.gasUsedByBorrow && r.gasUsedByRepay).eq(true);
               if (r.gasUsedByPaInitialization) {

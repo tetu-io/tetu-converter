@@ -95,54 +95,54 @@ export class BorrowRepayUsesCase {
     indexBorrow: number = 0,
     indexRepay: number = 1,
   ) : {sret: string, sexpected: string} {
-    // console.log("c0", c0);
-    // console.log("b0", b0);
-    // console.log("collateralAmount", collateralAmount);
-    // console.log("userBalances", userBalances);
-    // console.log("borrowBalances", borrowBalances);
-    // console.log("totalBorrowedAmount", totalBorrowedAmount);
-    // console.log("totalRepaidAmount", totalRepaidAmount);
+    console.log("c0", c0);
+    console.log("b0", b0);
+    console.log("collateralAmount", collateralAmount);
+    console.log("userBalances", userBalances);
+    console.log("borrowBalances", borrowBalances);
+    console.log("totalBorrowedAmount", totalBorrowedAmount);
+    console.log("totalRepaidAmount", totalRepaidAmount);
     const sret = [
       // collateral after borrow
-      userBalances[indexBorrow].collateral
+      userBalances[indexBorrow].collateral,
       // borrowed amount > 0
-      , !totalBorrowedAmount.eq(BigNumber.from(0))
+      !totalBorrowedAmount.eq(BigNumber.from(0)),
       // contract borrow balance - initial borrow balance == borrowed amount
-      , userBalances[indexBorrow].borrow.sub(b0)
+      userBalances[indexBorrow].borrow.sub(b0),
 
       // after repay
       // collateral >= initial collateral
-      , expectations.resultCollateralCanBeLessThenInitial
+      expectations.resultCollateralCanBeLessThenInitial
         ? areAlmostEqual(userBalances[indexRepay].collateral, c0)
-        : userBalances[indexRepay].collateral.gte(c0)
+        : userBalances[indexRepay].collateral.gte(c0),
       // borrowed balance <= initial borrowed balance
-      , b0.gte(userBalances[indexRepay].borrow)
+      b0.gte(userBalances[indexRepay].borrow),
       // contract borrowed balance is 0
-      , borrowBalances[indexRepay]
+      borrowBalances[indexRepay],
 
       // paid amount >= borrowed amount
-      , totalRepaidAmount.gte(totalBorrowedAmount)
+      totalRepaidAmount.gte(totalBorrowedAmount),
     ].map(x => BalanceUtils.toString(x)).join("\n");
 
     const sexpected = [
       // collateral after borrow
-      c0.sub(collateralAmount)
+      c0.sub(collateralAmount),
       // borrowed amount > 0
-      , true
+      true,
       // contract borrow balance == borrowed amount
-      , totalBorrowedAmount
+      totalBorrowedAmount,
 
       // after repay
       // collateral >= initial collateral
       // TODO: hundred finance has supply fee, so we check collateral ~ initial collateral
-      , true
+      true,
       // borrowed balance <= initial borrowed balance
-      , true
+      true,
       // contract borrowed balance is 0
-      , BigNumber.from(0)
+      BigNumber.from(0),
 
       // paid amount >= borrowed amount
-      , true
+      true
 
     ].map(x => BalanceUtils.toString(x)).join("\n");
 
@@ -255,34 +255,36 @@ export class BorrowRepayUsesCase {
     const {controller} = await TetuConverterApp.buildApp(
       deployer,
       [fabric],
-      {tetuLiquidatorAddress: MaticAddresses.TETU_LIQUIDATOR}
+      {}
     );
     const uc = await MocksHelper.deployBorrower(deployer.address, controller, p.countBlocks);
 
-    const c0 = await setInitialBalance(deployer
-      , collateralToken.address
-      , p.collateral.holder, p.collateral.initialLiquidity, uc.address);
-    const b0 = await setInitialBalance(deployer
-      , borrowToken.address
-      , p.borrow.holder, p.borrow.initialLiquidity, uc.address);
+    const c0 = await setInitialBalance(deployer,
+      collateralToken.address,
+      p.collateral.holder, p.collateral.initialLiquidity, uc.address);
+    const b0 = await setInitialBalance(deployer,
+      borrowToken.address,
+      p.borrow.holder, p.borrow.initialLiquidity, uc.address);
     const collateralAmount = getBigNumberFrom(p.collateralAmount, collateralToken.decimals);
+    console.log("Balance of collateral of the user", await collateralToken.token.balanceOf(uc.address));
+    console.log("Balance of borrow of the user", await borrowToken.token.balanceOf(uc.address));
 
     const {
       userBalances,
       borrowBalances
-    } = await BorrowRepayUsesCase.makeBorrowRepayActions(deployer
-      , uc
-      , [
+    } = await BorrowRepayUsesCase.makeBorrowRepayActions(deployer,
+      uc,
+      [
         new BorrowAction(
-          collateralToken
-          , collateralAmount
-          , borrowToken
+          collateralToken,
+          collateralAmount,
+          borrowToken,
         ),
         new RepayAction(
-          collateralToken
-          , borrowToken
-          , amountToRepay
-          , {}
+          collateralToken,
+          borrowToken,
+          amountToRepay,
+          {}
         )
       ]
     );
@@ -317,7 +319,7 @@ export class BorrowRepayUsesCase {
     const {controller} = await TetuConverterApp.buildApp(
       deployer,
       [fabric],
-      {tetuLiquidatorAddress: MaticAddresses.TETU_LIQUIDATOR}
+      {} // disable swap
     );
     const uc = await MocksHelper.deployBorrower(deployer.address, controller, p.countBlocks);
 
@@ -326,42 +328,42 @@ export class BorrowRepayUsesCase {
 
     const amountToRepay = undefined; // full repay
 
-    const c0 = await setInitialBalance(deployer, collateralToken.address
-      , p.collateral.holder, p.collateral.initialLiquidity, uc.address);
-    const b0 = await setInitialBalance(deployer, borrowToken.address
-      , p.borrow.holder, p.borrow.initialLiquidity, uc.address);
+    const c0 = await setInitialBalance(deployer, collateralToken.address,
+      p.collateral.holder, p.collateral.initialLiquidity, uc.address);
+    const b0 = await setInitialBalance(deployer, borrowToken.address,
+      p.borrow.holder, p.borrow.initialLiquidity, uc.address);
     const collateralAmount = getBigNumberFrom(p.collateralAmount, collateralToken.decimals);
 
     const borrowAction = new BorrowAction(
-      collateralToken
-      , collateralAmount
-      , borrowToken
-      , p.countBlocks
-      , checkGasUsed
+      collateralToken,
+      collateralAmount,
+      borrowToken,
+      p.countBlocks,
+      checkGasUsed,
     );
 
     const repayAction = new RepayAction(
-      collateralToken
-      , borrowToken
-      , amountToRepay
-      , {
+      collateralToken,
+      borrowToken,
+      amountToRepay,
+      {
         controlGas: checkGasUsed
       }
     );
 
     const preInitializePaAction = new RegisterPoolAdapterAction(
-      collateralToken
-      , collateralAmount
-      , borrowToken
-      , checkGasUsed
+      collateralToken,
+      collateralAmount,
+      borrowToken,
+      checkGasUsed
     );
 
     const {
       userBalances,
       borrowBalances
-    } = await BorrowRepayUsesCase.makeBorrowRepayActions(deployer
-      , uc
-      , checkGasUsed
+    } = await BorrowRepayUsesCase.makeBorrowRepayActions(deployer,
+      uc,
+      checkGasUsed
         ? [preInitializePaAction, borrowAction, repayAction]
         : [borrowAction, repayAction]
     );
@@ -392,14 +394,14 @@ export class BorrowRepayUsesCase {
     const r = await BorrowRepayUsesCase.makeTestSingleBorrowInstantRepayBase(deployer, p, fabric, checkGasUsed);
 
     const ret = BorrowRepayUsesCase.getSingleBorrowSingleRepayResults(
-      r.ucBalanceCollateral0
-      , r.ucBalanceBorrow0
-      , r.collateralAmount
-      , r.userBalances
-      , r.borrowBalances
-      , await r.uc.totalBorrowedAmount()
-      , await r.uc.totalAmountBorrowAssetRepaid()
-      , expectations
+      r.ucBalanceCollateral0,
+      r.ucBalanceBorrow0,
+      r.collateralAmount,
+      r.userBalances,
+      r.borrowBalances,
+      await r.uc.totalBorrowedAmount(),
+      await r.uc.totalAmountBorrowAssetRepaid(),
+      expectations
     );
 
     return {
@@ -443,14 +445,14 @@ export class BorrowRepayUsesCase {
     const {controller} = await TetuConverterApp.buildApp(
       deployer,
       [fabric],
-      {tetuLiquidatorAddress: MaticAddresses.TETU_LIQUIDATOR}
+      {} // disable swap
     );
     const uc = await MocksHelper.deployBorrower(deployer.address, controller, p.countBlocks);
 
-    const c0 = await setInitialBalance(deployer, collateralToken.address
-      , p.collateral.holder, p.collateral.initialLiquidity, uc.address);
-    const b0 = await setInitialBalance(deployer, borrowToken.address
-      , p.borrow.holder, p.borrow.initialLiquidity, uc.address);
+    const c0 = await setInitialBalance(deployer, collateralToken.address,
+      p.collateral.holder, p.collateral.initialLiquidity, uc.address);
+    const b0 = await setInitialBalance(deployer, borrowToken.address,
+      p.borrow.holder, p.borrow.initialLiquidity, uc.address);
 
     const collateralAmount1 = getBigNumberFrom(p.collateralAmount, collateralToken.decimals);
     const collateralAmount2 = getBigNumberFrom(p.collateralAmount2, collateralToken.decimals);
@@ -458,19 +460,19 @@ export class BorrowRepayUsesCase {
     // we need an address of the mock pool adapter, so let's initialize the pool adapter right now
     const bm = BorrowManager__factory.connect(await controller.borrowManager(), deployer);
     const platformAdapter = IPlatformAdapter__factory.connect(await bm.platformAdaptersAt(0), deployer);
-    const bmAsTc = BorrowManager__factory.connect(await controller.borrowManager()
-      , await DeployerUtils.startImpersonate(await controller.tetuConverter())
+    const bmAsTc = BorrowManager__factory.connect(await controller.borrowManager(),
+      await DeployerUtils.startImpersonate(await controller.tetuConverter())
     );
     const converter = (await platformAdapter.converters())[0];
-    await bmAsTc.registerPoolAdapter(converter
-      , uc.address
-      , collateralToken.address
-      , borrowToken.address
+    await bmAsTc.registerPoolAdapter(converter,
+      uc.address,
+      collateralToken.address,
+      borrowToken.address,
     );
-    const poolAdapter = await bm.getPoolAdapter(converter
-      , uc.address
-      , collateralToken.address
-      , borrowToken.address
+    const poolAdapter = await bm.getPoolAdapter(converter,
+      uc.address,
+      collateralToken.address,
+      borrowToken.address,
     );
     // TetuConverter gives infinity approve to the pool adapter after pool adapter creation (see TetuConverter.convert implementation)
     await makeInfinityApprove(
@@ -483,33 +485,33 @@ export class BorrowRepayUsesCase {
     const {
       userBalances,
       borrowBalances
-    } = await BorrowRepayUsesCase.makeBorrowRepayActions(deployer
-      , uc
-      , [
+    } = await BorrowRepayUsesCase.makeBorrowRepayActions(deployer,
+      uc,
+      [
         new BorrowMockAction(
-          collateralToken
-          , collateralAmount1
-          , borrowToken
-          , p.deltaBlocksBetweenBorrows
-          , poolAdapter
+          collateralToken,
+          collateralAmount1,
+          borrowToken,
+          p.deltaBlocksBetweenBorrows,
+          poolAdapter,
         ),
         new BorrowMockAction(
-          collateralToken
-          , collateralAmount2
-          , borrowToken
-          , p.countBlocks
+          collateralToken,
+          collateralAmount2,
+          borrowToken,
+          p.countBlocks,
         ),
         new RepayMockAction(
-          collateralToken
-          , borrowToken
-          , amountToRepay1
-          , p.deltaBlocksBetweenRepays
-          , poolAdapter
+          collateralToken,
+          borrowToken,
+          amountToRepay1,
+          p.deltaBlocksBetweenRepays,
+          poolAdapter,
         ),
         new RepayMockAction(
-          collateralToken
-          , borrowToken
-          , amountToRepay2
+          collateralToken,
+          borrowToken,
+          amountToRepay2,
         ),
       ]
     );
@@ -537,7 +539,7 @@ export class BorrowRepayUsesCase {
     const {controller} = await TetuConverterApp.buildApp(
       deployer,
       [fabric],
-      {tetuLiquidatorAddress: MaticAddresses.TETU_LIQUIDATOR}
+      {} // disable swap
     );
     const uc = await MocksHelper.deployBorrower(deployer.address, controller, p.countBlocks);
 

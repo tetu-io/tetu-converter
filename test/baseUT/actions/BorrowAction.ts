@@ -30,22 +30,14 @@ export class BorrowAction implements IBorrowAction {
   async doAction(user: Borrower) : Promise<IUserBalances> {
     let gasUsed: BigNumber | undefined;
 
-    if (this.controlGas) {
-      console.log("doAction.start borrowMaxAmount");
-      gasUsed = await user.estimateGas.borrowMaxAmount(
-        this.collateralToken.address,
-        this.collateralAmount,
-        this.borrowToken.address,
-        user.address
-      );
-      console.log("doAction.end", gasUsed);
-    }
-    await user.borrowMaxAmount(
+    const tx = await user.borrowMaxAmount(
       this.collateralToken.address,
       this.collateralAmount,
       this.borrowToken.address,
       user.address
     );
+    const cr = await tx.wait();
+    gasUsed = (await cr).gasUsed;
 
     if (this.countBlocksToSkipAfterAction) {
       await TimeUtils.advanceNBlocks(this.countBlocksToSkipAfterAction);

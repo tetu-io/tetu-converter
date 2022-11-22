@@ -20,7 +20,6 @@ import "../interfaces/IConverter.sol";
 import "../interfaces/ISwapConverter.sol";
 import "../interfaces/IKeeperCallback.sol";
 import "../interfaces/ITetuConverterCallback.sol";
-import "hardhat/console.sol";
 
 /// @notice Main application contract
 contract TetuConverter is ITetuConverter, IKeeperCallback, ReentrancyGuard {
@@ -321,8 +320,6 @@ contract TetuConverter is ITetuConverter, IKeeperCallback, ReentrancyGuard {
     uint returnedBorrowAmountOut
   ) {
     require(receiver_ != address(0), AppErrors.ZERO_ADDRESS);
-    console.log("Repay.amountToRepay_", amountToRepay_);
-    console.log("Repay.IERC20(borrowAsset_).balanceOf(address(this)", IERC20(borrowAsset_).balanceOf(address(this)));
 
     // ensure that we have received required amount
     require(amountToRepay_ == IERC20(borrowAsset_).balanceOf(address(this)), AppErrors.WRONG_AMOUNT_RECEIVED);

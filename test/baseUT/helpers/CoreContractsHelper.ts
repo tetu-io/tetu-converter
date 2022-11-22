@@ -76,7 +76,6 @@ export class CoreContractsHelper {
       "TetuConverter",
       controller
     )) as TetuConverter;
-    console.log("Balance TC--0000", await IERC20__factory.connect(MaticAddresses.USDC, signer).balanceOf(dest.address));
     return dest;
   }
 

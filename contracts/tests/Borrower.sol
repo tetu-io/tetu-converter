@@ -77,8 +77,9 @@ contract Borrower is ITetuConverterCallback {
     console.log("balance st on tc", IERC20(sourceAsset_).balanceOf(address(this)));
     // transfer collateral to TC
     require(IERC20(sourceAsset_).balanceOf(address(this)) >= sourceAmount_
-      , "wrong balance st on tc");
+      , "borrowMaxAmount:borrower has wrong balance of collateral");
     IERC20(sourceAsset_).safeTransfer(_controller.tetuConverter(), sourceAmount_);
+    console.log("Send to tetu converter:", sourceAsset_, sourceAmount_);
 
     // borrow and receive borrowed-amount to receiver's balance
     ITetuConverter tc = _tc();
@@ -90,7 +91,8 @@ contract Borrower is ITetuConverterCallback {
       maxTargetAmount,
       receiver_
     );
-    console.log("makeBorrowUC1.1 done gasleft6", gasleft());
+    console.log("borrowMaxAmount done gasleft6", gasleft());
+    console.log("Borrowed amount", borrowedAmountOut, "were sent to receiver", receiver_);
 
     totalBorrowedAmount += maxTargetAmount;
   }
@@ -127,7 +129,7 @@ contract Borrower is ITetuConverterCallback {
     console.log("converter", converter);
     console.log("balance st on tc", IERC20(sourceAsset_).balanceOf(address(this)));
     // transfer collateral to TC
-    require(IERC20(sourceAsset_).balanceOf(address(this)) >= sourceAmount_, "wrong balance st on tc");
+    require(IERC20(sourceAsset_).balanceOf(address(this)) >= sourceAmount_, "borrowExactAmount:wrong balance st on tc");
     IERC20(sourceAsset_).safeTransfer(_controller.tetuConverter(), sourceAmount_);
     console.log("Collateral amount was passed to tetu converter");
 

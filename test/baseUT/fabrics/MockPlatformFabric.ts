@@ -25,13 +25,13 @@ export class MockPlatformFabric implements ILendingPlatformFabric {
   public prices: BigNumber[];
 
   constructor (
-    underlyings: string[]
-    , borrowRates: BigNumber[]
-    , collateralFactors: number[]
-    , liquidity: number[]
-    , holders: string[]
-    , cTokens: CTokenMock[]
-    , prices: BigNumber[]
+    underlyings: string[],
+    borrowRates: BigNumber[],
+    collateralFactors: number[],
+    liquidity: number[],
+    holders: string[],
+    cTokens: CTokenMock[],
+    prices: BigNumber[],
   ) {
     this.assets = underlyings;
     this.borrowRates = borrowRates;
@@ -44,21 +44,21 @@ export class MockPlatformFabric implements ILendingPlatformFabric {
   async createAndRegisterPools(deployer: SignerWithAddress, controller: IController) : Promise<IERC20[]> {
     const pool = await MocksHelper.createPoolStub(deployer);
     const converter = await MocksHelper.createPoolAdapterMock(deployer);
-    const priceOracle = (await DeployUtils.deployContract(deployer, "PriceOracleMock"
-      , this.assets || []
-      , this.prices || []
+    const priceOracle = (await DeployUtils.deployContract(deployer, "PriceOracleMock",
+      this.assets || [],
+      this.prices || [],
     )) as PriceOracleMock;
 
     const liquidity = await Promise.all(
-      this.liquidityNumbers.map( async (x, index) => {
+      this.liquidityNumbers.map(async (x, index) => {
         return getBigNumberFrom(x, await this.cTokens[index].decimals())
       })
     );
     for (let i = 0; i < this.holders.length; ++i) {
-      await BalanceUtils.getAmountFromHolder(this.assets[i]
-        , this.holders[i]
-        , pool.address
-        , this.liquidityNumbers[i]
+      await BalanceUtils.getAmountFromHolder(this.assets[i],
+        this.holders[i],
+        pool.address,
+        this.liquidityNumbers[i],
       );
     }
 
@@ -77,9 +77,9 @@ export class MockPlatformFabric implements ILendingPlatformFabric {
 
     const bm = IBorrowManager__factory.connect(await controller.borrowManager(), deployer);
     const assetPairs = generateAssetPairs(this.assets);
-    await bm.addAssetPairs(platformAdapter.address
-      , assetPairs.map(x => x.smallerAddress)
-      , assetPairs.map(x => x.biggerAddress)
+    await bm.addAssetPairs(platformAdapter.address,
+      assetPairs.map(x => x.smallerAddress),
+      assetPairs.map(x => x.biggerAddress),
     );
 
     console.log("Mock pool was added to BM", platformAdapter.address);
