@@ -20,7 +20,16 @@ export class Aave3Utils {
         expectedMaxAmountToBorrow = BigNumber.from(0);
       } else {
         if (totalDebt.add(expectedMaxAmountToBorrow).gt(borrowCap)) {
-          expectedMaxAmountToBorrow = borrowCap.sub(totalDebt);
+          // we should use actual values of totalStableDebt and totalVariableDebt
+          // they can be a bit different from stored values
+          // as result, it's not possible to borrow exact max amount
+          // it's necessary to borrow a bit less amount
+          // so, we allow to borrow only 90% of max amount
+          // see MAX_BORROW_AMOUNT_FACTOR, MAX_BORROW_AMOUNT_FACTOR_DENOMINATOR
+          expectedMaxAmountToBorrow = borrowCap
+            .sub(totalDebt)
+            .mul(90)
+            .div(100);
         }
       }
     }

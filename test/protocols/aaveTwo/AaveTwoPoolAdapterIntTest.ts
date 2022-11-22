@@ -2,8 +2,6 @@ import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import {ethers} from "hardhat";
 import {TimeUtils} from "../../../scripts/utils/TimeUtils";
 import {
-  AaveTwoPoolAdapter__factory,
-  BorrowManager__factory,
   IERC20Extended__factory,
   IPoolAdapter__factory
 } from "../../../typechain";
@@ -21,28 +19,9 @@ import {
   AaveMakeBorrowAndRepayUtils, IBorrowAndRepayBadParams,
   IMakeBorrowAndRepayResults
 } from "../../baseUT/protocols/aaveShared/aaveBorrowAndRepayUtils";
-import {
-  AaveRepayToRebalanceUtils,
-  IMakeRepayToRebalanceResults
-} from "../../baseUT/protocols/aaveShared/aaveRepayToRebalanceUtils";
-import {
-  AaveBorrowToRebalanceUtils,
-  IMakeBorrowToRebalanceBadPathParams,
-  IMakeBorrowToRebalanceResults
-} from "../../baseUT/protocols/aaveShared/aaveBorrowToRebalanceUtils";
 import {AaveBorrowUtils} from "../../baseUT/protocols/aaveShared/aaveBorrowUtils";
-import {
-  IMakeRepayRebalanceBadPathParams,
-  IMakeRepayToRebalanceInputParams
-} from "../../baseUT/protocols/shared/sharedDataTypes";
-import {SharedRepayToRebalanceUtils} from "../../baseUT/protocols/shared/sharedRepayToRebalanceUtils";
-import {makeInfinityApprove, transferAndApprove} from "../../baseUT/utils/transferUtils";
+import {transferAndApprove} from "../../baseUT/utils/transferUtils";
 import {AaveTwoTestUtils} from "../../baseUT/protocols/aaveTwo/AaveTwoTestUtils";
-import {AdaptersHelper} from "../../baseUT/helpers/AdaptersHelper";
-import {Misc} from "../../../scripts/utils/Misc";
-import {TetuConverterApp} from "../../baseUT/helpers/TetuConverterApp";
-import {MocksHelper} from "../../baseUT/helpers/MocksHelper";
-import {parseUnits} from "ethers/lib/utils";
 import {areAlmostEqual} from "../../baseUT/utils/CommonUtils";
 
 describe("AaveTwoPoolAdapterIntTest", () => {
@@ -102,23 +81,23 @@ describe("AaveTwoPoolAdapterIntTest", () => {
       // check results
       const ret = await d.aavePool.getUserAccountData(d.aavePoolAdapterAsTC.address);
 
+      const expectedCollateral = d.collateralAmount.mul(d.priceCollateral)  // registered collateral in the pool
+        .div(getBigNumberFrom(1, collateralToken.decimals));
+      const expectedDebt = borrowResults.borrowedAmount.mul(d.priceBorrow) // registered debt in the pool
+          .div(getBigNumberFrom(1, borrowToken.decimals));
+      // amount of collateral tokens on pool-adapter's balance
+      const collateralBalance = await IERC20Extended__factory.connect(borrowResults.collateralData.data.aTokenAddress, deployer)
+          .balanceOf(d.aavePoolAdapterAsTC.address);
+      // borrowed amount on user's balance
+      const borrowAssetBalance = await borrowToken.token.balanceOf(d.userContract.address);
       const sret = [
-        await borrowToken.token.balanceOf(d.userContract.address),
-        await IERC20Extended__factory.connect(borrowResults.collateralData.data.aTokenAddress, deployer)
-          .balanceOf(d.aavePoolAdapterAsTC.address),
-        ret.totalCollateralETH,
-        ret.totalDebtETH,
+        areAlmostEqual(collateralBalance, d.collateralAmount),
+        areAlmostEqual(borrowAssetBalance, borrowResults.borrowedAmount),
+        areAlmostEqual(ret.totalCollateralETH, expectedCollateral),
+        areAlmostEqual(ret.totalDebtETH, expectedDebt)
       ].map(x => BalanceUtils.toString(x)).join("\n");
 
-
-      const sexpected = [
-        borrowResults.borrowedAmount, // borrowed amount on user's balance
-        d.collateralAmount, // amount of collateral tokens on pool-adapter's balance
-        d.collateralAmount.mul(d.priceCollateral)  // registered collateral in the pool
-          .div(getBigNumberFrom(1, collateralToken.decimals)),
-        borrowResults.borrowedAmount.mul(d.priceBorrow) // registered debt in the pool
-          .div(getBigNumberFrom(1, borrowToken.decimals)),
-      ].map(x => BalanceUtils.toString(x)).join("\n");
+      const sexpected = [true, true, true, true].map(x => BalanceUtils.toString(x)).join("\n");
 
       return {sret, sexpected};
     }
@@ -153,24 +132,24 @@ describe("AaveTwoPoolAdapterIntTest", () => {
           it("should return expected balances", async () => {
             if (!await isPolygonForkInUse()) return;
 
-            const r = await AaveBorrowUtils.eursTether(
+            const r = await AaveBorrowUtils.usdcDai(
               deployer,
               makeBorrow,
-              100_000,
+              1_000,
               10
             );
             expect(r.ret).eq(r.expected);
           });
         });
-        describe("WBTC-8 : Tether-6", () => {
+        describe("WBTC : Tether-6", () => {
           it("should return expected balances", async () => {
             if (!await isPolygonForkInUse()) return;
 
             const r = await AaveBorrowUtils.wbtcTether(
               deployer,
               makeBorrow,
-              100,
-              10
+              1,
+              1
             );
             expect(r.ret).eq(r.expected);
           });
@@ -206,7 +185,7 @@ describe("AaveTwoPoolAdapterIntTest", () => {
           it("should return expected balances", async () => {
             if (!await isPolygonForkInUse()) return;
 
-            const r = await AaveBorrowUtils.eursTether(
+            const r = await AaveBorrowUtils.usdcDai(
               deployer,
               makeBorrow,
               undefined,
@@ -230,21 +209,7 @@ describe("AaveTwoPoolAdapterIntTest", () => {
         });
       });
     });
-    describe("Bad paths", () => {
-      describe("Not borrowable", () => {
-        it("", async () =>{
-          if (!await isPolygonForkInUse()) return;
-          expect.fail("TODO");
-        });
-      });
-      describe("Not usable as collateral", () => {
-        it("", async () =>{
-          if (!await isPolygonForkInUse()) return;
-          expect.fail("TODO");
-        });
-      });
-    });
-  });
+   });
 
   /**
    *                LTV                LiquidationThreshold

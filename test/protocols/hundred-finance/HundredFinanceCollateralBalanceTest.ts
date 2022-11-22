@@ -23,7 +23,7 @@ describe("HundredFinanceCollateralBalanceTest", () => {
   const borrowCTokenAddress = MaticAddresses.hETH;
   const borrowHolder = MaticAddresses.HOLDER_WETH
 
-  const collateralAmountNum = 1_000;
+  const collateralAmountNum = 10;
 //endregion Constants
 
 //region Global vars for all tests

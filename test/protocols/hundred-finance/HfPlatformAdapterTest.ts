@@ -194,6 +194,7 @@ describe("Hundred finance integration tests, platform adapter", () => {
       badPathsParams?.incorrectHealthFactor2 || healthFactor2,
       badPathsParams?.zeroCountBlocks ? 0 : countBlocks,
     );
+    console.log("PLAN", plan);
 
     return {
       plan,
@@ -378,6 +379,29 @@ describe("Hundred finance integration tests, platform adapter", () => {
 
           const borrowAsset = MaticAddresses.USDC;
           const borrowCToken = MaticAddresses.hUSDC;
+
+          const r = await makeTestComparePlanWithDirectCalculations(
+            collateralAsset,
+            collateralAmount,
+            borrowAsset,
+            collateralCToken,
+            borrowCToken
+          );
+          console.log(r);
+
+          expect(r.sret).eq(r.sexpected);
+        });
+      });
+      describe("USDC : WETH", () => {
+        it("should return expected values", async () => {
+          if (!await isPolygonForkInUse()) return;
+
+          const collateralAsset = MaticAddresses.WMATIC;
+          const collateralCToken = MaticAddresses.hMATIC;
+          const collateralAmount = getBigNumberFrom(10, 18);
+
+          const borrowAsset = MaticAddresses.WETH;
+          const borrowCToken = MaticAddresses.hETH;
 
           const r = await makeTestComparePlanWithDirectCalculations(
             collateralAsset,

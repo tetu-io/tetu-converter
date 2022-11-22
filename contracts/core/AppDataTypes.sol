@@ -25,8 +25,7 @@ library AppDataTypes {
     /// @notice Template adapter contract that implements required strategy.
     address converter;
     /// @notice Current collateral factor [0..1e18], where 1e18 is corresponded to CF=1
-    /// TODO: probably we need to use different decimals for the collateral factor to reduce size of this struct
-    uint liquidationThreshold18;
+     uint liquidationThreshold18;
 
     /// @notice Amount to borrow in terms of borrow asset
     uint amountToBorrow;
@@ -42,7 +41,6 @@ library AppDataTypes {
     uint amountCollateralInBorrowAsset36;
 
     /// @notice Loan-to-value, decimals = 18 (wad)
-    /// TODO: uint16? see aave..
     uint ltv18;
     /// @notice How much borrow asset we can borrow in the pool (in borrow tokens)
     uint maxAmountToBorrow;

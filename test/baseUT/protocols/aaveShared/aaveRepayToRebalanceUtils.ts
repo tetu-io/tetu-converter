@@ -2,17 +2,13 @@ import {BigNumber} from "ethers";
 import {MaticAddresses} from "../../../../scripts/addresses/MaticAddresses";
 import {TokenDataTypes} from "../../types/TokenDataTypes";
 import {getBigNumberFrom} from "../../../../scripts/utils/NumberUtils";
-import {ethers} from "hardhat";
 import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
-import {toStringWithRound} from "../../utils/CommonUtils";
-import {Borrower, IERC20__factory} from "../../../../typechain";
-import {DeployerUtils} from "../../../../scripts/utils/DeployerUtils";
 import {
-  IAmountToRepay,
   IAssetsInputParams,
   IMakeRepayRebalanceBadPathParams,
   IMakeRepayToRebalanceInputParams
 } from "../shared/sharedDataTypes";
+import {parseUnits} from "ethers/lib/utils";
 
 /**
  * Unification for both
@@ -68,7 +64,7 @@ export class AaveRepayToRebalanceUtils {
     console.log("collateralToken.decimals", collateralToken.decimals);
     console.log("borrowToken.decimals", borrowToken.decimals);
 
-    const collateralAmount = getBigNumberFrom(assets.collateralAmountStr, collateralToken.decimals);
+    const collateralAmount = parseUnits(assets.collateralAmountStr, collateralToken.decimals);
     console.log(collateralAmount, collateralAmount);
 
     const r = await makeRepayToRebalanceFunc({
@@ -130,7 +126,7 @@ export class AaveRepayToRebalanceUtils {
         borrowAsset,
         borrowHolder,
         collateralHolder,
-        collateralAmountStr: 100_000,
+        collateralAmountStr: "100000",
       },
       deployer,
       makeRepayToRebalanceFunc,
@@ -160,7 +156,7 @@ export class AaveRepayToRebalanceUtils {
         borrowAsset,
         borrowHolder,
         collateralHolder,
-        collateralAmountStr: 100_000,
+        collateralAmountStr: "100000",
       },
       deployer,
       makeRepayToRebalanceFunc,

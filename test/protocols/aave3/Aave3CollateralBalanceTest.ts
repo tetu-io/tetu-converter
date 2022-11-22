@@ -3,22 +3,15 @@ import {ethers} from "hardhat";
 import {TimeUtils} from "../../../scripts/utils/TimeUtils";
 import {expect} from "chai";
 import {
-  Aave3TestUtils, IAave3PoolAdapterState,
-  IInitialBorrowResults,
-  IPrepareToBorrowResults
+  Aave3TestUtils, IInitialBorrowResults
 } from "../../baseUT/protocols/aave3/Aave3TestUtils";
 import {TokenDataTypes} from "../../baseUT/types/TokenDataTypes";
 import {BigNumber} from "ethers";
-import {IPoolAdapterStatus} from "../../baseUT/types/BorrowRepayDataTypes";
 import {isPolygonForkInUse} from "../../baseUT/utils/NetworkUtils";
 import {MaticAddresses} from "../../../scripts/addresses/MaticAddresses";
 import {getBigNumberFrom} from "../../../scripts/utils/NumberUtils";
-import {BalanceUtils} from "../../baseUT/utils/BalanceUtils";
 import {SharedRepayToRebalanceUtils} from "../../baseUT/protocols/shared/sharedRepayToRebalanceUtils";
-import {IAave3UserAccountDataResults} from "../../baseUT/apr/aprAave3";
 import {areAlmostEqual} from "../../baseUT/utils/CommonUtils";
-import {IERC20__factory} from "../../../typechain";
-import {DeployerUtils} from "../../../scripts/utils/DeployerUtils";
 import {Aave3ChangePricesUtils} from "../../baseUT/protocols/aave3/Aave3ChangePricesUtils";
 
 describe("Aave3CollateralBalanceTest", () => {

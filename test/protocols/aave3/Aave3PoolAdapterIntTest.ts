@@ -2,9 +2,6 @@ import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import {ethers} from "hardhat";
 import {TimeUtils} from "../../../scripts/utils/TimeUtils";
 import {
-  Aave3PoolAdapter__factory,
-  DebtMonitor__factory,
-  BorrowManager__factory,
   IERC20Extended__factory, IPoolAdapter__factory
 } from "../../../typechain";
 import {expect} from "chai";
@@ -22,33 +19,13 @@ import {
   AaveMakeBorrowAndRepayUtils, IBorrowAndRepayBadParams,
   IMakeBorrowAndRepayResults
 } from "../../baseUT/protocols/aaveShared/aaveBorrowAndRepayUtils";
-import {
-  AaveRepayToRebalanceUtils,
-  IMakeRepayToRebalanceResults
-} from "../../baseUT/protocols/aaveShared/aaveRepayToRebalanceUtils";
-import {
-  AaveBorrowToRebalanceUtils,
-  IMakeBorrowToRebalanceBadPathParams,
-  IMakeBorrowToRebalanceResults
-} from "../../baseUT/protocols/aaveShared/aaveBorrowToRebalanceUtils";
 import {AaveBorrowUtils} from "../../baseUT/protocols/aaveShared/aaveBorrowUtils";
-import {
-  IMakeRepayRebalanceBadPathParams,
-  IMakeRepayToRebalanceInputParams
-} from "../../baseUT/protocols/shared/sharedDataTypes";
-import {SharedRepayToRebalanceUtils} from "../../baseUT/protocols/shared/sharedRepayToRebalanceUtils";
-import {makeInfinityApprove, transferAndApprove} from "../../baseUT/utils/transferUtils";
+import {transferAndApprove} from "../../baseUT/utils/transferUtils";
 import {
   Aave3TestUtils,
   IPrepareToBorrowResults,
-  IBorrowResults,
-  IMakeBorrowOrRepayBadPathsParams
 } from "../../baseUT/protocols/aave3/Aave3TestUtils";
-import {AdaptersHelper} from "../../baseUT/helpers/AdaptersHelper";
-import {TetuConverterApp} from "../../baseUT/helpers/TetuConverterApp";
-import {MocksHelper} from "../../baseUT/helpers/MocksHelper";
 import {parseUnits} from "ethers/lib/utils";
-import {areAlmostEqual} from "../../baseUT/utils/CommonUtils";
 
 describe("Aave3PoolAdapterIntTest", () => {
 //region Global vars for all tests
@@ -497,18 +474,26 @@ describe("Aave3PoolAdapterIntTest", () => {
         });
       });
 
-      describe("EURS : USDC", () => {
+      /**
+       * The test is disabled
+       * because currently there is not enough EURO
+       * to cover max allowed amount of USDC or DAI
+       */
+      describe.skip("EURS : DAI", () => {
         const collateralAsset = MaticAddresses.EURS;
-        const borrowAsset = MaticAddresses.USDC;
+        const borrowAsset = MaticAddresses.DAI;
         const collateralHolders = [
           MaticAddresses.HOLDER_EURS,
           MaticAddresses.HOLDER_EURS_2,
           MaticAddresses.HOLDER_EURS_3,
           MaticAddresses.HOLDER_EURS_4,
           MaticAddresses.HOLDER_EURS_5,
-          MaticAddresses.HOLDER_EURS_6
+          MaticAddresses.HOLDER_EURS_6,
+          MaticAddresses.HOLDER_EURS_7,
+          MaticAddresses.HOLDER_EURS_8,
+          MaticAddresses.HOLDER_EURS_9,
         ];
-        const borrowHolders = [MaticAddresses.HOLDER_USDC];
+        const borrowHolders = [MaticAddresses.HOLDER_DAI];
 
         describe("Try to borrow max amount allowed by debt ceiling", () => {
           it("should return expected values", async () => {

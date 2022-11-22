@@ -125,11 +125,11 @@ export class AaveBorrowUtils {
       : undefined;
 
     const r = await makeBorrowFunc(
-      collateralToken
-      , collateralHolder
-      , collateralAmount
-      , borrowToken
-      , borrowAmount
+      collateralToken,
+      collateralHolder,
+      collateralAmount,
+      borrowToken,
+      borrowAmount,
     );
 
     return {ret: r.sret, expected: r.sexpected};
@@ -156,11 +156,11 @@ export class AaveBorrowUtils {
       : undefined;
 
     const r = await makeBorrowFunc(
-      collateralToken
-      , collateralHolder
-      , collateralAmount
-      , borrowToken
-      , borrowAmount
+      collateralToken,
+      collateralHolder,
+      collateralAmount,
+      borrowToken,
+      borrowAmount
     );
     return {ret: r.sret, expected: r.sexpected};
   }
