@@ -91,7 +91,9 @@ describe("DForce integration tests, pool adapter", () => {
     ].map(x => BalanceUtils.toString(x)).join("\n");
 
     const sexpected = [
-      d.amountToBorrow, // borrowed amount on user's balance
+      borrowAmountRequired
+        ? borrowAmountRequired
+        : d.amountToBorrow, // borrowed amount on user's balance
       d.collateralAmount
         .mul(Misc.WEI)
         .div(borrowResults.marketsInfo.collateralData.exchangeRateStored),
@@ -174,6 +176,42 @@ describe("DForce integration tests, pool adapter", () => {
 
     return {ret: r.sret, expected: r.sexpected, prepareResults: r.prepareResults};
   }
+
+  async function testBorrowWbtcMatic(
+    collateralAmountNum: number | undefined,
+    borrowAmountNum: number | undefined
+  ) : Promise<{ret: string, expected: string, prepareResults: IPrepareToBorrowResults}> {
+    const collateralAsset = MaticAddresses.WBTC;
+    const collateralHolder = MaticAddresses.HOLDER_WBTC;
+    const collateralCTokenAddress = MaticAddresses.dForce_iWBTC;
+
+    const borrowAsset = MaticAddresses.WMATIC;
+    const borrowCTokenAddress = MaticAddresses.dForce_iMATIC;
+
+    const collateralToken = await TokenDataTypes.Build(deployer, collateralAsset);
+    const borrowToken = await TokenDataTypes.Build(deployer, borrowAsset);
+    const collateralCToken = await TokenDataTypes.Build(deployer, collateralCTokenAddress);
+    const borrowCToken = await TokenDataTypes.Build(deployer, borrowCTokenAddress);
+
+    const collateralAmount = collateralAmountNum
+      ? getBigNumberFrom(collateralAmountNum, collateralToken.decimals)
+      : undefined;
+    const borrowAmount = borrowAmountNum
+      ? getBigNumberFrom(borrowAmountNum, borrowToken.decimals)
+      : undefined;
+
+    const r = await makeBorrow(
+      collateralToken,
+      collateralCToken,
+      collateralHolder,
+      collateralAmount,
+      borrowToken,
+      borrowCToken,
+      borrowAmount,
+    );
+
+    return {ret: r.sret, expected: r.sexpected, prepareResults: r.prepareResults};
+  }
 //endregion Make borrow
 
 //region Unit tests
@@ -184,6 +222,13 @@ describe("DForce integration tests, pool adapter", () => {
           it("should return expected balances", async () => {
             if (!await isPolygonForkInUse()) return;
             const r = await testBorrowDaiUsdc(100_000, 10);
+            expect(r.ret).eq(r.expected);
+          });
+        });
+        describe("WBTC : Matic", () => {
+          it("should return expected balances", async () => {
+            if (!await isPolygonForkInUse()) return;
+            const r = await testBorrowWbtcMatic(1, 10);
             expect(r.ret).eq(r.expected);
           });
         });
@@ -202,20 +247,6 @@ describe("DForce integration tests, pool adapter", () => {
             const r = await testBorrowMaticEth(undefined, undefined);
             expect(r.ret).eq(r.expected);
           });
-        });
-      });
-    });
-    describe("Bad paths", () => {
-      describe("Not borrowable", () => {
-        it("", async () =>{
-          if (!await isPolygonForkInUse()) return;
-          expect.fail("TODO");
-        });
-      });
-      describe("Not usable as collateral", () => {
-        it("", async () =>{
-          if (!await isPolygonForkInUse()) return;
-          expect.fail("TODO");
         });
       });
     });
@@ -743,7 +774,7 @@ describe("DForce integration tests, pool adapter", () => {
                 repayAsNotUserAndNotTC: true
               }
             )
-          ).revertedWith("TC-32"); // USER_OR_TETU_CONVERTER_ONLY
+          ).revertedWith("TC-8"); // ETU_CONVERTER_ONLY
         });
       });
       describe("Transfer amount less than specified amount to repay", () => {

@@ -455,7 +455,8 @@ export class HundredFinanceTestUtils {
   public static async makeLiquidation(
     deployer: SignerWithAddress,
     d: IPrepareToBorrowResults,
-    borrowHolder: string
+    borrowHolder: string,
+    amountDivider: number = 5
   ) : Promise<ILiquidationResults> {
     const liquidatorAddress = ethers.Wallet.createRandom().address;
 
@@ -466,7 +467,11 @@ export class HundredFinanceTestUtils {
     const collateralCTokenAsLiquidator = IHfCToken__factory.connect(d.collateralCToken.address, liquidator);
     const accountBefore = await d.comptroller.getAccountLiquidity(borrowerAddress);
     const borrowPrice = await d.priceOracle.getUnderlyingPrice(d.borrowCToken.address);
-    const borrowDebt = d.amountToBorrow.div(2); // accountBefore.shortfall.mul(parseUnits("1", d.borrowToken.decimals)).div(borrowPrice).div(3);
+    // https://docs.hundred.finance/developers/liquidation
+    // Collateral factor CF (also known as Liquidation threshold),
+    // Close ratio set to 50%, means the liquidator can only pay 50% of the debt in a single transaction,
+    // Liquidation bonus set to 108%, means the liquidator can purchase the collateral at a 8% discount.
+    const borrowDebt = d.amountToBorrow.div(amountDivider); // accountBefore.shortfall.mul(parseUnits("1", d.borrowToken.decimals)).div(borrowPrice).div(3);
     console.log("borrowed amount", d.amountToBorrow);
     console.log("debt", borrowDebt);
 

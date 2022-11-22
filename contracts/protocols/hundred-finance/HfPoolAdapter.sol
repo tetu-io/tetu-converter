@@ -15,6 +15,7 @@ import "../../interfaces/ITokenAddressProvider.sol";
 import "../../integrations/hundred-finance/IHfHMatic.sol";
 import "../../integrations/IWmatic.sol";
 import "../../openzeppelin/Initializable.sol";
+import "hardhat/console.sol";
 
 /// @notice Implementation of IPoolAdapter for HundredFinance-protocol, see https://docs.hundred.finance/
 /// @dev Instances of this contract are created using proxy-minimal pattern, so no constructor
@@ -171,6 +172,7 @@ contract HfPoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP, Initializ
     // make borrow
     uint balanceBorrowAsset0 = _getBalance(assetBorrow);
     error = IHfCToken(cTokenBorrow).borrow(borrowAmount_);
+    console.log("BORROW ERROR", error);
     require(error == 0, AppErrors.BORROW_FAILED);
 
     // ensure that we have received required borrowed amount, send the amount to the receiver

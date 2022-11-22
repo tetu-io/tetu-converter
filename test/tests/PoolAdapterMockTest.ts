@@ -11,7 +11,6 @@ import {
 import {TimeUtils} from "../../scripts/utils/TimeUtils";
 import {BorrowManagerHelper} from "../baseUT/helpers/BorrowManagerHelper";
 import {DeployerUtils} from "../../scripts/utils/DeployerUtils";
-import {BigNumber} from "ethers";
 import {getBigNumberFrom} from "../../scripts/utils/NumberUtils";
 import {MocksHelper} from "../baseUT/helpers/MocksHelper";
 import {BalanceUtils, IContractToInvestigate} from "../baseUT/utils/BalanceUtils";

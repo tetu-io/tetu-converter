@@ -780,7 +780,7 @@ describe("Hundred finance integration tests, platform adapter", () => {
             platformAdapter.registerCTokens(
               [ethers.Wallet.createRandom().address] // (!)
             )
-          ).revertedWith("");
+          ).revertedWithoutReason();
         });
       });
     });

@@ -13,7 +13,6 @@ import {BigNumber} from "ethers";
 import {IERC20Extended__factory, SwapManager__factory} from "../../typechain";
 import {getBigNumberFrom} from "../../scripts/utils/NumberUtils";
 import {AprAave3} from "../baseUT/apr/aprAave3";
-import {CoreContractsHelper} from "../baseUT/helpers/CoreContractsHelper";
 import {AdaptersHelper} from "../baseUT/helpers/AdaptersHelper";
 import {AprAaveTwo} from "../baseUT/apr/aprAaveTwo";
 import {AprDForce} from "../baseUT/apr/aprDForce";

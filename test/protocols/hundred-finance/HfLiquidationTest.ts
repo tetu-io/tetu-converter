@@ -20,7 +20,7 @@ describe("HfLiquidationTest", () => {
   const borrowHolder = MaticAddresses.HOLDER_WETH;
 
   const CHANGE_PRICE_FACTOR_FULL_LIQUIDATION = 10;
-  const CHANGE_PRICE_FACTOR_PARTIAL_LIQUIDATION = 3;
+  const CHANGE_PRICE_FACTOR_PARTIAL_LIQUIDATION = 5;
   const collateralAmountNum = 1_000;
 //endregion Constants
 

@@ -17,6 +17,7 @@ import {TokenDataTypes} from "../../baseUT/types/TokenDataTypes";
 import {Misc} from "../../../scripts/utils/Misc";
 import {transferAndApprove} from "../../baseUT/utils/transferUtils";
 import {HundredFinanceTestUtils} from "../../baseUT/protocols/hundred-finance/HundredFinanceTestUtils";
+import {parseUnits} from "ethers/lib/utils";
 
 describe("Hundred Finance integration tests, pool adapter", () => {
 
@@ -188,20 +189,6 @@ describe("Hundred Finance integration tests, pool adapter", () => {
             const r = await testMaticEth(undefined, undefined);
             expect(r.ret).eq(r.expected);
           });
-        });
-      });
-    });
-    describe("Bad paths", () => {
-      describe("Not borrowable", () => {
-        it("", async () =>{
-          if (!await isPolygonForkInUse()) return;
-          expect.fail("TODO");
-        });
-      });
-      describe("Not usable as collateral", () => {
-        it("", async () =>{
-          if (!await isPolygonForkInUse()) return;
-          expect.fail("TODO");
         });
       });
     });
@@ -385,15 +372,15 @@ describe("Hundred Finance integration tests, pool adapter", () => {
       }
     }
 
-    //region Utils
+//region Utils
     async function collateralToBorrow(
       useMaxAvailableCollateral: boolean,
       fullRepay: boolean,
       initialBorrowAmountOnUserBalanceNum: number | undefined,
       collateral: IAssetInfo,
       borrow: IAssetInfo,
-      defaultCollateralAmount: number = 100_000,
-      defaultBorrowAmount: number = 10,
+      defaultCollateralAmount: string = "100000",
+      defaultBorrowAmount: string = "10",
       badPathParams?: IBorrowAndRepayBadParams
     ) : Promise<{ret: string, expected: string}> {
       const collateralToken = await TokenDataTypes.Build(deployer, collateral.asset);
@@ -403,10 +390,10 @@ describe("Hundred Finance integration tests, pool adapter", () => {
 
       const collateralAmount = useMaxAvailableCollateral
         ? undefined
-        : getBigNumberFrom(defaultCollateralAmount, collateralToken.decimals);
+        : parseUnits(defaultCollateralAmount, collateralToken.decimals);
       const borrowAmount = useMaxAvailableCollateral
         ? undefined
-        : getBigNumberFrom(defaultBorrowAmount, borrowToken.decimals);
+        : parseUnits(defaultBorrowAmount, borrowToken.decimals);
       const initialBorrowAmountOnUserBalance = getBigNumberFrom(
         initialBorrowAmountOnUserBalanceNum || 0,
         borrowToken.decimals
@@ -482,8 +469,8 @@ describe("Hundred Finance integration tests, pool adapter", () => {
           holder: borrowHolder,
           cToken: borrowCTokenAddress
         },
-        100_000,
-        10,
+        "100000",
+        "10",
         badPathParams
       );
     }
@@ -516,25 +503,25 @@ describe("Hundred Finance integration tests, pool adapter", () => {
           holder: borrowHolder,
           cToken: borrowCTokenAddress
         },
-        100_000,
-        10,
+        "100000",
+        "10",
         badPathParams
       );
     }
 
-    async function usdtWETH(
+    async function wbtcUSDT(
       useMaxAvailableCollateral: boolean,
       fullRepay: boolean,
       initialBorrowAmountOnUserBalanceNum?: number,
       badPathParams?: IBorrowAndRepayBadParams
     ) : Promise<{ret: string, expected: string}> {
-      const collateralAsset = MaticAddresses.USDT;
-      const collateralHolder = MaticAddresses.HOLDER_USDT;
-      const collateralCTokenAddress = MaticAddresses.hUSDT;
+      const collateralAsset = MaticAddresses.WBTC;
+      const collateralHolder = MaticAddresses.HOLDER_WBTC;
+      const collateralCTokenAddress = MaticAddresses.hWBTC;
 
-      const borrowAsset = MaticAddresses.WETH;
-      const borrowHolder = MaticAddresses.HOLDER_WETH;
-      const borrowCTokenAddress = MaticAddresses.hETH;
+      const borrowAsset = MaticAddresses.USDT;
+      const borrowHolder = MaticAddresses.HOLDER_USDT;
+      const borrowCTokenAddress = MaticAddresses.hUSDT;
 
       return collateralToBorrow(
         useMaxAvailableCollateral,
@@ -550,8 +537,8 @@ describe("Hundred Finance integration tests, pool adapter", () => {
           holder: borrowHolder,
           cToken: borrowCTokenAddress
         },
-        100_000_000,
-        1,
+        "10",
+        "10",
         badPathParams
       );
     }
@@ -584,8 +571,8 @@ describe("Hundred Finance integration tests, pool adapter", () => {
           holder: borrowHolder,
           cToken: borrowCTokenAddress
         },
-        100_000,
-        10,
+        "100000",
+        "10",
         badPathParams
       );
     }
@@ -610,11 +597,11 @@ describe("Hundred Finance integration tests, pool adapter", () => {
               expect(r.ret).eq(r.expected);
             });
           });
-          describe("USDT => WETH", () => {
+          describe("WBTC => USDT", () => {
             it("should return expected balances", async () => {
               if (!await isPolygonForkInUse()) return;
 
-              const r = await usdtWETH(
+              const r = await wbtcUSDT(
                 false,
                 false,
               );
