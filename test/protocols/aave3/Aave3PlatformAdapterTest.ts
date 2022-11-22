@@ -218,7 +218,7 @@ describe("Aave3PlatformAdapterTest", () => {
         await Aave3ChangePricesUtils.setReserveFreeze(deployer, collateralAsset);
       }
       if (badPathsParams?.setMinSupplyCap) {
-        await Aave3ChangePricesUtils.setMinSupplyCap(deployer, collateralAsset, );
+        await Aave3ChangePricesUtils.setMinSupplyCap(deployer, collateralAsset);
       }
       if (badPathsParams?.setMinBorrowCap) {
         await Aave3ChangePricesUtils.setMinBorrowCap(deployer, borrowAsset);

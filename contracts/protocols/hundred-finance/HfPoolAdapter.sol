@@ -15,7 +15,6 @@ import "../../interfaces/ITokenAddressProvider.sol";
 import "../../integrations/hundred-finance/IHfHMatic.sol";
 import "../../integrations/IWmatic.sol";
 import "../../openzeppelin/Initializable.sol";
-import "hardhat/console.sol";
 
 /// @notice Implementation of IPoolAdapter for HundredFinance-protocol, see https://docs.hundred.finance/
 /// @dev Instances of this contract are created using proxy-minimal pattern, so no constructor
@@ -497,9 +496,6 @@ contract HfPoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP, Initializ
 
     (, healthFactor18) = _getHealthFactor(cTokenCollateral, collateralBase, borrowBase);
 
-    console.log("collateralBase", collateralBase);
-    console.log("collateralPrice", collateralPrice);
-    console.log("collateralBase/collateralPrice", collateralBase/collateralPrice);
     return (
     // Total amount of provided collateral [collateral asset]
       collateralBase * 10**18 / collateralPrice,

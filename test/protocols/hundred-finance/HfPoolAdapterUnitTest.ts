@@ -1118,7 +1118,7 @@ describe("Hundred Finance unit tests, pool adapter", () => {
           collateralAsset,
           borrowAsset,
           borrowHolder,
-          collateralAmountStr: "100000",
+          collateralAmountStr: "1000",
           collateralHolder
         },
         useCollateralAssetToRepay,
@@ -1172,7 +1172,7 @@ describe("Hundred Finance unit tests, pool adapter", () => {
           collateralAsset,
           borrowAsset,
           borrowHolder,
-          collateralAmountStr: "1.9",
+          collateralAmountStr: "0.01",
           collateralHolder
         },
         useCollateralAssetToRepay,

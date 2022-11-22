@@ -21,6 +21,7 @@ import "hardhat/console.sol";
 /// @notice Adapter to read current pools info from AAVE-v3-protocol, see https://docs.aave.com/hub/
 contract Aave3PlatformAdapter is IPlatformAdapter {
   using SafeERC20 for IERC20;
+  using AppUtils for uint;
   using Aave3ReserveConfiguration for Aave3DataTypes.ReserveConfigurationMap;
 
   ///////////////////////////////////////////////////////
@@ -130,8 +131,13 @@ contract Aave3PlatformAdapter is IPlatformAdapter {
   /// @notice Returns the prices of the supported assets in BASE_CURRENCY of the market. Decimals 18
   /// @dev Different markets can have different BASE_CURRENCY
   function getAssetsPrices(address[] calldata assets) external view override returns (uint[] memory prices18) {
-    //TODO: the prices are in BASE_CURRENCY_UNIT = 100000000, we need to recalculate them to 1e18 -sooo, recalculate?
-    return IAavePriceOracle(IAaveAddressesProvider(pool.ADDRESSES_PROVIDER()).getPriceOracle()).getAssetsPrices(assets);
+    // the prices are in BASE_CURRENCY_UNIT = 100000000, we need to recalculate them to 1e18
+    prices18 = IAavePriceOracle(IAaveAddressesProvider(pool.ADDRESSES_PROVIDER()).getPriceOracle()).getAssetsPrices(assets);
+
+    uint lenAssets = assets.length;
+    for (uint i = 0; i < lenAssets; i = i.uncheckedInc()) {
+      prices18[i] *= 1e10; // 1e18/100000000
+    }
   }
 
   ///////////////////////////////////////////////////////
