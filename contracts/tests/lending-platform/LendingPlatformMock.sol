@@ -142,20 +142,6 @@ contract LendingPlatformMock is IPlatformAdapter {
     return _converters;
   }
 
-  /// @notice Returns the prices of the supported assets in BASE_CURRENCY of the market. Decimals 18
-  /// @dev Different markets can have different BASE_CURRENCY
-  function getAssetsPrices(address[] calldata assets_) external view override returns (uint[] memory prices18) {
-    IPriceOracle p = IPriceOracle(_priceOracle);
-
-    uint lenAssets = assets_.length;
-    prices18 = new uint[](lenAssets);
-    for (uint i = 0; i < lenAssets; i++) {
-      prices18[i] = p.getAssetPrice(assets_[i]);
-    }
-
-    return prices18;
-  }
-
   function initializePoolAdapter(
     address converter_,
     address poolAdapter_,

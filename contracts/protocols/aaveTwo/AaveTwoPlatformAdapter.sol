@@ -119,14 +119,6 @@ contract AaveTwoPlatformAdapter is IPlatformAdapter {
     return dest;
   }
 
-  /// @notice Returns the prices of the supported assets in BASE_CURRENCY of the market. Decimals 18
-  /// @dev Different markets can have different BASE_CURRENCY
-  function getAssetsPrices(address[] calldata assets) external view override returns (uint[] memory prices18) {
-    return IAaveTwoPriceOracle(
-      IAaveTwoLendingPoolAddressesProvider(pool.getAddressesProvider()).getPriceOracle()
-    ).getAssetsPrices(assets);
-  }
-
   ///////////////////////////////////////////////////////
   ///           Get conversion plan
   ///////////////////////////////////////////////////////

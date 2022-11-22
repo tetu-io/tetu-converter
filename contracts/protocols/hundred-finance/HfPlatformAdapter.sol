@@ -143,24 +143,6 @@ contract HfPlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
     return dest;
   }
 
-  /// @notice Returns the prices of the supported assets in BASE_CURRENCY of the market. Decimals 18
-  /// @dev Different markets can have different BASE_CURRENCY
-  function getAssetsPrices(address[] calldata assets_) external view override returns (uint[] memory prices18) {
-    IHfPriceOracle priceOracle = IHfPriceOracle(comptroller.oracle());
-
-    uint lenAssets = assets_.length;
-    prices18 = new uint[](lenAssets);
-    for (uint i = 0; i < lenAssets; i = i.uncheckedInc()) {
-      address cToken = activeAssets[assets_[i]];
-
-      // we get a price with decimals = (36 - asset decimals)
-      // let's convert it to decimals = 18
-      prices18[i] = priceOracle.getUnderlyingPrice(cToken) / (10 ** (18 - IERC20Extended(assets_[i]).decimals()));
-    }
-
-    return prices18;
-  }
-
   function getCTokenByUnderlying(address token1_, address token2_)
   external view override
   returns (address cToken1, address cToken2) {
