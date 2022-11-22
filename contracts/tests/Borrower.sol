@@ -403,38 +403,6 @@ contract Borrower is ITetuConverterCallback {
 //    return Status.DONE_1;
 //  }
 
-
-
-  ///////////////////////////////////////////////////////
-  ///        Pre-initialize pool adapter
-  ///////////////////////////////////////////////////////
-
-  function preInitializePoolAdapter(
-    address sourceAsset_,
-    uint sourceAmount_,
-    address targetAsset_
-  ) external {
-    console.log("preInitializePoolAdapter start gasleft", gasleft());
-
-    (address converter,,) = _tc().findConversionStrategy(sourceAsset_,
-      sourceAmount_,
-      targetAsset_,
-      _borrowPeriodInBlocks,
-      ITetuConverter.ConversionMode.AUTO_0
-    );
-
-    console.log("preInitializePoolAdapter findConversionStrategy.completed gasleft", gasleft());
-
-    IBorrowManager(_controller.borrowManager()).registerPoolAdapter(
-      converter,
-      address(this),
-      sourceAsset_,
-      targetAsset_
-    );
-
-    console.log("preInitializePoolAdapter registerPoolAdapter.completed gasleft", gasleft());
-  }
-
   ///////////////////////////////////////////////////////
   ///                   View status
   ///////////////////////////////////////////////////////

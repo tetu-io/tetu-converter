@@ -11,25 +11,20 @@ export class BorrowAction implements IBorrowAction {
   public collateralAmount: BigNumber;
   public borrowToken: TokenDataTypes;
   public countBlocksToSkipAfterAction?: number;
-  public controlGas?: boolean;
 
   constructor(
     collateralToken: TokenDataTypes,
     collateralAmount: BigNumber,
     borrowToken: TokenDataTypes,
     countBlocksToSkipAfterAction?: number,
-    controlGas?: boolean
   ) {
     this.collateralToken = collateralToken;
     this.collateralAmount = collateralAmount;
     this.borrowToken = borrowToken;
     this.countBlocksToSkipAfterAction = countBlocksToSkipAfterAction;
-    this.controlGas = controlGas;
   }
 
   async doAction(user: Borrower) : Promise<IUserBalances> {
-    let gasUsed: BigNumber | undefined;
-
     const tx = await user.borrowMaxAmount(
       this.collateralToken.address,
       this.collateralAmount,
@@ -37,7 +32,7 @@ export class BorrowAction implements IBorrowAction {
       user.address
     );
     const cr = await tx.wait();
-    gasUsed = (await cr).gasUsed;
+    const gasUsed = (await cr).gasUsed;
 
     if (this.countBlocksToSkipAfterAction) {
       await TimeUtils.advanceNBlocks(this.countBlocksToSkipAfterAction);

@@ -14,12 +14,10 @@ import {areAlmostEqual, setInitialBalance} from "../utils/CommonUtils";
 import {getBigNumberFrom} from "../../../scripts/utils/NumberUtils";
 import {BorrowAction} from "../actions/BorrowAction";
 import {RepayAction} from "../actions/RepayAction";
-import {RegisterPoolAdapterAction} from "../actions/RegisterPoolAdapterAction";
 import {MockPlatformFabric} from "../fabrics/MockPlatformFabric";
 import {BorrowMockAction} from "../actions/BorrowMockAction";
 import {RepayMockAction} from "../actions/RepayMockAction";
 import {DeployerUtils} from "../../../scripts/utils/DeployerUtils";
-import {MaticAddresses} from "../../../scripts/addresses/MaticAddresses";
 import {makeInfinityApprove} from "../utils/transferUtils";
 
 export interface IBorrowAction {
@@ -46,6 +44,27 @@ export interface IResultExpectations {
   resultCollateralCanBeLessThenInitial?: boolean
 }
 
+export interface IMakeBorrowRepayActionsResults {
+  userBalances: IUserBalances[],
+  borrowBalances: BigNumber[]
+}
+
+export interface IMakeTestSingleBorrowInstantRepayBaseResults {
+  uc: Borrower;
+  ucBalanceCollateral0: BigNumber;
+  ucBalanceBorrow0: BigNumber;
+  collateralAmount: BigNumber;
+  userBalances: IUserBalances[];
+  borrowBalances: BigNumber[];
+}
+
+export interface IMakeTestSingleBorrowInstantRepayResults {
+  sret: string;
+  sexpected: string;
+  gasUsedByBorrow: BigNumber;
+  gasUsedByRepay: BigNumber;
+}
+
 export class BorrowRepayUsesCase {
   /**
    * Perform a series of actions, control user balances and total borrow balance after each action.
@@ -55,10 +74,7 @@ export class BorrowRepayUsesCase {
     signer: SignerWithAddress,
     user: Borrower,
     actions: (IBorrowAction | IRepayAction)[],
-  ) : Promise<{
-    userBalances: IUserBalances[],
-    borrowBalances: BigNumber[]
-  }>{
+  ) : Promise<IMakeBorrowRepayActionsResults>{
     const userBalances: IUserBalances[] = [];
     const borrowBalances: BigNumber[] = [];
     for (const action of actions) {
@@ -174,47 +190,46 @@ export class BorrowRepayUsesCase {
     console.log("totalRepaidAmount", totalRepaidAmount);
     const sret = [
       // collateral after borrow 2
-      userBalances[indexLastBorrow].collateral
+      userBalances[indexLastBorrow].collateral,
       // borrowed amount > 0
-      , !totalBorrowedAmount.eq(BigNumber.from(0))
+      !totalBorrowedAmount.eq(BigNumber.from(0)),
       // contract borrow balance - initial borrow balance == borrowed amount
-      , userBalances[indexLastBorrow].borrow.sub(b0)
+      userBalances[indexLastBorrow].borrow.sub(b0),
 
       // after repay
       // collateral >= initial collateral
-      , expectations.resultCollateralCanBeLessThenInitial
+      expectations.resultCollateralCanBeLessThenInitial
         ? areAlmostEqual(userBalances[indexLastRepay].collateral, c0)
-        : userBalances[indexLastRepay].collateral.gte(c0)
+        : userBalances[indexLastRepay].collateral.gte(c0),
 
       // borrowed balance <= initial borrowed balance
-      , b0.gte(userBalances[indexLastRepay].borrow)
+      b0.gte(userBalances[indexLastRepay].borrow),
       // contract borrowed balance is 0
-      , borrowBalances[indexLastRepay]
+      borrowBalances[indexLastRepay],
 
       // paid amount >= borrowed amount
-      , totalRepaidAmount.gte(totalBorrowedAmount)
+      totalRepaidAmount.gte(totalBorrowedAmount),
     ].map(x => BalanceUtils.toString(x)).join("\n");
 
     const sexpected = [
       // collateral after borrow
-      c0.sub(collateralAmount)
+      c0.sub(collateralAmount),
       // borrowed amount > 0
-      , true
+      true,
       // contract borrow balance ~ borrowed amount
-      , totalBorrowedAmount
+      totalBorrowedAmount,
 
-      //after repay
+      // after repay
       // collateral >= initial collateral
       // TODO: aave can keep dust collateral on balance, so we check collateral ~ initial collateral
-      , true
+      true,
       // borrowed balance <= initial borrowed balance
-      , true
+      true,
       // contract borrowed balance is 0
-      , BigNumber.from(0)
+      BigNumber.from(0),
 
       // paid amount >= borrowed amount
-      , true
-
+      true,
     ].map(x => BalanceUtils.toString(x)).join("\n");
 
     console.log(`after borrow: collateral=${userBalances[1].collateral.toString()} borrow=${userBalances[1].borrow.toString()} borrowBalance=${borrowBalances[1].toString()}`);
@@ -308,14 +323,7 @@ export class BorrowRepayUsesCase {
     p: ITestSingleBorrowParams,
     fabric: ILendingPlatformFabric,
     checkGasUsed: boolean = false,
-  ) : Promise<{
-    uc: Borrower
-    ucBalanceCollateral0: BigNumber,
-    ucBalanceBorrow0: BigNumber,
-    collateralAmount: BigNumber,
-    userBalances: IUserBalances[],
-    borrowBalances: BigNumber[],
-  }>{
+  ) : Promise<IMakeTestSingleBorrowInstantRepayBaseResults>{
     const {controller} = await TetuConverterApp.buildApp(
       deployer,
       [fabric],
@@ -334,37 +342,27 @@ export class BorrowRepayUsesCase {
       p.borrow.holder, p.borrow.initialLiquidity, uc.address);
     const collateralAmount = getBigNumberFrom(p.collateralAmount, collateralToken.decimals);
 
+    // TetuConverter gives infinity approve to the pool adapter after pool adapter creation (see TetuConverter.convert implementation)
     const borrowAction = new BorrowAction(
       collateralToken,
       collateralAmount,
       borrowToken,
       p.countBlocks,
-      checkGasUsed,
     );
 
     const repayAction = new RepayAction(
       collateralToken,
       borrowToken,
       amountToRepay,
-      {
-        controlGas: checkGasUsed
-      }
+      {}
     );
-
-    const preInitializePaAction = new RegisterPoolAdapterAction(
-      collateralToken,
-      collateralAmount,
-      borrowToken,
-      checkGasUsed
-    );
-
     const {
       userBalances,
       borrowBalances
     } = await BorrowRepayUsesCase.makeBorrowRepayActions(deployer,
       uc,
       checkGasUsed
-        ? [preInitializePaAction, borrowAction, repayAction]
+        ? [borrowAction, repayAction]
         : [borrowAction, repayAction]
     );
 
@@ -383,15 +381,8 @@ export class BorrowRepayUsesCase {
     p: ITestSingleBorrowParams,
     fabric: ILendingPlatformFabric,
     expectations: IResultExpectations,
-    checkGasUsed: boolean = false,
-  ) : Promise<{
-    sret: string,
-    sexpected: string,
-    gasUsedByBorrow?: BigNumber,
-    gasUsedByRepay?: BigNumber,
-    gasUsedByPaInitialization?: BigNumber
-  }> {
-    const r = await BorrowRepayUsesCase.makeTestSingleBorrowInstantRepayBase(deployer, p, fabric, checkGasUsed);
+  ) : Promise<IMakeTestSingleBorrowInstantRepayResults> {
+    const r = await BorrowRepayUsesCase.makeTestSingleBorrowInstantRepayBase(deployer, p, fabric);
 
     const ret = BorrowRepayUsesCase.getSingleBorrowSingleRepayResults(
       r.ucBalanceCollateral0,
@@ -407,9 +398,8 @@ export class BorrowRepayUsesCase {
     return {
       sret: ret.sret,
       sexpected: ret.sexpected,
-      gasUsedByPaInitialization: checkGasUsed ? r.userBalances[0].gasUsed : BigNumber.from(0),
-      gasUsedByBorrow: checkGasUsed ? r.userBalances[1].gasUsed : BigNumber.from(0),
-      gasUsedByRepay: checkGasUsed ? r.userBalances[2].gasUsed : BigNumber.from(0),
+      gasUsedByBorrow: r.userBalances[0].gasUsed,
+      gasUsedByRepay: r.userBalances[1].gasUsed,
     };
   }
 //endregion Test single borrow, single repay
@@ -517,14 +507,14 @@ export class BorrowRepayUsesCase {
     );
 
     return BorrowRepayUsesCase.getTwoBorrowsTwoRepaysResults(
-      c0
-      , b0
-      , collateralAmount1.add(collateralAmount2)
-      , userBalances
-      , borrowBalances
-      , await uc.totalBorrowedAmount()
-      , await uc.totalAmountBorrowAssetRepaid()
-      , {
+      c0,
+      b0,
+      collateralAmount1.add(collateralAmount2),
+      userBalances,
+      borrowBalances,
+      await uc.totalBorrowedAmount(),
+      await uc.totalAmountBorrowAssetRepaid(),
+      {
         resultCollateralCanBeLessThenInitial: false
       }
     );
@@ -549,10 +539,10 @@ export class BorrowRepayUsesCase {
     const amountToRepay1 = getBigNumberFrom(p.repayAmount1, borrowToken.decimals);
     const amountToRepay2 = undefined; // full repay
 
-    const c0 = await setInitialBalance(deployer, collateralToken.address
-      , p.collateral.holder, p.collateral.initialLiquidity, uc.address);
-    const b0 = await setInitialBalance(deployer, borrowToken.address
-      , p.borrow.holder, p.borrow.initialLiquidity, uc.address);
+    const c0 = await setInitialBalance(deployer, collateralToken.address,
+      p.collateral.holder, p.collateral.initialLiquidity, uc.address);
+    const b0 = await setInitialBalance(deployer, borrowToken.address,
+      p.borrow.holder, p.borrow.initialLiquidity, uc.address);
 
     const collateralAmount1 = getBigNumberFrom(p.collateralAmount, collateralToken.decimals);
     const collateralAmount2 = getBigNumberFrom(p.collateralAmount2, collateralToken.decimals);
@@ -560,48 +550,47 @@ export class BorrowRepayUsesCase {
     const {
       userBalances,
       borrowBalances
-    } = await BorrowRepayUsesCase.makeBorrowRepayActions(deployer
-      , uc
-      , [
+    } = await BorrowRepayUsesCase.makeBorrowRepayActions(deployer,
+      uc,
+      [
         new BorrowAction(
-          collateralToken
-          , collateralAmount1
-          , borrowToken
-          , p.deltaBlocksBetweenBorrows
+          collateralToken,
+          collateralAmount1,
+          borrowToken,
+          p.deltaBlocksBetweenBorrows,
         ),
         new BorrowAction(
-          collateralToken
-          , collateralAmount2
-          , borrowToken
-          , p.countBlocks
+          collateralToken,
+          collateralAmount2,
+          borrowToken,
+          p.countBlocks,
         ),
         new RepayAction(
-          collateralToken
-          , borrowToken
-          , amountToRepay1
-          , {
+          collateralToken,
+          borrowToken,
+          amountToRepay1,
+          {
             countBlocksToSkipAfterAction: p.deltaBlocksBetweenRepays
           }
-
         ),
         new RepayAction(
-          collateralToken
-          , borrowToken
-          , amountToRepay2
-          , {}
+          collateralToken,
+          borrowToken,
+          amountToRepay2,
+          {},
         ),
       ]
     );
 
     return BorrowRepayUsesCase.getTwoBorrowsTwoRepaysResults(
-      c0
-      , b0
-      , collateralAmount1.add(collateralAmount2)
-      , userBalances
-      , borrowBalances
-      , await uc.totalBorrowedAmount()
-      , await uc.totalAmountBorrowAssetRepaid()
-      , expectations
+      c0,
+      b0,
+      collateralAmount1.add(collateralAmount2),
+      userBalances,
+      borrowBalances,
+      await uc.totalBorrowedAmount(),
+      await uc.totalAmountBorrowAssetRepaid(),
+      expectations,
     );
   }
 //endregion Test two borrows, two repays

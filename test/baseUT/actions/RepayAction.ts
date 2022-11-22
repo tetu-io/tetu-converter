@@ -8,7 +8,6 @@ import {TokenDataTypes} from "../types/TokenDataTypes";
 
 export interface IRepayActionOptionalParams {
   countBlocksToSkipAfterAction?: number,
-  controlGas?: boolean;
   repayFirstPositionOnly?: boolean;
 }
 
@@ -32,56 +31,31 @@ export class RepayAction implements IRepayAction {
   }
 
   async doAction(user: Borrower) : Promise<IUserBalances> {
-    let gasUsed: BigNumber | undefined;
+    let gasUsed: BigNumber;
 
     if (this.amountToRepay) {
-      if (this.params.controlGas) {
-        console.log("doAction.start makeRepayPartial");
-        gasUsed = await user.estimateGas.makeRepayPartial(
-          this.collateralToken.address,
-          this.borrowToken.address,
-          user.address,
-          this.amountToRepay
-        );
-        console.log("doAction.end", gasUsed);
-      }
-      await user.makeRepayPartial(
+      const tx = await user.makeRepayPartial(
         this.collateralToken.address,
         this.borrowToken.address,
         user.address,
         this.amountToRepay
       );
+      gasUsed = (await tx.wait()).gasUsed;
     } else {
       if (this.params.repayFirstPositionOnly) {
-        if (this.params.controlGas) {
-          console.log("doAction.start makeRepayComplete_firstPositionOnly");
-          gasUsed = await user.estimateGas.makeRepayComplete_firstPositionOnly(
-            this.collateralToken.address,
-            this.borrowToken.address,
-            user.address
-          );
-          console.log("doAction.end", gasUsed);
-        }
-        await user.makeRepayComplete_firstPositionOnly(
+        const tx = await user.makeRepayComplete_firstPositionOnly(
           this.collateralToken.address,
           this.borrowToken.address,
           user.address
         );
+        gasUsed = (await tx.wait()).gasUsed;
       } else {
-        if (this.params.controlGas) {
-          console.log("doAction.start makeRepayComplete");
-          gasUsed = await user.estimateGas.makeRepayComplete(
-            this.collateralToken.address,
-            this.borrowToken.address,
-            user.address
-          );
-          console.log("doAction.end", gasUsed);
-        }
-        await user.makeRepayComplete(
+        const tx = await user.makeRepayComplete(
           this.collateralToken.address,
           this.borrowToken.address,
           user.address
         );
+        gasUsed = (await tx.wait()).gasUsed;
       }
     }
 

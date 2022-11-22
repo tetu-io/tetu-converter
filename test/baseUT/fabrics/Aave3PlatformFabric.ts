@@ -14,32 +14,32 @@ export class Aave3PlatformFabric implements ILendingPlatformFabric {
     const templateAdapterEMode = await AdaptersHelper.createAave3PoolAdapterEMode(deployer);
 
     const aavePlatformAdapter = await AdaptersHelper.createAave3PlatformAdapter(
-      deployer
-      , controller.address
-      , aavePool.address
-      , templateAdapterNormal.address
-      , templateAdapterEMode.address
+      deployer,
+      controller.address,
+      aavePool.address,
+      templateAdapterNormal.address,
+      templateAdapterEMode.address
     );
 
     const bm = IBorrowManager__factory.connect(await controller.borrowManager(), deployer);
     const assets: string[] = [
-      MaticAddresses.DAI
-      , MaticAddresses.USDC
-      , MaticAddresses.USDT
-      , MaticAddresses.EURS
-      , MaticAddresses.jEUR
-      , MaticAddresses.BALANCER
-      , MaticAddresses.WBTC
-      , MaticAddresses.WETH
-      , MaticAddresses.WMATIC
-      , MaticAddresses.SUSHI
-      , MaticAddresses.CRV
-      , MaticAddresses.agEUR
+      MaticAddresses.DAI,
+      MaticAddresses.USDC,
+      MaticAddresses.USDT,
+      MaticAddresses.EURS,
+      MaticAddresses.jEUR,
+      MaticAddresses.BALANCER,
+      MaticAddresses.WBTC,
+      MaticAddresses.WETH,
+      MaticAddresses.WMATIC,
+      MaticAddresses.SUSHI,
+      MaticAddresses.CRV,
+      MaticAddresses.agEUR,
     ];
     const assetPairs = generateAssetPairs(assets);
-    await bm.addAssetPairs(aavePlatformAdapter.address
-      , assetPairs.map(x => x.smallerAddress)
-      , assetPairs.map(x => x.biggerAddress)
+    await bm.addAssetPairs(aavePlatformAdapter.address,
+      assetPairs.map(x => x.smallerAddress),
+      assetPairs.map(x => x.biggerAddress),
     );
 
     return [
