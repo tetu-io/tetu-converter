@@ -378,13 +378,13 @@ contract PoolAdapterMock is IPoolAdapter {
     return price18;
   }
 
-  /// @notice Compute current cost of the money
-  function getAPR18() external view override returns (int) {
-    console.log("PoolAdapterMock address=", address(this));
-    console.log("PoolAdapterMock br=", borrowRate);
-    console.log("APR18 =", borrowRate);
-    return int(borrowRate * 10**18 / IERC20Extended(_borrowAsset).decimals());
-  }
+//  /// @notice Compute current cost of the money
+//  function getAPR18() external view override returns (int) {
+//    console.log("PoolAdapterMock address=", address(this));
+//    console.log("PoolAdapterMock br=", borrowRate);
+//    console.log("APR18 =", borrowRate);
+//    return int(borrowRate * 10**18 / IERC20Extended(_borrowAsset).decimals());
+//  }
 
   ///////////////////////////////////////////////////////
   ///                 Rewards

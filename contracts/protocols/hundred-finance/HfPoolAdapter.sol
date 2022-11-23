@@ -570,11 +570,10 @@ contract HfPoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP, Initializ
     return AppDataTypes.ConversionKind.BORROW_2;
   }
 
-  /// @notice Compute current cost of the money
-  function getAPR18() external view override returns (int) {
-    return int(IHfCToken(borrowCToken).borrowRatePerBlock() * controller.blocksPerDay() * 365 * 100);
-  }
-
+//  /// @notice Compute current cost of the money
+//  function getAPR18() external view override returns (int) {
+//    return int(IHfCToken(borrowCToken).borrowRatePerBlock() * controller.blocksPerDay() * 365 * 100);
+//  }
 
   ///////////////////////////////////////////////////////
   ///                   Utils

@@ -1587,23 +1587,6 @@ describe("DForce unit tests, pool adapter", () => {
       expect(ret).eq(expected);
     });
   });
-
-  describe("TODO:getAPR18 - for next version", () => {
-    describe("Good paths", () => {
-      it("should return expected values", async () => {
-        if (!await isPolygonForkInUse()) return;
-        // expect.fail("TODO");
-      });
-    });
-    describe("Bad paths", () => {
-      describe("", () => {
-        it("should revert", async () => {
-          if (!await isPolygonForkInUse()) return;
-          // expect.fail("TODO");
-        });
-      });
-    });
-  });
 //endregion Unit tests
 
 });

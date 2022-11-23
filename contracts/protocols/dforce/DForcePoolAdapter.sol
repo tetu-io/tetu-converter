@@ -565,11 +565,10 @@ contract DForcePoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP, Initi
     return AppDataTypes.ConversionKind.BORROW_2;
   }
 
-  /// @notice Compute current cost of the money
-  function getAPR18() external view override returns (int) {
-    return int(IDForceCToken(borrowCToken).borrowRatePerBlock() * controller.blocksPerDay() * 365 * 100);
-  }
-
+//  /// @notice Compute current cost of the money
+//  function getAPR18() external view override returns (int) {
+//    return int(IDForceCToken(borrowCToken).borrowRatePerBlock() * controller.blocksPerDay() * 365 * 100);
+//  }
 
   ///////////////////////////////////////////////////////
   ///                     Utils

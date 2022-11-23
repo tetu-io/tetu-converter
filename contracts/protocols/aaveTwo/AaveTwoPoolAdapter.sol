@@ -457,11 +457,11 @@ contract AaveTwoPoolAdapter is IPoolAdapter, IPoolAdapterInitializer, Initializa
     );
   }
 
-  /// @notice Compute current cost of the money
-  function getAPR18() external view override returns (int) {
-    DataTypes.ReserveData memory rb = _pool.getReserveData(borrowAsset);
-    return int(uint(rb.currentVariableBorrowRate) * 10**18 * 100 / 10**27);
-  }
+//  /// @notice Compute current cost of the money
+//  function getAPR18() external view override returns (int) {
+//    DataTypes.ReserveData memory rb = _pool.getReserveData(borrowAsset);
+//    return int(uint(rb.currentVariableBorrowRate) * 10**18 * 100 / 10**27);
+//  }
 
   ///////////////////////////////////////////////////////
   ///                 Rewards
