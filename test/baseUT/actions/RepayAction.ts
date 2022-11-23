@@ -1,7 +1,7 @@
 import {IRepayAction} from "../uses-cases/BorrowRepayUsesCase";
 import {BigNumber} from "ethers";
 import {IERC20__factory, Borrower} from "../../../typechain";
-import {IUserBalances} from "../utils/BalanceUtils";
+import {IUserBalancesWithGas} from "../utils/BalanceUtils";
 import {DeployerUtils} from "../../../scripts/utils/DeployerUtils";
 import {TimeUtils} from "../../../scripts/utils/TimeUtils";
 import {TokenDataTypes} from "../types/TokenDataTypes";
@@ -30,7 +30,7 @@ export class RepayAction implements IRepayAction {
     this.params = params;
   }
 
-  async doAction(user: Borrower) : Promise<IUserBalances> {
+  async doAction(user: Borrower) : Promise<IUserBalancesWithGas> {
     let gasUsed: BigNumber;
 
     if (this.amountToRepay) {

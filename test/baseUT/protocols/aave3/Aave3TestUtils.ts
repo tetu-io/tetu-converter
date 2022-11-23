@@ -1,5 +1,5 @@
 import {
-  Aave3PoolAdapter, Aave3PoolAdapter__factory,
+  Aave3PoolAdapter, Aave3PoolAdapter__factory, Aave3PoolMock__factory,
   Borrower, BorrowManager__factory,
   Controller,
   IAavePool, IAavePool__factory,
@@ -57,6 +57,8 @@ export interface IPrepareToBorrowResults {
 export interface IPrepareToBorrowOptionalSetup {
   borrowHolders?: string[];
   targetHealthFactor2?: number;
+  useAave3PoolMock?: boolean;
+  useMockedAavePriceOracle?: boolean;
 }
 
 async function supplyEnoughBorrowAssetToAavePool(
@@ -105,6 +107,22 @@ export interface ILiquidationResults {
 
 export interface IMakeBorrowOrRepayBadPathsParams {
   makeOperationAsNotTc?: boolean;
+  useAave3PoolMock?: boolean;
+  ignoreSupply?: boolean;
+  ignoreRepay?: boolean;
+  ignoreWithdraw?: boolean;
+  ignoreBorrow?: boolean;
+  skipSendingATokens?: boolean;
+  useMockedAavePriceOracle?: boolean;
+}
+
+export interface IMakeRepayBadPathsParams {
+  amountToRepayStr?: string;
+  makeRepayAsNotTc?: boolean;
+  closePosition?: boolean;
+  useAave3PoolMock?: boolean;
+  grabAllBorrowAssetFromSenderOnRepay?: boolean;
+  collateralPriceIsZero?: boolean;
 }
 
 export interface IAave3PoolAdapterState {
@@ -144,7 +162,13 @@ export class Aave3TestUtils {
     // initialize pool, adapters and helper for the adapters
     const h: Aave3Helper = new Aave3Helper(deployer);
 
-    const aavePool = await Aave3Helper.getAavePool(deployer);
+    const aavePool = additionalParams?.useAave3PoolMock
+      ? await MocksHelper.getAave3PoolMock(deployer, collateralToken.address, borrowToken.address)
+      : await Aave3Helper.getAavePool(deployer);
+    if (additionalParams?.useMockedAavePriceOracle) {
+      await Aave3ChangePricesUtils.setupPriceOracleMock(deployer);
+    }
+
     const dataProvider = await Aave3Helper.getAaveProtocolDataProvider(deployer);
     const aavePrices = await Aave3Helper.getAavePriceOracle(deployer);
 
@@ -212,6 +236,17 @@ export class Aave3TestUtils {
       );
     }
 
+    if (additionalParams?.useAave3PoolMock) {
+      // see Aave3PoolMock.supply for explanation
+      // we need to put additional amount to mock to be able to split a-tokens on two parts
+      await BalanceUtils.getRequiredAmountFromHolders(
+        collateralAmount,
+        collateralToken.token,
+        collateralHolders,
+        aavePool.address
+      );
+    }
+
     // calculate max allowed amount to borrow
     const countBlocks = 1;
 
@@ -275,6 +310,15 @@ export class Aave3TestUtils {
     const borrower = badPathsParams?.makeOperationAsNotTc
       ? Aave3PoolAdapter__factory.connect(d.aavePoolAdapterAsTC.address, deployer)
       : d.aavePoolAdapterAsTC;
+
+    if (badPathsParams?.useAave3PoolMock) {
+      if (badPathsParams?.ignoreBorrow) {
+        await Aave3PoolMock__factory.connect(d.aavePool.address, deployer).setIgnoreBorrow();
+      }
+      if (badPathsParams?.skipSendingATokens) {
+        await Aave3PoolMock__factory.connect(d.aavePool.address, deployer).setSkipSendingATokens();
+      }
+    }
 
     await borrower.borrow(
       d.collateralAmount,

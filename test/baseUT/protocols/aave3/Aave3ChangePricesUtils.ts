@@ -68,6 +68,19 @@ export class Aave3ChangePricesUtils {
     );
   }
 
+  public static async setAssetPrice(
+    signer: SignerWithAddress,
+    asset: string,
+    newPrice: BigNumber
+  ) {
+    // change a price of the given asset
+    const oracle = Aave3PriceOracleMock__factory.connect(
+      (await Aave3Helper.getAavePriceOracle(signer)).address,
+      signer
+    );
+    await oracle.setPrices([asset], [newPrice]);
+  }
+
   public static async setReservePaused(
     signer: SignerWithAddress,
     reserve: string,

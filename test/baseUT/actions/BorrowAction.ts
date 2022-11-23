@@ -1,6 +1,6 @@
 import {IBorrowAction} from "../uses-cases/BorrowRepayUsesCase";
 import {IERC20__factory, Borrower} from "../../../typechain";
-import {IUserBalances} from "../utils/BalanceUtils";
+import {IUserBalancesWithGas} from "../utils/BalanceUtils";
 import {BigNumber} from "ethers";
 import {DeployerUtils} from "../../../scripts/utils/DeployerUtils";
 import {TimeUtils} from "../../../scripts/utils/TimeUtils";
@@ -24,7 +24,7 @@ export class BorrowAction implements IBorrowAction {
     this.countBlocksToSkipAfterAction = countBlocksToSkipAfterAction;
   }
 
-  async doAction(user: Borrower) : Promise<IUserBalances> {
+  async doAction(user: Borrower) : Promise<IUserBalancesWithGas> {
     const tx = await user.borrowMaxAmount(
       this.collateralToken.address,
       this.collateralAmount,

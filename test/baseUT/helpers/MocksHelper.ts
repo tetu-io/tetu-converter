@@ -28,10 +28,11 @@ import {
   ConverterUnknownKind,
   KeeperMock,
   KeeperCaller,
-  DebtMonitorCheckHealthMock, KeeperCallbackMock, DebtMonitorMock
+  DebtMonitorCheckHealthMock, KeeperCallbackMock, DebtMonitorMock, Aave3PoolMock
 } from "../../../typechain";
 import {IPoolInfo} from "./BorrowManagerHelper";
 import {getBigNumberFrom} from "../../../scripts/utils/NumberUtils";
+import {MaticAddresses} from "../../../scripts/addresses/MaticAddresses";
 
 export interface IPooAdapterStabInitParams {
   controller: string;
@@ -446,4 +447,19 @@ export class MocksHelper {
     return await DeployUtils.deployContract(deployer, "DebtMonitorMock") as DebtMonitorMock;
   }
 //endregion DebtMonitor
+
+//region AAVE3
+  public static async getAave3PoolMock(
+    deployer: SignerWithAddress,
+    collateralAsset: string,
+    borrowAsset: string
+  ) : Promise<Aave3PoolMock> {
+    return await DeployUtils.deployContract(deployer,
+      "Aave3PoolMock",
+      MaticAddresses.AAVE_V3_POOL,
+      collateralAsset,
+      borrowAsset
+    ) as Aave3PoolMock;
+  }
+//endregion AAVE3
 }

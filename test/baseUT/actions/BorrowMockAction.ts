@@ -1,7 +1,7 @@
 import {BorrowAction} from "./BorrowAction";
 import {BigNumber} from "ethers";
 import {PoolAdapterMock__factory, Borrower} from "../../../typechain";
-import {IUserBalances} from "../utils/BalanceUtils";
+import {IUserBalancesWithGas} from "../utils/BalanceUtils";
 import {ethers} from "hardhat";
 import {TokenDataTypes} from "../types/TokenDataTypes";
 
@@ -20,7 +20,7 @@ export class BorrowMockAction extends BorrowAction {
     this._mockAddress = mockAddress;
   }
 
-  async doAction(user: Borrower) : Promise<IUserBalances> {
+  async doAction(user: Borrower) : Promise<IUserBalancesWithGas> {
     const ret = await super.doAction(user);
 
     // !TODO

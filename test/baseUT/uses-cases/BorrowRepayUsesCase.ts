@@ -1,5 +1,5 @@
 import {BigNumber} from "ethers";
-import {BalanceUtils, IUserBalances} from "../utils/BalanceUtils";
+import {BalanceUtils, IUserBalancesWithGas} from "../utils/BalanceUtils";
 import {
   IPoolAdapter__factory,
   Borrower, BorrowManager__factory, IPlatformAdapter__factory
@@ -24,7 +24,7 @@ export interface IBorrowAction {
   collateralToken: TokenDataTypes,
   collateralAmount: BigNumber;
   borrowToken: TokenDataTypes,
-  doAction: (user: Borrower) => Promise<IUserBalances>;
+  doAction: (user: Borrower) => Promise<IUserBalancesWithGas>;
 }
 
 export interface IRepayAction {
@@ -32,7 +32,7 @@ export interface IRepayAction {
   borrowToken: TokenDataTypes,
   /** if undefined - repay all and close position */
   amountToRepay: BigNumber | undefined;
-  doAction: (user: Borrower) => Promise<IUserBalances>;
+  doAction: (user: Borrower) => Promise<IUserBalancesWithGas>;
 }
 
 export interface IResultExpectations {
@@ -45,7 +45,7 @@ export interface IResultExpectations {
 }
 
 export interface IMakeBorrowRepayActionsResults {
-  userBalances: IUserBalances[],
+  userBalances: IUserBalancesWithGas[],
   borrowBalances: BigNumber[]
 }
 
@@ -54,7 +54,7 @@ export interface IMakeTestSingleBorrowInstantRepayBaseResults {
   ucBalanceCollateral0: BigNumber;
   ucBalanceBorrow0: BigNumber;
   collateralAmount: BigNumber;
-  userBalances: IUserBalances[];
+  userBalances: IUserBalancesWithGas[];
   borrowBalances: BigNumber[];
 }
 
@@ -75,7 +75,7 @@ export class BorrowRepayUsesCase {
     user: Borrower,
     actions: (IBorrowAction | IRepayAction)[],
   ) : Promise<IMakeBorrowRepayActionsResults>{
-    const userBalances: IUserBalances[] = [];
+    const userBalances: IUserBalancesWithGas[] = [];
     const borrowBalances: BigNumber[] = [];
     for (const action of actions) {
       const balances = await action.doAction(user);
@@ -103,7 +103,7 @@ export class BorrowRepayUsesCase {
     c0: BigNumber,
     b0: BigNumber,
     collateralAmount: BigNumber,
-    userBalances: IUserBalances[],
+    userBalances: IUserBalancesWithGas[],
     borrowBalances: BigNumber[],
     totalBorrowedAmount: BigNumber,
     totalRepaidAmount: BigNumber,
@@ -173,7 +173,7 @@ export class BorrowRepayUsesCase {
     c0: BigNumber,
     b0: BigNumber,
     collateralAmount: BigNumber,
-    userBalances: IUserBalances[],
+    userBalances: IUserBalancesWithGas[],
     borrowBalances: BigNumber[],
     totalBorrowedAmount: BigNumber,
     totalRepaidAmount: BigNumber,

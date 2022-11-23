@@ -13,6 +13,8 @@ export interface IContractToInvestigate {
 export interface IUserBalances {
   collateral: BigNumber;
   borrow: BigNumber;
+}
+export interface IUserBalancesWithGas extends IUserBalances {
   gasUsed: BigNumber;
 }
 

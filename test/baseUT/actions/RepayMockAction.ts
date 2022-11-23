@@ -1,6 +1,6 @@
 import {BigNumber} from "ethers";
 import {Borrower} from "../../../typechain";
-import {IUserBalances} from "../utils/BalanceUtils";
+import {IUserBalancesWithGas} from "../utils/BalanceUtils";
 import {RepayAction} from "./RepayAction";
 import {TokenDataTypes} from "../types/TokenDataTypes";
 
@@ -23,7 +23,7 @@ export class RepayMockAction extends RepayAction {
     this._mockAddress = mockAddress;
   }
 
-  async doAction(user: Borrower) : Promise<IUserBalances> {
+  async doAction(user: Borrower) : Promise<IUserBalancesWithGas> {
     const ret = await super.doAction(user);
 
     //!TODO

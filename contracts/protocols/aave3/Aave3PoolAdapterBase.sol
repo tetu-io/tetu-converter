@@ -88,7 +88,7 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer,
     originConverter = originConverter_;
 
     _pool = IAavePool(pool_);
-    _priceOracle = IAavePriceOracle(IAaveAddressesProvider(_pool.ADDRESSES_PROVIDER()).getPriceOracle());
+    _priceOracle = IAavePriceOracle(IAaveAddressesProvider(IAavePool(pool_).ADDRESSES_PROVIDER()).getPriceOracle());
 
     // The pool adapter doesn't keep assets on its balance, so it's safe to use infinity approve
     // All approves replaced by infinity-approve were commented in the code below
@@ -132,19 +132,19 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer,
     address receiver_
   ) external override returns (uint) {
     _onlyTetuConverter();
-
     IAavePool pool = _pool;
     address assetBorrow = borrowAsset;
 
     uint newCollateralBalanceATokens = _supply(pool, collateralAsset, collateralAmount_) + collateralBalanceATokens;
     collateralBalanceATokens = newCollateralBalanceATokens;
-
+    console.log("0");
     // enter to E-mode if necessary
     prepareToBorrow();
 
     // make borrow, send borrowed amount to the receiver
     // we cannot transfer borrowed amount directly to receiver because the debt is incurred by amount receiver
     uint balanceBorrowAsset0 = IERC20(assetBorrow).balanceOf(address(this));
+
     pool.borrow(
       assetBorrow,
       borrowAmount_,
@@ -195,7 +195,6 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer,
       0 // no referral code
     );
     pool_.setUserUseReserveAsCollateral(assetCollateral_, true);
-
     // ensure that we received a-tokens; don't transfer them anywhere
     uint aTokensBalanceAfterSupply = IERC20(d.aTokenAddress).balanceOf(address(this));
     require(aTokensBalanceAfterSupply >= aTokensBalanceBeforeSupply, AppErrors.WEIRD_OVERFLOW);
@@ -454,7 +453,7 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer,
     assets[0] = assetCollateral;
     assets[1] = assetBorrow;
     uint[] memory prices = _priceOracle.getAssetsPrices(assets);
-    require(prices[1] != 0, AppErrors.ZERO_PRICE);
+    require(prices[1] != 0 && prices[0] != 0, AppErrors.ZERO_PRICE);
 
     uint targetDecimals = (10 ** _pool.getConfiguration(assetBorrow).getDecimals());
 
