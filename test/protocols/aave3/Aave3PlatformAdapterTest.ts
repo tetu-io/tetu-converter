@@ -212,6 +212,7 @@ describe("Aave3PlatformAdapterTest", () => {
       setMinSupplyCap?: boolean;
       /* Set borrow cap equal almost to current total borrow value */
       setMinBorrowCap?: boolean;
+      setZeroSupplyCap?: boolean;
     }
 
     interface IPreparePlanResults {
@@ -266,10 +267,13 @@ describe("Aave3PlatformAdapterTest", () => {
         await Aave3ChangePricesUtils.setReserveFreeze(deployer, collateralAsset);
       }
       if (badPathsParams?.setMinSupplyCap) {
-        await Aave3ChangePricesUtils.setMinSupplyCap(deployer, collateralAsset);
+        await Aave3ChangePricesUtils.setSupplyCap(deployer, collateralAsset);
       }
       if (badPathsParams?.setMinBorrowCap) {
         await Aave3ChangePricesUtils.setMinBorrowCap(deployer, borrowAsset);
+      }
+      if (badPathsParams?.setZeroSupplyCap) {
+        await Aave3ChangePricesUtils.setSupplyCap(deployer, collateralAsset, BigNumber.from(0));
       }
       // get conversion plan
       const plan: IConversionPlan = await aavePlatformAdapter.getConversionPlan(
@@ -667,6 +671,16 @@ describe("Aave3PlatformAdapterTest", () => {
             "12345"
           );
           expect(plan.maxAmountToSupply.lt(parseUnits("12345"))).eq(true);
+        });
+        it("should return expected maxAmountToSupply=max(uint) if supply cap is zero (supplyCap == 0 => no cap)", async () => {
+          const plan = await tryGetConversionPlan(
+            {setZeroSupplyCap: true},
+            MaticAddresses.DAI,
+            MaticAddresses.USDC,
+            "12345"
+          );
+          console.log(plan.maxAmountToSupply);
+          expect(plan.maxAmountToSupply.eq(Misc.MAX_UINT)).eq(true);
         });
         it("should return expected borrowAmount when try to borrow more than allowed by borrow cap", async () => {
           const planNoBorrowCap = await tryGetConversionPlan(

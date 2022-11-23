@@ -250,6 +250,12 @@ describe("Aave3PoolAdapterUnitTest", () => {
         if (badPathsParams?.grabAllBorrowAssetFromSenderOnRepay) {
           await Aave3PoolMock__factory.connect(init.aavePool.address, deployer).setGrabAllBorrowAssetFromSenderOnRepay();
         }
+        if (badPathsParams?.ignoreRepay) {
+          await Aave3PoolMock__factory.connect(init.aavePool.address, deployer).setIgnoreRepay();
+        }
+        if (badPathsParams?.ignoreWithdraw) {
+          await Aave3PoolMock__factory.connect(init.aavePool.address, deployer).setIgnoreWithdraw();
+        }
       }
       const borrowResults = await Aave3TestUtils.makeBorrow(deployer, init, undefined);
 
@@ -366,6 +372,18 @@ describe("Aave3PoolAdapterUnitTest", () => {
           makeFullRepayTest(
           "1999",
           {amountToRepayStr: "1", closePosition: true}
+          )
+        ).revertedWith("TC-24"); // CLOSE_POSITION_FAILED
+      });
+      it("should fail if the debt was completely paid but amount of the debt is still not zero in the pool", async () => {
+        await expect(
+          makeFullRepayTest(
+            "1999",
+            {
+              useAave3PoolMock: true,
+              ignoreWithdraw: true,
+              ignoreRepay: true
+            }
           )
         ).revertedWith("TC-24"); // CLOSE_POSITION_FAILED
       });
@@ -687,7 +705,10 @@ describe("Aave3PoolAdapterUnitTest", () => {
         collateralAmount,
         borrowToken,
         false,
-        {targetHealthFactor2: targetHealthFactorInitial2}
+        {
+          targetHealthFactor2: targetHealthFactorInitial2,
+          useAave3PoolMock: badPathsParams?.useAave3PoolMock,
+        }
       );
       const collateralAssetData = await d.h.getReserveInfo(deployer, d.aavePool, d.dataProvider, collateralToken.address);
       console.log("collateralAssetData", collateralAssetData);
@@ -740,6 +761,12 @@ describe("Aave3PoolAdapterUnitTest", () => {
       console.log("expectedAdditionalBorrowAmount", expectedAdditionalBorrowAmount);
 
       // make additional borrow
+      if (badPathsParams?.useAave3PoolMock && badPathsParams?.aave3PoolMockSkipsBorrowInBorrowToRebalance) {
+        // pool doesn't make borrow and so doesn't send additional borrow asset us
+        // we should get WRONG_BORROWED_BALANCE exception
+        await Aave3PoolMock__factory.connect(d.aavePool.address, deployer).setIgnoreBorrow();
+      }
+
       const poolAdapterSigner = badPathsParams?.makeBorrowToRebalanceAsDeployer
         ? IPoolAdapter__factory.connect(d.aavePoolAdapterAsTC.address, deployer)
         : d.aavePoolAdapterAsTC;
@@ -784,29 +811,32 @@ describe("Aave3PoolAdapterUnitTest", () => {
           badPathsParams
         );
       }
-      describe("Not TetuConverter", () => {
-        it("should revert", async () => {
-          if (!await isPolygonForkInUse()) return;
-          await expect(
-            testDaiWMatic({makeBorrowToRebalanceAsDeployer: true})
-          ).revertedWith("TC-8");
-        });
+      it("should revert if not tetu-converter", async () => {
+        if (!await isPolygonForkInUse()) return;
+        await expect(
+          testDaiWMatic({makeBorrowToRebalanceAsDeployer: true})
+        ).revertedWith("TC-8");
       });
-      describe("Position is not registered", () => {
-        it("should revert", async () => {
-          if (!await isPolygonForkInUse()) return;
-          await expect(
-            testDaiWMatic({skipBorrow: true})
-          ).revertedWith("TC-11");
-        });
+      it("should revert if the position is not registered", async () => {
+        if (!await isPolygonForkInUse()) return;
+        await expect(
+          testDaiWMatic({skipBorrow: true})
+        ).revertedWith("TC-11");
       });
-      describe("Result health factor is less min allowed one", () => {
-        it("should revert", async () => {
-          if (!await isPolygonForkInUse()) return;
-          await expect(
-            testDaiWMatic({additionalAmountCorrectionFactor: 10})
-          ).revertedWith("TC-3: wrong health factor");
-        });
+      it("should revert if result health factor is less than min allowed one", async () => {
+        if (!await isPolygonForkInUse()) return;
+        await expect(
+          testDaiWMatic({additionalAmountCorrectionFactor: 10})
+        ).revertedWith("TC-3: wrong health factor");
+      });
+      it("should revert pool hasn't sent borrowed amount to the pool adapter", async () => {
+        if (!await isPolygonForkInUse()) return;
+        await expect(
+          testDaiWMatic({
+            useAave3PoolMock: true,
+            aave3PoolMockSkipsBorrowInBorrowToRebalance: true
+          })
+        ).revertedWith("TC-15"); // WRONG_BORROWED_BALANCE
       });
     });
   });

@@ -215,6 +215,7 @@ contract Aave3PlatformAdapter is IPlatformAdapter {
           {
             // see sources of AAVE3\ValidationLogic.sol\validateSupply
             uint supplyCap = rc.configuration.getSupplyCap();
+            console.log("!!supplyCap", supplyCap);
             if (supplyCap == 0) {
               plan.maxAmountToSupply = type(uint).max; // unlimited
             } else {

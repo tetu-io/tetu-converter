@@ -431,7 +431,7 @@ contract AaveTwoPoolAdapter is IPoolAdapter, IPoolAdapterInitializer, Initializa
     assets[0] = assetCollateral;
     assets[1] = assetBorrow;
     uint[] memory prices = _priceOracle.getAssetsPrices(assets);
-    require(prices[1] != 0, AppErrors.ZERO_PRICE);
+    require(prices[1] != 0 && prices[0] != 0, AppErrors.ZERO_PRICE);
 
     DataTypes.ReserveData memory rc = _pool.getReserveData(assetCollateral);
     uint aTokensBalance = IERC20(rc.aTokenAddress).balanceOf(address(this));

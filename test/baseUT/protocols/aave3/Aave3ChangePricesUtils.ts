@@ -128,13 +128,15 @@ export class Aave3ChangePricesUtils {
   }
 
   /**
-   * Get total supply value
-   * and set supply cap to almost same value.
-   * So, next attempt to supply of large enough amount should fail.
+   * Set fixed supply cap.
+   * If a value of the supply cap is not provided then
+   *    get total supply value and set supply cap to almost same value.
+   *    so, next attempt to supply of large enough amount should fail.
    */
-  public static async setMinSupplyCap(
+  public static async setSupplyCap(
     signer: SignerWithAddress,
-    reserve: string
+    reserve: string,
+    supplyCapValue?: BigNumber
   ) {
     const aavePoolAdmin = await DeployerUtils.startImpersonate(
       MaticAddresses.AAVE_V3_POOL_OWNER
@@ -150,11 +152,16 @@ export class Aave3ChangePricesUtils {
       aavePoolAdmin
     );
 
-    const dp = await Aave3Helper.getAaveProtocolDataProvider(signer);
-    const r = await dp.getReserveData(reserve);
-    const capValue = r.totalAToken.div(
-      parseUnits("1", await IERC20Extended__factory.connect(reserve, signer).decimals())
-    );
+    let capValue;
+    if (supplyCapValue) {
+      capValue = supplyCapValue;
+    } else {
+      const dp = await Aave3Helper.getAaveProtocolDataProvider(signer);
+      const r = await dp.getReserveData(reserve);
+      capValue = r.totalAToken.div(
+        parseUnits("1", await IERC20Extended__factory.connect(reserve, signer).decimals())
+      );
+    }
 
     console.log("setSupplyCap", capValue);
     await poolConfiguratorAsAdmin.setSupplyCap(reserve, capValue);

@@ -18,6 +18,8 @@ export interface IMakeBorrowToRebalanceBadPathParams {
   makeBorrowToRebalanceAsDeployer?: boolean;
   skipBorrow?: boolean;
   additionalAmountCorrectionFactor?: number;
+  useAave3PoolMock?: boolean;
+  aave3PoolMockSkipsBorrowInBorrowToRebalance?: boolean;
 }
 
 type MakeBorrowToRebalanceFunc = (

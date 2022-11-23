@@ -109,8 +109,6 @@ export interface IMakeBorrowOrRepayBadPathsParams {
   makeOperationAsNotTc?: boolean;
   useAave3PoolMock?: boolean;
   ignoreSupply?: boolean;
-  ignoreRepay?: boolean;
-  ignoreWithdraw?: boolean;
   ignoreBorrow?: boolean;
   skipSendingATokens?: boolean;
   useMockedAavePriceOracle?: boolean;
@@ -123,6 +121,8 @@ export interface IMakeRepayBadPathsParams {
   useAave3PoolMock?: boolean;
   grabAllBorrowAssetFromSenderOnRepay?: boolean;
   collateralPriceIsZero?: boolean;
+  ignoreRepay?: boolean;
+  ignoreWithdraw?: boolean;
 }
 
 export interface IAave3PoolAdapterState {
