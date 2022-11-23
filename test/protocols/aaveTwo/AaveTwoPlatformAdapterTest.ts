@@ -128,12 +128,11 @@ describe("AaveTwoPlatformAdapterTest", () => {
         aavePool: badPaths?.zeroAavePool ? Misc.ZERO_ADDRESS : MaticAddresses.AAVE_TWO_POOL,
         templateAdapterNormal: badPaths?.zeroTemplateAdapterNormal ? Misc.ZERO_ADDRESS : templateAdapterNormalStub.address
       }
-      const platformAdapter = await AdaptersHelper.createDForcePlatformAdapter(
+      const platformAdapter = await AdaptersHelper.createAaveTwoPlatformAdapter(
         deployer,
-        controller,
-        MaticAddresses.DFORCE_CONTROLLER,
-        templateAdapterNormalStub.address,
-        [MaticAddresses.dForce_iDAI]
+        data.controller,
+        data.aavePool,
+        data.templateAdapterNormal,
       );
       return {data, platformAdapter};
     }
@@ -377,7 +376,7 @@ describe("AaveTwoPlatformAdapterTest", () => {
           const collateralAsset = MaticAddresses.DAI;
           const borrowAsset = MaticAddresses.WMATIC;
 
-          const collateralAmount = getBigNumberFrom(1000, 18);
+          const collateralAmount = parseUnits("1000", 18);
           const r = await makeGetConversionPlanTest(collateralAsset, collateralAmount, borrowAsset);
 
           expect(r.sret).eq(r.sexpected);
@@ -389,7 +388,7 @@ describe("AaveTwoPlatformAdapterTest", () => {
 
           const collateralAsset = MaticAddresses.WMATIC;
           const borrowAsset = MaticAddresses.USDT;
-          const collateralAmount = getBigNumberFrom(1000, 18);
+          const collateralAmount = parseUnits("1000", 18);
 
           const r = await makeGetConversionPlanTest(collateralAsset, collateralAmount, borrowAsset);
 
@@ -402,7 +401,7 @@ describe("AaveTwoPlatformAdapterTest", () => {
 
           const collateralAsset = MaticAddresses.DAI;
           const borrowAsset = MaticAddresses.USDC;
-          const collateralAmount = getBigNumberFrom(1000, 18);
+          const collateralAmount = parseUnits("1000", 18);
 
           const r = await makeGetConversionPlanTest(collateralAsset, collateralAmount, borrowAsset);
 
@@ -415,11 +414,19 @@ describe("AaveTwoPlatformAdapterTest", () => {
 
           const collateralAsset = MaticAddresses.CRV;
           const borrowAsset = MaticAddresses.BALANCER;
-          const collateralAmount = getBigNumberFrom(1000, 18);
+          const collateralAmount = parseUnits("1000", 18);
 
           const r = await makeGetConversionPlanTest(collateralAsset, collateralAmount, borrowAsset);
 
           expect(r.sret).eq(r.sexpected);
+        });
+      });
+      describe("Try to use huge collateral amount", () => {
+        it("should return borrow amount equal to max available amount", async () => {
+          if (!await isPolygonForkInUse()) return;
+
+          const r = await preparePlan(MaticAddresses.DAI, parseUnits("1", 28), MaticAddresses.WMATIC);
+          expect(r.plan.amountToBorrow).eq(r.plan.maxAmountToBorrow);
         });
       });
     });

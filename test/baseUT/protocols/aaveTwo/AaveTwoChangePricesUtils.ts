@@ -65,6 +65,18 @@ export class AaveTwoChangePricesUtils {
     );
   }
 
+  public static async setAssetPrice(
+    signer: SignerWithAddress,
+    asset: string,
+    newPrice: BigNumber
+  ) {
+    const oracle = AaveTwoPriceOracleMock__factory.connect(
+      (await AaveTwoHelper.getAavePriceOracle(signer)).address,
+      signer
+    );
+    await oracle.setPrices([asset], [newPrice]);
+  }
+
   public static async setReserveFreeze(
     signer: SignerWithAddress,
     reserve: string,

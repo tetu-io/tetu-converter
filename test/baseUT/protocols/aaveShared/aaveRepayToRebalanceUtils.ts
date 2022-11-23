@@ -9,6 +9,7 @@ import {
   IMakeRepayToRebalanceInputParams
 } from "../shared/sharedDataTypes";
 import {parseUnits} from "ethers/lib/utils";
+import {areAlmostEqual} from "../../utils/CommonUtils";
 
 /**
  * Unification for both
@@ -79,6 +80,13 @@ export class AaveRepayToRebalanceUtils {
 
     console.log(r);
 
+    const db = parseUnits("1", borrowToken.decimals);
+    const dc = parseUnits("1", collateralToken.decimals);
+    const realBalanceBorrowAsset = r.userAccountBorrowBalanceAfterRepayToRebalance.div(db);
+    const realBalanceCollateralAsset = r.userAccountCollateralBalanceAfterRepayToRebalance.div(dc);
+    const expectedBalanceBorrowAsset = r.userAccountBorrowBalanceAfterBorrow.sub(r.expectedBorrowAssetAmountToRepay).div(db);
+    const expectedBalanceCollateralAsset = r.userAccountCollateralBalanceAfterBorrow.add(r.expectedCollateralAssetAmountToRepay).div(dc);
+
     const ret = [
       Math.round(r.afterBorrow.healthFactor.div(
         getBigNumberFrom(1, 15)).toNumber() / 10.
@@ -86,20 +94,14 @@ export class AaveRepayToRebalanceUtils {
       Math.round(r.afterBorrowToRebalance.healthFactor.div(
         getBigNumberFrom(1, 15)).toNumber() / 10.
       ),
-      r.userAccountBorrowBalanceAfterRepayToRebalance
-        .div(getBigNumberFrom(1, borrowToken.decimals)),
-      r.userAccountCollateralBalanceAfterRepayToRebalance
-        .div(getBigNumberFrom(1, collateralToken.decimals))
+      areAlmostEqual(realBalanceBorrowAsset, expectedBalanceBorrowAsset),
+      areAlmostEqual(realBalanceCollateralAsset, expectedBalanceCollateralAsset)
     ].join("\n");
     const expected = [
       targetHealthFactorInitial2,
       targetHealthFactorUpdated2,
-      r.userAccountBorrowBalanceAfterBorrow
-        .sub(r.expectedBorrowAssetAmountToRepay)
-        .div(getBigNumberFrom(1, borrowToken.decimals)),
-      r.userAccountCollateralBalanceAfterBorrow
-        .add(r.expectedCollateralAssetAmountToRepay)
-        .div(getBigNumberFrom(1, collateralToken.decimals))
+      true,
+      true
     ].join("\n");
     console.log("ret", ret);
     console.log("expected", expected);

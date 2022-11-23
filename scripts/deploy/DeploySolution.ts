@@ -1,12 +1,8 @@
 import {
   DeploySolutionUtils
 } from "./DeploySolutionUtils";
-import {IBorrowManager__factory, ITetuConverter__factory} from "../../typechain";
 import {ethers, network} from "hardhat";
 import {DeployerUtils} from "../utils/DeployerUtils";
-import {MaticAddresses} from "../addresses/MaticAddresses";
-import {parseUnits} from "ethers/lib/utils";
-import {RunHelper} from "../utils/RunHelper";
 
 /**
  * Deploy TetuConverter application to blockchain.

@@ -190,7 +190,7 @@ contract AaveTwoPoolAdapter is IPoolAdapter, IPoolAdapterInitializer, Initializa
 
     // deposit() shouldn't reduce balance..
     // but let's check it to avoid even possibility of the overflow in aTokensAmount calculation
-    require(aTokensBalanceAfterSupply > aTokensBalanceBeforeSupply, AppErrors.WEIRD_OVERFLOW);
+    require(aTokensBalanceAfterSupply >= aTokensBalanceBeforeSupply, AppErrors.WEIRD_OVERFLOW);
 
     uint aTokensAmount = aTokensBalanceAfterSupply - aTokensBalanceBeforeSupply;
     require(aTokensAmount + ATOKEN_MAX_DELTA >= collateralAmount_, AppErrors.WRONG_DERIVATIVE_TOKENS_BALANCE);
@@ -436,7 +436,7 @@ contract AaveTwoPoolAdapter is IPoolAdapter, IPoolAdapterInitializer, Initializa
     DataTypes.ReserveData memory rc = _pool.getReserveData(assetCollateral);
     uint aTokensBalance = IERC20(rc.aTokenAddress).balanceOf(address(this));
 
-  uint targetDecimals = (10 ** _pool.getConfiguration(assetBorrow).getDecimals());
+    uint targetDecimals = (10 ** _pool.getConfiguration(assetBorrow).getDecimals());
     return (
     // Total amount of provided collateral in [collateral asset]
       totalCollateralBase * (10 ** _pool.getConfiguration(assetCollateral).getDecimals()) / prices[0],

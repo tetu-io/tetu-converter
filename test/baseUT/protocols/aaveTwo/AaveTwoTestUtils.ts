@@ -7,7 +7,7 @@ import {
   IAaveTwoPool, IAaveTwoPool__factory,
   IAaveTwoPriceOracle, IAaveTwoProtocolDataProvider,
   IERC20__factory,
-  IPoolAdapter__factory
+  IPoolAdapter__factory, Aave3PoolMock__factory
 } from "../../../../typechain";
 import {AaveTwoHelper, IAaveTwoReserveInfo} from "../../../../scripts/integration/helpers/AaveTwoHelper";
 import {BigNumber} from "ethers";
@@ -74,6 +74,11 @@ export interface ILiquidationResults {
 
 export interface IMakeBorrowOrRepayBadPathsParams {
   makeOperationAsNotTc?: boolean;
+  useMockedAavePriceOracle?: boolean;
+  useAaveTwoPoolMock?: boolean;
+  ignoreSupply?: boolean;
+  ignoreBorrow?: boolean;
+  skipSendingATokens?: boolean;
 }
 
 export interface IAaveTwoPoolAdapterState {
@@ -90,6 +95,12 @@ export interface IInitialBorrowResults {
   collateralAmount: BigNumber;
   stateAfterBorrow: IAaveTwoPoolAdapterState;
 }
+
+export interface IPrepareToBorrowOptionalSetup {
+  useAaveTwoPoolMock?: boolean;
+  useMockedAavePriceOracle?: boolean;
+  targetHealthFactor2?: number;
+}
 //endregion Data types
 
 export class AaveTwoTestUtils {
@@ -105,11 +116,16 @@ export class AaveTwoTestUtils {
     collateralHolder: string,
     collateralAmountRequired: BigNumber | undefined,
     borrowToken: TokenDataTypes,
-    targetHealthFactor2?: number
+    additionalParams?: IPrepareToBorrowOptionalSetup
   ) : Promise<IPrepareToBorrowResults> {
     const periodInBlocks = 1000;
 
-    const aavePool = await AaveTwoHelper.getAavePool(deployer);
+    const aavePool = additionalParams?.useAaveTwoPoolMock
+      ? await MocksHelper.getAaveTwoPoolMock(deployer, collateralToken.address, borrowToken.address)
+      : await AaveTwoHelper.getAavePool(deployer);
+    if (additionalParams?.useMockedAavePriceOracle) {
+      await AaveTwoChangePricesUtils.setupPriceOracleMock(deployer);
+    }
     const dataProvider = await AaveTwoHelper.getAaveProtocolDataProvider(deployer);
     const aavePrices = await AaveTwoHelper.getAavePriceOracle(deployer);
 
@@ -169,13 +185,24 @@ export class AaveTwoTestUtils {
       .connect(await DeployerUtils.startImpersonate(collateralHolder))
       .transfer(userContract.address, collateralAmount);
 
+    if (additionalParams?.useAaveTwoPoolMock) {
+      // see AaveTwoPoolMock.supply for explanation
+      // we need to put additional amount to mock to be able to split a-tokens on two parts
+      await BalanceUtils.getRequiredAmountFromHolders(
+        collateralAmount,
+        collateralToken.token,
+        [collateralHolder],
+        aavePool.address
+      );
+    }
+
     // calculate max allowed amount to borrow
     const countBlocks = 1;
     const plan = await aavePlatformAdapter.getConversionPlan(
       collateralToken.address,
       collateralAmount,
       borrowToken.address,
-      targetHealthFactor2 || await controller.targetHealthFactor2(),
+       additionalParams?.targetHealthFactor2 || await controller.targetHealthFactor2(),
       countBlocks
     );
     console.log("plan", plan);
@@ -231,6 +258,15 @@ export class AaveTwoTestUtils {
     const borrower = badPathsParams?.makeOperationAsNotTc
       ? AaveTwoPoolAdapter__factory.connect(d.aavePoolAdapterAsTC.address, deployer)
       : d.aavePoolAdapterAsTC;
+
+    if (badPathsParams?.useAaveTwoPoolMock) {
+      if (badPathsParams?.ignoreBorrow) {
+        await Aave3PoolMock__factory.connect(d.aavePool.address, deployer).setIgnoreBorrow();
+      }
+      if (badPathsParams?.skipSendingATokens) {
+        await Aave3PoolMock__factory.connect(d.aavePool.address, deployer).setSkipSendingATokens();
+      }
+    }
 
     await borrower.borrow(
       d.collateralAmount,
@@ -311,7 +347,7 @@ export class AaveTwoTestUtils {
       collateralHolder,
       collateralAmount,
       borrowToken,
-      200
+      {targetHealthFactor2: 200}
     );
     // make a borrow
     await AaveTwoTestUtils.makeBorrow(deployer, d, undefined);

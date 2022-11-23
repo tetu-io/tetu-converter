@@ -28,7 +28,7 @@ import {
   ConverterUnknownKind,
   KeeperMock,
   KeeperCaller,
-  DebtMonitorCheckHealthMock, KeeperCallbackMock, DebtMonitorMock, Aave3PoolMock
+  DebtMonitorCheckHealthMock, KeeperCallbackMock, DebtMonitorMock, Aave3PoolMock, AaveTwoPoolMock
 } from "../../../typechain";
 import {IPoolInfo} from "./BorrowManagerHelper";
 import {getBigNumberFrom} from "../../../scripts/utils/NumberUtils";
@@ -448,7 +448,7 @@ export class MocksHelper {
   }
 //endregion DebtMonitor
 
-//region AAVE3
+//region Pools and comptrollers
   public static async getAave3PoolMock(
     deployer: SignerWithAddress,
     collateralAsset: string,
@@ -461,5 +461,18 @@ export class MocksHelper {
       borrowAsset
     ) as Aave3PoolMock;
   }
-//endregion AAVE3
+
+  public static async getAaveTwoPoolMock(
+    deployer: SignerWithAddress,
+    collateralAsset: string,
+    borrowAsset: string
+  ) : Promise<AaveTwoPoolMock> {
+    return await DeployUtils.deployContract(deployer,
+      "AaveTwoPoolMock",
+      MaticAddresses.AAVE_TWO_POOL,
+      collateralAsset,
+      borrowAsset
+    ) as AaveTwoPoolMock;
+  }
+//endregion Pools and comptrollers
 }

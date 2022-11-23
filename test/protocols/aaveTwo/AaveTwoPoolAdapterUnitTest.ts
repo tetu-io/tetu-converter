@@ -3,7 +3,7 @@ import {ethers} from "hardhat";
 import {TimeUtils} from "../../../scripts/utils/TimeUtils";
 import {
   AaveTwoPoolAdapter,
-  AaveTwoPoolAdapter__factory,
+  AaveTwoPoolAdapter__factory, AaveTwoPoolMock__factory,
   BorrowManager__factory, Controller, DebtMonitor__factory,
   IERC20Extended__factory,
   IPoolAdapter__factory
@@ -45,7 +45,7 @@ import {MocksHelper} from "../../baseUT/helpers/MocksHelper";
 import {parseUnits} from "ethers/lib/utils";
 import {areAlmostEqual} from "../../baseUT/utils/CommonUtils";
 import {IPoolAdapterStatus} from "../../baseUT/types/BorrowRepayDataTypes";
-import {Aave3TestUtils} from "../../baseUT/protocols/aave3/Aave3TestUtils";
+import {AaveTwoChangePricesUtils} from "../../baseUT/protocols/aaveTwo/AaveTwoChangePricesUtils";
 
 describe("AaveTwoPoolAdapterTest", () => {
 //region Global vars for all tests
@@ -98,7 +98,11 @@ describe("AaveTwoPoolAdapterTest", () => {
       collateralHolder,
       parseUnits(collateralAmountStr, collateralToken.decimals),
       borrowToken,
-      200
+      {
+        targetHealthFactor2: 200,
+        useMockedAavePriceOracle: badPathsParams?.useMockedAavePriceOracle,
+        useAaveTwoPoolMock: badPathsParams?.useAaveTwoPoolMock
+      }
     );
     const borrowResults = await AaveTwoTestUtils.makeBorrow(deployer, init, undefined, badPathsParams);
     return {
@@ -175,6 +179,29 @@ describe("AaveTwoPoolAdapterTest", () => {
           )
         ).revertedWith("TC-8"); // TETU_CONVERTER_ONLY
       });
+      it("should revert if the pool doesn't send borrowed amount to pool adapter after borrowing", async () => {
+        await expect(
+          makeBorrowTest(
+            collateralAsset,
+            collateralHolder,
+            borrowAsset,
+            "1999",
+            { useAaveTwoPoolMock: true, ignoreBorrow: true}
+          )
+        ).revertedWith("TC-15"); // WRONG_BORROWED_BALANCE
+      });
+      it("should revert if the pool doesn't send ATokens to pool adapter after supplying", async () => {
+        await expect(
+          makeBorrowTest(
+            collateralAsset,
+            collateralHolder,
+            borrowAsset,
+            "1999",
+            { useAaveTwoPoolMock: true, skipSendingATokens: true}
+          )
+        ).revertedWith("TC-14"); // WRONG_DERIVATIVE_TOKENS_BALANCE
+      });
+
     });
   });
 
@@ -199,6 +226,11 @@ describe("AaveTwoPoolAdapterTest", () => {
       amountToRepayStr?: string;
       makeRepayAsNotTc?: boolean;
       closePosition?: boolean;
+      useAaveTwoPoolMock?: boolean;
+      grabAllBorrowAssetFromSenderOnRepay?: boolean;
+      collateralPriceIsZero?: boolean;
+      ignoreRepay?: boolean;
+      ignoreWithdraw?: boolean;
     }
 
     async function makeFullRepayTest(
@@ -214,8 +246,23 @@ describe("AaveTwoPoolAdapterTest", () => {
         collateralHolder,
         parseUnits(collateralAmountStr, collateralToken.decimals),
         borrowToken,
-        200
+        {
+          targetHealthFactor2: 200,
+          useAaveTwoPoolMock: badPathsParams?.useAaveTwoPoolMock,
+          useMockedAavePriceOracle: badPathsParams?.collateralPriceIsZero
+        }
       );
+      if (badPathsParams?.useAaveTwoPoolMock) {
+        if (badPathsParams?.grabAllBorrowAssetFromSenderOnRepay) {
+          await AaveTwoPoolMock__factory.connect(init.aavePool.address, deployer).setGrabAllBorrowAssetFromSenderOnRepay();
+        }
+        if (badPathsParams?.ignoreRepay) {
+          await AaveTwoPoolMock__factory.connect(init.aavePool.address, deployer).setIgnoreRepay();
+        }
+        if (badPathsParams?.ignoreWithdraw) {
+          await AaveTwoPoolMock__factory.connect(init.aavePool.address, deployer).setIgnoreWithdraw();
+        }
+      }
       const borrowResults = await AaveTwoTestUtils.makeBorrow(deployer, init, undefined);
 
       const amountToRepay = badPathsParams?.amountToRepayStr
@@ -225,6 +272,11 @@ describe("AaveTwoPoolAdapterTest", () => {
 
       const userBorrowAssetBalanceBeforeRepay = await init.borrowToken.token.balanceOf(init.userContract.address);
       const statusBeforeRepay: IPoolAdapterStatus = await init.aavePoolAdapterAsTC.getStatus();
+
+      if (badPathsParams?.collateralPriceIsZero) {
+        await AaveTwoChangePricesUtils.setAssetPrice(deployer, init.collateralToken.address, BigNumber.from(0));
+        console.log("Collateral price was set to 0");
+      }
 
       const repayResults = await AaveTwoTestUtils.makeRepay(
         init,
@@ -328,6 +380,41 @@ describe("AaveTwoPoolAdapterTest", () => {
           )
         ).revertedWith("TC-24"); // CLOSE_POSITION_FAILED
       });
+      it("should fail if the debt was completely paid but amount of the debt is still not zero in the pool", async () => {
+        await expect(
+          makeFullRepayTest(
+            "1999",
+            {
+              useAaveTwoPoolMock: true,
+              ignoreWithdraw: true,
+              ignoreRepay: true
+            }
+          )
+        ).revertedWith("TC-24"); // CLOSE_POSITION_FAILED
+      });
+      it("should NOT revert if pool has used all amount-to-repay and hasn't sent anything back", async () => {
+        const r = await makeFullRepayTest(
+          "1999",
+          {useAaveTwoPoolMock: true, grabAllBorrowAssetFromSenderOnRepay: true}
+        );
+
+        // We emulate a situation
+        // when the pool adapter takes all amount-to-repay
+        // and doesn't return any amount back
+        const balanceBorrowAssetOnMock = await r.borrowToken.token.balanceOf(r.init.aavePool.address);
+        expect(balanceBorrowAssetOnMock.gt(0)).eq(true);
+      });
+      it("should fail if collateral price is zero", async () => {
+        await expect(
+          makeFullRepayTest(
+            "1999",
+            {
+              collateralPriceIsZero: true,
+              amountToRepayStr: "1" // we need partial-repay mode in this test to avoid calling getStatus in makeRepayComplete
+            }
+          )
+        ).revertedWith("TC-4"); // ZERO_PRICE
+      });
     });
   });
 
@@ -355,7 +442,7 @@ describe("AaveTwoPoolAdapterTest", () => {
         p.collateralHolder,
         p.collateralAmount,
         p.borrowToken,
-        targetHealthFactorInitial2
+        {targetHealthFactor2: targetHealthFactorInitial2}
       );
       const collateralAssetData = await AaveTwoHelper.getReserveInfo(deployer,
         d.aavePool, d.dataProvider, p.collateralToken.address);
@@ -624,7 +711,7 @@ describe("AaveTwoPoolAdapterTest", () => {
         collateralHolder,
         collateralAmount,
         borrowToken,
-        targetHealthFactorInitial2
+        {targetHealthFactor2: targetHealthFactorInitial2}
       );
       const collateralAssetData = await AaveTwoHelper.getReserveInfo(deployer, d.aavePool, d.dataProvider, collateralToken.address);
       console.log("collateralAssetData", collateralAssetData);
@@ -916,7 +1003,7 @@ describe("AaveTwoPoolAdapterTest", () => {
           MaticAddresses.HOLDER_DAI,
           undefined,
           await TokenDataTypes.Build(deployer, MaticAddresses.WMATIC),
-          200
+          {targetHealthFactor2: 200}
         );
         const ret = await d.aavePoolAdapterAsTC.callStatic.claimRewards(receiver);
         expect(ret.amount.toNumber()).eq(0);
@@ -934,7 +1021,7 @@ describe("AaveTwoPoolAdapterTest", () => {
           MaticAddresses.HOLDER_DAI,
           undefined,
           await TokenDataTypes.Build(deployer, MaticAddresses.WMATIC),
-          200
+          {targetHealthFactor2: 200}
         );
         const ret = await d.aavePoolAdapterAsTC.getConversionKind();
         expect(ret).eq(2); // CONVERSION_KIND_BORROW_2
@@ -952,7 +1039,7 @@ describe("AaveTwoPoolAdapterTest", () => {
           MaticAddresses.HOLDER_DAI,
           undefined,
           await TokenDataTypes.Build(deployer, MaticAddresses.WMATIC),
-          200
+          {targetHealthFactor2: 200}
         );
         const r = await d.aavePoolAdapterAsTC.getConfig();
         const ret = [
@@ -1135,68 +1222,102 @@ describe("AaveTwoPoolAdapterTest", () => {
   });
 
   describe("getStatus", () => {
-    it("user has made a borrow, should return expected status", async () => {
-      if (!await isPolygonForkInUse()) return;
+    describe("Good paths", () => {
+      it("user has made a borrow, should return expected status", async () => {
+        if (!await isPolygonForkInUse()) return;
 
-      const collateralAsset = MaticAddresses.DAI;
-      const collateralHolder = MaticAddresses.HOLDER_DAI;
-      const borrowAsset = MaticAddresses.WMATIC;
+        const collateralAsset = MaticAddresses.DAI;
+        const collateralHolder = MaticAddresses.HOLDER_DAI;
+        const borrowAsset = MaticAddresses.WMATIC;
 
-      const results = await makeBorrowTest(
-        collateralAsset,
-        collateralHolder,
-        borrowAsset,
-        "1999"
-      );
-      const status = await results.init.aavePoolAdapterAsTC.getStatus();
+        const results = await makeBorrowTest(
+          collateralAsset,
+          collateralHolder,
+          borrowAsset,
+          "1999"
+        );
+        const status = await results.init.aavePoolAdapterAsTC.getStatus();
 
-      const collateralTargetHealthFactor2 = await BorrowManager__factory.connect(
-        await results.init.controller.borrowManager(), deployer
-      ).getTargetHealthFactor2(collateralAsset);
+        const collateralTargetHealthFactor2 = await BorrowManager__factory.connect(
+          await results.init.controller.borrowManager(), deployer
+        ).getTargetHealthFactor2(collateralAsset);
 
-      const ret = [
-        areAlmostEqual(parseUnits(collateralTargetHealthFactor2.toString(), 16), status.healthFactor18),
-        areAlmostEqual(results.borrowResults.borrowedAmount, status.amountToPay, 4),
-        status.collateralAmountLiquidated.eq(0),
-        status.collateralAmount.eq(parseUnits("1999", results.init.collateralToken.decimals))
-      ].join();
-      const expected = [true, true, true, true].join();
-      expect(ret).eq(expected);
+        const ret = [
+          areAlmostEqual(parseUnits(collateralTargetHealthFactor2.toString(), 16), status.healthFactor18),
+          areAlmostEqual(results.borrowResults.borrowedAmount, status.amountToPay, 4),
+          status.collateralAmountLiquidated.eq(0),
+          status.collateralAmount.eq(parseUnits("1999", results.init.collateralToken.decimals))
+        ].join();
+        const expected = [true, true, true, true].join();
+        expect(ret).eq(expected);
+      });
+      it("user has not made a borrow, should return expected status", async () => {
+        if (!await isPolygonForkInUse()) return;
+
+        const collateralAsset = MaticAddresses.DAI;
+        const collateralHolder = MaticAddresses.HOLDER_DAI;
+        const borrowAsset = MaticAddresses.WMATIC;
+
+        const collateralToken = await TokenDataTypes.Build(deployer, collateralAsset);
+        const borrowToken = await TokenDataTypes.Build(deployer, borrowAsset);
+
+        // we only prepare to borrow, but don't make a borrow
+        const init = await AaveTwoTestUtils.prepareToBorrow(
+          deployer,
+          collateralToken,
+          collateralHolder,
+          parseUnits("999", collateralToken.decimals),
+          borrowToken,
+        );
+        const status = await init.aavePoolAdapterAsTC.getStatus();
+
+        const collateralTargetHealthFactor2 = await BorrowManager__factory.connect(
+          await init.controller.borrowManager(), deployer
+        ).getTargetHealthFactor2(collateralAsset);
+
+        const ret = [
+          status.healthFactor18.eq(Misc.MAX_UINT),
+          status.amountToPay.eq(0),
+          status.collateralAmountLiquidated.eq(0),
+          status.collateralAmount.eq(0),
+          status.opened
+        ].join();
+        const expected = [true, true, true, true, false].join();
+        expect(ret).eq(expected);
+      });
     });
-    it("user has not made a borrow, should return expected status", async () => {
-      if (!await isPolygonForkInUse()) return;
+    describe("Bad paths", () => {
+      it("it should revert if collateral price is zero", async () => {
+        if (!await isPolygonForkInUse()) return;
 
-      const collateralAsset = MaticAddresses.DAI;
-      const collateralHolder = MaticAddresses.HOLDER_DAI;
-      const borrowAsset = MaticAddresses.WMATIC;
+        const r = await makeBorrowTest(
+          MaticAddresses.DAI,
+          MaticAddresses.HOLDER_DAI,
+          MaticAddresses.WMATIC,
+          "1999",
+          {useMockedAavePriceOracle: true}
+        );
+        await AaveTwoChangePricesUtils.setAssetPrice(deployer, r.init.collateralToken.address, BigNumber.from(0));
+        await expect(
+          r.init.aavePoolAdapterAsTC.getStatus()
+        ).revertedWith("TC-4"); // ZERO_PRICE
+      });
+      it("it should revert if collateral price is zero", async () => {
+        if (!await isPolygonForkInUse()) return;
 
-      const collateralToken = await TokenDataTypes.Build(deployer, collateralAsset);
-      const borrowToken = await TokenDataTypes.Build(deployer, borrowAsset);
+        const r = await makeBorrowTest(
+          MaticAddresses.DAI,
+          MaticAddresses.HOLDER_DAI,
+          MaticAddresses.WMATIC,
+          "1999",
+          {useMockedAavePriceOracle: true}
+        );
+        await AaveTwoChangePricesUtils.setAssetPrice(deployer, r.init.borrowToken.address, BigNumber.from(0));
+        await expect(
+          r.init.aavePoolAdapterAsTC.getStatus()
+        ).revertedWith("TC-4"); // ZERO_PRICE
+      });
 
-      // we only prepare to borrow, but don't make a borrow
-      const init = await Aave3TestUtils.prepareToBorrow(
-        deployer,
-        collateralToken,
-        [collateralHolder],
-        parseUnits("999", collateralToken.decimals),
-        borrowToken,
-        false
-      );
-      const status = await init.aavePoolAdapterAsTC.getStatus();
-
-      const collateralTargetHealthFactor2 = await BorrowManager__factory.connect(
-        await init.controller.borrowManager(), deployer
-      ).getTargetHealthFactor2(collateralAsset);
-
-      const ret = [
-        status.healthFactor18.eq(Misc.MAX_UINT),
-        status.amountToPay.eq(0),
-        status.collateralAmountLiquidated.eq(0),
-        status.collateralAmount.eq(0),
-        status.opened
-      ].join();
-      const expected = [true, true, true, true, false].join();
-      expect(ret).eq(expected);
     });
   });
 
