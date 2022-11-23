@@ -2,7 +2,8 @@ import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import hre, {ethers} from "hardhat";
 import {TimeUtils} from "../../../scripts/utils/TimeUtils";
 import {
-  Aave3PlatformAdapter__factory, BorrowManager__factory,
+  Aave3PlatformAdapter,
+  Aave3PlatformAdapter__factory, BorrowManager__factory, Controller,
   IAavePool,
   IAaveProtocolDataProvider,
   IERC20Extended__factory
@@ -111,9 +112,21 @@ describe("Aave3PlatformAdapterTest", () => {
 
 //region Unit tests
   describe("constructor and converters()", () => {
-    it("should return expected values", async () => {
-      if (!await isPolygonForkInUse()) return;
-
+    interface IContractsSet {
+      controller: string;
+      templateAdapterNormal: string;
+      templateAdapterEMode: string;
+      aavePool: string;
+    }
+    interface ICreateContractsSetBadParams {
+      zeroController?: boolean;
+      zeroTemplateAdapterNormal?: boolean;
+      zeroTemplateAdapterEMode?: boolean;
+      zeroAavePool?: boolean;
+    }
+    async function initializePlatformAdapter(
+      badPaths?: ICreateContractsSetBadParams
+    ) : Promise<{data: IContractsSet, platformAdapter: Aave3PlatformAdapter}> {
       const controller = await TetuConverterApp.createController(
         deployer,
         {tetuLiquidatorAddress: MaticAddresses.TETU_LIQUIDATOR}
@@ -121,31 +134,66 @@ describe("Aave3PlatformAdapterTest", () => {
       const templateAdapterNormalStub = ethers.Wallet.createRandom();
       const templateAdapterEModeStub = ethers.Wallet.createRandom();
 
-      const aavePool = await Aave3Helper.getAavePool(deployer);
+      const data: IContractsSet = {
+        controller: badPaths?.zeroController ? Misc.ZERO_ADDRESS : controller.address,
+        aavePool: badPaths?.zeroAavePool ? Misc.ZERO_ADDRESS : MaticAddresses.AAVE_V3_POOL,
+        templateAdapterEMode: badPaths?.zeroTemplateAdapterEMode ? Misc.ZERO_ADDRESS : templateAdapterEModeStub.address,
+        templateAdapterNormal: badPaths?.zeroTemplateAdapterNormal ? Misc.ZERO_ADDRESS : templateAdapterNormalStub.address
+      }
       const platformAdapter = await AdaptersHelper.createAave3PlatformAdapter(
         deployer,
-        controller.address,
-        MaticAddresses.AAVE_V3_POOL,
-        templateAdapterNormalStub.address,
-        templateAdapterEModeStub.address
+        data.controller,
+        data.aavePool,
+        data.templateAdapterNormal,
+        data.templateAdapterEMode
       );
+      return {data, platformAdapter};
+    }
+    describe("Good paths", () => {
+      it("should return expected values", async () => {
+        if (!await isPolygonForkInUse()) return;
 
-      const ret = [
-        await platformAdapter.controller(),
-        await platformAdapter.pool(),
-        await platformAdapter.converterNormal(),
-        await platformAdapter.converterEMode(),
-        (await platformAdapter.converters()).join()
-      ].join();
-      const expected = [
-        controller.address,
-        aavePool.address,
-        templateAdapterNormalStub.address,
-        templateAdapterEModeStub.address,
-        [templateAdapterNormalStub.address, templateAdapterEModeStub.address].join()
-      ].join();
+        const r = await initializePlatformAdapter();
 
-      expect(ret).eq(expected);
+        const ret = [
+          await r.platformAdapter.controller(),
+          await r.platformAdapter.pool(),
+          await r.platformAdapter.converterNormal(),
+          await r.platformAdapter.converterEMode(),
+          (await r.platformAdapter.converters()).join()
+        ].join();
+        const expected = [
+          r.data.controller,
+          r.data.aavePool,
+          r.data.templateAdapterNormal,
+          r.data.templateAdapterEMode,
+          [r.data.templateAdapterNormal, r.data.templateAdapterEMode].join()
+        ].join();
+
+        expect(ret).eq(expected);
+      });
+    });
+    describe("Bad paths", () => {
+      it("should revert if aave-pool is zero", async () => {
+        await expect(
+          initializePlatformAdapter({zeroAavePool: true})
+        ).revertedWith("TC-1");
+      });
+      it("should revert if controller is zero", async () => {
+        await expect(
+          initializePlatformAdapter({zeroController: true})
+        ).revertedWith("TC-1");
+      });
+      it("should revert if template normal is zero", async () => {
+        await expect(
+          initializePlatformAdapter({zeroTemplateAdapterNormal: true})
+        ).revertedWith("TC-1");
+      });
+      it("should revert if template emode is zero", async () => {
+        await expect(
+          initializePlatformAdapter({zeroTemplateAdapterEMode: true})
+        ).revertedWith("TC-1");
+      });
     });
   });
 

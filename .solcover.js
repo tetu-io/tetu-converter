@@ -1,5 +1,11 @@
 module.exports = {
-  skipFiles: ['test', 'openzeppelin', 'lib', 'third_party', 'base/readers'],
+  skipFiles: [
+'test',
+'openzeppelin',
+'lib',
+'integration',
+'interfaces'
+],
   configureYulOptimizer: true,
   mocha: {
     grep: "@skip-on-coverage", // Find everything with this tag

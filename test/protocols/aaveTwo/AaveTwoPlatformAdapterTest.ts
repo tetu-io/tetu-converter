@@ -11,6 +11,7 @@ import {MaticAddresses} from "../../../scripts/addresses/MaticAddresses";
 import {AaveTwoHelper, IAaveTwoReserveInfo} from "../../../scripts/integration/helpers/AaveTwoHelper";
 import {AprUtils, COUNT_BLOCKS_PER_DAY} from "../../baseUT/utils/aprUtils";
 import {
+  AaveTwoPlatformAdapter,
   AaveTwoPlatformAdapter__factory,
   IAaveTwoPool,
   IAaveTwoProtocolDataProvider,
@@ -103,37 +104,77 @@ describe("AaveTwoPlatformAdapterTest", () => {
 
 //region Unit tests
   describe("constructor and converters()", () => {
-    it("should return expected values", async () => {
-      if (!await isPolygonForkInUse()) return;
-
+    interface IContractsSet {
+      controller: string;
+      templateAdapterNormal: string;
+      aavePool: string;
+    }
+    interface ICreateContractsSetBadParams {
+      zeroController?: boolean;
+      zeroTemplateAdapterNormal?: boolean;
+      zeroAavePool?: boolean;
+    }
+    async function initializePlatformAdapter(
+      badPaths?: ICreateContractsSetBadParams
+    ) : Promise<{data: IContractsSet, platformAdapter: AaveTwoPlatformAdapter}> {
       const controller = await TetuConverterApp.createController(
         deployer,
         {tetuLiquidatorAddress: MaticAddresses.TETU_LIQUIDATOR}
       );
       const templateAdapterNormalStub = ethers.Wallet.createRandom();
 
-      const aavePool = await AaveTwoHelper.getAavePool(deployer);
-      const platformAdapter = await AdaptersHelper.createAaveTwoPlatformAdapter(
+      const data: IContractsSet = {
+        controller: badPaths?.zeroController ? Misc.ZERO_ADDRESS : controller.address,
+        aavePool: badPaths?.zeroAavePool ? Misc.ZERO_ADDRESS : MaticAddresses.AAVE_TWO_POOL,
+        templateAdapterNormal: badPaths?.zeroTemplateAdapterNormal ? Misc.ZERO_ADDRESS : templateAdapterNormalStub.address
+      }
+      const platformAdapter = await AdaptersHelper.createDForcePlatformAdapter(
         deployer,
-        controller.address,
-        MaticAddresses.AAVE_TWO_POOL,
+        controller,
+        MaticAddresses.DFORCE_CONTROLLER,
         templateAdapterNormalStub.address,
+        [MaticAddresses.dForce_iDAI]
       );
+      return {data, platformAdapter};
+    }
+    describe("Good paths", () => {
+      it("should return expected values", async () => {
+        if (!await isPolygonForkInUse()) return;
 
-      const ret = [
-        await platformAdapter.controller(),
-        await platformAdapter.pool(),
-        await platformAdapter.converter(),
-        (await platformAdapter.converters()).join()
-      ].join();
-      const expected = [
-        controller.address,
-        aavePool.address,
-        templateAdapterNormalStub.address,
-        [templateAdapterNormalStub.address].join()
-      ].join();
+        const r = await initializePlatformAdapter();
 
-      expect(ret).eq(expected);
+        const ret = [
+          await r.platformAdapter.controller(),
+          await r.platformAdapter.pool(),
+          await r.platformAdapter.converter(),
+          (await r.platformAdapter.converters()).join()
+        ].join();
+        const expected = [
+          r.data.controller,
+          r.data.aavePool,
+          r.data.templateAdapterNormal,
+          [r.data.templateAdapterNormal].join()
+        ].join();
+
+        expect(ret).eq(expected);
+      });
+    });
+    describe("Bad paths", () => {
+      it("should revert if aave-pool is zero", async () => {
+        await expect(
+          initializePlatformAdapter({zeroAavePool: true})
+        ).revertedWith("TC-1");
+      });
+      it("should revert if controller is zero", async () => {
+        await expect(
+          initializePlatformAdapter({zeroController: true})
+        ).revertedWith("TC-1");
+      });
+      it("should revert if template normal is zero", async () => {
+        await expect(
+          initializePlatformAdapter({zeroTemplateAdapterNormal: true})
+        ).revertedWith("TC-1");
+      });
     });
   });
 

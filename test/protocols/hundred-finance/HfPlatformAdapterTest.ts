@@ -3,7 +3,7 @@ import {ethers} from "hardhat";
 import {TimeUtils} from "../../../scripts/utils/TimeUtils";
 import {
   BorrowManager__factory,
-  HfAprLibFacade, HfPlatformAdapter__factory,
+  HfAprLibFacade, HfPlatformAdapter, HfPlatformAdapter__factory,
   IERC20Extended__factory, IHfComptroller, IHfCToken,
   IHfCToken__factory
 } from "../../../typechain";
@@ -306,42 +306,81 @@ describe("Hundred finance integration tests, platform adapter", () => {
 
 //region Unit tests
   describe("constructor and converters()", () => {
-    it("should return expected values", async () => {
-      if (!await isPolygonForkInUse()) return;
-
+    interface IContractsSet {
+      controller: string;
+      converter: string;
+      comptroller: string;
+    }
+    interface ICreateContractsSetBadParams {
+      zeroController?: boolean;
+      zeroConverter?: boolean;
+      zeroComptroller?: boolean;
+    }
+    async function initializePlatformAdapter(
+      badPaths?: ICreateContractsSetBadParams
+    ) : Promise<{data: IContractsSet, platformAdapter: HfPlatformAdapter}> {
       const controller = await TetuConverterApp.createController(
         deployer,
         {tetuLiquidatorAddress: MaticAddresses.TETU_LIQUIDATOR}
       );
       const templateAdapterNormalStub = ethers.Wallet.createRandom();
 
-      const comptroller = await HundredFinanceHelper.getComptroller(deployer);
+      const data: IContractsSet = {
+        controller: badPaths?.zeroController ? Misc.ZERO_ADDRESS : controller.address,
+        comptroller: badPaths?.zeroComptroller ? Misc.ZERO_ADDRESS : MaticAddresses.HUNDRED_FINANCE_COMPTROLLER,
+        converter: badPaths?.zeroConverter ? Misc.ZERO_ADDRESS : templateAdapterNormalStub.address
+      }
       const platformAdapter = await AdaptersHelper.createHundredFinancePlatformAdapter(
         deployer,
-        controller.address,
-        MaticAddresses.HUNDRED_FINANCE_COMPTROLLER,
-        templateAdapterNormalStub.address,
+        data.controller,
+        data.comptroller,
+        data.converter,
         [MaticAddresses.hDAI]
       );
+      return {data, platformAdapter};
+    }
+    describe("Good paths", () => {
+      it("should return expected values", async () => {
+        if (!await isPolygonForkInUse()) return;
 
-      const ret = [
-        await platformAdapter.controller(),
-        await platformAdapter.comptroller(),
-        await platformAdapter.converter(),
-        (await platformAdapter.converters()).join(),
-        await platformAdapter.activeAssets(MaticAddresses.DAI),
-        await platformAdapter.activeAssets(MaticAddresses.USDC)
-      ].join("\n");
-      const expected = [
-        controller.address,
-        comptroller.address,
-        templateAdapterNormalStub.address,
-        [templateAdapterNormalStub.address].join(),
-        MaticAddresses.hDAI,
-        Misc.ZERO_ADDRESS
-      ].join("\n");
+        const r = await initializePlatformAdapter();
 
-      expect(ret).eq(expected);
+        const ret = [
+          await r.platformAdapter.controller(),
+          await r.platformAdapter.comptroller(),
+          await r.platformAdapter.converter(),
+          (await r.platformAdapter.converters()).join(),
+          await r.platformAdapter.activeAssets(MaticAddresses.DAI),
+          await r.platformAdapter.activeAssets(MaticAddresses.USDC)
+        ].join("\n");
+        const expected = [
+          r.data.controller,
+          r.data.comptroller,
+          r.data.converter,
+          [r.data.converter].join(),
+          MaticAddresses.hDAI,
+          Misc.ZERO_ADDRESS
+        ].join("\n");
+
+        expect(ret).eq(expected);
+      });
+    });
+    describe("Bad paths", () => {
+      it("should revert if aave-pool is zero", async () => {
+        await expect(
+          initializePlatformAdapter({zeroComptroller: true})
+        ).revertedWith("TC-1");
+      });
+      it("should revert if controller is zero", async () => {
+        await expect(
+          initializePlatformAdapter({zeroController: true})
+        ).revertedWith("TC-1");
+      });
+      it("should revert if template normal is zero", async () => {
+        await expect(
+          initializePlatformAdapter({zeroConverter: true})
+        ).revertedWith("TC-1");
+      });
     });
   });
 
