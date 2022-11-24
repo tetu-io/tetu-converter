@@ -2,7 +2,7 @@
 pragma solidity 0.8.4;
 
 import "../integrations/market/ICErc20.sol";
-import "../integrations/IERC20Extended.sol";
+import "../openzeppelin/IERC20Metadata.sol";
 import "../openzeppelin/SafeERC20.sol";
 import "../openzeppelin/IERC20.sol";
 import "../openzeppelin/ReentrancyGuard.sol";

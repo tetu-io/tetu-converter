@@ -333,7 +333,7 @@ contract AaveTwoPoolAdapter is IPoolAdapter, IPoolAdapterInitializer, Initializa
     uint[] memory prices = _priceOracle.getAssetsPrices(assets);
     require(prices[0] != 0, AppErrors.ZERO_PRICE);
 
-    uint amountToRepayBase = amountToRepay_ * prices[1] / (10 ** IERC20Extended(assetBorrow_).decimals());
+    uint amountToRepayBase = amountToRepay_ * prices[1] / (10 ** IERC20Metadata(assetBorrow_).decimals());
     require(!closePosition_ || totalDebtBase <= amountToRepayBase, AppErrors.CLOSE_POSITION_FAILED);
 
     if (closePosition_) {
@@ -346,7 +346,7 @@ contract AaveTwoPoolAdapter is IPoolAdapter, IPoolAdapterInitializer, Initializa
 
     return
       // == totalCollateral * amountToRepay / totalDebt
-      totalCollateralBase * (10 ** IERC20Extended(assetCollateral_).decimals())
+      totalCollateralBase * (10 ** IERC20Metadata(assetCollateral_).decimals())
       * part / 10**18
       / prices[0];
   }

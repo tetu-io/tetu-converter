@@ -341,7 +341,7 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer,
     require(prices[0] != 0, AppErrors.ZERO_PRICE);
 
     // we cannot close position if the debt is repaying only partly
-    uint amountToRepayBase = amountToRepay_ * prices[1] / (10 ** IERC20Extended(assetBorrow_).decimals());
+    uint amountToRepayBase = amountToRepay_ * prices[1] / (10 ** IERC20Metadata(assetBorrow_).decimals());
     require(!closePosition_ || totalDebtBase <= amountToRepayBase, AppErrors.CLOSE_POSITION_FAILED);
 
     if (closePosition_) {
@@ -354,7 +354,7 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer,
 
     return
       // == totalCollateral * amountToRepay / totalDebt
-      totalCollateralBase * (10 ** IERC20Extended(assetCollateral_).decimals())
+      totalCollateralBase * (10 ** IERC20Metadata(assetCollateral_).decimals())
       * part / 10**18
       / prices[0];
   }

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.4;
 
-import "../../integrations/IERC20Extended.sol";
+import "../../openzeppelin/IERC20Metadata.sol";
 import "../../openzeppelin/SafeERC20.sol";
 import "../../openzeppelin/IERC20.sol";
 import "../../integrations/dforce/IDForceController.sol";
@@ -11,7 +11,7 @@ import "../../integrations/dforce/IDForceInterestRateModel.sol";
 import "../../integrations/dforce/IDForceRewardDistributor.sol";
 import "../../core/AppErrors.sol";
 import "../../core/AppUtils.sol";
-import "../../integrations/IERC20Extended.sol";
+import "../../openzeppelin/IERC20Metadata.sol";
 
 /// @notice DForce utils: estimate reward tokens, predict borrow rate in advance
 library DForceAprLib {
@@ -120,7 +120,7 @@ library DForceAprLib {
     );
 
     {
-      uint8 collateralDecimals = IERC20Extended(core.collateralAsset).decimals();
+      uint8 collateralDecimals = IERC20Metadata(core.collateralAsset).decimals();
       supplyIncomeInBorrowAsset36 = getSupplyIncomeInBorrowAsset36(
         getEstimatedSupplyRate(core.cTokenCollateral, collateralAmount_),
         countBlocks_,
@@ -140,7 +140,7 @@ library DForceAprLib {
       ),
       amountToBorrow_,
       countBlocks_,
-      IERC20Extended(core.borrowAsset).decimals()
+      IERC20Metadata(core.borrowAsset).decimals()
     );
   }
 

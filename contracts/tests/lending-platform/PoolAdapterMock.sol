@@ -7,7 +7,7 @@ import "hardhat/console.sol";
 import "../../interfaces/IPriceOracle.sol";
 import "../../openzeppelin/IERC20.sol";
 import "../tokens/MockERC20.sol";
-import "../../integrations/IERC20Extended.sol";
+import "../../openzeppelin/IERC20Metadata.sol";
 import "../../interfaces/IDebtsMonitor.sol";
 import "./PoolStub.sol";
 import "../../interfaces/IController.sol";
@@ -155,8 +155,8 @@ contract PoolAdapterMock is IPoolAdapter {
     collateralAmount = _cTokenMock.balanceOf(address(this));
     amountToPay = _getAmountToRepay();
 
-    uint8 decimalsCollateral = IERC20Extended(_collateralAsset).decimals();
-    uint8 decimalsBorrow = IERC20Extended(_borrowAsset).decimals();
+    uint8 decimalsCollateral = IERC20Metadata(_collateralAsset).decimals();
+    uint8 decimalsBorrow = IERC20Metadata(_borrowAsset).decimals();
 
     console.log("amountToPay = %d", amountToPay);
     console.log("priceBorrowedUSD = %d", priceBorrowedUSD);
@@ -222,11 +222,11 @@ contract PoolAdapterMock is IPoolAdapter {
 
     // ensure that we can borrow allowed amount
     uint maxAmountToBorrowUSD = _collateralFactor
-      * (collateralAmount_.toMantissa(IERC20Extended(_collateralAsset).decimals(), 18) * priceCollateral)
+      * (collateralAmount_.toMantissa(IERC20Metadata(_collateralAsset).decimals(), 18) * priceCollateral)
       / 1e18
       / 1e18;
 
-    uint claimedAmount = borrowAmount_.toMantissa(IERC20Extended(_borrowAsset).decimals(), 18) * priceBorrowedUSD / 1e18;
+    uint claimedAmount = borrowAmount_.toMantissa(IERC20Metadata(_borrowAsset).decimals(), 18) * priceBorrowedUSD / 1e18;
     require(maxAmountToBorrowUSD >= claimedAmount, "borrow amount is too big");
 
     // send the borrow amount to the receiver
@@ -383,7 +383,7 @@ contract PoolAdapterMock is IPoolAdapter {
 //    console.log("PoolAdapterMock address=", address(this));
 //    console.log("PoolAdapterMock br=", borrowRate);
 //    console.log("APR18 =", borrowRate);
-//    return int(borrowRate * 10**18 / IERC20Extended(_borrowAsset).decimals());
+//    return int(borrowRate * 10**18 / IERC20Metadata(_borrowAsset).decimals());
 //  }
 
   ///////////////////////////////////////////////////////

@@ -13,7 +13,7 @@ import "../../integrations/hundred-finance/IHfCToken.sol";
 import "../../interfaces/IPoolAdapterInitializerWithAP.sol";
 import "../../interfaces/ITokenAddressProvider.sol";
 import "../../integrations/hundred-finance/IHfPriceOracle.sol";
-import "../../integrations/IERC20Extended.sol";
+import "../../openzeppelin/IERC20Metadata.sol";
 import "../../integrations/hundred-finance/IHfInterestRateModel.sol";
 import "../../core/AppUtils.sol";
 import "./HfAprLib.sol";
@@ -192,8 +192,8 @@ contract HfPlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
           plan.maxAmountToSupply = type(uint).max; // unlimited
 
           LocalsGetConversionPlan memory vars;
-          vars.collateralAssetDecimals = IERC20Extended(collateralAsset_).decimals();
-          vars.borrowAssetDecimals = IERC20Extended(borrowAsset_).decimals();
+          vars.collateralAssetDecimals = IERC20Metadata(collateralAsset_).decimals();
+          vars.borrowAssetDecimals = IERC20Metadata(borrowAsset_).decimals();
           vars.priceOracle = IHfPriceOracle(comptroller.oracle());
           vars.priceCollateral36 = HfAprLib.getPrice(vars.priceOracle, cTokenCollateral)
             * 10**vars.collateralAssetDecimals;

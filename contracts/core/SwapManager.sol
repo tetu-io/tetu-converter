@@ -2,7 +2,7 @@
 pragma solidity 0.8.4;
 
 import "../interfaces/ITetuLiquidator.sol";
-import "../integrations/IERC20Extended.sol"; // TODO move to interfaces? use openzappelin.IERC20Metadata
+import "../openzeppelin/IERC20Metadata.sol";
 import "../openzeppelin/IERC20.sol";
 import "../openzeppelin/SafeERC20.sol";
 import "../interfaces/ISwapManager.sol";

@@ -15,7 +15,7 @@ import "../openzeppelin/SafeERC20.sol";
 import "../openzeppelin/EnumerableSet.sol";
 import "../openzeppelin/EnumerableMap.sol";
 import "../integrations/market/ICErc20.sol";
-import "../integrations/IERC20Extended.sol";
+import "../openzeppelin/IERC20Metadata.sol";
 import "../interfaces/ITetuConverter.sol";
 
 /// @notice Contains list of lending pools. Allow to select most efficient pool for the given collateral/borrow pair

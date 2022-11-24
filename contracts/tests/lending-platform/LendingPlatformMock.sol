@@ -101,7 +101,7 @@ contract LendingPlatformMock is IPlatformAdapter {
   ) external view override returns (
     AppDataTypes.ConversionPlan memory plan
   ) {
-    uint decimalsBorrowAsset = IERC20Extended(borrowAsset_).decimals();
+    uint decimalsBorrowAsset = IERC20Metadata(borrowAsset_).decimals();
 
     uint amountToBorrow = AppUtils.toMantissa(
         100 * collateralAmount_ / healthFactor2_
@@ -109,7 +109,7 @@ contract LendingPlatformMock is IPlatformAdapter {
         * IPriceOracle(_priceOracle).getAssetPrice(collateralAsset_)
         / IPriceOracle(_priceOracle).getAssetPrice(borrowAsset_)
         / 1e18,
-      uint8(IERC20Extended(collateralAsset_).decimals()),
+      uint8(IERC20Metadata(collateralAsset_).decimals()),
       uint8(decimalsBorrowAsset)
     );
 
@@ -117,7 +117,7 @@ contract LendingPlatformMock is IPlatformAdapter {
       collateralAmount_
         * IPriceOracle(_priceOracle).getAssetPrice(collateralAsset_)
         / IPriceOracle(_priceOracle).getAssetPrice(borrowAsset_),
-      uint8(IERC20Extended(collateralAsset_).decimals()),
+      uint8(IERC20Metadata(collateralAsset_).decimals()),
       36
     );
 

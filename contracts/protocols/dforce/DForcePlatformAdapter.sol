@@ -13,7 +13,7 @@ import "../../interfaces/IController.sol";
 import "../../interfaces/IPoolAdapterInitializerWithAP.sol";
 import "../../interfaces/ITokenAddressProvider.sol";
 import "../../integrations/dforce/IDForcePriceOracle.sol";
-import "../../integrations/IERC20Extended.sol";
+import "../../openzeppelin/IERC20Metadata.sol";
 import "../../integrations/dforce/IDForceInterestRateModel.sol";
 import "../../integrations/dforce/IDForceController.sol";
 import "../../integrations/dforce/IDForceCToken.sol";
@@ -210,8 +210,8 @@ contract DForcePlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
           }
 
           LocalsGetConversionPlan memory vars;
-          vars.collateralAssetDecimals = IERC20Extended(collateralAsset_).decimals();
-          vars.borrowAssetDecimals = IERC20Extended(borrowAsset_).decimals();
+          vars.collateralAssetDecimals = IERC20Metadata(collateralAsset_).decimals();
+          vars.borrowAssetDecimals = IERC20Metadata(borrowAsset_).decimals();
           vars.priceOracle = IDForcePriceOracle(comptroller.priceOracle());
           vars.priceCollateral36 = DForceAprLib.getPrice(vars.priceOracle, cTokenCollateral)
             * 10**vars.collateralAssetDecimals ;

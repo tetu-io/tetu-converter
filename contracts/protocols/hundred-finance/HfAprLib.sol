@@ -7,7 +7,7 @@ import "../../integrations/hundred-finance/IHfComptroller.sol";
 import "../../integrations/hundred-finance/IHfPriceOracle.sol";
 import "../../core/AppErrors.sol";
 import "../../core/AppUtils.sol";
-import "../../integrations/IERC20Extended.sol";
+import "../../openzeppelin/IERC20Metadata.sol";
 
 /// @notice Hundred finance utils: predict borrow and supply rate in advance, calculate borrow and supply APR
 ///         Borrow APR = the amount by which the debt increases per block; the amount is in terms of borrow tokens
@@ -70,8 +70,8 @@ library HfAprLib {
     uint borrowCost36,
     uint supplyIncomeInBorrowAsset36
   ) {
-    uint8 collateralDecimals = IERC20Extended(core.collateralAsset).decimals();
-    uint8 borrowDecimals = IERC20Extended(core.borrowAsset).decimals();
+    uint8 collateralDecimals = IERC20Metadata(core.collateralAsset).decimals();
+    uint8 borrowDecimals = IERC20Metadata(core.borrowAsset).decimals();
 
     supplyIncomeInBorrowAsset36 = getSupplyIncomeInBorrowAsset36(
       getEstimatedSupplyRate(

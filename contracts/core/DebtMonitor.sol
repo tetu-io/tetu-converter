@@ -6,7 +6,7 @@ import "../interfaces/IPoolAdapter.sol";
 import "../interfaces/IController.sol";
 import "../interfaces/IDebtsMonitor.sol";
 import "../interfaces/IPriceOracle.sol";
-import "../integrations/IERC20Extended.sol";
+import "../openzeppelin/IERC20Metadata.sol";
 import "../interfaces/IBorrowManager.sol";
 import "../interfaces/ITetuConverter.sol";
 import "./AppErrors.sol";

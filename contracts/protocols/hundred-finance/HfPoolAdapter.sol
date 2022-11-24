@@ -509,7 +509,7 @@ contract HfPoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP, Initializ
     // Amount of liquidated collateral == amount of lost
       collateralAmountLiquidatedBase == 0
         ? 0
-        : collateralAmountLiquidatedBase * 10 ** IERC20Extended(collateralAsset).decimals() / 10**18
+        : collateralAmountLiquidatedBase * 10 ** IERC20Metadata(collateralAsset).decimals() / 10**18
     );
   }
 
