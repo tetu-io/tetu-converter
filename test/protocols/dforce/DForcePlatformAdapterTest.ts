@@ -149,6 +149,8 @@ describe("DForce integration tests, platform adapter", () => {
     setCollateralMintPaused?: boolean;
     setBorrowPaused?: boolean;
     setRedeemPaused?: boolean;
+    setBorrowCapacityUnlimited?: boolean;
+    setBorrowCapacityExceeded?: boolean;
   }
 
   interface IPreparePlanResults {
@@ -237,6 +239,20 @@ describe("DForce integration tests, platform adapter", () => {
     }
     if (badPathsParams?.setRedeemPaused) {
       await DForceChangePriceUtils.setRedeemPaused(deployer, borrowCToken);
+    }
+    if (badPathsParams?.setBorrowCapacityUnlimited) {
+      await DForceChangePriceUtils.setBorrowCapacity(
+        deployer,
+        borrowCToken,
+        Misc.MAX_UINT
+      );
+    }
+    if (badPathsParams?.setBorrowCapacityExceeded) {
+      await DForceChangePriceUtils.setBorrowCapacity(
+        deployer,
+        borrowCToken,
+        borrowAssetData.totalBorrows.div(2)
+      );
     }
 
     const plan = await dForcePlatformAdapter.getConversionPlan(
@@ -515,7 +531,7 @@ describe("DForce integration tests, platform adapter", () => {
           const borrowAsset = MaticAddresses.USDC;
           const borrowCToken = MaticAddresses.dForce_iUSDC;
 
-          const collateralAmount = getBigNumberFrom(100, 18);
+          const collateralAmount = parseUnits("100", 18);
           const ret = await makeTestComparePlanWithDirectCalculations(
             collateralAsset,
             collateralAmount,
@@ -542,6 +558,35 @@ describe("DForce integration tests, platform adapter", () => {
           expect(r.plan.amountToBorrow).eq(r.plan.maxAmountToBorrow);
         });
       });
+      describe("Borrow capacity", () => {
+        it("maxAmountToBorrow is equal to available cash if borrow capacity is unlimited", async () => {
+          if (!await isPolygonForkInUse()) return;
+
+          const r = await preparePlan(
+            MaticAddresses.DAI,
+            parseUnits("1", 18),
+            MaticAddresses.WMATIC,
+            MaticAddresses.dForce_iDAI,
+            MaticAddresses.dForce_iMATIC,
+            { setBorrowCapacityUnlimited: true }
+          );
+          const availableCash = await IDForceCToken__factory.connect(r.cTokenBorrow.address, deployer).getCash();
+          expect(r.plan.maxAmountToBorrow.eq(availableCash)).eq(true);
+        });
+        it("maxAmountToBorrow is zero if borrow capacity is exceeded", async () => {
+          if (!await isPolygonForkInUse()) return;
+
+          const r = await preparePlan(
+            MaticAddresses.DAI,
+            parseUnits("1", 18),
+            MaticAddresses.WMATIC,
+            MaticAddresses.dForce_iDAI,
+            MaticAddresses.dForce_iMATIC,
+            { setBorrowCapacityExceeded: true }
+          );
+          expect(r.plan.maxAmountToBorrow.eq(0)).eq(true);
+        });
+      });
     });
     describe("Bad paths", () => {
       async function tryGetConversionPlan(
@@ -550,7 +595,7 @@ describe("DForce integration tests, platform adapter", () => {
         borrowAsset: string = MaticAddresses.USDC,
         collateralCToken: string = MaticAddresses.dForce_iDAI,
         borrowCToken: string = MaticAddresses.dForce_iUSDC,
-        collateralAmount: BigNumber = getBigNumberFrom(1000, 18)
+        collateralAmount: BigNumber = parseUnits("1000", 18)
       ) : Promise<IConversionPlan> {
         return (await preparePlan(
           collateralAsset,

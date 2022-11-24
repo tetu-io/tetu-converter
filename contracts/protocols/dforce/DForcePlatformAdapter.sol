@@ -183,6 +183,8 @@ contract DForcePlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
               plan.ltv18 = collateralFactor * borrowFactorMantissa / 10**18;
 
               plan.maxAmountToBorrow = IDForceCToken(cTokenBorrow).getCash();
+              // BorrowCapacity: -1 means there is no limit on the capacity
+              //                  0 means the asset can not be borrowed any more
               if (borrowCapacity != type(uint).max) { // == uint(-1)
                 // we shouldn't exceed borrowCapacity limit, see Controller.beforeBorrow
                 uint totalBorrow = IDForceCToken(cTokenBorrow).totalBorrows();

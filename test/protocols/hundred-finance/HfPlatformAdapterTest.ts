@@ -3,7 +3,7 @@ import {ethers} from "hardhat";
 import {TimeUtils} from "../../../scripts/utils/TimeUtils";
 import {
   BorrowManager__factory,
-  HfAprLibFacade, HfPlatformAdapter, HfPlatformAdapter__factory,
+  HfAprLibFacade, HfPlatformAdapter, HfPlatformAdapter__factory, IDForceCToken__factory,
   IERC20Metadata__factory, IHfComptroller, IHfCToken,
   IHfCToken__factory
 } from "../../../typechain";
@@ -114,6 +114,8 @@ describe("Hundred finance, platform adapter", () => {
     setMinBorrowCapacity?: boolean;
     setCollateralMintPaused?: boolean;
     setBorrowPaused?: boolean;
+    setBorrowCapacityExceeded?: boolean;
+    setMinBorrowCapacityDelta?: BigNumber;
   }
 
   interface IPreparePlanResults {
@@ -186,6 +188,16 @@ describe("Hundred finance, platform adapter", () => {
     }
     if (badPathsParams?.setBorrowPaused) {
       await HundredFinanceChangePriceUtils.setBorrowPaused(deployer, borrowCToken);
+    }
+    if (badPathsParams?.setBorrowCapacityExceeded) {
+      await HundredFinanceChangePriceUtils.setBorrowCapacity(deployer, borrowCToken, borrowAssetData.totalBorrows.div(2));
+    }
+    if (badPathsParams?.setMinBorrowCapacityDelta) {
+      await HundredFinanceChangePriceUtils.setBorrowCapacity(
+        deployer,
+        borrowCToken,
+        borrowAssetData.totalBorrows.add(badPathsParams?.setMinBorrowCapacityDelta)
+      );
     }
 
     const plan = await hfPlatformAdapter.getConversionPlan(
@@ -467,6 +479,34 @@ describe("Hundred finance, platform adapter", () => {
             MaticAddresses.hMATIC,
           );
           expect(r.plan.amountToBorrow).eq(r.plan.maxAmountToBorrow);
+        });
+      });
+      describe("Borrow capacity", () => {
+        it("maxAmountToBorrow is equal to available cash if borrow capacity is unlimited", async () => {
+          if (!await isPolygonForkInUse()) return;
+
+          const r = await preparePlan(
+            MaticAddresses.DAI,
+            parseUnits("1", 18),
+            MaticAddresses.WMATIC,
+            MaticAddresses.hDAI,
+            MaticAddresses.hMATIC,
+            { setMinBorrowCapacityDelta: parseUnits("7", 18) }
+          );
+          expect(r.plan.maxAmountToBorrow.eq(parseUnits("7", 18))).eq(true);
+        });
+        it("maxAmountToBorrow is zero if borrow capacity is exceeded", async () => {
+          if (!await isPolygonForkInUse()) return;
+
+          const r = await preparePlan(
+            MaticAddresses.DAI,
+            parseUnits("1", 18),
+            MaticAddresses.WMATIC,
+            MaticAddresses.hDAI,
+            MaticAddresses.hMATIC,
+            { setBorrowCapacityExceeded: true }
+          );
+          expect(r.plan.maxAmountToBorrow.eq(0)).eq(true);
         });
       });
     });
