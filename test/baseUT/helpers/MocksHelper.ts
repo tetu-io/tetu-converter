@@ -28,7 +28,12 @@ import {
   ConverterUnknownKind,
   KeeperMock,
   KeeperCaller,
-  DebtMonitorCheckHealthMock, KeeperCallbackMock, DebtMonitorMock, Aave3PoolMock, AaveTwoPoolMock
+  DebtMonitorCheckHealthMock,
+  KeeperCallbackMock,
+  DebtMonitorMock,
+  Aave3PoolMock,
+  AaveTwoPoolMock,
+  TokenAddressProviderMock
 } from "../../../typechain";
 import {IPoolInfo} from "./BorrowManagerHelper";
 import {getBigNumberFrom} from "../../../scripts/utils/NumberUtils";
@@ -447,6 +452,20 @@ export class MocksHelper {
     return await DeployUtils.deployContract(deployer, "DebtMonitorMock") as DebtMonitorMock;
   }
 //endregion DebtMonitor
+
+//region Token address providers
+  public static async createTokenAddressProviderMock(
+    deployer: SignerWithAddress,
+    cToken1: string,
+    cToken2: string
+  ) : Promise<TokenAddressProviderMock> {
+    return await DeployUtils.deployContract(deployer,
+      "TokenAddressProviderMock",
+      cToken1,
+      cToken2
+    ) as TokenAddressProviderMock;
+  }
+//endregion Token address providers
 
 //region Pools and comptrollers
   public static async getAave3PoolMock(

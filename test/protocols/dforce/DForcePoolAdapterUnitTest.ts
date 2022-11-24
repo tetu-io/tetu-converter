@@ -4,7 +4,7 @@ import {TimeUtils} from "../../../scripts/utils/TimeUtils";
 import {
   BorrowManager__factory, Controller, DebtMonitor__factory, DForcePlatformAdapter, DForcePoolAdapter,
   IERC20Metadata__factory,
-  IPoolAdapter__factory,
+  IPoolAdapter__factory, ITokenAddressProvider, TokenAddressProviderMock,
 } from "../../../typechain";
 import {expect} from "chai";
 import {BigNumber} from "ethers";
@@ -34,6 +34,7 @@ import {
 import {AdaptersHelper} from "../../baseUT/helpers/AdaptersHelper";
 import {TetuConverterApp} from "../../baseUT/helpers/TetuConverterApp";
 import {parseUnits} from "ethers/lib/utils";
+import {MocksHelper} from "../../baseUT/helpers/MocksHelper";
 
 describe("DForce unit tests, pool adapter", () => {
 //region Global vars for all tests
@@ -1279,6 +1280,7 @@ describe("DForce unit tests, pool adapter", () => {
       zeroConverter?: boolean;
       zeroPool?: boolean;
       zeroTokenAddressProvider?: boolean;
+      tokenAddressProviderMock?: TokenAddressProviderMock;
     }
     interface IMakeInitializePoolAdapterResults {
       user: string;
@@ -1287,7 +1289,7 @@ describe("DForce unit tests, pool adapter", () => {
       borrowAsset: string;
       controller: Controller;
       poolAdapter: DForcePoolAdapter;
-      tokenAddressProvider: DForcePlatformAdapter;
+      tokenAddressProvider: ITokenAddressProvider;
     }
     async function makeInitializePoolAdapter(
       badParams?: IInitializePoolAdapterBadPaths
@@ -1303,13 +1305,15 @@ describe("DForce unit tests, pool adapter", () => {
       );
 
       const poolAdapter = await AdaptersHelper.createDForcePoolAdapter(deployer);
-      const tokenAddressProvider = await AdaptersHelper.createDForcePlatformAdapter(
-        deployer,
-        controller.address,
-        MaticAddresses.DFORCE_CONTROLLER,
-        converter,
-        [MaticAddresses.dForce_iDAI, MaticAddresses.dForce_iUSDC]
-      );
+      const tokenAddressProvider = badParams?.tokenAddressProviderMock
+        ? badParams?.tokenAddressProviderMock
+        : await AdaptersHelper.createDForcePlatformAdapter(
+          deployer,
+          controller.address,
+          MaticAddresses.DFORCE_CONTROLLER,
+          converter,
+          [MaticAddresses.dForce_iDAI, MaticAddresses.dForce_iUSDC]
+        );
 
       await poolAdapter.initialize(
         badParams?.zeroController ? Misc.ZERO_ADDRESS : controller.address,
@@ -1427,6 +1431,28 @@ describe("DForce unit tests, pool adapter", () => {
             d.converter
           )
         ).revertedWithCustomError(d.poolAdapter, "ErrorAlreadyInitialized");
+      });
+      it("should revert if token address provider returns zero cTokenCollateral", async () => {
+        if (!await isPolygonForkInUse()) return;
+        const tokenAddressProviderMock = await MocksHelper.createTokenAddressProviderMock(
+          deployer,
+          Misc.ZERO_ADDRESS, // (!)
+          MaticAddresses.dForce_iMATIC
+        );
+        await expect(
+          makeInitializePoolAdapter({tokenAddressProviderMock})
+        ).revertedWith("TC-16"); // C_TOKEN_NOT_FOUND
+      });
+      it("should revert if token address provider returns zero cTokenBorrow", async () => {
+        if (!await isPolygonForkInUse()) return;
+        const tokenAddressProviderMock = await MocksHelper.createTokenAddressProviderMock(
+          deployer,
+          MaticAddresses.dForce_iMATIC,
+          Misc.ZERO_ADDRESS, // (!)
+        );
+        await expect(
+          makeInitializePoolAdapter({tokenAddressProviderMock})
+        ).revertedWith("TC-16"); // C_TOKEN_NOT_FOUND
       });
     });
   });

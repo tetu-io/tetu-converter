@@ -4,7 +4,7 @@ import {TimeUtils} from "../../../scripts/utils/TimeUtils";
 import {
   BorrowManager__factory, Controller, DebtMonitor__factory, HfPlatformAdapter, HfPoolAdapter,
   IERC20Metadata__factory,
-  IPoolAdapter__factory
+  IPoolAdapter__factory, ITokenAddressProvider, TokenAddressProviderMock
 } from "../../../typechain";
 import {expect} from "chai";
 import {BigNumber} from "ethers";
@@ -32,6 +32,7 @@ import {
 import {AdaptersHelper} from "../../baseUT/helpers/AdaptersHelper";
 import {TetuConverterApp} from "../../baseUT/helpers/TetuConverterApp";
 import {parseUnits} from "ethers/lib/utils";
+import {MocksHelper} from "../../baseUT/helpers/MocksHelper";
 
 describe("Hundred Finance unit tests, pool adapter", () => {
 
@@ -1307,6 +1308,7 @@ describe("Hundred Finance unit tests, pool adapter", () => {
       zeroConverter?: boolean;
       zeroPool?: boolean;
       zeroTokenAddressProvider?: boolean;
+      tokenAddressProviderMock?: TokenAddressProviderMock;
     }
     interface IMakeInitializePoolAdapterResults {
       user: string;
@@ -1315,7 +1317,7 @@ describe("Hundred Finance unit tests, pool adapter", () => {
       borrowAsset: string;
       controller: Controller;
       poolAdapter: HfPoolAdapter;
-      tokenAddressProvider: HfPlatformAdapter;
+      tokenAddressProvider: ITokenAddressProvider;
     }
     async function makeInitializePoolAdapter(
       badParams?: IInitializePoolAdapterBadPaths
@@ -1330,13 +1332,15 @@ describe("Hundred Finance unit tests, pool adapter", () => {
         {tetuLiquidatorAddress: MaticAddresses.TETU_LIQUIDATOR}
       );
       const poolAdapter = await AdaptersHelper.createHundredFinancePoolAdapter(deployer);
-      const tokenAddressProvider = await AdaptersHelper.createHundredFinancePlatformAdapter(
-        deployer,
-        controller.address,
-        MaticAddresses.HUNDRED_FINANCE_COMPTROLLER,
-        converter,
-        [MaticAddresses.hDAI, MaticAddresses.hUSDC]
-      );
+      const tokenAddressProvider = badParams?.tokenAddressProviderMock
+        ? badParams.tokenAddressProviderMock
+        : await AdaptersHelper.createHundredFinancePlatformAdapter(
+            deployer,
+            controller.address,
+            MaticAddresses.HUNDRED_FINANCE_COMPTROLLER,
+            converter,
+            [MaticAddresses.hDAI, MaticAddresses.hUSDC]
+          );
 
       await poolAdapter.initialize(
         badParams?.zeroController ? Misc.ZERO_ADDRESS : controller.address,
@@ -1447,13 +1451,35 @@ describe("Hundred Finance unit tests, pool adapter", () => {
           d.poolAdapter.initialize(
             d.controller.address,
             d.tokenAddressProvider.address,
-            MaticAddresses.DFORCE_CONTROLLER,
+            MaticAddresses.HUNDRED_FINANCE_COMPTROLLER,
             d.user,
             d.collateralAsset,
             d.borrowAsset,
             d.converter
           )
         ).revertedWithCustomError(d.poolAdapter, "ErrorAlreadyInitialized");
+      });
+      it("should revert if token address provider returns zero cTokenCollateral", async () => {
+        if (!await isPolygonForkInUse()) return;
+        const tokenAddressProviderMock = await MocksHelper.createTokenAddressProviderMock(
+          deployer,
+          Misc.ZERO_ADDRESS, // (!)
+          MaticAddresses.hMATIC
+        );
+        await expect(
+          makeInitializePoolAdapter({tokenAddressProviderMock})
+        ).revertedWith("TC-16"); // C_TOKEN_NOT_FOUND
+      });
+      it("should revert if token address provider returns zero cTokenBorrow", async () => {
+        if (!await isPolygonForkInUse()) return;
+        const tokenAddressProviderMock = await MocksHelper.createTokenAddressProviderMock(
+          deployer,
+          MaticAddresses.hMATIC,
+          Misc.ZERO_ADDRESS, // (!)
+        );
+        await expect(
+          makeInitializePoolAdapter({tokenAddressProviderMock})
+        ).revertedWith("TC-16"); // C_TOKEN_NOT_FOUND
       });
     });
   });
