@@ -10,6 +10,7 @@ import {BigNumber} from "ethers";
 import {DeployUtils} from "../../../scripts/utils/DeployUtils";
 import {MocksHelper} from "../../baseUT/helpers/MocksHelper";
 import {DForceAprLibFacade} from "../../../typechain";
+import {parseUnits} from "ethers/lib/utils";
 
 describe("DForceHelper unit tests", () => {
 //region Global vars for all tests
@@ -173,6 +174,36 @@ describe("DForceHelper unit tests", () => {
           expect(sret).eq(sexpected);
         });
       });
+    });
+  });
+
+  describe("getEstimatedSupplyRatePure", () => {
+    it("should return zero if totalSupply + amountToSupply is zero", async () => {
+      const ret = await libFacade.getEstimatedSupplyRatePure(
+        BigNumber.from(0),
+        BigNumber.from(0),
+        parseUnits("2", 18),
+        parseUnits("2", 18),
+        parseUnits("2", 18),
+        ethers.Wallet.createRandom().address,
+        parseUnits("1", 18),
+        parseUnits("1", 18),
+      );
+      expect(ret.eq(0)).eq(true);
+    });
+    it("should revert if reserve factor exceeds 1", async () => {
+      await expect(
+        libFacade.getEstimatedSupplyRatePure(
+          parseUnits("2", 18),
+          parseUnits("2", 18),
+          parseUnits("2", 18),
+          parseUnits("2", 18),
+          parseUnits("2", 18),
+          ethers.Wallet.createRandom().address,
+          parseUnits("200", 18), // (!)
+          parseUnits("1", 18),
+        )
+      ).revertedWith("TC-50"); // AMOUNT_TOO_BIG
     });
   });
 //endregion Unit tests

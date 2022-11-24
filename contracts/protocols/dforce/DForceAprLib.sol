@@ -197,7 +197,7 @@ library DForceAprLib {
     uint amountToBorrow_
   ) internal view returns (uint) {
     uint cash = cTokenBorrow_.getCash();
-    require(cash >= amountToBorrow_, AppErrors.AMOUNT_TOO_BIG);
+    require(cash >= amountToBorrow_, AppErrors.WEIRD_OVERFLOW);
 
     return interestRateModel_.getBorrowRate(
       cash - amountToBorrow_,
@@ -237,7 +237,7 @@ library DForceAprLib {
     uint reserveRatio_,
     uint currentExchangeRate_
   ) internal view returns(uint) {
-    require(reserveRatio_ <= 1e18, AppErrors.WEIRD_OVERFLOW);
+    require(reserveRatio_ <= 1e18, AppErrors.AMOUNT_TOO_BIG);
 
     uint totalSupply = totalSupply_ + amountToSupply_ * 10**18 / currentExchangeRate_;
 
@@ -249,7 +249,9 @@ library DForceAprLib {
     );
 
     uint underlyingScaled = totalSupply * exchangeRateInternal;
-    if (underlyingScaled == 0) return 0;
+    if (underlyingScaled == 0) {
+      return 0;
+    }
 
     uint borrowRatePerBlock = interestRateModel_.getBorrowRate(
       cash_ + amountToSupply_,
