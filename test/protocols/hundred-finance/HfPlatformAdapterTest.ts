@@ -948,6 +948,53 @@ describe("Hundred finance, platform adapter", () => {
       );
     });
   });
+
+  describe("getMarketsInfo", () => {
+    let platformAdapter: HfPlatformAdapter;
+    before(async function () {
+      if (await isPolygonForkInUse()) {
+        const controller = await TetuConverterApp.createController(deployer);
+        const converterNormal = await AdaptersHelper.createHundredFinancePoolAdapter(deployer);
+        platformAdapter = await AdaptersHelper.createHundredFinancePlatformAdapter(
+          deployer,
+          controller.address,
+          MaticAddresses.HUNDRED_FINANCE_COMPTROLLER,
+          converterNormal.address,
+          [MaticAddresses.hDAI, MaticAddresses.hUSDC]
+        );
+      }
+    });
+    describe("Good paths", () => {
+      it("should return not zero ltv and liquidityThreshold", async () => {
+        if (!await isPolygonForkInUse()) return;
+
+        const r = await platformAdapter.getMarketsInfo(MaticAddresses.hMATIC, MaticAddresses.hDAI);
+        expect(r.ltv18.eq(0) || r.liquidityThreshold18.eq(0)).eq(false);
+      });
+    });
+    describe("Bad paths", () => {
+      describe("Collateral token is unregistered in the protocol", () => {
+        it("should return zero ltv and zero liquidityThreshold", async () => {
+          if (!await isPolygonForkInUse()) return;
+
+          const r = await platformAdapter.getMarketsInfo(ethers.Wallet.createRandom().address, MaticAddresses.hDAI);
+          console.log(r);
+          expect(r.ltv18.eq(0) && r.liquidityThreshold18.eq(0)).eq(true);
+        });
+      });
+      describe("Borrow token is unregistered in the protocol", () => {
+        it("should return zero ltv and zero liquidityThreshold", async () => {
+          if (!await isPolygonForkInUse()) return;
+
+          const r = await platformAdapter.getMarketsInfo(MaticAddresses.hDAI, ethers.Wallet.createRandom().address);
+          console.log(r);
+          console.log(r.ltv18.eq(0));
+          console.log(r.liquidityThreshold18.eq(0));
+          expect(r.ltv18.eq(0) && r.liquidityThreshold18.eq(0)).eq(true);
+        });
+      });
+    });
+  });
 //endregion Unit tests
 
 });

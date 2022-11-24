@@ -171,7 +171,7 @@ contract HfPlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
 
       address cTokenBorrow = activeAssets[borrowAsset_];
       if (cTokenBorrow != address(0)) {
-        (plan.ltv18, plan.liquidationThreshold18) = _getMarketsInfo(cTokenCollateral, cTokenBorrow);
+        (plan.ltv18, plan.liquidationThreshold18) = getMarketsInfo(cTokenCollateral, cTokenBorrow);
         if (plan.ltv18 != 0 && plan.liquidationThreshold18 != 0) {
           plan.converter = converter;
 
@@ -255,8 +255,8 @@ contract HfPlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
   ///                    Utils
   ///////////////////////////////////////////////////////
 
-  /// @notice Check if the c-token is active and return its collateral factor (== ltv)
-  function _getMarketsInfo(address cTokenCollateral_, address cTokenBorrow_) internal view returns (
+  /// @notice Check if the c-tokens are active and return LTV and liquidityThreshold values for the borrow
+  function getMarketsInfo(address cTokenCollateral_, address cTokenBorrow_) public view returns (
     uint ltv18,
     uint liquidityThreshold18
   ) {
@@ -271,6 +271,8 @@ contract HfPlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
         (isListed, collateralFactorMantissa,) = comptrollerLocal.markets(cTokenCollateral_);
         if (isListed) {
           liquidityThreshold18 = collateralFactorMantissa;
+        } else {
+          ltv18 = 0; // not efficient, but it's error case
         }
       }
     }
