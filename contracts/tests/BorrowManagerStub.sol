@@ -34,7 +34,7 @@ contract BorrowManagerStub {
     address user_,
     address collateral_,
     address borrowToken_
-  ) external {
+  ) external pure {
     converter_;
     user_;
     collateral_;

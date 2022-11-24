@@ -127,16 +127,16 @@ contract AaveTwoPoolMock is IAaveTwoPool {
         ? address(this)
         : onBehalfOf
       );
-      uint balance = IERC20(asset).balanceOf(address(this));
-      if (grabAllBorrowAssetFromSenderOnRepay) {
-        console.log("Repay: don't return unused borrow-asset-amount back to sender", balance);
-      } else {
-        // return unused borrow-asset-amount back to sender
-        // real pool doesn't take exceed amount at all
-
-        IERC20(asset).safeTransfer(msg.sender, balance);
-        console.log("Repay: return unused borrow-asset-amount back to sender", balance);
-      }
+//      uint balance = IERC20(asset).balanceOf(address(this));
+//      if (grabAllBorrowAssetFromSenderOnRepay) {
+//        console.log("Repay: don't return unused borrow-asset-amount back to sender", balance);
+//      } else {
+//        // return unused borrow-asset-amount back to sender
+//        // real pool doesn't take exceed amount at all
+//
+//        IERC20(asset).safeTransfer(msg.sender, balance);
+//        console.log("Repay: return unused borrow-asset-amount back to sender", balance);
+//      }
     } else {
       console.log("AaveTwoPoolMock.repay ignored");
     }

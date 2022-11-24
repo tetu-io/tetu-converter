@@ -14,6 +14,8 @@ contract TokenAddressProviderMock is ITokenAddressProvider {
     address cToken1,
     address cToken2
   ) {
+    token1;
+    token2;
     return (cToken1Value, cToken2Value);
   }
 }

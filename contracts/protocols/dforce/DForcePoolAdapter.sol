@@ -176,7 +176,7 @@ contract DForcePoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP, Initi
 
     // ensure that current health factor is greater than min allowed
     (uint healthFactor, uint tokenBalanceAfter) = _validateHealthStatusAfterBorrow(cTokenCollateral, cTokenBorrow);
-    require(tokenBalanceAfter >= tokenBalanceBefore, AppErrors.INCORRECT_VALUE); // overflow below is not possible
+    require(tokenBalanceAfter >= tokenBalanceBefore, AppErrors.WEIRD_OVERFLOW); // overflow below is not possible
     collateralTokensBalance += tokenBalanceAfter - tokenBalanceBefore;
 
     emit OnBorrow(collateralAmount_, borrowAmount_, receiver_, healthFactor);
@@ -191,9 +191,13 @@ contract DForcePoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP, Initi
     uint collateralAmount_
   ) internal returns (uint) {
     uint tokenBalanceBefore = IERC20(cTokenCollateral_).balanceOf(address(this));
+
+    // the amount is received through safeTransferFrom before calling of _supply()
+    // so we don't need following additional check:
+    //    require(tokenBalanceBefore >= collateralAmount_, AppErrors.MINT_FAILED);
+
     // supply collateral
     if (_isMatic(assetCollateral_)) {
-      require(IERC20(WMATIC).balanceOf(address(this)) >= collateralAmount_, AppErrors.MINT_FAILED);
       IWmatic(WMATIC).withdraw(collateralAmount_);
       IDForceCTokenMatic(cTokenCollateral_).mint{value : collateralAmount_}(address(this));
     } else {
@@ -290,6 +294,8 @@ contract DForcePoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP, Initi
       address cTokenCollateral = collateralCToken;
 
       IERC20(assetBorrow).safeTransferFrom(msg.sender, address(this), amountToRepay_);
+      // we don't need following check after successful safeTransferFrom
+      //    require(IERC20(assetBorrow).balanceOf(address(this)) >= amountToRepay_, AppErrors.MINT_FAILED);
 
       // Update borrowBalance to actual value, we must do it before calculation of collateral to withdraw
       IDForceCToken(borrowCToken).borrowBalanceCurrent(address(this));
@@ -303,7 +309,6 @@ contract DForcePoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP, Initi
 
       // transfer borrow amount back to the pool
       if (_isMatic(address(assetBorrow))) {
-        require(IERC20(WMATIC).balanceOf(address(this)) >= amountToRepay_, AppErrors.MINT_FAILED);
         IWmatic(WMATIC).withdraw(amountToRepay_);
         IDForceCTokenMatic(cTokenBorrow).repayBorrow{value : amountToRepay_}();
       } else {
@@ -399,11 +404,13 @@ contract DForcePoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP, Initi
       // ensure, that amount to repay is less then the total debt
       (tokenBalanceBefore, borrowBalance,,,,) = _getStatus(cTokenCollateral, cTokenBorrow);
       require(borrowBalance > 0 && amount_ < borrowBalance, AppErrors.REPAY_TO_REBALANCE_NOT_ALLOWED);
+
       IERC20(assetBorrow).safeTransferFrom(msg.sender, address(this), amount_);
+      // the amount is received through safeTransferFrom so we don't need following additional check:
+      //    require(IERC20(assetBorrow).balanceOf(address(this)) >= amount_, AppErrors.MINT_FAILED);
 
       // transfer borrow amount back to the pool
-      if (_isMatic(address(assetBorrow))) {
-        require(IERC20(WMATIC).balanceOf(address(this)) >= amount_, AppErrors.MINT_FAILED);
+      if (_isMatic(assetBorrow)) {
         IWmatic(WMATIC).withdraw(amount_);
         IDForceCTokenMatic(cTokenBorrow).repayBorrow{value : amount_}();
       } else {

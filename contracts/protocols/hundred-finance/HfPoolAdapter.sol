@@ -205,8 +205,12 @@ contract HfPoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP, Initializ
     uint collateralAmount_
   ) internal returns (uint) {
     uint tokenBalanceBefore = IERC20(cTokenCollateral_).balanceOf(address(this));
+
+    // the amount is received through safeTransferFrom before calling of _supply()
+    // so we don't need following additional check:
+    //    require(tokenBalanceBefore >= collateralAmount_, AppErrors.MINT_FAILED);
+
     if (_isMatic(assetCollateral_)) {
-      require(IERC20(WMATIC).balanceOf(address(this)) >= collateralAmount_, AppErrors.MINT_FAILED);
       IWmatic(WMATIC).withdraw(collateralAmount_);
       IHfHMatic(payable(cTokenCollateral_)).mint{value : collateralAmount_}();
     } else {
@@ -424,10 +428,11 @@ contract HfPoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP, Initializ
       require(borrowBalance > 0 && amount_ < borrowBalance, AppErrors.REPAY_TO_REBALANCE_NOT_ALLOWED);
 
       IERC20(assetBorrow).safeTransferFrom(msg.sender, address(this), amount_);
+      // the amount is received through safeTransferFrom so we don't need following additional check:
+      //    require(IERC20(assetBorrow).balanceOf(address(this)) >= amount_, AppErrors.MINT_FAILED);
 
       // transfer borrow amount back to the pool
       if (_isMatic(assetBorrow)) {
-        require(IERC20(WMATIC).balanceOf(address(this)) >= amount_, AppErrors.MINT_FAILED);
         IWmatic(WMATIC).withdraw(amount_);
         IHfHMatic(payable(cTokenBorrow)).repayBorrow{value : amount_}();
       } else {
