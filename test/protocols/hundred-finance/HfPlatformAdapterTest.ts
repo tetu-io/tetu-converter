@@ -30,7 +30,7 @@ import {TetuConverterApp} from "../../baseUT/helpers/TetuConverterApp";
 import {IConversionPlan} from "../../baseUT/apr/aprDataTypes";
 import {HundredFinanceChangePriceUtils} from "../../baseUT/protocols/hundred-finance/HundredFinanceChangePriceUtils";
 
-describe("Hundred finance integration tests, platform adapter", () => {
+describe("Hundred finance, platform adapter", () => {
 //region Global vars for all tests
   let snapshot: string;
   let snapshotForEach: string;
@@ -277,26 +277,26 @@ describe("Hundred finance integration tests, platform adapter", () => {
     );
 
     const sret = [
-      d.plan.borrowCost36,
-      d.plan.supplyIncomeInBorrowAsset36,
+      areAlmostEqual(d.plan.borrowCost36, borrowCost36),
+      areAlmostEqual(d.plan.supplyIncomeInBorrowAsset36, supplyIncomeInBorrowAsset36),
       d.plan.rewardsAmountInBorrowAsset36,
       d.plan.ltv18,
       d.plan.liquidationThreshold18,
       d.plan.maxAmountToBorrow,
       d.plan.maxAmountToSupply,
-      d.plan.amountToBorrow,
+      areAlmostEqual(d.plan.amountToBorrow, amountToBorrow),
       areAlmostEqual(d.plan.amountCollateralInBorrowAsset36, amountCollateralInBorrowAsset36)
     ].map(x => BalanceUtils.toString(x)) .join("\n");
 
     const sexpected = [
-      borrowCost36,
-      supplyIncomeInBorrowAsset36,
+      true,
+      true,
       BigNumber.from(0), // no rewards
       d.borrowAssetData.collateralFactorMantissa,
       d.collateralAssetData.collateralFactorMantissa,
       d.borrowAssetData.cash,
-      BigNumber.from(2).pow(256).sub(1), // === type(uint).max
-      amountToBorrow,
+      Misc.MAX_UINT,
+      true,
       true
     ].map(x => BalanceUtils.toString(x)) .join("\n");
 

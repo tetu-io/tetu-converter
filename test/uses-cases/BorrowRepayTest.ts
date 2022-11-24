@@ -21,6 +21,7 @@ import {
   GAS_LIMIT_REPAY_HUNDRED_FINANCE
 } from "../baseUT/GasLimit";
 import {controlGasLimitsEx} from "../../scripts/utils/hardhatUtils";
+import {DForceChangePriceUtils} from "../baseUT/protocols/dforce/DForceChangePriceUtils";
 
 describe("BorrowRepayTest", () => {
 //region Global vars for all tests
@@ -38,6 +39,12 @@ describe("BorrowRepayTest", () => {
     // if signers[0] is used than newly created TetuConverter contract has not-zero USDC balance
     // and some tests don't pass
     deployer = signers[1];
+
+    // We need to replace DForce price oracle by custom one
+    // because when we run all tests
+    // DForce-prices deprecate before DForce tests are run
+    // and we have TC-4 (zero price) error in DForce-tests
+    await DForceChangePriceUtils.setupPriceOracleMock(deployer);
   });
 
   after(async function () {
@@ -130,7 +137,7 @@ describe("BorrowRepayTest", () => {
               if (!await isPolygonForkInUse()) return;
               expect(results.sret).eq(results.sexpected);
             });
-            it("should not exceed gas limits", async () => {
+            it("should not exceed gas limits @skip-on-coverage", async () => {
               controlGasLimitsEx(results.gasUsedByBorrow, GAS_LIMIT_INIT_BORROW_AAVE3, (u, t) => {
                 expect(u).to.be.below(t + 1);
               });
@@ -166,7 +173,7 @@ describe("BorrowRepayTest", () => {
               if (!await isPolygonForkInUse()) return;
               expect(results.sret).eq(results.sexpected);
             });
-            it("should not exceed gas limits", async () => {
+            it("should not exceed gas limits @skip-on-coverage", async () => {
               controlGasLimitsEx(results.gasUsedByBorrow, GAS_LIMIT_INIT_BORROW_AAVE_TWO, (u, t) => {
                 expect(u).to.be.below(t + 1);
               });
@@ -204,7 +211,7 @@ describe("BorrowRepayTest", () => {
               if (!await isPolygonForkInUse()) return;
               expect(results.sret).eq(results.sexpected);
             });
-            it("should not exceed gas limits", async () => {
+            it("should not exceed gas limits @skip-on-coverage", async () => {
               controlGasLimitsEx(results.gasUsedByBorrow, GAS_LIMIT_INIT_BORROW_HUNDRED_FINANCE, (u, t) => {
                 expect(u).to.be.below(t + 1);
               });
@@ -240,7 +247,7 @@ describe("BorrowRepayTest", () => {
               if (!await isPolygonForkInUse()) return;
               expect(results.sret).eq(results.sexpected);
             });
-            it("should not exceed gas limits", async () => {
+            it("should not exceed gas limits @skip-on-coverage", async () => {
               controlGasLimitsEx(results.gasUsedByBorrow, GAS_LIMIT_INIT_BORROW_DFORCE, (u, t) => {
                 expect(u).to.be.below(t + 1);
               });

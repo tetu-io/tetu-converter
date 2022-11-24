@@ -47,7 +47,7 @@ import {areAlmostEqual} from "../../baseUT/utils/CommonUtils";
 import {IPoolAdapterStatus} from "../../baseUT/types/BorrowRepayDataTypes";
 import {AaveTwoChangePricesUtils} from "../../baseUT/protocols/aaveTwo/AaveTwoChangePricesUtils";
 
-describe("AaveTwoPoolAdapterTest", () => {
+describe("AaveTwoPoolAdapterUnitTest", () => {
 //region Global vars for all tests
   let snapshot: string;
   let snapshotForEach: string;

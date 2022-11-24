@@ -2,10 +2,10 @@ import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import {ethers} from "hardhat";
 import {TimeUtils} from "../../../scripts/utils/TimeUtils";
 import {MaticAddresses} from "../../../scripts/addresses/MaticAddresses";
-import {getBigNumberFrom} from "../../../scripts/utils/NumberUtils";
-import {IERC20__factory, ITetuLiquidator__factory} from "../../../typechain";
+import {IERC20__factory, ITetuLiquidator, ITetuLiquidator__factory} from "../../../typechain";
 import {DeployerUtils} from "../../../scripts/utils/DeployerUtils";
 import {isPolygonForkInUse} from "../../baseUT/utils/NetworkUtils";
+import {BigNumber} from "ethers";
 
 describe("TetuLiquidatorSwapTest", () => {
 //region Global vars for all tests
@@ -35,39 +35,61 @@ describe("TetuLiquidatorSwapTest", () => {
   });
 //endregion before, after
 
+  interface IPrepareToLiquidateResults {
+    sourceAsset: string;
+    targetAsset: string;
+    sourceAmount: BigNumber;
+    tetuLiquidator: ITetuLiquidator;
+  }
+  async function prepareToLiquidate() : Promise<IPrepareToLiquidateResults> {
+    const tetuLiquidatorAddress = MaticAddresses.TETU_LIQUIDATOR;
+    const sourceAsset = MaticAddresses.DAI;
+    const sourceAssetHolder = MaticAddresses.HOLDER_DAI;
+    const targetAsset = MaticAddresses.USDC;
+    const user = deployer;
+    const sourceAmount = ethers.utils.parseUnits("1000", 18); // 1000 DAI, decimals 18
+
+    // get amount on user balance from the holder
+    await IERC20__factory.connect(
+      sourceAsset,
+      await DeployerUtils.startImpersonate(sourceAssetHolder)
+    ).transfer(user.address, sourceAmount);
+
+    // approve the amount for tetu liquidator
+    await IERC20__factory.connect(
+      sourceAsset,
+      user
+    ).approve(tetuLiquidatorAddress, sourceAmount);
+
+    const tetuLiquidator = ITetuLiquidator__factory.connect(tetuLiquidatorAddress, user);
+    const price = await tetuLiquidator.getPrice(sourceAsset, targetAsset, sourceAmount);
+    console.log(price); // no problems here
+
+    return {
+      tetuLiquidator,
+      targetAsset,
+      sourceAmount,
+      sourceAsset
+    }
+  }
+
   describe("Try to swap DAI to USDT using TetuLiquidator deployed to Polygon", () => {
-    it("should return expected values", async () => {
+    it("liquidate should success", async () => {
       if (!await isPolygonForkInUse()) return;
 
-      const tetuLiquidatorAddress = "0xC737eaB847Ae6A92028862fE38b828db41314772";
-      const sourceAsset = MaticAddresses.DAI;
-      const sourceAssetHolder = MaticAddresses.HOLDER_DAI;
-      const targetAsset = MaticAddresses.USDC;
-      const user = deployer;
-      const sourceAmount = ethers.utils.parseUnits("1000", 18); // 1000 DAI, decimals 18
+      const p = await prepareToLiquidate();
+      // await tetuLiquidator.liquidateWithRoute(route.route, sourceAmount, 100_000 * 2 / 100);
+      await p.tetuLiquidator.liquidate(p.sourceAsset, p.targetAsset, p.sourceAmount, 100_000 * 2 / 100);
+    });
+    it("liquidate should success", async () => {
+      if (!await isPolygonForkInUse()) return;
 
-      // get amount on user balance from the holder
-      await IERC20__factory.connect(
-        sourceAsset,
-        await DeployerUtils.startImpersonate(sourceAssetHolder)
-      ).transfer(user.address, sourceAmount);
+      const p = await prepareToLiquidate();
 
-      // approve the amount for tetu liquidator
-      await IERC20__factory.connect(
-        sourceAsset,
-        user
-      ).approve(tetuLiquidatorAddress, sourceAmount);
-
-      const tetuLiquidator = ITetuLiquidator__factory.connect(tetuLiquidatorAddress, user);
-      const price = await tetuLiquidator.getPrice(sourceAsset, targetAsset, sourceAmount);
-      console.log(price); // no problems here
-
-      const route = await tetuLiquidator.buildRoute(sourceAsset, targetAsset);
+      const route = await p.tetuLiquidator.buildRoute(p.sourceAsset, p.targetAsset);
       console.log(route);
 
-      // (!) we have 'UniswapV2: INSUFFICIENT_INPUT_AMOUNT'" here
-      await tetuLiquidator.liquidateWithRoute(route.route, sourceAmount, 100_000 * 2 / 100);
-      await tetuLiquidator.liquidate(sourceAsset, targetAsset, sourceAmount, 100_000 * 2 / 100);
+      await p.tetuLiquidator.liquidateWithRoute(route.route, p.sourceAmount, 100_000 * 2 / 100);
     });
   });
 });

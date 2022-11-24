@@ -371,6 +371,7 @@ describe("Aave3PoolAdapterIntTest", () => {
       collateralAmountRequired: BigNumber | undefined,
       borrowToken: TokenDataTypes,
       borrowHolders: string[],
+      emode: boolean,
       badPathsParams?: IBorrowMaxAmountInIsolationModeBadPaths
     ) : Promise<IBorrowMaxAmountInIsolationModeResults>{
       const d = await Aave3TestUtils.prepareToBorrow(deployer,
@@ -378,7 +379,7 @@ describe("Aave3PoolAdapterIntTest", () => {
         collateralHolders,
         collateralAmountRequired,
         borrowToken,
-        false,
+        emode,
         {borrowHolders}
       );
       console.log("Plan", d.plan);
@@ -464,6 +465,7 @@ describe("Aave3PoolAdapterIntTest", () => {
               undefined,
               borrowToken,
               borrowHolders,
+              true // emode
             );
 
             const sret = ret.maxBorrowAmount.toString();
@@ -506,7 +508,8 @@ describe("Aave3PoolAdapterIntTest", () => {
               collateralHolders,
               undefined,
               borrowToken,
-              borrowHolders
+              borrowHolders,
+              true // emode
             );
 
             const sret = ret.maxBorrowAmount.toString();
@@ -545,7 +548,8 @@ describe("Aave3PoolAdapterIntTest", () => {
               collateralHolders,
               undefined,
               borrowToken,
-              borrowHolders
+              borrowHolders,
+              true // emode
             );
 
             const sret = ret.maxBorrowAmount.toString();
@@ -593,6 +597,7 @@ describe("Aave3PoolAdapterIntTest", () => {
                   undefined,
                   borrowToken,
                   borrowHolders,
+                  true, // emode
                   {deltaToMaxAmount: Misc.WEI} // 1 DAI
                 )
               ).revertedWith("50"); // 50 or 53 are allowed here
@@ -623,6 +628,7 @@ describe("Aave3PoolAdapterIntTest", () => {
                   undefined,
                   borrowToken,
                   borrowHolders,
+                  true, // emode
                   {deltaToMaxAmount: parseUnits("1", 6)} // 1 USDC
                 )
               ).revertedWith("53");
@@ -658,6 +664,7 @@ describe("Aave3PoolAdapterIntTest", () => {
                   undefined,
                   borrowToken,
                   borrowHolders,
+                  true, // emode
                   {
                     customAmountToBorrow: parseUnits("1")
                   }

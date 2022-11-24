@@ -32,7 +32,10 @@ describe("Hundred Finance integration tests, pool adapter", () => {
     this.timeout(1200000);
     snapshot = await TimeUtils.snapshot();
     const signers = await ethers.getSigners();
-    deployer = signers[0];
+    // we use signers[1] instead signers[0] here because of weird problem
+    // if signers[0] is used than newly created TetuConverter contract has not-zero USDC balance
+    // and some tests don't pass
+    deployer = signers[1];
   });
 
   after(async function () {

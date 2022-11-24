@@ -14,7 +14,6 @@ import "../../integrations/aave3/Aave3ReserveConfiguration.sol";
 import "../../integrations/aave3/IAaveToken.sol";
 import "../../integrations/dforce/SafeRatioMath.sol";
 import "../../openzeppelin/Initializable.sol";
-import "hardhat/console.sol";
 
 /// @notice Implementation of IPoolAdapter for AAVE-v3-protocol, see https://docs.aave.com/hub/
 /// @dev Instances of this contract are created using proxy-minimal pattern, so no constructor
@@ -95,7 +94,6 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer,
     IERC20(collateralAsset_).safeApprove(pool_, type(uint).max);
     IERC20(borrowAsset_).safeApprove(pool_, type(uint).max);
 
-    console.log("OnInitialized event", address(this));
     emit OnInitialized(controller_, pool_, user_, collateralAsset_, borrowAsset_, originConverter_);
   }
 
@@ -137,7 +135,7 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer,
 
     uint newCollateralBalanceATokens = _supply(pool, collateralAsset, collateralAmount_) + collateralBalanceATokens;
     collateralBalanceATokens = newCollateralBalanceATokens;
-    console.log("0");
+
     // enter to E-mode if necessary
     prepareToBorrow();
 
