@@ -15,7 +15,7 @@ import {
   AaveTwoPlatformAdapter__factory,
   IAaveTwoPool,
   IAaveTwoProtocolDataProvider,
-  IERC20Extended__factory
+  IERC20Metadata__factory
 } from "../../../typechain";
 import {areAlmostEqual} from "../../baseUT/utils/CommonUtils";
 import {IPlatformActor, PredictBrUsesCase} from "../../baseUT/uses-cases/PredictBrUsesCase";
@@ -88,7 +88,7 @@ describe("AaveTwoPlatformAdapterTest", () => {
       return BigNumber.from(br);
     }
     async supplyCollateral(collateralAmount: BigNumber): Promise<void> {
-      await IERC20Extended__factory.connect(this.collateralAsset, deployer).approve(this.pool.address, collateralAmount);
+      await IERC20Metadata__factory.connect(this.collateralAsset, deployer).approve(this.pool.address, collateralAmount);
       console.log(`Supply collateral ${this.collateralAsset} amount ${collateralAmount}`);
       await this.pool.deposit(this.collateralAsset, collateralAmount, deployer.address, 0);
       const userAccountData = await this.pool.getUserAccountData(deployer.address);

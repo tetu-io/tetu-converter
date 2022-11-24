@@ -8,7 +8,7 @@ import {
   IDForceController,
   IDForceCToken,
   IDForceCToken__factory,
-  IERC20Extended__factory
+  IERC20Metadata__factory
 } from "../../../typechain";
 import {getBigNumberFrom} from "../../../scripts/utils/NumberUtils";
 import {DeployUtils} from "../../../scripts/utils/DeployUtils";
@@ -187,8 +187,8 @@ export class AprDForce {
     const priceOracle = await DForceHelper.getPriceOracle(comptroller, deployer);
     const rewardsDistributor = await DForceHelper.getRewardDistributor(comptroller, deployer);
 
-    const borrowAssetDecimals = await (IERC20Extended__factory.connect(p.borrow.asset, deployer)).decimals();
-    const collateralAssetDecimals = await (IERC20Extended__factory.connect(p.collateral.asset, deployer)).decimals();
+    const borrowAssetDecimals = await (IERC20Metadata__factory.connect(p.borrow.asset, deployer)).decimals();
+    const collateralAssetDecimals = await (IERC20Metadata__factory.connect(p.collateral.asset, deployer)).decimals();
 
     const marketCollateralData = await DForceHelper.getCTokenData(deployer, comptroller, cTokenCollateral);
     const marketBorrowData = await DForceHelper.getCTokenData(deployer, comptroller, cTokenBorrow);

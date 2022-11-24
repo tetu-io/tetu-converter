@@ -2,7 +2,7 @@ import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import {ethers} from "hardhat";
 import {TimeUtils} from "../../../scripts/utils/TimeUtils";
 import {
-  IERC20Extended__factory,
+  IERC20Metadata__factory,
   IHfCToken__factory,
   IPoolAdapter__factory
 } from "../../../typechain";
@@ -305,7 +305,7 @@ describe("Hundred Finance integration tests, pool adapter", () => {
       await TimeUtils.advanceNBlocks(1000);
 
       // make repay
-      const borrowTokenAsUser = IERC20Extended__factory.connect(
+      const borrowTokenAsUser = IERC20Metadata__factory.connect(
         borrowToken.address,
         await DeployerUtils.startImpersonate(d.userContract.address)
       );
@@ -708,7 +708,7 @@ describe("Hundred Finance integration tests, pool adapter", () => {
         it("should revert", async () => {
           if (!await isPolygonForkInUse()) return;
 
-          const usdcDecimals = await IERC20Extended__factory.connect(MaticAddresses.USDC, deployer).decimals();
+          const usdcDecimals = await IERC20Metadata__factory.connect(MaticAddresses.USDC, deployer).decimals();
           await expect(
             daiUSDC(
               false,

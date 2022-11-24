@@ -10,7 +10,7 @@ import {
 import {MaticAddresses} from "../../scripts/addresses/MaticAddresses";
 import {IAssetInfo} from "../baseUT/apr/aprDataTypes";
 import {BigNumber} from "ethers";
-import {IERC20Extended__factory, SwapManager__factory} from "../../typechain";
+import {IERC20Metadata__factory, SwapManager__factory} from "../../typechain";
 import {getBigNumberFrom} from "../../scripts/utils/NumberUtils";
 import {AprAave3} from "../baseUT/apr/aprAave3";
 import {AdaptersHelper} from "../baseUT/helpers/AdaptersHelper";
@@ -181,7 +181,7 @@ describe.skip("CompareAprUsesCaseTest", () => {
     return Promise.all(
       assets.map(
         async x => {
-            const decimals = await IERC20Extended__factory.connect(x.asset, deployer).decimals();
+            const decimals = await IERC20Metadata__factory.connect(x.asset, deployer).decimals();
             return getBigNumberFrom(1, decimals).div(10);
         }
       )
@@ -212,7 +212,7 @@ describe.skip("CompareAprUsesCaseTest", () => {
     return Promise.all(
       assets.map(
         async x => {
-          const decimals = await IERC20Extended__factory.connect(x.asset, deployer).decimals();
+          const decimals = await IERC20Metadata__factory.connect(x.asset, deployer).decimals();
           return getBigNumberFrom(1, decimals)
             .mul(
               x.asset === MaticAddresses.WBTC

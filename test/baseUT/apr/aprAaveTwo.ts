@@ -12,7 +12,7 @@ import hre from "hardhat";
 import {
   AaveTwoAprLibFacade,
   IAaveToken__factory,
-  IERC20Extended__factory
+  IERC20Metadata__factory
 } from "../../../typechain";
 import {getBigNumberFrom} from "../../../scripts/utils/NumberUtils";
 import {TokenDataTypes} from "../types/TokenDataTypes";
@@ -268,7 +268,7 @@ export class AprAaveTwo {
     const aavePool = await AaveTwoHelper.getAavePool(deployer);
     const dp = await AaveTwoHelper.getAaveProtocolDataProvider(deployer);
     const priceOracle = await AaveTwoHelper.getAavePriceOracle(deployer);
-    const baseCurrencyDecimals = await IERC20Extended__factory.connect(await priceOracle.WETH(), deployer).decimals();
+    const baseCurrencyDecimals = await IERC20Metadata__factory.connect(await priceOracle.WETH(), deployer).decimals();
 
     const borrowReserveData = await dp.getReserveData(p.borrow.asset);
     const collateralReserveData = await dp.getReserveData(p.collateral.asset);
@@ -628,7 +628,7 @@ export class AprAaveTwo {
     const priceCollateral = await priceOracle.getAssetPrice(collateralAsset);
     const priceBorrow = await priceOracle.getAssetPrice(borrowAsset);
 
-    const decimalsCollateral = await IERC20Extended__factory.connect(collateralAsset, deployer).decimals();
+    const decimalsCollateral = await IERC20Metadata__factory.connect(collateralAsset, deployer).decimals();
     const before = stateBeforeBorrow
       || (await getAaveTwoStateInfo(deployer
         , aavePool
@@ -700,7 +700,7 @@ export class AprAaveTwo {
     const priceOracle = await AaveTwoHelper.getAavePriceOracle(deployer);
     const priceBorrow = await priceOracle.getAssetPrice(borrowAsset);
 
-    const decimalsBorrow = await IERC20Extended__factory.connect(borrowAsset, deployer).decimals();
+    const decimalsBorrow = await IERC20Metadata__factory.connect(borrowAsset, deployer).decimals();
     const before = stateBeforeBorrow
       || (await getAaveTwoStateInfo(deployer
         , aavePool

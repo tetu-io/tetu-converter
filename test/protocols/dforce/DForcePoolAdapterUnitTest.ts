@@ -3,7 +3,7 @@ import {ethers} from "hardhat";
 import {TimeUtils} from "../../../scripts/utils/TimeUtils";
 import {
   BorrowManager__factory, Controller, DebtMonitor__factory, DForcePlatformAdapter, DForcePoolAdapter,
-  IERC20Extended__factory,
+  IERC20Metadata__factory,
   IPoolAdapter__factory,
 } from "../../../typechain";
 import {expect} from "chai";
@@ -156,7 +156,7 @@ describe("DForce unit tests, pool adapter", () => {
         });
         it("should change collateralBalanceATokens", async () => {
           const collateralBalanceATokens = await results.init.dfPoolAdapterTC.collateralTokensBalance();
-          const aaveTokensBalance = await IERC20Extended__factory.connect(
+          const aaveTokensBalance = await IERC20Metadata__factory.connect(
             collateralCToken,
             deployer
           ).balanceOf(results.init.dfPoolAdapterTC.address);
@@ -212,7 +212,7 @@ describe("DForce unit tests, pool adapter", () => {
         });
         it("should change collateralBalanceATokens", async () => {
           const collateralBalanceATokens = await results.init.dfPoolAdapterTC.collateralTokensBalance();
-          const aaveTokensBalance = await IERC20Extended__factory.connect(
+          const aaveTokensBalance = await IERC20Metadata__factory.connect(
             collateralCToken,
             deployer
           ).balanceOf(results.init.dfPoolAdapterTC.address);
@@ -270,7 +270,7 @@ describe("DForce unit tests, pool adapter", () => {
         });
         it("should change collateralBalanceATokens", async () => {
           const collateralBalanceATokens = await results.init.dfPoolAdapterTC.collateralTokensBalance();
-          const aaveTokensBalance = await IERC20Extended__factory.connect(
+          const aaveTokensBalance = await IERC20Metadata__factory.connect(
             collateralCToken,
             deployer
           ).balanceOf(results.init.dfPoolAdapterTC.address);
@@ -328,7 +328,7 @@ describe("DForce unit tests, pool adapter", () => {
         });
         it("should change collateralBalanceATokens", async () => {
           const collateralBalanceATokens = await results.init.dfPoolAdapterTC.collateralTokensBalance();
-          const aaveTokensBalance = await IERC20Extended__factory.connect(
+          const aaveTokensBalance = await IERC20Metadata__factory.connect(
             collateralCToken,
             deployer
           ).balanceOf(results.init.dfPoolAdapterTC.address);
@@ -478,7 +478,7 @@ describe("DForce unit tests, pool adapter", () => {
         });
         it("should assign expected value to collateralBalanceATokens", async () => {
           const collateralBalanceATokens = await results.init.dfPoolAdapterTC.collateralTokensBalance();
-          const aaveTokensBalance = await IERC20Extended__factory.connect(
+          const aaveTokensBalance = await IERC20Metadata__factory.connect(
             collateralCToken,
             deployer
           ).balanceOf(results.init.dfPoolAdapterTC.address);
@@ -537,7 +537,7 @@ describe("DForce unit tests, pool adapter", () => {
         });
         it("should assign expected value to collateralBalanceATokens", async () => {
           const collateralBalanceATokens = await results.init.dfPoolAdapterTC.collateralTokensBalance();
-          const aaveTokensBalance = await IERC20Extended__factory.connect(
+          const aaveTokensBalance = await IERC20Metadata__factory.connect(
             collateralCToken,
             deployer
           ).balanceOf(results.init.dfPoolAdapterTC.address);
@@ -597,7 +597,7 @@ describe("DForce unit tests, pool adapter", () => {
         });
         it("should assign expected value to collateralBalanceATokens", async () => {
           const collateralBalanceATokens = await results.init.dfPoolAdapterTC.collateralTokensBalance();
-          const aaveTokensBalance = await IERC20Extended__factory.connect(
+          const aaveTokensBalance = await IERC20Metadata__factory.connect(
             collateralCToken,
             deployer
           ).balanceOf(results.init.dfPoolAdapterTC.address);

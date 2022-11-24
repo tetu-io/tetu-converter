@@ -5,7 +5,7 @@ import {
   AaveTwoPoolAdapter,
   AaveTwoPoolAdapter__factory, AaveTwoPoolMock__factory,
   BorrowManager__factory, Controller, DebtMonitor__factory,
-  IERC20Extended__factory,
+  IERC20Metadata__factory,
   IPoolAdapter__factory
 } from "../../../typechain";
 import {expect} from "chai";
@@ -160,7 +160,7 @@ describe("AaveTwoPoolAdapterUnitTest", () => {
       });
       it("should change collateralBalanceATokens", async () => {
         const collateralBalanceATokens = await results.init.aavePoolAdapterAsTC.collateralBalanceATokens();
-        const aaveTokensBalance = await IERC20Extended__factory.connect(
+        const aaveTokensBalance = await IERC20Metadata__factory.connect(
           results.init.collateralReserveInfo.aTokenAddress,
           deployer
         ).balanceOf(results.init.aavePoolAdapterAsTC.address);
@@ -332,7 +332,7 @@ describe("AaveTwoPoolAdapterUnitTest", () => {
       });
       it("should assign expected value to collateralBalanceATokens", async () => {
         const collateralBalanceATokens = await results.init.aavePoolAdapterAsTC.collateralBalanceATokens();
-        const aaveTokensBalance = await IERC20Extended__factory.connect(
+        const aaveTokensBalance = await IERC20Metadata__factory.connect(
           results.init.collateralReserveInfo.aTokenAddress,
           deployer
         ).balanceOf(results.init.aavePoolAdapterAsTC.address);

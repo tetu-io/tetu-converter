@@ -2,7 +2,7 @@ import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import {ethers} from "hardhat";
 import {TimeUtils} from "../../../scripts/utils/TimeUtils";
 import {
-  IERC20Extended__factory, IPoolAdapter__factory
+  IERC20Metadata__factory, IPoolAdapter__factory
 } from "../../../typechain";
 import {expect} from "chai";
 import {BigNumber} from "ethers";
@@ -76,7 +76,7 @@ describe("Aave3PoolAdapterIntTest", () => {
 
       const sret = [
         await borrowToken.token.balanceOf(d.userContract.address),
-        await IERC20Extended__factory.connect(ret.collateralData.data.aTokenAddress, deployer)
+        await IERC20Metadata__factory.connect(ret.collateralData.data.aTokenAddress, deployer)
           .balanceOf(d.aavePoolAdapterAsTC.address),
         ret.accountDataAfterBorrow.totalCollateralBase,
         ret.accountDataAfterBorrow.totalDebtBase
@@ -743,7 +743,7 @@ describe("Aave3PoolAdapterIntTest", () => {
 
       await TimeUtils.advanceNBlocks(1000);
 
-      const borrowTokenAsUser = IERC20Extended__factory.connect(
+      const borrowTokenAsUser = IERC20Metadata__factory.connect(
         borrowToken.address,
         await DeployerUtils.startImpersonate(d.userContract.address)
       );
@@ -801,7 +801,7 @@ describe("Aave3PoolAdapterIntTest", () => {
         userBalancesBeforeBorrow: beforeBorrow,
         userBalancesAfterBorrow: afterBorrow,
         userBalancesAfterRepay: afterRepay,
-        paATokensBalance: await IERC20Extended__factory.connect(collateralData.data.aTokenAddress, deployer)
+        paATokensBalance: await IERC20Metadata__factory.connect(collateralData.data.aTokenAddress, deployer)
           .balanceOf(d.aavePoolAdapterAsTC.address),
         totalCollateralBase: ret.totalCollateralBase,
         totalDebtBase: ret.totalDebtBase,
@@ -891,7 +891,7 @@ describe("Aave3PoolAdapterIntTest", () => {
         it("should revert", async () => {
           if (!await isPolygonForkInUse()) return;
 
-          const daiDecimals = await IERC20Extended__factory.connect(MaticAddresses.DAI, deployer).decimals();
+          const daiDecimals = await IERC20Metadata__factory.connect(MaticAddresses.DAI, deployer).decimals();
           await expect(
             AaveMakeBorrowAndRepayUtils.wmaticDai(
               deployer,

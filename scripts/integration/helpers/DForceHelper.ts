@@ -9,7 +9,7 @@ import {
   IDForcePriceOracle,
   IDForcePriceOracle__factory,
   IDForceRewardDistributor,
-  IERC20Extended__factory,
+  IERC20Metadata__factory,
   IDForceLendingData,
   IDForceLendingData__factory
 
@@ -253,7 +253,7 @@ export class DForceHelper {
       mintPaused: m.mintPaused,
       redeemPaused: m.redeemPaused,
       price: await priceOracle.getUnderlyingPrice(cToken.address),
-      underlyingDecimals: await IERC20Extended__factory.connect(
+      underlyingDecimals: await IERC20Metadata__factory.connect(
         cToken.address == MaticAddresses.dForce_iMATIC
           ? MaticAddresses.WMATIC
           : await cToken.underlying()

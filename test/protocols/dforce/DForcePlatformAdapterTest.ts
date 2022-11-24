@@ -2,7 +2,7 @@ import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import {ethers} from "hardhat";
 import {TimeUtils} from "../../../scripts/utils/TimeUtils";
 import {
-  IERC20Extended__factory,
+  IERC20Metadata__factory,
   IDForceController,
   IDForceCToken,
   IDForceCToken__factory,
@@ -91,7 +91,7 @@ describe("DForce integration tests, platform adapter", () => {
     }
     async supplyCollateral(collateralAmount: BigNumber): Promise<void> {
       const collateralAsset = await this.collateralCToken.underlying();
-      await IERC20Extended__factory.connect(collateralAsset, deployer)
+      await IERC20Metadata__factory.connect(collateralAsset, deployer)
         .approve(this.collateralCToken.address, collateralAmount);
       console.log(`Supply collateral ${collateralAsset} amount ${collateralAmount}`);
       await this.comptroller.enterMarkets([this.collateralCToken.address, this.borrowCToken.address]);
@@ -195,8 +195,8 @@ describe("DForce integration tests, platform adapter", () => {
     const cTokenBorrow = IDForceCToken__factory.connect(borrowCToken, deployer);
     const cTokenCollateral = IDForceCToken__factory.connect(collateralCToken, deployer);
 
-    const borrowAssetDecimals = await (IERC20Extended__factory.connect(borrowAsset, deployer)).decimals();
-    const collateralAssetDecimals = await (IERC20Extended__factory.connect(collateralAsset, deployer)).decimals();
+    const borrowAssetDecimals = await (IERC20Metadata__factory.connect(borrowAsset, deployer)).decimals();
+    const collateralAssetDecimals = await (IERC20Metadata__factory.connect(collateralAsset, deployer)).decimals();
 
     // getUnderlyingPrice returns price/1e(36-underlineDecimals)
     const priceBorrow = await priceOracle.getUnderlyingPrice(borrowCToken);
@@ -528,6 +528,20 @@ describe("DForce integration tests, platform adapter", () => {
           expect(ret.sret).eq(ret.sexpected);
         });
       });
+      describe("Try to use huge collateral amount", () => {
+        it("should return borrow amount equal to max available amount", async () => {
+          if (!await isPolygonForkInUse()) return;
+
+          const r = await preparePlan(
+            MaticAddresses.DAI,
+            parseUnits("1", 28),
+            MaticAddresses.WMATIC,
+            MaticAddresses.dForce_iDAI,
+            MaticAddresses.dForce_iMATIC,
+          );
+          expect(r.plan.amountToBorrow).eq(r.plan.maxAmountToBorrow);
+        });
+      });
     });
     describe("Bad paths", () => {
       async function tryGetConversionPlan(
@@ -806,8 +820,8 @@ describe("DForce integration tests, platform adapter", () => {
           console.log("Count registered platform adapters", await borrowManager.platformAdaptersLength());
 
           const platformAdapter = DForcePlatformAdapter__factory.connect(
-            await borrowManager.platformAdaptersAt(0)
-            , deployer
+            await borrowManager.platformAdaptersAt(0),
+            deployer
           );
           console.log("Platform adapter is created", platformAdapter.address);
           const user = await DeployerUtils.startImpersonate(ethers.Wallet.createRandom().address);
@@ -815,13 +829,13 @@ describe("DForce integration tests, platform adapter", () => {
 
           // make supply, wait period, get actual amount of rewards
           const r = await SupplyBorrowUsingDForce.makeSupplyRewardsTestMinimumTransactions(
-            deployer
-            , user
-            , collateralToken
-            , collateralCToken
-            , collateralHolder
-            , collateralAmount
-            , periodInBlocks
+            deployer,
+            user,
+            collateralToken,
+            collateralCToken,
+            collateralHolder,
+            collateralAmount,
+            periodInBlocks,
           );
 
           const pst = DForceHelper.predictRewardsStatePointAfterSupply(r.supplyPoint);

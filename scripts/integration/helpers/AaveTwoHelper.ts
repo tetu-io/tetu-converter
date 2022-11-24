@@ -6,7 +6,7 @@ import {
   IAaveTwoPool__factory, IAaveTwoPriceOracle, IAaveTwoPriceOracle__factory,
   IAaveTwoProtocolDataProvider,
   IAaveTwoProtocolDataProvider__factory,
-  IERC20Extended__factory
+  IERC20Metadata__factory
 } from "../../../typechain";
 import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import {MaticAddresses} from "../../addresses/MaticAddresses";
@@ -104,11 +104,11 @@ export class AaveTwoHelper {
 
     const rawData: BigNumber = BigNumber.from(rd.configuration.data);
 
-    const reserveName = await IERC20Extended__factory.connect(reserve, signer).name();
-    const reserveSymbol = await IERC20Extended__factory.connect(reserve, signer).name();
-    const aTokenName = await IERC20Extended__factory.connect(await rd.aTokenAddress, signer).name();
-    const aTokenSymbol = await IERC20Extended__factory.connect(await rd.aTokenAddress, signer).name();
-    const decimals = await IERC20Extended__factory.connect(reserve, signer).decimals();
+    const reserveName = await IERC20Metadata__factory.connect(reserve, signer).name();
+    const reserveSymbol = await IERC20Metadata__factory.connect(reserve, signer).name();
+    const aTokenName = await IERC20Metadata__factory.connect(await rd.aTokenAddress, signer).name();
+    const aTokenSymbol = await IERC20Metadata__factory.connect(await rd.aTokenAddress, signer).name();
+    const decimals = await IERC20Metadata__factory.connect(reserve, signer).decimals();
 
     const reserveData = await dp.getReserveData(reserve);
 

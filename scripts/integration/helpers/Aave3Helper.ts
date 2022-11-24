@@ -7,7 +7,7 @@ import {
   IAavePriceOracle__factory,
   IAaveProtocolDataProvider,
   IAaveProtocolDataProvider__factory,
-  IERC20Extended__factory
+  IERC20Metadata__factory
 } from "../../../typechain";
 import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import {Aave3DataTypes} from "../../../typechain/contracts/integrations/aave3/IAavePool";
@@ -181,11 +181,11 @@ export class Aave3Helper {
 
     const rawData: BigNumber = BigNumber.from(rd.configuration.data);
 
-    const reserveName = await IERC20Extended__factory.connect(reserve, signer).name();
-    const reserveSymbol = await IERC20Extended__factory.connect(reserve, signer).name();
-    const aTokenName = await IERC20Extended__factory.connect(await rd.aTokenAddress, signer).name();
-    const aTokenSymbol = await IERC20Extended__factory.connect(await rd.aTokenAddress, signer).name();
-    const decimals = await IERC20Extended__factory.connect(reserve, signer).decimals();
+    const reserveName = await IERC20Metadata__factory.connect(reserve, signer).name();
+    const reserveSymbol = await IERC20Metadata__factory.connect(reserve, signer).name();
+    const aTokenName = await IERC20Metadata__factory.connect(await rd.aTokenAddress, signer).name();
+    const aTokenSymbol = await IERC20Metadata__factory.connect(await rd.aTokenAddress, signer).name();
+    const decimals = await IERC20Metadata__factory.connect(reserve, signer).decimals();
     const category = Aave3Helper.get(rawData, EMODE_CATEGORY_MASK, EMODE_CATEGORY_START_BIT_POSITION).toNumber();
 
     const categoryData: IAave3CategoryData | undefined = category

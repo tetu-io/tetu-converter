@@ -5,7 +5,7 @@ import {
   IDForceCToken__factory,
   IDForceRewardDistributor__factory,
   IERC20__factory,
-  IERC20Extended__factory,
+  IERC20Metadata__factory,
   IPoolAdapter__factory,
 } from "../../../typechain";
 import {expect} from "chai";
@@ -360,7 +360,7 @@ describe("DForce integration tests, pool adapter", () => {
       console.log(afterBorrow);
       await TimeUtils.advanceNBlocks(1000);
 
-      const borrowTokenAsUser = IERC20Extended__factory.connect(
+      const borrowTokenAsUser = IERC20Metadata__factory.connect(
         borrowToken.address,
         await DeployerUtils.startImpersonate(d.userContract.address)
       );
@@ -763,7 +763,7 @@ describe("DForce integration tests, pool adapter", () => {
         it("should return expected values", async () => {
           if (!await isPolygonForkInUse()) return;
 
-          const usdcDecimals = await IERC20Extended__factory.connect(MaticAddresses.USDC, deployer).decimals();
+          const usdcDecimals = await IERC20Metadata__factory.connect(MaticAddresses.USDC, deployer).decimals();
           await expect(
             daiUSDC(
               false,
@@ -780,7 +780,7 @@ describe("DForce integration tests, pool adapter", () => {
         it("should revert", async () => {
           if (!await isPolygonForkInUse()) return;
 
-          const usdcDecimals = await IERC20Extended__factory.connect(MaticAddresses.USDC, deployer).decimals();
+          const usdcDecimals = await IERC20Metadata__factory.connect(MaticAddresses.USDC, deployer).decimals();
           await expect(
             daiUSDC(
               false,

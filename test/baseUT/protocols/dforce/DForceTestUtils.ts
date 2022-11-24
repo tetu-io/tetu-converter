@@ -3,7 +3,7 @@ import {
   DForcePlatformAdapter,
   DForcePoolAdapter, DForcePoolAdapter__factory,
   IDForceController, IDForceCToken, IDForceCToken__factory,
-  IDForcePriceOracle, IERC20__factory, IERC20Extended__factory, IPoolAdapter__factory
+  IDForcePriceOracle, IERC20__factory, IERC20Metadata__factory, IPoolAdapter__factory
 } from "../../../../typechain";
 import {BigNumber} from "ethers";
 import {DForceHelper, IDForceMarketData} from "../../../../scripts/integration/helpers/DForceHelper";
@@ -285,7 +285,7 @@ export class DForceTestUtils {
     console.log(`Collateral token: balance=${cBorrowBalance} tokenBalance=${cTokenBalance} exchangeRate=${cExchangeRateMantissa}`);
 
     const userBalanceBorrowAsset = await d.borrowToken.token.balanceOf(d.userContract.address);
-    const poolAdapterBalanceCollateralCToken = await IERC20Extended__factory.connect(
+    const poolAdapterBalanceCollateralCToken = await IERC20Metadata__factory.connect(
       d.collateralCToken.address, deployer
     ).balanceOf(d.dfPoolAdapterTC.address);
 

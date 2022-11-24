@@ -4,7 +4,7 @@ import {
   Controller,
   IAavePool, IAavePool__factory,
   IAavePriceOracle,
-  IAaveProtocolDataProvider, IERC20__factory, IERC20Extended__factory, IPoolAdapter__factory
+  IAaveProtocolDataProvider, IERC20__factory, IERC20Metadata__factory, IPoolAdapter__factory
 } from "../../../../typechain";
 import {Aave3Helper, IAave3ReserveInfo} from "../../../../scripts/integration/helpers/Aave3Helper";
 import {IConversionPlan} from "../../apr/aprDataTypes";
@@ -80,7 +80,7 @@ async function supplyEnoughBorrowAssetToAavePool(
 
   // supply all available borrow asset to aave pool
   const user2CollateralBalance = await IERC20__factory.connect(borrowAsset, user2).balanceOf(user2.address);
-  await IERC20Extended__factory.connect(borrowAsset, user2).approve(aavePool, user2CollateralBalance);
+  await IERC20Metadata__factory.connect(borrowAsset, user2).approve(aavePool, user2CollateralBalance);
   console.log(`Supply collateral ${borrowAsset} amount ${user2CollateralBalance}`);
   await IAavePool__factory.connect(aavePool, await DeployerUtils.startImpersonate(user2.address))
     .supply(borrowAsset, user2CollateralBalance, user2.address, 0);

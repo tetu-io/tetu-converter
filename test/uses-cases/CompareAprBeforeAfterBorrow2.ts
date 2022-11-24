@@ -5,7 +5,7 @@ import {getBigNumberFrom} from "../../scripts/utils/NumberUtils";
 import {isPolygonForkInUse} from "../baseUT/utils/NetworkUtils";
 import {MaticAddresses} from "../../scripts/addresses/MaticAddresses";
 import {
-  IERC20__factory, IERC20Extended__factory
+  IERC20__factory, IERC20Metadata__factory
 } from "../../typechain";
 import {expect} from "chai";
 import {DForceHelper} from "../../scripts/integration/helpers/DForceHelper";
@@ -337,8 +337,8 @@ describe.skip("CompareAprBeforeAfterBorrow", () => {
     const assetInHolder = MaticAddresses.HOLDER_DAI_5;
     const assetOut = MaticAddresses.WETH;
 
-    const tokenIn = IERC20Extended__factory.connect(assetIn, deployer);
-    const tokenOut = IERC20Extended__factory.connect(assetOut, deployer);
+    const tokenIn = IERC20Metadata__factory.connect(assetIn, deployer);
+    const tokenOut = IERC20Metadata__factory.connect(assetOut, deployer);
 
     const amountIn = parseUnits('1000', await tokenIn.decimals());
 

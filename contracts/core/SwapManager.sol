@@ -27,7 +27,7 @@ contract SwapManager is ISwapManager, ISwapConverter {
   uint public constant SLIPPAGE_TOLERANCE = SLIPPAGE_NUMERATOR * 1 / 100; // 1 %
 
   uint public constant PRICE_IMPACT_NUMERATOR = 100_000;
-  uint public constant PRICE_IMPACT_TOLERANCE = PRICE_IMPACT_NUMERATOR * 2 / 100; // 5% todo wrong!
+  uint public constant PRICE_IMPACT_TOLERANCE = PRICE_IMPACT_NUMERATOR * 2 / 100; // 2%
 
   int public constant APR_NUMERATOR = 10**18;
 

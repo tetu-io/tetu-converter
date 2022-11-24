@@ -6,7 +6,7 @@ import {
   Aave3AprLibFacade,
   IAavePool,
   IAaveProtocolDataProvider,
-  IAaveToken__factory, IERC20Extended__factory
+  IAaveToken__factory, IERC20Metadata__factory
 } from "../../../typechain";
 import {
   convertUnits,
@@ -693,7 +693,7 @@ export class AprAave3 {
     const priceCollateral = await priceOracle.getAssetPrice(collateralAsset);
     const priceBorrow = await priceOracle.getAssetPrice(borrowAsset);
 
-    const decimalsCollateral = await IERC20Extended__factory.connect(collateralAsset, deployer).decimals();
+    const decimalsCollateral = await IERC20Metadata__factory.connect(collateralAsset, deployer).decimals();
     const before = stateBeforeBorrow
       || (await getAave3StateInfo(deployer
         , aavePool
@@ -773,7 +773,7 @@ export class AprAave3 {
     const priceOracle = await Aave3Helper.getAavePriceOracle(deployer);
     const priceBorrow = await priceOracle.getAssetPrice(borrowAsset);
 
-    const decimalsBorrow = await IERC20Extended__factory.connect(borrowAsset, deployer).decimals();
+    const decimalsBorrow = await IERC20Metadata__factory.connect(borrowAsset, deployer).decimals();
     const before = stateBeforeBorrow
       || (await getAave3StateInfo(deployer
         , aavePool

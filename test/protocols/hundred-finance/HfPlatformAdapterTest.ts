@@ -4,7 +4,7 @@ import {TimeUtils} from "../../../scripts/utils/TimeUtils";
 import {
   BorrowManager__factory,
   HfAprLibFacade, HfPlatformAdapter, HfPlatformAdapter__factory,
-  IERC20Extended__factory, IHfComptroller, IHfCToken,
+  IERC20Metadata__factory, IHfComptroller, IHfCToken,
   IHfCToken__factory
 } from "../../../typechain";
 import {expect} from "chai";
@@ -29,6 +29,7 @@ import {DeployerUtils} from "../../../scripts/utils/DeployerUtils";
 import {TetuConverterApp} from "../../baseUT/helpers/TetuConverterApp";
 import {IConversionPlan} from "../../baseUT/apr/aprDataTypes";
 import {HundredFinanceChangePriceUtils} from "../../baseUT/protocols/hundred-finance/HundredFinanceChangePriceUtils";
+import {parseUnits} from "ethers/lib/utils";
 
 describe("Hundred finance, platform adapter", () => {
 //region Global vars for all tests
@@ -89,7 +90,7 @@ describe("Hundred finance, platform adapter", () => {
     }
     async supplyCollateral(collateralAmount: BigNumber): Promise<void> {
       const collateralAsset = await this.collateralCToken.underlying();
-      await IERC20Extended__factory.connect(collateralAsset, deployer)
+      await IERC20Metadata__factory.connect(collateralAsset, deployer)
         .approve(this.collateralCToken.address, collateralAmount);
       console.log(`Supply collateral ${collateralAsset} amount ${collateralAmount}`);
       await this.comptroller.enterMarkets([this.collateralCToken.address, this.borrowCToken.address]);
@@ -159,8 +160,8 @@ describe("Hundred finance, platform adapter", () => {
     );
     const cTokenBorrow = IHfCToken__factory.connect(borrowCToken, deployer);
     const cTokenCollateral = IHfCToken__factory.connect(collateralCToken, deployer);
-    const borrowAssetDecimals = await (IERC20Extended__factory.connect(borrowAsset, deployer)).decimals();
-    const collateralAssetDecimals = await (IERC20Extended__factory.connect(collateralAsset, deployer)).decimals();
+    const borrowAssetDecimals = await (IERC20Metadata__factory.connect(borrowAsset, deployer)).decimals();
+    const collateralAssetDecimals = await (IERC20Metadata__factory.connect(collateralAsset, deployer)).decimals();
 
     const cTokenCollateralDecimals = await cTokenCollateral.decimals();
 
@@ -452,6 +453,20 @@ describe("Hundred finance, platform adapter", () => {
           console.log(r);
 
           expect(r.sret).eq(r.sexpected);
+        });
+      });
+      describe("Try to use huge collateral amount", () => {
+        it("should return borrow amount equal to max available amount", async () => {
+          if (!await isPolygonForkInUse()) return;
+
+          const r = await preparePlan(
+            MaticAddresses.DAI,
+            parseUnits("1", 28),
+            MaticAddresses.WMATIC,
+            MaticAddresses.hDAI,
+            MaticAddresses.hMATIC,
+          );
+          expect(r.plan.amountToBorrow).eq(r.plan.maxAmountToBorrow);
         });
       });
     });

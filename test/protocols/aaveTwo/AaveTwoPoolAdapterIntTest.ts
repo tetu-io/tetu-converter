@@ -2,7 +2,7 @@ import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import {ethers} from "hardhat";
 import {TimeUtils} from "../../../scripts/utils/TimeUtils";
 import {
-  IERC20Extended__factory,
+  IERC20Metadata__factory,
   IPoolAdapter__factory
 } from "../../../typechain";
 import {expect} from "chai";
@@ -86,7 +86,7 @@ describe("AaveTwoPoolAdapterIntTest", () => {
       const expectedDebt = borrowResults.borrowedAmount.mul(d.priceBorrow) // registered debt in the pool
           .div(getBigNumberFrom(1, borrowToken.decimals));
       // amount of collateral tokens on pool-adapter's balance
-      const collateralBalance = await IERC20Extended__factory.connect(borrowResults.collateralData.data.aTokenAddress, deployer)
+      const collateralBalance = await IERC20Metadata__factory.connect(borrowResults.collateralData.data.aTokenAddress, deployer)
           .balanceOf(d.aavePoolAdapterAsTC.address);
       // borrowed amount on user's balance
       const borrowAssetBalance = await borrowToken.token.balanceOf(d.userContract.address);
@@ -392,7 +392,7 @@ describe("AaveTwoPoolAdapterIntTest", () => {
 
       await TimeUtils.advanceNBlocks(1000);
 
-      const borrowTokenAsUser = IERC20Extended__factory.connect(
+      const borrowTokenAsUser = IERC20Metadata__factory.connect(
         borrowToken.address,
         await DeployerUtils.startImpersonate(d.userContract.address)
       );
@@ -446,7 +446,7 @@ describe("AaveTwoPoolAdapterIntTest", () => {
         userBalancesBeforeBorrow: beforeBorrow,
         userBalancesAfterBorrow: afterBorrow,
         userBalancesAfterRepay: afterRepay,
-        paATokensBalance: await IERC20Extended__factory.connect(collateralData.data.aTokenAddress, deployer)
+        paATokensBalance: await IERC20Metadata__factory.connect(collateralData.data.aTokenAddress, deployer)
           .balanceOf(d.aavePoolAdapterAsTC.address),
         totalCollateralBase: ret.totalCollateralETH,
         totalDebtBase: ret.totalDebtETH,
@@ -536,7 +536,7 @@ describe("AaveTwoPoolAdapterIntTest", () => {
         it("should revert", async () => {
           if (!await isPolygonForkInUse()) return;
 
-          const daiDecimals = await IERC20Extended__factory.connect(MaticAddresses.DAI, deployer).decimals();
+          const daiDecimals = await IERC20Metadata__factory.connect(MaticAddresses.DAI, deployer).decimals();
           await expect(
             AaveMakeBorrowAndRepayUtils.wmaticDai(
               deployer,

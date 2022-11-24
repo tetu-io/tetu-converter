@@ -1,6 +1,6 @@
 import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import {CoreContractsHelper} from "../helpers/CoreContractsHelper";
-import {Controller, IERC20__factory, IERC20Extended__factory, IPlatformAdapter} from "../../../typechain";
+import {Controller, IERC20__factory, IERC20Metadata__factory, IPlatformAdapter} from "../../../typechain";
 import {BigNumber} from "ethers";
 import {DeployerUtils} from "../../../scripts/utils/DeployerUtils";
 import {areAlmostEqual} from "../utils/CommonUtils";
@@ -49,10 +49,10 @@ export class PredictBrUsesCase {
 
     // we assume, that total amount of collateral on holders accounts should be enough to borrow required amount
     for (const h of collateralHolders) {
-      const cAsH = IERC20Extended__factory.connect(collateralAsset, await DeployerUtils.startImpersonate(h));
+      const cAsH = IERC20Metadata__factory.connect(collateralAsset, await DeployerUtils.startImpersonate(h));
       await cAsH.transfer(deployer.address, await cAsH.balanceOf(h));
     }
-    const collateralAmount = await IERC20Extended__factory.connect(collateralAsset, deployer)
+    const collateralAmount = await IERC20Metadata__factory.connect(collateralAsset, deployer)
       .balanceOf(deployer.address);
     console.log(`Collateral balance ${collateralAmount}`);
 

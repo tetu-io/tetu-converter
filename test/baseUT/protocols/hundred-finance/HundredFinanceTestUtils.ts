@@ -6,7 +6,7 @@ import {
   HfPoolAdapter,
   HfPoolAdapter__factory,
   IERC20__factory,
-  IERC20Extended__factory,
+  IERC20Metadata__factory,
   IHfComptroller,
   IHfCToken,
   IHfCToken__factory,
@@ -324,7 +324,7 @@ export class HundredFinanceTestUtils {
     console.log(`Collateral token: balance=${sc.borrowBalance} tokenBalance=${sc.tokenBalance} exchangeRate=${sc.exchangeRateMantissa}`);
 
     const userBalanceBorrowAsset = await d.borrowToken.token.balanceOf(d.userContract.address);
-    const poolAdapterBalanceCollateralCToken = await IERC20Extended__factory.connect(
+    const poolAdapterBalanceCollateralCToken = await IERC20Metadata__factory.connect(
       d.collateralCToken.address, deployer
     ).balanceOf(d.hfPoolAdapterTC.address);
 

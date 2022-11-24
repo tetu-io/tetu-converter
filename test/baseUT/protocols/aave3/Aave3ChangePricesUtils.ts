@@ -8,7 +8,7 @@ import {
   Aave3PriceOracleMock__factory,
   IAaveAddressesProvider__factory,
   IAavePoolConigurator__factory,
-  IERC20Extended__factory
+  IERC20Metadata__factory
 } from "../../../../typechain";
 import {BigNumber} from "ethers";
 import {parseUnits} from "ethers/lib/utils";
@@ -159,7 +159,7 @@ export class Aave3ChangePricesUtils {
       const dp = await Aave3Helper.getAaveProtocolDataProvider(signer);
       const r = await dp.getReserveData(reserve);
       capValue = r.totalAToken.div(
-        parseUnits("1", await IERC20Extended__factory.connect(reserve, signer).decimals())
+        parseUnits("1", await IERC20Metadata__factory.connect(reserve, signer).decimals())
       );
     }
 
@@ -189,7 +189,7 @@ export class Aave3ChangePricesUtils {
     const dp = await Aave3Helper.getAaveProtocolDataProvider(signer);
     const r = await dp.getReserveData(reserve);
     const capValue = r.totalVariableDebt.add(r.totalStableDebt).div(
-      parseUnits("1", await IERC20Extended__factory.connect(reserve, signer).decimals())
+      parseUnits("1", await IERC20Metadata__factory.connect(reserve, signer).decimals())
     );
 
     console.log("setBorrowCap", capValue);

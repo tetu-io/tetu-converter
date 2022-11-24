@@ -3,10 +3,8 @@ import hre, {ethers} from "hardhat";
 import {TimeUtils} from "../../../scripts/utils/TimeUtils";
 import {
   Aave3PlatformAdapter,
-  Aave3PlatformAdapter__factory, BorrowManager__factory, Controller,
-  IAavePool,
-  IAaveProtocolDataProvider,
-  IERC20Extended__factory
+  Aave3PlatformAdapter__factory, BorrowManager__factory, IAavePool,
+  IAaveProtocolDataProvider, IERC20Metadata__factory
 } from "../../../typechain";
 import {expect} from "chai";
 import {BigNumber} from "ethers";
@@ -95,7 +93,7 @@ describe("Aave3PlatformAdapterTest", () => {
       return BigNumber.from(br);
     }
     async supplyCollateral(collateralAmount: BigNumber): Promise<void> {
-      await IERC20Extended__factory.connect(this.collateralAsset, deployer).approve(this.pool.address, collateralAmount);
+      await IERC20Metadata__factory.connect(this.collateralAsset, deployer).approve(this.pool.address, collateralAmount);
       console.log(`Supply collateral ${this.collateralAsset} amount ${collateralAmount}`);
       await this.pool.supply(this.collateralAsset, collateralAmount, deployer.address, 0);
       const userAccountData = await this.pool.getUserAccountData(deployer.address);
@@ -540,6 +538,14 @@ describe("Aave3PlatformAdapterTest", () => {
           );
 
           expect(r.sret).eq(r.sexpected);
+        });
+      });
+      describe("Try to use huge collateral amount", () => {
+        it("should return borrow amount equal to max available amount", async () => {
+          if (!await isPolygonForkInUse()) return;
+
+          const r = await preparePlan(MaticAddresses.DAI, parseUnits("1", 28), MaticAddresses.WMATIC);
+          expect(r.plan.amountToBorrow).eq(r.plan.maxAmountToBorrow);
         });
       });
     });

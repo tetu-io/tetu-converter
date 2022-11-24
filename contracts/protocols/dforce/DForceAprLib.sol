@@ -280,6 +280,7 @@ library DForceAprLib {
   ///       Calculate supply and borrow rewards
   ///////////////////////////////////////////////////////
 
+  /// @notice Calculate total amount of rewards (supply rewards + borrow rewards) in terms of borrow asset
   function getRewardAmountInBorrowAsset(
     DForceCore memory core,
     RewardsAmountInput memory p_

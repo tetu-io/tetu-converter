@@ -272,34 +272,6 @@ contract DForcePlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
     );
   }
 
-  function getRewardAmounts(
-    address collateralCToken_,
-    uint collateralAmount_,
-    address borrowCToken_,
-    uint borrowAmount_,
-    uint countBlocks_,
-    uint delayBlocks_
-  ) external view returns (
-    uint rewardAmountSupply,
-    uint rewardAmountBorrow,
-    uint totalRewardsBT
-  ) {
-    DForceAprLib.DForceCore memory core = DForceAprLib.getCore(comptroller, collateralCToken_, borrowCToken_);
-
-    (uint priceBorrow, bool isPriceValid) = core.priceOracle.getUnderlyingPriceAndStatus(address(core.cTokenBorrow));
-    require(priceBorrow != 0 && isPriceValid, AppErrors.ZERO_PRICE);
-
-    return DForceAprLib.getRewardAmountInBorrowAsset(core,
-      DForceAprLib.RewardsAmountInput({
-        collateralAmount: collateralAmount_,
-        borrowAmount: borrowAmount_,
-        countBlocks: countBlocks_,
-        delayBlocks: delayBlocks_,
-        priceBorrow36: priceBorrow * 10**core.cRewardsToken.decimals()
-      })
-    );
-  }
-
   ///////////////////////////////////////////////////////
   ///                    Utils
   ///////////////////////////////////////////////////////
@@ -333,4 +305,34 @@ contract DForcePlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
       ? (0, 0)
       : (borrowFactorMantissa0, borrowCapacity0);
   }
+
+  // Currently we don't need this function, it can be helpful in next versions
+  //  function getRewardAmounts(
+  //    address collateralCToken_,
+  //    uint collateralAmount_,
+  //    address borrowCToken_,
+  //    uint borrowAmount_,
+  //    uint countBlocks_,
+  //    uint delayBlocks_
+  //  ) external view returns (
+  //    uint rewardAmountSupply,
+  //    uint rewardAmountBorrow,
+  //    uint totalRewardsBT
+  //  ) {
+  //    DForceAprLib.DForceCore memory core = DForceAprLib.getCore(comptroller, collateralCToken_, borrowCToken_);
+  //
+  //    (uint priceBorrow, bool isPriceValid) = core.priceOracle.getUnderlyingPriceAndStatus(address(core.cTokenBorrow));
+  //    require(priceBorrow != 0 && isPriceValid, AppErrors.ZERO_PRICE);
+  //
+  //    return DForceAprLib.getRewardAmountInBorrowAsset(core,
+  //      DForceAprLib.RewardsAmountInput({
+  //        collateralAmount: collateralAmount_,
+  //        borrowAmount: borrowAmount_,
+  //        countBlocks: countBlocks_,
+  //        delayBlocks: delayBlocks_,
+  //        priceBorrow36: priceBorrow * 10**core.cRewardsToken.decimals()
+  //      })
+  //    );
+  //  }
+
 }

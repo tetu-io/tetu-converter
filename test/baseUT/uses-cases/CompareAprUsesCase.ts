@@ -9,7 +9,7 @@ import {TimeUtils} from "../../../scripts/utils/TimeUtils";
 import {ethers} from "hardhat";
 import {
   IERC20__factory,
-  IERC20Extended__factory,
+  IERC20Metadata__factory,
   IPlatformAdapter,
   SwapManager
 } from "../../../typechain";
@@ -178,8 +178,8 @@ export class CompareAprUsesCase {
     const receiverAddress = ethers.Wallet.createRandom().address;
     const receiver = await DeployerUtils.startImpersonate(receiverAddress);
 
-    const collateralToken = IERC20Extended__factory.connect(collateralAsset, receiver);
-    const borrowToken = IERC20Extended__factory.connect(borrowAsset, receiver);
+    const collateralToken = IERC20Metadata__factory.connect(collateralAsset, receiver);
+    const borrowToken = IERC20Metadata__factory.connect(borrowAsset, receiver);
     await BalanceUtils.getRequiredAmountFromHolders(collateralAmount, collateralToken, collateralHolders, swapManager.address);
 
     const collateralBalanceBeforeSwap = await collateralToken.balanceOf(receiverAddress);
@@ -285,13 +285,13 @@ export class CompareAprUsesCase {
     for (const task of tasks) {
       const holders = task.collateralAsset.holders;
       const initialLiquidity = await CompareAprUsesCase.getTotalAmount(deployer, task.collateralAsset.asset, holders);
-      const collateralDecimals = await IERC20Extended__factory.connect(task.collateralAsset.asset, deployer).decimals();
+      const collateralDecimals = await IERC20Metadata__factory.connect(task.collateralAsset.asset, deployer).decimals();
 
       console.log("makePossibleBorrowsOnPlatform, task:", task);
 
       const snapshot = await TimeUtils.snapshot();
       try {
-        const borrowDecimals = await IERC20Extended__factory.connect(task.borrowAsset.asset, deployer).decimals();
+        const borrowDecimals = await IERC20Metadata__factory.connect(task.borrowAsset.asset, deployer).decimals();
         const stPrices = await this.getPrices(platformAdapter, task.collateralAsset, task.borrowAsset);
         if (stPrices) {
           console.log("makePossibleBorrowsOnPlatform.collateralAmount", task.collateralAmount);

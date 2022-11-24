@@ -6,7 +6,7 @@ import {
     IHfCToken__factory,
     IHfInterestRateModel,
     IHfInterestRateModel__factory,
-    IERC20Extended__factory, IHfPriceOracle, IHfPriceOracle__factory,
+    IERC20Metadata__factory, IHfPriceOracle, IHfPriceOracle__factory,
 } from "../../../typechain";
 import {BigNumber, Signer} from "ethers";
 import {Aave3Helper} from "./Aave3Helper";
@@ -140,7 +140,7 @@ export class HundredFinanceHelper {
             /** TODO: https://docs.bprotocol.org/ */
             bprotocol: await comptroller.bprotocol(cToken.address),
             price: await priceOracle.getUnderlyingPrice(cToken.address),
-            underlyingDecimals: await IERC20Extended__factory.connect(
+            underlyingDecimals: await IERC20Metadata__factory.connect(
                 cToken.address === MaticAddresses.hMATIC
                     ? MaticAddresses.WMATIC
                     : await cToken.underlying()

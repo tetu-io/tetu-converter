@@ -2,7 +2,7 @@ import {BigNumber} from "ethers";
 import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import {DeployerUtils} from "../../../scripts/utils/DeployerUtils";
 import {getBigNumberFrom} from "../../../scripts/utils/NumberUtils";
-import {IERC20__factory, IERC20Extended, IERC20Extended__factory} from "../../../typechain";
+import {IERC20__factory, IERC20Metadata, IERC20Metadata__factory} from "../../../typechain";
 import {analyzeModuleNotFoundError} from "hardhat/internal/core/config/config-loading";
 
 export interface IContractToInvestigate {
@@ -82,7 +82,7 @@ export class BalanceUtils {
     recipient: string,
     amount: number | BigNumber
   ) : Promise<BigNumber> {
-    const connection = await IERC20Extended__factory.connect(
+    const connection = await IERC20Metadata__factory.connect(
       asset
       , await DeployerUtils.startImpersonate(holder)
     );
@@ -116,7 +116,7 @@ export class BalanceUtils {
    */
   static async getRequiredAmountFromHolders(
     requiredAmount: BigNumber | undefined,
-    token: IERC20Extended,
+    token: IERC20Metadata,
     holders: string[],
     receiver: string
   ) : Promise<BigNumber> {

@@ -4,7 +4,7 @@ import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import {ITestSingleBorrowParams} from "../types/BorrowRepayDataTypes";
 import {HundredFinanceHelper} from "../../../scripts/integration/helpers/HundredFinanceHelper";
 import {
-  HfAprLibFacade, HfTestHelper, IERC20Extended__factory, IHfComptroller,
+  HfAprLibFacade, HfTestHelper, IERC20Metadata__factory, IHfComptroller,
   IHfCToken,
   IHfCToken__factory,
 } from "../../../typechain";
@@ -192,8 +192,8 @@ export class AprHundredFinance {
     const cTokenBorrow = IHfCToken__factory.connect(borrowCTokenAddress, deployer);
     const priceOracle = await HundredFinanceHelper.getPriceOracle(deployer);
 
-    const borrowAssetDecimals = await (IERC20Extended__factory.connect(p.borrow.asset, deployer)).decimals();
-    const collateralAssetDecimals = await (IERC20Extended__factory.connect(p.collateral.asset, deployer)).decimals();
+    const borrowAssetDecimals = await (IERC20Metadata__factory.connect(p.borrow.asset, deployer)).decimals();
+    const collateralAssetDecimals = await (IERC20Metadata__factory.connect(p.collateral.asset, deployer)).decimals();
 
     const marketCollateralData = await HundredFinanceHelper.getCTokenData(deployer, comptroller, cTokenCollateral);
     const marketBorrowData = await HundredFinanceHelper.getCTokenData(deployer, comptroller, cTokenBorrow);
