@@ -15,11 +15,11 @@ contract DForceCTokenMock is IDForceCToken {
   address public underlyingAsset;
   IDForceCToken cToken;
 
-  constructor(
+  function init(
     address mockedComptroller_,
     address underlying_,
     address cToken_
-  ) {
+  ) external {
     cToken = IDForceCToken(cToken_);
     mockedComptroller = DForceControllerMock(mockedComptroller_);
     underlyingAsset = underlying_;

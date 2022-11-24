@@ -33,7 +33,7 @@ import {
   DebtMonitorMock,
   Aave3PoolMock,
   AaveTwoPoolMock,
-  TokenAddressProviderMock
+  TokenAddressProviderMock, DForceControllerMock, DForceCTokenMock
 } from "../../../typechain";
 import {IPoolInfo} from "./BorrowManagerHelper";
 import {getBigNumberFrom} from "../../../scripts/utils/NumberUtils";
@@ -492,6 +492,33 @@ export class MocksHelper {
       collateralAsset,
       borrowAsset
     ) as AaveTwoPoolMock;
+  }
+
+  public static async getDForceControllerMock(
+    deployer: SignerWithAddress,
+    collateralAsset: string,
+    borrowAsset: string,
+    collateralCToken: string,
+    borrowCToken: string,
+    mockedCollateralCToken: string,
+    mockedBorrowCToken: string
+  ) : Promise<DForceControllerMock> {
+    return await DeployUtils.deployContract(deployer,
+      "DForceControllerMock",
+      MaticAddresses.DFORCE_CONTROLLER,
+      collateralAsset,
+      borrowAsset,
+      collateralCToken,
+      borrowCToken,
+      mockedCollateralCToken,
+      mockedBorrowCToken
+    ) as DForceControllerMock;
+  }
+
+  public static async getNotInitializedDForceCTokenMock(
+    deployer: SignerWithAddress,
+  ) : Promise<DForceCTokenMock> {
+    return await DeployUtils.deployContract(deployer, "DForceCTokenMock") as DForceCTokenMock;
   }
 //endregion Pools and comptrollers
 }

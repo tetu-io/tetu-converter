@@ -87,17 +87,21 @@ contract DForceControllerMock is IDForceController {
   ///        (this contract must be the message sender)
   /////////////////////////////////////////////////////////////////
   function mint(IDForceCToken cToken, address _recipient, uint256 _mintAmount) external {
+    console.log("DForceControllerMock.mint", address(cToken), _mintAmount);
     IERC20(assetCollateral).safeTransferFrom(msg.sender, address(this), _mintAmount);
     cToken.mint(_recipient, _mintAmount);
   }
   function borrow(IDForceCToken cToken, uint256 _borrowAmount) external {
+    console.log("DForceControllerMock.borrow", address(cToken), _borrowAmount);
     cToken.borrow(_borrowAmount);
     IERC20(assetBorrow).safeTransfer(msg.sender, _borrowAmount);
   }
   function balanceOf(IDForceCToken cToken, address a) external view returns (uint256) {
+    console.log("DForceControllerMock.balanceof", address(cToken), a);
     return cToken.balanceOf(a);
   }
   function redeem(IDForceCToken cToken, address _from, uint256 amountTokens_) external {
+    console.log("DForceControllerMock.redeem", address(cToken), _from, amountTokens_);
     cToken.redeem(_from, amountTokens_);
 
     // we doesn't consider a case of native tokens, so it's allowed to call underlying() here

@@ -2,9 +2,16 @@ import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import {ethers} from "hardhat";
 import {TimeUtils} from "../../../scripts/utils/TimeUtils";
 import {
-  BorrowManager__factory, Controller, DebtMonitor__factory, DForcePlatformAdapter, DForcePoolAdapter,
+  BorrowManager__factory,
+  Controller,
+  DebtMonitor__factory,
+  DForceControllerMock, DForceCTokenMock,
+  DForcePlatformAdapter,
+  DForcePoolAdapter,
   IERC20Metadata__factory,
-  IPoolAdapter__factory, ITokenAddressProvider, TokenAddressProviderMock,
+  IPoolAdapter__factory,
+  ITokenAddressProvider,
+  TokenAddressProviderMock,
 } from "../../../typechain";
 import {expect} from "chai";
 import {BigNumber} from "ethers";
@@ -91,7 +98,10 @@ describe("DForce unit tests, pool adapter", () => {
       parseUnits(collateralAmountStr, collateralToken.decimals),
       borrowToken,
       borrowCToken,
-      200
+      {
+        targetHealthFactor2: 200,
+        useDForceControllerMock: badPathsParams?.useDForceControllerMock
+      }
     );
     const borrowResults = await DForceTestUtils.makeBorrow(deployer, init, undefined, badPathsParams);
     return {
@@ -99,6 +109,40 @@ describe("DForce unit tests, pool adapter", () => {
       borrowResults,
       collateralToken,
       borrowToken
+    }
+  }
+
+  interface IDForceControllerMocksSet {
+    mockedComptroller: DForceControllerMock;
+    mockedCollateralCToken: DForceCTokenMock;
+    mockedBorrowCToken: DForceCTokenMock;
+  }
+  async function initializeDForceControllerMock(
+    collateralAsset: string,
+    collateralCToken: string,
+    borrowAsset: string,
+    borrowCToken: string,
+  ) : Promise<IDForceControllerMocksSet> {
+    const mockedCollateralCToken = await MocksHelper.getNotInitializedDForceCTokenMock(deployer);
+    const mockedBorrowCToken = await MocksHelper.getNotInitializedDForceCTokenMock(deployer);
+
+    const mockedComptroller = await MocksHelper.getDForceControllerMock(
+      deployer,
+      collateralAsset,
+      borrowAsset,
+      collateralCToken,
+      borrowCToken,
+      mockedCollateralCToken.address,
+      mockedBorrowCToken.address
+    );
+
+    await mockedCollateralCToken.init(mockedComptroller.address, collateralAsset, collateralCToken);
+    await mockedBorrowCToken.init(mockedComptroller.address, borrowAsset, borrowCToken);
+
+    return {
+      mockedBorrowCToken,
+      mockedCollateralCToken,
+      mockedComptroller
     }
   }
 //endregion Test impl
@@ -339,22 +383,38 @@ describe("DForce unit tests, pool adapter", () => {
     });
     describe("Bad paths", () => {
       it("should revert if not tetu converter", async () => {
-        const collateralAsset = MaticAddresses.DAI;
-        const collateralCToken = MaticAddresses.dForce_iDAI;
-        const collateralHolder = MaticAddresses.HOLDER_DAI;
-        const borrowAsset = MaticAddresses.USDC;
-        const borrowCToken = MaticAddresses.dForce_iUSDC;
         await expect(
           makeBorrowTest(
-            collateralAsset,
-            collateralCToken,
-            collateralHolder,
-            borrowAsset,
-            borrowCToken,
+            MaticAddresses.DAI,
+            MaticAddresses.dForce_iDAI,
+            MaticAddresses.HOLDER_DAI,
+            MaticAddresses.USDC,
+            MaticAddresses.dForce_iUSDC,
             "1999",
             {makeOperationAsNotTc: true}
           )
         ).revertedWith("TC-8"); // TETU_CONVERTER_ONLY
+      });
+      it("should revert if comptroller doesn't return borrowed amount", async () => {
+        const mocksSet = await initializeDForceControllerMock(
+          MaticAddresses.DAI,
+          MaticAddresses.dForce_iDAI,
+          MaticAddresses.USDC,
+          MaticAddresses.dForce_iUSDC,
+        );
+        await mocksSet.mockedComptroller.ignoreBorrow();
+
+        await expect(
+          makeBorrowTest(
+            MaticAddresses.DAI,
+            mocksSet.mockedCollateralCToken.address,
+            MaticAddresses.HOLDER_DAI,
+            MaticAddresses.USDC,
+            mocksSet.mockedBorrowCToken.address,
+            "1999",
+            {useDForceControllerMock: mocksSet.mockedComptroller}
+          )
+        ).revertedWith("TC-15"); // WRONG_BORROWED_BALANCE
       });
     });
   });
@@ -398,7 +458,7 @@ describe("DForce unit tests, pool adapter", () => {
         parseUnits(collateralAmountStr, collateralToken.decimals),
         borrowToken,
         borrowCToken,
-        200
+        {targetHealthFactor2: 200}
       );
       const borrowResults = await DForceTestUtils.makeBorrow(deployer, init, undefined);
 
@@ -728,7 +788,7 @@ describe("DForce unit tests, pool adapter", () => {
         collateralAmount,
         borrowToken,
         borrowCTokenAddress,
-        targetHealthFactorInitial2
+        {targetHealthFactor2: targetHealthFactorInitial2}
       );
 
       // const info = await getMarketsInfo(d, collateralCTokenAddress, borrowCTokenAddress);
@@ -964,7 +1024,7 @@ describe("DForce unit tests, pool adapter", () => {
         p.collateralAmount,
         p.borrowToken,
         p.borrowCTokenAddress,
-        targetHealthFactorInitial2
+        {targetHealthFactor2: targetHealthFactorInitial2}
       );
       const collateralAssetData = await DForceHelper.getCTokenData(
         deployer,
