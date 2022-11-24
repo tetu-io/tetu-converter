@@ -453,10 +453,10 @@ contract DForcePoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP, Initi
       rd.claimAllReward(holders);
 
       uint balance = IERC20(rewardTokenOut).balanceOf(address(this));
-
-      if (amountOut != 0) {
+      if (balance != 0) {
         IERC20(rewardTokenOut).safeTransfer(receiver_, balance);
       }
+
       emit OnClaimRewards(rewardTokenOut, amountOut, receiver_);
     }
 

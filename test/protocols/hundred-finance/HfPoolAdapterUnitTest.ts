@@ -813,7 +813,40 @@ describe("Hundred Finance unit tests, pool adapter", () => {
       console.log("collateralToken.decimals", collateralToken.decimals);
       console.log("borrowToken.decimals", borrowToken.decimals);
 
-      const collateralAmount = getBigNumberFrom(100_000, collateralToken.decimals);
+      const collateralAmount = parseUnits("100000", collateralToken.decimals);
+      console.log(collateralAmount, collateralAmount);
+
+      const r = await makeTestBorrowToRebalance(
+        collateralToken,
+        collateralHolder,
+        collateralCTokenAddress,
+        collateralAmount,
+        borrowToken,
+        borrowCTokenAddress,
+        borrowHolder,
+        badPathParams
+      );
+
+      console.log(r);
+      return r;
+    }
+    async function testMaticUSDC(
+      badPathParams?: IMakeTestBorrowToRebalanceBadPathParams
+    ) : Promise<IMakeTestBorrowToRebalanceResults> {
+      const collateralAsset = MaticAddresses.WMATIC;
+      const collateralHolder = MaticAddresses.HOLDER_WMATIC;
+      const collateralCTokenAddress = MaticAddresses.hMATIC;
+
+      const borrowAsset = MaticAddresses.USDC;
+      const borrowCTokenAddress = MaticAddresses.hUSDC;
+      const borrowHolder = MaticAddresses.HOLDER_USDC;
+
+      const collateralToken = await TokenDataTypes.Build(deployer, collateralAsset);
+      const borrowToken = await TokenDataTypes.Build(deployer, borrowAsset);
+      console.log("collateralToken.decimals", collateralToken.decimals);
+      console.log("borrowToken.decimals", borrowToken.decimals);
+
+      const collateralAmount = parseUnits("100000", collateralToken.decimals);
       console.log(collateralAmount, collateralAmount);
 
       const r = await makeTestBorrowToRebalance(
@@ -832,9 +865,26 @@ describe("Hundred Finance unit tests, pool adapter", () => {
     }
 
     describe("Good paths", () => {
-      it("should return expected values", async () => {
+      it("should return expected values for DAI:USDC", async () => {
         if (!await isPolygonForkInUse()) return;
         const r = await testDaiUSDC();
+        const ret = [
+          Math.round(r.afterBorrowHealthFactor18.div(getBigNumberFrom(1, 15)).toNumber() / 10.),
+          Math.round(r.afterBorrowToRebalanceHealthFactor18.div(getBigNumberFrom(1, 15)).toNumber() / 10.),
+          ethers.utils.formatUnits(r.userBalanceAfterBorrow, 18),
+          ethers.utils.formatUnits(r.userBalanceAfterBorrowToRebalance, 18),
+        ].join();
+        const expected = [
+          targetHealthFactorInitial2,
+          targetHealthFactorUpdated2,
+          ethers.utils.formatUnits(r.expectedAdditionalBorrowAmount, 18),
+          ethers.utils.formatUnits(r.expectedAdditionalBorrowAmount.mul(2), 18),
+        ].join();
+        expect(ret).eq(expected);
+      });
+      it("should return expected values for MATIC:USDC", async () => {
+        if (!await isPolygonForkInUse()) return;
+        const r = await testMaticUSDC();
         const ret = [
           Math.round(r.afterBorrowHealthFactor18.div(getBigNumberFrom(1, 15)).toNumber() / 10.),
           Math.round(r.afterBorrowToRebalanceHealthFactor18.div(getBigNumberFrom(1, 15)).toNumber() / 10.),
