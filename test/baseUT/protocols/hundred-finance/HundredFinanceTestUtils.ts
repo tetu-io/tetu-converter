@@ -94,6 +94,7 @@ export interface IPrepareToLiquidationResults {
 
 export interface IMakeBorrowOrRepayBadPathsParams {
   makeOperationAsNotTc?: boolean;
+  useHfComptrollerMock?: HfComptrollerMock;
 }
 
 export interface IHundredFinancePoolAdapterState {
@@ -111,6 +112,11 @@ export interface IInitialBorrowResults {
   collateralAmount: BigNumber;
   stateAfterBorrow: IHundredFinancePoolAdapterState;
 }
+
+export interface IPrepareBorrowBadPathsParams {
+  targetHealthFactor2?: number;
+  useHfComptrollerMock?: HfComptrollerMock;
+}
 //endregion Data types
 
 export class HundredFinanceTestUtils {
@@ -126,7 +132,7 @@ export class HundredFinanceTestUtils {
     collateralAmountRequired: BigNumber | undefined,
     borrowToken: TokenDataTypes,
     borrowCTokenAddress: string,
-    targetHealthFactor2?: number,
+    badPathsParams?: IPrepareBorrowBadPathsParams,
   ) : Promise<IPrepareToBorrowResults> {
     const periodInBlocks = 1000;
 
@@ -136,7 +142,21 @@ export class HundredFinanceTestUtils {
 
     const converter = await AdaptersHelper.createHundredFinancePoolAdapter(deployer);
 
-    const comptroller = await HundredFinanceHelper.getComptroller(deployer);
+    const comptroller = badPathsParams?.useHfComptrollerMock
+      ? badPathsParams.useHfComptrollerMock
+      : await HundredFinanceHelper.getComptroller(deployer);
+    if (badPathsParams?.useHfComptrollerMock) {
+      // we need to provide prices for mocked cTokens - exactly the same as prices for real cTokens
+      const priceOracleMocked = await HundredFinanceChangePriceUtils.setupPriceOracleMock(deployer);
+      await priceOracleMocked.setUnderlyingPrice(
+        await badPathsParams?.useHfComptrollerMock.mockedCollateralCToken(),
+        await priceOracleMocked.getUnderlyingPrice(await badPathsParams?.useHfComptrollerMock.collateralCToken())
+      );
+      await priceOracleMocked.setUnderlyingPrice(
+        await badPathsParams?.useHfComptrollerMock.mockedBorrowCToken(),
+        await priceOracleMocked.getUnderlyingPrice(await badPathsParams?.useHfComptrollerMock.borrowCToken())
+      );
+    }
     const priceOracle = HundredFinanceHelper.getPriceOracle(deployer);
 
     const hfPlatformAdapter = await AdaptersHelper.createHundredFinancePlatformAdapter(
@@ -199,7 +219,7 @@ export class HundredFinanceTestUtils {
       collateralToken.address,
       collateralAmount,
       borrowToken.address,
-      targetHealthFactor2 || await controller.targetHealthFactor2(),
+      badPathsParams?.targetHealthFactor2 || await controller.targetHealthFactor2(),
       countBlocks
     );
     console.log("plan", plan);
@@ -421,7 +441,7 @@ export class HundredFinanceTestUtils {
       collateralAmount,
       borrowToken,
       borrowCTokenAddress,
-      200,
+      {targetHealthFactor2: 200},
     );
     // make a borrow
     await HundredFinanceTestUtils.makeBorrow(deployer, d, undefined);

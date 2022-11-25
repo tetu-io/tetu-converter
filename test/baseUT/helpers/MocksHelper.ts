@@ -520,5 +520,33 @@ export class MocksHelper {
   ) : Promise<DForceCTokenMock> {
     return await DeployUtils.deployContract(deployer, "DForceCTokenMock") as DForceCTokenMock;
   }
+
+  public static async getHfComptrollerMock(
+    deployer: SignerWithAddress,
+    collateralAsset: string,
+    borrowAsset: string,
+    collateralCToken: string,
+    borrowCToken: string,
+    mockedCollateralCToken: string,
+    mockedBorrowCToken: string
+  ) : Promise<HfComptrollerMock> {
+    return await DeployUtils.deployContract(deployer,
+      "HfComptrollerMock",
+      MaticAddresses.HUNDRED_FINANCE_COMPTROLLER,
+      collateralAsset,
+      borrowAsset,
+      collateralCToken,
+      borrowCToken,
+      mockedCollateralCToken,
+      mockedBorrowCToken
+    ) as HfComptrollerMock;
+  }
+
+  public static async getNotInitializedHfCTokenMock(
+    deployer: SignerWithAddress,
+  ) : Promise<HfCTokenMock> {
+    return await DeployUtils.deployContract(deployer, "HfCTokenMock") as HfCTokenMock;
+  }
+
 //endregion Pools and comptrollers
 }

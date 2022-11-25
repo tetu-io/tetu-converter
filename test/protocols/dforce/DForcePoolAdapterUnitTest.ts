@@ -490,6 +490,7 @@ describe("DForce unit tests, pool adapter", () => {
       amountToRepayStr?: string;
       makeRepayAsNotTc?: boolean;
       closePosition?: boolean;
+      useDForceControllerMock?: DForceControllerMock;
     }
 
     async function makeFullRepayTest(
@@ -513,9 +514,17 @@ describe("DForce unit tests, pool adapter", () => {
         parseUnits(collateralAmountStr, collateralToken.decimals),
         borrowToken,
         borrowCToken,
-        {targetHealthFactor2: 200}
+        {
+          targetHealthFactor2: 200,
+          useDForceControllerMock: badPathsParams?.useDForceControllerMock
+        }
       );
-      const borrowResults = await DForceTestUtils.makeBorrow(deployer, init, undefined);
+      const borrowResults = await DForceTestUtils.makeBorrow(
+        deployer,
+        init,
+        undefined,
+        {useDForceControllerMock: badPathsParams?.useDForceControllerMock}
+      );
 
       const amountToRepay = badPathsParams?.amountToRepayStr
         ? parseUnits(badPathsParams?.amountToRepayStr, borrowToken.decimals)
@@ -792,6 +801,65 @@ describe("DForce unit tests, pool adapter", () => {
             {amountToRepayStr: "1", closePosition: true}
           )
         ).revertedWith("TC-24"); // CLOSE_POSITION_FAILED
+      });
+      describe("Use mocked DForce controller", () => {
+        it("should repay successfully", async () => {
+          const mocksSet = await initializeDForceControllerMock(
+            collateralAsset,
+            collateralCToken,
+            borrowAsset,
+            borrowCToken,
+          );
+          const results = await makeFullRepayTest(
+            collateralAsset,
+            mocksSet.mockedCollateralCToken.address,
+            collateralHolder,
+            "1999",
+            borrowAsset,
+            mocksSet.mockedBorrowCToken.address,
+            borrowHolder,
+            { useDForceControllerMock: mocksSet.mockedComptroller }
+          );
+          const status = await results.init.dfPoolAdapterTC.getStatus();
+          const ret = [
+            status.healthFactor18.gt(parseUnits("1", 77)),
+            areAlmostEqual(
+              results.userBorrowAssetBalanceBeforeRepay.sub(results.userBorrowAssetBalanceAfterRepay),
+              results.statusBeforeRepay.amountToPay,
+              4
+            ),
+            status.collateralAmountLiquidated.eq(0),
+            status.collateralAmount.eq(0)
+          ].join();
+          const expected = [true, true, true, true].join();
+          expect(ret).eq(expected);
+        });
+        it("should revert with CLOSE_POSITION_FAILED if token balance is not zero after full repay", async () => {
+          const mocksSet = await initializeDForceControllerMock(
+            collateralAsset,
+            collateralCToken,
+            borrowAsset,
+            borrowCToken,
+          );
+          await expect(
+            makeFullRepayTest(
+              collateralAsset,
+              collateralCToken,
+              collateralHolder,
+              "1999",
+              borrowAsset,
+              borrowCToken,
+              borrowHolder,
+              { useDForceControllerMock: mocksSet.mockedComptroller }
+            )
+          ).revertedWith("TC-24"); // CLOSE_POSITION_FAILED
+        });
+        it("should revert with CLOSE_POSITION_FAILED if borrow balance is not zero after full repay", async () => {
+          expect.fail("TODO");
+        });
+        it("should revert with WRONG_BORROWED_BALANCE if amount to repay is less than borrow balance during full repay", async () => {
+          expect.fail("TODO");
+        });
       });
     });
   });

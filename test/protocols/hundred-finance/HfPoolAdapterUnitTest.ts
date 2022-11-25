@@ -2,9 +2,14 @@ import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import {ethers} from "hardhat";
 import {TimeUtils} from "../../../scripts/utils/TimeUtils";
 import {
-  BorrowManager__factory, Controller, DebtMonitor__factory, HfPlatformAdapter, HfPoolAdapter,
+  BorrowManager__factory,
+  Controller,
+  DebtMonitor__factory,
+  HfPoolAdapter,
   IERC20Metadata__factory,
-  IPoolAdapter__factory, ITokenAddressProvider, TokenAddressProviderMock
+  IPoolAdapter__factory,
+  ITokenAddressProvider,
+  TokenAddressProviderMock
 } from "../../../typechain";
 import {expect} from "chai";
 import {BigNumber} from "ethers";
@@ -90,7 +95,10 @@ describe("Hundred Finance unit tests, pool adapter", () => {
       parseUnits(collateralAmountStr, collateralToken.decimals),
       borrowToken,
       borrowCToken,
-      200
+      {
+        targetHealthFactor2: 200,
+        useHfComptrollerMock: badPathsParams?.useHfComptrollerMock
+      }
     );
     const borrowResults = await HundredFinanceTestUtils.makeBorrow(deployer, init, undefined, badPathsParams);
     return {
@@ -100,6 +108,41 @@ describe("Hundred Finance unit tests, pool adapter", () => {
       borrowToken
     }
   }
+
+  interface IHfComptrollerMockSet {
+    mockedComptroller: HfComptrollerMock;
+    mockedCollateralCToken: HfCTokenMock;
+    mockedBorrowCToken: HfCTokenMock;
+  }
+  async function initializeHfComptrollerMock(
+    collateralAsset: string,
+    collateralCToken: string,
+    borrowAsset: string,
+    borrowCToken: string,
+  ) : Promise<IHfComptrollerMockSet> {
+    const mockedCollateralCToken = await MocksHelper.getNotInitializedHfCTokenMock(deployer);
+    const mockedBorrowCToken = await MocksHelper.getNotInitializedHfCTokenMock(deployer);
+
+    const mockedComptroller = await MocksHelper.getHfComptrollerMock(
+      deployer,
+      collateralAsset,
+      borrowAsset,
+      collateralCToken,
+      borrowCToken,
+      mockedCollateralCToken.address,
+      mockedBorrowCToken.address
+    );
+
+    await mockedCollateralCToken.init(mockedComptroller.address, collateralAsset, collateralCToken);
+    await mockedBorrowCToken.init(mockedComptroller.address, borrowAsset, borrowCToken);
+
+    return {
+      mockedBorrowCToken,
+      mockedCollateralCToken,
+      mockedComptroller
+    }
+  }
+
 //endregion Test impl
 
 //region Unit tests
@@ -356,6 +399,84 @@ describe("Hundred Finance unit tests, pool adapter", () => {
           )
         ).revertedWith("TC-8"); // TETU_CONVERTER_ONLY
       });
+      describe("Use mocked HfComptroller", () => {
+        it("normal borrow should work correctly", async () => {
+          const mocksSet = await initializeHfComptrollerMock(
+            MaticAddresses.DAI,
+            MaticAddresses.hDAI,
+            MaticAddresses.USDC,
+            MaticAddresses.hUSDC,
+          );
+          const results = await makeBorrowTest(
+            MaticAddresses.DAI,
+            mocksSet.mockedCollateralCToken.address,
+            MaticAddresses.HOLDER_DAI,
+            MaticAddresses.USDC,
+            mocksSet.mockedBorrowCToken.address,
+            "1999",
+            {useHfComptrollerMock: mocksSet.mockedComptroller}
+          );
+          const status = await results.init.hfPoolAdapterTC.getStatus();
+
+          const collateralTargetHealthFactor2 = await BorrowManager__factory.connect(
+            await results.init.controller.borrowManager(), deployer
+          ).getTargetHealthFactor2(MaticAddresses.DAI);
+
+          console.log(status);
+
+          const ret = [
+            areAlmostEqual(parseUnits(collateralTargetHealthFactor2.toString(), 16), status.healthFactor18),
+            areAlmostEqual(results.borrowResults.borrowedAmount, status.amountToPay, 4),
+            status.collateralAmountLiquidated.eq(0),
+            areAlmostEqual(status.collateralAmount, parseUnits("1999", results.init.collateralToken.decimals), 4)
+          ].join();
+          const expected = [true, true, true, true].join();
+          expect(ret).eq(expected);
+        });
+        it("should revert if comptroller doesn't return borrowed amount", async () => {
+          const mocksSet = await initializeHfComptrollerMock(
+            MaticAddresses.DAI,
+            MaticAddresses.hDAI,
+            MaticAddresses.USDC,
+            MaticAddresses.hUSDC,
+          );
+          await mocksSet.mockedComptroller.setIgnoreBorrow();
+
+          await expect(
+            makeBorrowTest(
+              MaticAddresses.DAI,
+              mocksSet.mockedCollateralCToken.address,
+              MaticAddresses.HOLDER_DAI,
+              MaticAddresses.USDC,
+              mocksSet.mockedBorrowCToken.address,
+              "1999",
+              {useHfComptrollerMock: mocksSet.mockedComptroller}
+            )
+          ).revertedWith("TC-15"); // WRONG_BORROWED_BALANCE
+        });
+        it("should revert if liquidity balance is incorrect after borrow", async () => {
+          const mocksSet = await initializeHfComptrollerMock(
+            MaticAddresses.DAI,
+            MaticAddresses.hDAI,
+            MaticAddresses.USDC,
+            MaticAddresses.hUSDC,
+          );
+          await mocksSet.mockedComptroller.setIgnoreBorrowBalanceStored();
+
+          await expect(
+            makeBorrowTest(
+              MaticAddresses.DAI,
+              mocksSet.mockedCollateralCToken.address,
+              MaticAddresses.HOLDER_DAI,
+              MaticAddresses.USDC,
+              mocksSet.mockedBorrowCToken.address,
+              "1999",
+              {useHfComptrollerMock: mocksSet.mockedComptroller}
+            )
+          ).revertedWith("TC-23"); // INCORRECT_RESULT_LIQUIDITY
+        });
+      });
+
     });
   });
 
@@ -398,7 +519,7 @@ describe("Hundred Finance unit tests, pool adapter", () => {
         parseUnits(collateralAmountStr, collateralToken.decimals),
         borrowToken,
         borrowCToken,
-        200
+        {targetHealthFactor2: 200}
       );
       const borrowResults = await HundredFinanceTestUtils.makeBorrow(deployer, init, undefined);
 
@@ -728,7 +849,7 @@ describe("Hundred Finance unit tests, pool adapter", () => {
         collateralAmount,
         borrowToken,
         borrowCTokenAddress,
-        targetHealthFactorInitial2
+        {targetHealthFactor2: targetHealthFactorInitial2}
       );
 
       // const info = await getMarketsInfo(d, collateralCTokenAddress, borrowCTokenAddress);
@@ -965,7 +1086,7 @@ describe("Hundred Finance unit tests, pool adapter", () => {
         p.collateralAmount,
         p.borrowToken,
         p.borrowCTokenAddress,
-        targetHealthFactorInitial2
+        {targetHealthFactor2: targetHealthFactorInitial2}
       );
       const collateralAssetData = await HundredFinanceHelper.getCTokenData(
         deployer,
