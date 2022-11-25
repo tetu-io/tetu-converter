@@ -6,7 +6,6 @@ import {
   Controller,
   DebtMonitor__factory,
   DForceControllerMock, DForceCTokenMock,
-  DForcePlatformAdapter,
   DForcePoolAdapter,
   IERC20Metadata__factory,
   IPoolAdapter__factory,
@@ -55,7 +54,7 @@ describe("DForce unit tests, pool adapter", () => {
     this.timeout(1200000);
     snapshot = await TimeUtils.snapshot();
     const signers = await ethers.getSigners();
-    deployer = signers[0];
+    deployer = signers[1];
   });
 
   after(async function () {
@@ -395,17 +394,15 @@ describe("DForce unit tests, pool adapter", () => {
           )
         ).revertedWith("TC-8"); // TETU_CONVERTER_ONLY
       });
-      it("should revert if comptroller doesn't return borrowed amount", async () => {
-        const mocksSet = await initializeDForceControllerMock(
-          MaticAddresses.DAI,
-          MaticAddresses.dForce_iDAI,
-          MaticAddresses.USDC,
-          MaticAddresses.dForce_iUSDC,
-        );
-        await mocksSet.mockedComptroller.ignoreBorrow();
-
-        await expect(
-          makeBorrowTest(
+      describe("Use mocked DForceController", () => {
+        it("should work correctly with mocked DForceController", async () => {
+          const mocksSet = await initializeDForceControllerMock(
+            MaticAddresses.DAI,
+            MaticAddresses.dForce_iDAI,
+            MaticAddresses.USDC,
+            MaticAddresses.dForce_iUSDC,
+          );
+          const results = await makeBorrowTest(
             MaticAddresses.DAI,
             mocksSet.mockedCollateralCToken.address,
             MaticAddresses.HOLDER_DAI,
@@ -413,8 +410,66 @@ describe("DForce unit tests, pool adapter", () => {
             mocksSet.mockedBorrowCToken.address,
             "1999",
             {useDForceControllerMock: mocksSet.mockedComptroller}
-          )
-        ).revertedWith("TC-15"); // WRONG_BORROWED_BALANCE
+          );
+          const status = await results.init.dfPoolAdapterTC.getStatus();
+
+          const collateralTargetHealthFactor2 = await BorrowManager__factory.connect(
+            await results.init.controller.borrowManager(), deployer
+          ).getTargetHealthFactor2(MaticAddresses.DAI);
+
+          console.log(status);
+
+          const ret = [
+            areAlmostEqual(parseUnits(collateralTargetHealthFactor2.toString(), 16), status.healthFactor18),
+            areAlmostEqual(results.borrowResults.borrowedAmount, status.amountToPay, 4),
+            status.collateralAmountLiquidated.eq(0),
+            areAlmostEqual(status.collateralAmount, parseUnits("1999", results.init.collateralToken.decimals), 4)
+          ].join();
+          const expected = [true, true, true, true].join();
+          expect(ret).eq(expected);
+        });
+        it("should revert if comptroller doesn't return borrowed amount", async () => {
+          const mocksSet = await initializeDForceControllerMock(
+            MaticAddresses.DAI,
+            MaticAddresses.dForce_iDAI,
+            MaticAddresses.USDC,
+            MaticAddresses.dForce_iUSDC,
+          );
+          await mocksSet.mockedComptroller.setIgnoreBorrow();
+
+          await expect(
+            makeBorrowTest(
+              MaticAddresses.DAI,
+              mocksSet.mockedCollateralCToken.address,
+              MaticAddresses.HOLDER_DAI,
+              MaticAddresses.USDC,
+              mocksSet.mockedBorrowCToken.address,
+              "1999",
+              {useDForceControllerMock: mocksSet.mockedComptroller}
+            )
+          ).revertedWith("TC-15"); // WRONG_BORROWED_BALANCE
+        });
+        it("should revert if liquidity balance is incorrect after borrow", async () => {
+          const mocksSet = await initializeDForceControllerMock(
+            MaticAddresses.DAI,
+            MaticAddresses.dForce_iDAI,
+            MaticAddresses.USDC,
+            MaticAddresses.dForce_iUSDC,
+          );
+          await mocksSet.mockedComptroller.setIgnoreBorrowBalanceStored();
+
+          await expect(
+            makeBorrowTest(
+              MaticAddresses.DAI,
+              mocksSet.mockedCollateralCToken.address,
+              MaticAddresses.HOLDER_DAI,
+              MaticAddresses.USDC,
+              mocksSet.mockedBorrowCToken.address,
+              "1999",
+              {useDForceControllerMock: mocksSet.mockedComptroller}
+            )
+          ).revertedWith("TC-23"); // INCORRECT_RESULT_LIQUIDITY
+        });
       });
     });
   });

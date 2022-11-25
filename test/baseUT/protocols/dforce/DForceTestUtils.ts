@@ -135,12 +135,26 @@ export class DForceTestUtils {
     const comptroller = badPathsParams?.useDForceControllerMock
       ? badPathsParams.useDForceControllerMock
       : await DForceHelper.getController(deployer);
+    if (badPathsParams?.useDForceControllerMock) {
+      // we need to provide prices for mocked cTokens - exactly the same as prices for real cTokens
+      const priceOracleMocked = await DForceChangePriceUtils.setupPriceOracleMock(deployer);
+      await priceOracleMocked.setUnderlyingPrice(
+        await badPathsParams?.useDForceControllerMock.mockedCollateralCToken(),
+        await priceOracleMocked.getUnderlyingPrice(await badPathsParams?.useDForceControllerMock.collateralCToken())
+      );
+      await priceOracleMocked.setUnderlyingPrice(
+        await badPathsParams?.useDForceControllerMock.mockedBorrowCToken(),
+        await priceOracleMocked.getUnderlyingPrice(await badPathsParams?.useDForceControllerMock.borrowCToken())
+      );
+    }
     const priceOracle = await DForceHelper.getPriceOracle(comptroller, deployer);
 
     const dfPlatformAdapter = await AdaptersHelper.createDForcePlatformAdapter(
       deployer,
       controller.address,
-      MaticAddresses.DFORCE_CONTROLLER,
+      badPathsParams?.useDForceControllerMock
+        ? badPathsParams?.useDForceControllerMock.address
+        : MaticAddresses.DFORCE_CONTROLLER,
       converterNormal.address,
       [collateralCTokenAddress, borrowCTokenAddress],
     );

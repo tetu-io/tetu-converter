@@ -27,12 +27,8 @@ contract DForceControllerMock is IDForceController {
   address public assetBorrow;
   address public assetCollateral;
 
-  bool public ignoreSupply;
-  bool public ignoreRepay;
-  bool public ignoreWithdraw;
   bool public ignoreBorrow;
-  bool public skipSendingATokens;
-  bool public grabAllBorrowAssetFromSenderOnRepay;
+  bool public ignoreBorrowBalanceStored;
 
   constructor (
     address comptroller_,
@@ -62,23 +58,13 @@ contract DForceControllerMock is IDForceController {
   /////////////////////////////////////////////////////////////////
   ///       Config the mock
   /////////////////////////////////////////////////////////////////
-  function setIgnoreSupply() external {
-    ignoreSupply = true;
-  }
-  function setIgnoreRepay() external {
-    ignoreRepay = true;
-  }
-  function setIgnoreWithdraw() external {
-    ignoreWithdraw = true;
-  }
   function setIgnoreBorrow() external {
+    console.log("Set ignoreBorrow=true");
     ignoreBorrow = true;
   }
-  function setSkipSendingATokens() external {
-    skipSendingATokens = true;
-  }
-  function setGrabAllBorrowAssetFromSenderOnRepay() external {
-    grabAllBorrowAssetFromSenderOnRepay = true;
+  function setIgnoreBorrowBalanceStored() external {
+    console.log("Set ignoreBorrowBalanceStored=true");
+    ignoreBorrowBalanceStored = true;
   }
 
   /////////////////////////////////////////////////////////////////
@@ -87,18 +73,31 @@ contract DForceControllerMock is IDForceController {
   ///        (this contract must be the message sender)
   /////////////////////////////////////////////////////////////////
   function mint(IDForceCToken cToken, address _recipient, uint256 _mintAmount) external {
-    console.log("DForceControllerMock.mint", address(cToken), _mintAmount);
+    console.log("DForceControllerMock.mint", address(cToken), _mintAmount, _recipient);
+    console.log("Balance of ctoken", msg.sender, IERC20(assetCollateral).balanceOf(msg.sender));
     IERC20(assetCollateral).safeTransferFrom(msg.sender, address(this), _mintAmount);
-    cToken.mint(_recipient, _mintAmount);
+    console.log("Balance of comptroller", address(this), IERC20(assetCollateral).balanceOf(address(this)));
+    cToken.mint(address(this), _mintAmount);
+
+    (uint accountEquity, uint shortfall, uint collateralValue, uint borrowedValue) = comptroller.calcAccountEquity(address(this));
+    console.log("calcAccountEquity.accountEquity", accountEquity);
+    console.log("calcAccountEquity.shortfall", shortfall);
+    console.log("calcAccountEquity.collateralValue", collateralValue);
+    console.log("calcAccountEquity.borrowedValue", borrowedValue);
   }
   function borrow(IDForceCToken cToken, uint256 _borrowAmount) external {
-    console.log("DForceControllerMock.borrow", address(cToken), _borrowAmount);
-    cToken.borrow(_borrowAmount);
-    IERC20(assetBorrow).safeTransfer(msg.sender, _borrowAmount);
+    if (ignoreBorrow) {
+      console.log("DForceControllerMock.borrow - ignored!");
+    } else {
+      console.log("DForceControllerMock.borrow", address(cToken), _borrowAmount);
+      cToken.borrow(_borrowAmount);
+      console.log("DForceControllerMock.borrow.done, received", IERC20(assetBorrow).balanceOf(address(this)));
+      IERC20(assetBorrow).safeTransfer(msg.sender, _borrowAmount);
+    }
   }
   function balanceOf(IDForceCToken cToken, address a) external view returns (uint256) {
     console.log("DForceControllerMock.balanceof", address(cToken), a);
-    return cToken.balanceOf(a);
+    return cToken.balanceOf(address(this));
   }
   function redeem(IDForceCToken cToken, address _from, uint256 amountTokens_) external {
     console.log("DForceControllerMock.redeem", address(cToken), _from, amountTokens_);
@@ -108,13 +107,21 @@ contract DForceControllerMock is IDForceController {
     uint amount = IERC20(cToken.underlying()).balanceOf(address(this));
     IERC20(cToken.underlying()).safeTransfer(msg.sender, amount);
   }
-
+  function borrowBalanceStored(IDForceCToken cToken, address _account) external view returns (uint256) {
+    console.log("DForceControllerMock.borrowBalanceStored", _account);
+    if (ignoreBorrowBalanceStored) {
+      return 0;
+    } else {
+      return cToken.borrowBalanceStored(address(this));
+    }
+  }
   /////////////////////////////////////////////////////////////////
   ///       IDForceController facade
   ///       All functions required by DForcePoolAdapter
   ///       Replace mocked-cTokens by real one on the fly
   /////////////////////////////////////////////////////////////////
   function enterMarkets(address[] memory _iTokens) external override returns (bool[] memory _results) {
+    console.log("enterMarkets");
     address[] memory tokens = new address[](_iTokens.length);
     for (uint i = 0; i < _iTokens.length; ++i) {
       if (_iTokens[i] == mockedCollateralCToken) {
@@ -134,10 +141,14 @@ contract DForceControllerMock is IDForceController {
     uint256 collateralValue,
     uint256 borrowedValue
   ) {
-    address account = _account == msg.sender
-      ? address(this)
-      : _account;
-    return comptroller.calcAccountEquity(account);
+    console.log("calcAccountEquity", _account);
+    address account = address(this);
+    console.log("calcAccountEquity", account);
+    (accountEquity, shortfall, collateralValue, borrowedValue) = comptroller.calcAccountEquity(account);
+    console.log("calcAccountEquity.accountEquity", accountEquity);
+    console.log("calcAccountEquity.shortfall", shortfall);
+    console.log("calcAccountEquity.collateralValue", collateralValue);
+    console.log("calcAccountEquity.borrowedValue", borrowedValue);
   }
 
   function rewardDistributor() external view override returns (address) {
@@ -145,6 +156,7 @@ contract DForceControllerMock is IDForceController {
   }
 
   function priceOracle() external view override returns (address) {
+    console.log("priceOracle");
     return comptroller.priceOracle();
   }
 
@@ -157,6 +169,7 @@ contract DForceControllerMock is IDForceController {
     bool redeemPaused,
     bool borrowPaused
   ) {
+    console.log("markets");
     address target = target_ == mockedCollateralCToken
       ? collateralCToken
       : target_ == mockedBorrowCToken

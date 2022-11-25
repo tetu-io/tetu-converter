@@ -17,6 +17,7 @@ import "../../integrations/IWmatic.sol";
 import "../../integrations/dforce/IDForceInterestRateModel.sol";
 import "../../integrations/dforce/IDForceRewardDistributor.sol";
 import "../../openzeppelin/Initializable.sol";
+import "hardhat/console.sol";
 
 /// @notice Implementation of IPoolAdapter for dForce-protocol, see https://developers.dforce.network/
 /// @dev Instances of this contract are created using proxy-minimal pattern, so no constructor
@@ -113,6 +114,9 @@ contract DForcePoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP, Initi
     IERC20(borrowAsset_).safeApprove(cTokenBorrow, type(uint).max);
 
     emit OnInitialized(controller_, cTokenAddressProvider_, comptroller_, user_, collateralAsset_, borrowAsset_, originConverter_);
+    console.log("DForcePoolAdapter.initialization.comptroller", comptroller_);
+    console.log("DForcePoolAdapter.initialization.cTokenCollateral", cTokenCollateral);
+    console.log("DForcePoolAdapter.initialization.cTokenBorrow", cTokenBorrow);
   }
 
   ///////////////////////////////////////////////////////
@@ -135,7 +139,6 @@ contract DForcePoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP, Initi
   }
 
   /// @notice Supply collateral to the pool and borrow {borrowedAmount_} in {borrowedToken_}
-  /// @dev Caller should call "syncBalance" before transferring borrow amount and call "borrow"
   function borrow(
     uint collateralAmount_,
     uint borrowAmount_,
@@ -160,11 +163,14 @@ contract DForcePoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP, Initi
     // make borrow
     uint balanceBorrowAsset0 = _getBalance(assetBorrow);
     IDForceCToken(cTokenBorrow).borrow(borrowAmount_);
+    console.log("borrow.done");
 
     // ensure that we have received required borrowed amount, send the amount to the receiver
     if (_isMatic(assetBorrow)) {
       IWmatic(WMATIC).deposit{value : borrowAmount_}();
     }
+    console.log("balances1", borrowAmount_ + balanceBorrowAsset0);
+    console.log("balances2", IERC20(assetBorrow).balanceOf(address(this)));
     require(
       borrowAmount_ + balanceBorrowAsset0 == IERC20(assetBorrow).balanceOf(address(this)),
       AppErrors.WRONG_BORROWED_BALANCE
@@ -216,14 +222,20 @@ contract DForcePoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP, Initi
      uint collateralBase36,
      uint borrowBase36,,
     ) = _getStatus(cTokenCollateral_, cTokenBorrow_);
+    console.log("_validateHealthStatusAfterBorrow.tokenBalance", tokenBalance);
+    console.log("_validateHealthStatusAfterBorrow.collateralBase36", collateralBase36);
+    console.log("_validateHealthStatusAfterBorrow.borrowBase36", borrowBase36);
 
     (uint sumCollateralSafe36,
      uint healthFactor18
     ) = _getHealthFactor(cTokenCollateral_, collateralBase36, borrowBase36);
+    console.log("_validateHealthStatusAfterBorrow.sumCollateralSafe36", sumCollateralSafe36);
+    console.log("_validateHealthStatusAfterBorrow.healthFactor18", healthFactor18);
 
     // USD with 36 integer precision
     // see https://developers.dforce.network/lend/lend-and-synth/controller#calcaccountequity
     (uint liquidity36,,,) = _comptroller.calcAccountEquity(address(this));
+    console.log("_validateHealthStatusAfterBorrow.liquidity36", liquidity36);
 
     require(
       sumCollateralSafe36 > borrowBase36
@@ -259,7 +271,6 @@ contract DForcePoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP, Initi
     if (_isMatic(assetBorrow)) {
       IWmatic(WMATIC).deposit{value : borrowAmount_}();
     }
-    // we assume here, that syncBalance(true) is called before the call of this function
     require(
       borrowAmount_ + balanceBorrowAsset0 == IERC20(assetBorrow).balanceOf(address(this)),
       AppErrors.WRONG_BORROWED_BALANCE
@@ -536,7 +547,7 @@ contract DForcePoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP, Initi
     // collateralValuePerToken = underlyingPrice * exchangeRate * collateralFactor
     // collateralValue = balance * collateralValuePerToken
     // sumCollateral += collateralValue
-    tokenBalanceOut = IERC20(cTokenCollateral_).balanceOf(address(this));
+    tokenBalanceOut = IDForceCToken(cTokenCollateral_).balanceOf(address(this));
 
     IDForcePriceOracle priceOracle = IDForcePriceOracle(_comptroller.priceOracle());
     collateralPrice = DForceAprLib.getPrice(priceOracle, cTokenCollateral_);
