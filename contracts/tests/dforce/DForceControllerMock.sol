@@ -115,10 +115,10 @@ contract DForceControllerMock is IDForceController {
       return cToken.borrowBalanceStored(address(this));
     }
   }
-  function repayBorrow(uint256 _repayAmount) external override {
-    console.log("DForceControllerMock.repayBorrow", _account);
-    IERC20(underlyingAsset).safeTransferFrom(msg.sender, address(this), _repayAmount);
-    console.log("DForceControllerMock.balance", address(this), IERC20(underlyingAsset).balanceOf(address(this)));
+  function repayBorrow(IDForceCToken cToken, uint256 _repayAmount) external {
+    console.log("DForceControllerMock.repayBorrow", _repayAmount);
+    IERC20(cToken.underlying()).safeTransferFrom(msg.sender, address(this), _repayAmount);
+    console.log("DForceControllerMock.balance", address(this), IERC20(cToken.underlying()).balanceOf(address(this)));
     return cToken.repayBorrow(_repayAmount);
   }
 

@@ -33,7 +33,7 @@ import {
   DebtMonitorMock,
   Aave3PoolMock,
   AaveTwoPoolMock,
-  TokenAddressProviderMock, DForceControllerMock, DForceCTokenMock
+  TokenAddressProviderMock, DForceControllerMock, DForceCTokenMock, HfComptrollerMock, HfCTokenMock
 } from "../../../typechain";
 import {IPoolInfo} from "./BorrowManagerHelper";
 import {getBigNumberFrom} from "../../../scripts/utils/NumberUtils";

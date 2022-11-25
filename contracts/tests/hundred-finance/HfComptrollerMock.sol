@@ -57,7 +57,7 @@ contract HfComptrollerMock is IHfComptroller {
   /////////////////////////////////////////////////////////////////
   ///       Config the mock
   /////////////////////////////////////////////////////////////////
-  function setIgnoreBorrow() external override {
+  function setIgnoreBorrow() external {
     console.log("Set ignoreBorrow=true");
     ignoreBorrow = true;
   }
@@ -67,25 +67,26 @@ contract HfComptrollerMock is IHfComptroller {
   ///        delegated to real CTokens
   ///        (this contract must be the message sender)
   /////////////////////////////////////////////////////////////////
-  function balanceOf(IHfCToken cToken, address owner) external override view returns (uint256) {
+  function balanceOf(IHfCToken cToken, address owner) external view returns (uint256) {
     console.log("HfComptrollerMock.balanceOf", owner);
     return cToken.balanceOf(address(this));
   }
-  function mint(IHfCToken cToken, uint256 mintAmount) external override returns (uint256) {
+  function mint(IHfCToken cToken, uint256 mintAmount) external returns (uint256) {
     return cToken.mint(mintAmount);
   }
-  function redeem(IHfCToken cToken, uint256 redeemTokens) external override returns (uint256) {
+  function redeem(IHfCToken cToken, uint256 redeemTokens) external returns (uint256) {
     return cToken.redeem(redeemTokens);
   }
-  function getAccountSnapshot(IHfCToken cToken, address account) external override view returns (
+  function getAccountSnapshot(IHfCToken cToken, address account) external view returns (
     uint256 error, uint256 tokenBalance, uint256 borrowBalance, uint256 exchangeRateMantissa
   ) {
+    account;
     return cToken.getAccountSnapshot(address(this));
   }
-  function borrow(IHfCToken cToken, uint256 borrowAmount) external override returns (uint256) {
+  function borrow(IHfCToken cToken, uint256 borrowAmount) external returns (uint256) {
     return cToken.borrow(borrowAmount);
   }
-  function repayBorrow(IHfCToken cToken, uint256 repayAmount) external override returns (uint256) {
+  function repayBorrow(IHfCToken cToken, uint256 repayAmount) external returns (uint256) {
     return cToken.repayBorrow(repayAmount);
   }
 
@@ -217,7 +218,7 @@ contract HfComptrollerMock is IHfComptroller {
     return comptroller.getBlockNumber();
   }
   function getCompAddress() external override pure returns (address) {
-    return comptroller.getCompAddress();
+    return address(0); // just a stub
   }
   function getHypotheticalAccountLiquidity(address account, address cTokenModify, uint256 redeemTokens, uint256 borrowAmount) external override view returns (
     uint256,
@@ -288,7 +289,7 @@ contract HfComptrollerMock is IHfComptroller {
     uint256 actualMintAmount,
     uint256 mintTokens
   ) external override {
-    return comptroller.mintVerify(cToken, mintVerify, actualMintAmount, mintTokens);
+    return comptroller.mintVerify(cToken, minter, actualMintAmount, mintTokens);
   }
 
   function pauseGuardian() external override view returns (address) {

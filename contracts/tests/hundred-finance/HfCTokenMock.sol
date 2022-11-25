@@ -21,7 +21,7 @@ contract HfCTokenMock is IHfCToken {
     address mockedComptroller_,
     address underlying_,
     address cToken_
-  ) external override {
+  ) external {
     cToken = IHfCToken(cToken_);
     mockedComptroller = HfComptrollerMock(mockedComptroller_);
     underlyingAsset = underlying_;
@@ -40,7 +40,7 @@ contract HfCTokenMock is IHfCToken {
   }
   function mint(uint256 mintAmount) external override returns (uint256) {
     console.log("HfCTokenMock.mintAmount", mintAmount);
-    IERC20(underlyingAsset).safeTransferFrom(msg.sender, address(this), _mintAmount);
+    IERC20(underlyingAsset).safeTransferFrom(msg.sender, address(this), mintAmount);
     console.log("HfCTokenMock.balance", address(this), IERC20(underlyingAsset).balanceOf(address(this)));
     return mockedComptroller.mint(cToken, mintAmount);
   }
@@ -61,7 +61,7 @@ contract HfCTokenMock is IHfCToken {
     console.log("HfCTokenMock.redeem", borrowAmount);
     uint dest = mockedComptroller.borrow(cToken, borrowAmount);
     uint balance = IERC20(underlyingAsset).balanceOf(address(this));
-    console.log("HfCTokenMock.borrow.done", address(this), _borrowAmount, balance);
+    console.log("HfCTokenMock.borrow.done", address(this), borrowAmount, balance);
     IERC20(underlyingAsset).safeTransfer(msg.sender, balance);
     return dest;
   }
@@ -81,6 +81,9 @@ contract HfCTokenMock is IHfCToken {
   //        move them into the above section
   //        and delegate their calls to HfComptrollerMock
   /////////////////////////////////////////////////////////////////
+  function totalSupply() external override view returns (uint256) {
+    return cToken.totalSupply();
+  }
 
   function accrualBlockNumber() external override view returns (uint256) {
     return cToken.accrualBlockNumber();
