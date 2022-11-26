@@ -491,9 +491,12 @@ describe("DForce unit tests, pool adapter", () => {
       makeRepayAsNotTc?: boolean;
       closePosition?: boolean;
       useDForceControllerMock?: DForceControllerMock;
+      returnNotZeroTokenBalanceAfterRedeem?: boolean;
+      returnNotZeroBorrowBalanceStoredAfterRedeem?: boolean;
+      setBorrowBalance1AfterCallingBorrowBalanceCurrent?: number;
     }
 
-    async function makeFullRepayTest(
+    async function makeRepayTest(
       collateralAsset: string,
       collateralCToken: string,
       collateralHolder: string,
@@ -534,6 +537,20 @@ describe("DForce unit tests, pool adapter", () => {
       const userBorrowAssetBalanceBeforeRepay = await init.borrowToken.token.balanceOf(init.userContract.address);
       const statusBeforeRepay: IPoolAdapterStatus = await init.dfPoolAdapterTC.getStatus();
 
+      if (badPathsParams?.useDForceControllerMock) {
+        if (badPathsParams?.returnNotZeroTokenBalanceAfterRedeem) {
+          await badPathsParams?.useDForceControllerMock.setReturnNotZeroTokenBalanceAfterRedeem();
+        }
+        if (badPathsParams?.returnNotZeroBorrowBalanceStoredAfterRedeem) {
+          await badPathsParams?.useDForceControllerMock.setReturnNotZeroBorrowBalanceStoredAfterRedeem();
+        }
+        if (badPathsParams?.setBorrowBalance1AfterCallingBorrowBalanceCurrent) {
+          await badPathsParams?.useDForceControllerMock.setBorrowBalance1AfterCallingBorrowBalanceCurrent(
+            badPathsParams?.setBorrowBalance1AfterCallingBorrowBalanceCurrent
+          );
+        }
+      }
+
       const repayResults = await DForceTestUtils.makeRepay(
         init,
         amountToRepay,
@@ -566,7 +583,7 @@ describe("DForce unit tests, pool adapter", () => {
         const borrowHolder = MaticAddresses.HOLDER_DAI;
         let results: IMakeFullRepayTestResults;
         before(async function () {
-          results = await makeFullRepayTest(
+          results = await makeRepayTest(
             collateralAsset,
             collateralCToken,
             collateralHolder,
@@ -625,7 +642,7 @@ describe("DForce unit tests, pool adapter", () => {
         const borrowHolder = MaticAddresses.HOLDER_WMATIC;
         let results: IMakeFullRepayTestResults;
         before(async function () {
-          results = await makeFullRepayTest(
+          results = await makeRepayTest(
             collateralAsset,
             collateralCToken,
             collateralHolder,
@@ -685,7 +702,7 @@ describe("DForce unit tests, pool adapter", () => {
 
         let results: IMakeFullRepayTestResults;
         before(async function () {
-          results = await makeFullRepayTest(
+          results = await makeRepayTest(
             collateralAsset,
             collateralCToken,
             collateralHolder,
@@ -751,7 +768,7 @@ describe("DForce unit tests, pool adapter", () => {
        * exceeded amount.
        */
       it.skip("should return exceeded amount if user tries to pay too much", async () => {
-        const results = await makeFullRepayTest(
+        const results = await makeRepayTest(
           collateralAsset,
           collateralCToken,
           collateralHolder,
@@ -773,7 +790,7 @@ describe("DForce unit tests, pool adapter", () => {
       });
       it("should revert if not tetu converter", async () => {
         await expect(
-          makeFullRepayTest(
+          makeRepayTest(
             collateralAsset,
             collateralCToken,
             collateralHolder,
@@ -790,7 +807,7 @@ describe("DForce unit tests, pool adapter", () => {
       });
       it("should fail if pay too small amount and try to close the position", async () => {
         await expect(
-          makeFullRepayTest(
+          makeRepayTest(
             collateralAsset,
             collateralCToken,
             collateralHolder,
@@ -810,7 +827,7 @@ describe("DForce unit tests, pool adapter", () => {
             borrowAsset,
             borrowCToken,
           );
-          const results = await makeFullRepayTest(
+          const results = await makeRepayTest(
             collateralAsset,
             mocksSet.mockedCollateralCToken.address,
             collateralHolder,
@@ -842,23 +859,69 @@ describe("DForce unit tests, pool adapter", () => {
             borrowCToken,
           );
           await expect(
-            makeFullRepayTest(
+            makeRepayTest(
               collateralAsset,
-              collateralCToken,
+              mocksSet.mockedCollateralCToken.address,
               collateralHolder,
               "1999",
               borrowAsset,
-              borrowCToken,
+              mocksSet.mockedBorrowCToken.address,
               borrowHolder,
-              { useDForceControllerMock: mocksSet.mockedComptroller }
+              {
+                useDForceControllerMock: mocksSet.mockedComptroller,
+                returnNotZeroTokenBalanceAfterRedeem: true
+              }
             )
           ).revertedWith("TC-24"); // CLOSE_POSITION_FAILED
         });
         it("should revert with CLOSE_POSITION_FAILED if borrow balance is not zero after full repay", async () => {
-          expect.fail("TODO");
+          const mocksSet = await initializeDForceControllerMock(
+            collateralAsset,
+            collateralCToken,
+            borrowAsset,
+            borrowCToken,
+          );
+          await expect(
+            makeRepayTest(
+              collateralAsset,
+              mocksSet.mockedCollateralCToken.address,
+              collateralHolder,
+              "1999",
+              borrowAsset,
+              mocksSet.mockedBorrowCToken.address,
+              borrowHolder,
+              {
+                useDForceControllerMock: mocksSet.mockedComptroller,
+                returnNotZeroBorrowBalanceStoredAfterRedeem: true
+              }
+            )
+          ).revertedWith("TC-24"); // CLOSE_POSITION_FAILED
+
         });
         it("should revert with WRONG_BORROWED_BALANCE if amount to repay is less than borrow balance during full repay", async () => {
-          expect.fail("TODO");
+          const mocksSet = await initializeDForceControllerMock(
+            collateralAsset,
+            collateralCToken,
+            borrowAsset,
+            borrowCToken,
+          );
+          await expect(
+            makeRepayTest(
+              collateralAsset,
+              mocksSet.mockedCollateralCToken.address,
+              collateralHolder,
+              "1999",
+              borrowAsset,
+              mocksSet.mockedBorrowCToken.address,
+              borrowHolder,
+              {
+                useDForceControllerMock: mocksSet.mockedComptroller,
+                setBorrowBalance1AfterCallingBorrowBalanceCurrent: 1,
+                amountToRepayStr: "1" // we need to make a partial repay
+              }
+            )
+          ).revertedWith("TC-15"); // WRONG_BORROWED_BALANCE
+
         });
       });
     });

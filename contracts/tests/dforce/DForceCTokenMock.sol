@@ -64,6 +64,9 @@ contract DForceCTokenMock is IDForceCToken {
     console.log("DForceCTokenMock.balance", address(this), IERC20(underlyingAsset).balanceOf(address(this)));
     return mockedComptroller.repayBorrow(cToken, _repayAmount);
   }
+  function borrowBalanceCurrent(address _account) external override returns (uint256) {
+    return mockedComptroller.borrowBalanceCurrent(cToken, _account);
+  }
 
   /////////////////////////////////////////////////////////////////
   ///       IDForceCToken facade
@@ -86,9 +89,6 @@ contract DForceCTokenMock is IDForceCToken {
   }
   function balanceOfUnderlying(address _account) external override returns (uint256) {
     return cToken.balanceOfUnderlying(_account);
-  }
-  function borrowBalanceCurrent(address _account) external override returns (uint256) {
-    return cToken.borrowBalanceCurrent(_account);
   }
 
   function borrowIndex() external override view returns (uint256) {

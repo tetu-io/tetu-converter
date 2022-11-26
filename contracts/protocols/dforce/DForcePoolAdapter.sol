@@ -376,6 +376,7 @@ contract DForcePoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP, Initi
     bool closePosition_,
     uint amountToRepay_
   ) internal view returns (uint, uint) {
+    console.log("_getCollateralTokensToRedeem", closePosition_);
     uint tokenBalance = IERC20(cTokenCollateral_).balanceOf(address(this));
 
     uint borrowBalance = IDForceCToken(cTokenBorrow_).borrowBalanceStored(address(this));
@@ -384,6 +385,8 @@ contract DForcePoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP, Initi
       require(borrowBalance <= amountToRepay_, AppErrors.CLOSE_POSITION_FAILED);
       return (tokenBalance, tokenBalance);
     } else {
+      console.log("!!!amountToRepay_", amountToRepay_);
+      console.log("!!!borrowBalance", borrowBalance);
       require(amountToRepay_ <= borrowBalance, AppErrors.WRONG_BORROWED_BALANCE);
     }
 
