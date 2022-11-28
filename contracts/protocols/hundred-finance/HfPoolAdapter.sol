@@ -392,10 +392,12 @@ contract HfPoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP, Initializ
     (uint error2,, uint borrowBalance,) = IHfCToken(cTokenBorrow_).getAccountSnapshot(address(this));
     require(error2 == 0, AppErrors.CTOKEN_GET_ACCOUNT_SNAPSHOT_FAILED);
     require(borrowBalance != 0, AppErrors.ZERO_BALANCE);
+    console.log("_getCollateralTokensToRedeem", closePosition_);
     if (closePosition_) {
       require(borrowBalance <= amountToRepay_, AppErrors.CLOSE_POSITION_FAILED);
       return (tokenBalance, tokenBalance);
     } else {
+      console.log("_getCollateralTokensToRedeem amountToRepay_", amountToRepay_, borrowBalance);
       require(amountToRepay_ <= borrowBalance, AppErrors.WRONG_BORROWED_BALANCE);
     }
     return (tokenBalance * amountToRepay_ / borrowBalance, tokenBalance);

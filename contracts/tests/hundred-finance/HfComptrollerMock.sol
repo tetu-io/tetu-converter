@@ -34,6 +34,9 @@ contract HfComptrollerMock is IHfComptroller {
   bool public getAccountLiquidityReturnsIncorrectLiquidity;
   bool public mintFails;
   bool public borrowFails;
+  uint public returnNotZeroTokenBalanceAfterRedeem;
+  uint public returnNotZeroBorrowBalanceAfterRedeem;
+  bool public returnBorrowBalance1;
 
   constructor (
     address comptroller_,
@@ -91,6 +94,19 @@ contract HfComptrollerMock is IHfComptroller {
     console.log("Set borrow fails");
     borrowFails = true;
   }
+  function setReturnNotZeroTokenBalanceAfterRedeem() external {
+    console.log("Set returnNotZeroTokenBalanceAfterRedeem");
+    returnNotZeroTokenBalanceAfterRedeem = 1;
+  }
+  function setReturnNotZeroBorrowBalanceAfterRedeem() external {
+    console.log("Set returnNotZeroBorrowBalanceAfterRedeem");
+    returnNotZeroBorrowBalanceAfterRedeem = 1;
+  }
+  function setReturnBorrowBalance1() external {
+    console.log("set returnBorrowBalance1");
+    returnBorrowBalance1 = true;
+  }
+
   /////////////////////////////////////////////////////////////////
   ///        Calls from HfCTokenMock
   ///        delegated to real CTokens
@@ -98,7 +114,11 @@ contract HfComptrollerMock is IHfComptroller {
   /////////////////////////////////////////////////////////////////
   function balanceOf(IHfCToken cToken, address owner) external view returns (uint256) {
     console.log("HfComptrollerMock.balanceOf", owner);
-    return cToken.balanceOf(address(this));
+    uint balance = cToken.balanceOf(address(this));
+    if (balance == 0 && returnNotZeroTokenBalanceAfterRedeem == 2) {
+      return 1; // redeem was made, let's return not-zero token balance anyway
+    }
+    return balance;
   }
   function mint(IHfCToken cToken, uint256 mintAmount_) external returns (uint256) {
     IERC20(assetCollateral).safeTransferFrom(msg.sender, address(this), mintAmount_);
@@ -117,14 +137,40 @@ contract HfComptrollerMock is IHfComptroller {
     uint amount = IERC20(cToken.underlying()).balanceOf(address(this));
     IERC20(cToken.underlying()).safeTransfer(msg.sender, amount);
     console.log("HfComptrollerMock.redeem", redeemTokens, IERC20(cToken.underlying()).balanceOf(address(this)));
+
+    if (returnNotZeroTokenBalanceAfterRedeem != 0) {
+      // now, redeem has been made
+      // next calls of token balance should return not zero value
+      returnNotZeroTokenBalanceAfterRedeem = 2;
+    }
+    if (returnNotZeroBorrowBalanceAfterRedeem != 0) {
+      // now, redeem has been made
+      // next calls of borrowBalanceStored should return not zero value
+      returnNotZeroBorrowBalanceAfterRedeem = 2;
+    }
+
     return dest;
   }
+
   function getAccountSnapshot(IHfCToken cToken, address account) external view returns (
     uint256 error, uint256 tokenBalance, uint256 borrowBalance, uint256 exchangeRateMantissa
   ) {
     account;
+    if (returnNotZeroTokenBalanceAfterRedeem == 2 && address(cToken) == address(collateralCToken)) {
+      console.log("getAccountSnapshot returnNotZeroTokenBalanceAfterRedeem");
+      return (0, 9, 0, 1e18);
+    }
+    if (returnNotZeroBorrowBalanceAfterRedeem == 2 && address(cToken) == address(borrowCToken)) {
+      console.log("getAccountSnapshot returnNotZeroBorrowBalanceAfterRedeem");
+      return (0, 0, 1, 1e18);
+    }
+    if (returnBorrowBalance1) {
+      console.log("getAccountSnapshot returnBorrowBalance1");
+      return (0, 0, 2, 1e18);
+    }
     return cToken.getAccountSnapshot(address(this));
   }
+
   function borrow(IHfCToken cToken, uint256 borrowAmount_) external returns (uint256) {
     if (ignoreBorrow) {
       return 0;

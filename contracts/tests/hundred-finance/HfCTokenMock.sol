@@ -18,6 +18,7 @@ contract HfCTokenMock is IHfCToken {
   IHfCToken cToken;
   /// @notice Reverse counter of getAccountSnapshot calls. If -1 than getAccountSnapshot returns error
   bool getAccountSnapshotFails;
+  bool returnBorrowBalance1AfetCallingBorrowBalanceCurrent;
 
   function init(
     address mockedComptroller_,
@@ -37,6 +38,9 @@ contract HfCTokenMock is IHfCToken {
   function setGetAccountSnapshotFails() external {
     console.log("Set setGetAccountSnapshotFails");
     getAccountSnapshotFails = true;
+  }
+  function setReturnBorrowBalance1AfetCallingBorrowBalanceCurrent() external {
+    returnBorrowBalance1AfetCallingBorrowBalanceCurrent = true;
   }
 
   /////////////////////////////////////////////////////////////////
@@ -78,11 +82,19 @@ contract HfCTokenMock is IHfCToken {
     IERC20(underlyingAsset).safeTransfer(msg.sender, balance);
     return dest;
   }
-  function repayBorrow(uint256 repayAmount) external override returns (uint256) {
-    console.log("HfCTokenMock.repayBorrow", repayAmount);
-    return mockedComptroller.repayBorrow(cToken, repayAmount);
-  }
+  function repayBorrow(uint256 repayAmount_) external override returns (uint256) {
+    console.log("HfCTokenMock.repayBorrow", repayAmount_);
+    IERC20(underlyingAsset).safeTransferFrom(msg.sender, address(this), repayAmount_);
+    console.log("HfCTokenMock.balance", address(this), IERC20(underlyingAsset).balanceOf(address(this)));
 
+    return mockedComptroller.repayBorrow(cToken, repayAmount_);
+  }
+  function borrowBalanceCurrent(address account) external override returns (uint256) {
+    if (returnBorrowBalance1AfetCallingBorrowBalanceCurrent) {
+      mockedComptroller.setReturnBorrowBalance1();
+    }
+    return cToken.borrowBalanceCurrent(account);
+  }
 
   /////////////////////////////////////////////////////////////////
   ///       HfCToken facade
@@ -116,9 +128,7 @@ contract HfCTokenMock is IHfCToken {
   function balanceOfUnderlying(address owner) external override returns (uint256) {
     return cToken.balanceOfUnderlying(owner);
   }
-  function borrowBalanceCurrent(address account) external override returns (uint256) {
-    return cToken.borrowBalanceCurrent(account);
-  }
+
   function borrowBalanceStored(address account) external override view returns (uint256) {
     return cToken.borrowBalanceStored(account);
   }

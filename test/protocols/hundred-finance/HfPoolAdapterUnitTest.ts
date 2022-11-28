@@ -560,6 +560,8 @@ describe("Hundred Finance unit tests, pool adapter", () => {
       makeRepayAsNotTc?: boolean;
       closePosition?: boolean;
       useHfComptrollerMock?: HfComptrollerMock;
+      returnNotZeroTokenBalanceAfterRedeem?: boolean;
+      returnNotZeroBorrowBalanceAfterRedeem?: boolean;
     }
 
     async function makeFullRepayTest(
@@ -583,7 +585,10 @@ describe("Hundred Finance unit tests, pool adapter", () => {
         parseUnits(collateralAmountStr, collateralToken.decimals),
         borrowToken,
         borrowCToken,
-        {targetHealthFactor2: 200}
+        {
+          targetHealthFactor2: 200,
+          useHfComptrollerMock: badPathsParams?.useHfComptrollerMock
+        }
       );
       const borrowResults = await HundredFinanceTestUtils.makeBorrow(deployer, init, undefined);
 
@@ -595,6 +600,14 @@ describe("Hundred Finance unit tests, pool adapter", () => {
       const userBorrowAssetBalanceBeforeRepay = await init.borrowToken.token.balanceOf(init.userContract.address);
       const statusBeforeRepay: IPoolAdapterStatus = await init.hfPoolAdapterTC.getStatus();
 
+      if (badPathsParams?.useHfComptrollerMock) {
+        if (badPathsParams?.returnNotZeroTokenBalanceAfterRedeem) {
+          await badPathsParams?.useHfComptrollerMock.setReturnNotZeroTokenBalanceAfterRedeem();
+        }
+        if (badPathsParams?.returnNotZeroBorrowBalanceAfterRedeem) {
+          await badPathsParams?.useHfComptrollerMock.setReturnNotZeroBorrowBalanceAfterRedeem();
+        }
+      }
       const repayResults = await HundredFinanceTestUtils.makeRepay(
         init,
         amountToRepay,
@@ -893,21 +906,16 @@ describe("Hundred Finance unit tests, pool adapter", () => {
 
         });
         it("should revert if repayBorrow fails", async () => {
-          const mocksSet = await initializeHfComptrollerMock(
-            MaticAddresses.DAI,
-            MaticAddresses.hDAI,
-            MaticAddresses.USDC,
-            MaticAddresses.hUSDC,
-          );
-          await mocksSet.mockedComptroller.repayBorrowFails();
+          const mocksSet = await initializeHfComptrollerMock(collateralAsset, collateralCToken, borrowAsset, borrowCToken);
+          await mocksSet.mockedComptroller.setRepayBorrowFails();
           await expect(
             makeFullRepayTest(
               collateralAsset,
-              collateralCToken,
+              mocksSet.mockedCollateralCToken.address,
               collateralHolder,
               "1999",
               borrowAsset,
-              borrowCToken,
+              mocksSet.mockedBorrowCToken.address,
               borrowHolder,
               {
                 makeRepayAsNotTc: true,
@@ -917,21 +925,17 @@ describe("Hundred Finance unit tests, pool adapter", () => {
           ).revertedWith("TC-27"); // REPAY_FAILED
         });
         it("should revert if redeem fails", async () => {
-          const mocksSet = await initializeHfComptrollerMock(
-            MaticAddresses.DAI,
-            MaticAddresses.hDAI,
-            MaticAddresses.USDC,
-            MaticAddresses.hUSDC,
-          );
+          const mocksSet = await initializeHfComptrollerMock(collateralAsset, collateralCToken, borrowAsset, borrowCToken);
+
           await mocksSet.mockedComptroller.setRedeemFails();
           await expect(
             makeFullRepayTest(
               collateralAsset,
-              collateralCToken,
+              mocksSet.mockedCollateralCToken.address,
               collateralHolder,
               "1999",
               borrowAsset,
-              borrowCToken,
+              mocksSet.mockedBorrowCToken.address,
               borrowHolder,
               {
                 makeRepayAsNotTc: true,
@@ -941,21 +945,17 @@ describe("Hundred Finance unit tests, pool adapter", () => {
           ).revertedWith("TC-26"); // REDEEM_FAILED
         });
         it("should revert if getAccountSnapshot for collateral fails", async () => {
-          const mocksSet = await initializeHfComptrollerMock(
-            MaticAddresses.DAI,
-            MaticAddresses.hDAI,
-            MaticAddresses.USDC,
-            MaticAddresses.hUSDC,
-          );
+          const mocksSet = await initializeHfComptrollerMock(collateralAsset, collateralCToken, borrowAsset, borrowCToken);
+
           await mocksSet.mockedCollateralCToken.setGetAccountSnapshotFails();
           await expect(
             makeFullRepayTest(
               collateralAsset,
-              collateralCToken,
+              mocksSet.mockedCollateralCToken.address,
               collateralHolder,
               "1999",
               borrowAsset,
-              borrowCToken,
+              mocksSet.mockedBorrowCToken.address,
               borrowHolder,
               {
                 makeRepayAsNotTc: true,
@@ -965,21 +965,17 @@ describe("Hundred Finance unit tests, pool adapter", () => {
           ).revertedWith("TC-21"); // CTOKEN_GET_ACCOUNT_SNAPSHOT_FAILED
         });
         it("should revert if getAccountSnapshot for borrow fails", async () => {
-          const mocksSet = await initializeHfComptrollerMock(
-            MaticAddresses.DAI,
-            MaticAddresses.hDAI,
-            MaticAddresses.USDC,
-            MaticAddresses.hUSDC,
-          );
+          const mocksSet = await initializeHfComptrollerMock(collateralAsset, collateralCToken, borrowAsset, borrowCToken);
+
           await mocksSet.mockedBorrowCToken.setGetAccountSnapshotFails();
           await expect(
             makeFullRepayTest(
               collateralAsset,
-              collateralCToken,
+              mocksSet.mockedCollateralCToken.address,
               collateralHolder,
               "1999",
               borrowAsset,
-              borrowCToken,
+              mocksSet.mockedBorrowCToken.address,
               borrowHolder,
               {
                 makeRepayAsNotTc: true,
@@ -988,6 +984,67 @@ describe("Hundred Finance unit tests, pool adapter", () => {
             )
           ).revertedWith("TC-21"); // CTOKEN_GET_ACCOUNT_SNAPSHOT_FAILED
         });
+        it("should revert with CLOSE_POSITION_FAILED if token balance is not zero after full repay", async () => {
+          const mocksSet = await initializeHfComptrollerMock(collateralAsset, collateralCToken, borrowAsset, borrowCToken);
+
+          await expect(
+            makeFullRepayTest(
+              collateralAsset,
+              mocksSet.mockedCollateralCToken.address,
+              collateralHolder,
+              "1999",
+              borrowAsset,
+              mocksSet.mockedBorrowCToken.address,
+              borrowHolder,
+              {
+                useHfComptrollerMock: mocksSet.mockedComptroller,
+                returnNotZeroTokenBalanceAfterRedeem: true
+              }
+            )
+          ).revertedWith("TC-24"); // CLOSE_POSITION_FAILED
+        });
+        it("should revert with CLOSE_POSITION_FAILED if borrow balance is not zero after full repay", async () => {
+          const mocksSet = await initializeHfComptrollerMock(collateralAsset, collateralCToken, borrowAsset, borrowCToken);
+
+          await expect(
+            makeFullRepayTest(
+              collateralAsset,
+              mocksSet.mockedCollateralCToken.address,
+              collateralHolder,
+              "1999",
+              borrowAsset,
+              mocksSet.mockedBorrowCToken.address,
+              borrowHolder,
+              {
+                useHfComptrollerMock: mocksSet.mockedComptroller,
+                returnNotZeroBorrowBalanceAfterRedeem: true
+              }
+            )
+          ).revertedWith("TC-24"); // CLOSE_POSITION_FAILED
+
+        });
+        it("should revert with WRONG_BORROWED_BALANCE if amount to repay is less than borrow balance during full repay", async () => {
+          const mocksSet = await initializeHfComptrollerMock(collateralAsset, collateralCToken, borrowAsset, borrowCToken);
+
+          await mocksSet.mockedBorrowCToken.setReturnBorrowBalance1AfetCallingBorrowBalanceCurrent();
+          await expect(
+            makeFullRepayTest(
+              collateralAsset,
+              mocksSet.mockedCollateralCToken.address,
+              collateralHolder,
+              "1999",
+              borrowAsset,
+              mocksSet.mockedBorrowCToken.address,
+              borrowHolder,
+              {
+                useHfComptrollerMock: mocksSet.mockedComptroller,
+                amountToRepayStr: "10" // we need to make a partial repay
+              }
+            )
+          ).revertedWith("TC-15"); // WRONG_BORROWED_BALANCE
+
+        });
+
       });
     });
   });
