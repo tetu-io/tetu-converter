@@ -16,6 +16,8 @@ contract HfCTokenMock is IHfCToken {
   HfComptrollerMock mockedComptroller;
   address public underlyingAsset;
   IHfCToken cToken;
+  /// @notice Reverse counter of getAccountSnapshot calls. If -1 than getAccountSnapshot returns error
+  bool getAccountSnapshotFails;
 
   function init(
     address mockedComptroller_,
@@ -30,6 +32,14 @@ contract HfCTokenMock is IHfCToken {
   }
 
   /////////////////////////////////////////////////////////////////
+  ///     set up
+  /////////////////////////////////////////////////////////////////
+  function setGetAccountSnapshotFails() external {
+    console.log("Set setGetAccountSnapshotFails");
+    getAccountSnapshotFails = true;
+  }
+
+  /////////////////////////////////////////////////////////////////
   ///       HfCToken facade
   ///       All functions required by HfPoolAdapter
   ///       Replace mocked-cTokens by real one on the fly
@@ -39,7 +49,7 @@ contract HfCTokenMock is IHfCToken {
     return mockedComptroller.balanceOf(cToken, owner);
   }
   function mint(uint256 mintAmount) external override returns (uint256) {
-    console.log("HfCTokenMock.mintAmount", mintAmount);
+    console.log("HfCTokenMock.mint", mintAmount);
     IERC20(underlyingAsset).safeTransferFrom(msg.sender, address(this), mintAmount);
     console.log("HfCTokenMock.balance", address(this), IERC20(underlyingAsset).balanceOf(address(this)));
     return mockedComptroller.mint(cToken, mintAmount);
@@ -55,10 +65,13 @@ contract HfCTokenMock is IHfCToken {
     uint256 error, uint256 tokenBalance, uint256 borrowBalance, uint256 exchangeRateMantissa
   ) {
     console.log("HfCTokenMock.getAccountSnapshot", account);
+    if (getAccountSnapshotFails) {
+      return (17, tokenBalance, borrowBalance, exchangeRateMantissa); // error
+    }
     return mockedComptroller.getAccountSnapshot(cToken, account);
   }
   function borrow(uint256 borrowAmount) external override returns (uint256) {
-    console.log("HfCTokenMock.redeem", borrowAmount);
+    console.log("HfCTokenMock.borrow", borrowAmount);
     uint dest = mockedComptroller.borrow(cToken, borrowAmount);
     uint balance = IERC20(underlyingAsset).balanceOf(address(this));
     console.log("HfCTokenMock.borrow.done", address(this), borrowAmount, balance);

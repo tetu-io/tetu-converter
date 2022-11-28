@@ -17,6 +17,7 @@ import "../../openzeppelin/IERC20Metadata.sol";
 import "../../integrations/hundred-finance/IHfInterestRateModel.sol";
 import "../../core/AppUtils.sol";
 import "./HfAprLib.sol";
+import "hardhat/console.sol";
 
 /// @notice Adapter to read current pools info from HundredFinance-protocol, see https://docs.hundred.finance/
 contract HfPlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
@@ -162,6 +163,12 @@ contract HfPlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
   ) external override view returns (
     AppDataTypes.ConversionPlan memory plan
   ) {
+    console.log("getConversionPlan.collateralAsset_", collateralAsset_);
+    console.log("getConversionPlan.collateralAmount_", collateralAmount_);
+    console.log("getConversionPlan.borrowAsset_", borrowAsset_);
+    console.log("getConversionPlan.healthFactor2_", healthFactor2_);
+    console.log("getConversionPlan.countBlocks_", countBlocks_);
+
     require(collateralAsset_ != address(0) && borrowAsset_ != address(0), AppErrors.ZERO_ADDRESS);
     require(collateralAmount_ != 0 && countBlocks_ != 0, AppErrors.INCORRECT_VALUE);
     require(healthFactor2_ >= IController(controller).minHealthFactor2(), AppErrors.WRONG_HEALTH_FACTOR);
@@ -260,14 +267,17 @@ contract HfPlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
     uint ltv18,
     uint liquidityThreshold18
   ) {
+    console.log("getMarketsInfo");
     IHfComptroller comptrollerLocal = comptroller;
     if (
       !comptroller.borrowGuardianPaused(cTokenBorrow_) // borrowing is not paused
       && !comptroller.mintGuardianPaused(cTokenCollateral_) // minting is not paused
     ) {
+      console.log("getMarketsInfo.1");
       (bool isListed, uint256 collateralFactorMantissa,) = comptrollerLocal.markets(cTokenBorrow_);
       if (isListed) {
         ltv18 = collateralFactorMantissa;
+        console.log("getMarketsInfo.2");
         (isListed, collateralFactorMantissa,) = comptrollerLocal.markets(cTokenCollateral_);
         if (isListed) {
           liquidityThreshold18 = collateralFactorMantissa;

@@ -149,6 +149,7 @@ contract HfPoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP, Initializ
     uint borrowAmount_,
     address receiver_
   ) external override returns (uint) {
+    console.log("HfPoolAdapter.borrow", borrowAmount_);
     _onlyTetuConverter();
     uint error;
     IHfComptroller comptroller = _comptroller;
@@ -171,6 +172,7 @@ contract HfPoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP, Initializ
 
     // make borrow
     uint balanceBorrowAsset0 = _getBalance(assetBorrow);
+    console.log("balanceBorrowAsset0", balanceBorrowAsset0);
     error = IHfCToken(cTokenBorrow).borrow(borrowAmount_);
     console.log("BORROW ERROR", error);
     require(error == 0, AppErrors.BORROW_FAILED);
@@ -180,7 +182,7 @@ contract HfPoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP, Initializ
       IWmatic(WMATIC).deposit{value : borrowAmount_}();
     }
     require(
-      borrowAmount_ + balanceBorrowAsset0 == IERC20(assetBorrow).balanceOf(address(this)),
+      borrowAmount_ + balanceBorrowAsset0 == IERC20(assetBorrow).balanceOf(address(this)), // TODO <= instead ==
       AppErrors.WRONG_BORROWED_BALANCE
     );
     IERC20(assetBorrow).safeTransfer(receiver_, borrowAmount_);
@@ -328,7 +330,6 @@ contract HfPoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP, Initializ
 
     // transfer borrow amount back to the pool
     if (_isMatic(vars.assetBorrow)) {
-      require(IERC20(WMATIC).balanceOf(address(this)) >= amountToRepay_, AppErrors.MINT_FAILED);
       IWmatic(WMATIC).withdraw(amountToRepay_);
       IHfHMatic(payable(vars.cTokenBorrow)).repayBorrow{value : amountToRepay_}();
     } else {
@@ -530,6 +531,7 @@ contract HfPoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP, Initializ
     uint outPriceCollateral,
     uint outCollateralAmountLiquidatedBase
   ) {
+    console.log("_getStatus");
     // we need to repeat Comptroller.getHypotheticalAccountLiquidityInternal
     // but for single collateral and single borrow only
     // Collateral factor = CF, exchange rate = ER, price = P
@@ -549,10 +551,10 @@ contract HfPoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP, Initializ
     (error, tokenBalanceOut,, cExchangeRateMantissa) = IHfCToken(cTokenCollateral)
       .getAccountSnapshot(address(this));
     require(error == 0, AppErrors.CTOKEN_GET_ACCOUNT_SNAPSHOT_FAILED);
-
+    console.log("_getStatus;1");
     (error,, borrowBalanceOut,) = IHfCToken(cTokenBorrow).getAccountSnapshot(address(this));
     require(error == 0, AppErrors.CTOKEN_GET_ACCOUNT_SNAPSHOT_FAILED);
-
+    console.log("_getStatus.2");
     IHfPriceOracle priceOracle = IHfPriceOracle(_comptroller.oracle());
     uint priceCollateral = priceOracle.getUnderlyingPrice(cTokenCollateral);
     collateralBaseOut = (priceCollateral * cExchangeRateMantissa / 10**18) * tokenBalanceOut / 10**18;
@@ -561,6 +563,7 @@ contract HfPoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP, Initializ
       ? 0
       : (collateralTokensBalance - tokenBalanceOut) * (priceCollateral * cExchangeRateMantissa / 10**18) / 10**18;
 
+    console.log("_getStatus.3");
     return (
       tokenBalanceOut,
       borrowBalanceOut,
@@ -588,6 +591,10 @@ contract HfPoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP, Initializ
     uint sumCollateralSafe,
     uint healthFactor18
   ) {
+    console.log("_getHealthFactor.cTokenCollateral_", cTokenCollateral_);
+    console.log("_getHealthFactor.sumCollateral_", sumCollateral_);
+    console.log("_getHealthFactor.sumBorrowPlusEffects_", sumBorrowPlusEffects_);
+
     (,uint collateralFactor,) = _comptroller.markets(cTokenCollateral_);
 
     sumCollateralSafe = collateralFactor * sumCollateral_ / 10**18;

@@ -27,7 +27,13 @@ contract HfComptrollerMock is IHfComptroller {
   address public assetBorrow;
   address public assetCollateral;
 
+  bool public repayBorrowFails;
+  bool public redeemFails;
   bool public ignoreBorrow;
+  bool public getAccountLiquidityFails;
+  bool public getAccountLiquidityReturnsIncorrectLiquidity;
+  bool public mintFails;
+  bool public borrowFails;
 
   constructor (
     address comptroller_,
@@ -61,7 +67,30 @@ contract HfComptrollerMock is IHfComptroller {
     console.log("Set ignoreBorrow=true");
     ignoreBorrow = true;
   }
-
+  function setRepayBorrowFails() external {
+    console.log("Set repayBorrowFails=true");
+    repayBorrowFails = true;
+  }
+  function setRedeemFails() external {
+    console.log("Set redeemFails=true");
+    redeemFails = true;
+  }
+  function setGetAccountLiquidityFails() external {
+    console.log("Set getAccountLiquidityFails=true");
+    getAccountLiquidityFails = true;
+  }
+  function setGetAccountLiquidityReturnsIncorrectLiquidity() external {
+    console.log("Set getAccountLiquidityReturnsIncorrectLiquidity");
+    getAccountLiquidityReturnsIncorrectLiquidity = true;
+  }
+  function setMintFails() external {
+    console.log("Set mint fails");
+    mintFails = true;
+  }
+  function setBorrowFails() external {
+    console.log("Set borrow fails");
+    borrowFails = true;
+  }
   /////////////////////////////////////////////////////////////////
   ///        Calls from HfCTokenMock
   ///        delegated to real CTokens
@@ -71,11 +100,24 @@ contract HfComptrollerMock is IHfComptroller {
     console.log("HfComptrollerMock.balanceOf", owner);
     return cToken.balanceOf(address(this));
   }
-  function mint(IHfCToken cToken, uint256 mintAmount) external returns (uint256) {
-    return cToken.mint(mintAmount);
+  function mint(IHfCToken cToken, uint256 mintAmount_) external returns (uint256) {
+    IERC20(assetCollateral).safeTransferFrom(msg.sender, address(this), mintAmount_);
+    console.log("HfComptrollerMock.mint", mintAmount_,IERC20(assetCollateral).balanceOf(address(this)));
+    if (mintFails) {
+      return 17;
+    } else {
+      return cToken.mint(mintAmount_);
+    }
   }
   function redeem(IHfCToken cToken, uint256 redeemTokens) external returns (uint256) {
-    return cToken.redeem(redeemTokens);
+    if (redeemFails) {
+      return 17; // error
+    }
+    uint dest = cToken.redeem(redeemTokens);
+    uint amount = IERC20(cToken.underlying()).balanceOf(address(this));
+    IERC20(cToken.underlying()).safeTransfer(msg.sender, amount);
+    console.log("HfComptrollerMock.redeem", redeemTokens, IERC20(cToken.underlying()).balanceOf(address(this)));
+    return dest;
   }
   function getAccountSnapshot(IHfCToken cToken, address account) external view returns (
     uint256 error, uint256 tokenBalance, uint256 borrowBalance, uint256 exchangeRateMantissa
@@ -83,28 +125,91 @@ contract HfComptrollerMock is IHfComptroller {
     account;
     return cToken.getAccountSnapshot(address(this));
   }
-  function borrow(IHfCToken cToken, uint256 borrowAmount) external returns (uint256) {
-    return cToken.borrow(borrowAmount);
+  function borrow(IHfCToken cToken, uint256 borrowAmount_) external returns (uint256) {
+    if (ignoreBorrow) {
+      return 0;
+    } else {
+      if (borrowFails) {
+        return 17;
+      } else {
+        console.log("HfComptrollerMock.borrow", address(cToken), borrowAmount_);
+        uint dest = cToken.borrow(borrowAmount_);
+        console.log("HfComptrollerMock.borrow.done, received", IERC20(assetBorrow).balanceOf(address(this)));
+        IERC20(assetBorrow).safeTransfer(msg.sender, borrowAmount_);
+
+        return dest;
+      }
+    }
   }
   function repayBorrow(IHfCToken cToken, uint256 repayAmount) external returns (uint256) {
+    console.log("HfComptrollerMock.repayBorrow", repayAmount);
+    if (repayBorrowFails) {
+      console.log("HfComptrollerMock.repayBorrow returns error");
+      return 17; // error
+    }
+    IERC20(cToken.underlying()).safeTransferFrom(msg.sender, address(this), repayAmount);
+    console.log("HfComptrollerMock.repayBorrow", address(this), IERC20(cToken.underlying()).balanceOf(address(this)));
     return cToken.repayBorrow(repayAmount);
   }
 
+  function enterMarkets(address[] memory cTokens_) external override returns (uint256[] memory) {
+    console.log("HfComptrollerMock.enterMarkets");
+    address[] memory tokens = new address[](cTokens_.length);
+    for (uint i = 0; i < cTokens_.length; ++i) {
+      if (cTokens_[i] == mockedCollateralCToken) {
+        tokens[i] = collateralCToken;
+      } else if (cTokens_[i] == mockedBorrowCToken) {
+        tokens[i] = borrowCToken;
+      } else {
+        tokens[i] = cTokens_[i];
+      }
+    }
+    return comptroller.enterMarkets(tokens);
+  }
+
+  function markets(address target_) external override view returns (
+    bool isListed,
+    uint256 collateralFactorMantissa,
+    bool isComped
+  ) {
+    console.log("HfComptrollerMock.markets", target_);
+    address target = target_ == mockedCollateralCToken
+      ? collateralCToken
+      : target_ == mockedBorrowCToken
+        ? borrowCToken
+        : target_;
+    console.log("HfComptrollerMock.markets.target", target);
+    console.log("HfComptrollerMock.markets.mockedCollateralCToken", mockedCollateralCToken);
+    console.log("HfComptrollerMock.markets.collateralCToken", collateralCToken);
+    console.log("HfComptrollerMock.markets.mockedBorrowCToken", mockedBorrowCToken);
+    console.log("HfComptrollerMock.markets.borrowCToken", borrowCToken);
+
+    (isListed,
+     collateralFactorMantissa,
+     isComped
+    ) = comptroller.markets(target);
+
+    console.log("isListed", isListed);
+    return (isListed, collateralFactorMantissa, isComped);
+  }
 
   /////////////////////////////////////////////////////////////////
   ///       IHfComptroller facade
   ///       All functions required by HfPoolAdapter
   ///       Replace mocked-cTokens by real one on the fly
   /////////////////////////////////////////////////////////////////
-  function enterMarkets(address[] memory cTokens) external override returns (uint256[] memory) {
-    console.log("HfComptrollerMock.enterMarkets");
-    return comptroller.enterMarkets(cTokens);
-  }
+
   function getAccountLiquidity(address account) external override view returns (
     uint256 error, uint256 liquidity, uint256 shortfall
   ) {
     console.log("HfComptrollerMock.getAccountLiquidity", account);
-    return comptroller.getAccountLiquidity(address(this));
+    if (getAccountLiquidityFails) {
+      return (17, liquidity, shortfall);
+    } else if (getAccountLiquidityReturnsIncorrectLiquidity) {
+      return (0, 1, shortfall); // VERY small liquidity
+    } else {
+      return comptroller.getAccountLiquidity(address(this));
+    }
   }
 
   function oracle() external override view returns (address) {
@@ -112,14 +217,7 @@ contract HfComptrollerMock is IHfComptroller {
     return comptroller.oracle();
   }
 
-  function markets(address a) external override view returns (
-    bool isListed,
-    uint256 collateralFactorMantissa,
-    bool isComped
-  ) {
-    console.log("HfComptrollerMock.markets", a);
-    return comptroller.markets(a);
-  }
+
 
   /////////////////////////////////////////////////////////////////
   ///       IHfComptroller facade

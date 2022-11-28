@@ -112,7 +112,7 @@ export class HundredFinanceHelper {
     ) : Promise<IHundredFinanceMarketData> {
         const m = await comptroller.markets(cToken.address);
         const irm = IHfInterestRateModel__factory.connect(await cToken.interestRateModel(), signer);
-        const priceOracle = IHfPriceOracle__factory.connect(MaticAddresses.HUNDRED_FINANCE_PRICE_ORACLE, signer);
+        const priceOracle = IHfPriceOracle__factory.connect(await comptroller.oracle(), signer);
 
 
         return {

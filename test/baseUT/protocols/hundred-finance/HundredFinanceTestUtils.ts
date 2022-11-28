@@ -1,7 +1,7 @@
 import {
   Borrower,
   BorrowManager__factory,
-  Controller,
+  Controller, HfComptrollerMock,
   HfPlatformAdapter,
   HfPoolAdapter,
   HfPoolAdapter__factory,
@@ -10,8 +10,8 @@ import {
   IHfComptroller,
   IHfCToken,
   IHfCToken__factory,
-  IHfPriceOracle,
-  IPoolAdapter__factory
+  IHfPriceOracle, IHfPriceOracle__factory,
+  IPoolAdapter__factory, IPriceOracle__factory
 } from "../../../../typechain";
 import {BigNumber} from "ethers";
 import {TokenDataTypes} from "../../types/TokenDataTypes";
@@ -145,19 +145,22 @@ export class HundredFinanceTestUtils {
     const comptroller = badPathsParams?.useHfComptrollerMock
       ? badPathsParams.useHfComptrollerMock
       : await HundredFinanceHelper.getComptroller(deployer);
+    console.log("Comptroller", comptroller.address);
     if (badPathsParams?.useHfComptrollerMock) {
       // we need to provide prices for mocked cTokens - exactly the same as prices for real cTokens
       const priceOracleMocked = await HundredFinanceChangePriceUtils.setupPriceOracleMock(deployer);
+      const collateralCToken: string = await badPathsParams?.useHfComptrollerMock.collateralCToken();
+      const mockedCollateralCToken = await badPathsParams?.useHfComptrollerMock.mockedCollateralCToken();
       await priceOracleMocked.setUnderlyingPrice(
-        await badPathsParams?.useHfComptrollerMock.mockedCollateralCToken(),
-        await priceOracleMocked.getUnderlyingPrice(await badPathsParams?.useHfComptrollerMock.collateralCToken())
+        mockedCollateralCToken,
+        await priceOracleMocked.getUnderlyingPrice(collateralCToken)
       );
       await priceOracleMocked.setUnderlyingPrice(
         await badPathsParams?.useHfComptrollerMock.mockedBorrowCToken(),
         await priceOracleMocked.getUnderlyingPrice(await badPathsParams?.useHfComptrollerMock.borrowCToken())
       );
     }
-    const priceOracle = HundredFinanceHelper.getPriceOracle(deployer);
+    const priceOracle = IHfPriceOracle__factory.connect(await comptroller.oracle(), deployer);
 
     const hfPlatformAdapter = await AdaptersHelper.createHundredFinancePlatformAdapter(
       deployer,
