@@ -7,7 +7,7 @@ import {DForcePriceOracleMock, IDForceController__factory, IDForceCToken__factor
 import {DForceHelper} from "../../../../scripts/integration/helpers/DForceHelper";
 
 export class DForceChangePriceUtils {
-  public static async setupPriceOracleMock(deployer: SignerWithAddress) : Promise<DForcePriceOracleMock> {
+  public static async setupPriceOracleMock(deployer: SignerWithAddress, copyPrices: boolean = true) : Promise<DForcePriceOracleMock> {
     const cTokensList = [
       MaticAddresses.dForce_iDAI,
       MaticAddresses.dForce_iMATIC,
@@ -32,9 +32,11 @@ export class DForceChangePriceUtils {
     const comptrollerAsAdmin = await DForceHelper.getController(
       await DeployerUtils.startImpersonate(owner)
     );
-    for (const cToken of cTokensList) {
-      const price = await priceOracle.getUnderlyingPrice(cToken);
-      await mock.setUnderlyingPrice(cToken, price);
+    if (copyPrices) {
+      for (const cToken of cTokensList) {
+        const price = await priceOracle.getUnderlyingPrice(cToken);
+        await mock.setUnderlyingPrice(cToken, price);
+      }
     }
 
     // install the mock to the protocol

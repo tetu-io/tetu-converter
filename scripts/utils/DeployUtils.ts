@@ -11,7 +11,7 @@ import {VerifyUtils} from "./VerifyUtils";
 const log: Logger = new Logger(logSettings);
 
 const libraries = new Map<string, string>([
-  ['', '']
+  ['', ''],
 ]);
 const hre = require("hardhat");
 

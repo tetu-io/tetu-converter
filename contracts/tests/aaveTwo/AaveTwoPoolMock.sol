@@ -36,21 +36,27 @@ contract AaveTwoPoolMock is IAaveTwoPool {
   ///       Config the mock
   /////////////////////////////////////////////////////////////////
   function setIgnoreSupply() external {
+    console.log("setIgnoreSupply");
     ignoreSupply = true;
   }
   function setIgnoreRepay() external {
+    console.log("setIgnoreRepay");
     ignoreRepay = true;
   }
   function setIgnoreWithdraw() external {
+    console.log("setIgnoreWithdraw");
     ignoreWithdraw = true;
   }
   function setIgnoreBorrow() external {
+    console.log("setIgnoreBorrow");
     ignoreBorrow = true;
   }
   function setSkipSendingATokens() external {
+    console.log("setSkipSendingATokens");
     skipSendingATokens = true;
   }
   function setGrabAllBorrowAssetFromSenderOnRepay() external {
+    console.log("setGrabAllBorrowAssetFromSenderOnRepay");
     grabAllBorrowAssetFromSenderOnRepay = true;
   }
 
@@ -59,7 +65,9 @@ contract AaveTwoPoolMock is IAaveTwoPool {
   ///       All functions required by AaveTwoPoolAdapter
   /////////////////////////////////////////////////////////////////
   function borrow(address asset, uint256 amount, uint256 interestRateMode, uint16 referralCode, address onBehalfOf) external override {
-    if (!ignoreBorrow) {
+    if (ignoreBorrow) {
+      console.log("AaveTwoPoolMock.borrow.ignored");
+    } else {
       console.log("AaveTwoPoolMock.borrow");
       aavePool.borrow(
         asset,
@@ -71,8 +79,6 @@ contract AaveTwoPoolMock is IAaveTwoPool {
         : onBehalfOf
       );
       IERC20(asset).safeTransfer(msg.sender, IERC20(asset).balanceOf(address(this)) );
-    } else {
-      console.log("AaveTwoPoolMock.borrow.ignored");
     }
   }
   function getAddressesProvider() external view override returns (address) {

@@ -482,7 +482,10 @@ describe("Hundred finance, platform adapter", () => {
         });
       });
       describe("Borrow capacity", () => {
-        it("maxAmountToBorrow is equal to available cash if borrow capacity is unlimited", async () => {
+        /**
+         *      totalBorrows    <    borrowCap       <       totalBorrows + available cash
+         */
+        it("maxAmountToBorrow is equal to borrowCap - totalBorrows", async () => {
           if (!await isPolygonForkInUse()) return;
 
           const r = await preparePlan(
@@ -495,6 +498,30 @@ describe("Hundred finance, platform adapter", () => {
           );
           expect(r.plan.maxAmountToBorrow.eq(parseUnits("7", 18))).eq(true);
         });
+
+        /**
+         *      totalBorrows    <     totalBorrows + available cash    <     borrowCap
+         */
+        it("maxAmountToBorrow is equal to available cash if borrowCap is huge", async () => {
+          if (!await isPolygonForkInUse()) return;
+
+          const r = await preparePlan(
+            MaticAddresses.DAI,
+            parseUnits("1", 18),
+            MaticAddresses.WMATIC,
+            MaticAddresses.hDAI,
+            MaticAddresses.hMATIC,
+            { setMinBorrowCapacityDelta: parseUnits("7", 48) }
+          );
+          const availableCash = await IHfCToken__factory.connect(MaticAddresses.hMATIC, deployer).getCash();
+          console.log("availableCash", availableCash);
+          console.log("maxAmountToBorrow", r.plan.maxAmountToBorrow);
+          expect(r.plan.maxAmountToBorrow.eq(availableCash)).eq(true);
+        });
+
+        /**
+         *      borrowCap   <     totalBorrows    <   totalBorrows + available cash
+         */
         it("maxAmountToBorrow is zero if borrow capacity is exceeded", async () => {
           if (!await isPolygonForkInUse()) return;
 

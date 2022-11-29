@@ -32,7 +32,7 @@ library AppErrors {
   /// @notice Pool adapter expects some amount of derivative tokens on its balance after borrowing
   string public constant WRONG_DERIVATIVE_TOKENS_BALANCE="TC-14";
   /// @notice Pool adapter expects some amount of borrowed tokens on its balance
-  string public constant WRONG_BORROWED_BALANCE="TC-15";
+  string public constant WRONG_BORROWED_BALANCE = "TC-15";
   /// @notice cToken is not found for provided underlying
   string public constant C_TOKEN_NOT_FOUND = "TC-16";
   /// @notice cToken.mint failed

@@ -11,6 +11,8 @@ import {DeployUtils} from "../../../scripts/utils/DeployUtils";
 import {MocksHelper} from "../../baseUT/helpers/MocksHelper";
 import {DForceAprLibFacade} from "../../../typechain";
 import {parseUnits} from "ethers/lib/utils";
+import {MaticAddresses} from "../../../scripts/addresses/MaticAddresses";
+import {DForceChangePriceUtils} from "../../baseUT/protocols/dforce/DForceChangePriceUtils";
 
 describe("DForceHelper unit tests", () => {
 //region Global vars for all tests
@@ -29,9 +31,7 @@ describe("DForceHelper unit tests", () => {
     const signers = await ethers.getSigners();
     deployer = signers[0];
     investor = signers[0];
-    libFacade = await DeployUtils.deployContract(deployer
-      , "DForceAprLibFacade"
-    ) as DForceAprLibFacade;
+    libFacade = await DeployUtils.deployContract(deployer, "DForceAprLibFacade") as DForceAprLibFacade;
   });
 
   after(async function () {
@@ -204,6 +204,44 @@ describe("DForceHelper unit tests", () => {
           parseUnits("1", 18),
         )
       ).revertedWith("TC-50"); // AMOUNT_TOO_BIG
+    });
+  });
+
+  describe("getPrice", () => {
+    it("should revert if zero", async () => {
+      const priceOracle = await DForceChangePriceUtils.setupPriceOracleMock(
+        deployer,
+        false // we don't copy prices, so all prices are zero
+      );
+      // await priceOracle.setUnderlyingPrice(MaticAddresses.hDAI, 0);
+      await expect(
+        libFacade.getPrice(priceOracle.address, MaticAddresses.hDAI)
+      ).revertedWith("TC-4"); // ZERO_PRICE
+    });
+  });
+
+  describe("getUnderlying", () => {
+    it("should return DAI for iDAI", async () => {
+      expect(await libFacade.getUnderlying(MaticAddresses.dForce_iDAI), MaticAddresses.DAI);
+    });
+    it("should return WMATIC for iMATIC", async () => {
+      expect(await libFacade.getUnderlying(MaticAddresses.dForce_iMATIC), MaticAddresses.WMATIC);
+    });
+  });
+
+  describe("rdiv", () => {
+    it("should revert on division by zero", async () => {
+      await expect(
+        libFacade.rdiv(1, 0)
+      ).revertedWith("TC-34"); // DIVISION_BY_ZERO
+    });
+  });
+
+  describe("divup", () => {
+    it("should revert on division by zero", async () => {
+      await expect(
+        libFacade.divup(1, 0)
+      ).revertedWith("TC-34"); // DIVISION_BY_ZERO
     });
   });
 //endregion Unit tests

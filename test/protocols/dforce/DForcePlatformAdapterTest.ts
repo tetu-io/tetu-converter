@@ -151,6 +151,8 @@ describe("DForce integration tests, platform adapter", () => {
     setRedeemPaused?: boolean;
     setBorrowCapacityUnlimited?: boolean;
     setBorrowCapacityExceeded?: boolean;
+    setMinBorrowCapacityDelta?: BigNumber;
+    setSupplyCapacityUnlimited?: boolean;
   }
 
   interface IPreparePlanResults {
@@ -252,6 +254,20 @@ describe("DForce integration tests, platform adapter", () => {
         deployer,
         borrowCToken,
         borrowAssetData.totalBorrows.div(2)
+      );
+    }
+    if (badPathsParams?.setMinBorrowCapacityDelta) {
+      await DForceChangePriceUtils.setBorrowCapacity(
+        deployer,
+        borrowCToken,
+        borrowAssetData.totalBorrows.add(badPathsParams?.setMinBorrowCapacityDelta)
+      );
+    }
+    if (badPathsParams?.setSupplyCapacityUnlimited) {
+      await DForceChangePriceUtils.setSupplyCapacity(
+        deployer,
+        collateralCToken,
+        Misc.MAX_UINT
       );
     }
 
@@ -559,7 +575,45 @@ describe("DForce integration tests, platform adapter", () => {
         });
       });
       describe("Borrow capacity", () => {
-        it("maxAmountToBorrow is equal to available cash if borrow capacity is unlimited", async () => {
+        /**
+         *      totalBorrows    <    borrowCap       <       totalBorrows + available cash
+         */
+        it("maxAmountToBorrow is equal to borrowCap - totalBorrows", async () => {
+          if (!await isPolygonForkInUse()) return;
+
+          const r = await preparePlan(
+            MaticAddresses.DAI,
+            parseUnits("1", 18),
+            MaticAddresses.WMATIC,
+            MaticAddresses.dForce_iDAI,
+            MaticAddresses.dForce_iMATIC,
+            { setMinBorrowCapacityDelta: parseUnits("7", 18)  }
+          );
+          expect(r.plan.maxAmountToBorrow.eq(parseUnits("7", 18))).eq(true);
+        });
+
+        /**
+         *      totalBorrows    <    borrowCap       <       totalBorrows + available cash
+         */
+        it("maxAmountToBorrow is equal to available cash if borrowCap is huge", async () => {
+          if (!await isPolygonForkInUse()) return;
+
+          const r = await preparePlan(
+            MaticAddresses.DAI,
+            parseUnits("1", 18),
+            MaticAddresses.WMATIC,
+            MaticAddresses.dForce_iDAI,
+            MaticAddresses.dForce_iMATIC,
+            { setMinBorrowCapacityDelta: parseUnits("7", 48)  }
+          );
+          const availableCash = await IDForceCToken__factory.connect(r.cTokenBorrow.address, deployer).getCash();
+          expect(r.plan.maxAmountToBorrow.eq(availableCash)).eq(true);
+        });
+
+        /**
+         *      totalBorrows    <     totalBorrows + available cash
+         */
+        it("maxAmountToBorrow is equal to available cash if borrowCap is unlimited", async () => {
           if (!await isPolygonForkInUse()) return;
 
           const r = await preparePlan(
@@ -573,6 +627,10 @@ describe("DForce integration tests, platform adapter", () => {
           const availableCash = await IDForceCToken__factory.connect(r.cTokenBorrow.address, deployer).getCash();
           expect(r.plan.maxAmountToBorrow.eq(availableCash)).eq(true);
         });
+
+        /**
+         *      borrowCap   <     totalBorrows    <   totalBorrows + available cash
+         */
         it("maxAmountToBorrow is zero if borrow capacity is exceeded", async () => {
           if (!await isPolygonForkInUse()) return;
 
@@ -585,6 +643,22 @@ describe("DForce integration tests, platform adapter", () => {
             { setBorrowCapacityExceeded: true }
           );
           expect(r.plan.maxAmountToBorrow.eq(0)).eq(true);
+        });
+      });
+      describe("Supply capacity", () => {
+        it("should return expected values", async () => {
+          if (!await isPolygonForkInUse()) return;
+
+          const r = await preparePlan(
+            MaticAddresses.DAI,
+            parseUnits("1", 18),
+            MaticAddresses.WMATIC,
+            MaticAddresses.dForce_iDAI,
+            MaticAddresses.dForce_iMATIC,
+            { setSupplyCapacityUnlimited: true}
+          );
+          expect(r.plan.maxAmountToSupply.eq(Misc.MAX_UINT)).eq(true);
+
         });
       });
     });

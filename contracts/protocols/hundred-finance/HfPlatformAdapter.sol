@@ -184,12 +184,17 @@ contract HfPlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
 
           plan.maxAmountToBorrow = IHfCToken(cTokenBorrow).getCash();
           uint borrowCap = comptroller.borrowCaps(cTokenBorrow);
+          console.log("getConversionPlan.borrowCap.1");
           if (borrowCap != 0) {
+            console.log("getConversionPlan.borrowCap.2");
             uint totalBorrows = IHfCToken(cTokenBorrow).totalBorrows();
             if (totalBorrows > borrowCap) {
+              console.log("getConversionPlan.borrowCap.3");
               plan.maxAmountToBorrow = 0;
             } else {
+              console.log("getConversionPlan.borrowCap.4");
               if (totalBorrows + plan.maxAmountToBorrow > borrowCap) {
+                console.log("getConversionPlan.borrowCap.5");
                 plan.maxAmountToBorrow = borrowCap - totalBorrows;
               }
             }

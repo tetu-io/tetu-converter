@@ -711,7 +711,10 @@ describe("AaveTwoPoolAdapterUnitTest", () => {
         collateralHolder,
         collateralAmount,
         borrowToken,
-        {targetHealthFactor2: targetHealthFactorInitial2}
+        {
+          targetHealthFactor2: targetHealthFactorInitial2,
+          useAaveTwoPoolMock: badPathsParams?.useAavePoolMock
+        }
       );
       const collateralAssetData = await AaveTwoHelper.getReserveInfo(deployer, d.aavePool, d.dataProvider, collateralToken.address);
       console.log("collateralAssetData", collateralAssetData);
@@ -767,6 +770,12 @@ describe("AaveTwoPoolAdapterUnitTest", () => {
         ? IPoolAdapter__factory.connect(d.aavePoolAdapterAsTC.address, deployer)
         : d.aavePoolAdapterAsTC;
 
+      // make additional borrow
+      if (badPathsParams?.useAavePoolMock && badPathsParams?.aavePoolMockSkipsBorrowInBorrowToRebalance) {
+        // pool doesn't make borrow and so doesn't send additional borrow asset us
+        // we should get WRONG_BORROWED_BALANCE exception
+        await AaveTwoPoolMock__factory.connect(d.aavePool.address, deployer).setIgnoreBorrow();
+      }
       await poolAdapterSigner.borrowToRebalance(
         expectedAdditionalBorrowAmount,
         d.userContract.address // receiver
@@ -845,6 +854,17 @@ describe("AaveTwoPoolAdapterUnitTest", () => {
           await expect(
             testDaiWMatic({additionalAmountCorrectionFactor: 10})
           ).revertedWith("TC-3: wrong health factor");
+        });
+      });
+      describe("Dont transfer borrowed amount after borrow with WRONG_BORROWED_BALANCE", () => {
+        it("should revert", async () => {
+          if (!await isPolygonForkInUse()) return;
+          await expect(
+            testDaiWMatic({
+              useAavePoolMock: true,
+              aavePoolMockSkipsBorrowInBorrowToRebalance: true
+            })
+          ).revertedWith("TC-15"); // WRONG_BORROWED_BALANCE
         });
       });
     });

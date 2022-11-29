@@ -70,7 +70,9 @@ describe("AaveTwoPoolAdapterIntTest", () => {
         collateralHolder,
         collateralAmountRequired,
         borrowToken,
-        targetHealthFactor2
+        {
+          targetHealthFactor2
+        }
       );
 
       await d.controller.setMinHealthFactor2(minHealthFactor2);
@@ -237,7 +239,9 @@ describe("AaveTwoPoolAdapterIntTest", () => {
         collateralHolder,
         collateralAmount,
         borrowToken,
-        targetHealthFactor2
+        {
+          targetHealthFactor2
+        }
       );
 
       await d.controller.setMinHealthFactor2(minHealthFactor2);

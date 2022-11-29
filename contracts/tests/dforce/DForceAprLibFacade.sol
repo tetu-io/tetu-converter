@@ -186,4 +186,15 @@ contract DForceAprLibFacade {
     return DForceAprLib.rdiv(x, y);
   }
 
+  function divup(uint x, uint y) external pure returns (uint) {
+    return DForceAprLib.divup(x, y);
+  }
+
+  function getPrice(IDForcePriceOracle priceOracle, address token) external view returns (uint) {
+    return DForceAprLib.getPrice(priceOracle, token);
+  }
+
+  function getUnderlying(address token) public view returns (address) {
+    return DForceAprLib.getUnderlying(token);
+  }
 }

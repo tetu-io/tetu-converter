@@ -19,6 +19,8 @@ contract HfCTokenMock is IHfCToken {
   /// @notice Reverse counter of getAccountSnapshot calls. If -1 than getAccountSnapshot returns error
   bool getAccountSnapshotFails;
   bool returnBorrowBalance1AfetCallingBorrowBalanceCurrent;
+  uint borrowTokenGetAccountSnapshotFailsAfterCallingBorrowBalanceCurrent;
+  uint collateralTokenGetAccountSnapshotFailsAfterCallingBorrowBalanceCurrent;
 
   function init(
     address mockedComptroller_,
@@ -40,7 +42,16 @@ contract HfCTokenMock is IHfCToken {
     getAccountSnapshotFails = true;
   }
   function setReturnBorrowBalance1AfetCallingBorrowBalanceCurrent() external {
+    console.log("Set returnBorrowBalance1AfetCallingBorrowBalanceCurrent");
     returnBorrowBalance1AfetCallingBorrowBalanceCurrent = true;
+  }
+  function setBorrowTokenGetAccountSnapshotFailsAfterCallingBorrowBalanceCurrent(uint value) external {
+    console.log("Set borrowTokenGetAccountSnapshotFailsAfterCallingBorrowBalanceCurrent", value);
+    borrowTokenGetAccountSnapshotFailsAfterCallingBorrowBalanceCurrent = value;
+  }
+  function setCollateralTokenGetAccountSnapshotFailsAfterCallingBorrowBalanceCurrent(uint value) external {
+    console.log("Set collateralTokenGetAccountSnapshotFailsAfterCallingBorrowBalanceCurrent", value);
+    collateralTokenGetAccountSnapshotFailsAfterCallingBorrowBalanceCurrent = value;
   }
 
   /////////////////////////////////////////////////////////////////
@@ -68,7 +79,7 @@ contract HfCTokenMock is IHfCToken {
   function getAccountSnapshot(address account) external override view returns (
     uint256 error, uint256 tokenBalance, uint256 borrowBalance, uint256 exchangeRateMantissa
   ) {
-    console.log("HfCTokenMock.getAccountSnapshot", account);
+    console.log("HfCTokenMock.getAccountSnapshot", account, getAccountSnapshotFails);
     if (getAccountSnapshotFails) {
       return (17, tokenBalance, borrowBalance, exchangeRateMantissa); // error
     }
@@ -90,8 +101,25 @@ contract HfCTokenMock is IHfCToken {
     return mockedComptroller.repayBorrow(cToken, repayAmount_);
   }
   function borrowBalanceCurrent(address account) external override returns (uint256) {
+    console.log("borrowBalanceCurrent", account);
     if (returnBorrowBalance1AfetCallingBorrowBalanceCurrent) {
       mockedComptroller.setReturnBorrowBalance1();
+    }
+    if (borrowTokenGetAccountSnapshotFailsAfterCallingBorrowBalanceCurrent != 0) {
+      if (borrowTokenGetAccountSnapshotFailsAfterCallingBorrowBalanceCurrent > 1) {
+        borrowTokenGetAccountSnapshotFailsAfterCallingBorrowBalanceCurrent--;
+      } else {
+        console.log("Set getAccountSnapshotFails to borrow token");
+        HfCTokenMock(mockedComptroller.mockedBorrowCToken()).setGetAccountSnapshotFails();
+      }
+    }
+    if (collateralTokenGetAccountSnapshotFailsAfterCallingBorrowBalanceCurrent != 0) {
+      if (collateralTokenGetAccountSnapshotFailsAfterCallingBorrowBalanceCurrent > 1) {
+        collateralTokenGetAccountSnapshotFailsAfterCallingBorrowBalanceCurrent--;
+      } else {
+        console.log("Set getAccountSnapshotFails to collateral token");
+        HfCTokenMock(mockedComptroller.mockedCollateralCToken()).setGetAccountSnapshotFails();
+      }
     }
     return cToken.borrowBalanceCurrent(account);
   }

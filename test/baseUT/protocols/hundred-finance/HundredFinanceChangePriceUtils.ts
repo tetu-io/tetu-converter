@@ -7,7 +7,7 @@ import {DeployUtils} from "../../../../scripts/utils/DeployUtils";
 import {MaticAddresses} from "../../../../scripts/addresses/MaticAddresses";
 
 export class HundredFinanceChangePriceUtils {
-  public static async setupPriceOracleMock(deployer: SignerWithAddress) : Promise<HfPriceOracleMock> {
+  public static async setupPriceOracleMock(deployer: SignerWithAddress, copyPrices: boolean = true) : Promise<HfPriceOracleMock> {
     const cTokensList = [
       MaticAddresses.hDAI,
       MaticAddresses.hMATIC,
@@ -30,9 +30,11 @@ export class HundredFinanceChangePriceUtils {
     const comptrollerAsAdmin = await HundredFinanceHelper.getComptroller(
       await DeployerUtils.startImpersonate(admin)
     );
-    for (const cToken of cTokensList) {
-      const price = await priceOracle.getUnderlyingPrice(cToken);
-      await mock.setUnderlyingPrice(cToken, price);
+    if (copyPrices) {
+      for (const cToken of cTokensList) {
+        const price = await priceOracle.getUnderlyingPrice(cToken);
+        await mock.setUnderlyingPrice(cToken, price);
+      }
     }
 
     // install the mock to the protocol

@@ -87,4 +87,12 @@ contract HfAprLibFacade {
   ) external pure returns (uint) {
     return HfAprLib.getBorrowCost36(borrowRatePerBlock, borrowedAmount, countBlocks, borrowDecimals);
   }
+
+  function getPrice(IHfPriceOracle priceOracle, address token) external view returns (uint) {
+    return HfAprLib.getPrice(priceOracle, token);
+  }
+
+  function getUnderlying(address token) public view returns (address) {
+    return HfAprLib.getUnderlying(token);
+  }
 }

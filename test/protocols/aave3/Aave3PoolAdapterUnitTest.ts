@@ -707,7 +707,7 @@ describe("Aave3PoolAdapterUnitTest", () => {
         false,
         {
           targetHealthFactor2: targetHealthFactorInitial2,
-          useAave3PoolMock: badPathsParams?.useAave3PoolMock,
+          useAave3PoolMock: badPathsParams?.useAavePoolMock,
         }
       );
       const collateralAssetData = await d.h.getReserveInfo(deployer, d.aavePool, d.dataProvider, collateralToken.address);
@@ -761,7 +761,7 @@ describe("Aave3PoolAdapterUnitTest", () => {
       console.log("expectedAdditionalBorrowAmount", expectedAdditionalBorrowAmount);
 
       // make additional borrow
-      if (badPathsParams?.useAave3PoolMock && badPathsParams?.aave3PoolMockSkipsBorrowInBorrowToRebalance) {
+      if (badPathsParams?.useAavePoolMock && badPathsParams?.aavePoolMockSkipsBorrowInBorrowToRebalance) {
         // pool doesn't make borrow and so doesn't send additional borrow asset us
         // we should get WRONG_BORROWED_BALANCE exception
         await Aave3PoolMock__factory.connect(d.aavePool.address, deployer).setIgnoreBorrow();
@@ -833,8 +833,8 @@ describe("Aave3PoolAdapterUnitTest", () => {
         if (!await isPolygonForkInUse()) return;
         await expect(
           testDaiWMatic({
-            useAave3PoolMock: true,
-            aave3PoolMockSkipsBorrowInBorrowToRebalance: true
+            useAavePoolMock: true,
+            aavePoolMockSkipsBorrowInBorrowToRebalance: true
           })
         ).revertedWith("TC-15"); // WRONG_BORROWED_BALANCE
       });

@@ -1,5 +1,6 @@
 import {BigNumber} from "ethers";
 import {TokenDataTypes} from "../../types/TokenDataTypes";
+import {HfComptrollerMock} from "../../../../typechain";
 
 export interface IAmountToRepay {
   useCollateral: boolean;
@@ -12,6 +13,8 @@ export interface IMakeRepayRebalanceBadPathParams {
   skipBorrow?: boolean;
   additionalAmountCorrectionFactorMul?: number;
   additionalAmountCorrectionFactorDiv?: number;
+  useHfComptrollerMock?: HfComptrollerMock;
+  repayBorrowFails?: boolean;
 }
 
 export interface IMakeRepayToRebalanceInputParams {
