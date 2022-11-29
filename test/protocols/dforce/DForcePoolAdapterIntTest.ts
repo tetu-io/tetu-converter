@@ -773,7 +773,7 @@ describe("DForce integration tests, pool adapter", () => {
                 repayAsNotUserAndNotTC: true
               }
             )
-          ).revertedWith("TC-8"); // ETU_CONVERTER_ONLY
+          ).revertedWith("TC-8 tetu converter only"); // ETU_CONVERTER_ONLY
         });
       });
       describe("Transfer amount less than specified amount to repay", () => {
@@ -805,7 +805,7 @@ describe("DForce integration tests, pool adapter", () => {
               initialBorrowAmountOnUserBalanceNumber,
               {skipBorrow: true}
             )
-          ).revertedWith("TC-28"); // ZERO_BALANCE
+          ).revertedWith("TC-28 zero balance"); // ZERO_BALANCE
         });
       });
       describe("Try to close position with not zero debt", () => {
@@ -818,7 +818,7 @@ describe("DForce integration tests, pool adapter", () => {
               undefined,
               {forceToClosePosition: true}
             )
-          ).revertedWith("TC-24"); // CLOSE_POSITION_FAILED
+          ).revertedWith("TC-24 close position failed"); // CLOSE_POSITION_FAILED
         });
       });
     });

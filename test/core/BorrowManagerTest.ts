@@ -534,13 +534,13 @@ describe("BorrowManager", () => {
       it("should revert if controller is zero", async () => {
         await expect(
           makeConstructorTest({useZeroController: true})
-        ).revertedWith("TC-1"); // ZERO_ADDRESS
+        ).revertedWith("TC-1 zero address"); // ZERO_ADDRESS
       });
       it("should revert if reward factor is too large", async () => {
         const tooLargeRewardFactor = parseUnits("1"); // BorrowManager.REWARDS_FACTOR_DENOMINATOR_18
         await expect(
           makeConstructorTest({rewardFactor: tooLargeRewardFactor})
-        ).revertedWith("TC-29"); // INCORRECT_VALUE
+        ).revertedWith("TC-29 incorrect value"); // INCORRECT_VALUE
       });
     });
   });
@@ -636,7 +636,7 @@ describe("BorrowManager", () => {
               [ethers.Wallet.createRandom().address],
               [minHealthFactor - 1]
             )
-          ).revertedWith("TC-3: wrong health factor");
+          ).revertedWith("TC-3 wrong health factor");
         });
       });
       describe("Not governance", () => {
@@ -652,7 +652,7 @@ describe("BorrowManager", () => {
               [ethers.Wallet.createRandom().address],
               [minHealthFactor - 1]
             )
-          ).revertedWith("TC-9"); // GOVERNANCE_ONLY
+          ).revertedWith("TC-9 governance only"); // GOVERNANCE_ONLY
         });
       });
       describe("Wrong lengths", () => {
@@ -664,7 +664,7 @@ describe("BorrowManager", () => {
               [ethers.Wallet.createRandom().address, ethers.Wallet.createRandom().address],
               [minHealthFactor - 1]
             )
-          ).revertedWith("TC-12"); // WRONG_LENGTHS
+          ).revertedWith("TC-12 wrong lengths"); // WRONG_LENGTHS
         });
       });
     });
@@ -700,7 +700,7 @@ describe("BorrowManager", () => {
           );
           await expect(
             bmAsNotGov.setRewardsFactor(rewardsFactor)
-          ).revertedWith("TC-9"); // GOVERNANCE_ONLY
+          ).revertedWith("TC-9 governance only"); // GOVERNANCE_ONLY
         });
         it("should revert if reward factor is too large", async () => {
           const tooLargeRewardFactor = parseUnits("1"); // BorrowManager.REWARDS_FACTOR_DENOMINATOR_18
@@ -708,7 +708,7 @@ describe("BorrowManager", () => {
           const borrowManager = BorrowManager__factory.connect(await controller.borrowManager(), signer);
           await expect(
             borrowManager.setRewardsFactor(tooLargeRewardFactor)
-          ).revertedWith("TC-29"); // INCORRECT_VALUE
+          ).revertedWith("TC-29 incorrect value"); // INCORRECT_VALUE
         });
       });
     });
@@ -893,7 +893,7 @@ describe("BorrowManager", () => {
               , [ethers.Wallet.createRandom().address]
               , [ethers.Wallet.createRandom().address, ethers.Wallet.createRandom().address]
             )
-          ).revertedWith("TC-12")
+          ).revertedWith("TC-12 wrong lengths")
         });
       });
       describe("Converter is used by two platform adapters", () => {
@@ -912,7 +912,7 @@ describe("BorrowManager", () => {
           await borrowManager.addAssetPairs(platformAdapter1.address, [asset1], [asset2]);
           await expect(
             borrowManager.addAssetPairs(platformAdapter2.address, [asset1], [asset2])
-          ).revertedWith("TC-37");
+          ).revertedWith("TC-37 one platform adapter per conv");
 
         });
       });
@@ -1051,7 +1051,7 @@ describe("BorrowManager", () => {
               r.pairs.map(x => x.smallerAddress),
               r.pairs.map(x => x.biggerAddress)
             )
-          ).revertedWith("TC-6"); // PLATFORM_ADAPTER_NOT_FOUND
+          ).revertedWith("TC-6 platform adapter not found"); // PLATFORM_ADAPTER_NOT_FOUND
         });
       });
       describe("Wrong lengths", () => {
@@ -1065,7 +1065,7 @@ describe("BorrowManager", () => {
               r.pairs.map(x => x.smallerAddress).slice(-1), // (!) incorrect length
               r.pairs.map(x => x.biggerAddress)
             )
-          ).revertedWith("TC-12"); // WRONG_LENGTHS
+          ).revertedWith("TC-12 wrong lengths"); // WRONG_LENGTHS
         });
       });
       describe("Converter is in use", () => {
@@ -1080,7 +1080,7 @@ describe("BorrowManager", () => {
               r.pairs.map(x => x.smallerAddress),
               r.pairs.map(x => x.biggerAddress)
             )
-          ).revertedWith("TC-33"); // PLATFORM_ADAPTER_IS_IN_USE
+          ).revertedWith("TC-33 platform adapter is in use"); // PLATFORM_ADAPTER_IS_IN_USE
         });
       });
     });
@@ -1525,7 +1525,7 @@ describe("BorrowManager", () => {
 
           await expect(
             bmAsTc.registerPoolAdapter(converter, user, collateral, targetToken.address)
-          ).revertedWith("TC-6"); // PLATFORM_ADAPTER_NOT_FOUND
+          ).revertedWith("TC-6 platform adapter not found"); // PLATFORM_ADAPTER_NOT_FOUND
         });
       });
       describe("Not TetuConverter", () => {
@@ -1542,7 +1542,7 @@ describe("BorrowManager", () => {
 
           await expect(
             bmAsNotTc.registerPoolAdapter(converter, user, collateral, targetToken.address)
-          ).revertedWith("TC-8"); // TETU_CONVERTER_ONLY
+          ).revertedWith("TC-8 tetu converter only"); // TETU_CONVERTER_ONLY
         });
       });
     });
@@ -1593,7 +1593,7 @@ describe("BorrowManager", () => {
           const borrowManager = await initializeBorrowManager();
           await expect(
             borrowManager.getPlatformAdapter(ethers.Wallet.createRandom().address)
-          ).revertedWith("TC-6"); // PLATFORM_ADAPTER_NOT_FOUND
+          ).revertedWith("TC-6 platform adapter not found"); // PLATFORM_ADAPTER_NOT_FOUND
         });
       });
     });
@@ -1820,7 +1820,7 @@ describe("BorrowManager", () => {
               pa1.collateralAsset,
               pa1.borrowAsset
           )
-        ).revertedWith("TC-2"); // POOL_ADAPTER_NOT_FOUND
+        ).revertedWith("TC-2 adapter not found"); // POOL_ADAPTER_NOT_FOUND
       });
       it("try to mark as dirty the same pool adapters second time", async () => {
         const r = await getUniquePoolAdaptersForTwoPoolsAndTwoPairs(1);
@@ -1832,7 +1832,7 @@ describe("BorrowManager", () => {
         await borrowManagerAsTetuConverter.markPoolAdapterAsDirty(pa1.originConverter, pa1.user, pa1.collateralAsset, pa1.borrowAsset);
         await expect(
           borrowManagerAsTetuConverter.markPoolAdapterAsDirty(pa1.originConverter, pa1.user, pa1.collateralAsset, pa1.borrowAsset)
-        ).revertedWith("TC-2"); // POOL_ADAPTER_NOT_FOUND
+        ).revertedWith("TC-2 adapter not found"); // POOL_ADAPTER_NOT_FOUND
       });
       it("should revert if the sender is not TetuConverter and not DebtMonitor", async () => {
         const r = await getUniquePoolAdaptersForTwoPoolsAndTwoPairs(1);
@@ -1843,7 +1843,7 @@ describe("BorrowManager", () => {
         );
         await expect(
           borrowManagerAsNotTetuConverter.markPoolAdapterAsDirty(pa1.originConverter, pa1.user, pa1.collateralAsset, pa1.borrowAsset)
-        ).revertedWith("TC-48"); // ACCESS_DENIED
+        ).revertedWith("TC-48 access denied"); // ACCESS_DENIED
       });
     });
   });

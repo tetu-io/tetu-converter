@@ -183,7 +183,7 @@ describe("Aave3PoolAdapterUnitTest", () => {
             "1999",
             {makeOperationAsNotTc: true}
           )
-        ).revertedWith("TC-8"); // TETU_CONVERTER_ONLY
+        ).revertedWith("TC-8 tetu converter only"); // TETU_CONVERTER_ONLY
       });
       it("should revert if the pool doesn't send borrowed amount to pool adapter after borrowing", async () => {
         await expect(
@@ -194,7 +194,7 @@ describe("Aave3PoolAdapterUnitTest", () => {
             "1999",
             { useAave3PoolMock: true, ignoreBorrow: true}
           )
-        ).revertedWith("TC-15"); // WRONG_BORROWED_BALANCE
+        ).revertedWith("TC-15 wrong borrow balance"); // WRONG_BORROWED_BALANCE
       });
       it("should revert if the pool doesn't send ATokens to pool adapter after supplying", async () => {
         await expect(
@@ -205,7 +205,7 @@ describe("Aave3PoolAdapterUnitTest", () => {
             "1999",
             { useAave3PoolMock: true, skipSendingATokens: true}
           )
-        ).revertedWith("TC-14"); // WRONG_DERIVATIVE_TOKENS_BALANCE
+        ).revertedWith("TC-14 wrong ctokens balance"); // WRONG_DERIVATIVE_TOKENS_BALANCE
       });
     });
   });
@@ -365,7 +365,7 @@ describe("Aave3PoolAdapterUnitTest", () => {
               amountToRepayStr: "10" // it's much harder to emulate not-TC call for full repay
             }
           )
-        ).revertedWith("TC-8"); // TETU_CONVERTER_ONLY
+        ).revertedWith("TC-8 tetu converter only"); // TETU_CONVERTER_ONLY
       });
       it("should fail if pay too small amount and try to close the position", async () => {
         await expect(
@@ -373,7 +373,7 @@ describe("Aave3PoolAdapterUnitTest", () => {
           "1999",
           {amountToRepayStr: "1", closePosition: true}
           )
-        ).revertedWith("TC-24"); // CLOSE_POSITION_FAILED
+        ).revertedWith("TC-24 close position failed"); // CLOSE_POSITION_FAILED
       });
       it("should fail if the debt was completely paid but amount of the debt is still not zero in the pool", async () => {
         await expect(
@@ -385,7 +385,7 @@ describe("Aave3PoolAdapterUnitTest", () => {
               ignoreRepay: true
             }
           )
-        ).revertedWith("TC-24"); // CLOSE_POSITION_FAILED
+        ).revertedWith("TC-24 close position failed"); // CLOSE_POSITION_FAILED
       });
       it("should NOT revert if pool has used all amount-to-repay and hasn't sent anything back", async () => {
         const r = await makeFullRepayTest(
@@ -408,7 +408,7 @@ describe("Aave3PoolAdapterUnitTest", () => {
               amountToRepayStr: "1" // we need partial-repay mode in this test to avoid calling getStatus in makeRepayComplete
             }
           )
-        ).revertedWith("TC-4"); // ZERO_PRICE
+        ).revertedWith("TC-4 zero price"); // ZERO_PRICE
       });
     });
   });
@@ -646,7 +646,7 @@ describe("Aave3PoolAdapterUnitTest", () => {
           if (!await isPolygonForkInUse()) return;
           await expect(
             testRepayToRebalanceDaiWMatic({makeRepayToRebalanceAsDeployer: true})
-          ).revertedWith("TC-8");
+          ).revertedWith("TC-8 tetu converter only");
         });
       });
       describe("Position is not registered", () => {
@@ -654,7 +654,7 @@ describe("Aave3PoolAdapterUnitTest", () => {
           if (!await isPolygonForkInUse()) return;
           await expect(
             testRepayToRebalanceDaiWMatic({skipBorrow: true})
-          ).revertedWith("TC-40"); // REPAY_TO_REBALANCE_NOT_ALLOWED
+          ).revertedWith("TC-40 repay to rebalance not allowed"); // REPAY_TO_REBALANCE_NOT_ALLOWED
         });
       });
       describe("Result health factor is less min allowed one", () => {
@@ -662,7 +662,7 @@ describe("Aave3PoolAdapterUnitTest", () => {
           if (!await isPolygonForkInUse()) return;
           await expect(
             testRepayToRebalanceDaiWMatic({additionalAmountCorrectionFactorDiv: 100})
-          ).revertedWith("TC-3: wrong health factor");
+          ).revertedWith("TC-3 wrong health factor");
         });
       });
       describe("Try to repay amount greater then the debt", () => {
@@ -670,7 +670,7 @@ describe("Aave3PoolAdapterUnitTest", () => {
           if (!await isPolygonForkInUse()) return;
           await expect(
             testRepayToRebalanceDaiWMatic({additionalAmountCorrectionFactorMul: 100})
-          ).revertedWith("TC-40"); // REPAY_TO_REBALANCE_NOT_ALLOWED
+          ).revertedWith("TC-40 repay to rebalance not allowed"); // REPAY_TO_REBALANCE_NOT_ALLOWED
         });
       });
     });
@@ -815,19 +815,19 @@ describe("Aave3PoolAdapterUnitTest", () => {
         if (!await isPolygonForkInUse()) return;
         await expect(
           testDaiWMatic({makeBorrowToRebalanceAsDeployer: true})
-        ).revertedWith("TC-8");
+        ).revertedWith("TC-8 tetu converter only");
       });
       it("should revert if the position is not registered", async () => {
         if (!await isPolygonForkInUse()) return;
         await expect(
           testDaiWMatic({skipBorrow: true})
-        ).revertedWith("TC-11");
+        ).revertedWith("TC-11 position not registered");
       });
       it("should revert if result health factor is less than min allowed one", async () => {
         if (!await isPolygonForkInUse()) return;
         await expect(
           testDaiWMatic({additionalAmountCorrectionFactor: 10})
-        ).revertedWith("TC-3: wrong health factor");
+        ).revertedWith("TC-3 wrong health factor");
       });
       it("should revert pool hasn't sent borrowed amount to the pool adapter", async () => {
         if (!await isPolygonForkInUse()) return;
@@ -836,7 +836,7 @@ describe("Aave3PoolAdapterUnitTest", () => {
             useAavePoolMock: true,
             aavePoolMockSkipsBorrowInBorrowToRebalance: true
           })
-        ).revertedWith("TC-15"); // WRONG_BORROWED_BALANCE
+        ).revertedWith("TC-15 wrong borrow balance"); // WRONG_BORROWED_BALANCE
       });
     });
   });
@@ -934,7 +934,7 @@ describe("Aave3PoolAdapterUnitTest", () => {
             false,
             {zeroController: true}
           )
-        ).revertedWith("TC-1"); // ZERO_ADDRESS
+        ).revertedWith("TC-1 zero address"); // ZERO_ADDRESS
       });
       it("should revert on zero controller", async () => {
         if (!await isPolygonForkInUse()) return;
@@ -943,7 +943,7 @@ describe("Aave3PoolAdapterUnitTest", () => {
             false,
             {zeroController: true}
           )
-        ).revertedWith("TC-1"); // ZERO_ADDRESS
+        ).revertedWith("TC-1 zero address"); // ZERO_ADDRESS
       });
       it("should revert on zero controller", async () => {
         if (!await isPolygonForkInUse()) return;
@@ -952,7 +952,7 @@ describe("Aave3PoolAdapterUnitTest", () => {
             false,
             {zeroController: true}
           )
-        ).revertedWith("TC-1"); // ZERO_ADDRESS
+        ).revertedWith("TC-1 zero address"); // ZERO_ADDRESS
       });
       it("should revert on zero user", async () => {
         if (!await isPolygonForkInUse()) return;
@@ -961,7 +961,7 @@ describe("Aave3PoolAdapterUnitTest", () => {
             false,
             {zeroUser: true}
           )
-        ).revertedWith("TC-1"); // ZERO_ADDRESS
+        ).revertedWith("TC-1 zero address"); // ZERO_ADDRESS
       });
       it("should revert on zero pool", async () => {
         if (!await isPolygonForkInUse()) return;
@@ -970,7 +970,7 @@ describe("Aave3PoolAdapterUnitTest", () => {
             false,
             {zeroPool: true}
           )
-        ).revertedWith("TC-1"); // ZERO_ADDRESS
+        ).revertedWith("TC-1 zero address"); // ZERO_ADDRESS
       });
       it("should revert on zero converter", async () => {
         if (!await isPolygonForkInUse()) return;
@@ -979,7 +979,7 @@ describe("Aave3PoolAdapterUnitTest", () => {
             false,
             {zeroConverter: true}
           )
-        ).revertedWith("TC-1"); // ZERO_ADDRESS
+        ).revertedWith("TC-1 zero address"); // ZERO_ADDRESS
       });
       it("should revert on zero collateral asset", async () => {
         if (!await isPolygonForkInUse()) return;
@@ -988,7 +988,7 @@ describe("Aave3PoolAdapterUnitTest", () => {
             false,
             {zeroCollateralAsset: true}
           )
-        ).revertedWith("TC-1"); // ZERO_ADDRESS
+        ).revertedWith("TC-1 zero address"); // ZERO_ADDRESS
       });
       it("should revert on zero borrow asset", async () => {
         if (!await isPolygonForkInUse()) return;
@@ -997,7 +997,7 @@ describe("Aave3PoolAdapterUnitTest", () => {
             false,
             {zeroBorrowAsset: true}
           )
-        ).revertedWith("TC-1"); // ZERO_ADDRESS
+        ).revertedWith("TC-1 zero address"); // ZERO_ADDRESS
       });
       it("should revert on second initialization", async () => {
         it("should revert on second initialization", async () => {
@@ -1350,7 +1350,7 @@ describe("Aave3PoolAdapterUnitTest", () => {
         await Aave3ChangePricesUtils.setAssetPrice(deployer, r.init.collateralToken.address, BigNumber.from(0));
         await expect(
           r.init.aavePoolAdapterAsTC.getStatus()
-        ).revertedWith("TC-4"); // ZERO_PRICE
+        ).revertedWith("TC-4 zero price"); // ZERO_PRICE
       });
       it("it should revert if collateral price is zero", async () => {
         if (!await isPolygonForkInUse()) return;
@@ -1365,7 +1365,7 @@ describe("Aave3PoolAdapterUnitTest", () => {
         await Aave3ChangePricesUtils.setAssetPrice(deployer, r.init.borrowToken.address, BigNumber.from(0));
         await expect(
           r.init.aavePoolAdapterAsTC.getStatus()
-        ).revertedWith("TC-4"); // ZERO_PRICE
+        ).revertedWith("TC-4 zero price"); // ZERO_PRICE
       });
     });
   });

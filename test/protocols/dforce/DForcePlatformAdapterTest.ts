@@ -475,17 +475,17 @@ describe("DForce integration tests, platform adapter", () => {
       it("should revert if aave-pool is zero", async () => {
         await expect(
           initializePlatformAdapter({zeroComptroller: true})
-        ).revertedWith("TC-1");
+        ).revertedWith("TC-1 zero address");
       });
       it("should revert if controller is zero", async () => {
         await expect(
           initializePlatformAdapter({zeroController: true})
-        ).revertedWith("TC-1");
+        ).revertedWith("TC-1 zero address");
       });
       it("should revert if template normal is zero", async () => {
         await expect(
           initializePlatformAdapter({zeroConverter: true})
-        ).revertedWith("TC-1");
+        ).revertedWith("TC-1 zero address");
       });
     });
   });
@@ -687,7 +687,7 @@ describe("DForce integration tests, platform adapter", () => {
 
             await expect(
               tryGetConversionPlan({ zeroCollateralAsset: true })
-            ).revertedWith("TC-1"); // ZERO_ADDRESS
+            ).revertedWith("TC-1 zero address"); // ZERO_ADDRESS
           });
         });
         describe("borrow token is zero", () => {
@@ -696,7 +696,7 @@ describe("DForce integration tests, platform adapter", () => {
 
             await expect(
               tryGetConversionPlan({ zeroBorrowAsset: true })
-            ).revertedWith("TC-1"); // ZERO_ADDRESS
+            ).revertedWith("TC-1 zero address"); // ZERO_ADDRESS
           });
         });
         describe("healthFactor2_ is less than min allowed", () => {
@@ -705,7 +705,7 @@ describe("DForce integration tests, platform adapter", () => {
 
             await expect(
               tryGetConversionPlan({ incorrectHealthFactor2: 100 })
-            ).revertedWith("TC-3: wrong health factor"); // WRONG_HEALTH_FACTOR
+            ).revertedWith("TC-3 wrong health factor"); // WRONG_HEALTH_FACTOR
           });
         });
         describe("countBlocks_ is zero", () => {
@@ -714,7 +714,7 @@ describe("DForce integration tests, platform adapter", () => {
 
             await expect(
               tryGetConversionPlan({ zeroCountBlocks: true })
-            ).revertedWith("TC-29"); // INCORRECT_VALUE
+            ).revertedWith("TC-29 incorrect value"); // INCORRECT_VALUE
           });
         });
         describe("collateralAmount_ is zero", () => {
@@ -723,7 +723,7 @@ describe("DForce integration tests, platform adapter", () => {
 
             await expect(
               tryGetConversionPlan({ zeroCollateralAmount: true })
-            ).revertedWith("TC-29"); // INCORRECT_VALUE
+            ).revertedWith("TC-29 incorrect value"); // INCORRECT_VALUE
           });
         });
       });
@@ -1053,7 +1053,7 @@ describe("DForce integration tests, platform adapter", () => {
           makeInitializePoolAdapterTest(
             {useWrongConverter: true}
           )
-        ).revertedWith("TC-25"); // CONVERTER_NOT_FOUND
+        ).revertedWith("TC-25 converter not found"); // CONVERTER_NOT_FOUND
       });
       it("should revert if it's called by not borrow-manager", async () => {
         if (!await isPolygonForkInUse()) return;
@@ -1062,7 +1062,7 @@ describe("DForce integration tests, platform adapter", () => {
           makeInitializePoolAdapterTest(
             {wrongCallerOfInitializePoolAdapter: true}
           )
-        ).revertedWith("TC-45"); // BORROW_MANAGER_ONLY
+        ).revertedWith("TC-45 borrow manager only"); // BORROW_MANAGER_ONLY
       });
     });
   });
@@ -1122,7 +1122,7 @@ describe("DForce integration tests, platform adapter", () => {
             platformAdapterAsNotGov.registerCTokens(
               [MaticAddresses.dForce_iCRV, MaticAddresses.dForce_iCRV, MaticAddresses.dForce_iWETH]
             )
-          ).revertedWith("TC-9"); // GOVERNANCE_ONLY
+          ).revertedWith("TC-9 governance only"); // GOVERNANCE_ONLY
         });
       });
       describe("Try to add not CToken", () => {

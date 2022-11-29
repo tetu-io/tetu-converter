@@ -642,7 +642,7 @@ describe("TetuConverterTest", () => {
       it("should revert if controller is zero", async () => {
         await expect(
           makeConstructorTest({useZeroController: true})
-        ).revertedWith("TC-1"); // ZERO_ADDRESS
+        ).revertedWith("TC-1 zero address"); // ZERO_ADDRESS
       });
     });
   });
@@ -938,7 +938,7 @@ describe("TetuConverterTest", () => {
                 zeroSourceAmount: true
               }
             )
-          ).revertedWith("TC-43"); // ZERO_AMOUNT
+          ).revertedWith("TC-43 zero amount"); // ZERO_AMOUNT
         });
       });
       describe("Period is 0", () => {
@@ -953,7 +953,7 @@ describe("TetuConverterTest", () => {
                   zeroPeriod: true
                 }
               )
-            ).revertedWith("TC-29"); // INCORRECT_VALUE
+            ).revertedWith("TC-29 incorrect value"); // INCORRECT_VALUE
           });
         });
         describe("Conversion mode is BORROW", () => {
@@ -967,7 +967,7 @@ describe("TetuConverterTest", () => {
                   zeroPeriod: true
                 }
               )
-            ).revertedWith("TC-29"); // INCORRECT_VALUE
+            ).revertedWith("TC-29 incorrect value"); // INCORRECT_VALUE
           });
         });
       });
@@ -1214,7 +1214,7 @@ describe("TetuConverterTest", () => {
                     }
                   }
                 )
-              ).revertedWith("TC-46"); // REBALANCING_IS_REQUIRED
+              ).revertedWith("TC-46 rebalancing is required"); // REBALANCING_IS_REQUIRED
             });
           });
           describe("Pool adapter is dirty (full liquidation has happened)", () => {
@@ -1316,7 +1316,7 @@ describe("TetuConverterTest", () => {
                   incorrectConverterAddress: Misc.ZERO_ADDRESS
                 }
               )
-            ).revertedWith("TC-1"); // ZERO_ADDRESS
+            ).revertedWith("TC-1 zero address"); // ZERO_ADDRESS
           });
         });
         describe("Incorrect converter to borrow (pool adapter is not found)", () => {
@@ -1330,7 +1330,7 @@ describe("TetuConverterTest", () => {
                   incorrectConverterAddress: manuallyCreatedConverter.address
                 }
               )
-            ).revertedWith("TC-6"); // PLATFORM_ADAPTER_NOT_FOUND
+            ).revertedWith("TC-6 platform adapter not found"); // PLATFORM_ADAPTER_NOT_FOUND
           });
         });
         describe("Converter returns incorrect conversion kind", () => {
@@ -1363,7 +1363,7 @@ describe("TetuConverterTest", () => {
                 amountCollateralNum,
                 amountToBorrowNum
               )
-            ).revertedWith("TC-44"); // INCORRECT_CONVERTER_TO_SWAP
+            ).revertedWith("TC-44 incorrect converter"); // INCORRECT_CONVERTER_TO_SWAP
           });
         });
       });
@@ -1377,7 +1377,7 @@ describe("TetuConverterTest", () => {
                 zeroReceiver: true
               }
             )
-          ).revertedWith("TC-1"); // ZERO_ADDRESS
+          ).revertedWith("TC-1 zero address"); // ZERO_ADDRESS
         });
       });
       describe("amount to borrow is 0", () => {
@@ -1387,7 +1387,7 @@ describe("TetuConverterTest", () => {
               [100_000],
               [0], // (!)
             )
-          ).revertedWith("TC-43"); // ZERO_AMOUNT
+          ).revertedWith("TC-43 zero amount"); // ZERO_AMOUNT
         });
       });
       describe("Collateral amount is 0", () => {
@@ -1397,7 +1397,7 @@ describe("TetuConverterTest", () => {
               [0], // (!)
               [100],
             )
-          ).revertedWith("TC-43"); // ZERO_AMOUNT
+          ).revertedWith("TC-43 zero amount"); // ZERO_AMOUNT
         });
       });
 
@@ -1411,7 +1411,7 @@ describe("TetuConverterTest", () => {
                 transferAmountMultiplier18: Misc.WEI.div(2)
               }
             )
-          ).revertedWith("TC-41"); // WRONG_AMOUNT_RECEIVED
+          ).revertedWith("TC-41 wrong amount received"); // WRONG_AMOUNT_RECEIVED
         });
       });
       describe("Too much collateral amount on balance of TetuConverter", () => {
@@ -2114,7 +2114,7 @@ describe("TetuConverterTest", () => {
               false,
               { receiverIsNull: true }
             )
-          ).revertedWith("TC-1");
+          ).revertedWith("TC-1 zero address");
         });
       });
       describe("Send incorrect amount-to-repay to TetuConverter", () => {
@@ -2129,7 +2129,7 @@ describe("TetuConverterTest", () => {
               false,
               { userSendsNotEnoughAmountToTetuConverter: true }
             )
-          ).revertedWith("TC-41"); // WRONG_AMOUNT_RECEIVED
+          ).revertedWith("TC-41 wrong amount received"); // WRONG_AMOUNT_RECEIVED
         });
       });
     });
@@ -2478,28 +2478,28 @@ describe("TetuConverterTest", () => {
               correctAmountToRepay,
               {notKeeper: true}
             )
-          ).revertedWith("TC-42"); // KEEPER_ONLY
+          ).revertedWith("TC-42 keeper only"); // KEEPER_ONLY
         });
       });
       describe("Try to make full repay", () => {
         it("should revert", async () => {
           await expect(
             tryToRepayWrongAmount(selectedPoolAdapterBorrow) // full repay
-          ).revertedWith("TC-40"); // REPAY_TO_REBALANCE_NOT_ALLOWED
+          ).revertedWith("TC-40 repay to rebalance not allowed"); // REPAY_TO_REBALANCE_NOT_ALLOWED
         });
       });
       describe("Try to repay too much", () => {
         it("should revert", async () => {
           await expect(
             tryToRepayWrongAmount(2 * selectedPoolAdapterBorrow)
-          ).revertedWith("TC-40"); // REPAY_TO_REBALANCE_NOT_ALLOWED
+          ).revertedWith("TC-40 repay to rebalance not allowed"); // REPAY_TO_REBALANCE_NOT_ALLOWED
         });
       });
       describe("Try to require zero amount of borrow asset", () => {
         it("should revert", async () => {
           await expect(
             tryToRepayWrongAmount(0)
-          ).revertedWith("TC-29"); // INCORRECT_VALUE
+          ).revertedWith("TC-29 incorrect value"); // INCORRECT_VALUE
         });
       });
       describe("Send incorrect amount-to-repay to TetuConverter", () => {
@@ -2511,7 +2511,7 @@ describe("TetuConverterTest", () => {
                 sendIncorrectAmountToTetuConverter: true
               }
             )
-          ).revertedWith("TC-41"); // WRONG_AMOUNT_RECEIVED
+          ).revertedWith("TC-41 wrong amount received"); // WRONG_AMOUNT_RECEIVED
         });
       });
       describe("Send incorrect type of amount-to-repay to TetuConverter", () => {
@@ -2523,7 +2523,7 @@ describe("TetuConverterTest", () => {
                 sendCollateralAssetInsteadBorrowAssetToTetuConverter: true
               }
             )
-          ).revertedWith("TC-41"); // WRONG_AMOUNT_RECEIVED
+          ).revertedWith("TC-41 wrong amount received"); // WRONG_AMOUNT_RECEIVED
         });
         it("should revert", async () => {
           await expect(
@@ -2533,7 +2533,7 @@ describe("TetuConverterTest", () => {
                 sendBorrowAssetInsteadCollateralAssetToTetuConverter: true
               }
             )
-          ).revertedWith("TC-41"); // WRONG_AMOUNT_RECEIVED
+          ).revertedWith("TC-41 wrong amount received"); // WRONG_AMOUNT_RECEIVED
         });
       });
       describe("Result health factor is too big", () => {
@@ -3494,7 +3494,7 @@ describe("TetuConverterTest", () => {
 //           makeTest(
 //             5 // we try to borrow too big additional amount = 5 * borrowedAmount (!)
 //           )
-//         ).revertedWith("TC-3: wrong health factor");
+//         ).revertedWith("TC-3 wrong health factor");
 //       });
 //     });
 //     describe("Rebalancing put health factor down not enough", () => {

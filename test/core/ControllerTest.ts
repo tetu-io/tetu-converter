@@ -183,7 +183,7 @@ describe("Controller", () => {
         a.governance = Misc.ZERO_ADDRESS;
         await expect(
           createTestController(a)
-        ).revertedWith("TC-1");
+        ).revertedWith("TC-1 zero address");
       });
       it("Min health factor is too small - should revert", async () => {
         const a = getRandomMembersValues();
@@ -191,7 +191,7 @@ describe("Controller", () => {
 
         await expect(
           createTestController(a)
-        ).revertedWith("TC-3: wrong health factor");
+        ).revertedWith("TC-3 wrong health factor");
       });
       it("Min health factor is not less then target health factor - should revert", async () => {
         const a = getRandomMembersValues();
@@ -215,7 +215,7 @@ describe("Controller", () => {
 
         await expect(
           createTestController(a)
-        ).revertedWith("TC-29");
+        ).revertedWith("TC-29 incorrect value");
       });
     });
   });
@@ -279,7 +279,7 @@ describe("Controller", () => {
 
         await expect(
           controllerAsOldGov.setGovernance(newGovernance)
-        ).revertedWith("TC-1"); // ZERO_ADDRESS
+        ).revertedWith("TC-1 zero address"); // ZERO_ADDRESS
       });
       it("should revert if not governance", async () => {
         const {controller} = await createTestController(getRandomMembersValues());
@@ -293,7 +293,7 @@ describe("Controller", () => {
 
         await expect(
           controllerAsNotGov.setGovernance(newGovernance)
-        ).revertedWith("TC-9"); // GOVERNANCE_ONLY
+        ).revertedWith("TC-9 governance only"); // GOVERNANCE_ONLY
       });
       it("should revert if not new-governance tries to accept", async () => {
         const {controller} = await createTestController(getRandomMembersValues());
@@ -312,7 +312,7 @@ describe("Controller", () => {
         await controllerAsOldGov.setGovernance(newGovernance);
         await expect(
           controllerAsNotNewGov.acceptGovernance()
-        ).revertedWith("TC-51"); // NOT_PENDING_GOVERNANCE
+        ).revertedWith("TC-51 not pending gov"); // NOT_PENDING_GOVERNANCE
       });
     });
   });
@@ -349,7 +349,7 @@ describe("Controller", () => {
 
           await expect(
             controller.setBlocksPerDay(blocksPerDayUpdated)
-          ).revertedWith("TC-29");
+          ).revertedWith("TC-29 incorrect value");
         });
       });
       describe ("Not governance", () => {
@@ -359,7 +359,7 @@ describe("Controller", () => {
           const controllerNotGov = Controller__factory.connect(controller.address, user3);
           await expect(
             controllerNotGov.setBlocksPerDay(4000)
-          ).revertedWith("TC-9"); // GOVERNANCE_ONLY
+          ).revertedWith("TC-9 governance only"); // GOVERNANCE_ONLY
         });
       });
     });
@@ -393,7 +393,7 @@ describe("Controller", () => {
           const controller = await prepareTestController();
           await expect(
             controller.setMinHealthFactor2(1) // (!) 1 < 100
-          ).revertedWith("TC-3: wrong health factor");
+          ).revertedWith("TC-3 wrong health factor");
         });
       });
       describe ("Set too min health factor bigger then target health factor", () => {
@@ -411,7 +411,7 @@ describe("Controller", () => {
           const controllerNotGov = Controller__factory.connect(controller.address, user3);
           await expect(
             controllerNotGov.setMinHealthFactor2(125)
-          ).revertedWith("TC-9"); // GOVERNANCE_ONLY
+          ).revertedWith("TC-9 governance only"); // GOVERNANCE_ONLY
         });
       });
     });
@@ -466,7 +466,7 @@ describe("Controller", () => {
           const controllerNotGov = Controller__factory.connect(controller.address, user3);
           await expect(
             controllerNotGov.setTargetHealthFactor2(250)
-          ).revertedWith("TC-9"); // GOVERNANCE_ONLY
+          ).revertedWith("TC-9 governance only"); // GOVERNANCE_ONLY
         });
       });
     });
@@ -511,7 +511,7 @@ describe("Controller", () => {
           const controllerNotGov = Controller__factory.connect(controller.address, user3);
           await expect(
             controllerNotGov.setMaxHealthFactor2(1250)
-          ).revertedWith("TC-9"); // GOVERNANCE_ONLY
+          ).revertedWith("TC-9 governance only"); // GOVERNANCE_ONLY
         });
       });
     });

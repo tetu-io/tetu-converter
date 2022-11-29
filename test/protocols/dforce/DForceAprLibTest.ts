@@ -203,7 +203,7 @@ describe("DForceHelper unit tests", () => {
           parseUnits("200", 18), // (!)
           parseUnits("1", 18),
         )
-      ).revertedWith("TC-50"); // AMOUNT_TOO_BIG
+      ).revertedWith("TC-50 amount too big"); // AMOUNT_TOO_BIG
     });
   });
 
@@ -216,7 +216,7 @@ describe("DForceHelper unit tests", () => {
       // await priceOracle.setUnderlyingPrice(MaticAddresses.hDAI, 0);
       await expect(
         libFacade.getPrice(priceOracle.address, MaticAddresses.hDAI)
-      ).revertedWith("TC-4"); // ZERO_PRICE
+      ).revertedWith("TC-4 zero price"); // ZERO_PRICE
     });
   });
 
@@ -233,7 +233,7 @@ describe("DForceHelper unit tests", () => {
     it("should revert on division by zero", async () => {
       await expect(
         libFacade.rdiv(1, 0)
-      ).revertedWith("TC-34"); // DIVISION_BY_ZERO
+      ).revertedWith("TC-34 division by zero"); // DIVISION_BY_ZERO
     });
   });
 
@@ -241,7 +241,7 @@ describe("DForceHelper unit tests", () => {
     it("should revert on division by zero", async () => {
       await expect(
         libFacade.divup(1, 0)
-      ).revertedWith("TC-34"); // DIVISION_BY_ZERO
+      ).revertedWith("TC-34 division by zero"); // DIVISION_BY_ZERO
     });
   });
 //endregion Unit tests

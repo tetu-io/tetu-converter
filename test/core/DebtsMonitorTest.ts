@@ -714,7 +714,7 @@ describe("DebtsMonitor", () => {
             100, // (!) it must be less 100
             0
           )
-        ).revertedWith("TC-29"); // INCORRECT_VALUE
+        ).revertedWith("TC-29 incorrect value"); // INCORRECT_VALUE
       });
       it("should revert if controller is zero", async () => {
         await expect(
@@ -723,7 +723,7 @@ describe("DebtsMonitor", () => {
             0,
             true // (!) controller is zero
           )
-        ).revertedWith("TC-1"); // ZERO_ADDRESS
+        ).revertedWith("TC-1 zero address"); // ZERO_ADDRESS
       });
     });
   });
@@ -756,7 +756,7 @@ describe("DebtsMonitor", () => {
           const r = await setUpSinglePool();
           await expect(
             r.core.dm.setThresholdAPR(thresholdApr)
-          ).revertedWith("TC-29") // INCORRECT_VALUE
+          ).revertedWith("TC-29 incorrect value") // INCORRECT_VALUE
         });
       });
       describe("Set thresholdAPR greater then 100 and not 0", () => {
@@ -765,7 +765,7 @@ describe("DebtsMonitor", () => {
           const r = await setUpSinglePool();
           await expect(
             r.core.dm.setThresholdAPR(thresholdApr)
-          ).revertedWith("TC-29") // INCORRECT_VALUE
+          ).revertedWith("TC-29 incorrect value") // INCORRECT_VALUE
         });
       });
       describe("Not governance", () => {
@@ -775,7 +775,7 @@ describe("DebtsMonitor", () => {
           const dmNotGov = await DebtMonitor__factory.connect(r.core.dm.address, user4); // (!)
           await expect(
             dmNotGov.setThresholdAPR(thresholdApr)
-          ).revertedWith("TC-9") // GOVERNANCE_ONLY
+          ).revertedWith("TC-9 governance only") // GOVERNANCE_ONLY
         });
       });
     });
@@ -810,7 +810,7 @@ describe("DebtsMonitor", () => {
           const dmNotGov = await DebtMonitor__factory.connect(r.core.dm.address, user4); // (!)
           await expect(
             dmNotGov.setThresholdCountBlocks(thresholdCountBlocks)
-          ).revertedWith("TC-9") // GOVERNANCE_ONLY
+          ).revertedWith("TC-9 governance only") // GOVERNANCE_ONLY
         });
       });
     });
@@ -979,7 +979,7 @@ describe("DebtsMonitor", () => {
           );
           await expect(
             dmAsNotPa.onOpenPosition()
-          ).revertedWith("TC-7");
+          ).revertedWith("TC-7 pool adapter not found");
         });
       });
     });
@@ -1166,7 +1166,7 @@ describe("DebtsMonitor", () => {
 
           await expect(
             dmAsPa.onClosePosition()
-          ).revertedWith("TC-11"); // BORROW_POSITION_IS_NOT_REGISTERED
+          ).revertedWith("TC-11 position not registered"); // BORROW_POSITION_IS_NOT_REGISTERED
         });
       });
       describe("Attempt to close not empty position", () => {
@@ -1195,7 +1195,7 @@ describe("DebtsMonitor", () => {
             );
             await expect(
               dmAsPa.onClosePosition()
-            ).revertedWith("TC-10"); // ATTEMPT_TO_CLOSE_NOT_EMPTY_BORROW_POSITION
+            ).revertedWith("TC-10 position not empty"); // ATTEMPT_TO_CLOSE_NOT_EMPTY_BORROW_POSITION
           });
         });
         describe("amountToPay is not zero", () => {
@@ -1206,7 +1206,7 @@ describe("DebtsMonitor", () => {
             );
             await expect(
               dmAsPa.onClosePosition()
-            ).revertedWith("TC-10"); // ATTEMPT_TO_CLOSE_NOT_EMPTY_BORROW_POSITION
+            ).revertedWith("TC-10 position not empty"); // ATTEMPT_TO_CLOSE_NOT_EMPTY_BORROW_POSITION
           });
         });
       });
@@ -1221,7 +1221,7 @@ describe("DebtsMonitor", () => {
           await dmAsPa.onOpenPosition();
           await expect(
             dmAsNotPa.onClosePosition()
-          ).revertedWith("TC-11");
+          ).revertedWith("TC-11 position not registered");
         });
       });
     });
@@ -1307,7 +1307,7 @@ describe("DebtsMonitor", () => {
             true,
             {callCloseLiquidatedPositionAsNotTetuConverter: true}
           )
-        ).revertedWith("TC-8");
+        ).revertedWith("TC-8 tetu converter only");
       });
       it("should revert if collateral is not zero", async () => {
         await expect(
@@ -1315,7 +1315,7 @@ describe("DebtsMonitor", () => {
             true,
             {callCloseLiquidatedPositionHavingNotZeroCollateral: true}
           )
-        ).revertedWith("TC-47"); // CANNOT_CLOSE_LIVE_POSITION
+        ).revertedWith("TC-47 cannot close live pos"); // CANNOT_CLOSE_LIVE_POSITION
       });
     });
   });

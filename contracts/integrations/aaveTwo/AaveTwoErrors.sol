@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: agpl-3.0 //TODO: license?
+// SPDX-License-Identifier: agpl-3.0
 pragma solidity 0.8.4;
 
 /**

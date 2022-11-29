@@ -32,6 +32,7 @@ describe("HfLiquidationTest", () => {
 
 //region before, after
   before(async function () {
+    console.log("before1");
     this.timeout(1200000);
     snapshot = await TimeUtils.snapshot();
     const signers = await ethers.getSigners();
@@ -39,16 +40,25 @@ describe("HfLiquidationTest", () => {
   });
 
   after(async function () {
+    console.log("after1");
     await TimeUtils.rollback(snapshot);
   });
 
+  beforeEach(async function () {
+    snapshotForEach = await TimeUtils.snapshot();
+  });
 
+  afterEach(async function () {
+    await TimeUtils.rollback(snapshotForEach);
+  });
 //endregion before, after
 
 //region Unit tests
   describe("Full liquidation: make borrow, change prices, make health factor < 1", () => {
     let init: IPrepareToLiquidationResults;
+    let snapshotLocal: string;
     before(async function () {
+      snapshotLocal = await TimeUtils.snapshot();
       if (!await isPolygonForkInUse()) return;
       init = await HundredFinanceTestUtils.prepareToLiquidation(
         deployer,
@@ -61,11 +71,8 @@ describe("HfLiquidationTest", () => {
         CHANGE_PRICE_FACTOR_FULL_LIQUIDATION
       );
     });
-    beforeEach(async function () {
-      snapshotForEach = await TimeUtils.snapshot();
-    });
-    afterEach(async function () {
-      await TimeUtils.rollback(snapshotForEach);
+    after(async function () {
+      await TimeUtils.rollback(snapshotLocal);
     });
 
     describe("Good paths", () => {
@@ -126,15 +133,18 @@ describe("HfLiquidationTest", () => {
 
         await expect(
           HundredFinanceTestUtils.makeBorrow(deployer, init.d, undefined)
-        ).revertedWith("TC-20"); // borrow failed
+        ).revertedWith("TC-20 borrow failed"); // borrow failed
       });
     });
   });
 
   describe("Partial liquidation: make borrow, change prices, make health factor < 1", () => {
     let init: IPrepareToLiquidationResults;
+    let snapshotLocal: string;
     before(async function () {
+      snapshotLocal = await TimeUtils.snapshot();
       if (!await isPolygonForkInUse()) return;
+
       init = await HundredFinanceTestUtils.prepareToLiquidation(
         deployer,
         collateralAsset,
@@ -146,11 +156,8 @@ describe("HfLiquidationTest", () => {
         CHANGE_PRICE_FACTOR_PARTIAL_LIQUIDATION
       );
     });
-    beforeEach(async function () {
-      snapshotForEach = await TimeUtils.snapshot();
-    });
-    afterEach(async function () {
-      await TimeUtils.rollback(snapshotForEach);
+    after(async function () {
+      await TimeUtils.rollback(snapshotLocal);
     });
 
     describe("Good paths", () => {
@@ -211,7 +218,7 @@ describe("HfLiquidationTest", () => {
 
         await expect(
           HundredFinanceTestUtils.makeBorrow(deployer, init.d, undefined)
-        ).revertedWith("TC-20"); // borrow failed
+        ).revertedWith("TC-20 borrow failed"); // borrow failed
       });
     });
   });

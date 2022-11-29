@@ -50,7 +50,7 @@ describe("HfAprLib unit tests", () => {
       // await priceOracle.setUnderlyingPrice(MaticAddresses.hDAI, 0);
       await expect(
         libFacade.getPrice(priceOracle.address, MaticAddresses.hDAI)
-      ).revertedWith("TC-4"); // ZERO_PRICE
+      ).revertedWith("TC-4 zero price"); // ZERO_PRICE
     });
   });
 

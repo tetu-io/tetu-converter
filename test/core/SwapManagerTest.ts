@@ -123,7 +123,7 @@ describe("SwapManager", () => {
   describe("Constructor", () => {
     it("Revert on zero controller", async () => {
       await expect(DeployUtils.deployContract(deployer, "SwapManager",
-        ethers.constants.AddressZero)).revertedWith('TC-1')
+        ethers.constants.AddressZero)).revertedWith("TC-1 zero address")
     });
   });
 

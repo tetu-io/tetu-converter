@@ -243,6 +243,9 @@ contract HfPoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP, Initializ
     (uint256 dError, uint liquidity,) = comptroller_.getAccountLiquidity(address(this));
     require(dError == 0, AppErrors.CTOKEN_GET_ACCOUNT_LIQUIDITY_FAILED);
 
+    console.log("_validateHealthStatusAfterBorrow.sumCollateralSafe", sumCollateralSafe);
+    console.log("_validateHealthStatusAfterBorrow.borrowBase", borrowBase);
+    console.log("_validateHealthStatusAfterBorrow.liquidity", liquidity);
     require(
       sumCollateralSafe > borrowBase
       && borrowBase > 0

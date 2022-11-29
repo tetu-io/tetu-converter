@@ -569,7 +569,7 @@ describe("AaveTwoPoolAdapterIntTest", () => {
               initialBorrowAmountOnUserBalanceNumber,
               {skipBorrow: true}
             )
-          ).revertedWith("TC-28"); // ZERO_BALANCE
+          ).revertedWith("TC-28 zero balance"); // ZERO_BALANCE
         });
       });
       describe("Try to close position with not zero debt", () => {
@@ -584,7 +584,7 @@ describe("AaveTwoPoolAdapterIntTest", () => {
               undefined,
               {forceToClosePosition: true}
             )
-          ).revertedWith("TC-24"); // CLOSE_POSITION_FAILED
+          ).revertedWith("TC-24 close position failed"); // CLOSE_POSITION_FAILED
         });
       });
     });

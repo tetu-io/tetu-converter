@@ -415,7 +415,7 @@ describe("KeeperTest", () => {
               Misc.ZERO_ADDRESS, // (!)
               keeperCaller.address
             )
-          ).revertedWith("TC-1"); // ZERO_ADDRESS
+          ).revertedWith("TC-1 zero address"); // ZERO_ADDRESS
         });
       });
     });

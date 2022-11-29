@@ -397,7 +397,7 @@ describe("Hundred Finance unit tests, pool adapter", () => {
             "1999",
             {makeOperationAsNotTc: true}
           )
-        ).revertedWith("TC-8"); // TETU_CONVERTER_ONLY
+        ).revertedWith("TC-8 tetu converter only"); // TETU_CONVERTER_ONLY
       });
       describe("Use mocked HfComptroller", () => {
         it("normal borrow should work correctly", async () => {
@@ -452,7 +452,7 @@ describe("Hundred Finance unit tests, pool adapter", () => {
               "1999",
               {useHfComptrollerMock: mocksSet.mockedComptroller}
             )
-          ).revertedWith("TC-15"); // WRONG_BORROWED_BALANCE
+          ).revertedWith("TC-15 wrong borrow balance"); // WRONG_BORROWED_BALANCE
         });
         it("should revert if fail to get liquidity balance after borrow", async () => {
           const mocksSet = await initializeHfComptrollerMock(
@@ -473,7 +473,7 @@ describe("Hundred Finance unit tests, pool adapter", () => {
               "1999",
               {useHfComptrollerMock: mocksSet.mockedComptroller}
             )
-          ).revertedWith("TC-22"); // CTOKEN_GET_ACCOUNT_LIQUIDITY_FAILED
+          ).revertedWith("TC-22 liquidity failed"); // CTOKEN_GET_ACCOUNT_LIQUIDITY_FAILED
         });
         it("should revert if liquidity balance is incorrect after borrow", async () => {
           const mocksSet = await initializeHfComptrollerMock(
@@ -494,7 +494,7 @@ describe("Hundred Finance unit tests, pool adapter", () => {
               "1999",
               {useHfComptrollerMock: mocksSet.mockedComptroller}
             )
-          ).revertedWith("TC-23"); // INCORRECT_RESULT_LIQUIDITY
+          ).revertedWith("TC-23 incorrect liquidity"); // INCORRECT_RESULT_LIQUIDITY
         });
         it("should revert if mint fails", async () => {
           const mocksSet = await initializeHfComptrollerMock(
@@ -515,7 +515,7 @@ describe("Hundred Finance unit tests, pool adapter", () => {
               "1999",
               {useHfComptrollerMock: mocksSet.mockedComptroller}
             )
-          ).revertedWith("TC-17"); // MINT_FAILED
+          ).revertedWith("TC-17 mint failed"); // MINT_FAILED
         });
         it("should revert if borrow fails", async () => {
           const mocksSet = await initializeHfComptrollerMock(
@@ -536,7 +536,7 @@ describe("Hundred Finance unit tests, pool adapter", () => {
               "1999",
               {useHfComptrollerMock: mocksSet.mockedComptroller}
             )
-          ).revertedWith("TC-20"); // BORROW_FAILED
+          ).revertedWith("TC-20 borrow failed"); // BORROW_FAILED
         });
       });
 
@@ -860,7 +860,7 @@ describe("Hundred Finance unit tests, pool adapter", () => {
               amountToRepayStr: "10" // it's much harder to emulate not-TC call for full repay
             }
           )
-        ).revertedWith("TC-8"); // TETU_CONVERTER_ONLY
+        ).revertedWith("TC-8 tetu converter only"); // TETU_CONVERTER_ONLY
       });
       it("should fail if pay too small amount and try to close the position", async () => {
         await expect(
@@ -874,7 +874,7 @@ describe("Hundred Finance unit tests, pool adapter", () => {
             borrowHolder,
             {amountToRepayStr: "1", closePosition: true}
           )
-        ).revertedWith("TC-24"); // CLOSE_POSITION_FAILED
+        ).revertedWith("TC-24 close position failed"); // CLOSE_POSITION_FAILED
       });
       describe("Use mocked HfComptroller", () => {
         it("normal repay should work correctly", async () => {
@@ -922,7 +922,7 @@ describe("Hundred Finance unit tests, pool adapter", () => {
                 useHfComptrollerMock: mocksSet.mockedComptroller
               }
             )
-          ).revertedWith("TC-27"); // REPAY_FAILED
+          ).revertedWith("TC-27 repay failed"); // REPAY_FAILED
         });
         it("should revert if redeem fails", async () => {
           const mocksSet = await initializeHfComptrollerMock(collateralAsset, collateralCToken, borrowAsset, borrowCToken);
@@ -942,7 +942,7 @@ describe("Hundred Finance unit tests, pool adapter", () => {
                 useHfComptrollerMock: mocksSet.mockedComptroller
               }
             )
-          ).revertedWith("TC-26"); // REDEEM_FAILED
+          ).revertedWith("TC-26 redeem failed"); // REDEEM_FAILED
         });
         it("should revert if getAccountSnapshot for collateral fails", async () => {
           const mocksSet = await initializeHfComptrollerMock(collateralAsset, collateralCToken, borrowAsset, borrowCToken);
@@ -962,7 +962,7 @@ describe("Hundred Finance unit tests, pool adapter", () => {
                 useHfComptrollerMock: mocksSet.mockedComptroller,
               }
             )
-          ).revertedWith("TC-21"); // CTOKEN_GET_ACCOUNT_SNAPSHOT_FAILED
+          ).revertedWith("TC-21 snapshot failed"); // CTOKEN_GET_ACCOUNT_SNAPSHOT_FAILED
         });
         it("should revert if getAccountSnapshot for borrow fails", async () => {
           const mocksSet = await initializeHfComptrollerMock(collateralAsset, collateralCToken, borrowAsset, borrowCToken);
@@ -982,7 +982,7 @@ describe("Hundred Finance unit tests, pool adapter", () => {
                 useHfComptrollerMock: mocksSet.mockedComptroller
               }
             )
-          ).revertedWith("TC-21"); // CTOKEN_GET_ACCOUNT_SNAPSHOT_FAILED
+          ).revertedWith("TC-21 snapshot failed"); // CTOKEN_GET_ACCOUNT_SNAPSHOT_FAILED
         });
         it("should revert with CLOSE_POSITION_FAILED if token balance is not zero after full repay", async () => {
           const mocksSet = await initializeHfComptrollerMock(collateralAsset, collateralCToken, borrowAsset, borrowCToken);
@@ -1001,7 +1001,7 @@ describe("Hundred Finance unit tests, pool adapter", () => {
                 returnNotZeroTokenBalanceAfterRedeem: true
               }
             )
-          ).revertedWith("TC-24"); // CLOSE_POSITION_FAILED
+          ).revertedWith("TC-24 close position failed"); // CLOSE_POSITION_FAILED
         });
         it("should revert with CLOSE_POSITION_FAILED if borrow balance is not zero after full repay", async () => {
           const mocksSet = await initializeHfComptrollerMock(collateralAsset, collateralCToken, borrowAsset, borrowCToken);
@@ -1020,7 +1020,7 @@ describe("Hundred Finance unit tests, pool adapter", () => {
                 returnNotZeroBorrowBalanceAfterRedeem: true
               }
             )
-          ).revertedWith("TC-24"); // CLOSE_POSITION_FAILED
+          ).revertedWith("TC-24 close position failed"); // CLOSE_POSITION_FAILED
 
         });
         it("should revert with WRONG_BORROWED_BALANCE if amount to repay is less than borrow balance during full repay", async () => {
@@ -1041,7 +1041,7 @@ describe("Hundred Finance unit tests, pool adapter", () => {
                 amountToRepayStr: "10" // we need to make a partial repay
               }
             )
-          ).revertedWith("TC-15"); // WRONG_BORROWED_BALANCE
+          ).revertedWith("TC-15 wrong borrow balance"); // WRONG_BORROWED_BALANCE
 
         });
       });
@@ -1334,7 +1334,7 @@ describe("Hundred Finance unit tests, pool adapter", () => {
           if (!await isPolygonForkInUse()) return;
           await expect(
             testDaiUSDC({makeBorrowToRebalanceAsDeployer: true})
-          ).revertedWith("TC-8");
+          ).revertedWith("TC-8 tetu converter only");
         });
       });
       describe("Position is not registered", () => {
@@ -1342,7 +1342,7 @@ describe("Hundred Finance unit tests, pool adapter", () => {
           if (!await isPolygonForkInUse()) return;
           await expect(
             testDaiUSDC({skipBorrow: true})
-          ).revertedWith("TC-11"); // BORROW_POSITION_IS_NOT_REGISTERED
+          ).revertedWith("TC-11 position not registered"); // BORROW_POSITION_IS_NOT_REGISTERED
         });
       });
       describe("Result health factor is less min allowed one", () => {
@@ -1350,7 +1350,7 @@ describe("Hundred Finance unit tests, pool adapter", () => {
           if (!await isPolygonForkInUse()) return;
           await expect(
             testDaiUSDC({additionalAmountCorrectionFactor: 10})
-          ).revertedWith("TC-3: wrong health factor");
+          ).revertedWith("TC-3 wrong health factor");
         });
       });
       describe("Use mocked HfComptroller", () => {
@@ -1392,7 +1392,7 @@ describe("Hundred Finance unit tests, pool adapter", () => {
                 ignoreBorrowAtRebalance: true
               }
             )
-          ).revertedWith("TC-15"); // WRONG_BORROWED_BALANCE
+          ).revertedWith("TC-15 wrong borrow balance"); // WRONG_BORROWED_BALANCE
         });
         it("should revert if borrow fails", async () => {
           const collateralAsset = MaticAddresses.DAI;
@@ -1433,7 +1433,7 @@ describe("Hundred Finance unit tests, pool adapter", () => {
                 borrowFails: true
               }
             )
-          ).revertedWith("TC-15"); // WRONG_BORROWED_BALANCE
+          ).revertedWith("TC-15 wrong borrow balance"); // WRONG_BORROWED_BALANCE
         });
       });
     });
@@ -1810,7 +1810,7 @@ describe("Hundred Finance unit tests, pool adapter", () => {
           if (!await isPolygonForkInUse()) return;
           await expect(
             daiWMatic(false,{makeRepayToRebalanceAsDeployer: true})
-          ).revertedWith("TC-8"); // TETU_CONVERTER_ONLY
+          ).revertedWith("TC-8 tetu converter only"); // TETU_CONVERTER_ONLY
         });
       });
       describe("Position is not registered", () => {
@@ -1818,7 +1818,7 @@ describe("Hundred Finance unit tests, pool adapter", () => {
           if (!await isPolygonForkInUse()) return;
           await expect(
             daiWMatic(false,{skipBorrow: true})
-          ).revertedWith("TC-11");
+          ).revertedWith("TC-11 position not registered");
         });
       });
       describe("Result health factor is less min allowed one", () => {
@@ -1826,7 +1826,7 @@ describe("Hundred Finance unit tests, pool adapter", () => {
           if (!await isPolygonForkInUse()) return;
           await expect(
             daiWMatic(false,{additionalAmountCorrectionFactorDiv: 100})
-          ).revertedWith("TC-3: wrong health factor");
+          ).revertedWith("TC-3 wrong health factor");
         });
       });
       describe("Try to repay amount greater then the debt", () => {
@@ -1834,7 +1834,7 @@ describe("Hundred Finance unit tests, pool adapter", () => {
           if (!await isPolygonForkInUse()) return;
           await expect(
             daiWMatic(false,{additionalAmountCorrectionFactorMul: 100})
-          ).revertedWith("TC-40"); // REPAY_TO_REBALANCE_NOT_ALLOWED
+          ).revertedWith("TC-40 repay to rebalance not allowed"); // REPAY_TO_REBALANCE_NOT_ALLOWED
         });
       });
       describe("Use mocked HfComptroller", () => {
@@ -1878,7 +1878,7 @@ describe("Hundred Finance unit tests, pool adapter", () => {
                 useHfComptrollerMock: mocksSet.mockedComptroller,
                 repayBorrowFails: true
               })
-          ).revertedWith("TC-27"); // REPAY_FAILED
+          ).revertedWith("TC-27 repay failed"); // REPAY_FAILED
         });
       });
     });
@@ -2006,55 +2006,55 @@ describe("Hundred Finance unit tests, pool adapter", () => {
         if (!await isPolygonForkInUse()) return;
         await expect(
           makeInitializePoolAdapterTest({zeroController: true})
-        ).revertedWith("TC-1"); // ZERO_ADDRESS
+        ).revertedWith("TC-1 zero address"); // ZERO_ADDRESS
       });
       it("should revert on zero controller", async () => {
         if (!await isPolygonForkInUse()) return;
         await expect(
           makeInitializePoolAdapterTest({zeroController: true})
-        ).revertedWith("TC-1"); // ZERO_ADDRESS
+        ).revertedWith("TC-1 zero address"); // ZERO_ADDRESS
       });
       it("should revert on zero controller", async () => {
         if (!await isPolygonForkInUse()) return;
         await expect(
           makeInitializePoolAdapterTest({zeroController: true})
-        ).revertedWith("TC-1"); // ZERO_ADDRESS
+        ).revertedWith("TC-1 zero address"); // ZERO_ADDRESS
       });
       it("should revert on zero user", async () => {
         if (!await isPolygonForkInUse()) return;
         await expect(
           makeInitializePoolAdapterTest({zeroUser: true})
-        ).revertedWith("TC-1"); // ZERO_ADDRESS
+        ).revertedWith("TC-1 zero address"); // ZERO_ADDRESS
       });
       it("should revert on zero pool", async () => {
         if (!await isPolygonForkInUse()) return;
         await expect(
           makeInitializePoolAdapterTest({zeroPool: true})
-        ).revertedWith("TC-1"); // ZERO_ADDRESS
+        ).revertedWith("TC-1 zero address"); // ZERO_ADDRESS
       });
       it("should revert on zero converter", async () => {
         if (!await isPolygonForkInUse()) return;
         await expect(
           makeInitializePoolAdapterTest({zeroConverter: true})
-        ).revertedWith("TC-1"); // ZERO_ADDRESS
+        ).revertedWith("TC-1 zero address"); // ZERO_ADDRESS
       });
       it("should revert on zero collateral asset", async () => {
         if (!await isPolygonForkInUse()) return;
         await expect(
           makeInitializePoolAdapterTest({zeroCollateralAsset: true})
-        ).revertedWith("TC-1"); // ZERO_ADDRESS
+        ).revertedWith("TC-1 zero address"); // ZERO_ADDRESS
       });
       it("should revert on zero borrow asset", async () => {
         if (!await isPolygonForkInUse()) return;
         await expect(
           makeInitializePoolAdapterTest({zeroBorrowAsset: true})
-        ).revertedWith("TC-1"); // ZERO_ADDRESS
+        ).revertedWith("TC-1 zero address"); // ZERO_ADDRESS
       });
       it("should revert on zero token address provider", async () => {
         if (!await isPolygonForkInUse()) return;
         await expect(
           makeInitializePoolAdapterTest({zeroTokenAddressProvider: true})
-        ).revertedWith("TC-1"); // ZERO_ADDRESS
+        ).revertedWith("TC-1 zero address"); // ZERO_ADDRESS
       });
       it("should revert on second initialization", async () => {
         if (!await isPolygonForkInUse()) return;
@@ -2080,7 +2080,7 @@ describe("Hundred Finance unit tests, pool adapter", () => {
         );
         await expect(
           makeInitializePoolAdapter({tokenAddressProviderMock})
-        ).revertedWith("TC-16"); // C_TOKEN_NOT_FOUND
+        ).revertedWith("TC-16 ctoken not found"); // C_TOKEN_NOT_FOUND
       });
       it("should revert if token address provider returns zero cTokenBorrow", async () => {
         if (!await isPolygonForkInUse()) return;
@@ -2091,7 +2091,7 @@ describe("Hundred Finance unit tests, pool adapter", () => {
         );
         await expect(
           makeInitializePoolAdapter({tokenAddressProviderMock})
-        ).revertedWith("TC-16"); // C_TOKEN_NOT_FOUND
+        ).revertedWith("TC-16 ctoken not found"); // C_TOKEN_NOT_FOUND
       });
     });
   });
@@ -2257,7 +2257,7 @@ describe("Hundred Finance unit tests, pool adapter", () => {
         await mocksSet.mockedCollateralCToken.setGetAccountSnapshotFails();
         await expect(
           results.init.hfPoolAdapterTC.getStatus()
-        ).revertedWith("TC-21"); // CTOKEN_GET_ACCOUNT_SNAPSHOT_FAILED
+        ).revertedWith("TC-21 snapshot failed"); // CTOKEN_GET_ACCOUNT_SNAPSHOT_FAILED
       });
       it("should revert if getAccountSnapshot for borrow fails", async () => {
         const collateralAsset = MaticAddresses.USDT;
@@ -2284,7 +2284,7 @@ describe("Hundred Finance unit tests, pool adapter", () => {
 
         await expect(
           results.init.hfPoolAdapterTC.getStatus()
-        ).revertedWith("TC-21"); // CTOKEN_GET_ACCOUNT_SNAPSHOT_FAILED
+        ).revertedWith("TC-21 snapshot failed"); // CTOKEN_GET_ACCOUNT_SNAPSHOT_FAILED
       });
     });
   });
