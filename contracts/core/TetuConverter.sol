@@ -625,7 +625,10 @@ contract TetuConverter is ITetuConverter, IKeeperCallback, ReentrancyGuard {
   }
 
   ///////////////////////////////////////////////////////
-  ///       Inline functions //todo check where better to use local vars
+  ///       Inline functions
+  ///       If the inline function is used more than once
+  ///       inside a function, probably it's better to
+  ///       replace it by a local variable
   ///////////////////////////////////////////////////////
   function _debtMonitor() internal view returns (IDebtMonitor) {
     return IDebtMonitor(controller.debtMonitor());

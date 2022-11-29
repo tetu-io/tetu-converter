@@ -39,6 +39,8 @@ contract HfPoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP, Initializ
   ///    Constants and variables
   ///////////////////////////////////////////////////////
   address private constant WMATIC = address(0x0d500B1d8E8eF31E21C99d1Db9A6444d3ADf1270);
+  /// @notice Max allowed value of (sumCollateralSafe - sumBorrowPlusEffects) / liquidity, decimals 18
+  uint private constant MAX_DIVISION18 = 1e10;
 
   address public collateralAsset;
   address public borrowAsset;
@@ -182,7 +184,7 @@ contract HfPoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP, Initializ
       IWmatic(WMATIC).deposit{value : borrowAmount_}();
     }
     require(
-      borrowAmount_ + balanceBorrowAsset0 == IERC20(assetBorrow).balanceOf(address(this)), // TODO <= instead ==
+      borrowAmount_ + balanceBorrowAsset0 == IERC20(assetBorrow).balanceOf(address(this)),
       AppErrors.WRONG_BORROWED_BALANCE
     );
     IERC20(assetBorrow).safeTransfer(receiver_, borrowAmount_);
@@ -251,8 +253,8 @@ contract HfPoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP, Initializ
       && borrowBase > 0
     // here we should have: sumCollateralSafe - sumBorrowPlusEffects == liquidity
     // but it seems like round-error can happen, we can check only sumCollateralSafe - sumBorrowPlusEffects ~ liquidity
-    // let's ensure that liquidity has a reasonable value //TODO: remove this check at all?
-      && liquidity > (sumCollateralSafe - borrowBase) / 2,
+    // let's ensure that liquidity has a reasonable value
+      && AppUtils.approxEqual(liquidity + borrowBase, sumCollateralSafe, MAX_DIVISION18),
       AppErrors.INCORRECT_RESULT_LIQUIDITY
     );
 

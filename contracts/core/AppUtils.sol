@@ -5,8 +5,8 @@ library AppUtils {
   /// @notice Convert {amount} with [sourceDecimals} to new amount with {targetDecimals}
   function toMantissa(uint amount, uint8 sourceDecimals, uint8 targetDecimals) internal pure returns (uint) {
     return sourceDecimals == targetDecimals
-    ? amount
-    : amount * (10 ** targetDecimals) / (10 ** sourceDecimals);
+      ? amount
+      : amount * (10 ** targetDecimals) / (10 ** sourceDecimals);
   }
 
   function uncheckedInc(uint i) internal pure returns (uint) {
@@ -58,5 +58,12 @@ library AppUtils {
     }
 
     return dest;
+  }
+
+  /// @notice (amount1 - amount2) / amount1/2 < expected difference
+  function approxEqual(uint amount1, uint amount2, uint divisionMax18) internal pure returns (bool) {
+    return amount1 > amount2
+      ? (amount1 - amount2) * 1e18 / (amount2 + 1) < divisionMax18
+      : (amount2 - amount1) * 1e18 / (amount2 + 1) < divisionMax18;
   }
 }
