@@ -33,15 +33,16 @@ import {
   IMakeTestSingleBorrowInstantRepayResults
 } from "../baseUT/uses-cases/BorrowRepayUsesCase";
 import {ITokenParams} from "../baseUT/types/BorrowRepayDataTypes";
-import {parseUnits} from "ethers/lib/utils";
+import {formatUnits, parseUnits} from "ethers/lib/utils";
 import {existsSync, writeFileSync} from "fs";
 import {colorLabel} from "hardhat-tracer/dist/src/colors";
+import {DForceChangePriceUtils} from "../baseUT/protocols/dforce/DForceChangePriceUtils";
 
 describe("CompareAprBorrowRepayTest @skip-on-coverage", () => {
 //region Constants
   const HEALTH_FACTOR2 = 400;
-  const COUNT_BLOCKS_SMALL = 1_00;
-  const COUNT_BLOCKS_LARGE = 2_000;
+  const COUNT_BLOCKS_SMALL = 1_000;
+  const COUNT_BLOCKS_LARGE = 20_000;
 
 //endregion Constants
 
@@ -91,6 +92,9 @@ describe("CompareAprBorrowRepayTest @skip-on-coverage", () => {
         {} // disable swap
       );
       controllerForDForce = controller;
+      // Let's replace DForce's price oracle by mocked version
+      // because origin oracle doesn't allow to advance blocks (prices become deprecated)
+      await DForceChangePriceUtils.setupPriceOracleMock(deployer, true);
     }
     {
       const {controller} = await TetuConverterApp.buildApp(deployer,
@@ -190,6 +194,29 @@ describe("CompareAprBorrowRepayTest @skip-on-coverage", () => {
       }
     }
 
+    function getAssetName(asset: string) : string {
+      switch (asset) {
+        case MaticAddresses.DAI: return "DAI";
+        case MaticAddresses.USDC: return "USDC";
+        case MaticAddresses.USDT: return "USDT";
+        case MaticAddresses.WBTC: return "WBTC";
+        case MaticAddresses.WETH: return "WETH";
+        case MaticAddresses.WMATIC: return "WMATIC";
+      }
+      return asset;
+    }
+    async function getAssetDecimals(asset: string) : Promise<number> {
+      switch (asset) {
+        case MaticAddresses.DAI: return 18;
+        case MaticAddresses.USDC: return 6;
+        case MaticAddresses.USDT: return 6;
+        case MaticAddresses.WBTC: return 8;
+        case MaticAddresses.WETH: return 18;
+        case MaticAddresses.WMATIC: return 18;
+      }
+      return IERC20Metadata__factory.connect(asset, deployer).decimals();
+    }
+
     function writeError(
       path: string,
       platform: string,
@@ -203,8 +230,8 @@ describe("CompareAprBorrowRepayTest @skip-on-coverage", () => {
         platform,
         error,
 
-        collateral.asset,
-        borrow.asset,
+        getAssetName(collateral.asset),
+        getAssetName(borrow.asset),
 
         collateralAmount.toString(),
       ];
@@ -226,14 +253,14 @@ describe("CompareAprBorrowRepayTest @skip-on-coverage", () => {
         platform,
         undefined, // no errors
 
-        r.collateralAsset,
-        r.borrowAsset,
+        getAssetName(r.collateralAsset),
+        getAssetName(r.borrowAsset),
 
-        r.collateralAmount.toString(),
-        r.borrowAmount.toString(),
+        formatUnits(r.collateralAmount, await getAssetDecimals(r.collateralAsset)),
+        formatUnits(r.borrowAmount, await getAssetDecimals(r.borrowAsset)),
 
-        r.userBorrowBalanceDelta.toString(),
-        r.userCollateralBalanceDelta.toString(),
+        formatUnits(r.userCollateralBalanceDelta, await getAssetDecimals(r.collateralAsset)),
+        formatUnits(r.userBorrowBalanceDelta, await getAssetDecimals(r.borrowAsset)),
 
         r.strategyToConvert.apr18.toString(),
       ];
@@ -267,13 +294,18 @@ describe("CompareAprBorrowRepayTest @skip-on-coverage", () => {
               // tslint:disable-next-line:no-any
             } catch (e: any) {
               console.log(e);
+              let written = false;
               const re = /VM Exception while processing transaction: reverted with reason string\s*(.*)/i;
               if (e.message) {
                 const found = e.message.match(re);
                 console.log("found", found)
                 if (found && found[1]) {
-                  writeError(pathOut, platformTitles[n], found[1], assets[i], amounts[i], assets[j])
+                  writeError(pathOut, platformTitles[n], found[1], assets[i], amounts[i], assets[j]);
+                  written = true;
                 }
+              }
+              if (! written) {
+                writeError(pathOut, platformTitles[n], e, assets[i], amounts[i], assets[j]);
               }
             } finally {
               await TimeUtils.rollback(snapshotForEach);
