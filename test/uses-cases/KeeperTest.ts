@@ -40,7 +40,7 @@ import {DeployerUtils} from "../../scripts/utils/DeployerUtils";
 import {RepayAction} from "../baseUT/actions/RepayAction";
 import {KeeperTestMockUtils} from "../baseUT/keeper/KeeperTestMockUtils";
 
-describe.skip("Keeper test for reconversion", () => {
+describe.skip("Keeper test for reconversion @skip-on-coverage", () => {
 //region Global vars for all tests
   let snapshot: string;
   let snapshotForEach: string;

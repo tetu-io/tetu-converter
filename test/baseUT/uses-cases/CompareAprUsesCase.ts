@@ -15,7 +15,6 @@ import {
 } from "../../../typechain";
 import {BigNumber} from "ethers";
 import {Misc} from "../../../scripts/utils/Misc";
-import {AprUtils} from "../utils/aprUtils";
 import {DeployerUtils} from "../../../scripts/utils/DeployerUtils";
 import {AppDataTypes} from "../../../typechain/contracts/core/SwapManager";
 import {BalanceUtils} from "../utils/BalanceUtils";
@@ -112,23 +111,6 @@ export class CompareAprUsesCase {
       error: "Unknown error"
     }
   }
-
-  private static async getPrices(
-    platformAdapter: IPlatformAdapter,
-    sourceAsset: IAssetInfo,
-    targetAsset: IAssetInfo
-  ) : Promise<{
-    priceCollateral: BigNumber,
-    priceBorrow: BigNumber
-  } | undefined > {
-    try {
-      const stPrices = await platformAdapter.getAssetsPrices([sourceAsset.asset, targetAsset.asset]);
-      console.log("prices", stPrices);
-      return {priceCollateral: stPrices[0], priceBorrow: stPrices[1]};
-    } catch {
-      console.log("Cannot get prices for the assets unsupported by the platform");
-    }
-  }
 //endregion Borrowing
 
 //region Utils
@@ -166,7 +148,7 @@ export class CompareAprUsesCase {
   }
 //endregion Utils
 
-//region
+//region Swap
   static async makeSwapThereAndBack(
     swapManager: SwapManager,
     collateralAsset: string,
@@ -292,87 +274,76 @@ export class CompareAprUsesCase {
       const snapshot = await TimeUtils.snapshot();
       try {
         const borrowDecimals = await IERC20Metadata__factory.connect(task.borrowAsset.asset, deployer).decimals();
-        const stPrices = await this.getPrices(platformAdapter, task.collateralAsset, task.borrowAsset);
-        if (stPrices) {
-          console.log("makePossibleBorrowsOnPlatform.collateralAmount", task.collateralAmount);
+        console.log("makePossibleBorrowsOnPlatform.collateralAmount", task.collateralAmount);
 
-          const planSingleBlock = await platformAdapter.getConversionPlan(
-            task.collateralAsset.asset
-            , task.collateralAmount
-            , task.borrowAsset.asset
-            , healthFactor2
-            , 1 // we need 1 block for next/last; countBlocks are used as additional-points
-          );
-          console.log("planSingleBlock", planSingleBlock);
+        const planSingleBlock = await platformAdapter.getConversionPlan(
+          task.collateralAsset.asset,
+          task.collateralAmount,
+          task.borrowAsset.asset,
+          healthFactor2,
+          1 // we need 1 block for next/last; countBlocks are used as additional-points
+        );
+        console.log("planSingleBlock", planSingleBlock);
 
-          const planFullPeriod = await platformAdapter.getConversionPlan(
-            task.collateralAsset.asset
-            , task.collateralAmount
-            , task.borrowAsset.asset
-            , healthFactor2
-            , countBlocks
-          );
-          console.log("planFullPeriod", planFullPeriod);
+        const planFullPeriod = await platformAdapter.getConversionPlan(
+          task.collateralAsset.asset,
+          task.collateralAmount,
+          task.borrowAsset.asset,
+          healthFactor2,
+          countBlocks,
+        );
+        console.log("planFullPeriod", planFullPeriod);
 
-          const amountToBorrow = AprUtils.getBorrowAmount(
-            task.collateralAmount,
+        const amountToBorrow = planSingleBlock.amountToBorrow;
+        console.log("makePossibleBorrowsOnPlatform.amountToBorrow", amountToBorrow);
+
+        if (planSingleBlock.converter === Misc.ZERO_ADDRESS) {
+          dest.push({
+            platformTitle,
+            countBlocks,
+            assetBorrow: task.borrowAsset,
+            assetCollateral: task.collateralAsset,
+            collateralAmount: task.collateralAmount,
+            planSingleBlock,
+            planFullPeriod,
+            error: "Plan not found",
+          });
+        } else {
+          const p: ITestSingleBorrowParams = {
+            collateral: {
+              asset: task.collateralAsset.asset,
+              holder: task.collateralAsset.holders.join(";"),
+              initialLiquidity,
+            },
+            borrow: {
+              asset: task.borrowAsset.asset,
+              holder: task.borrowAsset.holders.join(";"),
+              initialLiquidity: 0,
+            },
+            collateralAmount: task.collateralAmount,
             healthFactor2,
-            planFullPeriod.liquidationThreshold18,
-            stPrices.priceCollateral,
-            stPrices.priceBorrow,
-            collateralDecimals,
-            borrowDecimals
+            countBlocks: 1 // we need 1 block for next/last; countBlocks are used as additional-points
+          };
+          const res = await this.makeSingleBorrowTest(
+            platformTitle,
+            {
+              params: p,
+              amountToBorrow,
+              additionalPoints: [countBlocks]
+            },
+            testMaker
           );
-          console.log("makePossibleBorrowsOnPlatform.amountToBorrow", amountToBorrow);
-
-          if (planSingleBlock.converter === Misc.ZERO_ADDRESS) {
-            dest.push({
-              platformTitle,
-              countBlocks,
-              assetBorrow: task.borrowAsset,
-              assetCollateral: task.collateralAsset,
-              collateralAmount: task.collateralAmount,
-              planSingleBlock,
-              planFullPeriod,
-              error: "Plan not found",
-            });
-          } else {
-            const p: ITestSingleBorrowParams = {
-              collateral: {
-                asset: task.collateralAsset.asset,
-                holder: task.collateralAsset.holders.join(";"),
-                initialLiquidity,
-              },
-              borrow: {
-                asset: task.borrowAsset.asset,
-                holder: task.borrowAsset.holders.join(";"),
-                initialLiquidity: 0,
-              },
-              collateralAmount: task.collateralAmount,
-              healthFactor2,
-              countBlocks: 1 // we need 1 block for next/last; countBlocks are used as additional-points
-            };
-            const res = await this.makeSingleBorrowTest(
-              platformTitle,
-              {
-                params: p,
-                amountToBorrow,
-                additionalPoints: [countBlocks]
-              },
-              testMaker
-            );
-            dest.push({
-              platformTitle,
-              countBlocks,
-              assetBorrow: task.borrowAsset,
-              assetCollateral: task.collateralAsset,
-              collateralAmount: task.collateralAmount,
-              planSingleBlock,
-              planFullPeriod,
-              results: res.results,
-              error: res.error
-            });
-          }
+          dest.push({
+            platformTitle,
+            countBlocks,
+            assetBorrow: task.borrowAsset,
+            assetCollateral: task.collateralAsset,
+            collateralAmount: task.collateralAmount,
+            planSingleBlock,
+            planFullPeriod,
+            results: res.results,
+            error: res.error
+          });
         }
       } finally {
         await TimeUtils.rollback(snapshot);

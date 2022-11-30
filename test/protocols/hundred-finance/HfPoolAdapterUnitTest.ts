@@ -4,7 +4,7 @@ import {TimeUtils} from "../../../scripts/utils/TimeUtils";
 import {
   BorrowManager__factory,
   Controller,
-  DebtMonitor__factory, HfAprLibFacade__factory, HfComptrollerMock, HfCTokenMock,
+  DebtMonitor__factory, HfComptrollerMock, HfCTokenMock,
   HfPoolAdapter,
   IERC20Metadata__factory,
   IPoolAdapter__factory,
