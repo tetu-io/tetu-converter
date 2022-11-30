@@ -116,6 +116,7 @@ export interface ISwapResults {
   collateralAmount: BigNumber;
   borrowedAmount: BigNumber;
   apr18: BigNumber;
+  lostCollateral: BigNumber;
 }
 
 export interface IStrategyToConvert {

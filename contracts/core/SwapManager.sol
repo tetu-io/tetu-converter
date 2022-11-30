@@ -10,6 +10,7 @@ import "../interfaces/IController.sol";
 import "../interfaces/ISwapConverter.sol";
 import "./AppErrors.sol";
 import "./AppDataTypes.sol";
+import "hardhat/console.sol";
 
 /// @title Contract to find the best swap and make the swap
 /// @notice Combines Manager and Converter
@@ -71,9 +72,11 @@ contract SwapManager is ISwapManager, ISwapConverter {
     ITetuLiquidator liquidator = ITetuLiquidator(controller.tetuLiquidator());
 //    (ITetuLiquidator.PoolData[] memory route,) = liquidator.buildRoute(p_.sourceToken, p_.targetToken);
     maxTargetAmount = liquidator.getPrice(p_.sourceToken, p_.targetToken, p_.sourceAmount);
+    console.log("SwapManager.getConverter.maxTargetAmount", maxTargetAmount);
 
     // how much we will get when sell target token back
     uint returnAmount = liquidator.getPrice(p_.targetToken, p_.sourceToken, maxTargetAmount);
+    console.log("SwapManager.getConverter.returnAmount", returnAmount);
 
     // getPrice returns 0 if conversion way is not found
     // in this case, we should return converter = 0 in same way as ITetuConverter does
@@ -82,7 +85,11 @@ contract SwapManager is ISwapManager, ISwapConverter {
       : address(this);
 
     int loss = int(p_.sourceAmount) - int(returnAmount);
+    console.log("SwapManager.getConverter.loss");
+    console.logInt(loss);
     apr18 = loss * APR_NUMERATOR / int(p_.sourceAmount);
+    console.log("SwapManager.getConverter.apr18");
+    console.logInt(apr18);
   }
 
   ///////////////////////////////////////////////////////
@@ -117,11 +124,13 @@ contract SwapManager is ISwapManager, ISwapConverter {
     // liquidate() will revert here and it's ok.
     tetuLiquidator.liquidate(sourceToken_, targetToken_, sourceAmount_, PRICE_IMPACT_TOLERANCE);
     outputAmount = IERC20(targetToken_).balanceOf(address(this)) - targetTokenBalanceBefore;
+    console.log("SwapManager.swap.outputAmount", outputAmount);
 
     uint slippage = targetAmount_ == 0 || outputAmount >= targetAmount_
       ? 0
       : (targetAmount_ - outputAmount) * SLIPPAGE_NUMERATOR / targetAmount_;
     require(slippage <= SLIPPAGE_TOLERANCE, AppErrors.SLIPPAGE_TOO_BIG);
+    console.log("SwapManager.swap.slippage", slippage, targetAmount_);
 
     IERC20(targetToken_).safeTransfer(receiver_, outputAmount);
     emit OnSwap(sourceToken_, sourceAmount_, targetToken_, targetAmount_, receiver_, outputAmount);

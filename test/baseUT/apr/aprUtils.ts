@@ -139,6 +139,7 @@ function getHeadersLine(): string[] {
     "error",
     "P.apr18",
     "apr18",
+    "C.lost",
 
     "Collateral",
     "Borrow",
@@ -254,6 +255,7 @@ export function appendBorrowingTestResultsToFile(path: string, data: IBorrowingT
       escapeCsvText(row.error),
       plannedApr18,
       row.results?.resultAmounts?.apr18,
+      undefined, // lost of collateral
 
       row.assetCollateral.title,
       row.assetBorrow.title,
@@ -387,6 +389,7 @@ export function appendSwapTestResultsToFile(path: string, data: ISwapTestResults
       escapeCsvText(row.error),
       row.strategyToConvert.apr18,
       row.results?.apr18,
+      row.results?.lostCollateral,
 
       row.assetCollateral.title,
       row.assetBorrow.title,

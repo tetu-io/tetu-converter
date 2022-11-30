@@ -2,7 +2,12 @@ import {BigNumber} from "ethers";
 import {BalanceUtils, IUserBalancesWithGas} from "../utils/BalanceUtils";
 import {
   IPoolAdapter__factory,
-  Borrower, BorrowManager__factory, IPlatformAdapter__factory
+  Borrower,
+  BorrowManager__factory,
+  IPlatformAdapter__factory,
+  TetuConverter__factory,
+  ITetuConverter__factory,
+  Controller
 } from "../../../typechain";
 import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import {TokenDataTypes} from "../types/TokenDataTypes";
@@ -19,6 +24,10 @@ import {BorrowMockAction} from "../actions/BorrowMockAction";
 import {RepayMockAction} from "../actions/RepayMockAction";
 import {DeployerUtils} from "../../../scripts/utils/DeployerUtils";
 import {makeInfinityApprove} from "../utils/transferUtils";
+import {tetu} from "../../../typechain/contracts/integrations";
+import {IConversionPlan, IStrategyToConvert} from "../apr/aprDataTypes";
+
+const BORROW_CONVERSION_MODE = 1;
 
 export interface IBorrowAction {
   collateralToken: TokenDataTypes,
@@ -37,8 +46,8 @@ export interface IRepayAction {
 
 export interface IResultExpectations {
   /**
-   * true for Hundred finance
-   *    Hundred Finance has small supply fee, so result collateral can be a bit less than initial one
+   * true for HundredFinance.
+   *    HundredFinance has small supply fee, so result collateral can be a bit less than initial one
    * false for other protocols
    */
   resultCollateralCanBeLessThenInitial?: boolean
@@ -49,13 +58,14 @@ export interface IMakeBorrowRepayActionsResults {
   borrowBalances: BigNumber[]
 }
 
-export interface IMakeTestSingleBorrowInstantRepayBaseResults {
+export interface IMakeSingleBorrowSingleFullRepayBaseResults {
   uc: Borrower;
   ucBalanceCollateral0: BigNumber;
   ucBalanceBorrow0: BigNumber;
   collateralAmount: BigNumber;
   userBalances: IUserBalancesWithGas[];
   borrowBalances: BigNumber[];
+  strategyToConvert: IStrategyToConvert;
 }
 
 export interface IMakeTestSingleBorrowInstantRepayResults {
@@ -63,6 +73,15 @@ export interface IMakeTestSingleBorrowInstantRepayResults {
   sexpected: string;
   gasUsedByBorrow: BigNumber;
   gasUsedByRepay: BigNumber;
+}
+
+export interface IMakeTwoBorrowsTwoRepaysResults {
+  initialBalanceCollateral: BigNumber;
+  initialBalanceBorrow: BigNumber;
+  totalCollateralAmount: BigNumber;
+  userBalances: IUserBalancesWithGas[];
+  borrowBalances: BigNumber[];
+  userContract: Borrower;
 }
 
 export class BorrowRepayUsesCase {
@@ -318,17 +337,12 @@ export class BorrowRepayUsesCase {
     );
   }
 
-  static async makeTestSingleBorrowInstantRepayBase(
+  static async makeSingleBorrowSingleFullRepayBase(
     deployer: SignerWithAddress,
     p: ITestSingleBorrowParams,
-    fabric: ILendingPlatformFabric,
-    checkGasUsed: boolean = false,
-  ) : Promise<IMakeTestSingleBorrowInstantRepayBaseResults>{
-    const {controller} = await TetuConverterApp.buildApp(
-      deployer,
-      [fabric],
-      {} // disable swap
-    );
+    controller: Controller,
+    countBlocksToSkipAfterBorrow?: number
+  ) : Promise<IMakeSingleBorrowSingleFullRepayBaseResults>{
     const uc = await MocksHelper.deployBorrower(deployer.address, controller, p.countBlocks);
 
     const collateralToken = await TokenDataTypes.Build(deployer, p.collateral.asset);
@@ -336,43 +350,40 @@ export class BorrowRepayUsesCase {
 
     const amountToRepay = undefined; // full repay
 
-    const c0 = await setInitialBalance(deployer, collateralToken.address,
+    const ucBalanceCollateral0 = await setInitialBalance(deployer, collateralToken.address,
       p.collateral.holder, p.collateral.initialLiquidity, uc.address);
-    const b0 = await setInitialBalance(deployer, borrowToken.address,
+    const ucBalanceBorrow0 = await setInitialBalance(deployer, borrowToken.address,
       p.borrow.holder, p.borrow.initialLiquidity, uc.address);
     const collateralAmount = getBigNumberFrom(p.collateralAmount, collateralToken.decimals);
 
-    // TetuConverter gives infinity approve to the pool adapter after pool adapter creation (see TetuConverter.convert implementation)
-    const borrowAction = new BorrowAction(
-      collateralToken,
+    const tetuConverter = ITetuConverter__factory.connect(await controller.tetuConverter(), deployer);
+    const strategyToConvert: IStrategyToConvert = await tetuConverter.findConversionStrategy(
+      p.collateral.asset,
       collateralAmount,
-      borrowToken,
+      p.borrow.asset,
       p.countBlocks,
+      BORROW_CONVERSION_MODE
     );
 
-    const repayAction = new RepayAction(
-      collateralToken,
-      borrowToken,
-      amountToRepay,
-      {}
+    // TetuConverter gives infinity approve to the pool adapter after pool adapter creation (see TetuConverter.convert implementation)
+    const borrowAction = new BorrowAction(collateralToken, collateralAmount, borrowToken, p.countBlocks);
+    const repayAction = new RepayAction(collateralToken, borrowToken, amountToRepay,
+      {countBlocksToSkipAfterAction: countBlocksToSkipAfterBorrow}
     );
+
     const {
       userBalances,
       borrowBalances
-    } = await BorrowRepayUsesCase.makeBorrowRepayActions(deployer,
-      uc,
-      checkGasUsed
-        ? [borrowAction, repayAction]
-        : [borrowAction, repayAction]
-    );
+    } = await BorrowRepayUsesCase.makeBorrowRepayActions(deployer, uc, [borrowAction, repayAction]);
 
     return {
       uc,
-      ucBalanceCollateral0: c0,
-      ucBalanceBorrow0: b0,
+      ucBalanceCollateral0,
+      ucBalanceBorrow0,
       borrowBalances,
       userBalances,
       collateralAmount,
+      strategyToConvert
     }
   }
 
@@ -382,7 +393,12 @@ export class BorrowRepayUsesCase {
     fabric: ILendingPlatformFabric,
     expectations: IResultExpectations,
   ) : Promise<IMakeTestSingleBorrowInstantRepayResults> {
-    const r = await BorrowRepayUsesCase.makeTestSingleBorrowInstantRepayBase(deployer, p, fabric);
+    const {controller} = await TetuConverterApp.buildApp(
+      deployer,
+      [fabric],
+      {} // disable swap
+    );
+    const r = await BorrowRepayUsesCase.makeSingleBorrowSingleFullRepayBase(deployer, p, controller);
 
     const ret = BorrowRepayUsesCase.getSingleBorrowSingleRepayResults(
       r.ucBalanceCollateral0,
@@ -405,7 +421,7 @@ export class BorrowRepayUsesCase {
 //endregion Test single borrow, single repay
 
 //region Test two borrows, two repays
-  static async makeTestTwoBorrowsTwoRepays_Mock(
+  static async makeTwoBorrowsTwoRepays_Mock(
     deployer: SignerWithAddress,
     p: ITestTwoBorrowsParams,
     m: IMockTestInputParams
@@ -520,12 +536,11 @@ export class BorrowRepayUsesCase {
     );
   }
 
-  static async makeTestTwoBorrowsTwoRepays(
+  static async makeTwoBorrowsTwoRepays(
     deployer: SignerWithAddress,
     p: ITestTwoBorrowsParams,
     fabric: ILendingPlatformFabric,
-    expectations: IResultExpectations,
-  ) : Promise<{sret: string, sexpected: string}> {
+  ) : Promise<IMakeTwoBorrowsTwoRepaysResults> {
     const {controller} = await TetuConverterApp.buildApp(
       deployer,
       [fabric],
@@ -539,9 +554,9 @@ export class BorrowRepayUsesCase {
     const amountToRepay1 = getBigNumberFrom(p.repayAmount1, borrowToken.decimals);
     const amountToRepay2 = undefined; // full repay
 
-    const c0 = await setInitialBalance(deployer, collateralToken.address,
+    const initialBalanceCollateral = await setInitialBalance(deployer, collateralToken.address,
       p.collateral.holder, p.collateral.initialLiquidity, uc.address);
-    const b0 = await setInitialBalance(deployer, borrowToken.address,
+    const initialBalanceBorrow = await setInitialBalance(deployer, borrowToken.address,
       p.borrow.holder, p.borrow.initialLiquidity, uc.address);
 
     const collateralAmount1 = getBigNumberFrom(p.collateralAmount, collateralToken.decimals);
@@ -553,43 +568,39 @@ export class BorrowRepayUsesCase {
     } = await BorrowRepayUsesCase.makeBorrowRepayActions(deployer,
       uc,
       [
-        new BorrowAction(
-          collateralToken,
-          collateralAmount1,
-          borrowToken,
-          p.deltaBlocksBetweenBorrows,
-        ),
-        new BorrowAction(
-          collateralToken,
-          collateralAmount2,
-          borrowToken,
-          p.countBlocks,
-        ),
-        new RepayAction(
-          collateralToken,
-          borrowToken,
-          amountToRepay1,
-          {
-            countBlocksToSkipAfterAction: p.deltaBlocksBetweenRepays
-          }
-        ),
-        new RepayAction(
-          collateralToken,
-          borrowToken,
-          amountToRepay2,
-          {},
-        ),
+        new BorrowAction(collateralToken, collateralAmount1, borrowToken, p.deltaBlocksBetweenBorrows),
+        new BorrowAction(collateralToken, collateralAmount2, borrowToken, p.countBlocks),
+        new RepayAction(collateralToken, borrowToken, amountToRepay1, {countBlocksToSkipAfterAction: p.deltaBlocksBetweenRepays}),
+        new RepayAction(collateralToken, borrowToken, amountToRepay2, {}),
       ]
     );
 
-    return BorrowRepayUsesCase.getTwoBorrowsTwoRepaysResults(
-      c0,
-      b0,
-      collateralAmount1.add(collateralAmount2),
-      userBalances,
+    return {
       borrowBalances,
-      await uc.totalBorrowedAmount(),
-      await uc.totalAmountBorrowAssetRepaid(),
+      userBalances,
+      initialBalanceBorrow,
+      initialBalanceCollateral,
+      totalCollateralAmount: collateralAmount1.add(collateralAmount2),
+      userContract: uc
+    }
+  }
+
+  static async makeTwoBorrowsTwoRepaysTest(
+    deployer: SignerWithAddress,
+    p: ITestTwoBorrowsParams,
+    fabric: ILendingPlatformFabric,
+    expectations: IResultExpectations,
+  ) : Promise<{sret: string, sexpected: string}> {
+    const r = await this.makeTwoBorrowsTwoRepays(deployer, p, fabric);
+
+    return BorrowRepayUsesCase.getTwoBorrowsTwoRepaysResults(
+      r.initialBalanceCollateral,
+      r.initialBalanceBorrow,
+      r.totalCollateralAmount,
+      r.userBalances,
+      r.borrowBalances,
+      await r.userContract.totalBorrowedAmount(),
+      await r.userContract.totalAmountBorrowAssetRepaid(),
       expectations,
     );
   }

@@ -20,6 +20,7 @@ import {AprHundredFinance} from "../baseUT/apr/aprHundredFinance";
 import {AprSwap} from "../baseUT/apr/aprSwap";
 import {TokenDataTypes} from "../baseUT/types/TokenDataTypes";
 import {BalanceUtils} from "../baseUT/utils/BalanceUtils";
+import {parseUnits} from "ethers/lib/utils";
 
 /**
  * For any landing platform:
@@ -32,7 +33,7 @@ import {BalanceUtils} from "../baseUT/utils/BalanceUtils";
  *        (borrow-debt-2 - borrow-debt-1) == borrow apr
  *        (supply-profit-2 - supply-profit-1) = supply apr
  */
-describe.skip("CompareAprBeforeAfterBorrow @skip-on-coverage", () => {
+describe("CompareAprBeforeAfterBorrow @skip-on-coverage", () => {
 //region Global vars for all tests
   let snapshot: string;
   let snapshotForEach: string;
@@ -1229,7 +1230,30 @@ describe.skip("CompareAprBeforeAfterBorrow @skip-on-coverage", () => {
         });
       });
     });
+  });
 
+  describe("Direct tests", () => {
+    it("Swap USDT => DAI", async () => {
+      const r = await AprSwap.makeSwapTest(
+        deployer,
+        await TokenDataTypes.Build(deployer, MaticAddresses.USDT),
+        [MaticAddresses.HOLDER_USDT],
+        parseUnits("100", 6),
+        await TokenDataTypes.Build(deployer, MaticAddresses.DAI),
+      );
+      console.log(r);
+    });
+
+    it("Swap USDT => WBTC", async () => {
+      const r = await AprSwap.makeSwapTest(
+        deployer,
+        await TokenDataTypes.Build(deployer, MaticAddresses.USDT),
+        [MaticAddresses.HOLDER_USDT],
+        parseUnits("100", 6),
+        await TokenDataTypes.Build(deployer, MaticAddresses.WBTC),
+      );
+      console.log(r);
+    });
   });
 });
 

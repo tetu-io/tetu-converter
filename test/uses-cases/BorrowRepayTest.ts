@@ -277,7 +277,7 @@ describe("BorrowRepayTest", () => {
           describe("Mock", () => {
             it("should return expected balances", async () => {
               if (!await isPolygonForkInUse()) return;
-              const ret = await BorrowRepayUsesCase.makeTestTwoBorrowsTwoRepays_Mock(deployer,
+              const ret = await BorrowRepayUsesCase.makeTwoBorrowsTwoRepays_Mock(deployer,
                 {
                   collateral: {
                     asset: ASSET_COLLATERAL,
@@ -317,7 +317,7 @@ describe("BorrowRepayTest", () => {
           describe("AAVE3", () => {
             it("should return expected balances", async () => {
               if (!await isPolygonForkInUse()) return;
-              const ret = await BorrowRepayUsesCase.makeTestTwoBorrowsTwoRepays(deployer,
+              const ret = await BorrowRepayUsesCase.makeTwoBorrowsTwoRepaysTest(deployer,
                 {
                   collateral: {
                     asset: ASSET_COLLATERAL,
@@ -347,7 +347,7 @@ describe("BorrowRepayTest", () => {
           describe("AAVETwo", () => {
             it("should return expected balances", async () => {
               if (!await isPolygonForkInUse()) return;
-              const ret = await BorrowRepayUsesCase.makeTestTwoBorrowsTwoRepays(deployer,
+              const ret = await BorrowRepayUsesCase.makeTwoBorrowsTwoRepaysTest(deployer,
                 {
                   collateral: {
                     asset: ASSET_COLLATERAL,
@@ -377,7 +377,7 @@ describe("BorrowRepayTest", () => {
           describe("dForce", () => {
             it("should return expected balances", async () => {
               if (!await isPolygonForkInUse()) return;
-              const ret = await BorrowRepayUsesCase.makeTestTwoBorrowsTwoRepays(deployer,
+              const ret = await BorrowRepayUsesCase.makeTwoBorrowsTwoRepaysTest(deployer,
                 {
                   collateral: {
                     asset: ASSET_COLLATERAL,
@@ -407,7 +407,7 @@ describe("BorrowRepayTest", () => {
           describe("Hundred finance", () => {
             it("should return expected balances", async () => {
               if (!await isPolygonForkInUse()) return;
-              const ret = await BorrowRepayUsesCase.makeTestTwoBorrowsTwoRepays(deployer,
+              const ret = await BorrowRepayUsesCase.makeTwoBorrowsTwoRepaysTest(deployer,
                 {
                   collateral: {
                     asset: ASSET_COLLATERAL,

@@ -162,11 +162,21 @@ export class CompareAprUsesCase {
 
     const collateralToken = IERC20Metadata__factory.connect(collateralAsset, receiver);
     const borrowToken = IERC20Metadata__factory.connect(borrowAsset, receiver);
-    await BalanceUtils.getRequiredAmountFromHolders(collateralAmount, collateralToken, collateralHolders, swapManager.address);
 
+    await BalanceUtils.getRequiredAmountFromHolders(collateralAmount, collateralToken, collateralHolders, receiverAddress);
     const collateralBalanceBeforeSwap = await collateralToken.balanceOf(receiverAddress);
+    console.log("makeSwapThereAndBack.collateralBalanceBeforeSwap", collateralBalanceBeforeSwap);
+
+    await IERC20__factory.connect(
+      collateralToken.address,
+      await DeployerUtils.startImpersonate(receiverAddress)
+    ).transfer(swapManager.address, collateralAmount);
     await swapManager.swap(collateralAsset, collateralAmount, borrowAsset, strategyToConvert.maxTargetAmount, receiverAddress);
+
+    console.log("makeSwapThereAndBack.collateralBalanceAfterSwapThere", await collateralToken.balanceOf(receiverAddress));
+
     const borrowedAmount = await borrowToken.balanceOf(receiverAddress);
+    console.log("makeSwapThereAndBack.borrowedAmount", borrowedAmount);
     await borrowToken.transfer(swapManager.address, borrowedAmount);
     const planReverseSwap = await swapManager.getConverter({
       sourceAmount: borrowedAmount,
@@ -175,10 +185,12 @@ export class CompareAprUsesCase {
       periodInBlocks: 0
     })
     await swapManager.swap(borrowAsset, borrowedAmount, collateralAsset, planReverseSwap.maxTargetAmount, receiverAddress);
-    const collateralBalanceAfterSwap = await collateralToken.balanceOf(receiverAddress);
+    const collateralBalanceAfterSwap = await collateralToken.balanceOf(receiverAddress)
+    console.log("makeSwapThereAndBack.collateralBalanceAfterReverseSwap", await collateralToken.balanceOf(receiverAddress));
+    console.log("makeSwapThereAndBack.planReverseSwap", planReverseSwap);
 
-    const apr18 = collateralBalanceAfterSwap
-      .sub(collateralBalanceBeforeSwap)
+    const apr18 = collateralBalanceBeforeSwap
+      .sub(collateralBalanceAfterSwap)
       .mul(Misc.WEI)
       .div(collateralAmount);
 
@@ -194,6 +206,7 @@ export class CompareAprUsesCase {
 
       // actually received amount
       borrowedAmount,
+      lostCollateral: collateralBalanceBeforeSwap.sub(collateralBalanceAfterSwap)
     }
   }
 
