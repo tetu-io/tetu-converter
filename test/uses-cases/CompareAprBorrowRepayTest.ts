@@ -275,12 +275,14 @@ describe("CompareAprBorrowRepayTest @skip-on-coverage", () => {
         dai,
         usdc,
         usdt,
-        wmatic
+        wmatic,
+        weth
       ];
       const amounts = [
         parseUnits("1000", 18),
         parseUnits("1000", 6),
         parseUnits("1000", 6),
+        parseUnits("1000", 18),
         parseUnits("1000", 18),
       ]
       const platforms = [controllerForAave3, controllerForAaveTwo, controllerForDForce, controllerForHundredFinance, controllerSwap];
@@ -289,7 +291,9 @@ describe("CompareAprBorrowRepayTest @skip-on-coverage", () => {
       for (let n = 0; n < platforms.length; ++n) {
         let localSnapshot: string;
         for (let i = 0; i < assets.length; ++i) {
-          for (let j = i + 1; j < assets.length; ++j) {
+          for (let j = 0; j < assets.length; ++j) {
+            if (i === j) continue;
+
             localSnapshot = await TimeUtils.snapshot();
             try {
               await makeBorrowAndRepaySaveToFile(pathOut, platformTitles[n], platforms[n], assets[i], amounts[i], assets[j], COUNT_BLOCKS_LARGE);
@@ -317,7 +321,7 @@ describe("CompareAprBorrowRepayTest @skip-on-coverage", () => {
       }
     });
 
-    it("dforce only", async () => {
+    it("swap only", async () => {
       const pathOut = "tmp/compareApr.csv";
       const assets = [
         dai,
@@ -327,8 +331,8 @@ describe("CompareAprBorrowRepayTest @skip-on-coverage", () => {
         parseUnits("1000", 18),
         parseUnits("1000", 6),
       ]
-      const platforms = [controllerForDForce];
-      const platformTitles = ["DForce"];
+      const platforms = [controllerSwap];
+      const platformTitles = ["swap"];
 
       for (let n = 0; n < platforms.length; ++n) {
         let localSnapshot: string;

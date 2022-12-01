@@ -20,7 +20,6 @@ import "../interfaces/IConverter.sol";
 import "../interfaces/ISwapConverter.sol";
 import "../interfaces/IKeeperCallback.sol";
 import "../interfaces/ITetuConverterCallback.sol";
-import "hardhat/console.sol";
 
 /// @notice Main application contract
 contract TetuConverter is ITetuConverter, IKeeperCallback, ReentrancyGuard {
@@ -603,14 +602,12 @@ contract TetuConverter is ITetuConverter, IKeeperCallback, ReentrancyGuard {
     address[] memory rewardTokensOut,
     uint[] memory amountsOut
   ) {
-    console.log("TetuConveter.claimRewards");
     address[] memory poolAdapters = _debtMonitor().getPositionsForUser(msg.sender);
     uint lenPoolAdapters = poolAdapters.length;
     address[] memory rewardTokens = new address[](lenPoolAdapters);
     uint[] memory amounts = new uint[](lenPoolAdapters);
     uint countPositions = 0;
     for (uint i = 0; i < lenPoolAdapters; i = i.uncheckedInc()) {
-      console.log("TetuConveter.claimRewards", i);
       IPoolAdapter pa = IPoolAdapter(poolAdapters[i]);
       (rewardTokens[countPositions], amounts[countPositions]) = pa.claimRewards(receiver_);
       if (amounts[countPositions] != 0) {

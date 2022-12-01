@@ -29,6 +29,7 @@ contract SwapManager is ISwapManager, ISwapConverter {
 
   uint public constant PRICE_IMPACT_NUMERATOR = 100_000;
   uint public constant PRICE_IMPACT_TOLERANCE = PRICE_IMPACT_NUMERATOR * 2 / 100; // 2%
+  uint public constant AVERAGE_PRICE_IMPACT_TO_CALCULATE_APR = PRICE_IMPACT_NUMERATOR * 1 / 100; // 1%
 
   int public constant APR_NUMERATOR = 10**18;
 
@@ -73,9 +74,13 @@ contract SwapManager is ISwapManager, ISwapConverter {
 //    (ITetuLiquidator.PoolData[] memory route,) = liquidator.buildRoute(p_.sourceToken, p_.targetToken);
     maxTargetAmount = liquidator.getPrice(p_.sourceToken, p_.targetToken, p_.sourceAmount);
     console.log("SwapManager.getConverter.maxTargetAmount", maxTargetAmount);
+    // todo: slippage is taken account temporally
+    maxTargetAmount = maxTargetAmount * (PRICE_IMPACT_NUMERATOR - AVERAGE_PRICE_IMPACT_TO_CALCULATE_APR) / PRICE_IMPACT_NUMERATOR;
 
     // how much we will get when sell target token back
     uint returnAmount = liquidator.getPrice(p_.targetToken, p_.sourceToken, maxTargetAmount);
+    // todo: slippage is taken account temporally
+    returnAmount = returnAmount * (PRICE_IMPACT_NUMERATOR - AVERAGE_PRICE_IMPACT_TO_CALCULATE_APR) / PRICE_IMPACT_NUMERATOR;
     console.log("SwapManager.getConverter.returnAmount", returnAmount);
 
     // getPrice returns 0 if conversion way is not found
