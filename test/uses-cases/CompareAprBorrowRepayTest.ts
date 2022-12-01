@@ -276,7 +276,8 @@ describe("CompareAprBorrowRepayTest @skip-on-coverage", () => {
         usdc,
         usdt,
         wmatic,
-        weth
+        weth,
+        wbtc
       ];
       const amounts = [
         parseUnits("1000", 18),
@@ -284,6 +285,7 @@ describe("CompareAprBorrowRepayTest @skip-on-coverage", () => {
         parseUnits("1000", 6),
         parseUnits("1000", 18),
         parseUnits("1000", 18),
+        parseUnits("100", 8),
       ]
       const platforms = [controllerForAave3, controllerForAaveTwo, controllerForDForce, controllerForHundredFinance, controllerSwap];
       const platformTitles = ["AAVE3", "AAVETwo", "DForce", "HundredFinance", "Swap"];
@@ -321,18 +323,18 @@ describe("CompareAprBorrowRepayTest @skip-on-coverage", () => {
       }
     });
 
-    it("swap only", async () => {
+    it.skip("aave only", async () => {
       const pathOut = "tmp/compareApr.csv";
       const assets = [
-        dai,
-        usdc,
+        usdt,
+        wmatic,
       ];
       const amounts = [
-        parseUnits("1000", 18),
         parseUnits("1000", 6),
+        parseUnits("1000", 18),
       ]
-      const platforms = [controllerSwap];
-      const platformTitles = ["swap"];
+      const platforms = [controllerForAave3];
+      const platformTitles = ["aave3"];
 
       for (let n = 0; n < platforms.length; ++n) {
         let localSnapshot: string;

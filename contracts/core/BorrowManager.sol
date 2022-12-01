@@ -295,29 +295,32 @@ contract BorrowManager is IBorrowManager {
         p_.periodInBlocks
       );
 
-      // combine all costs and incomes and calculate result APR. Rewards are taken with the given weight.
-      // Positive value means cost, negative - income
-      // APR = (cost - income) / collateralAmount, decimals 18, all amounts are given in terms of borrow asset.
-      int planApr18 = (
-        int(plan.borrowCost36)
-        - int(plan.supplyIncomeInBorrowAsset36)
-        - int(plan.rewardsAmountInBorrowAsset36 * rewardsFactor / REWARDS_FACTOR_DENOMINATOR_18)
-      )
-      * int(10**18)
-      / int(plan.amountCollateralInBorrowAsset36);
-
       if (
         plan.converter != address(0)
         // check if we are able to supply required collateral
         && plan.maxAmountToSupply > p_.sourceAmount
-        // take the pool with lowest APR ..
-        && (converter == address(0) || planApr18 < apr18)
-        // ... and with enough liquidity
-        && plan.maxAmountToBorrow >= plan.amountToBorrow
       ) {
-        converter = plan.converter;
-        maxTargetAmount = plan.amountToBorrow;
-        apr18 = planApr18;
+        // combine all costs and incomes and calculate result APR. Rewards are taken with the given weight.
+        // Positive value means cost, negative - income
+        // APR = (cost - income) / collateralAmount, decimals 18, all amounts are given in terms of borrow asset.
+        int planApr18 = (
+          int(plan.borrowCost36)
+          - int(plan.supplyIncomeInBorrowAsset36)
+          - int(plan.rewardsAmountInBorrowAsset36 * rewardsFactor / REWARDS_FACTOR_DENOMINATOR_18)
+        )
+        * int(10**18)
+        / int(plan.amountCollateralInBorrowAsset36);
+
+        if (
+          // take the pool with lowest APR ..
+          (converter == address(0) || planApr18 < apr18)
+          // ... and with enough liquidity
+          && plan.maxAmountToBorrow >= plan.amountToBorrow
+        ) {
+          converter = plan.converter;
+          maxTargetAmount = plan.amountToBorrow;
+          apr18 = planApr18;
+        }
       }
     }
 
