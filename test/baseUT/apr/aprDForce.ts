@@ -214,53 +214,53 @@ export class AprDForce {
     const dForceHelper = await DeployUtils.deployContract(deployer, "DForceTestHelper") as DForceTestHelper;
 
     // start point: we estimate APR in this point before borrow and supply
-    const before = await getDForceStateInfo(comptroller
-      , cTokenCollateral
-      , cTokenBorrow
+    const before = await getDForceStateInfo(comptroller,
+      cTokenCollateral,
+      cTokenBorrow,
       // we don't have user address at this moment
       // so, use dummy address (and get dummy balance values - we don't use them)
-      , ethers.Wallet.createRandom().address
+      ethers.Wallet.createRandom().address
     );
 
-    const supplyRatePredicted = await this.getEstimatedSupplyRate(libFacade
-      , before
-      , amountCollateral
-      , marketCollateralData.interestRateModel
+    const supplyRatePredicted = await this.getEstimatedSupplyRate(libFacade,
+      before,
+      amountCollateral,
+      marketCollateralData.interestRateModel
     );
     console.log(`supplyRatePredicted=${supplyRatePredicted.toString()}`);
 
     const amountToBorrow = getBigNumberFrom(amountToBorrow0, borrowAssetDecimals);
-    const borrowRatePredicted = await this.getEstimatedBorrowRate(libFacade
-      , cTokenBorrow
-      , amountToBorrow
+    const borrowRatePredicted = await this.getEstimatedBorrowRate(libFacade,
+      cTokenBorrow,
+      amountToBorrow,
     );
     console.log(`borrowRatePredicted=${borrowRatePredicted.toString()}`);
 
     // make borrow
     const borrowResults = await makeBorrow(
-      deployer
-      , p
-      , amountToBorrow
-      , new DForcePlatformFabric()
+      deployer,
+      p,
+      amountToBorrow,
+      new DForcePlatformFabric(),
     );
     const userAddress = borrowResults.poolAdapter;
     const borrowAmount = borrowResults.borrowAmount;
     console.log(`userAddress=${userAddress} borrowAmount=${borrowAmount} amountToBorrow=${amountToBorrow}`);
 
     // next => last
-    const next = await getDForceStateInfo(comptroller
-      , cTokenCollateral
-      , cTokenBorrow
-      , userAddress
+    const next = await getDForceStateInfo(comptroller,
+      cTokenCollateral,
+      cTokenBorrow,
+      userAddress,
     );
 
     // For borrow and collateral: move ahead on single block
     await dForceHelper.updateInterest(cTokenCollateral.address, cTokenBorrow.address);
 
-    const last = await getDForceStateInfo(comptroller
-      , cTokenCollateral
-      , cTokenBorrow
-      , userAddress
+    const last = await getDForceStateInfo(comptroller,
+      cTokenCollateral,
+      cTokenBorrow,
+      userAddress,
     );
 
     console.log("before", before);
@@ -272,36 +272,36 @@ export class AprDForce {
     const countBlocksNextToLast = 1;
 
     const supplyIncomeInBorrowAsset36 = await libFacade.getSupplyIncomeInBorrowAsset36(
-      supplyRatePredicted
-      , countBlocksNextToLast
-      , collateralAssetDecimals
-      , priceCollateral36
-      , priceBorrow36
-      , amountCollateral
+      supplyRatePredicted,
+      countBlocksNextToLast,
+      collateralAssetDecimals,
+      priceCollateral36,
+      priceBorrow36,
+      amountCollateral,
     );
     const supplyIncomeInBorrowAsset36Exact = await libFacade.getSupplyIncomeInBorrowAsset36(
-      next.collateral.market.supplyRatePerBlock
-      , countBlocksNextToLast
-      , collateralAssetDecimals
-      , priceCollateral36
-      , priceBorrow36
-      , amountCollateral
+      next.collateral.market.supplyRatePerBlock,
+      countBlocksNextToLast,
+      collateralAssetDecimals,
+      priceCollateral36,
+      priceBorrow36,
+      amountCollateral,
     );
     console.log("supplyAprExact", supplyIncomeInBorrowAsset36Exact);
 
     const borrowCost36 = await libFacade.getBorrowCost36(
-      borrowRatePredicted
-      , borrowAmount
-      , countBlocksNextToLast
-      , borrowAssetDecimals
+      borrowRatePredicted,
+      borrowAmount,
+      countBlocksNextToLast,
+      borrowAssetDecimals,
     );
     console.log("borrowApr", borrowCost36);
 
     const borrowCost36Exact = await libFacade.getBorrowCost36(
-      last.borrow.market.borrowRatePerBlock
-      , borrowAmount
-      , countBlocksNextToLast
-      , borrowAssetDecimals
+      last.borrow.market.borrowRatePerBlock,
+      borrowAmount,
+      countBlocksNextToLast,
+      borrowAssetDecimals,
     );
     console.log("borrowAprExact", borrowCost36);
 

@@ -1259,6 +1259,7 @@ describe("CompareAprBeforeAfterBorrow @skip-on-coverage", () => {
       );
       console.log(r);
     });
+
     describe("HundredFinance DAI => USDT", () => {
       it("predicted APR should be equal to real APR", async () => {
         if (!await isPolygonForkInUse()) return;
@@ -1295,6 +1296,30 @@ describe("CompareAprBeforeAfterBorrow @skip-on-coverage", () => {
           {
             collateral: {asset: MaticAddresses.DAI, holder: MaticAddresses.HOLDER_DAI, initialLiquidity: parseUnits("100000")},
             borrow: {asset: MaticAddresses.USDT, holder: MaticAddresses.HOLDER_USDT, initialLiquidity: parseUnits("100000", 6)},
+            healthFactor2: 400,
+            collateralAmount: parseUnits("1000"),
+            countBlocks: 20000
+          },
+          controller,
+          20000
+        );
+        console.log(r);
+      });
+    });
+
+    describe("Swap DAI => USDT", () => {
+      it("predicted APR should be equal to real APR", async () => {
+        if (!await isPolygonForkInUse()) return;
+        const {controller} = await TetuConverterApp.buildApp(deployer,
+          [],
+          {tetuLiquidatorAddress: MaticAddresses.TETU_LIQUIDATOR} // disable swap
+        );
+        await DForceChangePriceUtils.setupPriceOracleMock(deployer, true);
+        const r = await BorrowRepayUsesCase.makeSingleBorrowSingleFullRepayBase(
+          deployer,
+          {
+            collateral: {asset: MaticAddresses.DAI, holder: MaticAddresses.HOLDER_DAI, initialLiquidity: parseUnits("100000")},
+            borrow: {asset: MaticAddresses.USDT, holder: MaticAddresses.HOLDER_USDT, initialLiquidity: parseUnits("1000", 6)},
             healthFactor2: 400,
             collateralAmount: parseUnits("1000"),
             countBlocks: 20000

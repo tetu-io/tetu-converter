@@ -25,6 +25,8 @@ import {DeployerUtils} from "../../../scripts/utils/DeployerUtils";
 import {makeInfinityApprove} from "../utils/transferUtils";
 import {IStrategyToConvert} from "../apr/aprDataTypes";
 import {ethers} from "hardhat";
+import {RepayActionUsingSwap} from "../actions/RepayActionUsingSwap";
+import {ClaimRewardsAction} from "../actions/ClaimRewardsAction";
 
 const BORROW_CONVERSION_MODE = 1;
 
@@ -362,54 +364,21 @@ export class BorrowRepayUsesCase {
       collateralAmount,
       p.borrow.asset,
       p.countBlocks,
-      BORROW_CONVERSION_MODE
+      0
     );
 
     // TetuConverter gives infinity approve to the pool adapter after pool adapter creation (see TetuConverter.convert implementation)
     const borrowAction = new BorrowAction(collateralToken, collateralAmount, borrowToken, p.countBlocks);
-    const repayAction = new RepayAction(collateralToken, borrowToken, amountToRepay,
-      {countBlocksToSkipAfterAction: countBlocksToSkipAfterBorrow}
-    );
+    const repayAction = (strategyToConvert.converter.toLowerCase() === (await controller.swapManager()).toLowerCase())
+      ? new RepayActionUsingSwap(controller, collateralToken, borrowToken, ucBalanceBorrow0)
+      : new RepayAction(collateralToken, borrowToken, amountToRepay, {countBlocksToSkipAfterAction: countBlocksToSkipAfterBorrow});
+    const claimRewardsAction = new ClaimRewardsAction(controller, collateralToken, borrowToken);
+
 
     const {
       userBalances,
       borrowBalances
-    } = await BorrowRepayUsesCase.makeBorrowRepayActions(deployer, uc, [borrowAction, repayAction]);
-
-    // claim rewards
-    const rewardsReceiver = ethers.Wallet.createRandom().address;
-    const tetuConverterAsUserContract = ITetuConverter__factory.connect(
-      tetuConverter.address,
-      await DeployerUtils.startImpersonate(uc.address)
-    );
-    const rewards = await tetuConverterAsUserContract.callStatic.claimRewards(rewardsReceiver);
-    if (rewards.rewardTokensOut.length) {
-      console.log("Rewards:", rewards);
-      await tetuConverterAsUserContract.claimRewards(rewardsReceiver);
-      const tetuLiquidatorAsUser = await ITetuLiquidator__factory.connect(
-        await controller.tetuLiquidator(),
-        await DeployerUtils.startImpersonate(rewardsReceiver)
-      );
-      for (let i = 0; i < rewards.rewardTokensOut.length; ++i) {
-        await IERC20__factory.connect(
-          rewards.rewardTokensOut[i],
-          await DeployerUtils.startImpersonate(rewardsReceiver)
-        ).approve(tetuLiquidatorAsUser.address, rewards.amountsOut[i]);
-
-        await tetuLiquidatorAsUser.liquidate(
-          rewards.rewardTokensOut[i],
-          p.borrow.asset,
-          rewards.amountsOut[i],
-          10000
-        );
-      }
-    }
-
-    const rewardsInBorrowAssetReceived = await IERC20__factory.connect(
-      p.borrow.asset,
-      await DeployerUtils.startImpersonate(rewardsReceiver)
-    ).balanceOf(rewardsReceiver);
-    console.log("rewardsInBorrowAssetReceived", rewardsInBorrowAssetReceived)
+    } = await BorrowRepayUsesCase.makeBorrowRepayActions(deployer, uc, [borrowAction, claimRewardsAction, repayAction]);
 
     return {
       uc,
@@ -419,7 +388,7 @@ export class BorrowRepayUsesCase {
       userBalances,
       collateralAmount,
       strategyToConvert,
-      rewardsInBorrowAssetReceived
+      rewardsInBorrowAssetReceived: claimRewardsAction.rewardsInBorrowAssetReceived
     }
   }
 

@@ -17,6 +17,7 @@ import "../../integrations/IWmatic.sol";
 import "../../integrations/dforce/IDForceInterestRateModel.sol";
 import "../../integrations/dforce/IDForceRewardDistributor.sol";
 import "../../openzeppelin/Initializable.sol";
+import "hardhat/console.sol";
 
 /// @notice Implementation of IPoolAdapter for dForce-protocol, see https://developers.dforce.network/
 /// @dev Instances of this contract are created using proxy-minimal pattern, so no constructor
@@ -439,6 +440,7 @@ contract DForcePoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP, Initi
     address rewardTokenOut,
     uint amountOut
   ) {
+    console.log("claimRewards");
     _onlyTetuConverter();
 
     IDForceRewardDistributor rd = IDForceRewardDistributor(_comptroller.rewardDistributor());
@@ -458,6 +460,7 @@ contract DForcePoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP, Initi
       rd.claimAllReward(holders);
 
       uint balance = IERC20(rewardTokenOut).balanceOf(address(this));
+      console.log("claimRewards.balance", balance);
       if (balance != 0) {
         IERC20(rewardTokenOut).safeTransfer(receiver_, balance);
       }

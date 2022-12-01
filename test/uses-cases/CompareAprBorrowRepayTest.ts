@@ -179,8 +179,8 @@ describe("CompareAprBorrowRepayTest @skip-on-coverage", () => {
       borrowAmount: r.userBalances[0].borrow.sub(r.ucBalanceBorrow0),
       strategyToConvert: r.strategyToConvert,
       collateralAmount,
-      userBorrowBalanceDelta: r.userBalances[1].borrow.sub(r.ucBalanceBorrow0),
-      userCollateralBalanceDelta: r.userBalances[1].collateral.sub(r.ucBalanceCollateral0),
+      userBorrowBalanceDelta: r.userBalances[2].borrow.sub(r.ucBalanceBorrow0),
+      userCollateralBalanceDelta: r.userBalances[2].collateral.sub(r.ucBalanceCollateral0),
       userRewardsInBorrowAsset: r.rewardsInBorrowAssetReceived,
       priceCollateral: prices[0],
       priceBorrow: prices[1]
@@ -203,7 +203,10 @@ describe("CompareAprBorrowRepayTest @skip-on-coverage", () => {
         "borrowDelta",
         "rewardsInBorrowAsset",
 
-        "APR18"
+        "APR18",
+
+        "priceCollateral",
+        "priceBorrow"
       ];
       writeFileSync(path, headers.join(";") + "\n", {encoding: 'utf8', flag: "a" });
     }
@@ -256,6 +259,9 @@ describe("CompareAprBorrowRepayTest @skip-on-coverage", () => {
       formatUnits(r.userRewardsInBorrowAsset, await getAssetDecimals(r.borrowAsset)),
 
       r.strategyToConvert.apr18.toString(),
+
+      r.priceCollateral.toString(),
+      r.priceBorrow.toString()
     ];
     writeFileSync(path, line.join(";") + "\n", {encoding: 'utf8', flag: "a" });
   }
@@ -311,6 +317,49 @@ describe("CompareAprBorrowRepayTest @skip-on-coverage", () => {
       }
     });
 
+    it("dforce only", async () => {
+      const pathOut = "tmp/compareApr.csv";
+      const assets = [
+        dai,
+        usdc,
+      ];
+      const amounts = [
+        parseUnits("1000", 18),
+        parseUnits("1000", 6),
+      ]
+      const platforms = [controllerForDForce];
+      const platformTitles = ["DForce"];
+
+      for (let n = 0; n < platforms.length; ++n) {
+        let localSnapshot: string;
+        for (let i = 0; i < assets.length; ++i) {
+          for (let j = i + 1; j < assets.length; ++j) {
+            localSnapshot = await TimeUtils.snapshot();
+            try {
+              await makeBorrowAndRepaySaveToFile(pathOut, platformTitles[n], platforms[n], assets[i], amounts[i], assets[j], COUNT_BLOCKS_LARGE);
+              // tslint:disable-next-line:no-any
+            } catch (e: any) {
+              console.log(e);
+              let written = false;
+              const re = /VM Exception while processing transaction: reverted with reason string\s*(.*)/i;
+              if (e.message) {
+                const found = e.message.match(re);
+                console.log("found", found)
+                if (found && found[1]) {
+                  writeError(pathOut, platformTitles[n], found[1], assets[i], amounts[i], assets[j]);
+                  written = true;
+                }
+              }
+              if (! written) {
+                writeError(pathOut, platformTitles[n], e, assets[i], amounts[i], assets[j]);
+              }
+            } finally {
+              await TimeUtils.rollback(localSnapshot);
+            }
+          }
+        }
+      }
+    });
   });
 
 //endregion Unit tests
