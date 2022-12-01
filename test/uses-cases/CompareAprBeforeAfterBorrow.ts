@@ -21,6 +21,11 @@ import {AprSwap} from "../baseUT/apr/aprSwap";
 import {TokenDataTypes} from "../baseUT/types/TokenDataTypes";
 import {BalanceUtils} from "../baseUT/utils/BalanceUtils";
 import {parseUnits} from "ethers/lib/utils";
+import {BorrowRepayUsesCase} from "../baseUT/uses-cases/BorrowRepayUsesCase";
+import {TetuConverterApp} from "../baseUT/helpers/TetuConverterApp";
+import {HundredFinancePlatformFabric} from "../baseUT/fabrics/HundredFinancePlatformFabric";
+import {DForcePlatformFabric} from "../baseUT/fabrics/DForcePlatformFabric";
+import {DForceChangePriceUtils} from "../baseUT/protocols/dforce/DForceChangePriceUtils";
 
 /**
  * For any landing platform:
@@ -1254,6 +1259,53 @@ describe("CompareAprBeforeAfterBorrow @skip-on-coverage", () => {
       );
       console.log(r);
     });
+    describe("HundredFinance DAI => USDT", () => {
+      it("predicted APR should be equal to real APR", async () => {
+        if (!await isPolygonForkInUse()) return;
+        const {controller} = await TetuConverterApp.buildApp(deployer,
+          [new HundredFinancePlatformFabric()],
+          {} // disable swap
+        );
+        const r = await BorrowRepayUsesCase.makeSingleBorrowSingleFullRepayBase(
+          deployer,
+          {
+            borrow: {asset: MaticAddresses.USDT, holder: MaticAddresses.HOLDER_USDT, initialLiquidity: parseUnits("100000", 6)},
+            collateral: {asset: MaticAddresses.DAI, holder: MaticAddresses.HOLDER_DAI, initialLiquidity: parseUnits("100000")},
+            healthFactor2: 400,
+            collateralAmount: parseUnits("1000"),
+            countBlocks: 20000
+          },
+          controller,
+          20000
+        );
+        console.log(r);
+      });
+    });
+
+    describe("DForce DAI => USDT", () => {
+      it("predicted APR should be equal to real APR", async () => {
+        if (!await isPolygonForkInUse()) return;
+        const {controller} = await TetuConverterApp.buildApp(deployer,
+          [new DForcePlatformFabric()],
+          {} // disable swap
+        );
+        await DForceChangePriceUtils.setupPriceOracleMock(deployer, true);
+        const r = await BorrowRepayUsesCase.makeSingleBorrowSingleFullRepayBase(
+          deployer,
+          {
+            collateral: {asset: MaticAddresses.DAI, holder: MaticAddresses.HOLDER_DAI, initialLiquidity: parseUnits("100000")},
+            borrow: {asset: MaticAddresses.USDT, holder: MaticAddresses.HOLDER_USDT, initialLiquidity: parseUnits("100000", 6)},
+            healthFactor2: 400,
+            collateralAmount: parseUnits("1000"),
+            countBlocks: 20000
+          },
+          controller,
+          20000
+        );
+        console.log(r);
+      });
+    });
   });
+
 });
 

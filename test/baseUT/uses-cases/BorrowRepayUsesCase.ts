@@ -5,9 +5,8 @@ import {
   Borrower,
   BorrowManager__factory,
   IPlatformAdapter__factory,
-  TetuConverter__factory,
   ITetuConverter__factory,
-  Controller
+  Controller, ITetuLiquidator__factory, IERC20__factory
 } from "../../../typechain";
 import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import {TokenDataTypes} from "../types/TokenDataTypes";
@@ -24,8 +23,8 @@ import {BorrowMockAction} from "../actions/BorrowMockAction";
 import {RepayMockAction} from "../actions/RepayMockAction";
 import {DeployerUtils} from "../../../scripts/utils/DeployerUtils";
 import {makeInfinityApprove} from "../utils/transferUtils";
-import {tetu} from "../../../typechain/contracts/integrations";
-import {IConversionPlan, IStrategyToConvert} from "../apr/aprDataTypes";
+import {IStrategyToConvert} from "../apr/aprDataTypes";
+import {ethers} from "hardhat";
 
 const BORROW_CONVERSION_MODE = 1;
 
@@ -66,6 +65,7 @@ export interface IMakeSingleBorrowSingleFullRepayBaseResults {
   userBalances: IUserBalancesWithGas[];
   borrowBalances: BigNumber[];
   strategyToConvert: IStrategyToConvert;
+  rewardsInBorrowAssetReceived: BigNumber;
 }
 
 export interface IMakeTestSingleBorrowInstantRepayResults {
@@ -376,6 +376,41 @@ export class BorrowRepayUsesCase {
       borrowBalances
     } = await BorrowRepayUsesCase.makeBorrowRepayActions(deployer, uc, [borrowAction, repayAction]);
 
+    // claim rewards
+    const rewardsReceiver = ethers.Wallet.createRandom().address;
+    const tetuConverterAsUserContract = ITetuConverter__factory.connect(
+      tetuConverter.address,
+      await DeployerUtils.startImpersonate(uc.address)
+    );
+    const rewards = await tetuConverterAsUserContract.callStatic.claimRewards(rewardsReceiver);
+    if (rewards.rewardTokensOut.length) {
+      console.log("Rewards:", rewards);
+      await tetuConverterAsUserContract.claimRewards(rewardsReceiver);
+      const tetuLiquidatorAsUser = await ITetuLiquidator__factory.connect(
+        await controller.tetuLiquidator(),
+        await DeployerUtils.startImpersonate(rewardsReceiver)
+      );
+      for (let i = 0; i < rewards.rewardTokensOut.length; ++i) {
+        await IERC20__factory.connect(
+          rewards.rewardTokensOut[i],
+          await DeployerUtils.startImpersonate(rewardsReceiver)
+        ).approve(tetuLiquidatorAsUser.address, rewards.amountsOut[i]);
+
+        await tetuLiquidatorAsUser.liquidate(
+          rewards.rewardTokensOut[i],
+          p.borrow.asset,
+          rewards.amountsOut[i],
+          10000
+        );
+      }
+    }
+
+    const rewardsInBorrowAssetReceived = await IERC20__factory.connect(
+      p.borrow.asset,
+      await DeployerUtils.startImpersonate(rewardsReceiver)
+    ).balanceOf(rewardsReceiver);
+    console.log("rewardsInBorrowAssetReceived", rewardsInBorrowAssetReceived)
+
     return {
       uc,
       ucBalanceCollateral0,
@@ -383,7 +418,8 @@ export class BorrowRepayUsesCase {
       borrowBalances,
       userBalances,
       collateralAmount,
-      strategyToConvert
+      strategyToConvert,
+      rewardsInBorrowAssetReceived
     }
   }
 

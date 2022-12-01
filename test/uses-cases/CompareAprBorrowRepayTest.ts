@@ -1,27 +1,10 @@
 import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import {ethers} from "hardhat";
 import {TimeUtils} from "../../scripts/utils/TimeUtils";
-import {
-  CompareAprUsesCase,
-  IBorrowTask,
-  IBorrowingTestResults,
-  ISwapTestResults
-} from "../baseUT/uses-cases/CompareAprUsesCase";
 import {MaticAddresses} from "../../scripts/addresses/MaticAddresses";
-import {IAssetInfo, IStrategyToConvert} from "../baseUT/apr/aprDataTypes";
+import {IStrategyToConvert} from "../baseUT/apr/aprDataTypes";
 import {BigNumber} from "ethers";
-import {Controller, IERC20Metadata__factory, SwapManager__factory} from "../../typechain";
-import {getBigNumberFrom} from "../../scripts/utils/NumberUtils";
-import {AprAave3} from "../baseUT/apr/aprAave3";
-import {AdaptersHelper} from "../baseUT/helpers/AdaptersHelper";
-import {AprAaveTwo} from "../baseUT/apr/aprAaveTwo";
-import {AprDForce} from "../baseUT/apr/aprDForce";
-import {appendBorrowingTestResultsToFile, appendSwapTestResultsToFile} from "../baseUT/apr/aprUtils";
-import {areAlmostEqual} from "../baseUT/utils/CommonUtils";
-import {expect} from "chai";
-import {Misc} from "../../scripts/utils/Misc";
-import {AprHundredFinance} from "../baseUT/apr/aprHundredFinance";
-import {isPolygonForkInUse} from "../baseUT/utils/NetworkUtils";
+import {Controller, IAavePool__factory, IAavePriceOracle__factory, IERC20Metadata__factory} from "../../typechain";
 import {TetuConverterApp} from "../baseUT/helpers/TetuConverterApp";
 import {Aave3PlatformFabric} from "../baseUT/fabrics/Aave3PlatformFabric";
 import {AaveTwoPlatformFabric} from "../baseUT/fabrics/AaveTwoPlatformFabric";
@@ -29,14 +12,12 @@ import {DForcePlatformFabric} from "../baseUT/fabrics/DForcePlatformFabric";
 import {HundredFinancePlatformFabric} from "../baseUT/fabrics/HundredFinancePlatformFabric";
 import {
   BorrowRepayUsesCase,
-  IMakeSingleBorrowSingleFullRepayBaseResults,
-  IMakeTestSingleBorrowInstantRepayResults
 } from "../baseUT/uses-cases/BorrowRepayUsesCase";
 import {ITokenParams} from "../baseUT/types/BorrowRepayDataTypes";
 import {formatUnits, parseUnits} from "ethers/lib/utils";
 import {existsSync, writeFileSync} from "fs";
-import {colorLabel} from "hardhat-tracer/dist/src/colors";
 import {DForceChangePriceUtils} from "../baseUT/protocols/dforce/DForceChangePriceUtils";
+import {Aave3Helper} from "../../scripts/integration/helpers/Aave3Helper";
 
 describe("CompareAprBorrowRepayTest @skip-on-coverage", () => {
 //region Constants
@@ -131,142 +112,157 @@ describe("CompareAprBorrowRepayTest @skip-on-coverage", () => {
   });
 //endregion before, after
 
-//region Unit tests
-  describe("Generate compareApr1", () => {
-    interface IMakeBorrowAndRepayResults {
-      collateralAsset: string;
-      collateralAmount: BigNumber;
-      borrowAsset: string;
-      borrowAmount: BigNumber;
-      strategyToConvert: IStrategyToConvert;
-      userCollateralBalanceDelta: BigNumber;
-      userBorrowBalanceDelta: BigNumber;
+//region Utils
+  function getAssetName(asset: string) : string {
+    switch (asset) {
+      case MaticAddresses.DAI: return "DAI";
+      case MaticAddresses.USDC: return "USDC";
+      case MaticAddresses.USDT: return "USDT";
+      case MaticAddresses.WBTC: return "WBTC";
+      case MaticAddresses.WETH: return "WETH";
+      case MaticAddresses.WMATIC: return "WMATIC";
     }
+    return asset;
+  }
+  async function getAssetDecimals(asset: string) : Promise<number> {
+    switch (asset) {
+      case MaticAddresses.DAI: return 18;
+      case MaticAddresses.USDC: return 6;
+      case MaticAddresses.USDT: return 6;
+      case MaticAddresses.WBTC: return 8;
+      case MaticAddresses.WETH: return 18;
+      case MaticAddresses.WMATIC: return 18;
+    }
+    return IERC20Metadata__factory.connect(asset, deployer).decimals();
+  }
+//endregion Utils
 
-    async function makeBorrowAndRepay(
-      controller: Controller,
-      collateral: ITokenParams,
-      collateralAmount: BigNumber,
-      borrow: ITokenParams,
-      countBlocks: number
-    ) : Promise<IMakeBorrowAndRepayResults> {
-      const r = await BorrowRepayUsesCase.makeSingleBorrowSingleFullRepayBase(
-        deployer,
-        {
-          borrow,
-          collateral,
-          countBlocks,
-          collateralAmount,
-          healthFactor2: HEALTH_FACTOR2
-        },
-        controller,
-        countBlocks
-      );
-      return {
-        borrowAsset: borrow.asset,
-        collateralAsset: collateral.asset,
-        borrowAmount: r.userBalances[0].borrow.sub(r.ucBalanceBorrow0),
-        strategyToConvert: r.strategyToConvert,
+//region Test impl
+  interface IMakeBorrowAndRepayResults {
+    collateralAsset: string;
+    collateralAmount: BigNumber;
+    borrowAsset: string;
+    borrowAmount: BigNumber;
+    strategyToConvert: IStrategyToConvert;
+    userCollateralBalanceDelta: BigNumber;
+    userBorrowBalanceDelta: BigNumber;
+    userRewardsInBorrowAsset: BigNumber;
+    priceCollateral: BigNumber;
+    priceBorrow: BigNumber;
+  }
+
+  async function makeBorrowAndRepay(
+    controller: Controller,
+    collateral: ITokenParams,
+    collateralAmount: BigNumber,
+    borrow: ITokenParams,
+    countBlocks: number
+  ) : Promise<IMakeBorrowAndRepayResults> {
+    const r = await BorrowRepayUsesCase.makeSingleBorrowSingleFullRepayBase(
+      deployer,
+      {
+        borrow,
+        collateral,
+        countBlocks,
         collateralAmount,
-        userBorrowBalanceDelta: r.userBalances[1].borrow.sub(r.ucBalanceBorrow0),
-        userCollateralBalanceDelta: r.userBalances[1].collateral.sub(r.ucBalanceCollateral0)
-      }
+        healthFactor2: HEALTH_FACTOR2
+      },
+      controller,
+      countBlocks
+    );
+    const priceOracle = await Aave3Helper.getAavePriceOracle(deployer);
+    const prices = await priceOracle.getAssetsPrices([collateral.asset, borrow.asset]);
+
+    return {
+      borrowAsset: borrow.asset,
+      collateralAsset: collateral.asset,
+      borrowAmount: r.userBalances[0].borrow.sub(r.ucBalanceBorrow0),
+      strategyToConvert: r.strategyToConvert,
+      collateralAmount,
+      userBorrowBalanceDelta: r.userBalances[1].borrow.sub(r.ucBalanceBorrow0),
+      userCollateralBalanceDelta: r.userBalances[1].collateral.sub(r.ucBalanceCollateral0),
+      userRewardsInBorrowAsset: r.rewardsInBorrowAssetReceived,
+      priceCollateral: prices[0],
+      priceBorrow: prices[1]
     }
+  }
 
-    function writeHeadersIfNecessary(path: string) {
-      if (! existsSync(path)) {
-        const headers = [
-          "platform",
-          "error",
+  function writeHeadersIfNecessary(path: string) {
+    if (! existsSync(path)) {
+      const headers = [
+        "platform",
+        "error",
 
-          "collateralAsset",
-          "borrowAsset",
+        "collateralAsset",
+        "borrowAsset",
 
-          "collateralAmount",
-          "borrowAmount",
+        "collateralAmount",
+        "borrowAmount",
 
-          "collateralDelta",
-          "borrowDelta",
+        "collateralDelta",
+        "borrowDelta",
+        "rewardsInBorrowAsset",
 
-          "APR18"
-        ];
-        writeFileSync(path, headers.join(";") + "\n", {encoding: 'utf8', flag: "a" });
-      }
-    }
-
-    function getAssetName(asset: string) : string {
-      switch (asset) {
-        case MaticAddresses.DAI: return "DAI";
-        case MaticAddresses.USDC: return "USDC";
-        case MaticAddresses.USDT: return "USDT";
-        case MaticAddresses.WBTC: return "WBTC";
-        case MaticAddresses.WETH: return "WETH";
-        case MaticAddresses.WMATIC: return "WMATIC";
-      }
-      return asset;
-    }
-    async function getAssetDecimals(asset: string) : Promise<number> {
-      switch (asset) {
-        case MaticAddresses.DAI: return 18;
-        case MaticAddresses.USDC: return 6;
-        case MaticAddresses.USDT: return 6;
-        case MaticAddresses.WBTC: return 8;
-        case MaticAddresses.WETH: return 18;
-        case MaticAddresses.WMATIC: return 18;
-      }
-      return IERC20Metadata__factory.connect(asset, deployer).decimals();
-    }
-
-    function writeError(
-      path: string,
-      platform: string,
-      error: string,
-      collateral: ITokenParams,
-      collateralAmount: BigNumber,
-      borrow: ITokenParams,
-    ) {
-      writeHeadersIfNecessary(path);
-      const line = [
-        platform,
-        error,
-
-        getAssetName(collateral.asset),
-        getAssetName(borrow.asset),
-
-        collateralAmount.toString(),
+        "APR18"
       ];
-      writeFileSync(path, line.join(";") + "\n", {encoding: 'utf8', flag: "a" });
+      writeFileSync(path, headers.join(";") + "\n", {encoding: 'utf8', flag: "a" });
     }
+  }
 
-    async function makeBorrowAndRepaySaveToFile(
-      path: string,
-      platform: string,
-      controller: Controller,
-      collateral: ITokenParams,
-      collateralAmount: BigNumber,
-      borrow: ITokenParams,
-      countBlocks: number
-    ) {
-      writeHeadersIfNecessary(path);
-      const r = await makeBorrowAndRepay(controller, collateral, collateralAmount, borrow, countBlocks);
-      const line = [
-        platform,
-        undefined, // no errors
+  function writeError(
+    path: string,
+    platform: string,
+    error: string,
+    collateral: ITokenParams,
+    collateralAmount: BigNumber,
+    borrow: ITokenParams,
+  ) {
+    writeHeadersIfNecessary(path);
+    const line = [
+      platform,
+      error,
 
-        getAssetName(r.collateralAsset),
-        getAssetName(r.borrowAsset),
+      getAssetName(collateral.asset),
+      getAssetName(borrow.asset),
 
-        formatUnits(r.collateralAmount, await getAssetDecimals(r.collateralAsset)),
-        formatUnits(r.borrowAmount, await getAssetDecimals(r.borrowAsset)),
+      collateralAmount.toString(),
+    ];
+    writeFileSync(path, line.join(";") + "\n", {encoding: 'utf8', flag: "a" });
+  }
 
-        formatUnits(r.userCollateralBalanceDelta, await getAssetDecimals(r.collateralAsset)),
-        formatUnits(r.userBorrowBalanceDelta, await getAssetDecimals(r.borrowAsset)),
+  async function makeBorrowAndRepaySaveToFile(
+    path: string,
+    platform: string,
+    controller: Controller,
+    collateral: ITokenParams,
+    collateralAmount: BigNumber,
+    borrow: ITokenParams,
+    countBlocks: number
+  ) {
+    writeHeadersIfNecessary(path);
+    const r = await makeBorrowAndRepay(controller, collateral, collateralAmount, borrow, countBlocks);
+    const line = [
+      platform,
+      undefined, // no errors
 
-        r.strategyToConvert.apr18.toString(),
-      ];
-      writeFileSync(path, line.join(";") + "\n", {encoding: 'utf8', flag: "a" });
-    }
+      getAssetName(r.collateralAsset),
+      getAssetName(r.borrowAsset),
 
+      formatUnits(r.collateralAmount, await getAssetDecimals(r.collateralAsset)),
+      formatUnits(r.borrowAmount, await getAssetDecimals(r.borrowAsset)),
+
+      formatUnits(r.userCollateralBalanceDelta, await getAssetDecimals(r.collateralAsset)),
+      formatUnits(r.userBorrowBalanceDelta, await getAssetDecimals(r.borrowAsset)),
+      formatUnits(r.userRewardsInBorrowAsset, await getAssetDecimals(r.borrowAsset)),
+
+      r.strategyToConvert.apr18.toString(),
+    ];
+    writeFileSync(path, line.join(";") + "\n", {encoding: 'utf8', flag: "a" });
+  }
+//endregion Test impl
+
+//region Unit tests
+  describe("Compare APR", () => {
     it("generate file compareApr", async () => {
       const pathOut = "tmp/compareApr.csv";
       const assets = [
@@ -281,8 +277,8 @@ describe("CompareAprBorrowRepayTest @skip-on-coverage", () => {
         parseUnits("1000", 6),
         parseUnits("1000", 18),
       ]
-      const platforms = [controllerForAave3, controllerForAaveTwo, controllerForDForce, controllerForHundredFinance];
-      const platformTitles = ["AAVE3", "AAVETwo", "DForce", "HundredFinance"];
+      const platforms = [controllerForAave3, controllerForAaveTwo, controllerForDForce, controllerForHundredFinance, controllerSwap];
+      const platformTitles = ["AAVE3", "AAVETwo", "DForce", "HundredFinance", "Swap"];
 
       for (let n = 0; n < platforms.length; ++n) {
         let localSnapshot: string;
@@ -308,7 +304,7 @@ describe("CompareAprBorrowRepayTest @skip-on-coverage", () => {
                 writeError(pathOut, platformTitles[n], e, assets[i], amounts[i], assets[j]);
               }
             } finally {
-              await TimeUtils.rollback(snapshotForEach);
+              await TimeUtils.rollback(localSnapshot);
             }
           }
         }
