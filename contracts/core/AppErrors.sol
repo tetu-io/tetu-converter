@@ -109,4 +109,6 @@ library AppErrors {
   string public constant AMOUNT_TOO_BIG = "TC-50 amount too big";
 
   string public constant NOT_PENDING_GOVERNANCE = "TC-51 not pending gov";
+
+  string public constant INCORRECT_OPERATION = "TC-52 incorrect op";
 }

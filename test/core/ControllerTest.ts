@@ -1,5 +1,5 @@
 import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
-import {ethers} from "hardhat";
+import hre, {ethers} from "hardhat";
 import {expect} from "chai";
 import {Controller, Controller__factory, IController__factory} from "../../typechain";
 import {TimeUtils} from "../../scripts/utils/TimeUtils";
@@ -326,15 +326,40 @@ describe("Controller", () => {
         const {controller} = await createTestController(a);
 
         const before = await controller.blocksPerDay();
+        const beforeLastBlockNumber = (await controller.lastBlockNumber()).toNumber();
+
         const controllerAsGov = Controller__factory.connect(
           controller.address,
           await DeployerUtils.startImpersonate(await controller.governance())
         );
-        await controllerAsGov.setBlocksPerDay(blocksPerDayUpdated);
+        await controllerAsGov.setBlocksPerDay(blocksPerDayUpdated, false);
         const after = await controller.blocksPerDay();
+        const afterLastBlockNumber = (await controller.lastBlockNumber()).toNumber();
 
-        const ret = [before, after].join();
-        const expected = [a.blocksPerDay, blocksPerDayUpdated].join();
+        const ret = [before, after, beforeLastBlockNumber, afterLastBlockNumber].join();
+        const expected = [a.blocksPerDay, blocksPerDayUpdated, 0, 0].join();
+
+        expect(ret).to.be.equal(expected);
+      });
+      it("should enable auto-update", async () => {
+        const a = getRandomMembersValues();
+        const blocksPerDayUpdated = 418;
+
+        const {controller} = await createTestController(a);
+
+        const before = await controller.blocksPerDay();
+        const beforeLastBlockNumber = (await controller.lastBlockNumber()).toNumber();
+
+        const controllerAsGov = Controller__factory.connect(
+          controller.address,
+          await DeployerUtils.startImpersonate(await controller.governance())
+        );
+        await controllerAsGov.setBlocksPerDay(blocksPerDayUpdated, true);
+        const after = await controller.blocksPerDay();
+        const afterLastBlockNumber = (await controller.lastBlockNumber()).toNumber();
+
+        const ret = [before, after, beforeLastBlockNumber, afterLastBlockNumber > 0].join();
+        const expected = [a.blocksPerDay, blocksPerDayUpdated, 0, true].join();
 
         expect(ret).to.be.equal(expected);
       });
@@ -348,7 +373,7 @@ describe("Controller", () => {
           const {controller} = await createTestController(a);
 
           await expect(
-            controller.setBlocksPerDay(blocksPerDayUpdated)
+            controller.setBlocksPerDay(blocksPerDayUpdated, false)
           ).revertedWith("TC-29 incorrect value");
         });
       });
@@ -358,12 +383,153 @@ describe("Controller", () => {
           const {controller} = await createTestController(a);
           const controllerNotGov = Controller__factory.connect(controller.address, user3);
           await expect(
-            controllerNotGov.setBlocksPerDay(4000)
+            controllerNotGov.setBlocksPerDay(4000, false)
           ).revertedWith("TC-9 governance only"); // GOVERNANCE_ONLY
         });
       });
     });
   });
+  describe ("isBlocksPerDayAutoUpdateRequired", () => {
+    describe ("Good paths", () => {
+      it("should return false", async () => {
+        const {controller} = await createTestController(getRandomMembersValues());
+
+        const controllerAsGov = Controller__factory.connect(
+          controller.address,
+          await DeployerUtils.startImpersonate(await controller.governance())
+        );
+        await controllerAsGov.setBlocksPerDay(400, true);
+        // const block1 = await hre.ethers.provider.getBlock("latest");
+        await TimeUtils.advanceNBlocks(1); // we assume here, that 1 block < 100 seconds
+        // const block2 = await hre.ethers.provider.getBlock("latest");
+        const ret = await controller.isBlocksPerDayAutoUpdateRequired(100); // 100 seconds
+
+        expect(ret).to.be.equal(false);
+      });
+      it("should return true", async () => {
+        const {controller} = await createTestController(getRandomMembersValues());
+
+        const controllerAsGov = Controller__factory.connect(
+          controller.address,
+          await DeployerUtils.startImpersonate(await controller.governance())
+        );
+        await controllerAsGov.setBlocksPerDay(400, true);
+        await TimeUtils.advanceNBlocks(200); // we assume here, that 200 blocks > 100 seconds
+        const ret = await controller.isBlocksPerDayAutoUpdateRequired(100);
+
+        expect(ret).to.be.equal(true);
+      });
+    });
+  });
+  describe("updateBlocksPerDay", () => {
+    describe("Good paths", () => {
+      it("should assigned expected value to blocksPerDay", async () => {
+        const {controller} = await createTestController(getRandomMembersValues());
+
+        const controllerAsGov = Controller__factory.connect(
+          controller.address,
+          await DeployerUtils.startImpersonate(await controller.governance())
+        );
+        await controllerAsGov.setBlocksPerDay(400, true);
+        const block0 = await hre.ethers.provider.getBlock("latest");
+        const lastBlockNumber0 = (await controller.lastBlockNumber()).toNumber();
+        const lastBlockTimestamp0 = (await controller.lastBlockTimestamp()).toNumber();
+
+        const periodSecs = 100; // seconds
+        do {
+          await TimeUtils.advanceNBlocks(10);
+          const block = await hre.ethers.provider.getBlock("latest");
+          if (block.timestamp - block0.timestamp > periodSecs) {
+            break;
+          }
+        } while(true);
+
+        const controllerAsKeeper = Controller__factory.connect(
+          controller.address,
+          await DeployerUtils.startImpersonate(await controller.keeper())
+        );
+
+        await controllerAsKeeper.updateBlocksPerDay(100);
+        const lastBlockNumber1 = (await controller.lastBlockNumber()).toNumber();
+        const lastBlockTimestamp1 = (await controller.lastBlockTimestamp()).toNumber();
+
+        const resultBlocksPerDay = (await controllerAsKeeper.blocksPerDay()).toNumber();
+        const countPassedDays = (lastBlockTimestamp1 - lastBlockTimestamp0) / (24*60*60);
+        const expectedBlocksPerDay = Math.floor((lastBlockNumber1 - lastBlockNumber0) / countPassedDays);
+
+        expect(resultBlocksPerDay).eq(expectedBlocksPerDay);
+      });
+    });
+    describe("Bad paths", () => {
+      it("should revert if not keeper", async () => {
+        const {controller} = await createTestController(getRandomMembersValues());
+
+        const controllerAsGov = Controller__factory.connect(
+          controller.address,
+          await DeployerUtils.startImpersonate(await controller.governance())
+        );
+        await controllerAsGov.setBlocksPerDay(400, true);
+        await TimeUtils.advanceNBlocks(50); // assume here, that 50 blocks > 10 seconds
+        expect(
+          controllerAsGov.updateBlocksPerDay(10)
+        ).revertedWith("TC-42 keeper only");
+      });
+      it("should revert if auto-update is disabled", async () => {
+        const {controller} = await createTestController(getRandomMembersValues());
+
+        const controllerAsGov = Controller__factory.connect(
+          controller.address,
+          await DeployerUtils.startImpersonate(await controller.governance())
+        );
+        await controllerAsGov.setBlocksPerDay(400,
+          false // (!) auto-update is disabled
+        );
+        const controllerAsKeeper = Controller__factory.connect(
+          controller.address,
+          await DeployerUtils.startImpersonate(await controller.keeper())
+        );
+        await TimeUtils.advanceNBlocks(50); // assume here, that 50 blocks > 10 seconds
+        expect(
+          controllerAsKeeper.updateBlocksPerDay(10)
+        ).revertedWith("TC-52 incorrect op");
+      });
+      it("should revert if period is zero", async () => {
+        const {controller} = await createTestController(getRandomMembersValues());
+
+        const controllerAsGov = Controller__factory.connect(controller.address,
+          await DeployerUtils.startImpersonate(await controller.governance())
+        );
+        await controllerAsGov.setBlocksPerDay(400, true);
+        const controllerAsKeeper = Controller__factory.connect(controller.address,
+          await DeployerUtils.startImpersonate(await controller.keeper())
+        );
+        await TimeUtils.advanceNBlocks(50); // assume here, that 50 blocks > 10 seconds
+        expect(
+          controllerAsKeeper.updateBlocksPerDay(
+            0 // (!)
+          )
+        ).revertedWith("TC-29 incorrect value");
+      });
+      it("should revert if block-number wasn't changed", async () => {
+        const {controller} = await createTestController(getRandomMembersValues());
+
+        const controllerAsGov = Controller__factory.connect(controller.address,
+          await DeployerUtils.startImpersonate(await controller.governance())
+        );
+        await controllerAsGov.setBlocksPerDay(400, true);
+        const controllerAsKeeper = Controller__factory.connect(controller.address,
+          await DeployerUtils.startImpersonate(await controller.keeper())
+        );
+        await TimeUtils.advanceNBlocks(50); // assume here, that 50 blocks > 10 seconds
+        expect(
+          controllerAsKeeper.updateBlocksPerDay(
+            100000 // (!) it's not time to auto-update yet
+          )
+        ).revertedWith("TC-29 incorrect value");
+      });
+    });
+  });
+
 
   describe ("setMinHealthFactor2", () => {
     describe ("Good paths", () => {
@@ -525,8 +691,8 @@ describe("Controller", () => {
         await DeployerUtils.startImpersonate(await controller.governance())
       );
       await expect(
-        controllerAsGov.setBlocksPerDay(100)
-      ).to.emit(controller, "OnSetBlocksPerDay").withArgs(100);
+        controllerAsGov.setBlocksPerDay(100, false)
+      ).to.emit(controller, "OnSetBlocksPerDay").withArgs(100, false);
 
       await expect(
         controllerAsGov.setMinHealthFactor2(111)

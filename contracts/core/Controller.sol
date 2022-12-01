@@ -8,6 +8,8 @@ import "../openzeppelin/Initializable.sol";
 /// @notice Keep and provide addresses of all application contracts
 contract Controller is IController, Initializable {
   uint16 constant MIN_ALLOWED_MIN_HEALTH_FACTOR = 100;
+  /// @notice Period of auto-update of the blocksPerDay-value in seconds
+  /// uint constant BLOCKS_PER_DAY_AUTO_UPDATE_PERIOD_SECS = 2 * 7 * 24 * 60 * 60; // 2 weeks
 
   // We cannot use immutable variables, because each contract should get address of the controller in the constructor
 
@@ -29,7 +31,7 @@ contract Controller is IController, Initializable {
   /// @notice Wrapper around tetu-liquidator
   address public override swapManager;
 
-  /// @notice Curent governance. It can be changed by offer/accept scheme
+  /// @notice Current governance. It can be changed by offer/accept scheme
   address public override governance;
   /// @notice New governance suggested by exist governance
   address public pendingGovernance;
@@ -50,12 +52,18 @@ contract Controller is IController, Initializable {
   uint16 public override maxHealthFactor2;
 
   /// @notice Count of blocks per day, updatable
-  uint private _blocksPerDay;
+  uint public override blocksPerDay;
+
+  /// @notice When blocksPerDay was updated last time
+  ///         0 - auto-update is disabled
+  uint public lastBlockNumber;
+  uint public lastBlockTimestamp;
 
   ///////////////////////////////////////////////////////
   ///               Events
   ///////////////////////////////////////////////////////
-  event OnSetBlocksPerDay(uint blocksPerDay);
+  event OnSetBlocksPerDay(uint blocksPerDay, bool enableAutoUpdate);
+  event OnAutoUpdateBlocksPerDay(uint blocksPerDay);
   event OnSetMinHealthFactor2(uint16 value);
   event OnSetTargetHealthFactor2(uint16 value);
   event OnSetMaxHealthFactor2(uint16 value);
@@ -101,7 +109,10 @@ contract Controller is IController, Initializable {
     tetuLiquidator = tetuLiquidator_;
     swapManager = swapManager_;
 
-    _blocksPerDay = blocksPerDay_;
+    blocksPerDay = blocksPerDay_;
+    // by default auto-update of blocksPerDay is disabled
+    // it's necessary to call setBlocksPerDay to enable it
+
     minHealthFactor2 = minHealthFactor_;
     maxHealthFactor2 = maxHealthFactor_;
     targetHealthFactor2 = targetHealthFactor_;
@@ -113,19 +124,47 @@ contract Controller is IController, Initializable {
 
   ///////////////////////////////////////////////////////
   ///               Blocks per day
-  ///     TODO: there is idea to detect this value
-  ///     TODO: automatically on DebtMonitor side - good idea
   ///////////////////////////////////////////////////////
 
-  function blocksPerDay() external view override returns (uint) {
-    return _blocksPerDay;
+  /// @notice Manually set value of blocksPerDay and enable/disable its auto-update
+  ///         If the update is enabled, the first update will happen in BLOCKS_PER_DAY_AUTO_UPDATE_PERIOD_SECS seconds
+  function setBlocksPerDay(uint blocksPerDay_, bool enableAutoUpdate_) external override {
+    require(blocksPerDay_ != 0, AppErrors.INCORRECT_VALUE);
+    _onlyGovernance();
+    blocksPerDay = blocksPerDay_;
+    if (enableAutoUpdate_) {
+      lastBlockNumber = block.number;
+      lastBlockTimestamp = block.timestamp;
+    }
+    emit OnSetBlocksPerDay(blocksPerDay_, enableAutoUpdate_);
   }
 
-  function setBlocksPerDay(uint value_) external override {
-    require(value_ != 0, AppErrors.INCORRECT_VALUE);
-    _onlyGovernance();
-    _blocksPerDay = value_;
-    emit OnSetBlocksPerDay(value_);
+  /// @notice Check if blocksPerDay should be updated. The keeper should do it periodically
+  function isBlocksPerDayAutoUpdateRequired(uint periodInSeconds_) external view override returns (bool) {
+    return lastBlockNumber != 0 && block.timestamp - lastBlockTimestamp > periodInSeconds_;
+  }
+
+  /// @notice Calculate new value of blocksPerDay as COUNT PASSED BLOCKS / COUNT PASSED DAYS (since prev auto-update)
+  function updateBlocksPerDay(uint periodInSeconds_) external override {
+    require(msg.sender == keeper, AppErrors.KEEPER_ONLY);
+    require(lastBlockNumber != 0,
+      // && lastBlockNumber != block.number       // this check is unnecessary
+      AppErrors.INCORRECT_OPERATION               // setBlocksPerDay is called by governance
+    );                                            // but updateBlocksPerDay is called by keeper
+                                                  // so, they cannot be called in the same block
+    require(
+      periodInSeconds_ > 0
+      && lastBlockTimestamp + periodInSeconds_ <= block.timestamp,
+      AppErrors.INCORRECT_VALUE
+    );
+    // blocks-per-day = count passed blocks / count passed days
+    // count passed days = count passed seconds / count seconds per day
+    blocksPerDay = (block.number - lastBlockNumber) * (24 * 60 * 60) / (block.timestamp - lastBlockTimestamp);
+
+    lastBlockNumber = block.number;
+    lastBlockTimestamp = block.timestamp;
+
+    emit OnAutoUpdateBlocksPerDay(blocksPerDay);
   }
 
   ///////////////////////////////////////////////////////
