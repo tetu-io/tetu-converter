@@ -81,7 +81,7 @@ export class MaticAddresses {
   public static HOLDER_WETH_2 = "0xdc9232e2df177d7a12fdff6ecbab114e2231198d";
   public static HOLDER_WETH = "0xadbf1854e5883eb8aa7baf50705338739e558e5b";
 
-  public static HOLDER_CHAIN_LINK = "0x7344e478574acbe6dac9de1077430139e17eec3d";
+  public static HOLDER_CHAIN_LINK = "0x55e4d16f9c3041eff17ca32850662f3e9dddbce7";
   public static HOLDER_DefiPulseToken = "0xd1468a5e1ff399d7a4465fbdff3e3ccb013d149f";
   public static HOLDER_AavegotchiGHST = "0xf977814e90da44bfa03b6295a0616a897441acec";
   public static HOLDER_Sushi = "0x0f0c716b007c289c0011e470cc7f14de4fe9fc80";
