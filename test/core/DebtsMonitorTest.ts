@@ -37,6 +37,7 @@ import {CoreContractsHelper} from "../baseUT/helpers/CoreContractsHelper";
 import {Misc} from "../../scripts/utils/Misc";
 import {ICreateControllerParams, TetuConverterApp} from "../baseUT/helpers/TetuConverterApp";
 import {parseUnits} from "ethers/lib/utils";
+import {chainConfig} from "@nomiclabs/hardhat-etherscan/dist/src/ChainConfig";
 
 describe("DebtsMonitor", () => {
 //region Global vars for all tests
@@ -676,142 +677,60 @@ describe("DebtsMonitor", () => {
 //region Unit tests
   describe("constructor", () => {
     async function makeConstructorTest(
-      thresholdAPR: number,
-      thresholdCountBlocks: number,
+      // thresholdAPR: number,
+      // thresholdCountBlocks: number,
       useZeroController?: boolean
     ): Promise<{ret: string, expected: string}> {
       const controller = await CoreContractsHelper.deployController(deployer);
       const debtMonitor = await CoreContractsHelper.createDebtMonitor(
         deployer,
         useZeroController ? Misc.ZERO_ADDRESS : controller.address,
-        thresholdAPR,
-        thresholdCountBlocks
+        // thresholdAPR,
+        // thresholdCountBlocks
       );
       const ret = [
-        await debtMonitor.thresholdAPR(),
-        await debtMonitor.thresholdCountBlocks()
+        await debtMonitor.controller()
+        // await debtMonitor.thresholdAPR(),
+        // await debtMonitor.thresholdCountBlocks()
       ].map(x => BalanceUtils.toString(x)).join("\n");
       const expected = [
-        thresholdAPR,
-        thresholdCountBlocks
+        controller.address,
+        // thresholdAPR,
+        // thresholdCountBlocks
       ].map(x => BalanceUtils.toString(x)).join("\n");
       return {ret, expected};
     }
     describe("Good paths", () => {
-      it("should enable both thresholds", async () => {
-        const r = await makeConstructorTest(20, 7000);
+      it("should be ok", async () => {
+        const r = await makeConstructorTest();
         expect(r.ret).eq(r.expected);
       });
-      it("should disable both thresholds", async () => {
-        const r = await makeConstructorTest(0, 0);
-        expect(r.ret).eq(r.expected);
-      });
+      // it("should enable both thresholds", async () => {
+      //   const r = await makeConstructorTest(20, 7000);
+      //   expect(r.ret).eq(r.expected);
+      // });
+      // it("should disable both thresholds", async () => {
+      //   const r = await makeConstructorTest(0, 0);
+      //   expect(r.ret).eq(r.expected);
+      // });
     });
     describe("Bad paths", () => {
-      it("should revert on too big thresholdAPR", async () => {
-        await expect(
-          makeConstructorTest(
-            100, // (!) it must be less 100
-            0
-          )
-        ).revertedWith("TC-29 incorrect value"); // INCORRECT_VALUE
-      });
+      // it("should revert on too big thresholdAPR", async () => {
+      //   await expect(
+      //     makeConstructorTest(
+      //       100, // (!) it must be less 100
+      //       0
+      //     )
+      //   ).revertedWith("TC-29 incorrect value"); // INCORRECT_VALUE
+      // });
       it("should revert if controller is zero", async () => {
         await expect(
           makeConstructorTest(
-            0,
-            0,
+            // 0,
+            // 0,
             true // (!) controller is zero
           )
         ).revertedWith("TC-1 zero address"); // ZERO_ADDRESS
-      });
-    });
-  });
-
-  describe("setThresholdAPR", () => {
-    describe("Good paths", () => {
-      describe("Set thresholdAPR equal to 0", () => {
-        it("should set expected value", async () => {
-          const r = await setUpSinglePool();
-          await r.core.dm.setThresholdAPR(0);
-          const ret = await r.core.dm.thresholdAPR();
-          const expected = 0;
-          expect(ret).equal(expected);
-        });
-      });
-      describe("Set thresholdAPR less then 100", () => {
-        it("should set expected value", async () => {
-          const thresholdApr = 99;
-          const r = await setUpSinglePool();
-          await r.core.dm.setThresholdAPR(thresholdApr);
-          const ret = await r.core.dm.thresholdAPR();
-          expect(ret).equal(thresholdApr);
-        });
-      });
-    });
-    describe("Bad paths", () => {
-      describe("Set thresholdAPR equal to 100", () => {
-        it("should revert", async () => {
-          const thresholdApr = 100; // (!)
-          const r = await setUpSinglePool();
-          await expect(
-            r.core.dm.setThresholdAPR(thresholdApr)
-          ).revertedWith("TC-29 incorrect value") // INCORRECT_VALUE
-        });
-      });
-      describe("Set thresholdAPR greater then 100 and not 0", () => {
-        it("should revert", async () => {
-          const thresholdApr = 101; // (!)
-          const r = await setUpSinglePool();
-          await expect(
-            r.core.dm.setThresholdAPR(thresholdApr)
-          ).revertedWith("TC-29 incorrect value") // INCORRECT_VALUE
-        });
-      });
-      describe("Not governance", () => {
-        it("should revert", async () => {
-          const thresholdApr = 30;
-          const r = await setUpSinglePool();
-          const dmNotGov = await DebtMonitor__factory.connect(r.core.dm.address, user4); // (!)
-          await expect(
-            dmNotGov.setThresholdAPR(thresholdApr)
-          ).revertedWith("TC-9 governance only") // GOVERNANCE_ONLY
-        });
-      });
-    });
-  });
-
-  describe("setThresholdCountBlocks", () => {
-    describe("Good paths", () => {
-      describe("Set setThresholdCountBlocks equal to 0", () => {
-        it("should set expected value", async () => {
-          const r = await setUpSinglePool();
-          await r.core.dm.setThresholdCountBlocks(0);
-          const ret = await r.core.dm.thresholdCountBlocks();
-          const expected = 0;
-          expect(ret).equal(expected);
-        });
-      });
-      describe("Set thresholdCountBlocks not 0", () => {
-        it("should set expected value", async () => {
-          const thresholdCountBlocks = 99;
-          const r = await setUpSinglePool();
-          await r.core.dm.setThresholdCountBlocks(thresholdCountBlocks);
-          const ret = await r.core.dm.thresholdCountBlocks();
-          expect(ret).equal(thresholdCountBlocks);
-        });
-      });
-    });
-    describe("Bad paths", () => {
-      describe("Not governance", () => {
-        it("should revert", async () => {
-          const thresholdCountBlocks = 30;
-          const r = await setUpSinglePool();
-          const dmNotGov = await DebtMonitor__factory.connect(r.core.dm.address, user4); // (!)
-          await expect(
-            dmNotGov.setThresholdCountBlocks(thresholdCountBlocks)
-          ).revertedWith("TC-9 governance only") // GOVERNANCE_ONLY
-        });
       });
     });
   });
@@ -1927,7 +1846,11 @@ describe("DebtsMonitor", () => {
         keeperFabric: async () => ethers.Wallet.createRandom().address,
         swapManagerFabric: async () => ethers.Wallet.createRandom().address,
         tetuLiquidatorAddress: ethers.Wallet.createRandom().address,
-        debtMonitorFabric: (async c => (await CoreContractsHelper.createDebtMonitor(deployer, c.address, 1, 1)).address),
+        debtMonitorFabric: (async c => (await CoreContractsHelper.createDebtMonitor(deployer,
+          c.address
+          // 1,
+          // 1
+        )).address),
       };
       const controller = await TetuConverterApp.createController(deployer, p);
       const debtMonitorAsGov = DebtMonitor__factory.connect(
@@ -1943,13 +1866,13 @@ describe("DebtsMonitor", () => {
         await DeployerUtils.startImpersonate(await controller.borrowManager())
       );
 
-      await expect(
-        debtMonitorAsGov.setThresholdAPR(14)
-      ).to.emit(debtMonitorAsGov, "OnSetThresholdAPR").withArgs(14);
-
-      await expect(
-        debtMonitorAsGov.setThresholdCountBlocks(141)
-      ).to.emit(debtMonitorAsGov, "OnSetThresholdCountBlocks").withArgs(141);
+      // await expect(
+      //   debtMonitorAsGov.setThresholdAPR(14)
+      // ).to.emit(debtMonitorAsGov, "OnSetThresholdAPR").withArgs(14);
+      //
+      // await expect(
+      //   debtMonitorAsGov.setThresholdCountBlocks(141)
+      // ).to.emit(debtMonitorAsGov, "OnSetThresholdCountBlocks").withArgs(141);
 
       const poolAdapter = await MocksHelper.createPoolAdapterStub(deployer, parseUnits("0.5"));
       // const collateralAsset = ethers.Wallet.createRandom().address;
@@ -2290,6 +2213,94 @@ describe("DebtsMonitor", () => {
     //   });
     // });
   });
+
+  // describe("setThresholdAPR", () => {
+  //   describe("Good paths", () => {
+  //     describe("Set thresholdAPR equal to 0", () => {
+  //       it("should set expected value", async () => {
+  //         const r = await setUpSinglePool();
+  //         await r.core.dm.setThresholdAPR(0);
+  //         const ret = await r.core.dm.thresholdAPR();
+  //         const expected = 0;
+  //         expect(ret).equal(expected);
+  //       });
+  //     });
+  //     describe("Set thresholdAPR less then 100", () => {
+  //       it("should set expected value", async () => {
+  //         const thresholdApr = 99;
+  //         const r = await setUpSinglePool();
+  //         await r.core.dm.setThresholdAPR(thresholdApr);
+  //         const ret = await r.core.dm.thresholdAPR();
+  //         expect(ret).equal(thresholdApr);
+  //       });
+  //     });
+  //   });
+  //   describe("Bad paths", () => {
+  //     describe("Set thresholdAPR equal to 100", () => {
+  //       it("should revert", async () => {
+  //         const thresholdApr = 100; // (!)
+  //         const r = await setUpSinglePool();
+  //         await expect(
+  //           r.core.dm.setThresholdAPR(thresholdApr)
+  //         ).revertedWith("TC-29 incorrect value") // INCORRECT_VALUE
+  //       });
+  //     });
+  //     describe("Set thresholdAPR greater then 100 and not 0", () => {
+  //       it("should revert", async () => {
+  //         const thresholdApr = 101; // (!)
+  //         const r = await setUpSinglePool();
+  //         await expect(
+  //           r.core.dm.setThresholdAPR(thresholdApr)
+  //         ).revertedWith("TC-29 incorrect value") // INCORRECT_VALUE
+  //       });
+  //     });
+  //     describe("Not governance", () => {
+  //       it("should revert", async () => {
+  //         const thresholdApr = 30;
+  //         const r = await setUpSinglePool();
+  //         const dmNotGov = await DebtMonitor__factory.connect(r.core.dm.address, user4); // (!)
+  //         await expect(
+  //           dmNotGov.setThresholdAPR(thresholdApr)
+  //         ).revertedWith("TC-9 governance only") // GOVERNANCE_ONLY
+  //       });
+  //     });
+  //   });
+  // });
+  //
+  // describe("setThresholdCountBlocks", () => {
+  //   describe("Good paths", () => {
+  //     describe("Set setThresholdCountBlocks equal to 0", () => {
+  //       it("should set expected value", async () => {
+  //         const r = await setUpSinglePool();
+  //         await r.core.dm.setThresholdCountBlocks(0);
+  //         const ret = await r.core.dm.thresholdCountBlocks();
+  //         const expected = 0;
+  //         expect(ret).equal(expected);
+  //       });
+  //     });
+  //     describe("Set thresholdCountBlocks not 0", () => {
+  //       it("should set expected value", async () => {
+  //         const thresholdCountBlocks = 99;
+  //         const r = await setUpSinglePool();
+  //         await r.core.dm.setThresholdCountBlocks(thresholdCountBlocks);
+  //         const ret = await r.core.dm.thresholdCountBlocks();
+  //         expect(ret).equal(thresholdCountBlocks);
+  //       });
+  //     });
+  //   });
+  //   describe("Bad paths", () => {
+  //     describe("Not governance", () => {
+  //       it("should revert", async () => {
+  //         const thresholdCountBlocks = 30;
+  //         const r = await setUpSinglePool();
+  //         const dmNotGov = await DebtMonitor__factory.connect(r.core.dm.address, user4); // (!)
+  //         await expect(
+  //           dmNotGov.setThresholdCountBlocks(thresholdCountBlocks)
+  //         ).revertedWith("TC-9 governance only") // GOVERNANCE_ONLY
+  //       });
+  //     });
+  //   });
+  // });
 
   describe("TODO: checkBetterBorrowExists", () => {});
 //endregion Unit tests

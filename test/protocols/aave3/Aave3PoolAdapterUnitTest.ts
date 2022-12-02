@@ -12,16 +12,11 @@ import {BigNumber} from "ethers";
 import {getBigNumberFrom} from "../../../scripts/utils/NumberUtils";
 import {DeployerUtils} from "../../../scripts/utils/DeployerUtils";
 import {isPolygonForkInUse} from "../../baseUT/utils/NetworkUtils";
-import {IAave3ReserveInfo} from "../../../scripts/integration/helpers/Aave3Helper";
-import {BalanceUtils, IUserBalances} from "../../baseUT/utils/BalanceUtils";
+import {BalanceUtils} from "../../baseUT/utils/BalanceUtils";
 import {MaticAddresses} from "../../../scripts/addresses/MaticAddresses";
 import {TokenDataTypes} from "../../baseUT/types/TokenDataTypes";
 import {Misc} from "../../../scripts/utils/Misc";
 import {IAave3UserAccountDataResults} from "../../baseUT/apr/aprAave3";
-import {
-  AaveMakeBorrowAndRepayUtils, IBorrowAndRepayBadParams,
-  IMakeBorrowAndRepayResults
-} from "../../baseUT/protocols/aaveShared/aaveBorrowAndRepayUtils";
 import {
   AaveRepayToRebalanceUtils,
   IMakeRepayToRebalanceResults
@@ -31,7 +26,6 @@ import {
   IMakeBorrowToRebalanceBadPathParams,
   IMakeBorrowToRebalanceResults
 } from "../../baseUT/protocols/aaveShared/aaveBorrowToRebalanceUtils";
-import {AaveBorrowUtils} from "../../baseUT/protocols/aaveShared/aaveBorrowUtils";
 import {
   IMakeRepayRebalanceBadPathParams,
   IMakeRepayToRebalanceInputParams
@@ -48,7 +42,6 @@ import {AdaptersHelper} from "../../baseUT/helpers/AdaptersHelper";
 import {TetuConverterApp} from "../../baseUT/helpers/TetuConverterApp";
 import {MocksHelper} from "../../baseUT/helpers/MocksHelper";
 import {parseUnits} from "ethers/lib/utils";
-import {IConversionPlan} from "../../baseUT/apr/aprDataTypes";
 import {areAlmostEqual} from "../../baseUT/utils/CommonUtils";
 import {IPoolAdapterStatus} from "../../baseUT/types/BorrowRepayDataTypes";
 import {Aave3ChangePricesUtils} from "../../baseUT/protocols/aave3/Aave3ChangePricesUtils";

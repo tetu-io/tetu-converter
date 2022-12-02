@@ -46,19 +46,20 @@ contract DebtMonitor is IDebtMonitor {
   /// @dev We need it to prevent removing a pool from the borrow manager when the pool is in use
   mapping(address => EnumerableSet.AddressSet) private _poolAdaptersForConverters;
 
-  /// @notice threshold for APRs difference, i.e. _thresholdApr100 = 20 for (apr0-apr1)/apr0 > 20%
-  ///         0 - disable the limitation by value of APR difference
-  uint public thresholdAPR;
-
-  /// @notice best-way reconversion is allowed only after passing specified count of blocks since last reconversion
-  ///         0 - disable the limitation by count of blocks passed since last onOpenPosition call
-  uint public thresholdCountBlocks;
+// Future versions
+//  /// @notice threshold for APRs difference, i.e. _thresholdApr100 = 20 for (apr0-apr1)/apr0 > 20%
+//  ///         0 - disable the limitation by value of APR difference
+//  uint public thresholdAPR;
+//
+//  /// @notice best-way reconversion is allowed only after passing specified count of blocks since last reconversion
+//  ///         0 - disable the limitation by count of blocks passed since last onOpenPosition call
+//  uint public thresholdCountBlocks;
 
   ///////////////////////////////////////////////////////
   ///               Events
   ///////////////////////////////////////////////////////
-  event OnSetThresholdAPR(uint value100);
-  event OnSetThresholdCountBlocks(uint counbBlocks);
+//  event OnSetThresholdAPR(uint value100);
+//  event OnSetThresholdCountBlocks(uint counbBlocks);
   event OnOpenPosition(address poolAdapter);
   event OnClosePosition(address poolAdapter);
   event OnCloseLiquidatedPosition(address poolAdapter, uint amountToPay);
@@ -68,34 +69,20 @@ contract DebtMonitor is IDebtMonitor {
   ///////////////////////////////////////////////////////
 
   constructor(
-    address controller_,
-    uint thresholdAPR_,
-    uint thresholdCountBlocks_
+    address controller_
+//    uint thresholdAPR_,
+//    uint thresholdCountBlocks_
   ) {
     require(controller_ != address(0), AppErrors.ZERO_ADDRESS);
     controller = IController(controller_);
 
-    require(thresholdAPR_ < 100, AppErrors.INCORRECT_VALUE);
-    thresholdAPR = thresholdAPR_;
-
-    // we don't need any restriction for countBlocks_
-    // 0 - means, that the threshold is disabled
-    thresholdCountBlocks = thresholdCountBlocks_;
-  }
-
-  function setThresholdAPR(uint value100_) external {
-    _onlyGovernance();
-    require(value100_ < 100, AppErrors.INCORRECT_VALUE);
-    thresholdAPR = value100_;
-    emit OnSetThresholdAPR(value100_);
-  }
-
-  function setThresholdCountBlocks(uint countBlocks_) external {
-    _onlyGovernance();
-    // we don't need any restriction for countBlocks_
-    // 0 - means, that the threshold is disabled
-    thresholdCountBlocks = countBlocks_;
-    emit OnSetThresholdCountBlocks(countBlocks_);
+// Future versions:
+//    require(thresholdAPR_ < 100, AppErrors.INCORRECT_VALUE);
+//    thresholdAPR = thresholdAPR_;
+//
+//    // we don't need any restriction for countBlocks_
+//    // 0 - means, that the threshold is disabled
+//    thresholdCountBlocks = thresholdCountBlocks_;
   }
 
   ///////////////////////////////////////////////////////
@@ -480,4 +467,19 @@ contract DebtMonitor is IDebtMonitor {
 //      }
 //    }
 //    return false;
+//  }
+//
+//  function setThresholdAPR(uint value100_) external {
+//    _onlyGovernance();
+//    require(value100_ < 100, AppErrors.INCORRECT_VALUE);
+//    thresholdAPR = value100_;
+//    emit OnSetThresholdAPR(value100_);
+//  }
+//
+//  function setThresholdCountBlocks(uint countBlocks_) external {
+//    _onlyGovernance();
+//    // we don't need any restriction for countBlocks_
+//    // 0 - means, that the threshold is disabled
+//    thresholdCountBlocks = countBlocks_;
+//    emit OnSetThresholdCountBlocks(countBlocks_);
 //  }
