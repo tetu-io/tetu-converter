@@ -109,8 +109,8 @@ contract DForcePoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP, Initi
 
     // The pool adapter doesn't keep assets on its balance, so it's safe to use infinity approve
     // All approves replaced by infinity-approve were commented in the code below
-    IERC20(collateralAsset_).safeApprove(cTokenCollateral, type(uint).max);
-    IERC20(borrowAsset_).safeApprove(cTokenBorrow, type(uint).max);
+    IERC20(collateralAsset_).safeApprove(cTokenCollateral, 2**255); // 2*255 is more gas-efficient than type(uint).max
+    IERC20(borrowAsset_).safeApprove(cTokenBorrow, 2**255); // 2*255 is more gas-efficient than type(uint).max
 
     emit OnInitialized(controller_, cTokenAddressProvider_, comptroller_, user_, collateralAsset_, borrowAsset_, originConverter_);
   }
@@ -231,7 +231,7 @@ contract DForcePoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP, Initi
 
     require(
       sumCollateralSafe36 > borrowBase36
-      && borrowBase36 > 0
+      && borrowBase36 != 0
     // here we should have: sumCollateralSafe - sumBorrowPlusEffects == liquidity
       && liquidity36 + DELTA + borrowBase36 >= sumCollateralSafe36,
       AppErrors.INCORRECT_RESULT_LIQUIDITY
@@ -423,7 +423,7 @@ contract DForcePoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP, Initi
       address assetBorrow = borrowAsset;
       // ensure, that amount to repay is less then the total debt
       (tokenBalanceBefore, borrowBalance,,,,) = _getStatus(cTokenCollateral, cTokenBorrow);
-      require(borrowBalance > 0 && amount_ < borrowBalance, AppErrors.REPAY_TO_REBALANCE_NOT_ALLOWED);
+      require(borrowBalance != 0 && amount_ < borrowBalance, AppErrors.REPAY_TO_REBALANCE_NOT_ALLOWED);
 
       IERC20(assetBorrow).safeTransferFrom(msg.sender, address(this), amount_);
       // the amount is received through safeTransferFrom so we don't need following additional check:

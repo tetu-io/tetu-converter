@@ -91,8 +91,8 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer,
 
     // The pool adapter doesn't keep assets on its balance, so it's safe to use infinity approve
     // All approves replaced by infinity-approve were commented in the code below
-    IERC20(collateralAsset_).safeApprove(pool_, type(uint).max);
-    IERC20(borrowAsset_).safeApprove(pool_, type(uint).max);
+    IERC20(collateralAsset_).safeApprove(pool_, 2**255); // 2*255 is more gas-efficient than type(uint).max
+    IERC20(borrowAsset_).safeApprove(pool_, 2**255);
 
     emit OnInitialized(controller_, pool_, user_, collateralAsset_, borrowAsset_, originConverter_);
   }
@@ -301,7 +301,7 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer,
       // user has transferred a little bigger amount than actually need to close position
       // because of the dust-tokens problem. Let's return remain amount back to the user
       uint borrowBalance = IERC20(assetBorrow).balanceOf(address(this));
-      if (borrowBalance > 0) {
+      if (borrowBalance != 0) {
         IERC20(assetBorrow).safeTransfer(receiver_, borrowBalance);
       }
     }
@@ -400,7 +400,7 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer,
       uint totalAmountToPay = totalDebtBase0 == 0
         ? 0
         : totalDebtBase0 * (10 ** _pool.getConfiguration(assetBorrow).getDecimals()) / priceBorrowAsset;
-      require(totalDebtBase0 > 0 && amount_ < totalAmountToPay, AppErrors.REPAY_TO_REBALANCE_NOT_ALLOWED);
+      require(totalDebtBase0 != 0 && amount_ < totalAmountToPay, AppErrors.REPAY_TO_REBALANCE_NOT_ALLOWED);
 
       IERC20(assetBorrow).safeTransferFrom(msg.sender, address(this), amount_);
 

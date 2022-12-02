@@ -124,8 +124,8 @@ contract TetuConverter is ITetuConverter, IKeeperCallback, ReentrancyGuard {
     uint maxTargetAmount,
     int apr18
   ) {
-    require(sourceAmount_ > 0, AppErrors.ZERO_AMOUNT);
-    require(periodInBlocks_ > 0, AppErrors.INCORRECT_VALUE);
+    require(sourceAmount_ != 0, AppErrors.ZERO_AMOUNT);
+    require(periodInBlocks_ != 0, AppErrors.INCORRECT_VALUE);
 
     AppDataTypes.InputConversionParams memory params = AppDataTypes.InputConversionParams({
       sourceToken: sourceToken_,
@@ -248,8 +248,8 @@ contract TetuConverter is ITetuConverter, IKeeperCallback, ReentrancyGuard {
 
         // TetuConverter doesn't keep assets on its balance, so it's safe to use infinity approve
         // All approves replaced by infinity-approve were commented in the code below
-        IERC20(collateralAsset_).safeApprove(poolAdapter, type(uint).max);
-        IERC20(borrowAsset_).safeApprove(poolAdapter, type(uint).max);
+        IERC20(collateralAsset_).safeApprove(poolAdapter, 2**255); // 2*255 is more gas-efficient than type(uint).max
+        IERC20(borrowAsset_).safeApprove(poolAdapter, 2**255); // 2*255 is more gas-efficient than type(uint).max
       }
 
       // replaced by infinity approve: IERC20(collateralAsset_).safeApprove(poolAdapter, collateralAmount_);
@@ -413,7 +413,7 @@ contract TetuConverter is ITetuConverter, IKeeperCallback, ReentrancyGuard {
     address poolAdapter_
   ) external nonReentrant override {
     require(controller.keeper() == msg.sender, AppErrors.KEEPER_ONLY);
-    require(requiredAmountBorrowAsset_ > 0, AppErrors.INCORRECT_VALUE);
+    require(requiredAmountBorrowAsset_ != 0, AppErrors.INCORRECT_VALUE);
 
     IPoolAdapter pa = IPoolAdapter(poolAdapter_);
     (,address user, address collateralAsset, address borrowAsset) = pa.getConfig();
@@ -428,7 +428,7 @@ contract TetuConverter is ITetuConverter, IKeeperCallback, ReentrancyGuard {
     } else {
       // rebalancing
       //!TODO: we have exactly same checking inside pool adapters... we need to check this condition only once
-      require(amountToPay > 0 && requiredAmountBorrowAsset_ < amountToPay, AppErrors.REPAY_TO_REBALANCE_NOT_ALLOWED);
+      require(amountToPay != 0 && requiredAmountBorrowAsset_ < amountToPay, AppErrors.REPAY_TO_REBALANCE_NOT_ALLOWED);
 
       // ask the borrower to send us required part of the borrowed amount
       uint balanceBorrowedAsset = IERC20(borrowAsset).balanceOf(address(this));
@@ -616,7 +616,7 @@ contract TetuConverter is ITetuConverter, IKeeperCallback, ReentrancyGuard {
       }
     }
 
-    if (countPositions > 0) {
+    if (countPositions != 0) {
       rewardTokensOut = AppUtils.removeLastItems(rewardTokens, countPositions);
       amountsOut = AppUtils.removeLastItems(amounts, countPositions);
     }

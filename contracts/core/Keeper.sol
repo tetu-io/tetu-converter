@@ -107,9 +107,9 @@ contract Keeper is OpsReady, IHealthKeeperCallback, IResolver {
   ///         Call TetuConverter.requireRepay for each position
   function fixHealth(
     uint nextIndexToCheck0_,
-    address[] memory poolAdapters_,
-    uint[] memory amountBorrowAsset_,
-    uint[] memory amountCollateralAsset_
+    address[] calldata poolAdapters_,
+    uint[] calldata amountBorrowAsset_,
+    uint[] calldata amountCollateralAsset_
   ) external override onlyOps {
     uint countPoolAdapters = poolAdapters_.length;
     require(
@@ -120,7 +120,7 @@ contract Keeper is OpsReady, IHealthKeeperCallback, IResolver {
 
     nextIndexToCheck0 = nextIndexToCheck0_;
 
-    if (countPoolAdapters > 0) {
+    if (countPoolAdapters != 0) {
       IKeeperCallback keeperCallback = IKeeperCallback(controller.tetuConverter());
       for (uint i = 0; i < countPoolAdapters; i = i.uncheckedInc()) {
         keeperCallback.requireRepay(

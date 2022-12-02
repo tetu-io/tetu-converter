@@ -535,7 +535,6 @@ describe("Controller", () => {
     });
   });
 
-
   describe ("setMinHealthFactor2", () => {
     describe ("Good paths", () => {
       it("should set expected value", async () => {

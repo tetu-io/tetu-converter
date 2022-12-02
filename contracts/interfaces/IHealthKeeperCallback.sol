@@ -7,8 +7,8 @@ interface IHealthKeeperCallback {
 
   function fixHealth(
     uint nextIndexToCheck0_,
-    address[] memory outPoolAdapters_,
-    uint[] memory outAmountBorrowAsset_,
-    uint[] memory outAmountCollateralAsset_
+    address[] calldata outPoolAdapters_,
+    uint[] calldata outAmountBorrowAsset_,
+    uint[] calldata outAmountCollateralAsset_
   ) external;
 }

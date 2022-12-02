@@ -154,7 +154,7 @@ contract Controller is IController, Initializable {
     );                                            // but updateBlocksPerDay is called by keeper
                                                   // so, they cannot be called in the same block
     require(
-      periodInSeconds_ > 0
+      periodInSeconds_ != 0
       && lastBlockTimestamp + periodInSeconds_ <= block.timestamp,
       AppErrors.INCORRECT_VALUE
     );
