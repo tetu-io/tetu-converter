@@ -12,6 +12,7 @@ import "../interfaces/IKeeperCallback.sol";
 
 /// @notice Executor + Resolver for Gelato
 ///         to check health of opened positions and call requireRepay for unhealthy pool adapters
+///         Same keeper is also responsible for updating block-per-day value in controller.
 contract Keeper is OpsReady, IHealthKeeperCallback, IResolver {
   using AppUtils for uint;
 
@@ -20,6 +21,11 @@ contract Keeper is OpsReady, IHealthKeeperCallback, IResolver {
 
   /// @notice Max count of unhealthy positions to be returned in single request
   uint constant public maxCountToReturn = 1;
+
+  /// @notice Period of auto-update of the blocksPerDay-value in seconds
+  ///         0 - auto-update checking is disabled
+  uint public immutable blocksPerDayAutoUpdatePeriodSecs; // i.e. 2 * 7 * 24 * 60 * 60 for 2 weeks
+
 
   /// @notice Start index of pool adapter for next checkHealth-request
   ///         We store here result of previous call of IDebtMonitor.checkHealth
@@ -36,10 +42,12 @@ contract Keeper is OpsReady, IHealthKeeperCallback, IResolver {
   ///////////////////////////////////////////////////////////////////
   constructor(
     address controller_,
-    address payable ops_
+    address payable ops_,
+    uint blocksPerDayAutoUpdatePeriodSecs_
   ) OpsReady(ops_) {
     require(controller_ != address(0), AppErrors.ZERO_ADDRESS);
     controller = IController(controller_);
+    blocksPerDayAutoUpdatePeriodSecs = blocksPerDayAutoUpdatePeriodSecs_;
   }
 
   ///////////////////////////////////////////////////////////////////
@@ -76,7 +84,11 @@ contract Keeper is OpsReady, IHealthKeeperCallback, IResolver {
       maxCountToReturn
     );
 
-    canExecOut = outPoolAdapters.length != 0 || newNextIndexToCheck0 != startIndex;
+    canExecOut = outPoolAdapters.length != 0
+      || newNextIndexToCheck0 != startIndex
+      || (blocksPerDayAutoUpdatePeriodSecs != 0
+          && controller.isBlocksPerDayAutoUpdateRequired(blocksPerDayAutoUpdatePeriodSecs)
+         );
 
     execPayloadOut = abi.encodeWithSelector(
       IHealthKeeperCallback.fixHealth.selector,
@@ -117,6 +129,12 @@ contract Keeper is OpsReady, IHealthKeeperCallback, IResolver {
           poolAdapters_[i]
         );
       }
+    }
+
+    if (blocksPerDayAutoUpdatePeriodSecs != 0
+        && controller.isBlocksPerDayAutoUpdateRequired(blocksPerDayAutoUpdatePeriodSecs)
+    ) {
+      controller.updateBlocksPerDay(blocksPerDayAutoUpdatePeriodSecs);
     }
 
     emit OnFixHealth(

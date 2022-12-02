@@ -1,22 +1,12 @@
 import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import {
-  BorrowManager, BorrowManager__factory,
-  Controller, DebtMonitor,
-  IController, IERC20__factory, Keeper, LendingPlatformMock,
-  MockERC20, PoolStub,
-  PriceOracleMock, SwapManager, TetuConverter,
+  BorrowManager, Controller, DebtMonitor,
+  IController, Keeper, SwapManager, TetuConverter,
 } from "../../../typechain";
-import {BigNumber, ethers} from "ethers";
+import {BigNumber} from "ethers";
 import {DeployUtils} from "../../../scripts/utils/DeployUtils";
-import {getBigNumberFrom} from "../../../scripts/utils/NumberUtils";
-import {MocksHelper} from "./MocksHelper";
-import {IPoolInfo} from "./BorrowManagerHelper";
 import {COUNT_BLOCKS_PER_DAY} from "../utils/aprUtils";
-import {Misc} from "../../../scripts/utils/Misc";
-import {tetu} from "../../../typechain/contracts/integrations";
-import {TetuConverterApp} from "./TetuConverterApp";
 import {parseUnits} from "ethers/lib/utils";
-import {MaticAddresses} from "../../../scripts/addresses/MaticAddresses";
 
 export class CoreContractsHelper {
   static async deployController(deployer: SignerWithAddress): Promise<Controller> {
@@ -71,12 +61,11 @@ export class CoreContractsHelper {
     signer: SignerWithAddress,
     controller: string,
   ): Promise<TetuConverter> {
-    const dest = (await DeployUtils.deployContract(
+    return (await DeployUtils.deployContract(
       signer,
       "TetuConverter",
       controller
     )) as TetuConverter;
-    return dest;
   }
 
   /** Create BorrowManager with mock as adapter */
@@ -108,13 +97,15 @@ export class CoreContractsHelper {
   public static async createKeeper(
     signer: SignerWithAddress,
     controller: IController,
-    gelatoOpsAddress: string
+    gelatoOpsAddress: string,
+    blocksPerDayAutoUpdatePeriodSecs: number = 2 * 7 * 24 * 60 * 60 // 2 weeks by default
   ) : Promise<Keeper>{
     return (await DeployUtils.deployContract(
       signer,
       "Keeper",
       controller.address,
-      gelatoOpsAddress
+      gelatoOpsAddress,
+      blocksPerDayAutoUpdatePeriodSecs
     )) as Keeper;
   }
 }

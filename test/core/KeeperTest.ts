@@ -1,7 +1,6 @@
 import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import {ethers} from "hardhat";
 import {TimeUtils} from "../../scripts/utils/TimeUtils";
-import {expect} from "chai";
 import {
   Controller,
   DebtMonitorCheckHealthMock, DebtMonitorCheckHealthMock__factory,
@@ -12,7 +11,6 @@ import {
 import {CoreContractsHelper} from "../baseUT/helpers/CoreContractsHelper";
 import {MocksHelper} from "../baseUT/helpers/MocksHelper";
 import {Misc} from "../../scripts/utils/Misc";
-import {DeployerUtils} from "../../scripts/utils/DeployerUtils";
 import {DeployUtils} from "../../scripts/utils/DeployUtils";
 import {TetuConverterApp} from "../baseUT/helpers/TetuConverterApp";
 
@@ -65,7 +63,8 @@ describe("KeeperTest", () => {
 
   async function setupMockedApp(
     signer: SignerWithAddress,
-    wrapKeeper: boolean = false
+    wrapKeeper: boolean = false,
+    blocksPerDayAutoUpdatePeriodSecs?: number
   ) : Promise<ISetupMockedAppResults> {
     const keeperCaller = await MocksHelper.createKeeperCaller(signer);
     const controller: Controller = await TetuConverterApp.createController(
@@ -76,12 +75,21 @@ describe("KeeperTest", () => {
         debtMonitorFabric: async () => (await MocksHelper.createDebtMonitorCheckHealthMock(signer)).address,
         keeperFabric: wrapKeeper
           ? (async c => {
-            const realKeeper = await CoreContractsHelper.createKeeper(signer, c, keeperCaller.address);
+            const realKeeper = await CoreContractsHelper.createKeeper(signer,
+              c,
+              keeperCaller.address,
+              blocksPerDayAutoUpdatePeriodSecs
+            );
             return (await MocksHelper.createKeeperMock(deployer, realKeeper.address)).address;
           })
-          : (async c => (await CoreContractsHelper.createKeeper(signer, c, keeperCaller.address)).address),
+          : (async c => (await CoreContractsHelper.createKeeper(signer,
+            c,
+            keeperCaller.address,
+            blocksPerDayAutoUpdatePeriodSecs
+          )).address),
         swapManagerFabric: async () => ethers.Wallet.createRandom().address,
         tetuLiquidatorAddress: ethers.Wallet.createRandom().address,
+        blocksPerDayAutoUpdatePeriodSecs
       }
     );
 
@@ -164,6 +172,64 @@ describe("KeeperTest", () => {
           // check if fixHealth was called
           const r = await keeperExecutorMock.lastFixHealthParams();
           expect(r.countCalls).eq(1);
+        });
+      });
+      describe("Auto-update is not required", () => {
+        it("should not call fixHealth", async () => {
+          const startIndexToCheck = 0;
+          const nextIndexToCheck = 0;
+          const unhealthyPoolAdapter = ethers.Wallet.createRandom().address;
+
+          const app = await setupMockedApp(deployer,
+            true,
+            2*7*24*60*60 // two weeks
+          );
+          // let's enable auto-update of blocksPerDay value
+          await app.controller.setBlocksPerDay(1000, true);
+
+          const keeperExecutorMock = KeeperMock__factory.connect(app.keeper.address, deployer);
+          // setup app: checker should call keeperMock.fixHealth
+          await keeperExecutorMock.setNextIndexToCheck0(nextIndexToCheck);
+          await app.keeperCaller.setupKeeper(app.keeper.address, keeperExecutorMock.address);
+
+          // all pool adapters are healthy and two weeks obviously were not passed
+          await app.debtMonitorMock.setReturnValues(startIndexToCheck, [], [], []);
+
+          await app.keeperCaller.callChecker();
+
+          // check if fixHealth was called
+          const r = await keeperExecutorMock.lastFixHealthParams();
+          expect(r.countCalls).eq(0);
+        });
+        it("should call fixHealth", async () => {
+          const startIndexToCheck = 0;
+          const nextIndexToCheck = 0;
+
+          const app = await setupMockedApp(deployer,
+            true,
+            1 // (!) auto update should be made each 1 second
+          );
+
+          // let's enable auto-update of blocksPerDay value
+          await app.controller.setBlocksPerDay(1000, true);
+
+          const keeperExecutorMock = KeeperMock__factory.connect(app.keeper.address, deployer);
+          // setup app: checker should call keeperMock.fixHealth
+          await keeperExecutorMock.setNextIndexToCheck0(nextIndexToCheck);
+          await app.keeperCaller.setupKeeper(app.keeper.address, keeperExecutorMock.address);
+
+          // all pool adapters are healthy and two weeks obviously were not passed
+          await app.debtMonitorMock.setReturnValues(startIndexToCheck, [], [], []);
+
+          // we assume here, that 100 blocks > 1 second
+          // so, after the advancing it will be a time to make auto-update
+          await TimeUtils.advanceNBlocks(100);
+
+          await app.keeperCaller.callChecker();
+
+          // check if fixHealth was called
+          const r = await keeperExecutorMock.lastFixHealthParams();
+          expect(r.countCalls).eq(1); // it's called to make auto-update
         });
       });
     });
@@ -360,6 +426,36 @@ describe("KeeperTest", () => {
           expect(ret).eq(expected);
         });
       });
+
+      describe("Check auto-update of blocksPerDay value is called", () => {
+        it("should return expected values", async () => {
+          const newNextIndexToCheck = 10;
+
+          const app = await setupMockedApp(deployer, false
+            , 1 // (!) auto-update of blocksPerDay should be called each 1 second
+          );
+
+          // enable auto-update of blocksPerDay
+          const initialBLocksPerDaysValue = 99999999;
+          await app.controller.setBlocksPerDay(initialBLocksPerDaysValue, true);
+
+          // all pool adapters are healthy
+          await app.debtMonitorMock.setReturnValues(newNextIndexToCheck, [], [], []);
+
+          const before = (await app.controller.blocksPerDay()).toNumber();
+          await app.keeperCaller.setupKeeper(app.keeper.address, app.keeper.address);
+
+          await TimeUtils.advanceNBlocks(100); // we assume here, that 100 blocks > 1 second
+
+          await app.keeperCaller.callChecker();
+          const after = (await app.controller.blocksPerDay()).toNumber();
+
+          const ret = [before === initialBLocksPerDaysValue, before === after].join();
+          const expected = [true, false].join();
+
+          expect(ret).eq(expected);
+        });
+      });
     });
     describe("Bad paths", () => {
       describe("Called by not Gelato", () => {
@@ -396,12 +492,36 @@ describe("KeeperTest", () => {
 
   describe("Initialization", () => {
     describe("Good paths", () => {
-      it("should return expected values", async () => {
+      it("should create keeper successfully", async () => {
         const controller = await TetuConverterApp.createController(deployer);
         const keeper = Keeper__factory.connect(await controller.keeper(), controller.signer);
 
         const ret = await keeper.controller();
         expect(ret).eq(controller.address);
+      });
+      describe("Check blocksPerDayAutoUpdatePeriod value", () => {
+        it("should set zero period (auto-update checking is disabled)", async () => {
+          const controller = await TetuConverterApp.createController(
+            deployer, {
+              blocksPerDayAutoUpdatePeriodSecs: 0 // auto-update checking is disabled
+            }
+          );
+          const keeper = Keeper__factory.connect(await controller.keeper(), controller.signer);
+
+          const ret = await keeper.blocksPerDayAutoUpdatePeriodSecs();
+          expect(ret).eq(0);
+        });
+        it("should set not zero period (auto-update checking is disabled)", async () => {
+          const controller = await TetuConverterApp.createController(
+            deployer, {
+              blocksPerDayAutoUpdatePeriodSecs: 7 * 24 * 60 * 60 // 1 week
+            }
+          );
+          const keeper = Keeper__factory.connect(await controller.keeper(), controller.signer);
+
+          const ret = await keeper.blocksPerDayAutoUpdatePeriodSecs();
+          expect(ret).eq(7 * 24 * 60 * 60);
+        });
       });
     });
     describe("Bad paths", () => {
@@ -413,7 +533,8 @@ describe("KeeperTest", () => {
               deployer,
               "Keeper",
               Misc.ZERO_ADDRESS, // (!)
-              keeperCaller.address
+              keeperCaller.address,
+              2 * 24 * 60 * 60 // 2 weeks
             )
           ).revertedWith("TC-1 zero address"); // ZERO_ADDRESS
         });

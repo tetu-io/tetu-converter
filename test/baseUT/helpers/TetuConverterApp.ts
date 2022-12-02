@@ -23,6 +23,7 @@ export interface ICreateControllerParams {
   maxHealthFactor2?: number;
   countBlocksPerDay?: number;
   tetuLiquidatorAddress?: string;
+  blocksPerDayAutoUpdatePeriodSecs?: number;
 }
 
 export class TetuConverterApp {
@@ -38,7 +39,8 @@ export class TetuConverterApp {
       p?.keeperFabric || (async c => (await CoreContractsHelper.createKeeper(
         deployer,
         c,
-        (await MocksHelper.createKeeperCaller(deployer)).address // default keeper caller
+        (await MocksHelper.createKeeperCaller(deployer)).address, // default keeper caller
+        p?.blocksPerDayAutoUpdatePeriodSecs
       )).address),
       async () => p?.tetuLiquidatorAddress || (await MocksHelper.createTetuLiquidatorMock(deployer, [], [])).address,
       p?.swapManagerFabric || (async c => (await CoreContractsHelper.createSwapManager(deployer, c)).address),

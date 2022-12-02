@@ -4,12 +4,11 @@ pragma solidity 0.8.4;
 import "../interfaces/IController.sol";
 import "./AppErrors.sol";
 import "../openzeppelin/Initializable.sol";
+import "hardhat/console.sol";
 
 /// @notice Keep and provide addresses of all application contracts
 contract Controller is IController, Initializable {
   uint16 constant MIN_ALLOWED_MIN_HEALTH_FACTOR = 100;
-  /// @notice Period of auto-update of the blocksPerDay-value in seconds
-  /// uint constant BLOCKS_PER_DAY_AUTO_UPDATE_PERIOD_SECS = 2 * 7 * 24 * 60 * 60; // 2 weeks
 
   // We cannot use immutable variables, because each contract should get address of the controller in the constructor
 
@@ -141,6 +140,10 @@ contract Controller is IController, Initializable {
 
   /// @notice Check if blocksPerDay should be updated. The keeper should do it periodically
   function isBlocksPerDayAutoUpdateRequired(uint periodInSeconds_) external view override returns (bool) {
+    console.log("isBlocksPerDayAutoUpdateRequired.periodInSeconds_", periodInSeconds_);
+    console.log("isBlocksPerDayAutoUpdateRequired.lastBlockNumber", lastBlockNumber);
+    console.log("isBlocksPerDayAutoUpdateRequired.lastBlockTimestamp", lastBlockTimestamp);
+    console.log("isBlocksPerDayAutoUpdateRequired.block.timestamp", block.timestamp);
     return lastBlockNumber != 0 && block.timestamp - lastBlockTimestamp > periodInSeconds_;
   }
 
