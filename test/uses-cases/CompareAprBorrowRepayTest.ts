@@ -18,6 +18,7 @@ import {formatUnits, parseUnits} from "ethers/lib/utils";
 import {existsSync, writeFileSync} from "fs";
 import {DForceChangePriceUtils} from "../baseUT/protocols/dforce/DForceChangePriceUtils";
 import {Aave3Helper} from "../../scripts/integration/helpers/Aave3Helper";
+import {isPolygonForkInUse} from "../baseUT/utils/NetworkUtils";
 
 describe("CompareAprBorrowRepayTest @skip-on-coverage", () => {
 //region Constants
@@ -270,6 +271,8 @@ describe("CompareAprBorrowRepayTest @skip-on-coverage", () => {
 //region Unit tests
   describe("Compare APR", () => {
     it("generate file compareApr", async () => {
+      if (!await isPolygonForkInUse()) return;
+
       const pathOut = "tmp/compareApr.csv";
       const assets = [
         dai,
@@ -324,6 +327,8 @@ describe("CompareAprBorrowRepayTest @skip-on-coverage", () => {
     });
 
     it.skip("aave only", async () => {
+      if (!await isPolygonForkInUse()) return;
+
       const pathOut = "tmp/compareApr.csv";
       const assets = [
         usdt,

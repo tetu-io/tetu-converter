@@ -122,8 +122,12 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer,
   ///                 Borrow logic
   ///////////////////////////////////////////////////////
 
-  /// @notice Supply collateral to the pool and borrow {borrowedAmount_}, no rebalancing here
-  /// @dev Caller should call "syncBalance" before transferring collateral amount and call "borrow"
+  /// @notice Supply collateral to the pool and borrow specified amount
+  /// @dev No re-balancing here; Collateral amount must be approved to the pool adapter before the call of this function
+  /// @param collateralAmount_ Amount of collateral, must be approved to the pool adapter before the call of borrow()
+  /// @param borrowAmount_ Amount that should be borrowed in result
+  /// @param receiver_ Receiver of the borrowed amount
+  /// @return Result borrowed amount sent to the {receiver_}
   function borrow(
     uint collateralAmount_,
     uint borrowAmount_,
@@ -203,7 +207,10 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer,
     return aTokensAmount;
   }
 
-  /// @notice Borrow {borrowedAmount_} using exist collateral to make rebalancing
+  /// @notice Borrow additional amount {borrowAmount_} using exist collateral and send it to {receiver_}
+  /// @dev Re-balance: too big health factor => target health factor
+  /// @return resultHealthFactor18 Result health factor after borrow
+  /// @return borrowedAmountOut Exact amount sent to the borrower
   function borrowToRebalance (
     uint borrowAmount_,
     address receiver_
@@ -252,7 +259,11 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer,
   ///////////////////////////////////////////////////////
 
   /// @notice Repay borrowed amount, return collateral to the user
-  /// @dev Caller should call "syncBalance" before transferring amount to repay and call the "repay"
+  /// @param amountToRepay_ Exact amount of borrow asset that should be repaid
+  ///                       The amount should be approved for the pool adapter before the call of repay()
+  /// @param closePosition_ true to pay full borrowed amount
+  /// @param receiver_ Receiver of withdrawn collateral
+  /// @return Amount of collateral asset sent to the {receiver_}
   function repay(
     uint amountToRepay_,
     address receiver_,
@@ -359,6 +370,15 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer,
       / prices[0];
   }
 
+  /// @notice Repay with rebalancing. Send amount of collateral/borrow asset to the pool adapter
+  ///         to recover the health factor to target state.
+  /// @dev It's not allowed to close position here (pay full debt) because no collateral will be returned.
+  /// @param amount_ Exact amount of asset that is transferred to the balance of the pool adapter.
+  ///                It can be amount of collateral asset or borrow asset depended on {isCollateral_}
+  ///                It must be stronger less then total borrow debt.
+  ///                The amount should be approved for the pool adapter before the call.
+  /// @param isCollateral_ true/false indicates that {amount_} is the amount of collateral/borrow asset
+  /// @return resultHealthFactor18 Result health factor after repay, decimals 18
   function repayToRebalance(
     uint amount_,
     bool isCollateral_
@@ -431,6 +451,14 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer,
     return (originConverter, user, collateralAsset, borrowAsset);
   }
 
+  /// @notice Get current status of the borrow position
+  /// @dev It returns STORED status. To get current status it's necessary to call updateStatus
+  ///      at first to update interest and recalculate status.
+  /// @return collateralAmount Total amount of provided collateral, collateral currency
+  /// @return amountToPay Total amount of borrowed debt in [borrow asset]. 0 - for closed borrow positions.
+  /// @return healthFactor18 Current health factor, decimals 18
+  /// @return opened The position is opened (there is not empty collateral/borrow balance)
+  /// @return collateralAmountLiquidated How much collateral was liquidated
   function getStatus() external view override returns (
     uint collateralAmount,
     uint amountToPay,

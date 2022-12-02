@@ -40,6 +40,7 @@ describe("BorrowRepayTest", () => {
     // and some tests don't pass
     deployer = signers[1];
 
+    if (!await isPolygonForkInUse()) return;
     // We need to replace DForce price oracle by custom one
     // because when we run all tests
     // DForce-prices deprecate before DForce tests are run
@@ -113,6 +114,7 @@ describe("BorrowRepayTest", () => {
           describe("AAVE3", () => {
             let results: IMakeTestSingleBorrowInstantRepayResults;
             before(async function () {
+              if (!await isPolygonForkInUse()) return;
               results = await BorrowRepayUsesCase.makeTestSingleBorrowInstantRepay(deployer,
                 {
                   collateral: {
@@ -138,6 +140,7 @@ describe("BorrowRepayTest", () => {
               expect(results.sret).eq(results.sexpected);
             });
             it("should not exceed gas limits @skip-on-coverage", async () => {
+              if (!await isPolygonForkInUse()) return;
               controlGasLimitsEx(results.gasUsedByBorrow, GAS_LIMIT_INIT_BORROW_AAVE3, (u, t) => {
                 expect(u).to.be.below(t + 1);
               });
@@ -149,6 +152,7 @@ describe("BorrowRepayTest", () => {
           describe("AAVETwo", () => {
             let results: IMakeTestSingleBorrowInstantRepayResults;
             before(async function () {
+              if (!await isPolygonForkInUse()) return;
               results = await BorrowRepayUsesCase.makeTestSingleBorrowInstantRepay(deployer,
                 {
                   collateral: {
@@ -174,6 +178,7 @@ describe("BorrowRepayTest", () => {
               expect(results.sret).eq(results.sexpected);
             });
             it("should not exceed gas limits @skip-on-coverage", async () => {
+              if (!await isPolygonForkInUse()) return;
               controlGasLimitsEx(results.gasUsedByBorrow, GAS_LIMIT_INIT_BORROW_AAVE_TWO, (u, t) => {
                 expect(u).to.be.below(t + 1);
               });
@@ -185,6 +190,7 @@ describe("BorrowRepayTest", () => {
           describe("Hundred finance", () => {
             let results: IMakeTestSingleBorrowInstantRepayResults;
             before(async function () {
+              if (!await isPolygonForkInUse()) return;
               results = await BorrowRepayUsesCase.makeTestSingleBorrowInstantRepay(deployer,
                 {
                   collateral: {
@@ -212,6 +218,7 @@ describe("BorrowRepayTest", () => {
               expect(results.sret).eq(results.sexpected);
             });
             it("should not exceed gas limits @skip-on-coverage", async () => {
+              if (!await isPolygonForkInUse()) return;
               controlGasLimitsEx(results.gasUsedByBorrow, GAS_LIMIT_INIT_BORROW_HUNDRED_FINANCE, (u, t) => {
                 expect(u).to.be.below(t + 1);
               });
@@ -223,6 +230,7 @@ describe("BorrowRepayTest", () => {
           describe("dForce", () => {
             let results: IMakeTestSingleBorrowInstantRepayResults;
             before(async function () {
+              if (!await isPolygonForkInUse()) return;
               results = await BorrowRepayUsesCase.makeTestSingleBorrowInstantRepay(deployer,
                 {
                   collateral: {
@@ -248,6 +256,7 @@ describe("BorrowRepayTest", () => {
               expect(results.sret).eq(results.sexpected);
             });
             it("should not exceed gas limits @skip-on-coverage", async () => {
+              if (!await isPolygonForkInUse()) return;
               controlGasLimitsEx(results.gasUsedByBorrow, GAS_LIMIT_INIT_BORROW_DFORCE, (u, t) => {
                 expect(u).to.be.below(t + 1);
               });
