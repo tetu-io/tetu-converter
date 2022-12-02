@@ -389,6 +389,7 @@ describe("Controller", () => {
       });
     });
   });
+
   describe ("isBlocksPerDayAutoUpdateRequired", () => {
     describe ("Good paths", () => {
       it("should return false", async () => {
@@ -421,6 +422,7 @@ describe("Controller", () => {
       });
     });
   });
+
   describe("updateBlocksPerDay", () => {
     describe("Good paths", () => {
       it("should assigned expected value to blocksPerDay", async () => {
@@ -470,7 +472,7 @@ describe("Controller", () => {
         );
         await controllerAsGov.setBlocksPerDay(400, true);
         await TimeUtils.advanceNBlocks(50); // assume here, that 50 blocks > 10 seconds
-        expect(
+        await expect(
           controllerAsGov.updateBlocksPerDay(10)
         ).revertedWith("TC-42 keeper only");
       });
@@ -482,6 +484,9 @@ describe("Controller", () => {
           await DeployerUtils.startImpersonate(await controller.governance())
         );
         await controllerAsGov.setBlocksPerDay(400,
+          true // auto-update is enabled
+        );
+        await controllerAsGov.setBlocksPerDay(400,
           false // (!) auto-update is disabled
         );
         const controllerAsKeeper = Controller__factory.connect(
@@ -489,7 +494,7 @@ describe("Controller", () => {
           await DeployerUtils.startImpersonate(await controller.keeper())
         );
         await TimeUtils.advanceNBlocks(50); // assume here, that 50 blocks > 10 seconds
-        expect(
+        await expect(
           controllerAsKeeper.updateBlocksPerDay(10)
         ).revertedWith("TC-52 incorrect op");
       });
@@ -504,13 +509,13 @@ describe("Controller", () => {
           await DeployerUtils.startImpersonate(await controller.keeper())
         );
         await TimeUtils.advanceNBlocks(50); // assume here, that 50 blocks > 10 seconds
-        expect(
+        await expect(
           controllerAsKeeper.updateBlocksPerDay(
             0 // (!)
           )
         ).revertedWith("TC-29 incorrect value");
       });
-      it("should revert if block-number wasn't changed", async () => {
+      it("should revert if auto-update is not yet required", async () => {
         const {controller} = await createTestController(getRandomMembersValues());
 
         const controllerAsGov = Controller__factory.connect(controller.address,
@@ -520,8 +525,8 @@ describe("Controller", () => {
         const controllerAsKeeper = Controller__factory.connect(controller.address,
           await DeployerUtils.startImpersonate(await controller.keeper())
         );
-        await TimeUtils.advanceNBlocks(50); // assume here, that 50 blocks > 10 seconds
-        expect(
+        await TimeUtils.advanceNBlocks(50);
+        await expect(
           controllerAsKeeper.updateBlocksPerDay(
             100000 // (!) it's not time to auto-update yet
           )

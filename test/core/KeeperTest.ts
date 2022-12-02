@@ -13,6 +13,7 @@ import {MocksHelper} from "../baseUT/helpers/MocksHelper";
 import {Misc} from "../../scripts/utils/Misc";
 import {DeployUtils} from "../../scripts/utils/DeployUtils";
 import {TetuConverterApp} from "../baseUT/helpers/TetuConverterApp";
+import {expect} from "chai";
 
 describe("KeeperTest", () => {
 //region Constants

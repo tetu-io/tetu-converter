@@ -2908,7 +2908,53 @@ describe("TetuConverterTest", () => {
           expect(ret).eq(expected);
         });
       });
-      describe("Two pool adapters have rewards", () => {
+      describe("Two pool adapters, only one has rewards", () => {
+        it("should claim rewards from two pools", async () => {
+          const rewardToken1 = (await MocksHelper.createTokens([18]))[0];
+          const rewardsAmount1 = getBigNumberFrom(100, 18);
+
+          const c = await setupClaimRewards();
+          const poolAdapter2 = await setupPoolAdapter(c.controller, c.user);
+
+          await c.debtMonitorMock.setPositionsForUser(
+            c.user,
+            [c.poolAdapter.address, poolAdapter2.address]
+          );
+          await rewardToken1.mint(c.poolAdapter.address, rewardsAmount1);
+          await c.poolAdapter.setRewards(rewardToken1.address, rewardsAmount1);
+
+          const tetuConverterAsUser = TetuConverter__factory.connect(
+            c.tetuConverter.address,
+            await DeployerUtils.startImpersonate(c.user)
+          );
+
+          const balanceBefore1 = await rewardToken1.balanceOf(c.receiver);
+          const r = await tetuConverterAsUser.callStatic.claimRewards(c.receiver);
+          await tetuConverterAsUser.claimRewards(c.receiver);
+          const balanceAfter1 = await rewardToken1.balanceOf(c.receiver);
+
+          const ret = [
+            r.amountsOut.length,
+            r.amountsOut[0],
+            r.rewardTokensOut.length,
+            r.rewardTokensOut[0],
+
+            balanceBefore1,
+            balanceAfter1,
+          ].map(x => BalanceUtils.toString(x)).join("\n");
+          const expected = [
+            1,
+            rewardsAmount1,
+            1,
+            rewardToken1.address,
+
+            0,
+            rewardsAmount1,
+          ].map(x => BalanceUtils.toString(x)).join("\n");
+          expect(ret).eq(expected);
+        });
+      });
+      describe("Two pool adapters, both have rewards", () => {
         it("should claim rewards from two pools", async () => {
           const rewardToken1 = (await MocksHelper.createTokens([18]))[0];
           const rewardsAmount1 = getBigNumberFrom(100, 18);
