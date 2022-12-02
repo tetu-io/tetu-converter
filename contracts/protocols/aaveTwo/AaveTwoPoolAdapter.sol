@@ -92,7 +92,7 @@ contract AaveTwoPoolAdapter is IPoolAdapter, IPoolAdapterInitializer, Initializa
     originConverter = originConverter_;
 
     _pool = IAaveTwoPool(pool_);
-    _priceOracle = IAaveTwoPriceOracle(IAaveTwoLendingPoolAddressesProvider(_pool.getAddressesProvider()).getPriceOracle());
+    _priceOracle = IAaveTwoPriceOracle(IAaveTwoLendingPoolAddressesProvider(IAaveTwoPool(pool_).getAddressesProvider()).getPriceOracle());
 
     // The pool adapter doesn't keep assets on its balance, so it's safe to use infinity approve
     // All approves replaced by infinity-approve were commented in the code below
@@ -107,8 +107,8 @@ contract AaveTwoPoolAdapter is IPoolAdapter, IPoolAdapterInitializer, Initializa
   ///////////////////////////////////////////////////////
 
   /// @notice Ensure that the caller is TetuConverter
-  function _onlyTetuConverter() internal view {
-    require(controller.tetuConverter() == msg.sender, AppErrors.TETU_CONVERTER_ONLY);
+  function _onlyTetuConverter(IController controller_) internal view {
+    require(controller_.tetuConverter() == msg.sender, AppErrors.TETU_CONVERTER_ONLY);
   }
 
   function updateStatus() external override {
@@ -129,7 +129,8 @@ contract AaveTwoPoolAdapter is IPoolAdapter, IPoolAdapterInitializer, Initializa
     uint borrowAmount_,
     address receiver_
   ) external override returns (uint) {
-    _onlyTetuConverter();
+    IController c = controller;
+    _onlyTetuConverter(c);
 
     IAaveTwoPool pool = _pool;
     address assetBorrow = borrowAsset;
@@ -156,11 +157,11 @@ contract AaveTwoPoolAdapter is IPoolAdapter, IPoolAdapterInitializer, Initializa
     IERC20(assetBorrow).safeTransfer(receiver_, borrowAmount_);
 
     // register the borrow in DebtMonitor
-    IDebtMonitor(controller.debtMonitor()).onOpenPosition();
+    IDebtMonitor(c.debtMonitor()).onOpenPosition();
 
     // ensure that current health factor is greater than min allowed
     (,,,,, uint256 healthFactor) = pool.getUserAccountData(address(this));
-    _validateHealthFactor(healthFactor);
+    _validateHealthFactor(c, healthFactor);
 
     emit OnBorrow(collateralAmount_, borrowAmount_, receiver_, healthFactor, newCollateralBalanceATokens);
     return borrowAmount_;
@@ -213,16 +214,19 @@ contract AaveTwoPoolAdapter is IPoolAdapter, IPoolAdapterInitializer, Initializa
     uint resultHealthFactor18,
     uint borrowedAmountOut
   ) {
-    _onlyTetuConverter();
+    IController c = controller;
+    _onlyTetuConverter(c);
+
+    IAaveTwoPool pool = _pool;
     address assetBorrow = borrowAsset;
 
     // ensure that the position is opened
-    require(IDebtMonitor(controller.debtMonitor()).isPositionOpened(), AppErrors.BORROW_POSITION_IS_NOT_REGISTERED);
+    require(IDebtMonitor(c.debtMonitor()).isPositionOpened(), AppErrors.BORROW_POSITION_IS_NOT_REGISTERED);
 
     // make borrow, send borrowed amount to the receiver
     // we cannot transfer borrowed amount directly to receiver because the debt is incurred by amount receiver
     uint balanceBorrowAsset0 = IERC20(assetBorrow).balanceOf(address(this));
-    _pool.borrow(
+    pool.borrow(
       assetBorrow,
       borrowAmount_,
       RATE_MODE,
@@ -239,8 +243,8 @@ contract AaveTwoPoolAdapter is IPoolAdapter, IPoolAdapterInitializer, Initializa
     IERC20(assetBorrow).safeTransfer(receiver_, borrowAmount_);
 
     // ensure that current health factor is greater than min allowed
-    (,,,,, resultHealthFactor18) = _pool.getUserAccountData(address(this));
-    _validateHealthFactor(resultHealthFactor18);
+    (,,,,, resultHealthFactor18) = pool.getUserAccountData(address(this));
+    _validateHealthFactor(c, resultHealthFactor18);
 
     emit OnBorrowToRebalance(borrowAmount_, receiver_, resultHealthFactor18);
     return (resultHealthFactor18, borrowAmount_);
@@ -261,7 +265,9 @@ contract AaveTwoPoolAdapter is IPoolAdapter, IPoolAdapterInitializer, Initializa
     address receiver_,
     bool closePosition_
   ) external override returns (uint) {
-    _onlyTetuConverter();
+    IController c = controller;
+    _onlyTetuConverter(c);
+
     address assetCollateral = collateralAsset;
     address assetBorrow = borrowAsset;
     IAaveTwoPool pool = _pool;
@@ -289,7 +295,7 @@ contract AaveTwoPoolAdapter is IPoolAdapter, IPoolAdapterInitializer, Initializa
     );
 
     // withdraw the collateral
-    pool.withdraw(collateralAsset, amountCollateralToWithdraw, receiver_);
+    pool.withdraw(assetCollateral, amountCollateralToWithdraw, receiver_);
 
     if (closePosition_) {
       // user has transferred a little bigger amount than actually need to close position
@@ -301,12 +307,17 @@ contract AaveTwoPoolAdapter is IPoolAdapter, IPoolAdapterInitializer, Initializa
     }
 
     // validate result status
-    (uint totalCollateralBase, uint totalDebtBase,,,, uint256 healthFactor) = pool.getUserAccountData(address(this));
-    if (totalCollateralBase == 0 && totalDebtBase == 0) {
-      IDebtMonitor(controller.debtMonitor()).onClosePosition();
-    } else {
-      require(!closePosition_, AppErrors.CLOSE_POSITION_FAILED);
-      _validateHealthFactor(healthFactor);
+    uint256 healthFactor;
+    {
+      uint totalCollateralBase;
+      uint totalDebtBase;
+      (totalCollateralBase, totalDebtBase,,,, healthFactor) = pool.getUserAccountData(address(this));
+      if (totalCollateralBase == 0 && totalDebtBase == 0) {
+        IDebtMonitor(c.debtMonitor()).onClosePosition();
+      } else {
+        require(!closePosition_, AppErrors.CLOSE_POSITION_FAILED);
+        _validateHealthFactor(c, healthFactor);
+      }
     }
 
     uint aTokensBalanceAfterSupply = IERC20(rc.aTokenAddress).balanceOf(address(this));
@@ -378,21 +389,23 @@ contract AaveTwoPoolAdapter is IPoolAdapter, IPoolAdapterInitializer, Initializa
   ) external override returns (
     uint resultHealthFactor18
   ) {
-    _onlyTetuConverter();
+    IController c = controller;
+    _onlyTetuConverter(c);
+
     address assetBorrow = borrowAsset;
     IAaveTwoPool pool = _pool;
 
     uint newCollateralBalanceATokens = collateralBalanceATokens;
     if (isCollateral_) {
-      newCollateralBalanceATokens = _supply(_pool, collateralAsset, amount_) + newCollateralBalanceATokens;
+      newCollateralBalanceATokens = _supply(pool, collateralAsset, amount_) + newCollateralBalanceATokens;
       collateralBalanceATokens = newCollateralBalanceATokens;
     } else {
       // ensure, that amount to repay is less then the total debt
-      (,uint256 totalDebtBase0,,,,) = _pool.getUserAccountData(address(this));
+      (,uint256 totalDebtBase0,,,,) = pool.getUserAccountData(address(this));
       uint priceBorrowAsset = _priceOracle.getAssetPrice(assetBorrow);
       uint totalAmountToPay = totalDebtBase0 == 0
         ? 0
-        : totalDebtBase0 * (10 ** _pool.getConfiguration(assetBorrow).getDecimals()) / priceBorrowAsset;
+        : totalDebtBase0 * (10 ** pool.getConfiguration(assetBorrow).getDecimals()) / priceBorrowAsset;
       require(totalDebtBase0 != 0 && amount_ < totalAmountToPay, AppErrors.REPAY_TO_REBALANCE_NOT_ALLOWED);
 
       IERC20(assetBorrow).safeTransferFrom(msg.sender, address(this), amount_);
@@ -409,7 +422,7 @@ contract AaveTwoPoolAdapter is IPoolAdapter, IPoolAdapterInitializer, Initializa
 
     // validate result status
     (,,,,, uint256 healthFactor) = pool.getUserAccountData(address(this));
-    _validateHealthFactor(healthFactor);
+    _validateHealthFactor(c, healthFactor);
 
     emit OnRepayToRebalance(amount_, isCollateral_, healthFactor, newCollateralBalanceATokens);
     return healthFactor;
@@ -447,11 +460,12 @@ contract AaveTwoPoolAdapter is IPoolAdapter, IPoolAdapterInitializer, Initializa
     bool opened,
     uint collateralAmountLiquidated
   ) {
+    IAaveTwoPool pool = _pool;
     (uint256 totalCollateralBase,
      uint256 totalDebtBase,
      ,,,
      uint256 hf18
-    ) = _pool.getUserAccountData(address(this));
+    ) = pool.getUserAccountData(address(this));
 
     address assetCollateral = collateralAsset;
     address assetBorrow = borrowAsset;
@@ -462,13 +476,13 @@ contract AaveTwoPoolAdapter is IPoolAdapter, IPoolAdapterInitializer, Initializa
     uint[] memory prices = _priceOracle.getAssetsPrices(assets);
     require(prices[1] != 0 && prices[0] != 0, AppErrors.ZERO_PRICE);
 
-    DataTypes.ReserveData memory rc = _pool.getReserveData(assetCollateral);
+    DataTypes.ReserveData memory rc = pool.getReserveData(assetCollateral);
     uint aTokensBalance = IERC20(rc.aTokenAddress).balanceOf(address(this));
 
-    uint targetDecimals = (10 ** _pool.getConfiguration(assetBorrow).getDecimals());
+    uint targetDecimals = (10 ** pool.getConfiguration(assetBorrow).getDecimals());
     return (
     // Total amount of provided collateral in [collateral asset]
-      totalCollateralBase * (10 ** _pool.getConfiguration(assetCollateral).getDecimals()) / prices[0],
+      totalCollateralBase * (10 ** pool.getConfiguration(assetCollateral).getDecimals()) / prices[0],
     // Total amount of borrowed debt in [borrow asset]. 0 - for closed borrow positions.
       totalDebtBase == 0
         ? 0
@@ -509,8 +523,8 @@ contract AaveTwoPoolAdapter is IPoolAdapter, IPoolAdapterInitializer, Initializa
   ///               Utils to inline
   ///////////////////////////////////////////////////////
 
-  function _validateHealthFactor(uint hf18) internal view {
-    require(hf18 >= uint(controller.minHealthFactor2())*10**(18-2), AppErrors.WRONG_HEALTH_FACTOR);
+  function _validateHealthFactor(IController controller_, uint hf18) internal view {
+    require(hf18 >= uint(controller_.minHealthFactor2())*10**(18-2), AppErrors.WRONG_HEALTH_FACTOR);
   }
 
 }
