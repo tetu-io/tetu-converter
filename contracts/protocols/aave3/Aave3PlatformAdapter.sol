@@ -49,6 +49,12 @@ contract Aave3PlatformAdapter is IPlatformAdapter {
     IAaveProtocolDataProvider dataProvider;
     uint priceCollateral;
     uint priceBorrow;
+    /// @notice 10**rc.configuration.getDecimals()
+    uint rc10powDec;
+    /// @notice 10**rb.configuration.getDecimals()
+    uint rb10powDec;
+//    /// @notice rc.configuration.getDebtCeiling()
+//    uint rcDebtCeiling;
   }
 
   ///////////////////////////////////////////////////////
@@ -151,6 +157,8 @@ contract Aave3PlatformAdapter is IPlatformAdapter {
       Aave3DataTypes.ReserveData memory rb = vars.poolLocal.getReserveData(params.borrowAsset);
 
       if (_isUsable(rb.configuration) && rb.configuration.getBorrowingEnabled()) {
+        vars.rb10powDec = rb.configuration.getDecimals();
+        vars.rc10powDec = rc.configuration.getDecimals();
 
         vars.isolationMode = _isIsolationModeEnabled(rc.configuration);
         if (!vars.isolationMode || _isUsableInIsolationMode(rb.configuration)) {
@@ -187,7 +195,7 @@ contract Aave3PlatformAdapter is IPlatformAdapter {
           { // take into account borrow cap, supply cap and debts ceiling
             uint borrowCap = rb.configuration.getBorrowCap();
             if (borrowCap != 0) {
-              borrowCap *= (10**rb.configuration.getDecimals());
+              borrowCap *= vars.rb10powDec;
               uint totalDebt = vars.totalStableDebt + vars.totalVariableDebt;
               if (totalDebt > borrowCap) {
                 plan.maxAmountToBorrow = 0;
@@ -210,7 +218,8 @@ contract Aave3PlatformAdapter is IPlatformAdapter {
               // The user will therefore be allowed to borrow up to $10M of stable coins
               // Debt ceiling does not include interest accrued over time, only the principal borrowed
               uint maxAmount = (rc.configuration.getDebtCeiling() - rc.isolationModeTotalDebt)
-                  * (10 ** (rb.configuration.getDecimals() - Aave3ReserveConfiguration.DEBT_CEILING_DECIMALS));
+                  * vars.rb10powDec
+                  / 10 ** Aave3ReserveConfiguration.DEBT_CEILING_DECIMALS;
 
               if (plan.maxAmountToBorrow > maxAmount) {
                 plan.maxAmountToBorrow = maxAmount;
@@ -224,7 +233,7 @@ contract Aave3PlatformAdapter is IPlatformAdapter {
             if (supplyCap == 0) {
               plan.maxAmountToSupply = type(uint).max; // unlimited
             } else {
-              supplyCap  *= (10**rc.configuration.getDecimals());
+              supplyCap  *= vars.rc10powDec;
               uint totalSupply = (
                 IAaveToken(rc.aTokenAddress).scaledTotalSupply() * rc.liquidityIndex + HALF_RAY
               ) / RAY;
@@ -243,15 +252,15 @@ contract Aave3PlatformAdapter is IPlatformAdapter {
           // and it's greater than h = liquidation-threshold (LT) / loan-to-value (LTV)
           // otherwise AAVE-pool will revert the borrow
           // see comment to IBorrowManager.setHealthFactor
-          plan.amountToBorrow = AppUtils.toMantissa(
+          plan.amountToBorrow =
               100 * params.collateralAmount / uint(params.healthFactor2)
               * vars.priceCollateral
               * plan.liquidationThreshold18
+              * vars.rb10powDec
               / vars.priceBorrow
-              / 1e18,
-            uint8(rc.configuration.getDecimals()),
-            uint8(rb.configuration.getDecimals())
-          );
+              / 1e18
+              / vars.rc10powDec;
+
           if (plan.amountToBorrow > plan.maxAmountToBorrow) {
             plan.amountToBorrow = plan.maxAmountToBorrow;
           }
@@ -276,8 +285,8 @@ contract Aave3PlatformAdapter is IPlatformAdapter {
             block.timestamp, // assume, that we make borrow in the current block
             1e18 // multiplier to increase result precision
           )
-          * 10**18 // we need decimals 36, but the result is already multiplied on 1e18 by multiplier above
-          / 10**rb.configuration.getDecimals();
+          * 1e18 // we need decimals 36, but the result is already multiplied on 1e18 by multiplier above
+          / vars.rb10powDec;
 
           // calculate supply-APR, see detailed explanation in Aave3AprLib
           (,,
@@ -307,13 +316,13 @@ contract Aave3PlatformAdapter is IPlatformAdapter {
           )
           // we need a value in terms of borrow tokens but with decimals 18
           * vars.priceCollateral
-          * 10**18 // we need decimals 36, but the result is already multiplied on 1e18 by multiplier above
+          * 1e18 // we need decimals 36, but the result is already multiplied on 1e18 by multiplier above
           / vars.priceBorrow
-          / 10**rc.configuration.getDecimals();
+          / vars.rc10powDec;
 
           plan.amountCollateralInBorrowAsset36 = params.collateralAmount
-            * (10**36 * vars.priceCollateral / vars.priceBorrow)
-            / 10 ** rc.configuration.getDecimals();
+            * (1e36 * vars.priceCollateral / vars.priceBorrow)
+            / vars.rc10powDec;
         }
       }
     }
