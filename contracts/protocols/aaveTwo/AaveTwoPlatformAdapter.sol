@@ -47,6 +47,10 @@ contract AaveTwoPlatformAdapter is IPlatformAdapter {
     IAaveTwoPriceOracle priceOracle;
     uint priceCollateral;
     uint priceBorrow;
+    /// @notice 10**rc.configuration.getDecimals()
+    uint rc10powDec;
+    /// @notice 10**rb.configuration.getDecimals()
+    uint rb10powDec;
   }
 
   ///////////////////////////////////////////////////////
@@ -167,6 +171,9 @@ contract AaveTwoPlatformAdapter is IPlatformAdapter {
     if (_isUsable(rc.configuration) &&  _isCollateralUsageAllowed(rc.configuration)) {
       DataTypes.ReserveData memory rb = vars.poolLocal.getReserveData(params.borrowAsset);
       if (_isUsable(rb.configuration) && rb.configuration.getBorrowingEnabled()) {
+        vars.rc10powDec = 10**rc.configuration.getDecimals();
+        vars.rb10powDec = 10**rb.configuration.getDecimals();
+
         // get liquidation threshold (== collateral factor) and loan-to-value (LTV)
         // we should use both LTV and liquidationThreshold of collateral asset (not borrow asset)
         // see test "Borrow: check LTV and liquidationThreshold"
@@ -183,15 +190,15 @@ contract AaveTwoPlatformAdapter is IPlatformAdapter {
         // and it's greater than h = liquidation-threshold (LT) / loan-to-value (LTV)
         // otherwise AAVE-pool will revert the borrow
         // see comment to IBorrowManager.setHealthFactor
-        plan.amountToBorrow = AppUtils.toMantissa(
+        plan.amountToBorrow =
             100 * params.collateralAmount / uint(params.healthFactor2)
             * plan.liquidationThreshold18
             * vars.priceCollateral
+            * vars.rb10powDec
             / 1e18
-            / vars.priceBorrow,
-          uint8(rc.configuration.getDecimals()),
-          uint8(rb.configuration.getDecimals())
-        );
+            / vars.priceBorrow
+            / vars.rc10powDec;
+
         // availableLiquidity is IERC20(borrowToken).balanceOf(atoken)
         (vars.availableLiquidity, vars.totalStableDebt, vars.totalVariableDebt,,,,,,,) = vars.dataProvider.getReserveData(params.borrowAsset);
 
@@ -220,7 +227,7 @@ contract AaveTwoPlatformAdapter is IPlatformAdapter {
           1e18 // multiplier to increase result precision
         )
         * 10**18 // we need decimals 36, but the result is already multiplied on 1e18 by multiplier above
-        / 10**rb.configuration.getDecimals();
+        / vars.rb10powDec;
 
         (, vars.totalStableDebt, vars.totalVariableDebt,,,,,,,) = vars.dataProvider.getReserveData(params.collateralAsset);
 
@@ -248,15 +255,17 @@ contract AaveTwoPlatformAdapter is IPlatformAdapter {
         )
         // we need a value in terms of borrow tokens with decimals 18
         * vars.priceCollateral
-        * 10**18 // we need decimals 36, but the result is already multiplied on 1e18 by multiplier above
+        * 1e18 // we need decimals 36, but the result is already multiplied on 1e18 by multiplier above
         / vars.priceBorrow
-        / 10**rc.configuration.getDecimals();
+        / vars.rc10powDec;
 
-        plan.amountCollateralInBorrowAsset36 = AppUtils.toMantissa(
-          params.collateralAmount * 10**18 * vars.priceCollateral / vars.priceBorrow,
-          uint8(rc.configuration.getDecimals()),
-          18
-        );
+        plan.amountCollateralInBorrowAsset36 =
+          params.collateralAmount
+          * 1e18
+          * vars.priceCollateral
+          / vars.priceBorrow
+          * 1e18
+          / vars.rc10powDec;
       }
     }
 

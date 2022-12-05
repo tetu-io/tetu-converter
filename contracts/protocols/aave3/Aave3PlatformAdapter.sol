@@ -156,8 +156,8 @@ contract Aave3PlatformAdapter is IPlatformAdapter {
       Aave3DataTypes.ReserveData memory rb = vars.poolLocal.getReserveData(params.borrowAsset);
 
       if (_isUsable(rb.configuration) && rb.configuration.getBorrowingEnabled()) {
-        vars.rb10powDec = 10**rb.configuration.getDecimals();
         vars.rc10powDec = 10**rc.configuration.getDecimals();
+        vars.rb10powDec = 10**rb.configuration.getDecimals();
 
         /// Some assets can be used as collateral in isolation mode only
         /// see comment to getDebtCeiling(): The debt ceiling (0 = isolation mode disabled)
