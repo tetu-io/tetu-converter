@@ -42,6 +42,8 @@ contract AaveTwoPlatformAdapter is IPlatformAdapter {
     uint totalStableDebt;
     uint totalVariableDebt;
     uint blocksPerDay;
+    IAaveTwoLendingPoolAddressesProvider addressProvider;
+    IAaveTwoProtocolDataProvider dataProvider;
     IAaveTwoPriceOracle priceOracle;
     uint priceCollateral;
     uint priceBorrow;
@@ -156,6 +158,10 @@ contract AaveTwoPlatformAdapter is IPlatformAdapter {
     LocalsGetConversionPlan memory vars;
     vars.poolLocal = pool;
 
+    vars.addressProvider = IAaveTwoLendingPoolAddressesProvider(vars.poolLocal.getAddressesProvider());
+    vars.dataProvider = IAaveTwoProtocolDataProvider(vars.addressProvider.getAddress(bytes32(ID_DATA_PROVIDER)));
+    vars.priceOracle = IAaveTwoPriceOracle(vars.addressProvider.getPriceOracle());
+
     DataTypes.ReserveData memory rc = vars.poolLocal.getReserveData(params.collateralAsset);
 
     if (_isUsable(rc.configuration) &&  _isCollateralUsageAllowed(rc.configuration)) {
@@ -170,9 +176,6 @@ contract AaveTwoPlatformAdapter is IPlatformAdapter {
 
         // prepare to calculate supply/borrow APR
         vars.blocksPerDay = controller.blocksPerDay();
-        vars.priceOracle = IAaveTwoPriceOracle(
-          IAaveTwoLendingPoolAddressesProvider(vars.poolLocal.getAddressesProvider()).getPriceOracle()
-        );
         vars.priceCollateral = vars.priceOracle.getAssetPrice(params.collateralAsset);
         vars.priceBorrow = vars.priceOracle.getAssetPrice(params.borrowAsset);
 
@@ -190,10 +193,7 @@ contract AaveTwoPlatformAdapter is IPlatformAdapter {
           uint8(rb.configuration.getDecimals())
         );
         // availableLiquidity is IERC20(borrowToken).balanceOf(atoken)
-        (vars.availableLiquidity, vars.totalStableDebt, vars.totalVariableDebt,,,,,,,) = IAaveTwoProtocolDataProvider(
-          IAaveTwoLendingPoolAddressesProvider(vars.poolLocal.getAddressesProvider())
-            .getAddress(bytes32(ID_DATA_PROVIDER))
-        ).getReserveData(params.borrowAsset);
+        (vars.availableLiquidity, vars.totalStableDebt, vars.totalVariableDebt,,,,,,,) = vars.dataProvider.getReserveData(params.borrowAsset);
 
         plan.maxAmountToBorrow = vars.availableLiquidity;
         if (plan.amountToBorrow > plan.maxAmountToBorrow) {
@@ -222,10 +222,7 @@ contract AaveTwoPlatformAdapter is IPlatformAdapter {
         * 10**18 // we need decimals 36, but the result is already multiplied on 1e18 by multiplier above
         / 10**rb.configuration.getDecimals();
 
-        (, vars.totalStableDebt, vars.totalVariableDebt,,,,,,,) = IAaveTwoProtocolDataProvider(
-          IAaveTwoLendingPoolAddressesProvider(vars.poolLocal.getAddressesProvider())
-            .getAddress(bytes32(ID_DATA_PROVIDER))
-        ).getReserveData(params.collateralAsset);
+        (, vars.totalStableDebt, vars.totalVariableDebt,,,,,,,) = vars.dataProvider.getReserveData(params.collateralAsset);
 
         plan.maxAmountToSupply = type(uint).max; // unlimited
 

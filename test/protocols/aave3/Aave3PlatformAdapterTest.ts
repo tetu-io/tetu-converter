@@ -316,6 +316,7 @@ describe("Aave3PlatformAdapterTest", () => {
         countBlocks,
         badPathsParams
       );
+      console.log("Plan", d.plan);
 
       let borrowAmount = AprUtils.getBorrowAmount(
         collateralAmount,

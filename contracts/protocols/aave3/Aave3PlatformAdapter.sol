@@ -39,7 +39,6 @@ contract Aave3PlatformAdapter is IPlatformAdapter {
   /// @notice Local vars inside _getConversionPlan - to avoid stack too deep
   struct LocalsGetConversionPlan {
     IAavePool poolLocal;
-    bool isolationMode;
     uint totalAToken;
     uint totalStableDebt;
     uint totalVariableDebt;
@@ -53,8 +52,8 @@ contract Aave3PlatformAdapter is IPlatformAdapter {
     uint rc10powDec;
     /// @notice 10**rb.configuration.getDecimals()
     uint rb10powDec;
-//    /// @notice rc.configuration.getDebtCeiling()
-//    uint rcDebtCeiling;
+    /// @notice rc.configuration.getDebtCeiling(); rcDebtCeiling != 0 => isolation mode is used
+    uint rcDebtCeiling;
   }
 
   ///////////////////////////////////////////////////////
@@ -157,11 +156,13 @@ contract Aave3PlatformAdapter is IPlatformAdapter {
       Aave3DataTypes.ReserveData memory rb = vars.poolLocal.getReserveData(params.borrowAsset);
 
       if (_isUsable(rb.configuration) && rb.configuration.getBorrowingEnabled()) {
-        vars.rb10powDec = rb.configuration.getDecimals();
-        vars.rc10powDec = rc.configuration.getDecimals();
+        vars.rb10powDec = 10**rb.configuration.getDecimals();
+        vars.rc10powDec = 10**rc.configuration.getDecimals();
 
-        vars.isolationMode = _isIsolationModeEnabled(rc.configuration);
-        if (!vars.isolationMode || _isUsableInIsolationMode(rb.configuration)) {
+        /// Some assets can be used as collateral in isolation mode only
+        /// see comment to getDebtCeiling(): The debt ceiling (0 = isolation mode disabled)
+        vars.rcDebtCeiling = rc.configuration.getDebtCeiling();
+        if (vars.rcDebtCeiling == 0 || _isUsableInIsolationMode(rb.configuration)) {
           { // get liquidation threshold (== collateral factor) and loan-to-value
             uint8 categoryCollateral = uint8(rc.configuration.getEModeCategory());
             if (categoryCollateral != 0 && categoryCollateral == rb.configuration.getEModeCategory()) {
@@ -212,12 +213,13 @@ contract Aave3PlatformAdapter is IPlatformAdapter {
                 }
               }
             }
-            if (vars.isolationMode) {
-              // the total exposure cannot be bigger than the collateral debt ceiling, see aave-v3-core: validateBorrow()
+            if (vars.rcDebtCeiling != 0) {
+              // The isolation mode is enabled.
+              // The total exposure cannot be bigger than the collateral debt ceiling, see aave-v3-core: validateBorrow()
               // Suppose, the collateral is an isolated asset with the debt ceiling $10M
               // The user will therefore be allowed to borrow up to $10M of stable coins
               // Debt ceiling does not include interest accrued over time, only the principal borrowed
-              uint maxAmount = (rc.configuration.getDebtCeiling() - rc.isolationModeTotalDebt)
+              uint maxAmount = (vars.rcDebtCeiling - rc.isolationModeTotalDebt)
                   * vars.rb10powDec
                   / 10 ** Aave3ReserveConfiguration.DEBT_CEILING_DECIMALS;
 
@@ -247,17 +249,15 @@ contract Aave3PlatformAdapter is IPlatformAdapter {
           vars.blocksPerDay = controller.blocksPerDay();
           vars.priceCollateral = vars.priceOracle.getAssetPrice(params.collateralAsset);
           vars.priceBorrow = vars.priceOracle.getAssetPrice(params.borrowAsset);
-
           // we assume here, that required health factor is configured correctly
           // and it's greater than h = liquidation-threshold (LT) / loan-to-value (LTV)
           // otherwise AAVE-pool will revert the borrow
           // see comment to IBorrowManager.setHealthFactor
           plan.amountToBorrow =
               100 * params.collateralAmount / uint(params.healthFactor2)
-              * vars.priceCollateral
               * plan.liquidationThreshold18
               * vars.rb10powDec
-              / vars.priceBorrow
+              * vars.priceCollateral / vars.priceBorrow
               / 1e18
               / vars.rc10powDec;
 
@@ -315,9 +315,8 @@ contract Aave3PlatformAdapter is IPlatformAdapter {
             1e18 // multiplier to increase result precision
           )
           // we need a value in terms of borrow tokens but with decimals 18
-          * vars.priceCollateral
           * 1e18 // we need decimals 36, but the result is already multiplied on 1e18 by multiplier above
-          / vars.priceBorrow
+          * vars.priceCollateral / vars.priceBorrow
           / vars.rc10powDec;
 
           plan.amountCollateralInBorrowAsset36 = params.collateralAmount
@@ -395,13 +394,6 @@ contract Aave3PlatformAdapter is IPlatformAdapter {
   /// @param data Aave3DataTypes.ReserveData.configuration.data
   function _isUsable(Aave3DataTypes.ReserveConfigurationMap memory data) internal pure returns (bool) {
     return data.getActive() && ! data.getFrozen() && ! data.getPaused();
-  }
-
-  /// @notice Some assets can be used as collateral in isolation mode only
-  /// @dev // see comment to getDebtCeiling(): The debt ceiling (0 = isolation mode disabled)
-  function _isIsolationModeEnabled(Aave3DataTypes.ReserveConfigurationMap memory collateralData_)
-  internal pure returns (bool) {
-    return collateralData_.getDebtCeiling() != 0;
   }
 
   /// @notice Only certain assets can be borrowed in isolation mode—specifically, approved stablecoins.
