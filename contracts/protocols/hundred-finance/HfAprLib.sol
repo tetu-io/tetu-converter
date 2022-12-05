@@ -20,12 +20,8 @@ library HfAprLib {
   //                  Data type
   ///////////////////////////////////////////////////////
   struct HfCore {
-    IHfComptroller comptroller;
     IHfCToken cTokenCollateral;
     IHfCToken cTokenBorrow;
-    IHfInterestRateModel borrowInterestRateModel;
-    IHfInterestRateModel collateralInterestRateModel;
-    IHfPriceOracle priceOracle;
     address collateralAsset;
     address borrowAsset;
   }
@@ -41,12 +37,8 @@ library HfAprLib {
     address cTokenBorrow_
   ) internal view returns (HfCore memory) {
     return HfCore({
-      comptroller: comptroller,
       cTokenCollateral: IHfCToken(cTokenCollateral_),
       cTokenBorrow: IHfCToken(cTokenBorrow_),
-      borrowInterestRateModel: IHfInterestRateModel(IHfCToken(cTokenBorrow_).interestRateModel()),
-      collateralInterestRateModel: IHfInterestRateModel(IHfCToken(cTokenCollateral_).interestRateModel()),
-      priceOracle: IHfPriceOracle(comptroller.oracle()),
       collateralAsset: getUnderlying(cTokenCollateral_),
       borrowAsset: getUnderlying(cTokenBorrow_)
     });
@@ -89,7 +81,7 @@ library HfAprLib {
     // estimate borrow rate value after the borrow and calculate result APR
     borrowCost36 = getBorrowCost36(
       getEstimatedBorrowRate(
-        core.borrowInterestRateModel,
+        IHfInterestRateModel(core.cTokenBorrow.interestRateModel()),,
         core.cTokenBorrow,
         amountToBorrow_
       ),

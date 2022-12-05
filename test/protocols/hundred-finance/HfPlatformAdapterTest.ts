@@ -30,6 +30,11 @@ import {TetuConverterApp} from "../../baseUT/helpers/TetuConverterApp";
 import {IConversionPlan} from "../../baseUT/apr/aprDataTypes";
 import {HundredFinanceChangePriceUtils} from "../../baseUT/protocols/hundred-finance/HundredFinanceChangePriceUtils";
 import {parseUnits} from "ethers/lib/utils";
+import {controlGasLimitsEx} from "../../../scripts/utils/hardhatUtils";
+import {
+  GAS_LIMIT_DFORCE_GET_CONVERSION_PLAN,
+  GAS_LIMIT_HUNDRED_FINANCE_GET_CONVERSION_PLAN
+} from "../../baseUT/GasLimit";
 
 describe("Hundred finance, platform adapter", () => {
 //region Global vars for all tests
@@ -534,6 +539,33 @@ describe("Hundred finance, platform adapter", () => {
             { setBorrowCapacityExceeded: true }
           );
           expect(r.plan.maxAmountToBorrow.eq(0)).eq(true);
+        });
+      });
+      describe("Check gas limit", () => {
+        it("should return expected values @skip-on-coverage", async () => {
+          const controller = await TetuConverterApp.createController(
+            deployer,
+            {tetuLiquidatorAddress: MaticAddresses.TETU_LIQUIDATOR}
+          );
+          const hfPlatformAdapter = await AdaptersHelper.createHundredFinancePlatformAdapter(
+            deployer,
+            controller.address,
+            MaticAddresses.HUNDRED_FINANCE_COMPTROLLER,
+            ethers.Wallet.createRandom().address,
+            [MaticAddresses.hDAI, MaticAddresses.hUSDC],
+          );
+
+          const gasUsed = await hfPlatformAdapter.estimateGas.getConversionPlan(
+            MaticAddresses.DAI,
+            parseUnits("1", 18),
+            MaticAddresses.USDC,
+            200,
+            1000,
+          );
+          console.log("DForcePlatformAdapter.getConversionPlan.gas", gasUsed.toString());
+          controlGasLimitsEx(gasUsed, GAS_LIMIT_HUNDRED_FINANCE_GET_CONVERSION_PLAN, (u, t) => {
+            expect(u).to.be.below(t);
+          });
         });
       });
     });
