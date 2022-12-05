@@ -165,7 +165,7 @@ contract DForcePlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
   ) {
     require(collateralAsset_ != address(0) && borrowAsset_ != address(0), AppErrors.ZERO_ADDRESS);
     require(collateralAmount_ != 0 && countBlocks_ != 0, AppErrors.INCORRECT_VALUE);
-    require(healthFactor2_ >= IController(controller).minHealthFactor2(), AppErrors.WRONG_HEALTH_FACTOR);
+    require(healthFactor2_ >= controller.minHealthFactor2(), AppErrors.WRONG_HEALTH_FACTOR);
 
     IDForceController comptrollerLocal = comptroller;
     address cTokenCollateral = activeAssets[collateralAsset_];

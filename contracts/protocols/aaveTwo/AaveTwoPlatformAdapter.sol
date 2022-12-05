@@ -134,7 +134,7 @@ contract AaveTwoPlatformAdapter is IPlatformAdapter {
   ) {
     require(collateralAsset_ != address(0) && borrowAsset_ != address(0), AppErrors.ZERO_ADDRESS);
     require(collateralAmount_ != 0 && countBlocks_ != 0, AppErrors.INCORRECT_VALUE);
-    require(healthFactor2_ >= IController(controller).minHealthFactor2(), AppErrors.WRONG_HEALTH_FACTOR);
+    require(healthFactor2_ >= controller.minHealthFactor2(), AppErrors.WRONG_HEALTH_FACTOR);
 
     return _getConversionPlan(
       AppDataTypes.ParamsGetConversionPlan({
@@ -146,7 +146,6 @@ contract AaveTwoPlatformAdapter is IPlatformAdapter {
       })
     );
   }
-
 
   function _getConversionPlan (
     AppDataTypes.ParamsGetConversionPlan memory params
@@ -169,7 +168,7 @@ contract AaveTwoPlatformAdapter is IPlatformAdapter {
         plan.converter = converter;
 
         // prepare to calculate supply/borrow APR
-        vars.blocksPerDay = IController(controller).blocksPerDay();
+        vars.blocksPerDay = controller.blocksPerDay();
         vars.assets = new address[](2);
         vars.assets[0] = params.collateralAsset;
         vars.assets[1] = params.borrowAsset;

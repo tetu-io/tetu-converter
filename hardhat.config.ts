@@ -178,7 +178,7 @@ export default {
     ]
   },
   gasReporter: {
-    enabled: false,
+    enabled: true,
     currency: 'USD',
     gasPrice: 21,
     outputFile: "./gasreport.txt",

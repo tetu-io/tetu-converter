@@ -10,7 +10,6 @@ import "../interfaces/IController.sol";
 import "../interfaces/ISwapConverter.sol";
 import "./AppErrors.sol";
 import "./AppDataTypes.sol";
-import "hardhat/console.sol";
 
 /// @title Contract to find the best swap and make the swap
 /// @notice Combines Manager and Converter
@@ -72,29 +71,25 @@ contract SwapManager is ISwapManager, ISwapConverter {
   ) {
     ITetuLiquidator liquidator = ITetuLiquidator(controller.tetuLiquidator());
 //    (ITetuLiquidator.PoolData[] memory route,) = liquidator.buildRoute(p_.sourceToken, p_.targetToken);
-    maxTargetAmount = liquidator.getPrice(p_.sourceToken, p_.targetToken, p_.sourceAmount);
-    console.log("SwapManager.getConverter.maxTargetAmount", maxTargetAmount);
-    // todo: slippage is taken account temporally
-    maxTargetAmount = maxTargetAmount * (PRICE_IMPACT_NUMERATOR - AVERAGE_PRICE_IMPACT_TO_CALCULATE_APR) / PRICE_IMPACT_NUMERATOR;
+    maxTargetAmount = liquidator.getPrice(p_.sourceToken, p_.targetToken, p_.sourceAmount)
+      * (PRICE_IMPACT_NUMERATOR - AVERAGE_PRICE_IMPACT_TO_CALCULATE_APR) / PRICE_IMPACT_NUMERATOR;
 
-    // how much we will get when sell target token back
-    uint returnAmount = liquidator.getPrice(p_.targetToken, p_.sourceToken, maxTargetAmount);
-    // todo: slippage is taken account temporally
-    returnAmount = returnAmount * (PRICE_IMPACT_NUMERATOR - AVERAGE_PRICE_IMPACT_TO_CALCULATE_APR) / PRICE_IMPACT_NUMERATOR;
-    console.log("SwapManager.getConverter.returnAmount", returnAmount);
+    if (maxTargetAmount != 0) {
+      // how much we will get when sell target token back
+      uint returnAmount = liquidator.getPrice(p_.targetToken, p_.sourceToken, maxTargetAmount)
+        * (PRICE_IMPACT_NUMERATOR - AVERAGE_PRICE_IMPACT_TO_CALCULATE_APR) / PRICE_IMPACT_NUMERATOR;
 
-    // getPrice returns 0 if conversion way is not found
-    // in this case, we should return converter = 0 in same way as ITetuConverter does
-    converter = (maxTargetAmount == 0 || returnAmount == 0)
-      ? address(0)
-      : address(this);
+      if (returnAmount != 0) {
+        // getPrice returns 0 if conversion way is not found
+        // in this case, we should return converter = 0 in same way as ITetuConverter does
+        converter = address(this);
 
-    int loss = int(p_.sourceAmount) - int(returnAmount);
-    console.log("SwapManager.getConverter.loss");
-    console.logInt(loss);
-    apr18 = loss * APR_NUMERATOR / int(p_.sourceAmount);
-    console.log("SwapManager.getConverter.apr18");
-    console.logInt(apr18);
+        int loss = int(p_.sourceAmount) - int(returnAmount);
+        apr18 = loss * APR_NUMERATOR / int(p_.sourceAmount);
+      }
+    }
+
+    return (converter, maxTargetAmount, apr18);
   }
 
   ///////////////////////////////////////////////////////
@@ -129,13 +124,11 @@ contract SwapManager is ISwapManager, ISwapConverter {
     // liquidate() will revert here and it's ok.
     tetuLiquidator.liquidate(sourceToken_, targetToken_, sourceAmount_, PRICE_IMPACT_TOLERANCE);
     outputAmount = IERC20(targetToken_).balanceOf(address(this)) - targetTokenBalanceBefore;
-    console.log("SwapManager.swap.outputAmount", outputAmount);
 
     uint slippage = targetAmount_ == 0 || outputAmount >= targetAmount_
       ? 0
       : (targetAmount_ - outputAmount) * SLIPPAGE_NUMERATOR / targetAmount_;
     require(slippage <= SLIPPAGE_TOLERANCE, AppErrors.SLIPPAGE_TOO_BIG);
-    console.log("SwapManager.swap.slippage", slippage, targetAmount_);
 
     IERC20(targetToken_).safeTransfer(receiver_, outputAmount);
     emit OnSwap(sourceToken_, sourceAmount_, targetToken_, targetAmount_, receiver_, outputAmount);

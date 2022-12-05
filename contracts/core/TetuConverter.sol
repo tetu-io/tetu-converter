@@ -370,7 +370,7 @@ contract TetuConverter is ITetuConverter, IKeeperCallback, ReentrancyGuard {
         sourceToken: borrowAsset_,
         targetToken: collateralAsset_,
         sourceAmount: amountToRepay_,
-        periodInBlocks: 1 // optimal converter strategy doesn't depend on the period of blocks
+        periodInBlocks: 1 // optimal swap strategy doesn't depend on the period of blocks
       });
       (address converter, uint collateralAmount,) = _swapManager().getConverter(params);
       if (converter == address(0)) {

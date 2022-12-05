@@ -32,7 +32,7 @@ import {TetuConverterApp} from "../baseUT/helpers/TetuConverterApp";
  * - make borrow and estimate real APR
  * - save predicted and real values to result comparative file
  */
-describe("CompareAprUsesCaseTest @skip-on-coverage", () => {
+describe.skip("CompareAprUsesCaseTest @skip-on-coverage", () => {
 //region Constants
   const PATH_OUT = "tmp/compareResults.csv";
   const HEALTH_FACTOR2 = 400;
