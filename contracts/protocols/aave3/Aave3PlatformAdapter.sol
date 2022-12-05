@@ -44,7 +44,9 @@ contract Aave3PlatformAdapter is IPlatformAdapter {
     uint totalStableDebt;
     uint totalVariableDebt;
     uint blocksPerDay;
+    IAaveAddressesProvider addressProvider;
     IAavePriceOracle priceOracle;
+    IAaveProtocolDataProvider dataProvider;
     uint priceCollateral;
     uint priceBorrow;
   }
@@ -139,6 +141,10 @@ contract Aave3PlatformAdapter is IPlatformAdapter {
     LocalsGetConversionPlan memory vars;
 
     vars.poolLocal = pool;
+    vars.addressProvider = IAaveAddressesProvider(vars.poolLocal.ADDRESSES_PROVIDER());
+    vars.priceOracle = IAavePriceOracle(vars.addressProvider.getPriceOracle());
+    vars.dataProvider = IAaveProtocolDataProvider(vars.addressProvider.getPoolDataProvider());
+
     Aave3DataTypes.ReserveData memory rc = vars.poolLocal.getReserveData(params.collateralAsset);
 
     if (_isUsable(rc.configuration) &&  _isCollateralUsageAllowed(rc.configuration)) {
@@ -173,7 +179,7 @@ contract Aave3PlatformAdapter is IPlatformAdapter {
           vars.totalAToken,
           vars.totalStableDebt,
           vars.totalVariableDebt
-          ,,,,,,,) = _dp(vars.poolLocal).getReserveData(params.borrowAsset);
+          ,,,,,,,) = vars.dataProvider.getReserveData(params.borrowAsset);
           plan.maxAmountToBorrow = vars.totalAToken - vars.totalStableDebt - vars.totalVariableDebt;
 
           // supply/borrow caps are given in "whole tokens" == without decimals
@@ -230,9 +236,6 @@ contract Aave3PlatformAdapter is IPlatformAdapter {
 
           // calculate borrow-APR, see detailed explanation in Aave3AprLib
           vars.blocksPerDay = controller.blocksPerDay();
-          vars.priceOracle = IAavePriceOracle(
-            IAaveAddressesProvider(vars.poolLocal.ADDRESSES_PROVIDER()).getPriceOracle()
-          );
           vars.priceCollateral = vars.priceOracle.getAssetPrice(params.collateralAsset);
           vars.priceBorrow = vars.priceOracle.getAssetPrice(params.borrowAsset);
 
@@ -281,7 +284,7 @@ contract Aave3PlatformAdapter is IPlatformAdapter {
           vars.totalAToken,
           vars.totalStableDebt,
           vars.totalVariableDebt
-          ,,,,,,,) = _dp(vars.poolLocal).getReserveData(params.collateralAsset);
+          ,,,,,,,) = vars.dataProvider.getReserveData(params.collateralAsset);
 
           plan.supplyIncomeInBorrowAsset36 = AaveSharedLib.getCostForPeriodBefore(
             AaveSharedLib.State({
@@ -354,7 +357,9 @@ contract Aave3PlatformAdapter is IPlatformAdapter {
     (,,,
     uint256 totalStableDebt,
     uint256 totalVariableDebt
-    ,,,,,,,) = _dp(poolLocal).getReserveData(borrowAsset_);
+    ,,,,,,,) = IAaveProtocolDataProvider(
+      (IAaveAddressesProvider(poolLocal.ADDRESSES_PROVIDER())).getPoolDataProvider()
+    ).getReserveData(borrowAsset_);
 
     return Aave3AprLib.getVariableBorrowRateRays(
       rb,
@@ -394,11 +399,5 @@ contract Aave3PlatformAdapter is IPlatformAdapter {
   /// @dev https://docs.aave.com/developers/whats-new/isolation-mode
   function _isUsableInIsolationMode(Aave3DataTypes.ReserveConfigurationMap memory borrowData) internal pure returns (bool) {
     return borrowData.getBorrowableInIsolation();
-  }
-
-  function _dp(IAavePool pool_) internal view returns (IAaveProtocolDataProvider) {
-    return IAaveProtocolDataProvider(
-      (IAaveAddressesProvider(pool_.ADDRESSES_PROVIDER())).getPoolDataProvider()
-    );
   }
 }
