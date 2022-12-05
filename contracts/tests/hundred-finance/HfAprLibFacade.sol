@@ -9,11 +9,10 @@ import "../../integrations/hundred-finance/IHfCToken.sol";
 /// @notice Facade for HfAprLib to make external functions available for tests
 contract HfAprLibFacade {
   function getCore(
-    IHfComptroller comptroller,
     address cTokenCollateral_,
     address cTokenBorrow_
   ) external view returns (HfAprLib.HfCore memory) {
-    return HfAprLib.getCore(comptroller, cTokenCollateral_, cTokenBorrow_);
+    return HfAprLib.getCore(cTokenCollateral_, cTokenBorrow_);
   }
 
   function getEstimatedBorrowRate(
@@ -45,8 +44,7 @@ contract HfAprLibFacade {
     uint collateralAmount_,
     uint countBlocks_,
     uint amountToBorrow_,
-    uint priceCollateral36_,
-    uint priceBorrow36_
+    HfAprLib.PricesAndDecimals memory pad_
   ) external view returns (
     uint borrowCost36,
     uint supplyIncomeInBorrowAsset36
@@ -56,15 +54,14 @@ contract HfAprLibFacade {
       collateralAmount_,
       countBlocks_,
       amountToBorrow_,
-      priceCollateral36_,
-      priceBorrow36_
+      pad_
     );
   }
 
   function getSupplyIncomeInBorrowAsset36(
     uint supplyRatePerBlock,
     uint countBlocks,
-    uint8 collateralDecimals,
+    uint collateral10PowDecimals,
     uint priceCollateral,
     uint priceBorrow,
     uint suppliedAmount
@@ -72,7 +69,7 @@ contract HfAprLibFacade {
     return HfAprLib.getSupplyIncomeInBorrowAsset36(
       supplyRatePerBlock,
       countBlocks,
-      collateralDecimals,
+      collateral10PowDecimals,
       priceCollateral,
       priceBorrow,
       suppliedAmount
@@ -83,9 +80,9 @@ contract HfAprLibFacade {
     uint borrowRatePerBlock,
     uint borrowedAmount,
     uint countBlocks,
-    uint8 borrowDecimals
+    uint borrow10PowDecimals
   ) external pure returns (uint) {
-    return HfAprLib.getBorrowCost36(borrowRatePerBlock, borrowedAmount, countBlocks, borrowDecimals);
+    return HfAprLib.getBorrowCost36(borrowRatePerBlock, borrowedAmount, countBlocks, borrow10PowDecimals);
   }
 
   function getPrice(IHfPriceOracle priceOracle, address token) external view returns (uint) {

@@ -26,13 +26,24 @@ library HfAprLib {
     address borrowAsset;
   }
 
+  struct PricesAndDecimals {
+    IHfPriceOracle priceOracle;
+    /// @notice 10**collateralAssetDecimals
+    uint collateral10PowDecimals;
+    /// @notice 10**borrowAssetDecimals
+    uint borrow10PowDecimals;
+
+    uint priceCollateral36;
+    uint priceBorrow36;
+  }
+
+
   ///////////////////////////////////////////////////////
   //                  Addresses
   ///////////////////////////////////////////////////////
 
   /// @notice Get core address of DForce
   function getCore(
-    IHfComptroller comptroller,
     address cTokenCollateral_,
     address cTokenBorrow_
   ) internal view returns (HfCore memory) {
@@ -56,15 +67,11 @@ library HfAprLib {
     uint collateralAmount_,
     uint countBlocks_,
     uint amountToBorrow_,
-    uint priceCollateral36_,
-    uint priceBorrow36_
+    PricesAndDecimals memory pad_
   ) internal view returns (
     uint borrowCost36,
     uint supplyIncomeInBorrowAsset36
   ) {
-    uint8 collateralDecimals = IERC20Metadata(core.collateralAsset).decimals();
-    uint8 borrowDecimals = IERC20Metadata(core.borrowAsset).decimals();
-
     supplyIncomeInBorrowAsset36 = getSupplyIncomeInBorrowAsset36(
       getEstimatedSupplyRate(
         IHfInterestRateModel(core.cTokenCollateral.interestRateModel()),
@@ -72,22 +79,22 @@ library HfAprLib {
         collateralAmount_
       ),
       countBlocks_,
-      collateralDecimals,
-      priceCollateral36_,
-      priceBorrow36_,
+      pad_.collateral10PowDecimals,
+      pad_.priceCollateral36,
+      pad_.priceBorrow36,
       collateralAmount_
     );
 
     // estimate borrow rate value after the borrow and calculate result APR
     borrowCost36 = getBorrowCost36(
       getEstimatedBorrowRate(
-        IHfInterestRateModel(core.cTokenBorrow.interestRateModel()),,
+        IHfInterestRateModel(core.cTokenBorrow.interestRateModel()),
         core.cTokenBorrow,
         amountToBorrow_
       ),
       amountToBorrow_,
       countBlocks_,
-      borrowDecimals
+      pad_.borrow10PowDecimals
     );
   }
 
@@ -95,7 +102,7 @@ library HfAprLib {
   function getSupplyIncomeInBorrowAsset36(
     uint supplyRatePerBlock,
     uint countBlocks,
-    uint8 collateralDecimals,
+    uint collateral10PowDecimals,
     uint priceCollateral,
     uint priceBorrow,
     uint suppliedAmount
@@ -104,11 +111,10 @@ library HfAprLib {
     //    rmul(supplyRatePerBlock * countBlocks, suppliedAmount) * priceCollateral / priceBorrow,
     // but we need result decimals 36
     // so, we replace rmul by ordinal mul and take into account /1e18
-    return AppUtils.toMantissa(
-      supplyRatePerBlock * countBlocks * suppliedAmount * priceCollateral / priceBorrow,
-      collateralDecimals,
-      18 // not 36 because we replaced rmul by mul
-    );
+    return
+      supplyRatePerBlock * countBlocks * suppliedAmount * priceCollateral / priceBorrow
+      * 1e18 // not 36 because we replaced rmul by mul
+      / collateral10PowDecimals;
   }
 
   /// @notice Calculate borrow cost in terms of borrow tokens with decimals 36
@@ -117,7 +123,7 @@ library HfAprLib {
     uint borrowRatePerBlock,
     uint borrowedAmount,
     uint countBlocks,
-    uint8 borrowDecimals
+    uint borrow10PowDecimals
   ) internal pure returns (uint) {
     // simpleInterestFactor = borrowRate * blockDelta
     // interestAccumulated = simpleInterestFactor * totalBorrows
@@ -125,11 +131,10 @@ library HfAprLib {
     uint simpleInterestFactor = borrowRatePerBlock * countBlocks;
 
     // Replace rmul(simpleInterestFactor, borrowedAmount) by ordinal mul and take into account /1e18
-    return  AppUtils.toMantissa(
-      simpleInterestFactor * borrowedAmount,
-      borrowDecimals,
-      18 // not 36 because we replaced rmul by mul
-    );
+    return
+      simpleInterestFactor * borrowedAmount
+      * 1e8 // not 36 because we replaced rmul by mul
+      / borrow10PowDecimals;
   }
 
   ///////////////////////////////////////////////////////

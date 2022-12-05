@@ -24,19 +24,6 @@ contract HfPlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
   using AppUtils for uint;
 
   ///////////////////////////////////////////////////////
-  ///   Data types
-  ///////////////////////////////////////////////////////
-
-  /// @notice Local vars inside _getConversionPlan - to avoid stack too deep
-  struct LocalsGetConversionPlan {
-    IHfPriceOracle priceOracle;
-    uint8 collateralAssetDecimals;
-    uint8 borrowAssetDecimals;
-    uint priceCollateral36;
-    uint priceBorrow36;
-  }
-
-  ///////////////////////////////////////////////////////
   ///   Variables
   ///////////////////////////////////////////////////////
   IController immutable public controller;
@@ -192,26 +179,22 @@ contract HfPlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
           // it seems that supply is not limited in HundredFinance protocol
           plan.maxAmountToSupply = type(uint).max; // unlimited
 
-          LocalsGetConversionPlan memory vars;
-          vars.collateralAssetDecimals = IERC20Metadata(collateralAsset_).decimals();
-          vars.borrowAssetDecimals = IERC20Metadata(borrowAsset_).decimals();
+          HfAprLib.PricesAndDecimals memory vars;
+          vars.collateral10PowDecimals = 10**IERC20Metadata(collateralAsset_).decimals();
+          vars.borrow10PowDecimals = 10**IERC20Metadata(borrowAsset_).decimals();
           vars.priceOracle = IHfPriceOracle(comptroller.oracle());
-          vars.priceCollateral36 = HfAprLib.getPrice(vars.priceOracle, cTokenCollateral)
-            * 10**vars.collateralAssetDecimals;
-          vars.priceBorrow36 = HfAprLib.getPrice(vars.priceOracle, cTokenBorrow)
-            * 10**vars.borrowAssetDecimals;
+          vars.priceCollateral36 = HfAprLib.getPrice(vars.priceOracle, cTokenCollateral) * vars.collateral10PowDecimals;
+          vars.priceBorrow36 = HfAprLib.getPrice(vars.priceOracle, cTokenBorrow) * vars.borrow10PowDecimals;
 
           // calculate amount that can be borrowed
           // split calculation on several parts to avoid stack too deep
-          plan.amountToBorrow = 100 * collateralAmount_ / uint(healthFactor2_);
-          plan.amountToBorrow = AppUtils.toMantissa(
-            plan.amountToBorrow * plan.liquidationThreshold18
-              / 1e18
-              * (vars.priceCollateral36 * 1e18 / vars.priceBorrow36)
-              / 1e18,
-            vars.collateralAssetDecimals,
-            vars.borrowAssetDecimals
-          );
+          plan.amountToBorrow =
+            100 * collateralAmount_ / uint(healthFactor2_)
+            * (vars.priceCollateral36 * plan.liquidationThreshold18 / vars.priceBorrow36)
+            / 1e18
+            * vars.borrow10PowDecimals
+            / vars.collateral10PowDecimals;
+
           if (plan.amountToBorrow > plan.maxAmountToBorrow) {
             plan.amountToBorrow = plan.maxAmountToBorrow;
           }
@@ -220,17 +203,16 @@ contract HfPlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
           (plan.borrowCost36,
            plan.supplyIncomeInBorrowAsset36
           ) = HfAprLib.getRawCostAndIncomes(
-            HfAprLib.getCore(comptroller, cTokenCollateral, cTokenBorrow),
+            HfAprLib.getCore(cTokenCollateral, cTokenBorrow),
             collateralAmount_,
             countBlocks_,
             plan.amountToBorrow,
-            vars.priceCollateral36,
-            vars.priceBorrow36
+            vars
           );
 
           plan.amountCollateralInBorrowAsset36 =
             collateralAmount_ * (10**36 * vars.priceCollateral36 / vars.priceBorrow36)
-            / 10**vars.collateralAssetDecimals;
+            / vars.collateral10PowDecimals;
         }
       }
     }

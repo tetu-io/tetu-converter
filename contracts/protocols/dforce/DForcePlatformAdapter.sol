@@ -25,15 +25,6 @@ contract DForcePlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
   using AppUtils for uint;
 
   ///////////////////////////////////////////////////////
-  ///   Data types
-  ///////////////////////////////////////////////////////
-  /// @notice Local vars inside _getConversionPlan - to avoid stack too deep
-  struct LocalsGetConversionPlan {
-    IDForcePriceOracle priceOracle;
-
-  }
-
-  ///////////////////////////////////////////////////////
   ///   Variables
   ///////////////////////////////////////////////////////
   IController immutable public controller;
@@ -219,10 +210,9 @@ contract DForcePlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
 
           // calculate amount that can be borrowed
           // split calculation on several parts to avoid stack too deep
-          plan.amountToBorrow = 100 * collateralAmount_ / uint(healthFactor2_);
           plan.amountToBorrow =
-              plan.amountToBorrow * plan.liquidationThreshold18 / 1e18
-              * (1e18 * vars.priceCollateral36 / vars.priceBorrow36)
+              100 * collateralAmount_ / uint(healthFactor2_)
+              * (plan.liquidationThreshold18 * vars.priceCollateral36 / vars.priceBorrow36)
               / 1e18
               * vars.borrow10PowDecimals
               / vars.collateral10PowDecimals;
