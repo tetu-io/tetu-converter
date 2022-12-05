@@ -19,6 +19,7 @@ import {TimeUtils} from "../../../scripts/utils/TimeUtils";
 import {HundredFinancePlatformFabric} from "../fabrics/HundredFinancePlatformFabric";
 import {HundredFinanceUtils} from "../utils/HundredFinanceUtils";
 import {Misc} from "../../../scripts/utils/Misc";
+import {parseUnits} from "ethers/lib/utils";
 
 //region Data types
 interface IHfMarketState {
@@ -277,37 +278,37 @@ export class AprHundredFinance {
     const countBlocksNextToLast = 1;
 
     const supplyIncomeInBorrowAsset36 = await libFacade.getSupplyIncomeInBorrowAsset36(
-      supplyRatePredicted
-      , countBlocksNextToLast
-      , collateralAssetDecimals
-      , priceCollateral36
-      , priceBorrow36
-      , amountCollateral
+      supplyRatePredicted,
+      countBlocksNextToLast,
+      parseUnits("1", collateralAssetDecimals),
+      priceCollateral36,
+      priceBorrow36,
+      amountCollateral,
     );
     console.log("supplyIncomeInBorrowAsset36", supplyIncomeInBorrowAsset36);
     const supplyIncomeInBorrowAsset36Exact = await libFacade.getSupplyIncomeInBorrowAsset36(
-      next.collateral.market.supplyRatePerBlock
-      , countBlocksNextToLast
-      , collateralAssetDecimals
-      , priceCollateral36
-      , priceBorrow36
-      , amountCollateral
+      next.collateral.market.supplyRatePerBlock,
+      countBlocksNextToLast,
+      parseUnits("1", collateralAssetDecimals),
+      priceCollateral36,
+      priceBorrow36,
+      amountCollateral,
     );
     console.log("supplyAprExact", supplyIncomeInBorrowAsset36Exact);
 
     const borrowCost36 = await libFacade.getBorrowCost36(
-      borrowRatePredicted
-      , borrowAmount
-      , countBlocksNextToLast
-      , borrowAssetDecimals
+      borrowRatePredicted,
+      borrowAmount,
+      countBlocksNextToLast,
+      parseUnits("1", borrowAssetDecimals),
     );
     console.log("borrowApr", borrowCost36);
 
     const borrowCost36Exact = await libFacade.getBorrowCost36(
-      last.borrow.market.borrowRatePerBlock
-      , borrowAmount
-      , countBlocksNextToLast
-      , borrowAssetDecimals
+      last.borrow.market.borrowRatePerBlock,
+      borrowAmount,
+      countBlocksNextToLast,
+      parseUnits("1", borrowAssetDecimals),
     );
     console.log("borrowAprExact", borrowCost36);
 

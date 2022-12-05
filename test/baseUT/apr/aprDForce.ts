@@ -21,6 +21,7 @@ import {DForcePlatformFabric} from "../fabrics/DForcePlatformFabric";
 import {TimeUtils} from "../../../scripts/utils/TimeUtils";
 import {DForceUtils} from "../utils/DForceUtils";
 import {Misc} from "../../../scripts/utils/Misc";
+import {parseUnits} from "ethers/lib/utils";
 
 //region Data types
 interface IDForceMarketState {
@@ -274,7 +275,7 @@ export class AprDForce {
     const supplyIncomeInBorrowAsset36 = await libFacade.getSupplyIncomeInBorrowAsset36(
       supplyRatePredicted,
       countBlocksNextToLast,
-      collateralAssetDecimals,
+      parseUnits("1", collateralAssetDecimals),
       priceCollateral36,
       priceBorrow36,
       amountCollateral,
@@ -282,7 +283,7 @@ export class AprDForce {
     const supplyIncomeInBorrowAsset36Exact = await libFacade.getSupplyIncomeInBorrowAsset36(
       next.collateral.market.supplyRatePerBlock,
       countBlocksNextToLast,
-      collateralAssetDecimals,
+      parseUnits("1", collateralAssetDecimals),
       priceCollateral36,
       priceBorrow36,
       amountCollateral,
@@ -293,7 +294,7 @@ export class AprDForce {
       borrowRatePredicted,
       borrowAmount,
       countBlocksNextToLast,
-      borrowAssetDecimals,
+      parseUnits("1", borrowAssetDecimals),
     );
     console.log("borrowApr", borrowCost36);
 
@@ -301,7 +302,7 @@ export class AprDForce {
       last.borrow.market.borrowRatePerBlock,
       borrowAmount,
       countBlocksNextToLast,
-      borrowAssetDecimals,
+      parseUnits("1", borrowAssetDecimals),
     );
     console.log("borrowAprExact", borrowCost36);
 

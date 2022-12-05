@@ -256,8 +256,8 @@ contract Aave3PlatformAdapter is IPlatformAdapter {
           plan.amountToBorrow =
               100 * params.collateralAmount / uint(params.healthFactor2)
               * plan.liquidationThreshold18
-              * vars.rb10powDec
               * vars.priceCollateral / vars.priceBorrow
+              * vars.rb10powDec
               / 1e18
               / vars.rc10powDec;
 

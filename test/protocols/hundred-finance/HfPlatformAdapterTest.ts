@@ -276,7 +276,7 @@ describe("Hundred finance, platform adapter", () => {
     const supplyIncomeInBorrowAsset36 = await libFacade.getSupplyIncomeInBorrowAsset36(
       supplyRatePredicted,
       d.countBlocks,
-      d.collateralAssetDecimals,
+      parseUnits("1", d.collateralAssetDecimals),
       d.priceCollateral36,
       d.priceBorrow36,
       collateralAmount
@@ -286,7 +286,7 @@ describe("Hundred finance, platform adapter", () => {
       borrowRatePredicted,
       amountToBorrow,
       d.countBlocks,
-      d.borrowAssetDecimals,
+      parseUnits("1", d.borrowAssetDecimals),
     );
 
     const sret = [

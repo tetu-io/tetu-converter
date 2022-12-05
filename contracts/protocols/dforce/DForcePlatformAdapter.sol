@@ -30,10 +30,7 @@ contract DForcePlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
   /// @notice Local vars inside _getConversionPlan - to avoid stack too deep
   struct LocalsGetConversionPlan {
     IDForcePriceOracle priceOracle;
-    uint8 collateralAssetDecimals;
-    uint8 borrowAssetDecimals;
-    uint priceCollateral36;
-    uint priceBorrow36;
+
   }
 
   ///////////////////////////////////////////////////////
@@ -211,26 +208,24 @@ contract DForcePlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
             }
           }
 
-          LocalsGetConversionPlan memory vars;
-          vars.collateralAssetDecimals = IERC20Metadata(collateralAsset_).decimals();
-          vars.borrowAssetDecimals = IERC20Metadata(borrowAsset_).decimals();
+          DForceAprLib.PricesAndDecimals memory vars;
+          vars.collateral10PowDecimals = 10**IERC20Metadata(collateralAsset_).decimals();
+          vars.borrow10PowDecimals = 10**IERC20Metadata(borrowAsset_).decimals();
           vars.priceOracle = IDForcePriceOracle(comptroller.priceOracle());
           vars.priceCollateral36 = DForceAprLib.getPrice(vars.priceOracle, cTokenCollateral)
-            * 10**vars.collateralAssetDecimals ;
+            * vars.collateral10PowDecimals;
           vars.priceBorrow36 = DForceAprLib.getPrice(vars.priceOracle, cTokenBorrow)
-            * 10**vars.borrowAssetDecimals;
+            * vars.borrow10PowDecimals;
 
           // calculate amount that can be borrowed
           // split calculation on several parts to avoid stack too deep
           plan.amountToBorrow = 100 * collateralAmount_ / uint(healthFactor2_);
-          plan.amountToBorrow = AppUtils.toMantissa(
-            plan.amountToBorrow * plan.liquidationThreshold18
+          plan.amountToBorrow =
+              plan.amountToBorrow * plan.liquidationThreshold18 / 1e18
+              * (1e18 * vars.priceCollateral36 / vars.priceBorrow36)
               / 1e18
-              * (vars.priceCollateral36 * 1e18 / vars.priceBorrow36)
-              / 1e18,
-            vars.collateralAssetDecimals,
-            vars.borrowAssetDecimals
-          );
+              * vars.borrow10PowDecimals
+              / vars.collateral10PowDecimals;
           if (plan.amountToBorrow > plan.maxAmountToBorrow) {
             plan.amountToBorrow = plan.maxAmountToBorrow;
           }
@@ -243,13 +238,12 @@ contract DForcePlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
             collateralAmount_,
             countBlocks_,
             plan.amountToBorrow,
-            vars.priceCollateral36,
-            vars.priceBorrow36
+            vars
           );
 
           plan.amountCollateralInBorrowAsset36 =
             collateralAmount_ * (10**36 * vars.priceCollateral36 / vars.priceBorrow36)
-            / 10**vars.collateralAssetDecimals;
+            / vars.collateral10PowDecimals;
         }
       }
     }
@@ -266,10 +260,10 @@ contract DForcePlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
     address borrowAsset_,
     uint amountToBorrow_
   ) external view override returns (uint) {
-    address borrowCToken = activeAssets[borrowAsset_];
+    IDForceCToken borrowCToken = IDForceCToken(activeAssets[borrowAsset_]);
     return DForceAprLib.getEstimatedBorrowRate(
-      IDForceInterestRateModel(IDForceCToken(borrowCToken).interestRateModel()),
-      IDForceCToken(borrowCToken),
+      IDForceInterestRateModel(borrowCToken.interestRateModel()),
+      borrowCToken,
       amountToBorrow_
     );
   }

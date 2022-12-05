@@ -194,11 +194,10 @@ contract AaveTwoPlatformAdapter is IPlatformAdapter {
             100 * params.collateralAmount / uint(params.healthFactor2)
             * plan.liquidationThreshold18
             * vars.priceCollateral
+            / vars.priceBorrow
             * vars.rb10powDec
             / 1e18
-            / vars.priceBorrow
             / vars.rc10powDec;
-
         // availableLiquidity is IERC20(borrowToken).balanceOf(atoken)
         (vars.availableLiquidity, vars.totalStableDebt, vars.totalVariableDebt,,,,,,,) = vars.dataProvider.getReserveData(params.borrowAsset);
 
@@ -228,11 +227,9 @@ contract AaveTwoPlatformAdapter is IPlatformAdapter {
         )
         * 10**18 // we need decimals 36, but the result is already multiplied on 1e18 by multiplier above
         / vars.rb10powDec;
-
         (, vars.totalStableDebt, vars.totalVariableDebt,,,,,,,) = vars.dataProvider.getReserveData(params.collateralAsset);
 
         plan.maxAmountToSupply = type(uint).max; // unlimited
-
         // calculate supply-APR, see detailed explanation in Aave3AprLib
         plan.supplyIncomeInBorrowAsset36 = AaveSharedLib.getCostForPeriodBefore(
           AaveSharedLib.State({
@@ -254,11 +251,10 @@ contract AaveTwoPlatformAdapter is IPlatformAdapter {
           1e18 // multiplier to increase result precision
         )
         // we need a value in terms of borrow tokens with decimals 18
-        * vars.priceCollateral
         * 1e18 // we need decimals 36, but the result is already multiplied on 1e18 by multiplier above
+        * vars.priceCollateral
         / vars.priceBorrow
         / vars.rc10powDec;
-
         plan.amountCollateralInBorrowAsset36 =
           params.collateralAmount
           * 1e18

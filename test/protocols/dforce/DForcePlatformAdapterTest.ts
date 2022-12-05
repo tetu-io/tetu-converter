@@ -31,6 +31,8 @@ import {TetuConverterApp} from "../../baseUT/helpers/TetuConverterApp";
 import {IConversionPlan} from "../../baseUT/apr/aprDataTypes";
 import {DForceChangePriceUtils} from "../../baseUT/protocols/dforce/DForceChangePriceUtils";
 import {parseUnits} from "ethers/lib/utils";
+import {controlGasLimitsEx} from "../../../scripts/utils/hardhatUtils";
+import {GAS_LIMIT_DFORCE_GET_CONVERSION_PLAN} from "../../baseUT/GasLimit";
 
 describe("DForce integration tests, platform adapter", () => {
 //region Global vars for all tests
@@ -357,7 +359,7 @@ describe("DForce integration tests, platform adapter", () => {
     const supplyIncomeInBorrowAsset36 = await libFacade.getSupplyIncomeInBorrowAsset36(
       supplyRatePredicted,
       d.countBlocks,
-      d.collateralAssetDecimals,
+      parseUnits("1", d.collateralAssetDecimals),
       d.priceCollateral36,
       d.priceBorrow36,
       collateralAmount,
@@ -366,7 +368,7 @@ describe("DForce integration tests, platform adapter", () => {
       borrowRatePredicted,
       amountToBorrow,
       d.countBlocks,
-      d.borrowAssetDecimals,
+      parseUnits("1", d.borrowAssetDecimals),
     );
 
     const sret = [
@@ -659,6 +661,35 @@ describe("DForce integration tests, platform adapter", () => {
           );
           expect(r.plan.maxAmountToSupply.eq(Misc.MAX_UINT)).eq(true);
 
+        });
+      });
+      describe("Check gas limit", () => {
+        it("should return expected values @skip-on-coverage", async () => {
+          const controller = await TetuConverterApp.createController(
+            deployer,
+            {tetuLiquidatorAddress: MaticAddresses.TETU_LIQUIDATOR}
+          );
+
+          const comptroller = await DForceHelper.getController(deployer);
+          const dForcePlatformAdapter = await AdaptersHelper.createDForcePlatformAdapter(
+            deployer,
+            controller.address,
+            comptroller.address,
+            ethers.Wallet.createRandom().address,
+            [MaticAddresses.dForce_iDAI, MaticAddresses.dForce_iUSDC],
+          );
+
+          const gasUsed = await dForcePlatformAdapter.estimateGas.getConversionPlan(
+            MaticAddresses.DAI,
+            parseUnits("1", 18),
+            MaticAddresses.USDC,
+            200,
+            1000,
+          );
+          console.log("DForcePlatformAdapter.getConversionPlan.gas", gasUsed.toString());
+          controlGasLimitsEx(gasUsed, GAS_LIMIT_DFORCE_GET_CONVERSION_PLAN, (u, t) => {
+            expect(u).to.be.below(t);
+          });
         });
       });
     });
