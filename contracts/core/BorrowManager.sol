@@ -308,7 +308,7 @@ contract BorrowManager is IBorrowManager {
           - int(plan.supplyIncomeInBorrowAsset36)
           - int(plan.rewardsAmountInBorrowAsset36 * rewardsFactor / REWARDS_FACTOR_DENOMINATOR_18)
         )
-        * int(10**18)
+        * int(1e18)
         / int(plan.amountCollateralInBorrowAsset36);
 
         if (

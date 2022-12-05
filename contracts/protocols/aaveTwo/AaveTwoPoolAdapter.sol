@@ -349,14 +349,12 @@ contract AaveTwoPoolAdapter is IPoolAdapter, IPoolAdapterInitializer, Initializa
     require(totalDebtBase != 0, AppErrors.ZERO_BALANCE);
 
     // the assets prices in the base currency
-    address[] memory assets = new address[](2);
-    assets[0] = assetCollateral_;
-    assets[1] = assetBorrow_;
+    uint collateralPrice = _priceOracle.getAssetPrice(assetCollateral_);
+    require(collateralPrice != 0, AppErrors.ZERO_PRICE);
 
-    uint[] memory prices = _priceOracle.getAssetsPrices(assets);
-    require(prices[0] != 0, AppErrors.ZERO_PRICE);
-
-    uint amountToRepayBase = amountToRepay_ * prices[1] / (10 ** IERC20Metadata(assetBorrow_).decimals());
+    uint amountToRepayBase = amountToRepay_
+      * _priceOracle.getAssetPrice(assetBorrow_)
+      / (10 ** IERC20Metadata(assetBorrow_).decimals());
     require(!closePosition_ || totalDebtBase <= amountToRepayBase, AppErrors.CLOSE_POSITION_FAILED);
 
     if (closePosition_) {
@@ -371,7 +369,7 @@ contract AaveTwoPoolAdapter is IPoolAdapter, IPoolAdapterInitializer, Initializa
       // == totalCollateral * amountToRepay / totalDebt
       totalCollateralBase * (10 ** IERC20Metadata(assetCollateral_).decimals())
       * part / 10**18
-      / prices[0];
+      / collateralPrice;
   }
 
   /// @notice Repay with rebalancing. Send amount of collateral/borrow asset to the pool adapter
@@ -470,11 +468,9 @@ contract AaveTwoPoolAdapter is IPoolAdapter, IPoolAdapterInitializer, Initializa
     address assetCollateral = collateralAsset;
     address assetBorrow = borrowAsset;
 
-    address[] memory assets = new address[](2);
-    assets[0] = assetCollateral;
-    assets[1] = assetBorrow;
-    uint[] memory prices = _priceOracle.getAssetsPrices(assets);
-    require(prices[1] != 0 && prices[0] != 0, AppErrors.ZERO_PRICE);
+    uint collateralPrice = _priceOracle.getAssetPrice(assetCollateral);
+    uint borrowPrice = _priceOracle.getAssetPrice(assetBorrow);
+    require(collateralPrice != 0 && borrowPrice != 0, AppErrors.ZERO_PRICE);
 
     DataTypes.ReserveData memory rc = pool.getReserveData(assetCollateral);
     uint aTokensBalance = IERC20(rc.aTokenAddress).balanceOf(address(this));
@@ -482,11 +478,11 @@ contract AaveTwoPoolAdapter is IPoolAdapter, IPoolAdapterInitializer, Initializa
     uint targetDecimals = (10 ** pool.getConfiguration(assetBorrow).getDecimals());
     return (
     // Total amount of provided collateral in [collateral asset]
-      totalCollateralBase * (10 ** pool.getConfiguration(assetCollateral).getDecimals()) / prices[0],
+      totalCollateralBase * (10 ** pool.getConfiguration(assetCollateral).getDecimals()) / collateralPrice,
     // Total amount of borrowed debt in [borrow asset]. 0 - for closed borrow positions.
       totalDebtBase == 0
         ? 0
-        : totalDebtBase * targetDecimals / prices[1]
+        : totalDebtBase * targetDecimals / borrowPrice
           // we ask to pay a bit more amount to exclude dust tokens
           // i.e. for USD we need to pay only 1 cent
           // this amount allows us to pass type(uint).max to repay function

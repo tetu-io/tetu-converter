@@ -1370,7 +1370,7 @@ describe("BorrowManager", () => {
       });
     });
     describe("Gas estimation @skip-on-coverage", () => {
-      describe("10 pools, each next pool is better then previous, estimate gas", () => {
+      describe("10 pools, each next pool is better previous one, estimate gas", () => {
         async function checkGas(countPools: number): Promise<BigNumber> {
           const bestBorrowRate = 270;
           const sourceAmount = 100_000;

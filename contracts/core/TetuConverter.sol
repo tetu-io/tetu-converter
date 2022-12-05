@@ -289,6 +289,7 @@ contract TetuConverter is ITetuConverter, IKeeperCallback, ReentrancyGuard {
       targetAmount_,
       receiver_
     );
+
     emit OnSwap(msg.sender, swapConverter_, sourceAsset_, sourceAmount_, targetAsset_, targetAmount_, receiver_, amountOut);
   }
 
@@ -360,6 +361,7 @@ contract TetuConverter is ITetuConverter, IKeeperCallback, ReentrancyGuard {
         closePosition
       );
       amountToRepay_ -= amountToPayToPoolAdapter;
+      
       emit OnRepayBorrow(address(pa), amountToPayToPoolAdapter, receiver_, closePosition);
     }
 

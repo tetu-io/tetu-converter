@@ -37,7 +37,8 @@ import {CoreContractsHelper} from "../baseUT/helpers/CoreContractsHelper";
 import {Misc} from "../../scripts/utils/Misc";
 import {ICreateControllerParams, TetuConverterApp} from "../baseUT/helpers/TetuConverterApp";
 import {parseUnits} from "ethers/lib/utils";
-import {chainConfig} from "@nomiclabs/hardhat-etherscan/dist/src/ChainConfig";
+import {controlGasLimitsEx} from "../../scripts/utils/hardhatUtils";
+import {GAS_LIMIT_DM_ON_CLOSE_POSITION, GAS_LIMIT_DM_ON_OPEN_POSITION} from "../baseUT/GasLimit";
 
 describe("DebtsMonitor", () => {
 //region Global vars for all tests
@@ -902,6 +903,36 @@ describe("DebtsMonitor", () => {
         });
       });
     });
+    describe("Gas estimation @skip-on-coverage", () => {
+      it("should not exceed gas limit", async () => {
+        const user = ethers.Wallet.createRandom().address;
+        const tt: IBorrowInputParams = {
+          collateralFactor: 0.8,
+          priceSourceUSD: 0.1,
+          priceTargetUSD: 4,
+          sourceDecimals: 12,
+          targetDecimals: 24,
+          availablePools: [
+            {   // source, target
+              borrowRateInTokens: [1, 1],
+              availableLiquidityInTokens: [0, 200_000_000]
+            }
+          ]
+        };
+
+        const {core, poolAdapters} = await initializeApp(tt, user);
+        const poolAdapter = poolAdapters[0];
+
+        const dmAsPa = DebtMonitor__factory.connect(core.dm.address,
+          await DeployerUtils.startImpersonate(poolAdapter)
+        );
+
+        const gasUsed = await dmAsPa.estimateGas.onOpenPosition();
+        controlGasLimitsEx(gasUsed, GAS_LIMIT_DM_ON_OPEN_POSITION, (u, t) => {
+          expect(u).to.be.below(t);
+        });
+      });
+    });
   });
 
   describe("onClosePosition", () => {
@@ -1141,6 +1172,38 @@ describe("DebtsMonitor", () => {
           await expect(
             dmAsNotPa.onClosePosition()
           ).revertedWith("TC-11 position not registered");
+        });
+      });
+    });
+    describe("Gas estimation @skip-on-coverage", () => {
+      it("should not exceed gas limit", async () => {
+        const user = ethers.Wallet.createRandom().address;
+        const tt: IBorrowInputParams = {
+          collateralFactor: 0.8,
+          priceSourceUSD: 0.1,
+          priceTargetUSD: 4,
+          sourceDecimals: 12,
+          targetDecimals: 24,
+          availablePools: [
+            {   // source, target
+              borrowRateInTokens: [1, 1],
+              availableLiquidityInTokens: [0, 200_000_000]
+            }
+          ]
+        };
+
+        const {core, poolAdapters} = await initializeApp(tt, user);
+        const poolAdapter = poolAdapters[0];
+
+        const dmAsPa = DebtMonitor__factory.connect(core.dm.address,
+          await DeployerUtils.startImpersonate(poolAdapter)
+        );
+
+        await dmAsPa.onOpenPosition();
+        const gasUsed = await dmAsPa.estimateGas.onClosePosition();
+
+        controlGasLimitsEx(gasUsed, GAS_LIMIT_DM_ON_CLOSE_POSITION, (u, t) => {
+          expect(u).to.be.below(t);
         });
       });
     });

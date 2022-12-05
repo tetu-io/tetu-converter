@@ -118,6 +118,7 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer,
   function prepareToBorrow() internal virtual;
 
 
+
   ///////////////////////////////////////////////////////
   ///                 Borrow logic
   ///////////////////////////////////////////////////////
@@ -183,8 +184,8 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer,
     uint collateralAmount_
   ) internal returns (uint) {
     //a-tokens
-    Aave3DataTypes.ReserveData memory d = pool_.getReserveData(assetCollateral_);
-    uint aTokensBalanceBeforeSupply = IERC20(d.aTokenAddress).balanceOf(address(this));
+    Aave3DataTypes.ReserveData memory rc = pool_.getReserveData(assetCollateral_);
+    uint aTokensBalanceBeforeSupply = IERC20(rc.aTokenAddress).balanceOf(address(this));
 
     IERC20(assetCollateral_).safeTransferFrom(msg.sender, address(this), collateralAmount_);
 
@@ -200,7 +201,7 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer,
     );
     pool_.setUserUseReserveAsCollateral(assetCollateral_, true);
     // ensure that we received a-tokens; don't transfer them anywhere
-    uint aTokensBalanceAfterSupply = IERC20(d.aTokenAddress).balanceOf(address(this));
+    uint aTokensBalanceAfterSupply = IERC20(rc.aTokenAddress).balanceOf(address(this));
     require(aTokensBalanceAfterSupply >= aTokensBalanceBeforeSupply, AppErrors.WEIRD_OVERFLOW);
 
     uint aTokensAmount = aTokensBalanceAfterSupply - aTokensBalanceBeforeSupply;
@@ -290,7 +291,8 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer,
         amountToRepay_,
         assetCollateral,
         assetBorrow,
-        closePosition_
+        closePosition_,
+        rc.configuration.getDecimals()
     );
     // transfer borrow amount back to the pool
     // replaced by infinity approve: IERC20(assetBorrow).safeApprove(address(pool), amountToRepay_);
@@ -349,22 +351,21 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer,
     uint amountToRepay_,
     address assetCollateral_,
     address assetBorrow_,
-    bool closePosition_
+    bool closePosition_,
+    uint collateralDecimals
   ) internal view returns (uint) {
     // ensure that we really have a debt
     (uint256 totalCollateralBase, uint256 totalDebtBase,,,,) = pool_.getUserAccountData(address(this));
     require(totalDebtBase != 0, AppErrors.ZERO_BALANCE);
 
     // the assets prices in the base currency
-    address[] memory assets = new address[](2);
-    assets[0] = assetCollateral_;
-    assets[1] = assetBorrow_;
-
-    uint[] memory prices = _priceOracle.getAssetsPrices(assets);
-    require(prices[0] != 0, AppErrors.ZERO_PRICE);
+    uint collateralPrice = _priceOracle.getAssetPrice(assetCollateral_);
+    require(collateralPrice != 0, AppErrors.ZERO_PRICE);
 
     // we cannot close position if the debt is repaying only partly
-    uint amountToRepayBase = amountToRepay_ * prices[1] / (10 ** IERC20Metadata(assetBorrow_).decimals());
+    uint amountToRepayBase = amountToRepay_
+      * _priceOracle.getAssetPrice(assetBorrow_)
+      / (10 ** IERC20Metadata(assetBorrow_).decimals());
     require(!closePosition_ || totalDebtBase <= amountToRepayBase, AppErrors.CLOSE_POSITION_FAILED);
 
     if (closePosition_) {
@@ -372,14 +373,15 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer,
     }
 
     uint part = amountToRepayBase >= totalDebtBase
-      ? 10**18
-      : 10**18 * amountToRepayBase / totalDebtBase;
+      ? 1e18
+      : 1e18 * amountToRepayBase / totalDebtBase;
 
     return
       // == totalCollateral * amountToRepay / totalDebt
-      totalCollateralBase * (10 ** IERC20Metadata(assetCollateral_).decimals())
-      * part / 10**18
-      / prices[0];
+      totalCollateralBase
+      * (10 ** collateralDecimals)
+      * part / 1e18
+      / collateralPrice;
   }
 
   /// @notice Repay with rebalancing. Send amount of collateral/borrow asset to the pool adapter
@@ -488,11 +490,9 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer,
     address assetBorrow = borrowAsset;
     address assetCollateral = collateralAsset;
 
-    address[] memory assets = new address[](2);
-    assets[0] = assetCollateral;
-    assets[1] = assetBorrow;
-    uint[] memory prices = _priceOracle.getAssetsPrices(assets);
-    require(prices[1] != 0 && prices[0] != 0, AppErrors.ZERO_PRICE);
+    uint collateralPrice = _priceOracle.getAssetPrice(assetCollateral);
+    uint borrowPrice = _priceOracle.getAssetPrice(assetBorrow);
+    require(collateralPrice != 0 && borrowPrice != 0, AppErrors.ZERO_PRICE);
 
     uint targetDecimals = (10 ** pool.getConfiguration(assetBorrow).getDecimals());
 
@@ -506,11 +506,11 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer,
     }
     return (
     // Total amount of provided collateral in [collateral asset]
-      totalCollateralBase * (10 ** pool.getConfiguration(assetCollateral).getDecimals()) / prices[0],
+      totalCollateralBase * (10 ** pool.getConfiguration(assetCollateral).getDecimals()) / collateralPrice,
       // Total amount of borrowed debt in [borrow asset]. 0 - for closed borrow positions.
       totalDebtBase == 0
         ? 0
-        : totalDebtBase * targetDecimals / prices[1]
+        : totalDebtBase * targetDecimals / borrowPrice
       // we ask to pay a bit more amount to exclude dust tokens
       // i.e. for USD we need to pay only 1 cent
       // this amount allows us to pass type(uint).max to repay function

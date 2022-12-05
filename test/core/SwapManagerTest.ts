@@ -143,7 +143,7 @@ describe("SwapManager", () => {
           const converter = await swapManager.getConverter(params);
 
           expect(converter.converter).eq(swapManager.address)
-          expect(converter.apr18).eq(BigNumber.from('0'))
+          expect(converter.apr18).eq(BigNumber.from('0')) // TODO take slippage into account
         }
       }
     });
@@ -177,7 +177,7 @@ describe("SwapManager", () => {
             const one18 = BigNumber.from('10').pow(18);
 
             expect(converter.converter).eq(swapManager.address);
-            expect(converter.apr18).eq(loss.mul(one18).div(sourceAmount));
+            expect(converter.apr18).eq(loss.mul(one18).div(sourceAmount)); // TODO take slippage into account
           }
         }
       }
@@ -216,12 +216,17 @@ describe("SwapManager", () => {
     };
 
     it("Should make swap for provided amount out", async () => {
+      const ret: boolean[] = [];
+      const expected: boolean[] = [];
       for (const tokenIn of tokens) {
         for (const tokenOut of tokens) {
           if (tokenIn === tokenOut) continue;
-          expect(await swap(tokenIn, tokenOut)).eq(true);
+          ret.push(await swap(tokenIn, tokenOut));
+          expected.push(true);
         }
       }
+
+      expect(ret.join()).eq(expected.join()); // TODO take slippage into account
     });
 
     it("Should revert with slippage", async () => {
