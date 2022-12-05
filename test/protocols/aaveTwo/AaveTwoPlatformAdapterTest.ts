@@ -28,6 +28,8 @@ import {MocksHelper} from "../../baseUT/helpers/MocksHelper";
 import {IConversionPlan} from "../../baseUT/apr/aprDataTypes";
 import {parseUnits} from "ethers/lib/utils";
 import {AaveTwoChangePricesUtils} from "../../baseUT/protocols/aaveTwo/AaveTwoChangePricesUtils";
+import {controlGasLimitsEx} from "../../../scripts/utils/hardhatUtils";
+import {GAS_LIMIT_AAVE_TWO_GET_CONVERSION_PLAN} from "../../baseUT/GasLimit";
 
 describe("AaveTwoPlatformAdapterTest", () => {
 //region Global vars for all tests
@@ -427,6 +429,33 @@ describe("AaveTwoPlatformAdapterTest", () => {
 
           const r = await preparePlan(MaticAddresses.DAI, parseUnits("1", 28), MaticAddresses.WMATIC);
           expect(r.plan.amountToBorrow).eq(r.plan.maxAmountToBorrow);
+        });
+      });
+      describe("Check gas limit", () => {
+        it("should return expected values @skip-on-coverage", async () => {
+          const controller = await TetuConverterApp.createController(
+            deployer,
+            {tetuLiquidatorAddress: MaticAddresses.TETU_LIQUIDATOR}
+          );
+
+          const aavePlatformAdapter = await AdaptersHelper.createAaveTwoPlatformAdapter(
+            deployer,
+            controller.address,
+            MaticAddresses.AAVE_TWO_POOL,
+            ethers.Wallet.createRandom().address
+          );
+
+          const gasUsed = await aavePlatformAdapter.estimateGas.getConversionPlan(
+            MaticAddresses.DAI,
+            parseUnits("1", 18),
+            MaticAddresses.USDC,
+            200,
+            1
+          );
+          console.log("AaveTwoPlatformAdapter.getConversionPlan.gas", gasUsed.toString());
+          controlGasLimitsEx(gasUsed, GAS_LIMIT_AAVE_TWO_GET_CONVERSION_PLAN, (u, t) => {
+            expect(u).to.be.below(t);
+          });
         });
       });
     });

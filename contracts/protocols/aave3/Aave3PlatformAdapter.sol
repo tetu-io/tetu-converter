@@ -44,8 +44,9 @@ contract Aave3PlatformAdapter is IPlatformAdapter {
     uint totalStableDebt;
     uint totalVariableDebt;
     uint blocksPerDay;
-    address[] assets;
-    uint[] prices;
+    IAavePriceOracle priceOracle;
+    uint priceCollateral;
+    uint priceBorrow;
   }
 
   ///////////////////////////////////////////////////////
@@ -229,12 +230,11 @@ contract Aave3PlatformAdapter is IPlatformAdapter {
 
           // calculate borrow-APR, see detailed explanation in Aave3AprLib
           vars.blocksPerDay = controller.blocksPerDay();
-          vars.assets = new address[](2);
-          vars.assets[0] = params.collateralAsset;
-          vars.assets[1] = params.borrowAsset;
-          vars.prices = IAavePriceOracle(
+          vars.priceOracle = IAavePriceOracle(
             IAaveAddressesProvider(vars.poolLocal.ADDRESSES_PROVIDER()).getPriceOracle()
-          ).getAssetsPrices(vars.assets);
+          );
+          vars.priceCollateral = vars.priceOracle.getAssetPrice(params.collateralAsset);
+          vars.priceBorrow = vars.priceOracle.getAssetPrice(params.borrowAsset);
 
           // we assume here, that required health factor is configured correctly
           // and it's greater than h = liquidation-threshold (LT) / loan-to-value (LTV)
@@ -242,9 +242,9 @@ contract Aave3PlatformAdapter is IPlatformAdapter {
           // see comment to IBorrowManager.setHealthFactor
           plan.amountToBorrow = AppUtils.toMantissa(
               100 * params.collateralAmount / uint(params.healthFactor2)
-              * vars.prices[0]
+              * vars.priceCollateral
               * plan.liquidationThreshold18
-              / vars.prices[1]
+              / vars.priceBorrow
               / 1e18,
             uint8(rc.configuration.getDecimals()),
             uint8(rb.configuration.getDecimals())
@@ -303,13 +303,13 @@ contract Aave3PlatformAdapter is IPlatformAdapter {
             1e18 // multiplier to increase result precision
           )
           // we need a value in terms of borrow tokens but with decimals 18
-          * vars.prices[0] // collateral price
+          * vars.priceCollateral
           * 10**18 // we need decimals 36, but the result is already multiplied on 1e18 by multiplier above
-          / vars.prices[1] // borrow price
+          / vars.priceBorrow
           / 10**rc.configuration.getDecimals();
 
           plan.amountCollateralInBorrowAsset36 = params.collateralAmount
-            * (10**36 * vars.prices[0] / vars.prices[1])
+            * (10**36 * vars.priceCollateral / vars.priceBorrow)
             / 10 ** rc.configuration.getDecimals();
         }
       }
