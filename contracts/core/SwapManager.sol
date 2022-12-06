@@ -10,7 +10,8 @@ import "../interfaces/IController.sol";
 import "../interfaces/ISwapConverter.sol";
 import "./AppErrors.sol";
 import "./AppDataTypes.sol";
-import "../integrations/aave3/IAavePriceOracle.sol";
+import "../interfaces/IPriceOracle.sol";
+import "hardhat/console.sol";
 
 /// @title Contract to find the best swap and make the swap
 /// @notice Combines Manager and Converter
@@ -29,9 +30,6 @@ contract SwapManager is ISwapManager, ISwapConverter {
 
   uint public constant PRICE_IMPACT_NUMERATOR = 100_000;
   uint public constant PRICE_IMPACT_TOLERANCE = PRICE_IMPACT_NUMERATOR * 2 / 100; // 2%
-  uint public constant AVERAGE_PRICE_IMPACT_TO_CALCULATE_APR = PRICE_IMPACT_NUMERATOR * 1 / 100; // 1%
-
-  address public constant AAVE3_PRICE_ORACLE = 0xb023e699F5a33916Ea823A16485e259257cA8Bd1;
 
   int public constant APR_NUMERATOR = 10**18;
 
@@ -66,63 +64,36 @@ contract SwapManager is ISwapManager, ISwapConverter {
   /// @return converter Address of ISwapConverter
   ///         If SwapManager cannot find a conversion way,
   ///         it returns converter == 0 (in the same way as ITetuConverter)
-  function getConverter(AppDataTypes.InputConversionParams memory p_)
-  external view override returns (
+  function getConverter(AppDataTypes.InputConversionParams memory p_) external view override returns (
     address converter,
     uint maxTargetAmount,
     int apr18
   ) {
     ITetuLiquidator liquidator = ITetuLiquidator(controller.tetuLiquidator());
-//    (ITetuLiquidator.PoolData[] memory route,) = liquidator.buildRoute(p_.sourceToken, p_.targetToken);
-    maxTargetAmount = liquidator.getPrice(p_.sourceToken, p_.targetToken, p_.sourceAmount)
-      * (PRICE_IMPACT_NUMERATOR - AVERAGE_PRICE_IMPACT_TO_CALCULATE_APR) / PRICE_IMPACT_NUMERATOR;
+    maxTargetAmount = liquidator.getPrice(p_.sourceToken, p_.targetToken, p_.sourceAmount);
 
     if (maxTargetAmount != 0) {
-      // how much we will get when sell target token back
-      uint returnAmount = liquidator.getPrice(p_.targetToken, p_.sourceToken, maxTargetAmount)
-        * (PRICE_IMPACT_NUMERATOR - AVERAGE_PRICE_IMPACT_TO_CALCULATE_APR) / PRICE_IMPACT_NUMERATOR;
-
-      if (returnAmount != 0) {
-        // getPrice returns 0 if conversion way is not found
-        // in this case, we should return converter = 0 in same way as ITetuConverter does
-        converter = address(this);
-
-        int loss = int(p_.sourceAmount) - int(returnAmount);
-        apr18 = loss * APR_NUMERATOR / int(p_.sourceAmount);
-      }
-    }
-
-    return (converter, maxTargetAmount, apr18);
-  }
-
-  /// todo remove
-  function getConverter2(AppDataTypes.InputConversionParams memory p_)
-  external view returns (
-    address converter,
-    uint maxTargetAmount,
-    int apr18
-  ) {
-    ITetuLiquidator liquidator = ITetuLiquidator(controller.tetuLiquidator());
-    maxTargetAmount = liquidator.getPrice(p_.sourceToken, p_.targetToken, p_.sourceAmount)
-      * (PRICE_IMPACT_NUMERATOR - AVERAGE_PRICE_IMPACT_TO_CALCULATE_APR) / PRICE_IMPACT_NUMERATOR;
-
-    if (maxTargetAmount != 0) {
-//      IAavePriceOracle priceOracle = IAavePriceOracle(AAVE3_PRICE_ORACLE);
-//      address[] memory assets = new address[](2);
-//      assets[0] = p_.sourceToken;
-//      assets[1] = p_.targetToken;
-//      uint[] memory prices = priceOracle.getAssetsPrices(assets);
-
-      uint maxTargetAmountInSourceTokens = maxTargetAmount
-        * 10**18 // IERC20Metadata(p_.sourceToken).decimals()
-        * 1e18 // priceOracle.getAssetPrice(p_.targetToken)
-        / 1e18 // priceOracle.getAssetPrice(p_.sourceToken)
-        / 10**18; // IERC20Metadata(p_.targetToken).decimals();
-
       converter = address(this);
+
+      IPriceOracle priceOracle = IPriceOracle(controller.priceOracle());
+      uint maxTargetAmountInSourceTokens = maxTargetAmount
+        * 10**IERC20Metadata(p_.sourceToken).decimals()
+        * priceOracle.getAssetPrice(p_.targetToken)
+        / priceOracle.getAssetPrice(p_.sourceToken)
+        / 10**IERC20Metadata(p_.targetToken).decimals();
+      console.log("SwapManager.sourceAmount", p_.sourceAmount);
+      console.log("SwapManager.maxTargetAmount", maxTargetAmount);
+      console.log("SwapManager.IERC20Metadata(p_.sourceToken).decimals()", IERC20Metadata(p_.sourceToken).decimals());
+      console.log("SwapManager.priceOracle.getAssetPrice(p_.targetToken)", priceOracle.getAssetPrice(p_.targetToken));
+      console.log("SwapManager.priceOracle.getAssetPrice(p_.sourceToken)", priceOracle.getAssetPrice(p_.sourceToken));
+      console.log("SwapManager.IERC20Metadata(p_.targetToken).decimals()", IERC20Metadata(p_.targetToken).decimals());
+      console.log("SwapManager.maxTargetAmountInSourceTokens", maxTargetAmountInSourceTokens);
 
       int loss = 2 * (int(p_.sourceAmount) - int(maxTargetAmountInSourceTokens));
       apr18 = loss * APR_NUMERATOR / int(p_.sourceAmount);
+
+      console.log("Predicted loss");
+      console.logInt(loss);
     }
 
     return (converter, maxTargetAmount, apr18);
@@ -159,11 +130,14 @@ contract SwapManager is ISwapManager, ISwapConverter {
     // liquidate() will revert here and it's ok.
     tetuLiquidator.liquidate(sourceToken_, targetToken_, sourceAmount_, PRICE_IMPACT_TOLERANCE);
     outputAmount = IERC20(targetToken_).balanceOf(address(this)) - targetTokenBalanceBefore;
+    console.log("swap.outputAmount", outputAmount);
 
     uint slippage = targetAmount_ == 0 || outputAmount >= targetAmount_
       ? 0
       : (targetAmount_ - outputAmount) * SLIPPAGE_NUMERATOR / targetAmount_;
     require(slippage <= SLIPPAGE_TOLERANCE, AppErrors.SLIPPAGE_TOO_BIG);
+
+    console.log("swap.slippage", slippage);
 
     IERC20(targetToken_).safeTransfer(receiver_, outputAmount);
     emit OnSwap(sourceToken_, sourceAmount_, targetToken_, targetAmount_, receiver_, outputAmount);

@@ -38,7 +38,7 @@ import {DForceChangePriceUtils} from "../baseUT/protocols/dforce/DForceChangePri
  *        (borrow-debt-2 - borrow-debt-1) == borrow apr
  *        (supply-profit-2 - supply-profit-1) = supply apr
  */
-describe.skip("CompareAprBeforeAfterBorrow @skip-on-coverage", () => {
+describe("CompareAprBeforeAfterBorrow @skip-on-coverage", () => {
 //region Global vars for all tests
   let snapshot: string;
   let snapshotForEach: string;

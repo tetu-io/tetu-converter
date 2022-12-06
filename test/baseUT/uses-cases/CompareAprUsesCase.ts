@@ -195,10 +195,11 @@ export class CompareAprUsesCase {
       .div(collateralAmount);
 
     console.log("makeSwapThereAndBack.collateralAmount", collateralAmount);
-    console.log("makeSwapThereAndBack.collateralBalanceBeforeSwap", collateralBalanceBeforeSwap);
-    console.log("makeSwapThereAndBack.borrowedAmount", borrowedAmount);
-    console.log("makeSwapThereAndBack.collateralBalanceAfterSwap", collateralBalanceAfterSwap);
-    console.log("makeSwapThereAndBack.apr18", apr18);
+    console.log("makeSwapThereAndBack.collateralBalanceBeforeSwap", collateralBalanceBeforeSwap.toString());
+    console.log("makeSwapThereAndBack.borrowedAmount", borrowedAmount.toString());
+    console.log("makeSwapThereAndBack.collateralBalanceAfterSwap", collateralBalanceAfterSwap.toString());
+    console.log("makeSwapThereAndBack.apr18", apr18.toString());
+    console.log("makeSwapThereAndBack.loss", collateralBalanceBeforeSwap.sub(collateralBalanceAfterSwap).toString());
 
     return {
       apr18,
