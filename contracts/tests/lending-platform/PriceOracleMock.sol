@@ -36,11 +36,4 @@ contract PriceOracleMock is IPriceOracle {
   function getAssetPrice(address asset) external view override returns (uint256) {
     return prices[asset];
   }
-
-  /// @notice Return a price of one dollar in required tokens
-  /// @return Price of 1 USD in given token, decimals 18
-  function getUsdPrice(address asset) external view override returns (uint256) {
-    return 1e18 * 1e18 / prices[asset];
-  }
-
 }

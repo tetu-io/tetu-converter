@@ -1,11 +1,11 @@
 import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import hre, {ethers} from "hardhat";
 import {expect} from "chai";
-import {Controller, Controller__factory, IController__factory} from "../../typechain";
+import {Controller, Controller__factory} from "../../typechain";
 import {TimeUtils} from "../../scripts/utils/TimeUtils";
 import {BigNumber} from "ethers";
 import {controlGasLimitsEx, getGasUsed} from "../../scripts/utils/hardhatUtils";
-import {GAS_LIMIT_CONTROLLER_INITIALIZE, GAS_LIMIT_CONTROLLER_SET_XXX} from "../baseUT/GasLimit";
+import {GAS_LIMIT_CONTROLLER_INITIALIZE} from "../baseUT/GasLimit";
 import {Misc} from "../../scripts/utils/Misc";
 import {DeployerUtils} from "../../scripts/utils/DeployerUtils";
 import {randomInt} from "crypto";
@@ -59,6 +59,7 @@ describe("Controller", () => {
     keeper: string;
     tetuLiquidator: string;
     swapManager: string;
+    priceOracle: string;
 
     minHealthFactor2: number;
     targetHealthFactor2: number;
@@ -78,6 +79,7 @@ describe("Controller", () => {
       a.keeper,
       a.tetuLiquidator,
       a.swapManager,
+      a.priceOracle,
 
       a.minHealthFactor2.toString(),
       a.targetHealthFactor2.toString(),
@@ -98,6 +100,7 @@ describe("Controller", () => {
       await controller.keeper(),
       await controller.tetuLiquidator(),
       await controller.swapManager(),
+      await controller.priceOracle(),
 
       (await controller.minHealthFactor2()).toString(),
       (await controller.targetHealthFactor2()).toString(),
@@ -125,6 +128,7 @@ describe("Controller", () => {
         a.keeper,
         a.tetuLiquidator,
         a.swapManager,
+        a.priceOracle
       )
     );
 
@@ -142,6 +146,7 @@ describe("Controller", () => {
       keeper: ethers.Wallet.createRandom().address,
       tetuLiquidator: ethers.Wallet.createRandom().address,
       swapManager: ethers.Wallet.createRandom().address,
+      priceOracle: ethers.Wallet.createRandom().address,
 
       minHealthFactor2: 120 + randomInt(10),
       targetHealthFactor2: 220 + randomInt(10),
@@ -164,12 +169,18 @@ describe("Controller", () => {
       it("should initialize values correctly", async () => {
         const a = getRandomMembersValues();
 
-        const {controller, gasUsed} = await createTestController(a);
+        const {controller} = await createTestController(a);
 
         const ret = (await getValuesArray(controller)).join();
         const expected = getMembersArray(a).join();
 
         expect(ret).to.be.equal(expected);
+      });
+      it("should not exceed gas limits", async () => {
+        const a = getRandomMembersValues();
+
+        const {gasUsed} = await createTestController(a);
+
         controlGasLimitsEx(gasUsed, GAS_LIMIT_CONTROLLER_INITIALIZE, (u, t) => {
             expect(u).to.be.below(t);
           }
@@ -178,6 +189,44 @@ describe("Controller", () => {
     });
 
     describe ("Bad paths", () => {
+      describe("Zero address", () => {
+        it("should revert if tetuConverter is zero", async () => {
+          const a = getRandomMembersValues();
+          a.tetuConverter = Misc.ZERO_ADDRESS;
+          await expect(createTestController(a)).revertedWith("TC-1 zero address");
+        });
+        it("should revert if borrowManager is zero", async () => {
+          const a = getRandomMembersValues();
+          a.borrowManager = Misc.ZERO_ADDRESS;
+          await expect(createTestController(a)).revertedWith("TC-1 zero address");
+        });
+        it("should revert if debtMonitor is zero", async () => {
+          const a = getRandomMembersValues();
+          a.debtMonitor = Misc.ZERO_ADDRESS;
+          await expect(createTestController(a)).revertedWith("TC-1 zero address");
+        });
+        it("should revert if keeper is zero", async () => {
+          const a = getRandomMembersValues();
+          a.keeper = Misc.ZERO_ADDRESS;
+          await expect(createTestController(a)).revertedWith("TC-1 zero address");
+        });
+        it("should revert if tetuLiquidator is zero", async () => {
+          const a = getRandomMembersValues();
+          a.tetuLiquidator = Misc.ZERO_ADDRESS;
+          await expect(createTestController(a)).revertedWith("TC-1 zero address");
+        });
+        it("should revert if swapManager is zero", async () => {
+          const a = getRandomMembersValues();
+          a.swapManager = Misc.ZERO_ADDRESS;
+          await expect(createTestController(a)).revertedWith("TC-1 zero address");
+        });
+        it("should revert if priceOracle is zero", async () => {
+          const a = getRandomMembersValues();
+          a.priceOracle = Misc.ZERO_ADDRESS;
+          await expect(createTestController(a)).revertedWith("TC-1 zero address");
+        });
+      });
+
       it("zero governance should revert", async () => {
         const a = getRandomMembersValues();
         a.governance = Misc.ZERO_ADDRESS;

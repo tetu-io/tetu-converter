@@ -1,7 +1,7 @@
 import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import {
   BorrowManager, Controller, DebtMonitor,
-  IController, Keeper, SwapManager, TetuConverter,
+  IController, Keeper, PriceOracle, SwapManager, TetuConverter,
 } from "../../../typechain";
 import {BigNumber} from "ethers";
 import {DeployUtils} from "../../../scripts/utils/DeployUtils";
@@ -20,6 +20,7 @@ export class CoreContractsHelper {
     keeperFabric: (controller: Controller) => Promise<string>,
     tetuLiquidatorFabric: (controller: Controller) => Promise<string>,
     swapManagerFabric: (controller: Controller) => Promise<string>,
+    priceOracleFabric: (controller: Controller) => Promise<string>,
     minHealthFactor2: number = 101,
     targetHealthFactor2: number = 200,
     maxHealthFactor2: number = 400,
@@ -37,7 +38,8 @@ export class CoreContractsHelper {
       await debtMonitorFabric(controller),
       await keeperFabric(controller),
       await tetuLiquidatorFabric(controller),
-      await swapManagerFabric(controller)
+      await swapManagerFabric(controller),
+      await priceOracleFabric(controller)
     );
     return controller;
   }
@@ -107,5 +109,15 @@ export class CoreContractsHelper {
       gelatoOpsAddress,
       blocksPerDayAutoUpdatePeriodSecs
     )) as Keeper;
+  }
+
+  public static async createPriceOracle (
+    signer: SignerWithAddress,
+    controller: IController,
+  ) : Promise<PriceOracle> {
+    return (await DeployUtils.deployContract(
+      signer,
+      "PriceOracle"
+    )) as PriceOracle;
   }
 }

@@ -29,6 +29,9 @@ contract Controller is IController, Initializable {
   /// @notice Wrapper around tetu-liquidator
   address public override swapManager;
 
+  /// @notice Price oracle, required by SwapManager
+  address public override priceOracle;
+
   /// @notice Current governance. It can be changed by offer/accept scheme
   address public override governance;
   /// @notice New governance suggested by exist governance
@@ -83,7 +86,8 @@ contract Controller is IController, Initializable {
     address debtMonitor_,
     address keeper_,
     address tetuLiquidator_,
-    address swapManager_
+    address swapManager_,
+    address priceOracle_
   ) external initializer {
     require(blocksPerDay_ != 0, AppErrors.INCORRECT_VALUE);
     require(minHealthFactor_ > MIN_ALLOWED_MIN_HEALTH_FACTOR, AppErrors.WRONG_HEALTH_FACTOR);
@@ -96,7 +100,8 @@ contract Controller is IController, Initializable {
       && debtMonitor_ != address(0)
       && keeper_ != address(0)
       && tetuLiquidator_ != address(0)
-      && swapManager_ != address(0),
+      && swapManager_ != address(0)
+      && priceOracle_ != address(0),
       AppErrors.ZERO_ADDRESS
     );
     governance = governance_;
@@ -106,6 +111,7 @@ contract Controller is IController, Initializable {
     keeper = keeper_;
     tetuLiquidator = tetuLiquidator_;
     swapManager = swapManager_;
+    priceOracle = priceOracle_;
 
     blocksPerDay = blocksPerDay_;
     // by default auto-update of blocksPerDay is disabled

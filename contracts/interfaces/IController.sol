@@ -41,6 +41,7 @@ interface IController {
   function debtMonitor() external view returns (address);
   function tetuLiquidator() external view returns (address);
   function swapManager() external view returns (address);
+  function priceOracle() external view returns (address);
 
   ///////////////////////////////////////////////////////
   ///        External contracts

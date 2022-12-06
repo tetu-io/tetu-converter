@@ -18,6 +18,7 @@ export interface ICreateControllerParams {
   debtMonitorFabric?: (controller: Controller) => Promise<string>;
   keeperFabric?: (controller: Controller) => Promise<string>;
   swapManagerFabric?: (controller: Controller) => Promise<string>;
+  priceOracleFabric?: (controller: Controller) => Promise<string>;
   minHealthFactor2?: number;
   targetHealthFactor2?: number;
   maxHealthFactor2?: number;
@@ -44,6 +45,7 @@ export class TetuConverterApp {
       )).address),
       async () => p?.tetuLiquidatorAddress || (await MocksHelper.createTetuLiquidatorMock(deployer, [], [])).address,
       p?.swapManagerFabric || (async c => (await CoreContractsHelper.createSwapManager(deployer, c)).address),
+      p?.priceOracleFabric || (async c => (await CoreContractsHelper.createPriceOracle(deployer, c)).address),
       p?.minHealthFactor2 || 101,
       p?.targetHealthFactor2 || 200,
       p?.maxHealthFactor2 || 400,

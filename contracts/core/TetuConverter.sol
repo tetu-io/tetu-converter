@@ -361,7 +361,7 @@ contract TetuConverter is ITetuConverter, IKeeperCallback, ReentrancyGuard {
         closePosition
       );
       amountToRepay_ -= amountToPayToPoolAdapter;
-      
+
       emit OnRepayBorrow(address(pa), amountToPayToPoolAdapter, receiver_, closePosition);
     }
 
