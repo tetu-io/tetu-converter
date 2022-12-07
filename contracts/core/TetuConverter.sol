@@ -20,9 +20,11 @@ import "../interfaces/IConverter.sol";
 import "../interfaces/ISwapConverter.sol";
 import "../interfaces/IKeeperCallback.sol";
 import "../interfaces/ITetuConverterCallback.sol";
+import "../interfaces/IClaimAmountCallback.sol";
+import "hardhat/console.sol";
 
 /// @notice Main application contract
-contract TetuConverter is ITetuConverter, IKeeperCallback, ReentrancyGuard {
+contract TetuConverter is ITetuConverter, IKeeperCallback, IClaimAmountCallback, ReentrancyGuard {
   using SafeERC20 for IERC20;
   using AppUtils for uint;
 
@@ -105,27 +107,85 @@ contract TetuConverter is ITetuConverter, IKeeperCallback, ReentrancyGuard {
   ///       Find best strategy for conversion
   ///////////////////////////////////////////////////////
 
-  /// @notice Find best conversion strategy (swap or borrow) and provide "cost of money" as interest for the period
+  /// @notice Find best borrow strategy and provide "cost of money" as interest for the period
   /// @param sourceAmount_ Amount to be converted
   /// @param periodInBlocks_ Estimated period to keep target amount. It's required to compute APR
-  /// @param conversionMode Allow to select conversion kind (swap, borrowing) automatically or manually
   /// @return converter Result contract that should be used for conversion; it supports IConverter
   ///                   This address should be passed to borrow-function during conversion.
+  /// @return maxTargetAmount Max available amount of target tokens that we can get after conversion
+  /// @return apr18 Interest on the use of {outMaxTargetAmount} during the given period, decimals 18
+  function findBorrowStrategy(
+    address sourceToken_,
+    uint sourceAmount_,
+    address targetToken_,
+    uint periodInBlocks_
+  ) external view override returns (
+    address converter,
+    uint maxTargetAmount,
+    int apr18
+  ) {
+    AppDataTypes.InputConversionParams memory params = AppDataTypes.InputConversionParams({
+      sourceToken: sourceToken_,
+      targetToken: targetToken_,
+      sourceAmount: sourceAmount_,
+      periodInBlocks: periodInBlocks_
+    });
+
+    return IBorrowManager(controller.borrowManager()).findConverter(params);
+  }
+
+  /// @notice Find best swap strategy and provide "cost of money" as interest for the period
+  /// @dev This is writable function with read-only behavior.
+  ///      It should be writable to be able to simulate real swap and get a real APR.
+  /// @param sourceAmount_ Amount to be converted
+  /// @return converter Result contract that should be used for conversion to be passed to borrow()
+  /// @return maxTargetAmount Max available amount of target tokens that we can get after conversion
+  /// @return apr18 Interest on the use of {outMaxTargetAmount} during the given period, decimals 18
+  function findSwapStrategy(
+    address sourceToken_,
+    uint sourceAmount_,
+    address targetToken_
+  ) external override returns (
+    address converter,
+    uint maxTargetAmount,
+    int apr18
+  ) {
+    return _swapManager().getConverter(
+      msg.sender,
+      sourceToken_,
+      sourceAmount_,
+      targetToken_
+    );
+  }
+
+  /// @notice Find best conversion strategy (swap or borrow) and provide "cost of money" as interest for the period.
+  ///         It calls both findBorrowStrategy and findSwapStrategy and selects a best strategy.
+  /// @dev This is writable function with read-only behavior.
+  ///      It should be writable to be able to simulate real swap and get a real APR for swapping.
+  /// @param sourceAmount_ Amount to be converted
+  ///        The amount must be approved to TetuConverter before calling this function.
+  /// @param periodInBlocks_ Estimated period to keep target amount. It's required to compute APR
+  /// @return converter Result contract that should be used for conversion to be passed to borrow().
   /// @return maxTargetAmount Max available amount of target tokens that we can get after conversion
   /// @return apr18 Interest on the use of {outMaxTargetAmount} during the given period, decimals 18
   function findConversionStrategy(
     address sourceToken_,
     uint sourceAmount_,
     address targetToken_,
-    uint periodInBlocks_,
-    ConversionMode conversionMode
-  ) external view override returns (
+    uint periodInBlocks_
+  ) external override returns (
     address converter,
     uint maxTargetAmount,
     int apr18
   ) {
     require(sourceAmount_ != 0, AppErrors.ZERO_AMOUNT);
     require(periodInBlocks_ != 0, AppErrors.INCORRECT_VALUE);
+
+    (
+      address swapConverter,
+      uint swapMaxTargetAmount,
+      int swapApr18
+    ) = _swapManager().getConverter(msg.sender, sourceToken_, sourceAmount_, targetToken_);
 
     AppDataTypes.InputConversionParams memory params = AppDataTypes.InputConversionParams({
       sourceToken: sourceToken_,
@@ -134,35 +194,22 @@ contract TetuConverter is ITetuConverter, IKeeperCallback, ReentrancyGuard {
       periodInBlocks: periodInBlocks_
     });
 
-    // There are only two modes - BORROW and AUTO (SWAP or BORROW)
-    // To make pure SWAP it's necessary to use TetuLiquidator directly
-    if (conversionMode == ITetuConverter.ConversionMode.BORROW_1) {
-      // find best lending platform
-      return IBorrowManager(controller.borrowManager()).findConverter(params);
-    } else {
-      (
-        address borrowConverter,
-        uint borrowMaxTargetAmount,
-        int borrowingApr18
-      ) = IBorrowManager(controller.borrowManager()).findConverter(params);
+    (
+      address borrowConverter,
+      uint borrowMaxTargetAmount,
+      int borrowingApr18
+    ) = IBorrowManager(controller.borrowManager()).findConverter(params);
 
-      (
-        address swapConverter,
-        uint swapMaxTargetAmount,
-        int swapApr18
-      ) = _swapManager().getConverter(params);
+    bool useBorrow =
+      swapConverter == address(0)
+      || (
+        borrowConverter != address(0)
+        && swapApr18 > borrowingApr18
+      );
 
-      bool useBorrow =
-        swapConverter == address(0)
-        || (
-          borrowConverter != address(0)
-          && swapApr18 > borrowingApr18
-        );
-
-      return useBorrow
-        ? (borrowConverter, borrowMaxTargetAmount, borrowingApr18)
-        : (swapConverter, swapMaxTargetAmount, swapApr18);
-    }
+    return useBorrow
+      ? (borrowConverter, borrowMaxTargetAmount, borrowingApr18)
+      : (swapConverter, swapMaxTargetAmount, swapApr18);
   }
 
   ///////////////////////////////////////////////////////
@@ -368,13 +415,11 @@ contract TetuConverter is ITetuConverter, IKeeperCallback, ReentrancyGuard {
     // if all debts were paid but we still have some amount of borrow asset
     // let's swap it to collateral asset and send to collateral-receiver
     if (amountToRepay_ > 0) {
-      AppDataTypes.InputConversionParams memory params = AppDataTypes.InputConversionParams({
-        sourceToken: borrowAsset_,
-        targetToken: collateralAsset_,
-        sourceAmount: amountToRepay_,
-        periodInBlocks: 1 // optimal swap strategy doesn't depend on the period of blocks
-      });
-      (address converter, uint collateralAmount,) = _swapManager().getConverter(params);
+      // getConverter requires the source amount be approved to TetuConverter, but a contract doesn't need to approve itself
+      (address converter, uint collateralAmount,) = _swapManager().getConverter(
+        address(this), borrowAsset_, amountToRepay_, collateralAsset_
+      );
+
       if (converter == address(0)) {
         // there is no swap-strategy to convert remain {amountToPay} to {collateralAsset_}
         // let's return this amount back to the {receiver_}
@@ -389,7 +434,7 @@ contract TetuConverter is ITetuConverter, IKeeperCallback, ReentrancyGuard {
           borrowAsset_,
           amountToRepay_,
           collateralAsset_,
-          collateralAmount,
+          collateralAmount, //TODO do we need to check slippage??
           receiver_
         );
       }
@@ -640,6 +685,25 @@ contract TetuConverter is ITetuConverter, IKeeperCallback, ReentrancyGuard {
     return ISwapManager(controller.swapManager());
   }
 
+  ///////////////////////////////////////////////////////
+  ///       Simulate swap
+  ///////////////////////////////////////////////////////
+
+  /// @notice Transfer {sourceAmount_} approved by {sourceAmountApprover_} to swap manager
+  function onRequireAmount(
+    address sourceAmountApprover_,
+    address sourceToken_,
+    uint sourceAmount_
+  ) external override {
+    console.log("TetuConverter.onRequireAmount", sourceAmountApprover_, address(this));
+    address swapManager = controller.swapManager();
+
+    console.log("TetuConverter.onRequireAmount.1", swapManager, msg.sender);
+    require(swapManager == msg.sender, AppErrors.ONLY_SWAP_MANAGER);
+
+    IERC20(sourceToken_).safeTransferFrom(sourceAmountApprover_, swapManager, sourceAmount_);
+    console.log("TetuConverter.onRequireAmount.2");
+  }
 
   ///////////////////////////////////////////////////////
   ///       Next version features

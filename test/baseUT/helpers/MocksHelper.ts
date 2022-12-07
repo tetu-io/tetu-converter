@@ -3,7 +3,7 @@
  */
 import {DeployUtils} from "../../../scripts/utils/DeployUtils";
 import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
-import {BigNumber} from "ethers";
+import {BigNumber, BigNumberish} from "ethers";
 import {ethers} from "hardhat";
 import {DeployerUtils} from "../../../scripts/utils/DeployerUtils";
 import {
@@ -33,7 +33,7 @@ import {
   DebtMonitorMock,
   Aave3PoolMock,
   AaveTwoPoolMock,
-  TokenAddressProviderMock, DForceControllerMock, DForceCTokenMock, HfComptrollerMock, HfCTokenMock
+  TokenAddressProviderMock, DForceControllerMock, DForceCTokenMock, HfComptrollerMock, HfCTokenMock, PriceOracleStub
 } from "../../../typechain";
 import {IPoolInfo} from "./BorrowManagerHelper";
 import {getBigNumberFrom} from "../../../scripts/utils/NumberUtils";
@@ -549,4 +549,21 @@ export class MocksHelper {
   }
 
 //endregion Pools and comptrollers
+
+//region PriceOracle mock
+  public static async getPriceOracleStub(
+    deployer: SignerWithAddress,
+    priceValue: BigNumberish
+  ) : Promise<PriceOracleStub> {
+    return await DeployUtils.deployContract(deployer, "PriceOracleStub", priceValue) as PriceOracleStub;
+  }
+
+  public static async getPriceOracleMock(
+    deployer: SignerWithAddress,
+    assets: string[],
+    prices: BigNumber[]
+  ) : Promise<PriceOracleMock> {
+    return await DeployUtils.deployContract(deployer, "PriceOracleMock", assets, prices) as PriceOracleMock;
+  }
+//endregion PriceOracle mock
 }

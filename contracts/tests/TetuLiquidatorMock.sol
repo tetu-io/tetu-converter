@@ -17,6 +17,7 @@ contract TetuLiquidatorMock is ITetuLiquidator {
   mapping(address => uint256) public prices;
   int public slippage = 0;
   uint public priceImpact = 0;
+  bool public disablePriceException = false;
 
   constructor(address[] memory assets, uint[] memory pricesInUSD) {
     changePrices(assets, pricesInUSD);
@@ -32,6 +33,10 @@ contract TetuLiquidatorMock is ITetuLiquidator {
 
   function setPriceImpact(uint priceImpact_) external {
     priceImpact = priceImpact_;
+  }
+
+  function setDisablePriceException(bool disable_) external {
+    disablePriceException = disable_;
   }
 
   function changePrices(address[] memory assets, uint[] memory pricesInUSD) public {
@@ -63,6 +68,7 @@ contract TetuLiquidatorMock is ITetuLiquidator {
 
     amountOut = (priceIn * amount * 10**decimalsOut) / (priceOut * 10**decimalsIn);
     amountOut = amountOut * uint(int(PRICE_IMPACT_NUMERATOR) - int(priceImpact)) / PRICE_IMPACT_NUMERATOR;
+    console.log("TetuLiquidatorMock.getPrice.amountOut", amountOut);
   }
 
   function liquidate(
@@ -71,12 +77,13 @@ contract TetuLiquidatorMock is ITetuLiquidator {
     uint amount,
     uint priceImpactTolerance
   ) external override {
-    // real tetu liquidator requires approve() before calling liquidate()
+    // real tetu liquidator requires approve() before calling liquidate(), so the mock requires too.
     IERC20(tokenIn).transferFrom(msg.sender, address(this), amount);
     IMockERC20(tokenIn).burn(address(this), amount);
     uint amountOut = getPrice(tokenIn, tokenOut, amount);
+    console.log("TetuLiquidatorMock.liquidate.amountOut", amountOut);
     amountOut = amountOut * uint(int(SLIPPAGE_NOMINATOR) - slippage) / SLIPPAGE_NOMINATOR;
-    require(priceImpactTolerance >= priceImpact, '!PRICE');
+    require(disablePriceException || priceImpactTolerance >= priceImpact, '!PRICE');
     IMockERC20(tokenOut).mint(msg.sender, amountOut);
   }
 

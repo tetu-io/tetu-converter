@@ -3,7 +3,7 @@ import {ethers} from "hardhat";
 import {expect} from "chai";
 import {
   Controller, IMockERC20__factory,
-  MockERC20, SwapManager, SwapManager__factory, TetuLiquidatorMock,
+  MockERC20, MockERC20__factory, SwapManager, SwapManager__factory, TetuLiquidatorMock,
 } from "../../typechain";
 import {TimeUtils} from "../../scripts/utils/TimeUtils";
 import {DeployUtils} from "../../scripts/utils/DeployUtils";
@@ -64,15 +64,25 @@ describe("SwapManager", () => {
     $matic = parseUnits('0.4');
     $weth = parseUnits('2000');
 
-    tokens = [usdc, usdt, dai, matic, weth];
-    assets = [_usdc, _usdt, _dai, _matic, _weth];
-    prices = [$usdc, $usdt, $dai, $matic, $weth];
+    tokens = [usdt, dai, matic, weth, usdc];
+    assets = [_usdt, _dai, _matic, _weth, _usdc];
+    prices = [$usdt, $dai, $matic, $weth, $usdc];
 
     liquidator = await DeployUtils.deployContract(deployer, "TetuLiquidatorMock",
       assets, prices) as TetuLiquidatorMock;
 
     // Deploy all application contracts
-    controller = await TetuConverterApp.createController(deployer, {tetuLiquidatorAddress: liquidator.address});
+    controller = await TetuConverterApp.createController(deployer,
+      {
+        tetuLiquidatorAddress: liquidator.address,
+        priceOracleFabric: async c => (await MocksHelper.getPriceOracleMock(
+            deployer,
+            [usdt.address, dai.address, matic.address, weth.address, usdc.address],
+            [$usdt, $dai, $matic, $weth, $usdc]
+          )
+        ).address
+      }
+    );
 
     // Deploy SwapManager
     swapManager = SwapManager__factory.connect(await controller.swapManager(), deployer) as SwapManager;
@@ -128,59 +138,77 @@ describe("SwapManager", () => {
   });
 
   describe("getConverter", () => {
-    it("Should return right converter", async () => {
+    it("Should return right converter if price impact is zero", async () => {
+      const tetuConverter = await controller.tetuConverter();
       for (const sourceToken of assets) {
         for (const targetToken of assets) {
           if (sourceToken === targetToken) continue;
           const tokenInDecimals = await IMockERC20__factory.connect(sourceToken, user).decimals();
-          const params = {
-            healthFactor2: BigNumber.from(100),
+          const sourceAmount = parseUnits('100', tokenInDecimals);
+
+          await MockERC20__factory.connect(sourceToken, user).mint(user.address, sourceAmount);
+          await MockERC20__factory.connect(sourceToken, user).approve(tetuConverter, sourceAmount);
+
+          const converter = await swapManager.callStatic.getConverter(
+            user.address,
             sourceToken,
-            targetToken,
-            periodInBlocks: ethers.constants.MaxUint256,
-            sourceAmount: parseUnits('100', tokenInDecimals)
-          }
-          const converter = await swapManager.getConverter(params);
+            sourceAmount,
+            targetToken
+          );
+          await swapManager.getConverter(
+            user.address,
+            sourceToken,
+            sourceAmount,
+            targetToken
+          );
 
           expect(converter.converter).eq(swapManager.address)
-          expect(converter.apr18).eq(BigNumber.from('0')) // TODO take slippage into account
+          expect(converter.apr18).eq(BigNumber.from('0'))
         }
       }
     });
 
     it("Should return right APR", async () => {
+      // we try to use very high price impacts, so we need to avoid !PRICE exception in getConverter
+      await liquidator.setDisablePriceException(true);
+      const ret: string[] = [];
+      const expected: string[] = [];
+      const tetuConverter = await controller.tetuConverter();
+
       for (const sourceToken of assets) {
         for (const targetToken of assets) {
           if (sourceToken === targetToken) continue;
 
           const tokenInDecimals = await IMockERC20__factory.connect(sourceToken, user).decimals();
           const sourceAmount = parseUnits('100', tokenInDecimals);
-          const params = {
-            healthFactor2: BigNumber.from(100),
-            sourceToken,
-            targetToken,
-            periodInBlocks: ethers.constants.MaxUint256,
-            sourceAmount
-          }
-
-          for (let priceImpactPercent = 1; priceImpactPercent < 5; priceImpactPercent++) {
+          for (let priceImpactPercent = 0; priceImpactPercent < 3; priceImpactPercent++) {
 
             await liquidator.setPriceImpact(BigNumber.from(priceImpactPercent).mul('1000')); // 1 %
+            await MockERC20__factory.connect(sourceToken, user).mint(user.address, sourceAmount);
+            await MockERC20__factory.connect(sourceToken, user).approve(tetuConverter, sourceAmount);
+            console.log(`User ${user.address} has approved ${sourceAmount.toString()} to ${tetuConverter}`);
+            const converter = await swapManager.callStatic.getConverter(
+              user.address,
+              sourceToken,
+              sourceAmount,
+              targetToken
+            );
+            // we need to multiple one-side-conversion-loss on 2 to get loss for there and back conversion
+            const loss = sourceAmount.mul(priceImpactPercent).div(100).mul(2);
 
-            const converter = await swapManager.getConverter(params);
-            // decrease priceImpactPercent twice
-            const returnAmount = sourceAmount
-              .mul(100 - priceImpactPercent).div(100)
-              .mul(100 - priceImpactPercent).div(100);
-
-            const loss = sourceAmount.sub(returnAmount);
-            const one18 = BigNumber.from('10').pow(18);
-
-            expect(converter.converter).eq(swapManager.address);
-            expect(converter.apr18).eq(loss.mul(one18).div(sourceAmount)); // TODO take slippage into account
+            ret.push([
+              converter.converter,
+              converter.apr18.toString()
+            ].join());
+            expected.push([
+              swapManager.address,
+              loss.mul(Misc.WEI).div(sourceAmount).toString()
+            ].join());
           }
         }
       }
+
+      expect(ret.join('\n')).eq(expected.join('\n'));
     });
   });
 
@@ -193,14 +221,14 @@ describe("SwapManager", () => {
       const tokenInDecimals = await tokenIn.decimals();
       const sourceAmount = parseUnits('1', tokenInDecimals);
 
-      const params = {
-        healthFactor2: BigNumber.from(100),
-        sourceToken: tokenIn.address,
-        targetToken: tokenOut.address,
-        periodInBlocks: ethers.constants.MaxUint256,
-        sourceAmount
-      }
-      const converter = await swapManager.getConverter(params);
+      await MockERC20__factory.connect(tokenIn.address, deployer).mint(user.address, sourceAmount);
+      await MockERC20__factory.connect(tokenIn.address, deployer).approve(swapManager.address, sourceAmount);
+      const converter = await swapManager.callStatic.getConverter(
+        user.address,
+        tokenIn.address,
+        sourceAmount,
+        tokenOut.address
+      );
       const targetAmount = converter.maxTargetAmount;
       console.log('targetAmount', targetAmount);
 
@@ -245,7 +273,7 @@ describe("SwapManager", () => {
         [sourceAsset.address, targetAsset.address],
         [Misc.WEI, Misc.WEI]
       )).address;
-      const controller = await TetuConverterApp.createController(
+      const localController = await TetuConverterApp.createController(
         deployer, {
           borrowManagerFabric: async () => ethers.Wallet.createRandom().address,
           tetuConverterFabric: async () => ethers.Wallet.createRandom().address,
@@ -256,17 +284,17 @@ describe("SwapManager", () => {
         }
       );
 
-      const swapManager = SwapManager__factory.connect(await controller.swapManager(), deployer);
-      await sourceAsset.mint(swapManager.address, parseUnits("1"));
+      const localSwapManager = SwapManager__factory.connect(await localController.swapManager(), deployer);
+      await sourceAsset.mint(localSwapManager.address, parseUnits("1"));
       await expect(
-        swapManager.swap(
+        localSwapManager.swap(
           sourceAsset.address,
           parseUnits("1"),
           targetAsset.address,
           parseUnits("1"),
           receiver
         )
-      ).to.emit(swapManager, "OnSwap").withArgs(
+      ).to.emit(localSwapManager, "OnSwap").withArgs(
         sourceAsset.address,
         parseUnits("1"),
         targetAsset.address,

@@ -66,8 +66,7 @@ contract Borrower is ITetuConverterCallback {
     (address converter, uint maxTargetAmount,) = _tc().findConversionStrategy(sourceAsset_,
       sourceAmount_,
       targetAsset_,
-      _borrowPeriodInBlocks,
-      ITetuConverter.ConversionMode.AUTO_0
+      _borrowPeriodInBlocks
     );
     require(converter != address(0), "Conversion strategy wasn't found");
     require(maxTargetAmount != 0, "maxTargetAmount is 0");
@@ -117,8 +116,7 @@ contract Borrower is ITetuConverterCallback {
     (address converter, uint maxTargetAmount,) = _tc().findConversionStrategy(sourceAsset_,
       sourceAmount_,
       targetAsset_,
-      _borrowPeriodInBlocks,
-      ITetuConverter.ConversionMode.AUTO_0
+      _borrowPeriodInBlocks
     );
     require(converter != address(0), "Conversion strategy wasn't found");
     require(maxTargetAmount != 0, "maxTargetAmount is 0");

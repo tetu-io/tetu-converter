@@ -111,4 +111,6 @@ library AppErrors {
   string public constant NOT_PENDING_GOVERNANCE = "TC-51 not pending gov";
 
   string public constant INCORRECT_OPERATION = "TC-52 incorrect op";
+
+  string public constant ONLY_SWAP_MANAGER = "TC-53 swap manager only";
 }

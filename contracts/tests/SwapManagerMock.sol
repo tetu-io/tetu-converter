@@ -48,16 +48,42 @@ contract SwapManagerMock is ISwapManager, ISwapConverter {
   // ISwapManager, ISwapConverter
   //////////////////////////////////////////////////////////////////
 
-  function getConverter(AppDataTypes.InputConversionParams memory p_)
-  external view override returns (
+  function getConverter(
+    address sourceAmountApprover_,
+    address sourceToken_,
+    uint sourceAmount_,
+    address targetToken_
+  ) external view override returns (
     address converter_,
     uint maxTargetAmount_,
     int outApr18
   ) {
-    p_;
+    sourceAmountApprover_;
+    sourceToken_;
+    sourceAmount_;
+    targetToken_;
+
     console.log("SwapManagerMock.getConverter", converter, maxTargetAmount);
     console.logInt(apr18);
     return (converter, maxTargetAmount, apr18);
+  }
+
+  function findConverter(
+    address sourceAmountApprover_,
+    address sourceToken_,
+    uint sourceAmount_,
+    address targetToken_
+  ) external view override returns (
+    address converter_,
+    uint maxTargetAmount_
+  ) {
+    sourceAmountApprover_;
+    sourceToken_;
+    sourceAmount_;
+    targetToken_;
+
+    console.log("SwapManagerMock.findConverter", converter, maxTargetAmount);
+    return (converter, maxTargetAmount);
   }
 
   function getConversionKind()
