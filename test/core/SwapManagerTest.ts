@@ -103,15 +103,6 @@ describe("SwapManager", () => {
 
 //region Unit tests
   describe("Constants", () => {
-
-    it("SLIPPAGE_NUMERATOR", async () => {
-      expect(await swapManager.SLIPPAGE_NUMERATOR()).eq(BigNumber.from('100000'))
-    });
-
-    it("SLIPPAGE_TOLERANCE", async () => {
-      expect(await swapManager.SLIPPAGE_TOLERANCE()).eq(BigNumber.from('1000'))
-    });
-
     it("PRICE_IMPACT_NUMERATOR", async () => {
       expect(await swapManager.PRICE_IMPACT_NUMERATOR()).eq(BigNumber.from('100000'))
     });
@@ -187,6 +178,7 @@ describe("SwapManager", () => {
             await MockERC20__factory.connect(sourceToken, user).mint(user.address, sourceAmount);
             await MockERC20__factory.connect(sourceToken, user).approve(tetuConverter, sourceAmount);
             console.log(`User ${user.address} has approved ${sourceAmount.toString()} to ${tetuConverter}`);
+
             const converter = await swapManager.callStatic.getConverter(
               user.address,
               sourceToken,
@@ -210,6 +202,59 @@ describe("SwapManager", () => {
 
       expect(ret.join('\n')).eq(expected.join('\n'));
     });
+
+    describe("Ensure that getConverter doesn't change user balances", () => {
+      async function makeBalancesTest(
+        priceImpactPercent: number
+      ) : Promise<{userBalanceBefore: BigNumber, userBalanceAfter: BigNumber, converter: string}> {
+        const sourceToken = usdc.address;
+        const targetToken = dai.address;
+        const tetuConverter = await controller.tetuConverter();
+
+        await liquidator.setPriceImpact(BigNumber.from(priceImpactPercent).mul('1000')); // 1 %
+        const tokenInDecimals = await IMockERC20__factory.connect(sourceToken, user).decimals();
+        const sourceAmount = parseUnits('100', tokenInDecimals);
+
+        await MockERC20__factory.connect(sourceToken, user).mint(user.address, sourceAmount);
+        await MockERC20__factory.connect(sourceToken, user).approve(tetuConverter, sourceAmount);
+        console.log(`User ${user.address} has approved ${sourceAmount.toString()} to ${tetuConverter}`);
+
+        const userBalanceBefore = await MockERC20__factory.connect(sourceToken, user).balanceOf(user.address);
+        const {converter} = await swapManager.callStatic.getConverter(
+          user.address,
+          sourceToken,
+          sourceAmount,
+          targetToken
+        );
+        await swapManager.getConverter(
+          user.address,
+          sourceToken,
+          sourceAmount,
+          targetToken
+        );
+        const userBalanceAfter = await MockERC20__factory.connect(sourceToken, user).balanceOf(user.address);
+        return {userBalanceBefore, userBalanceAfter, converter};
+      }
+      it("Should not change user balance when price impact is low", async () => {
+        const r = await makeBalancesTest(1);
+        const ret = [
+          r.userBalanceBefore.eq(r.userBalanceAfter),
+          r.converter === Misc.ZERO_ADDRESS
+        ].join();
+        const expected = [true, false].join();
+        expect(ret).eq(expected);
+      });
+      it("Should not change user balance when price impact is high and !PRICE error is generated", async () => {
+        const r = await makeBalancesTest(90);
+        const ret = [
+          r.userBalanceBefore.eq(r.userBalanceAfter),
+          r.converter === Misc.ZERO_ADDRESS
+        ].join();
+        const expected = [true, true].join();
+        expect(ret).eq(expected);
+      });
+    });
+
   });
 
   describe("swap", () => {
@@ -221,8 +266,8 @@ describe("SwapManager", () => {
       const tokenInDecimals = await tokenIn.decimals();
       const sourceAmount = parseUnits('1', tokenInDecimals);
 
-      await MockERC20__factory.connect(tokenIn.address, deployer).mint(user.address, sourceAmount);
-      await MockERC20__factory.connect(tokenIn.address, deployer).approve(swapManager.address, sourceAmount);
+      await MockERC20__factory.connect(tokenIn.address, user).mint(user.address, sourceAmount);
+      await MockERC20__factory.connect(tokenIn.address, user).approve(controller.tetuConverter(), sourceAmount);
       const converter = await swapManager.callStatic.getConverter(
         user.address,
         tokenIn.address,
@@ -255,12 +300,6 @@ describe("SwapManager", () => {
       }
 
       expect(ret.join()).eq(expected.join()); // TODO take slippage into account
-    });
-
-    it("Should revert with slippage", async () => {
-      await liquidator.setSlippage('3000');
-      await expect(swap(usdc, usdt)).revertedWith('TC-36: SLIPPAGE TOO BIG');
-
     });
   });
 

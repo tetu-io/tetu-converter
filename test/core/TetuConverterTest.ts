@@ -21,7 +21,12 @@ import {
   ConverterUnknownKind,
   DebtMonitorMock,
   Controller,
-  PoolAdapterStub__factory, IPoolAdapter, SwapManager__factory, DebtMonitorMock__factory, SwapManagerMock__factory
+  PoolAdapterStub__factory,
+  IPoolAdapter,
+  SwapManager__factory,
+  DebtMonitorMock__factory,
+  SwapManagerMock__factory,
+  IMockERC20__factory, PriceOracleMock__factory
 } from "../../typechain";
 import {
   IBorrowInputParams,
@@ -48,8 +53,6 @@ import {TetuConverterApp} from "../baseUT/helpers/TetuConverterApp";
 describe("TetuConverterTest", () => {
 //region Constants
   const BLOCKS_PER_DAY = 6456;
-  const CONVERSION_MODE_AUTO = 0;
-  const CONVERSION_MODE_BORROW = 1;
 //endregion Constants
 
 //region Global vars for all tests
@@ -602,6 +605,136 @@ describe("TetuConverterTest", () => {
   }
 //endregion Predict conversion results
 
+//region findBestConversionStrategy test impl
+  interface IFindConversionStrategyBadParams {
+    zeroSourceAmount?: boolean;
+    zeroPeriod?: boolean;
+  }
+
+  interface IMakeFindConversionStrategySwapAndBorrowResults {
+    results: IFindConversionStrategyResults;
+    expectedSwap: IFindConversionStrategyResults;
+    expectedBorrowing: IFindConversionStrategyResults;
+  }
+
+  /**
+   * Set up test for findConversionStrategy
+   * @param sourceAmountNum
+   * @param periodInBlocks
+   * @param borrowRateNum Borrow rate (as num, no decimals); undefined if there is no lending pool
+   * @param swapConfig Swap manager config; undefined if there is no DEX
+   */
+  async function makeFindConversionStrategy(
+    sourceAmountNum: number,
+    periodInBlocks: number,
+    borrowRateNum?: number,
+    swapConfig?: IPrepareContractsSetupParams
+  ) : Promise<IMakeFindConversionStrategyResults> {
+    const core = await CoreContracts.build(
+      await TetuConverterApp.createController(deployer, {
+        priceOracleFabric: async c => (await MocksHelper.getPriceOracleMock(deployer, [], [])).address
+      })
+    );
+    const init = await prepareTetuAppWithMultipleLendingPlatforms(core,
+      borrowRateNum ? 1: 0,
+      swapConfig
+    );
+    await PriceOracleMock__factory.connect(await core.controller.priceOracle(), deployer).changePrices(
+      [init.sourceToken.address, init.targetToken.address],
+      [parseUnits("1"), parseUnits("1")] // prices are set to 1 for simplicity
+    );
+
+    if (borrowRateNum) {
+      await PoolAdapterMock__factory.connect(
+        init.poolAdapters[0],
+        deployer
+      ).changeBorrowRate(borrowRateNum);
+      await LendingPlatformMock__factory.connect(
+        init.poolInstances[0].platformAdapter,
+        deployer
+      ).changeBorrowRate(init.targetToken.address, borrowRateNum);
+    }
+
+    // source amount must be approved to TetuConverter before calling findConversionStrategy
+    const sourceAmount = parseUnits(sourceAmountNum.toString(), await init.sourceToken.decimals());
+    const signer = await init.core.tc.signer.getAddress();
+    await MockERC20__factory.connect(init.sourceToken.address, init.core.tc.signer).mint(signer, sourceAmount);
+    await MockERC20__factory.connect(init.sourceToken.address, init.core.tc.signer).approve(core.tc.address, sourceAmount);
+
+    const gas = await init.core.tc.estimateGas.findConversionStrategy(
+      init.sourceToken.address,
+      sourceAmount,
+      init.targetToken.address,
+      periodInBlocks
+    );
+    const results = await init.core.tc.callStatic.findConversionStrategy(
+      init.sourceToken.address,
+      sourceAmount,
+      init.targetToken.address,
+      periodInBlocks
+    );
+    await init.core.tc.estimateGas.findConversionStrategy(
+      init.sourceToken.address,
+      sourceAmount,
+      init.targetToken.address,
+      periodInBlocks
+    );
+
+    const poolAdapterConverter = init.poolAdapters.length
+      ? (await PoolAdapterMock__factory.connect(init.poolAdapters[0], deployer).getConfig()).origin
+      : Misc.ZERO_ADDRESS;
+
+    return {
+      init,
+      results,
+      poolAdapterConverter,
+      gas
+    }
+  }
+
+  async function makeFindConversionStrategyTest(
+    useLendingPool: boolean,
+    useDexPool: boolean,
+    badPathsParams?: IFindConversionStrategyBadParams
+  ) : Promise<IMakeFindConversionStrategyResults> {
+    return makeFindConversionStrategy(
+      badPathsParams?.zeroSourceAmount ? 0 : 1000,
+      badPathsParams?.zeroPeriod ? 0 : 100,
+      useLendingPool ? 1000 : undefined,
+      useDexPool
+        ? {
+          priceImpact: 1_000,
+          setupTetuLiquidatorToSwapBorrowToCollateral: true
+        }
+        : undefined
+    );
+  }
+
+  async function makeFindConversionStrategySwapAndBorrow(
+    period: number,
+    priceImpact: number,
+  ) : Promise<IMakeFindConversionStrategySwapAndBorrowResults> {
+    const sourceAmountNum = 100_000;
+    const borrowRateNum = 1000;
+    const r = await makeFindConversionStrategy(
+      sourceAmountNum,
+      period,
+      borrowRateNum,
+      {
+        priceImpact,
+        setupTetuLiquidatorToSwapBorrowToCollateral: true
+      }
+    )
+    const expectedSwap = await getExpectedSwapResults(r, sourceAmountNum);
+    const expectedBorrowing = await getExpectedBorrowingResults(r, sourceAmountNum, period);
+    return {
+      results: r.results,
+      expectedSwap,
+      expectedBorrowing
+    }
+  }
+//endregion findBestConversionStrategy test impl
+
 //region Unit tests
   describe("constructor", () => {
     interface IMakeConstructorTestParams {
@@ -648,250 +781,86 @@ describe("TetuConverterTest", () => {
   });
 
   describe("findBestConversionStrategy", () => {
-//region Test impl
-    interface IFindConversionStrategyBadParams {
-      zeroSourceAmount?: boolean;
-      zeroPeriod?: boolean;
-    }
-
-    /**
-     * Set up test for findConversionStrategy
-     * @param sourceAmount
-     * @param periodInBlocks
-     * @param conversionMode
-     * @param borrowRateNum Borrow rate (as num, no decimals); undefined if there is no lending pool
-     * @param swapConfig Swap manager config; undefined if there is no DEX
-     */
-    async function makeFindConversionStrategy(
-      sourceAmount: number,
-      periodInBlocks: number,
-      conversionMode: number,
-      borrowRateNum?: number,
-      swapConfig?: IPrepareContractsSetupParams
-    ) : Promise<IMakeFindConversionStrategyResults> {
-      const core = await CoreContracts.build(await TetuConverterApp.createController(deployer));
-      const init = await prepareTetuAppWithMultipleLendingPlatforms(core,
-        borrowRateNum ? 1: 0,
-        swapConfig
-      );
-
-      if (borrowRateNum) {
-        await PoolAdapterMock__factory.connect(
-          init.poolAdapters[0],
-          deployer
-        ).changeBorrowRate(borrowRateNum);
-        await LendingPlatformMock__factory.connect(
-          init.poolInstances[0].platformAdapter,
-          deployer
-        ).changeBorrowRate(init.targetToken.address, borrowRateNum);
-      }
-
-      const gas = await init.core.tc.estimateGas.findConversionStrategy(
-        init.sourceToken.address,
-        getBigNumberFrom(sourceAmount, await init.sourceToken.decimals()),
-        init.targetToken.address,
-        periodInBlocks,
-        conversionMode
-      );
-      const results = await init.core.tc.findConversionStrategy(
-        init.sourceToken.address,
-        getBigNumberFrom(sourceAmount, await init.sourceToken.decimals()),
-        init.targetToken.address,
-        periodInBlocks,
-        conversionMode
-      );
-
-      const poolAdapterConverter = init.poolAdapters.length
-        ? (await PoolAdapterMock__factory.connect(init.poolAdapters[0], deployer).getConfig()).origin
-        : Misc.ZERO_ADDRESS;
-
-      return {
-        init,
-        results,
-        poolAdapterConverter,
-        gas
-      }
-    }
-
-    async function makeFindConversionStrategyTest(
-      conversionMode: number,
-      useLendingPool: boolean,
-      useDexPool: boolean,
-      badPathsParams?: IFindConversionStrategyBadParams
-    ) : Promise<IMakeFindConversionStrategyResults> {
-      return makeFindConversionStrategy(
-        badPathsParams?.zeroSourceAmount ? 0 : 1000,
-         badPathsParams?.zeroPeriod ? 0 : 100,
-        conversionMode,
-        useLendingPool ? 1000 : undefined,
-        useDexPool
-          ? {
-            priceImpact: 1_000,
-            setupTetuLiquidatorToSwapBorrowToCollateral: true
-          }
-          : undefined
-      );
-    }
-
-    async function makeFindConversionStrategySwapAndBorrow(
-      period: number,
-      priceImpact: number,
-      conversionMode: number
-    ) : Promise<{
-      results: IFindConversionStrategyResults,
-      expectedSwap: IFindConversionStrategyResults,
-      expectedBorrowing: IFindConversionStrategyResults
-    }> {
-      const sourceAmountNum = 100_000;
-      const borrowRateNum = 1000;
-      const r = await makeFindConversionStrategy(
-        sourceAmountNum,
-        period,
-        conversionMode,
-        borrowRateNum,
-        {
-          priceImpact,
-          setupTetuLiquidatorToSwapBorrowToCollateral: true
-        }
-      )
-      const expectedSwap = await getExpectedSwapResults(r, sourceAmountNum);
-      const expectedBorrowing = await getExpectedBorrowingResults(r, sourceAmountNum, period);
-      return {
-        results: r.results,
-        expectedSwap,
-        expectedBorrowing
-      }
-    }
-//endregion Test impl
-
     describe("Good paths", () => {
       describe("Check output converter value", () => {
-        describe("Conversion mode is AUTO", () => {
-          describe("Neither borrowing no swap are available", () => {
-            it("should return zero converter", async () => {
-              const r = await makeFindConversionStrategyTest(CONVERSION_MODE_AUTO, false, false);
-              expect(r.results.converter).eq(Misc.ZERO_ADDRESS);
-            });
+        describe("Neither borrowing no swap are available", () => {
+          it("should return zero converter", async () => {
+            const r = await makeFindConversionStrategyTest(false, false);
+            expect(r.results.converter).eq(Misc.ZERO_ADDRESS);
           });
-          describe("Only borrowing is available", () => {
-            it("should return a converter for borrowing", async () => {
-              const r = await makeFindConversionStrategyTest(CONVERSION_MODE_AUTO, true, false);
-              const ret = [
-                r.results.converter === Misc.ZERO_ADDRESS,
-                r.results.converter
-              ].join();
-              const expected = [
-                false,
-                r.poolAdapterConverter
-              ].join();
-              expect(ret).eq(expected);
-            });
-            it("Gas estimation @skip-on-coverage", async () => {
-              const r = await makeFindConversionStrategyTest(CONVERSION_MODE_AUTO, true, false);
-              controlGasLimitsEx(r.gas, GAS_FIND_CONVERSION_STRATEGY_ONLY_BORROW_AVAILABLE, (u, t) => {
-                expect(u).to.be.below(t);
-              });
-            });
+        });
+        describe("Only borrowing is available", () => {
+          it("should return a converter for borrowing", async () => {
+            const r = await makeFindConversionStrategyTest(true, false);
+            const ret = [
+              r.results.converter === Misc.ZERO_ADDRESS,
+              r.results.converter
+            ].join();
+            const expected = [
+              false,
+              r.poolAdapterConverter
+            ].join();
+            expect(ret).eq(expected);
           });
-          describe("Only swap is available", () => {
-            it("should return a converter to swap", async () => {
-              const r = await makeFindConversionStrategyTest(CONVERSION_MODE_AUTO, false, true);
-              const ret = [
-                r.results.converter
-              ].join();
-              const expected = [
-                r.init.core.swapManager.address
-              ].join();
-              expect(ret).eq(expected);
-            });
-          });
-          describe("Both borrowing and swap are available", () => {
-            describe("APR of borrowing is better", () => {
-              it("should return borrowing-converter", async () => {
-                const r = await makeFindConversionStrategySwapAndBorrow(
-                  1,
-                  10_000,
-                  CONVERSION_MODE_AUTO
-                );
-                console.log(r);
-                const ret = [
-                  r.results.converter,
-                  r.results.maxTargetAmount,
-                  r.results.apr18
-                ].map(x => BalanceUtils.toString(x)).join("\r");
-                const expected = [
-                  r.expectedBorrowing.converter,
-                  r.expectedBorrowing.maxTargetAmount,
-                  r.expectedBorrowing.apr18
-                ].map(x => BalanceUtils.toString(x)).join("\r");
-
-                expect(ret).eq(expected);
-              });
-            });
-            describe("APR of swap is better", () => {
-              it("should return swap-converter", async () => {
-                const r = await makeFindConversionStrategySwapAndBorrow(
-                  10_000,
-                  0,
-                  CONVERSION_MODE_AUTO
-                );
-                const ret = [
-                  r.results.converter,
-                  r.results.maxTargetAmount,
-                  r.results.apr18
-                ].map(x => BalanceUtils.toString(x)).join("\r");
-                const expected = [
-                  r.expectedSwap.converter,
-                  r.expectedSwap.maxTargetAmount,
-                  r.expectedSwap.apr18
-                ].map(x => BalanceUtils.toString(x)).join("\r");
-
-                expect(ret).eq(expected);
-              });
+          it("Gas estimation @skip-on-coverage", async () => {
+            const r = await makeFindConversionStrategyTest(true, false);
+            controlGasLimitsEx(r.gas, GAS_FIND_CONVERSION_STRATEGY_ONLY_BORROW_AVAILABLE, (u, t) => {
+              expect(u).to.be.below(t);
             });
           });
         });
-        describe("Conversion mode is BORROW", () => {
-          describe("Neither borrowing no swap are available", () => {
-            it("should return zero converter", async () => {
-              const r = await makeFindConversionStrategyTest(CONVERSION_MODE_BORROW, false, false);
-              expect(r.results.converter).eq(Misc.ZERO_ADDRESS);
-            });
+        describe("Only swap is available", () => {
+          it("should return a converter to swap", async () => {
+            const r = await makeFindConversionStrategyTest(false, true);
+            const ret = [
+              r.results.converter
+            ].join();
+            const expected = [
+              r.init.core.swapManager.address
+            ].join();
+            expect(ret).eq(expected);
           });
-          describe("Only swap is available", () => {
-            it("should return zero converter", async () => {
-              const r = await makeFindConversionStrategyTest(CONVERSION_MODE_BORROW, false, true);
-              expect(r.results.converter).eq(Misc.ZERO_ADDRESS);
-            });
-          });
-          describe("Only borrowing is available", () => {
-            it("should return borrow-converter", async () => {
-              const r = await makeFindConversionStrategyTest(CONVERSION_MODE_BORROW, true, false);
-              expect(r.results.converter).eq(r.poolAdapterConverter);
-            });
-          });
-          describe("Both borrowing and swap are available", () => {
-            describe("APR of borrowing is better", () => {
-              it("should return borrow-converter", async () => {
-                const r = await makeFindConversionStrategySwapAndBorrow(
-                  1,
-                  10_000,
-                  CONVERSION_MODE_BORROW
-                );
-                expect(r.results.converter).eq(r.expectedBorrowing.converter);
+        });
+        describe("Both borrowing and swap are available", () => {
+          describe("APR of borrowing is better", () => {
+            it("should return borrowing-converter", async () => {
+              const r = await makeFindConversionStrategySwapAndBorrow(
+                1,
+                10_000,
+              );
+              console.log(r);
+              const ret = [
+                r.results.converter,
+                r.results.maxTargetAmount,
+                r.results.apr18
+              ].map(x => BalanceUtils.toString(x)).join("\r");
+              const expected = [
+                r.expectedBorrowing.converter,
+                r.expectedBorrowing.maxTargetAmount,
+                r.expectedBorrowing.apr18
+              ].map(x => BalanceUtils.toString(x)).join("\r");
 
-              });
+              expect(ret).eq(expected);
             });
-            describe("APR of swapping is better", () => {
-              it("should return borrow-converter", async () => {
-                const r = await makeFindConversionStrategySwapAndBorrow(
-                  10_000,
-                  0,
-                  CONVERSION_MODE_BORROW
-                );
-                expect(r.results.converter).eq(r.expectedBorrowing.converter);
+          });
+          describe("APR of swap is better", () => {
+            it("should return swap-converter", async () => {
+              const r = await makeFindConversionStrategySwapAndBorrow(
+                10_000,
+                0,
+              );
+              const ret = [
+                r.results.converter,
+                r.results.maxTargetAmount,
+                r.results.apr18
+              ].map(x => BalanceUtils.toString(x)).join("\r");
+              const expected = [
+                r.expectedSwap.converter,
+                r.expectedSwap.maxTargetAmount,
+                r.expectedSwap.apr18
+              ].map(x => BalanceUtils.toString(x)).join("\r");
 
-              });
+              expect(ret).eq(expected);
             });
           });
         });
@@ -905,7 +874,6 @@ describe("TetuConverterTest", () => {
           const r = await makeFindConversionStrategy(
             sourceAmount,
             period,
-            CONVERSION_MODE_BORROW,
             borrowRateNum,
           )
           const expected = await getExpectedBorrowingResults(r, sourceAmount, period);
@@ -931,7 +899,6 @@ describe("TetuConverterTest", () => {
         it("should revert", async () => {
           await expect(
             makeFindConversionStrategyTest(
-              CONVERSION_MODE_AUTO,
               false,
               false,
               {
@@ -942,38 +909,77 @@ describe("TetuConverterTest", () => {
         });
       });
       describe("Period is 0", () => {
-        describe("Conversion mode is AUTO", () => {
-          it("should revert", async () => {
-            await expect(
-              makeFindConversionStrategyTest(
-                CONVERSION_MODE_AUTO,
-                false,
-                false,
-                {
-                  zeroPeriod: true
-                }
-              )
-            ).revertedWith("TC-29 incorrect value"); // INCORRECT_VALUE
-          });
-        });
-        describe("Conversion mode is BORROW", () => {
-          it("should revert", async () => {
-            await expect(
-              makeFindConversionStrategyTest(
-                CONVERSION_MODE_BORROW,
-                false,
-                false,
-                {
-                  zeroPeriod: true
-                }
-              )
-            ).revertedWith("TC-29 incorrect value"); // INCORRECT_VALUE
-          });
+        it("should revert", async () => {
+          await expect(
+            makeFindConversionStrategyTest(
+              false,
+              false,
+              {
+                zeroPeriod: true
+              }
+            )
+          ).revertedWith("TC-29 incorrect value"); // INCORRECT_VALUE
         });
       });
-      // we don't need a test to check "incorrect conversion mode value"
-      // because Solidity generates an exception like following
-      // "value out-of-bounds (argument="conversionMode", value=777, code=INVALID_ARGUMENT, version=abi/5.6.4)"
+    });
+  });
+
+  describe("findBorrowStrategy", () => {
+    describe("Good paths", () => {
+      it("should return expected values", async () => {
+        expect.fail("TODO");
+      });
+    });
+    describe("Bad paths", () => {
+      describe("Source amount is 0", () => {
+        it("should revert", async () => {
+          await expect(
+            makeFindConversionStrategyTest(
+              false,
+              false,
+              {
+                zeroSourceAmount: true
+              }
+            )
+          ).revertedWith("TC-43 zero amount"); // ZERO_AMOUNT
+        });
+      });
+      describe("Period is 0", () => {
+        it("should revert", async () => {
+          await expect(
+            makeFindConversionStrategyTest(
+              false,
+              false,
+              {
+                zeroPeriod: true
+              }
+            )
+          ).revertedWith("TC-29 incorrect value"); // INCORRECT_VALUE
+        });
+      });
+    });
+  });
+
+  describe("findSwapStrategy", () => {
+    describe("Good paths", () => {
+      it("should return expected values", async () => {
+        expect.fail("TODO");
+      });
+    });
+    describe("Bad paths", () => {
+      describe("Source amount is 0", () => {
+        it("should revert", async () => {
+          await expect(
+            makeFindConversionStrategyTest(
+              false,
+              false,
+              {
+                zeroSourceAmount: true
+              }
+            )
+          ).revertedWith("TC-43 zero amount"); // ZERO_AMOUNT
+        });
+      });
     });
   });
 

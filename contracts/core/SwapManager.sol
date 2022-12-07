@@ -29,9 +29,6 @@ contract SwapManager is ISwapManager, ISwapConverter, ISimulateProvider, ISwapSi
   ///               Constants
   ///////////////////////////////////////////////////////
 
-  uint public constant SLIPPAGE_NUMERATOR = 100_000;
-  uint public constant SLIPPAGE_TOLERANCE = SLIPPAGE_NUMERATOR * 1 / 100; // 1 %
-
   uint public constant PRICE_IMPACT_NUMERATOR = 100_000;
   uint public constant PRICE_IMPACT_TOLERANCE = PRICE_IMPACT_NUMERATOR * 2 / 100; // 2%
 
@@ -88,20 +85,25 @@ contract SwapManager is ISwapManager, ISwapConverter, ISimulateProvider, ISwapSi
   ) {
     console.log("SwapManager.getConverter");
     // simulate real swap of source amount to max target amount
-    maxTargetAmount = abi.decode(
-      ISimulateProvider(address(this)).simulate(
-        address(this),
-        abi.encodeWithSelector(
-          ISwapSimulator.simulateSwap.selector,
-          sourceAmountApprover_,
-          sourceToken_,
-          sourceAmount_,
-          targetToken_
-        )
-      ),
-      (uint)
-    );
-    console.log("SwapManager.maxTargetAmount", maxTargetAmount);
+    try ISimulateProvider(address(this)).simulate(
+      address(this),
+      abi.encodeWithSelector(
+        ISwapSimulator.simulateSwap.selector,
+        sourceAmountApprover_,
+        sourceToken_,
+        sourceAmount_,
+        targetToken_
+      )
+    ) returns (bytes memory response) {
+      maxTargetAmount = abi.decode(response, (uint));
+      console.log("SwapManager.maxTargetAmount", maxTargetAmount);
+    } catch {
+      // we can have i.e. !PRICE error here
+      // it means, there is no way to make the conversion with acceptable price impact
+      console.log("SwapManager.!PRICE");
+      return (address(0), 0, 0);
+    }
+
 
     if (maxTargetAmount != 0) {
       converter = address(this);
@@ -199,15 +201,6 @@ contract SwapManager is ISwapManager, ISwapConverter, ISimulateProvider, ISwapSi
     // liquidate() will revert here and it's ok.
     tetuLiquidator.liquidate(sourceToken_, targetToken_, sourceAmount_, PRICE_IMPACT_TOLERANCE);
     outputAmount = IERC20(targetToken_).balanceOf(address(this)) - targetTokenBalanceBefore;
-
-    if (targetAmount_ != 0) {
-      uint slippage = targetAmount_ == 0 || outputAmount >= targetAmount_
-        ? 0
-        : (targetAmount_ - outputAmount) * SLIPPAGE_NUMERATOR / targetAmount_;
-      require(slippage <= SLIPPAGE_TOLERANCE, AppErrors.SLIPPAGE_TOO_BIG);
-
-      console.log("swap.slippage", slippage);
-    }
 
     IERC20(targetToken_).safeTransfer(receiver_, outputAmount);
     emit OnSwap(sourceToken_, sourceAmount_, targetToken_, targetAmount_, receiver_, outputAmount);

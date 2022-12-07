@@ -124,6 +124,9 @@ contract TetuConverter is ITetuConverter, IKeeperCallback, IClaimAmountCallback,
     uint maxTargetAmount,
     int apr18
   ) {
+    require(sourceAmount_ != 0, AppErrors.ZERO_AMOUNT);
+    require(periodInBlocks_ != 0, AppErrors.INCORRECT_VALUE);
+
     AppDataTypes.InputConversionParams memory params = AppDataTypes.InputConversionParams({
       sourceToken: sourceToken_,
       targetToken: targetToken_,
@@ -150,6 +153,8 @@ contract TetuConverter is ITetuConverter, IKeeperCallback, IClaimAmountCallback,
     uint maxTargetAmount,
     int apr18
   ) {
+    require(sourceAmount_ != 0, AppErrors.ZERO_AMOUNT);
+
     return _swapManager().getConverter(
       msg.sender,
       sourceToken_,
