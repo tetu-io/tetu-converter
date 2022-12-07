@@ -11,4 +11,9 @@ interface ISimulateTester {
     uint sourceAmount_,
     address targetToken_
   ) external;
+
+  function simulateLocal(
+    address targetContract,
+    bytes calldata calldataPayload
+  ) external returns (bytes memory response);
 }

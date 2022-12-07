@@ -55,7 +55,44 @@ describe("Test simulate tester", () => {
     await simulateTester.callSimulateMakeSwapStub(simulateContainer.address);
   });
 
-  it("real-swap-using-simulate should return expected values", async () => {
+  it("make real swap and check gas", async () => {
+    const swapper = ethers.Wallet.createRandom().address;
+    await BalanceUtils.getRequiredAmountFromHolders(
+      parseUnits("100", 6),
+      IERC20Metadata__factory.connect(MaticAddresses.USDT, deployer),
+      [MaticAddresses.HOLDER_USDT_1],
+      swapper
+    );
+    const usdtAsSwapper = IERC20__factory.connect(MaticAddresses.USDT, await DeployerUtils.startImpersonate(swapper));
+    const dai = IERC20__factory.connect(MaticAddresses.DAI, await DeployerUtils.startImpersonate(swapper));
+    console.log("swapper", swapper);
+    console.log("usdt balance before", (await usdtAsSwapper.balanceOf(swapper)).toString());
+    console.log("dai balance before", (await dai.balanceOf(swapper)).toString());
+    const tetuLiquidator = ITetuLiquidator__factory.connect(
+      MaticAddresses.TETU_LIQUIDATOR,
+      await DeployerUtils.startImpersonate(swapper)
+    );
+
+    await usdtAsSwapper.approve(tetuLiquidator.address, parseUnits("100", 6));
+    const gasUsed = await tetuLiquidator.estimateGas.liquidate(
+      MaticAddresses.USDT,
+      MaticAddresses.DAI,
+      parseUnits("100", 6),
+      2000
+    );
+    await tetuLiquidator.liquidate(
+      MaticAddresses.USDT,
+      MaticAddresses.DAI,
+      parseUnits("100", 6),
+      2000
+    );
+
+    console.log("gasUsed", gasUsed.toString());
+    console.log("usdt balance after", (await usdtAsSwapper.balanceOf(swapper)).toString());
+    console.log("dai balance after", (await dai.balanceOf(swapper)).toString());
+  });
+
+  it("simulate real-swap using simulate, two contracts", async () => {
     const simulateContainer = await DeployUtils.deployContract(deployer, "SimulateContainer") as SimulateContainer;
     const simulateTester = await DeployUtils.deployContract(deployer, "SimulateTester") as SimulateTester;
 
@@ -100,44 +137,47 @@ describe("Test simulate tester", () => {
     console.log("dai balance after", (await dai.balanceOf(simulateContainer.address)).toString());
   });
 
-  it("try to make real swap and check gas", async () => {
-    const swapper = ethers.Wallet.createRandom().address;
+  it("simulate real-swap using simulate, single contract", async () => {
+    const simulateTester = await DeployUtils.deployContract(deployer, "SimulateTester") as SimulateTester;
+
+    // const makeSwapCall = simulateTester.interface.encodeFunctionData("makeSwap", [2]);
+
     await BalanceUtils.getRequiredAmountFromHolders(
       parseUnits("100", 6),
       IERC20Metadata__factory.connect(MaticAddresses.USDT, deployer),
       [MaticAddresses.HOLDER_USDT_1],
-      swapper
+      simulateTester.address
     );
-    const usdtAsSwapper = IERC20__factory.connect(MaticAddresses.USDT, await DeployerUtils.startImpersonate(swapper));
-    const dai = IERC20__factory.connect(MaticAddresses.DAI, await DeployerUtils.startImpersonate(swapper));
-    console.log("swapper", swapper);
-    console.log("usdt balance before", (await usdtAsSwapper.balanceOf(swapper)).toString());
-    console.log("dai balance before", (await dai.balanceOf(swapper)).toString());
-    const tetuLiquidator = ITetuLiquidator__factory.connect(
+    const usdt = IERC20__factory.connect(MaticAddresses.USDT, deployer);
+    const dai = IERC20__factory.connect(MaticAddresses.DAI, deployer);
+    console.log("simulateTester", simulateTester.address);
+    console.log("usdt balance before", (await usdt.balanceOf(simulateTester.address)).toString());
+    console.log("dai balance before", (await dai.balanceOf(simulateTester.address)).toString());
+    await simulateTester.callSimulateMakeSwapUsingTetuLiquidatorSingleContract(
       MaticAddresses.TETU_LIQUIDATOR,
-      await DeployerUtils.startImpersonate(swapper)
-    );
-
-    await usdtAsSwapper.approve(tetuLiquidator.address, parseUnits("100", 6));
-    const gasUsed = await tetuLiquidator.estimateGas.liquidate(
       MaticAddresses.USDT,
-      MaticAddresses.DAI,
       parseUnits("100", 6),
-      2000
+      MaticAddresses.DAI
     );
-    await tetuLiquidator.liquidate(
+    const ret = await simulateTester.callStatic.callSimulateMakeSwapUsingTetuLiquidatorSingleContract(
+      MaticAddresses.TETU_LIQUIDATOR,
       MaticAddresses.USDT,
-      MaticAddresses.DAI,
       parseUnits("100", 6),
-      2000
+      MaticAddresses.DAI
     );
-
+    const gasUsed = await simulateTester.estimateGas.callSimulateMakeSwapUsingTetuLiquidatorSingleContract(
+      MaticAddresses.TETU_LIQUIDATOR,
+      MaticAddresses.USDT,
+      parseUnits("100", 6),
+      MaticAddresses.DAI
+    );
+    console.log("ret", ret.toString());
     console.log("gasUsed", gasUsed.toString());
-    console.log("usdt balance after", (await usdtAsSwapper.balanceOf(swapper)).toString());
-    console.log("dai balance after", (await dai.balanceOf(swapper)).toString());
+    console.log("usdt balance after", (await usdt.balanceOf(simulateTester.address)).toString());
+    console.log("dai balance after", (await dai.balanceOf(simulateTester.address)).toString());
   });
 
-  it("real-swap-using-try-catch should return expected values", async () => {
+  it("simulate real-swap using try-catch", async () => {
     const simulateContainer = await DeployUtils.deployContract(deployer, "SimulateContainer") as SimulateContainer;
     const simulateTester = await DeployUtils.deployContract(deployer, "SimulateTester") as SimulateTester;
 
