@@ -2,6 +2,9 @@
 pragma solidity 0.8.4;
 
 import "hardhat/console.sol";
+import "./ISimulateTester.sol";
+import "../../openzeppelin/IERC20.sol";
+import "../../openzeppelin/SafeERC20.sol";
 
 contract SimulateContainer {
   /**
@@ -107,5 +110,75 @@ contract SimulateContainer {
         revert(add(response, 0x20), mload(response))
       }
     }
+  }
+
+  ////////////////////////////////////////////////////////////////
+  ///  Simulate real swap using try/catch()
+  ////////////////////////////////////////////////////////////////
+  function callTryCatchSwapUsingTetuLiquidator(
+    address simulateTester_,
+    address tetuLiquidator,
+    address sourceAsset_,
+    uint sourceAmount_,
+    address targetAsset_
+  ) external returns (uint result) {
+    console.log("callTryCatchSwapUsingTetuLiquidator.1");
+
+    ISimulateTester simulateTester = ISimulateTester(simulateTester_);
+    try simulateTester.makeSwapUsingTetuLiquidatorWithRevert(
+      tetuLiquidator,
+      sourceAsset_,
+      sourceAmount_,
+      targetAsset_
+    ) {
+      console.log("simulateTester.makeSwapUsingTetuLiquidator.no revert?");
+      require(false, "no revert?");
+    } catch (bytes memory reason) {
+      console.log("simulateTester.makeSwapUsingTetuLiquidator.catch.1");
+//      bytes4 expectedSelector = SimulateContainer.ErrorWithAmount.selector;
+//      bytes4 receivedSelector = bytes4(reason);
+//      require(expectedSelector == receivedSelector, "smth is wrong");
+//      console.log("simulateTester.makeSwapUsingTetuLiquidator.catch.2");
+      uint amount = abi.decode(extractCalldata(reason), (uint));
+      console.log("simulateTester.makeSwapUsingTetuLiquidator.catch.3", amount);
+      result = amount;
+    }
+
+    uint balanceSourceAfterRevert = IERC20(sourceAsset_).balanceOf(address(this));
+    uint balanceTargetAfterRevert = IERC20(targetAsset_).balanceOf(address(this));
+    console.log("callTryCatchSwapUsingTetuLiquidator.balanceSourceAfterRevert", balanceSourceAfterRevert);
+    console.log("callTryCatchSwapUsingTetuLiquidator.balanceTargetAfterRevert", balanceTargetAfterRevert);
+
+    console.log("callSimulateMakeSwapUsingTetuLiquidator.result", result);
+    return result;
+  }
+
+  /// @dev https://ethereum.stackexchange.com/questions/131283/how-do-i-decode-call-data-in-solidity
+  function extractCalldata(bytes memory calldataWithSelector) internal pure returns (bytes memory) {
+    bytes memory calldataWithoutSelector;
+
+    require(calldataWithSelector.length >= 4);
+
+    assembly {
+      let totalLength := mload(calldataWithSelector)
+      let targetLength := sub(totalLength, 4)
+      calldataWithoutSelector := mload(0x40)
+
+    // Set the length of callDataWithoutSelector (initial length - 4)
+      mstore(calldataWithoutSelector, targetLength)
+
+    // Mark the memory space taken for callDataWithoutSelector as allocated
+      mstore(0x40, add(0x20, targetLength))
+
+    // Process first 32 bytes (we only take the last 28 bytes)
+      mstore(add(calldataWithoutSelector, 0x20), shl(0x20, mload(add(calldataWithSelector, 0x20))))
+
+    // Process all other data by chunks of 32 bytes
+      for { let i := 0x1C } lt(i, targetLength) { i := add(i, 0x20) } {
+        mstore(add(add(calldataWithoutSelector, 0x20), i), mload(add(add(calldataWithSelector, 0x20), add(i, 0x04))))
+      }
+    }
+
+    return calldataWithoutSelector;
   }
 }

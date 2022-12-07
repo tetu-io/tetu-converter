@@ -55,7 +55,7 @@ describe("Test simulate tester", () => {
     await simulateTester.callSimulateMakeSwapStub(simulateContainer.address);
   });
 
-  it("real-swap should return expected values", async () => {
+  it("real-swap-using-simulate should return expected values", async () => {
     const simulateContainer = await DeployUtils.deployContract(deployer, "SimulateContainer") as SimulateContainer;
     const simulateTester = await DeployUtils.deployContract(deployer, "SimulateTester") as SimulateTester;
 
@@ -94,8 +94,8 @@ describe("Test simulate tester", () => {
       parseUnits("100", 6),
       MaticAddresses.DAI
     );
-    console.log("ret", ret);
-    console.log("gasUsed", gasUsed);
+    console.log("ret", ret.toString());
+    console.log("gasUsed", gasUsed.toString());
     console.log("usdt balance after", (await usdt.balanceOf(simulateContainer.address)).toString());
     console.log("dai balance after", (await dai.balanceOf(simulateContainer.address)).toString());
   });
@@ -132,8 +132,53 @@ describe("Test simulate tester", () => {
       2000
     );
 
-    console.log("gasUsed", gasUsed);
+    console.log("gasUsed", gasUsed.toString());
     console.log("usdt balance after", (await usdtAsSwapper.balanceOf(swapper)).toString());
     console.log("dai balance after", (await dai.balanceOf(swapper)).toString());
+  });
+
+  it("real-swap-using-try-catch should return expected values", async () => {
+    const simulateContainer = await DeployUtils.deployContract(deployer, "SimulateContainer") as SimulateContainer;
+    const simulateTester = await DeployUtils.deployContract(deployer, "SimulateTester") as SimulateTester;
+
+    // const makeSwapCall = simulateTester.interface.encodeFunctionData("makeSwap", [2]);
+
+    await BalanceUtils.getRequiredAmountFromHolders(
+      parseUnits("100", 6),
+      IERC20Metadata__factory.connect(MaticAddresses.USDT, deployer),
+      [MaticAddresses.HOLDER_USDT_1],
+      simulateTester.address
+    );
+    const usdt = IERC20__factory.connect(MaticAddresses.USDT, deployer);
+    const dai = IERC20__factory.connect(MaticAddresses.DAI, deployer);
+    console.log("simulateTester", simulateTester.address);
+    console.log("simulateContainer", simulateContainer.address);
+    console.log("usdt balance before", (await usdt.balanceOf(simulateTester.address)).toString());
+    console.log("dai balance before", (await dai.balanceOf(simulateTester.address)).toString());
+    await simulateContainer.callTryCatchSwapUsingTetuLiquidator(
+      simulateTester.address,
+      MaticAddresses.TETU_LIQUIDATOR,
+      MaticAddresses.USDT,
+      parseUnits("100", 6),
+      MaticAddresses.DAI
+    );
+    const ret = await simulateContainer.callStatic.callTryCatchSwapUsingTetuLiquidator(
+      simulateTester.address,
+      MaticAddresses.TETU_LIQUIDATOR,
+      MaticAddresses.USDT,
+      parseUnits("100", 6),
+      MaticAddresses.DAI
+    );
+    const gasUsed = await simulateContainer.estimateGas.callTryCatchSwapUsingTetuLiquidator(
+      simulateTester.address,
+      MaticAddresses.TETU_LIQUIDATOR,
+      MaticAddresses.USDT,
+      parseUnits("100", 6),
+      MaticAddresses.DAI
+    );
+    console.log("ret", ret.toString());
+    console.log("gasUsed", gasUsed.toString());
+    console.log("usdt balance after", (await usdt.balanceOf(simulateTester.address)).toString());
+    console.log("dai balance after", (await dai.balanceOf(simulateTester.address)).toString());
   });
 });
