@@ -14,7 +14,7 @@ import "../interfaces/IPriceOracle.sol";
 import "hardhat/console.sol";
 import "../interfaces/ISimulateProvider.sol";
 import "../interfaces/ISwapSimulator.sol";
-import "../interfaces/IClaimAmountCallback.sol";
+import "../interfaces/IRequireAmountBySwapManagerCallback.sol";
 import "./TetuConverter.sol";
 
 /// @title Contract to find the best swap and make the swap
@@ -40,7 +40,6 @@ contract SwapManager is ISwapManager, ISwapConverter, ISimulateProvider, ISwapSi
   event OnSwap(address sourceToken,
     uint sourceAmount,
     address targetToken,
-    uint targetAmount,
     address receiver,
     uint outputAmount
   );
@@ -149,19 +148,27 @@ contract SwapManager is ISwapManager, ISwapConverter, ISimulateProvider, ISwapSi
     address converter,
     uint maxTargetAmount
   ) {
-    maxTargetAmount = abi.decode(
-      ISimulateProvider(address(this)).simulate(
-        controller.tetuConverter(),
-        abi.encodeWithSelector(
-          ISwapSimulator.simulateSwap.selector,
-          sourceAmountApprover_,
-          sourceToken_,
-          sourceAmount_,
-          targetToken_
-        )
-      ),
-      (uint)
-    );
+    console.log("SwapManager.findConverter", address(this));
+    // simulate real swap of source amount to max target amount
+    try ISimulateProvider(address(this)).simulate(
+      address(this),
+      abi.encodeWithSelector(
+        ISwapSimulator.simulateSwap.selector,
+        sourceAmountApprover_,
+        sourceToken_,
+        sourceAmount_,
+        targetToken_
+      )
+    ) returns (bytes memory response) {
+      maxTargetAmount = abi.decode(response, (uint));
+      console.log("SwapManager.maxTargetAmount", maxTargetAmount);
+    } catch {
+      // we can have i.e. !PRICE error here
+      // it means, there is no way to make the conversion with acceptable price impact
+      console.log("SwapManager.!PRICE");
+      return (address(0), 0);
+    }
+
     return maxTargetAmount == 0
       ? (converter, maxTargetAmount)
       : (address(this), maxTargetAmount);
@@ -178,16 +185,11 @@ contract SwapManager is ISwapManager, ISwapConverter, ISimulateProvider, ISwapSi
 
   /// @notice Swap {sourceAmount_} of {sourceToken_} to {targetToken_} and send result amount to {receiver_}
   ///         The swapping is made using TetuLiquidator.
-  /// @param targetAmount_ Amount that should be received after swapping.
-  ///                      Result amount can be a bit different from the target amount because of slippage.
-  ///                      0 - any amount is ok.
-  ///                      not 0 - we need to ensure that slippage doesn't exceed a threshold
   /// @return outputAmount The amount that has been sent to the receiver
   function swap(
     address sourceToken_,
     uint sourceAmount_,
     address targetToken_,
-    uint targetAmount_,
     address receiver_
   ) override external returns (uint outputAmount) {
     uint targetTokenBalanceBefore = IERC20(targetToken_).balanceOf(address(this));
@@ -203,7 +205,7 @@ contract SwapManager is ISwapManager, ISwapConverter, ISimulateProvider, ISwapSi
     outputAmount = IERC20(targetToken_).balanceOf(address(this)) - targetTokenBalanceBefore;
 
     IERC20(targetToken_).safeTransfer(receiver_, outputAmount);
-    emit OnSwap(sourceToken_, sourceAmount_, targetToken_, targetAmount_, receiver_, outputAmount);
+    emit OnSwap(sourceToken_, sourceAmount_, targetToken_, receiver_, outputAmount);
   }
 
   /// @notice Make real swap to know result amount
@@ -223,7 +225,7 @@ contract SwapManager is ISwapManager, ISwapConverter, ISimulateProvider, ISwapSi
     require(msg.sender == controller.swapManager(), AppErrors.ONLY_SWAP_MANAGER);
     console.log("SwapManager.simulateSwap", address(this), msg.sender);
 
-    IClaimAmountCallback(controller.tetuConverter()).onRequireAmount(
+    IRequireAmountBySwapManagerCallback(controller.tetuConverter()).onRequireAmountBySwapManager(
       sourceAmountApprover_,
       sourceToken_,
       sourceAmount_

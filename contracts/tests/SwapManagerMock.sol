@@ -12,7 +12,6 @@ contract SwapManagerMock is ISwapManager, ISwapConverter {
     address sourceToken;
     uint sourceAmount;
     address targetToken;
-    uint targetAmount;
     address receiver;
   }
   SwapInputParams public lastSwapInputParams;
@@ -95,14 +94,12 @@ contract SwapManagerMock is ISwapManager, ISwapConverter {
     address sourceToken_,
     uint sourceAmount_,
     address targetToken_,
-    uint targetAmount_,
     address receiver_
   ) override external returns (uint borrowedAmountOut) {
     lastSwapInputParams = SwapInputParams({
       sourceToken: sourceToken_,
       sourceAmount: sourceAmount_,
       targetToken: targetToken_,
-      targetAmount: targetAmount_,
       receiver: receiver_
     });
     console.log("SwapManagerMock.swap", targetAmountAfterSwap);

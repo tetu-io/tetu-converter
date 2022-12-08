@@ -20,11 +20,11 @@ import "../interfaces/IConverter.sol";
 import "../interfaces/ISwapConverter.sol";
 import "../interfaces/IKeeperCallback.sol";
 import "../interfaces/ITetuConverterCallback.sol";
-import "../interfaces/IClaimAmountCallback.sol";
+import "../interfaces/IRequireAmountBySwapManagerCallback.sol";
 import "hardhat/console.sol";
 
 /// @notice Main application contract
-contract TetuConverter is ITetuConverter, IKeeperCallback, IClaimAmountCallback, ReentrancyGuard {
+contract TetuConverter is ITetuConverter, IKeeperCallback, IRequireAmountBySwapManagerCallback, ReentrancyGuard {
   using SafeERC20 for IERC20;
   using AppUtils for uint;
 
@@ -46,7 +46,6 @@ contract TetuConverter is ITetuConverter, IKeeperCallback, IClaimAmountCallback,
     address sourceAsset,
     uint sourceAmount,
     address targetAsset,
-    uint targetAmount,
     address receiver,
     uint targetAmountOut
   );
@@ -316,7 +315,6 @@ contract TetuConverter is ITetuConverter, IKeeperCallback, IClaimAmountCallback,
         collateralAsset_,
         collateralAmount_,
         borrowAsset_,
-        amountToBorrow_,
         receiver_
       );
     } else {
@@ -330,7 +328,6 @@ contract TetuConverter is ITetuConverter, IKeeperCallback, IClaimAmountCallback,
     address sourceAsset_,
     uint sourceAmount_,
     address targetAsset_,
-    uint targetAmount_,
     address receiver_
   ) internal returns (uint amountOut) {
     IERC20(sourceAsset_).safeTransfer(swapConverter_, sourceAmount_);
@@ -338,11 +335,10 @@ contract TetuConverter is ITetuConverter, IKeeperCallback, IClaimAmountCallback,
       sourceAsset_,
       sourceAmount_,
       targetAsset_,
-      targetAmount_,
       receiver_
     );
 
-    emit OnSwap(msg.sender, swapConverter_, sourceAsset_, sourceAmount_, targetAsset_, targetAmount_, receiver_, amountOut);
+    emit OnSwap(msg.sender, swapConverter_, sourceAsset_, sourceAmount_, targetAsset_, receiver_, amountOut);
   }
 
   ///////////////////////////////////////////////////////
@@ -382,11 +378,7 @@ contract TetuConverter is ITetuConverter, IKeeperCallback, IClaimAmountCallback,
 
     // we need to repay exact amount using any pool adapters
     // simplest strategy: use first available pool adapter
-    address[] memory poolAdapters = _debtMonitor().getPositions(
-      msg.sender,
-      collateralAsset_,
-      borrowAsset_
-    );
+    address[] memory poolAdapters = _debtMonitor().getPositions(msg.sender, collateralAsset_, borrowAsset_);
     uint lenPoolAdapters = poolAdapters.length;
 
     // at first repay debts for any opened positions
@@ -407,11 +399,7 @@ contract TetuConverter is ITetuConverter, IKeeperCallback, IClaimAmountCallback,
 
       // make repayment
       bool closePosition = amountToPayToPoolAdapter == totalDebtForPoolAdapter;
-      collateralAmountOut += pa.repay(
-        amountToPayToPoolAdapter,
-        receiver_,
-        closePosition
-      );
+      collateralAmountOut += pa.repay(amountToPayToPoolAdapter, receiver_, closePosition);
       amountToRepay_ -= amountToPayToPoolAdapter;
 
       emit OnRepayBorrow(address(pa), amountToPayToPoolAdapter, receiver_, closePosition);
@@ -421,9 +409,8 @@ contract TetuConverter is ITetuConverter, IKeeperCallback, IClaimAmountCallback,
     // let's swap it to collateral asset and send to collateral-receiver
     if (amountToRepay_ > 0) {
       // getConverter requires the source amount be approved to TetuConverter, but a contract doesn't need to approve itself
-      (address converter, uint collateralAmount,) = _swapManager().getConverter(
-        address(this), borrowAsset_, amountToRepay_, collateralAsset_
-      );
+      console.log("TetuConverter.repay", address(this));
+      (address converter,) = _swapManager().findConverter(address(this), borrowAsset_, amountToRepay_, collateralAsset_);
 
       if (converter == address(0)) {
         // there is no swap-strategy to convert remain {amountToPay} to {collateralAsset_}
@@ -434,14 +421,7 @@ contract TetuConverter is ITetuConverter, IKeeperCallback, IClaimAmountCallback,
       } else {
         // conversion strategy is found
         // let's convert all remaining {amountToPay} to {collateralAsset}
-        collateralAmountOut += _makeSwap(
-          converter,
-          borrowAsset_,
-          amountToRepay_,
-          collateralAsset_,
-          collateralAmount, //TODO do we need to check slippage??
-          receiver_
-        );
+        collateralAmountOut += _makeSwap(converter, borrowAsset_, amountToRepay_, collateralAsset_, receiver_);
       }
     }
 
@@ -695,7 +675,7 @@ contract TetuConverter is ITetuConverter, IKeeperCallback, IClaimAmountCallback,
   ///////////////////////////////////////////////////////
 
   /// @notice Transfer {sourceAmount_} approved by {sourceAmountApprover_} to swap manager
-  function onRequireAmount(
+  function onRequireAmountBySwapManager(
     address sourceAmountApprover_,
     address sourceToken_,
     uint sourceAmount_
@@ -706,7 +686,11 @@ contract TetuConverter is ITetuConverter, IKeeperCallback, IClaimAmountCallback,
     console.log("TetuConverter.onRequireAmount.1", swapManager, msg.sender);
     require(swapManager == msg.sender, AppErrors.ONLY_SWAP_MANAGER);
 
-    IERC20(sourceToken_).safeTransferFrom(sourceAmountApprover_, swapManager, sourceAmount_);
+    if (sourceAmountApprover_ == address(this)) {
+      IERC20(sourceToken_).safeTransfer(swapManager, sourceAmount_);
+    } else {
+      IERC20(sourceToken_).safeTransferFrom(sourceAmountApprover_, swapManager, sourceAmount_);
+    }
     console.log("TetuConverter.onRequireAmount.2");
   }
 

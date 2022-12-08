@@ -5,9 +5,9 @@ pragma solidity 0.8.4;
 ///         It's called by SwapManager inside static-call swap simulation
 ///         to transfer amount approved to TetuConverter by user to SwapManager
 ///         before calling swap simulation
-interface IClaimAmountCallback {
+interface IRequireAmountBySwapManagerCallback {
   /// @notice Transfer {sourceAmount_} approved by {sourceAmountApprover_} to swap manager
-  function onRequireAmount(
+  function onRequireAmountBySwapManager(
     address sourceAmountApprover_,
     address sourceToken_,
     uint sourceAmount_

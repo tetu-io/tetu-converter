@@ -42,7 +42,7 @@ import {Misc} from "../../scripts/utils/Misc";
 import {IPoolAdapterStatus} from "../baseUT/types/BorrowRepayDataTypes";
 import {getExpectedApr18} from "../baseUT/apr/aprUtils";
 import {CoreContractsHelper} from "../baseUT/helpers/CoreContractsHelper";
-import {parseUnits} from "ethers/lib/utils";
+import {formatUnits, parseUnits} from "ethers/lib/utils";
 import {controlGasLimitsEx} from "../../scripts/utils/hardhatUtils";
 import {
   GAS_FIND_CONVERSION_STRATEGY_ONLY_BORROW_AVAILABLE, GAS_FIND_SWAP_STRATEGY,
@@ -927,7 +927,7 @@ describe("TetuConverterTest", () => {
     });
   });
 
-  describe("findBestConversionStrategy", () => {
+  describe("findConversionStrategy", () => {
     describe("Good paths", () => {
       describe("Check output converter value", () => {
         describe("Neither borrowing no swap are available", () => {
@@ -1469,7 +1469,6 @@ describe("TetuConverterTest", () => {
             lastSwapInputParams.sourceToken,
             lastSwapInputParams.sourceAmount,
             lastSwapInputParams.targetToken,
-            lastSwapInputParams.targetAmount,
             lastSwapInputParams.receiver,
           ].map(x => BalanceUtils.toString(x)).join("\n");
 
@@ -1482,7 +1481,6 @@ describe("TetuConverterTest", () => {
             r.init.sourceToken.address,
             getBigNumberFrom(amountCollateralNum, await r.init.sourceToken.decimals()),
             r.init.targetToken.address,
-            getBigNumberFrom(amountToBorrowNum, await r.init.targetToken.decimals()),
             r.receiver
           ].map(x => BalanceUtils.toString(x)).join("\n");
 
@@ -3356,7 +3354,6 @@ describe("TetuConverterTest", () => {
             init.targetToken.address,
             parseUnits("400", await init.targetToken.decimals()),
             init.sourceToken.address,
-            parseUnits("800", await init.sourceToken.decimals()),
             init.userContract.address,
             parseUnits("800", await init.sourceToken.decimals()),
           );
@@ -3471,6 +3468,65 @@ describe("TetuConverterTest", () => {
           parseUnits("71"),
           init.userContract.address
         );
+      });
+    });
+  });
+
+  describe("onRequireAmountBySwapManager", () => {
+    async function makeTestOnRequireAmountBySwapManager(
+      init: ISetupResults,
+      approver: string,
+      signer?: string
+    ) : Promise<{ret: string, expected: string}> {
+
+      // approver approves source amount to TetuConverter
+      const sourceAmount = parseUnits("1", await init.sourceToken.decimals());
+      const sourceTokenAsApprover = MockERC20__factory.connect(
+        init.sourceToken.address,
+        await DeployerUtils.startImpersonate(approver)
+      );
+      await sourceTokenAsApprover.mint(approver, sourceAmount);
+      await sourceTokenAsApprover.approve(init.core.tc.address, sourceAmount);
+
+      // swap manager requires the source amount from TetuConverter
+      const tcAsSigner = TetuConverter__factory.connect(
+        init.core.tc.address,
+        await DeployerUtils.startImpersonate(signer || init.core.swapManager.address)
+      );
+      const balanceBefore = await sourceTokenAsApprover.balanceOf(init.core.swapManager.address);
+      await tcAsSigner.onRequireAmountBySwapManager(approver, init.sourceToken.address, sourceAmount);
+      const balanceAfter = await sourceTokenAsApprover.balanceOf(init.core.swapManager.address);
+
+      const ret = formatUnits(balanceAfter.sub(balanceBefore), await init.sourceToken.decimals());
+      const expected = formatUnits(sourceAmount, await init.sourceToken.decimals());
+
+      return {ret, expected};
+    }
+    describe("Good paths", () => {
+      describe("The amount is approved by a user contract", () => {
+        it("should return expected values", async () => {
+          const core = await CoreContracts.build(await TetuConverterApp.createController(deployer));
+          const init = await prepareTetuAppWithMultipleLendingPlatforms(core, 0);
+          const r = await makeTestOnRequireAmountBySwapManager(init, ethers.Wallet.createRandom().address);
+          expect(r.ret).eq(r.expected);
+        });
+      });
+      describe("The amount is approved by TetuConverter", () => {
+        it("should return expected values", async () => {
+          const core = await CoreContracts.build(await TetuConverterApp.createController(deployer));
+          const init = await prepareTetuAppWithMultipleLendingPlatforms(core, 0);
+          const r = await makeTestOnRequireAmountBySwapManager(init, init.core.tc.address);
+          expect(r.ret).eq(r.expected);
+        });
+      });
+    });
+    describe("Bad paths", () => {
+      it("revert if called by not swap manager", async () => {
+        const core = await CoreContracts.build(await TetuConverterApp.createController(deployer));
+        const init = await prepareTetuAppWithMultipleLendingPlatforms(core, 0);
+        await expect(
+          makeTestOnRequireAmountBySwapManager(init, init.core.tc.address, ethers.Wallet.createRandom().address)
+        ).revertedWith("TC-53 swap manager only"); // ONLY_SWAP_MANAGER
       });
     });
   });
