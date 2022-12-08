@@ -157,6 +157,7 @@ describe("DForce unit tests, pool adapter", () => {
         const borrowCToken = MaticAddresses.dForce_iMATIC;
         let results: IMakeBorrowTestResults;
         before(async function () {
+          if (!await isPolygonForkInUse()) return;
           results = await makeBorrowTest(
             collateralAsset,
             collateralCToken,
@@ -218,6 +219,7 @@ describe("DForce unit tests, pool adapter", () => {
         const borrowCToken = MaticAddresses.dForce_iUSDC;
         let results: IMakeBorrowTestResults;
         before(async function () {
+          if (!await isPolygonForkInUse()) return;
           results = await makeBorrowTest(
             collateralAsset,
             collateralCToken,
@@ -277,6 +279,7 @@ describe("DForce unit tests, pool adapter", () => {
         const borrowCToken = MaticAddresses.dForce_iUSDC;
         let results: IMakeBorrowTestResults;
         before(async function () {
+          if (!await isPolygonForkInUse()) return;
           results = await makeBorrowTest(
             collateralAsset,
             collateralCToken,
@@ -338,6 +341,7 @@ describe("DForce unit tests, pool adapter", () => {
         const borrowCToken = MaticAddresses.dForce_iUSDC;
         let results: IMakeBorrowTestResults;
         before(async function () {
+          if (!await isPolygonForkInUse()) return;
           results = await makeBorrowTest(
             collateralAsset,
             collateralCToken,
@@ -599,6 +603,7 @@ describe("DForce unit tests, pool adapter", () => {
         const borrowHolder = MaticAddresses.HOLDER_DAI;
         let results: IMakeFullRepayTestResults;
         before(async function () {
+          if (!await isPolygonForkInUse()) return;
           results = await makeRepayTest(
             collateralAsset,
             collateralCToken,
@@ -662,6 +667,7 @@ describe("DForce unit tests, pool adapter", () => {
         const borrowHolder = MaticAddresses.HOLDER_WMATIC;
         let results: IMakeFullRepayTestResults;
         before(async function () {
+          if (!await isPolygonForkInUse()) return;
           results = await makeRepayTest(
             collateralAsset,
             collateralCToken,
@@ -726,6 +732,7 @@ describe("DForce unit tests, pool adapter", () => {
 
         let results: IMakeFullRepayTestResults;
         before(async function () {
+          if (!await isPolygonForkInUse()) return;
           results = await makeRepayTest(
             collateralAsset,
             collateralCToken,

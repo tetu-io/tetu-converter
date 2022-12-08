@@ -90,11 +90,6 @@ contract DebtMonitor is IDebtMonitor {
   ///////////////////////////////////////////////////////
 
 
-  /// @notice Ensure that msg.sender is registered pool adapter
-  function _onlyGovernance() internal view {
-    require(msg.sender == controller.governance(), AppErrors.GOVERNANCE_ONLY);
-  }
-
   ///////////////////////////////////////////////////////
   ///       Operations with positions
   ///////////////////////////////////////////////////////

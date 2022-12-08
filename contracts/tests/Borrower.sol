@@ -63,6 +63,7 @@ contract Borrower is ITetuConverterCallback {
     console.log("borrowMaxAmount start gasleft", gasleft());
     console.log("borrowMaxAmount receiver_", receiver_);
     // ask TC for the best conversion strategy
+    IERC20(sourceAsset_).approve(address(_tc()), sourceAmount_);
     (address converter, uint maxTargetAmount,) = _tc().findConversionStrategy(sourceAsset_,
       sourceAmount_,
       targetAsset_,
@@ -113,6 +114,7 @@ contract Borrower is ITetuConverterCallback {
     console.log("borrowExactAmount receiver_", receiver_);
     console.log("borrowExactAmount _borrowPeriodInBlocks", _borrowPeriodInBlocks);
     // ask TC for the best conversion strategy
+    IERC20(sourceAsset_).approve(address(_tc()), sourceAmount_);
     (address converter, uint maxTargetAmount,) = _tc().findConversionStrategy(sourceAsset_,
       sourceAmount_,
       targetAsset_,

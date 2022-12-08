@@ -6,6 +6,7 @@ import {HfAprLibFacade} from "../../../typechain";
 import {HundredFinanceChangePriceUtils} from "../../baseUT/protocols/hundred-finance/HundredFinanceChangePriceUtils";
 import {MaticAddresses} from "../../../scripts/addresses/MaticAddresses";
 import {expect} from "chai";
+import {isPolygonForkInUse} from "../../baseUT/utils/NetworkUtils";
 
 describe("HfAprLib unit tests", () => {
 //region Global vars for all tests
@@ -24,6 +25,7 @@ describe("HfAprLib unit tests", () => {
     const signers = await ethers.getSigners();
     deployer = signers[0];
     investor = signers[0];
+    if (!await isPolygonForkInUse()) return;
     libFacade = await DeployUtils.deployContract(deployer, "HfAprLibFacade") as HfAprLibFacade;
   });
 
@@ -43,6 +45,7 @@ describe("HfAprLib unit tests", () => {
 //region Unit tests
   describe("getPrice", () => {
     it("should revert if zero", async () => {
+      if (!await isPolygonForkInUse()) return;
       const priceOracle = await HundredFinanceChangePriceUtils.setupPriceOracleMock(
         deployer,
         false // we don't copy prices, so all prices are zero
@@ -56,9 +59,11 @@ describe("HfAprLib unit tests", () => {
 
   describe("getUnderlying", () => {
     it("should return DAI for hDAI", async () => {
+      if (!await isPolygonForkInUse()) return;
       expect(await libFacade.getUnderlying(MaticAddresses.hDAI), MaticAddresses.DAI);
     });
     it("should return WMATIC for hMATIC", async () => {
+      if (!await isPolygonForkInUse()) return;
       expect(await libFacade.getUnderlying(MaticAddresses.hMATIC), MaticAddresses.WMATIC);
     });
   });

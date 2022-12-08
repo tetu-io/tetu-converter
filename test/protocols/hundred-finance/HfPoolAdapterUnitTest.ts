@@ -157,6 +157,7 @@ describe("Hundred Finance unit tests, pool adapter", () => {
         const borrowCToken = MaticAddresses.hMATIC;
         let results: IMakeBorrowTestResults;
         before(async function () {
+          if (!await isPolygonForkInUse()) return;
           results = await makeBorrowTest(
             collateralAsset,
             collateralCToken,
@@ -218,6 +219,7 @@ describe("Hundred Finance unit tests, pool adapter", () => {
         const borrowCToken = MaticAddresses.hUSDC;
         let results: IMakeBorrowTestResults;
         before(async function () {
+          if (!await isPolygonForkInUse()) return;
           results = await makeBorrowTest(
             collateralAsset,
             collateralCToken,
@@ -277,6 +279,7 @@ describe("Hundred Finance unit tests, pool adapter", () => {
         const borrowCToken = MaticAddresses.hUSDC;
         let results: IMakeBorrowTestResults;
         before(async function () {
+          if (!await isPolygonForkInUse()) return;
           results = await makeBorrowTest(
             collateralAsset,
             collateralCToken,
@@ -338,6 +341,7 @@ describe("Hundred Finance unit tests, pool adapter", () => {
         const borrowCToken = MaticAddresses.hUSDC;
         let results: IMakeBorrowTestResults;
         before(async function () {
+          if (!await isPolygonForkInUse()) return;
           results = await makeBorrowTest(
             collateralAsset,
             collateralCToken,
@@ -659,6 +663,7 @@ describe("Hundred Finance unit tests, pool adapter", () => {
         const borrowHolder = MaticAddresses.HOLDER_DAI;
         let results: IMakeFullRepayTestResults;
         before(async function () {
+          if (!await isPolygonForkInUse()) return;
           results = await makeFullRepayTest(
             collateralAsset,
             collateralCToken,
@@ -722,6 +727,7 @@ describe("Hundred Finance unit tests, pool adapter", () => {
         const borrowHolder = MaticAddresses.HOLDER_WMATIC;
         let results: IMakeFullRepayTestResults;
         before(async function () {
+          if (!await isPolygonForkInUse()) return;
           results = await makeFullRepayTest(
             collateralAsset,
             collateralCToken,
@@ -786,6 +792,7 @@ describe("Hundred Finance unit tests, pool adapter", () => {
 
         let results: IMakeFullRepayTestResults;
         before(async function () {
+          if (!await isPolygonForkInUse()) return;
           results = await makeFullRepayTest(
             collateralAsset,
             collateralCToken,

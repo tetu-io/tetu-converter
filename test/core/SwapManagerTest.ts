@@ -3,7 +3,7 @@ import {ethers} from "hardhat";
 import {expect} from "chai";
 import {
   Controller, IMockERC20__factory,
-  MockERC20, MockERC20__factory, SwapManager, SwapManager__factory, TetuLiquidatorMock,
+  MockERC20, MockERC20__factory, PriceOracleMock__factory, SwapManager, SwapManager__factory, TetuLiquidatorMock,
 } from "../../typechain";
 import {TimeUtils} from "../../scripts/utils/TimeUtils";
 import {DeployUtils} from "../../scripts/utils/DeployUtils";
@@ -14,6 +14,7 @@ import {MocksHelper} from "../baseUT/helpers/MocksHelper";
 import {Misc} from "../../scripts/utils/Misc";
 import {controlGasLimitsEx} from "../../scripts/utils/hardhatUtils";
 import {GAS_FIND_SWAP_STRATEGY} from "../baseUT/GasLimit";
+import {DeployerUtils} from "../../scripts/utils/DeployerUtils";
 
 const parseUnits = ethers.utils.parseUnits;
 
@@ -292,66 +293,86 @@ describe("SwapManager", () => {
   });
 
   describe("getApr18", () => {
-    it("should return expected values", async () => {
-      // we need to multiple one-side-conversion-loss on 2 to get loss for there and back conversion
-      const sourceAmount = parseUnits("2", 18);
-      const targetAmount = parseUnits("1", 6);
-      const ret = await swapManager.getApr18(dai.address, sourceAmount, usdc.address, targetAmount);
-      const targetAmountInTermsSourceTokens = targetAmount
-        .mul($usdc)
-        .div($dai)
-        .mul(parseUnits("1", 18))
-        .div(parseUnits("1", 6));
-      const expectedApr18 = sourceAmount
-        .sub(targetAmountInTermsSourceTokens)
-        .mul(2)
-        .mul(Misc.WEI)
-        .div(sourceAmount);
-      expect(ret.eq(expectedApr18)).eq(true);
-    })
-    it("Should return right APR for all asset pairs", async () => {
-      // we try to use very high price impacts, so we need to avoid !PRICE exception in getConverter
-      await liquidator.setDisablePriceException(true);
-      const ret: string[] = [];
-      const expected: string[] = [];
-      const tetuConverter = await controller.tetuConverter();
+    describe("Good paths", () => {
+      it("should return expected values", async () => {
+        // we need to multiple one-side-conversion-loss on 2 to get loss for there and back conversion
+        const sourceAmount = parseUnits("2", 18);
+        const targetAmount = parseUnits("1", 6);
+        const ret = await swapManager.getApr18(dai.address, sourceAmount, usdc.address, targetAmount);
+        const targetAmountInTermsSourceTokens = targetAmount
+          .mul($usdc)
+          .div($dai)
+          .mul(parseUnits("1", 18))
+          .div(parseUnits("1", 6));
+        const expectedApr18 = sourceAmount
+          .sub(targetAmountInTermsSourceTokens)
+          .mul(2)
+          .mul(Misc.WEI)
+          .div(sourceAmount);
+        expect(ret.eq(expectedApr18)).eq(true);
+      })
+      it("Should return right APR for all asset pairs", async () => {
+        // we try to use very high price impacts, so we need to avoid !PRICE exception in getConverter
+        await liquidator.setDisablePriceException(true);
+        const ret: string[] = [];
+        const expected: string[] = [];
+        const tetuConverter = await controller.tetuConverter();
 
-      for (const sourceToken of assets) {
-        for (const targetToken of assets) {
-          if (sourceToken === targetToken) continue;
+        for (const sourceToken of assets) {
+          for (const targetToken of assets) {
+            if (sourceToken === targetToken) continue;
 
-          const tokenInDecimals = await IMockERC20__factory.connect(sourceToken, user).decimals();
-          const sourceAmount = parseUnits('100', tokenInDecimals);
-          for (let priceImpactPercent = 0; priceImpactPercent < 3; priceImpactPercent++) {
+            const tokenInDecimals = await IMockERC20__factory.connect(sourceToken, user).decimals();
+            const sourceAmount = parseUnits('100', tokenInDecimals);
+            for (let priceImpactPercent = 0; priceImpactPercent < 3; priceImpactPercent++) {
 
-            await liquidator.setPriceImpact(BigNumber.from(priceImpactPercent).mul('1000')); // 1 %
-            await MockERC20__factory.connect(sourceToken, user).mint(user.address, sourceAmount);
-            await MockERC20__factory.connect(sourceToken, user).approve(tetuConverter, sourceAmount);
-            console.log(`User ${user.address} has approved ${sourceAmount.toString()} to ${tetuConverter}`);
+              await liquidator.setPriceImpact(BigNumber.from(priceImpactPercent).mul('1000')); // 1 %
+              await MockERC20__factory.connect(sourceToken, user).mint(user.address, sourceAmount);
+              await MockERC20__factory.connect(sourceToken, user).approve(tetuConverter, sourceAmount);
+              console.log(`User ${user.address} has approved ${sourceAmount.toString()} to ${tetuConverter}`);
 
-            const r = await swapManager.callStatic.getConverter(
-              user.address,
-              sourceToken,
-              sourceAmount,
-              targetToken
-            );
-            const apr18 = await swapManager.getApr18(sourceToken, sourceAmount, targetToken, r.maxTargetAmount);
-            // we need to multiple one-side-conversion-loss on 2 to get loss for there and back conversion
-            const loss = sourceAmount.mul(priceImpactPercent).div(100).mul(2);
+              const r = await swapManager.callStatic.getConverter(
+                user.address,
+                sourceToken,
+                sourceAmount,
+                targetToken
+              );
+              const apr18 = await swapManager.getApr18(sourceToken, sourceAmount, targetToken, r.maxTargetAmount);
+              // we need to multiple one-side-conversion-loss on 2 to get loss for there and back conversion
+              const loss = sourceAmount.mul(priceImpactPercent).div(100).mul(2);
 
-            ret.push([
-              r.converter,
-              apr18.toString()
-            ].join());
-            expected.push([
-              swapManager.address,
-              loss.mul(Misc.WEI).div(sourceAmount).toString()
-            ].join());
+              ret.push([
+                r.converter,
+                apr18.toString()
+              ].join());
+              expected.push([
+                swapManager.address,
+                loss.mul(Misc.WEI).div(sourceAmount).toString()
+              ].join());
+            }
           }
         }
-      }
 
-      expect(ret.join('\n')).eq(expected.join('\n'));
+        expect(ret.join('\n')).eq(expected.join('\n'));
+      });
+    });
+    describe("Bad paths", () => {
+      it("should revert if collateral price is zero", async () => {
+        const sourceAmount = parseUnits("2", 18);
+        const targetAmount = parseUnits("1", 6);
+        await PriceOracleMock__factory.connect(await controller.priceOracle(), deployer).changePrices([dai.address], [0]);
+        await expect(
+          swapManager.getApr18(dai.address, sourceAmount, usdc.address, targetAmount)
+        ).revertedWith("TC-4 zero price"); // ZERO_PRICE
+      });
+      it("should revert if borrow price is zero", async () => {
+        const sourceAmount = parseUnits("2", 18);
+        const targetAmount = parseUnits("1", 6);
+        await PriceOracleMock__factory.connect(await controller.priceOracle(), deployer).changePrices([usdc.address], [0]);
+        await expect(
+          swapManager.getApr18(dai.address, sourceAmount, usdc.address, targetAmount)
+        ).revertedWith("TC-4 zero price"); // ZERO_PRICE
+      });
     });
   });
 
@@ -398,6 +419,66 @@ describe("SwapManager", () => {
       }
 
       expect(ret.join()).eq(expected.join()); // TODO take slippage into account
+    });
+  });
+
+  describe("simulateSwap", () => {
+    describe("Good paths", () => {
+      it("should change balances in expected way", async () => {
+        const swapManagerAsSwapManager = SwapManager__factory.connect(
+          swapManager.address,
+          await DeployerUtils.startImpersonate(swapManager.address)
+        );
+        const sourceAmount = parseUnits('100', 18); // dai
+
+        await MockERC20__factory.connect(dai.address, user).mint(user.address, sourceAmount);
+        await MockERC20__factory.connect(dai.address, user).approve(await controller.tetuConverter(), sourceAmount);
+        const estimatedMaxTargetAmount = await swapManagerAsSwapManager.callStatic.simulateSwap(
+          user.address,
+          dai.address,
+          sourceAmount,
+          usdc.address
+        );
+        await swapManagerAsSwapManager.simulateSwap(
+          user.address,
+          dai.address,
+          sourceAmount,
+          usdc.address
+        );
+        const usdcBalanceSwapManagerAfter = await usdc.balanceOf(swapManager.address);
+        const daiBalanceUserAfter = await usdc.balanceOf(dai.address);
+
+        const ret = [
+          usdcBalanceSwapManagerAfter.toString(),
+          daiBalanceUserAfter.toString()
+        ].join();
+        const expected = [
+          estimatedMaxTargetAmount.toString(),
+          "0"
+        ].join();
+
+        expect(ret).eq(expected);
+      });
+    });
+    describe("Bad paths", () => {
+      it("should revert if not swap manager", async () => {
+        const swapManagerAsRandomUser = SwapManager__factory.connect(
+          swapManager.address,
+          await DeployerUtils.startImpersonate(ethers.Wallet.createRandom().address)
+        );
+        const sourceAmount = parseUnits('100', 18); // dai
+
+        await MockERC20__factory.connect(dai.address, user).mint(user.address, sourceAmount);
+        await MockERC20__factory.connect(dai.address, user).approve(await controller.tetuConverter(), sourceAmount);
+        await expect(
+          swapManagerAsRandomUser.simulateSwap(
+            user.address,
+            dai.address,
+            sourceAmount,
+            usdc.address
+          )
+        ).revertedWith("TC-53 swap manager only"); // ONLY_SWAP_MANAGER
+      });
     });
   });
 

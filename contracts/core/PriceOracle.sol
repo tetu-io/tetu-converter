@@ -16,6 +16,10 @@ contract PriceOracle is IPriceOracle {
   /// @notice Return asset price in USD, decimals 18
   function getAssetPrice(address asset) external view override returns (uint256) {
     // AAVE3 price oracle returns price with decimals 1e8, we need decimals 18
-    return _priceOracle.getAssetPrice(asset) * 1e10;
+    try _priceOracle.getAssetPrice(asset) returns (uint value) {
+      return value * 1e10;
+    } catch {}
+
+    return 0; // unknown asset or unknown price
   }
 }

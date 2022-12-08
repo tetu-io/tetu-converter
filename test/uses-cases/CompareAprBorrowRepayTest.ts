@@ -4,7 +4,7 @@ import {TimeUtils} from "../../scripts/utils/TimeUtils";
 import {MaticAddresses} from "../../scripts/addresses/MaticAddresses";
 import {IStrategyToConvert} from "../baseUT/apr/aprDataTypes";
 import {BigNumber} from "ethers";
-import {Controller, IAavePool__factory, IAavePriceOracle__factory, IERC20Metadata__factory} from "../../typechain";
+import {Controller, IERC20Metadata__factory} from "../../typechain";
 import {TetuConverterApp} from "../baseUT/helpers/TetuConverterApp";
 import {Aave3PlatformFabric} from "../baseUT/fabrics/Aave3PlatformFabric";
 import {AaveTwoPlatformFabric} from "../baseUT/fabrics/AaveTwoPlatformFabric";
@@ -20,7 +20,7 @@ import {DForceChangePriceUtils} from "../baseUT/protocols/dforce/DForceChangePri
 import {Aave3Helper} from "../../scripts/integration/helpers/Aave3Helper";
 import {isPolygonForkInUse} from "../baseUT/utils/NetworkUtils";
 
-describe.skip("CompareAprBorrowRepayTest @skip-on-coverage", () => {
+describe("CompareAprBorrowRepayTest @skip-on-coverage", () => {
 //region Constants
   const HEALTH_FACTOR2 = 400;
   const COUNT_BLOCKS_SMALL = 1_000;
@@ -88,16 +88,16 @@ describe.skip("CompareAprBorrowRepayTest @skip-on-coverage", () => {
     {
       const {controller} = await TetuConverterApp.buildApp(deployer,
         [],
-        {tetuLiquidatorAddress: MaticAddresses.TETU_LIQUIDATOR} // disable swap
+        {tetuLiquidatorAddress: MaticAddresses.TETU_LIQUIDATOR} // enable swap
       );
       controllerSwap = controller;
     }
-    dai = {asset: MaticAddresses.DAI, holder: MaticAddresses.HOLDER_DAI, initialLiquidity: parseUnits("100000")};
+    dai = {asset: MaticAddresses.DAI, holder: MaticAddresses.HOLDER_DAI_3, initialLiquidity: parseUnits("100000")};
     usdc = {asset: MaticAddresses.USDC, holder: MaticAddresses.HOLDER_USDC, initialLiquidity: parseUnits("100000", 6)};
     usdt = {asset: MaticAddresses.USDT, holder: MaticAddresses.HOLDER_USDT, initialLiquidity: parseUnits("100000", 6)};
-    wbtc = {asset: MaticAddresses.WBTC, holder: MaticAddresses.HOLDER_WBTC, initialLiquidity: parseUnits("100", 8)};
-    weth = {asset: MaticAddresses.WETH, holder: MaticAddresses.HOLDER_WETH, initialLiquidity: parseUnits("10000")};
-    wmatic = {asset: MaticAddresses.WMATIC, holder: MaticAddresses.HOLDER_WMATIC, initialLiquidity: parseUnits("100000")};
+    wbtc = {asset: MaticAddresses.WBTC, holder: MaticAddresses.HOLDER_WBTC_3, initialLiquidity: parseUnits("1", 8)};
+    weth = {asset: MaticAddresses.WETH, holder: MaticAddresses.HOLDER_WETH_4, initialLiquidity: parseUnits("1")};
+    wmatic = {asset: MaticAddresses.WMATIC, holder: MaticAddresses.HOLDER_WMATIC_3, initialLiquidity: parseUnits("100000")};
   });
 
   after(async function () {
@@ -289,7 +289,7 @@ describe.skip("CompareAprBorrowRepayTest @skip-on-coverage", () => {
         parseUnits("1000", 18),
         parseUnits("1000", 18),
         parseUnits("100", 8),
-      ]
+      ];
       const platforms = [controllerForAave3, controllerForAaveTwo, controllerForDForce, controllerForHundredFinance, controllerSwap];
       const platformTitles = ["AAVE3", "AAVETwo", "DForce", "HundredFinance", "Swap"];
 
@@ -302,6 +302,7 @@ describe.skip("CompareAprBorrowRepayTest @skip-on-coverage", () => {
             localSnapshot = await TimeUtils.snapshot();
             try {
               await makeBorrowAndRepaySaveToFile(pathOut, platformTitles[n], platforms[n], assets[i], amounts[i], assets[j], COUNT_BLOCKS_LARGE);
+              console.log(`${assets[i]} - ${assets[j]}`);
               // tslint:disable-next-line:no-any
             } catch (e: any) {
               console.log(e);
@@ -326,20 +327,20 @@ describe.skip("CompareAprBorrowRepayTest @skip-on-coverage", () => {
       }
     });
 
-    it.skip("aave only", async () => {
+    it.skip("swap only", async () => {
       if (!await isPolygonForkInUse()) return;
 
       const pathOut = "tmp/compareApr.csv";
       const assets = [
-        usdt,
         wmatic,
+        weth
       ];
       const amounts = [
-        parseUnits("1000", 6),
-        parseUnits("1000", 18),
-      ]
-      const platforms = [controllerForAave3];
-      const platformTitles = ["aave3"];
+        parseUnits("1", 18),
+        parseUnits("1", 18),
+      ];
+      const platforms = [controllerSwap];
+      const platformTitles = ["swap"];
 
       for (let n = 0; n < platforms.length; ++n) {
         let localSnapshot: string;
@@ -348,6 +349,54 @@ describe.skip("CompareAprBorrowRepayTest @skip-on-coverage", () => {
             localSnapshot = await TimeUtils.snapshot();
             try {
               await makeBorrowAndRepaySaveToFile(pathOut, platformTitles[n], platforms[n], assets[i], amounts[i], assets[j], COUNT_BLOCKS_LARGE);
+              console.log(`${assets[i]} - ${assets[j]}`);
+              // tslint:disable-next-line:no-any
+            } catch (e: any) {
+              console.log(e);
+              let written = false;
+              const re = /VM Exception while processing transaction: reverted with reason string\s*(.*)/i;
+              if (e.message) {
+                const found = e.message.match(re);
+                console.log("found", found)
+                if (found && found[1]) {
+                  writeError(pathOut, platformTitles[n], found[1], assets[i], amounts[i], assets[j]);
+                  written = true;
+                }
+              }
+              if (! written) {
+                writeError(pathOut, platformTitles[n], e, assets[i], amounts[i], assets[j]);
+              }
+            } finally {
+              await TimeUtils.rollback(localSnapshot);
+            }
+          }
+        }
+      }
+    });
+
+    it("dai-usdc only", async () => {
+      if (!await isPolygonForkInUse()) return;
+
+      const pathOut = "tmp/compareApr.csv";
+      const assets = [
+        dai,
+        usdc
+      ];
+      const amounts = [
+        parseUnits("1000", 18),
+        parseUnits("1000", 18),
+      ];
+      const platforms = [controllerForAave3, controllerForAaveTwo, controllerForDForce, controllerForHundredFinance];
+      const platformTitles = ["AAVE3", "AAVETwo", "DForce", "HundredFinance"];
+
+      for (let n = 0; n < platforms.length; ++n) {
+        let localSnapshot: string;
+        for (let i = 0; i < assets.length; ++i) {
+          for (let j = i + 1; j < assets.length; ++j) {
+            localSnapshot = await TimeUtils.snapshot();
+            try {
+              await makeBorrowAndRepaySaveToFile(pathOut, platformTitles[n], platforms[n], assets[i], amounts[i], assets[j], COUNT_BLOCKS_LARGE);
+              console.log(`${assets[i]} - ${assets[j]}`);
               // tslint:disable-next-line:no-any
             } catch (e: any) {
               console.log(e);

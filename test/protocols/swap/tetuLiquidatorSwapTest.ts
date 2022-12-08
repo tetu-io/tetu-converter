@@ -121,6 +121,8 @@ describe("TetuLiquidatorSwapTest", () => {
   describe("getConverter", () => {
     describe("DAI => USDC", () => {
       it("should find conversion strategy successfully", async () => {
+        if (!await isPolygonForkInUse()) return;
+
         const sourceAmount = parseUnits("1", 18);
         await BalanceUtils.getAmountFromHolder(MaticAddresses.DAI, MaticAddresses.HOLDER_DAI, signer.address, sourceAmount);
         await IERC20__factory.connect(MaticAddresses.DAI, signer).approve(
@@ -141,6 +143,8 @@ describe("TetuLiquidatorSwapTest", () => {
         expect(ret).eq(expected);
       });
       it("should fit to gas limit @skip-on-coverage", async () => {
+        if (!await isPolygonForkInUse()) return;
+
         const sourceAmount = parseUnits("1", 18);
         await BalanceUtils.getAmountFromHolder(MaticAddresses.DAI, MaticAddresses.HOLDER_DAI, signer.address, sourceAmount);
         await IERC20__factory.connect(MaticAddresses.DAI, signer).approve(
@@ -159,8 +163,39 @@ describe("TetuLiquidatorSwapTest", () => {
         });
       });
     });
+    describe("WETH => WBTC", () => {
+      it("should find conversion strategy successfully", async () => {
+        if (!await isPolygonForkInUse()) return;
+
+        const sourceAmount = parseUnits("1", 18);
+        await BalanceUtils.getAmountFromHolder(MaticAddresses.WETH, MaticAddresses.HOLDER_WETH_4, signer.address, sourceAmount);
+        await IERC20__factory.connect(MaticAddresses.WETH, signer).approve(
+          await controller.tetuConverter(),
+          sourceAmount
+        );
+        const tetuLiquidator = await ITetuLiquidator__factory.connect(MaticAddresses.TETU_LIQUIDATOR, signer);
+        const price = await tetuLiquidator.getPrice(MaticAddresses.WETH, MaticAddresses.WBTC, sourceAmount);
+        console.log("price", price);
+
+        const r = await swapManager.callStatic.getConverter(
+          signer.address,
+          MaticAddresses.WETH,
+          sourceAmount,
+          MaticAddresses.WBTC,
+        );
+        const ret = [
+          r.converter === Misc.ZERO_ADDRESS,
+          r.maxTargetAmount.eq(0),
+        ].join();
+        const expected = [false, false].join();
+        console.log("maxTargetAmount", r.maxTargetAmount.toString());
+        expect(ret).eq(expected);
+      });
+    });
     describe("DAI => USDT", () => {
       it("should find conversion strategy successfully", async () => {
+        if (!await isPolygonForkInUse()) return;
+
         const sourceAmount = parseUnits("1", 18);
         await BalanceUtils.getAmountFromHolder(MaticAddresses.DAI, MaticAddresses.HOLDER_DAI, signer.address, sourceAmount);
         await IERC20__factory.connect(MaticAddresses.DAI, signer).approve(
@@ -181,6 +216,8 @@ describe("TetuLiquidatorSwapTest", () => {
         expect(ret).eq(expected);
       });
       it("should fit to gas limit @skip-on-coverage", async () => {
+        if (!await isPolygonForkInUse()) return;
+
         const sourceAmount = parseUnits("1", 18);
         await BalanceUtils.getAmountFromHolder(MaticAddresses.DAI, MaticAddresses.HOLDER_DAI, signer.address, sourceAmount);
         await IERC20__factory.connect(MaticAddresses.DAI, signer).approve(
@@ -201,6 +238,8 @@ describe("TetuLiquidatorSwapTest", () => {
     });
     describe("WBTC => WMATIC", () => {
       it("should find conversion strategy successfully", async () => {
+        if (!await isPolygonForkInUse()) return;
+
         const sourceAmount = parseUnits("0.01", 8);
         await BalanceUtils.getAmountFromHolder(MaticAddresses.WBTC, MaticAddresses.HOLDER_WBTC, signer.address, sourceAmount);
         await IERC20__factory.connect(MaticAddresses.WBTC, signer).approve(
@@ -221,6 +260,8 @@ describe("TetuLiquidatorSwapTest", () => {
         expect(ret).eq(expected);
       });
       it("should fit to gas limit @skip-on-coverage", async () => {
+        if (!await isPolygonForkInUse()) return;
+
         const sourceAmount = parseUnits("0.01", 18);
         await BalanceUtils.getAmountFromHolder(MaticAddresses.WBTC, MaticAddresses.HOLDER_WBTC, signer.address, sourceAmount);
         await IERC20__factory.connect(MaticAddresses.WBTC, signer).approve(

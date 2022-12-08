@@ -1120,7 +1120,7 @@ describe("TetuConverterTest", () => {
 
   describe("findSwapStrategy", () => {
     describe("Good paths", () => {
-      it("should return expected values", async () => {
+      it("should return expected values if conversion exists", async () => {
         const sourceAmount = 10_000;
         const priceImpact = 500;
         const r = await makeFindSwapStrategyTest(sourceAmount, priceImpact);
@@ -1140,6 +1140,23 @@ describe("TetuConverterTest", () => {
           r.init.core.swapManager.address,
           expectedTargetAmount.toString(),
           expectedApr18.toString()
+        ].join();
+        expect(ret).eq(expected);
+      });
+      it("should return expected values if conversion doesn't exist", async () => {
+        const sourceAmount = 10_000;
+        const priceImpact = 9_000; // (!) too high
+        const r = await makeFindSwapStrategyTest(sourceAmount, priceImpact);
+        const ret = [
+          r.results.converter,
+          r.results.maxTargetAmount.toString(),
+          r.results.apr18.toString()
+        ].join();
+
+        const expected = [
+          Misc.ZERO_ADDRESS,
+          "0",
+          "0"
         ].join();
         expect(ret).eq(expected);
       });

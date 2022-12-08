@@ -76,10 +76,12 @@ export class MaticAddresses {
 
   public static HOLDER_WBTC = "0x2093b4281990a568c9d588b8bce3bfd7a1557ebd";
   public static HOLDER_WBTC_2 = "0xdc9232e2df177d7a12fdff6ecbab114e2231198d";
+  public static HOLDER_WBTC_3 = "0xa8a83c0a6fabadf21dbb1da1d9b24455c56f5573";
 
   public static HOLDER_WETH_3 = "0xded8c5159ca3673f543d0f72043e4c655b35b96a";
   public static HOLDER_WETH_2 = "0xdc9232e2df177d7a12fdff6ecbab114e2231198d";
   public static HOLDER_WETH = "0xadbf1854e5883eb8aa7baf50705338739e558e5b";
+  public static HOLDER_WETH_4 = "0xe4cd81dd6297849432a038abb8d19dd022ddc089";
 
   public static HOLDER_CHAIN_LINK = "0x55e4d16f9c3041eff17ca32850662f3e9dddbce7";
   public static HOLDER_DefiPulseToken = "0xd1468a5e1ff399d7a4465fbdff3e3ccb013d149f";

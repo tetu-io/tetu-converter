@@ -105,6 +105,60 @@ contract TetuConverter is ITetuConverter, IKeeperCallback, IRequireAmountBySwapM
   ///       Find best strategy for conversion
   ///////////////////////////////////////////////////////
 
+  /// @notice Find best conversion strategy (swap or borrow) and provide "cost of money" as interest for the period.
+  ///         It calls both findBorrowStrategy and findSwapStrategy and selects a best strategy.
+  /// @dev This is writable function with read-only behavior.
+  ///      It should be writable to be able to simulate real swap and get a real APR for swapping.
+  /// @param sourceAmount_ Amount to be converted
+  ///        The amount must be approved to TetuConverter before calling this function.
+  /// @param periodInBlocks_ Estimated period to keep target amount. It's required to compute APR
+  /// @return converter Result contract that should be used for conversion to be passed to borrow().
+  /// @return maxTargetAmount Max available amount of target tokens that we can get after conversion
+  /// @return apr18 Interest on the use of {outMaxTargetAmount} during the given period, decimals 18
+  function findConversionStrategy(
+    address sourceToken_,
+    uint sourceAmount_,
+    address targetToken_,
+    uint periodInBlocks_
+  ) external override returns (
+    address converter,
+    uint maxTargetAmount,
+    int apr18
+  ) {
+    require(sourceAmount_ != 0, AppErrors.ZERO_AMOUNT);
+    require(periodInBlocks_ != 0, AppErrors.INCORRECT_VALUE);
+
+    (address swapConverter, uint swapMaxTargetAmount) = _swapManager().getConverter(
+      msg.sender, sourceToken_, sourceAmount_, targetToken_
+    );
+    int swapApr18;
+    if (swapConverter != address(0)) {
+      swapApr18 = _swapManager().getApr18(sourceToken_, sourceAmount_, targetToken_, swapMaxTargetAmount);
+    }
+
+    AppDataTypes.InputConversionParams memory params = AppDataTypes.InputConversionParams({
+      sourceToken: sourceToken_,
+      targetToken: targetToken_,
+      sourceAmount: sourceAmount_,
+      periodInBlocks: periodInBlocks_
+    });
+
+    (address borrowConverter, uint borrowMaxTargetAmount, int borrowingApr18) = IBorrowManager(
+      controller.borrowManager()
+    ).findConverter(params);
+
+    bool useBorrow =
+      swapConverter == address(0)
+      || (
+      borrowConverter != address(0)
+      && swapApr18 > borrowingApr18
+    );
+
+    return useBorrow
+      ? (borrowConverter, borrowMaxTargetAmount, borrowingApr18)
+      : (swapConverter, swapMaxTargetAmount, swapApr18);
+  }
+
   /// @notice Find best borrow strategy and provide "cost of money" as interest for the period
   /// @param sourceAmount_ Amount to be converted
   /// @param periodInBlocks_ Estimated period to keep target amount. It's required to compute APR
@@ -164,62 +218,6 @@ contract TetuConverter is ITetuConverter, IKeeperCallback, IRequireAmountBySwapM
     }
 
     return (converter, maxTargetAmount, apr18);
-  }
-
-  /// @notice Find best conversion strategy (swap or borrow) and provide "cost of money" as interest for the period.
-  ///         It calls both findBorrowStrategy and findSwapStrategy and selects a best strategy.
-  /// @dev This is writable function with read-only behavior.
-  ///      It should be writable to be able to simulate real swap and get a real APR for swapping.
-  /// @param sourceAmount_ Amount to be converted
-  ///        The amount must be approved to TetuConverter before calling this function.
-  /// @param periodInBlocks_ Estimated period to keep target amount. It's required to compute APR
-  /// @return converter Result contract that should be used for conversion to be passed to borrow().
-  /// @return maxTargetAmount Max available amount of target tokens that we can get after conversion
-  /// @return apr18 Interest on the use of {outMaxTargetAmount} during the given period, decimals 18
-  function findConversionStrategy(
-    address sourceToken_,
-    uint sourceAmount_,
-    address targetToken_,
-    uint periodInBlocks_
-  ) external override returns (
-    address converter,
-    uint maxTargetAmount,
-    int apr18
-  ) {
-    require(sourceAmount_ != 0, AppErrors.ZERO_AMOUNT);
-    require(periodInBlocks_ != 0, AppErrors.INCORRECT_VALUE);
-
-    (address swapConverter, uint swapMaxTargetAmount) = _swapManager().getConverter(
-      msg.sender, sourceToken_, sourceAmount_, targetToken_
-    );
-    int swapApr18;
-    if (swapConverter != address(0)) {
-      swapApr18 = _swapManager().getApr18(sourceToken_, sourceAmount_, targetToken_, swapMaxTargetAmount);
-    }
-
-    AppDataTypes.InputConversionParams memory params = AppDataTypes.InputConversionParams({
-      sourceToken: sourceToken_,
-      targetToken: targetToken_,
-      sourceAmount: sourceAmount_,
-      periodInBlocks: periodInBlocks_
-    });
-
-    (
-      address borrowConverter,
-      uint borrowMaxTargetAmount,
-      int borrowingApr18
-    ) = IBorrowManager(controller.borrowManager()).findConverter(params);
-
-    bool useBorrow =
-      swapConverter == address(0)
-      || (
-        borrowConverter != address(0)
-        && swapApr18 > borrowingApr18
-      );
-
-    return useBorrow
-      ? (borrowConverter, borrowMaxTargetAmount, borrowingApr18)
-      : (swapConverter, swapMaxTargetAmount, swapApr18);
   }
 
   ///////////////////////////////////////////////////////

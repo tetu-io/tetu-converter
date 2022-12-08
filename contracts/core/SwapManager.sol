@@ -119,11 +119,12 @@ contract SwapManager is ISwapManager, ISwapConverter, ISimulateProvider, ISwapSi
   ) external view override returns (int) {
     IPriceOracle priceOracle = IPriceOracle(controller.priceOracle());
     uint priceSource = priceOracle.getAssetPrice(sourceToken_);
-    require(priceSource != 0, AppErrors.ZERO_PRICE);
+    uint targetPrice = priceOracle.getAssetPrice(targetToken_);
+    require(priceSource != 0 && targetPrice != 0, AppErrors.ZERO_PRICE);
 
     uint maxTargetAmountInSourceTokens = targetAmount_
       * 10**IERC20Metadata(sourceToken_).decimals()
-      * priceOracle.getAssetPrice(targetToken_)
+      * targetPrice
       / priceSource
       / 10**IERC20Metadata(targetToken_).decimals();
 
@@ -193,7 +194,6 @@ contract SwapManager is ISwapManager, ISwapConverter, ISimulateProvider, ISwapSi
     ITetuLiquidator tetuLiquidator = ITetuLiquidator(controller.tetuLiquidator());
     IERC20(sourceToken_).safeApprove(address(tetuLiquidator), sourceAmount_);
     tetuLiquidator.liquidate(sourceToken_, targetToken_, sourceAmount_, PRICE_IMPACT_TOLERANCE);
-
     return IERC20(targetToken_).balanceOf(address(this)) - targetTokenBalanceBefore;
   }
 

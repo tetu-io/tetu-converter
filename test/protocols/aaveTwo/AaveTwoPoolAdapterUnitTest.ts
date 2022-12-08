@@ -123,6 +123,7 @@ describe("AaveTwoPoolAdapterUnitTest", () => {
     describe("Good paths", () => {
       let results: IMakeBorrowTestResults;
       before(async function () {
+        if (!await isPolygonForkInUse()) return;
         results = await makeBorrowTest(
           collateralAsset,
           collateralHolder,
@@ -310,6 +311,7 @@ describe("AaveTwoPoolAdapterUnitTest", () => {
     describe("Good paths", () => {
       let results: IMakeFullRepayTestResults;
       before(async function () {
+        if (!await isPolygonForkInUse()) return;
         results = await makeFullRepayTest("1999");
       });
       it("should get expected status", async () => {

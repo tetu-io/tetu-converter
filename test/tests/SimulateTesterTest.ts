@@ -8,9 +8,10 @@ import {parseUnits} from "ethers/lib/utils";
 import {BalanceUtils} from "../baseUT/utils/BalanceUtils";
 import {ITetuLiquidator__factory} from "../../typechain/factories/contracts/interfaces";
 import {DeployerUtils} from "../../scripts/utils/DeployerUtils";
+import {isPolygonForkInUse} from "../baseUT/utils/NetworkUtils";
 
 describe("Test simulate tester", () => {
-  //region Global vars for all tests
+//region Global vars for all tests
   let snapshot: string;
   let snapshotForEach: string;
   let deployer: SignerWithAddress;
@@ -21,7 +22,7 @@ describe("Test simulate tester", () => {
   let user5: SignerWithAddress;
 //endregion Global vars for all tests
 
-  //region before, after
+//region before, after
   before(async function () {
     this.timeout(1200000);
     snapshot = await TimeUtils.snapshot();
@@ -56,6 +57,8 @@ describe("Test simulate tester", () => {
   });
 
   it("make real swap and check gas", async () => {
+    if (!await isPolygonForkInUse()) return;
+
     const swapper = ethers.Wallet.createRandom().address;
     await BalanceUtils.getRequiredAmountFromHolders(
       parseUnits("100", 6),
@@ -93,6 +96,8 @@ describe("Test simulate tester", () => {
   });
 
   it("simulate real-swap using simulate, two contracts", async () => {
+    if (!await isPolygonForkInUse()) return;
+
     const simulateContainer = await DeployUtils.deployContract(deployer, "SimulateContainer") as SimulateContainer;
     const simulateTester = await DeployUtils.deployContract(deployer, "SimulateTester") as SimulateTester;
 
@@ -138,6 +143,8 @@ describe("Test simulate tester", () => {
   });
 
   it("simulate real-swap using simulate, single contract", async () => {
+    if (!await isPolygonForkInUse()) return;
+
     const simulateTester = await DeployUtils.deployContract(deployer, "SimulateTester") as SimulateTester;
 
     // const makeSwapCall = simulateTester.interface.encodeFunctionData("makeSwap", [2]);
@@ -178,6 +185,8 @@ describe("Test simulate tester", () => {
   });
 
   it("simulate real-swap using try-catch", async () => {
+    if (!await isPolygonForkInUse()) return;
+
     const simulateContainer = await DeployUtils.deployContract(deployer, "SimulateContainer") as SimulateContainer;
     const simulateTester = await DeployUtils.deployContract(deployer, "SimulateTester") as SimulateTester;
 

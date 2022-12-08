@@ -6,7 +6,7 @@ import {
   BorrowManager__factory,
   IPlatformAdapter__factory,
   ITetuConverter__factory,
-  Controller, ITetuLiquidator__factory, IERC20__factory
+  Controller, ITetuLiquidator__factory, IERC20__factory, TetuConverter__factory
 } from "../../../typechain";
 import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import {TokenDataTypes} from "../types/TokenDataTypes";
@@ -359,7 +359,15 @@ export class BorrowRepayUsesCase {
     const collateralAmount = getBigNumberFrom(p.collateralAmount, collateralToken.decimals);
 
     const tetuConverter = ITetuConverter__factory.connect(await controller.tetuConverter(), deployer);
-    const strategyToConvert: IStrategyToConvert = await tetuConverter.findBorrowStrategy(
+    await IERC20__factory.connect(collateralToken.address, await DeployerUtils.startImpersonate(uc.address)).approve(
+      tetuConverter.address,
+      collateralAmount
+    );
+    const tetuConverterAsUser = await TetuConverter__factory.connect(
+      await controller.tetuConverter(),
+      await DeployerUtils.startImpersonate(uc.address)
+    );
+    const strategyToConvert: IStrategyToConvert = await tetuConverterAsUser.callStatic.findConversionStrategy(
       p.collateral.asset,
       collateralAmount,
       p.borrow.asset,
