@@ -187,6 +187,7 @@ describe("Hundred Finance unit tests, pool adapter", () => {
 
         });
         it("should open position in debt monitor", async () => {
+          if (!await isPolygonForkInUse()) return;
           const ret = await DebtMonitor__factory.connect(
             await results.init.controller.debtMonitor(),
             await DeployerUtils.startImpersonate(results.init.hfPoolAdapterTC.address)
@@ -194,11 +195,13 @@ describe("Hundred Finance unit tests, pool adapter", () => {
           expect(ret).eq(true);
         });
         it("should transfer expected amount to the user", async () => {
+          if (!await isPolygonForkInUse()) return;
           const status = await results.init.hfPoolAdapterTC.getStatus();
           const receivedBorrowAmount = await results.borrowToken.token.balanceOf(results.init.userContract.address);
           expect(receivedBorrowAmount.toString()).eq(results.borrowResults.borrowedAmount.toString());
         });
         it("should change collateralBalanceATokens", async () => {
+          if (!await isPolygonForkInUse()) return;
           const collateralBalanceATokens = await results.init.hfPoolAdapterTC.collateralTokensBalance();
           const aaveTokensBalance = await IERC20Metadata__factory.connect(
             collateralCToken,
@@ -243,6 +246,7 @@ describe("Hundred Finance unit tests, pool adapter", () => {
           expect(ret).eq(expected);
         });
         it("should open position in debt monitor", async () => {
+          if (!await isPolygonForkInUse()) return;
           const ret = await DebtMonitor__factory.connect(
             await results.init.controller.debtMonitor(),
             await DeployerUtils.startImpersonate(results.init.hfPoolAdapterTC.address)
@@ -250,11 +254,13 @@ describe("Hundred Finance unit tests, pool adapter", () => {
           expect(ret).eq(true);
         });
         it("should transfer expected amount to the user", async () => {
+          if (!await isPolygonForkInUse()) return;
           const status = await results.init.hfPoolAdapterTC.getStatus();
           const receivedBorrowAmount = await results.borrowToken.token.balanceOf(results.init.userContract.address);
           expect(receivedBorrowAmount.toString()).eq(results.borrowResults.borrowedAmount.toString());
         });
         it("should change collateralBalanceATokens", async () => {
+          if (!await isPolygonForkInUse()) return;
           const collateralBalanceATokens = await results.init.hfPoolAdapterTC.collateralTokensBalance();
           const aaveTokensBalance = await IERC20Metadata__factory.connect(
             collateralCToken,
@@ -301,6 +307,7 @@ describe("Hundred Finance unit tests, pool adapter", () => {
 
         });
         it("should open position in debt monitor", async () => {
+          if (!await isPolygonForkInUse()) return;
           const ret = await DebtMonitor__factory.connect(
             await results.init.controller.debtMonitor(),
             await DeployerUtils.startImpersonate(results.init.hfPoolAdapterTC.address)
@@ -308,11 +315,13 @@ describe("Hundred Finance unit tests, pool adapter", () => {
           expect(ret).eq(true);
         });
         it("should transfer expected amount to the user", async () => {
+          if (!await isPolygonForkInUse()) return;
           const status = await results.init.hfPoolAdapterTC.getStatus();
           const receivedBorrowAmount = await results.borrowToken.token.balanceOf(results.init.userContract.address);
           expect(receivedBorrowAmount.toString()).eq(results.borrowResults.borrowedAmount.toString());
         });
         it("should change collateralBalanceATokens", async () => {
+          if (!await isPolygonForkInUse()) return;
           const collateralBalanceATokens = await results.init.hfPoolAdapterTC.collateralTokensBalance();
           const aaveTokensBalance = await IERC20Metadata__factory.connect(
             collateralCToken,
@@ -359,6 +368,7 @@ describe("Hundred Finance unit tests, pool adapter", () => {
 
         });
         it("should open position in debt monitor", async () => {
+          if (!await isPolygonForkInUse()) return;
           const ret = await DebtMonitor__factory.connect(
             await results.init.controller.debtMonitor(),
             await DeployerUtils.startImpersonate(results.init.hfPoolAdapterTC.address)
@@ -366,11 +376,13 @@ describe("Hundred Finance unit tests, pool adapter", () => {
           expect(ret).eq(true);
         });
         it("should transfer expected amount to the user", async () => {
+          if (!await isPolygonForkInUse()) return;
           const status = await results.init.hfPoolAdapterTC.getStatus();
           const receivedBorrowAmount = await results.borrowToken.token.balanceOf(results.init.userContract.address);
           expect(receivedBorrowAmount.toString()).eq(results.borrowResults.borrowedAmount.toString());
         });
         it("should change collateralBalanceATokens", async () => {
+          if (!await isPolygonForkInUse()) return;
           const collateralBalanceATokens = await results.init.hfPoolAdapterTC.collateralTokensBalance();
           const aaveTokensBalance = await IERC20Metadata__factory.connect(
             collateralCToken,
@@ -382,6 +394,7 @@ describe("Hundred Finance unit tests, pool adapter", () => {
     });
     describe("Bad paths", () => {
       it("should revert if not tetu converter", async () => {
+        if (!await isPolygonForkInUse()) return;
         const collateralAsset = MaticAddresses.DAI;
         const collateralCToken = MaticAddresses.hDAI;
         const collateralHolder = MaticAddresses.HOLDER_DAI;
@@ -401,6 +414,7 @@ describe("Hundred Finance unit tests, pool adapter", () => {
       });
       describe("Use mocked HfComptroller", () => {
         it("normal borrow should work correctly", async () => {
+          if (!await isPolygonForkInUse()) return;
           const mocksSet = await initializeHfComptrollerMock(
             MaticAddresses.DAI,
             MaticAddresses.hDAI,
@@ -434,6 +448,7 @@ describe("Hundred Finance unit tests, pool adapter", () => {
           expect(ret).eq(expected);
         });
         it("should revert if comptroller doesn't return borrowed amount", async () => {
+          if (!await isPolygonForkInUse()) return;
           const mocksSet = await initializeHfComptrollerMock(
             MaticAddresses.DAI,
             MaticAddresses.hDAI,
@@ -455,6 +470,7 @@ describe("Hundred Finance unit tests, pool adapter", () => {
           ).revertedWith("TC-15 wrong borrow balance"); // WRONG_BORROWED_BALANCE
         });
         it("should revert if fail to get liquidity balance after borrow", async () => {
+          if (!await isPolygonForkInUse()) return;
           const mocksSet = await initializeHfComptrollerMock(
             MaticAddresses.DAI,
             MaticAddresses.hDAI,
@@ -476,6 +492,7 @@ describe("Hundred Finance unit tests, pool adapter", () => {
           ).revertedWith("TC-22 liquidity failed"); // CTOKEN_GET_ACCOUNT_LIQUIDITY_FAILED
         });
         it("should revert if liquidity balance is incorrect after borrow", async () => {
+          if (!await isPolygonForkInUse()) return;
           const mocksSet = await initializeHfComptrollerMock(
             MaticAddresses.DAI,
             MaticAddresses.hDAI,
@@ -497,6 +514,7 @@ describe("Hundred Finance unit tests, pool adapter", () => {
           ).revertedWith("TC-23 incorrect liquidity"); // INCORRECT_RESULT_LIQUIDITY
         });
         it("should revert if mint fails", async () => {
+          if (!await isPolygonForkInUse()) return;
           const mocksSet = await initializeHfComptrollerMock(
             MaticAddresses.DAI,
             MaticAddresses.hDAI,
@@ -518,6 +536,7 @@ describe("Hundred Finance unit tests, pool adapter", () => {
           ).revertedWith("TC-17 mint failed"); // MINT_FAILED
         });
         it("should revert if borrow fails", async () => {
+          if (!await isPolygonForkInUse()) return;
           const mocksSet = await initializeHfComptrollerMock(
             MaticAddresses.DAI,
             MaticAddresses.hDAI,
@@ -651,6 +670,7 @@ describe("Hundred Finance unit tests, pool adapter", () => {
           );
         });
         it("should get expected status", async () => {
+          if (!await isPolygonForkInUse()) return;
           const status = await results.init.hfPoolAdapterTC.getStatus();
           console.log("userBorrowAssetBalanceAfterRepay", results.userBorrowAssetBalanceAfterRepay);
           console.log("userBorrowAssetBalanceBeforeRepay", results.userBorrowAssetBalanceBeforeRepay);
@@ -669,6 +689,7 @@ describe("Hundred Finance unit tests, pool adapter", () => {
           expect(ret).eq(expected);
         });
         it("should close position after full repay", async () => {
+          if (!await isPolygonForkInUse()) return;
           const ret = await DebtMonitor__factory.connect(
             await results.init.controller.debtMonitor(),
             await DeployerUtils.startImpersonate(results.init.hfPoolAdapterTC.address)
@@ -676,6 +697,7 @@ describe("Hundred Finance unit tests, pool adapter", () => {
           expect(ret).eq(false);
         });
         it("should assign expected value to collateralBalanceATokens", async () => {
+          if (!await isPolygonForkInUse()) return;
           const collateralBalanceATokens = await results.init.hfPoolAdapterTC.collateralTokensBalance();
           const aaveTokensBalance = await IERC20Metadata__factory.connect(
             collateralCToken,
@@ -685,6 +707,7 @@ describe("Hundred Finance unit tests, pool adapter", () => {
 
         });
         it("should withdraw expected collateral amount", async () => {
+          if (!await isPolygonForkInUse()) return;
           const status = await results.init.hfPoolAdapterTC.getStatus();
           const receivedCollateralAmount = await results.collateralToken.token.balanceOf(results.init.userContract.address);
           expect(areAlmostEqual(receivedCollateralAmount, results.init.collateralAmount)).eq(true);
@@ -710,6 +733,7 @@ describe("Hundred Finance unit tests, pool adapter", () => {
           );
         });
         it("should get expected status", async () => {
+          if (!await isPolygonForkInUse()) return;
           const status = await results.init.hfPoolAdapterTC.getStatus();
           console.log("userBorrowAssetBalanceAfterRepay", results.userBorrowAssetBalanceAfterRepay);
           console.log("userBorrowAssetBalanceBeforeRepay", results.userBorrowAssetBalanceBeforeRepay);
@@ -728,6 +752,7 @@ describe("Hundred Finance unit tests, pool adapter", () => {
           expect(ret).eq(expected);
         });
         it("should close position after full repay", async () => {
+          if (!await isPolygonForkInUse()) return;
           const ret = await DebtMonitor__factory.connect(
             await results.init.controller.debtMonitor(),
             await DeployerUtils.startImpersonate(results.init.hfPoolAdapterTC.address)
@@ -735,6 +760,7 @@ describe("Hundred Finance unit tests, pool adapter", () => {
           expect(ret).eq(false);
         });
         it("should assign expected value to collateralBalanceATokens", async () => {
+          if (!await isPolygonForkInUse()) return;
           const collateralBalanceATokens = await results.init.hfPoolAdapterTC.collateralTokensBalance();
           const aaveTokensBalance = await IERC20Metadata__factory.connect(
             collateralCToken,
@@ -744,6 +770,7 @@ describe("Hundred Finance unit tests, pool adapter", () => {
 
         });
         it("should withdraw expected collateral amount", async () => {
+          if (!await isPolygonForkInUse()) return;
           const status = await results.init.hfPoolAdapterTC.getStatus();
           const receivedCollateralAmount = await results.collateralToken.token.balanceOf(results.init.userContract.address);
           expect(areAlmostEqual(receivedCollateralAmount, results.init.collateralAmount)).eq(true);
@@ -770,6 +797,7 @@ describe("Hundred Finance unit tests, pool adapter", () => {
           );
         });
         it("should get expected status", async () => {
+          if (!await isPolygonForkInUse()) return;
           const status = await results.init.hfPoolAdapterTC.getStatus();
           console.log("userBorrowAssetBalanceAfterRepay", results.userBorrowAssetBalanceAfterRepay);
           console.log("userBorrowAssetBalanceBeforeRepay", results.userBorrowAssetBalanceBeforeRepay);
@@ -788,6 +816,7 @@ describe("Hundred Finance unit tests, pool adapter", () => {
           expect(ret).eq(expected);
         });
         it("should close position after full repay", async () => {
+          if (!await isPolygonForkInUse()) return;
           const ret = await DebtMonitor__factory.connect(
             await results.init.controller.debtMonitor(),
             await DeployerUtils.startImpersonate(results.init.hfPoolAdapterTC.address)
@@ -795,6 +824,7 @@ describe("Hundred Finance unit tests, pool adapter", () => {
           expect(ret).eq(false);
         });
         it("should assign expected value to collateralBalanceATokens", async () => {
+          if (!await isPolygonForkInUse()) return;
           const collateralBalanceATokens = await results.init.hfPoolAdapterTC.collateralTokensBalance();
           const aaveTokensBalance = await IERC20Metadata__factory.connect(
             collateralCToken,
@@ -804,6 +834,7 @@ describe("Hundred Finance unit tests, pool adapter", () => {
 
         });
         it("should withdraw expected collateral amount", async () => {
+          if (!await isPolygonForkInUse()) return;
           const status = await results.init.hfPoolAdapterTC.getStatus();
           const receivedCollateralAmount = await results.collateralToken.token.balanceOf(results.init.userContract.address);
           expect(areAlmostEqual(receivedCollateralAmount, results.init.collateralAmount)).eq(true);
@@ -846,6 +877,7 @@ describe("Hundred Finance unit tests, pool adapter", () => {
         expect(ret).eq(true);
       });
       it("should revert if not tetu converter", async () => {
+        if (!await isPolygonForkInUse()) return;
         await expect(
           makeFullRepayTest(
             collateralAsset,
@@ -863,6 +895,7 @@ describe("Hundred Finance unit tests, pool adapter", () => {
         ).revertedWith("TC-8 tetu converter only"); // TETU_CONVERTER_ONLY
       });
       it("should fail if pay too small amount and try to close the position", async () => {
+        if (!await isPolygonForkInUse()) return;
         await expect(
           makeFullRepayTest(
             collateralAsset,
@@ -878,6 +911,7 @@ describe("Hundred Finance unit tests, pool adapter", () => {
       });
       describe("Use mocked HfComptroller", () => {
         it("normal repay should work correctly", async () => {
+          if (!await isPolygonForkInUse()) return;
           const results = await makeFullRepayTest(
             collateralAsset,
             collateralCToken,
@@ -906,6 +940,7 @@ describe("Hundred Finance unit tests, pool adapter", () => {
 
         });
         it("should revert if repayBorrow fails", async () => {
+          if (!await isPolygonForkInUse()) return;
           const mocksSet = await initializeHfComptrollerMock(collateralAsset, collateralCToken, borrowAsset, borrowCToken);
           await mocksSet.mockedComptroller.setRepayBorrowFails();
           await expect(
@@ -925,6 +960,7 @@ describe("Hundred Finance unit tests, pool adapter", () => {
           ).revertedWith("TC-27 repay failed"); // REPAY_FAILED
         });
         it("should revert if redeem fails", async () => {
+          if (!await isPolygonForkInUse()) return;
           const mocksSet = await initializeHfComptrollerMock(collateralAsset, collateralCToken, borrowAsset, borrowCToken);
 
           await mocksSet.mockedComptroller.setRedeemFails();
@@ -945,6 +981,7 @@ describe("Hundred Finance unit tests, pool adapter", () => {
           ).revertedWith("TC-26 redeem failed"); // REDEEM_FAILED
         });
         it("should revert if getAccountSnapshot for collateral fails", async () => {
+          if (!await isPolygonForkInUse()) return;
           const mocksSet = await initializeHfComptrollerMock(collateralAsset, collateralCToken, borrowAsset, borrowCToken);
 
           await mocksSet.mockedBorrowCToken.setCollateralTokenGetAccountSnapshotFailsAfterCallingBorrowBalanceCurrent(3);
@@ -965,6 +1002,7 @@ describe("Hundred Finance unit tests, pool adapter", () => {
           ).revertedWith("TC-21 snapshot failed"); // CTOKEN_GET_ACCOUNT_SNAPSHOT_FAILED
         });
         it("should revert if getAccountSnapshot for borrow fails", async () => {
+          if (!await isPolygonForkInUse()) return;
           const mocksSet = await initializeHfComptrollerMock(collateralAsset, collateralCToken, borrowAsset, borrowCToken);
 
           await mocksSet.mockedBorrowCToken.setBorrowTokenGetAccountSnapshotFailsAfterCallingBorrowBalanceCurrent(3);
@@ -985,6 +1023,7 @@ describe("Hundred Finance unit tests, pool adapter", () => {
           ).revertedWith("TC-21 snapshot failed"); // CTOKEN_GET_ACCOUNT_SNAPSHOT_FAILED
         });
         it("should revert with CLOSE_POSITION_FAILED if token balance is not zero after full repay", async () => {
+          if (!await isPolygonForkInUse()) return;
           const mocksSet = await initializeHfComptrollerMock(collateralAsset, collateralCToken, borrowAsset, borrowCToken);
 
           await expect(
@@ -1004,6 +1043,7 @@ describe("Hundred Finance unit tests, pool adapter", () => {
           ).revertedWith("TC-24 close position failed"); // CLOSE_POSITION_FAILED
         });
         it("should revert with CLOSE_POSITION_FAILED if borrow balance is not zero after full repay", async () => {
+          if (!await isPolygonForkInUse()) return;
           const mocksSet = await initializeHfComptrollerMock(collateralAsset, collateralCToken, borrowAsset, borrowCToken);
 
           await expect(
@@ -1024,6 +1064,7 @@ describe("Hundred Finance unit tests, pool adapter", () => {
 
         });
         it("should revert with WRONG_BORROWED_BALANCE if amount to repay is less than borrow balance during full repay", async () => {
+          if (!await isPolygonForkInUse()) return;
           const mocksSet = await initializeHfComptrollerMock(collateralAsset, collateralCToken, borrowAsset, borrowCToken);
 
           await mocksSet.mockedBorrowCToken.setReturnBorrowBalance1AfetCallingBorrowBalanceCurrent();
@@ -1355,6 +1396,7 @@ describe("Hundred Finance unit tests, pool adapter", () => {
       });
       describe("Use mocked HfComptroller", () => {
         it("should revert if comptroller doesn't return borrowed amount", async () => {
+          if (!await isPolygonForkInUse()) return;
           const collateralAsset = MaticAddresses.DAI;
           const collateralHolder = MaticAddresses.HOLDER_DAI;
           const collateralCTokenAddress = MaticAddresses.hDAI;
@@ -1395,6 +1437,7 @@ describe("Hundred Finance unit tests, pool adapter", () => {
           ).revertedWith("TC-15 wrong borrow balance"); // WRONG_BORROWED_BALANCE
         });
         it("should revert if borrow fails", async () => {
+          if (!await isPolygonForkInUse()) return;
           const collateralAsset = MaticAddresses.DAI;
           const collateralHolder = MaticAddresses.HOLDER_DAI;
           const collateralCTokenAddress = MaticAddresses.hDAI;
@@ -1839,6 +1882,7 @@ describe("Hundred Finance unit tests, pool adapter", () => {
       });
       describe("Use mocked HfComptroller", () => {
         it("should revert if repayBorrow fails", async () => {
+          if (!await isPolygonForkInUse()) return;
           const collateralAsset = MaticAddresses.DAI;
           const collateralHolder = MaticAddresses.HOLDER_DAI;
           const collateralCTokenAddress = MaticAddresses.hDAI;
@@ -2235,6 +2279,7 @@ describe("Hundred Finance unit tests, pool adapter", () => {
     });
     describe("Bad paths", () => {
       it("should revert if getAccountSnapshot for collateral fails", async () => {
+        if (!await isPolygonForkInUse()) return;
         const collateralAsset = MaticAddresses.USDT;
         const collateralCToken = MaticAddresses.hUSDT;
         const collateralHolder = MaticAddresses.HOLDER_USDT;
@@ -2260,6 +2305,7 @@ describe("Hundred Finance unit tests, pool adapter", () => {
         ).revertedWith("TC-21 snapshot failed"); // CTOKEN_GET_ACCOUNT_SNAPSHOT_FAILED
       });
       it("should revert if getAccountSnapshot for borrow fails", async () => {
+        if (!await isPolygonForkInUse()) return;
         const collateralAsset = MaticAddresses.USDT;
         const collateralCToken = MaticAddresses.hUSDT;
         const collateralHolder = MaticAddresses.HOLDER_USDT;

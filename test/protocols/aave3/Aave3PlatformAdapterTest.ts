@@ -175,21 +175,25 @@ describe("Aave3PlatformAdapterTest", () => {
     });
     describe("Bad paths", () => {
       it("should revert if aave-pool is zero", async () => {
+        if (!await isPolygonForkInUse()) return;
         await expect(
           initializePlatformAdapter({zeroAavePool: true})
         ).revertedWith("TC-1 zero address");
       });
       it("should revert if controller is zero", async () => {
+        if (!await isPolygonForkInUse()) return;
         await expect(
           initializePlatformAdapter({zeroController: true})
         ).revertedWith("TC-1 zero address");
       });
       it("should revert if template normal is zero", async () => {
+        if (!await isPolygonForkInUse()) return;
         await expect(
           initializePlatformAdapter({zeroTemplateAdapterNormal: true})
         ).revertedWith("TC-1 zero address");
       });
       it("should revert if template emode is zero", async () => {
+        if (!await isPolygonForkInUse()) return;
         await expect(
           initializePlatformAdapter({zeroTemplateAdapterEMode: true})
         ).revertedWith("TC-1 zero address");
@@ -553,6 +557,7 @@ describe("Aave3PlatformAdapterTest", () => {
       });
       describe("Check gas limit", () => {
         it("should return expected values @skip-on-coverage", async () => {
+          if (!await isPolygonForkInUse()) return;
           const controller = await TetuConverterApp.createController(deployer,
             {tetuLiquidatorAddress: MaticAddresses.TETU_LIQUIDATOR}
           );
@@ -699,6 +704,7 @@ describe("Aave3PlatformAdapterTest", () => {
 
       describe("Caps", () => {
         it("should return expected maxAmountToSupply when try to supply more than allowed by supply cap", async () => {
+          if (!await isPolygonForkInUse()) return;
           const plan = await tryGetConversionPlan(
             {setMinSupplyCap: true},
             MaticAddresses.DAI,
@@ -708,6 +714,7 @@ describe("Aave3PlatformAdapterTest", () => {
           expect(plan.maxAmountToSupply.lt(parseUnits("12345"))).eq(true);
         });
         it("should return expected maxAmountToSupply=max(uint) if supply cap is zero (supplyCap == 0 => no cap)", async () => {
+          if (!await isPolygonForkInUse()) return;
           const plan = await tryGetConversionPlan(
             {setZeroSupplyCap: true},
             MaticAddresses.DAI,
@@ -718,6 +725,7 @@ describe("Aave3PlatformAdapterTest", () => {
           expect(plan.maxAmountToSupply.eq(Misc.MAX_UINT)).eq(true);
         });
         it("should return expected borrowAmount when try to borrow more than allowed by borrow cap", async () => {
+          if (!await isPolygonForkInUse()) return;
           const planNoBorrowCap = await tryGetConversionPlan(
             {},
             MaticAddresses.DAI,

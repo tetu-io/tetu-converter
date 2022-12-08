@@ -359,12 +359,11 @@ export class BorrowRepayUsesCase {
     const collateralAmount = getBigNumberFrom(p.collateralAmount, collateralToken.decimals);
 
     const tetuConverter = ITetuConverter__factory.connect(await controller.tetuConverter(), deployer);
-    const strategyToConvert: IStrategyToConvert = await tetuConverter.findConversionStrategy(
+    const strategyToConvert: IStrategyToConvert = await tetuConverter.findBorrowStrategy(
       p.collateral.asset,
       collateralAmount,
       p.borrow.asset,
       p.countBlocks,
-      0
     );
 
     // TetuConverter gives infinity approve to the pool adapter after pool adapter creation (see TetuConverter.convert implementation)

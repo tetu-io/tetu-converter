@@ -162,16 +162,19 @@ describe("AaveTwoPlatformAdapterTest", () => {
     });
     describe("Bad paths", () => {
       it("should revert if aave-pool is zero", async () => {
+        if (!await isPolygonForkInUse()) return;
         await expect(
           initializePlatformAdapter({zeroAavePool: true})
         ).revertedWith("TC-1 zero address");
       });
       it("should revert if controller is zero", async () => {
+        if (!await isPolygonForkInUse()) return;
         await expect(
           initializePlatformAdapter({zeroController: true})
         ).revertedWith("TC-1 zero address");
       });
       it("should revert if template normal is zero", async () => {
+        if (!await isPolygonForkInUse()) return;
         await expect(
           initializePlatformAdapter({zeroTemplateAdapterNormal: true})
         ).revertedWith("TC-1 zero address");
@@ -433,6 +436,7 @@ describe("AaveTwoPlatformAdapterTest", () => {
       });
       describe("Check gas limit", () => {
         it("should return expected values @skip-on-coverage", async () => {
+          if (!await isPolygonForkInUse()) return;
           const controller = await TetuConverterApp.createController(
             deployer,
             {tetuLiquidatorAddress: MaticAddresses.TETU_LIQUIDATOR}

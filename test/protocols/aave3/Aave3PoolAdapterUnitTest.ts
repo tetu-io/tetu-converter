@@ -130,6 +130,7 @@ describe("Aave3PoolAdapterUnitTest", () => {
         );
       });
       it("should get expected status", async () => {
+        if (!await isPolygonForkInUse()) return;
         const status = await results.init.aavePoolAdapterAsTC.getStatus();
 
         const collateralTargetHealthFactor2 = await BorrowManager__factory.connect(
@@ -146,6 +147,7 @@ describe("Aave3PoolAdapterUnitTest", () => {
         expect(ret).eq(expected);
       });
       it("should open position in debt monitor", async () => {
+        if (!await isPolygonForkInUse()) return;
         const ret = await DebtMonitor__factory.connect(
           await results.init.controller.debtMonitor(),
           await DeployerUtils.startImpersonate(results.init.aavePoolAdapterAsTC.address)
@@ -153,11 +155,13 @@ describe("Aave3PoolAdapterUnitTest", () => {
         expect(ret).eq(true);
       });
       it("should transfer expected amount to the user", async () => {
+        if (!await isPolygonForkInUse()) return;
         const status = await results.init.aavePoolAdapterAsTC.getStatus();
         const receivedBorrowAmount = await results.borrowToken.token.balanceOf(results.init.userContract.address);
         expect(receivedBorrowAmount.toString()).eq(results.borrowResults.borrowedAmount.toString());
       });
       it("should change collateralBalanceATokens", async () => {
+        if (!await isPolygonForkInUse()) return;
         const collateralBalanceATokens = await results.init.aavePoolAdapterAsTC.collateralBalanceATokens();
         const aaveTokensBalance = await IERC20Metadata__factory.connect(
           results.init.collateralReserveInfo.aTokenAddress,
@@ -168,6 +172,7 @@ describe("Aave3PoolAdapterUnitTest", () => {
     });
     describe("Bad paths", () => {
       it("should revert if not tetu converter", async () => {
+        if (!await isPolygonForkInUse()) return;
         await expect(
           makeBorrowTest(
             collateralAsset,
@@ -179,6 +184,7 @@ describe("Aave3PoolAdapterUnitTest", () => {
         ).revertedWith("TC-8 tetu converter only"); // TETU_CONVERTER_ONLY
       });
       it("should revert if the pool doesn't send borrowed amount to pool adapter after borrowing", async () => {
+        if (!await isPolygonForkInUse()) return;
         await expect(
           makeBorrowTest(
             collateralAsset,
@@ -190,6 +196,7 @@ describe("Aave3PoolAdapterUnitTest", () => {
         ).revertedWith("TC-15 wrong borrow balance"); // WRONG_BORROWED_BALANCE
       });
       it("should revert if the pool doesn't send ATokens to pool adapter after supplying", async () => {
+        if (!await isPolygonForkInUse()) return;
         await expect(
           makeBorrowTest(
             collateralAsset,
@@ -294,6 +301,7 @@ describe("Aave3PoolAdapterUnitTest", () => {
         results = await makeFullRepayTest("1999");
       });
       it("should get expected status", async () => {
+        if (!await isPolygonForkInUse()) return;
         const status = await results.init.aavePoolAdapterAsTC.getStatus();
         console.log("userBorrowAssetBalanceAfterRepay", results.userBorrowAssetBalanceAfterRepay);
         console.log("userBorrowAssetBalanceBeforeRepay", results.userBorrowAssetBalanceBeforeRepay);
@@ -312,6 +320,7 @@ describe("Aave3PoolAdapterUnitTest", () => {
         expect(ret).eq(expected);
       });
       it("should close position after full repay", async () => {
+        if (!await isPolygonForkInUse()) return;
         const ret = await DebtMonitor__factory.connect(
           await results.init.controller.debtMonitor(),
           await DeployerUtils.startImpersonate(results.init.aavePoolAdapterAsTC.address)
@@ -319,6 +328,7 @@ describe("Aave3PoolAdapterUnitTest", () => {
         expect(ret).eq(false);
       });
       it("should assign expected value to collateralBalanceATokens", async () => {
+        if (!await isPolygonForkInUse()) return;
         const collateralBalanceATokens = await results.init.aavePoolAdapterAsTC.collateralBalanceATokens();
         const aaveTokensBalance = await IERC20Metadata__factory.connect(
           results.init.collateralReserveInfo.aTokenAddress,
@@ -328,6 +338,7 @@ describe("Aave3PoolAdapterUnitTest", () => {
 
       });
       it("should withdraw expected collateral amount", async () => {
+        if (!await isPolygonForkInUse()) return;
         const status = await results.init.aavePoolAdapterAsTC.getStatus();
         const receivedCollateralAmount = await results.collateralToken.token.balanceOf(results.init.userContract.address);
         expect(areAlmostEqual(receivedCollateralAmount, results.init.collateralAmount)).eq(true);
@@ -335,6 +346,7 @@ describe("Aave3PoolAdapterUnitTest", () => {
     });
     describe("Bad paths", () => {
       it("should return exceeded amount if user tries to pay too much", async () => {
+        if (!await isPolygonForkInUse()) return;
         const results = await makeFullRepayTest(
           "1999",
           {
@@ -350,6 +362,7 @@ describe("Aave3PoolAdapterUnitTest", () => {
         expect(ret).eq(true);
       });
       it("should revert if not tetu converter", async () => {
+        if (!await isPolygonForkInUse()) return;
         await expect(
           makeFullRepayTest(
             "1999",
@@ -361,6 +374,7 @@ describe("Aave3PoolAdapterUnitTest", () => {
         ).revertedWith("TC-8 tetu converter only"); // TETU_CONVERTER_ONLY
       });
       it("should fail if pay too small amount and try to close the position", async () => {
+        if (!await isPolygonForkInUse()) return;
         await expect(
           makeFullRepayTest(
           "1999",
@@ -369,6 +383,7 @@ describe("Aave3PoolAdapterUnitTest", () => {
         ).revertedWith("TC-24 close position failed"); // CLOSE_POSITION_FAILED
       });
       it("should fail if the debt was completely paid but amount of the debt is still not zero in the pool", async () => {
+        if (!await isPolygonForkInUse()) return;
         await expect(
           makeFullRepayTest(
             "1999",
@@ -381,6 +396,7 @@ describe("Aave3PoolAdapterUnitTest", () => {
         ).revertedWith("TC-24 close position failed"); // CLOSE_POSITION_FAILED
       });
       it("should NOT revert if pool has used all amount-to-repay and hasn't sent anything back", async () => {
+        if (!await isPolygonForkInUse()) return;
         const r = await makeFullRepayTest(
           "1999",
           {useAave3PoolMock: true, grabAllBorrowAssetFromSenderOnRepay: true}
@@ -393,6 +409,7 @@ describe("Aave3PoolAdapterUnitTest", () => {
         expect(balanceBorrowAssetOnMock.gt(0)).eq(true);
       });
       it("should fail if collateral price is zero", async () => {
+        if (!await isPolygonForkInUse()) return;
         await expect(
           makeFullRepayTest(
             "1999",

@@ -385,16 +385,19 @@ describe("Hundred finance, platform adapter", () => {
     });
     describe("Bad paths", () => {
       it("should revert if aave-pool is zero", async () => {
+        if (!await isPolygonForkInUse()) return;
         await expect(
           initializePlatformAdapter({zeroComptroller: true})
         ).revertedWith("TC-1 zero address");
       });
       it("should revert if controller is zero", async () => {
+        if (!await isPolygonForkInUse()) return;
         await expect(
           initializePlatformAdapter({zeroController: true})
         ).revertedWith("TC-1 zero address");
       });
       it("should revert if template normal is zero", async () => {
+        if (!await isPolygonForkInUse()) return;
         await expect(
           initializePlatformAdapter({zeroConverter: true})
         ).revertedWith("TC-1 zero address");
@@ -543,6 +546,7 @@ describe("Hundred finance, platform adapter", () => {
       });
       describe("Check gas limit", () => {
         it("should return expected values @skip-on-coverage", async () => {
+          if (!await isPolygonForkInUse()) return;
           const controller = await TetuConverterApp.createController(
             deployer,
             {tetuLiquidatorAddress: MaticAddresses.TETU_LIQUIDATOR}
@@ -652,6 +656,7 @@ describe("Hundred finance, platform adapter", () => {
       });
       describe("capacity", () => {
         it("should return expected maxAmountToBorrow if borrowCapacity is limited", async () => {
+          if (!await isPolygonForkInUse()) return;
           const planBorrowCapacityNotLimited = await tryGetConversionPlan(
             {},
             MaticAddresses.DAI,
