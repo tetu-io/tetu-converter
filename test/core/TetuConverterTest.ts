@@ -23,10 +23,9 @@ import {
   Controller,
   PoolAdapterStub__factory,
   IPoolAdapter,
-  SwapManager__factory,
   DebtMonitorMock__factory,
   SwapManagerMock__factory,
-  IMockERC20__factory, PriceOracleMock__factory
+  PriceOracleMock__factory
 } from "../../typechain";
 import {
   IBorrowInputParams,
@@ -46,7 +45,7 @@ import {CoreContractsHelper} from "../baseUT/helpers/CoreContractsHelper";
 import {parseUnits} from "ethers/lib/utils";
 import {controlGasLimitsEx} from "../../scripts/utils/hardhatUtils";
 import {
-  GAS_FIND_CONVERSION_STRATEGY_ONLY_BORROW_AVAILABLE,
+  GAS_FIND_CONVERSION_STRATEGY_ONLY_BORROW_AVAILABLE, GAS_FIND_SWAP_STRATEGY,
 } from "../baseUT/GasLimit";
 import {TetuConverterApp} from "../baseUT/helpers/TetuConverterApp";
 
@@ -573,8 +572,8 @@ describe("TetuConverterTest", () => {
       r.init.borrowInputParams.collateralFactor
       * sourceAmountNum * r.init.borrowInputParams.priceSourceUSD
       / (r.init.borrowInputParams.priceTargetUSD)
-      / targetHealthFactor * 100
-      , await r.init.targetToken.decimals()
+      / targetHealthFactor * 100,
+      await r.init.targetToken.decimals()
     );
 
     const borrowRate = await LendingPlatformMock__factory.connect(
@@ -605,7 +604,7 @@ describe("TetuConverterTest", () => {
   }
 //endregion Predict conversion results
 
-//region findBestConversionStrategy test impl
+//region findConversionStrategy test impl
   interface IFindConversionStrategyBadParams {
     zeroSourceAmount?: boolean;
     zeroPeriod?: boolean;
@@ -733,7 +732,155 @@ describe("TetuConverterTest", () => {
       expectedBorrowing
     }
   }
-//endregion findBestConversionStrategy test impl
+//endregion findConversionStrategy test impl
+
+//region findBorrowStrategy test impl
+  /**
+   * Set up test for findBorrowStrategy
+   * @param sourceAmountNum
+   * @param periodInBlocks
+   * @param borrowRateNum Borrow rate (as num, no decimals); undefined if there is no lending pool
+   */
+  async function makeFindBorrowStrategy(
+    sourceAmountNum: number,
+    periodInBlocks: number,
+    borrowRateNum?: number,
+  ) : Promise<IMakeFindConversionStrategyResults> {
+    const core = await CoreContracts.build(
+      await TetuConverterApp.createController(deployer, {
+        priceOracleFabric: async c => (await MocksHelper.getPriceOracleMock(deployer, [], [])).address
+      })
+    );
+    const init = await prepareTetuAppWithMultipleLendingPlatforms(core,borrowRateNum ? 1: 0);
+
+    if (borrowRateNum) {
+      await PoolAdapterMock__factory.connect(
+        init.poolAdapters[0],
+        deployer
+      ).changeBorrowRate(borrowRateNum);
+      await LendingPlatformMock__factory.connect(
+        init.poolInstances[0].platformAdapter,
+        deployer
+      ).changeBorrowRate(init.targetToken.address, borrowRateNum);
+    }
+
+    const sourceAmount = parseUnits(sourceAmountNum.toString(), await init.sourceToken.decimals());
+
+    const results = await init.core.tc.findBorrowStrategy(
+      init.sourceToken.address,
+      sourceAmount,
+      init.targetToken.address,
+      periodInBlocks
+    );
+    const gas = await init.core.tc.estimateGas.findBorrowStrategy(
+      init.sourceToken.address,
+      sourceAmount,
+      init.targetToken.address,
+      periodInBlocks
+    );
+
+    const poolAdapterConverter = init.poolAdapters.length
+      ? (await PoolAdapterMock__factory.connect(init.poolAdapters[0], deployer).getConfig()).origin
+      : Misc.ZERO_ADDRESS;
+
+    return {
+      init,
+      results,
+      poolAdapterConverter,
+      gas
+    }
+  }
+
+  async function makeFindBorrowStrategyTest(
+    badPathsParams?: IFindConversionStrategyBadParams
+  ) : Promise<IMakeFindConversionStrategyResults> {
+    return makeFindBorrowStrategy(
+      badPathsParams?.zeroSourceAmount ? 0 : 1000,
+      badPathsParams?.zeroPeriod ? 0 : 100,
+      1000,
+    );
+  }
+//endregion findBorrowStrategy test impl
+
+//region findSwapStrategy test impl
+  interface IFindConversionStrategyBadParams {
+    zeroSourceAmount?: boolean;
+    zeroPeriod?: boolean;
+  }
+
+  interface IMakeFindConversionStrategySwapAndBorrowResults {
+    results: IFindConversionStrategyResults;
+    expectedSwap: IFindConversionStrategyResults;
+    expectedBorrowing: IFindConversionStrategyResults;
+  }
+
+  /**
+   * Set up test for findConversionStrategy
+   * @param sourceAmountNum
+   * @param swapConfig Swap manager config; undefined if there is no DEX
+   */
+  async function makeFindSwapStrategy(
+    sourceAmountNum: number,
+    swapConfig: IPrepareContractsSetupParams
+  ) : Promise<IMakeFindConversionStrategyResults> {
+    const core = await CoreContracts.build(
+      await TetuConverterApp.createController(deployer, {
+        priceOracleFabric: async c => (await MocksHelper.getPriceOracleMock(deployer, [], [])).address
+      })
+    );
+    const init = await prepareTetuAppWithMultipleLendingPlatforms(core, 0, swapConfig);
+    await PriceOracleMock__factory.connect(await core.controller.priceOracle(), deployer).changePrices(
+      [init.sourceToken.address, init.targetToken.address],
+      [parseUnits("1"), parseUnits("1")] // prices are set to 1 for simplicity
+    );
+
+    // source amount must be approved to TetuConverter before calling findConversionStrategy
+    const sourceAmount = parseUnits(sourceAmountNum.toString(), await init.sourceToken.decimals());
+    const signer = await init.core.tc.signer.getAddress();
+    await MockERC20__factory.connect(init.sourceToken.address, init.core.tc.signer).mint(signer, sourceAmount);
+    await MockERC20__factory.connect(init.sourceToken.address, init.core.tc.signer).approve(core.tc.address, sourceAmount);
+
+    const gas = await init.core.tc.estimateGas.findSwapStrategy(
+      init.sourceToken.address,
+      sourceAmount,
+      init.targetToken.address,
+    );
+    const results = await init.core.tc.callStatic.findSwapStrategy(
+      init.sourceToken.address,
+      sourceAmount,
+      init.targetToken.address,
+    );
+    await init.core.tc.estimateGas.findSwapStrategy(
+      init.sourceToken.address,
+      sourceAmount,
+      init.targetToken.address,
+    );
+
+    const poolAdapterConverter = init.poolAdapters.length
+      ? (await PoolAdapterMock__factory.connect(init.poolAdapters[0], deployer).getConfig()).origin
+      : Misc.ZERO_ADDRESS;
+
+    return {
+      init,
+      results,
+      poolAdapterConverter,
+      gas
+    }
+  }
+
+  async function makeFindSwapStrategyTest(
+    sourceAmount: number = 1_000,
+    priceImpact: number = 1_000,
+  ) : Promise<IMakeFindConversionStrategyResults> {
+    return makeFindSwapStrategy(
+      sourceAmount,
+      {
+          priceImpact,
+          setupTetuLiquidatorToSwapBorrowToCollateral: true
+        }
+    );
+  }
+//endregion findSwapStrategy test impl
 
 //region Unit tests
   describe("constructor", () => {
@@ -927,33 +1074,44 @@ describe("TetuConverterTest", () => {
   describe("findBorrowStrategy", () => {
     describe("Good paths", () => {
       it("should return expected values", async () => {
-        expect.fail("TODO");
+        const period = BLOCKS_PER_DAY * 31;
+        const sourceAmount = 100_000;
+        const borrowRateNum = 1000;
+        const r = await makeFindBorrowStrategy(
+          sourceAmount,
+          period,
+          borrowRateNum,
+        );
+        const expected = await getExpectedBorrowingResults(r, sourceAmount, period);
+        console.log("results", r.results);
+
+        const sret = [
+          r.results.converter,
+          r.results.maxTargetAmount,
+          r.results.apr18
+        ].join("\n");
+
+        const sexpected = [
+          expected.converter,
+          expected.maxTargetAmount,
+          expected.apr18
+        ].join("\n");
+
+        expect(sret).equal(sexpected);
       });
     });
     describe("Bad paths", () => {
       describe("Source amount is 0", () => {
         it("should revert", async () => {
           await expect(
-            makeFindConversionStrategyTest(
-              false,
-              false,
-              {
-                zeroSourceAmount: true
-              }
-            )
+            makeFindBorrowStrategyTest({ zeroSourceAmount: true })
           ).revertedWith("TC-43 zero amount"); // ZERO_AMOUNT
         });
       });
       describe("Period is 0", () => {
         it("should revert", async () => {
           await expect(
-            makeFindConversionStrategyTest(
-              false,
-              false,
-              {
-                zeroPeriod: true
-              }
-            )
+            makeFindBorrowStrategyTest({ zeroPeriod: true})
           ).revertedWith("TC-29 incorrect value"); // INCORRECT_VALUE
         });
       });
@@ -963,21 +1121,43 @@ describe("TetuConverterTest", () => {
   describe("findSwapStrategy", () => {
     describe("Good paths", () => {
       it("should return expected values", async () => {
-        expect.fail("TODO");
+        const sourceAmount = 10_000;
+        const priceImpact = 500;
+        const r = await makeFindSwapStrategyTest(sourceAmount, priceImpact);
+        const ret = [
+          r.results.converter,
+          r.results.maxTargetAmount.toString(),
+          r.results.apr18.toString()
+        ].join();
+
+        // assume here that both prices are equal to 1
+        const PRICE_IMPACT_NUMERATOR = 100_000;
+        const loss = (sourceAmount * priceImpact / PRICE_IMPACT_NUMERATOR);
+        const expectedTargetAmount = parseUnits((sourceAmount - loss).toString(), await r.init.targetToken.decimals());
+        const expectedApr18 = parseUnits((2 * loss / sourceAmount).toString(), 18);
+
+        const expected = [
+          r.init.core.swapManager.address,
+          expectedTargetAmount.toString(),
+          expectedApr18.toString()
+        ].join();
+        expect(ret).eq(expected);
       });
     });
     describe("Bad paths", () => {
       describe("Source amount is 0", () => {
         it("should revert", async () => {
           await expect(
-            makeFindConversionStrategyTest(
-              false,
-              false,
-              {
-                zeroSourceAmount: true
-              }
-            )
+            makeFindSwapStrategyTest(0)
           ).revertedWith("TC-43 zero amount"); // ZERO_AMOUNT
+        });
+      });
+    });
+    describe("Gas estimation @skip-on-coverage", () => {
+      it("should return expected values", async () => {
+        const r = await makeFindSwapStrategyTest();
+        controlGasLimitsEx(r.gas, GAS_FIND_SWAP_STRATEGY, (u, t) => {
+          expect(u).to.be.below(t);
         });
       });
     });
