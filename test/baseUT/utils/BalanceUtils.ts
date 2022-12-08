@@ -83,8 +83,8 @@ export class BalanceUtils {
     amount: number | BigNumber
   ) : Promise<BigNumber> {
     const connection = await IERC20Metadata__factory.connect(
-      asset
-      , await DeployerUtils.startImpersonate(holder)
+      asset,
+      await DeployerUtils.startImpersonate(holder)
     );
     const decimals = await connection.decimals();
 

@@ -21,7 +21,6 @@ import "../interfaces/ISwapConverter.sol";
 import "../interfaces/IKeeperCallback.sol";
 import "../interfaces/ITetuConverterCallback.sol";
 import "../interfaces/IRequireAmountBySwapManagerCallback.sol";
-import "hardhat/console.sol";
 
 /// @notice Main application contract
 contract TetuConverter is ITetuConverter, IKeeperCallback, IRequireAmountBySwapManagerCallback, ReentrancyGuard {
@@ -154,12 +153,17 @@ contract TetuConverter is ITetuConverter, IKeeperCallback, IRequireAmountBySwapM
   ) {
     require(sourceAmount_ != 0, AppErrors.ZERO_AMOUNT);
 
-    return _swapManager().getConverter(
+    (converter, maxTargetAmount) = _swapManager().getConverter(
       msg.sender,
       sourceToken_,
       sourceAmount_,
       targetToken_
     );
+    if (converter != address(0)) {
+      apr18 = _swapManager().getApr18(sourceToken_, sourceAmount_, targetToken_, maxTargetAmount);
+    }
+
+    return (converter, maxTargetAmount, apr18);
   }
 
   /// @notice Find best conversion strategy (swap or borrow) and provide "cost of money" as interest for the period.
@@ -185,11 +189,13 @@ contract TetuConverter is ITetuConverter, IKeeperCallback, IRequireAmountBySwapM
     require(sourceAmount_ != 0, AppErrors.ZERO_AMOUNT);
     require(periodInBlocks_ != 0, AppErrors.INCORRECT_VALUE);
 
-    (
-      address swapConverter,
-      uint swapMaxTargetAmount,
-      int swapApr18
-    ) = _swapManager().getConverter(msg.sender, sourceToken_, sourceAmount_, targetToken_);
+    (address swapConverter, uint swapMaxTargetAmount) = _swapManager().getConverter(
+      msg.sender, sourceToken_, sourceAmount_, targetToken_
+    );
+    int swapApr18;
+    if (swapConverter != address(0)) {
+      swapApr18 = _swapManager().getApr18(sourceToken_, sourceAmount_, targetToken_, swapMaxTargetAmount);
+    }
 
     AppDataTypes.InputConversionParams memory params = AppDataTypes.InputConversionParams({
       sourceToken: sourceToken_,
@@ -409,8 +415,7 @@ contract TetuConverter is ITetuConverter, IKeeperCallback, IRequireAmountBySwapM
     // let's swap it to collateral asset and send to collateral-receiver
     if (amountToRepay_ > 0) {
       // getConverter requires the source amount be approved to TetuConverter, but a contract doesn't need to approve itself
-      console.log("TetuConverter.repay", address(this));
-      (address converter,) = _swapManager().findConverter(address(this), borrowAsset_, amountToRepay_, collateralAsset_);
+      (address converter,) = _swapManager().getConverter(address(this), borrowAsset_, amountToRepay_, collateralAsset_);
 
       if (converter == address(0)) {
         // there is no swap-strategy to convert remain {amountToPay} to {collateralAsset_}
@@ -680,10 +685,8 @@ contract TetuConverter is ITetuConverter, IKeeperCallback, IRequireAmountBySwapM
     address sourceToken_,
     uint sourceAmount_
   ) external override {
-    console.log("TetuConverter.onRequireAmount", sourceAmountApprover_, address(this));
     address swapManager = controller.swapManager();
 
-    console.log("TetuConverter.onRequireAmount.1", swapManager, msg.sender);
     require(swapManager == msg.sender, AppErrors.ONLY_SWAP_MANAGER);
 
     if (sourceAmountApprover_ == address(this)) {
@@ -691,7 +694,6 @@ contract TetuConverter is ITetuConverter, IKeeperCallback, IRequireAmountBySwapM
     } else {
       IERC20(sourceToken_).safeTransferFrom(sourceAmountApprover_, swapManager, sourceAmount_);
     }
-    console.log("TetuConverter.onRequireAmount.2");
   }
 
   ///////////////////////////////////////////////////////

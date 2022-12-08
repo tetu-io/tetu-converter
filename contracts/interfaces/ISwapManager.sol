@@ -20,18 +20,16 @@ interface ISwapManager {
     address targetToken_
   ) external returns (
     address converter,
-    uint maxTargetAmount,
-    int apr18
-  );
-
-  /// @notice Same as {getConverter} but it doesn't calculate APR, so it uses less gas
-  function findConverter(
-    address sourceAmountApprover_,
-    address sourceToken_,
-    uint sourceAmount_,
-    address targetToken_
-  ) external returns (
-    address converter,
     uint maxTargetAmount
   );
+
+  /// @notice Calculate APR using known {sourceToken_} and known {targetAmount_}.
+  /// @param sourceAmount_ Source amount before conversion, in terms of {sourceToken_}
+  /// @param targetAmount_ Result of conversion. The amount is in terms of {targetToken_}
+  function getApr18(
+    address sourceToken_,
+    uint sourceAmount_,
+    address targetToken_,
+    uint targetAmount_
+  ) external view returns (int apr18);
 }

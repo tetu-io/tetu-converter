@@ -54,26 +54,6 @@ contract SwapManagerMock is ISwapManager, ISwapConverter {
     address targetToken_
   ) external view override returns (
     address converter_,
-    uint maxTargetAmount_,
-    int outApr18
-  ) {
-    sourceAmountApprover_;
-    sourceToken_;
-    sourceAmount_;
-    targetToken_;
-
-    console.log("SwapManagerMock.getConverter", converter, maxTargetAmount);
-    console.logInt(apr18);
-    return (converter, maxTargetAmount, apr18);
-  }
-
-  function findConverter(
-    address sourceAmountApprover_,
-    address sourceToken_,
-    uint sourceAmount_,
-    address targetToken_
-  ) external view override returns (
-    address converter_,
     uint maxTargetAmount_
   ) {
     sourceAmountApprover_;
@@ -81,7 +61,7 @@ contract SwapManagerMock is ISwapManager, ISwapConverter {
     sourceAmount_;
     targetToken_;
 
-    console.log("SwapManagerMock.findConverter", converter, maxTargetAmount);
+    console.log("SwapManagerMock.getConverter", converter, maxTargetAmount);
     return (converter, maxTargetAmount);
   }
 
@@ -105,5 +85,22 @@ contract SwapManagerMock is ISwapManager, ISwapConverter {
     console.log("SwapManagerMock.swap", targetAmountAfterSwap);
     lastSwapResultTargetAmount = targetAmountAfterSwap;
     return targetAmountAfterSwap;
+  }
+
+  function getApr18(
+    address sourceToken_,
+    uint sourceAmount_,
+    address targetToken_,
+    uint targetAmount_
+  ) external view override returns (int) {
+    sourceToken_;
+    sourceAmount_;
+    targetToken_;
+    targetAmount_;
+
+    console.log("apr18");
+    console.logInt(apr18);
+
+    return apr18;
   }
 }

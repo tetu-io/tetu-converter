@@ -11,7 +11,6 @@ import "../interfaces/ISwapConverter.sol";
 import "./AppErrors.sol";
 import "./AppDataTypes.sol";
 import "../interfaces/IPriceOracle.sol";
-import "hardhat/console.sol";
 import "../interfaces/ISimulateProvider.sol";
 import "../interfaces/ISwapSimulator.sol";
 import "../interfaces/IRequireAmountBySwapManagerCallback.sol";
@@ -79,77 +78,12 @@ contract SwapManager is ISwapManager, ISwapConverter, ISimulateProvider, ISwapSi
     address targetToken_
   ) external override returns (
     address converter,
-    uint maxTargetAmount,
-    int apr18
-  ) {
-    console.log("SwapManager.getConverter");
-    // simulate real swap of source amount to max target amount
-    try ISimulateProvider(address(this)).simulate(
-      address(this),
-      abi.encodeWithSelector(
-        ISwapSimulator.simulateSwap.selector,
-        sourceAmountApprover_,
-        sourceToken_,
-        sourceAmount_,
-        targetToken_
-      )
-    ) returns (bytes memory response) {
-      maxTargetAmount = abi.decode(response, (uint));
-      console.log("SwapManager.maxTargetAmount", maxTargetAmount);
-    } catch {
-      // we can have i.e. !PRICE error here
-      // it means, there is no way to make the conversion with acceptable price impact
-      console.log("SwapManager.!PRICE");
-      return (address(0), 0, 0);
-    }
-
-
-    if (maxTargetAmount != 0) {
-      converter = address(this);
-      console.log("SwapManager.1");
-      IPriceOracle priceOracle = IPriceOracle(controller.priceOracle());
-      console.log("SwapManager.2", priceOracle.getAssetPrice(targetToken_));
-      console.log("SwapManager.2", priceOracle.getAssetPrice(sourceToken_));
-
-      uint priceSource = priceOracle.getAssetPrice(sourceToken_);
-      require(priceSource != 0, AppErrors.ZERO_PRICE);
-
-      uint maxTargetAmountInSourceTokens = maxTargetAmount
-        * 10**IERC20Metadata(sourceToken_).decimals()
-        * priceOracle.getAssetPrice(targetToken_)
-        / priceSource
-        / 10**IERC20Metadata(targetToken_).decimals();
-      console.log("SwapManager.sourceAmount", sourceAmount_);
-      console.log("SwapManager.maxTargetAmount", maxTargetAmount);
-      console.log("SwapManager.IERC20Metadata(p_.sourceToken).decimals()", IERC20Metadata(sourceToken_).decimals());
-      console.log("SwapManager.priceOracle.getAssetPrice(p_.targetToken)", priceOracle.getAssetPrice(targetToken_));
-      console.log("SwapManager.priceOracle.getAssetPrice(p_.sourceToken)", priceOracle.getAssetPrice(sourceToken_));
-      console.log("SwapManager.IERC20Metadata(p_.targetToken).decimals()", IERC20Metadata(targetToken_).decimals());
-      console.log("SwapManager.maxTargetAmountInSourceTokens", maxTargetAmountInSourceTokens);
-
-      int loss = 2 * (int(sourceAmount_) - int(maxTargetAmountInSourceTokens));
-      apr18 = loss * APR_NUMERATOR / int(sourceAmount_);
-
-      console.log("Predicted loss");
-      console.logInt(loss);
-    }
-
-    return (converter, maxTargetAmount, apr18);
-  }
-
-
-  /// @notice Same as {getConverter} but it doesn't calculate APR
-  function findConverter(
-    address sourceAmountApprover_,
-    address sourceToken_,
-    uint sourceAmount_,
-    address targetToken_
-  ) external override returns (
-    address converter,
     uint maxTargetAmount
   ) {
-    console.log("SwapManager.findConverter", address(this));
-    // simulate real swap of source amount to max target amount
+    // Simulate real swap of source amount to max target amount
+    // We call SwapManager.simulateSwap() here as an external call
+    // and than revert all changes back
+    // We need additional try because !PRICE error can happen if a price impact is too high
     try ISimulateProvider(address(this)).simulate(
       address(this),
       abi.encodeWithSelector(
@@ -161,17 +95,41 @@ contract SwapManager is ISwapManager, ISwapConverter, ISimulateProvider, ISwapSi
       )
     ) returns (bytes memory response) {
       maxTargetAmount = abi.decode(response, (uint));
-      console.log("SwapManager.maxTargetAmount", maxTargetAmount);
     } catch {
-      // we can have i.e. !PRICE error here
+      // we can have i.e. !PRICE error (the price impact is too high)
       // it means, there is no way to make the conversion with acceptable price impact
-      console.log("SwapManager.!PRICE");
       return (address(0), 0);
     }
 
     return maxTargetAmount == 0
-      ? (converter, maxTargetAmount)
+      ? (address(0), 0)
       : (address(this), maxTargetAmount);
+  }
+
+  /// @notice Calculate APR using known {sourceToken_} and known {targetAmount_}
+  ///         as 2 * loss / sourceAmount
+  ///         loss - conversion loss, we use 2 multiplier to take into account losses for there and back conversions.
+  /// @param sourceAmount_ Source amount before conversion, in terms of {sourceToken_}
+  /// @param targetAmount_ Result of conversion. The amount is in terms of {targetToken_}
+  function getApr18(
+    address sourceToken_,
+    uint sourceAmount_,
+    address targetToken_,
+    uint targetAmount_
+  ) external view override returns (int) {
+    IPriceOracle priceOracle = IPriceOracle(controller.priceOracle());
+    uint priceSource = priceOracle.getAssetPrice(sourceToken_);
+    require(priceSource != 0, AppErrors.ZERO_PRICE);
+
+    uint maxTargetAmountInSourceTokens = targetAmount_
+      * 10**IERC20Metadata(sourceToken_).decimals()
+      * priceOracle.getAssetPrice(targetToken_)
+      / priceSource
+      / 10**IERC20Metadata(targetToken_).decimals();
+
+    // calculate result APR
+    // we need to multiple one-way-loss on to to get loss for there-and-back conversion
+    return 2 * (int(sourceAmount_) - int(maxTargetAmountInSourceTokens)) * APR_NUMERATOR / int(sourceAmount_);
   }
 
   ///////////////////////////////////////////////////////
@@ -223,7 +181,6 @@ contract SwapManager is ISwapManager, ISwapConverter, ISimulateProvider, ISwapSi
     address targetToken_
   ) external override returns (uint) {
     require(msg.sender == controller.swapManager(), AppErrors.ONLY_SWAP_MANAGER);
-    console.log("SwapManager.simulateSwap", address(this), msg.sender);
 
     IRequireAmountBySwapManagerCallback(controller.tetuConverter()).onRequireAmountBySwapManager(
       sourceAmountApprover_,
@@ -296,7 +253,6 @@ contract SwapManager is ISwapManager, ISwapConverter, ISimulateProvider, ISwapSi
     // generate code.
     targetContract;
     calldataPayload;
-    console.log("SwapManager.simulate");
 
     assembly {
       let internalCalldata := mload(0x40)

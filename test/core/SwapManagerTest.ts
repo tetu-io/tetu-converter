@@ -136,9 +136,7 @@ describe("SwapManager", () => {
       userBalanceAfter: BigNumber;
       converter: string;
       maxTargetAmount: BigNumber;
-      apr18: BigNumber;
       expectedMaxTargetAmount: BigNumber;
-      expectedApr18: BigNumber;
       gasUsed: BigNumber;
     }
     async function makeGetConverterTest(
@@ -187,16 +185,15 @@ describe("SwapManager", () => {
         userBalanceBefore,
         userBalanceAfter,
         converter: results.converter,
-        apr18: results.apr18,
         gasUsed,
         maxTargetAmount: results.maxTargetAmount,
         expectedMaxTargetAmount,
-        // we need to multiple one-side-conversion-loss on 2 to get loss for there and back conversion
-        expectedApr18: loss.mul(2).mul(Misc.WEI).div(sourceAmount)
       };
     }
     describe("Good paths", () => {
-      it("Should return right converter if price impact is zero", async () => {
+      it("Should return expected converter and not zero max target amount when price impact is 0", async () => {
+        const ret: string[] = [];
+        const expected: string[] = [];
         const tetuConverter = await controller.tetuConverter();
         for (const sourceToken of assets) {
           for (const targetToken of assets) {
@@ -220,53 +217,12 @@ describe("SwapManager", () => {
               targetToken
             );
 
-            expect(converter.converter).eq(swapManager.address)
-            expect(converter.apr18).eq(BigNumber.from('0'))
-          }
-        }
-      });
-      it("Should return right APR for all asset pairs", async () => {
-        // we try to use very high price impacts, so we need to avoid !PRICE exception in getConverter
-        await liquidator.setDisablePriceException(true);
-        const ret: string[] = [];
-        const expected: string[] = [];
-        const tetuConverter = await controller.tetuConverter();
-
-        for (const sourceToken of assets) {
-          for (const targetToken of assets) {
-            if (sourceToken === targetToken) continue;
-
-            const tokenInDecimals = await IMockERC20__factory.connect(sourceToken, user).decimals();
-            const sourceAmount = parseUnits('100', tokenInDecimals);
-            for (let priceImpactPercent = 0; priceImpactPercent < 3; priceImpactPercent++) {
-
-              await liquidator.setPriceImpact(BigNumber.from(priceImpactPercent).mul('1000')); // 1 %
-              await MockERC20__factory.connect(sourceToken, user).mint(user.address, sourceAmount);
-              await MockERC20__factory.connect(sourceToken, user).approve(tetuConverter, sourceAmount);
-              console.log(`User ${user.address} has approved ${sourceAmount.toString()} to ${tetuConverter}`);
-
-              const converter = await swapManager.callStatic.getConverter(
-                user.address,
-                sourceToken,
-                sourceAmount,
-                targetToken
-              );
-              // we need to multiple one-side-conversion-loss on 2 to get loss for there and back conversion
-              const loss = sourceAmount.mul(priceImpactPercent).div(100).mul(2);
-
-              ret.push([
-                converter.converter,
-                converter.apr18.toString()
-              ].join());
-              expected.push([
-                swapManager.address,
-                loss.mul(Misc.WEI).div(sourceAmount).toString()
-              ].join());
-            }
+            ret.push([converter.converter, converter.maxTargetAmount.eq(0)].join());
+            expected.push([swapManager.address, false].join());
           }
         }
 
-        expect(ret.join('\n')).eq(expected.join('\n'));
+        expect(ret.join("\n")).eq(expected.join("\n"));
       });
       describe("Convert USDC (price 1) to Matic (price 0.4), price impact is low", () => {
         it("Should return expected values", async () => {
@@ -275,13 +231,11 @@ describe("SwapManager", () => {
           const ret = [
             r.converter,
             r.maxTargetAmount,
-            r.apr18.toString()
           ].join();
 
           const expected = [
             swapManager.address,
             r.expectedMaxTargetAmount,
-            r.apr18
           ].join();
 
           expect(ret).eq(expected);
@@ -307,13 +261,11 @@ describe("SwapManager", () => {
           const ret = [
             r.converter,
             r.maxTargetAmount,
-            r.apr18.toString()
           ].join();
 
           const expected = [
             Misc.ZERO_ADDRESS,
             0,
-            0
           ].join();
 
           expect(ret).eq(expected);
@@ -339,134 +291,67 @@ describe("SwapManager", () => {
     });
   });
 
-  describe("findConverter", () => {
-    interface IMakeFindConverterTest {
-      userBalanceBefore: BigNumber;
-      userBalanceAfter: BigNumber;
-      converter: string;
-      maxTargetAmount: BigNumber;
-      expectedMaxTargetAmount: BigNumber;
-      expectedApr18: BigNumber;
-      gasUsed: BigNumber;
-    }
-    async function makeFindConverterTest(
-      priceImpactPercent: number
-    ): Promise<IMakeFindConverterTest> {
-      const sourceToken = usdc.address;
-      const targetToken = matic.address; // matic has price != 1
+  describe("getApr18", () => {
+    it("should return expected values", async () => {
+      // we need to multiple one-side-conversion-loss on 2 to get loss for there and back conversion
+      const sourceAmount = parseUnits("2", 18);
+      const targetAmount = parseUnits("1", 6);
+      const ret = await swapManager.getApr18(dai.address, sourceAmount, usdc.address, targetAmount);
+      const targetAmountInTermsSourceTokens = targetAmount
+        .mul($usdc)
+        .div($dai)
+        .mul(parseUnits("1", 18))
+        .div(parseUnits("1", 6));
+      const expectedApr18 = sourceAmount
+        .sub(targetAmountInTermsSourceTokens)
+        .mul(2)
+        .mul(Misc.WEI)
+        .div(sourceAmount);
+      expect(ret.eq(expectedApr18)).eq(true);
+    })
+    it("Should return right APR for all asset pairs", async () => {
+      // we try to use very high price impacts, so we need to avoid !PRICE exception in getConverter
+      await liquidator.setDisablePriceException(true);
+      const ret: string[] = [];
+      const expected: string[] = [];
       const tetuConverter = await controller.tetuConverter();
 
-      await liquidator.setPriceImpact(BigNumber.from(priceImpactPercent).mul('1000')); // 1 %
-      const tokenInDecimals = await IMockERC20__factory.connect(sourceToken, user).decimals();
-      const sourceAmount = parseUnits('100', tokenInDecimals);
+      for (const sourceToken of assets) {
+        for (const targetToken of assets) {
+          if (sourceToken === targetToken) continue;
 
-      await MockERC20__factory.connect(sourceToken, user).mint(user.address, sourceAmount);
-      await MockERC20__factory.connect(sourceToken, user).approve(tetuConverter, sourceAmount);
-      console.log(`User ${user.address} has approved ${sourceAmount.toString()} to ${tetuConverter}`);
+          const tokenInDecimals = await IMockERC20__factory.connect(sourceToken, user).decimals();
+          const sourceAmount = parseUnits('100', tokenInDecimals);
+          for (let priceImpactPercent = 0; priceImpactPercent < 3; priceImpactPercent++) {
 
-      const userBalanceBefore = await MockERC20__factory.connect(sourceToken, user).balanceOf(user.address);
-      const results = await swapManager.callStatic.findConverter(
-        user.address,
-        sourceToken,
-        sourceAmount,
-        targetToken
-      );
-      const gasUsed = await swapManager.estimateGas.findConverter(
-        user.address,
-        sourceToken,
-        sourceAmount,
-        targetToken
-      );
-      await swapManager.findConverter(
-        user.address,
-        sourceToken,
-        sourceAmount,
-        targetToken
-      );
-      const userBalanceAfter = await MockERC20__factory.connect(sourceToken, user).balanceOf(user.address);
+            await liquidator.setPriceImpact(BigNumber.from(priceImpactPercent).mul('1000')); // 1 %
+            await MockERC20__factory.connect(sourceToken, user).mint(user.address, sourceAmount);
+            await MockERC20__factory.connect(sourceToken, user).approve(tetuConverter, sourceAmount);
+            console.log(`User ${user.address} has approved ${sourceAmount.toString()} to ${tetuConverter}`);
 
-      const loss = sourceAmount.mul(priceImpactPercent).div(100); // one-side-conversion-loss
-      const expectedMaxTargetAmount = (sourceAmount.sub(loss))
-        .mul($usdc)
-        .div($matic)
-        .mul(parseUnits("1", 18)) // matic decimals
-        .div(parseUnits("1", 6)); // usdc decimals
-      return {
-        userBalanceBefore,
-        userBalanceAfter,
-        converter: results.converter,
-        gasUsed,
-        maxTargetAmount: results.maxTargetAmount,
-        expectedMaxTargetAmount,
-        // we need to multiple one-side-conversion-loss on 2 to get loss for there and back conversion
-        expectedApr18: loss.mul(2).mul(Misc.WEI).div(sourceAmount)
-      };
-    }
-    describe("Good paths", () => {
-      describe("Convert USDC (price 1) to Matic (price 0.4), price impact is low", () => {
-        it("Should return expected values", async () => {
-          const r = await makeFindConverterTest(1);
+            const r = await swapManager.callStatic.getConverter(
+              user.address,
+              sourceToken,
+              sourceAmount,
+              targetToken
+            );
+            const apr18 = await swapManager.getApr18(sourceToken, sourceAmount, targetToken, r.maxTargetAmount);
+            // we need to multiple one-side-conversion-loss on 2 to get loss for there and back conversion
+            const loss = sourceAmount.mul(priceImpactPercent).div(100).mul(2);
 
-          const ret = [
-            r.converter,
-            r.maxTargetAmount,
-          ].join();
+            ret.push([
+              r.converter,
+              apr18.toString()
+            ].join());
+            expected.push([
+              swapManager.address,
+              loss.mul(Misc.WEI).div(sourceAmount).toString()
+            ].join());
+          }
+        }
+      }
 
-          const expected = [
-            swapManager.address,
-            r.expectedMaxTargetAmount,
-          ].join();
-
-          expect(ret).eq(expected);
-        });
-        it("Should not change user balance", async () => {
-          const r = await makeFindConverterTest(1);
-          const ret = [
-            r.userBalanceBefore.eq(r.userBalanceAfter),
-            r.converter === Misc.ZERO_ADDRESS
-          ].join();
-          const expected = [true, false].join();
-          expect(ret).eq(expected);
-        });
-      });
-    });
-    describe("Bad paths", () => {
-      describe("price impact is high and !PRICE error is generated", () => {
-        it("Should return expected values", async () => {
-          const r = await makeFindConverterTest(
-            90 // (!)
-          );
-
-          const ret = [
-            r.converter,
-            r.maxTargetAmount,
-          ].join();
-
-          const expected = [
-            Misc.ZERO_ADDRESS,
-            0,
-          ].join();
-
-          expect(ret).eq(expected);
-        });
-        it("Should not change user balance", async () => {
-          const r = await makeFindConverterTest(90);
-          const ret = [
-            r.userBalanceBefore.eq(r.userBalanceAfter),
-            r.converter === Misc.ZERO_ADDRESS
-          ].join();
-          const expected = [true, true].join();
-          expect(ret).eq(expected);
-        });
-      });
-    });
-    describe("Gas estimation @skip-on-coverage", () => {
-      it("should return expected values", async () => {
-        const r = await makeFindConverterTest(1);
-        controlGasLimitsEx(r.gasUsed, GAS_FIND_SWAP_STRATEGY, (u, t) => {
-          expect(u).to.be.below(t);
-        });
-      });
+      expect(ret.join('\n')).eq(expected.join('\n'));
     });
   });
 
