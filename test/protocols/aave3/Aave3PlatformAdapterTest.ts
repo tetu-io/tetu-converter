@@ -223,6 +223,7 @@ describe("Aave3PlatformAdapterTest", () => {
       /* Set borrow cap equal almost to current total borrow value */
       setMinBorrowCap?: boolean;
       setZeroSupplyCap?: boolean;
+      setZeroBorrowCap?: boolean;
     }
 
     interface IPreparePlanResults {
@@ -277,10 +278,13 @@ describe("Aave3PlatformAdapterTest", () => {
         await Aave3ChangePricesUtils.setSupplyCap(deployer, collateralAsset);
       }
       if (badPathsParams?.setMinBorrowCap) {
-        await Aave3ChangePricesUtils.setMinBorrowCap(deployer, borrowAsset);
+        await Aave3ChangePricesUtils.setBorrowCap(deployer, borrowAsset);
       }
       if (badPathsParams?.setZeroSupplyCap) {
         await Aave3ChangePricesUtils.setSupplyCap(deployer, collateralAsset, BigNumber.from(0));
+      }
+      if (badPathsParams?.setZeroBorrowCap) {
+        await Aave3ChangePricesUtils.setBorrowCap(deployer, borrowAsset, BigNumber.from(0));
       }
       // get conversion plan
       const plan: IConversionPlan = await aavePlatformAdapter.getConversionPlan(
@@ -745,6 +749,23 @@ describe("Aave3PlatformAdapterTest", () => {
           ].join("\n");
           const expected = [true, true, true].join("\n");
           expect(ret).eq(expected);
+        });
+        it("should return expected borrowAmount when borrow cap is zero", async () => {
+          if (!await isPolygonForkInUse()) return;
+          const plan = await tryGetConversionPlan(
+            {setZeroBorrowCap: true},
+            MaticAddresses.DAI,
+            MaticAddresses.USDC,
+            "12345"
+          );
+          const dataProvider = await Aave3Helper.getAaveProtocolDataProvider(deployer);
+          const borrowData = await dataProvider.getReserveData(MaticAddresses.USDC);
+          // by default, maxAmountToBorrow = totalAToken - totalStableDebt - totalVariableDebt;
+          const expectedMaxAmountToBorrow = borrowData.totalAToken
+            .sub(borrowData.totalStableDebt)
+            .sub(borrowData.totalVariableDebt);
+          console.log(plan.maxAmountToBorrow.toString(), expectedMaxAmountToBorrow.toString());
+          expect(plan.maxAmountToBorrow.eq(expectedMaxAmountToBorrow)).eq(true);
         });
       });
     });

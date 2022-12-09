@@ -6,7 +6,7 @@ import {
   Controller,
   DebtMonitor__factory,
   DForceControllerMock, DForceCTokenMock,
-  DForcePoolAdapter,
+  DForcePoolAdapter, IDForceRewardDistributor__factory, IERC20__factory,
   IERC20Metadata__factory,
   IPoolAdapter__factory,
   ITokenAddressProvider,
@@ -1998,6 +1998,66 @@ describe("DForce unit tests, pool adapter", () => {
       ].join();
       const expected = [true, true].join();
       expect(ret).eq(expected);
+    });
+  });
+
+  describe("claimRewards", () => {
+    describe("Good paths", () => {
+      it("should return expected values", async () => {
+        if (!await isPolygonForkInUse()) return;
+        const receiver = ethers.Wallet.createRandom().address;
+        const comptroller = await DForceHelper.getController(deployer);
+        const rd = IDForceRewardDistributor__factory.connect(await comptroller.rewardDistributor(), deployer);
+        const rewardToken = await rd.rewardToken();
+
+        // make a borrow
+        const r = await makeBorrowTest(
+          MaticAddresses.DAI,
+          MaticAddresses.dForce_iDAI,
+          MaticAddresses.HOLDER_DAI,
+          MaticAddresses.USDC,
+          MaticAddresses.dForce_iUSDC,
+          "10000"
+        );
+        // wait a bit and check rewards
+        await TimeUtils.advanceNBlocks(100);
+
+        const balanceRewardsBefore = await IERC20__factory.connect(rewardToken, deployer).balanceOf(receiver);
+        const {rewardTokenOut, amountOut} = await r.init.dfPoolAdapterTC.callStatic.claimRewards(receiver);
+        await r.init.dfPoolAdapterTC.claimRewards(receiver);
+
+        // let's try to claim the rewards once more; now we should receive nothing
+        const secondAttempt = await r.init.dfPoolAdapterTC.callStatic.claimRewards(receiver);
+        const balanceRewardsAfter = await IERC20__factory.connect(rewardToken, deployer).balanceOf(receiver);
+
+        console.log("balanceRewardsBefore", balanceRewardsBefore);
+        console.log("balanceRewardsAfter", balanceRewardsAfter);
+        console.log("amountOut", amountOut);
+        console.log("rewardTokenOut", rewardTokenOut);
+
+        const ret = [
+          rewardTokenOut,
+          amountOut.gt(0),
+
+          // the amounts are not equal because callStatic.claimRewards gives a bit fewer values then next claimRewards
+          balanceRewardsAfter.gt(amountOut),
+          balanceRewardsAfter.sub(balanceRewardsBefore).eq(0),
+
+          secondAttempt.rewardTokenOut,
+          secondAttempt.amountOut.eq(0)
+        ].join();
+        const expected = [
+          rewardToken,
+          true,
+
+          true,
+          false,
+
+          rewardToken,
+          true
+        ].join();
+        expect(ret).eq(expected);
+      });
     });
   });
 //endregion Unit tests

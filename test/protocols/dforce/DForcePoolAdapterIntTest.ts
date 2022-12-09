@@ -824,49 +824,6 @@ describe("DForce integration tests, pool adapter", () => {
     });
   });
 
-  describe("claimRewards", () => {
-    describe("Good paths", () => {
-      it("should return expected values", async () => {
-        if (!await isPolygonForkInUse()) return;
-        const receiver = ethers.Wallet.createRandom().address;
-        const comptroller = await DForceHelper.getController(deployer);
-        const rd = IDForceRewardDistributor__factory.connect(await comptroller.rewardDistributor(), deployer);
-        const rewardToken = await rd.rewardToken();
-
-        // make a borrow
-        const r = await testBorrowDaiUsdc(100_000, undefined);
-        // wait a bit and check rewards
-        await TimeUtils.advanceNBlocks(100);
-
-        const balanceRewardsBefore = await IERC20__factory.connect(rewardToken, deployer).balanceOf(receiver);
-        const {rewardTokenOut, amountOut} = await r.prepareResults.dfPoolAdapterTC.callStatic.claimRewards(receiver);
-        await r.prepareResults.dfPoolAdapterTC.claimRewards(receiver);
-        const balanceRewardsAfter = await IERC20__factory.connect(rewardToken, deployer).balanceOf(receiver);
-
-        console.log("balanceRewardsBefore", balanceRewardsBefore);
-        console.log("balanceRewardsAfter", balanceRewardsAfter);
-        console.log("amountOut", amountOut);
-        console.log("rewardTokenOut", rewardTokenOut);
-
-        const ret = [
-          rewardTokenOut,
-          amountOut.gt(0),
-
-          // the amounts are not equal because callStatic.claimRewards gives a bit fewer values then next claimRewards
-          balanceRewardsAfter.gt(amountOut),
-          balanceRewardsAfter.sub(balanceRewardsBefore).eq(0)
-        ].join();
-        const expected = [
-          rewardToken,
-          true,
-
-          true,
-          false
-        ].join();
-        expect(ret).eq(expected);
-      });
-    });
-  });
 //endregion Unit tests
 
 });

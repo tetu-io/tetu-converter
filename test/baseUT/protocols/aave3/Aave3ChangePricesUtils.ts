@@ -168,9 +168,10 @@ export class Aave3ChangePricesUtils {
     console.log("successs");
   }
 
-  public static async setMinBorrowCap(
+  public static async setBorrowCap(
     signer: SignerWithAddress,
-    reserve: string
+    reserve: string,
+    borrowCapValue?: BigNumber
   ) {
     const aavePoolAdmin = await DeployerUtils.startImpersonate(
       MaticAddresses.AAVE_V3_POOL_OWNER
@@ -188,9 +189,11 @@ export class Aave3ChangePricesUtils {
 
     const dp = await Aave3Helper.getAaveProtocolDataProvider(signer);
     const r = await dp.getReserveData(reserve);
-    const capValue = r.totalVariableDebt.add(r.totalStableDebt).div(
-      parseUnits("1", await IERC20Metadata__factory.connect(reserve, signer).decimals())
-    );
+    const capValue = borrowCapValue
+      ? borrowCapValue
+      : r.totalVariableDebt.add(r.totalStableDebt).div(
+        parseUnits("1", await IERC20Metadata__factory.connect(reserve, signer).decimals())
+      );
 
     console.log("setBorrowCap", capValue);
     await poolConfiguratorAsAdmin.setBorrowCap(reserve, capValue);
