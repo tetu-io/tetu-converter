@@ -6,7 +6,7 @@ import {
   IDForceController,
   IDForceCToken,
   IDForceCToken__factory,
-  DForcePlatformAdapter__factory, DForceAprLibFacade, BorrowManager__factory, DForcePlatformAdapter,
+  DForcePlatformAdapter__factory, DForceAprLibFacade, BorrowManager__factory, DForcePlatformAdapter, Controller,
 } from "../../../typechain";
 import {expect} from "chai";
 import {AdaptersHelper} from "../../baseUT/helpers/AdaptersHelper";
@@ -175,6 +175,7 @@ describe("DForce integration tests, platform adapter", () => {
   }
 
   async function preparePlan(
+    controller: Controller,
     collateralAsset: string,
     collateralAmount: BigNumber,
     borrowAsset: string,
@@ -182,10 +183,6 @@ describe("DForce integration tests, platform adapter", () => {
     borrowCToken: string,
     badPathsParams?: IGetConversionPlanBadPaths
   ) : Promise<IPreparePlanResults> {
-    const controller = await TetuConverterApp.createController(
-      deployer,
-      {tetuLiquidatorAddress: MaticAddresses.TETU_LIQUIDATOR}
-    );
     const countBlocks = 10;
     const healthFactor2 = 400;
 
@@ -304,6 +301,7 @@ describe("DForce integration tests, platform adapter", () => {
    * as directly calculated one using DForceAprLibFacade
    */
   async function makeTestComparePlanWithDirectCalculations(
+    controller: Controller,
     collateralAsset: string,
     collateralAmount: BigNumber,
     borrowAsset: string,
@@ -312,6 +310,7 @@ describe("DForce integration tests, platform adapter", () => {
     badPathsParams?: IGetConversionPlanBadPaths
   ) : Promise<{sret: string, sexpected: string}> {
     const d = await preparePlan(
+      controller,
       collateralAsset,
       collateralAmount,
       borrowAsset,
@@ -496,6 +495,13 @@ describe("DForce integration tests, platform adapter", () => {
   });
 
   describe("getConversionPlan", () => {
+    let controller: Controller;
+    before(async function () {
+      controller = await TetuConverterApp.createController(
+        deployer,
+        {tetuLiquidatorAddress: MaticAddresses.TETU_LIQUIDATOR}
+      );
+    });
     describe("Good paths", () => {
       describe("DAI : usdc", () => {
         it("should return expected values", async () => {
@@ -508,6 +514,7 @@ describe("DForce integration tests, platform adapter", () => {
 
           const collateralAmount = getBigNumberFrom(1000, 18);
           const ret = await makeTestComparePlanWithDirectCalculations(
+            controller,
             collateralAsset,
             collateralAmount,
             borrowAsset,
@@ -531,6 +538,7 @@ describe("DForce integration tests, platform adapter", () => {
 
           const collateralAmount = getBigNumberFrom(100, 6);
           const ret = await makeTestComparePlanWithDirectCalculations(
+            controller,
             collateralAsset,
             collateralAmount,
             borrowAsset,
@@ -554,6 +562,7 @@ describe("DForce integration tests, platform adapter", () => {
 
           const collateralAmount = parseUnits("100", 18);
           const ret = await makeTestComparePlanWithDirectCalculations(
+            controller,
             collateralAsset,
             collateralAmount,
             borrowAsset,
@@ -570,6 +579,7 @@ describe("DForce integration tests, platform adapter", () => {
           if (!await isPolygonForkInUse()) return;
 
           const r = await preparePlan(
+            controller,
             MaticAddresses.DAI,
             parseUnits("1", 28),
             MaticAddresses.WMATIC,
@@ -587,6 +597,7 @@ describe("DForce integration tests, platform adapter", () => {
           if (!await isPolygonForkInUse()) return;
 
           const r = await preparePlan(
+            controller,
             MaticAddresses.DAI,
             parseUnits("1", 18),
             MaticAddresses.WMATIC,
@@ -604,6 +615,7 @@ describe("DForce integration tests, platform adapter", () => {
           if (!await isPolygonForkInUse()) return;
 
           const r = await preparePlan(
+            controller,
             MaticAddresses.DAI,
             parseUnits("1", 18),
             MaticAddresses.WMATIC,
@@ -622,6 +634,7 @@ describe("DForce integration tests, platform adapter", () => {
           if (!await isPolygonForkInUse()) return;
 
           const r = await preparePlan(
+            controller,
             MaticAddresses.DAI,
             parseUnits("1", 18),
             MaticAddresses.WMATIC,
@@ -640,6 +653,7 @@ describe("DForce integration tests, platform adapter", () => {
           if (!await isPolygonForkInUse()) return;
 
           const r = await preparePlan(
+            controller,
             MaticAddresses.DAI,
             parseUnits("1", 18),
             MaticAddresses.WMATIC,
@@ -655,6 +669,7 @@ describe("DForce integration tests, platform adapter", () => {
           if (!await isPolygonForkInUse()) return;
 
           const r = await preparePlan(
+            controller,
             MaticAddresses.DAI,
             parseUnits("1", 18),
             MaticAddresses.WMATIC,
@@ -669,10 +684,6 @@ describe("DForce integration tests, platform adapter", () => {
       describe("Check gas limit", () => {
         it("should return expected values @skip-on-coverage", async () => {
           if (!await isPolygonForkInUse()) return;
-          const controller = await TetuConverterApp.createController(
-            deployer,
-            {tetuLiquidatorAddress: MaticAddresses.TETU_LIQUIDATOR}
-          );
 
           const comptroller = await DForceHelper.getController(deployer);
           const dForcePlatformAdapter = await AdaptersHelper.createDForcePlatformAdapter(
@@ -707,6 +718,7 @@ describe("DForce integration tests, platform adapter", () => {
         collateralAmount: BigNumber = parseUnits("1000", 18)
       ) : Promise<IConversionPlan> {
         return (await preparePlan(
+          controller,
           collateralAsset,
           collateralAmount,
           borrowAsset,
@@ -1012,6 +1024,13 @@ describe("DForce integration tests, platform adapter", () => {
   });
 
   describe("initializePoolAdapter", () => {
+    let controller: Controller;
+    before(async function () {
+      controller = await TetuConverterApp.createController(
+        deployer,
+        {tetuLiquidatorAddress: MaticAddresses.TETU_LIQUIDATOR}
+      );
+    });
     interface IInitializePoolAdapterBadPaths {
       useWrongConverter?: boolean;
       wrongCallerOfInitializePoolAdapter?: boolean;
@@ -1023,12 +1042,7 @@ describe("DForce integration tests, platform adapter", () => {
       const collateralAsset = MaticAddresses.DAI;
       const borrowAsset = MaticAddresses.USDC;
 
-      const controller = await TetuConverterApp.createController(
-        deployer,
-        {tetuLiquidatorAddress: MaticAddresses.TETU_LIQUIDATOR}
-      );
       const borrowManager = BorrowManager__factory.connect(await controller.borrowManager(), deployer);
-
       const converterNormal = await AdaptersHelper.createDForcePoolAdapter(deployer);
 
       const comptroller = await DForceHelper.getController(deployer);
@@ -1105,11 +1119,14 @@ describe("DForce integration tests, platform adapter", () => {
   });
 
   describe("registerCTokens", () => {
+    let controller: Controller;
+    before(async function () {
+      controller = await TetuConverterApp.createController(deployer);
+    });
     describe("Good paths", () => {
       it("should return expected values", async () => {
         if (!await isPolygonForkInUse()) return;
 
-        const controller = await TetuConverterApp.createController(deployer);
         const platformAdapter = await AdaptersHelper.createDForcePlatformAdapter(
           deployer,
           controller.address,
@@ -1143,7 +1160,6 @@ describe("DForce integration tests, platform adapter", () => {
         it("should revert", async () => {
           if (!await isPolygonForkInUse()) return;
 
-          const controller = await TetuConverterApp.createController(deployer);
           const platformAdapter = await AdaptersHelper.createDForcePlatformAdapter(
             deployer,
             controller.address,
@@ -1166,7 +1182,6 @@ describe("DForce integration tests, platform adapter", () => {
         it("should revert", async () => {
           if (!await isPolygonForkInUse()) return;
 
-          const controller = await TetuConverterApp.createController(deployer);
           const platformAdapter = await AdaptersHelper.createDForcePlatformAdapter(
             deployer,
             controller.address,

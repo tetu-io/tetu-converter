@@ -13,7 +13,10 @@ import {BalanceUtils} from "../../baseUT/utils/BalanceUtils";
 import {SharedRepayToRebalanceUtils} from "../../baseUT/protocols/shared/sharedRepayToRebalanceUtils";
 import {Misc} from "../../../scripts/utils/Misc";
 
-describe("Aave3LiquidationTest", () => {
+/**
+ * These tests allow to play with liquidation and see how the app works if a liquidation happens
+ */
+describe.skip("Aave3LiquidationTest - simulate liquidation", () => {
 //region Constants
   const collateralAsset = MaticAddresses.DAI;
   const collateralHolder = MaticAddresses.HOLDER_DAI;

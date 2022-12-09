@@ -2,7 +2,7 @@ import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import {ethers} from "hardhat";
 import {TimeUtils} from "../../../scripts/utils/TimeUtils";
 import {
-  BorrowManager__factory,
+  BorrowManager__factory, Controller,
   HfAprLibFacade, HfPlatformAdapter, HfPlatformAdapter__factory, IDForceCToken__factory,
   IERC20Metadata__factory, IHfComptroller, IHfCToken,
   IHfCToken__factory
@@ -35,6 +35,7 @@ import {
   GAS_LIMIT_DFORCE_GET_CONVERSION_PLAN,
   GAS_LIMIT_HUNDRED_FINANCE_GET_CONVERSION_PLAN
 } from "../../baseUT/GasLimit";
+import {colorNameTag} from "hardhat-tracer/dist/src/colors";
 
 describe("Hundred finance, platform adapter", () => {
 //region Global vars for all tests
@@ -141,6 +142,7 @@ describe("Hundred finance, platform adapter", () => {
   }
 
   async function preparePlan(
+    controller: Controller,
     collateralAsset: string,
     collateralAmount: BigNumber,
     borrowAsset: string,
@@ -148,10 +150,6 @@ describe("Hundred finance, platform adapter", () => {
     borrowCToken: string,
     badPathsParams?: IGetConversionPlanBadPaths
   ) : Promise<IPreparePlanResults> {
-    const controller = await TetuConverterApp.createController(
-      deployer,
-      {tetuLiquidatorAddress: MaticAddresses.TETU_LIQUIDATOR}
-    );
     const templateAdapterNormalStub = ethers.Wallet.createRandom();
     const countBlocks = 10;
     const healthFactor2 = 400;
@@ -233,6 +231,7 @@ describe("Hundred finance, platform adapter", () => {
   }
 
   async function makeTestComparePlanWithDirectCalculations(
+    controller: Controller,
     collateralAsset: string,
     collateralAmount: BigNumber,
     borrowAsset: string,
@@ -241,6 +240,7 @@ describe("Hundred finance, platform adapter", () => {
     badPathsParams?: IGetConversionPlanBadPaths
   ) : Promise<{sret: string, sexpected: string}> {
     const d: IPreparePlanResults = await preparePlan(
+      controller,
       collateralAsset,
       collateralAmount,
       borrowAsset,
@@ -406,6 +406,12 @@ describe("Hundred finance, platform adapter", () => {
   });
 
   describe("getConversionPlan", () => {
+    let controller: Controller;
+    before(async function () {
+      controller = await TetuConverterApp.createController(deployer,
+        {tetuLiquidatorAddress: MaticAddresses.TETU_LIQUIDATOR}
+      );
+    });
     describe("Good paths", () => {
       describe("DAI : usdc", () => {
         it("should return expected values", async () => {
@@ -419,6 +425,7 @@ describe("Hundred finance, platform adapter", () => {
           const borrowCToken = MaticAddresses.hUSDC;
 
           const r = await makeTestComparePlanWithDirectCalculations(
+            controller,
             collateralAsset,
             collateralAmount,
             borrowAsset,
@@ -441,6 +448,7 @@ describe("Hundred finance, platform adapter", () => {
           const borrowCToken = MaticAddresses.hUSDC;
 
           const r = await makeTestComparePlanWithDirectCalculations(
+            controller,
             collateralAsset,
             collateralAmount,
             borrowAsset,
@@ -464,6 +472,7 @@ describe("Hundred finance, platform adapter", () => {
           const borrowCToken = MaticAddresses.hETH;
 
           const r = await makeTestComparePlanWithDirectCalculations(
+            controller,
             collateralAsset,
             collateralAmount,
             borrowAsset,
@@ -480,6 +489,7 @@ describe("Hundred finance, platform adapter", () => {
           if (!await isPolygonForkInUse()) return;
 
           const r = await preparePlan(
+            controller,
             MaticAddresses.DAI,
             parseUnits("1", 28),
             MaticAddresses.WMATIC,
@@ -497,6 +507,7 @@ describe("Hundred finance, platform adapter", () => {
           if (!await isPolygonForkInUse()) return;
 
           const r = await preparePlan(
+            controller,
             MaticAddresses.DAI,
             parseUnits("1", 18),
             MaticAddresses.WMATIC,
@@ -514,6 +525,7 @@ describe("Hundred finance, platform adapter", () => {
           if (!await isPolygonForkInUse()) return;
 
           const r = await preparePlan(
+            controller,
             MaticAddresses.DAI,
             parseUnits("1", 18),
             MaticAddresses.WMATIC,
@@ -534,6 +546,7 @@ describe("Hundred finance, platform adapter", () => {
           if (!await isPolygonForkInUse()) return;
 
           const r = await preparePlan(
+            controller,
             MaticAddresses.DAI,
             parseUnits("1", 18),
             MaticAddresses.WMATIC,
@@ -547,10 +560,6 @@ describe("Hundred finance, platform adapter", () => {
       describe("Check gas limit", () => {
         it("should return expected values @skip-on-coverage", async () => {
           if (!await isPolygonForkInUse()) return;
-          const controller = await TetuConverterApp.createController(
-            deployer,
-            {tetuLiquidatorAddress: MaticAddresses.TETU_LIQUIDATOR}
-          );
           const hfPlatformAdapter = await AdaptersHelper.createHundredFinancePlatformAdapter(
             deployer,
             controller.address,
@@ -583,6 +592,7 @@ describe("Hundred finance, platform adapter", () => {
         collateralAmount: BigNumber = getBigNumberFrom(1000, 18)
       ) : Promise<IConversionPlan> {
         return (await preparePlan(
+          controller,
           collateralAsset,
           collateralAmount,
           borrowAsset,
@@ -799,6 +809,12 @@ describe("Hundred finance, platform adapter", () => {
   });
 
   describe("initializePoolAdapter", () => {
+    let controller: Controller;
+    before(async function () {
+      controller = await TetuConverterApp.createController(deployer,
+        {tetuLiquidatorAddress: MaticAddresses.TETU_LIQUIDATOR}
+      );
+    });
     interface IInitializePoolAdapterBadPaths {
       useWrongConverter?: boolean;
       wrongCallerOfInitializePoolAdapter?: boolean;
@@ -809,11 +825,6 @@ describe("Hundred finance, platform adapter", () => {
       const user = ethers.Wallet.createRandom().address;
       const collateralAsset = MaticAddresses.DAI;
       const borrowAsset = MaticAddresses.USDC;
-
-      const controller = await TetuConverterApp.createController(
-        deployer,
-        {tetuLiquidatorAddress: MaticAddresses.TETU_LIQUIDATOR}
-      );
       const borrowManager = BorrowManager__factory.connect(await controller.borrowManager(), deployer);
       const converterNormal = await AdaptersHelper.createHundredFinancePoolAdapter(deployer);
 

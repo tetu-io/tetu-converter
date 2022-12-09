@@ -12,7 +12,7 @@ import {AaveTwoHelper, IAaveTwoReserveInfo} from "../../../scripts/integration/h
 import {AprUtils, COUNT_BLOCKS_PER_DAY} from "../../baseUT/utils/aprUtils";
 import {
   AaveTwoPlatformAdapter,
-  AaveTwoPlatformAdapter__factory,
+  AaveTwoPlatformAdapter__factory, Controller,
   IAaveTwoPool,
   IAaveTwoProtocolDataProvider,
   IERC20Metadata__factory
@@ -183,6 +183,12 @@ describe("AaveTwoPlatformAdapterTest", () => {
   });
 
   describe("getConversionPlan", () => {
+    let controller: Controller;
+    before(async function () {
+      controller = await TetuConverterApp.createController(deployer,
+        {tetuLiquidatorAddress: MaticAddresses.TETU_LIQUIDATOR}
+      );
+    });
     interface IGetConversionPlanBadPaths {
       zeroCollateralAsset?: boolean;
       zeroBorrowAsset?: boolean;
@@ -212,10 +218,6 @@ describe("AaveTwoPlatformAdapterTest", () => {
       countBlocks: number = 10,
       badPathsParams?: IGetConversionPlanBadPaths
     ) : Promise<IPreparePlanResults> {
-      const controller = await TetuConverterApp.createController(
-        deployer,
-        {tetuLiquidatorAddress: MaticAddresses.TETU_LIQUIDATOR}
-      );
       const templateAdapterNormalStub = ethers.Wallet.createRandom();
       const healthFactor2 = 200;
 
@@ -437,10 +439,6 @@ describe("AaveTwoPlatformAdapterTest", () => {
       describe("Check gas limit", () => {
         it("should return expected values @skip-on-coverage", async () => {
           if (!await isPolygonForkInUse()) return;
-          const controller = await TetuConverterApp.createController(
-            deployer,
-            {tetuLiquidatorAddress: MaticAddresses.TETU_LIQUIDATOR}
-          );
 
           const aavePlatformAdapter = await AdaptersHelper.createAaveTwoPlatformAdapter(
             deployer,
@@ -652,6 +650,12 @@ describe("AaveTwoPlatformAdapterTest", () => {
   });
 
   describe("initializePoolAdapter", () => {
+    let controller: Controller;
+    before(async function () {
+      controller = await TetuConverterApp.createController(deployer,
+        {tetuLiquidatorAddress: MaticAddresses.TETU_LIQUIDATOR}
+      );
+    });
     interface IInitializePoolAdapterBadPaths {
       useWrongConverter?: boolean;
       wrongCallerOfInitializePoolAdapter?: boolean;
@@ -662,12 +666,6 @@ describe("AaveTwoPlatformAdapterTest", () => {
       const user = ethers.Wallet.createRandom().address;
       const collateralAsset = (await MocksHelper.createMockedCToken(deployer)).address;
       const borrowAsset = (await MocksHelper.createMockedCToken(deployer)).address;
-
-      const controller = await TetuConverterApp.createController(
-        deployer,
-        {tetuLiquidatorAddress: MaticAddresses.TETU_LIQUIDATOR}
-      );
-
       const converterNormal = await AdaptersHelper.createAaveTwoPoolAdapter(deployer);
 
       const aavePool = await AaveTwoHelper.getAavePool(deployer);

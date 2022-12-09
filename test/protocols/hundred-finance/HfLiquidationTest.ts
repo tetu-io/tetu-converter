@@ -10,7 +10,10 @@ import {
   IPrepareToLiquidationResults
 } from "../../baseUT/protocols/hundred-finance/HundredFinanceTestUtils";
 
-describe("HfLiquidationTest", () => {
+/**
+ * These tests allow to play with liquidation and see how the app works if a liquidation happens
+ */
+describe("HfLiquidationTest - simulate liquidation", () => {
 //region Constants
   const collateralAsset = MaticAddresses.USDC;
   const collateralHolder = MaticAddresses.HOLDER_USDC;

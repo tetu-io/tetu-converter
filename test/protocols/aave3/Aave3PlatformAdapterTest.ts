@@ -3,7 +3,7 @@ import hre, {ethers} from "hardhat";
 import {TimeUtils} from "../../../scripts/utils/TimeUtils";
 import {
   Aave3PlatformAdapter,
-  Aave3PlatformAdapter__factory, BorrowManager__factory, IAavePool,
+  Aave3PlatformAdapter__factory, BorrowManager__factory, Controller, IAavePool,
   IAaveProtocolDataProvider, IERC20Metadata__factory
 } from "../../../typechain";
 import {expect} from "chai";
@@ -202,6 +202,12 @@ describe("Aave3PlatformAdapterTest", () => {
   });
 
   describe("getConversionPlan", () => {
+    let controller: Controller;
+    before(async function () {
+      controller = await TetuConverterApp.createController(deployer,
+        {tetuLiquidatorAddress: MaticAddresses.TETU_LIQUIDATOR}
+      );
+    });
     interface IGetConversionPlanBadPaths {
       zeroCollateralAsset?: boolean;
       zeroBorrowAsset?: boolean;
@@ -240,9 +246,6 @@ describe("Aave3PlatformAdapterTest", () => {
       countBlocks: number = 10,
       badPathsParams?: IGetConversionPlanBadPaths
     ) : Promise<IPreparePlanResults> {
-      const controller = await TetuConverterApp.createController(deployer,
-        {tetuLiquidatorAddress: MaticAddresses.TETU_LIQUIDATOR}
-      );
       const h = new Aave3Helper(deployer);
       const aavePool = await Aave3Helper.getAavePool(deployer);
       const aavePlatformAdapter = await AdaptersHelper.createAave3PlatformAdapter(
@@ -558,9 +561,6 @@ describe("Aave3PlatformAdapterTest", () => {
       describe("Check gas limit", () => {
         it("should return expected values @skip-on-coverage", async () => {
           if (!await isPolygonForkInUse()) return;
-          const controller = await TetuConverterApp.createController(deployer,
-            {tetuLiquidatorAddress: MaticAddresses.TETU_LIQUIDATOR}
-          );
           const aavePlatformAdapter = await AdaptersHelper.createAave3PlatformAdapter(
             deployer,
             controller.address,
@@ -835,6 +835,10 @@ describe("Aave3PlatformAdapterTest", () => {
   });
 
   describe("initializePoolAdapter", () => {
+    let controller: Controller;
+    before(async function () {
+      controller = await TetuConverterApp.createController(deployer);
+    });
     interface IInitializePoolAdapterBadPaths {
       useWrongConverter?: boolean;
       wrongCallerOfInitializePoolAdapter?: boolean;
@@ -847,7 +851,6 @@ describe("Aave3PlatformAdapterTest", () => {
       const collateralAsset = (await MocksHelper.createMockedCToken(deployer)).address;
       const borrowAsset = (await MocksHelper.createMockedCToken(deployer)).address;
 
-      const controller = await TetuConverterApp.createController(deployer);
       const borrowManager = BorrowManager__factory.connect(
         await controller.borrowManager(),
         deployer
