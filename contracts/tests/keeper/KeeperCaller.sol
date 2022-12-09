@@ -28,6 +28,10 @@ contract KeeperCaller is IOps {
     return payable(address(this));
   }
 
+  function taskTreasury() external view override returns (address) {
+    return address(this);
+  }
+
   function callChecker() external {
     console.log("KeeperCaller.callChecker", address(keeperChecker));
     (

@@ -269,7 +269,7 @@ describe("CompareAprBorrowRepayTest @skip-on-coverage", () => {
 //endregion Test impl
 
 //region Unit tests
-  describe("Compare APR", () => {
+  describe.skip("Compare APR", () => {
     it("generate file compareApr", async () => {
       if (!await isPolygonForkInUse()) return;
 

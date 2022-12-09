@@ -68,6 +68,7 @@ contract SwapManager is ISwapManager, ISwapConverter, ISimulateProvider, ISwapSi
   ///      because to simulate real swap the function should be writable.
   /// @param sourceAmountApprover_ A contract which has approved {sourceAmount_} to TetuConverter
   /// @param sourceAmount_ Amount in terms of {sourceToken_} to be converter to {targetToken_}
+  ///                      This amount must be approved by {sourceAmountApprover_} to TetuConverter before the call
   /// @return converter Address of ISwapConverter
   ///         If SwapManager cannot find a conversion way,
   ///         it returns converter == 0 (in the same way as ITetuConverter)
@@ -80,6 +81,8 @@ contract SwapManager is ISwapManager, ISwapConverter, ISimulateProvider, ISwapSi
     address converter,
     uint maxTargetAmount
   ) {
+    // there are no restrictions for the msg.sender
+
     // Simulate real swap of source amount to max target amount
     // We call SwapManager.simulateSwap() here as an external call
     // and than revert all changes back
@@ -151,6 +154,7 @@ contract SwapManager is ISwapManager, ISwapConverter, ISimulateProvider, ISwapSi
     address targetToken_,
     address receiver_
   ) override external returns (uint outputAmount) {
+    // there are no restrictions for the msg.sender
     uint targetTokenBalanceBefore = IERC20(targetToken_).balanceOf(address(this));
 
     ITetuLiquidator tetuLiquidator = ITetuLiquidator(controller.tetuLiquidator());
@@ -219,14 +223,16 @@ contract SwapManager is ISwapManager, ISwapConverter, ISimulateProvider, ISwapSi
     address targetContract,
     bytes memory calldataPayload
   ) public {
+    // there are no restrictions for the msg.sender
+
     assembly {
       let success := delegatecall(
-      gas(),
-      targetContract,
-      add(calldataPayload, 0x20),
-      mload(calldataPayload),
-      0,
-      0
+        gas(),
+        targetContract,
+        add(calldataPayload, 0x20),
+        mload(calldataPayload),
+        0,
+        0
       )
 
       mstore(0x00, success)
@@ -248,6 +254,8 @@ contract SwapManager is ISwapManager, ISwapConverter, ISimulateProvider, ISwapSi
     address targetContract,
     bytes calldata calldataPayload
   ) external override returns (bytes memory response) {
+    // there are no restrictions for the msg.sender
+
     // Suppress compiler warnings about not using parameters, while allowing
     // parameters to keep names for documentation purposes. This does not
     // generate code.
@@ -264,9 +272,9 @@ contract SwapManager is ISwapManager, ISwapConverter, ISimulateProvider, ISwapSi
     // 250 bytes of code and 300 gas at runtime over the
     // `abi.encodeWithSelector` builtin.
       calldatacopy(
-      add(internalCalldata, 0x04),
-      0x04,
-      sub(calldatasize(), 0x04)
+        add(internalCalldata, 0x04),
+        0x04,
+        sub(calldatasize(), 0x04)
       )
 
     // `pop` is required here by the compiler, as top level expressions
@@ -274,18 +282,18 @@ contract SwapManager is ISwapManager, ISwapConverter, ISimulateProvider, ISwapSi
     // returns a 0 or 1 value indicated whether or not it reverted, but
     // since we know it will always revert, we can safely ignore it.
       pop(call(
-      gas(),
-      address(),
-      0,
-      internalCalldata,
-      calldatasize(),
-      // The `simulateAndRevert` call always reverts, and instead
-      // encodes whether or not it was successful in the return data.
-      // The first 32-byte word of the return data contains the
-      // `success` value, so write it to memory address 0x00 (which is
-      // reserved Solidity scratch space and OK to use).
-      0x00,
-      0x20
+        gas(),
+        address(),
+        0,
+        internalCalldata,
+        calldatasize(),
+        // The `simulateAndRevert` call always reverts, and instead
+        // encodes whether or not it was successful in the return data.
+        // The first 32-byte word of the return data contains the
+        // `success` value, so write it to memory address 0x00 (which is
+        // reserved Solidity scratch space and OK to use).
+        0x00,
+        0x20
       ))
 
 

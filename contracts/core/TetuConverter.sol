@@ -684,7 +684,6 @@ contract TetuConverter is ITetuConverter, IKeeperCallback, IRequireAmountBySwapM
     uint sourceAmount_
   ) external override {
     address swapManager = controller.swapManager();
-
     require(swapManager == msg.sender, AppErrors.ONLY_SWAP_MANAGER);
 
     if (sourceAmountApprover_ == address(this)) {

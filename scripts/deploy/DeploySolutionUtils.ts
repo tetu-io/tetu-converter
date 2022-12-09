@@ -11,8 +11,6 @@ import {appendFileSync} from "fs";
 import {ethers, network} from "hardhat";
 import {Misc} from "../utils/Misc";
 import {MaticAddresses} from "../addresses/MaticAddresses";
-import {DeployerUtils} from "../utils/DeployerUtils";
-import {MocksHelper} from "../../test/baseUT/helpers/MocksHelper";
 
 //region Data types
 export interface IControllerSetupParams {
@@ -83,6 +81,9 @@ export class DeploySolutionUtils {
     const borrowManagerSetupParams: IBorrowManagerSetupParams = {
       rewardsFactor: Misc.WEI.div(2) // 0.5e18
     };
+    // https://docs.gelato.network/developer-services/automate/contract-addresses#polygon-matic
+    // Polygon / Matic, Automate
+    const gelatoOpsReady = "0x527a819db1eb0e34426297b03bae11F2f8B3A19E";
 
     const targetHealthFactorsAssets = [
       MaticAddresses.USDC,
@@ -166,7 +167,6 @@ export class DeploySolutionUtils {
       // MaticAddresses.hLINK,
       // MaticAddresses.hFRAX,
     ];
-    const hundredFinancePriceOracle = MaticAddresses.HUNDRED_FINANCE_PRICE_ORACLE;
     const hundredFinancePairs = DeploySolutionUtils.generateAssetPairs([
       MaticAddresses.USDC,
       MaticAddresses.USDT,
@@ -178,15 +178,13 @@ export class DeploySolutionUtils {
 
     ///////////////////////////////////////////////////////////////////////////////////////////////////
 
-    // TODO: deploy KeeperCaller mock as replacement for gelato
-    // TODO: it allows us to test keeper
-    const gelatoOpsReady = await MocksHelper.createKeeperCaller(signer);
+
 
     console.log("Deploy contracts");
     // Deploy all core contracts
     const deployCoreResults = await DeploySolutionUtils.deployCoreContracts(
       signer,
-      gelatoOpsReady.address,
+      gelatoOpsReady,
       tetuLiquidatorAddress,
       controllerSetupParams,
       borrowManagerSetupParams
@@ -305,6 +303,7 @@ export class DeploySolutionUtils {
     const debtMonitor = await CoreContractsHelper.createDebtMonitor(deployer, controller.address);
     const tetuConverter = await CoreContractsHelper.createTetuConverter(deployer, controller.address);
     const swapManager = await CoreContractsHelper.createSwapManager(deployer, controller);
+    const priceOracle = await CoreContractsHelper.createPriceOracle(deployer, controller);
     const keeper = await CoreContractsHelper.createKeeper(deployer, controller, gelatoOpsReady);
 
     await RunHelper.runAndWait(
@@ -320,6 +319,7 @@ export class DeploySolutionUtils {
         keeper.address,
         tetuLiquidator,
         swapManager.address,
+        priceOracle.address,
         {gasLimit: GAS_DEPLOY_LIMIT}
       )
     );

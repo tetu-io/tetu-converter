@@ -4,6 +4,7 @@ pragma solidity 0.8.4;
 import "../../openzeppelin/SafeERC20.sol";
 interface IOps {
     function gelato() external view returns (address payable);
+    function taskTreasury() external view returns (address);
 }
 
 abstract contract OpsReady {

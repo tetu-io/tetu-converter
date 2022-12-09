@@ -3,8 +3,6 @@ import {ethers} from "hardhat";
 import {TimeUtils} from "../../../scripts/utils/TimeUtils";
 import {
   IDForceCToken__factory,
-  IDForceRewardDistributor__factory,
-  IERC20__factory,
   IERC20Metadata__factory,
   IPoolAdapter__factory,
 } from "../../../typechain";
@@ -16,21 +14,10 @@ import {isPolygonForkInUse} from "../../baseUT/utils/NetworkUtils";
 import {BalanceUtils, IUserBalances} from "../../baseUT/utils/BalanceUtils";
 import {MaticAddresses} from "../../../scripts/addresses/MaticAddresses";
 import {TokenDataTypes} from "../../baseUT/types/TokenDataTypes";
-import {DForceHelper} from "../../../scripts/integration/helpers/DForceHelper";
 import {Misc} from "../../../scripts/utils/Misc";
-import {IDForceCalcAccountEquityResults} from "../../baseUT/apr/aprDForce";
-import {areAlmostEqual, toStringWithRound} from "../../baseUT/utils/CommonUtils";
-import {IPoolAdapterStatus} from "../../baseUT/types/BorrowRepayDataTypes";
-import {
-  IAssetsInputParamsWithCTokens,
-  IMakeRepayRebalanceBadPathParams,
-  IMakeRepayToRebalanceInputParamsWithCTokens
-} from "../../baseUT/protocols/shared/sharedDataTypes";
-import {SharedRepayToRebalanceUtils} from "../../baseUT/protocols/shared/sharedRepayToRebalanceUtils";
+import {areAlmostEqual} from "../../baseUT/utils/CommonUtils";
 import {transferAndApprove} from "../../baseUT/utils/transferUtils";
 import {DForceTestUtils, IPrepareToBorrowResults} from "../../baseUT/protocols/dforce/DForceTestUtils";
-import {AdaptersHelper} from "../../baseUT/helpers/AdaptersHelper";
-import {TetuConverterApp} from "../../baseUT/helpers/TetuConverterApp";
 
 
 describe("DForce integration tests, pool adapter", () => {
