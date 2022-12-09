@@ -1903,13 +1903,21 @@ describe("TetuConverterTest", () => {
       repayBadPathParams?: IRepayBadPathParams,
       priceImpact?: number,
     ) : Promise<IRepayResults> {
-      const core = await CoreContracts.build(await TetuConverterApp.createController(deployer));
+      const core = await CoreContracts.build(
+        await TetuConverterApp.createController(deployer, {
+          priceOracleFabric: async c => (await MocksHelper.getPriceOracleMock(deployer, [], [])).address
+        })
+      );
       const init = await prepareTetuAppWithMultipleLendingPlatforms(core,
         collateralAmounts.length,
         {
           setupTetuLiquidatorToSwapBorrowToCollateral,
           priceImpact
         }
+      );
+      await PriceOracleMock__factory.connect(await core.controller.priceOracle(), deployer).changePrices(
+        [init.sourceToken.address, init.targetToken.address],
+        [parseUnits("1"), parseUnits("1")] // prices are set to 1 for simplicity
       );
       const targetTokenDecimals = await init.targetToken.decimals();
 

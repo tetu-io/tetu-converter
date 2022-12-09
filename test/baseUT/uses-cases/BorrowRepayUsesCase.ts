@@ -130,7 +130,7 @@ export class BorrowRepayUsesCase {
     totalRepaidAmount: BigNumber,
     expectations: IResultExpectations,
     indexBorrow: number = 0,
-    indexRepay: number = 1,
+    indexRepay: number = 2,
   ) : {sret: string, sexpected: string} {
     console.log("c0", c0);
     console.log("b0", b0);
@@ -335,7 +335,9 @@ export class BorrowRepayUsesCase {
       await uc.totalAmountBorrowAssetRepaid(),
       {
         resultCollateralCanBeLessThenInitial: false
-      }
+      },
+      0,
+      1
     );
   }
 
@@ -427,7 +429,7 @@ export class BorrowRepayUsesCase {
       sret: ret.sret,
       sexpected: ret.sexpected,
       gasUsedByBorrow: r.userBalances[0].gasUsed,
-      gasUsedByRepay: r.userBalances[1].gasUsed,
+      gasUsedByRepay: r.userBalances[2].gasUsed,
     };
   }
 //endregion Test single borrow, single repay

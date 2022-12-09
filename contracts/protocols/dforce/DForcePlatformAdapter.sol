@@ -17,7 +17,6 @@ import "../../openzeppelin/IERC20Metadata.sol";
 import "../../integrations/dforce/IDForceInterestRateModel.sol";
 import "../../integrations/dforce/IDForceController.sol";
 import "../../integrations/dforce/IDForceCToken.sol";
-import "hardhat/console.sol";
 
 /// @notice Adapter to read current pools info from DForce-protocol, see https://developers.dforce.network/
 contract DForcePlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
