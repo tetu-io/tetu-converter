@@ -5,7 +5,7 @@ import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import {CoreContractsHelper} from "../../test/baseUT/helpers/CoreContractsHelper";
 import {RunHelper} from "../utils/RunHelper";
 import {BigNumber} from "ethers";
-import {IBorrowManager, IBorrowManager__factory} from "../../typechain";
+import {Controller__factory, IBorrowManager, IBorrowManager__factory, IController__factory} from "../../typechain";
 import {AdaptersHelper} from "../../test/baseUT/helpers/AdaptersHelper";
 import {appendFileSync} from "fs";
 import {ethers, network} from "hardhat";
@@ -28,6 +28,16 @@ export interface IBorrowManagerSetupParams {
   rewardsFactor: BigNumber;
 }
 
+export interface IDeployedContracts {
+  controller?: string;
+  tetuConverter?: string;
+  borrowManager?: string;
+  debtMonitor?: string;
+  swapManager?: string;
+  keeper?: string;
+  priceOracle?: string;
+}
+
 export interface IDeployCoreResults {
   controller: string;
   tetuConverter: string;
@@ -35,6 +45,7 @@ export interface IDeployCoreResults {
   debtMonitor: string;
   swapManager: string;
   keeper: string;
+  priceOracle: string;
   tetuLiquidator: string;
   controllerSetupParams: IControllerSetupParams;
   borrowManagerSetupParams: IBorrowManagerSetupParams;
@@ -292,45 +303,53 @@ export class DeploySolutionUtils {
     gelatoOpsReady: string,
     tetuLiquidator: string,
     controllerSetupParams: IControllerSetupParams,
-    borrowManagerSetupParams: IBorrowManagerSetupParams
+    borrowManagerSetupParams: IBorrowManagerSetupParams,
+    alreadyDeployed?: IDeployedContracts
   ) : Promise<IDeployCoreResults> {
-    const controller = await CoreContractsHelper.deployController(deployer);
-    const borrowManager = await CoreContractsHelper.createBorrowManager(
+    const controller = alreadyDeployed?.controller
+      || (await CoreContractsHelper.deployController(deployer)).address;
+    const borrowManager = alreadyDeployed?.borrowManager || (await CoreContractsHelper.createBorrowManager(
       deployer,
-      controller.address,
+      controller,
       borrowManagerSetupParams.rewardsFactor
-    );
-    const debtMonitor = await CoreContractsHelper.createDebtMonitor(deployer, controller.address);
-    const tetuConverter = await CoreContractsHelper.createTetuConverter(deployer, controller.address);
-    const swapManager = await CoreContractsHelper.createSwapManager(deployer, controller);
-    const priceOracle = await CoreContractsHelper.createPriceOracle(deployer, controller);
-    const keeper = await CoreContractsHelper.createKeeper(deployer, controller, gelatoOpsReady);
+    )).address;
+    const debtMonitor = alreadyDeployed?.debtMonitor
+      || (await CoreContractsHelper.createDebtMonitor(deployer, controller)).address;
+    const tetuConverter = alreadyDeployed?.tetuConverter
+      || (await CoreContractsHelper.createTetuConverter(deployer, controller)).address;
+    const swapManager = alreadyDeployed?.swapManager
+      || (await CoreContractsHelper.createSwapManager(deployer, controller)).address;
+    const priceOracle = alreadyDeployed?.priceOracle
+      || (await CoreContractsHelper.createPriceOracle(deployer, controller)).address;
+    const keeper = alreadyDeployed?.keeper
+      || (await CoreContractsHelper.createKeeper(deployer, controller, gelatoOpsReady)).address;
 
     await RunHelper.runAndWait(
-      () => controller.initialize(
+      () => Controller__factory.connect(controller, deployer).initialize(
         deployer.address,
         controllerSetupParams.blocksPerDay,
         controllerSetupParams.minHealthFactor2,
         controllerSetupParams.targetHealthFactor2,
         controllerSetupParams.maxHealthFactor2,
-        tetuConverter.address,
-        borrowManager.address,
-        debtMonitor.address,
-        keeper.address,
+        tetuConverter,
+        borrowManager,
+        debtMonitor,
+        keeper,
         tetuLiquidator,
-        swapManager.address,
-        priceOracle.address,
+        swapManager,
+        priceOracle,
         {gasLimit: GAS_DEPLOY_LIMIT}
       )
     );
 
     return {
-      controller: controller.address,
-      tetuConverter: tetuConverter.address,
-      borrowManager: borrowManager.address,
-      debtMonitor: debtMonitor.address,
-      swapManager: swapManager.address,
-      keeper: keeper.address,
+      controller,
+      tetuConverter,
+      borrowManager,
+      debtMonitor,
+      swapManager,
+      keeper,
+      priceOracle,
       tetuLiquidator,
       controllerSetupParams,
       borrowManagerSetupParams,

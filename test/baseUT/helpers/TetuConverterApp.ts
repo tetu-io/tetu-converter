@@ -34,18 +34,24 @@ export class TetuConverterApp {
   ) : Promise<Controller> {
     return CoreContractsHelper.createController(
       deployer,
-      p?.tetuConverterFabric || (async c => (await CoreContractsHelper.createTetuConverter(deployer, c.address)).address),
-      p?.borrowManagerFabric || (async c => (await CoreContractsHelper.createBorrowManager(deployer, c.address)).address),
-      p?.debtMonitorFabric || (async c => (await CoreContractsHelper.createDebtMonitor(deployer, c.address)).address),
+      p?.tetuConverterFabric
+        || (async c => (await CoreContractsHelper.createTetuConverter(deployer, c.address)).address),
+      p?.borrowManagerFabric
+        || (async c => (await CoreContractsHelper.createBorrowManager(deployer, c.address)).address),
+      p?.debtMonitorFabric
+        || (async c => (await CoreContractsHelper.createDebtMonitor(deployer, c.address)).address),
       p?.keeperFabric || (async c => (await CoreContractsHelper.createKeeper(
         deployer,
-        c,
+        c.address,
         (await MocksHelper.createKeeperCaller(deployer)).address, // default keeper caller
         p?.blocksPerDayAutoUpdatePeriodSecs
       )).address),
-      async () => p?.tetuLiquidatorAddress || (await MocksHelper.createTetuLiquidatorMock(deployer, [], [])).address,
-      p?.swapManagerFabric || (async c => (await CoreContractsHelper.createSwapManager(deployer, c)).address),
-      p?.priceOracleFabric || (async c => (await CoreContractsHelper.createPriceOracle(deployer, c)).address),
+      async () => p?.tetuLiquidatorAddress
+        || (await MocksHelper.createTetuLiquidatorMock(deployer, [], [])).address,
+      p?.swapManagerFabric
+        || (async c => (await CoreContractsHelper.createSwapManager(deployer, c.address)).address),
+      p?.priceOracleFabric
+        || (async c => (await CoreContractsHelper.createPriceOracle(deployer, c.address)).address),
       p?.minHealthFactor2 || 101,
       p?.targetHealthFactor2 || 200,
       p?.maxHealthFactor2 || 400,

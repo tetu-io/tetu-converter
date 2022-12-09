@@ -39,13 +39,13 @@ contract Aave3PlatformAdapter is IPlatformAdapter {
   /// @notice Local vars inside _getConversionPlan - to avoid stack too deep
   struct LocalsGetConversionPlan {
     IAavePool poolLocal;
+    IAaveAddressesProvider addressProvider;
+    IAavePriceOracle priceOracle;
+    IAaveProtocolDataProvider dataProvider;
     uint totalAToken;
     uint totalStableDebt;
     uint totalVariableDebt;
     uint blocksPerDay;
-    IAaveAddressesProvider addressProvider;
-    IAavePriceOracle priceOracle;
-    IAaveProtocolDataProvider dataProvider;
     uint priceCollateral;
     uint priceBorrow;
     /// @notice 10**rc.configuration.getDecimals()

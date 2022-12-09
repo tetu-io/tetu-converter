@@ -65,7 +65,9 @@ describe("AaveTwoCollateralBalanceTest", () => {
       collateralHolder,
       collateralAmount,
       borrowToken,
-      200
+      {
+        targetHealthFactor2: 200
+      }
     );
     // make a borrow
     await AaveTwoTestUtils.makeBorrow(deployer, d, undefined);

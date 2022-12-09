@@ -73,7 +73,9 @@ describe("HundredFinanceCollateralBalanceTest", () => {
       collateralAmount,
       borrowToken,
       borrowCTokenAddress,
-      200
+      {
+        targetHealthFactor2: 200
+      }
     );
     // make a borrow
     await HundredFinanceTestUtils.makeBorrow(deployer, d, undefined);

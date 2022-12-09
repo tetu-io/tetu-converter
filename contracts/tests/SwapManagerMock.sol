@@ -10,9 +10,9 @@ contract SwapManagerMock is ISwapManager, ISwapConverter {
 
   struct SwapInputParams {
     address sourceToken;
-    uint sourceAmount;
     address targetToken;
     address receiver;
+    uint sourceAmount;
   }
   SwapInputParams public lastSwapInputParams;
 

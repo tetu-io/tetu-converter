@@ -37,23 +37,23 @@ export class MaticAddresses {
 //endregion Assets
 
 //region Asset biggest holders
-  public static HOLDER_DAI = "0x4a35582a710e1f4b2030a3f826da20bfb6703c09";
+  public static HOLDER_DAI = "0x075e72a5edf65f0a5f44699c7654c1a76941ddc8";
   public static HOLDER_DAI_2 = "0xf04adbf75cdfc5ed26eea4bbbb991db002036bdd";
-  public static HOLDER_DAI_3 = "0x075e72a5edf65f0a5f44699c7654c1a76941ddc8";
-  public static HOLDER_DAI_4 = "0x06959153b974d0d5fdfd87d561db6d8d4fa0bb0b";
+  public static HOLDER_DAI_3 = "0x65b1b96bd01926d3d60dd3c8bc452f22819443a9";
+  public static HOLDER_DAI_4 = "0xdfd74e3752c187c4ba899756238c76cbeefa954b";
   public static HOLDER_DAI_5 = "0x9bdb521a97e95177bf252c253e256a60c3e14447";
-  public static HOLDER_DAI_6 = "0x7344e478574acbe6dac9de1077430139e17eec3d";
+  public static HOLDER_DAI_6 = "0x56cf0ff00fd6cfb23ce964c6338b228b0fa76640";
 
-  public static HOLDER_USDC = "0xa8f49d90b24d6a007e5f47bf86d122a9f3211734";
-  public static HOLDER_USDC_2 = "0x06959153b974d0d5fdfd87d561db6d8d4fa0bb0b";
-  public static HOLDER_USDC_3 = "0xe7804c37c13166ff0b37f5ae0bb07a3aebb6e245";
+  public static HOLDER_USDC = "0xc882b111a75c0c657fc507c04fbfcd2cc984f071";
+  public static HOLDER_USDC_2 = "0x166716c2838e182d64886135a96f1aabca9a9756";
+  public static HOLDER_USDC_3 = "0x72a53cdbbcc1b9efa39c834a540550e23463aacb";
 
   public static HOLDER_USDT = "0x0d0707963952f2fba59dd06f2b425ace40b492fe";
-  public static HOLDER_USDT_1 = "0xf977814e90da44bfa03b6295a0616a897441acec";
-  public static HOLDER_USDT_2 = "0xe7804c37c13166ff0b37f5ae0bb07a3aebb6e245";
+  public static HOLDER_USDT_1 = "0xf89d7b9c864f589bbf53a82105107622b35eaa40";
+  public static HOLDER_USDT_2 = "0x06959153b974d0d5fdfd87d561db6d8d4fa0bb0b";
   public static HOLDER_USDT_3 = "0xfa0b641678f5115ad8a8de5752016bd1359681b9";
 
-  public static HOLDER_WMATIC_3 = "0x369582d2010b6ed950b571f4101e3bb9b554876f";
+  public static HOLDER_WMATIC_3 = "0x604229c960e5cacf2aaeac8be68ac07ba9df81c3";
   public static HOLDER_WMATIC_2 = "0x6e7a5fafcec6bb1e78bae2a1f0b612012bf14827";
   public static HOLDER_WMATIC = "0xadbf1854e5883eb8aa7baf50705338739e558e5b";
 
@@ -75,13 +75,13 @@ export class MaticAddresses {
   public static HOLDER_CRV = "0x06959153b974d0d5fdfd87d561db6d8d4fa0bb0b";
 
   public static HOLDER_WBTC = "0x2093b4281990a568c9d588b8bce3bfd7a1557ebd";
-  public static HOLDER_WBTC_2 = "0xdc9232e2df177d7a12fdff6ecbab114e2231198d";
-  public static HOLDER_WBTC_3 = "0xa8a83c0a6fabadf21dbb1da1d9b24455c56f5573";
+  public static HOLDER_WBTC_2 = "0x09040f20384b3420657e8cd0850c7facfd74ba70";
+  public static HOLDER_WBTC_3 = "0x0aff6665bb45bf349489b20e225a6c5d78e2280f";
 
   public static HOLDER_WETH_3 = "0xded8c5159ca3673f543d0f72043e4c655b35b96a";
-  public static HOLDER_WETH_2 = "0xdc9232e2df177d7a12fdff6ecbab114e2231198d";
-  public static HOLDER_WETH = "0xadbf1854e5883eb8aa7baf50705338739e558e5b";
-  public static HOLDER_WETH_4 = "0xe4cd81dd6297849432a038abb8d19dd022ddc089";
+  public static HOLDER_WETH_2 = "0xfa0b641678f5115ad8a8de5752016bd1359681b9";
+  public static HOLDER_WETH = "0x2093b4281990a568c9d588b8bce3bfd7a1557ebd";
+  public static HOLDER_WETH_4 = "0x064917552b3121ed11321ecd8908fc79d00bcbb7";
 
   public static HOLDER_CHAIN_LINK = "0x55e4d16f9c3041eff17ca32850662f3e9dddbce7";
   public static HOLDER_DefiPulseToken = "0xd1468a5e1ff399d7a4465fbdff3e3ccb013d149f";

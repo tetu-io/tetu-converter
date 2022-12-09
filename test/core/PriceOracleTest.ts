@@ -29,7 +29,7 @@ describe("Price oracle tests", () => {
         tetuLiquidatorAddress: MaticAddresses.TETU_LIQUIDATOR
       }
     );
-    priceOracle = await CoreContractsHelper.createPriceOracle(deployer, controller);
+    priceOracle = await CoreContractsHelper.createPriceOracle(deployer, controller.address);
   });
 
   after(async function () {
@@ -50,7 +50,7 @@ describe("Price oracle tests", () => {
     describe("Good paths", () => {
       it("should return almost 1e18 for USDC", async () => {
         const price = await priceOracle.getAssetPrice(MaticAddresses.USDC);
-        const ret = areAlmostEqual(price, parseUnits("1", 18), 4);
+        const ret = areAlmostEqual(price, parseUnits("1", 18), 3);
         expect(ret).eq(true);
       });
       it("should return not zero for DAI", async () => {

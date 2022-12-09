@@ -71,7 +71,9 @@ describe("DForceCollateralBalanceTest", () => {
       collateralAmount,
       borrowToken,
       borrowCTokenAddress,
-      200
+      {
+        targetHealthFactor2: 200
+      }
     );
     // make a borrow
     await DForceTestUtils.makeBorrow(deployer, d, undefined);

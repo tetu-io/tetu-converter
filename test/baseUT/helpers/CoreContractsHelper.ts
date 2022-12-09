@@ -87,25 +87,25 @@ export class CoreContractsHelper {
   /** Create SwapManager */
   public static async createSwapManager (
     signer: SignerWithAddress,
-    controller: IController,
+    controller: string,
   ) : Promise<SwapManager> {
     return (await DeployUtils.deployContract(
       signer,
       "SwapManager",
-      controller.address,
+      controller,
     )) as SwapManager;
   }
 
   public static async createKeeper(
     signer: SignerWithAddress,
-    controller: IController,
+    controller: string,
     gelatoOpsAddress: string,
     blocksPerDayAutoUpdatePeriodSecs: number = 2 * 7 * 24 * 60 * 60 // 2 weeks by default
   ) : Promise<Keeper>{
     return (await DeployUtils.deployContract(
       signer,
       "Keeper",
-      controller.address,
+      controller,
       gelatoOpsAddress,
       blocksPerDayAutoUpdatePeriodSecs
     )) as Keeper;
@@ -113,7 +113,7 @@ export class CoreContractsHelper {
 
   public static async createPriceOracle (
     signer: SignerWithAddress,
-    controller: IController,
+    controller: string,
   ) : Promise<PriceOracle> {
     return (await DeployUtils.deployContract(
       signer,

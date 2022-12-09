@@ -497,7 +497,7 @@ describe("SwapManager", () => {
           tetuConverterFabric: async () => ethers.Wallet.createRandom().address,
           debtMonitorFabric: async () => ethers.Wallet.createRandom().address,
           keeperFabric: async () => ethers.Wallet.createRandom().address,
-          swapManagerFabric: async c => (await CoreContractsHelper.createSwapManager(deployer, c)).address,
+          swapManagerFabric: async c => (await CoreContractsHelper.createSwapManager(deployer, c.address)).address,
           tetuLiquidatorAddress: tetuLiquidator
         }
       );

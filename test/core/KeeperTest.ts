@@ -77,14 +77,14 @@ describe("KeeperTest", () => {
         keeperFabric: wrapKeeper
           ? (async c => {
             const realKeeper = await CoreContractsHelper.createKeeper(signer,
-              c,
+              c.address,
               keeperCaller.address,
               blocksPerDayAutoUpdatePeriodSecs
             );
             return (await MocksHelper.createKeeperMock(deployer, realKeeper.address)).address;
           })
           : (async c => (await CoreContractsHelper.createKeeper(signer,
-            c,
+            c.address,
             keeperCaller.address,
             blocksPerDayAutoUpdatePeriodSecs
           )).address),
