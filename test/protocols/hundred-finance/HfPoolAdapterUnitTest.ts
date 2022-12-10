@@ -1593,6 +1593,8 @@ describe("Hundred Finance unit tests, pool adapter", () => {
         d.userContract,
         p
       );
+      const afterChangeHealthFactorStatus = await d.hfPoolAdapterTC.getStatus();
+      console.log("after borrow:", afterChangeHealthFactorStatus);
 
       // make repayment to rebalance
       const poolAdapterSigner = p.badPathsParams?.makeRepayToRebalanceAsDeployer
@@ -1764,7 +1766,7 @@ describe("Hundred Finance unit tests, pool adapter", () => {
           collateralAsset,
           borrowAsset,
           borrowHolder,
-          collateralAmountStr: "100000",
+          collateralAmountStr: "10000",
           collateralHolder
         },
         useCollateralAssetToRepay,
