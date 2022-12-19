@@ -476,14 +476,14 @@ export class AprDForce {
     interestRateModel: string
   ) : Promise<BigNumber> {
     return libFacade.getEstimatedSupplyRatePure(
-      state.collateral.market.totalSupply
-      , amountCollateral
-      , state.collateral.market.cash
-      , state.collateral.market.totalBorrows
-      , state.collateral.market.totalReserves
-      , interestRateModel
-      , state.collateral.market.reserveRatio
-      , state.collateral.market.exchangeRateStored
+      state.collateral.market.totalSupply,
+      amountCollateral,
+      state.collateral.market.cash,
+      state.collateral.market.totalBorrows,
+      state.collateral.market.totalReserves,
+      interestRateModel,
+      state.collateral.market.reserveRatio,
+      state.collateral.market.exchangeRateStored,
     );
   }
 
@@ -493,9 +493,9 @@ export class AprDForce {
     borrowAmount: BigNumber
   ) : Promise<BigNumber> {
     return libFacade.getEstimatedBorrowRate(
-      await token.interestRateModel()
-      , token.address
-      , borrowAmount
+      await token.interestRateModel(),
+      token.address,
+      borrowAmount,
     );
 
   }

@@ -461,7 +461,7 @@ contract DForcePoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP, Initi
   }
 
   /// @notice If we paid {amountToRepay_}, how much collateral would we receive?
-  function getCollateralAmountToReturn(uint amountToRepay_, bool closePosition_) external view returns (uint) {
+  function getCollateralAmountToReturn(uint amountToRepay_, bool closePosition_) external view override returns (uint) {
     address cTokenCollateral = collateralCToken;
 
     (uint tokensToReturn,) = _getCollateralTokensToRedeem(cTokenCollateral, borrowCToken, closePosition_, amountToRepay_);

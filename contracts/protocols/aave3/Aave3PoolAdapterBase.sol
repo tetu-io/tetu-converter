@@ -437,13 +437,22 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer,
   }
 
   /// @notice If we paid {amountToRepay_}, how much collateral would we receive?
-  function getCollateralAmountToReturn(uint amountToRepay_, bool closePosition_) external view returns (uint) {
+  function getCollateralAmountToReturn(uint amountToRepay_, bool closePosition_) external view override returns (uint) {
+    address assetCollateral = collateralAsset;
     IAavePool pool = _pool;
-    uint dest = _getCollateralAmountToReturn(pool, amountToRepay_, collateralAsset, borrowAsset, closePosition_);
+    Aave3DataTypes.ReserveData memory rc = pool.getReserveData(assetCollateral);
+    uint dest = _getCollateralAmountToReturn(
+      pool,
+      amountToRepay_,
+      assetCollateral,
+      borrowAsset,
+      closePosition_,
+      rc.configuration.getDecimals()
+    );
+
     if (dest == type(uint).max) {
       // all available collateral will be returned
-      (uint256 totalCollateralBase, uint256 totalDebtBase,,,, uint256 hf18) = pool.getUserAccountData(address(this));
-      address assetCollateral = collateralAsset;
+      (uint256 totalCollateralBase,,,,,) = pool.getUserAccountData(address(this));
 
       uint collateralPrice = _priceOracle.getAssetPrice(assetCollateral);
       require(collateralPrice != 0, AppErrors.ZERO_PRICE);

@@ -373,12 +373,12 @@ contract AaveTwoPoolAdapter is IPoolAdapter, IPoolAdapterInitializer, Initializa
   }
 
   /// @notice If we paid {amountToRepay_}, how much collateral would we receive?
-  function getCollateralAmountToReturn(uint amountToRepay_, bool closePosition_) external view returns (uint) {
+  function getCollateralAmountToReturn(uint amountToRepay_, bool closePosition_) external view override returns (uint) {
     IAaveTwoPool pool = _pool;
     uint dest = _getCollateralAmountToReturn(pool, amountToRepay_, collateralAsset, borrowAsset, closePosition_);
     if (dest == type(uint).max) {
       // all available collateral will be returned
-      (uint256 totalCollateralBase, uint256 totalDebtBase,,,, uint256 hf18) = pool.getUserAccountData(address(this));
+      (uint256 totalCollateralBase,,,,,) = pool.getUserAccountData(address(this));
       address assetCollateral = collateralAsset;
 
       uint collateralPrice = _priceOracle.getAssetPrice(assetCollateral);

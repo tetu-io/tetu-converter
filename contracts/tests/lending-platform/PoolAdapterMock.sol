@@ -355,6 +355,14 @@ contract PoolAdapterMock is IPoolAdapter {
     return healthFactor18;
   }
 
+  function getCollateralAmountToReturn(uint amountToRepay_, bool closePosition_) external view override returns (uint) {
+    closePosition_;
+    uint collateralBalance = _cTokenMock.balanceOf(address(this));
+    return _borrowedAmounts == amountToRepay_
+      ? collateralBalance
+      : collateralBalance * amountToRepay_ / _borrowedAmounts;
+  }
+
   ///////////////////////////////////////////////////////
   ///           Get-state functions
   ///////////////////////////////////////////////////////

@@ -488,7 +488,7 @@ contract HfPoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP, Initializ
   }
 
   /// @notice If we paid {amountToRepay_}, how much collateral would we receive?
-  function getCollateralAmountToReturn(uint amountToRepay_, bool closePosition_) external view returns (uint) {
+  function getCollateralAmountToReturn(uint amountToRepay_, bool closePosition_) external view override returns (uint) {
     address cTokenCollateral = collateralCToken;
 
     (uint error,,, uint cExchangeRateMantissa) = IHfCToken(cTokenCollateral).getAccountSnapshot(address(this));

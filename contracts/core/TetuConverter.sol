@@ -21,6 +21,7 @@ import "../interfaces/ISwapConverter.sol";
 import "../interfaces/IKeeperCallback.sol";
 import "../interfaces/ITetuConverterCallback.sol";
 import "../interfaces/IRequireAmountBySwapManagerCallback.sol";
+import "../interfaces/IPriceOracle.sol";
 
 /// @notice Main application contract
 contract TetuConverter is ITetuConverter, IKeeperCallback, IRequireAmountBySwapManagerCallback, ReentrancyGuard {
@@ -433,13 +434,11 @@ contract TetuConverter is ITetuConverter, IKeeperCallback, IRequireAmountBySwapM
 
   /// @notice Estimate result amount after making full or partial repay
   /// @dev It works in exactly same way as repay() but don't make actual repay
-  function quoteRepay(
-    address collateralAsset_,
-    address borrowAsset_,
-    uint amountToRepay_
-  ) external view override returns (
-    uint collateralAmountOut,
-    uint returnedBorrowAmountOut
+  ///      Anyway, the function is write, not read-only, because it makes updateStatus()
+  /// @param amountToRepay_ Amount of borrowed asset to repay.
+  /// @return collateralAmountOut Total collateral amount to be returned after repay in exchange of {amountToRepay_}
+  function quoteRepay(address collateralAsset_, address borrowAsset_, uint amountToRepay_) external override returns (
+    uint collateralAmountOut
   ) {
     address[] memory poolAdapters = _debtMonitor().getPositions(
       msg.sender,
@@ -450,25 +449,33 @@ contract TetuConverter is ITetuConverter, IKeeperCallback, IRequireAmountBySwapM
 
     for (uint i = 0; i < lenPoolAdapters; i = i.uncheckedInc()) {
       IPoolAdapter pa = IPoolAdapter(poolAdapters[i]);
+
       pa.updateStatus();
-      (uint collateralAmount, uint totalDebtForPoolAdapter,,,) = pa.getStatus();
+      (, uint totalDebtForPoolAdapter,,,) = pa.getStatus();
+
       bool closePosition = totalDebtForPoolAdapter <= amountToRepay_;
-      uint collateralAmountToReceive = pa.getCollateralAmountToReturn(
-        closePosition ? totalDebtForPoolAdapter : amountToRepay_,
-        closePosition
-      );
-      amountToRepay_ -= closePosition ? totalDebtForPoolAdapter : amountToRepay_;
+      uint currentAmountToRepay = closePosition ? totalDebtForPoolAdapter : amountToRepay_;
+      uint collateralAmountToReceive = pa.getCollateralAmountToReturn(currentAmountToRepay, closePosition);
+
+      amountToRepay_ -= currentAmountToRepay;
       collateralAmountOut += collateralAmountToReceive;
+
       if (amountToRepay_ == 0) {
         break;
       }
     }
 
     if (amountToRepay_ > 0) {
-      // swapping
+      uint priceBorrowAsset = IPriceOracle(controller.priceOracle()).getAssetPrice(borrowAsset_);
+      uint priceCollateralAsset = IPriceOracle(controller.priceOracle()).getAssetPrice(collateralAsset_);
+      collateralAmountOut += amountToRepay_
+        * 10**IERC20Metadata(borrowAsset_).decimals()
+        * priceCollateralAsset
+        / priceBorrowAsset
+        / 10**IERC20Metadata(collateralAsset_).decimals();
     }
 
-    return (collateralAmountOut, returnedBorrowAmountOut);
+    return collateralAmountOut;
   }
 
   ///////////////////////////////////////////////////////

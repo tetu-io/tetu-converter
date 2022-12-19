@@ -130,6 +130,12 @@ contract PoolAdapterStub is IPoolAdapter {
     return 0;
   }
 
+  function getCollateralAmountToReturn(uint amountToRepay_, bool closePosition_) external pure override returns (uint) {
+    amountToRepay_;
+    closePosition_;
+    return 0;
+  }
+
   function repayToRebalance(
     uint amount_,
     bool isCollateral_
