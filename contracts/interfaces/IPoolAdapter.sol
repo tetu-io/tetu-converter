@@ -97,6 +97,9 @@ interface IPoolAdapter is IConverter {
   /// @return amount Amount of the transferred reward token
   function claimRewards(address receiver_) external returns (address rewardToken, uint amount);
 
+  /// @notice If we paid {amountToRepay_}, how much collateral would we receive?
+  function getCollateralAmountToReturn(uint amountToRepay_, bool closePosition_) external view returns (uint);
+
 //  /// @notice Compute current APR value, decimals 18
 //  /// @return Interest * 1e18, i.e. 2.25e18 means APR=2.25%
 //  function getAPR18() external view returns (int);

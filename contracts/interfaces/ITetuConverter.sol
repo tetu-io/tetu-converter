@@ -105,6 +105,17 @@ interface ITetuConverter {
     uint returnedBorrowAmountOut
   );
 
+  /// @notice Estimate result amount after making full or partial repay
+  /// @dev It works in exactly same way as repay() but don't make actual repay
+  function quoteRepay(
+    address collateralAsset_,
+    address borrowAsset_,
+    uint amountToRepay_
+  ) external view returns (
+    uint collateralAmountOut,
+    uint returnedBorrowAmountOut
+  );
+
   /// @notice Update status in all opened positions
   ///         and calculate exact total amount of borrowed and collateral assets
   function getDebtAmountCurrent(

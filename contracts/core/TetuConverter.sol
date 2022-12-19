@@ -431,6 +431,46 @@ contract TetuConverter is ITetuConverter, IKeeperCallback, IRequireAmountBySwapM
     return (collateralAmountOut, returnedBorrowAmountOut);
   }
 
+  /// @notice Estimate result amount after making full or partial repay
+  /// @dev It works in exactly same way as repay() but don't make actual repay
+  function quoteRepay(
+    address collateralAsset_,
+    address borrowAsset_,
+    uint amountToRepay_
+  ) external view override returns (
+    uint collateralAmountOut,
+    uint returnedBorrowAmountOut
+  ) {
+    address[] memory poolAdapters = _debtMonitor().getPositions(
+      msg.sender,
+      collateralAsset_,
+      borrowAsset_
+    );
+    uint lenPoolAdapters = poolAdapters.length;
+
+    for (uint i = 0; i < lenPoolAdapters; i = i.uncheckedInc()) {
+      IPoolAdapter pa = IPoolAdapter(poolAdapters[i]);
+      pa.updateStatus();
+      (uint collateralAmount, uint totalDebtForPoolAdapter,,,) = pa.getStatus();
+      bool closePosition = totalDebtForPoolAdapter <= amountToRepay_;
+      uint collateralAmountToReceive = pa.getCollateralAmountToReturn(
+        closePosition ? totalDebtForPoolAdapter : amountToRepay_,
+        closePosition
+      );
+      amountToRepay_ -= closePosition ? totalDebtForPoolAdapter : amountToRepay_;
+      collateralAmountOut += collateralAmountToReceive;
+      if (amountToRepay_ == 0) {
+        break;
+      }
+    }
+
+    if (amountToRepay_ > 0) {
+      // swapping
+    }
+
+    return (collateralAmountOut, returnedBorrowAmountOut);
+  }
+
   ///////////////////////////////////////////////////////
   ///       IKeeperCallback
   ///////////////////////////////////////////////////////

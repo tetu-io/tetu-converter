@@ -460,6 +460,14 @@ contract DForcePoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP, Initi
     return healthFactor18;
   }
 
+  /// @notice If we paid {amountToRepay_}, how much collateral would we receive?
+  function getCollateralAmountToReturn(uint amountToRepay_, bool closePosition_) external view returns (uint) {
+    address cTokenCollateral = collateralCToken;
+
+    (uint tokensToReturn,) = _getCollateralTokensToRedeem(cTokenCollateral, borrowCToken, closePosition_, amountToRepay_);
+    return tokensToReturn * IDForceCToken(cTokenCollateral).exchangeRateStored() / 10**18;
+  }
+
   ///////////////////////////////////////////////////////
   ///                 Rewards
   ///////////////////////////////////////////////////////

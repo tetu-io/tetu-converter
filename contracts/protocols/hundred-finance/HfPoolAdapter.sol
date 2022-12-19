@@ -487,6 +487,16 @@ contract HfPoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP, Initializ
     return healthFactor18;
   }
 
+  /// @notice If we paid {amountToRepay_}, how much collateral would we receive?
+  function getCollateralAmountToReturn(uint amountToRepay_, bool closePosition_) external view returns (uint) {
+    address cTokenCollateral = collateralCToken;
+
+    (uint error,,, uint cExchangeRateMantissa) = IHfCToken(cTokenCollateral).getAccountSnapshot(address(this));
+    require(error == 0, AppErrors.CTOKEN_GET_ACCOUNT_SNAPSHOT_FAILED);
+
+    (uint tokensToReturn,) = _getCollateralTokensToRedeem(cTokenCollateral, borrowCToken, closePosition_, amountToRepay_);
+    return tokensToReturn * cExchangeRateMantissa / 10**18;
+  }
   ///////////////////////////////////////////////////////
   ///                 Rewards
   ///////////////////////////////////////////////////////

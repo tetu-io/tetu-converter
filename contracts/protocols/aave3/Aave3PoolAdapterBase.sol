@@ -436,6 +436,24 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer,
     return healthFactor;
   }
 
+  /// @notice If we paid {amountToRepay_}, how much collateral would we receive?
+  function getCollateralAmountToReturn(uint amountToRepay_, bool closePosition_) external view returns (uint) {
+    IAavePool pool = _pool;
+    uint dest = _getCollateralAmountToReturn(pool, amountToRepay_, collateralAsset, borrowAsset, closePosition_);
+    if (dest == type(uint).max) {
+      // all available collateral will be returned
+      (uint256 totalCollateralBase, uint256 totalDebtBase,,,, uint256 hf18) = pool.getUserAccountData(address(this));
+      address assetCollateral = collateralAsset;
+
+      uint collateralPrice = _priceOracle.getAssetPrice(assetCollateral);
+      require(collateralPrice != 0, AppErrors.ZERO_PRICE);
+
+      return totalCollateralBase * (10 ** pool.getConfiguration(assetCollateral).getDecimals()) / collateralPrice;
+    } else {
+      return dest;
+    }
+  }
+
   ///////////////////////////////////////////////////////
   ///                 Rewards
   ///////////////////////////////////////////////////////
@@ -481,11 +499,7 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer,
     uint collateralAmountLiquidated
   ) {
     IAavePool pool = _pool;
-    (uint256 totalCollateralBase,
-     uint256 totalDebtBase,
-     ,,,
-     uint256 hf18
-    ) = pool.getUserAccountData(address(this));
+    (uint256 totalCollateralBase, uint256 totalDebtBase,,,, uint256 hf18) = pool.getUserAccountData(address(this));
 
     address assetBorrow = borrowAsset;
     address assetCollateral = collateralAsset;
