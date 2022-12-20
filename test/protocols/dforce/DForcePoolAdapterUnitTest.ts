@@ -8,7 +8,7 @@ import {
   DForceControllerMock, DForceCTokenMock,
   DForcePoolAdapter, IDForceRewardDistributor__factory, IERC20__factory,
   IERC20Metadata__factory,
-  IPoolAdapter__factory,
+  IPoolAdapter__factory, ITetuConverter__factory,
   ITokenAddressProvider,
   TokenAddressProviderMock,
 } from "../../../typechain";
@@ -41,6 +41,7 @@ import {AdaptersHelper} from "../../baseUT/helpers/AdaptersHelper";
 import {TetuConverterApp} from "../../baseUT/helpers/TetuConverterApp";
 import {parseUnits} from "ethers/lib/utils";
 import {MocksHelper} from "../../baseUT/helpers/MocksHelper";
+import {DForceChangePriceUtils} from "../../baseUT/protocols/dforce/DForceChangePriceUtils";
 
 describe("DForce unit tests, pool adapter", () => {
 //region Global vars for all tests
@@ -2057,6 +2058,88 @@ describe("DForce unit tests, pool adapter", () => {
           true
         ].join();
         expect(ret).eq(expected);
+      });
+    });
+  });
+
+  describe("getCollateralAmountToReturn", () => {
+    const collateralAsset = MaticAddresses.DAI;
+    const collateralCToken = MaticAddresses.dForce_iDAI;
+    const collateralHolder = MaticAddresses.HOLDER_DAI;
+    const borrowAsset = MaticAddresses.WMATIC;
+    const borrowCToken = MaticAddresses.dForce_iMATIC;
+    let results: IMakeBorrowTestResults;
+    before(async function () {
+      if (!await isPolygonForkInUse()) return;
+      results = await makeBorrowTest(
+        collateralAsset,
+        collateralCToken,
+        collateralHolder,
+        borrowAsset,
+        borrowCToken,
+        "1999"
+      );
+    });
+    describe("Good paths", () => {
+      describe("Full repay", () => {
+        it("should return expected values", async () => {
+          if (!await isPolygonForkInUse()) return;
+
+          const status = await results.init.dfPoolAdapterTC.getStatus();
+          const tetuConverterAsUser = ITetuConverter__factory.connect(
+            await results.init.controller.tetuConverter(),
+            await DeployerUtils.startImpersonate(results.init.userContract.address)
+          );
+          const collateralAmountOut = await tetuConverterAsUser.callStatic.quoteRepay(
+            results.init.collateralToken.address,
+            results.init.borrowToken.address,
+            status.amountToPay
+          );
+
+          const ret = collateralAmountOut.gte(status.collateralAmount);
+          console.log("ret", collateralAmountOut, status.collateralAmount);
+          expect(ret).eq(true);
+        });
+      });
+      describe("Partial repay 50%", () => {
+        it("should return expected values", async () => {
+          if (!await isPolygonForkInUse()) return;
+
+          const status = await results.init.dfPoolAdapterTC.getStatus();
+          const tetuConverterAsUser = ITetuConverter__factory.connect(
+            await results.init.controller.tetuConverter(),
+            await DeployerUtils.startImpersonate(results.init.userContract.address)
+          );
+          const collateralAmountOut = await tetuConverterAsUser.callStatic.quoteRepay(
+            results.init.collateralToken.address,
+            results.init.borrowToken.address,
+            status.amountToPay.div(2) // 50%
+          );
+
+          const ret = areAlmostEqual(collateralAmountOut.mul(2), status.collateralAmount, 5);
+          console.log("ret", collateralAmountOut.mul(2), status.collateralAmount);
+          expect(ret).eq(true);
+        });
+      });
+      describe("Partial repay 5%", () => {
+        it("should return expected values", async () => {
+          if (!await isPolygonForkInUse()) return;
+
+          const status = await results.init.dfPoolAdapterTC.getStatus();
+          const tetuConverterAsUser = ITetuConverter__factory.connect(
+            await results.init.controller.tetuConverter(),
+            await DeployerUtils.startImpersonate(results.init.userContract.address)
+          );
+          const collateralAmountOut = await tetuConverterAsUser.callStatic.quoteRepay(
+            results.init.collateralToken.address,
+            results.init.borrowToken.address,
+            status.amountToPay.div(20) // 5%
+          );
+
+          const ret = areAlmostEqual(collateralAmountOut.mul(20), status.collateralAmount, 5);
+          console.log("ret", collateralAmountOut.mul(20), status.collateralAmount);
+          expect(ret).eq(true);
+        });
       });
     });
   });

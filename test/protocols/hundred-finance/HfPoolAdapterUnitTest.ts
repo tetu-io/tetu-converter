@@ -7,7 +7,7 @@ import {
   DebtMonitor__factory, HfComptrollerMock, HfCTokenMock,
   HfPoolAdapter,
   IERC20Metadata__factory,
-  IPoolAdapter__factory,
+  IPoolAdapter__factory, ITetuConverter__factory,
   ITokenAddressProvider,
   TokenAddressProviderMock
 } from "../../../typechain";
@@ -146,7 +146,6 @@ describe("Hundred Finance unit tests, pool adapter", () => {
 //endregion Test impl
 
 //region Unit tests
-
   describe("borrow", () => {
     describe("Good paths", () => {
       describe("Borrow matic", () => {
@@ -2344,7 +2343,87 @@ describe("Hundred Finance unit tests, pool adapter", () => {
     });
   });
 
+  describe("getCollateralAmountToReturn", () => {
+    const collateralAsset = MaticAddresses.DAI;
+    const collateralCToken = MaticAddresses.hDAI;
+    const collateralHolder = MaticAddresses.HOLDER_DAI;
+    const borrowAsset = MaticAddresses.WMATIC;
+    const borrowCToken = MaticAddresses.hMATIC;
+    let results: IMakeBorrowTestResults;
+    before(async function () {
+      if (!await isPolygonForkInUse()) return;
+      results = await makeBorrowTest(
+        collateralAsset,
+        collateralCToken,
+        collateralHolder,
+        borrowAsset,
+        borrowCToken,
+        "1999"
+      );
+    });
+    describe("Good paths", () => {
+      describe("Full repay", () => {
+        it("should return expected values", async () => {
+          if (!await isPolygonForkInUse()) return;
 
+          const status = await results.init.hfPoolAdapterTC.getStatus();
+          const tetuConverterAsUser = ITetuConverter__factory.connect(
+            await results.init.controller.tetuConverter(),
+            await DeployerUtils.startImpersonate(results.init.userContract.address)
+          );
+          const collateralAmountOut = await tetuConverterAsUser.callStatic.quoteRepay(
+            results.init.collateralToken.address,
+            results.init.borrowToken.address,
+            status.amountToPay
+          );
+
+          const ret = collateralAmountOut.gte(status.collateralAmount);
+          console.log("ret", collateralAmountOut, status.collateralAmount);
+          expect(ret).eq(true);
+        });
+      });
+      describe("Partial repay 50%", () => {
+        it("should return expected values", async () => {
+          if (!await isPolygonForkInUse()) return;
+
+          const status = await results.init.hfPoolAdapterTC.getStatus();
+          const tetuConverterAsUser = ITetuConverter__factory.connect(
+            await results.init.controller.tetuConverter(),
+            await DeployerUtils.startImpersonate(results.init.userContract.address)
+          );
+          const collateralAmountOut = await tetuConverterAsUser.callStatic.quoteRepay(
+            results.init.collateralToken.address,
+            results.init.borrowToken.address,
+            status.amountToPay.div(2) // 50%
+          );
+
+          const ret = areAlmostEqual(collateralAmountOut.mul(2), status.collateralAmount, 5);
+          console.log("ret", collateralAmountOut.mul(2), status.collateralAmount);
+          expect(ret).eq(true);
+        });
+      });
+      describe("Partial repay 5%", () => {
+        it("should return expected values", async () => {
+          if (!await isPolygonForkInUse()) return;
+
+          const status = await results.init.hfPoolAdapterTC.getStatus();
+          const tetuConverterAsUser = ITetuConverter__factory.connect(
+            await results.init.controller.tetuConverter(),
+            await DeployerUtils.startImpersonate(results.init.userContract.address)
+          );
+          const collateralAmountOut = await tetuConverterAsUser.callStatic.quoteRepay(
+            results.init.collateralToken.address,
+            results.init.borrowToken.address,
+            status.amountToPay.div(20) // 5%
+          );
+
+          const ret = areAlmostEqual(collateralAmountOut.mul(20), status.collateralAmount, 5);
+          console.log("ret", collateralAmountOut.mul(20), status.collateralAmount);
+          expect(ret).eq(true);
+        });
+      });
+    });
+  });
 //endregion Unit tests
 
 });

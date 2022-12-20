@@ -34,6 +34,9 @@ contract Borrower is ITetuConverterCallback {
   address public onTransferBorrowedAmountLastResultBorrowAsset;
   uint public onTransferBorrowedAmountLastResultAmountBorrowAssetSentToBorrower;
 
+  uint public lastQuoteRepayResultCollateralAmount;
+  uint public lastQuoteRepayGasConsumption;
+
   struct RequireAmountBackParams {
     uint amount;
     // we need TWO different variables here to be able to test bad-paths
@@ -193,10 +196,16 @@ contract Borrower is ITetuConverterCallback {
     address receiver_
   ) external {
     console.log("makeRepayComplete started gasleft", gasleft());
+    // test quoteRepay prediction
 
     (uint amountToPay,) = _tc().getDebtAmountCurrent(collateralAsset_, borrowedAsset_);
     console.log("makeRepayComplete amountToPay", amountToPay);
     console.log("makeRepayComplete borrowed asset balance", IERC20(borrowedAsset_).balanceOf(address(this)));
+
+    lastQuoteRepayGasConsumption = gasleft();
+    lastQuoteRepayResultCollateralAmount = _tc().quoteRepay(collateralAsset_, borrowedAsset_, amountToPay);
+    lastQuoteRepayGasConsumption -= gasleft();
+    console.log("makeRepayPartial.makeRepayComplete", lastQuoteRepayResultCollateralAmount, lastQuoteRepayGasConsumption);
 
     IERC20(borrowedAsset_).safeTransfer(address(_tc()), amountToPay);
 
@@ -218,6 +227,11 @@ contract Borrower is ITetuConverterCallback {
     uint amountToPay_
   ) external {
     console.log("makeRepayPartial started - partial pay gasleft", gasleft());
+
+    lastQuoteRepayGasConsumption = gasleft();
+    lastQuoteRepayResultCollateralAmount = _tc().quoteRepay(collateralAsset_, borrowedAsset_, amountToPay_);
+    lastQuoteRepayGasConsumption -= gasleft();
+    console.log("makeRepayPartial.quoteRepay", lastQuoteRepayResultCollateralAmount, lastQuoteRepayGasConsumption);
 
     IERC20(borrowedAsset_).safeTransfer(address(_tc()), amountToPay_);
     _tc().repay(collateralAsset_, borrowedAsset_, amountToPay_, receiver_);

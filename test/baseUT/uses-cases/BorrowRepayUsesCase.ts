@@ -86,6 +86,18 @@ export interface IMakeTwoBorrowsTwoRepaysResults {
   userContract: Borrower;
 }
 
+export interface IQuoteRepayResults {
+  uc: Borrower;
+  ucBalanceCollateral0: BigNumber;
+  ucBalanceBorrow0: BigNumber;
+  collateralAmount: BigNumber;
+  userBalances: IUserBalancesWithGas[];
+  borrowBalances: BigNumber[];
+  strategyToConvert: IStrategyToConvert;
+  quoteRepayResultCollateralAmount: BigNumber;
+  quoteRepayGasConsumption: BigNumber;
+}
+
 export class BorrowRepayUsesCase {
   /**
    * Perform a series of actions, control user balances and total borrow balance after each action.
@@ -619,4 +631,62 @@ export class BorrowRepayUsesCase {
     );
   }
 //endregion Test two borrows, two repays
+
+//region borrow, quoteRepay, repay
+  static async makeQuoteRepay(
+    deployer: SignerWithAddress,
+    p: ITestSingleBorrowParams,
+    controller: Controller,
+    countBlocksToSkipAfterBorrow?: number
+  ) : Promise<IQuoteRepayResults>{
+    const uc = await MocksHelper.deployBorrower(deployer.address, controller, p.countBlocks);
+
+    const collateralToken = await TokenDataTypes.Build(deployer, p.collateral.asset);
+    const borrowToken = await TokenDataTypes.Build(deployer, p.borrow.asset);
+
+    const amountToRepay = undefined; // full repay
+
+    const ucBalanceCollateral0 = await setInitialBalance(deployer, collateralToken.address,
+      p.collateral.holder, p.collateral.initialLiquidity, uc.address);
+    const ucBalanceBorrow0 = await setInitialBalance(deployer, borrowToken.address,
+      p.borrow.holder, p.borrow.initialLiquidity, uc.address);
+    const collateralAmount = getBigNumberFrom(p.collateralAmount, collateralToken.decimals);
+
+    const tetuConverter = ITetuConverter__factory.connect(await controller.tetuConverter(), deployer);
+    await IERC20__factory.connect(collateralToken.address, await DeployerUtils.startImpersonate(uc.address)).approve(
+      tetuConverter.address,
+      collateralAmount
+    );
+    const tetuConverterAsUser = await TetuConverter__factory.connect(
+      await controller.tetuConverter(),
+      await DeployerUtils.startImpersonate(uc.address)
+    );
+    const strategyToConvert: IStrategyToConvert = await tetuConverterAsUser.callStatic.findConversionStrategy(
+      p.collateral.asset,
+      collateralAmount,
+      p.borrow.asset,
+      p.countBlocks,
+    );
+
+    // TetuConverter gives infinity approve to the pool adapter after pool adapter creation (see TetuConverter.convert implementation)
+    const borrowAction = new BorrowAction(collateralToken, collateralAmount, borrowToken, p.countBlocks);
+    const repayAction = new RepayAction(collateralToken, borrowToken, amountToRepay, {countBlocksToSkipAfterAction: countBlocksToSkipAfterBorrow});
+    const {
+      userBalances,
+      borrowBalances
+    } = await BorrowRepayUsesCase.makeBorrowRepayActions(deployer, uc, [borrowAction, repayAction]);
+
+    return {
+      uc,
+      ucBalanceCollateral0,
+      ucBalanceBorrow0,
+      borrowBalances,
+      userBalances,
+      collateralAmount,
+      strategyToConvert,
+      quoteRepayResultCollateralAmount: await uc.lastQuoteRepayResultCollateralAmount(),
+      quoteRepayGasConsumption: await uc.lastQuoteRepayGasConsumption()
+    }
+  }
+//endregion borrow, quoteRepay, repay
 }
