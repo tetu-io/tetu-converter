@@ -107,6 +107,8 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer,
 
   function updateStatus() external override {
     // nothing to do; getStatus always return actual amounts in AAVE
+    // actually, there is reserve.updateStatus function, i.e. see SupplyLogic.sol, executeWithdraw
+    // but this function is internal
   }
 
   ///////////////////////////////////////////////////////
@@ -115,7 +117,6 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer,
 
   /// @notice Enter to E-mode if necessary
   function prepareToBorrow() internal virtual;
-
 
 
   ///////////////////////////////////////////////////////
@@ -304,7 +305,16 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer,
 
     // withdraw the collateral
     // if the borrow was liquidated the collateral is zero and we will have revert here
-    pool.withdraw(assetCollateral, amountCollateralToWithdraw, receiver_);
+    if (closePosition_) {
+      uint balanceUserCollateralBefore = IERC20(assetCollateral).balanceOf(receiver_);
+      pool.withdraw(assetCollateral, amountCollateralToWithdraw, receiver_); // amountCollateralToWithdraw == type(uint).max
+      uint balanceUserCollateralAfter = IERC20(assetCollateral).balanceOf(receiver_);
+      amountCollateralToWithdraw = balanceUserCollateralAfter < balanceUserCollateralBefore
+        ? 0
+        : balanceUserCollateralAfter - balanceUserCollateralBefore;
+    } else {
+      pool.withdraw(assetCollateral, amountCollateralToWithdraw, receiver_);
+    }
 
     if (closePosition_) {
       // user has transferred a little bigger amount than actually need to close position
@@ -373,11 +383,10 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer,
     uint collateralPrice = priceOracle_.getAssetPrice(assetCollateral_);
     require(collateralPrice != 0, AppErrors.ZERO_PRICE);
 
-  uint part = amountToRepayBase >= totalDebtBase
+    uint part = amountToRepayBase >= totalDebtBase
       ? 1e18
       : 1e18 * amountToRepayBase / totalDebtBase;
-
-    console.log("_getCollateralAmountToReturn.5 part", part);
+    console.log("PART", part, amountToRepayBase, totalDebtBase);
 
     return
       // == totalCollateral * amountToRepay / totalDebt
@@ -442,35 +451,30 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer,
 
   /// @notice If we paid {amountToRepay_}, how much collateral would we receive?
   function getCollateralAmountToReturn(uint amountToRepay_, bool closePosition_) external view override returns (uint) {
-    console.log("getCollateralAmountToReturn.1", amountToRepay_, closePosition_);
-
     address assetCollateral = collateralAsset;
     IAavePool pool = _pool;
     IAavePriceOracle priceOracle = IAavePriceOracle(IAaveAddressesProvider(IAavePool(pool).ADDRESSES_PROVIDER()).getPriceOracle());
 
-    Aave3DataTypes.ReserveData memory rc = pool.getReserveData(assetCollateral);
-    uint dest = _getCollateralAmountToReturn(
-      pool,
-      amountToRepay_,
-      assetCollateral,
-      borrowAsset,
-      closePosition_,
-      rc.configuration.getDecimals(),
-      priceOracle
-    );
-
-    if (dest == type(uint).max) {
-      // all available collateral will be returned
+    if (closePosition_) {
+      // full repay
       (uint256 totalCollateralBase,,,,,) = pool.getUserAccountData(address(this));
 
       uint collateralPrice = priceOracle.getAssetPrice(assetCollateral);
       require(collateralPrice != 0, AppErrors.ZERO_PRICE);
 
-      console.log("getCollateralAmountToReturn.2", amountToRepay_, totalCollateralBase, collateralPrice);
-
       return totalCollateralBase * (10 ** pool.getConfiguration(assetCollateral).getDecimals()) / collateralPrice;
     } else {
-      return dest;
+      // partial repay
+      Aave3DataTypes.ReserveData memory rc = pool.getReserveData(assetCollateral);
+      return _getCollateralAmountToReturn(
+        pool,
+        amountToRepay_,
+        assetCollateral,
+        borrowAsset,
+        false,
+        rc.configuration.getDecimals(),
+        priceOracle
+      );
     }
   }
 

@@ -11,7 +11,7 @@ import {
   Aave3PoolAdapter,
   Aave3PoolMock__factory,
   ITetuConverter__factory,
-  Aave3PriceOracleMock
+  Aave3PriceOracleMock, IERC20__factory
 } from "../../../typechain";
 import {expect} from "chai";
 import {BigNumber} from "ethers";
@@ -53,6 +53,7 @@ import {IPoolAdapterStatus} from "../../baseUT/types/BorrowRepayDataTypes";
 import {Aave3ChangePricesUtils} from "../../baseUT/protocols/aave3/Aave3ChangePricesUtils";
 import exp from "constants";
 import {Aave3Helper} from "../../../scripts/integration/helpers/Aave3Helper";
+import {interfaces} from "../../../typechain/contracts";
 
 describe("Aave3PoolAdapterUnitTest", () => {
 //region Global vars for all tests
@@ -1417,6 +1418,7 @@ describe("Aave3PoolAdapterUnitTest", () => {
     const collateralAsset = MaticAddresses.DAI;
     const collateralHolder = MaticAddresses.HOLDER_DAI;
     const borrowAsset = MaticAddresses.WMATIC;
+    const borrowHolder = MaticAddresses.HOLDER_WMATIC;
     let results: IMakeBorrowTestResults;
     before(async function () {
       if (!await isPolygonForkInUse()) return;
@@ -1428,6 +1430,57 @@ describe("Aave3PoolAdapterUnitTest", () => {
       );
     });
     describe("Good paths", () => {
+      interface IQuoteRepayTestResults {
+        status: IPoolAdapterStatus;
+        realAmountToPay: BigNumber;
+        repayEmulationResults: {
+          collateralAmountOut: BigNumber;
+          returnedBorrowAmountOut: BigNumber;
+        }
+        quoteRepayResultCollateralAmount: BigNumber;
+      }
+      async function makeQuoteRepayTest(part100: number) : Promise<IQuoteRepayTestResults> {
+        const status: IPoolAdapterStatus = await results.init.aavePoolAdapterAsTC.getStatus();
+        const tetuConverterAsUser = ITetuConverter__factory.connect(
+          await results.init.controller.tetuConverter(),
+          await DeployerUtils.startImpersonate(results.init.userContract.address)
+        );
+
+        // let's know what exactly collateral we will get after full repay
+        await BalanceUtils.getRequiredAmountFromHolders(
+          status.amountToPay.mul(2),
+          IERC20Metadata__factory.connect(results.init.borrowToken.address, deployer),
+          [borrowHolder],
+          tetuConverterAsUser.address
+        );
+        await IERC20__factory.connect(
+          results.init.borrowToken.address,
+          await DeployerUtils.startImpersonate(tetuConverterAsUser.address)
+        ).approve(results.init.aavePoolAdapterAsTC.address, status.amountToPay.mul(2));
+        const repayResults = (await tetuConverterAsUser.callStatic.repay(
+          results.init.collateralToken.address,
+          results.init.borrowToken.address,
+          status.amountToPay.mul(2),
+          ethers.Wallet.createRandom().address
+        ));
+        console.log("Collateral after repay:", repayResults.collateralAmountOut.toString());
+        const realAmountToPay = status.amountToPay.mul(2).sub(repayResults.returnedBorrowAmountOut);
+        console.log("Amount to pay:", status.amountToPay.toString());
+        console.log("Real amount to pay:", realAmountToPay.toString());
+
+        const collateralAmountOut = await tetuConverterAsUser.callStatic.quoteRepay(
+          results.init.collateralToken.address,
+          results.init.borrowToken.address,
+          realAmountToPay.div(part100)
+        );
+
+        return {
+         status,
+         repayEmulationResults: repayResults,
+         quoteRepayResultCollateralAmount: collateralAmountOut,
+         realAmountToPay
+        }
+      }
       describe("Full repay", () => {
         it("should return expected values", async () => {
           if (!await isPolygonForkInUse()) return;
@@ -1457,39 +1510,24 @@ describe("Aave3PoolAdapterUnitTest", () => {
         it("should return expected values", async () => {
           if (!await isPolygonForkInUse()) return;
 
-          const status = await results.init.aavePoolAdapterAsTC.getStatus();
-          const tetuConverterAsUser = ITetuConverter__factory.connect(
-            await results.init.controller.tetuConverter(),
-            await DeployerUtils.startImpersonate(results.init.userContract.address)
-          );
-          const collateralAmountOut = await tetuConverterAsUser.callStatic.quoteRepay(
-            results.init.collateralToken.address,
-            results.init.borrowToken.address,
-            status.amountToPay.div(2) // 50%
-          );
+          const r = await makeQuoteRepayTest(2);
+          console.log(r);
 
-          const ret = areAlmostEqual(collateralAmountOut.mul(2), status.collateralAmount, 5);
-          console.log("ret", collateralAmountOut.mul(2), status.collateralAmount);
+          // Exact amount-to-pay depends on current time stamp, so we cannot calculcate this amount in advance
+          // So, we cannot pay exactly 50% here - we pay only approximately 50%...
+          const ret = areAlmostEqual(r.quoteRepayResultCollateralAmount.mul(2), r.repayEmulationResults.collateralAmountOut, 4);
           expect(ret).eq(true);
         });
       });
       describe("Partial repay 5%", () => {
         it("should return expected values", async () => {
           if (!await isPolygonForkInUse()) return;
+          const r = await makeQuoteRepayTest(20);
 
-          const status = await results.init.aavePoolAdapterAsTC.getStatus();
-          const tetuConverterAsUser = ITetuConverter__factory.connect(
-            await results.init.controller.tetuConverter(),
-            await DeployerUtils.startImpersonate(results.init.userContract.address)
-          );
-          const collateralAmountOut = await tetuConverterAsUser.callStatic.quoteRepay(
-            results.init.collateralToken.address,
-            results.init.borrowToken.address,
-            status.amountToPay.div(20) // 5%
-          );
-
-          const ret = areAlmostEqual(collateralAmountOut.mul(20), status.collateralAmount, 5);
-          console.log("ret", collateralAmountOut.mul(20), status.collateralAmount);
+          // Exact amount-to-pay depends on current time stamp, so we cannot calculcate this amount in advance
+          // So, we cannot pay exactly 5% here - we pay only approximately 5%...
+          const ret = areAlmostEqual(r.quoteRepayResultCollateralAmount.mul(20), r.repayEmulationResults.collateralAmountOut, 4);
+          console.log("ret", r.quoteRepayResultCollateralAmount.mul(20).toString(), r.repayEmulationResults.collateralAmountOut.toString());
           expect(ret).eq(true);
         });
       });

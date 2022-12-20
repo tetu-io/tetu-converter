@@ -297,7 +297,16 @@ contract AaveTwoPoolAdapter is IPoolAdapter, IPoolAdapterInitializer, Initializa
     );
 
     // withdraw the collateral
-    pool.withdraw(assetCollateral, amountCollateralToWithdraw, receiver_);
+    if (closePosition_) {
+      uint balanceUserCollateralBefore = IERC20(assetCollateral).balanceOf(receiver_);
+      pool.withdraw(assetCollateral, amountCollateralToWithdraw, receiver_); // amountCollateralToWithdraw == type(uint).max
+      uint balanceUserCollateralAfter = IERC20(assetCollateral).balanceOf(receiver_);
+      amountCollateralToWithdraw = balanceUserCollateralAfter < balanceUserCollateralBefore
+        ? 0
+        : balanceUserCollateralAfter - balanceUserCollateralBefore;
+    } else {
+      pool.withdraw(assetCollateral, amountCollateralToWithdraw, receiver_);
+    }
 
     if (closePosition_) {
       // user has transferred a little bigger amount than actually need to close position
@@ -377,23 +386,30 @@ contract AaveTwoPoolAdapter is IPoolAdapter, IPoolAdapterInitializer, Initializa
 
   /// @notice If we paid {amountToRepay_}, how much collateral would we receive?
   function getCollateralAmountToReturn(uint amountToRepay_, bool closePosition_) external view override returns (uint) {
+    address assetCollateral = collateralAsset;
     IAaveTwoPool pool = _pool;
     IAaveTwoPriceOracle priceOracle = IAaveTwoPriceOracle(
       IAaveTwoLendingPoolAddressesProvider(IAaveTwoPool(pool).getAddressesProvider()).getPriceOracle()
     );
 
-    uint dest = _getCollateralAmountToReturn(pool, amountToRepay_, collateralAsset, borrowAsset, closePosition_, priceOracle);
-    if (dest == type(uint).max) {
-      // all available collateral will be returned
+    if (closePosition_) {
+      // full repay
       (uint256 totalCollateralBase,,,,,) = pool.getUserAccountData(address(this));
-      address assetCollateral = collateralAsset;
 
       uint collateralPrice = priceOracle.getAssetPrice(assetCollateral);
       require(collateralPrice != 0, AppErrors.ZERO_PRICE);
 
       return totalCollateralBase * (10 ** pool.getConfiguration(assetCollateral).getDecimals()) / collateralPrice;
     } else {
-      return dest;
+      // partial repay
+      return _getCollateralAmountToReturn(
+        pool,
+        amountToRepay_,
+        assetCollateral,
+        borrowAsset,
+        false,
+        priceOracle
+      );
     }
   }
 
