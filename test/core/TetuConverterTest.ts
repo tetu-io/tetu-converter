@@ -3556,6 +3556,99 @@ describe("TetuConverterTest", () => {
     });
   });
 
+  describe("quoteRepay", () => {
+    interface IQuoteRepayBadPathParams {
+      collateralPriceIsZero?: boolean,
+      borrowPriceIsZero?: boolean
+    }
+    interface IQuoteRepayResults {
+      init: ISetupResults;
+      collateralAmountOutNum: number;
+    }
+    async function makeQuoteRepayTest(
+      collateralAmounts: number[],
+      exactBorrowAmounts: number[],
+      amountToRepayNum: number,
+      badPathParams?: IQuoteRepayBadPathParams
+    ) : Promise<IQuoteRepayResults> {
+      const core = await CoreContracts.build(
+        await TetuConverterApp.createController(deployer, {
+          priceOracleFabric: async c => (await MocksHelper.getPriceOracleMock(deployer, [], [])).address
+        })
+      );
+      const init = await prepareTetuAppWithMultipleLendingPlatforms(core, collateralAmounts.length);
+      await PriceOracleMock__factory.connect(await core.controller.priceOracle(), deployer).changePrices(
+        [init.sourceToken.address, init.targetToken.address],
+        [
+          parseUnits(badPathParams?.collateralPriceIsZero ? "0" : "1"),
+          parseUnits(badPathParams?.borrowPriceIsZero ? "0" : "1")
+        ] // prices are set to 1 for simplicity
+      );
+      const targetTokenDecimals = await init.targetToken.decimals();
+
+      if (collateralAmounts.length) {
+        await makeBorrow(
+          init,
+          collateralAmounts,
+          BigNumber.from(100),
+          BigNumber.from(100_000),
+          exactBorrowAmounts
+        );
+      }
+
+      const tcAsUc = TetuConverter__factory.connect(
+        init.core.tc.address,
+        await DeployerUtils.startImpersonate(init.userContract.address)
+      );
+
+      const collateralAmountOut = await tcAsUc.callStatic.quoteRepay(
+        init.sourceToken.address,
+        init.targetToken.address,
+        parseUnits(amountToRepayNum.toString(), targetTokenDecimals)
+      );
+
+      return {
+        init,
+        collateralAmountOutNum: Number(formatUnits(collateralAmountOut, targetTokenDecimals))
+      }
+    }
+    describe("Good paths", () => {
+      describe("AmountToRepay is 0", () => {
+        it("should return 0", async () => {
+          const ret = await makeQuoteRepayTest([100], [10], 0);
+          expect(ret.collateralAmountOutNum).eq(0);
+        });
+      });
+      describe("AmountToRepay is less or equal than the debt", () => {
+        it("should return expected part of collateral", async () => {
+          const ret = await makeQuoteRepayTest([105, 200], [10, 20], 10);
+          expect(ret.collateralAmountOutNum).eq(105);
+        });
+        it("should return expected part of collateral", async () => {
+          const ret = await makeQuoteRepayTest([105, 200, 300], [10, 20, 30], 30);
+          expect(ret.collateralAmountOutNum).eq(305);
+        });
+        it("should return all collateral", async () => {
+          const ret = await makeQuoteRepayTest([105, 200, 300], [10, 20, 30], 60);
+          expect(ret.collateralAmountOutNum).eq(605);
+        });
+      });
+      describe("AmountToRepay is greater than the debt", () => {
+        it("should return all collateral and swapped amount", async () => {
+
+        });
+      });
+    });
+    describe("Bad paths", () => {
+      it("should revert if collateral asset price is zero", async () => {
+
+      });
+      it("should revert if borrow asset price is zero", async () => {
+
+      });
+    });
+  });
+
 //   describe("TODO:requireReconversion", () => {
 //     describe("Good paths", () => {
 //       it("should return expected values", async () => {

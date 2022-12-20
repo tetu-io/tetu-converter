@@ -448,6 +448,10 @@ contract TetuConverter is ITetuConverter, IKeeperCallback, IRequireAmountBySwapM
     uint lenPoolAdapters = poolAdapters.length;
 
     for (uint i = 0; i < lenPoolAdapters; i = i.uncheckedInc()) {
+      if (amountToRepay_ == 0) {
+        break;
+      }
+
       IPoolAdapter pa = IPoolAdapter(poolAdapters[i]);
 
       pa.updateStatus();
@@ -459,15 +463,13 @@ contract TetuConverter is ITetuConverter, IKeeperCallback, IRequireAmountBySwapM
 
       amountToRepay_ -= currentAmountToRepay;
       collateralAmountOut += collateralAmountToReceive;
-
-      if (amountToRepay_ == 0) {
-        break;
-      }
     }
 
     if (amountToRepay_ > 0) {
       uint priceBorrowAsset = IPriceOracle(controller.priceOracle()).getAssetPrice(borrowAsset_);
       uint priceCollateralAsset = IPriceOracle(controller.priceOracle()).getAssetPrice(collateralAsset_);
+      require(priceCollateralAsset != 0 && priceBorrowAsset != 0, AppErrors.ZERO_PRICE);
+
       collateralAmountOut += amountToRepay_
         * 10**IERC20Metadata(borrowAsset_).decimals()
         * priceCollateralAsset
