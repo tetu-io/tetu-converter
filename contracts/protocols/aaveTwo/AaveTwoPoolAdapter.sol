@@ -35,7 +35,6 @@ contract AaveTwoPoolAdapter is IPoolAdapter, IPoolAdapterInitializer, Initializa
 
   IController public controller;
   IAaveTwoPool internal _pool;
-  IAaveTwoPriceOracle internal _priceOracle;
 
   /// @notice Address of original PoolAdapter contract that was cloned to make the instance of the pool adapter
   address originConverter;
@@ -92,7 +91,6 @@ contract AaveTwoPoolAdapter is IPoolAdapter, IPoolAdapterInitializer, Initializa
     originConverter = originConverter_;
 
     _pool = IAaveTwoPool(pool_);
-    _priceOracle = IAaveTwoPriceOracle(IAaveTwoLendingPoolAddressesProvider(IAaveTwoPool(pool_).getAddressesProvider()).getPriceOracle());
 
     // The pool adapter doesn't keep assets on its balance, so it's safe to use infinity approve
     // All approves replaced by infinity-approve were commented in the code below
@@ -271,6 +269,9 @@ contract AaveTwoPoolAdapter is IPoolAdapter, IPoolAdapterInitializer, Initializa
     address assetCollateral = collateralAsset;
     address assetBorrow = borrowAsset;
     IAaveTwoPool pool = _pool;
+    IAaveTwoPriceOracle priceOracle = IAaveTwoPriceOracle(
+      IAaveTwoLendingPoolAddressesProvider(IAaveTwoPool(pool).getAddressesProvider()).getPriceOracle()
+    );
 
     IERC20(assetBorrow).safeTransferFrom(msg.sender, address(this), amountToRepay_);
     DataTypes.ReserveData memory rc = pool.getReserveData(assetCollateral);
@@ -282,7 +283,8 @@ contract AaveTwoPoolAdapter is IPoolAdapter, IPoolAdapterInitializer, Initializa
       amountToRepay_,
       assetCollateral,
       assetBorrow,
-      closePosition_
+      closePosition_,
+      priceOracle
     );
 
     // transfer borrow amount back to the pool
@@ -342,24 +344,25 @@ contract AaveTwoPoolAdapter is IPoolAdapter, IPoolAdapterInitializer, Initializa
     uint amountToRepay_,
     address assetCollateral_,
     address assetBorrow_,
-    bool closePosition_
+    bool closePosition_,
+    IAaveTwoPriceOracle priceOracle_
   ) internal view returns (uint) {
     // get total amount of the borrow position
     (uint256 totalCollateralBase, uint256 totalDebtBase,,,,) = pool_.getUserAccountData(address(this));
     require(totalDebtBase != 0, AppErrors.ZERO_BALANCE);
 
-    // the assets prices in the base currency
-    uint collateralPrice = _priceOracle.getAssetPrice(assetCollateral_);
-    require(collateralPrice != 0, AppErrors.ZERO_PRICE);
-
     uint amountToRepayBase = amountToRepay_
-      * _priceOracle.getAssetPrice(assetBorrow_)
+      * priceOracle_.getAssetPrice(assetBorrow_)
       / (10 ** IERC20Metadata(assetBorrow_).decimals());
     require(!closePosition_ || totalDebtBase <= amountToRepayBase, AppErrors.CLOSE_POSITION_FAILED);
 
     if (closePosition_) {
       return type(uint).max;
     }
+
+    // the assets prices in the base currency
+    uint collateralPrice = priceOracle_.getAssetPrice(assetCollateral_);
+    require(collateralPrice != 0, AppErrors.ZERO_PRICE);
 
     uint part = amountToRepayBase >= totalDebtBase
       ? 10**18
@@ -375,13 +378,17 @@ contract AaveTwoPoolAdapter is IPoolAdapter, IPoolAdapterInitializer, Initializa
   /// @notice If we paid {amountToRepay_}, how much collateral would we receive?
   function getCollateralAmountToReturn(uint amountToRepay_, bool closePosition_) external view override returns (uint) {
     IAaveTwoPool pool = _pool;
-    uint dest = _getCollateralAmountToReturn(pool, amountToRepay_, collateralAsset, borrowAsset, closePosition_);
+    IAaveTwoPriceOracle priceOracle = IAaveTwoPriceOracle(
+      IAaveTwoLendingPoolAddressesProvider(IAaveTwoPool(pool).getAddressesProvider()).getPriceOracle()
+    );
+
+    uint dest = _getCollateralAmountToReturn(pool, amountToRepay_, collateralAsset, borrowAsset, closePosition_, priceOracle);
     if (dest == type(uint).max) {
       // all available collateral will be returned
       (uint256 totalCollateralBase,,,,,) = pool.getUserAccountData(address(this));
       address assetCollateral = collateralAsset;
 
-      uint collateralPrice = _priceOracle.getAssetPrice(assetCollateral);
+      uint collateralPrice = priceOracle.getAssetPrice(assetCollateral);
       require(collateralPrice != 0, AppErrors.ZERO_PRICE);
 
       return totalCollateralBase * (10 ** pool.getConfiguration(assetCollateral).getDecimals()) / collateralPrice;
@@ -410,6 +417,9 @@ contract AaveTwoPoolAdapter is IPoolAdapter, IPoolAdapterInitializer, Initializa
 
     address assetBorrow = borrowAsset;
     IAaveTwoPool pool = _pool;
+    IAaveTwoPriceOracle priceOracle = IAaveTwoPriceOracle(
+      IAaveTwoLendingPoolAddressesProvider(IAaveTwoPool(pool).getAddressesProvider()).getPriceOracle()
+    );
 
     uint newCollateralBalanceATokens = collateralBalanceATokens;
     if (isCollateral_) {
@@ -418,7 +428,7 @@ contract AaveTwoPoolAdapter is IPoolAdapter, IPoolAdapterInitializer, Initializa
     } else {
       // ensure, that amount to repay is less then the total debt
       (,uint256 totalDebtBase0,,,,) = pool.getUserAccountData(address(this));
-      uint priceBorrowAsset = _priceOracle.getAssetPrice(assetBorrow);
+      uint priceBorrowAsset = priceOracle.getAssetPrice(assetBorrow);
       uint totalAmountToPay = totalDebtBase0 == 0
         ? 0
         : totalDebtBase0 * (10 ** pool.getConfiguration(assetBorrow).getDecimals()) / priceBorrowAsset;
@@ -477,14 +487,22 @@ contract AaveTwoPoolAdapter is IPoolAdapter, IPoolAdapterInitializer, Initializa
     uint collateralAmountLiquidated
   ) {
     IAaveTwoPool pool = _pool;
+
     (uint256 totalCollateralBase, uint256 totalDebtBase,,,, uint256 hf18) = pool.getUserAccountData(address(this));
 
     address assetCollateral = collateralAsset;
     address assetBorrow = borrowAsset;
 
-    uint collateralPrice = _priceOracle.getAssetPrice(assetCollateral);
-    uint borrowPrice = _priceOracle.getAssetPrice(assetBorrow);
-    require(collateralPrice != 0 && borrowPrice != 0, AppErrors.ZERO_PRICE);
+    uint collateralPrice;
+    uint borrowPrice;
+    {
+      IAaveTwoPriceOracle priceOracle = IAaveTwoPriceOracle(
+        IAaveTwoLendingPoolAddressesProvider(IAaveTwoPool(pool).getAddressesProvider()).getPriceOracle()
+      );
+      collateralPrice = priceOracle.getAssetPrice(assetCollateral);
+      borrowPrice = priceOracle.getAssetPrice(assetBorrow);
+      require(collateralPrice != 0 && borrowPrice != 0, AppErrors.ZERO_PRICE);
+    }
 
     DataTypes.ReserveData memory rc = pool.getReserveData(assetCollateral);
     uint aTokensBalance = IERC20(rc.aTokenAddress).balanceOf(address(this));

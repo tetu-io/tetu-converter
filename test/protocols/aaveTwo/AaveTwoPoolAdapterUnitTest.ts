@@ -6,7 +6,7 @@ import {
   AaveTwoPoolAdapter__factory, AaveTwoPoolMock__factory,
   BorrowManager__factory, Controller, DebtMonitor__factory,
   IERC20Metadata__factory,
-  IPoolAdapter__factory
+  IPoolAdapter__factory, ITetuConverter__factory
 } from "../../../typechain";
 import {expect} from "chai";
 import {BigNumber} from "ethers";
@@ -1380,6 +1380,103 @@ describe("AaveTwoPoolAdapterUnitTest", () => {
 
       // ensure that updateStatus doesn't revert
       expect(statusAfter.opened).eq(true);
+    });
+  });
+
+  describe("getCollateralAmountToReturn", () => {
+    const collateralAsset = MaticAddresses.DAI;
+    const collateralHolder = MaticAddresses.HOLDER_DAI;
+    const borrowAsset = MaticAddresses.WMATIC;
+    let results: IMakeBorrowTestResults;
+    before(async function () {
+      if (!await isPolygonForkInUse()) return;
+      results = await makeBorrowTest(
+        collateralAsset,
+        collateralHolder,
+        borrowAsset,
+        "1999"
+      );
+    });
+    describe("Good paths", () => {
+      describe("Full repay", () => {
+        it("should return expected values", async () => {
+          if (!await isPolygonForkInUse()) return;
+
+          const status = await results.init.aavePoolAdapterAsTC.getStatus();
+          const tetuConverterAsUser = ITetuConverter__factory.connect(
+            await results.init.controller.tetuConverter(),
+            await DeployerUtils.startImpersonate(results.init.userContract.address)
+          );
+          const collateralAmountOut = await tetuConverterAsUser.callStatic.quoteRepay(
+            results.init.collateralToken.address,
+            results.init.borrowToken.address,
+            status.amountToPay
+          );
+
+          const ret = collateralAmountOut.gte(status.collateralAmount);
+          console.log("ret", collateralAmountOut, status.collateralAmount);
+          expect(ret).eq(true);
+        });
+      });
+      describe("Partial repay 50%", () => {
+        it("should return expected values", async () => {
+          if (!await isPolygonForkInUse()) return;
+
+          const status = await results.init.aavePoolAdapterAsTC.getStatus();
+          const tetuConverterAsUser = ITetuConverter__factory.connect(
+            await results.init.controller.tetuConverter(),
+            await DeployerUtils.startImpersonate(results.init.userContract.address)
+          );
+          const collateralAmountOut = await tetuConverterAsUser.callStatic.quoteRepay(
+            results.init.collateralToken.address,
+            results.init.borrowToken.address,
+            status.amountToPay.div(2) // 50%
+          );
+
+          const ret = areAlmostEqual(collateralAmountOut.mul(2), status.collateralAmount, 5);
+          console.log("ret", collateralAmountOut.mul(2), status.collateralAmount);
+          expect(ret).eq(true);
+        });
+      });
+      describe("Partial repay 5%", () => {
+        it("should return expected values", async () => {
+          if (!await isPolygonForkInUse()) return;
+
+          const status = await results.init.aavePoolAdapterAsTC.getStatus();
+          const tetuConverterAsUser = ITetuConverter__factory.connect(
+            await results.init.controller.tetuConverter(),
+            await DeployerUtils.startImpersonate(results.init.userContract.address)
+          );
+          const collateralAmountOut = await tetuConverterAsUser.callStatic.quoteRepay(
+            results.init.collateralToken.address,
+            results.init.borrowToken.address,
+            status.amountToPay.div(20) // 5%
+          );
+
+          const ret = areAlmostEqual(collateralAmountOut.mul(20), status.collateralAmount, 5);
+          console.log("ret", collateralAmountOut.mul(20), status.collateralAmount);
+          expect(ret).eq(true);
+        });
+      });
+    });
+    describe("Bad paths", () => {
+      it("should revert if collateral price is zero", async () => {
+        if (!await isPolygonForkInUse()) return;
+        const priceOracle = await AaveTwoChangePricesUtils.setupPriceOracleMock(deployer);
+        await priceOracle.setPrices([results.init.collateralToken.address], [parseUnits("0")]);
+
+        const tetuConverterAsUser = ITetuConverter__factory.connect(
+          await results.init.controller.tetuConverter(),
+          await DeployerUtils.startImpersonate(results.init.userContract.address)
+        );
+        await expect(
+          tetuConverterAsUser.quoteRepay(
+            results.init.collateralToken.address,
+            results.init.borrowToken.address,
+            parseUnits("1000") // full repay, close position
+          )
+        ).revertedWith("TC-4 zero price"); // ZERO_PRICE
+      });
     });
   });
 //endregion Unit tests

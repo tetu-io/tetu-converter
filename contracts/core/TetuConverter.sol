@@ -22,6 +22,7 @@ import "../interfaces/IKeeperCallback.sol";
 import "../interfaces/ITetuConverterCallback.sol";
 import "../interfaces/IRequireAmountBySwapManagerCallback.sol";
 import "../interfaces/IPriceOracle.sol";
+import "hardhat/console.sol";
 
 /// @notice Main application contract
 contract TetuConverter is ITetuConverter, IKeeperCallback, IRequireAmountBySwapManagerCallback, ReentrancyGuard {
@@ -446,7 +447,7 @@ contract TetuConverter is ITetuConverter, IKeeperCallback, IRequireAmountBySwapM
       borrowAsset_
     );
     uint lenPoolAdapters = poolAdapters.length;
-
+    console.log("quoteRepay count adapters:", poolAdapters.length);
     for (uint i = 0; i < lenPoolAdapters; i = i.uncheckedInc()) {
       if (amountToRepay_ == 0) {
         break;
@@ -461,20 +462,26 @@ contract TetuConverter is ITetuConverter, IKeeperCallback, IRequireAmountBySwapM
       uint currentAmountToRepay = closePosition ? totalDebtForPoolAdapter : amountToRepay_;
       uint collateralAmountToReceive = pa.getCollateralAmountToReturn(currentAmountToRepay, closePosition);
 
+      console.log("quoteRepay.0", totalDebtForPoolAdapter, amountToRepay_, closePosition);
       amountToRepay_ -= currentAmountToRepay;
       collateralAmountOut += collateralAmountToReceive;
     }
 
+    console.log("quoteRepay.1", amountToRepay_, collateralAmountOut);
     if (amountToRepay_ > 0) {
       uint priceBorrowAsset = IPriceOracle(controller.priceOracle()).getAssetPrice(borrowAsset_);
       uint priceCollateralAsset = IPriceOracle(controller.priceOracle()).getAssetPrice(collateralAsset_);
       require(priceCollateralAsset != 0 && priceBorrowAsset != 0, AppErrors.ZERO_PRICE);
 
+      console.log("quoteRepay.3", IERC20Metadata(borrowAsset_).decimals(), IERC20Metadata(collateralAsset_).decimals());
+      console.log("quoteRepay.4", priceCollateralAsset, priceBorrowAsset);
       collateralAmountOut += amountToRepay_
-        * 10**IERC20Metadata(borrowAsset_).decimals()
-        * priceCollateralAsset
-        / priceBorrowAsset
-        / 10**IERC20Metadata(collateralAsset_).decimals();
+        * 10**IERC20Metadata(collateralAsset_).decimals()
+        * priceBorrowAsset
+        / priceCollateralAsset
+        / 10**IERC20Metadata(borrowAsset_).decimals();
+
+      console.log("quoteRepay.5", amountToRepay_, collateralAmountOut);
     }
 
     return collateralAmountOut;

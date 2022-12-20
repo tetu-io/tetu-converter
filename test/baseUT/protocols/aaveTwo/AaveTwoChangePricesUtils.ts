@@ -12,7 +12,7 @@ import {
 import {BigNumber} from "ethers";
 
 export class AaveTwoChangePricesUtils {
-  public static async setupPriceOracleMock(deployer: SignerWithAddress) {
+  public static async setupPriceOracleMock(deployer: SignerWithAddress) : Promise<AaveTwoPriceOracleMock> {
     // get access to AAVE price oracle
     const aaveOracle = await AaveTwoHelper.getAavePriceOracle(deployer);
 
@@ -39,6 +39,8 @@ export class AaveTwoChangePricesUtils {
       aavePoolOwner
     );
     await aaveAddressProviderAsOwner.setPriceOracle(mock.address);
+    console.log("Set AAVE.TWO price oracle mock", mock.address);
+    return mock;
   }
 
   public static async changeAssetPrice(

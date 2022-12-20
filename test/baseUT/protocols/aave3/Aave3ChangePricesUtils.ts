@@ -14,7 +14,7 @@ import {BigNumber} from "ethers";
 import {parseUnits} from "ethers/lib/utils";
 
 export class Aave3ChangePricesUtils {
-  public static async setupPriceOracleMock(deployer: SignerWithAddress) {
+  public static async setupPriceOracleMock(deployer: SignerWithAddress) : Promise<Aave3PriceOracleMock> {
     // get access to AAVE price oracle
     const aaveOracle = await Aave3Helper.getAavePriceOracle(deployer);
 
@@ -22,12 +22,12 @@ export class Aave3ChangePricesUtils {
     const aavePoolOwner = await DeployerUtils.startImpersonate(MaticAddresses.AAVE_V3_POOL_OWNER);
 
     // deploy mock
-    const mock = (await DeployUtils.deployContract(deployer
-      , "Aave3PriceOracleMock"
-      , await aaveOracle.ADDRESSES_PROVIDER()
-      , await aaveOracle.BASE_CURRENCY()
-      , await aaveOracle.BASE_CURRENCY_UNIT()
-      , await aaveOracle.getFallbackOracle()
+    const mock = (await DeployUtils.deployContract(deployer,
+      "Aave3PriceOracleMock",
+      await aaveOracle.ADDRESSES_PROVIDER(),
+      await aaveOracle.BASE_CURRENCY(),
+      await aaveOracle.BASE_CURRENCY_UNIT(),
+      await aaveOracle.getFallbackOracle(),
     )) as Aave3PriceOracleMock;
 
     // copy current prices from real price oracle to the mock
@@ -38,10 +38,13 @@ export class Aave3ChangePricesUtils {
 
     // install the mock to the protocol
     const aaveAddressProviderAsOwner = IAaveAddressesProvider__factory.connect(
-      await aavePool.ADDRESSES_PROVIDER()
-      , aavePoolOwner
+      await aavePool.ADDRESSES_PROVIDER(),
+      aavePoolOwner
     );
     await aaveAddressProviderAsOwner.setPriceOracle(mock.address);
+    console.log("Set AAVE.v3 price oracle mock", mock.address);
+
+    return mock;
   }
 
   public static async changeAssetPrice(

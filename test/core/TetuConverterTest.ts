@@ -3557,9 +3557,9 @@ describe("TetuConverterTest", () => {
   });
 
   describe("quoteRepay", () => {
-    interface IQuoteRepayBadPathParams {
-      collateralPriceIsZero?: boolean,
-      borrowPriceIsZero?: boolean
+    interface IQuoteRepayParams {
+      collateralPrice?: string;
+      borrowPrice?: string;
     }
     interface IQuoteRepayResults {
       init: ISetupResults;
@@ -3569,7 +3569,7 @@ describe("TetuConverterTest", () => {
       collateralAmounts: number[],
       exactBorrowAmounts: number[],
       amountToRepayNum: number,
-      badPathParams?: IQuoteRepayBadPathParams
+      params?: IQuoteRepayParams
     ) : Promise<IQuoteRepayResults> {
       const core = await CoreContracts.build(
         await TetuConverterApp.createController(deployer, {
@@ -3580,11 +3580,12 @@ describe("TetuConverterTest", () => {
       await PriceOracleMock__factory.connect(await core.controller.priceOracle(), deployer).changePrices(
         [init.sourceToken.address, init.targetToken.address],
         [
-          parseUnits(badPathParams?.collateralPriceIsZero ? "0" : "1"),
-          parseUnits(badPathParams?.borrowPriceIsZero ? "0" : "1")
-        ] // prices are set to 1 for simplicity
+          parseUnits(params?.collateralPrice || "1"),
+          parseUnits(params?.borrowPrice || "1")
+        ]
       );
       const targetTokenDecimals = await init.targetToken.decimals();
+      const sourceTokenDecimals = await init.sourceToken.decimals();
 
       if (collateralAmounts.length) {
         await makeBorrow(
@@ -3609,7 +3610,7 @@ describe("TetuConverterTest", () => {
 
       return {
         init,
-        collateralAmountOutNum: Number(formatUnits(collateralAmountOut, targetTokenDecimals))
+        collateralAmountOutNum: Number(formatUnits(collateralAmountOut, sourceTokenDecimals))
       }
     }
     describe("Good paths", () => {
@@ -3635,16 +3636,45 @@ describe("TetuConverterTest", () => {
       });
       describe("AmountToRepay is greater than the debt", () => {
         it("should return all collateral and swapped amount", async () => {
-
+          const ret = await makeQuoteRepayTest(
+            [105, 200, 300],
+            [10, 20, 30],
+            100,
+            {
+              collateralPrice: "2",
+              borrowPrice: "1"
+            }
+          );
+          expect(ret.collateralAmountOutNum).eq(605 + 20);
         });
       });
     });
     describe("Bad paths", () => {
       it("should revert if collateral asset price is zero", async () => {
-
+        await expect(
+          makeQuoteRepayTest(
+            [105, 200, 300],
+            [10, 20, 30],
+            100,
+            {
+              collateralPrice: "0",  // (!)
+              borrowPrice: "1"
+            }
+          )
+        ).revertedWith("TC-4 zero price"); // ZERO_PRICE
       });
       it("should revert if borrow asset price is zero", async () => {
-
+        await expect(
+          makeQuoteRepayTest(
+            [105, 200, 300],
+            [10, 20, 30],
+            100,
+            {
+              collateralPrice: "1",
+              borrowPrice: "0" // (!)
+            }
+          )
+        ).revertedWith("TC-4 zero price"); // ZERO_PRICE
       });
     });
   });
