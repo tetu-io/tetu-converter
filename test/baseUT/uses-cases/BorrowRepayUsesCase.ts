@@ -27,6 +27,7 @@ import {IStrategyToConvert} from "../apr/aprDataTypes";
 import {ethers} from "hardhat";
 import {RepayActionUsingSwap} from "../actions/RepayActionUsingSwap";
 import {ClaimRewardsAction} from "../actions/ClaimRewardsAction";
+import {parseUnits} from "ethers/lib/utils";
 
 const BORROW_CONVERSION_MODE = 1;
 
@@ -637,7 +638,8 @@ export class BorrowRepayUsesCase {
     deployer: SignerWithAddress,
     p: ITestSingleBorrowParams,
     controller: Controller,
-    countBlocksToSkipAfterBorrow?: number
+    countBlocksToSkipAfterBorrow?: number,
+    additionalAmountToPassToQuoteRepay?: number
   ) : Promise<IQuoteRepayResults>{
     const uc = await MocksHelper.deployBorrower(deployer.address, controller, p.countBlocks);
 
@@ -645,6 +647,14 @@ export class BorrowRepayUsesCase {
     const borrowToken = await TokenDataTypes.Build(deployer, p.borrow.asset);
 
     const amountToRepay = undefined; // full repay
+
+    // let's pass additional amount to quoteRepay
+    // as result, swapping code will be used, and we will be able to estimate a gas for full quoteRepay code
+    if (additionalAmountToPassToQuoteRepay) {
+      await uc.setAdditionalAmountForQuoteRepay(
+        parseUnits(additionalAmountToPassToQuoteRepay.toString(), borrowToken.decimals)
+      )
+    }
 
     const ucBalanceCollateral0 = await setInitialBalance(deployer, collateralToken.address,
       p.collateral.holder, p.collateral.initialLiquidity, uc.address);

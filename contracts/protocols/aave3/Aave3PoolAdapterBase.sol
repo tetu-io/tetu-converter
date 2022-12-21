@@ -14,7 +14,6 @@ import "../../integrations/aave3/Aave3ReserveConfiguration.sol";
 import "../../integrations/aave3/IAaveToken.sol";
 import "../../integrations/dforce/SafeRatioMath.sol";
 import "../../openzeppelin/Initializable.sol";
-import "hardhat/console.sol";
 
 /// @notice Implementation of IPoolAdapter for AAVE-v3-protocol, see https://docs.aave.com/hub/
 /// @dev Instances of this contract are created using proxy-minimal pattern, so no constructor
@@ -386,7 +385,6 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer,
     uint part = amountToRepayBase >= totalDebtBase
       ? 1e18
       : 1e18 * amountToRepayBase / totalDebtBase;
-    console.log("PART", part, amountToRepayBase, totalDebtBase);
 
     return
       // == totalCollateral * amountToRepay / totalDebt

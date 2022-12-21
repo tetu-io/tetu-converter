@@ -36,6 +36,8 @@ contract Borrower is ITetuConverterCallback {
 
   uint public lastQuoteRepayResultCollateralAmount;
   uint public lastQuoteRepayGasConsumption;
+  /// @notice Call quoteRepay for amountToRepay + additional amount
+  uint public additionalAmountForQuoteRepay;
 
   struct RequireAmountBackParams {
     uint amount;
@@ -51,6 +53,10 @@ contract Borrower is ITetuConverterCallback {
   ) {
     _controller = IController(controller_);
     _borrowPeriodInBlocks = borrowPeriodInBlocks_;
+  }
+
+  function setAdditionalAmountForQuoteRepay(uint value) external {
+    additionalAmountForQuoteRepay = value;
   }
 
   ///////////////////////////////////////////////////////
@@ -206,7 +212,11 @@ contract Borrower is ITetuConverterCallback {
     console.log("makeRepayComplete borrowed asset balance", IERC20(borrowedAsset_).balanceOf(address(this)));
 
     lastQuoteRepayGasConsumption = gasleft();
-    lastQuoteRepayResultCollateralAmount = _tc().quoteRepay(collateralAsset_, borrowedAsset_, amountToPay);
+    lastQuoteRepayResultCollateralAmount = _tc().quoteRepay(
+      collateralAsset_,
+      borrowedAsset_,
+      amountToPay + additionalAmountForQuoteRepay
+    );
     lastQuoteRepayGasConsumption -= gasleft();
     console.log("makeRepayPartial.makeRepayComplete", lastQuoteRepayResultCollateralAmount, lastQuoteRepayGasConsumption);
 
@@ -235,7 +245,11 @@ contract Borrower is ITetuConverterCallback {
     console.log("makeRepayPartial started - partial pay gasleft", gasleft());
 
     lastQuoteRepayGasConsumption = gasleft();
-    lastQuoteRepayResultCollateralAmount = _tc().quoteRepay(collateralAsset_, borrowedAsset_, amountToPay_);
+    lastQuoteRepayResultCollateralAmount = _tc().quoteRepay(
+      collateralAsset_,
+      borrowedAsset_,
+      amountToPay_ + additionalAmountForQuoteRepay
+    );
     lastQuoteRepayGasConsumption -= gasleft();
     console.log("makeRepayPartial.quoteRepay", lastQuoteRepayResultCollateralAmount, lastQuoteRepayGasConsumption);
 
