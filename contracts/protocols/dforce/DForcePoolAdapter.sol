@@ -133,6 +133,7 @@ contract DForcePoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP, Initi
 
     // Update borrowBalance to actual value
     IDForceCToken(borrowCToken).borrowBalanceCurrent(address(this));
+    IDForceCToken(collateralCToken).exchangeRateCurrent();
   }
 
   /// @notice Supply collateral to the pool and borrow specified amount
@@ -340,6 +341,9 @@ contract DForcePoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP, Initi
       console.log("repay balanceCollateralAsset", balanceCollateralAsset);
       console.log("repay balanceCollateralAssetAfterRedeem", balanceCollateralAssetAfterRedeem);
       console.log("repay collateralAmountToReturn", balanceCollateralAssetAfterRedeem - balanceCollateralAsset);
+      console.log("repay exchangeRateStored", IDForceCToken(cTokenCollateral).exchangeRateStored());
+      console.log("repay collateralTokensToWithdraw", collateralTokensToWithdraw);
+      console.log("repay results", collateralTokensToWithdraw * IDForceCToken(cTokenCollateral).exchangeRateStored()  / 10**18);
 
       // transfer collateral back to the user
       require(balanceCollateralAssetAfterRedeem >= balanceCollateralAsset, AppErrors.WEIRD_OVERFLOW); // overflow is not possible below

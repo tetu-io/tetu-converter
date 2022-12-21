@@ -217,7 +217,7 @@ describe("QuoteRepayTest", () => {
               console.log(`Balance1 ${results.userBalances[0].collateral.toString()}`);
               console.log(`Balance2 ${results.userBalances[1].collateral.toString()}`);
 
-              const ret = areAlmostEqual(results.quoteRepayResultCollateralAmount, collateralReceivedByUser);
+              const ret = results.quoteRepayResultCollateralAmount.eq(collateralReceivedByUser);
               expect(ret).eq(true);
             });
             it("should not exceed gas limits @skip-on-coverage", async () => {
@@ -263,7 +263,7 @@ describe("QuoteRepayTest", () => {
               console.log(`Balance1 ${results.userBalances[0].collateral.toString()}`);
               console.log(`Balance2 ${results.userBalances[1].collateral.toString()}`);
 
-              const ret = areAlmostEqual(results.quoteRepayResultCollateralAmount, collateralReceivedByUser);
+              const ret = results.quoteRepayResultCollateralAmount.eq(collateralReceivedByUser);
               expect(ret).eq(true);
             });
             it("should not exceed gas limits @skip-on-coverage", async () => {

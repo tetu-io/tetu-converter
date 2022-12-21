@@ -141,6 +141,7 @@ contract HfPoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP, Initializ
   function updateStatus() external override {
     // Update borrowBalance to actual value
     IHfCToken(borrowCToken).borrowBalanceCurrent(address(this));
+    IHfCToken(collateralCToken).exchangeRateCurrent();
   }
 
   /// @notice Supply collateral to the pool and borrow specified amount
