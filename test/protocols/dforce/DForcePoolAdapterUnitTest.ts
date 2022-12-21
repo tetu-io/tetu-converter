@@ -504,6 +504,9 @@ describe("DForce unit tests, pool adapter", () => {
       repayResults: IDForceCalcAccountEquityResults;
       userBorrowAssetBalanceBeforeRepay: BigNumber;
       userBorrowAssetBalanceAfterRepay: BigNumber;
+
+      repayResultsCollateralAmountOut: BigNumber;
+      repayResultsReturnedBorrowAmountOut?: BigNumber;
     }
 
     interface IMakeRepayBadPathsParams {
@@ -571,7 +574,7 @@ describe("DForce unit tests, pool adapter", () => {
         }
       }
 
-      const repayResults = await DForceTestUtils.makeRepay(
+      const makeRepayResults = await DForceTestUtils.makeRepay(
         init,
         amountToRepay,
         badPathsParams?.closePosition,
@@ -587,9 +590,11 @@ describe("DForce unit tests, pool adapter", () => {
         collateralToken,
         borrowToken,
         statusBeforeRepay,
-        repayResults,
+        repayResults: makeRepayResults.userAccountData,
         userBorrowAssetBalanceBeforeRepay,
-        userBorrowAssetBalanceAfterRepay
+        userBorrowAssetBalanceAfterRepay,
+        repayResultsCollateralAmountOut: makeRepayResults.repayResultsCollateralAmountOut,
+        repayResultsReturnedBorrowAmountOut: makeRepayResults.repayResultsReturnedBorrowAmountOut
       }
     }
 
@@ -785,6 +790,10 @@ describe("DForce unit tests, pool adapter", () => {
           const status = await results.init.dfPoolAdapterTC.getStatus();
           const receivedCollateralAmount = await results.collateralToken.token.balanceOf(results.init.userContract.address);
           expect(areAlmostEqual(receivedCollateralAmount, results.init.collateralAmount)).eq(true);
+        });
+        it("repay() should return expected collateral amount", async () => {
+          if (!await isPolygonForkInUse()) return;
+          expect(areAlmostEqual(results.repayResultsCollateralAmountOut, results.init.collateralAmount)).eq(true);
         });
       });
     });

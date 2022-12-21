@@ -364,7 +364,6 @@ describe("AaveTwoPoolAdapterUnitTest", () => {
       });
       it("should return expected collateral amount", async () => {
         if (!await isPolygonForkInUse()) return;
-        const status = await results.init.aavePoolAdapterAsTC.getStatus();
         expect(areAlmostEqual(results.repayResultsCollateralAmountOut, results.init.collateralAmount)).eq(true);
       });
     });

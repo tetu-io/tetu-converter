@@ -575,6 +575,9 @@ describe("Hundred Finance unit tests, pool adapter", () => {
       repayResults: IHfAccountLiquidity;
       userBorrowAssetBalanceBeforeRepay: BigNumber;
       userBorrowAssetBalanceAfterRepay: BigNumber;
+
+      repayResultsCollateralAmountOut: BigNumber;
+      repayResultsReturnedBorrowAmountOut?: BigNumber;
     }
 
     interface IMakeRepayBadPathsParams {
@@ -630,7 +633,7 @@ describe("Hundred Finance unit tests, pool adapter", () => {
           await badPathsParams?.useHfComptrollerMock.setReturnNotZeroBorrowBalanceAfterRedeem();
         }
       }
-      const repayResults = await HundredFinanceTestUtils.makeRepay(
+      const makeRepayResults = await HundredFinanceTestUtils.makeRepay(
         init,
         amountToRepay,
         badPathsParams?.closePosition,
@@ -646,9 +649,11 @@ describe("Hundred Finance unit tests, pool adapter", () => {
         collateralToken,
         borrowToken,
         statusBeforeRepay,
-        repayResults,
+        repayResults: makeRepayResults.userAccountData,
         userBorrowAssetBalanceBeforeRepay,
-        userBorrowAssetBalanceAfterRepay
+        userBorrowAssetBalanceAfterRepay,
+        repayResultsCollateralAmountOut: makeRepayResults.repayResultsCollateralAmountOut,
+        repayResultsReturnedBorrowAmountOut: makeRepayResults.repayResultsReturnedBorrowAmountOut
       }
     }
 
@@ -844,6 +849,10 @@ describe("Hundred Finance unit tests, pool adapter", () => {
           const status = await results.init.hfPoolAdapterTC.getStatus();
           const receivedCollateralAmount = await results.collateralToken.token.balanceOf(results.init.userContract.address);
           expect(areAlmostEqual(receivedCollateralAmount, results.init.collateralAmount)).eq(true);
+        });
+        it("repay() should return expected collateral amount", async () => {
+          if (!await isPolygonForkInUse()) return;
+          expect(areAlmostEqual(results.repayResultsCollateralAmountOut, results.init.collateralAmount)).eq(true);
         });
       });
     });

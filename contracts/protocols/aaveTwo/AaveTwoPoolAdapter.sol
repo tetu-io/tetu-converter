@@ -298,6 +298,8 @@ contract AaveTwoPoolAdapter is IPoolAdapter, IPoolAdapterInitializer, Initializa
 
     // withdraw the collateral
     if (closePosition_) {
+      // if the position is closed, amountCollateralToWithdraw contains type(uint).max
+      // so, we need to calculate actual amount of returned collateral through balance difference
       uint balanceUserCollateralBefore = IERC20(assetCollateral).balanceOf(receiver_);
       pool.withdraw(assetCollateral, amountCollateralToWithdraw, receiver_); // amountCollateralToWithdraw == type(uint).max
       uint balanceUserCollateralAfter = IERC20(assetCollateral).balanceOf(receiver_);

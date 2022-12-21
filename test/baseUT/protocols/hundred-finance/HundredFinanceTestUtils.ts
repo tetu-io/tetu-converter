@@ -32,6 +32,7 @@ import {HundredFinanceChangePriceUtils} from "./HundredFinanceChangePriceUtils";
 import {IPoolAdapterStatus} from "../../types/BorrowRepayDataTypes";
 import {getBigNumberFrom} from "../../../../scripts/utils/NumberUtils";
 import {TetuConverterApp} from "../../helpers/TetuConverterApp";
+import {IAaveTwoUserAccountDataResults} from "../../apr/aprAaveTwo";
 
 //region Data types
 export interface IPrepareToBorrowResults {
@@ -116,6 +117,12 @@ export interface IInitialBorrowResults {
 export interface IPrepareBorrowBadPathsParams {
   targetHealthFactor2?: number;
   useHfComptrollerMock?: HfComptrollerMock;
+}
+
+interface IMakeRepayResults {
+  userAccountData: IHfAccountLiquidity;
+  repayResultsCollateralAmountOut: BigNumber;
+  repayResultsReturnedBorrowAmountOut?: BigNumber;
 }
 //endregion Data types
 
@@ -374,7 +381,7 @@ export class HundredFinanceTestUtils {
     amountToRepay?: BigNumber,
     closePosition?: boolean,
     badPathsParams?: IMakeBorrowOrRepayBadPathsParams
-  ) : Promise<IHfAccountLiquidity> {
+  ) : Promise<IMakeRepayResults> {
     if (amountToRepay) {
       // partial repay
       const tetuConverter = await d.controller.tetuConverter();
@@ -398,21 +405,38 @@ export class HundredFinanceTestUtils {
         )
         : poolAdapterAsCaller;
 
+      const repayResultsCollateralAmountOut = await payer.callStatic.repay(
+        amountToRepay,
+        d.userContract.address,
+        closePosition === undefined ? false : closePosition
+      );
       await payer.repay(
         amountToRepay,
         d.userContract.address,
         closePosition === undefined ? false : closePosition
       );
+      return {
+        userAccountData: await d.comptroller.getAccountLiquidity(d.userContract.address),
+        repayResultsCollateralAmountOut,
+      }
     } else {
       // make full repayment
+      const {collateralAmountOut, returnedBorrowAmountOut} = await d.userContract.callStatic.makeRepayComplete(
+        d.collateralToken.address,
+        d.borrowToken.address,
+        d.userContract.address
+      );
       await d.userContract.makeRepayComplete(
         d.collateralToken.address,
         d.borrowToken.address,
         d.userContract.address
       );
+      return {
+        userAccountData: await d.comptroller.getAccountLiquidity(d.userContract.address),
+        repayResultsCollateralAmountOut: collateralAmountOut,
+        repayResultsReturnedBorrowAmountOut: returnedBorrowAmountOut
+      }
     }
-
-    return d.comptroller.getAccountLiquidity(d.userContract.address);
   }
 
   public static async prepareToLiquidation(
