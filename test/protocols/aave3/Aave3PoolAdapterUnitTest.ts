@@ -235,6 +235,8 @@ describe("Aave3PoolAdapterUnitTest", () => {
       repayResults: IAave3UserAccountDataResults;
       userBorrowAssetBalanceBeforeRepay: BigNumber;
       userBorrowAssetBalanceAfterRepay: BigNumber;
+      repayResultsCollateralAmountOut: BigNumber;
+      repayResultsReturnedBorrowAmountOut?: BigNumber;
     }
 
     async function makeFullRepayTest(
@@ -283,7 +285,7 @@ describe("Aave3PoolAdapterUnitTest", () => {
         console.log("Collateral price was set to 0");
       }
 
-      const repayResults = await Aave3TestUtils.makeRepay(
+      const makeRepayResults = await Aave3TestUtils.makeRepay(
         init,
         amountToRepay,
         badPathsParams?.closePosition,
@@ -299,9 +301,11 @@ describe("Aave3PoolAdapterUnitTest", () => {
         collateralToken,
         borrowToken,
         statusBeforeRepay,
-        repayResults,
+        repayResults: makeRepayResults.userAccountData,
         userBorrowAssetBalanceBeforeRepay,
-        userBorrowAssetBalanceAfterRepay
+        userBorrowAssetBalanceAfterRepay,
+        repayResultsCollateralAmountOut: makeRepayResults.repayResultsCollateralAmountOut,
+        repayResultsReturnedBorrowAmountOut: makeRepayResults.repayResultsReturnedBorrowAmountOut
       }
     }
 
@@ -353,6 +357,11 @@ describe("Aave3PoolAdapterUnitTest", () => {
         const status = await results.init.aavePoolAdapterAsTC.getStatus();
         const receivedCollateralAmount = await results.collateralToken.token.balanceOf(results.init.userContract.address);
         expect(areAlmostEqual(receivedCollateralAmount, results.init.collateralAmount)).eq(true);
+      });
+      it("should return expected collateral amount", async () => {
+        if (!await isPolygonForkInUse()) return;
+        const status = await results.init.aavePoolAdapterAsTC.getStatus();
+        expect(areAlmostEqual(results.repayResultsCollateralAmountOut, results.init.collateralAmount)).eq(true);
       });
     });
     describe("Bad paths", () => {

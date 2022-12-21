@@ -101,6 +101,12 @@ export interface IPrepareToBorrowOptionalSetup {
   useMockedAavePriceOracle?: boolean;
   targetHealthFactor2?: number;
 }
+
+interface IMakeRepayResults {
+  userAccountData: IAaveTwoUserAccountDataResults;
+  repayResultsCollateralAmountOut: BigNumber;
+  repayResultsReturnedBorrowAmountOut?: BigNumber;
+}
 //endregion Data types
 
 export class AaveTwoTestUtils {
@@ -289,7 +295,7 @@ export class AaveTwoTestUtils {
     amountToRepay?: BigNumber,
     closePosition?: boolean,
     badPathsParams?: IMakeBorrowOrRepayBadPathsParams
-  ) : Promise<IAaveTwoUserAccountDataResults>{
+  ) : Promise<IMakeRepayResults>{
     if (amountToRepay) {
       // partial repay
       const tetuConverter = await d.controller.tetuConverter();
@@ -312,21 +318,40 @@ export class AaveTwoTestUtils {
         )
         : poolAdapterAsCaller;
 
+      const repayResultsCollateralAmountOut = await payer.callStatic.repay(
+        amountToRepay,
+        d.userContract.address,
+        closePosition === undefined ? false : closePosition
+      );
+
       await payer.repay(
         amountToRepay,
         d.userContract.address,
         closePosition === undefined ? false : closePosition
       );
+      return {
+        userAccountData: await d.aavePool.getUserAccountData(d.aavePoolAdapterAsTC.address),
+        repayResultsCollateralAmountOut,
+      }
     } else {
       // make full repayment
+      const {collateralAmountOut, returnedBorrowAmountOut} = await d.userContract.callStatic.makeRepayComplete(
+        d.collateralToken.address,
+        d.borrowToken.address,
+        d.userContract.address
+      );
       await d.userContract.makeRepayComplete(
         d.collateralToken.address,
         d.borrowToken.address,
         d.userContract.address
       );
+      return {
+        userAccountData: await d.aavePool.getUserAccountData(d.aavePoolAdapterAsTC.address),
+        repayResultsCollateralAmountOut: collateralAmountOut,
+        repayResultsReturnedBorrowAmountOut: returnedBorrowAmountOut
+      }
     }
 
-    return d.aavePool.getUserAccountData(d.aavePoolAdapterAsTC.address);
   }
 
   public static async prepareToLiquidation(

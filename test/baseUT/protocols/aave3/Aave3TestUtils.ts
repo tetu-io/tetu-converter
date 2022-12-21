@@ -23,6 +23,7 @@ import {IPoolAdapterStatus} from "../../types/BorrowRepayDataTypes";
 import {getBigNumberFrom} from "../../../../scripts/utils/NumberUtils";
 import {TetuConverterApp} from "../../helpers/TetuConverterApp";
 import {Misc} from "../../../../scripts/utils/Misc";
+import {IAaveTwoUserAccountDataResults} from "../../apr/aprAaveTwo";
 
 //region Data types
 export interface IPrepareToBorrowResults {
@@ -138,6 +139,12 @@ export interface IInitialBorrowResults {
   borrowToken: TokenDataTypes;
   collateralAmount: BigNumber;
   stateAfterBorrow: IAave3PoolAdapterState;
+}
+
+interface IMakeRepayResults {
+  userAccountData: IAave3UserAccountDataResults;
+  repayResultsCollateralAmountOut: BigNumber;
+  repayResultsReturnedBorrowAmountOut?: BigNumber;
 }
 //endregion Data types
 
@@ -338,7 +345,7 @@ export class Aave3TestUtils {
     amountToRepay?: BigNumber,
     closePosition?: boolean,
     badPathsParams?: IMakeBorrowOrRepayBadPathsParams
-  ) : Promise<IAave3UserAccountDataResults>{
+  ) : Promise<IMakeRepayResults>{
     if (amountToRepay) {
       // partial repay
       const tetuConverter = await d.controller.tetuConverter();
@@ -361,21 +368,39 @@ export class Aave3TestUtils {
           await DeployerUtils.startImpersonate(ethers.Wallet.createRandom().address)
         )
         : poolAdapterAsCaller;
+
+      const repayResultsCollateralAmountOut = await payer.callStatic.repay(
+        amountToRepay,
+        d.userContract.address,
+        closePosition === undefined ? false : closePosition
+      );
       await payer.repay(
         amountToRepay,
         d.userContract.address,
         closePosition === undefined ? false : closePosition
       );
+      return {
+        userAccountData: await d.aavePool.getUserAccountData(d.aavePoolAdapterAsTC.address),
+        repayResultsCollateralAmountOut,
+      }
     } else {
       // make full repayment
+      const {collateralAmountOut, returnedBorrowAmountOut} = await d.userContract.callStatic.makeRepayComplete(
+        d.collateralToken.address,
+        d.borrowToken.address,
+        d.userContract.address
+      );
       await d.userContract.makeRepayComplete(
         d.collateralToken.address,
         d.borrowToken.address,
         d.userContract.address
       );
+      return {
+        userAccountData: await d.aavePool.getUserAccountData(d.aavePoolAdapterAsTC.address),
+        repayResultsCollateralAmountOut: collateralAmountOut,
+        repayResultsReturnedBorrowAmountOut: returnedBorrowAmountOut
+      }
     }
-
-    return d.aavePool.getUserAccountData(d.aavePoolAdapterAsTC.address);
   }
 
   public static async prepareToLiquidation(
