@@ -17,6 +17,7 @@ import "../../integrations/IWmatic.sol";
 import "../../integrations/dforce/IDForceInterestRateModel.sol";
 import "../../integrations/dforce/IDForceRewardDistributor.sol";
 import "../../openzeppelin/Initializable.sol";
+import "hardhat/console.sol";
 
 /// @notice Implementation of IPoolAdapter for dForce-protocol, see https://developers.dforce.network/
 /// @dev Instances of this contract are created using proxy-minimal pattern, so no constructor
@@ -336,6 +337,9 @@ contract DForcePoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP, Initi
       uint balanceCollateralAsset = _getBalance(assetCollateral);
       IDForceCToken(cTokenCollateral).redeem(address(this), collateralTokensToWithdraw);
       uint balanceCollateralAssetAfterRedeem = _getBalance(assetCollateral);
+      console.log("repay balanceCollateralAsset", balanceCollateralAsset);
+      console.log("repay balanceCollateralAssetAfterRedeem", balanceCollateralAssetAfterRedeem);
+      console.log("repay collateralAmountToReturn", balanceCollateralAssetAfterRedeem - balanceCollateralAsset);
 
       // transfer collateral back to the user
       require(balanceCollateralAssetAfterRedeem >= balanceCollateralAsset, AppErrors.WEIRD_OVERFLOW); // overflow is not possible below
@@ -387,11 +391,14 @@ contract DForcePoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP, Initi
     require(borrowBalance != 0, AppErrors.ZERO_BALANCE);
     if (closePosition_) {
       require(borrowBalance <= amountToRepay_, AppErrors.CLOSE_POSITION_FAILED);
+
+      console.log("_getCollateralTokensToRedeem tokenBalance", tokenBalance);
       return (tokenBalance, tokenBalance);
     } else {
       require(amountToRepay_ <= borrowBalance, AppErrors.WRONG_BORROWED_BALANCE);
     }
 
+    console.log("_getCollateralTokensToRedeem.2 tokenBalance", tokenBalance * amountToRepay_ / borrowBalance, tokenBalance);
     return (tokenBalance * amountToRepay_ / borrowBalance, tokenBalance);
   }
 
@@ -465,6 +472,9 @@ contract DForcePoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP, Initi
     address cTokenCollateral = collateralCToken;
 
     (uint tokensToReturn,) = _getCollateralTokensToRedeem(cTokenCollateral, borrowCToken, closePosition_, amountToRepay_);
+    console.log("getCollateralAmountToReturn tokensToReturn", tokensToReturn);
+    console.log("getCollateralAmountToReturn exchangeRateStored", IDForceCToken(cTokenCollateral).exchangeRateStored());
+    console.log("getCollateralAmountToReturn result", tokensToReturn * IDForceCToken(cTokenCollateral).exchangeRateStored() / 10**18);
     return tokensToReturn * IDForceCToken(cTokenCollateral).exchangeRateStored() / 10**18;
   }
 
