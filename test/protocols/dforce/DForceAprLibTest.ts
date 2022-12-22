@@ -195,6 +195,7 @@ describe("DForceHelper unit tests", () => {
       expect(ret.eq(0)).eq(true);
     });
     it("should revert if reserve factor exceeds 1", async () => {
+      if (!await isPolygonForkInUse()) return;
       await expect(
         libFacade.getEstimatedSupplyRatePure(
           parseUnits("2", 18),

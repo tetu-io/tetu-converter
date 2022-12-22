@@ -431,10 +431,11 @@ export class HundredFinanceTestUtils {
         d.borrowToken.address,
         d.userContract.address
       );
+      const repayResults = await d.userContract.repayResults();
       return {
         userAccountData: await d.comptroller.getAccountLiquidity(d.userContract.address),
-        repayResultsCollateralAmountOut: d.userContract.repayResults.collateralAmountOut,
-        repayResultsReturnedBorrowAmountOut: d.userContract.repayResults.returnedBorrowAmountOut
+        repayResultsCollateralAmountOut: repayResults.collateralAmountOut,
+        repayResultsReturnedBorrowAmountOut: repayResults.returnedBorrowAmountOut
       }
     }
   }

@@ -433,10 +433,11 @@ export class DForceTestUtils {
         d.borrowToken.address,
         d.userContract.address
       );
+      const repayResults = await d.userContract.repayResults();
       return {
         userAccountData: await d.comptroller.calcAccountEquity(d.dfPoolAdapterTC.address),
-        repayResultsCollateralAmountOut: d.userContract.repayResults.collateralAmountOut,
-        repayResultsReturnedBorrowAmountOut: d.userContract.repayResults.returnedBorrowAmountOut
+        repayResultsCollateralAmountOut: repayResults.collateralAmountOut,
+        repayResultsReturnedBorrowAmountOut: repayResults.returnedBorrowAmountOut
       };
     }
   }

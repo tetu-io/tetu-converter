@@ -340,10 +340,11 @@ export class AaveTwoTestUtils {
         d.borrowToken.address,
         d.userContract.address
       );
+      const repayResults = await d.userContract.repayResults();
       return {
         userAccountData: await d.aavePool.getUserAccountData(d.aavePoolAdapterAsTC.address),
-        repayResultsCollateralAmountOut: d.userContract.repayResults.collateralAmountOut,
-        repayResultsReturnedBorrowAmountOut: d.userContract.repayResults.returnedBorrowAmountOut
+        repayResultsCollateralAmountOut: repayResults.collateralAmountOut,
+        repayResultsReturnedBorrowAmountOut: repayResults.returnedBorrowAmountOut
       }
     }
   }

@@ -54,6 +54,7 @@ describe("CompareAprBorrowRepayTest @skip-on-coverage", () => {
     const signers = await ethers.getSigners();
     deployer = signers[0];
 
+    if (!await isPolygonForkInUse()) return;
     {
       const {controller} = await TetuConverterApp.buildApp(deployer,
         [new Aave3PlatformFabric()],

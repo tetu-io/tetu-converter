@@ -1442,7 +1442,7 @@ describe("AaveTwoPoolAdapterUnitTest", () => {
             status.amountToPay.div(2) // 50%
           );
 
-          const ret = areAlmostEqual(collateralAmountOut.mul(2), status.collateralAmount, 5);
+          const ret = areAlmostEqual(collateralAmountOut.mul(2), status.collateralAmount, 4);
           console.log("ret", collateralAmountOut.mul(2), status.collateralAmount);
           expect(ret).eq(true);
         });
@@ -1462,7 +1462,7 @@ describe("AaveTwoPoolAdapterUnitTest", () => {
             status.amountToPay.div(20) // 5%
           );
 
-          const ret = areAlmostEqual(collateralAmountOut.mul(20), status.collateralAmount, 5);
+          const ret = areAlmostEqual(collateralAmountOut.mul(20), status.collateralAmount, 4);
           console.log("ret", collateralAmountOut.mul(20), status.collateralAmount);
           expect(ret).eq(true);
         });

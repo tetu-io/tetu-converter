@@ -11,7 +11,7 @@ import {
   Aave3PoolAdapter,
   Aave3PoolMock__factory,
   ITetuConverter__factory,
-  Aave3PriceOracleMock, IERC20__factory
+  IERC20__factory
 } from "../../../typechain";
 import {expect} from "chai";
 import {BigNumber} from "ethers";
