@@ -1,24 +1,24 @@
 import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import {ethers} from "hardhat";
-import {TimeUtils} from "../../scripts/utils/TimeUtils";
-import {MaticAddresses} from "../../scripts/addresses/MaticAddresses";
-import {IStrategyToConvert} from "../baseUT/apr/aprDataTypes";
+import {TimeUtils} from "../../../scripts/utils/TimeUtils";
+import {MaticAddresses} from "../../../scripts/addresses/MaticAddresses";
+import {IStrategyToConvert} from "../../baseUT/apr/aprDataTypes";
 import {BigNumber} from "ethers";
-import {Controller, IERC20Metadata__factory} from "../../typechain";
-import {TetuConverterApp} from "../baseUT/helpers/TetuConverterApp";
-import {Aave3PlatformFabric} from "../baseUT/fabrics/Aave3PlatformFabric";
-import {AaveTwoPlatformFabric} from "../baseUT/fabrics/AaveTwoPlatformFabric";
-import {DForcePlatformFabric} from "../baseUT/fabrics/DForcePlatformFabric";
-import {HundredFinancePlatformFabric} from "../baseUT/fabrics/HundredFinancePlatformFabric";
+import {Controller, IERC20Metadata__factory} from "../../../typechain";
+import {TetuConverterApp} from "../../baseUT/helpers/TetuConverterApp";
+import {Aave3PlatformFabric} from "../../baseUT/fabrics/Aave3PlatformFabric";
+import {AaveTwoPlatformFabric} from "../../baseUT/fabrics/AaveTwoPlatformFabric";
+import {DForcePlatformFabric} from "../../baseUT/fabrics/DForcePlatformFabric";
+import {HundredFinancePlatformFabric} from "../../baseUT/fabrics/HundredFinancePlatformFabric";
 import {
   BorrowRepayUsesCase,
-} from "../baseUT/uses-cases/BorrowRepayUsesCase";
-import {ITokenParams} from "../baseUT/types/BorrowRepayDataTypes";
+} from "../../baseUT/uses-cases/BorrowRepayUsesCase";
+import {ITokenParams} from "../../baseUT/types/BorrowRepayDataTypes";
 import {formatUnits, parseUnits} from "ethers/lib/utils";
 import {existsSync, writeFileSync} from "fs";
-import {DForceChangePriceUtils} from "../baseUT/protocols/dforce/DForceChangePriceUtils";
-import {Aave3Helper} from "../../scripts/integration/helpers/Aave3Helper";
-import {isPolygonForkInUse} from "../baseUT/utils/NetworkUtils";
+import {DForceChangePriceUtils} from "../../baseUT/protocols/dforce/DForceChangePriceUtils";
+import {Aave3Helper} from "../../../scripts/integration/helpers/Aave3Helper";
+import {isPolygonForkInUse} from "../../baseUT/utils/NetworkUtils";
 
 describe("CompareAprBorrowRepayTest @skip-on-coverage", () => {
 //region Constants
@@ -270,7 +270,7 @@ describe("CompareAprBorrowRepayTest @skip-on-coverage", () => {
 //endregion Test impl
 
 //region Unit tests
-  describe.skip("Compare APR", () => {
+  describe("Compare APR", () => {
     it("generate file compareApr", async () => {
       if (!await isPolygonForkInUse()) return;
 

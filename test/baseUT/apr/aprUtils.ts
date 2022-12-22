@@ -5,7 +5,7 @@ import {ILendingPlatformFabric} from "../fabrics/ILendingPlatformFabric";
 import {TetuConverterApp} from "../helpers/TetuConverterApp";
 import {MocksHelper} from "../helpers/MocksHelper";
 import {TokenDataTypes} from "../types/TokenDataTypes";
-import {getDifference, getRatioMul100, setInitialBalance} from "../utils/CommonUtils";
+import {getRatioMul100, setInitialBalance} from "../utils/CommonUtils";
 import {getBigNumberFrom} from "../../../scripts/utils/NumberUtils";
 import {existsSync, writeFileSync} from "fs";
 import {Aave3Helper} from "../../../scripts/integration/helpers/Aave3Helper";

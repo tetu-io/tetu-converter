@@ -1,24 +1,24 @@
 import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import {ethers} from "hardhat";
-import {TimeUtils} from "../../scripts/utils/TimeUtils";
-import {getBigNumberFrom} from "../../scripts/utils/NumberUtils";
-import {isPolygonForkInUse} from "../baseUT/utils/NetworkUtils";
-import {MaticAddresses} from "../../scripts/addresses/MaticAddresses";
+import {TimeUtils} from "../../../scripts/utils/TimeUtils";
+import {getBigNumberFrom} from "../../../scripts/utils/NumberUtils";
+import {isPolygonForkInUse} from "../../baseUT/utils/NetworkUtils";
+import {MaticAddresses} from "../../../scripts/addresses/MaticAddresses";
 import {
   IERC20__factory, IERC20Metadata__factory
-} from "../../typechain";
+} from "../../../typechain";
 import {expect} from "chai";
-import {DForceHelper} from "../../scripts/integration/helpers/DForceHelper";
-import {AprAave3} from "../baseUT/apr/aprAave3";
-import {AprAaveTwo} from "../baseUT/apr/aprAaveTwo";
-import {AprDForce} from "../baseUT/apr/aprDForce";
-import {Misc} from "../../scripts/utils/Misc";
-import {AprHundredFinance} from "../baseUT/apr/aprHundredFinance";
-import {AprSwap} from "../baseUT/apr/aprSwap";
-import {TokenDataTypes} from "../baseUT/types/TokenDataTypes";
-import {BalanceUtils} from "../baseUT/utils/BalanceUtils";
+import {DForceHelper} from "../../../scripts/integration/helpers/DForceHelper";
+import {AprAave3} from "../../baseUT/apr/aprAave3";
+import {AprAaveTwo} from "../../baseUT/apr/aprAaveTwo";
+import {AprDForce} from "../../baseUT/apr/aprDForce";
+import {Misc} from "../../../scripts/utils/Misc";
+import {AprHundredFinance} from "../../baseUT/apr/aprHundredFinance";
+import {AprSwap} from "../../baseUT/apr/aprSwap";
+import {TokenDataTypes} from "../../baseUT/types/TokenDataTypes";
+import {BalanceUtils} from "../../baseUT/utils/BalanceUtils";
 import {parseUnits} from "ethers/lib/utils";
-import {ITetuLiquidator__factory} from "../../typechain/factories/contracts/interfaces";
+import {ITetuLiquidator__factory} from "../../../typechain/factories/contracts/interfaces";
 
 /**
  * For any landing platform:
@@ -200,8 +200,8 @@ describe.skip("CompareAprBeforeAfterBorrow @skip-on-coverage", () => {
             collateralAmount: AMOUNT_COLLATERAL,
             healthFactor2: HEALTH_FACTOR2,
             countBlocks: COUNT_BLOCKS
-          }
-          , [] // no additional points
+          },
+          [] // no additional points
         );
 
         // we need to display full objects, so we use util.inspect, see

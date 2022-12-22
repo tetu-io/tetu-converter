@@ -6,7 +6,7 @@ import {
 import {BigNumber} from "ethers";
 import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import {
-  IStrategyToConvert, ISwapResults
+  IStrategyToConvert, IStrategyToSwap, ISwapResults
 } from "./aprDataTypes";
 import {TetuConverterApp} from "../helpers/TetuConverterApp";
 import {BalanceUtils} from "../utils/BalanceUtils";
@@ -20,7 +20,6 @@ export interface IMakeSwapTestResults {
   swapResults?: ISwapResults;
   error?: string;
   swapManagerAddress: string;
-  apr18: BigNumber;
 }
 
 export class AprSwap {
@@ -62,7 +61,7 @@ export class AprSwap {
 
     console.log("Tetu liquidator", await controller.tetuLiquidator());
 
-    const strategyToConvert: IStrategyToConvert = await swapManager.callStatic.getConverter(
+    const strategyToSwap: IStrategyToSwap = await swapManager.callStatic.getConverter(
       userContract.address,
       collateralToken.address,
       collateralAmount,
@@ -72,7 +71,7 @@ export class AprSwap {
       collateralToken.address,
       collateralAmount,
       borrowToken.address,
-      strategyToConvert.maxTargetAmount
+      strategyToSwap.maxTargetAmount
     );
 
     const swapResults = await CompareAprUsesCase.makeSwapThereAndBack(
@@ -85,9 +84,12 @@ export class AprSwap {
 
     return {
       swapResults,
-      strategyToConvert,
+      strategyToConvert: {
+        converter: strategyToSwap.converter,
+        maxTargetAmount: strategyToSwap.maxTargetAmount,
+        apr18
+      },
       swapManagerAddress: swapManager.address,
-      apr18
     }
   }
 }

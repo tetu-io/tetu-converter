@@ -1,31 +1,31 @@
 import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import {ethers} from "hardhat";
-import {TimeUtils} from "../../scripts/utils/TimeUtils";
+import {TimeUtils} from "../../../scripts/utils/TimeUtils";
 import {BigNumber} from "ethers";
-import {areAlmostEqual} from "../baseUT/utils/CommonUtils";
-import {getBigNumberFrom} from "../../scripts/utils/NumberUtils";
-import {isPolygonForkInUse} from "../baseUT/utils/NetworkUtils";
-import {MaticAddresses} from "../../scripts/addresses/MaticAddresses";
+import {areAlmostEqual} from "../../baseUT/utils/CommonUtils";
+import {getBigNumberFrom} from "../../../scripts/utils/NumberUtils";
+import {isPolygonForkInUse} from "../../baseUT/utils/NetworkUtils";
+import {MaticAddresses} from "../../../scripts/addresses/MaticAddresses";
 import {
   DForceInterestRateModelMock__factory,
   IERC20__factory
-} from "../../typechain";
+} from "../../../typechain";
 import {expect} from "chai";
-import {DForceHelper} from "../../scripts/integration/helpers/DForceHelper";
-import {AprAave3} from "../baseUT/apr/aprAave3";
-import {AprAaveTwo} from "../baseUT/apr/aprAaveTwo";
-import {AprDForce} from "../baseUT/apr/aprDForce";
-import {Misc} from "../../scripts/utils/Misc";
-import {AprHundredFinance} from "../baseUT/apr/aprHundredFinance";
-import {AprSwap} from "../baseUT/apr/aprSwap";
-import {TokenDataTypes} from "../baseUT/types/TokenDataTypes";
-import {BalanceUtils} from "../baseUT/utils/BalanceUtils";
+import {DForceHelper} from "../../../scripts/integration/helpers/DForceHelper";
+import {AprAave3} from "../../baseUT/apr/aprAave3";
+import {AprAaveTwo} from "../../baseUT/apr/aprAaveTwo";
+import {AprDForce} from "../../baseUT/apr/aprDForce";
+import {Misc} from "../../../scripts/utils/Misc";
+import {AprHundredFinance} from "../../baseUT/apr/aprHundredFinance";
+import {AprSwap} from "../../baseUT/apr/aprSwap";
+import {TokenDataTypes} from "../../baseUT/types/TokenDataTypes";
+import {BalanceUtils} from "../../baseUT/utils/BalanceUtils";
 import {parseUnits} from "ethers/lib/utils";
-import {BorrowRepayUsesCase} from "../baseUT/uses-cases/BorrowRepayUsesCase";
-import {TetuConverterApp} from "../baseUT/helpers/TetuConverterApp";
-import {HundredFinancePlatformFabric} from "../baseUT/fabrics/HundredFinancePlatformFabric";
-import {DForcePlatformFabric} from "../baseUT/fabrics/DForcePlatformFabric";
-import {DForceChangePriceUtils} from "../baseUT/protocols/dforce/DForceChangePriceUtils";
+import {BorrowRepayUsesCase} from "../../baseUT/uses-cases/BorrowRepayUsesCase";
+import {TetuConverterApp} from "../../baseUT/helpers/TetuConverterApp";
+import {HundredFinancePlatformFabric} from "../../baseUT/fabrics/HundredFinancePlatformFabric";
+import {DForcePlatformFabric} from "../../baseUT/fabrics/DForcePlatformFabric";
+import {DForceChangePriceUtils} from "../../baseUT/protocols/dforce/DForceChangePriceUtils";
 
 /**
  * For any landing platform:

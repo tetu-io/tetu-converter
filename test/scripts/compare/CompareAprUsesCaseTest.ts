@@ -1,28 +1,28 @@
 import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import {ethers} from "hardhat";
-import {TimeUtils} from "../../scripts/utils/TimeUtils";
+import {TimeUtils} from "../../../scripts/utils/TimeUtils";
 import {
   CompareAprUsesCase,
   IBorrowTask,
   IBorrowingTestResults,
   ISwapTestResults
-} from "../baseUT/uses-cases/CompareAprUsesCase";
-import {MaticAddresses} from "../../scripts/addresses/MaticAddresses";
-import {IAssetInfo} from "../baseUT/apr/aprDataTypes";
+} from "../../baseUT/uses-cases/CompareAprUsesCase";
+import {MaticAddresses} from "../../../scripts/addresses/MaticAddresses";
+import {IAssetInfo} from "../../baseUT/apr/aprDataTypes";
 import {BigNumber} from "ethers";
-import {IERC20Metadata__factory, SwapManager__factory} from "../../typechain";
-import {getBigNumberFrom} from "../../scripts/utils/NumberUtils";
-import {AprAave3} from "../baseUT/apr/aprAave3";
-import {AdaptersHelper} from "../baseUT/helpers/AdaptersHelper";
-import {AprAaveTwo} from "../baseUT/apr/aprAaveTwo";
-import {AprDForce} from "../baseUT/apr/aprDForce";
-import {appendBorrowingTestResultsToFile, appendSwapTestResultsToFile} from "../baseUT/apr/aprUtils";
-import {areAlmostEqual} from "../baseUT/utils/CommonUtils";
+import {IERC20Metadata__factory, SwapManager__factory} from "../../../typechain";
+import {getBigNumberFrom} from "../../../scripts/utils/NumberUtils";
+import {AprAave3} from "../../baseUT/apr/aprAave3";
+import {AdaptersHelper} from "../../baseUT/helpers/AdaptersHelper";
+import {AprAaveTwo} from "../../baseUT/apr/aprAaveTwo";
+import {AprDForce} from "../../baseUT/apr/aprDForce";
+import {appendBorrowingTestResultsToFile, appendSwapTestResultsToFile} from "../../baseUT/apr/aprUtils";
+import {areAlmostEqual} from "../../baseUT/utils/CommonUtils";
 import {expect} from "chai";
-import {Misc} from "../../scripts/utils/Misc";
-import {AprHundredFinance} from "../baseUT/apr/aprHundredFinance";
-import {isPolygonForkInUse} from "../baseUT/utils/NetworkUtils";
-import {TetuConverterApp} from "../baseUT/helpers/TetuConverterApp";
+import {Misc} from "../../../scripts/utils/Misc";
+import {AprHundredFinance} from "../../baseUT/apr/aprHundredFinance";
+import {isPolygonForkInUse} from "../../baseUT/utils/NetworkUtils";
+import {TetuConverterApp} from "../../baseUT/helpers/TetuConverterApp";
 
 /**
  * Script to generate
