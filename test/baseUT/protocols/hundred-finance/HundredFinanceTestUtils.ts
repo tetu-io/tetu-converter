@@ -433,8 +433,8 @@ export class HundredFinanceTestUtils {
       );
       return {
         userAccountData: await d.comptroller.getAccountLiquidity(d.userContract.address),
-        repayResultsCollateralAmountOut: collateralAmountOut,
-        repayResultsReturnedBorrowAmountOut: returnedBorrowAmountOut
+        repayResultsCollateralAmountOut: d.userContract.repayResults.collateralAmountOut,
+        repayResultsReturnedBorrowAmountOut: d.userContract.repayResults.returnedBorrowAmountOut
       }
     }
   }

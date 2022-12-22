@@ -387,7 +387,7 @@ export function appendSwapTestResultsToFile(path: string, data: ISwapTestResults
       "SWAP",
       "",
       escapeCsvText(row.error),
-      row.strategyToConvert.apr18,
+      row.apr18,
       row.results?.apr18,
       row.results?.lostCollateral,
 

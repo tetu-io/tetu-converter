@@ -335,11 +335,6 @@ export class AaveTwoTestUtils {
       }
     } else {
       // make full repayment
-      const {collateralAmountOut, returnedBorrowAmountOut} = await d.userContract.callStatic.makeRepayComplete(
-        d.collateralToken.address,
-        d.borrowToken.address,
-        d.userContract.address
-      );
       await d.userContract.makeRepayComplete(
         d.collateralToken.address,
         d.borrowToken.address,
@@ -347,11 +342,10 @@ export class AaveTwoTestUtils {
       );
       return {
         userAccountData: await d.aavePool.getUserAccountData(d.aavePoolAdapterAsTC.address),
-        repayResultsCollateralAmountOut: collateralAmountOut,
-        repayResultsReturnedBorrowAmountOut: returnedBorrowAmountOut
+        repayResultsCollateralAmountOut: d.userContract.repayResults.collateralAmountOut,
+        repayResultsReturnedBorrowAmountOut: d.userContract.repayResults.returnedBorrowAmountOut
       }
     }
-
   }
 
   public static async prepareToLiquidation(

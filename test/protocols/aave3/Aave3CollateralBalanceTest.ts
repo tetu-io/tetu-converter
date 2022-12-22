@@ -160,9 +160,11 @@ describe("Aave3CollateralBalanceTest", () => {
       it("make full repay, should return zero collateral balance", async () => {
         if (!await isPolygonForkInUse()) return;
 
+        console.log("Start borrowing");
         await Aave3TestUtils.putCollateralAmountOnUserBalance(init, collateralHolder);
         await Aave3TestUtils.makeBorrow(deployer, init.d, undefined);
 
+        console.log("Start repaying");
         await Aave3TestUtils.putDoubleBorrowAmountOnUserBalance(init.d, borrowHolder);
         await Aave3TestUtils.makeRepay(
           init.d,

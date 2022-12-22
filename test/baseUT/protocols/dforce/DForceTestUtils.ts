@@ -428,11 +428,6 @@ export class DForceTestUtils {
       };
     } else {
       // make full repayment
-      const {collateralAmountOut, returnedBorrowAmountOut} = await d.userContract.callStatic.makeRepayComplete(
-        d.collateralToken.address,
-        d.borrowToken.address,
-        d.userContract.address
-      );
       await d.userContract.makeRepayComplete(
         d.collateralToken.address,
         d.borrowToken.address,
@@ -440,8 +435,8 @@ export class DForceTestUtils {
       );
       return {
         userAccountData: await d.comptroller.calcAccountEquity(d.dfPoolAdapterTC.address),
-        repayResultsCollateralAmountOut: collateralAmountOut,
-        repayResultsReturnedBorrowAmountOut: returnedBorrowAmountOut
+        repayResultsCollateralAmountOut: d.userContract.repayResults.collateralAmountOut,
+        repayResultsReturnedBorrowAmountOut: d.userContract.repayResults.returnedBorrowAmountOut
       };
     }
   }

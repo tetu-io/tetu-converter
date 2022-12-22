@@ -1,24 +1,26 @@
 import {TokenDataTypes} from "../types/TokenDataTypes";
 import {
-  ISwapManager__factory, SwapManager__factory
+  IERC20__factory,
+  SwapManager__factory
 } from "../../../typechain";
 import {BigNumber} from "ethers";
 import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import {
   IStrategyToConvert, ISwapResults
 } from "./aprDataTypes";
-import {AppDataTypes} from "../../../typechain/contracts/core/SwapManager";
 import {TetuConverterApp} from "../helpers/TetuConverterApp";
 import {BalanceUtils} from "../utils/BalanceUtils";
 import {MocksHelper} from "../helpers/MocksHelper";
-import {CompareAprUsesCase, ISwapTestResults} from "../uses-cases/CompareAprUsesCase";
+import {CompareAprUsesCase} from "../uses-cases/CompareAprUsesCase";
 import {MaticAddresses} from "../../../scripts/addresses/MaticAddresses";
+import {DeployerUtils} from "../../../scripts/utils/DeployerUtils";
 
 export interface IMakeSwapTestResults {
   strategyToConvert: IStrategyToConvert;
   swapResults?: ISwapResults;
   error?: string;
   swapManagerAddress: string;
+  apr18: BigNumber;
 }
 
 export class AprSwap {
@@ -51,18 +53,27 @@ export class AprSwap {
       collateralHolders,
       userContract.address
     );
+    await IERC20__factory.connect(
+      collateralToken.token.address,
+      await DeployerUtils.startImpersonate(userContract.address)
+    ).approve(await controller.tetuConverter(), collateralAmount);
 
     const swapManager = SwapManager__factory.connect(await controller.swapManager(), deployer);
 
     console.log("Tetu liquidator", await controller.tetuLiquidator());
 
-    const params: AppDataTypes.InputConversionParamsStruct = {
-      periodInBlocks: 1, // count blocks
-      sourceAmount: collateralAmount,
-      sourceToken: collateralToken.address,
-      targetToken: borrowToken.address
-    };
-    const strategyToConvert: IStrategyToConvert = await swapManager.getConverter(params);
+    const strategyToConvert: IStrategyToConvert = await swapManager.callStatic.getConverter(
+      userContract.address,
+      collateralToken.address,
+      collateralAmount,
+      borrowToken.address
+    );
+    const apr18 = await swapManager.getApr18(
+      collateralToken.address,
+      collateralAmount,
+      borrowToken.address,
+      strategyToConvert.maxTargetAmount
+    );
 
     const swapResults = await CompareAprUsesCase.makeSwapThereAndBack(
       swapManager,
@@ -70,13 +81,13 @@ export class AprSwap {
       collateralHolders,
       collateralAmount,
       borrowToken.address,
-      strategyToConvert
     );
 
     return {
       swapResults,
       strategyToConvert,
-      swapManagerAddress: swapManager.address
+      swapManagerAddress: swapManager.address,
+      apr18
     }
   }
 }

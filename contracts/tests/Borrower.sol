@@ -47,6 +47,12 @@ contract Borrower is ITetuConverterCallback {
   }
   RequireAmountBackParams public requireAmountBackParams;
 
+  struct MakeRepayResults {
+    uint collateralAmountOut;
+    uint returnedBorrowAmountOut;
+  }
+  MakeRepayResults public repayResults;
+
   constructor (
     address controller_,
     uint borrowPeriodInBlocks_
@@ -230,6 +236,8 @@ contract Borrower is ITetuConverterCallback {
     _tc().claimRewards(address(this));
 
     console.log("makeRepayComplete done gasleft", gasleft(), collateralAmountOut, returnedBorrowAmountOut);
+    repayResults.collateralAmountOut = collateralAmountOut;
+    repayResults.returnedBorrowAmountOut = returnedBorrowAmountOut;
   }
 
   /// @notice Partial repay, see US1.3 in the project scope
@@ -259,6 +267,8 @@ contract Borrower is ITetuConverterCallback {
     _tc().claimRewards(address(this));
 
     console.log("makeRepayPartial done gasleft", gasleft(), collateralAmountOut, returnedBorrowAmountOut);
+    repayResults.collateralAmountOut = collateralAmountOut;
+    repayResults.returnedBorrowAmountOut = returnedBorrowAmountOut;
   }
 
   ///////////////////////////////////////////////////////

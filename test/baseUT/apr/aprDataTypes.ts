@@ -122,5 +122,4 @@ export interface ISwapResults {
 export interface IStrategyToConvert {
   converter: string;
   maxTargetAmount: BigNumber;
-  apr18: BigNumber;
 }

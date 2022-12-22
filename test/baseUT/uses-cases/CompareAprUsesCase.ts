@@ -8,6 +8,7 @@ import {
 import {TimeUtils} from "../../../scripts/utils/TimeUtils";
 import {ethers} from "hardhat";
 import {
+  IController__factory,
   IERC20__factory,
   IERC20Metadata__factory,
   IPlatformAdapter,
@@ -16,7 +17,6 @@ import {
 import {BigNumber} from "ethers";
 import {Misc} from "../../../scripts/utils/Misc";
 import {DeployerUtils} from "../../../scripts/utils/DeployerUtils";
-import {AppDataTypes} from "../../../typechain/contracts/core/SwapManager";
 import {BalanceUtils} from "../utils/BalanceUtils";
 
 //region Data types
@@ -62,6 +62,7 @@ export interface ISwapTestResults {
   results?: ISwapResults;
 
   error?: string;
+  apr18: BigNumber;
 }
 
 export interface IBorrowTask {
@@ -155,7 +156,6 @@ export class CompareAprUsesCase {
     collateralHolders: string[],
     collateralAmount: BigNumber,
     borrowAsset: string,
-    strategyToConvert: IStrategyToConvert,
   ) : Promise<ISwapResults> {
     const receiverAddress = ethers.Wallet.createRandom().address;
     const receiver = await DeployerUtils.startImpersonate(receiverAddress);
@@ -171,20 +171,34 @@ export class CompareAprUsesCase {
       collateralToken.address,
       await DeployerUtils.startImpersonate(receiverAddress)
     ).transfer(swapManager.address, collateralAmount);
-    await swapManager.swap(collateralAsset, collateralAmount, borrowAsset, strategyToConvert.maxTargetAmount, receiverAddress);
+    await swapManager.swap(collateralAsset, collateralAmount, borrowAsset, receiverAddress);
 
     console.log("makeSwapThereAndBack.collateralBalanceAfterSwapThere", await collateralToken.balanceOf(receiverAddress));
 
     const borrowedAmount = await borrowToken.balanceOf(receiverAddress);
     console.log("makeSwapThereAndBack.borrowedAmount", borrowedAmount);
+
+
+    const controller = IController__factory.connect(await swapManager.controller(), receiver);
+    await BalanceUtils.getRequiredAmountFromHolders(
+      borrowedAmount,
+      IERC20Metadata__factory.connect(borrowAsset, receiver),
+      collateralHolders,
+      receiver.address
+    );
+    await IERC20__factory.connect(
+      borrowAsset,
+      await DeployerUtils.startImpersonate(receiver.address)
+    ).approve(await controller.tetuConverter(), borrowedAmount);
+    const planReverseSwap = await swapManager.callStatic.getConverter(
+      receiver.address,
+      borrowAsset,
+      borrowedAmount,
+      collateralAsset,
+    );
+
     await borrowToken.transfer(swapManager.address, borrowedAmount);
-    const planReverseSwap = await swapManager.getConverter({
-      sourceAmount: borrowedAmount,
-      sourceToken: borrowAsset,
-      targetToken: collateralAsset,
-      periodInBlocks: 0
-    })
-    await swapManager.swap(borrowAsset, borrowedAmount, collateralAsset, planReverseSwap.maxTargetAmount, receiverAddress);
+    await swapManager.swap(borrowAsset, borrowedAmount, collateralAsset, receiverAddress);
     const collateralBalanceAfterSwap = await collateralToken.balanceOf(receiverAddress)
     console.log("makeSwapThereAndBack.collateralBalanceAfterReverseSwap", await collateralToken.balanceOf(receiverAddress));
     console.log("makeSwapThereAndBack.planReverseSwap", planReverseSwap);
@@ -228,8 +242,7 @@ export class CompareAprUsesCase {
         collateralAsset,
         collateralHolders,
         collateralAmount,
-        borrowAsset,
-        strategyToConvert
+        borrowAsset
       )
 
       return {
@@ -380,7 +393,6 @@ export class CompareAprUsesCase {
   ) : Promise<ISwapTestResults[]> {
     console.log("makePossibleSwaps");
     const dest: ISwapTestResults[] = [];
-    const platformTitle = "SWAP";
 
     for (const task of tasks) {
       const collateralHolders = task.collateralAsset.holders;
@@ -389,13 +401,26 @@ export class CompareAprUsesCase {
 
       const snapshot = await TimeUtils.snapshot();
       try {
-        const params: AppDataTypes.InputConversionParamsStruct = {
-          periodInBlocks: countBlocks,
-          sourceAmount: task.collateralAmount,
-          sourceToken: task.collateralAsset.asset,
-          targetToken: task.borrowAsset.asset
-        };
-        const strategyToConvert: IStrategyToConvert = await swapManager.getConverter(params);
+
+        const tempUserContract = ethers.Wallet.createRandom().address;
+        const controller = IController__factory.connect(await swapManager.controller(), deployer);
+        await BalanceUtils.getRequiredAmountFromHolders(
+          task.collateralAmount,
+          IERC20Metadata__factory.connect(task.collateralAsset.asset, deployer),
+          collateralHolders,
+          tempUserContract
+        );
+        await IERC20__factory.connect(
+          task.collateralAsset.asset,
+          await DeployerUtils.startImpersonate(tempUserContract)
+        ).approve(await controller.tetuConverter(), task.collateralAmount);
+        const strategyToConvert: IStrategyToConvert = await swapManager.callStatic.getConverter(
+          tempUserContract,
+          task.collateralAsset.asset,
+          task.collateralAmount,
+          task.borrowAsset.asset
+        );
+
         if (strategyToConvert.converter === Misc.ZERO_ADDRESS) {
           dest.push({
             assetBorrow: task.borrowAsset,
@@ -403,8 +428,15 @@ export class CompareAprUsesCase {
             collateralAmount: task.collateralAmount,
             strategyToConvert,
             error: "Plan not found",
+            apr18: BigNumber.from(0)
           });
         } else {
+          const apr18 = await swapManager.getApr18(
+            task.collateralAsset.asset,
+            task.collateralAmount,
+            task.borrowAsset.asset,
+            strategyToConvert.maxTargetAmount
+          );
           const res = await this.makeSingleSwapTest(
             swapManager,
             task.collateralAsset.asset,
@@ -419,7 +451,8 @@ export class CompareAprUsesCase {
             collateralAmount: task.collateralAmount,
             strategyToConvert,
             results: res.results,
-            error: res.error
+            error: res.error,
+            apr18
           });
         }
       } finally {
