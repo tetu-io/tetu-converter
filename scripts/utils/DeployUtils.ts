@@ -11,7 +11,7 @@ import {VerifyUtils} from "./VerifyUtils";
 const log: Logger = new Logger(logSettings);
 
 const libraries = new Map<string, string>([
-  ['', '']
+  ['', ''],
 ]);
 const hre = require("hardhat");
 
@@ -73,7 +73,9 @@ export class DeployUtils {
     console.log('DEPLOYED: ', name, receipt.contractAddress);
 
     if (hre.network.name !== 'hardhat' && network.name !== 'localhost') {
-      await Misc.wait(10);
+      console.log("Wait before verification");
+      await Misc.wait(120); // 10
+      console.log("Start verification");
       if (args.length === 0) {
         await VerifyUtils.verify(receipt.contractAddress);
       } else {

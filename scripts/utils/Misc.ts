@@ -18,10 +18,16 @@ const MATIC_CHAIN = Common.forCustomChain(
 );
 
 export class Misc {
-  public static readonly MAX_UINT = BigNumber.from('115792089237316195423570985008687907853269984665640564039457584007913129639935');
+  public static readonly MAX_UINT = BigNumber.from('115792089237316195423570985008687907853269984665640564039457584007913129639935');  // BigNumber.from(2).pow(256).sub(1), // === type(uint).max
   public static readonly SECONDS_OF_DAY = 60 * 60 * 24;
   public static readonly SECONDS_OF_YEAR = Misc.SECONDS_OF_DAY * 365;
   public static readonly ZERO_ADDRESS = '0x0000000000000000000000000000000000000000';
+  /** 1e18 */
+  public static readonly WEI =         BigNumber.from('1000000000000000000');
+  /** 1e36 */
+  public static readonly WEI_DOUBLE =  BigNumber.from('1000000000000000000000000000000000000');
+  /** 1e27 */
+  public static readonly RAYS =        BigNumber.from('1000000000000000000000000000');
 
   public static printDuration(text: string, start: number) {
     log.info('>>>' + text, ((Date.now() - start) / 1000).toFixed(1), 'sec');

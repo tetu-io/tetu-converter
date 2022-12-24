@@ -1,0 +1,777 @@
+import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
+import hre, {ethers} from "hardhat";
+import {expect} from "chai";
+import {Controller, Controller__factory} from "../../typechain";
+import {TimeUtils} from "../../scripts/utils/TimeUtils";
+import {BigNumber} from "ethers";
+import {controlGasLimitsEx, getGasUsed} from "../../scripts/utils/hardhatUtils";
+import {GAS_LIMIT_CONTROLLER_INITIALIZE} from "../baseUT/GasLimit";
+import {Misc} from "../../scripts/utils/Misc";
+import {DeployerUtils} from "../../scripts/utils/DeployerUtils";
+import {randomInt} from "crypto";
+import {CoreContractsHelper} from "../baseUT/helpers/CoreContractsHelper";
+
+describe("Controller", () => {
+//region Global vars for all tests
+  let snapshot: string;
+  let snapshotForEach: string;
+  let deployer: SignerWithAddress;
+  let user1: SignerWithAddress;
+  let user2: SignerWithAddress;
+  let user3: SignerWithAddress;
+  let user4: SignerWithAddress;
+  let user5: SignerWithAddress;
+//endregion Global vars for all tests
+
+//region before, after
+  before(async function () {
+    this.timeout(1200000);
+    snapshot = await TimeUtils.snapshot();
+    const signers = await ethers.getSigners();
+    deployer = signers[0];
+    user1 = signers[2];
+    user2 = signers[3];
+    user3 = signers[4];
+    user4 = signers[5];
+    user5 = signers[6];
+  });
+
+  after(async function () {
+    await TimeUtils.rollback(snapshot);
+  });
+
+  beforeEach(async function () {
+    snapshotForEach = await TimeUtils.snapshot();
+  });
+
+  afterEach(async function () {
+    await TimeUtils.rollback(snapshotForEach);
+  });
+//endregion before, after
+
+//region Utils
+  interface IControllerMembers {
+    governance: string;
+    tetuConverter: string;
+    borrowManager: string;
+    debtMonitor: string;
+
+    keeper: string;
+    tetuLiquidator: string;
+    swapManager: string;
+    priceOracle: string;
+
+    minHealthFactor2: number;
+    targetHealthFactor2: number;
+    maxHealthFactor2: number;
+
+    blocksPerDay: BigNumber;
+  }
+
+  function getMembersArray(a: IControllerMembers): string[] {
+    return [
+      a.governance,
+
+      a.tetuConverter,
+      a.borrowManager,
+      a.debtMonitor,
+
+      a.keeper,
+      a.tetuLiquidator,
+      a.swapManager,
+      a.priceOracle,
+
+      a.minHealthFactor2.toString(),
+      a.targetHealthFactor2.toString(),
+      a.maxHealthFactor2.toString(),
+
+      a.blocksPerDay.toString()
+    ];
+  }
+
+  async function getValuesArray(controller: Controller) : Promise<string[]> {
+    return [
+      await controller.governance(),
+
+      await controller.tetuConverter(),
+      await controller.borrowManager(),
+      await controller.debtMonitor(),
+
+      await controller.keeper(),
+      await controller.tetuLiquidator(),
+      await controller.swapManager(),
+      await controller.priceOracle(),
+
+      (await controller.minHealthFactor2()).toString(),
+      (await controller.targetHealthFactor2()).toString(),
+      (await controller.maxHealthFactor2()).toString(),
+
+      (await controller.blocksPerDay()).toString(),
+    ];
+  }
+
+  async function createTestController(
+    a: IControllerMembers,
+  ) : Promise<{controller: Controller, gasUsed: BigNumber}> {
+    const controller = await CoreContractsHelper.deployController(deployer);
+
+    const gasUsed = await getGasUsed(
+      controller.initialize(
+        a.governance,
+        a.blocksPerDay,
+        a.minHealthFactor2,
+        a.targetHealthFactor2,
+        a.maxHealthFactor2,
+        a.tetuConverter,
+        a.borrowManager,
+        a.debtMonitor,
+        a.keeper,
+        a.tetuLiquidator,
+        a.swapManager,
+        a.priceOracle
+      )
+    );
+
+    return {controller, gasUsed};
+  }
+
+  function getRandomMembersValues() : IControllerMembers {
+    return {
+      governance: ethers.Wallet.createRandom().address,
+
+      tetuConverter: ethers.Wallet.createRandom().address,
+      borrowManager: ethers.Wallet.createRandom().address,
+      debtMonitor: ethers.Wallet.createRandom().address,
+
+      keeper: ethers.Wallet.createRandom().address,
+      tetuLiquidator: ethers.Wallet.createRandom().address,
+      swapManager: ethers.Wallet.createRandom().address,
+      priceOracle: ethers.Wallet.createRandom().address,
+
+      minHealthFactor2: 120 + randomInt(10),
+      targetHealthFactor2: 220 + randomInt(10),
+      maxHealthFactor2: 920 + randomInt(10),
+
+      blocksPerDay: BigNumber.from(1000 + randomInt(1000))
+    }
+  }
+
+  async function prepareTestController() : Promise<Controller> {
+    const a = getRandomMembersValues();
+    const {controller} = await createTestController(a);
+    return controller;
+  }
+//endregion Utils
+
+//region Unit tests
+  describe ("initialize", () => {
+    describe ("Good paths", () => {
+      it("should initialize values correctly", async () => {
+        const a = getRandomMembersValues();
+
+        const {controller} = await createTestController(a);
+
+        const ret = (await getValuesArray(controller)).join();
+        const expected = getMembersArray(a).join();
+
+        expect(ret).to.be.equal(expected);
+      });
+      it("should not exceed gas limits", async () => {
+        const a = getRandomMembersValues();
+
+        const {gasUsed} = await createTestController(a);
+
+        controlGasLimitsEx(gasUsed, GAS_LIMIT_CONTROLLER_INITIALIZE, (u, t) => {
+            expect(u).to.be.below(t);
+          }
+        );
+      });
+    });
+
+    describe ("Bad paths", () => {
+      describe("Zero address", () => {
+        it("should revert if tetuConverter is zero", async () => {
+          const a = getRandomMembersValues();
+          a.tetuConverter = Misc.ZERO_ADDRESS;
+          await expect(createTestController(a)).revertedWith("TC-1 zero address");
+        });
+        it("should revert if borrowManager is zero", async () => {
+          const a = getRandomMembersValues();
+          a.borrowManager = Misc.ZERO_ADDRESS;
+          await expect(createTestController(a)).revertedWith("TC-1 zero address");
+        });
+        it("should revert if debtMonitor is zero", async () => {
+          const a = getRandomMembersValues();
+          a.debtMonitor = Misc.ZERO_ADDRESS;
+          await expect(createTestController(a)).revertedWith("TC-1 zero address");
+        });
+        it("should revert if keeper is zero", async () => {
+          const a = getRandomMembersValues();
+          a.keeper = Misc.ZERO_ADDRESS;
+          await expect(createTestController(a)).revertedWith("TC-1 zero address");
+        });
+        it("should revert if tetuLiquidator is zero", async () => {
+          const a = getRandomMembersValues();
+          a.tetuLiquidator = Misc.ZERO_ADDRESS;
+          await expect(createTestController(a)).revertedWith("TC-1 zero address");
+        });
+        it("should revert if swapManager is zero", async () => {
+          const a = getRandomMembersValues();
+          a.swapManager = Misc.ZERO_ADDRESS;
+          await expect(createTestController(a)).revertedWith("TC-1 zero address");
+        });
+        it("should revert if priceOracle is zero", async () => {
+          const a = getRandomMembersValues();
+          a.priceOracle = Misc.ZERO_ADDRESS;
+          await expect(createTestController(a)).revertedWith("TC-1 zero address");
+        });
+      });
+
+      it("zero governance should revert", async () => {
+        const a = getRandomMembersValues();
+        a.governance = Misc.ZERO_ADDRESS;
+        await expect(
+          createTestController(a)
+        ).revertedWith("TC-1 zero address");
+      });
+      it("Min health factor is too small - should revert", async () => {
+        const a = getRandomMembersValues();
+        a.minHealthFactor2 = 99; // (!)
+
+        await expect(
+          createTestController(a)
+        ).revertedWith("TC-3 wrong health factor");
+      });
+      it("Min health factor is not less then target health factor - should revert", async () => {
+        const a = getRandomMembersValues();
+        a.targetHealthFactor2 = a.minHealthFactor2; // (!)
+
+        await expect(
+          createTestController(a)
+        ).revertedWith("TC-38: wrong health factor config");
+      });
+      it("Target health factor is not less then max health factor - should revert", async () => {
+        const a = getRandomMembersValues();
+        a.maxHealthFactor2 = a.targetHealthFactor2; // (!)
+
+        await expect(
+          createTestController(a)
+        ).revertedWith("TC-38: wrong health factor config");
+      });
+      it("should revert if Blocks per day = 0", async () => {
+        const a = getRandomMembersValues();
+        a.blocksPerDay = BigNumber.from(0); // (!)
+
+        await expect(
+          createTestController(a)
+        ).revertedWith("TC-29 incorrect value");
+      });
+    });
+  });
+
+  describe ("set/acceptGovernance", () => {
+    describe ("Good paths", () => {
+      it("should change the governance", async () => {
+        const {controller} = await createTestController(getRandomMembersValues());
+
+        const existGovernance = await controller.governance();
+        const newGovernance = ethers.Wallet.createRandom().address;
+
+        const controllerAsOldGov = Controller__factory.connect(controller.address,
+          await DeployerUtils.startImpersonate(existGovernance)
+        );
+        const controllerAsNewGov = Controller__factory.connect(controller.address,
+          await DeployerUtils.startImpersonate(newGovernance)
+        );
+
+        await controllerAsOldGov.setGovernance(newGovernance);
+        const afterOffer = await controller.governance();
+
+        await controllerAsNewGov.acceptGovernance();
+        const afterAccepting = await controller.governance();
+
+        const ret = [afterOffer, afterAccepting].join();
+        const expected = [existGovernance, newGovernance].join();
+        expect(ret).eq(expected);
+      });
+      it("governance changes the governance to itself, success", async () => {
+        const {controller} = await createTestController(getRandomMembersValues());
+
+        const existGovernance = await controller.governance();
+
+        const controllerAsGov = Controller__factory.connect(controller.address,
+          await DeployerUtils.startImpersonate(existGovernance)
+        );
+
+        await controllerAsGov.setGovernance(existGovernance);
+        const afterOffer = await controller.governance();
+
+        await controllerAsGov.acceptGovernance();
+        const afterAccepting = await controller.governance();
+
+        const ret = [afterOffer, afterAccepting].join();
+        const expected = [existGovernance, existGovernance].join();
+        expect(ret).eq(expected);
+      });
+    });
+
+    describe ("Bad paths", () => {
+      it("should revert if zero address", async () => {
+        const {controller} = await createTestController(getRandomMembersValues());
+
+        const existGovernance = await controller.governance();
+        const newGovernance = Misc.ZERO_ADDRESS;  // (!)
+
+        const controllerAsOldGov = Controller__factory.connect(controller.address,
+          await DeployerUtils.startImpersonate(existGovernance)
+        );
+
+        await expect(
+          controllerAsOldGov.setGovernance(newGovernance)
+        ).revertedWith("TC-1 zero address"); // ZERO_ADDRESS
+      });
+      it("should revert if not governance", async () => {
+        const {controller} = await createTestController(getRandomMembersValues());
+
+        const notGovernance = ethers.Wallet.createRandom().address;
+        const newGovernance = ethers.Wallet.createRandom().address;
+
+        const controllerAsNotGov = Controller__factory.connect(controller.address,
+          await DeployerUtils.startImpersonate(notGovernance)
+        );
+
+        await expect(
+          controllerAsNotGov.setGovernance(newGovernance)
+        ).revertedWith("TC-9 governance only"); // GOVERNANCE_ONLY
+      });
+      it("should revert if not new-governance tries to accept", async () => {
+        const {controller} = await createTestController(getRandomMembersValues());
+
+        const existGovernance = await controller.governance();
+        const newGovernance = ethers.Wallet.createRandom().address;
+        const notNewGovernance = ethers.Wallet.createRandom().address;
+
+        const controllerAsOldGov = Controller__factory.connect(controller.address,
+          await DeployerUtils.startImpersonate(existGovernance)
+        );
+        const controllerAsNotNewGov = Controller__factory.connect(controller.address,
+          await DeployerUtils.startImpersonate(notNewGovernance)
+        );
+
+        await controllerAsOldGov.setGovernance(newGovernance);
+        await expect(
+          controllerAsNotNewGov.acceptGovernance()
+        ).revertedWith("TC-51 not pending gov"); // NOT_PENDING_GOVERNANCE
+      });
+    });
+  });
+
+  describe ("setBlocksPerDay", () => {
+    describe ("Good paths", () => {
+      it("should set expected value", async () => {
+        const a = getRandomMembersValues();
+        const blocksPerDayUpdated = 418;
+
+        const {controller} = await createTestController(a);
+
+        const before = await controller.blocksPerDay();
+        const beforeLastBlockNumber = (await controller.lastBlockNumber()).toNumber();
+
+        const controllerAsGov = Controller__factory.connect(
+          controller.address,
+          await DeployerUtils.startImpersonate(await controller.governance())
+        );
+        await controllerAsGov.setBlocksPerDay(blocksPerDayUpdated, false);
+        const after = await controller.blocksPerDay();
+        const afterLastBlockNumber = (await controller.lastBlockNumber()).toNumber();
+
+        const ret = [before, after, beforeLastBlockNumber, afterLastBlockNumber].join();
+        const expected = [a.blocksPerDay, blocksPerDayUpdated, 0, 0].join();
+
+        expect(ret).to.be.equal(expected);
+      });
+      it("should enable auto-update", async () => {
+        const a = getRandomMembersValues();
+        const blocksPerDayUpdated = 418;
+
+        const {controller} = await createTestController(a);
+
+        const before = await controller.blocksPerDay();
+        const beforeLastBlockNumber = (await controller.lastBlockNumber()).toNumber();
+
+        const controllerAsGov = Controller__factory.connect(
+          controller.address,
+          await DeployerUtils.startImpersonate(await controller.governance())
+        );
+        await controllerAsGov.setBlocksPerDay(blocksPerDayUpdated, true);
+        const after = await controller.blocksPerDay();
+        const afterLastBlockNumber = (await controller.lastBlockNumber()).toNumber();
+
+        const ret = [before, after, beforeLastBlockNumber, afterLastBlockNumber > 0].join();
+        const expected = [a.blocksPerDay, blocksPerDayUpdated, 0, true].join();
+
+        expect(ret).to.be.equal(expected);
+      });
+    });
+    describe ("Bad paths", () => {
+      describe ("Set ZERO blocks per day", () => {
+        it("should set expected value", async () => {
+          const a = getRandomMembersValues();
+          const blocksPerDayUpdated = 0; // (!)
+
+          const {controller} = await createTestController(a);
+
+          await expect(
+            controller.setBlocksPerDay(blocksPerDayUpdated, false)
+          ).revertedWith("TC-29 incorrect value");
+        });
+      });
+      describe ("Not governance", () => {
+        it("should set expected value", async () => {
+          const a = getRandomMembersValues();
+          const {controller} = await createTestController(a);
+          const controllerNotGov = Controller__factory.connect(controller.address, user3);
+          await expect(
+            controllerNotGov.setBlocksPerDay(4000, false)
+          ).revertedWith("TC-9 governance only"); // GOVERNANCE_ONLY
+        });
+      });
+    });
+  });
+
+  describe ("isBlocksPerDayAutoUpdateRequired", () => {
+    describe ("Good paths", () => {
+      it("should return false", async () => {
+        const {controller} = await createTestController(getRandomMembersValues());
+
+        const controllerAsGov = Controller__factory.connect(
+          controller.address,
+          await DeployerUtils.startImpersonate(await controller.governance())
+        );
+        await controllerAsGov.setBlocksPerDay(400, true);
+        // const block1 = await hre.ethers.provider.getBlock("latest");
+        await TimeUtils.advanceNBlocks(1); // we assume here, that 1 block < 100 seconds
+        // const block2 = await hre.ethers.provider.getBlock("latest");
+        const ret = await controller.isBlocksPerDayAutoUpdateRequired(100); // 100 seconds
+
+        expect(ret).to.be.equal(false);
+      });
+      it("should return true", async () => {
+        const {controller} = await createTestController(getRandomMembersValues());
+
+        const controllerAsGov = Controller__factory.connect(
+          controller.address,
+          await DeployerUtils.startImpersonate(await controller.governance())
+        );
+        await controllerAsGov.setBlocksPerDay(400, true);
+        await TimeUtils.advanceNBlocks(200); // we assume here, that 200 blocks > 100 seconds
+        const ret = await controller.isBlocksPerDayAutoUpdateRequired(100);
+
+        expect(ret).to.be.equal(true);
+      });
+    });
+  });
+
+  describe("updateBlocksPerDay", () => {
+    describe("Good paths", () => {
+      it("should assigned expected value to blocksPerDay", async () => {
+        const {controller} = await createTestController(getRandomMembersValues());
+
+        const controllerAsGov = Controller__factory.connect(
+          controller.address,
+          await DeployerUtils.startImpersonate(await controller.governance())
+        );
+        await controllerAsGov.setBlocksPerDay(400, true);
+        const block0 = await hre.ethers.provider.getBlock("latest");
+        const lastBlockNumber0 = (await controller.lastBlockNumber()).toNumber();
+        const lastBlockTimestamp0 = (await controller.lastBlockTimestamp()).toNumber();
+
+        const periodSecs = 100; // seconds
+        do {
+          await TimeUtils.advanceNBlocks(10);
+          const block = await hre.ethers.provider.getBlock("latest");
+          if (block.timestamp - block0.timestamp > periodSecs) {
+            break;
+          }
+        } while(true);
+
+        const controllerAsKeeper = Controller__factory.connect(
+          controller.address,
+          await DeployerUtils.startImpersonate(await controller.keeper())
+        );
+
+        await controllerAsKeeper.updateBlocksPerDay(100);
+        const lastBlockNumber1 = (await controller.lastBlockNumber()).toNumber();
+        const lastBlockTimestamp1 = (await controller.lastBlockTimestamp()).toNumber();
+
+        const resultBlocksPerDay = (await controllerAsKeeper.blocksPerDay()).toNumber();
+        const countPassedDays = (lastBlockTimestamp1 - lastBlockTimestamp0) / (24*60*60);
+        const expectedBlocksPerDay = Math.floor((lastBlockNumber1 - lastBlockNumber0) / countPassedDays);
+
+        expect(resultBlocksPerDay).eq(expectedBlocksPerDay);
+      });
+    });
+    describe("Bad paths", () => {
+      it("should revert if not keeper", async () => {
+        const {controller} = await createTestController(getRandomMembersValues());
+
+        const controllerAsGov = Controller__factory.connect(
+          controller.address,
+          await DeployerUtils.startImpersonate(await controller.governance())
+        );
+        await controllerAsGov.setBlocksPerDay(400, true);
+        await TimeUtils.advanceNBlocks(50); // assume here, that 50 blocks > 10 seconds
+        await expect(
+          controllerAsGov.updateBlocksPerDay(10)
+        ).revertedWith("TC-42 keeper only");
+      });
+      it("should revert if auto-update is disabled", async () => {
+        const {controller} = await createTestController(getRandomMembersValues());
+
+        const controllerAsGov = Controller__factory.connect(
+          controller.address,
+          await DeployerUtils.startImpersonate(await controller.governance())
+        );
+        await controllerAsGov.setBlocksPerDay(400,
+          true // auto-update is enabled
+        );
+        await controllerAsGov.setBlocksPerDay(400,
+          false // (!) auto-update is disabled
+        );
+        const controllerAsKeeper = Controller__factory.connect(
+          controller.address,
+          await DeployerUtils.startImpersonate(await controller.keeper())
+        );
+        await TimeUtils.advanceNBlocks(50); // assume here, that 50 blocks > 10 seconds
+        await expect(
+          controllerAsKeeper.updateBlocksPerDay(10)
+        ).revertedWith("TC-52 incorrect op");
+      });
+      it("should revert if period is zero", async () => {
+        const {controller} = await createTestController(getRandomMembersValues());
+
+        const controllerAsGov = Controller__factory.connect(controller.address,
+          await DeployerUtils.startImpersonate(await controller.governance())
+        );
+        await controllerAsGov.setBlocksPerDay(400, true);
+        const controllerAsKeeper = Controller__factory.connect(controller.address,
+          await DeployerUtils.startImpersonate(await controller.keeper())
+        );
+        await TimeUtils.advanceNBlocks(50); // assume here, that 50 blocks > 10 seconds
+        await expect(
+          controllerAsKeeper.updateBlocksPerDay(
+            0 // (!)
+          )
+        ).revertedWith("TC-29 incorrect value");
+      });
+      it("should revert if auto-update is not yet required", async () => {
+        const {controller} = await createTestController(getRandomMembersValues());
+
+        const controllerAsGov = Controller__factory.connect(controller.address,
+          await DeployerUtils.startImpersonate(await controller.governance())
+        );
+        await controllerAsGov.setBlocksPerDay(400, true);
+        const controllerAsKeeper = Controller__factory.connect(controller.address,
+          await DeployerUtils.startImpersonate(await controller.keeper())
+        );
+        await TimeUtils.advanceNBlocks(50);
+        await expect(
+          controllerAsKeeper.updateBlocksPerDay(
+            100000 // (!) it's not time to auto-update yet
+          )
+        ).revertedWith("TC-29 incorrect value");
+      });
+    });
+  });
+
+  describe ("setMinHealthFactor2", () => {
+    describe ("Good paths", () => {
+      it("should set expected value", async () => {
+        const a = getRandomMembersValues();
+        const minHealthFactorUpdated = 101;
+
+        const {controller} = await createTestController(a);
+
+        const before = await controller.minHealthFactor2();
+        const controllerAsGov = Controller__factory.connect(
+          controller.address
+          , await DeployerUtils.startImpersonate(await controller.governance())
+        );
+        await controllerAsGov.setMinHealthFactor2(minHealthFactorUpdated);
+        const after = await controller.minHealthFactor2();
+
+        const ret = [before, after].join();
+        const expected = [a.minHealthFactor2, minHealthFactorUpdated].join();
+
+        expect(ret).to.be.equal(expected);
+      });
+    });
+    describe ("Bad paths", () => {
+      describe ("Set too small min health factor", () => {
+        it("should set expected value", async () => {
+          const controller = await prepareTestController();
+          await expect(
+            controller.setMinHealthFactor2(1) // (!) 1 < 100
+          ).revertedWith("TC-3 wrong health factor");
+        });
+      });
+      describe ("Set too min health factor bigger then target health factor", () => {
+        it("should set expected value", async () => {
+          const controller = await prepareTestController();
+          await expect(
+            controller.setMinHealthFactor2(1000) // (!) 1000 > target health factor
+          ).revertedWith("TC-38: wrong health factor config");
+        });
+      });
+      describe ("Not governance", () => {
+        it("should set expected value", async () => {
+          const a = getRandomMembersValues();
+          const {controller} = await createTestController(a);
+          const controllerNotGov = Controller__factory.connect(controller.address, user3);
+          await expect(
+            controllerNotGov.setMinHealthFactor2(125)
+          ).revertedWith("TC-9 governance only"); // GOVERNANCE_ONLY
+        });
+      });
+    });
+  });
+  describe ("setTargetHealthFactor2", () => {
+    describe ("Good paths", () => {
+      it("should set expected value", async () => {
+        const a = getRandomMembersValues();
+        const targetHealthFactorUpdated = 301;
+
+        const {controller} = await createTestController(a);
+
+        const before = await controller.targetHealthFactor2();
+        const controllerAsGov = Controller__factory.connect(
+          controller.address
+          , await DeployerUtils.startImpersonate(await controller.governance())
+        );
+        await controllerAsGov.setTargetHealthFactor2(targetHealthFactorUpdated);
+        const after = await controller.targetHealthFactor2();
+
+        const ret = [before, after].join();
+        const expected = [a.targetHealthFactor2, targetHealthFactorUpdated].join();
+
+        expect(ret).to.be.equal(expected);
+      });
+    });
+    describe ("Bad paths", () => {
+      describe ("Target health factor is equal to MIN health factor", () => {
+        it("should set expected value", async () => {
+          const controller = await prepareTestController();
+          await expect(
+            controller.setTargetHealthFactor2(
+              await controller.minHealthFactor2()
+            )
+          ).revertedWith("TC-38: wrong health factor config");
+        });
+      });
+      describe ("Target health factor is equal to MAX health factor", () => {
+        it("should set expected value", async () => {
+          const controller = await prepareTestController();
+          await expect(
+            controller.setTargetHealthFactor2(
+              await controller.maxHealthFactor2()
+            )
+          ).revertedWith("TC-38: wrong health factor config");
+        });
+      });
+      describe ("Not governance", () => {
+        it("should set expected value", async () => {
+          const a = getRandomMembersValues();
+          const {controller} = await createTestController(a);
+          const controllerNotGov = Controller__factory.connect(controller.address, user3);
+          await expect(
+            controllerNotGov.setTargetHealthFactor2(250)
+          ).revertedWith("TC-9 governance only"); // GOVERNANCE_ONLY
+        });
+      });
+    });
+  });
+  describe ("setMaxHealthFactor2", () => {
+    describe ("Good paths", () => {
+      it("should set expected value", async () => {
+        const a = getRandomMembersValues();
+        const maxHealthFactorUpdated = 400;
+
+        const {controller} = await createTestController(a);
+
+        const before = await controller.maxHealthFactor2();
+        const controllerAsGov = Controller__factory.connect(
+          controller.address
+          , await DeployerUtils.startImpersonate(await controller.governance())
+        );
+        await controllerAsGov.setMaxHealthFactor2(maxHealthFactorUpdated);
+        const after = await controller.maxHealthFactor2();
+
+        const ret = [before, after].join();
+        const expected = [a.maxHealthFactor2, maxHealthFactorUpdated].join();
+
+        expect(ret).to.be.equal(expected);
+      });
+    });
+    describe ("Bad paths", () => {
+      describe ("MAX health factor is equal to TARGET health factor", () => {
+        it("should set expected value", async () => {
+          const controller = await prepareTestController();
+          await expect(
+            controller.setMaxHealthFactor2(
+              await controller.targetHealthFactor2()
+            )
+          ).revertedWith("TC-38: wrong health factor config");
+        });
+      });
+      describe ("Not governance", () => {
+        it("should set expected value", async () => {
+          const a = getRandomMembersValues();
+          const {controller} = await createTestController(a);
+          const controllerNotGov = Controller__factory.connect(controller.address, user3);
+          await expect(
+            controllerNotGov.setMaxHealthFactor2(1250)
+          ).revertedWith("TC-9 governance only"); // GOVERNANCE_ONLY
+        });
+      });
+    });
+  });
+
+  describe ("events", () => {
+    it("should emit expected events", async () => {
+      const {controller} = await createTestController(getRandomMembersValues());
+      const controllerAsGov = await Controller__factory.connect(
+        controller.address,
+        await DeployerUtils.startImpersonate(await controller.governance())
+      );
+      await expect(
+        controllerAsGov.setBlocksPerDay(100, false)
+      ).to.emit(controller, "OnSetBlocksPerDay").withArgs(100, false);
+
+      await expect(
+        controllerAsGov.setMinHealthFactor2(111)
+      ).to.emit(controller, "OnSetMinHealthFactor2").withArgs(111);
+
+      await expect(
+        controllerAsGov.setTargetHealthFactor2(213)
+      ).to.emit(controller, "OnSetTargetHealthFactor2").withArgs(213);
+
+      await expect(
+        controllerAsGov.setMaxHealthFactor2(516)
+      ).to.emit(controller, "OnSetMaxHealthFactor2").withArgs(516);
+
+      const newGovernance = ethers.Wallet.createRandom().address;
+      await expect(
+        controllerAsGov.setGovernance(newGovernance)
+      ).to.emit(controller, "OnSetGovernance").withArgs(newGovernance);
+
+      await expect(
+        Controller__factory.connect(
+          controller.address,
+          await DeployerUtils.startImpersonate(newGovernance)
+        ).acceptGovernance()
+      ).to.emit(controller, "OnAcceptGovernance").withArgs(newGovernance);
+    });
+  });
+//endregion Unit tests
+
+});
