@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: UNLICENSED
-pragma solidity 0.8.4;
+pragma solidity 0.8.17;
 
 /// @dev Created from ABI of comptroller for 0x5BeB233453d3573490383884Bd4B9CbA0663218a
 ///      All events and _XXX functions were excluded

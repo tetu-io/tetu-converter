@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.4;
+pragma solidity 0.8.17;
 
 /// @notice TetuConverter supports this interface
 ///         It's called by SwapManager inside static-call swap simulation

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.4;
+pragma solidity 0.8.17;
 
 /// @notice Restored from 0xa5ba6E5EC19a1Bf23C857991c857dB62b2Aa187B (events were removed)
 interface IAaveToken {

@@ -1,1 +1,0 @@
-All interfaces of the TetuConverter-app

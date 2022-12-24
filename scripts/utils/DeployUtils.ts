@@ -1,4 +1,4 @@
-import {ethers, network, web3} from "hardhat";
+import {ethers, network} from "hardhat";
 import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import {Logger} from "tslog";
 import logSettings from "../../log_settings";
@@ -7,23 +7,25 @@ import {Libraries} from "hardhat-deploy/dist/types";
 import {config as dotEnvConfig} from "dotenv";
 import {Misc} from "./Misc";
 import {VerifyUtils} from "./VerifyUtils";
+import {formatUnits} from "ethers/lib/utils";
 
-const log: Logger = new Logger(logSettings);
+const log: Logger<unknown> = new Logger(logSettings);
 
 const libraries = new Map<string, string>([
   ['', ''],
 ]);
+// tslint:disable-next-line:no-var-requires
 const hre = require("hardhat");
 
 dotEnvConfig();
 // tslint:disable-next-line:no-var-requires
 const argv = require('yargs/yargs')()
-    .env('TETU')
-    .options({
-      networkScanKey: {
-        type: "string",
-      },
-    }).argv;
+  .env('TETU')
+  .options({
+    networkScanKey: {
+      type: "string",
+    },
+  }).argv;
 
 export class DeployUtils {
 
@@ -35,16 +37,16 @@ export class DeployUtils {
    * @param args values for contract's constructor
    */
   public static async deployContract<T extends ContractFactory>(
-      signer: SignerWithAddress,
-      name: string,
-      // tslint:disable-next-line:no-any
-      ...args: any[]
+    signer: SignerWithAddress,
+    name: string,
+    // tslint:disable-next-line:no-any
+    ...args: any[]
   ) {
     log.info(`Deploying ${name}`);
     log.info("Account balance: " + utils.formatUnits(await signer.getBalance(), 18));
 
-    const gasPrice = await web3.eth.getGasPrice();
-    log.info("Gas price: " + gasPrice);
+    const gasPrice = await ethers.provider.getGasPrice();
+    log.info("Gas price: " + formatUnits(gasPrice, 9))
     const lib: string | undefined = libraries.get(name);
     let _factory;
     if (lib) {
@@ -53,16 +55,16 @@ export class DeployUtils {
       const librariesObj: Libraries = {};
       librariesObj[lib] = libAddress;
       _factory = (await ethers.getContractFactory(
-          name,
-          {
-            signer,
-            libraries: librariesObj
-          }
+        name,
+        {
+          signer,
+          libraries: librariesObj
+        }
       )) as T;
     } else {
       _factory = (await ethers.getContractFactory(
-          name,
-          signer
+        name,
+        signer
       )) as T;
     }
     const instance = await _factory.deploy(...args);
@@ -88,5 +90,6 @@ export class DeployUtils {
 
     return _factory.attach(receipt.contractAddress);
   }
+
 //endregion Contract connection
 }

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.4;
+pragma solidity 0.8.17;
 
 /// @notice Restored from 0xa89ebe8d7471d7d36acbfe4b0d086834390399b7 (optimism)
 /// @dev See https://developers.dforce.network/lend/lend-and-synth/distribution
