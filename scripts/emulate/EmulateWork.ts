@@ -88,8 +88,9 @@ export class EmulateWork {
             await this.getAmountOptional(command.amount, await this.getAsset(command.asset2))
           );
           break;
+        default:
+          throw Error(`Undefined command ${command.command}`);
       }
-      throw Error(`Undefined command ${command.command}`);
     } catch (e: any) {
       console.log(e);
       const re = /VM Exception while processing transaction: reverted with reason string\s*(.*)/i;
