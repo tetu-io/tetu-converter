@@ -15,6 +15,8 @@ import {Misc} from "../../scripts/utils/Misc";
 import {controlGasLimitsEx} from "../../scripts/utils/hardhatUtils";
 import {GAS_FIND_SWAP_STRATEGY} from "../baseUT/GasLimit";
 import {DeployerUtils} from "../../scripts/utils/DeployerUtils";
+import {BalanceUtils} from "../baseUT/utils/BalanceUtils";
+import {MaticAddresses} from "../../scripts/addresses/MaticAddresses";
 
 const parseUnits = ethers.utils.parseUnits;
 
@@ -110,8 +112,8 @@ describe("SwapManager", () => {
       expect(await swapManager.PRICE_IMPACT_NUMERATOR()).eq(BigNumber.from('100000'))
     });
 
-    it("PRICE_IMPACT_TOLERANCE", async () => {
-      expect(await swapManager.PRICE_IMPACT_TOLERANCE()).eq(BigNumber.from('2000'))
+    it("PRICE_IMPACT_TOLERANCE_DEFAULT", async () => {
+      expect(await swapManager.PRICE_IMPACT_TOLERANCE_DEFAULT()).eq(BigNumber.from('2000'))
     });
 
     it("APR_NUMERATOR", async () => {
@@ -518,6 +520,117 @@ describe("SwapManager", () => {
         receiver,
         parseUnits("1"),
       );
+    });
+  });
+
+  describe("setPriceImpactTolerance", () => {
+    describe("Good paths", () => {
+      it("should return expected values", async () => {
+        const customValueUSDC = BigNumber.from(10_000);
+        const customValueDAI = BigNumber.from(5_000);
+        await swapManager.setPriceImpactTolerance(usdt.address, 0);
+        await swapManager.setPriceImpactTolerance(usdc.address, customValueUSDC);
+        await swapManager.setPriceImpactTolerance(dai.address, customValueDAI);
+
+        const ret = [
+          await swapManager.priceImpactTolerances(usdt.address),
+          await swapManager.priceImpactTolerances(usdc.address),
+          await swapManager.priceImpactTolerances(dai.address)
+       ].map(x => BalanceUtils.toString(x)).join("\n");
+        const expected = [
+          0,
+          customValueUSDC,
+          customValueDAI
+        ].map(x => BalanceUtils.toString(x)).join("\n");
+        expect(ret).eq(expected);
+      });
+
+      describe("clear custom price impact tolerance", () => {
+        it("should return default value", async () => {
+          const defaultValue = await swapManager.PRICE_IMPACT_TOLERANCE_DEFAULT();
+          const customValue = BigNumber.from(10_000);
+
+          await swapManager.setPriceImpactTolerance(usdc.address, customValue);
+          const before = await swapManager.getPriceImpactTolerance(usdc.address);
+          await swapManager.setPriceImpactTolerance(usdc.address, 0);
+          const after = await swapManager.getPriceImpactTolerance(usdc.address);
+
+          const ret = [before.toString(), after.toString()].join();
+          const expected = [customValue.toString(), defaultValue.toString()].join();
+          expect(ret).eq(expected);
+        });
+      });
+    });
+    describe("Bad paths", () => {
+      it("should revert if not gov", async () => {
+        const notGov = ethers.Wallet.createRandom().address;
+        const swapManagerAsNotGov = SwapManager__factory.connect(
+          swapManager.address,
+          await DeployerUtils.startImpersonate(notGov)
+        );
+
+        await expect(
+          swapManagerAsNotGov.setPriceImpactTolerance(usdc.address, 10_000)
+        ).revertedWith("TC-9 governance only"); // GOVERNANCE_ONLY
+      });
+
+      it("should revert if price impact tolerance value is too high", async () => {
+        await expect(
+          swapManager.setPriceImpactTolerance(
+            usdc.address,
+            1_000_000 // (!) too high
+          )
+        ).revertedWith("TC-29 incorrect value"); // INCORRECT_VALUE
+      });
+    });
+  });
+
+  describe("getPriceImpactTolerance", () => {
+    it("should return custom value", async() => {
+      await swapManager.setPriceImpactTolerance(usdc.address, 10_000);
+      const ret = await swapManager.getPriceImpactTolerance(usdc.address);
+      expect(ret.eq(10_000)).eq(true);
+    });
+    it("should return default value", async() => {
+      const defaultValue = await swapManager.PRICE_IMPACT_TOLERANCE_DEFAULT();
+      const ret = await swapManager.getPriceImpactTolerance(usdc.address);
+      expect(ret.eq(defaultValue)).eq(true);
+    });
+  });
+
+  describe("checkConversionUsingPriceOracle", () => {
+    describe("Good paths", () => {
+      it("should return expected value", async () => {
+        const amountUsdc = parseUnits("100", 6);
+        const expectedAmountWeth = amountUsdc
+          .mul($usdc)
+          .div($weth)
+          .mul(parseUnits("1", 18))
+          .div(parseUnits("1", 6));
+        const amountWeth = await swapManager.checkConversionUsingPriceOracle(
+          usdc.address, // decimals 6
+          amountUsdc,
+          weth.address, // decimals 18
+          expectedAmountWeth
+        );
+        expect(amountWeth.eq(expectedAmountWeth)).eq(true);
+      });
+    });
+    describe("Bad paths", () => {
+      it("should revert if target asset has zero price", async () => {
+        const amountUsdc = parseUnits("100", 6);
+        const expectedAmountEuro = parseUnits("100", 2);
+        await expect(
+          swapManager.checkConversionUsingPriceOracle(usdc.address, amountUsdc, MaticAddresses.EURS, expectedAmountEuro)
+        ).revertedWith("TC-4 zero price"); // ZERO_PRICE
+      });
+      it("should revert if source asset has zero price", async () => {
+        const amountUsdc = parseUnits("100", 6);
+        const expectedAmountEuro = parseUnits("100", 2);
+        await expect(
+          swapManager.checkConversionUsingPriceOracle(MaticAddresses.EURS, amountUsdc, usdc.address, expectedAmountEuro)
+        ).revertedWith("TC-4 zero price"); // ZERO_PRICE
+      });
     });
   });
 //endregion Unit tests

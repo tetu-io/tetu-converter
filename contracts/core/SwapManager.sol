@@ -15,6 +15,7 @@ import "../interfaces/ISimulateProvider.sol";
 import "../interfaces/ISwapSimulator.sol";
 import "../interfaces/IRequireAmountBySwapManagerCallback.sol";
 import "./TetuConverter.sol";
+import "hardhat/console.sol";
 
 /// @title Contract to find the best swap and make the swap
 /// @notice Combines Manager and Converter
@@ -29,9 +30,13 @@ contract SwapManager is ISwapManager, ISwapConverter, ISimulateProvider, ISwapSi
   ///////////////////////////////////////////////////////
 
   uint public constant PRICE_IMPACT_NUMERATOR = 100_000;
-  uint public constant PRICE_IMPACT_TOLERANCE = PRICE_IMPACT_NUMERATOR * 2 / 100; // 2%
+  uint public constant PRICE_IMPACT_TOLERANCE_DEFAULT = PRICE_IMPACT_NUMERATOR * 2 / 100; // 2%
 
   int public constant APR_NUMERATOR = 10**18;
+
+  /// @notice Optional price impact tolerance for assets. If not set, PRICE_IMPACT_TOLERANCE_DEFAULT is used.
+  ///         asset => price impact tolerance (decimals are set by PRICE_IMPACT_NUMERATOR)
+  mapping (address => uint) public priceImpactTolerances;
 
   ///////////////////////////////////////////////////////
   ///               Events
@@ -53,6 +58,16 @@ contract SwapManager is ISwapManager, ISwapConverter, ISimulateProvider, ISwapSi
       AppErrors.ZERO_ADDRESS
     );
     controller = IController(controller_);
+  }
+
+  /// @notice Set custom price impact tolerance for the asset
+  /// @param priceImpactTolerance Set 0 to use default price impact tolerance for the {asset}.
+  ///                             Decimals = PRICE_IMPACT_NUMERATOR
+  function setPriceImpactTolerance(address asset_, uint priceImpactTolerance) external {
+    require(msg.sender == controller.governance(), AppErrors.GOVERNANCE_ONLY);
+    require(priceImpactTolerance <= PRICE_IMPACT_NUMERATOR, AppErrors.INCORRECT_VALUE);
+
+    priceImpactTolerances[asset_] = priceImpactTolerance;
   }
 
   ///////////////////////////////////////////////////////
@@ -109,39 +124,11 @@ contract SwapManager is ISwapManager, ISwapConverter, ISimulateProvider, ISwapSi
       : (address(this), maxTargetAmount);
   }
 
-  /// @notice Calculate APR using known {sourceToken_} and known {targetAmount_}
-  ///         as 2 * loss / sourceAmount
-  ///         loss - conversion loss, we use 2 multiplier to take into account losses for there and back conversions.
-  /// @param sourceAmount_ Source amount before conversion, in terms of {sourceToken_}
-  /// @param targetAmount_ Result of conversion. The amount is in terms of {targetToken_}
-  function getApr18(
-    address sourceToken_,
-    uint sourceAmount_,
-    address targetToken_,
-    uint targetAmount_
-  ) external view override returns (int) {
-    IPriceOracle priceOracle = IPriceOracle(controller.priceOracle());
-    uint priceSource = priceOracle.getAssetPrice(sourceToken_);
-    uint targetPrice = priceOracle.getAssetPrice(targetToken_);
-    require(priceSource != 0 && targetPrice != 0, AppErrors.ZERO_PRICE);
-
-    uint maxTargetAmountInSourceTokens = targetAmount_
-      * 10**IERC20Metadata(sourceToken_).decimals()
-      * targetPrice
-      / priceSource
-      / 10**IERC20Metadata(targetToken_).decimals();
-
-    // calculate result APR
-    // we need to multiple one-way-loss on to to get loss for there-and-back conversion
-    return 2 * (int(sourceAmount_) - int(maxTargetAmountInSourceTokens)) * APR_NUMERATOR / int(sourceAmount_);
-  }
-
   ///////////////////////////////////////////////////////
   ///           ISwapConverter Implementation
   ///////////////////////////////////////////////////////
 
-  function getConversionKind()
-  override external pure returns (AppDataTypes.ConversionKind) {
+  function getConversionKind() override external pure returns (AppDataTypes.ConversionKind) {
     return AppDataTypes.ConversionKind.SWAP_1;
   }
 
@@ -164,7 +151,8 @@ contract SwapManager is ISwapManager, ISwapConverter, ISimulateProvider, ISwapSi
     // So TetuConverter will select borrow, not swap.
     // If the swap was selected anyway, it is wrong case.
     // liquidate() will revert here and it's ok.
-    tetuLiquidator.liquidate(sourceToken_, targetToken_, sourceAmount_, PRICE_IMPACT_TOLERANCE);
+
+    tetuLiquidator.liquidate(sourceToken_, targetToken_, sourceAmount_, _getPriceImpactTolerance(sourceToken_));
     outputAmount = IERC20(targetToken_).balanceOf(address(this)) - targetTokenBalanceBefore;
 
     IERC20(targetToken_).safeTransfer(receiver_, outputAmount);
@@ -197,8 +185,80 @@ contract SwapManager is ISwapManager, ISwapConverter, ISimulateProvider, ISwapSi
 
     ITetuLiquidator tetuLiquidator = ITetuLiquidator(controller.tetuLiquidator());
     IERC20(sourceToken_).safeApprove(address(tetuLiquidator), sourceAmount_);
-    tetuLiquidator.liquidate(sourceToken_, targetToken_, sourceAmount_, PRICE_IMPACT_TOLERANCE);
+    tetuLiquidator.liquidate(sourceToken_, targetToken_, sourceAmount_, _getPriceImpactTolerance(sourceToken_));
     return IERC20(targetToken_).balanceOf(address(this)) - targetTokenBalanceBefore;
+  }
+
+  /// @notice Calculate APR using known {sourceToken_} and known {targetAmount_}
+  ///         as 2 * loss / sourceAmount
+  ///         loss - conversion loss, we use 2 multiplier to take into account losses for there and back conversions.
+  /// @param sourceAmount_ Source amount before conversion, in terms of {sourceToken_}
+  /// @param targetAmount_ Result of conversion. The amount is in terms of {targetToken_}
+  function getApr18(
+    address sourceToken_,
+    uint sourceAmount_,
+    address targetToken_,
+    uint targetAmount_
+  ) external view override returns (int) {
+    uint targetAmountInSourceTokens = _convertUsingPriceOracle(targetToken_, targetAmount_, sourceToken_);
+
+    // calculate result APR
+    // we need to multiple one-way-loss on to to get loss for there-and-back conversion
+    return 2 * (int(sourceAmount_) - int(targetAmountInSourceTokens)) * APR_NUMERATOR / int(sourceAmount_);
+  }
+
+  /// @notice Return custom or default price impact tolerance for the asset
+  function getPriceImpactTolerance(address asset_) external view override returns (uint priceImpactTolerance) {
+    return _getPriceImpactTolerance(asset_);
+  }
+
+  /// @notice Converter amount of {assetIn_} to the corresponded amount of {assetOut_} using price oracle prices.
+  ///         Ensure, that the difference of result amountOut and expected {amountOut_} doesn't exceed
+  ///         price impact tolerance percent.
+  function checkConversionUsingPriceOracle(
+    address assetIn_,
+    uint amountIn_,
+    address assetOut_,
+    uint amountOut_
+  ) external view override returns (uint) {
+    uint amountOut = _convertUsingPriceOracle(assetIn_, amountIn_, assetOut_);
+    require(
+      (amountOut_ > amountOut
+        ? amountOut_ - amountOut
+        : amountOut - amountOut_
+      ) < amountOut * _getPriceImpactTolerance(assetOut_) / PRICE_IMPACT_NUMERATOR,
+      AppErrors.TOO_HIGH_PRICE_IMPACT
+    );
+    return amountOut;
+  }
+
+  //////////////////////////////////////////////////////////////////////////////
+  ///           View functions
+  //////////////////////////////////////////////////////////////////////////////
+  /// @notice Return custom or default price impact tolerance for the asset
+  function _getPriceImpactTolerance(address asset_) internal view returns (uint priceImpactTolerance) {
+    priceImpactTolerance = priceImpactTolerances[asset_];
+    if (priceImpactTolerance == 0) {
+      priceImpactTolerance = PRICE_IMPACT_TOLERANCE_DEFAULT;
+    }
+  }
+
+  /// @notice Converter amount of {assetIn_} to the corresponded amount of {assetOut_} using price oracle prices
+  function _convertUsingPriceOracle(
+    address assetIn_,
+    uint amountIn_,
+    address assetOut_
+  ) internal view returns (uint) {
+    IPriceOracle priceOracle = IPriceOracle(controller.priceOracle());
+    uint priceOut = priceOracle.getAssetPrice(assetOut_);
+    uint priceIn = priceOracle.getAssetPrice(assetIn_);
+    require(priceOut != 0 && priceIn != 0, AppErrors.ZERO_PRICE);
+
+    return amountIn_
+      * 10**IERC20Metadata(assetOut_).decimals()
+      * priceIn
+      / priceOut
+      / 10**IERC20Metadata(assetIn_).decimals();
   }
 
   //////////////////////////////////////////////////////////////////////////////

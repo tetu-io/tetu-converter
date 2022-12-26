@@ -32,4 +32,18 @@ interface ISwapManager {
     address targetToken_,
     uint targetAmount_
   ) external view returns (int apr18);
+
+  /// @notice Converter amount of {assetIn_} to the corresponded amount of {assetOut_} using price oracle prices.
+  ///         Ensure, that the difference of result amountOut and expected {amountOut_} doesn't exceed
+  ///         price impact tolerance percent.
+  /// @return Result amountOut calculated using amountIn and prices from the oracle.
+  function checkConversionUsingPriceOracle(
+    address assetIn_,
+    uint amountIn_,
+    address assetOut_,
+    uint amountOut_
+  ) external view returns (uint);
+
+  /// @notice Return custom or default price impact tolerance for the asset
+  function getPriceImpactTolerance(address asset_) external view returns (uint priceImpactTolerance);
 }
