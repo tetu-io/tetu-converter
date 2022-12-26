@@ -184,10 +184,15 @@ describe("AaveTwoPlatformAdapterTest", () => {
 
   describe("getConversionPlan", () => {
     let controller: Controller;
+    let snapshotLocal: string;
     before(async function () {
+      snapshotLocal = await TimeUtils.snapshot();
       controller = await TetuConverterApp.createController(deployer,
         {tetuLiquidatorAddress: MaticAddresses.TETU_LIQUIDATOR}
       );
+    });
+    after(async function () {
+      await TimeUtils.rollback(snapshotLocal);
     });
     interface IGetConversionPlanBadPaths {
       zeroCollateralAsset?: boolean;
@@ -565,7 +570,6 @@ describe("AaveTwoPlatformAdapterTest", () => {
         });
       });
     });
-
   });
 
   describe("getBorrowRateAfterBorrow", () => {
@@ -652,10 +656,15 @@ describe("AaveTwoPlatformAdapterTest", () => {
 
   describe("initializePoolAdapter", () => {
     let controller: Controller;
+    let snapshotLocal: string;
     before(async function () {
+      snapshotLocal = await TimeUtils.snapshot();
       controller = await TetuConverterApp.createController(deployer,
         {tetuLiquidatorAddress: MaticAddresses.TETU_LIQUIDATOR}
       );
+    });
+    after(async function () {
+      await TimeUtils.rollback(snapshotLocal);
     });
     interface IInitializePoolAdapterBadPaths {
       useWrongConverter?: boolean;
