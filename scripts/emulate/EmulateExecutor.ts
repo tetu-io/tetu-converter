@@ -1,6 +1,6 @@
 import {EmulateWork, IEmulationCommand} from "./EmulateWork";
-import {readFileSync} from "fs";
-import {Borrower, Controller, IERC20Metadata} from "../../typechain";
+import {readFileSync, writeFileSync} from "fs";
+import {formatUnits} from "ethers/lib/utils";
 
 /**
  * Load list of commands from the CSV file
@@ -13,12 +13,28 @@ export class EmulateExecutor {
     pathCsvIn: string,
     pathCsvOut: string
   ) {
-    const results: string[] = [];
+    // generate headers
+    const headers: string[] = ["error"];
+    for (let i = 0; i < emulator.users.length; ++i) {
+      for (const asset of emulator.assets) {
+        headers.push(`${i}-${await asset.symbol()}`); // user_id0 - assetName
+      }
+    }
+    writeFileSync(pathCsvOut, headers.join(";") + "\n", {encoding: 'utf8', flag: "a" });
 
     const commands = [...this.parseCsv(pathCsvIn)];
     for (const command of commands) {
       try {
         const commandResult = await emulator.executeCommand(command);
+        const row: string[] = [""]; // empty error
+        for (let i = 0; i < emulator.users.length; ++i) {
+          for (let j = 0; j < emulator.assets.length; ++j) {
+            row.push(commandResult.userResults[i].assetBalances[j]);
+          }
+        }
+        const srow = row.join(";");
+        writeFileSync(pathCsvOut, srow + "\n", {encoding: 'utf8', flag: "a" });
+        console.log(srow);
         // tslint:disable-next-line:no-any
       } catch (e: any) {
         console.log(e);
@@ -28,7 +44,7 @@ export class EmulateExecutor {
           const found = e.message.match(re);
           error = found[1];
         }
-        results.push(error);
+        writeFileSync(pathCsvOut, error + "\n", {encoding: 'utf8', flag: "a" });
       }
     }
   }

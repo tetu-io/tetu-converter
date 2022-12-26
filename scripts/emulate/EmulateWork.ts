@@ -136,15 +136,16 @@ export class EmulateWork {
 
   public async getUser(user: string): Promise<Borrower> {
     const userNum1 = Number(user);
-    if (userNum1 <= 0 || userNum1 >= this.users.length) {
+    if (userNum1 <= 0 || userNum1 > this.users.length) {
       throw Error(`Incorrect user id ${user}`);
     }
-    return this.users[userNum1];
+    return this.users[userNum1 - 1];
   }
 
   public async getAsset(assetName: string): Promise<IERC20Metadata> {
     for (const asset of this.assets) {
-      if ((await asset.name()).toUpperCase() === assetName.toUpperCase()) {
+      const name = await asset.symbol();
+      if (name.toUpperCase() === assetName.toUpperCase()) {
         return asset;
       }
     }
