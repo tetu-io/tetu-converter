@@ -108,20 +108,4 @@ contract SwapManagerMock is ISwapManager, ISwapConverter {
     asset_;
     return priceImpactTolerance;
   }
-
-  /// @notice Converter amount of {assetIn_} to the corresponded amount of {assetOut_} using price oracle prices.
-  ///         Ensure, that the difference of result amountOut and expected {amountOut_} doesn't exceed
-  ///         price impact tolerance percent.
-  function checkConversionUsingPriceOracle(
-    address assetIn_,
-    uint amountIn_,
-    address assetOut_,
-    uint amountOut_
-  ) external pure override returns (uint) {
-    assetIn_;
-    amountIn_;
-    assetOut_;
-
-    return amountOut_;
-  }
 }

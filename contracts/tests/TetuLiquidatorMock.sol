@@ -50,8 +50,7 @@ contract TetuLiquidatorMock is ITetuLiquidator {
   ///           ITetuLiquidator
   ///////////////////////////////////////////////////////
 
-  function getPrice(address tokenIn, address tokenOut, uint amount)
-  public override view returns (uint amountOut) {
+  function getPrice(address tokenIn, address tokenOut, uint amount) public override view returns (uint amountOut) {
     uint priceIn = prices[tokenIn];
     if (priceIn == 0) {
       // there is no conversion way, return 0 in same way as the real liquidator

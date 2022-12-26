@@ -157,6 +157,16 @@ contract SwapManager is ISwapManager, ISwapConverter, ISimulateProvider, ISwapSi
 
     IERC20(targetToken_).safeTransfer(receiver_, outputAmount);
     emit OnSwap(sourceToken_, sourceAmount_, targetToken_, receiver_, outputAmount);
+
+    // The result amount cannot be too different from the value calculated directly using price oracle prices
+    uint expectedAmountOut = convertUsingPriceOracle(sourceToken_, sourceAmount_, targetToken_);
+    require(
+      (outputAmount > expectedAmountOut
+        ? outputAmount - expectedAmountOut
+        : expectedAmountOut - outputAmount
+      ) < expectedAmountOut * _getPriceImpactTolerance(targetToken_) / PRICE_IMPACT_NUMERATOR,
+      AppErrors.TOO_HIGH_PRICE_IMPACT
+    );
   }
 
   /// @notice Make real swap to know result amount
@@ -200,7 +210,7 @@ contract SwapManager is ISwapManager, ISwapConverter, ISimulateProvider, ISwapSi
     address targetToken_,
     uint targetAmount_
   ) external view override returns (int) {
-    uint targetAmountInSourceTokens = _convertUsingPriceOracle(targetToken_, targetAmount_, sourceToken_);
+    uint targetAmountInSourceTokens = convertUsingPriceOracle(targetToken_, targetAmount_, sourceToken_);
 
     // calculate result APR
     // we need to multiple one-way-loss on to to get loss for there-and-back conversion
@@ -210,26 +220,6 @@ contract SwapManager is ISwapManager, ISwapConverter, ISimulateProvider, ISwapSi
   /// @notice Return custom or default price impact tolerance for the asset
   function getPriceImpactTolerance(address asset_) external view override returns (uint priceImpactTolerance) {
     return _getPriceImpactTolerance(asset_);
-  }
-
-  /// @notice Converter amount of {assetIn_} to the corresponded amount of {assetOut_} using price oracle prices.
-  ///         Ensure, that the difference of result amountOut and expected {amountOut_} doesn't exceed
-  ///         price impact tolerance percent.
-  function checkConversionUsingPriceOracle(
-    address assetIn_,
-    uint amountIn_,
-    address assetOut_,
-    uint amountOut_
-  ) external view override returns (uint) {
-    uint amountOut = _convertUsingPriceOracle(assetIn_, amountIn_, assetOut_);
-    require(
-      (amountOut_ > amountOut
-        ? amountOut_ - amountOut
-        : amountOut - amountOut_
-      ) < amountOut * _getPriceImpactTolerance(assetOut_) / PRICE_IMPACT_NUMERATOR,
-      AppErrors.TOO_HIGH_PRICE_IMPACT
-    );
-    return amountOut;
   }
 
   //////////////////////////////////////////////////////////////////////////////
@@ -244,11 +234,11 @@ contract SwapManager is ISwapManager, ISwapConverter, ISimulateProvider, ISwapSi
   }
 
   /// @notice Converter amount of {assetIn_} to the corresponded amount of {assetOut_} using price oracle prices
-  function _convertUsingPriceOracle(
+  function convertUsingPriceOracle(
     address assetIn_,
     uint amountIn_,
     address assetOut_
-  ) internal view returns (uint) {
+  ) public view returns (uint) {
     IPriceOracle priceOracle = IPriceOracle(controller.priceOracle());
     uint priceOut = priceOracle.getAssetPrice(assetOut_);
     uint priceIn = priceOracle.getAssetPrice(assetIn_);

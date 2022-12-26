@@ -379,11 +379,7 @@ describe("SwapManager", () => {
   });
 
   describe("swap", () => {
-
-    const swap = async (
-      tokenIn: MockERC20,
-      tokenOut: MockERC20,
-    ) => {
+    async function makeSwapTest(tokenIn: MockERC20, tokenOut: MockERC20) : Promise<boolean> {
       const tokenInDecimals = await tokenIn.decimals();
       const sourceAmount = parseUnits('1', tokenInDecimals);
 
@@ -400,27 +396,46 @@ describe("SwapManager", () => {
 
       await tokenIn.mint(swapManager.address, sourceAmount);
       const balanceOutBefore = await tokenOut.balanceOf(user.address);
-      await swapManager.swap(
-        tokenIn.address, sourceAmount, tokenOut.address, user.address);
-      const balanceOutAfter = await tokenOut.balanceOf(user.address);
+      await swapManager.swap(tokenIn.address, sourceAmount, tokenOut.address, user.address);
 
+      const balanceOutAfter = await tokenOut.balanceOf(user.address);
       const amountOut = balanceOutAfter.sub(balanceOutBefore);
       console.log('amountOut', amountOut);
+
       return amountOut.eq(targetAmount)
-    };
+    }
 
-    it("Should make swap for provided amount out", async () => {
-      const ret: boolean[] = [];
-      const expected: boolean[] = [];
-      for (const tokenIn of tokens) {
-        for (const tokenOut of tokens) {
-          if (tokenIn === tokenOut) continue;
-          ret.push(await swap(tokenIn, tokenOut));
-          expected.push(true);
+    describe("Good paths", () => {
+      it("Should make swap for provided amount out", async () => {
+        const ret: boolean[] = [];
+        const expected: boolean[] = [];
+        for (const tokenIn of tokens) {
+          for (const tokenOut of tokens) {
+            if (tokenIn === tokenOut) continue;
+            ret.push(await makeSwapTest(tokenIn, tokenOut));
+            expected.push(true);
+          }
         }
-      }
 
-      expect(ret.join()).eq(expected.join()); // TODO take slippage into account
+        expect(ret.join()).eq(expected.join());
+      });
+    });
+
+    describe("Bad paths", () => {
+      describe("the price is too different from the value calculated using PriceOracle", () => {
+        it("should revert if the result amount is too low", async () => {
+          await liquidator.changePrices([usdc.address], [$usdc.mul(100)]);
+          await expect(
+            makeSwapTest(usdc, usdt)
+          ).revertedWith("TC-54 price impact"); // TOO_HIGH_PRICE_IMPACT
+        });
+        it("should revert if the result amount is too high", async () => {
+          await liquidator.changePrices([usdc.address], [$usdc.div(100)]);
+          await expect(
+            makeSwapTest(usdc, usdt)
+          ).revertedWith("TC-54 price impact"); // TOO_HIGH_PRICE_IMPACT
+        });
+      });
     });
   });
 
@@ -598,37 +613,34 @@ describe("SwapManager", () => {
     });
   });
 
-  describe("checkConversionUsingPriceOracle", () => {
+  describe("convertUsingPriceOracle", () => {
     describe("Good paths", () => {
       it("should return expected value", async () => {
         const amountUsdc = parseUnits("100", 6);
+        const amountWeth = await swapManager.convertUsingPriceOracle(
+          usdc.address, // decimals 6
+          amountUsdc,
+          weth.address, // decimals 18
+        );
         const expectedAmountWeth = amountUsdc
           .mul($usdc)
           .div($weth)
           .mul(parseUnits("1", 18))
           .div(parseUnits("1", 6));
-        const amountWeth = await swapManager.checkConversionUsingPriceOracle(
-          usdc.address, // decimals 6
-          amountUsdc,
-          weth.address, // decimals 18
-          expectedAmountWeth
-        );
         expect(amountWeth.eq(expectedAmountWeth)).eq(true);
       });
     });
     describe("Bad paths", () => {
       it("should revert if target asset has zero price", async () => {
         const amountUsdc = parseUnits("100", 6);
-        const expectedAmountEuro = parseUnits("100", 2);
         await expect(
-          swapManager.checkConversionUsingPriceOracle(usdc.address, amountUsdc, MaticAddresses.EURS, expectedAmountEuro)
+          swapManager.convertUsingPriceOracle(usdc.address, amountUsdc, MaticAddresses.EURS)
         ).revertedWith("TC-4 zero price"); // ZERO_PRICE
       });
       it("should revert if source asset has zero price", async () => {
         const amountUsdc = parseUnits("100", 6);
-        const expectedAmountEuro = parseUnits("100", 2);
         await expect(
-          swapManager.checkConversionUsingPriceOracle(MaticAddresses.EURS, amountUsdc, usdc.address, expectedAmountEuro)
+          swapManager.convertUsingPriceOracle(MaticAddresses.EURS, amountUsdc, usdc.address)
         ).revertedWith("TC-4 zero price"); // ZERO_PRICE
       });
     });
