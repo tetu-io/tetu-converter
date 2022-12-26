@@ -2130,7 +2130,7 @@ describe("Hundred Finance unit tests, pool adapter", () => {
             d.borrowAsset,
             d.converter
           )
-        ).revertedWithCustomError(d.poolAdapter, "ErrorAlreadyInitialized");
+        ).revertedWith("Initializable: contract is already initialized");
       });
       it("should revert if token address provider returns zero cTokenCollateral", async () => {
         if (!await isPolygonForkInUse()) return;

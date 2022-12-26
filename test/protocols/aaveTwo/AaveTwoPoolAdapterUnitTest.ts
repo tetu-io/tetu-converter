@@ -1035,7 +1035,7 @@ describe("AaveTwoPoolAdapterUnitTest", () => {
             d.borrowAsset,
             d.converter
           )
-        ).revertedWithCustomError(d.poolAdapter, "ErrorAlreadyInitialized");
+        ).revertedWith("Initializable: contract is already initialized");
       });
     });
   });

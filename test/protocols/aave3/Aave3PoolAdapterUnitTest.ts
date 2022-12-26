@@ -1030,20 +1030,18 @@ describe("Aave3PoolAdapterUnitTest", () => {
         ).revertedWith("TC-1 zero address"); // ZERO_ADDRESS
       });
       it("should revert on second initialization", async () => {
-        it("should revert on second initialization", async () => {
-          if (!await isPolygonForkInUse()) return;
-          const d = await makeInitializePoolAdapter(false);
-          await expect(
-            d.poolAdapter.initialize(
-              d.controller.address,
-              MaticAddresses.AAVE_V3_POOL,
-              d.user,
-              d.collateralAsset,
-              d.borrowAsset,
-              d.converter
-            )
-          ).revertedWithCustomError(d.poolAdapter, "ErrorAlreadyInitialized");
-        });
+        if (!await isPolygonForkInUse()) return;
+        const d = await makeInitializePoolAdapter(false);
+        await expect(
+          d.poolAdapter.initialize(
+            d.controller.address,
+            MaticAddresses.AAVE_V3_POOL,
+            d.user,
+            d.collateralAsset,
+            d.borrowAsset,
+            d.converter
+          )
+        ).revertedWith("Initializable: contract is already initialized");
       });
     });
   });

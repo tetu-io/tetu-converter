@@ -286,7 +286,7 @@ describe("AaveTwoPlatformAdapterTest", () => {
         countBlocks,
         badPathsParams
       );
-      console.log("d", d);
+      console.log("Plan", d.plan);
 
       let borrowAmount = AprUtils.getBorrowAmount(
         collateralAmount,
@@ -415,13 +415,14 @@ describe("AaveTwoPlatformAdapterTest", () => {
           expect(r.sret).eq(r.sexpected);
         });
       });
-      describe("CRV:BALANCER", () => {
+      /** CRV and Balancer are frozen */
+      describe.skip("CRV:BALANCER", () => {
         it("should return expected values", async () => {
           if (!await isPolygonForkInUse()) return;
 
           const collateralAsset = MaticAddresses.CRV;
           const borrowAsset = MaticAddresses.BALANCER;
-          const collateralAmount = parseUnits("1000", 18);
+          const collateralAmount = parseUnits("1", 18);
 
           const r = await makeGetConversionPlanTest(collateralAsset, collateralAmount, borrowAsset);
 
