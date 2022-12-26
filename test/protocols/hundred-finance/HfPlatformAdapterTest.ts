@@ -764,15 +764,15 @@ describe("Hundred finance, platform adapter", () => {
           const part10000 = 1;
 
           const r = await makeTest(
-            collateralAsset
-            , collateralCToken
-            , borrowAsset
-            , borrowCToken
-            , collateralHolders
-            , part10000
+            collateralAsset,
+            collateralCToken,
+            borrowAsset,
+            borrowCToken,
+            collateralHolders,
+            part10000
           );
 
-          const ret = areAlmostEqual(r.br, r.brPredicted, 5);
+          const ret = areAlmostEqual(r.br, r.brPredicted, 3);
           expect(ret).eq(true);
         });
       });
@@ -797,15 +797,15 @@ describe("Hundred finance, platform adapter", () => {
           const part10000 = 500;
 
           const r = await makeTest(
-            collateralAsset
-            , collateralCToken
-            , borrowAsset
-            , borrowCToken
-            , collateralHolders
-            , part10000
+            collateralAsset,
+            collateralCToken,
+            borrowAsset,
+            borrowCToken,
+            collateralHolders,
+            part10000
           );
 
-          const ret = areAlmostEqual(r.br, r.brPredicted, 5);
+          const ret = areAlmostEqual(r.br, r.brPredicted, 3);
           expect(ret).eq(true);
         });
       });

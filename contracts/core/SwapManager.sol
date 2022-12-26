@@ -160,6 +160,10 @@ contract SwapManager is ISwapManager, ISwapConverter, ISimulateProvider, ISwapSi
 
     // The result amount cannot be too different from the value calculated directly using price oracle prices
     uint expectedAmountOut = convertUsingPriceOracle(sourceToken_, sourceAmount_, targetToken_);
+    console.log("swap.outputAmount", outputAmount);
+    console.log("swap.expectedAmountOut", expectedAmountOut);
+    console.log("swap._getPriceImpactTolerance", _getPriceImpactTolerance(targetToken_));
+
     require(
       (outputAmount > expectedAmountOut
         ? outputAmount - expectedAmountOut
@@ -240,8 +244,11 @@ contract SwapManager is ISwapManager, ISwapConverter, ISimulateProvider, ISwapSi
     address assetOut_
   ) public view returns (uint) {
     IPriceOracle priceOracle = IPriceOracle(controller.priceOracle());
+    console.log("convertUsingPriceOracle", address(priceOracle));
     uint priceOut = priceOracle.getAssetPrice(assetOut_);
     uint priceIn = priceOracle.getAssetPrice(assetIn_);
+    console.log("convertUsingPriceOracle priceIn", priceIn, assetIn_);
+    console.log("convertUsingPriceOracle priceOut", priceOut, assetOut_);
     require(priceOut != 0 && priceIn != 0, AppErrors.ZERO_PRICE);
 
     return amountIn_

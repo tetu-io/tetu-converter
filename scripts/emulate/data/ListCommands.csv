@@ -1,4 +1,4 @@
-command;user;asset1;asset2;amount;holder;pause, blocks
+command;user;asset1;asset2;amount;holder;pause in blocks
 deposit;1;USDC;;20000;0x06959153b974d0d5fdfd87d561db6d8d4fa0bb0b;
 deposit;2;USDC;;20000;0x06959153b974d0d5fdfd87d561db6d8d4fa0bb0b;
 deposit;3;USDC;;20000;0x06959153b974d0d5fdfd87d561db6d8d4fa0bb0b;

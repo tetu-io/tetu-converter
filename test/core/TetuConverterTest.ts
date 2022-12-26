@@ -47,7 +47,7 @@ import {controlGasLimitsEx} from "../../scripts/utils/hardhatUtils";
 import {
   GAS_FIND_CONVERSION_STRATEGY_ONLY_BORROW_AVAILABLE, GAS_FIND_SWAP_STRATEGY,
 } from "../baseUT/GasLimit";
-import {TetuConverterApp} from "../baseUT/helpers/TetuConverterApp";
+import {ICreateControllerParams, TetuConverterApp} from "../baseUT/helpers/TetuConverterApp";
 
 describe("TetuConverterTest", () => {
 //region Constants
@@ -3327,8 +3327,29 @@ describe("TetuConverterTest", () => {
       });
       describe("swap is available, swap un-paid amount", () => {
         it("should emit expected events", async () => {
-          const core = await CoreContracts.build(await TetuConverterApp.createController(deployer));
+          const cp: ICreateControllerParams = {
+            priceOracleFabric: async c => (await MocksHelper.getPriceOracleMock(deployer, [],[])).address
+          };
+          const core = await CoreContracts.build(await TetuConverterApp.createController(deployer, cp));
           const init = await prepareTetuAppWithMultipleLendingPlatforms(core, 1);
+
+          const priceOracle = PriceOracleMock__factory.connect(
+            await core.controller.priceOracle(),
+            deployer
+          );
+          await priceOracle.changePrices(
+            [init.sourceToken.address, init.targetToken.address],
+            [Misc.WEI, Misc.WEI.mul(2)]
+          );
+          const tetuLiquidator = await TetuLiquidatorMock__factory.connect(
+            await core.controller.tetuLiquidator(),
+            deployer
+          );
+          await tetuLiquidator.changePrices(
+            [init.sourceToken.address, init.targetToken.address],
+            [Misc.WEI, Misc.WEI.mul(2)]
+          );
+          await tetuLiquidator.setPriceImpact(5000); // the app should prefer borrowing, not swapping
 
           await expect(
             init.userContract.borrowExactAmount(
@@ -3355,11 +3376,7 @@ describe("TetuConverterTest", () => {
           const amountToRepay = parseUnits("517", await init.targetToken.decimals());
           await init.targetToken.mint(tcAsUc.address, amountToRepay);
 
-          // enable swap
-          await TetuLiquidatorMock__factory.connect(await core.controller.tetuLiquidator(), deployer).changePrices(
-            [init.sourceToken.address, init.targetToken.address],
-            [parseUnits("1"), parseUnits("2")]
-          );
+          await tetuLiquidator.setPriceImpact(0); // allow to make swapping
 
           await expect(
             tcAsUc.repay(

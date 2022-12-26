@@ -8,29 +8,26 @@ import {MaticAddresses} from "../addresses/MaticAddresses";
 import {formatUnits, parseUnits} from "ethers/lib/utils";
 import {BigNumber} from "ethers";
 import {BalanceUtils} from "../../test/baseUT/utils/BalanceUtils";
+import {TimeUtils} from "../utils/TimeUtils";
 
 
-interface ICommand {
+export interface IEmulationCommand {
   command: string;
   user: string;
   asset1: string;
   asset2: string;
   amount: string;
   holder: string;
-  pause: string;
-  blocks: string;
+  pauseInBlocks: string;
 }
 
-interface IUserResult {
-  usdcBalance: string;
-  usdtBalance: string;
-  daiBalance: string;
-  wethBalance: string;
+export interface IUserResult {
+  /** Parsed amounts (without decimals) of the assets (in same order as EmulateWork.assets) */
+  assetBalances: string[]
 }
 
-interface ICommandResult {
-  userResults?: IUserResult[];
-  error?: string;
+export interface IEmulationCommandResult {
+  userResults: IUserResult[];
 }
 
 /**
@@ -40,88 +37,71 @@ interface ICommandResult {
  */
 export class EmulateWork {
   controller: Controller;
-  users: Borrower[];
-  usdc: IERC20Metadata;
-  usdt: IERC20Metadata;
-  dai: IERC20Metadata;
-  weth: IERC20Metadata;
+  public users: Borrower[];
+  public assets: IERC20Metadata[];
 
   constructor(
     controller: Controller,
     users: Borrower[],
+    assets: IERC20Metadata[]
   ) {
     this.controller = controller;
     this.users = users;
-
-    this.usdc = IERC20Metadata__factory.connect(MaticAddresses.USDC, this.controller.signer);
-    this.usdt = IERC20Metadata__factory.connect(MaticAddresses.USDT, this.controller.signer);
-    this.dai = IERC20Metadata__factory.connect(MaticAddresses.DAI, this.controller.signer);
-    this.weth = IERC20Metadata__factory.connect(MaticAddresses.WETH, this.controller.signer);
+    this.assets = assets;
   }
 
-  public async executeCommand(command: ICommand) : Promise<ICommandResult> {
-    try {
-      const user = await this.getUser(command.user);
-      const asset1 = await this.getAsset(command.asset1);
-      switch (command.command) {
-        case "deposit":
-          await this.executeDeposit(
-            user,
-            asset1,
-            await this.getAmount(command.amount, asset1),
-            command.holder
-          );
-          break;
-        case "borrow":
-          await this.executeBorrow(
-            user,
-            asset1,
-            await this.getAsset(command.asset2),
-            await this.getAmount(command.amount, await this.getAsset(command.asset2))
-          );
-          break;
-        case "repay":
-          await this.executeRepay(
-            user,
-            asset1,
-            await this.getAsset(command.asset2),
-            await this.getAmountOptional(command.amount, await this.getAsset(command.asset2))
-          );
-          break;
-      }
-      throw Error(`Undefined command ${command.command}`);
-    } catch (e: any) {
-      console.log(e);
-      const re = /VM Exception while processing transaction: reverted with reason string\s*(.*)/i;
-      if (e.message) {
-        const found = e.message.match(re);
-        console.log("found", found)
-        if (found && found[1]) {
-          return {
-            error: found[1]
-          }
-        }
-      }
-      return {
-        error: "Unknown error"
-      }
+  public async executeCommand(command: IEmulationCommand) : Promise<IEmulationCommandResult> {
+    const user = await this.getUser(command.user);
+    const asset1 = await this.getAsset(command.asset1);
+    switch (command.command) {
+      case "deposit":
+        await this.executeDeposit(
+          user,
+          asset1,
+          await this.getAmount(command.amount, asset1),
+          command.holder
+        );
+        break;
+      case "borrow":
+        await this.executeBorrow(
+          user,
+          asset1,
+          await this.getAsset(command.asset2),
+          await this.getAmount(command.amount, await this.getAsset(command.asset2))
+        );
+        break;
+      case "repay":
+        await this.executeRepay(
+          user,
+          asset1,
+          await this.getAsset(command.asset2),
+          await this.getAmountOptional(command.amount, await this.getAsset(command.asset2))
+        );
+        break;
+      default:
+        throw Error(`Undefined command ${command.command}`);
+    }
+    if (command.pauseInBlocks) {
+      const blocks = Number(command.pauseInBlocks);
+      await TimeUtils.advanceNBlocks(blocks);
     }
 
-    return await this.getResultBalances()
+    return this.getResultBalances();
   }
 
-  public async getResultBalances() : Promise<ICommandResult> {
+  public async getResultBalances() : Promise<IEmulationCommandResult> {
     return {
       userResults: await Promise.all(
         this.users.map(async user => {
-          const userResult: IUserResult = {
-            daiBalance: formatUnits(await this.dai.balanceOf(user.address), await this.dai.decimals()),
-            usdcBalance: formatUnits(await this.usdc.balanceOf(user.address), await this.usdc.decimals()),
-            usdtBalance: formatUnits(await this.usdt.balanceOf(user.address), await this.usdt.decimals()),
-            wethBalance: formatUnits(await this.weth.balanceOf(user.address), await this.weth.decimals()),
+            const userResult: IUserResult = {
+              assetBalances: await Promise.all(
+                this.assets.map(async asset => {
+                    return formatUnits(await asset.balanceOf(user.address), await asset.decimals());
+                })
+              )}
+            return userResult;
           }
-          return userResult;
-        })
+        )
       )
     }
   }
@@ -162,19 +142,12 @@ export class EmulateWork {
     return this.users[userNum1];
   }
 
-  public static async getAssetAddress(assetName: string): Promise<string> {
-    switch (assetName.toUpperCase()) {
-      case "USDC": return MaticAddresses.USDC;
-      case "USDT": return MaticAddresses.USDT;
-      case "DAI": return MaticAddresses.DAI;
-      case "WETH": return MaticAddresses.WETH;
-    }
-
-    throw Error(`Unsupported asset ${assetName}`)
-  }
-
   public async getAsset(assetName: string): Promise<IERC20Metadata> {
-    const assetAddress = await EmulateWork.getAssetAddress(assetName);
-    return IERC20Metadata__factory.connect(assetAddress, this.controller.signer);
+    for (const asset of this.assets) {
+      if ((await asset.name()).toUpperCase() === assetName.toUpperCase()) {
+        return asset;
+      }
+    }
+    throw Error(`Unsupported asset ${assetName}`)
   }
 }

@@ -515,7 +515,13 @@ describe("SwapManager", () => {
           debtMonitorFabric: async () => ethers.Wallet.createRandom().address,
           keeperFabric: async () => ethers.Wallet.createRandom().address,
           swapManagerFabric: async c => (await CoreContractsHelper.createSwapManager(deployer, c.address)).address,
-          tetuLiquidatorAddress: tetuLiquidator
+          tetuLiquidatorAddress: tetuLiquidator,
+          priceOracleFabric: async c => (await MocksHelper.getPriceOracleMock(
+              deployer,
+              [sourceAsset.address, targetAsset.address],
+              [Misc.WEI, Misc.WEI]
+            )
+          ).address
         }
       );
 

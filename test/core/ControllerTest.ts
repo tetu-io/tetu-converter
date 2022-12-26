@@ -176,7 +176,7 @@ describe("Controller", () => {
 
         expect(ret).to.be.equal(expected);
       });
-      it("should not exceed gas limits", async () => {
+      it("should not exceed gas limits  @skip-on-coverage", async () => {
         const a = getRandomMembersValues();
 
         const {gasUsed} = await createTestController(a);
@@ -265,6 +265,26 @@ describe("Controller", () => {
         await expect(
           createTestController(a)
         ).revertedWith("TC-29 incorrect value");
+      });
+      it("should revert if already initialized", async () => {
+        const a = getRandomMembersValues();
+        const {controller} = await createTestController(a);
+        await expect(
+          controller.initialize(
+            a.governance,
+            a.blocksPerDay,
+            a.minHealthFactor2,
+            a.targetHealthFactor2,
+            a.maxHealthFactor2,
+            a.tetuConverter,
+            a.borrowManager,
+            a.debtMonitor,
+            a.keeper,
+            a.tetuLiquidator,
+            a.swapManager,
+            a.priceOracle
+          )
+        ).revertedWith("Initializable: contract is already initialized");
       });
     });
   });
