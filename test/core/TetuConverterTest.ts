@@ -278,9 +278,9 @@ describe("TetuConverterTest", () => {
         );
 
     const gas: BigNumber = exactBorrowAmount === undefined
-      ? (await uc.estimateGas.borrowMaxAmount(sourceToken, collateralAmount, targetToken, borrowAmountReceiver)).borrowedAmountOut
+      ? await uc.estimateGas.borrowMaxAmount(sourceToken, collateralAmount, targetToken, borrowAmountReceiver)
       : badPathParamManualConverter === undefined
-        ? (await uc.estimateGas.borrowExactAmount(sourceToken, collateralAmount, targetToken, borrowAmountReceiver, amountToBorrow)).borrowedAmountOut
+        ? await uc.estimateGas.borrowExactAmount(sourceToken, collateralAmount, targetToken, borrowAmountReceiver, amountToBorrow)
         : await uc.estimateGas.borrowExactAmountBadPaths(sourceToken, collateralAmount, targetToken, borrowAmountReceiver, amountToBorrow,
           badPathParamManualConverter,
           badPathTransferAmountMultiplier18 || Misc.WEI
@@ -1969,6 +1969,7 @@ describe("TetuConverterTest", () => {
 
       const borrowsAfterRepay = await core.dm.getPositions(init.userContract.address, init.sourceToken.address, init.targetToken.address);
       const {totalDebtAmountOut, totalCollateralAmountOut} = await tcAsUc.getDebtAmountStored(
+        await tcAsUc.signer.getAddress(),
         init.sourceToken.address,
         init.targetToken.address
       );
@@ -2489,7 +2490,11 @@ describe("TetuConverterTest", () => {
       const {
         totalDebtAmountOut,
         totalCollateralAmountOut
-      } = await tcAsUc.getDebtAmountStored(init.sourceToken.address, init.targetToken.address);
+      } = await tcAsUc.getDebtAmountStored(
+        await tcAsUc.signer.getAddress(),
+        init.sourceToken.address,
+        init.targetToken.address
+      );
 
       return {
         openedPositions,
@@ -2787,7 +2792,11 @@ describe("TetuConverterTest", () => {
         const {
           totalDebtAmountOut,
           totalCollateralAmountOut
-        } =(await tcAsUc.getDebtAmountStored(pr.sourceToken.address, pr.targetToken.address));
+        } =(await tcAsUc.getDebtAmountStored(
+          await tcAsUc.signer.getAddress(),
+          pr.sourceToken.address,
+          pr.targetToken.address
+        ));
 
         const sret = [
           totalDebtAmountOut,
@@ -2863,6 +2872,7 @@ describe("TetuConverterTest", () => {
       );
 
       const {borrowAssetAmount, unobtainableCollateralAssetAmount} = await tcAsUser.estimateRepay(
+        await tcAsUser.signer.getAddress(),
         init.sourceToken.address,
         getBigNumberFrom(collateralAmountToRedeem, collateralTokenDecimals),
         init.targetToken.address

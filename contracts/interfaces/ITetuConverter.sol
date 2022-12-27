@@ -133,7 +133,9 @@ interface ITetuConverter {
   ///      I.e. AAVE's pool adapter returns (amount of debt + tiny addon ~ 1 cent)
   ///      The addon is required to workaround dust-tokens problem.
   ///      After repaying the remaining amount is transferred back on the balance of the caller strategy.
+  /// @param user_ user whose debts will be returned
   function getDebtAmountStored(
+    address user_,
     address collateralAsset_,
     address borrowAsset_
   ) external view returns (
@@ -142,6 +144,7 @@ interface ITetuConverter {
   );
 
   /// @notice User needs to redeem some collateral amount. Calculate an amount of borrow token that should be repaid
+  /// @param user_ user whose debts will be returned
   /// @param collateralAmountRequired_ Amount of collateral required by the user
   /// @return borrowAssetAmount Borrowed amount that should be repaid to receive back following amount of collateral:
   ///                           amountToReceive = collateralAmountRequired_ - unobtainableCollateralAssetAmount
@@ -149,6 +152,7 @@ interface ITetuConverter {
   ///                                           even if all borrowed amount will be returned.
   ///                                           If this amount is not 0, you ask to get too much collateral.
   function estimateRepay(
+    address user_,
     address collateralAsset_,
     uint collateralAmountRequired_,
     address borrowAsset_

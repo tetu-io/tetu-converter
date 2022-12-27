@@ -22,7 +22,6 @@ import "../interfaces/IKeeperCallback.sol";
 import "../interfaces/ITetuConverterCallback.sol";
 import "../interfaces/IRequireAmountBySwapManagerCallback.sol";
 import "../interfaces/IPriceOracle.sol";
-import "hardhat/console.sol";
 
 /// @notice Main application contract
 contract TetuConverter is ITetuConverter, IKeeperCallback, IRequireAmountBySwapManagerCallback, ReentrancyGuard {
@@ -136,8 +135,6 @@ contract TetuConverter is ITetuConverter, IKeeperCallback, IRequireAmountBySwapM
     int swapApr18;
     if (swapConverter != address(0)) {
       swapApr18 = _swapManager().getApr18(sourceToken_, sourceAmount_, targetToken_, swapMaxTargetAmount);
-      console.log("swapApr18");
-      console.logInt(swapApr18);
     }
 
     AppDataTypes.InputConversionParams memory params = AppDataTypes.InputConversionParams({
@@ -150,8 +147,6 @@ contract TetuConverter is ITetuConverter, IKeeperCallback, IRequireAmountBySwapM
     (address borrowConverter, uint borrowMaxTargetAmount, int borrowingApr18) = IBorrowManager(
       controller.borrowManager()
     ).findConverter(params);
-    console.log("borrowingApr18.borrowConverter", borrowConverter, borrowMaxTargetAmount);
-    console.logInt(borrowingApr18);
 
     bool useBorrow =
       swapConverter == address(0)
@@ -159,8 +154,6 @@ contract TetuConverter is ITetuConverter, IKeeperCallback, IRequireAmountBySwapM
       borrowConverter != address(0)
       && swapApr18 > borrowingApr18
     );
-    console.log("useBorrow", useBorrow);
-
     return useBorrow
       ? (borrowConverter, borrowMaxTargetAmount, borrowingApr18)
       : (swapConverter, swapMaxTargetAmount, swapApr18);
@@ -443,7 +436,11 @@ contract TetuConverter is ITetuConverter, IKeeperCallback, IRequireAmountBySwapM
   ///      Anyway, the function is write, not read-only, because it makes updateStatus()
   /// @param amountToRepay_ Amount of borrowed asset to repay.
   /// @return collateralAmountOut Total collateral amount to be returned after repay in exchange of {amountToRepay_}
-  function quoteRepay(address collateralAsset_, address borrowAsset_, uint amountToRepay_) external override returns (
+  function quoteRepay(
+    address collateralAsset_,
+    address borrowAsset_,
+    uint amountToRepay_
+  ) external override returns (
     uint collateralAmountOut
   ) {
     address[] memory poolAdapters = _debtMonitor().getPositions(
@@ -591,22 +588,17 @@ contract TetuConverter is ITetuConverter, IKeeperCallback, IRequireAmountBySwapM
     uint totalDebtAmountOut,
     uint totalCollateralAmountOut
   ) {
-    console.log("getDebtAmountCurrent");
     address[] memory poolAdapters = _debtMonitor().getPositions(
       msg.sender,
       collateralAsset_,
       borrowAsset_
     );
     uint lenPoolAdapters = poolAdapters.length;
-    console.log("getDebtAmountCurrent.msg.sender", msg.sender);
-    console.log("getDebtAmountCurrent.lenPoolAdapters", lenPoolAdapters);
 
     for (uint i = 0; i < lenPoolAdapters; i = i.uncheckedInc()) {
       IPoolAdapter pa = IPoolAdapter(poolAdapters[i]);
       pa.updateStatus();
       (uint collateralAmount, uint totalDebtForPoolAdapter,,,) = pa.getStatus();
-      console.log("getDebtAmountCurrent.collateralAmount", collateralAmount, i);
-      console.log("getDebtAmountCurrent.totalDebtForPoolAdapter", totalDebtForPoolAdapter, i);
       totalDebtAmountOut += totalDebtForPoolAdapter;
       totalCollateralAmountOut += collateralAmount;
     }
@@ -620,6 +612,7 @@ contract TetuConverter is ITetuConverter, IKeeperCallback, IRequireAmountBySwapM
   ///      The addon is required to workaround dust-tokens problem.
   ///      After repaying the remaining amount is transferred back on the balance of the caller strategy.
   function getDebtAmountStored(
+    address user_,
     address collateralAsset_,
     address borrowAsset_
   ) external view override returns (
@@ -627,7 +620,7 @@ contract TetuConverter is ITetuConverter, IKeeperCallback, IRequireAmountBySwapM
     uint totalCollateralAmountOut
   ) {
     address[] memory poolAdapters = _debtMonitor().getPositions(
-      msg.sender,
+      user_,
       collateralAsset_,
       borrowAsset_
     );
@@ -651,6 +644,7 @@ contract TetuConverter is ITetuConverter, IKeeperCallback, IRequireAmountBySwapM
   ///                                           even if all borrowed amount will be returned.
   ///                                           If this amount is not 0, you ask to get too much collateral.
   function estimateRepay(
+    address user_,
     address collateralAsset_,
     uint collateralAmountToRedeem_,
     address borrowAsset_
@@ -659,7 +653,7 @@ contract TetuConverter is ITetuConverter, IKeeperCallback, IRequireAmountBySwapM
     uint unobtainableCollateralAssetAmount
   ) {
     address[] memory poolAdapters = _debtMonitor().getPositions(
-      msg.sender,
+      user_,
       collateralAsset_,
       borrowAsset_
     );
