@@ -17,6 +17,7 @@ import "../openzeppelin/EnumerableMap.sol";
 import "../integrations/market/ICErc20.sol";
 import "../openzeppelin/IERC20Metadata.sol";
 import "../interfaces/ITetuConverter.sol";
+import "hardhat/console.sol";
 
 /// @notice Contains list of lending pools. Allow to select most efficient pool for the given collateral/borrow pair
 contract BorrowManager is IBorrowManager {
@@ -253,6 +254,7 @@ contract BorrowManager is IBorrowManager {
     uint maxTargetAmount,
     int apr18
   ) {
+    console.log("findConverter", p_.sourceToken, p_.targetToken);
     // get all platform adapters that support required pair of assets
     EnumerableSet.AddressSet storage pas = _pairsList[getAssetPairKey(p_.sourceToken, p_.targetToken)];
 
@@ -284,9 +286,11 @@ contract BorrowManager is IBorrowManager {
     uint maxTargetAmount,
     int apr18
   ) {
+    console.log("_findPool");
     uint lenPools = platformAdapters_.length();
 
     for (uint i = 0; i < lenPools; i = i.uncheckedInc()) {
+      console.log("_findPool.i", i);
       AppDataTypes.ConversionPlan memory plan = IPlatformAdapter(platformAdapters_.at(i)).getConversionPlan(
         p_.sourceToken,
         p_.sourceAmount,
@@ -294,6 +298,7 @@ contract BorrowManager is IBorrowManager {
         healthFactor2_,
         p_.periodInBlocks
       );
+      console.log("_findPool.plan", plan.converter);
 
       if (
         plan.converter != address(0)
@@ -310,6 +315,11 @@ contract BorrowManager is IBorrowManager {
         )
         * int(1e18)
         / int(plan.amountCollateralInBorrowAsset36);
+        console.log("_findPool.planApr18");
+        console.logInt(planApr18);
+        console.log("_findPool.plan.borrowCost36", plan.borrowCost36);
+        console.log("_findPool.plan.supplyIncomeInBorrowAsset36", plan.supplyIncomeInBorrowAsset36);
+        console.log("_findPool.plan.rewardsAmountInBorrowAsset36", plan.rewardsAmountInBorrowAsset36);
 
         if (
           // take the pool with lowest APR ..

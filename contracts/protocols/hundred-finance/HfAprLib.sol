@@ -133,7 +133,7 @@ library HfAprLib {
     // Replace rmul(simpleInterestFactor, borrowedAmount) by ordinal mul and take into account /1e18
     return
       simpleInterestFactor * borrowedAmount
-      * 1e8 // not 36 because we replaced rmul by mul
+      * 1e18 // not 36 because we replaced rmul by mul
       / borrow10PowDecimals;
   }
 

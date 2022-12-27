@@ -65,6 +65,10 @@ contract Borrower is ITetuConverterCallback {
     additionalAmountForQuoteRepay = value;
   }
 
+  function setBorrowPeriodInBlocks(uint borrowPeriodInBlocks_) external {
+    _borrowPeriodInBlocks = borrowPeriodInBlocks_;
+  }
+
   ///////////////////////////////////////////////////////
   ///               Borrow
   ///////////////////////////////////////////////////////
@@ -74,7 +78,7 @@ contract Borrower is ITetuConverterCallback {
     uint sourceAmount_,
     address targetAsset_,
     address receiver_
-  ) external returns (uint borrowedAmountOut) {
+  ) external returns (uint borrowedAmountOut, address converterOut) {
     console.log("borrowMaxAmount start gasleft", gasleft());
     console.log("borrowMaxAmount receiver_", receiver_);
     // ask TC for the best conversion strategy
@@ -110,6 +114,7 @@ contract Borrower is ITetuConverterCallback {
     console.log("Borrowed amount", borrowedAmountOut, "were sent to receiver", receiver_);
 
     totalBorrowedAmount += maxTargetAmount;
+    converterOut = converter;
   }
 
   /// @notice Borrow exact amount
@@ -119,7 +124,7 @@ contract Borrower is ITetuConverterCallback {
     address targetAsset_,
     address receiver_,
     uint amountToBorrow_
-  ) external returns (uint borrowedAmountOut) {
+  ) external returns (uint borrowedAmountOut, address converterOut) {
     uint gasStart = gasleft();
     console.log("borrowExactAmount start gasStart", gasStart);
     console.log("borrowExactAmount msg.sender", msg.sender);
@@ -161,6 +166,7 @@ contract Borrower is ITetuConverterCallback {
     console.log("borrowExactAmount done gasleft/used", gasStart - gasleft());
 
     totalBorrowedAmount += amountToBorrow_;
+    converterOut = converter;
   }
 
   /// @notice Borrow exact amount using giving converter
@@ -224,7 +230,8 @@ contract Borrower is ITetuConverterCallback {
       amountToPay + additionalAmountForQuoteRepay
     );
     lastQuoteRepayGasConsumption -= gasleft();
-    console.log("makeRepayPartial.makeRepayComplete", lastQuoteRepayResultCollateralAmount, lastQuoteRepayGasConsumption);
+    console.log("makeRepayComplete.quoteRepay", lastQuoteRepayResultCollateralAmount, lastQuoteRepayGasConsumption);
+    console.log("makeRepayComplete borrowed asset balance", IERC20(borrowedAsset_).balanceOf(address(this)));
 
     IERC20(borrowedAsset_).safeTransfer(address(_tc()), amountToPay);
 

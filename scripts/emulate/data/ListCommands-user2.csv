@@ -1,0 +1,16 @@
+command;user;asset1;asset2;amount;holder;pause in blocks
+deposit;2;USDC;;20000;0x06959153b974d0d5fdfd87d561db6d8d4fa0bb0b;
+deposit;2;USDT;;20000;0x0d0707963952f2fba59dd06f2b425ace40b492fe;
+deposit;2;DAI;;20000;0x9bdb521a97e95177bf252c253e256a60c3e14447;
+deposit;2;WETH;;20000;0xded8c5159ca3673f543d0f72043e4c655b35b96a;
+borrow;2;USDC;USDT;2000;;1
+borrow;2;USDC;USDT;200;;17
+repay;2;USDC;USDT;500;;45
+borrow;2;USDC;WETH;300;;20
+borrow;2;DAI;WETH;1900;;20
+borrow;2;DAI;WETH;300;;20
+borrow;2;DAI;WETH;2500;;20
+borrow;2;DAI;WETH;400;;20
+repay;2;USDC;USDT;;;45
+repay;2;DAI;WETH;;;45
+repay;2;USDC;WETH;;;45

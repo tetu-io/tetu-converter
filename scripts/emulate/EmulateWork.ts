@@ -1,10 +1,8 @@
 import {
   Borrower,
   Controller,
-  IERC20Metadata,
-  IERC20Metadata__factory
+  IERC20Metadata
 } from "../../typechain";
-import {MaticAddresses} from "../addresses/MaticAddresses";
 import {formatUnits, parseUnits} from "ethers/lib/utils";
 import {BigNumber} from "ethers";
 import {BalanceUtils} from "../../test/baseUT/utils/BalanceUtils";
@@ -28,6 +26,8 @@ export interface IUserResult {
 
 export interface IEmulationCommandResult {
   userResults: IUserResult[];
+  /** For borrow command only: the converter that was used for the borrowing */
+  converter?: string;
 }
 
 /**
@@ -53,6 +53,8 @@ export class EmulateWork {
   public async executeCommand(command: IEmulationCommand) : Promise<IEmulationCommandResult> {
     const user = await this.getUser(command.user);
     const asset1 = await this.getAsset(command.asset1);
+    let converter: string | undefined;
+
     switch (command.command) {
       case "deposit":
         await this.executeDeposit(
@@ -63,7 +65,7 @@ export class EmulateWork {
         );
         break;
       case "borrow":
-        await this.executeBorrow(
+        converter = await this.executeBorrow(
           user,
           asset1,
           await this.getAsset(command.asset2),
@@ -86,12 +88,14 @@ export class EmulateWork {
       await TimeUtils.advanceNBlocks(blocks);
     }
 
-    return this.getResultBalances();
+    return {
+      userResults: await this.getResultBalances(),
+      converter
+    };
   }
 
-  public async getResultBalances() : Promise<IEmulationCommandResult> {
-    return {
-      userResults: await Promise.all(
+  public async getResultBalances() : Promise<IUserResult[]> {
+    return Promise.all(
         this.users.map(async user => {
             const userResult: IUserResult = {
               assetBalances: await Promise.all(
@@ -102,8 +106,7 @@ export class EmulateWork {
             return userResult;
           }
         )
-      )
-    }
+      );
   }
 
   /** Transfer the amount from the holder's balance to the user's balance */
@@ -111,9 +114,16 @@ export class EmulateWork {
     await BalanceUtils.getRequiredAmountFromHolders(amount, asset, [holder], user.address);
   }
 
-  /** Make a borrow */
-  public async executeBorrow(user: Borrower, asset1: IERC20Metadata, asset2: IERC20Metadata, amount: BigNumber) {
+  /** Make a borrow, returns converter address */
+  public async executeBorrow(
+    user: Borrower,
+    asset1: IERC20Metadata,
+    asset2: IERC20Metadata,
+    amount: BigNumber
+  ) : Promise<string> {
+    const dest = await user.callStatic.borrowMaxAmount(asset1.address, amount, asset2.address, user.address);
     await user.borrowMaxAmount(asset1.address, amount, asset2.address, user.address);
+    return dest.converterOut;
   }
 
   /** Make full or complete repay */

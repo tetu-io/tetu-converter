@@ -1,6 +1,6 @@
 import {EmulateWork, IEmulationCommand} from "./EmulateWork";
 import {readFileSync, writeFileSync} from "fs";
-import {formatUnits} from "ethers/lib/utils";
+import {computeAddress, formatUnits} from "ethers/lib/utils";
 
 /**
  * Load list of commands from the CSV file
@@ -14,27 +14,30 @@ export class EmulateExecutor {
     pathCsvOut: string
   ) {
     // generate headers
-    const headers: string[] = ["error"];
+    const headers: string[] = ["error",
+      "command", "user", "asset1", "asset2", "amount", "holder", "pause in blocks",
+      "converter",
+    ];
     for (let i = 0; i < emulator.users.length; ++i) {
       for (const asset of emulator.assets) {
-        headers.push(`${i}-${await asset.symbol()}`); // user_id0 - assetName
+        headers.push(`${i + 1}-${await asset.symbol()}`); // user_id1 - assetName
       }
     }
     writeFileSync(pathCsvOut, headers.join(";") + "\n", {encoding: 'utf8', flag: "a" });
 
     const commands = [...this.parseCsv(pathCsvIn)];
     for (const command of commands) {
+      const row: string[] = []; // empty error
       try {
         const commandResult = await emulator.executeCommand(command);
-        const row: string[] = [""]; // empty error
+        row.push(""); // no error
+        row.push(...this.getCommandAsCsvLine(command));
+        row.push(commandResult.converter || "");
         for (let i = 0; i < emulator.users.length; ++i) {
           for (let j = 0; j < emulator.assets.length; ++j) {
             row.push(commandResult.userResults[i].assetBalances[j]);
           }
         }
-        const srow = row.join(";");
-        writeFileSync(pathCsvOut, srow + "\n", {encoding: 'utf8', flag: "a" });
-        console.log(srow);
         // tslint:disable-next-line:no-any
       } catch (e: any) {
         console.log(e);
@@ -44,9 +47,26 @@ export class EmulateExecutor {
           const found = e.message.match(re);
           error = found[1];
         }
-        writeFileSync(pathCsvOut, error + "\n", {encoding: 'utf8', flag: "a" });
+        row.push(error);
+        row.push(...this.getCommandAsCsvLine(command));
       }
+
+      const srow = row.join(";");
+      writeFileSync(pathCsvOut, srow + "\n", {encoding: 'utf8', flag: "a" });
+      console.log(srow);
     }
+  }
+
+  public static getCommandAsCsvLine(command: IEmulationCommand) : string[] {
+    return [
+      command.command,
+      command.user,
+      command.asset1,
+      command.asset2,
+      command.amount,
+      command.holder,
+      command.pauseInBlocks
+    ];
   }
 
   /** CSV => list of IEmulationCommand */

@@ -269,18 +269,18 @@ describe("TetuConverterTest", () => {
     const targetToken = pp.targetToken.address;
 
     const borrowedAmountOut: BigNumber = exactBorrowAmount === undefined
-      ? await uc.callStatic.borrowMaxAmount(sourceToken, collateralAmount, targetToken, borrowAmountReceiver)
+      ? (await uc.callStatic.borrowMaxAmount(sourceToken, collateralAmount, targetToken, borrowAmountReceiver)).borrowedAmountOut
       : badPathParamManualConverter === undefined
-        ? await uc.callStatic.borrowExactAmount(sourceToken, collateralAmount, targetToken, borrowAmountReceiver, amountToBorrow)
+        ? (await uc.callStatic.borrowExactAmount(sourceToken, collateralAmount, targetToken, borrowAmountReceiver, amountToBorrow)).borrowedAmountOut
         : await uc.callStatic.borrowExactAmountBadPaths(sourceToken, collateralAmount, targetToken, borrowAmountReceiver, amountToBorrow,
           badPathParamManualConverter,
           badPathTransferAmountMultiplier18 || Misc.WEI
         );
 
     const gas: BigNumber = exactBorrowAmount === undefined
-      ? await uc.estimateGas.borrowMaxAmount(sourceToken, collateralAmount, targetToken, borrowAmountReceiver)
+      ? (await uc.estimateGas.borrowMaxAmount(sourceToken, collateralAmount, targetToken, borrowAmountReceiver)).borrowedAmountOut
       : badPathParamManualConverter === undefined
-        ? await uc.estimateGas.borrowExactAmount(sourceToken, collateralAmount, targetToken, borrowAmountReceiver, amountToBorrow)
+        ? (await uc.estimateGas.borrowExactAmount(sourceToken, collateralAmount, targetToken, borrowAmountReceiver, amountToBorrow)).borrowedAmountOut
         : await uc.estimateGas.borrowExactAmountBadPaths(sourceToken, collateralAmount, targetToken, borrowAmountReceiver, amountToBorrow,
           badPathParamManualConverter,
           badPathTransferAmountMultiplier18 || Misc.WEI
