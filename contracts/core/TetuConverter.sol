@@ -229,7 +229,7 @@ contract TetuConverter is ITetuConverter, IKeeperCallback, IRequireAmountBySwapM
   /// @dev Transferring of {collateralAmount_} by TetuConverter-contract must be approved by the caller before the call
   /// @param converter_ A converter received from findBestConversionStrategy.
   /// @param collateralAmount_ Amount of {collateralAsset_}.
-  ///                          This amount must be transferred to TetuConverter before the call.
+  ///                          This amount must be approved to TetuConverter before the call.
   /// @param amountToBorrow_ Amount of {borrowAsset_} to be borrowed and sent to {receiver_}
   /// @param receiver_ A receiver of borrowed amount
   /// @return borrowedAmountOut Exact borrowed amount transferred to {receiver_}
@@ -263,9 +263,11 @@ contract TetuConverter is ITetuConverter, IKeeperCallback, IRequireAmountBySwapM
   ) internal returns (
     uint borrowedAmountOut
   ) {
-    require(IERC20(collateralAsset_).balanceOf(address(this)) >= collateralAmount_, AppErrors.WRONG_AMOUNT_RECEIVED);
     require(receiver_ != address(0) && converter_ != address(0), AppErrors.ZERO_ADDRESS);
     require(collateralAmount_ != 0 && amountToBorrow_ != 0, AppErrors.ZERO_AMOUNT);
+
+    IERC20(collateralAsset_).safeTransferFrom(msg.sender, address(this), collateralAmount_);
+
     IBorrowManager borrowManager = IBorrowManager(controller.borrowManager());
 
     AppDataTypes.ConversionKind conversionKind = IConverter(converter_).getConversionKind();
@@ -434,9 +436,11 @@ contract TetuConverter is ITetuConverter, IKeeperCallback, IRequireAmountBySwapM
   /// @notice Estimate result amount after making full or partial repay
   /// @dev It works in exactly same way as repay() but don't make actual repay
   ///      Anyway, the function is write, not read-only, because it makes updateStatus()
+  /// @param user_ user whose amount-to-repay will be calculated
   /// @param amountToRepay_ Amount of borrowed asset to repay.
   /// @return collateralAmountOut Total collateral amount to be returned after repay in exchange of {amountToRepay_}
   function quoteRepay(
+    address user_,
     address collateralAsset_,
     address borrowAsset_,
     uint amountToRepay_
@@ -444,7 +448,7 @@ contract TetuConverter is ITetuConverter, IKeeperCallback, IRequireAmountBySwapM
     uint collateralAmountOut
   ) {
     address[] memory poolAdapters = _debtMonitor().getPositions(
-      msg.sender,
+      user_,
       collateralAsset_,
       borrowAsset_
     );
@@ -582,6 +586,7 @@ contract TetuConverter is ITetuConverter, IKeeperCallback, IRequireAmountBySwapM
   /// @notice Update status in all opened positions
   ///         After this call getDebtAmount will be able to return exact amount to repay
   function getDebtAmountCurrent(
+    address user_,
     address collateralAsset_,
     address borrowAsset_
   ) external override nonReentrant returns (
@@ -589,7 +594,7 @@ contract TetuConverter is ITetuConverter, IKeeperCallback, IRequireAmountBySwapM
     uint totalCollateralAmountOut
   ) {
     address[] memory poolAdapters = _debtMonitor().getPositions(
-      msg.sender,
+      user_,
       collateralAsset_,
       borrowAsset_
     );

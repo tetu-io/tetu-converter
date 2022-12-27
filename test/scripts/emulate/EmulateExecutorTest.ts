@@ -10,7 +10,7 @@ import {AaveTwoPlatformFabric} from "../../baseUT/fabrics/AaveTwoPlatformFabric"
 import {DForcePlatformFabric} from "../../baseUT/fabrics/DForcePlatformFabric";
 import {HundredFinancePlatformFabric} from "../../baseUT/fabrics/HundredFinancePlatformFabric";
 
-describe("Run real work emulator", () => {
+describe.skip("Run real work emulator", () => {
   const pathIn = "./scripts/emulate/data/ListCommands.csv";
   const pathOut = "./tmp/EmulationResults.csv";
   it("Run all commands", async () => {

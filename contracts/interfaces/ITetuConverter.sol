@@ -66,7 +66,7 @@ interface ITetuConverter {
   /// @dev Transferring of {collateralAmount_} by TetuConverter-contract must be approved by the caller before the call
   /// @param converter_ A converter received from findBestConversionStrategy.
   /// @param collateralAmount_ Amount of {collateralAsset_}.
-  ///                          This amount must be transferred to TetuConverter before the call.
+  ///                          This amount must be approved to TetuConverter before the call.
   /// @param amountToBorrow_ Amount of {borrowAsset_} to be borrowed and sent to {receiver_}
   /// @param receiver_ A receiver of borrowed amount
   /// @return borrowedAmountOut Exact borrowed amount transferred to {receiver_}
@@ -108,9 +108,11 @@ interface ITetuConverter {
   /// @notice Estimate result amount after making full or partial repay
   /// @dev It works in exactly same way as repay() but don't make actual repay
   ///      Anyway, the function is write, not read-only, because it makes updateStatus()
+  /// @param user_ user whose amount-to-repay will be calculated
   /// @param amountToRepay_ Amount of borrowed asset to repay.
   /// @return collateralAmountOut Total collateral amount to be returned after repay in exchange of {amountToRepay_}
   function quoteRepay(
+    address user_,
     address collateralAsset_,
     address borrowAsset_,
     uint amountToRepay_
@@ -120,7 +122,9 @@ interface ITetuConverter {
 
   /// @notice Update status in all opened positions
   ///         and calculate exact total amount of borrowed and collateral assets
+  /// @param user_ user whose debts will be updated and returned
   function getDebtAmountCurrent(
+    address user_,
     address collateralAsset_,
     address borrowAsset_
   ) external returns (

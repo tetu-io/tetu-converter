@@ -2840,6 +2840,75 @@ describe("TetuConverterTest", () => {
     });
   });
 
+  describe("getDebtAmountCurrent", () => {
+    describe("Good paths", () => {
+      async function makeGetDebtAmountTest(collateralAmounts: number[]) : Promise<{sret: string, sexpected: string}> {
+        const core = await CoreContracts.build(await TetuConverterApp.createController(deployer));
+        const pr = await prepareTetuAppWithMultipleLendingPlatforms(core, collateralAmounts.length);
+        const sourceTokenDecimals = await pr.sourceToken.decimals();
+        const borrows: IBorrowStatus[] = await makeBorrow(
+          pr,
+          collateralAmounts,
+          BigNumber.from(100),
+          BigNumber.from(100_000)
+        );
+
+        const tcAsUc = ITetuConverter__factory.connect(
+          pr.core.tc.address,
+          await DeployerUtils.startImpersonate(pr.userContract.address)
+        );
+
+        const {
+          totalDebtAmountOut,
+          totalCollateralAmountOut
+        } = (await tcAsUc.callStatic.getDebtAmountCurrent(
+          await tcAsUc.signer.getAddress(),
+          pr.sourceToken.address,
+          pr.targetToken.address
+        ));
+
+        const sret = [
+          totalDebtAmountOut,
+          totalCollateralAmountOut,
+          ...borrows.map(x => x.status?.collateralAmount || 0)
+        ].map(x => BalanceUtils.toString(x)).join("\n");
+        const sexpected = [
+          borrows.reduce(
+            (prev, cur) => prev = prev.add(cur.status?.amountToPay || 0),
+            BigNumber.from(0)
+          ),
+          collateralAmounts.reduce(
+            (prev, cur) => prev = prev.add(
+              getBigNumberFrom(cur, sourceTokenDecimals)
+            ),
+            BigNumber.from(0)
+          ),
+          ...collateralAmounts.map(a => getBigNumberFrom(a, sourceTokenDecimals))
+        ].map(x => BalanceUtils.toString(x)).join("\n");
+
+        return {sret, sexpected};
+      }
+      describe("No opened positions", () => {
+        it("should return zero", async () => {
+          const ret = await makeGetDebtAmountTest([]);
+          expect(ret.sret).eq(ret.sexpected);
+        });
+      });
+      describe("Single opened position", () => {
+        it("should return the debt of the opened position", async () => {
+          const ret = await makeGetDebtAmountTest([1000]);
+          expect(ret.sret).eq(ret.sexpected);
+        });
+      });
+      describe("Multiple opened positions", () => {
+        it("should return sum of debts of all opened positions", async () => {
+          const ret = await makeGetDebtAmountTest([1000, 2000, 3000, 50]);
+          expect(ret.sret).eq(ret.sexpected);
+        });
+      });
+    });
+  });
+
   describe("estimateRepay", () => {
     /* Make N borrows, ask to return given amount of collateral.
     * Return borrowed amount that should be return
@@ -3630,6 +3699,7 @@ describe("TetuConverterTest", () => {
       );
 
       const collateralAmountOut = await tcAsUc.callStatic.quoteRepay(
+        await tcAsUc.signer.getAddress(),
         init.sourceToken.address,
         init.targetToken.address,
         parseUnits(amountToRepayNum.toString(), targetTokenDecimals)
