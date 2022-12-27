@@ -1612,24 +1612,7 @@ describe("TetuConverterTest", () => {
                 transferAmountMultiplier18: Misc.WEI.div(2)
               }
             )
-          ).revertedWith("TC-41 wrong amount received"); // WRONG_AMOUNT_RECEIVED
-        });
-      });
-      describe("Too much collateral amount on balance of TetuConverter", () => {
-        it("should keep exceed amount on the balance of TetuConverter", async () => {
-          const collateralAmountNum = 100_000;
-          const transferAmountMultiplier18 = Misc.WEI.mul(2);
-          const r = await makeConversionUsingBorrowing(
-            [collateralAmountNum],
-            [1_00],
-            {
-              transferAmountMultiplier18
-            }
-          );
-          const balanceCollateralAssetOnTetuConverter = await r.init.sourceToken.balanceOf(r.init.core.tc.address);
-          const expected = getBigNumberFrom(collateralAmountNum, await r.init.sourceToken.decimals());
-
-          expect(balanceCollateralAssetOnTetuConverter).eq(expected);
+          ).revertedWithPanic(0x11); // Arithmetic operation underflowed or overflowed outside of an unchecked block
         });
       });
     });

@@ -20,7 +20,7 @@ import {DForceChangePriceUtils} from "../../baseUT/protocols/dforce/DForceChange
 import {Aave3Helper} from "../../../scripts/integration/helpers/Aave3Helper";
 import {isPolygonForkInUse} from "../../baseUT/utils/NetworkUtils";
 
-describe("CompareAprBorrowRepayTest @skip-on-coverage", () => {
+describe.skip("CompareAprBorrowRepayTest @skip-on-coverage", () => {
 //region Constants
   const HEALTH_FACTOR2 = 400;
   const COUNT_BLOCKS_SMALL = 1_000;

@@ -215,12 +215,13 @@ contract Borrower is ITetuConverterCallback {
     console.log("makeRepayComplete started gasleft", gasleft());
     // test quoteRepay prediction
 
-    (uint amountToPay,) = _tc().getDebtAmountCurrent(collateralAsset_, borrowedAsset_);
+    (uint amountToPay,) = _tc().getDebtAmountCurrent(address(this), collateralAsset_, borrowedAsset_);
     console.log("makeRepayComplete amountToPay", amountToPay);
     console.log("makeRepayComplete borrowed asset balance", IERC20(borrowedAsset_).balanceOf(address(this)));
 
     lastQuoteRepayGasConsumption = gasleft();
     lastQuoteRepayResultCollateralAmount = _tc().quoteRepay(
+      address(this),
       collateralAsset_,
       borrowedAsset_,
       amountToPay + additionalAmountForQuoteRepay
@@ -257,6 +258,7 @@ contract Borrower is ITetuConverterCallback {
 
     lastQuoteRepayGasConsumption = gasleft();
     lastQuoteRepayResultCollateralAmount = _tc().quoteRepay(
+      address(this),
       collateralAsset_,
       borrowedAsset_,
       amountToPay_ + additionalAmountForQuoteRepay
