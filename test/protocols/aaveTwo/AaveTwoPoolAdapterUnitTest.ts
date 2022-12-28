@@ -1417,6 +1417,7 @@ describe("AaveTwoPoolAdapterUnitTest", () => {
             await DeployerUtils.startImpersonate(results.init.userContract.address)
           );
           const collateralAmountOut = await tetuConverterAsUser.callStatic.quoteRepay(
+            await tetuConverterAsUser.signer.getAddress(),
             results.init.collateralToken.address,
             results.init.borrowToken.address,
             status.amountToPay
@@ -1437,6 +1438,7 @@ describe("AaveTwoPoolAdapterUnitTest", () => {
             await DeployerUtils.startImpersonate(results.init.userContract.address)
           );
           const collateralAmountOut = await tetuConverterAsUser.callStatic.quoteRepay(
+            await tetuConverterAsUser.signer.getAddress(),
             results.init.collateralToken.address,
             results.init.borrowToken.address,
             status.amountToPay.div(2) // 50%
@@ -1457,6 +1459,7 @@ describe("AaveTwoPoolAdapterUnitTest", () => {
             await DeployerUtils.startImpersonate(results.init.userContract.address)
           );
           const collateralAmountOut = await tetuConverterAsUser.callStatic.quoteRepay(
+            await tetuConverterAsUser.signer.getAddress(),
             results.init.collateralToken.address,
             results.init.borrowToken.address,
             status.amountToPay.div(20) // 5%
@@ -1480,6 +1483,7 @@ describe("AaveTwoPoolAdapterUnitTest", () => {
         );
         await expect(
           tetuConverterAsUser.quoteRepay(
+            await tetuConverterAsUser.signer.getAddress(),
             results.init.collateralToken.address,
             results.init.borrowToken.address,
             parseUnits("1000") // full repay, close position

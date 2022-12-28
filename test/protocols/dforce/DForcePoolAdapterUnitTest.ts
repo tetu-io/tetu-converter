@@ -2099,6 +2099,7 @@ describe("DForce unit tests, pool adapter", () => {
             await DeployerUtils.startImpersonate(results.init.userContract.address)
           );
           const collateralAmountOut = await tetuConverterAsUser.callStatic.quoteRepay(
+            await tetuConverterAsUser.signer.getAddress(),
             results.init.collateralToken.address,
             results.init.borrowToken.address,
             status.amountToPay
@@ -2119,6 +2120,7 @@ describe("DForce unit tests, pool adapter", () => {
             await DeployerUtils.startImpersonate(results.init.userContract.address)
           );
           const collateralAmountOut = await tetuConverterAsUser.callStatic.quoteRepay(
+            await tetuConverterAsUser.signer.getAddress(),
             results.init.collateralToken.address,
             results.init.borrowToken.address,
             status.amountToPay.div(2) // 50%
@@ -2139,6 +2141,7 @@ describe("DForce unit tests, pool adapter", () => {
             await DeployerUtils.startImpersonate(results.init.userContract.address)
           );
           const collateralAmountOut = await tetuConverterAsUser.callStatic.quoteRepay(
+            await tetuConverterAsUser.signer.getAddress(),
             results.init.collateralToken.address,
             results.init.borrowToken.address,
             status.amountToPay.div(20) // 5%

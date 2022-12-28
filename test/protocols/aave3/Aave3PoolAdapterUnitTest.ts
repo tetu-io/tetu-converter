@@ -1476,6 +1476,7 @@ describe("Aave3PoolAdapterUnitTest", () => {
         console.log("Real amount to pay:", realAmountToPay.toString());
 
         const collateralAmountOut = await tetuConverterAsUser.callStatic.quoteRepay(
+          await tetuConverterAsUser.signer.getAddress(),
           results.init.collateralToken.address,
           results.init.borrowToken.address,
           realAmountToPay.div(part100)
@@ -1503,6 +1504,7 @@ describe("Aave3PoolAdapterUnitTest", () => {
           //   status.amountToPay
           // );
           const collateralAmountOut = await tetuConverterAsUser.callStatic.quoteRepay(
+            await tetuConverterAsUser.signer.getAddress(),
             results.init.collateralToken.address,
             results.init.borrowToken.address,
             status.amountToPay
@@ -1551,6 +1553,7 @@ describe("Aave3PoolAdapterUnitTest", () => {
         );
         await expect(
           tetuConverterAsUser.quoteRepay(
+            await tetuConverterAsUser.signer.getAddress(),
             results.init.collateralToken.address,
             results.init.borrowToken.address,
             parseUnits("10000") // full repay, close position

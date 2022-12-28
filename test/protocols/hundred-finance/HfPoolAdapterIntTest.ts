@@ -19,7 +19,7 @@ import {transferAndApprove} from "../../baseUT/utils/transferUtils";
 import {HundredFinanceTestUtils} from "../../baseUT/protocols/hundred-finance/HundredFinanceTestUtils";
 import {parseUnits} from "ethers/lib/utils";
 
-describe("Hundred Finance integration tests, pool adapter", () => {
+describe("HfPoolAdapterIntTest", () => {
 
 //region Global vars for all tests
   let snapshot: string;

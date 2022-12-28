@@ -39,7 +39,7 @@ import {TetuConverterApp} from "../../baseUT/helpers/TetuConverterApp";
 import {parseUnits} from "ethers/lib/utils";
 import {MocksHelper} from "../../baseUT/helpers/MocksHelper";
 
-describe("Hundred Finance unit tests, pool adapter", () => {
+describe("HfPoolAdapterUnitTest", () => {
 
 //region Global vars for all tests
   let snapshot: string;
@@ -2381,6 +2381,7 @@ describe("Hundred Finance unit tests, pool adapter", () => {
             await DeployerUtils.startImpersonate(results.init.userContract.address)
           );
           const collateralAmountOut = await tetuConverterAsUser.callStatic.quoteRepay(
+            await tetuConverterAsUser.signer.getAddress(),
             results.init.collateralToken.address,
             results.init.borrowToken.address,
             status.amountToPay
@@ -2401,6 +2402,7 @@ describe("Hundred Finance unit tests, pool adapter", () => {
             await DeployerUtils.startImpersonate(results.init.userContract.address)
           );
           const collateralAmountOut = await tetuConverterAsUser.callStatic.quoteRepay(
+            await tetuConverterAsUser.signer.getAddress(),
             results.init.collateralToken.address,
             results.init.borrowToken.address,
             status.amountToPay.div(2) // 50%
@@ -2421,6 +2423,7 @@ describe("Hundred Finance unit tests, pool adapter", () => {
             await DeployerUtils.startImpersonate(results.init.userContract.address)
           );
           const collateralAmountOut = await tetuConverterAsUser.callStatic.quoteRepay(
+            await tetuConverterAsUser.signer.getAddress(),
             results.init.collateralToken.address,
             results.init.borrowToken.address,
             status.amountToPay.div(20) // 5%
