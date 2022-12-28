@@ -365,6 +365,8 @@ contract TetuConverter is ITetuConverter, IKeeperCallback, IRequireAmountBySwapM
   /// @return returnedBorrowAmountOut A part of amount-to-repay that wasn't converted to collateral asset
   ///                                 because of any reasons (i.e. there is no available conversion strategy)
   ///                                 This amount is returned back to the collateralReceiver_
+  /// @return swappedLeftoverCollateralOut A part of collateral received through the swapping
+  /// @return swappedLeftoverBorrowOut A part of amountToRepay_ that was swapped
   function repay(
     address collateralAsset_,
     address borrowAsset_,
@@ -372,7 +374,9 @@ contract TetuConverter is ITetuConverter, IKeeperCallback, IRequireAmountBySwapM
     address receiver_
   ) external override nonReentrant returns (
     uint collateralAmountOut,
-    uint returnedBorrowAmountOut
+    uint returnedBorrowAmountOut,
+    uint swappedLeftoverCollateralOut,
+    uint swappedLeftoverBorrowOut
   ) {
     require(receiver_ != address(0), AppErrors.ZERO_ADDRESS);
 
@@ -426,11 +430,14 @@ contract TetuConverter is ITetuConverter, IKeeperCallback, IRequireAmountBySwapM
       } else {
         // conversion strategy is found
         // let's convert all remaining {amountToPay} to {collateralAsset}
-        collateralAmountOut += _makeSwap(converter, borrowAsset_, amountToRepay_, collateralAsset_, receiver_);
+        swappedLeftoverCollateralOut = _makeSwap(converter, borrowAsset_, amountToRepay_, collateralAsset_, receiver_);
+        swappedLeftoverBorrowOut = amountToRepay_;
+
+        collateralAmountOut += swappedLeftoverCollateralOut;
       }
     }
 
-    return (collateralAmountOut, returnedBorrowAmountOut);
+    return (collateralAmountOut, returnedBorrowAmountOut, swappedLeftoverCollateralOut, swappedLeftoverBorrowOut);
   }
 
   /// @notice Estimate result amount after making full or partial repay

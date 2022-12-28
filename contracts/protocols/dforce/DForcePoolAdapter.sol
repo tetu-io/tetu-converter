@@ -190,6 +190,7 @@ contract DForcePoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP, Initi
     collateralTokensBalance += tokenBalanceAfter - tokenBalanceBefore;
 
     emit OnBorrow(collateralAmount_, borrowAmount_, receiver_, healthFactor);
+
     return borrowAmount_;
   }
 

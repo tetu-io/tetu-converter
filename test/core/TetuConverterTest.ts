@@ -1868,6 +1868,12 @@ describe("TetuConverterTest", () => {
       receiverIsNull?: boolean,
       userSendsNotEnoughAmountToTetuConverter?: boolean
     }
+    interface IRepayOutputValues {
+      collateralAmountOut: BigNumber;
+      returnedBorrowAmountOut: BigNumber;
+      swappedLeftoverCollateralOut: BigNumber;
+      swappedLeftoverBorrowOut: BigNumber;
+    }
     interface IRepayResults {
       countOpenedPositions: number;
       totalDebtAmountOut: BigNumber;
@@ -1877,6 +1883,7 @@ describe("TetuConverterTest", () => {
       receiverCollateralBalanceAfterRepay: BigNumber;
       receiverBorrowAssetBalanceBeforeRepay: BigNumber;
       receiverBorrowAssetBalanceAfterRepay: BigNumber;
+      repayOutput: IRepayOutputValues;
     }
     async function makeRepayTest(
       collateralAmounts: number[],
@@ -1936,12 +1943,19 @@ describe("TetuConverterTest", () => {
         ? BigNumber.from(0)
         : await init.targetToken.balanceOf(receiver);
 
+      const repayOutput = await tcAsUc.callStatic.repay(
+        init.sourceToken.address,
+        init.targetToken.address,
+        amountToRepay,
+        receiver
+      );
       await tcAsUc.repay(
         init.sourceToken.address,
         init.targetToken.address,
         amountToRepay,
         receiver
       );
+      console.log("Repay results", repayOutput);
 
       const receiverCollateralBalanceAfterRepay = receiver === Misc.ZERO_ADDRESS
         ? BigNumber.from(0)
@@ -1965,7 +1979,8 @@ describe("TetuConverterTest", () => {
         receiverCollateralBalanceAfterRepay,
         receiverCollateralBalanceBeforeRepay,
         receiverBorrowAssetBalanceBeforeRepay,
-        receiverBorrowAssetBalanceAfterRepay
+        receiverBorrowAssetBalanceAfterRepay,
+        repayOutput
       }
     }
 
@@ -2219,11 +2234,12 @@ describe("TetuConverterTest", () => {
             expect(ret).eq(expected);
           });
         });
-        describe("Full repay", () => {
+        describe("Full repay, no swap", () => {
           it("should return expected values", async () => {
             const amountToRepay = 1600;
             const collateralAmounts = [1_000_000, 2_000_000, 3_000_000];
             const exactBorrowAmounts = [200, 400, 1000]; // sum == 1600
+            const totalCollateralAmount = collateralAmounts.reduce((prev, cur) => prev += cur, 0);
             const r = await makeRepayTest(
               collateralAmounts,
               exactBorrowAmounts,
@@ -2232,12 +2248,22 @@ describe("TetuConverterTest", () => {
 
             const ret = [
               r.countOpenedPositions,
-              r.totalDebtAmountOut.toString()
+              r.totalDebtAmountOut.toString(),
+
+              r.repayOutput.collateralAmountOut,
+              r.repayOutput.returnedBorrowAmountOut,
+              r.repayOutput.swappedLeftoverCollateralOut,
+              r.repayOutput.swappedLeftoverBorrowOut
             ].map(x => BalanceUtils.toString(x)).join("\n");
 
             const expected = [
               0,
-              getBigNumberFrom(0, await r.init.targetToken.decimals())
+              getBigNumberFrom(0, await r.init.targetToken.decimals()),
+
+              parseUnits(totalCollateralAmount.toString(), await r.init.sourceToken.decimals()),
+              0, // there is no leftover
+              0,
+              0
             ].map(x => BalanceUtils.toString(x)).join("\n");
 
             expect(ret).eq(expected);
@@ -2287,6 +2313,49 @@ describe("TetuConverterTest", () => {
               getBigNumberFrom(0, await r.init.targetToken.decimals()),
               expectedCollateralAmountToReceive,
               0
+            ].map(x => BalanceUtils.toString(x)).join("\n");
+
+            expect(ret).eq(expected);
+          });
+          it("should return expected output values", async () => {
+            const collateralAmounts = [1_000_000, 2_000_000, 3_000_000];
+            const exactBorrowAmounts = [200, 400, 1000];
+            const totalBorrowAmount = exactBorrowAmounts.reduce((prev, cur) => prev += cur, 0);
+            const totalCollateralAmount = collateralAmounts.reduce((prev, cur) => prev += cur, 0);
+            const amountToSwap = 300;
+            const amountToRepay = totalBorrowAmount + amountToSwap;
+
+            // We need to set big price impact
+            // TetuConverter should prefer to use borrowing instead swapping
+            const PRICE_IMPACT_NUMERATOR = 100_000; // SwapManager.PRICE_IMPACT_NUMERATOR
+            const priceImpact = PRICE_IMPACT_NUMERATOR / 100; // 1%
+
+            const r = await makeRepayTest(
+              collateralAmounts,
+              exactBorrowAmounts,
+              amountToRepay,
+              true,
+              undefined,
+              priceImpact
+            );
+            console.log(r);
+
+            const ret = [
+              r.repayOutput.collateralAmountOut,
+              r.repayOutput.returnedBorrowAmountOut,
+              r.repayOutput.swappedLeftoverCollateralOut,
+              r.repayOutput.swappedLeftoverBorrowOut
+            ].map(x => BalanceUtils.toString(x)).join("\n");
+
+            // the prices of borrow and collateral assets are equal
+            const expectedCollateralAmountFromSwapping = amountToSwap * (PRICE_IMPACT_NUMERATOR - priceImpact) / PRICE_IMPACT_NUMERATOR;
+            const expectedCollateralAmountToReceive = totalCollateralAmount + expectedCollateralAmountFromSwapping;
+
+            const expected = [
+              parseUnits(expectedCollateralAmountToReceive.toString(), await r.init.sourceToken.decimals()),
+              0, // there is no not-swapped leftover
+              parseUnits(expectedCollateralAmountFromSwapping.toString(), await r.init.sourceToken.decimals()),
+              parseUnits(amountToSwap.toString(), await r.init.targetToken.decimals()),
             ].map(x => BalanceUtils.toString(x)).join("\n");
 
             expect(ret).eq(expected);

@@ -50,6 +50,8 @@ contract Borrower is ITetuConverterCallback {
   struct MakeRepayResults {
     uint collateralAmountOut;
     uint returnedBorrowAmountOut;
+    uint swappedLeftoverCollateralOut;
+    uint swappedLeftoverBorrowOut;
   }
   MakeRepayResults public repayResults;
 
@@ -210,7 +212,9 @@ contract Borrower is ITetuConverterCallback {
     address receiver_
   ) external returns (
     uint collateralAmountOut,
-    uint returnedBorrowAmountOut
+    uint returnedBorrowAmountOut,
+    uint swappedLeftoverCollateralOut,
+    uint swappedLeftoverBorrowOut
   ) {
     console.log("makeRepayComplete started gasleft", gasleft());
     // test quoteRepay prediction
@@ -233,7 +237,11 @@ contract Borrower is ITetuConverterCallback {
     IERC20(borrowedAsset_).safeTransfer(address(_tc()), amountToPay);
 
     console.log("makeRepayComplete repay - start");
-    (collateralAmountOut, returnedBorrowAmountOut) = _tc().repay(collateralAsset_, borrowedAsset_, amountToPay, receiver_);
+    (collateralAmountOut,
+     returnedBorrowAmountOut,
+     swappedLeftoverCollateralOut,
+     swappedLeftoverBorrowOut
+    ) = _tc().repay(collateralAsset_, borrowedAsset_, amountToPay, receiver_);
     totalAmountBorrowAssetRepaid += amountToPay;
 
     console.log("makeRepayComplete repay - finish");
@@ -242,6 +250,8 @@ contract Borrower is ITetuConverterCallback {
     console.log("makeRepayComplete done gasleft", gasleft(), collateralAmountOut, returnedBorrowAmountOut);
     repayResults.collateralAmountOut = collateralAmountOut;
     repayResults.returnedBorrowAmountOut = returnedBorrowAmountOut;
+    repayResults.swappedLeftoverBorrowOut = swappedLeftoverBorrowOut;
+    repayResults.swappedLeftoverCollateralOut = swappedLeftoverCollateralOut;
   }
 
   /// @notice Partial repay, see US1.3 in the project scope
@@ -252,7 +262,9 @@ contract Borrower is ITetuConverterCallback {
     uint amountToPay_
   ) external returns (
     uint collateralAmountOut,
-    uint returnedBorrowAmountOut
+    uint returnedBorrowAmountOut,
+    uint swappedLeftoverCollateralOut,
+    uint swappedLeftoverBorrowOut
   ) {
     console.log("makeRepayPartial started - partial pay gasleft", gasleft());
 
@@ -267,13 +279,19 @@ contract Borrower is ITetuConverterCallback {
     console.log("makeRepayPartial.quoteRepay", lastQuoteRepayResultCollateralAmount, lastQuoteRepayGasConsumption);
 
     IERC20(borrowedAsset_).safeTransfer(address(_tc()), amountToPay_);
-    (collateralAmountOut, returnedBorrowAmountOut) = _tc().repay(collateralAsset_, borrowedAsset_, amountToPay_, receiver_);
+    (collateralAmountOut,
+     returnedBorrowAmountOut,
+     swappedLeftoverCollateralOut,
+     swappedLeftoverBorrowOut
+    ) = _tc().repay(collateralAsset_, borrowedAsset_, amountToPay_, receiver_);
     totalAmountBorrowAssetRepaid += amountToPay_;
     _tc().claimRewards(address(this));
 
     console.log("makeRepayPartial done gasleft", gasleft(), collateralAmountOut, returnedBorrowAmountOut);
     repayResults.collateralAmountOut = collateralAmountOut;
     repayResults.returnedBorrowAmountOut = returnedBorrowAmountOut;
+    repayResults.swappedLeftoverCollateralOut = swappedLeftoverCollateralOut;
+    repayResults.swappedLeftoverBorrowOut = swappedLeftoverBorrowOut;
   }
 
   ///////////////////////////////////////////////////////

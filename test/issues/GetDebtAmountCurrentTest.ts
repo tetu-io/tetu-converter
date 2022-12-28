@@ -93,12 +93,12 @@ describe.skip("GetDebtAmountCurrentTest", () => {
         it("should display not rounded values", async () => {
           if (!await isPolygonForkInUse()) return;
 
-          // const {controller} = await TetuConverterApp.buildApp(
-          //   deployer,
-          //   [new AaveTwoPlatformFabric()],
-          //   {priceOracleFabric: async c => (await CoreContractsHelper.createPriceOracle(deployer, c.address)).address} // disable swap, enable price oracle
-          // );
-          const controller = Controller__factory.connect("0x29Eead6Fd74F826dac9E0383abC990615AA62Fa7", deployer);
+          const {controller} = await TetuConverterApp.buildApp(
+            deployer,
+            [new DForcePlatformFabric()],
+            {priceOracleFabric: async c => (await CoreContractsHelper.createPriceOracle(deployer, c.address)).address} // disable swap, enable price oracle
+          );
+          // const controller = Controller__factory.connect("0x29Eead6Fd74F826dac9E0383abC990615AA62Fa7", deployer);
 
           const results = await BorrowRepayUsesCase.makeBorrow(deployer,
             {

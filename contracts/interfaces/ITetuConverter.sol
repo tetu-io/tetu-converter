@@ -96,6 +96,8 @@ interface ITetuConverter {
   /// @return returnedBorrowAmountOut A part of amount-to-repay that wasn't converted to collateral asset
   ///                                 because of any reasons (i.e. there is no available conversion strategy)
   ///                                 This amount is returned back to the collateralReceiver_
+  /// @return swappedLeftoverCollateralOut A part of collateral received through the swapping
+  /// @return swappedLeftoverBorrowOut A part of amountToRepay_ that was swapped
   function repay(
     address collateralAsset_,
     address borrowAsset_,
@@ -103,7 +105,9 @@ interface ITetuConverter {
     address receiver_
   ) external returns (
     uint collateralAmountOut,
-    uint returnedBorrowAmountOut
+    uint returnedBorrowAmountOut,
+    uint swappedLeftoverCollateralOut,
+    uint swappedLeftoverBorrowOut
   );
 
   /// @notice Estimate result amount after making full or partial repay
