@@ -1,14 +1,14 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.17;
 
+import "../aaveShared/AaveSharedLib.sol";
+import "../../core/AppErrors.sol";
 import "../../integrations/aaveTwo/IAaveTwoReserveInterestRateStrategy.sol";
 import "../../integrations/aaveTwo/IAaveTwoPriceOracle.sol";
-import "../../core/AppErrors.sol";
 import "../../integrations/aaveTwo/IAaveTwoPool.sol";
 import "../../integrations/aaveTwo/AaveTwoReserveConfiguration.sol";
 import "../../integrations/aaveTwo/IAaveTwoAToken.sol";
 import "../../integrations/aaveTwo/IAaveTwoStableDebtToken.sol";
-import "../aaveShared/AaveSharedLib.sol";
 
 /// @notice Library for AAVE v2 to calculate APR: borrow APR and supply APR
 library AaveTwoAprLib {

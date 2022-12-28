@@ -2,16 +2,16 @@
 
 pragma solidity 0.8.17;
 
+import "./AppErrors.sol";
+import "../openzeppelin/IERC20Metadata.sol";
+import "../openzeppelin/EnumerableSet.sol";
+import "../core/AppUtils.sol";
 import "../interfaces/IPoolAdapter.sol";
 import "../interfaces/IController.sol";
-import "../interfaces/IDebtsMonitor.sol";
+import "../interfaces/IDebtMonitor.sol";
 import "../interfaces/IPriceOracle.sol";
-import "../openzeppelin/IERC20Metadata.sol";
 import "../interfaces/IBorrowManager.sol";
 import "../interfaces/ITetuConverter.sol";
-import "./AppErrors.sol";
-import "../core/AppUtils.sol";
-import "../openzeppelin/EnumerableSet.sol";
 
 /// @notice Manage list of open borrow positions
 contract DebtMonitor is IDebtMonitor {

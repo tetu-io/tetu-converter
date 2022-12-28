@@ -8,7 +8,7 @@ import "../../interfaces/IPriceOracle.sol";
 import "../../openzeppelin/IERC20.sol";
 import "../tokens/MockERC20.sol";
 import "../../openzeppelin/IERC20Metadata.sol";
-import "../../interfaces/IDebtsMonitor.sol";
+import "../../interfaces/IDebtMonitor.sol";
 import "./PoolStub.sol";
 import "../../interfaces/IController.sol";
 import "../../core/AppErrors.sol";

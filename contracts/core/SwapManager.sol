@@ -1,21 +1,19 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.17;
 
-import "../interfaces/ITetuLiquidator.sol";
+import "./AppErrors.sol";
+import "./AppDataTypes.sol";
 import "../openzeppelin/IERC20Metadata.sol";
 import "../openzeppelin/IERC20.sol";
 import "../openzeppelin/SafeERC20.sol";
+import "../interfaces/ITetuLiquidator.sol";
 import "../interfaces/ISwapManager.sol";
 import "../interfaces/IController.sol";
 import "../interfaces/ISwapConverter.sol";
-import "./AppErrors.sol";
-import "./AppDataTypes.sol";
 import "../interfaces/IPriceOracle.sol";
 import "../interfaces/ISimulateProvider.sol";
 import "../interfaces/ISwapSimulator.sol";
 import "../interfaces/IRequireAmountBySwapManagerCallback.sol";
-import "./TetuConverter.sol";
-import "hardhat/console.sol";
 
 /// @title Contract to find the best swap and make the swap
 /// @notice Combines Manager and Converter
@@ -160,9 +158,6 @@ contract SwapManager is ISwapManager, ISwapConverter, ISimulateProvider, ISwapSi
 
     // The result amount cannot be too different from the value calculated directly using price oracle prices
     uint expectedAmountOut = convertUsingPriceOracle(sourceToken_, sourceAmount_, targetToken_);
-    console.log("swap.outputAmount", outputAmount);
-    console.log("swap.expectedAmountOut", expectedAmountOut);
-    console.log("swap._getPriceImpactTolerance", _getPriceImpactTolerance(targetToken_));
 
     require(
       (outputAmount > expectedAmountOut
@@ -237,18 +232,16 @@ contract SwapManager is ISwapManager, ISwapConverter, ISimulateProvider, ISwapSi
     }
   }
 
-  /// @notice Converter amount of {assetIn_} to the corresponded amount of {assetOut_} using price oracle prices
+  /// @notice Convert amount of {assetIn_} to the corresponded amount of {assetOut_} using price oracle prices
+  /// @return Result amount in terms of {assetOut_}
   function convertUsingPriceOracle(
     address assetIn_,
     uint amountIn_,
     address assetOut_
   ) public view returns (uint) {
     IPriceOracle priceOracle = IPriceOracle(controller.priceOracle());
-    console.log("convertUsingPriceOracle", address(priceOracle));
     uint priceOut = priceOracle.getAssetPrice(assetOut_);
     uint priceIn = priceOracle.getAssetPrice(assetIn_);
-    console.log("convertUsingPriceOracle priceIn", priceIn, assetIn_);
-    console.log("convertUsingPriceOracle priceOut", priceOut, assetOut_);
     require(priceOut != 0 && priceIn != 0, AppErrors.ZERO_PRICE);
 
     return amountIn_

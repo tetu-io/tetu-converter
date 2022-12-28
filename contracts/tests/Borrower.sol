@@ -11,7 +11,7 @@ import "../interfaces/IKeeperCallback.sol";
 import "../interfaces/IBorrowManager.sol";
 import "hardhat/console.sol";
 import "../interfaces/ITetuConverterCallback.sol";
-import "../interfaces/IDebtsMonitor.sol";
+import "../interfaces/IDebtMonitor.sol";
 
 /// @notice This contract emulates real TetuConverter-user behavior
 /// Terms:

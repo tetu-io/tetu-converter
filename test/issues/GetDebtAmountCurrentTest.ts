@@ -84,53 +84,52 @@ describe("GetDebtAmountCurrentTest", () => {
         const HOLDER_COLLATERAL = MaticAddresses.HOLDER_USDC;
         const ASSET_BORROW = MaticAddresses.DAI;
         const HOLDER_BORROW = MaticAddresses.HOLDER_DAI;
-        const AMOUNT_COLLATERAL = 1_000;
+        const AMOUNT_COLLATERAL = 4_444;
         const INITIAL_LIQUIDITY_COLLATERAL = 100_000;
         const INITIAL_LIQUIDITY_BORROW = 80_000;
         const HEALTH_FACTOR2 = 200;
         const COUNT_BLOCKS = 1_000;
 
-        describe("AAVE3", () => {
-          it("should return expected value", async () => {
-            if (!await isPolygonForkInUse()) return;
+        it("should display not rounded values", async () => {
+          if (!await isPolygonForkInUse()) return;
 
-            // const {controller} = await TetuConverterApp.buildApp(
-            //   deployer,
-            //   [new AaveTwoPlatformFabric()],
-            //   {priceOracleFabric: async c => (await CoreContractsHelper.createPriceOracle(deployer, c.address)).address} // disable swap, enable price oracle
-            // );
-            const controller = Controller__factory.connect("0x29Eead6Fd74F826dac9E0383abC990615AA62Fa7", deployer);
+          // const {controller} = await TetuConverterApp.buildApp(
+          //   deployer,
+          //   [new AaveTwoPlatformFabric()],
+          //   {priceOracleFabric: async c => (await CoreContractsHelper.createPriceOracle(deployer, c.address)).address} // disable swap, enable price oracle
+          // );
+          const controller = Controller__factory.connect("0x29Eead6Fd74F826dac9E0383abC990615AA62Fa7", deployer);
 
-            const results = await BorrowRepayUsesCase.makeBorrow(deployer,
-              {
-                collateral: {
-                  asset: ASSET_COLLATERAL,
-                  holder: HOLDER_COLLATERAL,
-                  initialLiquidity: INITIAL_LIQUIDITY_COLLATERAL,
-                },
-                borrow: {
-                  asset: ASSET_BORROW,
-                  holder: HOLDER_BORROW,
-                  initialLiquidity: INITIAL_LIQUIDITY_BORROW,
-                },
-                collateralAmount: AMOUNT_COLLATERAL,
-                healthFactor2: HEALTH_FACTOR2,
-                countBlocks: COUNT_BLOCKS,
+          const results = await BorrowRepayUsesCase.makeBorrow(deployer,
+            {
+              collateral: {
+                asset: ASSET_COLLATERAL,
+                holder: HOLDER_COLLATERAL,
+                initialLiquidity: INITIAL_LIQUIDITY_COLLATERAL,
               },
-              controller
-            );
+              borrow: {
+                asset: ASSET_BORROW,
+                holder: HOLDER_BORROW,
+                initialLiquidity: INITIAL_LIQUIDITY_BORROW,
+              },
+              collateralAmount: AMOUNT_COLLATERAL,
+              healthFactor2: HEALTH_FACTOR2,
+              countBlocks: COUNT_BLOCKS,
+            },
+            controller
+          );
 
-            console.log(`Balance0 ${results.ucBalanceCollateral0.toString()}`);
-            console.log(`Balance1 ${results.userBalances[0].collateral.toString()}`);
+          const tetuConverter = ITetuConverter__factory.connect(await controller.tetuConverter(), deployer);
 
-            const tetuConverter = ITetuConverter__factory.connect(await controller.tetuConverter(), deployer);
-            const debtAmount = await tetuConverter.callStatic.getDebtAmountCurrent(
-              results.uc.address,
-              ASSET_COLLATERAL,
-              ASSET_BORROW
-            );
-            console.log("getDebtAmountCurrent", debtAmount);
-          });
+          const before = await tetuConverter.callStatic.getDebtAmountCurrent(results.uc.address, ASSET_COLLATERAL, ASSET_BORROW);
+          console.log("getDebtAmountCurrent", before.totalDebtAmountOut.toString(), before.totalCollateralAmountOut.toString());
+
+          await TimeUtils.advanceNBlocks(918);
+
+          const after = await tetuConverter.callStatic.getDebtAmountCurrent(results.uc.address, ASSET_COLLATERAL, ASSET_BORROW);
+          console.log("getDebtAmountCurrent", after.totalDebtAmountOut.toString(), after.totalCollateralAmountOut.toString());
+
+          // nothing to check here
         });
       });
     });

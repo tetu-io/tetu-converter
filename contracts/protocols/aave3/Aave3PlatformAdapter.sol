@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.17;
 
+import "./Aave3AprLib.sol";
 import "../../openzeppelin/SafeERC20.sol";
 import "../../openzeppelin/IERC20.sol";
-import "./Aave3AprLib.sol";
 import "../../core/AppUtils.sol";
 import "../../core/AppDataTypes.sol";
 import "../../core/AppErrors.sol";

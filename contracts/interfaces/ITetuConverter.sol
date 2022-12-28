@@ -123,6 +123,8 @@ interface ITetuConverter {
   /// @notice Update status in all opened positions
   ///         and calculate exact total amount of borrowed and collateral assets
   /// @param user_ user whose debts will be updated and returned
+  /// @return totalDebtAmountOut Borrowed amount that should be repaid to pay off the loan in full
+  /// @return totalCollateralAmountOut Amount of collateral that should be received after paying off the loan
   function getDebtAmountCurrent(
     address user_,
     address collateralAsset_,
@@ -138,6 +140,8 @@ interface ITetuConverter {
   ///      The addon is required to workaround dust-tokens problem.
   ///      After repaying the remaining amount is transferred back on the balance of the caller strategy.
   /// @param user_ user whose debts will be returned
+  /// @return totalDebtAmountOut Borrowed amount that should be repaid to pay off the loan in full
+  /// @return totalCollateralAmountOut Amount of collateral that should be received after paying off the loan
   function getDebtAmountStored(
     address user_,
     address collateralAsset_,
@@ -172,6 +176,4 @@ interface ITetuConverter {
     address[] memory rewardTokensOut,
     uint[] memory amountsOut
   );
-
-  //TODO: salvage
 }

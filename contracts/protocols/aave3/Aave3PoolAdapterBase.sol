@@ -3,9 +3,12 @@ pragma solidity 0.8.17;
 
 import "../../openzeppelin/SafeERC20.sol";
 import "../../openzeppelin/IERC20.sol";
-import "../../core/DebtMonitor.sol";
+import "../../openzeppelin/Initializable.sol";
+import "../../openzeppelin/IERC20Metadata.sol";
 import "../../core/AppErrors.sol";
+import "../../interfaces/IController.sol";
 import "../../interfaces/IPoolAdapter.sol";
+import "../../interfaces/IDebtMonitor.sol";
 import "../../interfaces/IPoolAdapterInitializer.sol";
 import "../../integrations/aave3/IAavePool.sol";
 import "../../integrations/aave3/IAavePriceOracle.sol";
@@ -13,7 +16,6 @@ import "../../integrations/aave3/IAaveAddressesProvider.sol";
 import "../../integrations/aave3/Aave3ReserveConfiguration.sol";
 import "../../integrations/aave3/IAaveToken.sol";
 import "../../integrations/dforce/SafeRatioMath.sol";
-import "../../openzeppelin/Initializable.sol";
 
 /// @notice Implementation of IPoolAdapter for AAVE-v3-protocol, see https://docs.aave.com/hub/
 /// @dev Instances of this contract are created using proxy-minimal pattern, so no constructor

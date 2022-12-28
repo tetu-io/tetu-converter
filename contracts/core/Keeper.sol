@@ -1,14 +1,14 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.17;
 
-import "../integrations/gelato/OpsReady.sol";
-import "../interfaces/IHealthKeeperCallback.sol";
 import "../core/AppErrors.sol";
 import "../core/AppUtils.sol";
-import "../integrations/gelato/IResolver.sol";
+import "../interfaces/IHealthKeeperCallback.sol";
 import "../interfaces/IController.sol";
-import "../interfaces/IDebtsMonitor.sol";
+import "../interfaces/IDebtMonitor.sol";
 import "../interfaces/IKeeperCallback.sol";
+import "../integrations/gelato/IResolver.sol";
+import "../integrations/gelato/OpsReady.sol";
 
 /// @notice Executor + Resolver for Gelato
 ///         to check health of opened positions and call requireRepay for unhealthy pool adapters

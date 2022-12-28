@@ -2,21 +2,21 @@
 
 pragma solidity 0.8.17;
 
-import "../../interfaces/IPlatformAdapter.sol";
+import "./HfAprLib.sol";
 import "../../openzeppelin/SafeERC20.sol";
 import "../../openzeppelin/IERC20.sol";
-import "../../interfaces/IController.sol";
+import "../../openzeppelin/IERC20Metadata.sol";
 import "../../core/AppDataTypes.sol";
 import "../../core/AppErrors.sol";
-import "../../integrations/hundred-finance/IHfComptroller.sol";
-import "../../integrations/hundred-finance/IHfCToken.sol";
+import "../../core/AppUtils.sol";
+import "../../interfaces/IController.sol";
+import "../../interfaces/IPlatformAdapter.sol";
 import "../../interfaces/IPoolAdapterInitializerWithAP.sol";
 import "../../interfaces/ITokenAddressProvider.sol";
+import "../../integrations/hundred-finance/IHfComptroller.sol";
+import "../../integrations/hundred-finance/IHfCToken.sol";
 import "../../integrations/hundred-finance/IHfPriceOracle.sol";
-import "../../openzeppelin/IERC20Metadata.sol";
 import "../../integrations/hundred-finance/IHfInterestRateModel.sol";
-import "../../core/AppUtils.sol";
-import "./HfAprLib.sol";
 
 /// @notice Adapter to read current pools info from HundredFinance-protocol, see https://docs.hundred.finance/
 contract HfPlatformAdapter is IPlatformAdapter, ITokenAddressProvider {

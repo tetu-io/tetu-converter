@@ -1,27 +1,27 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.17;
 
-import "../integrations/market/ICErc20.sol";
+import "./AppDataTypes.sol";
+import "./AppErrors.sol";
+import "./AppUtils.sol";
 import "../openzeppelin/IERC20Metadata.sol";
 import "../openzeppelin/SafeERC20.sol";
 import "../openzeppelin/IERC20.sol";
 import "../openzeppelin/ReentrancyGuard.sol";
-import "./AppDataTypes.sol";
-import "./AppErrors.sol";
-import "./AppUtils.sol";
 import "../interfaces/IBorrowManager.sol";
 import "../interfaces/ISwapManager.sol";
 import "../interfaces/ITetuConverter.sol";
 import "../interfaces/IPlatformAdapter.sol";
 import "../interfaces/IPoolAdapter.sol";
 import "../interfaces/IController.sol";
-import "../interfaces/IDebtsMonitor.sol";
+import "../interfaces/IDebtMonitor.sol";
 import "../interfaces/IConverter.sol";
 import "../interfaces/ISwapConverter.sol";
 import "../interfaces/IKeeperCallback.sol";
 import "../interfaces/ITetuConverterCallback.sol";
 import "../interfaces/IRequireAmountBySwapManagerCallback.sol";
 import "../interfaces/IPriceOracle.sol";
+import "../integrations/market/ICErc20.sol";
 
 /// @notice Main application contract
 contract TetuConverter is ITetuConverter, IKeeperCallback, IRequireAmountBySwapManagerCallback, ReentrancyGuard {
@@ -585,6 +585,9 @@ contract TetuConverter is ITetuConverter, IKeeperCallback, IRequireAmountBySwapM
 
   /// @notice Update status in all opened positions
   ///         After this call getDebtAmount will be able to return exact amount to repay
+  /// @param user_ user whose debts will be returned
+  /// @return totalDebtAmountOut Borrowed amount that should be repaid to pay off the loan in full
+  /// @return totalCollateralAmountOut Amount of collateral that should be received after paying off the loan
   function getDebtAmountCurrent(
     address user_,
     address collateralAsset_,
@@ -616,6 +619,9 @@ contract TetuConverter is ITetuConverter, IKeeperCallback, IRequireAmountBySwapM
   ///      I.e. AAVE's pool adapter returns (amount of debt + tiny addon ~ 1 cent)
   ///      The addon is required to workaround dust-tokens problem.
   ///      After repaying the remaining amount is transferred back on the balance of the caller strategy.
+  /// @param user_ user whose debts will be returned
+  /// @return totalDebtAmountOut Borrowed amount that should be repaid to pay off the loan in full
+  /// @return totalCollateralAmountOut Amount of collateral that should be received after paying off the loan
   function getDebtAmountStored(
     address user_,
     address collateralAsset_,
