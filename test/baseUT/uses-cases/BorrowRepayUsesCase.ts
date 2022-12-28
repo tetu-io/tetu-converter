@@ -87,7 +87,7 @@ export interface IMakeTwoBorrowsTwoRepaysResults {
   userContract: Borrower;
 }
 
-export interface IQuoteRepayResults {
+export interface IActionsResults {
   uc: Borrower;
   ucBalanceCollateral0: BigNumber;
   ucBalanceBorrow0: BigNumber;
@@ -95,6 +95,9 @@ export interface IQuoteRepayResults {
   userBalances: IUserBalancesWithGas[];
   borrowBalances: BigNumber[];
   strategyToConvert: IStrategyToConvert;
+}
+
+export interface IQuoteRepayResults extends IActionsResults {
   quoteRepayResultCollateralAmount: BigNumber;
   quoteRepayGasConsumption: BigNumber;
 }
@@ -699,4 +702,56 @@ export class BorrowRepayUsesCase {
     }
   }
 //endregion borrow, quoteRepay, repay
+
+//region borrow only
+  static async makeBorrow(
+    deployer: SignerWithAddress,
+    p: ITestSingleBorrowParams,
+    controller: Controller
+  ) : Promise<IActionsResults>{
+    const uc = await MocksHelper.deployBorrower(deployer.address, controller, p.countBlocks);
+
+    const collateralToken = await TokenDataTypes.Build(deployer, p.collateral.asset);
+    const borrowToken = await TokenDataTypes.Build(deployer, p.borrow.asset);
+
+    const ucBalanceCollateral0 = await setInitialBalance(deployer, collateralToken.address,
+      p.collateral.holder, p.collateral.initialLiquidity, uc.address);
+    const ucBalanceBorrow0 = await setInitialBalance(deployer, borrowToken.address,
+      p.borrow.holder, p.borrow.initialLiquidity, uc.address);
+    const collateralAmount = getBigNumberFrom(p.collateralAmount, collateralToken.decimals);
+
+    const tetuConverter = ITetuConverter__factory.connect(await controller.tetuConverter(), deployer);
+    await IERC20__factory.connect(collateralToken.address, await DeployerUtils.startImpersonate(uc.address)).approve(
+      tetuConverter.address,
+      collateralAmount
+    );
+    const tetuConverterAsUser = await TetuConverter__factory.connect(
+      await controller.tetuConverter(),
+      await DeployerUtils.startImpersonate(uc.address)
+    );
+    const strategyToConvert: IStrategyToConvert = await tetuConverterAsUser.callStatic.findConversionStrategy(
+      p.collateral.asset,
+      collateralAmount,
+      p.borrow.asset,
+      p.countBlocks,
+    );
+
+    // TetuConverter gives infinity approve to the pool adapter after pool adapter creation (see TetuConverter.convert implementation)
+    const borrowAction = new BorrowAction(collateralToken, collateralAmount, borrowToken, p.countBlocks);
+    const {
+      userBalances,
+      borrowBalances
+    } = await BorrowRepayUsesCase.makeBorrowRepayActions(deployer, uc, [borrowAction]);
+
+    return {
+      uc,
+      ucBalanceCollateral0,
+      ucBalanceBorrow0,
+      borrowBalances,
+      userBalances,
+      collateralAmount,
+      strategyToConvert,
+    }
+  }
+//endregion borrow only
 }
