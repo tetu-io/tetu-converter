@@ -202,6 +202,7 @@ describe("AaveTwoPlatformAdapterTest", () => {
       incorrectHealthFactor2?: number;
       makeCollateralAssetFrozen?: boolean;
       makeBorrowAssetFrozen?: boolean;
+      frozen?: boolean;
     }
     interface IPreparePlanResults {
       plan: IConversionPlan;
@@ -255,7 +256,9 @@ describe("AaveTwoPlatformAdapterTest", () => {
       if (badPathsParams?.makeCollateralAssetFrozen) {
         await AaveTwoChangePricesUtils.setReserveFreeze(deployer, collateralAsset);
       }
-
+      if (badPathsParams?.frozen) {
+        await aavePlatformAdapter.setFrozen(true);
+      }
       const plan = await aavePlatformAdapter.getConversionPlan(
         badPathsParams?.zeroCollateralAsset ? Misc.ZERO_ADDRESS : collateralAsset,
         badPathsParams?.zeroCollateralAmount ? 0 : collateralAmount,
@@ -466,6 +469,22 @@ describe("AaveTwoPlatformAdapterTest", () => {
           });
         });
       });
+      describe("Frozen", () => {
+        it("should return no plan", async () => {
+          if (!await isPolygonForkInUse()) return;
+
+          const r = await preparePlan(
+            MaticAddresses.DAI,
+            parseUnits("1", 18),
+            MaticAddresses.WMATIC,
+            10,
+            {
+              frozen: true
+            }
+          );
+          expect(r.plan.converter).eq(Misc.ZERO_ADDRESS);
+        });
+      });
     });
     describe("Bad paths", () => {
       async function tryGetConversionPlan(
@@ -546,7 +565,7 @@ describe("AaveTwoPlatformAdapterTest", () => {
         });
       });
 
-      describe("frozen", () => {
+      describe("pool is frozen", () => {
         it("should fail if collateral token is frozen", async () => {
           if (!await isPolygonForkInUse()) return;
           expect((await tryGetConversionPlan({ makeCollateralAssetFrozen: true })).converter).eq(Misc.ZERO_ADDRESS);
@@ -788,6 +807,33 @@ describe("AaveTwoPlatformAdapterTest", () => {
         collateralAsset,
         borrowAsset
       );
+    });
+  });
+
+  describe("setFrozen", () => {
+    it("should assign expected value to frozen", async () => {
+      const controller = await TetuConverterApp.createController(deployer,
+        {tetuLiquidatorAddress: MaticAddresses.TETU_LIQUIDATOR}
+      );
+
+      const aavePool = await AaveTwoHelper.getAavePool(deployer);
+      const aavePlatformAdapter = await AdaptersHelper.createAaveTwoPlatformAdapter(
+        deployer,
+        controller.address,
+        aavePool.address,
+        ethers.Wallet.createRandom().address,
+      );
+
+      const before = await aavePlatformAdapter.frozen();
+      await aavePlatformAdapter.setFrozen(true);
+      const middle = await aavePlatformAdapter.frozen();
+      await aavePlatformAdapter.setFrozen(false);
+      const after = await aavePlatformAdapter.frozen();
+
+      const ret = [before, middle, after].join();
+      const expected = [false, true, false].join();
+
+      expect(ret).eq(expected);
     });
   });
 //endregion Unit tests

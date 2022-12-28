@@ -36,6 +36,7 @@ import {
   GAS_LIMIT_HUNDRED_FINANCE_GET_CONVERSION_PLAN
 } from "../../baseUT/GasLimit";
 import {colorNameTag} from "hardhat-tracer/dist/src/colors";
+import {DForceHelper} from "../../../scripts/integration/helpers/DForceHelper";
 
 describe("Hundred finance, platform adapter", () => {
 //region Global vars for all tests
@@ -122,6 +123,7 @@ describe("Hundred finance, platform adapter", () => {
     setBorrowPaused?: boolean;
     setBorrowCapacityExceeded?: boolean;
     setMinBorrowCapacityDelta?: BigNumber;
+    frozen?: boolean;
   }
 
   interface IPreparePlanResults {
@@ -201,6 +203,9 @@ describe("Hundred finance, platform adapter", () => {
         borrowCToken,
         borrowAssetData.totalBorrows.add(badPathsParams?.setMinBorrowCapacityDelta)
       );
+    }
+    if (badPathsParams?.frozen) {
+      await hfPlatformAdapter.setFrozen(true);
     }
 
     const plan = await hfPlatformAdapter.getConversionPlan(
@@ -584,6 +589,24 @@ describe("Hundred finance, platform adapter", () => {
           controlGasLimitsEx(gasUsed, GAS_LIMIT_HUNDRED_FINANCE_GET_CONVERSION_PLAN, (u, t) => {
             expect(u).to.be.below(t);
           });
+        });
+      });
+      describe("Frozen", () => {
+        it("should return no plan", async () => {
+          if (!await isPolygonForkInUse()) return;
+
+          const r = await preparePlan(
+            controller,
+            MaticAddresses.DAI,
+            parseUnits("1", 18),
+            MaticAddresses.WMATIC,
+            MaticAddresses.hDAI,
+            MaticAddresses.hMATIC,
+            {
+              frozen: true
+            }
+          );
+          expect(r.plan.converter).eq(Misc.ZERO_ADDRESS);
         });
       });
     });
@@ -1077,6 +1100,34 @@ describe("Hundred finance, platform adapter", () => {
           expect(r.ltv18.eq(0) && r.liquidityThreshold18.eq(0)).eq(true);
         });
       });
+    });
+  });
+
+  describe("setFrozen", () => {
+    it("should assign expected value to frozen", async () => {
+      const controller = await TetuConverterApp.createController(deployer,
+        {tetuLiquidatorAddress: MaticAddresses.TETU_LIQUIDATOR}
+      );
+
+      const comptroller = await HundredFinanceHelper.getComptroller(deployer);
+      const hfPlatformAdapter = await AdaptersHelper.createHundredFinancePlatformAdapter(
+        deployer,
+        controller.address,
+        comptroller.address,
+        ethers.Wallet.createRandom().address,
+        [],
+      );
+
+      const before = await hfPlatformAdapter.frozen();
+      await hfPlatformAdapter.setFrozen(true);
+      const middle = await hfPlatformAdapter.frozen();
+      await hfPlatformAdapter.setFrozen(false);
+      const after = await hfPlatformAdapter.frozen();
+
+      const ret = [before, middle, after].join();
+      const expected = [false, true, false].join();
+
+      expect(ret).eq(expected);
     });
   });
 //endregion Unit tests

@@ -29,6 +29,9 @@ contract LendingPlatformMock is IPlatformAdapter {
   /// @notice asset => cToken
   mapping(address => address) public cTokens;
 
+  /// @notice True if the platform is frozen and new borrowing is not possible (at this moment)
+  bool public override frozen;
+
   constructor(
     address controller_,
     address pool_,
@@ -88,6 +91,11 @@ contract LendingPlatformMock is IPlatformAdapter {
     console.log("setMaxAmountToSupply", asset_, maxAmountToSupply_, address(this));
   }
 
+  /// @notice Set platform to frozen/unfrozen state. In frozen state any new borrowing is forbidden.
+  function setFrozen(bool frozen_) external {
+    require(msg.sender == IController(_controller).governance(), AppErrors.GOVERNANCE_ONLY);
+    frozen = frozen_;
+  }
   ///////////////////////////////////////////////////////////////////////////////
   ///  get conversion plan
   ///////////////////////////////////////////////////////////////////////////////
@@ -101,41 +109,45 @@ contract LendingPlatformMock is IPlatformAdapter {
   ) external view override returns (
     AppDataTypes.ConversionPlan memory plan
   ) {
-    uint decimalsBorrowAsset = IERC20Metadata(borrowAsset_).decimals();
+    if (frozen) {
+      return plan;
+    } else {
+      uint decimalsBorrowAsset = IERC20Metadata(borrowAsset_).decimals();
 
-    uint amountToBorrow = AppUtils.toMantissa(
-        100 * collateralAmount_ / healthFactor2_
-        * liquidationThresholds18[collateralAsset_]
-        * IPriceOracle(_priceOracle).getAssetPrice(collateralAsset_)
-        / IPriceOracle(_priceOracle).getAssetPrice(borrowAsset_)
-        / 1e18,
-      uint8(IERC20Metadata(collateralAsset_).decimals()),
-      uint8(decimalsBorrowAsset)
-    );
+      uint amountToBorrow = AppUtils.toMantissa(
+          100 * collateralAmount_ / healthFactor2_
+          * liquidationThresholds18[collateralAsset_]
+          * IPriceOracle(_priceOracle).getAssetPrice(collateralAsset_)
+          / IPriceOracle(_priceOracle).getAssetPrice(borrowAsset_)
+          / 1e18,
+        uint8(IERC20Metadata(collateralAsset_).decimals()),
+        uint8(decimalsBorrowAsset)
+      );
 
-    uint amountCollateralInBorrowAsset36 = AppUtils.toMantissa(
-      collateralAmount_
-        * IPriceOracle(_priceOracle).getAssetPrice(collateralAsset_)
-        / IPriceOracle(_priceOracle).getAssetPrice(borrowAsset_),
-      uint8(IERC20Metadata(collateralAsset_).decimals()),
-      36
-    );
+      uint amountCollateralInBorrowAsset36 = AppUtils.toMantissa(
+        collateralAmount_
+          * IPriceOracle(_priceOracle).getAssetPrice(collateralAsset_)
+          / IPriceOracle(_priceOracle).getAssetPrice(borrowAsset_),
+        uint8(IERC20Metadata(collateralAsset_).decimals()),
+        36
+      );
 
-    return AppDataTypes.ConversionPlan({
-      converter: _converters[0], //TODO: make converter selectable
-      liquidationThreshold18: liquidationThresholds18[collateralAsset_],
-      ltv18: liquidationThresholds18[collateralAsset_],
-      maxAmountToBorrow: liquidityToBorrow[borrowAsset_],
-      maxAmountToSupply: maxAmountToSupply[collateralAsset_] == 0
-        ? type(uint).max
-        : maxAmountToSupply[collateralAsset_],
-      amountToBorrow: amountToBorrow,
-      amountCollateralInBorrowAsset36: amountCollateralInBorrowAsset36,
-// For simplicity, costs and incomes don't depend on amount of borrow
-      borrowCost36: borrowRates[borrowAsset_] * countBlocks_ * 1e36 / 10**decimalsBorrowAsset,
-      supplyIncomeInBorrowAsset36: supplyRatesBt18[collateralAsset_]  * countBlocks_ * 1e36 / 10**decimalsBorrowAsset,
-      rewardsAmountInBorrowAsset36: rewardsAmountsBt36[borrowAsset_]
-    });
+      return AppDataTypes.ConversionPlan({
+        converter: _converters[0], //TODO: make converter selectable
+        liquidationThreshold18: liquidationThresholds18[collateralAsset_],
+        ltv18: liquidationThresholds18[collateralAsset_],
+        maxAmountToBorrow: liquidityToBorrow[borrowAsset_],
+        maxAmountToSupply: maxAmountToSupply[collateralAsset_] == 0
+          ? type(uint).max
+          : maxAmountToSupply[collateralAsset_],
+        amountToBorrow: amountToBorrow,
+        amountCollateralInBorrowAsset36: amountCollateralInBorrowAsset36,
+  // For simplicity, costs and incomes don't depend on amount of borrow
+        borrowCost36: borrowRates[borrowAsset_] * countBlocks_ * 1e36 / 10**decimalsBorrowAsset,
+        supplyIncomeInBorrowAsset36: supplyRatesBt18[collateralAsset_]  * countBlocks_ * 1e36 / 10**decimalsBorrowAsset,
+        rewardsAmountInBorrowAsset36: rewardsAmountsBt36[borrowAsset_]
+      });
+    }
   }
 
   function converters() external view override returns (address[] memory) {

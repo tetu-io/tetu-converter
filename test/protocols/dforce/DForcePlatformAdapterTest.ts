@@ -33,6 +33,7 @@ import {DForceChangePriceUtils} from "../../baseUT/protocols/dforce/DForceChange
 import {parseUnits} from "ethers/lib/utils";
 import {controlGasLimitsEx} from "../../../scripts/utils/hardhatUtils";
 import {GAS_LIMIT_DFORCE_GET_CONVERSION_PLAN} from "../../baseUT/GasLimit";
+import {AaveTwoHelper} from "../../../scripts/integration/helpers/AaveTwoHelper";
 
 describe("DForce integration tests, platform adapter", () => {
 //region Global vars for all tests
@@ -155,6 +156,7 @@ describe("DForce integration tests, platform adapter", () => {
     setBorrowCapacityExceeded?: boolean;
     setMinBorrowCapacityDelta?: BigNumber;
     setSupplyCapacityUnlimited?: boolean;
+    frozen?: boolean;
   }
 
   interface IPreparePlanResults {
@@ -268,6 +270,9 @@ describe("DForce integration tests, platform adapter", () => {
         collateralCToken,
         Misc.MAX_UINT
       );
+    }
+    if (badPathsParams?.frozen) {
+      await dForcePlatformAdapter.setFrozen(true);
     }
 
     const plan = await dForcePlatformAdapter.getConversionPlan(
@@ -710,6 +715,24 @@ describe("DForce integration tests, platform adapter", () => {
           controlGasLimitsEx(gasUsed, GAS_LIMIT_DFORCE_GET_CONVERSION_PLAN, (u, t) => {
             expect(u).to.be.below(t);
           });
+        });
+      });
+      describe("Frozen", () => {
+        it("should return no plan", async () => {
+          if (!await isPolygonForkInUse()) return;
+
+          const r = await preparePlan(
+            controller,
+            MaticAddresses.DAI,
+            parseUnits("1", 18),
+            MaticAddresses.WMATIC,
+            MaticAddresses.dForce_iDAI,
+            MaticAddresses.dForce_iMATIC,
+            {
+              frozen: true
+            }
+          );
+          expect(r.plan.converter).eq(Misc.ZERO_ADDRESS);
         });
       });
     });
@@ -1256,6 +1279,34 @@ describe("DForce integration tests, platform adapter", () => {
         (s: string) => stringsEqualCaseInsensitive(s, collateralAsset),
         (s: string) => stringsEqualCaseInsensitive(s, borrowAsset)
       );
+    });
+  });
+
+  describe("setFrozen", () => {
+    it("should assign expected value to frozen", async () => {
+      const controller = await TetuConverterApp.createController(deployer,
+        {tetuLiquidatorAddress: MaticAddresses.TETU_LIQUIDATOR}
+      );
+
+      const comptroller = await DForceHelper.getController(deployer);
+      const dForcePlatformAdapter = await AdaptersHelper.createDForcePlatformAdapter(
+        deployer,
+        controller.address,
+        comptroller.address,
+        ethers.Wallet.createRandom().address,
+        [MaticAddresses.dForce_iDAI, MaticAddresses.dForce_iUSDC],
+      );
+
+      const before = await dForcePlatformAdapter.frozen();
+      await dForcePlatformAdapter.setFrozen(true);
+      const middle = await dForcePlatformAdapter.frozen();
+      await dForcePlatformAdapter.setFrozen(false);
+      const after = await dForcePlatformAdapter.frozen();
+
+      const ret = [before, middle, after].join();
+      const expected = [false, true, false].join();
+
+      expect(ret).eq(expected);
     });
   });
 //endregion Unit tests

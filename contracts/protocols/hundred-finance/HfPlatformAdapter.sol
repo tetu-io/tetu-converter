@@ -35,6 +35,9 @@ contract HfPlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
   /// @dev There is no underlying for WMATIC, we store hMATIC:WMATIC
   mapping(address => address) public activeAssets;
 
+  /// @notice True if the platform is frozen and new borrowing is not possible (at this moment)
+  bool public override frozen;
+
   ///////////////////////////////////////////////////////
   ///               Events
   ///////////////////////////////////////////////////////
@@ -95,6 +98,12 @@ contract HfPlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
     emit OnPoolAdapterInitialized(converter_, poolAdapter_, user_, collateralAsset_, borrowAsset_);
   }
 
+  /// @notice Set platform to frozen/unfrozen state. In frozen state any new borrowing is forbidden.
+  function setFrozen(bool frozen_) external {
+    require(msg.sender == controller.governance(), AppErrors.GOVERNANCE_ONLY);
+    frozen = frozen_;
+  }
+
   /// @notice Register new CTokens supported by the market
   /// @dev It's possible to add CTokens only because, we can add unregister function if necessary
   function registerCTokens(address[] memory cTokens_) external {
@@ -149,70 +158,71 @@ contract HfPlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
   ) external override view returns (
     AppDataTypes.ConversionPlan memory plan
   ) {
-
     require(collateralAsset_ != address(0) && borrowAsset_ != address(0), AppErrors.ZERO_ADDRESS);
     require(collateralAmount_ != 0 && countBlocks_ != 0, AppErrors.INCORRECT_VALUE);
     require(healthFactor2_ >= controller.minHealthFactor2(), AppErrors.WRONG_HEALTH_FACTOR);
 
-    address cTokenCollateral = activeAssets[collateralAsset_];
-    if (cTokenCollateral != address(0)) {
+    if (! frozen) {
+      address cTokenCollateral = activeAssets[collateralAsset_];
+      if (cTokenCollateral != address(0)) {
 
-      address cTokenBorrow = activeAssets[borrowAsset_];
-      if (cTokenBorrow != address(0)) {
-        (plan.ltv18, plan.liquidationThreshold18) = getMarketsInfo(cTokenCollateral, cTokenBorrow);
-        if (plan.ltv18 != 0 && plan.liquidationThreshold18 != 0) {
-          plan.converter = converter;
+        address cTokenBorrow = activeAssets[borrowAsset_];
+        if (cTokenBorrow != address(0)) {
+          (plan.ltv18, plan.liquidationThreshold18) = getMarketsInfo(cTokenCollateral, cTokenBorrow);
+          if (plan.ltv18 != 0 && plan.liquidationThreshold18 != 0) {
+            plan.converter = converter;
 
-          plan.maxAmountToBorrow = IHfCToken(cTokenBorrow).getCash();
-          uint borrowCap = comptroller.borrowCaps(cTokenBorrow);
-          if (borrowCap != 0) {
-            uint totalBorrows = IHfCToken(cTokenBorrow).totalBorrows();
-            if (totalBorrows > borrowCap) {
-              plan.maxAmountToBorrow = 0;
-            } else {
-              if (totalBorrows + plan.maxAmountToBorrow > borrowCap) {
-                plan.maxAmountToBorrow = borrowCap - totalBorrows;
+            plan.maxAmountToBorrow = IHfCToken(cTokenBorrow).getCash();
+            uint borrowCap = comptroller.borrowCaps(cTokenBorrow);
+            if (borrowCap != 0) {
+              uint totalBorrows = IHfCToken(cTokenBorrow).totalBorrows();
+              if (totalBorrows > borrowCap) {
+                plan.maxAmountToBorrow = 0;
+              } else {
+                if (totalBorrows + plan.maxAmountToBorrow > borrowCap) {
+                  plan.maxAmountToBorrow = borrowCap - totalBorrows;
+                }
               }
             }
+
+            // it seems that supply is not limited in HundredFinance protocol
+            plan.maxAmountToSupply = type(uint).max; // unlimited
+
+            HfAprLib.PricesAndDecimals memory vars;
+            vars.collateral10PowDecimals = 10**IERC20Metadata(collateralAsset_).decimals();
+            vars.borrow10PowDecimals = 10**IERC20Metadata(borrowAsset_).decimals();
+            vars.priceOracle = IHfPriceOracle(comptroller.oracle());
+            vars.priceCollateral36 = HfAprLib.getPrice(vars.priceOracle, cTokenCollateral) * vars.collateral10PowDecimals;
+            vars.priceBorrow36 = HfAprLib.getPrice(vars.priceOracle, cTokenBorrow) * vars.borrow10PowDecimals;
+
+            // calculate amount that can be borrowed
+            // split calculation on several parts to avoid stack too deep
+            plan.amountToBorrow =
+              100 * collateralAmount_ / uint(healthFactor2_)
+              * (vars.priceCollateral36 * plan.liquidationThreshold18 / vars.priceBorrow36)
+              / 1e18
+              * vars.borrow10PowDecimals
+              / vars.collateral10PowDecimals;
+
+            if (plan.amountToBorrow > plan.maxAmountToBorrow) {
+              plan.amountToBorrow = plan.maxAmountToBorrow;
+            }
+
+            // calculate current borrow rate and predicted APR after borrowing required amount
+            (plan.borrowCost36,
+             plan.supplyIncomeInBorrowAsset36
+            ) = HfAprLib.getRawCostAndIncomes(
+              HfAprLib.getCore(cTokenCollateral, cTokenBorrow),
+              collateralAmount_,
+              countBlocks_,
+              plan.amountToBorrow,
+              vars
+            );
+
+            plan.amountCollateralInBorrowAsset36 =
+              collateralAmount_ * (10**36 * vars.priceCollateral36 / vars.priceBorrow36)
+              / vars.collateral10PowDecimals;
           }
-
-          // it seems that supply is not limited in HundredFinance protocol
-          plan.maxAmountToSupply = type(uint).max; // unlimited
-
-          HfAprLib.PricesAndDecimals memory vars;
-          vars.collateral10PowDecimals = 10**IERC20Metadata(collateralAsset_).decimals();
-          vars.borrow10PowDecimals = 10**IERC20Metadata(borrowAsset_).decimals();
-          vars.priceOracle = IHfPriceOracle(comptroller.oracle());
-          vars.priceCollateral36 = HfAprLib.getPrice(vars.priceOracle, cTokenCollateral) * vars.collateral10PowDecimals;
-          vars.priceBorrow36 = HfAprLib.getPrice(vars.priceOracle, cTokenBorrow) * vars.borrow10PowDecimals;
-
-          // calculate amount that can be borrowed
-          // split calculation on several parts to avoid stack too deep
-          plan.amountToBorrow =
-            100 * collateralAmount_ / uint(healthFactor2_)
-            * (vars.priceCollateral36 * plan.liquidationThreshold18 / vars.priceBorrow36)
-            / 1e18
-            * vars.borrow10PowDecimals
-            / vars.collateral10PowDecimals;
-
-          if (plan.amountToBorrow > plan.maxAmountToBorrow) {
-            plan.amountToBorrow = plan.maxAmountToBorrow;
-          }
-
-          // calculate current borrow rate and predicted APR after borrowing required amount
-          (plan.borrowCost36,
-           plan.supplyIncomeInBorrowAsset36
-          ) = HfAprLib.getRawCostAndIncomes(
-            HfAprLib.getCore(cTokenCollateral, cTokenBorrow),
-            collateralAmount_,
-            countBlocks_,
-            plan.amountToBorrow,
-            vars
-          );
-
-          plan.amountCollateralInBorrowAsset36 =
-            collateralAmount_ * (10**36 * vars.priceCollateral36 / vars.priceBorrow36)
-            / vars.collateral10PowDecimals;
         }
       }
     }

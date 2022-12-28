@@ -35,6 +35,9 @@ contract DForcePlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
   /// @dev There is no underlying for WMATIC, we store iMATIC:WMATIC
   mapping(address => address) public activeAssets;
 
+  /// @notice True if the platform is frozen and new borrowing is not possible (at this moment)
+  bool public override frozen;
+
   ///////////////////////////////////////////////////////
   ///               Events
   ///////////////////////////////////////////////////////
@@ -93,6 +96,12 @@ contract DForcePlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
     );
 
     emit OnPoolAdapterInitialized(converter_, poolAdapter_, user_, collateralAsset_, borrowAsset_);
+  }
+
+  /// @notice Set platform to frozen/unfrozen state. In frozen state any new borrowing is forbidden.
+  function setFrozen(bool frozen_) external {
+    require(msg.sender == controller.governance(), AppErrors.GOVERNANCE_ONLY);
+    frozen = frozen_;
   }
 
   /// @notice Register new CTokens supported by the market
@@ -154,85 +163,87 @@ contract DForcePlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
     require(collateralAmount_ != 0 && countBlocks_ != 0, AppErrors.INCORRECT_VALUE);
     require(healthFactor2_ >= controller.minHealthFactor2(), AppErrors.WRONG_HEALTH_FACTOR);
 
-    IDForceController comptrollerLocal = comptroller;
-    address cTokenCollateral = activeAssets[collateralAsset_];
-    if (cTokenCollateral != address(0)) {
-      address cTokenBorrow = activeAssets[borrowAsset_];
-      if (cTokenBorrow != address(0)) {
-        (uint collateralFactor, uint supplyCapacity) = _getCollateralMarketData(comptrollerLocal, cTokenCollateral);
-        if (collateralFactor != 0 && supplyCapacity != 0) {
-          {
-            (uint borrowFactorMantissa, uint borrowCapacity) = _getBorrowMarketData(comptrollerLocal, cTokenBorrow);
-            if (borrowFactorMantissa != 0 && borrowCapacity != 0) {
-              plan.converter = converter;
+    if (! frozen) {
+      IDForceController comptrollerLocal = comptroller;
+      address cTokenCollateral = activeAssets[collateralAsset_];
+      if (cTokenCollateral != address(0)) {
+        address cTokenBorrow = activeAssets[borrowAsset_];
+        if (cTokenBorrow != address(0)) {
+          (uint collateralFactor, uint supplyCapacity) = _getCollateralMarketData(comptrollerLocal, cTokenCollateral);
+          if (collateralFactor != 0 && supplyCapacity != 0) {
+            {
+              (uint borrowFactorMantissa, uint borrowCapacity) = _getBorrowMarketData(comptrollerLocal, cTokenBorrow);
+              if (borrowFactorMantissa != 0 && borrowCapacity != 0) {
+                plan.converter = converter;
 
-              plan.liquidationThreshold18 = collateralFactor;
-              plan.ltv18 = collateralFactor * borrowFactorMantissa / 10**18;
+                plan.liquidationThreshold18 = collateralFactor;
+                plan.ltv18 = collateralFactor * borrowFactorMantissa / 10**18;
 
-              plan.maxAmountToBorrow = IDForceCToken(cTokenBorrow).getCash();
-              // BorrowCapacity: -1 means there is no limit on the capacity
-              //                  0 means the asset can not be borrowed any more
-              if (borrowCapacity != type(uint).max) { // == uint(-1)
-                // we shouldn't exceed borrowCapacity limit, see Controller.beforeBorrow
-                uint totalBorrow = IDForceCToken(cTokenBorrow).totalBorrows();
-                if (totalBorrow > borrowCapacity) {
-                  plan.maxAmountToBorrow = 0;
-                } else {
-                  if (totalBorrow + plan.maxAmountToBorrow > borrowCapacity) {
-                    plan.maxAmountToBorrow = borrowCapacity - totalBorrow;
+                plan.maxAmountToBorrow = IDForceCToken(cTokenBorrow).getCash();
+                // BorrowCapacity: -1 means there is no limit on the capacity
+                //                  0 means the asset can not be borrowed any more
+                if (borrowCapacity != type(uint).max) { // == uint(-1)
+                  // we shouldn't exceed borrowCapacity limit, see Controller.beforeBorrow
+                  uint totalBorrow = IDForceCToken(cTokenBorrow).totalBorrows();
+                  if (totalBorrow > borrowCapacity) {
+                    plan.maxAmountToBorrow = 0;
+                  } else {
+                    if (totalBorrow + plan.maxAmountToBorrow > borrowCapacity) {
+                      plan.maxAmountToBorrow = borrowCapacity - totalBorrow;
+                    }
                   }
                 }
-              }
 
-              if (supplyCapacity == type(uint).max) { // == uint(-1)
-                plan.maxAmountToSupply = type(uint).max;
-              } else {
-                // we shouldn't exceed supplyCapacity limit, see Controller.beforeMint
-                uint totalSupply = IDForceCToken(cTokenCollateral).totalSupply()
-                  * IDForceCToken(cTokenCollateral).exchangeRateStored()
-                  / 1e18;
-                plan.maxAmountToSupply = totalSupply >= supplyCapacity
-                  ? 0
-                  : supplyCapacity - totalSupply;
+                if (supplyCapacity == type(uint).max) { // == uint(-1)
+                  plan.maxAmountToSupply = type(uint).max;
+                } else {
+                  // we shouldn't exceed supplyCapacity limit, see Controller.beforeMint
+                  uint totalSupply = IDForceCToken(cTokenCollateral).totalSupply()
+                    * IDForceCToken(cTokenCollateral).exchangeRateStored()
+                    / 1e18;
+                  plan.maxAmountToSupply = totalSupply >= supplyCapacity
+                    ? 0
+                    : supplyCapacity - totalSupply;
+                }
               }
             }
-          }
 
-          DForceAprLib.PricesAndDecimals memory vars;
-          vars.collateral10PowDecimals = 10**IERC20Metadata(collateralAsset_).decimals();
-          vars.borrow10PowDecimals = 10**IERC20Metadata(borrowAsset_).decimals();
-          vars.priceOracle = IDForcePriceOracle(comptroller.priceOracle());
-          vars.priceCollateral36 = DForceAprLib.getPrice(vars.priceOracle, cTokenCollateral)
-            * vars.collateral10PowDecimals;
-          vars.priceBorrow36 = DForceAprLib.getPrice(vars.priceOracle, cTokenBorrow)
-            * vars.borrow10PowDecimals;
+            DForceAprLib.PricesAndDecimals memory vars;
+            vars.collateral10PowDecimals = 10**IERC20Metadata(collateralAsset_).decimals();
+            vars.borrow10PowDecimals = 10**IERC20Metadata(borrowAsset_).decimals();
+            vars.priceOracle = IDForcePriceOracle(comptroller.priceOracle());
+            vars.priceCollateral36 = DForceAprLib.getPrice(vars.priceOracle, cTokenCollateral)
+              * vars.collateral10PowDecimals;
+            vars.priceBorrow36 = DForceAprLib.getPrice(vars.priceOracle, cTokenBorrow)
+              * vars.borrow10PowDecimals;
 
-          // calculate amount that can be borrowed
-          // split calculation on several parts to avoid stack too deep
-          plan.amountToBorrow =
-              100 * collateralAmount_ / uint(healthFactor2_)
-              * (plan.liquidationThreshold18 * vars.priceCollateral36 / vars.priceBorrow36)
-              / 1e18
-              * vars.borrow10PowDecimals
+            // calculate amount that can be borrowed
+            // split calculation on several parts to avoid stack too deep
+            plan.amountToBorrow =
+                100 * collateralAmount_ / uint(healthFactor2_)
+                * (plan.liquidationThreshold18 * vars.priceCollateral36 / vars.priceBorrow36)
+                / 1e18
+                * vars.borrow10PowDecimals
+                / vars.collateral10PowDecimals;
+            if (plan.amountToBorrow > plan.maxAmountToBorrow) {
+              plan.amountToBorrow = plan.maxAmountToBorrow;
+            }
+            // calculate current borrow rate and predicted APR after borrowing required amount
+            (plan.borrowCost36,
+             plan.supplyIncomeInBorrowAsset36,
+             plan.rewardsAmountInBorrowAsset36
+            ) = DForceAprLib.getRawCostAndIncomes(
+              DForceAprLib.getCore(comptroller, cTokenCollateral, cTokenBorrow),
+              collateralAmount_,
+              countBlocks_,
+              plan.amountToBorrow,
+              vars
+            );
+
+            plan.amountCollateralInBorrowAsset36 =
+              collateralAmount_ * (10**36 * vars.priceCollateral36 / vars.priceBorrow36)
               / vars.collateral10PowDecimals;
-          if (plan.amountToBorrow > plan.maxAmountToBorrow) {
-            plan.amountToBorrow = plan.maxAmountToBorrow;
           }
-          // calculate current borrow rate and predicted APR after borrowing required amount
-          (plan.borrowCost36,
-           plan.supplyIncomeInBorrowAsset36,
-           plan.rewardsAmountInBorrowAsset36
-          ) = DForceAprLib.getRawCostAndIncomes(
-            DForceAprLib.getCore(comptroller, cTokenCollateral, cTokenBorrow),
-            collateralAmount_,
-            countBlocks_,
-            plan.amountToBorrow,
-            vars
-          );
-
-          plan.amountCollateralInBorrowAsset36 =
-            collateralAmount_ * (10**36 * vars.priceCollateral36 / vars.priceBorrow36)
-            / vars.collateral10PowDecimals;
         }
       }
     }

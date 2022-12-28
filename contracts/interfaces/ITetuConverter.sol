@@ -27,6 +27,7 @@ interface ITetuConverter {
   /// @dev This is writable function with read-only behavior.
   ///      It should be writable to be able to simulate real swap and get a real APR.
   /// @param sourceAmount_ Amount to be converted
+  ///                     This amount must be approved to TetuConverter before the call.
   /// @return converter Result contract that should be used for conversion to be passed to borrow()
   /// @return maxTargetAmount Max available amount of target tokens that we can get after conversion
   /// @return apr18 Interest on the use of {outMaxTargetAmount} during the given period, decimals 18

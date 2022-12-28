@@ -36,7 +36,7 @@ import {CoreContractsHelper} from "../baseUT/helpers/CoreContractsHelper";
 import {areAlmostEqual} from "../baseUT/utils/CommonUtils";
 import {Controller__factory, IController__factory, ITetuConverter__factory} from "../../typechain";
 
-describe("GetDebtAmountCurrentTest", () => {
+describe.skip("GetDebtAmountCurrentTest", () => {
 //region Global vars for all tests
   let snapshot: string;
   let snapshotForEach: string;

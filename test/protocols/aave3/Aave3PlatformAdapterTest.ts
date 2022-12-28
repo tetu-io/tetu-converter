@@ -29,6 +29,7 @@ import {parseUnits} from "ethers/lib/utils";
 import {Aave3ChangePricesUtils} from "../../baseUT/protocols/aave3/Aave3ChangePricesUtils";
 import {controlGasLimitsEx} from "../../../scripts/utils/hardhatUtils";
 import {GAS_LIMIT_AAVE_3_GET_CONVERSION_PLAN} from "../../baseUT/GasLimit";
+import exp from "constants";
 
 describe("Aave3PlatformAdapterTest", () => {
 //region Global vars for all tests
@@ -230,6 +231,7 @@ describe("Aave3PlatformAdapterTest", () => {
       setMinBorrowCap?: boolean;
       setZeroSupplyCap?: boolean;
       setZeroBorrowCap?: boolean;
+      frozen?: boolean;
     }
 
     interface IPreparePlanResults {
@@ -291,6 +293,9 @@ describe("Aave3PlatformAdapterTest", () => {
       }
       if (badPathsParams?.setZeroBorrowCap) {
         await Aave3ChangePricesUtils.setBorrowCap(deployer, borrowAsset, BigNumber.from(0));
+      }
+      if (badPathsParams?.frozen) {
+        await aavePlatformAdapter.setFrozen(true);
       }
       // get conversion plan
       const plan: IConversionPlan = await aavePlatformAdapter.getConversionPlan(
@@ -590,6 +595,22 @@ describe("Aave3PlatformAdapterTest", () => {
           controlGasLimitsEx(gasUsed, GAS_LIMIT_AAVE_3_GET_CONVERSION_PLAN, (u, t) => {
             expect(u).to.be.below(t);
           });
+        });
+      });
+      describe("Frozen", () => {
+        it("should return no plan", async () => {
+          if (!await isPolygonForkInUse()) return;
+
+          const r = await preparePlan(
+            MaticAddresses.DAI,
+            parseUnits("1", 18),
+            MaticAddresses.WMATIC,
+            10,
+            {
+              frozen: true
+            }
+          );
+          expect(r.plan.converter).eq(Misc.ZERO_ADDRESS);
         });
       });
     });
@@ -1019,7 +1040,33 @@ describe("Aave3PlatformAdapterTest", () => {
     });
   });
 
+  describe("setFrozen", () => {
+    it("should assign expected value to frozen", async () => {
+      const controller = await TetuConverterApp.createController(deployer,
+        {tetuLiquidatorAddress: MaticAddresses.TETU_LIQUIDATOR}
+      );
 
+      const aavePool = await Aave3Helper.getAavePool(deployer);
+      const aavePlatformAdapter = await AdaptersHelper.createAave3PlatformAdapter(
+        deployer,
+        controller.address,
+        aavePool.address,
+        ethers.Wallet.createRandom().address,
+        ethers.Wallet.createRandom().address
+      );
+
+      const before = await aavePlatformAdapter.frozen();
+      await aavePlatformAdapter.setFrozen(true);
+      const middle = await aavePlatformAdapter.frozen();
+      await aavePlatformAdapter.setFrozen(false);
+      const after = await aavePlatformAdapter.frozen();
+
+      const ret = [before, middle, after].join();
+      const expected = [false, true, false].join();
+
+      expect(ret).eq(expected);
+    });
+  });
 //endregion Unit tests
 
 });
