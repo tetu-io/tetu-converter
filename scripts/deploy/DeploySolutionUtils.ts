@@ -306,10 +306,10 @@ export class DeploySolutionUtils {
     borrowManagerSetupParams: IBorrowManagerSetupParams,
     alreadyDeployed?: IDeployedContracts
   ) : Promise<IDeployCoreResults> {
-    const controller = alreadyDeployed?.controller
-      || (await CoreContractsHelper.deployController(deployer)).address;
     const priceOracle = alreadyDeployed?.priceOracle
       || (await CoreContractsHelper.createPriceOracle(deployer)).address;
+    const controller = alreadyDeployed?.controller
+      || (await CoreContractsHelper.deployController(deployer, tetuLiquidator, priceOracle)).address;
 
     const borrowManager = alreadyDeployed?.borrowManager || (await CoreContractsHelper.createBorrowManager(
       deployer,
@@ -345,9 +345,7 @@ export class DeploySolutionUtils {
         borrowManager,
         debtMonitor,
         keeper,
-        tetuLiquidator,
         swapManager,
-        priceOracle,
         {gasLimit: GAS_DEPLOY_LIMIT}
       )
     );

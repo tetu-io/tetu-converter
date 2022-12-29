@@ -633,7 +633,11 @@ describe("DebtsMonitor", () => {
       // thresholdAPR: number,
       // thresholdCountBlocks: number,
     ): Promise<{ret: string, expected: string}> {
-      const controller = await CoreContractsHelper.deployController(deployer);
+      const controller = await CoreContractsHelper.deployController(
+        deployer,
+        ethers.Wallet.createRandom().address,
+        ethers.Wallet.createRandom().address,
+      );
       const borrowManager = await CoreContractsHelper.createBorrowManager(deployer, controller.address);
       const debtMonitor = await CoreContractsHelper.createDebtMonitor(
         deployer,

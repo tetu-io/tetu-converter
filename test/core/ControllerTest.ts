@@ -105,7 +105,7 @@ describe("Controller", () => {
   async function createTestController(
     a: IControllerMembers,
   ) : Promise<{controller: Controller, gasUsed: BigNumber}> {
-    const controller = await CoreContractsHelper.deployController(deployer);
+    const controller = await CoreContractsHelper.deployController(deployer, a.tetuLiquidator, a.priceOracle);
 
     const gasUsed = await getGasUsed(
       controller.initialize(
@@ -118,9 +118,7 @@ describe("Controller", () => {
         a.borrowManager,
         a.debtMonitor,
         a.keeper,
-        a.tetuLiquidator,
         a.swapManager,
-        a.priceOracle
       )
     );
 

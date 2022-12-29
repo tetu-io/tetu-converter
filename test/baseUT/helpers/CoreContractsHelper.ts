@@ -9,8 +9,17 @@ import {COUNT_BLOCKS_PER_DAY} from "../utils/aprUtils";
 import {parseUnits} from "ethers/lib/utils";
 
 export class CoreContractsHelper {
-  static async deployController(deployer: SignerWithAddress): Promise<Controller> {
-    return (await DeployUtils.deployContract(deployer, "Controller")) as Controller;
+  static async deployController(
+    deployer: SignerWithAddress,
+    tetuLiquidator: string,
+    priceOracle: string
+  ): Promise<Controller> {
+    return (await DeployUtils.deployContract(
+      deployer,
+      "Controller",
+      tetuLiquidator,
+      priceOracle
+    )) as Controller;
   }
   static async createController(
     deployer: SignerWithAddress,
@@ -43,7 +52,7 @@ export class CoreContractsHelper {
     const tetuLiquidator = await tetuLiquidatorFabric();
     const priceOracle = await priceOracleFabric();
 
-    const controller = await this.deployController(deployer);
+    const controller = await this.deployController(deployer, tetuLiquidator, priceOracle);
     const borrowManager = await borrowManagerFabric(controller);
     const keeper = await keeperFabric(controller);
 
@@ -69,9 +78,7 @@ export class CoreContractsHelper {
       borrowManager,
       debtMonitor,
       keeper,
-      tetuLiquidator,
-      swapManager,
-      priceOracle
+      swapManager
     );
     return controller;
   }
