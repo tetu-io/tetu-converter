@@ -11,10 +11,10 @@ export class AaveTwoPlatformFabric implements ILendingPlatformFabric {
     const aavePool = await AaveTwoHelper.getAavePool(deployer);
     const templateAdapterNormal = await AdaptersHelper.createAaveTwoPoolAdapter(deployer);
     const aavePlatformAdapter = await AdaptersHelper.createAaveTwoPlatformAdapter(
-      deployer
-      , controller.address
-      , aavePool.address
-      , templateAdapterNormal.address
+      deployer,
+      controller.address,
+      aavePool.address,
+      templateAdapterNormal.address
     );
 
     const bm = IBorrowManager__factory.connect(await controller.borrowManager(), deployer);

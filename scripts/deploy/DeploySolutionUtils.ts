@@ -5,7 +5,7 @@ import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import {CoreContractsHelper} from "../../test/baseUT/helpers/CoreContractsHelper";
 import {RunHelper} from "../utils/RunHelper";
 import {BigNumber} from "ethers";
-import {Controller__factory, IBorrowManager, IBorrowManager__factory, IController__factory} from "../../typechain";
+import {Controller__factory, IBorrowManager, IBorrowManager__factory} from "../../typechain";
 import {AdaptersHelper} from "../../test/baseUT/helpers/AdaptersHelper";
 import {appendFileSync} from "fs";
 import {ethers, network} from "hardhat";
@@ -379,7 +379,7 @@ export class DeploySolutionUtils {
       controller,
       aavePoolAddress,
       converterNormal.address,
-      converterEModde.address
+      converterEModde.address,
     );
 
     return {
@@ -421,7 +421,7 @@ export class DeploySolutionUtils {
       controller,
       comptroller,
       converterNormal.address,
-      cTokensActive
+      cTokensActive,
     );
 
     return {

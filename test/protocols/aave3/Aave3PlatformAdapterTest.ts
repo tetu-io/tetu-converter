@@ -4,7 +4,7 @@ import {TimeUtils} from "../../../scripts/utils/TimeUtils";
 import {
   Aave3PlatformAdapter,
   Aave3PlatformAdapter__factory, BorrowManager__factory, Controller, IAavePool,
-  IAaveProtocolDataProvider, IERC20Metadata__factory
+  IAaveProtocolDataProvider, IController__factory, IERC20Metadata__factory
 } from "../../../typechain";
 import {expect} from "chai";
 import {BigNumber} from "ethers";
@@ -143,7 +143,8 @@ describe("Aave3PlatformAdapterTest", () => {
         data.controller,
         data.aavePool,
         data.templateAdapterNormal,
-        data.templateAdapterEMode
+        data.templateAdapterEMode,
+        await controller.borrowManager()
       );
       return {data, platformAdapter};
     }

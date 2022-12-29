@@ -1121,7 +1121,9 @@ describe("Aave3PoolAdapterUnitTest", () => {
 
         const converterNormal = (await AdaptersHelper.createAave3PoolAdapter(deployer)).address;
         const platformAdapter = await AdaptersHelper.createAave3PlatformAdapter(
-          deployer, controller.address, MaticAddresses.AAVE_V3_POOL,
+          deployer,
+          controller.address,
+          MaticAddresses.AAVE_V3_POOL,
           converterNormal,
           (await AdaptersHelper.createAave3PoolAdapterEMode(deployer)).address
         );
@@ -1194,7 +1196,9 @@ describe("Aave3PoolAdapterUnitTest", () => {
 
         const converterNormal = (await AdaptersHelper.createAave3PoolAdapter(deployer)).address;
         const platformAdapter = await AdaptersHelper.createAave3PlatformAdapter(
-          deployer, controller.address, MaticAddresses.AAVE_V3_POOL,
+          deployer,
+          controller.address,
+          MaticAddresses.AAVE_V3_POOL,
           converterNormal,
           (await AdaptersHelper.createAave3PoolAdapterEMode(deployer)).address
         );

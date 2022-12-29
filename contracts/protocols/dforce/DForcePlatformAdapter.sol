@@ -30,6 +30,8 @@ contract DForcePlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
   IDForceController immutable public comptroller;
   /// @notice Template of pool adapter
   address immutable public converter;
+  /// @dev Same as controller.borrowManager(); we cache it for gas optimization
+  address immutable public borrowManager;
 
   /// @notice All enabled pairs underlying : cTokens. All assets usable for collateral/to borrow.
   /// @dev There is no underlying for WMATIC, we store iMATIC:WMATIC
@@ -55,12 +57,14 @@ contract DForcePlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
   ///////////////////////////////////////////////////////
   constructor (
     address controller_,
+    address borrowManager_,
     address comptroller_,
     address templatePoolAdapter_,
     address[] memory activeCTokens_
   ) {
     require(
       comptroller_ != address(0)
+      && borrowManager_ != address(0)
       && templatePoolAdapter_ != address(0)
       && controller_ != address(0),
       AppErrors.ZERO_ADDRESS
@@ -69,6 +73,7 @@ contract DForcePlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
     comptroller = IDForceController(comptroller_);
     controller = IController(controller_);
     converter = templatePoolAdapter_;
+    borrowManager = borrowManager_;
 
     _registerCTokens(activeCTokens_);
   }

@@ -45,7 +45,8 @@ import {CoreContractsHelper} from "../baseUT/helpers/CoreContractsHelper";
 import {formatUnits, parseUnits} from "ethers/lib/utils";
 import {controlGasLimitsEx} from "../../scripts/utils/hardhatUtils";
 import {
-  GAS_FIND_CONVERSION_STRATEGY_ONLY_BORROW_AVAILABLE, GAS_FIND_SWAP_STRATEGY,
+  GAS_FIND_CONVERSION_STRATEGY_ONLY_BORROW_AVAILABLE,
+  GAS_FIND_SWAP_STRATEGY, GAS_TC_BORROW, GAS_TC_QUOTE_REPAY, GAS_TC_REPAY,
 } from "../baseUT/GasLimit";
 import {ICreateControllerParams, TetuConverterApp} from "../baseUT/helpers/TetuConverterApp";
 
@@ -999,6 +1000,18 @@ describe("TetuConverterTest", () => {
         });
       });
     });
+    describe("Gas estimation @skip-on-coverage", () => {
+      it("should return expected values", async () => {
+        const {gas} = await makeFindConversionStrategy(
+          100_000,
+          BLOCKS_PER_DAY * 31,
+          1000,
+        );
+        controlGasLimitsEx(gas, GAS_FIND_CONVERSION_STRATEGY_ONLY_BORROW_AVAILABLE, (u, t) => {
+          expect(u).to.be.below(t);
+        });
+      });
+    });
   });
 
   describe("findBorrowStrategy", () => {
@@ -1272,7 +1285,6 @@ describe("TetuConverterTest", () => {
 
           expect(retBorrowedAmountOut).eq(expectedBorrowedAmount);
         });
-
         describe("Pool adapter is not registered for the converter", () => {
           it("should register and use new pool adapter", async () => {
             const r = await makeConversionUsingBorrowing (
@@ -1293,7 +1305,6 @@ describe("TetuConverterTest", () => {
             expect(ret).eq(true);
           });
         });
-
         describe("Pool adapter is already registered for the converter", () => {
           describe("Pool adapter is health and not dirty", () => {
             it("should use exist pool adapter", async () => {
@@ -1387,8 +1398,6 @@ describe("TetuConverterTest", () => {
             });
           });
         });
-
-
       });
       describe("Convert using swapping", () => {
         it("should return expected values", async () => {
@@ -1543,6 +1552,49 @@ describe("TetuConverterTest", () => {
               }
             )
           ).revertedWithPanic(0x11); // Arithmetic operation underflowed or overflowed outside of an unchecked block
+        });
+      });
+    });
+    describe("Gas estimation @skip-on-coverage", () => {
+      it("should not exceed gas threshold", async () => {
+        const receiver = ethers.Wallet.createRandom().address;
+
+        const core = await CoreContracts.build(await TetuConverterApp.createController(deployer));
+        const init = await prepareTetuAppWithMultipleLendingPlatforms(core, 1,
+          {
+            skipPreregistrationOfPoolAdapters: true
+          }
+        );
+
+        const sourceAmount = parseUnits("1000", await init.sourceToken.decimals());
+
+        const tcAsUser = ITetuConverter__factory.connect(
+          core.tc.address,
+          await DeployerUtils.startImpersonate(init.userContract.address)
+        );
+        await IERC20__factory.connect(
+          init.sourceToken.address,
+          await DeployerUtils.startImpersonate(init.userContract.address)
+        ).approve(core.tc.address, sourceAmount);
+
+        const plan = await tcAsUser.callStatic.findConversionStrategy(
+          init.sourceToken.address,
+          sourceAmount,
+          init.targetToken.address,
+          1000
+        );
+
+        const gasUsed = await tcAsUser.estimateGas.borrow(
+          plan.converter,
+          init.sourceToken.address,
+          sourceAmount,
+          init.targetToken.address,
+          plan.maxTargetAmount,
+          receiver
+        );
+
+        controlGasLimitsEx(gasUsed, GAS_TC_BORROW, (u, t) => {
+          expect(u).to.be.below(t);
         });
       });
     });
@@ -2318,6 +2370,60 @@ describe("TetuConverterTest", () => {
               { userSendsNotEnoughAmountToTetuConverter: true }
             )
           ).revertedWith("TC-41 wrong amount received"); // WRONG_AMOUNT_RECEIVED
+        });
+      });
+    });
+    describe("Gas estimation @skip-on-coverage", () => {
+      it("should not exceed gas threshold", async () => {
+        const receiver = ethers.Wallet.createRandom().address;
+
+        const core = await CoreContracts.build(await TetuConverterApp.createController(deployer));
+        const init = await prepareTetuAppWithMultipleLendingPlatforms(core, 1,
+          {
+            skipPreregistrationOfPoolAdapters: true
+          }
+        );
+
+        const sourceAmount = parseUnits("1000", await init.sourceToken.decimals());
+
+        const tcAsUser = ITetuConverter__factory.connect(
+          core.tc.address,
+          await DeployerUtils.startImpersonate(init.userContract.address)
+        );
+        await IERC20__factory.connect(
+          init.sourceToken.address,
+          await DeployerUtils.startImpersonate(init.userContract.address)
+        ).approve(core.tc.address, sourceAmount);
+
+        const plan = await tcAsUser.callStatic.findConversionStrategy(
+          init.sourceToken.address,
+          sourceAmount,
+          init.targetToken.address,
+          1000
+        );
+
+        await tcAsUser.borrow(
+          plan.converter,
+          init.sourceToken.address,
+          sourceAmount,
+          init.targetToken.address,
+          plan.maxTargetAmount,
+          receiver
+        );
+        console.log("Amount is borrowed", plan.maxTargetAmount.toString());
+        await MockERC20__factory.connect(
+          init.targetToken.address,
+          await DeployerUtils.startImpersonate(init.userContract.address)
+        ).mint(core.tc.address, plan.maxTargetAmount);
+        const gasUsed = await tcAsUser.estimateGas.repay(
+          init.sourceToken.address,
+          init.targetToken.address,
+          plan.maxTargetAmount,
+          receiver
+        );
+
+        controlGasLimitsEx(gasUsed, GAS_TC_REPAY, (u, t) => {
+          expect(u).to.be.below(t);
         });
       });
     });
@@ -3638,6 +3744,7 @@ describe("TetuConverterTest", () => {
     interface IQuoteRepayResults {
       init: ISetupResults;
       collateralAmountOutNum: number;
+      gasUsed: BigNumber;
     }
     async function makeQuoteRepayTest(
       collateralAmounts: number[],
@@ -3682,10 +3789,17 @@ describe("TetuConverterTest", () => {
         init.targetToken.address,
         parseUnits(amountToRepayNum.toString(), targetTokenDecimals)
       );
+      const gasUsed = await tcAsUc.estimateGas.quoteRepay(
+        await tcAsUc.signer.getAddress(),
+        init.sourceToken.address,
+        init.targetToken.address,
+        parseUnits(amountToRepayNum.toString(), targetTokenDecimals)
+      );
 
       return {
         init,
-        collateralAmountOutNum: Number(formatUnits(collateralAmountOut, sourceTokenDecimals))
+        collateralAmountOutNum: Number(formatUnits(collateralAmountOut, sourceTokenDecimals)),
+        gasUsed
       }
     }
     describe("Good paths", () => {
@@ -3750,6 +3864,14 @@ describe("TetuConverterTest", () => {
             }
           )
         ).revertedWith("TC-4 zero price"); // ZERO_PRICE
+      });
+    });
+    describe("Gas estimation @skip-on-coverage", () => {
+      it("should not exceed gas threshold", async () => {
+        const ret = await makeQuoteRepayTest([100], [10], 0);
+        controlGasLimitsEx(ret.gasUsed, GAS_TC_QUOTE_REPAY, (u, t) => {
+          expect(u).to.be.below(t);
+        });
       });
     });
   });

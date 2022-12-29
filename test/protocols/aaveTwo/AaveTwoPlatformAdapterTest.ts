@@ -133,6 +133,7 @@ describe("AaveTwoPlatformAdapterTest", () => {
         data.controller,
         data.aavePool,
         data.templateAdapterNormal,
+        await controller.borrowManager()
       );
       return {data, platformAdapter};
     }

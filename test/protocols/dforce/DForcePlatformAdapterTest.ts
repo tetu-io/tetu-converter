@@ -444,7 +444,8 @@ describe("DForce integration tests, platform adapter", () => {
         data.controller,
         data.comptroller,
         data.converter,
-        [MaticAddresses.dForce_iDAI]
+        [MaticAddresses.dForce_iDAI],
+        await controller.borrowManager()
       );
       return {data, platformAdapter};
     }

@@ -61,6 +61,8 @@ contract Aave3PlatformAdapter is IPlatformAdapter {
   ///////////////////////////////////////////////////////
   IController immutable public controller;
   IAavePool immutable public pool;
+  /// @dev Same as controller.borrowManager(); we cache it for gas optimization
+  address immutable public borrowManager;
 
   address immutable public converterNormal;
   address immutable public converterEMode;
@@ -85,12 +87,14 @@ contract Aave3PlatformAdapter is IPlatformAdapter {
 
   constructor (
     address controller_,
+    address borrowManager_,
     address poolAave_,
     address templateAdapterNormal_,
     address templateAdapterEMode_
   ) {
     require(
       poolAave_ != address(0)
+      && borrowManager_ != address(0)
       && templateAdapterNormal_ != address(0)
       && templateAdapterEMode_ != address(0)
       && controller_ != address(0),
@@ -99,6 +103,7 @@ contract Aave3PlatformAdapter is IPlatformAdapter {
 
     pool = IAavePool(poolAave_);
     controller = IController(controller_);
+    borrowManager = borrowManager_;
 
     converterNormal = templateAdapterNormal_;
     converterEMode = templateAdapterEMode_;
@@ -111,7 +116,7 @@ contract Aave3PlatformAdapter is IPlatformAdapter {
     address collateralAsset_,
     address borrowAsset_
   ) external override {
-    require(msg.sender == controller.borrowManager(), AppErrors.BORROW_MANAGER_ONLY);
+    require(msg.sender == borrowManager, AppErrors.BORROW_MANAGER_ONLY);
     require(converterNormal == converter_ || converterEMode == converter_, AppErrors.CONVERTER_NOT_FOUND);
 
     // All AAVE-pool-adapters support IPoolAdapterInitializer

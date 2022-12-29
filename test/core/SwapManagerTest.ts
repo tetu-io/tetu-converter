@@ -13,7 +13,12 @@ import {CoreContractsHelper} from "../baseUT/helpers/CoreContractsHelper";
 import {MocksHelper} from "../baseUT/helpers/MocksHelper";
 import {Misc} from "../../scripts/utils/Misc";
 import {controlGasLimitsEx} from "../../scripts/utils/hardhatUtils";
-import {GAS_FIND_SWAP_STRATEGY} from "../baseUT/GasLimit";
+import {
+  GAS_FIND_SWAP_STRATEGY,
+  GAS_SWAP, GAS_SWAP_APR18,
+  GAS_SWAP_CONVERT_USING_PRICE_ORACLE,
+  GAS_SWAP_SIMULATE
+} from "../baseUT/GasLimit";
 import {DeployerUtils} from "../../scripts/utils/DeployerUtils";
 import {BalanceUtils} from "../baseUT/utils/BalanceUtils";
 import {MaticAddresses} from "../../scripts/addresses/MaticAddresses";
@@ -417,6 +422,17 @@ describe("SwapManager", () => {
         ).revertedWith("TC-4 zero price"); // ZERO_PRICE
       });
     });
+    describe("Gas estimation @skip-on-coverage", () => {
+      it("should not exceed gas threshold", async () => {
+        // we need to multiple one-side-conversion-loss on 2 to get loss for there and back conversion
+        const sourceAmount = parseUnits("2", 18);
+        const targetAmount = parseUnits("1", 6);
+        const gasUsed = await swapManager.estimateGas.getApr18(dai.address, sourceAmount, usdc.address, targetAmount);
+        controlGasLimitsEx(gasUsed, GAS_SWAP_APR18, (u, t) => {
+          expect(u).to.be.below(t);
+        });
+      })
+    });
   });
 
   describe("swap", () => {
@@ -461,7 +477,6 @@ describe("SwapManager", () => {
         expect(ret.join()).eq(expected.join());
       });
     });
-
     describe("Bad paths", () => {
       describe("the price is too different from the value calculated using PriceOracle", () => {
         it("should revert if the result amount is too low", async () => {
@@ -475,6 +490,25 @@ describe("SwapManager", () => {
           await expect(
             makeSwapTest(usdc, usdt)
           ).revertedWith("TC-54 price impact"); // TOO_HIGH_PRICE_IMPACT
+        });
+      });
+    });
+    describe("Gas estimation @skip-on-coverage", () => {
+      it("should not exceed gas threshold", async () => {
+        const tokenIn = tokens[0];
+        const tokenOut = tokens[1];
+
+        const tokenInDecimals = await tokenIn.decimals();
+        const sourceAmount = parseUnits('1', tokenInDecimals);
+
+        await MockERC20__factory.connect(tokenIn.address, user).mint(user.address, sourceAmount);
+        await MockERC20__factory.connect(tokenIn.address, user).approve(controller.tetuConverter(), sourceAmount);
+
+        await tokenIn.mint(swapManager.address, sourceAmount);
+        const gasUsed = await swapManager.estimateGas.swap(tokenIn.address, sourceAmount, tokenOut.address, user.address);
+
+        controlGasLimitsEx(gasUsed, GAS_SWAP, (u, t) => {
+          expect(u).to.be.below(t);
         });
       });
     });
@@ -536,6 +570,28 @@ describe("SwapManager", () => {
             usdc.address
           )
         ).revertedWith("TC-53 swap manager only"); // ONLY_SWAP_MANAGER
+      });
+    });
+    describe("Gas estimation @skip-on-coverage", () => {
+      it("should not exceed gas threshold", async () => {
+        const swapManagerAsSwapManager = SwapManager__factory.connect(
+          swapManager.address,
+          await DeployerUtils.startImpersonate(swapManager.address)
+        );
+        const sourceAmount = parseUnits('100', 18); // dai
+
+        await MockERC20__factory.connect(dai.address, user).mint(user.address, sourceAmount);
+        await MockERC20__factory.connect(dai.address, user).approve(await controller.tetuConverter(), sourceAmount);
+
+        const gasUsed = await swapManagerAsSwapManager.estimateGas.simulateSwap(
+          user.address,
+          dai.address,
+          sourceAmount,
+          usdc.address
+        );
+        controlGasLimitsEx(gasUsed, GAS_SWAP_SIMULATE, (u, t) => {
+          expect(u).to.be.below(t);
+        });
       });
     });
   });
@@ -696,6 +752,15 @@ describe("SwapManager", () => {
         await expect(
           swapManager.convertUsingPriceOracle(MaticAddresses.EURS, amountUsdc, usdc.address)
         ).revertedWith("TC-4 zero price"); // ZERO_PRICE
+      });
+    });
+    describe("Gas estimation @skip-on-coverage", () => {
+      it("should not exceed gas threshold", async () => {
+        const amountUsdc = parseUnits("100", 6);
+        const gasUsed = await swapManager.estimateGas.convertUsingPriceOracle(usdc.address, amountUsdc, weth.address);
+        controlGasLimitsEx(gasUsed, GAS_SWAP_CONVERT_USING_PRICE_ORACLE, (u, t) => {
+          expect(u).to.be.below(t);
+        });
       });
     });
   });

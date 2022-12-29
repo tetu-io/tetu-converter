@@ -141,7 +141,9 @@ export class AaveTwoTestUtils {
 
     const converterNormal = await AdaptersHelper.createAaveTwoPoolAdapter(deployer);
     const aavePlatformAdapter = await AdaptersHelper.createAaveTwoPlatformAdapter(
-      deployer, controller.address, aavePool.address,
+      deployer,
+      controller.address,
+      aavePool.address,
       converterNormal.address
     );
 

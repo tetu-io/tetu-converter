@@ -61,6 +61,8 @@ contract AaveTwoPlatformAdapter is IPlatformAdapter {
   IAaveTwoPool immutable public pool;
   /// @notice template-pool-adapter
   address immutable public converter;
+  /// @dev Same as controller.borrowManager(); we cache it for gas optimization
+  address immutable public borrowManager;
 
   /// @notice True if the platform is frozen and new borrowing is not possible (at this moment)
   bool public override frozen;
@@ -82,11 +84,13 @@ contract AaveTwoPlatformAdapter is IPlatformAdapter {
 
   constructor (
     address controller_,
+    address borrowManager_,
     address poolAave_,
     address templateAdapterNormal_
   ) {
     require(
       poolAave_ != address(0)
+      && borrowManager_ != address(0)
       && templateAdapterNormal_ != address(0)
       && controller_ != address(0),
       AppErrors.ZERO_ADDRESS
@@ -94,6 +98,7 @@ contract AaveTwoPlatformAdapter is IPlatformAdapter {
     pool = IAaveTwoPool(poolAave_);
     controller = IController(controller_);
     converter = templateAdapterNormal_;
+    borrowManager = borrowManager_;
   }
 
   function initializePoolAdapter(
@@ -103,7 +108,7 @@ contract AaveTwoPlatformAdapter is IPlatformAdapter {
     address collateralAsset_,
     address borrowAsset_
   ) external override {
-    require(msg.sender == controller.borrowManager(), AppErrors.BORROW_MANAGER_ONLY);
+    require(msg.sender == borrowManager, AppErrors.BORROW_MANAGER_ONLY);
     require(converter == converter_, AppErrors.CONVERTER_NOT_FOUND);
 
     // All AAVE-pool-adapters support IPoolAdapterInitializer

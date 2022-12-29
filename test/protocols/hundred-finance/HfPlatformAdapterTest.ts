@@ -350,7 +350,8 @@ describe("Hundred finance, platform adapter", () => {
         data.controller,
         data.comptroller,
         data.converter,
-        [MaticAddresses.hDAI]
+        [MaticAddresses.hDAI],
+        await controller.borrowManager()
       );
       return {data, platformAdapter};
     }

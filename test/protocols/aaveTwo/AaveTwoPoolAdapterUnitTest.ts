@@ -1106,7 +1106,10 @@ describe("AaveTwoPoolAdapterUnitTest", () => {
 
         const converterNormal = (await AdaptersHelper.createAaveTwoPoolAdapter(deployer)).address;
         const platformAdapter = await AdaptersHelper.createAaveTwoPlatformAdapter(
-          deployer, controller.address, MaticAddresses.AAVE_TWO_POOL, converterNormal,
+          deployer,
+          controller.address,
+          MaticAddresses.AAVE_TWO_POOL,
+          converterNormal,
         );
 
         const tetuConverterSigner = await DeployerUtils.startImpersonate(await controller.tetuConverter());
@@ -1177,7 +1180,10 @@ describe("AaveTwoPoolAdapterUnitTest", () => {
 
         const converterNormal = (await AdaptersHelper.createAaveTwoPoolAdapter(deployer)).address;
         const platformAdapter = await AdaptersHelper.createAaveTwoPlatformAdapter(
-          deployer, controller.address, MaticAddresses.AAVE_TWO_POOL, converterNormal
+          deployer,
+          controller.address,
+          MaticAddresses.AAVE_TWO_POOL,
+          converterNormal
         );
 
         const tetuConverterSigner = await DeployerUtils.startImpersonate(await controller.tetuConverter());
