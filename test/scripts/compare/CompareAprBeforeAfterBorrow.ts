@@ -298,17 +298,17 @@ describe.skip("CompareAprBeforeAfterBorrow @skip-on-coverage", () => {
           const collateralBalanceMiddle = BigNumber.from("169985288469050133207406287966044900859892");
           const collateralFactorMantissa = BigNumber.from("850000000000000000");
           const borrowFactorMantissa = BigNumber.from("1000000000000000000")
-          const borrowTotalBorrowsMiddle = BigNumber.from("52239880587431260022");
-          const borrowTotalBorrowsLast = BigNumber.from("52239880765114102730");
+          // const borrowTotalBorrowsMiddle = BigNumber.from("52239880587431260022");
+          // const borrowTotalBorrowsLast = BigNumber.from("52239880765114102730");
 
           const priceCollateral = BigNumber.from("999913460000000000");
           const priceBorrow = BigNumber.from("1450890000000000000000");
 
           const base = getBigNumberFrom(1, 18);
-          const double = getBigNumberFrom(1, 36);
-
-          const collateralExchangeRateNext = BigNumber.from("1006072989394821668");
-          const collateralExchangeRateMiddle = BigNumber.from("1006072990987218720");
+          // const double = getBigNumberFrom(1, 36);
+          //
+          // const collateralExchangeRateNext = BigNumber.from("1006072989394821668");
+          // const collateralExchangeRateMiddle = BigNumber.from("1006072990987218720");
 
           const c2 = collateralBalanceMiddle.mul(base).div(priceCollateral).div(collateralFactorMantissa);
           const c1 = collateralBalanceNext.mul(base).div(priceCollateral).div(collateralFactorMantissa);

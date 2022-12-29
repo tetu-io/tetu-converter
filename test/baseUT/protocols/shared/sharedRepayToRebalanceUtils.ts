@@ -3,13 +3,9 @@ import {BigNumber} from "ethers";
 import {Borrower, IERC20__factory} from "../../../../typechain";
 import {
   IAmountToRepay,
-  IAssetsInputParamsWithCTokens,
-  IMakeRepayRebalanceBadPathParams,
-  IMakeRepayToRebalanceInputParams, IMakeRepayToRebalanceInputParamsWithCTokens
+  IMakeRepayToRebalanceInputParams,
 } from "./sharedDataTypes";
 import {DeployerUtils} from "../../../../scripts/utils/DeployerUtils";
-import {TokenDataTypes} from "../../types/TokenDataTypes";
-import {getBigNumberFrom} from "../../../../scripts/utils/NumberUtils";
 import {transferAndApprove} from "../../utils/transferUtils";
 
 

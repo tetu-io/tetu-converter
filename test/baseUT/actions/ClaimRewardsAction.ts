@@ -5,16 +5,14 @@ import {
   Borrower,
   Controller,
   ITetuConverter__factory,
-  ITetuLiquidator__factory, DForcePriceOracleMock__factory, IDForcePriceOracle__factory
+  ITetuLiquidator__factory, IDForcePriceOracle__factory
 } from "../../../typechain";
 import {IUserBalancesWithGas} from "../utils/BalanceUtils";
 import {DeployerUtils} from "../../../scripts/utils/DeployerUtils";
 import {TokenDataTypes} from "../types/TokenDataTypes";
 import {ethers} from "hardhat";
 import {parseUnits} from "ethers/lib/utils";
-import {getBigNumberFrom} from "../../../scripts/utils/NumberUtils";
 import {DForceHelper} from "../../../scripts/integration/helpers/DForceHelper";
-import {deprecate} from "util";
 import {DForceUtils} from "../utils/DForceUtils";
 
 export interface IRepayActionOptionalParams {
@@ -52,21 +50,12 @@ export class ClaimRewardsAction implements IRepayAction {
     if (rewards.rewardTokensOut.length) {
       console.log("Rewards:", rewards);
       await tetuConverterAsUserContract.claimRewards(rewardsReceiver);
-      const tetuLiquidatorAsUser = await ITetuLiquidator__factory.connect(
-        await this.controller.tetuLiquidator(),
-        await DeployerUtils.startImpersonate(rewardsReceiver)
-      );
       for (let i = 0; i < rewards.rewardTokensOut.length; ++i) {
         console.log("Receiver balance of the reward token:", await IERC20__factory.connect(
             rewards.rewardTokensOut[i],
             await DeployerUtils.startImpersonate(rewardsReceiver)
           ).balanceOf(rewardsReceiver)
         );
-        const rewardToken = await IERC20__factory.connect(
-          rewards.rewardTokensOut[i],
-          await DeployerUtils.startImpersonate(rewardsReceiver)
-        );
-
         // we get a price with decimals = (36 - asset decimals)
         const dForceController = await DForceHelper.getController(
           await DeployerUtils.startImpersonate(rewardsReceiver)

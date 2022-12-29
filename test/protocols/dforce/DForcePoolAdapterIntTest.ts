@@ -750,7 +750,6 @@ describe("DForce integration tests, pool adapter", () => {
         it("should return expected values", async () => {
           if (!await isPolygonForkInUse()) return;
 
-          const usdcDecimals = await IERC20Metadata__factory.connect(MaticAddresses.USDC, deployer).decimals();
           await expect(
             daiUSDC(
               false,

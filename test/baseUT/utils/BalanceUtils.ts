@@ -3,7 +3,6 @@ import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import {DeployerUtils} from "../../../scripts/utils/DeployerUtils";
 import {getBigNumberFrom} from "../../../scripts/utils/NumberUtils";
 import {IERC20__factory, IERC20Metadata, IERC20Metadata__factory} from "../../../typechain";
-import {analyzeModuleNotFoundError} from "hardhat/internal/core/config/config-loading";
 
 export interface IContractToInvestigate {
   name: string;

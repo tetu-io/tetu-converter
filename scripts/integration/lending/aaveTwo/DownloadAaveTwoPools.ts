@@ -57,7 +57,7 @@ async function getAaveTwoPoolReserves(
     console.log("reserve", reserve);
     const rd = await AaveTwoHelper.getReserveInfo(signer, aavePool, dp, reserve);
 
-    let line = [
+    const line = [
       rd.reserveSymbol,
       rd.reserveName,
       rd.reserveAddress,

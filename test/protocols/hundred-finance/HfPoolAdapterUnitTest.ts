@@ -196,7 +196,6 @@ describe("HfPoolAdapterUnitTest", () => {
         });
         it("should transfer expected amount to the user", async () => {
           if (!await isPolygonForkInUse()) return;
-          const status = await results.init.hfPoolAdapterTC.getStatus();
           const receivedBorrowAmount = await results.borrowToken.token.balanceOf(results.init.userContract.address);
           expect(receivedBorrowAmount.toString()).eq(results.borrowResults.borrowedAmount.toString());
         });
@@ -256,7 +255,6 @@ describe("HfPoolAdapterUnitTest", () => {
         });
         it("should transfer expected amount to the user", async () => {
           if (!await isPolygonForkInUse()) return;
-          const status = await results.init.hfPoolAdapterTC.getStatus();
           const receivedBorrowAmount = await results.borrowToken.token.balanceOf(results.init.userContract.address);
           expect(receivedBorrowAmount.toString()).eq(results.borrowResults.borrowedAmount.toString());
         });
@@ -318,7 +316,6 @@ describe("HfPoolAdapterUnitTest", () => {
         });
         it("should transfer expected amount to the user", async () => {
           if (!await isPolygonForkInUse()) return;
-          const status = await results.init.hfPoolAdapterTC.getStatus();
           const receivedBorrowAmount = await results.borrowToken.token.balanceOf(results.init.userContract.address);
           expect(receivedBorrowAmount.toString()).eq(results.borrowResults.borrowedAmount.toString());
         });
@@ -380,7 +377,6 @@ describe("HfPoolAdapterUnitTest", () => {
         });
         it("should transfer expected amount to the user", async () => {
           if (!await isPolygonForkInUse()) return;
-          const status = await results.init.hfPoolAdapterTC.getStatus();
           const receivedBorrowAmount = await results.borrowToken.token.balanceOf(results.init.userContract.address);
           expect(receivedBorrowAmount.toString()).eq(results.borrowResults.borrowedAmount.toString());
         });
@@ -717,7 +713,6 @@ describe("HfPoolAdapterUnitTest", () => {
         });
         it("should withdraw expected collateral amount", async () => {
           if (!await isPolygonForkInUse()) return;
-          const status = await results.init.hfPoolAdapterTC.getStatus();
           const receivedCollateralAmount = await results.collateralToken.token.balanceOf(results.init.userContract.address);
           expect(areAlmostEqual(receivedCollateralAmount, results.init.collateralAmount)).eq(true);
         });
@@ -781,7 +776,6 @@ describe("HfPoolAdapterUnitTest", () => {
         });
         it("should withdraw expected collateral amount", async () => {
           if (!await isPolygonForkInUse()) return;
-          const status = await results.init.hfPoolAdapterTC.getStatus();
           const receivedCollateralAmount = await results.collateralToken.token.balanceOf(results.init.userContract.address);
           expect(areAlmostEqual(receivedCollateralAmount, results.init.collateralAmount)).eq(true);
         });
@@ -846,7 +840,6 @@ describe("HfPoolAdapterUnitTest", () => {
         });
         it("should withdraw expected collateral amount", async () => {
           if (!await isPolygonForkInUse()) return;
-          const status = await results.init.hfPoolAdapterTC.getStatus();
           const receivedCollateralAmount = await results.collateralToken.token.balanceOf(results.init.userContract.address);
           expect(areAlmostEqual(receivedCollateralAmount, results.init.collateralAmount)).eq(true);
         });
@@ -1336,7 +1329,9 @@ describe("HfPoolAdapterUnitTest", () => {
         if (!await isPolygonForkInUse()) return;
         const r = await testDaiUSDC();
         const ret = [
+          // eslint-disable-next-line @typescript-eslint/no-loss-of-precision
           Math.round(r.afterBorrowHealthFactor18.div(getBigNumberFrom(1, 15)).toNumber() / 10.),
+          // eslint-disable-next-line @typescript-eslint/no-loss-of-precision
           Math.round(r.afterBorrowToRebalanceHealthFactor18.div(getBigNumberFrom(1, 15)).toNumber() / 10.),
           ethers.utils.formatUnits(r.userBalanceAfterBorrow, 18),
           ethers.utils.formatUnits(r.userBalanceAfterBorrowToRebalance, 18),
@@ -1353,7 +1348,9 @@ describe("HfPoolAdapterUnitTest", () => {
         if (!await isPolygonForkInUse()) return;
         const r = await testMaticUSDC();
         const ret = [
+          // eslint-disable-next-line @typescript-eslint/no-loss-of-precision
           Math.round(r.afterBorrowHealthFactor18.div(getBigNumberFrom(1, 15)).toNumber() / 10.),
+          // eslint-disable-next-line @typescript-eslint/no-loss-of-precision
           Math.round(r.afterBorrowToRebalanceHealthFactor18.div(getBigNumberFrom(1, 15)).toNumber() / 10.),
           ethers.utils.formatUnits(r.userBalanceAfterBorrow, 18),
           ethers.utils.formatUnits(r.userBalanceAfterBorrowToRebalance, 18),
@@ -1370,7 +1367,9 @@ describe("HfPoolAdapterUnitTest", () => {
         if (!await isPolygonForkInUse()) return;
         const r = await testUSDCMatic();
         const ret = [
+          // eslint-disable-next-line @typescript-eslint/no-loss-of-precision
           Math.round(r.afterBorrowHealthFactor18.div(getBigNumberFrom(1, 15)).toNumber() / 10.),
+          // eslint-disable-next-line @typescript-eslint/no-loss-of-precision
           Math.round(r.afterBorrowToRebalanceHealthFactor18.div(getBigNumberFrom(1, 15)).toNumber() / 10.),
           ethers.utils.formatUnits(r.userBalanceAfterBorrow, 18),
           ethers.utils.formatUnits(r.userBalanceAfterBorrowToRebalance, 18),
@@ -1679,9 +1678,11 @@ describe("HfPoolAdapterUnitTest", () => {
 
       const ret = [
         Math.round(r.afterBorrowStatus.healthFactor18.div(
+          // eslint-disable-next-line @typescript-eslint/no-loss-of-precision
           getBigNumberFrom(1, 15)).toNumber() / 10.
         ),
         Math.round(r.afterRepayToRebalanceStatus.healthFactor18.div(
+          // eslint-disable-next-line @typescript-eslint/no-loss-of-precision
           getBigNumberFrom(1, 15)).toNumber() / 10.
         ),
         // actual collateral amount after borrow is a bit less than the initial amount
@@ -2063,18 +2064,6 @@ describe("HfPoolAdapterUnitTest", () => {
       });
     });
     describe("Bad paths", () => {
-      it("should revert on zero controller", async () => {
-        if (!await isPolygonForkInUse()) return;
-        await expect(
-          makeInitializePoolAdapterTest({zeroController: true})
-        ).revertedWith("TC-1 zero address"); // ZERO_ADDRESS
-      });
-      it("should revert on zero controller", async () => {
-        if (!await isPolygonForkInUse()) return;
-        await expect(
-          makeInitializePoolAdapterTest({zeroController: true})
-        ).revertedWith("TC-1 zero address"); // ZERO_ADDRESS
-      });
       it("should revert on zero controller", async () => {
         if (!await isPolygonForkInUse()) return;
         await expect(

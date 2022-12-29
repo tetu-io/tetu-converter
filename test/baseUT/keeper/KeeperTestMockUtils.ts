@@ -31,10 +31,10 @@ export class KeeperTestMockUtils {
     m: IMockTestInputParams,
     countMockFabrics: number = 1
   ) : Promise<{
-    uc: Borrower
-    , tc: ITetuConverter
-    , controller: Controller
-    , poolAdapter: string
+    uc: Borrower,
+    tc: ITetuConverter,
+    controller: Controller,
+    poolAdapter: string
   }> {
     console.log("makeSingleBorrow_Mock.start");
     const collateralToken = await TokenDataTypes.Build(deployer, p.collateral.asset);
@@ -78,16 +78,13 @@ export class KeeperTestMockUtils {
       , p.collateral.holder, p.collateral.initialLiquidity, uc.address);
 
     // make borrow only
-    const {
-      userBalances,
-      borrowBalances
-    } = await BorrowRepayUsesCase.makeBorrowRepayActions(deployer
-      , uc
-      , [
+    await BorrowRepayUsesCase.makeBorrowRepayActions(deployer,
+      uc,
+      [
         new BorrowAction(
-          collateralToken
-          , collateralAmount
-          , borrowToken
+          collateralToken,
+          collateralAmount,
+          borrowToken
         )
       ]
     );
@@ -95,7 +92,7 @@ export class KeeperTestMockUtils {
     const poolAdapters = await uc.getBorrows(collateralToken.address, borrowToken.address);
     const poolAdapter = poolAdapters[0];
     if (! poolAdapter) {
-      throw "pool adapter not found";
+      throw Error("pool adapter not found");
     }
 
     console.log("makeSingleBorrow_Mock.end", poolAdapters.length);

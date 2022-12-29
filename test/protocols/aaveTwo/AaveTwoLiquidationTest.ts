@@ -102,7 +102,7 @@ describe.skip("AaveTwoLiquidationTest - simulate liquidation", () => {
     it("Try to make new borrow after liquidation", async () => {
       if (!await isPolygonForkInUse()) return;
 
-      const r = await AaveTwoTestUtils.makeLiquidation(deployer, init.d, borrowHolder)
+      await AaveTwoTestUtils.makeLiquidation(deployer, init.d, borrowHolder)
 
       // put collateral amount on user's balance
       await BalanceUtils.getRequiredAmountFromHolders(

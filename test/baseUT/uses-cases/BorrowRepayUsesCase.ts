@@ -6,7 +6,7 @@ import {
   BorrowManager__factory,
   IPlatformAdapter__factory,
   ITetuConverter__factory,
-  Controller, ITetuLiquidator__factory, IERC20__factory, TetuConverter__factory
+  Controller, IERC20__factory, TetuConverter__factory
 } from "../../../typechain";
 import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import {TokenDataTypes} from "../types/TokenDataTypes";
@@ -24,17 +24,15 @@ import {RepayMockAction} from "../actions/RepayMockAction";
 import {DeployerUtils} from "../../../scripts/utils/DeployerUtils";
 import {makeInfinityApprove} from "../utils/transferUtils";
 import {IStrategyToConvert} from "../apr/aprDataTypes";
-import {ethers} from "hardhat";
 import {RepayActionUsingSwap} from "../actions/RepayActionUsingSwap";
 import {ClaimRewardsAction} from "../actions/ClaimRewardsAction";
 import {parseUnits} from "ethers/lib/utils";
-
-const BORROW_CONVERSION_MODE = 1;
 
 export interface IBorrowAction {
   collateralToken: TokenDataTypes,
   collateralAmount: BigNumber;
   borrowToken: TokenDataTypes,
+  // eslint-disable-next-line no-unused-vars
   doAction: (user: Borrower) => Promise<IUserBalancesWithGas>;
 }
 
@@ -43,6 +41,7 @@ export interface IRepayAction {
   borrowToken: TokenDataTypes,
   /** if undefined - repay all and close position */
   amountToRepay: BigNumber | undefined;
+  // eslint-disable-next-line no-unused-vars
   doAction: (user: Borrower) => Promise<IUserBalancesWithGas>;
 }
 
@@ -300,7 +299,7 @@ export class BorrowRepayUsesCase {
       [m.collateral.liquidity, m.borrow.liquidity],
       [p.collateral.holder, p.borrow.holder],
       cTokens,
-      pricesUSD.map((x, index) => BigNumber.from(10)
+      pricesUSD.map((x) => BigNumber.from(10)
         .pow(18 - 2)
         .mul(x * 100))
     );
@@ -474,7 +473,7 @@ export class BorrowRepayUsesCase {
       [m.collateral.liquidity, m.borrow.liquidity],
       [p.collateral.holder, p.borrow.holder],
       cTokens,
-      pricesUSD.map((x, index) => BigNumber.from(10)
+      pricesUSD.map((x) => BigNumber.from(10)
         .pow(18 - 2)
         .mul(x * 100))
     );

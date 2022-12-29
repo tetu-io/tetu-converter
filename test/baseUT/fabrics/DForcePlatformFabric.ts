@@ -20,23 +20,24 @@ export class DForcePlatformFabric implements ILendingPlatformFabric {
           deployer,
           controller.address
         );
-          await DForceHelper.getController(deployer);
+        await DForceHelper.getController(deployer);
 
         const bm: IBorrowManager = IBorrowManager__factory.connect(await controller.borrowManager(), deployer);
         const assets: string[] = [
-            MaticAddresses.DAI
-            , MaticAddresses.WMATIC
-            , MaticAddresses.USDC
-            , MaticAddresses.WETH
-            , MaticAddresses.USDT
-            , MaticAddresses.WBTC
-            , MaticAddresses.dForce_USD
+            MaticAddresses.DAI,
+            MaticAddresses.WMATIC,
+            MaticAddresses.USDC,
+            MaticAddresses.WETH,
+            MaticAddresses.USDT,
+            MaticAddresses.WBTC,
+            MaticAddresses.dForce_USD
         ];
-      const assetPairs = generateAssetPairs(assets);
-      await bm.addAssetPairs(platformAdapter.address
-        , assetPairs.map(x => x.smallerAddress)
-        , assetPairs.map(x => x.biggerAddress)
-      );
+        const assetPairs = generateAssetPairs(assets);
+        await bm.addAssetPairs(
+          platformAdapter.address,
+          assetPairs.map(x => x.smallerAddress),
+          assetPairs.map(x => x.biggerAddress)
+        );
 
         return [
             IERC20__factory.connect(comptroller.address, deployer)
@@ -55,11 +56,11 @@ export class DForcePlatformFabric implements ILendingPlatformFabric {
       const converter = await AdaptersHelper.createDForcePoolAdapter(deployer);
 
       const platformAdapter = await AdaptersHelper.createDForcePlatformAdapter(
-        deployer
-        , controller
-        , comptroller.address
-        , converter.address
-        , [
+        deployer,
+        controller,
+        comptroller.address,
+        converter.address,
+        [
           MaticAddresses.dForce_iUSDC,
           MaticAddresses.dForce_iUSDT,
           MaticAddresses.dForce_iUSX,

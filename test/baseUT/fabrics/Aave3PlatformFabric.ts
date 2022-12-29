@@ -1,4 +1,4 @@
-import {IBorrowManager, IBorrowManager__factory, IController, IERC20, IERC20__factory} from "../../../typechain";
+import {IBorrowManager__factory, IController, IERC20, IERC20__factory} from "../../../typechain";
 import {Aave3Helper} from "../../../scripts/integration/helpers/Aave3Helper";
 import {AdaptersHelper} from "../helpers/AdaptersHelper";
 import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";

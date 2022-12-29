@@ -29,14 +29,12 @@ import {parseUnits} from "ethers/lib/utils";
 import {Aave3ChangePricesUtils} from "../../baseUT/protocols/aave3/Aave3ChangePricesUtils";
 import {controlGasLimitsEx} from "../../../scripts/utils/hardhatUtils";
 import {GAS_LIMIT_AAVE_3_GET_CONVERSION_PLAN} from "../../baseUT/GasLimit";
-import exp from "constants";
 
 describe("Aave3PlatformAdapterTest", () => {
 //region Global vars for all tests
   let snapshot: string;
   let snapshotForEach: string;
   let deployer: SignerWithAddress;
-  let investor: SignerWithAddress;
 //endregion Global vars for all tests
 
 //region before, after
@@ -45,7 +43,6 @@ describe("Aave3PlatformAdapterTest", () => {
     snapshot = await TimeUtils.snapshot();
     const signers = await ethers.getSigners();
     deployer = signers[0];
-    investor = signers[0];
   });
 
   after(async function () {

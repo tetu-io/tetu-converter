@@ -385,7 +385,6 @@ describe("Aave3PoolAdapterIntTest", () => {
       console.log("Plan", d.plan);
 
       const collateralDataBefore = await d.h.getReserveInfo(deployer, d.aavePool, d.dataProvider, collateralToken.address);
-      const borrowDataBefore = await d.h.getReserveInfo(deployer, d.aavePool, d.dataProvider, borrowToken.address);
       console.log("collateralDataBefore", collateralDataBefore);
 
       // calculate max amount to borrow manually

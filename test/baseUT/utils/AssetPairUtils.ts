@@ -9,13 +9,13 @@ export function generateAssetPairs(assets: string[]) : IAssetPair[] {
     for (let j = i + 1; j < assets.length; ++j) {
       if (assets[i] < assets[j]) {
         dest.push({
-          smallerAddress: assets[i]
-          , biggerAddress: assets[j]
+          smallerAddress: assets[i],
+          biggerAddress: assets[j]
         });
       } else {
         dest.push({
-          smallerAddress: assets[j]
-          , biggerAddress: assets[i]
+          smallerAddress: assets[j],
+          biggerAddress: assets[i]
         });
       }
     }

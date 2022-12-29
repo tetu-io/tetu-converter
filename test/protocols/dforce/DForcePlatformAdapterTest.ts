@@ -33,14 +33,12 @@ import {DForceChangePriceUtils} from "../../baseUT/protocols/dforce/DForceChange
 import {parseUnits} from "ethers/lib/utils";
 import {controlGasLimitsEx} from "../../../scripts/utils/hardhatUtils";
 import {GAS_LIMIT_DFORCE_GET_CONVERSION_PLAN} from "../../baseUT/GasLimit";
-import {AaveTwoHelper} from "../../../scripts/integration/helpers/AaveTwoHelper";
 
 describe("DForce integration tests, platform adapter", () => {
 //region Global vars for all tests
   let snapshot: string;
   let snapshotForEach: string;
   let deployer: SignerWithAddress;
-  let investor: SignerWithAddress;
 
 //endregion Global vars for all tests
 
@@ -50,7 +48,6 @@ describe("DForce integration tests, platform adapter", () => {
     snapshot = await TimeUtils.snapshot();
     const signers = await ethers.getSigners();
     deployer = signers[0];
-    investor = signers[0];
   });
 
   after(async function () {

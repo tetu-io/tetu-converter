@@ -1,23 +1,26 @@
 import {
   Controller,
   IERC20,
-  ITetuConverter, KeeperCaller, TetuConverter__factory,
+  ITetuConverter, TetuConverter__factory,
 } from "../../../typechain";
 import {CoreContractsHelper} from "./CoreContractsHelper";
 import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
-import {DeployUtils} from "../../../scripts/utils/DeployUtils";
 import {COUNT_BLOCKS_PER_DAY} from "../utils/aprUtils";
 import {ILendingPlatformFabric} from "../fabrics/ILendingPlatformFabric";
-import {ethers} from "ethers";
-import {MaticAddresses} from "../../../scripts/addresses/MaticAddresses";
 import {MocksHelper} from "./MocksHelper";
 
 export interface ICreateControllerParams {
+  // eslint-disable-next-line no-unused-vars
   tetuConverterFabric?: (controller: Controller) => Promise<string>;
+  // eslint-disable-next-line no-unused-vars
   borrowManagerFabric?: (controller: Controller) => Promise<string>;
+  // eslint-disable-next-line no-unused-vars
   debtMonitorFabric?: (controller: Controller) => Promise<string>;
+  // eslint-disable-next-line no-unused-vars
   keeperFabric?: (controller: Controller) => Promise<string>;
+  // eslint-disable-next-line no-unused-vars
   swapManagerFabric?: (controller: Controller) => Promise<string>;
+  // eslint-disable-next-line no-unused-vars
   priceOracleFabric?: (controller: Controller) => Promise<string>;
   minHealthFactor2?: number;
   targetHealthFactor2?: number;

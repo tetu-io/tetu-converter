@@ -1,20 +1,15 @@
-import {getPoolAdapterState, ILendingPlatformManager, PoolAdapterState01} from "./ILendingPlatformManager";
+import {getPoolAdapterState, ILendingPlatformManager, IPoolAdapterState01} from "./ILendingPlatformManager";
 import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
-import {DeployUtils} from "../../../scripts/utils/DeployUtils";
-import {Aave3Helper} from "../../../scripts/integration/helpers/Aave3Helper";
 import {DeployerUtils} from "../../../scripts/utils/DeployerUtils";
 import {MaticAddresses} from "../../../scripts/addresses/MaticAddresses";
 import {ITokenWithHolder} from "../types/TokenDataTypes";
 import {BigNumber} from "ethers";
 import {
   AaveTwoPoolAdapter,
-  AaveTwoPriceOracleMock,
   AaveTwoPriceOracleMock__factory,
   Borrower,
-  IAaveAddressesProvider__factory, IAavePoolConigurator__factory,
   IAaveTwoLendingPoolAddressesProvider__factory,
   IAaveTwoLendingPoolConfigurator__factory,
-  IAaveTwoPool,
   IERC20__factory,
   ITetuConverter
 } from "../../../typechain";
@@ -53,7 +48,7 @@ export class LendingPlatformManagerAaveTwo implements ILendingPlatformManager {
     asset: string,
     inc: boolean,
     times: number,
-  ): Promise<PoolAdapterState01>  {
+  ): Promise<IPoolAdapterState01>  {
     const before = await getPoolAdapterState(signer, this.poolAdapter.address);
 
     // setup new price oracle
@@ -79,7 +74,7 @@ export class LendingPlatformManagerAaveTwo implements ILendingPlatformManager {
   }
 
   /** Change collateral factor of the asset on new value, decimals 2 */
-  async changeCollateralFactor(signer: SignerWithAddress, newValue2: number): Promise<PoolAdapterState01>  {
+  async changeCollateralFactor(signer: SignerWithAddress, newValue2: number): Promise<IPoolAdapterState01>  {
     console.log("changeCollateralFactor.1");
     const before = await getPoolAdapterState(signer, this.poolAdapter.address);
     const collateralAsset = (await this.poolAdapter.getConfig()).outCollateralAsset;
@@ -117,7 +112,7 @@ export class LendingPlatformManagerAaveTwo implements ILendingPlatformManager {
   }
 
   /** Borrow max possible amount (and significantly increase the borrow rate) */
-  async makeMaxBorrow(signer: SignerWithAddress): Promise<PoolAdapterState01> {
+  async makeMaxBorrow(signer: SignerWithAddress): Promise<IPoolAdapterState01> {
     console.log("AAVETwo.makeMaxBorrow.1");
     const before = await getPoolAdapterState(signer, this.poolAdapter.address);
 
@@ -149,7 +144,7 @@ export class LendingPlatformManagerAaveTwo implements ILendingPlatformManager {
     return {before, after};
   }
   /** Return previously borrowed amount back (reverse to makeMaxBorrow) */
-  async releaseMaxBorrow(signer: SignerWithAddress): Promise<PoolAdapterState01> {
+  async releaseMaxBorrow(signer: SignerWithAddress): Promise<IPoolAdapterState01> {
     console.log("AAVETwo.releaseMaxBorrow.1");
     const before = await getPoolAdapterState(signer, this.poolAdapter.address);
 

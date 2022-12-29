@@ -106,7 +106,7 @@ describe("TetuLiquidatorSwapTest", () => {
       // await tetuLiquidator.liquidateWithRoute(route.route, sourceAmount, 100_000 * 2 / 100);
       await p.tetuLiquidator.liquidate(p.sourceAsset, p.targetAsset, p.sourceAmount, 100_000 * 2 / 100);
     });
-    it("liquidate should success", async () => {
+    it("liquidateWithRoute should success", async () => {
       if (!await isPolygonForkInUse()) return;
 
       const p = await prepareToLiquidate();

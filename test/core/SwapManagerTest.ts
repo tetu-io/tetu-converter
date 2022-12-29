@@ -80,7 +80,7 @@ describe("SwapManager", () => {
     controller = await TetuConverterApp.createController(deployer,
       {
         tetuLiquidatorAddress: liquidator.address,
-        priceOracleFabric: async c => (await MocksHelper.getPriceOracleMock(
+        priceOracleFabric: async () => (await MocksHelper.getPriceOracleMock(
             deployer,
             [usdt.address, dai.address, matic.address, weth.address, usdc.address],
             [$usdt, $dai, $matic, $weth, $usdc]
@@ -516,7 +516,7 @@ describe("SwapManager", () => {
           keeperFabric: async () => ethers.Wallet.createRandom().address,
           swapManagerFabric: async c => (await CoreContractsHelper.createSwapManager(deployer, c.address)).address,
           tetuLiquidatorAddress: tetuLiquidator,
-          priceOracleFabric: async c => (await MocksHelper.getPriceOracleMock(
+          priceOracleFabric: async () => (await MocksHelper.getPriceOracleMock(
               deployer,
               [sourceAsset.address, targetAsset.address],
               [Misc.WEI, Misc.WEI]

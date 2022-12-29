@@ -737,13 +737,6 @@ export class AprAave3 {
       , decimalsCollateral
     );
 
-    const baseCurrencyDecimals = Math.log10((await priceOracle.BASE_CURRENCY_UNIT()).toNumber());
-    const bbp: IBaseToBorrowParams = {
-      baseCurrencyDecimals,
-      priceBaseCurrency: priceBorrow,
-      priceDecimals: baseCurrencyDecimals // all prices in AAVE v3 are in base currency
-    }
-
     return supplyApr.valueMultiplied18
       .mul(getBigNumberFrom(1, 18))
       .mul(priceCollateral)
@@ -803,23 +796,16 @@ export class AprAave3 {
       lastUpdateTimestamp: before.borrow.data.lastUpdateTimestamp
     };
     const borrowApr = await getCostValueBeforeAAVE3(
-      libFacade
-      , amountToBorrow
-      , brRaysPredicted
-      , priceBorrow
-      , countBlocks
-      , state
-      , blocksPerDay
-      , operationTimestamp || before.blockTimestamp
-      , decimalsBorrow
+      libFacade,
+      amountToBorrow,
+      brRaysPredicted,
+      priceBorrow,
+      countBlocks,
+      state,
+      blocksPerDay,
+      operationTimestamp || before.blockTimestamp,
+      decimalsBorrow
     );
-
-    const baseCurrencyDecimals = Math.log10((await priceOracle.BASE_CURRENCY_UNIT()).toNumber());
-    const bbp: IBaseToBorrowParams = {
-      baseCurrencyDecimals,
-      priceBaseCurrency: priceBorrow,
-      priceDecimals: baseCurrencyDecimals // all prices in AAVE v3 are in base currency
-    }
 
     return borrowApr.valueMultiplied18
       .mul(Misc.WEI)

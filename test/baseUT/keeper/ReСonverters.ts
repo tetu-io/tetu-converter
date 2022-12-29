@@ -2,6 +2,7 @@ import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import {Borrower__factory, IPoolAdapter__factory} from "../../../typechain";
 
 export interface IReConverter {
+  // eslint-disable-next-line no-unused-vars
   do: (poolAdapter: string, signer: SignerWithAddress) => Promise<void>;
 }
 
@@ -12,7 +13,7 @@ export class ReConverterUsingPA implements  IReConverter {
     const poolAdapterConfig = await poolAdapter.getConfig();
     const user = poolAdapterConfig.user;
 
-    const userAsSigner = Borrower__factory.connect(user, signer);
+    // const userAsSigner = Borrower__factory.connect(user, signer);
     // TODO: await userAsSigner.requireReconversion(poolAdapterAddress);
   }
 }

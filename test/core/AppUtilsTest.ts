@@ -40,7 +40,7 @@ describe("AppUtils", () => {
 //region Unit tests
   describe("toMantissa", () => {
     describe("Good paths", () => {
-      it("should return expected values", async () => {
+      it("should return expected values, decimals 10, 27", async () => {
         const ret = await libFacade.toMantissa(
           parseUnits("9", 18),
           10,
@@ -48,7 +48,7 @@ describe("AppUtils", () => {
         );
         expect(ret.eq(parseUnits("9", 35)));
       });
-      it("should return expected values", async () => {
+      it("should return expected values, decimals 0, 0", async () => {
         const ret = await libFacade.toMantissa(
           parseUnits("9", 18),
           0,
@@ -80,9 +80,8 @@ describe("AppUtils", () => {
     });
     it("remove all items - should return empty array", async () => {
       const src = [MaticAddresses.DAI, MaticAddresses.WMATIC, MaticAddresses.USDC];
-      const expected: string[] = [];
       const ret = await libFacade["removeLastItems(address[],uint256)"](src, 0);
-      expect(ret.join().toLowerCase()).eq(expected.join().toLowerCase());
+      expect(ret.join().toLowerCase()).eq([].join().toLowerCase());
     });
   });
 
@@ -107,9 +106,8 @@ describe("AppUtils", () => {
     });
     it("remove all items - should return empty array", async () => {
       const src = [1, 2, 3];
-      const expected: number[] = [];
       const ret = await libFacade["removeLastItems(uint256[],uint256)"](src, 0);
-      expect(ret.join().toLowerCase()).eq(expected.join().toLowerCase());
+      expect(ret.join().toLowerCase()).eq([].join().toLowerCase());
     });
   });
 

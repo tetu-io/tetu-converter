@@ -335,8 +335,8 @@ export function appendBorrowingTestResultsToFile(path: string, data: IBorrowingT
       row.planFullPeriod.maxAmountToBorrow,
     ];
 
-    if (row.results) {
-      for (const point of row.results?.points) {
+    if (row.results && row.results?.points) {
+      for (const point of row.results.points) {
         const linePoint = [
           point.costsInBorrowTokens36.collateral,
           point.costsInBorrowTokens36.borrow,

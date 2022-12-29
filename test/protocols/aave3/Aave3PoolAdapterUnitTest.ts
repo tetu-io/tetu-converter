@@ -51,9 +51,6 @@ import {parseUnits} from "ethers/lib/utils";
 import {areAlmostEqual} from "../../baseUT/utils/CommonUtils";
 import {IPoolAdapterStatus} from "../../baseUT/types/BorrowRepayDataTypes";
 import {Aave3ChangePricesUtils} from "../../baseUT/protocols/aave3/Aave3ChangePricesUtils";
-import exp from "constants";
-import {Aave3Helper} from "../../../scripts/integration/helpers/Aave3Helper";
-import {interfaces} from "../../../typechain/contracts";
 
 describe("Aave3PoolAdapterUnitTest", () => {
 //region Global vars for all tests
@@ -166,7 +163,6 @@ describe("Aave3PoolAdapterUnitTest", () => {
       });
       it("should transfer expected amount to the user", async () => {
         if (!await isPolygonForkInUse()) return;
-        const status = await results.init.aavePoolAdapterAsTC.getStatus();
         const receivedBorrowAmount = await results.borrowToken.token.balanceOf(results.init.userContract.address);
         expect(receivedBorrowAmount.toString()).eq(results.borrowResults.borrowedAmount.toString());
       });
@@ -354,13 +350,11 @@ describe("Aave3PoolAdapterUnitTest", () => {
       });
       it("should withdraw expected collateral amount", async () => {
         if (!await isPolygonForkInUse()) return;
-        const status = await results.init.aavePoolAdapterAsTC.getStatus();
         const receivedCollateralAmount = await results.collateralToken.token.balanceOf(results.init.userContract.address);
         expect(areAlmostEqual(receivedCollateralAmount, results.init.collateralAmount)).eq(true);
       });
       it("should return expected collateral amount", async () => {
         if (!await isPolygonForkInUse()) return;
-        const status = await results.init.aavePoolAdapterAsTC.getStatus();
         expect(areAlmostEqual(results.repayResultsCollateralAmountOut, results.init.collateralAmount)).eq(true);
       });
     });
@@ -966,24 +960,6 @@ describe("Aave3PoolAdapterUnitTest", () => {
           )
         ).revertedWith("TC-1 zero address"); // ZERO_ADDRESS
       });
-      it("should revert on zero controller", async () => {
-        if (!await isPolygonForkInUse()) return;
-        await expect(
-          makeInitializePoolAdapterTest(
-            false,
-            {zeroController: true}
-          )
-        ).revertedWith("TC-1 zero address"); // ZERO_ADDRESS
-      });
-      it("should revert on zero controller", async () => {
-        if (!await isPolygonForkInUse()) return;
-        await expect(
-          makeInitializePoolAdapterTest(
-            false,
-            {zeroController: true}
-          )
-        ).revertedWith("TC-1 zero address"); // ZERO_ADDRESS
-      });
       it("should revert on zero user", async () => {
         if (!await isPolygonForkInUse()) return;
         await expect(
@@ -1162,22 +1138,22 @@ describe("Aave3PoolAdapterUnitTest", () => {
         const cr = await tx.wait();
 
         // now, we know the address of the pool adapter...
-        const aavePoolAdapterAsTC = Aave3PoolAdapter__factory.connect(
-          await borrowManager.getPoolAdapter(converterNormal, userContract.address, collateralAsset, borrowAsset),
-          tetuConverterSigner
-        );
+        // const aavePoolAdapterAsTC = Aave3PoolAdapter__factory.connect(
+        //   await borrowManager.getPoolAdapter(converterNormal, userContract.address, collateralAsset, borrowAsset),
+        //   tetuConverterSigner
+        // );
 
         // ... and so, we can check the event in tricky way, see how to parse event: https://github.com/ethers-io/ethers.js/issues/487
         const abi = ["event OnInitialized(address controller, address pool, address user, address collateralAsset, address borrowAsset, address originConverter)"];
         const iface = new ethers.utils.Interface(abi);
-        // let's find an event with required address
-        let eventIndex = 0;
-        for (let i = 0; i < cr.logs.length; ++i) {
-          if (cr.logs[i].address === aavePoolAdapterAsTC.address) {
-            eventIndex = i;
-            break;
-          }
-        }
+        // // let's find an event with required address
+        // let eventIndex = 0;
+        // for (let i = 0; i < cr.logs.length; ++i) {
+        //   if (cr.logs[i].address === aavePoolAdapterAsTC.address) {
+        //     eventIndex = i;
+        //     break;
+        //   }
+        // }
         const logOnInitialized = iface.parseLog(cr.logs[2]);
         const retLog = [
           logOnInitialized.name,
@@ -1349,7 +1325,7 @@ describe("Aave3PoolAdapterUnitTest", () => {
         );
         const status = await init.aavePoolAdapterAsTC.getStatus();
 
-        const collateralTargetHealthFactor2 = await BorrowManager__factory.connect(
+        await BorrowManager__factory.connect(
           await init.controller.borrowManager(), deployer
         ).getTargetHealthFactor2(collateralAsset);
 
@@ -1380,7 +1356,7 @@ describe("Aave3PoolAdapterUnitTest", () => {
           r.init.aavePoolAdapterAsTC.getStatus()
         ).revertedWith("TC-4 zero price"); // ZERO_PRICE
       });
-      it("it should revert if collateral price is zero", async () => {
+      it("it should revert if borrow price is zero", async () => {
         if (!await isPolygonForkInUse()) return;
 
         const r = await makeBorrowTest(

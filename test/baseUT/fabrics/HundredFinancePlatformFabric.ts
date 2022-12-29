@@ -13,11 +13,11 @@ export class HundredFinancePlatformFabric implements ILendingPlatformFabric {
         const converter = await AdaptersHelper.createHundredFinancePoolAdapter(deployer);
 
         const platformAdapter = await AdaptersHelper.createHundredFinancePlatformAdapter(
-            deployer
-            , controller.address
-            , comptroller.address
-            , converter.address
-            , [
+            deployer,
+            controller.address,
+            comptroller.address,
+            converter.address,
+            [
                 MaticAddresses.hDAI,
                 MaticAddresses.hMATIC,
                 MaticAddresses.hUSDC,
@@ -31,18 +31,19 @@ export class HundredFinancePlatformFabric implements ILendingPlatformFabric {
 
         const bm: IBorrowManager = IBorrowManager__factory.connect(await controller.borrowManager(), deployer);
         const assets: string[] = [
-            MaticAddresses.DAI
-            , MaticAddresses.WMATIC
-            , MaticAddresses.USDC
-            , MaticAddresses.WETH
-            , MaticAddresses.USDT
-            , MaticAddresses.WBTC
+            MaticAddresses.DAI,
+            MaticAddresses.WMATIC,
+            MaticAddresses.USDC,
+            MaticAddresses.WETH,
+            MaticAddresses.USDT,
+            MaticAddresses.WBTC
         ];
-      const assetPairs = generateAssetPairs(assets);
-      await bm.addAssetPairs(platformAdapter.address
-        , assetPairs.map(x => x.smallerAddress)
-        , assetPairs.map(x => x.biggerAddress)
-      );
+        const assetPairs = generateAssetPairs(assets);
+        await bm.addAssetPairs(
+          platformAdapter.address,
+          assetPairs.map(x => x.smallerAddress),
+          assetPairs.map(x => x.biggerAddress)
+        );
 
         return [
             IERC20__factory.connect(comptroller.address, deployer)

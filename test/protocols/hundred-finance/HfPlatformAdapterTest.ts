@@ -3,8 +3,7 @@ import {ethers} from "hardhat";
 import {TimeUtils} from "../../../scripts/utils/TimeUtils";
 import {
   BorrowManager__factory, Controller,
-  HfAprLibFacade, HfPlatformAdapter, HfPlatformAdapter__factory, IDForceCToken__factory,
-  IERC20Metadata__factory, IHfComptroller, IHfCToken,
+  HfAprLibFacade, HfPlatformAdapter, HfPlatformAdapter__factory, IERC20Metadata__factory, IHfComptroller, IHfCToken,
   IHfCToken__factory
 } from "../../../typechain";
 import {expect} from "chai";
@@ -32,18 +31,14 @@ import {HundredFinanceChangePriceUtils} from "../../baseUT/protocols/hundred-fin
 import {parseUnits} from "ethers/lib/utils";
 import {controlGasLimitsEx} from "../../../scripts/utils/hardhatUtils";
 import {
-  GAS_LIMIT_DFORCE_GET_CONVERSION_PLAN,
   GAS_LIMIT_HUNDRED_FINANCE_GET_CONVERSION_PLAN
 } from "../../baseUT/GasLimit";
-import {colorNameTag} from "hardhat-tracer/dist/src/colors";
-import {DForceHelper} from "../../../scripts/integration/helpers/DForceHelper";
 
 describe("Hundred finance, platform adapter", () => {
 //region Global vars for all tests
   let snapshot: string;
   let snapshotForEach: string;
   let deployer: SignerWithAddress;
-  let investor: SignerWithAddress;
 
 //endregion Global vars for all tests
 
@@ -53,7 +48,6 @@ describe("Hundred finance, platform adapter", () => {
     snapshot = await TimeUtils.snapshot();
     const signers = await ethers.getSigners();
     deployer = signers[0];
-    investor = signers[0];
   });
 
   after(async function () {
@@ -169,8 +163,6 @@ describe("Hundred finance, platform adapter", () => {
     const cTokenCollateral = IHfCToken__factory.connect(collateralCToken, deployer);
     const borrowAssetDecimals = await (IERC20Metadata__factory.connect(borrowAsset, deployer)).decimals();
     const collateralAssetDecimals = await (IERC20Metadata__factory.connect(collateralAsset, deployer)).decimals();
-
-    const cTokenCollateralDecimals = await cTokenCollateral.decimals();
 
     const borrowAssetData = await HundredFinanceHelper.getCTokenData(deployer, comptroller, cTokenBorrow);
     const collateralAssetData = await HundredFinanceHelper.getCTokenData(deployer, comptroller, cTokenCollateral);

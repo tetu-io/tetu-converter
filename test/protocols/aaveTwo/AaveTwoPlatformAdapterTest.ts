@@ -36,7 +36,6 @@ describe("AaveTwoPlatformAdapterTest", () => {
   let snapshot: string;
   let snapshotForEach: string;
   let deployer: SignerWithAddress;
-  let investor: SignerWithAddress;
 //endregion Global vars for all tests
 
 //region before, after
@@ -45,7 +44,6 @@ describe("AaveTwoPlatformAdapterTest", () => {
     snapshot = await TimeUtils.snapshot();
     const signers = await ethers.getSigners();
     deployer = signers[0];
-    investor = signers[0];
   });
 
   after(async function () {

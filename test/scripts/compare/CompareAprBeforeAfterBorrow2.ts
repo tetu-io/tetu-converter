@@ -8,7 +8,6 @@ import {
   IERC20__factory, IERC20Metadata__factory
 } from "../../../typechain";
 import {expect} from "chai";
-import {DForceHelper} from "../../../scripts/integration/helpers/DForceHelper";
 import {AprAave3} from "../../baseUT/apr/aprAave3";
 import {AprAaveTwo} from "../../baseUT/apr/aprAaveTwo";
 import {AprDForce} from "../../baseUT/apr/aprDForce";

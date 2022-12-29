@@ -343,7 +343,7 @@ export class MocksHelper {
   public static async createAssets(countAssets: number) : Promise<MockERC20[]> {
     return Promise.all(
       [...Array(countAssets).keys()].map(
-        async _ => (await MocksHelper.createTokens([18]))[0]
+        async () => (await MocksHelper.createTokens([18]))[0]
       )
     );
   }
@@ -351,7 +351,7 @@ export class MocksHelper {
   public static async createConverters(signer: SignerWithAddress, countConverters: number) : Promise<PoolAdapterStub[]> {
     return Promise.all(
       [...Array(countConverters).keys()].map(
-        async x => MocksHelper.createPoolAdapterStub(signer, getBigNumberFrom(1))
+        async () => MocksHelper.createPoolAdapterStub(signer, getBigNumberFrom(1))
       )
     );
   }

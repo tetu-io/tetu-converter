@@ -23,7 +23,6 @@ import {isPolygonForkInUse} from "../../baseUT/utils/NetworkUtils";
 describe.skip("CompareAprBorrowRepayTest @skip-on-coverage", () => {
 //region Constants
   const HEALTH_FACTOR2 = 400;
-  const COUNT_BLOCKS_SMALL = 1_000;
   const COUNT_BLOCKS_LARGE = 20_000;
 
 //endregion Constants

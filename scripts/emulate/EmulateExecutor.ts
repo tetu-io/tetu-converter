@@ -1,6 +1,5 @@
 import {EmulateWork, IEmulationCommand} from "./EmulateWork";
 import {readFileSync, writeFileSync} from "fs";
-import {computeAddress, formatUnits} from "ethers/lib/utils";
 
 /**
  * Load list of commands from the CSV file
