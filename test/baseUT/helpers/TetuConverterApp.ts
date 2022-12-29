@@ -6,7 +6,7 @@ import {
 import {CoreContractsHelper} from "./CoreContractsHelper";
 import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import {COUNT_BLOCKS_PER_DAY} from "../utils/aprUtils";
-import {ILendingPlatformFabric} from "../fabrics/ILendingPlatformFabric";
+import {ILendingPlatformFabric, ILendingPlatformPoolInfo} from "../fabrics/ILendingPlatformFabric";
 import {MocksHelper} from "./MocksHelper";
 
 export interface ICreateControllerParams {
@@ -42,6 +42,12 @@ export interface ICreateControllerParams {
   countBlocksPerDay?: number;
   tetuLiquidatorAddress?: string;
   blocksPerDayAutoUpdatePeriodSecs?: number;
+}
+
+export interface IBuildAppResults {
+  tc: ITetuConverter;
+  controller: Controller;
+  pools: ILendingPlatformPoolInfo[]
 }
 
 export class TetuConverterApp {
@@ -97,14 +103,14 @@ export class TetuConverterApp {
     deployer: SignerWithAddress,
     fabrics?: ILendingPlatformFabric[],
     p?: ICreateControllerParams
-  ) : Promise<{tc: ITetuConverter, controller: Controller, pools: IERC20[]}> {
+  ) : Promise<IBuildAppResults> {
     const controller = await this.createController(deployer, p);
 
-    const pools: IERC20[] = [];
+    const pools: ILendingPlatformPoolInfo[] = [];
     if (fabrics) {
       for (const fabric of fabrics) {
-        const pp = await fabric.createAndRegisterPools(deployer, controller);
-        pools.push(...pp);
+        const poolInfo: ILendingPlatformPoolInfo = await fabric.createAndRegisterPools(deployer, controller);
+        pools.push(poolInfo);
       }
     }
 

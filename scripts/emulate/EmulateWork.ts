@@ -1,16 +1,22 @@
 import {
   Borrower,
   Controller,
-  IERC20Metadata
+  IERC20Metadata, IPlatformAdapter__factory
 } from "../../typechain";
 import {formatUnits, parseUnits} from "ethers/lib/utils";
 import {BigNumber} from "ethers";
 import {BalanceUtils} from "../../test/baseUT/utils/BalanceUtils";
 import {TimeUtils} from "../utils/TimeUtils";
+import {DeployerUtils} from "../utils/DeployerUtils";
 
 
 export interface IEmulationCommand {
   command: string;
+  /**
+   * User id OR contract name.
+   * Users have the following ids: 1, 2, 3.
+   * Valid contract names are specified in this.contractAddresses
+   */
   user: string;
   asset1: string;
   asset2: string;
@@ -39,15 +45,25 @@ export class EmulateWork {
   controller: Controller;
   public users: Borrower[];
   public assets: IERC20Metadata[];
+  /**
+   * List of contracts
+   *    name : address
+   * Name allows to get address of the contract.
+   * Contract interface is detected by command title.
+   * I.e. for "freeze" command contract is platform adapter.
+   */
+  public contractAddresses: Map<string, string>;
 
   constructor(
     controller: Controller,
     users: Borrower[],
-    assets: IERC20Metadata[]
+    assets: IERC20Metadata[],
+    contractAddresses: Map<string, string>
   ) {
     this.controller = controller;
     this.users = users;
     this.assets = assets;
+    this.contractAddresses = contractAddresses;
   }
 
   public async executeCommand(command: IEmulationCommand) : Promise<IEmulationCommandResult> {
@@ -79,6 +95,10 @@ export class EmulateWork {
           await this.getAsset(command.asset2),
           await this.getAmountOptional(command.amount, await this.getAsset(command.asset2))
         );
+        break;
+      case "freeze":
+      case "unfreeze":
+        await this.executeFreeze(command.user, command.command === "freeze");
         break;
       default:
         throw Error(`Undefined command ${command.command}`);
@@ -133,6 +153,18 @@ export class EmulateWork {
     } else {
       await user.makeRepayComplete(asset1.address, asset2.address, user.address);
     }
+  }
+
+  /** Freeze or unfreeze borrowing on the given lending platform */
+  public async executeFreeze(platformAdapterName: string, freeze: boolean) {
+    const platformAdapterAddress = this.contractAddresses.get(`${platformAdapterName}:platformAdapter`);
+    if (! platformAdapterAddress) {
+      throw Error(`Cannot find address of platform adapter for ${platformAdapterName}`);
+    }
+    await IPlatformAdapter__factory.connect(
+      platformAdapterAddress,
+      await DeployerUtils.startImpersonate(await this.controller.governance())
+    ).setFrozen(freeze);
   }
 
   public async getAmount(amount: string, asset: IERC20Metadata): Promise<BigNumber> {

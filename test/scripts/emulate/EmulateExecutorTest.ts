@@ -17,7 +17,7 @@ describe.skip("Run real work emulator", () => {
     const signers = await ethers.getSigners();
     const deployer = signers[0];
 
-    const {controller} = await TetuConverterApp.buildApp(
+    const {controller, pools} = await TetuConverterApp.buildApp(
       deployer,
     [
         new Aave3PlatformFabric(),
@@ -27,6 +27,12 @@ describe.skip("Run real work emulator", () => {
       ],
       {tetuLiquidatorAddress: MaticAddresses.TETU_LIQUIDATOR}
     );
+    const contractAddresses = new Map<string, string>([
+      ["aave3:platformAdapter", pools[0].platformAdapter],
+      ["aave2:platformAdapter", pools[1].platformAdapter],
+      ["dforce:platformAdapter", pools[2].platformAdapter],
+      ["hundredfinance:platformAdapter", pools[3].platformAdapter],
+    ]);
     const users = [
       await MocksHelper.deployBorrower(deployer.address, controller, 1000),
       await MocksHelper.deployBorrower(deployer.address, controller, 1000),
@@ -41,7 +47,8 @@ describe.skip("Run real work emulator", () => {
         IERC20Metadata__factory.connect(MaticAddresses.USDT, deployer),
         IERC20Metadata__factory.connect(MaticAddresses.WMATIC, deployer),
         IERC20Metadata__factory.connect(MaticAddresses.DAI, deployer),
-      ]
+      ],
+      contractAddresses
     );
 
     await EmulateExecutor.makeEmulation(

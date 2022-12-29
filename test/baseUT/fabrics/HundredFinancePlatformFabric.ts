@@ -1,5 +1,5 @@
 import {IBorrowManager, IBorrowManager__factory, IController, IERC20, IERC20__factory} from "../../../typechain";
-import {ILendingPlatformFabric} from "./ILendingPlatformFabric";
+import {ILendingPlatformFabric, ILendingPlatformPoolInfo} from "./ILendingPlatformFabric";
 import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import {MaticAddresses} from "../../../scripts/addresses/MaticAddresses";
 import {HundredFinanceHelper} from "../../../scripts/integration/helpers/HundredFinanceHelper";
@@ -7,7 +7,7 @@ import {AdaptersHelper} from "../helpers/AdaptersHelper";
 import {generateAssetPairs} from "../utils/AssetPairUtils";
 
 export class HundredFinancePlatformFabric implements ILendingPlatformFabric {
-    async createAndRegisterPools(deployer: SignerWithAddress, controller: IController) : Promise<IERC20[]> {
+    async createAndRegisterPools(deployer: SignerWithAddress, controller: IController) : Promise<ILendingPlatformPoolInfo> {
         const comptroller = await HundredFinanceHelper.getComptroller(deployer);
 
         const converter = await AdaptersHelper.createHundredFinancePoolAdapter(deployer);
@@ -45,8 +45,9 @@ export class HundredFinancePlatformFabric implements ILendingPlatformFabric {
           assetPairs.map(x => x.biggerAddress)
         );
 
-        return [
-            IERC20__factory.connect(comptroller.address, deployer)
-        ]
+        return {
+          pool: IERC20__factory.connect(comptroller.address, deployer),
+          platformAdapter: platformAdapter.address
+        }
     }
 }

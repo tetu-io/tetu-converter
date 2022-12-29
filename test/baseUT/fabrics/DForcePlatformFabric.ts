@@ -7,7 +7,7 @@ import {
   IERC20,
   IERC20__factory
 } from "../../../typechain";
-import {ILendingPlatformFabric} from "./ILendingPlatformFabric";
+import {ILendingPlatformFabric, ILendingPlatformPoolInfo} from "./ILendingPlatformFabric";
 import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import {MaticAddresses} from "../../../scripts/addresses/MaticAddresses";
 import {AdaptersHelper} from "../helpers/AdaptersHelper";
@@ -15,7 +15,7 @@ import {DForceHelper} from "../../../scripts/integration/helpers/DForceHelper";
 import {generateAssetPairs} from "../utils/AssetPairUtils";
 
 export class DForcePlatformFabric implements ILendingPlatformFabric {
-    async createAndRegisterPools(deployer: SignerWithAddress, controller: IController) : Promise<IERC20[]> {
+    async createAndRegisterPools(deployer: SignerWithAddress, controller: IController) : Promise<ILendingPlatformPoolInfo> {
         const {comptroller, platformAdapter} = await DForcePlatformFabric.createPlatformAdapter(
           deployer,
           controller.address
@@ -39,9 +39,10 @@ export class DForcePlatformFabric implements ILendingPlatformFabric {
           assetPairs.map(x => x.biggerAddress)
         );
 
-        return [
-            IERC20__factory.connect(comptroller.address, deployer)
-        ]
+        return {
+          pool: IERC20__factory.connect(comptroller.address, deployer),
+          platformAdapter: platformAdapter.address
+        }
     }
 
     static async createPlatformAdapter(

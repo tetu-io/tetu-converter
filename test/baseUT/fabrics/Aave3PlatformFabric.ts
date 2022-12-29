@@ -3,11 +3,11 @@ import {Aave3Helper} from "../../../scripts/integration/helpers/Aave3Helper";
 import {AdaptersHelper} from "../helpers/AdaptersHelper";
 import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import {MaticAddresses} from "../../../scripts/addresses/MaticAddresses";
-import {ILendingPlatformFabric} from "./ILendingPlatformFabric";
+import {ILendingPlatformFabric, ILendingPlatformPoolInfo} from "./ILendingPlatformFabric";
 import {generateAssetPairs} from "../utils/AssetPairUtils";
 
 export class Aave3PlatformFabric implements ILendingPlatformFabric {
-  async createAndRegisterPools(deployer: SignerWithAddress, controller: IController) : Promise<IERC20[]> {
+  async createAndRegisterPools(deployer: SignerWithAddress, controller: IController) : Promise<ILendingPlatformPoolInfo> {
     const aavePool = await Aave3Helper.getAavePool(deployer);
 
     const templateAdapterNormal = await AdaptersHelper.createAave3PoolAdapter(deployer);
@@ -42,8 +42,9 @@ export class Aave3PlatformFabric implements ILendingPlatformFabric {
       assetPairs.map(x => x.biggerAddress),
     );
 
-    return [
-      IERC20__factory.connect(aavePool.address, deployer)
-    ]
+    return {
+      pool: IERC20__factory.connect(aavePool.address, deployer),
+      platformAdapter: aavePlatformAdapter.address
+    }
   }
 }
