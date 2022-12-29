@@ -270,9 +270,7 @@ describe("Controller", () => {
             a.borrowManager,
             a.debtMonitor,
             a.keeper,
-            a.tetuLiquidator,
             a.swapManager,
-            a.priceOracle
           )
         ).revertedWith("Initializable: contract is already initialized");
       });

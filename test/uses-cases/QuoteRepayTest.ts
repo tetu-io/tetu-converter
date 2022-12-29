@@ -6,7 +6,6 @@ import {MaticAddresses} from "../../scripts/addresses/MaticAddresses";
 import {Aave3PlatformFabric} from "../baseUT/fabrics/Aave3PlatformFabric";
 import {
   BorrowRepayUsesCase,
-  IMakeTestSingleBorrowInstantRepayResults,
   IQuoteRepayResults
 } from "../baseUT/uses-cases/BorrowRepayUsesCase";
 import {isPolygonForkInUse} from "../baseUT/utils/NetworkUtils";
@@ -14,12 +13,6 @@ import {HundredFinancePlatformFabric} from "../baseUT/fabrics/HundredFinancePlat
 import {DForcePlatformFabric} from "../baseUT/fabrics/DForcePlatformFabric";
 import {AaveTwoPlatformFabric} from "../baseUT/fabrics/AaveTwoPlatformFabric";
 import {
-  GAS_LIMIT_INIT_BORROW_AAVE_TWO,
-  GAS_LIMIT_REPAY_AAVE_TWO,
-  GAS_LIMIT_INIT_BORROW_DFORCE,
-  GAS_LIMIT_REPAY_DFORCE,
-  GAS_LIMIT_INIT_BORROW_HUNDRED_FINANCE,
-  GAS_LIMIT_REPAY_HUNDRED_FINANCE,
   GAS_LIMIT_QUOTE_REPAY_AAVE3,
   GAS_LIMIT_QUOTE_REPAY_AAVE_TWO,
   GAS_LIMIT_QUOTE_REPAY_DFORCE,
@@ -76,7 +69,7 @@ describe("QuoteRepayTest", () => {
 //endregion before, after
 
 //region Unit tests
-  describe("quoteRepay correctly predicts collateral amount", async () => {
+  describe("quoteRepay correctly predicts collateral amount", () => {
     describe("Good paths", () => {
       describe("Single borrow, single instant complete repay", () => {
         describe("Dai=>USDC", () => {
@@ -99,7 +92,7 @@ describe("QuoteRepayTest", () => {
               const {controller} = await TetuConverterApp.buildApp(
                 deployer,
                 [new Aave3PlatformFabric()],
-                {priceOracleFabric: async c => (await CoreContractsHelper.createPriceOracle(deployer, c.address)).address} // disable swap, enable price oracle
+                {priceOracleFabric: async () => (await CoreContractsHelper.createPriceOracle(deployer)).address} // disable swap, enable price oracle
               );
               results = await BorrowRepayUsesCase.makeQuoteRepay(deployer,
                 {
@@ -154,7 +147,7 @@ describe("QuoteRepayTest", () => {
               const {controller} = await TetuConverterApp.buildApp(
                 deployer,
                 [new AaveTwoPlatformFabric()],
-                {priceOracleFabric: async c => (await CoreContractsHelper.createPriceOracle(deployer, c.address)).address} // disable swap, enable price oracle
+                {priceOracleFabric: async () => (await CoreContractsHelper.createPriceOracle(deployer)).address} // disable swap, enable price oracle
               );
               results = await BorrowRepayUsesCase.makeQuoteRepay(deployer,
                 {
@@ -205,7 +198,7 @@ describe("QuoteRepayTest", () => {
               const {controller} = await TetuConverterApp.buildApp(
                 deployer,
                 [new DForcePlatformFabric()],
-                {priceOracleFabric: async c => (await CoreContractsHelper.createPriceOracle(deployer, c.address)).address} // disable swap, enable price oracle
+                {priceOracleFabric: async () => (await CoreContractsHelper.createPriceOracle(deployer)).address} // disable swap, enable price oracle
               );
               results = await BorrowRepayUsesCase.makeQuoteRepay(deployer,
                 {
@@ -255,7 +248,7 @@ describe("QuoteRepayTest", () => {
               const {controller} = await TetuConverterApp.buildApp(
                 deployer,
                 [new HundredFinancePlatformFabric()],
-                {priceOracleFabric: async c => (await CoreContractsHelper.createPriceOracle(deployer, c.address)).address} // disable swap, enable price oracle
+                {priceOracleFabric: async () => (await CoreContractsHelper.createPriceOracle(deployer)).address} // disable swap, enable price oracle
               );
               results = await BorrowRepayUsesCase.makeQuoteRepay(deployer,
                 {
@@ -318,7 +311,7 @@ describe("QuoteRepayTest", () => {
               const {controller} = await TetuConverterApp.buildApp(
                 deployer,
                 [new Aave3PlatformFabric()],
-                {priceOracleFabric: async c => (await CoreContractsHelper.createPriceOracle(deployer, c.address)).address} // disable swap, enable price oracle
+                {priceOracleFabric: async () => (await CoreContractsHelper.createPriceOracle(deployer)).address} // disable swap, enable price oracle
               );
               results = await BorrowRepayUsesCase.makeQuoteRepay(deployer,
                 {
@@ -373,7 +366,7 @@ describe("QuoteRepayTest", () => {
               const {controller} = await TetuConverterApp.buildApp(
                 deployer,
                 [new AaveTwoPlatformFabric()],
-                {priceOracleFabric: async c => (await CoreContractsHelper.createPriceOracle(deployer, c.address)).address} // disable swap, enable price oracle
+                {priceOracleFabric: async () => (await CoreContractsHelper.createPriceOracle(deployer)).address} // disable swap, enable price oracle
               );
               results = await BorrowRepayUsesCase.makeQuoteRepay(deployer,
                 {
@@ -424,7 +417,7 @@ describe("QuoteRepayTest", () => {
               const {controller} = await TetuConverterApp.buildApp(
                 deployer,
                 [new DForcePlatformFabric()],
-                {priceOracleFabric: async c => (await CoreContractsHelper.createPriceOracle(deployer, c.address)).address} // disable swap, enable price oracle
+                {priceOracleFabric: async () => (await CoreContractsHelper.createPriceOracle(deployer)).address} // disable swap, enable price oracle
               );
               results = await BorrowRepayUsesCase.makeQuoteRepay(deployer,
                 {
@@ -474,7 +467,7 @@ describe("QuoteRepayTest", () => {
               const {controller} = await TetuConverterApp.buildApp(
                 deployer,
                 [new HundredFinancePlatformFabric()],
-                {priceOracleFabric: async c => (await CoreContractsHelper.createPriceOracle(deployer, c.address)).address} // disable swap, enable price oracle
+                {priceOracleFabric: async () => (await CoreContractsHelper.createPriceOracle(deployer)).address} // disable swap, enable price oracle
               );
               results = await BorrowRepayUsesCase.makeQuoteRepay(deployer,
                 {
@@ -540,7 +533,7 @@ describe("QuoteRepayTest", () => {
               const {controller} = await TetuConverterApp.buildApp(
                 deployer,
                 [new Aave3PlatformFabric()],
-                {priceOracleFabric: async c => (await CoreContractsHelper.createPriceOracle(deployer, c.address)).address} // disable swap, enable price oracle
+                {priceOracleFabric: async () => (await CoreContractsHelper.createPriceOracle(deployer)).address} // disable swap, enable price oracle
               );
               results = await BorrowRepayUsesCase.makeQuoteRepay(deployer,
                 {
@@ -581,7 +574,7 @@ describe("QuoteRepayTest", () => {
               const {controller} = await TetuConverterApp.buildApp(
                 deployer,
                 [new AaveTwoPlatformFabric()],
-                {priceOracleFabric: async c => (await CoreContractsHelper.createPriceOracle(deployer, c.address)).address} // disable swap, enable price oracle
+                {priceOracleFabric: async () => (await CoreContractsHelper.createPriceOracle(deployer)).address} // disable swap, enable price oracle
               );
               results = await BorrowRepayUsesCase.makeQuoteRepay(deployer,
                 {
@@ -622,7 +615,7 @@ describe("QuoteRepayTest", () => {
               const {controller} = await TetuConverterApp.buildApp(
                 deployer,
                 [new DForcePlatformFabric()],
-                {priceOracleFabric: async c => (await CoreContractsHelper.createPriceOracle(deployer, c.address)).address} // disable swap, enable price oracle
+                {priceOracleFabric: async () => (await CoreContractsHelper.createPriceOracle(deployer)).address} // disable swap, enable price oracle
               );
               results = await BorrowRepayUsesCase.makeQuoteRepay(deployer,
                 {
@@ -663,7 +656,7 @@ describe("QuoteRepayTest", () => {
               const {controller} = await TetuConverterApp.buildApp(
                 deployer,
                 [new HundredFinancePlatformFabric()],
-                {priceOracleFabric: async c => (await CoreContractsHelper.createPriceOracle(deployer, c.address)).address} // disable swap, enable price oracle
+                {priceOracleFabric: async () => (await CoreContractsHelper.createPriceOracle(deployer)).address} // disable swap, enable price oracle
               );
               results = await BorrowRepayUsesCase.makeQuoteRepay(deployer,
                 {
