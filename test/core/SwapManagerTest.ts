@@ -126,10 +126,51 @@ describe("SwapManager", () => {
 
   });
 
-  describe("Constructor", () => {
+  describe("constructor", () => {
+    interface IMakeConstructorTestParams {
+      useZeroController?: boolean;
+      useZeroTetuLiquidator?: boolean;
+      useZeroPriceOracle?: boolean;
+    }
+    async function makeConstructorTest(
+      params?: IMakeConstructorTestParams
+    ) : Promise<SwapManager> {
+      const controllerLocal = await TetuConverterApp.createController(
+        deployer,
+        {
+          borrowManagerFabric: async () => ethers.Wallet.createRandom().address,
+          tetuConverterFabric: async () => ethers.Wallet.createRandom().address,
+          debtMonitorFabric: async () => ethers.Wallet.createRandom().address,
+          keeperFabric: async () => ethers.Wallet.createRandom().address,
+          swapManagerFabric: async (
+            c,
+            tetuLiquidator,
+            priceOracle
+          ) => (await CoreContractsHelper.createSwapManager(
+            deployer,
+            params?.useZeroController ? Misc.ZERO_ADDRESS : c.address,
+            params?.useZeroTetuLiquidator ? Misc.ZERO_ADDRESS : tetuLiquidator,
+            params?.useZeroPriceOracle ? Misc.ZERO_ADDRESS : priceOracle
+          )).address,
+          tetuLiquidatorAddress: ethers.Wallet.createRandom().address
+        }
+      );
+      return SwapManager__factory.connect(await controllerLocal.swapManager(), deployer);
+    }
     it("Revert on zero controller", async () => {
-      await expect(DeployUtils.deployContract(deployer, "SwapManager",
-        ethers.constants.AddressZero)).revertedWith("TC-1 zero address")
+      await expect(
+        makeConstructorTest({useZeroController: true})
+      ).revertedWith("TC-1 zero address"); // ZERO_ADDRESS
+    });
+    it("Revert on zero tetuLiquidator", async () => {
+      await expect(
+        makeConstructorTest({useZeroTetuLiquidator: true})
+      ).revertedWith("TC-1 zero address"); // ZERO_ADDRESS
+    });
+    it("Revert on zero priceOracle", async () => {
+      await expect(
+        makeConstructorTest({useZeroPriceOracle: true})
+      ).revertedWith("TC-1 zero address"); // ZERO_ADDRESS
     });
   });
 
@@ -514,7 +555,14 @@ describe("SwapManager", () => {
           tetuConverterFabric: async () => ethers.Wallet.createRandom().address,
           debtMonitorFabric: async () => ethers.Wallet.createRandom().address,
           keeperFabric: async () => ethers.Wallet.createRandom().address,
-          swapManagerFabric: async c => (await CoreContractsHelper.createSwapManager(deployer, c.address)).address,
+          swapManagerFabric: async (
+            c, tetuLiquidatorLocal, priceOracle
+          ) => (await CoreContractsHelper.createSwapManager(
+            deployer,
+            c.address,
+            tetuLiquidatorLocal,
+            priceOracle
+          )).address,
           tetuLiquidatorAddress: tetuLiquidator,
           priceOracleFabric: async () => (await MocksHelper.getPriceOracleMock(
               deployer,

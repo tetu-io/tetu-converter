@@ -624,15 +624,21 @@ describe("DebtsMonitor", () => {
 
 //region Unit tests
   describe("constructor", () => {
+    interface IMakeConstructorTestParams {
+      useZeroController?: boolean;
+      useZeroBorrowManager?: boolean;
+    }
     async function makeConstructorTest(
+      params?: IMakeConstructorTestParams
       // thresholdAPR: number,
       // thresholdCountBlocks: number,
-      useZeroController?: boolean
     ): Promise<{ret: string, expected: string}> {
       const controller = await CoreContractsHelper.deployController(deployer);
+      const borrowManager = await CoreContractsHelper.createBorrowManager(deployer, controller.address);
       const debtMonitor = await CoreContractsHelper.createDebtMonitor(
         deployer,
-        useZeroController ? Misc.ZERO_ADDRESS : controller.address,
+        params?.useZeroController ? Misc.ZERO_ADDRESS : controller.address,
+        params?.useZeroBorrowManager ? Misc.ZERO_ADDRESS: borrowManager.address
         // thresholdAPR,
         // thresholdCountBlocks
       );
@@ -674,9 +680,22 @@ describe("DebtsMonitor", () => {
       it("should revert if controller is zero", async () => {
         await expect(
           makeConstructorTest(
-            // 0,
-            // 0,
-            true // (!) controller is zero
+            {
+              useZeroController: true // (!) controller is zero
+              // 0,
+              // 0,
+            }
+          )
+        ).revertedWith("TC-1 zero address"); // ZERO_ADDRESS
+      });
+      it("should revert if borrowManager is zero", async () => {
+        await expect(
+          makeConstructorTest(
+            {
+              useZeroBorrowManager: true // (!) controller is zero
+              // 0,
+              // 0,
+            }
           )
         ).revertedWith("TC-1 zero address"); // ZERO_ADDRESS
       });
@@ -1857,8 +1876,9 @@ describe("DebtsMonitor", () => {
         keeperFabric: async () => ethers.Wallet.createRandom().address,
         swapManagerFabric: async () => ethers.Wallet.createRandom().address,
         tetuLiquidatorAddress: ethers.Wallet.createRandom().address,
-        debtMonitorFabric: (async c => (await CoreContractsHelper.createDebtMonitor(deployer,
-          c.address
+        debtMonitorFabric: (async (c, borrowManager) => (await CoreContractsHelper.createDebtMonitor(deployer,
+          c.address,
+          borrowManager
           // 1,
           // 1
         )).address),

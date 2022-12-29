@@ -25,7 +25,7 @@ import {
   IPoolAdapter,
   DebtMonitorMock__factory,
   SwapManagerMock__factory,
-  PriceOracleMock__factory
+  PriceOracleMock__factory, IController__factory
 } from "../../typechain";
 import {
   IBorrowInputParams,
@@ -759,6 +759,11 @@ describe("TetuConverterTest", () => {
   describe("constructor", () => {
     interface IMakeConstructorTestParams {
       useZeroController?: boolean;
+      useZeroBorrowManager?: boolean;
+      useZeroDebtMonitor?: boolean;
+      useZeroSwapManager?: boolean;
+      useZeroKeeper?: boolean;
+      useZeroPriceOracle?: boolean;
     }
     async function makeConstructorTest(
       params?: IMakeConstructorTestParams
@@ -766,12 +771,17 @@ describe("TetuConverterTest", () => {
       const controller = await TetuConverterApp.createController(
         deployer,
         {
-          tetuConverterFabric: async c => (await CoreContractsHelper.createTetuConverter(
-            deployer,
-            params?.useZeroController
-              ? Misc.ZERO_ADDRESS
-              : c.address
-          )).address,
+          tetuConverterFabric: (async (c, borrowManager, debtMonitor, swapManager, keeper, priceOracle) => (
+              await CoreContractsHelper.createTetuConverter(
+                deployer,
+                params?.useZeroController ? Misc.ZERO_ADDRESS : c.address,
+                params?.useZeroBorrowManager ? Misc.ZERO_ADDRESS : borrowManager,
+                params?.useZeroDebtMonitor ? Misc.ZERO_ADDRESS : debtMonitor,
+                params?.useZeroSwapManager ? Misc.ZERO_ADDRESS : swapManager,
+                params?.useZeroKeeper ? Misc.ZERO_ADDRESS : keeper,
+                params?.useZeroPriceOracle ? Misc.ZERO_ADDRESS : priceOracle
+              )).address
+          ),
           borrowManagerFabric: async () => ethers.Wallet.createRandom().address,
           debtMonitorFabric: async () => ethers.Wallet.createRandom().address,
           keeperFabric: async () => ethers.Wallet.createRandom().address,
@@ -790,11 +800,58 @@ describe("TetuConverterTest", () => {
 
         expect(ret.eq(0)).eq(false);
       });
+      it("should initialize immutable variables by expected values", async () => {
+        // we can call any function of TetuConverter to ensure that it was created correctly
+        // let's check it using ADDITIONAL_BORROW_DELTA_DENOMINATOR()
+        const tetuConverter = await makeConstructorTest();
+        const controller = IController__factory.connect(await tetuConverter.controller(), deployer);
+        const ret = [
+          await tetuConverter.borrowManager(),
+          await tetuConverter.debtMonitor(),
+          await tetuConverter.swapManager(),
+          await tetuConverter.keeper(),
+          await tetuConverter.priceOracle()
+        ].join();
+        const expected = [
+          await controller.borrowManager(),
+          await controller.debtMonitor(),
+          await controller.swapManager(),
+          await controller.keeper(),
+          await controller.priceOracle()
+        ].join();
+
+        expect(ret).eq(expected);
+      });
     });
     describe("Bad paths", () => {
       it("should revert if controller is zero", async () => {
         await expect(
           makeConstructorTest({useZeroController: true})
+        ).revertedWith("TC-1 zero address"); // ZERO_ADDRESS
+      });
+      it("should revert if borrowManager is zero", async () => {
+        await expect(
+          makeConstructorTest({useZeroBorrowManager: true})
+        ).revertedWith("TC-1 zero address"); // ZERO_ADDRESS
+      });
+      it("should revert if debtMonitor is zero", async () => {
+        await expect(
+          makeConstructorTest({useZeroDebtMonitor: true})
+        ).revertedWith("TC-1 zero address"); // ZERO_ADDRESS
+      });
+      it("should revert if swapManager is zero", async () => {
+        await expect(
+          makeConstructorTest({useZeroSwapManager: true})
+        ).revertedWith("TC-1 zero address"); // ZERO_ADDRESS
+      });
+      it("should revert if keeper is zero", async () => {
+        await expect(
+          makeConstructorTest({useZeroKeeper: true})
+        ).revertedWith("TC-1 zero address"); // ZERO_ADDRESS
+      });
+      it("should revert if priceOracle is zero", async () => {
+        await expect(
+          makeConstructorTest({useZeroPriceOracle: true})
         ).revertedWith("TC-1 zero address"); // ZERO_ADDRESS
       });
     });

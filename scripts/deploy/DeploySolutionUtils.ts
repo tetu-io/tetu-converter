@@ -308,21 +308,31 @@ export class DeploySolutionUtils {
   ) : Promise<IDeployCoreResults> {
     const controller = alreadyDeployed?.controller
       || (await CoreContractsHelper.deployController(deployer)).address;
+    const priceOracle = alreadyDeployed?.priceOracle
+      || (await CoreContractsHelper.createPriceOracle(deployer)).address;
+
     const borrowManager = alreadyDeployed?.borrowManager || (await CoreContractsHelper.createBorrowManager(
       deployer,
       controller,
       borrowManagerSetupParams.rewardsFactor
     )).address;
-    const debtMonitor = alreadyDeployed?.debtMonitor
-      || (await CoreContractsHelper.createDebtMonitor(deployer, controller)).address;
-    const tetuConverter = alreadyDeployed?.tetuConverter
-      || (await CoreContractsHelper.createTetuConverter(deployer, controller)).address;
-    const swapManager = alreadyDeployed?.swapManager
-      || (await CoreContractsHelper.createSwapManager(deployer, controller)).address;
-    const priceOracle = alreadyDeployed?.priceOracle
-      || (await CoreContractsHelper.createPriceOracle(deployer, controller)).address;
     const keeper = alreadyDeployed?.keeper
       || (await CoreContractsHelper.createKeeper(deployer, controller, gelatoOpsReady)).address;
+
+    const debtMonitor = alreadyDeployed?.debtMonitor
+      || (await CoreContractsHelper.createDebtMonitor(deployer, controller, borrowManager)).address;
+    const swapManager = alreadyDeployed?.swapManager
+      || (await CoreContractsHelper.createSwapManager(deployer, controller, tetuLiquidator, priceOracle)).address;
+    const tetuConverter = alreadyDeployed?.tetuConverter
+      || (await CoreContractsHelper.createTetuConverter(
+        deployer,
+        controller,
+        borrowManager,
+        debtMonitor,
+        swapManager,
+        keeper,
+        priceOracle
+      )).address;
 
     await RunHelper.runAndWait(
       () => Controller__factory.connect(controller, deployer).initialize(

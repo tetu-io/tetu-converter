@@ -22,6 +22,12 @@ contract SwapManager is ISwapManager, ISwapConverter, ISimulateProvider, ISwapSi
   using SafeERC20 for IERC20;
 
   IController public immutable controller;
+  /// @notice Same as controller.priceOracle()
+  /// @dev Cached for the gas optimization
+  IPriceOracle public immutable priceOracle;
+  /// @notice Same as controller.tetuLiquidator()
+  /// @dev Cached for the gas optimization
+  ITetuLiquidator public immutable tetuLiquidator;
 
   ///////////////////////////////////////////////////////
   ///               Constants
@@ -50,12 +56,20 @@ contract SwapManager is ISwapManager, ISwapConverter, ISimulateProvider, ISwapSi
   ///               Initialization
   ///////////////////////////////////////////////////////
 
-  constructor (address controller_) {
+  constructor (
+    address controller_,
+    address tetuLiquidator_,
+    address priceOracle_
+  ) {
     require(
-      controller_ != address(0),
+      controller_ != address(0)
+      && tetuLiquidator_ != address(0)
+      && priceOracle_ != address(0),
       AppErrors.ZERO_ADDRESS
     );
     controller = IController(controller_);
+    tetuLiquidator = ITetuLiquidator(tetuLiquidator_);
+    priceOracle = IPriceOracle(priceOracle_);
   }
 
   /// @notice Set custom price impact tolerance for the asset
@@ -142,7 +156,6 @@ contract SwapManager is ISwapManager, ISwapConverter, ISimulateProvider, ISwapSi
     // there are no restrictions for the msg.sender
     uint targetTokenBalanceBefore = IERC20(targetToken_).balanceOf(address(this));
 
-    ITetuLiquidator tetuLiquidator = ITetuLiquidator(controller.tetuLiquidator());
     IERC20(sourceToken_).safeApprove(address(tetuLiquidator), sourceAmount_);
 
     // If price impact is too big, getConverter will return high APR
@@ -192,7 +205,6 @@ contract SwapManager is ISwapManager, ISwapConverter, ISimulateProvider, ISwapSi
 
     uint targetTokenBalanceBefore = IERC20(targetToken_).balanceOf(address(this));
 
-    ITetuLiquidator tetuLiquidator = ITetuLiquidator(controller.tetuLiquidator());
     IERC20(sourceToken_).safeApprove(address(tetuLiquidator), sourceAmount_);
     tetuLiquidator.liquidate(sourceToken_, targetToken_, sourceAmount_, _getPriceImpactTolerance(sourceToken_));
     return IERC20(targetToken_).balanceOf(address(this)) - targetTokenBalanceBefore;
@@ -239,7 +251,6 @@ contract SwapManager is ISwapManager, ISwapConverter, ISimulateProvider, ISwapSi
     uint amountIn_,
     address assetOut_
   ) public view returns (uint) {
-    IPriceOracle priceOracle = IPriceOracle(controller.priceOracle());
     uint priceOut = priceOracle.getAssetPrice(assetOut_);
     uint priceIn = priceOracle.getAssetPrice(assetIn_);
     require(priceOut != 0 && priceIn != 0, AppErrors.ZERO_PRICE);
