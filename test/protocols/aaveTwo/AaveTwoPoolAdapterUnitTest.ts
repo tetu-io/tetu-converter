@@ -401,7 +401,7 @@ describe("AaveTwoPoolAdapterUnitTest", () => {
             "1999",
             {amountToRepayStr: "1", closePosition: true}
           )
-        ).revertedWith("TC-24 close position failed"); // CLOSE_POSITION_FAILED
+        ).revertedWith("TC-55 close position not allowed"); // CLOSE_POSITION_PARTIAL
       });
       it("should fail if the debt was completely paid but amount of the debt is still not zero in the pool", async () => {
         if (!await isPolygonForkInUse()) return;

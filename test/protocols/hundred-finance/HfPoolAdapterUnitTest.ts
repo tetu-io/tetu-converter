@@ -915,7 +915,7 @@ describe("HfPoolAdapterUnitTest", () => {
             borrowHolder,
             {amountToRepayStr: "1", closePosition: true}
           )
-        ).revertedWith("TC-24 close position failed"); // CLOSE_POSITION_FAILED
+        ).revertedWith("TC-55 close position not allowed"); // CLOSE_POSITION_PARTIAL
       });
       describe("Use mocked HfComptroller", () => {
         it("normal repay should work correctly", async () => {

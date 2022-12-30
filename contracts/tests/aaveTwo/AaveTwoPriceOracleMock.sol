@@ -1,10 +1,12 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.17;
 
+import "../interfaces/IChangePriceForTests.sol";
+import "../interfaces/IChangePriceForTests.sol";
 import "../../integrations/aaveTwo/IAaveTwoPriceOracle.sol";
 import "hardhat/console.sol";
 
-contract AaveTwoPriceOracleMock is IAaveTwoPriceOracle {
+contract AaveTwoPriceOracleMock is IAaveTwoPriceOracle, IChangePriceForTests {
   address private _owner;
   address private _weth;
   address private _fallbackOracle;
@@ -31,6 +33,14 @@ contract AaveTwoPriceOracleMock is IAaveTwoPriceOracle {
     }
   }
 
+  /////////////////////////////////////////////////////////////////
+  ///                 IChangePriceForTests
+  /////////////////////////////////////////////////////////////////
+
+  /// @notice Take exist price of the asset and multiple it on (multiplier100_/100)
+  function changePrice(address asset_, uint multiplier100_) external {
+    _prices[asset_] *= multiplier100_ / 100;
+  }
 
   /////////////////////////////////////////////////////////////////
   ///                 IAaveTwoPriceOracle

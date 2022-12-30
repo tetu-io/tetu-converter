@@ -364,28 +364,31 @@ contract AaveTwoPoolAdapter is IPoolAdapter, IPoolAdapterInitializer, Initializa
     (uint256 totalCollateralBase, uint256 totalDebtBase,,,,) = pool_.getUserAccountData(address(this));
     require(totalDebtBase != 0, AppErrors.ZERO_BALANCE);
 
-    uint amountToRepayBase = amountToRepay_
-      * priceOracle_.getAssetPrice(assetBorrow_)
-      / (10 ** IERC20Metadata(assetBorrow_).decimals());
-    require(!closePosition_ || totalDebtBase <= amountToRepayBase, AppErrors.CLOSE_POSITION_FAILED);
+    uint borrowPrice =  priceOracle_.getAssetPrice(assetBorrow_);
+    require(borrowPrice != 0, AppErrors.ZERO_PRICE);
+
+    uint amountToRepayBase = amountToRepay_ * borrowPrice / (10 ** IERC20Metadata(assetBorrow_).decimals());
 
     if (closePosition_) {
+      // we cannot close position and pay the debt only partly
+      require(totalDebtBase <= amountToRepayBase, AppErrors.CLOSE_POSITION_PARTIAL);
+
       return type(uint).max;
+    } else {
+      // the assets prices in the base currency
+      uint collateralPrice = priceOracle_.getAssetPrice(assetCollateral_);
+      require(collateralPrice != 0, AppErrors.ZERO_PRICE);
+
+      uint part = amountToRepayBase >= totalDebtBase
+        ? 10**18
+        : 10**18 * amountToRepayBase / totalDebtBase;
+
+      return
+        // == totalCollateral * amountToRepay / totalDebt
+        totalCollateralBase * (10 ** IERC20Metadata(assetCollateral_).decimals())
+        * part / 10**18
+        / collateralPrice;
     }
-
-    // the assets prices in the base currency
-    uint collateralPrice = priceOracle_.getAssetPrice(assetCollateral_);
-    require(collateralPrice != 0, AppErrors.ZERO_PRICE);
-
-    uint part = amountToRepayBase >= totalDebtBase
-      ? 10**18
-      : 10**18 * amountToRepayBase / totalDebtBase;
-
-    return
-      // == totalCollateral * amountToRepay / totalDebt
-      totalCollateralBase * (10 ** IERC20Metadata(assetCollateral_).decimals())
-      * part / 10**18
-      / collateralPrice;
   }
 
   /// @notice If we paid {amountToRepay_}, how much collateral would we receive?

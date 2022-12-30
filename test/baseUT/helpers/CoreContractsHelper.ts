@@ -7,6 +7,7 @@ import {BigNumber} from "ethers";
 import {DeployUtils} from "../../../scripts/utils/DeployUtils";
 import {COUNT_BLOCKS_PER_DAY} from "../utils/aprUtils";
 import {parseUnits} from "ethers/lib/utils";
+import {MaticAddresses} from "../../../scripts/addresses/MaticAddresses";
 
 export class CoreContractsHelper {
   static async deployController(
@@ -168,10 +169,12 @@ export class CoreContractsHelper {
 
   public static async createPriceOracle (
     signer: SignerWithAddress,
+    priceOracleAave3?: string
   ) : Promise<PriceOracle> {
     return (await DeployUtils.deployContract(
       signer,
-      "PriceOracle"
+      "PriceOracle",
+      priceOracleAave3 || MaticAddresses.AAVE_V3_PRICE_ORACLE
     )) as PriceOracle;
   }
 }

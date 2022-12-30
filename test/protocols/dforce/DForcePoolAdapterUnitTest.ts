@@ -856,7 +856,7 @@ describe("DForce unit tests, pool adapter", () => {
             borrowHolder,
             {amountToRepayStr: "1", closePosition: true}
           )
-        ).revertedWith("TC-24 close position failed"); // CLOSE_POSITION_FAILED
+        ).revertedWith("TC-55 close position not allowed"); // CLOSE_POSITION_PARTIAL
       });
       describe("Use mocked DForce controller", () => {
         it("should repay successfully", async () => {

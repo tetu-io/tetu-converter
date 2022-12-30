@@ -115,4 +115,7 @@ library AppErrors {
   string public constant ONLY_SWAP_MANAGER = "TC-53 swap manager only";
 
   string public constant TOO_HIGH_PRICE_IMPACT = "TC-54 price impact";
+
+  /// @notice It's not possible to make partial repayment and close the position
+  string public constant CLOSE_POSITION_PARTIAL = "TC-55 close position not allowed";
 }

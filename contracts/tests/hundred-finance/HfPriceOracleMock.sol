@@ -1,9 +1,25 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.17;
-import "hardhat/console.sol";
 
-contract HfPriceOracleMock {
+import "hardhat/console.sol";
+import "../interfaces/IChangePriceForTests.sol";
+
+/// @notice Replacement for the original hundred finance price oracle
+contract HfPriceOracleMock is IChangePriceForTests {
   mapping(address => uint) public prices;
+
+  /////////////////////////////////////////////////////////////////
+  ///                 IChangePriceForTests
+  /////////////////////////////////////////////////////////////////
+
+  /// @notice Take exist price of the asset and multiple it on (multiplier100_/100)
+  function changePrice(address asset_, uint multiplier100_) external {
+    prices[asset_] *= multiplier100_ / 100;
+  }
+
+  /////////////////////////////////////////////////////////////////
+  ///    Same set of functions as in the original Hundred Finance oracle
+  /////////////////////////////////////////////////////////////////
 
   function setUnderlyingPrice(address cToken_, uint price_) external {
     console.log("HfPriceOracleMock.setUnderlyingPrice");

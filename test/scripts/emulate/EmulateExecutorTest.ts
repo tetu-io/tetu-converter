@@ -9,13 +9,24 @@ import {Aave3PlatformFabric} from "../../baseUT/fabrics/Aave3PlatformFabric";
 import {AaveTwoPlatformFabric} from "../../baseUT/fabrics/AaveTwoPlatformFabric";
 import {DForcePlatformFabric} from "../../baseUT/fabrics/DForcePlatformFabric";
 import {HundredFinancePlatformFabric} from "../../baseUT/fabrics/HundredFinancePlatformFabric";
+import {Aave3ChangePricesUtils} from "../../baseUT/protocols/aave3/Aave3ChangePricesUtils";
+import {AaveTwoChangePricesUtils} from "../../baseUT/protocols/aaveTwo/AaveTwoChangePricesUtils";
+import {DForceChangePriceUtils} from "../../baseUT/protocols/dforce/DForceChangePriceUtils";
+import {HundredFinanceChangePriceUtils} from "../../baseUT/protocols/hundred-finance/HundredFinanceChangePriceUtils";
 
 describe.skip("Run real work emulator", () => {
   const pathIn = "./scripts/emulate/data/ListCommands.csv";
   const pathOut = "./tmp/EmulationResults.csv";
+
   it("Run all commands", async () => {
     const signers = await ethers.getSigners();
     const deployer = signers[0];
+
+    // attach custom price oracles to be able to manipulate with the prices
+    const priceOracleAave3 = await Aave3ChangePricesUtils.setupPriceOracleMock(deployer);
+    const priceOracleAaveTwo = await AaveTwoChangePricesUtils.setupPriceOracleMock(deployer);
+    const priceOracleDForce = await DForceChangePriceUtils.setupPriceOracleMock(deployer);
+    const priceOracleHundredFinance = await HundredFinanceChangePriceUtils.setupPriceOracleMock(deployer);
 
     const {controller, pools} = await TetuConverterApp.buildApp(
       deployer,
@@ -25,13 +36,21 @@ describe.skip("Run real work emulator", () => {
         new DForcePlatformFabric(),
         new HundredFinancePlatformFabric(),
       ],
-      {tetuLiquidatorAddress: MaticAddresses.TETU_LIQUIDATOR}
+      {
+        tetuLiquidatorAddress: MaticAddresses.TETU_LIQUIDATOR,
+        priceOracleFabric: () => priceOracleAave3.address
+      }
     );
     const contractAddresses = new Map<string, string>([
       ["aave3:platformAdapter", pools[0].platformAdapter],
       ["aave2:platformAdapter", pools[1].platformAdapter],
       ["dforce:platformAdapter", pools[2].platformAdapter],
       ["hundredfinance:platformAdapter", pools[3].platformAdapter],
+
+      ["aave3:priceOracle", priceOracleAave3.address],
+      ["aave2:priceOracle", priceOracleAaveTwo.address],
+      ["dforce:priceOracle", priceOracleDForce.address],
+      ["hundredfinance:priceOracle", priceOracleHundredFinance.address],
     ]);
     const users = [
       await MocksHelper.deployBorrower(deployer.address, controller, 1000),

@@ -14,7 +14,7 @@ export class EmulateExecutor {
   ) {
     // generate headers
     const headers: string[] = ["error",
-      "command", "user", "asset1", "asset2", "amount", "holder", "pause in blocks",
+      "command", "user/contract", "asset1", "asset2", "amount", "holder", "pause in blocks",
       "converter",
     ];
     for (let i = 0; i < emulator.users.length; ++i) {

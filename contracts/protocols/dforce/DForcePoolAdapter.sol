@@ -391,7 +391,7 @@ contract DForcePoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP, Initi
     uint borrowBalance = IDForceCToken(cTokenBorrow_).borrowBalanceStored(address(this));
     require(borrowBalance != 0, AppErrors.ZERO_BALANCE);
     if (closePosition_) {
-      require(borrowBalance <= amountToRepay_, AppErrors.CLOSE_POSITION_FAILED);
+      require(borrowBalance <= amountToRepay_, AppErrors.CLOSE_POSITION_PARTIAL);
 
       return (tokenBalance, tokenBalance);
     } else {
