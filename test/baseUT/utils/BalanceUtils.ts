@@ -129,7 +129,7 @@ export class BalanceUtils {
       await token
         .connect(await DeployerUtils.startImpersonate(holder))
         .transfer(receiver, amountToTransfer);
-      console.log("Require ", requiredAmount, " transfer ", amountToTransfer);
+      console.log("Require amount=", requiredAmount, ", transfer amount=", amountToTransfer);
 
       dest = dest.add(amountToTransfer);
       if (requiredAmount) {
