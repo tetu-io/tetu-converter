@@ -1,6 +1,6 @@
 import {
   Borrower,
-  Controller, IChangePriceForTests__factory, IDebtMonitor__factory,
+  Controller, IChangePriceForTests__factory, IController__factory, IDebtMonitor__factory,
   IERC20Metadata, IKeeperCallback__factory, IPlatformAdapter__factory
 } from "../../typechain";
 import {formatUnits, parseUnits} from "ethers/lib/utils";
@@ -52,8 +52,13 @@ export interface IEmulationCommandResult {
  *    borrow: borrow amount in TetuConverter
  *    repay: make partial or full repay of the borrow
  *    freeze/unfreeze: freeze/unfreeze given lending platform in TetuConverter
+ *
  *    price: call IChangePriceForTests.changePrice on the given price oracle mock
+ *           TODO how to change prices in tetu liquidator?
+ *
  *    rebalance: work as a keeper: call DebtMonitor.changeHealth and TetuConverter.requireRepay if necessary
+ *    health: set target health factor (and max health factor = 2 * target health factor)
+ *
  */
 export class EmulateWork {
   controller: Controller;
@@ -116,8 +121,11 @@ export class EmulateWork {
       case "price":
         await this.executeChangePrice(command.user, command.asset1, command.value);
         break;
-      case "keeper":
+      case "rebalance":
         await this.executeRebalance();
+        break;
+      case "health":
+        await this.executeSetHealthFactor(command.value);
         break;
       default:
         throw Error(`Undefined command ${command.command}`);
@@ -168,7 +176,7 @@ export class EmulateWork {
     const borrower = await this.getUser(user);
     const assetContract1 = await this.getAsset(asset1);
     const assetContract2 = await this.getAsset(asset2);
-    const amountValue = await this.getAmount(amount, assetContract2);
+    const amountValue = await this.getAmount(amount, assetContract1);
 
     const dest = await borrower.callStatic.borrowMaxAmount(assetContract1.address, amountValue, assetContract2.address, borrower.address);
     await borrower.borrowMaxAmount(assetContract1.address, amountValue, assetContract2.address, borrower.address);
@@ -206,10 +214,11 @@ export class EmulateWork {
   public async executeChangePrice(platformAdapterName: string, asset1: string, multiplier100: string) {
     const platformAdapterAddress = this.contractAddresses.get(`${platformAdapterName}:priceOracle`);
     if (platformAdapterAddress) {
+      const assetContract1 = await this.getAsset(asset1);
       await IChangePriceForTests__factory.connect(
         platformAdapterAddress,
         await DeployerUtils.startImpersonate(await this.controller.governance())
-      ).changePrice(asset1, multiplier100);
+      ).changePrice(assetContract1.address, multiplier100);
     } else {
       throw Error(`Cannot find address of platform adapter for ${platformAdapterName}`);
     }
@@ -239,6 +248,22 @@ export class EmulateWork {
         ret.outPoolAdapters[0]
       );
     }
+  }
+
+  /**
+   * Set targetHealthFactor to the given value,
+   * set maxHealthFactor to 2 * targetHealthFactor2
+   * @param targetHealthFactor2
+   */
+  public async executeSetHealthFactor(targetHealthFactor2: string) {
+    await IController__factory.connect(
+      this.controller.address,
+      await DeployerUtils.startImpersonate(await this.controller.governance())
+    ).setMaxHealthFactor2(2 * Number(targetHealthFactor2));
+    await IController__factory.connect(
+      this.controller.address,
+      await DeployerUtils.startImpersonate(await this.controller.governance())
+    ).setTargetHealthFactor2(Number(targetHealthFactor2));
   }
 //endregion Commands
 

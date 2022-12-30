@@ -14,7 +14,8 @@ contract HfPriceOracleMock is IChangePriceForTests {
 
   /// @notice Take exist price of the asset and multiple it on (multiplier100_/100)
   function changePrice(address asset_, uint multiplier100_) external {
-    prices[asset_] *= multiplier100_ / 100;
+    prices[asset_] = multiplier100_ * prices[asset_] / 100;
+    console.log("HFPriceOracleMock changePrice", asset_, prices[asset_], multiplier100_);
   }
 
   /////////////////////////////////////////////////////////////////

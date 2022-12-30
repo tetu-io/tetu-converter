@@ -39,7 +39,8 @@ contract AaveTwoPriceOracleMock is IAaveTwoPriceOracle, IChangePriceForTests {
 
   /// @notice Take exist price of the asset and multiple it on (multiplier100_/100)
   function changePrice(address asset_, uint multiplier100_) external {
-    _prices[asset_] *= multiplier100_ / 100;
+    _prices[asset_] = multiplier100_ * _prices[asset_] / 100;
+    console.log("AAVETwoPriceOracleMock changePrice", asset_, _prices[asset_], multiplier100_);
   }
 
   /////////////////////////////////////////////////////////////////
