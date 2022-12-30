@@ -57,7 +57,7 @@ export interface IEmulationCommandResult {
  *           TODO how to change prices in tetu liquidator?
  *
  *    rebalance: work as a keeper: call DebtMonitor.changeHealth and TetuConverter.requireRepay if necessary
- *    health: set target health factor (and max health factor = 2 * target health factor)
+ *    health: set all three health factors: min=value, target = 2 * value, max = 4 * value
  *
  */
 export class EmulateWork {
@@ -237,8 +237,10 @@ export class EmulateWork {
       await this.controller.debtMonitor(),
       await DeployerUtils.startImpersonate(keeper)
     ).checkHealth(0, 1000, 1);
+    console.log("checkHealth results", ret);
 
     if (ret.outPoolAdapters.length) {
+      console.log("Start rebalancing");
       await IKeeperCallback__factory.connect(
         await this.controller.tetuConverter(),
         await DeployerUtils.startImpersonate(keeper)
@@ -247,23 +249,55 @@ export class EmulateWork {
         ret.outAmountCollateralAsset[0],
         ret.outPoolAdapters[0]
       );
+      console.log("End rebalancing");
     }
   }
 
   /**
-   * Set targetHealthFactor to the given value,
-   * set maxHealthFactor to 2 * targetHealthFactor2
+   * Set all three health factors: min=value, target = 2 * value, max = 4 * value
    * @param targetHealthFactor2
    */
   public async executeSetHealthFactor(targetHealthFactor2: string) {
-    await IController__factory.connect(
+    const currentTargetHealthFactor = await IController__factory.connect(
       this.controller.address,
       await DeployerUtils.startImpersonate(await this.controller.governance())
-    ).setMaxHealthFactor2(2 * Number(targetHealthFactor2));
-    await IController__factory.connect(
-      this.controller.address,
-      await DeployerUtils.startImpersonate(await this.controller.governance())
-    ).setTargetHealthFactor2(Number(targetHealthFactor2));
+    ).targetHealthFactor2();
+
+
+    if (Number(targetHealthFactor2) < currentTargetHealthFactor) {
+      // set min, target, max
+      await IController__factory.connect(
+        this.controller.address,
+        await DeployerUtils.startImpersonate(await this.controller.governance())
+      ).setMinHealthFactor2(Number(targetHealthFactor2));
+
+      await IController__factory.connect(
+        this.controller.address,
+        await DeployerUtils.startImpersonate(await this.controller.governance())
+      ).setTargetHealthFactor2(2 * Number(targetHealthFactor2));
+
+      await IController__factory.connect(
+        this.controller.address,
+        await DeployerUtils.startImpersonate(await this.controller.governance())
+      ).setMaxHealthFactor2(4 * Number(targetHealthFactor2));
+
+    } else {
+      // set max, target, min
+      await IController__factory.connect(
+        this.controller.address,
+        await DeployerUtils.startImpersonate(await this.controller.governance())
+      ).setMaxHealthFactor2(4 * Number(targetHealthFactor2));
+
+      await IController__factory.connect(
+        this.controller.address,
+        await DeployerUtils.startImpersonate(await this.controller.governance())
+      ).setTargetHealthFactor2(2 * Number(targetHealthFactor2));
+
+      await IController__factory.connect(
+        this.controller.address,
+        await DeployerUtils.startImpersonate(await this.controller.governance())
+      ).setMinHealthFactor2(Number(targetHealthFactor2));
+    }
   }
 //endregion Commands
 

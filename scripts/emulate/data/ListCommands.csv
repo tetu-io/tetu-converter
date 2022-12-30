@@ -1,5 +1,5 @@
 command;user;asset1;asset2;amount;holder;pause in blocks;comment
-health;;;;;150;;
+health;;;;;110;;
 deposit;1;USDC;;200000;0x06959153b974d0d5fdfd87d561db6d8d4fa0bb0b;;
 deposit;2;USDC;;20000;0x06959153b974d0d5fdfd87d561db6d8d4fa0bb0b;;
 deposit;3;USDC;;20000;0x06959153b974d0d5fdfd87d561db6d8d4fa0bb0b;;
@@ -51,7 +51,7 @@ unfreeze;dforce;;;;;;
 unfreeze;hf;;;;;;
 freeze;aave3;;;;;;
 freeze;aave2;;;;;;
-health;;;;;250;;
+health;;;;;200;;
 rebalance;;;;;;;
 borrow;3;DAI;USDC;1;;3;borrow on DF or HF
 borrow;3;DAI;USDC;5000;;5;
@@ -62,7 +62,7 @@ repay;3;DAI;USDC;10000;;25;
 repay;3;DAI;USDC;5000;;15;
 unfreeze;aave3;;;;;;
 unfreeze;aave2;;;;;;
-health;;;;;350;;
+health;;;;;500;;
 rebalance;;;;;;;
 borrow;2;DAI;USDT;2000;;5;borrow on best
 borrow;1;USDC;WMATIC;3000;;20;
@@ -80,7 +80,7 @@ borrow;1;DAI;WMATIC;8990;;20;
 borrow;1;DAI;WMATIC;170;;20;
 borrow;1;DAI;WMATIC;50000;;20;
 borrow;1;DAI;WMATIC;9000;;44;
-health;;;;;150;;increase price of DAI twice
+health;;;;;110;;increase price of DAI twice
 rebalance;;;;;;;
 repay;1;USDC;USDT;;;15;
 repay;2;USDC;USDT;;;45;

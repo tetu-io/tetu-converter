@@ -250,7 +250,7 @@ contract DebtMonitor is IDebtMonitor {
 
       (,,, address borrowAsset) = pa.getConfig();
       uint healthFactorTarget18 = uint(borrowManager.getTargetHealthFactor2(borrowAsset)) * 10**(18-2);
-      if (
+    if (
         (p.healthFactorThreshold18 < healthFactorTarget18 && healthFactor18 < p.healthFactorThreshold18) // unhealthy
         || (!(p.healthFactorThreshold18 < healthFactorTarget18) && healthFactor18 > p.healthFactorThreshold18) // too healthy
       ) {
