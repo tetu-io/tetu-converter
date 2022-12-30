@@ -44,7 +44,9 @@ export class EmulateExecutor {
         let error = "Unknown error";
         if (e.message) {
           const found = e.message.match(re);
-          error = found[1];
+          if (found && found.length && found.length > 1) {
+            error = found[1];
+          }
         }
         row.push(error);
         row.push(...this.getCommandAsCsvLine(command));

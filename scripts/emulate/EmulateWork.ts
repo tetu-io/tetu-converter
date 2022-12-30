@@ -82,33 +82,31 @@ export class EmulateWork {
 
 //region Main
   public async executeCommand(command: IEmulationCommand) : Promise<IEmulationCommandResult> {
-    const user = await this.getUser(command.user);
-    const asset1 = await this.getAsset(command.asset1);
     let converter: string | undefined;
 
     switch (command.command) {
       case "deposit":
         await this.executeDeposit(
-          user,
-          asset1,
-          await this.getAmount(command.amount, asset1),
+          command.user,
+          command.asset1,
+          command.amount,
           command.value
         );
         break;
       case "borrow":
         converter = await this.executeBorrow(
-          user,
-          asset1,
-          await this.getAsset(command.asset2),
-          await this.getAmount(command.amount, await this.getAsset(command.asset2))
+          command.user,
+          command.asset1,
+          command.asset2,
+          command.amount
         );
         break;
       case "repay":
         await this.executeRepay(
-          user,
-          asset1,
-          await this.getAsset(command.asset2),
-          await this.getAmountOptional(command.amount, await this.getAsset(command.asset2))
+          command.user,
+          command.asset1,
+          command.asset2,
+          command.amount
         );
         break;
       case "freeze":
@@ -153,28 +151,41 @@ export class EmulateWork {
 
 //region Commands
   /** Transfer the amount from the holder's balance to the user's balance */
-  public async executeDeposit(user: Borrower, asset: IERC20Metadata, amount: BigNumber, holder: string) {
-    await BalanceUtils.getRequiredAmountFromHolders(amount, asset, [holder], user.address);
+  public async executeDeposit(user: string, asset: string, amount: string, holder: string) {
+    const borrower = await this.getUser(user);
+    const assetContract = await this.getAsset(asset);
+    const amountValue = await this.getAmount(amount, assetContract);
+    await BalanceUtils.getRequiredAmountFromHolders(amountValue, assetContract, [holder], borrower.address);
   }
 
   /** Make a borrow, returns converter address */
   public async executeBorrow(
-    user: Borrower,
-    asset1: IERC20Metadata,
-    asset2: IERC20Metadata,
-    amount: BigNumber
+    user: string,
+    asset1: string,
+    asset2: string,
+    amount: string
   ) : Promise<string> {
-    const dest = await user.callStatic.borrowMaxAmount(asset1.address, amount, asset2.address, user.address);
-    await user.borrowMaxAmount(asset1.address, amount, asset2.address, user.address);
+    const borrower = await this.getUser(user);
+    const assetContract1 = await this.getAsset(asset1);
+    const assetContract2 = await this.getAsset(asset2);
+    const amountValue = await this.getAmount(amount, assetContract2);
+
+    const dest = await borrower.callStatic.borrowMaxAmount(assetContract1.address, amountValue, assetContract2.address, borrower.address);
+    await borrower.borrowMaxAmount(assetContract1.address, amountValue, assetContract2.address, borrower.address);
     return dest.converterOut;
   }
 
   /** Make full or complete repay */
-  public async executeRepay(user: Borrower, asset1: IERC20Metadata, asset2: IERC20Metadata, amount?: BigNumber) {
-    if (amount) {
-      await user.makeRepayPartial(asset1.address, asset2.address, user.address, amount);
+  public async executeRepay(user: string, asset1: string, asset2: string, amount: string) {
+    const borrower = await this.getUser(user);
+    const assetContract1 = await this.getAsset(asset1);
+    const assetContract2 = await this.getAsset(asset2);
+    const amountOptional = await this.getAmountOptional(amount, assetContract2)
+
+    if (amountOptional) {
+      await borrower.makeRepayPartial(assetContract1.address, assetContract2.address, borrower.address, amountOptional);
     } else {
-      await user.makeRepayComplete(asset1.address, asset2.address, user.address);
+      await borrower.makeRepayComplete(assetContract1.address, assetContract2.address, borrower.address);
     }
   }
 
