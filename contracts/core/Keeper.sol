@@ -84,8 +84,15 @@ contract Keeper is OpsReady, IHealthKeeperCallback, IResolver {
       maxCountToReturn
     );
 
-    canExecOut = outPoolAdapters.length != 0
+    // it's necessary to run writable fixHealth() ...
+    canExecOut =
+      // ... if there is unhealthy pool adapter
+      outPoolAdapters.length != 0
+
+      // ... if we cannot check all adapters in one pass; we've checked a one portion, now we need to check the other portions
       || newNextIndexToCheck0 != startIndex
+
+      /// ... if it's the time to recalculate blocksPerDay value
       || (blocksPerDayAutoUpdatePeriodSecs != 0
           && controller.isBlocksPerDayAutoUpdateRequired(blocksPerDayAutoUpdatePeriodSecs)
          );

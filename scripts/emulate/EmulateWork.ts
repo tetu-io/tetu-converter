@@ -1,7 +1,7 @@
 import {
   Borrower,
-  Controller,
-  IERC20Metadata, IPlatformAdapter__factory
+  Controller, IChangePriceForTests__factory, IDebtMonitor__factory,
+  IERC20Metadata, IKeeperCallback__factory, IPlatformAdapter__factory
 } from "../../typechain";
 import {formatUnits, parseUnits} from "ethers/lib/utils";
 import {BigNumber} from "ethers";
@@ -9,7 +9,7 @@ import {BalanceUtils} from "../../test/baseUT/utils/BalanceUtils";
 import {TimeUtils} from "../utils/TimeUtils";
 import {DeployerUtils} from "../utils/DeployerUtils";
 
-
+//region Data types
 export interface IEmulationCommand {
   command: string;
   /**
@@ -21,7 +21,12 @@ export interface IEmulationCommand {
   asset1: string;
   asset2: string;
   amount: string;
-  holder: string;
+  /**
+   * Arbitrary parameters.
+   * I.e. it contains "holder" address in "deposit" command
+   *      and "price-change-multiplier100" in "price" command
+   */
+  value: string;
   pauseInBlocks: string;
 }
 
@@ -35,11 +40,20 @@ export interface IEmulationCommandResult {
   /** For borrow command only: the converter that was used for the borrowing */
   converter?: string;
 }
+//endregion Data types
 
 /**
  * Create 3 users, use 4 assets.
  * Try to borrow and repay various amounts several times according to the CSV-list of commands.
  * Check balances after each command and save results to result CSV file.
+ *
+ * Supported commands
+ *    deposit: put some amount on borrower's balance
+ *    borrow: borrow amount in TetuConverter
+ *    repay: make partial or full repay of the borrow
+ *    freeze/unfreeze: freeze/unfreeze given lending platform in TetuConverter
+ *    price: call IChangePriceForTests.changePrice on the given price oracle mock
+ *    rebalance: work as a keeper: call DebtMonitor.changeHealth and TetuConverter.requireRepay if necessary
  */
 export class EmulateWork {
   controller: Controller;
@@ -66,6 +80,7 @@ export class EmulateWork {
     this.contractAddresses = contractAddresses;
   }
 
+//region Main
   public async executeCommand(command: IEmulationCommand) : Promise<IEmulationCommandResult> {
     const user = await this.getUser(command.user);
     const asset1 = await this.getAsset(command.asset1);
@@ -77,7 +92,7 @@ export class EmulateWork {
           user,
           asset1,
           await this.getAmount(command.amount, asset1),
-          command.holder
+          command.value
         );
         break;
       case "borrow":
@@ -99,6 +114,12 @@ export class EmulateWork {
       case "freeze":
       case "unfreeze":
         await this.executeFreeze(command.user, command.command === "freeze");
+        break;
+      case "price":
+        await this.executeChangePrice(command.user, command.asset1, command.value);
+        break;
+      case "keeper":
+        await this.executeRebalance();
         break;
       default:
         throw Error(`Undefined command ${command.command}`);
@@ -128,7 +149,9 @@ export class EmulateWork {
         )
       );
   }
+//endregion Main
 
+//region Commands
   /** Transfer the amount from the holder's balance to the user's balance */
   public async executeDeposit(user: Borrower, asset: IERC20Metadata, amount: BigNumber, holder: string) {
     await BalanceUtils.getRequiredAmountFromHolders(amount, asset, [holder], user.address);
@@ -158,15 +181,57 @@ export class EmulateWork {
   /** Freeze or unfreeze borrowing on the given lending platform */
   public async executeFreeze(platformAdapterName: string, freeze: boolean) {
     const platformAdapterAddress = this.contractAddresses.get(`${platformAdapterName}:platformAdapter`);
-    if (! platformAdapterAddress) {
+    if (platformAdapterAddress) {
+      await IPlatformAdapter__factory.connect(
+        platformAdapterAddress,
+        await DeployerUtils.startImpersonate(await this.controller.governance())
+      ).setFrozen(freeze);
+    } else {
       throw Error(`Cannot find address of platform adapter for ${platformAdapterName}`);
     }
-    await IPlatformAdapter__factory.connect(
-      platformAdapterAddress,
-      await DeployerUtils.startImpersonate(await this.controller.governance())
-    ).setFrozen(freeze);
   }
 
+  /** Multiple a price of the asset1 on (multiplier100/100) in all price oracle mocks */
+  public async executeChangePrice(platformAdapterName: string, asset1: string, multiplier100: string) {
+    const platformAdapterAddress = this.contractAddresses.get(`${platformAdapterName}:priceOracle`);
+    if (platformAdapterAddress) {
+      await IChangePriceForTests__factory.connect(
+        platformAdapterAddress,
+        await DeployerUtils.startImpersonate(await this.controller.governance())
+      ).changePrice(asset1, multiplier100);
+    } else {
+      throw Error(`Cannot find address of platform adapter for ${platformAdapterName}`);
+    }
+  }
+
+  /**
+   * call DebtMonitor.changeHealth (read-only)
+   * than call TetuConverter.requireRepay (writable) if necessary
+   *
+   * For simplicity, we make direct calls to DebtMonitor and TetuConverter,
+   * and fix only one unhealthy adapter per call
+   */
+  public async executeRebalance() {
+    const keeper = await this.controller.keeper();
+    const ret = await IDebtMonitor__factory.connect(
+      await this.controller.debtMonitor(),
+      await DeployerUtils.startImpersonate(keeper)
+    ).checkHealth(0, 1000, 1);
+
+    if (ret.outPoolAdapters.length) {
+      await IKeeperCallback__factory.connect(
+        await this.controller.tetuConverter(),
+        await DeployerUtils.startImpersonate(keeper)
+      ).requireRepay(
+        ret.outAmountBorrowAsset[0],
+        ret.outAmountCollateralAsset[0],
+        ret.outPoolAdapters[0]
+      );
+    }
+  }
+//endregion Commands
+
+//region Utils
   public async getAmount(amount: string, asset: IERC20Metadata): Promise<BigNumber> {
     return parseUnits(amount, await asset.decimals());
   }
@@ -193,4 +258,5 @@ export class EmulateWork {
     }
     throw Error(`Unsupported asset ${assetName}`)
   }
+//endregion Utils
 }

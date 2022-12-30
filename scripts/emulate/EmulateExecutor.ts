@@ -63,7 +63,7 @@ export class EmulateExecutor {
       command.asset1,
       command.asset2,
       command.amount,
-      command.holder,
+      command.value,
       command.pauseInBlocks
     ];
   }
@@ -85,7 +85,7 @@ export class EmulateExecutor {
         asset1: cells[2],
         asset2: cells[3],
         amount: cells[4],
-        holder: cells[5],
+        value: cells[5],
         pauseInBlocks: cells[6],
       }
     }

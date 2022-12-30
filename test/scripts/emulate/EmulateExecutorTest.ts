@@ -14,7 +14,7 @@ import {AaveTwoChangePricesUtils} from "../../baseUT/protocols/aaveTwo/AaveTwoCh
 import {DForceChangePriceUtils} from "../../baseUT/protocols/dforce/DForceChangePriceUtils";
 import {HundredFinanceChangePriceUtils} from "../../baseUT/protocols/hundred-finance/HundredFinanceChangePriceUtils";
 
-describe.skip("Run real work emulator", () => {
+describe("Run real work emulator", () => {
   const pathIn = "./scripts/emulate/data/ListCommands.csv";
   const pathOut = "./tmp/EmulationResults.csv";
 
@@ -38,19 +38,19 @@ describe.skip("Run real work emulator", () => {
       ],
       {
         tetuLiquidatorAddress: MaticAddresses.TETU_LIQUIDATOR,
-        priceOracleFabric: () => priceOracleAave3.address
+        priceOracleFabric: async () => priceOracleAave3.address
       }
     );
     const contractAddresses = new Map<string, string>([
       ["aave3:platformAdapter", pools[0].platformAdapter],
       ["aave2:platformAdapter", pools[1].platformAdapter],
       ["dforce:platformAdapter", pools[2].platformAdapter],
-      ["hundredfinance:platformAdapter", pools[3].platformAdapter],
+      ["hf:platformAdapter", pools[3].platformAdapter],
 
       ["aave3:priceOracle", priceOracleAave3.address],
       ["aave2:priceOracle", priceOracleAaveTwo.address],
       ["dforce:priceOracle", priceOracleDForce.address],
-      ["hundredfinance:priceOracle", priceOracleHundredFinance.address],
+      ["hf:priceOracle", priceOracleHundredFinance.address],
     ]);
     const users = [
       await MocksHelper.deployBorrower(deployer.address, controller, 1000),
