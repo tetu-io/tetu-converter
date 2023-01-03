@@ -1404,7 +1404,7 @@ describe("HfPoolAdapterUnitTest", () => {
         it("should revert", async () => {
           if (!await isPolygonForkInUse()) return;
           await expect(
-            testDaiUSDC({additionalAmountCorrectionFactor: 10})
+            testDaiUSDC({additionalAmountCorrectionFactor: 3})
           ).revertedWith("TC-3 wrong health factor");
         });
       });

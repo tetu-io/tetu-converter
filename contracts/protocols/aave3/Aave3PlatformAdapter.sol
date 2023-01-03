@@ -16,6 +16,7 @@ import "../../integrations/aave3/IAaveProtocolDataProvider.sol";
 import "../../integrations/aave3/Aave3ReserveConfiguration.sol";
 import "../../integrations/aave3/IAavePriceOracle.sol";
 import "../../integrations/aave3/IAaveToken.sol";
+import "hardhat/console.sol";
 
 /// @notice Adapter to read current pools info from AAVE-v3-protocol, see https://docs.aave.com/hub/
 contract Aave3PlatformAdapter is IPlatformAdapter {
@@ -225,6 +226,9 @@ contract Aave3PlatformAdapter is IPlatformAdapter {
                     plan.maxAmountToBorrow = (borrowCap - totalDebt)
                       * MAX_BORROW_AMOUNT_FACTOR
                       / MAX_BORROW_AMOUNT_FACTOR_DENOMINATOR;
+                    console.log("_getConversionPlan.borrowCap", borrowCap);
+                    console.log("_getConversionPlan.totalDebt", totalDebt);
+                    console.log("_getConversionPlan.(borrowCap - totalDebt)", (borrowCap - totalDebt));
                   }
                 }
               }

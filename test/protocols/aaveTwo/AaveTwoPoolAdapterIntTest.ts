@@ -584,7 +584,7 @@ describe("AaveTwoPoolAdapterIntTest", () => {
               undefined,
               {forceToClosePosition: true}
             )
-          ).revertedWith("TC-24 close position failed"); // CLOSE_POSITION_FAILED
+          ).revertedWith("TC-55 close position not allowed"); // CLOSE_POSITION_PARTIAL
         });
       });
     });

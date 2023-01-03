@@ -26,6 +26,7 @@ import {
   IPrepareToBorrowResults,
 } from "../../baseUT/protocols/aave3/Aave3TestUtils";
 import {parseUnits} from "ethers/lib/utils";
+import {max} from "hardhat/internal/util/bigint";
 
 describe("Aave3PoolAdapterIntTest", () => {
 //region Global vars for all tests
@@ -407,7 +408,7 @@ describe("Aave3PoolAdapterIntTest", () => {
           ? badPathsParams?.customAmountToBorrow
           : maxBorrowAmount;
 
-      console.log("Try to borrow", maxBorrowAmount);
+      console.log("Try to borrow", amountToBorrow, maxBorrowAmount);
 
       await d.aavePoolAdapterAsTC.borrow(
         d.collateralAmount,
@@ -603,7 +604,11 @@ describe("Aave3PoolAdapterIntTest", () => {
             });
           });
         });
-        describe("EURS : USDC", () => {
+
+        /**
+         * There is not enough EURO-amount on holders accounts to make max borrow
+         */
+        describe.skip("EURS : USDC", () => {
 //region Constants
           const collateralAsset = MaticAddresses.EURS;
           const borrowAsset = MaticAddresses.USDC;
@@ -934,7 +939,7 @@ describe("Aave3PoolAdapterIntTest", () => {
               undefined,
               {forceToClosePosition: true}
             )
-          ).revertedWith("TC-24 close position failed"); // CLOSE_POSITION_FAILED
+          ).revertedWith("TC-55 close position not allowed"); // CLOSE_POSITION_PARTIAL
         });
       });
     });

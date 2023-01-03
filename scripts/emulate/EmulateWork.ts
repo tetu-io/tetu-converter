@@ -264,23 +264,25 @@ export class EmulateWork {
     ).targetHealthFactor2();
 
 
+    const minHealthFactor = Number(targetHealthFactor2);
+    const targetHealthFactor = 2 * Number(targetHealthFactor2);
+    const maxHealthFactor = 4 * Number(targetHealthFactor2);
     if (Number(targetHealthFactor2) < currentTargetHealthFactor) {
       // set min, target, max
       await IController__factory.connect(
         this.controller.address,
         await DeployerUtils.startImpersonate(await this.controller.governance())
-      ).setMinHealthFactor2(Number(targetHealthFactor2));
+      ).setMinHealthFactor2(minHealthFactor);
 
       await IController__factory.connect(
         this.controller.address,
         await DeployerUtils.startImpersonate(await this.controller.governance())
-      ).setTargetHealthFactor2(2 * Number(targetHealthFactor2));
+      ).setTargetHealthFactor2(targetHealthFactor);
 
       await IController__factory.connect(
         this.controller.address,
         await DeployerUtils.startImpersonate(await this.controller.governance())
-      ).setMaxHealthFactor2(4 * Number(targetHealthFactor2));
-
+      ).setMaxHealthFactor2(maxHealthFactor);
     } else {
       // set max, target, min
       await IController__factory.connect(
@@ -298,6 +300,9 @@ export class EmulateWork {
         await DeployerUtils.startImpersonate(await this.controller.governance())
       ).setMinHealthFactor2(Number(targetHealthFactor2));
     }
+    console.log("Set minHealthFactor", minHealthFactor);
+    console.log("Set targetHealthFactor", targetHealthFactor);
+    console.log("Set maxHealthFactor", maxHealthFactor);
   }
 //endregion Commands
 
