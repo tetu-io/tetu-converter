@@ -197,7 +197,6 @@ describe("DForce unit tests, pool adapter", () => {
         });
         it("should transfer expected amount to the user", async () => {
           if (!await isPolygonForkInUse()) return;
-          const status = await results.init.dfPoolAdapterTC.getStatus();
           const receivedBorrowAmount = await results.borrowToken.token.balanceOf(results.init.userContract.address);
           expect(receivedBorrowAmount.toString()).eq(results.borrowResults.borrowedAmount.toString());
         });
@@ -257,7 +256,6 @@ describe("DForce unit tests, pool adapter", () => {
         });
         it("should transfer expected amount to the user", async () => {
           if (!await isPolygonForkInUse()) return;
-          const status = await results.init.dfPoolAdapterTC.getStatus();
           const receivedBorrowAmount = await results.borrowToken.token.balanceOf(results.init.userContract.address);
           expect(receivedBorrowAmount.toString()).eq(results.borrowResults.borrowedAmount.toString());
         });
@@ -319,7 +317,6 @@ describe("DForce unit tests, pool adapter", () => {
         });
         it("should transfer expected amount to the user", async () => {
           if (!await isPolygonForkInUse()) return;
-          const status = await results.init.dfPoolAdapterTC.getStatus();
           const receivedBorrowAmount = await results.borrowToken.token.balanceOf(results.init.userContract.address);
           expect(receivedBorrowAmount.toString()).eq(results.borrowResults.borrowedAmount.toString());
         });
@@ -381,7 +378,6 @@ describe("DForce unit tests, pool adapter", () => {
         });
         it("should transfer expected amount to the user", async () => {
           if (!await isPolygonForkInUse()) return;
-          const status = await results.init.dfPoolAdapterTC.getStatus();
           const receivedBorrowAmount = await results.borrowToken.token.balanceOf(results.init.userContract.address);
           expect(receivedBorrowAmount.toString()).eq(results.borrowResults.borrowedAmount.toString());
         });
@@ -658,7 +654,6 @@ describe("DForce unit tests, pool adapter", () => {
         });
         it("should withdraw expected collateral amount", async () => {
           if (!await isPolygonForkInUse()) return;
-          const status = await results.init.dfPoolAdapterTC.getStatus();
           const receivedCollateralAmount = await results.collateralToken.token.balanceOf(results.init.userContract.address);
           expect(areAlmostEqual(receivedCollateralAmount, results.init.collateralAmount)).eq(true);
         });
@@ -722,7 +717,6 @@ describe("DForce unit tests, pool adapter", () => {
         });
         it("should withdraw expected collateral amount", async () => {
           if (!await isPolygonForkInUse()) return;
-          const status = await results.init.dfPoolAdapterTC.getStatus();
           const receivedCollateralAmount = await results.collateralToken.token.balanceOf(results.init.userContract.address);
           expect(areAlmostEqual(receivedCollateralAmount, results.init.collateralAmount)).eq(true);
         });
@@ -787,7 +781,6 @@ describe("DForce unit tests, pool adapter", () => {
         });
         it("should withdraw expected collateral amount", async () => {
           if (!await isPolygonForkInUse()) return;
-          const status = await results.init.dfPoolAdapterTC.getStatus();
           const receivedCollateralAmount = await results.collateralToken.token.balanceOf(results.init.userContract.address);
           expect(areAlmostEqual(receivedCollateralAmount, results.init.collateralAmount)).eq(true);
         });
@@ -863,7 +856,7 @@ describe("DForce unit tests, pool adapter", () => {
             borrowHolder,
             {amountToRepayStr: "1", closePosition: true}
           )
-        ).revertedWith("TC-24 close position failed"); // CLOSE_POSITION_FAILED
+        ).revertedWith("TC-55 close position not allowed"); // CLOSE_POSITION_PARTIAL
       });
       describe("Use mocked DForce controller", () => {
         it("should repay successfully", async () => {
@@ -1197,7 +1190,9 @@ describe("DForce unit tests, pool adapter", () => {
         if (!await isPolygonForkInUse()) return;
         const r = await testDaiUSDC();
         const ret = [
+          // eslint-disable-next-line @typescript-eslint/no-loss-of-precision
           Math.round(r.afterBorrowHealthFactor18.div(getBigNumberFrom(1, 15)).toNumber() / 10.),
+          // eslint-disable-next-line @typescript-eslint/no-loss-of-precision
           Math.round(r.afterBorrowToRebalanceHealthFactor18.div(getBigNumberFrom(1, 15)).toNumber() / 10.),
           toStringWithRound(r.userBalanceAfterBorrow, 6),
           toStringWithRound(r.userBalanceAfterBorrowToRebalance, 6),
@@ -1214,7 +1209,9 @@ describe("DForce unit tests, pool adapter", () => {
         if (!await isPolygonForkInUse()) return;
         const r = await testMaticUSDC();
         const ret = [
+          // eslint-disable-next-line @typescript-eslint/no-loss-of-precision
           Math.round(r.afterBorrowHealthFactor18.div(getBigNumberFrom(1, 15)).toNumber() / 10.),
+          // eslint-disable-next-line @typescript-eslint/no-loss-of-precision
           Math.round(r.afterBorrowToRebalanceHealthFactor18.div(getBigNumberFrom(1, 15)).toNumber() / 10.),
           toStringWithRound(r.userBalanceAfterBorrow, 6),
           toStringWithRound(r.userBalanceAfterBorrowToRebalance, 6),
@@ -1231,7 +1228,9 @@ describe("DForce unit tests, pool adapter", () => {
         if (!await isPolygonForkInUse()) return;
         const r = await testUSDCMatic();
         const ret = [
+          // eslint-disable-next-line @typescript-eslint/no-loss-of-precision
           Math.round(r.afterBorrowHealthFactor18.div(getBigNumberFrom(1, 15)).toNumber() / 10.),
+          // eslint-disable-next-line @typescript-eslint/no-loss-of-precision
           Math.round(r.afterBorrowToRebalanceHealthFactor18.div(getBigNumberFrom(1, 15)).toNumber() / 10.),
           toStringWithRound(r.userBalanceAfterBorrow, 6),
           toStringWithRound(r.userBalanceAfterBorrowToRebalance, 6),
@@ -1447,9 +1446,11 @@ describe("DForce unit tests, pool adapter", () => {
 
       const ret = [
         Math.round(r.afterBorrowStatus.healthFactor18.div(
+          // eslint-disable-next-line @typescript-eslint/no-loss-of-precision
           getBigNumberFrom(1, 15)).toNumber() / 10.
         ),
         Math.round(r.afterRepayToRebalanceStatus.healthFactor18.div(
+          // eslint-disable-next-line @typescript-eslint/no-loss-of-precision
           getBigNumberFrom(1, 15)).toNumber() / 10.
         ),
         // actual collateral amount after borrow is a bit less than the initial amount
@@ -1765,18 +1766,6 @@ describe("DForce unit tests, pool adapter", () => {
           makeInitializePoolAdapterTest({zeroController: true})
         ).revertedWith("TC-1 zero address"); // ZERO_ADDRESS
       });
-      it("should revert on zero controller", async () => {
-        if (!await isPolygonForkInUse()) return;
-        await expect(
-          makeInitializePoolAdapterTest({zeroController: true})
-        ).revertedWith("TC-1 zero address"); // ZERO_ADDRESS
-      });
-      it("should revert on zero controller", async () => {
-        if (!await isPolygonForkInUse()) return;
-        await expect(
-          makeInitializePoolAdapterTest({zeroController: true})
-        ).revertedWith("TC-1 zero address"); // ZERO_ADDRESS
-      });
       it("should revert on zero user", async () => {
         if (!await isPolygonForkInUse()) return;
         await expect(
@@ -1826,7 +1815,7 @@ describe("DForce unit tests, pool adapter", () => {
             d.borrowAsset,
             d.converter
           )
-        ).revertedWithCustomError(d.poolAdapter, "ErrorAlreadyInitialized");
+        ).revertedWith("Initializable: contract is already initialized");
       });
       it("should revert if token address provider returns zero cTokenCollateral", async () => {
         if (!await isPolygonForkInUse()) return;
@@ -1959,10 +1948,6 @@ describe("DForce unit tests, pool adapter", () => {
         borrowCToken
       );
       const status = await init.dfPoolAdapterTC.getStatus();
-
-      const collateralTargetHealthFactor2 = await BorrowManager__factory.connect(
-        await init.controller.borrowManager(), deployer
-      ).getTargetHealthFactor2(collateralAsset);
 
       const ret = [
         status.healthFactor18.eq(Misc.MAX_UINT),
@@ -2099,6 +2084,7 @@ describe("DForce unit tests, pool adapter", () => {
             await DeployerUtils.startImpersonate(results.init.userContract.address)
           );
           const collateralAmountOut = await tetuConverterAsUser.callStatic.quoteRepay(
+            await tetuConverterAsUser.signer.getAddress(),
             results.init.collateralToken.address,
             results.init.borrowToken.address,
             status.amountToPay
@@ -2119,6 +2105,7 @@ describe("DForce unit tests, pool adapter", () => {
             await DeployerUtils.startImpersonate(results.init.userContract.address)
           );
           const collateralAmountOut = await tetuConverterAsUser.callStatic.quoteRepay(
+            await tetuConverterAsUser.signer.getAddress(),
             results.init.collateralToken.address,
             results.init.borrowToken.address,
             status.amountToPay.div(2) // 50%
@@ -2139,6 +2126,7 @@ describe("DForce unit tests, pool adapter", () => {
             await DeployerUtils.startImpersonate(results.init.userContract.address)
           );
           const collateralAmountOut = await tetuConverterAsUser.callStatic.quoteRepay(
+            await tetuConverterAsUser.signer.getAddress(),
             results.init.collateralToken.address,
             results.init.borrowToken.address,
             status.amountToPay.div(20) // 5%

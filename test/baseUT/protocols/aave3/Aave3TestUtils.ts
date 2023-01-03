@@ -186,7 +186,9 @@ export class Aave3TestUtils {
     const converterNormal = await AdaptersHelper.createAave3PoolAdapter(deployer);
     const converterEMode = await AdaptersHelper.createAave3PoolAdapterEMode(deployer);
     const aavePlatformAdapter = await AdaptersHelper.createAave3PlatformAdapter(
-      deployer, controller.address, aavePool.address,
+      deployer,
+      controller.address,
+      aavePool.address,
       converterNormal.address,
       converterEMode.address
     );

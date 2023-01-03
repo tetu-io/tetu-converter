@@ -84,9 +84,9 @@ export class AaveTwoChangePricesUtils {
     reserve: string,
     freeze: boolean = true
   ) {
-    const aavePoolAdmin = await DeployerUtils.startImpersonate(
-      MaticAddresses.AAVE_TWO_POOL_ADMIN
-    );
+    // const aavePoolAdmin = await DeployerUtils.startImpersonate(
+    //   MaticAddresses.AAVE_TWO_POOL_ADMIN
+    // );
     const aavePoolOwner = await DeployerUtils.startImpersonate(
       MaticAddresses.AAVE_TWO_POOL_OWNER
     );
@@ -101,7 +101,12 @@ export class AaveTwoChangePricesUtils {
       await DeployerUtils.startImpersonate(MaticAddresses.AAVE_TWO_LENDING_POOL_CONFIGURATOR_POOL_ADMIN)
     );
     console.log("freezeReserve");
-    await poolConfiguratorAsAdmin.freezeReserve(reserve);
+    if (freeze) {
+      await poolConfiguratorAsAdmin.freezeReserve(reserve);
+    } else {
+      await poolConfiguratorAsAdmin.unfreezeReserve(reserve);
+    }
+
     console.log("successs");
   }
 }

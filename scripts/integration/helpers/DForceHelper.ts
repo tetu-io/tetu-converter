@@ -161,8 +161,10 @@ export interface IBorrowRewardsStatePoint {
     borrowBalanceStored: BigNumber;
   }
   borrowAmount: BigNumber;
-  /** Borrow index at the moment of claiming rewards.
-   *  Borrow index is updated manually(?) using updateInterest() */
+  /**
+   *  Borrow index at the moment of claiming rewards.
+   *  Borrow index is updated manually(?) using updateInterest()
+   */
   borrowIndexClaimRewards: BigNumber;
 }
 
@@ -229,7 +231,7 @@ export class DForceHelper {
     return {
       controller: await cToken.controller(),
       ctoken: cToken.address,
-      underlying: cToken.address == MaticAddresses.dForce_iMATIC
+      underlying: cToken.address === MaticAddresses.dForce_iMATIC
         ? "" // iMatic doesn't support CErc20Storage and doesn't have underlying property
         : await cToken.underlying(),
       name: await cToken.name(),
@@ -254,7 +256,7 @@ export class DForceHelper {
       redeemPaused: m.redeemPaused,
       price: await priceOracle.getUnderlyingPrice(cToken.address),
       underlyingDecimals: await IERC20Metadata__factory.connect(
-        cToken.address == MaticAddresses.dForce_iMATIC
+        cToken.address === MaticAddresses.dForce_iMATIC
           ? MaticAddresses.WMATIC
           : await cToken.underlying()
         , signer
@@ -343,8 +345,8 @@ export class DForceHelper {
     return {
       controller: await cToken.controller(),
       ctoken: cToken.address,
-      underlying: cToken.address == MaticAddresses.dForce_iMATIC
-        ? "" //iMatic doesn't support CErc20Storage and doesn't have underlying property
+      underlying: cToken.address === MaticAddresses.dForce_iMATIC
+        ? "" // iMatic doesn't support CErc20Storage and doesn't have underlying property
         : await cToken.underlying(),
       name: await cToken.name(),
       symbol: await cToken.symbol(),
@@ -444,7 +446,7 @@ export class DForceHelper {
    * Calculate totalToken value for borrow case.
    *
    * See LendingContractsV2, RewardDistributorV3.sol, _updateDistributionState
-   * */
+   */
   public static getTotalTokenForBorrowCase(totalBorrows: BigNumber, borrowIndex: BigNumber) : BigNumber {
     return this.rdiv(totalBorrows, borrowIndex);
   }
@@ -535,7 +537,7 @@ export class DForceHelper {
   ) : {
     rewardsAmount: BigNumber,
     newBorrowStateIndex: BigNumber
-  } { //TODO: merge getSupplyRewardsAmount and getBorrowRewardsAmount
+  } { // TODO: merge getSupplyRewardsAmount and getBorrowRewardsAmount
     // manually calculate rewards for user 1
     const newBorrowStateIndex = DForceHelper.calcDistributionStateSupply(
       currentBlock,
@@ -578,14 +580,14 @@ export class DForceHelper {
     supplyAmount: BigNumber
   ) : ISupplyRewardsStatePoint {
     return {
-      blockSupply: blockSupply,
+      blockSupply,
       beforeSupply: {
             stateIndex: marketDataBeforeSupply.distributionSupplyState_Index,
             stateBlock: marketDataBeforeSupply.distributionSupplyState_Block,
             distributionSpeed: marketDataBeforeSupply.distributionSupplySpeed,
             totalSupply: totalSupplyBeforeSupply
           },
-      supplyAmount: supplyAmount
+      supplyAmount
     }
   }
 
@@ -604,7 +606,7 @@ export class DForceHelper {
 
     return {
       accountBalance: pt.supplyAmount,
-      stateIndex: stateIndex,
+      stateIndex,
       distributionSpeed: pt.beforeSupply.distributionSpeed,
       totalToken: totalSupply,
       accountIndex: stateIndex,
@@ -641,23 +643,24 @@ export class DForceHelper {
     borrowIndexClaimRewards: BigNumber
   ) : IBorrowRewardsStatePoint {
     return {
-      blockBorrow: blockBorrow,
+      blockBorrow,
       beforeBorrow: {
         stateIndex: marketDataBeforeBorrow.distributionBorrowState_Index,
         stateBlock: marketDataBeforeBorrow.distributionBorrowState_Block,
         distributionSpeed: marketDataBeforeBorrow.distributionSpeed,
         totalBorrow: totalBorrowBeforeBorrow,
-        borrowIndex: borrowIndex,
-        borrowBalanceStored: borrowBalanceStored
+        borrowIndex,
+        borrowBalanceStored
       },
-      borrowAmount: borrowAmount,
-      borrowIndexClaimRewards: borrowIndexClaimRewards
+      borrowAmount,
+      borrowIndexClaimRewards
     }
   }
 
   /** Manually calculate amount of borrow-rewards */
   public static async predictRewardsAfterBorrow(
     p: IBorrowRewardsPredictionInput,
+    // eslint-disable-next-line no-unused-vars
     brCalc: (cash: BigNumber, totalBorrows: BigNumber, totalReserve: BigNumber) => Promise<BigNumber>,
     blockUpdateDistributionState: BigNumber
   ) : Promise<BigNumber> {
@@ -698,8 +701,8 @@ export class DForceHelper {
       stateBlock: p.blockNumber,
       accountIndex: stateIndex1,
       distributionSpeed: p.distributionSpeed,
-      accountBalance: accountBalance,
-      totalToken: totalToken,
+      accountBalance,
+      totalToken,
     }
     const dest = DForceHelper.getBorrowRewardsAmount(pt, blockUpdateDistributionState).rewardsAmount;
     const toPrint = [

@@ -2,16 +2,13 @@ import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import {ethers} from "hardhat";
 import {TimeUtils} from "../../../scripts/utils/TimeUtils";
 import {expect} from "chai";
-import {
-  AaveTwoTestUtils,
-  IPrepareToLiquidationResults
-} from "../../baseUT/protocols/AaveTwo/AaveTwoTestUtils";
 import {BigNumber} from "ethers";
 import {isPolygonForkInUse} from "../../baseUT/utils/NetworkUtils";
 import {MaticAddresses} from "../../../scripts/addresses/MaticAddresses";
 import {BalanceUtils} from "../../baseUT/utils/BalanceUtils";
 import {SharedRepayToRebalanceUtils} from "../../baseUT/protocols/shared/sharedRepayToRebalanceUtils";
 import {Misc} from "../../../scripts/utils/Misc";
+import {AaveTwoTestUtils, IPrepareToLiquidationResults} from "../../baseUT/protocols/aaveTwo/AaveTwoTestUtils";
 
 /**
  * These tests allow to play with liquidation and see how the app works if a liquidation happens
@@ -105,7 +102,7 @@ describe.skip("AaveTwoLiquidationTest - simulate liquidation", () => {
     it("Try to make new borrow after liquidation", async () => {
       if (!await isPolygonForkInUse()) return;
 
-      const r = await AaveTwoTestUtils.makeLiquidation(deployer, init.d, borrowHolder)
+      await AaveTwoTestUtils.makeLiquidation(deployer, init.d, borrowHolder)
 
       // put collateral amount on user's balance
       await BalanceUtils.getRequiredAmountFromHolders(

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.4;
+pragma solidity 0.8.17;
 
 /// @notice Restored from 0xcF427E1AC52A2D976B02B83F72BaeB905A92e488 (events and _xxx were removed)
 /// @dev it's implementation of iDAI, 0xec85F77104Ffa35a5411750d70eDFf8f1496d95b

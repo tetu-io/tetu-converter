@@ -5,7 +5,7 @@ import {expect} from "chai";
 import {
   BorrowManager, BorrowManager__factory, Controller, Controller__factory, IBorrowManager__factory,
   IPoolAdapter,
-  IPoolAdapter__factory, ITetuConverter__factory, LendingPlatformMock__factory, MockERC20__factory
+  IPoolAdapter__factory, ITetuConverter__factory, LendingPlatformMock__factory
 } from "../../typechain";
 import {TimeUtils} from "../../scripts/utils/TimeUtils";
 import {BigNumber} from "ethers";
@@ -33,11 +33,7 @@ describe("BorrowManager", () => {
   let snapshot: string;
   let snapshotForEach: string;
   let signer: SignerWithAddress;
-  let user1: SignerWithAddress;
-  let user2: SignerWithAddress;
   let user3: SignerWithAddress;
-  let user4: SignerWithAddress;
-  let user5: SignerWithAddress;
 //endregion Global vars for all tests
 
 //region before, after
@@ -46,11 +42,7 @@ describe("BorrowManager", () => {
     snapshot = await TimeUtils.snapshot();
     const signers = await ethers.getSigners();
     signer = signers[0];
-    user1 = signers[2];
-    user2 = signers[3];
     user3 = signers[4];
-    user4 = signers[5];
-    user5 = signers[6];
   });
 
   after(async function () {
@@ -113,7 +105,17 @@ describe("BorrowManager", () => {
       signer,
       {
         borrowManagerFabric: async c => (await CoreContractsHelper.createBorrowManager(signer, c.address)).address,
-        tetuConverterFabric: async c => (await CoreContractsHelper.createTetuConverter(signer, c.address)).address,
+        tetuConverterFabric: async (
+          c, borrowManager, debtMonitor, swapManager, keeper, priceOracle
+        ) => (await CoreContractsHelper.createTetuConverter(
+          signer,
+          c.address,
+          borrowManager,
+          debtMonitor,
+          swapManager,
+          keeper,
+          priceOracle
+        )).address,
         debtMonitorFabric: async () => (await MocksHelper.createDebtsMonitorStub(signer, valueIsConverterInUse)).address,
         keeperFabric: async () => ethers.Wallet.createRandom().address,
         swapManagerFabric: async () => ethers.Wallet.createRandom().address,
@@ -204,10 +206,10 @@ describe("BorrowManager", () => {
 
     const converters: string[] = await Promise.all(
         [...Array(countConverters).keys()].map(
-          async x => (await MocksHelper.createPoolAdapterMock(signer)).address
+          async () => (await MocksHelper.createPoolAdapterMock(signer)).address
         )
     );
-    const assets = [...Array(countAssets).keys()].map(x => ethers.Wallet.createRandom().address);
+    const assets = [...Array(countAssets).keys()].map(() => ethers.Wallet.createRandom().address);
 
     // register platform adapters
     const platformAdapter = await MocksHelper.createPlatformAdapterStub(signer, converters);
@@ -458,7 +460,7 @@ describe("BorrowManager", () => {
 
     // register pool adapter
     const converters = [poolsInfo[0].converter, poolsInfo[1].converter];
-    const users = [...Array(countUsers).keys()].map(x => ethers.Wallet.createRandom().address);
+    const users = [...Array(countUsers).keys()].map(() => ethers.Wallet.createRandom().address);
     const assetPairs = [
       {
         collateral: sourceToken.address,
@@ -743,7 +745,7 @@ describe("BorrowManager", () => {
 
             r.pairs.map(x => x.smallerAddress + ":" + x.biggerAddress).join(";"),
 
-            [...Array(r.pairs.length).keys()].map(x => r.platformAdapter).join(";")
+            [...Array(r.pairs.length).keys()].map(() => r.platformAdapter).join(";")
           ].join("\n");
 
           expect(ret).equal(expected);
@@ -775,7 +777,7 @@ describe("BorrowManager", () => {
             // register the platform adapter with exactly same parameters second time
             const cr = await (await borrowManager.addAssetPairs(
                 r.platformAdapter
-                , r.assets.map(x => newAsset)
+                , r.assets.map(() => newAsset)
                 , r.assets.map(x => x)
             )).wait();
             expect(cr.status).eq(1); // we don't have any exception
@@ -967,10 +969,10 @@ describe("BorrowManager", () => {
         });
         describe("Remove not all pairs", () => {
           async function makeTestRemoveNotAllPairs(isConverterInUse: boolean): Promise<{ret: string, expected: string}> {
-            const borrowManager = await initializeBorrowManager();
-            const r = await setUpSinglePlatformAdapterTestSet(borrowManager
-              , 1 // single converter
-              , 3 // three assets (3 pairs)
+            const borrowManager = await initializeBorrowManager(isConverterInUse);
+            const r = await setUpSinglePlatformAdapterTestSet(borrowManager,
+              1, // single converter
+              3, // three assets (3 pairs)
             );
 
             // there are three assets and three pairs
@@ -1512,7 +1514,7 @@ describe("BorrowManager", () => {
         it("should revert", async () => {
           const tt = BorrowManagerHelper.getBmInputParamsSinglePool();
           const core = await CoreContracts.build(await TetuConverterApp.createController(signer));
-          const {sourceToken, targetToken, poolsInfo} = await BorrowManagerHelper.initAppPoolsWithTwoAssets(core, signer, tt);
+          const {sourceToken, targetToken} = await BorrowManagerHelper.initAppPoolsWithTwoAssets(core, signer, tt);
 
           const bmAsTc = IBorrowManager__factory.connect(
             core.bm.address,
@@ -1574,7 +1576,7 @@ describe("BorrowManager", () => {
           const user = ethers.Wallet.createRandom().address;
           const pair = platformAdapterSet.pairs[0];
 
-          const poolAdapters = await registerPoolAdapters(bmAsTc,
+          await registerPoolAdapters(bmAsTc,
             [converter],
             [user],
             [{collateral: pair.biggerAddress, borrow: pair.smallerAddress}]
@@ -1616,7 +1618,7 @@ describe("BorrowManager", () => {
         const expected = [
           false,
           false,
-          [...Array(r.out.length).keys()].map(x => true)
+          [...Array(r.out.length).keys()].map(() => true)
         ].join();
 
         expect(ret).equal(expected);

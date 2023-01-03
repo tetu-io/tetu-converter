@@ -81,7 +81,7 @@ export class BorrowManagerHelper {
         const cTokenDecimals = [sourceDecimals, targetDecimals];
         const collateralFactors = [tt.collateralFactor, 0.6];
         const pricesNum = [tt.priceSourceUSD, tt.priceTargetUSD];
-        const prices = pricesNum.map((x, index) => BigNumber.from(10)
+        const prices = pricesNum.map((x,) => BigNumber.from(10)
           .pow(18 - 2)
           .mul(x * 100));
 

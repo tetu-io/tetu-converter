@@ -27,7 +27,6 @@ describe("DForceHelper tests", () => {
   let snapshot: string;
   let snapshotForEach: string;
   let deployer: SignerWithAddress;
-  let investor: SignerWithAddress;
 
 //endregion Global vars for all tests
 
@@ -37,7 +36,6 @@ describe("DForceHelper tests", () => {
     snapshot = await TimeUtils.snapshot();
     const signers = await ethers.getSigners();
     deployer = signers[0];
-    investor = signers[0];
   });
 
   after(async function () {
@@ -320,9 +318,9 @@ describe("DForceHelper tests", () => {
             const userInterest = BigNumber.from("1007792047531702871");
             const borrowIndex0: BigNumber = BigNumber.from("1007768505397815983");
             const totalBorrows0 = BigNumber.from("748722543290648981048813");
-            const totalToken0 = DForceHelper.getTotalTokenForBorrowCase(totalBorrows0, borrowIndex0);
-            const borrowBalanceStored0 = BigNumber.from("0");
-            const accountBalance0 = DForceHelper.rdiv(borrowBalanceStored0, borrowIndex0);
+            // const totalToken0 = DForceHelper.getTotalTokenForBorrowCase(totalBorrows0, borrowIndex0);
+            // const borrowBalanceStored0 = BigNumber.from("0");
+            // const accountBalance0 = DForceHelper.rdiv(borrowBalanceStored0, borrowIndex0);
             const stateIndex0 = BigNumber.from("129921656642613910");
             const stateBlock0 = BigNumber.from("32283228");
             const distributionSpeed0 = BigNumber.from("15972314654598696");
@@ -338,7 +336,7 @@ describe("DForceHelper tests", () => {
             const simpleInterestFactor1 = (blockNumber1.sub(accrualBlockNumber1).mul(borrowRate1));
             const interestAccumulated1 = DForceHelper.rmul(simpleInterestFactor1, totalBorrows0);
             const totalBorrows1 = totalBorrows0.add(interestAccumulated1);
-            const totalReserves1 = totalReserves0.add(DForceHelper.rmul(interestAccumulated1, reserveFactor));
+            // const totalReserves1 = totalReserves0.add(DForceHelper.rmul(interestAccumulated1, reserveFactor));
             const borrowIndex1 = DForceHelper.rmul(simpleInterestFactor1, borrowIndex0).add(borrowIndex0);
             const stateIndex1 = DForceHelper.calcDistributionStateSupply(
               blockNumber1, stateBlock0, stateIndex0, distributionSpeed0
@@ -351,9 +349,9 @@ describe("DForceHelper tests", () => {
             const accrualBlockNumber2 = blockNumber1;
 
             const borrowRate2 = BigNumber.from("3217289900");
-            const getCash21 = getCash0.add(amountToBorrow);
-            const totalBorrows21 = totalBorrowsAfterBorrow1;
-            const totalReserves21 = totalReserves1;
+            // const getCash21 = getCash0.add(amountToBorrow);
+            // const totalBorrows21 = totalBorrowsAfterBorrow1;
+            // const totalReserves21 = totalReserves1;
 
             const simpleInterestFactor2 = (blockNumber2.sub(accrualBlockNumber2).mul(borrowRate2));
             const interestAccumulated2 = DForceHelper.rmul(simpleInterestFactor2, totalBorrowsAfterBorrow1);

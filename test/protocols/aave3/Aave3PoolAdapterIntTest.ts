@@ -385,11 +385,10 @@ describe("Aave3PoolAdapterIntTest", () => {
       console.log("Plan", d.plan);
 
       const collateralDataBefore = await d.h.getReserveInfo(deployer, d.aavePool, d.dataProvider, collateralToken.address);
-      const borrowDataBefore = await d.h.getReserveInfo(deployer, d.aavePool, d.dataProvider, borrowToken.address);
       console.log("collateralDataBefore", collateralDataBefore);
 
       // calculate max amount to borrow manually
-      const maxBorrowAmount = d.plan.maxAmountToBorrow;
+      const maxBorrowAmount = d.plan.amountToBorrow;
 
       await transferAndApprove(
         collateralToken.address,
@@ -426,7 +425,7 @@ describe("Aave3PoolAdapterIntTest", () => {
       return {
         init: d,
         maxBorrowAmount,
-        maxBorrowAmountByPlan: d.plan.maxAmountToBorrow,
+        maxBorrowAmountByPlan: d.plan.amountToBorrow,
         isolationModeTotalDebtDelta
       }
     }

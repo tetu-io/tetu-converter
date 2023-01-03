@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.4;
+pragma solidity 0.8.17;
 
 /// @notice Restored from 0x7551b5D2763519d4e37e8B81929D336De671d46d (TokenData was moved inside interface)
 interface IAaveTwoProtocolDataProvider {

@@ -1,13 +1,11 @@
-import {getPoolAdapterState, ILendingPlatformManager, PoolAdapterState01} from "./ILendingPlatformManager";
+import {getPoolAdapterState, ILendingPlatformManager, IPoolAdapterState01} from "./ILendingPlatformManager";
 import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import {
   Aave3PoolAdapter,
-  Aave3PriceOracleMock,
-  Aave3PriceOracleMock__factory, Borrower,
+  Borrower,
   IAaveAddressesProvider__factory,
   IAavePoolConigurator__factory, IERC20__factory, ITetuConverter
 } from "../../../typechain";
-import {DeployUtils} from "../../../scripts/utils/DeployUtils";
 import {Aave3Helper} from "../../../scripts/integration/helpers/Aave3Helper";
 import {DeployerUtils} from "../../../scripts/utils/DeployerUtils";
 import {MaticAddresses} from "../../../scripts/addresses/MaticAddresses";
@@ -46,7 +44,7 @@ export class LendingPlatformManagerAave3 implements ILendingPlatformManager {
     asset: string,
     inc: boolean,
     times: number
-  ): Promise<PoolAdapterState01>  {
+  ): Promise<IPoolAdapterState01>  {
     const before = await getPoolAdapterState(signer, this.poolAdapter.address);
     await Aave3ChangePricesUtils.changeAssetPrice(signer, asset, inc, times);
     const after = await getPoolAdapterState(signer, this.poolAdapter.address);
@@ -55,7 +53,7 @@ export class LendingPlatformManagerAave3 implements ILendingPlatformManager {
   }
 
   /** Change collateral factor of the asset on new value, decimals 2 */
-  async changeCollateralFactor(signer: SignerWithAddress, newValue2: number): Promise<PoolAdapterState01>  {
+  async changeCollateralFactor(signer: SignerWithAddress, newValue2: number): Promise<IPoolAdapterState01>  {
     console.log("changeCollateralFactor.1");
     const before = await getPoolAdapterState(signer, this.poolAdapter.address);
     const collateralAsset = (await this.poolAdapter.getConfig()).outCollateralAsset;
@@ -93,7 +91,7 @@ export class LendingPlatformManagerAave3 implements ILendingPlatformManager {
   }
 
   /** Borrow max possible amount (and significantly increase the borrow rate) */
-  async makeMaxBorrow(signer: SignerWithAddress): Promise<PoolAdapterState01> {
+  async makeMaxBorrow(signer: SignerWithAddress): Promise<IPoolAdapterState01> {
     console.log("AAVE3.makeMaxBorrow.1");
     const before = await getPoolAdapterState(signer, this.poolAdapter.address);
 
@@ -106,18 +104,18 @@ export class LendingPlatformManagerAave3 implements ILendingPlatformManager {
     console.log("Holder's balance of collateral", collateralAmount);
 
     // Let's borrow max possible amount for provided collateral
-    await IERC20__factory.connect(collateralAsset
-      , await DeployerUtils.startImpersonate(this.collateralHolder.holder)
+    await IERC20__factory.connect(collateralAsset,
+      await DeployerUtils.startImpersonate(this.collateralHolder.holder)
     ).transfer(this.borrower.address, collateralAmount);
 
-    console.log("Borrower balance of collateral"
-      , await IERC20__factory.connect(collateralAsset, signer).balanceOf(this.borrower.address));
+    console.log("Borrower balance of collateral",
+      await IERC20__factory.connect(collateralAsset, signer).balanceOf(this.borrower.address));
 
     await this.borrower.borrowMaxAmount(
-      collateralAsset
-      , collateralAmount
-      , borrowAsset
-      , this.collateralHolder.asset // put borrowed amount on the balance of borrow-holder
+      collateralAsset,
+      collateralAmount,
+      borrowAsset,
+      this.collateralHolder.asset // put borrowed amount on the balance of borrow-holder
     );
 
     const after = await getPoolAdapterState(signer, this.poolAdapter.address);
@@ -125,41 +123,41 @@ export class LendingPlatformManagerAave3 implements ILendingPlatformManager {
     return {before, after};
   }
   /** Return previously borrowed amount back (reverse to makeMaxBorrow) */
-  async releaseMaxBorrow(signer: SignerWithAddress): Promise<PoolAdapterState01> {
+  async releaseMaxBorrow(signer: SignerWithAddress): Promise<IPoolAdapterState01> {
     console.log("AAVE3.releaseMaxBorrow.1");
     const before = await getPoolAdapterState(signer, this.poolAdapter.address);
 
-    const borrowAssetAsHolder = await IERC20__factory.connect(this.borrowHolder.asset
-      , await DeployerUtils.startImpersonate(this.borrowHolder.holder)
+    const borrowAssetAsHolder = await IERC20__factory.connect(this.borrowHolder.asset,
+      await DeployerUtils.startImpersonate(this.borrowHolder.holder)
     );
-    const collateralAssetAsHolder = await IERC20__factory.connect(this.collateralHolder.asset
-      , await DeployerUtils.startImpersonate(this.collateralHolder.holder)
+    const collateralAssetAsHolder = await IERC20__factory.connect(this.collateralHolder.asset,
+      await DeployerUtils.startImpersonate(this.collateralHolder.holder)
     );
     // how much we should pay?
     const status = await this.poolAdapter.getStatus();
 
     // Let's put amount-to-pay + small amount on balance of the borrower,
-    console.log("AAVE3 Borrow holder's balance of borrow token (before repay)"
-      , await borrowAssetAsHolder.balanceOf(this.borrowHolder.holder));
-    console.log("AAVE3 Collateral holder's balance of collateral token (before repay)"
-      , await collateralAssetAsHolder.balanceOf(this.collateralHolder.holder));
+    console.log("AAVE3 Borrow holder's balance of borrow token (before repay)",
+      await borrowAssetAsHolder.balanceOf(this.borrowHolder.holder));
+    console.log("AAVE3 Collateral holder's balance of collateral token (before repay)",
+      await collateralAssetAsHolder.balanceOf(this.collateralHolder.holder));
 
     await borrowAssetAsHolder.transfer(this.borrower.address, status.amountToPay.mul(2));
-    console.log("AAVE3 Borrower balance of borrow token (before repay)"
-      , await IERC20__factory.connect(this.borrowHolder.asset, signer).balanceOf(this.borrower.address));
+    console.log("AAVE3 Borrower balance of borrow token (before repay)",
+      await IERC20__factory.connect(this.borrowHolder.asset, signer).balanceOf(this.borrower.address));
 
     await this.borrower.makeRepayComplete(
-      this.collateralHolder.asset
-      , borrowAssetAsHolder.address
-      , this.collateralHolder.holder
+      this.collateralHolder.asset,
+      borrowAssetAsHolder.address,
+      this.collateralHolder.holder
     );
 
-    console.log("AAVE3 Borrow holder's balance of borrow token (after repay)"
-      , await borrowAssetAsHolder.balanceOf(this.borrowHolder.holder));
-    console.log("AAVE3 Collateral holder's balance of collateral token (after repay)"
-      , await collateralAssetAsHolder.balanceOf(this.collateralHolder.holder));
-    console.log("AAVE3 Borrower balance of borrow token (after repay)"
-      , await IERC20__factory.connect(this.borrowHolder.asset, signer).balanceOf(this.borrower.address));
+    console.log("AAVE3 Borrow holder's balance of borrow token (after repay)",
+      await borrowAssetAsHolder.balanceOf(this.borrowHolder.holder));
+    console.log("AAVE3 Collateral holder's balance of collateral token (after repay)",
+      await collateralAssetAsHolder.balanceOf(this.collateralHolder.holder));
+    console.log("AAVE3 Borrower balance of borrow token (after repay)",
+      await IERC20__factory.connect(this.borrowHolder.asset, signer).balanceOf(this.borrower.address));
 
     const after = await getPoolAdapterState(signer, this.poolAdapter.address);
     console.log("AAVE3.releaseMaxBorrow.2");
@@ -172,13 +170,13 @@ export class LendingPlatformManagerAave3 implements ILendingPlatformManager {
     const aavePoolAdmin = await DeployerUtils.startImpersonate(MaticAddresses.AAVE_V3_POOL_ADMIN);
     const aavePool = await Aave3Helper.getAavePool(signer);
     const aaveAddressProvider = IAaveAddressesProvider__factory.connect(
-      await aavePool.ADDRESSES_PROVIDER()
-      , signer
+      await aavePool.ADDRESSES_PROVIDER(),
+      signer
     );
 
     const poolConfiguratorAsAdmin = IAavePoolConigurator__factory.connect(
-      await aaveAddressProvider.getPoolConfigurator()
-      , aavePoolAdmin
+      await aaveAddressProvider.getPoolConfigurator(),
+      aavePoolAdmin
     );
 
     await poolConfiguratorAsAdmin.setReservePause(asset, active);

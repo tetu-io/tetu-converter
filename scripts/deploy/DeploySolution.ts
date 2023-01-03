@@ -84,7 +84,7 @@ async function main() {
   //     {gasLimit: 8_000_000}
   //   )
   // );
-  const deployCoreResults = await DeploySolutionUtils.runMain(signer);
+  await DeploySolutionUtils.runMain(signer);
 
   // // let's try to find a way to borrow DAI for USDC
   // const tetuConverter = ITetuConverter__factory.connect(deployCoreResults.tetuConverter, signer);

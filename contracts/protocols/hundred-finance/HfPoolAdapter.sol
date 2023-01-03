@@ -1,20 +1,24 @@
 // SPDX-License-Identifier: MIT
 
-pragma solidity 0.8.4;
+pragma solidity 0.8.17;
 
 import "../../openzeppelin/SafeERC20.sol";
 import "../../openzeppelin/IERC20.sol";
-import "../../interfaces/IPoolAdapter.sol";
-import "../../core/DebtMonitor.sol";
+import "../../openzeppelin/Initializable.sol";
+import "../../openzeppelin/IERC20Metadata.sol";
 import "../../core/AppErrors.sol";
-import "../../integrations/hundred-finance/IHfComptroller.sol";
+import "../../core/AppUtils.sol";
+import "../../interfaces/IDebtMonitor.sol";
+import "../../interfaces/IPoolAdapter.sol";
+import "../../interfaces/IController.sol";
 import "../../interfaces/IPoolAdapterInitializerWithAP.sol";
+import "../../interfaces/ITokenAddressProvider.sol";
+import "../../integrations/hundred-finance/IHfComptroller.sol";
 import "../../integrations/hundred-finance/IHfCToken.sol";
 import "../../integrations/hundred-finance/IHfPriceOracle.sol";
-import "../../interfaces/ITokenAddressProvider.sol";
 import "../../integrations/hundred-finance/IHfHMatic.sol";
 import "../../integrations/IWmatic.sol";
-import "../../openzeppelin/Initializable.sol";
+
 
 /// @notice Implementation of IPoolAdapter for HundredFinance-protocol, see https://docs.hundred.finance/
 /// @dev Instances of this contract are created using proxy-minimal pattern, so no constructor
@@ -412,7 +416,7 @@ contract HfPoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP, Initializ
     require(error2 == 0, AppErrors.CTOKEN_GET_ACCOUNT_SNAPSHOT_FAILED);
     require(borrowBalance != 0, AppErrors.ZERO_BALANCE);
     if (closePosition_) {
-      require(borrowBalance <= amountToRepay_, AppErrors.CLOSE_POSITION_FAILED);
+      require(borrowBalance <= amountToRepay_, AppErrors.CLOSE_POSITION_PARTIAL);
       return (tokenBalance, tokenBalance);
     } else {
       require(amountToRepay_ <= borrowBalance, AppErrors.WRONG_BORROWED_BALANCE);

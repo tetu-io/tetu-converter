@@ -25,7 +25,7 @@ import {
   IPoolAdapter,
   DebtMonitorMock__factory,
   SwapManagerMock__factory,
-  PriceOracleMock__factory
+  PriceOracleMock__factory, IController__factory
 } from "../../typechain";
 import {
   IBorrowInputParams,
@@ -45,9 +45,10 @@ import {CoreContractsHelper} from "../baseUT/helpers/CoreContractsHelper";
 import {formatUnits, parseUnits} from "ethers/lib/utils";
 import {controlGasLimitsEx} from "../../scripts/utils/hardhatUtils";
 import {
-  GAS_FIND_CONVERSION_STRATEGY_ONLY_BORROW_AVAILABLE, GAS_FIND_SWAP_STRATEGY,
+  GAS_FIND_CONVERSION_STRATEGY_ONLY_BORROW_AVAILABLE,
+  GAS_FIND_SWAP_STRATEGY, GAS_TC_BORROW, GAS_TC_QUOTE_REPAY, GAS_TC_REPAY,
 } from "../baseUT/GasLimit";
-import {TetuConverterApp} from "../baseUT/helpers/TetuConverterApp";
+import {ICreateControllerParams, TetuConverterApp} from "../baseUT/helpers/TetuConverterApp";
 
 describe("TetuConverterTest", () => {
 //region Constants
@@ -113,7 +114,7 @@ describe("TetuConverterTest", () => {
     core: CoreContracts,
     tt: IBorrowInputParams,
     tetuAppSetupParams?: IPrepareContractsSetupParams,
-    usePoolAdapterStub: boolean = false
+    usePoolAdapterStub = false
   ) : Promise<IPrepareResults>{
     const periodInBlocks = 117;
     const {sourceToken, targetToken, poolsInfo} = await BorrowManagerHelper.initAppPoolsWithTwoAssets(
@@ -188,7 +189,7 @@ describe("TetuConverterTest", () => {
     core: CoreContracts,
     countPlatforms: number,
     tetuAppSetupParams?: IPrepareContractsSetupParams,
-    usePoolAdapterStub: boolean = false
+    usePoolAdapterStub = false
   ) : Promise<ISetupResults> {
     const targetDecimals = 6;
     const sourceDecimals = 17;
@@ -201,7 +202,7 @@ describe("TetuConverterTest", () => {
       sourceDecimals,
       targetDecimals,
       availablePools: [...Array(countPlatforms).keys()].map(
-        x => ({   // source, target
+        () => ({   // source, target
           borrowRateInTokens: [BigNumber.from(0), BigNumber.from(0)],
           availableLiquidityInTokens: [0, availableBorrowLiquidityNumber]
         })
@@ -269,9 +270,9 @@ describe("TetuConverterTest", () => {
     const targetToken = pp.targetToken.address;
 
     const borrowedAmountOut: BigNumber = exactBorrowAmount === undefined
-      ? await uc.callStatic.borrowMaxAmount(sourceToken, collateralAmount, targetToken, borrowAmountReceiver)
+      ? (await uc.callStatic.borrowMaxAmount(sourceToken, collateralAmount, targetToken, borrowAmountReceiver)).borrowedAmountOut
       : badPathParamManualConverter === undefined
-        ? await uc.callStatic.borrowExactAmount(sourceToken, collateralAmount, targetToken, borrowAmountReceiver, amountToBorrow)
+        ? (await uc.callStatic.borrowExactAmount(sourceToken, collateralAmount, targetToken, borrowAmountReceiver, amountToBorrow)).borrowedAmountOut
         : await uc.callStatic.borrowExactAmountBadPaths(sourceToken, collateralAmount, targetToken, borrowAmountReceiver, amountToBorrow,
           badPathParamManualConverter,
           badPathTransferAmountMultiplier18 || Misc.WEI
@@ -387,122 +388,6 @@ describe("TetuConverterTest", () => {
     return dest;
   }
 //endregion Prepare borrows
-
-//region Make reconversion
-  interface IMakeReconversionResults {
-    balancesInitial: Map<string, (BigNumber | string)[]>;
-    balancesAfterBorrow: Map<string, (BigNumber | string)[]>;
-    balancesAfterReconversion: Map<string, (BigNumber | string)[]>;
-    poolInstances: IPoolInstanceInfo[];
-    poolAdapters: string[];
-    borrowsAfterBorrow: string[];
-    borrowsAfterReconversion: string[];
-  }
-  /**
-   * 1. Create N pools
-   * 2. Set initial BR for each pool
-   * 3. Make borrow using pool with the lowest BR
-   * 2. Chang BR to different values. Now different pool has the lowest BR
-   * 5. Call reconvert
-   * Borrow should be reconverted to expected pool
-   */
-  async function makeReconversion(
-    tt: IBorrowInputParams,
-    sourceAmountNumber: number,
-    availableBorrowLiquidityNumber: number,
-    mapOldNewBR: Map<string, BigNumber>
-  ) : Promise<IMakeReconversionResults> {
-    const sourceAmount = getBigNumberFrom(sourceAmountNumber, tt.sourceDecimals);
-    const availableBorrowLiquidity = getBigNumberFrom(availableBorrowLiquidityNumber, tt.targetDecimals);
-
-    const core = await CoreContracts.build(await TetuConverterApp.createController(deployer));
-    const {poolInstances, cToken, userContract, sourceToken, targetToken, poolAdapters} =
-      await prepareContracts(core, tt);
-
-    console.log("cToken is", cToken);
-    console.log("Pool adapters:", poolAdapters.join("\n"));
-    console.log("Pools:", poolInstances.join("\n"));
-
-    const contractsToInvestigate: IContractToInvestigate[] = [
-      {name: "userContract", contract: userContract.address},
-      {name: "tc", contract: core.tc.address},
-      ...poolInstances.map((x, index) => ({name: `pool ${index}`, contract: x.pool})),
-      ...poolAdapters.map((x, index) => ({name: `PA ${index}`, contract: x})),
-    ];
-    const tokensToInvestigate = [sourceToken.address, targetToken.address, cToken];
-
-    // initialize balances
-    await MockERC20__factory.connect(sourceToken.address, deployer).mint(userContract.address, sourceAmount);
-    for (const pi of poolInstances) {
-      await MockERC20__factory.connect(targetToken.address, deployer).mint(pi.pool, availableBorrowLiquidity);
-    }
-    // we need to put some amount on user balance - to be able to return debts
-    await MockERC20__factory.connect(targetToken.address, deployer).mint(userContract.address, availableBorrowLiquidity);
-
-    // get balances before start
-    const balancesInitial = await BalanceUtils.getBalancesObj(deployer, contractsToInvestigate, tokensToInvestigate);
-    console.log("before", before);
-
-    // borrow
-    await userContract.borrowMaxAmount(
-      sourceToken.address,
-      sourceAmount,
-      targetToken.address,
-      userContract.address
-    );
-
-    // get result balances
-    const balancesAfterBorrow = await BalanceUtils.getBalancesObj(deployer, contractsToInvestigate, tokensToInvestigate);
-
-    // get address of PA where the borrow was made
-    const borrowsAfterBorrow = await userContract.getBorrows(sourceToken.address, targetToken.address);
-    console.log("borrowsAfterBorrow", borrowsAfterBorrow);
-
-    // change borrow rates
-    for (let i = 0; i < poolAdapters.length; ++i) {
-      // we need to change borrow rate in platform adapter (to select strategy correctly)
-      // and in the already created pool adapters (to make new borrow correctly)
-      // Probably it worth to move borrow rate to pool stub to avoid possibility of br-unsync
-      const platformAdapter = await LendingPlatformMock__factory.connect(poolInstances[i].platformAdapter, deployer);
-      const brOld = await platformAdapter.borrowRates(targetToken.address);
-      const brNewValue = mapOldNewBR.get(brOld.toString()) || brOld;
-
-      await PoolAdapterMock__factory.connect(poolAdapters[i], deployer).changeBorrowRate(brNewValue);
-      await platformAdapter.changeBorrowRate(targetToken.address, brNewValue);
-    }
-
-    // reconvert the borrow
-    // return borrowed amount to userContract (there are no debts in the mock, so the borrowed amount is enough)
-    const status = await PoolAdapterMock__factory.connect(borrowsAfterBorrow[0], deployer).getStatus();
-    const borrowTokenAsUser = IERC20__factory.connect(targetToken.address
-      , await DeployerUtils.startImpersonate(userContract.address));
-    await borrowTokenAsUser.transfer(userContract.address, status.amountToPay);
-    console.log(`Borrow token, balance of user contract=${borrowTokenAsUser.balanceOf(userContract.address)}`);
-    console.log(`Amount to pay=${(await status).amountToPay}`);
-
-    // TODO: await userContract.requireReconversion(borrowsAfterBorrow[0]);
-
-    // get address of PA where the new borrow was made
-    const borrowsAfterReconversion = await userContract.getBorrows(sourceToken.address, targetToken.address);
-    console.log("borrowsAfterReconversion", borrowsAfterReconversion);
-
-    // get result balances
-    const balancesAfterReconversion = await BalanceUtils.getBalancesObj(deployer
-      , contractsToInvestigate
-      , tokensToInvestigate
-    );
-
-    return {
-      balancesInitial,
-      balancesAfterBorrow,
-      balancesAfterReconversion,
-      poolAdapters,
-      poolInstances,
-      borrowsAfterBorrow,
-      borrowsAfterReconversion,
-    }
-  }
-//endregion Make reconversion
 
 //region Predict conversion results
   interface IFindConversionStrategyResults {
@@ -631,7 +516,7 @@ describe("TetuConverterTest", () => {
   ) : Promise<IMakeFindConversionStrategyResults> {
     const core = await CoreContracts.build(
       await TetuConverterApp.createController(deployer, {
-        priceOracleFabric: async c => (await MocksHelper.getPriceOracleMock(deployer, [], [])).address
+        priceOracleFabric: async () => (await MocksHelper.getPriceOracleMock(deployer, [], [])).address
       })
     );
     const init = await prepareTetuAppWithMultipleLendingPlatforms(core,
@@ -748,7 +633,7 @@ describe("TetuConverterTest", () => {
   ) : Promise<IMakeFindConversionStrategyResults> {
     const core = await CoreContracts.build(
       await TetuConverterApp.createController(deployer, {
-        priceOracleFabric: async c => (await MocksHelper.getPriceOracleMock(deployer, [], [])).address
+        priceOracleFabric: async () => (await MocksHelper.getPriceOracleMock(deployer, [], [])).address
       })
     );
     const init = await prepareTetuAppWithMultipleLendingPlatforms(core,borrowRateNum ? 1: 0);
@@ -803,17 +688,6 @@ describe("TetuConverterTest", () => {
 //endregion findBorrowStrategy test impl
 
 //region findSwapStrategy test impl
-  interface IFindConversionStrategyBadParams {
-    zeroSourceAmount?: boolean;
-    zeroPeriod?: boolean;
-  }
-
-  interface IMakeFindConversionStrategySwapAndBorrowResults {
-    results: IFindConversionStrategyResults;
-    expectedSwap: IFindConversionStrategyResults;
-    expectedBorrowing: IFindConversionStrategyResults;
-  }
-
   /**
    * Set up test for findConversionStrategy
    * @param sourceAmountNum
@@ -825,7 +699,7 @@ describe("TetuConverterTest", () => {
   ) : Promise<IMakeFindConversionStrategyResults> {
     const core = await CoreContracts.build(
       await TetuConverterApp.createController(deployer, {
-        priceOracleFabric: async c => (await MocksHelper.getPriceOracleMock(deployer, [], [])).address
+        priceOracleFabric: async () => (await MocksHelper.getPriceOracleMock(deployer, [], [])).address
       })
     );
     const init = await prepareTetuAppWithMultipleLendingPlatforms(core, 0, swapConfig);
@@ -869,8 +743,8 @@ describe("TetuConverterTest", () => {
   }
 
   async function makeFindSwapStrategyTest(
-    sourceAmount: number = 1_000,
-    priceImpact: number = 1_000,
+    sourceAmount = 1_000,
+    priceImpact = 1_000,
   ) : Promise<IMakeFindConversionStrategyResults> {
     return makeFindSwapStrategy(
       sourceAmount,
@@ -886,6 +760,11 @@ describe("TetuConverterTest", () => {
   describe("constructor", () => {
     interface IMakeConstructorTestParams {
       useZeroController?: boolean;
+      useZeroBorrowManager?: boolean;
+      useZeroDebtMonitor?: boolean;
+      useZeroSwapManager?: boolean;
+      useZeroKeeper?: boolean;
+      useZeroPriceOracle?: boolean;
     }
     async function makeConstructorTest(
       params?: IMakeConstructorTestParams
@@ -893,12 +772,17 @@ describe("TetuConverterTest", () => {
       const controller = await TetuConverterApp.createController(
         deployer,
         {
-          tetuConverterFabric: async c => (await CoreContractsHelper.createTetuConverter(
-            deployer,
-            params?.useZeroController
-              ? Misc.ZERO_ADDRESS
-              : c.address
-          )).address,
+          tetuConverterFabric: (async (c, borrowManager, debtMonitor, swapManager, keeper, priceOracle) => (
+              await CoreContractsHelper.createTetuConverter(
+                deployer,
+                params?.useZeroController ? Misc.ZERO_ADDRESS : c.address,
+                params?.useZeroBorrowManager ? Misc.ZERO_ADDRESS : borrowManager,
+                params?.useZeroDebtMonitor ? Misc.ZERO_ADDRESS : debtMonitor,
+                params?.useZeroSwapManager ? Misc.ZERO_ADDRESS : swapManager,
+                params?.useZeroKeeper ? Misc.ZERO_ADDRESS : keeper,
+                params?.useZeroPriceOracle ? Misc.ZERO_ADDRESS : priceOracle
+              )).address
+          ),
           borrowManagerFabric: async () => ethers.Wallet.createRandom().address,
           debtMonitorFabric: async () => ethers.Wallet.createRandom().address,
           keeperFabric: async () => ethers.Wallet.createRandom().address,
@@ -917,11 +801,58 @@ describe("TetuConverterTest", () => {
 
         expect(ret.eq(0)).eq(false);
       });
+      it("should initialize immutable variables by expected values", async () => {
+        // we can call any function of TetuConverter to ensure that it was created correctly
+        // let's check it using ADDITIONAL_BORROW_DELTA_DENOMINATOR()
+        const tetuConverter = await makeConstructorTest();
+        const controller = IController__factory.connect(await tetuConverter.controller(), deployer);
+        const ret = [
+          await tetuConverter.borrowManager(),
+          await tetuConverter.debtMonitor(),
+          await tetuConverter.swapManager(),
+          await tetuConverter.keeper(),
+          await tetuConverter.priceOracle()
+        ].join();
+        const expected = [
+          await controller.borrowManager(),
+          await controller.debtMonitor(),
+          await controller.swapManager(),
+          await controller.keeper(),
+          await controller.priceOracle()
+        ].join();
+
+        expect(ret).eq(expected);
+      });
     });
     describe("Bad paths", () => {
       it("should revert if controller is zero", async () => {
         await expect(
           makeConstructorTest({useZeroController: true})
+        ).revertedWith("TC-1 zero address"); // ZERO_ADDRESS
+      });
+      it("should revert if borrowManager is zero", async () => {
+        await expect(
+          makeConstructorTest({useZeroBorrowManager: true})
+        ).revertedWith("TC-1 zero address"); // ZERO_ADDRESS
+      });
+      it("should revert if debtMonitor is zero", async () => {
+        await expect(
+          makeConstructorTest({useZeroDebtMonitor: true})
+        ).revertedWith("TC-1 zero address"); // ZERO_ADDRESS
+      });
+      it("should revert if swapManager is zero", async () => {
+        await expect(
+          makeConstructorTest({useZeroSwapManager: true})
+        ).revertedWith("TC-1 zero address"); // ZERO_ADDRESS
+      });
+      it("should revert if keeper is zero", async () => {
+        await expect(
+          makeConstructorTest({useZeroKeeper: true})
+        ).revertedWith("TC-1 zero address"); // ZERO_ADDRESS
+      });
+      it("should revert if priceOracle is zero", async () => {
+        await expect(
+          makeConstructorTest({useZeroPriceOracle: true})
         ).revertedWith("TC-1 zero address"); // ZERO_ADDRESS
       });
     });
@@ -1066,6 +997,18 @@ describe("TetuConverterTest", () => {
               }
             )
           ).revertedWith("TC-29 incorrect value"); // INCORRECT_VALUE
+        });
+      });
+    });
+    describe("Gas estimation @skip-on-coverage", () => {
+      it("should return expected values", async () => {
+        const {gas} = await makeFindConversionStrategy(
+          100_000,
+          BLOCKS_PER_DAY * 31,
+          1000,
+        );
+        controlGasLimitsEx(gas, GAS_FIND_CONVERSION_STRATEGY_ONLY_BORROW_AVAILABLE, (u, t) => {
+          expect(u).to.be.below(t);
         });
       });
     });
@@ -1335,14 +1278,13 @@ describe("TetuConverterTest", () => {
           const amountToBorrowNum = 100;
           const r = await makeConversionUsingBorrowing([100_000], [amountToBorrowNum]);
           const retBorrowedAmountOut = r.borrowStatus.reduce(
-            (prev, cur) => prev = prev.add(cur.conversionResult.borrowedAmountOut),
+            (prev, cur) => prev.add(cur.conversionResult.borrowedAmountOut),
             BigNumber.from(0)
           );
           const expectedBorrowedAmount = getBigNumberFrom(amountToBorrowNum, await r.init.targetToken.decimals());
 
           expect(retBorrowedAmountOut).eq(expectedBorrowedAmount);
         });
-
         describe("Pool adapter is not registered for the converter", () => {
           it("should register and use new pool adapter", async () => {
             const r = await makeConversionUsingBorrowing (
@@ -1363,7 +1305,6 @@ describe("TetuConverterTest", () => {
             expect(ret).eq(true);
           });
         });
-
         describe("Pool adapter is already registered for the converter", () => {
           describe("Pool adapter is health and not dirty", () => {
             it("should use exist pool adapter", async () => {
@@ -1457,8 +1398,6 @@ describe("TetuConverterTest", () => {
             });
           });
         });
-
-
       });
       describe("Convert using swapping", () => {
         it("should return expected values", async () => {
@@ -1612,24 +1551,50 @@ describe("TetuConverterTest", () => {
                 transferAmountMultiplier18: Misc.WEI.div(2)
               }
             )
-          ).revertedWith("TC-41 wrong amount received"); // WRONG_AMOUNT_RECEIVED
+          ).revertedWithPanic(0x11); // Arithmetic operation underflowed or overflowed outside of an unchecked block
         });
       });
-      describe("Too much collateral amount on balance of TetuConverter", () => {
-        it("should keep exceed amount on the balance of TetuConverter", async () => {
-          const collateralAmountNum = 100_000;
-          const transferAmountMultiplier18 = Misc.WEI.mul(2);
-          const r = await makeConversionUsingBorrowing(
-            [collateralAmountNum],
-            [1_00],
-            {
-              transferAmountMultiplier18
-            }
-          );
-          const balanceCollateralAssetOnTetuConverter = await r.init.sourceToken.balanceOf(r.init.core.tc.address);
-          const expected = getBigNumberFrom(collateralAmountNum, await r.init.sourceToken.decimals());
+    });
+    describe("Gas estimation @skip-on-coverage", () => {
+      it("should not exceed gas threshold", async () => {
+        const receiver = ethers.Wallet.createRandom().address;
 
-          expect(balanceCollateralAssetOnTetuConverter).eq(expected);
+        const core = await CoreContracts.build(await TetuConverterApp.createController(deployer));
+        const init = await prepareTetuAppWithMultipleLendingPlatforms(core, 1,
+          {
+            skipPreregistrationOfPoolAdapters: true
+          }
+        );
+
+        const sourceAmount = parseUnits("1000", await init.sourceToken.decimals());
+
+        const tcAsUser = ITetuConverter__factory.connect(
+          core.tc.address,
+          await DeployerUtils.startImpersonate(init.userContract.address)
+        );
+        await IERC20__factory.connect(
+          init.sourceToken.address,
+          await DeployerUtils.startImpersonate(init.userContract.address)
+        ).approve(core.tc.address, sourceAmount);
+
+        const plan = await tcAsUser.callStatic.findConversionStrategy(
+          init.sourceToken.address,
+          sourceAmount,
+          init.targetToken.address,
+          1000
+        );
+
+        const gasUsed = await tcAsUser.estimateGas.borrow(
+          plan.converter,
+          init.sourceToken.address,
+          sourceAmount,
+          init.targetToken.address,
+          plan.maxTargetAmount,
+          receiver
+        );
+
+        controlGasLimitsEx(gasUsed, GAS_TC_BORROW, (u, t) => {
+          expect(u).to.be.below(t);
         });
       });
     });
@@ -1653,7 +1618,7 @@ describe("TetuConverterTest", () => {
       async function makeConversionUsingBorrowing(
         collateralAmounts: number[],
         exactBorrowAmounts: number[] | undefined,
-        setupTetuLiquidatorToSwapBorrowToCollateral: boolean = false,
+        setupTetuLiquidatorToSwapBorrowToCollateral = false,
       ) : Promise<IMakeConversionUsingBorrowingResults > {
         const receiver = ethers.Wallet.createRandom().address;
 
@@ -1873,10 +1838,6 @@ describe("TetuConverterTest", () => {
           });
         });
       });
-
-      describe("Swap", () => {
-// TODO
-      });
     });
   });
 
@@ -1884,6 +1845,12 @@ describe("TetuConverterTest", () => {
     interface IRepayBadPathParams {
       receiverIsNull?: boolean,
       userSendsNotEnoughAmountToTetuConverter?: boolean
+    }
+    interface IRepayOutputValues {
+      collateralAmountOut: BigNumber;
+      returnedBorrowAmountOut: BigNumber;
+      swappedLeftoverCollateralOut: BigNumber;
+      swappedLeftoverBorrowOut: BigNumber;
     }
     interface IRepayResults {
       countOpenedPositions: number;
@@ -1894,18 +1861,19 @@ describe("TetuConverterTest", () => {
       receiverCollateralBalanceAfterRepay: BigNumber;
       receiverBorrowAssetBalanceBeforeRepay: BigNumber;
       receiverBorrowAssetBalanceAfterRepay: BigNumber;
+      repayOutput: IRepayOutputValues;
     }
     async function makeRepayTest(
       collateralAmounts: number[],
       exactBorrowAmounts: number[],
       amountToRepayNum: number,
-      setupTetuLiquidatorToSwapBorrowToCollateral: boolean = false,
+      setupTetuLiquidatorToSwapBorrowToCollateral = false,
       repayBadPathParams?: IRepayBadPathParams,
       priceImpact?: number,
     ) : Promise<IRepayResults> {
       const core = await CoreContracts.build(
         await TetuConverterApp.createController(deployer, {
-          priceOracleFabric: async c => (await MocksHelper.getPriceOracleMock(deployer, [], [])).address
+          priceOracleFabric: async () => (await MocksHelper.getPriceOracleMock(deployer, [], [])).address
         })
       );
       const init = await prepareTetuAppWithMultipleLendingPlatforms(core,
@@ -1953,12 +1921,19 @@ describe("TetuConverterTest", () => {
         ? BigNumber.from(0)
         : await init.targetToken.balanceOf(receiver);
 
+      const repayOutput = await tcAsUc.callStatic.repay(
+        init.sourceToken.address,
+        init.targetToken.address,
+        amountToRepay,
+        receiver
+      );
       await tcAsUc.repay(
         init.sourceToken.address,
         init.targetToken.address,
         amountToRepay,
         receiver
       );
+      console.log("Repay results", repayOutput);
 
       const receiverCollateralBalanceAfterRepay = receiver === Misc.ZERO_ADDRESS
         ? BigNumber.from(0)
@@ -1969,6 +1944,7 @@ describe("TetuConverterTest", () => {
 
       const borrowsAfterRepay = await core.dm.getPositions(init.userContract.address, init.sourceToken.address, init.targetToken.address);
       const {totalDebtAmountOut, totalCollateralAmountOut} = await tcAsUc.getDebtAmountStored(
+        await tcAsUc.signer.getAddress(),
         init.sourceToken.address,
         init.targetToken.address
       );
@@ -1981,7 +1957,8 @@ describe("TetuConverterTest", () => {
         receiverCollateralBalanceAfterRepay,
         receiverCollateralBalanceBeforeRepay,
         receiverBorrowAssetBalanceBeforeRepay,
-        receiverBorrowAssetBalanceAfterRepay
+        receiverBorrowAssetBalanceAfterRepay,
+        repayOutput
       }
     }
 
@@ -2235,11 +2212,12 @@ describe("TetuConverterTest", () => {
             expect(ret).eq(expected);
           });
         });
-        describe("Full repay", () => {
+        describe("Full repay, no swap", () => {
           it("should return expected values", async () => {
             const amountToRepay = 1600;
             const collateralAmounts = [1_000_000, 2_000_000, 3_000_000];
             const exactBorrowAmounts = [200, 400, 1000]; // sum == 1600
+            const totalCollateralAmount = collateralAmounts.reduce((prev, cur) => prev + cur, 0);
             const r = await makeRepayTest(
               collateralAmounts,
               exactBorrowAmounts,
@@ -2248,12 +2226,22 @@ describe("TetuConverterTest", () => {
 
             const ret = [
               r.countOpenedPositions,
-              r.totalDebtAmountOut.toString()
+              r.totalDebtAmountOut.toString(),
+
+              r.repayOutput.collateralAmountOut,
+              r.repayOutput.returnedBorrowAmountOut,
+              r.repayOutput.swappedLeftoverCollateralOut,
+              r.repayOutput.swappedLeftoverBorrowOut
             ].map(x => BalanceUtils.toString(x)).join("\n");
 
             const expected = [
               0,
-              getBigNumberFrom(0, await r.init.targetToken.decimals())
+              getBigNumberFrom(0, await r.init.targetToken.decimals()),
+
+              parseUnits(totalCollateralAmount.toString(), await r.init.sourceToken.decimals()),
+              0, // there is no leftover
+              0,
+              0
             ].map(x => BalanceUtils.toString(x)).join("\n");
 
             expect(ret).eq(expected);
@@ -2263,8 +2251,8 @@ describe("TetuConverterTest", () => {
           it("should return expected values", async () => {
             const collateralAmounts = [1_000_000, 2_000_000, 3_000_000];
             const exactBorrowAmounts = [200, 400, 1000];
-            const totalBorrowAmount = exactBorrowAmounts.reduce((prev, cur) => prev += cur, 0);
-            const totalCollateralAmount = collateralAmounts.reduce((prev, cur) => prev += cur, 0);
+            const totalBorrowAmount = exactBorrowAmounts.reduce((prev, cur) => prev + cur, 0);
+            const totalCollateralAmount = collateralAmounts.reduce((prev, cur) => prev + cur, 0);
             const amountToSwap = 300;
             const amountToRepay = totalBorrowAmount + amountToSwap;
 
@@ -2307,6 +2295,49 @@ describe("TetuConverterTest", () => {
 
             expect(ret).eq(expected);
           });
+          it("should return expected output values", async () => {
+            const collateralAmounts = [1_000_000, 2_000_000, 3_000_000];
+            const exactBorrowAmounts = [200, 400, 1000];
+            const totalBorrowAmount = exactBorrowAmounts.reduce((prev, cur) => prev + cur, 0);
+            const totalCollateralAmount = collateralAmounts.reduce((prev, cur) => prev + cur, 0);
+            const amountToSwap = 300;
+            const amountToRepay = totalBorrowAmount + amountToSwap;
+
+            // We need to set big price impact
+            // TetuConverter should prefer to use borrowing instead swapping
+            const PRICE_IMPACT_NUMERATOR = 100_000; // SwapManager.PRICE_IMPACT_NUMERATOR
+            const priceImpact = PRICE_IMPACT_NUMERATOR / 100; // 1%
+
+            const r = await makeRepayTest(
+              collateralAmounts,
+              exactBorrowAmounts,
+              amountToRepay,
+              true,
+              undefined,
+              priceImpact
+            );
+            console.log(r);
+
+            const ret = [
+              r.repayOutput.collateralAmountOut,
+              r.repayOutput.returnedBorrowAmountOut,
+              r.repayOutput.swappedLeftoverCollateralOut,
+              r.repayOutput.swappedLeftoverBorrowOut
+            ].map(x => BalanceUtils.toString(x)).join("\n");
+
+            // the prices of borrow and collateral assets are equal
+            const expectedCollateralAmountFromSwapping = amountToSwap * (PRICE_IMPACT_NUMERATOR - priceImpact) / PRICE_IMPACT_NUMERATOR;
+            const expectedCollateralAmountToReceive = totalCollateralAmount + expectedCollateralAmountFromSwapping;
+
+            const expected = [
+              parseUnits(expectedCollateralAmountToReceive.toString(), await r.init.sourceToken.decimals()),
+              0, // there is no not-swapped leftover
+              parseUnits(expectedCollateralAmountFromSwapping.toString(), await r.init.sourceToken.decimals()),
+              parseUnits(amountToSwap.toString(), await r.init.targetToken.decimals()),
+            ].map(x => BalanceUtils.toString(x)).join("\n");
+
+            expect(ret).eq(expected);
+          });
         });
       });
     });
@@ -2339,6 +2370,60 @@ describe("TetuConverterTest", () => {
               { userSendsNotEnoughAmountToTetuConverter: true }
             )
           ).revertedWith("TC-41 wrong amount received"); // WRONG_AMOUNT_RECEIVED
+        });
+      });
+    });
+    describe("Gas estimation @skip-on-coverage", () => {
+      it("should not exceed gas threshold", async () => {
+        const receiver = ethers.Wallet.createRandom().address;
+
+        const core = await CoreContracts.build(await TetuConverterApp.createController(deployer));
+        const init = await prepareTetuAppWithMultipleLendingPlatforms(core, 1,
+          {
+            skipPreregistrationOfPoolAdapters: true
+          }
+        );
+
+        const sourceAmount = parseUnits("1000", await init.sourceToken.decimals());
+
+        const tcAsUser = ITetuConverter__factory.connect(
+          core.tc.address,
+          await DeployerUtils.startImpersonate(init.userContract.address)
+        );
+        await IERC20__factory.connect(
+          init.sourceToken.address,
+          await DeployerUtils.startImpersonate(init.userContract.address)
+        ).approve(core.tc.address, sourceAmount);
+
+        const plan = await tcAsUser.callStatic.findConversionStrategy(
+          init.sourceToken.address,
+          sourceAmount,
+          init.targetToken.address,
+          1000
+        );
+
+        await tcAsUser.borrow(
+          plan.converter,
+          init.sourceToken.address,
+          sourceAmount,
+          init.targetToken.address,
+          plan.maxTargetAmount,
+          receiver
+        );
+        console.log("Amount is borrowed", plan.maxTargetAmount.toString());
+        await MockERC20__factory.connect(
+          init.targetToken.address,
+          await DeployerUtils.startImpersonate(init.userContract.address)
+        ).mint(core.tc.address, plan.maxTargetAmount);
+        const gasUsed = await tcAsUser.estimateGas.repay(
+          init.sourceToken.address,
+          init.targetToken.address,
+          plan.maxTargetAmount,
+          receiver
+        );
+
+        controlGasLimitsEx(gasUsed, GAS_TC_REPAY, (u, t) => {
+          expect(u).to.be.below(t);
         });
       });
     });
@@ -2489,7 +2574,11 @@ describe("TetuConverterTest", () => {
       const {
         totalDebtAmountOut,
         totalCollateralAmountOut
-      } = await tcAsUc.getDebtAmountStored(init.sourceToken.address, init.targetToken.address);
+      } = await tcAsUc.getDebtAmountStored(
+        await tcAsUc.signer.getAddress(),
+        init.sourceToken.address,
+        init.targetToken.address
+      );
 
       return {
         openedPositions,
@@ -2526,8 +2615,8 @@ describe("TetuConverterTest", () => {
         // requiredAmountCollateralAsset = CollateralAmount * (HealthFactorTarget/HealthFactorCurrent - 1)
         const amountToRepayCollateralNum = selectedPoolAdapterCollateral * (healthFactorMultiplier - 1);
 
-        const exactBorrowAmountsSum = exactBorrowAmounts.reduce((prev, cur) => prev += cur, 0);
-        const exactCollateralAmountsSum = collateralAmounts.reduce((prev, cur) => prev += cur, 0);
+        const exactBorrowAmountsSum = exactBorrowAmounts.reduce((prev, cur) => prev + cur, 0);
+        const exactCollateralAmountsSum = collateralAmounts.reduce((prev, cur) => prev + cur, 0);
 
         const r = await makeRequireRepay(
           collateralAmounts,
@@ -2658,7 +2747,7 @@ describe("TetuConverterTest", () => {
         const targetHealthFactor2 = 500;
         const maxHealthFactor2 = 1000;
 
-        const r = await makeRequireRepay(
+        await makeRequireRepay(
           collateralAmounts,
           exactBorrowAmounts,
           {
@@ -2724,7 +2813,7 @@ describe("TetuConverterTest", () => {
         });
       });
       describe("Send incorrect type of amount-to-repay to TetuConverter", () => {
-        it("should revert", async () => {
+        it("should revert if collateral asset is send instead of borrow asset", async () => {
           await expect(
             tryToRepayWrongAmount(
               correctAmountToRepay,
@@ -2734,7 +2823,7 @@ describe("TetuConverterTest", () => {
             )
           ).revertedWith("TC-41 wrong amount received"); // WRONG_AMOUNT_RECEIVED
         });
-        it("should revert", async () => {
+        it("should revert if borrow asset is send instead of collateral asset", async () => {
           await expect(
             tryToRepayWrongAmount(
               correctAmountToRepay,
@@ -2787,7 +2876,11 @@ describe("TetuConverterTest", () => {
         const {
           totalDebtAmountOut,
           totalCollateralAmountOut
-        } =(await tcAsUc.getDebtAmountStored(pr.sourceToken.address, pr.targetToken.address));
+        } =(await tcAsUc.getDebtAmountStored(
+          await tcAsUc.signer.getAddress(),
+          pr.sourceToken.address,
+          pr.targetToken.address
+        ));
 
         const sret = [
           totalDebtAmountOut,
@@ -2796,11 +2889,80 @@ describe("TetuConverterTest", () => {
         ].map(x => BalanceUtils.toString(x)).join("\n");
         const sexpected = [
           borrows.reduce(
-            (prev, cur) => prev = prev.add(cur.status?.amountToPay || 0),
+            (prev, cur) => prev.add(cur.status?.amountToPay || 0),
             BigNumber.from(0)
           ),
           collateralAmounts.reduce(
-            (prev, cur) => prev = prev.add(
+            (prev, cur) => prev.add(
+              getBigNumberFrom(cur, sourceTokenDecimals)
+            ),
+            BigNumber.from(0)
+          ),
+          ...collateralAmounts.map(a => getBigNumberFrom(a, sourceTokenDecimals))
+        ].map(x => BalanceUtils.toString(x)).join("\n");
+
+        return {sret, sexpected};
+      }
+      describe("No opened positions", () => {
+        it("should return zero", async () => {
+          const ret = await makeGetDebtAmountTest([]);
+          expect(ret.sret).eq(ret.sexpected);
+        });
+      });
+      describe("Single opened position", () => {
+        it("should return the debt of the opened position", async () => {
+          const ret = await makeGetDebtAmountTest([1000]);
+          expect(ret.sret).eq(ret.sexpected);
+        });
+      });
+      describe("Multiple opened positions", () => {
+        it("should return sum of debts of all opened positions", async () => {
+          const ret = await makeGetDebtAmountTest([1000, 2000, 3000, 50]);
+          expect(ret.sret).eq(ret.sexpected);
+        });
+      });
+    });
+  });
+
+  describe("getDebtAmountCurrent", () => {
+    describe("Good paths", () => {
+      async function makeGetDebtAmountTest(collateralAmounts: number[]) : Promise<{sret: string, sexpected: string}> {
+        const core = await CoreContracts.build(await TetuConverterApp.createController(deployer));
+        const pr = await prepareTetuAppWithMultipleLendingPlatforms(core, collateralAmounts.length);
+        const sourceTokenDecimals = await pr.sourceToken.decimals();
+        const borrows: IBorrowStatus[] = await makeBorrow(
+          pr,
+          collateralAmounts,
+          BigNumber.from(100),
+          BigNumber.from(100_000)
+        );
+
+        const tcAsUc = ITetuConverter__factory.connect(
+          pr.core.tc.address,
+          await DeployerUtils.startImpersonate(pr.userContract.address)
+        );
+
+        const {
+          totalDebtAmountOut,
+          totalCollateralAmountOut
+        } = (await tcAsUc.callStatic.getDebtAmountCurrent(
+          await tcAsUc.signer.getAddress(),
+          pr.sourceToken.address,
+          pr.targetToken.address
+        ));
+
+        const sret = [
+          totalDebtAmountOut,
+          totalCollateralAmountOut,
+          ...borrows.map(x => x.status?.collateralAmount || 0)
+        ].map(x => BalanceUtils.toString(x)).join("\n");
+        const sexpected = [
+          borrows.reduce(
+            (prev, cur) => prev.add(cur.status?.amountToPay || 0),
+            BigNumber.from(0)
+          ),
+          collateralAmounts.reduce(
+            (prev, cur) => prev.add(
               getBigNumberFrom(cur, sourceTokenDecimals)
             ),
             BigNumber.from(0)
@@ -2863,6 +3025,7 @@ describe("TetuConverterTest", () => {
       );
 
       const {borrowAssetAmount, unobtainableCollateralAssetAmount} = await tcAsUser.estimateRepay(
+        await tcAsUser.signer.getAddress(),
         init.sourceToken.address,
         getBigNumberFrom(collateralAmountToRedeem, collateralTokenDecimals),
         init.targetToken.address
@@ -2932,7 +3095,7 @@ describe("TetuConverterTest", () => {
       });
       describe("Multiple pool adapters", () => {
         describe("Partial repay is required", () => {
-          it("should return expected values", async () => {
+          it("should return expected values, two loans", async () => {
             const collateralAmounts = [100_000, 200_000, 300_000];
             const borrowedAmounts = [25_000, 40_000, 20_000];
             const collateralAmountToRedeem = 300_000;
@@ -2945,7 +3108,7 @@ describe("TetuConverterTest", () => {
             );
             expect(r.ret).eq(r.expected);
           });
-          it("should return expected values", async () => {
+          it("should return expected values, three loans", async () => {
             const collateralAmounts = [100_000, 200_000, 300_000];
             const borrowedAmounts = [25_000, 40_000, 20_000];
             const collateralAmountToRedeem = 450_000;
@@ -3327,8 +3490,29 @@ describe("TetuConverterTest", () => {
       });
       describe("swap is available, swap un-paid amount", () => {
         it("should emit expected events", async () => {
-          const core = await CoreContracts.build(await TetuConverterApp.createController(deployer));
+          const cp: ICreateControllerParams = {
+            priceOracleFabric: async () => (await MocksHelper.getPriceOracleMock(deployer, [],[])).address
+          };
+          const core = await CoreContracts.build(await TetuConverterApp.createController(deployer, cp));
           const init = await prepareTetuAppWithMultipleLendingPlatforms(core, 1);
+
+          const priceOracle = PriceOracleMock__factory.connect(
+            await core.controller.priceOracle(),
+            deployer
+          );
+          await priceOracle.changePrices(
+            [init.sourceToken.address, init.targetToken.address],
+            [Misc.WEI, Misc.WEI.mul(2)]
+          );
+          const tetuLiquidator = await TetuLiquidatorMock__factory.connect(
+            await core.controller.tetuLiquidator(),
+            deployer
+          );
+          await tetuLiquidator.changePrices(
+            [init.sourceToken.address, init.targetToken.address],
+            [Misc.WEI, Misc.WEI.mul(2)]
+          );
+          await tetuLiquidator.setPriceImpact(5000); // the app should prefer borrowing, not swapping
 
           await expect(
             init.userContract.borrowExactAmount(
@@ -3355,11 +3539,7 @@ describe("TetuConverterTest", () => {
           const amountToRepay = parseUnits("517", await init.targetToken.decimals());
           await init.targetToken.mint(tcAsUc.address, amountToRepay);
 
-          // enable swap
-          await TetuLiquidatorMock__factory.connect(await core.controller.tetuLiquidator(), deployer).changePrices(
-            [init.sourceToken.address, init.targetToken.address],
-            [parseUnits("1"), parseUnits("2")]
-          );
+          await tetuLiquidator.setPriceImpact(0); // allow to make swapping
 
           await expect(
             tcAsUc.repay(
@@ -3564,6 +3744,7 @@ describe("TetuConverterTest", () => {
     interface IQuoteRepayResults {
       init: ISetupResults;
       collateralAmountOutNum: number;
+      gasUsed: BigNumber;
     }
     async function makeQuoteRepayTest(
       collateralAmounts: number[],
@@ -3573,7 +3754,7 @@ describe("TetuConverterTest", () => {
     ) : Promise<IQuoteRepayResults> {
       const core = await CoreContracts.build(
         await TetuConverterApp.createController(deployer, {
-          priceOracleFabric: async c => (await MocksHelper.getPriceOracleMock(deployer, [], [])).address
+          priceOracleFabric: async () => (await MocksHelper.getPriceOracleMock(deployer, [], [])).address
         })
       );
       const init = await prepareTetuAppWithMultipleLendingPlatforms(core, collateralAmounts.length);
@@ -3603,6 +3784,13 @@ describe("TetuConverterTest", () => {
       );
 
       const collateralAmountOut = await tcAsUc.callStatic.quoteRepay(
+        await tcAsUc.signer.getAddress(),
+        init.sourceToken.address,
+        init.targetToken.address,
+        parseUnits(amountToRepayNum.toString(), targetTokenDecimals)
+      );
+      const gasUsed = await tcAsUc.estimateGas.quoteRepay(
+        await tcAsUc.signer.getAddress(),
         init.sourceToken.address,
         init.targetToken.address,
         parseUnits(amountToRepayNum.toString(), targetTokenDecimals)
@@ -3610,7 +3798,8 @@ describe("TetuConverterTest", () => {
 
       return {
         init,
-        collateralAmountOutNum: Number(formatUnits(collateralAmountOut, sourceTokenDecimals))
+        collateralAmountOutNum: Number(formatUnits(collateralAmountOut, sourceTokenDecimals)),
+        gasUsed
       }
     }
     describe("Good paths", () => {
@@ -3621,11 +3810,11 @@ describe("TetuConverterTest", () => {
         });
       });
       describe("AmountToRepay is less or equal than the debt", () => {
-        it("should return expected part of collateral", async () => {
+        it("should return expected part of collateral, two loans", async () => {
           const ret = await makeQuoteRepayTest([105, 200], [10, 20], 10);
           expect(ret.collateralAmountOutNum).eq(105);
         });
-        it("should return expected part of collateral", async () => {
+        it("should return expected part of collateral, three loans", async () => {
           const ret = await makeQuoteRepayTest([105, 200, 300], [10, 20, 30], 30);
           expect(ret.collateralAmountOutNum).eq(305);
         });
@@ -3677,8 +3866,132 @@ describe("TetuConverterTest", () => {
         ).revertedWith("TC-4 zero price"); // ZERO_PRICE
       });
     });
+    describe("Gas estimation @skip-on-coverage", () => {
+      it("should not exceed gas threshold", async () => {
+        const ret = await makeQuoteRepayTest([100], [10], 0);
+        controlGasLimitsEx(ret.gasUsed, GAS_TC_QUOTE_REPAY, (u, t) => {
+          expect(u).to.be.below(t);
+        });
+      });
+    });
   });
 
+
+// //region Make reconversion
+//   interface IMakeReconversionResults {
+//     balancesInitial: Map<string, (BigNumber | string)[]>;
+//     balancesAfterBorrow: Map<string, (BigNumber | string)[]>;
+//     balancesAfterReconversion: Map<string, (BigNumber | string)[]>;
+//     poolInstances: IPoolInstanceInfo[];
+//     poolAdapters: string[];
+//     borrowsAfterBorrow: string[];
+//     borrowsAfterReconversion: string[];
+//   }
+//   /**
+//    * 1. Create N pools
+//    * 2. Set initial BR for each pool
+//    * 3. Make borrow using pool with the lowest BR
+//    * 2. Chang BR to different values. Now different pool has the lowest BR
+//    * 5. Call reconvert
+//    * Borrow should be reconverted to expected pool
+//    */
+//   async function makeReconversion(
+//     tt: IBorrowInputParams,
+//     sourceAmountNumber: number,
+//     availableBorrowLiquidityNumber: number,
+//     mapOldNewBR: Map<string, BigNumber>
+//   ) : Promise<IMakeReconversionResults> {
+//     const sourceAmount = getBigNumberFrom(sourceAmountNumber, tt.sourceDecimals);
+//     const availableBorrowLiquidity = getBigNumberFrom(availableBorrowLiquidityNumber, tt.targetDecimals);
+//
+//     const core = await CoreContracts.build(await TetuConverterApp.createController(deployer));
+//     const {poolInstances, cToken, userContract, sourceToken, targetToken, poolAdapters} =
+//       await prepareContracts(core, tt);
+//
+//     console.log("cToken is", cToken);
+//     console.log("Pool adapters:", poolAdapters.join("\n"));
+//     console.log("Pools:", poolInstances.join("\n"));
+//
+//     const contractsToInvestigate: IContractToInvestigate[] = [
+//       {name: "userContract", contract: userContract.address},
+//       {name: "tc", contract: core.tc.address},
+//       ...poolInstances.map((x, index) => ({name: `pool ${index}`, contract: x.pool})),
+//       ...poolAdapters.map((x, index) => ({name: `PA ${index}`, contract: x})),
+//     ];
+//     const tokensToInvestigate = [sourceToken.address, targetToken.address, cToken];
+//
+//     // initialize balances
+//     await MockERC20__factory.connect(sourceToken.address, deployer).mint(userContract.address, sourceAmount);
+//     for (const pi of poolInstances) {
+//       await MockERC20__factory.connect(targetToken.address, deployer).mint(pi.pool, availableBorrowLiquidity);
+//     }
+//     // we need to put some amount on user balance - to be able to return debts
+//     await MockERC20__factory.connect(targetToken.address, deployer).mint(userContract.address, availableBorrowLiquidity);
+//
+//     // get balances before start
+//     const balancesInitial = await BalanceUtils.getBalancesObj(deployer, contractsToInvestigate, tokensToInvestigate);
+//     console.log("before", before);
+//
+//     // borrow
+//     await userContract.borrowMaxAmount(
+//       sourceToken.address,
+//       sourceAmount,
+//       targetToken.address,
+//       userContract.address
+//     );
+//
+//     // get result balances
+//     const balancesAfterBorrow = await BalanceUtils.getBalancesObj(deployer, contractsToInvestigate, tokensToInvestigate);
+//
+//     // get address of PA where the borrow was made
+//     const borrowsAfterBorrow = await userContract.getBorrows(sourceToken.address, targetToken.address);
+//     console.log("borrowsAfterBorrow", borrowsAfterBorrow);
+//
+//     // change borrow rates
+//     for (let i = 0; i < poolAdapters.length; ++i) {
+//       // we need to change borrow rate in platform adapter (to select strategy correctly)
+//       // and in the already created pool adapters (to make new borrow correctly)
+//       // Probably it worth to move borrow rate to pool stub to avoid possibility of br-unsync
+//       const platformAdapter = await LendingPlatformMock__factory.connect(poolInstances[i].platformAdapter, deployer);
+//       const brOld = await platformAdapter.borrowRates(targetToken.address);
+//       const brNewValue = mapOldNewBR.get(brOld.toString()) || brOld;
+//
+//       await PoolAdapterMock__factory.connect(poolAdapters[i], deployer).changeBorrowRate(brNewValue);
+//       await platformAdapter.changeBorrowRate(targetToken.address, brNewValue);
+//     }
+//
+//     // reconvert the borrow
+//     // return borrowed amount to userContract (there are no debts in the mock, so the borrowed amount is enough)
+//     const status = await PoolAdapterMock__factory.connect(borrowsAfterBorrow[0], deployer).getStatus();
+//     const borrowTokenAsUser = IERC20__factory.connect(targetToken.address
+//       , await DeployerUtils.startImpersonate(userContract.address));
+//     await borrowTokenAsUser.transfer(userContract.address, status.amountToPay);
+//     console.log(`Borrow token, balance of user contract=${borrowTokenAsUser.balanceOf(userContract.address)}`);
+//     console.log(`Amount to pay=${(await status).amountToPay}`);
+//
+//     // TODO: await userContract.requireReconversion(borrowsAfterBorrow[0]);
+//
+//     // get address of PA where the new borrow was made
+//     const borrowsAfterReconversion = await userContract.getBorrows(sourceToken.address, targetToken.address);
+//     console.log("borrowsAfterReconversion", borrowsAfterReconversion);
+//
+//     // get result balances
+//     const balancesAfterReconversion = await BalanceUtils.getBalancesObj(deployer
+//       , contractsToInvestigate
+//       , tokensToInvestigate
+//     );
+//
+//     return {
+//       balancesInitial,
+//       balancesAfterBorrow,
+//       balancesAfterReconversion,
+//       poolAdapters,
+//       poolInstances,
+//       borrowsAfterBorrow,
+//       borrowsAfterReconversion,
+//     }
+//   }
+// //endregion Make reconversion
 //   describe("TODO:requireReconversion", () => {
 //     describe("Good paths", () => {
 //       it("should return expected values", async () => {

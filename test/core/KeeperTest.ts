@@ -17,8 +17,6 @@ import {expect} from "chai";
 
 describe("KeeperTest", () => {
 //region Constants
-  const NOT_CALLED_0 = 0;
-  const SUCCESS_1 = 1;
   const FAILED_2 = 2;
 //endregion Constants
 
@@ -26,8 +24,6 @@ describe("KeeperTest", () => {
   let snapshot: string;
   let snapshotForEach: string;
   let deployer: SignerWithAddress;
-  let user1: SignerWithAddress;
-  let user2: SignerWithAddress;
 //endregion Global vars for all tests
 
 //region before, after
@@ -36,8 +32,6 @@ describe("KeeperTest", () => {
     snapshot = await TimeUtils.snapshot();
     const signers = await ethers.getSigners();
     deployer = signers[0];
-    user1 = signers[2];
-    user2 = signers[3];
   });
 
   after(async function () {
@@ -179,7 +173,6 @@ describe("KeeperTest", () => {
         it("should not call fixHealth", async () => {
           const startIndexToCheck = 0;
           const nextIndexToCheck = 0;
-          const unhealthyPoolAdapter = ethers.Wallet.createRandom().address;
 
           const app = await setupMockedApp(deployer,
             true,

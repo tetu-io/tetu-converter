@@ -1,15 +1,28 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.4;
+pragma solidity 0.8.17;
 
-import "../interfaces/IController.sol";
 import "./AppErrors.sol";
 import "../openzeppelin/Initializable.sol";
+import "../interfaces/IController.sol";
 
 /// @notice Keep and provide addresses of all application contracts
 contract Controller is IController, Initializable {
+
+  ///////////////////////////////////////////////////////
+  ///        Constants and immutable vars
+  ///////////////////////////////////////////////////////
   uint16 constant MIN_ALLOWED_MIN_HEALTH_FACTOR = 100;
 
-  // We cannot use immutable variables, because each contract should get address of the controller in the constructor
+  /// @notice Allow to swap assets
+  address public immutable override tetuLiquidator;
+  /// @notice Price oracle, required by SwapManager
+  address public immutable override priceOracle;
+
+  ///////////////////////////////////////////////////////
+  ///               Variables
+  ///   We cannot use immutable variables for the below contracts,
+  ///   because each contract requires address of the controller as a parameter of the constructor
+  ///////////////////////////////////////////////////////
 
   /// @notice Main application contract, strategy works only with it
   address public override tetuConverter;
@@ -23,14 +36,8 @@ contract Controller is IController, Initializable {
   /// @notice A keeper to control health of the borrows
   address public override keeper;
 
-  /// @notice Allow to swap assets
-  address public override tetuLiquidator;
-
   /// @notice Wrapper around tetu-liquidator
   address public override swapManager;
-
-  /// @notice Price oracle, required by SwapManager
-  address public override priceOracle;
 
   /// @notice Current governance. It can be changed by offer/accept scheme
   address public override governance;
@@ -75,6 +82,23 @@ contract Controller is IController, Initializable {
   ///        Constructor and Initialization
   ///////////////////////////////////////////////////////
 
+  /// @dev Constructor is used to assign immutable addresses only (these contracts don't depend on controller).
+  ///      All other addresses are initialized in initialize()
+  ///      because the corresponded contracts require controller's address in their constructors.
+  constructor(
+    address tetuLiquidator_,
+    address priceOracle_
+  ) {
+    require(
+      tetuLiquidator_ != address(0)
+      && priceOracle_ != address(0),
+      AppErrors.ZERO_ADDRESS
+    );
+
+    tetuLiquidator = tetuLiquidator_;
+    priceOracle = priceOracle_;
+  }
+
   function initialize(
     address governance_,
     uint blocksPerDay_,
@@ -85,9 +109,7 @@ contract Controller is IController, Initializable {
     address borrowManager_,
     address debtMonitor_,
     address keeper_,
-    address tetuLiquidator_,
-    address swapManager_,
-    address priceOracle_
+    address swapManager_
   ) external initializer {
     require(blocksPerDay_ != 0, AppErrors.INCORRECT_VALUE);
     require(minHealthFactor_ > MIN_ALLOWED_MIN_HEALTH_FACTOR, AppErrors.WRONG_HEALTH_FACTOR);
@@ -99,9 +121,7 @@ contract Controller is IController, Initializable {
       && borrowManager_ != address(0)
       && debtMonitor_ != address(0)
       && keeper_ != address(0)
-      && tetuLiquidator_ != address(0)
-      && swapManager_ != address(0)
-      && priceOracle_ != address(0),
+      && swapManager_ != address(0),
       AppErrors.ZERO_ADDRESS
     );
     governance = governance_;
@@ -109,9 +129,7 @@ contract Controller is IController, Initializable {
     borrowManager = borrowManager_;
     debtMonitor = debtMonitor_;
     keeper = keeper_;
-    tetuLiquidator = tetuLiquidator_;
     swapManager = swapManager_;
-    priceOracle = priceOracle_;
 
     blocksPerDay = blocksPerDay_;
     // by default auto-update of blocksPerDay is disabled

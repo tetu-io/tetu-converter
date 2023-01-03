@@ -158,7 +158,6 @@ describe("AaveTwoPoolAdapterUnitTest", () => {
       });
       it("should transfer expected amount to the user", async () => {
         if (!await isPolygonForkInUse()) return;
-        const status = await results.init.aavePoolAdapterAsTC.getStatus();
         const receivedBorrowAmount = await results.borrowToken.token.balanceOf(results.init.userContract.address);
         expect(receivedBorrowAmount.toString()).eq(results.borrowResults.borrowedAmount.toString());
       });
@@ -358,7 +357,6 @@ describe("AaveTwoPoolAdapterUnitTest", () => {
       });
       it("should withdraw expected collateral amount", async () => {
         if (!await isPolygonForkInUse()) return;
-        const status = await results.init.aavePoolAdapterAsTC.getStatus();
         const receivedCollateralAmount = await results.collateralToken.token.balanceOf(results.init.userContract.address);
         expect(areAlmostEqual(receivedCollateralAmount, results.init.collateralAmount)).eq(true);
       });
@@ -403,7 +401,7 @@ describe("AaveTwoPoolAdapterUnitTest", () => {
             "1999",
             {amountToRepayStr: "1", closePosition: true}
           )
-        ).revertedWith("TC-24 close position failed"); // CLOSE_POSITION_FAILED
+        ).revertedWith("TC-55 close position not allowed"); // CLOSE_POSITION_PARTIAL
       });
       it("should fail if the debt was completely paid but amount of the debt is still not zero in the pool", async () => {
         if (!await isPolygonForkInUse()) return;
@@ -981,18 +979,6 @@ describe("AaveTwoPoolAdapterUnitTest", () => {
           makeInitializePoolAdapterTest({zeroController: true})
         ).revertedWith("TC-1 zero address"); // ZERO_ADDRESS
       });
-      it("should revert on zero controller", async () => {
-        if (!await isPolygonForkInUse()) return;
-        await expect(
-          makeInitializePoolAdapterTest({zeroController: true})
-        ).revertedWith("TC-1 zero address"); // ZERO_ADDRESS
-      });
-      it("should revert on zero controller", async () => {
-        if (!await isPolygonForkInUse()) return;
-        await expect(
-          makeInitializePoolAdapterTest({zeroController: true})
-        ).revertedWith("TC-1 zero address"); // ZERO_ADDRESS
-      });
       it("should revert on zero user", async () => {
         if (!await isPolygonForkInUse()) return;
         await expect(
@@ -1035,7 +1021,7 @@ describe("AaveTwoPoolAdapterUnitTest", () => {
             d.borrowAsset,
             d.converter
           )
-        ).revertedWithCustomError(d.poolAdapter, "ErrorAlreadyInitialized");
+        ).revertedWith("Initializable: contract is already initialized");
       });
     });
   });
@@ -1120,7 +1106,10 @@ describe("AaveTwoPoolAdapterUnitTest", () => {
 
         const converterNormal = (await AdaptersHelper.createAaveTwoPoolAdapter(deployer)).address;
         const platformAdapter = await AdaptersHelper.createAaveTwoPlatformAdapter(
-          deployer, controller.address, MaticAddresses.AAVE_TWO_POOL, converterNormal,
+          deployer,
+          controller.address,
+          MaticAddresses.AAVE_TWO_POOL,
+          converterNormal,
         );
 
         const tetuConverterSigner = await DeployerUtils.startImpersonate(await controller.tetuConverter());
@@ -1135,22 +1124,22 @@ describe("AaveTwoPoolAdapterUnitTest", () => {
         const cr = await tx.wait();
 
         // now, we know the address of the pool adapter...
-        const aavePoolAdapterAsTC = AaveTwoPoolAdapter__factory.connect(
-          await borrowManager.getPoolAdapter(converterNormal, userContract.address, collateralAsset, borrowAsset),
-          tetuConverterSigner
-        );
+        // const aavePoolAdapterAsTC = AaveTwoPoolAdapter__factory.connect(
+        //   await borrowManager.getPoolAdapter(converterNormal, userContract.address, collateralAsset, borrowAsset),
+        //   tetuConverterSigner
+        // );
 
         // ... and so, we can check the event in tricky way, see how to parse event: https://github.com/ethers-io/ethers.js/issues/487
         const abi = ["event OnInitialized(address controller, address pool, address user, address collateralAsset, address borrowAsset, address originConverter)"];
         const iface = new ethers.utils.Interface(abi);
-        // let's find an event with required address
-        let eventIndex = 0;
-        for (let i = 0; i < cr.logs.length; ++i) {
-          if (cr.logs[i].address === aavePoolAdapterAsTC.address) {
-            eventIndex = i;
-            break;
-          }
-        }
+        // // let's find an event with required address
+        // let eventIndex = 0;
+        // for (let i = 0; i < cr.logs.length; ++i) {
+        //   if (cr.logs[i].address === aavePoolAdapterAsTC.address) {
+        //     eventIndex = i;
+        //     break;
+        //   }
+        // }
         const logOnInitialized = iface.parseLog(cr.logs[2]);
         const retLog = [
           logOnInitialized.name,
@@ -1191,7 +1180,10 @@ describe("AaveTwoPoolAdapterUnitTest", () => {
 
         const converterNormal = (await AdaptersHelper.createAaveTwoPoolAdapter(deployer)).address;
         const platformAdapter = await AdaptersHelper.createAaveTwoPlatformAdapter(
-          deployer, controller.address, MaticAddresses.AAVE_TWO_POOL, converterNormal
+          deployer,
+          controller.address,
+          MaticAddresses.AAVE_TWO_POOL,
+          converterNormal
         );
 
         const tetuConverterSigner = await DeployerUtils.startImpersonate(await controller.tetuConverter());
@@ -1319,10 +1311,6 @@ describe("AaveTwoPoolAdapterUnitTest", () => {
         );
         const status = await init.aavePoolAdapterAsTC.getStatus();
 
-        const collateralTargetHealthFactor2 = await BorrowManager__factory.connect(
-          await init.controller.borrowManager(), deployer
-        ).getTargetHealthFactor2(collateralAsset);
-
         const ret = [
           status.healthFactor18.eq(Misc.MAX_UINT),
           status.amountToPay.eq(0),
@@ -1350,7 +1338,7 @@ describe("AaveTwoPoolAdapterUnitTest", () => {
           r.init.aavePoolAdapterAsTC.getStatus()
         ).revertedWith("TC-4 zero price"); // ZERO_PRICE
       });
-      it("it should revert if collateral price is zero", async () => {
+      it("it should revert if borrow price is zero", async () => {
         if (!await isPolygonForkInUse()) return;
 
         const r = await makeBorrowTest(
@@ -1417,6 +1405,7 @@ describe("AaveTwoPoolAdapterUnitTest", () => {
             await DeployerUtils.startImpersonate(results.init.userContract.address)
           );
           const collateralAmountOut = await tetuConverterAsUser.callStatic.quoteRepay(
+            await tetuConverterAsUser.signer.getAddress(),
             results.init.collateralToken.address,
             results.init.borrowToken.address,
             status.amountToPay
@@ -1437,6 +1426,7 @@ describe("AaveTwoPoolAdapterUnitTest", () => {
             await DeployerUtils.startImpersonate(results.init.userContract.address)
           );
           const collateralAmountOut = await tetuConverterAsUser.callStatic.quoteRepay(
+            await tetuConverterAsUser.signer.getAddress(),
             results.init.collateralToken.address,
             results.init.borrowToken.address,
             status.amountToPay.div(2) // 50%
@@ -1457,6 +1447,7 @@ describe("AaveTwoPoolAdapterUnitTest", () => {
             await DeployerUtils.startImpersonate(results.init.userContract.address)
           );
           const collateralAmountOut = await tetuConverterAsUser.callStatic.quoteRepay(
+            await tetuConverterAsUser.signer.getAddress(),
             results.init.collateralToken.address,
             results.init.borrowToken.address,
             status.amountToPay.div(20) // 5%
@@ -1480,6 +1471,7 @@ describe("AaveTwoPoolAdapterUnitTest", () => {
         );
         await expect(
           tetuConverterAsUser.quoteRepay(
+            await tetuConverterAsUser.signer.getAddress(),
             results.init.collateralToken.address,
             results.init.borrowToken.address,
             parseUnits("1000") // full repay, close position

@@ -1,4 +1,4 @@
-import {getPoolAdapterState, ILendingPlatformManager, PoolAdapterState01} from "./ILendingPlatformManager";
+import {getPoolAdapterState, ILendingPlatformManager, IPoolAdapterState01} from "./ILendingPlatformManager";
 import {
   LendingPlatformMock,
   PoolAdapterMock,
@@ -25,7 +25,7 @@ export class LendingPlatformManagerMock implements ILendingPlatformManager {
     asset: string,
     inc: boolean,
     times: number,
-  ) : Promise<PoolAdapterState01> {
+  ) : Promise<IPoolAdapterState01> {
     console.log("LendingPlatformManagerMock.changeAssetPrice.start");
     const before = await getPoolAdapterState(signer, this.poolAdapter.address);
     const oracle = PriceOracleMock__factory.connect(await this.poolAdapter.priceOracle(), signer);
@@ -45,7 +45,7 @@ export class LendingPlatformManagerMock implements ILendingPlatformManager {
   }
 
   /** Change collateral factor of the asset on new value, decimals 2 */
-  async changeCollateralFactor(signer: SignerWithAddress, newValue2: number): Promise<PoolAdapterState01> {
+  async changeCollateralFactor(signer: SignerWithAddress, newValue2: number): Promise<IPoolAdapterState01> {
     console.log("LendingPlatformManagerMock.changeCollateralFactor.start", this.poolAdapter.address);
     const before = await getPoolAdapterState(signer, this.poolAdapter.address);
 
@@ -61,7 +61,7 @@ export class LendingPlatformManagerMock implements ILendingPlatformManager {
     signer: SignerWithAddress,
     multiplication: boolean,
     ratio: number
-  ): Promise<PoolAdapterState01> {
+  ): Promise<IPoolAdapterState01> {
     console.log("LendingPlatformManagerMock.makeBorrow.start", multiplication, ratio);
     const before = await getPoolAdapterState(signer, this.poolAdapter.address);
     const borrowRate = await this.poolAdapter.borrowRate();
@@ -80,12 +80,12 @@ export class LendingPlatformManagerMock implements ILendingPlatformManager {
   }
 
   /** Borrow max possible amount (and significantly increase the borrow rate) */
-  async makeMaxBorrow(signer: SignerWithAddress): Promise<PoolAdapterState01> {
+  async makeMaxBorrow(signer: SignerWithAddress): Promise<IPoolAdapterState01> {
     return this.changeBorrowRate(signer, true, 200);
   }
 
   /** Return previously borrowed amount back (reverse to makeMaxBorrow) */
-  async releaseMaxBorrow(signer: SignerWithAddress): Promise<PoolAdapterState01> {
+  async releaseMaxBorrow(signer: SignerWithAddress): Promise<IPoolAdapterState01> {
     return this.changeBorrowRate(signer, false, 200);
   }
 

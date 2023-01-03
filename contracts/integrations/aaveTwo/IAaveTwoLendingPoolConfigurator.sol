@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.4;
+pragma solidity 0.8.17;
 
 /// @notice Restored from 0xf70a4d422e772926852ba9044026f169e6ad9492 (events were removed)
 interface IAaveTwoLendingPoolConfigurator {

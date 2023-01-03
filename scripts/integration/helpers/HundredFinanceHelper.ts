@@ -8,7 +8,7 @@ import {
     IHfInterestRateModel__factory,
     IERC20Metadata__factory, IHfPriceOracle, IHfPriceOracle__factory,
 } from "../../../typechain";
-import {BigNumber, Signer} from "ethers";
+import {BigNumber} from "ethers";
 import {Aave3Helper} from "./Aave3Helper";
 import {MaticAddresses} from "../../addresses/MaticAddresses";
 
@@ -210,6 +210,7 @@ export class HundredFinanceHelper {
 //endregion Get data for script
 
 //region Utils
+    // eslint-disable-next-line no-unused-vars
     public static memoize<T>(fn: (token: IHfCToken) => Promise<T>) : (token: IHfCToken) => Promise<T> {
         const cache = new Map<string, T>();
         return async (token: IHfCToken) => {

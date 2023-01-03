@@ -1,22 +1,22 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.4;
+pragma solidity 0.8.17;
 
 import "./AppDataTypes.sol";
 import "./AppErrors.sol";
-import "../core/AppUtils.sol";
-import "../interfaces/IPlatformAdapter.sol";
-import "../interfaces/IBorrowManager.sol";
-import "../interfaces/IPriceOracle.sol";
-import "../interfaces/IController.sol";
-import "../interfaces/IDebtsMonitor.sol";
 import "../openzeppelin/Clones.sol";
 import "../openzeppelin/IERC20.sol";
 import "../openzeppelin/SafeERC20.sol";
 import "../openzeppelin/EnumerableSet.sol";
 import "../openzeppelin/EnumerableMap.sol";
-import "../integrations/market/ICErc20.sol";
 import "../openzeppelin/IERC20Metadata.sol";
+import "../core/AppUtils.sol";
+import "../interfaces/IPlatformAdapter.sol";
+import "../interfaces/IBorrowManager.sol";
+import "../interfaces/IPriceOracle.sol";
+import "../interfaces/IController.sol";
+import "../interfaces/IDebtMonitor.sol";
 import "../interfaces/ITetuConverter.sol";
+import "../integrations/market/ICErc20.sol";
 
 /// @notice Contains list of lending pools. Allow to select most efficient pool for the given collateral/borrow pair
 contract BorrowManager is IBorrowManager {

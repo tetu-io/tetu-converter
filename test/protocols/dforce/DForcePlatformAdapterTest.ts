@@ -39,7 +39,6 @@ describe("DForce integration tests, platform adapter", () => {
   let snapshot: string;
   let snapshotForEach: string;
   let deployer: SignerWithAddress;
-  let investor: SignerWithAddress;
 
 //endregion Global vars for all tests
 
@@ -49,7 +48,6 @@ describe("DForce integration tests, platform adapter", () => {
     snapshot = await TimeUtils.snapshot();
     const signers = await ethers.getSigners();
     deployer = signers[0];
-    investor = signers[0];
   });
 
   after(async function () {
@@ -155,6 +153,7 @@ describe("DForce integration tests, platform adapter", () => {
     setBorrowCapacityExceeded?: boolean;
     setMinBorrowCapacityDelta?: BigNumber;
     setSupplyCapacityUnlimited?: boolean;
+    frozen?: boolean;
   }
 
   interface IPreparePlanResults {
@@ -268,6 +267,9 @@ describe("DForce integration tests, platform adapter", () => {
         collateralCToken,
         Misc.MAX_UINT
       );
+    }
+    if (badPathsParams?.frozen) {
+      await dForcePlatformAdapter.setFrozen(true);
     }
 
     const plan = await dForcePlatformAdapter.getConversionPlan(
@@ -442,7 +444,8 @@ describe("DForce integration tests, platform adapter", () => {
         data.controller,
         data.comptroller,
         data.converter,
-        [MaticAddresses.dForce_iDAI]
+        [MaticAddresses.dForce_iDAI],
+        await controller.borrowManager()
       );
       return {data, platformAdapter};
     }
@@ -496,11 +499,16 @@ describe("DForce integration tests, platform adapter", () => {
 
   describe("getConversionPlan", () => {
     let controller: Controller;
+    let snapshotLocal: string;
     before(async function () {
+      snapshotLocal = await TimeUtils.snapshot();
       controller = await TetuConverterApp.createController(
         deployer,
         {tetuLiquidatorAddress: MaticAddresses.TETU_LIQUIDATOR}
       );
+    });
+    after(async function () {
+      await TimeUtils.rollback(snapshotLocal);
     });
     describe("Good paths", () => {
       describe("DAI : usdc", () => {
@@ -705,6 +713,24 @@ describe("DForce integration tests, platform adapter", () => {
           controlGasLimitsEx(gasUsed, GAS_LIMIT_DFORCE_GET_CONVERSION_PLAN, (u, t) => {
             expect(u).to.be.below(t);
           });
+        });
+      });
+      describe("Frozen", () => {
+        it("should return no plan", async () => {
+          if (!await isPolygonForkInUse()) return;
+
+          const r = await preparePlan(
+            controller,
+            MaticAddresses.DAI,
+            parseUnits("1", 18),
+            MaticAddresses.WMATIC,
+            MaticAddresses.dForce_iDAI,
+            MaticAddresses.dForce_iMATIC,
+            {
+              frozen: true
+            }
+          );
+          expect(r.plan.converter).eq(Misc.ZERO_ADDRESS);
         });
       });
     });
@@ -1025,11 +1051,16 @@ describe("DForce integration tests, platform adapter", () => {
 
   describe("initializePoolAdapter", () => {
     let controller: Controller;
+    let snapshotLocal: string;
     before(async function () {
+      snapshotLocal = await TimeUtils.snapshot();
       controller = await TetuConverterApp.createController(
         deployer,
         {tetuLiquidatorAddress: MaticAddresses.TETU_LIQUIDATOR}
       );
+    });
+    after(async function () {
+      await TimeUtils.rollback(snapshotLocal);
     });
     interface IInitializePoolAdapterBadPaths {
       useWrongConverter?: boolean;
@@ -1120,8 +1151,13 @@ describe("DForce integration tests, platform adapter", () => {
 
   describe("registerCTokens", () => {
     let controller: Controller;
+    let snapshotLocal: string;
     before(async function () {
+      snapshotLocal = await TimeUtils.snapshot();
       controller = await TetuConverterApp.createController(deployer);
+    });
+    after(async function () {
+      await TimeUtils.rollback(snapshotLocal);
     });
     describe("Good paths", () => {
       it("should return expected values", async () => {
@@ -1241,6 +1277,34 @@ describe("DForce integration tests, platform adapter", () => {
         (s: string) => stringsEqualCaseInsensitive(s, collateralAsset),
         (s: string) => stringsEqualCaseInsensitive(s, borrowAsset)
       );
+    });
+  });
+
+  describe("setFrozen", () => {
+    it("should assign expected value to frozen", async () => {
+      const controller = await TetuConverterApp.createController(deployer,
+        {tetuLiquidatorAddress: MaticAddresses.TETU_LIQUIDATOR}
+      );
+
+      const comptroller = await DForceHelper.getController(deployer);
+      const dForcePlatformAdapter = await AdaptersHelper.createDForcePlatformAdapter(
+        deployer,
+        controller.address,
+        comptroller.address,
+        ethers.Wallet.createRandom().address,
+        [MaticAddresses.dForce_iDAI, MaticAddresses.dForce_iUSDC],
+      );
+
+      const before = await dForcePlatformAdapter.frozen();
+      await dForcePlatformAdapter.setFrozen(true);
+      const middle = await dForcePlatformAdapter.frozen();
+      await dForcePlatformAdapter.setFrozen(false);
+      const after = await dForcePlatformAdapter.frozen();
+
+      const ret = [before, middle, after].join();
+      const expected = [false, true, false].join();
+
+      expect(ret).eq(expected);
     });
   });
 //endregion Unit tests

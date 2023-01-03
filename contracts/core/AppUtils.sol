@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.4;
+pragma solidity 0.8.17;
 /// @notice Common utils
 library AppUtils {
   /// @notice Convert {amount} with [sourceDecimals} to new amount with {targetDecimals}

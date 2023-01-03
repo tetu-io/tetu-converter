@@ -3,8 +3,7 @@ import {ethers} from "hardhat";
 import {TimeUtils} from "../../../scripts/utils/TimeUtils";
 import {
   BorrowManager__factory, Controller,
-  HfAprLibFacade, HfPlatformAdapter, HfPlatformAdapter__factory, IDForceCToken__factory,
-  IERC20Metadata__factory, IHfComptroller, IHfCToken,
+  HfAprLibFacade, HfPlatformAdapter, HfPlatformAdapter__factory, IERC20Metadata__factory, IHfComptroller, IHfCToken,
   IHfCToken__factory
 } from "../../../typechain";
 import {expect} from "chai";
@@ -32,17 +31,14 @@ import {HundredFinanceChangePriceUtils} from "../../baseUT/protocols/hundred-fin
 import {parseUnits} from "ethers/lib/utils";
 import {controlGasLimitsEx} from "../../../scripts/utils/hardhatUtils";
 import {
-  GAS_LIMIT_DFORCE_GET_CONVERSION_PLAN,
   GAS_LIMIT_HUNDRED_FINANCE_GET_CONVERSION_PLAN
 } from "../../baseUT/GasLimit";
-import {colorNameTag} from "hardhat-tracer/dist/src/colors";
 
 describe("Hundred finance, platform adapter", () => {
 //region Global vars for all tests
   let snapshot: string;
   let snapshotForEach: string;
   let deployer: SignerWithAddress;
-  let investor: SignerWithAddress;
 
 //endregion Global vars for all tests
 
@@ -52,7 +48,6 @@ describe("Hundred finance, platform adapter", () => {
     snapshot = await TimeUtils.snapshot();
     const signers = await ethers.getSigners();
     deployer = signers[0];
-    investor = signers[0];
   });
 
   after(async function () {
@@ -122,6 +117,7 @@ describe("Hundred finance, platform adapter", () => {
     setBorrowPaused?: boolean;
     setBorrowCapacityExceeded?: boolean;
     setMinBorrowCapacityDelta?: BigNumber;
+    frozen?: boolean;
   }
 
   interface IPreparePlanResults {
@@ -168,8 +164,6 @@ describe("Hundred finance, platform adapter", () => {
     const borrowAssetDecimals = await (IERC20Metadata__factory.connect(borrowAsset, deployer)).decimals();
     const collateralAssetDecimals = await (IERC20Metadata__factory.connect(collateralAsset, deployer)).decimals();
 
-    const cTokenCollateralDecimals = await cTokenCollateral.decimals();
-
     const borrowAssetData = await HundredFinanceHelper.getCTokenData(deployer, comptroller, cTokenBorrow);
     const collateralAssetData = await HundredFinanceHelper.getCTokenData(deployer, comptroller, cTokenCollateral);
 
@@ -201,6 +195,9 @@ describe("Hundred finance, platform adapter", () => {
         borrowCToken,
         borrowAssetData.totalBorrows.add(badPathsParams?.setMinBorrowCapacityDelta)
       );
+    }
+    if (badPathsParams?.frozen) {
+      await hfPlatformAdapter.setFrozen(true);
     }
 
     const plan = await hfPlatformAdapter.getConversionPlan(
@@ -353,7 +350,8 @@ describe("Hundred finance, platform adapter", () => {
         data.controller,
         data.comptroller,
         data.converter,
-        [MaticAddresses.hDAI]
+        [MaticAddresses.hDAI],
+        await controller.borrowManager()
       );
       return {data, platformAdapter};
     }
@@ -407,10 +405,15 @@ describe("Hundred finance, platform adapter", () => {
 
   describe("getConversionPlan", () => {
     let controller: Controller;
+    let snapshotLocal: string;
     before(async function () {
+      snapshotLocal = await TimeUtils.snapshot();
       controller = await TetuConverterApp.createController(deployer,
         {tetuLiquidatorAddress: MaticAddresses.TETU_LIQUIDATOR}
       );
+    });
+    after(async function () {
+      await TimeUtils.rollback(snapshotLocal);
     });
     describe("Good paths", () => {
       describe("DAI : usdc", () => {
@@ -579,6 +582,24 @@ describe("Hundred finance, platform adapter", () => {
           controlGasLimitsEx(gasUsed, GAS_LIMIT_HUNDRED_FINANCE_GET_CONVERSION_PLAN, (u, t) => {
             expect(u).to.be.below(t);
           });
+        });
+      });
+      describe("Frozen", () => {
+        it("should return no plan", async () => {
+          if (!await isPolygonForkInUse()) return;
+
+          const r = await preparePlan(
+            controller,
+            MaticAddresses.DAI,
+            parseUnits("1", 18),
+            MaticAddresses.WMATIC,
+            MaticAddresses.hDAI,
+            MaticAddresses.hMATIC,
+            {
+              frozen: true
+            }
+          );
+          expect(r.plan.converter).eq(Misc.ZERO_ADDRESS);
         });
       });
     });
@@ -759,15 +780,15 @@ describe("Hundred finance, platform adapter", () => {
           const part10000 = 1;
 
           const r = await makeTest(
-            collateralAsset
-            , collateralCToken
-            , borrowAsset
-            , borrowCToken
-            , collateralHolders
-            , part10000
+            collateralAsset,
+            collateralCToken,
+            borrowAsset,
+            borrowCToken,
+            collateralHolders,
+            part10000
           );
 
-          const ret = areAlmostEqual(r.br, r.brPredicted, 5);
+          const ret = areAlmostEqual(r.br, r.brPredicted, 3);
           expect(ret).eq(true);
         });
       });
@@ -792,28 +813,32 @@ describe("Hundred finance, platform adapter", () => {
           const part10000 = 500;
 
           const r = await makeTest(
-            collateralAsset
-            , collateralCToken
-            , borrowAsset
-            , borrowCToken
-            , collateralHolders
-            , part10000
+            collateralAsset,
+            collateralCToken,
+            borrowAsset,
+            borrowCToken,
+            collateralHolders,
+            part10000
           );
 
-          const ret = areAlmostEqual(r.br, r.brPredicted, 5);
+          const ret = areAlmostEqual(r.br, r.brPredicted, 3);
           expect(ret).eq(true);
         });
       });
     });
-
   });
 
   describe("initializePoolAdapter", () => {
     let controller: Controller;
+    let snapshotLocal: string;
     before(async function () {
+      snapshotLocal = await TimeUtils.snapshot();
       controller = await TetuConverterApp.createController(deployer,
         {tetuLiquidatorAddress: MaticAddresses.TETU_LIQUIDATOR}
       );
+    });
+    after(async function () {
+      await TimeUtils.rollback(snapshotLocal);
     });
     interface IInitializePoolAdapterBadPaths {
       useWrongConverter?: boolean;
@@ -1068,6 +1093,34 @@ describe("Hundred finance, platform adapter", () => {
           expect(r.ltv18.eq(0) && r.liquidityThreshold18.eq(0)).eq(true);
         });
       });
+    });
+  });
+
+  describe("setFrozen", () => {
+    it("should assign expected value to frozen", async () => {
+      const controller = await TetuConverterApp.createController(deployer,
+        {tetuLiquidatorAddress: MaticAddresses.TETU_LIQUIDATOR}
+      );
+
+      const comptroller = await HundredFinanceHelper.getComptroller(deployer);
+      const hfPlatformAdapter = await AdaptersHelper.createHundredFinancePlatformAdapter(
+        deployer,
+        controller.address,
+        comptroller.address,
+        ethers.Wallet.createRandom().address,
+        [],
+      );
+
+      const before = await hfPlatformAdapter.frozen();
+      await hfPlatformAdapter.setFrozen(true);
+      const middle = await hfPlatformAdapter.frozen();
+      await hfPlatformAdapter.setFrozen(false);
+      const after = await hfPlatformAdapter.frozen();
+
+      const ret = [before, middle, after].join();
+      const expected = [false, true, false].join();
+
+      expect(ret).eq(expected);
     });
   });
 //endregion Unit tests

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.4;
+pragma solidity 0.8.17;
 
 /// @notice Restored from 0x0229f777b0fab107f9591a41d5f02e4e98db6f2d (events were removed)
 interface IAaveTwoPriceOracle {

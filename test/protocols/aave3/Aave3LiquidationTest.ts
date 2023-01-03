@@ -112,7 +112,7 @@ describe.skip("Aave3LiquidationTest - simulate liquidation", () => {
     it("Try to make new borrow after liquidation", async () => {
       if (!await isPolygonForkInUse()) return;
 
-      const r = await Aave3TestUtils.makeLiquidation(deployer, init.d, borrowHolder)
+      await Aave3TestUtils.makeLiquidation(deployer, init.d, borrowHolder)
 
       // put collateral amount on user's balance
       await BalanceUtils.getRequiredAmountFromHolders(
@@ -235,7 +235,7 @@ describe.skip("Aave3LiquidationTest - simulate liquidation", () => {
     it.skip("Try to make new borrow after liquidation", async () => {
       if (!await isPolygonForkInUse()) return;
 
-      const r = await Aave3TestUtils.makeLiquidation(deployer, init.d, borrowHolder)
+      await Aave3TestUtils.makeLiquidation(deployer, init.d, borrowHolder)
 
       // put collateral amount on user's balance
       await BalanceUtils.getRequiredAmountFromHolders(

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.4;
+pragma solidity 0.8.17;
 
 /// @notice Restored from 0xd6fa681e22306b0f4e605b979b7c9a1dfa865ade (events were removed)
 interface IAavePoolConigurator {

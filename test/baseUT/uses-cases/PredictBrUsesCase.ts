@@ -1,15 +1,15 @@
 import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
-import {CoreContractsHelper} from "../helpers/CoreContractsHelper";
-import {Controller, IERC20__factory, IERC20Metadata__factory, IPlatformAdapter} from "../../../typechain";
+import {Controller, IERC20Metadata__factory, IPlatformAdapter} from "../../../typechain";
 import {BigNumber} from "ethers";
 import {DeployerUtils} from "../../../scripts/utils/DeployerUtils";
-import {areAlmostEqual} from "../utils/CommonUtils";
 import {TetuConverterApp} from "../helpers/TetuConverterApp";
 
 export interface IPlatformActor {
   getAvailableLiquidity: () => Promise<BigNumber>,
   getCurrentBR: () => Promise<BigNumber>,
+  // eslint-disable-next-line no-unused-vars
   supplyCollateral: (collateralAmount: BigNumber) => Promise<void>,
+  // eslint-disable-next-line no-unused-vars
   borrow: (borrowAmount: BigNumber) => Promise<void>,
 }
 
@@ -27,6 +27,7 @@ export class PredictBrUsesCase {
   static async makeTest(
     deployer: SignerWithAddress,
     actor: IPlatformActor,
+    // eslint-disable-next-line no-unused-vars
     platformAdapterFabric: (controller: Controller) => Promise<IPlatformAdapter>,
     collateralAsset: string,
     borrowAsset: string,

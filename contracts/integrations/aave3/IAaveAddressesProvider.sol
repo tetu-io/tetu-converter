@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.4;
+pragma solidity 0.8.17;
 
 /// @notice restored from 0xa97684ead0e402dC232d5A977953DF7ECBaB3CDb (no events)
 interface IAaveAddressesProvider {

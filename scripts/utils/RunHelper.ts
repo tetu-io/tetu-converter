@@ -5,7 +5,7 @@ import {Misc} from "./Misc";
 import {DeployerUtils} from "./DeployerUtils";
 import logSettings from "../../log_settings";
 
-const log: Logger = new Logger(logSettings);
+const log: Logger<unknown> = new Logger(logSettings);
 
 
 export class RunHelper {

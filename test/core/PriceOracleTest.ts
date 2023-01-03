@@ -3,20 +3,20 @@ import {TimeUtils} from "../../scripts/utils/TimeUtils";
 import {ethers} from "hardhat";
 import {expect} from "chai";
 import {CoreContractsHelper} from "../baseUT/helpers/CoreContractsHelper";
-import {Controller, IPriceOracle} from "../../typechain";
+import {Controller, IPriceOracle, PriceOracle} from "../../typechain";
 import {TetuConverterApp} from "../baseUT/helpers/TetuConverterApp";
 import {MaticAddresses} from "../../scripts/addresses/MaticAddresses";
 import {areAlmostEqual} from "../baseUT/utils/CommonUtils";
 import {parseUnits} from "ethers/lib/utils";
 import {isPolygonForkInUse} from "../baseUT/utils/NetworkUtils";
+import {Misc} from "../../scripts/utils/Misc";
 
 describe("Price oracle tests", () => {
 //region Global vars for all tests
   let snapshot: string;
   let snapshotForEach: string;
   let deployer: SignerWithAddress;
-  let controller: Controller;
-  let priceOracle: IPriceOracle;
+  let priceOracle: PriceOracle;
 //endregion Global vars for all tests
 
 //region before, after
@@ -25,12 +25,7 @@ describe("Price oracle tests", () => {
     snapshot = await TimeUtils.snapshot();
     const signers = await ethers.getSigners();
     deployer = signers[0];
-    controller = await TetuConverterApp.createController(deployer,
-      {
-        tetuLiquidatorAddress: MaticAddresses.TETU_LIQUIDATOR
-      }
-    );
-    priceOracle = await CoreContractsHelper.createPriceOracle(deployer, controller.address);
+    priceOracle = await CoreContractsHelper.createPriceOracle(deployer);
   });
 
   after(async function () {
@@ -47,6 +42,21 @@ describe("Price oracle tests", () => {
 //endregion before, after
 
 //region Unit tests
+  describe("constructor", () => {
+    describe("Good paths", () => {
+      it("should use AAVE3 price oracle by default", async () => {
+        expect(await priceOracle.priceOracle()).eq(MaticAddresses.AAVE_V3_PRICE_ORACLE);
+      });
+    });
+    describe("Bad paths", () => {
+      it("revert if zero address", async () => {
+        await expect(
+          CoreContractsHelper.createPriceOracle(deployer, Misc.ZERO_ADDRESS)
+        ).revertedWith("TC-1 zero address"); // ZERO_ADDRESS
+      });
+    });
+  });
+
   describe("getAssetPrice", () => {
     describe("Good paths", () => {
       it("should return almost 1e18 for USDC", async () => {

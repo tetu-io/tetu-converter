@@ -1,13 +1,13 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.4;
+pragma solidity 0.8.17;
 
+import "../../openzeppelin/IERC20Metadata.sol";
+import "../../core/AppErrors.sol";
+import "../../core/AppUtils.sol";
 import "../../integrations/hundred-finance/IHfCToken.sol";
 import "../../integrations/hundred-finance/IHfInterestRateModel.sol";
 import "../../integrations/hundred-finance/IHfComptroller.sol";
 import "../../integrations/hundred-finance/IHfPriceOracle.sol";
-import "../../core/AppErrors.sol";
-import "../../core/AppUtils.sol";
-import "../../openzeppelin/IERC20Metadata.sol";
 
 /// @notice Hundred finance utils: predict borrow and supply rate in advance, calculate borrow and supply APR
 ///         Borrow APR = the amount by which the debt increases per block; the amount is in terms of borrow tokens
@@ -133,7 +133,7 @@ library HfAprLib {
     // Replace rmul(simpleInterestFactor, borrowedAmount) by ordinal mul and take into account /1e18
     return
       simpleInterestFactor * borrowedAmount
-      * 1e8 // not 36 because we replaced rmul by mul
+      * 1e18 // not 36 because we replaced rmul by mul
       / borrow10PowDecimals;
   }
 

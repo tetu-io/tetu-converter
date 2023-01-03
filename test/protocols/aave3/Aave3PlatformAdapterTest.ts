@@ -4,7 +4,7 @@ import {TimeUtils} from "../../../scripts/utils/TimeUtils";
 import {
   Aave3PlatformAdapter,
   Aave3PlatformAdapter__factory, BorrowManager__factory, Controller, IAavePool,
-  IAaveProtocolDataProvider, IERC20Metadata__factory
+  IAaveProtocolDataProvider, IController__factory, IERC20Metadata__factory
 } from "../../../typechain";
 import {expect} from "chai";
 import {BigNumber} from "ethers";
@@ -35,7 +35,6 @@ describe("Aave3PlatformAdapterTest", () => {
   let snapshot: string;
   let snapshotForEach: string;
   let deployer: SignerWithAddress;
-  let investor: SignerWithAddress;
 //endregion Global vars for all tests
 
 //region before, after
@@ -44,7 +43,6 @@ describe("Aave3PlatformAdapterTest", () => {
     snapshot = await TimeUtils.snapshot();
     const signers = await ethers.getSigners();
     deployer = signers[0];
-    investor = signers[0];
   });
 
   after(async function () {
@@ -145,7 +143,8 @@ describe("Aave3PlatformAdapterTest", () => {
         data.controller,
         data.aavePool,
         data.templateAdapterNormal,
-        data.templateAdapterEMode
+        data.templateAdapterEMode,
+        await controller.borrowManager()
       );
       return {data, platformAdapter};
     }
@@ -203,11 +202,17 @@ describe("Aave3PlatformAdapterTest", () => {
 
   describe("getConversionPlan", () => {
     let controller: Controller;
+    let snapshotLocal: string;
     before(async function () {
+      snapshotLocal = await TimeUtils.snapshot();
       controller = await TetuConverterApp.createController(deployer,
         {tetuLiquidatorAddress: MaticAddresses.TETU_LIQUIDATOR}
       );
     });
+    after(async function () {
+      await TimeUtils.rollback(snapshotLocal);
+    });
+
     interface IGetConversionPlanBadPaths {
       zeroCollateralAsset?: boolean;
       zeroBorrowAsset?: boolean;
@@ -224,6 +229,7 @@ describe("Aave3PlatformAdapterTest", () => {
       setMinBorrowCap?: boolean;
       setZeroSupplyCap?: boolean;
       setZeroBorrowCap?: boolean;
+      frozen?: boolean;
     }
 
     interface IPreparePlanResults {
@@ -285,6 +291,9 @@ describe("Aave3PlatformAdapterTest", () => {
       }
       if (badPathsParams?.setZeroBorrowCap) {
         await Aave3ChangePricesUtils.setBorrowCap(deployer, borrowAsset, BigNumber.from(0));
+      }
+      if (badPathsParams?.frozen) {
+        await aavePlatformAdapter.setFrozen(true);
       }
       // get conversion plan
       const plan: IConversionPlan = await aavePlatformAdapter.getConversionPlan(
@@ -586,6 +595,22 @@ describe("Aave3PlatformAdapterTest", () => {
           });
         });
       });
+      describe("Frozen", () => {
+        it("should return no plan", async () => {
+          if (!await isPolygonForkInUse()) return;
+
+          const r = await preparePlan(
+            MaticAddresses.DAI,
+            parseUnits("1", 18),
+            MaticAddresses.WMATIC,
+            10,
+            {
+              frozen: true
+            }
+          );
+          expect(r.plan.converter).eq(Misc.ZERO_ADDRESS);
+        });
+      });
     });
     describe("Bad paths", () => {
       async function tryGetConversionPlan(
@@ -857,9 +882,15 @@ describe("Aave3PlatformAdapterTest", () => {
 
   describe("initializePoolAdapter", () => {
     let controller: Controller;
+    let snapshotLocal: string;
     before(async function () {
+      snapshotLocal = await TimeUtils.snapshot();
       controller = await TetuConverterApp.createController(deployer);
     });
+    after(async function () {
+      await TimeUtils.rollback(snapshotLocal);
+    });
+
     interface IInitializePoolAdapterBadPaths {
       useWrongConverter?: boolean;
       wrongCallerOfInitializePoolAdapter?: boolean;
@@ -1007,7 +1038,33 @@ describe("Aave3PlatformAdapterTest", () => {
     });
   });
 
+  describe("setFrozen", () => {
+    it("should assign expected value to frozen", async () => {
+      const controller = await TetuConverterApp.createController(deployer,
+        {tetuLiquidatorAddress: MaticAddresses.TETU_LIQUIDATOR}
+      );
 
+      const aavePool = await Aave3Helper.getAavePool(deployer);
+      const aavePlatformAdapter = await AdaptersHelper.createAave3PlatformAdapter(
+        deployer,
+        controller.address,
+        aavePool.address,
+        ethers.Wallet.createRandom().address,
+        ethers.Wallet.createRandom().address
+      );
+
+      const before = await aavePlatformAdapter.frozen();
+      await aavePlatformAdapter.setFrozen(true);
+      const middle = await aavePlatformAdapter.frozen();
+      await aavePlatformAdapter.setFrozen(false);
+      const after = await aavePlatformAdapter.frozen();
+
+      const ret = [before, middle, after].join();
+      const expected = [false, true, false].join();
+
+      expect(ret).eq(expected);
+    });
+  });
 //endregion Unit tests
 
 });

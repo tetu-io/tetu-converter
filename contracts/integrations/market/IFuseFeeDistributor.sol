@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: BSD-3-Clause
-pragma solidity 0.8.4;
+pragma solidity 0.8.17;
 
 interface IFuseFeeDistributor {
   function minBorrowEth() external view returns (uint256);

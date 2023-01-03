@@ -40,6 +40,7 @@ export interface IMakeRepayToRebalanceResults {
  * A function to make borrow, increase health factor and make repay with rebalance.
  * Implementations depend on the version of AAVE protocol,
  */
+// eslint-disable-next-line no-unused-vars
 type MakeRepayToRebalanceFunc = (p: IMakeRepayToRebalanceInputParams) => Promise<IMakeRepayToRebalanceResults>;
 
 /**
@@ -89,9 +90,11 @@ export class AaveRepayToRebalanceUtils {
 
     const ret = [
       Math.round(r.afterBorrow.healthFactor.div(
+        // eslint-disable-next-line @typescript-eslint/no-loss-of-precision
         getBigNumberFrom(1, 15)).toNumber() / 10.
       ),
       Math.round(r.afterBorrowToRebalance.healthFactor.div(
+        // eslint-disable-next-line @typescript-eslint/no-loss-of-precision
         getBigNumberFrom(1, 15)).toNumber() / 10.
       ),
       areAlmostEqual(realBalanceBorrowAsset, expectedBalanceBorrowAsset),

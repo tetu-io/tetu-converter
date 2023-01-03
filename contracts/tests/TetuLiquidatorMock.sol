@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.4;
+pragma solidity 0.8.17;
 
 import "../core/AppDataTypes.sol";
 import "../interfaces/ITetuLiquidator.sol";
@@ -50,8 +50,7 @@ contract TetuLiquidatorMock is ITetuLiquidator {
   ///           ITetuLiquidator
   ///////////////////////////////////////////////////////
 
-  function getPrice(address tokenIn, address tokenOut, uint amount)
-  public override view returns (uint amountOut) {
+  function getPrice(address tokenIn, address tokenOut, uint amount) public override view returns (uint amountOut) {
     uint priceIn = prices[tokenIn];
     if (priceIn == 0) {
       // there is no conversion way, return 0 in same way as the real liquidator

@@ -141,7 +141,9 @@ export class AaveTwoTestUtils {
 
     const converterNormal = await AdaptersHelper.createAaveTwoPoolAdapter(deployer);
     const aavePlatformAdapter = await AdaptersHelper.createAaveTwoPlatformAdapter(
-      deployer, controller.address, aavePool.address,
+      deployer,
+      controller.address,
+      aavePool.address,
       converterNormal.address
     );
 
@@ -403,8 +405,6 @@ export class AaveTwoTestUtils {
     await IERC20__factory.connect(d.borrowToken.address, liquidator).approve(d.aavePool.address, Misc.MAX_UINT);
 
     const aavePoolAsLiquidator = IAaveTwoPool__factory.connect(d.aavePool.address, liquidator);
-    const dataProvider = await AaveTwoHelper.getAaveProtocolDataProvider(liquidator);
-    const userReserveData = await dataProvider.getUserReserveData(d.borrowToken.address, borrowerAddress);
     const amountToLiquidate = d.amountToBorrow.div(4); // userReserveData.currentVariableDebt.div(2);
 
     console.log("Before liquidation, user account", await d.aavePool.getUserAccountData(borrowerAddress));

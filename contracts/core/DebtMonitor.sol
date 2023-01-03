@@ -1,17 +1,17 @@
 // SPDX-License-Identifier: MIT
 
-pragma solidity 0.8.4;
+pragma solidity 0.8.17;
 
+import "./AppErrors.sol";
+import "../openzeppelin/IERC20Metadata.sol";
+import "../openzeppelin/EnumerableSet.sol";
+import "../core/AppUtils.sol";
 import "../interfaces/IPoolAdapter.sol";
 import "../interfaces/IController.sol";
-import "../interfaces/IDebtsMonitor.sol";
+import "../interfaces/IDebtMonitor.sol";
 import "../interfaces/IPriceOracle.sol";
-import "../openzeppelin/IERC20Metadata.sol";
 import "../interfaces/IBorrowManager.sol";
 import "../interfaces/ITetuConverter.sol";
-import "./AppErrors.sol";
-import "../core/AppUtils.sol";
-import "../openzeppelin/EnumerableSet.sol";
 
 /// @notice Manage list of open borrow positions
 contract DebtMonitor is IDebtMonitor {
@@ -26,6 +26,9 @@ contract DebtMonitor is IDebtMonitor {
   }
 
   IController public immutable controller;
+  /// @notice Same as controller.borrowManager()
+  /// @dev Cached for the gas optimization
+  IBorrowManager public immutable borrowManager;
 
   /// @notice Pool adapters with active borrow positions
   /// @dev All these pool adapters should be enumerated during health-checking
@@ -69,12 +72,18 @@ contract DebtMonitor is IDebtMonitor {
   ///////////////////////////////////////////////////////
 
   constructor(
-    address controller_
+    address controller_,
+    address borrowManager_
 //    uint thresholdAPR_,
 //    uint thresholdCountBlocks_
   ) {
-    require(controller_ != address(0), AppErrors.ZERO_ADDRESS);
+    require(
+      controller_ != address(0)
+      && borrowManager_ != address(0),
+      AppErrors.ZERO_ADDRESS
+    );
     controller = IController(controller_);
+    borrowManager = IBorrowManager(borrowManager_);
 
 // Future versions:
 //    require(thresholdAPR_ < 100, AppErrors.INCORRECT_VALUE);
@@ -102,7 +111,7 @@ contract DebtMonitor is IDebtMonitor {
   /// @notice Register new borrow position if it's not yet registered
   /// @dev This function is called from a pool adapter after any borrow
   function onOpenPosition() external override {
-    require(IBorrowManager(controller.borrowManager()).isPoolAdapter(msg.sender), AppErrors.POOL_ADAPTER_ONLY);
+    require(borrowManager.isPoolAdapter(msg.sender), AppErrors.POOL_ADAPTER_ONLY);
 
     if (positionLastAccess[msg.sender] == 0) {
       positionLastAccess[msg.sender] = block.number;
@@ -155,7 +164,6 @@ contract DebtMonitor is IDebtMonitor {
     if (markAsDirty_) {
       // We have dropped away the pool adapter. It cannot be used any more for new borrows
       // Mark the pool adapter as dirty in borrow manager to exclude the pool adapter from any new borrows
-      IBorrowManager borrowManager = IBorrowManager(controller.borrowManager());
       if (poolAdapter_ == borrowManager.getPoolAdapter(origin, user, collateralAsset, borrowAsset)) {
         borrowManager.markPoolAdapterAsDirty(origin, user, collateralAsset, borrowAsset);
       }
@@ -227,8 +235,6 @@ contract DebtMonitor is IDebtMonitor {
       p.maxCountToCheck = positions.length - p.startIndex0;
     }
 
-    IBorrowManager borrowManager = IBorrowManager(controller.borrowManager());
-
     // enumerate all pool adapters
     for (uint i = 0; i < p.maxCountToCheck; i = i.uncheckedInc()) {
       nextIndexToCheck0 += 1;
@@ -244,7 +250,7 @@ contract DebtMonitor is IDebtMonitor {
 
       (,,, address borrowAsset) = pa.getConfig();
       uint healthFactorTarget18 = uint(borrowManager.getTargetHealthFactor2(borrowAsset)) * 10**(18-2);
-      if (
+    if (
         (p.healthFactorThreshold18 < healthFactorTarget18 && healthFactor18 < p.healthFactorThreshold18) // unhealthy
         || (!(p.healthFactorThreshold18 < healthFactorTarget18) && healthFactor18 > p.healthFactorThreshold18) // too healthy
       ) {

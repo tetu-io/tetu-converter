@@ -1,0 +1,5 @@
+command;user;asset1;asset2;amount;holder;pause in blocks
+deposit;1;USDC;;20000;0x06959153b974d0d5fdfd87d561db6d8d4fa0bb0b;
+deposit;1;USDT;;20000;0x0d0707963952f2fba59dd06f2b425ace40b492fe;
+borrow;1;USDC;USDT;1000;;10
+repay;1;USDC;USDT;;;15

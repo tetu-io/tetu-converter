@@ -1,4 +1,4 @@
-import {ILendingPlatformFabric} from "./ILendingPlatformFabric";
+import {ILendingPlatformFabric, ILendingPlatformPoolInfo} from "./ILendingPlatformFabric";
 import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import {
   CTokenMock,
@@ -41,7 +41,7 @@ export class MockPlatformFabric implements ILendingPlatformFabric {
     this.holders = holders;
     this.prices = prices;
   }
-  async createAndRegisterPools(deployer: SignerWithAddress, controller: IController) : Promise<IERC20[]> {
+  async createAndRegisterPools(deployer: SignerWithAddress, controller: IController) : Promise<ILendingPlatformPoolInfo> {
     const pool = await MocksHelper.createPoolStub(deployer);
     const converter = await MocksHelper.createPoolAdapterMock(deployer);
     const priceOracle = (await DeployUtils.deployContract(deployer, "PriceOracleMock",
@@ -84,8 +84,9 @@ export class MockPlatformFabric implements ILendingPlatformFabric {
 
     console.log("Mock pool was added to BM", platformAdapter.address);
 
-    return [
-      IERC20__factory.connect(pool.address, deployer)
-    ]
+    return {
+      pool: IERC20__factory.connect(pool.address, deployer),
+      platformAdapter: platformAdapter.address
+    }
   }
 }
