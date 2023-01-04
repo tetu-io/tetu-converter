@@ -3,7 +3,7 @@ import {ethers} from "hardhat";
 import {IOps__factory} from "../../../typechain";
 
 // depends on network
-describe.skip("Just run DeploySolution script under debugger", () => {
+describe("Just run DeploySolution script under debugger", () => {
   it("should return expected values", async () => {
     console.log("gelato", await IOps__factory.connect(
       "0x527a819db1eb0e34426297b03bae11F2f8B3A19E",

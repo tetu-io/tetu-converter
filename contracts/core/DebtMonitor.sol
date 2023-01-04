@@ -12,7 +12,6 @@ import "../interfaces/IDebtMonitor.sol";
 import "../interfaces/IPriceOracle.sol";
 import "../interfaces/IBorrowManager.sol";
 import "../interfaces/ITetuConverter.sol";
-import "hardhat/console.sol";
 
 /// @notice Manage list of open borrow positions
 contract DebtMonitor is IDebtMonitor {
@@ -251,12 +250,6 @@ contract DebtMonitor is IDebtMonitor {
 
       (,,, address borrowAsset) = pa.getConfig();
       uint healthFactorTarget18 = uint(borrowManager.getTargetHealthFactor2(borrowAsset)) * 10**(18-2);
-      console.log("_checkHealthFactor.pa", address(pa));
-      console.log("_checkHealthFactor.collateralAmount", collateralAmount);
-      console.log("_checkHealthFactor.amountToPay", amountToPay);
-      console.log("_checkHealthFactor.healthFactor18", healthFactor18);
-      console.log("_checkHealthFactor.healthFactorThreshold18", p.healthFactorThreshold18);
-      console.log("_checkHealthFactor.healthFactorTarget18", healthFactorTarget18);
       if (
         (p.healthFactorThreshold18 < healthFactorTarget18 && healthFactor18 < p.healthFactorThreshold18) // unhealthy
         || (!(p.healthFactorThreshold18 < healthFactorTarget18) && healthFactor18 > p.healthFactorThreshold18) // too healthy

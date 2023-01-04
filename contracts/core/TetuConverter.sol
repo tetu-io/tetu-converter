@@ -22,7 +22,6 @@ import "../interfaces/ITetuConverterCallback.sol";
 import "../interfaces/IRequireAmountBySwapManagerCallback.sol";
 import "../interfaces/IPriceOracle.sol";
 import "../integrations/market/ICErc20.sol";
-import "hardhat/console.sol";
 
 /// @notice Main application contract
 contract TetuConverter is ITetuConverter, IKeeperCallback, IRequireAmountBySwapManagerCallback, ReentrancyGuard {
@@ -582,9 +581,6 @@ contract TetuConverter is ITetuConverter, IKeeperCallback, IRequireAmountBySwapM
       uint amount = isCollateral ? requiredAmountCollateralAsset_ : requiredAmountBorrowAsset_;
       uint resultHealthFactor18 = pa.repayToRebalance(amount, isCollateral);
       emit OnRequireRepayRebalancing(address(pa), amount, isCollateral, amountToPay);
-
-      console.log("TetuConverter.requireRepay.amount", amount);
-      console.log("TetuConverter.requireRepay.isCollateral", isCollateral);
 
       // ensure that the health factor was restored to ~target health factor value
       ensureApproxSameToTargetHealthFactor(borrowAsset, resultHealthFactor18);
