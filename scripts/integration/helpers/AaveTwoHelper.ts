@@ -105,9 +105,9 @@ export class AaveTwoHelper {
     const rawData: BigNumber = BigNumber.from(rd.configuration.data);
 
     const reserveName = await IERC20Metadata__factory.connect(reserve, signer).name();
-    const reserveSymbol = await IERC20Metadata__factory.connect(reserve, signer).name();
+    const reserveSymbol = await IERC20Metadata__factory.connect(reserve, signer).symbol();
     const aTokenName = await IERC20Metadata__factory.connect(await rd.aTokenAddress, signer).name();
-    const aTokenSymbol = await IERC20Metadata__factory.connect(await rd.aTokenAddress, signer).name();
+    const aTokenSymbol = await IERC20Metadata__factory.connect(await rd.aTokenAddress, signer).symbol();
     const decimals = await IERC20Metadata__factory.connect(reserve, signer).decimals();
 
     const reserveData = await dp.getReserveData(reserve);
