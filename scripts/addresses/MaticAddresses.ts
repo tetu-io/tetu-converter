@@ -159,6 +159,22 @@ export class MaticAddresses {
   public static hLINK = "0x5B9451B1bFAE2A74D7b9D0D45BdD0E9a27F7bB22";
 //endregion Hundred finance
 
+//region 0vix
+  /** https://docs.0vix.com/developers/contract-addresses/mainnet */
+  public static ZEROVIX_COMPTROLLER = "0xf29d0ae1A29C453df338C5eEE4f010CFe08bb3FF";
+  public static ZEROVIX_PRICE_ORACLE = "0x421FF03Fe1085bce50ec5Bf06c5907119d87672F";
+  public static ZEROVIX_ADMIN = "0x8849f1a0cB6b5D6076aB150546EddEe193754F1C";
+
+  public static oWETH = "0xb2D9646A1394bf784E376612136B3686e74A325F";
+  public static oDai = "0x2175110F2936bf630a278660E9B6E4EFa358490A";
+  public static oUSDC = "0xEBb865Bf286e6eA8aBf5ac97e1b56A76530F3fBe";
+  public static oUSDT = "0x1372c34acC14F1E8644C72Dad82E3a21C211729f";
+  public static oMatic = "0xE554E874c9c60E45F1Debd479389C76230ae25A8";
+  public static oWBTC = "0x3B9128Ddd834cE06A60B0eC31CCfB11582d8ee18";
+  public static oMAI = "0xC57E5e261d49Af3026446de3eC381172f17bB799";
+  public static oMATICX = "0xAAcc5108419Ae55Bc3588E759E28016d06ce5F40";
+//endregion 0vix
+
 //region dForce
   /* https://developers.dforce.network/lend/lend-and-synth/deployed-contracts */
   public static DFORCE_CONTROLLER = "0x52eaCd19E38D501D006D2023C813d7E37F025f37";
