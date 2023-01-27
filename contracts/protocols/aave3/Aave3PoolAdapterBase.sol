@@ -17,6 +17,8 @@ import "../../integrations/aave3/Aave3ReserveConfiguration.sol";
 import "../../integrations/aave3/IAaveToken.sol";
 import "../../integrations/dforce/SafeRatioMath.sol";
 
+import "hardhat/console.sol";
+
 /// @notice Implementation of IPoolAdapter for AAVE-v3-protocol, see https://docs.aave.com/hub/
 /// @dev Instances of this contract are created using proxy-minimal pattern, so no constructor
 abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer, Initializable {
@@ -549,6 +551,9 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer,
         ? 0
         : (collateralBalanceATokensLocal - aTokensBalance);
     }
+    console.log("borrowPrice", borrowPrice);
+    console.log("targetDecimals", targetDecimals);
+    console.log("totalDebtBase", totalDebtBase);
     return (
     // Total amount of provided collateral in [collateral asset]
       totalCollateralBase * (10 ** pool.getConfiguration(assetCollateral).getDecimals()) / collateralPrice,
@@ -557,9 +562,9 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer,
         ? 0
         : totalDebtBase * targetDecimals / borrowPrice
       // we ask to pay a bit more amount to exclude dust tokens
-      // i.e. for USD we need to pay only 1 cent
-      // this amount allows us to pass type(uint).max to repay function
-          + targetDecimals / 100,
+      // we assume here, that 1 cent (in USD) should cover all possible dust
+      // and give us a possibility to pass type(uint).max to repay function
+          + targetDecimals / borrowPrice / 100,
       // Current health factor, decimals 18
       hf18,
       totalCollateralBase != 0 || totalDebtBase != 0,

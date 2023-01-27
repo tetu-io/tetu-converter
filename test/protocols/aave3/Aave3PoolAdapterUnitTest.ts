@@ -1343,6 +1343,71 @@ describe("Aave3PoolAdapterUnitTest", () => {
         const expected = [true, true, true, true, false].join();
         expect(ret).eq(expected);
       });
+
+      /**
+       * GetStatus returns amount A BIT more than actual value of the debt
+       * to work around limitations of aave tokenization model, see Aave Protocol Whitepaper v1.0, section 3.8.1
+       * Ensure, that this difference is small enough for any asset pairs
+       */
+      describe("AAVE dust problem", () => {
+        describe("Small amount USDC/WETH", () => {
+          it("should return amount of debt almost equal to borrowed amount", async () => {
+            const results = await makeBorrowTest(
+              MaticAddresses.USDC,
+              MaticAddresses.HOLDER_USDC,
+              MaticAddresses.WETH,
+              "0.1"
+            );
+            const status = await results.init.aavePoolAdapterAsTC.getStatus();
+
+            const amountBorrowed = results.borrowResults.borrowedAmount;
+            const amountReturnedByStatus = status.amountToPay;
+            console.log("amountBorrowed", amountBorrowed.toString());
+            console.log("amountReturnedByStatus", amountReturnedByStatus.toString());
+
+            const ret = areAlmostEqual(amountBorrowed, amountReturnedByStatus, 5);
+            expect(ret).eq(true);
+          });
+        });
+        describe("Huge amount USDC/WETH", () => {
+          it("should return amount of debt almost equal to borrowed amount", async () => {
+            const results = await makeBorrowTest(
+              MaticAddresses.USDC,
+              MaticAddresses.HOLDER_USDC,
+              MaticAddresses.WETH,
+              "1000000"
+            );
+            const status = await results.init.aavePoolAdapterAsTC.getStatus();
+
+            const amountBorrowed = results.borrowResults.borrowedAmount;
+            const amountReturnedByStatus = status.amountToPay;
+            console.log("amountBorrowed", amountBorrowed.toString());
+            console.log("amountReturnedByStatus", amountReturnedByStatus.toString());
+
+            const ret = areAlmostEqual(amountBorrowed, amountReturnedByStatus, 5);
+            expect(ret).eq(true);
+          });
+        });
+        describe("Small amount USDC/WBTC", () => {
+          it("should return amount of debt almost equal to borrowed amount", async () => {
+            const results = await makeBorrowTest(
+              MaticAddresses.USDC,
+              MaticAddresses.HOLDER_USDC,
+              MaticAddresses.WBTC,
+              "1"
+            );
+            const status = await results.init.aavePoolAdapterAsTC.getStatus();
+
+            const amountBorrowed = results.borrowResults.borrowedAmount;
+            const amountReturnedByStatus = status.amountToPay;
+            console.log("amountBorrowed", amountBorrowed.toString());
+            console.log("amountReturnedByStatus", amountReturnedByStatus.toString());
+
+            const ret = areAlmostEqual(amountBorrowed, amountReturnedByStatus, 5);
+            expect(ret).eq(true);
+          });
+        });
+      });
     });
     describe("Bad paths", () => {
       it("it should revert if collateral price is zero", async () => {

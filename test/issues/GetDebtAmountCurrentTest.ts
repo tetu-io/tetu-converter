@@ -3,40 +3,22 @@ import {ethers} from "hardhat";
 import {expect} from "chai";
 import {TimeUtils} from "../../scripts/utils/TimeUtils";
 import {MaticAddresses} from "../../scripts/addresses/MaticAddresses";
-import {Aave3PlatformFabric} from "../baseUT/fabrics/Aave3PlatformFabric";
 import {
-  BorrowRepayUsesCase, IActionsResults,
-  IMakeTestSingleBorrowInstantRepayResults,
-  IQuoteRepayResults
+  BorrowRepayUsesCase
 } from "../baseUT/uses-cases/BorrowRepayUsesCase";
 import {isPolygonForkInUse} from "../baseUT/utils/NetworkUtils";
-import {HundredFinancePlatformFabric} from "../baseUT/fabrics/HundredFinancePlatformFabric";
-import {DForcePlatformFabric} from "../baseUT/fabrics/DForcePlatformFabric";
-import {AaveTwoPlatformFabric} from "../baseUT/fabrics/AaveTwoPlatformFabric";
-import {
-  GAS_LIMIT_INIT_BORROW_AAVE_TWO,
-  GAS_LIMIT_REPAY_AAVE_TWO,
-  GAS_LIMIT_INIT_BORROW_DFORCE,
-  GAS_LIMIT_REPAY_DFORCE,
-  GAS_LIMIT_INIT_BORROW_HUNDRED_FINANCE,
-  GAS_LIMIT_REPAY_HUNDRED_FINANCE,
-  GAS_LIMIT_QUOTE_REPAY_AAVE3,
-  GAS_LIMIT_QUOTE_REPAY_AAVE_TWO,
-  GAS_LIMIT_QUOTE_REPAY_DFORCE,
-  GAS_LIMIT_QUOTE_REPAY_HUNDRED_FINANCE,
-  GAS_LIMIT_QUOTE_REPAY_AAVE3_WITH_SWAP,
-  GAS_LIMIT_QUOTE_REPAY_DFORCE_WITH_SWAP,
-  GAS_LIMIT_QUOTE_REPAY_HUNDRED_FINANCE_WITH_SWAP,
-  GAS_LIMIT_QUOTE_REPAY_AAVE_TWO_WITH_SWAP
-} from "../baseUT/GasLimit";
-import {controlGasLimitsEx} from "../../scripts/utils/hardhatUtils";
 import {DForceChangePriceUtils} from "../baseUT/protocols/dforce/DForceChangePriceUtils";
-import {TetuConverterApp} from "../baseUT/helpers/TetuConverterApp";
-import {CoreContractsHelper} from "../baseUT/helpers/CoreContractsHelper";
+import {
+  Controller__factory,
+  IBorrowManager__factory,
+  IPlatformAdapter__factory,
+  ITetuConverter__factory
+} from "../../typechain";
+import {Aave3ChangePricesUtils} from "../baseUT/protocols/aave3/Aave3ChangePricesUtils";
 import {areAlmostEqual} from "../baseUT/utils/CommonUtils";
-import {Controller__factory, IController__factory, ITetuConverter__factory} from "../../typechain";
+import {Misc} from "../../scripts/utils/Misc";
 
-describe.skip("GetDebtAmountCurrentTest", () => {
+describe("GetDebtAmountCurrentTest", () => {
 //region Global vars for all tests
   let snapshot: string;
   let snapshotForEach: string;
@@ -77,14 +59,14 @@ describe.skip("GetDebtAmountCurrentTest", () => {
 //endregion before, after
 
 //region Unit tests
-  describe("getDebtAmountCurrent result is not rounded", async () => {
+  describe("getDebtAmountCurrent result is not rounded", () => {
     describe("Good paths", () => {
       describe("Dai=>USDC", () => {
         const ASSET_COLLATERAL = MaticAddresses.USDC;
         const HOLDER_COLLATERAL = MaticAddresses.HOLDER_USDC;
-        const ASSET_BORROW = MaticAddresses.DAI;
-        const HOLDER_BORROW = MaticAddresses.HOLDER_DAI;
-        const AMOUNT_COLLATERAL = 4_444;
+        const ASSET_BORROW = MaticAddresses.WETH;
+        const HOLDER_BORROW = MaticAddresses.HOLDER_WETH;
+        const AMOUNT_COLLATERAL = 1;
         const INITIAL_LIQUIDITY_COLLATERAL = 100_000;
         const INITIAL_LIQUIDITY_BORROW = 80_000;
         const HEALTH_FACTOR2 = 200;
@@ -93,12 +75,36 @@ describe.skip("GetDebtAmountCurrentTest", () => {
         it("should display not rounded values", async () => {
           if (!await isPolygonForkInUse()) return;
 
-          const {controller} = await TetuConverterApp.buildApp(
-            deployer,
-            [new DForcePlatformFabric()],
-            {priceOracleFabric: async c => (await CoreContractsHelper.createPriceOracle(deployer, c.address)).address} // disable swap, enable price oracle
-          );
+          const controller = await Controller__factory.connect("0xf1f5d27877e44C93d2892701a887Fb0a102A1815", deployer);
+
+          // const priceOracleAave3 = await Aave3ChangePricesUtils.setupPriceOracleMock(deployer);
+          // const {controller} = await TetuConverterApp.buildApp(
+          //   deployer,
+          //   [new DForcePlatformFabric()],
+          //   {
+          //     priceOracleFabric: async () => priceOracleAave3.address
+          //   }
+          // );
           // const controller = Controller__factory.connect("0x29Eead6Fd74F826dac9E0383abC990615AA62Fa7", deployer);
+          const governance = await controller.governance();
+
+          const platformAdapterAaveTwo = "0x6e3c9c624634fEE2924A24Afad8627f60C580D03";
+          const platformAdapterAave3 = "0xf9013c430ef3B81c6Ede7bEffC5239A6D677941F";
+          const platformAdapterDForce = "0x6605Ce0d8E92A0c5d542F19DdB5B236A03137c64";
+          const platformAdapterHundredFinance = "0x3863a4eB9071863EB4CbA999E6952b8283804750";
+          const toFroze = [
+            platformAdapterAave3,
+            // platformAdapterAaveTwo,
+            platformAdapterDForce,
+            platformAdapterHundredFinance
+          ];
+          for (const platformAdapterAddress of toFroze) {
+            const paAsGovernance = IPlatformAdapter__factory.connect(
+              platformAdapterAddress,
+              await Misc.impersonate(governance)
+            );
+            await paAsGovernance.setFrozen(true);
+          }
 
           const results = await BorrowRepayUsesCase.makeBorrow(deployer,
             {
@@ -129,7 +135,11 @@ describe.skip("GetDebtAmountCurrentTest", () => {
           const after = await tetuConverter.callStatic.getDebtAmountCurrent(results.uc.address, ASSET_COLLATERAL, ASSET_BORROW);
           console.log("getDebtAmountCurrent", after.totalDebtAmountOut.toString(), after.totalCollateralAmountOut.toString());
 
-          // nothing to check here
+          const borrowedAmount = results.userBalances[0].borrow.sub(results.ucBalanceBorrow0);
+          const ret = areAlmostEqual(borrowedAmount, before.totalDebtAmountOut, 5);
+          console.log("borrowed amount", borrowedAmount.toString());
+          console.log("before.totalDebtAmountOut", before.totalDebtAmountOut.toString());
+          expect(ret).eq(true);
         });
       });
     });
