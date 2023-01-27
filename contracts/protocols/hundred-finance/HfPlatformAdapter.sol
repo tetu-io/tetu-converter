@@ -203,6 +203,8 @@ contract HfPlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
 
             // calculate amount that can be borrowed
             // split calculation on several parts to avoid stack too deep
+
+            // we assume that liquidationThreshold18 == ltv18 in this protocol, so the minimum health factor is 1
             plan.amountToBorrow =
               100 * collateralAmount_ / uint(healthFactor2_)
               * (vars.priceCollateral36 * plan.liquidationThreshold18 / vars.priceBorrow36)

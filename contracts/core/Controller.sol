@@ -112,7 +112,7 @@ contract Controller is IController, Initializable {
     address swapManager_
   ) external initializer {
     require(blocksPerDay_ != 0, AppErrors.INCORRECT_VALUE);
-    require(minHealthFactor_ > MIN_ALLOWED_MIN_HEALTH_FACTOR, AppErrors.WRONG_HEALTH_FACTOR);
+    require(minHealthFactor_ >= MIN_ALLOWED_MIN_HEALTH_FACTOR, AppErrors.WRONG_HEALTH_FACTOR);
     require(minHealthFactor_ < targetHealthFactor_, AppErrors.WRONG_HEALTH_FACTOR_CONFIG);
     require(targetHealthFactor_ < maxHealthFactor_, AppErrors.WRONG_HEALTH_FACTOR_CONFIG);
     require(
@@ -199,7 +199,7 @@ contract Controller is IController, Initializable {
 
   /// @notice min allowed health factor with decimals 2
   function setMinHealthFactor2(uint16 value_) external override {
-    require(value_ > MIN_ALLOWED_MIN_HEALTH_FACTOR, AppErrors.WRONG_HEALTH_FACTOR);
+    require(value_ >= MIN_ALLOWED_MIN_HEALTH_FACTOR, AppErrors.WRONG_HEALTH_FACTOR);
     require(value_ < targetHealthFactor2, AppErrors.WRONG_HEALTH_FACTOR_CONFIG);
     _onlyGovernance();
     minHealthFactor2 = value_;

@@ -32,6 +32,7 @@ library DForceAprLib {
     uint borrow10PowDecimals;
     uint priceCollateral36;
     uint priceBorrow36;
+    uint healthFactor18;
   }
 
   /// @notice Set of input params for borrowRewardAmounts function

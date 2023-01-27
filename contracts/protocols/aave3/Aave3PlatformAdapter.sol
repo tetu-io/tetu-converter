@@ -54,6 +54,7 @@ contract Aave3PlatformAdapter is IPlatformAdapter {
     uint rb10powDec;
     /// @notice rc.configuration.getDebtCeiling(); rcDebtCeiling != 0 => isolation mode is used
     uint rcDebtCeiling;
+    uint healthFactor18;
   }
 
   ///////////////////////////////////////////////////////
@@ -264,12 +265,16 @@ contract Aave3PlatformAdapter is IPlatformAdapter {
             vars.blocksPerDay = controller.blocksPerDay();
             vars.priceCollateral = vars.priceOracle.getAssetPrice(params.collateralAsset);
             vars.priceBorrow = vars.priceOracle.getAssetPrice(params.borrowAsset);
-            // we assume here, that required health factor is configured correctly
-            // and it's greater than h = liquidation-threshold (LT) / loan-to-value (LTV)
-            // otherwise AAVE-pool will revert the borrow
-            // see comment to IBorrowManager.setHealthFactor
+
+            // AAVE has min allowed health factor at the borrow moment: liquidationThreshold18/LTV, i.e. 0.85/0.8=1.06...
+            // Target health factor can be smaller but it's not possible to make a borrow with such low health factor
+            // see explanation of health factor value in IController.sol
+            vars.healthFactor18 = plan.liquidationThreshold18 * 1e18 / plan.ltv18;
+            if (vars.healthFactor18 < uint(params.healthFactor2 )* 10**(18 - 2)) {
+              vars.healthFactor18 = uint(params.healthFactor2) * 10**(18 - 2);
+            }
             plan.amountToBorrow =
-                100 * params.collateralAmount / uint(params.healthFactor2)
+                1e18 * params.collateralAmount / vars.healthFactor18
                 * plan.liquidationThreshold18
                 * vars.priceCollateral / vars.priceBorrow
                 * vars.rb10powDec

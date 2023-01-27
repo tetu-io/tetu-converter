@@ -18,6 +18,8 @@ import "../../integrations/dforce/IDForceInterestRateModel.sol";
 import "../../integrations/dforce/IDForceController.sol";
 import "../../integrations/dforce/IDForceCToken.sol";
 
+import "hardhat/console.sol";
+
 /// @notice Adapter to read current pools info from DForce-protocol, see https://developers.dforce.network/
 contract DForcePlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
   using SafeERC20 for IERC20;
@@ -224,8 +226,16 @@ contract DForcePlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
 
             // calculate amount that can be borrowed
             // split calculation on several parts to avoid stack too deep
+
+            // Protocol has min allowed health factor at the borrow moment: liquidationThreshold18/LTV, i.e. 0.85/0.8=1.06...
+            // Target health factor can be smaller but it's not possible to make a borrow with such low health factor
+            // see explanation of health factor value in IController.sol
+            vars.healthFactor18 = plan.liquidationThreshold18 * 1e18 / plan.ltv18;
+            if (vars.healthFactor18 < uint(healthFactor2_) * 10**(18 - 2)) {
+              vars.healthFactor18 = uint(healthFactor2_) * 10**(18 - 2);
+            }
             plan.amountToBorrow =
-                100 * collateralAmount_ / uint(healthFactor2_)
+                1e18 * collateralAmount_ / vars.healthFactor18
                 * (plan.liquidationThreshold18 * vars.priceCollateral36 / vars.priceBorrow36)
                 / 1e18
                 * vars.borrow10PowDecimals

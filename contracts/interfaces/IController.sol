@@ -6,19 +6,34 @@ pragma solidity 0.8.17;
 interface IController {
   function governance() external view returns (address);
 
-  /// @notice min allowed health factor with decimals 2
+  /// ********************* Health factor explanation  ****************
+  /// For example, a landing platform has: liquidity threshold = 0.85, LTV=0.8, LTV / LT = 1.0625
+  /// For collateral $100 we can borrow $80 and a liquidation happens if the cost of collateral will reduce below $85.
+  /// We set min-health-factor = 1.1, target-health-factor = 1.3
+  /// So we will borrow 100/(0.8/0.85)/1.3 = 72.4 for collateral 100.
+  /// Current health factor = Collateral / Borrow * LTV / LT
+  /// Collateral, borrow, current health factor
+  /// 100         72.4        1.3
+  /// 85          72.4        1.1  rebalancing is required (!)
+  /// 77          72.4        1.0  liquidation happens (!)
+  /// Current health factor == 1 means, LT / LTV == Collateral/Borrow - exactly max amount is borrowed
+  /// *****************************************************************
+
+  /// @notice min allowed health factor with decimals 2, must be >= 1e2
   function minHealthFactor2() external view returns (uint16);
   function setMinHealthFactor2(uint16 value_) external;
-
-  /// @notice max allowed health factor with decimals 2
-  function maxHealthFactor2() external view returns (uint16);
-  function setMaxHealthFactor2(uint16 value_) external;
 
   /// @notice target health factor with decimals 2
   /// @dev If the health factor is below/above min/max threshold, we need to make repay
   ///      or additional borrow and restore the health factor to the given target value
   function targetHealthFactor2() external view returns (uint16);
   function setTargetHealthFactor2(uint16 value_) external;
+
+  /// @notice max allowed health factor with decimals 2
+  /// @dev For future versions, currently max health factor is not used
+  function maxHealthFactor2() external view returns (uint16);
+  /// @dev For future versions, currently max health factor is not used
+  function setMaxHealthFactor2(uint16 value_) external;
 
   /// @notice get current value of blocks per day. The value is set manually at first and can be auto-updated later
   function blocksPerDay() external view returns (uint);

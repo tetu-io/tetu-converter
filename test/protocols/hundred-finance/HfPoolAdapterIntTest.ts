@@ -16,8 +16,11 @@ import {MaticAddresses} from "../../../scripts/addresses/MaticAddresses";
 import {TokenDataTypes} from "../../baseUT/types/TokenDataTypes";
 import {Misc} from "../../../scripts/utils/Misc";
 import {transferAndApprove} from "../../baseUT/utils/transferUtils";
-import {HundredFinanceTestUtils} from "../../baseUT/protocols/hundred-finance/HundredFinanceTestUtils";
-import {parseUnits} from "ethers/lib/utils";
+import {
+  HundredFinanceTestUtils,
+  IPrepareToBorrowResults
+} from "../../baseUT/protocols/hundred-finance/HundredFinanceTestUtils";
+import {formatUnits, parseUnits} from "ethers/lib/utils";
 
 describe("HfPoolAdapterIntTest", () => {
 
@@ -192,6 +195,85 @@ describe("HfPoolAdapterIntTest", () => {
             const r = await testMaticEth(undefined, undefined);
             expect(r.ret).eq(r.expected);
           });
+        });
+      });
+    });
+  });
+
+  describe("Borrow using small health factors", () => {
+    interface ITestSmallHealthFactorResults {
+      d: IPrepareToBorrowResults;
+      resultHealthFactor18: BigNumber;
+    }
+    async function makeTestSmallHealthFactor(
+      collateralAsset: string,
+      collateralHolder: string,
+      collateralCToken: string,
+      borrowAsset: string,
+      borrowCToken: string,
+      targetHealthFactor2: number,
+      minHealthFactor2: number
+    ) : Promise<ITestSmallHealthFactorResults> {
+
+      const collateralToken = await TokenDataTypes.Build(deployer, collateralAsset);
+      const borrowToken = await TokenDataTypes.Build(deployer, borrowAsset);
+
+      const collateralAmount = parseUnits("20000", 6);
+
+      const d = await HundredFinanceTestUtils.prepareToBorrow(
+        deployer,
+        collateralToken,
+        collateralHolder,
+        collateralCToken,
+        collateralAmount,
+        borrowToken,
+        borrowCToken,
+        {
+          targetHealthFactor2
+        }
+      );
+
+      await d.controller.setMinHealthFactor2(minHealthFactor2);
+      await d.controller.setTargetHealthFactor2(targetHealthFactor2);
+
+      await HundredFinanceTestUtils.makeBorrow(deployer, d, undefined);
+      const r = await d.hfPoolAdapterTC.getStatus();
+      return {
+        d,
+        resultHealthFactor18: r.healthFactor18
+      }
+    }
+    describe("Good paths", () => {
+      describe("health factor is small", () => {
+        it("should borrow with specified health factor", async () => {
+          const targetHealthFactor2 = 102;
+          const minHealthFactor2 = 101;
+
+          const collateralAsset = MaticAddresses.USDC;
+          const collateralCToken = MaticAddresses.hUSDC;
+          const collateralHolder = MaticAddresses.HOLDER_USDC;
+          const borrowAsset = MaticAddresses.DAI;
+          const borrowCToken = MaticAddresses.hDAI;
+
+          const r = await makeTestSmallHealthFactor(
+            collateralAsset,
+            collateralHolder,
+            collateralCToken,
+            borrowAsset,
+            borrowCToken,
+            targetHealthFactor2,
+            minHealthFactor2
+          );
+          const healthFactor = +formatUnits(r.resultHealthFactor18, 18);
+
+          console.log("healthFactor", healthFactor);
+          const ret = [
+            healthFactor >= targetHealthFactor2/100 - 1,
+            healthFactor <= targetHealthFactor2/100 + 1
+          ].join();
+          const expected = [true, true].join();
+
+          expect(ret).eq(expected);
         });
       });
     });
