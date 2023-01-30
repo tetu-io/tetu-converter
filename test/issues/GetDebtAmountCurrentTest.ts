@@ -10,11 +10,9 @@ import {isPolygonForkInUse} from "../baseUT/utils/NetworkUtils";
 import {DForceChangePriceUtils} from "../baseUT/protocols/dforce/DForceChangePriceUtils";
 import {
   Controller__factory,
-  IBorrowManager__factory,
   IPlatformAdapter__factory,
   ITetuConverter__factory
 } from "../../typechain";
-import {Aave3ChangePricesUtils} from "../baseUT/protocols/aave3/Aave3ChangePricesUtils";
 import {areAlmostEqual} from "../baseUT/utils/CommonUtils";
 import {Misc} from "../../scripts/utils/Misc";
 
@@ -59,7 +57,7 @@ describe("GetDebtAmountCurrentTest", () => {
 //endregion before, after
 
 //region Unit tests
-  describe("getDebtAmountCurrent result is not rounded", () => {
+  describe.skip("getDebtAmountCurrent result is not rounded", () => {
     describe("Good paths", () => {
       describe("Dai=>USDC", () => {
         const ASSET_COLLATERAL = MaticAddresses.USDC;

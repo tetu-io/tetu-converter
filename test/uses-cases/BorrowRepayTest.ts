@@ -22,6 +22,7 @@ import {
 } from "../baseUT/GasLimit";
 import {controlGasLimitsEx} from "../../scripts/utils/hardhatUtils";
 import {DForceChangePriceUtils} from "../baseUT/protocols/dforce/DForceChangePriceUtils";
+import {IERC20__factory, IERC20Metadata__factory} from "../../typechain";
 
 describe("BorrowRepayTest", () => {
 //region Global vars for all tests
@@ -62,7 +63,7 @@ describe("BorrowRepayTest", () => {
 //endregion before, after
 
 //region Unit tests
-  describe("Borrow & repay", async () => {
+  describe("Borrow & repay", () => {
     describe("Good paths", () => {
       describe("Single borrow, single instant complete repay", () => {
         describe("Dai=>USDC", () => {
@@ -250,6 +251,193 @@ describe("BorrowRepayTest", () => {
                 new DForcePlatformFabric(),
                 {}
               );
+            });
+            it("should return expected balances", async () => {
+              if (!await isPolygonForkInUse()) return;
+              expect(results.sret).eq(results.sexpected);
+            });
+            it("should not exceed gas limits @skip-on-coverage", async () => {
+              if (!await isPolygonForkInUse()) return;
+              controlGasLimitsEx(results.gasUsedByBorrow, GAS_LIMIT_INIT_BORROW_DFORCE, (u, t) => {
+                expect(u).to.be.below(t + 1);
+              });
+              controlGasLimitsEx(results.gasUsedByRepay, GAS_LIMIT_REPAY_DFORCE, (u, t) => {
+                expect(u).to.be.below(t + 1);
+              });
+            });
+          });
+        });
+      });
+
+      describe("Single borrow huge amount, single instant complete repay", () => {
+        describe("Dai=>USDC", () => {
+          const ASSET_COLLATERAL = MaticAddresses.DAI;
+          const HOLDER_COLLATERAL = MaticAddresses.HOLDER_DAI;
+          const ASSET_BORROW = MaticAddresses.USDC;
+          const HOLDER_BORROW = MaticAddresses.HOLDER_USDC;
+          const INITIAL_LIQUIDITY_COLLATERAL = 0;
+          const INITIAL_LIQUIDITY_BORROW = 80_000;
+          const HEALTH_FACTOR2 = 200;
+          const COUNT_BLOCKS = 1_000;
+          describe("AAVE3", () => {
+            let results: IMakeTestSingleBorrowInstantRepayResults;
+            let localSnapshot: string;
+            before(async function () {
+              localSnapshot = await TimeUtils.snapshot();
+              if (!await isPolygonForkInUse()) return;
+              results = await BorrowRepayUsesCase.makeTestSingleBorrowInstantRepay(deployer,
+                {
+                  collateral: {
+                    asset: ASSET_COLLATERAL,
+                    holder: HOLDER_COLLATERAL,
+                    initialLiquidity: INITIAL_LIQUIDITY_COLLATERAL,
+                  },
+                  borrow: {
+                    asset: ASSET_BORROW,
+                    holder: HOLDER_BORROW,
+                    initialLiquidity: INITIAL_LIQUIDITY_BORROW,
+                  },
+                  collateralAmount: await IERC20__factory.connect(ASSET_COLLATERAL, deployer).balanceOf(HOLDER_COLLATERAL),
+                  healthFactor2: HEALTH_FACTOR2,
+                  countBlocks: COUNT_BLOCKS,
+                },
+                new Aave3PlatformFabric(),
+                {},
+              );
+            });
+            after(async function () {
+              await TimeUtils.rollback(localSnapshot);
+            });
+            it("should return expected balances", async () => {
+              if (!await isPolygonForkInUse()) return;
+              expect(results.sret).eq(results.sexpected);
+            });
+            it("should not exceed gas limits @skip-on-coverage", async () => {
+              if (!await isPolygonForkInUse()) return;
+              controlGasLimitsEx(results.gasUsedByBorrow, GAS_LIMIT_INIT_BORROW_AAVE3, (u, t) => {
+                expect(u).to.be.below(t + 1);
+              });
+              controlGasLimitsEx(results.gasUsedByRepay, GAS_LIMIT_REPAY_AAVE3, (u, t) => {
+                expect(u).to.be.below(t + 1);
+              });
+            });
+          });
+          describe("AAVETwo", () => {
+            let results: IMakeTestSingleBorrowInstantRepayResults;
+            let localSnapshot: string;
+            before(async function () {
+              localSnapshot = await TimeUtils.snapshot();
+              if (!await isPolygonForkInUse()) return;
+              results = await BorrowRepayUsesCase.makeTestSingleBorrowInstantRepay(deployer,
+                {
+                  collateral: {
+                    asset: ASSET_COLLATERAL,
+                    holder: HOLDER_COLLATERAL,
+                    initialLiquidity: INITIAL_LIQUIDITY_COLLATERAL,
+                  },
+                  borrow: {
+                    asset: ASSET_BORROW,
+                    holder: HOLDER_BORROW,
+                    initialLiquidity: INITIAL_LIQUIDITY_BORROW,
+                  },
+                  collateralAmount: await IERC20__factory.connect(ASSET_COLLATERAL, deployer).balanceOf(HOLDER_COLLATERAL),
+                  healthFactor2: HEALTH_FACTOR2,
+                  countBlocks: COUNT_BLOCKS,
+                },
+                new AaveTwoPlatformFabric(),
+                {},
+              );
+            });
+            after(async function () {
+              await TimeUtils.rollback(localSnapshot);
+            });
+            it("should return expected balances", async () => {
+              if (!await isPolygonForkInUse()) return;
+              expect(results.sret).eq(results.sexpected);
+            });
+            it("should not exceed gas limits @skip-on-coverage", async () => {
+              if (!await isPolygonForkInUse()) return;
+              controlGasLimitsEx(results.gasUsedByBorrow, GAS_LIMIT_INIT_BORROW_AAVE_TWO, (u, t) => {
+                expect(u).to.be.below(t + 1);
+              });
+              controlGasLimitsEx(results.gasUsedByRepay, GAS_LIMIT_REPAY_AAVE_TWO, (u, t) => {
+                expect(u).to.be.below(t + 1);
+              });
+            });
+          });
+          describe("Hundred finance", () => {
+            let results: IMakeTestSingleBorrowInstantRepayResults;
+            let localSnapshot: string;
+            before(async function () {
+              localSnapshot = await TimeUtils.snapshot();
+              if (!await isPolygonForkInUse()) return;
+              results = await BorrowRepayUsesCase.makeTestSingleBorrowInstantRepay(deployer,
+                {
+                  collateral: {
+                    asset: ASSET_COLLATERAL,
+                    holder: HOLDER_COLLATERAL,
+                    initialLiquidity: INITIAL_LIQUIDITY_COLLATERAL,
+                  },
+                  borrow: {
+                    asset: ASSET_BORROW,
+                    holder: HOLDER_BORROW,
+                    initialLiquidity: INITIAL_LIQUIDITY_BORROW,
+                  },
+                  collateralAmount: await IERC20__factory.connect(ASSET_COLLATERAL, deployer).balanceOf(HOLDER_COLLATERAL),
+                  healthFactor2: HEALTH_FACTOR2,
+                  countBlocks: COUNT_BLOCKS,
+                },
+                new HundredFinancePlatformFabric(),
+                {
+                  resultCollateralCanBeLessThenInitial: true
+                }
+              );
+            });
+            after(async function () {
+              await TimeUtils.rollback(localSnapshot);
+            });
+            it("should return expected balances", async () => {
+              if (!await isPolygonForkInUse()) return;
+              expect(results.sret).eq(results.sexpected);
+            });
+            it("should not exceed gas limits @skip-on-coverage", async () => {
+              if (!await isPolygonForkInUse()) return;
+              controlGasLimitsEx(results.gasUsedByBorrow, GAS_LIMIT_INIT_BORROW_HUNDRED_FINANCE, (u, t) => {
+                expect(u).to.be.below(t + 1);
+              });
+              controlGasLimitsEx(results.gasUsedByRepay, GAS_LIMIT_REPAY_HUNDRED_FINANCE, (u, t) => {
+                expect(u).to.be.below(t + 1);
+              });
+            });
+          });
+          describe("dForce", () => {
+            let results: IMakeTestSingleBorrowInstantRepayResults;
+            let localSnapshot: string;
+            before(async function () {
+              localSnapshot = await TimeUtils.snapshot();
+              if (!await isPolygonForkInUse()) return;
+              results = await BorrowRepayUsesCase.makeTestSingleBorrowInstantRepay(deployer,
+                {
+                  collateral: {
+                    asset: ASSET_COLLATERAL,
+                    holder: HOLDER_COLLATERAL,
+                    initialLiquidity: INITIAL_LIQUIDITY_COLLATERAL,
+                  },
+                  borrow: {
+                    asset: ASSET_BORROW,
+                    holder: HOLDER_BORROW,
+                    initialLiquidity: INITIAL_LIQUIDITY_BORROW,
+                  },
+                  collateralAmount: await IERC20__factory.connect(ASSET_COLLATERAL, deployer).balanceOf(HOLDER_COLLATERAL),
+                  healthFactor2: HEALTH_FACTOR2,
+                  countBlocks: COUNT_BLOCKS,
+                },
+                new DForcePlatformFabric(),
+                {}
+              );
+            });
+            after(async function () {
+              await TimeUtils.rollback(localSnapshot);
             });
             it("should return expected balances", async () => {
               if (!await isPolygonForkInUse()) return;

@@ -8,15 +8,18 @@ interface IController {
 
   /// ********************* Health factor explanation  ****************
   /// For example, a landing platform has: liquidity threshold = 0.85, LTV=0.8, LTV / LT = 1.0625
-  /// For collateral $100 we can borrow $80 and a liquidation happens if the cost of collateral will reduce below $85.
+  /// For collateral $100 we can borrow $80. A liquidation happens if the cost of collateral will reduce below $85.
   /// We set min-health-factor = 1.1, target-health-factor = 1.3
-  /// So we will borrow 100/(0.8/0.85)/1.3 = 72.4 for collateral 100.
-  /// Current health factor = Collateral / Borrow * LTV / LT
-  /// Collateral, borrow, current health factor
-  /// 100         72.4        1.3
-  /// 85          72.4        1.1  rebalancing is required (!)
-  /// 77          72.4        1.0  liquidation happens (!)
-  /// Current health factor == 1 means, LT / LTV == Collateral/Borrow - exactly max amount is borrowed
+  /// For collateral 100 we will borrow 100/1.3 = 76.92
+  ///
+  /// Collateral value   100        77            assume that collateral value is decreased at 100/77=1.3 times
+  /// Collateral * LT    85         65.45
+  /// Borrow value       65.38      65.38         but borrow value is the same as before
+  /// Health factor      1.3        1.001         liquidation almost happens here (!)
+  ///
+  /// So, if we have target factor 1.3, it means, that if collateral amount will decreases at 1.3 times
+  /// and the borrow value won't change at the same time, the liquidation happens at that point.
+  /// Min health factor marks the point at which a rebalancing must be made asap.
   /// *****************************************************************
 
   /// @notice min allowed health factor with decimals 2, must be >= 1e2

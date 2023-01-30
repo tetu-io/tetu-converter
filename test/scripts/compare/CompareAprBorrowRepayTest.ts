@@ -4,7 +4,7 @@ import {TimeUtils} from "../../../scripts/utils/TimeUtils";
 import {MaticAddresses} from "../../../scripts/addresses/MaticAddresses";
 import {IStrategyToConvert} from "../../baseUT/apr/aprDataTypes";
 import {BigNumber} from "ethers";
-import {Controller, IERC20Metadata__factory} from "../../../typechain";
+import {Controller, IERC20__factory, IERC20Metadata__factory} from "../../../typechain";
 import {TetuConverterApp} from "../../baseUT/helpers/TetuConverterApp";
 import {Aave3PlatformFabric} from "../../baseUT/fabrics/Aave3PlatformFabric";
 import {AaveTwoPlatformFabric} from "../../baseUT/fabrics/AaveTwoPlatformFabric";
@@ -19,8 +19,9 @@ import {existsSync, writeFileSync} from "fs";
 import {DForceChangePriceUtils} from "../../baseUT/protocols/dforce/DForceChangePriceUtils";
 import {Aave3Helper} from "../../../scripts/integration/helpers/Aave3Helper";
 import {isPolygonForkInUse} from "../../baseUT/utils/NetworkUtils";
+import {DeployerUtils} from "../../../scripts/utils/DeployerUtils";
 
-describe.skip("CompareAprBorrowRepayTest @skip-on-coverage", () => {
+describe("CompareAprBorrowRepayTest @skip-on-coverage", () => {
 //region Constants
   const HEALTH_FACTOR2 = 400;
   const COUNT_BLOCKS_LARGE = 20_000;
@@ -92,12 +93,12 @@ describe.skip("CompareAprBorrowRepayTest @skip-on-coverage", () => {
       );
       controllerSwap = controller;
     }
-    dai = {asset: MaticAddresses.DAI, holder: MaticAddresses.HOLDER_DAI_3, initialLiquidity: parseUnits("100000")};
-    usdc = {asset: MaticAddresses.USDC, holder: MaticAddresses.HOLDER_USDC, initialLiquidity: parseUnits("100000", 6)};
-    usdt = {asset: MaticAddresses.USDT, holder: MaticAddresses.HOLDER_USDT, initialLiquidity: parseUnits("100000", 6)};
-    wbtc = {asset: MaticAddresses.WBTC, holder: MaticAddresses.HOLDER_WBTC_3, initialLiquidity: parseUnits("1", 8)};
-    weth = {asset: MaticAddresses.WETH, holder: MaticAddresses.HOLDER_WETH_4, initialLiquidity: parseUnits("1")};
-    wmatic = {asset: MaticAddresses.WMATIC, holder: MaticAddresses.HOLDER_WMATIC_3, initialLiquidity: parseUnits("100000")};
+    dai = {asset: MaticAddresses.DAI, holder: MaticAddresses.HOLDER_DAI_3, initialLiquidity: parseUnits("0")};
+    usdc = {asset: MaticAddresses.USDC, holder: MaticAddresses.HOLDER_USDC, initialLiquidity: parseUnits("0", 6)};
+    usdt = {asset: MaticAddresses.USDT, holder: MaticAddresses.HOLDER_USDT, initialLiquidity: parseUnits("0", 6)};
+    wbtc = {asset: MaticAddresses.WBTC, holder: MaticAddresses.HOLDER_WBTC_3, initialLiquidity: parseUnits("0", 8)};
+    weth = {asset: MaticAddresses.WETH, holder: MaticAddresses.HOLDER_WETH_4, initialLiquidity: parseUnits("0")};
+    wmatic = {asset: MaticAddresses.WMATIC, holder: MaticAddresses.HOLDER_WMATIC_3, initialLiquidity: parseUnits("0")};
   });
 
   after(async function () {
@@ -269,10 +270,8 @@ describe.skip("CompareAprBorrowRepayTest @skip-on-coverage", () => {
 //endregion Test impl
 
 //region Unit tests
-  describe("Compare APR", () => {
-    it("generate file compareApr", async () => {
-      if (!await isPolygonForkInUse()) return;
-
+  describe.skip("Compare APR", () => {
+    async function generateCompareApr(useMaxAvailableCollateralAmounts: boolean) {
       const pathOut = "tmp/compareApr.csv";
       const assets = [
         dai,
@@ -282,17 +281,24 @@ describe.skip("CompareAprBorrowRepayTest @skip-on-coverage", () => {
         weth,
         wbtc
       ];
-      const amounts = [
-        parseUnits("1000", 18),
-        parseUnits("1000", 6),
-        parseUnits("1000", 6),
-        parseUnits("1000", 18),
-        parseUnits("1000", 18),
-        parseUnits("100", 8),
+      const fixedAmounts = [
+        parseUnits("1000", 18), // dai
+        parseUnits("1000", 6),  // usdc
+        parseUnits("1000", 6),  // usdt
+        parseUnits("1000", 18), // wmatic
+        parseUnits("1000", 18), // weth
+        parseUnits("100", 8),   // wbtc
       ];
+      const maxAmounts = await Promise.all(
+        assets.map(
+          async asset => IERC20__factory.connect(asset.asset, deployer).balanceOf(asset.holder)
+        )
+      );
+      console.log("Max amounts", maxAmounts);
       const platforms = [controllerForAave3, controllerForAaveTwo, controllerForDForce, controllerForHundredFinance, controllerSwap];
       const platformTitles = ["AAVE3", "AAVETwo", "DForce", "HundredFinance", "Swap"];
 
+      const amounts = useMaxAvailableCollateralAmounts ? maxAmounts : fixedAmounts;
       for (let n = 0; n < platforms.length; ++n) {
         let localSnapshot: string;
         for (let i = 0; i < assets.length; ++i) {
@@ -325,6 +331,11 @@ describe.skip("CompareAprBorrowRepayTest @skip-on-coverage", () => {
           }
         }
       }
+    }
+    it("generate file compareApr", async () => {
+      if (!await isPolygonForkInUse()) return;
+
+      await generateCompareApr(true);
     });
 
     it.skip("swap only", async () => {
@@ -382,12 +393,22 @@ describe.skip("CompareAprBorrowRepayTest @skip-on-coverage", () => {
         dai,
         usdc
       ];
-      const amounts = [
+      const fixedAmounts = [
         parseUnits("1000", 18),
         parseUnits("1000", 18),
       ];
-      const platforms = [controllerForAave3, controllerForAaveTwo, controllerForDForce, controllerForHundredFinance];
-      const platformTitles = ["AAVE3", "AAVETwo", "DForce", "HundredFinance"];
+      const maxAmounts = await Promise.all(
+        assets.map(
+          async asset => IERC20__factory.connect(asset.asset, deployer).balanceOf(asset.holder)
+        )
+      );
+      console.log("Max amounts", maxAmounts);
+      const amounts = maxAmounts;
+
+      // const platforms = [controllerForAave3, controllerForAaveTwo, controllerForDForce, controllerForHundredFinance];
+      // const platformTitles = ["AAVE3", "AAVETwo", "DForce", "HundredFinance"];
+      const platforms = [controllerForDForce];
+      const platformTitles = ["DForce"];
 
       for (let n = 0; n < platforms.length; ++n) {
         let localSnapshot: string;

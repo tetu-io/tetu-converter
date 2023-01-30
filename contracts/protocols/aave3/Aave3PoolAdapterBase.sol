@@ -561,10 +561,14 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer,
       totalDebtBase == 0
         ? 0
         : totalDebtBase * targetDecimals / borrowPrice
-      // we ask to pay a bit more amount to exclude dust tokens
-      // we assume here, that 1 cent (in USD) should cover all possible dust
-      // and give us a possibility to pass type(uint).max to repay function
-          + targetDecimals / borrowPrice / 100,
+      // We ask to pay slightly higher amount than current borrowed amount to exclude dust tokens problem.
+      // See https://docs.aave.com/developers/core-contracts/pool#repay
+      // We assume here, that 100 cents (in USD) should cover all possible dust
+      // and give us a possibility to pass type(uint).max to repay function.
+      // Ensure, that required debt exceeds totalDebtBase by at least token
+          + (targetDecimals > borrowPrice * 1
+              ? targetDecimals / borrowPrice / 1 // it's not valid for WBTC
+              : 1),
       // Current health factor, decimals 18
       hf18,
       totalCollateralBase != 0 || totalDebtBase != 0,

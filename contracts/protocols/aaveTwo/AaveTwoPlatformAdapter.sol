@@ -210,7 +210,7 @@ contract AaveTwoPlatformAdapter is IPlatformAdapter {
             vars.healthFactor18 = uint(params.healthFactor2) * 10**(18 - 2);
           }
           plan.amountToBorrow =
-              1e18 * params.collateralAmount / uint(vars.healthFactor18)
+              1e18 * params.collateralAmount / vars.healthFactor18
               * plan.liquidationThreshold18
               * vars.priceCollateral
               / vars.priceBorrow

@@ -1407,6 +1407,25 @@ describe("Aave3PoolAdapterUnitTest", () => {
             expect(ret).eq(true);
           });
         });
+        describe("Small amount DAI/USDC", () => {
+          it("should return amount of debt almost equal to borrowed amount", async () => {
+            const results = await makeBorrowTest(
+              MaticAddresses.DAI,
+              MaticAddresses.HOLDER_DAI,
+              MaticAddresses.USDC,
+              "0.1"
+            );
+            const status = await results.init.aavePoolAdapterAsTC.getStatus();
+
+            const amountBorrowed = results.borrowResults.borrowedAmount;
+            const amountReturnedByStatus = status.amountToPay;
+            console.log("amountBorrowed", amountBorrowed.toString());
+            console.log("amountReturnedByStatus", amountReturnedByStatus.toString());
+
+            const ret = areAlmostEqual(amountBorrowed, amountReturnedByStatus, 5);
+            expect(ret).eq(true);
+          });
+        });
       });
     });
     describe("Bad paths", () => {

@@ -6,7 +6,7 @@ import {
   BorrowManager__factory,
   IPlatformAdapter__factory,
   ITetuConverter__factory,
-  Controller, IERC20__factory, TetuConverter__factory
+  Controller, IERC20__factory, TetuConverter__factory, IERC20Metadata__factory
 } from "../../../typechain";
 import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import {TokenDataTypes} from "../types/TokenDataTypes";
@@ -369,11 +369,35 @@ export class BorrowRepayUsesCase {
 
     const amountToRepay = undefined; // full repay
 
-    const ucBalanceCollateral0 = await setInitialBalance(deployer, collateralToken.address,
-      p.collateral.holder, p.collateral.initialLiquidity, uc.address);
-    const ucBalanceBorrow0 = await setInitialBalance(deployer, borrowToken.address,
-      p.borrow.holder, p.borrow.initialLiquidity, uc.address);
     const collateralAmount = getBigNumberFrom(p.collateralAmount, collateralToken.decimals);
+    const initialLiquidityCollateral0 = getBigNumberFrom(p.collateral.initialLiquidity, collateralToken.decimals);
+    const initialLiquidityBorrow0 = getBigNumberFrom(p.borrow.initialLiquidity, collateralToken.decimals);
+
+    // set up initial liquidity for borrow and collateral assets
+    // these liquidity can be set manually (!== 0) or calculated automatically (=== 0)
+    // For automatic calculation we assume following:
+    // p.collateral.initialLiquidity === 0: we need to get all available amount from the holder
+    // p.borrow.initialLiquidity === 0: let's take some amount from the holder (we need amount > 0 to be able to repay)
+    const initialLiquidityCollateral = initialLiquidityCollateral0.eq(0)
+      ? collateralAmount
+      : initialLiquidityCollateral0;
+    const initialLiquidityBorrow = initialLiquidityBorrow0.eq(0)
+      ? (await IERC20__factory.connect(p.borrow.asset, deployer).balanceOf(p.borrow.holder)).div(10)
+      : initialLiquidityBorrow0;
+
+
+    const ucBalanceCollateral0 = await setInitialBalance(deployer,
+      collateralToken.address,
+      p.collateral.holder,
+      initialLiquidityCollateral,
+      uc.address
+    );
+    const ucBalanceBorrow0 = await setInitialBalance(deployer,
+      borrowToken.address,
+      p.borrow.holder,
+      initialLiquidityBorrow,
+      uc.address
+    );
 
     const tetuConverter = ITetuConverter__factory.connect(await controller.tetuConverter(), deployer);
     await IERC20__factory.connect(collateralToken.address, await DeployerUtils.startImpersonate(uc.address)).approve(

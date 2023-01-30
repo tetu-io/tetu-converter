@@ -17,6 +17,8 @@ import "../../integrations/aaveTwo/AaveTwoReserveConfiguration.sol";
 import "../../integrations/aaveTwo/IAaveTwoAToken.sol";
 import "../../integrations/dforce/SafeRatioMath.sol";
 
+import "hardhat/console.sol";
+
 /// @notice Implementation of IPoolAdapter for AAVE-v2-protocol, see https://docs.aave.com/hub/
 /// @dev Instances of this contract are created using proxy-minimal pattern, so no constructor
 contract AaveTwoPoolAdapter is IPoolAdapter, IPoolAdapterInitializer, Initializable {
@@ -292,6 +294,7 @@ contract AaveTwoPoolAdapter is IPoolAdapter, IPoolAdapterInitializer, Initializa
     // transfer borrow amount back to the pool
     // replaced by infinity approve: IERC20(assetBorrow).approve(address(pool), amountToRepay_);
 
+    console.log("AaveTwoPoolAdapter.repay amountToRepay_ closePosition_", amountToRepay_, closePosition_);
     pool.repay(assetBorrow,
       closePosition_ ? type(uint).max : amountToRepay_,
       RATE_MODE,
@@ -531,6 +534,9 @@ contract AaveTwoPoolAdapter is IPoolAdapter, IPoolAdapterInitializer, Initializa
     uint aTokensBalance = IERC20(rc.aTokenAddress).balanceOf(address(this));
 
     uint targetDecimals = (10 ** pool.getConfiguration(assetBorrow).getDecimals());
+    console.log("targetDecimals", targetDecimals);
+    console.log("borrowPrice", borrowPrice);
+    console.log("totalDebtBase", totalDebtBase);
     return (
     // Total amount of provided collateral in [collateral asset]
       totalCollateralBase * (10 ** pool.getConfiguration(assetCollateral).getDecimals()) / collateralPrice,
@@ -538,10 +544,14 @@ contract AaveTwoPoolAdapter is IPoolAdapter, IPoolAdapterInitializer, Initializa
       totalDebtBase == 0
         ? 0
         : totalDebtBase * targetDecimals / borrowPrice
-          // we ask to pay a bit more amount to exclude dust tokens
-          // i.e. for USD we need to pay only 1 cent
-          // this amount allows us to pass type(uint).max to repay function
-          + targetDecimals / 100,
+        // We ask to pay slightly higher amount than current borrowed amount to exclude dust tokens problem.
+        // See https://docs.aave.com/developers/core-contracts/pool#repay
+        // we assume here, that 100 cents (in USD) should cover all possible dust
+        // and give us a possibility to pass type(uint).max to repay function
+        // Ensure, that required debt exceeds totalDebtBase by at least token
+          + (targetDecimals > borrowPrice * 1
+            ? targetDecimals / borrowPrice / 1 // it's not valid for WBTC
+            : 1),
     // Current health factor, decimals 18
       hf18,
       totalCollateralBase != 0 || totalDebtBase != 0,
