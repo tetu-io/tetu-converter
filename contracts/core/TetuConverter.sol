@@ -166,13 +166,15 @@ contract TetuConverter is ITetuConverter, IKeeperCallback, IRequireAmountBySwapM
     }
 
     AppDataTypes.InputConversionParams memory params = AppDataTypes.InputConversionParams({
-      sourceToken: sourceToken_,
-      targetToken: targetToken_,
-      sourceAmount: sourceAmount_,
-      periodInBlocks: periodInBlocks_
+      collateralAsset: sourceToken_,
+      borrowAsset: targetToken_,
+      collateralAmount: sourceAmount_,
+      countBlocks: periodInBlocks_,
+      entryKind: 0,
+      entryData: ""
     });
 
-    (address borrowConverter, uint borrowMaxTargetAmount, int borrowingApr18) = borrowManager.findConverter(params);
+    (address borrowConverter,, uint borrowMaxTargetAmount, int borrowingApr18) = borrowManager.findConverter(params);
 
     return swapConverter == address(0) || (borrowConverter != address(0) && swapApr18 > borrowingApr18)
       ? (borrowConverter, borrowMaxTargetAmount, borrowingApr18)
@@ -184,26 +186,32 @@ contract TetuConverter is ITetuConverter, IKeeperCallback, IRequireAmountBySwapM
   /// @param periodInBlocks_ Estimated period to keep target amount. It's required to compute APR
   /// @return converter Result contract that should be used for conversion; it supports IConverter
   ///                   This address should be passed to borrow-function during conversion.
-  /// @return maxTargetAmount Max available amount of target tokens that we can get after conversion
+  /// @return collateralAmountOut Amount that should be provided as a collateral
+  /// @return amountToBorrowOut Amount that should be borrowed
   /// @return apr18 Interest on the use of {outMaxTargetAmount} during the given period, decimals 18
   function findBorrowStrategy(
+    EntryKind entryKind_,
     address sourceToken_,
     uint sourceAmount_,
     address targetToken_,
-    uint periodInBlocks_
+    uint periodInBlocks_,
+    bytes memory entryData_
   ) external view override returns (
     address converter,
-    uint maxTargetAmount,
+    uint collateralAmountOut,
+    uint amountToBorrowOut,
     int apr18
   ) {
     require(sourceAmount_ != 0, AppErrors.ZERO_AMOUNT);
     require(periodInBlocks_ != 0, AppErrors.INCORRECT_VALUE);
 
     AppDataTypes.InputConversionParams memory params = AppDataTypes.InputConversionParams({
-      sourceToken: sourceToken_,
-      targetToken: targetToken_,
-      sourceAmount: sourceAmount_,
-      periodInBlocks: periodInBlocks_
+      collateralAsset: sourceToken_,
+      borrowAsset: targetToken_,
+      collateralAmount: sourceAmount_,
+      countBlocks: periodInBlocks_,
+      entryKind: uint16(entryKind_),
+      entryData: entryData_
     });
 
     return borrowManager.findConverter(params);

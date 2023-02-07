@@ -52,6 +52,7 @@ contract AaveTwoPlatformAdapter is IPlatformAdapter {
     /// @notice 10**rb.configuration.getDecimals()
     uint rb10powDec;
     uint healthFactor18;
+    IController controller;
   }
 
   ///////////////////////////////////////////////////////
@@ -146,36 +147,19 @@ contract AaveTwoPlatformAdapter is IPlatformAdapter {
   ///////////////////////////////////////////////////////
 
   function getConversionPlan (
-    address collateralAsset_,
-    uint collateralAmount_,
-    address borrowAsset_,
-    uint16 healthFactor2_,
-    uint countBlocks_
+    AppDataTypes.InputConversionParams memory params,
+    uint16 healthFactor2_
   ) external view override returns (
-    AppDataTypes.ConversionPlan memory plan
-  ) {
-    require(collateralAsset_ != address(0) && borrowAsset_ != address(0), AppErrors.ZERO_ADDRESS);
-    require(collateralAmount_ != 0 && countBlocks_ != 0, AppErrors.INCORRECT_VALUE);
-    require(healthFactor2_ >= controller.minHealthFactor2(), AppErrors.WRONG_HEALTH_FACTOR);
-
-    return _getConversionPlan(
-      AppDataTypes.ParamsGetConversionPlan({
-        collateralAsset: collateralAsset_,
-        collateralAmount: collateralAmount_,
-        borrowAsset: borrowAsset_,
-        healthFactor2: healthFactor2_,
-        countBlocks: countBlocks_
-      })
-    );
-  }
-
-  function _getConversionPlan (
-    AppDataTypes.ParamsGetConversionPlan memory params
-  ) internal view returns (
     AppDataTypes.ConversionPlan memory plan
   ) {
     if (! frozen) {
       LocalsGetConversionPlan memory vars;
+      vars.controller = controller;
+
+      require(params.collateralAsset != address(0) && params.borrowAsset != address(0), AppErrors.ZERO_ADDRESS);
+      require(params.collateralAmount != 0 && params.countBlocks != 0, AppErrors.INCORRECT_VALUE);
+      require(healthFactor2_ >= vars.controller.minHealthFactor2(), AppErrors.WRONG_HEALTH_FACTOR);
+
       vars.poolLocal = pool;
 
       vars.addressProvider = IAaveTwoLendingPoolAddressesProvider(vars.poolLocal.getAddressesProvider());
@@ -198,7 +182,7 @@ contract AaveTwoPlatformAdapter is IPlatformAdapter {
           plan.converter = converter;
 
           // prepare to calculate supply/borrow APR
-          vars.blocksPerDay = controller.blocksPerDay();
+          vars.blocksPerDay = vars.controller.blocksPerDay();
           vars.priceCollateral = vars.priceOracle.getAssetPrice(params.collateralAsset);
           vars.priceBorrow = vars.priceOracle.getAssetPrice(params.borrowAsset);
 
@@ -206,8 +190,8 @@ contract AaveTwoPlatformAdapter is IPlatformAdapter {
           // Target health factor can be smaller but it's not possible to make a borrow with such low health factor
           // see explanation of health factor value in IController.sol
           vars.healthFactor18 = plan.liquidationThreshold18 * 1e18 / plan.ltv18;
-          if (vars.healthFactor18 < uint(params.healthFactor2) * 10**(18 - 2)) {
-            vars.healthFactor18 = uint(params.healthFactor2) * 10**(18 - 2);
+          if (vars.healthFactor18 < uint(healthFactor2_) * 10**(18 - 2)) {
+            vars.healthFactor18 = uint(healthFactor2_) * 10**(18 - 2);
           }
           plan.amountToBorrow =
               1e18 * params.collateralAmount / vars.healthFactor18

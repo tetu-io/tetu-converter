@@ -156,23 +156,20 @@ contract HfPlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
   ///////////////////////////////////////////////////////
 
   function getConversionPlan (
-    address collateralAsset_,
-    uint collateralAmount_,
-    address borrowAsset_,
-    uint16 healthFactor2_,
-    uint countBlocks_
+    AppDataTypes.InputConversionParams memory p_,
+    uint16 healthFactor2_
   ) external override view returns (
     AppDataTypes.ConversionPlan memory plan
   ) {
-    require(collateralAsset_ != address(0) && borrowAsset_ != address(0), AppErrors.ZERO_ADDRESS);
-    require(collateralAmount_ != 0 && countBlocks_ != 0, AppErrors.INCORRECT_VALUE);
+    require(p_.collateralAsset != address(0) && p_.borrowAsset != address(0), AppErrors.ZERO_ADDRESS);
+    require(p_.collateralAmount != 0 && p_.countBlocks != 0, AppErrors.INCORRECT_VALUE);
     require(healthFactor2_ >= controller.minHealthFactor2(), AppErrors.WRONG_HEALTH_FACTOR);
 
     if (! frozen) {
-      address cTokenCollateral = activeAssets[collateralAsset_];
+      address cTokenCollateral = activeAssets[p_.collateralAsset];
       if (cTokenCollateral != address(0)) {
 
-        address cTokenBorrow = activeAssets[borrowAsset_];
+        address cTokenBorrow = activeAssets[p_.borrowAsset];
         if (cTokenBorrow != address(0)) {
           (plan.ltv18, plan.liquidationThreshold18) = getMarketsInfo(cTokenCollateral, cTokenBorrow);
           if (plan.ltv18 != 0 && plan.liquidationThreshold18 != 0) {
@@ -195,8 +192,8 @@ contract HfPlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
             plan.maxAmountToSupply = type(uint).max; // unlimited
 
             HfAprLib.PricesAndDecimals memory vars;
-            vars.collateral10PowDecimals = 10**IERC20Metadata(collateralAsset_).decimals();
-            vars.borrow10PowDecimals = 10**IERC20Metadata(borrowAsset_).decimals();
+            vars.collateral10PowDecimals = 10**IERC20Metadata(p_.collateralAsset).decimals();
+            vars.borrow10PowDecimals = 10**IERC20Metadata(p_.borrowAsset).decimals();
             vars.priceOracle = IHfPriceOracle(comptroller.oracle());
             vars.priceCollateral36 = HfAprLib.getPrice(vars.priceOracle, cTokenCollateral) * vars.collateral10PowDecimals;
             vars.priceBorrow36 = HfAprLib.getPrice(vars.priceOracle, cTokenBorrow) * vars.borrow10PowDecimals;
@@ -206,7 +203,7 @@ contract HfPlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
 
             // we assume that liquidationThreshold18 == ltv18 in this protocol, so the minimum health factor is 1
             plan.amountToBorrow =
-              100 * collateralAmount_ / uint(healthFactor2_)
+              100 * p_.collateralAmount / uint(healthFactor2_)
               * (vars.priceCollateral36 * plan.liquidationThreshold18 / vars.priceBorrow36)
               / 1e18
               * vars.borrow10PowDecimals
@@ -221,14 +218,14 @@ contract HfPlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
              plan.supplyIncomeInBorrowAsset36
             ) = HfAprLib.getRawCostAndIncomes(
               HfAprLib.getCore(cTokenCollateral, cTokenBorrow),
-              collateralAmount_,
-              countBlocks_,
+              p_.collateralAmount,
+              p_.countBlocks,
               plan.amountToBorrow,
               vars
             );
 
             plan.amountCollateralInBorrowAsset36 =
-              collateralAmount_ * (10**36 * vars.priceCollateral36 / vars.priceBorrow36)
+              p_.collateralAmount * (10**36 * vars.priceCollateral36 / vars.priceBorrow36)
               / vars.collateral10PowDecimals;
           }
         }

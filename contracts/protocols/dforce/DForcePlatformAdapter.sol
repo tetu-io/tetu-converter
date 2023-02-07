@@ -158,23 +158,20 @@ contract DForcePlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
   ///////////////////////////////////////////////////////
 
   function getConversionPlan (
-    address collateralAsset_,
-    uint collateralAmount_,
-    address borrowAsset_,
-    uint16 healthFactor2_,
-    uint countBlocks_
+    AppDataTypes.InputConversionParams memory p_,
+    uint16 healthFactor2_
   ) external override view returns (
     AppDataTypes.ConversionPlan memory plan
   ) {
-    require(collateralAsset_ != address(0) && borrowAsset_ != address(0), AppErrors.ZERO_ADDRESS);
-    require(collateralAmount_ != 0 && countBlocks_ != 0, AppErrors.INCORRECT_VALUE);
+    require(p_.collateralAsset != address(0) && p_.borrowAsset != address(0), AppErrors.ZERO_ADDRESS);
+    require(p_.collateralAmount != 0 && p_.countBlocks != 0, AppErrors.INCORRECT_VALUE);
     require(healthFactor2_ >= controller.minHealthFactor2(), AppErrors.WRONG_HEALTH_FACTOR);
 
     if (! frozen) {
       IDForceController comptrollerLocal = comptroller;
-      address cTokenCollateral = activeAssets[collateralAsset_];
+      address cTokenCollateral = activeAssets[p_.collateralAsset];
       if (cTokenCollateral != address(0)) {
-        address cTokenBorrow = activeAssets[borrowAsset_];
+        address cTokenBorrow = activeAssets[p_.borrowAsset];
         if (cTokenBorrow != address(0)) {
           (uint collateralFactor, uint supplyCapacity) = _getCollateralMarketData(comptrollerLocal, cTokenCollateral);
           if (collateralFactor != 0 && supplyCapacity != 0) {
@@ -216,8 +213,8 @@ contract DForcePlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
             }
 
             DForceAprLib.PricesAndDecimals memory vars;
-            vars.collateral10PowDecimals = 10**IERC20Metadata(collateralAsset_).decimals();
-            vars.borrow10PowDecimals = 10**IERC20Metadata(borrowAsset_).decimals();
+            vars.collateral10PowDecimals = 10**IERC20Metadata(p_.collateralAsset).decimals();
+            vars.borrow10PowDecimals = 10**IERC20Metadata(p_.borrowAsset).decimals();
             vars.priceOracle = IDForcePriceOracle(comptroller.priceOracle());
             vars.priceCollateral36 = DForceAprLib.getPrice(vars.priceOracle, cTokenCollateral)
               * vars.collateral10PowDecimals;
@@ -235,7 +232,7 @@ contract DForcePlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
               vars.healthFactor18 = uint(healthFactor2_) * 10**(18 - 2);
             }
             plan.amountToBorrow =
-                1e18 * collateralAmount_ / vars.healthFactor18
+                1e18 * p_.collateralAmount / vars.healthFactor18
                 * (plan.liquidationThreshold18 * vars.priceCollateral36 / vars.priceBorrow36)
                 / 1e18
                 * vars.borrow10PowDecimals
@@ -249,14 +246,14 @@ contract DForcePlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
              plan.rewardsAmountInBorrowAsset36
             ) = DForceAprLib.getRawCostAndIncomes(
               DForceAprLib.getCore(comptroller, cTokenCollateral, cTokenBorrow),
-              collateralAmount_,
-              countBlocks_,
+              p_.collateralAmount,
+              p_.countBlocks,
               plan.amountToBorrow,
               vars
             );
 
             plan.amountCollateralInBorrowAsset36 =
-              collateralAmount_ * (10**36 * vars.priceCollateral36 / vars.priceBorrow36)
+              p_.collateralAmount * (10**36 * vars.priceCollateral36 / vars.priceBorrow36)
               / vars.collateral10PowDecimals;
           }
         }

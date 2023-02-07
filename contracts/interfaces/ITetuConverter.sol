@@ -5,21 +5,38 @@ pragma solidity 0.8.17;
 /// @notice Main contract of the TetuConverter application
 /// @dev Borrower (strategy) makes all operations via this contract only.
 interface ITetuConverter {
+
+  /// @notice FindConversionStrategy kinds
+  enum EntryKind {
+    /// @notice Amount of collateral is fixed. Amount of borrow should be max possible.
+    EXACT_COLLATERAL_IN_FOR_MAX_BORROW_OUT_0,
+    /// @notice Split provided source amount S on two parts: C1 and C2 (C1 + C2 = S)
+    ///         C2 should be used as collateral to make a borrow B.
+    ///         Results amounts of C1 and B should be (almost) equal (in terms of USD)
+    EQUAL_COLLATERAL_AND_BORROW_OUT_1
+  }
+
   /// @notice Find best borrow strategy and provide "cost of money" as interest for the period
+  /// @param entryKind_ Specify requirements for the conversion
   /// @param sourceAmount_ Amount to be converted
   /// @param periodInBlocks_ Estimated period to keep target amount. It's required to compute APR
+  /// @param entryData_ Encoded additional params. Composition of parameters depends on {entryKind_}
   /// @return converter Result contract that should be used for conversion; it supports IConverter
   ///                   This address should be passed to borrow-function during conversion.
-  /// @return maxTargetAmount Max available amount of target tokens that we can get after conversion
+  /// @return collateralAmountOut Amount that should be provided as a collateral
+  /// @return amountToBorrowOut Amount that should be borrowed
   /// @return apr18 Interest on the use of {outMaxTargetAmount} during the given period, decimals 18
   function findBorrowStrategy(
+    EntryKind entryKind_,
     address sourceToken_,
     uint sourceAmount_,
     address targetToken_,
-    uint periodInBlocks_
+    uint periodInBlocks_,
+    bytes memory entryData_
   ) external view returns (
     address converter,
-    uint maxTargetAmount,
+    uint collateralAmountOut,
+    uint amountToBorrowOut,
     int apr18
   );
 

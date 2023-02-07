@@ -12,12 +12,17 @@ library AppDataTypes {
 
   /// @notice Input params for BorrowManager.findPool (stack is too deep problem)
   struct InputConversionParams {
-    address sourceToken;
-    address targetToken;
+    address collateralAsset;
+    address borrowAsset;
 
-    uint periodInBlocks;
+    /// @notice Possible values: see ITetuConverter.EntryKind
+    uint16 entryKind;
+    /// @notice Encoded data, exact set of parameters depends on entryKind
+    bytes entryData;
+
+    uint countBlocks;
     /// @notice Amount of {sourceToken} to be converted to {targetToken}
-    uint sourceAmount;
+    uint collateralAmount;
   }
 
   /// @notice Explain how a given lending pool can make specified conversion
@@ -29,6 +34,8 @@ library AppDataTypes {
 
     /// @notice Amount to borrow in terms of borrow asset
     uint amountToBorrow;
+    /// @notice Amount to be used as collateral in terms of collateral asset
+    uint collateralAmount;
 
     /// @notice Cost for the period calculated using borrow rate in terms of borrow tokens, decimals 36
     /// @dev It doesn't take into account supply increment and rewards
@@ -47,15 +54,5 @@ library AppDataTypes {
     /// @notice How much collateral asset can be supplied (in collateral tokens).
     ///         type(uint).max - unlimited, 0 - no supply is possible
     uint maxAmountToSupply;
-  }
-
-  /// @notice A struct to combine all params of getConversionPlan implementation to single struct
-  /// @dev Workaround for - stack is too deep problem... - problem
-  struct ParamsGetConversionPlan {
-    address collateralAsset;
-    address borrowAsset;
-    uint16 healthFactor2;
-    uint collateralAmount;
-    uint countBlocks;
   }
 }

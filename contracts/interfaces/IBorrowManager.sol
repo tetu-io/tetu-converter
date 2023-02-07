@@ -78,11 +78,13 @@ interface IBorrowManager {
 
   /// @notice Find lending pool capable of providing {targetAmount} and having best normalized borrow rate
   /// @return converter Result template-pool-adapter or 0 if a pool is not found
-  /// @return maxTargetAmount Max available amount of target tokens that we can borrow using {sourceAmount}
+  /// @return collateralAmountOut Amount that should be provided as a collateral
+  /// @return amountToBorrowOut Amount that should be borrowed
   /// @return apr18 Annual Percentage Rate == (total cost - total income) / amount of collateral, decimals 18
   function findConverter(AppDataTypes.InputConversionParams memory params) external view returns (
     address converter,
-    uint maxTargetAmount,
+    uint collateralAmountOut,
+    uint amountToBorrowOut,
     int apr18
   );
 
