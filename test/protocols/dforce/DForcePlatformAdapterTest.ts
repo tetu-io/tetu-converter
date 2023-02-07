@@ -273,11 +273,15 @@ describe("DForce integration tests, platform adapter", () => {
     }
 
     const plan = await dForcePlatformAdapter.getConversionPlan(
-      badPathsParams?.zeroCollateralAsset ? Misc.ZERO_ADDRESS : collateralAsset,
-      badPathsParams?.zeroCollateralAmount ? 0 : collateralAmount,
-      badPathsParams?.zeroBorrowAsset ? Misc.ZERO_ADDRESS : borrowAsset,
+      {
+        collateralAsset: badPathsParams?.zeroCollateralAsset ? Misc.ZERO_ADDRESS : collateralAsset,
+        collateralAmount: badPathsParams?.zeroCollateralAmount ? 0 : collateralAmount,
+        borrowAsset: badPathsParams?.zeroBorrowAsset ? Misc.ZERO_ADDRESS : borrowAsset,
+        countBlocks: badPathsParams?.zeroCountBlocks ? 0 : countBlocks,
+        entryKind: 0,
+        entryData: "0x"
+      },
       badPathsParams?.incorrectHealthFactor2 || healthFactor2,
-      badPathsParams?.zeroCountBlocks ? 0 : countBlocks,
     );
 
     return {
@@ -703,11 +707,15 @@ describe("DForce integration tests, platform adapter", () => {
           );
 
           const gasUsed = await dForcePlatformAdapter.estimateGas.getConversionPlan(
-            MaticAddresses.DAI,
-            parseUnits("1", 18),
-            MaticAddresses.USDC,
+            {
+              collateralAsset: MaticAddresses.DAI,
+              collateralAmount: parseUnits("1", 18),
+              borrowAsset: MaticAddresses.USDC,
+              countBlocks: 1000,
+              entryKind: 0,
+              entryData: "0x"
+            },
             200,
-            1000,
           );
           console.log("DForcePlatformAdapter.getConversionPlan.gas", gasUsed.toString());
           controlGasLimitsEx(gasUsed, GAS_LIMIT_DFORCE_GET_CONVERSION_PLAN, (u, t) => {

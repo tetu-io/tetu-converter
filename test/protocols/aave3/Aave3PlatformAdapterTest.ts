@@ -4,7 +4,7 @@ import {TimeUtils} from "../../../scripts/utils/TimeUtils";
 import {
   Aave3PlatformAdapter,
   Aave3PlatformAdapter__factory, BorrowManager__factory, Controller, IAavePool,
-  IAaveProtocolDataProvider, IController__factory, IERC20Metadata__factory
+  IAaveProtocolDataProvider, IERC20Metadata__factory
 } from "../../../typechain";
 import {expect} from "chai";
 import {BigNumber} from "ethers";
@@ -297,11 +297,15 @@ describe("Aave3PlatformAdapterTest", () => {
       }
       // get conversion plan
       const plan: IConversionPlan = await aavePlatformAdapter.getConversionPlan(
-        badPathsParams?.zeroCollateralAsset ? Misc.ZERO_ADDRESS : collateralAsset,
-        badPathsParams?.zeroCollateralAmount ? 0 : collateralAmount,
-        badPathsParams?.zeroBorrowAsset ? Misc.ZERO_ADDRESS : borrowAsset,
+        {
+          collateralAsset: badPathsParams?.zeroCollateralAsset ? Misc.ZERO_ADDRESS : collateralAsset,
+          collateralAmount: badPathsParams?.zeroCollateralAmount ? 0 : collateralAmount,
+          borrowAsset: badPathsParams?.zeroBorrowAsset ? Misc.ZERO_ADDRESS : borrowAsset,
+          countBlocks: badPathsParams?.zeroCountBlocks ? 0 : countBlocks,
+          entryKind: 0,
+          entryData: "0x"
+        },
         healthFactor2,
-        badPathsParams?.zeroCountBlocks ? 0 : countBlocks,
       );
 
       const prices = await (await Aave3Helper.getAavePriceOracle(deployer)).getAssetsPrices([collateralAsset, borrowAsset]);
@@ -583,11 +587,15 @@ describe("Aave3PlatformAdapterTest", () => {
           );
 
           const gasUsed = await aavePlatformAdapter.estimateGas.getConversionPlan(
-            MaticAddresses.DAI,
-            parseUnits("1", 18),
-            MaticAddresses.USDC,
+            {
+              collateralAsset: MaticAddresses.DAI,
+              collateralAmount: parseUnits("1", 18),
+              borrowAsset: MaticAddresses.USDC,
+              countBlocks: 1,
+              entryKind: 0,
+              entryData: "0x"
+            },
             200,
-            1
           );
           console.log("Aave3PlatformAdapter.getConversionPlan.gas", gasUsed.toString());
           controlGasLimitsEx(gasUsed, GAS_LIMIT_AAVE_3_GET_CONVERSION_PLAN, (u, t) => {

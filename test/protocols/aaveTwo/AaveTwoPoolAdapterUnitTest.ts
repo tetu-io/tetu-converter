@@ -1388,7 +1388,17 @@ describe("AaveTwoPoolAdapterUnitTest", () => {
         // TetuConverter gives infinity approve to the pool adapter after pool adapter creation (see TetuConverter.convert implementation)
         await makeInfinityApprove(tetuConverterSigner.address, aavePoolAdapterAsTC.address, collateralAsset, borrowAsset);
         await BalanceUtils.getRequiredAmountFromHolders(collateralAmount, collateralToken.token, [collateralHolder], userContract.address);
-        const plan = await platformAdapter.getConversionPlan(collateralAsset, collateralAmount, borrowAsset, targetHealthFactor2, 1);
+        const plan = await platformAdapter.getConversionPlan(
+          {
+            collateralAsset,
+            collateralAmount,
+            borrowAsset,
+            countBlocks: 1,
+            entryKind: 0,
+            entryData: "0x"
+          },
+          targetHealthFactor2
+        );
         await transferAndApprove(collateralAsset, userContract.address, tetuConverterSigner.address, collateralAmount, aavePoolAdapterAsTC.address);
 
         await expect(
