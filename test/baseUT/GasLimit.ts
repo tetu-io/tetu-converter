@@ -1,8 +1,8 @@
 /**
  * Approx up-limits by gas for various operations under test
  */
-export const GAS_LIMIT_BM_FIND_POOL_1 = 93_000;
-export const GAS_LIMIT_BM_FIND_POOL_5 = 293_000;
+export const GAS_LIMIT_BM_FIND_POOL_1 = 96_000;
+export const GAS_LIMIT_BM_FIND_POOL_5 = 301_000;
 export const GAS_LIMIT_BM_FIND_POOL_10 = 383_000;
 export const GAS_LIMIT_BM_FIND_POOL_100 = 3_710_000;
 
@@ -17,7 +17,7 @@ export const GAS_LIMIT_REPAY_HUNDRED_FINANCE =  917_337;
 export const GAS_LIMIT_INIT_BORROW_DFORCE = 1_850_000;
 export const GAS_LIMIT_REPAY_DFORCE = 783_876;
 
-export const GAS_FIND_CONVERSION_STRATEGY_ONLY_BORROW_AVAILABLE = 246_000;
+export const GAS_FIND_CONVERSION_STRATEGY_ONLY_BORROW_AVAILABLE = 249_000;
 export const GAS_TC_BORROW = 1_060_000;
 export const GAS_TC_REPAY = 304_000;
 export const GAS_TC_QUOTE_REPAY = 33_000;

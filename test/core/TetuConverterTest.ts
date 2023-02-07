@@ -392,7 +392,8 @@ describe("TetuConverterTest", () => {
 //region Predict conversion results
   interface IFindConversionStrategyResults {
     converter: string;
-    maxTargetAmount: BigNumber;
+    collateralAmountOut: BigNumber;
+    amountToBorrowOut: BigNumber;
     apr18: BigNumber;
   }
 
@@ -433,14 +434,15 @@ describe("TetuConverterTest", () => {
     const returnAmount = await tetuLiquidator.getPrice(
       r.init.targetToken.address,
       r.init.sourceToken.address,
-      r.results.maxTargetAmount
+      r.results.amountToBorrowOut
     );
     const sourceAmount = getBigNumberFrom(sourceAmountNum, await r.init.sourceToken.decimals());
     const loss = sourceAmount.sub(returnAmount);
     const apr18 = loss.mul(APR_NUMERATOR).div(sourceAmount);
 
     return {
-      maxTargetAmount,
+      amountToBorrowOut: maxTargetAmount,
+      collateralAmountOut: sourceAmount,
       apr18,
       converter: r.init.core.swapManager.address
     }
@@ -483,7 +485,8 @@ describe("TetuConverterTest", () => {
 
     return {
       converter: r.poolAdapterConverter,
-      maxTargetAmount,
+      amountToBorrowOut: maxTargetAmount,
+      collateralAmountOut: parseUnits(sourceAmountNum.toString(), await r.init.sourceToken.decimals()),
       apr18
     }
   }
@@ -570,7 +573,12 @@ describe("TetuConverterTest", () => {
 
     return {
       init,
-      results,
+      results: {
+        converter: results.converter,
+        apr18: results.apr18,
+        amountToBorrowOut: results.maxTargetAmount,
+        collateralAmountOut: sourceAmount
+      },
       poolAdapterConverter,
       gas
     }
@@ -652,16 +660,20 @@ describe("TetuConverterTest", () => {
     const sourceAmount = parseUnits(sourceAmountNum.toString(), await init.sourceToken.decimals());
 
     const results = await init.core.tc.findBorrowStrategy(
+      0, // entry kind
       init.sourceToken.address,
       sourceAmount,
       init.targetToken.address,
-      periodInBlocks
+      periodInBlocks,
+      "0x" // entry data
     );
     const gas = await init.core.tc.estimateGas.findBorrowStrategy(
+      0, // entry kind
       init.sourceToken.address,
       sourceAmount,
       init.targetToken.address,
-      periodInBlocks
+      periodInBlocks,
+      "0x" // entry data
     );
 
     const poolAdapterConverter = init.poolAdapters.length
@@ -736,7 +748,12 @@ describe("TetuConverterTest", () => {
 
     return {
       init,
-      results,
+      results: {
+        converter: results.converter,
+        apr18: results.apr18,
+        amountToBorrowOut: results.maxTargetAmount,
+        collateralAmountOut: sourceAmount
+      },
       poolAdapterConverter,
       gas
     }
@@ -909,12 +926,12 @@ describe("TetuConverterTest", () => {
               console.log(r);
               const ret = [
                 r.results.converter,
-                r.results.maxTargetAmount,
+                r.results.amountToBorrowOut,
                 r.results.apr18
               ].map(x => BalanceUtils.toString(x)).join("\r");
               const expected = [
                 r.expectedBorrowing.converter,
-                r.expectedBorrowing.maxTargetAmount,
+                r.expectedBorrowing.amountToBorrowOut,
                 r.expectedBorrowing.apr18
               ].map(x => BalanceUtils.toString(x)).join("\r");
 
@@ -929,12 +946,12 @@ describe("TetuConverterTest", () => {
               );
               const ret = [
                 r.results.converter,
-                r.results.maxTargetAmount,
+                r.results.amountToBorrowOut,
                 r.results.apr18
               ].map(x => BalanceUtils.toString(x)).join("\r");
               const expected = [
                 r.expectedSwap.converter,
-                r.expectedSwap.maxTargetAmount,
+                r.expectedSwap.amountToBorrowOut,
                 r.expectedSwap.apr18
               ].map(x => BalanceUtils.toString(x)).join("\r");
 
@@ -958,13 +975,13 @@ describe("TetuConverterTest", () => {
 
           const sret = [
             r.results.converter,
-            r.results.maxTargetAmount,
+            r.results.amountToBorrowOut,
             r.results.apr18
           ].join("\n");
 
           const sexpected = [
             expected.converter,
-            expected.maxTargetAmount,
+            expected.amountToBorrowOut,
             expected.apr18
           ].join("\n");
 
@@ -1030,13 +1047,13 @@ describe("TetuConverterTest", () => {
 
         const sret = [
           r.results.converter,
-          r.results.maxTargetAmount,
+          r.results.amountToBorrowOut,
           r.results.apr18
         ].join("\n");
 
         const sexpected = [
           expected.converter,
-          expected.maxTargetAmount,
+          expected.amountToBorrowOut,
           expected.apr18
         ].join("\n");
 
@@ -1069,7 +1086,7 @@ describe("TetuConverterTest", () => {
         const r = await makeFindSwapStrategyTest(sourceAmount, priceImpact);
         const ret = [
           r.results.converter,
-          r.results.maxTargetAmount.toString(),
+          r.results.amountToBorrowOut.toString(),
           r.results.apr18.toString()
         ].join();
 
@@ -1092,7 +1109,7 @@ describe("TetuConverterTest", () => {
         const r = await makeFindSwapStrategyTest(sourceAmount, priceImpact);
         const ret = [
           r.results.converter,
-          r.results.maxTargetAmount.toString(),
+          r.results.amountToBorrowOut.toString(),
           r.results.apr18.toString()
         ].join();
 
