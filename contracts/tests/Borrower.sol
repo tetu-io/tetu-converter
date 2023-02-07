@@ -39,6 +39,9 @@ contract Borrower is ITetuConverterCallback {
   /// @notice Call quoteRepay for amountToRepay + additional amount
   uint public additionalAmountForQuoteRepay;
 
+  uint public makeRepayCompleteAmountToRepay;
+  uint public makeRepayCompletePaidAmount;
+
   struct RequireAmountBackParams {
     uint amount;
     // we need TWO different variables here to be able to test bad-paths
@@ -220,8 +223,10 @@ contract Borrower is ITetuConverterCallback {
     // test quoteRepay prediction
 
     (uint amountToPay,) = _tc().getDebtAmountCurrent(address(this), collateralAsset_, borrowedAsset_);
+
+    uint borrowBalanceBeforeRepay = IERC20(borrowedAsset_).balanceOf(address(this));
     console.log("makeRepayComplete amountToPay", amountToPay);
-    console.log("makeRepayComplete borrowed asset balance", IERC20(borrowedAsset_).balanceOf(address(this)));
+    console.log("makeRepayComplete borrowed asset balance before repay", borrowBalanceBeforeRepay);
 
     lastQuoteRepayGasConsumption = gasleft();
     lastQuoteRepayResultCollateralAmount = _tc().quoteRepay(
@@ -232,7 +237,6 @@ contract Borrower is ITetuConverterCallback {
     );
     lastQuoteRepayGasConsumption -= gasleft();
     console.log("makeRepayComplete.quoteRepay", lastQuoteRepayResultCollateralAmount, lastQuoteRepayGasConsumption);
-    console.log("makeRepayComplete borrowed asset balance", IERC20(borrowedAsset_).balanceOf(address(this)));
 
     IERC20(borrowedAsset_).safeTransfer(address(_tc()), amountToPay);
 
@@ -242,9 +246,16 @@ contract Borrower is ITetuConverterCallback {
      swappedLeftoverCollateralOut,
      swappedLeftoverBorrowOut
     ) = _tc().repay(collateralAsset_, borrowedAsset_, amountToPay, receiver_);
-    totalAmountBorrowAssetRepaid += amountToPay;
+
+    uint borrowBalanceAfterRepay = IERC20(borrowedAsset_).balanceOf(address(this));
+    console.log("makeRepayComplete borrowed asset balance after repay", borrowBalanceAfterRepay);
+
+    totalAmountBorrowAssetRepaid += borrowBalanceBeforeRepay - borrowBalanceAfterRepay;
+    makeRepayCompleteAmountToRepay = amountToPay;
+    makeRepayCompletePaidAmount = borrowBalanceBeforeRepay - borrowBalanceAfterRepay;
 
     console.log("makeRepayComplete repay - finish");
+    console.log("makeRepayComplete borrowed asset balance", IERC20(borrowedAsset_).balanceOf(address(this)));
     _tc().claimRewards(address(this));
 
     console.log("makeRepayComplete done gasleft", gasleft(), collateralAmountOut, returnedBorrowAmountOut);

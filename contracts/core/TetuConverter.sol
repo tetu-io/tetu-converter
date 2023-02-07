@@ -174,13 +174,7 @@ contract TetuConverter is ITetuConverter, IKeeperCallback, IRequireAmountBySwapM
 
     (address borrowConverter, uint borrowMaxTargetAmount, int borrowingApr18) = borrowManager.findConverter(params);
 
-    bool useBorrow =
-      swapConverter == address(0)
-      || (
-      borrowConverter != address(0)
-      && swapApr18 > borrowingApr18
-    );
-    return useBorrow
+    return swapConverter == address(0) || (borrowConverter != address(0) && swapApr18 > borrowingApr18)
       ? (borrowConverter, borrowMaxTargetAmount, borrowingApr18)
       : (swapConverter, swapMaxTargetAmount, swapApr18);
   }

@@ -1,0 +1,174 @@
+import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
+import {ethers} from "hardhat";
+import {TimeUtils} from "../../../scripts/utils/TimeUtils";
+import {
+  IERC20Metadata__factory,
+  IPoolAdapter__factory
+} from "../../../typechain";
+import {expect} from "chai";
+import {BigNumber} from "ethers";
+import {getBigNumberFrom} from "../../../scripts/utils/NumberUtils";
+import {DeployerUtils} from "../../../scripts/utils/DeployerUtils";
+import {isPolygonForkInUse} from "../../baseUT/utils/NetworkUtils";
+import {BalanceUtils, IUserBalances} from "../../baseUT/utils/BalanceUtils";
+import {AaveTwoHelper, IAaveTwoReserveInfo} from "../../../scripts/integration/helpers/AaveTwoHelper";
+import {MaticAddresses} from "../../../scripts/addresses/MaticAddresses";
+import {TokenDataTypes} from "../../baseUT/types/TokenDataTypes";
+import {IAaveTwoUserAccountDataResults} from "../../baseUT/apr/aprAaveTwo";
+import {
+  AaveMakeBorrowAndRepayUtils, IBorrowAndRepayBadParams,
+  IMakeBorrowAndRepayResults
+} from "../../baseUT/protocols/aaveShared/aaveBorrowAndRepayUtils";
+import {AaveBorrowUtils} from "../../baseUT/protocols/aaveShared/aaveBorrowUtils";
+import {transferAndApprove} from "../../baseUT/utils/transferUtils";
+import {AaveTwoTestUtils, IPrepareToBorrowResults} from "../../baseUT/protocols/aaveTwo/AaveTwoTestUtils";
+import {areAlmostEqual} from "../../baseUT/utils/CommonUtils";
+import {formatUnits, parseUnits} from "ethers/lib/utils";
+import {Misc} from "../../../scripts/utils/Misc";
+
+describe("AaveTwoPoolAdapterIntDustTokensTest", () => {
+//region Global vars for all tests
+  let snapshot: string;
+  let snapshotForEach: string;
+  let deployer: SignerWithAddress;
+//endregion Global vars for all tests
+
+//region before, after
+  before(async function () {
+    this.timeout(1200000);
+    snapshot = await TimeUtils.snapshot();
+    const signers = await ethers.getSigners();
+    deployer = signers[0];
+  });
+
+  after(async function () {
+    await TimeUtils.rollback(snapshot);
+  });
+
+  beforeEach(async function () {
+    snapshotForEach = await TimeUtils.snapshot();
+  });
+
+  afterEach(async function () {
+    await TimeUtils.rollback(snapshotForEach);
+  });
+//endregion before, after
+
+//region Unit tests
+  describe("repay, study @skip-on-coverage", () =>{
+    interface IMakeBorrowAndRepayDustTokensTestParams {
+      collateralAmountRequired?: BigNumber;
+      borrowAmountRequired?: BigNumber;
+      amountToRepay?: BigNumber,
+      borrowRepayDistanceInBlocks?: number;
+      initialBorrowAmountOnUserBalance?: BigNumber;
+    }
+    interface IMakeBorrowAndRepayDustTokensTestResults {
+      fullRepayResult: {
+        collateralAmountOut: BigNumber;
+        returnedBorrowAmountOut: BigNumber;
+        swappedLeftoverCollateralOut: BigNumber;
+        swappedLeftoverBorrowOut: BigNumber;
+      } | undefined;
+      totalAmountBorrowAssetRepaid: BigNumber;
+      makeRepayCompleteAmountToRepay: BigNumber;
+      makeRepayCompletePaidAmount: BigNumber;
+    }
+
+    async function makeBorrowAndRepayDustTokensTest(
+      collateralToken: TokenDataTypes,
+      collateralHolder: string,
+      borrowToken: TokenDataTypes,
+      borrowHolder: string,
+      params: IMakeBorrowAndRepayDustTokensTestParams
+    ) : Promise<IMakeBorrowAndRepayDustTokensTestResults>{
+      const d = await AaveTwoTestUtils.prepareToBorrow(
+        deployer,
+        collateralToken,
+        collateralHolder,
+        params.collateralAmountRequired,
+        borrowToken,
+      );
+      const collateralData = await AaveTwoHelper.getReserveInfo(deployer,
+        d.aavePool,
+        d.dataProvider,
+        collateralToken.address
+      );
+      const borrowAmount = params.borrowAmountRequired || d.amountToBorrow;
+
+      // put initial amount on user's balance
+      if (params.initialBorrowAmountOnUserBalance) {
+        await borrowToken.token
+          .connect(await DeployerUtils.startImpersonate(borrowHolder))
+          .transfer(d.userContract.address, params.initialBorrowAmountOnUserBalance);
+      }
+
+      // make borrow
+      await transferAndApprove(
+        collateralToken.address,
+        d.userContract.address,
+        await d.controller.tetuConverter(),
+        d.collateralAmount,
+        d.aavePoolAdapterAsTC.address
+      );
+      await d.aavePoolAdapterAsTC.borrow(d.collateralAmount, borrowAmount, d.userContract.address);
+      console.log("borrowAmount", borrowAmount.toString());
+
+      await TimeUtils.advanceNBlocks(params.borrowRepayDistanceInBlocks || 0);
+
+      let fullRepayResult: {
+        collateralAmountOut: BigNumber;
+        returnedBorrowAmountOut: BigNumber;
+        swappedLeftoverCollateralOut: BigNumber;
+        swappedLeftoverBorrowOut: BigNumber;
+      } | undefined;
+
+      if (params.amountToRepay) {
+        const poolAdapterAsCaller = d.aavePoolAdapterAsTC.connect(await DeployerUtils.startImpersonate(deployer.address));
+
+        // make partial repay
+        await transferAndApprove(
+          borrowToken.address,
+          d.userContract.address,
+          deployer.address,
+          params.amountToRepay,
+          d.aavePoolAdapterAsTC.address
+        );
+        await poolAdapterAsCaller.repay(params.amountToRepay, d.userContract.address, false);
+      } else {
+        fullRepayResult = await d.userContract.callStatic.makeRepayComplete(
+          collateralToken.address, borrowToken.address, d.userContract.address
+        );
+        await d.userContract.makeRepayComplete(collateralToken.address, borrowToken.address, d.userContract.address);
+      }
+
+      return {
+        fullRepayResult,
+        totalAmountBorrowAssetRepaid: await d.userContract.totalAmountBorrowAssetRepaid(),
+        makeRepayCompleteAmountToRepay: await d.userContract.makeRepayCompleteAmountToRepay(),
+        makeRepayCompletePaidAmount: await d.userContract.makeRepayCompletePaidAmount()
+      }
+    }
+
+    describe("Borrow max available amount using all available collateral", () => {
+      describe("DAI => USDC", () => {
+        it("estimate amount of dust tokens", async () => {
+          const ret = await makeBorrowAndRepayDustTokensTest(
+            await TokenDataTypes.Build(deployer, MaticAddresses.DAI),
+            MaticAddresses.HOLDER_DAI,
+            await TokenDataTypes.Build(deployer, MaticAddresses.USDC),
+            MaticAddresses.HOLDER_USDC,
+            {
+              borrowRepayDistanceInBlocks: 100_0000,
+              initialBorrowAmountOnUserBalance: parseUnits("5000", 6) // it should be enough for repay needs
+            }
+          );
+          console.log(ret);
+        });
+      });
+    });
+  });
+
+//endregion Unit tests
+
+});

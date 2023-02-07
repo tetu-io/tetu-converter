@@ -415,7 +415,7 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer,
   function repayToRebalance(
     uint amount_,
     bool isCollateral_
-  ) external override returns (
+  ) external override returns ( // TODO: nonReentrant?
     uint resultHealthFactor18
   ) {
     _onlyTetuConverter(controller);
