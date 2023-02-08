@@ -5,6 +5,7 @@ import "../../openzeppelin/SafeERC20.sol";
 import "../../openzeppelin/IERC20.sol";
 import "../../core/AppDataTypes.sol";
 import "../../core/AppUtils.sol";
+import "../../core/EntryKinds.sol";
 import "../../interfaces/IPlatformAdapter.sol";
 import "../../interfaces/IPoolAdapterInitializer.sol";
 import "../../interfaces/IController.sol";
@@ -35,7 +36,7 @@ contract AaveTwoPlatformAdapter is IPlatformAdapter {
   ///   Data types
   ///////////////////////////////////////////////////////
 
-  /// @notice Local vars inside _getConversionPlan - to avoid stack too deep
+  /// @notice Local vars inside getConversionPlan - to avoid stack too deep
   struct LocalsGetConversionPlan {
     IAaveTwoPool poolLocal;
     IAaveTwoLendingPoolAddressesProvider addressProvider;
@@ -45,12 +46,6 @@ contract AaveTwoPlatformAdapter is IPlatformAdapter {
     uint totalStableDebt;
     uint totalVariableDebt;
     uint blocksPerDay;
-    uint priceCollateral;
-    uint priceBorrow;
-    /// @notice 10**rc.configuration.getDecimals()
-    uint rc10powDec;
-    /// @notice 10**rb.configuration.getDecimals()
-    uint rb10powDec;
     uint healthFactor18;
     IController controller;
   }
@@ -154,6 +149,7 @@ contract AaveTwoPlatformAdapter is IPlatformAdapter {
   ) {
     if (! frozen) {
       LocalsGetConversionPlan memory vars;
+      AppDataTypes.PricesAndDecimals memory pd;
       vars.controller = controller;
 
       require(params.collateralAsset != address(0) && params.borrowAsset != address(0), AppErrors.ZERO_ADDRESS);
@@ -171,8 +167,8 @@ contract AaveTwoPlatformAdapter is IPlatformAdapter {
       if (_isUsable(rc.configuration) &&  _isCollateralUsageAllowed(rc.configuration)) {
         DataTypes.ReserveData memory rb = vars.poolLocal.getReserveData(params.borrowAsset);
         if (_isUsable(rb.configuration) && rb.configuration.getBorrowingEnabled()) {
-          vars.rc10powDec = 10**rc.configuration.getDecimals();
-          vars.rb10powDec = 10**rb.configuration.getDecimals();
+          pd.rc10powDec = 10**rc.configuration.getDecimals();
+          pd.rb10powDec = 10**rb.configuration.getDecimals();
 
           // get liquidation threshold (== collateral factor) and loan-to-value (LTV)
           // we should use both LTV and liquidationThreshold of collateral asset (not borrow asset)
@@ -183,8 +179,8 @@ contract AaveTwoPlatformAdapter is IPlatformAdapter {
 
           // prepare to calculate supply/borrow APR
           vars.blocksPerDay = vars.controller.blocksPerDay();
-          vars.priceCollateral = vars.priceOracle.getAssetPrice(params.collateralAsset);
-          vars.priceBorrow = vars.priceOracle.getAssetPrice(params.borrowAsset);
+          pd.priceCollateral = vars.priceOracle.getAssetPrice(params.collateralAsset);
+          pd.priceBorrow = vars.priceOracle.getAssetPrice(params.borrowAsset);
 
           // AAVE has min allowed health factor at the borrow moment: liquidationThreshold18/LTV, i.e. 0.85/0.8=1.06...
           // Target health factor can be smaller but it's not possible to make a borrow with such low health factor
@@ -193,14 +189,27 @@ contract AaveTwoPlatformAdapter is IPlatformAdapter {
           if (vars.healthFactor18 < uint(healthFactor2_) * 10**(18 - 2)) {
             vars.healthFactor18 = uint(healthFactor2_) * 10**(18 - 2);
           }
-          plan.amountToBorrow =
-              1e18 * params.collateralAmount / vars.healthFactor18
-              * plan.liquidationThreshold18
-              * vars.priceCollateral
-              / vars.priceBorrow
-              * vars.rb10powDec
-              / 1e18
-              / vars.rc10powDec;
+
+          if (params.entryKind == EntryKinds.ENTRY_KIND_EXACT_COLLATERAL_IN_FOR_MAX_BORROW_OUT_0) {
+            plan.collateralAmount = p_.collateralAmount;
+            plan.amountToBorrow = EntryKinds.exactCollateralInForMaxBorrowOut(
+              params.collateralAmount,
+              vars.healthFactor18,
+              plan.liquidationThreshold18,
+              pd,
+              false // prices have decimals 18, not 36
+            );
+          } else if (params.entryKind == EntryKinds.ENTRY_KIND_EQUAL_COLLATERAL_AND_BORROW_OUT_1) {
+            (plan.collateralAmount, plan.amountToBorrow) = EntryKinds.equalCollateralAndBorrow(
+              params.collateralAmount,
+              vars.healthFactor18,
+              plan.liquidationThreshold18,
+              pd,
+              params.entryData,
+              false // prices have decimals 18, not 36
+            );
+          }
+
           // availableLiquidity is IERC20(borrowToken).balanceOf(atoken)
           (vars.availableLiquidity, vars.totalStableDebt, vars.totalVariableDebt,,,,,,,) = vars.dataProvider.getReserveData(params.borrowAsset);
 
@@ -229,7 +238,7 @@ contract AaveTwoPlatformAdapter is IPlatformAdapter {
             1e18 // multiplier to increase result precision
           )
           * 10**18 // we need decimals 36, but the result is already multiplied on 1e18 by multiplier above
-          / vars.rb10powDec;
+          / pd.rb10powDec;
           (, vars.totalStableDebt, vars.totalVariableDebt,,,,,,,) = vars.dataProvider.getReserveData(params.collateralAsset);
 
           plan.maxAmountToSupply = type(uint).max; // unlimited
@@ -255,16 +264,16 @@ contract AaveTwoPlatformAdapter is IPlatformAdapter {
           )
           // we need a value in terms of borrow tokens with decimals 18
           * 1e18 // we need decimals 36, but the result is already multiplied on 1e18 by multiplier above
-          * vars.priceCollateral
-          / vars.priceBorrow
-          / vars.rc10powDec;
+          * pd.priceCollateral
+          / pd.priceBorrow
+          / pd.rc10powDec;
           plan.amountCollateralInBorrowAsset36 =
             params.collateralAmount
             * 1e18
-            * vars.priceCollateral
-            / vars.priceBorrow
+            * pd.priceCollateral
+            / pd.priceBorrow
             * 1e18
-            / vars.rc10powDec;
+            / pd.rc10powDec;
         }
       }
     }

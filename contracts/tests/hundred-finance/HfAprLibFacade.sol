@@ -44,7 +44,7 @@ contract HfAprLibFacade {
     uint collateralAmount_,
     uint countBlocks_,
     uint amountToBorrow_,
-    HfAprLib.PricesAndDecimals memory pad_
+    AppDataTypes.PricesAndDecimals memory pad_
   ) external view returns (
     uint borrowCost36,
     uint supplyIncomeInBorrowAsset36

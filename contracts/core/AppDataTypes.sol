@@ -55,4 +55,15 @@ library AppDataTypes {
     ///         type(uint).max - unlimited, 0 - no supply is possible
     uint maxAmountToSupply;
   }
+
+  struct PricesAndDecimals {
+    /// @notice Price of the collateral asset (decimals same as the decimals of {priceBorrow})
+    uint priceCollateral;
+    /// @notice Price of the borrow asset (decimals same as the decimals of {priceCollateral})
+    uint priceBorrow;
+    /// @notice 10**{decimals of the collateral asset}
+    uint rc10powDec;
+    /// @notice 10**{decimals of the borrow asset}
+    uint rb10powDec;
+  }
 }

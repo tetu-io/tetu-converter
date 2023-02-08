@@ -190,7 +190,7 @@ contract TetuConverter is ITetuConverter, IKeeperCallback, IRequireAmountBySwapM
   /// @return amountToBorrowOut Amount that should be borrowed
   /// @return apr18 Interest on the use of {outMaxTargetAmount} during the given period, decimals 18
   function findBorrowStrategy(
-    EntryKind entryKind_,
+    uint16 entryKind_,
     address sourceToken_,
     uint sourceAmount_,
     address targetToken_,
@@ -210,7 +210,7 @@ contract TetuConverter is ITetuConverter, IKeeperCallback, IRequireAmountBySwapM
       borrowAsset: targetToken_,
       collateralAmount: sourceAmount_,
       countBlocks: periodInBlocks_,
-      entryKind: uint16(entryKind_),
+      entryKind: entryKind_,
       entryData: entryData_
     });
 

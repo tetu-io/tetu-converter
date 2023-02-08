@@ -9,6 +9,7 @@ import "../../openzeppelin/IERC20Metadata.sol";
 import "../../core/AppDataTypes.sol";
 import "../../core/AppErrors.sol";
 import "../../core/AppUtils.sol";
+import "../../core/EntryKinds.sol";
 import "../../interfaces/IPlatformAdapter.sol";
 import "../../interfaces/IController.sol";
 import "../../interfaces/IPoolAdapterInitializerWithAP.sol";
@@ -24,6 +25,17 @@ import "hardhat/console.sol";
 contract DForcePlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
   using SafeERC20 for IERC20;
   using AppUtils for uint;
+
+  ///////////////////////////////////////////////////////
+  ///   Data types
+  ///////////////////////////////////////////////////////
+
+  /// @notice Local vars inside getConversionPlan - to avoid stack too deep
+  struct LocalsGetConversionPlan {
+    IDForceController comptroller;
+    IDForcePriceOracle priceOracle;
+    uint healthFactor18;
+  }
 
   ///////////////////////////////////////////////////////
   ///   Variables
@@ -168,14 +180,16 @@ contract DForcePlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
     require(healthFactor2_ >= controller.minHealthFactor2(), AppErrors.WRONG_HEALTH_FACTOR);
 
     if (! frozen) {
-      IDForceController comptrollerLocal = comptroller;
+      LocalsGetConversionPlan memory local;
+      local.comptroller = comptroller;
+
       address cTokenCollateral = activeAssets[p_.collateralAsset];
       if (cTokenCollateral != address(0)) {
         address cTokenBorrow = activeAssets[p_.borrowAsset];
         if (cTokenBorrow != address(0)) {
-          (uint collateralFactor, uint supplyCapacity) = _getCollateralMarketData(comptrollerLocal, cTokenCollateral);
+          (uint collateralFactor, uint supplyCapacity) = _getCollateralMarketData(local.comptroller, cTokenCollateral);
           if (collateralFactor != 0 && supplyCapacity != 0) {
-            (uint borrowFactorMantissa, uint borrowCapacity) = _getBorrowMarketData(comptrollerLocal, cTokenBorrow);
+            (uint borrowFactorMantissa, uint borrowCapacity) = _getBorrowMarketData(local.comptroller, cTokenBorrow);
             if (borrowFactorMantissa != 0 && borrowCapacity != 0) {
               plan.converter = converter;
 
@@ -209,14 +223,13 @@ contract DForcePlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
                   : supplyCapacity - totalSupply;
               }
 
-              DForceAprLib.PricesAndDecimals memory vars;
-              vars.collateral10PowDecimals = 10**IERC20Metadata(p_.collateralAsset).decimals();
-              vars.borrow10PowDecimals = 10**IERC20Metadata(p_.borrowAsset).decimals();
-              vars.priceOracle = IDForcePriceOracle(comptroller.priceOracle());
-              vars.priceCollateral36 = DForceAprLib.getPrice(vars.priceOracle, cTokenCollateral)
-                * vars.collateral10PowDecimals;
-              vars.priceBorrow36 = DForceAprLib.getPrice(vars.priceOracle, cTokenBorrow)
-                * vars.borrow10PowDecimals;
+              local.priceOracle = IDForcePriceOracle(local.comptroller.priceOracle());
+
+              AppDataTypes.PricesAndDecimals memory vars;
+              vars.rc10powDec = 10**IERC20Metadata(p_.collateralAsset).decimals();
+              vars.rb10powDec = 10**IERC20Metadata(p_.borrowAsset).decimals();
+              vars.priceCollateral = DForceAprLib.getPrice(local.priceOracle, cTokenCollateral) * vars.rc10powDec;
+              vars.priceBorrow = DForceAprLib.getPrice(local.priceOracle, cTokenBorrow) * vars.rb10powDec;
 
               // calculate amount that can be borrowed
               // split calculation on several parts to avoid stack too deep
@@ -224,16 +237,29 @@ contract DForcePlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
               // Protocol has min allowed health factor at the borrow moment: liquidationThreshold18/LTV, i.e. 0.85/0.8=1.06...
               // Target health factor can be smaller but it's not possible to make a borrow with such low health factor
               // see explanation of health factor value in IController.sol
-              vars.healthFactor18 = plan.liquidationThreshold18 * 1e18 / plan.ltv18;
-              if (vars.healthFactor18 < uint(healthFactor2_) * 10**(18 - 2)) {
-                vars.healthFactor18 = uint(healthFactor2_) * 10**(18 - 2);
+              local.healthFactor18 = plan.liquidationThreshold18 * 1e18 / plan.ltv18;
+              if (local.healthFactor18 < uint(healthFactor2_) * 10**(18 - 2)) {
+                local.healthFactor18 = uint(healthFactor2_) * 10**(18 - 2);
               }
-              plan.amountToBorrow =
-                  1e18 * p_.collateralAmount / vars.healthFactor18
-                  * (plan.liquidationThreshold18 * vars.priceCollateral36 / vars.priceBorrow36)
-                  / 1e18
-                  * vars.borrow10PowDecimals
-                  / vars.collateral10PowDecimals;
+              if (p_.entryKind == EntryKinds.ENTRY_KIND_EXACT_COLLATERAL_IN_FOR_MAX_BORROW_OUT_0) {
+                plan.collateralAmount = p_.collateralAmount;
+                plan.amountToBorrow = EntryKinds.exactCollateralInForMaxBorrowOut(
+                  p_.collateralAmount,
+                  local.healthFactor18,
+                  plan.liquidationThreshold18,
+                  vars,
+                  true // prices have decimals 36
+                );
+              } else if (p_.entryKind == EntryKinds.ENTRY_KIND_EQUAL_COLLATERAL_AND_BORROW_OUT_1) {
+                (plan.collateralAmount, plan.amountToBorrow) = EntryKinds.equalCollateralAndBorrow(
+                  p_.collateralAmount,
+                  local.healthFactor18,
+                  plan.liquidationThreshold18,
+                  vars,
+                  p_.entryData,
+                  true // prices have decimals 36
+                );
+              }
               if (plan.amountToBorrow > plan.maxAmountToBorrow) {
                 plan.amountToBorrow = plan.maxAmountToBorrow;
               }
@@ -242,16 +268,17 @@ contract DForcePlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
                plan.supplyIncomeInBorrowAsset36,
                plan.rewardsAmountInBorrowAsset36
               ) = DForceAprLib.getRawCostAndIncomes(
-                DForceAprLib.getCore(comptroller, cTokenCollateral, cTokenBorrow),
+                DForceAprLib.getCore(local.comptroller, cTokenCollateral, cTokenBorrow),
                 p_.collateralAmount,
                 p_.countBlocks,
                 plan.amountToBorrow,
-                vars
+                vars,
+                local.priceOracle
               );
 
               plan.amountCollateralInBorrowAsset36 =
-                p_.collateralAmount * (10**36 * vars.priceCollateral36 / vars.priceBorrow36)
-                / vars.collateral10PowDecimals;
+                p_.collateralAmount * (10**36 * vars.priceCollateral / vars.priceBorrow)
+                / vars.rc10powDec;
             }
           }
         }

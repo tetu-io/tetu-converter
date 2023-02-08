@@ -62,7 +62,8 @@ contract DForceAprLibFacade {
     uint collateralAmount_,
     uint countBlocks_,
     uint amountToBorrow_,
-    DForceAprLib.PricesAndDecimals memory pad_
+    AppDataTypes.PricesAndDecimals memory pad_,
+    IDForcePriceOracle priceOracle_
   ) external view returns (
     uint borrowCost36,
     uint supplyIncomeInBorrowAsset36,
@@ -73,7 +74,8 @@ contract DForceAprLibFacade {
       collateralAmount_,
       countBlocks_,
       amountToBorrow_,
-      pad_
+      pad_,
+      priceOracle_
     );
   }
 

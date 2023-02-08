@@ -4,6 +4,7 @@ pragma solidity 0.8.17;
 import "../../openzeppelin/IERC20Metadata.sol";
 import "../../core/AppErrors.sol";
 import "../../core/AppUtils.sol";
+import "../../core/AppDataTypes.sol";
 import "../../integrations/hundred-finance/IHfCToken.sol";
 import "../../integrations/hundred-finance/IHfInterestRateModel.sol";
 import "../../integrations/hundred-finance/IHfComptroller.sol";
@@ -25,18 +26,6 @@ library HfAprLib {
     address collateralAsset;
     address borrowAsset;
   }
-
-  struct PricesAndDecimals {
-    IHfPriceOracle priceOracle;
-    /// @notice 10**collateralAssetDecimals
-    uint collateral10PowDecimals;
-    /// @notice 10**borrowAssetDecimals
-    uint borrow10PowDecimals;
-
-    uint priceCollateral36;
-    uint priceBorrow36;
-  }
-
 
   ///////////////////////////////////////////////////////
   //                  Addresses
@@ -67,7 +56,7 @@ library HfAprLib {
     uint collateralAmount_,
     uint countBlocks_,
     uint amountToBorrow_,
-    PricesAndDecimals memory pad_
+    AppDataTypes.PricesAndDecimals memory pad_
   ) internal view returns (
     uint borrowCost36,
     uint supplyIncomeInBorrowAsset36
@@ -79,9 +68,9 @@ library HfAprLib {
         collateralAmount_
       ),
       countBlocks_,
-      pad_.collateral10PowDecimals,
-      pad_.priceCollateral36,
-      pad_.priceBorrow36,
+      pad_.rc10powDec,
+      pad_.priceCollateral,
+      pad_.priceBorrow,
       collateralAmount_
     );
 
@@ -94,7 +83,7 @@ library HfAprLib {
       ),
       amountToBorrow_,
       countBlocks_,
-      pad_.borrow10PowDecimals
+      pad_.rb10powDec
     );
   }
 
