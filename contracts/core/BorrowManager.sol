@@ -323,7 +323,7 @@ contract BorrowManager is IBorrowManager {
         ) {
           converter = plan.converter;
           amountToBorrowOut = plan.amountToBorrow;
-          collateralAmountOut = p_.collateralAmount; // TODO
+          collateralAmountOut = plan.collateralAmount;
           apr18 = planApr18;
         }
       }

@@ -42,7 +42,7 @@ import {Misc} from "../../scripts/utils/Misc";
 import {IPoolAdapterStatus} from "../baseUT/types/BorrowRepayDataTypes";
 import {getExpectedApr18} from "../baseUT/apr/aprUtils";
 import {CoreContractsHelper} from "../baseUT/helpers/CoreContractsHelper";
-import {formatUnits, parseUnits} from "ethers/lib/utils";
+import {defaultAbiCoder, formatUnits, parseUnits} from "ethers/lib/utils";
 import {controlGasLimitsEx} from "../../scripts/utils/hardhatUtils";
 import {
   GAS_FIND_CONVERSION_STRATEGY_ONLY_BORROW_AVAILABLE,
@@ -509,12 +509,14 @@ describe("TetuConverterTest", () => {
    * @param periodInBlocks
    * @param borrowRateNum Borrow rate (as num, no decimals); undefined if there is no lending pool
    * @param swapConfig Swap manager config; undefined if there is no DEX
+   * @param entryData
    */
   async function makeFindConversionStrategy(
     sourceAmountNum: number,
     periodInBlocks: number,
     borrowRateNum?: number,
-    swapConfig?: IPrepareContractsSetupParams
+    swapConfig?: IPrepareContractsSetupParams,
+    entryData?: string
   ) : Promise<IMakeFindConversionStrategyResults> {
     const core = await CoreContracts.build(
       await TetuConverterApp.createController(deployer, {
@@ -548,14 +550,14 @@ describe("TetuConverterTest", () => {
     await MockERC20__factory.connect(init.sourceToken.address, init.core.tc.signer).approve(core.tc.address, sourceAmount);
 
     const results = await init.core.tc.callStatic.findConversionStrategy(
-      swapConfig?.entryData || "0x",
+      entryData || "0x",
       init.sourceToken.address,
       sourceAmount,
       init.targetToken.address,
       periodInBlocks
     );
     const tx = await init.core.tc.findConversionStrategy(
-      swapConfig?.entryData || "0x",
+      entryData || "0x",
       init.sourceToken.address,
       sourceAmount,
       init.targetToken.address,
@@ -592,7 +594,7 @@ describe("TetuConverterTest", () => {
       useDexPool
         ? {
           priceImpact: 1_000,
-          setupTetuLiquidatorToSwapBorrowToCollateral: true
+          setupTetuLiquidatorToSwapBorrowToCollateral: true,
         }
         : undefined
     );
@@ -629,6 +631,7 @@ describe("TetuConverterTest", () => {
    * @param sourceAmountNum
    * @param periodInBlocks
    * @param borrowRateNum Borrow rate (as num, no decimals); undefined if there is no lending pool
+   * @param entryData
    */
   async function makeFindBorrowStrategy(
     sourceAmountNum: number,
@@ -755,12 +758,14 @@ describe("TetuConverterTest", () => {
   async function makeFindSwapStrategyTest(
     sourceAmount = 1_000,
     priceImpact = 1_000,
+    entryData?: string
   ) : Promise<IMakeFindConversionStrategyResults> {
     return makeFindSwapStrategy(
       sourceAmount,
       {
           priceImpact,
-          setupTetuLiquidatorToSwapBorrowToCollateral: true
+          setupTetuLiquidatorToSwapBorrowToCollateral: true,
+          entryData
         }
     );
   }
@@ -953,7 +958,6 @@ describe("TetuConverterTest", () => {
           });
         });
       });
-
       describe("Single borrow-converter", () => {
         it("should return expected values", async () => {
           const period = BLOCKS_PER_DAY * 31;
@@ -979,6 +983,43 @@ describe("TetuConverterTest", () => {
           ].join("\n");
 
           expect(sret).equal(sexpected);
+        });
+      });
+      describe("Use ENTRY_KIND_EXACT_PROPORTION_1", () => {
+        it("should split source amount on the parts same by cost", async () => {
+          const r = await makeFindConversionStrategy(
+            1000,
+            1,
+            1000,
+            undefined,
+            defaultAbiCoder.encode(
+              ["uint256", "uint256", "uint256"],
+              [1, 1, 1] // ENTRY_KIND_EXACT_PROPORTION_1
+            )
+          );
+          const collateralDecimals = await r.init.sourceToken.decimals();
+          const sourceAmount = parseUnits("1000", collateralDecimals);
+          console.log("sourceAmount", sourceAmount);
+          console.log("collateralAmountOut", r.results.collateralAmountOut);
+
+          const sourceAssetUSD = +formatUnits(
+            sourceAmount.sub(r.results.collateralAmountOut).mul(r.init.borrowInputParams.priceSourceUSD),
+            r.init.borrowInputParams.sourceDecimals
+          );
+          const targetAssetUSD = +formatUnits(
+            r.results.amountToBorrowOut.mul(r.init.borrowInputParams.priceTargetUSD),
+            r.init.borrowInputParams.targetDecimals
+          );
+          console.log("sourceAssetUSD", sourceAssetUSD);
+          console.log("targetAssetUSD", targetAssetUSD);
+
+          const ret = [
+            r.results.collateralAmountOut.lt(sourceAmount),
+            targetAssetUSD === sourceAssetUSD
+          ].join();
+          const expected = [true, true].join();
+
+          expect(ret).eq(expected);
         });
       });
     });
@@ -1052,6 +1093,42 @@ describe("TetuConverterTest", () => {
 
         expect(sret).equal(sexpected);
       });
+      describe("Use ENTRY_KIND_EXACT_PROPORTION_1", () => {
+        it("should split source amount on the parts same by cost", async () => {
+          const r = await makeFindBorrowStrategy(
+            1000,
+            1,
+            1000,
+            defaultAbiCoder.encode(
+              ["uint256", "uint256", "uint256"],
+              [1, 1, 1] // ENTRY_KIND_EXACT_PROPORTION_1
+            )
+          );
+          const collateralDecimals = await r.init.sourceToken.decimals();
+          const sourceAmount = parseUnits("1000", collateralDecimals);
+          console.log("sourceAmount", sourceAmount);
+          console.log("collateralAmountOut", r.results.collateralAmountOut);
+
+          const sourceAssetUSD = +formatUnits(
+            sourceAmount.sub(r.results.collateralAmountOut).mul(r.init.borrowInputParams.priceSourceUSD),
+            r.init.borrowInputParams.sourceDecimals
+          );
+          const targetAssetUSD = +formatUnits(
+            r.results.amountToBorrowOut.mul(r.init.borrowInputParams.priceTargetUSD),
+            r.init.borrowInputParams.targetDecimals
+          );
+          console.log("sourceAssetUSD", sourceAssetUSD);
+          console.log("targetAssetUSD", targetAssetUSD);
+
+          const ret = [
+            r.results.collateralAmountOut.lt(sourceAmount),
+            targetAssetUSD === sourceAssetUSD
+          ].join();
+          const expected = [true, true].join();
+
+          expect(ret).eq(expected);
+        });
+      });
     });
     describe("Bad paths", () => {
       describe("Source amount is 0", () => {
@@ -1112,6 +1189,43 @@ describe("TetuConverterTest", () => {
           "0"
         ].join();
         expect(ret).eq(expected);
+      });
+      describe("Use ENTRY_KIND_EXACT_PROPORTION_1", () => {
+        it("should split source amount on the parts same by cost", async () => {
+          const r = await makeFindSwapStrategyTest(
+            1000,
+            0,
+            defaultAbiCoder.encode(
+              ["uint256", "uint256", "uint256"],
+              [1, 1, 1] // ENTRY_KIND_EXACT_PROPORTION_1
+            )
+          );
+          const collateralDecimals = await r.init.sourceToken.decimals();
+          const sourceAmount = parseUnits("1000", collateralDecimals);
+          console.log("sourceAmount", sourceAmount.toString());
+          console.log("collateralAmountOut", r.results.collateralAmountOut.toString());
+
+          const sourceAssetUSD = +formatUnits(
+            sourceAmount.sub(r.results.collateralAmountOut).mul(r.init.borrowInputParams.priceSourceUSD),
+            r.init.borrowInputParams.sourceDecimals
+          );
+          const targetAssetUSD = +formatUnits(
+            r.results.amountToBorrowOut.mul(r.init.borrowInputParams.priceTargetUSD),
+            r.init.borrowInputParams.targetDecimals
+          );
+          console.log("sourceAssetUSD", sourceAssetUSD);
+          console.log("targetAssetUSD", targetAssetUSD);
+          console.log("r.init.borrowInputParams.priceSourceUSD", r.init.borrowInputParams.priceSourceUSD);
+          console.log("r.init.borrowInputParams.priceTargetUSD", r.init.borrowInputParams.priceTargetUSD);
+
+          const ret = [
+            r.results.collateralAmountOut.lt(sourceAmount),
+            targetAssetUSD === sourceAssetUSD
+          ].join();
+          const expected = [true, true].join();
+
+          expect(ret).eq(expected);
+        });
       });
     });
     describe("Bad paths", () => {

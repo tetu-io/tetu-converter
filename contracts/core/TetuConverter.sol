@@ -24,6 +24,8 @@ import "../interfaces/IRequireAmountBySwapManagerCallback.sol";
 import "../interfaces/IPriceOracle.sol";
 import "../integrations/market/ICErc20.sol";
 
+import "hardhat/console.sol";
+
 /// @notice Main application contract
 contract TetuConverter is ITetuConverter, IKeeperCallback, IRequireAmountBySwapManagerCallback, ReentrancyGuard {
   using SafeERC20 for IERC20;
@@ -259,12 +261,14 @@ contract TetuConverter is ITetuConverter, IKeeperCallback, IRequireAmountBySwapM
     int apr18
   ) {
     uint entryKind = EntryKinds.getEntryKind(entryData_);
+    console.log("entryKind", entryKind, sourceAmount_);
     if (entryKind == EntryKinds.ENTRY_KIND_EXACT_PROPORTION_1) {
       // Split {sourceAmount_} on two parts: C1 and C2. Swap C2 => {targetAmountOut}
       // Result cost of {targetAmountOut} and C1 should be equal or almost equal
       // For simplicity we assume here that swap doesn't have any lost:
       // if S1 is swapped to S2 then costs of S1 and S2 are equal
       sourceAmountOut = EntryKinds.getCollateralAmountToConvert(entryData_, sourceAmount_, 1, 1);
+      console.log("sourceAmountOut", sourceAmountOut);
     } else {
       sourceAmountOut = sourceAmount_;
     }
@@ -272,7 +276,7 @@ contract TetuConverter is ITetuConverter, IKeeperCallback, IRequireAmountBySwapM
     (converter, targetAmountOut) = swapManager.getConverter(
       msg.sender,
       sourceToken_,
-      sourceAmount_,
+      sourceAmountOut,
       targetToken_
     );
     if (converter != address(0)) {
