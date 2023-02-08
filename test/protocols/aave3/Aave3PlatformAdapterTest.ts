@@ -25,7 +25,7 @@ import {DeployerUtils} from "../../../scripts/utils/DeployerUtils";
 import {TetuConverterApp} from "../../baseUT/helpers/TetuConverterApp";
 import {MocksHelper} from "../../baseUT/helpers/MocksHelper";
 import {IConversionPlan} from "../../baseUT/apr/aprDataTypes";
-import {parseUnits} from "ethers/lib/utils";
+import {defaultAbiCoder, formatUnits, parseUnits} from "ethers/lib/utils";
 import {Aave3ChangePricesUtils} from "../../baseUT/protocols/aave3/Aave3ChangePricesUtils";
 import {controlGasLimitsEx} from "../../../scripts/utils/hardhatUtils";
 import {GAS_LIMIT_AAVE_3_GET_CONVERSION_PLAN} from "../../baseUT/GasLimit";
@@ -251,7 +251,8 @@ describe("Aave3PlatformAdapterTest", () => {
       collateralAmount: BigNumber,
       borrowAsset: string,
       countBlocks: number = 10,
-      badPathsParams?: IGetConversionPlanBadPaths
+      badPathsParams?: IGetConversionPlanBadPaths,
+      entryData?: string
     ) : Promise<IPreparePlanResults> {
       const h = new Aave3Helper(deployer);
       const aavePool = await Aave3Helper.getAavePool(deployer);
@@ -302,7 +303,7 @@ describe("Aave3PlatformAdapterTest", () => {
           collateralAmount: badPathsParams?.zeroCollateralAmount ? 0 : collateralAmount,
           borrowAsset: badPathsParams?.zeroBorrowAsset ? Misc.ZERO_ADDRESS : borrowAsset,
           countBlocks: badPathsParams?.zeroCountBlocks ? 0 : countBlocks,
-          entryData: "0x"
+          entryData: entryData || "0x"
         },
         healthFactor2,
       );
@@ -330,14 +331,16 @@ describe("Aave3PlatformAdapterTest", () => {
       highEfficientModeEnabled: boolean,
       isolationModeEnabled: boolean,
       countBlocks: number = 10,
-      badPathsParams?: IGetConversionPlanBadPaths
+      badPathsParams?: IGetConversionPlanBadPaths,
+      entryData?: string
     ) : Promise<{sret: string, sexpected: string}> {
       const d = await preparePlan(
         collateralAsset,
         collateralAmount,
         borrowAsset,
         countBlocks,
-        badPathsParams
+        badPathsParams,
+        entryData
       );
       console.log("Plan", d.plan);
 
@@ -615,6 +618,47 @@ describe("Aave3PlatformAdapterTest", () => {
             }
           );
           expect(r.plan.converter).eq(Misc.ZERO_ADDRESS);
+        });
+      });
+      describe("Use ENTRY_KIND_EXACT_PROPORTION_1", () => {
+        it("should split source amount on the parts with almost same cost", async () => {
+          if (!await isPolygonForkInUse()) return;
+
+          const collateralAsset = MaticAddresses.DAI;
+          const borrowAsset = MaticAddresses.WMATIC;
+          const collateralAmount = parseUnits("1000", 18);
+
+          const r = await preparePlan(
+            collateralAsset,
+            collateralAmount,
+            borrowAsset,
+            10,
+            undefined,
+            defaultAbiCoder.encode(
+              ["uint256", "uint256", "uint256"],
+              [1, 1, 1]
+            )
+          );
+
+          const sourceAssetUSD = +formatUnits(
+            collateralAmount.sub(r.plan.collateralAmount).mul(r.priceCollateral),
+            r.collateralAssetData.data.decimals
+          );
+          const targetAssetUSD = +formatUnits(
+            r.plan.amountToBorrow.mul(r.priceBorrow),
+            r.borrowAssetData.data.decimals
+          );
+
+          const ret = [
+            sourceAssetUSD === targetAssetUSD,
+            r.plan.collateralAmount.lt(collateralAmount)
+          ].join();
+          const expected = [true, true].join();
+
+          console.log("sourceAssetUSD", sourceAssetUSD);
+          console.log("targetAssetUSD", targetAssetUSD);
+
+          expect(ret).eq(expected);
         });
       });
     });

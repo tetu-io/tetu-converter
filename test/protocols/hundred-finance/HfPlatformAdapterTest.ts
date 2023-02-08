@@ -28,7 +28,7 @@ import {DeployerUtils} from "../../../scripts/utils/DeployerUtils";
 import {TetuConverterApp} from "../../baseUT/helpers/TetuConverterApp";
 import {IConversionPlan} from "../../baseUT/apr/aprDataTypes";
 import {HundredFinanceChangePriceUtils} from "../../baseUT/protocols/hundred-finance/HundredFinanceChangePriceUtils";
-import {parseUnits} from "ethers/lib/utils";
+import {defaultAbiCoder, formatUnits, parseUnits} from "ethers/lib/utils";
 import {controlGasLimitsEx} from "../../../scripts/utils/hardhatUtils";
 import {
   GAS_LIMIT_HUNDRED_FINANCE_GET_CONVERSION_PLAN
@@ -144,7 +144,8 @@ describe("Hundred finance, platform adapter", () => {
     borrowAsset: string,
     collateralCToken: string,
     borrowCToken: string,
-    badPathsParams?: IGetConversionPlanBadPaths
+    badPathsParams?: IGetConversionPlanBadPaths,
+    entryData?: string
   ) : Promise<IPreparePlanResults> {
     const templateAdapterNormalStub = ethers.Wallet.createRandom();
     const countBlocks = 10;
@@ -206,8 +207,7 @@ describe("Hundred finance, platform adapter", () => {
         collateralAmount: badPathsParams?.zeroCollateralAmount ? 0 : collateralAmount,
         borrowAsset: badPathsParams?.zeroBorrowAsset ? Misc.ZERO_ADDRESS : borrowAsset,
         countBlocks: badPathsParams?.zeroCountBlocks ? 0 : countBlocks,
-        entryKind: 0,
-        entryData: "0x"
+        entryData: entryData || "0x"
       },
       badPathsParams?.incorrectHealthFactor2 || healthFactor2,
     );
@@ -581,7 +581,6 @@ describe("Hundred finance, platform adapter", () => {
               collateralAmount: parseUnits("1", 18),
               borrowAsset: MaticAddresses.USDC,
               countBlocks: 1000,
-              entryKind: 0,
               entryData: "0x"
             },
             200,
@@ -608,6 +607,47 @@ describe("Hundred finance, platform adapter", () => {
             }
           );
           expect(r.plan.converter).eq(Misc.ZERO_ADDRESS);
+        });
+      });
+      describe("Use ENTRY_KIND_EXACT_PROPORTION_1", () => {
+        it("should split source amount on the parts with almost same cost", async () => {
+          if (!await isPolygonForkInUse()) return;
+
+          const collateralAmount = parseUnits("1000", 18);
+
+          const r = await preparePlan(
+            controller,
+            MaticAddresses.DAI,
+            collateralAmount,
+            MaticAddresses.WMATIC,
+            MaticAddresses.hDAI,
+            MaticAddresses.hMATIC,
+            undefined,
+            defaultAbiCoder.encode(
+              ["uint256", "uint256", "uint256"],
+              [1, 1, 1]
+            )
+          );
+
+          const sourceAssetUSD = +formatUnits(
+            collateralAmount.sub(r.plan.collateralAmount).mul(r.priceCollateral),
+            r.collateralAssetDecimals
+          );
+          const targetAssetUSD = +formatUnits(
+            r.plan.amountToBorrow.mul(r.priceBorrow),
+            r.borrowAssetDecimals
+          );
+
+          const ret = [
+            sourceAssetUSD === targetAssetUSD,
+            r.plan.collateralAmount.lt(collateralAmount)
+          ].join();
+          const expected = [true, true].join();
+
+          console.log("sourceAssetUSD", sourceAssetUSD);
+          console.log("targetAssetUSD", targetAssetUSD);
+
+          expect(ret).eq(expected);
         });
       });
     });

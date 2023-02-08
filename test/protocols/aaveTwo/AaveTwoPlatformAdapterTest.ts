@@ -26,7 +26,7 @@ import {DeployerUtils} from "../../../scripts/utils/DeployerUtils";
 import {TetuConverterApp} from "../../baseUT/helpers/TetuConverterApp";
 import {MocksHelper} from "../../baseUT/helpers/MocksHelper";
 import {IConversionPlan} from "../../baseUT/apr/aprDataTypes";
-import {parseUnits} from "ethers/lib/utils";
+import {defaultAbiCoder, formatUnits, parseUnits} from "ethers/lib/utils";
 import {AaveTwoChangePricesUtils} from "../../baseUT/protocols/aaveTwo/AaveTwoChangePricesUtils";
 import {controlGasLimitsEx} from "../../../scripts/utils/hardhatUtils";
 import {GAS_LIMIT_AAVE_TWO_GET_CONVERSION_PLAN} from "../../baseUT/GasLimit";
@@ -221,7 +221,8 @@ describe("AaveTwoPlatformAdapterTest", () => {
       collateralAmount: BigNumber,
       borrowAsset: string,
       countBlocks: number = 10,
-      badPathsParams?: IGetConversionPlanBadPaths
+      badPathsParams?: IGetConversionPlanBadPaths,
+      entryData?: string
     ) : Promise<IPreparePlanResults> {
       const templateAdapterNormalStub = ethers.Wallet.createRandom();
       const healthFactor2 = 200;
@@ -264,8 +265,7 @@ describe("AaveTwoPlatformAdapterTest", () => {
           collateralAmount: badPathsParams?.zeroCollateralAmount ? 0 : collateralAmount,
           borrowAsset: badPathsParams?.zeroBorrowAsset ? Misc.ZERO_ADDRESS : borrowAsset,
           countBlocks: badPathsParams?.zeroCountBlocks ? 0 : countBlocks,
-          entryKind: 0,
-          entryData: "0x"
+          entryData: entryData || "0x"
         },
         badPathsParams?.incorrectHealthFactor2 || healthFactor2,
       );
@@ -465,7 +465,6 @@ describe("AaveTwoPlatformAdapterTest", () => {
               collateralAmount: parseUnits("1", 18),
               borrowAsset: MaticAddresses.USDC,
               countBlocks: 1,
-              entryKind: 0,
               entryData: "0x"
             },
             200,
@@ -490,6 +489,47 @@ describe("AaveTwoPlatformAdapterTest", () => {
             }
           );
           expect(r.plan.converter).eq(Misc.ZERO_ADDRESS);
+        });
+      });
+      describe("Use ENTRY_KIND_EXACT_PROPORTION_1", () => {
+        it("should split source amount on the parts with almost same cost", async () => {
+          if (!await isPolygonForkInUse()) return;
+
+          const collateralAsset = MaticAddresses.DAI;
+          const borrowAsset = MaticAddresses.WMATIC;
+          const collateralAmount = parseUnits("1000", 18);
+
+          const r = await preparePlan(
+            collateralAsset,
+            collateralAmount,
+            borrowAsset,
+            10,
+            undefined,
+            defaultAbiCoder.encode(
+              ["uint256", "uint256", "uint256"],
+              [1, 1, 1]
+            )
+          );
+
+          const sourceAssetUSD = +formatUnits(
+            collateralAmount.sub(r.plan.collateralAmount).mul(r.priceCollateral),
+            r.collateralAssetData.data.decimals
+          );
+          const targetAssetUSD = +formatUnits(
+            r.plan.amountToBorrow.mul(r.priceBorrow),
+            r.borrowAssetData.data.decimals
+          );
+
+          const ret = [
+            sourceAssetUSD === targetAssetUSD,
+            r.plan.collateralAmount.lt(collateralAmount)
+          ].join();
+          const expected = [true, true].join();
+
+          console.log("sourceAssetUSD", sourceAssetUSD);
+          console.log("targetAssetUSD", targetAssetUSD);
+
+          expect(ret).eq(expected);
         });
       });
     });
