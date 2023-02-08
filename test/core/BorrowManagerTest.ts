@@ -278,7 +278,6 @@ describe("BorrowManager", () => {
       collateralAmount: getBigNumberFrom(sourceAmountNum, await sourceToken.decimals()),
       borrowAsset: params?.targetAssetToSearch || targetToken.address,
       countBlocks: periodInBlocks,
-      entryKind: 0,
       entryData: "0x"
     });
     const gas = params?.estimateGas
@@ -287,7 +286,6 @@ describe("BorrowManager", () => {
         collateralAmount: getBigNumberFrom(sourceAmountNum, await sourceToken.decimals()),
         borrowAsset: targetToken.address,
         countBlocks: periodInBlocks,
-        entryKind: 0,
         entryData: "0x"
       })
       : undefined;
@@ -368,7 +366,6 @@ describe("BorrowManager", () => {
       collateralAmount: sourceAmount,
       borrowAsset: targetToken.address,
       countBlocks,
-      entryKind: 0,
       entryData: "0x"
     });
 

@@ -46,6 +46,10 @@ describe("EntryKindsTest", () => {
 //region Unit tests
   describe("getEntryKind", () => {
     describe("Good paths", () => {
+      it("should return expected values for empty entry kind", async () => {
+        const ret = await facade.getEntryKind("0x");
+        expect(ret.eq(0)).eq(true);
+      });
       it("should return expected values for entry kind 0", async () => {
         const ret = await facade.getEntryKind(defaultAbiCoder.encode(['uint256'], [0]));
         expect(ret.eq(0)).eq(true);

@@ -18,6 +18,9 @@ library EntryKinds {
   /// @notice Decode entryData, extract first uint - entry kind
   ///         Valid values of entry kinds are given by ENTRY_KIND_XXX constants above
   function getEntryKind(bytes memory entryData_) internal pure returns (uint) {
+    if (entryData_.length == 0) {
+      return ENTRY_KIND_EXACT_COLLATERAL_IN_FOR_MAX_BORROW_OUT_0;
+    }
     return abi.decode(entryData_, (uint));
   }
 

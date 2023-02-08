@@ -8,7 +8,8 @@ interface ITetuConverter {
   /// @notice Find best borrow strategy and provide "cost of money" as interest for the period
   /// @param entryData_ Encoded entry kind and additional params if necessary (set of params depends on the kind)
   ///                   See EntryKinds.sol\ENTRY_KIND_XXX constants for possible entry kinds
-  /// @param sourceAmount_ Amount to be converted
+  ///                   0 is used by default
+  /// @param sourceAmount_ Max amount that can be converted.
   /// @param periodInBlocks_ Estimated period to keep target amount. It's required to compute APR
   /// @return converter Result contract that should be used for conversion; it supports IConverter
   ///                   This address should be passed to borrow-function during conversion.
@@ -31,7 +32,10 @@ interface ITetuConverter {
   /// @notice Find best swap strategy and provide "cost of money" as interest for the period
   /// @dev This is writable function with read-only behavior.
   ///      It should be writable to be able to simulate real swap and get a real APR.
-  /// @param sourceAmount_ Amount to be converted
+  /// @param entryData_ Encoded entry kind and additional params if necessary (set of params depends on the kind)
+  ///                   See EntryKinds.sol\ENTRY_KIND_XXX constants for possible entry kinds
+  ///                   0 is used by default
+  /// @param sourceAmount_ Max amount that can be swapped.
   ///                      This amount must be approved to TetuConverter before the call.
   /// @return converter Result contract that should be used for conversion to be passed to borrow()
   /// @return sourceAmountOut Amount of {sourceToken_} that should be swapped to get {targetToken_}
@@ -54,7 +58,10 @@ interface ITetuConverter {
   ///         It calls both findBorrowStrategy and findSwapStrategy and selects a best strategy.
   /// @dev This is writable function with read-only behavior.
   ///      It should be writable to be able to simulate real swap and get a real APR for swapping.
-  /// @param sourceAmount_ Amount to be converted
+  /// @param entryData_ Encoded entry kind and additional params if necessary (set of params depends on the kind)
+  ///                   See EntryKinds.sol\ENTRY_KIND_XXX constants for possible entry kinds
+  ///                   0 is used by default
+  /// @param sourceAmount_ Max amount of {sourceToken_} that can be converted.
   ///        The amount must be approved to TetuConverter before calling this function.
   /// @param periodInBlocks_ Estimated period to keep target amount. It's required to compute APR
   /// @return converter Result contract that should be used for conversion to be passed to borrow().
@@ -79,7 +86,7 @@ interface ITetuConverter {
   ///         Target amount will be transferred to {receiver_}. No re-balancing here.
   /// @dev Transferring of {collateralAmount_} by TetuConverter-contract must be approved by the caller before the call
   /// @param converter_ A converter received from findBestConversionStrategy.
-  /// @param collateralAmount_ Amount of {collateralAsset_}.
+  /// @param collateralAmount_ Amount of {collateralAsset_} to be converted.
   ///                          This amount must be approved to TetuConverter before the call.
   /// @param amountToBorrow_ Amount of {borrowAsset_} to be borrowed and sent to {receiver_}
   /// @param receiver_ A receiver of borrowed amount

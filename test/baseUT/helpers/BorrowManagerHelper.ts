@@ -45,6 +45,7 @@ export interface IMockPoolParams {
 }
 
 export interface IPrepareContractsSetupParams {
+    entryData?: string;
     setupTetuLiquidatorToSwapBorrowToCollateral?: boolean;
     /**
      * Optional price impact for Swap Manager.
