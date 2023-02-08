@@ -265,7 +265,6 @@ export class Aave3TestUtils {
         collateralAmount,
         borrowAsset: borrowToken.address,
         countBlocks,
-        entryKind: 0,
         entryData: "0x"
       },
       additionalParams?.targetHealthFactor2 || await controller.targetHealthFactor2(),

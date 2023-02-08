@@ -302,7 +302,6 @@ describe("Aave3PlatformAdapterTest", () => {
           collateralAmount: badPathsParams?.zeroCollateralAmount ? 0 : collateralAmount,
           borrowAsset: badPathsParams?.zeroBorrowAsset ? Misc.ZERO_ADDRESS : borrowAsset,
           countBlocks: badPathsParams?.zeroCountBlocks ? 0 : countBlocks,
-          entryKind: 0,
           entryData: "0x"
         },
         healthFactor2,
@@ -592,7 +591,6 @@ describe("Aave3PlatformAdapterTest", () => {
               collateralAmount: parseUnits("1", 18),
               borrowAsset: MaticAddresses.USDC,
               countBlocks: 1,
-              entryKind: 0,
               entryData: "0x"
             },
             200,

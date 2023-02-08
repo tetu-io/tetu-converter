@@ -223,7 +223,6 @@ export class DForceTestUtils {
         collateralAmount,
         borrowAsset: borrowToken.address,
         countBlocks,
-        entryKind: 0,
         entryData: "0x"
       },
       badPathsParams?.targetHealthFactor2 || await controller.targetHealthFactor2(),

@@ -409,6 +409,7 @@ export class BorrowRepayUsesCase {
       await DeployerUtils.startImpersonate(uc.address)
     );
     const strategyToConvert: IStrategyToConvert = await tetuConverterAsUser.callStatic.findConversionStrategy(
+      "0x",
       p.collateral.asset,
       collateralAmount,
       p.borrow.asset,
@@ -698,6 +699,7 @@ export class BorrowRepayUsesCase {
       await DeployerUtils.startImpersonate(uc.address)
     );
     const strategyToConvert: IStrategyToConvert = await tetuConverterAsUser.callStatic.findConversionStrategy(
+      "0x",
       p.collateral.asset,
       collateralAmount,
       p.borrow.asset,
@@ -753,6 +755,7 @@ export class BorrowRepayUsesCase {
       await DeployerUtils.startImpersonate(uc.address)
     );
     const strategyToConvert: IStrategyToConvert = await tetuConverterAsUser.callStatic.findConversionStrategy(
+      "0x",
       p.collateral.asset,
       collateralAmount,
       p.borrow.asset,

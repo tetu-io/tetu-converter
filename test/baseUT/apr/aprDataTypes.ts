@@ -121,7 +121,8 @@ export interface ISwapResults {
 
 export interface IStrategyToConvert {
   converter: string;
-  maxTargetAmount: BigNumber;
+  collateralAmountOut: BigNumber;
+  amountToBorrowOut: BigNumber;
   apr18: BigNumber;
 }
 
