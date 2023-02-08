@@ -15,9 +15,8 @@ library AppDataTypes {
     address collateralAsset;
     address borrowAsset;
 
-    /// @notice Possible values: see ITetuConverter.EntryKind
-    uint16 entryKind;
-    /// @notice Encoded data, exact set of parameters depends on entryKind
+    /// @notice Encoded entry kind and additional params if necessary (set of params depends on the kind)
+    ///         See EntryKinds.sol\ENTRY_KIND_XXX constants for possible entry kinds
     bytes entryData;
 
     uint countBlocks;

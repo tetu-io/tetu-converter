@@ -1,5 +1,4 @@
 // SPDX-License-Identifier: MIT
-
 pragma solidity 0.8.17;
 
 import "../interfaces/IController.sol";
@@ -79,6 +78,7 @@ contract Borrower is ITetuConverterCallback {
   ///////////////////////////////////////////////////////
   /// @notice Borrow MAX allowed amount
   function borrowMaxAmount(
+    bytes memory entryData_,
     address sourceAsset_,
     uint sourceAmount_,
     address targetAsset_,
@@ -88,15 +88,17 @@ contract Borrower is ITetuConverterCallback {
     console.log("borrowMaxAmount receiver_", receiver_);
     // ask TC for the best conversion strategy
     IERC20(sourceAsset_).approve(address(_tc()), sourceAmount_);
-    (address converter, uint maxTargetAmount,) = _tc().findConversionStrategy(sourceAsset_,
+    (address converter, uint collateralAmount, uint amountToBorrow,) = _tc().findConversionStrategy(
+      entryData_,
+      sourceAsset_,
       sourceAmount_,
       targetAsset_,
       _borrowPeriodInBlocks
     );
     require(converter != address(0), "Conversion strategy wasn't found");
-    require(maxTargetAmount != 0, "maxTargetAmount is 0");
+    require(amountToBorrow != 0, "maxTargetAmount is 0");
 
-    console.log("we can borrow:", maxTargetAmount, "gasleft", gasleft());
+    console.log("we can borrow:", amountToBorrow, "gasleft", gasleft());
     console.log("sourceAmount_", sourceAmount_);
     console.log("balance st on tc", IERC20(sourceAsset_).balanceOf(address(this)));
     // transfer collateral to TC
@@ -108,15 +110,15 @@ contract Borrower is ITetuConverterCallback {
     borrowedAmountOut = tc.borrow(
       converter,
       sourceAsset_,
-      sourceAmount_,
+      collateralAmount,
       targetAsset_,
-      maxTargetAmount,
+      amountToBorrow,
       receiver_
     );
     console.log("borrowMaxAmount done gasleft6", gasleft());
     console.log("Borrowed amount", borrowedAmountOut, "were sent to receiver", receiver_);
 
-    totalBorrowedAmount += maxTargetAmount;
+    totalBorrowedAmount += amountToBorrow;
     converterOut = converter;
   }
 
@@ -136,15 +138,18 @@ contract Borrower is ITetuConverterCallback {
     console.log("borrowExactAmount targetAsset_", targetAsset_);
     console.log("borrowExactAmount receiver_", receiver_);
     console.log("borrowExactAmount _borrowPeriodInBlocks", _borrowPeriodInBlocks);
+
     // ask TC for the best conversion strategy
     IERC20(sourceAsset_).approve(address(_tc()), sourceAmount_);
-    (address converter, uint maxTargetAmount,) = _tc().findConversionStrategy(sourceAsset_,
+    (address converter,, uint amountToBorrow,) = _tc().findConversionStrategy(
+      abi.encode(uint(0)), // ENTRY_KIND_EXACT_COLLATERAL_IN_FOR_MAX_BORROW_OUT_0
+      sourceAsset_,
       sourceAmount_,
       targetAsset_,
       _borrowPeriodInBlocks
     );
     require(converter != address(0), "Conversion strategy wasn't found");
-    require(maxTargetAmount != 0, "maxTargetAmount is 0");
+    require(amountToBorrow != 0, "maxTargetAmount is 0");
 
     console.log("we will borrow:", amountToBorrow_);
     console.log("gasleft/used by findConversionStrategy", gasStart - gasleft());

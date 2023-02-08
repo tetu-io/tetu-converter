@@ -6,22 +6,21 @@ pragma solidity 0.8.17;
 /// @dev Borrower (strategy) makes all operations via this contract only.
 interface ITetuConverter {
   /// @notice Find best borrow strategy and provide "cost of money" as interest for the period
-  /// @param entryKind_ Specify requirements for the conversion
+  /// @param entryData_ Encoded entry kind and additional params if necessary (set of params depends on the kind)
+  ///                   See EntryKinds.sol\ENTRY_KIND_XXX constants for possible entry kinds
   /// @param sourceAmount_ Amount to be converted
   /// @param periodInBlocks_ Estimated period to keep target amount. It's required to compute APR
-  /// @param entryData_ Encoded additional params. Composition of parameters depends on {entryKind_}
   /// @return converter Result contract that should be used for conversion; it supports IConverter
   ///                   This address should be passed to borrow-function during conversion.
   /// @return collateralAmountOut Amount that should be provided as a collateral
   /// @return amountToBorrowOut Amount that should be borrowed
   /// @return apr18 Interest on the use of {outMaxTargetAmount} during the given period, decimals 18
   function findBorrowStrategy(
-    uint16 entryKind_,
+    bytes memory entryData_,
     address sourceToken_,
     uint sourceAmount_,
     address targetToken_,
-    uint periodInBlocks_,
-    bytes memory entryData_
+    uint periodInBlocks_
   ) external view returns (
     address converter,
     uint collateralAmountOut,
@@ -33,17 +32,21 @@ interface ITetuConverter {
   /// @dev This is writable function with read-only behavior.
   ///      It should be writable to be able to simulate real swap and get a real APR.
   /// @param sourceAmount_ Amount to be converted
-  ///                     This amount must be approved to TetuConverter before the call.
+  ///                      This amount must be approved to TetuConverter before the call.
   /// @return converter Result contract that should be used for conversion to be passed to borrow()
-  /// @return maxTargetAmount Max available amount of target tokens that we can get after conversion
+  /// @return sourceAmountOut Amount of {sourceToken_} that should be swapped to get {targetToken_}
+  ///                         It can be different from the {sourceAmount_} for some entry kinds.
+  /// @return targetAmountOut Result amount of {targetToken_} after swap
   /// @return apr18 Interest on the use of {outMaxTargetAmount} during the given period, decimals 18
   function findSwapStrategy(
+    bytes memory entryData_,
     address sourceToken_,
     uint sourceAmount_,
     address targetToken_
   ) external returns (
     address converter,
-    uint maxTargetAmount,
+    uint sourceAmountOut,
+    uint targetAmountOut,
     int apr18
   );
 
@@ -55,16 +58,20 @@ interface ITetuConverter {
   ///        The amount must be approved to TetuConverter before calling this function.
   /// @param periodInBlocks_ Estimated period to keep target amount. It's required to compute APR
   /// @return converter Result contract that should be used for conversion to be passed to borrow().
-  /// @return maxTargetAmount Max available amount of target tokens that we can get after conversion
+  /// @return collateralAmountOut Amount of {sourceToken_} that should be swapped to get {targetToken_}
+  ///                             It can be different from the {sourceAmount_} for some entry kinds.
+  /// @return amountToBorrowOut Result amount of {targetToken_} after conversion
   /// @return apr18 Interest on the use of {outMaxTargetAmount} during the given period, decimals 18
   function findConversionStrategy(
+    bytes memory entryData_,
     address sourceToken_,
     uint sourceAmount_,
     address targetToken_,
     uint periodInBlocks_
   ) external returns (
     address converter,
-    uint maxTargetAmount,
+    uint collateralAmountOut,
+    uint amountToBorrowOut,
     int apr18
   );
 

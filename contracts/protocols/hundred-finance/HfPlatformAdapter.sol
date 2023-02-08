@@ -34,6 +34,7 @@ contract HfPlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
     IHfPriceOracle priceOracle;
     address cTokenCollateral;
     address cTokenBorrow;
+    uint entryKind;
   }
 
   ///////////////////////////////////////////////////////
@@ -214,11 +215,11 @@ contract HfPlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
             vars.priceCollateral = HfAprLib.getPrice(local.priceOracle, local.cTokenCollateral) * vars.rc10powDec;
             vars.priceBorrow = HfAprLib.getPrice(local.priceOracle, local.cTokenBorrow) * vars.rb10powDec;
 
-            // calculate amount that can be borrowed
-            // split calculation on several parts to avoid stack too deep
+            // calculate amount that can be borrowed and amount that should be provided as the collateral
 
             // we assume that liquidationThreshold18 == ltv18 in this protocol, so the minimum health factor is 1
-            if (p_.entryKind == EntryKinds.ENTRY_KIND_EXACT_COLLATERAL_IN_FOR_MAX_BORROW_OUT_0) {
+            local.entryKind = EntryKinds.getEntryKind(p_.entryData);
+            if (local.entryKind == EntryKinds.ENTRY_KIND_EXACT_COLLATERAL_IN_FOR_MAX_BORROW_OUT_0) {
               plan.collateralAmount = p_.collateralAmount;
               plan.amountToBorrow = EntryKinds.exactCollateralInForMaxBorrowOut(
                 p_.collateralAmount,
@@ -227,8 +228,8 @@ contract HfPlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
                 vars,
                 true // prices have decimals 36
               );
-            } else if (p_.entryKind == EntryKinds.ENTRY_KIND_EQUAL_COLLATERAL_AND_BORROW_OUT_1) {
-              (plan.collateralAmount, plan.amountToBorrow) = EntryKinds.equalCollateralAndBorrow(
+            } else if (local.entryKind == EntryKinds.ENTRY_KIND_EXACT_PROPORTION_1) {
+              (plan.collateralAmount, plan.amountToBorrow) = EntryKinds.exactProportion(
                 p_.collateralAmount,
                 uint(healthFactor2_) * 10**16,
                 plan.liquidationThreshold18,

@@ -48,6 +48,7 @@ contract AaveTwoPlatformAdapter is IPlatformAdapter {
     uint blocksPerDay;
     uint healthFactor18;
     IController controller;
+    uint entryKind;
   }
 
   ///////////////////////////////////////////////////////
@@ -190,8 +191,10 @@ contract AaveTwoPlatformAdapter is IPlatformAdapter {
             vars.healthFactor18 = uint(healthFactor2_) * 10**(18 - 2);
           }
 
-          if (params.entryKind == EntryKinds.ENTRY_KIND_EXACT_COLLATERAL_IN_FOR_MAX_BORROW_OUT_0) {
-            plan.collateralAmount = p_.collateralAmount;
+          // calculate amount that can be borrowed and amount that should be provided as the collateral
+          vars.entryKind = EntryKinds.getEntryKind(params.entryData);
+          if (vars.entryKind == EntryKinds.ENTRY_KIND_EXACT_COLLATERAL_IN_FOR_MAX_BORROW_OUT_0) {
+            plan.collateralAmount = params.collateralAmount;
             plan.amountToBorrow = EntryKinds.exactCollateralInForMaxBorrowOut(
               params.collateralAmount,
               vars.healthFactor18,
@@ -199,8 +202,8 @@ contract AaveTwoPlatformAdapter is IPlatformAdapter {
               pd,
               false // prices have decimals 18, not 36
             );
-          } else if (params.entryKind == EntryKinds.ENTRY_KIND_EQUAL_COLLATERAL_AND_BORROW_OUT_1) {
-            (plan.collateralAmount, plan.amountToBorrow) = EntryKinds.equalCollateralAndBorrow(
+          } else if (vars.entryKind == EntryKinds.ENTRY_KIND_EXACT_PROPORTION_1) {
+            (plan.collateralAmount, plan.amountToBorrow) = EntryKinds.exactProportion(
               params.collateralAmount,
               vars.healthFactor18,
               plan.liquidationThreshold18,

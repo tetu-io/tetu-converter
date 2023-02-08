@@ -2,6 +2,7 @@
 pragma solidity 0.8.17;
 
 import "./AppDataTypes.sol";
+import "./AppErrors.sol";
 
 /// @notice Utils and constants related to entryKind param of ITetuConverter.findBorrowStrategy
 library EntryKinds {
@@ -10,8 +11,15 @@ library EntryKinds {
 
   /// @notice Split provided source amount S on two parts: C1 and C2 (C1 + C2 = S)
   ///         C2 should be used as collateral to make a borrow B.
-  ///         Results amounts of C1 and B should be (almost) equal (in terms of USD)
-  uint constant public ENTRY_KIND_EQUAL_COLLATERAL_AND_BORROW_OUT_1 = 1;
+  ///         Results amounts of C1 and B (both in terms of USD) must be in the given proportion
+  uint constant public ENTRY_KIND_EXACT_PROPORTION_1 = 1;
+
+
+  /// @notice Decode entryData, extract first uint - entry kind
+  ///         Valid values of entry kinds are given by ENTRY_KIND_XXX constants above
+  function getEntryKind(bytes memory entryData_) internal pure returns (uint) {
+    return abi.decode(entryData_, (uint));
+  }
 
   /// @notice Use {collateralAmount} as a collateral to receive max available {amountToBorrowOut}
   ///         for the given {healthFactor18} and {liquidationThreshold18}
@@ -57,7 +65,11 @@ library EntryKinds {
   ///                        In this case, we can have overloading if collateralAmount is high enough,
   ///                        so we need a special logic to avoid it
   /// @param entryData Additional encoded data: required proportions of C1' and {amountToBorrowOut}', X:Y
-  function equalCollateralAndBorrow(
+  ///                  Encoded data: (uint entryKind, uint X, uint Y)
+  ///                  X - portion of C1, Y - portion of {amountToBorrowOut}
+  ///                  2:1 means, that we will have 2 parts of source asset and 1 part of borrowed asset in result.
+  ///                  entryKind must be equal to 1 (== ENTRY_KIND_EQUAL_COLLATERAL_AND_BORROW_OUT_1)
+  function exactProportion(
     uint collateralAmount,
     uint healthFactor18,
     uint liquidationThreshold18,
@@ -68,14 +80,12 @@ library EntryKinds {
     uint collateralAmountOut,
     uint amountToBorrowOut
   ) {
-    // C = C1 + C2, HF = healthFactor18, LT = liquidationThreshold18
-    // C' = C1' + C2' where C' is C recalculated to USD
-    // C' = C * PC / DC, where PC is price_C, DC = 10**decimals_C
-    // X*B' = Y*(C' - C1')*LT/HF ~ C1` => C1' = C' * a / (1 + a), C2' = C' / (1 + a)
-    // where a = (Y * LT)/(HF * X)
-
-    uint a = liquidationThreshold18 * 1e18 / healthFactor18;
-    collateralAmountOut = collateralAmount * 1e18 / (1e18 + a);
+    collateralAmountOut = getCollateralAmountToConvert(
+      entryData,
+      collateralAmount,
+      healthFactor18,
+      liquidationThreshold18
+    );
     amountToBorrowOut = exactCollateralInForMaxBorrowOut(
       collateralAmountOut,
       healthFactor18,
@@ -83,5 +93,28 @@ library EntryKinds {
       pd,
       priceDecimals36
     );
+  }
+
+  /// @notice Split {sourceAmount_} on two parts: C1 and C2. Swap C2 => {targetAmountOut}
+  ///         Result cost of {targetAmountOut} and C1 should be equal or almost equal
+  function getCollateralAmountToConvert(
+    bytes memory entryData,
+    uint collateralAmount,
+    uint healthFactor18,
+    uint liquidationThreshold18
+  ) internal pure returns (
+    uint collateralAmountOut
+  ) {
+    // C = C1 + C2, HF = healthFactor18, LT = liquidationThreshold18
+    // C' = C1' + C2' where C' is C recalculated to USD
+    // C' = C * PC / DC, where PC is price_C, DC = 10**decimals_C
+    // Y*B' = X*(C' - C1')*LT/HF ~ C1` => C1' = C' * a / (1 + a), C2' = C' / (1 + a)
+    // where a = (X * LT)/(HF * Y)
+
+    (, uint x, uint y) = abi.decode(entryData, (uint, uint, uint));
+    require(x != 0 && y != 0, AppErrors.ZERO_VALUE_NOT_ALLOWED);
+
+    uint a = (x * liquidationThreshold18 * 1e18) / (healthFactor18 * y);
+    return collateralAmount * 1e18 / (1e18 + a);
   }
 }

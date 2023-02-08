@@ -35,6 +35,7 @@ contract DForcePlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
     IDForceController comptroller;
     IDForcePriceOracle priceOracle;
     uint healthFactor18;
+    uint entryKind;
   }
 
   ///////////////////////////////////////////////////////
@@ -231,8 +232,7 @@ contract DForcePlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
               vars.priceCollateral = DForceAprLib.getPrice(local.priceOracle, cTokenCollateral) * vars.rc10powDec;
               vars.priceBorrow = DForceAprLib.getPrice(local.priceOracle, cTokenBorrow) * vars.rb10powDec;
 
-              // calculate amount that can be borrowed
-              // split calculation on several parts to avoid stack too deep
+              // calculate amount that can be borrowed and amount that should be provided as the collateral
 
               // Protocol has min allowed health factor at the borrow moment: liquidationThreshold18/LTV, i.e. 0.85/0.8=1.06...
               // Target health factor can be smaller but it's not possible to make a borrow with such low health factor
@@ -241,7 +241,9 @@ contract DForcePlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
               if (local.healthFactor18 < uint(healthFactor2_) * 10**(18 - 2)) {
                 local.healthFactor18 = uint(healthFactor2_) * 10**(18 - 2);
               }
-              if (p_.entryKind == EntryKinds.ENTRY_KIND_EXACT_COLLATERAL_IN_FOR_MAX_BORROW_OUT_0) {
+
+              local.entryKind = EntryKinds.getEntryKind(p_.entryData);
+              if (local.entryKind == EntryKinds.ENTRY_KIND_EXACT_COLLATERAL_IN_FOR_MAX_BORROW_OUT_0) {
                 plan.collateralAmount = p_.collateralAmount;
                 plan.amountToBorrow = EntryKinds.exactCollateralInForMaxBorrowOut(
                   p_.collateralAmount,
@@ -250,8 +252,8 @@ contract DForcePlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
                   vars,
                   true // prices have decimals 36
                 );
-              } else if (p_.entryKind == EntryKinds.ENTRY_KIND_EQUAL_COLLATERAL_AND_BORROW_OUT_1) {
-                (plan.collateralAmount, plan.amountToBorrow) = EntryKinds.equalCollateralAndBorrow(
+              } else if (local.entryKind == EntryKinds.ENTRY_KIND_EXACT_PROPORTION_1) {
+                (plan.collateralAmount, plan.amountToBorrow) = EntryKinds.exactProportion(
                   p_.collateralAmount,
                   local.healthFactor18,
                   plan.liquidationThreshold18,

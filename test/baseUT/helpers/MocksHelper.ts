@@ -33,7 +33,13 @@ import {
   DebtMonitorMock,
   Aave3PoolMock,
   AaveTwoPoolMock,
-  TokenAddressProviderMock, DForceControllerMock, DForceCTokenMock, HfComptrollerMock, HfCTokenMock, PriceOracleStub
+  TokenAddressProviderMock,
+  DForceControllerMock,
+  DForceCTokenMock,
+  HfComptrollerMock,
+  HfCTokenMock,
+  PriceOracleStub,
+  EntryKindsFacade
 } from "../../../typechain";
 import {IPoolInfo} from "./BorrowManagerHelper";
 import {getBigNumberFrom} from "../../../scripts/utils/NumberUtils";
@@ -566,4 +572,8 @@ export class MocksHelper {
     return await DeployUtils.deployContract(deployer, "PriceOracleMock", assets, prices) as PriceOracleMock;
   }
 //endregion PriceOracle mock
+
+  public static async getEntryKindsFacade(deployer: SignerWithAddress) : Promise<EntryKindsFacade> {
+    return await DeployUtils.deployContract(deployer, "EntryKindsFacade") as EntryKindsFacade;
+  }
 }
