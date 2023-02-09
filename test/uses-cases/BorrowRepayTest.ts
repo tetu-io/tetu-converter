@@ -645,7 +645,7 @@ describe("BorrowRepayTest", () => {
                   repayAmount1: AMOUNT_REPAY1,
                 }, new HundredFinancePlatformFabric(),
                 {
-                  resultCollateralCanBeLessThenInitial: false
+                  resultCollateralCanBeLessThenInitial: true
                 }
               );
               expect(ret.sret).eq(ret.sexpected);

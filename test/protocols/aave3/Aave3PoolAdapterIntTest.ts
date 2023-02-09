@@ -26,6 +26,7 @@ import {
   IPrepareToBorrowResults,
 } from "../../baseUT/protocols/aave3/Aave3TestUtils";
 import {formatUnits, parseUnits} from "ethers/lib/utils";
+import {areAlmostEqual} from "../../baseUT/utils/CommonUtils";
 
 describe("Aave3PoolAdapterIntTest", () => {
 //region Global vars for all tests
@@ -79,16 +80,24 @@ describe("Aave3PoolAdapterIntTest", () => {
         await IERC20Metadata__factory.connect(ret.collateralData.data.aTokenAddress, deployer)
           .balanceOf(d.aavePoolAdapterAsTC.address),
         ret.accountDataAfterBorrow.totalCollateralBase,
-        ret.accountDataAfterBorrow.totalDebtBase
+
+        // Not exact equal. npm run test can produce small differences in results sometime, i.e.
+        // 56879332146581 vs 56879332146481 (WBTC-8 : Tether-6, big amounts)
+        // 886499999 vs 886500000 (DAI-18 : matic-18, small amounts)
+        areAlmostEqual(
+          ret.accountDataAfterBorrow.totalDebtBase,
+          ret.borrowedAmount.mul(d.priceBorrow) // registered debt in the pool
+            .div(parseUnits("1", borrowToken.decimals)),
+          5
+        )
       ].map(x => BalanceUtils.toString(x)).join("\n");
 
       const sexpected = [
         ret.borrowedAmount, // borrowed amount on user's balance
         d.collateralAmount, // amount of collateral tokens on pool-adapter's balance
         d.collateralAmount.mul(d.priceCollateral)  // registered collateral in the pool
-          .div(getBigNumberFrom(1, collateralToken.decimals)),
-        ret.borrowedAmount.mul(d.priceBorrow) // registered debt in the pool
-          .div(getBigNumberFrom(1, borrowToken.decimals)),
+          .div(parseUnits("1", collateralToken.decimals)),
+        true
       ].map(x => BalanceUtils.toString(x)).join("\n");
 
       return {sret, sexpected};
