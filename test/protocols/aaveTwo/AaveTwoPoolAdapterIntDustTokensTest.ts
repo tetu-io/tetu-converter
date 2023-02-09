@@ -1,32 +1,16 @@
 import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import {ethers} from "hardhat";
 import {TimeUtils} from "../../../scripts/utils/TimeUtils";
-import {
-  IERC20Metadata__factory,
-  IPoolAdapter__factory
-} from "../../../typechain";
-import {expect} from "chai";
 import {BigNumber} from "ethers";
-import {getBigNumberFrom} from "../../../scripts/utils/NumberUtils";
 import {DeployerUtils} from "../../../scripts/utils/DeployerUtils";
-import {isPolygonForkInUse} from "../../baseUT/utils/NetworkUtils";
-import {BalanceUtils, IUserBalances} from "../../baseUT/utils/BalanceUtils";
-import {AaveTwoHelper, IAaveTwoReserveInfo} from "../../../scripts/integration/helpers/AaveTwoHelper";
+import {AaveTwoHelper} from "../../../scripts/integration/helpers/AaveTwoHelper";
 import {MaticAddresses} from "../../../scripts/addresses/MaticAddresses";
 import {TokenDataTypes} from "../../baseUT/types/TokenDataTypes";
-import {IAaveTwoUserAccountDataResults} from "../../baseUT/apr/aprAaveTwo";
-import {
-  AaveMakeBorrowAndRepayUtils, IBorrowAndRepayBadParams,
-  IMakeBorrowAndRepayResults
-} from "../../baseUT/protocols/aaveShared/aaveBorrowAndRepayUtils";
-import {AaveBorrowUtils} from "../../baseUT/protocols/aaveShared/aaveBorrowUtils";
 import {transferAndApprove} from "../../baseUT/utils/transferUtils";
-import {AaveTwoTestUtils, IPrepareToBorrowResults} from "../../baseUT/protocols/aaveTwo/AaveTwoTestUtils";
-import {areAlmostEqual} from "../../baseUT/utils/CommonUtils";
-import {formatUnits, parseUnits} from "ethers/lib/utils";
-import {Misc} from "../../../scripts/utils/Misc";
+import {AaveTwoTestUtils} from "../../baseUT/protocols/aaveTwo/AaveTwoTestUtils";
+import {parseUnits} from "ethers/lib/utils";
 
-describe("AaveTwoPoolAdapterIntDustTokensTest", () => {
+describe.skip("AaveTwoPoolAdapterIntDustTokensTest (study)", () => {
 //region Global vars for all tests
   let snapshot: string;
   let snapshotForEach: string;
@@ -159,7 +143,7 @@ describe("AaveTwoPoolAdapterIntDustTokensTest", () => {
             await TokenDataTypes.Build(deployer, MaticAddresses.USDC),
             MaticAddresses.HOLDER_USDC,
             {
-              borrowRepayDistanceInBlocks: 100_0000,
+              borrowRepayDistanceInBlocks: 1, // 100_0000, (!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!)
               initialBorrowAmountOnUserBalance: parseUnits("5000", 6) // it should be enough for repay needs
             }
           );

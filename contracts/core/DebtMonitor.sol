@@ -2,10 +2,10 @@
 
 pragma solidity 0.8.17;
 
-import "./AppErrors.sol";
+import "../libs/AppErrors.sol";
+import "../libs/AppUtils.sol";
 import "../openzeppelin/IERC20Metadata.sol";
 import "../openzeppelin/EnumerableSet.sol";
-import "../core/AppUtils.sol";
 import "../interfaces/IPoolAdapter.sol";
 import "../interfaces/IController.sol";
 import "../interfaces/IDebtMonitor.sol";

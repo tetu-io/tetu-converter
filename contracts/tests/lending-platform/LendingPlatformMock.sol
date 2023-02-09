@@ -2,10 +2,12 @@
 
 pragma solidity 0.8.17;
 
-import "../../core/AppDataTypes.sol";
+import "../../libs/AppDataTypes.sol";
+import "../../libs/EntryKinds.sol";
 import "../../interfaces/IPlatformAdapter.sol";
 import "hardhat/console.sol";
 import "./PoolAdapterMock.sol";
+import "../../libs/AppUtils.sol";
 
 contract LendingPlatformMock is IPlatformAdapter {
   using AppUtils for uint;
@@ -101,51 +103,72 @@ contract LendingPlatformMock is IPlatformAdapter {
   ///////////////////////////////////////////////////////////////////////////////
 
   function getConversionPlan (
-    address collateralAsset_,
-    uint collateralAmount_,
-    address borrowAsset_,
-    uint16 healthFactor2_,
-    uint countBlocks_
+    AppDataTypes.InputConversionParams memory p_,
+    uint16 healthFactor2_
   ) external view override returns (
     AppDataTypes.ConversionPlan memory plan
   ) {
     if (frozen) {
       return plan;
     } else {
-      uint decimalsBorrowAsset = IERC20Metadata(borrowAsset_).decimals();
+      uint decimalsBorrowAsset = IERC20Metadata(p_.borrowAsset).decimals();
 
-      uint amountToBorrow = AppUtils.toMantissa(
-          100 * collateralAmount_ / healthFactor2_
-          * liquidationThresholds18[collateralAsset_]
-          * IPriceOracle(_priceOracle).getAssetPrice(collateralAsset_)
-          / IPriceOracle(_priceOracle).getAssetPrice(borrowAsset_)
-          / 1e18,
-        uint8(IERC20Metadata(collateralAsset_).decimals()),
-        uint8(decimalsBorrowAsset)
-      );
+      uint entryKind = EntryKinds.getEntryKind(p_.entryData);
+      console.log("EntryKind", entryKind);
+      if (entryKind == EntryKinds.ENTRY_KIND_EXACT_COLLATERAL_IN_FOR_MAX_BORROW_OUT_0) {
+        plan.collateralAmount = p_.collateralAmount;
+        plan.amountToBorrow = EntryKinds.exactCollateralInForMaxBorrowOut(
+          p_.collateralAmount,
+          uint(healthFactor2_) * 10**16,
+          liquidationThresholds18[p_.collateralAsset],
+          AppDataTypes.PricesAndDecimals({
+            priceCollateral: IPriceOracle(_priceOracle).getAssetPrice(p_.collateralAsset),
+            priceBorrow: IPriceOracle(_priceOracle).getAssetPrice(p_.borrowAsset),
+            rc10powDec: 10 ** IERC20Metadata(p_.collateralAsset).decimals(),
+            rb10powDec: 10 ** decimalsBorrowAsset
+          }),
+          false // prices have decimals 18, not 36
+        );
+      } else if (entryKind == EntryKinds.ENTRY_KIND_EXACT_PROPORTION_1) {
+        (plan.collateralAmount, plan.amountToBorrow) = EntryKinds.exactProportion(
+          p_.collateralAmount,
+          uint(healthFactor2_) * 10**16,
+          liquidationThresholds18[p_.collateralAsset],
+          AppDataTypes.PricesAndDecimals({
+            priceCollateral: IPriceOracle(_priceOracle).getAssetPrice(p_.collateralAsset),
+            priceBorrow: IPriceOracle(_priceOracle).getAssetPrice(p_.borrowAsset),
+            rc10powDec: 10 ** IERC20Metadata(p_.collateralAsset).decimals(),
+            rb10powDec: 10 ** decimalsBorrowAsset
+          }),
+          p_.entryData,
+          false // prices have decimals 18, not 36
+        );
+        console.log("Collaterals", plan.collateralAmount, p_.collateralAmount);
+      }
 
       uint amountCollateralInBorrowAsset36 = AppUtils.toMantissa(
-        collateralAmount_
-          * IPriceOracle(_priceOracle).getAssetPrice(collateralAsset_)
-          / IPriceOracle(_priceOracle).getAssetPrice(borrowAsset_),
-        uint8(IERC20Metadata(collateralAsset_).decimals()),
+        p_.collateralAmount
+          * IPriceOracle(_priceOracle).getAssetPrice(p_.collateralAsset)
+          / IPriceOracle(_priceOracle).getAssetPrice(p_.borrowAsset),
+        uint8(IERC20Metadata(p_.collateralAsset).decimals()),
         36
       );
 
       return AppDataTypes.ConversionPlan({
         converter: _converters[0], //TODO: make converter selectable
-        liquidationThreshold18: liquidationThresholds18[collateralAsset_],
-        ltv18: liquidationThresholds18[collateralAsset_],
-        maxAmountToBorrow: liquidityToBorrow[borrowAsset_],
-        maxAmountToSupply: maxAmountToSupply[collateralAsset_] == 0
+        liquidationThreshold18: liquidationThresholds18[p_.collateralAsset],
+        ltv18: liquidationThresholds18[p_.collateralAsset],
+        maxAmountToBorrow: liquidityToBorrow[p_.borrowAsset],
+        maxAmountToSupply: maxAmountToSupply[p_.collateralAsset] == 0
           ? type(uint).max
-          : maxAmountToSupply[collateralAsset_],
-        amountToBorrow: amountToBorrow,
+          : maxAmountToSupply[p_.collateralAsset],
+        amountToBorrow: plan.amountToBorrow,
         amountCollateralInBorrowAsset36: amountCollateralInBorrowAsset36,
   // For simplicity, costs and incomes don't depend on amount of borrow
-        borrowCost36: borrowRates[borrowAsset_] * countBlocks_ * 1e36 / 10**decimalsBorrowAsset,
-        supplyIncomeInBorrowAsset36: supplyRatesBt18[collateralAsset_]  * countBlocks_ * 1e36 / 10**decimalsBorrowAsset,
-        rewardsAmountInBorrowAsset36: rewardsAmountsBt36[borrowAsset_]
+        borrowCost36: borrowRates[p_.borrowAsset] * p_.countBlocks * 1e36 / 10**decimalsBorrowAsset,
+        supplyIncomeInBorrowAsset36: supplyRatesBt18[p_.collateralAsset]  * p_.countBlocks * 1e36 / 10**decimalsBorrowAsset,
+        rewardsAmountInBorrowAsset36: rewardsAmountsBt36[p_.borrowAsset],
+        collateralAmount: plan.collateralAmount
       });
     }
   }

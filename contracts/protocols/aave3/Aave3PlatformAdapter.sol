@@ -4,9 +4,10 @@ pragma solidity 0.8.17;
 import "./Aave3AprLib.sol";
 import "../../openzeppelin/SafeERC20.sol";
 import "../../openzeppelin/IERC20.sol";
-import "../../core/AppUtils.sol";
-import "../../core/AppDataTypes.sol";
-import "../../core/AppErrors.sol";
+import "../../libs/AppUtils.sol";
+import "../../libs/AppDataTypes.sol";
+import "../../libs/AppErrors.sol";
+import "../../libs/EntryKinds.sol";
 import "../../interfaces/IPlatformAdapter.sol";
 import "../../interfaces/IPoolAdapterInitializer.sol";
 import "../../interfaces/IController.sol";
@@ -46,15 +47,11 @@ contract Aave3PlatformAdapter is IPlatformAdapter {
     uint totalStableDebt;
     uint totalVariableDebt;
     uint blocksPerDay;
-    uint priceCollateral;
-    uint priceBorrow;
-    /// @notice 10**rc.configuration.getDecimals()
-    uint rc10powDec;
-    /// @notice 10**rb.configuration.getDecimals()
-    uint rb10powDec;
     /// @notice rc.configuration.getDebtCeiling(); rcDebtCeiling != 0 => isolation mode is used
     uint rcDebtCeiling;
     uint healthFactor18;
+    IController controller;
+    uint entryKind;
   }
 
   ///////////////////////////////////////////////////////
@@ -153,13 +150,20 @@ contract Aave3PlatformAdapter is IPlatformAdapter {
   ///////////////////////////////////////////////////////
   ///             Get conversion plan
   ///////////////////////////////////////////////////////
-  function _getConversionPlan (
-    AppDataTypes.ParamsGetConversionPlan memory params
-  ) internal view returns (
+  function getConversionPlan (
+    AppDataTypes.InputConversionParams memory params,
+    uint16 healthFactor2_
+  ) external view override returns (
     AppDataTypes.ConversionPlan memory plan
   ) {
     if (! frozen) {
       LocalsGetConversionPlan memory vars;
+      AppDataTypes.PricesAndDecimals memory pd;
+      vars.controller = controller;
+
+      require(params.collateralAsset != address(0) && params.borrowAsset != address(0), AppErrors.ZERO_ADDRESS);
+      require(params.collateralAmount != 0 && params.countBlocks != 0, AppErrors.INCORRECT_VALUE);
+      require(healthFactor2_ >= vars.controller.minHealthFactor2(), AppErrors.WRONG_HEALTH_FACTOR);
 
       vars.poolLocal = pool;
       vars.addressProvider = IAaveAddressesProvider(vars.poolLocal.ADDRESSES_PROVIDER());
@@ -172,8 +176,8 @@ contract Aave3PlatformAdapter is IPlatformAdapter {
         Aave3DataTypes.ReserveData memory rb = vars.poolLocal.getReserveData(params.borrowAsset);
 
         if (_isUsable(rb.configuration) && rb.configuration.getBorrowingEnabled()) {
-          vars.rc10powDec = 10**rc.configuration.getDecimals();
-          vars.rb10powDec = 10**rb.configuration.getDecimals();
+          pd.rc10powDec = 10**rc.configuration.getDecimals();
+          pd.rb10powDec = 10**rb.configuration.getDecimals();
 
           /// Some assets can be used as collateral in isolation mode only
           /// see comment to getDebtCeiling(): The debt ceiling (0 = isolation mode disabled)
@@ -212,7 +216,7 @@ contract Aave3PlatformAdapter is IPlatformAdapter {
             { // take into account borrow cap, supply cap and debts ceiling
               uint borrowCap = rb.configuration.getBorrowCap();
               if (borrowCap != 0) {
-                borrowCap *= vars.rb10powDec;
+                borrowCap *= pd.rb10powDec;
                 uint totalDebt = vars.totalStableDebt + vars.totalVariableDebt;
                 if (totalDebt > borrowCap) {
                   plan.maxAmountToBorrow = 0;
@@ -236,7 +240,7 @@ contract Aave3PlatformAdapter is IPlatformAdapter {
                 // The user will therefore be allowed to borrow up to $10M of stable coins
                 // Debt ceiling does not include interest accrued over time, only the principal borrowed
                 uint maxAmount = (vars.rcDebtCeiling - rc.isolationModeTotalDebt)
-                    * vars.rb10powDec
+                    * pd.rb10powDec
                     / 10 ** Aave3ReserveConfiguration.DEBT_CEILING_DECIMALS;
 
                 if (plan.maxAmountToBorrow > maxAmount) {
@@ -251,7 +255,7 @@ contract Aave3PlatformAdapter is IPlatformAdapter {
               if (supplyCap == 0) {
                 plan.maxAmountToSupply = type(uint).max; // unlimited
               } else {
-                supplyCap  *= vars.rc10powDec;
+                supplyCap  *= pd.rc10powDec;
                 uint totalSupply = (
                   IAaveToken(rc.aTokenAddress).scaledTotalSupply() * rc.liquidityIndex + HALF_RAY
                 ) / RAY;
@@ -262,24 +266,39 @@ contract Aave3PlatformAdapter is IPlatformAdapter {
             }
 
             // calculate borrow-APR, see detailed explanation in Aave3AprLib
-            vars.blocksPerDay = controller.blocksPerDay();
-            vars.priceCollateral = vars.priceOracle.getAssetPrice(params.collateralAsset);
-            vars.priceBorrow = vars.priceOracle.getAssetPrice(params.borrowAsset);
+            vars.blocksPerDay = vars.controller.blocksPerDay();
+            pd.priceCollateral = vars.priceOracle.getAssetPrice(params.collateralAsset);
+            pd.priceBorrow = vars.priceOracle.getAssetPrice(params.borrowAsset);
 
             // AAVE has min allowed health factor at the borrow moment: liquidationThreshold18/LTV, i.e. 0.85/0.8=1.06...
             // Target health factor can be smaller but it's not possible to make a borrow with such low health factor
             // see explanation of health factor value in IController.sol
             vars.healthFactor18 = plan.liquidationThreshold18 * 1e18 / plan.ltv18;
-            if (vars.healthFactor18 < uint(params.healthFactor2 )* 10**(18 - 2)) {
-              vars.healthFactor18 = uint(params.healthFactor2) * 10**(18 - 2);
+            if (vars.healthFactor18 < uint(healthFactor2_)* 10**(18 - 2)) {
+              vars.healthFactor18 = uint(healthFactor2_) * 10**(18 - 2);
             }
-            plan.amountToBorrow =
-                1e18 * params.collateralAmount / vars.healthFactor18
-                * plan.liquidationThreshold18
-                * vars.priceCollateral / vars.priceBorrow
-                * vars.rb10powDec
-                / 1e18
-                / vars.rc10powDec;
+
+            // calculate amount that can be borrowed and amount that should be provided as the collateral
+            vars.entryKind = EntryKinds.getEntryKind(params.entryData);
+            if (vars.entryKind == EntryKinds.ENTRY_KIND_EXACT_COLLATERAL_IN_FOR_MAX_BORROW_OUT_0) {
+              plan.collateralAmount = params.collateralAmount;
+              plan.amountToBorrow = EntryKinds.exactCollateralInForMaxBorrowOut(
+                params.collateralAmount,
+                vars.healthFactor18,
+                plan.liquidationThreshold18,
+                pd,
+                false // prices have decimals 18, not 36
+              );
+            } else if (vars.entryKind == EntryKinds.ENTRY_KIND_EXACT_PROPORTION_1) {
+              (plan.collateralAmount, plan.amountToBorrow) = EntryKinds.exactProportion(
+                params.collateralAmount,
+                vars.healthFactor18,
+                plan.liquidationThreshold18,
+                pd,
+                params.entryData,
+                false // prices have decimals 18, not 36
+              );
+            }
 
             if (plan.amountToBorrow > plan.maxAmountToBorrow) {
               plan.amountToBorrow = plan.maxAmountToBorrow;
@@ -306,7 +325,7 @@ contract Aave3PlatformAdapter is IPlatformAdapter {
               1e18 // multiplier to increase result precision
             )
             * 1e18 // we need decimals 36, but the result is already multiplied on 1e18 by multiplier above
-            / vars.rb10powDec;
+            / pd.rb10powDec;
 
             // calculate supply-APR, see detailed explanation in Aave3AprLib
             (,,
@@ -336,42 +355,18 @@ contract Aave3PlatformAdapter is IPlatformAdapter {
             )
             // we need a value in terms of borrow tokens but with decimals 18
             * 1e18 // we need decimals 36, but the result is already multiplied on 1e18 by multiplier above
-            * vars.priceCollateral / vars.priceBorrow
-            / vars.rc10powDec;
+            * pd.priceCollateral / pd.priceBorrow
+            / pd.rc10powDec;
 
             plan.amountCollateralInBorrowAsset36 = params.collateralAmount
-              * (1e36 * vars.priceCollateral / vars.priceBorrow)
-              / vars.rc10powDec;
+              * (1e36 * pd.priceCollateral / pd.priceBorrow)
+              / pd.rc10powDec;
           }
         }
       }
     }
 
     return plan;
-  }
-
-  function getConversionPlan (
-    address collateralAsset_,
-    uint collateralAmount_,
-    address borrowAsset_,
-    uint16 healthFactor2_,
-    uint countBlocks_
-  ) external view override returns (
-    AppDataTypes.ConversionPlan memory plan
-  ) {
-    require(collateralAsset_ != address(0) && borrowAsset_ != address(0), AppErrors.ZERO_ADDRESS);
-    require(collateralAmount_ != 0 && countBlocks_ != 0, AppErrors.INCORRECT_VALUE);
-    require(healthFactor2_ >= controller.minHealthFactor2(), AppErrors.WRONG_HEALTH_FACTOR);
-
-    return _getConversionPlan(
-      AppDataTypes.ParamsGetConversionPlan({
-        collateralAsset: collateralAsset_,
-        collateralAmount: collateralAmount_,
-        borrowAsset: borrowAsset_,
-        healthFactor2: healthFactor2_,
-        countBlocks: countBlocks_
-      })
-    );
   }
 
   ///////////////////////////////////////////////////////

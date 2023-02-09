@@ -260,11 +260,14 @@ export class Aave3TestUtils {
     const countBlocks = 1;
 
     const plan: IConversionPlan = await aavePlatformAdapter.getConversionPlan(
-      collateralToken.address,
-      collateralAmount,
-      borrowToken.address,
+      {
+        collateralAsset: collateralToken.address,
+        collateralAmount,
+        borrowAsset: borrowToken.address,
+        countBlocks,
+        entryData: "0x"
+      },
       additionalParams?.targetHealthFactor2 || await controller.targetHealthFactor2(),
-      countBlocks
     );
     console.log("plan", plan);
 

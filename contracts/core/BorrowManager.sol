@@ -1,15 +1,15 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.17;
 
-import "./AppDataTypes.sol";
-import "./AppErrors.sol";
+import "../libs/AppDataTypes.sol";
+import "../libs/AppErrors.sol";
+import "../libs/AppUtils.sol";
 import "../openzeppelin/Clones.sol";
 import "../openzeppelin/IERC20.sol";
 import "../openzeppelin/SafeERC20.sol";
 import "../openzeppelin/EnumerableSet.sol";
 import "../openzeppelin/EnumerableMap.sol";
 import "../openzeppelin/IERC20Metadata.sol";
-import "../core/AppUtils.sol";
 import "../interfaces/IPlatformAdapter.sol";
 import "../interfaces/IBorrowManager.sol";
 import "../interfaces/IPriceOracle.sol";
@@ -246,21 +246,27 @@ contract BorrowManager is IBorrowManager {
 
   /// @notice Find lending pool capable of providing {targetAmount} and having APR
   /// @return converter Result template-pool-adapter or 0 if a pool is not found
-  /// @return maxTargetAmount Max available amount of target tokens that we can borrow using {sourceAmount}
+  /// @return collateralAmountOut Amount that should be provided as a collateral
+  /// @return amountToBorrowOut Amount that should be borrowed
   /// @return apr18 Annual Percentage Rate == (total cost - total income) / amount of collateral, decimals 18
   function findConverter(AppDataTypes.InputConversionParams memory p_) external view override returns (
     address converter,
-    uint maxTargetAmount,
+    uint collateralAmountOut,
+    uint amountToBorrowOut,
     int apr18
   ) {
     // get all platform adapters that support required pair of assets
-    EnumerableSet.AddressSet storage pas = _pairsList[getAssetPairKey(p_.sourceToken, p_.targetToken)];
+    EnumerableSet.AddressSet storage pas = _pairsList[getAssetPairKey(p_.collateralAsset, p_.borrowAsset)];
 
     if (pas.length() != 0) {
-      (converter, maxTargetAmount, apr18) = _findPool(pas, p_, getTargetHealthFactor2(p_.targetToken));
+      (converter,
+       collateralAmountOut,
+       amountToBorrowOut,
+       apr18
+      ) = _findPool(pas, p_, getTargetHealthFactor2(p_.borrowAsset));
     }
 
-    return (converter, maxTargetAmount, apr18);
+    return (converter, collateralAmountOut, amountToBorrowOut, apr18);
   }
 
   /// @notice Enumerate all pools and select a pool suitable for borrowing with min APR and enough liquidity
@@ -281,24 +287,22 @@ contract BorrowManager is IBorrowManager {
     uint16 healthFactor2_
   ) internal view returns (
     address converter,
-    uint maxTargetAmount,
+    uint collateralAmountOut,
+    uint amountToBorrowOut,
     int apr18
   ) {
     uint lenPools = platformAdapters_.length();
 
     for (uint i = 0; i < lenPools; i = i.uncheckedInc()) {
       AppDataTypes.ConversionPlan memory plan = IPlatformAdapter(platformAdapters_.at(i)).getConversionPlan(
-        p_.sourceToken,
-        p_.sourceAmount,
-        p_.targetToken,
-        healthFactor2_,
-        p_.periodInBlocks
+        p_,
+        healthFactor2_
       );
 
       if (
         plan.converter != address(0)
         // check if we are able to supply required collateral
-        && plan.maxAmountToSupply > p_.sourceAmount
+        && plan.maxAmountToSupply > p_.collateralAmount
       ) {
         // combine all costs and incomes and calculate result APR. Rewards are taken with the given weight.
         // Positive value means cost, negative - income
@@ -318,13 +322,14 @@ contract BorrowManager is IBorrowManager {
           && plan.maxAmountToBorrow >= plan.amountToBorrow
         ) {
           converter = plan.converter;
-          maxTargetAmount = plan.amountToBorrow;
+          amountToBorrowOut = plan.amountToBorrow;
+          collateralAmountOut = plan.collateralAmount;
           apr18 = planApr18;
         }
       }
     }
 
-    return (converter, maxTargetAmount, apr18);
+    return (converter, collateralAmountOut, amountToBorrowOut, apr18);
   }
 
   ///////////////////////////////////////////////////////

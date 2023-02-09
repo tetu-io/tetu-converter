@@ -274,24 +274,26 @@ describe("BorrowManager", () => {
 
     console.log("Source amount:", getBigNumberFrom(sourceAmountNum, await sourceToken.decimals()).toString());
     const ret = await core.bm.findConverter({
-      sourceToken: sourceToken.address,
-      sourceAmount: getBigNumberFrom(sourceAmountNum, await sourceToken.decimals()),
-      targetToken: params?.targetAssetToSearch || targetToken.address,
-      periodInBlocks
+      collateralAsset: sourceToken.address,
+      collateralAmount: getBigNumberFrom(sourceAmountNum, await sourceToken.decimals()),
+      borrowAsset: params?.targetAssetToSearch || targetToken.address,
+      countBlocks: periodInBlocks,
+      entryData: "0x"
     });
     const gas = params?.estimateGas
       ? await core.bm.estimateGas.findConverter({
-        sourceToken: sourceToken.address,
-        sourceAmount: getBigNumberFrom(sourceAmountNum, await sourceToken.decimals()),
-        targetToken: targetToken.address,
-        periodInBlocks
+        collateralAsset: sourceToken.address,
+        collateralAmount: getBigNumberFrom(sourceAmountNum, await sourceToken.decimals()),
+        borrowAsset: targetToken.address,
+        countBlocks: periodInBlocks,
+        entryData: "0x"
       })
       : undefined;
 
     return {
       outPoolIndex0: poolsInfo.findIndex(x => x.converter === ret.converter),
       outApr18: ret.apr18,
-      outMaxTargetAmount: ret.maxTargetAmount,
+      outMaxTargetAmount: ret.amountToBorrowOut,
       outGas: gas,
       rewardsFactor: await core.bm.rewardsFactor(),
       amountCollateralInBorrowAsset36: getBigNumberFrom(
@@ -360,10 +362,11 @@ describe("BorrowManager", () => {
 
     const sourceAmount = getBigNumberFrom(sourceAmountNum, await sourceToken.decimals());
     const r = await core.bm.findConverter({
-      sourceToken: sourceToken.address,
-      sourceAmount,
-      targetToken: targetToken.address,
-      periodInBlocks: countBlocks
+      collateralAsset: sourceToken.address,
+      collateralAmount: sourceAmount,
+      borrowAsset: targetToken.address,
+      countBlocks,
+      entryData: "0x"
     });
 
     return {
@@ -492,7 +495,6 @@ describe("BorrowManager", () => {
     };
   }
 //endregion registerPoolAdapter utils
-
 
 //region Unit tests
   describe("constructor", () => {

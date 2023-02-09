@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.17;
 
-import "./AppErrors.sol";
+import "../libs/AppErrors.sol";
 import "../openzeppelin/Initializable.sol";
 import "../interfaces/IController.sol";
 

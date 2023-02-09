@@ -2,7 +2,7 @@
 
 pragma solidity 0.8.17;
 
-import "../../core/AppDataTypes.sol";
+import "../../libs/AppDataTypes.sol";
 
 /// @notice Return predefined list of converters
 contract PlatformAdapterStub {

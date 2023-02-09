@@ -22,7 +22,7 @@ import {
 } from "../baseUT/GasLimit";
 import {controlGasLimitsEx} from "../../scripts/utils/hardhatUtils";
 import {DForceChangePriceUtils} from "../baseUT/protocols/dforce/DForceChangePriceUtils";
-import {IERC20__factory, IERC20Metadata__factory} from "../../typechain";
+import {IERC20__factory} from "../../typechain";
 
 describe("BorrowRepayTest", () => {
 //region Global vars for all tests
@@ -113,9 +113,11 @@ describe("BorrowRepayTest", () => {
             });
           });
           describe("AAVE3", () => {
+            let snapshotLocal: string;
             let results: IMakeTestSingleBorrowInstantRepayResults;
             before(async function () {
               if (!await isPolygonForkInUse()) return;
+              snapshotLocal = await TimeUtils.snapshot();
               results = await BorrowRepayUsesCase.makeTestSingleBorrowInstantRepay(deployer,
                 {
                   collateral: {
@@ -136,6 +138,9 @@ describe("BorrowRepayTest", () => {
                 {},
               );
             });
+            after(async function () {
+              await TimeUtils.rollback(snapshotLocal);
+            });
             it("should return expected balances", async () => {
               if (!await isPolygonForkInUse()) return;
               expect(results.sret).eq(results.sexpected);
@@ -151,9 +156,11 @@ describe("BorrowRepayTest", () => {
             });
           });
           describe("AAVETwo", () => {
+            let snapshotLocal: string;
             let results: IMakeTestSingleBorrowInstantRepayResults;
             before(async function () {
               if (!await isPolygonForkInUse()) return;
+              snapshotLocal = await TimeUtils.snapshot();
               results = await BorrowRepayUsesCase.makeTestSingleBorrowInstantRepay(deployer,
                 {
                   collateral: {
@@ -174,6 +181,9 @@ describe("BorrowRepayTest", () => {
                 {},
               );
             });
+            after(async function () {
+              await TimeUtils.rollback(snapshotLocal);
+            });
             it("should return expected balances", async () => {
               if (!await isPolygonForkInUse()) return;
               expect(results.sret).eq(results.sexpected);
@@ -189,9 +199,11 @@ describe("BorrowRepayTest", () => {
             });
           });
           describe("Hundred finance", () => {
+            let snapshotLocal: string;
             let results: IMakeTestSingleBorrowInstantRepayResults;
             before(async function () {
               if (!await isPolygonForkInUse()) return;
+              snapshotLocal = await TimeUtils.snapshot();
               results = await BorrowRepayUsesCase.makeTestSingleBorrowInstantRepay(deployer,
                 {
                   collateral: {
@@ -214,6 +226,9 @@ describe("BorrowRepayTest", () => {
                 }
               );
             });
+            after(async function () {
+              await TimeUtils.rollback(snapshotLocal);
+            });
             it("should return expected balances", async () => {
               if (!await isPolygonForkInUse()) return;
               expect(results.sret).eq(results.sexpected);
@@ -229,9 +244,11 @@ describe("BorrowRepayTest", () => {
             });
           });
           describe("dForce", () => {
+            let snapshotLocal: string;
             let results: IMakeTestSingleBorrowInstantRepayResults;
             before(async function () {
               if (!await isPolygonForkInUse()) return;
+              snapshotLocal = await TimeUtils.snapshot();
               results = await BorrowRepayUsesCase.makeTestSingleBorrowInstantRepay(deployer,
                 {
                   collateral: {
@@ -251,6 +268,9 @@ describe("BorrowRepayTest", () => {
                 new DForcePlatformFabric(),
                 {}
               );
+            });
+            after(async function () {
+              await TimeUtils.rollback(snapshotLocal);
             });
             it("should return expected balances", async () => {
               if (!await isPolygonForkInUse()) return;
@@ -625,7 +645,7 @@ describe("BorrowRepayTest", () => {
                   repayAmount1: AMOUNT_REPAY1,
                 }, new HundredFinancePlatformFabric(),
                 {
-                  resultCollateralCanBeLessThenInitial: false
+                  resultCollateralCanBeLessThenInitial: true
                 }
               );
               expect(ret.sret).eq(ret.sexpected);

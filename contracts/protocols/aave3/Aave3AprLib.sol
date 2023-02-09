@@ -2,7 +2,7 @@
 pragma solidity 0.8.17;
 
 import "../aaveShared/AaveSharedLib.sol";
-import "../../core/AppErrors.sol";
+import "../../libs/AppErrors.sol";
 import "../../integrations/aave3/IAaveReserveInterestRateStrategy.sol";
 import "../../integrations/aave3/IAavePriceOracle.sol";
 import "../../integrations/aave3/IAavePool.sol";

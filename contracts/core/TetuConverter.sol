@@ -1,9 +1,11 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.17;
 
-import "./AppDataTypes.sol";
-import "./AppErrors.sol";
-import "./AppUtils.sol";
+import "../libs/AppDataTypes.sol";
+import "../libs/AppErrors.sol";
+import "../libs/AppUtils.sol";
+import "../libs/EntryKinds.sol";
+import "../libs/SwapLib.sol";
 import "../openzeppelin/IERC20Metadata.sol";
 import "../openzeppelin/SafeERC20.sol";
 import "../openzeppelin/IERC20.sol";
@@ -21,6 +23,7 @@ import "../interfaces/IKeeperCallback.sol";
 import "../interfaces/ITetuConverterCallback.sol";
 import "../interfaces/IRequireAmountBySwapManagerCallback.sol";
 import "../interfaces/IPriceOracle.sol";
+import "../interfaces/ITetuLiquidator.sol";
 import "../integrations/market/ICErc20.sol";
 
 /// @notice Main application contract
@@ -100,6 +103,14 @@ contract TetuConverter is ITetuConverter, IKeeperCallback, IRequireAmountBySwapM
     address receiver
   );
 
+  event OnSafeLiquidate(
+    address sourceToken,
+    uint sourceAmount,
+    address targetToken,
+    address receiver,
+    uint outputAmount
+  );
+
   ///////////////////////////////////////////////////////
   ///                Initialization
   ///////////////////////////////////////////////////////
@@ -138,72 +149,83 @@ contract TetuConverter is ITetuConverter, IKeeperCallback, IRequireAmountBySwapM
   ///         It calls both findBorrowStrategy and findSwapStrategy and selects a best strategy.
   /// @dev This is writable function with read-only behavior.
   ///      It should be writable to be able to simulate real swap and get a real APR for swapping.
-  /// @param sourceAmount_ Amount to be converted
+  /// @param sourceAmount_ Max amount of {sourceToken_} that can be converted.
   ///        The amount must be approved to TetuConverter before calling this function.
   /// @param periodInBlocks_ Estimated period to keep target amount. It's required to compute APR
   /// @return converter Result contract that should be used for conversion to be passed to borrow().
-  /// @return maxTargetAmount Max available amount of target tokens that we can get after conversion
+  /// @return collateralAmountOut Amount of {sourceToken_} that should be swapped to get {targetToken_}
+  ///                            It can be different from the {sourceAmount_} for some entry kinds.
+  /// @return amountToBorrowOut Result amount of {targetToken_} after conversion
   /// @return apr18 Interest on the use of {outMaxTargetAmount} during the given period, decimals 18
   function findConversionStrategy(
+    bytes memory entryData_,
     address sourceToken_,
     uint sourceAmount_,
     address targetToken_,
     uint periodInBlocks_
   ) external override returns (
     address converter,
-    uint maxTargetAmount,
+    uint collateralAmountOut,
+    uint amountToBorrowOut,
     int apr18
   ) {
     require(sourceAmount_ != 0, AppErrors.ZERO_AMOUNT);
     require(periodInBlocks_ != 0, AppErrors.INCORRECT_VALUE);
 
-    (address swapConverter, uint swapMaxTargetAmount) = swapManager.getConverter(
-      msg.sender, sourceToken_, sourceAmount_, targetToken_
-    );
-    int swapApr18;
-    if (swapConverter != address(0)) {
-      swapApr18 = swapManager.getApr18(sourceToken_, sourceAmount_, targetToken_, swapMaxTargetAmount);
-    }
+    ( address swapConverter,
+      uint swapSourceAmount,
+      uint swapTargetAmount,
+      int swapApr18) = _findSwapStrategy(entryData_, sourceToken_, sourceAmount_, targetToken_);
 
     AppDataTypes.InputConversionParams memory params = AppDataTypes.InputConversionParams({
-      sourceToken: sourceToken_,
-      targetToken: targetToken_,
-      sourceAmount: sourceAmount_,
-      periodInBlocks: periodInBlocks_
+      collateralAsset: sourceToken_,
+      borrowAsset: targetToken_,
+      collateralAmount: sourceAmount_,
+      countBlocks: periodInBlocks_,
+      entryData: entryData_
     });
 
-    (address borrowConverter, uint borrowMaxTargetAmount, int borrowingApr18) = borrowManager.findConverter(params);
+    (address borrowConverter,
+     uint borrowSourceAmount,
+     uint borrowTargetAmount,
+     int borrowApr18) = borrowManager.findConverter(params);
 
-    return swapConverter == address(0) || (borrowConverter != address(0) && swapApr18 > borrowingApr18)
-      ? (borrowConverter, borrowMaxTargetAmount, borrowingApr18)
-      : (swapConverter, swapMaxTargetAmount, swapApr18);
+    return swapConverter == address(0) || (borrowConverter != address(0) && swapApr18 > borrowApr18)
+      ? (borrowConverter, borrowSourceAmount, borrowTargetAmount, borrowApr18)
+      : (swapConverter, swapSourceAmount, swapTargetAmount, swapApr18);
   }
 
   /// @notice Find best borrow strategy and provide "cost of money" as interest for the period
-  /// @param sourceAmount_ Amount to be converted
+  /// @param entryData_ Encoded entry kind and additional params if necessary (set of params depends on the kind)
+  ///                   See EntryKinds.sol\ENTRY_KIND_XXX constants for possible entry kinds
+  /// @param sourceAmount_ Max amount that can be converted.
   /// @param periodInBlocks_ Estimated period to keep target amount. It's required to compute APR
   /// @return converter Result contract that should be used for conversion; it supports IConverter
   ///                   This address should be passed to borrow-function during conversion.
-  /// @return maxTargetAmount Max available amount of target tokens that we can get after conversion
+  /// @return collateralAmountOut Amount that should be provided as a collateral
+  /// @return amountToBorrowOut Amount that should be borrowed
   /// @return apr18 Interest on the use of {outMaxTargetAmount} during the given period, decimals 18
   function findBorrowStrategy(
+    bytes memory entryData_,
     address sourceToken_,
     uint sourceAmount_,
     address targetToken_,
     uint periodInBlocks_
   ) external view override returns (
     address converter,
-    uint maxTargetAmount,
+    uint collateralAmountOut,
+    uint amountToBorrowOut,
     int apr18
   ) {
     require(sourceAmount_ != 0, AppErrors.ZERO_AMOUNT);
     require(periodInBlocks_ != 0, AppErrors.INCORRECT_VALUE);
 
     AppDataTypes.InputConversionParams memory params = AppDataTypes.InputConversionParams({
-      sourceToken: sourceToken_,
-      targetToken: targetToken_,
-      sourceAmount: sourceAmount_,
-      periodInBlocks: periodInBlocks_
+      collateralAsset: sourceToken_,
+      borrowAsset: targetToken_,
+      collateralAmount: sourceAmount_,
+      countBlocks: periodInBlocks_,
+      entryData: entryData_
     });
 
     return borrowManager.findConverter(params);
@@ -212,32 +234,62 @@ contract TetuConverter is ITetuConverter, IKeeperCallback, IRequireAmountBySwapM
   /// @notice Find best swap strategy and provide "cost of money" as interest for the period
   /// @dev This is writable function with read-only behavior.
   ///      It should be writable to be able to simulate real swap and get a real APR.
-  /// @param sourceAmount_ Amount to be converted
+  /// @param sourceAmount_ Max amount that can be swapped.
+  ///                      This amount must be approved to TetuConverter before the call.
   /// @return converter Result contract that should be used for conversion to be passed to borrow()
-  /// @return maxTargetAmount Max available amount of target tokens that we can get after conversion
+  /// @return sourceAmountOut Amount of {sourceToken_} that should be swapped to get {targetToken_}
+  ///                         It can be different from the {sourceAmount_} for some entry kinds.
+  /// @return targetAmountOut Result amount of {targetToken_} after swap
   /// @return apr18 Interest on the use of {outMaxTargetAmount} during the given period, decimals 18
   function findSwapStrategy(
+    bytes memory entryData_,
     address sourceToken_,
     uint sourceAmount_,
     address targetToken_
   ) external override returns (
     address converter,
-    uint maxTargetAmount,
+    uint sourceAmountOut,
+    uint targetAmountOut,
     int apr18
   ) {
     require(sourceAmount_ != 0, AppErrors.ZERO_AMOUNT);
+    return _findSwapStrategy(entryData_, sourceToken_, sourceAmount_, targetToken_);
+  }
 
-    (converter, maxTargetAmount) = swapManager.getConverter(
+  /// @notice Calculate amount to swap according to the given {entryData_} and estimate result amount of {targetToken_}
+  function _findSwapStrategy(
+    bytes memory entryData_,
+    address sourceToken_,
+    uint sourceAmount_,
+    address targetToken_
+  ) internal returns (
+    address converter,
+    uint sourceAmountOut,
+    uint targetAmountOut,
+    int apr18
+  ) {
+    uint entryKind = EntryKinds.getEntryKind(entryData_);
+    if (entryKind == EntryKinds.ENTRY_KIND_EXACT_PROPORTION_1) {
+      // Split {sourceAmount_} on two parts: C1 and C2. Swap C2 => {targetAmountOut}
+      // Result cost of {targetAmountOut} and C1 should be equal or almost equal
+      // For simplicity we assume here that swap doesn't have any lost:
+      // if S1 is swapped to S2 then costs of S1 and S2 are equal
+      sourceAmountOut = EntryKinds.getCollateralAmountToConvert(entryData_, sourceAmount_, 1, 1);
+    } else {
+      sourceAmountOut = sourceAmount_;
+    }
+
+    (converter, targetAmountOut) = swapManager.getConverter(
       msg.sender,
       sourceToken_,
-      sourceAmount_,
+      sourceAmountOut,
       targetToken_
     );
     if (converter != address(0)) {
-      apr18 = swapManager.getApr18(sourceToken_, sourceAmount_, targetToken_, maxTargetAmount);
+      apr18 = swapManager.getApr18(sourceToken_, sourceAmountOut, targetToken_, targetAmountOut);
     }
 
-    return (converter, maxTargetAmount, apr18);
+    return (converter, sourceAmountOut, targetAmountOut, apr18);
   }
 
   ///////////////////////////////////////////////////////
@@ -763,6 +815,70 @@ contract TetuConverter is ITetuConverter, IKeeperCallback, IRequireAmountBySwapM
     } else {
       IERC20(sourceToken_).safeTransferFrom(sourceAmountApprover_, address(swapManager), sourceAmount_);
     }
+  }
+
+  ///////////////////////////////////////////////////////
+  ///       Liquidate with checking
+  ///////////////////////////////////////////////////////
+
+  /// @notice Swap {amountIn_} of {assetIn_} to {assetOut_} and send result amount to {receiver_}
+  ///         The swapping is made using TetuLiquidator with checking price impact using embedded price oracle.
+  /// @param amountIn_ Amount of {assetIn_} to be swapped.
+  ///                      It should be transferred on balance of the TetuConverter before the function call
+  /// @param receiver_ Result amount will be sent to this address
+  /// @param priceImpactToleranceSource_ Price impact tolerance for liquidate-call, decimals = 100_000
+  /// @param priceImpactToleranceTarget_ Price impact tolerance for price-oracle-check, decimals = 100_000
+  /// @return amountOut The amount of {assetOut_} that has been sent to the receiver
+  function safeLiquidate(
+    address assetIn_,
+    uint amountIn_,
+    address assetOut_,
+    address receiver_,
+    uint priceImpactToleranceSource_,
+    uint priceImpactToleranceTarget_
+  ) override external returns (
+    uint amountOut
+  ) { // there are no restrictions for the msg.sender, anybody can make liquidation
+    ITetuLiquidator tetuLiquidator = ITetuLiquidator(controller.tetuLiquidator());
+    uint targetTokenBalanceBefore = IERC20(assetOut_).balanceOf(address(this));
+
+    IERC20(assetIn_).safeApprove(address(tetuLiquidator), amountIn_);
+    tetuLiquidator.liquidate(assetIn_, assetOut_, amountIn_, priceImpactToleranceSource_);
+
+    amountOut = IERC20(assetOut_).balanceOf(address(this)) - targetTokenBalanceBefore;
+    IERC20(assetOut_).safeTransfer(receiver_, amountOut);
+    // The result amount shouldn't be too different from the value calculated directly using price oracle prices
+    require(
+      SwapLib.isConversionValid(
+        priceOracle,
+        assetIn_,
+        amountIn_,
+        assetOut_,
+        amountOut,
+        priceImpactToleranceTarget_
+      ),
+      AppErrors.TOO_HIGH_PRICE_IMPACT
+    );
+    emit OnSafeLiquidate(assetIn_, amountIn_, assetOut_, receiver_, amountOut);
+  }
+
+  /// @notice Check if {amountOut_} is too different from the value calculated directly using price oracle prices
+  /// @return Price difference is ok for the given {priceImpactTolerance_}
+  function isConversionValid(
+    address assetIn_,
+    uint amountIn_,
+    address assetOut_,
+    uint amountOut_,
+    uint priceImpactTolerance_
+  ) external override view returns (bool) {
+    return SwapLib.isConversionValid(
+      priceOracle,
+      assetIn_,
+      amountIn_,
+      assetOut_,
+      amountOut_,
+      priceImpactTolerance_
+    );
   }
 
   ///////////////////////////////////////////////////////

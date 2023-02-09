@@ -2,22 +2,17 @@
 
 pragma solidity 0.8.17;
 
-import "../core/AppDataTypes.sol";
+import "../libs/AppDataTypes.sol";
 
 /// @notice Adapter for lending platform attached to the given platform's pool.
 interface IPlatformAdapter {
 
   /// @notice Get pool data required to select best lending pool
-  /// @param collateralAmount_ Amount of collateral. We need it to calculate rewards and APRs correctly.
   /// @param healthFactor2_ Health factor (decimals 2) to be able to calculate max borrow amount
   ///                       See IController for explanation of health factors.
-  /// @param countBlocks_ Estimated period of the borrow in blocks.
-  function getConversionPlan (
-    address collateralAsset_,
-    uint collateralAmount_,
-    address borrowAsset_,
-    uint16 healthFactor2_,
-    uint countBlocks_
+  function getConversionPlan(
+    AppDataTypes.InputConversionParams memory params_,
+    uint16 healthFactor2_
   ) external view returns (
     AppDataTypes.ConversionPlan memory plan
   );

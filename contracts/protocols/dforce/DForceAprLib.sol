@@ -4,8 +4,9 @@ pragma solidity 0.8.17;
 import "../../openzeppelin/IERC20Metadata.sol";
 import "../../openzeppelin/SafeERC20.sol";
 import "../../openzeppelin/IERC20.sol";
-import "../../core/AppErrors.sol";
-import "../../core/AppUtils.sol";
+import "../../libs/AppErrors.sol";
+import "../../libs/AppUtils.sol";
+import "../../libs/AppDataTypes.sol";
 import "../../integrations/dforce/IDForceController.sol";
 import "../../integrations/dforce/IDForceCToken.sol";
 import "../../integrations/dforce/IDForcePriceOracle.sol";
@@ -24,15 +25,6 @@ library DForceAprLib {
     IDForceCToken cTokenCollateral;
     IDForceCToken cTokenBorrow;
     IDForceRewardDistributor rd;
-  }
-
-  struct PricesAndDecimals {
-    IDForcePriceOracle priceOracle;
-    uint collateral10PowDecimals;
-    uint borrow10PowDecimals;
-    uint priceCollateral36;
-    uint priceBorrow36;
-    uint healthFactor18;
   }
 
   /// @notice Set of input params for borrowRewardAmounts function
@@ -95,7 +87,8 @@ library DForceAprLib {
     uint collateralAmount_,
     uint countBlocks_,
     uint amountToBorrow_,
-    PricesAndDecimals memory pad_
+    AppDataTypes.PricesAndDecimals memory pad_,
+    IDForcePriceOracle priceOracle_
   ) internal view returns (
     uint borrowCost36,
     uint supplyIncomeInBorrowAsset36,
@@ -108,8 +101,8 @@ library DForceAprLib {
         borrowAmount: amountToBorrow_,
         countBlocks: countBlocks_,
         delayBlocks: 1, // we need to estimate rewards inside next (not current) block
-        priceBorrow36: pad_.priceBorrow36,
-        priceOracle: pad_.priceOracle
+        priceBorrow36: pad_.priceBorrow,
+        priceOracle: priceOracle_
       })
     );
 
@@ -117,9 +110,9 @@ library DForceAprLib {
       supplyIncomeInBorrowAsset36 = getSupplyIncomeInBorrowAsset36(
         getEstimatedSupplyRate(core.cTokenCollateral, collateralAmount_),
         countBlocks_,
-        pad_.collateral10PowDecimals,
-        pad_.priceCollateral36,
-        pad_.priceBorrow36,
+        pad_.rc10powDec,
+        pad_.priceCollateral,
+        pad_.priceBorrow,
         collateralAmount_
       );
     }
@@ -133,7 +126,7 @@ library DForceAprLib {
       ),
       amountToBorrow_,
       countBlocks_,
-      pad_.borrow10PowDecimals
+      pad_.rb10powDec
     );
   }
 

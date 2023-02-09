@@ -225,11 +225,14 @@ export class HundredFinanceTestUtils {
     // calculate max allowed amount to borrow
     const countBlocks = 1;
     const plan = await hfPlatformAdapter.getConversionPlan(
-      collateralToken.address,
-      collateralAmount,
-      borrowToken.address,
+      {
+        collateralAsset: collateralToken.address,
+        collateralAmount,
+        borrowAsset: borrowToken.address,
+        countBlocks,
+        entryData: "0x"
+      },
       badPathsParams?.targetHealthFactor2 || await controller.targetHealthFactor2(),
-      countBlocks
     );
     console.log("plan", plan);
 

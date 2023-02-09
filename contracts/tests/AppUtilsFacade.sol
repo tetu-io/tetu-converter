@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.17;
 
-import "../core/AppUtils.sol";
+import "../libs/AppUtils.sol";
 
 /// @notice Facade to call internal functions from AppUtils library (for tests)
 contract AppUtilsFacade {

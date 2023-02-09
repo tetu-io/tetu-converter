@@ -118,4 +118,5 @@ library AppErrors {
 
   /// @notice It's not possible to make partial repayment and close the position
   string public constant CLOSE_POSITION_PARTIAL = "TC-55 close position not allowed";
+  string public constant ZERO_VALUE_NOT_ALLOWED = "TC-56 zero not allowed";
 }

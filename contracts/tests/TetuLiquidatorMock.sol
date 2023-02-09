@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.17;
 
-import "../core/AppDataTypes.sol";
+import "../libs/AppDataTypes.sol";
 import "../interfaces/ITetuLiquidator.sol";
 import "../openzeppelin/IERC20.sol";
 import "../tests/tokens/IMockERC20.sol";
@@ -80,7 +80,7 @@ contract TetuLiquidatorMock is ITetuLiquidator {
     IERC20(tokenIn).transferFrom(msg.sender, address(this), amount);
     IMockERC20(tokenIn).burn(address(this), amount);
     uint amountOut = getPrice(tokenIn, tokenOut, amount);
-    console.log("TetuLiquidatorMock.liquidate.amountOut", amountOut);
+    console.log("TetuLiquidatorMock.liquidate.amountOut,amountIn", amountOut, amount);
     amountOut = amountOut * uint(int(SLIPPAGE_NOMINATOR) - slippage) / SLIPPAGE_NOMINATOR;
     require(disablePriceException || priceImpactTolerance >= priceImpact, '!PRICE');
     IMockERC20(tokenOut).mint(msg.sender, amountOut);

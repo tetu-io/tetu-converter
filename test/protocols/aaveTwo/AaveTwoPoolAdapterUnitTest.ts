@@ -122,14 +122,19 @@ describe("AaveTwoPoolAdapterUnitTest", () => {
 
     describe("Good paths", () => {
       let results: IMakeBorrowTestResults;
+      let snapshotLocal: string;
       before(async function () {
         if (!await isPolygonForkInUse()) return;
+        snapshotLocal = await TimeUtils.snapshot();
         results = await makeBorrowTest(
           collateralAsset,
           collateralHolder,
           borrowAsset,
           "1999"
         );
+      });
+      after(async function () {
+        await TimeUtils.rollback(snapshotLocal);
       });
       it("should get expected status", async () => {
         if (!await isPolygonForkInUse()) return;
@@ -321,8 +326,10 @@ describe("AaveTwoPoolAdapterUnitTest", () => {
         const collateralAmountStr = "1999"
 
         let results: IMakeFullRepayTestResults;
+        let snapshotLocal: string;
         before(async function () {
           if (!await isPolygonForkInUse()) return;
+          snapshotLocal = await TimeUtils.snapshot();
           results = await makeFullRepayTest(
             collateralAsset,
             collateralHolder,
@@ -330,6 +337,9 @@ describe("AaveTwoPoolAdapterUnitTest", () => {
             borrowHolder,
             collateralAmountStr
           );
+        });
+        after(async function () {
+          await TimeUtils.rollback(snapshotLocal);
         });
         it("should get expected status", async () => {
           if (!await isPolygonForkInUse()) return;
@@ -390,8 +400,10 @@ describe("AaveTwoPoolAdapterUnitTest", () => {
         const collateralAmountStr = "5000000";
 
         let results: IMakeFullRepayTestResults;
+        let snapshotLocal: string;
         before(async function () {
           if (!await isPolygonForkInUse()) return;
+          snapshotLocal = await TimeUtils.snapshot();
           results = await makeFullRepayTest(
             collateralAsset,
             collateralHolder,
@@ -399,6 +411,9 @@ describe("AaveTwoPoolAdapterUnitTest", () => {
             borrowHolder,
             collateralAmountStr
           );
+        });
+        after(async function () {
+          await TimeUtils.rollback(snapshotLocal);
         });
         it("should get expected status", async () => {
           if (!await isPolygonForkInUse()) return;
@@ -459,8 +474,10 @@ describe("AaveTwoPoolAdapterUnitTest", () => {
         const collateralAmountStr = "1000000";
 
         let results: IMakeFullRepayTestResults;
+        let snapshotLocal: string;
         before(async function () {
           if (!await isPolygonForkInUse()) return;
+          snapshotLocal = await TimeUtils.snapshot();
           results = await makeFullRepayTest(
             collateralAsset,
             collateralHolder,
@@ -468,6 +485,9 @@ describe("AaveTwoPoolAdapterUnitTest", () => {
             borrowHolder,
             collateralAmountStr
           );
+        });
+        after(async function () {
+          await TimeUtils.rollback(snapshotLocal);
         });
         it("should get expected status", async () => {
           if (!await isPolygonForkInUse()) return;
@@ -1388,7 +1408,16 @@ describe("AaveTwoPoolAdapterUnitTest", () => {
         // TetuConverter gives infinity approve to the pool adapter after pool adapter creation (see TetuConverter.convert implementation)
         await makeInfinityApprove(tetuConverterSigner.address, aavePoolAdapterAsTC.address, collateralAsset, borrowAsset);
         await BalanceUtils.getRequiredAmountFromHolders(collateralAmount, collateralToken.token, [collateralHolder], userContract.address);
-        const plan = await platformAdapter.getConversionPlan(collateralAsset, collateralAmount, borrowAsset, targetHealthFactor2, 1);
+        const plan = await platformAdapter.getConversionPlan(
+          {
+            collateralAsset,
+            collateralAmount,
+            borrowAsset,
+            countBlocks: 1,
+            entryData: "0x"
+          },
+          targetHealthFactor2
+        );
         await transferAndApprove(collateralAsset, userContract.address, tetuConverterSigner.address, collateralAmount, aavePoolAdapterAsTC.address);
 
         await expect(
@@ -1656,14 +1685,19 @@ describe("AaveTwoPoolAdapterUnitTest", () => {
     const collateralHolder = MaticAddresses.HOLDER_DAI;
     const borrowAsset = MaticAddresses.WMATIC;
     let results: IMakeBorrowTestResults;
+    let snapshotLocal: string;
     before(async function () {
       if (!await isPolygonForkInUse()) return;
+      snapshotLocal = await TimeUtils.snapshot();
       results = await makeBorrowTest(
         collateralAsset,
         collateralHolder,
         borrowAsset,
         "1999"
       );
+    });
+    after(async function () {
+      await TimeUtils.rollback(snapshotLocal);
     });
     describe("Good paths", () => {
       describe("Full repay", () => {
