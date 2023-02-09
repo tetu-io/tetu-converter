@@ -3691,9 +3691,7 @@ describe("TetuConverterTest", () => {
             parseUnits("117", await init.targetToken.decimals()),
             init.userContract.address,
             true
-          ).to.emit(core.tc, "OnSwap").withArgs(
-            init.userContract.address,
-            await core.controller.swapManager(),
+          ).to.emit(core.swapManager, "OnSwap").withArgs(
             init.targetToken.address,
             parseUnits("400", await init.targetToken.decimals()),
             init.sourceToken.address,

@@ -496,7 +496,6 @@ describe("BorrowManager", () => {
   }
 //endregion registerPoolAdapter utils
 
-
 //region Unit tests
   describe("constructor", () => {
     interface IMakeConstructorTestParams {

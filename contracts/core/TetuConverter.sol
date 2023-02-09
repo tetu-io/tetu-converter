@@ -26,8 +26,6 @@ import "../interfaces/IPriceOracle.sol";
 import "../interfaces/ITetuLiquidator.sol";
 import "../integrations/market/ICErc20.sol";
 
-import "hardhat/console.sol";
-
 /// @notice Main application contract
 contract TetuConverter is ITetuConverter, IKeeperCallback, IRequireAmountBySwapManagerCallback, ReentrancyGuard {
   using SafeERC20 for IERC20;
@@ -848,8 +846,6 @@ contract TetuConverter is ITetuConverter, IKeeperCallback, IRequireAmountBySwapM
 
     amountOut = IERC20(assetOut_).balanceOf(address(this)) - targetTokenBalanceBefore;
     IERC20(assetOut_).safeTransfer(receiver_, amountOut);
-    console.log("amountOut", amountOut);
-    console.log("amountOutExpected", SwapLib.convertUsingPriceOracle(priceOracle, assetIn_, amountIn_, assetOut_));
     // The result amount shouldn't be too different from the value calculated directly using price oracle prices
     require(
       SwapLib.isConversionValid(

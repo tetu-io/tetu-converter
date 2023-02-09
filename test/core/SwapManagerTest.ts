@@ -468,14 +468,15 @@ describe("SwapManager", () => {
     });
     describe("Bad paths", () => {
       describe("the price is too different from the value calculated using PriceOracle", () => {
-        it("should revert if the result amount is too low", async () => {
+        it("should NOT revert if the result amount is too high", async () => {
           await liquidator.changePrices([usdc.address], [$usdc.mul(100)]);
-          await expect(
-            makeSwapTest(usdc, usdt)
-          ).revertedWith("TC-54 price impact"); // TOO_HIGH_PRICE_IMPACT
+          // amountOut 100000000, amountOutExpected 1000000 - good case
+          const ret = await makeSwapTest(usdc, usdt);
+          expect(ret).eq(true);
         });
-        it("should revert if the result amount is too high", async () => {
+        it("should revert if the result amount is too low", async () => {
           await liquidator.changePrices([usdc.address], [$usdc.div(100)]);
+          // amountOut 1000000, amountOutExpected 100000000 - bad case
           await expect(
             makeSwapTest(usdc, usdt)
           ).revertedWith("TC-54 price impact"); // TOO_HIGH_PRICE_IMPACT
