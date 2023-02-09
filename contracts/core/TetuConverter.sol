@@ -103,7 +103,8 @@ contract TetuConverter is ITetuConverter, IKeeperCallback, IRequireAmountBySwapM
     address receiver
   );
 
-  event OnSwap(address sourceToken,
+  event OnSafeLiquidate(
+    address sourceToken,
     uint sourceAmount,
     address targetToken,
     address receiver,
@@ -858,7 +859,7 @@ contract TetuConverter is ITetuConverter, IKeeperCallback, IRequireAmountBySwapM
       ),
       AppErrors.TOO_HIGH_PRICE_IMPACT
     );
-    emit OnSwap(assetIn_, amountIn_, assetOut_, receiver_, amountOut);
+    emit OnSafeLiquidate(assetIn_, amountIn_, assetOut_, receiver_, amountOut);
   }
 
   /// @notice Check if {amountOut_} is too different from the value calculated directly using price oracle prices
