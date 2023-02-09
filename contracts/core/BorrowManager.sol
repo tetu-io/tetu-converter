@@ -1,15 +1,15 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.17;
 
-import "./AppDataTypes.sol";
-import "./AppErrors.sol";
+import "../libs/AppDataTypes.sol";
+import "../libs/AppErrors.sol";
+import "../libs/AppUtils.sol";
 import "../openzeppelin/Clones.sol";
 import "../openzeppelin/IERC20.sol";
 import "../openzeppelin/SafeERC20.sol";
 import "../openzeppelin/EnumerableSet.sol";
 import "../openzeppelin/EnumerableMap.sol";
 import "../openzeppelin/IERC20Metadata.sol";
-import "../core/AppUtils.sol";
 import "../interfaces/IPlatformAdapter.sol";
 import "../interfaces/IBorrowManager.sol";
 import "../interfaces/IPriceOracle.sol";

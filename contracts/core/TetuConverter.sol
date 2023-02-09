@@ -1,10 +1,11 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.17;
 
-import "./AppDataTypes.sol";
-import "./AppErrors.sol";
-import "./AppUtils.sol";
-import "./EntryKinds.sol";
+import "../libs/AppDataTypes.sol";
+import "../libs/AppErrors.sol";
+import "../libs/AppUtils.sol";
+import "../libs/EntryKinds.sol";
+import "../libs/SwapLib.sol";
 import "../openzeppelin/IERC20Metadata.sol";
 import "../openzeppelin/SafeERC20.sol";
 import "../openzeppelin/IERC20.sol";
@@ -22,7 +23,10 @@ import "../interfaces/IKeeperCallback.sol";
 import "../interfaces/ITetuConverterCallback.sol";
 import "../interfaces/IRequireAmountBySwapManagerCallback.sol";
 import "../interfaces/IPriceOracle.sol";
+import "../interfaces/ITetuLiquidator.sol";
 import "../integrations/market/ICErc20.sol";
+
+import "hardhat/console.sol";
 
 /// @notice Main application contract
 contract TetuConverter is ITetuConverter, IKeeperCallback, IRequireAmountBySwapManagerCallback, ReentrancyGuard {
@@ -99,6 +103,13 @@ contract TetuConverter is ITetuConverter, IKeeperCallback, IRequireAmountBySwapM
     address rewardsToken,
     uint amount,
     address receiver
+  );
+
+  event OnSwap(address sourceToken,
+    uint sourceAmount,
+    address targetToken,
+    address receiver,
+    uint outputAmount
   );
 
   ///////////////////////////////////////////////////////
@@ -805,6 +816,72 @@ contract TetuConverter is ITetuConverter, IKeeperCallback, IRequireAmountBySwapM
     } else {
       IERC20(sourceToken_).safeTransferFrom(sourceAmountApprover_, address(swapManager), sourceAmount_);
     }
+  }
+
+  ///////////////////////////////////////////////////////
+  ///       Liquidate with checking
+  ///////////////////////////////////////////////////////
+
+  /// @notice Swap {amountIn_} of {assetIn_} to {assetOut_} and send result amount to {receiver_}
+  ///         The swapping is made using TetuLiquidator with checking price impact using embedded price oracle.
+  /// @param amountIn_ Amount of {assetIn_} to be swapped.
+  ///                      It should be transferred on balance of the TetuConverter before the function call
+  /// @param receiver_ Result amount will be sent to this address
+  /// @param priceImpactToleranceSource_ Price impact tolerance for liquidate-call, decimals = 100_000
+  /// @param priceImpactToleranceTarget_ Price impact tolerance for price-oracle-check, decimals = 100_000
+  /// @return amountOut The amount of {assetOut_} that has been sent to the receiver
+  function safeLiquidate(
+    address assetIn_,
+    uint amountIn_,
+    address assetOut_,
+    address receiver_,
+    uint priceImpactToleranceSource_,
+    uint priceImpactToleranceTarget_
+  ) override external returns (
+    uint amountOut
+  ) { // there are no restrictions for the msg.sender, anybody can make liquidation
+    ITetuLiquidator tetuLiquidator = ITetuLiquidator(controller.tetuLiquidator());
+    uint targetTokenBalanceBefore = IERC20(assetOut_).balanceOf(address(this));
+
+    IERC20(assetIn_).safeApprove(address(tetuLiquidator), amountIn_);
+    tetuLiquidator.liquidate(assetIn_, assetOut_, amountIn_, priceImpactToleranceSource_);
+
+    amountOut = IERC20(assetOut_).balanceOf(address(this)) - targetTokenBalanceBefore;
+    IERC20(assetOut_).safeTransfer(receiver_, amountOut);
+    console.log("amountOut", amountOut);
+    console.log("amountOutExpected", SwapLib.convertUsingPriceOracle(priceOracle, assetIn_, amountIn_, assetOut_));
+    // The result amount shouldn't be too different from the value calculated directly using price oracle prices
+    require(
+      SwapLib.isConversionValid(
+        priceOracle,
+        assetIn_,
+        amountIn_,
+        assetOut_,
+        amountOut,
+        priceImpactToleranceTarget_
+      ),
+      AppErrors.TOO_HIGH_PRICE_IMPACT
+    );
+    emit OnSwap(assetIn_, amountIn_, assetOut_, receiver_, amountOut);
+  }
+
+  /// @notice Check if {amountOut_} is too different from the value calculated directly using price oracle prices
+  /// @return Price difference is ok for the given {priceImpactTolerance_}
+  function isConversionValid(
+    address assetIn_,
+    uint amountIn_,
+    address assetOut_,
+    uint amountOut_,
+    uint priceImpactTolerance_
+  ) external override view returns (bool) {
+    return SwapLib.isConversionValid(
+      priceOracle,
+      assetIn_,
+      amountIn_,
+      assetOut_,
+      amountOut_,
+      priceImpactTolerance_
+    );
   }
 
   ///////////////////////////////////////////////////////

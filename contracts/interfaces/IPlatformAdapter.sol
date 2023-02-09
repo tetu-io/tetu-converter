@@ -2,7 +2,7 @@
 
 pragma solidity 0.8.17;
 
-import "../core/AppDataTypes.sol";
+import "../libs/AppDataTypes.sol";
 
 /// @notice Adapter for lending platform attached to the given platform's pool.
 interface IPlatformAdapter {

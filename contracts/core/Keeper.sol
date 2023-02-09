@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.17;
 
-import "../core/AppErrors.sol";
-import "../core/AppUtils.sol";
+import "../libs/AppErrors.sol";
+import "../libs/AppUtils.sol";
 import "../interfaces/IHealthKeeperCallback.sol";
 import "../interfaces/IController.sol";
 import "../interfaces/IDebtMonitor.sol";

@@ -2,7 +2,7 @@
 
 pragma solidity 0.8.17;
 
-import "../core/AppDataTypes.sol";
+import "../libs/AppDataTypes.sol";
 import "./IConverter.sol";
 
 interface ISwapConverter is IConverter {

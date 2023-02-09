@@ -201,4 +201,33 @@ interface ITetuConverter {
     address[] memory rewardTokensOut,
     uint[] memory amountsOut
   );
+
+  /// @notice Swap {amountIn_} of {assetIn_} to {assetOut_} and send result amount to {receiver_}
+  ///         The swapping is made using TetuLiquidator with checking price impact using embedded price oracle.
+  /// @param amountIn_ Amount of {assetIn_} to be swapped.
+  ///                      It should be transferred on balance of the TetuConverter before the function call
+  /// @param receiver_ Result amount will be sent to this address
+  /// @param priceImpactToleranceSource_ Price impact tolerance for liquidate-call, decimals = 100_000
+  /// @param priceImpactToleranceTarget_ Price impact tolerance for price-oracle-check, decimals = 100_000
+  /// @return amountOut The amount of {assetOut_} that has been sent to the receiver
+  function safeLiquidate(
+    address assetIn_,
+    uint amountIn_,
+    address assetOut_,
+    address receiver_,
+    uint priceImpactToleranceSource_,
+    uint priceImpactToleranceTarget_
+  ) external returns (
+    uint amountOut
+  );
+
+  /// @notice Check if {amountOut_} is too different from the value calculated directly using price oracle prices
+  /// @return Price difference is ok for the given {priceImpactTolerance_}
+  function isConversionValid(
+    address assetIn_,
+    uint amountIn_,
+    address assetOut_,
+    uint amountOut_,
+    uint priceImpactTolerance_
+  ) external view returns (bool);
 }

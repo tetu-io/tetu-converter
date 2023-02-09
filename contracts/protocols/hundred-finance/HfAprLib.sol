@@ -2,9 +2,9 @@
 pragma solidity 0.8.17;
 
 import "../../openzeppelin/IERC20Metadata.sol";
-import "../../core/AppErrors.sol";
-import "../../core/AppUtils.sol";
-import "../../core/AppDataTypes.sol";
+import "../../libs/AppErrors.sol";
+import "../../libs/AppUtils.sol";
+import "../../libs/AppDataTypes.sol";
 import "../../integrations/hundred-finance/IHfCToken.sol";
 import "../../integrations/hundred-finance/IHfInterestRateModel.sol";
 import "../../integrations/hundred-finance/IHfComptroller.sol";

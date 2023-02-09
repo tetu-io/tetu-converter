@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.17;
 
-import "../../core/EntryKinds.sol";
+import "../../libs/AppDataTypes.sol";
+import "../../libs/EntryKinds.sol";
 
 /// @notice Provide direct acess to internal functions of the library EntryKinds
 contract EntryKindsFacade {

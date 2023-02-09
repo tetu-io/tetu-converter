@@ -46,7 +46,7 @@ import {defaultAbiCoder, formatUnits, parseUnits} from "ethers/lib/utils";
 import {controlGasLimitsEx} from "../../scripts/utils/hardhatUtils";
 import {
   GAS_FIND_CONVERSION_STRATEGY_ONLY_BORROW_AVAILABLE,
-  GAS_FIND_SWAP_STRATEGY, GAS_TC_BORROW, GAS_TC_QUOTE_REPAY, GAS_TC_REPAY,
+  GAS_FIND_SWAP_STRATEGY, GAS_TC_BORROW, GAS_TC_QUOTE_REPAY, GAS_TC_REPAY, GAS_TC_SAFE_LIQUIDATE,
 } from "../baseUT/GasLimit";
 import {ICreateControllerParams, TetuConverterApp} from "../baseUT/helpers/TetuConverterApp";
 
@@ -4016,6 +4016,295 @@ describe("TetuConverterTest", () => {
     });
   });
 
+  describe("safeLiquidate", () => {
+    interface ISafeLiquidateTestInputParams {
+      amountInNum: string;
+      receiver: string;
+      priceImpactToleranceSource: number;
+      priceImpactToleranceTarget: number;
+      priceImpact: number;
+      priceOracleSourcePrice: BigNumber;
+      priceOracleTargetPrice: BigNumber;
+      liquidatorSourcePrice: BigNumber;
+      liquidatorTargetPrice: BigNumber;
+      sourceDecimals: number;
+      targetDecimals: number;
+    }
+    interface ISafeLiquidateTestResults {
+      core: CoreContracts;
+      gasUsed: BigNumber;
+      amountOut: BigNumber;
+      targetBalanceReceiver: BigNumber;
+    }
+    async function makeSafeLiquidateTest(
+      params: ISafeLiquidateTestInputParams
+    ) : Promise<ISafeLiquidateTestResults> {
+      // initialize mocked tokens
+      const sourceToken = await MocksHelper.createMockedCToken(deployer, params.sourceDecimals);
+      const targetToken = await MocksHelper.createMockedCToken(deployer, params.targetDecimals);
+
+      // initialize TetuConverter-app
+      const core = await CoreContracts.build(
+        await TetuConverterApp.createController(deployer, {
+          priceOracleFabric: async () => (await MocksHelper.getPriceOracleMock(deployer, [], [])).address
+        })
+      );
+
+      // setup PriceOracle-prices
+      await PriceOracleMock__factory.connect(await core.controller.priceOracle(), deployer).changePrices(
+        [sourceToken.address, targetToken.address],
+        [params.priceOracleSourcePrice, params.priceOracleTargetPrice]
+      );
+
+      // setup TetuLiquidator
+      const tetuLiquidator = TetuLiquidatorMock__factory.connect(await core.controller.tetuLiquidator(), deployer);
+      await tetuLiquidator.changePrices(
+        [sourceToken.address, targetToken.address],
+        [params.liquidatorSourcePrice, params.liquidatorTargetPrice]
+      );
+      await tetuLiquidator.setPriceImpact(params.priceImpact);
+
+      const amountIn = parseUnits(params.amountInNum, await sourceToken.decimals());
+      await sourceToken.mint(core.tc.address, amountIn);
+      const amountOut = await core.tc.callStatic.safeLiquidate(
+        sourceToken.address,
+        amountIn,
+        targetToken.address,
+        params.receiver,
+        params.priceImpactToleranceSource,
+        params.priceImpactToleranceTarget
+      );
+      const tx = await core.tc.safeLiquidate(
+        sourceToken.address,
+        parseUnits(params.amountInNum, await sourceToken.decimals()),
+        targetToken.address,
+        params.receiver,
+        params.priceImpactToleranceSource,
+        params.priceImpactToleranceTarget
+      );
+
+      const gasUsed = (await tx.wait()).gasUsed;
+      return {
+        core,
+        gasUsed,
+        amountOut,
+        targetBalanceReceiver: await targetToken.balanceOf(params.receiver)
+      }
+    }
+    describe("Good paths", () => {
+      it("should transfer expected amount to the receiver, zero price impact", async () => {
+        const params: ISafeLiquidateTestInputParams = {
+          receiver: ethers.Wallet.createRandom().address,
+          sourceDecimals: 6,
+          targetDecimals: 17,
+          priceImpact: 0,
+          priceImpactToleranceSource: 0,
+          priceImpactToleranceTarget: 0,
+          priceOracleSourcePrice: parseUnits("1", 18),
+          priceOracleTargetPrice: parseUnits("2", 18),
+          liquidatorSourcePrice: parseUnits("1", 18),
+          liquidatorTargetPrice: parseUnits("2", 18),
+          amountInNum: "1000"
+        }
+        // amountOut = (priceIn * amount * 10**decimalsOut) / (priceOut * 10**decimalsIn);
+        // amountOut = amountOut * uint(int(PRICE_IMPACT_NUMERATOR) - int(priceImpact)) / PRICE_IMPACT_NUMERATOR;
+
+        const r = await makeSafeLiquidateTest(params);
+
+        const ret = [
+          r.amountOut,
+          r.targetBalanceReceiver
+        ].map(x => BalanceUtils.toString(x)).join("\n");
+
+        const expected = [
+          parseUnits("500", 17),
+          parseUnits("500", 17)
+        ].map(x => BalanceUtils.toString(x)).join("\n");
+
+        expect(ret).eq(expected);
+      });
+      it("should transfer expected amount to the receiver, source price impact is low enough", async () => {
+        const params: ISafeLiquidateTestInputParams = {
+          receiver: ethers.Wallet.createRandom().address,
+          sourceDecimals: 6,
+          targetDecimals: 17,
+
+          // we have 1000 usdc
+          amountInNum: "1000",
+
+          // liquidator: 1000 usdc => 900 dai
+          priceImpact: 10_000,
+          priceImpactToleranceSource: 10_000,
+          liquidatorSourcePrice: parseUnits("1", 18),
+          liquidatorTargetPrice: parseUnits("1", 18),
+
+          // expected output amount according price oracle: 1000 usdc => 1100 dai
+          priceOracleSourcePrice: parseUnits("11", 18),
+          priceOracleTargetPrice: parseUnits("10", 18),
+
+          // we have lost 20%, but it's ok
+          priceImpactToleranceTarget: 20_000,
+        }
+        const r = await makeSafeLiquidateTest(params);
+
+        const ret = [
+          r.amountOut,
+          r.targetBalanceReceiver
+        ].map(x => BalanceUtils.toString(x)).join("\n");
+
+        const expected = [
+          parseUnits("900", 17),
+          parseUnits("900", 17)
+        ].map(x => BalanceUtils.toString(x)).join("\n");
+
+        expect(ret).eq(expected);
+      });
+      it("should transfer expected amount to the receiver, output amount is much higher then expected", async () => {
+        const params: ISafeLiquidateTestInputParams = {
+          receiver: ethers.Wallet.createRandom().address,
+          sourceDecimals: 6,
+          targetDecimals: 17,
+
+          // we have 1000 usdc
+          amountInNum: "1000",
+
+          // liquidator: 1000 usdc => 900 dai
+          priceImpact: 10_000,
+          priceImpactToleranceSource: 10_000,
+          liquidatorSourcePrice: parseUnits("1", 18),
+          liquidatorTargetPrice: parseUnits("1", 18),
+
+          // expected output amount according price oracle: 1000 usdc => 500 dai
+          priceOracleSourcePrice: parseUnits("10", 18),
+          priceOracleTargetPrice: parseUnits("20", 18),
+
+          // we have unexpected "profit" 400 dai, but it's ok
+          priceImpactToleranceTarget: 0,
+        }
+        const r = await makeSafeLiquidateTest(params);
+
+        const ret = [
+          r.amountOut,
+          r.targetBalanceReceiver
+        ].map(x => BalanceUtils.toString(x)).join("\n");
+
+        const expected = [
+          parseUnits("900", 17),
+          parseUnits("900", 17)
+        ].map(x => BalanceUtils.toString(x)).join("\n");
+
+        expect(ret).eq(expected);
+      });
+    });
+    describe("Bad paths", () => {
+      it("should revert on price-impact-target too high", async () => {
+        const params: ISafeLiquidateTestInputParams = {
+          receiver: ethers.Wallet.createRandom().address,
+          sourceDecimals: 6,
+          targetDecimals: 17,
+
+          // we have 1000 usdc
+          amountInNum: "1000",
+
+          // liquidator: 1000 usdc => 900 dai
+          priceImpact: 10_000,
+          priceImpactToleranceSource: 10_000,
+          liquidatorSourcePrice: parseUnits("1", 18),
+          liquidatorTargetPrice: parseUnits("1", 18),
+
+          // expected output amount according price oracle: 1000 usdc => 1100 dai
+          priceOracleSourcePrice: parseUnits("11", 18),
+          priceOracleTargetPrice: parseUnits("10", 18),
+
+          // we have lost 20%, but only 19% are allowed
+          priceImpactToleranceTarget: 18_100, // 1100/100000*18100 = 199.1 < 200
+        }
+        await expect(
+          makeSafeLiquidateTest(params)
+        ).revertedWith("TC-54 price impact"); // TOO_HIGH_PRICE_IMPACT
+      });
+      it("should revert on price-impact-source too high", async () => {
+        const params: ISafeLiquidateTestInputParams = {
+          receiver: ethers.Wallet.createRandom().address,
+          sourceDecimals: 6,
+          targetDecimals: 17,
+
+          // we have 1000 usdc
+          amountInNum: "1000",
+
+          // liquidator: 1000 usdc => 900 dai, the lost is 10%
+          priceImpact: 10_000,
+          // but only 9% are acceptable
+          priceImpactToleranceSource: 9_000,
+          liquidatorSourcePrice: parseUnits("1", 18),
+          liquidatorTargetPrice: parseUnits("1", 18),
+
+          priceOracleSourcePrice: parseUnits("1", 18),
+          priceOracleTargetPrice: parseUnits("1", 18),
+          priceImpactToleranceTarget: 100_000,
+        }
+        await expect(
+          makeSafeLiquidateTest(params)
+        ).revertedWith("!PRICE");
+      });
+
+    });
+    describe("Gas estimation @skip-on-coverage", () => {
+      it("should transfer expected amount to the receiver, zero price impact", async () => {
+        const params: ISafeLiquidateTestInputParams = {
+          receiver: ethers.Wallet.createRandom().address,
+          sourceDecimals: 6,
+          targetDecimals: 17,
+          priceImpact: 0,
+          priceImpactToleranceSource: 0,
+          priceImpactToleranceTarget: 0,
+          priceOracleSourcePrice: parseUnits("1", 18),
+          priceOracleTargetPrice: parseUnits("2", 18),
+          liquidatorSourcePrice: parseUnits("1", 18),
+          liquidatorTargetPrice: parseUnits("2", 18),
+          amountInNum: "1000"
+        }
+        const ret = await makeSafeLiquidateTest(params);
+        controlGasLimitsEx(ret.gasUsed, GAS_TC_SAFE_LIQUIDATE, (u, t) => {
+          expect(u).to.be.below(t);
+        });
+      });
+    });
+  });
+
+  describe("isConversionValid", () => {
+    // isConversionValid is tested in SwapLibTest, so there is only simple test here
+    describe("Good paths", () => {
+      it("should return expected values", async () => {
+        // initialize mocked tokens
+        const sourceToken = await MocksHelper.createMockedCToken(deployer, 6);
+        const targetToken = await MocksHelper.createMockedCToken(deployer, 7);
+
+        // initialize TetuConverter-app
+        const core = await CoreContracts.build(
+          await TetuConverterApp.createController(deployer, {
+            priceOracleFabric: async () => (await MocksHelper.getPriceOracleMock(deployer, [], [])).address
+          })
+        );
+
+        // setup PriceOracle-prices
+        await PriceOracleMock__factory.connect(await core.controller.priceOracle(), deployer).changePrices(
+          [sourceToken.address, targetToken.address],
+          [Misc.WEI, Misc.WEI]
+        );
+
+        const ret = await core.tc.isConversionValid(
+          sourceToken.address,
+          parseUnits("1", 6),
+          targetToken.address,
+          parseUnits("1", 7),
+          0
+        );
+
+        expect(ret).eq(true);
+      });
+    });
+  });
 
 // //region Make reconversion
 //   interface IMakeReconversionResults {

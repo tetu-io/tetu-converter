@@ -16,12 +16,10 @@ import {controlGasLimitsEx} from "../../scripts/utils/hardhatUtils";
 import {
   GAS_FIND_SWAP_STRATEGY,
   GAS_SWAP, GAS_SWAP_APR18,
-  GAS_SWAP_CONVERT_USING_PRICE_ORACLE,
   GAS_SWAP_SIMULATE
 } from "../baseUT/GasLimit";
 import {DeployerUtils} from "../../scripts/utils/DeployerUtils";
 import {BalanceUtils} from "../baseUT/utils/BalanceUtils";
-import {MaticAddresses} from "../../scripts/addresses/MaticAddresses";
 
 const parseUnits = ethers.utils.parseUnits;
 
@@ -40,7 +38,7 @@ describe("SwapManager", () => {
   // tslint:disable-next-line:one-variable-per-declaration
   let usdc: MockERC20, usdt: MockERC20, dai: MockERC20, matic: MockERC20, weth: MockERC20, unknown: MockERC20;
   // tslint:disable-next-line:one-variable-per-declaration
-  let _usdc: string, _usdt: string, _dai: string, _matic: string, _weth: string, _unknown: string;
+  let _usdc: string, _usdt: string, _dai: string, _matic: string, _weth: string;
   // tslint:disable-next-line:one-variable-per-declaration
   let $usdc: BigNumber, $usdt: BigNumber, $dai: BigNumber, $matic: BigNumber, $weth: BigNumber;
 //endregion Global vars for all tests
@@ -65,7 +63,6 @@ describe("SwapManager", () => {
     weth = await DeployUtils.deployContract(deployer, 'MockERC20', 'Wrapped Ether', 'WETH', 18) as MockERC20;
     _weth = weth.address;
     unknown = await DeployUtils.deployContract(deployer, 'MockERC20', 'Unknown Token', 'UNKNOWN', 18) as MockERC20;
-    _unknown = unknown.address;
 
 
     $usdc = parseUnits('1');
@@ -113,14 +110,6 @@ describe("SwapManager", () => {
 
 //region Unit tests
   describe("Constants", () => {
-    it("PRICE_IMPACT_NUMERATOR", async () => {
-      expect(await swapManager.PRICE_IMPACT_NUMERATOR()).eq(BigNumber.from('100000'))
-    });
-
-    it("PRICE_IMPACT_TOLERANCE_DEFAULT", async () => {
-      expect(await swapManager.PRICE_IMPACT_TOLERANCE_DEFAULT()).eq(BigNumber.from('2000'))
-    });
-
     it("APR_NUMERATOR", async () => {
       expect(await swapManager.APR_NUMERATOR()).eq(BigNumber.from('10').pow(18))
     });
@@ -720,48 +709,6 @@ describe("SwapManager", () => {
       const defaultValue = await swapManager.PRICE_IMPACT_TOLERANCE_DEFAULT();
       const ret = await swapManager.getPriceImpactTolerance(usdc.address);
       expect(ret.eq(defaultValue)).eq(true);
-    });
-  });
-
-  describe("convertUsingPriceOracle", () => {
-    describe("Good paths", () => {
-      it("should return expected value", async () => {
-        const amountUsdc = parseUnits("100", 6);
-        const amountWeth = await swapManager.convertUsingPriceOracle(
-          usdc.address, // decimals 6
-          amountUsdc,
-          weth.address, // decimals 18
-        );
-        const expectedAmountWeth = amountUsdc
-          .mul($usdc)
-          .div($weth)
-          .mul(parseUnits("1", 18))
-          .div(parseUnits("1", 6));
-        expect(amountWeth.eq(expectedAmountWeth)).eq(true);
-      });
-    });
-    describe("Bad paths", () => {
-      it("should revert if target asset has zero price", async () => {
-        const amountUsdc = parseUnits("100", 6);
-        await expect(
-          swapManager.convertUsingPriceOracle(usdc.address, amountUsdc, MaticAddresses.EURS)
-        ).revertedWith("TC-4 zero price"); // ZERO_PRICE
-      });
-      it("should revert if source asset has zero price", async () => {
-        const amountUsdc = parseUnits("100", 6);
-        await expect(
-          swapManager.convertUsingPriceOracle(MaticAddresses.EURS, amountUsdc, usdc.address)
-        ).revertedWith("TC-4 zero price"); // ZERO_PRICE
-      });
-    });
-    describe("Gas estimation @skip-on-coverage", () => {
-      it("should not exceed gas threshold", async () => {
-        const amountUsdc = parseUnits("100", 6);
-        const gasUsed = await swapManager.estimateGas.convertUsingPriceOracle(usdc.address, amountUsdc, weth.address);
-        controlGasLimitsEx(gasUsed, GAS_SWAP_CONVERT_USING_PRICE_ORACLE, (u, t) => {
-          expect(u).to.be.below(t);
-        });
-      });
     });
   });
 //endregion Unit tests

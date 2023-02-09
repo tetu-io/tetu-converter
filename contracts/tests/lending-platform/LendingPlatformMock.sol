@@ -2,11 +2,12 @@
 
 pragma solidity 0.8.17;
 
-import "../../core/AppDataTypes.sol";
-import "../../core/EntryKinds.sol";
+import "../../libs/AppDataTypes.sol";
+import "../../libs/EntryKinds.sol";
 import "../../interfaces/IPlatformAdapter.sol";
 import "hardhat/console.sol";
 import "./PoolAdapterMock.sol";
+import "../../libs/AppUtils.sol";
 
 contract LendingPlatformMock is IPlatformAdapter {
   using AppUtils for uint;

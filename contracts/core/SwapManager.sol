@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.17;
 
-import "./AppErrors.sol";
-import "./AppDataTypes.sol";
+import "../libs/AppErrors.sol";
+import "../libs/AppDataTypes.sol";
+import "../libs/SwapLib.sol";
 import "../openzeppelin/IERC20Metadata.sol";
 import "../openzeppelin/IERC20.sol";
 import "../openzeppelin/SafeERC20.sol";
@@ -33,10 +34,10 @@ contract SwapManager is ISwapManager, ISwapConverter, ISimulateProvider, ISwapSi
   ///               Constants
   ///////////////////////////////////////////////////////
 
-  uint public constant PRICE_IMPACT_NUMERATOR = 100_000;
-  uint public constant PRICE_IMPACT_TOLERANCE_DEFAULT = PRICE_IMPACT_NUMERATOR * 2 / 100; // 2%
-
   int public constant APR_NUMERATOR = 10**18;
+
+  uint public constant PRICE_IMPACT_NUMERATOR = SwapLib.PRICE_IMPACT_NUMERATOR;
+  uint public constant PRICE_IMPACT_TOLERANCE_DEFAULT = SwapLib.PRICE_IMPACT_TOLERANCE_DEFAULT;
 
   /// @notice Optional price impact tolerance for assets. If not set, PRICE_IMPACT_TOLERANCE_DEFAULT is used.
   ///         asset => price impact tolerance (decimals are set by PRICE_IMPACT_NUMERATOR)
@@ -144,41 +145,43 @@ contract SwapManager is ISwapManager, ISwapConverter, ISimulateProvider, ISwapSi
     return AppDataTypes.ConversionKind.SWAP_1;
   }
 
-  /// @notice Swap {sourceAmount_} of {sourceToken_} to {targetToken_} and send result amount to {receiver_}
+  /// @notice Swap {amountIn_} of {sourceToken_} to {targetToken_} and send result amount to {receiver_}
   ///         The swapping is made using TetuLiquidator.
-  /// @return outputAmount The amount that has been sent to the receiver
+  /// @return amountOut The amount that has been sent to the receiver
   function swap(
     address sourceToken_,
-    uint sourceAmount_,
+    uint amountIn_,
     address targetToken_,
     address receiver_
-  ) override external returns (uint outputAmount) {
+  ) override external returns (uint amountOut) {
     // there are no restrictions for the msg.sender
     uint targetTokenBalanceBefore = IERC20(targetToken_).balanceOf(address(this));
 
-    IERC20(sourceToken_).safeApprove(address(tetuLiquidator), sourceAmount_);
+    IERC20(sourceToken_).safeApprove(address(tetuLiquidator), amountIn_);
 
     // If price impact is too big, getConverter will return high APR
     // So TetuConverter will select borrow, not swap.
     // If the swap was selected anyway, it is wrong case.
     // liquidate() will revert here and it's ok.
 
-    tetuLiquidator.liquidate(sourceToken_, targetToken_, sourceAmount_, _getPriceImpactTolerance(sourceToken_));
-    outputAmount = IERC20(targetToken_).balanceOf(address(this)) - targetTokenBalanceBefore;
+    tetuLiquidator.liquidate(sourceToken_, targetToken_, amountIn_, _getPriceImpactTolerance(sourceToken_));
+    amountOut = IERC20(targetToken_).balanceOf(address(this)) - targetTokenBalanceBefore;
 
-    IERC20(targetToken_).safeTransfer(receiver_, outputAmount);
-    emit OnSwap(sourceToken_, sourceAmount_, targetToken_, receiver_, outputAmount);
+    IERC20(targetToken_).safeTransfer(receiver_, amountOut);
 
     // The result amount cannot be too different from the value calculated directly using price oracle prices
-    uint expectedAmountOut = convertUsingPriceOracle(sourceToken_, sourceAmount_, targetToken_);
-
     require(
-      (outputAmount > expectedAmountOut
-        ? outputAmount - expectedAmountOut
-        : expectedAmountOut - outputAmount
-      ) < expectedAmountOut * _getPriceImpactTolerance(targetToken_) / PRICE_IMPACT_NUMERATOR,
+      SwapLib.isConversionValid(
+        priceOracle,
+        sourceToken_,
+        amountIn_,
+        targetToken_,
+        amountOut,
+        _getPriceImpactTolerance(targetToken_)
+      ),
       AppErrors.TOO_HIGH_PRICE_IMPACT
     );
+    emit OnSwap(sourceToken_, amountIn_, targetToken_, receiver_, amountOut);
   }
 
   /// @notice Make real swap to know result amount
@@ -221,7 +224,12 @@ contract SwapManager is ISwapManager, ISwapConverter, ISimulateProvider, ISwapSi
     address targetToken_,
     uint targetAmount_
   ) external view override returns (int) {
-    uint targetAmountInSourceTokens = convertUsingPriceOracle(targetToken_, targetAmount_, sourceToken_);
+    uint targetAmountInSourceTokens = SwapLib.convertUsingPriceOracle(
+      priceOracle,
+      targetToken_,
+      targetAmount_,
+      sourceToken_
+    );
 
     // calculate result APR
     // we need to multiple one-way-loss on to to get loss for there-and-back conversion
@@ -242,24 +250,6 @@ contract SwapManager is ISwapManager, ISwapConverter, ISimulateProvider, ISwapSi
     if (priceImpactTolerance == 0) {
       priceImpactTolerance = PRICE_IMPACT_TOLERANCE_DEFAULT;
     }
-  }
-
-  /// @notice Convert amount of {assetIn_} to the corresponded amount of {assetOut_} using price oracle prices
-  /// @return Result amount in terms of {assetOut_}
-  function convertUsingPriceOracle(
-    address assetIn_,
-    uint amountIn_,
-    address assetOut_
-  ) public view returns (uint) {
-    uint priceOut = priceOracle.getAssetPrice(assetOut_);
-    uint priceIn = priceOracle.getAssetPrice(assetIn_);
-    require(priceOut != 0 && priceIn != 0, AppErrors.ZERO_PRICE);
-
-    return amountIn_
-      * 10**IERC20Metadata(assetOut_).decimals()
-      * priceIn
-      / priceOut
-      / 10**IERC20Metadata(assetIn_).decimals();
   }
 
   //////////////////////////////////////////////////////////////////////////////

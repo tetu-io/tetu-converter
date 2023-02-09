@@ -3,9 +3,9 @@ pragma solidity 0.8.17;
 
 import "../../openzeppelin/SafeERC20.sol";
 import "../../openzeppelin/IERC20.sol";
-import "../../core/AppDataTypes.sol";
-import "../../core/AppUtils.sol";
-import "../../core/EntryKinds.sol";
+import "../../libs/AppDataTypes.sol";
+import "../../libs/AppUtils.sol";
+import "../../libs/EntryKinds.sol";
 import "../../interfaces/IPlatformAdapter.sol";
 import "../../interfaces/IPoolAdapterInitializer.sol";
 import "../../interfaces/IController.sol";

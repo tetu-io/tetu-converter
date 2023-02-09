@@ -11,8 +11,8 @@ import "../../openzeppelin/IERC20Metadata.sol";
 import "../../interfaces/IDebtMonitor.sol";
 import "./PoolStub.sol";
 import "../../interfaces/IController.sol";
-import "../../core/AppErrors.sol";
-import "../../core/AppUtils.sol";
+import "../../libs/AppErrors.sol";
+import "../../libs/AppUtils.sol";
 import "../../openzeppelin/SafeERC20.sol";
 
 contract PoolAdapterMock is IPoolAdapter {
