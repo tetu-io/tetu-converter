@@ -39,18 +39,20 @@ contract Aave3PlatformAdapter is IPlatformAdapter {
   ///////////////////////////////////////////////////////
   /// @notice Local vars inside _getConversionPlan - to avoid stack too deep
   struct LocalsGetConversionPlan {
-    IAavePool poolLocal;
+    IAavePool pool;
     IAaveAddressesProvider addressProvider;
     IAavePriceOracle priceOracle;
     IAaveProtocolDataProvider dataProvider;
+    IController controller;
+    Aave3DataTypes.ReserveData rc;
+    Aave3DataTypes.ReserveData rb;
     uint totalAToken;
     uint totalStableDebt;
     uint totalVariableDebt;
     uint blocksPerDay;
-    /// @notice rc.configuration.getDebtCeiling(); rcDebtCeiling != 0 => isolation mode is used
+    /// @notice vars.rc.configuration.getDebtCeiling(); rcDebtCeiling != 0 => isolation mode is used
     uint rcDebtCeiling;
     uint healthFactor18;
-    IController controller;
     uint entryKind;
   }
 
@@ -165,31 +167,31 @@ contract Aave3PlatformAdapter is IPlatformAdapter {
       require(params.collateralAmount != 0 && params.countBlocks != 0, AppErrors.INCORRECT_VALUE);
       require(healthFactor2_ >= vars.controller.minHealthFactor2(), AppErrors.WRONG_HEALTH_FACTOR);
 
-      vars.poolLocal = pool;
-      vars.addressProvider = IAaveAddressesProvider(vars.poolLocal.ADDRESSES_PROVIDER());
+      vars.pool = pool;
+      vars.addressProvider = IAaveAddressesProvider(vars.pool.ADDRESSES_PROVIDER());
       vars.priceOracle = IAavePriceOracle(vars.addressProvider.getPriceOracle());
       vars.dataProvider = IAaveProtocolDataProvider(vars.addressProvider.getPoolDataProvider());
 
-      Aave3DataTypes.ReserveData memory rc = vars.poolLocal.getReserveData(params.collateralAsset);
+      vars.rc = vars.pool.getReserveData(params.collateralAsset);
 
-      if (_isUsable(rc.configuration) &&  _isCollateralUsageAllowed(rc.configuration)) {
-        Aave3DataTypes.ReserveData memory rb = vars.poolLocal.getReserveData(params.borrowAsset);
+      if (_isUsable(vars.rc.configuration) &&  _isCollateralUsageAllowed(vars.rc.configuration)) {
+        vars.rb = vars.pool.getReserveData(params.borrowAsset);
 
-        if (_isUsable(rb.configuration) && rb.configuration.getBorrowingEnabled()) {
-          pd.rc10powDec = 10**rc.configuration.getDecimals();
-          pd.rb10powDec = 10**rb.configuration.getDecimals();
+        if (_isUsable(vars.rb.configuration) && vars.rb.configuration.getBorrowingEnabled()) {
+          pd.rc10powDec = 10**vars.rc.configuration.getDecimals();
+          pd.rb10powDec = 10**vars.rb.configuration.getDecimals();
 
           /// Some assets can be used as collateral in isolation mode only
           /// see comment to getDebtCeiling(): The debt ceiling (0 = isolation mode disabled)
-          vars.rcDebtCeiling = rc.configuration.getDebtCeiling();
-          if (vars.rcDebtCeiling == 0 || _isUsableInIsolationMode(rb.configuration)) {
+          vars.rcDebtCeiling = vars.rc.configuration.getDebtCeiling();
+          if (vars.rcDebtCeiling == 0 || _isUsableInIsolationMode(vars.rb.configuration)) {
             { // get liquidation threshold (== collateral factor) and loan-to-value
-              uint8 categoryCollateral = uint8(rc.configuration.getEModeCategory());
-              if (categoryCollateral != 0 && categoryCollateral == rb.configuration.getEModeCategory()) {
+              uint8 categoryCollateral = uint8(vars.rc.configuration.getEModeCategory());
+              if (categoryCollateral != 0 && categoryCollateral == vars.rb.configuration.getEModeCategory()) {
 
                 // if both assets belong to the same e-mode-category, we can use category's ltv (higher than default)
                 // we assume here, that e-mode is always used if it's available
-                Aave3DataTypes.EModeCategory memory categoryData = vars.poolLocal.getEModeCategoryData(categoryCollateral);
+                Aave3DataTypes.EModeCategory memory categoryData = vars.pool.getEModeCategoryData(categoryCollateral);
                 // ltv: 8500 for 0.85, we need decimals 18.
                 plan.ltv18 = uint(categoryData.ltv) * 10**(18-4);
                 plan.liquidationThreshold18 = uint(categoryData.liquidationThreshold) * 10**(18-4);
@@ -197,8 +199,8 @@ contract Aave3PlatformAdapter is IPlatformAdapter {
               } else {
                 // we should use both LTV and liquidationThreshold of collateral asset (not borrow asset)
                 // see test "Borrow: check LTV and liquidationThreshold"
-                plan.ltv18 = uint(rc.configuration.getLtv()) * 10**(18-4);
-                plan.liquidationThreshold18 = uint(rc.configuration.getLiquidationThreshold()) * 10**(18-4);
+                plan.ltv18 = uint(vars.rc.configuration.getLtv()) * 10**(18-4);
+                plan.liquidationThreshold18 = uint(vars.rc.configuration.getLiquidationThreshold()) * 10**(18-4);
                 plan.converter = converterNormal;
               }
             }
@@ -214,7 +216,7 @@ contract Aave3PlatformAdapter is IPlatformAdapter {
             // supply/borrow caps are given in "whole tokens" == without decimals
             // see AAVE3-code, ValidationLogic.sol, validateBorrow
             { // take into account borrow cap, supply cap and debts ceiling
-              uint borrowCap = rb.configuration.getBorrowCap();
+              uint borrowCap = vars.rb.configuration.getBorrowCap();
               if (borrowCap != 0) {
                 borrowCap *= pd.rb10powDec;
                 uint totalDebt = vars.totalStableDebt + vars.totalVariableDebt;
@@ -239,7 +241,7 @@ contract Aave3PlatformAdapter is IPlatformAdapter {
                 // Suppose, the collateral is an isolated asset with the debt ceiling $10M
                 // The user will therefore be allowed to borrow up to $10M of stable coins
                 // Debt ceiling does not include interest accrued over time, only the principal borrowed
-                uint maxAmount = (vars.rcDebtCeiling - rc.isolationModeTotalDebt)
+                uint maxAmount = (vars.rcDebtCeiling - vars.rc.isolationModeTotalDebt)
                     * pd.rb10powDec
                     / 10 ** Aave3ReserveConfiguration.DEBT_CEILING_DECIMALS;
 
@@ -251,13 +253,13 @@ contract Aave3PlatformAdapter is IPlatformAdapter {
 
             {
               // see sources of AAVE3\ValidationLogic.sol\validateSupply
-              uint supplyCap = rc.configuration.getSupplyCap();
+              uint supplyCap = vars.rc.configuration.getSupplyCap();
               if (supplyCap == 0) {
                 plan.maxAmountToSupply = type(uint).max; // unlimited
               } else {
                 supplyCap  *= pd.rc10powDec;
                 uint totalSupply = (
-                  IAaveToken(rc.aTokenAddress).scaledTotalSupply() * rc.liquidityIndex + HALF_RAY
+                  IAaveToken(vars.rc.aTokenAddress).scaledTotalSupply() * vars.rc.liquidityIndex + HALF_RAY
                 ) / RAY;
                 plan.maxAmountToSupply = supplyCap > totalSupply
                   ? supplyCap - totalSupply
@@ -306,14 +308,14 @@ contract Aave3PlatformAdapter is IPlatformAdapter {
 
             plan.borrowCost36 = AaveSharedLib.getCostForPeriodBefore(
               AaveSharedLib.State({
-                liquidityIndex: rb.variableBorrowIndex,
-                lastUpdateTimestamp: uint(rb.lastUpdateTimestamp),
-                rate: rb.currentVariableBorrowRate
+                liquidityIndex: vars.rb.variableBorrowIndex,
+                lastUpdateTimestamp: uint(vars.rb.lastUpdateTimestamp),
+                rate: vars.rb.currentVariableBorrowRate
               }),
               plan.amountToBorrow,
           //predicted borrow rate after the borrow
               Aave3AprLib.getVariableBorrowRateRays(
-                rb,
+                vars.rb,
                 params.borrowAsset,
                 plan.amountToBorrow,
                 vars.totalStableDebt,
@@ -336,13 +338,13 @@ contract Aave3PlatformAdapter is IPlatformAdapter {
 
             plan.supplyIncomeInBorrowAsset36 = AaveSharedLib.getCostForPeriodBefore(
               AaveSharedLib.State({
-                liquidityIndex: rc.liquidityIndex,
-                lastUpdateTimestamp: uint(rc.lastUpdateTimestamp),
-                rate: rc.currentLiquidityRate
+                liquidityIndex: vars.rc.liquidityIndex,
+                lastUpdateTimestamp: uint(vars.rc.lastUpdateTimestamp),
+                rate: vars.rc.currentLiquidityRate
               }),
               params.collateralAmount,
               Aave3AprLib.getLiquidityRateRays(
-                rc,
+                vars.rc,
                 params.collateralAsset,
                 params.collateralAmount,
                 vars.totalStableDebt,

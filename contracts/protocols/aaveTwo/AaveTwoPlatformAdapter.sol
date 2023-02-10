@@ -38,16 +38,18 @@ contract AaveTwoPlatformAdapter is IPlatformAdapter {
 
   /// @notice Local vars inside getConversionPlan - to avoid stack too deep
   struct LocalsGetConversionPlan {
-    IAaveTwoPool poolLocal;
+    IAaveTwoPool pool;
     IAaveTwoLendingPoolAddressesProvider addressProvider;
     IAaveTwoProtocolDataProvider dataProvider;
     IAaveTwoPriceOracle priceOracle;
+    IController controller;
+    DataTypes.ReserveData rc;
+    DataTypes.ReserveData rb;
     uint availableLiquidity;
     uint totalStableDebt;
     uint totalVariableDebt;
     uint blocksPerDay;
     uint healthFactor18;
-    IController controller;
     uint entryKind;
   }
 
@@ -157,25 +159,25 @@ contract AaveTwoPlatformAdapter is IPlatformAdapter {
       require(params.collateralAmount != 0 && params.countBlocks != 0, AppErrors.INCORRECT_VALUE);
       require(healthFactor2_ >= vars.controller.minHealthFactor2(), AppErrors.WRONG_HEALTH_FACTOR);
 
-      vars.poolLocal = pool;
+      vars.pool = pool;
 
-      vars.addressProvider = IAaveTwoLendingPoolAddressesProvider(vars.poolLocal.getAddressesProvider());
+      vars.addressProvider = IAaveTwoLendingPoolAddressesProvider(vars.pool.getAddressesProvider());
       vars.dataProvider = IAaveTwoProtocolDataProvider(vars.addressProvider.getAddress(bytes32(ID_DATA_PROVIDER)));
       vars.priceOracle = IAaveTwoPriceOracle(vars.addressProvider.getPriceOracle());
 
-      DataTypes.ReserveData memory rc = vars.poolLocal.getReserveData(params.collateralAsset);
+      vars.rc = vars.pool.getReserveData(params.collateralAsset);
 
-      if (_isUsable(rc.configuration) &&  _isCollateralUsageAllowed(rc.configuration)) {
-        DataTypes.ReserveData memory rb = vars.poolLocal.getReserveData(params.borrowAsset);
-        if (_isUsable(rb.configuration) && rb.configuration.getBorrowingEnabled()) {
-          pd.rc10powDec = 10**rc.configuration.getDecimals();
-          pd.rb10powDec = 10**rb.configuration.getDecimals();
+      if (_isUsable(vars.rc.configuration) &&  _isCollateralUsageAllowed(vars.rc.configuration)) {
+        vars.rb = vars.pool.getReserveData(params.borrowAsset);
+        if (_isUsable(vars.rb.configuration) && vars.rb.configuration.getBorrowingEnabled()) {
+          pd.rc10powDec = 10**vars.rc.configuration.getDecimals();
+          pd.rb10powDec = 10**vars.rb.configuration.getDecimals();
 
           // get liquidation threshold (== collateral factor) and loan-to-value (LTV)
           // we should use both LTV and liquidationThreshold of collateral asset (not borrow asset)
           // see test "Borrow: check LTV and liquidationThreshold"
-          plan.ltv18 = uint(rc.configuration.getLtv()) * 10**(18-4);
-          plan.liquidationThreshold18 = uint(rc.configuration.getLiquidationThreshold()) * 10**(18-4);
+          plan.ltv18 = uint(vars.rc.configuration.getLtv()) * 10**(18-4);
+          plan.liquidationThreshold18 = uint(vars.rc.configuration.getLiquidationThreshold()) * 10**(18-4);
           plan.converter = converter;
 
           // prepare to calculate supply/borrow APR
@@ -222,14 +224,14 @@ contract AaveTwoPlatformAdapter is IPlatformAdapter {
           }
           plan.borrowCost36 = AaveSharedLib.getCostForPeriodBefore(
             AaveSharedLib.State({
-              liquidityIndex: rb.variableBorrowIndex,
-              lastUpdateTimestamp: uint(rb.lastUpdateTimestamp),
-              rate: rb.currentVariableBorrowRate
+              liquidityIndex: vars.rb.variableBorrowIndex,
+              lastUpdateTimestamp: uint(vars.rb.lastUpdateTimestamp),
+              rate: vars.rb.currentVariableBorrowRate
             }),
             plan.amountToBorrow,
           //predicted borrow ray after the borrow
             AaveTwoAprLib.getVariableBorrowRateRays(
-              rb,
+              vars.rb,
               params.borrowAsset,
               plan.amountToBorrow,
               vars.totalStableDebt,
@@ -248,13 +250,13 @@ contract AaveTwoPlatformAdapter is IPlatformAdapter {
           // calculate supply-APR, see detailed explanation in Aave3AprLib
           plan.supplyIncomeInBorrowAsset36 = AaveSharedLib.getCostForPeriodBefore(
             AaveSharedLib.State({
-              liquidityIndex: rc.liquidityIndex,
-              lastUpdateTimestamp: uint(rc.lastUpdateTimestamp),
-              rate: rc.currentLiquidityRate
+              liquidityIndex: vars.rc.liquidityIndex,
+              lastUpdateTimestamp: uint(vars.rc.lastUpdateTimestamp),
+              rate: vars.rc.currentLiquidityRate
             }),
             params.collateralAmount,
             AaveTwoAprLib.getLiquidityRateRays(
-              rc,
+              vars.rc,
               params.collateralAsset,
               params.collateralAmount,
               vars.totalStableDebt,
