@@ -77,7 +77,10 @@ const GAS_DEPLOY_LIMIT = 8_000_000;
 
 export class DeploySolutionUtils {
 //region Main script
-  static async runMain(signer: SignerWithAddress) : Promise<IDeployCoreResults> {
+  static async runMain(
+    signer: SignerWithAddress,
+    gelatoOpsReady: string
+  ) : Promise<IDeployCoreResults> {
 
     ///////////////////////////////////////////////////////////////////////////////////////////////////
     /// Initial settings
@@ -85,16 +88,13 @@ export class DeploySolutionUtils {
     const tetuLiquidatorAddress = MaticAddresses.TETU_LIQUIDATOR;
     const controllerSetupParams: IControllerSetupParams = {
       blocksPerDay: 41142,
-      minHealthFactor2: 120,
+      minHealthFactor2: 105,
       targetHealthFactor2: 200,
       maxHealthFactor2: 400
     };
     const borrowManagerSetupParams: IBorrowManagerSetupParams = {
       rewardsFactor: Misc.WEI.div(2) // 0.5e18
     };
-    // https://docs.gelato.network/developer-services/automate/contract-addresses#polygon-matic
-    // Polygon / Matic, Automate
-    const gelatoOpsReady = "0x527a819db1eb0e34426297b03bae11F2f8B3A19E";
 
     const targetHealthFactorsAssets = [
       MaticAddresses.USDC,
@@ -107,10 +107,10 @@ export class DeploySolutionUtils {
       MaticAddresses.WBTC
     ];
     const targetHealthFactorsValues = [
-      200, // MaticAddresses.USDC,
-      200, // MaticAddresses.USDT,
-      200, // MaticAddresses.DAI,
-      200, // MaticAddresses.EURS,
+      115, // MaticAddresses.USDC,
+      115, // MaticAddresses.USDT,
+      115, // MaticAddresses.DAI,
+      115, // MaticAddresses.EURS,
       200, // MaticAddresses.jEUR,
       200, // MaticAddresses.WETH,
       200, // MaticAddresses.WMATIC,
