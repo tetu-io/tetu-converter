@@ -302,7 +302,7 @@ contract BorrowManager is IBorrowManager {
       if (
         plan.converter != address(0)
         // check if we are able to supply required collateral
-        && plan.maxAmountToSupply > p_.collateralAmount
+        && plan.maxAmountToSupply > p_.amountIn
       ) {
         // combine all costs and incomes and calculate result APR. Rewards are taken with the given weight.
         // Positive value means cost, negative - income

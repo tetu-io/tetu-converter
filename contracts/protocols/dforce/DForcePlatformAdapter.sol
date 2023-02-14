@@ -177,7 +177,7 @@ contract DForcePlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
     AppDataTypes.ConversionPlan memory plan
   ) {
     require(p_.collateralAsset != address(0) && p_.borrowAsset != address(0), AppErrors.ZERO_ADDRESS);
-    require(p_.collateralAmount != 0 && p_.countBlocks != 0, AppErrors.INCORRECT_VALUE);
+    require(p_.amountIn != 0 && p_.countBlocks != 0, AppErrors.INCORRECT_VALUE);
     require(healthFactor2_ >= controller.minHealthFactor2(), AppErrors.WRONG_HEALTH_FACTOR);
 
     if (! frozen) {
@@ -244,9 +244,9 @@ contract DForcePlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
 
               local.entryKind = EntryKinds.getEntryKind(p_.entryData);
               if (local.entryKind == EntryKinds.ENTRY_KIND_EXACT_COLLATERAL_IN_FOR_MAX_BORROW_OUT_0) {
-                plan.collateralAmount = p_.collateralAmount;
+                plan.collateralAmount = p_.amountIn;
                 plan.amountToBorrow = EntryKinds.exactCollateralInForMaxBorrowOut(
-                  p_.collateralAmount,
+                  p_.amountIn,
                   local.healthFactor18,
                   plan.liquidationThreshold18,
                   vars,
@@ -254,7 +254,7 @@ contract DForcePlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
                 );
               } else if (local.entryKind == EntryKinds.ENTRY_KIND_EXACT_PROPORTION_1) {
                 (plan.collateralAmount, plan.amountToBorrow) = EntryKinds.exactProportion(
-                  p_.collateralAmount,
+                  p_.amountIn,
                   local.healthFactor18,
                   plan.liquidationThreshold18,
                   vars,
@@ -271,7 +271,7 @@ contract DForcePlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
                plan.rewardsAmountInBorrowAsset36
               ) = DForceAprLib.getRawCostAndIncomes(
                 DForceAprLib.getCore(local.comptroller, cTokenCollateral, cTokenBorrow),
-                p_.collateralAmount,
+                p_.amountIn,
                 p_.countBlocks,
                 plan.amountToBorrow,
                 vars,
@@ -279,7 +279,7 @@ contract DForcePlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
               );
 
               plan.amountCollateralInBorrowAsset36 =
-                p_.collateralAmount * (10**36 * vars.priceCollateral / vars.priceBorrow)
+                p_.amountIn * (10**36 * vars.priceCollateral / vars.priceBorrow)
                 / vars.rc10powDec;
             }
           }

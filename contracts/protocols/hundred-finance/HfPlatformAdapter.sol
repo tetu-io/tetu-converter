@@ -176,7 +176,7 @@ contract HfPlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
     AppDataTypes.ConversionPlan memory plan
   ) {
     require(p_.collateralAsset != address(0) && p_.borrowAsset != address(0), AppErrors.ZERO_ADDRESS);
-    require(p_.collateralAmount != 0 && p_.countBlocks != 0, AppErrors.INCORRECT_VALUE);
+    require(p_.amountIn != 0 && p_.countBlocks != 0, AppErrors.INCORRECT_VALUE);
     require(healthFactor2_ >= controller.minHealthFactor2(), AppErrors.WRONG_HEALTH_FACTOR);
 
     if (! frozen) {
@@ -220,9 +220,9 @@ contract HfPlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
             // we assume that liquidationThreshold18 == ltv18 in this protocol, so the minimum health factor is 1
             local.entryKind = EntryKinds.getEntryKind(p_.entryData);
             if (local.entryKind == EntryKinds.ENTRY_KIND_EXACT_COLLATERAL_IN_FOR_MAX_BORROW_OUT_0) {
-              plan.collateralAmount = p_.collateralAmount;
+              plan.collateralAmount = p_.amountIn;
               plan.amountToBorrow = EntryKinds.exactCollateralInForMaxBorrowOut(
-                p_.collateralAmount,
+                p_.amountIn,
                 uint(healthFactor2_) * 10**16,
                 plan.liquidationThreshold18,
                 vars,
@@ -230,7 +230,7 @@ contract HfPlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
               );
             } else if (local.entryKind == EntryKinds.ENTRY_KIND_EXACT_PROPORTION_1) {
               (plan.collateralAmount, plan.amountToBorrow) = EntryKinds.exactProportion(
-                p_.collateralAmount,
+                p_.amountIn,
                 uint(healthFactor2_) * 10**16,
                 plan.liquidationThreshold18,
                 vars,
@@ -247,14 +247,14 @@ contract HfPlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
              plan.supplyIncomeInBorrowAsset36
             ) = HfAprLib.getRawCostAndIncomes(
               HfAprLib.getCore(local.cTokenCollateral, local.cTokenBorrow),
-              p_.collateralAmount,
+              p_.amountIn,
               p_.countBlocks,
               plan.amountToBorrow,
               vars
             );
 
             plan.amountCollateralInBorrowAsset36 =
-              p_.collateralAmount * (10**36 * vars.priceCollateral / vars.priceBorrow)
+              p_.amountIn * (10**36 * vars.priceCollateral / vars.priceBorrow)
               / vars.rc10powDec;
           }
         }

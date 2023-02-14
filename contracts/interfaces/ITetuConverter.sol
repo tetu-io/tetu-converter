@@ -9,7 +9,8 @@ interface ITetuConverter {
   /// @param entryData_ Encoded entry kind and additional params if necessary (set of params depends on the kind)
   ///                   See EntryKinds.sol\ENTRY_KIND_XXX constants for possible entry kinds
   ///                   0 is used by default
-  /// @param sourceAmount_ Max amount that can be converted.
+  /// @param amountIn_  The meaning depends on entryData
+  ///                   For entryKind=0 it's max available amount of collateral
   /// @param periodInBlocks_ Estimated period to keep target amount. It's required to compute APR
   /// @return converter Result contract that should be used for conversion; it supports IConverter
   ///                   This address should be passed to borrow-function during conversion.
@@ -19,7 +20,7 @@ interface ITetuConverter {
   function findBorrowStrategy(
     bytes memory entryData_,
     address sourceToken_,
-    uint sourceAmount_,
+    uint amountIn_,
     address targetToken_,
     uint periodInBlocks_
   ) external view returns (
@@ -35,8 +36,11 @@ interface ITetuConverter {
   /// @param entryData_ Encoded entry kind and additional params if necessary (set of params depends on the kind)
   ///                   See EntryKinds.sol\ENTRY_KIND_XXX constants for possible entry kinds
   ///                   0 is used by default
-  /// @param sourceAmount_ Max amount that can be swapped.
-  ///                      This amount must be approved to TetuConverter before the call.
+  /// @param amountIn_  The meaning depends on entryData
+  ///                   For entryKind=0 it's max available amount of collateral
+  ///                   This amount must be approved to TetuConverter before the call.
+  ///                   For entryKind=2 we don't know amount of collateral before the call,
+  ///                   so it's necessary to approve large enough amount (or make infinity approve)
   /// @return converter Result contract that should be used for conversion to be passed to borrow()
   /// @return sourceAmountOut Amount of {sourceToken_} that should be swapped to get {targetToken_}
   ///                         It can be different from the {sourceAmount_} for some entry kinds.
@@ -45,7 +49,7 @@ interface ITetuConverter {
   function findSwapStrategy(
     bytes memory entryData_,
     address sourceToken_,
-    uint sourceAmount_,
+    uint amountIn_,
     address targetToken_
   ) external returns (
     address converter,
@@ -61,8 +65,11 @@ interface ITetuConverter {
   /// @param entryData_ Encoded entry kind and additional params if necessary (set of params depends on the kind)
   ///                   See EntryKinds.sol\ENTRY_KIND_XXX constants for possible entry kinds
   ///                   0 is used by default
-  /// @param sourceAmount_ Max amount of {sourceToken_} that can be converted.
-  ///        The amount must be approved to TetuConverter before calling this function.
+  /// @param amountIn_  The meaning depends on entryData
+  ///                   For entryKind=0 it's max available amount of collateral
+  ///                   This amount must be approved to TetuConverter before the call.
+  ///                   For entryKind=2 we don't know amount of collateral before the call,
+  ///                   so it's necessary to approve large enough amount (or make infinity approve)
   /// @param periodInBlocks_ Estimated period to keep target amount. It's required to compute APR
   /// @return converter Result contract that should be used for conversion to be passed to borrow().
   /// @return collateralAmountOut Amount of {sourceToken_} that should be swapped to get {targetToken_}
@@ -72,7 +79,7 @@ interface ITetuConverter {
   function findConversionStrategy(
     bytes memory entryData_,
     address sourceToken_,
-    uint sourceAmount_,
+    uint amountIn_,
     address targetToken_,
     uint periodInBlocks_
   ) external returns (

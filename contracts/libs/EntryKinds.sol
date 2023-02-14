@@ -14,8 +14,11 @@ library EntryKinds {
   ///         Results amounts of C1 and B (both in terms of USD) must be in the given proportion
   uint constant public ENTRY_KIND_EXACT_PROPORTION_1 = 1;
 
+  /// @notice Borrow given amount using min possible collateral
+  uint constant public ENTRY_KIND_EXACT_BORROW_OUT_FOR_MIN_COLLATERAL_IN_2 = 2;
 
-  /// @notice Decode entryData, extract first uint - entry kind
+
+/// @notice Decode entryData, extract first uint - entry kind
   ///         Valid values of entry kinds are given by ENTRY_KIND_XXX constants above
   function getEntryKind(bytes memory entryData_) internal pure returns (uint) {
     if (entryData_.length == 0) {
@@ -55,6 +58,37 @@ library EntryKinds {
         * pd.rb10powDec
         / 1e18
         / pd.rc10powDec;
+    }
+  }
+
+  /// @notice Borrow given {borrowAmount} using min possible collateral
+  /// @param borrowAmount Required amount to borrow
+  /// @param healthFactor18 Required health factor, decimals 18
+  /// @param liquidationThreshold18 Liquidation threshold of the selected landing platform, decimals 18
+  /// @param priceDecimals36 True if the prices in {pd} have decimals 36 (DForce, HundredFinance)
+  ///                        In this case, we can have overloading if collateralAmount is high enough,
+  ///                        so we need a special logic to avoid it
+  function exactBorrowOutForMinCollateralIn(
+    uint borrowAmount,
+    uint healthFactor18,
+    uint liquidationThreshold18,
+    AppDataTypes.PricesAndDecimals memory pd,
+    bool priceDecimals36
+  ) internal pure returns (
+    uint amountToCollateralOut
+  ) {
+    if (priceDecimals36) {
+      amountToCollateralOut = borrowAmount
+        * pd.priceBorrow / (liquidationThreshold18 * pd.priceCollateral)
+        * healthFactor18
+        * pd.rc10powDec
+        / pd.rb10powDec;
+    } else {
+      amountToCollateralOut = borrowAmount
+        * healthFactor18
+        * pd.priceBorrow / (liquidationThreshold18 * pd.priceCollateral)
+        * pd.rc10powDec
+        / pd.rb10powDec;
     }
   }
 

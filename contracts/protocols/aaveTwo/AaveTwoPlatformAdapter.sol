@@ -156,7 +156,7 @@ contract AaveTwoPlatformAdapter is IPlatformAdapter {
       vars.controller = controller;
 
       require(params.collateralAsset != address(0) && params.borrowAsset != address(0), AppErrors.ZERO_ADDRESS);
-      require(params.collateralAmount != 0 && params.countBlocks != 0, AppErrors.INCORRECT_VALUE);
+      require(params.amountIn != 0 && params.countBlocks != 0, AppErrors.INCORRECT_VALUE);
       require(healthFactor2_ >= vars.controller.minHealthFactor2(), AppErrors.WRONG_HEALTH_FACTOR);
 
       vars.pool = pool;
@@ -196,9 +196,9 @@ contract AaveTwoPlatformAdapter is IPlatformAdapter {
           // calculate amount that can be borrowed and amount that should be provided as the collateral
           vars.entryKind = EntryKinds.getEntryKind(params.entryData);
           if (vars.entryKind == EntryKinds.ENTRY_KIND_EXACT_COLLATERAL_IN_FOR_MAX_BORROW_OUT_0) {
-            plan.collateralAmount = params.collateralAmount;
+            plan.collateralAmount = params.amountIn;
             plan.amountToBorrow = EntryKinds.exactCollateralInForMaxBorrowOut(
-              params.collateralAmount,
+              params.amountIn,
               vars.healthFactor18,
               plan.liquidationThreshold18,
               pd,
@@ -206,7 +206,7 @@ contract AaveTwoPlatformAdapter is IPlatformAdapter {
             );
           } else if (vars.entryKind == EntryKinds.ENTRY_KIND_EXACT_PROPORTION_1) {
             (plan.collateralAmount, plan.amountToBorrow) = EntryKinds.exactProportion(
-              params.collateralAmount,
+              params.amountIn,
               vars.healthFactor18,
               plan.liquidationThreshold18,
               pd,
@@ -254,11 +254,11 @@ contract AaveTwoPlatformAdapter is IPlatformAdapter {
               lastUpdateTimestamp: uint(vars.rc.lastUpdateTimestamp),
               rate: vars.rc.currentLiquidityRate
             }),
-            params.collateralAmount,
+            params.amountIn,
             AaveTwoAprLib.getLiquidityRateRays(
               vars.rc,
               params.collateralAsset,
-              params.collateralAmount,
+              params.amountIn,
               vars.totalStableDebt,
               vars.totalVariableDebt
             ),
@@ -273,7 +273,7 @@ contract AaveTwoPlatformAdapter is IPlatformAdapter {
           / pd.priceBorrow
           / pd.rc10powDec;
           plan.amountCollateralInBorrowAsset36 =
-            params.collateralAmount
+            params.amountIn
             * 1e18
             * pd.priceCollateral
             / pd.priceBorrow

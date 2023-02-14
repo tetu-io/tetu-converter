@@ -164,7 +164,7 @@ contract Aave3PlatformAdapter is IPlatformAdapter {
       vars.controller = controller;
 
       require(params.collateralAsset != address(0) && params.borrowAsset != address(0), AppErrors.ZERO_ADDRESS);
-      require(params.collateralAmount != 0 && params.countBlocks != 0, AppErrors.INCORRECT_VALUE);
+      require(params.amountIn != 0 && params.countBlocks != 0, AppErrors.INCORRECT_VALUE);
       require(healthFactor2_ >= vars.controller.minHealthFactor2(), AppErrors.WRONG_HEALTH_FACTOR);
 
       vars.pool = pool;
@@ -283,92 +283,118 @@ contract Aave3PlatformAdapter is IPlatformAdapter {
             // calculate amount that can be borrowed and amount that should be provided as the collateral
             vars.entryKind = EntryKinds.getEntryKind(params.entryData);
             if (vars.entryKind == EntryKinds.ENTRY_KIND_EXACT_COLLATERAL_IN_FOR_MAX_BORROW_OUT_0) {
-              plan.collateralAmount = params.collateralAmount;
+              plan.collateralAmount = params.amountIn;
               plan.amountToBorrow = EntryKinds.exactCollateralInForMaxBorrowOut(
-                params.collateralAmount,
+                params.amountIn,
                 vars.healthFactor18,
                 plan.liquidationThreshold18,
                 pd,
                 false // prices have decimals 18, not 36
               );
+              if (plan.amountToBorrow > plan.maxAmountToBorrow) {
+                plan.amountToBorrow = plan.maxAmountToBorrow;
+              }
             } else if (vars.entryKind == EntryKinds.ENTRY_KIND_EXACT_PROPORTION_1) {
               (plan.collateralAmount, plan.amountToBorrow) = EntryKinds.exactProportion(
-                params.collateralAmount,
+                params.amountIn,
                 vars.healthFactor18,
                 plan.liquidationThreshold18,
                 pd,
                 params.entryData,
                 false // prices have decimals 18, not 36
               );
+              if (plan.amountToBorrow > plan.maxAmountToBorrow) {
+                plan.amountToBorrow = plan.maxAmountToBorrow;
+              }
+            } else if (vars.entryKind == EntryKinds.ENTRY_KIND_EXACT_BORROW_OUT_FOR_MIN_COLLATERAL_IN_2) {
+              plan.amountToBorrow = params.amountIn;
+              if (plan.amountToBorrow > plan.maxAmountToBorrow) {
+                // if there is no required amount then we consider that the plan was not found
+                plan.converter = address(0);
+              } else {
+                plan.collateralAmount = EntryKinds.exactBorrowOutForMinCollateralIn(
+                  params.amountIn,
+                  vars.healthFactor18,
+                  plan.liquidationThreshold18,
+                  pd,
+                  false // prices have decimals 18, not 36
+                );
+                if (plan.collateralAmount > plan.maxAmountToSupply) {
+                  plan.converter = address(0);
+                }
+              }
             }
 
-            if (plan.amountToBorrow > plan.maxAmountToBorrow) {
-              plan.amountToBorrow = plan.maxAmountToBorrow;
-            }
-
-            plan.borrowCost36 = AaveSharedLib.getCostForPeriodBefore(
-              AaveSharedLib.State({
-                liquidityIndex: vars.rb.variableBorrowIndex,
-                lastUpdateTimestamp: uint(vars.rb.lastUpdateTimestamp),
-                rate: vars.rb.currentVariableBorrowRate
-              }),
-              plan.amountToBorrow,
-          //predicted borrow rate after the borrow
-              Aave3AprLib.getVariableBorrowRateRays(
-                vars.rb,
-                params.borrowAsset,
+            if (plan.converter != address(0)) {
+              plan.borrowCost36 = AaveSharedLib.getCostForPeriodBefore(
+                AaveSharedLib.State({
+                  liquidityIndex: vars.rb.variableBorrowIndex,
+                  lastUpdateTimestamp: uint(vars.rb.lastUpdateTimestamp),
+                  rate: vars.rb.currentVariableBorrowRate
+                }),
                 plan.amountToBorrow,
-                vars.totalStableDebt,
-                vars.totalVariableDebt
-              ),
-              params.countBlocks,
-              vars.blocksPerDay,
-              block.timestamp, // assume, that we make borrow in the current block
-              1e18 // multiplier to increase result precision
-            )
-            * 1e18 // we need decimals 36, but the result is already multiplied on 1e18 by multiplier above
-            / pd.rb10powDec;
+            //predicted borrow rate after the borrow
+                Aave3AprLib.getVariableBorrowRateRays(
+                  vars.rb,
+                  params.borrowAsset,
+                  plan.amountToBorrow,
+                  vars.totalStableDebt,
+                  vars.totalVariableDebt
+                ),
+                params.countBlocks,
+                vars.blocksPerDay,
+                block.timestamp, // assume, that we make borrow in the current block
+                1e18 // multiplier to increase result precision
+              )
+              * 1e18 // we need decimals 36, but the result is already multiplied on 1e18 by multiplier above
+              / pd.rb10powDec;
 
-            // calculate supply-APR, see detailed explanation in Aave3AprLib
-            (,,
-            vars.totalAToken,
-            vars.totalStableDebt,
-            vars.totalVariableDebt
-            ,,,,,,,) = vars.dataProvider.getReserveData(params.collateralAsset);
+              // calculate supply-APR, see detailed explanation in Aave3AprLib
+              (,,
+              vars.totalAToken,
+              vars.totalStableDebt,
+              vars.totalVariableDebt
+              ,,,,,,,) = vars.dataProvider.getReserveData(params.collateralAsset);
 
-            plan.supplyIncomeInBorrowAsset36 = AaveSharedLib.getCostForPeriodBefore(
-              AaveSharedLib.State({
-                liquidityIndex: vars.rc.liquidityIndex,
-                lastUpdateTimestamp: uint(vars.rc.lastUpdateTimestamp),
-                rate: vars.rc.currentLiquidityRate
-              }),
-              params.collateralAmount,
-              Aave3AprLib.getLiquidityRateRays(
-                vars.rc,
-                params.collateralAsset,
-                params.collateralAmount,
-                vars.totalStableDebt,
-                vars.totalVariableDebt
-              ),
-              params.countBlocks,
-              vars.blocksPerDay,
-              block.timestamp, // assume, that we supply collateral in the current block
-              1e18 // multiplier to increase result precision
-            )
-            // we need a value in terms of borrow tokens but with decimals 18
-            * 1e18 // we need decimals 36, but the result is already multiplied on 1e18 by multiplier above
-            * pd.priceCollateral / pd.priceBorrow
-            / pd.rc10powDec;
-
-            plan.amountCollateralInBorrowAsset36 = params.collateralAmount
-              * (1e36 * pd.priceCollateral / pd.priceBorrow)
+              plan.supplyIncomeInBorrowAsset36 = AaveSharedLib.getCostForPeriodBefore(
+                AaveSharedLib.State({
+                  liquidityIndex: vars.rc.liquidityIndex,
+                  lastUpdateTimestamp: uint(vars.rc.lastUpdateTimestamp),
+                  rate: vars.rc.currentLiquidityRate
+                }),
+                params.amountIn,
+                Aave3AprLib.getLiquidityRateRays(
+                  vars.rc,
+                  params.collateralAsset,
+                  params.amountIn,
+                  vars.totalStableDebt,
+                  vars.totalVariableDebt
+                ),
+                params.countBlocks,
+                vars.blocksPerDay,
+                block.timestamp, // assume, that we supply collateral in the current block
+                1e18 // multiplier to increase result precision
+              )
+              // we need a value in terms of borrow tokens but with decimals 18
+              * 1e18 // we need decimals 36, but the result is already multiplied on 1e18 by multiplier above
+              * pd.priceCollateral / pd.priceBorrow
               / pd.rc10powDec;
+
+              plan.amountCollateralInBorrowAsset36 = params.amountIn
+                * (1e36 * pd.priceCollateral / pd.priceBorrow)
+                / pd.rc10powDec;
+            }
           }
         }
       }
     }
 
-    return plan;
+    if (plan.converter == address(0)) {
+      AppDataTypes.ConversionPlan memory planNotFound;
+      return planNotFound;
+    } else {
+      return plan;
+    }
   }
 
   ///////////////////////////////////////////////////////

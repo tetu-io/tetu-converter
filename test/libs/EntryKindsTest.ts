@@ -7,6 +7,7 @@ import {defaultAbiCoder, parseUnits} from "ethers/lib/utils";
 import {expect} from "chai";
 import {controlGasLimitsEx} from "../../scripts/utils/hardhatUtils";
 import {
+  GAS_LIMIT_ENTRY_KINDS_EXACT_BORROW_OUT_FOR_MIN_COLLATERAL_IN,
   GAS_LIMIT_ENTRY_KINDS_EXACT_COLLATERAL_IN_FOR_MAX_BORROW_OUT, GAS_LIMIT_ENTRY_KINDS_EXACT_PROPORTIONS,
   GAS_LIMIT_ENTRY_KINDS_GET_ENTRY_KIND
 } from "../baseUT/GasLimit";
@@ -150,6 +151,124 @@ describe("EntryKindsTest", () => {
           false
         );
         controlGasLimitsEx(gasUsed, GAS_LIMIT_ENTRY_KINDS_EXACT_COLLATERAL_IN_FOR_MAX_BORROW_OUT, (u, t) => {
+          expect(u).to.be.below(t);
+        });
+      });
+    });
+  });
+
+  describe("exactBorrowOutForMinCollateralIn", () => {
+    describe("Good paths", () => {
+      describe("Price decimals = 18", () => {
+        it("should return expected values", async () => {
+          const borrowAmount = parseUnits("1700", 27);
+          const healthFactor18 = parseUnits("2", 18);
+          const liquidationThreshold18 = parseUnits("0.85", 18);
+          const priceCollateral = parseUnits("10", 18);
+          const priceBorrow = parseUnits("0.5", 18);
+          const rc10powDec = parseUnits("1", 14);
+          const rb10powDec = parseUnits("1", 27);
+          const ret = await facade.exactBorrowOutForMinCollateralIn(
+            borrowAmount,
+            healthFactor18,
+            liquidationThreshold18,
+            {priceCollateral, priceBorrow, rc10powDec, rb10powDec},
+            false
+          );
+
+          const expected = borrowAmount
+            .mul(healthFactor18)
+            .mul(rc10powDec)
+            .mul(priceBorrow)
+            .div(liquidationThreshold18)
+            .div(priceCollateral)
+            .div(rb10powDec);
+
+          console.log("ret", ret);
+          console.log("expected", expected);
+
+          // 1700/0.85*2/10*0.5 = 200
+          expect(ret.eq(expected)).eq(true);
+        });
+      });
+      describe("Price decimals = 36", () => {
+        it("should return expected values", async () => {
+          // $200 mln
+          const borrowAmount = parseUnits("1700", 18+6);
+          const healthFactor18 = parseUnits("2", 18);
+          const liquidationThreshold18 = parseUnits("0.85", 18);
+          const priceCollateral = parseUnits("10", 36);
+          const priceBorrow = parseUnits("0.5", 36);
+          const rc10powDec = parseUnits("1", 18);
+          const rb10powDec = parseUnits("1", 18);
+
+          const ret = await facade.exactBorrowOutForMinCollateralIn(
+            borrowAmount,
+            healthFactor18,
+            liquidationThreshold18,
+            {priceCollateral, priceBorrow, rc10powDec, rb10powDec},
+            true
+          );
+          console.log("ret", ret);
+
+          const expected = borrowAmount
+            .mul(healthFactor18)
+            .mul(rc10powDec)
+            .mul(priceBorrow)
+            .div(liquidationThreshold18)
+            .div(priceCollateral)
+            .div(rb10powDec);
+          console.log("expected", expected);
+
+          // 1700/0.85*2/10*0.5 = 200 mln
+          expect(ret.eq(expected)).eq(true);
+        });
+      });
+      describe("Reverse to exactCollateralInForMaxBorrowOut", () => {
+        it("should return expected values", async () => {
+          const collateralAmount = parseUnits("1400", 14);
+          const healthFactor18 = parseUnits("2", 18);
+          const liquidationThreshold18 = parseUnits("0.85", 18);
+          const priceCollateral = parseUnits("10", 18);
+          const priceBorrow = parseUnits("0.5", 18);
+          const rc10powDec = parseUnits("1", 14);
+          const rb10powDec = parseUnits("1", 27);
+          const amountToBorrowOut = await facade.exactCollateralInForMaxBorrowOut(
+            collateralAmount,
+            healthFactor18,
+            liquidationThreshold18,
+            {priceCollateral, priceBorrow, rc10powDec, rb10powDec},
+            false
+          );
+          console.log("amountToBorrowOut", amountToBorrowOut);
+          const ret = await facade.exactBorrowOutForMinCollateralIn(
+            amountToBorrowOut,
+            healthFactor18,
+            liquidationThreshold18,
+            {priceCollateral, priceBorrow, rc10powDec, rb10powDec},
+            false
+          );
+          console.log("ret", ret);
+
+          expect(ret.eq(collateralAmount)).eq(true);
+        });
+      });
+    });
+    describe("Gas estimation @skip-on-coverage", () => {
+      it("should not exceed gas limits", async () => {
+        const gasUsed = await facade.estimateGas.exactBorrowOutForMinCollateralIn(
+          parseUnits("1700", 14),
+          parseUnits("2", 18),
+          parseUnits("0.85", 18),
+          {
+            priceCollateral: parseUnits("10", 18),
+            priceBorrow: parseUnits("0.5", 18),
+            rc10powDec: parseUnits("1", 14),
+            rb10powDec: parseUnits("1", 27)
+          },
+          false
+        );
+        controlGasLimitsEx(gasUsed, GAS_LIMIT_ENTRY_KINDS_EXACT_BORROW_OUT_FOR_MIN_COLLATERAL_IN, (u, t) => {
           expect(u).to.be.below(t);
         });
       });

@@ -20,8 +20,12 @@ library AppDataTypes {
     bytes entryData;
 
     uint countBlocks;
-    /// @notice Amount of {sourceToken} to be converted to {targetToken}
-    uint collateralAmount;
+
+    /// @notice The meaning depends on entryData kind, see EntryKinds library for details.
+    ///         For entry kind = 0: Amount of {sourceToken} to be converted to {targetToken}
+    ///         For entry kind = 1: Available amount of {sourceToken}
+    ///         For entry kind = 2: Amount of {targetToken} that should be received after conversion
+    uint amountIn;
   }
 
   /// @notice Explain how a given lending pool can make specified conversion
