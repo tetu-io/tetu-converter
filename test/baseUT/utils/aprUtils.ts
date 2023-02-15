@@ -26,7 +26,7 @@ export class AprUtils {
     priceBorrow: BigNumber,
     collateralDecimals: number,
     borrowDecimals: number
-  ) {
+  ) : BigNumber {
     return collateralAmount
         .mul(100)
         .div(healthFactor2)
@@ -36,5 +36,27 @@ export class AprUtils {
         .mul(parseUnits("1", borrowDecimals))
         .div(Misc.WEI)
         .div(parseUnits("1", collateralDecimals));
+  }
+
+
+  /**
+   * What collateral amount is required to get the given borrow amount with given health factor and liquidation threshold.
+   */
+  public static getCollateralAmount(
+    borrowAmount: BigNumber,
+    healthFactor2: number,
+    liquidationThreshold18: BigNumber,
+    priceCollateral: BigNumber,
+    priceBorrow: BigNumber,
+    collateralDecimals: number,
+    borrowDecimals: number
+  ) : BigNumber {
+    return borrowAmount
+      .mul(priceBorrow)
+      .div(priceCollateral)
+      .mul(healthFactor2).mul(Misc.WEI).div(100) // 2 => 18
+      .div(liquidationThreshold18)
+      .mul(parseUnits("1", collateralDecimals))
+      .div(parseUnits("1", borrowDecimals));
   }
 }

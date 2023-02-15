@@ -174,13 +174,13 @@ contract AaveTwoPlatformAdapter is IPlatformAdapter {
           // availableLiquidity is IERC20(borrowToken).balanceOf(atoken)
           (vars.availableLiquidity, vars.totalStableDebt, vars.totalVariableDebt,,,,,,,) = vars.dataProvider.getReserveData(params.borrowAsset);
 
-          plan.maxAmountToSupply = type(uint).max; // unlimited
+          plan.maxAmountToSupply = type(uint).max; // unlimited; fix validation below after changing this value
           plan.maxAmountToBorrow = vars.availableLiquidity;
           if (plan.amountToBorrow > plan.maxAmountToBorrow) {
             plan.amountToBorrow = plan.maxAmountToBorrow;
           }
 
-          if (plan.maxAmountToSupply != 0 && plan.maxAmountToBorrow != 0) {
+          if (/* plan.maxAmountToSupply != 0 &&*/ plan.maxAmountToBorrow != 0) {
             pd.rc10powDec = 10**vars.rc.configuration.getDecimals();
             pd.rb10powDec = 10**vars.rb.configuration.getDecimals();
 
@@ -242,13 +242,10 @@ contract AaveTwoPlatformAdapter is IPlatformAdapter {
               plan.converter = address(0);
             } else {
               // reduce collateral amount and borrow amount proportionally to fit available limits
-              if (plan.collateralAmount > plan.maxAmountToSupply) {
-                plan.amountToBorrow *= plan.maxAmountToSupply / plan.collateralAmount;
-                plan.collateralAmount = plan.maxAmountToSupply;
-              }
-
+              // we don't need to check "plan.collateralAmount > plan.maxAmountToSupply" as in AAVE3
+              // because maxAmountToSupply is always equal to type(uint).max
               if (plan.amountToBorrow > plan.maxAmountToBorrow) {
-                plan.collateralAmount = plan.maxAmountToBorrow / plan.amountToBorrow;
+                plan.collateralAmount = plan.collateralAmount * plan.maxAmountToBorrow / plan.amountToBorrow;
                 plan.amountToBorrow = plan.maxAmountToBorrow;
               }
 

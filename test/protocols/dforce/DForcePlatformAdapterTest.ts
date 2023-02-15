@@ -385,6 +385,7 @@ describe("DForce integration tests, platform adapter", () => {
       d.plan.maxAmountToBorrow,
       d.plan.maxAmountToSupply,
       d.plan.amountToBorrow,
+      d.plan.collateralAmount,
       areAlmostEqual(d.plan.amountCollateralInBorrowAsset36, amountCollateralInBorrowAsset36)
     ].map(x => BalanceUtils.toString(x)) .join("\n");
     console.log("amountToBorrow", amountToBorrow);
@@ -411,6 +412,7 @@ describe("DForce integration tests, platform adapter", () => {
           ? BigNumber.from(0)
           : d.collateralAssetData.supplyCapacity.sub(totalSupply),
       amountToBorrow,
+      collateralAmount,
       true
     ].map(x => BalanceUtils.toString(x)) .join("\n");
 
@@ -713,6 +715,54 @@ describe("DForce integration tests, platform adapter", () => {
         });
       });
       describe("EntryKinds", () => {
+        describe("Use ENTRY_KIND_EXACT_COLLATERAL_IN_FOR_MAX_BORROW_OUT_0", () => {
+          it("should return expected collateral and borrow amounts", async () => {
+            if (!await isPolygonForkInUse()) return;
+
+            const collateralAmount = parseUnits("1000", 18);
+
+            const r = await preparePlan(
+              controller,
+              MaticAddresses.DAI,
+              collateralAmount,
+              MaticAddresses.WMATIC,
+              MaticAddresses.dForce_iDAI,
+              MaticAddresses.dForce_iMATIC,
+              undefined,
+              defaultAbiCoder.encode(["uint256"], [AppConstants.ENTRY_KIND_0])
+            );
+
+            const borrowAmount = AprUtils.getBorrowAmount(
+              collateralAmount,
+              r.healthFactor2,
+              r.plan.liquidationThreshold18,
+              r.priceCollateral,
+              r.priceBorrow,
+              r.collateralAssetDecimals,
+              r.borrowAssetDecimals,
+            );
+
+            const amountCollateralInBorrowAsset36 =  convertUnits(r.plan.collateralAmount,
+              r.priceCollateral,
+              r.collateralAssetDecimals,
+              r.priceBorrow,
+              36
+            );
+
+            const ret = [
+              r.plan.collateralAmount,
+              areAlmostEqual(r.plan.amountToBorrow, borrowAmount),
+              areAlmostEqual(r.plan.amountCollateralInBorrowAsset36, amountCollateralInBorrowAsset36)
+            ].map(x => BalanceUtils.toString(x)).join("\n");
+            const expected = [
+              collateralAmount,
+              true,
+              true
+            ].map(x => BalanceUtils.toString(x)).join("\n");
+
+            expect(ret).eq(expected);
+          });
+        });
         describe("Use ENTRY_KIND_EXACT_PROPORTION_1", () => {
           it("should split source amount on the parts with almost same cost", async () => {
             if (!await isPolygonForkInUse()) return;
@@ -729,7 +779,7 @@ describe("DForce integration tests, platform adapter", () => {
               undefined,
               defaultAbiCoder.encode(
                 ["uint256", "uint256", "uint256"],
-                [1, 1, 1]
+                [AppConstants.ENTRY_KIND_1, 1, 1]
               )
             );
 
@@ -800,6 +850,110 @@ describe("DForce integration tests, platform adapter", () => {
             ].map(x => BalanceUtils.toString(x)).join("\n");
             console.log(d.plan);
             console.log(r.plan);
+
+            expect(ret).eq(expected);
+          });
+        });
+      });
+      describe("Collateral and borrow amounts fit to limits", () => {
+        describe("Allowed collateral exceeds available collateral", () => {
+          it("should return expected borrow and collateral amounts", async () => {
+            if (!await isPolygonForkInUse()) return;
+
+            // let's get max available supply amount
+            const sample = await preparePlan(
+              controller,
+              MaticAddresses.DAI,
+              parseUnits("1", 18),
+              MaticAddresses.WMATIC,
+              MaticAddresses.dForce_iDAI,
+              MaticAddresses.dForce_iMATIC,
+              undefined,
+              defaultAbiCoder.encode(["uint256"], [AppConstants.ENTRY_KIND_0])
+            );
+
+            // let's try to borrow amount using collateral that exceeds max supply amount
+            const r = await preparePlan(
+              controller,
+              MaticAddresses.DAI,
+              sample.plan.maxAmountToSupply.add(1000),
+              MaticAddresses.WMATIC,
+              MaticAddresses.dForce_iDAI,
+              MaticAddresses.dForce_iMATIC,
+              undefined,
+              defaultAbiCoder.encode(["uint256"], [AppConstants.ENTRY_KIND_0])
+            );
+            console.log(r.plan);
+
+            const expectedCollateralAmount = AprUtils.getCollateralAmount(
+              r.plan.amountToBorrow,
+              r.healthFactor2,
+              r.plan.liquidationThreshold18,
+              r.priceCollateral,
+              r.priceBorrow,
+              r.collateralAssetDecimals,
+              r.borrowAssetDecimals
+            );
+
+            const ret = [
+              r.plan.amountToBorrow,
+              areAlmostEqual(r.plan.collateralAmount, expectedCollateralAmount)
+            ].map(x => BalanceUtils.toString(x)).join("\n");
+            const expected = [
+              r.plan.maxAmountToBorrow,
+              true
+            ].map(x => BalanceUtils.toString(x)).join("\n");
+
+            expect(ret).eq(expected);
+          });
+        });
+        describe("Allowed borrow amounts exceeds available borrow amount", () => {
+          it("should return expected borrow and collateral amounts", async () => {
+            if (!await isPolygonForkInUse()) return;
+
+            // let's get max available borrow amount
+            const sample = await preparePlan(
+              controller,
+              MaticAddresses.DAI,
+              parseUnits("1", 18),
+              MaticAddresses.WMATIC,
+              MaticAddresses.dForce_iDAI,
+              MaticAddresses.dForce_iMATIC,
+              undefined,
+              defaultAbiCoder.encode(["uint256"], [AppConstants.ENTRY_KIND_0])
+            );
+
+            // let's try to borrow amount using collateral that exceeds max supply amount
+            const r = await preparePlan(
+              controller,
+              MaticAddresses.DAI,
+              sample.plan.maxAmountToBorrow.add(1000),
+              MaticAddresses.WMATIC,
+              MaticAddresses.dForce_iDAI,
+              MaticAddresses.dForce_iMATIC,
+              undefined,
+              defaultAbiCoder.encode(["uint256"], [AppConstants.ENTRY_KIND_2])
+            );
+            console.log(r.plan);
+
+            const expectedCollateralAmount = AprUtils.getCollateralAmount(
+              sample.plan.maxAmountToBorrow,
+              r.healthFactor2,
+              r.plan.liquidationThreshold18,
+              r.priceCollateral,
+              r.priceBorrow,
+              r.collateralAssetDecimals,
+              r.borrowAssetDecimals,
+            );
+
+            const ret = [
+              r.plan.amountToBorrow,
+              areAlmostEqual(r.plan.collateralAmount, expectedCollateralAmount)
+            ].map(x => BalanceUtils.toString(x)).join("\n");
+            const expected = [
+              r.plan.maxAmountToBorrow,
+              true
+            ].map(x => BalanceUtils.toString(x)).join("\n");
 
             expect(ret).eq(expected);
           });

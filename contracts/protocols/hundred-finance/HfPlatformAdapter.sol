@@ -205,7 +205,7 @@ contract HfPlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
             }
 
             // it seems that supply is not limited in HundredFinance protocol
-            plan.maxAmountToSupply = type(uint).max; // unlimited
+            plan.maxAmountToSupply = type(uint).max; // unlimited; fix validation below after changing this value
 
             if (/* plan.maxAmountToSupply != 0 && */ plan.maxAmountToBorrow != 0) {
               plan.converter = converter;
@@ -258,13 +258,10 @@ contract HfPlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
                 plan.converter = address(0);
               } else {
                 // reduce collateral amount and borrow amount proportionally to fit available limits
-                if (plan.collateralAmount > plan.maxAmountToSupply) {
-                  plan.amountToBorrow *= plan.maxAmountToSupply / plan.collateralAmount;
-                  plan.collateralAmount = plan.maxAmountToSupply;
-                }
-
+                // we don't need to check "plan.collateralAmount > plan.maxAmountToSupply" as in DForce
+                // because maxAmountToSupply is always equal to type(uint).max
                 if (plan.amountToBorrow > plan.maxAmountToBorrow) {
-                  plan.collateralAmount = plan.maxAmountToBorrow / plan.amountToBorrow;
+                  plan.collateralAmount = plan.collateralAmount * plan.maxAmountToBorrow / plan.amountToBorrow;
                   plan.amountToBorrow = plan.maxAmountToBorrow;
                 }
 

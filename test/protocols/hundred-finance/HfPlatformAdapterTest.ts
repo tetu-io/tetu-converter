@@ -305,6 +305,7 @@ describe("Hundred finance, platform adapter", () => {
       d.plan.maxAmountToBorrow,
       d.plan.maxAmountToSupply,
       areAlmostEqual(d.plan.amountToBorrow, amountToBorrow),
+      areAlmostEqual(d.plan.collateralAmount, collateralAmount),
       areAlmostEqual(d.plan.amountCollateralInBorrowAsset36, amountCollateralInBorrowAsset36)
     ].map(x => BalanceUtils.toString(x)) .join("\n");
 
@@ -316,6 +317,7 @@ describe("Hundred finance, platform adapter", () => {
       d.collateralAssetData.collateralFactorMantissa,
       d.borrowAssetData.cash,
       Misc.MAX_UINT,
+      true,
       true,
       true
     ].map(x => BalanceUtils.toString(x)) .join("\n");
@@ -598,7 +600,7 @@ describe("Hundred finance, platform adapter", () => {
               MaticAddresses.hUSDC,
               MaticAddresses.hDAI,
               undefined,
-              "0x" // ENTRY_KIND_EXACT_COLLATERAL_IN_FOR_MAX_BORROW_OUT_0
+              defaultAbiCoder.encode(["uint256"], [AppConstants.ENTRY_KIND_0])
             );
             console.log("plan", r.plan);
             console.log("amountToBorrow, collateralAmount", r.plan.amountToBorrow, r.plan.collateralAmount);
@@ -622,7 +624,7 @@ describe("Hundred finance, platform adapter", () => {
               undefined,
               defaultAbiCoder.encode(
                 ["uint256", "uint256", "uint256"],
-                [1, 1, 1]
+                [AppConstants.ENTRY_KIND_1, 1, 1]
               )
             );
 
@@ -693,6 +695,113 @@ describe("Hundred finance, platform adapter", () => {
             ].map(x => BalanceUtils.toString(x)).join("\n");
             console.log(d.plan);
             console.log(r.plan);
+
+            expect(ret).eq(expected);
+          });
+        });
+      });
+      describe("Collateral and borrow amounts fit to limits", () => {
+        /**
+         * maxAmountToSupply is always equal to type(uint).max
+         */
+        describe.skip("Allowed collateral exceeds available collateral", () => {
+          it("should return expected borrow and collateral amounts", async () => {
+            if (!await isPolygonForkInUse()) return;
+
+            // let's get max available supply amount
+            const sample = await preparePlan(
+              controller,
+              MaticAddresses.DAI,
+              parseUnits("1", 18),
+              MaticAddresses.WMATIC,
+              MaticAddresses.hDAI,
+              MaticAddresses.hMATIC,
+              undefined,
+              defaultAbiCoder.encode(["uint256"], [AppConstants.ENTRY_KIND_0])
+            );
+
+            // let's try to borrow amount using collateral that exceeds max supply amount
+            const r = await preparePlan(
+              controller,
+              MaticAddresses.DAI,
+              sample.plan.maxAmountToSupply.add(1000),
+              MaticAddresses.WMATIC,
+              MaticAddresses.hDAI,
+              MaticAddresses.hMATIC,
+              undefined,
+              defaultAbiCoder.encode(["uint256"], [AppConstants.ENTRY_KIND_0])
+            );
+            console.log(r.plan);
+
+            const expectedCollateralAmount = AprUtils.getCollateralAmount(
+              r.plan.amountToBorrow,
+              r.healthFactor2,
+              r.plan.liquidationThreshold18,
+              r.priceCollateral,
+              r.priceBorrow,
+              r.collateralAssetDecimals,
+              r.borrowAssetDecimals
+            );
+
+            const ret = [
+              r.plan.amountToBorrow,
+              areAlmostEqual(r.plan.collateralAmount, expectedCollateralAmount)
+            ].map(x => BalanceUtils.toString(x)).join("\n");
+            const expected = [
+              r.plan.maxAmountToBorrow,
+              true
+            ].map(x => BalanceUtils.toString(x)).join("\n");
+
+            expect(ret).eq(expected);
+          });
+        });
+        describe("Allowed borrow amounts exceeds available borrow amount", () => {
+          it("should return expected borrow and collateral amounts", async () => {
+            if (!await isPolygonForkInUse()) return;
+
+            // let's get max available borrow amount
+            const sample = await preparePlan(
+              controller,
+              MaticAddresses.DAI,
+              parseUnits("1", 18),
+              MaticAddresses.WMATIC,
+              MaticAddresses.hDAI,
+              MaticAddresses.hMATIC,
+              undefined,
+              defaultAbiCoder.encode(["uint256"], [AppConstants.ENTRY_KIND_0])
+            );
+
+            // let's try to borrow amount using collateral that exceeds max supply amount
+            const r = await preparePlan(
+              controller,
+              MaticAddresses.DAI,
+              sample.plan.maxAmountToBorrow.add(1000),
+              MaticAddresses.WMATIC,
+              MaticAddresses.hDAI,
+              MaticAddresses.hMATIC,
+              undefined,
+              defaultAbiCoder.encode(["uint256"], [AppConstants.ENTRY_KIND_2])
+            );
+            console.log(r.plan);
+
+            const expectedCollateralAmount = AprUtils.getCollateralAmount(
+              sample.plan.maxAmountToBorrow,
+              r.healthFactor2,
+              r.plan.liquidationThreshold18,
+              r.priceCollateral,
+              r.priceBorrow,
+              r.collateralAssetDecimals,
+              r.borrowAssetDecimals,
+            );
+
+            const ret = [
+              r.plan.amountToBorrow,
+              areAlmostEqual(r.plan.collateralAmount, expectedCollateralAmount)
+            ].map(x => BalanceUtils.toString(x)).join("\n");
+            const expected = [
+              r.plan.maxAmountToBorrow,
+              true
+            ].map(x => BalanceUtils.toString(x)).join("\n");
 
             expect(ret).eq(expected);
           });

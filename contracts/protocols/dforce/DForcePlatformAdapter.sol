@@ -282,12 +282,12 @@ contract DForcePlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
                 } else {
                   // reduce collateral amount and borrow amount proportionally to fit available limits
                   if (plan.collateralAmount > plan.maxAmountToSupply) {
-                    plan.amountToBorrow *= plan.maxAmountToSupply / plan.collateralAmount;
+                    plan.amountToBorrow = plan.amountToBorrow * plan.maxAmountToSupply / plan.collateralAmount;
                     plan.collateralAmount = plan.maxAmountToSupply;
                   }
 
                   if (plan.amountToBorrow > plan.maxAmountToBorrow) {
-                    plan.collateralAmount = plan.maxAmountToBorrow / plan.amountToBorrow;
+                    plan.collateralAmount = plan.collateralAmount * plan.maxAmountToBorrow / plan.amountToBorrow;
                     plan.amountToBorrow = plan.maxAmountToBorrow;
                   }
 
