@@ -187,11 +187,9 @@ contract HfPlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
 
         vars.cTokenBorrow = activeAssets[p_.borrowAsset];
         if (vars.cTokenBorrow != address(0)) {
+          //-------------------------------- LTV and liquidation threshold
           (plan.ltv18, plan.liquidationThreshold18) = getMarketsInfo(vars.cTokenCollateral, vars.cTokenBorrow);
           if (plan.ltv18 != 0 && plan.liquidationThreshold18 != 0) {
-            //-------------------------------- converter, LTV and liquidation threshold
-            plan.converter = converter;
-
             //------------------------------- Calculate maxAmountToSupply and maxAmountToBorrow
             plan.maxAmountToBorrow = IHfCToken(vars.cTokenBorrow).getCash();
             uint borrowCap = vars.comptroller.borrowCaps(vars.cTokenBorrow);
@@ -209,75 +207,86 @@ contract HfPlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
             // it seems that supply is not limited in HundredFinance protocol
             plan.maxAmountToSupply = type(uint).max; // unlimited
 
-            //-------------------------------- Prices and health factor
-            vars.priceOracle = IHfPriceOracle(vars.comptroller.oracle());
+            if (/* plan.maxAmountToSupply != 0 && */ plan.maxAmountToBorrow != 0) {
+              plan.converter = converter;
 
-            AppDataTypes.PricesAndDecimals memory pd;
-            pd.rc10powDec = 10**IERC20Metadata(p_.collateralAsset).decimals();
-            pd.rb10powDec = 10**IERC20Metadata(p_.borrowAsset).decimals();
-            pd.priceCollateral = HfAprLib.getPrice(vars.priceOracle, vars.cTokenCollateral) * pd.rc10powDec;
-            pd.priceBorrow = HfAprLib.getPrice(vars.priceOracle, vars.cTokenBorrow) * pd.rb10powDec;
-            // ltv and liquidation threshold are exactly the same in HundredFinance
-            // so, there is no min health factor, we can directly use healthFactor2_ in calculations below
+              //-------------------------------- Prices and health factor
+              vars.priceOracle = IHfPriceOracle(vars.comptroller.oracle());
 
-            //------------------------------- Calculate collateralAmount and amountToBorrow
-            // we assume that liquidationThreshold18 == ltv18 in this protocol, so the minimum health factor is 1
-            vars.entryKind = EntryKinds.getEntryKind(p_.entryData);
-            if (vars.entryKind == EntryKinds.ENTRY_KIND_EXACT_COLLATERAL_IN_FOR_MAX_BORROW_OUT_0) {
-              plan.collateralAmount = p_.amountIn;
-              plan.amountToBorrow = EntryKinds.exactCollateralInForMaxBorrowOut(
-                p_.amountIn,
-                uint(healthFactor2_) * 10**16,
-                plan.liquidationThreshold18,
-                pd,
-                true // prices have decimals 36
-              );
-            } else if (vars.entryKind == EntryKinds.ENTRY_KIND_EXACT_PROPORTION_1) {
-              (plan.collateralAmount, plan.amountToBorrow) = EntryKinds.exactProportion(
-                p_.amountIn,
-                uint(healthFactor2_) * 10**16,
-                plan.liquidationThreshold18,
-                pd,
-                p_.entryData,
-                true // prices have decimals 36
-              );
-            } else if (vars.entryKind == EntryKinds.ENTRY_KIND_EXACT_BORROW_OUT_FOR_MIN_COLLATERAL_IN_2) {
-              plan.amountToBorrow = p_.amountIn;
-              plan.collateralAmount = EntryKinds.exactBorrowOutForMinCollateralIn(
-                p_.amountIn,
-                uint(healthFactor2_) * 10**16,
-                plan.liquidationThreshold18,
-                pd,
-                true // prices have decimals 36
-              );
-            }
+              AppDataTypes.PricesAndDecimals memory pd;
+              pd.rc10powDec = 10**IERC20Metadata(p_.collateralAsset).decimals();
+              pd.rb10powDec = 10**IERC20Metadata(p_.borrowAsset).decimals();
+              pd.priceCollateral = HfAprLib.getPrice(vars.priceOracle, vars.cTokenCollateral) * pd.rc10powDec;
+              pd.priceBorrow = HfAprLib.getPrice(vars.priceOracle, vars.cTokenBorrow) * pd.rb10powDec;
+              // ltv and liquidation threshold are exactly the same in HundredFinance
+              // so, there is no min health factor, we can directly use healthFactor2_ in calculations below
 
-            //------------------------------- Validate the borrow
-            if (plan.collateralAmount >= plan.maxAmountToSupply
-              || plan.amountToBorrow >= plan.maxAmountToBorrow
-              || plan.amountToBorrow == 0
-              || plan.collateralAmount == 0
-            ) {
-              plan.converter = address(0);
-            } else {
-            //------------------------------- values for APR
-              (plan.borrowCost36,
-               plan.supplyIncomeInBorrowAsset36
-              ) = HfAprLib.getRawCostAndIncomes(
-                HfAprLib.getCore(vars.cTokenCollateral, vars.cTokenBorrow),
-                p_.amountIn,
-                p_.countBlocks,
-                plan.amountToBorrow,
-                pd
-              );
+              //------------------------------- Calculate collateralAmount and amountToBorrow
+              // we assume that liquidationThreshold18 == ltv18 in this protocol, so the minimum health factor is 1
+              vars.entryKind = EntryKinds.getEntryKind(p_.entryData);
+              if (vars.entryKind == EntryKinds.ENTRY_KIND_EXACT_COLLATERAL_IN_FOR_MAX_BORROW_OUT_0) {
+                plan.collateralAmount = p_.amountIn;
+                plan.amountToBorrow = EntryKinds.exactCollateralInForMaxBorrowOut(
+                  p_.amountIn,
+                  uint(healthFactor2_) * 10**16,
+                  plan.liquidationThreshold18,
+                  pd,
+                  true // prices have decimals 36
+                );
+              } else if (vars.entryKind == EntryKinds.ENTRY_KIND_EXACT_PROPORTION_1) {
+                (plan.collateralAmount, plan.amountToBorrow) = EntryKinds.exactProportion(
+                  p_.amountIn,
+                  uint(healthFactor2_) * 10**16,
+                  plan.liquidationThreshold18,
+                  pd,
+                  p_.entryData,
+                  true // prices have decimals 36
+                );
+              } else if (vars.entryKind == EntryKinds.ENTRY_KIND_EXACT_BORROW_OUT_FOR_MIN_COLLATERAL_IN_2) {
+                plan.amountToBorrow = p_.amountIn;
+                plan.collateralAmount = EntryKinds.exactBorrowOutForMinCollateralIn(
+                  p_.amountIn,
+                  uint(healthFactor2_) * 10**16,
+                  plan.liquidationThreshold18,
+                  pd,
+                  true // prices have decimals 36
+                );
+              }
 
-              plan.amountCollateralInBorrowAsset36 =
-                p_.amountIn * (10**36 * pd.priceCollateral / pd.priceBorrow)
-                / pd.rc10powDec;
-            }
-          }
-        }
-      }
+              //------------------------------- Validate the borrow
+              if (plan.amountToBorrow == 0 || plan.collateralAmount == 0) {
+                plan.converter = address(0);
+              } else {
+                // reduce collateral amount and borrow amount proportionally to fit available limits
+                if (plan.collateralAmount > plan.maxAmountToSupply) {
+                  plan.amountToBorrow *= plan.maxAmountToSupply / plan.collateralAmount;
+                  plan.collateralAmount = plan.maxAmountToSupply;
+                }
+
+                if (plan.amountToBorrow > plan.maxAmountToBorrow) {
+                  plan.collateralAmount = plan.maxAmountToBorrow / plan.amountToBorrow;
+                  plan.amountToBorrow = plan.maxAmountToBorrow;
+                }
+
+              //------------------------------- values for APR
+                (plan.borrowCost36,
+                 plan.supplyIncomeInBorrowAsset36
+                ) = HfAprLib.getRawCostAndIncomes(
+                  HfAprLib.getCore(vars.cTokenCollateral, vars.cTokenBorrow),
+                  plan.collateralAmount,
+                  p_.countBlocks,
+                  plan.amountToBorrow,
+                  pd
+                );
+
+                plan.amountCollateralInBorrowAsset36 =
+                  plan.collateralAmount * (10**36 * pd.priceCollateral / pd.priceBorrow)
+                  / pd.rc10powDec;
+              }
+            } // else plan.maxAmountToBorrow = 0
+          } // else ltv is zero
+        } // else borrow token is not active
+      } // else collateral token is not active
     }
 
     if (plan.converter == address(0)) {
