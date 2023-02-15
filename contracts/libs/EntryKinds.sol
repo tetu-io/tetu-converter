@@ -79,8 +79,8 @@ library EntryKinds {
   ) {
     if (priceDecimals36) {
       amountToCollateralOut = borrowAmount
-        * pd.priceBorrow / (liquidationThreshold18 * pd.priceCollateral)
-        * healthFactor18
+        * pd.priceBorrow / pd.priceCollateral
+        * healthFactor18 / liquidationThreshold18
         * pd.rc10powDec
         / pd.rb10powDec;
     } else {

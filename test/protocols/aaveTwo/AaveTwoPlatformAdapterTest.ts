@@ -448,33 +448,6 @@ describe("AaveTwoPlatformAdapterTest", () => {
           expect(r.plan.amountToBorrow).eq(r.plan.maxAmountToBorrow);
         });
       });
-      describe("Check gas limit", () => {
-        it("should return expected values @skip-on-coverage", async () => {
-          if (!await isPolygonForkInUse()) return;
-
-          const aavePlatformAdapter = await AdaptersHelper.createAaveTwoPlatformAdapter(
-            deployer,
-            controller.address,
-            MaticAddresses.AAVE_TWO_POOL,
-            ethers.Wallet.createRandom().address
-          );
-
-          const gasUsed = await aavePlatformAdapter.estimateGas.getConversionPlan(
-            {
-              collateralAsset: MaticAddresses.DAI,
-              amountIn: parseUnits("1", 18),
-              borrowAsset: MaticAddresses.USDC,
-              countBlocks: 1,
-              entryData: "0x"
-            },
-            200,
-          );
-          console.log("AaveTwoPlatformAdapter.getConversionPlan.gas", gasUsed.toString());
-          controlGasLimitsEx(gasUsed, GAS_LIMIT_AAVE_TWO_GET_CONVERSION_PLAN, (u, t) => {
-            expect(u).to.be.below(t);
-          });
-        });
-      });
       describe("Frozen", () => {
         it("should return no plan", async () => {
           if (!await isPolygonForkInUse()) return;
@@ -491,45 +464,90 @@ describe("AaveTwoPlatformAdapterTest", () => {
           expect(r.plan.converter).eq(Misc.ZERO_ADDRESS);
         });
       });
-      describe("Use ENTRY_KIND_EXACT_PROPORTION_1", () => {
-        it("should split source amount on the parts with almost same cost", async () => {
-          if (!await isPolygonForkInUse()) return;
+      describe("EntryKinds", () => {
+        describe("Use ENTRY_KIND_EXACT_PROPORTION_1", () => {
+          it("should split source amount on the parts with almost same cost", async () => {
+            if (!await isPolygonForkInUse()) return;
 
-          const collateralAsset = MaticAddresses.DAI;
-          const borrowAsset = MaticAddresses.WMATIC;
-          const collateralAmount = parseUnits("1000", 18);
+            const collateralAsset = MaticAddresses.DAI;
+            const borrowAsset = MaticAddresses.WMATIC;
+            const collateralAmount = parseUnits("1000", 18);
 
-          const r = await preparePlan(
-            collateralAsset,
-            collateralAmount,
-            borrowAsset,
-            10,
-            undefined,
-            defaultAbiCoder.encode(
-              ["uint256", "uint256", "uint256"],
-              [1, 1, 1]
-            )
-          );
+            const r = await preparePlan(
+              collateralAsset,
+              collateralAmount,
+              borrowAsset,
+              10,
+              undefined,
+              defaultAbiCoder.encode(
+                ["uint256", "uint256", "uint256"],
+                [1, 1, 1]
+              )
+            );
 
-          const sourceAssetUSD = +formatUnits(
-            collateralAmount.sub(r.plan.collateralAmount).mul(r.priceCollateral),
-            r.collateralAssetData.data.decimals
-          );
-          const targetAssetUSD = +formatUnits(
-            r.plan.amountToBorrow.mul(r.priceBorrow),
-            r.borrowAssetData.data.decimals
-          );
+            const sourceAssetUSD = +formatUnits(
+              collateralAmount.sub(r.plan.collateralAmount).mul(r.priceCollateral),
+              r.collateralAssetData.data.decimals
+            );
+            const targetAssetUSD = +formatUnits(
+              r.plan.amountToBorrow.mul(r.priceBorrow),
+              r.borrowAssetData.data.decimals
+            );
 
-          const ret = [
-            sourceAssetUSD === targetAssetUSD,
-            r.plan.collateralAmount.lt(collateralAmount)
-          ].join();
-          const expected = [true, true].join();
+            const ret = [
+              sourceAssetUSD === targetAssetUSD,
+              r.plan.collateralAmount.lt(collateralAmount)
+            ].join();
+            const expected = [true, true].join();
 
-          console.log("sourceAssetUSD", sourceAssetUSD);
-          console.log("targetAssetUSD", targetAssetUSD);
+            console.log("sourceAssetUSD", sourceAssetUSD);
+            console.log("targetAssetUSD", targetAssetUSD);
 
-          expect(ret).eq(expected);
+            expect(ret).eq(expected);
+          });
+        });
+        describe("Use ENTRY_KIND_EXACT_BORROW_OUT_FOR_MIN_COLLATERAL_IN_2", () => {
+          it("should return expected collateral amount", async () => {
+            if (!await isPolygonForkInUse()) return;
+
+            const collateralAsset = MaticAddresses.DAI;
+            const borrowAsset = MaticAddresses.WMATIC;
+
+            // let's calculate borrow amount by known collateral amount
+            const collateralAmount = parseUnits("1000", 18);
+            const countBlocks = 10;
+            const d = await preparePlan(collateralAsset, collateralAmount, borrowAsset, countBlocks);
+            const borrowAmount = AprUtils.getBorrowAmount(
+              collateralAmount,
+              d.healthFactor2,
+              d.plan.liquidationThreshold18,
+              d.priceCollateral,
+              d.priceBorrow,
+              d.collateralAssetData.data.decimals,
+              d.borrowAssetData.data.decimals
+            );
+
+            const r = await preparePlan(
+              collateralAsset,
+              borrowAmount,
+              borrowAsset,
+              countBlocks,
+              undefined,
+              defaultAbiCoder.encode(["uint256"], [2])
+            );
+
+            const ret = [
+              r.plan.amountToBorrow,
+              areAlmostEqual(r.plan.collateralAmount, collateralAmount)
+            ].map(x => BalanceUtils.toString(x)).join("\n");
+
+            const expected = [
+              borrowAmount,
+              true
+            ].map(x => BalanceUtils.toString(x)).join("\n");
+
+            expect(ret).eq(expected);
+          });
         });
       });
     });
@@ -633,6 +651,33 @@ describe("AaveTwoPlatformAdapterTest", () => {
           if (!await isPolygonForkInUse()) return;
           // USDT has liquidation threshold = 0, it means, it cannot be used as collateral
           expect((await tryGetConversionPlan({}, MaticAddresses.USDT)).converter).eq(Misc.ZERO_ADDRESS);
+        });
+      });
+    });
+    describe("Check gas limit @skip-on-coverage", () => {
+      it("should not exceed gas limits", async () => {
+        if (!await isPolygonForkInUse()) return;
+
+        const aavePlatformAdapter = await AdaptersHelper.createAaveTwoPlatformAdapter(
+          deployer,
+          controller.address,
+          MaticAddresses.AAVE_TWO_POOL,
+          ethers.Wallet.createRandom().address
+        );
+
+        const gasUsed = await aavePlatformAdapter.estimateGas.getConversionPlan(
+          {
+            collateralAsset: MaticAddresses.DAI,
+            amountIn: parseUnits("1", 18),
+            borrowAsset: MaticAddresses.USDC,
+            countBlocks: 1,
+            entryData: "0x"
+          },
+          200,
+        );
+        console.log("AaveTwoPlatformAdapter.getConversionPlan.gas", gasUsed.toString());
+        controlGasLimitsEx(gasUsed, GAS_LIMIT_AAVE_TWO_GET_CONVERSION_PLAN, (u, t) => {
+          expect(u).to.be.below(t);
         });
       });
     });

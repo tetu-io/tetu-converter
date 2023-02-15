@@ -33,6 +33,7 @@ import {DForceChangePriceUtils} from "../../baseUT/protocols/dforce/DForceChange
 import {defaultAbiCoder, formatUnits, parseUnits} from "ethers/lib/utils";
 import {controlGasLimitsEx} from "../../../scripts/utils/hardhatUtils";
 import {GAS_LIMIT_DFORCE_GET_CONVERSION_PLAN} from "../../baseUT/GasLimit";
+import {AppConstants} from "../../baseUT/AppConstants";
 
 describe("DForce integration tests, platform adapter", () => {
 //region Global vars for all tests
@@ -693,35 +694,6 @@ describe("DForce integration tests, platform adapter", () => {
 
         });
       });
-      describe("Check gas limit", () => {
-        it("should return expected values @skip-on-coverage", async () => {
-          if (!await isPolygonForkInUse()) return;
-
-          const comptroller = await DForceHelper.getController(deployer);
-          const dForcePlatformAdapter = await AdaptersHelper.createDForcePlatformAdapter(
-            deployer,
-            controller.address,
-            comptroller.address,
-            ethers.Wallet.createRandom().address,
-            [MaticAddresses.dForce_iDAI, MaticAddresses.dForce_iUSDC],
-          );
-
-          const gasUsed = await dForcePlatformAdapter.estimateGas.getConversionPlan(
-            {
-              collateralAsset: MaticAddresses.DAI,
-              amountIn: parseUnits("1", 18),
-              borrowAsset: MaticAddresses.USDC,
-              countBlocks: 1000,
-              entryData: "0x"
-            },
-            200,
-          );
-          console.log("DForcePlatformAdapter.getConversionPlan.gas", gasUsed.toString());
-          controlGasLimitsEx(gasUsed, GAS_LIMIT_DFORCE_GET_CONVERSION_PLAN, (u, t) => {
-            expect(u).to.be.below(t);
-          });
-        });
-      });
       describe("Frozen", () => {
         it("should return no plan", async () => {
           if (!await isPolygonForkInUse()) return;
@@ -740,45 +712,97 @@ describe("DForce integration tests, platform adapter", () => {
           expect(r.plan.converter).eq(Misc.ZERO_ADDRESS);
         });
       });
-      describe("Use ENTRY_KIND_EXACT_PROPORTION_1", () => {
-        it("should split source amount on the parts with almost same cost", async () => {
-          if (!await isPolygonForkInUse()) return;
+      describe("EntryKinds", () => {
+        describe("Use ENTRY_KIND_EXACT_PROPORTION_1", () => {
+          it("should split source amount on the parts with almost same cost", async () => {
+            if (!await isPolygonForkInUse()) return;
 
-          const collateralAmount = parseUnits("1000", 18);
+            const collateralAmount = parseUnits("1000", 18);
 
-          const r = await preparePlan(
-            controller,
-            MaticAddresses.DAI,
-            collateralAmount,
-            MaticAddresses.WMATIC,
-            MaticAddresses.dForce_iDAI,
-            MaticAddresses.dForce_iMATIC,
-            undefined,
-            defaultAbiCoder.encode(
-              ["uint256", "uint256", "uint256"],
-              [1, 1, 1]
-            )
-          );
+            const r = await preparePlan(
+              controller,
+              MaticAddresses.DAI,
+              collateralAmount,
+              MaticAddresses.WMATIC,
+              MaticAddresses.dForce_iDAI,
+              MaticAddresses.dForce_iMATIC,
+              undefined,
+              defaultAbiCoder.encode(
+                ["uint256", "uint256", "uint256"],
+                [1, 1, 1]
+              )
+            );
 
-          const sourceAssetUSD = +formatUnits(
-            collateralAmount.sub(r.plan.collateralAmount).mul(r.priceCollateral),
-            r.collateralAssetDecimals
-          );
-          const targetAssetUSD = +formatUnits(
-            r.plan.amountToBorrow.mul(r.priceBorrow),
-            r.borrowAssetDecimals
-          );
+            const sourceAssetUSD = +formatUnits(
+              collateralAmount.sub(r.plan.collateralAmount).mul(r.priceCollateral),
+              r.collateralAssetDecimals
+            );
+            const targetAssetUSD = +formatUnits(
+              r.plan.amountToBorrow.mul(r.priceBorrow),
+              r.borrowAssetDecimals
+            );
 
-          const ret = [
-            sourceAssetUSD === targetAssetUSD,
-            r.plan.collateralAmount.lt(collateralAmount)
-          ].join();
-          const expected = [true, true].join();
+            const ret = [
+              sourceAssetUSD === targetAssetUSD,
+              r.plan.collateralAmount.lt(collateralAmount)
+            ].join();
+            const expected = [true, true].join();
 
-          console.log("sourceAssetUSD", sourceAssetUSD);
-          console.log("targetAssetUSD", targetAssetUSD);
+            console.log("sourceAssetUSD", sourceAssetUSD);
+            console.log("targetAssetUSD", targetAssetUSD);
 
-          expect(ret).eq(expected);
+            expect(ret).eq(expected);
+          });
+        });
+        describe("Use ENTRY_KIND_EXACT_BORROW_OUT_FOR_MIN_COLLATERAL_IN_2", () => {
+          it("should return expected collateral amount", async () => {
+            if (!await isPolygonForkInUse()) return;
+
+            // let's calculate borrow amount by known collateral amount
+            const collateralAmount = parseUnits("10", 18);
+            const d = await preparePlan(
+              controller,
+              MaticAddresses.DAI,
+              collateralAmount,
+              MaticAddresses.WMATIC,
+              MaticAddresses.dForce_iDAI,
+              MaticAddresses.dForce_iMATIC,
+            );
+            const borrowAmount = AprUtils.getBorrowAmount(
+              collateralAmount,
+              d.healthFactor2,
+              d.plan.liquidationThreshold18,
+              d.priceCollateral,
+              d.priceBorrow,
+              d.collateralAssetDecimals,
+              d.borrowAssetDecimals
+            );
+
+            const r = await preparePlan(
+              controller,
+              MaticAddresses.DAI,
+              borrowAmount,
+              MaticAddresses.WMATIC,
+              MaticAddresses.dForce_iDAI,
+              MaticAddresses.dForce_iMATIC,
+              undefined,
+              defaultAbiCoder.encode(["uint256"], [AppConstants.ENTRY_KIND_2])
+            );
+
+            const ret = [
+              r.plan.amountToBorrow,
+              areAlmostEqual(r.plan.collateralAmount, collateralAmount)
+            ].map(x => BalanceUtils.toString(x)).join("\n");
+
+            const expected = [
+              borrowAmount,
+              true
+            ].map(x => BalanceUtils.toString(x)).join("\n");
+            console.log(d.plan);
+            console.log(r.plan);
+
+            expect(ret).eq(expected);
+          });
         });
       });
     });
@@ -925,6 +949,35 @@ describe("DForce integration tests, platform adapter", () => {
         it("should fail if borrowPaused for borrow", async () => {
           if (!await isPolygonForkInUse()) return;
           expect((await tryGetConversionPlan({setBorrowPaused: true})).converter).eq(Misc.ZERO_ADDRESS);
+        });
+      });
+    });
+    describe("Check gas limit @skip-on-coverage", () => {
+      it("should not exceed gas limits", async () => {
+        if (!await isPolygonForkInUse()) return;
+
+        const comptroller = await DForceHelper.getController(deployer);
+        const dForcePlatformAdapter = await AdaptersHelper.createDForcePlatformAdapter(
+          deployer,
+          controller.address,
+          comptroller.address,
+          ethers.Wallet.createRandom().address,
+          [MaticAddresses.dForce_iDAI, MaticAddresses.dForce_iUSDC],
+        );
+
+        const gasUsed = await dForcePlatformAdapter.estimateGas.getConversionPlan(
+          {
+            collateralAsset: MaticAddresses.DAI,
+            amountIn: parseUnits("1", 18),
+            borrowAsset: MaticAddresses.USDC,
+            countBlocks: 1000,
+            entryData: "0x"
+          },
+          200,
+        );
+        console.log("DForcePlatformAdapter.getConversionPlan.gas", gasUsed.toString());
+        controlGasLimitsEx(gasUsed, GAS_LIMIT_DFORCE_GET_CONVERSION_PLAN, (u, t) => {
+          expect(u).to.be.below(t);
         });
       });
     });

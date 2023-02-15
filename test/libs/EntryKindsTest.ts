@@ -13,6 +13,8 @@ import {
 } from "../baseUT/GasLimit";
 import {Misc} from "../../scripts/utils/Misc";
 import {BalanceUtils} from "../baseUT/utils/BalanceUtils";
+import {BigNumber} from "ethers";
+import {areAlmostEqual} from "../baseUT/utils/CommonUtils";
 
 describe("EntryKindsTest", () => {
 //region Global vars for all tests
@@ -155,6 +157,26 @@ describe("EntryKindsTest", () => {
           expect(ret.gt(0)).eq(true);
         });
 
+        it("should return expected values 10000000000000000000 DAI", async () => {
+          const collateralAmount = BigNumber.from("10000000000000000000");
+          const borrowAmount = BigNumber.from("1812776171941648182");
+
+          const healthFactor18 = parseUnits("4", 18);
+          const liquidationThreshold18 = parseUnits("0.85", 18);
+          const priceCollateral = BigNumber.from("999969990000000000000000000000000000");
+          const priceBorrow = BigNumber.from("1172200000000000000000000000000000000");
+          const rc10powDec = parseUnits("1", 18);
+          const rb10powDec = parseUnits("1", 18);
+          const ret = await facade.exactCollateralInForMaxBorrowOut(
+            collateralAmount,
+            healthFactor18,
+            liquidationThreshold18,
+            {priceCollateral, priceBorrow, rc10powDec, rb10powDec},
+            true // it will revert if false
+          );
+          console.log("ret", ret);
+          expect(ret).eq(borrowAmount);
+        });
       });
     });
     describe("Gas estimation @skip-on-coverage", () => {
@@ -244,6 +266,27 @@ describe("EntryKindsTest", () => {
           // 1700/0.85*2/10*0.5 = 200 mln
           expect(ret.eq(expected)).eq(true);
         });
+        it("should return expected values 10000000000000000000 DAI", async () => {
+          const collateralAmount = BigNumber.from("10000000000000000000");
+          const borrowAmount = BigNumber.from("1812776171941648182");
+
+          const healthFactor18 = parseUnits("4", 18);
+          const liquidationThreshold18 = parseUnits("0.85", 18);
+          const priceCollateral = BigNumber.from("999969990000000000000000000000000000");
+          const priceBorrow = BigNumber.from("1172200000000000000000000000000000000");
+          const rc10powDec = parseUnits("1", 18);
+          const rb10powDec = parseUnits("1", 18);
+          const ret = await facade.exactBorrowOutForMinCollateralIn(
+            borrowAmount,
+            healthFactor18,
+            liquidationThreshold18,
+            {priceCollateral, priceBorrow, rc10powDec, rb10powDec},
+            true // it will revert if false
+          );
+          console.log("ret", ret);
+          expect(areAlmostEqual(ret, collateralAmount)).eq(true);
+        });
+
       });
       describe("Reverse to exactCollateralInForMaxBorrowOut", () => {
         it("should return expected values", async () => {

@@ -33,6 +33,7 @@ import {controlGasLimitsEx} from "../../../scripts/utils/hardhatUtils";
 import {
   GAS_LIMIT_HUNDRED_FINANCE_GET_CONVERSION_PLAN
 } from "../../baseUT/GasLimit";
+import {AppConstants} from "../../baseUT/AppConstants";
 
 describe("Hundred finance, platform adapter", () => {
 //region Global vars for all tests
@@ -582,67 +583,119 @@ describe("Hundred finance, platform adapter", () => {
           expect(r.plan.converter).eq(Misc.ZERO_ADDRESS);
         });
       });
-      describe("Use ENTRY_KIND_EXACT_COLLATERAL_IN_FOR_MAX_BORROW_OUT_0", () => {
-        it("should return not zero borrow amount", async () => {
-          if (!await isPolygonForkInUse()) return;
+      describe("EntryKinds", () => {
+        describe("Use ENTRY_KIND_EXACT_COLLATERAL_IN_FOR_MAX_BORROW_OUT_0", () => {
+          it("should return not zero borrow amount", async () => {
+            if (!await isPolygonForkInUse()) return;
 
-          const collateralAmount = parseUnits("6338.199834", 6);
+            const collateralAmount = parseUnits("6338.199834", 6);
 
-          const r = await preparePlan(
-            controller,
-            MaticAddresses.USDC,
-            collateralAmount,
-            MaticAddresses.DAI,
-            MaticAddresses.hUSDC,
-            MaticAddresses.hDAI,
-            undefined,
-            "0x" // ENTRY_KIND_EXACT_COLLATERAL_IN_FOR_MAX_BORROW_OUT_0
-          );
-          console.log("plan", r.plan);
-          console.log("amountToBorrow, collateralAmount", r.plan.amountToBorrow, r.plan.collateralAmount);
+            const r = await preparePlan(
+              controller,
+              MaticAddresses.USDC,
+              collateralAmount,
+              MaticAddresses.DAI,
+              MaticAddresses.hUSDC,
+              MaticAddresses.hDAI,
+              undefined,
+              "0x" // ENTRY_KIND_EXACT_COLLATERAL_IN_FOR_MAX_BORROW_OUT_0
+            );
+            console.log("plan", r.plan);
+            console.log("amountToBorrow, collateralAmount", r.plan.amountToBorrow, r.plan.collateralAmount);
 
-          expect(r.plan.amountToBorrow.gt(0)).eq(true);
+            expect(r.plan.amountToBorrow.gt(0)).eq(true);
+          });
         });
-      });
-      describe("Use ENTRY_KIND_EXACT_PROPORTION_1", () => {
-        it("should split source amount on the parts with almost same cost", async () => {
-          if (!await isPolygonForkInUse()) return;
+        describe("Use ENTRY_KIND_EXACT_PROPORTION_1", () => {
+          it("should split source amount on the parts with almost same cost", async () => {
+            if (!await isPolygonForkInUse()) return;
 
-          const collateralAmount = parseUnits("1000", 18);
+            const collateralAmount = parseUnits("1000", 18);
 
-          const r = await preparePlan(
-            controller,
-            MaticAddresses.DAI,
-            collateralAmount,
-            MaticAddresses.WMATIC,
-            MaticAddresses.hDAI,
-            MaticAddresses.hMATIC,
-            undefined,
-            defaultAbiCoder.encode(
-              ["uint256", "uint256", "uint256"],
-              [1, 1, 1]
-            )
-          );
+            const r = await preparePlan(
+              controller,
+              MaticAddresses.DAI,
+              collateralAmount,
+              MaticAddresses.WMATIC,
+              MaticAddresses.hDAI,
+              MaticAddresses.hMATIC,
+              undefined,
+              defaultAbiCoder.encode(
+                ["uint256", "uint256", "uint256"],
+                [1, 1, 1]
+              )
+            );
 
-          const sourceAssetUSD = +formatUnits(
-            collateralAmount.sub(r.plan.collateralAmount).mul(r.priceCollateral),
-            r.collateralAssetDecimals
-          );
-          const targetAssetUSD = +formatUnits(
-            r.plan.amountToBorrow.mul(r.priceBorrow),
-            r.borrowAssetDecimals
-          );
+            const sourceAssetUSD = +formatUnits(
+              collateralAmount.sub(r.plan.collateralAmount).mul(r.priceCollateral),
+              r.collateralAssetDecimals
+            );
+            const targetAssetUSD = +formatUnits(
+              r.plan.amountToBorrow.mul(r.priceBorrow),
+              r.borrowAssetDecimals
+            );
 
-          const ret = [
-            sourceAssetUSD === targetAssetUSD,
-            r.plan.collateralAmount.lt(collateralAmount)
-          ].join();
-          const expected = [true, true].join();
+            const ret = [
+              sourceAssetUSD === targetAssetUSD,
+              r.plan.collateralAmount.lt(collateralAmount)
+            ].join();
+            const expected = [true, true].join();
 
-          console.log("sourceAssetUSD", sourceAssetUSD);
-          console.log("targetAssetUSD", targetAssetUSD);
+            console.log("sourceAssetUSD", sourceAssetUSD);
+            console.log("targetAssetUSD", targetAssetUSD);
 
-          expect(ret).eq(expected);
+            expect(ret).eq(expected);
+          });
+        });
+        describe("Use ENTRY_KIND_EXACT_BORROW_OUT_FOR_MIN_COLLATERAL_IN_2", () => {
+          it("should return expected collateral amount", async () => {
+            if (!await isPolygonForkInUse()) return;
+
+            // let's calculate borrow amount by known collateral amount
+            const collateralAmount = parseUnits("10", 18);
+            const d = await preparePlan(
+              controller,
+              MaticAddresses.DAI,
+              collateralAmount,
+              MaticAddresses.WMATIC,
+              MaticAddresses.hDAI,
+              MaticAddresses.hMATIC,
+            );
+            const borrowAmount = AprUtils.getBorrowAmount(
+              collateralAmount,
+              d.healthFactor2,
+              d.plan.liquidationThreshold18,
+              d.priceCollateral,
+              d.priceBorrow,
+              d.collateralAssetDecimals,
+              d.borrowAssetDecimals
+            );
+
+            const r = await preparePlan(
+              controller,
+              MaticAddresses.DAI,
+              borrowAmount,
+              MaticAddresses.WMATIC,
+              MaticAddresses.hDAI,
+              MaticAddresses.hMATIC,
+              undefined,
+              defaultAbiCoder.encode(["uint256"], [AppConstants.ENTRY_KIND_2])
+            );
+
+            const ret = [
+              r.plan.amountToBorrow,
+              areAlmostEqual(r.plan.collateralAmount, collateralAmount)
+            ].map(x => BalanceUtils.toString(x)).join("\n");
+
+            const expected = [
+              borrowAmount,
+              true
+            ].map(x => BalanceUtils.toString(x)).join("\n");
+            console.log(d.plan);
+            console.log(r.plan);
+
+            expect(ret).eq(expected);
+          });
         });
       });
     });
