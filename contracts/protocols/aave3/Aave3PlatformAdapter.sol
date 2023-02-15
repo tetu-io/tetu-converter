@@ -186,6 +186,7 @@ contract Aave3PlatformAdapter is IPlatformAdapter {
           vars.rcDebtCeiling = vars.rc.configuration.getDebtCeiling();
           if (vars.rcDebtCeiling == 0 || _isUsableInIsolationMode(vars.rb.configuration)) {
             { // get liquidation threshold (== collateral factor) and loan-to-value
+              //-------------------------------- converter, LTV and liquidation threshold
               uint8 categoryCollateral = uint8(vars.rc.configuration.getEModeCategory());
               if (categoryCollateral != 0 && categoryCollateral == vars.rb.configuration.getEModeCategory()) {
 
@@ -201,10 +202,25 @@ contract Aave3PlatformAdapter is IPlatformAdapter {
                 // see test "Borrow: check LTV and liquidationThreshold"
                 plan.ltv18 = uint(vars.rc.configuration.getLtv()) * 10**(18-4);
                 plan.liquidationThreshold18 = uint(vars.rc.configuration.getLiquidationThreshold()) * 10**(18-4);
-                plan.converter = converterNormal;
+                plan.converter = converterNormal; // can be changed later
               }
             }
 
+            //-------------------------------- Prices and health factor
+            vars.blocksPerDay = vars.controller.blocksPerDay();
+            pd.priceCollateral = vars.priceOracle.getAssetPrice(params.collateralAsset);
+            pd.priceBorrow = vars.priceOracle.getAssetPrice(params.borrowAsset);
+
+            // AAVE has min allowed health factor at the borrow moment: liquidationThreshold18/LTV, i.e. 0.85/0.8=1.06...
+            // Target health factor can be smaller but it's not possible to make a borrow with such low health factor
+            // see explanation of health factor value in IController.sol
+            vars.healthFactor18 = plan.liquidationThreshold18 * 1e18 / plan.ltv18;
+            if (vars.healthFactor18 < uint(healthFactor2_)* 10**(18 - 2)) {
+              vars.healthFactor18 = uint(healthFactor2_) * 10**(18 - 2);
+            }
+
+
+            //-------------------------------- Calculate maxAmountToSupply and maxAmountToBorrow
             // by default, we can borrow all available cache
             (,,
             vars.totalAToken,
@@ -267,19 +283,7 @@ contract Aave3PlatformAdapter is IPlatformAdapter {
               }
             }
 
-            // calculate borrow-APR, see detailed explanation in Aave3AprLib
-            vars.blocksPerDay = vars.controller.blocksPerDay();
-            pd.priceCollateral = vars.priceOracle.getAssetPrice(params.collateralAsset);
-            pd.priceBorrow = vars.priceOracle.getAssetPrice(params.borrowAsset);
-
-            // AAVE has min allowed health factor at the borrow moment: liquidationThreshold18/LTV, i.e. 0.85/0.8=1.06...
-            // Target health factor can be smaller but it's not possible to make a borrow with such low health factor
-            // see explanation of health factor value in IController.sol
-            vars.healthFactor18 = plan.liquidationThreshold18 * 1e18 / plan.ltv18;
-            if (vars.healthFactor18 < uint(healthFactor2_)* 10**(18 - 2)) {
-              vars.healthFactor18 = uint(healthFactor2_) * 10**(18 - 2);
-            }
-
+            //------------------------------- Calculate collateralAmount and amountToBorrow
             // calculate amount that can be borrowed and amount that should be provided as the collateral
             vars.entryKind = EntryKinds.getEntryKind(params.entryData);
             if (vars.entryKind == EntryKinds.ENTRY_KIND_EXACT_COLLATERAL_IN_FOR_MAX_BORROW_OUT_0) {
@@ -291,9 +295,6 @@ contract Aave3PlatformAdapter is IPlatformAdapter {
                 pd,
                 false // prices have decimals 18, not 36
               );
-              if (plan.amountToBorrow > plan.maxAmountToBorrow) {
-                plan.amountToBorrow = plan.maxAmountToBorrow;
-              }
             } else if (vars.entryKind == EntryKinds.ENTRY_KIND_EXACT_PROPORTION_1) {
               (plan.collateralAmount, plan.amountToBorrow) = EntryKinds.exactProportion(
                 params.amountIn,
@@ -303,29 +304,26 @@ contract Aave3PlatformAdapter is IPlatformAdapter {
                 params.entryData,
                 false // prices have decimals 18, not 36
               );
-              if (plan.amountToBorrow > plan.maxAmountToBorrow) {
-                plan.amountToBorrow = plan.maxAmountToBorrow;
-              }
             } else if (vars.entryKind == EntryKinds.ENTRY_KIND_EXACT_BORROW_OUT_FOR_MIN_COLLATERAL_IN_2) {
               plan.amountToBorrow = params.amountIn;
-              if (plan.amountToBorrow > plan.maxAmountToBorrow) {
-                // if there is no required amount then we consider that the plan was not found
-                plan.converter = address(0);
-              } else {
-                plan.collateralAmount = EntryKinds.exactBorrowOutForMinCollateralIn(
-                  params.amountIn,
-                  vars.healthFactor18,
-                  plan.liquidationThreshold18,
-                  pd,
-                  false // prices have decimals 18, not 36
-                );
-                if (plan.collateralAmount > plan.maxAmountToSupply) {
-                  plan.converter = address(0);
-                }
-              }
+              plan.collateralAmount = EntryKinds.exactBorrowOutForMinCollateralIn(
+                params.amountIn,
+                vars.healthFactor18,
+                plan.liquidationThreshold18,
+                pd,
+                false // prices have decimals 18, not 36
+              );
             }
 
-            if (plan.converter != address(0)) {
+            //------------------------------- Validate the borrow
+            if (plan.collateralAmount >= plan.maxAmountToSupply
+              || plan.amountToBorrow >= plan.maxAmountToBorrow
+              || plan.amountToBorrow == 0
+              || plan.collateralAmount == 0
+            ) {
+              plan.converter = address(0);
+            } else {
+            //------------------------------- values for APR
               plan.borrowCost36 = AaveSharedLib.getCostForPeriodBefore(
                 AaveSharedLib.State({
                   liquidityIndex: vars.rb.variableBorrowIndex,

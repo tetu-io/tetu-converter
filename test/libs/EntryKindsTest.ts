@@ -110,7 +110,7 @@ describe("EntryKindsTest", () => {
         });
       });
       describe("Price decimals = 36", () => {
-        it("should return expected values", async () => {
+        it("should return expected values, decimals 18", async () => {
           // $200 mln
           const collateralAmount = parseUnits("200", 18+6);
           const healthFactor18 = parseUnits("2", 18);
@@ -134,6 +134,27 @@ describe("EntryKindsTest", () => {
           // 200*0.85/2*10/0.5 = 1700 mln
           expect(ret.eq(expected)).eq(true);
         });
+
+        it("should return expected values, decimals 6", async () => {
+          // $200 mln
+          const collateralAmount = parseUnits("6338.051750", 6);
+          const healthFactor18 = parseUnits("1.12", 18);
+          const liquidationThreshold18 = parseUnits("0.85", 18);
+          const priceCollateral = parseUnits("10", 36);
+          const priceBorrow = parseUnits("0.5", 36);
+          const rc10powDec = parseUnits("1", 6);
+          const rb10powDec = parseUnits("1", 6);
+          const ret = await facade.exactCollateralInForMaxBorrowOut(
+            collateralAmount,
+            healthFactor18,
+            liquidationThreshold18,
+            {priceCollateral, priceBorrow, rc10powDec, rb10powDec},
+            true // it will revert if false
+          );
+          console.log("ret", ret);
+          expect(ret.gt(0)).eq(true);
+        });
+
       });
     });
     describe("Gas estimation @skip-on-coverage", () => {

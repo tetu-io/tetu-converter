@@ -262,7 +262,7 @@ export class Aave3TestUtils {
     const plan: IConversionPlan = await aavePlatformAdapter.getConversionPlan(
       {
         collateralAsset: collateralToken.address,
-        collateralAmount,
+        amountIn: collateralAmount,
         borrowAsset: borrowToken.address,
         countBlocks,
         entryData: "0x"

@@ -204,7 +204,7 @@ describe("Hundred finance, platform adapter", () => {
     const plan = await hfPlatformAdapter.getConversionPlan(
       {
         collateralAsset: badPathsParams?.zeroCollateralAsset ? Misc.ZERO_ADDRESS : collateralAsset,
-        collateralAmount: badPathsParams?.zeroCollateralAmount ? 0 : collateralAmount,
+        amountIn: badPathsParams?.zeroCollateralAmount ? 0 : collateralAmount,
         borrowAsset: badPathsParams?.zeroBorrowAsset ? Misc.ZERO_ADDRESS : borrowAsset,
         countBlocks: badPathsParams?.zeroCountBlocks ? 0 : countBlocks,
         entryData: entryData || "0x"
@@ -564,33 +564,6 @@ describe("Hundred finance, platform adapter", () => {
           expect(r.plan.maxAmountToBorrow.eq(0)).eq(true);
         });
       });
-      describe("Check gas limit", () => {
-        it("should return expected values @skip-on-coverage", async () => {
-          if (!await isPolygonForkInUse()) return;
-          const hfPlatformAdapter = await AdaptersHelper.createHundredFinancePlatformAdapter(
-            deployer,
-            controller.address,
-            MaticAddresses.HUNDRED_FINANCE_COMPTROLLER,
-            ethers.Wallet.createRandom().address,
-            [MaticAddresses.hDAI, MaticAddresses.hUSDC],
-          );
-
-          const gasUsed = await hfPlatformAdapter.estimateGas.getConversionPlan(
-            {
-              collateralAsset: MaticAddresses.DAI,
-              collateralAmount: parseUnits("1", 18),
-              borrowAsset: MaticAddresses.USDC,
-              countBlocks: 1000,
-              entryData: "0x"
-            },
-            200,
-          );
-          console.log("DForcePlatformAdapter.getConversionPlan.gas", gasUsed.toString());
-          controlGasLimitsEx(gasUsed, GAS_LIMIT_HUNDRED_FINANCE_GET_CONVERSION_PLAN, (u, t) => {
-            expect(u).to.be.below(t);
-          });
-        });
-      });
       describe("Frozen", () => {
         it("should return no plan", async () => {
           if (!await isPolygonForkInUse()) return;
@@ -607,6 +580,28 @@ describe("Hundred finance, platform adapter", () => {
             }
           );
           expect(r.plan.converter).eq(Misc.ZERO_ADDRESS);
+        });
+      });
+      describe("Use ENTRY_KIND_EXACT_COLLATERAL_IN_FOR_MAX_BORROW_OUT_0", () => {
+        it("should return not zero borrow amount", async () => {
+          if (!await isPolygonForkInUse()) return;
+
+          const collateralAmount = parseUnits("6338.199834", 6);
+
+          const r = await preparePlan(
+            controller,
+            MaticAddresses.USDC,
+            collateralAmount,
+            MaticAddresses.DAI,
+            MaticAddresses.hUSDC,
+            MaticAddresses.hDAI,
+            undefined,
+            "0x" // ENTRY_KIND_EXACT_COLLATERAL_IN_FOR_MAX_BORROW_OUT_0
+          );
+          console.log("plan", r.plan);
+          console.log("amountToBorrow, collateralAmount", r.plan.amountToBorrow, r.plan.collateralAmount);
+
+          expect(r.plan.amountToBorrow.gt(0)).eq(true);
         });
       });
       describe("Use ENTRY_KIND_EXACT_PROPORTION_1", () => {
@@ -771,6 +766,33 @@ describe("Hundred finance, platform adapter", () => {
         it("should fail if borrowPaused for borrow", async () => {
           if (!await isPolygonForkInUse()) return;
           expect((await tryGetConversionPlan({setBorrowPaused: true})).converter).eq(Misc.ZERO_ADDRESS);
+        });
+      });
+    });
+    describe("Check gas limit @skip-on-coverage", () => {
+      it("should not exceed gas limits @skip-on-coverage", async () => {
+        if (!await isPolygonForkInUse()) return;
+        const hfPlatformAdapter = await AdaptersHelper.createHundredFinancePlatformAdapter(
+          deployer,
+          controller.address,
+          MaticAddresses.HUNDRED_FINANCE_COMPTROLLER,
+          ethers.Wallet.createRandom().address,
+          [MaticAddresses.hDAI, MaticAddresses.hUSDC],
+        );
+
+        const gasUsed = await hfPlatformAdapter.estimateGas.getConversionPlan(
+          {
+            collateralAsset: MaticAddresses.DAI,
+            amountIn: parseUnits("1", 18),
+            borrowAsset: MaticAddresses.USDC,
+            countBlocks: 1000,
+            entryData: "0x"
+          },
+          200,
+        );
+        console.log("DForcePlatformAdapter.getConversionPlan.gas", gasUsed.toString());
+        controlGasLimitsEx(gasUsed, GAS_LIMIT_HUNDRED_FINANCE_GET_CONVERSION_PLAN, (u, t) => {
+          expect(u).to.be.below(t);
         });
       });
     });

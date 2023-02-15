@@ -181,22 +181,23 @@ contract DForcePlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
     require(healthFactor2_ >= controller.minHealthFactor2(), AppErrors.WRONG_HEALTH_FACTOR);
 
     if (! frozen) {
-      LocalsGetConversionPlan memory local;
-      local.comptroller = comptroller;
+      LocalsGetConversionPlan memory vars;
+      vars.comptroller = comptroller;
 
       address cTokenCollateral = activeAssets[p_.collateralAsset];
       if (cTokenCollateral != address(0)) {
         address cTokenBorrow = activeAssets[p_.borrowAsset];
         if (cTokenBorrow != address(0)) {
-          (uint collateralFactor, uint supplyCapacity) = _getCollateralMarketData(local.comptroller, cTokenCollateral);
+          (uint collateralFactor, uint supplyCapacity) = _getCollateralMarketData(vars.comptroller, cTokenCollateral);
           if (collateralFactor != 0 && supplyCapacity != 0) {
-            (uint borrowFactorMantissa, uint borrowCapacity) = _getBorrowMarketData(local.comptroller, cTokenBorrow);
+            (uint borrowFactorMantissa, uint borrowCapacity) = _getBorrowMarketData(vars.comptroller, cTokenBorrow);
             if (borrowFactorMantissa != 0 && borrowCapacity != 0) {
+              //-------------------------------- converter, LTV and liquidation threshold
               plan.converter = converter;
-
               plan.liquidationThreshold18 = collateralFactor;
               plan.ltv18 = collateralFactor * borrowFactorMantissa / 10**18;
 
+              //------------------------------- Calculate maxAmountToSupply and maxAmountToBorrow
               plan.maxAmountToBorrow = IDForceCToken(cTokenBorrow).getCash();
               // BorrowCapacity: -1 means there is no limit on the capacity
               //                  0 means the asset can not be borrowed any more
@@ -224,70 +225,94 @@ contract DForcePlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
                   : supplyCapacity - totalSupply;
               }
 
-              local.priceOracle = IDForcePriceOracle(local.comptroller.priceOracle());
+              //-------------------------------- Prices and health factor
+              vars.priceOracle = IDForcePriceOracle(vars.comptroller.priceOracle());
 
-              AppDataTypes.PricesAndDecimals memory vars;
-              vars.rc10powDec = 10**IERC20Metadata(p_.collateralAsset).decimals();
-              vars.rb10powDec = 10**IERC20Metadata(p_.borrowAsset).decimals();
-              vars.priceCollateral = DForceAprLib.getPrice(local.priceOracle, cTokenCollateral) * vars.rc10powDec;
-              vars.priceBorrow = DForceAprLib.getPrice(local.priceOracle, cTokenBorrow) * vars.rb10powDec;
+              AppDataTypes.PricesAndDecimals memory pd;
+              pd.rc10powDec = 10**IERC20Metadata(p_.collateralAsset).decimals();
+              pd.rb10powDec = 10**IERC20Metadata(p_.borrowAsset).decimals();
+              pd.priceCollateral = DForceAprLib.getPrice(vars.priceOracle, cTokenCollateral) * pd.rc10powDec;
+              pd.priceBorrow = DForceAprLib.getPrice(vars.priceOracle, cTokenBorrow) * pd.rb10powDec;
 
               // calculate amount that can be borrowed and amount that should be provided as the collateral
 
               // Protocol has min allowed health factor at the borrow moment: liquidationThreshold18/LTV, i.e. 0.85/0.8=1.06...
               // Target health factor can be smaller but it's not possible to make a borrow with such low health factor
               // see explanation of health factor value in IController.sol
-              local.healthFactor18 = plan.liquidationThreshold18 * 1e18 / plan.ltv18;
-              if (local.healthFactor18 < uint(healthFactor2_) * 10**(18 - 2)) {
-                local.healthFactor18 = uint(healthFactor2_) * 10**(18 - 2);
+              vars.healthFactor18 = plan.liquidationThreshold18 * 1e18 / plan.ltv18;
+              if (vars.healthFactor18 < uint(healthFactor2_) * 10**(18 - 2)) {
+                vars.healthFactor18 = uint(healthFactor2_) * 10**(18 - 2);
               }
 
-              local.entryKind = EntryKinds.getEntryKind(p_.entryData);
-              if (local.entryKind == EntryKinds.ENTRY_KIND_EXACT_COLLATERAL_IN_FOR_MAX_BORROW_OUT_0) {
+              //------------------------------- Calculate collateralAmount and amountToBorrow
+              vars.entryKind = EntryKinds.getEntryKind(p_.entryData);
+              if (vars.entryKind == EntryKinds.ENTRY_KIND_EXACT_COLLATERAL_IN_FOR_MAX_BORROW_OUT_0) {
                 plan.collateralAmount = p_.amountIn;
                 plan.amountToBorrow = EntryKinds.exactCollateralInForMaxBorrowOut(
                   p_.amountIn,
-                  local.healthFactor18,
+                  vars.healthFactor18,
                   plan.liquidationThreshold18,
-                  vars,
+                  pd,
                   true // prices have decimals 36
                 );
-              } else if (local.entryKind == EntryKinds.ENTRY_KIND_EXACT_PROPORTION_1) {
+              } else if (vars.entryKind == EntryKinds.ENTRY_KIND_EXACT_PROPORTION_1) {
                 (plan.collateralAmount, plan.amountToBorrow) = EntryKinds.exactProportion(
                   p_.amountIn,
-                  local.healthFactor18,
+                  vars.healthFactor18,
                   plan.liquidationThreshold18,
-                  vars,
+                  pd,
                   p_.entryData,
                   true // prices have decimals 36
                 );
+              } else if (vars.entryKind == EntryKinds.ENTRY_KIND_EXACT_BORROW_OUT_FOR_MIN_COLLATERAL_IN_2) {
+                plan.amountToBorrow = p_.amountIn;
+                plan.collateralAmount = EntryKinds.exactBorrowOutForMinCollateralIn(
+                  p_.amountIn,
+                  vars.healthFactor18,
+                  plan.liquidationThreshold18,
+                  pd,
+                  true // prices have decimals 36
+                );
               }
-              if (plan.amountToBorrow > plan.maxAmountToBorrow) {
-                plan.amountToBorrow = plan.maxAmountToBorrow;
-              }
-              // calculate current borrow rate and predicted APR after borrowing required amount
-              (plan.borrowCost36,
-               plan.supplyIncomeInBorrowAsset36,
-               plan.rewardsAmountInBorrowAsset36
-              ) = DForceAprLib.getRawCostAndIncomes(
-                DForceAprLib.getCore(local.comptroller, cTokenCollateral, cTokenBorrow),
-                p_.amountIn,
-                p_.countBlocks,
-                plan.amountToBorrow,
-                vars,
-                local.priceOracle
-              );
 
-              plan.amountCollateralInBorrowAsset36 =
-                p_.amountIn * (10**36 * vars.priceCollateral / vars.priceBorrow)
-                / vars.rc10powDec;
+              //------------------------------- Validate the borrow
+              if (plan.collateralAmount >= plan.maxAmountToSupply
+                || plan.amountToBorrow >= plan.maxAmountToBorrow
+                || plan.amountToBorrow == 0
+                || plan.collateralAmount == 0
+              ) {
+                plan.converter = address(0);
+              } else {
+              //------------------------------- values for APR
+                // calculate current borrow rate and predicted APR after borrowing required amount
+                (plan.borrowCost36,
+                 plan.supplyIncomeInBorrowAsset36,
+                 plan.rewardsAmountInBorrowAsset36
+                ) = DForceAprLib.getRawCostAndIncomes(
+                  DForceAprLib.getCore(vars.comptroller, cTokenCollateral, cTokenBorrow),
+                  p_.amountIn,
+                  p_.countBlocks,
+                  plan.amountToBorrow,
+                  pd,
+                  vars.priceOracle
+                );
+
+                plan.amountCollateralInBorrowAsset36 =
+                  p_.amountIn * (10**36 * pd.priceCollateral / pd.priceBorrow)
+                  / pd.rc10powDec;
+              }
             }
           }
         }
       }
     }
 
-    return plan;
+    if (plan.converter == address(0)) {
+      AppDataTypes.ConversionPlan memory planNotFound;
+      return planNotFound;
+    } else {
+      return plan;
+    }
   }
 
   ///////////////////////////////////////////////////////

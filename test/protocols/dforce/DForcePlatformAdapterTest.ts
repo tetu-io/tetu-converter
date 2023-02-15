@@ -276,7 +276,7 @@ describe("DForce integration tests, platform adapter", () => {
     const plan = await dForcePlatformAdapter.getConversionPlan(
       {
         collateralAsset: badPathsParams?.zeroCollateralAsset ? Misc.ZERO_ADDRESS : collateralAsset,
-        collateralAmount: badPathsParams?.zeroCollateralAmount ? 0 : collateralAmount,
+        amountIn: badPathsParams?.zeroCollateralAmount ? 0 : collateralAmount,
         borrowAsset: badPathsParams?.zeroBorrowAsset ? Misc.ZERO_ADDRESS : borrowAsset,
         countBlocks: badPathsParams?.zeroCountBlocks ? 0 : countBlocks,
         entryData: entryData|| "0x"
@@ -709,7 +709,7 @@ describe("DForce integration tests, platform adapter", () => {
           const gasUsed = await dForcePlatformAdapter.estimateGas.getConversionPlan(
             {
               collateralAsset: MaticAddresses.DAI,
-              collateralAmount: parseUnits("1", 18),
+              amountIn: parseUnits("1", 18),
               borrowAsset: MaticAddresses.USDC,
               countBlocks: 1000,
               entryData: "0x"

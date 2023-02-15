@@ -300,7 +300,7 @@ describe("Aave3PlatformAdapterTest", () => {
       const plan: IConversionPlan = await aavePlatformAdapter.getConversionPlan(
         {
           collateralAsset: badPathsParams?.zeroCollateralAsset ? Misc.ZERO_ADDRESS : collateralAsset,
-          collateralAmount: badPathsParams?.zeroCollateralAmount ? 0 : collateralAmount,
+          amountIn: badPathsParams?.zeroCollateralAmount ? 0 : collateralAmount,
           borrowAsset: badPathsParams?.zeroBorrowAsset ? Misc.ZERO_ADDRESS : borrowAsset,
           countBlocks: badPathsParams?.zeroCountBlocks ? 0 : countBlocks,
           entryData: entryData || "0x"
@@ -591,7 +591,7 @@ describe("Aave3PlatformAdapterTest", () => {
           const gasUsed = await aavePlatformAdapter.estimateGas.getConversionPlan(
             {
               collateralAsset: MaticAddresses.DAI,
-              collateralAmount: parseUnits("1", 18),
+              amountIn: parseUnits("1", 18),
               borrowAsset: MaticAddresses.USDC,
               countBlocks: 1,
               entryData: "0x"
