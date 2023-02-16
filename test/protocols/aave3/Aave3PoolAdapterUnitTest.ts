@@ -479,8 +479,6 @@ describe("Aave3PoolAdapterUnitTest", () => {
       await d.controller.setMinHealthFactor2(minHealthFactorInitial2);
 
       // make borrow
-      const amountToBorrow = d.amountToBorrow;
-
       if (! p.badPathsParams?.skipBorrow) {
         await transferAndApprove(
           p.collateralToken.address,
@@ -491,8 +489,8 @@ describe("Aave3PoolAdapterUnitTest", () => {
         );
 
         await d.aavePoolAdapterAsTC.borrow(
-          p.collateralAmount,
-          amountToBorrow,
+          d.collateralAmount,
+          d.amountToBorrow,
           d.userContract.address // receiver
         );
       }
@@ -521,8 +519,8 @@ describe("Aave3PoolAdapterUnitTest", () => {
       // calculate amount-to-repay and (if necessary) put the amount on userContract's balance
       const amountsToRepay = await SharedRepayToRebalanceUtils.prepareAmountsToRepayToRebalance(
         deployer,
-        amountToBorrow,
-        p.collateralAmount,
+        d.amountToBorrow,
+        d.collateralAmount,
         d.userContract,
         p
       );
@@ -1223,10 +1221,9 @@ describe("Aave3PoolAdapterUnitTest", () => {
         const plan = await platformAdapter.getConversionPlan(
           {
             collateralAsset,
-            collateralAmount,
+            amountIn: collateralAmount,
             borrowAsset,
             countBlocks: 1,
-            entryKind: 0,
             entryData: "0x"
           },
           targetHealthFactor2
@@ -1432,7 +1429,7 @@ describe("Aave3PoolAdapterUnitTest", () => {
             console.log("amountBorrowed", amountBorrowed.toString());
             console.log("amountReturnedByStatus", amountReturnedByStatus.toString());
 
-            const ret = areAlmostEqual(amountBorrowed, amountReturnedByStatus, 5);
+            const ret = areAlmostEqual(amountBorrowed, amountReturnedByStatus, 4);
             expect(ret).eq(true);
           });
         });

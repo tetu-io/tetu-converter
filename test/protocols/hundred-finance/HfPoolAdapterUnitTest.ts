@@ -155,7 +155,9 @@ describe("HfPoolAdapterUnitTest", () => {
         const borrowAsset = MaticAddresses.WMATIC;
         const borrowCToken = MaticAddresses.hMATIC;
         let results: IMakeBorrowTestResults;
+        let snapshotLocal: string;
         before(async function () {
+          snapshotLocal = await TimeUtils.snapshot();
           if (!await isPolygonForkInUse()) return;
           results = await makeBorrowTest(
             collateralAsset,
@@ -166,6 +168,10 @@ describe("HfPoolAdapterUnitTest", () => {
             "1999"
           );
         });
+        after(async function () {
+          await TimeUtils.rollback(snapshotLocal);
+        });
+
         it("should return expected status", async () => {
           if (!await isPolygonForkInUse()) return;
           const status = await results.init.hfPoolAdapterTC.getStatus();
@@ -216,7 +222,9 @@ describe("HfPoolAdapterUnitTest", () => {
         const borrowAsset = MaticAddresses.USDC;
         const borrowCToken = MaticAddresses.hUSDC;
         let results: IMakeBorrowTestResults;
+        let snapshotLocal: string;
         before(async function () {
+          snapshotLocal = await TimeUtils.snapshot();
           if (!await isPolygonForkInUse()) return;
           results = await makeBorrowTest(
             collateralAsset,
@@ -226,6 +234,9 @@ describe("HfPoolAdapterUnitTest", () => {
             borrowCToken,
             "1999"
           );
+        });
+        after(async function () {
+          await TimeUtils.rollback(snapshotLocal);
         });
         it("should return expected status", async () => {
           if (!await isPolygonForkInUse()) return;
@@ -275,7 +286,9 @@ describe("HfPoolAdapterUnitTest", () => {
         const borrowAsset = MaticAddresses.USDC;
         const borrowCToken = MaticAddresses.hUSDC;
         let results: IMakeBorrowTestResults;
+        let snapshotLocal: string;
         before(async function () {
+          snapshotLocal = await TimeUtils.snapshot();
           if (!await isPolygonForkInUse()) return;
           results = await makeBorrowTest(
             collateralAsset,
@@ -285,6 +298,9 @@ describe("HfPoolAdapterUnitTest", () => {
             borrowCToken,
             "1999"
           );
+        });
+        after(async function () {
+          await TimeUtils.rollback(snapshotLocal);
         });
         it("should return expected status", async () => {
           if (!await isPolygonForkInUse()) return;
@@ -336,7 +352,9 @@ describe("HfPoolAdapterUnitTest", () => {
         const borrowAsset = MaticAddresses.USDC;
         const borrowCToken = MaticAddresses.hUSDC;
         let results: IMakeBorrowTestResults;
+        let snapshotLocal: string;
         before(async function () {
+          snapshotLocal = await TimeUtils.snapshot();
           if (!await isPolygonForkInUse()) return;
           results = await makeBorrowTest(
             collateralAsset,
@@ -346,6 +364,9 @@ describe("HfPoolAdapterUnitTest", () => {
             borrowCToken,
             "1.999"
           );
+        });
+        after(async function () {
+          await TimeUtils.rollback(snapshotLocal);
         });
         it("should return expected status", async () => {
           if (!await isPolygonForkInUse()) return;
@@ -557,7 +578,6 @@ describe("HfPoolAdapterUnitTest", () => {
           ).revertedWith("TC-20 borrow failed"); // BORROW_FAILED
         });
       });
-
     });
   });
 
@@ -662,7 +682,9 @@ describe("HfPoolAdapterUnitTest", () => {
         const borrowCToken = MaticAddresses.hDAI;
         const borrowHolder = MaticAddresses.HOLDER_DAI;
         let results: IMakeFullRepayTestResults;
+        let snapshotLocal: string;
         before(async function () {
+          snapshotLocal = await TimeUtils.snapshot();
           if (!await isPolygonForkInUse()) return;
           results = await makeFullRepayTest(
             collateralAsset,
@@ -673,6 +695,9 @@ describe("HfPoolAdapterUnitTest", () => {
             borrowCToken,
             borrowHolder
           );
+        });
+        after(async function () {
+          await TimeUtils.rollback(snapshotLocal);
         });
         it("should get expected status", async () => {
           if (!await isPolygonForkInUse()) return;
@@ -725,7 +750,9 @@ describe("HfPoolAdapterUnitTest", () => {
         const borrowCToken = MaticAddresses.hMATIC;
         const borrowHolder = MaticAddresses.HOLDER_WMATIC;
         let results: IMakeFullRepayTestResults;
+        let snapshotLocal: string;
         before(async function () {
+          snapshotLocal = await TimeUtils.snapshot();
           if (!await isPolygonForkInUse()) return;
           results = await makeFullRepayTest(
             collateralAsset,
@@ -736,6 +763,9 @@ describe("HfPoolAdapterUnitTest", () => {
             borrowCToken,
             borrowHolder
           );
+        });
+        after(async function () {
+          await TimeUtils.rollback(snapshotLocal);
         });
         it("should get expected status", async () => {
           if (!await isPolygonForkInUse()) return;
@@ -789,7 +819,9 @@ describe("HfPoolAdapterUnitTest", () => {
         const borrowHolder = MaticAddresses.HOLDER_USDC;
 
         let results: IMakeFullRepayTestResults;
+        let snapshotLocal: string;
         before(async function () {
+          snapshotLocal = await TimeUtils.snapshot();
           if (!await isPolygonForkInUse()) return;
           results = await makeFullRepayTest(
             collateralAsset,
@@ -800,6 +832,9 @@ describe("HfPoolAdapterUnitTest", () => {
             borrowCToken,
             borrowHolder
           );
+        });
+        after(async function () {
+          await TimeUtils.rollback(snapshotLocal);
         });
         it("should get expected status", async () => {
           if (!await isPolygonForkInUse()) return;
@@ -2348,7 +2383,9 @@ describe("HfPoolAdapterUnitTest", () => {
     const borrowAsset = MaticAddresses.WMATIC;
     const borrowCToken = MaticAddresses.hMATIC;
     let results: IMakeBorrowTestResults;
+    let snapshotLocal: string;
     before(async function () {
+      snapshotLocal = await TimeUtils.snapshot();
       if (!await isPolygonForkInUse()) return;
       results = await makeBorrowTest(
         collateralAsset,
@@ -2358,6 +2395,9 @@ describe("HfPoolAdapterUnitTest", () => {
         borrowCToken,
         "1999"
       );
+    });
+    after(async function () {
+      await TimeUtils.rollback(snapshotLocal);
     });
     describe("Good paths", () => {
       describe("Full repay", () => {

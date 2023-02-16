@@ -275,7 +275,7 @@ describe("BorrowManager", () => {
     console.log("Source amount:", getBigNumberFrom(sourceAmountNum, await sourceToken.decimals()).toString());
     const ret = await core.bm.findConverter({
       collateralAsset: sourceToken.address,
-      collateralAmount: getBigNumberFrom(sourceAmountNum, await sourceToken.decimals()),
+      amountIn: getBigNumberFrom(sourceAmountNum, await sourceToken.decimals()),
       borrowAsset: params?.targetAssetToSearch || targetToken.address,
       countBlocks: periodInBlocks,
       entryData: "0x"
@@ -283,7 +283,7 @@ describe("BorrowManager", () => {
     const gas = params?.estimateGas
       ? await core.bm.estimateGas.findConverter({
         collateralAsset: sourceToken.address,
-        collateralAmount: getBigNumberFrom(sourceAmountNum, await sourceToken.decimals()),
+        amountIn: getBigNumberFrom(sourceAmountNum, await sourceToken.decimals()),
         borrowAsset: targetToken.address,
         countBlocks: periodInBlocks,
         entryData: "0x"
@@ -363,7 +363,7 @@ describe("BorrowManager", () => {
     const sourceAmount = getBigNumberFrom(sourceAmountNum, await sourceToken.decimals());
     const r = await core.bm.findConverter({
       collateralAsset: sourceToken.address,
-      collateralAmount: sourceAmount,
+      amountIn: sourceAmount,
       borrowAsset: targetToken.address,
       countBlocks,
       entryData: "0x"

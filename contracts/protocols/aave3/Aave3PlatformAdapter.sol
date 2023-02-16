@@ -18,6 +18,8 @@ import "../../integrations/aave3/Aave3ReserveConfiguration.sol";
 import "../../integrations/aave3/IAavePriceOracle.sol";
 import "../../integrations/aave3/IAaveToken.sol";
 
+import "hardhat/console.sol";
+
 /// @notice Adapter to read current pools info from AAVE-v3-protocol, see https://docs.aave.com/hub/
 contract Aave3PlatformAdapter is IPlatformAdapter {
   using SafeERC20 for IERC20;
@@ -279,8 +281,10 @@ contract Aave3PlatformAdapter is IPlatformAdapter {
               // Target health factor can be smaller but it's not possible to make a borrow with such low health factor
               // see explanation of health factor value in IController.sol
               vars.healthFactor18 = plan.liquidationThreshold18 * 1e18 / plan.ltv18;
+              console.log("vars.healthFactor18", vars.healthFactor18);
               if (vars.healthFactor18 < uint(healthFactor2_)* 10**(18 - 2)) {
                 vars.healthFactor18 = uint(healthFactor2_) * 10**(18 - 2);
+                console.log("vars.healthFactor18", vars.healthFactor18);
               }
 
 
@@ -320,6 +324,7 @@ contract Aave3PlatformAdapter is IPlatformAdapter {
               if (plan.amountToBorrow == 0 || plan.collateralAmount == 0) {
                 plan.converter = address(0);
               } else {
+                console.log("VALIDATION collateralAmount amountToBorrow", plan.collateralAmount, plan.amountToBorrow);
                 // reduce collateral amount and borrow amount proportionally to fit available limits
                 if (plan.collateralAmount > plan.maxAmountToSupply) {
                   plan.amountToBorrow = plan.amountToBorrow * plan.maxAmountToSupply / plan.collateralAmount;
@@ -330,6 +335,7 @@ contract Aave3PlatformAdapter is IPlatformAdapter {
                   plan.collateralAmount = plan.collateralAmount * plan.maxAmountToBorrow / plan.amountToBorrow;
                   plan.amountToBorrow = plan.maxAmountToBorrow;
                 }
+                console.log("AFTER VALIDATION collateralAmount amountToBorrow", plan.collateralAmount, plan.amountToBorrow);
 
                 //------------------------------- values for APR
                 plan.borrowCost36 = AaveSharedLib.getCostForPeriodBefore(

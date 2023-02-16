@@ -285,7 +285,7 @@ export class Aave3TestUtils {
       aavePoolAdapterAsTC,
       dataProvider,
       amountToBorrow: plan.amountToBorrow,
-      collateralAmount,
+      collateralAmount: plan.collateralAmount,
       plan,
       converterNormal: converterNormal.address,
       converterEMode: converterEMode.address,
