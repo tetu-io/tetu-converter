@@ -427,7 +427,7 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer,
     } else {
       address assetBorrow = borrowAsset;
       // ensure, that amount to repay is less then the total debt
-      (,uint256 totalDebtBase0,,,,uint TEMP_HF) = pool.getUserAccountData(address(this));
+      (,uint256 totalDebtBase0,,,,) = pool.getUserAccountData(address(this));
       uint priceBorrowAsset = priceOracle.getAssetPrice(assetBorrow);
       uint totalAmountToPay = totalDebtBase0 == 0
         ? 0

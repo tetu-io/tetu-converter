@@ -385,6 +385,9 @@ describe("HfPoolAdapterUnitTest", () => {
             areAlmostEqual(status.collateralAmount, parseUnits("1.999", results.init.collateralToken.decimals), 4)
           ].join();
           const expected = [true, true, true, true].join();
+
+          console.log("collateralTargetHealthFactor2", collateralTargetHealthFactor2.toString());
+          console.log("healthFactor18", status.healthFactor18);
           expect(ret).eq(expected);
 
         });
