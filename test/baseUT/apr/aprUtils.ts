@@ -453,11 +453,11 @@ export function getExpectedApr18(
   amountCollateralInBorrowAsset: BigNumber,
   rewardsFactor18: BigNumber
 ) : BigNumber {
-  console.log("expected.borrowCost", borrowCost);
-  console.log("expected.supplyIncomeInBorrowAsset", supplyIncomeInBorrowAsset);
-  console.log("expected.rewardsAmountInBorrowAsset", rewardsAmountInBorrowAsset);
-  console.log("expected.rewardsFactor", rewardsFactor18);
-  console.log("expected.amountCollateralInBorrowAsset", amountCollateralInBorrowAsset);
+  // console.log("expected.borrowCost", borrowCost);
+  // console.log("expected.supplyIncomeInBorrowAsset", supplyIncomeInBorrowAsset);
+  // console.log("expected.rewardsAmountInBorrowAsset", rewardsAmountInBorrowAsset);
+  // console.log("expected.rewardsFactor", rewardsFactor18);
+  // console.log("expected.amountCollateralInBorrowAsset", amountCollateralInBorrowAsset);
   return amountCollateralInBorrowAsset.eq(0)
     ? BigNumber.from(0)
     : borrowCost

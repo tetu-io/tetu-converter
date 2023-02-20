@@ -17,8 +17,6 @@ import "../../integrations/aaveTwo/AaveTwoReserveConfiguration.sol";
 import "../../integrations/aaveTwo/IAaveTwoAToken.sol";
 import "../../integrations/dforce/SafeRatioMath.sol";
 
-import "hardhat/console.sol";
-
 /// @notice Implementation of IPoolAdapter for AAVE-v2-protocol, see https://docs.aave.com/hub/
 /// @dev Instances of this contract are created using proxy-minimal pattern, so no constructor
 contract AaveTwoPoolAdapter is IPoolAdapter, IPoolAdapterInitializer, Initializable {
@@ -294,7 +292,6 @@ contract AaveTwoPoolAdapter is IPoolAdapter, IPoolAdapterInitializer, Initializa
     // transfer borrow amount back to the pool
     // replaced by infinity approve: IERC20(assetBorrow).approve(address(pool), amountToRepay_);
 
-    console.log("AaveTwoPoolAdapter.repay amountToRepay_ closePosition_", amountToRepay_, closePosition_);
     pool.repay(assetBorrow,
       closePosition_ ? type(uint).max : amountToRepay_,
       RATE_MODE,
@@ -534,9 +531,6 @@ contract AaveTwoPoolAdapter is IPoolAdapter, IPoolAdapterInitializer, Initializa
     uint aTokensBalance = IERC20(rc.aTokenAddress).balanceOf(address(this));
 
     uint targetDecimals = (10 ** pool.getConfiguration(assetBorrow).getDecimals());
-    console.log("targetDecimals", targetDecimals);
-    console.log("borrowPrice", borrowPrice);
-    console.log("totalDebtBase", totalDebtBase);
     return (
     // Total amount of provided collateral in [collateral asset]
       totalCollateralBase * (10 ** pool.getConfiguration(assetCollateral).getDecimals()) / collateralPrice,

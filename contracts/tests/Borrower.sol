@@ -8,9 +8,9 @@ import "../interfaces/IPoolAdapter.sol";
 import "../openzeppelin/SafeERC20.sol";
 import "../interfaces/IKeeperCallback.sol";
 import "../interfaces/IBorrowManager.sol";
-import "hardhat/console.sol";
 import "../interfaces/ITetuConverterCallback.sol";
 import "../interfaces/IDebtMonitor.sol";
+import "hardhat/console.sol";
 
 /// @notice This contract emulates real TetuConverter-user behavior
 /// Terms:

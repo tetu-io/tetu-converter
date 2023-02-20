@@ -188,14 +188,22 @@ contract TetuConverter is ITetuConverter, IKeeperCallback, IRequireAmountBySwapM
       entryData: entryData_
     });
 
-    (address borrowConverter,
-     uint borrowSourceAmount,
-     uint borrowTargetAmount,
-     int borrowApr18) = borrowManager.findConverter(params);
+    (address[] memory borrowConverters,
+     uint[] memory borrowSourceAmounts,
+     uint[] memory borrowTargetAmounts,
+     int[] memory borrowAprs18
+    ) = borrowManager.findConverter(params);
 
-    return swapConverter == address(0) || (borrowConverter != address(0) && swapApr18 > borrowApr18)
-      ? (borrowConverter, borrowSourceAmount, borrowTargetAmount, borrowApr18)
-      : (swapConverter, swapSourceAmount, swapTargetAmount, swapApr18);
+
+    return borrowConverters.length == 0
+      ? swapConverter == address(0)
+        ? (address(0), uint(0), uint(0), int(0))
+        : (swapConverter, swapSourceAmount, swapTargetAmount, swapApr18)
+      : swapConverter == address(0)
+        ? (borrowConverters[0], borrowSourceAmounts[0], borrowTargetAmounts[0], borrowAprs18[0])
+        : swapApr18 > borrowAprs18[0]
+          ? (borrowConverters[0], borrowSourceAmounts[0], borrowTargetAmounts[0], borrowAprs18[0])
+          : (swapConverter, swapSourceAmount, swapTargetAmount, swapApr18);
   }
 
   /// @notice Find possible borrow strategies and provide "cost of money" as interest for the period for each strategy

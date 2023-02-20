@@ -17,8 +17,6 @@ import "../../integrations/aave3/Aave3ReserveConfiguration.sol";
 import "../../integrations/aave3/IAaveToken.sol";
 import "../../integrations/dforce/SafeRatioMath.sol";
 
-import "hardhat/console.sol";
-
 /// @notice Implementation of IPoolAdapter for AAVE-v3-protocol, see https://docs.aave.com/hub/
 /// @dev Instances of this contract are created using proxy-minimal pattern, so no constructor
 abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer, Initializable {
@@ -418,7 +416,6 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer,
   ) external override returns ( // TODO: nonReentrant?
     uint resultHealthFactor18
   ) {
-    console.log("repayToRebalance");
     _onlyTetuConverter(controller);
     IAavePool pool = _pool;
     IAavePriceOracle priceOracle = IAavePriceOracle(IAaveAddressesProvider(IAavePool(pool).ADDRESSES_PROVIDER()).getPriceOracle());
@@ -431,8 +428,6 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer,
       address assetBorrow = borrowAsset;
       // ensure, that amount to repay is less then the total debt
       (,uint256 totalDebtBase0,,,,uint TEMP_HF) = pool.getUserAccountData(address(this));
-      console.log("repayToRebalance health factor before", TEMP_HF);
-      console.log("repayToRebalance totalDebtBase0 before", totalDebtBase0);
       uint priceBorrowAsset = priceOracle.getAssetPrice(assetBorrow);
       uint totalAmountToPay = totalDebtBase0 == 0
         ? 0
@@ -449,7 +444,6 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer,
 
     // validate result health factor
     (,,,,, uint256 healthFactor) = pool.getUserAccountData(address(this));
-    console.log("repayToRebalance totalDebtBase0 after", healthFactor);
     _validateHealthFactor(controller, healthFactor);
 
     emit OnRepayToRebalance(amount_, isCollateral_, healthFactor, newCollateralBalanceATokens);
@@ -551,12 +545,6 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer,
         ? 0
         : (collateralBalanceATokensLocal - aTokensBalance);
     }
-    console.log("borrowPrice", borrowPrice);
-    console.log("targetDecimals", targetDecimals);
-    console.log("totalDebtBase", totalDebtBase);
-    console.log("hf18", hf18);
-    console.log("provided collateral", totalCollateralBase * (10 ** pool.getConfiguration(assetCollateral).getDecimals()) / collateralPrice);
-    console.log("borrowed amount", totalDebtBase * targetDecimals / borrowPrice);
     return (
     // Total amount of provided collateral in [collateral asset]
       totalCollateralBase * (10 ** pool.getConfiguration(assetCollateral).getDecimals()) / collateralPrice,

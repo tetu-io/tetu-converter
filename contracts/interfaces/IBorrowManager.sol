@@ -77,15 +77,16 @@ interface IBorrowManager {
   function setRewardsFactor(uint rewardsFactor_) external;
 
   /// @notice Find lending pool capable of providing {targetAmount} and having best normalized borrow rate
-  /// @return converter Result template-pool-adapter or 0 if a pool is not found
-  /// @return collateralAmountOut Amount that should be provided as a collateral
-  /// @return amountToBorrowOut Amount that should be borrowed
-  /// @return apr18 Annual Percentage Rate == (total cost - total income) / amount of collateral, decimals 18
+  ///         Results are ordered in ascending order of APR, so the best available converter is first one.
+  /// @return converters Result template-pool-adapters
+  /// @return collateralAmountsOut Amounts that should be provided as a collateral
+  /// @return amountsToBorrowOut Amounts that should be borrowed
+  /// @return aprs18 Annual Percentage Rates == (total cost - total income) / amount of collateral, decimals 18
   function findConverter(AppDataTypes.InputConversionParams memory params) external view returns (
-    address converter,
-    uint collateralAmountOut,
-    uint amountToBorrowOut,
-    int apr18
+    address[] memory converters,
+    uint[] memory collateralAmountsOut,
+    uint[] memory amountsToBorrowOut,
+    int[] memory aprs18
   );
 
   /// @notice Get platformAdapter to which the converter belongs
