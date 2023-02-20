@@ -418,6 +418,7 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer,
   ) external override returns ( // TODO: nonReentrant?
     uint resultHealthFactor18
   ) {
+    console.log("repayToRebalance");
     _onlyTetuConverter(controller);
     IAavePool pool = _pool;
     IAavePriceOracle priceOracle = IAavePriceOracle(IAaveAddressesProvider(IAavePool(pool).ADDRESSES_PROVIDER()).getPriceOracle());
@@ -429,7 +430,9 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer,
     } else {
       address assetBorrow = borrowAsset;
       // ensure, that amount to repay is less then the total debt
-      (,uint256 totalDebtBase0,,,,) = pool.getUserAccountData(address(this));
+      (,uint256 totalDebtBase0,,,,uint TEMP_HF) = pool.getUserAccountData(address(this));
+      console.log("repayToRebalance health factor before", TEMP_HF);
+      console.log("repayToRebalance totalDebtBase0 before", totalDebtBase0);
       uint priceBorrowAsset = priceOracle.getAssetPrice(assetBorrow);
       uint totalAmountToPay = totalDebtBase0 == 0
         ? 0
@@ -441,15 +444,12 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer,
       // transfer borrowed amount back to the pool
       // replaced by infinity approve: IERC20(assetBorrow).approve(address(pool), amount_);
 
-      pool.repay(assetBorrow,
-        amount_,
-        RATE_MODE,
-        address(this)
-      );
+      pool.repay(assetBorrow, amount_, RATE_MODE, address(this));
     }
 
     // validate result health factor
     (,,,,, uint256 healthFactor) = pool.getUserAccountData(address(this));
+    console.log("repayToRebalance totalDebtBase0 after", healthFactor);
     _validateHealthFactor(controller, healthFactor);
 
     emit OnRepayToRebalance(amount_, isCollateral_, healthFactor, newCollateralBalanceATokens);
@@ -554,6 +554,9 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer,
     console.log("borrowPrice", borrowPrice);
     console.log("targetDecimals", targetDecimals);
     console.log("totalDebtBase", totalDebtBase);
+    console.log("hf18", hf18);
+    console.log("provided collateral", totalCollateralBase * (10 ** pool.getConfiguration(assetCollateral).getDecimals()) / collateralPrice);
+    console.log("borrowed amount", totalDebtBase * targetDecimals / borrowPrice);
     return (
     // Total amount of provided collateral in [collateral asset]
       totalCollateralBase * (10 ** pool.getConfiguration(assetCollateral).getDecimals()) / collateralPrice,

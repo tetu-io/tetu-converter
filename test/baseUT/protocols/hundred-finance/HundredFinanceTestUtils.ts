@@ -227,7 +227,7 @@ export class HundredFinanceTestUtils {
     const plan = await hfPlatformAdapter.getConversionPlan(
       {
         collateralAsset: collateralToken.address,
-        collateralAmount,
+        amountIn: collateralAmount,
         borrowAsset: borrowToken.address,
         countBlocks,
         entryData: "0x"

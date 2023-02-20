@@ -220,7 +220,7 @@ export class DForceTestUtils {
     const plan = await dfPlatformAdapter.getConversionPlan(
       {
         collateralAsset: collateralToken.address,
-        collateralAmount,
+        amountIn: collateralAmount,
         borrowAsset: borrowToken.address,
         countBlocks,
         entryData: "0x"
