@@ -209,7 +209,7 @@ export class AaveTwoTestUtils {
     const plan = await aavePlatformAdapter.getConversionPlan(
       {
         collateralAsset: collateralToken.address,
-        collateralAmount,
+        amountIn: collateralAmount,
         borrowAsset: borrowToken.address,
         countBlocks,
         entryData: "0x"
@@ -231,7 +231,7 @@ export class AaveTwoTestUtils {
       aavePoolAdapterAsTC,
       dataProvider,
       amountToBorrow: plan.amountToBorrow,
-      collateralAmount,
+      collateralAmount: plan.collateralAmount,
       converterNormal: converterNormal.address,
       borrowToken,
       collateralToken,

@@ -1411,7 +1411,7 @@ describe("AaveTwoPoolAdapterUnitTest", () => {
         const plan = await platformAdapter.getConversionPlan(
           {
             collateralAsset,
-            collateralAmount,
+            amountIn: collateralAmount,
             borrowAsset,
             countBlocks: 1,
             entryData: "0x"

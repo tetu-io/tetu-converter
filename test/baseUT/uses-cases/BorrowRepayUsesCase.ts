@@ -417,7 +417,7 @@ export class BorrowRepayUsesCase {
     );
 
     // TetuConverter gives infinity approve to the pool adapter after pool adapter creation (see TetuConverter.convert implementation)
-    const borrowAction = new BorrowAction(collateralToken, collateralAmount, borrowToken, p.countBlocks);
+    const borrowAction = new BorrowAction(collateralToken, strategyToConvert.collateralAmountOut, borrowToken, p.countBlocks);
     const repayAction = (strategyToConvert.converter.toLowerCase() === (await controller.swapManager()).toLowerCase())
       ? new RepayActionUsingSwap(controller, collateralToken, borrowToken, ucBalanceBorrow0)
       : new RepayAction(collateralToken, borrowToken, amountToRepay, {countBlocksToSkipAfterAction: countBlocksToSkipAfterBorrow});
@@ -435,7 +435,7 @@ export class BorrowRepayUsesCase {
       ucBalanceBorrow0,
       borrowBalances,
       userBalances,
-      collateralAmount,
+      collateralAmount: strategyToConvert.collateralAmountOut,
       strategyToConvert,
       rewardsInBorrowAssetReceived: claimRewardsAction.rewardsInBorrowAssetReceived
     }

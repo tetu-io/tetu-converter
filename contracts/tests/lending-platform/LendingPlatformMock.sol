@@ -116,9 +116,9 @@ contract LendingPlatformMock is IPlatformAdapter {
       uint entryKind = EntryKinds.getEntryKind(p_.entryData);
       console.log("EntryKind", entryKind);
       if (entryKind == EntryKinds.ENTRY_KIND_EXACT_COLLATERAL_IN_FOR_MAX_BORROW_OUT_0) {
-        plan.collateralAmount = p_.collateralAmount;
+        plan.collateralAmount = p_.amountIn;
         plan.amountToBorrow = EntryKinds.exactCollateralInForMaxBorrowOut(
-          p_.collateralAmount,
+          p_.amountIn,
           uint(healthFactor2_) * 10**16,
           liquidationThresholds18[p_.collateralAsset],
           AppDataTypes.PricesAndDecimals({
@@ -131,7 +131,7 @@ contract LendingPlatformMock is IPlatformAdapter {
         );
       } else if (entryKind == EntryKinds.ENTRY_KIND_EXACT_PROPORTION_1) {
         (plan.collateralAmount, plan.amountToBorrow) = EntryKinds.exactProportion(
-          p_.collateralAmount,
+          p_.amountIn,
           uint(healthFactor2_) * 10**16,
           liquidationThresholds18[p_.collateralAsset],
           AppDataTypes.PricesAndDecimals({
@@ -143,11 +143,11 @@ contract LendingPlatformMock is IPlatformAdapter {
           p_.entryData,
           false // prices have decimals 18, not 36
         );
-        console.log("Collaterals", plan.collateralAmount, p_.collateralAmount);
+        console.log("Collaterals", plan.collateralAmount, p_.amountIn);
       }
 
       uint amountCollateralInBorrowAsset36 = AppUtils.toMantissa(
-        p_.collateralAmount
+        p_.amountIn
           * IPriceOracle(_priceOracle).getAssetPrice(p_.collateralAsset)
           / IPriceOracle(_priceOracle).getAssetPrice(p_.borrowAsset),
         uint8(IERC20Metadata(p_.collateralAsset).decimals()),

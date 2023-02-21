@@ -28,6 +28,24 @@ contract EntryKindsFacade {
     );
   }
 
+  function exactBorrowOutForMinCollateralIn(
+    uint borrowAmount,
+    uint healthFactor18,
+    uint liquidationThreshold18,
+    AppDataTypes.PricesAndDecimals memory pd,
+    bool priceDecimals36
+  ) external pure returns (
+    uint amountToCollateralOut
+  ) {
+    return EntryKinds.exactBorrowOutForMinCollateralIn(
+      borrowAmount,
+      healthFactor18,
+      liquidationThreshold18,
+      pd,
+      priceDecimals36
+    );
+  }
+
   function exactProportion(
     uint collateralAmount,
     uint healthFactor18,

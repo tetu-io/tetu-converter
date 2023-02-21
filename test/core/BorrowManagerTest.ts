@@ -236,9 +236,10 @@ describe("BorrowManager", () => {
 
 //region Test impl
   interface IMakeTestFindConverterResults {
-    outPoolIndex0: number;
-    outApr18: BigNumber;
-    outMaxTargetAmount: BigNumber;
+    outPoolIndices0: number[];
+    outAprs18: BigNumber[];
+    outAmountsToBorrow: BigNumber[];
+    outCollateralAmounts: BigNumber[];
     outGas?: BigNumber;
     rewardsFactor: BigNumber;
     amountCollateralInBorrowAsset36: BigNumber;
@@ -275,7 +276,7 @@ describe("BorrowManager", () => {
     console.log("Source amount:", getBigNumberFrom(sourceAmountNum, await sourceToken.decimals()).toString());
     const ret = await core.bm.findConverter({
       collateralAsset: sourceToken.address,
-      collateralAmount: getBigNumberFrom(sourceAmountNum, await sourceToken.decimals()),
+      amountIn: getBigNumberFrom(sourceAmountNum, await sourceToken.decimals()),
       borrowAsset: params?.targetAssetToSearch || targetToken.address,
       countBlocks: periodInBlocks,
       entryData: "0x"
@@ -283,7 +284,7 @@ describe("BorrowManager", () => {
     const gas = params?.estimateGas
       ? await core.bm.estimateGas.findConverter({
         collateralAsset: sourceToken.address,
-        collateralAmount: getBigNumberFrom(sourceAmountNum, await sourceToken.decimals()),
+        amountIn: getBigNumberFrom(sourceAmountNum, await sourceToken.decimals()),
         borrowAsset: targetToken.address,
         countBlocks: periodInBlocks,
         entryData: "0x"
@@ -291,9 +292,10 @@ describe("BorrowManager", () => {
       : undefined;
 
     return {
-      outPoolIndex0: poolsInfo.findIndex(x => x.converter === ret.converter),
-      outApr18: ret.apr18,
-      outMaxTargetAmount: ret.amountToBorrowOut,
+      outPoolIndices0: ret.convertersOut.map((c: string) => poolsInfo.findIndex(x => x.converter === c)),
+      outAprs18: ret.aprs18Out,
+      outAmountsToBorrow: ret.amountsToBorrowOut,
+      outCollateralAmounts: ret.collateralAmountsOut,
       outGas: gas,
       rewardsFactor: await core.bm.rewardsFactor(),
       amountCollateralInBorrowAsset36: getBigNumberFrom(
@@ -363,14 +365,14 @@ describe("BorrowManager", () => {
     const sourceAmount = getBigNumberFrom(sourceAmountNum, await sourceToken.decimals());
     const r = await core.bm.findConverter({
       collateralAsset: sourceToken.address,
-      collateralAmount: sourceAmount,
+      amountIn: sourceAmount,
       borrowAsset: targetToken.address,
       countBlocks,
       entryData: "0x"
     });
 
     return {
-      apr18: r.apr18,
+      apr18: r.aprs18Out[0], // best one
       amountCollateralInBorrowAsset36: getBigNumberFrom(
         sourceAmountNum * p.priceSourceUSD / p.priceTargetUSD,
         36
@@ -1157,9 +1159,10 @@ describe("BorrowManager", () => {
             const ret = await makeTestFindConverter(p, sourceAmount, period, {targetHealthFactor});
             console.log(ret);
             const sret = [
-              ret.outPoolIndex0,
-              ethers.utils.formatUnits(ret.outMaxTargetAmount, p.targetDecimals),
-              ethers.utils.formatUnits(ret.outApr18, p.targetDecimals)
+              ret.outPoolIndices0[0],
+              ethers.utils.formatUnits(ret.outAmountsToBorrow[0], p.targetDecimals),
+              ethers.utils.formatUnits(ret.outCollateralAmounts[0], p.sourceDecimals),
+              ethers.utils.formatUnits(ret.outAprs18[0], p.targetDecimals)
             ].join();
 
             const expectedApr18 = getExpectedApr18(
@@ -1174,6 +1177,7 @@ describe("BorrowManager", () => {
               1, // best pool
               "500.0", // Use https://docs.google.com/spreadsheets/d/1oLeF7nlTefoN0_9RWCuNc62Y7W72-Yk7/edit?usp=sharing&ouid=116979561535348539867&rtpof=true&sd=true
                        // to calculate expected amounts
+              ethers.utils.formatUnits(parseUnits(sourceAmount.toString(), p.sourceDecimals), p.sourceDecimals),
               ethers.utils.formatUnits(expectedApr18, p.targetDecimals),
             ].join();
 
@@ -1182,47 +1186,47 @@ describe("BorrowManager", () => {
         });
         describe("Example 4: Pool 3 has a lowest borrow rate", () => {
           interface IExample4Results {
-            poolIndex0: number;
-            outMaxTargetAmount: string;
-            apr18: string;
-            expectedApr18: string;
+            poolIndices0: number[];
+            amountsToBorrowOut: string[];
+            collateralAmountsOut: string[];
+            aprs18: string[];
+            expectedApr18: string[];
             input: IBorrowInputParams;
           }
 
-          async function makeExample4Test(
-            params?: IMakeTestFindConverterParams
-          ): Promise<IExample4Results>{
+          async function makeExample4Test(params?: IMakeTestFindConverterParams): Promise<IExample4Results> {
             const bestBorrowRate = 270;
             const sourceAmount = 1000;
             const period = 1;
+            const availablePools = [
+              {   // source, target
+                borrowRateInTokens: [0, bestBorrowRate],
+                availableLiquidityInTokens: [0, 100] // not enough money
+              },
+              {   // source, target
+                borrowRateInTokens: [0, bestBorrowRate * 5], // too high borrow rate
+                availableLiquidityInTokens: [0, 2250] // enough cash
+              },
+              {   // source, target
+                borrowRateInTokens: [0, bestBorrowRate], // the rate is best
+                availableLiquidityInTokens: [0, 2250] // enough cash
+              },
+              {   // source, target
+                borrowRateInTokens: [0, bestBorrowRate], // the rate is best
+                availableLiquidityInTokens: [0, 2000000000] // even more cash than in prev.pool
+              },
+              {   // source, target   -   pool 2 is the best
+                borrowRateInTokens: [0, bestBorrowRate+1], // the rate is not best
+                availableLiquidityInTokens: [0, 2000000000] // a lot of cash
+              },
+            ];
             const input: IBorrowInputParams = {
               collateralFactor: 0.9,
               priceSourceUSD: 2,
               priceTargetUSD: 0.5,
               sourceDecimals: 6,
               targetDecimals: 6,
-              availablePools: [
-                {   // source, target
-                  borrowRateInTokens: [0, bestBorrowRate],
-                  availableLiquidityInTokens: [0, 100] // not enough money
-                },
-                {   // source, target
-                  borrowRateInTokens: [0, bestBorrowRate * 5], // too high borrow rate
-                  availableLiquidityInTokens: [0, 2000] // enough cash
-                },
-                {   // source, target
-                  borrowRateInTokens: [0, bestBorrowRate], // the rate is best
-                  availableLiquidityInTokens: [0, 2000] // enough cash
-                },
-                {   // source, target
-                  borrowRateInTokens: [0, bestBorrowRate], // the rate is best
-                  availableLiquidityInTokens: [0, 2000000000] // even more cash than in prev.pool
-                },
-                {   // source, target   -   pool 2 is the best
-                  borrowRateInTokens: [0, bestBorrowRate+1], // the rate is not best
-                  availableLiquidityInTokens: [0, 2000000000] // a lot of cash
-                },
-              ]
+              availablePools
             };
 
             const ret = await makeTestFindConverter(
@@ -1232,18 +1236,21 @@ describe("BorrowManager", () => {
               params
             );
             return {
-              poolIndex0: ret.outPoolIndex0,
-              outMaxTargetAmount: ethers.utils.formatUnits(ret.outMaxTargetAmount, input.targetDecimals),
-              apr18: ethers.utils.formatUnits(ret.outApr18, input.targetDecimals),
-              expectedApr18: ethers.utils.formatUnits(
-                getExpectedApr18(
-                  getBigNumberFrom(bestBorrowRate * period, 36),
-                  BigNumber.from(0),
-                  BigNumber.from(0),
-                  ret.amountCollateralInBorrowAsset36,
-                  ret.rewardsFactor
+              poolIndices0: ret.outPoolIndices0,
+              amountsToBorrowOut: ret.outAmountsToBorrow.map(x => ethers.utils.formatUnits(x, input.targetDecimals)),
+              collateralAmountsOut: ret.outCollateralAmounts.map(x => ethers.utils.formatUnits(x, input.sourceDecimals)),
+              aprs18: ret.outAprs18.map(x => ethers.utils.formatUnits(x, 18)),
+              expectedApr18: ret.outPoolIndices0.map(
+                index => ethers.utils.formatUnits(
+                  getExpectedApr18(
+                    getBigNumberFrom(availablePools[index].borrowRateInTokens[1] * period, 36),
+                    BigNumber.from(0),
+                    BigNumber.from(0),
+                    ret.amountCollateralInBorrowAsset36,
+                    ret.rewardsFactor
+                  )
                 ),
-                input.targetDecimals
+                18
               ),
               input
             };
@@ -1252,32 +1259,31 @@ describe("BorrowManager", () => {
           it("should return Pool 3 and expected amount", async () => {
             const r = await makeExample4Test({targetHealthFactor: 1.6});
             const sret = [
-              r.poolIndex0,
-              r.outMaxTargetAmount,
-              r.apr18
-            ].join();
+              r.poolIndices0.map(x => BalanceUtils.toString(x)).join("\n"),
+              r.amountsToBorrowOut.map(x => BalanceUtils.toString(x)).join("\n"),
+              r.collateralAmountsOut.map(x => BalanceUtils.toString(x)).join("\n"),
+              r.aprs18.map(x => BalanceUtils.toString(x)).join("\n"),
+            ].join("\n");
+
+            const collateralAmount = "1000.0";
+            const expectedAmountToBorrow = "2250.0"; // Use https://docs.google.com/spreadsheets/d/1oLeF7nlTefoN0_9RWCuNc62Y7W72-Yk7/edit?usp=sharing&ouid=116979561535348539867&rtpof=true&sd=true
 
             const sexpected = [
-              3, // best pool
-              "2250.0", // Use https://docs.google.com/spreadsheets/d/1oLeF7nlTefoN0_9RWCuNc62Y7W72-Yk7/edit?usp=sharing&ouid=116979561535348539867&rtpof=true&sd=true
-              r.expectedApr18,
-            ].join();
+              [2, 3, 4, 1].map(x => BalanceUtils.toString(x)).join("\n"), // best pool
+              [expectedAmountToBorrow, expectedAmountToBorrow, expectedAmountToBorrow, expectedAmountToBorrow].map(x => BalanceUtils.toString(x)).join("\n"),
+              [collateralAmount, collateralAmount, collateralAmount, collateralAmount].map(x => BalanceUtils.toString(x)).join("\n"),
+              r.expectedApr18.map(x => BalanceUtils.toString(x)).join("\n"), // best pool
+            ].join("\n");
 
             expect(sret).equal(sexpected);
           });
           it("should not find pool if all pools have too small max allowed amount to supply", async () => {
             const r = await makeExample4Test({setTinyMaxAmountToSupply: true});
-            const sret = [r.poolIndex0, r.outMaxTargetAmount, r.apr18].join();
-            const sexpected = [-1, "0.0", "0.0"].join();
-
-            expect(sret).equal(sexpected);
+            expect(r.poolIndices0.length === 0).eq(true);
           });
           it("should not find a pool for different target asset", async () => {
             const r = await makeExample4Test({targetAssetToSearch: ethers.Wallet.createRandom().address});
-            const sret = [r.poolIndex0, r.outMaxTargetAmount, r.apr18].join();
-            const sexpected = [-1, "0.0", "0.0"].join();
-
-            expect(sret).equal(sexpected);
+            expect(r.poolIndices0.length === 0).eq(true);
           });
         });
         describe("All pools has same borrow rate", () => {
@@ -1309,24 +1315,27 @@ describe("BorrowManager", () => {
 
             const ret = await makeTestFindConverter(input, sourceAmount, period);
             const sret = [
-              ret.outPoolIndex0,
-              ethers.utils.formatUnits(ret.outMaxTargetAmount, input.targetDecimals),
-              ethers.utils.formatUnits(ret.outApr18, input.targetDecimals)
-            ].join();
+              ret.outPoolIndices0.join(),
+              ret.outAmountsToBorrow.map(x => ethers.utils.formatUnits(x, input.targetDecimals)),
+              ret.outCollateralAmounts.map(x => ethers.utils.formatUnits(x, input.sourceDecimals)),
+              ret.outAprs18.map(x => ethers.utils.formatUnits(x, 18)),
+            ].join("\n");
 
-            const expectedApr18 = getExpectedApr18(
+            const expectedApr18 = ethers.utils.formatUnits(getExpectedApr18(
               getBigNumberFrom(bestBorrowRate * period, 36),
               BigNumber.from(0),
               BigNumber.from(0),
               ret.amountCollateralInBorrowAsset36,
               ret.rewardsFactor
-            );
+            ), 18);
+            const expectedCollateralAmount = ethers.utils.formatUnits(parseUnits(sourceAmount.toString(), input.sourceDecimals), input.sourceDecimals);
             const sexpected = [
-              0, // best pool
-              "6250.0", // Use https://docs.google.com/spreadsheets/d/1oLeF7nlTefoN0_9RWCuNc62Y7W72-Yk7/edit?usp=sharing&ouid=116979561535348539867&rtpof=true&sd=true
-                        // to calculate expected amounts
-              ethers.utils.formatUnits(expectedApr18, input.targetDecimals),
-            ].join();
+              [0, 1, 2], // best pool
+              // Use https://docs.google.com/spreadsheets/d/1oLeF7nlTefoN0_9RWCuNc62Y7W72-Yk7/edit?usp=sharing&ouid=116979561535348539867&rtpof=true&sd=true to calculate expected amounts
+              ["6250.0", "6250.0", "6250.0"],
+              [expectedCollateralAmount, expectedCollateralAmount, expectedCollateralAmount],
+              [expectedApr18, expectedApr18, expectedApr18],
+            ].join("\n");
 
             expect(sret).equal(sexpected);
           });
@@ -1362,12 +1371,28 @@ describe("BorrowManager", () => {
 
           const ret = await makeTestFindConverter(input, sourceAmount, period, {targetHealthFactor});
           const sret = [
-            ret.outPoolIndex0,
-            ethers.utils.formatUnits(ret.outMaxTargetAmount, input.targetDecimals),
-            ethers.utils.formatUnits(ret.outApr18, input.targetDecimals)
+            ret.outPoolIndices0.length === 0 ? -1 : ret.outPoolIndices0[0],
+            ethers.utils.formatUnits(
+              ret.outPoolIndices0.length === 0
+                ? BigNumber.from(0)
+                : ret.outAmountsToBorrow[0],
+              input.targetDecimals
+            ),
+            ethers.utils.formatUnits(
+              ret.outPoolIndices0.length === 0
+                ? BigNumber.from(0)
+                : ret.outCollateralAmounts[0],
+              input.targetDecimals
+            ),
+            ethers.utils.formatUnits(
+              ret.outPoolIndices0.length === 0
+                ? BigNumber.from(0)
+                : ret.outAprs18[0],
+              input.targetDecimals
+            ),
           ].join();
 
-          const sexpected = [-1, "0.0", "0.0"].join();
+          const sexpected = [-1, "0.0", "0.0", "0.0"].join();
 
           expect(sret).equal(sexpected);
         });

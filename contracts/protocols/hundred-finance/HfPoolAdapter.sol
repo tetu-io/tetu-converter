@@ -19,7 +19,6 @@ import "../../integrations/hundred-finance/IHfPriceOracle.sol";
 import "../../integrations/hundred-finance/IHfHMatic.sol";
 import "../../integrations/IWmatic.sol";
 
-
 /// @notice Implementation of IPoolAdapter for HundredFinance-protocol, see https://docs.hundred.finance/
 /// @dev Instances of this contract are created using proxy-minimal pattern, so no constructor
 contract HfPoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP, Initializable {

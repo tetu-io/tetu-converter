@@ -389,7 +389,13 @@ describe("TetuConverterTest", () => {
 //endregion Prepare borrows
 
 //region Predict conversion results
-  interface IFindConversionStrategyResults {
+  interface IFindConversionStrategyMulti {
+    converters: string[];
+    collateralAmountsOut: BigNumber[];
+    amountsToBorrowOut: BigNumber[];
+    aprs18: BigNumber[];
+  }
+  interface IFindConversionStrategySingle {
     converter: string;
     collateralAmountOut: BigNumber;
     amountToBorrowOut: BigNumber;
@@ -398,7 +404,7 @@ describe("TetuConverterTest", () => {
 
   interface IMakeFindConversionStrategyResults {
     init: ISetupResults;
-    results: IFindConversionStrategyResults;
+    results: IFindConversionStrategySingle;
     /* Converter of the lending pool adapter */
     poolAdapterConverter: string;
     gas: BigNumber;
@@ -411,7 +417,7 @@ describe("TetuConverterTest", () => {
   async function getExpectedSwapResults(
     r: IMakeFindConversionStrategyResults,
     sourceAmountNum: number,
-  ) : Promise<IFindConversionStrategyResults> {
+  ) : Promise<IFindConversionStrategySingle> {
     const tetuLiquidator = TetuLiquidatorMock__factory.connect(
       await r.init.core.controller.tetuLiquidator(),
       deployer
@@ -451,7 +457,7 @@ describe("TetuConverterTest", () => {
     r: IMakeFindConversionStrategyResults,
     sourceAmountNum: number,
     period: number
-  ) : Promise<IFindConversionStrategyResults> {
+  ) : Promise<IFindConversionStrategySingle> {
     const targetHealthFactor = await r.init.core.controller.targetHealthFactor2();
 
     const maxTargetAmount = getBigNumberFrom(
@@ -498,9 +504,9 @@ describe("TetuConverterTest", () => {
   }
 
   interface IMakeFindConversionStrategySwapAndBorrowResults {
-    results: IFindConversionStrategyResults;
-    expectedSwap: IFindConversionStrategyResults;
-    expectedBorrowing: IFindConversionStrategyResults;
+    results: IFindConversionStrategySingle;
+    expectedSwap: IFindConversionStrategySingle;
+    expectedBorrowing: IFindConversionStrategySingle;
   }
 
   /**
@@ -625,9 +631,9 @@ describe("TetuConverterTest", () => {
   }
 //endregion findConversionStrategy test impl
 
-//region findBorrowStrategy test impl
+//region findBorrowStrategies test impl
   /**
-   * Set up test for findBorrowStrategy
+   * Set up test for findBorrowStrategies
    * @param sourceAmountNum
    * @param periodInBlocks
    * @param borrowRateNum Borrow rate (as num, no decimals); undefined if there is no lending pool
@@ -659,14 +665,14 @@ describe("TetuConverterTest", () => {
 
     const sourceAmount = parseUnits(sourceAmountNum.toString(), await init.sourceToken.decimals());
 
-    const results = await init.core.tc.findBorrowStrategy(
+    const results = await init.core.tc.findBorrowStrategies(
       entryData || "0x",
       init.sourceToken.address,
       sourceAmount,
       init.targetToken.address,
       periodInBlocks,
     );
-    const gas = await init.core.tc.estimateGas.findBorrowStrategy(
+    const gas = await init.core.tc.estimateGas.findBorrowStrategies(
       entryData || "0x",
       init.sourceToken.address,
       sourceAmount,
@@ -680,7 +686,12 @@ describe("TetuConverterTest", () => {
 
     return {
       init,
-      results,
+      results: {
+        converter: results.converters[0],
+        amountToBorrowOut: results.amountToBorrowsOut[0],
+        apr18: results.aprs18[0],
+        collateralAmountOut: results.collateralAmountsOut[0]
+      },
       poolAdapterConverter,
       gas
     }
@@ -695,7 +706,7 @@ describe("TetuConverterTest", () => {
       1000,
     );
   }
-//endregion findBorrowStrategy test impl
+//endregion findBorrowStrategies test impl
 
 //region findSwapStrategy test impl
   /**
@@ -1065,7 +1076,7 @@ describe("TetuConverterTest", () => {
     });
   });
 
-  describe("findBorrowStrategy", () => {
+  describe("findBorrowStrategies", () => {
     describe("Good paths", () => {
       it("should return expected values", async () => {
         const period = BLOCKS_PER_DAY * 31;

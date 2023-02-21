@@ -99,7 +99,7 @@ describe("HfPoolAdapterIntTest", () => {
 //region Unit tests
   describe("borrow", () => {
     describe("Good paths", () => {
-      //region Utils
+//region Utils
       async function testDaiUsdc(
         collateralAmountNum: number | undefined,
         borrowAmountNum: number | undefined
