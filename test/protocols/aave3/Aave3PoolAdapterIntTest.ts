@@ -486,6 +486,7 @@ describe("Aave3PoolAdapterIntTest", () => {
     interface IBorrowMaxAmountInIsolationModeBadPaths {
       customAmountToBorrow?: BigNumber;
       deltaToMaxAmount?: BigNumber;
+      customCollateralAmount?: BigNumber;
     }
 
     /**
@@ -517,11 +518,12 @@ describe("Aave3PoolAdapterIntTest", () => {
       // calculate max amount to borrow manually
       const maxBorrowAmount = d.plan.amountToBorrow;
 
+      const collateralAmount = badPathsParams?.customCollateralAmount || d.collateralAmount;
       await transferAndApprove(
         collateralToken.address,
         d.userContract.address,
         await d.controller.tetuConverter(),
-        d.collateralAmount,
+        collateralAmount,
         d.aavePoolAdapterAsTC.address
       );
 
@@ -535,12 +537,9 @@ describe("Aave3PoolAdapterIntTest", () => {
           : maxBorrowAmount;
 
       console.log("Try to borrow", amountToBorrow, maxBorrowAmount);
+      console.log("Using collateral", collateralAmount);
 
-      await d.aavePoolAdapterAsTC.borrow(
-        d.collateralAmount,
-        amountToBorrow,
-        d.userContract.address
-      );
+      await d.aavePoolAdapterAsTC.borrow(collateralAmount, amountToBorrow, d.userContract.address);
 
       // after borrow
       const collateralDataAfter = await d.h.getReserveInfo(deployer, d.aavePool, d.dataProvider, collateralToken.address);
@@ -796,7 +795,8 @@ describe("Aave3PoolAdapterIntTest", () => {
                   borrowHolders,
                   true, // emode
                   {
-                    customAmountToBorrow: parseUnits("1")
+                    customAmountToBorrow: parseUnits("20", borrowToken.decimals),
+                    customCollateralAmount: parseUnits("200", collateralToken.decimals)
                   }
                 )
               ).revertedWith("60");

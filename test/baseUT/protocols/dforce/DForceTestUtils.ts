@@ -210,11 +210,6 @@ export class DForceTestUtils {
       ? collateralAmountRequired
       : holderBalance;
 
-    // collateral asset
-    await collateralToken.token
-      .connect(await DeployerUtils.startImpersonate(collateralHolder))
-      .transfer(userContract.address, collateralAmount);
-
     // calculate max allowed amount to borrow
     const countBlocks = 1;
     const plan = await dfPlatformAdapter.getConversionPlan(
@@ -228,6 +223,11 @@ export class DForceTestUtils {
       badPathsParams?.targetHealthFactor2 || await controller.targetHealthFactor2(),
     );
     console.log("plan", plan);
+
+    // collateral asset
+    await collateralToken.token
+      .connect(await DeployerUtils.startImpersonate(collateralHolder))
+      .transfer(userContract.address, plan.collateralAmount);
 
     return {
       controller,

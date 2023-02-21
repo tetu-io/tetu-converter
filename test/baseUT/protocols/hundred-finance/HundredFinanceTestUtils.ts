@@ -221,10 +221,6 @@ export class HundredFinanceTestUtils {
       ? collateralAmountRequired
       : holderBalance;
 
-    await collateralToken.token
-      .connect(await DeployerUtils.startImpersonate(collateralHolder))
-      .transfer(userContract.address, collateralAmount);
-
     // calculate max allowed amount to borrow
     const countBlocks = 1;
     const plan: IConversionPlan = await hfPlatformAdapter.getConversionPlan(
@@ -238,6 +234,10 @@ export class HundredFinanceTestUtils {
       badPathsParams?.targetHealthFactor2 || await controller.targetHealthFactor2(),
     );
     console.log("plan", plan);
+
+    await collateralToken.token
+      .connect(await DeployerUtils.startImpersonate(collateralHolder))
+      .transfer(userContract.address, plan.collateralAmount);
 
     const priceCollateral = await priceOracle.getUnderlyingPrice(collateralCTokenAddress);
     const priceBorrow = await priceOracle.getUnderlyingPrice(borrowCTokenAddress);
