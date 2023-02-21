@@ -237,7 +237,7 @@ export class DForceTestUtils {
       amountToBorrow: plan.amountToBorrow,
       userContract,
       priceOracle,
-      collateralAmount,
+      collateralAmount: plan.collateralAmount,
       collateralCToken: IDForceCToken__factory.connect(collateralCTokenAddress, deployer),
       borrowCToken: IDForceCToken__factory.connect(borrowCTokenAddress, deployer),
       converterNormal: converterNormal.address,

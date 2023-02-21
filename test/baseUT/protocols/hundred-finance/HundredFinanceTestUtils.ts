@@ -32,6 +32,7 @@ import {HundredFinanceChangePriceUtils} from "./HundredFinanceChangePriceUtils";
 import {IPoolAdapterStatus} from "../../types/BorrowRepayDataTypes";
 import {getBigNumberFrom} from "../../../../scripts/utils/NumberUtils";
 import {TetuConverterApp} from "../../helpers/TetuConverterApp";
+import {IConversionPlan} from "../../apr/aprDataTypes";
 
 //region Data types
 export interface IPrepareToBorrowResults {
@@ -58,6 +59,8 @@ export interface IPrepareToBorrowResults {
 
   priceCollateral: BigNumber;
   priceBorrow: BigNumber;
+
+  plan: IConversionPlan;
 }
 
 export interface IMarketsInfo {
@@ -224,7 +227,7 @@ export class HundredFinanceTestUtils {
 
     // calculate max allowed amount to borrow
     const countBlocks = 1;
-    const plan = await hfPlatformAdapter.getConversionPlan(
+    const plan: IConversionPlan = await hfPlatformAdapter.getConversionPlan(
       {
         collateralAsset: collateralToken.address,
         amountIn: collateralAmount,
@@ -247,14 +250,15 @@ export class HundredFinanceTestUtils {
       hfPlatformAdapter,
       hfPoolAdapterTC,
       priceOracle,
-      collateralAmount,
+      collateralAmount: plan.collateralAmount,
       collateralCToken: IHfCToken__factory.connect(collateralCTokenAddress, deployer),
       borrowCToken: IHfCToken__factory.connect(borrowCTokenAddress, deployer),
       converterNormal: converter.address,
       borrowToken,
       collateralToken,
       priceBorrow,
-      priceCollateral
+      priceCollateral,
+      plan
     }
   }
 

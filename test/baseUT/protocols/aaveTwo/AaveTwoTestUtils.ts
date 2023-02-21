@@ -231,7 +231,7 @@ export class AaveTwoTestUtils {
       aavePoolAdapterAsTC,
       dataProvider,
       amountToBorrow: plan.amountToBorrow,
-      collateralAmount,
+      collateralAmount: plan.collateralAmount,
       converterNormal: converterNormal.address,
       borrowToken,
       collateralToken,

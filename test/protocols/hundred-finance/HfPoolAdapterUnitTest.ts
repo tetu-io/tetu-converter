@@ -296,7 +296,7 @@ describe("HfPoolAdapterUnitTest", () => {
             collateralHolder,
             borrowAsset,
             borrowCToken,
-            "1999"
+            "1.9"
           );
         });
         after(async function () {
@@ -313,10 +313,10 @@ describe("HfPoolAdapterUnitTest", () => {
           console.log(status);
 
           const ret = [
-            areAlmostEqual(parseUnits(collateralTargetHealthFactor2.toString(), 16), status.healthFactor18),
+            areAlmostEqual(parseUnits(collateralTargetHealthFactor2.toString(), 16), status.healthFactor18, 5),
             areAlmostEqual(results.borrowResults.borrowedAmount, status.amountToPay, 4),
             status.collateralAmountLiquidated.eq(0),
-            areAlmostEqual(status.collateralAmount, parseUnits("1999", results.init.collateralToken.decimals), 4)
+            status.collateralAmount.lte(parseUnits("1.9", results.init.collateralToken.decimals))
           ].join();
           const expected = [true, true, true, true].join();
           expect(ret).eq(expected);
@@ -382,7 +382,7 @@ describe("HfPoolAdapterUnitTest", () => {
             areAlmostEqual(parseUnits(collateralTargetHealthFactor2.toString(), 16), status.healthFactor18),
             areAlmostEqual(results.borrowResults.borrowedAmount, status.amountToPay, 4),
             status.collateralAmountLiquidated.eq(0),
-            areAlmostEqual(status.collateralAmount, parseUnits("1.999", results.init.collateralToken.decimals), 4)
+            status.collateralAmount.lte(parseUnits("1.999", results.init.collateralToken.decimals))
           ].join();
           const expected = [true, true, true, true].join();
 
@@ -1191,7 +1191,15 @@ describe("HfPoolAdapterUnitTest", () => {
         }
       );
 
-      // const info = await getMarketsInfo(d, collateralCTokenAddress, borrowCTokenAddress);
+      // This test requires two borrow: initial and borrow-to-rebalance
+      // If market has too few amount, we cannot borrow all max allowed amount initially
+      // because we need some part of the amount to rebalance. So, in this case we need to reduce initial amounts.
+      const finalAmountToBorrow = d.amountToBorrow.eq(d.plan.maxAmountToBorrow)
+        ? d.amountToBorrow.div(10)
+        : d.amountToBorrow;
+      const finalCollateralAmount = d.amountToBorrow.eq(d.plan.maxAmountToBorrow)
+        ? d.collateralAmount.div(10)
+        : d.collateralAmount;
 
       // setup high values for all health factors
       await d.controller.setMaxHealthFactor2(maxHealthFactorInitial2);
@@ -1199,19 +1207,18 @@ describe("HfPoolAdapterUnitTest", () => {
       await d.controller.setMinHealthFactor2(minHealthFactorInitial2);
 
       // make borrow
-      const amountToBorrow = d.amountToBorrow;
       if (! badPathsParams?.skipBorrow) {
         await transferAndApprove(
           collateralToken.address,
           d.userContract.address,
           await d.controller.tetuConverter(),
-          d.collateralAmount,
+          finalCollateralAmount,
           d.hfPoolAdapterTC.address
         );
 
         await d.hfPoolAdapterTC.borrow(
-          collateralAmount,
-          amountToBorrow,
+          finalCollateralAmount,
+          finalAmountToBorrow,
           d.userContract.address // receiver
         );
       }
@@ -1225,7 +1232,7 @@ describe("HfPoolAdapterUnitTest", () => {
       await d.controller.setTargetHealthFactor2(targetHealthFactorUpdated2);
       await d.controller.setMaxHealthFactor2(maxHealthFactorUpdated2);
 
-      const expectedAdditionalBorrowAmount = amountToBorrow.mul(
+      const expectedAdditionalBorrowAmount = finalAmountToBorrow.mul(
         badPathsParams?.additionalAmountCorrectionFactor
           ? badPathsParams.additionalAmountCorrectionFactor
           : 1

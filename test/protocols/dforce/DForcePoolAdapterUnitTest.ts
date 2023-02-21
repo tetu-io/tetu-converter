@@ -1038,7 +1038,7 @@ describe("DForce unit tests, pool adapter", () => {
           d.dfPoolAdapterTC.address
         );
         await d.dfPoolAdapterTC.borrow(
-          collateralAmount,
+          d.collateralAmount,
           amountToBorrow,
           d.userContract.address // receiver
         );
