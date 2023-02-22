@@ -20,6 +20,7 @@ interface ITetuConverter {
   ///                    Last items in array can contain zero addresses (it means they are not used)
   /// @return collateralAmountsOut Amounts that should be provided as a collateral
   /// @return amountToBorrowsOut Amounts that should be borrowed
+  ///                            This amount is not zero if corresponded converter is not zero.
   /// @return aprs18 Interests on the use of {amountIn_} during the given period, decimals 18
   function findBorrowStrategies(
     bytes memory entryData_,
