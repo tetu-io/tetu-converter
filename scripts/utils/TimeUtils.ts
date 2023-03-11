@@ -13,13 +13,18 @@ export class TimeUtils {
   }
 
   public static async advanceNBlocks(n: number) {
-    await mine(n, {interval: n*2.35});
-    // const start = Date.now();
-    // await ethers.provider.send('evm_increaseTime', [+(n * 2.35).toFixed(0)]);
-    // for (let i = 0; i < n; i++) {
-    //   await ethers.provider.send('evm_mine', []);
-    // }
-    // Misc.printDuration('advanceNBlocks ' + n + ' completed', start);
+    // todo Rewards are not generated in Balancer
+    // await mine(n);
+
+    // todo AAVE3 Break vars.totalAToken > vars.totalStableDebt + vars.totalVariableDebt in AAVE3 USDT, see issue230310
+    // await mine(n, {interval: n*2.35});
+
+    const start = Date.now();
+    await ethers.provider.send('evm_increaseTime', [+(n * 2.35).toFixed(0)]);
+    for (let i = 0; i < n; i++) {
+      await ethers.provider.send('evm_mine', []);
+    }
+    Misc.printDuration('advanceNBlocks ' + n + ' completed', start);
   }
 
   public static async mineAndCheck() {
