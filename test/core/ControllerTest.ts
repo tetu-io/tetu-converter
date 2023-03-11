@@ -782,6 +782,35 @@ describe("Controller", () => {
       ).to.emit(controller, "OnAcceptGovernance").withArgs(newGovernance);
     });
   });
+
+  describe("set/paused", () => {
+    describe("Good paths", () => {
+      it("should return expected values", async () => {
+        const {controller} = await createTestController(getRandomMembersValues());
+        const before = await controller.paused();
+        const governance = await controller.governance();
+        await controller.connect(await DeployerUtils.startImpersonate(governance)).setPaused(true);
+        const middle = await controller.paused();
+        await controller.connect(await DeployerUtils.startImpersonate(governance)).setPaused(false);
+        const after = await controller.paused();
+
+        const ret = [before, middle, after].join();
+        const expected = [false, true, false].join();
+
+        expect(ret).eq(expected);
+      });
+    });
+    describe("Bad paths", () => {
+      it("should revert if not governance", async () => {
+        const notGovernance = ethers.Wallet.createRandom().address;
+        const {controller} = await createTestController(getRandomMembersValues());
+
+        await expect(
+          controller.connect(await DeployerUtils.startImpersonate(notGovernance)).setPaused(true)
+        ).revertedWith("TC-9 governance only"); // GOVERNANCE_ONLY
+      });
+    });
+  });
 //endregion Unit tests
 
 });

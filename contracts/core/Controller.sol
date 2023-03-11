@@ -67,6 +67,9 @@ contract Controller is IController, Initializable {
   uint public lastBlockNumber;
   uint public lastBlockTimestamp;
 
+  /// @notice 0 - new borrows are allowed, 1 - any new borrows are forbidden
+  bool private _paused;
+
   ///////////////////////////////////////////////////////
   ///               Events
   ///////////////////////////////////////////////////////
@@ -245,5 +248,16 @@ contract Controller is IController, Initializable {
 
     governance = pendingGovernance;
     emit OnAcceptGovernance(pendingGovernance);
+  }
+
+  ///////////////////////////////////////////////////////
+  ///               Paused
+  ///////////////////////////////////////////////////////
+  function paused() external view override returns (bool) {
+    return _paused;
+  }
+  function setPaused(bool paused_) external {
+    _onlyGovernance();
+    _paused = paused_;
   }
 }

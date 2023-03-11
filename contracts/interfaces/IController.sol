@@ -49,6 +49,8 @@ interface IController {
   /// @param periodInSeconds_ Period of auto-update in seconds
   function updateBlocksPerDay(uint periodInSeconds_) external;
 
+  /// @notice 0 - new borrows are allowed, 1 - any new borrows are forbidden
+  function paused() external view returns (bool);
 
   ///////////////////////////////////////////////////////
   ///        Core application contracts

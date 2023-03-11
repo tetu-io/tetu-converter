@@ -26,7 +26,6 @@ import "../interfaces/IPriceOracle.sol";
 import "../interfaces/ITetuLiquidator.sol";
 import "../integrations/market/ICErc20.sol";
 
-import "hardhat/console.sol";
 /// @notice Main application contract
 contract TetuConverter is ITetuConverter, IKeeperCallback, IRequireAmountBySwapManagerCallback, ReentrancyGuard {
   using SafeERC20 for IERC20;
@@ -239,11 +238,9 @@ contract TetuConverter is ITetuConverter, IKeeperCallback, IRequireAmountBySwapM
     uint[] memory amountToBorrowsOut,
     int[] memory aprs18
   ) {
-    console.log("findBorrowStrategies.1");
     require(amountIn_ != 0, AppErrors.ZERO_AMOUNT);
     require(periodInBlocks_ != 0, AppErrors.INCORRECT_VALUE);
 
-    console.log("findBorrowStrategies.2");
     AppDataTypes.InputConversionParams memory params = AppDataTypes.InputConversionParams({
       collateralAsset: sourceToken_,
       borrowAsset: targetToken_,
@@ -252,7 +249,6 @@ contract TetuConverter is ITetuConverter, IKeeperCallback, IRequireAmountBySwapM
       entryData: entryData_
     });
 
-    console.log("findBorrowStrategies.3");
     return borrowManager.findConverter(params);
   }
 
