@@ -36,7 +36,7 @@ async function disablePlatformAdapter(
   console.log(`disable ${platformAdapter} done.\n\n`);
 }
 
-describe.skip("issue230310 (problem happens if mine interval > 1", () => {
+describe("issue230310 (problem happens if mine interval > 1", () => {
   it("study", async () => {
     const converterAddress = "0x298F30E21f0dfa3718b9C31ae27c8A5E6A88B95E";
     const signer = (await ethers.getSigners())[0];

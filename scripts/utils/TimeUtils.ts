@@ -1,5 +1,6 @@
 import {ethers} from "hardhat";
 import {Misc} from "./Misc";
+import {mine} from "@nomicfoundation/hardhat-network-helpers";
 export class TimeUtils {
 
   public static async advanceBlocksOnTs(add: number) {
@@ -12,12 +13,13 @@ export class TimeUtils {
   }
 
   public static async advanceNBlocks(n: number) {
-    const start = Date.now();
-    await ethers.provider.send('evm_increaseTime', [+(n * 2.35).toFixed(0)]);
-    for (let i = 0; i < n; i++) {
-      await ethers.provider.send('evm_mine', []);
-    }
-    Misc.printDuration('advanceNBlocks ' + n + ' completed', start);
+    await mine(n, {interval: n*2.35});
+    // const start = Date.now();
+    // await ethers.provider.send('evm_increaseTime', [+(n * 2.35).toFixed(0)]);
+    // for (let i = 0; i < n; i++) {
+    //   await ethers.provider.send('evm_mine', []);
+    // }
+    // Misc.printDuration('advanceNBlocks ' + n + ' completed', start);
   }
 
   public static async mineAndCheck() {
