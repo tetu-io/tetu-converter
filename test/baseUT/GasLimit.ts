@@ -1,8 +1,8 @@
 /**
  * Approx up-limits by gas for various operations under test
  */
-export const GAS_LIMIT_BM_FIND_POOL_1 = 100_000;
-export const GAS_LIMIT_BM_FIND_POOL_5 = 320_000;
+export const GAS_LIMIT_BM_FIND_POOL_1 = 102_000;
+export const GAS_LIMIT_BM_FIND_POOL_5 = 323_000;
 export const GAS_LIMIT_BM_FIND_POOL_10 = 383_000;
 export const GAS_LIMIT_BM_FIND_POOL_100 = 3_710_000;
 
@@ -23,7 +23,7 @@ export const GAS_TC_REPAY = 304_000;
 export const GAS_TC_QUOTE_REPAY = 33_000;
 export const GAS_TC_SAFE_LIQUIDATE = 174_000;
 
-export const GAS_FIND_SWAP_STRATEGY = 240_000;
+export const GAS_FIND_SWAP_STRATEGY = 242_000;
 export const GAS_SWAP_SIMULATE = 212_000;
 export const GAS_SWAP = 211_000;
 export const GAS_SWAP_APR18 = 43_400;

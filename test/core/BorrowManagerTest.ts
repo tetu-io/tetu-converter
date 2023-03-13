@@ -274,21 +274,21 @@ describe("BorrowManager", () => {
     }
 
     console.log("Source amount:", getBigNumberFrom(sourceAmountNum, await sourceToken.decimals()).toString());
-    const ret = await core.bm.findConverter({
-      collateralAsset: sourceToken.address,
-      amountIn: getBigNumberFrom(sourceAmountNum, await sourceToken.decimals()),
-      borrowAsset: params?.targetAssetToSearch || targetToken.address,
-      countBlocks: periodInBlocks,
-      entryData: "0x"
-    });
+    const ret = await core.bm.findConverter(
+      "0x",
+      sourceToken.address,
+      params?.targetAssetToSearch || targetToken.address,
+      getBigNumberFrom(sourceAmountNum, await sourceToken.decimals()),
+      periodInBlocks,
+    );
     const gas = params?.estimateGas
-      ? await core.bm.estimateGas.findConverter({
-        collateralAsset: sourceToken.address,
-        amountIn: getBigNumberFrom(sourceAmountNum, await sourceToken.decimals()),
-        borrowAsset: targetToken.address,
-        countBlocks: periodInBlocks,
-        entryData: "0x"
-      })
+      ? await core.bm.estimateGas.findConverter(
+        "0x",
+        sourceToken.address,
+        params?.targetAssetToSearch || targetToken.address,
+        getBigNumberFrom(sourceAmountNum, await sourceToken.decimals()),
+        periodInBlocks,
+      )
       : undefined;
 
     return {
@@ -363,13 +363,13 @@ describe("BorrowManager", () => {
     );
 
     const sourceAmount = getBigNumberFrom(sourceAmountNum, await sourceToken.decimals());
-    const r = await core.bm.findConverter({
-      collateralAsset: sourceToken.address,
-      amountIn: sourceAmount,
-      borrowAsset: targetToken.address,
+    const r = await core.bm.findConverter(
+      "0x",
+      sourceToken.address,
+      targetToken.address,
+      sourceAmount,
       countBlocks,
-      entryData: "0x"
-    });
+    );
 
     return {
       apr18: r.aprs18Out[0], // best one
@@ -1126,7 +1126,6 @@ describe("BorrowManager", () => {
           expect(sret).equal(sexpected);
         });
       });
-
       describe("Check pool selection", () => {
         describe("Example 1: Pool 1 has a lowest borrow rate", () => {
           it("should return Pool 1 and expected amount", async () => {

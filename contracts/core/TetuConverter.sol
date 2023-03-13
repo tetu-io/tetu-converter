@@ -49,6 +49,22 @@ contract TetuConverter is ITetuConverter, IKeeperCallback, IRequireAmountBySwapM
 
 
   ///////////////////////////////////////////////////////
+  ///                Data types
+  ///////////////////////////////////////////////////////
+
+  /// @notice Local vars for {findConversionStrategy}
+  struct FindConversionStrategyLocal {
+    address[] borrowConverters;
+    uint[] borrowSourceAmounts;
+    uint[] borrowTargetAmounts;
+    int[] borrowAprs18;
+    address swapConverter;
+    uint swapSourceAmount;
+    uint swapTargetAmount;
+    int swapApr18;
+  }
+
+  ///////////////////////////////////////////////////////
   ///               Events
   ///////////////////////////////////////////////////////
   event OnSwap(
@@ -175,37 +191,31 @@ contract TetuConverter is ITetuConverter, IKeeperCallback, IRequireAmountBySwapM
     require(amountIn_ != 0, AppErrors.ZERO_AMOUNT);
     require(periodInBlocks_ != 0, AppErrors.INCORRECT_VALUE);
 
-    ( address swapConverter,
-      uint swapSourceAmount,
-      uint swapTargetAmount,
-      int swapApr18) = _findSwapStrategy(entryData_, sourceToken_, amountIn_, targetToken_);
+    FindConversionStrategyLocal memory p;
+    if (!controller.paused()) {
+      (p.borrowConverters,
+       p.borrowSourceAmounts,
+       p.borrowTargetAmounts,
+       p.borrowAprs18
+      ) = borrowManager.findConverter(entryData_, sourceToken_, targetToken_, amountIn_, periodInBlocks_);
 
-    AppDataTypes.InputConversionParams memory params = AppDataTypes.InputConversionParams({
-      collateralAsset: sourceToken_,
-      borrowAsset: targetToken_,
-      amountIn: amountIn_,
-      countBlocks: periodInBlocks_,
-      entryData: entryData_
-    });
+      (p.swapConverter,
+       p.swapSourceAmount,
+       p.swapTargetAmount,
+       p.swapApr18) = _findSwapStrategy(entryData_, sourceToken_, amountIn_, targetToken_);
+    }
 
-    (address[] memory borrowConverters,
-     uint[] memory borrowSourceAmounts,
-     uint[] memory borrowTargetAmounts,
-     int[] memory borrowAprs18
-    ) = borrowManager.findConverter(params);
-
-
-    if (borrowConverters.length == 0) {
-      return (swapConverter == address(0))
+    if (p.borrowConverters.length == 0) {
+      return (p.swapConverter == address(0))
         ? (address(0), uint(0), uint(0), int(0))
-        : (swapConverter, swapSourceAmount, swapTargetAmount, swapApr18);
+        : (p.swapConverter, p.swapSourceAmount, p.swapTargetAmount, p.swapApr18);
     } else {
-      if (swapConverter == address(0)) {
-        return (borrowConverters[0], borrowSourceAmounts[0], borrowTargetAmounts[0], borrowAprs18[0]);
+      if (p.swapConverter == address(0)) {
+        return (p.borrowConverters[0], p.borrowSourceAmounts[0], p.borrowTargetAmounts[0], p.borrowAprs18[0]);
       } else {
-        return (swapApr18 > borrowAprs18[0])
-          ? (borrowConverters[0], borrowSourceAmounts[0], borrowTargetAmounts[0], borrowAprs18[0])
-          : (swapConverter, swapSourceAmount, swapTargetAmount, swapApr18);
+        return (p.swapApr18 > p.borrowAprs18[0])
+          ? (p.borrowConverters[0], p.borrowSourceAmounts[0], p.borrowTargetAmounts[0], p.borrowAprs18[0])
+          : (p.swapConverter, p.swapSourceAmount, p.swapTargetAmount, p.swapApr18);
       }
     }
   }
@@ -241,15 +251,9 @@ contract TetuConverter is ITetuConverter, IKeeperCallback, IRequireAmountBySwapM
     require(amountIn_ != 0, AppErrors.ZERO_AMOUNT);
     require(periodInBlocks_ != 0, AppErrors.INCORRECT_VALUE);
 
-    AppDataTypes.InputConversionParams memory params = AppDataTypes.InputConversionParams({
-      collateralAsset: sourceToken_,
-      borrowAsset: targetToken_,
-      amountIn: amountIn_,
-      countBlocks: periodInBlocks_,
-      entryData: entryData_
-    });
-
-    return borrowManager.findConverter(params);
+    return controller.paused()
+      ? (converters, collateralAmountsOut, amountToBorrowsOut, aprs18) // no conversion is available
+      : borrowManager.findConverter(entryData_, sourceToken_, targetToken_, amountIn_, periodInBlocks_);
   }
 
   /// @notice Find best swap strategy and provide "cost of money" as interest for the period
@@ -277,7 +281,10 @@ contract TetuConverter is ITetuConverter, IKeeperCallback, IRequireAmountBySwapM
     int apr18
   ) {
     require(amountIn_ != 0, AppErrors.ZERO_AMOUNT);
-    return _findSwapStrategy(entryData_, sourceToken_, amountIn_, targetToken_);
+
+    return controller.paused()
+      ? (converter, sourceAmountOut, targetAmountOut, apr18) // no conversion is available
+      : _findSwapStrategy(entryData_, sourceToken_, amountIn_, targetToken_);
   }
 
   /// @notice Calculate amount to swap according to the given {entryData_} and estimate result amount of {targetToken_}

@@ -159,10 +159,10 @@ contract Aave3PlatformAdapter is IPlatformAdapter {
   ) external view override returns (
     AppDataTypes.ConversionPlan memory plan
   ) {
-    LocalsGetConversionPlan memory vars;
-    vars.controller = controller;
-    if (! frozen && !vars.controller.paused()) {
+    if (! frozen) {
       AppDataTypes.PricesAndDecimals memory pd;
+      LocalsGetConversionPlan memory vars;
+      vars.controller = controller;
 
       require(params.collateralAsset != address(0) && params.borrowAsset != address(0), AppErrors.ZERO_ADDRESS);
       require(params.amountIn != 0 && params.countBlocks != 0, AppErrors.INCORRECT_VALUE);

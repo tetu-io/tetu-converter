@@ -179,7 +179,7 @@ contract HfPlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
     require(p_.amountIn != 0 && p_.countBlocks != 0, AppErrors.INCORRECT_VALUE);
     require(healthFactor2_ >= controller.minHealthFactor2(), AppErrors.WRONG_HEALTH_FACTOR);
 
-    if (! frozen && !controller.paused()) {
+    if (! frozen) {
       LocalsGetConversionPlan memory vars;
       vars.comptroller = comptroller;
       vars.cTokenCollateral = activeAssets[p_.collateralAsset];
