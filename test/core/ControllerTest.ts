@@ -811,6 +811,55 @@ describe("Controller", () => {
       });
     });
   });
+
+  describe("setWhitelist", () => {
+    describe("Good paths", () => {
+      it("should return expected values", async () => {
+        const user1 = ethers.Wallet.createRandom().address;
+        const user2 = ethers.Wallet.createRandom().address;
+        const user7 = ethers.Wallet.createRandom().address;
+
+        const {controller} = await createTestController(getRandomMembersValues());
+        const governance = await controller.governance();
+        await controller.connect(await DeployerUtils.startImpersonate(governance)).setWhitelistValues([user1, user2], true);
+        const state10 = await controller.isWhitelisted(user1);
+        const state20 = await controller.isWhitelisted(user2);
+        const state30 = await controller.isWhitelisted(user7);
+        await controller.connect(await DeployerUtils.startImpersonate(governance)).setWhitelistValues([user1, user7], false);
+        const state11 = await controller.isWhitelisted(user1);
+        const state21 = await controller.isWhitelisted(user2);
+        const state31 = await controller.isWhitelisted(user7);
+        await controller.connect(await DeployerUtils.startImpersonate(governance)).setWhitelistValues([user1, user2, user7], true);
+        const state12 = await controller.isWhitelisted(user1);
+        const state22 = await controller.isWhitelisted(user2);
+        const state32 = await controller.isWhitelisted(user7);
+
+        const ret = [
+          state10, state20, state30,
+          state11, state21, state31,
+          state12, state22, state32
+        ].join("\n");
+        const expected = [
+          true, true, false,
+          false, true, false,
+          true, true, true
+        ].join("\n");
+
+        expect(ret).eq(expected);
+      });
+    });
+    describe("Bad paths", () => {
+      it("should revert if not governance", async () => {
+        const notGovernance = ethers.Wallet.createRandom().address;
+        const {controller} = await createTestController(getRandomMembersValues());
+        const user1 = ethers.Wallet.createRandom().address;
+
+        await expect(
+          controller.connect(await DeployerUtils.startImpersonate(notGovernance)).setWhitelistValues([user1], true)
+        ).revertedWith("TC-9 governance only"); // GOVERNANCE_ONLY
+      });
+    });
+  });
 //endregion Unit tests
 
 });

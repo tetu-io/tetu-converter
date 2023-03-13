@@ -96,6 +96,7 @@ interface ITetuConverter {
   /// @notice Convert {collateralAmount_} to {amountToBorrow_} using {converter_}
   ///         Target amount will be transferred to {receiver_}. No re-balancing here.
   /// @dev Transferring of {collateralAmount_} by TetuConverter-contract must be approved by the caller before the call
+  ///      Only whitelisted users are allowed to make borrows
   /// @param converter_ A converter received from findBestConversionStrategy.
   /// @param collateralAmount_ Amount of {collateralAsset_} to be converted.
   ///                          This amount must be approved to TetuConverter before the call.

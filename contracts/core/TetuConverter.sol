@@ -330,6 +330,7 @@ contract TetuConverter is ITetuConverter, IKeeperCallback, IRequireAmountBySwapM
   /// @notice Convert {collateralAmount_} to {amountToBorrow_} using {converter_}
   ///         Target amount will be transferred to {receiver_}. No re-balancing here.
   /// @dev Transferring of {collateralAmount_} by TetuConverter-contract must be approved by the caller before the call
+  ///      Only whitelisted users are allowed to make borrows
   /// @param converter_ A converter received from findBestConversionStrategy.
   /// @param collateralAmount_ Amount of {collateralAsset_}.
   ///                          This amount must be approved to TetuConverter before the call.
@@ -346,6 +347,7 @@ contract TetuConverter is ITetuConverter, IKeeperCallback, IRequireAmountBySwapM
   ) external override nonReentrant returns (
     uint borrowedAmountOut
   ) {
+    require(controller.isWhitelisted(msg.sender), AppErrors.OUT_OF_WHITE_LIST);
     return _convert(
       converter_,
       collateralAsset_,
@@ -807,7 +809,9 @@ contract TetuConverter is ITetuConverter, IKeeperCallback, IRequireAmountBySwapM
     address[] memory rewardTokensOut,
     uint[] memory amountsOut
   ) {
+    // The sender is able to claim his own rewards only, so no need to check sender
     address[] memory poolAdapters = debtMonitor.getPositionsForUser(msg.sender);
+
     uint lenPoolAdapters = poolAdapters.length;
     address[] memory rewardTokens = new address[](lenPoolAdapters);
     uint[] memory amounts = new uint[](lenPoolAdapters);

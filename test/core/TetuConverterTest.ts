@@ -127,6 +127,7 @@ describe("TetuConverterTest", () => {
       tetuAppSetupParams
     );
     const userContract = await MocksHelper.deployBorrower(deployer.address, core.controller, periodInBlocks);
+    await core.controller.setWhitelistValues([userContract.address], true);
     const bmAsTc = BorrowManager__factory.connect(core.bm.address,
       await DeployerUtils.startImpersonate(core.tc.address)
     );
