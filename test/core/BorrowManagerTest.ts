@@ -424,7 +424,7 @@ describe("BorrowManager", () => {
     return dest;
   }
 
-  async function getUniquePoolAdaptersForTwoPoolsAndTwoPairs(countUsers: number) : Promise<{
+  interface IUniquePoolAdaptersResults {
     out: {
       poolAdapterAddress: string,
       initConfig: IPoolAdapterConfig,
@@ -435,7 +435,8 @@ describe("BorrowManager", () => {
       controller: Controller,
       pools: IPoolInstanceInfo[]
     }
-  }> {
+  }
+  async function getUniquePoolAdaptersForTwoPoolsAndTwoPairs(countUsers: number) : Promise<IUniquePoolAdaptersResults> {
     const tt = {
       collateralFactor: 0.8,
       priceSourceUSD: 0.1,
@@ -1706,6 +1707,25 @@ describe("BorrowManager", () => {
 
         expect(ret.join()).equal(expected.join());
       });
+    });
+  });
+
+  describe("listPoolAdapters", () => {
+    it("should return expected values", async () => {
+      const r: IUniquePoolAdaptersResults = await getUniquePoolAdaptersForTwoPoolsAndTwoPairs(2);
+
+      const count = (await r.app.borrowManager.listPoolAdaptersLength()).toNumber();
+      const ret = [];
+      for (let i = 0; i < count; ++i) {
+        ret.push(
+          await r.app.borrowManager.listPoolAdapters(i)
+        );
+      }
+
+      const sret = ret.join("\n");
+      const sexpected = r.out.map(x => x.poolAdapterAddress).join("\n");
+
+      expect(sret).eq(sexpected);
     });
   });
 

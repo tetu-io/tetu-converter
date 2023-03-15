@@ -309,6 +309,7 @@ export class BorrowRepayUsesCase {
       {}
     );
     const uc = await MocksHelper.deployBorrower(deployer.address, controller, p.countBlocks);
+    await controller.connect(await DeployerUtils.startImpersonate(await controller.governance())).setWhitelistValues([uc.address], true);
 
     const c0 = await setInitialBalance(deployer,
       collateralToken.address,
@@ -363,6 +364,7 @@ export class BorrowRepayUsesCase {
     countBlocksToSkipAfterBorrow?: number
   ) : Promise<IMakeSingleBorrowSingleFullRepayBaseResults>{
     const uc = await MocksHelper.deployBorrower(deployer.address, controller, p.countBlocks);
+    await controller.connect(await DeployerUtils.startImpersonate(await controller.governance())).setWhitelistValues([uc.address], true);
 
     const collateralToken = await TokenDataTypes.Build(deployer, p.collateral.asset);
     const borrowToken = await TokenDataTypes.Build(deployer, p.borrow.asset);
@@ -508,6 +510,7 @@ export class BorrowRepayUsesCase {
       {} // disable swap
     );
     const uc = await MocksHelper.deployBorrower(deployer.address, controller, p.countBlocks);
+    await controller.connect(await DeployerUtils.startImpersonate(await controller.governance())).setWhitelistValues([uc.address], true);
 
     const c0 = await setInitialBalance(deployer, collateralToken.address,
       p.collateral.holder, p.collateral.initialLiquidity, uc.address);
@@ -601,6 +604,7 @@ export class BorrowRepayUsesCase {
       {} // disable swap
     );
     const uc = await MocksHelper.deployBorrower(deployer.address, controller, p.countBlocks);
+    await controller.connect(await DeployerUtils.startImpersonate(await controller.governance())).setWhitelistValues([uc.address], true);
 
     const collateralToken = await TokenDataTypes.Build(deployer, p.collateral.asset);
     const borrowToken = await TokenDataTypes.Build(deployer, p.borrow.asset);
@@ -669,6 +673,7 @@ export class BorrowRepayUsesCase {
     additionalAmountToPassToQuoteRepay?: number
   ) : Promise<IQuoteRepayResults>{
     const uc = await MocksHelper.deployBorrower(deployer.address, controller, p.countBlocks);
+    await controller.connect(await DeployerUtils.startImpersonate(await controller.governance())).setWhitelistValues([uc.address], true);
 
     const collateralToken = await TokenDataTypes.Build(deployer, p.collateral.asset);
     const borrowToken = await TokenDataTypes.Build(deployer, p.borrow.asset);
@@ -735,6 +740,7 @@ export class BorrowRepayUsesCase {
     controller: Controller
   ) : Promise<IActionsResults>{
     const uc = await MocksHelper.deployBorrower(deployer.address, controller, p.countBlocks);
+    await controller.connect(await DeployerUtils.startImpersonate(await controller.governance())).setWhitelistValues([uc.address], true);
 
     const collateralToken = await TokenDataTypes.Build(deployer, p.collateral.asset);
     const borrowToken = await TokenDataTypes.Build(deployer, p.borrow.asset);

@@ -11,6 +11,7 @@ import {BorrowRepayUsesCase} from "../uses-cases/BorrowRepayUsesCase";
 import {BorrowAction} from "../actions/BorrowAction";
 import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import {MaticAddresses} from "../../../scripts/addresses/MaticAddresses";
+import {DeployerUtils} from "../../../scripts/utils/DeployerUtils";
 
 export class KeeperTestMockUtils {
   /**
@@ -66,10 +67,8 @@ export class KeeperTestMockUtils {
         tetuLiquidatorAddress: MaticAddresses.TETU_LIQUIDATOR
       }
     );
-    const uc: Borrower = await MocksHelper.deployBorrower(deployer.address
-      , controller
-      , p.countBlocks
-    );
+    const uc: Borrower = await MocksHelper.deployBorrower(deployer.address, controller, p.countBlocks);
+    await controller.connect(await DeployerUtils.startImpersonate(await controller.governance())).setWhitelistValues([uc.address], true);
     const collateralAmount = getBigNumberFrom(p.collateralAmount, collateralToken.decimals);
 
     // transfer sufficient amount of collateral to the user

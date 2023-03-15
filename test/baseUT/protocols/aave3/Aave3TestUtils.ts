@@ -192,6 +192,7 @@ export class Aave3TestUtils {
     // controller: we need TC (as a caller) and DM (to register borrow position)
     const controller = await TetuConverterApp.createController(deployer);
     const userContract = await MocksHelper.deployBorrower(deployer.address, controller, periodInBlocks);
+    await controller.connect(await DeployerUtils.startImpersonate(await controller.governance())).setWhitelistValues([userContract.address], true);
 
     const converterNormal = await AdaptersHelper.createAave3PoolAdapter(deployer);
     const converterEMode = await AdaptersHelper.createAave3PoolAdapterEMode(deployer);

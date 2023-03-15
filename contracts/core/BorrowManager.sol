@@ -80,9 +80,13 @@ contract BorrowManager is IBorrowManager {
   /// @dev user => PoolAdapterKey(== keccak256(converter, collateral, borrowToken)) => address of the pool adapter
   mapping (address => EnumerableMap.UintToAddressMap) private _poolAdapters;
 
-  /// @notice Pool adapter => is registered
+  /// @notice Pool adapter => (1 + index of the pool adapter in {listPoolAdapters})
   /// @dev This list contains info for all ever created pool adapters (both for not-dirty and dirty ones).
-  mapping (address => bool) public poolAdaptersRegistered;
+  mapping (address => uint) public poolAdaptersRegistered;
+
+  /// @notice List of addresses of all ever created pool adapters (both for not-dirty and dirty ones).
+  /// @dev Allow to get full list of the pool adapter and then filter it by any criteria (asset, user, state, etc)
+  address[] public listPoolAdapters;
 
   ///////////////////////////////////////////////////////
   ///               Events
@@ -420,7 +424,9 @@ contract BorrowManager is IBorrowManager {
 
       // register newly created pool adapter in the list of the pool adapters
       _poolAdapters[user_].set(poolAdapterKey, dest);
-      poolAdaptersRegistered[dest] = true;
+      uint index = listPoolAdapters.length;
+      poolAdaptersRegistered[dest] = index + 1;
+      listPoolAdapters.push(dest);
 
       emit OnRegisterPoolAdapter(dest, converter_, user_, collateralAsset_, borrowAsset_);
     }
@@ -458,7 +464,7 @@ contract BorrowManager is IBorrowManager {
 
   /// @dev Returns true for NORMAL pool adapters and for active DIRTY pool adapters (=== borrow position is opened).
   function isPoolAdapter(address poolAdapter_) external view override returns (bool) {
-    return poolAdaptersRegistered[poolAdapter_];
+    return poolAdaptersRegistered[poolAdapter_] != 0;
   }
 
   /// @notice Get pool adapter or 0 if the pool adapter is not registered
@@ -539,5 +545,9 @@ contract BorrowManager is IBorrowManager {
 
   function platformAdapterPairsAt(address platformAdapter_, uint index) public view returns (AssetPair memory) {
     return _assetPairs[_platformAdapterPairs[platformAdapter_].at(index)];
+  }
+
+  function listPoolAdaptersLength() public view returns (uint) {
+    return listPoolAdapters.length;
   }
 }

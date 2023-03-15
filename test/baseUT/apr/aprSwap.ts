@@ -45,6 +45,7 @@ export class AprSwap {
       }
     );
     const userContract = await MocksHelper.deployBorrower(deployer.address, controller, 4000);
+    await controller.connect(await DeployerUtils.startImpersonate(await controller.governance())).setWhitelistValues([userContract.address], true);
 
     await BalanceUtils.getRequiredAmountFromHolders(
       collateralAmount,

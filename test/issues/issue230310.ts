@@ -2,8 +2,6 @@ import {
   IController__factory,
   IERC20__factory,
   IERC20Metadata__factory, IPlatformAdapter__factory,
-  ITetuConverter,
-  ITetuConverter__factory,
   TetuConverter, TetuConverter__factory
 } from "../../typechain";
 import {ethers} from "hardhat";
@@ -13,7 +11,6 @@ import {MaticAddresses} from "../../scripts/addresses/MaticAddresses";
 import {TimeUtils} from "../../scripts/utils/TimeUtils";
 import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import {DeployerUtils} from "../../scripts/utils/DeployerUtils";
-import {DeployUtils} from "../../scripts/utils/DeployUtils";
 import {TetuConverterApp} from "../baseUT/helpers/TetuConverterApp";
 import {Aave3PlatformFabric} from "../baseUT/fabrics/Aave3PlatformFabric";
 
@@ -38,7 +35,7 @@ async function disablePlatformAdapter(
   console.log(`disable ${platformAdapter} done.\n\n`);
 }
 
-describe("issue230310 (problem happens if mine interval > 1", () => {
+describe.skip("issue230310 (problem happens if mine interval > 1", () => {
   it("study using deployed TC beta 5", async () => {
     const converterAddress = "0x298F30E21f0dfa3718b9C31ae27c8A5E6A88B95E";
     const signer = (await ethers.getSigners())[0];

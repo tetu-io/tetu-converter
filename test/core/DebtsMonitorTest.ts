@@ -139,6 +139,7 @@ describe("DebtsMonitor", () => {
         : (await MocksHelper.createPoolAdapterMock(deployer)).address,
     );
     const userContract = await MocksHelper.deployBorrower(user, core.controller, periodInBlocks);
+    await core.controller.connect(await DeployerUtils.startImpersonate(await core.controller.governance())).setWhitelistValues([userContract.address], true);
     const bmAsTc = BorrowManager__factory.connect(core.bm.address,
       await DeployerUtils.startImpersonate(core.tc.address)
     );

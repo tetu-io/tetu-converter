@@ -13,6 +13,7 @@ import {IBorrowingTestResults, ISwapTestResults} from "../uses-cases/CompareAprU
 import {IPointResults} from "./aprDataTypes";
 import {Misc} from "../../../scripts/utils/Misc";
 import {MaticAddresses} from "../../../scripts/addresses/MaticAddresses";
+import {DeployerUtils} from "../../../scripts/utils/DeployerUtils";
 
 //region Make borrow
 /**
@@ -41,6 +42,7 @@ export async function makeBorrow (
     }
   );
   const uc = await MocksHelper.deployBorrower(deployer.address, controller, p.countBlocks);
+  await controller.connect(await DeployerUtils.startImpersonate(await controller.governance())).setWhitelistValues([uc.address], true);
 
   const collateralToken = await TokenDataTypes.Build(deployer, p.collateral.asset);
   const borrowToken = await TokenDataTypes.Build(deployer, p.borrow.asset);
