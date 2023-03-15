@@ -686,6 +686,41 @@ contract TetuConverter is ITetuConverter, IKeeperCallback, IRequireAmountBySwapM
     );
   }
 
+
+  ///////////////////////////////////////////////////////
+  ///       Close borrow forcibly by governance
+  ///////////////////////////////////////////////////////
+  /// @notice Close given borrow and return collateral back to the user, governance only
+  /// @dev The pool adapter asks required amount-to-repay from the user internally
+  /// @param lendingPoolAdapter A borrow that should be closed forcibly
+  /// @return collateralOut Amount of collateral returned to the user
+  /// @return repaidAmountOut Amount of borrow asset repaid to the lending platform
+  function closeBorrowForcibly(
+    address lendingPoolAdapter
+  ) external returns (
+    uint collateralOut,
+    uint repaidAmountOut
+  ) {
+    // update internal debts and get actual amount to repay
+    IPoolAdapter pa = IPoolAdapter(poolAdapter_);
+    (,address user, address collateralAsset, address borrowAsset) = pa.getConfig();
+    pa.updateStatus();
+    (, uint amountToPay,,,) = pa.getStatus();
+
+    // ask user for the amount-to-repay
+    uint balanceBorrowedAsset = IERC20(borrowAsset).balanceOf(address(this));
+    (, bool isCollateral) = ITetuConverterCallback(user).requireAmountBack(
+      collateralAsset,
+      requiredAmountCollateralAsset_,
+      borrowAsset,
+      requiredAmountBorrowAsset_
+    );
+
+    // make full repay
+
+    return (collateralOut, repaidAmountOut);
+  }
+
   ///////////////////////////////////////////////////////
   ///       Get debt/repay info
   ///////////////////////////////////////////////////////
