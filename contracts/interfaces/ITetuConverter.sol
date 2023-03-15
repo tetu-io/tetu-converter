@@ -247,9 +247,7 @@ interface ITetuConverter {
   /// @dev The pool adapter asks required amount-to-repay from the user internally
   /// @return collateralOut Amount of collateral returned to the user
   /// @return repaidAmountOut Amount of borrow asset repaid to the lending platform
-  function closeBorrowForcibly(
-    address lendingPoolAdapter
-  ) external returns (
+  function closeBorrowForcibly(address poolAdapter_) external returns (
     uint collateralOut,
     uint repaidAmountOut
   );

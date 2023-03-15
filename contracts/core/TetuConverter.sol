@@ -109,7 +109,8 @@ contract TetuConverter is ITetuConverter, IKeeperCallback, IRequireAmountBySwapM
     address poolAdapter,
     uint amount,
     bool isCollateral,
-    uint statusAmountToPay
+    uint statusAmountToPay,
+    uint healthFactorAfterRepay18
   );
 
   event OnClaimRewards(
@@ -125,6 +126,12 @@ contract TetuConverter is ITetuConverter, IKeeperCallback, IRequireAmountBySwapM
     address targetToken,
     address receiver,
     uint outputAmount
+  );
+
+  event OnCloseBorrowForcibly(
+    address poolAdapter,
+    uint collateralOut,
+    uint repaidAmountOut
   );
 
   ///////////////////////////////////////////////////////
@@ -602,67 +609,48 @@ contract TetuConverter is ITetuConverter, IKeeperCallback, IRequireAmountBySwapM
 
   /// @notice This function is called by a keeper if there is unhealthy borrow
   ///         The called contract should send either collateral-amount or borrowed-amount to TetuConverter
-  /// @param requiredAmountBorrowAsset_ The borrower should return given borrowed amount back to TetuConverter
-  ///                                   in order to restore health factor to target value
-  /// @param requiredAmountCollateralAsset_ The borrower should send given amount of collateral to TetuConverter
-  ///                                       in order to restore health factor to target value
+  /// @param requiredBorrowedAmount_ The borrower should return given borrowed amount back to TetuConverter
+  ///                                in order to restore health factor to target value
+  /// @param requiredCollateralAmount_ The borrower should send given amount of collateral to TetuConverter
+  ///                                  in order to restore health factor to target value
   /// @param poolAdapter_ Address of the pool adapter that has problem health factor
   function requireRepay(
-    uint requiredAmountBorrowAsset_,
-    uint requiredAmountCollateralAsset_,
+    uint requiredBorrowedAmount_,
+    uint requiredCollateralAmount_,
     address poolAdapter_
   ) external nonReentrant override {
     require(keeper == msg.sender, AppErrors.KEEPER_ONLY);
-    require(requiredAmountBorrowAsset_ != 0, AppErrors.INCORRECT_VALUE);
+    require(requiredBorrowedAmount_ != 0, AppErrors.INCORRECT_VALUE);
 
     IPoolAdapter pa = IPoolAdapter(poolAdapter_);
-    (,address user, address collateralAsset, address borrowAsset) = pa.getConfig();
+    (,address user, address collateralAsset,) = pa.getConfig();
     pa.updateStatus();
     (, uint amountToPay,,,) = pa.getStatus();
 
-    if (requiredAmountCollateralAsset_ == 0) {
+    if (requiredCollateralAmount_ == 0) {
       // Full liquidation happens, we have lost all collateral amount
       // We need to close the position as is and drop away the pool adapter without paying any debt
       debtMonitor.closeLiquidatedPosition(address(pa));
       emit OnRequireRepayCloseLiquidatedPosition(address(pa), amountToPay);
     } else {
       // rebalancing
-      //!TODO: we have exactly same checking inside pool adapters... we need to check this condition only once
-      require(amountToPay != 0 && requiredAmountBorrowAsset_ < amountToPay, AppErrors.REPAY_TO_REBALANCE_NOT_ALLOWED);
+      require(amountToPay != 0 && requiredBorrowedAmount_ < amountToPay, AppErrors.REPAY_TO_REBALANCE_NOT_ALLOWED);
 
-      // ask the borrower to send us required part of the borrowed amount
-      uint balanceBorrowedAsset = IERC20(borrowAsset).balanceOf(address(this));
-      uint balanceCollateralAsset = IERC20(collateralAsset).balanceOf(address(this));
-      (, bool isCollateral) = ITetuConverterCallback(user).requireAmountBack(
-        collateralAsset,
-        requiredAmountCollateralAsset_,
-        borrowAsset,
-        requiredAmountBorrowAsset_
-      );
+      // for borrowers it's much easier to return collateral asset than borrow asset
+      // so ask the borrower to send us collateral asset
+      uint balanceBefore = IERC20(collateralAsset).balanceOf(address(this));
+      ITetuConverterCallback(user).requirePayAmountBack(collateralAsset, requiredCollateralAmount_);
+      uint balanceAfter = IERC20(collateralAsset).balanceOf(address(this));
 
-      // re-send amount-to-repay to the pool adapter and make rebalancing
-      if (isCollateral) {
-        // the borrower has sent us the amount of collateral asset
-        require(
-          IERC20(collateralAsset).balanceOf(address(this)) == requiredAmountCollateralAsset_ + balanceCollateralAsset,
-          AppErrors.WRONG_AMOUNT_RECEIVED
-        );
-        // replaced by infinity approve: IERC20(collateralAsset).safeApprove(poolAdapter_, requiredAmountCollateralAsset_);
-      } else {
-        // the borrower has sent us the amount of borrow asset
-        require(
-          IERC20(borrowAsset).balanceOf(address(this)) == requiredAmountBorrowAsset_ + balanceBorrowedAsset,
-          AppErrors.WRONG_AMOUNT_RECEIVED
-        );
-        // replaced by infinity approve: IERC20(borrowAsset).safeApprove(poolAdapter_, requiredAmountBorrowAsset_);
-      }
+      // ensure that we have received any amount .. and use it for repayment
+      // probably we've received less then expected - it's ok, just let's use as much as possible
+      // DebtMonitor will ask to make rebalancing once more if necessary
+      require(balanceAfter > balanceBefore, AppErrors.WRONG_AMOUNT_RECEIVED);
+      uint amount = balanceAfter - balanceBefore;
+      // replaced by infinity approve: IERC20(collateralAsset).safeApprove(poolAdapter_, requiredAmountCollateralAsset_);
 
-      uint amount = isCollateral ? requiredAmountCollateralAsset_ : requiredAmountBorrowAsset_;
-      uint resultHealthFactor18 = pa.repayToRebalance(amount, isCollateral);
-      emit OnRequireRepayRebalancing(address(pa), amount, isCollateral, amountToPay);
-
-      // ensure that the health factor was restored to ~target health factor value
-      ensureApproxSameToTargetHealthFactor(borrowAsset, resultHealthFactor18);
+      uint resultHealthFactor18 = pa.repayToRebalance(amount, true);
+      emit OnRequireRepayRebalancing(address(pa), amount, true, amountToPay, resultHealthFactor18);
     }
   }
 
@@ -692,33 +680,34 @@ contract TetuConverter is ITetuConverter, IKeeperCallback, IRequireAmountBySwapM
   ///////////////////////////////////////////////////////
   /// @notice Close given borrow and return collateral back to the user, governance only
   /// @dev The pool adapter asks required amount-to-repay from the user internally
-  /// @param lendingPoolAdapter A borrow that should be closed forcibly
-  /// @return collateralOut Amount of collateral returned to the user
+  /// @param poolAdapter_ A borrow that should be closed forcibly
+  /// @return collateralAmountOut Amount of collateral returned to the user
   /// @return repaidAmountOut Amount of borrow asset repaid to the lending platform
   function closeBorrowForcibly(
-    address lendingPoolAdapter
+    address poolAdapter_
   ) external returns (
-    uint collateralOut,
+    uint collateralAmountOut,
     uint repaidAmountOut
   ) {
     // update internal debts and get actual amount to repay
     IPoolAdapter pa = IPoolAdapter(poolAdapter_);
     (,address user, address collateralAsset, address borrowAsset) = pa.getConfig();
     pa.updateStatus();
-    (, uint amountToPay,,,) = pa.getStatus();
+    (, repaidAmountOut,,,) = pa.getStatus();
 
-    // ask user for the amount-to-repay
-    uint balanceBorrowedAsset = IERC20(borrowAsset).balanceOf(address(this));
-    (, bool isCollateral) = ITetuConverterCallback(user).requireAmountBack(
-      collateralAsset,
-      requiredAmountCollateralAsset_,
-      borrowAsset,
-      requiredAmountBorrowAsset_
-    );
+    // ask the user for the amount-to-repay
+    uint balanceBefore = IERC20(borrowAsset).balanceOf(address(this));
+    ITetuConverterCallback(user).requirePayAmountBack(collateralAsset, repaidAmountOut);
+    uint balanceAfter = IERC20(borrowAsset).balanceOf(address(this));
 
-    // make full repay
+    // ensure that we have received full required amount
+    require(balanceAfter == balanceBefore + repaidAmountOut, AppErrors.WRONG_AMOUNT_RECEIVED);
 
-    return (collateralOut, repaidAmountOut);
+    // make full repay and close the position
+    collateralAmountOut = pa.repay(repaidAmountOut, user, true);
+    emit OnCloseBorrowForcibly(poolAdapter_, collateralAmountOut, repaidAmountOut);
+
+    return (collateralAmountOut, repaidAmountOut);
   }
 
   ///////////////////////////////////////////////////////
