@@ -1,6 +1,5 @@
 import {
   Controller,
-  IERC20,
   ITetuConverter, TetuConverter__factory,
 } from "../../../typechain";
 import {CoreContractsHelper} from "./CoreContractsHelper";

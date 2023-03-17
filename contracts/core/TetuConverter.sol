@@ -685,10 +685,12 @@ contract TetuConverter is ITetuConverter, IKeeperCallback, IRequireAmountBySwapM
   /// @return repaidAmountOut Amount of borrow asset repaid to the lending platform
   function closeBorrowForcibly(
     address poolAdapter_
-  ) external returns (
+  ) external override returns (
     uint collateralAmountOut,
     uint repaidAmountOut
   ) {
+    require(msg.sender == controller.governance(), AppErrors.GOVERNANCE_ONLY);
+
     // update internal debts and get actual amount to repay
     IPoolAdapter pa = IPoolAdapter(poolAdapter_);
     (,address user, address collateralAsset, address borrowAsset) = pa.getConfig();

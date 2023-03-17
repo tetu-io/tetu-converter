@@ -2655,8 +2655,6 @@ describe("TetuConverterTest", () => {
       notKeeper?: boolean;
       sendIncorrectAmountToTetuConverter?: boolean;
       wrongResultHealthFactor?: boolean;
-      sendCollateralAssetInsteadBorrowAssetToTetuConverter?: boolean;
-      sendBorrowAssetInsteadCollateralAssetToTetuConverter?: boolean;
     }
     interface IHealthFactorParams {
       minHealthFactor2: number;
@@ -2679,38 +2677,13 @@ describe("TetuConverterTest", () => {
 
     async function setupBorrowerRequireAmountBackBehavior(
       init: ISetupResults,
-      borrowerRepaysUsingCollateral: boolean,
       amountToRepayCollateralAsset: BigNumber,
-      amountToRepayBorrowAsset: BigNumber,
       repayBadPathParams?: IRequireRepayBadPathParams,
     ) {
       const divider = repayBadPathParams?.sendIncorrectAmountToTetuConverter ? 2 : 1;
-      const amountUserSendsToTetuConverter = borrowerRepaysUsingCollateral
-        ? amountToRepayCollateralAsset.div(divider)
-        : amountToRepayBorrowAsset.div(divider);
-
-      let isCollateral = borrowerRepaysUsingCollateral;
-      let sendCollateral = borrowerRepaysUsingCollateral;
-      if (repayBadPathParams?.sendBorrowAssetInsteadCollateralAssetToTetuConverter) {
-        isCollateral = true;
-        sendCollateral = false;
-      } else if (repayBadPathParams?.sendCollateralAssetInsteadBorrowAssetToTetuConverter) {
-        isCollateral = false;
-        sendCollateral = true;
-      }
-
-      if (sendCollateral) {
-        // user pays using collateral asset
-        await init.sourceToken.mint(init.userContract.address, amountUserSendsToTetuConverter);
-      } else {
-        await init.targetToken.mint(init.userContract.address, amountUserSendsToTetuConverter);
-      }
-
-      await init.userContract.setUpRequireAmountBack(
-        amountUserSendsToTetuConverter,
-        isCollateral,
-        sendCollateral
-      );
+      const amountUserSendsToTetuConverter = amountToRepayCollateralAsset.div(divider);
+      await init.sourceToken.mint(init.userContract.address, amountUserSendsToTetuConverter);
+      await init.userContract.setUpRequireAmountBack(amountUserSendsToTetuConverter);
     }
 
     async function makeRequireRepay(
@@ -2768,13 +2741,7 @@ describe("TetuConverterTest", () => {
       const amountToRepayCollateralAsset = await getBigNumberFrom(repayAmounts.amountCollateralNum, sourceTokenDecimals);
       const amountToRepayBorrowAsset = await getBigNumberFrom(repayAmounts.amountBorrowNum, targetTokenDecimals);
 
-      await setupBorrowerRequireAmountBackBehavior(
-        init,
-        repayAmounts.useCollateral,
-        amountToRepayCollateralAsset,
-        amountToRepayBorrowAsset,
-        repayBadPathParams
-      );
+      await setupBorrowerRequireAmountBackBehavior(init, amountToRepayCollateralAsset, repayBadPathParams);
 
       const poolAdapterStatusBefore: IPoolAdapterStatus = await paAsUc.getStatus();
       console.log("poolAdapterStatusBefore", poolAdapterStatusBefore);
@@ -3029,28 +2996,6 @@ describe("TetuConverterTest", () => {
               correctAmountToRepay,
               {
                 sendIncorrectAmountToTetuConverter: true
-              }
-            )
-          ).revertedWith("TC-41 wrong amount received"); // WRONG_AMOUNT_RECEIVED
-        });
-      });
-      describe("Send incorrect type of amount-to-repay to TetuConverter", () => {
-        it("should revert if collateral asset is send instead of borrow asset", async () => {
-          await expect(
-            tryToRepayWrongAmount(
-              correctAmountToRepay,
-              {
-                sendCollateralAssetInsteadBorrowAssetToTetuConverter: true
-              }
-            )
-          ).revertedWith("TC-41 wrong amount received"); // WRONG_AMOUNT_RECEIVED
-        });
-        it("should revert if borrow asset is send instead of collateral asset", async () => {
-          await expect(
-            tryToRepayWrongAmount(
-              correctAmountToRepay,
-              {
-                sendBorrowAssetInsteadCollateralAssetToTetuConverter: true
               }
             )
           ).revertedWith("TC-41 wrong amount received"); // WRONG_AMOUNT_RECEIVED
@@ -3809,8 +3754,6 @@ describe("TetuConverterTest", () => {
 
           await init.userContract.setUpRequireAmountBack(
             parseUnits("1", await init.targetToken.decimals()),
-            false,
-            false
           );
 
           await init.targetToken.mint(init.userContract.address, parseUnits("1", await init.targetToken.decimals()));
