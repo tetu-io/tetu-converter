@@ -245,11 +245,14 @@ interface ITetuConverter {
 
   /// @notice Close given borrow and return collateral back to the user, governance only
   /// @dev The pool adapter asks required amount-to-repay from the user internally
+  /// @param poolAdapter_ The pool adapter that represents the borrow
+  /// @param closePosition Close position after repay
+  ///        Usually it should be true, because the function always tries to repay all debt
+  ///        false can be used if user doesn't have enough amount to pay full debt
+  ///              and we are trying to pay "as much as possible"
   /// @return collateralAmountOut Amount of collateral returned to the user
   /// @return repaidAmountOut Amount of borrow asset repaid to the lending platform
-  function closeBorrowForcibly(
-    address poolAdapter_
-  ) external returns (
+  function repayTheBorrow(address poolAdapter_, bool closePosition) external returns (
     uint collateralAmountOut,
     uint repaidAmountOut
   );

@@ -128,7 +128,7 @@ contract TetuConverter is ITetuConverter, IKeeperCallback, IRequireAmountBySwapM
     uint outputAmount
   );
 
-  event OnCloseBorrowForcibly(
+  event OnRepayTheBorrow(
     address poolAdapter,
     uint collateralOut,
     uint repaidAmountOut
@@ -663,12 +663,14 @@ contract TetuConverter is ITetuConverter, IKeeperCallback, IRequireAmountBySwapM
   ///////////////////////////////////////////////////////
   /// @notice Close given borrow and return collateral back to the user, governance only
   /// @dev The pool adapter asks required amount-to-repay from the user internally
-  /// @param poolAdapter_ A borrow that should be closed forcibly
+  /// @param poolAdapter_ The pool adapter that represents the borrow
+  /// @param closePosition Close position after repay
+  ///        Usually it should be true, because the function always tries to repay all debt
+  ///        false can be used if user doesn't have enough amount to pay full debt
+  ///              and we are trying to pay "as much as possible"
   /// @return collateralAmountOut Amount of collateral returned to the user
   /// @return repaidAmountOut Amount of borrow asset repaid to the lending platform
-  function closeBorrowForcibly(
-    address poolAdapter_
-  ) external returns (
+  function repayTheBorrow(address poolAdapter_, bool closePosition) external returns (
     uint collateralAmountOut,
     uint repaidAmountOut
   ) {
@@ -678,7 +680,12 @@ contract TetuConverter is ITetuConverter, IKeeperCallback, IRequireAmountBySwapM
     IPoolAdapter pa = IPoolAdapter(poolAdapter_);
     (,address user, address collateralAsset, address borrowAsset) = pa.getConfig();
     pa.updateStatus();
-    (, repaidAmountOut,,,) = pa.getStatus();
+    (collateralAmountOut, repaidAmountOut,,,) = pa.getStatus();
+
+    require(
+      collateralAmountOut != 0 && repaidAmountOut != 0,
+      AppErrors.REPAY_FAILED
+    );
 
     // ask the user for the amount-to-repay
     uint balanceBefore = IERC20(borrowAsset).balanceOf(address(this));
@@ -686,11 +693,15 @@ contract TetuConverter is ITetuConverter, IKeeperCallback, IRequireAmountBySwapM
     uint balanceAfter = IERC20(borrowAsset).balanceOf(address(this));
 
     // ensure that we have received full required amount
-    require(balanceAfter == balanceBefore + repaidAmountOut, AppErrors.WRONG_AMOUNT_RECEIVED);
+    require(
+      closePosition && balanceAfter == balanceBefore + repaidAmountOut
+      || balanceAfter > balanceBefore,
+      AppErrors.WRONG_AMOUNT_RECEIVED
+    );
 
     // make full repay and close the position
-    collateralAmountOut = pa.repay(repaidAmountOut, user, true);
-    emit OnCloseBorrowForcibly(poolAdapter_, collateralAmountOut, repaidAmountOut);
+    collateralAmountOut = pa.repay(repaidAmountOut, user, closePosition);
+    emit OnRepayTheBorrow(poolAdapter_, collateralAmountOut, repaidAmountOut);
 
     return (collateralAmountOut, repaidAmountOut);
   }

@@ -1,5 +1,4 @@
 // SPDX-License-Identifier: MIT
-
 pragma solidity 0.8.17;
 
 import "../../interfaces/IPoolAdapter.sol";
@@ -15,6 +14,7 @@ import "../../libs/AppErrors.sol";
 import "../../libs/AppUtils.sol";
 import "../../openzeppelin/SafeERC20.sol";
 
+/// @notice Deprecated. It's rather emulator, not mock. Use PoolAdapterMock2
 contract PoolAdapterMock is IPoolAdapter {
   using SafeERC20 for IERC20;
   using AppUtils for uint;

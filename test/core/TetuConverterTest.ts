@@ -25,7 +25,7 @@ import {
   IPoolAdapter,
   DebtMonitorMock__factory,
   SwapManagerMock__factory,
-  PriceOracleMock__factory, IController__factory
+  PriceOracleMock__factory, IController__factory, PoolAdapterMock2__factory, TetuConverterCallbackMock
 } from "../../typechain";
 import {
   IBorrowInputParams,
@@ -109,12 +109,14 @@ describe("TetuConverterTest", () => {
    * @param usePoolAdapterStub
    *      true: use PoolAdapterStub to implement pool adapters
    *      false: use PoolAdapterMock to implement pool adapters.
+   * @param usePoolAdapterMock2
    */
   async function prepareContracts(
     core: CoreContracts,
     tt: IBorrowInputParams,
     tetuAppSetupParams?: IPrepareContractsSetupParams,
-    usePoolAdapterStub = false
+    usePoolAdapterStub = false,
+    usePoolAdapterMock2 = false
   ) : Promise<IPrepareResults>{
     const periodInBlocks = 117;
     const {sourceToken, targetToken, poolsInfo} = await BorrowManagerHelper.initAppPoolsWithTwoAssets(
@@ -123,7 +125,9 @@ describe("TetuConverterTest", () => {
       tt,
       async () => usePoolAdapterStub
         ? (await MocksHelper.createPoolAdapterStub(deployer, parseUnits("0.5"))).address
-        : (await MocksHelper.createPoolAdapterMock(deployer)).address,
+        : usePoolAdapterMock2
+          ? (await MocksHelper.createPoolAdapterMock2(deployer)).address
+          : (await MocksHelper.createPoolAdapterMock(deployer)).address,
       tetuAppSetupParams
     );
     const userContract = await MocksHelper.deployBorrower(deployer.address, core.controller, periodInBlocks);
@@ -190,7 +194,8 @@ describe("TetuConverterTest", () => {
     core: CoreContracts,
     countPlatforms: number,
     tetuAppSetupParams?: IPrepareContractsSetupParams,
-    usePoolAdapterStub = false
+    usePoolAdapterStub = false,
+    usePoolAdapterMock2 = false
   ) : Promise<ISetupResults> {
     const targetDecimals = 6;
     const sourceDecimals = 17;
@@ -213,7 +218,7 @@ describe("TetuConverterTest", () => {
     const initialCollateralAmount = getBigNumberFrom(sourceAmountNumber, sourceDecimals);
     const availableBorrowLiquidityPerPool = getBigNumberFrom(availableBorrowLiquidityNumber, targetDecimals);
 
-    const r = await prepareContracts(core, tt, tetuAppSetupParams, usePoolAdapterStub);
+    const r = await prepareContracts(core, tt, tetuAppSetupParams, usePoolAdapterStub, usePoolAdapterMock2);
 
     // put a lot of collateral asset on user's balance
     await MockERC20__factory.connect(r.sourceToken.address, deployer).mint(
@@ -4329,6 +4334,130 @@ describe("TetuConverterTest", () => {
 
         expect(ret).eq(true);
       });
+    });
+  });
+
+  describe("repayTheBorrow", () => {
+    interface IRepayTheBorrowParams {
+      collateralAsset: MockERC20;
+      borrowAsset: MockERC20;
+      user: TetuConverterCallbackMock;
+      repayParams: {
+        amountToRepay: string;
+        closePosition: boolean;
+
+        collateralAmountSendToReceiver: string;
+        borrowAmountSendToReceiver: string;
+      }
+      statusParams: {
+        collateralAmount: string;
+        amountToPay: string;
+        healthFactor18: string;
+        opened: boolean;
+        collateralAmountLiquidated: string;
+      }
+    }
+    interface IRepayTheBorrowResults {
+      gasUsed: BigNumber;
+      collateralAmountOut: BigNumber;
+      repaidAmountOut: BigNumber;
+      balanceUserAfterRepay: {
+        borrow: BigNumber,
+        collateral: BigNumber
+      }
+    }
+    async function makeRepayTheBorrowTest (
+      p: IRepayTheBorrowParams
+    ) : Promise<IRepayTheBorrowResults > {
+      const core = await CoreContracts.build(await TetuConverterApp.createController(deployer, {}));
+      const init = await prepareTetuAppWithMultipleLendingPlatforms(core,
+        1,
+        {
+          skipPreregistrationOfPoolAdapters: true
+        },
+        false,
+        true
+      );
+
+      const pa = await PoolAdapterMock2__factory.connect(init.poolAdapters[0], deployer);
+      const decimalsCollateral = await p.collateralAsset.decimals();
+      const decimalsBorrow = await p.borrowAsset.decimals();
+      await pa.setConfig(
+        ethers.Wallet.createRandom().address,
+        p.user,
+        p.collateralAsset.address,
+        p.borrowAsset.address
+      );
+      await pa.setStatus(
+        parseUnits(p.statusParams.collateralAmount, decimalsCollateral),
+        parseUnits(p.statusParams.amountToPay, decimalsBorrow),
+        parseUnits(p.statusParams.healthFactor18, 18),
+        p.statusParams.opened,
+        parseUnits(p.statusParams.collateralAmountLiquidated, decimalsCollateral)
+      );
+      await pa.setRepay(
+        p.collateralAsset.address,
+        p.borrowAsset.address,
+        parseUnits(p.repayParams.amountToRepay, decimalsBorrow),
+        p.repayParams.closePosition,
+        parseUnits(p.repayParams.collateralAmountSendToReceiver, decimalsCollateral),
+        parseUnits(p.repayParams.borrowAmountSendToReceiver, decimalsBorrow)
+      );
+      await p.collateralAsset.mint(pa.address, p.statusParams.collateralAmount);
+
+      await p.user.setRequirePayAmountBack(p.collateralAsset.address, p.repayParams.amountToRepay);
+      await p.borrowAsset.mint(p.user.address, p.repayParams.amountToRepay);
+
+      const ret = await core.tc.callStatic.repayTheBorrow(pa.address, p.repayParams.closePosition);
+      const tx = await core.tc.repayTheBorrow(pa.address, p.repayParams.closePosition);
+      const gasUsed = (await tx.wait()).gasUsed;
+
+      return {
+        collateralAmountOut: ret.collateralAmountOut,
+        repaidAmountOut: ret.repaidAmountOut,
+        gasUsed,
+        balanceUserAfterRepay: {
+          borrow: await p.borrowAsset.balanceOf(p.user),
+          collateral: await p.collateralAsset.balanceOf(p.user),
+        }
+      }
+    }
+    describe("Good paths", () => {
+      it("should return expected values", async () => {
+        const collateralAsset = await MocksHelper.createMockedCToken(deployer, 8);
+        const borrowAsset = await MocksHelper.createMockedCToken(deployer, 11);
+        const user = await MocksHelper.createTetuConverterCallbackMock(deployer);
+
+        const r = await makeRepayTheBorrowTest({
+          collateralAsset,
+          borrowAsset,
+          user: user,
+          repayParams: {
+            closePosition: true,
+            borrowAmountSendToReceiver: "0",
+            collateralAmountSendToReceiver: "100",
+            amountToRepay: "50"
+          },
+          statusParams: {
+            collateralAmount: "100",
+            amountToPay: "50",
+            opened: true,
+            collateralAmountLiquidated: "0",
+            healthFactor18: "2"
+          }
+        });
+
+
+      });
+    });
+    describe("Bad paths", () => {
+// todo not governance
+// todo receive wrong amount
+// todo receive zero amount
+// todo zero debt
+    });
+    describe("Gas estimation @skip-on-coverage", () => {
+
     });
   });
 
