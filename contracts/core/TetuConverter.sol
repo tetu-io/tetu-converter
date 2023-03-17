@@ -623,7 +623,7 @@ contract TetuConverter is ITetuConverter, IKeeperCallback, IRequireAmountBySwapM
     require(requiredBorrowedAmount_ != 0, AppErrors.INCORRECT_VALUE);
 
     IPoolAdapter pa = IPoolAdapter(poolAdapter_);
-    (,address user, address collateralAsset, address borrowAsset) = pa.getConfig();
+    (,address user, address collateralAsset,) = pa.getConfig();
     pa.updateStatus();
     (, uint amountToPay,,,) = pa.getStatus();
 
@@ -645,37 +645,18 @@ contract TetuConverter is ITetuConverter, IKeeperCallback, IRequireAmountBySwapM
       // ensure that we have received any amount .. and use it for repayment
       // probably we've received less then expected - it's ok, just let's use as much as possible
       // DebtMonitor will ask to make rebalancing once more if necessary
-      require(balanceAfter > balanceBefore, AppErrors.WRONG_AMOUNT_RECEIVED);
+      require(
+        balanceAfter > balanceBefore // smth is wrong
+        && balanceAfter - balanceBefore <= requiredCollateralAmount_, // we can receive less amount (partial rebalancing)
+        AppErrors.WRONG_AMOUNT_RECEIVED
+      );
       uint amount = balanceAfter - balanceBefore;
       // replaced by infinity approve: IERC20(collateralAsset).safeApprove(poolAdapter_, requiredAmountCollateralAsset_);
 
       uint resultHealthFactor18 = pa.repayToRebalance(amount, true);
       emit OnRequireRepayRebalancing(address(pa), amount, true, amountToPay, resultHealthFactor18);
-
-      ensureResultHealthFactorIsNotTooBig(borrowAsset, resultHealthFactor18);
     }
   }
-
-  function ensureResultHealthFactorIsNotTooBig(address borrowAsset_, uint resultHealthFactor18_) public view {
-    // after rebalancing we should have health factor ALMOST equal to the target health factor
-    // but the equality is not exact
-    // let's allow small difference < 1/10 * (target health factor - min health factor)
-    // correction: in the case of partial rebalancing we can have smaller health factor than required
-    //             (i.e. user doesn't have enough amounts on his balance at this moment)
-    //             ... and hope that the health factor will be fixed in next rebalancing
-    uint targetHealthFactor18 = uint(borrowManager.getTargetHealthFactor2(borrowAsset_)) * 10**(18-2);
-    uint minHealthFactor18 = uint(controller.minHealthFactor2()) * 10**(18-2);
-
-    require(targetHealthFactor18 > minHealthFactor18, AppErrors.WRONG_HEALTH_FACTOR);
-    uint delta = (targetHealthFactor18 - minHealthFactor18) / ADDITIONAL_BORROW_DELTA_DENOMINATOR;
-
-    require(
-      // resultHealthFactor18_ + delta > targetHealthFactor18 &&
-      resultHealthFactor18_ < targetHealthFactor18 + delta,
-      AppErrors.WRONG_REBALANCING
-    );
-  }
-
 
   ///////////////////////////////////////////////////////
   ///       Close borrow forcibly by governance
