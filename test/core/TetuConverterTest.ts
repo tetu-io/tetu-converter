@@ -1548,7 +1548,7 @@ describe("TetuConverterTest", () => {
                 currentPoolAdapter === unhealthyPoolAdapter,
                 await r.init.core.bm.poolAdaptersRegistered(currentPoolAdapter),
               ].join();
-              const expected = [false, true, true].join();
+              const expected = [false, true, 1].join();
               expect(ret).eq(expected);
             });
           });
@@ -1605,7 +1605,7 @@ describe("TetuConverterTest", () => {
                 await r.init.core.bm.poolAdaptersRegistered(newlyCreatedPoolAdapter),
                 await r.init.core.bm.poolAdaptersRegistered(unhealthyPoolAdapter),
               ].join();
-              const expected = [false, false, true, true].join();
+              const expected = [false, false, 1, 2].join();
               expect(ret).eq(expected);
             });
           });
@@ -2670,7 +2670,6 @@ describe("TetuConverterTest", () => {
       poolAdapterStatusAfter: IPoolAdapterStatus;
     }
     interface IRepayAmounts {
-      useCollateral: boolean,
       amountCollateralNum: number,
       amountBorrowNum: number,
     }
@@ -2780,9 +2779,7 @@ describe("TetuConverterTest", () => {
     }
 
     describe("Good paths", () => {
-      async function makeRequireRepayTest(
-        payUsingCollateral: boolean
-      ) : Promise<{ret: string, expected: string}> {
+      async function makeRequireRepayTest() : Promise<{ret: string, expected: string}> {
         const minHealthFactor2 = 400;
         const targetHealthFactor2 = 500;
         const maxHealthFactor2 = 1000;
@@ -2811,7 +2808,6 @@ describe("TetuConverterTest", () => {
           collateralAmounts,
           exactBorrowAmounts,
           {
-            useCollateral: payUsingCollateral,
             amountCollateralNum: amountToRepayCollateralNum,
             amountBorrowNum: amountToRepayBorrowNum
           },
@@ -2832,14 +2828,6 @@ describe("TetuConverterTest", () => {
         const targetDecimals = await r.init.targetToken.decimals();
         const sourceDecimals = await r.init.sourceToken.decimals();
 
-        const expectedPaidAmountToRepayBorrowNum = payUsingCollateral
-          ? 0
-          : amountToRepayBorrowNum;
-
-        const expectedPaidAmountToRepayCollateralNum = payUsingCollateral
-          ? amountToRepayCollateralNum
-          : 0;
-
         const ret = [
           r.openedPositions.length,
           r.totalDebtAmountOut,
@@ -2856,28 +2844,22 @@ describe("TetuConverterTest", () => {
 
         const expected = [
           3,
-          getBigNumberFrom(exactBorrowAmountsSum - expectedPaidAmountToRepayBorrowNum, targetDecimals),
-          getBigNumberFrom(exactCollateralAmountsSum + expectedPaidAmountToRepayCollateralNum, sourceDecimals),
+          getBigNumberFrom(exactBorrowAmountsSum, targetDecimals),
+          getBigNumberFrom(exactCollateralAmountsSum + amountToRepayCollateralNum, sourceDecimals),
 
           getBigNumberFrom(selectedPoolAdapterBorrow, targetDecimals),
           getBigNumberFrom(selectedPoolAdapterCollateral, sourceDecimals),
           true,
 
-          getBigNumberFrom(selectedPoolAdapterBorrow - expectedPaidAmountToRepayBorrowNum, targetDecimals),
-          getBigNumberFrom(selectedPoolAdapterCollateral + expectedPaidAmountToRepayCollateralNum, sourceDecimals),
+          getBigNumberFrom(selectedPoolAdapterBorrow, targetDecimals),
+          getBigNumberFrom(selectedPoolAdapterCollateral + amountToRepayCollateralNum, sourceDecimals),
           true,
         ].map(x => BalanceUtils.toString(x)).join("\n");
         return {ret, expected};
       }
       describe("Repay using collateral asset", () => {
         it("should return expected values", async () => {
-          const r = await makeRequireRepayTest(true);
-          expect(r.ret).eq(r.expected);
-        });
-      });
-      describe("Repay using borrow asset", () => {
-        it("should return expected values", async () => {
-          const r = await makeRequireRepayTest(false);
+          const r = await makeRequireRepayTest();
           expect(r.ret).eq(r.expected);
         });
       });

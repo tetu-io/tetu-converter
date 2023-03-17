@@ -32,7 +32,7 @@ contract TetuConverter is ITetuConverter, IKeeperCallback, IRequireAmountBySwapM
   using AppUtils for uint;
 
   /// @notice After additional borrow result health factor should be near to target value, the difference is limited.
-  uint constant public ADDITIONAL_BORROW_DELTA_DENOMINATOR = 10;
+  uint constant public ADDITIONAL_BORROW_DELTA_DENOMINATOR = 1;
 
   ///////////////////////////////////////////////////////
   ///                Members
@@ -623,7 +623,7 @@ contract TetuConverter is ITetuConverter, IKeeperCallback, IRequireAmountBySwapM
     require(requiredBorrowedAmount_ != 0, AppErrors.INCORRECT_VALUE);
 
     IPoolAdapter pa = IPoolAdapter(poolAdapter_);
-    (,address user, address collateralAsset,) = pa.getConfig();
+    (,address user, address collateralAsset, address borrowAsset) = pa.getConfig();
     pa.updateStatus();
     (, uint amountToPay,,,) = pa.getStatus();
 
@@ -651,16 +651,18 @@ contract TetuConverter is ITetuConverter, IKeeperCallback, IRequireAmountBySwapM
 
       uint resultHealthFactor18 = pa.repayToRebalance(amount, true);
       emit OnRequireRepayRebalancing(address(pa), amount, true, amountToPay, resultHealthFactor18);
+
+      ensureResultHealthFactorIsNotTooBig(borrowAsset, resultHealthFactor18);
     }
   }
 
-  function ensureApproxSameToTargetHealthFactor(
-    address borrowAsset_,
-    uint resultHealthFactor18_
-  ) public view {
+  function ensureResultHealthFactorIsNotTooBig(address borrowAsset_, uint resultHealthFactor18_) public view {
     // after rebalancing we should have health factor ALMOST equal to the target health factor
     // but the equality is not exact
     // let's allow small difference < 1/10 * (target health factor - min health factor)
+    // correction: in the case of partial rebalancing we can have smaller health factor than required
+    //             (i.e. user doesn't have enough amounts on his balance at this moment)
+    //             ... and hope that the health factor will be fixed in next rebalancing
     uint targetHealthFactor18 = uint(borrowManager.getTargetHealthFactor2(borrowAsset_)) * 10**(18-2);
     uint minHealthFactor18 = uint(controller.minHealthFactor2()) * 10**(18-2);
 
@@ -668,8 +670,8 @@ contract TetuConverter is ITetuConverter, IKeeperCallback, IRequireAmountBySwapM
     uint delta = (targetHealthFactor18 - minHealthFactor18) / ADDITIONAL_BORROW_DELTA_DENOMINATOR;
 
     require(
-      resultHealthFactor18_ + delta > targetHealthFactor18
-      && resultHealthFactor18_ < targetHealthFactor18 + delta,
+      // resultHealthFactor18_ + delta > targetHealthFactor18 &&
+      resultHealthFactor18_ < targetHealthFactor18 + delta,
       AppErrors.WRONG_REBALANCING
     );
   }
@@ -685,7 +687,7 @@ contract TetuConverter is ITetuConverter, IKeeperCallback, IRequireAmountBySwapM
   /// @return repaidAmountOut Amount of borrow asset repaid to the lending platform
   function closeBorrowForcibly(
     address poolAdapter_
-  ) external override returns (
+  ) external returns (
     uint collateralAmountOut,
     uint repaidAmountOut
   ) {
