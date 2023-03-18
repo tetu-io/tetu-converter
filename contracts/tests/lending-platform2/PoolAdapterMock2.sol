@@ -4,15 +4,14 @@ pragma solidity 0.8.17;
 import "../../interfaces/IPoolAdapter.sol";
 import "../../openzeppelin/IERC20.sol";
 import "../../openzeppelin/SafeERC20.sol";
+import "../tokens/MockERC20.sol";
+
+import "hardhat/console.sol";
 
 contract PoolAdapterMock2 is IPoolAdapter {
   using SafeERC20 for IERC20;
 
-  function updateStatus() external {
-    // not implemented
-  }
-
-  function borrow(uint collateralAmount_, uint borrowAmount_, address receiver_) external override returns (
+  function borrow(uint collateralAmount_, uint borrowAmount_, address receiver_) external pure override returns (
     uint borrowedAmountOut
   ) {
     collateralAmount_;
@@ -21,7 +20,7 @@ contract PoolAdapterMock2 is IPoolAdapter {
     return borrowedAmountOut;
   }
 
-  function borrowToRebalance(uint borrowAmount_, address receiver_) external override returns (
+  function borrowToRebalance(uint borrowAmount_, address receiver_) external pure override returns (
     uint resultHealthFactor18,
     uint borrowedAmountOut
   ) {
@@ -30,7 +29,7 @@ contract PoolAdapterMock2 is IPoolAdapter {
     return (resultHealthFactor18, borrowedAmountOut);
   }
 
-  function repayToRebalance(uint amount_, bool isCollateral_) external override returns (
+  function repayToRebalance(uint amount_, bool isCollateral_) external pure override returns (
     uint resultHealthFactor18
   ) {
     amount_;
@@ -84,15 +83,23 @@ contract PoolAdapterMock2 is IPoolAdapter {
   function repay(uint amountToRepay_, address receiver_, bool closePosition_) external override returns (
     uint collateralAmountOut
   ) {
+    console.log("PooladapterMock2.repay amountToRepay_", amountToRepay_, closePosition_);
+
     if (repayParams.amountToRepay == amountToRepay_ && repayParams.closePosition == closePosition_) {
+      console.log("PooladapterMock2.repay.2 amountToRepay_, borrowAmountSendToReceiver", amountToRepay_, repayParams.borrowAmountSendToReceiver);
       IERC20(repayParams.borrowAsset).safeTransferFrom(msg.sender, address(this), amountToRepay_);
-
-      IERC20(repayParams.borrowAsset).safeTransfer(receiver_, repayParams.borrowAmountSendToReceiver);
+      console.log("PooladapterMock2.repay.2.1", IERC20(repayParams.borrowAsset).balanceOf(address(this)) );
+      if (repayParams.borrowAmountSendToReceiver != 0) {
+        IERC20(repayParams.borrowAsset).safeTransfer(receiver_, repayParams.borrowAmountSendToReceiver);
+        console.log("PooladapterMock2.repay.2.2");
+      }
+      console.log("PooladapterMock2.repay.2.3", repayParams.collateralAmountSendToReceiver, IERC20(repayParams.collateralAsset).balanceOf(address(this)) );
       IERC20(repayParams.collateralAsset).safeTransfer(receiver_, repayParams.collateralAmountSendToReceiver);
-
+      console.log("PooladapterMock2.repay.3");
       collateralAmountOut = repayParams.collateralAmountSendToReceiver;
     }
 
+    console.log("PooladapterMock2.repay.4", collateralAmountOut);
     return collateralAmountOut;
   }
 
@@ -126,6 +133,7 @@ contract PoolAdapterMock2 is IPoolAdapter {
     address collateralAsset,
     address borrowAsset
   ) {
+    console.log("PooladapterMock2.getConfig", configParams.user);
     return (
       configParams.originConverter,
       configParams.user,
@@ -168,6 +176,7 @@ contract PoolAdapterMock2 is IPoolAdapter {
     bool opened,
     uint collateralAmountLiquidated
   ) {
+    console.log("PooladapterMock2.getStatus", statusParams.collateralAmount);
     return (
       statusParams.collateralAmount,
       statusParams.amountToPay,
@@ -177,12 +186,39 @@ contract PoolAdapterMock2 is IPoolAdapter {
     );
   }
 
-  function claimRewards(address receiver_) external override returns (address rewardToken, uint amount) {
+  StatusParams internal updateStatusParams;
+  function setUpdateStatus(
+    uint collateralAmount,
+    uint amountToPay,
+    uint healthFactor18,
+    bool opened,
+    uint collateralAmountLiquidated
+  ) external {
+    updateStatusParams = StatusParams({
+    collateralAmount: collateralAmount,
+    amountToPay: amountToPay,
+    healthFactor18: healthFactor18,
+    opened: opened,
+    collateralAmountLiquidated: collateralAmountLiquidated
+    });
+  }
+  function updateStatus() external {
+    // not implemented
+    if (updateStatusParams.collateralAmount != 0) {
+      statusParams = updateStatusParams;
+    }
+  }
+
+
+  //////////////////////////////////////////////////////////////////////////////////////////////////////
+  // others
+  //////////////////////////////////////////////////////////////////////////////////////////////////////
+  function claimRewards(address receiver_) external pure override returns (address rewardToken, uint amount) {
     receiver_;
     return (rewardToken, amount);
   }
 
-  function getCollateralAmountToReturn(uint amountToRepay_, bool closePosition_) external view override returns (uint) {
+  function getCollateralAmountToReturn(uint amountToRepay_, bool closePosition_) external pure override returns (uint) {
     amountToRepay_;
     closePosition_;
     return 0;

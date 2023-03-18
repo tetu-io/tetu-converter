@@ -39,7 +39,7 @@ import {
   HfComptrollerMock,
   HfCTokenMock,
   PriceOracleStub,
-  EntryKindsFacade, SwapLibFacade, PoolAdapterMock2, TetuConverterCallbackMock
+  EntryKindsFacade, SwapLibFacade, PoolAdapterMock2, TetuConverterCallbackMock, LendingPlatformMock2
 } from "../../../typechain";
 import {IPoolInfo} from "./BorrowManagerHelper";
 import {getBigNumberFrom} from "../../../scripts/utils/NumberUtils";
@@ -72,6 +72,10 @@ export class MocksHelper {
 
   public static async createTetuConverterCallbackMock(signer: SignerWithAddress) : Promise<TetuConverterCallbackMock> {
     return (await DeployUtils.deployContract(signer, "TetuConverterCallbackMock")) as TetuConverterCallbackMock;
+  }
+
+  public static async createLendingPlatformMock2(signer: SignerWithAddress) : Promise<LendingPlatformMock2> {
+    return (await DeployUtils.deployContract(signer, "LendingPlatformMock2")) as LendingPlatformMock2;
   }
 
   /** Create platform adapter that supports a single pool with set of the given assets */

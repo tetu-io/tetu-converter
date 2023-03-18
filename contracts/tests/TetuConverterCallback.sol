@@ -4,6 +4,8 @@ pragma solidity 0.8.17;
 import "../interfaces/ITetuConverterCallback.sol";
 import "../openzeppelin/IERC20.sol";
 
+import "hardhat/console.sol";
+
 contract TetuConverterCallbackMock is ITetuConverterCallback {
 
   struct RequirePayAmountBackParams {
@@ -27,11 +29,16 @@ contract TetuConverterCallbackMock is ITetuConverterCallback {
     });
   }
   function requirePayAmountBack(address asset_, uint amount_) external returns (uint amountOut) {
+    console.log("requirePayAmountBack", asset_, amount_);
+    console.log("requirePayAmountBack.set", payAmountBackParams.asset , payAmountBackParams.amount);
     if (payAmountBackParams.asset == asset_ && payAmountBackParams.amount == amount_) {
+      console.log("requirePayAmountBack.2");
       IERC20(asset_).transfer(msg.sender, payAmountBackParams.amountToSend);
+      console.log("requirePayAmountBack.3");
       amountOut = payAmountBackParams.amountOut;
     }
 
+    console.log("requirePayAmountBack.4", amountOut);
     return amountOut;
   }
 
@@ -39,7 +46,7 @@ contract TetuConverterCallbackMock is ITetuConverterCallback {
     address collateralAsset_,
     address borrowAsset_,
     uint amountBorrowAssetSentToBorrower_
-  ) external {
+  ) external pure {
     collateralAsset_;
     borrowAsset_;
     amountBorrowAssetSentToBorrower_;

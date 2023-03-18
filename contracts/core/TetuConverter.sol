@@ -689,17 +689,20 @@ contract TetuConverter is ITetuConverter, IKeeperCallback, IRequireAmountBySwapM
 
     // ask the user for the amount-to-repay
     uint balanceBefore = IERC20(borrowAsset).balanceOf(address(this));
-    ITetuConverterCallback(user).requirePayAmountBack(collateralAsset, repaidAmountOut);
+    ITetuConverterCallback(user).requirePayAmountBack(borrowAsset, repaidAmountOut);
     uint balanceAfter = IERC20(borrowAsset).balanceOf(address(this));
 
     // ensure that we have received full required amount
-    require(
-      closePosition && balanceAfter == balanceBefore + repaidAmountOut
-      || balanceAfter > balanceBefore,
-      AppErrors.WRONG_AMOUNT_RECEIVED
-    );
+    if (closePosition) {
+      require(balanceAfter == balanceBefore + repaidAmountOut, AppErrors.WRONG_AMOUNT_RECEIVED);
+    } else {
+      require(balanceAfter > balanceBefore, AppErrors.ZERO_BALANCE);
+      repaidAmountOut = balanceAfter - balanceBefore;
+    }
 
     // make full repay and close the position
+
+    // replaced by infinity approve: IERC20(borrowAsset).safeApprove(address(pa), repaidAmountOut);
     collateralAmountOut = pa.repay(repaidAmountOut, user, closePosition);
     emit OnRepayTheBorrow(poolAdapter_, collateralAmountOut, repaidAmountOut);
 
