@@ -33,7 +33,13 @@ import {
   DebtMonitorMock,
   Aave3PoolMock,
   AaveTwoPoolMock,
-  TokenAddressProviderMock, DForceControllerMock, DForceCTokenMock, HfComptrollerMock, HfCTokenMock, PriceOracleStub
+  TokenAddressProviderMock,
+  DForceControllerMock,
+  DForceCTokenMock,
+  HfComptrollerMock,
+  HfCTokenMock,
+  PriceOracleStub,
+  EntryKindsFacade, SwapLibFacade
 } from "../../../typechain";
 import {IPoolInfo} from "./BorrowManagerHelper";
 import {getBigNumberFrom} from "../../../scripts/utils/NumberUtils";
@@ -343,7 +349,7 @@ export class MocksHelper {
   public static async createAssets(countAssets: number) : Promise<MockERC20[]> {
     return Promise.all(
       [...Array(countAssets).keys()].map(
-        async _ => (await MocksHelper.createTokens([18]))[0]
+        async () => (await MocksHelper.createTokens([18]))[0]
       )
     );
   }
@@ -351,7 +357,7 @@ export class MocksHelper {
   public static async createConverters(signer: SignerWithAddress, countConverters: number) : Promise<PoolAdapterStub[]> {
     return Promise.all(
       [...Array(countConverters).keys()].map(
-        async x => MocksHelper.createPoolAdapterStub(signer, getBigNumberFrom(1))
+        async () => MocksHelper.createPoolAdapterStub(signer, getBigNumberFrom(1))
       )
     );
   }
@@ -364,7 +370,7 @@ export class MocksHelper {
     const dest: CTokenMock[] = [];
 
     for (let i = 0; i < decimals.length; ++i) {
-      const token = await this.createMockedCToken(signer, assets[i], decimals[i], i);
+      const token = await this.createMockedCToken(signer, decimals[i], assets[i], i);
       dest.push(token);
     }
 
@@ -373,8 +379,8 @@ export class MocksHelper {
 
   public static async createMockedCToken(
     signer: SignerWithAddress,
-    asset: string = ethers.Wallet.createRandom().address,
     decimals: number = 18,
+    asset: string = ethers.Wallet.createRandom().address,
     index: number = 0
   ) : Promise<CTokenMock> {
     return await DeployUtils.deployContract(
@@ -566,4 +572,14 @@ export class MocksHelper {
     return await DeployUtils.deployContract(deployer, "PriceOracleMock", assets, prices) as PriceOracleMock;
   }
 //endregion PriceOracle mock
+
+//region Library facades
+  public static async getEntryKindsFacade(deployer: SignerWithAddress) : Promise<EntryKindsFacade> {
+    return await DeployUtils.deployContract(deployer, "EntryKindsFacade") as EntryKindsFacade;
+  }
+
+  public static async getSwapLibFacade(deployer: SignerWithAddress) : Promise<SwapLibFacade> {
+    return await DeployUtils.deployContract(deployer, "SwapLibFacade") as SwapLibFacade;
+  }
+//endregion Library facades
 }

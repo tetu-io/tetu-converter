@@ -29,7 +29,7 @@ import {MaticAddresses} from "../../scripts/addresses/MaticAddresses";
 import {isPolygonForkInUse} from "../baseUT/utils/NetworkUtils";
 import {IReConverter, ReConverterMock, ReConverterUsingPA} from "../baseUT/keeper/ReСonverters";
 import {LendingPlatformManagerMock} from "../baseUT/keeper/LendingPlatformManagerMock";
-import {PoolAdapterState01} from "../baseUT/keeper/ILendingPlatformManager";
+import {IPoolAdapterState01} from "../baseUT/keeper/ILendingPlatformManager";
 import {ITestSingleBorrowParams} from "../baseUT/types/BorrowRepayDataTypes";
 import {setInitialBalance} from "../baseUT/utils/CommonUtils";
 import {LendingPlatformManagerAave3} from "../baseUT/keeper/LendingPlatformManagerAave3";

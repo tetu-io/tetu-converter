@@ -182,9 +182,9 @@ export class Aave3Helper {
     const rawData: BigNumber = BigNumber.from(rd.configuration.data);
 
     const reserveName = await IERC20Metadata__factory.connect(reserve, signer).name();
-    const reserveSymbol = await IERC20Metadata__factory.connect(reserve, signer).name();
+    const reserveSymbol = await IERC20Metadata__factory.connect(reserve, signer).symbol();
     const aTokenName = await IERC20Metadata__factory.connect(await rd.aTokenAddress, signer).name();
-    const aTokenSymbol = await IERC20Metadata__factory.connect(await rd.aTokenAddress, signer).name();
+    const aTokenSymbol = await IERC20Metadata__factory.connect(await rd.aTokenAddress, signer).symbol();
     const decimals = await IERC20Metadata__factory.connect(reserve, signer).decimals();
     const category = Aave3Helper.get(rawData, EMODE_CATEGORY_MASK, EMODE_CATEGORY_START_BIT_POSITION).toNumber();
 

@@ -1,46 +1,27 @@
 import {ethers} from "hardhat";
 import {Logger} from "tslog";
-import Common from "@ethereumjs/common";
 import logSettings from "../../log_settings";
 import {BigNumber, ContractTransaction} from "ethers";
 
 // tslint:disable-next-line:no-var-requires
 const hre = require("hardhat");
-const log: Logger = new Logger(logSettings);
-
-const MATIC_CHAIN = Common.forCustomChain(
-  'mainnet', {
-    name: 'matic',
-    networkId: 137,
-    chainId: 137
-  },
-  'petersburg'
-);
+const log: Logger<unknown> = new Logger(logSettings);
 
 export class Misc {
   public static readonly MAX_UINT = BigNumber.from('115792089237316195423570985008687907853269984665640564039457584007913129639935');  // BigNumber.from(2).pow(256).sub(1), // === type(uint).max
   public static readonly SECONDS_OF_DAY = 60 * 60 * 24;
   public static readonly SECONDS_OF_YEAR = Misc.SECONDS_OF_DAY * 365;
   public static readonly ZERO_ADDRESS = '0x0000000000000000000000000000000000000000';
+
   /** 1e18 */
-  public static readonly WEI =         BigNumber.from('1000000000000000000');
+  public static readonly WEI = BigNumber.from('1000000000000000000');
   /** 1e36 */
-  public static readonly WEI_DOUBLE =  BigNumber.from('1000000000000000000000000000000000000');
+  public static readonly WEI_DOUBLE = BigNumber.from('1000000000000000000000000000000000000');
   /** 1e27 */
-  public static readonly RAYS =        BigNumber.from('1000000000000000000000000000');
+  public static readonly RAYS = BigNumber.from('1000000000000000000000000000');
 
   public static printDuration(text: string, start: number) {
     log.info('>>>' + text, ((Date.now() - start) / 1000).toFixed(1), 'sec');
-  }
-
-  public static getChainConfig() {
-    const net = hre.network.config.chainId;
-    switch (net.chainId) {
-      case 137:
-        return MATIC_CHAIN;
-      default:
-        throw new Error('Unknown net ' + net.chainId)
-    }
   }
 
   public static async getNetworkScanUrl(): Promise<string> {
@@ -74,7 +55,7 @@ export class Misc {
     let receipt;
     while (true) {
       receipt = await ethers.provider.getTransactionReceipt(tr.hash);
-      if (!!receipt) {
+      if (receipt) {
         break;
       }
       log.info('not yet complete', tr.hash);

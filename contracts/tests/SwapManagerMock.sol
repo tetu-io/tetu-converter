@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 
-pragma solidity 0.8.4;
+pragma solidity 0.8.17;
 
 import "../interfaces/ISwapManager.sol";
 import "../interfaces/ISwapConverter.sol";
@@ -102,5 +102,10 @@ contract SwapManagerMock is ISwapManager, ISwapConverter {
     console.logInt(apr18);
 
     return apr18;
+  }
+
+  function getPriceImpactTolerance(address asset_) external pure override returns (uint priceImpactTolerance) {
+    asset_;
+    return priceImpactTolerance;
   }
 }

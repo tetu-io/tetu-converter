@@ -5,7 +5,7 @@ import logSettings from "../../log_settings";
 import {Misc} from "./Misc";
 import {config as dotEnvConfig} from "dotenv";
 
-const log: Logger = new Logger(logSettings);
+const log: Logger<unknown> = new Logger(logSettings);
 
 dotEnvConfig();
 // tslint:disable-next-line:no-var-requires

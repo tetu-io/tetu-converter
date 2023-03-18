@@ -8,7 +8,7 @@ import {
   DForcePlatformAdapter,
   DForcePoolAdapter,
   HfPlatformAdapter,
-  HfPoolAdapter
+  HfPoolAdapter, IController__factory
 } from "../../../typechain";
 import {DeployUtils} from "../../../scripts/utils/DeployUtils";
 
@@ -19,12 +19,14 @@ export class AdaptersHelper {
     controller: string,
     poolAave: string,
     templateAdapterNormal: string,
-    templateAdapterEMode: string
+    templateAdapterEMode: string,
+    borrowManager?: string,
   ) : Promise<Aave3PlatformAdapter> {
     return (await DeployUtils.deployContract(
       signer,
       "Aave3PlatformAdapter",
       controller,
+      borrowManager || await IController__factory.connect(controller, signer).borrowManager(),
       poolAave,
       templateAdapterNormal,
       templateAdapterEMode
@@ -39,17 +41,19 @@ export class AdaptersHelper {
   }
 //endregion AAVE.v2
 
-//region AAVE.v3
+//region AAVE.TWO
   public static async createAaveTwoPlatformAdapter(
     signer: SignerWithAddress,
     controller: string,
     poolAave: string,
-    templateAdapterNormal: string
+    templateAdapterNormal: string,
+    borrowManager?: string,
   ) : Promise<AaveTwoPlatformAdapter> {
     return (await DeployUtils.deployContract(
       signer,
       "AaveTwoPlatformAdapter",
       controller,
+      borrowManager || await IController__factory.connect(controller, signer).borrowManager(),
       poolAave,
       templateAdapterNormal,
     )) as AaveTwoPlatformAdapter;
@@ -58,7 +62,7 @@ export class AdaptersHelper {
   public static async createAaveTwoPoolAdapter(signer: SignerWithAddress) : Promise<AaveTwoPoolAdapter> {
     return (await DeployUtils.deployContract(signer, "AaveTwoPoolAdapter")) as AaveTwoPoolAdapter;
   }
-//endregion AAVE.v2
+//endregion AAVE.TWO
 
 //region HundredFinance
   public static async createHundredFinancePlatformAdapter(
@@ -67,11 +71,13 @@ export class AdaptersHelper {
     comptroller: string,
     templateAdapterNormal: string,
     cTokensActive: string[],
+    borrowManager?: string,
   ) : Promise<HfPlatformAdapter> {
     return (await DeployUtils.deployContract(
       signer,
       "HfPlatformAdapter",
       controller,
+      borrowManager || await IController__factory.connect(controller, signer).borrowManager(),
       comptroller,
       templateAdapterNormal,
       cTokensActive,
@@ -89,12 +95,14 @@ export class AdaptersHelper {
     controller: string,
     comptroller: string,
     templateAdapterNormal: string,
-    cTokensActive: string[]
+    cTokensActive: string[],
+    borrowManager?: string,
   ) : Promise<DForcePlatformAdapter> {
     return (await DeployUtils.deployContract(
       signer,
       "DForcePlatformAdapter",
       controller,
+      borrowManager || await IController__factory.connect(controller, signer).borrowManager(),
       comptroller,
       templateAdapterNormal,
       cTokensActive,

@@ -3,7 +3,7 @@ import {BigNumber} from "ethers";
 import {DeployerUtils} from "../../../../scripts/utils/DeployerUtils";
 import {DeployUtils} from "../../../../scripts/utils/DeployUtils";
 import {MaticAddresses} from "../../../../scripts/addresses/MaticAddresses";
-import {DForcePriceOracleMock, IDForceController__factory, IDForceCToken__factory} from "../../../../typechain";
+import {DForcePriceOracleMock, IDForceController__factory} from "../../../../typechain";
 import {DForceHelper} from "../../../../scripts/integration/helpers/DForceHelper";
 
 export class DForceChangePriceUtils {

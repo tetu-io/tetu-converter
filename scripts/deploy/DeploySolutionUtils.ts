@@ -5,7 +5,7 @@ import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import {CoreContractsHelper} from "../../test/baseUT/helpers/CoreContractsHelper";
 import {RunHelper} from "../utils/RunHelper";
 import {BigNumber} from "ethers";
-import {Controller__factory, IBorrowManager, IBorrowManager__factory, IController__factory} from "../../typechain";
+import {Controller__factory, IBorrowManager, IBorrowManager__factory} from "../../typechain";
 import {AdaptersHelper} from "../../test/baseUT/helpers/AdaptersHelper";
 import {appendFileSync} from "fs";
 import {ethers, network} from "hardhat";
@@ -77,7 +77,10 @@ const GAS_DEPLOY_LIMIT = 8_000_000;
 
 export class DeploySolutionUtils {
 //region Main script
-  static async runMain(signer: SignerWithAddress) : Promise<IDeployCoreResults> {
+  static async runMain(
+    signer: SignerWithAddress,
+    gelatoOpsReady: string
+  ) : Promise<IDeployCoreResults> {
 
     ///////////////////////////////////////////////////////////////////////////////////////////////////
     /// Initial settings
@@ -85,16 +88,13 @@ export class DeploySolutionUtils {
     const tetuLiquidatorAddress = MaticAddresses.TETU_LIQUIDATOR;
     const controllerSetupParams: IControllerSetupParams = {
       blocksPerDay: 41142,
-      minHealthFactor2: 120,
+      minHealthFactor2: 105,
       targetHealthFactor2: 200,
       maxHealthFactor2: 400
     };
     const borrowManagerSetupParams: IBorrowManagerSetupParams = {
       rewardsFactor: Misc.WEI.div(2) // 0.5e18
     };
-    // https://docs.gelato.network/developer-services/automate/contract-addresses#polygon-matic
-    // Polygon / Matic, Automate
-    const gelatoOpsReady = "0x527a819db1eb0e34426297b03bae11F2f8B3A19E";
 
     const targetHealthFactorsAssets = [
       MaticAddresses.USDC,
@@ -107,10 +107,10 @@ export class DeploySolutionUtils {
       MaticAddresses.WBTC
     ];
     const targetHealthFactorsValues = [
-      200, // MaticAddresses.USDC,
-      200, // MaticAddresses.USDT,
-      200, // MaticAddresses.DAI,
-      200, // MaticAddresses.EURS,
+      115, // MaticAddresses.USDC,
+      115, // MaticAddresses.USDT,
+      115, // MaticAddresses.DAI,
+      115, // MaticAddresses.EURS,
       200, // MaticAddresses.jEUR,
       200, // MaticAddresses.WETH,
       200, // MaticAddresses.WMATIC,
@@ -306,23 +306,33 @@ export class DeploySolutionUtils {
     borrowManagerSetupParams: IBorrowManagerSetupParams,
     alreadyDeployed?: IDeployedContracts
   ) : Promise<IDeployCoreResults> {
+    const priceOracle = alreadyDeployed?.priceOracle
+      || (await CoreContractsHelper.createPriceOracle(deployer)).address;
     const controller = alreadyDeployed?.controller
-      || (await CoreContractsHelper.deployController(deployer)).address;
+      || (await CoreContractsHelper.deployController(deployer, tetuLiquidator, priceOracle)).address;
+
     const borrowManager = alreadyDeployed?.borrowManager || (await CoreContractsHelper.createBorrowManager(
       deployer,
       controller,
       borrowManagerSetupParams.rewardsFactor
     )).address;
-    const debtMonitor = alreadyDeployed?.debtMonitor
-      || (await CoreContractsHelper.createDebtMonitor(deployer, controller)).address;
-    const tetuConverter = alreadyDeployed?.tetuConverter
-      || (await CoreContractsHelper.createTetuConverter(deployer, controller)).address;
-    const swapManager = alreadyDeployed?.swapManager
-      || (await CoreContractsHelper.createSwapManager(deployer, controller)).address;
-    const priceOracle = alreadyDeployed?.priceOracle
-      || (await CoreContractsHelper.createPriceOracle(deployer, controller)).address;
     const keeper = alreadyDeployed?.keeper
       || (await CoreContractsHelper.createKeeper(deployer, controller, gelatoOpsReady)).address;
+
+    const debtMonitor = alreadyDeployed?.debtMonitor
+      || (await CoreContractsHelper.createDebtMonitor(deployer, controller, borrowManager)).address;
+    const swapManager = alreadyDeployed?.swapManager
+      || (await CoreContractsHelper.createSwapManager(deployer, controller, tetuLiquidator, priceOracle)).address;
+    const tetuConverter = alreadyDeployed?.tetuConverter
+      || (await CoreContractsHelper.createTetuConverter(
+        deployer,
+        controller,
+        borrowManager,
+        debtMonitor,
+        swapManager,
+        keeper,
+        priceOracle
+      )).address;
 
     await RunHelper.runAndWait(
       () => Controller__factory.connect(controller, deployer).initialize(
@@ -335,9 +345,7 @@ export class DeploySolutionUtils {
         borrowManager,
         debtMonitor,
         keeper,
-        tetuLiquidator,
         swapManager,
-        priceOracle,
         {gasLimit: GAS_DEPLOY_LIMIT}
       )
     );
@@ -371,7 +379,7 @@ export class DeploySolutionUtils {
       controller,
       aavePoolAddress,
       converterNormal.address,
-      converterEModde.address
+      converterEModde.address,
     );
 
     return {
@@ -413,7 +421,7 @@ export class DeploySolutionUtils {
       controller,
       comptroller,
       converterNormal.address,
-      cTokensActive
+      cTokensActive,
     );
 
     return {

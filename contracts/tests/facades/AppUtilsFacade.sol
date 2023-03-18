@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.4;
+pragma solidity 0.8.17;
 
-import "../core/AppUtils.sol";
+import "../../libs/AppUtils.sol";
 
 /// @notice Facade to call internal functions from AppUtils library (for tests)
 contract AppUtilsFacade {
@@ -23,5 +23,20 @@ contract AppUtilsFacade {
 
   function approxEqual(uint amount1, uint amount2, uint divisionMax18) external pure returns (bool) {
     return AppUtils.approxEqual(amount1, amount2, divisionMax18);
+  }
+
+  function shrinkAndOrder(
+    uint count_,
+    address[] memory bb_,
+    uint[] memory cc_,
+    uint[] memory dd_,
+    int[] memory aa_
+  ) external pure returns (
+    address[] memory bbOut,
+    uint[] memory ccOut,
+    uint[] memory ddOut,
+    int[] memory aaOut
+  ) {
+    return AppUtils.shrinkAndOrder(count_, bb_, cc_, dd_, aa_);
   }
 }

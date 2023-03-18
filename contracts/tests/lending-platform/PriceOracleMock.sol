@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 
-pragma solidity 0.8.4;
+pragma solidity 0.8.17;
 
-import "../../core/AppDataTypes.sol";
+import "../../libs/AppDataTypes.sol";
 import "../../interfaces/IPriceOracle.sol";
 import "hardhat/console.sol";
 
@@ -34,6 +34,7 @@ contract PriceOracleMock is IPriceOracle {
 
   /// @notice Return asset price in USD, decimals 18
   function getAssetPrice(address asset) external view override returns (uint256) {
+    console.log("PriceOracleMock.getAssetPrice", asset, prices[asset]);
     return prices[asset];
   }
 }

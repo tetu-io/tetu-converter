@@ -7,39 +7,79 @@ import {BigNumber} from "ethers";
 import {DeployUtils} from "../../../scripts/utils/DeployUtils";
 import {COUNT_BLOCKS_PER_DAY} from "../utils/aprUtils";
 import {parseUnits} from "ethers/lib/utils";
+import {MaticAddresses} from "../../../scripts/addresses/MaticAddresses";
 
 export class CoreContractsHelper {
-  static async deployController(deployer: SignerWithAddress): Promise<Controller> {
-    return (await DeployUtils.deployContract(deployer, "Controller")) as Controller;
+  static async deployController(
+    deployer: SignerWithAddress,
+    tetuLiquidator: string,
+    priceOracle: string
+  ): Promise<Controller> {
+    return (await DeployUtils.deployContract(
+      deployer,
+      "Controller",
+      tetuLiquidator,
+      priceOracle
+    )) as Controller;
   }
   static async createController(
     deployer: SignerWithAddress,
-    tetuConverterFabric: (controller: Controller) => Promise<string>,
+    tetuConverterFabric: (
+      controller: Controller,
+      borrowManager: string,
+      debtMonitor: string,
+      swapManager: string,
+      keeper: string,
+      priceOracle: string
+    ) => Promise<string>,
     borrowManagerFabric: (controller: Controller) => Promise<string>,
-    debtMonitorFabric: (controller: Controller) => Promise<string>,
+    debtMonitorFabric: (
+      controller: Controller,
+      borrowManager: string
+    ) => Promise<string>,
     keeperFabric: (controller: Controller) => Promise<string>,
-    tetuLiquidatorFabric: (controller: Controller) => Promise<string>,
-    swapManagerFabric: (controller: Controller) => Promise<string>,
-    priceOracleFabric: (controller: Controller) => Promise<string>,
+    tetuLiquidatorFabric: () => Promise<string>,
+    swapManagerFabric: (
+      controller: Controller,
+      tetuLiquidator: string,
+      priceOracle: string
+    ) => Promise<string>,
+    priceOracleFabric: () => Promise<string>,
     minHealthFactor2: number = 101,
     targetHealthFactor2: number = 200,
     maxHealthFactor2: number = 400,
     countBlocksPerDay: number = COUNT_BLOCKS_PER_DAY
   ) : Promise<Controller>{
-    const controller = await this.deployController(deployer);
+    const tetuLiquidator = await tetuLiquidatorFabric();
+    const priceOracle = await priceOracleFabric();
+
+    const controller = await this.deployController(deployer, tetuLiquidator, priceOracle);
+    const borrowManager = await borrowManagerFabric(controller);
+    const keeper = await keeperFabric(controller);
+
+    const swapManager = await swapManagerFabric(controller, tetuLiquidator, priceOracle);
+    const debtMonitor = await debtMonitorFabric(controller, borrowManager);
+
+    const tetuConverter = await tetuConverterFabric(
+      controller,
+      borrowManager,
+      debtMonitor,
+      swapManager,
+      keeper,
+      priceOracle
+    );
+
     await controller.initialize(
       deployer.address,
       countBlocksPerDay,
       minHealthFactor2,
       targetHealthFactor2,
       maxHealthFactor2,
-      await tetuConverterFabric(controller),
-      await borrowManagerFabric(controller),
-      await debtMonitorFabric(controller),
-      await keeperFabric(controller),
-      await tetuLiquidatorFabric(controller),
-      await swapManagerFabric(controller),
-      await priceOracleFabric(controller)
+      tetuConverter,
+      borrowManager,
+      debtMonitor,
+      keeper,
+      swapManager
     );
     return controller;
   }
@@ -47,6 +87,7 @@ export class CoreContractsHelper {
   public static async createDebtMonitor(
     signer: SignerWithAddress,
     controllerAddress: string,
+    borrowManager: string
     // thresholdAPR: number = 0,
     // thresholdCountBlocks: number = 0
   ): Promise<DebtMonitor> {
@@ -54,6 +95,7 @@ export class CoreContractsHelper {
       signer,
       "DebtMonitor",
       controllerAddress,
+      borrowManager,
       // thresholdAPR,
       // thresholdCountBlocks
     )) as DebtMonitor;
@@ -62,11 +104,21 @@ export class CoreContractsHelper {
   public static async createTetuConverter(
     signer: SignerWithAddress,
     controller: string,
+    borrowManager: string,
+    debtMonitor: string,
+    swapManager: string,
+    keeper: string,
+    priceOracle: string
   ): Promise<TetuConverter> {
     return (await DeployUtils.deployContract(
       signer,
       "TetuConverter",
-      controller
+      controller,
+      borrowManager,
+      debtMonitor,
+      swapManager,
+      keeper,
+      priceOracle
     )) as TetuConverter;
   }
 
@@ -88,11 +140,15 @@ export class CoreContractsHelper {
   public static async createSwapManager (
     signer: SignerWithAddress,
     controller: string,
+    tetuLiquidator: string,
+    priceOracle: string
   ) : Promise<SwapManager> {
     return (await DeployUtils.deployContract(
       signer,
       "SwapManager",
       controller,
+      tetuLiquidator,
+      priceOracle
     )) as SwapManager;
   }
 
@@ -113,11 +169,12 @@ export class CoreContractsHelper {
 
   public static async createPriceOracle (
     signer: SignerWithAddress,
-    controller: string,
+    priceOracleAave3?: string
   ) : Promise<PriceOracle> {
     return (await DeployUtils.deployContract(
       signer,
-      "PriceOracle"
+      "PriceOracle",
+      priceOracleAave3 || MaticAddresses.AAVE_V3_PRICE_ORACLE
     )) as PriceOracle;
   }
 }

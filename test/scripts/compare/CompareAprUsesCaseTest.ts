@@ -269,7 +269,6 @@ describe.skip("CompareAprUsesCaseTest @skip-on-coverage", () => {
       deployer,
       swapManager,
       tasks,
-      countBlocks,
     );
   }
 

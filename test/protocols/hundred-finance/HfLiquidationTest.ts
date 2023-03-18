@@ -124,7 +124,7 @@ describe.skip("HfLiquidationTest - simulate liquidation", () => {
       it("Try to make new borrow after liquidation", async () => {
         if (!await isPolygonForkInUse()) return;
 
-        const r = await HundredFinanceTestUtils.makeLiquidation(deployer, init.d, borrowHolder);
+        await HundredFinanceTestUtils.makeLiquidation(deployer, init.d, borrowHolder);
 
         // put collateral amount on user's balance
         await BalanceUtils.getRequiredAmountFromHolders(
@@ -209,7 +209,7 @@ describe.skip("HfLiquidationTest - simulate liquidation", () => {
       it("Try to make new borrow after liquidation", async () => {
         if (!await isPolygonForkInUse()) return;
 
-        const r = await HundredFinanceTestUtils.makeLiquidation(deployer, init.d, borrowHolder);
+        await HundredFinanceTestUtils.makeLiquidation(deployer, init.d, borrowHolder);
 
         // put collateral amount on user's balance
         await BalanceUtils.getRequiredAmountFromHolders(

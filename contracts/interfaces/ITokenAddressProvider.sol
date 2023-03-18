@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 
-pragma solidity 0.8.4;
+pragma solidity 0.8.17;
 
 /// @dev Compound comptroller doesn't allow to get underlying by cToken,
 ///      so platform adapter provider provides such function

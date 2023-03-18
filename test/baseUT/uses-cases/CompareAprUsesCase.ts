@@ -28,9 +28,13 @@ interface IInputParams {
 
 /** I.e. one of AprXXX.makeBorrowTest */
 export type BorrowTestMaker = (
+  // eslint-disable-next-line no-unused-vars
   deployer: SignerWithAddress,
+  // eslint-disable-next-line no-unused-vars
   amountToBorrow: number | BigNumber,
+  // eslint-disable-next-line no-unused-vars
   p: ITestSingleBorrowParams,
+  // eslint-disable-next-line no-unused-vars
   additionalPoints: number[]
 ) => Promise<IBorrowResults>;
 
@@ -121,7 +125,7 @@ export class CompareAprUsesCase {
   ) : IBorrowTask[] {
     const dest: IBorrowTask[] = [];
     for (const [indexSource, sourceAsset] of assets.entries()) {
-      for (const [indexTarget, targetAsset] of assets.entries()) {
+      for (const [, targetAsset] of assets.entries()) {
         if (sourceAsset === targetAsset) continue;
         dest.push({
           collateralAsset: sourceAsset,
@@ -231,7 +235,6 @@ export class CompareAprUsesCase {
     collateralHolders: string[],
     collateralAmount: BigNumber,
     borrowAsset: string,
-    strategyToConvert: IStrategyToConvert,
   ) : Promise<{
     results?: ISwapResults
     error?: string
@@ -294,13 +297,11 @@ export class CompareAprUsesCase {
     for (const task of tasks) {
       const holders = task.collateralAsset.holders;
       const initialLiquidity = await CompareAprUsesCase.getTotalAmount(deployer, task.collateralAsset.asset, holders);
-      const collateralDecimals = await IERC20Metadata__factory.connect(task.collateralAsset.asset, deployer).decimals();
 
       console.log("makePossibleBorrowsOnPlatform, task:", task);
 
       const snapshot = await TimeUtils.snapshot();
       try {
-        const borrowDecimals = await IERC20Metadata__factory.connect(task.borrowAsset.asset, deployer).decimals();
         console.log("makePossibleBorrowsOnPlatform.collateralAmount", task.collateralAmount);
 
         const planSingleBlock = await platformAdapter.getConversionPlan(
@@ -389,7 +390,6 @@ export class CompareAprUsesCase {
     deployer: SignerWithAddress,
     swapManager: SwapManager,
     tasks: IBorrowTask[],
-    countBlocks: number,
   ) : Promise<ISwapTestResults[]> {
     console.log("makePossibleSwaps");
     const dest: ISwapTestResults[] = [];
@@ -414,12 +414,21 @@ export class CompareAprUsesCase {
           task.collateralAsset.asset,
           await DeployerUtils.startImpersonate(tempUserContract)
         ).approve(await controller.tetuConverter(), task.collateralAmount);
-        const strategyToConvert: IStrategyToConvert = await swapManager.callStatic.getConverter(
+        const converterData = await swapManager.callStatic.getConverter(
           tempUserContract,
           task.collateralAsset.asset,
           task.collateralAmount,
           task.borrowAsset.asset
         );
+        const strategyToConvert: IStrategyToConvert = {
+          converter: converterData.converter,
+          maxTargetAmount: converterData.maxTargetAmount,
+          apr18: await swapManager.getApr18(task.collateralAsset.asset,
+            task.collateralAmount,
+            task.borrowAsset.asset,
+            converterData.maxTargetAmount
+          )
+        };
 
         if (strategyToConvert.converter === Misc.ZERO_ADDRESS) {
           dest.push({
@@ -443,7 +452,6 @@ export class CompareAprUsesCase {
             collateralHolders,
             task.collateralAmount,
             task.borrowAsset.asset,
-            strategyToConvert,
           );
           dest.push({
             assetBorrow: task.borrowAsset,

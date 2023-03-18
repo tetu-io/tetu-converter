@@ -29,6 +29,10 @@ async function main() {
     });
   }
 
+  // https://docs.gelato.network/developer-services/automate/contract-addresses#polygon-matic
+  // Polygon / Matic, Automate
+  const gelatoOpsReady = "0x527a819db1eb0e34426297b03bae11F2f8B3A19E";
+
   const signer = localHardhatIsInUse
     ? await DeployerUtils.startImpersonate(
       process?.env.APP_PRIVATE_GOVERNANCE_ACCOUNT_FOR_HARDHAT || (await ethers.getSigners())[0].address)
@@ -36,55 +40,7 @@ async function main() {
 
   console.log("signer", signer.address);
 
-  // // temp
-  // const hundredFinancePairs = {
-  //   leftAssets: [
-  //     '0x2791bca1f2de4661ed88a30c99a7a9449aa84174',
-  //     '0x2791bca1f2de4661ed88a30c99a7a9449aa84174',
-  //     '0x2791bca1f2de4661ed88a30c99a7a9449aa84174',
-  //     '0x2791bca1f2de4661ed88a30c99a7a9449aa84174',
-  //     '0x2791bca1f2de4661ed88a30c99a7a9449aa84174',
-  //     '0xc2132d05d31c914a87c6611c10748aeb04b58e8f',
-  //     '0xc2132d05d31c914a87c6611c10748aeb04b58e8f',
-  //     '0xc2132d05d31c914a87c6611c10748aeb04b58e8f',
-  //     '0xc2132d05d31c914a87c6611c10748aeb04b58e8f',
-  //     '0x8f3Cf7ad23Cd3CaDbD9735AFf958023239c6A063',
-  //     '0x8f3Cf7ad23Cd3CaDbD9735AFf958023239c6A063',
-  //     '0x8f3Cf7ad23Cd3CaDbD9735AFf958023239c6A063',
-  //     '0x0d500B1d8E8eF31E21C99d1Db9A6444d3ADf1270',
-  //     '0x0d500B1d8E8eF31E21C99d1Db9A6444d3ADf1270',
-  //     '0x7ceB23fD6bC0adD59E62ac25578270cFf1b9f619'
-  //   ],
-  //   rightAssets: [
-  //     '0xc2132d05d31c914a87c6611c10748aeb04b58e8f',
-  //     '0x8f3Cf7ad23Cd3CaDbD9735AFf958023239c6A063',
-  //     '0x0d500B1d8E8eF31E21C99d1Db9A6444d3ADf1270',
-  //     '0x7ceB23fD6bC0adD59E62ac25578270cFf1b9f619',
-  //     '0x1BFD67037B42Cf73acF2047067bd4F2C47D9BfD6',
-  //     '0x8f3Cf7ad23Cd3CaDbD9735AFf958023239c6A063',
-  //     '0x0d500B1d8E8eF31E21C99d1Db9A6444d3ADf1270',
-  //     '0x7ceB23fD6bC0adD59E62ac25578270cFf1b9f619',
-  //     '0x1BFD67037B42Cf73acF2047067bd4F2C47D9BfD6',
-  //     '0x0d500B1d8E8eF31E21C99d1Db9A6444d3ADf1270',
-  //     '0x7ceB23fD6bC0adD59E62ac25578270cFf1b9f619',
-  //     '0x1BFD67037B42Cf73acF2047067bd4F2C47D9BfD6',
-  //     '0x7ceB23fD6bC0adD59E62ac25578270cFf1b9f619',
-  //     '0x1BFD67037B42Cf73acF2047067bd4F2C47D9BfD6',
-  //     '0x1BFD67037B42Cf73acF2047067bd4F2C47D9BfD6'
-  //   ]
-  // }
-  //
-  // console.log(hundredFinancePairs);
-  // const borrowManager = IBorrowManager__factory.connect("0xFeF97155dCd95b92b45160a73E9969fC54E991ac", signer);
-  // await RunHelper.runAndWait(
-  //   () => borrowManager.addAssetPairs(
-  //     "0xa2846c834B9D32250e2B62447b0Ad0b9930f7B6C",
-  //     hundredFinancePairs.leftAssets,
-  //     hundredFinancePairs.rightAssets,
-  //     {gasLimit: 8_000_000}
-  //   )
-  // );
-  const deployCoreResults = await DeploySolutionUtils.runMain(signer);
+  await DeploySolutionUtils.runMain(signer, gelatoOpsReady);
 
   // // let's try to find a way to borrow DAI for USDC
   // const tetuConverter = ITetuConverter__factory.connect(deployCoreResults.tetuConverter, signer);

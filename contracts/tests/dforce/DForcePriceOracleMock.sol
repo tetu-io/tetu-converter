@@ -1,10 +1,27 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.4;
+pragma solidity 0.8.17;
 
 import "hardhat/console.sol";
+import "../interfaces/IChangePriceForTests.sol";
 
-contract DForcePriceOracleMock {
+
+/// @notice Replacement for the original DForce price oracle
+contract DForcePriceOracleMock is IChangePriceForTests {
   mapping(address => uint) public prices;
+
+  /////////////////////////////////////////////////////////////////
+  ///                 IChangePriceForTests
+  /////////////////////////////////////////////////////////////////
+
+  /// @notice Take exist price of the asset and multiple it on (multiplier100_/100)
+  function changePrice(address asset_, uint multiplier100_) external {
+    prices[asset_] = multiplier100_ * prices[asset_] / 100;
+    console.log("DForcePriceOracleMock changePrice", asset_, prices[asset_], multiplier100_);
+  }
+
+  /////////////////////////////////////////////////////////////////
+  ///    Same set of functions as in the original DForce oracle
+  /////////////////////////////////////////////////////////////////
 
   function setUnderlyingPrice(address iToken_, uint price_) external {
     console.log("setUnderlyingPrice", iToken_, price_);

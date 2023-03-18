@@ -1,24 +1,41 @@
 import {
   Controller,
   IERC20,
-  ITetuConverter, KeeperCaller, TetuConverter__factory,
+  ITetuConverter, TetuConverter__factory,
 } from "../../../typechain";
 import {CoreContractsHelper} from "./CoreContractsHelper";
 import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
-import {DeployUtils} from "../../../scripts/utils/DeployUtils";
 import {COUNT_BLOCKS_PER_DAY} from "../utils/aprUtils";
-import {ILendingPlatformFabric} from "../fabrics/ILendingPlatformFabric";
-import {ethers} from "ethers";
-import {MaticAddresses} from "../../../scripts/addresses/MaticAddresses";
+import {ILendingPlatformFabric, ILendingPlatformPoolInfo} from "../fabrics/ILendingPlatformFabric";
 import {MocksHelper} from "./MocksHelper";
 
 export interface ICreateControllerParams {
-  tetuConverterFabric?: (controller: Controller) => Promise<string>;
+  // eslint-disable-next-line no-unused-vars
+  tetuConverterFabric?: (
+    controller: Controller,
+    borrowManager: string,
+    debtMonitor: string,
+    swapManager: string,
+    keeper: string,
+    priceOracle: string
+  ) => Promise<string>;
+  // eslint-disable-next-line no-unused-vars
   borrowManagerFabric?: (controller: Controller) => Promise<string>;
-  debtMonitorFabric?: (controller: Controller) => Promise<string>;
+  // eslint-disable-next-line no-unused-vars
+  debtMonitorFabric?: (
+    controller: Controller,
+    borrowManager: string
+  ) => Promise<string>;
+  // eslint-disable-next-line no-unused-vars
   keeperFabric?: (controller: Controller) => Promise<string>;
-  swapManagerFabric?: (controller: Controller) => Promise<string>;
-  priceOracleFabric?: (controller: Controller) => Promise<string>;
+  // eslint-disable-next-line no-unused-vars
+  swapManagerFabric?: (
+    controller: Controller,
+    tetuLiquidator: string,
+    priceOracle: string
+  ) => Promise<string>;
+  // eslint-disable-next-line no-unused-vars
+  priceOracleFabric?: () => Promise<string>;
   minHealthFactor2?: number;
   targetHealthFactor2?: number;
   maxHealthFactor2?: number;
@@ -27,31 +44,54 @@ export interface ICreateControllerParams {
   blocksPerDayAutoUpdatePeriodSecs?: number;
 }
 
+export interface IBuildAppResults {
+  tc: ITetuConverter;
+  controller: Controller;
+  pools: ILendingPlatformPoolInfo[]
+}
+
 export class TetuConverterApp {
   static async createController(
     deployer: SignerWithAddress,
     p?: ICreateControllerParams
   ) : Promise<Controller> {
+    const tetuConverterFabric = p?.tetuConverterFabric
+      || (async (c, borrowManager, debtMonitor, swapManager, keeper, priceOracle) => (
+          await CoreContractsHelper.createTetuConverter(deployer, c.address, borrowManager, debtMonitor, swapManager, keeper, priceOracle)).address
+      );
+    const borrowManagerFabric = p?.borrowManagerFabric
+        || (async c => (await CoreContractsHelper.createBorrowManager(deployer, c.address)).address);
+    const debtMonitorFabric = p?.debtMonitorFabric
+      || (async (c, borrowManager) => (
+          await CoreContractsHelper.createDebtMonitor(deployer, c.address, borrowManager)).address
+      );
+    const keeperFabric = p?.keeperFabric
+      || (async c => (await CoreContractsHelper.createKeeper(
+          deployer,
+          c.address,
+          (await MocksHelper.createKeeperCaller(deployer)).address, // default keeper caller
+          p?.blocksPerDayAutoUpdatePeriodSecs
+        )).address
+      );
+    const tetuLiquidatorFabric = async () => p?.tetuLiquidatorAddress
+        || (await MocksHelper.createTetuLiquidatorMock(deployer, [], [])).address;
+    const swapManagerFabric = p?.swapManagerFabric
+      || (async (c, tetuLiquidator, priceOracle) => (
+          await CoreContractsHelper.createSwapManager(deployer, c.address, tetuLiquidator, priceOracle)).address
+      );
+    const priceOracleFabric = p?.priceOracleFabric
+        || (async () => (await CoreContractsHelper.createPriceOracle(deployer)).address
+      );
+
     return CoreContractsHelper.createController(
       deployer,
-      p?.tetuConverterFabric
-        || (async c => (await CoreContractsHelper.createTetuConverter(deployer, c.address)).address),
-      p?.borrowManagerFabric
-        || (async c => (await CoreContractsHelper.createBorrowManager(deployer, c.address)).address),
-      p?.debtMonitorFabric
-        || (async c => (await CoreContractsHelper.createDebtMonitor(deployer, c.address)).address),
-      p?.keeperFabric || (async c => (await CoreContractsHelper.createKeeper(
-        deployer,
-        c.address,
-        (await MocksHelper.createKeeperCaller(deployer)).address, // default keeper caller
-        p?.blocksPerDayAutoUpdatePeriodSecs
-      )).address),
-      async () => p?.tetuLiquidatorAddress
-        || (await MocksHelper.createTetuLiquidatorMock(deployer, [], [])).address,
-      p?.swapManagerFabric
-        || (async c => (await CoreContractsHelper.createSwapManager(deployer, c.address)).address),
-      p?.priceOracleFabric
-        || (async c => (await CoreContractsHelper.createPriceOracle(deployer, c.address)).address),
+      tetuConverterFabric,
+      borrowManagerFabric,
+      debtMonitorFabric,
+      keeperFabric,
+      tetuLiquidatorFabric,
+      swapManagerFabric,
+      priceOracleFabric,
       p?.minHealthFactor2 || 101,
       p?.targetHealthFactor2 || 200,
       p?.maxHealthFactor2 || 400,
@@ -63,14 +103,14 @@ export class TetuConverterApp {
     deployer: SignerWithAddress,
     fabrics?: ILendingPlatformFabric[],
     p?: ICreateControllerParams
-  ) : Promise<{tc: ITetuConverter, controller: Controller, pools: IERC20[]}> {
+  ) : Promise<IBuildAppResults> {
     const controller = await this.createController(deployer, p);
 
-    const pools: IERC20[] = [];
+    const pools: ILendingPlatformPoolInfo[] = [];
     if (fabrics) {
       for (const fabric of fabrics) {
-        const pp = await fabric.createAndRegisterPools(deployer, controller);
-        pools.push(...pp);
+        const poolInfo: ILendingPlatformPoolInfo = await fabric.createAndRegisterPools(deployer, controller);
+        pools.push(poolInfo);
       }
     }
 

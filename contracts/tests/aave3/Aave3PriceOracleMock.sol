@@ -1,10 +1,11 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.4;
+pragma solidity 0.8.17;
 
+import "../interfaces/IChangePriceForTests.sol";
 import "../../integrations/aave3/IAavePriceOracle.sol";
 import "hardhat/console.sol";
 
-contract Aave3PriceOracleMock is IAavePriceOracle {
+contract Aave3PriceOracleMock is IAavePriceOracle, IChangePriceForTests {
   address private _addressProvider;
   address private _baseCurrency;
   uint private _baseCurrencyUnit;
@@ -33,6 +34,15 @@ contract Aave3PriceOracleMock is IAavePriceOracle {
     }
   }
 
+  /////////////////////////////////////////////////////////////////
+  ///                 IChangePriceForTests
+  /////////////////////////////////////////////////////////////////
+
+  /// @notice Take exist price of the asset and multiple it on (multiplier100_/100)
+  function changePrice(address asset_, uint multiplier100_) external {
+    _prices[asset_] = multiplier100_ * _prices[asset_] / 100;
+    console.log("AAVE3PriceOracleMock changePrice", asset_, _prices[asset_], multiplier100_);
+  }
 
   /////////////////////////////////////////////////////////////////
   ///                 IAavePriceOracle

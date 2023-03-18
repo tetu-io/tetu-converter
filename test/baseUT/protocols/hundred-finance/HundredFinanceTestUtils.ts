@@ -11,7 +11,7 @@ import {
   IHfCToken,
   IHfCToken__factory,
   IHfPriceOracle, IHfPriceOracle__factory,
-  IPoolAdapter__factory, IPriceOracle__factory
+  IPoolAdapter__factory
 } from "../../../../typechain";
 import {BigNumber} from "ethers";
 import {TokenDataTypes} from "../../types/TokenDataTypes";
@@ -32,7 +32,7 @@ import {HundredFinanceChangePriceUtils} from "./HundredFinanceChangePriceUtils";
 import {IPoolAdapterStatus} from "../../types/BorrowRepayDataTypes";
 import {getBigNumberFrom} from "../../../../scripts/utils/NumberUtils";
 import {TetuConverterApp} from "../../helpers/TetuConverterApp";
-import {IAaveTwoUserAccountDataResults} from "../../apr/aprAaveTwo";
+import {IConversionPlan} from "../../apr/aprDataTypes";
 
 //region Data types
 export interface IPrepareToBorrowResults {
@@ -59,6 +59,8 @@ export interface IPrepareToBorrowResults {
 
   priceCollateral: BigNumber;
   priceBorrow: BigNumber;
+
+  plan: IConversionPlan;
 }
 
 export interface IMarketsInfo {
@@ -219,20 +221,23 @@ export class HundredFinanceTestUtils {
       ? collateralAmountRequired
       : holderBalance;
 
-    await collateralToken.token
-      .connect(await DeployerUtils.startImpersonate(collateralHolder))
-      .transfer(userContract.address, collateralAmount);
-
     // calculate max allowed amount to borrow
     const countBlocks = 1;
-    const plan = await hfPlatformAdapter.getConversionPlan(
-      collateralToken.address,
-      collateralAmount,
-      borrowToken.address,
+    const plan: IConversionPlan = await hfPlatformAdapter.getConversionPlan(
+      {
+        collateralAsset: collateralToken.address,
+        amountIn: collateralAmount,
+        borrowAsset: borrowToken.address,
+        countBlocks,
+        entryData: "0x"
+      },
       badPathsParams?.targetHealthFactor2 || await controller.targetHealthFactor2(),
-      countBlocks
     );
     console.log("plan", plan);
+
+    await collateralToken.token
+      .connect(await DeployerUtils.startImpersonate(collateralHolder))
+      .transfer(userContract.address, plan.collateralAmount);
 
     const priceCollateral = await priceOracle.getUnderlyingPrice(collateralCTokenAddress);
     const priceBorrow = await priceOracle.getUnderlyingPrice(borrowCTokenAddress);
@@ -245,14 +250,15 @@ export class HundredFinanceTestUtils {
       hfPlatformAdapter,
       hfPoolAdapterTC,
       priceOracle,
-      collateralAmount,
+      collateralAmount: plan.collateralAmount,
       collateralCToken: IHfCToken__factory.connect(collateralCTokenAddress, deployer),
       borrowCToken: IHfCToken__factory.connect(borrowCTokenAddress, deployer),
       converterNormal: converter.address,
       borrowToken,
       collateralToken,
       priceBorrow,
-      priceCollateral
+      priceCollateral,
+      plan
     }
   }
 
@@ -421,7 +427,7 @@ export class HundredFinanceTestUtils {
       }
     } else {
       // make full repayment
-      const {collateralAmountOut, returnedBorrowAmountOut} = await d.userContract.callStatic.makeRepayComplete(
+      await d.userContract.callStatic.makeRepayComplete(
         d.collateralToken.address,
         d.borrowToken.address,
         d.userContract.address
@@ -514,7 +520,6 @@ export class HundredFinanceTestUtils {
     const borrowCTokenAsLiquidator = IHfCToken__factory.connect(d.borrowCToken.address, liquidator);
     const collateralCTokenAsLiquidator = IHfCToken__factory.connect(d.collateralCToken.address, liquidator);
     const accountBefore = await d.comptroller.getAccountLiquidity(borrowerAddress);
-    const borrowPrice = await d.priceOracle.getUnderlyingPrice(d.borrowCToken.address);
     // https://docs.hundred.finance/developers/liquidation
     // Collateral factor CF (also known as Liquidation threshold),
     // Close ratio set to 50%, means the liquidator can only pay 50% of the debt in a single transaction,
@@ -542,8 +547,8 @@ export class HundredFinanceTestUtils {
     const liquidateBorrowResult = await borrowCTokenAsLiquidator.callStatic.liquidateBorrow(borrowerAddress, borrowDebt, d.collateralCToken.address);
     console.log("liquidateBorrowResult", liquidateBorrowResult);
 
-    const tx = await borrowCTokenAsLiquidator.liquidateBorrow(borrowerAddress, borrowDebt, d.collateralCToken.address);
-    const receipt = await tx.wait();
+    await borrowCTokenAsLiquidator.liquidateBorrow(borrowerAddress, borrowDebt, d.collateralCToken.address);
+    // const receipt = await tx.wait();
 
     // if (receipt?.events) {
     //   for (const event of receipt.events) {

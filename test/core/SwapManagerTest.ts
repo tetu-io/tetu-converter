@@ -13,8 +13,13 @@ import {CoreContractsHelper} from "../baseUT/helpers/CoreContractsHelper";
 import {MocksHelper} from "../baseUT/helpers/MocksHelper";
 import {Misc} from "../../scripts/utils/Misc";
 import {controlGasLimitsEx} from "../../scripts/utils/hardhatUtils";
-import {GAS_FIND_SWAP_STRATEGY} from "../baseUT/GasLimit";
+import {
+  GAS_FIND_SWAP_STRATEGY,
+  GAS_SWAP, GAS_SWAP_APR18,
+  GAS_SWAP_SIMULATE
+} from "../baseUT/GasLimit";
 import {DeployerUtils} from "../../scripts/utils/DeployerUtils";
+import {BalanceUtils} from "../baseUT/utils/BalanceUtils";
 
 const parseUnits = ethers.utils.parseUnits;
 
@@ -33,7 +38,7 @@ describe("SwapManager", () => {
   // tslint:disable-next-line:one-variable-per-declaration
   let usdc: MockERC20, usdt: MockERC20, dai: MockERC20, matic: MockERC20, weth: MockERC20, unknown: MockERC20;
   // tslint:disable-next-line:one-variable-per-declaration
-  let _usdc: string, _usdt: string, _dai: string, _matic: string, _weth: string, _unknown: string;
+  let _usdc: string, _usdt: string, _dai: string, _matic: string, _weth: string;
   // tslint:disable-next-line:one-variable-per-declaration
   let $usdc: BigNumber, $usdt: BigNumber, $dai: BigNumber, $matic: BigNumber, $weth: BigNumber;
 //endregion Global vars for all tests
@@ -58,7 +63,6 @@ describe("SwapManager", () => {
     weth = await DeployUtils.deployContract(deployer, 'MockERC20', 'Wrapped Ether', 'WETH', 18) as MockERC20;
     _weth = weth.address;
     unknown = await DeployUtils.deployContract(deployer, 'MockERC20', 'Unknown Token', 'UNKNOWN', 18) as MockERC20;
-    _unknown = unknown.address;
 
 
     $usdc = parseUnits('1');
@@ -78,7 +82,7 @@ describe("SwapManager", () => {
     controller = await TetuConverterApp.createController(deployer,
       {
         tetuLiquidatorAddress: liquidator.address,
-        priceOracleFabric: async c => (await MocksHelper.getPriceOracleMock(
+        priceOracleFabric: async () => (await MocksHelper.getPriceOracleMock(
             deployer,
             [usdt.address, dai.address, matic.address, weth.address, usdc.address],
             [$usdt, $dai, $matic, $weth, $usdc]
@@ -106,14 +110,6 @@ describe("SwapManager", () => {
 
 //region Unit tests
   describe("Constants", () => {
-    it("PRICE_IMPACT_NUMERATOR", async () => {
-      expect(await swapManager.PRICE_IMPACT_NUMERATOR()).eq(BigNumber.from('100000'))
-    });
-
-    it("PRICE_IMPACT_TOLERANCE", async () => {
-      expect(await swapManager.PRICE_IMPACT_TOLERANCE()).eq(BigNumber.from('2000'))
-    });
-
     it("APR_NUMERATOR", async () => {
       expect(await swapManager.APR_NUMERATOR()).eq(BigNumber.from('10').pow(18))
     });
@@ -124,10 +120,51 @@ describe("SwapManager", () => {
 
   });
 
-  describe("Constructor", () => {
+  describe("constructor", () => {
+    interface IMakeConstructorTestParams {
+      useZeroController?: boolean;
+      useZeroTetuLiquidator?: boolean;
+      useZeroPriceOracle?: boolean;
+    }
+    async function makeConstructorTest(
+      params?: IMakeConstructorTestParams
+    ) : Promise<SwapManager> {
+      const controllerLocal = await TetuConverterApp.createController(
+        deployer,
+        {
+          borrowManagerFabric: async () => ethers.Wallet.createRandom().address,
+          tetuConverterFabric: async () => ethers.Wallet.createRandom().address,
+          debtMonitorFabric: async () => ethers.Wallet.createRandom().address,
+          keeperFabric: async () => ethers.Wallet.createRandom().address,
+          swapManagerFabric: async (
+            c,
+            tetuLiquidator,
+            priceOracle
+          ) => (await CoreContractsHelper.createSwapManager(
+            deployer,
+            params?.useZeroController ? Misc.ZERO_ADDRESS : c.address,
+            params?.useZeroTetuLiquidator ? Misc.ZERO_ADDRESS : tetuLiquidator,
+            params?.useZeroPriceOracle ? Misc.ZERO_ADDRESS : priceOracle
+          )).address,
+          tetuLiquidatorAddress: ethers.Wallet.createRandom().address
+        }
+      );
+      return SwapManager__factory.connect(await controllerLocal.swapManager(), deployer);
+    }
     it("Revert on zero controller", async () => {
-      await expect(DeployUtils.deployContract(deployer, "SwapManager",
-        ethers.constants.AddressZero)).revertedWith("TC-1 zero address")
+      await expect(
+        makeConstructorTest({useZeroController: true})
+      ).revertedWith("TC-1 zero address"); // ZERO_ADDRESS
+    });
+    it("Revert on zero tetuLiquidator", async () => {
+      await expect(
+        makeConstructorTest({useZeroTetuLiquidator: true})
+      ).revertedWith("TC-1 zero address"); // ZERO_ADDRESS
+    });
+    it("Revert on zero priceOracle", async () => {
+      await expect(
+        makeConstructorTest({useZeroPriceOracle: true})
+      ).revertedWith("TC-1 zero address"); // ZERO_ADDRESS
     });
   });
 
@@ -374,14 +411,21 @@ describe("SwapManager", () => {
         ).revertedWith("TC-4 zero price"); // ZERO_PRICE
       });
     });
+    describe("Gas estimation @skip-on-coverage", () => {
+      it("should not exceed gas threshold", async () => {
+        // we need to multiple one-side-conversion-loss on 2 to get loss for there and back conversion
+        const sourceAmount = parseUnits("2", 18);
+        const targetAmount = parseUnits("1", 6);
+        const gasUsed = await swapManager.estimateGas.getApr18(dai.address, sourceAmount, usdc.address, targetAmount);
+        controlGasLimitsEx(gasUsed, GAS_SWAP_APR18, (u, t) => {
+          expect(u).to.be.below(t);
+        });
+      })
+    });
   });
 
   describe("swap", () => {
-
-    const swap = async (
-      tokenIn: MockERC20,
-      tokenOut: MockERC20,
-    ) => {
+    async function makeSwapTest(tokenIn: MockERC20, tokenOut: MockERC20) : Promise<boolean> {
       const tokenInDecimals = await tokenIn.decimals();
       const sourceAmount = parseUnits('1', tokenInDecimals);
 
@@ -398,27 +442,65 @@ describe("SwapManager", () => {
 
       await tokenIn.mint(swapManager.address, sourceAmount);
       const balanceOutBefore = await tokenOut.balanceOf(user.address);
-      await swapManager.swap(
-        tokenIn.address, sourceAmount, tokenOut.address, user.address);
-      const balanceOutAfter = await tokenOut.balanceOf(user.address);
+      await swapManager.swap(tokenIn.address, sourceAmount, tokenOut.address, user.address);
 
+      const balanceOutAfter = await tokenOut.balanceOf(user.address);
       const amountOut = balanceOutAfter.sub(balanceOutBefore);
       console.log('amountOut', amountOut);
+
       return amountOut.eq(targetAmount)
-    };
+    }
 
-    it("Should make swap for provided amount out", async () => {
-      const ret: boolean[] = [];
-      const expected: boolean[] = [];
-      for (const tokenIn of tokens) {
-        for (const tokenOut of tokens) {
-          if (tokenIn === tokenOut) continue;
-          ret.push(await swap(tokenIn, tokenOut));
-          expected.push(true);
+    describe("Good paths", () => {
+      it("Should make swap for provided amount out", async () => {
+        const ret: boolean[] = [];
+        const expected: boolean[] = [];
+        for (const tokenIn of tokens) {
+          for (const tokenOut of tokens) {
+            if (tokenIn === tokenOut) continue;
+            ret.push(await makeSwapTest(tokenIn, tokenOut));
+            expected.push(true);
+          }
         }
-      }
 
-      expect(ret.join()).eq(expected.join()); // TODO take slippage into account
+        expect(ret.join()).eq(expected.join());
+      });
+    });
+    describe("Bad paths", () => {
+      describe("the price is too different from the value calculated using PriceOracle", () => {
+        it("should NOT revert if the result amount is too high", async () => {
+          await liquidator.changePrices([usdc.address], [$usdc.mul(100)]);
+          // amountOut 100000000, amountOutExpected 1000000 - good case
+          const ret = await makeSwapTest(usdc, usdt);
+          expect(ret).eq(true);
+        });
+        it("should revert if the result amount is too low", async () => {
+          await liquidator.changePrices([usdc.address], [$usdc.div(100)]);
+          // amountOut 1000000, amountOutExpected 100000000 - bad case
+          await expect(
+            makeSwapTest(usdc, usdt)
+          ).revertedWith("TC-54 price impact"); // TOO_HIGH_PRICE_IMPACT
+        });
+      });
+    });
+    describe("Gas estimation @skip-on-coverage", () => {
+      it("should not exceed gas threshold", async () => {
+        const tokenIn = tokens[0];
+        const tokenOut = tokens[1];
+
+        const tokenInDecimals = await tokenIn.decimals();
+        const sourceAmount = parseUnits('1', tokenInDecimals);
+
+        await MockERC20__factory.connect(tokenIn.address, user).mint(user.address, sourceAmount);
+        await MockERC20__factory.connect(tokenIn.address, user).approve(controller.tetuConverter(), sourceAmount);
+
+        await tokenIn.mint(swapManager.address, sourceAmount);
+        const gasUsed = await swapManager.estimateGas.swap(tokenIn.address, sourceAmount, tokenOut.address, user.address);
+
+        controlGasLimitsEx(gasUsed, GAS_SWAP, (u, t) => {
+          expect(u).to.be.below(t);
+        });
+      });
     });
   });
 
@@ -480,6 +562,28 @@ describe("SwapManager", () => {
         ).revertedWith("TC-53 swap manager only"); // ONLY_SWAP_MANAGER
       });
     });
+    describe("Gas estimation @skip-on-coverage", () => {
+      it("should not exceed gas threshold", async () => {
+        const swapManagerAsSwapManager = SwapManager__factory.connect(
+          swapManager.address,
+          await DeployerUtils.startImpersonate(swapManager.address)
+        );
+        const sourceAmount = parseUnits('100', 18); // dai
+
+        await MockERC20__factory.connect(dai.address, user).mint(user.address, sourceAmount);
+        await MockERC20__factory.connect(dai.address, user).approve(await controller.tetuConverter(), sourceAmount);
+
+        const gasUsed = await swapManagerAsSwapManager.estimateGas.simulateSwap(
+          user.address,
+          dai.address,
+          sourceAmount,
+          usdc.address
+        );
+        controlGasLimitsEx(gasUsed, GAS_SWAP_SIMULATE, (u, t) => {
+          expect(u).to.be.below(t);
+        });
+      });
+    });
   });
 
   describe("events", () => {
@@ -497,8 +601,21 @@ describe("SwapManager", () => {
           tetuConverterFabric: async () => ethers.Wallet.createRandom().address,
           debtMonitorFabric: async () => ethers.Wallet.createRandom().address,
           keeperFabric: async () => ethers.Wallet.createRandom().address,
-          swapManagerFabric: async c => (await CoreContractsHelper.createSwapManager(deployer, c.address)).address,
-          tetuLiquidatorAddress: tetuLiquidator
+          swapManagerFabric: async (
+            c, tetuLiquidatorLocal, priceOracle
+          ) => (await CoreContractsHelper.createSwapManager(
+            deployer,
+            c.address,
+            tetuLiquidatorLocal,
+            priceOracle
+          )).address,
+          tetuLiquidatorAddress: tetuLiquidator,
+          priceOracleFabric: async () => (await MocksHelper.getPriceOracleMock(
+              deployer,
+              [sourceAsset.address, targetAsset.address],
+              [Misc.WEI, Misc.WEI]
+            )
+          ).address
         }
       );
 
@@ -518,6 +635,81 @@ describe("SwapManager", () => {
         receiver,
         parseUnits("1"),
       );
+    });
+  });
+
+  describe("setPriceImpactTolerance", () => {
+    describe("Good paths", () => {
+      it("should return expected values", async () => {
+        const customValueUSDC = BigNumber.from(10_000);
+        const customValueDAI = BigNumber.from(5_000);
+        await swapManager.setPriceImpactTolerance(usdt.address, 0);
+        await swapManager.setPriceImpactTolerance(usdc.address, customValueUSDC);
+        await swapManager.setPriceImpactTolerance(dai.address, customValueDAI);
+
+        const ret = [
+          await swapManager.priceImpactTolerances(usdt.address),
+          await swapManager.priceImpactTolerances(usdc.address),
+          await swapManager.priceImpactTolerances(dai.address)
+       ].map(x => BalanceUtils.toString(x)).join("\n");
+        const expected = [
+          0,
+          customValueUSDC,
+          customValueDAI
+        ].map(x => BalanceUtils.toString(x)).join("\n");
+        expect(ret).eq(expected);
+      });
+
+      describe("clear custom price impact tolerance", () => {
+        it("should return default value", async () => {
+          const defaultValue = await swapManager.PRICE_IMPACT_TOLERANCE_DEFAULT();
+          const customValue = BigNumber.from(10_000);
+
+          await swapManager.setPriceImpactTolerance(usdc.address, customValue);
+          const before = await swapManager.getPriceImpactTolerance(usdc.address);
+          await swapManager.setPriceImpactTolerance(usdc.address, 0);
+          const after = await swapManager.getPriceImpactTolerance(usdc.address);
+
+          const ret = [before.toString(), after.toString()].join();
+          const expected = [customValue.toString(), defaultValue.toString()].join();
+          expect(ret).eq(expected);
+        });
+      });
+    });
+    describe("Bad paths", () => {
+      it("should revert if not gov", async () => {
+        const notGov = ethers.Wallet.createRandom().address;
+        const swapManagerAsNotGov = SwapManager__factory.connect(
+          swapManager.address,
+          await DeployerUtils.startImpersonate(notGov)
+        );
+
+        await expect(
+          swapManagerAsNotGov.setPriceImpactTolerance(usdc.address, 10_000)
+        ).revertedWith("TC-9 governance only"); // GOVERNANCE_ONLY
+      });
+
+      it("should revert if price impact tolerance value is too high", async () => {
+        await expect(
+          swapManager.setPriceImpactTolerance(
+            usdc.address,
+            1_000_000 // (!) too high
+          )
+        ).revertedWith("TC-29 incorrect value"); // INCORRECT_VALUE
+      });
+    });
+  });
+
+  describe("getPriceImpactTolerance", () => {
+    it("should return custom value", async() => {
+      await swapManager.setPriceImpactTolerance(usdc.address, 10_000);
+      const ret = await swapManager.getPriceImpactTolerance(usdc.address);
+      expect(ret.eq(10_000)).eq(true);
+    });
+    it("should return default value", async() => {
+      const defaultValue = await swapManager.PRICE_IMPACT_TOLERANCE_DEFAULT();
+      const ret = await swapManager.getPriceImpactTolerance(usdc.address);
+      expect(ret.eq(defaultValue)).eq(true);
     });
   });
 //endregion Unit tests

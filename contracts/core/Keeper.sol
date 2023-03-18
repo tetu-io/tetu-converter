@@ -1,14 +1,14 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.4;
+pragma solidity 0.8.17;
 
-import "../integrations/gelato/OpsReady.sol";
+import "../libs/AppErrors.sol";
+import "../libs/AppUtils.sol";
 import "../interfaces/IHealthKeeperCallback.sol";
-import "../core/AppErrors.sol";
-import "../core/AppUtils.sol";
-import "../integrations/gelato/IResolver.sol";
 import "../interfaces/IController.sol";
-import "../interfaces/IDebtsMonitor.sol";
+import "../interfaces/IDebtMonitor.sol";
 import "../interfaces/IKeeperCallback.sol";
+import "../integrations/gelato/IResolver.sol";
+import "../integrations/gelato/OpsReady.sol";
 
 /// @notice Executor + Resolver for Gelato
 ///         to check health of opened positions and call requireRepay for unhealthy pool adapters
@@ -84,8 +84,15 @@ contract Keeper is OpsReady, IHealthKeeperCallback, IResolver {
       maxCountToReturn
     );
 
-    canExecOut = outPoolAdapters.length != 0
+    // it's necessary to run writable fixHealth() ...
+    canExecOut =
+      // ... if there is unhealthy pool adapter
+      outPoolAdapters.length != 0
+
+      // ... if we cannot check all adapters in one pass; we've checked a one portion, now we need to check the other portions
       || newNextIndexToCheck0 != startIndex
+
+      /// ... if it's the time to recalculate blocksPerDay value
       || (blocksPerDayAutoUpdatePeriodSecs != 0
           && controller.isBlocksPerDayAutoUpdateRequired(blocksPerDayAutoUpdatePeriodSecs)
          );

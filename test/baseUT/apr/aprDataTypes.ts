@@ -96,6 +96,8 @@ export interface IAaveKeyTestValues {
 export interface IConversionPlan {
   converter: string;
   liquidationThreshold18: BigNumber;
+  amountToBorrow: BigNumber;
+  collateralAmount: BigNumber;
   borrowCost36: BigNumber;
   supplyIncomeInBorrowAsset36: BigNumber;
   rewardsAmountInBorrowAsset36: BigNumber;
@@ -103,7 +105,6 @@ export interface IConversionPlan {
   ltv18: BigNumber;
   maxAmountToBorrow: BigNumber;
   maxAmountToSupply: BigNumber;
-  amountToBorrow: BigNumber;
 }
 
 export interface IAssetInfo {
@@ -121,7 +122,8 @@ export interface ISwapResults {
 
 export interface IStrategyToConvert {
   converter: string;
-  maxTargetAmount: BigNumber;
+  collateralAmountOut: BigNumber;
+  amountToBorrowOut: BigNumber;
   apr18: BigNumber;
 }
 

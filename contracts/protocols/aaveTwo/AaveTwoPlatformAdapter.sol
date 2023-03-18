@@ -1,10 +1,11 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.4;
+pragma solidity 0.8.17;
 
 import "../../openzeppelin/SafeERC20.sol";
 import "../../openzeppelin/IERC20.sol";
-import "../../core/AppDataTypes.sol";
-import "../../core/AppUtils.sol";
+import "../../libs/AppDataTypes.sol";
+import "../../libs/AppUtils.sol";
+import "../../libs/EntryKinds.sol";
 import "../../interfaces/IPlatformAdapter.sol";
 import "../../interfaces/IPoolAdapterInitializer.sol";
 import "../../interfaces/IController.sol";
@@ -35,22 +36,21 @@ contract AaveTwoPlatformAdapter is IPlatformAdapter {
   ///   Data types
   ///////////////////////////////////////////////////////
 
-  /// @notice Local vars inside _getConversionPlan - to avoid stack too deep
+  /// @notice Local vars inside getConversionPlan - to avoid stack too deep
   struct LocalsGetConversionPlan {
-    IAaveTwoPool poolLocal;
+    IAaveTwoPool pool;
     IAaveTwoLendingPoolAddressesProvider addressProvider;
     IAaveTwoProtocolDataProvider dataProvider;
     IAaveTwoPriceOracle priceOracle;
+    IController controller;
+    DataTypes.ReserveData rc;
+    DataTypes.ReserveData rb;
     uint availableLiquidity;
     uint totalStableDebt;
     uint totalVariableDebt;
     uint blocksPerDay;
-    uint priceCollateral;
-    uint priceBorrow;
-    /// @notice 10**rc.configuration.getDecimals()
-    uint rc10powDec;
-    /// @notice 10**rb.configuration.getDecimals()
-    uint rb10powDec;
+    uint healthFactor18;
+    uint entryKind;
   }
 
   ///////////////////////////////////////////////////////
@@ -61,6 +61,11 @@ contract AaveTwoPlatformAdapter is IPlatformAdapter {
   IAaveTwoPool immutable public pool;
   /// @notice template-pool-adapter
   address immutable public converter;
+  /// @dev Same as controller.borrowManager(); we cache it for gas optimization
+  address immutable public borrowManager;
+
+  /// @notice True if the platform is frozen and new borrowing is not possible (at this moment)
+  bool public override frozen;
 
   ///////////////////////////////////////////////////////
   ///               Events
@@ -79,11 +84,13 @@ contract AaveTwoPlatformAdapter is IPlatformAdapter {
 
   constructor (
     address controller_,
+    address borrowManager_,
     address poolAave_,
     address templateAdapterNormal_
   ) {
     require(
       poolAave_ != address(0)
+      && borrowManager_ != address(0)
       && templateAdapterNormal_ != address(0)
       && controller_ != address(0),
       AppErrors.ZERO_ADDRESS
@@ -91,6 +98,7 @@ contract AaveTwoPlatformAdapter is IPlatformAdapter {
     pool = IAaveTwoPool(poolAave_);
     controller = IController(controller_);
     converter = templateAdapterNormal_;
+    borrowManager = borrowManager_;
   }
 
   function initializePoolAdapter(
@@ -100,7 +108,7 @@ contract AaveTwoPlatformAdapter is IPlatformAdapter {
     address collateralAsset_,
     address borrowAsset_
   ) external override {
-    require(msg.sender == controller.borrowManager(), AppErrors.BORROW_MANAGER_ONLY);
+    require(msg.sender == borrowManager, AppErrors.BORROW_MANAGER_ONLY);
     require(converter == converter_, AppErrors.CONVERTER_NOT_FOUND);
 
     // All AAVE-pool-adapters support IPoolAdapterInitializer
@@ -114,6 +122,12 @@ contract AaveTwoPlatformAdapter is IPlatformAdapter {
     );
 
     emit OnPoolAdapterInitialized(converter_, poolAdapter_, user_, collateralAsset_, borrowAsset_);
+  }
+
+  /// @notice Set platform to frozen/unfrozen state. In frozen state any new borrowing is forbidden.
+  function setFrozen(bool frozen_) external {
+    require(msg.sender == controller.governance(), AppErrors.GOVERNANCE_ONLY);
+    frozen = frozen_;
   }
 
   ///////////////////////////////////////////////////////
@@ -131,142 +145,182 @@ contract AaveTwoPlatformAdapter is IPlatformAdapter {
   ///////////////////////////////////////////////////////
 
   function getConversionPlan (
-    address collateralAsset_,
-    uint collateralAmount_,
-    address borrowAsset_,
-    uint16 healthFactor2_,
-    uint countBlocks_
+    AppDataTypes.InputConversionParams memory params,
+    uint16 healthFactor2_
   ) external view override returns (
     AppDataTypes.ConversionPlan memory plan
   ) {
-    require(collateralAsset_ != address(0) && borrowAsset_ != address(0), AppErrors.ZERO_ADDRESS);
-    require(collateralAmount_ != 0 && countBlocks_ != 0, AppErrors.INCORRECT_VALUE);
-    require(healthFactor2_ >= controller.minHealthFactor2(), AppErrors.WRONG_HEALTH_FACTOR);
+    if (! frozen) {
+      LocalsGetConversionPlan memory vars;
+      AppDataTypes.PricesAndDecimals memory pd;
+      vars.controller = controller;
 
-    return _getConversionPlan(
-      AppDataTypes.ParamsGetConversionPlan({
-        collateralAsset: collateralAsset_,
-        collateralAmount: collateralAmount_,
-        borrowAsset: borrowAsset_,
-        healthFactor2: healthFactor2_,
-        countBlocks: countBlocks_
-      })
-    );
-  }
+      require(params.collateralAsset != address(0) && params.borrowAsset != address(0), AppErrors.ZERO_ADDRESS);
+      require(params.amountIn != 0 && params.countBlocks != 0, AppErrors.INCORRECT_VALUE);
+      require(healthFactor2_ >= vars.controller.minHealthFactor2(), AppErrors.WRONG_HEALTH_FACTOR);
 
-  function _getConversionPlan (
-    AppDataTypes.ParamsGetConversionPlan memory params
-  ) internal view returns (
-    AppDataTypes.ConversionPlan memory plan
-  ) {
-    LocalsGetConversionPlan memory vars;
-    vars.poolLocal = pool;
+      vars.pool = pool;
 
-    vars.addressProvider = IAaveTwoLendingPoolAddressesProvider(vars.poolLocal.getAddressesProvider());
-    vars.dataProvider = IAaveTwoProtocolDataProvider(vars.addressProvider.getAddress(bytes32(ID_DATA_PROVIDER)));
-    vars.priceOracle = IAaveTwoPriceOracle(vars.addressProvider.getPriceOracle());
+      vars.addressProvider = IAaveTwoLendingPoolAddressesProvider(vars.pool.getAddressesProvider());
+      vars.dataProvider = IAaveTwoProtocolDataProvider(vars.addressProvider.getAddress(bytes32(ID_DATA_PROVIDER)));
+      vars.priceOracle = IAaveTwoPriceOracle(vars.addressProvider.getPriceOracle());
 
-    DataTypes.ReserveData memory rc = vars.poolLocal.getReserveData(params.collateralAsset);
+      vars.rc = vars.pool.getReserveData(params.collateralAsset);
 
-    if (_isUsable(rc.configuration) &&  _isCollateralUsageAllowed(rc.configuration)) {
-      DataTypes.ReserveData memory rb = vars.poolLocal.getReserveData(params.borrowAsset);
-      if (_isUsable(rb.configuration) && rb.configuration.getBorrowingEnabled()) {
-        vars.rc10powDec = 10**rc.configuration.getDecimals();
-        vars.rb10powDec = 10**rb.configuration.getDecimals();
+      if (_isUsable(vars.rc.configuration) &&  _isCollateralUsageAllowed(vars.rc.configuration)) {
+        vars.rb = vars.pool.getReserveData(params.borrowAsset);
+        if (_isUsable(vars.rb.configuration) && vars.rb.configuration.getBorrowingEnabled()) {
+          //------------------------------- Calculate maxAmountToSupply and maxAmountToBorrow
+          // availableLiquidity is IERC20(borrowToken).balanceOf(atoken)
+          (vars.availableLiquidity, vars.totalStableDebt, vars.totalVariableDebt,,,,,,,) = vars.dataProvider.getReserveData(params.borrowAsset);
 
-        // get liquidation threshold (== collateral factor) and loan-to-value (LTV)
-        // we should use both LTV and liquidationThreshold of collateral asset (not borrow asset)
-        // see test "Borrow: check LTV and liquidationThreshold"
-        plan.ltv18 = uint(rc.configuration.getLtv()) * 10**(18-4);
-        plan.liquidationThreshold18 = uint(rc.configuration.getLiquidationThreshold()) * 10**(18-4);
-        plan.converter = converter;
+          plan.maxAmountToSupply = type(uint).max; // unlimited; fix validation below after changing this value
+          plan.maxAmountToBorrow = vars.availableLiquidity;
+          if (plan.amountToBorrow > plan.maxAmountToBorrow) {
+            plan.amountToBorrow = plan.maxAmountToBorrow;
+          }
 
-        // prepare to calculate supply/borrow APR
-        vars.blocksPerDay = controller.blocksPerDay();
-        vars.priceCollateral = vars.priceOracle.getAssetPrice(params.collateralAsset);
-        vars.priceBorrow = vars.priceOracle.getAssetPrice(params.borrowAsset);
+          if (/* plan.maxAmountToSupply != 0 &&*/ plan.maxAmountToBorrow != 0) {
+            pd.rc10powDec = 10**vars.rc.configuration.getDecimals();
+            pd.rb10powDec = 10**vars.rb.configuration.getDecimals();
 
-        // we assume here, that required health factor is configured correctly
-        // and it's greater than h = liquidation-threshold (LT) / loan-to-value (LTV)
-        // otherwise AAVE-pool will revert the borrow
-        // see comment to IBorrowManager.setHealthFactor
-        plan.amountToBorrow =
-            100 * params.collateralAmount / uint(params.healthFactor2)
-            * plan.liquidationThreshold18
-            * vars.priceCollateral
-            / vars.priceBorrow
-            * vars.rb10powDec
-            / 1e18
-            / vars.rc10powDec;
-        // availableLiquidity is IERC20(borrowToken).balanceOf(atoken)
-        (vars.availableLiquidity, vars.totalStableDebt, vars.totalVariableDebt,,,,,,,) = vars.dataProvider.getReserveData(params.borrowAsset);
+            //-------------------------------- converter, LTV and liquidation threshold
+            // get liquidation threshold (== collateral factor) and loan-to-value (LTV)
+            // we should use both LTV and liquidationThreshold of collateral asset (not borrow asset)
+            // see test "Borrow: check LTV and liquidationThreshold"
+            plan.ltv18 = uint(vars.rc.configuration.getLtv()) * 10**(18-4);
+            plan.liquidationThreshold18 = uint(vars.rc.configuration.getLiquidationThreshold()) * 10**(18-4);
+            plan.converter = converter; // can be changed later
 
-        plan.maxAmountToBorrow = vars.availableLiquidity;
-        if (plan.amountToBorrow > plan.maxAmountToBorrow) {
-          plan.amountToBorrow = plan.maxAmountToBorrow;
-        }
-        plan.borrowCost36 = AaveSharedLib.getCostForPeriodBefore(
-          AaveSharedLib.State({
-            liquidityIndex: rb.variableBorrowIndex,
-            lastUpdateTimestamp: uint(rb.lastUpdateTimestamp),
-            rate: rb.currentVariableBorrowRate
-          }),
-          plan.amountToBorrow,
-        //predicted borrow ray after the borrow
-          AaveTwoAprLib.getVariableBorrowRateRays(
-            rb,
-            params.borrowAsset,
-            plan.amountToBorrow,
-            vars.totalStableDebt,
-            vars.totalVariableDebt
-          ),
-          params.countBlocks,
-          vars.blocksPerDay,
-          block.timestamp, // assume, that we make borrow in the current block
-          1e18 // multiplier to increase result precision
-        )
-        * 10**18 // we need decimals 36, but the result is already multiplied on 1e18 by multiplier above
-        / vars.rb10powDec;
-        (, vars.totalStableDebt, vars.totalVariableDebt,,,,,,,) = vars.dataProvider.getReserveData(params.collateralAsset);
+            //-------------------------------- Prices and health factor
+            vars.blocksPerDay = vars.controller.blocksPerDay();
+            pd.priceCollateral = vars.priceOracle.getAssetPrice(params.collateralAsset);
+            pd.priceBorrow = vars.priceOracle.getAssetPrice(params.borrowAsset);
 
-        plan.maxAmountToSupply = type(uint).max; // unlimited
-        // calculate supply-APR, see detailed explanation in Aave3AprLib
-        plan.supplyIncomeInBorrowAsset36 = AaveSharedLib.getCostForPeriodBefore(
-          AaveSharedLib.State({
-            liquidityIndex: rc.liquidityIndex,
-            lastUpdateTimestamp: uint(rc.lastUpdateTimestamp),
-            rate: rc.currentLiquidityRate
-          }),
-          params.collateralAmount,
-          AaveTwoAprLib.getLiquidityRateRays(
-            rc,
-            params.collateralAsset,
-            params.collateralAmount,
-            vars.totalStableDebt,
-            vars.totalVariableDebt
-          ),
-          params.countBlocks,
-          vars.blocksPerDay,
-          block.timestamp, // assume, that we supply collateral in the current block
-          1e18 // multiplier to increase result precision
-        )
-        // we need a value in terms of borrow tokens with decimals 18
-        * 1e18 // we need decimals 36, but the result is already multiplied on 1e18 by multiplier above
-        * vars.priceCollateral
-        / vars.priceBorrow
-        / vars.rc10powDec;
-        plan.amountCollateralInBorrowAsset36 =
-          params.collateralAmount
-          * 1e18
-          * vars.priceCollateral
-          / vars.priceBorrow
-          * 1e18
-          / vars.rc10powDec;
-      }
+            // AAVE has min allowed health factor at the borrow moment: liquidationThreshold18/LTV, i.e. 0.85/0.8=1.06...
+            // Target health factor can be smaller but it's not possible to make a borrow with such low health factor
+            // see explanation of health factor value in IController.sol
+            vars.healthFactor18 = plan.liquidationThreshold18 * 1e18 / plan.ltv18;
+            if (vars.healthFactor18 < uint(healthFactor2_) * 10**(18 - 2)) {
+              vars.healthFactor18 = uint(healthFactor2_) * 10**(18 - 2);
+            }
+
+            //------------------------------- Calculate collateralAmount and amountToBorrow
+            // calculate amount that can be borrowed and amount that should be provided as the collateral
+            vars.entryKind = EntryKinds.getEntryKind(params.entryData);
+            if (vars.entryKind == EntryKinds.ENTRY_KIND_EXACT_COLLATERAL_IN_FOR_MAX_BORROW_OUT_0) {
+              plan.collateralAmount = params.amountIn;
+              plan.amountToBorrow = EntryKinds.exactCollateralInForMaxBorrowOut(
+                params.amountIn,
+                vars.healthFactor18,
+                plan.liquidationThreshold18,
+                pd,
+                false // prices have decimals 18, not 36
+              );
+            } else if (vars.entryKind == EntryKinds.ENTRY_KIND_EXACT_PROPORTION_1) {
+              (plan.collateralAmount, plan.amountToBorrow) = EntryKinds.exactProportion(
+                params.amountIn,
+                vars.healthFactor18,
+                plan.liquidationThreshold18,
+                pd,
+                params.entryData,
+                false // prices have decimals 18, not 36
+              );
+            } else if (vars.entryKind == EntryKinds.ENTRY_KIND_EXACT_BORROW_OUT_FOR_MIN_COLLATERAL_IN_2) {
+              plan.amountToBorrow = params.amountIn;
+              plan.collateralAmount = EntryKinds.exactBorrowOutForMinCollateralIn(
+                params.amountIn,
+                vars.healthFactor18,
+                plan.liquidationThreshold18,
+                pd,
+                false // prices have decimals 18, not 36
+              );
+            }
+
+            //------------------------------- Validate the borrow
+            if (plan.amountToBorrow == 0 || plan.collateralAmount == 0) {
+              plan.converter = address(0);
+            } else {
+              // reduce collateral amount and borrow amount proportionally to fit available limits
+              // we don't need to check "plan.collateralAmount > plan.maxAmountToSupply" as in AAVE3
+              // because maxAmountToSupply is always equal to type(uint).max
+              if (plan.amountToBorrow > plan.maxAmountToBorrow) {
+                plan.collateralAmount = plan.collateralAmount * plan.maxAmountToBorrow / plan.amountToBorrow;
+                plan.amountToBorrow = plan.maxAmountToBorrow;
+              }
+
+              //------------------------------- values for APR
+              plan.borrowCost36 = AaveSharedLib.getCostForPeriodBefore(
+                AaveSharedLib.State({
+                  liquidityIndex: vars.rb.variableBorrowIndex,
+                  lastUpdateTimestamp: uint(vars.rb.lastUpdateTimestamp),
+                  rate: vars.rb.currentVariableBorrowRate
+                }),
+                plan.amountToBorrow,
+              //predicted borrow ray after the borrow
+                AaveTwoAprLib.getVariableBorrowRateRays(
+                  vars.rb,
+                  params.borrowAsset,
+                  plan.amountToBorrow,
+                  vars.totalStableDebt,
+                  vars.totalVariableDebt
+                ),
+                params.countBlocks,
+                vars.blocksPerDay,
+                block.timestamp, // assume, that we make borrow in the current block
+                1e18 // multiplier to increase result precision
+              )
+              * 10**18 // we need decimals 36, but the result is already multiplied on 1e18 by multiplier above
+              / pd.rb10powDec;
+              (, vars.totalStableDebt, vars.totalVariableDebt,,,,,,,) = vars.dataProvider.getReserveData(params.collateralAsset);
+
+              // calculate supply-APR, see detailed explanation in Aave3AprLib
+              plan.supplyIncomeInBorrowAsset36 = AaveSharedLib.getCostForPeriodBefore(
+                AaveSharedLib.State({
+                  liquidityIndex: vars.rc.liquidityIndex,
+                  lastUpdateTimestamp: uint(vars.rc.lastUpdateTimestamp),
+                  rate: vars.rc.currentLiquidityRate
+                }),
+                plan.collateralAmount,
+                AaveTwoAprLib.getLiquidityRateRays(
+                  vars.rc,
+                  params.collateralAsset,
+                  plan.collateralAmount,
+                  vars.totalStableDebt,
+                  vars.totalVariableDebt
+                ),
+                params.countBlocks,
+                vars.blocksPerDay,
+                block.timestamp, // assume, that we supply collateral in the current block
+                1e18 // multiplier to increase result precision
+              )
+              // we need a value in terms of borrow tokens with decimals 18
+              * 1e18 // we need decimals 36, but the result is already multiplied on 1e18 by multiplier above
+              * pd.priceCollateral
+              / pd.priceBorrow
+              / pd.rc10powDec;
+
+              plan.amountCollateralInBorrowAsset36 =
+                plan.collateralAmount
+                * 1e18
+                * pd.priceCollateral
+                / pd.priceBorrow
+                * 1e18
+                / pd.rc10powDec;
+            }
+          } // else either max borrow or max supply amount is zero
+        } // else the borrowing is not enabled
+      } // else the collateral is not allowed
     }
 
-    return plan;
+    if (plan.converter == address(0)) {
+      AppDataTypes.ConversionPlan memory planNotFound;
+      return planNotFound;
+    } else {
+      return plan;
+    }
   }
+
 
   ///////////////////////////////////////////////////////
   ///  Calculate borrow rate after borrowing in advance

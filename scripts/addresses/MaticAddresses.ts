@@ -83,7 +83,7 @@ export class MaticAddresses {
   public static HOLDER_WETH = "0x2093b4281990a568c9d588b8bce3bfd7a1557ebd";
   public static HOLDER_WETH_4 = "0x064917552b3121ed11321ecd8908fc79d00bcbb7";
 
-  public static HOLDER_CHAIN_LINK = "0x55e4d16f9c3041eff17ca32850662f3e9dddbce7";
+  public static HOLDER_CHAIN_LINK = "0x9bdb521a97e95177bf252c253e256a60c3e14447";
   public static HOLDER_DefiPulseToken = "0xd1468a5e1ff399d7a4465fbdff3e3ccb013d149f";
   public static HOLDER_AavegotchiGHST = "0xf977814e90da44bfa03b6295a0616a897441acec";
   public static HOLDER_Sushi = "0x0f0c716b007c289c0011e470cc7f14de4fe9fc80";
@@ -113,6 +113,7 @@ export class MaticAddresses {
   public static AAVE_V3_RISK_ADMIN = "0xAcDAB5377dAd9895FDad8FFCd4AC54a19DC8d6b7";
   /* see https://polygonscan.com/address/0xa72636cbcaa8f5ff95b2cc47f3cdee83f3294a0b#readContract */
   public static AAVE_V3_EMERGENCY_ADMIN = "0x1450F2898D6bA2710C98BE9CAF3041330eD5ae58";
+  public static AAVE_V3_PRICE_ORACLE = "0xb023e699F5a33916Ea823A16485e259257cA8Bd1";
 
   public static Aave3_Polygon_DAI = "0x82E64f49Ed5EC1bC6e43DAD4FC8Af9bb3A2312EE";
   public static Aave3_Polygon_LINK = "0x191c10Aa4AF7C30e871E70C95dB0E4eb77237530";

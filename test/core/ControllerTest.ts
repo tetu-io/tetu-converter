@@ -16,11 +16,7 @@ describe("Controller", () => {
   let snapshot: string;
   let snapshotForEach: string;
   let deployer: SignerWithAddress;
-  let user1: SignerWithAddress;
-  let user2: SignerWithAddress;
   let user3: SignerWithAddress;
-  let user4: SignerWithAddress;
-  let user5: SignerWithAddress;
 //endregion Global vars for all tests
 
 //region before, after
@@ -29,11 +25,7 @@ describe("Controller", () => {
     snapshot = await TimeUtils.snapshot();
     const signers = await ethers.getSigners();
     deployer = signers[0];
-    user1 = signers[2];
-    user2 = signers[3];
     user3 = signers[4];
-    user4 = signers[5];
-    user5 = signers[6];
   });
 
   after(async function () {
@@ -113,7 +105,7 @@ describe("Controller", () => {
   async function createTestController(
     a: IControllerMembers,
   ) : Promise<{controller: Controller, gasUsed: BigNumber}> {
-    const controller = await CoreContractsHelper.deployController(deployer);
+    const controller = await CoreContractsHelper.deployController(deployer, a.tetuLiquidator, a.priceOracle);
 
     const gasUsed = await getGasUsed(
       controller.initialize(
@@ -126,9 +118,7 @@ describe("Controller", () => {
         a.borrowManager,
         a.debtMonitor,
         a.keeper,
-        a.tetuLiquidator,
         a.swapManager,
-        a.priceOracle
       )
     );
 
@@ -176,7 +166,7 @@ describe("Controller", () => {
 
         expect(ret).to.be.equal(expected);
       });
-      it("should not exceed gas limits", async () => {
+      it("should not exceed gas limits  @skip-on-coverage", async () => {
         const a = getRandomMembersValues();
 
         const {gasUsed} = await createTestController(a);
@@ -265,6 +255,24 @@ describe("Controller", () => {
         await expect(
           createTestController(a)
         ).revertedWith("TC-29 incorrect value");
+      });
+      it("should revert if already initialized", async () => {
+        const a = getRandomMembersValues();
+        const {controller} = await createTestController(a);
+        await expect(
+          controller.initialize(
+            a.governance,
+            a.blocksPerDay,
+            a.minHealthFactor2,
+            a.targetHealthFactor2,
+            a.maxHealthFactor2,
+            a.tetuConverter,
+            a.borrowManager,
+            a.debtMonitor,
+            a.keeper,
+            a.swapManager,
+          )
+        ).revertedWith("Initializable: contract is already initialized");
       });
     });
   });
@@ -487,13 +495,15 @@ describe("Controller", () => {
         const lastBlockTimestamp0 = (await controller.lastBlockTimestamp()).toNumber();
 
         const periodSecs = 100; // seconds
-        do {
+
+        // eslint-disable-next-line no-constant-condition
+        while (true) {
           await TimeUtils.advanceNBlocks(10);
           const block = await hre.ethers.provider.getBlock("latest");
           if (block.timestamp - block0.timestamp > periodSecs) {
             break;
           }
-        } while(true);
+        }
 
         const controllerAsKeeper = Controller__factory.connect(
           controller.address,

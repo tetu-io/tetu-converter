@@ -18,6 +18,8 @@ import {Misc} from "../../../scripts/utils/Misc";
 import {areAlmostEqual} from "../../baseUT/utils/CommonUtils";
 import {transferAndApprove} from "../../baseUT/utils/transferUtils";
 import {DForceTestUtils, IPrepareToBorrowResults} from "../../baseUT/protocols/dforce/DForceTestUtils";
+import {formatUnits, parseUnits} from "ethers/lib/utils";
+import {DForceHelper} from "../../../scripts/integration/helpers/DForceHelper";
 
 
 describe("DForce integration tests, pool adapter", () => {
@@ -237,6 +239,134 @@ describe("DForce integration tests, pool adapter", () => {
             const r = await testBorrowMaticEth(undefined, undefined);
             expect(r.ret).eq(r.expected);
           });
+        });
+      });
+    });
+  });
+
+  describe("Borrow using small health factors", () => {
+    interface ITestSmallHealthFactorResults {
+      d: IPrepareToBorrowResults;
+      resultHealthFactor18: BigNumber;
+    }
+    async function makeTestSmallHealthFactor(
+      collateralAsset: string,
+      collateralHolder: string,
+      collateralCToken: string,
+      borrowAsset: string,
+      borrowCToken: string,
+      targetHealthFactor2: number,
+      minHealthFactor2: number
+    ) : Promise<ITestSmallHealthFactorResults> {
+
+      const collateralToken = await TokenDataTypes.Build(deployer, collateralAsset);
+      const borrowToken = await TokenDataTypes.Build(deployer, borrowAsset);
+
+      const collateralAmount = parseUnits("20000", 6);
+
+      const d = await DForceTestUtils.prepareToBorrow(
+        deployer,
+        collateralToken,
+        collateralHolder,
+        collateralCToken,
+        collateralAmount,
+        borrowToken,
+        borrowCToken,
+        {
+          targetHealthFactor2
+        }
+      );
+
+      await d.controller.setMinHealthFactor2(minHealthFactor2);
+      await d.controller.setTargetHealthFactor2(targetHealthFactor2);
+
+      await DForceTestUtils.makeBorrow(deployer, d, undefined);
+      const r = await d.dfPoolAdapterTC.getStatus();
+      return {
+        d,
+        resultHealthFactor18: r.healthFactor18
+      }
+    }
+    describe("Good paths", () => {
+      describe("health factor is less than liquidationThreshold18/LTV", () => {
+        /** TODO: we need to modify borrowFactorMantissa manually to make minHealthFactorAllowedByPlatform > 1 */
+        it.skip("should borrow with health factor = liquidationThreshold18/LTV", async () => {
+          const targetHealthFactor2 = 103;
+          const minHealthFactor2 = 101;
+
+          const collateralAsset = MaticAddresses.USDC;
+          const collateralCToken = MaticAddresses.dForce_iUSDC;
+          const collateralHolder = MaticAddresses.HOLDER_USDC;
+          const borrowAsset = MaticAddresses.DAI;
+          const borrowCToken = MaticAddresses.dForce_iDAI;
+
+          const r = await makeTestSmallHealthFactor(
+            collateralAsset,
+            collateralHolder,
+            collateralCToken,
+            borrowAsset,
+            borrowCToken,
+            targetHealthFactor2,
+            minHealthFactor2
+          );
+          const collateralInfo = await DForceHelper.getCTokenData(
+            deployer,
+            await DForceHelper.getController(deployer),
+            IDForceCToken__factory.connect(collateralCToken, deployer)
+          );
+          const minHealthFactorAllowedByPlatform = +formatUnits(collateralInfo.borrowFactorMantissa,18);
+          const healthFactor = +formatUnits(r.resultHealthFactor18, 18);
+          console.log("healthFactor", healthFactor);
+          console.log("minHealthFactorAllowedByPlatform", minHealthFactorAllowedByPlatform);
+
+          const ret = [
+            targetHealthFactor2 < minHealthFactorAllowedByPlatform * 100,
+            healthFactor >= minHealthFactorAllowedByPlatform - 1,
+            healthFactor <= minHealthFactorAllowedByPlatform + 1
+          ].join();
+          const expected = [true, true, true].join();
+
+          expect(ret).eq(expected);
+        });
+      });
+      describe("health factor is greater than liquidationThreshold18/LTV", () => {
+        it("should borrow with specified health factor", async () => {
+          const targetHealthFactor2 = 108;
+          const minHealthFactor2 = 101;
+
+          const collateralAsset = MaticAddresses.USDC;
+          const collateralCToken = MaticAddresses.dForce_iUSDC;
+          const collateralHolder = MaticAddresses.HOLDER_USDC;
+          const borrowAsset = MaticAddresses.DAI;
+          const borrowCToken = MaticAddresses.dForce_iDAI;
+
+          const r = await makeTestSmallHealthFactor(
+            collateralAsset,
+            collateralHolder,
+            collateralCToken,
+            borrowAsset,
+            borrowCToken,
+            targetHealthFactor2,
+            minHealthFactor2
+          );
+          const collateralInfo = await DForceHelper.getCTokenData(
+            deployer,
+            await DForceHelper.getController(deployer),
+            IDForceCToken__factory.connect(collateralCToken, deployer)
+          );
+          const minHealthFactorAllowedByPlatform = +formatUnits(collateralInfo.borrowFactorMantissa,18);
+          const healthFactor = +formatUnits(r.resultHealthFactor18, 18);
+
+          console.log("healthFactor", healthFactor);
+          console.log("minHealthFactorAllowedByPlatform", minHealthFactorAllowedByPlatform);
+          const ret = [
+            targetHealthFactor2 > minHealthFactorAllowedByPlatform,
+            healthFactor >= targetHealthFactor2/100 - 1,
+            healthFactor <= targetHealthFactor2/100 + 1
+          ].join();
+          const expected = [true, true, true].join();
+
+          expect(ret).eq(expected);
         });
       });
     });
@@ -750,7 +880,6 @@ describe("DForce integration tests, pool adapter", () => {
         it("should return expected values", async () => {
           if (!await isPolygonForkInUse()) return;
 
-          const usdcDecimals = await IERC20Metadata__factory.connect(MaticAddresses.USDC, deployer).decimals();
           await expect(
             daiUSDC(
               false,
@@ -805,7 +934,7 @@ describe("DForce integration tests, pool adapter", () => {
               undefined,
               {forceToClosePosition: true}
             )
-          ).revertedWith("TC-24 close position failed"); // CLOSE_POSITION_FAILED
+          ).revertedWith("TC-55 close position not allowed"); // CLOSE_POSITION_PARTIAL
         });
       });
     });

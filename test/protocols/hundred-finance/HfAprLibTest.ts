@@ -13,7 +13,6 @@ describe("HfAprLib unit tests", () => {
   let snapshot: string;
   let snapshotForEach: string;
   let deployer: SignerWithAddress;
-  let investor: SignerWithAddress;
   let libFacade: HfAprLibFacade;
 
 //endregion Global vars for all tests
@@ -24,7 +23,6 @@ describe("HfAprLib unit tests", () => {
     snapshot = await TimeUtils.snapshot();
     const signers = await ethers.getSigners();
     deployer = signers[0];
-    investor = signers[0];
     if (!await isPolygonForkInUse()) return;
     libFacade = await DeployUtils.deployContract(deployer, "HfAprLibFacade") as HfAprLibFacade;
   });

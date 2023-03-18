@@ -51,9 +51,6 @@ import {parseUnits} from "ethers/lib/utils";
 import {areAlmostEqual} from "../../baseUT/utils/CommonUtils";
 import {IPoolAdapterStatus} from "../../baseUT/types/BorrowRepayDataTypes";
 import {Aave3ChangePricesUtils} from "../../baseUT/protocols/aave3/Aave3ChangePricesUtils";
-import exp from "constants";
-import {Aave3Helper} from "../../../scripts/integration/helpers/Aave3Helper";
-import {interfaces} from "../../../typechain/contracts";
 
 describe("Aave3PoolAdapterUnitTest", () => {
 //region Global vars for all tests
@@ -166,7 +163,6 @@ describe("Aave3PoolAdapterUnitTest", () => {
       });
       it("should transfer expected amount to the user", async () => {
         if (!await isPolygonForkInUse()) return;
-        const status = await results.init.aavePoolAdapterAsTC.getStatus();
         const receivedBorrowAmount = await results.borrowToken.token.balanceOf(results.init.userContract.address);
         expect(receivedBorrowAmount.toString()).eq(results.borrowResults.borrowedAmount.toString());
       });
@@ -354,13 +350,11 @@ describe("Aave3PoolAdapterUnitTest", () => {
       });
       it("should withdraw expected collateral amount", async () => {
         if (!await isPolygonForkInUse()) return;
-        const status = await results.init.aavePoolAdapterAsTC.getStatus();
         const receivedCollateralAmount = await results.collateralToken.token.balanceOf(results.init.userContract.address);
         expect(areAlmostEqual(receivedCollateralAmount, results.init.collateralAmount)).eq(true);
       });
       it("should return expected collateral amount", async () => {
         if (!await isPolygonForkInUse()) return;
-        const status = await results.init.aavePoolAdapterAsTC.getStatus();
         expect(areAlmostEqual(results.repayResultsCollateralAmountOut, results.init.collateralAmount)).eq(true);
       });
     });
@@ -400,7 +394,7 @@ describe("Aave3PoolAdapterUnitTest", () => {
           "1999",
           {amountToRepayStr: "1", closePosition: true}
           )
-        ).revertedWith("TC-24 close position failed"); // CLOSE_POSITION_FAILED
+        ).revertedWith("TC-55 close position not allowed"); // CLOSE_POSITION_PARTIAL
       });
       it("should fail if the debt was completely paid but amount of the debt is still not zero in the pool", async () => {
         if (!await isPolygonForkInUse()) return;
@@ -485,8 +479,6 @@ describe("Aave3PoolAdapterUnitTest", () => {
       await d.controller.setMinHealthFactor2(minHealthFactorInitial2);
 
       // make borrow
-      const amountToBorrow = d.amountToBorrow;
-
       if (! p.badPathsParams?.skipBorrow) {
         await transferAndApprove(
           p.collateralToken.address,
@@ -497,8 +489,8 @@ describe("Aave3PoolAdapterUnitTest", () => {
         );
 
         await d.aavePoolAdapterAsTC.borrow(
-          p.collateralAmount,
-          amountToBorrow,
+          d.collateralAmount,
+          d.amountToBorrow,
           d.userContract.address // receiver
         );
       }
@@ -527,8 +519,8 @@ describe("Aave3PoolAdapterUnitTest", () => {
       // calculate amount-to-repay and (if necessary) put the amount on userContract's balance
       const amountsToRepay = await SharedRepayToRebalanceUtils.prepareAmountsToRepayToRebalance(
         deployer,
-        amountToBorrow,
-        p.collateralAmount,
+        d.amountToBorrow,
+        d.collateralAmount,
         d.userContract,
         p
       );
@@ -966,24 +958,6 @@ describe("Aave3PoolAdapterUnitTest", () => {
           )
         ).revertedWith("TC-1 zero address"); // ZERO_ADDRESS
       });
-      it("should revert on zero controller", async () => {
-        if (!await isPolygonForkInUse()) return;
-        await expect(
-          makeInitializePoolAdapterTest(
-            false,
-            {zeroController: true}
-          )
-        ).revertedWith("TC-1 zero address"); // ZERO_ADDRESS
-      });
-      it("should revert on zero controller", async () => {
-        if (!await isPolygonForkInUse()) return;
-        await expect(
-          makeInitializePoolAdapterTest(
-            false,
-            {zeroController: true}
-          )
-        ).revertedWith("TC-1 zero address"); // ZERO_ADDRESS
-      });
       it("should revert on zero user", async () => {
         if (!await isPolygonForkInUse()) return;
         await expect(
@@ -1030,20 +1004,18 @@ describe("Aave3PoolAdapterUnitTest", () => {
         ).revertedWith("TC-1 zero address"); // ZERO_ADDRESS
       });
       it("should revert on second initialization", async () => {
-        it("should revert on second initialization", async () => {
-          if (!await isPolygonForkInUse()) return;
-          const d = await makeInitializePoolAdapter(false);
-          await expect(
-            d.poolAdapter.initialize(
-              d.controller.address,
-              MaticAddresses.AAVE_V3_POOL,
-              d.user,
-              d.collateralAsset,
-              d.borrowAsset,
-              d.converter
-            )
-          ).revertedWithCustomError(d.poolAdapter, "ErrorAlreadyInitialized");
-        });
+        if (!await isPolygonForkInUse()) return;
+        const d = await makeInitializePoolAdapter(false);
+        await expect(
+          d.poolAdapter.initialize(
+            d.controller.address,
+            MaticAddresses.AAVE_V3_POOL,
+            d.user,
+            d.collateralAsset,
+            d.borrowAsset,
+            d.converter
+          )
+        ).revertedWith("Initializable: contract is already initialized");
       });
     });
   });
@@ -1147,7 +1119,9 @@ describe("Aave3PoolAdapterUnitTest", () => {
 
         const converterNormal = (await AdaptersHelper.createAave3PoolAdapter(deployer)).address;
         const platformAdapter = await AdaptersHelper.createAave3PlatformAdapter(
-          deployer, controller.address, MaticAddresses.AAVE_V3_POOL,
+          deployer,
+          controller.address,
+          MaticAddresses.AAVE_V3_POOL,
           converterNormal,
           (await AdaptersHelper.createAave3PoolAdapterEMode(deployer)).address
         );
@@ -1164,22 +1138,22 @@ describe("Aave3PoolAdapterUnitTest", () => {
         const cr = await tx.wait();
 
         // now, we know the address of the pool adapter...
-        const aavePoolAdapterAsTC = Aave3PoolAdapter__factory.connect(
-          await borrowManager.getPoolAdapter(converterNormal, userContract.address, collateralAsset, borrowAsset),
-          tetuConverterSigner
-        );
+        // const aavePoolAdapterAsTC = Aave3PoolAdapter__factory.connect(
+        //   await borrowManager.getPoolAdapter(converterNormal, userContract.address, collateralAsset, borrowAsset),
+        //   tetuConverterSigner
+        // );
 
         // ... and so, we can check the event in tricky way, see how to parse event: https://github.com/ethers-io/ethers.js/issues/487
         const abi = ["event OnInitialized(address controller, address pool, address user, address collateralAsset, address borrowAsset, address originConverter)"];
         const iface = new ethers.utils.Interface(abi);
-        // let's find an event with required address
-        let eventIndex = 0;
-        for (let i = 0; i < cr.logs.length; ++i) {
-          if (cr.logs[i].address === aavePoolAdapterAsTC.address) {
-            eventIndex = i;
-            break;
-          }
-        }
+        // // let's find an event with required address
+        // let eventIndex = 0;
+        // for (let i = 0; i < cr.logs.length; ++i) {
+        //   if (cr.logs[i].address === aavePoolAdapterAsTC.address) {
+        //     eventIndex = i;
+        //     break;
+        //   }
+        // }
         const logOnInitialized = iface.parseLog(cr.logs[2]);
         const retLog = [
           logOnInitialized.name,
@@ -1220,7 +1194,9 @@ describe("Aave3PoolAdapterUnitTest", () => {
 
         const converterNormal = (await AdaptersHelper.createAave3PoolAdapter(deployer)).address;
         const platformAdapter = await AdaptersHelper.createAave3PlatformAdapter(
-          deployer, controller.address, MaticAddresses.AAVE_V3_POOL,
+          deployer,
+          controller.address,
+          MaticAddresses.AAVE_V3_POOL,
           converterNormal,
           (await AdaptersHelper.createAave3PoolAdapterEMode(deployer)).address
         );
@@ -1242,7 +1218,16 @@ describe("Aave3PoolAdapterUnitTest", () => {
         // TetuConverter gives infinity approve to the pool adapter after pool adapter creation (see TetuConverter.convert implementation)
         await makeInfinityApprove(tetuConverterSigner.address, aavePoolAdapterAsTC.address, collateralAsset, borrowAsset);
         await BalanceUtils.getRequiredAmountFromHolders(collateralAmount, collateralToken.token, [collateralHolder], userContract.address);
-        const plan = await platformAdapter.getConversionPlan(collateralAsset, collateralAmount, borrowAsset, targetHealthFactor2, 1);
+        const plan = await platformAdapter.getConversionPlan(
+          {
+            collateralAsset,
+            amountIn: collateralAmount,
+            borrowAsset,
+            countBlocks: 1,
+            entryData: "0x"
+          },
+          targetHealthFactor2
+        );
         await transferAndApprove(collateralAsset, userContract.address, tetuConverterSigner.address, collateralAmount, aavePoolAdapterAsTC.address);
 
         await expect(
@@ -1351,7 +1336,7 @@ describe("Aave3PoolAdapterUnitTest", () => {
         );
         const status = await init.aavePoolAdapterAsTC.getStatus();
 
-        const collateralTargetHealthFactor2 = await BorrowManager__factory.connect(
+        await BorrowManager__factory.connect(
           await init.controller.borrowManager(), deployer
         ).getTargetHealthFactor2(collateralAsset);
 
@@ -1364,6 +1349,90 @@ describe("Aave3PoolAdapterUnitTest", () => {
         ].join();
         const expected = [true, true, true, true, false].join();
         expect(ret).eq(expected);
+      });
+
+      /**
+       * GetStatus returns amount A BIT more than actual value of the debt
+       * to work around limitations of aave tokenization model, see Aave Protocol Whitepaper v1.0, section 3.8.1
+       * Ensure, that this difference is small enough for any asset pairs
+       */
+      describe("AAVE dust problem", () => {
+        describe("Small amount USDC/WETH", () => {
+          it("should return amount of debt almost equal to borrowed amount", async () => {
+            const results = await makeBorrowTest(
+              MaticAddresses.USDC,
+              MaticAddresses.HOLDER_USDC,
+              MaticAddresses.WETH,
+              "0.1"
+            );
+            const status = await results.init.aavePoolAdapterAsTC.getStatus();
+
+            const amountBorrowed = results.borrowResults.borrowedAmount;
+            const amountReturnedByStatus = status.amountToPay;
+            console.log("amountBorrowed", amountBorrowed.toString());
+            console.log("amountReturnedByStatus", amountReturnedByStatus.toString());
+
+            const ret = areAlmostEqual(amountBorrowed, amountReturnedByStatus, 5);
+            expect(ret).eq(true);
+          });
+        });
+        describe("Huge amount USDC/WETH", () => {
+          it("should return amount of debt almost equal to borrowed amount", async () => {
+            const results = await makeBorrowTest(
+              MaticAddresses.USDC,
+              MaticAddresses.HOLDER_USDC,
+              MaticAddresses.WETH,
+              "1000000"
+            );
+            const status = await results.init.aavePoolAdapterAsTC.getStatus();
+
+            const amountBorrowed = results.borrowResults.borrowedAmount;
+            const amountReturnedByStatus = status.amountToPay;
+            console.log("amountBorrowed", amountBorrowed.toString());
+            console.log("amountReturnedByStatus", amountReturnedByStatus.toString());
+
+            const ret = areAlmostEqual(amountBorrowed, amountReturnedByStatus, 5);
+            expect(ret).eq(true);
+          });
+        });
+        describe("Small amount USDC/WBTC", () => {
+          it("should return amount of debt almost equal to borrowed amount", async () => {
+            const results = await makeBorrowTest(
+              MaticAddresses.USDC,
+              MaticAddresses.HOLDER_USDC,
+              MaticAddresses.WBTC,
+              "1"
+            );
+            const status = await results.init.aavePoolAdapterAsTC.getStatus();
+
+            const amountBorrowed = results.borrowResults.borrowedAmount;
+            const amountReturnedByStatus = status.amountToPay;
+            console.log("amountBorrowed", amountBorrowed.toString());
+            console.log("amountReturnedByStatus", amountReturnedByStatus.toString());
+
+            const ret = areAlmostEqual(amountBorrowed, amountReturnedByStatus, 5);
+            expect(ret).eq(true);
+          });
+        });
+        describe("Small amount DAI/USDC", () => {
+          it("should return amount of debt almost equal to borrowed amount", async () => {
+            const results = await makeBorrowTest(
+              MaticAddresses.DAI,
+              MaticAddresses.HOLDER_DAI,
+              MaticAddresses.USDC,
+              "0.1"
+            );
+            const status = await results.init.aavePoolAdapterAsTC.getStatus();
+
+            const amountBorrowed = results.borrowResults.borrowedAmount;
+            const amountReturnedByStatus = status.amountToPay;
+            console.log("amountBorrowed", amountBorrowed.toString());
+            console.log("amountReturnedByStatus", amountReturnedByStatus.toString());
+
+            const ret = areAlmostEqual(amountBorrowed, amountReturnedByStatus, 4);
+            expect(ret).eq(true);
+          });
+        });
       });
     });
     describe("Bad paths", () => {
@@ -1382,7 +1451,7 @@ describe("Aave3PoolAdapterUnitTest", () => {
           r.init.aavePoolAdapterAsTC.getStatus()
         ).revertedWith("TC-4 zero price"); // ZERO_PRICE
       });
-      it("it should revert if collateral price is zero", async () => {
+      it("it should revert if borrow price is zero", async () => {
         if (!await isPolygonForkInUse()) return;
 
         const r = await makeBorrowTest(
@@ -1478,6 +1547,7 @@ describe("Aave3PoolAdapterUnitTest", () => {
         console.log("Real amount to pay:", realAmountToPay.toString());
 
         const collateralAmountOut = await tetuConverterAsUser.callStatic.quoteRepay(
+          await tetuConverterAsUser.signer.getAddress(),
           results.init.collateralToken.address,
           results.init.borrowToken.address,
           realAmountToPay.div(part100)
@@ -1505,6 +1575,7 @@ describe("Aave3PoolAdapterUnitTest", () => {
           //   status.amountToPay
           // );
           const collateralAmountOut = await tetuConverterAsUser.callStatic.quoteRepay(
+            await tetuConverterAsUser.signer.getAddress(),
             results.init.collateralToken.address,
             results.init.borrowToken.address,
             status.amountToPay
@@ -1553,6 +1624,7 @@ describe("Aave3PoolAdapterUnitTest", () => {
         );
         await expect(
           tetuConverterAsUser.quoteRepay(
+            await tetuConverterAsUser.signer.getAddress(),
             results.init.collateralToken.address,
             results.init.borrowToken.address,
             parseUnits("10000") // full repay, close position

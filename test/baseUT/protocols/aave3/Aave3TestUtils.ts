@@ -24,6 +24,7 @@ import {getBigNumberFrom} from "../../../../scripts/utils/NumberUtils";
 import {TetuConverterApp} from "../../helpers/TetuConverterApp";
 import {Misc} from "../../../../scripts/utils/Misc";
 import {IAaveTwoUserAccountDataResults} from "../../apr/aprAaveTwo";
+import {parseUnits} from "ethers/lib/utils";
 
 //region Data types
 export interface IPrepareToBorrowResults {
@@ -65,7 +66,8 @@ export interface IPrepareToBorrowOptionalSetup {
 async function supplyEnoughBorrowAssetToAavePool(
   aavePool: string,
   borrowHolders: string[],
-  borrowAsset: string
+  borrowAsset: string,
+  maxAmountToSupply: BigNumber
 ) {
   const user2 = await DeployerUtils.startImpersonate(ethers.Wallet.createRandom().address);
 
@@ -79,12 +81,20 @@ async function supplyEnoughBorrowAssetToAavePool(
     console.log("User balance:", userBalance.toString());
   }
 
-  // supply all available borrow asset to aave pool
+  // supply all available borrow asset to aave pool,
+  // but we cannot supply an amount greater than supply cap
   const user2CollateralBalance = await IERC20__factory.connect(borrowAsset, user2).balanceOf(user2.address);
   await IERC20Metadata__factory.connect(borrowAsset, user2).approve(aavePool, user2CollateralBalance);
-  console.log(`Supply collateral ${borrowAsset} amount ${user2CollateralBalance}`);
+  console.log(`Supply collateral ${borrowAsset} amount ${user2CollateralBalance} maxAmountToSupply=${maxAmountToSupply}`);
   await IAavePool__factory.connect(aavePool, await DeployerUtils.startImpersonate(user2.address))
-    .supply(borrowAsset, user2CollateralBalance, user2.address, 0);
+    .supply(
+      borrowAsset,
+      maxAmountToSupply.eq(0) || maxAmountToSupply.gt(user2CollateralBalance)
+        ? user2CollateralBalance
+        : maxAmountToSupply,
+      user2.address,
+      0
+    );
 }
 
 export interface IBorrowResults {
@@ -186,7 +196,9 @@ export class Aave3TestUtils {
     const converterNormal = await AdaptersHelper.createAave3PoolAdapter(deployer);
     const converterEMode = await AdaptersHelper.createAave3PoolAdapterEMode(deployer);
     const aavePlatformAdapter = await AdaptersHelper.createAave3PlatformAdapter(
-      deployer, controller.address, aavePool.address,
+      deployer,
+      controller.address,
+      aavePool.address,
       converterNormal.address,
       converterEMode.address
     );
@@ -236,10 +248,22 @@ export class Aave3TestUtils {
     console.log(`Put collateral=${collateralAmount} on user balance`);
 
     if (additionalParams?.borrowHolders) {
+      // get max allowed amount to supply
+      const reversePlan: IConversionPlan = await aavePlatformAdapter.getConversionPlan(
+        {
+          collateralAsset: borrowToken.address,
+          amountIn: parseUnits("1", borrowToken.decimals),
+          borrowAsset: collateralToken.address,
+          countBlocks: 1,
+          entryData: "0x"
+        },
+        additionalParams?.targetHealthFactor2 || await controller.targetHealthFactor2(),
+      );
       await supplyEnoughBorrowAssetToAavePool(
         aavePool.address,
         additionalParams?.borrowHolders,
-        borrowToken.address
+        borrowToken.address,
+        reversePlan.maxAmountToSupply.div(2)
       );
     }
 
@@ -258,11 +282,14 @@ export class Aave3TestUtils {
     const countBlocks = 1;
 
     const plan: IConversionPlan = await aavePlatformAdapter.getConversionPlan(
-      collateralToken.address,
-      collateralAmount,
-      borrowToken.address,
+      {
+        collateralAsset: collateralToken.address,
+        amountIn: collateralAmount,
+        borrowAsset: borrowToken.address,
+        countBlocks,
+        entryData: "0x"
+      },
       additionalParams?.targetHealthFactor2 || await controller.targetHealthFactor2(),
-      countBlocks
     );
     console.log("plan", plan);
 
@@ -280,7 +307,7 @@ export class Aave3TestUtils {
       aavePoolAdapterAsTC,
       dataProvider,
       amountToBorrow: plan.amountToBorrow,
-      collateralAmount,
+      collateralAmount: plan.collateralAmount,
       plan,
       converterNormal: converterNormal.address,
       converterEMode: converterEMode.address,

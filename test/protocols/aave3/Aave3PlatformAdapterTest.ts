@@ -25,17 +25,17 @@ import {DeployerUtils} from "../../../scripts/utils/DeployerUtils";
 import {TetuConverterApp} from "../../baseUT/helpers/TetuConverterApp";
 import {MocksHelper} from "../../baseUT/helpers/MocksHelper";
 import {IConversionPlan} from "../../baseUT/apr/aprDataTypes";
-import {parseUnits} from "ethers/lib/utils";
+import {defaultAbiCoder, formatUnits, parseUnits} from "ethers/lib/utils";
 import {Aave3ChangePricesUtils} from "../../baseUT/protocols/aave3/Aave3ChangePricesUtils";
 import {controlGasLimitsEx} from "../../../scripts/utils/hardhatUtils";
 import {GAS_LIMIT_AAVE_3_GET_CONVERSION_PLAN} from "../../baseUT/GasLimit";
+import {AppConstants} from "../../baseUT/AppConstants";
 
 describe("Aave3PlatformAdapterTest", () => {
 //region Global vars for all tests
   let snapshot: string;
   let snapshotForEach: string;
   let deployer: SignerWithAddress;
-  let investor: SignerWithAddress;
 //endregion Global vars for all tests
 
 //region before, after
@@ -44,7 +44,6 @@ describe("Aave3PlatformAdapterTest", () => {
     snapshot = await TimeUtils.snapshot();
     const signers = await ethers.getSigners();
     deployer = signers[0];
-    investor = signers[0];
   });
 
   after(async function () {
@@ -145,7 +144,8 @@ describe("Aave3PlatformAdapterTest", () => {
         data.controller,
         data.aavePool,
         data.templateAdapterNormal,
-        data.templateAdapterEMode
+        data.templateAdapterEMode,
+        await controller.borrowManager()
       );
       return {data, platformAdapter};
     }
@@ -203,16 +203,22 @@ describe("Aave3PlatformAdapterTest", () => {
 
   describe("getConversionPlan", () => {
     let controller: Controller;
+    let snapshotLocal: string;
     before(async function () {
+      snapshotLocal = await TimeUtils.snapshot();
       controller = await TetuConverterApp.createController(deployer,
         {tetuLiquidatorAddress: MaticAddresses.TETU_LIQUIDATOR}
       );
     });
+    after(async function () {
+      await TimeUtils.rollback(snapshotLocal);
+    });
+
     interface IGetConversionPlanBadPaths {
       zeroCollateralAsset?: boolean;
       zeroBorrowAsset?: boolean;
       zeroCountBlocks?: boolean;
-      zeroCollateralAmount?: boolean;
+      zeroAmountIn?: boolean;
       incorrectHealthFactor2?: number;
       makeCollateralAssetPaused?: boolean;
       makeBorrowAssetPaused?: boolean;
@@ -224,6 +230,7 @@ describe("Aave3PlatformAdapterTest", () => {
       setMinBorrowCap?: boolean;
       setZeroSupplyCap?: boolean;
       setZeroBorrowCap?: boolean;
+      frozen?: boolean;
     }
 
     interface IPreparePlanResults {
@@ -242,10 +249,11 @@ describe("Aave3PlatformAdapterTest", () => {
 
     async function preparePlan(
       collateralAsset: string,
-      collateralAmount: BigNumber,
+      amountIn: BigNumber,
       borrowAsset: string,
       countBlocks: number = 10,
-      badPathsParams?: IGetConversionPlanBadPaths
+      badPathsParams?: IGetConversionPlanBadPaths,
+      entryData?: string
     ) : Promise<IPreparePlanResults> {
       const h = new Aave3Helper(deployer);
       const aavePool = await Aave3Helper.getAavePool(deployer);
@@ -286,13 +294,19 @@ describe("Aave3PlatformAdapterTest", () => {
       if (badPathsParams?.setZeroBorrowCap) {
         await Aave3ChangePricesUtils.setBorrowCap(deployer, borrowAsset, BigNumber.from(0));
       }
+      if (badPathsParams?.frozen) {
+        await aavePlatformAdapter.setFrozen(true);
+      }
       // get conversion plan
       const plan: IConversionPlan = await aavePlatformAdapter.getConversionPlan(
-        badPathsParams?.zeroCollateralAsset ? Misc.ZERO_ADDRESS : collateralAsset,
-        badPathsParams?.zeroCollateralAmount ? 0 : collateralAmount,
-        badPathsParams?.zeroBorrowAsset ? Misc.ZERO_ADDRESS : borrowAsset,
+        {
+          collateralAsset: badPathsParams?.zeroCollateralAsset ? Misc.ZERO_ADDRESS : collateralAsset,
+          amountIn: badPathsParams?.zeroAmountIn ? 0 : amountIn,
+          borrowAsset: badPathsParams?.zeroBorrowAsset ? Misc.ZERO_ADDRESS : borrowAsset,
+          countBlocks: badPathsParams?.zeroCountBlocks ? 0 : countBlocks,
+          entryData: entryData || "0x"
+        },
         healthFactor2,
-        badPathsParams?.zeroCountBlocks ? 0 : countBlocks,
       );
 
       const prices = await (await Aave3Helper.getAavePriceOracle(deployer)).getAssetsPrices([collateralAsset, borrowAsset]);
@@ -318,14 +332,16 @@ describe("Aave3PlatformAdapterTest", () => {
       highEfficientModeEnabled: boolean,
       isolationModeEnabled: boolean,
       countBlocks: number = 10,
-      badPathsParams?: IGetConversionPlanBadPaths
+      badPathsParams?: IGetConversionPlanBadPaths,
+      entryData?: string
     ) : Promise<{sret: string, sexpected: string}> {
       const d = await preparePlan(
         collateralAsset,
         collateralAmount,
         borrowAsset,
         countBlocks,
-        badPathsParams
+        badPathsParams,
+        entryData
       );
       console.log("Plan", d.plan);
 
@@ -381,20 +397,24 @@ describe("Aave3PlatformAdapterTest", () => {
         d.plan.rewardsAmountInBorrowAsset36,
         d.plan.ltv18,
         d.plan.liquidationThreshold18,
+
         d.plan.maxAmountToBorrow,
         d.plan.maxAmountToSupply,
+
+        !d.plan.borrowCost36.eq(0),
+        !d.plan.supplyIncomeInBorrowAsset36.eq(0),
+
+        d.plan.amountToBorrow,
+        d.plan.collateralAmount,
+
+        // we lost precision a bit in USDC : WBTC, so almost equal only
+        areAlmostEqual(d.plan.amountCollateralInBorrowAsset36, amountCollateralInBorrowAsset36),
+
         // ensure that high efficiency mode is not available
         highEfficientModeEnabled
           ? d.collateralAssetData.data.emodeCategory !== 0
             && d.borrowAssetData.data.emodeCategory === d.collateralAssetData.data.emodeCategory
           : d.collateralAssetData.data.emodeCategory !== d.borrowAssetData.data.emodeCategory,
-
-        !d.plan.borrowCost36.eq(0),
-        !d.plan.supplyIncomeInBorrowAsset36.eq(0),
-        d.plan.amountToBorrow,
-
-        // we lost precision a bit in USDC : WBTC, so almost equal only
-        areAlmostEqual(d.plan.amountCollateralInBorrowAsset36, amountCollateralInBorrowAsset36)
       ].map(x => BalanceUtils.toString(x)) .join("\n");
 
       const expectedMaxAmountToBorrow = await Aave3Utils.getMaxAmountToBorrow(d.borrowAssetData, d.collateralAssetData);
@@ -405,27 +425,31 @@ describe("Aave3PlatformAdapterTest", () => {
         predictedSupplyIncomeInBorrowAssetRay,
         0,
 
-        BigNumber.from(highEfficientModeEnabled
-          ? d.collateralAssetData.category?.ltv
-          : d.collateralAssetData.data.ltv
-        )
-          .mul(Misc.WEI)
-          .div(getBigNumberFrom(1, 4)),
-        BigNumber.from(highEfficientModeEnabled
-          ? d.collateralAssetData.category?.liquidationThreshold
-          : d.collateralAssetData.data.liquidationThreshold
-        )
-          .mul(Misc.WEI)
-          .div(getBigNumberFrom(1, 4)),
+        // ltv18
+        BigNumber.from(
+          highEfficientModeEnabled
+            ? d.collateralAssetData.category?.ltv
+            : d.collateralAssetData.data.ltv
+        ).mul(Misc.WEI).div(getBigNumberFrom(1, 4)),
+
+        // liquidationThreshold18
+        BigNumber.from(
+          highEfficientModeEnabled
+            ? d.collateralAssetData.category?.liquidationThreshold
+            : d.collateralAssetData.data.liquidationThreshold
+        ).mul(Misc.WEI).div(getBigNumberFrom(1, 4)),
+
         expectedMaxAmountToBorrow,
         expectedMaxAmountToSupply,
-        true,
 
         true, // borrow APR is not 0
         true, // supply APR is not 0
 
         borrowAmount,
-        true
+        collateralAmount,
+
+        true,
+        true,
       ].map(x => BalanceUtils.toString(x)) .join("\n");
 
       return {sret, sexpected};
@@ -554,35 +578,247 @@ describe("Aave3PlatformAdapterTest", () => {
           expect(r.sret).eq(r.sexpected);
         });
       });
-      describe("Try to use huge collateral amount", () => {
-        it("should return borrow amount equal to max available amount", async () => {
+      describe("Frozen", () => {
+        it("should return no plan", async () => {
           if (!await isPolygonForkInUse()) return;
 
-          const r = await preparePlan(MaticAddresses.DAI, parseUnits("1", 28), MaticAddresses.WMATIC);
-          expect(r.plan.amountToBorrow).eq(r.plan.maxAmountToBorrow);
-        });
-      });
-      describe("Check gas limit", () => {
-        it("should return expected values @skip-on-coverage", async () => {
-          if (!await isPolygonForkInUse()) return;
-          const aavePlatformAdapter = await AdaptersHelper.createAave3PlatformAdapter(
-            deployer,
-            controller.address,
-            MaticAddresses.AAVE_V3_POOL,
-            ethers.Wallet.createRandom().address,
-            ethers.Wallet.createRandom().address
-          );
-
-          const gasUsed = await aavePlatformAdapter.estimateGas.getConversionPlan(
+          const r = await preparePlan(
             MaticAddresses.DAI,
             parseUnits("1", 18),
-            MaticAddresses.USDC,
-            200,
-            1
+            MaticAddresses.WMATIC,
+            10,
+            {
+              frozen: true
+            }
           );
-          console.log("Aave3PlatformAdapter.getConversionPlan.gas", gasUsed.toString());
-          controlGasLimitsEx(gasUsed, GAS_LIMIT_AAVE_3_GET_CONVERSION_PLAN, (u, t) => {
-            expect(u).to.be.below(t);
+          expect(r.plan.converter).eq(Misc.ZERO_ADDRESS);
+        });
+      });
+      describe("Entry kinds", () => {
+        describe("Use ENTRY_KIND_EXACT_COLLATERAL_IN_FOR_MAX_BORROW_OUT_0", () => {
+          it("should return expected collateral and borrow amounts", async () => {
+            if (!await isPolygonForkInUse()) return;
+
+            const collateralAsset = MaticAddresses.DAI;
+            const borrowAsset = MaticAddresses.WMATIC;
+            const collateralAmount = parseUnits("1000", 18);
+
+            const r = await preparePlan(
+              collateralAsset,
+              collateralAmount,
+              borrowAsset,
+              10,
+              undefined,
+              defaultAbiCoder.encode(["uint256"], [AppConstants.ENTRY_KIND_0])
+            );
+
+            const borrowAmount = AprUtils.getBorrowAmount(
+              collateralAmount,
+              r.healthFactor2,
+              r.plan.liquidationThreshold18,
+              r.priceCollateral,
+              r.priceBorrow,
+              r.collateralAssetData.data.decimals,
+              r.borrowAssetData.data.decimals
+            );
+
+            const amountCollateralInBorrowAsset36 =  convertUnits(r.plan.collateralAmount,
+              r.priceCollateral,
+              r.collateralAssetData.data.decimals,
+              r.priceBorrow,
+              36
+            );
+
+            const ret = [
+              r.plan.collateralAmount,
+              r.plan.amountToBorrow,
+              areAlmostEqual(r.plan.amountCollateralInBorrowAsset36, amountCollateralInBorrowAsset36)
+            ].map(x => BalanceUtils.toString(x)).join("\n");
+            const expected = [collateralAmount, borrowAmount, true].map(x => BalanceUtils.toString(x)).join("\n");
+
+            expect(ret).eq(expected);
+          });
+        });
+        describe("Use ENTRY_KIND_EXACT_PROPORTION_1", () => {
+          it("should split source amount on the parts with almost same cost", async () => {
+            if (!await isPolygonForkInUse()) return;
+
+            const collateralAsset = MaticAddresses.DAI;
+            const borrowAsset = MaticAddresses.WMATIC;
+            const collateralAmount = parseUnits("1000", 18);
+
+            const r = await preparePlan(
+              collateralAsset,
+              collateralAmount,
+              borrowAsset,
+              10,
+              undefined,
+              defaultAbiCoder.encode(
+                ["uint256", "uint256", "uint256"],
+                [AppConstants.ENTRY_KIND_1, 1, 1]
+              )
+            );
+
+            const sourceAssetUSD = +formatUnits(
+              collateralAmount.sub(r.plan.collateralAmount).mul(r.priceCollateral),
+              r.collateralAssetData.data.decimals
+            );
+            const targetAssetUSD = +formatUnits(
+              r.plan.amountToBorrow.mul(r.priceBorrow),
+              r.borrowAssetData.data.decimals
+            );
+            const amountCollateralInBorrowAsset36 =  convertUnits(r.plan.collateralAmount,
+              r.priceCollateral,
+              r.collateralAssetData.data.decimals,
+              r.priceBorrow,
+              36
+            );
+
+            const ret = [
+              sourceAssetUSD === targetAssetUSD,
+              r.plan.collateralAmount.lt(collateralAmount),
+              areAlmostEqual(r.plan.amountCollateralInBorrowAsset36, amountCollateralInBorrowAsset36)
+            ].join();
+            const expected = [true, true, true].join();
+
+            console.log("plan", r.plan);
+            console.log("sourceAssetUSD", sourceAssetUSD);
+            console.log("targetAssetUSD", targetAssetUSD);
+            console.log("amountCollateralInBorrowAsset36", amountCollateralInBorrowAsset36);
+
+            expect(ret).eq(expected);
+          });
+        });
+        describe("Use ENTRY_KIND_EXACT_BORROW_OUT_FOR_MIN_COLLATERAL_IN_2", () => {
+          it("should return expected collateral and borrow amounts", async () => {
+            if (!await isPolygonForkInUse()) return;
+
+            const collateralAsset = MaticAddresses.DAI;
+            const borrowAsset = MaticAddresses.WMATIC;
+
+            // let's calculate borrow amount by known collateral amount
+            const collateralAmount = parseUnits("1000", 18);
+            const countBlocks = 10;
+            const d = await preparePlan(collateralAsset, collateralAmount, borrowAsset, countBlocks);
+            const borrowAmount = AprUtils.getBorrowAmount(
+              collateralAmount,
+              d.healthFactor2,
+              d.plan.liquidationThreshold18,
+              d.priceCollateral,
+              d.priceBorrow,
+              d.collateralAssetData.data.decimals,
+              d.borrowAssetData.data.decimals
+            );
+            const expectedCollateralAmount = AprUtils.getCollateralAmount(
+              borrowAmount,
+              d.healthFactor2,
+              d.plan.liquidationThreshold18,
+              d.priceCollateral,
+              d.priceBorrow,
+              d.collateralAssetData.data.decimals,
+              d.borrowAssetData.data.decimals
+            );
+
+            const r = await preparePlan(
+              collateralAsset,
+              borrowAmount,
+              borrowAsset,
+              countBlocks,
+              undefined,
+              defaultAbiCoder.encode(["uint256"], [AppConstants.ENTRY_KIND_2])
+            );
+
+            const amountCollateralInBorrowAsset36 =  convertUnits(r.plan.collateralAmount,
+              r.priceCollateral,
+              r.collateralAssetData.data.decimals,
+              r.priceBorrow,
+              36
+            );
+            const ret = [
+              r.plan.amountToBorrow,
+              areAlmostEqual(r.plan.collateralAmount, collateralAmount),
+              areAlmostEqual(r.plan.amountCollateralInBorrowAsset36, amountCollateralInBorrowAsset36),
+              areAlmostEqual(expectedCollateralAmount, collateralAmount) // let's ensure that expectedCollateralAmount is correct
+            ].map(x => BalanceUtils.toString(x)).join("\n");
+
+            const expected = [borrowAmount, true, true, true].map(x => BalanceUtils.toString(x)).join("\n");
+
+            expect(ret).eq(expected);
+          });
+        });
+      });
+      describe("Collateral and borrow amounts fit to limits", () => {
+        describe("Allowed collateral exceeds available collateral", () => {
+          it("should return expected borrow and collateral amounts", async () => {
+            if (!await isPolygonForkInUse()) return;
+
+            // let's get max available supply amount
+            const sample = await preparePlan(MaticAddresses.DAI, parseUnits("1", 18), MaticAddresses.WMATIC);
+
+            // let's try to borrow amount using collateral that exceeds max supply amount
+            const r = await preparePlan(MaticAddresses.DAI, sample.plan.maxAmountToSupply.add(1000), MaticAddresses.WMATIC);
+            console.log(r.plan);
+
+            const expectedCollateralAmount = AprUtils.getCollateralAmount(
+              r.plan.amountToBorrow,
+              r.healthFactor2,
+              r.plan.liquidationThreshold18,
+              r.priceCollateral,
+              r.priceBorrow,
+              r.collateralAssetData.data.decimals,
+              r.borrowAssetData.data.decimals
+            );
+
+            const ret = [
+              r.plan.amountToBorrow,
+              areAlmostEqual(r.plan.collateralAmount, expectedCollateralAmount)
+            ].map(x => BalanceUtils.toString(x)).join("\n");
+            const expected = [
+              r.plan.maxAmountToBorrow,
+              true
+            ].map(x => BalanceUtils.toString(x)).join("\n");
+
+            expect(ret).eq(expected);
+          });
+        });
+        describe("Allowed borrow amounts exceeds available borrow amount", () => {
+          it("should return expected borrow and collateral amounts", async () => {
+            if (!await isPolygonForkInUse()) return;
+
+            // let's get max available borrow amount
+            const sample = await preparePlan(MaticAddresses.DAI, parseUnits("1", 18), MaticAddresses.WMATIC);
+
+            // let's try to borrow amount using collateral that exceeds max supply amount
+            const r = await preparePlan(
+              MaticAddresses.DAI,
+              sample.plan.maxAmountToBorrow.add(1000),
+              MaticAddresses.WMATIC,
+              10,
+              undefined,
+              defaultAbiCoder.encode(["uint256"], [AppConstants.ENTRY_KIND_2])
+            );
+            console.log(r.plan);
+
+            const expectedCollateralAmount = AprUtils.getCollateralAmount(
+              sample.plan.maxAmountToBorrow,
+              r.healthFactor2,
+              r.plan.liquidationThreshold18,
+              r.priceCollateral,
+              r.priceBorrow,
+              r.collateralAssetData.data.decimals,
+              r.borrowAssetData.data.decimals
+            );
+
+            const ret = [
+              r.plan.amountToBorrow,
+              areAlmostEqual(r.plan.collateralAmount, expectedCollateralAmount)
+            ].map(x => BalanceUtils.toString(x)).join("\n");
+            const expected = [
+              r.plan.maxAmountToBorrow,
+              true
+            ].map(x => BalanceUtils.toString(x)).join("\n");
+
+            expect(ret).eq(expected);
           });
         });
       });
@@ -644,7 +880,7 @@ describe("Aave3PlatformAdapterTest", () => {
             if (!await isPolygonForkInUse()) return;
 
             await expect(
-              tryGetConversionPlan({ zeroCollateralAmount: true })
+              tryGetConversionPlan({ zeroAmountIn: true })
             ).revertedWith("TC-29 incorrect value"); // INCORRECT_VALUE
           });
         });
@@ -768,6 +1004,34 @@ describe("Aave3PlatformAdapterTest", () => {
           expect(plan.maxAmountToBorrow.eq(expectedMaxAmountToBorrow)).eq(true);
         });
       });
+
+    });
+    describe("Check gas limit @skip-on-coverage", () => {
+      it("should not exceed gas limits", async () => {
+        if (!await isPolygonForkInUse()) return;
+        const aavePlatformAdapter = await AdaptersHelper.createAave3PlatformAdapter(
+          deployer,
+          controller.address,
+          MaticAddresses.AAVE_V3_POOL,
+          ethers.Wallet.createRandom().address,
+          ethers.Wallet.createRandom().address
+        );
+
+        const gasUsed = await aavePlatformAdapter.estimateGas.getConversionPlan(
+          {
+            collateralAsset: MaticAddresses.DAI,
+            amountIn: parseUnits("1", 18),
+            borrowAsset: MaticAddresses.USDC,
+            countBlocks: 1,
+            entryData: "0x"
+          },
+          200,
+        );
+        console.log("Aave3PlatformAdapter.getConversionPlan.gas", gasUsed.toString());
+        controlGasLimitsEx(gasUsed, GAS_LIMIT_AAVE_3_GET_CONVERSION_PLAN, (u, t) => {
+          expect(u).to.be.below(t);
+        });
+      });
     });
   });
 
@@ -857,9 +1121,15 @@ describe("Aave3PlatformAdapterTest", () => {
 
   describe("initializePoolAdapter", () => {
     let controller: Controller;
+    let snapshotLocal: string;
     before(async function () {
+      snapshotLocal = await TimeUtils.snapshot();
       controller = await TetuConverterApp.createController(deployer);
     });
+    after(async function () {
+      await TimeUtils.rollback(snapshotLocal);
+    });
+
     interface IInitializePoolAdapterBadPaths {
       useWrongConverter?: boolean;
       wrongCallerOfInitializePoolAdapter?: boolean;
@@ -1007,7 +1277,33 @@ describe("Aave3PlatformAdapterTest", () => {
     });
   });
 
+  describe("setFrozen", () => {
+    it("should assign expected value to frozen", async () => {
+      const controller = await TetuConverterApp.createController(deployer,
+        {tetuLiquidatorAddress: MaticAddresses.TETU_LIQUIDATOR}
+      );
 
+      const aavePool = await Aave3Helper.getAavePool(deployer);
+      const aavePlatformAdapter = await AdaptersHelper.createAave3PlatformAdapter(
+        deployer,
+        controller.address,
+        aavePool.address,
+        ethers.Wallet.createRandom().address,
+        ethers.Wallet.createRandom().address
+      );
+
+      const before = await aavePlatformAdapter.frozen();
+      await aavePlatformAdapter.setFrozen(true);
+      const middle = await aavePlatformAdapter.frozen();
+      await aavePlatformAdapter.setFrozen(false);
+      const after = await aavePlatformAdapter.frozen();
+
+      const ret = [before, middle, after].join();
+      const expected = [false, true, false].join();
+
+      expect(ret).eq(expected);
+    });
+  });
 //endregion Unit tests
 
 });

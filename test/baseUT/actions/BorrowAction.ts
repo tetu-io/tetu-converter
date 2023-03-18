@@ -26,6 +26,7 @@ export class BorrowAction implements IBorrowAction {
 
   async doAction(user: Borrower) : Promise<IUserBalancesWithGas> {
     const tx = await user.borrowMaxAmount(
+      "0x",
       this.collateralToken.address,
       this.collateralAmount,
       this.borrowToken.address,

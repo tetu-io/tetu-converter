@@ -3,10 +3,11 @@ import {writeFileSync} from "fs";
 import {IDForceController} from "../../../../typechain";
 import {DForceHelper} from "../../helpers/DForceHelper";
 
-/** Download detailed info for reward tokens on DForce Markets
+/**
+ * Download detailed info for reward tokens on DForce Markets
  *
  * npx hardhat run scripts/integration/lending/dforce/downloaddfmarketrewards.ts
- * */
+ */
 async function main() {
     const signer = (await ethers.getSigners())[0];
     console.log("Download dForce info");

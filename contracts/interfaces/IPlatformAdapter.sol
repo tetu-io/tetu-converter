@@ -1,22 +1,18 @@
 // SPDX-License-Identifier: MIT
 
-pragma solidity 0.8.4;
+pragma solidity 0.8.17;
 
-import "../core/AppDataTypes.sol";
+import "../libs/AppDataTypes.sol";
 
 /// @notice Adapter for lending platform attached to the given platform's pool.
 interface IPlatformAdapter {
 
   /// @notice Get pool data required to select best lending pool
-  /// @param collateralAmount_ Amount of collateral. We need it to calculate rewards and APRs correctly.
   /// @param healthFactor2_ Health factor (decimals 2) to be able to calculate max borrow amount
-  /// @param countBlocks_ Estimated period of the borrow in blocks.
-  function getConversionPlan (
-    address collateralAsset_,
-    uint collateralAmount_,
-    address borrowAsset_,
-    uint16 healthFactor2_,
-    uint countBlocks_
+  ///                       See IController for explanation of health factors.
+  function getConversionPlan(
+    AppDataTypes.InputConversionParams memory params_,
+    uint16 healthFactor2_
   ) external view returns (
     AppDataTypes.ConversionPlan memory plan
   );
@@ -35,4 +31,10 @@ interface IPlatformAdapter {
 
   /// @notice Estimate value of variable borrow rate after borrowing {amountToBorrow_}
   function getBorrowRateAfterBorrow(address borrowAsset_, uint amountToBorrow_) external view returns (uint);
+
+  /// @notice True if the platform is frozen and new borrowing is not possible (at this moment)
+  function frozen() external view returns (bool);
+
+  /// @notice Set platform to frozen/unfrozen state. In frozen state any new borrowing is forbidden.
+  function setFrozen(bool frozen_) external;
 }

@@ -1,6 +1,5 @@
 // SPDX-License-Identifier: MIT
-
-pragma solidity 0.8.4;
+pragma solidity 0.8.17;
 
 import "../interfaces/IController.sol";
 import "../interfaces/ITetuConverter.sol";
@@ -9,9 +8,9 @@ import "../interfaces/IPoolAdapter.sol";
 import "../openzeppelin/SafeERC20.sol";
 import "../interfaces/IKeeperCallback.sol";
 import "../interfaces/IBorrowManager.sol";
-import "hardhat/console.sol";
 import "../interfaces/ITetuConverterCallback.sol";
-import "../interfaces/IDebtsMonitor.sol";
+import "../interfaces/IDebtMonitor.sol";
+import "hardhat/console.sol";
 
 /// @notice This contract emulates real TetuConverter-user behavior
 /// Terms:
@@ -39,6 +38,9 @@ contract Borrower is ITetuConverterCallback {
   /// @notice Call quoteRepay for amountToRepay + additional amount
   uint public additionalAmountForQuoteRepay;
 
+  uint public makeRepayCompleteAmountToRepay;
+  uint public makeRepayCompletePaidAmount;
+
   struct RequireAmountBackParams {
     uint amount;
     // we need TWO different variables here to be able to test bad-paths
@@ -50,6 +52,8 @@ contract Borrower is ITetuConverterCallback {
   struct MakeRepayResults {
     uint collateralAmountOut;
     uint returnedBorrowAmountOut;
+    uint swappedLeftoverCollateralOut;
+    uint swappedLeftoverBorrowOut;
   }
   MakeRepayResults public repayResults;
 
@@ -65,51 +69,57 @@ contract Borrower is ITetuConverterCallback {
     additionalAmountForQuoteRepay = value;
   }
 
+  function setBorrowPeriodInBlocks(uint borrowPeriodInBlocks_) external {
+    _borrowPeriodInBlocks = borrowPeriodInBlocks_;
+  }
+
   ///////////////////////////////////////////////////////
   ///               Borrow
   ///////////////////////////////////////////////////////
   /// @notice Borrow MAX allowed amount
   function borrowMaxAmount(
+    bytes memory entryData_,
     address sourceAsset_,
     uint sourceAmount_,
     address targetAsset_,
     address receiver_
-  ) external returns (uint borrowedAmountOut) {
+  ) external returns (uint borrowedAmountOut, address converterOut) {
     console.log("borrowMaxAmount start gasleft", gasleft());
     console.log("borrowMaxAmount receiver_", receiver_);
     // ask TC for the best conversion strategy
     IERC20(sourceAsset_).approve(address(_tc()), sourceAmount_);
-    (address converter, uint maxTargetAmount,) = _tc().findConversionStrategy(sourceAsset_,
+    (address converter, uint collateralAmount, uint amountToBorrow,) = _tc().findConversionStrategy(
+      entryData_,
+      sourceAsset_,
       sourceAmount_,
       targetAsset_,
       _borrowPeriodInBlocks
     );
     require(converter != address(0), "Conversion strategy wasn't found");
-    require(maxTargetAmount != 0, "maxTargetAmount is 0");
+    require(amountToBorrow != 0, "maxTargetAmount is 0");
 
-    console.log("we can borrow:", maxTargetAmount, "gasleft", gasleft());
+    console.log("we can borrow:", amountToBorrow, "gasleft", gasleft());
     console.log("sourceAmount_", sourceAmount_);
     console.log("balance st on tc", IERC20(sourceAsset_).balanceOf(address(this)));
     // transfer collateral to TC
-    require(IERC20(sourceAsset_).balanceOf(address(this)) >= sourceAmount_
-      , "borrowMaxAmount:borrower has wrong balance of collateral");
-    IERC20(sourceAsset_).safeTransfer(_controller.tetuConverter(), sourceAmount_);
-    console.log("Send to tetu converter:", sourceAsset_, sourceAmount_);
+    require(IERC20(sourceAsset_).balanceOf(address(this)) >= sourceAmount_,
+      "borrowMaxAmount:borrower has wrong balance of collateral");
 
     // borrow and receive borrowed-amount to receiver's balance
     ITetuConverter tc = _tc();
     borrowedAmountOut = tc.borrow(
       converter,
       sourceAsset_,
-      sourceAmount_,
+      collateralAmount,
       targetAsset_,
-      maxTargetAmount,
+      amountToBorrow,
       receiver_
     );
     console.log("borrowMaxAmount done gasleft6", gasleft());
     console.log("Borrowed amount", borrowedAmountOut, "were sent to receiver", receiver_);
 
-    totalBorrowedAmount += maxTargetAmount;
+    totalBorrowedAmount += amountToBorrow;
+    converterOut = converter;
   }
 
   /// @notice Borrow exact amount
@@ -119,7 +129,7 @@ contract Borrower is ITetuConverterCallback {
     address targetAsset_,
     address receiver_,
     uint amountToBorrow_
-  ) external returns (uint borrowedAmountOut) {
+  ) external returns (uint borrowedAmountOut, address converterOut) {
     uint gasStart = gasleft();
     console.log("borrowExactAmount start gasStart", gasStart);
     console.log("borrowExactAmount msg.sender", msg.sender);
@@ -128,15 +138,18 @@ contract Borrower is ITetuConverterCallback {
     console.log("borrowExactAmount targetAsset_", targetAsset_);
     console.log("borrowExactAmount receiver_", receiver_);
     console.log("borrowExactAmount _borrowPeriodInBlocks", _borrowPeriodInBlocks);
+
     // ask TC for the best conversion strategy
     IERC20(sourceAsset_).approve(address(_tc()), sourceAmount_);
-    (address converter, uint maxTargetAmount,) = _tc().findConversionStrategy(sourceAsset_,
+    (address converter,, uint amountToBorrow,) = _tc().findConversionStrategy(
+      abi.encode(uint(0)), // ENTRY_KIND_EXACT_COLLATERAL_IN_FOR_MAX_BORROW_OUT_0
+      sourceAsset_,
       sourceAmount_,
       targetAsset_,
       _borrowPeriodInBlocks
     );
     require(converter != address(0), "Conversion strategy wasn't found");
-    require(maxTargetAmount != 0, "maxTargetAmount is 0");
+    require(amountToBorrow != 0, "maxTargetAmount is 0");
 
     console.log("we will borrow:", amountToBorrow_);
     console.log("gasleft/used by findConversionStrategy", gasStart - gasleft());
@@ -145,8 +158,6 @@ contract Borrower is ITetuConverterCallback {
     console.log("balance st on tc", IERC20(sourceAsset_).balanceOf(address(this)));
     // transfer collateral to TC
     require(IERC20(sourceAsset_).balanceOf(address(this)) >= sourceAmount_, "borrowExactAmount:wrong balance st on tc");
-    IERC20(sourceAsset_).safeTransfer(_controller.tetuConverter(), sourceAmount_);
-    console.log("Collateral amount was passed to tetu converter");
 
     // borrow and receive borrowed-amount to receiver's balance
     ITetuConverter tc = _tc();
@@ -161,6 +172,7 @@ contract Borrower is ITetuConverterCallback {
     console.log("borrowExactAmount done gasleft/used", gasStart - gasleft());
 
     totalBorrowedAmount += amountToBorrow_;
+    converterOut = converter;
   }
 
   /// @notice Borrow exact amount using giving converter
@@ -178,7 +190,7 @@ contract Borrower is ITetuConverterCallback {
 
     // transfer collateral to TetuConverter
     require(IERC20(sourceAsset_).balanceOf(address(this)) >= sourceAmount_, "wrong collateral asset balance");
-    IERC20(sourceAsset_).safeTransfer(
+    IERC20(sourceAsset_).safeApprove(
       _controller.tetuConverter(),
       sourceAmount_ * transferMultiplier18_ / 1e18
     );
@@ -208,36 +220,54 @@ contract Borrower is ITetuConverterCallback {
     address receiver_
   ) external returns (
     uint collateralAmountOut,
-    uint returnedBorrowAmountOut
+    uint returnedBorrowAmountOut,
+    uint swappedLeftoverCollateralOut,
+    uint swappedLeftoverBorrowOut
   ) {
     console.log("makeRepayComplete started gasleft", gasleft());
     // test quoteRepay prediction
 
-    (uint amountToPay,) = _tc().getDebtAmountCurrent(collateralAsset_, borrowedAsset_);
+    (uint amountToPay,) = _tc().getDebtAmountCurrent(address(this), collateralAsset_, borrowedAsset_);
+
+    uint borrowBalanceBeforeRepay = IERC20(borrowedAsset_).balanceOf(address(this));
     console.log("makeRepayComplete amountToPay", amountToPay);
-    console.log("makeRepayComplete borrowed asset balance", IERC20(borrowedAsset_).balanceOf(address(this)));
+    console.log("makeRepayComplete borrowed asset balance before repay", borrowBalanceBeforeRepay);
 
     lastQuoteRepayGasConsumption = gasleft();
     lastQuoteRepayResultCollateralAmount = _tc().quoteRepay(
+      address(this),
       collateralAsset_,
       borrowedAsset_,
       amountToPay + additionalAmountForQuoteRepay
     );
     lastQuoteRepayGasConsumption -= gasleft();
-    console.log("makeRepayPartial.makeRepayComplete", lastQuoteRepayResultCollateralAmount, lastQuoteRepayGasConsumption);
+    console.log("makeRepayComplete.quoteRepay", lastQuoteRepayResultCollateralAmount, lastQuoteRepayGasConsumption);
 
     IERC20(borrowedAsset_).safeTransfer(address(_tc()), amountToPay);
 
     console.log("makeRepayComplete repay - start");
-    (collateralAmountOut, returnedBorrowAmountOut) = _tc().repay(collateralAsset_, borrowedAsset_, amountToPay, receiver_);
-    totalAmountBorrowAssetRepaid += amountToPay;
+    (collateralAmountOut,
+     returnedBorrowAmountOut,
+     swappedLeftoverCollateralOut,
+     swappedLeftoverBorrowOut
+    ) = _tc().repay(collateralAsset_, borrowedAsset_, amountToPay, receiver_);
+
+    uint borrowBalanceAfterRepay = IERC20(borrowedAsset_).balanceOf(address(this));
+    console.log("makeRepayComplete borrowed asset balance after repay", borrowBalanceAfterRepay);
+
+    totalAmountBorrowAssetRepaid += borrowBalanceBeforeRepay - borrowBalanceAfterRepay;
+    makeRepayCompleteAmountToRepay = amountToPay;
+    makeRepayCompletePaidAmount = borrowBalanceBeforeRepay - borrowBalanceAfterRepay;
 
     console.log("makeRepayComplete repay - finish");
+    console.log("makeRepayComplete borrowed asset balance", IERC20(borrowedAsset_).balanceOf(address(this)));
     _tc().claimRewards(address(this));
 
     console.log("makeRepayComplete done gasleft", gasleft(), collateralAmountOut, returnedBorrowAmountOut);
     repayResults.collateralAmountOut = collateralAmountOut;
     repayResults.returnedBorrowAmountOut = returnedBorrowAmountOut;
+    repayResults.swappedLeftoverBorrowOut = swappedLeftoverBorrowOut;
+    repayResults.swappedLeftoverCollateralOut = swappedLeftoverCollateralOut;
   }
 
   /// @notice Partial repay, see US1.3 in the project scope
@@ -248,12 +278,15 @@ contract Borrower is ITetuConverterCallback {
     uint amountToPay_
   ) external returns (
     uint collateralAmountOut,
-    uint returnedBorrowAmountOut
+    uint returnedBorrowAmountOut,
+    uint swappedLeftoverCollateralOut,
+    uint swappedLeftoverBorrowOut
   ) {
     console.log("makeRepayPartial started - partial pay gasleft", gasleft());
 
     lastQuoteRepayGasConsumption = gasleft();
     lastQuoteRepayResultCollateralAmount = _tc().quoteRepay(
+      address(this),
       collateralAsset_,
       borrowedAsset_,
       amountToPay_ + additionalAmountForQuoteRepay
@@ -262,13 +295,19 @@ contract Borrower is ITetuConverterCallback {
     console.log("makeRepayPartial.quoteRepay", lastQuoteRepayResultCollateralAmount, lastQuoteRepayGasConsumption);
 
     IERC20(borrowedAsset_).safeTransfer(address(_tc()), amountToPay_);
-    (collateralAmountOut, returnedBorrowAmountOut) = _tc().repay(collateralAsset_, borrowedAsset_, amountToPay_, receiver_);
+    (collateralAmountOut,
+     returnedBorrowAmountOut,
+     swappedLeftoverCollateralOut,
+     swappedLeftoverBorrowOut
+    ) = _tc().repay(collateralAsset_, borrowedAsset_, amountToPay_, receiver_);
     totalAmountBorrowAssetRepaid += amountToPay_;
     _tc().claimRewards(address(this));
 
     console.log("makeRepayPartial done gasleft", gasleft(), collateralAmountOut, returnedBorrowAmountOut);
     repayResults.collateralAmountOut = collateralAmountOut;
     repayResults.returnedBorrowAmountOut = returnedBorrowAmountOut;
+    repayResults.swappedLeftoverCollateralOut = swappedLeftoverCollateralOut;
+    repayResults.swappedLeftoverBorrowOut = swappedLeftoverBorrowOut;
   }
 
   ///////////////////////////////////////////////////////

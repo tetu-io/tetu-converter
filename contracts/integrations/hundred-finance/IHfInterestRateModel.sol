@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.4;
+pragma solidity 0.8.17;
 
 /// @notice Restored from 0x29DDb4c4f9baAe366DbD40eff79d364e004425b0 (events were removed)
 interface IHfInterestRateModel {

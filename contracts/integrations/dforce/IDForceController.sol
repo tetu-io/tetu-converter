@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.4;
+pragma solidity 0.8.17;
 
 /// @notice Restored from 0xcf427e1ac52a2d976b02b83f72baeb905a92e488 (Optimism; events and _xxx were removed)
 /// @dev We need sources of Controller, see https://developers.dforce.network/lend/lend-and-synth/deployed-contracts

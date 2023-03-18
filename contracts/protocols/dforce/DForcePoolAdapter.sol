@@ -1,22 +1,25 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.4;
+pragma solidity 0.8.17;
 
 import "./DForceAprLib.sol";
 import "../../openzeppelin/SafeERC20.sol";
 import "../../openzeppelin/IERC20.sol";
+import "../../openzeppelin/Initializable.sol";
+import "../../openzeppelin/IERC20Metadata.sol";
+import "../../libs/AppErrors.sol";
 import "../../interfaces/IPoolAdapter.sol";
-import "../../core/DebtMonitor.sol";
-import "../../core/AppErrors.sol";
-import "../../integrations/dforce/IDForceController.sol";
 import "../../interfaces/IPoolAdapterInitializerWithAP.sol";
+import "../../interfaces/ITokenAddressProvider.sol";
+import "../../interfaces/IController.sol";
+import "../../interfaces/IDebtMonitor.sol";
+import "../../integrations/dforce/IDForceController.sol";
 import "../../integrations/dforce/IDForceCToken.sol";
 import "../../integrations/dforce/IDForcePriceOracle.sol";
-import "../../interfaces/ITokenAddressProvider.sol";
 import "../../integrations/dforce/IDForceCTokenMatic.sol";
 import "../../integrations/IWmatic.sol";
 import "../../integrations/dforce/IDForceInterestRateModel.sol";
 import "../../integrations/dforce/IDForceRewardDistributor.sol";
-import "../../openzeppelin/Initializable.sol";
+
 
 /// @notice Implementation of IPoolAdapter for dForce-protocol, see https://developers.dforce.network/
 /// @dev Instances of this contract are created using proxy-minimal pattern, so no constructor
@@ -187,6 +190,7 @@ contract DForcePoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP, Initi
     collateralTokensBalance += tokenBalanceAfter - tokenBalanceBefore;
 
     emit OnBorrow(collateralAmount_, borrowAmount_, receiver_, healthFactor);
+
     return borrowAmount_;
   }
 
@@ -387,7 +391,7 @@ contract DForcePoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP, Initi
     uint borrowBalance = IDForceCToken(cTokenBorrow_).borrowBalanceStored(address(this));
     require(borrowBalance != 0, AppErrors.ZERO_BALANCE);
     if (closePosition_) {
-      require(borrowBalance <= amountToRepay_, AppErrors.CLOSE_POSITION_FAILED);
+      require(borrowBalance <= amountToRepay_, AppErrors.CLOSE_POSITION_PARTIAL);
 
       return (tokenBalance, tokenBalance);
     } else {

@@ -45,6 +45,7 @@ export interface IMockPoolParams {
 }
 
 export interface IPrepareContractsSetupParams {
+    entryData?: string;
     setupTetuLiquidatorToSwapBorrowToCollateral?: boolean;
     /**
      * Optional price impact for Swap Manager.
@@ -81,18 +82,13 @@ export class BorrowManagerHelper {
         const cTokenDecimals = [sourceDecimals, targetDecimals];
         const collateralFactors = [tt.collateralFactor, 0.6];
         const pricesNum = [tt.priceSourceUSD, tt.priceTargetUSD];
-        const prices = pricesNum.map((x, index) => BigNumber.from(10)
+        const prices = pricesNum.map((x,) => BigNumber.from(10)
           .pow(18 - 2)
           .mul(x * 100));
 
-        let tetuLiquidator = await MocksHelper.createTetuLiquidatorMock(
-          signer,
-          [],
-          []
-        );
         if (tetuAppSetupParams?.setupTetuLiquidatorToSwapBorrowToCollateral) {
             // we assume here, that mock tetu liquidator is used
-            tetuLiquidator = TetuLiquidatorMock__factory.connect(await core.controller.tetuLiquidator(), signer);
+            const tetuLiquidator = TetuLiquidatorMock__factory.connect(await core.controller.tetuLiquidator(), signer);
             await tetuLiquidator.changePrices(
               [assets[0].address, assets[1].address],
               [prices[0], prices[1]]

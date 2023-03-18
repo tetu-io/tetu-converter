@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.4;
+pragma solidity 0.8.17;
 
 import "../../protocols/hundred-finance/HfAprLib.sol";
 import "../../integrations/hundred-finance/IHfInterestRateModel.sol";
@@ -44,7 +44,7 @@ contract HfAprLibFacade {
     uint collateralAmount_,
     uint countBlocks_,
     uint amountToBorrow_,
-    HfAprLib.PricesAndDecimals memory pad_
+    AppDataTypes.PricesAndDecimals memory pad_
   ) external view returns (
     uint borrowCost36,
     uint supplyIncomeInBorrowAsset36

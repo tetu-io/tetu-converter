@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.4;
+pragma solidity 0.8.17;
 
-import "../core/AppDataTypes.sol";
+import "../libs/AppDataTypes.sol";
 
 /// @notice Manage list of available lending platforms
 ///         Manager of pool-adapters.
@@ -64,14 +64,8 @@ interface IBorrowManager {
 
   /// @notice Set target health factors for the assets.
   ///         If target health factor is not assigned to the asset, target-health-factor from controller is used.
-  ///      For AAVE v2/v3: health factor value must be greater than
-  ///            h = liquidation-threshold (LT) / loan-to-value (LTV)
-  ///      for the selected asset
-  ///      The health factor is calculated using liquidation threshold value.
-  ///      Following situation is ok:  0 ... 1/health factor ... LTV ... LT .. 1
-  ///      Following situation is NOT allowed:  0 ... LTV ... 1/health factor ... LT .. 1
-  ///      because AAVE-pool won't allow to make a borrow.
-  /// @param healthFactors2_ Health factor must be greater then 1, decimals 2
+  ///         See explanation of health factor value in IController
+  /// @param healthFactors2_ Health factor must be greater or equal then 1, decimals 2
   function setTargetHealthFactors(address[] calldata assets_, uint16[] calldata healthFactors2_) external;
 
   /// @notice Return target health factor with decimals 2 for the asset
@@ -83,13 +77,16 @@ interface IBorrowManager {
   function setRewardsFactor(uint rewardsFactor_) external;
 
   /// @notice Find lending pool capable of providing {targetAmount} and having best normalized borrow rate
-  /// @return converter Result template-pool-adapter or 0 if a pool is not found
-  /// @return maxTargetAmount Max available amount of target tokens that we can borrow using {sourceAmount}
-  /// @return apr18 Annual Percentage Rate == (total cost - total income) / amount of collateral, decimals 18
+  ///         Results are ordered in ascending order of APR, so the best available converter is first one.
+  /// @return converters Result template-pool-adapters
+  /// @return collateralAmountsOut Amounts that should be provided as a collateral
+  /// @return amountsToBorrowOut Amounts that should be borrowed
+  /// @return aprs18 Annual Percentage Rates == (total cost - total income) / amount of collateral, decimals 18
   function findConverter(AppDataTypes.InputConversionParams memory params) external view returns (
-    address converter,
-    uint maxTargetAmount,
-    int apr18
+    address[] memory converters,
+    uint[] memory collateralAmountsOut,
+    uint[] memory amountsToBorrowOut,
+    int[] memory aprs18
   );
 
   /// @notice Get platformAdapter to which the converter belongs

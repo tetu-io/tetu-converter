@@ -1,22 +1,22 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.4;
+pragma solidity 0.8.17;
 
-import "./AppDataTypes.sol";
-import "./AppErrors.sol";
-import "../core/AppUtils.sol";
-import "../interfaces/IPlatformAdapter.sol";
-import "../interfaces/IBorrowManager.sol";
-import "../interfaces/IPriceOracle.sol";
-import "../interfaces/IController.sol";
-import "../interfaces/IDebtsMonitor.sol";
+import "../libs/AppDataTypes.sol";
+import "../libs/AppErrors.sol";
+import "../libs/AppUtils.sol";
 import "../openzeppelin/Clones.sol";
 import "../openzeppelin/IERC20.sol";
 import "../openzeppelin/SafeERC20.sol";
 import "../openzeppelin/EnumerableSet.sol";
 import "../openzeppelin/EnumerableMap.sol";
-import "../integrations/market/ICErc20.sol";
 import "../openzeppelin/IERC20Metadata.sol";
+import "../interfaces/IPlatformAdapter.sol";
+import "../interfaces/IBorrowManager.sol";
+import "../interfaces/IPriceOracle.sol";
+import "../interfaces/IController.sol";
+import "../interfaces/IDebtMonitor.sol";
 import "../interfaces/ITetuConverter.sol";
+import "../integrations/market/ICErc20.sol";
 
 /// @notice Contains list of lending pools. Allow to select most efficient pool for the given collateral/borrow pair
 contract BorrowManager is IBorrowManager {
@@ -244,26 +244,43 @@ contract BorrowManager is IBorrowManager {
   ///           Find best pool for borrowing
   ///////////////////////////////////////////////////////
 
-  /// @notice Find lending pool capable of providing {targetAmount} and having APR
-  /// @return converter Result template-pool-adapter or 0 if a pool is not found
-  /// @return maxTargetAmount Max available amount of target tokens that we can borrow using {sourceAmount}
-  /// @return apr18 Annual Percentage Rate == (total cost - total income) / amount of collateral, decimals 18
+  /// @notice Find lending pool capable of providing {targetAmount} and having best normalized borrow rate
+  ///         Results are ordered in ascending order of APR, so the best available converter is first one.
+  /// @return convertersOut Result template-pool-adapters
+  /// @return collateralAmountsOut Amounts that should be provided as a collateral
+  /// @return amountsToBorrowOut Amounts that should be borrowed
+  /// @return aprs18Out Annual Percentage Rates == (total cost - total income) / amount of collateral, decimals 18
   function findConverter(AppDataTypes.InputConversionParams memory p_) external view override returns (
-    address converter,
-    uint maxTargetAmount,
-    int apr18
+    address[] memory convertersOut,
+    uint[] memory collateralAmountsOut,
+    uint[] memory amountsToBorrowOut,
+    int[] memory aprs18Out
   ) {
     // get all platform adapters that support required pair of assets
-    EnumerableSet.AddressSet storage pas = _pairsList[getAssetPairKey(p_.sourceToken, p_.targetToken)];
+    EnumerableSet.AddressSet storage pas = _pairsList[getAssetPairKey(p_.collateralAsset, p_.borrowAsset)];
 
+    address[] memory converters;
+    uint[] memory collateralAmounts;
+    uint[] memory amountsToBorrow;
+    int[] memory aprs18;
+    uint countFoundItems;
     if (pas.length() != 0) {
-      (converter, maxTargetAmount, apr18) = _findPool(pas, p_, getTargetHealthFactor2(p_.targetToken));
+      (converters, collateralAmounts, amountsToBorrow, aprs18, countFoundItems) = _findPool(
+        pas,
+        p_,
+        getTargetHealthFactor2(p_.borrowAsset)
+      );
     }
 
-    return (converter, maxTargetAmount, apr18);
+    if (countFoundItems > 0) {
+      // shrink output arrays to {countFoundItems} items and order results in ascending order of APR
+      return AppUtils.shrinkAndOrder(countFoundItems, converters, collateralAmounts, amountsToBorrow, aprs18);
+    } else {
+      return (convertersOut, collateralAmountsOut, amountsToBorrowOut, aprs18Out);
+    }
   }
 
-  /// @notice Enumerate all pools and select a pool suitable for borrowing with min APR and enough liquidity
+  /// @notice Enumerate all pools suitable for borrowing and enough liquidity.
   /// General explanation how max-target-amount is calculated in all pool adapters:
   /// Health factor = HF [-], Collateral amount = C [USD]
   /// Source amount that can be used for the collateral = SA [SA], Borrow amount = BS [USD]
@@ -275,30 +292,37 @@ contract BorrowManager is IBorrowManager {
   /// Max target amount capable to be borrowed: ResultTA = BS / PT [TA].
   /// We can use the pool only if ResultTA >= PTA >= required-target-amount
   /// @dev We cannot make this function public because storage-param is used
+  /// @return converters All found converters without ordering.
+  ///                    The size of array is always equal to the count of available lending platforms.
+  ///                    The array is sparse, unused items are zero.
   function _findPool(
     EnumerableSet.AddressSet storage platformAdapters_,
     AppDataTypes.InputConversionParams memory p_,
     uint16 healthFactor2_
   ) internal view returns (
-    address converter,
-    uint maxTargetAmount,
-    int apr18
+    address[] memory converters,
+    uint[] memory collateralAmountsOut,
+    uint[] memory amountsToBorrowOut,
+    int[] memory aprs18,
+    uint countFoundItems
   ) {
     uint lenPools = platformAdapters_.length();
 
-    for (uint i = 0; i < lenPools; i = i.uncheckedInc()) {
+    converters = new address[](lenPools);
+    collateralAmountsOut = new uint[](lenPools);
+    amountsToBorrowOut = new uint[](lenPools);
+    aprs18 = new int[](lenPools);
+
+    for (uint i; i < lenPools; i = i.uncheckedInc()) {
       AppDataTypes.ConversionPlan memory plan = IPlatformAdapter(platformAdapters_.at(i)).getConversionPlan(
-        p_.sourceToken,
-        p_.sourceAmount,
-        p_.targetToken,
-        healthFactor2_,
-        p_.periodInBlocks
+        p_,
+        healthFactor2_
       );
 
       if (
         plan.converter != address(0)
         // check if we are able to supply required collateral
-        && plan.maxAmountToSupply > p_.sourceAmount
+        && plan.maxAmountToSupply > p_.amountIn
       ) {
         // combine all costs and incomes and calculate result APR. Rewards are taken with the given weight.
         // Positive value means cost, negative - income
@@ -312,19 +336,19 @@ contract BorrowManager is IBorrowManager {
         / int(plan.amountCollateralInBorrowAsset36);
 
         if (
-          // take the pool with lowest APR ..
-          (converter == address(0) || planApr18 < apr18)
-          // ... and with enough liquidity
-          && plan.maxAmountToBorrow >= plan.amountToBorrow
+          // take only the pool with enough liquidity
+          plan.maxAmountToBorrow >= plan.amountToBorrow
         ) {
-          converter = plan.converter;
-          maxTargetAmount = plan.amountToBorrow;
-          apr18 = planApr18;
+          converters[countFoundItems] = plan.converter;
+          amountsToBorrowOut[countFoundItems] = plan.amountToBorrow;
+          collateralAmountsOut[countFoundItems] = plan.collateralAmount;
+          aprs18[countFoundItems] = planApr18;
+          ++countFoundItems;
         }
       }
     }
 
-    return (converter, maxTargetAmount, apr18);
+    return (converters, collateralAmountsOut, amountsToBorrowOut, aprs18, countFoundItems);
   }
 
   ///////////////////////////////////////////////////////

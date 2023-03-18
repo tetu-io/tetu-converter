@@ -25,7 +25,8 @@ import {
   Aave3TestUtils,
   IPrepareToBorrowResults,
 } from "../../baseUT/protocols/aave3/Aave3TestUtils";
-import {parseUnits} from "ethers/lib/utils";
+import {formatUnits, parseUnits} from "ethers/lib/utils";
+import {areAlmostEqual} from "../../baseUT/utils/CommonUtils";
 
 describe("Aave3PoolAdapterIntTest", () => {
 //region Global vars for all tests
@@ -79,16 +80,24 @@ describe("Aave3PoolAdapterIntTest", () => {
         await IERC20Metadata__factory.connect(ret.collateralData.data.aTokenAddress, deployer)
           .balanceOf(d.aavePoolAdapterAsTC.address),
         ret.accountDataAfterBorrow.totalCollateralBase,
-        ret.accountDataAfterBorrow.totalDebtBase
+
+        // Not exact equal. npm run test can produce small differences in results sometime, i.e.
+        // 56879332146581 vs 56879332146481 (WBTC-8 : Tether-6, big amounts)
+        // 886499999 vs 886500000 (DAI-18 : matic-18, small amounts)
+        areAlmostEqual(
+          ret.accountDataAfterBorrow.totalDebtBase,
+          ret.borrowedAmount.mul(d.priceBorrow) // registered debt in the pool
+            .div(parseUnits("1", borrowToken.decimals)),
+          5
+        )
       ].map(x => BalanceUtils.toString(x)).join("\n");
 
       const sexpected = [
         ret.borrowedAmount, // borrowed amount on user's balance
         d.collateralAmount, // amount of collateral tokens on pool-adapter's balance
         d.collateralAmount.mul(d.priceCollateral)  // registered collateral in the pool
-          .div(getBigNumberFrom(1, collateralToken.decimals)),
-        ret.borrowedAmount.mul(d.priceBorrow) // registered debt in the pool
-          .div(getBigNumberFrom(1, borrowToken.decimals)),
+          .div(parseUnits("1", collateralToken.decimals)),
+        true
       ].map(x => BalanceUtils.toString(x)).join("\n");
 
       return {sret, sexpected};
@@ -230,6 +239,124 @@ describe("Aave3PoolAdapterIntTest", () => {
      });
   });
 
+  describe("Borrow using small health factors", () => {
+    interface ITestSmallHealthFactorResults {
+      d: IPrepareToBorrowResults;
+      resultHealthFactor18: BigNumber;
+    }
+    async function makeTestSmallHealthFactor(
+      collateralAsset: string,
+      collateralHolder: string,
+      borrowAsset: string,
+      targetHealthFactor2: number,
+      minHealthFactor2: number,
+      useEMode: boolean
+    ) : Promise<ITestSmallHealthFactorResults> {
+
+      const collateralToken = await TokenDataTypes.Build(deployer, collateralAsset);
+      const borrowToken = await TokenDataTypes.Build(deployer, borrowAsset);
+
+      const collateralAmount = parseUnits("20000", 6);
+
+      const d = await Aave3TestUtils.prepareToBorrow(
+        deployer,
+        collateralToken,
+        [collateralHolder],
+        collateralAmount,
+        borrowToken,
+        useEMode,
+        {
+          targetHealthFactor2
+        }
+      );
+
+      await d.controller.setMinHealthFactor2(minHealthFactor2);
+      await d.controller.setTargetHealthFactor2(targetHealthFactor2);
+
+      await Aave3TestUtils.makeBorrow(deployer, d, undefined);
+      const r = await d.aavePoolAdapterAsTC.getStatus();
+      return {
+        d,
+        resultHealthFactor18: r.healthFactor18
+      }
+    }
+    describe("Good paths", () => {
+      describe("health factor is less than liquidationThreshold18/LTV", () => {
+        it("should borrow with health factor = liquidationThreshold18/LTV", async () => {
+          const targetHealthFactor2 = 103;
+          const minHealthFactor2 = 101;
+
+          const collateralAsset = MaticAddresses.USDC;
+          const collateralHolder = MaticAddresses.HOLDER_USDC;
+          const borrowAsset = MaticAddresses.BALANCER;
+
+          const r = await makeTestSmallHealthFactor(
+            collateralAsset,
+            collateralHolder,
+            borrowAsset,
+            targetHealthFactor2,
+            minHealthFactor2,
+            false
+          );
+          const minHealthFactorAllowedByPlatform = +formatUnits(
+            r.d.collateralReserveInfo.data.liquidationThreshold
+              .mul(Misc.WEI)
+              .div(r.d.collateralReserveInfo.data.ltv),
+            18
+          );
+          const healthFactor = +formatUnits(r.resultHealthFactor18, 18);
+          console.log("healthFactor", healthFactor);
+          console.log("minHealthFactorAllowedByPlatform", minHealthFactorAllowedByPlatform);
+
+          const ret = [
+            targetHealthFactor2 < minHealthFactorAllowedByPlatform * 100,
+            healthFactor >= minHealthFactorAllowedByPlatform - 1,
+            healthFactor <= minHealthFactorAllowedByPlatform + 1
+          ].join();
+          const expected = [true, true, true].join();
+
+          expect(ret).eq(expected);
+        });
+      });
+      describe("health factor is greater than liquidationThreshold18/LTV", () => {
+        it("should borrow with specified health factor", async () => {
+          const targetHealthFactor2 = 108;
+          const minHealthFactor2 = 101;
+
+          const collateralAsset = MaticAddresses.USDC;
+          const collateralHolder = MaticAddresses.HOLDER_USDC;
+          const borrowAsset = MaticAddresses.DAI;
+
+          const r = await makeTestSmallHealthFactor(
+            collateralAsset,
+            collateralHolder,
+            borrowAsset,
+            targetHealthFactor2,
+            minHealthFactor2,
+            true
+          );
+          const minHealthFactorAllowedByPlatform = +formatUnits(
+            r.d.collateralReserveInfo.data.liquidationThreshold
+              .mul(Misc.WEI)
+              .div(r.d.collateralReserveInfo.data.ltv),
+            18
+          );
+          const healthFactor = +formatUnits(r.resultHealthFactor18, 18);
+          console.log("healthFactor", healthFactor);
+          console.log("minHealthFactorAllowedByPlatform", minHealthFactorAllowedByPlatform);
+          const ret = [
+            targetHealthFactor2 > minHealthFactorAllowedByPlatform,
+            healthFactor >= targetHealthFactor2/100 - 1,
+            healthFactor <= targetHealthFactor2/100 + 1
+          ].join();
+          const expected = [true, true, true].join();
+
+          expect(ret).eq(expected);
+        });
+      });
+    });
+  });
+
   /**
    *                LTV                LiquidationThreshold
    * DAI:           0.75               0.8
@@ -359,6 +486,7 @@ describe("Aave3PoolAdapterIntTest", () => {
     interface IBorrowMaxAmountInIsolationModeBadPaths {
       customAmountToBorrow?: BigNumber;
       deltaToMaxAmount?: BigNumber;
+      customCollateralAmount?: BigNumber;
     }
 
     /**
@@ -385,17 +513,17 @@ describe("Aave3PoolAdapterIntTest", () => {
       console.log("Plan", d.plan);
 
       const collateralDataBefore = await d.h.getReserveInfo(deployer, d.aavePool, d.dataProvider, collateralToken.address);
-      const borrowDataBefore = await d.h.getReserveInfo(deployer, d.aavePool, d.dataProvider, borrowToken.address);
       console.log("collateralDataBefore", collateralDataBefore);
 
       // calculate max amount to borrow manually
-      const maxBorrowAmount = d.plan.maxAmountToBorrow;
+      const maxBorrowAmount = d.plan.amountToBorrow;
 
+      const collateralAmount = badPathsParams?.customCollateralAmount || d.collateralAmount;
       await transferAndApprove(
         collateralToken.address,
         d.userContract.address,
         await d.controller.tetuConverter(),
-        d.collateralAmount,
+        collateralAmount,
         d.aavePoolAdapterAsTC.address
       );
 
@@ -408,13 +536,10 @@ describe("Aave3PoolAdapterIntTest", () => {
           ? badPathsParams?.customAmountToBorrow
           : maxBorrowAmount;
 
-      console.log("Try to borrow", maxBorrowAmount);
+      console.log("Try to borrow", amountToBorrow, maxBorrowAmount);
+      console.log("Using collateral", collateralAmount);
 
-      await d.aavePoolAdapterAsTC.borrow(
-        d.collateralAmount,
-        amountToBorrow,
-        d.userContract.address
-      );
+      await d.aavePoolAdapterAsTC.borrow(collateralAmount, amountToBorrow, d.userContract.address);
 
       // after borrow
       const collateralDataAfter = await d.h.getReserveInfo(deployer, d.aavePool, d.dataProvider, collateralToken.address);
@@ -426,7 +551,7 @@ describe("Aave3PoolAdapterIntTest", () => {
       return {
         init: d,
         maxBorrowAmount,
-        maxBorrowAmountByPlan: d.plan.maxAmountToBorrow,
+        maxBorrowAmountByPlan: d.plan.amountToBorrow,
         isolationModeTotalDebtDelta
       }
     }
@@ -604,7 +729,11 @@ describe("Aave3PoolAdapterIntTest", () => {
             });
           });
         });
-        describe("EURS : USDC", () => {
+
+        /**
+         * There is not enough EURO-amount on holders accounts to make max borrow
+         */
+        describe.skip("EURS : USDC", () => {
 //region Constants
           const collateralAsset = MaticAddresses.EURS;
           const borrowAsset = MaticAddresses.USDC;
@@ -666,7 +795,8 @@ describe("Aave3PoolAdapterIntTest", () => {
                   borrowHolders,
                   true, // emode
                   {
-                    customAmountToBorrow: parseUnits("1")
+                    customAmountToBorrow: parseUnits("20", borrowToken.decimals),
+                    customCollateralAmount: parseUnits("200", collateralToken.decimals)
                   }
                 )
               ).revertedWith("60");
@@ -935,7 +1065,7 @@ describe("Aave3PoolAdapterIntTest", () => {
               undefined,
               {forceToClosePosition: true}
             )
-          ).revertedWith("TC-24 close position failed"); // CLOSE_POSITION_FAILED
+          ).revertedWith("TC-55 close position not allowed"); // CLOSE_POSITION_PARTIAL
         });
       });
     });

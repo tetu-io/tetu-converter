@@ -31,11 +31,11 @@ export function areAlmostEqual(b1: BigNumber, b2: BigNumber, accuracy: number = 
     return b2.eq(0);
   }
   const n18 = getBigNumberFrom(1, accuracy);
-  console.log("approx1", b1, b2);
-  console.log("approx2", b1.sub(b2));
-  console.log("approx3", b1.sub(b2).mul(n18).div(b1).abs());
-  console.log("approx4", b1.sub(b2).mul(n18).div(b1).abs().mul(accuracy));
-  console.log("approx5", b1.sub(b2).mul(n18).div(b1).abs().mul(accuracy).toNumber());
+  console.log("approx1", b1.toString(), b2.toString());
+  console.log("approx2", b1.sub(b2).toString());
+  console.log("approx3", b1.sub(b2).mul(n18).div(b1).abs().toString());
+  console.log("approx4", b1.sub(b2).mul(n18).div(b1).abs().mul(accuracy).toString());
+  console.log("approx5", b1.sub(b2).mul(n18).div(b1).abs().mul(accuracy).toNumber().toString());
   return b1.sub(b2).mul(n18).div(b1).abs().mul(accuracy).toNumber() === 0;
 }
 

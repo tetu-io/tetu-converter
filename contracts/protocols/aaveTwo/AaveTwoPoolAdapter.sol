@@ -1,19 +1,21 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.4;
+pragma solidity 0.8.17;
 
 import "../../openzeppelin/SafeERC20.sol";
 import "../../openzeppelin/IERC20.sol";
-import "../../core/DebtMonitor.sol";
-import "../../core/AppErrors.sol";
+import "../../openzeppelin/Initializable.sol";
+import "../../openzeppelin/IERC20Metadata.sol";
+import "../../libs/AppErrors.sol";
 import "../../interfaces/IPoolAdapter.sol";
 import "../../interfaces/IPoolAdapterInitializer.sol";
+import "../../interfaces/IController.sol";
+import "../../interfaces/IDebtMonitor.sol";
 import "../../integrations/aaveTwo/IAaveTwoPool.sol";
 import "../../integrations/aaveTwo/IAaveTwoPriceOracle.sol";
 import "../../integrations/aaveTwo/IAaveTwoLendingPoolAddressesProvider.sol";
 import "../../integrations/aaveTwo/AaveTwoReserveConfiguration.sol";
 import "../../integrations/aaveTwo/IAaveTwoAToken.sol";
 import "../../integrations/dforce/SafeRatioMath.sol";
-import "../../openzeppelin/Initializable.sol";
 
 /// @notice Implementation of IPoolAdapter for AAVE-v2-protocol, see https://docs.aave.com/hub/
 /// @dev Instances of this contract are created using proxy-minimal pattern, so no constructor
@@ -362,28 +364,31 @@ contract AaveTwoPoolAdapter is IPoolAdapter, IPoolAdapterInitializer, Initializa
     (uint256 totalCollateralBase, uint256 totalDebtBase,,,,) = pool_.getUserAccountData(address(this));
     require(totalDebtBase != 0, AppErrors.ZERO_BALANCE);
 
-    uint amountToRepayBase = amountToRepay_
-      * priceOracle_.getAssetPrice(assetBorrow_)
-      / (10 ** IERC20Metadata(assetBorrow_).decimals());
-    require(!closePosition_ || totalDebtBase <= amountToRepayBase, AppErrors.CLOSE_POSITION_FAILED);
+    uint borrowPrice =  priceOracle_.getAssetPrice(assetBorrow_);
+    require(borrowPrice != 0, AppErrors.ZERO_PRICE);
+
+    uint amountToRepayBase = amountToRepay_ * borrowPrice / (10 ** IERC20Metadata(assetBorrow_).decimals());
 
     if (closePosition_) {
+      // we cannot close position and pay the debt only partly
+      require(totalDebtBase <= amountToRepayBase, AppErrors.CLOSE_POSITION_PARTIAL);
+
       return type(uint).max;
+    } else {
+      // the assets prices in the base currency
+      uint collateralPrice = priceOracle_.getAssetPrice(assetCollateral_);
+      require(collateralPrice != 0, AppErrors.ZERO_PRICE);
+
+      uint part = amountToRepayBase >= totalDebtBase
+        ? 10**18
+        : 10**18 * amountToRepayBase / totalDebtBase;
+
+      return
+        // == totalCollateral * amountToRepay / totalDebt
+        totalCollateralBase * (10 ** IERC20Metadata(assetCollateral_).decimals())
+        * part / 10**18
+        / collateralPrice;
     }
-
-    // the assets prices in the base currency
-    uint collateralPrice = priceOracle_.getAssetPrice(assetCollateral_);
-    require(collateralPrice != 0, AppErrors.ZERO_PRICE);
-
-    uint part = amountToRepayBase >= totalDebtBase
-      ? 10**18
-      : 10**18 * amountToRepayBase / totalDebtBase;
-
-    return
-      // == totalCollateral * amountToRepay / totalDebt
-      totalCollateralBase * (10 ** IERC20Metadata(assetCollateral_).decimals())
-      * part / 10**18
-      / collateralPrice;
   }
 
   /// @notice If we paid {amountToRepay_}, how much collateral would we receive?
@@ -533,10 +538,14 @@ contract AaveTwoPoolAdapter is IPoolAdapter, IPoolAdapterInitializer, Initializa
       totalDebtBase == 0
         ? 0
         : totalDebtBase * targetDecimals / borrowPrice
-          // we ask to pay a bit more amount to exclude dust tokens
-          // i.e. for USD we need to pay only 1 cent
-          // this amount allows us to pass type(uint).max to repay function
-          + targetDecimals / 100,
+        // We ask to pay slightly higher amount than current borrowed amount to exclude dust tokens problem.
+        // See https://docs.aave.com/developers/core-contracts/pool#repay
+        // we assume here, that 100 cents (in USD) should cover all possible dust
+        // and give us a possibility to pass type(uint).max to repay function
+        // Ensure, that required debt exceeds totalDebtBase by at least token
+          + (targetDecimals > borrowPrice * 1
+            ? targetDecimals / borrowPrice / 1 // it's not valid for WBTC
+            : 1),
     // Current health factor, decimals 18
       hf18,
       totalCollateralBase != 0 || totalDebtBase != 0,

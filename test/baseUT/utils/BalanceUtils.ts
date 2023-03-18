@@ -3,7 +3,6 @@ import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import {DeployerUtils} from "../../../scripts/utils/DeployerUtils";
 import {getBigNumberFrom} from "../../../scripts/utils/NumberUtils";
 import {IERC20__factory, IERC20Metadata, IERC20Metadata__factory} from "../../../typechain";
-import {analyzeModuleNotFoundError} from "hardhat/internal/core/config/config-loading";
 
 export interface IContractToInvestigate {
   name: string;
@@ -130,7 +129,7 @@ export class BalanceUtils {
       await token
         .connect(await DeployerUtils.startImpersonate(holder))
         .transfer(receiver, amountToTransfer);
-      console.log("Require ", requiredAmount, " transfer ", amountToTransfer);
+      console.log("Require amount=", requiredAmount, ", transfer amount=", amountToTransfer);
 
       dest = dest.add(amountToTransfer);
       if (requiredAmount) {

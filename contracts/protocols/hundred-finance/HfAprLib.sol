@@ -1,13 +1,14 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.4;
+pragma solidity 0.8.17;
 
+import "../../openzeppelin/IERC20Metadata.sol";
+import "../../libs/AppErrors.sol";
+import "../../libs/AppUtils.sol";
+import "../../libs/AppDataTypes.sol";
 import "../../integrations/hundred-finance/IHfCToken.sol";
 import "../../integrations/hundred-finance/IHfInterestRateModel.sol";
 import "../../integrations/hundred-finance/IHfComptroller.sol";
 import "../../integrations/hundred-finance/IHfPriceOracle.sol";
-import "../../core/AppErrors.sol";
-import "../../core/AppUtils.sol";
-import "../../openzeppelin/IERC20Metadata.sol";
 
 /// @notice Hundred finance utils: predict borrow and supply rate in advance, calculate borrow and supply APR
 ///         Borrow APR = the amount by which the debt increases per block; the amount is in terms of borrow tokens
@@ -25,18 +26,6 @@ library HfAprLib {
     address collateralAsset;
     address borrowAsset;
   }
-
-  struct PricesAndDecimals {
-    IHfPriceOracle priceOracle;
-    /// @notice 10**collateralAssetDecimals
-    uint collateral10PowDecimals;
-    /// @notice 10**borrowAssetDecimals
-    uint borrow10PowDecimals;
-
-    uint priceCollateral36;
-    uint priceBorrow36;
-  }
-
 
   ///////////////////////////////////////////////////////
   //                  Addresses
@@ -67,7 +56,7 @@ library HfAprLib {
     uint collateralAmount_,
     uint countBlocks_,
     uint amountToBorrow_,
-    PricesAndDecimals memory pad_
+    AppDataTypes.PricesAndDecimals memory pad_
   ) internal view returns (
     uint borrowCost36,
     uint supplyIncomeInBorrowAsset36
@@ -79,9 +68,9 @@ library HfAprLib {
         collateralAmount_
       ),
       countBlocks_,
-      pad_.collateral10PowDecimals,
-      pad_.priceCollateral36,
-      pad_.priceBorrow36,
+      pad_.rc10powDec,
+      pad_.priceCollateral,
+      pad_.priceBorrow,
       collateralAmount_
     );
 
@@ -94,7 +83,7 @@ library HfAprLib {
       ),
       amountToBorrow_,
       countBlocks_,
-      pad_.borrow10PowDecimals
+      pad_.rb10powDec
     );
   }
 
@@ -133,7 +122,7 @@ library HfAprLib {
     // Replace rmul(simpleInterestFactor, borrowedAmount) by ordinal mul and take into account /1e18
     return
       simpleInterestFactor * borrowedAmount
-      * 1e8 // not 36 because we replaced rmul by mul
+      * 1e18 // not 36 because we replaced rmul by mul
       / borrow10PowDecimals;
   }
 

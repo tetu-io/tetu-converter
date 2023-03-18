@@ -15,15 +15,12 @@ import {
   PriceOracleMock__factory,
   Borrower,
   BorrowManager__factory,
-  BorrowManagerStub__factory,
   PoolAdapterStub, PoolAdapterStub__factory
 } from "../../typechain";
 import {TimeUtils} from "../../scripts/utils/TimeUtils";
 import {
   BorrowManagerHelper,
-  IBorrowInputParams, IBorrowInputParamsBasic,
-  IMockPoolParams, IPoolInfo,
-  IPoolInstanceInfo
+  IBorrowInputParams, IMockPoolParams, IPoolInstanceInfo
 } from "../baseUT/helpers/BorrowManagerHelper";
 import {DeployerUtils} from "../../scripts/utils/DeployerUtils";
 import {BigNumber} from "ethers";
@@ -45,11 +42,6 @@ describe("DebtsMonitor", () => {
   let snapshot: string;
   let snapshotForEach: string;
   let deployer: SignerWithAddress;
-  let user1: SignerWithAddress;
-  let user2: SignerWithAddress;
-  let user3: SignerWithAddress;
-  let user4: SignerWithAddress;
-  let user5: SignerWithAddress;
 //endregion Global vars for all tests
 
 //region before, after
@@ -58,11 +50,6 @@ describe("DebtsMonitor", () => {
     snapshot = await TimeUtils.snapshot();
     const signers = await ethers.getSigners();
     deployer = signers[0];
-    user1 = signers[2];
-    user2 = signers[3];
-    user3 = signers[4];
-    user4 = signers[5];
-    user5 = signers[6];
   });
 
   after(async function () {
@@ -359,46 +346,6 @@ describe("DebtsMonitor", () => {
   }
 //endregion Test impl
 
-//region Setup app
-  async function setUpSinglePool() : Promise<{
-    core: CoreContracts,
-    pool: string,
-    userContract: Borrower,
-    sourceToken: MockERC20,
-    targetToken: MockERC20,
-    poolAdapter: string
-  }>{
-    const user = ethers.Wallet.createRandom().address;
-    const targetDecimals = 12;
-    const tt: IBorrowInputParams = {
-      collateralFactor: 0.8,
-      priceSourceUSD: 0.1,
-      priceTargetUSD: 4,
-      sourceDecimals: 24,
-      targetDecimals,
-      availablePools: [
-        {   // source, target
-          borrowRateInTokens: [
-            getBigNumberFrom(0, targetDecimals),
-            getBigNumberFrom(1, targetDecimals - 6), // 1e-6
-          ],
-          availableLiquidityInTokens: [0, 200_000_000]
-        }
-      ]
-    };
-
-    const r = await initializeApp(tt, user);
-    return {
-      core: r.core,
-      pool: r.pools[0].pool,
-      poolAdapter: r.poolAdapters[0],
-      sourceToken: r.sourceToken,
-      targetToken: r.targetToken,
-      userContract: r.userContract,
-    }
-  }
-//endregion Setup app
-
 //region Utils for onClosePosition
   /**
    * Create pool adapters, register them and open all possible positions
@@ -409,7 +356,7 @@ describe("DebtsMonitor", () => {
     countAssets: number = 2
   ) : Promise<{poolAdapters: string[], core: CoreContracts}>{
     const assets = await MocksHelper.createAssets(countAssets);
-    const users = [...Array(countUsers).keys()].map(x => ethers.Wallet.createRandom().address);
+    const users = [...Array(countUsers).keys()].map(() => ethers.Wallet.createRandom().address);
 
     // prepare platform adapters and available assets and converters
     const poolParams: IMockPoolParams[] = [];
@@ -419,14 +366,14 @@ describe("DebtsMonitor", () => {
         cTokens: (await MocksHelper.createCTokensMocks(
           deployer,
           assets.map(x => x.address),
-          assets.map(x => 18)
+          assets.map(() => 18)
         )).map(x => x.address),
         pool: (await MocksHelper.createPoolStub(deployer)).address,
         converters: (
           await MocksHelper.createConverters(deployer, item)
         ).map(x => x.address),
-        assetPrices: assets.map(x => getBigNumberFrom(1, 18)),
-        assetLiquidityInPool: assets.map(x => getBigNumberFrom(1000, 18)),
+        assetPrices: assets.map(() => parseUnits("1", 18)),
+        assetLiquidityInPool: assets.map(() => parseUnits("1000", 18)),
       }
       poolParams.push(pp);
     }
@@ -677,15 +624,25 @@ describe("DebtsMonitor", () => {
 
 //region Unit tests
   describe("constructor", () => {
+    interface IMakeConstructorTestParams {
+      useZeroController?: boolean;
+      useZeroBorrowManager?: boolean;
+    }
     async function makeConstructorTest(
+      params?: IMakeConstructorTestParams
       // thresholdAPR: number,
       // thresholdCountBlocks: number,
-      useZeroController?: boolean
     ): Promise<{ret: string, expected: string}> {
-      const controller = await CoreContractsHelper.deployController(deployer);
+      const controller = await CoreContractsHelper.deployController(
+        deployer,
+        ethers.Wallet.createRandom().address,
+        ethers.Wallet.createRandom().address,
+      );
+      const borrowManager = await CoreContractsHelper.createBorrowManager(deployer, controller.address);
       const debtMonitor = await CoreContractsHelper.createDebtMonitor(
         deployer,
-        useZeroController ? Misc.ZERO_ADDRESS : controller.address,
+        params?.useZeroController ? Misc.ZERO_ADDRESS : controller.address,
+        params?.useZeroBorrowManager ? Misc.ZERO_ADDRESS: borrowManager.address
         // thresholdAPR,
         // thresholdCountBlocks
       );
@@ -727,9 +684,22 @@ describe("DebtsMonitor", () => {
       it("should revert if controller is zero", async () => {
         await expect(
           makeConstructorTest(
-            // 0,
-            // 0,
-            true // (!) controller is zero
+            {
+              useZeroController: true // (!) controller is zero
+              // 0,
+              // 0,
+            }
+          )
+        ).revertedWith("TC-1 zero address"); // ZERO_ADDRESS
+      });
+      it("should revert if borrowManager is zero", async () => {
+        await expect(
+          makeConstructorTest(
+            {
+              useZeroBorrowManager: true // (!) controller is zero
+              // 0,
+              // 0,
+            }
           )
         ).revertedWith("TC-1 zero address"); // ZERO_ADDRESS
       });
@@ -997,7 +967,7 @@ describe("DebtsMonitor", () => {
         });
       });
 
-      describe("Open N positions, close one of them", async () => {
+      describe("Open N positions, close one of them", () => {
         it("should set debtMonitor.positions to expected state", async () => {
           const r = await preparePoolAdapters([1, 2]);
           let localSnapshot: string;
@@ -1069,7 +1039,7 @@ describe("DebtsMonitor", () => {
         });
       });
 
-      describe("Create two positions for single converter, close both", async () => {
+      describe("Create two positions for single converter, close both", () => {
         it("should set debtMonitor._poolAdaptersForConverters to expected state", async () => {
           const r = await preparePoolAdapters([1], 1, 2);
 
@@ -1352,7 +1322,7 @@ describe("DebtsMonitor", () => {
 
         const sret = ret.join();
         const sexpected = r.poolAdapters.map(
-          x => (countConvertersPerPlatformAdapters[0] + countConvertersPerPlatformAdapters[1])
+          () => (countConvertersPerPlatformAdapters[0] + countConvertersPerPlatformAdapters[1])
         ).join();
 
         expect(sret).equal(sexpected);
@@ -1770,6 +1740,7 @@ describe("DebtsMonitor", () => {
         async function checkAllBorrows(
           portionSize: number,
           countBorrows: number,
+          // eslint-disable-next-line no-unused-vars
           filterToMakeUnhealthy?: (borrowIndex: number) => boolean,
         ) : Promise<{countAdapters: number, countAmounts: number}> {
           let index = 0;
@@ -1839,7 +1810,7 @@ describe("DebtsMonitor", () => {
               const ret = await checkAllBorrows(
                 100,
                 countPoolAdapters,
-                _ => true
+                () => true
               );
               const sret = [ret.countAdapters, ret.countAmounts].join();
               const sexpected = [countPoolAdapters, countPoolAdapters].join();
@@ -1847,23 +1818,23 @@ describe("DebtsMonitor", () => {
             });
           });
           describe("Check the borrows by parts", () => {
-            it("should return all borrows", async () => {
+            it("should return all borrows, 5 pool adapters", async () => {
               const countPoolAdapters = 5;
               const ret = await checkAllBorrows(
                 3,
                 countPoolAdapters,
-                _ => true
+                () => true
               );
               const sret = [ret.countAdapters, ret.countAmounts].join();
               const sexpected = [countPoolAdapters, countPoolAdapters].join();
               expect(sret).equal(sexpected);
             });
-            it("should return all borrows", async () => {
+            it("should return all borrows, 7 pool adapters", async () => {
               const countPoolAdapters = 7;
               const ret = await checkAllBorrows(
                 2,
                 countPoolAdapters,
-                _ => true
+                () => true
               );
               const sret = [ret.countAdapters, ret.countAmounts].join();
               const sexpected = [countPoolAdapters, countPoolAdapters].join();
@@ -1909,25 +1880,26 @@ describe("DebtsMonitor", () => {
         keeperFabric: async () => ethers.Wallet.createRandom().address,
         swapManagerFabric: async () => ethers.Wallet.createRandom().address,
         tetuLiquidatorAddress: ethers.Wallet.createRandom().address,
-        debtMonitorFabric: (async c => (await CoreContractsHelper.createDebtMonitor(deployer,
-          c.address
+        debtMonitorFabric: (async (c, borrowManager) => (await CoreContractsHelper.createDebtMonitor(deployer,
+          c.address,
+          borrowManager
           // 1,
           // 1
         )).address),
       };
       const controller = await TetuConverterApp.createController(deployer, p);
-      const debtMonitorAsGov = DebtMonitor__factory.connect(
-        await controller.debtMonitor(),
-        await DeployerUtils.startImpersonate(await controller.governance())
-      );
+      // const debtMonitorAsGov = DebtMonitor__factory.connect(
+      //   await controller.debtMonitor(),
+      //   await DeployerUtils.startImpersonate(await controller.governance())
+      // );
       const debtMonitorAsTetuConverter = DebtMonitor__factory.connect(
         await controller.debtMonitor(),
         await DeployerUtils.startImpersonate(await controller.tetuConverter())
       );
-      const borrowManager = BorrowManagerStub__factory.connect(
-        await controller.borrowManager(),
-        await DeployerUtils.startImpersonate(await controller.borrowManager())
-      );
+      // const borrowManager = BorrowManagerStub__factory.connect(
+      //   await controller.borrowManager(),
+      //   await DeployerUtils.startImpersonate(await controller.borrowManager())
+      // );
 
       // await expect(
       //   debtMonitorAsGov.setThresholdAPR(14)
@@ -2365,7 +2337,46 @@ describe("DebtsMonitor", () => {
   //   });
   // });
 
-  describe("TODO: checkBetterBorrowExists", () => {});
+// //region Setup app
+//   async function setUpSinglePool() : Promise<{
+//     core: CoreContracts,
+//     pool: string,
+//     userContract: Borrower,
+//     sourceToken: MockERC20,
+//     targetToken: MockERC20,
+//     poolAdapter: string
+//   }>{
+//     const user = ethers.Wallet.createRandom().address;
+//     const targetDecimals = 12;
+//     const tt: IBorrowInputParams = {
+//       collateralFactor: 0.8,
+//       priceSourceUSD: 0.1,
+//       priceTargetUSD: 4,
+//       sourceDecimals: 24,
+//       targetDecimals,
+//       availablePools: [
+//         {   // source, target
+//           borrowRateInTokens: [
+//             getBigNumberFrom(0, targetDecimals),
+//             getBigNumberFrom(1, targetDecimals - 6), // 1e-6
+//           ],
+//           availableLiquidityInTokens: [0, 200_000_000]
+//         }
+//       ]
+//     };
+//
+//     const r = await initializeApp(tt, user);
+//     return {
+//       core: r.core,
+//       pool: r.pools[0].pool,
+//       poolAdapter: r.poolAdapters[0],
+//       sourceToken: r.sourceToken,
+//       targetToken: r.targetToken,
+//       userContract: r.userContract,
+//     }
+//   }
+// //endregion Setup app
+
 //endregion Unit tests
 
 });

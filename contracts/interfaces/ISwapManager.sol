@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.4;
+pragma solidity 0.8.17;
 
-import "../core/AppDataTypes.sol";
+import "../libs/AppDataTypes.sol";
 
 interface ISwapManager {
 
@@ -32,4 +32,7 @@ interface ISwapManager {
     address targetToken_,
     uint targetAmount_
   ) external view returns (int apr18);
+
+  /// @notice Return custom or default price impact tolerance for the asset
+  function getPriceImpactTolerance(address asset_) external view returns (uint priceImpactTolerance);
 }

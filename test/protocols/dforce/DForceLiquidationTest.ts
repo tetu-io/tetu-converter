@@ -108,7 +108,7 @@ describe.skip("DForceLiquidationTest - simulate liquidation", () => {
       it("Try to make new borrow after liquidation", async () => {
         if (!await isPolygonForkInUse()) return;
 
-        const r = await DForceTestUtils.makeLiquidation(deployer, init.d, borrowHolder);
+        await DForceTestUtils.makeLiquidation(deployer, init.d, borrowHolder);
 
         // put collateral amount on user's balance
         await BalanceUtils.getRequiredAmountFromHolders(

@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 
-pragma solidity 0.8.4;
+pragma solidity 0.8.17;
 
 import "../../interfaces/IPoolAdapter.sol";
 import "hardhat/console.sol";
@@ -8,11 +8,11 @@ import "../../interfaces/IPriceOracle.sol";
 import "../../openzeppelin/IERC20.sol";
 import "../tokens/MockERC20.sol";
 import "../../openzeppelin/IERC20Metadata.sol";
-import "../../interfaces/IDebtsMonitor.sol";
+import "../../interfaces/IDebtMonitor.sol";
 import "./PoolStub.sol";
 import "../../interfaces/IController.sol";
-import "../../core/AppErrors.sol";
-import "../../core/AppUtils.sol";
+import "../../libs/AppErrors.sol";
+import "../../libs/AppUtils.sol";
 import "../../openzeppelin/SafeERC20.sol";
 
 contract PoolAdapterMock is IPoolAdapter {
