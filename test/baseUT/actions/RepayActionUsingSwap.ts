@@ -1,6 +1,6 @@
 import {IRepayAction} from "../uses-cases/BorrowRepayUsesCase";
 import {BigNumber} from "ethers";
-import {IERC20__factory, Borrower, Controller, ITetuConverter__factory} from "../../../typechain";
+import {IERC20__factory, Borrower, ConverterController, ITetuConverter__factory} from "../../../typechain";
 import {IUserBalancesWithGas} from "../utils/BalanceUtils";
 import {DeployerUtils} from "../../../scripts/utils/DeployerUtils";
 import {TokenDataTypes} from "../types/TokenDataTypes";
@@ -10,14 +10,14 @@ export interface IRepayActionOptionalParams {
 }
 
 export class RepayActionUsingSwap implements IRepayAction {
-  public controller: Controller;
+  public controller: ConverterController;
   public collateralToken: TokenDataTypes;
   public borrowToken: TokenDataTypes;
   public amountToRepay: BigNumber | undefined;
   public amountToKeepOnBorrowBalance: BigNumber;
 
   constructor(
-    controller: Controller,
+    controller: ConverterController,
     collateralToken: TokenDataTypes,
     borrowToken: TokenDataTypes,
     amountToKeepOnBorrowBalance: BigNumber

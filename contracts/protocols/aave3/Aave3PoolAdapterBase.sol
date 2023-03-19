@@ -6,7 +6,7 @@ import "../../openzeppelin/IERC20.sol";
 import "../../openzeppelin/Initializable.sol";
 import "../../openzeppelin/IERC20Metadata.sol";
 import "../../libs/AppErrors.sol";
-import "../../interfaces/IController.sol";
+import "../../interfaces/IConverterController.sol";
 import "../../interfaces/IPoolAdapter.sol";
 import "../../interfaces/IDebtMonitor.sol";
 import "../../interfaces/IPoolAdapterInitializer.sol";
@@ -36,7 +36,7 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer,
   address public borrowAsset;
   address public user;
 
-  IController public controller;
+  IConverterController public controller;
   IAavePool internal _pool;
   /// @notice Address of original PoolAdapter contract that was cloned to make the instance of the pool adapter
   address originConverter;
@@ -81,7 +81,7 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer,
       AppErrors.ZERO_ADDRESS
     );
 
-    controller = IController(controller_);
+    controller = IConverterController(controller_);
     user = user_;
     collateralAsset = collateralAsset_;
     borrowAsset = borrowAsset_;
@@ -102,7 +102,7 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer,
   ///////////////////////////////////////////////////////
 
   /// @notice Ensure that the caller is TetuConverter
-  function _onlyTetuConverter(IController controller_) internal view {
+  function _onlyTetuConverter(IConverterController controller_) internal view {
     require(controller_.tetuConverter() == msg.sender, AppErrors.TETU_CONVERTER_ONLY);
   }
 
@@ -135,7 +135,7 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer,
     uint borrowAmount_,
     address receiver_
   ) external override returns (uint) {
-    IController c = controller;
+    IConverterController c = controller;
     _onlyTetuConverter(c);
 
     IAavePool pool = _pool;
@@ -222,7 +222,7 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer,
     uint resultHealthFactor18,
     uint borrowedAmountOut
   ) {
-    IController c = controller;
+    IConverterController c = controller;
     _onlyTetuConverter(c);
 
     IAavePool pool = _pool;
@@ -276,7 +276,7 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer,
     address receiver_,
     bool closePosition_
   ) external override returns (uint) {
-    IController c = controller;
+    IConverterController c = controller;
     _onlyTetuConverter(c);
 
     address assetBorrow = borrowAsset;
@@ -578,7 +578,7 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer,
   ///                    Utils
   ///////////////////////////////////////////////////////
 
-  function _validateHealthFactor(IController controller_, uint hf18) internal view {
+  function _validateHealthFactor(IConverterController controller_, uint hf18) internal view {
     require(hf18 >= uint(controller_.minHealthFactor2())*10**(18-2), AppErrors.WRONG_HEALTH_FACTOR);
   }
 

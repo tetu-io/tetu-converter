@@ -12,7 +12,7 @@ import {AaveTwoHelper, IAaveTwoReserveInfo} from "../../../scripts/integration/h
 import {AprUtils, COUNT_BLOCKS_PER_DAY} from "../../baseUT/utils/aprUtils";
 import {
   AaveTwoPlatformAdapter,
-  AaveTwoPlatformAdapter__factory, Controller,
+  AaveTwoPlatformAdapter__factory, ConverterController,
   IAaveTwoPool,
   IAaveTwoProtocolDataProvider,
   IERC20Metadata__factory
@@ -183,7 +183,7 @@ describe("AaveTwoPlatformAdapterTest", () => {
   });
 
   describe("getConversionPlan", () => {
-    let controller: Controller;
+    let controller: ConverterController;
     let snapshotLocal: string;
     before(async function () {
       snapshotLocal = await TimeUtils.snapshot();
@@ -906,7 +906,7 @@ describe("AaveTwoPlatformAdapterTest", () => {
   });
 
   describe("initializePoolAdapter", () => {
-    let controller: Controller;
+    let controller: ConverterController;
     let snapshotLocal: string;
     before(async function () {
       snapshotLocal = await TimeUtils.snapshot();

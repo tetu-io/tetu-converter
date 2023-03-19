@@ -20,12 +20,12 @@ import {
   SwapManagerMock,
   ConverterUnknownKind,
   DebtMonitorMock,
-  Controller,
+  ConverterController,
   PoolAdapterStub__factory,
   IPoolAdapter,
   DebtMonitorMock__factory,
   SwapManagerMock__factory,
-  PriceOracleMock__factory, IController__factory
+  PriceOracleMock__factory, IConverterController__factory
 } from "../../typechain";
 import {
   IBorrowInputParams,
@@ -831,7 +831,7 @@ describe("TetuConverterTest", () => {
         // we can call any function of TetuConverter to ensure that it was created correctly
         // let's check it using ADDITIONAL_BORROW_DELTA_DENOMINATOR()
         const tetuConverter = await makeConstructorTest();
-        const controller = IController__factory.connect(await tetuConverter.controller(), deployer);
+        const controller = IConverterController__factory.connect(await tetuConverter.controller(), deployer);
         const ret = [
           await tetuConverter.borrowManager(),
           await tetuConverter.debtMonitor(),
@@ -3329,11 +3329,11 @@ describe("TetuConverterTest", () => {
       receiver: string;
       user: string;
       debtMonitorMock: DebtMonitorMock;
-      controller: Controller;
+      controller: ConverterController;
       tetuConverter: TetuConverter;
       poolAdapter: PoolAdapterMock;
     }
-    async function setupPoolAdapter(controller: Controller, user: string) : Promise<PoolAdapterMock> {
+    async function setupPoolAdapter(controller: ConverterController, user: string) : Promise<PoolAdapterMock> {
       const poolAdapter = await MocksHelper.createPoolAdapterMock(deployer);
       await poolAdapter.initialize(
         controller.address,

@@ -6,7 +6,7 @@ import {
   IDForceController,
   IDForceCToken,
   IDForceCToken__factory,
-  DForcePlatformAdapter__factory, DForceAprLibFacade, BorrowManager__factory, DForcePlatformAdapter, Controller,
+  DForcePlatformAdapter__factory, DForceAprLibFacade, BorrowManager__factory, DForcePlatformAdapter, ConverterController,
 } from "../../../typechain";
 import {expect} from "chai";
 import {AdaptersHelper} from "../../baseUT/helpers/AdaptersHelper";
@@ -175,7 +175,7 @@ describe("DForce integration tests, platform adapter", () => {
   }
 
   async function preparePlan(
-    controller: Controller,
+    controller: ConverterController,
     collateralAsset: string,
     collateralAmount: BigNumber,
     borrowAsset: string,
@@ -308,7 +308,7 @@ describe("DForce integration tests, platform adapter", () => {
    * as directly calculated one using DForceAprLibFacade
    */
   async function makeTestComparePlanWithDirectCalculations(
-    controller: Controller,
+    controller: ConverterController,
     collateralAsset: string,
     collateralAmount: BigNumber,
     borrowAsset: string,
@@ -505,7 +505,7 @@ describe("DForce integration tests, platform adapter", () => {
   });
 
   describe("getConversionPlan", () => {
-    let controller: Controller;
+    let controller: ConverterController;
     let snapshotLocal: string;
     before(async function () {
       snapshotLocal = await TimeUtils.snapshot();
@@ -1305,7 +1305,7 @@ describe("DForce integration tests, platform adapter", () => {
   });
 
   describe("initializePoolAdapter", () => {
-    let controller: Controller;
+    let controller: ConverterController;
     let snapshotLocal: string;
     before(async function () {
       snapshotLocal = await TimeUtils.snapshot();
@@ -1405,7 +1405,7 @@ describe("DForce integration tests, platform adapter", () => {
   });
 
   describe("registerCTokens", () => {
-    let controller: Controller;
+    let controller: ConverterController;
     let snapshotLocal: string;
     before(async function () {
       snapshotLocal = await TimeUtils.snapshot();

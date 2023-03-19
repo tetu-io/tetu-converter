@@ -4,7 +4,7 @@ import {TimeUtils} from "../../../scripts/utils/TimeUtils";
 import {MaticAddresses} from "../../../scripts/addresses/MaticAddresses";
 import {IStrategyToConvert} from "../../baseUT/apr/aprDataTypes";
 import {BigNumber} from "ethers";
-import {Controller, IERC20__factory, IERC20Metadata__factory} from "../../../typechain";
+import {ConverterController, IERC20__factory, IERC20Metadata__factory} from "../../../typechain";
 import {TetuConverterApp} from "../../baseUT/helpers/TetuConverterApp";
 import {Aave3PlatformFabric} from "../../baseUT/fabrics/Aave3PlatformFabric";
 import {AaveTwoPlatformFabric} from "../../baseUT/fabrics/AaveTwoPlatformFabric";
@@ -33,11 +33,11 @@ describe("CompareAprBorrowRepayTest @skip-on-coverage", () => {
   let snapshotForEach: string;
   let deployer: SignerWithAddress;
 
-  let controllerForAave3: Controller;
-  let controllerForAaveTwo: Controller;
-  let controllerForDForce: Controller;
-  let controllerForHundredFinance: Controller;
-  let controllerSwap: Controller;
+  let controllerForAave3: ConverterController;
+  let controllerForAaveTwo: ConverterController;
+  let controllerForDForce: ConverterController;
+  let controllerForHundredFinance: ConverterController;
+  let controllerSwap: ConverterController;
 
   let dai: ITokenParams;
   let usdc: ITokenParams;
@@ -154,7 +154,7 @@ describe("CompareAprBorrowRepayTest @skip-on-coverage", () => {
   }
 
   async function makeBorrowAndRepay(
-    controller: Controller,
+    controller: ConverterController,
     collateral: ITokenParams,
     collateralAmount: BigNumber,
     borrow: ITokenParams,
@@ -238,7 +238,7 @@ describe("CompareAprBorrowRepayTest @skip-on-coverage", () => {
   async function makeBorrowAndRepaySaveToFile(
     path: string,
     platform: string,
-    controller: Controller,
+    controller: ConverterController,
     collateral: ITokenParams,
     collateralAmount: BigNumber,
     borrow: ITokenParams,

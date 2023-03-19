@@ -3,7 +3,7 @@ import {ethers} from "hardhat";
 import {TimeUtils} from "../../../scripts/utils/TimeUtils";
 import {MaticAddresses} from "../../../scripts/addresses/MaticAddresses";
 import {
-  Controller,
+  ConverterController,
   IERC20__factory,
   ITetuLiquidator,
   ITetuLiquidator__factory,
@@ -26,7 +26,7 @@ describe("TetuLiquidatorSwapTest", () => {
   let snapshot: string;
   let snapshotForEach: string;
   let signer: SignerWithAddress;
-  let controller: Controller;
+  let controller: ConverterController;
   let swapManager: SwapManager;
 //endregion Global vars for all tests
 

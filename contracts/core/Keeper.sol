@@ -4,7 +4,7 @@ pragma solidity 0.8.17;
 import "../libs/AppErrors.sol";
 import "../libs/AppUtils.sol";
 import "../interfaces/IHealthKeeperCallback.sol";
-import "../interfaces/IController.sol";
+import "../interfaces/IConverterController.sol";
 import "../interfaces/IDebtMonitor.sol";
 import "../interfaces/IKeeperCallback.sol";
 import "../integrations/gelato/IResolver.sol";
@@ -30,7 +30,7 @@ contract Keeper is OpsReady, IHealthKeeperCallback, IResolver {
   /// @notice Start index of pool adapter for next checkHealth-request
   ///         We store here result of previous call of IDebtMonitor.checkHealth
   uint256 public override nextIndexToCheck0;
-  IController immutable public controller;
+  IConverterController immutable public controller;
 
   ///////////////////////////////////////////////////////
   ///               Events
@@ -46,7 +46,7 @@ contract Keeper is OpsReady, IHealthKeeperCallback, IResolver {
     uint blocksPerDayAutoUpdatePeriodSecs_
   ) OpsReady(ops_) {
     require(controller_ != address(0), AppErrors.ZERO_ADDRESS);
-    controller = IController(controller_);
+    controller = IConverterController(controller_);
     blocksPerDayAutoUpdatePeriodSecs = blocksPerDayAutoUpdatePeriodSecs_;
   }
 

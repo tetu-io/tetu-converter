@@ -4,7 +4,7 @@ import {TimeUtils} from "../../../scripts/utils/TimeUtils";
 import {
   AaveTwoPoolAdapter,
   AaveTwoPoolAdapter__factory, AaveTwoPoolMock__factory,
-  BorrowManager__factory, Controller, DebtMonitor__factory,
+  BorrowManager__factory, ConverterController, DebtMonitor__factory,
   IERC20Metadata__factory,
   IPoolAdapter__factory, ITetuConverter__factory
 } from "../../../typechain";
@@ -1115,7 +1115,7 @@ describe("AaveTwoPoolAdapterUnitTest", () => {
       converter: string;
       collateralAsset: string;
       borrowAsset: string;
-      controller: Controller;
+      controller: ConverterController;
       poolAdapter: AaveTwoPoolAdapter;
     }
     async function makeInitializePoolAdapter(

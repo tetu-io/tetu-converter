@@ -1,5 +1,5 @@
 import {
-  Controller,
+  ConverterController,
   IERC20,
   ITetuConverter, TetuConverter__factory,
 } from "../../../typechain";
@@ -12,7 +12,7 @@ import {MocksHelper} from "./MocksHelper";
 export interface ICreateControllerParams {
   // eslint-disable-next-line no-unused-vars
   tetuConverterFabric?: (
-    controller: Controller,
+    controller: ConverterController,
     borrowManager: string,
     debtMonitor: string,
     swapManager: string,
@@ -20,17 +20,17 @@ export interface ICreateControllerParams {
     priceOracle: string
   ) => Promise<string>;
   // eslint-disable-next-line no-unused-vars
-  borrowManagerFabric?: (controller: Controller) => Promise<string>;
+  borrowManagerFabric?: (controller: ConverterController) => Promise<string>;
   // eslint-disable-next-line no-unused-vars
   debtMonitorFabric?: (
-    controller: Controller,
+    controller: ConverterController,
     borrowManager: string
   ) => Promise<string>;
   // eslint-disable-next-line no-unused-vars
-  keeperFabric?: (controller: Controller) => Promise<string>;
+  keeperFabric?: (controller: ConverterController) => Promise<string>;
   // eslint-disable-next-line no-unused-vars
   swapManagerFabric?: (
-    controller: Controller,
+    controller: ConverterController,
     tetuLiquidator: string,
     priceOracle: string
   ) => Promise<string>;
@@ -46,7 +46,7 @@ export interface ICreateControllerParams {
 
 export interface IBuildAppResults {
   tc: ITetuConverter;
-  controller: Controller;
+  controller: ConverterController;
   pools: ILendingPlatformPoolInfo[]
 }
 
@@ -54,7 +54,7 @@ export class TetuConverterApp {
   static async createController(
     deployer: SignerWithAddress,
     p?: ICreateControllerParams
-  ) : Promise<Controller> {
+  ) : Promise<ConverterController> {
     const tetuConverterFabric = p?.tetuConverterFabric
       || (async (c, borrowManager, debtMonitor, swapManager, keeper, priceOracle) => (
           await CoreContractsHelper.createTetuConverter(deployer, c.address, borrowManager, debtMonitor, swapManager, keeper, priceOracle)).address

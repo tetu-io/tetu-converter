@@ -1,6 +1,6 @@
 import {
   Borrower,
-  Controller, IChangePriceForTests__factory, IController__factory, IDebtMonitor__factory,
+  ConverterController, IChangePriceForTests__factory, IConverterController__factory, IDebtMonitor__factory,
   IERC20Metadata, IKeeperCallback__factory, IPlatformAdapter__factory
 } from "../../typechain";
 import {formatUnits, parseUnits} from "ethers/lib/utils";
@@ -61,7 +61,7 @@ export interface IEmulationCommandResult {
  *
  */
 export class EmulateWork {
-  controller: Controller;
+  controller: ConverterController;
   public users: Borrower[];
   public assets: IERC20Metadata[];
   /**
@@ -74,7 +74,7 @@ export class EmulateWork {
   public contractAddresses: Map<string, string>;
 
   constructor(
-    controller: Controller,
+    controller: ConverterController,
     users: Borrower[],
     assets: IERC20Metadata[],
     contractAddresses: Map<string, string>
@@ -258,7 +258,7 @@ export class EmulateWork {
    * @param targetHealthFactor2
    */
   public async executeSetHealthFactor(targetHealthFactor2: string) {
-    const currentTargetHealthFactor = await IController__factory.connect(
+    const currentTargetHealthFactor = await IConverterController__factory.connect(
       this.controller.address,
       await DeployerUtils.startImpersonate(await this.controller.governance())
     ).targetHealthFactor2();
@@ -269,33 +269,33 @@ export class EmulateWork {
     const maxHealthFactor = 4 * Number(targetHealthFactor2);
     if (Number(targetHealthFactor2) < currentTargetHealthFactor) {
       // set min, target, max
-      await IController__factory.connect(
+      await IConverterController__factory.connect(
         this.controller.address,
         await DeployerUtils.startImpersonate(await this.controller.governance())
       ).setMinHealthFactor2(minHealthFactor);
 
-      await IController__factory.connect(
+      await IConverterController__factory.connect(
         this.controller.address,
         await DeployerUtils.startImpersonate(await this.controller.governance())
       ).setTargetHealthFactor2(targetHealthFactor);
 
-      await IController__factory.connect(
+      await IConverterController__factory.connect(
         this.controller.address,
         await DeployerUtils.startImpersonate(await this.controller.governance())
       ).setMaxHealthFactor2(maxHealthFactor);
     } else {
       // set max, target, min
-      await IController__factory.connect(
+      await IConverterController__factory.connect(
         this.controller.address,
         await DeployerUtils.startImpersonate(await this.controller.governance())
       ).setMaxHealthFactor2(4 * Number(targetHealthFactor2));
 
-      await IController__factory.connect(
+      await IConverterController__factory.connect(
         this.controller.address,
         await DeployerUtils.startImpersonate(await this.controller.governance())
       ).setTargetHealthFactor2(2 * Number(targetHealthFactor2));
 
-      await IController__factory.connect(
+      await IConverterController__factory.connect(
         this.controller.address,
         await DeployerUtils.startImpersonate(await this.controller.governance())
       ).setMinHealthFactor2(Number(targetHealthFactor2));

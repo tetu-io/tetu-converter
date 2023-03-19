@@ -13,7 +13,7 @@ import {
   Borrower,
   BorrowManager,
   BorrowManager__factory,
-  Controller,
+  ConverterController,
   DebtMonitor,
   DebtMonitor__factory,
   IDebtMonitor__factory,
@@ -79,10 +79,10 @@ describe.skip("Keeper test for reconversion @skip-on-coverage", () => {
 //endregion before, after
 
 //region Utils
-  async function getBorrowManager(signer: SignerWithAddress, controller: Controller) : Promise<BorrowManager> {
+  async function getBorrowManager(signer: SignerWithAddress, controller: ConverterController) : Promise<BorrowManager> {
     return BorrowManager__factory.connect(await controller.borrowManager(), signer);
   }
-  async function getDebtMonitor(signer: SignerWithAddress, controller: Controller) : Promise<DebtMonitor> {
+  async function getDebtMonitor(signer: SignerWithAddress, controller: ConverterController) : Promise<DebtMonitor> {
     return DebtMonitor__factory.connect(await controller.debtMonitor(), signer);
   }
 //endregion Utils

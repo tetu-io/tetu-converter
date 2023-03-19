@@ -2,7 +2,7 @@ import {
   DForcePlatformAdapter,
   IBorrowManager,
   IBorrowManager__factory,
-  IController,
+  IConverterController,
   IDForceController,
   IERC20,
   IERC20__factory
@@ -15,7 +15,7 @@ import {DForceHelper} from "../../../scripts/integration/helpers/DForceHelper";
 import {generateAssetPairs} from "../utils/AssetPairUtils";
 
 export class DForcePlatformFabric implements ILendingPlatformFabric {
-    async createAndRegisterPools(deployer: SignerWithAddress, controller: IController) : Promise<ILendingPlatformPoolInfo> {
+    async createAndRegisterPools(deployer: SignerWithAddress, controller: IConverterController) : Promise<ILendingPlatformPoolInfo> {
         const {comptroller, platformAdapter} = await DForcePlatformFabric.createPlatformAdapter(
           deployer,
           controller.address

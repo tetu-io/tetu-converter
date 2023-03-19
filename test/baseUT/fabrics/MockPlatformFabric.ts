@@ -3,7 +3,7 @@ import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import {
   CTokenMock,
   IBorrowManager__factory,
-  IController,
+  IConverterController,
   IERC20,
   IERC20__factory,
   PriceOracleMock
@@ -41,7 +41,7 @@ export class MockPlatformFabric implements ILendingPlatformFabric {
     this.holders = holders;
     this.prices = prices;
   }
-  async createAndRegisterPools(deployer: SignerWithAddress, controller: IController) : Promise<ILendingPlatformPoolInfo> {
+  async createAndRegisterPools(deployer: SignerWithAddress, controller: IConverterController) : Promise<ILendingPlatformPoolInfo> {
     const pool = await MocksHelper.createPoolStub(deployer);
     const converter = await MocksHelper.createPoolAdapterMock(deployer);
     const priceOracle = (await DeployUtils.deployContract(deployer, "PriceOracleMock",

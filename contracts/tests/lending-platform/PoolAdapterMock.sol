@@ -10,7 +10,7 @@ import "../tokens/MockERC20.sol";
 import "../../openzeppelin/IERC20Metadata.sol";
 import "../../interfaces/IDebtMonitor.sol";
 import "./PoolStub.sol";
-import "../../interfaces/IController.sol";
+import "../../interfaces/IConverterController.sol";
 import "../../libs/AppErrors.sol";
 import "../../libs/AppUtils.sol";
 import "../../openzeppelin/SafeERC20.sol";
@@ -255,7 +255,7 @@ contract PoolAdapterMock is IPoolAdapter {
 
     // ensure that result health factor exceeds min allowed value
     (,, resultHealthFactor18,,) = _getStatus();
-    uint minAllowedHealthFactor18 = uint(IController(controller).minHealthFactor2()) * 10**(18-2);
+    uint minAllowedHealthFactor18 = uint(IConverterController(controller).minHealthFactor2()) * 10**(18-2);
     require(minAllowedHealthFactor18 < resultHealthFactor18, AppErrors.WRONG_HEALTH_FACTOR);
 
     return (resultHealthFactor18, borrowAmount_);
@@ -264,7 +264,7 @@ contract PoolAdapterMock is IPoolAdapter {
   function _addBorrow(uint borrowedAmount_) internal {
     _accumulateDebt(borrowedAmount_);
     // send notification to the debt monitor
-    IDebtMonitor dm = IDebtMonitor(IController(controller).debtMonitor());
+    IDebtMonitor dm = IDebtMonitor(IConverterController(controller).debtMonitor());
     dm.onOpenPosition();
     console.log("_borrowedAmounts", _borrowedAmounts);
   }
@@ -317,7 +317,7 @@ contract PoolAdapterMock is IPoolAdapter {
     _borrowedAmounts -= amountToRepay_;
 
     if (closePosition_) {
-      IDebtMonitor dm = IDebtMonitor(IController(controller).debtMonitor());
+      IDebtMonitor dm = IDebtMonitor(IConverterController(controller).debtMonitor());
       dm.onClosePosition();
     }
 
