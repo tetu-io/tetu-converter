@@ -25,7 +25,7 @@ import {
   IPoolAdapter,
   DebtMonitorMock__factory,
   SwapManagerMock__factory,
-  PriceOracleMock__factory, PoolAdapterMock2__factory, TetuConverterCallbackMock
+  PriceOracleMock__factory, PoolAdapterMock2__factory, TetuConverterCallbackMock,
   IConverterController__factory
 } from "../../typechain";
 import {
