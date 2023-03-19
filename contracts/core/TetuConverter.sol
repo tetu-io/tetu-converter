@@ -38,7 +38,7 @@ contract TetuConverter is ITetuConverter, IKeeperCallback, IRequireAmountBySwapM
   ///                Members
   ///////////////////////////////////////////////////////
 
-  IController public immutable controller;
+  IController public immutable override controller;
 
   /// We cache immutable addresses here to avoid exceed calls to the controller
   IBorrowManager public immutable borrowManager;
