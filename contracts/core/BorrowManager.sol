@@ -13,7 +13,7 @@ import "../openzeppelin/IERC20Metadata.sol";
 import "../interfaces/IPlatformAdapter.sol";
 import "../interfaces/IBorrowManager.sol";
 import "../interfaces/IPriceOracle.sol";
-import "../interfaces/IController.sol";
+import "../interfaces/IConverterController.sol";
 import "../interfaces/IDebtMonitor.sol";
 import "../interfaces/ITetuConverter.sol";
 import "../integrations/market/ICErc20.sol";
@@ -33,7 +33,7 @@ contract BorrowManager is IBorrowManager {
   ///         Result APR = borrow-apr - supply-apr - Factor/Denominator * rewards-APR
   uint constant public REWARDS_FACTOR_DENOMINATOR_18 = 1e18;
 
-  IController public immutable controller;
+  IConverterController public immutable controller;
 
   ///////////////////////////////////////////////////////
   ///                Structs and enums
@@ -105,7 +105,7 @@ contract BorrowManager is IBorrowManager {
 
   constructor (address controller_, uint rewardsFactor_) {
     require(controller_ != address(0), AppErrors.ZERO_ADDRESS);
-    controller = IController(controller_);
+    controller = IConverterController(controller_);
 
     // we assume rewards amount should be downgraded in calcs coz liquidation gaps
     require(rewardsFactor_ < REWARDS_FACTOR_DENOMINATOR_18, AppErrors.INCORRECT_VALUE);

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.17;
 
-import "../interfaces/IController.sol";
+import "../interfaces/IConverterController.sol";
 import "../interfaces/ITetuConverter.sol";
 import "../openzeppelin/IERC20.sol";
 import "../interfaces/IPoolAdapter.sol";
@@ -21,7 +21,7 @@ import "hardhat/console.sol";
 contract Borrower is ITetuConverterCallback {
   using SafeERC20 for IERC20;
 
-  IController immutable private _controller;
+  IConverterController immutable private _controller;
 
   uint public totalBorrowedAmount;
   uint public totalAmountBorrowAssetRepaid;
@@ -58,7 +58,7 @@ contract Borrower is ITetuConverterCallback {
     address controller_,
     uint borrowPeriodInBlocks_
   ) {
-    _controller = IController(controller_);
+    _controller = IConverterController(controller_);
     _borrowPeriodInBlocks = borrowPeriodInBlocks_;
   }
 

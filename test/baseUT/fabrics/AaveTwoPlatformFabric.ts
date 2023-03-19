@@ -1,4 +1,4 @@
-import {IBorrowManager__factory, IController, IERC20, IERC20__factory} from "../../../typechain";
+import {IBorrowManager__factory, IConverterController, IERC20, IERC20__factory} from "../../../typechain";
 import {ILendingPlatformFabric, ILendingPlatformPoolInfo} from "./ILendingPlatformFabric";
 import {AdaptersHelper} from "../helpers/AdaptersHelper";
 import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
@@ -7,7 +7,7 @@ import {AaveTwoHelper} from "../../../scripts/integration/helpers/AaveTwoHelper"
 import {generateAssetPairs} from "../utils/AssetPairUtils";
 
 export class AaveTwoPlatformFabric implements ILendingPlatformFabric {
-  async createAndRegisterPools(deployer: SignerWithAddress, controller: IController) : Promise<ILendingPlatformPoolInfo> {
+  async createAndRegisterPools(deployer: SignerWithAddress, controller: IConverterController) : Promise<ILendingPlatformPoolInfo> {
     const aavePool = await AaveTwoHelper.getAavePool(deployer);
     const templateAdapterNormal = await AdaptersHelper.createAaveTwoPoolAdapter(deployer);
     const aavePlatformAdapter = await AdaptersHelper.createAaveTwoPlatformAdapter(

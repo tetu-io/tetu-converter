@@ -9,7 +9,7 @@ import {
 import {isPolygonForkInUse} from "../baseUT/utils/NetworkUtils";
 import {DForceChangePriceUtils} from "../baseUT/protocols/dforce/DForceChangePriceUtils";
 import {
-  Controller__factory,
+  ConverterController__factory,
   IPlatformAdapter__factory,
   ITetuConverter__factory
 } from "../../typechain";
@@ -73,7 +73,7 @@ describe("GetDebtAmountCurrentTest", () => {
         it("should display not rounded values", async () => {
           if (!await isPolygonForkInUse()) return;
 
-          const controller = await Controller__factory.connect("0xf1f5d27877e44C93d2892701a887Fb0a102A1815", deployer);
+          const controller = await ConverterController__factory.connect("0xf1f5d27877e44C93d2892701a887Fb0a102A1815", deployer);
 
           // const priceOracleAave3 = await Aave3ChangePricesUtils.setupPriceOracleMock(deployer);
           // const {controller} = await TetuConverterApp.buildApp(

@@ -3,7 +3,7 @@ import {
   AaveTwoPoolAdapter,
   Borrower,
   BorrowManager__factory,
-  Controller,
+  ConverterController,
   IAaveTwoPool, IAaveTwoPool__factory,
   IAaveTwoPriceOracle, IAaveTwoProtocolDataProvider,
   IERC20__factory,
@@ -35,7 +35,7 @@ export interface IPrepareToBorrowResults {
   aavePrices: IAaveTwoPriceOracle;
   dataProvider: IAaveTwoProtocolDataProvider;
 
-  controller: Controller;
+  controller: ConverterController;
 
   /** Amount that can be borrowed according to the conversion plan */
   amountToBorrow: BigNumber;

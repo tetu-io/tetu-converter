@@ -7,7 +7,7 @@ import {
   BorrowManager__factory,
   IERC20Metadata__factory,
   IPoolAdapter__factory,
-  Controller,
+  ConverterController,
   Aave3PoolAdapter,
   Aave3PoolMock__factory,
   ITetuConverter__factory,
@@ -877,7 +877,7 @@ describe("Aave3PoolAdapterUnitTest", () => {
       converter: string;
       collateralAsset: string;
       borrowAsset: string;
-      controller: Controller;
+      controller: ConverterController;
       poolAdapter: Aave3PoolAdapter;
     }
     async function makeInitializePoolAdapter(

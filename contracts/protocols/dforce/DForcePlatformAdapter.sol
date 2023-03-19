@@ -11,7 +11,7 @@ import "../../libs/AppErrors.sol";
 import "../../libs/AppUtils.sol";
 import "../../libs/EntryKinds.sol";
 import "../../interfaces/IPlatformAdapter.sol";
-import "../../interfaces/IController.sol";
+import "../../interfaces/IConverterController.sol";
 import "../../interfaces/IPoolAdapterInitializerWithAP.sol";
 import "../../interfaces/ITokenAddressProvider.sol";
 import "../../integrations/dforce/IDForcePriceOracle.sol";
@@ -39,7 +39,7 @@ contract DForcePlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
   ///////////////////////////////////////////////////////
   ///   Variables
   ///////////////////////////////////////////////////////
-  IController immutable public controller;
+  IConverterController immutable public controller;
   IDForceController immutable public comptroller;
   /// @notice Template of pool adapter
   address immutable public converter;
@@ -84,7 +84,7 @@ contract DForcePlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
     );
 
     comptroller = IDForceController(comptroller_);
-    controller = IController(controller_);
+    controller = IConverterController(controller_);
     converter = templatePoolAdapter_;
     borrowManager = borrowManager_;
 
@@ -236,7 +236,7 @@ contract DForcePlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
 
                 // Protocol has min allowed health factor at the borrow moment: liquidationThreshold18/LTV, i.e. 0.85/0.8=1.06...
                 // Target health factor can be smaller but it's not possible to make a borrow with such low health factor
-                // see explanation of health factor value in IController.sol
+                // see explanation of health factor value in IConverterController.sol
                 vars.healthFactor18 = plan.liquidationThreshold18 * 1e18 / plan.ltv18;
                 if (vars.healthFactor18 < uint(healthFactor2_) * 10**(18 - 2)) {
                   vars.healthFactor18 = uint(healthFactor2_) * 10**(18 - 2);
@@ -342,7 +342,7 @@ contract DForcePlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
   ///                    Utils
   ///////////////////////////////////////////////////////
 
-  /// @dev See LendingContractsV2, Controller.sol, calcAccountEquityWithEffect
+  /// @dev See LendingContractsV2, ConverterController.sol, calcAccountEquityWithEffect
   /// @return collateralFactorMantissa Multiplier representing the most one can borrow against their collateral in
   ///         this market. For instance, 0.9 to allow borrowing 90% of collateral value.
   /// @return supplyCapacity iToken's supply capacity, -1 means no limit
@@ -357,7 +357,7 @@ contract DForcePlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
       : (collateralFactorMantissa0, supplyCapacity0);
   }
 
-  /// @dev See LendingContractsV2, Controller.sol, calcAccountEquityWithEffect
+  /// @dev See LendingContractsV2, ConverterController.sol, calcAccountEquityWithEffect
   /// @return borrowFactorMantissa Multiplier representing the most one can borrow the asset.
   ///         For instance, 0.5 to allow borrowing this asset 50% * collateral value * collateralFactor.
   /// @return borrowCapacity iToken's borrow capacity, -1 means no limit

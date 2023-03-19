@@ -2,7 +2,7 @@ import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import {ethers} from "hardhat";
 import {expect} from "chai";
 import {
-  Controller,
+  ConverterController,
   DebtMonitor,
   DebtMonitor__factory,
   IPoolAdapter,
@@ -208,7 +208,7 @@ describe("DebtsMonitor", () => {
     sourceToken: MockERC20;
     targetToken: MockERC20;
     userTC: string;
-    controller: Controller;
+    controller: ConverterController;
     pool: string;
   }
 
@@ -288,7 +288,7 @@ describe("DebtsMonitor", () => {
     sourceToken: MockERC20;
     targetToken: MockERC20;
     userTC: string;
-    controller: Controller;
+    controller: ConverterController;
     poolAdapterMocks: PoolAdapterMock[];
     pools: string[];
   }

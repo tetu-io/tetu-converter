@@ -64,7 +64,7 @@ interface IBorrowManager {
 
   /// @notice Set target health factors for the assets.
   ///         If target health factor is not assigned to the asset, target-health-factor from controller is used.
-  ///         See explanation of health factor value in IController
+  ///         See explanation of health factor value in IConverterController
   /// @param healthFactors2_ Health factor must be greater or equal then 1, decimals 2
   function setTargetHealthFactors(address[] calldata assets_, uint16[] calldata healthFactors2_) external;
 

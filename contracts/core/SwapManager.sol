@@ -9,7 +9,7 @@ import "../openzeppelin/IERC20.sol";
 import "../openzeppelin/SafeERC20.sol";
 import "../interfaces/ITetuLiquidator.sol";
 import "../interfaces/ISwapManager.sol";
-import "../interfaces/IController.sol";
+import "../interfaces/IConverterController.sol";
 import "../interfaces/ISwapConverter.sol";
 import "../interfaces/IPriceOracle.sol";
 import "../interfaces/ISimulateProvider.sol";
@@ -22,7 +22,7 @@ import "../interfaces/IRequireAmountBySwapManagerCallback.sol";
 contract SwapManager is ISwapManager, ISwapConverter, ISimulateProvider, ISwapSimulator {
   using SafeERC20 for IERC20;
 
-  IController public immutable controller;
+  IConverterController public immutable controller;
   /// @notice Same as controller.priceOracle()
   /// @dev Cached for the gas optimization
   IPriceOracle public immutable priceOracle;
@@ -68,7 +68,7 @@ contract SwapManager is ISwapManager, ISwapConverter, ISimulateProvider, ISwapSi
       && priceOracle_ != address(0),
       AppErrors.ZERO_ADDRESS
     );
-    controller = IController(controller_);
+    controller = IConverterController(controller_);
     tetuLiquidator = ITetuLiquidator(tetuLiquidator_);
     priceOracle = IPriceOracle(priceOracle_);
   }

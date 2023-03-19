@@ -18,7 +18,7 @@ library EntryKinds {
   uint constant public ENTRY_KIND_EXACT_BORROW_OUT_FOR_MIN_COLLATERAL_IN_2 = 2;
 
 
-/// @notice Decode entryData, extract first uint - entry kind
+  /// @notice Decode entryData, extract first uint - entry kind
   ///         Valid values of entry kinds are given by ENTRY_KIND_XXX constants above
   function getEntryKind(bytes memory entryData_) internal pure returns (uint) {
     if (entryData_.length == 0) {

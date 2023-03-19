@@ -6,7 +6,7 @@ import {
   BorrowManager__factory,
   IPlatformAdapter__factory,
   ITetuConverter__factory,
-  Controller, IERC20__factory, TetuConverter__factory, IERC20Metadata__factory
+  ConverterController, IERC20__factory, TetuConverter__factory, IERC20Metadata__factory
 } from "../../../typechain";
 import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import {TokenDataTypes} from "../types/TokenDataTypes";
@@ -360,7 +360,7 @@ export class BorrowRepayUsesCase {
   static async makeSingleBorrowSingleFullRepayBase(
     deployer: SignerWithAddress,
     p: ITestSingleBorrowParams,
-    controller: Controller,
+    controller: ConverterController,
     countBlocksToSkipAfterBorrow?: number
   ) : Promise<IMakeSingleBorrowSingleFullRepayBaseResults>{
     const uc = await MocksHelper.deployBorrower(deployer.address, controller, p.countBlocks);
@@ -668,7 +668,7 @@ export class BorrowRepayUsesCase {
   static async makeQuoteRepay(
     deployer: SignerWithAddress,
     p: ITestSingleBorrowParams,
-    controller: Controller,
+    controller: ConverterController,
     countBlocksToSkipAfterBorrow?: number,
     additionalAmountToPassToQuoteRepay?: number
   ) : Promise<IQuoteRepayResults>{
@@ -737,7 +737,7 @@ export class BorrowRepayUsesCase {
   static async makeBorrow(
     deployer: SignerWithAddress,
     p: ITestSingleBorrowParams,
-    controller: Controller
+    controller: ConverterController
   ) : Promise<IActionsResults>{
     const uc = await MocksHelper.deployBorrower(deployer.address, controller, p.countBlocks);
     await controller.connect(await DeployerUtils.startImpersonate(await controller.governance())).setWhitelistValues([uc.address], true);

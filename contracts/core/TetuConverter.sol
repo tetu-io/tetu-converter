@@ -15,7 +15,7 @@ import "../interfaces/ISwapManager.sol";
 import "../interfaces/ITetuConverter.sol";
 import "../interfaces/IPlatformAdapter.sol";
 import "../interfaces/IPoolAdapter.sol";
-import "../interfaces/IController.sol";
+import "../interfaces/IConverterController.sol";
 import "../interfaces/IDebtMonitor.sol";
 import "../interfaces/IConverter.sol";
 import "../interfaces/ISwapConverter.sol";
@@ -38,7 +38,7 @@ contract TetuConverter is ITetuConverter, IKeeperCallback, IRequireAmountBySwapM
   ///                Members
   ///////////////////////////////////////////////////////
 
-  IController public immutable controller;
+  IConverterController public immutable override controller;
 
   /// We cache immutable addresses here to avoid exceed calls to the controller
   IBorrowManager public immutable borrowManager;
@@ -156,7 +156,7 @@ contract TetuConverter is ITetuConverter, IKeeperCallback, IRequireAmountBySwapM
       AppErrors.ZERO_ADDRESS
     );
 
-    controller = IController(controller_);
+    controller = IConverterController(controller_);
     borrowManager = IBorrowManager(borrowManager_);
     debtMonitor = IDebtMonitor(debtMonitor_);
     swapManager = ISwapManager(swapManager_);
@@ -678,7 +678,7 @@ contract TetuConverter is ITetuConverter, IKeeperCallback, IRequireAmountBySwapM
 
     // update internal debts and get actual amount to repay
     IPoolAdapter pa = IPoolAdapter(poolAdapter_);
-    (,address user, address collateralAsset, address borrowAsset) = pa.getConfig();
+    (,address user,, address borrowAsset) = pa.getConfig();
     pa.updateStatus();
     (collateralAmountOut, repaidAmountOut,,,) = pa.getStatus();
 

@@ -8,7 +8,7 @@ import {
 import {TimeUtils} from "../../../scripts/utils/TimeUtils";
 import {ethers} from "hardhat";
 import {
-  IController__factory,
+  IConverterController__factory,
   IERC20__factory,
   IERC20Metadata__factory,
   IPlatformAdapter,
@@ -183,7 +183,7 @@ export class CompareAprUsesCase {
     console.log("makeSwapThereAndBack.borrowedAmount", borrowedAmount);
 
 
-    const controller = IController__factory.connect(await swapManager.controller(), receiver);
+    const controller = IConverterController__factory.connect(await swapManager.controller(), receiver);
     await BalanceUtils.getRequiredAmountFromHolders(
       borrowedAmount,
       IERC20Metadata__factory.connect(borrowAsset, receiver),
@@ -403,7 +403,7 @@ export class CompareAprUsesCase {
       try {
 
         const tempUserContract = ethers.Wallet.createRandom().address;
-        const controller = IController__factory.connect(await swapManager.controller(), deployer);
+        const controller = IConverterController__factory.connect(await swapManager.controller(), deployer);
         await BalanceUtils.getRequiredAmountFromHolders(
           task.collateralAmount,
           IERC20Metadata__factory.connect(task.collateralAsset.asset, deployer),

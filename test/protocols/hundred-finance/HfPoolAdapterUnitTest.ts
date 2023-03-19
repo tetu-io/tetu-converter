@@ -3,7 +3,7 @@ import {ethers} from "hardhat";
 import {TimeUtils} from "../../../scripts/utils/TimeUtils";
 import {
   BorrowManager__factory,
-  Controller,
+  ConverterController,
   DebtMonitor__factory, HfComptrollerMock, HfCTokenMock,
   HfPoolAdapter,
   IERC20Metadata__factory,
@@ -2034,7 +2034,7 @@ describe("HfPoolAdapterUnitTest", () => {
       converter: string;
       collateralAsset: string;
       borrowAsset: string;
-      controller: Controller;
+      controller: ConverterController;
       poolAdapter: HfPoolAdapter;
       tokenAddressProvider: ITokenAddressProvider;
     }

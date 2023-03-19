@@ -95,7 +95,7 @@ contract LendingPlatformMock is IPlatformAdapter {
 
   /// @notice Set platform to frozen/unfrozen state. In frozen state any new borrowing is forbidden.
   function setFrozen(bool frozen_) external {
-    require(msg.sender == IController(_controller).governance(), AppErrors.GOVERNANCE_ONLY);
+    require(msg.sender == IConverterController(_controller).governance(), AppErrors.GOVERNANCE_ONLY);
     frozen = frozen_;
   }
   ///////////////////////////////////////////////////////////////////////////////

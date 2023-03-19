@@ -7,7 +7,7 @@ import "../libs/AppUtils.sol";
 import "../openzeppelin/IERC20Metadata.sol";
 import "../openzeppelin/EnumerableSet.sol";
 import "../interfaces/IPoolAdapter.sol";
-import "../interfaces/IController.sol";
+import "../interfaces/IConverterController.sol";
 import "../interfaces/IDebtMonitor.sol";
 import "../interfaces/IPriceOracle.sol";
 import "../interfaces/IBorrowManager.sol";
@@ -25,7 +25,7 @@ contract DebtMonitor is IDebtMonitor {
     uint healthFactorThreshold18;
   }
 
-  IController public immutable controller;
+  IConverterController public immutable controller;
   /// @notice Same as controller.borrowManager()
   /// @dev Cached for the gas optimization
   IBorrowManager public immutable borrowManager;
@@ -82,7 +82,7 @@ contract DebtMonitor is IDebtMonitor {
       && borrowManager_ != address(0),
       AppErrors.ZERO_ADDRESS
     );
-    controller = IController(controller_);
+    controller = IConverterController(controller_);
     borrowManager = IBorrowManager(borrowManager_);
 
 // Future versions:
@@ -385,7 +385,7 @@ contract DebtMonitor is IDebtMonitor {
 //    address[] memory outPoolAdapters,
 //    uint[] memory outAmountsToBorrow
 //  ) {
-//    uint16 maxHealthFactor2 = IController(controller).maxHealthFactor2();
+//    uint16 maxHealthFactor2 = IConverterController(controller).maxHealthFactor2();
 //
 //    return _checkHealthFactor(startIndex0
 //      , maxCountToCheck

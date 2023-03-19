@@ -10,7 +10,7 @@ import "../../libs/AppErrors.sol";
 import "../../libs/EntryKinds.sol";
 import "../../interfaces/IPlatformAdapter.sol";
 import "../../interfaces/IPoolAdapterInitializer.sol";
-import "../../interfaces/IController.sol";
+import "../../interfaces/IConverterController.sol";
 import "../../integrations/aave3/IAavePool.sol";
 import "../../integrations/aave3/IAaveAddressesProvider.sol";
 import "../../integrations/aave3/IAaveProtocolDataProvider.sol";
@@ -44,7 +44,7 @@ contract Aave3PlatformAdapter is IPlatformAdapter {
     IAaveAddressesProvider addressProvider;
     IAavePriceOracle priceOracle;
     IAaveProtocolDataProvider dataProvider;
-    IController controller;
+    IConverterController controller;
     Aave3DataTypes.ReserveData rc;
     Aave3DataTypes.ReserveData rb;
     uint totalAToken;
@@ -60,7 +60,7 @@ contract Aave3PlatformAdapter is IPlatformAdapter {
   ///////////////////////////////////////////////////////
   ///   Variables
   ///////////////////////////////////////////////////////
-  IController immutable public controller;
+  IConverterController immutable public controller;
   IAavePool immutable public pool;
   /// @dev Same as controller.borrowManager(); we cache it for gas optimization
   address immutable public borrowManager;
@@ -103,7 +103,7 @@ contract Aave3PlatformAdapter is IPlatformAdapter {
     );
 
     pool = IAavePool(poolAave_);
-    controller = IController(controller_);
+    controller = IConverterController(controller_);
     borrowManager = borrowManager_;
 
     converterNormal = templateAdapterNormal_;
@@ -281,7 +281,7 @@ contract Aave3PlatformAdapter is IPlatformAdapter {
 
               // AAVE has min allowed health factor at the borrow moment: liquidationThreshold18/LTV, i.e. 0.85/0.8=1.06...
               // Target health factor can be smaller but it's not possible to make a borrow with such low health factor
-              // see explanation of health factor value in IController.sol
+              // see explanation of health factor value in IConverterController.sol
               vars.healthFactor18 = plan.liquidationThreshold18 * 1e18 / plan.ltv18;
               if (vars.healthFactor18 < uint(healthFactor2_)* 10**(18 - 2)) {
                 vars.healthFactor18 = uint(healthFactor2_) * 10**(18 - 2);

@@ -8,7 +8,7 @@ import "../../libs/AppUtils.sol";
 import "../../libs/EntryKinds.sol";
 import "../../interfaces/IPlatformAdapter.sol";
 import "../../interfaces/IPoolAdapterInitializer.sol";
-import "../../interfaces/IController.sol";
+import "../../interfaces/IConverterController.sol";
 import "../../integrations/aaveTwo/IAaveTwoPool.sol";
 import "../../integrations/aaveTwo/IAaveTwoLendingPoolAddressesProvider.sol";
 import "../../integrations/aaveTwo/IAaveTwoPriceOracle.sol";
@@ -42,7 +42,7 @@ contract AaveTwoPlatformAdapter is IPlatformAdapter {
     IAaveTwoLendingPoolAddressesProvider addressProvider;
     IAaveTwoProtocolDataProvider dataProvider;
     IAaveTwoPriceOracle priceOracle;
-    IController controller;
+    IConverterController controller;
     DataTypes.ReserveData rc;
     DataTypes.ReserveData rb;
     uint availableLiquidity;
@@ -57,7 +57,7 @@ contract AaveTwoPlatformAdapter is IPlatformAdapter {
   ///         Variables
   ///////////////////////////////////////////////////////
 
-  IController immutable public controller;
+  IConverterController immutable public controller;
   IAaveTwoPool immutable public pool;
   /// @notice template-pool-adapter
   address immutable public converter;
@@ -96,7 +96,7 @@ contract AaveTwoPlatformAdapter is IPlatformAdapter {
       AppErrors.ZERO_ADDRESS
     );
     pool = IAaveTwoPool(poolAave_);
-    controller = IController(controller_);
+    controller = IConverterController(controller_);
     converter = templateAdapterNormal_;
     borrowManager = borrowManager_;
   }
@@ -199,7 +199,7 @@ contract AaveTwoPlatformAdapter is IPlatformAdapter {
 
             // AAVE has min allowed health factor at the borrow moment: liquidationThreshold18/LTV, i.e. 0.85/0.8=1.06...
             // Target health factor can be smaller but it's not possible to make a borrow with such low health factor
-            // see explanation of health factor value in IController.sol
+            // see explanation of health factor value in IConverterController.sol
             vars.healthFactor18 = plan.liquidationThreshold18 * 1e18 / plan.ltv18;
             if (vars.healthFactor18 < uint(healthFactor2_) * 10**(18 - 2)) {
               vars.healthFactor18 = uint(healthFactor2_) * 10**(18 - 2);

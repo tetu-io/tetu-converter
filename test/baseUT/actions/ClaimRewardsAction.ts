@@ -3,7 +3,7 @@ import {BigNumber} from "ethers";
 import {
   IERC20__factory,
   Borrower,
-  Controller,
+  ConverterController,
   ITetuConverter__factory,
   ITetuLiquidator__factory, IDForcePriceOracle__factory
 } from "../../../typechain";
@@ -20,7 +20,7 @@ export interface IRepayActionOptionalParams {
 }
 
 export class ClaimRewardsAction implements IRepayAction {
-  public controller: Controller;
+  public controller: ConverterController;
   public collateralToken: TokenDataTypes;
   public borrowToken: TokenDataTypes;
   public amountToRepay: BigNumber | undefined;
@@ -28,7 +28,7 @@ export class ClaimRewardsAction implements IRepayAction {
   public rewardsInBorrowAssetReceived: BigNumber;
 
   constructor(
-    controller: Controller,
+    controller: ConverterController,
     collateralToken: TokenDataTypes,
     borrowToken: TokenDataTypes,
   ) {

@@ -2,9 +2,14 @@
 
 pragma solidity 0.8.17;
 
+import "./IConverterController.sol";
+
 /// @notice Main contract of the TetuConverter application
 /// @dev Borrower (strategy) makes all operations via this contract only.
 interface ITetuConverter {
+
+  function controller() external view returns (IConverterController);
+
   /// @notice Find possible borrow strategies and provide "cost of money" as interest for the period for each strategy
   ///         Result arrays of the strategy are ordered in ascending order of APR.
   /// @param entryData_ Encoded entry kind and additional params if necessary (set of params depends on the kind)
@@ -20,6 +25,7 @@ interface ITetuConverter {
   ///                    Last items in array can contain zero addresses (it means they are not used)
   /// @return collateralAmountsOut Amounts that should be provided as a collateral
   /// @return amountToBorrowsOut Amounts that should be borrowed
+  ///                            This amount is not zero if corresponded converter is not zero.
   /// @return aprs18 Interests on the use of {amountIn_} during the given period, decimals 18
   function findBorrowStrategies(
     bytes memory entryData_,

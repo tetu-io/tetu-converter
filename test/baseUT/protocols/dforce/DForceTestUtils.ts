@@ -1,5 +1,5 @@
 import {
-  Borrower, BorrowManager__factory, Controller, DForceControllerMock,
+  Borrower, BorrowManager__factory, ConverterController, DForceControllerMock,
   DForcePlatformAdapter,
   DForcePoolAdapter, DForcePoolAdapter__factory,
   IDForceController, IDForceCToken, IDForceCToken__factory,
@@ -32,7 +32,7 @@ export interface IPrepareToBorrowResults {
   priceOracle: IDForcePriceOracle;
   comptroller: IDForceController;
 
-  controller: Controller;
+  controller: ConverterController;
 
   /** Amount that can be borrowed according to the conversion plan */
   amountToBorrow: BigNumber;

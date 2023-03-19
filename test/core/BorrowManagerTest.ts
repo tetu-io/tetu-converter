@@ -3,7 +3,7 @@ import {anyValue } from "@nomicfoundation/hardhat-chai-matchers/withArgs";
 import {ethers} from "hardhat";
 import {expect} from "chai";
 import {
-  BorrowManager, BorrowManager__factory, Controller, Controller__factory, IBorrowManager__factory,
+  BorrowManager, BorrowManager__factory, ConverterController, ConverterController__factory, IBorrowManager__factory,
   IPoolAdapter,
   IPoolAdapter__factory, ITetuConverter__factory, LendingPlatformMock__factory
 } from "../../typechain";
@@ -100,7 +100,7 @@ describe("BorrowManager", () => {
     return dest;
   }
 
-  async function createController(valueIsConverterInUse: boolean = false) : Promise<Controller> {
+  async function createController(valueIsConverterInUse: boolean = false) : Promise<ConverterController> {
     return TetuConverterApp.createController(
       signer,
       {
@@ -432,7 +432,7 @@ describe("BorrowManager", () => {
     }[],
     app: {
       borrowManager: BorrowManager,
-      controller: Controller,
+      controller: ConverterController,
       pools: IPoolInstanceInfo[]
     }
   }
@@ -1581,7 +1581,7 @@ describe("BorrowManager", () => {
     describe("Good paths", () => {
       it("should return expected platform adapter", async () => {
         const borrowManager = await initializeBorrowManager();
-        const controller = Controller__factory.connect(await borrowManager.controller(), signer);
+        const controller = ConverterController__factory.connect(await borrowManager.controller(), signer);
 
         const platformAdapterSets = [
           await setUpSinglePlatformAdapterTestSet(borrowManager),

@@ -1,6 +1,6 @@
 import {
   BorrowManager, BorrowManager__factory,
-  Controller,
+  ConverterController,
   DebtMonitor, DebtMonitor__factory,
   SwapManager, SwapManager__factory,
   TetuConverter, TetuConverter__factory,
@@ -8,14 +8,14 @@ import {
 import {CoreContractsHelper} from "../helpers/CoreContractsHelper";
 
 export class CoreContracts {
-  readonly controller: Controller;
+  readonly controller: ConverterController;
   readonly tc: TetuConverter;
   readonly bm: BorrowManager;
   readonly dm: DebtMonitor;
   readonly swapManager: SwapManager;
 
   constructor(
-    controller: Controller,
+    controller: ConverterController,
     tc: TetuConverter,
     bm: BorrowManager,
     dm: DebtMonitor,
@@ -28,7 +28,7 @@ export class CoreContracts {
     this.swapManager = swapManager;
   }
 
-  public static async build(controller: Controller): Promise<CoreContracts> {
+  public static async build(controller: ConverterController): Promise<CoreContracts> {
     return new CoreContracts(
       controller,
       TetuConverter__factory.connect(await controller.tetuConverter(), controller.signer),

@@ -1,5 +1,5 @@
 import {IMockTestInputParams, ITestSingleBorrowParams} from "../types/BorrowRepayDataTypes";
-import {Borrower, Controller, ITetuConverter} from "../../../typechain";
+import {Borrower, ConverterController, ITetuConverter} from "../../../typechain";
 import {TokenDataTypes} from "../types/TokenDataTypes";
 import {MocksHelper} from "../helpers/MocksHelper";
 import {MockPlatformFabric} from "../fabrics/MockPlatformFabric";
@@ -34,7 +34,7 @@ export class KeeperTestMockUtils {
   ) : Promise<{
     uc: Borrower,
     tc: ITetuConverter,
-    controller: Controller,
+    controller: ConverterController,
     poolAdapter: string
   }> {
     console.log("makeSingleBorrow_Mock.start");
