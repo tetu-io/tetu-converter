@@ -1,4 +1,4 @@
-import {IBorrowManager__factory, IController, IERC20, IERC20__factory} from "../../../typechain";
+import {IBorrowManager__factory, IConverterController, IERC20, IERC20__factory} from "../../../typechain";
 import {Aave3Helper} from "../../../scripts/integration/helpers/Aave3Helper";
 import {AdaptersHelper} from "../helpers/AdaptersHelper";
 import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
@@ -7,7 +7,7 @@ import {ILendingPlatformFabric, ILendingPlatformPoolInfo} from "./ILendingPlatfo
 import {generateAssetPairs} from "../utils/AssetPairUtils";
 
 export class Aave3PlatformFabric implements ILendingPlatformFabric {
-  async createAndRegisterPools(deployer: SignerWithAddress, controller: IController) : Promise<ILendingPlatformPoolInfo> {
+  async createAndRegisterPools(deployer: SignerWithAddress, controller: IConverterController) : Promise<ILendingPlatformPoolInfo> {
     const aavePool = await Aave3Helper.getAavePool(deployer);
 
     const templateAdapterNormal = await AdaptersHelper.createAave3PoolAdapter(deployer);

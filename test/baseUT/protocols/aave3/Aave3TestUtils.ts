@@ -1,7 +1,7 @@
 import {
   Aave3PoolAdapter, Aave3PoolAdapter__factory, Aave3PoolMock__factory,
   Borrower, BorrowManager__factory,
-  Controller,
+  ConverterController,
   IAavePool, IAavePool__factory,
   IAavePriceOracle,
   IAaveProtocolDataProvider, IERC20__factory, IERC20Metadata__factory, IPoolAdapter__factory
@@ -36,7 +36,7 @@ export interface IPrepareToBorrowResults {
   dataProvider: IAaveProtocolDataProvider;
   aavePrices: IAavePriceOracle;
 
-  controller: Controller;
+  controller: ConverterController;
   plan: IConversionPlan;
 
   /** Amount that can be borrowed according to the conversion plan */

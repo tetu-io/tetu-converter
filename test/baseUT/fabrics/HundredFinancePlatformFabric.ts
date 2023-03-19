@@ -1,4 +1,4 @@
-import {IBorrowManager, IBorrowManager__factory, IController, IERC20, IERC20__factory} from "../../../typechain";
+import {IBorrowManager, IBorrowManager__factory, IConverterController, IERC20, IERC20__factory} from "../../../typechain";
 import {ILendingPlatformFabric, ILendingPlatformPoolInfo} from "./ILendingPlatformFabric";
 import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import {MaticAddresses} from "../../../scripts/addresses/MaticAddresses";
@@ -7,7 +7,7 @@ import {AdaptersHelper} from "../helpers/AdaptersHelper";
 import {generateAssetPairs} from "../utils/AssetPairUtils";
 
 export class HundredFinancePlatformFabric implements ILendingPlatformFabric {
-    async createAndRegisterPools(deployer: SignerWithAddress, controller: IController) : Promise<ILendingPlatformPoolInfo> {
+    async createAndRegisterPools(deployer: SignerWithAddress, controller: IConverterController) : Promise<ILendingPlatformPoolInfo> {
         const comptroller = await HundredFinanceHelper.getComptroller(deployer);
 
         const converter = await AdaptersHelper.createHundredFinancePoolAdapter(deployer);

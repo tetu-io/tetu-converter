@@ -11,7 +11,7 @@ import {
   Borrower,
   BorrowManagerStub,
   CTokenMock,
-  IController,
+  IConverterController,
   LendingPlatformMock,
   MockERC20,
   PoolAdapterMock,
@@ -166,7 +166,7 @@ export class MocksHelper {
    */
   public static async addMockPool(
     signer: SignerWithAddress,
-    controller: IController,
+    controller: IConverterController,
     pool: PoolStub,
     poolsInfo: IPoolInfo,
     collateralFactors: number[],
@@ -279,7 +279,7 @@ export class MocksHelper {
 //region Uses cases
   public static async deployBorrower(
     deployer: string,
-    controller: IController,
+    controller: IConverterController,
     periodInBlocks: number
   ) : Promise<Borrower> {
     return (await DeployUtils.deployContract(

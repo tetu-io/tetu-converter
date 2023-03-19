@@ -1,5 +1,5 @@
 import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
-import {Controller, IERC20Metadata__factory, IPlatformAdapter} from "../../../typechain";
+import {ConverterController, IERC20Metadata__factory, IPlatformAdapter} from "../../../typechain";
 import {BigNumber} from "ethers";
 import {DeployerUtils} from "../../../scripts/utils/DeployerUtils";
 import {TetuConverterApp} from "../helpers/TetuConverterApp";
@@ -28,7 +28,7 @@ export class PredictBrUsesCase {
     deployer: SignerWithAddress,
     actor: IPlatformActor,
     // eslint-disable-next-line no-unused-vars
-    platformAdapterFabric: (controller: Controller) => Promise<IPlatformAdapter>,
+    platformAdapterFabric: (controller: ConverterController) => Promise<IPlatformAdapter>,
     collateralAsset: string,
     borrowAsset: string,
     collateralHolders: string[],

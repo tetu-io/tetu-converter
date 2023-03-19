@@ -10,7 +10,7 @@ import "../../libs/AppDataTypes.sol";
 import "../../libs/AppErrors.sol";
 import "../../libs/AppUtils.sol";
 import "../../libs/EntryKinds.sol";
-import "../../interfaces/IController.sol";
+import "../../interfaces/IConverterController.sol";
 import "../../interfaces/IPlatformAdapter.sol";
 import "../../interfaces/IPoolAdapterInitializerWithAP.sol";
 import "../../interfaces/ITokenAddressProvider.sol";
@@ -40,7 +40,7 @@ contract HfPlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
   ///////////////////////////////////////////////////////
   ///   Variables
   ///////////////////////////////////////////////////////
-  IController immutable public controller;
+  IConverterController immutable public controller;
   IHfComptroller immutable public comptroller;
   /// @notice Template of pool adapter
   address immutable public converter;
@@ -87,7 +87,7 @@ contract HfPlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
     );
 
     comptroller = IHfComptroller(comptroller_);
-    controller = IController(controller_);
+    controller = IConverterController(controller_);
     converter = templatePoolAdapter_;
     borrowManager = borrowManager_;
 

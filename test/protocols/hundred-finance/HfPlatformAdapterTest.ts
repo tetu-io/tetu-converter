@@ -2,7 +2,7 @@ import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import {ethers} from "hardhat";
 import {TimeUtils} from "../../../scripts/utils/TimeUtils";
 import {
-  BorrowManager__factory, Controller,
+  BorrowManager__factory, ConverterController,
   HfAprLibFacade, HfPlatformAdapter, HfPlatformAdapter__factory, IERC20Metadata__factory, IHfComptroller, IHfCToken,
   IHfCToken__factory
 } from "../../../typechain";
@@ -139,7 +139,7 @@ describe("Hundred finance, platform adapter", () => {
   }
 
   async function preparePlan(
-    controller: Controller,
+    controller: ConverterController,
     collateralAsset: string,
     collateralAmount: BigNumber,
     borrowAsset: string,
@@ -233,7 +233,7 @@ describe("Hundred finance, platform adapter", () => {
   }
 
   async function makeTestComparePlanWithDirectCalculations(
-    controller: Controller,
+    controller: ConverterController,
     collateralAsset: string,
     collateralAmount: BigNumber,
     borrowAsset: string,
@@ -411,7 +411,7 @@ describe("Hundred finance, platform adapter", () => {
   });
 
   describe("getConversionPlan", () => {
-    let controller: Controller;
+    let controller: ConverterController;
     let snapshotLocal: string;
     before(async function () {
       snapshotLocal = await TimeUtils.snapshot();
@@ -1061,7 +1061,7 @@ describe("Hundred finance, platform adapter", () => {
   });
 
   describe("initializePoolAdapter", () => {
-    let controller: Controller;
+    let controller: ConverterController;
     let snapshotLocal: string;
     before(async function () {
       snapshotLocal = await TimeUtils.snapshot();

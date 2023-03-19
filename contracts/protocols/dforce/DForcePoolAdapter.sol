@@ -10,7 +10,7 @@ import "../../libs/AppErrors.sol";
 import "../../interfaces/IPoolAdapter.sol";
 import "../../interfaces/IPoolAdapterInitializerWithAP.sol";
 import "../../interfaces/ITokenAddressProvider.sol";
-import "../../interfaces/IController.sol";
+import "../../interfaces/IConverterController.sol";
 import "../../interfaces/IDebtMonitor.sol";
 import "../../integrations/dforce/IDForceController.sol";
 import "../../integrations/dforce/IDForceCToken.sol";
@@ -36,7 +36,7 @@ contract DForcePoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP, Initi
   address public borrowCToken;
   address public user;
 
-  IController public controller;
+  IConverterController public controller;
   IDForceController private _comptroller;
 
   /// @notice Address of original PoolAdapter contract that was cloned to make the instance of the pool adapter
@@ -92,7 +92,7 @@ contract DForcePoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP, Initi
       AppErrors.ZERO_ADDRESS
     );
 
-    controller = IController(controller_);
+    controller = IConverterController(controller_);
     user = user_;
     collateralAsset = collateralAsset_;
     borrowAsset = borrowAsset_;
@@ -123,7 +123,7 @@ contract DForcePoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP, Initi
   ///////////////////////////////////////////////////////
 
   /// @notice Ensure that the caller is TetuConverter
-  function _onlyTetuConverter(IController controller_) internal view {
+  function _onlyTetuConverter(IConverterController controller_) internal view {
     require(controller_.tetuConverter() == msg.sender, AppErrors.TETU_CONVERTER_ONLY);
   }
 
@@ -149,7 +149,7 @@ contract DForcePoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP, Initi
     uint borrowAmount_,
     address receiver_
   ) external override returns (uint) {
-    IController c = controller;
+    IConverterController c = controller;
     _onlyTetuConverter(c);
 
     address cTokenCollateral = collateralCToken;
@@ -220,7 +220,7 @@ contract DForcePoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP, Initi
 
   /// @return (Health factor, decimal 18; collateral-token-balance)
   function _validateHealthStatusAfterBorrow(
-    IController controller_,
+    IConverterController controller_,
     address cTokenCollateral_,
     address cTokenBorrow_
   ) internal view returns (uint, uint) {
@@ -260,7 +260,7 @@ contract DForcePoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP, Initi
     uint resultHealthFactor18,
     uint borrowedAmountOut
   ) {
-    IController c = controller;
+    IConverterController c = controller;
     _onlyTetuConverter(c);
     address cTokenBorrow = borrowCToken;
     address assetBorrow = borrowAsset;
@@ -304,7 +304,7 @@ contract DForcePoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP, Initi
     address receiver_,
     bool closePosition_
   ) external override returns (uint collateralAmountToReturn) {
-    IController c = controller;
+    IConverterController c = controller;
     _onlyTetuConverter(c);
 
     uint healthFactor18;
@@ -416,7 +416,7 @@ contract DForcePoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP, Initi
   ) external override returns (
     uint resultHealthFactor18
   ) {
-    IController c = controller;
+    IConverterController c = controller;
     _onlyTetuConverter(c);
 
     address cTokenBorrow = borrowCToken;
@@ -647,7 +647,7 @@ contract DForcePoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP, Initi
     return (sumCollateralSafe36, healthFactor18);
   }
 
-  function _validateHealthFactor(IController controller_, uint hf18) internal view {
+  function _validateHealthFactor(IConverterController controller_, uint hf18) internal view {
     require(hf18 > uint(controller_.minHealthFactor2())*10**(18-2), AppErrors.WRONG_HEALTH_FACTOR);
   }
 

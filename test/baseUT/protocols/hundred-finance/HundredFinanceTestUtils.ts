@@ -1,7 +1,7 @@
 import {
   Borrower,
   BorrowManager__factory,
-  Controller, HfComptrollerMock,
+  ConverterController, HfComptrollerMock,
   HfPlatformAdapter,
   HfPoolAdapter,
   HfPoolAdapter__factory,
@@ -42,7 +42,7 @@ export interface IPrepareToBorrowResults {
   priceOracle: IHfPriceOracle;
   comptroller: IHfComptroller;
 
-  controller: Controller;
+  controller: ConverterController;
 
   /** Amount that can be borrowed according to the conversion plan */
   amountToBorrow: BigNumber;

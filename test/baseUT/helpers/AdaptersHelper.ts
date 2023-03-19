@@ -8,7 +8,7 @@ import {
   DForcePlatformAdapter,
   DForcePoolAdapter,
   HfPlatformAdapter,
-  HfPoolAdapter, IController__factory
+  HfPoolAdapter, IConverterController__factory
 } from "../../../typechain";
 import {DeployUtils} from "../../../scripts/utils/DeployUtils";
 
@@ -26,7 +26,7 @@ export class AdaptersHelper {
       signer,
       "Aave3PlatformAdapter",
       controller,
-      borrowManager || await IController__factory.connect(controller, signer).borrowManager(),
+      borrowManager || await IConverterController__factory.connect(controller, signer).borrowManager(),
       poolAave,
       templateAdapterNormal,
       templateAdapterEMode
@@ -53,7 +53,7 @@ export class AdaptersHelper {
       signer,
       "AaveTwoPlatformAdapter",
       controller,
-      borrowManager || await IController__factory.connect(controller, signer).borrowManager(),
+      borrowManager || await IConverterController__factory.connect(controller, signer).borrowManager(),
       poolAave,
       templateAdapterNormal,
     )) as AaveTwoPlatformAdapter;
@@ -77,7 +77,7 @@ export class AdaptersHelper {
       signer,
       "HfPlatformAdapter",
       controller,
-      borrowManager || await IController__factory.connect(controller, signer).borrowManager(),
+      borrowManager || await IConverterController__factory.connect(controller, signer).borrowManager(),
       comptroller,
       templateAdapterNormal,
       cTokensActive,
@@ -102,7 +102,7 @@ export class AdaptersHelper {
       signer,
       "DForcePlatformAdapter",
       controller,
-      borrowManager || await IController__factory.connect(controller, signer).borrowManager(),
+      borrowManager || await IConverterController__factory.connect(controller, signer).borrowManager(),
       comptroller,
       templateAdapterNormal,
       cTokensActive,

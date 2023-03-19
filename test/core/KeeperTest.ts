@@ -2,7 +2,7 @@ import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import {ethers} from "hardhat";
 import {TimeUtils} from "../../scripts/utils/TimeUtils";
 import {
-  Controller,
+  ConverterController,
   DebtMonitorCheckHealthMock, DebtMonitorCheckHealthMock__factory,
   Keeper, Keeper__factory,
   KeeperCallbackMock, KeeperCallbackMock__factory,
@@ -49,7 +49,7 @@ describe("KeeperTest", () => {
 
 //region Initialization
   interface ISetupMockedAppResults {
-    controller: Controller;
+    controller: ConverterController;
     keeper: Keeper;
     tetuConverterMock: KeeperCallbackMock;
     debtMonitorMock: DebtMonitorCheckHealthMock;
@@ -62,7 +62,7 @@ describe("KeeperTest", () => {
     blocksPerDayAutoUpdatePeriodSecs?: number
   ) : Promise<ISetupMockedAppResults> {
     const keeperCaller = await MocksHelper.createKeeperCaller(signer);
-    const controller: Controller = await TetuConverterApp.createController(
+    const controller: ConverterController = await TetuConverterApp.createController(
       signer,
       {
         borrowManagerFabric: async c => (await CoreContractsHelper.createBorrowManager(signer, c.address)).address,

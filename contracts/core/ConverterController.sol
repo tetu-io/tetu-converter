@@ -3,10 +3,10 @@ pragma solidity 0.8.17;
 
 import "../libs/AppErrors.sol";
 import "../openzeppelin/Initializable.sol";
-import "../interfaces/IController.sol";
+import "../interfaces/IConverterController.sol";
 
 /// @notice Keep and provide addresses of all application contracts
-contract Controller is IController, Initializable {
+contract ConverterController is IConverterController, Initializable {
 
   ///////////////////////////////////////////////////////
   ///        Constants and immutable vars

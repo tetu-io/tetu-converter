@@ -3,7 +3,7 @@ import hre, {ethers} from "hardhat";
 import {TimeUtils} from "../../../scripts/utils/TimeUtils";
 import {
   Aave3PlatformAdapter,
-  Aave3PlatformAdapter__factory, BorrowManager__factory, Controller, IAavePool,
+  Aave3PlatformAdapter__factory, BorrowManager__factory, ConverterController, IAavePool,
   IAaveProtocolDataProvider, IERC20Metadata__factory
 } from "../../../typechain";
 import {expect} from "chai";
@@ -202,7 +202,7 @@ describe("Aave3PlatformAdapterTest", () => {
   });
 
   describe("getConversionPlan", () => {
-    let controller: Controller;
+    let controller: ConverterController;
     let snapshotLocal: string;
     before(async function () {
       snapshotLocal = await TimeUtils.snapshot();
@@ -1120,7 +1120,7 @@ describe("Aave3PlatformAdapterTest", () => {
   });
 
   describe("initializePoolAdapter", () => {
-    let controller: Controller;
+    let controller: ConverterController;
     let snapshotLocal: string;
     before(async function () {
       snapshotLocal = await TimeUtils.snapshot();

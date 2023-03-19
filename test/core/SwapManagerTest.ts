@@ -2,7 +2,7 @@ import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import {ethers} from "hardhat";
 import {expect} from "chai";
 import {
-  Controller, IMockERC20__factory,
+  ConverterController, IMockERC20__factory,
   MockERC20, MockERC20__factory, PriceOracleMock__factory, SwapManager, SwapManager__factory, TetuLiquidatorMock,
 } from "../../typechain";
 import {TimeUtils} from "../../scripts/utils/TimeUtils";
@@ -30,7 +30,7 @@ describe("SwapManager", () => {
   let deployer: SignerWithAddress;
   let user: SignerWithAddress;
   let liquidator: TetuLiquidatorMock;
-  let controller: Controller;
+  let controller: ConverterController;
   let swapManager: SwapManager;
   let assets: string[];
   let prices: BigNumber[];

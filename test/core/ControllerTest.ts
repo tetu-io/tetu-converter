@@ -1,7 +1,7 @@
 import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import hre, {ethers} from "hardhat";
 import {expect} from "chai";
-import {Controller, Controller__factory} from "../../typechain";
+import {ConverterController, ConverterController__factory} from "../../typechain";
 import {TimeUtils} from "../../scripts/utils/TimeUtils";
 import {BigNumber} from "ethers";
 import {controlGasLimitsEx, getGasUsed} from "../../scripts/utils/hardhatUtils";
@@ -81,7 +81,7 @@ describe("Controller", () => {
     ];
   }
 
-  async function getValuesArray(controller: Controller) : Promise<string[]> {
+  async function getValuesArray(controller: ConverterController) : Promise<string[]> {
     return [
       await controller.governance(),
 
@@ -104,7 +104,7 @@ describe("Controller", () => {
 
   async function createTestController(
     a: IControllerMembers,
-  ) : Promise<{controller: Controller, gasUsed: BigNumber}> {
+  ) : Promise<{controller: ConverterController, gasUsed: BigNumber}> {
     const controller = await CoreContractsHelper.deployController(deployer, a.tetuLiquidator, a.priceOracle);
 
     const gasUsed = await getGasUsed(
@@ -146,7 +146,7 @@ describe("Controller", () => {
     }
   }
 
-  async function prepareTestController() : Promise<Controller> {
+  async function prepareTestController() : Promise<ConverterController> {
     const a = getRandomMembersValues();
     const {controller} = await createTestController(a);
     return controller;
@@ -285,10 +285,10 @@ describe("Controller", () => {
         const existGovernance = await controller.governance();
         const newGovernance = ethers.Wallet.createRandom().address;
 
-        const controllerAsOldGov = Controller__factory.connect(controller.address,
+        const controllerAsOldGov = ConverterController__factory.connect(controller.address,
           await DeployerUtils.startImpersonate(existGovernance)
         );
-        const controllerAsNewGov = Controller__factory.connect(controller.address,
+        const controllerAsNewGov = ConverterController__factory.connect(controller.address,
           await DeployerUtils.startImpersonate(newGovernance)
         );
 
@@ -307,7 +307,7 @@ describe("Controller", () => {
 
         const existGovernance = await controller.governance();
 
-        const controllerAsGov = Controller__factory.connect(controller.address,
+        const controllerAsGov = ConverterController__factory.connect(controller.address,
           await DeployerUtils.startImpersonate(existGovernance)
         );
 
@@ -330,7 +330,7 @@ describe("Controller", () => {
         const existGovernance = await controller.governance();
         const newGovernance = Misc.ZERO_ADDRESS;  // (!)
 
-        const controllerAsOldGov = Controller__factory.connect(controller.address,
+        const controllerAsOldGov = ConverterController__factory.connect(controller.address,
           await DeployerUtils.startImpersonate(existGovernance)
         );
 
@@ -344,7 +344,7 @@ describe("Controller", () => {
         const notGovernance = ethers.Wallet.createRandom().address;
         const newGovernance = ethers.Wallet.createRandom().address;
 
-        const controllerAsNotGov = Controller__factory.connect(controller.address,
+        const controllerAsNotGov = ConverterController__factory.connect(controller.address,
           await DeployerUtils.startImpersonate(notGovernance)
         );
 
@@ -359,10 +359,10 @@ describe("Controller", () => {
         const newGovernance = ethers.Wallet.createRandom().address;
         const notNewGovernance = ethers.Wallet.createRandom().address;
 
-        const controllerAsOldGov = Controller__factory.connect(controller.address,
+        const controllerAsOldGov = ConverterController__factory.connect(controller.address,
           await DeployerUtils.startImpersonate(existGovernance)
         );
-        const controllerAsNotNewGov = Controller__factory.connect(controller.address,
+        const controllerAsNotNewGov = ConverterController__factory.connect(controller.address,
           await DeployerUtils.startImpersonate(notNewGovernance)
         );
 
@@ -385,7 +385,7 @@ describe("Controller", () => {
         const before = await controller.blocksPerDay();
         const beforeLastBlockNumber = (await controller.lastBlockNumber()).toNumber();
 
-        const controllerAsGov = Controller__factory.connect(
+        const controllerAsGov = ConverterController__factory.connect(
           controller.address,
           await DeployerUtils.startImpersonate(await controller.governance())
         );
@@ -407,7 +407,7 @@ describe("Controller", () => {
         const before = await controller.blocksPerDay();
         const beforeLastBlockNumber = (await controller.lastBlockNumber()).toNumber();
 
-        const controllerAsGov = Controller__factory.connect(
+        const controllerAsGov = ConverterController__factory.connect(
           controller.address,
           await DeployerUtils.startImpersonate(await controller.governance())
         );
@@ -438,7 +438,7 @@ describe("Controller", () => {
         it("should set expected value", async () => {
           const a = getRandomMembersValues();
           const {controller} = await createTestController(a);
-          const controllerNotGov = Controller__factory.connect(controller.address, user3);
+          const controllerNotGov = ConverterController__factory.connect(controller.address, user3);
           await expect(
             controllerNotGov.setBlocksPerDay(4000, false)
           ).revertedWith("TC-9 governance only"); // GOVERNANCE_ONLY
@@ -452,7 +452,7 @@ describe("Controller", () => {
       it("should return false", async () => {
         const {controller} = await createTestController(getRandomMembersValues());
 
-        const controllerAsGov = Controller__factory.connect(
+        const controllerAsGov = ConverterController__factory.connect(
           controller.address,
           await DeployerUtils.startImpersonate(await controller.governance())
         );
@@ -467,7 +467,7 @@ describe("Controller", () => {
       it("should return true", async () => {
         const {controller} = await createTestController(getRandomMembersValues());
 
-        const controllerAsGov = Controller__factory.connect(
+        const controllerAsGov = ConverterController__factory.connect(
           controller.address,
           await DeployerUtils.startImpersonate(await controller.governance())
         );
@@ -485,7 +485,7 @@ describe("Controller", () => {
       it("should assigned expected value to blocksPerDay", async () => {
         const {controller} = await createTestController(getRandomMembersValues());
 
-        const controllerAsGov = Controller__factory.connect(
+        const controllerAsGov = ConverterController__factory.connect(
           controller.address,
           await DeployerUtils.startImpersonate(await controller.governance())
         );
@@ -505,7 +505,7 @@ describe("Controller", () => {
           }
         }
 
-        const controllerAsKeeper = Controller__factory.connect(
+        const controllerAsKeeper = ConverterController__factory.connect(
           controller.address,
           await DeployerUtils.startImpersonate(await controller.keeper())
         );
@@ -525,7 +525,7 @@ describe("Controller", () => {
       it("should revert if not keeper", async () => {
         const {controller} = await createTestController(getRandomMembersValues());
 
-        const controllerAsGov = Controller__factory.connect(
+        const controllerAsGov = ConverterController__factory.connect(
           controller.address,
           await DeployerUtils.startImpersonate(await controller.governance())
         );
@@ -538,7 +538,7 @@ describe("Controller", () => {
       it("should revert if auto-update is disabled", async () => {
         const {controller} = await createTestController(getRandomMembersValues());
 
-        const controllerAsGov = Controller__factory.connect(
+        const controllerAsGov = ConverterController__factory.connect(
           controller.address,
           await DeployerUtils.startImpersonate(await controller.governance())
         );
@@ -548,7 +548,7 @@ describe("Controller", () => {
         await controllerAsGov.setBlocksPerDay(400,
           false // (!) auto-update is disabled
         );
-        const controllerAsKeeper = Controller__factory.connect(
+        const controllerAsKeeper = ConverterController__factory.connect(
           controller.address,
           await DeployerUtils.startImpersonate(await controller.keeper())
         );
@@ -560,11 +560,11 @@ describe("Controller", () => {
       it("should revert if period is zero", async () => {
         const {controller} = await createTestController(getRandomMembersValues());
 
-        const controllerAsGov = Controller__factory.connect(controller.address,
+        const controllerAsGov = ConverterController__factory.connect(controller.address,
           await DeployerUtils.startImpersonate(await controller.governance())
         );
         await controllerAsGov.setBlocksPerDay(400, true);
-        const controllerAsKeeper = Controller__factory.connect(controller.address,
+        const controllerAsKeeper = ConverterController__factory.connect(controller.address,
           await DeployerUtils.startImpersonate(await controller.keeper())
         );
         await TimeUtils.advanceNBlocks(50); // assume here, that 50 blocks > 10 seconds
@@ -577,11 +577,11 @@ describe("Controller", () => {
       it("should revert if auto-update is not yet required", async () => {
         const {controller} = await createTestController(getRandomMembersValues());
 
-        const controllerAsGov = Controller__factory.connect(controller.address,
+        const controllerAsGov = ConverterController__factory.connect(controller.address,
           await DeployerUtils.startImpersonate(await controller.governance())
         );
         await controllerAsGov.setBlocksPerDay(400, true);
-        const controllerAsKeeper = Controller__factory.connect(controller.address,
+        const controllerAsKeeper = ConverterController__factory.connect(controller.address,
           await DeployerUtils.startImpersonate(await controller.keeper())
         );
         await TimeUtils.advanceNBlocks(50);
@@ -603,7 +603,7 @@ describe("Controller", () => {
         const {controller} = await createTestController(a);
 
         const before = await controller.minHealthFactor2();
-        const controllerAsGov = Controller__factory.connect(
+        const controllerAsGov = ConverterController__factory.connect(
           controller.address
           , await DeployerUtils.startImpersonate(await controller.governance())
         );
@@ -637,7 +637,7 @@ describe("Controller", () => {
         it("should set expected value", async () => {
           const a = getRandomMembersValues();
           const {controller} = await createTestController(a);
-          const controllerNotGov = Controller__factory.connect(controller.address, user3);
+          const controllerNotGov = ConverterController__factory.connect(controller.address, user3);
           await expect(
             controllerNotGov.setMinHealthFactor2(125)
           ).revertedWith("TC-9 governance only"); // GOVERNANCE_ONLY
@@ -654,7 +654,7 @@ describe("Controller", () => {
         const {controller} = await createTestController(a);
 
         const before = await controller.targetHealthFactor2();
-        const controllerAsGov = Controller__factory.connect(
+        const controllerAsGov = ConverterController__factory.connect(
           controller.address
           , await DeployerUtils.startImpersonate(await controller.governance())
         );
@@ -692,7 +692,7 @@ describe("Controller", () => {
         it("should set expected value", async () => {
           const a = getRandomMembersValues();
           const {controller} = await createTestController(a);
-          const controllerNotGov = Controller__factory.connect(controller.address, user3);
+          const controllerNotGov = ConverterController__factory.connect(controller.address, user3);
           await expect(
             controllerNotGov.setTargetHealthFactor2(250)
           ).revertedWith("TC-9 governance only"); // GOVERNANCE_ONLY
@@ -709,7 +709,7 @@ describe("Controller", () => {
         const {controller} = await createTestController(a);
 
         const before = await controller.maxHealthFactor2();
-        const controllerAsGov = Controller__factory.connect(
+        const controllerAsGov = ConverterController__factory.connect(
           controller.address
           , await DeployerUtils.startImpersonate(await controller.governance())
         );
@@ -737,7 +737,7 @@ describe("Controller", () => {
         it("should set expected value", async () => {
           const a = getRandomMembersValues();
           const {controller} = await createTestController(a);
-          const controllerNotGov = Controller__factory.connect(controller.address, user3);
+          const controllerNotGov = ConverterController__factory.connect(controller.address, user3);
           await expect(
             controllerNotGov.setMaxHealthFactor2(1250)
           ).revertedWith("TC-9 governance only"); // GOVERNANCE_ONLY
@@ -749,7 +749,7 @@ describe("Controller", () => {
   describe ("events", () => {
     it("should emit expected events", async () => {
       const {controller} = await createTestController(getRandomMembersValues());
-      const controllerAsGov = await Controller__factory.connect(
+      const controllerAsGov = await ConverterController__factory.connect(
         controller.address,
         await DeployerUtils.startImpersonate(await controller.governance())
       );
@@ -775,7 +775,7 @@ describe("Controller", () => {
       ).to.emit(controller, "OnSetGovernance").withArgs(newGovernance);
 
       await expect(
-        Controller__factory.connect(
+        ConverterController__factory.connect(
           controller.address,
           await DeployerUtils.startImpersonate(newGovernance)
         ).acceptGovernance()

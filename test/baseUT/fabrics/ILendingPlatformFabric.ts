@@ -1,5 +1,5 @@
 import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
-import {IController, IERC20} from "../../../typechain";
+import {IConverterController, IERC20} from "../../../typechain";
 
 /**
  * Result of ILendingPlatformFabric.createAndRegisterPools()
@@ -14,5 +14,5 @@ export interface ILendingPlatformPoolInfo {
 export interface ILendingPlatformFabric {
   /** return addresses of pools */
   // eslint-disable-next-line no-unused-vars
-  createAndRegisterPools: (deployer: SignerWithAddress, controller: IController) => Promise<ILendingPlatformPoolInfo>;
+  createAndRegisterPools: (deployer: SignerWithAddress, controller: IConverterController) => Promise<ILendingPlatformPoolInfo>;
 }

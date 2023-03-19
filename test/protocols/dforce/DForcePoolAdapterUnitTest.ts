@@ -3,7 +3,7 @@ import {ethers} from "hardhat";
 import {TimeUtils} from "../../../scripts/utils/TimeUtils";
 import {
   BorrowManager__factory,
-  Controller,
+  ConverterController,
   DebtMonitor__factory,
   DForceControllerMock, DForceCTokenMock,
   DForcePoolAdapter, IDForceRewardDistributor__factory, IERC20__factory,
@@ -1684,7 +1684,7 @@ describe("DForce unit tests, pool adapter", () => {
       converter: string;
       collateralAsset: string;
       borrowAsset: string;
-      controller: Controller;
+      controller: ConverterController;
       poolAdapter: DForcePoolAdapter;
       tokenAddressProvider: ITokenAddressProvider;
     }

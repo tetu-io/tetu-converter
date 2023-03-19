@@ -5,7 +5,7 @@ import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import {CoreContractsHelper} from "../../test/baseUT/helpers/CoreContractsHelper";
 import {RunHelper} from "../utils/RunHelper";
 import {BigNumber} from "ethers";
-import {Controller__factory, IBorrowManager, IBorrowManager__factory} from "../../typechain";
+import {ConverterController__factory, IBorrowManager, IBorrowManager__factory} from "../../typechain";
 import {AdaptersHelper} from "../../test/baseUT/helpers/AdaptersHelper";
 import {appendFileSync} from "fs";
 import {ethers, network} from "hardhat";
@@ -335,7 +335,7 @@ export class DeploySolutionUtils {
       )).address;
 
     await RunHelper.runAndWait(
-      () => Controller__factory.connect(controller, deployer).initialize(
+      () => ConverterController__factory.connect(controller, deployer).initialize(
         deployer.address,
         controllerSetupParams.blocksPerDay,
         controllerSetupParams.minHealthFactor2,
