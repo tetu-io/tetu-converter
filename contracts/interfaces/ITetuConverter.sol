@@ -2,9 +2,14 @@
 
 pragma solidity 0.8.17;
 
+import "./IController.sol";
+
 /// @notice Main contract of the TetuConverter application
 /// @dev Borrower (strategy) makes all operations via this contract only.
 interface ITetuConverter {
+
+  function controller() external view returns (IController);
+
   /// @notice Find possible borrow strategies and provide "cost of money" as interest for the period for each strategy
   ///         Result arrays of the strategy are ordered in ascending order of APR.
   /// @param entryData_ Encoded entry kind and additional params if necessary (set of params depends on the kind)
