@@ -78,11 +78,23 @@ interface IBorrowManager {
 
   /// @notice Find lending pool capable of providing {targetAmount} and having best normalized borrow rate
   ///         Results are ordered in ascending order of APR, so the best available converter is first one.
+  /// @param entryData_ Encoded entry kind and additional params if necessary (set of params depends on the kind)
+  ///                  See EntryKinds.sol\ENTRY_KIND_XXX constants for possible entry kinds
+  /// @param amountIn_ The meaning depends on entryData kind, see EntryKinds library for details.
+  ///         For entry kind = 0: Amount of {sourceToken} to be converted to {targetToken}
+  ///         For entry kind = 1: Available amount of {sourceToken}
+  ///         For entry kind = 2: Amount of {targetToken} that should be received after conversion
   /// @return converters Result template-pool-adapters
   /// @return collateralAmountsOut Amounts that should be provided as a collateral
   /// @return amountsToBorrowOut Amounts that should be borrowed
   /// @return aprs18 Annual Percentage Rates == (total cost - total income) / amount of collateral, decimals 18
-  function findConverter(AppDataTypes.InputConversionParams memory params) external view returns (
+  function findConverter(
+    bytes memory entryData_,
+    address sourceToken_,
+    address targetToken_,
+    uint amountIn_,
+    uint periodInBlocks_
+  ) external view returns (
     address[] memory converters,
     uint[] memory collateralAmountsOut,
     uint[] memory amountsToBorrowOut,

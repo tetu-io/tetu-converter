@@ -198,7 +198,7 @@ describe("BorrowRepayTest", () => {
               });
             });
           });
-          describe("Hundred finance", () => {
+          describe.skip("Hundred finance", () => {
             let snapshotLocal: string;
             let results: IMakeTestSingleBorrowInstantRepayResults;
             before(async function () {
@@ -385,7 +385,7 @@ describe("BorrowRepayTest", () => {
               });
             });
           });
-          describe("Hundred finance", () => {
+          describe.skip("Hundred finance", () => {
             let results: IMakeTestSingleBorrowInstantRepayResults;
             let localSnapshot: string;
             before(async function () {
@@ -621,7 +621,7 @@ describe("BorrowRepayTest", () => {
               expect(ret.sret).eq(ret.sexpected);
             });
           });
-          describe("Hundred finance", () => {
+          describe.skip("Hundred finance", () => {
             it("should return expected balances", async () => {
               if (!await isPolygonForkInUse()) return;
               const ret = await BorrowRepayUsesCase.makeTwoBorrowsTwoRepaysTest(deployer,

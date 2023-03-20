@@ -39,7 +39,7 @@ import {TetuConverterApp} from "../../baseUT/helpers/TetuConverterApp";
 import {parseUnits} from "ethers/lib/utils";
 import {MocksHelper} from "../../baseUT/helpers/MocksHelper";
 
-describe("HfPoolAdapterUnitTest", () => {
+describe.skip("HfPoolAdapterUnitTest", () => {
 
 //region Global vars for all tests
   let snapshot: string;

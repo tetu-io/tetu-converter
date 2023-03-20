@@ -79,6 +79,7 @@
   },
   "devDependencies": {
     "@nomicfoundation/hardhat-chai-matchers": "^1.0.5",
+    "@nomicfoundation/hardhat-network-helpers": "^1.0.8",
     "eslint-config-prettier": "^8.5.0"
   }
 }

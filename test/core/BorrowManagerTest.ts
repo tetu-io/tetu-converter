@@ -274,21 +274,21 @@ describe("BorrowManager", () => {
     }
 
     console.log("Source amount:", getBigNumberFrom(sourceAmountNum, await sourceToken.decimals()).toString());
-    const ret = await core.bm.findConverter({
-      collateralAsset: sourceToken.address,
-      amountIn: getBigNumberFrom(sourceAmountNum, await sourceToken.decimals()),
-      borrowAsset: params?.targetAssetToSearch || targetToken.address,
-      countBlocks: periodInBlocks,
-      entryData: "0x"
-    });
+    const ret = await core.bm.findConverter(
+      "0x",
+      sourceToken.address,
+      params?.targetAssetToSearch || targetToken.address,
+      getBigNumberFrom(sourceAmountNum, await sourceToken.decimals()),
+      periodInBlocks,
+    );
     const gas = params?.estimateGas
-      ? await core.bm.estimateGas.findConverter({
-        collateralAsset: sourceToken.address,
-        amountIn: getBigNumberFrom(sourceAmountNum, await sourceToken.decimals()),
-        borrowAsset: targetToken.address,
-        countBlocks: periodInBlocks,
-        entryData: "0x"
-      })
+      ? await core.bm.estimateGas.findConverter(
+        "0x",
+        sourceToken.address,
+        params?.targetAssetToSearch || targetToken.address,
+        getBigNumberFrom(sourceAmountNum, await sourceToken.decimals()),
+        periodInBlocks,
+      )
       : undefined;
 
     return {
@@ -363,13 +363,13 @@ describe("BorrowManager", () => {
     );
 
     const sourceAmount = getBigNumberFrom(sourceAmountNum, await sourceToken.decimals());
-    const r = await core.bm.findConverter({
-      collateralAsset: sourceToken.address,
-      amountIn: sourceAmount,
-      borrowAsset: targetToken.address,
+    const r = await core.bm.findConverter(
+      "0x",
+      sourceToken.address,
+      targetToken.address,
+      sourceAmount,
       countBlocks,
-      entryData: "0x"
-    });
+    );
 
     return {
       apr18: r.aprs18Out[0], // best one
@@ -424,7 +424,7 @@ describe("BorrowManager", () => {
     return dest;
   }
 
-  async function getUniquePoolAdaptersForTwoPoolsAndTwoPairs(countUsers: number) : Promise<{
+  interface IUniquePoolAdaptersResults {
     out: {
       poolAdapterAddress: string,
       initConfig: IPoolAdapterConfig,
@@ -435,7 +435,8 @@ describe("BorrowManager", () => {
       controller: ConverterController,
       pools: IPoolInstanceInfo[]
     }
-  }> {
+  }
+  async function getUniquePoolAdaptersForTwoPoolsAndTwoPairs(countUsers: number) : Promise<IUniquePoolAdaptersResults> {
     const tt = {
       collateralFactor: 0.8,
       priceSourceUSD: 0.1,
@@ -1126,7 +1127,6 @@ describe("BorrowManager", () => {
           expect(sret).equal(sexpected);
         });
       });
-
       describe("Check pool selection", () => {
         describe("Example 1: Pool 1 has a lowest borrow rate", () => {
           it("should return Pool 1 and expected amount", async () => {
@@ -1710,6 +1710,25 @@ describe("BorrowManager", () => {
     });
   });
 
+  describe("listPoolAdapters", () => {
+    it("should return expected values", async () => {
+      const r: IUniquePoolAdaptersResults = await getUniquePoolAdaptersForTwoPoolsAndTwoPairs(2);
+
+      const count = (await r.app.borrowManager.listPoolAdaptersLength()).toNumber();
+      const ret = [];
+      for (let i = 0; i < count; ++i) {
+        ret.push(
+          await r.app.borrowManager.listPoolAdapters(i)
+        );
+      }
+
+      const sret = ret.join("\n");
+      const sexpected = r.out.map(x => x.poolAdapterAddress).join("\n");
+
+      expect(sret).eq(sexpected);
+    });
+  });
+
   describe("getPoolAdapterKey", () => {
     it("should return not zero", async () => {
       const borrowManager = await initializeBorrowManager();
@@ -1828,7 +1847,7 @@ describe("BorrowManager", () => {
           const after2 = await r.app.borrowManager.poolAdaptersRegistered(r.out[1].poolAdapterAddress);
 
           const ret = [before1, before2, after1, after2].join();
-          const expected = [true, true, true, true].join();
+          const expected = [1, 2, 1, 2].join();
 
           expect(ret).eq(expected);
         });

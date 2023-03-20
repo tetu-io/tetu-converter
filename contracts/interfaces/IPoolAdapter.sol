@@ -18,11 +18,7 @@ interface IPoolAdapter is IConverter {
   /// @param borrowAmount_ Amount that should be borrowed in result
   /// @param receiver_ Receiver of the borrowed amount
   /// @return borrowedAmountOut Result borrowed amount sent to the {receiver_}
-  function borrow(
-    uint collateralAmount_,
-    uint borrowAmount_,
-    address receiver_
-  ) external returns (
+  function borrow(uint collateralAmount_, uint borrowAmount_, address receiver_) external returns (
     uint borrowedAmountOut
   );
 
@@ -30,10 +26,7 @@ interface IPoolAdapter is IConverter {
   /// @dev Re-balance: too big health factor => target health factor
   /// @return resultHealthFactor18 Result health factor after borrow
   /// @return borrowedAmountOut Exact amount sent to the borrower
-  function borrowToRebalance(
-    uint borrowAmount_,
-    address receiver_
-  ) external returns (
+  function borrowToRebalance(uint borrowAmount_, address receiver_) external returns (
     uint resultHealthFactor18,
     uint borrowedAmountOut
   );
@@ -44,11 +37,7 @@ interface IPoolAdapter is IConverter {
   /// @param closePosition_ true to pay full borrowed amount
   /// @param receiver_ Receiver of withdrawn collateral
   /// @return collateralAmountOut Amount of collateral asset sent to the {receiver_}
-  function repay(
-    uint amountToRepay_,
-    address receiver_,
-    bool closePosition_
-  ) external returns (
+  function repay(uint amountToRepay_, address receiver_, bool closePosition_) external returns (
     uint collateralAmountOut
   );
 
@@ -61,10 +50,7 @@ interface IPoolAdapter is IConverter {
   ///                The amount should be approved for the pool adapter before the call.
   /// @param isCollateral_ true/false indicates that {amount_} is the amount of collateral/borrow asset
   /// @return resultHealthFactor18 Result health factor after repay, decimals 18
-  function repayToRebalance(
-    uint amount_,
-    bool isCollateral_
-  ) external returns (
+  function repayToRebalance(uint amount_, bool isCollateral_) external returns (
     uint resultHealthFactor18
   );
 

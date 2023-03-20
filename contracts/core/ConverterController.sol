@@ -67,6 +67,12 @@ contract ConverterController is IConverterController, Initializable {
   uint public lastBlockNumber;
   uint public lastBlockTimestamp;
 
+  /// @notice 0 - new borrows are allowed, 1 - any new borrows are forbidden
+  bool private _paused;
+
+  /// @notice users who are allowed to make borrow using the TetuConverter
+  mapping (address => bool) public whitelist;
+
   ///////////////////////////////////////////////////////
   ///               Events
   ///////////////////////////////////////////////////////
@@ -245,5 +251,30 @@ contract ConverterController is IConverterController, Initializable {
 
     governance = pendingGovernance;
     emit OnAcceptGovernance(pendingGovernance);
+  }
+
+  ///////////////////////////////////////////////////////
+  ///               Paused
+  ///////////////////////////////////////////////////////
+  function paused() external view override returns (bool) {
+    return _paused;
+  }
+  function setPaused(bool paused_) external {
+    _onlyGovernance();
+    _paused = paused_;
+  }
+
+  ///////////////////////////////////////////////////////
+  ///               Whitelist
+  ///////////////////////////////////////////////////////
+  function isWhitelisted(address user_) external view override returns (bool) {
+    return whitelist[user_];
+  }
+  function setWhitelistValues(address[] memory users_, bool isWhite) external {
+    _onlyGovernance();
+    uint len = users_.length;
+    for (uint i; i < len; ++i) {
+      whitelist[users_[i]] = isWhite;
+    }
   }
 }

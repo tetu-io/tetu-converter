@@ -1,5 +1,6 @@
 import {ethers} from "hardhat";
 import {Misc} from "./Misc";
+import {mine} from "@nomicfoundation/hardhat-network-helpers";
 export class TimeUtils {
 
   public static async advanceBlocksOnTs(add: number) {
@@ -12,6 +13,12 @@ export class TimeUtils {
   }
 
   public static async advanceNBlocks(n: number) {
+    // todo Rewards are not generated in Balancer
+    // await mine(n);
+
+    // todo AAVE3 Break vars.totalAToken > vars.totalStableDebt + vars.totalVariableDebt in AAVE3 USDT, see issue230310
+    // await mine(n, {interval: n*2.35});
+
     const start = Date.now();
     await ethers.provider.send('evm_increaseTime', [+(n * 2.35).toFixed(0)]);
     for (let i = 0; i < n; i++) {

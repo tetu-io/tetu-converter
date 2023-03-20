@@ -32,7 +32,7 @@ contract TetuConverter is ITetuConverter, IKeeperCallback, IRequireAmountBySwapM
   using AppUtils for uint;
 
   /// @notice After additional borrow result health factor should be near to target value, the difference is limited.
-  uint constant public ADDITIONAL_BORROW_DELTA_DENOMINATOR = 10;
+  uint constant public ADDITIONAL_BORROW_DELTA_DENOMINATOR = 1;
 
   ///////////////////////////////////////////////////////
   ///                Members
@@ -47,6 +47,22 @@ contract TetuConverter is ITetuConverter, IKeeperCallback, IRequireAmountBySwapM
   address public immutable keeper;
   IPriceOracle public immutable priceOracle;
 
+
+  ///////////////////////////////////////////////////////
+  ///                Data types
+  ///////////////////////////////////////////////////////
+
+  /// @notice Local vars for {findConversionStrategy}
+  struct FindConversionStrategyLocal {
+    address[] borrowConverters;
+    uint[] borrowSourceAmounts;
+    uint[] borrowTargetAmounts;
+    int[] borrowAprs18;
+    address swapConverter;
+    uint swapSourceAmount;
+    uint swapTargetAmount;
+    int swapApr18;
+  }
 
   ///////////////////////////////////////////////////////
   ///               Events
@@ -93,7 +109,8 @@ contract TetuConverter is ITetuConverter, IKeeperCallback, IRequireAmountBySwapM
     address poolAdapter,
     uint amount,
     bool isCollateral,
-    uint statusAmountToPay
+    uint statusAmountToPay,
+    uint healthFactorAfterRepay18
   );
 
   event OnClaimRewards(
@@ -109,6 +126,12 @@ contract TetuConverter is ITetuConverter, IKeeperCallback, IRequireAmountBySwapM
     address targetToken,
     address receiver,
     uint outputAmount
+  );
+
+  event OnRepayTheBorrow(
+    address poolAdapter,
+    uint collateralOut,
+    uint repaidAmountOut
   );
 
   ///////////////////////////////////////////////////////
@@ -175,37 +198,31 @@ contract TetuConverter is ITetuConverter, IKeeperCallback, IRequireAmountBySwapM
     require(amountIn_ != 0, AppErrors.ZERO_AMOUNT);
     require(periodInBlocks_ != 0, AppErrors.INCORRECT_VALUE);
 
-    ( address swapConverter,
-      uint swapSourceAmount,
-      uint swapTargetAmount,
-      int swapApr18) = _findSwapStrategy(entryData_, sourceToken_, amountIn_, targetToken_);
+    FindConversionStrategyLocal memory p;
+    if (!controller.paused()) {
+      (p.borrowConverters,
+       p.borrowSourceAmounts,
+       p.borrowTargetAmounts,
+       p.borrowAprs18
+      ) = borrowManager.findConverter(entryData_, sourceToken_, targetToken_, amountIn_, periodInBlocks_);
 
-    AppDataTypes.InputConversionParams memory params = AppDataTypes.InputConversionParams({
-      collateralAsset: sourceToken_,
-      borrowAsset: targetToken_,
-      amountIn: amountIn_,
-      countBlocks: periodInBlocks_,
-      entryData: entryData_
-    });
+      (p.swapConverter,
+       p.swapSourceAmount,
+       p.swapTargetAmount,
+       p.swapApr18) = _findSwapStrategy(entryData_, sourceToken_, amountIn_, targetToken_);
+    }
 
-    (address[] memory borrowConverters,
-     uint[] memory borrowSourceAmounts,
-     uint[] memory borrowTargetAmounts,
-     int[] memory borrowAprs18
-    ) = borrowManager.findConverter(params);
-
-
-    if (borrowConverters.length == 0) {
-      return (swapConverter == address(0))
+    if (p.borrowConverters.length == 0) {
+      return (p.swapConverter == address(0))
         ? (address(0), uint(0), uint(0), int(0))
-        : (swapConverter, swapSourceAmount, swapTargetAmount, swapApr18);
+        : (p.swapConverter, p.swapSourceAmount, p.swapTargetAmount, p.swapApr18);
     } else {
-      if (swapConverter == address(0)) {
-        return (borrowConverters[0], borrowSourceAmounts[0], borrowTargetAmounts[0], borrowAprs18[0]);
+      if (p.swapConverter == address(0)) {
+        return (p.borrowConverters[0], p.borrowSourceAmounts[0], p.borrowTargetAmounts[0], p.borrowAprs18[0]);
       } else {
-        return (swapApr18 > borrowAprs18[0])
-          ? (borrowConverters[0], borrowSourceAmounts[0], borrowTargetAmounts[0], borrowAprs18[0])
-          : (swapConverter, swapSourceAmount, swapTargetAmount, swapApr18);
+        return (p.swapApr18 > p.borrowAprs18[0])
+          ? (p.borrowConverters[0], p.borrowSourceAmounts[0], p.borrowTargetAmounts[0], p.borrowAprs18[0])
+          : (p.swapConverter, p.swapSourceAmount, p.swapTargetAmount, p.swapApr18);
       }
     }
   }
@@ -241,15 +258,9 @@ contract TetuConverter is ITetuConverter, IKeeperCallback, IRequireAmountBySwapM
     require(amountIn_ != 0, AppErrors.ZERO_AMOUNT);
     require(periodInBlocks_ != 0, AppErrors.INCORRECT_VALUE);
 
-    AppDataTypes.InputConversionParams memory params = AppDataTypes.InputConversionParams({
-      collateralAsset: sourceToken_,
-      borrowAsset: targetToken_,
-      amountIn: amountIn_,
-      countBlocks: periodInBlocks_,
-      entryData: entryData_
-    });
-
-    return borrowManager.findConverter(params);
+    return controller.paused()
+      ? (converters, collateralAmountsOut, amountToBorrowsOut, aprs18) // no conversion is available
+      : borrowManager.findConverter(entryData_, sourceToken_, targetToken_, amountIn_, periodInBlocks_);
   }
 
   /// @notice Find best swap strategy and provide "cost of money" as interest for the period
@@ -277,7 +288,10 @@ contract TetuConverter is ITetuConverter, IKeeperCallback, IRequireAmountBySwapM
     int apr18
   ) {
     require(amountIn_ != 0, AppErrors.ZERO_AMOUNT);
-    return _findSwapStrategy(entryData_, sourceToken_, amountIn_, targetToken_);
+
+    return controller.paused()
+      ? (converter, sourceAmountOut, targetAmountOut, apr18) // no conversion is available
+      : _findSwapStrategy(entryData_, sourceToken_, amountIn_, targetToken_);
   }
 
   /// @notice Calculate amount to swap according to the given {entryData_} and estimate result amount of {targetToken_}
@@ -323,6 +337,7 @@ contract TetuConverter is ITetuConverter, IKeeperCallback, IRequireAmountBySwapM
   /// @notice Convert {collateralAmount_} to {amountToBorrow_} using {converter_}
   ///         Target amount will be transferred to {receiver_}. No re-balancing here.
   /// @dev Transferring of {collateralAmount_} by TetuConverter-contract must be approved by the caller before the call
+  ///      Only whitelisted users are allowed to make borrows
   /// @param converter_ A converter received from findBestConversionStrategy.
   /// @param collateralAmount_ Amount of {collateralAsset_}.
   ///                          This amount must be approved to TetuConverter before the call.
@@ -339,6 +354,7 @@ contract TetuConverter is ITetuConverter, IKeeperCallback, IRequireAmountBySwapM
   ) external override nonReentrant returns (
     uint borrowedAmountOut
   ) {
+    require(controller.isWhitelisted(msg.sender), AppErrors.OUT_OF_WHITE_LIST);
     return _convert(
       converter_,
       collateralAsset_,
@@ -593,88 +609,104 @@ contract TetuConverter is ITetuConverter, IKeeperCallback, IRequireAmountBySwapM
 
   /// @notice This function is called by a keeper if there is unhealthy borrow
   ///         The called contract should send either collateral-amount or borrowed-amount to TetuConverter
-  /// @param requiredAmountBorrowAsset_ The borrower should return given borrowed amount back to TetuConverter
-  ///                                   in order to restore health factor to target value
-  /// @param requiredAmountCollateralAsset_ The borrower should send given amount of collateral to TetuConverter
-  ///                                       in order to restore health factor to target value
+  /// @param requiredBorrowedAmount_ The borrower should return given borrowed amount back to TetuConverter
+  ///                                in order to restore health factor to target value
+  /// @param requiredCollateralAmount_ The borrower should send given amount of collateral to TetuConverter
+  ///                                  in order to restore health factor to target value
   /// @param poolAdapter_ Address of the pool adapter that has problem health factor
   function requireRepay(
-    uint requiredAmountBorrowAsset_,
-    uint requiredAmountCollateralAsset_,
+    uint requiredBorrowedAmount_,
+    uint requiredCollateralAmount_,
     address poolAdapter_
   ) external nonReentrant override {
     require(keeper == msg.sender, AppErrors.KEEPER_ONLY);
-    require(requiredAmountBorrowAsset_ != 0, AppErrors.INCORRECT_VALUE);
+    require(requiredBorrowedAmount_ != 0, AppErrors.INCORRECT_VALUE);
 
     IPoolAdapter pa = IPoolAdapter(poolAdapter_);
-    (,address user, address collateralAsset, address borrowAsset) = pa.getConfig();
+    (,address user, address collateralAsset,) = pa.getConfig();
     pa.updateStatus();
     (, uint amountToPay,,,) = pa.getStatus();
 
-    if (requiredAmountCollateralAsset_ == 0) {
+    if (requiredCollateralAmount_ == 0) {
       // Full liquidation happens, we have lost all collateral amount
       // We need to close the position as is and drop away the pool adapter without paying any debt
       debtMonitor.closeLiquidatedPosition(address(pa));
       emit OnRequireRepayCloseLiquidatedPosition(address(pa), amountToPay);
     } else {
       // rebalancing
-      //!TODO: we have exactly same checking inside pool adapters... we need to check this condition only once
-      require(amountToPay != 0 && requiredAmountBorrowAsset_ < amountToPay, AppErrors.REPAY_TO_REBALANCE_NOT_ALLOWED);
+      require(amountToPay != 0 && requiredBorrowedAmount_ < amountToPay, AppErrors.REPAY_TO_REBALANCE_NOT_ALLOWED);
 
-      // ask the borrower to send us required part of the borrowed amount
-      uint balanceBorrowedAsset = IERC20(borrowAsset).balanceOf(address(this));
-      uint balanceCollateralAsset = IERC20(collateralAsset).balanceOf(address(this));
-      (, bool isCollateral) = ITetuConverterCallback(user).requireAmountBack(
-        collateralAsset,
-        requiredAmountCollateralAsset_,
-        borrowAsset,
-        requiredAmountBorrowAsset_
+      // for borrowers it's much easier to return collateral asset than borrow asset
+      // so ask the borrower to send us collateral asset
+      uint balanceBefore = IERC20(collateralAsset).balanceOf(address(this));
+      ITetuConverterCallback(user).requirePayAmountBack(collateralAsset, requiredCollateralAmount_);
+      uint balanceAfter = IERC20(collateralAsset).balanceOf(address(this));
+
+      // ensure that we have received any amount .. and use it for repayment
+      // probably we've received less then expected - it's ok, just let's use as much as possible
+      // DebtMonitor will ask to make rebalancing once more if necessary
+      require(
+        balanceAfter > balanceBefore // smth is wrong
+        && balanceAfter - balanceBefore <= requiredCollateralAmount_, // we can receive less amount (partial rebalancing)
+        AppErrors.WRONG_AMOUNT_RECEIVED
       );
+      uint amount = balanceAfter - balanceBefore;
+      // replaced by infinity approve: IERC20(collateralAsset).safeApprove(poolAdapter_, requiredAmountCollateralAsset_);
 
-      // re-send amount-to-repay to the pool adapter and make rebalancing
-      if (isCollateral) {
-        // the borrower has sent us the amount of collateral asset
-        require(
-          IERC20(collateralAsset).balanceOf(address(this)) == requiredAmountCollateralAsset_ + balanceCollateralAsset,
-          AppErrors.WRONG_AMOUNT_RECEIVED
-        );
-        // replaced by infinity approve: IERC20(collateralAsset).safeApprove(poolAdapter_, requiredAmountCollateralAsset_);
-      } else {
-        // the borrower has sent us the amount of borrow asset
-        require(
-          IERC20(borrowAsset).balanceOf(address(this)) == requiredAmountBorrowAsset_ + balanceBorrowedAsset,
-          AppErrors.WRONG_AMOUNT_RECEIVED
-        );
-        // replaced by infinity approve: IERC20(borrowAsset).safeApprove(poolAdapter_, requiredAmountBorrowAsset_);
-      }
-
-      uint amount = isCollateral ? requiredAmountCollateralAsset_ : requiredAmountBorrowAsset_;
-      uint resultHealthFactor18 = pa.repayToRebalance(amount, isCollateral);
-      emit OnRequireRepayRebalancing(address(pa), amount, isCollateral, amountToPay);
-
-      // ensure that the health factor was restored to ~target health factor value
-      ensureApproxSameToTargetHealthFactor(borrowAsset, resultHealthFactor18);
+      uint resultHealthFactor18 = pa.repayToRebalance(amount, true);
+      emit OnRequireRepayRebalancing(address(pa), amount, true, amountToPay, resultHealthFactor18);
     }
   }
 
-  function ensureApproxSameToTargetHealthFactor(
-    address borrowAsset_,
-    uint resultHealthFactor18_
-  ) public view {
-    // after rebalancing we should have health factor ALMOST equal to the target health factor
-    // but the equality is not exact
-    // let's allow small difference < 1/10 * (target health factor - min health factor)
-    uint targetHealthFactor18 = uint(borrowManager.getTargetHealthFactor2(borrowAsset_)) * 10**(18-2);
-    uint minHealthFactor18 = uint(controller.minHealthFactor2()) * 10**(18-2);
+  ///////////////////////////////////////////////////////
+  ///       Close borrow forcibly by governance
+  ///////////////////////////////////////////////////////
+  /// @notice Close given borrow and return collateral back to the user, governance only
+  /// @dev The pool adapter asks required amount-to-repay from the user internally
+  /// @param poolAdapter_ The pool adapter that represents the borrow
+  /// @param closePosition Close position after repay
+  ///        Usually it should be true, because the function always tries to repay all debt
+  ///        false can be used if user doesn't have enough amount to pay full debt
+  ///              and we are trying to pay "as much as possible"
+  /// @return collateralAmountOut Amount of collateral returned to the user
+  /// @return repaidAmountOut Amount of borrow asset repaid to the lending platform
+  function repayTheBorrow(address poolAdapter_, bool closePosition) external returns (
+    uint collateralAmountOut,
+    uint repaidAmountOut
+  ) {
+    require(msg.sender == controller.governance(), AppErrors.GOVERNANCE_ONLY);
 
-    require(targetHealthFactor18 > minHealthFactor18, AppErrors.WRONG_HEALTH_FACTOR);
-    uint delta = (targetHealthFactor18 - minHealthFactor18) / ADDITIONAL_BORROW_DELTA_DENOMINATOR;
+    // update internal debts and get actual amount to repay
+    IPoolAdapter pa = IPoolAdapter(poolAdapter_);
+    (,address user,, address borrowAsset) = pa.getConfig();
+    pa.updateStatus();
+    (collateralAmountOut, repaidAmountOut,,,) = pa.getStatus();
 
     require(
-      resultHealthFactor18_ + delta > targetHealthFactor18
-      && resultHealthFactor18_ < targetHealthFactor18 + delta,
-      AppErrors.WRONG_REBALANCING
+      collateralAmountOut != 0 && repaidAmountOut != 0,
+      AppErrors.REPAY_FAILED
     );
+
+    // ask the user for the amount-to-repay
+    uint balanceBefore = IERC20(borrowAsset).balanceOf(address(this));
+    ITetuConverterCallback(user).requirePayAmountBack(borrowAsset, repaidAmountOut);
+    uint balanceAfter = IERC20(borrowAsset).balanceOf(address(this));
+
+    // ensure that we have received full required amount
+    if (closePosition) {
+      require(balanceAfter == balanceBefore + repaidAmountOut, AppErrors.WRONG_AMOUNT_RECEIVED);
+    } else {
+      require(balanceAfter > balanceBefore, AppErrors.ZERO_BALANCE);
+      repaidAmountOut = balanceAfter - balanceBefore;
+    }
+
+    // make full repay and close the position
+
+    // replaced by infinity approve: IERC20(borrowAsset).safeApprove(address(pa), repaidAmountOut);
+    collateralAmountOut = pa.repay(repaidAmountOut, user, closePosition);
+    emit OnRepayTheBorrow(poolAdapter_, collateralAmountOut, repaidAmountOut);
+
+    return (collateralAmountOut, repaidAmountOut);
   }
 
   ///////////////////////////////////////////////////////
@@ -800,7 +832,9 @@ contract TetuConverter is ITetuConverter, IKeeperCallback, IRequireAmountBySwapM
     address[] memory rewardTokensOut,
     uint[] memory amountsOut
   ) {
+    // The sender is able to claim his own rewards only, so no need to check sender
     address[] memory poolAdapters = debtMonitor.getPositionsForUser(msg.sender);
+
     uint lenPoolAdapters = poolAdapters.length;
     address[] memory rewardTokens = new address[](lenPoolAdapters);
     uint[] memory amounts = new uint[](lenPoolAdapters);

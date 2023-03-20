@@ -18,6 +18,8 @@ import "../interfaces/IDebtMonitor.sol";
 import "../interfaces/ITetuConverter.sol";
 import "../integrations/market/ICErc20.sol";
 
+import "hardhat/console.sol";
+
 /// @notice Contains list of lending pools. Allow to select most efficient pool for the given collateral/borrow pair
 contract BorrowManager is IBorrowManager {
   using SafeERC20 for IERC20;
@@ -78,9 +80,13 @@ contract BorrowManager is IBorrowManager {
   /// @dev user => PoolAdapterKey(== keccak256(converter, collateral, borrowToken)) => address of the pool adapter
   mapping (address => EnumerableMap.UintToAddressMap) private _poolAdapters;
 
-  /// @notice Pool adapter => is registered
+  /// @notice Pool adapter => (1 + index of the pool adapter in {listPoolAdapters})
   /// @dev This list contains info for all ever created pool adapters (both for not-dirty and dirty ones).
-  mapping (address => bool) public poolAdaptersRegistered;
+  mapping (address => uint) public poolAdaptersRegistered;
+
+  /// @notice List of addresses of all ever created pool adapters (both for not-dirty and dirty ones).
+  /// @dev Allow to get full list of the pool adapter and then filter it by any criteria (asset, user, state, etc)
+  address[] public listPoolAdapters;
 
   ///////////////////////////////////////////////////////
   ///               Events
@@ -246,16 +252,51 @@ contract BorrowManager is IBorrowManager {
 
   /// @notice Find lending pool capable of providing {targetAmount} and having best normalized borrow rate
   ///         Results are ordered in ascending order of APR, so the best available converter is first one.
+  /// @param entryData_ Encoded entry kind and additional params if necessary (set of params depends on the kind)
+  ///                  See EntryKinds.sol\ENTRY_KIND_XXX constants for possible entry kinds
+  /// @param amountIn_ The meaning depends on entryData kind, see EntryKinds library for details.
+  ///         For entry kind = 0: Amount of {sourceToken} to be converted to {targetToken}
+  ///         For entry kind = 1: Available amount of {sourceToken}
+  ///         For entry kind = 2: Amount of {targetToken} that should be received after conversion
   /// @return convertersOut Result template-pool-adapters
   /// @return collateralAmountsOut Amounts that should be provided as a collateral
   /// @return amountsToBorrowOut Amounts that should be borrowed
   /// @return aprs18Out Annual Percentage Rates == (total cost - total income) / amount of collateral, decimals 18
-  function findConverter(AppDataTypes.InputConversionParams memory p_) external view override returns (
+  function findConverter(
+    bytes memory entryData_,
+    address sourceToken_,
+    address targetToken_,
+    uint amountIn_,
+    uint periodInBlocks_
+  ) external view override returns (
     address[] memory convertersOut,
     uint[] memory collateralAmountsOut,
     uint[] memory amountsToBorrowOut,
     int[] memory aprs18Out
   ) {
+    AppDataTypes.InputConversionParams memory params = AppDataTypes.InputConversionParams({
+    collateralAsset: sourceToken_,
+    borrowAsset: targetToken_,
+    amountIn: amountIn_,
+    countBlocks: periodInBlocks_,
+    entryData: entryData_
+    });
+    return _findConverter(params);
+  }
+
+  /// @notice Find lending pool capable of providing {targetAmount} and having best normalized borrow rate
+  ///         Results are ordered in ascending order of APR, so the best available converter is first one.
+  /// @return convertersOut Result template-pool-adapters
+  /// @return collateralAmountsOut Amounts that should be provided as a collateral
+  /// @return amountsToBorrowOut Amounts that should be borrowed
+  /// @return aprs18Out Annual Percentage Rates == (total cost - total income) / amount of collateral, decimals 18
+  function _findConverter(AppDataTypes.InputConversionParams memory p_) internal view returns (
+    address[] memory convertersOut,
+    uint[] memory collateralAmountsOut,
+    uint[] memory amountsToBorrowOut,
+    int[] memory aprs18Out
+  ) {
+    console.log("findConverter.1");
     // get all platform adapters that support required pair of assets
     EnumerableSet.AddressSet storage pas = _pairsList[getAssetPairKey(p_.collateralAsset, p_.borrowAsset)];
 
@@ -271,6 +312,7 @@ contract BorrowManager is IBorrowManager {
         getTargetHealthFactor2(p_.borrowAsset)
       );
     }
+    console.log("findConverter.2");
 
     if (countFoundItems > 0) {
       // shrink output arrays to {countFoundItems} items and order results in ascending order of APR
@@ -382,7 +424,9 @@ contract BorrowManager is IBorrowManager {
 
       // register newly created pool adapter in the list of the pool adapters
       _poolAdapters[user_].set(poolAdapterKey, dest);
-      poolAdaptersRegistered[dest] = true;
+      uint index = listPoolAdapters.length;
+      poolAdaptersRegistered[dest] = index + 1;
+      listPoolAdapters.push(dest);
 
       emit OnRegisterPoolAdapter(dest, converter_, user_, collateralAsset_, borrowAsset_);
     }
@@ -420,7 +464,7 @@ contract BorrowManager is IBorrowManager {
 
   /// @dev Returns true for NORMAL pool adapters and for active DIRTY pool adapters (=== borrow position is opened).
   function isPoolAdapter(address poolAdapter_) external view override returns (bool) {
-    return poolAdaptersRegistered[poolAdapter_];
+    return poolAdaptersRegistered[poolAdapter_] != 0;
   }
 
   /// @notice Get pool adapter or 0 if the pool adapter is not registered
@@ -501,5 +545,9 @@ contract BorrowManager is IBorrowManager {
 
   function platformAdapterPairsAt(address platformAdapter_, uint index) public view returns (AssetPair memory) {
     return _assetPairs[_platformAdapterPairs[platformAdapter_].at(index)];
+  }
+
+  function listPoolAdaptersLength() public view returns (uint) {
+    return listPoolAdapters.length;
   }
 }

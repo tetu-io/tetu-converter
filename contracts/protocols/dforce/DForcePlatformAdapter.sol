@@ -25,6 +25,11 @@ contract DForcePlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
   using AppUtils for uint;
 
   ///////////////////////////////////////////////////////
+  ///   Constants
+  ///////////////////////////////////////////////////////
+  string public constant override PLATFORM_ADAPTER_VERSION = "1.0.0";
+
+  ///////////////////////////////////////////////////////
   ///   Data types
   ///////////////////////////////////////////////////////
 
@@ -178,10 +183,9 @@ contract DForcePlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
     require(p_.amountIn != 0 && p_.countBlocks != 0, AppErrors.INCORRECT_VALUE);
     require(healthFactor2_ >= controller.minHealthFactor2(), AppErrors.WRONG_HEALTH_FACTOR);
 
-    if (! frozen) {
+    if (! frozen && !controller.paused()) {
       LocalsGetConversionPlan memory vars;
       vars.comptroller = comptroller;
-
       address cTokenCollateral = activeAssets[p_.collateralAsset];
       if (cTokenCollateral != address(0)) {
         address cTokenBorrow = activeAssets[p_.borrowAsset];

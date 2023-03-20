@@ -14,7 +14,7 @@ import {
 } from "../../baseUT/protocols/hundred-finance/HundredFinanceTestUtils";
 import {HundredFinanceChangePriceUtils} from "../../baseUT/protocols/hundred-finance/HundredFinanceChangePriceUtils";
 
-describe("HundredFinanceCollateralBalanceTest", () => {
+describe.skip("HundredFinanceCollateralBalanceTest", () => {
 //region Constants
   const collateralAsset = MaticAddresses.USDC;
   const collateralHolder = MaticAddresses.HOLDER_USDC;

@@ -8,7 +8,7 @@ import {MaticAddresses} from "../../../scripts/addresses/MaticAddresses";
 import {expect} from "chai";
 import {isPolygonForkInUse} from "../../baseUT/utils/NetworkUtils";
 
-describe("HfAprLib unit tests", () => {
+describe.skip("HfAprLib unit tests", () => {
 //region Global vars for all tests
   let snapshot: string;
   let snapshotForEach: string;

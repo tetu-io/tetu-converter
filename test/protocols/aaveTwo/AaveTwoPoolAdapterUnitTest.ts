@@ -1308,6 +1308,7 @@ describe("AaveTwoPoolAdapterUnitTest", () => {
 
         const controller = await TetuConverterApp.createController(deployer);
         const userContract = await MocksHelper.deployBorrower(deployer.address, controller, 1000);
+        await controller.connect(await DeployerUtils.startImpersonate(await controller.governance())).setWhitelistValues([userContract.address], true);
 
         const converterNormal = (await AdaptersHelper.createAaveTwoPoolAdapter(deployer)).address;
         const platformAdapter = await AdaptersHelper.createAaveTwoPlatformAdapter(
@@ -1382,6 +1383,7 @@ describe("AaveTwoPoolAdapterUnitTest", () => {
 
         const controller = await TetuConverterApp.createController(deployer);
         const userContract = await MocksHelper.deployBorrower(deployer.address, controller, 1000);
+        await controller.connect(await DeployerUtils.startImpersonate(await controller.governance())).setWhitelistValues([userContract.address], true);
 
         const converterNormal = (await AdaptersHelper.createAaveTwoPoolAdapter(deployer)).address;
         const platformAdapter = await AdaptersHelper.createAaveTwoPlatformAdapter(

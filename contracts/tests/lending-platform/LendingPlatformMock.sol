@@ -12,6 +12,8 @@ import "../../libs/AppUtils.sol";
 contract LendingPlatformMock is IPlatformAdapter {
   using AppUtils for uint;
 
+  string public constant override PLATFORM_ADAPTER_VERSION = "1.0.0";
+
   address private _pool;
   address[] private _converters;
   address private _controller;

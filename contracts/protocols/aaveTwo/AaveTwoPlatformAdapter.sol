@@ -31,6 +31,7 @@ contract AaveTwoPlatformAdapter is IPlatformAdapter {
   ///        Each market has a separate Protocol Data Provider.
   ///        To get the address for a particular market, call getAddress() using the value 0x1.
   uint internal constant ID_DATA_PROVIDER = 0x1000000000000000000000000000000000000000000000000000000000000000;
+  string public constant override PLATFORM_ADAPTER_VERSION = "1.0.0";
 
   ///////////////////////////////////////////////////////
   ///   Data types
@@ -151,8 +152,8 @@ contract AaveTwoPlatformAdapter is IPlatformAdapter {
     AppDataTypes.ConversionPlan memory plan
   ) {
     if (! frozen) {
-      LocalsGetConversionPlan memory vars;
       AppDataTypes.PricesAndDecimals memory pd;
+      LocalsGetConversionPlan memory vars;
       vars.controller = controller;
 
       require(params.collateralAsset != address(0) && params.borrowAsset != address(0), AppErrors.ZERO_ADDRESS);

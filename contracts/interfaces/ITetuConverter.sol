@@ -102,6 +102,7 @@ interface ITetuConverter {
   /// @notice Convert {collateralAmount_} to {amountToBorrow_} using {converter_}
   ///         Target amount will be transferred to {receiver_}. No re-balancing here.
   /// @dev Transferring of {collateralAmount_} by TetuConverter-contract must be approved by the caller before the call
+  ///      Only whitelisted users are allowed to make borrows
   /// @param converter_ A converter received from findBestConversionStrategy.
   /// @param collateralAmount_ Amount of {collateralAsset_} to be converted.
   ///                          This amount must be approved to TetuConverter before the call.
@@ -247,4 +248,18 @@ interface ITetuConverter {
     uint amountOut_,
     uint priceImpactTolerance_
   ) external view returns (bool);
+
+  /// @notice Close given borrow and return collateral back to the user, governance only
+  /// @dev The pool adapter asks required amount-to-repay from the user internally
+  /// @param poolAdapter_ The pool adapter that represents the borrow
+  /// @param closePosition Close position after repay
+  ///        Usually it should be true, because the function always tries to repay all debt
+  ///        false can be used if user doesn't have enough amount to pay full debt
+  ///              and we are trying to pay "as much as possible"
+  /// @return collateralAmountOut Amount of collateral returned to the user
+  /// @return repaidAmountOut Amount of borrow asset repaid to the lending platform
+  function repayTheBorrow(address poolAdapter_, bool closePosition) external returns (
+    uint collateralAmountOut,
+    uint repaidAmountOut
+  );
 }

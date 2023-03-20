@@ -33,6 +33,7 @@ contract Aave3PlatformAdapter is IPlatformAdapter {
   /// @notice We allow to borrow only 90% of max allowed amount, see the code below for explanation
   uint public constant MAX_BORROW_AMOUNT_FACTOR = 90;
   uint constant public MAX_BORROW_AMOUNT_FACTOR_DENOMINATOR = 100;
+  string public constant override PLATFORM_ADAPTER_VERSION = "1.0.0";
 
   ///////////////////////////////////////////////////////
   ///   Data types
@@ -160,8 +161,8 @@ contract Aave3PlatformAdapter is IPlatformAdapter {
     AppDataTypes.ConversionPlan memory plan
   ) {
     if (! frozen) {
-      LocalsGetConversionPlan memory vars;
       AppDataTypes.PricesAndDecimals memory pd;
+      LocalsGetConversionPlan memory vars;
       vars.controller = controller;
 
       require(params.collateralAsset != address(0) && params.borrowAsset != address(0), AppErrors.ZERO_ADDRESS);
@@ -186,6 +187,7 @@ contract Aave3PlatformAdapter is IPlatformAdapter {
           /// see comment to getDebtCeiling(): The debt ceiling (0 = isolation mode disabled)
           vars.rcDebtCeiling = vars.rc.configuration.getDebtCeiling();
           if (vars.rcDebtCeiling == 0 || _isUsableInIsolationMode(vars.rb.configuration)) {
+
             //-------------------------------- Calculate maxAmountToSupply and maxAmountToBorrow
             // by default, we can borrow all available cache
             (,,
@@ -193,7 +195,10 @@ contract Aave3PlatformAdapter is IPlatformAdapter {
             vars.totalStableDebt,
             vars.totalVariableDebt
             ,,,,,,,) = vars.dataProvider.getReserveData(params.borrowAsset);
-            plan.maxAmountToBorrow = vars.totalAToken - vars.totalStableDebt - vars.totalVariableDebt;
+
+            plan.maxAmountToBorrow = vars.totalAToken > vars.totalStableDebt + vars.totalVariableDebt
+              ? vars.totalAToken - vars.totalStableDebt - vars.totalVariableDebt
+              : 0;
 
             // supply/borrow caps are given in "whole tokens" == without decimals
             // see AAVE3-code, ValidationLogic.sol, validateBorrow
@@ -223,16 +228,17 @@ contract Aave3PlatformAdapter is IPlatformAdapter {
                 // Suppose, the collateral is an isolated asset with the debt ceiling $10M
                 // The user will therefore be allowed to borrow up to $10M of stable coins
                 // Debt ceiling does not include interest accrued over time, only the principal borrowed
-                uint maxAmount = (vars.rcDebtCeiling - vars.rc.isolationModeTotalDebt)
+                uint maxAmount = vars.rcDebtCeiling > vars.rc.isolationModeTotalDebt
+                  ? (vars.rcDebtCeiling - vars.rc.isolationModeTotalDebt)
                     * pd.rb10powDec
-                    / 10 ** Aave3ReserveConfiguration.DEBT_CEILING_DECIMALS;
+                    / 10 ** Aave3ReserveConfiguration.DEBT_CEILING_DECIMALS
+                  : 0;
 
                 if (plan.maxAmountToBorrow > maxAmount) {
                   plan.maxAmountToBorrow = maxAmount;
                 }
               }
             }
-
             {
               // see sources of AAVE3\ValidationLogic.sol\validateSupply
               uint supplyCap = vars.rc.configuration.getSupplyCap();
@@ -248,7 +254,6 @@ contract Aave3PlatformAdapter is IPlatformAdapter {
                   : 0;
               }
             }
-
             if (plan.maxAmountToSupply != 0 && plan.maxAmountToBorrow != 0) {
               //-------------------------------- converter, LTV and liquidation threshold
               // get liquidation threshold (== collateral factor) and loan-to-value
@@ -283,7 +288,6 @@ contract Aave3PlatformAdapter is IPlatformAdapter {
                 vars.healthFactor18 = uint(healthFactor2_) * 10**(18 - 2);
               }
 
-
               //------------------------------- Calculate collateralAmount and amountToBorrow
               // calculate amount that can be borrowed and amount that should be provided as the collateral
               vars.entryKind = EntryKinds.getEntryKind(params.entryData);
@@ -315,7 +319,6 @@ contract Aave3PlatformAdapter is IPlatformAdapter {
                   false // prices have decimals 18, not 36
                 );
               }
-
               //------------------------------- Validate the borrow
               if (plan.amountToBorrow == 0 || plan.collateralAmount == 0) {
                 plan.converter = address(0);
@@ -330,7 +333,6 @@ contract Aave3PlatformAdapter is IPlatformAdapter {
                   plan.collateralAmount = plan.collateralAmount * plan.maxAmountToBorrow / plan.amountToBorrow;
                   plan.amountToBorrow = plan.maxAmountToBorrow;
                 }
-
                 //------------------------------- values for APR
                 plan.borrowCost36 = AaveSharedLib.getCostForPeriodBefore(
                   AaveSharedLib.State({

@@ -49,6 +49,11 @@ interface IConverterController {
   /// @param periodInSeconds_ Period of auto-update in seconds
   function updateBlocksPerDay(uint periodInSeconds_) external;
 
+  /// @notice 0 - new borrows are allowed, 1 - any new borrows are forbidden
+  function paused() external view returns (bool);
+
+  /// @notice the given user is whitelisted and is allowed to make borrow/swap using TetuConverter
+  function isWhitelisted(address user_) external view returns (bool);
 
   ///////////////////////////////////////////////////////
   ///        Core application contracts
