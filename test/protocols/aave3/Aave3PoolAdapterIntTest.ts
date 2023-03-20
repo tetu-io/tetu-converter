@@ -646,7 +646,7 @@ describe("Aave3PoolAdapterIntTest", () => {
         });
       });
 
-      describe("EURS : USDT", () => {
+      describe("EURS : USDT @skip-on-coverage", () => {
         const collateralAsset = MaticAddresses.EURS;
         const borrowAsset = MaticAddresses.USDT;
         const collateralHolders = [
