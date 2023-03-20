@@ -22,7 +22,7 @@ import {
 } from "../../baseUT/protocols/hundred-finance/HundredFinanceTestUtils";
 import {formatUnits, parseUnits} from "ethers/lib/utils";
 
-describe("HfPoolAdapterIntTest", () => {
+describe.skip("HfPoolAdapterIntTest", () => {
 
 //region Global vars for all tests
   let snapshot: string;

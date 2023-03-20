@@ -1847,7 +1847,7 @@ describe("BorrowManager", () => {
           const after2 = await r.app.borrowManager.poolAdaptersRegistered(r.out[1].poolAdapterAddress);
 
           const ret = [before1, before2, after1, after2].join();
-          const expected = [true, true, true, true].join();
+          const expected = [1, 2, 1, 2].join();
 
           expect(ret).eq(expected);
         });

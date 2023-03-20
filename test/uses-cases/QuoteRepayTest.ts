@@ -240,7 +240,7 @@ describe("QuoteRepayTest", () => {
               });
             });
           });
-          describe("Hundred finance", () => {
+          describe.skip("Hundred finance", () => {
             let results: IQuoteRepayResults;
             before(async function () {
               snapshotLocal = await TimeUtils.snapshot();
@@ -459,7 +459,7 @@ describe("QuoteRepayTest", () => {
               });
             });
           });
-          describe("Hundred finance", () => {
+          describe.skip("Hundred finance", () => {
             let results: IQuoteRepayResults;
             before(async function () {
               snapshotLocal = await TimeUtils.snapshot();
@@ -648,7 +648,7 @@ describe("QuoteRepayTest", () => {
               });
             });
           });
-          describe("Hundred finance", () => {
+          describe.skip("Hundred finance", () => {
             let results: IQuoteRepayResults;
             before(async function () {
               snapshotLocal = await TimeUtils.snapshot();

@@ -487,7 +487,7 @@ describe("DebtsMonitor", () => {
     firstGetPositionsForUser: string;
   // borrowManager:
     getPoolAdapterResult: string;
-    isPoolAdapterRegistered: boolean;
+    isPoolAdapterRegistered: number;
   }
 
   interface IMakeClosePositionTestResults {
@@ -574,7 +574,7 @@ describe("DebtsMonitor", () => {
           config.collateralAsset,
           config.borrowAsset
         ),
-        isPoolAdapterRegistered: await core.bm.poolAdaptersRegistered(poolAdapter)
+        isPoolAdapterRegistered: (await core.bm.poolAdaptersRegistered(poolAdapter)).toNumber()
       };
     }
 
@@ -928,7 +928,7 @@ describe("DebtsMonitor", () => {
               getPositionsForUserLength: 0,
               firstGetPositionsForUser: "",
               getPoolAdapterResult: r.poolAdapterAddress,
-              isPoolAdapterRegistered: true
+              isPoolAdapterRegistered: 1
             },
             afterOpen: {
               poolAdaptersLength: BigNumber.from(1),
@@ -940,7 +940,7 @@ describe("DebtsMonitor", () => {
               getPositionsForUserLength: 1,
               firstGetPositionsForUser: r.poolAdapterAddress,
               getPoolAdapterResult: r.poolAdapterAddress,
-              isPoolAdapterRegistered: true
+              isPoolAdapterRegistered: 1
             },
             afterClose: {
               poolAdaptersLength: parseUnits("0"),
@@ -952,7 +952,7 @@ describe("DebtsMonitor", () => {
               getPositionsForUserLength: 0,
               firstGetPositionsForUser: "",
               getPoolAdapterResult: r.poolAdapterAddress,
-              isPoolAdapterRegistered: true
+              isPoolAdapterRegistered: 1
             },
             poolAdapterAddress: r.poolAdapterAddress
           }
@@ -1203,7 +1203,7 @@ describe("DebtsMonitor", () => {
             getPositionsForUserLength: 0,
             firstGetPositionsForUser: "",
             getPoolAdapterResult: r.poolAdapterAddress,
-            isPoolAdapterRegistered: true
+            isPoolAdapterRegistered: 1
           },
           afterOpen: {
             poolAdaptersLength: BigNumber.from(1),
@@ -1215,7 +1215,7 @@ describe("DebtsMonitor", () => {
             getPositionsForUserLength: 1,
             firstGetPositionsForUser: r.poolAdapterAddress,
             getPoolAdapterResult: r.poolAdapterAddress,
-            isPoolAdapterRegistered: true
+            isPoolAdapterRegistered: 1
           },
           afterClose: {
             poolAdaptersLength: parseUnits("0"),
@@ -1227,7 +1227,7 @@ describe("DebtsMonitor", () => {
             getPositionsForUserLength: 0,
             firstGetPositionsForUser: "",
             getPoolAdapterResult: Misc.ZERO_ADDRESS, // (!)
-            isPoolAdapterRegistered: true
+            isPoolAdapterRegistered: 1
           },
           poolAdapterAddress: r.poolAdapterAddress
         }

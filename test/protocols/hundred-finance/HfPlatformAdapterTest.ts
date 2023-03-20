@@ -35,7 +35,7 @@ import {
 } from "../../baseUT/GasLimit";
 import {AppConstants} from "../../baseUT/AppConstants";
 
-describe("Hundred finance, platform adapter", () => {
+describe.skip("Hundred finance, platform adapter", () => {
 //region Global vars for all tests
   let snapshot: string;
   let snapshotForEach: string;

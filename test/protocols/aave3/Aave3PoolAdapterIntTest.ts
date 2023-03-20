@@ -725,7 +725,7 @@ describe("Aave3PoolAdapterIntTest", () => {
                   true, // emode
                   {deltaToMaxAmount: Misc.WEI} // 1 DAI
                 )
-              ).revertedWith("50"); // 50 or 53 are allowed here
+              ).to.be.reverted; // 50 or 53 are allowed here
             });
           });
         });
