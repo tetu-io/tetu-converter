@@ -3,9 +3,12 @@
 pragma solidity 0.8.17;
 
 import "../../libs/AppDataTypes.sol";
+import "../../interfaces/IPlatformAdapter.sol";
 
 /// @notice Return predefined list of converters
 contract PlatformAdapterStub {
+  string public constant PLATFORM_ADAPTER_VERSION = "1.0.0";
+
   address[] _converters;
   constructor (address[] memory converters_) {
     for (uint i = 0; i < converters_.length; ++i) {

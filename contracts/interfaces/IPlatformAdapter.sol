@@ -6,6 +6,10 @@ import "../libs/AppDataTypes.sol";
 
 /// @notice Adapter for lending platform attached to the given platform's pool.
 interface IPlatformAdapter {
+  /// @notice Current version of contract
+  ///         There is a chance that we will register several versions of the same platform
+  ///         at the same time (only last version will be active, others will be frozen)
+  function PLATFORM_ADAPTER_VERSION() external view returns (string memory);
 
   /// @notice Get pool data required to select best lending pool
   /// @param healthFactor2_ Health factor (decimals 2) to be able to calculate max borrow amount

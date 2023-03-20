@@ -9,6 +9,7 @@ import "../../libs/AppUtils.sol";
 
 contract LendingPlatformMock2 is IPlatformAdapter {
   using AppUtils for uint;
+  string public constant override PLATFORM_ADAPTER_VERSION = "1.0.0";
 
   ////////////////////////////////////////////////////////////////////////////////////////////////
   /// getConversionPlan
