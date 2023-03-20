@@ -74,9 +74,9 @@ export class MaticAddresses {
   public static HOLDER_BALANCER_4 = "0x2fedc4002a2398ac32d9d43a9b92a5cf16a36304";
   public static HOLDER_CRV = "0x06959153b974d0d5fdfd87d561db6d8d4fa0bb0b";
 
-  public static HOLDER_WBTC = "0x2093b4281990a568c9d588b8bce3bfd7a1557ebd";
+  public static HOLDER_WBTC = "0x0aff6665bb45bf349489b20e225a6c5d78e2280f";
   public static HOLDER_WBTC_2 = "0x09040f20384b3420657e8cd0850c7facfd74ba70";
-  public static HOLDER_WBTC_3 = "0x0aff6665bb45bf349489b20e225a6c5d78e2280f";
+  public static HOLDER_WBTC_3 = "0x1680ed6a1fe73c673e778705355212235dec3242";
 
   public static HOLDER_WETH_3 = "0xd9952dc091e7cf5ec199c431c69cec8573710333";
   public static HOLDER_WETH_2 = "0xb2a33ae0e07fd2ca8dbde9545f6ce0b3234dc4e8";

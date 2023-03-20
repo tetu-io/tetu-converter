@@ -166,7 +166,7 @@ export class DeploySolutionUtils {
       MaticAddresses.dForce_USD
     ]);
 
-    const deployHundredFinance = true;
+    const deployHundredFinance = false; // disabled, HF is not profitable anymore
     const hundredFinanceComptroller = MaticAddresses.HUNDRED_FINANCE_COMPTROLLER;
     const hundredFinanceCTokens = [
       MaticAddresses.hDAI,
