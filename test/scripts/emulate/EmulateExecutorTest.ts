@@ -14,7 +14,7 @@ import {AaveTwoChangePricesUtils} from "../../baseUT/protocols/aaveTwo/AaveTwoCh
 import {DForceChangePriceUtils} from "../../baseUT/protocols/dforce/DForceChangePriceUtils";
 import {HundredFinanceChangePriceUtils} from "../../baseUT/protocols/hundred-finance/HundredFinanceChangePriceUtils";
 
-describe("Run real work emulator", () => {
+describe("Run real work emulator  @skip-on-coverage", () => {
   const pathIn = "./scripts/emulate/data/ListCommands.csv";
   const pathOut = "./tmp/EmulationResults.csv";
 

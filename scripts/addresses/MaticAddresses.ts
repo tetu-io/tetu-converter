@@ -21,7 +21,9 @@ export class MaticAddresses {
   public static WMATIC = "0x0d500B1d8E8eF31E21C99d1Db9A6444d3ADf1270";
   public static SUSHI = "0x0b3F868E0BE5597D5DB7fEB59E1CADBb0fdDa50a";
   public static CRV = "0x172370d5Cd63279eFa6d502DAB29171933a610AF";
-  public static DF = "0x08c15fa26e519a78a666d19ce5c646d55047e0a3";
+  public static miMATIC = "0xa3Fa99A148fA48D14Ed51d610c367C61876997F1";
+  public static stMATIC = "0x3A58a54C066FdC0f2D55FC9C89F0415C92eBf3C4";
+  public static MaticX = "0xfa68FB4628DFF1028CFEc22b4162FCcd0d45efb6";
 // AAVE
   public static agEUR = "0xE0B52e49357Fd4DAf2c15e02058DCE6BC0057db4";
   public static EURS = "0xe111178a87a3bff0c8d18decba5798827539ae99";

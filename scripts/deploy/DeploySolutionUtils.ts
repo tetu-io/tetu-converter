@@ -127,7 +127,10 @@ export class DeploySolutionUtils {
       MaticAddresses.jEUR,
       MaticAddresses.WETH,
       MaticAddresses.WMATIC,
-      MaticAddresses.WBTC
+      MaticAddresses.WBTC,
+      // MaticAddresses.MaticX,
+      // MaticAddresses.stMATIC,
+      // MaticAddresses.miMATIC
     ]);
 
     const deployAaveTwo = true;
