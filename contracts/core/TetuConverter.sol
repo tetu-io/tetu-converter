@@ -678,7 +678,7 @@ contract TetuConverter is ITetuConverter, IKeeperCallback, IRequireAmountBySwapM
 
     // update internal debts and get actual amount to repay
     IPoolAdapter pa = IPoolAdapter(poolAdapter_);
-    (,address user,, address borrowAsset) = pa.getConfig();
+    (,address user, address collateralAsset, address borrowAsset) = pa.getConfig();
     pa.updateStatus();
     (collateralAmountOut, repaidAmountOut,,,) = pa.getStatus();
 
@@ -701,10 +701,24 @@ contract TetuConverter is ITetuConverter, IKeeperCallback, IRequireAmountBySwapM
     }
 
     // make full repay and close the position
-
+    balanceBefore = IERC20(borrowAsset).balanceOf(user);
     // replaced by infinity approve: IERC20(borrowAsset).safeApprove(address(pa), repaidAmountOut);
     collateralAmountOut = pa.repay(repaidAmountOut, user, closePosition);
     emit OnRepayTheBorrow(poolAdapter_, collateralAmountOut, repaidAmountOut);
+    balanceAfter = IERC20(borrowAsset).balanceOf(user);
+
+    if (collateralAmountOut != 0) {
+      address[] memory assets = new address[](2);
+      // repay is able to return small amount of borrow-asset back to the user, we should pass it to onTransferAmounts
+      assets[0] = borrowAsset;
+      assets[1] = collateralAsset;
+      uint[] memory amounts = new uint[](2);
+      amounts[0] = balanceAfter > balanceBefore
+        ? balanceAfter - balanceBefore
+        : 0;
+      amounts[1] = collateralAmountOut;
+      ITetuConverterCallback(user).onTransferAmounts(assets, amounts);
+    }
 
     return (collateralAmountOut, repaidAmountOut);
   }

@@ -11,14 +11,8 @@ interface ITetuConverterCallback {
   /// @return amountOut Exact amount that borrower has sent to balance of TetuConverter
   function requirePayAmountBack(address asset_, uint amount_) external returns (uint amountOut);
 
-  /// @notice TetuConverter calls this function when it makes additional borrow (using exist collateral).
-  ///         The given amount has already be sent to balance of the user, the user just should use it.
-  /// @param collateralAsset_ Collateral asset of the borrow to identify the borrow on the borrower's side
-  /// @param borrowAsset_ Borrow asset of the borrow to identify the borrow on the borrower's side
-  /// @param amountBorrowAssetSentToBorrower_ This amount has been sent to the borrower's balance
-  function onTransferBorrowedAmount (
-    address collateralAsset_,
-    address borrowAsset_,
-    uint amountBorrowAssetSentToBorrower_
-  ) external;
+  /// @notice TetuConverter calls this function when it sends any amount to user's balance
+  /// @param assets_ Any asset sent to the balance, i.e. inside repayTheBorrow
+  /// @param amounts_ Amount of {asset_} that has been sent to the user's balance
+  function onTransferAmounts(address[] memory assets_, uint[] memory amounts_) external;
 }
