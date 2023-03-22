@@ -42,8 +42,14 @@ contract TetuConverterCallbackMock is ITetuConverterCallback {
     return amountOut;
   }
 
+  address[] private onTransferAmountsAssets;
+  uint[] private onTransferAmountsAmounts;
   function onTransferAmounts(address[] memory assets_, uint[] memory amounts_) external override {
-    assets_;
-    amounts_;
+    onTransferAmountsAssets = assets_;
+    onTransferAmountsAmounts = amounts_;
+  }
+
+  function getOnTransferAmountsResults() external view returns (address[] memory assets, uint[] memory amounts) {
+    return (onTransferAmountsAssets, onTransferAmountsAmounts);
   }
 }
