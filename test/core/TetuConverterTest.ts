@@ -2065,8 +2065,9 @@ describe("TetuConverterTest", () => {
 
   describe("repay", () => {
     interface IRepayBadPathParams {
-      receiverIsNull?: boolean,
-      userSendsNotEnoughAmountToTetuConverter?: boolean
+      receiverIsNull?: boolean;
+      userSendsNotEnoughAmountToTetuConverter?: boolean;
+      hackSendBorrowAssetAmountToBalance?: string;
     }
     interface IRepayOutputValues {
       collateralAmountOut: BigNumber;
@@ -2144,6 +2145,13 @@ describe("TetuConverterTest", () => {
       const receiverBorrowAssetBalanceBeforeRepay = receiver === Misc.ZERO_ADDRESS
         ? BigNumber.from(0)
         : await init.targetToken.balanceOf(receiver);
+
+      if (repayBadPathParams?.hackSendBorrowAssetAmountToBalance) {
+        await init.targetToken.mint(
+          tcAsUc.address,
+          parseUnits(repayBadPathParams?.hackSendBorrowAssetAmountToBalance, await init.targetToken.decimals())
+        );
+      }
 
       const repayOutput = await tcAsUc.callStatic.repay(
         init.sourceToken.address,
@@ -2558,6 +2566,35 @@ describe("TetuConverterTest", () => {
               0, // there is no not-swapped leftover
               parseUnits(expectedCollateralAmountFromSwapping.toString(), await r.init.sourceToken.decimals()),
               parseUnits(amountToSwap.toString(), await r.init.targetToken.decimals()),
+            ].map(x => BalanceUtils.toString(x)).join("\n");
+
+            expect(ret).eq(expected);
+          });
+        });
+      });
+      describe("Try to hack", () => {
+        describe("Try to broke repay by sending small amount of borrow asset on balance of the TetuConverter", () => {
+          it("should return expected values", async () => {
+            const amountToRepay = 70;
+            const exactBorrowAmount = 120;
+            const r = await makeRepayTest(
+              [1_000_000],
+              [exactBorrowAmount],
+              amountToRepay,
+              false,
+              {
+                hackSendBorrowAssetAmountToBalance: "1"
+              }
+            );
+
+            const ret = [
+              r.countOpenedPositions,
+              r.totalDebtAmountOut
+            ].map(x => BalanceUtils.toString(x)).join("\n");
+
+            const expected = [
+              1,
+              getBigNumberFrom(exactBorrowAmount - amountToRepay, await r.init.targetToken.decimals())
             ].map(x => BalanceUtils.toString(x)).join("\n");
 
             expect(ret).eq(expected);
