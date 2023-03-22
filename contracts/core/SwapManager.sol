@@ -7,7 +7,6 @@ import "../libs/SwapLib.sol";
 import "../openzeppelin/IERC20Metadata.sol";
 import "../openzeppelin/IERC20.sol";
 import "../openzeppelin/SafeERC20.sol";
-import "../interfaces/ITetuLiquidator.sol";
 import "../interfaces/ISwapManager.sol";
 import "../interfaces/IConverterController.sol";
 import "../interfaces/ISwapConverter.sol";
@@ -15,6 +14,7 @@ import "../interfaces/IPriceOracle.sol";
 import "../interfaces/ISimulateProvider.sol";
 import "../interfaces/ISwapSimulator.sol";
 import "../interfaces/IRequireAmountBySwapManagerCallback.sol";
+import "../integrations/tetu/ITetuLiquidator.sol";
 
 /// @title Contract to find the best swap and make the swap
 /// @notice Combines Manager and Converter

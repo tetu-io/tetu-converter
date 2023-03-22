@@ -23,7 +23,7 @@ import "../interfaces/IKeeperCallback.sol";
 import "../interfaces/ITetuConverterCallback.sol";
 import "../interfaces/IRequireAmountBySwapManagerCallback.sol";
 import "../interfaces/IPriceOracle.sol";
-import "../interfaces/ITetuLiquidator.sol";
+import "../integrations/tetu/ITetuLiquidator.sol";
 import "../integrations/market/ICErc20.sol";
 
 /// @notice Main application contract
