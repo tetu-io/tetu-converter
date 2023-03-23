@@ -9,13 +9,12 @@ import {Aave3PlatformFabric} from "../baseUT/fabrics/Aave3PlatformFabric";
 import {TetuConverterApp} from "../baseUT/helpers/TetuConverterApp";
 import {DeployerUtils} from "../../scripts/utils/DeployerUtils";
 import {
-  BorrowManager__factory,
+  BorrowManager__factory, IBorrowManager,
   IERC20__factory, IERC20Metadata__factory,
   IPlatformAdapter__factory,
   IPoolAdapter__factory, ITetuConverter__factory
 } from "../../typechain";
 import {BalanceUtils} from "../baseUT/utils/BalanceUtils";
-import {generateAssetPairs} from "../baseUT/utils/AssetPairUtils";
 import {parseUnits} from "ethers/lib/utils";
 import {expect} from "chai";
 import {BigNumber} from "ethers";
@@ -188,25 +187,18 @@ describe("RepayTheBorrow @skip-on-coverage", () => {
       // unregister the platform adapter from Borrow Manager
       const countPlatformAdaptersBefore = await borrowManagerAsGov.platformAdaptersLength();
       if (closePosition) {
-        const assets: string[] = [
-          MaticAddresses.DAI,
-          MaticAddresses.USDC,
-          MaticAddresses.USDT,
-          MaticAddresses.EURS,
-          MaticAddresses.jEUR,
-          MaticAddresses.BALANCER,
-          MaticAddresses.WBTC,
-          MaticAddresses.WETH,
-          MaticAddresses.WMATIC,
-          MaticAddresses.SUSHI,
-          MaticAddresses.CRV,
-          MaticAddresses.agEUR,
-        ];
-        const assetPairs = generateAssetPairs(assets);
-        await borrowManagerAsGov.removeAssetPairs(platformAdapter.address,
-          assetPairs.map(x => x.smallerAddress),
-          assetPairs.map(x => x.biggerAddress),
-        );
+
+        if (params?.useAaveTwo) {
+          await AaveTwoPlatformFabric.unregisterPlatformAdapter(
+            borrowManagerAsGov as unknown as IBorrowManager,
+            platformAdapter.address
+          );
+        } else {
+          await Aave3PlatformFabric.unregisterPlatformAdapter(
+            borrowManagerAsGov as unknown as IBorrowManager,
+            platformAdapter.address
+          );
+        }
       }
       const countPlatformAdaptersAfter = await borrowManagerAsGov.platformAdaptersLength();
 

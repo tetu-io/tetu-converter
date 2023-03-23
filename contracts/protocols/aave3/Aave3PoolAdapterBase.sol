@@ -17,7 +17,6 @@ import "../../integrations/aave3/IAaveAddressesProvider.sol";
 import "../../integrations/aave3/Aave3ReserveConfiguration.sol";
 import "../../integrations/aave3/IAaveToken.sol";
 import "../../integrations/dforce/SafeRatioMath.sol";
-import "hardhat/console.sol";
 
 /// @notice Implementation of IPoolAdapter for AAVE-v3-protocol, see https://docs.aave.com/hub/
 /// @dev Instances of this contract are created using proxy-minimal pattern, so no constructor
@@ -327,7 +326,6 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer,
       if (borrowBalance != 0) {
         IERC20(assetBorrow).safeTransfer(receiver_, borrowBalance);
       }
-      console.log("borrowBalance", borrowBalance);
     } else {
       pool.withdraw(assetCollateral, amountCollateralToWithdraw, receiver_);
     }
@@ -548,12 +546,6 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer,
         ? 0
         : (collateralBalanceATokensLocal - aTokensBalance);
     }
-    console.log("totalDebtBase", totalDebtBase);
-    console.log("targetDecimals", targetDecimals);
-    console.log("borrowPrice", borrowPrice);
-    console.log("assetCollateral", assetCollateral);
-    console.log("targetDecimals > borrowPrice * 1", targetDecimals > borrowPrice * 1);
-    console.log("targetDecimals / borrowPrice / 1 ", targetDecimals / borrowPrice / 1);
 
     return (
     // Total amount of provided collateral in [collateral asset]

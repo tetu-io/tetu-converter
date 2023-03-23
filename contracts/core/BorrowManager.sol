@@ -18,8 +18,6 @@ import "../interfaces/IDebtMonitor.sol";
 import "../interfaces/ITetuConverter.sol";
 import "../integrations/market/ICErc20.sol";
 
-import "hardhat/console.sol";
-
 /// @notice Contains list of lending pools. Allow to select most efficient pool for the given collateral/borrow pair
 contract BorrowManager is IBorrowManager {
   using SafeERC20 for IERC20;
@@ -296,7 +294,6 @@ contract BorrowManager is IBorrowManager {
     uint[] memory amountsToBorrowOut,
     int[] memory aprs18Out
   ) {
-    console.log("findConverter.1");
     // get all platform adapters that support required pair of assets
     EnumerableSet.AddressSet storage pas = _pairsList[getAssetPairKey(p_.collateralAsset, p_.borrowAsset)];
 
@@ -312,7 +309,6 @@ contract BorrowManager is IBorrowManager {
         getTargetHealthFactor2(p_.borrowAsset)
       );
     }
-    console.log("findConverter.2");
 
     if (countFoundItems > 0) {
       // shrink output arrays to {countFoundItems} items and order results in ascending order of APR
