@@ -6,6 +6,7 @@ import "../../openzeppelin/IERC20.sol";
 import "../../openzeppelin/Initializable.sol";
 import "../../openzeppelin/IERC20Metadata.sol";
 import "../../libs/AppErrors.sol";
+import "../aaveShared/AaveSharedLib.sol";
 import "../../interfaces/IConverterController.sol";
 import "../../interfaces/IPoolAdapter.sol";
 import "../../interfaces/IDebtMonitor.sol";
@@ -16,6 +17,7 @@ import "../../integrations/aave3/IAaveAddressesProvider.sol";
 import "../../integrations/aave3/Aave3ReserveConfiguration.sol";
 import "../../integrations/aave3/IAaveToken.sol";
 import "../../integrations/dforce/SafeRatioMath.sol";
+import "hardhat/console.sol";
 
 /// @notice Implementation of IPoolAdapter for AAVE-v3-protocol, see https://docs.aave.com/hub/
 /// @dev Instances of this contract are created using proxy-minimal pattern, so no constructor
@@ -325,6 +327,7 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer,
       if (borrowBalance != 0) {
         IERC20(assetBorrow).safeTransfer(receiver_, borrowBalance);
       }
+      console.log("borrowBalance", borrowBalance);
     } else {
       pool.withdraw(assetCollateral, amountCollateralToWithdraw, receiver_);
     }
@@ -524,9 +527,9 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer,
     uint collateralAmountLiquidated
   ) {
     IAavePool pool = _pool;
-    IAavePriceOracle priceOracle = IAavePriceOracle(IAaveAddressesProvider(IAavePool(_pool).ADDRESSES_PROVIDER()).getPriceOracle());
+    IAavePriceOracle priceOracle = IAavePriceOracle(IAaveAddressesProvider(IAavePool(pool).ADDRESSES_PROVIDER()).getPriceOracle());
 
-    (uint256 totalCollateralBase, uint256 totalDebtBase,,,, uint256 hf18) = pool.getUserAccountData(address(this));
+    (uint totalCollateralBase, uint totalDebtBase,,,, uint hf18) = pool.getUserAccountData(address(this));
 
     address assetBorrow = borrowAsset;
     address assetCollateral = collateralAsset;
@@ -545,21 +548,27 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer,
         ? 0
         : (collateralBalanceATokensLocal - aTokensBalance);
     }
+    console.log("totalDebtBase", totalDebtBase);
+    console.log("targetDecimals", targetDecimals);
+    console.log("borrowPrice", borrowPrice);
+    console.log("assetCollateral", assetCollateral);
+    console.log("targetDecimals > borrowPrice * 1", targetDecimals > borrowPrice * 1);
+    console.log("targetDecimals / borrowPrice / 1 ", targetDecimals / borrowPrice / 1);
+
     return (
     // Total amount of provided collateral in [collateral asset]
       totalCollateralBase * (10 ** pool.getConfiguration(assetCollateral).getDecimals()) / collateralPrice,
       // Total amount of borrowed debt in [borrow asset]. 0 - for closed borrow positions.
       totalDebtBase == 0
         ? 0
-        : totalDebtBase * targetDecimals / borrowPrice
+        : (totalDebtBase * targetDecimals) / borrowPrice
       // We ask to pay slightly higher amount than current borrowed amount to exclude dust tokens problem.
       // See https://docs.aave.com/developers/core-contracts/pool#repay
       // We assume here, that 100 cents (in USD) should cover all possible dust
       // and give us a possibility to pass type(uint).max to repay function.
       // Ensure, that required debt exceeds totalDebtBase by at least token
-          + (targetDecimals > borrowPrice * 1
-              ? targetDecimals / borrowPrice / 1 // it's not valid for WBTC
-              : 1),
+      // The prices have decimals of base currency == 1e8
+        + AaveSharedLib.getReserveForDustDebt(targetDecimals, borrowPrice, 8),
       // Current health factor, decimals 18
       hf18,
       totalCollateralBase != 0 || totalDebtBase != 0,

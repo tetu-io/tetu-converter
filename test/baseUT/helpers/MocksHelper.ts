@@ -39,7 +39,12 @@ import {
   HfComptrollerMock,
   HfCTokenMock,
   PriceOracleStub,
-  EntryKindsFacade, SwapLibFacade, PoolAdapterMock2, TetuConverterCallbackMock, LendingPlatformMock2
+  EntryKindsFacade,
+  SwapLibFacade,
+  PoolAdapterMock2,
+  TetuConverterCallbackMock,
+  LendingPlatformMock2,
+  AaveSharedLibFacade
 } from "../../../typechain";
 import {IPoolInfo} from "./BorrowManagerHelper";
 import {getBigNumberFrom} from "../../../scripts/utils/NumberUtils";
@@ -592,6 +597,10 @@ export class MocksHelper {
 
   public static async getSwapLibFacade(deployer: SignerWithAddress) : Promise<SwapLibFacade> {
     return await DeployUtils.deployContract(deployer, "SwapLibFacade") as SwapLibFacade;
+  }
+
+  public static async getAaveSharedLibFacade(deployer: SignerWithAddress) : Promise<AaveSharedLibFacade> {
+    return await DeployUtils.deployContract(deployer, "AaveSharedLibFacade") as AaveSharedLibFacade;
   }
 //endregion Library facades
 }

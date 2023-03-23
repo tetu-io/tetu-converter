@@ -6,6 +6,7 @@ import "../../openzeppelin/IERC20.sol";
 import "../../openzeppelin/Initializable.sol";
 import "../../openzeppelin/IERC20Metadata.sol";
 import "../../libs/AppErrors.sol";
+import "../aaveShared/AaveSharedLib.sol";
 import "../../interfaces/IPoolAdapter.sol";
 import "../../interfaces/IPoolAdapterInitializer.sol";
 import "../../interfaces/IConverterController.sol";
@@ -537,15 +538,12 @@ contract AaveTwoPoolAdapter is IPoolAdapter, IPoolAdapterInitializer, Initializa
     // Total amount of borrowed debt in [borrow asset]. 0 - for closed borrow positions.
       totalDebtBase == 0
         ? 0
-        : totalDebtBase * targetDecimals / borrowPrice
         // We ask to pay slightly higher amount than current borrowed amount to exclude dust tokens problem.
         // See https://docs.aave.com/developers/core-contracts/pool#repay
-        // we assume here, that 100 cents (in USD) should cover all possible dust
+        // base currency is WETH, all prices are in WETH
+        // we assume here, that 0.1% of debt should cover all possible dust
         // and give us a possibility to pass type(uint).max to repay function
-        // Ensure, that required debt exceeds totalDebtBase by at least token
-          + (targetDecimals > borrowPrice * 1
-            ? targetDecimals / borrowPrice / 1 // it's not valid for WBTC
-            : 1),
+        : totalDebtBase * targetDecimals * 1001 / 1000 / borrowPrice, // todo allow to configure this value for each asset individually
     // Current health factor, decimals 18
       hf18,
       totalCollateralBase != 0 || totalDebtBase != 0,
@@ -554,6 +552,7 @@ contract AaveTwoPoolAdapter is IPoolAdapter, IPoolAdapterInitializer, Initializa
         : (collateralBalanceATokens - aTokensBalance)
     );
   }
+
 
 //  /// @notice Compute current cost of the money
 //  function getAPR18() external view override returns (int) {

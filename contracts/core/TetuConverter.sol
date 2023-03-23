@@ -24,7 +24,8 @@ import "../interfaces/ITetuConverterCallback.sol";
 import "../interfaces/IRequireAmountBySwapManagerCallback.sol";
 import "../interfaces/IPriceOracle.sol";
 import "../integrations/tetu/ITetuLiquidator.sol";
-import "../integrations/market/ICErc20.sol";
+
+import "hardhat/console.sol";
 
 /// @notice Main application contract
 contract TetuConverter is ITetuConverter, IKeeperCallback, IRequireAmountBySwapManagerCallback, ReentrancyGuard {
@@ -698,7 +699,7 @@ contract TetuConverter is ITetuConverter, IKeeperCallback, IRequireAmountBySwapM
       require(balanceAfter == balanceBefore + repaidAmountOut, AppErrors.WRONG_AMOUNT_RECEIVED);
     } else {
       require(
-        balanceAfter > balanceBefore && balanceAfter - balanceBefore == repaidAmountOut,
+        balanceAfter > balanceBefore && balanceAfter - balanceBefore <= repaidAmountOut,
         AppErrors.ZERO_BALANCE
       );
       repaidAmountOut = balanceAfter - balanceBefore;
@@ -707,10 +708,14 @@ contract TetuConverter is ITetuConverter, IKeeperCallback, IRequireAmountBySwapM
     // make full repay and close the position
     // repay is able to return small amount of borrow-asset back to the user, we should pass it to onTransferAmounts
     balanceBefore = IERC20(borrowAsset).balanceOf(user);
+    console.log("repayTheBorrow.balanceBefore", balanceBefore);
     // replaced by infinity approve: IERC20(borrowAsset).safeApprove(address(pa), repaidAmountOut);
     collateralAmountOut = pa.repay(repaidAmountOut, user, closePosition);
     emit OnRepayTheBorrow(poolAdapter_, collateralAmountOut, repaidAmountOut);
     balanceAfter = IERC20(borrowAsset).balanceOf(user);
+    console.log("repayTheBorrow.balanceAfter", balanceAfter);
+    console.log("repayTheBorrow.repaidAmountOut", repaidAmountOut);
+    console.log("repayTheBorrow.collateralAmountOut", collateralAmountOut);
 
     if (collateralAmountOut != 0) {
       address[] memory assets = new address[](2);

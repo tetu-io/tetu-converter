@@ -114,4 +114,14 @@ library AaveSharedLib {
   function rayMul(uint x, uint y) internal pure returns (uint) {
     return (x * y + HALF_RAY) / RAY;
   }
+
+  /// @notice Calculate additional small amount to include to the current debt to avoid dust problem
+  /// @param targetDecimals Target decimals as 10**N, i.e. 1e6
+  /// @param price Price of the borrowed asset, decimals {priceDecimals}
+  /// @param priceDecimals Decimals of the price, i.e. 8 for AAVE3
+  function getReserveForDustDebt(uint targetDecimals, uint price, uint8 priceDecimals) internal pure returns (uint) {
+    return (targetDecimals * 10**priceDecimals > price)
+      ? targetDecimals * 10**priceDecimals / price // it's not valid for WBTC
+      : 1; // at least 1 token of reserve
+  }
 }

@@ -4,7 +4,7 @@ import {ethers} from "hardhat";
 import {isPolygonForkInUse} from "../baseUT/utils/NetworkUtils";
 import {DForceChangePriceUtils} from "../baseUT/protocols/dforce/DForceChangePriceUtils";
 import {MaticAddresses} from "../../scripts/addresses/MaticAddresses";
-import {BorrowRepayUsesCase, IMakeTestSingleBorrowInstantRepayResults} from "../baseUT/uses-cases/BorrowRepayUsesCase";
+import {BorrowRepayUsesCase} from "../baseUT/uses-cases/BorrowRepayUsesCase";
 import {Aave3PlatformFabric} from "../baseUT/fabrics/Aave3PlatformFabric";
 import {TetuConverterApp} from "../baseUT/helpers/TetuConverterApp";
 import {DeployerUtils} from "../../scripts/utils/DeployerUtils";
@@ -20,6 +20,7 @@ import {parseUnits} from "ethers/lib/utils";
 import {expect} from "chai";
 import {BigNumber} from "ethers";
 import {ITestSingleBorrowParams} from "../baseUT/types/BorrowRepayDataTypes";
+import {AaveTwoPlatformFabric} from "../baseUT/fabrics/AaveTwoPlatformFabric";
 
 /**
  * Assume, some lending platform should be deactivated or
@@ -92,7 +93,8 @@ describe("RepayTheBorrow @skip-on-coverage", () => {
     interface IMakeRepayTheBorrow {
       amountMultiplier?: number;
       amountDivider?: number;
-      notClosePosition?: boolean
+      notClosePosition?: boolean;
+      useAaveTwo?: boolean; // by default - aave 3
     }
     interface IMakeRepayTheBorrowResults {
       countPlatformAdaptersBefore: number;
@@ -114,7 +116,11 @@ describe("RepayTheBorrow @skip-on-coverage", () => {
       // setup TetuConverter app
       const {controller} = await TetuConverterApp.buildApp(
         deployer,
-        [new Aave3PlatformFabric()],
+        [
+          params?.useAaveTwo
+            ? new AaveTwoPlatformFabric()
+            : new Aave3PlatformFabric()
+        ],
         {} // disable swap
       );
       const p = {
@@ -228,13 +234,48 @@ describe("RepayTheBorrow @skip-on-coverage", () => {
           r.countPlatformAdaptersBefore,
           r.countPlatformAdaptersAfter,
           r.userCollateralBalanceAfter.sub(r.userCollateralBalanceBefore).gt(parseUnits(r.p.collateralAmount.toString(), 18)),
+          // aave status returns amount-to-pay a bit bigger then it's necessary required because of dust tokens
+          // this amount should be returned back on full repay
+          r.onTransferAmountsAmounts[0].gt(0),
+          r.onTransferAmountsAmounts[1].gt(0),
         ].join();
 
         const expected = [
           1,
           0,
+          true,
+          true,
           true
         ].join();
+
+        console.log(r);
+
+        expect(ret).eq(expected);
+      });
+      it("should return collateral to user and unregister AAVETwo platform adapter ", async () => {
+        if (!await isPolygonForkInUse()) return;
+
+        const r = await makeRepayTheBorrow({useAaveTwo: true});
+
+        const ret = [
+          r.countPlatformAdaptersBefore,
+          r.countPlatformAdaptersAfter,
+          r.userCollateralBalanceAfter.sub(r.userCollateralBalanceBefore).gt(parseUnits(r.p.collateralAmount.toString(), 18)),
+          // aave status returns amount-to-pay a bit bigger then it's necessary required because of dust tokens
+          // this amount should be returned back on full repay
+          r.onTransferAmountsAmounts[0].gt(0),
+          r.onTransferAmountsAmounts[1].gt(0),
+        ].join();
+
+        const expected = [
+          1,
+          0,
+          true,
+          true,
+          true
+        ].join();
+
+        console.log(r);
 
         expect(ret).eq(expected);
       });
