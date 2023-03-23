@@ -35,7 +35,7 @@ import {controlGasLimitsEx} from "../../../scripts/utils/hardhatUtils";
 import {GAS_LIMIT_DFORCE_GET_CONVERSION_PLAN} from "../../baseUT/GasLimit";
 import {AppConstants} from "../../baseUT/AppConstants";
 
-describe("DForce integration tests, platform adapter", () => {
+describe("DForcePlatformAdapterTest", () => {
 //region Global vars for all tests
   let snapshot: string;
   let snapshotForEach: string;

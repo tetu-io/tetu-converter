@@ -378,6 +378,9 @@ contract Borrower is ITetuConverterCallback {
     onTransferAmountsAssets = assets_;
     onTransferAmountsAmounts = amounts_;
   }
+  function getOnTransferAmountsResults() external view returns (address[] memory assets_, uint[] memory amounts_) {
+    return (onTransferAmountsAssets, onTransferAmountsAmounts);
+  }
 
 //  function requireRepay(
 //    address collateralAsset_,

@@ -18,6 +18,8 @@ import {BalanceUtils} from "../baseUT/utils/BalanceUtils";
 import {generateAssetPairs} from "../baseUT/utils/AssetPairUtils";
 import {parseUnits} from "ethers/lib/utils";
 import {expect} from "chai";
+import {BigNumber} from "ethers";
+import {ITestSingleBorrowParams} from "../baseUT/types/BorrowRepayDataTypes";
 
 /**
  * Assume, some lending platform should be deactivated or
@@ -57,7 +59,7 @@ describe("RepayTheBorrow @skip-on-coverage", () => {
     if (!await isPolygonForkInUse()) return;
     // We need to replace DForce price oracle by custom one
     // because when we run all tests
-    // DForce-prices deprecate before DForce tests are run
+    // DForce-prices deprecate before DForce tests are run,
     // and we have TC-4 (zero price) error in DForce-tests
     await DForceChangePriceUtils.setupPriceOracleMock(deployer);
   });
@@ -76,117 +78,194 @@ describe("RepayTheBorrow @skip-on-coverage", () => {
 //endregion before, after
 
 //region Unit tests
-  describe("Replace one lending platform by another", () =>{
-    describe("Dai=>USDC", () => {
-      const ASSET_COLLATERAL = MaticAddresses.DAI;
-      const HOLDER_COLLATERAL = MaticAddresses.HOLDER_DAI;
-      const ASSET_BORROW = MaticAddresses.USDC;
-      const HOLDER_BORROW = MaticAddresses.HOLDER_USDC;
-      const AMOUNT_COLLATERAL = 1_000;
-      const INITIAL_LIQUIDITY_COLLATERAL = 100_000;
-      const INITIAL_LIQUIDITY_BORROW = 80_000;
-      const HEALTH_FACTOR2 = 200;
-      const COUNT_BLOCKS = 1_000
-      describe("Exclude AAVE3", () => {
-        it("should return collateral to user and unregister AAVE3 platform adapter ", async () => {
-          if (!await isPolygonForkInUse()) return;
+  describe("Dai=>USDC", () => {
+    const ASSET_COLLATERAL = MaticAddresses.DAI;
+    const HOLDER_COLLATERAL = MaticAddresses.HOLDER_DAI;
+    const ASSET_BORROW = MaticAddresses.USDC;
+    const HOLDER_BORROW = MaticAddresses.HOLDER_USDC;
+    const AMOUNT_COLLATERAL = 1_000;
+    const INITIAL_LIQUIDITY_COLLATERAL = 100_000;
+    const INITIAL_LIQUIDITY_BORROW = 80_000;
+    const HEALTH_FACTOR2 = 200;
+    const COUNT_BLOCKS = 1_000
 
-          // setup TetuConverter app
-          const {controller} = await TetuConverterApp.buildApp(
-            deployer,
-            [new Aave3PlatformFabric()],
-            {} // disable swap
-          );
-          const p = {
-            collateral: {
-              asset: ASSET_COLLATERAL,
-              holder: HOLDER_COLLATERAL,
-              initialLiquidity: INITIAL_LIQUIDITY_COLLATERAL,
-            },
-            borrow: {
-              asset: ASSET_BORROW,
-              holder: HOLDER_BORROW,
-              initialLiquidity: INITIAL_LIQUIDITY_BORROW,
-            },
-            collateralAmount: AMOUNT_COLLATERAL,
-            healthFactor2: HEALTH_FACTOR2,
-            countBlocks: COUNT_BLOCKS,
-          };
+    interface IMakeRepayTheBorrow {
+      amountMultiplier?: number;
+      amountDivider?: number;
+      notClosePosition?: boolean
+    }
+    interface IMakeRepayTheBorrowResults {
+      countPlatformAdaptersBefore: number;
+      userCollateralBalanceBefore: BigNumber;
+      userBorrowBalanceBefore: BigNumber;
 
-          // make a borrow using AAVE3
-          const r = await BorrowRepayUsesCase.makeBorrow(deployer, p, controller);
-          const borrower = r.uc;
-          const governance = await DeployerUtils.startImpersonate(await controller.governance());
+      countPlatformAdaptersAfter: number;
+      userCollateralBalanceAfter: BigNumber;
+      userBorrowBalanceAfter: BigNumber;
+      p: ITestSingleBorrowParams;
 
-          // set tetuConverter on pause
-          await controller.connect(governance).setPaused(true);
+      onTransferAmountsAssets: string[];
+      onTransferAmountsAmounts: BigNumber[];
+    }
 
-          // find FIRST borrow opened for the given lending platform (there is only one borrow in our case)
-          const borrowManagerAsGov = BorrowManager__factory.connect(await controller.borrowManager(), governance);
-          const poolAdapter = IPoolAdapter__factory.connect(await borrowManagerAsGov.listPoolAdapters(0), deployer);
+    async function makeRepayTheBorrow(
+      params?: IMakeRepayTheBorrow
+    ): Promise<IMakeRepayTheBorrowResults> {
+      // setup TetuConverter app
+      const {controller} = await TetuConverterApp.buildApp(
+        deployer,
+        [new Aave3PlatformFabric()],
+        {} // disable swap
+      );
+      const p = {
+        collateral: {
+          asset: ASSET_COLLATERAL,
+          holder: HOLDER_COLLATERAL,
+          initialLiquidity: INITIAL_LIQUIDITY_COLLATERAL,
+        },
+        borrow: {
+          asset: ASSET_BORROW,
+          holder: HOLDER_BORROW,
+          initialLiquidity: INITIAL_LIQUIDITY_BORROW,
+        },
+        collateralAmount: AMOUNT_COLLATERAL,
+        healthFactor2: HEALTH_FACTOR2,
+        countBlocks: COUNT_BLOCKS,
+      };
 
-          // freeze the platform adapter of the lending platform
-          const config = await poolAdapter.getConfig();
-          const platformAdapter = IPlatformAdapter__factory.connect(
-            await borrowManagerAsGov.getPlatformAdapter(config.originConverter),
-            governance
-          );
-          await platformAdapter.setFrozen(true);
+      // make a borrow using AAVE3
+      const r = await BorrowRepayUsesCase.makeBorrow(deployer, p, controller);
+      const borrower = r.uc;
+      const governance = await DeployerUtils.startImpersonate(await controller.governance());
 
-          // call repayTheBorrow for each found borrow
-          const tcAsGov = ITetuConverter__factory.connect(await controller.tetuConverter(), governance);
-          const status = await poolAdapter.getStatus();
-          await BalanceUtils.getRequiredAmountFromHolders(
-            status.amountToPay.mul(2),
-            IERC20Metadata__factory.connect(p.borrow.asset, deployer),
-            [p.borrow.holder],
-            borrower.address
-          );
-          const userCollateralBalanceBefore = await IERC20__factory.connect(p.collateral.asset, deployer).balanceOf(borrower.address);
-          await tcAsGov.repayTheBorrow(poolAdapter.address, true);
-          const userCollateralBalanceAfter = await IERC20__factory.connect(p.collateral.asset, deployer).balanceOf(borrower.address);
+      // set tetuConverter on pause
+      await controller.connect(governance).setPaused(true);
 
-          // unregister the platform adapter from Borrow Manager
-          const countPlatformAdaptersBefore = await borrowManagerAsGov.platformAdaptersLength();
-          const assets: string[] = [
-            MaticAddresses.DAI,
-            MaticAddresses.USDC,
-            MaticAddresses.USDT,
-            MaticAddresses.EURS,
-            MaticAddresses.jEUR,
-            MaticAddresses.BALANCER,
-            MaticAddresses.WBTC,
-            MaticAddresses.WETH,
-            MaticAddresses.WMATIC,
-            MaticAddresses.SUSHI,
-            MaticAddresses.CRV,
-            MaticAddresses.agEUR,
-          ];
-          const assetPairs = generateAssetPairs(assets);
-          await borrowManagerAsGov.removeAssetPairs(platformAdapter.address,
-            assetPairs.map(x => x.smallerAddress),
-            assetPairs.map(x => x.biggerAddress),
-          );
-          const countPlatformAdaptersAfter = await borrowManagerAsGov.platformAdaptersLength();
+      // find FIRST borrow opened for the given lending platform (there is only one borrow in our case)
+      const borrowManagerAsGov = BorrowManager__factory.connect(await controller.borrowManager(), governance);
+      const poolAdapter = IPoolAdapter__factory.connect(await borrowManagerAsGov.listPoolAdapters(0), deployer);
 
-          const ret = [
-            countPlatformAdaptersBefore.toNumber(),
-            countPlatformAdaptersAfter.toNumber(),
-            userCollateralBalanceAfter.sub(userCollateralBalanceBefore)
-              .gt(parseUnits(p.collateralAmount.toString(), 18))
-          ].join();
+      // freeze the platform adapter of the lending platform
+      const config = await poolAdapter.getConfig();
+      const platformAdapter = IPlatformAdapter__factory.connect(
+        await borrowManagerAsGov.getPlatformAdapter(config.originConverter),
+        governance
+      );
+      await platformAdapter.setFrozen(true);
 
-          const expected = [
-            1,
-            0,
-            true
-          ].join();
+      // call repayTheBorrow for each found borrow
+      const tcAsGov = ITetuConverter__factory.connect(await controller.tetuConverter(), governance);
+      const status = await poolAdapter.getStatus();
+      await BalanceUtils.getRequiredAmountFromHolders(
+        status.amountToPay.mul(2),
+        IERC20Metadata__factory.connect(p.borrow.asset, deployer),
+        [p.borrow.holder],
+        borrower.address
+      );
 
-          expect(ret).eq(expected);
-        });
+      if (params?.amountMultiplier && params?.amountDivider) {
+        await borrower.setUpRequireAmountBack(
+          status.amountToPay.mul(params?.amountMultiplier).div(params?.amountDivider)
+        );
+      }
+
+      // move time to increase our debt a bit
+      await TimeUtils.advanceNBlocks(2000);
+
+      const closePosition = !params?.notClosePosition;
+      const userCollateralBalanceBefore = await IERC20__factory.connect(p.collateral.asset, deployer).balanceOf(borrower.address);
+      const userBorrowBalanceBefore = await IERC20__factory.connect(p.borrow.asset, deployer).balanceOf(borrower.address);
+      await tcAsGov.repayTheBorrow(poolAdapter.address, closePosition);
+      const userCollateralBalanceAfter = await IERC20__factory.connect(p.collateral.asset, deployer).balanceOf(borrower.address);
+      const userBorrowBalanceAfter = await IERC20__factory.connect(p.borrow.asset, deployer).balanceOf(borrower.address);
+
+      // unregister the platform adapter from Borrow Manager
+      const countPlatformAdaptersBefore = await borrowManagerAsGov.platformAdaptersLength();
+      if (closePosition) {
+        const assets: string[] = [
+          MaticAddresses.DAI,
+          MaticAddresses.USDC,
+          MaticAddresses.USDT,
+          MaticAddresses.EURS,
+          MaticAddresses.jEUR,
+          MaticAddresses.BALANCER,
+          MaticAddresses.WBTC,
+          MaticAddresses.WETH,
+          MaticAddresses.WMATIC,
+          MaticAddresses.SUSHI,
+          MaticAddresses.CRV,
+          MaticAddresses.agEUR,
+        ];
+        const assetPairs = generateAssetPairs(assets);
+        await borrowManagerAsGov.removeAssetPairs(platformAdapter.address,
+          assetPairs.map(x => x.smallerAddress),
+          assetPairs.map(x => x.biggerAddress),
+        );
+      }
+      const countPlatformAdaptersAfter = await borrowManagerAsGov.platformAdaptersLength();
+
+      const onTransferAmountsResults = await borrower.getOnTransferAmountsResults();
+      return {
+        userCollateralBalanceAfter,
+        countPlatformAdaptersAfter: countPlatformAdaptersAfter.toNumber(),
+        countPlatformAdaptersBefore: countPlatformAdaptersBefore.toNumber(),
+        userCollateralBalanceBefore,
+        userBorrowBalanceBefore,
+        userBorrowBalanceAfter,
+        p,
+        onTransferAmountsAssets: onTransferAmountsResults.assets_,
+        onTransferAmountsAmounts: onTransferAmountsResults.amounts_
+      }
+    }
+
+    describe("Remove lending platform", () =>{
+      it("should return collateral to user and unregister AAVE3 platform adapter ", async () => {
+        if (!await isPolygonForkInUse()) return;
+
+        const r = await makeRepayTheBorrow();
+
+        const ret = [
+          r.countPlatformAdaptersBefore,
+          r.countPlatformAdaptersAfter,
+          r.userCollateralBalanceAfter.sub(r.userCollateralBalanceBefore).gt(parseUnits(r.p.collateralAmount.toString(), 18)),
+        ].join();
+
+        const expected = [
+          1,
+          0,
+          true
+        ].join();
+
+        expect(ret).eq(expected);
+      });
+    });
+    describe("Not close position", () => {
+      it("should make partial repayment if amount is less than required", async () => {
+        if (!await isPolygonForkInUse()) return;
+
+        const r = await makeRepayTheBorrow(
+          {
+            amountMultiplier: 1,
+            amountDivider: 2,
+            notClosePosition: true
+          }
+        );
+
+        const ret = [
+          r.countPlatformAdaptersBefore,
+          r.countPlatformAdaptersAfter,
+          r.userCollateralBalanceAfter.sub(r.userCollateralBalanceBefore).gt(0)
+        ].join();
+
+        const expected = [
+          1,
+          1,
+          true
+        ].join();
+
+        expect(ret).eq(expected);
       });
     });
   });
-
 //endregion Unit tests
 });

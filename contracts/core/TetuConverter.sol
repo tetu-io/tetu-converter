@@ -662,7 +662,8 @@ contract TetuConverter is ITetuConverter, IKeeperCallback, IRequireAmountBySwapM
   ///       Close borrow forcibly by governance
   ///////////////////////////////////////////////////////
   /// @notice Close given borrow and return collateral back to the user, governance only
-  /// @dev The pool adapter asks required amount-to-repay from the user internally
+  /// @dev The pool adapter asks required amount-to-repay from the user internally.
+  ///      It notifies the user about any amounts transferred to the user on borrow closing.
   /// @param poolAdapter_ The pool adapter that represents the borrow
   /// @param closePosition Close position after repay
   ///        Usually it should be true, because the function always tries to repay all debt
@@ -696,11 +697,15 @@ contract TetuConverter is ITetuConverter, IKeeperCallback, IRequireAmountBySwapM
     if (closePosition) {
       require(balanceAfter == balanceBefore + repaidAmountOut, AppErrors.WRONG_AMOUNT_RECEIVED);
     } else {
-      require(balanceAfter > balanceBefore, AppErrors.ZERO_BALANCE);
+      require(
+        balanceAfter > balanceBefore && balanceAfter - balanceBefore == repaidAmountOut,
+        AppErrors.ZERO_BALANCE
+      );
       repaidAmountOut = balanceAfter - balanceBefore;
     }
 
     // make full repay and close the position
+    // repay is able to return small amount of borrow-asset back to the user, we should pass it to onTransferAmounts
     balanceBefore = IERC20(borrowAsset).balanceOf(user);
     // replaced by infinity approve: IERC20(borrowAsset).safeApprove(address(pa), repaidAmountOut);
     collateralAmountOut = pa.repay(repaidAmountOut, user, closePosition);
@@ -709,13 +714,12 @@ contract TetuConverter is ITetuConverter, IKeeperCallback, IRequireAmountBySwapM
 
     if (collateralAmountOut != 0) {
       address[] memory assets = new address[](2);
-      // repay is able to return small amount of borrow-asset back to the user, we should pass it to onTransferAmounts
       assets[0] = borrowAsset;
       assets[1] = collateralAsset;
       uint[] memory amounts = new uint[](2);
       amounts[0] = balanceAfter > balanceBefore
         ? balanceAfter - balanceBefore
-        : 0;
+        : 0; // for simplicity, we send zero amount to user too.. the user will just ignore it
       amounts[1] = collateralAmountOut;
       ITetuConverterCallback(user).onTransferAmounts(assets, amounts);
     }

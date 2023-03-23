@@ -22,7 +22,7 @@ import {formatUnits, parseUnits} from "ethers/lib/utils";
 import {DForceHelper} from "../../../scripts/integration/helpers/DForceHelper";
 
 
-describe("DForce integration tests, pool adapter", () => {
+describe("DForcePoolAdapterIntTest", () => {
 //region Global vars for all tests
   let snapshot: string;
   let snapshotForEach: string;

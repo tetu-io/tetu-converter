@@ -14,11 +14,6 @@ deposit;2;WMATIC;;20000;0xded8c5159ca3673f543d0f72043e4c655b35b96a;;
 deposit;3;WMATIC;;20000;0xded8c5159ca3673f543d0f72043e4c655b35b96a;;
 freeze;aave3;;;;;;
 freeze;aave2;;;;;;
-freeze;dforce;;;;;;
-unfreeze;hf;;;;;;
-borrow;1;DAI;USDT;50000;;10;borrow on hundred finance
-unfreeze;dforce;;;;;;
-freeze;hf;;;;;;
 borrow;2;DAI;USDT;2000;;1;borrow on Dforce
 unfreeze;aave2;;;;;;
 freeze;dforce;;;;;;
@@ -29,7 +24,6 @@ borrow;1;DAI;USDT;25000;;121;borrow on AAVE3
 unfreeze;aave3;;;;;;
 unfreeze;aave2;;;;;;
 unfreeze;dforce;;;;;;
-unfreeze;hf;;;;;;
 rebalance;;;;;;;
 borrow;1;DAI;USDT;17000;;10;borrow on best
 borrow;1;DAI;USDT;130000;;11;
@@ -42,19 +36,17 @@ repay;2;DAI;USDT;500;;45;
 repay;3;DAI;USDT;10000;;25;
 repay;3;DAI;USDT;5000;;15;
 freeze;dforce;;;;;;
-freeze;hf;;;;;;
 borrow;1;DAI;USDC;7000;;10;borrow on AAVE 2 or 3
 borrow;1;DAI;USDC;300000;;11;
 borrow;2;DAI;USDC;200;;17;
 unfreeze;dforce;;;;;;
-unfreeze;hf;;;;;;
 freeze;aave3;;;;;;
 freeze;aave2;;;;;;
 health;;;;;240;;
 rebalance;;;;;;;
 rebalance;;;;;;;
 rebalance;;;;;;;
-borrow;3;DAI;USDC;1;;3;borrow on DF or HF
+borrow;3;DAI;USDC;1;;3;borrow on DF
 borrow;3;DAI;USDC;5000;;5;
 borrow;3;DAI;USDC;100;;25;
 repay;1;DAI;USDC;150000;;15;
