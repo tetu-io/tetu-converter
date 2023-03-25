@@ -23,8 +23,7 @@ import "../interfaces/IKeeperCallback.sol";
 import "../interfaces/ITetuConverterCallback.sol";
 import "../interfaces/IRequireAmountBySwapManagerCallback.sol";
 import "../interfaces/IPriceOracle.sol";
-import "../interfaces/ITetuLiquidator.sol";
-import "../integrations/market/ICErc20.sol";
+import "../integrations/tetu/ITetuLiquidator.sol";
 
 /// @notice Main application contract
 contract TetuConverter is ITetuConverter, IKeeperCallback, IRequireAmountBySwapManagerCallback, ReentrancyGuard {
@@ -491,7 +490,7 @@ contract TetuConverter is ITetuConverter, IKeeperCallback, IRequireAmountBySwapM
     require(receiver_ != address(0), AppErrors.ZERO_ADDRESS);
 
     // ensure that we have received required amount
-    require(amountToRepay_ == IERC20(borrowAsset_).balanceOf(address(this)), AppErrors.WRONG_AMOUNT_RECEIVED);
+    require(amountToRepay_ <= IERC20(borrowAsset_).balanceOf(address(this)), AppErrors.WRONG_AMOUNT_RECEIVED);
 
     // we will decrease amountToRepay_ in the code (to avoid creation additional variable)
     // it shows how much is left to convert from borrow asset to collateral asset
@@ -662,7 +661,8 @@ contract TetuConverter is ITetuConverter, IKeeperCallback, IRequireAmountBySwapM
   ///       Close borrow forcibly by governance
   ///////////////////////////////////////////////////////
   /// @notice Close given borrow and return collateral back to the user, governance only
-  /// @dev The pool adapter asks required amount-to-repay from the user internally
+  /// @dev The pool adapter asks required amount-to-repay from the user internally.
+  ///      It notifies the user about any amounts transferred to the user on borrow closing.
   /// @param poolAdapter_ The pool adapter that represents the borrow
   /// @param closePosition Close position after repay
   ///        Usually it should be true, because the function always tries to repay all debt
@@ -678,7 +678,7 @@ contract TetuConverter is ITetuConverter, IKeeperCallback, IRequireAmountBySwapM
 
     // update internal debts and get actual amount to repay
     IPoolAdapter pa = IPoolAdapter(poolAdapter_);
-    (,address user,, address borrowAsset) = pa.getConfig();
+    (,address user, address collateralAsset, address borrowAsset) = pa.getConfig();
     pa.updateStatus();
     (collateralAmountOut, repaidAmountOut,,,) = pa.getStatus();
 
@@ -696,15 +696,32 @@ contract TetuConverter is ITetuConverter, IKeeperCallback, IRequireAmountBySwapM
     if (closePosition) {
       require(balanceAfter == balanceBefore + repaidAmountOut, AppErrors.WRONG_AMOUNT_RECEIVED);
     } else {
-      require(balanceAfter > balanceBefore, AppErrors.ZERO_BALANCE);
+      require(
+        balanceAfter > balanceBefore && balanceAfter - balanceBefore <= repaidAmountOut,
+        AppErrors.ZERO_BALANCE
+      );
       repaidAmountOut = balanceAfter - balanceBefore;
     }
 
     // make full repay and close the position
-
+    // repay is able to return small amount of borrow-asset back to the user, we should pass it to onTransferAmounts
+    balanceBefore = IERC20(borrowAsset).balanceOf(user);
     // replaced by infinity approve: IERC20(borrowAsset).safeApprove(address(pa), repaidAmountOut);
     collateralAmountOut = pa.repay(repaidAmountOut, user, closePosition);
     emit OnRepayTheBorrow(poolAdapter_, collateralAmountOut, repaidAmountOut);
+    balanceAfter = IERC20(borrowAsset).balanceOf(user);
+
+    if (collateralAmountOut != 0) {
+      address[] memory assets = new address[](2);
+      assets[0] = borrowAsset;
+      assets[1] = collateralAsset;
+      uint[] memory amounts = new uint[](2);
+      amounts[0] = balanceAfter > balanceBefore
+        ? balanceAfter - balanceBefore
+        : 0; // for simplicity, we send zero amount to user too.. the user will just ignore it
+      amounts[1] = collateralAmountOut;
+      ITetuConverterCallback(user).onTransferAmounts(assets, amounts);
+    }
 
     return (collateralAmountOut, repaidAmountOut);
   }

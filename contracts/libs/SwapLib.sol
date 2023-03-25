@@ -50,9 +50,8 @@ library SwapLib {
       * priceIn
       / priceOut
       / 10**IERC20Metadata(assetIn_).decimals();
-    return (amountOut_ > expectedAmountOut
-      ? 0 // we assume here, that higher output amount is not a problem
-      : expectedAmountOut - amountOut_
-    ) <= expectedAmountOut * priceImpactTolerance_ / SwapLib.PRICE_IMPACT_NUMERATOR;
+    return amountOut_ > expectedAmountOut
+      ? true // we assume here, that higher output amount is not a problem
+      : (expectedAmountOut - amountOut_) <= expectedAmountOut * priceImpactTolerance_ / SwapLib.PRICE_IMPACT_NUMERATOR;
   }
 }

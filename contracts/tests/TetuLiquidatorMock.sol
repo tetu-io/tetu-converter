@@ -2,7 +2,7 @@
 pragma solidity 0.8.17;
 
 import "../libs/AppDataTypes.sol";
-import "../interfaces/ITetuLiquidator.sol";
+import "../integrations/tetu/ITetuLiquidator.sol";
 import "../openzeppelin/IERC20.sol";
 import "../tests/tokens/IMockERC20.sol";
 import "hardhat/console.sol";

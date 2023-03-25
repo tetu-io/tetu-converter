@@ -1,4 +1,10 @@
-import {IBorrowManager__factory, IConverterController, IERC20, IERC20__factory} from "../../../typechain";
+import {
+  IBorrowManager,
+  IBorrowManager__factory,
+  IConverterController,
+  IERC20,
+  IERC20__factory
+} from "../../../typechain";
 import {ILendingPlatformFabric, ILendingPlatformPoolInfo} from "./ILendingPlatformFabric";
 import {AdaptersHelper} from "../helpers/AdaptersHelper";
 import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
@@ -42,5 +48,27 @@ export class AaveTwoPlatformFabric implements ILendingPlatformFabric {
       pool: IERC20__factory.connect(aavePool.address, deployer),
       platformAdapter: aavePlatformAdapter.address
     }
+  }
+
+  static async unregisterPlatformAdapter(borrowManagerAsGov: IBorrowManager, platformAdapter: string) {
+    const assets: string[] = [
+      MaticAddresses.DAI,
+      MaticAddresses.USDC,
+      MaticAddresses.USDT,
+      MaticAddresses.BALANCER,
+      MaticAddresses.WBTC,
+      MaticAddresses.WETH,
+      MaticAddresses.WMATIC,
+      MaticAddresses.SUSHI,
+      MaticAddresses.CRV,
+      MaticAddresses.CHAIN_LINK,
+      MaticAddresses.AavegotchiGHST,
+      MaticAddresses.DefiPulseToken,
+    ];
+    const assetPairs = generateAssetPairs(assets);
+    await borrowManagerAsGov.removeAssetPairs(platformAdapter,
+      assetPairs.map(x => x.smallerAddress),
+      assetPairs.map(x => x.biggerAddress),
+    );
   }
 }

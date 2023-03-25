@@ -19,9 +19,8 @@ import {existsSync, writeFileSync} from "fs";
 import {DForceChangePriceUtils} from "../../baseUT/protocols/dforce/DForceChangePriceUtils";
 import {Aave3Helper} from "../../../scripts/integration/helpers/Aave3Helper";
 import {isPolygonForkInUse} from "../../baseUT/utils/NetworkUtils";
-import {DeployerUtils} from "../../../scripts/utils/DeployerUtils";
 
-describe("CompareAprBorrowRepayTest @skip-on-coverage", () => {
+describe.skip("CompareAprBorrowRepayTest @skip-on-coverage", () => {
 //region Constants
   const HEALTH_FACTOR2 = 400;
   const COUNT_BLOCKS_LARGE = 20_000;
@@ -36,7 +35,7 @@ describe("CompareAprBorrowRepayTest @skip-on-coverage", () => {
   let controllerForAave3: ConverterController;
   let controllerForAaveTwo: ConverterController;
   let controllerForDForce: ConverterController;
-  let controllerForHundredFinance: ConverterController;
+  // let controllerForHundredFinance: ConverterController;
   let controllerSwap: ConverterController;
 
   let dai: ITokenParams;
@@ -79,13 +78,13 @@ describe("CompareAprBorrowRepayTest @skip-on-coverage", () => {
       // because origin oracle doesn't allow to advance blocks (prices become deprecated)
       await DForceChangePriceUtils.setupPriceOracleMock(deployer, true);
     }
-    {
-      const {controller} = await TetuConverterApp.buildApp(deployer,
-        [new HundredFinancePlatformFabric()],
-        {} // disable swap
-      );
-      controllerForHundredFinance = controller;
-    }
+    // {
+    //   const {controller} = await TetuConverterApp.buildApp(deployer,
+    //     [new HundredFinancePlatformFabric()],
+    //     {} // disable swap
+    //   );
+    //   controllerForHundredFinance = controller;
+    // }
     {
       const {controller} = await TetuConverterApp.buildApp(deployer,
         [],
@@ -270,7 +269,7 @@ describe("CompareAprBorrowRepayTest @skip-on-coverage", () => {
 //endregion Test impl
 
 //region Unit tests
-  describe.skip("Compare APR", () => {
+  describe("Compare APR", () => {
     async function generateCompareApr(useMaxAvailableCollateralAmounts: boolean) {
       const pathOut = "tmp/compareApr.csv";
       const assets = [
@@ -295,8 +294,8 @@ describe("CompareAprBorrowRepayTest @skip-on-coverage", () => {
         )
       );
       console.log("Max amounts", maxAmounts);
-      const platforms = [controllerForAave3, controllerForAaveTwo, controllerForDForce, controllerForHundredFinance, controllerSwap];
-      const platformTitles = ["AAVE3", "AAVETwo", "DForce", "HundredFinance", "Swap"];
+      const platforms = [controllerForAave3, controllerForAaveTwo, controllerForDForce, controllerSwap];
+      const platformTitles = ["AAVE3", "AAVETwo", "DForce", "Swap"];
 
       const amounts = useMaxAvailableCollateralAmounts ? maxAmounts : fixedAmounts;
       for (let n = 0; n < platforms.length; ++n) {

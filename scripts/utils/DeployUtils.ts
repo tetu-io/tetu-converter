@@ -76,7 +76,7 @@ export class DeployUtils {
 
     if (hre.network.name !== 'hardhat' && network.name !== 'localhost') {
       console.log("Wait before verification");
-      await Misc.wait(120); // 10
+      await Misc.wait(20); // 10
       console.log("Start verification");
       if (args.length === 0) {
         await VerifyUtils.verify(receipt.contractAddress);

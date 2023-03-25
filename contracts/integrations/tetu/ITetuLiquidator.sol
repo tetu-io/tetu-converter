@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: MIT
+
 pragma solidity 0.8.17;
 
 interface ITetuLiquidator {
@@ -25,14 +26,12 @@ interface ITetuLiquidator {
     address tokenIn,
     address tokenOut,
     uint amount,
-    uint slippage
+    uint priceImpactTolerance
   ) external;
 
   function liquidateWithRoute(
     PoolData[] memory route,
     uint amount,
-    uint slippage
+    uint priceImpactTolerance
   ) external;
-
-
 }

@@ -178,8 +178,8 @@ export class EmulateWork {
     const assetContract2 = await this.getAsset(asset2);
     const amountValue = await this.getAmount(amount, assetContract1);
 
-    const dest = await borrower.callStatic.borrowMaxAmount(assetContract1.address, amountValue, assetContract2.address, borrower.address);
-    await borrower.borrowMaxAmount(assetContract1.address, amountValue, assetContract2.address, borrower.address);
+    const dest = await borrower.callStatic.borrowMaxAmount("0x", assetContract1.address, amountValue, assetContract2.address, borrower.address);
+    await borrower.borrowMaxAmount("0x", assetContract1.address, amountValue, assetContract2.address, borrower.address);
     return dest.converterOut;
   }
 

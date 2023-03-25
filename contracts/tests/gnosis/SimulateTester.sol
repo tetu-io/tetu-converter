@@ -2,10 +2,10 @@
 pragma solidity 0.8.17;
 
 import "./SimulateContainer.sol";
-import "../../interfaces/ITetuLiquidator.sol";
 import "../../openzeppelin/IERC20.sol";
 import "../../openzeppelin/SafeERC20.sol";
 import "./ISimulateTester.sol";
+import "../../integrations/tetu/ITetuLiquidator.sol";
 
 contract SimulateTester is ISimulateTester {
   using SafeERC20 for IERC20;

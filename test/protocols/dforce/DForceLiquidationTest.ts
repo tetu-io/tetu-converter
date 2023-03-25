@@ -10,7 +10,7 @@ import {DForceTestUtils, IPrepareToLiquidationResults} from "../../baseUT/protoc
 /**
  * These tests allow to play with liquidation and see how the app works if a liquidation happens
  */
-describe.skip("DForceLiquidationTest - simulate liquidation", () => {
+describe.skip("DForceLiquidationTest", () => {
 //region Constants
   const collateralAsset = MaticAddresses.USDC;
   const collateralHolder = MaticAddresses.HOLDER_USDC;

@@ -1,4 +1,4 @@
-import {IBorrowManager__factory, IConverterController, IERC20__factory} from "../../../typechain";
+import {IBorrowManager, IBorrowManager__factory, IConverterController, IERC20__factory} from "../../../typechain";
 import {Aave3Helper} from "../../../scripts/integration/helpers/Aave3Helper";
 import {AdaptersHelper} from "../helpers/AdaptersHelper";
 import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
@@ -46,5 +46,27 @@ export class Aave3PlatformFabric implements ILendingPlatformFabric {
       pool: IERC20__factory.connect(aavePool.address, deployer),
       platformAdapter: aavePlatformAdapter.address
     }
+  }
+
+  static async unregisterPlatformAdapter(borrowManagerAsGov: IBorrowManager, platformAdapter: string) {
+    const assets: string[] = [
+      MaticAddresses.DAI,
+      MaticAddresses.USDC,
+      MaticAddresses.USDT,
+      MaticAddresses.EURS,
+      MaticAddresses.jEUR,
+      MaticAddresses.BALANCER,
+      MaticAddresses.WBTC,
+      MaticAddresses.WETH,
+      MaticAddresses.WMATIC,
+      MaticAddresses.SUSHI,
+      MaticAddresses.CRV,
+      MaticAddresses.agEUR,
+    ];
+    const assetPairs = generateAssetPairs(assets);
+    await borrowManagerAsGov.removeAssetPairs(platformAdapter,
+      assetPairs.map(x => x.smallerAddress),
+      assetPairs.map(x => x.biggerAddress),
+    );
   }
 }

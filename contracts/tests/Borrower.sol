@@ -29,8 +29,9 @@ contract Borrower is ITetuConverterCallback {
 
   ////////////////////////////////////////////////////////////////////
   // Last results passed to onTransferBorrowedAmount
-  address public onTransferBorrowedAmountLastResultCollateralAsset;
-  address public onTransferBorrowedAmountLastResultBorrowAsset;
+  uint public onTransferAmountsLength;
+  address[] public onTransferAmountsAssets;
+  uint[] public onTransferAmountsAmounts;
   uint public onTransferBorrowedAmountLastResultAmountBorrowAssetSentToBorrower;
 
   uint public lastQuoteRepayResultCollateralAmount;
@@ -372,14 +373,13 @@ contract Borrower is ITetuConverterCallback {
     IERC20(asset_).transfer(address(_tc()), amountOut);
   }
 
-  function onTransferBorrowedAmount (
-    address collateralAsset_,
-    address borrowAsset_,
-    uint amountBorrowAssetSentToBorrower_
-  ) external override {
-    onTransferBorrowedAmountLastResultCollateralAsset = collateralAsset_;
-    onTransferBorrowedAmountLastResultBorrowAsset = borrowAsset_;
-    onTransferBorrowedAmountLastResultAmountBorrowAssetSentToBorrower = amountBorrowAssetSentToBorrower_;
+  function onTransferAmounts(address[] memory assets_, uint[] memory amounts_) external override {
+    onTransferAmountsLength = assets_.length;
+    onTransferAmountsAssets = assets_;
+    onTransferAmountsAmounts = amounts_;
+  }
+  function getOnTransferAmountsResults() external view returns (address[] memory assets_, uint[] memory amounts_) {
+    return (onTransferAmountsAssets, onTransferAmountsAmounts);
   }
 
 //  function requireRepay(

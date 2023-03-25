@@ -2,11 +2,16 @@ import {DeployUtils} from "../../scripts/utils/DeployUtils";
 import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import {TimeUtils} from "../../scripts/utils/TimeUtils";
 import {ethers} from "hardhat";
-import {IERC20__factory, IERC20Metadata__factory, SimulateContainer, SimulateTester} from "../../typechain";
+import {
+  IERC20__factory,
+  IERC20Metadata__factory,
+  ITetuLiquidator__factory,
+  SimulateContainer,
+  SimulateTester
+} from "../../typechain";
 import {MaticAddresses} from "../../scripts/addresses/MaticAddresses";
 import {parseUnits} from "ethers/lib/utils";
 import {BalanceUtils} from "../baseUT/utils/BalanceUtils";
-import {ITetuLiquidator__factory} from "../../typechain/factories/contracts/interfaces";
 import {DeployerUtils} from "../../scripts/utils/DeployerUtils";
 import {isPolygonForkInUse} from "../baseUT/utils/NetworkUtils";
 
