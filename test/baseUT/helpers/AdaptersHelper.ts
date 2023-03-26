@@ -5,6 +5,7 @@ import {
   Aave3PoolAdapterEMode,
   AaveTwoPlatformAdapter,
   AaveTwoPoolAdapter,
+  Compound3PlatformAdapter,
   DForcePlatformAdapter,
   DForcePoolAdapter,
   HfPlatformAdapter,
@@ -113,4 +114,26 @@ export class AdaptersHelper {
     return (await DeployUtils.deployContract(signer, "DForcePoolAdapter")) as DForcePoolAdapter;
   }
 //endregion dForce
+
+//region Compound3
+  public static async createCompound3PlatformAdapter(
+    signer: SignerWithAddress,
+    controller: string,
+    templateAdapterNormal: string,
+    comets: string[],
+    cometRewards: string,
+    borrowManager?: string,
+  ) : Promise<Compound3PlatformAdapter> {
+    return (await DeployUtils.deployContract(
+      signer,
+      "Compound3PlatformAdapter",
+      controller,
+      borrowManager || await IConverterController__factory.connect(controller, signer).borrowManager(),
+      templateAdapterNormal,
+      comets,
+      cometRewards
+    )) as Compound3PlatformAdapter;
+  }
+
+//endregion Compound3
 }

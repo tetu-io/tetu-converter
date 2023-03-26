@@ -111,4 +111,7 @@ contract TetuLiquidatorMock is ITetuLiquidator {
     revert('Not implemented');
   }
 
+  function addLargestPools(PoolData[] memory /*_pools*/, bool /*rewrite*/) external pure {
+    revert('Not implemented');
+  }
 }
