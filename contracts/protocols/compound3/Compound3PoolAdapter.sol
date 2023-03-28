@@ -91,7 +91,9 @@ contract Compound3PoolAdapter is IPoolAdapter, IPoolAdapterInitializer, Initiali
     address user_,
     address collateralAsset_,
     address borrowAsset_
-  ) {}
+  ) {
+    return (originConverter, user, collateralAsset, borrowAsset);
+  }
 
   function getStatus() external view returns (
     uint collateralAmount,

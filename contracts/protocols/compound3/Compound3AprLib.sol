@@ -37,10 +37,16 @@ library Compound3AprLib {
   }
 
   function getBorrowCost36(IComet comet, uint borrowAmount, uint blocks, uint blocksPerDay, uint borrowAssetDecimals) internal view returns (uint) {
-    uint utilization = comet.getUtilization();
-    uint64 rate = comet.getBorrowRate(utilization);
+    uint rate = getBorrowRate(comet, borrowAmount);
     uint timeElapsed = blocks * 86400 / blocksPerDay;
-    return uint(rate) * timeElapsed * borrowAmount * 1e18 / borrowAssetDecimals;
+    return rate * timeElapsed * borrowAmount * 1e18 / borrowAssetDecimals;
+  }
+
+  function getBorrowRate(IComet comet, uint borrowAmount) internal view returns(uint) {
+    uint totalSupply = comet.totalSupply();
+    uint totalBorrow = comet.totalBorrow() + borrowAmount;
+    uint utilization = totalSupply == 0 ? 0 : totalBorrow * 1e18 / totalSupply;
+    return uint(comet.getBorrowRate(utilization));
   }
 
   function getPrice(address oracle) internal view returns (uint) {

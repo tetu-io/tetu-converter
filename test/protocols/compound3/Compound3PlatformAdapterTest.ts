@@ -4,8 +4,10 @@ import {TimeUtils} from "../../../scripts/utils/TimeUtils";
 import {ethers} from "hardhat";
 import {isPolygonForkInUse} from "../../baseUT/utils/NetworkUtils";
 import {
+  BorrowManager__factory,
   Compound3AprLibFacade,
   Compound3PlatformAdapter,
+  Compound3PlatformAdapter__factory,
   ConverterController,
   IComet,
   IComet__factory, ICometRewards, ICometRewards__factory, IERC20__factory,
@@ -25,9 +27,10 @@ import {convertUnits} from "../../baseUT/apr/aprUtils";
 import {areAlmostEqual} from "../../baseUT/utils/CommonUtils";
 import {addLiquidatorPath} from "../../baseUT/utils/TetuLiquidatorUtils";
 import {DeployUtils} from "../../../scripts/utils/DeployUtils";
-import {parseUnits} from "ethers/lib/utils";
+import {getAddress, parseUnits} from "ethers/lib/utils";
 import {DeployerUtils} from "../../../scripts/utils/DeployerUtils";
 import {Compound3ChangePriceUtils} from "../../baseUT/protocols/compound3/Compound3ChangePriceUtils";
+import {IPlatformActor, PredictBrUsesCase} from "../../baseUT/uses-cases/PredictBrUsesCase";
 
 
 describe("Compound3PlatformAdapterTest", () => {
@@ -57,6 +60,70 @@ describe("Compound3PlatformAdapterTest", () => {
     await TimeUtils.rollback(snapshotForEach);
   });
 //endregion before, after
+
+//region IPlatformActor impl
+  class Compound3PlatformActor implements IPlatformActor {
+    comet: IComet;
+    collateralAsset: string;
+
+    constructor(
+      comet: IComet,
+      collateralAsset: string
+    ) {
+      this.comet = comet;
+      this.collateralAsset = collateralAsset;
+    }
+
+    async getAvailableLiquidity() : Promise<BigNumber> {
+      return IERC20__factory.connect(await this.comet.baseToken(), deployer).balanceOf(this.comet.address)
+    }
+
+    async getCurrentBR(): Promise<BigNumber> {
+      const br = await this.comet.getBorrowRate(await this.comet.getUtilization())
+      console.log(`BR=${br}`);
+      return br;
+    }
+
+    async supplyCollateral(collateralAmount: BigNumber): Promise<void> {
+      await IERC20Metadata__factory.connect(this.collateralAsset, deployer)
+        .approve(this.comet.address, collateralAmount);
+      console.log(`Supply collateral ${this.collateralAsset} amount ${collateralAmount}`);
+      await this.comet.supply(this.collateralAsset, collateralAmount)
+    }
+
+    async borrow(borrowAmount: BigNumber): Promise<void> {
+      await this.comet.withdraw(await this.comet.baseToken(), borrowAmount)
+      console.log(`Borrow ${borrowAmount}`);
+    }
+  }
+//endregion IPlatformActor impl
+
+//region Test predict-br impl
+  async function makePredictBrTest(
+    collateralAsset: string,
+    cometAddress: string,
+    cometRewards: string,
+    collateralHolders: string[],
+    part10000: number
+  ) : Promise<{br: BigNumber, brPredicted: BigNumber}> {
+    const comet = IComet__factory.connect(cometAddress, deployer)
+    return PredictBrUsesCase.makeTest(
+      deployer,
+      new Compound3PlatformActor(comet, collateralAsset),
+      async controller => AdaptersHelper.createCompound3PlatformAdapter(
+        deployer,
+        controller.address,
+        ethers.Wallet.createRandom().address,
+        [comet.address],
+        cometRewards
+      ),
+      collateralAsset,
+      await comet.baseToken(),
+      collateralHolders,
+      part10000
+    )
+  }
+//endregion Test predict-br impl
 
 //region Get conversion plan test impl
   interface IGetConversionPlanBadPaths {
@@ -173,7 +240,9 @@ describe("Compound3PlatformAdapterTest", () => {
     borrowAsset: string,
     badPathsParams?: IGetConversionPlanBadPaths
   ): Promise<{ plan: IConversionPlan, expectedPlan: IConversionPlan }> {
-    console.log("makeTestComparePlanWithDirectCalculations collateralAmount", collateralAmount.toString());
+    // console.log("makeTestComparePlanWithDirectCalculations collateralAmount", collateralAmount.toString());
+    const libFacade = await DeployUtils.deployContract(deployer, "Compound3AprLibFacade") as Compound3AprLibFacade
+
     const d = await preparePlan(
       controller,
       collateralAsset,
@@ -181,6 +250,7 @@ describe("Compound3PlatformAdapterTest", () => {
       borrowAsset,
       badPathsParams
     );
+
     // console.log("getConversionPlan", d.plan);
     // console.log("getConversionPlan liquidationThreshold18", d.plan.liquidationThreshold18.toString());
     // console.log("getConversionPlan ltv18", d.plan.ltv18.toString());
@@ -211,7 +281,6 @@ describe("Compound3PlatformAdapterTest", () => {
       36
     );
 
-    const libFacade = await DeployUtils.deployContract(deployer, "Compound3AprLibFacade") as Compound3AprLibFacade
     const borrowCost36 = await libFacade.getBorrowCost36(
       d.comet.address,
       amountToBorrow,
@@ -241,7 +310,7 @@ describe("Compound3PlatformAdapterTest", () => {
         rewardsAmountInBorrowAsset36,
         amountCollateralInBorrowAsset36,
         ltv18: d.collateralAssetInfo ? d.collateralAssetInfo.borrowCollateralFactor : BigNumber.from(0),
-        maxAmountToBorrow: await (await IERC20__factory.connect(borrowAsset, deployer)).balanceOf(d.comet.address),
+        maxAmountToBorrow: await IERC20__factory.connect(borrowAsset, deployer).balanceOf(d.comet.address),
         maxAmountToSupply: d.collateralAssetInfo ? d.collateralAssetInfo.supplyCap.sub(await (await IERC20__factory.connect(collateralAsset, deployer)).balanceOf(d.comet.address)) : BigNumber.from(0),
       }
     };
@@ -373,8 +442,8 @@ describe("Compound3PlatformAdapterTest", () => {
           expect(r.plan.collateralAmount).eq(r.expectedPlan.collateralAmount);
           expect(r.plan.borrowCost36).eq(r.expectedPlan.borrowCost36);
           expect(r.plan.supplyIncomeInBorrowAsset36).eq(0);
-          expect(areAlmostEqual(r.plan.rewardsAmountInBorrowAsset36, r.expectedPlan.rewardsAmountInBorrowAsset36, 7)).eq(true);
-          expect(areAlmostEqual(r.plan.amountCollateralInBorrowAsset36, r.expectedPlan.amountCollateralInBorrowAsset36)).eq(true);
+          expect(r.plan.rewardsAmountInBorrowAsset36).eq(r.expectedPlan.rewardsAmountInBorrowAsset36);
+          expect(areAlmostEqual(r.plan.amountCollateralInBorrowAsset36, r.expectedPlan.amountCollateralInBorrowAsset36, 20)).eq(true);
           expect(r.plan.ltv18).eq(r.expectedPlan.ltv18);
           expect(r.plan.maxAmountToBorrow).eq(r.expectedPlan.maxAmountToBorrow);
           expect(r.plan.maxAmountToSupply).eq(r.expectedPlan.maxAmountToSupply);
@@ -402,8 +471,8 @@ describe("Compound3PlatformAdapterTest", () => {
           expect(r.plan.collateralAmount).eq(r.expectedPlan.collateralAmount);
           expect(r.plan.borrowCost36).eq(r.expectedPlan.borrowCost36);
           expect(r.plan.supplyIncomeInBorrowAsset36).eq(0);
-          expect(areAlmostEqual(r.plan.rewardsAmountInBorrowAsset36, r.expectedPlan.rewardsAmountInBorrowAsset36, 7)).eq(true);
-          expect(areAlmostEqual(r.plan.amountCollateralInBorrowAsset36, r.expectedPlan.amountCollateralInBorrowAsset36)).eq(true);
+          expect(r.plan.rewardsAmountInBorrowAsset36).eq(r.expectedPlan.rewardsAmountInBorrowAsset36);
+          expect(areAlmostEqual(r.plan.amountCollateralInBorrowAsset36, r.expectedPlan.amountCollateralInBorrowAsset36, 20)).eq(true);
           expect(r.plan.ltv18).eq(r.expectedPlan.ltv18);
           expect(r.plan.maxAmountToBorrow).eq(r.expectedPlan.maxAmountToBorrow);
           expect(r.plan.maxAmountToSupply).eq(r.expectedPlan.maxAmountToSupply);
@@ -431,8 +500,8 @@ describe("Compound3PlatformAdapterTest", () => {
           expect(r.plan.collateralAmount).eq(r.expectedPlan.collateralAmount);
           expect(r.plan.borrowCost36).eq(r.expectedPlan.borrowCost36);
           expect(r.plan.supplyIncomeInBorrowAsset36).eq(0);
-          expect(areAlmostEqual(r.plan.rewardsAmountInBorrowAsset36, r.expectedPlan.rewardsAmountInBorrowAsset36, 7)).eq(true);
-          expect(areAlmostEqual(r.plan.amountCollateralInBorrowAsset36, r.expectedPlan.amountCollateralInBorrowAsset36)).eq(true);
+          expect(r.plan.rewardsAmountInBorrowAsset36).eq(r.expectedPlan.rewardsAmountInBorrowAsset36);
+          expect(areAlmostEqual(r.plan.amountCollateralInBorrowAsset36, r.expectedPlan.amountCollateralInBorrowAsset36, 20)).eq(true);
           expect(r.plan.ltv18).eq(r.expectedPlan.ltv18);
           expect(r.plan.maxAmountToBorrow).eq(r.expectedPlan.maxAmountToBorrow);
           expect(r.plan.maxAmountToSupply).eq(r.expectedPlan.maxAmountToSupply);
@@ -564,5 +633,186 @@ describe("Compound3PlatformAdapterTest", () => {
     })
   })
 
+  describe("getBorrowRateAfterBorrow", () => {
+    describe("Good paths", () => {
+      describe("small amount WETH => USDC", () => {
+        it("Predicted borrow rate should be same to real rate after the borrow", async () => {
+          if (!await isPolygonForkInUse()) return;
 
+          const r = await makePredictBrTest(
+            MaticAddresses.WETH,
+            MaticAddresses.COMPOUND3_COMET_USDC,
+            MaticAddresses.COMPOUND3_COMET_REWARDS,
+            [
+              MaticAddresses.HOLDER_WETH,
+              MaticAddresses.HOLDER_WETH_2,
+              MaticAddresses.HOLDER_WETH_3,
+              MaticAddresses.HOLDER_WETH_4,
+            ],
+            1
+          )
+
+          expect(areAlmostEqual(r.br, r.brPredicted, 4)).eq(true)
+        })
+      })
+      describe("huge amount WETH => USDC", () => {
+        it("Predicted borrow rate should be same to real rate after the borrow", async () => {
+          if (!await isPolygonForkInUse()) return;
+
+          const r = await makePredictBrTest(
+            MaticAddresses.WETH,
+            MaticAddresses.COMPOUND3_COMET_USDC,
+            MaticAddresses.COMPOUND3_COMET_REWARDS,
+            [
+              MaticAddresses.HOLDER_WETH,
+              MaticAddresses.HOLDER_WETH_2,
+              MaticAddresses.HOLDER_WETH_3,
+              MaticAddresses.HOLDER_WETH_4,
+            ],
+            500
+          )
+
+          expect(areAlmostEqual(r.br, r.brPredicted, 4)).eq(true)
+        })
+      })
+    })
+  })
+
+  describe("initializePoolAdapter", () => {
+    let controller: ConverterController;
+    let snapshotLocal: string;
+    before(async function () {
+      snapshotLocal = await TimeUtils.snapshot();
+      controller = await TetuConverterApp.createController(
+        deployer,
+        {tetuLiquidatorAddress: MaticAddresses.TETU_LIQUIDATOR}
+      );
+    });
+    after(async function () {
+      await TimeUtils.rollback(snapshotLocal);
+    });
+
+    interface IInitializePoolAdapterBadPaths {
+      useWrongConverter?: boolean;
+      wrongCallerOfInitializePoolAdapter?: boolean;
+    }
+
+    interface IPooAdapterConfig {
+      originConverter: string;
+      user: string;
+      collateralAsset: string;
+      borrowAsset: string;
+    }
+
+    async function makeInitializePoolAdapterTest(
+      badParams?: IInitializePoolAdapterBadPaths
+    ): Promise<{ config: IPooAdapterConfig, expectedConfig: IPooAdapterConfig }> {
+      const user = ethers.Wallet.createRandom().address;
+      const collateralAsset = MaticAddresses.DAI;
+      const borrowAsset = MaticAddresses.USDC;
+
+      const borrowManager = BorrowManager__factory.connect(await controller.borrowManager(), deployer);
+
+      const converterNormal = await AdaptersHelper.createCompound3PoolAdapter(deployer)
+      const poolAdapter = await AdaptersHelper.createCompound3PoolAdapter(deployer)
+
+      const comet = IComet__factory.connect(MaticAddresses.COMPOUND3_COMET_USDC, deployer)
+      const cometRewards = ICometRewards__factory.connect(MaticAddresses.COMPOUND3_COMET_REWARDS, deployer)
+      const platformAdapter = await AdaptersHelper.createCompound3PlatformAdapter(
+        deployer,
+        controller.address,
+        converterNormal.address,
+        [comet.address],
+        cometRewards.address
+      )
+
+      const platformAdapterAsBorrowManager = Compound3PlatformAdapter__factory.connect(
+        platformAdapter.address,
+        badParams?.wrongCallerOfInitializePoolAdapter
+          ? await DeployerUtils.startImpersonate(ethers.Wallet.createRandom().address)
+          : await DeployerUtils.startImpersonate(borrowManager.address)
+      );
+
+      await platformAdapterAsBorrowManager.initializePoolAdapter(
+        badParams?.useWrongConverter
+          ? ethers.Wallet.createRandom().address
+          : converterNormal.address,
+        poolAdapter.address,
+        user,
+        collateralAsset,
+        borrowAsset
+      );
+
+      const poolAdapterConfigAfter = await poolAdapter.getConfig();
+
+      return {
+        config: {
+          originConverter: poolAdapterConfigAfter.originConverter_,
+          user: poolAdapterConfigAfter.user_,
+          collateralAsset: poolAdapterConfigAfter.collateralAsset_,
+          borrowAsset: poolAdapterConfigAfter.borrowAsset_,
+        },
+        expectedConfig: {
+          originConverter: converterNormal.address,
+          user,
+          collateralAsset: getAddress(collateralAsset),
+          borrowAsset: getAddress(borrowAsset),
+        }
+      }
+    }
+
+    describe("Good paths", () => {
+      it("initialized pool adapter should has expected values", async () => {
+        if (!await isPolygonForkInUse()) return;
+
+        const r = await makeInitializePoolAdapterTest();
+        expect(r.config.originConverter).eq(r.expectedConfig.originConverter)
+        expect(r.config.user).eq(r.expectedConfig.user)
+        expect(r.config.collateralAsset).eq(r.expectedConfig.collateralAsset)
+        expect(r.config.borrowAsset).eq(r.expectedConfig.borrowAsset)
+      });
+    });
+    describe("Bad paths", () => {
+      it("should revert if converter address is not registered", async () => {
+        if (!await isPolygonForkInUse()) return;
+
+        await expect(
+          makeInitializePoolAdapterTest(
+            {useWrongConverter: true}
+          )
+        ).revertedWith("TC-25 converter not found"); // CONVERTER_NOT_FOUND
+      });
+      it("should revert if it's called by not borrow-manager", async () => {
+        if (!await isPolygonForkInUse()) return;
+
+        await expect(
+          makeInitializePoolAdapterTest(
+            {wrongCallerOfInitializePoolAdapter: true}
+          )
+        ).revertedWith("TC-45 borrow manager only"); // BORROW_MANAGER_ONLY
+      });
+    });
+  })
+
+  describe("setFrozen", () => {
+    it("should assign expected value to frozen", async () => {
+      const controller = await TetuConverterApp.createController(
+        deployer,
+        {tetuLiquidatorAddress: MaticAddresses.TETU_LIQUIDATOR}
+      );
+      const platformAdapter = await AdaptersHelper.createCompound3PlatformAdapter(
+        deployer,
+        controller.address,
+        ethers.Wallet.createRandom().address,
+        [MaticAddresses.COMPOUND3_COMET_USDC],
+        MaticAddresses.COMPOUND3_COMET_REWARDS
+      )
+
+      expect(await platformAdapter.frozen()).eq(false)
+      await platformAdapter.setFrozen(true)
+      expect(await platformAdapter.frozen()).eq(true)
+      await platformAdapter.setFrozen(false)
+      expect(await platformAdapter.frozen()).eq(false)
+    })
+  })
 })

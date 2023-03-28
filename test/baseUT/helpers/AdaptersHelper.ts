@@ -6,6 +6,7 @@ import {
   AaveTwoPlatformAdapter,
   AaveTwoPoolAdapter,
   Compound3PlatformAdapter,
+  Compound3PoolAdapter,
   DForcePlatformAdapter,
   DForcePoolAdapter,
   HfPlatformAdapter,
@@ -133,6 +134,10 @@ export class AdaptersHelper {
       comets,
       cometRewards
     )) as Compound3PlatformAdapter;
+  }
+
+  public static async createCompound3PoolAdapter(signer: SignerWithAddress) : Promise<Compound3PoolAdapter> {
+    return (await DeployUtils.deployContract(signer, "Compound3PoolAdapter")) as Compound3PoolAdapter;
   }
 
 //endregion Compound3
