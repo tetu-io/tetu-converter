@@ -20,7 +20,6 @@ import {getBigNumberFrom} from "../../../scripts/utils/NumberUtils";
 import {BigNumber} from "ethers";
 import {IConversionPlan} from "../../baseUT/apr/aprDataTypes";
 import {AprUtils} from "../../baseUT/utils/aprUtils";
-import {BalanceUtils} from "../../baseUT/utils/BalanceUtils";
 import {ICompound3AssetInfo} from "../../../scripts/integration/helpers/Compound3Helper";
 import {convertUnits} from "../../baseUT/apr/aprUtils";
 import {areAlmostEqual} from "../../baseUT/utils/CommonUtils";
@@ -83,6 +82,7 @@ describe("Compound3PlatformAdapterTest", () => {
     collateralAssetDecimals: number;
     comet: IComet;
     cometRewards: ICometRewards;
+    converter: string;
     collateralAssetInfo?: ICompound3AssetInfo;
   }
 
@@ -99,10 +99,11 @@ describe("Compound3PlatformAdapterTest", () => {
 
     const comet = IComet__factory.connect(MaticAddresses.COMPOUND3_COMET_USDC, deployer)
     const cometRewards = ICometRewards__factory.connect(MaticAddresses.COMPOUND3_COMET_REWARDS, deployer)
+    const converter = ethers.Wallet.createRandom().address
     const platformAdapter = await AdaptersHelper.createCompound3PlatformAdapter(
       deployer,
       controller.address,
-      ethers.Wallet.createRandom().address,
+      converter,
       [comet.address],
       cometRewards.address
     )
@@ -128,10 +129,10 @@ describe("Compound3PlatformAdapterTest", () => {
       priceBorrow36 = priceBorrow.mul(getBigNumberFrom(1, 10));
       priceCollateral36 = priceCollateral.mul(getBigNumberFrom(1, 10));
     }
-    console.log("priceBorrow", priceBorrow.toString());
-    console.log("priceCollateral", priceCollateral.toString());
-    console.log("priceBorrow18", priceBorrow36.toString());
-    console.log("priceCollateral18", priceCollateral36.toString());
+    // console.log("priceBorrow", priceBorrow.toString());
+    // console.log("priceCollateral", priceCollateral.toString());
+    // console.log("priceBorrow18", priceBorrow36.toString());
+    // console.log("priceCollateral18", priceCollateral36.toString());
 
     if (badPathsParams?.setSupplyPaused || badPathsParams?.setWithdrawPaused) {
       await Compound3ChangePriceUtils.setPaused(deployer, comet.address, !!badPathsParams?.setSupplyPaused, !!badPathsParams?.setWithdrawPaused)
@@ -160,6 +161,7 @@ describe("Compound3PlatformAdapterTest", () => {
       priceBorrow,
       comet,
       cometRewards,
+      converter,
       collateralAssetInfo,
     }
   }
@@ -170,7 +172,7 @@ describe("Compound3PlatformAdapterTest", () => {
     collateralAmount: BigNumber,
     borrowAsset: string,
     badPathsParams?: IGetConversionPlanBadPaths
-  ): Promise<{ sret: string, sexpected: string }> {
+  ): Promise<{ plan: IConversionPlan, expectedPlan: IConversionPlan }> {
     console.log("makeTestComparePlanWithDirectCalculations collateralAmount", collateralAmount.toString());
     const d = await preparePlan(
       controller,
@@ -180,14 +182,14 @@ describe("Compound3PlatformAdapterTest", () => {
       badPathsParams
     );
     // console.log("getConversionPlan", d.plan);
-    console.log("getConversionPlan liquidationThreshold18", d.plan.liquidationThreshold18.toString());
-    console.log("getConversionPlan ltv18", d.plan.ltv18.toString());
-    console.log("getConversionPlan collateralAmount", d.plan.collateralAmount.toString());
-    console.log("getConversionPlan amountToBorrow", d.plan.amountToBorrow.toString());
-    console.log("getConversionPlan borrowCost36", d.plan.borrowCost36.toString());
-    console.log("getConversionPlan rewardsAmountInBorrowAsset36", d.plan.rewardsAmountInBorrowAsset36.toString());
-    console.log("getConversionPlan maxAmountToBorrow", d.plan.maxAmountToBorrow.toString());
-    console.log("getConversionPlan maxAmountToSupply", d.plan.maxAmountToSupply.toString());
+    // console.log("getConversionPlan liquidationThreshold18", d.plan.liquidationThreshold18.toString());
+    // console.log("getConversionPlan ltv18", d.plan.ltv18.toString());
+    // console.log("getConversionPlan collateralAmount", d.plan.collateralAmount.toString());
+    // console.log("getConversionPlan amountToBorrow", d.plan.amountToBorrow.toString());
+    // console.log("getConversionPlan borrowCost36", d.plan.borrowCost36.toString());
+    // console.log("getConversionPlan rewardsAmountInBorrowAsset36", d.plan.rewardsAmountInBorrowAsset36.toString());
+    // console.log("getConversionPlan maxAmountToBorrow", d.plan.maxAmountToBorrow.toString());
+    // console.log("getConversionPlan maxAmountToSupply", d.plan.maxAmountToSupply.toString());
 
     let amountToBorrow = AprUtils.getBorrowAmount(
       collateralAmount,
@@ -227,31 +229,22 @@ describe("Compound3PlatformAdapterTest", () => {
       parseUnits('1', await (IERC20Metadata__factory.connect(borrowAsset, deployer)).decimals())
     )
 
-    const sret = [
-      d.plan.borrowCost36,
-      areAlmostEqual(d.plan.rewardsAmountInBorrowAsset36, rewardsAmountInBorrowAsset36, 7),
-      d.plan.maxAmountToBorrow,
-      d.plan.maxAmountToSupply,
-      d.plan.ltv18,
-      d.plan.liquidationThreshold18,
-      d.plan.collateralAmount,
-      d.plan.amountToBorrow,
-      areAlmostEqual(d.plan.amountCollateralInBorrowAsset36, amountCollateralInBorrowAsset36)
-    ].map(x => BalanceUtils.toString(x)).join("\n");
-
-    const sexpected = [
-      borrowCost36,
-      true,
-      await (await IERC20__factory.connect(borrowAsset, deployer)).balanceOf(d.comet.address),
-      d.collateralAssetInfo ? d.collateralAssetInfo.supplyCap.sub(await (await IERC20__factory.connect(collateralAsset, deployer)).balanceOf(d.comet.address)) : BigNumber.from(0),
-      d.collateralAssetInfo ? d.collateralAssetInfo.borrowCollateralFactor : BigNumber.from(0),
-      d.collateralAssetInfo ? d.collateralAssetInfo.liquidateCollateralFactor : BigNumber.from(0),
-      collateralAmount,
-      amountToBorrow,
-      true,
-    ].map(x => BalanceUtils.toString(x)).join("\n");
-
-    return {sret, sexpected};
+    return {
+      plan: d.plan,
+      expectedPlan: {
+        converter: d.converter,
+        liquidationThreshold18: d.collateralAssetInfo ? d.collateralAssetInfo.liquidateCollateralFactor : BigNumber.from(0),
+        amountToBorrow,
+        collateralAmount,
+        borrowCost36,
+        supplyIncomeInBorrowAsset36: BigNumber.from(0),
+        rewardsAmountInBorrowAsset36,
+        amountCollateralInBorrowAsset36,
+        ltv18: d.collateralAssetInfo ? d.collateralAssetInfo.borrowCollateralFactor : BigNumber.from(0),
+        maxAmountToBorrow: await (await IERC20__factory.connect(borrowAsset, deployer)).balanceOf(d.comet.address),
+        maxAmountToSupply: d.collateralAssetInfo ? d.collateralAssetInfo.supplyCap.sub(await (await IERC20__factory.connect(collateralAsset, deployer)).balanceOf(d.comet.address)) : BigNumber.from(0),
+      }
+    };
   }
 
 //endregion Get conversion plan test impl
@@ -303,19 +296,9 @@ describe("Compound3PlatformAdapterTest", () => {
 
         const r = await initializePlatformAdapter();
 
-        const ret = [
-          await r.platformAdapter.controller(),
-          await r.platformAdapter.converter(),
-          (await r.platformAdapter.converters()).join(),
-        ].join("\n");
-
-        const expected = [
-          r.data.controller,
-          r.data.converter,
-          [r.data.converter].join(),
-        ].join("\n");
-
-        expect(ret).eq(expected);
+        expect(await r.platformAdapter.controller()).eq(r.data.controller)
+        expect(await r.platformAdapter.converter()).eq(r.data.converter)
+        expect((await r.platformAdapter.converters()).join()).eq([r.data.converter].join())
       })
     })
     describe("Bad paths", () => {
@@ -377,15 +360,24 @@ describe("Compound3PlatformAdapterTest", () => {
 
           const collateralAmount = getBigNumberFrom(100, 18);
 
-          const ret = await makeTestComparePlanWithDirectCalculations(
+          const r = await makeTestComparePlanWithDirectCalculations(
             controller,
             collateralAsset,
             collateralAmount,
             borrowAsset,
           );
-          console.log(ret);
 
-          expect(ret.sret).eq(ret.sexpected);
+          expect(r.plan.converter).eq(r.expectedPlan.converter);
+          expect(r.plan.liquidationThreshold18).eq(r.expectedPlan.liquidationThreshold18);
+          expect(r.plan.amountToBorrow).eq(r.expectedPlan.amountToBorrow);
+          expect(r.plan.collateralAmount).eq(r.expectedPlan.collateralAmount);
+          expect(r.plan.borrowCost36).eq(r.expectedPlan.borrowCost36);
+          expect(r.plan.supplyIncomeInBorrowAsset36).eq(0);
+          expect(areAlmostEqual(r.plan.rewardsAmountInBorrowAsset36, r.expectedPlan.rewardsAmountInBorrowAsset36, 7)).eq(true);
+          expect(areAlmostEqual(r.plan.amountCollateralInBorrowAsset36, r.expectedPlan.amountCollateralInBorrowAsset36)).eq(true);
+          expect(r.plan.ltv18).eq(r.expectedPlan.ltv18);
+          expect(r.plan.maxAmountToBorrow).eq(r.expectedPlan.maxAmountToBorrow);
+          expect(r.plan.maxAmountToSupply).eq(r.expectedPlan.maxAmountToSupply);
         })
       })
       describe("WBTC : USDC", () => {
@@ -397,15 +389,24 @@ describe("Compound3PlatformAdapterTest", () => {
 
           const collateralAmount = getBigNumberFrom(10, 8);
 
-          const ret = await makeTestComparePlanWithDirectCalculations(
+          const r = await makeTestComparePlanWithDirectCalculations(
             controller,
             collateralAsset,
             collateralAmount,
             borrowAsset,
           );
-          console.log(ret);
 
-          expect(ret.sret).eq(ret.sexpected);
+          expect(r.plan.converter).eq(r.expectedPlan.converter);
+          expect(r.plan.liquidationThreshold18).eq(r.expectedPlan.liquidationThreshold18);
+          expect(r.plan.amountToBorrow).eq(r.expectedPlan.amountToBorrow);
+          expect(r.plan.collateralAmount).eq(r.expectedPlan.collateralAmount);
+          expect(r.plan.borrowCost36).eq(r.expectedPlan.borrowCost36);
+          expect(r.plan.supplyIncomeInBorrowAsset36).eq(0);
+          expect(areAlmostEqual(r.plan.rewardsAmountInBorrowAsset36, r.expectedPlan.rewardsAmountInBorrowAsset36, 7)).eq(true);
+          expect(areAlmostEqual(r.plan.amountCollateralInBorrowAsset36, r.expectedPlan.amountCollateralInBorrowAsset36)).eq(true);
+          expect(r.plan.ltv18).eq(r.expectedPlan.ltv18);
+          expect(r.plan.maxAmountToBorrow).eq(r.expectedPlan.maxAmountToBorrow);
+          expect(r.plan.maxAmountToSupply).eq(r.expectedPlan.maxAmountToSupply);
         })
       })
       describe("WMATIC : USDC", () => {
@@ -417,15 +418,24 @@ describe("Compound3PlatformAdapterTest", () => {
 
           const collateralAmount = getBigNumberFrom(10000, 18);
 
-          const ret = await makeTestComparePlanWithDirectCalculations(
+          const r = await makeTestComparePlanWithDirectCalculations(
             controller,
             collateralAsset,
             collateralAmount,
             borrowAsset,
           );
-          console.log(ret);
 
-          expect(ret.sret).eq(ret.sexpected);
+          expect(r.plan.converter).eq(r.expectedPlan.converter);
+          expect(r.plan.liquidationThreshold18).eq(r.expectedPlan.liquidationThreshold18);
+          expect(r.plan.amountToBorrow).eq(r.expectedPlan.amountToBorrow);
+          expect(r.plan.collateralAmount).eq(r.expectedPlan.collateralAmount);
+          expect(r.plan.borrowCost36).eq(r.expectedPlan.borrowCost36);
+          expect(r.plan.supplyIncomeInBorrowAsset36).eq(0);
+          expect(areAlmostEqual(r.plan.rewardsAmountInBorrowAsset36, r.expectedPlan.rewardsAmountInBorrowAsset36, 7)).eq(true);
+          expect(areAlmostEqual(r.plan.amountCollateralInBorrowAsset36, r.expectedPlan.amountCollateralInBorrowAsset36)).eq(true);
+          expect(r.plan.ltv18).eq(r.expectedPlan.ltv18);
+          expect(r.plan.maxAmountToBorrow).eq(r.expectedPlan.maxAmountToBorrow);
+          expect(r.plan.maxAmountToSupply).eq(r.expectedPlan.maxAmountToSupply);
         })
       })
       describe("Try to use huge collateral amount", () => {
@@ -553,5 +563,6 @@ describe("Compound3PlatformAdapterTest", () => {
       });
     })
   })
+
 
 })
