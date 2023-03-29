@@ -13,6 +13,11 @@ interface IComet {
     uint128 supplyCap;
   }
 
+  struct UserCollateral {
+    uint128 balance;
+    uint128 _reserved;
+  }
+
   function baseTokenPriceFeed() external view returns (address);
 
   function numAssets() external view returns (uint8);
@@ -52,4 +57,8 @@ interface IComet {
   function pause(bool supplyPaused, bool transferPaused, bool withdrawPaused, bool absorbPaused, bool buyPaused) external;
 
   function pauseGuardian() external view returns (address);
+
+  function userCollateral(address user, address asset) external view returns(UserCollateral memory);
+
+  function borrowBalanceOf(address account) external view returns (uint);
 }
