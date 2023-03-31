@@ -37,6 +37,7 @@ contract Compound3PoolAdapter is IPoolAdapter, IPoolAdapterInitializer, Initiali
 
   event OnInitialized(address controller, address pool, address user, address collateralAsset, address borrowAsset, address originConverter);
   event OnBorrow(uint collateralAmount, uint borrowAmount, address receiver, uint resultHealthFactor18);
+  event OnRepay(uint amountToRepay, address receiver, bool closePosition, uint resultHealthFactor18);
 
   ///////////////////////////////////////////////////////
   ///                Initialization
@@ -124,7 +125,11 @@ contract Compound3PoolAdapter is IPoolAdapter, IPoolAdapterInitializer, Initiali
     amountToPay = borrowBalanceOut;
   }
 
-  function getCollateralAmountToReturn(uint amountToRepay_, bool closePosition_) external view returns (uint) {}
+  /// @notice If we paid {amountToRepay_}, how much collateral would we receive?
+  function getCollateralAmountToReturn(uint amountToRepay_, bool closePosition_) external view returns (uint) {
+    (uint amount,) = _getCollateralAmountToReturn(comet, collateralAsset, amountToRepay_, closePosition_);
+    return amount;
+  }
 
   function getConversionKind() external pure returns (
     AppDataTypes.ConversionKind
@@ -179,7 +184,46 @@ contract Compound3PoolAdapter is IPoolAdapter, IPoolAdapterInitializer, Initiali
 
   function repay(uint amountToRepay_, address receiver_, bool closePosition_) external returns (
     uint collateralAmountOut
-  ) {}
+  ) {
+    IConverterController c = controller;
+    _onlyTetuConverter(c);
+
+    IComet _comet = comet;
+    address assetBorrow = borrowAsset;
+    address assetCollateral = collateralAsset;
+
+    IERC20(assetBorrow).safeTransferFrom(msg.sender, address(this), amountToRepay_);
+
+    uint collateralBalanceBefore;
+    (collateralAmountOut, collateralBalanceBefore) = _getCollateralAmountToReturn(_comet, assetCollateral, amountToRepay_, closePosition_);
+    _comet.supply(assetBorrow, amountToRepay_);
+
+    _comet.withdraw(assetCollateral, collateralAmountOut);
+
+    IERC20(assetCollateral).safeTransfer(receiver_, collateralAmountOut);
+
+    (
+    uint collateralBalance,
+    uint borrowBalance,
+    uint collateralBase,
+    uint borrowBase,,,
+    uint liquidateCollateralFactor
+    ) = _getStatus();
+
+    uint healthFactor18;
+    if (collateralBalance == 0 && borrowBalance == 0) {
+      IDebtMonitor(c.debtMonitor()).onClosePosition();
+    } else {
+      require(!closePosition_, AppErrors.CLOSE_POSITION_FAILED);
+
+      (,healthFactor18) = _getHealthFactor(liquidateCollateralFactor, collateralBase, borrowBase);
+      _validateHealthFactor(c, healthFactor18);
+    }
+
+    require(collateralBalanceBefore >= collateralBalance, AppErrors.WEIRD_OVERFLOW);
+
+    emit OnRepay(amountToRepay_, receiver_, closePosition_, healthFactor18);
+  }
 
   function repayToRebalance(uint amount_, bool isCollateral_) external returns (
     uint resultHealthFactor18
@@ -250,7 +294,7 @@ contract Compound3PoolAdapter is IPoolAdapter, IPoolAdapterInitializer, Initiali
     liquidateCollateralFactor = assetInfo.liquidateCollateralFactor;
   }
 
-  function _getHealthFactor(uint liquidateCollateralFactor, uint sumCollateralBase, uint sumBorrowBase) internal view returns (
+  function _getHealthFactor(uint liquidateCollateralFactor, uint sumCollateralBase, uint sumBorrowBase) internal pure returns (
     uint sumCollateralSafe,
     uint healthFactor18
   ) {
@@ -260,5 +304,30 @@ contract Compound3PoolAdapter is IPoolAdapter, IPoolAdapterInitializer, Initiali
 
   function _getBalance(address asset) internal view returns (uint) {
     return IERC20(asset).balanceOf(address(this));
+  }
+
+  /// @notice Get a part of collateral safe to return after repaying {amountToRepay_}
+  /// @param amountToRepay_ Amount to be repaid [in borrowed tokens]
+  /// @return Amount of collateral [in collateral tokens] to be returned in exchange of {borrowedAmount_}, full balance of collateral tokens
+  function _getCollateralAmountToReturn(
+    IComet comet_,
+    address assetCollateral_,
+    uint amountToRepay_,
+    bool closePosition_
+  ) internal view returns (uint, uint) {
+    uint collateralBalance = comet_.userCollateral(address(this), assetCollateral_).balance;
+    uint borrowBalance = comet_.borrowBalanceOf(address(this));
+
+    require(borrowBalance != 0, AppErrors.ZERO_BALANCE);
+
+    if (closePosition_) {
+      require(borrowBalance <= amountToRepay_, AppErrors.CLOSE_POSITION_PARTIAL);
+
+      return (collateralBalance, collateralBalance);
+    } else {
+      require(amountToRepay_ <= borrowBalance, AppErrors.WRONG_BORROWED_BALANCE);
+    }
+
+    return (collateralBalance * amountToRepay_ / borrowBalance, collateralBalance);
   }
 }

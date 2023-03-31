@@ -14,6 +14,7 @@ import {DeployerUtils} from "../../../../scripts/utils/DeployerUtils";
 import {AdaptersHelper} from "../../helpers/AdaptersHelper";
 import {makeInfinityApprove, transferAndApprove} from "../../utils/transferUtils";
 import {ethers} from "hardhat";
+import {IUserBalances} from "../../utils/BalanceUtils";
 
 
 export interface IPrepareToBorrowResults {
@@ -40,8 +41,16 @@ export interface IBorrowResults {
   borrowedAmount: BigNumber;
 }
 
+export interface IMakeBorrowAndRepayResults {
+  userBalancesBeforeBorrow: IUserBalances;
+  userBalancesAfterBorrow: IUserBalances;
+  userBalancesAfterRepay: IUserBalances;
+}
+
 export interface IMakeBorrowOrRepayBadPathsParams {
   makeOperationAsNotTc?: boolean;
+  wrongAmountToRepayToTransfer?: BigNumber;
+  forceToClosePosition?: boolean;
 }
 
 export class Compound3TestUtils {
