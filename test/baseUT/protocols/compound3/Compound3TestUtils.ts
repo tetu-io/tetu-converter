@@ -3,7 +3,7 @@ import {
   BorrowManager__factory,
   Compound3PlatformAdapter,
   Compound3PoolAdapter, Compound3PoolAdapter__factory,
-  ConverterController
+  ConverterController, IPoolAdapter__factory
 } from "../../../../typechain";
 import {BigNumber} from "ethers";
 import {TokenDataTypes} from "../../types/TokenDataTypes";
@@ -14,7 +14,8 @@ import {DeployerUtils} from "../../../../scripts/utils/DeployerUtils";
 import {AdaptersHelper} from "../../helpers/AdaptersHelper";
 import {makeInfinityApprove, transferAndApprove} from "../../utils/transferUtils";
 import {ethers} from "hardhat";
-import {IUserBalances} from "../../utils/BalanceUtils";
+import {BalanceUtils, IUserBalances} from "../../utils/BalanceUtils";
+import {IPoolAdapterStatus} from "../../types/BorrowRepayDataTypes";
 
 
 export interface IPrepareToBorrowResults {
@@ -51,6 +52,25 @@ export interface IMakeBorrowOrRepayBadPathsParams {
   makeOperationAsNotTc?: boolean;
   wrongAmountToRepayToTransfer?: BigNumber;
   forceToClosePosition?: boolean;
+}
+
+export interface IMakeRepayResults {
+  repayResultsCollateralAmountOut: BigNumber;
+  repayResultsReturnedBorrowAmountOut?: BigNumber;
+}
+
+export interface IInitialBorrowResults {
+  prepareResults: IPrepareToBorrowResults;
+  borrowResults?: IBorrowResults;
+  collateralToken: TokenDataTypes;
+  borrowToken: TokenDataTypes;
+  collateralAmount: BigNumber;
+  stateAfterBorrow: ICompound3PoolAdapterState;
+}
+
+export interface ICompound3PoolAdapterState {
+  status: IPoolAdapterStatus;
+  collateralBalanceBase: BigNumber;
 }
 
 export class Compound3TestUtils {
@@ -198,5 +218,80 @@ export class Compound3TestUtils {
       borrowedAmount: borrowAmount,
       userBalanceBorrowAsset,
     }
+  }
+
+  public static async makeRepay(
+    d: IPrepareToBorrowResults,
+    amountToRepay?: BigNumber,
+    closePosition?: boolean,
+  ) : Promise<IMakeRepayResults> {
+    if (amountToRepay) {
+      // partial repay
+
+      const tetuConverter = await d.controller.tetuConverter();
+      const poolAdapterAsCaller = IPoolAdapter__factory.connect(
+        d.poolAdapter.address,
+        await DeployerUtils.startImpersonate(tetuConverter)
+      );
+      await transferAndApprove(
+        d.borrowToken.address,
+        d.userContract.address,
+        tetuConverter,
+        amountToRepay,
+        d.poolAdapter.address
+      );
+      const payer = poolAdapterAsCaller
+      const repayResultsCollateralAmountOut = await payer.callStatic.repay(
+        amountToRepay,
+        d.userContract.address,
+        closePosition === undefined ? false : closePosition
+      );
+      await payer.repay(
+        amountToRepay,
+        d.userContract.address,
+        closePosition === undefined ? false : closePosition
+      );
+
+      return {
+        repayResultsCollateralAmountOut,
+      }
+    } else {
+      // make full repayment
+      await d.userContract.makeRepayComplete(
+        d.collateralToken.address,
+        d.borrowToken.address,
+        d.userContract.address
+      );
+      const repayResults = await d.userContract.repayResults();
+      return {
+        repayResultsCollateralAmountOut: repayResults.collateralAmountOut,
+        repayResultsReturnedBorrowAmountOut: repayResults.returnedBorrowAmountOut
+      };
+    }
+  }
+
+  public static async getState(d: IPrepareToBorrowResults) : Promise<ICompound3PoolAdapterState> {
+    return {
+      status: await d.poolAdapter.getStatus(),
+      collateralBalanceBase: await d.poolAdapter.collateralTokensBalance(),
+    }
+  }
+
+  public static async putCollateralAmountOnUserBalance(init: IInitialBorrowResults, collateralHolder: string) {
+    await BalanceUtils.getRequiredAmountFromHolders(
+      init.collateralAmount,
+      init.collateralToken.token,
+      [collateralHolder],
+      init.prepareResults.userContract.address
+    );
+  }
+
+  public static async putDoubleBorrowAmountOnUserBalance(d: IPrepareToBorrowResults, borrowHolder: string) {
+    await BalanceUtils.getRequiredAmountFromHolders(
+      d.amountToBorrow.mul(2),
+      d.borrowToken.token,
+      [borrowHolder],
+      d.userContract.address
+    );
   }
 }

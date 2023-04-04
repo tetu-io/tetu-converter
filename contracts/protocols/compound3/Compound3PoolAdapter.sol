@@ -37,7 +37,9 @@ contract Compound3PoolAdapter is IPoolAdapter, IPoolAdapterInitializer, Initiali
 
   event OnInitialized(address controller, address pool, address user, address collateralAsset, address borrowAsset, address originConverter);
   event OnBorrow(uint collateralAmount, uint borrowAmount, address receiver, uint resultHealthFactor18);
+  event OnBorrowToRebalance(uint borrowAmount, address receiver, uint resultHealthFactor18);
   event OnRepay(uint amountToRepay, address receiver, bool closePosition, uint resultHealthFactor18);
+  event OnRepayToRebalance(uint amount, bool isCollateral, uint resultHealthFactor18);
 
   ///////////////////////////////////////////////////////
   ///                Initialization
@@ -87,10 +89,6 @@ contract Compound3PoolAdapter is IPoolAdapter, IPoolAdapterInitializer, Initiali
   }
 
   ///////////////////////////////////////////////////////
-  ///                Gov actions
-  ///////////////////////////////////////////////////////
-
-  ///////////////////////////////////////////////////////
   ///                Views
   ///////////////////////////////////////////////////////
 
@@ -131,9 +129,9 @@ contract Compound3PoolAdapter is IPoolAdapter, IPoolAdapterInitializer, Initiali
     return amount;
   }
 
-  function getConversionKind() external pure returns (
-    AppDataTypes.ConversionKind
-  ) {}
+  function getConversionKind() external pure returns (AppDataTypes.ConversionKind) {
+    return AppDataTypes.ConversionKind.BORROW_2;
+  }
 
   ///////////////////////////////////////////////////////
   ///                External logic
@@ -180,7 +178,30 @@ contract Compound3PoolAdapter is IPoolAdapter, IPoolAdapterInitializer, Initiali
   function borrowToRebalance(uint borrowAmount_, address receiver_) external returns (
     uint resultHealthFactor18,
     uint borrowedAmountOut
-  ) {}
+  ) {
+    IConverterController c = controller;
+    _onlyTetuConverter(c);
+    address assetBorrow = borrowAsset;
+
+    // ensure that the position is opened
+    require(IDebtMonitor(c.debtMonitor()).isPositionOpened(), AppErrors.BORROW_POSITION_IS_NOT_REGISTERED);
+
+    // make borrow
+    uint balanceBorrowAsset0 = _getBalance(assetBorrow);
+    comet.withdraw(assetBorrow, borrowAmount_);
+
+    require(
+      borrowAmount_ + balanceBorrowAsset0 == IERC20(assetBorrow).balanceOf(address(this)),
+      AppErrors.WRONG_BORROWED_BALANCE
+    );
+    IERC20(assetBorrow).safeTransfer(receiver_, borrowAmount_);
+
+    // ensure that current health factor is greater than min allowed
+    (resultHealthFactor18,) = _validateHealthStatusAfterBorrow(c);
+
+    emit OnBorrowToRebalance(borrowAmount_, receiver_, resultHealthFactor18);
+    return (resultHealthFactor18, borrowAmount_);
+  }
 
   function repay(uint amountToRepay_, address receiver_, bool closePosition_) external returns (
     uint collateralAmountOut
@@ -221,13 +242,53 @@ contract Compound3PoolAdapter is IPoolAdapter, IPoolAdapterInitializer, Initiali
     }
 
     require(collateralBalanceBefore >= collateralBalance, AppErrors.WEIRD_OVERFLOW);
+    collateralTokensBalance -= collateralBalanceBefore - collateralBalance;
 
     emit OnRepay(amountToRepay_, receiver_, closePosition_, healthFactor18);
   }
 
   function repayToRebalance(uint amount_, bool isCollateral_) external returns (
     uint resultHealthFactor18
-  ) {}
+  ) {
+    IConverterController c = controller;
+    _onlyTetuConverter(c);
+
+    // ensure that the position is opened
+    require(IDebtMonitor(c.debtMonitor()).isPositionOpened(), AppErrors.BORROW_POSITION_IS_NOT_REGISTERED);
+
+    uint collateralBalanceBefore;
+
+    if (isCollateral_) {
+      address assetCollateral = collateralAsset;
+      IERC20(assetCollateral).safeTransferFrom(msg.sender, address(this), amount_);
+      collateralBalanceBefore = _supply(assetCollateral, amount_);
+    } else {
+      address assetBorrow = borrowAsset;
+      // ensure, that amount to repay is less then the total debt
+      uint borrowBalance;
+      (collateralBalanceBefore, borrowBalance,,,,,) = _getStatus();
+      require(borrowBalance != 0 && amount_ < borrowBalance, AppErrors.REPAY_TO_REBALANCE_NOT_ALLOWED);
+
+      IERC20(assetBorrow).safeTransferFrom(msg.sender, address(this), amount_);
+
+      comet.supply(assetBorrow, amount_);
+    }
+
+    (
+    uint collateralBalance,,
+    uint collateralBase,
+    uint borrowBase,,,
+    uint liquidateCollateralFactor
+    ) = _getStatus();
+
+    (,resultHealthFactor18) = _getHealthFactor(liquidateCollateralFactor, collateralBase, borrowBase);
+    _validateHealthFactor(c, resultHealthFactor18);
+
+    require(collateralBalance >= collateralBalanceBefore, AppErrors.WEIRD_OVERFLOW);
+    collateralTokensBalance += collateralBalance - collateralBalanceBefore;
+
+    emit OnRepayToRebalance(amount_, isCollateral_, resultHealthFactor18);
+  }
 
   function claimRewards(address receiver_) external returns (address rewardToken, uint amount) {}
 
