@@ -730,11 +730,7 @@ contract TetuConverter is ITetuConverter, IKeeperCallback, IRequireAmountBySwapM
   ///       Get debt/repay info
   ///////////////////////////////////////////////////////
 
-  /// @notice Update status in all opened positions
-  ///         After this call getDebtAmount will be able to return exact amount to repay
-  /// @param user_ user whose debts will be returned
-  /// @return totalDebtAmountOut Borrowed amount that should be repaid to pay off the loan in full
-  /// @return totalCollateralAmountOut Amount of collateral that should be received after paying off the loan
+  /// @inheritdoc ITetuConverter
   function getDebtAmountCurrent(
     address user_,
     address collateralAsset_,
