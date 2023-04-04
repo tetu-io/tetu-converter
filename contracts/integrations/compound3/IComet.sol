@@ -58,7 +58,13 @@ interface IComet {
 
   function pauseGuardian() external view returns (address);
 
-  function userCollateral(address user, address asset) external view returns(UserCollateral memory);
+  function userCollateral(address user, address asset) external view returns (UserCollateral memory);
 
   function borrowBalanceOf(address account) external view returns (uint);
+
+  function absorb(address absorber, address[] calldata accounts) external;
+
+  function quoteCollateral(address asset, uint baseAmount) external view returns (uint);
+
+  function buyCollateral(address asset, uint minAmount, uint baseAmount, address recipient) external;
 }

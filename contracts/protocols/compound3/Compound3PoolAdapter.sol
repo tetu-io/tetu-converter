@@ -121,6 +121,7 @@ contract Compound3PoolAdapter is IPoolAdapter, IPoolAdapterInitializer, Initiali
     opened = tokenBalanceOut !=0 || borrowBalanceOut != 0;
     collateralAmount = tokenBalanceOut;
     amountToPay = borrowBalanceOut;
+    collateralAmountLiquidated = collateralTokensBalance - tokenBalanceOut;
   }
 
   /// @notice If we paid {amountToRepay_}, how much collateral would we receive?

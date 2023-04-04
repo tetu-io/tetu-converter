@@ -9,6 +9,7 @@ import {Compound3TestUtils, IInitialBorrowResults} from "../../baseUT/protocols/
 import {expect} from "chai";
 import {SharedRepayToRebalanceUtils} from "../../baseUT/protocols/shared/sharedRepayToRebalanceUtils";
 import {BigNumber} from "ethers";
+import {Compound3ChangePriceUtils} from "../../baseUT/protocols/compound3/Compound3ChangePriceUtils";
 
 
 describe("Compound3CollateralBalanceTest", () => {
@@ -17,6 +18,7 @@ describe("Compound3CollateralBalanceTest", () => {
   const collateralHolder = MaticAddresses.HOLDER_WETH;
   const borrowAsset = MaticAddresses.USDC;
   const borrowHolder = MaticAddresses.HOLDER_USDC;
+  const comet = MaticAddresses.COMPOUND3_COMET_USDC
   const collateralAmount = parseUnits('100');
 //endregion Constants
 
@@ -44,7 +46,7 @@ describe("Compound3CollateralBalanceTest", () => {
       collateralHolder,
       collateralAmount,
       borrowToken,
-      [MaticAddresses.COMPOUND3_COMET_USDC],
+      [comet],
       MaticAddresses.COMPOUND3_COMET_REWARDS,
     )
     const borrowResults = await Compound3TestUtils.makeBorrow(deployer, prepareResults, undefined)
@@ -239,6 +241,20 @@ describe("Compound3CollateralBalanceTest", () => {
 
         expect(stateAfterFullRepay.status.collateralAmountLiquidated).eq(0)
         expect(stateAfterFullRepay.collateralBalanceBase).eq(0)
+      })
+    })
+    describe("Make liquidation", () => {
+      it("should return not-zero collateralAmountLiquidated", async () => {
+        if (!await isPolygonForkInUse()) return;
+
+        const priceOracleMock = await Compound3ChangePriceUtils.setupAndInjectPriceOracleMock(deployer, comet, collateralAsset)
+        await Compound3ChangePriceUtils.changePrice(priceOracleMock, false, 2)
+
+        await Compound3TestUtils.makeLiquidation(deployer, init.prepareResults, borrowHolder)
+
+        const statusAftereLiquidation = await init.prepareResults.poolAdapter.getStatus();
+
+        expect(statusAftereLiquidation.collateralAmountLiquidated).eq(init.prepareResults.collateralAmount)
       })
     })
   })

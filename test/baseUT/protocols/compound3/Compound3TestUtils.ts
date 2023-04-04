@@ -3,7 +3,7 @@ import {
   BorrowManager__factory,
   Compound3PlatformAdapter,
   Compound3PoolAdapter, Compound3PoolAdapter__factory,
-  ConverterController, IPoolAdapter__factory
+  ConverterController, IComet__factory, IPoolAdapter__factory
 } from "../../../../typechain";
 import {BigNumber} from "ethers";
 import {TokenDataTypes} from "../../types/TokenDataTypes";
@@ -71,6 +71,11 @@ export interface IInitialBorrowResults {
 export interface ICompound3PoolAdapterState {
   status: IPoolAdapterStatus;
   collateralBalanceBase: BigNumber;
+}
+
+export interface ILiquidationResults {
+  liquidatorAddress: string;
+  // collateralAmountReceivedByLiquidator: BigNumber;
 }
 
 export class Compound3TestUtils {
@@ -293,5 +298,39 @@ export class Compound3TestUtils {
       [borrowHolder],
       d.userContract.address
     );
+  }
+
+  public static async makeLiquidation(
+    deployer: SignerWithAddress,
+    d: IPrepareToBorrowResults,
+    borrowHolder: string
+  ) : Promise<ILiquidationResults> {
+    const liquidatorAddress = ethers.Wallet.createRandom().address;
+    // const liquidator = await DeployerUtils.startImpersonate(liquidatorAddress);
+    // const borrowerAddress = d.poolAdapter.address;
+
+    // console.log("borrowed amount", d.amountToBorrow);
+
+    // const statusBefore = await d.poolAdapter.getStatus()
+    // console.log('statusBefore.collateralAmount', statusBefore.collateralAmount.toString())
+    // console.log('statusBefore.amountToPay', statusBefore.amountToPay.toString())
+    // console.log('statusBefore.healthFactor18', statusBefore.healthFactor18.toString())
+
+    const cometContract = IComet__factory.connect(await d.poolAdapter.comet(), deployer)
+    await cometContract.absorb(liquidatorAddress, [d.poolAdapter.address])
+
+    // const statusAfter = await d.poolAdapter.getStatus()
+    // console.log('statusAfter.collateralAmount', statusAfter.collateralAmount.toString())
+    // console.log('statusAfter.amountToPay', statusAfter.amountToPay.toString())
+    // console.log('statusAfter.healthFactor18', statusAfter.healthFactor18.toString())
+
+    // "borrow" borrow token
+    // Buy discounted collateral from protocol
+    // exchange collateral token to base token
+
+    return {
+      liquidatorAddress,
+      // collateralAmountReceivedByLiquidator: BigNumber.from(0)
+    }
   }
 }
