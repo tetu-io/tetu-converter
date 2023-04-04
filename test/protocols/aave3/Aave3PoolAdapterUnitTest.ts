@@ -129,12 +129,7 @@ describe("Aave3PoolAdapterUnitTest", () => {
       let results: IMakeBorrowTestResults;
       before(async function () {
         if (!await isPolygonForkInUse()) return;
-        results = await makeBorrowTest(
-          collateralAsset,
-          collateralHolder,
-          borrowAsset,
-          "1999"
-        );
+        results = await makeBorrowTest(collateralAsset, collateralHolder, borrowAsset, "1999");
       });
       it("should get expected status", async () => {
         if (!await isPolygonForkInUse()) return;
@@ -143,6 +138,9 @@ describe("Aave3PoolAdapterUnitTest", () => {
         const collateralTargetHealthFactor2 = await BorrowManager__factory.connect(
           await results.init.controller.borrowManager(), deployer
         ).getTargetHealthFactor2(collateralAsset);
+
+        console.log("status", status);
+        console.log("results", results);
 
         const ret = [
           areAlmostEqual(parseUnits(collateralTargetHealthFactor2.toString(), 16), status.healthFactor18),
