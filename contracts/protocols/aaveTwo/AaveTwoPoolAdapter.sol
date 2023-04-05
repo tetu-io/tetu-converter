@@ -319,6 +319,10 @@ contract AaveTwoPoolAdapter is IPoolAdapter, IPoolAdapterInitializer, Initializa
       uint borrowBalance = IERC20(assetBorrow).balanceOf(address(this));
       if (borrowBalance != 0) {
         IERC20(assetBorrow).safeTransfer(receiver_, borrowBalance);
+        // adjust amountToRepay_ to returned amount to send correct amount to OnRepay event
+        if (amountToRepay_ > borrowBalance) {
+          amountToRepay_ -= borrowBalance;
+        }
       }
     }
 

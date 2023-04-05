@@ -47,6 +47,7 @@ import {areAlmostEqual} from "../../baseUT/utils/CommonUtils";
 import {IPoolAdapterStatus} from "../../baseUT/types/BorrowRepayDataTypes";
 import {AaveTwoChangePricesUtils} from "../../baseUT/protocols/aaveTwo/AaveTwoChangePricesUtils";
 import {loadFixture} from "@nomicfoundation/hardhat-network-helpers";
+import {Aave3ChangePricesUtils} from "../../baseUT/protocols/aave3/Aave3ChangePricesUtils";
 
 describe("AaveTwoPoolAdapterUnitTest", () => {
 //region Global vars for all tests
@@ -1790,7 +1791,7 @@ describe("AaveTwoPoolAdapterUnitTest", () => {
     });
   });
 
-  describe("getCollateralAmountToReturn", () => {
+  describe("getCollateralAmountToReturnOLD", () => {
     const collateralAsset = MaticAddresses.DAI;
     const collateralHolder = MaticAddresses.HOLDER_DAI;
     const borrowAsset = MaticAddresses.WMATIC;
@@ -1884,6 +1885,167 @@ describe("AaveTwoPoolAdapterUnitTest", () => {
             results.init.collateralToken.address,
             results.init.borrowToken.address,
             parseUnits("1000") // full repay, close position
+          )
+        ).revertedWith("TC-4 zero price"); // ZERO_PRICE
+      });
+    });
+  });
+
+  describe("getCollateralAmountToReturn", () => {
+    const collateralAsset = MaticAddresses.DAI;
+    const collateralHolder = MaticAddresses.HOLDER_DAI;
+    const borrowAsset = MaticAddresses.WMATIC;
+    const borrowHolder = MaticAddresses.HOLDER_WMATIC;
+
+    async function setupBorrowForTest() : Promise<IMakeBorrowTestResults> {
+      return await makeBorrowTest(collateralAsset, collateralHolder, borrowAsset, "1999");
+    }
+
+    describe("Good paths", () => {
+      interface IQuoteRepayTestResults {
+        status: IPoolAdapterStatus;
+        realAmountToPay: BigNumber;
+        repayEmulationResults: {
+          collateralAmountOut: BigNumber;
+          returnedBorrowAmountOut: BigNumber;
+        }
+        quoteRepayResultCollateralAmount: BigNumber;
+        debtGap: number;
+      }
+      async function makeQuoteRepayTest(part100: number) : Promise<IQuoteRepayTestResults> {
+        const results = await loadFixture(setupBorrowForTest);
+
+        const status: IPoolAdapterStatus = await results.init.aavePoolAdapterAsTC.getStatus();
+        const tetuConverterAsUser = ITetuConverter__factory.connect(
+          await results.init.controller.tetuConverter(),
+          await DeployerUtils.startImpersonate(results.init.userContract.address)
+        );
+        const amountToFullPay = status.amountToPay.mul(2);
+
+        // let's know what exactly collateral we will get after full repay
+        await BalanceUtils.getRequiredAmountFromHolders(
+          amountToFullPay,
+          results.init.borrowToken.token,
+          [borrowHolder],
+          tetuConverterAsUser.address
+        );
+        await results.init.borrowToken.token.connect(
+          await DeployerUtils.startImpersonate(tetuConverterAsUser.address)
+        ).approve(results.init.aavePoolAdapterAsTC.address, amountToFullPay);
+        const fullRepayResults = (await tetuConverterAsUser.callStatic.repay(
+          results.init.collateralToken.address,
+          results.init.borrowToken.address,
+          amountToFullPay,
+          ethers.Wallet.createRandom().address
+        ));
+
+        console.log("Collateral received after full repay:", fullRepayResults.collateralAmountOut.toString());
+        const exactRepaidAmountFullPay = amountToFullPay.sub(fullRepayResults.returnedBorrowAmountOut);
+        console.log("Amount to pay according status:", status.amountToPay.toString());
+        console.log("Exact amount to full pay:", exactRepaidAmountFullPay.toString());
+
+        const collateralAmountOut = await tetuConverterAsUser.callStatic.quoteRepay(
+          results.init.userContract.address,
+          results.init.collateralToken.address,
+          results.init.borrowToken.address,
+          exactRepaidAmountFullPay.div(part100),
+        );
+
+        return {
+          status,
+          repayEmulationResults: fullRepayResults,
+          quoteRepayResultCollateralAmount: collateralAmountOut,
+          realAmountToPay: exactRepaidAmountFullPay,
+          debtGap: (await results.init.controller.debtGap()).toNumber()
+        }
+      }
+      describe("Full repay", () => {
+        it("should return expected values", async () => {
+          if (!await isPolygonForkInUse()) return;
+
+          const results = await loadFixture(setupBorrowForTest);
+          const status = await results.init.aavePoolAdapterAsTC.getStatus();
+          const tetuConverterAsUser = ITetuConverter__factory.connect(
+            await results.init.controller.tetuConverter(),
+            await DeployerUtils.startImpersonate(results.init.userContract.address)
+          );
+          // await tetuConverterAsUser.quoteRepay(
+          //   results.init.collateralToken.address,
+          //   results.init.borrowToken.address,
+          //   status.amountToPay
+          // );
+          const collateralAmountOut = await tetuConverterAsUser.callStatic.quoteRepay(
+            await tetuConverterAsUser.signer.getAddress(),
+            results.init.collateralToken.address,
+            results.init.borrowToken.address,
+            status.amountToPay
+          );
+
+          const ret = collateralAmountOut.gte(status.collateralAmount);
+          console.log("ret", collateralAmountOut, status.collateralAmount);
+          expect(ret).eq(true);
+        });
+      });
+      describe("Partial repay 50%", () => {
+        async function makeQuoteRepayTest2() : Promise<IQuoteRepayTestResults> {
+          return makeQuoteRepayTest(2);
+        }
+        it("should return expected values", async () => {
+          if (!await isPolygonForkInUse()) return;
+
+          const r = await loadFixture(makeQuoteRepayTest2);
+          console.log(r);
+
+          // Exact amount-to-pay depends on current time stamp, so we cannot calculate this amount in advance
+          // So, we cannot pay exactly 50% here - we pay only approximately 50%...
+          // TetuConverter.repay adds debt-gap for AAVE, so we need to increase result amount on debt-gap
+          const ret = areAlmostEqual(
+            r.quoteRepayResultCollateralAmount.mul(2),
+            r.repayEmulationResults.collateralAmountOut.mul(100_000 + r.debtGap).div(100_000),
+            4
+          );
+          expect(ret).eq(true);
+        });
+      });
+      describe("Partial repay 5%", () => {
+        async function makeQuoteRepayTest20() : Promise<IQuoteRepayTestResults> {
+          return makeQuoteRepayTest(20);
+        }
+        it("should return expected values", async () => {
+          if (!await isPolygonForkInUse()) return;
+          const r = await loadFixture(makeQuoteRepayTest20);
+
+          // Exact amount-to-pay depends on current time stamp, so we cannot calculate this amount in advance
+          // So, we cannot pay exactly 5% here - we pay only approximately 5%...
+          // TetuConverter.repay adds debt-gap for AAVE, so we need to increase result amount on debt-gap
+          const ret = areAlmostEqual(
+            r.quoteRepayResultCollateralAmount.mul(20),
+            r.repayEmulationResults.collateralAmountOut.mul(100_000 + r.debtGap).div(100_000),
+            4
+          );
+          console.log("ret", r.quoteRepayResultCollateralAmount.mul(20).toString(), r.repayEmulationResults.collateralAmountOut.toString());
+          expect(ret).eq(true);
+        });
+      });
+    });
+    describe("Bad paths", () => {
+      it("should revert if collateral price is zero", async () => {
+        if (!await isPolygonForkInUse()) return;
+
+        const results = await loadFixture(setupBorrowForTest);
+        const priceOracle = await Aave3ChangePricesUtils.setupPriceOracleMock(deployer);
+        await priceOracle.setPrices([results.init.collateralToken.address], [parseUnits("0")]);
+
+        const tetuConverterAsUser = ITetuConverter__factory.connect(
+          await results.init.controller.tetuConverter(),
+          await DeployerUtils.startImpersonate(results.init.userContract.address)
+        );
+        await expect(
+          tetuConverterAsUser.quoteRepay(
+            await tetuConverterAsUser.signer.getAddress(),
+            results.init.collateralToken.address,
+            results.init.borrowToken.address,
+            parseUnits("10000") // full repay, close position
           )
         ).revertedWith("TC-4 zero price"); // ZERO_PRICE
       });
