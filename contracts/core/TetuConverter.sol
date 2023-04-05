@@ -647,7 +647,6 @@ contract TetuConverter is ITetuConverter, IKeeperCallback, IRequireAmountBySwapM
   //       Get debt/repay info
   //-----------------------------------------------------
 
-
   /// @inheritdoc ITetuConverter
   function getDebtAmountCurrent(
     address user_,
