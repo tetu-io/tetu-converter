@@ -67,4 +67,6 @@ interface IComet {
   function quoteCollateral(address asset, uint baseAmount) external view returns (uint);
 
   function buyCollateral(address asset, uint minAmount, uint baseAmount, address recipient) external;
+
+  function accrueAccount(address account) external;
 }

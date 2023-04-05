@@ -140,7 +140,9 @@ contract Compound3PoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithReward
   ///                External logic
   ///////////////////////////////////////////////////////
 
-  function updateStatus() external {}
+  function updateStatus() external {
+    comet.accrueAccount(address(this));
+  }
 
   function borrow(uint collateralAmount_, uint borrowAmount_, address receiver_) external returns (
     uint borrowedAmountOut
