@@ -327,23 +327,6 @@ contract DForcePlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
   }
 
   //-----------------------------------------------------
-  ///  Calculate borrow rate after borrowing in advance
-  //-----------------------------------------------------
-
-  /// @notice Estimate value of variable borrow rate after borrowing {amountToBorrow_}
-  function getBorrowRateAfterBorrow(
-    address borrowAsset_,
-    uint amountToBorrow_
-  ) external view override returns (uint) {
-    IDForceCToken borrowCToken = IDForceCToken(activeAssets[borrowAsset_]);
-    return DForceAprLib.getEstimatedBorrowRate(
-      IDForceInterestRateModel(borrowCToken.interestRateModel()),
-      borrowCToken,
-      amountToBorrow_
-    );
-  }
-
-  //-----------------------------------------------------
   ///                    Utils
   //-----------------------------------------------------
 

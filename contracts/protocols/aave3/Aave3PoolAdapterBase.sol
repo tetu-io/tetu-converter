@@ -481,7 +481,7 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer,
   }
 
   //-----------------------------------------------------
-  ///                 Rewards
+  //                 Rewards
   //-----------------------------------------------------
   function claimRewards(address receiver_) external pure override returns (
     address rewardToken,
@@ -493,7 +493,7 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer,
   }
 
   //-----------------------------------------------------
-  ///         View current status
+  //         View current status
   //-----------------------------------------------------
 
   function getConversionKind() external pure override returns (AppDataTypes.ConversionKind) {

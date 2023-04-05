@@ -407,32 +407,7 @@ contract Aave3PlatformAdapter is IPlatformAdapter {
   }
 
   //-----------------------------------------------------
-  ///  Calculate borrow rate after borrowing in advance
-  //-----------------------------------------------------
-
-  /// @notice Estimate value of variable borrow rate after borrowing {amountToBorrow_}
-  function getBorrowRateAfterBorrow(address borrowAsset_, uint amountToBorrow_) external view override returns (uint) {
-    IAavePool poolLocal = pool;
-    Aave3DataTypes.ReserveData memory rb = poolLocal.getReserveData(borrowAsset_);
-
-    (,,,
-    uint256 totalStableDebt,
-    uint256 totalVariableDebt
-    ,,,,,,,) = IAaveProtocolDataProvider(
-      (IAaveAddressesProvider(poolLocal.ADDRESSES_PROVIDER())).getPoolDataProvider()
-    ).getReserveData(borrowAsset_);
-
-    return Aave3AprLib.getVariableBorrowRateRays(
-      rb,
-      borrowAsset_,
-      amountToBorrow_,
-      totalStableDebt,
-      totalVariableDebt
-    );
-  }
-
-  //-----------------------------------------------------
-  ///                    Utils
+  //                    Utils
   //-----------------------------------------------------
 
   /// @notice Check if the asset can be used as a collateral

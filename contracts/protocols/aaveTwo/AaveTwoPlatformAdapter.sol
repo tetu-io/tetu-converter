@@ -24,17 +24,13 @@ contract AaveTwoPlatformAdapter is IPlatformAdapter {
   using AaveTwoReserveConfiguration for DataTypes.ReserveConfigurationMap;
 
   //-----------------------------------------------------
-  ///   Constants
+  //   Constants
   //-----------------------------------------------------
 
-  /// @notice https://docs.aave.com/developers/v/2.0/the-core-protocol/protocol-data-provider
-  ///        Each market has a separate Protocol Data Provider.
-  ///        To get the address for a particular market, call getAddress() using the value 0x1.
-  uint internal constant ID_DATA_PROVIDER = 0x1000000000000000000000000000000000000000000000000000000000000000;
   string public constant override PLATFORM_ADAPTER_VERSION = "1.0.1";
 
   //-----------------------------------------------------
-  ///   Data types
+  //   Data types
   //-----------------------------------------------------
 
   /// @notice Local vars inside getConversionPlan - to avoid stack too deep
@@ -55,7 +51,7 @@ contract AaveTwoPlatformAdapter is IPlatformAdapter {
   }
 
   //-----------------------------------------------------
-  ///         Variables
+  //         Variables
   //-----------------------------------------------------
 
   IConverterController immutable public controller;
@@ -69,7 +65,7 @@ contract AaveTwoPlatformAdapter is IPlatformAdapter {
   bool public override frozen;
 
   //-----------------------------------------------------
-  ///               Events
+  //               Events
   //-----------------------------------------------------
   event OnPoolAdapterInitialized(
     address converter,
@@ -80,7 +76,7 @@ contract AaveTwoPlatformAdapter is IPlatformAdapter {
   );
 
   //-----------------------------------------------------
-  ///       Constructor and initialization
+  //       Constructor and initialization
   //-----------------------------------------------------
 
   constructor (
@@ -132,7 +128,7 @@ contract AaveTwoPlatformAdapter is IPlatformAdapter {
   }
 
   //-----------------------------------------------------
-  ///              View
+  //              View
   //-----------------------------------------------------
 
   function converters() external view override returns (address[] memory) {
@@ -142,7 +138,7 @@ contract AaveTwoPlatformAdapter is IPlatformAdapter {
   }
 
   //-----------------------------------------------------
-  ///           Get conversion plan
+  //           Get conversion plan
   //-----------------------------------------------------
 
   function getConversionPlan (
@@ -163,7 +159,7 @@ contract AaveTwoPlatformAdapter is IPlatformAdapter {
       vars.pool = pool;
 
       vars.addressProvider = IAaveTwoLendingPoolAddressesProvider(vars.pool.getAddressesProvider());
-      vars.dataProvider = IAaveTwoProtocolDataProvider(vars.addressProvider.getAddress(bytes32(ID_DATA_PROVIDER)));
+      vars.dataProvider = IAaveTwoProtocolDataProvider(vars.addressProvider.getAddress(bytes32(AaveTwoAprLib.ID_DATA_PROVIDER)));
       vars.priceOracle = IAaveTwoPriceOracle(vars.addressProvider.getPriceOracle());
 
       vars.rc = vars.pool.getReserveData(params.collateralAsset);
@@ -320,27 +316,6 @@ contract AaveTwoPlatformAdapter is IPlatformAdapter {
     } else {
       return plan;
     }
-  }
-
-
-  //-----------------------------------------------------
-  ///  Calculate borrow rate after borrowing in advance
-  //-----------------------------------------------------
-
-  /// @notice Estimate value of variable borrow rate after borrowing {amountToBorrow_}
-  function getBorrowRateAfterBorrow(address borrowAsset_, uint amountToBorrow_) external view override returns (uint) {
-    DataTypes.ReserveData memory rb = pool.getReserveData(borrowAsset_);
-    (, uint totalStableDebt, uint totalVariableDebt,,,,,,,) = IAaveTwoProtocolDataProvider(
-      IAaveTwoLendingPoolAddressesProvider(pool.getAddressesProvider()).getAddress(bytes32(ID_DATA_PROVIDER))
-    ).getReserveData(borrowAsset_);
-
-    return AaveTwoAprLib.getVariableBorrowRateRays(
-      rb,
-      borrowAsset_,
-      amountToBorrow_,
-      totalStableDebt,
-      totalVariableDebt
-    );
   }
 
   //-----------------------------------------------------

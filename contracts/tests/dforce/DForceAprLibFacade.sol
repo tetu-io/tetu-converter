@@ -178,6 +178,10 @@ contract DForceAprLibFacade {
     );
   }
 
+  function getBorrowRateAfterBorrow(address borrowCToken_, uint amountToBorrow_) internal view returns (uint) {
+    return DForceAprLib.getBorrowRateAfterBorrow(borrowCToken_, amountToBorrow_);
+  }
+
   function rmul(uint x, uint y) external pure returns (uint) {
     return DForceAprLib.rmul(x, y);
   }

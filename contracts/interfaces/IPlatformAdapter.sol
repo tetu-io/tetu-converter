@@ -33,9 +33,6 @@ interface IPlatformAdapter {
     address borrowAsset_
   ) external;
 
-  /// @notice Estimate value of variable borrow rate after borrowing {amountToBorrow_}
-  function getBorrowRateAfterBorrow(address borrowAsset_, uint amountToBorrow_) external view returns (uint);
-
   /// @notice True if the platform is frozen and new borrowing is not possible (at this moment)
   function frozen() external view returns (bool);
 

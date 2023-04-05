@@ -304,7 +304,7 @@ contract HfPlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
   //-----------------------------------------------------
 
   /// @notice Estimate value of variable borrow rate after borrowing {amountToBorrow_}
-  function getBorrowRateAfterBorrow(address borrowAsset_, uint amountToBorrow_) external view override returns (uint) {
+  function getBorrowRateAfterBorrow(address borrowAsset_, uint amountToBorrow_) external view returns (uint) {
     address borrowCToken = activeAssets[borrowAsset_];
     return HfAprLib.getEstimatedBorrowRate(
       IHfInterestRateModel(IHfCToken(borrowCToken).interestRateModel()),

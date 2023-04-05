@@ -201,11 +201,4 @@ contract LendingPlatformMock is IPlatformAdapter {
       _priceOracle
     );
   }
-
-  function getBorrowRateAfterBorrow(address borrowAsset_, uint amountToBorrow_) external pure override returns (uint) {
-    borrowAsset_;
-    amountToBorrow_;
-
-    return 0;
-  }
 }

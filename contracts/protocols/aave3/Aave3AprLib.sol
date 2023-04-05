@@ -9,6 +9,8 @@ import "../../integrations/aave3/IAavePool.sol";
 import "../../integrations/aave3/IAaveToken.sol";
 import "../../integrations/aave3/IAaveStableDebtToken.sol";
 import "../../integrations/aave3/Aave3ReserveConfiguration.sol";
+import "../../integrations/aave3/IAaveProtocolDataProvider.sol";
+import "../../integrations/aave3/IAaveAddressesProvider.sol";
 
 /// @notice Library for AAVE v2 to calculate APR: borrow APR and supply APR
 library Aave3AprLib {
@@ -114,5 +116,26 @@ library Aave3AprLib {
     );
 
     return liquidityRateRays;
+  }
+
+  /// @notice Estimate value of variable borrow rate after borrowing {amountToBorrow_}
+  function getBorrowRateAfterBorrow(address pool_, address borrowAsset_, uint amountToBorrow_) internal view returns (uint) {
+    IAavePool pool = IAavePool(pool_);
+    Aave3DataTypes.ReserveData memory rb = pool.getReserveData(borrowAsset_);
+
+    (,,,
+    uint256 totalStableDebt,
+    uint256 totalVariableDebt
+    ,,,,,,,) = IAaveProtocolDataProvider(
+      (IAaveAddressesProvider(pool.ADDRESSES_PROVIDER())).getPoolDataProvider()
+    ).getReserveData(borrowAsset_);
+
+    return Aave3AprLib.getVariableBorrowRateRays(
+      rb,
+      borrowAsset_,
+      amountToBorrow_,
+      totalStableDebt,
+      totalVariableDebt
+    );
   }
 }

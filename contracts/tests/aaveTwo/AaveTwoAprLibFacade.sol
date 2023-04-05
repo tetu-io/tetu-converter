@@ -81,4 +81,9 @@ contract AaveTwoAprLibFacade {
   ) external pure returns (uint) {
     return AaveSharedLib.getNextLiquidityIndex(state, operationTimestamp);
   }
+
+  /// @notice Estimate value of variable borrow rate after borrowing {amountToBorrow_}
+  function getBorrowRateAfterBorrow(address pool_, address borrowAsset_, uint amountToBorrow_) external view returns (uint) {
+    return AaveTwoAprLib.getBorrowRateAfterBorrow(pool_, borrowAsset_, amountToBorrow_);
+  }
 }
