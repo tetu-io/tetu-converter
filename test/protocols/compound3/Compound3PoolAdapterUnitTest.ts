@@ -13,6 +13,7 @@ import {isPolygonForkInUse} from "../../baseUT/utils/NetworkUtils";
 import {parseUnits} from "ethers/lib/utils";
 import {ICometRewards__factory, IERC20__factory} from "../../../typechain";
 import {expect} from "chai";
+import {areAlmostEqual} from "../../baseUT/utils/CommonUtils";
 
 
 describe("Compound3PoolAdapterUnitTest", () => {
@@ -74,6 +75,25 @@ describe("Compound3PoolAdapterUnitTest", () => {
   }
 //endregion Test impl
 
+  describe("getConversionKind", () => {
+    describe("Good paths", () => {
+      it("should return expected values", async () => {
+        if (!await isPolygonForkInUse()) return;
+        const d = await Compound3TestUtils.prepareToBorrow(
+          deployer,
+          await TokenDataTypes.Build(deployer, MaticAddresses.WETH),
+          MaticAddresses.HOLDER_WETH,
+          undefined,
+          await TokenDataTypes.Build(deployer, MaticAddresses.USDC),
+          [MaticAddresses.COMPOUND3_COMET_USDC],
+          MaticAddresses.COMPOUND3_COMET_REWARDS,
+        );
+        const ret = await d.poolAdapter.getConversionKind();
+        expect(ret).eq(2); // CONVERSION_KIND_BORROW_2
+      });
+    });
+  });
+
   describe("claimRewards", () => {
     describe("Good paths", () => {
       it("should return expected values", async () => {
@@ -112,5 +132,37 @@ describe("Compound3PoolAdapterUnitTest", () => {
         console.log('Rewards amount', amount.toString())
       })
     })
+  })
+
+  describe("borrowToRebalance", () => {
+    it("should return expected values", async () => {
+      if (!await isPolygonForkInUse()) return;
+
+      const r = await makeBorrow(
+        MaticAddresses.WETH,
+        MaticAddresses.HOLDER_WETH,
+        parseUnits('10'),
+        MaticAddresses.USDC
+      )
+
+      const statusAfterBorrow = await r.prepareResults.poolAdapter.getStatus()
+      // console.log('Borrowed amount', statusAfterBorrow.amountToPay.toString())
+      // console.log('HF after borrow', statusAfterBorrow.healthFactor18.toString())
+
+      await r.prepareResults.controller.setTargetHealthFactor2(150);
+
+      const amountToAdditionalBorrow = statusAfterBorrow.amountToPay.div(5)
+      const [resultHealthFactor18,] = await r.prepareResults.poolAdapter.callStatic.borrowToRebalance(amountToAdditionalBorrow, r.prepareResults.userContract.address)
+      await r.prepareResults.poolAdapter.borrowToRebalance(amountToAdditionalBorrow, r.prepareResults.userContract.address)
+
+      const statusAfterBorrowToRebalance = await r.prepareResults.poolAdapter.getStatus()
+      // console.log('Borrowed amount', statusAfterBorrowToRebalance.amountToPay.toString())
+      // console.log('HF after borrow', statusAfterBorrowToRebalance.healthFactor18.toString())
+      // console.log('Result HF', resultHealthFactor18.toString())
+      expect(statusAfterBorrowToRebalance.healthFactor18).lt(statusAfterBorrow.healthFactor18)
+      expect(areAlmostEqual(statusAfterBorrowToRebalance.amountToPay, statusAfterBorrow.amountToPay.add(amountToAdditionalBorrow))).eq(true)
+      expect(areAlmostEqual(resultHealthFactor18, statusAfterBorrowToRebalance.healthFactor18)).eq(true)
+    })
+
   })
 })

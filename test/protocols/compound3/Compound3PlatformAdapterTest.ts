@@ -27,10 +27,11 @@ import {convertUnits} from "../../baseUT/apr/aprUtils";
 import {areAlmostEqual} from "../../baseUT/utils/CommonUtils";
 import {addLiquidatorPath} from "../../baseUT/utils/TetuLiquidatorUtils";
 import {DeployUtils} from "../../../scripts/utils/DeployUtils";
-import {getAddress, parseUnits} from "ethers/lib/utils";
+import {defaultAbiCoder, formatUnits, getAddress, parseUnits} from "ethers/lib/utils";
 import {DeployerUtils} from "../../../scripts/utils/DeployerUtils";
 import {Compound3ChangePriceUtils} from "../../baseUT/protocols/compound3/Compound3ChangePriceUtils";
 import {IPlatformActor, PredictBrUsesCase} from "../../baseUT/uses-cases/PredictBrUsesCase";
+import {AppConstants} from "../../baseUT/AppConstants";
 
 
 describe("Compound3PlatformAdapterTest", () => {
@@ -135,6 +136,7 @@ describe("Compound3PlatformAdapterTest", () => {
     setSupplyPaused?: boolean;
     setWithdrawPaused?: boolean;
     frozen?: boolean;
+    borrowAmount?: BigNumber
   }
 
   interface IPreparePlanResults {
@@ -538,6 +540,81 @@ describe("Compound3PlatformAdapterTest", () => {
           expect(r.plan.collateralAmount).eq(r.plan.maxAmountToSupply);
         })
       })
+      describe("EntryKinds", () => {
+        describe("Use ENTRY_KIND_EXACT_COLLATERAL_IN_FOR_MAX_BORROW_OUT_0", () => {
+          it("should return expected collateral amount", async () => {
+            if (!await isPolygonForkInUse()) return;
+
+            const r = await preparePlan(
+              controller,
+              MaticAddresses.WMATIC,
+              parseUnits("1000"),
+              MaticAddresses.USDC,
+              undefined,
+              defaultAbiCoder.encode(["uint256"], [AppConstants.ENTRY_KIND_0])
+            )
+
+            expect(r.plan.collateralAmount).eq(parseUnits("1000"))
+          })
+        })
+        describe("Use ENTRY_KIND_EXACT_PROPORTION_1", () => {
+          it("should split source amount on the parts with almost same cost", async () => {
+            if (!await isPolygonForkInUse()) return;
+
+            const collateralAmount = parseUnits("1000")
+
+            const r = await preparePlan(
+              controller,
+              MaticAddresses.WMATIC,
+              collateralAmount,
+              MaticAddresses.USDC,
+              undefined,
+              defaultAbiCoder.encode(
+                ["uint256", "uint256", "uint256"],
+                [AppConstants.ENTRY_KIND_1, 1, 1]
+              )
+            )
+
+            console.log('collateralAmount', collateralAmount.toString())
+            console.log('r.plan.collateralAmount', r.plan.collateralAmount.toString())
+            console.log('r.priceCollateral', r.priceCollateral.toString())
+            console.log('r.plan.amountToBorrow', r.plan.amountToBorrow.toString())
+            console.log('r.priceBorrow', r.priceBorrow.toString())
+            console.log('r.collateralAssetDecimals', r.collateralAssetDecimals.toString())
+            console.log('r.borrowAssetDecimals', r.borrowAssetDecimals.toString())
+
+            const sourceAssetUSD = +formatUnits(
+              collateralAmount.sub(r.plan.collateralAmount).mul(r.priceCollateral),
+              r.collateralAssetDecimals + 8
+            );
+            const targetAssetUSD = +formatUnits(
+              r.plan.amountToBorrow.mul(r.priceBorrow),
+              r.borrowAssetDecimals + 8
+            );
+
+            expect(r.plan.collateralAmount).lt(collateralAmount)
+            expect(sourceAssetUSD).approximately(targetAssetUSD, 1)
+          })
+        })
+        describe("Use ENTRY_KIND_EXACT_BORROW_OUT_FOR_MIN_COLLATERAL_IN_2", () => {
+          it("should return expected collateral amount", async () => {
+            if (!await isPolygonForkInUse()) return;
+
+            const collateralAmount = parseUnits("1000", 6)
+
+            const r = await preparePlan(
+              controller,
+              MaticAddresses.WMATIC,
+              collateralAmount,
+              MaticAddresses.USDC,
+              undefined,
+              defaultAbiCoder.encode(["uint256"], [AppConstants.ENTRY_KIND_2])
+            )
+
+            expect(r.plan.amountToBorrow).eq(collateralAmount)
+          })
+        })
+      })
     })
     describe("Bad paths", () => {
       async function tryGetConversionPlan(
@@ -601,6 +678,18 @@ describe("Compound3PlatformAdapterTest", () => {
           });
         });
       });
+      describe("borrow less then min amount", () => {
+        it("should fail", async () => {
+          if (!await isPolygonForkInUse()) return;
+
+          expect((await tryGetConversionPlan(
+            {},
+            MaticAddresses.WETH,
+            MaticAddresses.USDC,
+            parseUnits('0.0001')
+          )).converter).eq(Misc.ZERO_ADDRESS);
+        });
+      })
       describe("asset is not registered", () => {
         it("should fail if collateral token is not registered", async () => {
           if (!await isPolygonForkInUse()) return;
@@ -676,6 +765,25 @@ describe("Compound3PlatformAdapterTest", () => {
         })
       })
     })
+    describe("Bad paths", () => {
+      it("incorrect asset", async () => {
+        if (!await isPolygonForkInUse()) return;
+
+        const controller = await TetuConverterApp.createController(
+          deployer,
+          {tetuLiquidatorAddress: MaticAddresses.TETU_LIQUIDATOR}
+        );
+        const platformAdapter = await AdaptersHelper.createCompound3PlatformAdapter(
+          deployer,
+          controller.address,
+          ethers.Wallet.createRandom().address,
+          [MaticAddresses.COMPOUND3_COMET_USDC],
+          MaticAddresses.COMPOUND3_COMET_REWARDS
+        )
+
+        expect(await platformAdapter.getBorrowRateAfterBorrow(MaticAddresses.WETH, parseUnits('1'))).eq(0)
+      })
+    })
   })
 
   describe("initializePoolAdapter", () => {
@@ -695,6 +803,7 @@ describe("Compound3PlatformAdapterTest", () => {
     interface IInitializePoolAdapterBadPaths {
       useWrongConverter?: boolean;
       wrongCallerOfInitializePoolAdapter?: boolean;
+      borrowAsset?: string;
     }
 
     interface IPooAdapterConfig {
@@ -709,7 +818,7 @@ describe("Compound3PlatformAdapterTest", () => {
     ): Promise<{ config: IPooAdapterConfig, expectedConfig: IPooAdapterConfig }> {
       const user = ethers.Wallet.createRandom().address;
       const collateralAsset = MaticAddresses.DAI;
-      const borrowAsset = MaticAddresses.USDC;
+      const borrowAsset = badParams?.borrowAsset || MaticAddresses.USDC;
 
       const borrowManager = BorrowManager__factory.connect(await controller.borrowManager(), deployer);
 
@@ -791,6 +900,15 @@ describe("Compound3PlatformAdapterTest", () => {
           )
         ).revertedWith("TC-45 borrow manager only"); // BORROW_MANAGER_ONLY
       });
+      it("should revert if borrowAsset is incorrect", async () => {
+        if (!await isPolygonForkInUse()) return;
+
+        await expect(
+          makeInitializePoolAdapterTest(
+            {borrowAsset: MaticAddresses.DAI}
+          )
+        ).revertedWith("TC-58 incorrect borrow asset"); // INCORRECT_BORROW_ASSET
+      });
     });
   })
 
@@ -813,6 +931,28 @@ describe("Compound3PlatformAdapterTest", () => {
       expect(await platformAdapter.frozen()).eq(true)
       await platformAdapter.setFrozen(false)
       expect(await platformAdapter.frozen()).eq(false)
+    })
+  })
+
+  describe("manage comets", () => {
+    it("add, remove comets", async () => {
+      const controller = await TetuConverterApp.createController(
+        deployer,
+        {tetuLiquidatorAddress: MaticAddresses.TETU_LIQUIDATOR}
+      );
+      const platformAdapter = await AdaptersHelper.createCompound3PlatformAdapter(
+        deployer,
+        controller.address,
+        ethers.Wallet.createRandom().address,
+        [MaticAddresses.COMPOUND3_COMET_USDC],
+        MaticAddresses.COMPOUND3_COMET_REWARDS
+      )
+
+      const newComet = ethers.Wallet.createRandom().address
+      await platformAdapter.addComet(newComet)
+      expect(await platformAdapter.cometsLength()).eq(2)
+      await platformAdapter.removeComet(1)
+      expect(await platformAdapter.cometsLength()).eq(1)
     })
   })
 })

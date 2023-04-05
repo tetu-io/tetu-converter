@@ -119,7 +119,7 @@ contract Compound3PlatformAdapter is IPlatformAdapter {
       }
     }
 
-    revert('Not found comet for borrowAsset_');
+    revert(AppErrors.INCORRECT_BORROW_ASSET);
   }
 
   function addComet(address comet_) external {
@@ -274,6 +274,10 @@ contract Compound3PlatformAdapter is IPlatformAdapter {
       return Compound3AprLib.getBorrowRate(IComet(cometAddress), amountToBorrow_);
     }
     return 0;
+  }
+
+  function cometsLength() external view returns (uint) {
+    return comets.length;
   }
 
 }

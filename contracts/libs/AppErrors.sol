@@ -120,4 +120,6 @@ library AppErrors {
   string public constant CLOSE_POSITION_PARTIAL = "TC-55 close position not allowed";
   string public constant ZERO_VALUE_NOT_ALLOWED = "TC-56 zero not allowed";
   string public constant OUT_OF_WHITE_LIST = "TC-57 whitelist";
+
+  string public constant INCORRECT_BORROW_ASSET = "TC-58 incorrect borrow asset";
 }
