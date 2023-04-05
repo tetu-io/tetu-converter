@@ -112,38 +112,33 @@ contract PoolAdapterMock2 is IPoolAdapter {
     address user;
     address collateralAsset;
     address borrowAsset;
-    bool debtGapRequired;
   }
   ConfigParams internal configParams;
   function setConfig(
     address originConverter,
     address user,
     address collateralAsset,
-    address borrowAsset,
-    bool debtGapRequired
+    address borrowAsset
   ) external {
     configParams = ConfigParams({
       originConverter: originConverter,
       user: user,
       collateralAsset: collateralAsset,
-      borrowAsset: borrowAsset,
-      debtGapRequired: debtGapRequired
+      borrowAsset: borrowAsset
     });
   }
   function getConfig() external view override returns (
     address originConverter,
     address user,
     address collateralAsset,
-    address borrowAsset,
-    bool debtGapRequired
+    address borrowAsset
   ) {
     console.log("PooladapterMock2.getConfig", configParams.user);
     return (
       configParams.originConverter,
       configParams.user,
       configParams.collateralAsset,
-      configParams.borrowAsset,
-      configParams.debtGapRequired
+      configParams.borrowAsset
     );
   }
 

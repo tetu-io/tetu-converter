@@ -523,10 +523,9 @@ contract DForcePoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP, Initi
     address origin,
     address outUser,
     address outCollateralAsset,
-    address outBorrowAsset,
-    bool debtGapRequired
+    address outBorrowAsset
   ) {
-    return (originConverter, user, collateralAsset, borrowAsset, false);
+    return (originConverter, user, collateralAsset, borrowAsset);
   }
 
   /// @inheritdoc IPoolAdapter

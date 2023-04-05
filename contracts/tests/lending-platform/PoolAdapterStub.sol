@@ -154,10 +154,9 @@ contract PoolAdapterStub is IPoolAdapter {
     address origin,
     address user,
     address collateralAsset,
-    address borrowAsset,
-    bool debtGapRequired
+    address borrowAsset
   ) {
-    return (originConverter, _user, _collateralAsset, _borrowAsset, false);
+    return (originConverter, _user, _collateralAsset, _borrowAsset);
   }
 
   /// @notice Get current status of the borrow position

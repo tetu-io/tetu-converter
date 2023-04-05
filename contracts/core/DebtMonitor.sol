@@ -120,7 +120,7 @@ contract DebtMonitor is IDebtMonitor {
       (address origin,
        address user,
        address collateralAsset,
-       address borrowAsset,
+       address borrowAsset
       ) = IPoolAdapter(msg.sender).getConfig();
 
       poolAdapters[getPoolAdapterKey(user, collateralAsset, borrowAsset)].push(msg.sender);
@@ -155,7 +155,7 @@ contract DebtMonitor is IDebtMonitor {
   function _closePosition(address poolAdapter_, bool markAsDirty_) internal {
     positionLastAccess[poolAdapter_] = 0;
     AppUtils.removeItemFromArray(positions, poolAdapter_);
-    (address origin, address user, address collateralAsset, address borrowAsset,) = IPoolAdapter(poolAdapter_).getConfig();
+    (address origin, address user, address collateralAsset, address borrowAsset) = IPoolAdapter(poolAdapter_).getConfig();
 
     AppUtils.removeItemFromArray(poolAdapters[getPoolAdapterKey(user, collateralAsset, borrowAsset)], poolAdapter_);
     _poolAdaptersForUser[user].remove(poolAdapter_);
@@ -248,7 +248,7 @@ contract DebtMonitor is IDebtMonitor {
       // We cannot do it here because it's read-only function.
       // We should call a IKeeperCallback in the same way as for rebalancing, but with requiredAmountCollateralAsset=0
 
-      (,,, address borrowAsset,) = pa.getConfig();
+      (,,, address borrowAsset) = pa.getConfig();
       uint healthFactorTarget18 = uint(borrowManager.getTargetHealthFactor2(borrowAsset)) * 10**(18-2);
       if (
         (p.healthFactorThreshold18 < healthFactorTarget18 && healthFactor18 < p.healthFactorThreshold18) // unhealthy

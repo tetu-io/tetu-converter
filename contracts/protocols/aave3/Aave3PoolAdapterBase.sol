@@ -505,10 +505,9 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer,
     address origin,
     address outUser,
     address outCollateralAsset,
-    address outBorrowAsset,
-    bool debtGapRequired
+    address outBorrowAsset
   ) {
-    return (originConverter, user, collateralAsset, borrowAsset, true);
+    return (originConverter, user, collateralAsset, borrowAsset);
   }
 
   /// @inheritdoc IPoolAdapter

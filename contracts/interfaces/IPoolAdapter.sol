@@ -58,14 +58,11 @@ interface IPoolAdapter is IConverter {
   /// @return user User of the pool adapter
   /// @return collateralAsset Asset used as collateral by the pool adapter
   /// @return borrowAsset Asset borrowed by the pool adapter
-  /// @return debtGapRequired When paying off a debt, the amount of the payment must be greater
-  ///         than the amount of the debt by a small amount (debt gap, see IConverterController.debtGap)
   function getConfig() external view returns (
     address originConverter,
     address user,
     address collateralAsset,
-    address borrowAsset,
-    bool debtGapRequired
+    address borrowAsset
   );
 
   /// @notice Get current status of the borrow position

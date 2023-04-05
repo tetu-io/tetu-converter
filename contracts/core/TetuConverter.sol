@@ -547,7 +547,7 @@ contract TetuConverter is ITetuConverter, IKeeperCallback, IRequireAmountBySwapM
     require(requiredBorrowedAmount_ != 0, AppErrors.INCORRECT_VALUE);
 
     IPoolAdapter pa = IPoolAdapter(poolAdapter_);
-    (,address user, address collateralAsset,,) = pa.getConfig();
+    (,address user, address collateralAsset,) = pa.getConfig();
     pa.updateStatus();
     (, uint amountToPay,,,,) = pa.getStatus();
 
@@ -595,7 +595,7 @@ contract TetuConverter is ITetuConverter, IKeeperCallback, IRequireAmountBySwapM
 
     // update internal debts and get actual amount to repay
     IPoolAdapter pa = IPoolAdapter(poolAdapter_);
-    (,address user, address collateralAsset, address borrowAsset,) = pa.getConfig();
+    (,address user, address collateralAsset, address borrowAsset) = pa.getConfig();
     pa.updateStatus();
     (collateralAmountOut, repaidAmountOut,,,,) = pa.getStatus();
 
@@ -669,7 +669,7 @@ contract TetuConverter is ITetuConverter, IKeeperCallback, IRequireAmountBySwapM
       pa.updateStatus();
       (uint collateralAmount, uint totalDebtForPoolAdapter,,,, bool debtGapRequired) = pa.getStatus();
       totalDebtAmountOut += useDebtGap_ && debtGapRequired
-        ? totalDebtForPoolAdapter * debtGap / DEBT_GAP_DENOMINATOR
+        ? totalDebtForPoolAdapter * (DEBT_GAP_DENOMINATOR + debtGap) / DEBT_GAP_DENOMINATOR
         : totalDebtForPoolAdapter;
       totalCollateralAmountOut += collateralAmount;
     }
@@ -698,7 +698,7 @@ contract TetuConverter is ITetuConverter, IKeeperCallback, IRequireAmountBySwapM
       IPoolAdapter pa = IPoolAdapter(poolAdapters[i]);
       (uint collateralAmount, uint totalDebtForPoolAdapter,,,, bool debtGapRequired) = pa.getStatus();
       totalDebtAmountOut += useDebtGap_ && debtGapRequired
-        ? totalDebtForPoolAdapter * debtGap / DEBT_GAP_DENOMINATOR
+        ? totalDebtForPoolAdapter * (DEBT_GAP_DENOMINATOR + debtGap) / DEBT_GAP_DENOMINATOR
         : totalDebtForPoolAdapter;
       totalCollateralAmountOut += collateralAmount;
     }

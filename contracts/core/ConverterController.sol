@@ -283,9 +283,13 @@ contract ConverterController is IConverterController, Initializable {
   //-----------------------------------------------------
   //               Debt gap
   //-----------------------------------------------------
+
+  /// @notice Set up debt gap value
+  /// @dev If pool adapter's getStatus returns debtGapRequired = true
+  ///      user should reppay debt-amount * (debtGap_ + 100_000) / 100_000
+  /// @param debtGap_ Debt gap value, any value >= 0 is suitable
   function setDebtGap(uint debtGap_) external {
     _onlyGovernance();
-    require(debtGap <= DEBT_GAP_DENOMINATOR, AppErrors.INCORRECT_VALUE);
     debtGap = debtGap_;
   }
 }

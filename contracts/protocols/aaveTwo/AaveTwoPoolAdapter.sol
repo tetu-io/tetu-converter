@@ -491,10 +491,9 @@ contract AaveTwoPoolAdapter is IPoolAdapter, IPoolAdapterInitializer, Initializa
     address origin,
     address outUser,
     address outCollateralAsset,
-    address outBorrowAsset,
-    bool debtGapRequired
+    address outBorrowAsset
   ) {
-    return (originConverter, user, collateralAsset, borrowAsset, true);
+    return (originConverter, user, collateralAsset, borrowAsset);
   }
 
   /// @inheritdoc IPoolAdapter

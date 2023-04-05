@@ -860,6 +860,46 @@ describe("Controller", () => {
       });
     });
   });
+
+  describe("debtGap", () => {
+    describe("Good paths", () => {
+      it("should set debt gap 1%", async () => {
+        const debtGap = 1_000; // 1%
+        const {controller} = await createTestController(getRandomMembersValues());
+        await controller.connect(await DeployerUtils.startImpersonate(await controller.governance())).setDebtGap(debtGap);
+
+        const retDebtGap = await controller.debtGap();
+        expect(retDebtGap).eq(debtGap);
+      });
+      it("should set debt gap 0", async () => {
+        const debtGap = 0;
+        const {controller} = await createTestController(getRandomMembersValues());
+        await controller.connect(await DeployerUtils.startImpersonate(await controller.governance())).setDebtGap(10000);
+        await controller.connect(await DeployerUtils.startImpersonate(await controller.governance())).setDebtGap(debtGap);
+
+        const retDebtGap = await controller.debtGap();
+        expect(retDebtGap).eq(debtGap);
+      });
+      it("should set debt gap 200%", async () => {
+        const debtGap = 200_000;
+        const {controller} = await createTestController(getRandomMembersValues());
+        await controller.connect(await DeployerUtils.startImpersonate(await controller.governance())).setDebtGap(debtGap);
+
+        const retDebtGap = await controller.debtGap();
+        expect(retDebtGap).eq(debtGap);
+      });
+    });
+    describe("Bad paths", () => {
+      it("should revert if not governance", async () => {
+        const {controller} = await createTestController(getRandomMembersValues());
+
+        const debtGap = 100_000 + 1; // (!) too big
+        await expect(
+          controller.connect(await DeployerUtils.startImpersonate(ethers.Wallet.createRandom().address)).setDebtGap(debtGap)
+        ).revertedWith("TC-9 governance only"); // GOVERNANCE_ONLY
+      });
+    });
+  });
 //endregion Unit tests
 
 });

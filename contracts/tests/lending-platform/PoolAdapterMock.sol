@@ -128,10 +128,9 @@ contract PoolAdapterMock is IPoolAdapter {
     address origin,
     address user,
     address collateralAsset,
-    address borrowAsset,
-    bool debtGapRequired
+    address borrowAsset
   ) {
-    return (originConverter, _user, _collateralAsset, _borrowAsset, false);
+    return (originConverter, _user, _collateralAsset, _borrowAsset);
   }
 
   function getStatus() external view override returns (
