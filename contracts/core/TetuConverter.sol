@@ -32,10 +32,11 @@ contract TetuConverter is ITetuConverter, IKeeperCallback, IRequireAmountBySwapM
 
   /// @notice After additional borrow result health factor should be near to target value, the difference is limited.
   uint constant public ADDITIONAL_BORROW_DELTA_DENOMINATOR = 1;
+  uint constant DEBT_GAP_DENOMINATOR = 100_000;
 
-  ///////////////////////////////////////////////////////
-  ///                Members
-  ///////////////////////////////////////////////////////
+  //-----------------------------------------------------
+  //                Members
+  //-----------------------------------------------------
 
   IConverterController public immutable override controller;
 
@@ -47,9 +48,9 @@ contract TetuConverter is ITetuConverter, IKeeperCallback, IRequireAmountBySwapM
   IPriceOracle public immutable priceOracle;
 
 
-  ///////////////////////////////////////////////////////
-  ///                Data types
-  ///////////////////////////////////////////////////////
+  //-----------------------------------------------------
+  //                Data types
+  //-----------------------------------------------------
 
   /// @notice Local vars for {findConversionStrategy}
   struct FindConversionStrategyLocal {
@@ -63,9 +64,9 @@ contract TetuConverter is ITetuConverter, IKeeperCallback, IRequireAmountBySwapM
     int swapApr18;
   }
 
-  ///////////////////////////////////////////////////////
-  ///               Events
-  ///////////////////////////////////////////////////////
+  //-----------------------------------------------------
+  //               Events
+  //-----------------------------------------------------
   event OnSwap(
     address signer,
     address converter,
@@ -133,9 +134,9 @@ contract TetuConverter is ITetuConverter, IKeeperCallback, IRequireAmountBySwapM
     uint repaidAmountOut
   );
 
-  ///////////////////////////////////////////////////////
-  ///                Initialization
-  ///////////////////////////////////////////////////////
+  //-----------------------------------------------------
+  //                Initialization
+  //-----------------------------------------------------
 
   constructor(
     address controller_,
@@ -163,25 +164,11 @@ contract TetuConverter is ITetuConverter, IKeeperCallback, IRequireAmountBySwapM
     priceOracle = IPriceOracle(priceOracle_);
   }
 
-  ///////////////////////////////////////////////////////
-  ///       Find best strategy for conversion
-  ///////////////////////////////////////////////////////
+  //-----------------------------------------------------
+  //       Find best strategy for conversion
+  //-----------------------------------------------------
 
-  /// @notice Find best conversion strategy (swap or borrow) and provide "cost of money" as interest for the period.
-  ///         It calls both findBorrowStrategy and findSwapStrategy and selects a best strategy.
-  /// @dev This is writable function with read-only behavior.
-  ///      It should be writable to be able to simulate real swap and get a real APR for swapping.
-  /// @param amountIn_  The meaning depends on entryData
-  ///                   For entryKind=0 it's max available amount of collateral
-  ///                   This amount must be approved to TetuConverter before the call.
-  ///                   For entryKind=2 we don't know amount of collateral before the call,
-  ///                   so it's necessary to approve large enough amount (or make infinity approve)
-  /// @param periodInBlocks_ Estimated period to keep target amount. It's required to compute APR
-  /// @return converter Result contract that should be used for conversion to be passed to borrow().
-  /// @return collateralAmountOut Amount of {sourceToken_} that should be swapped to get {targetToken_}
-  ///                            It can be different from the {sourceAmount_} for some entry kinds.
-  /// @return amountToBorrowOut Result amount of {targetToken_} after conversion
-  /// @return apr18 Interest on the use of {outMaxTargetAmount} during the given period, decimals 18
+  /// @inheritdoc ITetuConverter
   function findConversionStrategy(
     bytes memory entryData_,
     address sourceToken_,
@@ -226,22 +213,7 @@ contract TetuConverter is ITetuConverter, IKeeperCallback, IRequireAmountBySwapM
     }
   }
 
-  /// @notice Find possible borrow strategies and provide "cost of money" as interest for the period for each strategy
-  ///         Result arrays of the strategy are ordered in ascending order of APR.
-  /// @param entryData_ Encoded entry kind and additional params if necessary (set of params depends on the kind)
-  ///                   See EntryKinds.sol\ENTRY_KIND_XXX constants for possible entry kinds
-  ///                   0 is used by default
-  /// @param amountIn_  The meaning depends on entryData
-  ///                   For entryKind=0 it's max available amount of collateral
-  /// @param periodInBlocks_ Estimated period to keep target amount. It's required to compute APR
-  /// @return converters Array of available converters ordered in ascending order of APR.
-  ///                    Each item contains a result contract that should be used for conversion; it supports IConverter
-  ///                    This address should be passed to borrow-function during conversion.
-  ///                    The length of array is always equal to the count of available lending platforms.
-  ///                    Last items in array can contain zero addresses (it means they are not used)
-  /// @return collateralAmountsOut Amounts that should be provided as a collateral
-  /// @return amountToBorrowsOut Amounts that should be borrowed
-  /// @return aprs18 Interests on the use of {amountIn_} during the given period, decimals 18
+  /// @inheritdoc ITetuConverter
   function findBorrowStrategies(
     bytes memory entryData_,
     address sourceToken_,
@@ -262,19 +234,7 @@ contract TetuConverter is ITetuConverter, IKeeperCallback, IRequireAmountBySwapM
       : borrowManager.findConverter(entryData_, sourceToken_, targetToken_, amountIn_, periodInBlocks_);
   }
 
-  /// @notice Find best swap strategy and provide "cost of money" as interest for the period
-  /// @dev This is writable function with read-only behavior.
-  ///      It should be writable to be able to simulate real swap and get a real APR.
-  /// @param amountIn_  The meaning depends on entryData
-  ///                   For entryKind=0 it's max available amount of collateral
-  ///                   This amount must be approved to TetuConverter before the call.
-  ///                   For entryKind=2 we don't know amount of collateral before the call,
-  ///                   so it's necessary to approve large enough amount (or make infinity approve)
-  /// @return converter Result contract that should be used for conversion to be passed to borrow()
-  /// @return sourceAmountOut Amount of {sourceToken_} that should be swapped to get {targetToken_}
-  ///                         It can be different from the {sourceAmount_} for some entry kinds.
-  /// @return targetAmountOut Result amount of {targetToken_} after swap
-  /// @return apr18 Interest on the use of {outMaxTargetAmount} during the given period, decimals 18
+  /// @inheritdoc ITetuConverter
   function findSwapStrategy(
     bytes memory entryData_,
     address sourceToken_,
@@ -329,20 +289,11 @@ contract TetuConverter is ITetuConverter, IKeeperCallback, IRequireAmountBySwapM
     return (converter, sourceAmountOut, targetAmountOut, apr18);
   }
 
-  ///////////////////////////////////////////////////////
-  ///       Make conversion, open position
-  ///////////////////////////////////////////////////////
+  //-----------------------------------------------------
+  //       Make conversion, open position
+  //-----------------------------------------------------
 
-  /// @notice Convert {collateralAmount_} to {amountToBorrow_} using {converter_}
-  ///         Target amount will be transferred to {receiver_}. No re-balancing here.
-  /// @dev Transferring of {collateralAmount_} by TetuConverter-contract must be approved by the caller before the call
-  ///      Only whitelisted users are allowed to make borrows
-  /// @param converter_ A converter received from findBestConversionStrategy.
-  /// @param collateralAmount_ Amount of {collateralAsset_}.
-  ///                          This amount must be approved to TetuConverter before the call.
-  /// @param amountToBorrow_ Amount of {borrowAsset_} to be borrowed and sent to {receiver_}
-  /// @param receiver_ A receiver of borrowed amount
-  /// @return borrowedAmountOut Exact borrowed amount transferred to {receiver_}
+  /// @inheritdoc ITetuConverter
   function borrow(
     address converter_,
     address collateralAsset_,
@@ -391,7 +342,7 @@ contract TetuConverter is ITetuConverter, IKeeperCallback, IRequireAmountBySwapM
         // - unhealthy, health factor is less 1. It means that liquidation happens and the pool adapter is not usable.
         // - unhealthy, health factor is greater 1 but it's less min-allowed-value.
         //              It means, that because of some reasons keeper doesn't make rebalance
-        (,, uint healthFactor18,,) = IPoolAdapter(poolAdapter).getStatus();
+        (,, uint healthFactor18,,,) = IPoolAdapter(poolAdapter).getStatus();
         if (healthFactor18 < 1e18) {
           // the pool adapter is unhealthy, we should mark it as dirty and create new pool adapter for the borrow
           borrowManager.markPoolAdapterAsDirty(converter_, msg.sender, collateralAsset_, borrowAsset_);
@@ -456,26 +407,11 @@ contract TetuConverter is ITetuConverter, IKeeperCallback, IRequireAmountBySwapM
     emit OnSwap(msg.sender, swapConverter_, sourceAsset_, sourceAmount_, targetAsset_, receiver_, amountOut);
   }
 
-  ///////////////////////////////////////////////////////
-  ///       Make repay, close position
-  ///////////////////////////////////////////////////////
+  //-----------------------------------------------------
+  //       Make repay, close position
+  //-----------------------------------------------------
 
-  /// @notice Full or partial repay of the borrow
-  /// @dev A user should transfer {amountToRepay_} to TetuConverter before calling repay()
-  /// @param amountToRepay_ Amount of borrowed asset to repay.
-  ///                       You can know exact total amount of debt using {getStatusCurrent}.
-  ///                       if the amount exceed total amount of the debt:
-  ///                       - the debt will be fully repaid
-  ///                       - remain amount will be swapped from {borrowAsset_} to {collateralAsset_}
-  /// @param receiver_ A receiver of the collateral that will be withdrawn after the repay
-  ///                  The remained amount of borrow asset will be returned to the {receiver_} too
-  /// @return collateralAmountOut Exact collateral amount transferred to {collateralReceiver_}
-  ///         If TetuConverter is not able to make the swap, it reverts
-  /// @return returnedBorrowAmountOut A part of amount-to-repay that wasn't converted to collateral asset
-  ///                                 because of any reasons (i.e. there is no available conversion strategy)
-  ///                                 This amount is returned back to the collateralReceiver_
-  /// @return swappedLeftoverCollateralOut A part of collateral received through the swapping
-  /// @return swappedLeftoverBorrowOut A part of amountToRepay_ that was swapped
+  /// @inheritdoc ITetuConverter
   function repay(
     address collateralAsset_,
     address borrowAsset_,
@@ -509,7 +445,7 @@ contract TetuConverter is ITetuConverter, IKeeperCallback, IRequireAmountBySwapM
       IPoolAdapter pa = IPoolAdapter(poolAdapters[i]);
       pa.updateStatus();
 
-      (,uint totalDebtForPoolAdapter,,,) = pa.getStatus();
+      (,uint totalDebtForPoolAdapter,,,,) = pa.getStatus();
       uint amountToPayToPoolAdapter = amountToRepay_ >= totalDebtForPoolAdapter
         ? totalDebtForPoolAdapter
         : amountToRepay_;
@@ -549,12 +485,7 @@ contract TetuConverter is ITetuConverter, IKeeperCallback, IRequireAmountBySwapM
     return (collateralAmountOut, returnedBorrowAmountOut, swappedLeftoverCollateralOut, swappedLeftoverBorrowOut);
   }
 
-  /// @notice Estimate result amount after making full or partial repay
-  /// @dev It works in exactly same way as repay() but don't make actual repay
-  ///      Anyway, the function is write, not read-only, because it makes updateStatus()
-  /// @param user_ user whose amount-to-repay will be calculated
-  /// @param amountToRepay_ Amount of borrowed asset to repay.
-  /// @return collateralAmountOut Total collateral amount to be returned after repay in exchange of {amountToRepay_}
+  /// @inheritdoc ITetuConverter
   function quoteRepay(
     address user_,
     address collateralAsset_,
@@ -577,7 +508,7 @@ contract TetuConverter is ITetuConverter, IKeeperCallback, IRequireAmountBySwapM
       IPoolAdapter pa = IPoolAdapter(poolAdapters[i]);
 
       pa.updateStatus();
-      (, uint totalDebtForPoolAdapter,,,) = pa.getStatus();
+      (, uint totalDebtForPoolAdapter,,,,) = pa.getStatus();
 
       bool closePosition = totalDebtForPoolAdapter <= amountToRepay_;
       uint currentAmountToRepay = closePosition ? totalDebtForPoolAdapter : amountToRepay_;
@@ -602,17 +533,11 @@ contract TetuConverter is ITetuConverter, IKeeperCallback, IRequireAmountBySwapM
     return collateralAmountOut;
   }
 
-  ///////////////////////////////////////////////////////
-  ///       IKeeperCallback
-  ///////////////////////////////////////////////////////
+  //-----------------------------------------------------
+  //       IKeeperCallback
+  //-----------------------------------------------------
 
-  /// @notice This function is called by a keeper if there is unhealthy borrow
-  ///         The called contract should send either collateral-amount or borrowed-amount to TetuConverter
-  /// @param requiredBorrowedAmount_ The borrower should return given borrowed amount back to TetuConverter
-  ///                                in order to restore health factor to target value
-  /// @param requiredCollateralAmount_ The borrower should send given amount of collateral to TetuConverter
-  ///                                  in order to restore health factor to target value
-  /// @param poolAdapter_ Address of the pool adapter that has problem health factor
+  /// @inheritdoc IKeeperCallback
   function requireRepay(
     uint requiredBorrowedAmount_,
     uint requiredCollateralAmount_,
@@ -622,9 +547,9 @@ contract TetuConverter is ITetuConverter, IKeeperCallback, IRequireAmountBySwapM
     require(requiredBorrowedAmount_ != 0, AppErrors.INCORRECT_VALUE);
 
     IPoolAdapter pa = IPoolAdapter(poolAdapter_);
-    (,address user, address collateralAsset,) = pa.getConfig();
+    (,address user, address collateralAsset,,) = pa.getConfig();
     pa.updateStatus();
-    (, uint amountToPay,,,) = pa.getStatus();
+    (, uint amountToPay,,,,) = pa.getStatus();
 
     if (requiredCollateralAmount_ == 0) {
       // Full liquidation happens, we have lost all collateral amount
@@ -657,19 +582,11 @@ contract TetuConverter is ITetuConverter, IKeeperCallback, IRequireAmountBySwapM
     }
   }
 
-  ///////////////////////////////////////////////////////
-  ///       Close borrow forcibly by governance
-  ///////////////////////////////////////////////////////
-  /// @notice Close given borrow and return collateral back to the user, governance only
-  /// @dev The pool adapter asks required amount-to-repay from the user internally.
-  ///      It notifies the user about any amounts transferred to the user on borrow closing.
-  /// @param poolAdapter_ The pool adapter that represents the borrow
-  /// @param closePosition Close position after repay
-  ///        Usually it should be true, because the function always tries to repay all debt
-  ///        false can be used if user doesn't have enough amount to pay full debt
-  ///              and we are trying to pay "as much as possible"
-  /// @return collateralAmountOut Amount of collateral returned to the user
-  /// @return repaidAmountOut Amount of borrow asset repaid to the lending platform
+  //-----------------------------------------------------
+  //       Close borrow forcibly by governance
+  //-----------------------------------------------------
+  
+  /// @inheritdoc ITetuConverter
   function repayTheBorrow(address poolAdapter_, bool closePosition) external returns (
     uint collateralAmountOut,
     uint repaidAmountOut
@@ -678,9 +595,9 @@ contract TetuConverter is ITetuConverter, IKeeperCallback, IRequireAmountBySwapM
 
     // update internal debts and get actual amount to repay
     IPoolAdapter pa = IPoolAdapter(poolAdapter_);
-    (,address user, address collateralAsset, address borrowAsset) = pa.getConfig();
+    (,address user, address collateralAsset, address borrowAsset,) = pa.getConfig();
     pa.updateStatus();
-    (collateralAmountOut, repaidAmountOut,,,) = pa.getStatus();
+    (collateralAmountOut, repaidAmountOut,,,,) = pa.getStatus();
 
     require(
       collateralAmountOut != 0 && repaidAmountOut != 0,
@@ -726,81 +643,71 @@ contract TetuConverter is ITetuConverter, IKeeperCallback, IRequireAmountBySwapM
     return (collateralAmountOut, repaidAmountOut);
   }
 
-  ///////////////////////////////////////////////////////
-  ///       Get debt/repay info
-  ///////////////////////////////////////////////////////
+  //-----------------------------------------------------
+  //       Get debt/repay info
+  //-----------------------------------------------------
 
-  /// @notice Update status in all opened positions
-  ///         After this call getDebtAmount will be able to return exact amount to repay
-  /// @param user_ user whose debts will be returned
-  /// @return totalDebtAmountOut Borrowed amount that should be repaid to pay off the loan in full
-  /// @return totalCollateralAmountOut Amount of collateral that should be received after paying off the loan
+
+  /// @inheritdoc ITetuConverter
   function getDebtAmountCurrent(
     address user_,
     address collateralAsset_,
-    address borrowAsset_
+    address borrowAsset_,
+    bool useDebtGap_
   ) external override nonReentrant returns (
     uint totalDebtAmountOut,
     uint totalCollateralAmountOut
   ) {
-    address[] memory poolAdapters = debtMonitor.getPositions(
-      user_,
-      collateralAsset_,
-      borrowAsset_
-    );
+    address[] memory poolAdapters = debtMonitor.getPositions(user_, collateralAsset_, borrowAsset_);
     uint lenPoolAdapters = poolAdapters.length;
 
-    for (uint i = 0; i < lenPoolAdapters; i = i.uncheckedInc()) {
+    uint debtGap = useDebtGap_
+      ? controller.debtGap()
+      : 0;
+
+    for (uint i; i < lenPoolAdapters; i = i.uncheckedInc()) {
       IPoolAdapter pa = IPoolAdapter(poolAdapters[i]);
       pa.updateStatus();
-      (uint collateralAmount, uint totalDebtForPoolAdapter,,,) = pa.getStatus();
-      totalDebtAmountOut += totalDebtForPoolAdapter;
+      (uint collateralAmount, uint totalDebtForPoolAdapter,,,, bool debtGapRequired) = pa.getStatus();
+      totalDebtAmountOut += useDebtGap_ && debtGapRequired
+        ? totalDebtForPoolAdapter * debtGap / DEBT_GAP_DENOMINATOR
+        : totalDebtForPoolAdapter;
       totalCollateralAmountOut += collateralAmount;
     }
 
     return (totalDebtAmountOut, totalCollateralAmountOut);
   }
 
-  /// @notice Total amount of borrow tokens that should be repaid to close the borrow completely.
-  /// @dev Actual debt amount can be a little LESS then the amount returned by this function.
-  ///      I.e. AAVE's pool adapter returns (amount of debt + tiny addon ~ 1 cent)
-  ///      The addon is required to workaround dust-tokens problem.
-  ///      After repaying the remaining amount is transferred back on the balance of the caller strategy.
-  /// @param user_ user whose debts will be returned
-  /// @return totalDebtAmountOut Borrowed amount that should be repaid to pay off the loan in full
-  /// @return totalCollateralAmountOut Amount of collateral that should be received after paying off the loan
+  /// @inheritdoc ITetuConverter
   function getDebtAmountStored(
     address user_,
     address collateralAsset_,
-    address borrowAsset_
+    address borrowAsset_,
+    bool useDebtGap_
   ) external view override returns (
     uint totalDebtAmountOut,
     uint totalCollateralAmountOut
   ) {
-    address[] memory poolAdapters = debtMonitor.getPositions(
-      user_,
-      collateralAsset_,
-      borrowAsset_
-    );
+    address[] memory poolAdapters = debtMonitor.getPositions(user_, collateralAsset_, borrowAsset_);
     uint lenPoolAdapters = poolAdapters.length;
 
-    for (uint i = 0; i < lenPoolAdapters; i = i.uncheckedInc()) {
+    uint debtGap = useDebtGap_
+      ? controller.debtGap()
+      : 0;
+
+    for (uint i; i < lenPoolAdapters; i = i.uncheckedInc()) {
       IPoolAdapter pa = IPoolAdapter(poolAdapters[i]);
-      (uint collateralAmount, uint totalDebtForPoolAdapter,,,) = pa.getStatus();
-      totalDebtAmountOut += totalDebtForPoolAdapter;
+      (uint collateralAmount, uint totalDebtForPoolAdapter,,,, bool debtGapRequired) = pa.getStatus();
+      totalDebtAmountOut += useDebtGap_ && debtGapRequired
+        ? totalDebtForPoolAdapter * debtGap / DEBT_GAP_DENOMINATOR
+        : totalDebtForPoolAdapter;
       totalCollateralAmountOut += collateralAmount;
     }
 
     return (totalDebtAmountOut, totalCollateralAmountOut);
   }
 
-  /// @notice User needs to redeem some collateral amount. Calculate an amount of borrow token that should be repaid
-  /// @param collateralAmountToRedeem_ Amount of collateral required by the user
-  /// @return borrowAssetAmount Borrowed amount that should be repaid to receive back following amount of collateral:
-  ///                           amountToReceive = collateralAmountRequired_ - unobtainableCollateralAssetAmount
-  /// @return unobtainableCollateralAssetAmount A part of collateral that cannot be obtained in any case
-  ///                                           even if all borrowed amount will be returned.
-  ///                                           If this amount is not 0, you ask to get too much collateral.
+  /// @inheritdoc ITetuConverter
   function estimateRepay(
     address user_,
     address collateralAsset_,
@@ -824,7 +731,7 @@ contract TetuConverter is ITetuConverter, IKeeperCallback, IRequireAmountBySwapM
       }
 
       IPoolAdapter pa = IPoolAdapter(poolAdapters[i]);
-      (uint collateralAmount, uint borrowedAmount,,,) = pa.getStatus();
+      (uint collateralAmount, uint borrowedAmount,,,,) = pa.getStatus();
 
       if (collateralAmountRemained >= collateralAmount) {
         collateralAmountRemained -= collateralAmount;
@@ -838,13 +745,11 @@ contract TetuConverter is ITetuConverter, IKeeperCallback, IRequireAmountBySwapM
     return (borrowAssetAmount, collateralAmountRemained);
   }
 
-  ///////////////////////////////////////////////////////
-  ///       Check and claim rewards
-  ///////////////////////////////////////////////////////
+  //-----------------------------------------------------
+  //       Check and claim rewards
+  //-----------------------------------------------------
 
-  /// @notice Transfer all reward tokens to {receiver_}
-  /// @return rewardTokensOut What tokens were transferred. Same reward token can appear in the array several times
-  /// @return amountsOut Amounts of transferred rewards, the array is synced with {rewardTokens}
+  /// @inheritdoc ITetuConverter
   function claimRewards(address receiver_) external override nonReentrant returns (
     address[] memory rewardTokensOut,
     uint[] memory amountsOut
@@ -873,9 +778,9 @@ contract TetuConverter is ITetuConverter, IKeeperCallback, IRequireAmountBySwapM
     return (rewardTokensOut, amountsOut);
   }
 
-  ///////////////////////////////////////////////////////
-  ///       Simulate swap
-  ///////////////////////////////////////////////////////
+  //-----------------------------------------------------
+  //       Simulate swap
+  //-----------------------------------------------------
 
   /// @notice Transfer {sourceAmount_} approved by {sourceAmountApprover_} to swap manager
   function onRequireAmountBySwapManager(
@@ -892,18 +797,11 @@ contract TetuConverter is ITetuConverter, IKeeperCallback, IRequireAmountBySwapM
     }
   }
 
-  ///////////////////////////////////////////////////////
-  ///       Liquidate with checking
-  ///////////////////////////////////////////////////////
+  //-----------------------------------------------------
+  //       Liquidate with checking
+  //-----------------------------------------------------
 
-  /// @notice Swap {amountIn_} of {assetIn_} to {assetOut_} and send result amount to {receiver_}
-  ///         The swapping is made using TetuLiquidator with checking price impact using embedded price oracle.
-  /// @param amountIn_ Amount of {assetIn_} to be swapped.
-  ///                      It should be transferred on balance of the TetuConverter before the function call
-  /// @param receiver_ Result amount will be sent to this address
-  /// @param priceImpactToleranceSource_ Price impact tolerance for liquidate-call, decimals = 100_000
-  /// @param priceImpactToleranceTarget_ Price impact tolerance for price-oracle-check, decimals = 100_000
-  /// @return amountOut The amount of {assetOut_} that has been sent to the receiver
+  /// @inheritdoc ITetuConverter
   function safeLiquidate(
     address assetIn_,
     uint amountIn_,
@@ -937,8 +835,7 @@ contract TetuConverter is ITetuConverter, IKeeperCallback, IRequireAmountBySwapM
     emit OnSafeLiquidate(assetIn_, amountIn_, assetOut_, receiver_, amountOut);
   }
 
-  /// @notice Check if {amountOut_} is too different from the value calculated directly using price oracle prices
-  /// @return Price difference is ok for the given {priceImpactTolerance_}
+  /// @inheritdoc ITetuConverter
   function isConversionValid(
     address assetIn_,
     uint amountIn_,
@@ -956,9 +853,9 @@ contract TetuConverter is ITetuConverter, IKeeperCallback, IRequireAmountBySwapM
     );
   }
 
-  ///////////////////////////////////////////////////////
+  //-----------------------------------------------------
   ///       Next version features
-  ///////////////////////////////////////////////////////
+  //-----------------------------------------------------
 //  function requireAdditionalBorrow(
 //    uint amountToBorrow_,
 //    address poolAdapter_

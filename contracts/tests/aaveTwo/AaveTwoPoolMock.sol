@@ -32,9 +32,9 @@ contract AaveTwoPoolMock is IAaveTwoPool {
     console.log("AaveTwoPoolMock is used instead of real aave pool", address(this), aavePool_);
   }
 
-  /////////////////////////////////////////////////////////////////
+  //-----------------------------------------------------//////////
   ///       Config the mock
-  /////////////////////////////////////////////////////////////////
+  //-----------------------------------------------------//////////
   function setIgnoreSupply() external {
     console.log("setIgnoreSupply");
     ignoreSupply = true;
@@ -60,10 +60,10 @@ contract AaveTwoPoolMock is IAaveTwoPool {
     grabAllBorrowAssetFromSenderOnRepay = true;
   }
 
-  /////////////////////////////////////////////////////////////////
+  //-----------------------------------------------------//////////
   ///       IAaveTwoPool facade
   ///       All functions required by AaveTwoPoolAdapter
-  /////////////////////////////////////////////////////////////////
+  //-----------------------------------------------------//////////
   function borrow(address asset, uint256 amount, uint256 interestRateMode, uint16 referralCode, address onBehalfOf) external override {
     if (ignoreBorrow) {
       console.log("AaveTwoPoolMock.borrow.ignored");

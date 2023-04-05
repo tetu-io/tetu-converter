@@ -15,6 +15,7 @@ contract PoolAdapterStub is IPoolAdapter {
     uint healthFactor18;
     bool opened;
     uint collateralAmountLiquidated;
+    bool debtGapRequired;
   }
 
   address public controller;
@@ -75,14 +76,16 @@ contract PoolAdapterStub is IPoolAdapter {
     uint amountToPay,
     uint healthFactor18,
     bool opened,
-    uint collateralAmountLiquidated
+    uint collateralAmountLiquidated,
+    bool debtGapRequired
   ) external {
     _manualStatus = ManualStatus({
       collateralAmount: collateralAmount,
       amountToPay: amountToPay,
       healthFactor18: healthFactor18,
       opened: opened,
-      collateralAmountLiquidated: collateralAmountLiquidated
+      collateralAmountLiquidated: collateralAmountLiquidated,
+      debtGapRequired: debtGapRequired
     });
   }
 
@@ -151,9 +154,10 @@ contract PoolAdapterStub is IPoolAdapter {
     address origin,
     address user,
     address collateralAsset,
-    address borrowAsset
+    address borrowAsset,
+    bool debtGapRequired
   ) {
-    return (originConverter, _user, _collateralAsset, _borrowAsset);
+    return (originConverter, _user, _collateralAsset, _borrowAsset, false);
   }
 
   /// @notice Get current status of the borrow position
@@ -162,14 +166,16 @@ contract PoolAdapterStub is IPoolAdapter {
     uint amountToPay,
     uint healthFactor18,
     bool opened,
-    uint collateralAmountLiquidated
+    uint collateralAmountLiquidated,
+    bool debtGapRequired
   ) {
     return (
       _manualStatus.collateralAmount,
       _manualStatus.amountToPay,
       _manualStatus.healthFactor18,
       _manualStatus.opened,
-      _manualStatus.collateralAmountLiquidated
+      _manualStatus.collateralAmountLiquidated,
+      _manualStatus.debtGapRequired
     );
   }
 
@@ -178,9 +184,9 @@ contract PoolAdapterStub is IPoolAdapter {
 //    return int(_borrowRatePerBlock * 15017140 * 100);
 //  }
 
-  ///////////////////////////////////////////////////////
+  //-----------------------------------------------------
   ///                 Rewards
-  ///////////////////////////////////////////////////////
+  //-----------------------------------------------------
   function claimRewards(address receiver_) external pure override returns (
     address rewardToken,
     uint amount

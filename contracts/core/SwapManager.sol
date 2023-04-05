@@ -30,9 +30,9 @@ contract SwapManager is ISwapManager, ISwapConverter, ISimulateProvider, ISwapSi
   /// @dev Cached for the gas optimization
   ITetuLiquidator public immutable tetuLiquidator;
 
-  ///////////////////////////////////////////////////////
+  //-----------------------------------------------------
   ///               Constants
-  ///////////////////////////////////////////////////////
+  //-----------------------------------------------------
 
   int public constant APR_NUMERATOR = 10**18;
 
@@ -43,9 +43,9 @@ contract SwapManager is ISwapManager, ISwapConverter, ISimulateProvider, ISwapSi
   ///         asset => price impact tolerance (decimals are set by PRICE_IMPACT_NUMERATOR)
   mapping (address => uint) public priceImpactTolerances;
 
-  ///////////////////////////////////////////////////////
+  //-----------------------------------------------------
   ///               Events
-  ///////////////////////////////////////////////////////
+  //-----------------------------------------------------
   event OnSwap(address sourceToken,
     uint sourceAmount,
     address targetToken,
@@ -53,9 +53,9 @@ contract SwapManager is ISwapManager, ISwapConverter, ISimulateProvider, ISwapSi
     uint outputAmount
   );
 
-  ///////////////////////////////////////////////////////
+  //-----------------------------------------------------
   ///               Initialization
-  ///////////////////////////////////////////////////////
+  //-----------------------------------------------------
 
   constructor (
     address controller_,
@@ -83,9 +83,9 @@ contract SwapManager is ISwapManager, ISwapConverter, ISimulateProvider, ISwapSi
     priceImpactTolerances[asset_] = priceImpactTolerance;
   }
 
-  ///////////////////////////////////////////////////////
+  //-----------------------------------------------------
   ///           Return best amount for swap
-  ///////////////////////////////////////////////////////
+  //-----------------------------------------------------
 
   /// @notice Find a way to convert collateral asset to borrow asset in most efficient way
   ///         The algo to convert source amount S1:
@@ -137,9 +137,9 @@ contract SwapManager is ISwapManager, ISwapConverter, ISimulateProvider, ISwapSi
       : (address(this), maxTargetAmount);
   }
 
-  ///////////////////////////////////////////////////////
+  //-----------------------------------------------------
   ///           ISwapConverter Implementation
-  ///////////////////////////////////////////////////////
+  //-----------------------------------------------------
 
   function getConversionKind() override external pure returns (AppDataTypes.ConversionKind) {
     return AppDataTypes.ConversionKind.SWAP_1;
@@ -241,9 +241,9 @@ contract SwapManager is ISwapManager, ISwapConverter, ISimulateProvider, ISwapSi
     return _getPriceImpactTolerance(asset_);
   }
 
-  //////////////////////////////////////////////////////////////////////////////
+  //-----------------------------------------------------///////////////////////
   ///           View functions
-  //////////////////////////////////////////////////////////////////////////////
+  //-----------------------------------------------------///////////////////////
   /// @notice Return custom or default price impact tolerance for the asset
   function _getPriceImpactTolerance(address asset_) internal view returns (uint priceImpactTolerance) {
     priceImpactTolerance = priceImpactTolerances[asset_];
@@ -252,12 +252,12 @@ contract SwapManager is ISwapManager, ISwapConverter, ISimulateProvider, ISwapSi
     }
   }
 
-  //////////////////////////////////////////////////////////////////////////////
+  //-----------------------------------------------------///////////////////////
   ///           Simulate real swap
   ///           using gnosis simulate() and simulateAndRevert() functions
   ///           They are slightly more efficient than try/catch approach
   ///           see SimulateTesterTest.ts
-  /////////////////////////////////////////////////////////////////////////////
+  //-----------------------------------------------------//////////////////////
 
   /// Source: https://github.com/gnosis/util-contracts/blob/main/contracts/storage/StorageSimulation.sol
   ///

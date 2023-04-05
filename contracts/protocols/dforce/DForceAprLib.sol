@@ -18,9 +18,9 @@ library DForceAprLib {
   address internal constant WMATIC = address(0x0d500B1d8E8eF31E21C99d1Db9A6444d3ADf1270);
   address internal constant iMATIC = address(0x6A3fE5342a4Bd09efcd44AC5B9387475A0678c74);
 
-  ///////////////////////////////////////////////////////
+  //-----------------------------------------------------
   //                  Data type
-  ///////////////////////////////////////////////////////
+  //-----------------------------------------------------
   struct DForceCore {
     IDForceCToken cTokenCollateral;
     IDForceCToken cTokenBorrow;
@@ -56,9 +56,9 @@ library DForceAprLib {
     IDForcePriceOracle priceOracle;
   }
 
-  ///////////////////////////////////////////////////////
+  //-----------------------------------------------------
   //                  Addresses
-  ///////////////////////////////////////////////////////
+  //-----------------------------------------------------
 
   /// @notice Get core address of DForce
   function getCore(
@@ -73,9 +73,9 @@ library DForceAprLib {
     });
   }
 
-  ///////////////////////////////////////////////////////
+  //-----------------------------------------------------
   //                  Estimate APR
-  ///////////////////////////////////////////////////////
+  //-----------------------------------------------------
 
   /// @notice Calculate costs and incomes, take into account all borrow rate, supply rate, borrow and supply tokens.
   /// @return borrowCost36 Estimated borrow APR for the period, borrow tokens, decimals 36
@@ -169,9 +169,9 @@ library DForceAprLib {
       / borrow10PowDecimals;
   }
 
-  ///////////////////////////////////////////////////////
+  //-----------------------------------------------------
   //         Estimate borrow rate
-  ///////////////////////////////////////////////////////
+  //-----------------------------------------------------
 
   /// @notice Estimate value of variable borrow rate after borrowing {amountToBorrow_}
   ///         Rewards are not taken into account
@@ -190,9 +190,9 @@ library DForceAprLib {
     );
   }
 
-  ///////////////////////////////////////////////////////
+  //-----------------------------------------------------
   //         Estimate supply rate
-  ///////////////////////////////////////////////////////
+  //-----------------------------------------------------
 
   function getEstimatedSupplyRate(
     IDForceCToken cTokenCollateral_,
@@ -262,9 +262,9 @@ library DForceAprLib {
       : rdiv(cash_ + totalBorrows_ - totalReserves_, totalSupply_);
   }
 
-  ///////////////////////////////////////////////////////
+  //-----------------------------------------------------
   ///       Calculate supply and borrow rewards
-  ///////////////////////////////////////////////////////
+  //-----------------------------------------------------
 
   /// @notice Calculate total amount of rewards (supply rewards + borrow rewards) in terms of borrow asset
   function getRewardAmountInBorrowAsset(
@@ -440,7 +440,7 @@ library DForceAprLib {
     );
   }
 
-  ///////////////////////////////////////////////////////
+  //-----------------------------------------------------
   ///  Rewards pre-calculations. The algo repeats the code from
   ///     LendingContractsV2, RewardsDistributorV3.sol, updateDistributionState, updateReward
   ///
@@ -468,7 +468,7 @@ library DForceAprLib {
   ///  borrowIndex is calculated according to Base.sol, _updateInterest() algo
   ///     simpleInterestFactor = borrowRate * blockDelta
   ///     newBorrowIndex = simpleInterestFactor * borrowIndex + borrowIndex
-  ///////////////////////////////////////////////////////
+  //-----------------------------------------------------
 
   function getRewardAmount(
     uint accountBalance_,
@@ -486,9 +486,9 @@ library DForceAprLib {
     return rmul(accountBalance_, ti - accountIndex_);
   }
 
-  ///////////////////////////////////////////////////////
+  //-----------------------------------------------------
   ///                 Utils to inline
-  ///////////////////////////////////////////////////////
+  //-----------------------------------------------------
   function getPrice(IDForcePriceOracle priceOracle, address token) internal view returns (uint) {
     (uint price, bool isPriceValid) = priceOracle.getUnderlyingPriceAndStatus(token);
     require(price != 0 && isPriceValid, AppErrors.ZERO_PRICE);
@@ -501,9 +501,9 @@ library DForceAprLib {
       : IDForceCToken(token).underlying();
   }
 
-///////////////////////////////////////////////////////
+//-----------------------------------------------------
   ///  Math utils, see LendingContractsV2, SafeRatioMath.sol
-  ///////////////////////////////////////////////////////
+  //-----------------------------------------------------
 
   function rmul(uint x, uint y) internal pure returns (uint) {
     return x * y / 10**18;

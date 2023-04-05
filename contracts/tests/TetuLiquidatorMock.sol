@@ -23,9 +23,9 @@ contract TetuLiquidatorMock is ITetuLiquidator {
     changePrices(assets, pricesInUSD);
   }
 
-  ///////////////////////////////////////////////////////
+  //-----------------------------------------------------
   ///           Set up
-  ///////////////////////////////////////////////////////
+  //-----------------------------------------------------
 
   function setSlippage(int slippage_) external {
     slippage = slippage_;
@@ -46,9 +46,9 @@ contract TetuLiquidatorMock is ITetuLiquidator {
     }
   }
 
-  ///////////////////////////////////////////////////////
+  //-----------------------------------------------------
   ///           ITetuLiquidator
-  ///////////////////////////////////////////////////////
+  //-----------------------------------------------------
 
   function getPrice(address tokenIn, address tokenOut, uint amount) public override view returns (uint amountOut) {
     uint priceIn = prices[tokenIn];

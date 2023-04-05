@@ -23,19 +23,19 @@ contract AaveTwoPlatformAdapter is IPlatformAdapter {
   using SafeERC20 for IERC20;
   using AaveTwoReserveConfiguration for DataTypes.ReserveConfigurationMap;
 
-  ///////////////////////////////////////////////////////
+  //-----------------------------------------------------
   ///   Constants
-  ///////////////////////////////////////////////////////
+  //-----------------------------------------------------
 
   /// @notice https://docs.aave.com/developers/v/2.0/the-core-protocol/protocol-data-provider
   ///        Each market has a separate Protocol Data Provider.
   ///        To get the address for a particular market, call getAddress() using the value 0x1.
   uint internal constant ID_DATA_PROVIDER = 0x1000000000000000000000000000000000000000000000000000000000000000;
-  string public constant override PLATFORM_ADAPTER_VERSION = "1.0.0";
+  string public constant override PLATFORM_ADAPTER_VERSION = "1.0.1";
 
-  ///////////////////////////////////////////////////////
+  //-----------------------------------------------------
   ///   Data types
-  ///////////////////////////////////////////////////////
+  //-----------------------------------------------------
 
   /// @notice Local vars inside getConversionPlan - to avoid stack too deep
   struct LocalsGetConversionPlan {
@@ -54,9 +54,9 @@ contract AaveTwoPlatformAdapter is IPlatformAdapter {
     uint entryKind;
   }
 
-  ///////////////////////////////////////////////////////
+  //-----------------------------------------------------
   ///         Variables
-  ///////////////////////////////////////////////////////
+  //-----------------------------------------------------
 
   IConverterController immutable public controller;
   IAaveTwoPool immutable public pool;
@@ -68,9 +68,9 @@ contract AaveTwoPlatformAdapter is IPlatformAdapter {
   /// @notice True if the platform is frozen and new borrowing is not possible (at this moment)
   bool public override frozen;
 
-  ///////////////////////////////////////////////////////
+  //-----------------------------------------------------
   ///               Events
-  ///////////////////////////////////////////////////////
+  //-----------------------------------------------------
   event OnPoolAdapterInitialized(
     address converter,
     address poolAdapter,
@@ -79,9 +79,9 @@ contract AaveTwoPlatformAdapter is IPlatformAdapter {
     address borrowAsset
   );
 
-  ///////////////////////////////////////////////////////
+  //-----------------------------------------------------
   ///       Constructor and initialization
-  ///////////////////////////////////////////////////////
+  //-----------------------------------------------------
 
   constructor (
     address controller_,
@@ -131,9 +131,9 @@ contract AaveTwoPlatformAdapter is IPlatformAdapter {
     frozen = frozen_;
   }
 
-  ///////////////////////////////////////////////////////
+  //-----------------------------------------------------
   ///              View
-  ///////////////////////////////////////////////////////
+  //-----------------------------------------------------
 
   function converters() external view override returns (address[] memory) {
     address[] memory dest = new address[](1);
@@ -141,9 +141,9 @@ contract AaveTwoPlatformAdapter is IPlatformAdapter {
     return dest;
   }
 
-  ///////////////////////////////////////////////////////
+  //-----------------------------------------------------
   ///           Get conversion plan
-  ///////////////////////////////////////////////////////
+  //-----------------------------------------------------
 
   function getConversionPlan (
     AppDataTypes.InputConversionParams memory params,
@@ -323,9 +323,9 @@ contract AaveTwoPlatformAdapter is IPlatformAdapter {
   }
 
 
-  ///////////////////////////////////////////////////////
+  //-----------------------------------------------------
   ///  Calculate borrow rate after borrowing in advance
-  ///////////////////////////////////////////////////////
+  //-----------------------------------------------------
 
   /// @notice Estimate value of variable borrow rate after borrowing {amountToBorrow_}
   function getBorrowRateAfterBorrow(address borrowAsset_, uint amountToBorrow_) external view override returns (uint) {
@@ -343,9 +343,9 @@ contract AaveTwoPlatformAdapter is IPlatformAdapter {
     );
   }
 
-  ///////////////////////////////////////////////////////
+  //-----------------------------------------------------
   ///                    Utils
-  ///////////////////////////////////////////////////////
+  //-----------------------------------------------------
 
   /// @notice Check if the asset can be used as a collateral
   /// @dev Some assets cannot be used as collateral: https://docs.aave.com/risk/asset-risk/risk-parameters#collaterals

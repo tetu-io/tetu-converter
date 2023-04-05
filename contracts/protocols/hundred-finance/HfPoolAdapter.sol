@@ -24,9 +24,9 @@ import "../../integrations/IWmatic.sol";
 contract HfPoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP, Initializable {
   using SafeERC20 for IERC20;
 
-  ///////////////////////////////////////////////////////
+  //-----------------------------------------------------
   ///    Data types
-  ///////////////////////////////////////////////////////
+  //-----------------------------------------------------
 
   /// @notice To avoid stack too deep
   struct LocalRepayVars {
@@ -37,9 +37,9 @@ contract HfPoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP, Initializ
     address cTokenBorrow;
     address cTokenCollateral;
   }
-  ///////////////////////////////////////////////////////
+  //-----------------------------------------------------
   ///    Constants and variables
-  ///////////////////////////////////////////////////////
+  //-----------------------------------------------------
   address private constant WMATIC = address(0x0d500B1d8E8eF31E21C99d1Db9A6444d3ADf1270);
   /// @notice Max allowed value of (sumCollateralSafe - sumBorrowPlusEffects) / liquidity, decimals 18
   uint private constant MAX_DIVISION18 = 1e10;
@@ -59,9 +59,9 @@ contract HfPoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP, Initializ
   /// @notice Total amount of all supplied and withdrawn amounts of collateral in collateral tokens
   uint public collateralTokensBalance;
 
-  ///////////////////////////////////////////////////////
+  //-----------------------------------------------------
   ///                Events
-  ///////////////////////////////////////////////////////
+  //-----------------------------------------------------
   event OnInitialized(
     address controller,
     address cTokenAddressProvider,
@@ -76,9 +76,9 @@ contract HfPoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP, Initializ
   event OnRepay(uint amountToRepay, address receiver, bool closePosition, uint resultHealthFactor18);
   event OnRepayToRebalance(uint amount, bool isCollateral, uint resultHealthFactor18);
 
-  ///////////////////////////////////////////////////////
+  //-----------------------------------------------------
   ///                Initialization
-  ///////////////////////////////////////////////////////
+  //-----------------------------------------------------
 
   function initialize(
     address controller_,
@@ -129,18 +129,18 @@ contract HfPoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP, Initializ
     emit OnInitialized(controller_, cTokenAddressProvider_, comptroller_, user_, collateralAsset_, borrowAsset_, originConverter_);
   }
 
-  ///////////////////////////////////////////////////////
+  //-----------------------------------------------------
   ///                 Restrictions
-  ///////////////////////////////////////////////////////
+  //-----------------------------------------------------
 
   /// @notice Ensure that the caller is TetuConverter
   function _onlyTetuConverter(IConverterController controller_) internal view {
     require(controller_.tetuConverter() == msg.sender, AppErrors.TETU_CONVERTER_ONLY);
   }
 
-  ///////////////////////////////////////////////////////
+  //-----------------------------------------------------
   ///                 Borrow logic
-  ///////////////////////////////////////////////////////
+  //-----------------------------------------------------
   function updateStatus() external override {
     // Update borrowBalance to actual value
     IHfCToken(borrowCToken).borrowBalanceCurrent(address(this));
@@ -314,9 +314,9 @@ contract HfPoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP, Initializ
     return (resultHealthFactor18, borrowAmount_);
   }
 
-  ///////////////////////////////////////////////////////
+  //-----------------------------------------------------
   ///                 Repay logic
-  ///////////////////////////////////////////////////////
+  //-----------------------------------------------------
 
   /// @notice Repay borrowed amount, return collateral to the user
   /// @param amountToRepay_ Exact amount of borrow asset that should be repaid
@@ -501,9 +501,9 @@ contract HfPoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP, Initializ
     (uint tokensToReturn,) = _getCollateralTokensToRedeem(cTokenCollateral, borrowCToken, closePosition_, amountToRepay_);
     return tokensToReturn * cExchangeRateMantissa / 10**18;
   }
-  ///////////////////////////////////////////////////////
+  //-----------------------------------------------------
   ///                 Rewards
-  ///////////////////////////////////////////////////////
+  //-----------------------------------------------------
   function claimRewards(address receiver_) external pure override returns (
     address rewardToken,
     uint amount
@@ -514,33 +514,29 @@ contract HfPoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP, Initializ
   }
 
 
-  ///////////////////////////////////////////////////////
+  //-----------------------------------------------------
   ///         View current status
-  ///////////////////////////////////////////////////////
+  //-----------------------------------------------------
 
+  /// @inheritdoc IPoolAdapter
   function getConfig() external view override returns (
     address origin,
     address outUser,
     address outCollateralAsset,
-    address outBorrowAsset
+    address outBorrowAsset,
+    bool debtGapRequired
   ) {
-    return (originConverter, user, collateralAsset, borrowAsset);
+    return (originConverter, user, collateralAsset, borrowAsset, false);
   }
 
-  /// @notice Get current status of the borrow position
-  /// @dev It returns STORED status. To get current status it's necessary to call updateStatus
-  ///      at first to update interest and recalculate status.
-  /// @return collateralAmount Total amount of provided collateral, collateral currency
-  /// @return amountToPay Total amount of borrowed debt in [borrow asset]. 0 - for closed borrow positions.
-  /// @return healthFactor18 Current health factor, decimals 18
-  /// @return opened The position is opened (there is not empty collateral/borrow balance)
-  /// @return collateralAmountLiquidated How much collateral was liquidated
+  /// @inheritdoc IPoolAdapter
   function getStatus() external view override returns (
     uint collateralAmount,
     uint amountToPay,
     uint healthFactor18,
     bool opened,
-    uint collateralAmountLiquidated
+    uint collateralAmountLiquidated,
+    bool debtGapRequired
   ) {
     address cTokenBorrow = borrowCToken;
     address cTokenCollateral = collateralCToken;
@@ -565,7 +561,8 @@ contract HfPoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP, Initializ
     // Amount of liquidated collateral == amount of lost
       collateralAmountLiquidatedBase == 0
         ? 0
-        : collateralAmountLiquidatedBase * 10 ** IERC20Metadata(collateralAsset).decimals() / 10**18
+        : collateralAmountLiquidatedBase * 10 ** IERC20Metadata(collateralAsset).decimals() / 10**18,
+      false
     );
   }
 
@@ -636,9 +633,9 @@ contract HfPoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP, Initializ
 //    return int(IHfCToken(borrowCToken).borrowRatePerBlock() * controller.blocksPerDay() * 365 * 100);
 //  }
 
-  ///////////////////////////////////////////////////////
+  //-----------------------------------------------------
   ///                   Utils
-  ///////////////////////////////////////////////////////
+  //-----------------------------------------------------
   function _getHealthFactor(address cTokenCollateral_, uint sumCollateral_, uint sumBorrowPlusEffects_)
   internal view returns (
     uint sumCollateralSafe,
@@ -658,9 +655,9 @@ contract HfPoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP, Initializ
     require(hf18 > uint(controller_.minHealthFactor2())*10**(18-2), AppErrors.WRONG_HEALTH_FACTOR);
   }
 
-  ///////////////////////////////////////////////////////
+  //-----------------------------------------------------
   ///                Native tokens
-  ///////////////////////////////////////////////////////
+  //-----------------------------------------------------
 
   function _isMatic(address asset_) internal pure returns (bool) {
     return asset_ == WMATIC;

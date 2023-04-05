@@ -23,9 +23,9 @@ contract AaveTwoPriceOracleMock is IAaveTwoPriceOracle, IChangePriceForTests {
     _weth = weth_;
   }
 
-  /////////////////////////////////////////////////////////////////
+  //-----------------------------------------------------//////////
   ///                   Setup prices
-  /////////////////////////////////////////////////////////////////
+  //-----------------------------------------------------//////////
   function setPrices(address[] memory assets_, uint[] memory values_) external {
     for (uint i = 0; i < assets_.length; ++i) {
       console.log("Set price", assets_[i], values_[i]);
@@ -33,9 +33,9 @@ contract AaveTwoPriceOracleMock is IAaveTwoPriceOracle, IChangePriceForTests {
     }
   }
 
-  /////////////////////////////////////////////////////////////////
+  //-----------------------------------------------------//////////
   ///                 IChangePriceForTests
-  /////////////////////////////////////////////////////////////////
+  //-----------------------------------------------------//////////
 
   /// @notice Take exist price of the asset and multiple it on (multiplier100_/100)
   function changePrice(address asset_, uint multiplier100_) external {
@@ -43,9 +43,9 @@ contract AaveTwoPriceOracleMock is IAaveTwoPriceOracle, IChangePriceForTests {
     console.log("AAVETwoPriceOracleMock changePrice", asset_, _prices[asset_], multiplier100_);
   }
 
-  /////////////////////////////////////////////////////////////////
+  //-----------------------------------------------------//////////
   ///                 IAaveTwoPriceOracle
-  /////////////////////////////////////////////////////////////////
+  //-----------------------------------------------------//////////
 
     function WETH() external view override returns (address) {
       return _weth;

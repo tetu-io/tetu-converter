@@ -14,10 +14,10 @@ import "../../integrations/aaveTwo/IAaveTwoStableDebtToken.sol";
 library AaveTwoAprLib {
   using AaveTwoReserveConfiguration for DataTypes.ReserveConfigurationMap;
 
-  //////////////////////////////////////////////////////////////////////////
+  //-----------------------------------------------------///////////////////
   /// Calculate borrow and liquidity rate in advance
   /// in same way as in AAVE v2 protocol
-  //////////////////////////////////////////////////////////////////////////
+  //-----------------------------------------------------///////////////////
 
   /// @notice Calculate estimate variable borrow rate after borrowing {amountToBorrow_}
   /// @dev See explanations in Aave3AprLib.sol

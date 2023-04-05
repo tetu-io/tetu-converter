@@ -45,9 +45,9 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer,
   /// @notice Total amount of all supplied and withdrawn amounts of collateral in ATokens
   uint public collateralBalanceATokens;
 
-  ///////////////////////////////////////////////////////
+  //-----------------------------------------------------
   ///                Events
-  ///////////////////////////////////////////////////////
+  //-----------------------------------------------------
   event OnInitialized(address controller, address pool, address user, address collateralAsset, address borrowAsset, address originConverter);
   event OnBorrow(uint collateralAmount, uint borrowAmount, address receiver, uint resultHealthFactor18,
     uint collateralBalanceATokens);
@@ -56,9 +56,9 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer,
     uint collateralBalanceATokens);
   event OnRepayToRebalance(uint amount, bool isCollateral, uint resultHealthFactor18, uint collateralBalanceATokens);
 
-  ///////////////////////////////////////////////////////
+  //-----------------------------------------------------
   ///                Initialization
-  ///////////////////////////////////////////////////////
+  //-----------------------------------------------------
 
   function initialize(
     address controller_,
@@ -98,9 +98,9 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer,
     emit OnInitialized(controller_, pool_, user_, collateralAsset_, borrowAsset_, originConverter_);
   }
 
-  ///////////////////////////////////////////////////////
+  //-----------------------------------------------------
   ///               Restrictions
-  ///////////////////////////////////////////////////////
+  //-----------------------------------------------------
 
   /// @notice Ensure that the caller is TetuConverter
   function _onlyTetuConverter(IConverterController controller_) internal view {
@@ -113,17 +113,17 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer,
     // but this function is internal
   }
 
-  ///////////////////////////////////////////////////////
+  //-----------------------------------------------------
   ///             Adapter customization
-  ///////////////////////////////////////////////////////
+  //-----------------------------------------------------
 
   /// @notice Enter to E-mode if necessary
   function prepareToBorrow() internal virtual;
 
 
-  ///////////////////////////////////////////////////////
+  //-----------------------------------------------------
   ///                 Borrow logic
-  ///////////////////////////////////////////////////////
+  //-----------------------------------------------------
 
   /// @notice Supply collateral to the pool and borrow specified amount
   /// @dev No re-balancing here; Collateral amount must be approved to the pool adapter before the call of this function
@@ -262,9 +262,9 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer,
     return (resultHealthFactor18, borrowAmount_);
   }
 
-  ///////////////////////////////////////////////////////
+  //-----------------------------------------------------
   ///                 Repay logic
-  ///////////////////////////////////////////////////////
+  //-----------------------------------------------------
 
   /// @notice Repay borrowed amount, return collateral to the user
   /// @param amountToRepay_ Exact amount of borrow asset that should be repaid
@@ -480,9 +480,9 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer,
     }
   }
 
-  ///////////////////////////////////////////////////////
+  //-----------------------------------------------------
   ///                 Rewards
-  ///////////////////////////////////////////////////////
+  //-----------------------------------------------------
   function claimRewards(address receiver_) external pure override returns (
     address rewardToken,
     uint amount
@@ -492,42 +492,38 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer,
     return (rewardToken, amount);
   }
 
-  ///////////////////////////////////////////////////////
+  //-----------------------------------------------------
   ///         View current status
-  ///////////////////////////////////////////////////////
+  //-----------------------------------------------------
 
   function getConversionKind() external pure override returns (AppDataTypes.ConversionKind) {
     return AppDataTypes.ConversionKind.BORROW_2;
   }
 
+  /// @inheritdoc IPoolAdapter
   function getConfig() external view override returns (
     address origin,
     address outUser,
     address outCollateralAsset,
-    address outBorrowAsset
+    address outBorrowAsset,
+    bool debtGapRequired
   ) {
-    return (originConverter, user, collateralAsset, borrowAsset);
+    return (originConverter, user, collateralAsset, borrowAsset, true);
   }
 
-  /// @notice Get current status of the borrow position
-  /// @dev It returns STORED status. To get current status it's necessary to call updateStatus
-  ///      at first to update interest and recalculate status.
-  /// @return collateralAmount Total amount of provided collateral, collateral currency
-  /// @return amountToPay Total amount of borrowed debt in [borrow asset]. 0 - for closed borrow positions.
-  /// @return healthFactor18 Current health factor, decimals 18
-  /// @return opened The position is opened (there is not empty collateral/borrow balance)
-  /// @return collateralAmountLiquidated How much collateral was liquidated
+  /// @inheritdoc IPoolAdapter
   function getStatus() external view override returns (
     uint collateralAmount,
     uint amountToPay,
     uint healthFactor18,
     bool opened,
-    uint collateralAmountLiquidated
+    uint collateralAmountLiquidated,
+    bool debtGapRequired
   ) {
-    IAavePool pool = _pool;
-    IAavePriceOracle priceOracle = IAavePriceOracle(IAaveAddressesProvider(IAavePool(pool).ADDRESSES_PROVIDER()).getPriceOracle());
+    IAavePool __pool = _pool;
+    IAavePriceOracle priceOracle = IAavePriceOracle(IAaveAddressesProvider(IAavePool(__pool).ADDRESSES_PROVIDER()).getPriceOracle());
 
-    (uint totalCollateralBase, uint totalDebtBase,,,, uint hf18) = pool.getUserAccountData(address(this));
+    (uint totalCollateralBase, uint totalDebtBase,,,, uint hf18) = __pool.getUserAccountData(address(this));
 
     address assetBorrow = borrowAsset;
     address assetCollateral = collateralAsset;
@@ -536,9 +532,7 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer,
     uint borrowPrice = priceOracle.getAssetPrice(assetBorrow);
     require(collateralPrice != 0 && borrowPrice != 0, AppErrors.ZERO_PRICE);
 
-    uint targetDecimals = (10 ** pool.getConfiguration(assetBorrow).getDecimals());
-
-    Aave3DataTypes.ReserveData memory rc = pool.getReserveData(assetCollateral);
+    Aave3DataTypes.ReserveData memory rc = __pool.getReserveData(assetCollateral);
     {
       uint aTokensBalance = IERC20(rc.aTokenAddress).balanceOf(address(this));
       uint collateralBalanceATokensLocal = collateralBalanceATokens;
@@ -549,22 +543,23 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer,
 
     return (
     // Total amount of provided collateral in [collateral asset]
-      totalCollateralBase * (10 ** pool.getConfiguration(assetCollateral).getDecimals()) / collateralPrice,
-      // Total amount of borrowed debt in [borrow asset]. 0 - for closed borrow positions.
+      totalCollateralBase * (10 ** __pool.getConfiguration(assetCollateral).getDecimals()) / collateralPrice,
+
+    // Total amount of borrowed debt in [borrow asset]. 0 - for closed borrow positions.
       totalDebtBase == 0
         ? 0
-        : (totalDebtBase * targetDecimals) / borrowPrice
-      // We ask to pay slightly higher amount than current borrowed amount to exclude dust tokens problem.
-      // See https://docs.aave.com/developers/core-contracts/pool#repay
-      // We assume here, that 100 cents (in USD) should cover all possible dust
-      // and give us a possibility to pass type(uint).max to repay function.
-      // Ensure, that required debt exceeds totalDebtBase by at least token
-      // The prices have decimals of base currency == 1e8
-        + AaveSharedLib.getReserveForDustDebt(targetDecimals, borrowPrice, 8),
+        : (totalDebtBase * (10 ** __pool.getConfiguration(assetBorrow).getDecimals())) / borrowPrice,
       // Current health factor, decimals 18
       hf18,
       totalCollateralBase != 0 || totalDebtBase != 0,
-      collateralAmountLiquidated
+      collateralAmountLiquidated,
+
+    // Debt gap should be used to pay the debt to workaround dust tokens problem.
+    // It means that the user should pay slightly higher amount than the current totalDebtBase.
+    // It give us a possibility to pass type(uint).max to repay function.
+    // see https://docs.aave.com/developers/core-contracts/pool#repay
+    // and "Aave_Protocol_Whitepaper_v1_0.pdf", section 3.8.1 "It’s impossible to transfer the whole balance at once"
+      true
     );
   }
 
@@ -575,9 +570,9 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer,
 //  }
 
 
-  ///////////////////////////////////////////////////////
+  //-----------------------------------------------------
   ///                    Utils
-  ///////////////////////////////////////////////////////
+  //-----------------------------------------------------
 
   function _validateHealthFactor(IConverterController controller_, uint hf18) internal view {
     require(hf18 >= uint(controller_.minHealthFactor2())*10**(18-2), AppErrors.WRONG_HEALTH_FACTOR);

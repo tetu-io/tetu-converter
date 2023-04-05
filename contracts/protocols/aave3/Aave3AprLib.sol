@@ -18,7 +18,7 @@ library Aave3AprLib {
   uint constant public RAY = 1e27;
   uint constant public HALF_RAY = 0.5e27;
 
-  //////////////////////////////////////////////////////////////////////////
+  //-----------------------------------------------------///////////////////
   /// Calculate borrow and liquidity rate - in same way as in AAVE v3 protocol
   ///
   /// See ReserveLogic.sol getNormalizedIncome implementation
@@ -47,7 +47,7 @@ library Aave3AprLib {
   /// Functions getNormalizedIncome and getNormalizedDebt are different, they use
   ///       calculateLinearInterest and calculateCompoundedInterest
   /// We need to calculate APR for 1 block, so we use linear formula in both cases.
-  //////////////////////////////////////////////////////////////////////////
+  //-----------------------------------------------------///////////////////
 
   /// @notice Calculate estimate variable borrow rate after borrowing {amountToBorrow_}
   function getVariableBorrowRateRays(
