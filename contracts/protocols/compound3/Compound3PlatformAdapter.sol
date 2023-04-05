@@ -8,7 +8,7 @@ import "../../libs/AppErrors.sol";
 import "../../libs/EntryKinds.sol";
 import "../../interfaces/IConverterController.sol";
 import "../../interfaces/IPlatformAdapter.sol";
-import "../../interfaces/IPoolAdapterInitializer.sol";
+import "../../interfaces/IPoolAdapterInitializerWithRewards.sol";
 import "../../integrations/compound3/IComet.sol";
 import "../../integrations/compound3/ICometRewards.sol";
 import "./Compound3AprLib.sol";
@@ -105,9 +105,10 @@ contract Compound3PlatformAdapter is IPlatformAdapter {
     // borrowAsset_ must be baseToken of comet
     for (uint i; i < comets.length; ++i) {
       if (IComet(comets[i]).baseToken() == borrowAsset_) {
-        IPoolAdapterInitializer(poolAdapter_).initialize(
+        IPoolAdapterInitializerWithRewards(poolAdapter_).initialize(
           address(controller),
           comets[i],
+          cometRewards,
           user_,
           collateralAsset_,
           borrowAsset_,

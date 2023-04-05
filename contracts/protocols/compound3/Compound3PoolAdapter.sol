@@ -7,17 +7,14 @@ import "../../openzeppelin/Initializable.sol";
 import "../../libs/AppErrors.sol";
 import "../../interfaces/IConverterController.sol";
 import "../../interfaces/IPoolAdapter.sol";
-import "../../interfaces/IPoolAdapterInitializer.sol";
+import "../../interfaces/IPoolAdapterInitializerWithRewards.sol";
 import "../../interfaces/IDebtMonitor.sol";
 import "../../integrations/compound3/IComet.sol";
+import "../../integrations/compound3/ICometRewards.sol";
 import "./Compound3AprLib.sol";
 
-contract Compound3PoolAdapter is IPoolAdapter, IPoolAdapterInitializer, Initializable {
+contract Compound3PoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithRewards, Initializable {
   using SafeERC20 for IERC20;
-
-  ///////////////////////////////////////////////////////
-  ///                Constants
-  ///////////////////////////////////////////////////////
 
   ///////////////////////////////////////////////////////
   ///                Variables
@@ -27,6 +24,7 @@ contract Compound3PoolAdapter is IPoolAdapter, IPoolAdapterInitializer, Initiali
   address public borrowAsset;
   address public user;
   IComet public comet;
+  ICometRewards public cometRewards;
   IConverterController public controller;
   address public originConverter;
   uint public collateralTokensBalance;
@@ -40,6 +38,7 @@ contract Compound3PoolAdapter is IPoolAdapter, IPoolAdapterInitializer, Initiali
   event OnBorrowToRebalance(uint borrowAmount, address receiver, uint resultHealthFactor18);
   event OnRepay(uint amountToRepay, address receiver, bool closePosition, uint resultHealthFactor18);
   event OnRepayToRebalance(uint amount, bool isCollateral, uint resultHealthFactor18);
+  event OnClaimRewards(address rewardToken, uint amount, address receiver);
 
   ///////////////////////////////////////////////////////
   ///                Initialization
@@ -48,6 +47,7 @@ contract Compound3PoolAdapter is IPoolAdapter, IPoolAdapterInitializer, Initiali
   function initialize(
     address controller_,
     address comet_,
+    address cometRewards_,
     address user_,
     address collateralAsset_,
     address borrowAsset_,
@@ -56,6 +56,7 @@ contract Compound3PoolAdapter is IPoolAdapter, IPoolAdapterInitializer, Initiali
     require(
       controller_ != address(0)
       && comet_ != address(0)
+      && cometRewards_ != address(0)
       && user_ != address(0)
       && collateralAsset_ != address(0)
       && borrowAsset_ != address(0)
@@ -70,6 +71,7 @@ contract Compound3PoolAdapter is IPoolAdapter, IPoolAdapterInitializer, Initiali
     originConverter = originConverter_;
 
     comet = IComet(comet_);
+    cometRewards = ICometRewards(cometRewards_);
 
     // The pool adapter doesn't keep assets on its balance, so it's safe to use infinity approve
     // All approves replaced by infinity-approve were commented in the code below
@@ -291,7 +293,20 @@ contract Compound3PoolAdapter is IPoolAdapter, IPoolAdapterInitializer, Initiali
     emit OnRepayToRebalance(amount_, isCollateral_, resultHealthFactor18);
   }
 
-  function claimRewards(address receiver_) external returns (address rewardToken, uint amount) {}
+  function claimRewards(address receiver_) external returns (address rewardToken, uint amount) {
+    _onlyTetuConverter(controller);
+
+    ICometRewards.RewardConfig memory config = cometRewards.rewardConfig(address(comet));
+    rewardToken = config.token;
+
+    cometRewards.claim(address(comet), address(this), true);
+    amount = IERC20(rewardToken).balanceOf(address(this));
+    if (amount != 0) {
+      IERC20(rewardToken).safeTransfer(receiver_, amount);
+    }
+
+    emit OnClaimRewards(rewardToken, amount, receiver_);
+  }
 
   ///////////////////////////////////////////////////////
   ///                Internal logic
