@@ -117,7 +117,8 @@ contract ConverterController is IConverterController, Initializable {
     address borrowManager_,
     address debtMonitor_,
     address keeper_,
-    address swapManager_
+    address swapManager_,
+    uint debtGap_
   ) external initializer {
     require(blocksPerDay_ != 0, AppErrors.INCORRECT_VALUE);
     require(minHealthFactor_ >= MIN_ALLOWED_MIN_HEALTH_FACTOR, AppErrors.WRONG_HEALTH_FACTOR);
@@ -146,6 +147,8 @@ contract ConverterController is IConverterController, Initializable {
     minHealthFactor2 = minHealthFactor_;
     maxHealthFactor2 = maxHealthFactor_;
     targetHealthFactor2 = targetHealthFactor_;
+
+    debtGap = debtGap_;
   }
 
   function _onlyGovernance() internal view {

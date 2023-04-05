@@ -594,7 +594,8 @@ describe("DebtsMonitor", () => {
         parseUnits("1", targetDecimals),
         parseUnits("0.4"), // health factor is less than 1
         true,
-        parseUnits("1", sourceDecimals)
+        parseUnits("1", sourceDecimals),
+        true
       );
 
       if (params?.manuallyMakePoolAdapterAsDirtyBeforeClosing) {
@@ -1100,7 +1101,8 @@ describe("DebtsMonitor", () => {
             amountToPay,
             0,
             false,
-            0
+            0,
+            true
           );
 
           return DebtMonitor__factory.connect(
@@ -1941,7 +1943,7 @@ describe("DebtsMonitor", () => {
       ).to.emit(debtMonitorAsTetuConverter, "OnClosePosition").withArgs(poolAdapter.address);
 
       await debtMonitorAsPoolAdapter.onOpenPosition();
-      await poolAdapter.setManualStatus(0, parseUnits("0.3"), 0, true, parseUnits("0.5"));
+      await poolAdapter.setManualStatus(0, parseUnits("0.3"), 0, true, parseUnits("0.5"), true);
 
       await expect(
         debtMonitorAsTetuConverter.closeLiquidatedPosition(poolAdapter.address)

@@ -123,10 +123,12 @@ interface ITetuConverter {
   /// @notice Full or partial repay of the borrow
   /// @dev A user should transfer {amountToRepay_} to TetuConverter before calling repay()
   /// @param amountToRepay_ Amount of borrowed asset to repay.
-  ///                       You can know exact total amount of debt using {getStatusCurrent}.
-  ///                       if the amount exceed total amount of the debt:
-  ///                       - the debt will be fully repaid
-  ///                       - remain amount will be swapped from {borrowAsset_} to {collateralAsset_}
+  ///        You can know exact total amount of debt using {getStatusCurrent}.
+  ///        if the amount exceed total amount of the debt:
+  ///           - the debt will be fully repaid
+  ///           - remain amount will be swapped from {borrowAsset_} to {collateralAsset_}
+  ///        This amount should be calculated with taking into account possible debt gap,
+  ///        You should call getDebtAmountCurrent(debtGap = true) to get this amount.
   /// @param receiver_ A receiver of the collateral that will be withdrawn after the repay
   ///                  The remained amount of borrow asset will be returned to the {receiver_} too
   /// @return collateralAmountOut Exact collateral amount transferred to {collateralReceiver_}
@@ -153,6 +155,8 @@ interface ITetuConverter {
   ///      Anyway, the function is write, not read-only, because it makes updateStatus()
   /// @param user_ user whose amount-to-repay will be calculated
   /// @param amountToRepay_ Amount of borrowed asset to repay.
+  ///        This amount should be calculated without possible debt gap.
+  ///        In this way it's differ from {repay}
   /// @return collateralAmountOut Total collateral amount to be returned after repay in exchange of {amountToRepay_}
   function quoteRepay(
     address user_,

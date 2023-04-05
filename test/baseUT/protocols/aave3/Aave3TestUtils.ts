@@ -378,10 +378,7 @@ export class Aave3TestUtils {
     if (amountToRepay) {
       // partial repay
       const tetuConverter = await d.controller.tetuConverter();
-      const poolAdapterAsCaller = IPoolAdapter__factory.connect(
-        d.aavePoolAdapterAsTC.address,
-        await DeployerUtils.startImpersonate(tetuConverter)
-      );
+      const poolAdapterAsCaller = d.aavePoolAdapterAsTC.connect(await DeployerUtils.startImpersonate(tetuConverter));
 
       await transferAndApprove(
         d.borrowToken.address,
@@ -417,11 +414,7 @@ export class Aave3TestUtils {
     } else {
       // make full repayment
       console.log("makeRepayComplete...");
-      const tx = await d.userContract.makeRepayComplete(
-        d.collateralToken.address,
-        d.borrowToken.address,
-        d.userContract.address
-      );
+      const tx = await d.userContract.makeRepayComplete(d.collateralToken.address, d.borrowToken.address, d.userContract.address);
       const gasUsed = (await tx.wait()).gasUsed;
       const repayResults = await d.userContract.repayResults();
       return {

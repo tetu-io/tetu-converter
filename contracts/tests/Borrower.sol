@@ -212,19 +212,15 @@ contract Borrower is ITetuConverterCallback {
   ///               Repay
   //-----------------------------------------------------
   /// @notice Complete repay, see US1.2 in the project scope
-  function makeRepayComplete(
-    address collateralAsset_,
-    address borrowedAsset_,
-    address receiver_
-  ) external returns (
+  function makeRepayComplete(address collateralAsset_, address borrowedAsset_, address receiver_) external returns (
     uint collateralAmountOut,
     uint returnedBorrowAmountOut,
     uint swappedLeftoverCollateralOut,
     uint swappedLeftoverBorrowOut
   ) {
     console.log("makeRepayComplete started gasleft", gasleft());
-    // test quoteRepay prediction
 
+    // test quoteRepay prediction
     (uint amountToPay,) = _tc().getDebtAmountCurrent(address(this), collateralAsset_, borrowedAsset_, true);
 
     uint borrowBalanceBeforeRepay = IERC20(borrowedAsset_).balanceOf(address(this));

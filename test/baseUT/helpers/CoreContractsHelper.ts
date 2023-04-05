@@ -54,7 +54,8 @@ export class CoreContractsHelper {
     minHealthFactor2: number = 101,
     targetHealthFactor2: number = 200,
     maxHealthFactor2: number = 400,
-    countBlocksPerDay: number = COUNT_BLOCKS_PER_DAY
+    countBlocksPerDay: number = COUNT_BLOCKS_PER_DAY,
+    debtGap: number = 1_000
   ): Promise<ConverterController> {
     const tetuLiquidator = await tetuLiquidatorFabric();
     const priceOracle = await priceOracleFabric();
@@ -85,7 +86,8 @@ export class CoreContractsHelper {
       borrowManager,
       debtMonitor,
       keeper,
-      swapManager
+      swapManager,
+      debtGap
     );
     return controller;
   }

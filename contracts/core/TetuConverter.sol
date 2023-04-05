@@ -35,6 +35,18 @@ contract TetuConverter is ITetuConverter, IKeeperCallback, IRequireAmountBySwapM
   uint constant DEBT_GAP_DENOMINATOR = 100_000;
 
   //-----------------------------------------------------
+  //                Data types
+  //-----------------------------------------------------
+  struct RepayLocal {
+    address[] poolAdapters;
+    uint len;
+    uint debtGap;
+    IPoolAdapter pa;
+    uint totalDebtForPoolAdapter;
+    bool debtGapRequired;
+  }
+
+  //-----------------------------------------------------
   //                Members
   //-----------------------------------------------------
 
@@ -423,6 +435,7 @@ contract TetuConverter is ITetuConverter, IKeeperCallback, IRequireAmountBySwapM
     uint swappedLeftoverCollateralOut,
     uint swappedLeftoverBorrowOut
   ) {
+    RepayLocal memory v;
     require(receiver_ != address(0), AppErrors.ZERO_ADDRESS);
 
     // ensure that we have received required amount
@@ -431,33 +444,36 @@ contract TetuConverter is ITetuConverter, IKeeperCallback, IRequireAmountBySwapM
     // we will decrease amountToRepay_ in the code (to avoid creation additional variable)
     // it shows how much is left to convert from borrow asset to collateral asset
 
-    // we need to repay exact amount using any pool adapters
-    // simplest strategy: use first available pool adapter
-    address[] memory poolAdapters = debtMonitor.getPositions(msg.sender, collateralAsset_, borrowAsset_);
-    uint lenPoolAdapters = poolAdapters.length;
+    // we need to repay exact amount using any pool adapters; simplest strategy: use first available pool adapter
+    v.poolAdapters = debtMonitor.getPositions(msg.sender, collateralAsset_, borrowAsset_);
+    v.len = v.poolAdapters.length;
+    v.debtGap = controller.debtGap();
 
-    // at first repay debts for any opened positions
-    // repay don't make any rebalancing here
-    for (uint i = 0; i < lenPoolAdapters; i = i.uncheckedInc()) {
+    // at first repay debts for any opened positions, repay don't make any rebalancing here
+    for (uint i = 0; i < v.len; i = i.uncheckedInc()) {
       if (amountToRepay_ == 0) {
         break;
       }
-      IPoolAdapter pa = IPoolAdapter(poolAdapters[i]);
-      pa.updateStatus();
+      v.pa = IPoolAdapter(v.poolAdapters[i]);
+      v.pa.updateStatus();
 
-      (,uint totalDebtForPoolAdapter,,,,) = pa.getStatus();
-      uint amountToPayToPoolAdapter = amountToRepay_ >= totalDebtForPoolAdapter
-        ? totalDebtForPoolAdapter
+      (, v.totalDebtForPoolAdapter,,,, v.debtGapRequired) = v.pa.getStatus();
+      if (v.debtGapRequired) {
+        // we assume here, that amountToRepay_ includes all required dept-gaps
+        v.totalDebtForPoolAdapter = v.totalDebtForPoolAdapter * (DEBT_GAP_DENOMINATOR + v.debtGap) / DEBT_GAP_DENOMINATOR;
+      }
+      uint amountToPayToPoolAdapter = amountToRepay_ >= v.totalDebtForPoolAdapter
+        ? v.totalDebtForPoolAdapter
         : amountToRepay_;
 
       // replaced by infinity approve: IERC20(borrowAsset_).safeApprove(address(pa), amountToPayToPoolAdapter);
 
       // make repayment
-      bool closePosition = amountToPayToPoolAdapter == totalDebtForPoolAdapter;
-      collateralAmountOut += pa.repay(amountToPayToPoolAdapter, receiver_, closePosition);
+      bool closePosition = amountToPayToPoolAdapter == v.totalDebtForPoolAdapter;
+      collateralAmountOut += v.pa.repay(amountToPayToPoolAdapter, receiver_, closePosition);
       amountToRepay_ -= amountToPayToPoolAdapter;
 
-      emit OnRepayBorrow(address(pa), amountToPayToPoolAdapter, receiver_, closePosition);
+      emit OnRepayBorrow(address(v.pa), amountToPayToPoolAdapter, receiver_, closePosition);
     }
 
     // if all debts were paid but we still have some amount of borrow asset
@@ -494,13 +510,9 @@ contract TetuConverter is ITetuConverter, IKeeperCallback, IRequireAmountBySwapM
   ) external override returns (
     uint collateralAmountOut
   ) {
-    address[] memory poolAdapters = debtMonitor.getPositions(
-      user_,
-      collateralAsset_,
-      borrowAsset_
-    );
-    uint lenPoolAdapters = poolAdapters.length;
-    for (uint i = 0; i < lenPoolAdapters; i = i.uncheckedInc()) {
+    address[] memory poolAdapters = debtMonitor.getPositions(user_, collateralAsset_, borrowAsset_);
+    uint len = poolAdapters.length;
+    for (uint i = 0; i < len; i = i.uncheckedInc()) {
       if (amountToRepay_ == 0) {
         break;
       }
@@ -508,6 +520,7 @@ contract TetuConverter is ITetuConverter, IKeeperCallback, IRequireAmountBySwapM
       IPoolAdapter pa = IPoolAdapter(poolAdapters[i]);
 
       pa.updateStatus();
+      // debt-gaps are not taken into account here because getCollateralAmountToReturn doesn't take it into account
       (, uint totalDebtForPoolAdapter,,,,) = pa.getStatus();
 
       bool closePosition = totalDebtForPoolAdapter <= amountToRepay_;
@@ -558,6 +571,7 @@ contract TetuConverter is ITetuConverter, IKeeperCallback, IRequireAmountBySwapM
       emit OnRequireRepayCloseLiquidatedPosition(address(pa), amountToPay);
     } else {
       // rebalancing
+      // we assume here, that requiredBorrowedAmount_ should be less than amountToPay even if it includes the debt-gap
       require(amountToPay != 0 && requiredBorrowedAmount_ < amountToPay, AppErrors.REPAY_TO_REBALANCE_NOT_ALLOWED);
 
       // for borrowers it's much easier to return collateral asset than borrow asset
@@ -597,12 +611,13 @@ contract TetuConverter is ITetuConverter, IKeeperCallback, IRequireAmountBySwapM
     IPoolAdapter pa = IPoolAdapter(poolAdapter_);
     (,address user, address collateralAsset, address borrowAsset) = pa.getConfig();
     pa.updateStatus();
-    (collateralAmountOut, repaidAmountOut,,,,) = pa.getStatus();
+    bool debtGapRequired;
+    (collateralAmountOut, repaidAmountOut,,,,debtGapRequired) = pa.getStatus();
+    if (debtGapRequired) {
+      repaidAmountOut = repaidAmountOut * (DEBT_GAP_DENOMINATOR + controller.debtGap()) / DEBT_GAP_DENOMINATOR;
+    }
 
-    require(
-      collateralAmountOut != 0 && repaidAmountOut != 0,
-      AppErrors.REPAY_FAILED
-    );
+    require(collateralAmountOut != 0 && repaidAmountOut != 0, AppErrors.REPAY_FAILED);
 
     // ask the user for the amount-to-repay
     uint balanceBefore = IERC20(borrowAsset).balanceOf(address(this));
@@ -635,7 +650,7 @@ contract TetuConverter is ITetuConverter, IKeeperCallback, IRequireAmountBySwapM
       uint[] memory amounts = new uint[](2);
       amounts[0] = balanceAfter > balanceBefore
         ? balanceAfter - balanceBefore
-        : 0; // for simplicity, we send zero amount to user too.. the user will just ignore it
+        : 0; // for simplicity, we send zero amount to user too.. the user will just ignore it ;
       amounts[1] = collateralAmountOut;
       ITetuConverterCallback(user).onTransferAmounts(assets, amounts);
     }
@@ -716,21 +731,21 @@ contract TetuConverter is ITetuConverter, IKeeperCallback, IRequireAmountBySwapM
     uint borrowAssetAmount,
     uint unobtainableCollateralAssetAmount
   ) {
-    address[] memory poolAdapters = debtMonitor.getPositions(
-      user_,
-      collateralAsset_,
-      borrowAsset_
-    );
-    uint lenPoolAdapters = poolAdapters.length;
+    address[] memory poolAdapters = debtMonitor.getPositions(user_, collateralAsset_, borrowAsset_);
+    uint len = poolAdapters.length;
+    uint debtGap = controller.debtGap();
 
     uint collateralAmountRemained = collateralAmountToRedeem_;
-    for (uint i = 0; i < lenPoolAdapters; i = i.uncheckedInc()) {
+    for (uint i = 0; i < len; i = i.uncheckedInc()) {
       if (collateralAmountRemained == 0) {
         break;
       }
 
       IPoolAdapter pa = IPoolAdapter(poolAdapters[i]);
-      (uint collateralAmount, uint borrowedAmount,,,,) = pa.getStatus();
+      (uint collateralAmount, uint borrowedAmount,,,,bool debtGapRequired) = pa.getStatus();
+      if (debtGapRequired) {
+        borrowedAmount = borrowedAmount * (DEBT_GAP_DENOMINATOR + debtGap) / DEBT_GAP_DENOMINATOR;
+      }
 
       if (collateralAmountRemained >= collateralAmount) {
         collateralAmountRemained -= collateralAmount;
