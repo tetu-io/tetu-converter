@@ -263,20 +263,19 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer,
   }
 
   //-----------------------------------------------------
-  ///                 Repay logic
+  //                 Repay logic
   //-----------------------------------------------------
 
   /// @notice Repay borrowed amount, return collateral to the user
   /// @param amountToRepay_ Exact amount of borrow asset that should be repaid
-  ///                       The amount should be approved for the pool adapter before the call of repay()
+  ///        The amount should be approved for the pool adapter before the call of repay()
+  ///        In the case of full repay this amount should be a slighter higher than total amount of debt
+  ///        to avoid dust tokens problem. The caller should increase amount-to-repay, returned by getStatus,
+  ///        on debt-gap percent (see controller).
   /// @param closePosition_ true to pay full borrowed amount
   /// @param receiver_ Receiver of withdrawn collateral
   /// @return Amount of collateral asset sent to the {receiver_}
-  function repay(
-    uint amountToRepay_,
-    address receiver_,
-    bool closePosition_
-  ) external override returns (uint) {
+  function repay(uint amountToRepay_, address receiver_, bool closePosition_) external override returns (uint) {
     IConverterController c = controller;
     _onlyTetuConverter(c);
 
@@ -299,19 +298,13 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer,
         IAavePriceOracle(IAaveAddressesProvider(IAavePool(pool).ADDRESSES_PROVIDER()).getPriceOracle())
     );
 
-    // transfer borrow amount back to the pool
-    // replaced by infinity approve: IERC20(assetBorrow).safeApprove(address(pool), amountToRepay_);
-    pool.repay(assetBorrow,
-      closePosition_ ? type(uint).max : amountToRepay_,
-      RATE_MODE,
-      address(this)
-    );
+    // transfer borrow amount back to the pool, infinity approve is assumed
+    pool.repay(assetBorrow, (closePosition_ ? type(uint).max : amountToRepay_), RATE_MODE, address(this));
 
-    // withdraw the collateral
-    // if the borrow was liquidated the collateral is zero and we should have revert here
-    // (it's not worth to make repayment in this case)
+    // withdraw the collateral; if the borrow was liquidated the collateral is zero and we should have revert here
+    // because it's not worth to make repayment in this case
     if (closePosition_) {
-      // if the position is closed, amountCollateralToWithdraw contains type(uint).max
+      // in the case of full repay {amountCollateralToWithdraw} contains type(uint).max
       // so, we need to calculate actual amount of returned collateral through balance difference
       uint balanceUserCollateralBefore = IERC20(assetCollateral).balanceOf(receiver_);
       pool.withdraw(assetCollateral, amountCollateralToWithdraw, receiver_); // amountCollateralToWithdraw == type(uint).max
@@ -325,12 +318,16 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer,
       uint borrowBalance = IERC20(assetBorrow).balanceOf(address(this));
       if (borrowBalance != 0) {
         IERC20(assetBorrow).safeTransfer(receiver_, borrowBalance);
+        // adjust amountToRepay_ to returned amount to send correct amount to OnRepay event
+        if (amountToRepay_ > borrowBalance) {
+          amountToRepay_ -= borrowBalance;
+        }
       }
     } else {
       pool.withdraw(assetCollateral, amountCollateralToWithdraw, receiver_);
     }
 
-    // validate result status
+    // close position in debt monitor / validate result health factor
     uint healthFactor;
     {
       uint totalCollateralBase;
@@ -570,7 +567,7 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer,
 
 
   //-----------------------------------------------------
-  ///                    Utils
+  //                    Utils
   //-----------------------------------------------------
 
   function _validateHealthFactor(IConverterController controller_, uint hf18) internal view {

@@ -1365,7 +1365,7 @@ describe("Aave3PoolAdapterUnitTest", () => {
         const borrowManager = BorrowManager__factory.connect(await controller.borrowManager(), deployer);
         await borrowManager.addAssetPairs(platformAdapter.address, [collateralAsset], [borrowAsset]);
 
-        const bmAsTc = BorrowManager__factory.connect(await controller.borrowManager(), tetuConverterSigner);
+        const bmAsTc = borrowManager.connect(tetuConverterSigner);
 
         await bmAsTc.registerPoolAdapter(converterNormal, userContract.address, collateralAsset, borrowAsset);
         const aavePoolAdapterAsTC = Aave3PoolAdapter__factory.connect(
@@ -1425,6 +1425,7 @@ describe("Aave3PoolAdapterUnitTest", () => {
         );
 
         const status = await aavePoolAdapterAsTC.getStatus();
+        console.log("Status", status);
         await expect(
           userContract.makeRepayComplete(collateralAsset, borrowAsset, userContract.address)
         ).to.emit(aavePoolAdapterAsTC, "OnRepay").withArgs(
@@ -1640,49 +1641,53 @@ describe("Aave3PoolAdapterUnitTest", () => {
           returnedBorrowAmountOut: BigNumber;
         }
         quoteRepayResultCollateralAmount: BigNumber;
+        debtGap: number;
       }
       async function makeQuoteRepayTest(part100: number) : Promise<IQuoteRepayTestResults> {
         const results = await loadFixture(setupBorrowForTest);
+
         const status: IPoolAdapterStatus = await results.init.aavePoolAdapterAsTC.getStatus();
         const tetuConverterAsUser = ITetuConverter__factory.connect(
           await results.init.controller.tetuConverter(),
           await DeployerUtils.startImpersonate(results.init.userContract.address)
         );
+        const amountToFullPay = status.amountToPay.mul(2);
 
         // let's know what exactly collateral we will get after full repay
         await BalanceUtils.getRequiredAmountFromHolders(
-          status.amountToPay.mul(2),
-          IERC20Metadata__factory.connect(results.init.borrowToken.address, deployer),
+          amountToFullPay,
+          results.init.borrowToken.token,
           [borrowHolder],
           tetuConverterAsUser.address
         );
-        await IERC20__factory.connect(
-          results.init.borrowToken.address,
+        await results.init.borrowToken.token.connect(
           await DeployerUtils.startImpersonate(tetuConverterAsUser.address)
-        ).approve(results.init.aavePoolAdapterAsTC.address, status.amountToPay.mul(2));
-        const repayResults = (await tetuConverterAsUser.callStatic.repay(
+        ).approve(results.init.aavePoolAdapterAsTC.address, amountToFullPay);
+        const fullRepayResults = (await tetuConverterAsUser.callStatic.repay(
           results.init.collateralToken.address,
           results.init.borrowToken.address,
-          status.amountToPay.mul(2),
+          amountToFullPay,
           ethers.Wallet.createRandom().address
         ));
-        console.log("Collateral after repay:", repayResults.collateralAmountOut.toString());
-        const realAmountToPay = status.amountToPay.mul(2).sub(repayResults.returnedBorrowAmountOut);
-        console.log("Amount to pay:", status.amountToPay.toString());
-        console.log("Real amount to pay:", realAmountToPay.toString());
+
+        console.log("Collateral received after full repay:", fullRepayResults.collateralAmountOut.toString());
+        const exactRepaidAmountFullPay = amountToFullPay.sub(fullRepayResults.returnedBorrowAmountOut);
+        console.log("Amount to pay according status:", status.amountToPay.toString());
+        console.log("Exact amount to full pay:", exactRepaidAmountFullPay.toString());
 
         const collateralAmountOut = await tetuConverterAsUser.callStatic.quoteRepay(
-          await tetuConverterAsUser.signer.getAddress(),
+          results.init.userContract.address,
           results.init.collateralToken.address,
           results.init.borrowToken.address,
-          realAmountToPay.div(part100)
+          exactRepaidAmountFullPay.div(part100),
         );
 
         return {
          status,
-         repayEmulationResults: repayResults,
+         repayEmulationResults: fullRepayResults,
          quoteRepayResultCollateralAmount: collateralAmountOut,
-         realAmountToPay
+         realAmountToPay: exactRepaidAmountFullPay,
+         debtGap: (await results.init.controller.debtGap()).toNumber()
         }
       }
       describe("Full repay", () => {
@@ -1722,9 +1727,14 @@ describe("Aave3PoolAdapterUnitTest", () => {
           const r = await loadFixture(makeQuoteRepayTest2);
           console.log(r);
 
-          // Exact amount-to-pay depends on current time stamp, so we cannot calculcate this amount in advance
+          // Exact amount-to-pay depends on current time stamp, so we cannot calculate this amount in advance
           // So, we cannot pay exactly 50% here - we pay only approximately 50%...
-          const ret = areAlmostEqual(r.quoteRepayResultCollateralAmount.mul(2), r.repayEmulationResults.collateralAmountOut, 4);
+          // TetuConverter.repay adds debt-gap for AAVE, so we need to increase result amount on debt-gap
+          const ret = areAlmostEqual(
+            r.quoteRepayResultCollateralAmount.mul(2),
+            r.repayEmulationResults.collateralAmountOut.mul(100_000 + r.debtGap).div(100_000),
+            4
+          );
           expect(ret).eq(true);
         });
       });
@@ -1736,9 +1746,14 @@ describe("Aave3PoolAdapterUnitTest", () => {
           if (!await isPolygonForkInUse()) return;
           const r = await loadFixture(makeQuoteRepayTest20);
 
-          // Exact amount-to-pay depends on current time stamp, so we cannot calculcate this amount in advance
+          // Exact amount-to-pay depends on current time stamp, so we cannot calculate this amount in advance
           // So, we cannot pay exactly 5% here - we pay only approximately 5%...
-          const ret = areAlmostEqual(r.quoteRepayResultCollateralAmount.mul(20), r.repayEmulationResults.collateralAmountOut, 4);
+          // TetuConverter.repay adds debt-gap for AAVE, so we need to increase result amount on debt-gap
+          const ret = areAlmostEqual(
+            r.quoteRepayResultCollateralAmount.mul(20),
+            r.repayEmulationResults.collateralAmountOut.mul(100_000 + r.debtGap).div(100_000),
+            4
+          );
           console.log("ret", r.quoteRepayResultCollateralAmount.mul(20).toString(), r.repayEmulationResults.collateralAmountOut.toString());
           expect(ret).eq(true);
         });
