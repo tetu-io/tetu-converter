@@ -11,7 +11,6 @@ import {
   Aave3PoolAdapter,
   Aave3PoolMock__factory,
   ITetuConverter__factory,
-  IERC20__factory
 } from "../../../typechain";
 import {expect} from "chai";
 import {BigNumber} from "ethers";
@@ -54,7 +53,6 @@ import {Aave3ChangePricesUtils} from "../../baseUT/protocols/aave3/Aave3ChangePr
 import {loadFixture} from "@nomicfoundation/hardhat-network-helpers";
 import {controlGasLimitsEx} from "../../../scripts/utils/hardhatUtils";
 import {GAS_FULL_REPAY} from "../../baseUT/GasLimit";
-import {AaveTwoChangePricesUtils} from "../../baseUT/protocols/aaveTwo/AaveTwoChangePricesUtils";
 
 describe("Aave3PoolAdapterUnitTest", () => {
 //region Global vars for all tests
@@ -1704,7 +1702,7 @@ describe("Aave3PoolAdapterUnitTest", () => {
       it("should revert if collateral price is zero", async () => {
         if (!await isPolygonForkInUse()) return;
         const results = await loadFixture(setupBorrowForTest);
-        const priceOracle = await AaveTwoChangePricesUtils.setupPriceOracleMock(deployer);
+        const priceOracle = await Aave3ChangePricesUtils.setupPriceOracleMock(deployer);
         await priceOracle.setPrices([results.init.collateralToken.address], [parseUnits("0")]);
 
         const tetuConverterAsUser = ITetuConverter__factory.connect(

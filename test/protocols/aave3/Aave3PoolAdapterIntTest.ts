@@ -31,7 +31,6 @@ import {areAlmostEqual} from "../../baseUT/utils/CommonUtils";
 describe("Aave3PoolAdapterIntTest", () => {
 //region Global vars for all tests
   let snapshot: string;
-  let snapshotForEach: string;
   let deployer: SignerWithAddress;
 //endregion Global vars for all tests
 
@@ -46,18 +45,19 @@ describe("Aave3PoolAdapterIntTest", () => {
   after(async function () {
     await TimeUtils.rollback(snapshot);
   });
-
-  beforeEach(async function () {
-    snapshotForEach = await TimeUtils.snapshot();
-  });
-
-  afterEach(async function () {
-    await TimeUtils.rollback(snapshotForEach);
-  });
 //endregion before, after
 
 //region Unit tests
   describe("borrow", () => {
+    let snapshotForEach: string;
+    beforeEach(async function () {
+      snapshotForEach = await TimeUtils.snapshot();
+    });
+
+    afterEach(async function () {
+      await TimeUtils.rollback(snapshotForEach);
+    });
+
     async function makeBorrowTest(
       collateralToken: TokenDataTypes,
       collateralHolder: string,
@@ -240,6 +240,15 @@ describe("Aave3PoolAdapterIntTest", () => {
   });
 
   describe("Borrow using small health factors", () => {
+    let snapshotForEach: string;
+    beforeEach(async function () {
+      snapshotForEach = await TimeUtils.snapshot();
+    });
+
+    afterEach(async function () {
+      await TimeUtils.rollback(snapshotForEach);
+    });
+
     interface ITestSmallHealthFactorResults {
       d: IPrepareToBorrowResults;
       resultHealthFactor18: BigNumber;
@@ -369,6 +378,15 @@ describe("Aave3PoolAdapterIntTest", () => {
    * in calculations inside getUserAccountData. The values of borrow asset don't matter there
    */
   describe("Borrow: check LTV and liquidationThreshold", () => {
+    let snapshotForEach: string;
+    beforeEach(async function () {
+      snapshotForEach = await TimeUtils.snapshot();
+    });
+
+    afterEach(async function () {
+      await TimeUtils.rollback(snapshotForEach);
+    });
+
     async function makeTestBorrowMaxAmount(
       collateralToken: TokenDataTypes,
       collateralHolder: string,
@@ -475,6 +493,15 @@ describe("Aave3PoolAdapterIntTest", () => {
   });
 
   describe("Borrow in isolated mode", () => {
+    let snapshotForEach: string;
+    beforeEach(async function () {
+      snapshotForEach = await TimeUtils.snapshot();
+    });
+
+    afterEach(async function () {
+      await TimeUtils.rollback(snapshotForEach);
+    });
+
 //region Utils
     interface IBorrowMaxAmountInIsolationModeResults {
       init: IPrepareToBorrowResults;
@@ -811,6 +838,15 @@ describe("Aave3PoolAdapterIntTest", () => {
   });
 
   describe("repay", () => {
+    let snapshotForEach: string;
+    beforeEach(async function () {
+      snapshotForEach = await TimeUtils.snapshot();
+    });
+
+    afterEach(async function () {
+      await TimeUtils.rollback(snapshotForEach);
+    });
+
     /* Make full or partial repay. Set amountToRepay for partial repay, leave it undefined to full repay */
     async function makeBorrowAndRepay(
       collateralToken: TokenDataTypes,
