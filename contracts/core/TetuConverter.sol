@@ -24,6 +24,7 @@ import "../interfaces/ITetuConverterCallback.sol";
 import "../interfaces/IRequireAmountBySwapManagerCallback.sol";
 import "../interfaces/IPriceOracle.sol";
 import "../integrations/tetu/ITetuLiquidator.sol";
+import "hardhat/console.sol";
 
 /// @notice Main application contract
 contract TetuConverter is ITetuConverter, IKeeperCallback, IRequireAmountBySwapManagerCallback, ReentrancyGuard {
@@ -458,6 +459,7 @@ contract TetuConverter is ITetuConverter, IKeeperCallback, IRequireAmountBySwapM
       v.pa.updateStatus();
 
       (, v.totalDebtForPoolAdapter,,,, v.debtGapRequired) = v.pa.getStatus();
+
       if (v.debtGapRequired) {
         // we assume here, that amountToRepay_ includes all required dept-gaps
         v.totalDebtForPoolAdapter = v.totalDebtForPoolAdapter * (DEBT_GAP_DENOMINATOR + v.debtGap) / DEBT_GAP_DENOMINATOR;
@@ -527,11 +529,18 @@ contract TetuConverter is ITetuConverter, IKeeperCallback, IRequireAmountBySwapM
       uint currentAmountToRepay = closePosition ? totalDebtForPoolAdapter : amountToRepay_;
       uint collateralAmountToReceive = pa.getCollateralAmountToReturn(currentAmountToRepay, closePosition);
 
+      console.log("quoteRepay.currentAmountToRepay", currentAmountToRepay);
+      console.log("quoteRepay.amountToRepay_", amountToRepay_);
+      console.log("quoteRepay.totalDebtForPoolAdapter", totalDebtForPoolAdapter);
+      console.log("quoteRepay.closePosition", closePosition);
+
       amountToRepay_ -= currentAmountToRepay;
       collateralAmountOut += collateralAmountToReceive;
+      console.log("quoteRepay.final", amountToRepay_);
     }
 
     if (amountToRepay_ > 0) {
+      console.log("quoteRepay!!!", amountToRepay_);
       uint priceBorrowAsset = priceOracle.getAssetPrice(borrowAsset_);
       uint priceCollateralAsset = priceOracle.getAssetPrice(collateralAsset_);
       require(priceCollateralAsset != 0 && priceBorrowAsset != 0, AppErrors.ZERO_PRICE);

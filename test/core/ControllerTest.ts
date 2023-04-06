@@ -58,6 +58,7 @@ describe("Controller", () => {
     maxHealthFactor2: number;
 
     blocksPerDay: BigNumber;
+    debtGap: BigNumber;
   }
 
   function getMembersArray(a: IControllerMembers): string[] {
@@ -77,7 +78,8 @@ describe("Controller", () => {
       a.targetHealthFactor2.toString(),
       a.maxHealthFactor2.toString(),
 
-      a.blocksPerDay.toString()
+      a.blocksPerDay.toString(),
+      a.debtGap.toString()
     ];
   }
 
@@ -99,6 +101,7 @@ describe("Controller", () => {
       (await controller.maxHealthFactor2()).toString(),
 
       (await controller.blocksPerDay()).toString(),
+      (await controller.debtGap()).toString(),
     ];
   }
 
@@ -119,6 +122,7 @@ describe("Controller", () => {
         a.debtMonitor,
         a.keeper,
         a.swapManager,
+        a.debtGap
       )
     );
 
@@ -142,7 +146,8 @@ describe("Controller", () => {
       targetHealthFactor2: 220 + randomInt(10),
       maxHealthFactor2: 920 + randomInt(10),
 
-      blocksPerDay: BigNumber.from(1000 + randomInt(1000))
+      blocksPerDay: BigNumber.from(1000 + randomInt(1000)),
+      debtGap: BigNumber.from(1000 + randomInt(1000)),
     }
   }
 
@@ -271,6 +276,7 @@ describe("Controller", () => {
             a.debtMonitor,
             a.keeper,
             a.swapManager,
+            a.debtGap
           )
         ).revertedWith("Initializable: contract is already initialized");
       });

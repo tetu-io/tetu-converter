@@ -624,7 +624,7 @@ describe("AaveTwoPoolAdapterIntTest", () => {
           describe("DAI => WMATIC", () => {
             it("should return expected balances", async () => {
               if (!await isPolygonForkInUse()) return;
-              const initialBorrowAmountOnUserBalance = 100;
+              const initialBorrowAmountOnUserBalance = 6000;
               const r = await AaveMakeBorrowAndRepayUtils.daiWmatic(
                 deployer,
                 makeBorrowAndRepay,
@@ -638,7 +638,7 @@ describe("AaveTwoPoolAdapterIntTest", () => {
           describe("WMATIC => DAI", () => {
             it("should return expected balances", async () => {
               if (!await isPolygonForkInUse()) return;
-              const initialBorrowAmountOnUserBalance = 100;
+              const initialBorrowAmountOnUserBalance = 6000;
               const r = await AaveMakeBorrowAndRepayUtils.daiWmatic(
                 deployer,
                 makeBorrowAndRepay,
