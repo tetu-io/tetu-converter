@@ -108,7 +108,8 @@ contract Compound3PoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithReward
     uint amountToPay,
     uint healthFactor18,
     bool opened,
-    uint collateralAmountLiquidated
+    uint collateralAmountLiquidated,
+    bool debtGapRequired
   ) {
     (
     uint tokenBalanceOut,
@@ -124,6 +125,7 @@ contract Compound3PoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithReward
     collateralAmount = tokenBalanceOut;
     amountToPay = borrowBalanceOut;
     collateralAmountLiquidated = collateralTokensBalance - tokenBalanceOut;
+    debtGapRequired = false;
   }
 
   /// @notice If we paid {amountToRepay_}, how much collateral would we receive?
