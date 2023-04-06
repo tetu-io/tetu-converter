@@ -843,12 +843,7 @@ describe("AaveTwoPlatformAdapterTest", () => {
             collateralAsset,
             borrowAsset
           ),
-          async controller => AdaptersHelper.createAaveTwoPlatformAdapter(
-            deployer,
-            controller.address,
-            aavePool.address,
-            templateAdapterNormalStub.address,
-          ),
+          "aaveTwo",
           collateralAsset,
           borrowAsset,
           collateralHolders,

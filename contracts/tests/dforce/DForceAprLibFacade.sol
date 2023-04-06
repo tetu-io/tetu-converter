@@ -178,7 +178,7 @@ contract DForceAprLibFacade {
     );
   }
 
-  function getBorrowRateAfterBorrow(address borrowCToken_, uint amountToBorrow_) internal view returns (uint) {
+  function getBorrowRateAfterBorrow(address borrowCToken_, uint amountToBorrow_) external view returns (uint) {
     return DForceAprLib.getBorrowRateAfterBorrow(borrowCToken_, amountToBorrow_);
   }
 

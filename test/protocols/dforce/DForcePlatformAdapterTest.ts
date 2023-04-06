@@ -123,13 +123,7 @@ describe("DForcePlatformAdapterTest", () => {
     return PredictBrUsesCase.makeTest(
       deployer,
       new DForcePlatformActor(collateralToken, borrowToken, comptroller),
-      async controller => AdaptersHelper.createDForcePlatformAdapter(
-        deployer,
-        controller.address,
-        comptroller.address,
-        templateAdapterNormalStub.address,
-        [collateralCToken, borrowCToken],
-      ),
+      "dforce",
       collateralAsset,
       borrowAsset,
       collateralHolders,

@@ -1,8 +1,11 @@
 import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
-import {ConverterController, IERC20Metadata__factory, IPlatformAdapter} from "../../../typechain";
-import {BigNumber} from "ethers";
+import {AaveTwoAprLibFacade, ConverterController, IERC20Metadata__factory, IPlatformAdapter} from "../../../typechain";
+import {BigNumber, BigNumberish} from "ethers";
 import {DeployerUtils} from "../../../scripts/utils/DeployerUtils";
 import {TetuConverterApp} from "../helpers/TetuConverterApp";
+import {MocksHelper} from "../helpers/MocksHelper";
+import {MaticAddresses} from "../../../scripts/addresses/MaticAddresses";
+import {DForceUtils} from "../utils/DForceUtils";
 
 export interface IPlatformActor {
   getAvailableLiquidity: () => Promise<BigNumber>,
@@ -24,11 +27,29 @@ export interface IPlatformActor {
  * doesn't take into account interest that appears between borrow moment and getting-borrow-rate moment
  */
 export class PredictBrUsesCase {
+  static async getBorrowRateAfterBorrow(
+    signer: SignerWithAddress,
+    platformAdapterName: string,
+    borrowAsset: string,
+    amountToBorrow: BigNumberish
+  ): Promise<BigNumber> {
+    if (platformAdapterName === "aave3") {
+      const libFacade = await MocksHelper.getAave3AprLibFacade(signer);
+      return libFacade.getBorrowRateAfterBorrow(MaticAddresses.AAVE_V3_POOL, borrowAsset, amountToBorrow);
+    } else if (platformAdapterName === "aaveTwo") {
+      const libFacade = await MocksHelper.getAaveTwoAprLibFacade(signer);
+      return libFacade.getBorrowRateAfterBorrow(MaticAddresses.AAVE_TWO_POOL, borrowAsset, amountToBorrow);
+    } else if (platformAdapterName === "dforce") {
+      const libFacade = await MocksHelper.getDForceAprLibFacade(signer);
+      return libFacade.getBorrowRateAfterBorrow(DForceUtils.getCTokenAddressForAsset(borrowAsset), amountToBorrow);
+    }
+
+    throw new Error(`PredictBrUsesCase.getBorrowRateAfterBorrow not implemented: ${platformAdapterName}`)
+  }
   static async makeTest(
     deployer: SignerWithAddress,
     actor: IPlatformActor,
-    // eslint-disable-next-line no-unused-vars
-    platformAdapterFabric: (controller: ConverterController) => Promise<IPlatformAdapter>,
+    platformAdapterName: string,
     collateralAsset: string,
     borrowAsset: string,
     collateralHolders: string[],
@@ -37,7 +58,6 @@ export class PredictBrUsesCase {
     console.log(`collateral ${collateralAsset} borrow ${borrowAsset}`);
 
     const controller = await TetuConverterApp.createController(deployer);
-    const platformAdapter = await platformAdapterFabric(controller);
 
     // get available liquidity
     // we are going to borrow given part of the liquidity
@@ -59,7 +79,7 @@ export class PredictBrUsesCase {
 
     // before borrow
     const brBefore = await actor.getCurrentBR();
-    const brPredicted = await platformAdapter.getBorrowRateAfterBorrow(borrowAsset, amountToBorrow);
+    const brPredicted = await this.getBorrowRateAfterBorrow(deployer, platformAdapterName, borrowAsset, amountToBorrow);
     console.log(`Current BR=${brBefore.toString()} predicted BR=${brPredicted.toString()}`);
 
     // supply collateral
@@ -71,7 +91,7 @@ export class PredictBrUsesCase {
 
     console.log(`Available liquidity AFTER ${availableLiquidity.toString()}`);
     const brAfter = await actor.getCurrentBR();
-    const brPredictedAfter = await platformAdapter.getBorrowRateAfterBorrow(borrowAsset, 0);
+    const brPredictedAfter = await this.getBorrowRateAfterBorrow(deployer, platformAdapterName, borrowAsset, 0);
     console.log(`Current BR=${brAfter.toString()} predicted BR=${brPredictedAfter.toString()}`);
 
     return {br: brAfter, brPredicted};
