@@ -34,9 +34,9 @@ contract HfCTokenMock is IHfCToken {
     IERC20(underlying_).safeApprove(mockedComptroller_, type(uint).max);
   }
 
-  /////////////////////////////////////////////////////////////////
+  //-----------------------------------------------------//////////
   ///     set up
-  /////////////////////////////////////////////////////////////////
+  //-----------------------------------------------------//////////
   function setGetAccountSnapshotFails() external {
     console.log("Set setGetAccountSnapshotFails");
     getAccountSnapshotFails = true;
@@ -54,11 +54,11 @@ contract HfCTokenMock is IHfCToken {
     collateralTokenGetAccountSnapshotFailsAfterCallingBorrowBalanceCurrent = value;
   }
 
-  /////////////////////////////////////////////////////////////////
+  //-----------------------------------------------------//////////
   ///       HfCToken facade
   ///       All functions required by HfPoolAdapter
   ///       Replace mocked-cTokens by real one on the fly
-  /////////////////////////////////////////////////////////////////
+  //-----------------------------------------------------//////////
   function balanceOf(address owner) external override view returns (uint256) {
     console.log("HfCTokenMock.balanceOf", owner);
     return mockedComptroller.balanceOf(cToken, owner);
@@ -124,7 +124,7 @@ contract HfCTokenMock is IHfCToken {
     return cToken.borrowBalanceCurrent(account);
   }
 
-  /////////////////////////////////////////////////////////////////
+  //-----------------------------------------------------//////////
   ///       HfCToken facade
   ///       All other functions
   ///
@@ -133,7 +133,7 @@ contract HfCTokenMock is IHfCToken {
   //        If you need any of following function
   //        move them into the above section
   //        and delegate their calls to HfComptrollerMock
-  /////////////////////////////////////////////////////////////////
+  //-----------------------------------------------------//////////
   function totalSupply() external override view returns (uint256) {
     return cToken.totalSupply();
   }

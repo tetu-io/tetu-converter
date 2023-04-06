@@ -13,7 +13,7 @@ library AaveSharedLib {
     uint rate;
   }
 
-  //////////////////////////////////////////////////////////////////////////
+  //-----------------------------------------------------///////////////////
   // APR for period = result income/debt in period
   //                  without any compound
   // APR = user-balance-after - user-balance-before
@@ -26,7 +26,7 @@ library AaveSharedLib {
   // where Sy = seconds per year = 31536000
   //       dT = period in seconds
   //       LI = liquidity index
-  //////////////////////////////////////////////////////////////////////////
+  //-----------------------------------------------------///////////////////
 
   /// @notice Calculate APR for period {countBlocks}.
   ///         Assume that the calculations are made in the point AFTER supply/borrow operation.

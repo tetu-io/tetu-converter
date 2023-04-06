@@ -55,6 +55,9 @@ interface IPoolAdapter is IConverter {
   );
 
   /// @return originConverter Address of original PoolAdapter contract that was cloned to make the instance of the pool adapter
+  /// @return user User of the pool adapter
+  /// @return collateralAsset Asset used as collateral by the pool adapter
+  /// @return borrowAsset Asset borrowed by the pool adapter
   function getConfig() external view returns (
     address originConverter,
     address user,
@@ -70,12 +73,16 @@ interface IPoolAdapter is IConverter {
   /// @return healthFactor18 Current health factor, decimals 18
   /// @return opened The position is opened (there is not empty collateral/borrow balance)
   /// @return collateralAmountLiquidated How much collateral was liquidated
+  /// @return debtGapRequired When paying off a debt, the amount of the payment must be greater
+  ///         than the amount of the debt by a small amount (debt gap, see IConverterController.debtGap)
+  ///         getStatus returns it (same as getConfig) to exclude additional call of getConfig by the caller
   function getStatus() external view returns (
     uint collateralAmount,
     uint amountToPay,
     uint healthFactor18,
     bool opened,
-    uint collateralAmountLiquidated
+    uint collateralAmountLiquidated,
+    bool debtGapRequired
   );
 
   /// @notice Check if any reward tokens exist on the balance of the pool adapter, transfer reward tokens to {receiver_}

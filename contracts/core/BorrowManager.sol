@@ -33,9 +33,9 @@ contract BorrowManager is IBorrowManager {
 
   IConverterController public immutable controller;
 
-  ///////////////////////////////////////////////////////
+  //-----------------------------------------------------
   ///                Structs and enums
-  ///////////////////////////////////////////////////////
+  //-----------------------------------------------------
 
   /// @notice Pair of two assets. Asset 1 can be converted to asset 2 and vice versa.
   /// @dev There are no restrictions for {assetLeft} and {assertRight}. Each can be smaller than the other.
@@ -44,9 +44,9 @@ contract BorrowManager is IBorrowManager {
     address assetRight;
   }
 
-  ///////////////////////////////////////////////////////
+  //-----------------------------------------------------
   ///                    Members
-  ///////////////////////////////////////////////////////
+  //-----------------------------------------------------
 
   /// @notice Reward APR is taken into account with given factor
   /// @dev decimals 18. The value is divided on {REWARDS_FACTOR_DENOMINATOR_18}
@@ -86,9 +86,9 @@ contract BorrowManager is IBorrowManager {
   /// @dev Allow to get full list of the pool adapter and then filter it by any criteria (asset, user, state, etc)
   address[] public listPoolAdapters;
 
-  ///////////////////////////////////////////////////////
+  //-----------------------------------------------------
   ///               Events
-  ///////////////////////////////////////////////////////
+  //-----------------------------------------------------
   event OnSetTargetHealthFactors(address[] assets, uint16[] healthFactors2);
   event OnSetRewardsFactor(uint rewardsFactor);
   event OnAddAssetPairs(address platformAdapter, address[] leftAssets, address[] rightAssets);
@@ -97,9 +97,9 @@ contract BorrowManager is IBorrowManager {
   event OnRegisterPoolAdapter(address poolAdapter, address converter, address user, address collateralAsset, address borrowAsset);
   event OnMarkPoolAdapterAsDirty(address poolAdapter);
 
-  ///////////////////////////////////////////////////////
+  //-----------------------------------------------------
   ///               Initialization
-  ///////////////////////////////////////////////////////
+  //-----------------------------------------------------
 
   constructor (address controller_, uint rewardsFactor_) {
     require(controller_ != address(0), AppErrors.ZERO_ADDRESS);
@@ -110,9 +110,9 @@ contract BorrowManager is IBorrowManager {
     rewardsFactor = rewardsFactor_;
   }
 
-  ///////////////////////////////////////////////////////
+  //-----------------------------------------------------
   ///               Access rights
-  ///////////////////////////////////////////////////////
+  //-----------------------------------------------------
 
   /// @notice Ensure that msg.sender is registered pool adapter
   function _onlyTetuConverterOrUser(address user_) internal view {
@@ -128,9 +128,9 @@ contract BorrowManager is IBorrowManager {
     require(msg.sender == controller.governance(), AppErrors.GOVERNANCE_ONLY);
   }
 
-  ///////////////////////////////////////////////////////
+  //-----------------------------------------------------
   ///               Configuration
-  ///////////////////////////////////////////////////////
+  //-----------------------------------------------------
 
   /// @notice Set target health factors for the assets.
   ///         If target health factor is not assigned to the asset, target-health-factor from controller is used.
@@ -244,9 +244,9 @@ contract BorrowManager is IBorrowManager {
     emit OnRemoveAssetPairs(platformAdapter_, leftAssets_, rightAssets_);
   }
 
-  ///////////////////////////////////////////////////////
+  //-----------------------------------------------------
   ///           Find best pool for borrowing
-  ///////////////////////////////////////////////////////
+  //-----------------------------------------------------
 
   /// @notice Find lending pool capable of providing {targetAmount} and having best normalized borrow rate
   ///         Results are ordered in ascending order of APR, so the best available converter is first one.
@@ -389,9 +389,9 @@ contract BorrowManager is IBorrowManager {
     return (converters, collateralAmountsOut, amountsToBorrowOut, aprs18, countFoundItems);
   }
 
-  ///////////////////////////////////////////////////////
+  //-----------------------------------------------------
   ///         Minimal proxy creation
-  ///////////////////////////////////////////////////////
+  //-----------------------------------------------------
 
   /// @notice Register a pool adapter for (pool, user, collateral) if the adapter wasn't created before
   /// @param user_ Address of the caller contract who requires access to the pool adapter
@@ -454,9 +454,9 @@ contract BorrowManager is IBorrowManager {
     emit OnMarkPoolAdapterAsDirty(poolAdapter);
   }
 
-  ///////////////////////////////////////////////////////
+  //-----------------------------------------------------
   ///         Getters - pool adapters
-  ///////////////////////////////////////////////////////
+  //-----------------------------------------------------
 
   /// @dev Returns true for NORMAL pool adapters and for active DIRTY pool adapters (=== borrow position is opened).
   function isPoolAdapter(address poolAdapter_) external view override returns (bool) {
@@ -474,9 +474,9 @@ contract BorrowManager is IBorrowManager {
     return found ? dest : address(0);
   }
 
-  ///////////////////////////////////////////////////////
+  //-----------------------------------------------------
   ///         Getters - platform adapters
-  ///////////////////////////////////////////////////////
+  //-----------------------------------------------------
 
   /// @notice Get platformAdapter to which the converter belongs
   function getPlatformAdapter(address converter_) public view override returns (address) {
@@ -485,9 +485,9 @@ contract BorrowManager is IBorrowManager {
     return platformAdapter;
   }
 
-  ///////////////////////////////////////////////////////
+  //-----------------------------------------------------
   ///         Getters - health factor
-  ///////////////////////////////////////////////////////
+  //-----------------------------------------------------
 
   /// @notice Return target health factor with decimals 2 for the asset
   ///         If there is no custom value for asset, target health factor from the controller should be used
@@ -498,9 +498,9 @@ contract BorrowManager is IBorrowManager {
       : dest;
   }
 
-  ///////////////////////////////////////////////////////
+  //-----------------------------------------------------
   ///                 keccak256 keys
-  ///////////////////////////////////////////////////////
+  //-----------------------------------------------------
 
   function getPoolAdapterKey(address converter_,
     address collateral_,
@@ -515,9 +515,9 @@ contract BorrowManager is IBorrowManager {
       : uint(keccak256(abi.encodePacked(assetRight_, assetLeft_)));
   }
 
-  ///////////////////////////////////////////////////////
+  //-----------------------------------------------------
   ///                 Access to arrays
-  ///////////////////////////////////////////////////////
+  //-----------------------------------------------------
 
   function platformAdaptersLength() public view returns (uint) {
     return _platformAdapters.length();

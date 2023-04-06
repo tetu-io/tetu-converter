@@ -123,10 +123,12 @@ interface ITetuConverter {
   /// @notice Full or partial repay of the borrow
   /// @dev A user should transfer {amountToRepay_} to TetuConverter before calling repay()
   /// @param amountToRepay_ Amount of borrowed asset to repay.
-  ///                       You can know exact total amount of debt using {getStatusCurrent}.
-  ///                       if the amount exceed total amount of the debt:
-  ///                       - the debt will be fully repaid
-  ///                       - remain amount will be swapped from {borrowAsset_} to {collateralAsset_}
+  ///        You can know exact total amount of debt using {getStatusCurrent}.
+  ///        if the amount exceed total amount of the debt:
+  ///           - the debt will be fully repaid
+  ///           - remain amount will be swapped from {borrowAsset_} to {collateralAsset_}
+  ///        This amount should be calculated with taking into account possible debt gap,
+  ///        You should call getDebtAmountCurrent(debtGap = true) to get this amount.
   /// @param receiver_ A receiver of the collateral that will be withdrawn after the repay
   ///                  The remained amount of borrow asset will be returned to the {receiver_} too
   /// @return collateralAmountOut Exact collateral amount transferred to {collateralReceiver_}
@@ -153,6 +155,8 @@ interface ITetuConverter {
   ///      Anyway, the function is write, not read-only, because it makes updateStatus()
   /// @param user_ user whose amount-to-repay will be calculated
   /// @param amountToRepay_ Amount of borrowed asset to repay.
+  ///        This amount should be calculated without possible debt gap.
+  ///        In this way it's differ from {repay}
   /// @return collateralAmountOut Total collateral amount to be returned after repay in exchange of {amountToRepay_}
   function quoteRepay(
     address user_,
@@ -164,31 +168,35 @@ interface ITetuConverter {
   );
 
   /// @notice Update status in all opened positions
-  ///         and calculate exact total amount of borrowed and collateral assets
-  /// @param user_ user whose debts will be updated and returned
+  ///         After this call getDebtAmount will be able to return exact amount to repay
+  /// @param user_ user whose debts will be returned
+  /// @param useDebtGap_ Calculate exact value of the debt (false) or amount to pay (true)
+  ///        Exact value of the debt can be a bit different from amount to pay, i.e. AAVE has dust tokens problem.
+  ///        Exact amount of debt should be used to calculate shared price, amount to pay - for repayment
   /// @return totalDebtAmountOut Borrowed amount that should be repaid to pay off the loan in full
   /// @return totalCollateralAmountOut Amount of collateral that should be received after paying off the loan
   function getDebtAmountCurrent(
     address user_,
     address collateralAsset_,
-    address borrowAsset_
+    address borrowAsset_,
+    bool useDebtGap_
   ) external returns (
     uint totalDebtAmountOut,
     uint totalCollateralAmountOut
   );
 
   /// @notice Total amount of borrow tokens that should be repaid to close the borrow completely.
-  /// @dev Actual debt amount can be a little LESS then the amount returned by this function.
-  ///      I.e. AAVE's pool adapter returns (amount of debt + tiny addon ~ 1 cent)
-  ///      The addon is required to workaround dust-tokens problem.
-  ///      After repaying the remaining amount is transferred back on the balance of the caller strategy.
   /// @param user_ user whose debts will be returned
+  /// @param useDebtGap_ Calculate exact value of the debt (false) or amount to pay (true)
+  ///        Exact value of the debt can be a bit different from amount to pay, i.e. AAVE has dust tokens problem.
+  ///        Exact amount of debt should be used to calculate shared price, amount to pay - for repayment
   /// @return totalDebtAmountOut Borrowed amount that should be repaid to pay off the loan in full
   /// @return totalCollateralAmountOut Amount of collateral that should be received after paying off the loan
   function getDebtAmountStored(
     address user_,
     address collateralAsset_,
-    address borrowAsset_
+    address borrowAsset_,
+    bool useDebtGap_
   ) external view returns (
     uint totalDebtAmountOut,
     uint totalCollateralAmountOut

@@ -24,20 +24,20 @@ contract Aave3PlatformAdapter is IPlatformAdapter {
   using AppUtils for uint;
   using Aave3ReserveConfiguration for Aave3DataTypes.ReserveConfigurationMap;
 
-  ///////////////////////////////////////////////////////
+  //-----------------------------------------------------
   ///   Constants
-  ///////////////////////////////////////////////////////
+  //-----------------------------------------------------
   uint256 internal constant RAY = 1e27;
   uint256 internal constant HALF_RAY = 0.5e27;
 
   /// @notice We allow to borrow only 90% of max allowed amount, see the code below for explanation
   uint public constant MAX_BORROW_AMOUNT_FACTOR = 90;
   uint constant public MAX_BORROW_AMOUNT_FACTOR_DENOMINATOR = 100;
-  string public constant override PLATFORM_ADAPTER_VERSION = "1.0.0";
+  string public constant override PLATFORM_ADAPTER_VERSION = "1.0.1";
 
-  ///////////////////////////////////////////////////////
+  //-----------------------------------------------------
   ///   Data types
-  ///////////////////////////////////////////////////////
+  //-----------------------------------------------------
   /// @notice Local vars inside _getConversionPlan - to avoid stack too deep
   struct LocalsGetConversionPlan {
     uint8 categoryCollateral;
@@ -58,9 +58,9 @@ contract Aave3PlatformAdapter is IPlatformAdapter {
     uint entryKind;
   }
 
-  ///////////////////////////////////////////////////////
+  //-----------------------------------------------------
   ///   Variables
-  ///////////////////////////////////////////////////////
+  //-----------------------------------------------------
   IConverterController immutable public controller;
   IAavePool immutable public pool;
   /// @dev Same as controller.borrowManager(); we cache it for gas optimization
@@ -72,9 +72,9 @@ contract Aave3PlatformAdapter is IPlatformAdapter {
   /// @notice True if the platform is frozen and new borrowing is not possible (at this moment)
   bool public override frozen;
 
-  ///////////////////////////////////////////////////////
+  //-----------------------------------------------------
   ///               Events
-  ///////////////////////////////////////////////////////
+  //-----------------------------------------------------
   event OnPoolAdapterInitialized(
     address converter,
     address poolAdapter,
@@ -83,9 +83,9 @@ contract Aave3PlatformAdapter is IPlatformAdapter {
     address borrowAsset
   );
 
-  ///////////////////////////////////////////////////////
+  //-----------------------------------------------------
   ///       Constructor and initialization
-  ///////////////////////////////////////////////////////
+  //-----------------------------------------------------
 
   constructor (
     address controller_,
@@ -140,9 +140,9 @@ contract Aave3PlatformAdapter is IPlatformAdapter {
     frozen = frozen_;
   }
 
-  ///////////////////////////////////////////////////////
+  //-----------------------------------------------------
   ///                    View
-  ///////////////////////////////////////////////////////
+  //-----------------------------------------------------
 
   function converters() external view override returns (address[] memory) {
     address[] memory dest = new address[](2);
@@ -151,9 +151,9 @@ contract Aave3PlatformAdapter is IPlatformAdapter {
     return dest;
   }
 
-  ///////////////////////////////////////////////////////
+  //-----------------------------------------------------
   ///             Get conversion plan
-  ///////////////////////////////////////////////////////
+  //-----------------------------------------------------
   function getConversionPlan (
     AppDataTypes.InputConversionParams memory params,
     uint16 healthFactor2_
@@ -406,34 +406,9 @@ contract Aave3PlatformAdapter is IPlatformAdapter {
     }
   }
 
-  ///////////////////////////////////////////////////////
-  ///  Calculate borrow rate after borrowing in advance
-  ///////////////////////////////////////////////////////
-
-  /// @notice Estimate value of variable borrow rate after borrowing {amountToBorrow_}
-  function getBorrowRateAfterBorrow(address borrowAsset_, uint amountToBorrow_) external view override returns (uint) {
-    IAavePool poolLocal = pool;
-    Aave3DataTypes.ReserveData memory rb = poolLocal.getReserveData(borrowAsset_);
-
-    (,,,
-    uint256 totalStableDebt,
-    uint256 totalVariableDebt
-    ,,,,,,,) = IAaveProtocolDataProvider(
-      (IAaveAddressesProvider(poolLocal.ADDRESSES_PROVIDER())).getPoolDataProvider()
-    ).getReserveData(borrowAsset_);
-
-    return Aave3AprLib.getVariableBorrowRateRays(
-      rb,
-      borrowAsset_,
-      amountToBorrow_,
-      totalStableDebt,
-      totalVariableDebt
-    );
-  }
-
-  ///////////////////////////////////////////////////////
-  ///                    Utils
-  ///////////////////////////////////////////////////////
+  //-----------------------------------------------------
+  //                    Utils
+  //-----------------------------------------------------
 
   /// @notice Check if the asset can be used as a collateral
   /// @dev Some assets cannot be used as collateral: https://docs.aave.com/risk/asset-risk/risk-parameters#collaterals

@@ -25,18 +25,18 @@ contract Aave3PriceOracleMock is IAavePriceOracle, IChangePriceForTests {
     _fallbackOracle = fallbackOracle_;
   }
 
-  /////////////////////////////////////////////////////////////////
+  //-----------------------------------------------------//////////
   ///                   Setup prices
-  /////////////////////////////////////////////////////////////////
+  //-----------------------------------------------------//////////
   function setPrices(address[] memory assets_, uint[] memory values_) external {
     for (uint i = 0; i < assets_.length; ++i) {
       _prices[assets_[i]] = values_[i];
     }
   }
 
-  /////////////////////////////////////////////////////////////////
+  //-----------------------------------------------------//////////
   ///                 IChangePriceForTests
-  /////////////////////////////////////////////////////////////////
+  //-----------------------------------------------------//////////
 
   /// @notice Take exist price of the asset and multiple it on (multiplier100_/100)
   function changePrice(address asset_, uint multiplier100_) external {
@@ -44,9 +44,9 @@ contract Aave3PriceOracleMock is IAavePriceOracle, IChangePriceForTests {
     console.log("AAVE3PriceOracleMock changePrice", asset_, _prices[asset_], multiplier100_);
   }
 
-  /////////////////////////////////////////////////////////////////
+  //-----------------------------------------------------//////////
   ///                 IAavePriceOracle
-  /////////////////////////////////////////////////////////////////
+  //-----------------------------------------------------//////////
 
   /**
    * @notice Returns the PoolAddressesProvider

@@ -3,9 +3,9 @@ pragma solidity 0.8.17;
 
 interface IDForceRewardDistributor {
 
-  ////////////////////////////////////////////////////////////////
+  //-----------------------------------------------------/////////
   // Following functions were taken from LendingContractsV2, IRewardDistributor.sol
-  ////////////////////////////////////////////////////////////////
+  //-----------------------------------------------------/////////
   function _setRewardToken(address newRewardToken) external;
   function _addRecipient(address _iToken, uint256 _distributionFactor) external;
   function _pause() external;
@@ -19,11 +19,11 @@ interface IDForceRewardDistributor {
   function claimReward(address[] memory _holders, address[] memory _iTokens) external;
   function claimAllReward(address[] memory _holders) external;
 
-  ////////////////////////////////////////////////////////////////
+  //-----------------------------------------------------/////////
   // Following functions were restored from 0x7d25d250fbd63b0dac4a38c661075930c9a87 (optimism)
   // https://optimistic.etherscan.io/address/0x870ac6a76A30742800609F205c741E86Db9b71a2#readProxyContract
   // There are no sources for last implementation, so previous implementation were used
-  ////////////////////////////////////////////////////////////////
+  //-----------------------------------------------------/////////
 
   /// @notice the Reward distribution borrow state of each iToken
   function distributionBorrowState(address) external view returns (uint256 index, uint256 block_);

@@ -58,6 +58,7 @@ describe("Controller", () => {
     maxHealthFactor2: number;
 
     blocksPerDay: BigNumber;
+    debtGap: BigNumber;
   }
 
   function getMembersArray(a: IControllerMembers): string[] {
@@ -77,7 +78,8 @@ describe("Controller", () => {
       a.targetHealthFactor2.toString(),
       a.maxHealthFactor2.toString(),
 
-      a.blocksPerDay.toString()
+      a.blocksPerDay.toString(),
+      a.debtGap.toString()
     ];
   }
 
@@ -99,6 +101,7 @@ describe("Controller", () => {
       (await controller.maxHealthFactor2()).toString(),
 
       (await controller.blocksPerDay()).toString(),
+      (await controller.debtGap()).toString(),
     ];
   }
 
@@ -119,6 +122,7 @@ describe("Controller", () => {
         a.debtMonitor,
         a.keeper,
         a.swapManager,
+        a.debtGap
       )
     );
 
@@ -142,7 +146,8 @@ describe("Controller", () => {
       targetHealthFactor2: 220 + randomInt(10),
       maxHealthFactor2: 920 + randomInt(10),
 
-      blocksPerDay: BigNumber.from(1000 + randomInt(1000))
+      blocksPerDay: BigNumber.from(1000 + randomInt(1000)),
+      debtGap: BigNumber.from(1000 + randomInt(1000)),
     }
   }
 
@@ -271,6 +276,7 @@ describe("Controller", () => {
             a.debtMonitor,
             a.keeper,
             a.swapManager,
+            a.debtGap
           )
         ).revertedWith("Initializable: contract is already initialized");
       });
@@ -856,6 +862,46 @@ describe("Controller", () => {
 
         await expect(
           controller.connect(await DeployerUtils.startImpersonate(notGovernance)).setWhitelistValues([user1], true)
+        ).revertedWith("TC-9 governance only"); // GOVERNANCE_ONLY
+      });
+    });
+  });
+
+  describe("debtGap", () => {
+    describe("Good paths", () => {
+      it("should set debt gap 1%", async () => {
+        const debtGap = 1_000; // 1%
+        const {controller} = await createTestController(getRandomMembersValues());
+        await controller.connect(await DeployerUtils.startImpersonate(await controller.governance())).setDebtGap(debtGap);
+
+        const retDebtGap = await controller.debtGap();
+        expect(retDebtGap).eq(debtGap);
+      });
+      it("should set debt gap 0", async () => {
+        const debtGap = 0;
+        const {controller} = await createTestController(getRandomMembersValues());
+        await controller.connect(await DeployerUtils.startImpersonate(await controller.governance())).setDebtGap(10000);
+        await controller.connect(await DeployerUtils.startImpersonate(await controller.governance())).setDebtGap(debtGap);
+
+        const retDebtGap = await controller.debtGap();
+        expect(retDebtGap).eq(debtGap);
+      });
+      it("should set debt gap 200%", async () => {
+        const debtGap = 200_000;
+        const {controller} = await createTestController(getRandomMembersValues());
+        await controller.connect(await DeployerUtils.startImpersonate(await controller.governance())).setDebtGap(debtGap);
+
+        const retDebtGap = await controller.debtGap();
+        expect(retDebtGap).eq(debtGap);
+      });
+    });
+    describe("Bad paths", () => {
+      it("should revert if not governance", async () => {
+        const {controller} = await createTestController(getRandomMembersValues());
+
+        const debtGap = 100_000 + 1; // (!) too big
+        await expect(
+          controller.connect(await DeployerUtils.startImpersonate(ethers.Wallet.createRandom().address)).setDebtGap(debtGap)
         ).revertedWith("TC-9 governance only"); // GOVERNANCE_ONLY
       });
     });

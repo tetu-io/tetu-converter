@@ -19,7 +19,7 @@ import {MaticAddresses} from "../../../scripts/addresses/MaticAddresses";
 import {TokenDataTypes} from "../../baseUT/types/TokenDataTypes";
 import {IAaveTwoUserAccountDataResults} from "../../baseUT/apr/aprAaveTwo";
 import {
-  AaveRepayToRebalanceUtils,
+  AaveRepayToRebalanceUtils, IAaveMakeRepayToRebalanceResults,
   IMakeRepayToRebalanceResults
 } from "../../baseUT/protocols/aaveShared/aaveRepayToRebalanceUtils";
 import {
@@ -42,15 +42,16 @@ import {AdaptersHelper} from "../../baseUT/helpers/AdaptersHelper";
 import {Misc} from "../../../scripts/utils/Misc";
 import {TetuConverterApp} from "../../baseUT/helpers/TetuConverterApp";
 import {MocksHelper} from "../../baseUT/helpers/MocksHelper";
-import {parseUnits} from "ethers/lib/utils";
+import {formatUnits, parseUnits} from "ethers/lib/utils";
 import {areAlmostEqual} from "../../baseUT/utils/CommonUtils";
 import {IPoolAdapterStatus} from "../../baseUT/types/BorrowRepayDataTypes";
 import {AaveTwoChangePricesUtils} from "../../baseUT/protocols/aaveTwo/AaveTwoChangePricesUtils";
+import {loadFixture} from "@nomicfoundation/hardhat-network-helpers";
+import {Aave3ChangePricesUtils} from "../../baseUT/protocols/aave3/Aave3ChangePricesUtils";
 
 describe("AaveTwoPoolAdapterUnitTest", () => {
 //region Global vars for all tests
   let snapshot: string;
-  let snapshotForEach: string;
   let deployer: SignerWithAddress;
 //endregion Global vars for all tests
 
@@ -64,14 +65,6 @@ describe("AaveTwoPoolAdapterUnitTest", () => {
 
   after(async function () {
     await TimeUtils.rollback(snapshot);
-  });
-
-  beforeEach(async function () {
-    snapshotForEach = await TimeUtils.snapshot();
-  });
-
-  afterEach(async function () {
-    await TimeUtils.rollback(snapshotForEach);
   });
 //endregion before, after
 
@@ -116,6 +109,15 @@ describe("AaveTwoPoolAdapterUnitTest", () => {
 
 //region Unit tests
   describe("borrow", () => {
+    let snapshotForEach: string;
+    beforeEach(async function () {
+      snapshotForEach = await TimeUtils.snapshot();
+    });
+
+    afterEach(async function () {
+      await TimeUtils.rollback(snapshotForEach);
+    });
+
     const collateralAsset = MaticAddresses.DAI;
     const collateralHolder = MaticAddresses.HOLDER_DAI;
     const borrowAsset = MaticAddresses.WMATIC;
@@ -218,6 +220,15 @@ describe("AaveTwoPoolAdapterUnitTest", () => {
   });
 
   describe("full repay", () => {
+    let snapshotForEach: string;
+    beforeEach(async function () {
+      snapshotForEach = await TimeUtils.snapshot();
+    });
+
+    afterEach(async function () {
+      await TimeUtils.rollback(snapshotForEach);
+    });
+
     interface IMakeFullRepayTestResults {
       init: IPrepareToBorrowResults;
       borrowResults: IBorrowResults;
@@ -807,67 +818,140 @@ describe("AaveTwoPoolAdapterUnitTest", () => {
     describe("Good paths", () => {
       describe("Repay using borrow asset", () => {
         describe("Dai:WMatic", () => {
-          it("should return expected values", async () => {
-            if (!await isPolygonForkInUse()) return;
-            const r = await AaveRepayToRebalanceUtils.daiWMatic(
+          async function makeDaiWMaticTest(): Promise<IAaveMakeRepayToRebalanceResults> {
+            return await AaveRepayToRebalanceUtils.daiWMatic(
               deployer,
               makeRepayToRebalance,
               targetHealthFactorInitial2,
               targetHealthFactorUpdated2,
               false
             );
+          }
+          it("should make health factor almost same to the target value", async () => {
+            if (!await isPolygonForkInUse()) return;
 
-            expect(r.ret).eq(r.expected);
+            const r = await loadFixture(makeDaiWMaticTest);
+            expect(Math.round(+formatUnits(r.healthFactorAfterBorrow18, 16))).eq(targetHealthFactorInitial2);
+            expect(Math.round(+formatUnits(r.healthFactorAfterBorrowToRebalance, 16))).eq(targetHealthFactorUpdated2);
+          });
+          it("should set expected user borrow asset balance", async () => {
+            if (!await isPolygonForkInUse()) return;
+
+            const r = await loadFixture(makeDaiWMaticTest);
+            expect(areAlmostEqual(r.userBorrowBalance.result, r.userBorrowBalance.expected)).eq(true);
+          });
+          it("should set expected user collateral asset balance", async () => {
+            if (!await isPolygonForkInUse()) return;
+
+            const r = await loadFixture(makeDaiWMaticTest);
+            expect(areAlmostEqual(r.userCollateralBalance.result, r.userCollateralBalance.expected)).eq(true);
           });
         });
         describe("USDC:USDT", () => {
-          it("should return expected values", async () => {
-            if (!await isPolygonForkInUse()) return;
-            const r = await AaveRepayToRebalanceUtils.usdcUsdt(
+          async function makeUsdcUsdtTest(): Promise<IAaveMakeRepayToRebalanceResults> {
+            return await AaveRepayToRebalanceUtils.usdcUsdt(
               deployer,
-              async (p) => makeRepayToRebalance(p),
+              makeRepayToRebalance,
               targetHealthFactorInitial2,
               targetHealthFactorUpdated2,
               false
             );
+          }
+          it("should make health factor almost same to the target value", async () => {
+            if (!await isPolygonForkInUse()) return;
 
-            expect(r.ret).eq(r.expected);
+            const r = await loadFixture(makeUsdcUsdtTest);
+            expect(Math.round(+formatUnits(r.healthFactorAfterBorrow18, 16))).eq(targetHealthFactorInitial2);
+            expect(Math.round(+formatUnits(r.healthFactorAfterBorrowToRebalance, 16))).eq(targetHealthFactorUpdated2);
+          });
+          it("should set expected user borrow asset balance", async () => {
+            if (!await isPolygonForkInUse()) return;
+
+            const r = await loadFixture(makeUsdcUsdtTest);
+            expect(areAlmostEqual(r.userBorrowBalance.result, r.userBorrowBalance.expected)).eq(true);
+          });
+          it("should set expected user collateral asset balance", async () => {
+            if (!await isPolygonForkInUse()) return;
+
+            const r = await loadFixture(makeUsdcUsdtTest);
+            expect(areAlmostEqual(r.userCollateralBalance.result, r.userCollateralBalance.expected)).eq(true);
           });
         });
       });
       describe("Repay using collateral asset", () => {
         describe("Dai:WMatic", () => {
-          it("should return expected values", async () => {
-            if (!await isPolygonForkInUse()) return;
-            const r = await AaveRepayToRebalanceUtils.daiWMatic(
+          async function makeDaiWMaticTest(): Promise<IAaveMakeRepayToRebalanceResults> {
+            return await AaveRepayToRebalanceUtils.daiWMatic(
               deployer,
               makeRepayToRebalance,
               targetHealthFactorInitial2,
               targetHealthFactorUpdated2,
               true
             );
+          }
+          it("should make health factor almost same to the target value", async () => {
+            if (!await isPolygonForkInUse()) return;
 
-            expect(r.ret).eq(r.expected);
+            const r = await loadFixture(makeDaiWMaticTest);
+            expect(Math.round(+formatUnits(r.healthFactorAfterBorrow18, 16))).eq(targetHealthFactorInitial2);
+            expect(Math.round(+formatUnits(r.healthFactorAfterBorrowToRebalance, 16))).eq(targetHealthFactorUpdated2);
+          });
+          it("should set expected user borrow asset balance", async () => {
+            if (!await isPolygonForkInUse()) return;
+
+            const r = await loadFixture(makeDaiWMaticTest);
+            expect(areAlmostEqual(r.userBorrowBalance.result, r.userBorrowBalance.expected)).eq(true);
+          });
+          it("should set expected user collateral asset balance", async () => {
+            if (!await isPolygonForkInUse()) return;
+
+            const r = await loadFixture(makeDaiWMaticTest);
+            expect(areAlmostEqual(r.userCollateralBalance.result, r.userCollateralBalance.expected)).eq(true);
           });
         });
         describe("USDC:USDT", () => {
-          it("should return expected values", async () => {
-            if (!await isPolygonForkInUse()) return;
-            const r = await AaveRepayToRebalanceUtils.usdcUsdt(
+          async function makeUsdcUsdtTest(): Promise<IAaveMakeRepayToRebalanceResults> {
+            return await AaveRepayToRebalanceUtils.usdcUsdt(
               deployer,
-              async (p) => makeRepayToRebalance(p),
+              makeRepayToRebalance,
               targetHealthFactorInitial2,
               targetHealthFactorUpdated2,
               true
             );
+          }
+          it("should make health factor almost same to the target value", async () => {
+            if (!await isPolygonForkInUse()) return;
 
-            expect(r.ret).eq(r.expected);
+            const r = await loadFixture(makeUsdcUsdtTest);
+            expect(Math.round(+formatUnits(r.healthFactorAfterBorrow18, 16))).eq(targetHealthFactorInitial2);
+            expect(Math.round(+formatUnits(r.healthFactorAfterBorrowToRebalance, 16))).eq(targetHealthFactorUpdated2);
+          });
+          it("should set expected user borrow asset balance", async () => {
+            if (!await isPolygonForkInUse()) return;
+
+            const r = await loadFixture(makeUsdcUsdtTest);
+            expect(areAlmostEqual(r.userBorrowBalance.result, r.userBorrowBalance.expected)).eq(true);
+          });
+          it("should set expected user collateral asset balance", async () => {
+            if (!await isPolygonForkInUse()) return;
+
+            const r = await loadFixture(makeUsdcUsdtTest);
+            expect(areAlmostEqual(r.userCollateralBalance.result, r.userCollateralBalance.expected)).eq(true);
           });
         });
       });
     });
 
     describe("Bad paths", () => {
+      let snapshotForEach: string;
+      beforeEach(async function () {
+        snapshotForEach = await TimeUtils.snapshot();
+      });
+
+      afterEach(async function () {
+        await TimeUtils.rollback(snapshotForEach);
+      });
+
       async function testRepayToRebalanceDaiWMatic(badPathParams?: IMakeRepayRebalanceBadPathParams) {
         await AaveRepayToRebalanceUtils.daiWMatic(
           deployer,
@@ -914,6 +998,15 @@ describe("AaveTwoPoolAdapterUnitTest", () => {
   });
 
   describe("borrowToRebalance", () => {
+    let snapshotForEach: string;
+    beforeEach(async function () {
+      snapshotForEach = await TimeUtils.snapshot();
+    });
+
+    afterEach(async function () {
+      await TimeUtils.rollback(snapshotForEach);
+    });
+
     const minHealthFactorInitial2 = 1000;
     const targetHealthFactorInitial2 = 2000;
     const maxHealthFactorInitial2 = 4000;
@@ -1102,6 +1195,15 @@ describe("AaveTwoPoolAdapterUnitTest", () => {
   });
 
   describe("initialize", () => {
+    let snapshotForEach: string;
+    beforeEach(async function () {
+      snapshotForEach = await TimeUtils.snapshot();
+    });
+
+    afterEach(async function () {
+      await TimeUtils.rollback(snapshotForEach);
+    });
+
     interface IInitializePoolAdapterBadPaths {
       zeroController?: boolean;
       zeroUser?: boolean;
@@ -1232,6 +1334,15 @@ describe("AaveTwoPoolAdapterUnitTest", () => {
   });
 
   describe("claimRewards", () => {
+    let snapshotForEach: string;
+    beforeEach(async function () {
+      snapshotForEach = await TimeUtils.snapshot();
+    });
+
+    afterEach(async function () {
+      await TimeUtils.rollback(snapshotForEach);
+    });
+
     describe("Good paths", () => {
       it("should return expected values", async () => {
         if (!await isPolygonForkInUse()) return;
@@ -1251,6 +1362,15 @@ describe("AaveTwoPoolAdapterUnitTest", () => {
   });
 
   describe("getConversionKind", () => {
+    let snapshotForEach: string;
+    beforeEach(async function () {
+      snapshotForEach = await TimeUtils.snapshot();
+    });
+
+    afterEach(async function () {
+      await TimeUtils.rollback(snapshotForEach);
+    });
+
     describe("Good paths", () => {
       it("should return expected values", async () => {
         if (!await isPolygonForkInUse()) return;
@@ -1269,6 +1389,15 @@ describe("AaveTwoPoolAdapterUnitTest", () => {
   });
 
   describe("getConfig", () => {
+    let snapshotForEach: string;
+    beforeEach(async function () {
+      snapshotForEach = await TimeUtils.snapshot();
+    });
+
+    afterEach(async function () {
+      await TimeUtils.rollback(snapshotForEach);
+    });
+
     describe("Good paths", () => {
       it("should return expected values", async () => {
         if (!await isPolygonForkInUse()) return;
@@ -1299,6 +1428,15 @@ describe("AaveTwoPoolAdapterUnitTest", () => {
   });
 
   describe("events", () => {
+    let snapshotForEach: string;
+    beforeEach(async function () {
+      snapshotForEach = await TimeUtils.snapshot();
+    });
+
+    afterEach(async function () {
+      await TimeUtils.rollback(snapshotForEach);
+    });
+
     describe("OnInitialized", () => {
       it("should return expected values", async () => {
         if (!await isPolygonForkInUse()) return;
@@ -1479,152 +1617,115 @@ describe("AaveTwoPoolAdapterUnitTest", () => {
 
   describe("getStatus", () => {
     describe("Good paths", () => {
-      it("user has made a borrow, should return expected status", async () => {
-        if (!await isPolygonForkInUse()) return;
+      describe("User has a borrow", () => {
+        interface IStatusTestResults {
+          results: IMakeBorrowTestResults;
+          status: IPoolAdapterStatus;
+          collateralTargetHealthFactor2: number;
+        }
+        async function setupUserHasBorrowTest() : Promise<IStatusTestResults> {
+          const collateralAsset = MaticAddresses.DAI;
+          const collateralHolder = MaticAddresses.HOLDER_DAI;
+          const borrowAsset = MaticAddresses.WMATIC;
 
-        const collateralAsset = MaticAddresses.DAI;
-        const collateralHolder = MaticAddresses.HOLDER_DAI;
-        const borrowAsset = MaticAddresses.WMATIC;
+          const results = await makeBorrowTest(collateralAsset, collateralHolder, borrowAsset, "1999");
+          const status = await results.init.aavePoolAdapterAsTC.getStatus();
 
-        const results = await makeBorrowTest(
-          collateralAsset,
-          collateralHolder,
-          borrowAsset,
-          "1999"
-        );
-        const status = await results.init.aavePoolAdapterAsTC.getStatus();
-        console.log("status", status);
+          const collateralTargetHealthFactor2 = await BorrowManager__factory.connect(
+            await results.init.controller.borrowManager(),
+            deployer
+          ).getTargetHealthFactor2(collateralAsset);
 
-        const collateralTargetHealthFactor2 = await BorrowManager__factory.connect(
-          await results.init.controller.borrowManager(), deployer
-        ).getTargetHealthFactor2(collateralAsset);
-        console.log("collateralTargetHealthFactor2", collateralTargetHealthFactor2);
+          return {results, status, collateralTargetHealthFactor2};
+        }
 
-        const ret = [
-          areAlmostEqual(parseUnits(collateralTargetHealthFactor2.toString(), 16), status.healthFactor18),
-          areAlmostEqual(results.borrowResults.borrowedAmount, status.amountToPay, 4),
-          status.collateralAmountLiquidated.eq(0),
-          status.collateralAmount.eq(parseUnits("1999", results.init.collateralToken.decimals))
-        ].join();
-        const expected = [true, true, true, true].join();
-        expect(ret).eq(expected);
+        it("health factor of the borrow equals to target health factor of the collateral", async () => {
+          if (!await isPolygonForkInUse()) return;
+          const r = await loadFixture(setupUserHasBorrowTest);
+          expect(areAlmostEqual(parseUnits(r.collateralTargetHealthFactor2.toString(), 16), r.status.healthFactor18)).eq(true);
+        });
+        it("should return amount-to-pay equal to the borrowed amount (there is no addon for debt-gap here)", async () => {
+          if (!await isPolygonForkInUse()) return;
+          const r = await loadFixture(setupUserHasBorrowTest);
+          expect(areAlmostEqual(r.results.borrowResults.borrowedAmount, r.status.amountToPay)).eq(true);
+        });
+        it("should return initial collateral amount", async () => {
+          if (!await isPolygonForkInUse()) return;
+          const r = await loadFixture(setupUserHasBorrowTest);
+          expect(areAlmostEqual(r.status.collateralAmount, r.results.init.collateralAmount)).eq(true);
+        });
+        it("shouldn't be liquidated", async () => {
+          if (!await isPolygonForkInUse()) return;
+          const r = await loadFixture(setupUserHasBorrowTest);
+          expect(r.status.collateralAmountLiquidated.eq(0)).eq(true);
+        });
+        it("should require debt-gap", async () => {
+          if (!await isPolygonForkInUse()) return;
+          const r = await loadFixture(setupUserHasBorrowTest);
+          expect(r.status.debtGapRequired).eq(true);
+        });
+        it("should be opened", async () => {
+          if (!await isPolygonForkInUse()) return;
+          const r = await loadFixture(setupUserHasBorrowTest);
+          expect(r.status.opened).eq(true);
+        });
       });
-      it("user has not made a borrow, should return expected status", async () => {
-        if (!await isPolygonForkInUse()) return;
+      describe("User has not made a borrow", () => {
+        async function setupUserHasBorrowTest() : Promise<IPoolAdapterStatus> {
+          const collateralAsset = MaticAddresses.DAI;
+          const collateralHolder = MaticAddresses.HOLDER_DAI;
+          const borrowAsset = MaticAddresses.WMATIC;
 
-        const collateralAsset = MaticAddresses.DAI;
-        const collateralHolder = MaticAddresses.HOLDER_DAI;
-        const borrowAsset = MaticAddresses.WMATIC;
+          const collateralToken = await TokenDataTypes.Build(deployer, collateralAsset);
+          const borrowToken = await TokenDataTypes.Build(deployer, borrowAsset);
 
-        const collateralToken = await TokenDataTypes.Build(deployer, collateralAsset);
-        const borrowToken = await TokenDataTypes.Build(deployer, borrowAsset);
+          // we only prepare to borrow, but don't make a borrow
+          const init = await AaveTwoTestUtils.prepareToBorrow(
+            deployer,
+            collateralToken,
+            collateralHolder,
+            parseUnits("999", collateralToken.decimals),
+            borrowToken,
+          );
+          return await init.aavePoolAdapterAsTC.getStatus();
+        }
 
-        // we only prepare to borrow, but don't make a borrow
-        const init = await AaveTwoTestUtils.prepareToBorrow(
-          deployer,
-          collateralToken,
-          collateralHolder,
-          parseUnits("999", collateralToken.decimals),
-          borrowToken,
-        );
-        const status = await init.aavePoolAdapterAsTC.getStatus();
-
-        const ret = [
-          status.healthFactor18.eq(Misc.MAX_UINT),
-          status.amountToPay.eq(0),
-          status.collateralAmountLiquidated.eq(0),
-          status.collateralAmount.eq(0),
-          status.opened
-        ].join();
-        const expected = [true, true, true, true, false].join();
-        expect(ret).eq(expected);
-      });
-
-      /**
-       * GetStatus returns amount A BIT more than actual value of the debt
-       * to work around limitations of aave tokenization model, see Aave Protocol Whitepaper v1.0, section 3.8.1
-       * Ensure, that this difference is small enough for any asset pairs
-       */
-      describe("AAVE dust problem", () => {
-        describe("Small amount USDC/WETH", () => {
-          it("should return amount of debt almost equal to borrowed amount", async () => {
-            const results = await makeBorrowTest(
-              MaticAddresses.USDC,
-              MaticAddresses.HOLDER_USDC,
-              MaticAddresses.WETH,
-              "0.1"
-            );
-            const status = await results.init.aavePoolAdapterAsTC.getStatus();
-
-            const amountBorrowed = results.borrowResults.borrowedAmount;
-            const amountReturnedByStatus = status.amountToPay;
-            console.log("amountBorrowed", amountBorrowed.toString());
-            console.log("amountReturnedByStatus", amountReturnedByStatus.toString());
-
-            const ret = areAlmostEqual(amountBorrowed, amountReturnedByStatus, 5);
-            expect(ret).eq(true);
-          });
+        it("should return health factor equal to MAX_UINT", async () => {
+          if (!await isPolygonForkInUse()) return;
+          const status = await loadFixture(setupUserHasBorrowTest);
+          expect(status.healthFactor18.eq(Misc.MAX_UINT)).eq(true);
         });
-        describe("Huge amount USDC/WETH", () => {
-          it("should return amount of debt almost equal to borrowed amount", async () => {
-            const results = await makeBorrowTest(
-              MaticAddresses.USDC,
-              MaticAddresses.HOLDER_USDC,
-              MaticAddresses.WETH,
-              "1000000"
-            );
-            const status = await results.init.aavePoolAdapterAsTC.getStatus();
-
-            const amountBorrowed = results.borrowResults.borrowedAmount;
-            const amountReturnedByStatus = status.amountToPay;
-            console.log("amountBorrowed", amountBorrowed.toString());
-            console.log("amountReturnedByStatus", amountReturnedByStatus.toString());
-
-            const ret = areAlmostEqual(amountBorrowed, amountReturnedByStatus, 5);
-            expect(ret).eq(true);
-          });
+        it("should return zero collateral and debt amounts", async () => {
+          if (!await isPolygonForkInUse()) return;
+          const status = await loadFixture(setupUserHasBorrowTest);
+          expect(status.collateralAmount.eq(0)).eq(true);
+          expect(status.amountToPay.eq(0)).eq(true);
         });
-        describe("Small amount USDC/WBTC", () => {
-          it("should return amount of debt almost equal to borrowed amount", async () => {
-            const results = await makeBorrowTest(
-              MaticAddresses.USDC,
-              MaticAddresses.HOLDER_USDC,
-              MaticAddresses.WBTC,
-              "1"
-            );
-            const status = await results.init.aavePoolAdapterAsTC.getStatus();
-
-            const amountBorrowed = results.borrowResults.borrowedAmount;
-            const amountReturnedByStatus = status.amountToPay;
-            console.log("amountBorrowed", amountBorrowed.toString());
-            console.log("amountReturnedByStatus", amountReturnedByStatus.toString());
-
-            const ret = areAlmostEqual(amountBorrowed, amountReturnedByStatus, 5);
-            expect(ret).eq(true);
-          });
+        it("shouldn't be liquidated", async () => {
+          if (!await isPolygonForkInUse()) return;
+          const status = await loadFixture(setupUserHasBorrowTest);
+          expect(status.collateralAmountLiquidated.eq(0)).eq(true);
         });
-        describe("Small amount DAI/USDC", () => {
-          it("should return amount of debt almost equal to borrowed amount", async () => {
-            const results = await makeBorrowTest(
-              MaticAddresses.DAI,
-              MaticAddresses.HOLDER_DAI,
-              MaticAddresses.USDC,
-              "0.1"
-            );
-            const status = await results.init.aavePoolAdapterAsTC.getStatus();
-
-            const amountBorrowed = results.borrowResults.borrowedAmount;
-            const amountReturnedByStatus = status.amountToPay;
-            console.log("amountBorrowed", amountBorrowed.toString());
-            console.log("amountReturnedByStatus", amountReturnedByStatus.toString());
-
-            const ret = areAlmostEqual(amountBorrowed, amountReturnedByStatus, 4);
-            expect(ret).eq(true);
-          });
+        it("should require debt-gap", async () => {
+          if (!await isPolygonForkInUse()) return;
+          const status = await loadFixture(setupUserHasBorrowTest);
+          expect(status.debtGapRequired).eq(true);
+        });
+        it("should not be opened", async () => {
+          if (!await isPolygonForkInUse()) return;
+          const status = await loadFixture(setupUserHasBorrowTest);
+          expect(status.opened).eq(false);
         });
       });
     });
     describe("Bad paths", () => {
+      let snapshotForEach: string;
+      beforeEach(async function () {
+        snapshotForEach = await TimeUtils.snapshot();
+      });
+      afterEach(async function () {
+        await TimeUtils.rollback(snapshotForEach);
+      });
       it("it should revert if collateral price is zero", async () => {
         if (!await isPolygonForkInUse()) return;
 
@@ -1655,11 +1756,19 @@ describe("AaveTwoPoolAdapterUnitTest", () => {
           r.init.aavePoolAdapterAsTC.getStatus()
         ).revertedWith("TC-4 zero price"); // ZERO_PRICE
       });
-
     });
   });
 
   describe("updateBalance", () => {
+    let snapshotForEach: string;
+    beforeEach(async function () {
+      snapshotForEach = await TimeUtils.snapshot();
+    });
+
+    afterEach(async function () {
+      await TimeUtils.rollback(snapshotForEach);
+    });
+
     it("the function is callable", async () => {
       if (!await isPolygonForkInUse()) return;
 
@@ -1686,26 +1795,17 @@ describe("AaveTwoPoolAdapterUnitTest", () => {
     const collateralAsset = MaticAddresses.DAI;
     const collateralHolder = MaticAddresses.HOLDER_DAI;
     const borrowAsset = MaticAddresses.WMATIC;
-    let results: IMakeBorrowTestResults;
-    let snapshotLocal: string;
-    before(async function () {
-      if (!await isPolygonForkInUse()) return;
-      snapshotLocal = await TimeUtils.snapshot();
-      results = await makeBorrowTest(
-        collateralAsset,
-        collateralHolder,
-        borrowAsset,
-        "1999"
-      );
-    });
-    after(async function () {
-      await TimeUtils.rollback(snapshotLocal);
-    });
+
+    async function setupBorrowForTest() : Promise<IMakeBorrowTestResults> {
+      return await makeBorrowTest(collateralAsset, collateralHolder, borrowAsset, "1999");
+    }
+
     describe("Good paths", () => {
       describe("Full repay", () => {
         it("should return expected values", async () => {
           if (!await isPolygonForkInUse()) return;
 
+          const results = await loadFixture(setupBorrowForTest);
           const status = await results.init.aavePoolAdapterAsTC.getStatus();
           const tetuConverterAsUser = ITetuConverter__factory.connect(
             await results.init.controller.tetuConverter(),
@@ -1727,6 +1827,7 @@ describe("AaveTwoPoolAdapterUnitTest", () => {
         it("should return expected values", async () => {
           if (!await isPolygonForkInUse()) return;
 
+          const results = await loadFixture(setupBorrowForTest);
           const status = await results.init.aavePoolAdapterAsTC.getStatus();
           const tetuConverterAsUser = ITetuConverter__factory.connect(
             await results.init.controller.tetuConverter(),
@@ -1748,6 +1849,7 @@ describe("AaveTwoPoolAdapterUnitTest", () => {
         it("should return expected values", async () => {
           if (!await isPolygonForkInUse()) return;
 
+          const results = await loadFixture(setupBorrowForTest);
           const status = await results.init.aavePoolAdapterAsTC.getStatus();
           const tetuConverterAsUser = ITetuConverter__factory.connect(
             await results.init.controller.tetuConverter(),
@@ -1769,6 +1871,7 @@ describe("AaveTwoPoolAdapterUnitTest", () => {
     describe("Bad paths", () => {
       it("should revert if collateral price is zero", async () => {
         if (!await isPolygonForkInUse()) return;
+        const results = await loadFixture(setupBorrowForTest);
         const priceOracle = await AaveTwoChangePricesUtils.setupPriceOracleMock(deployer);
         await priceOracle.setPrices([results.init.collateralToken.address], [parseUnits("0")]);
 

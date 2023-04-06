@@ -58,18 +58,18 @@ contract DebtMonitor is IDebtMonitor {
 //  ///         0 - disable the limitation by count of blocks passed since last onOpenPosition call
 //  uint public thresholdCountBlocks;
 
-  ///////////////////////////////////////////////////////
+  //-----------------------------------------------------
   ///               Events
-  ///////////////////////////////////////////////////////
+  //-----------------------------------------------------
 //  event OnSetThresholdAPR(uint value100);
 //  event OnSetThresholdCountBlocks(uint counbBlocks);
   event OnOpenPosition(address poolAdapter);
   event OnClosePosition(address poolAdapter);
   event OnCloseLiquidatedPosition(address poolAdapter, uint amountToPay);
 
-  ///////////////////////////////////////////////////////
+  //-----------------------------------------------------
   ///       Constructor and initialization
-  ///////////////////////////////////////////////////////
+  //-----------------------------------------------------
 
   constructor(
     address controller_,
@@ -94,14 +94,14 @@ contract DebtMonitor is IDebtMonitor {
 //    thresholdCountBlocks = thresholdCountBlocks_;
   }
 
-  ///////////////////////////////////////////////////////
+  //-----------------------------------------------------
   ///               Access rights
-  ///////////////////////////////////////////////////////
+  //-----------------------------------------------------
 
 
-  ///////////////////////////////////////////////////////
+  //-----------------------------------------------------
   ///       Operations with positions
-  ///////////////////////////////////////////////////////
+  //-----------------------------------------------------
 
   /// @notice Check if the pool-adapter-caller has an opened position
   function isPositionOpened() external override view returns (bool) {
@@ -141,7 +141,7 @@ contract DebtMonitor is IDebtMonitor {
       AppErrors.BORROW_POSITION_IS_NOT_REGISTERED
     );
 
-    (uint collateralAmount, uint amountToPay,,,) = IPoolAdapter(msg.sender).getStatus();
+    (uint collateralAmount, uint amountToPay,,,,) = IPoolAdapter(msg.sender).getStatus();
     require(collateralAmount == 0 && amountToPay == 0, AppErrors.ATTEMPT_TO_CLOSE_NOT_EMPTY_BORROW_POSITION);
 
     _closePosition(msg.sender, false);
@@ -175,15 +175,15 @@ contract DebtMonitor is IDebtMonitor {
   function closeLiquidatedPosition(address poolAdapter_) external override {
     require(msg.sender == controller.tetuConverter(), AppErrors.TETU_CONVERTER_ONLY);
 
-    (uint collateralAmount, uint amountToPay,,,) = IPoolAdapter(poolAdapter_).getStatus();
+    (uint collateralAmount, uint amountToPay,,,,) = IPoolAdapter(poolAdapter_).getStatus();
     require(collateralAmount == 0, AppErrors.CANNOT_CLOSE_LIVE_POSITION);
     _closePosition(poolAdapter_, true);
 
     emit OnCloseLiquidatedPosition(poolAdapter_, amountToPay);
   }
-  ///////////////////////////////////////////////////////
+  //-----------------------------------------------------
   ///           Detect unhealthy positions
-  ///////////////////////////////////////////////////////
+  //-----------------------------------------------------
 
   /// @notice Enumerate {maxCountToCheck} pool adapters starting from {index0} and return unhealthy pool-adapters
   ///         i.e. adapters with health factor below min allowed value
@@ -242,7 +242,7 @@ contract DebtMonitor is IDebtMonitor {
       // check if we need to make reconversion because the health factor is too low/high
       IPoolAdapter pa = IPoolAdapter(positions[p.startIndex0 + i]);
 
-      (uint collateralAmount, uint amountToPay, uint healthFactor18,,) = pa.getStatus();
+      (uint collateralAmount, uint amountToPay, uint healthFactor18,,,) = pa.getStatus();
       // If full liquidation happens we will have collateralAmount = 0 and amountToPay > 0
       // In this case the open position should be just closed (we lost all collateral)
       // We cannot do it here because it's read-only function.
@@ -292,9 +292,9 @@ contract DebtMonitor is IDebtMonitor {
     );
   }
 
-  ///////////////////////////////////////////////////////
+  //-----------------------------------------------------
   ///                   Views
-  ///////////////////////////////////////////////////////
+  //-----------------------------------------------------
 
   /// @notice Get active borrows of the user with given collateral/borrowToken
   /// @return poolAdaptersOut The instances of IPoolAdapter
@@ -339,9 +339,9 @@ contract DebtMonitor is IDebtMonitor {
     return _poolAdaptersForConverters[converter_].length() != 0;
   }
 
-  ///////////////////////////////////////////////////////
+  //-----------------------------------------------------
   ///                     Utils
-  ///////////////////////////////////////////////////////
+  //-----------------------------------------------------
   function getPoolAdapterKey(
     address user_,
     address collateral_,
@@ -350,9 +350,9 @@ contract DebtMonitor is IDebtMonitor {
     return uint(keccak256(abi.encodePacked(user_, collateral_, borrowToken_)));
   }
 
-  ///////////////////////////////////////////////////////
+  //-----------------------------------------------------
   ///               Access to arrays
-  ///////////////////////////////////////////////////////
+  //-----------------------------------------------------
 
   /// @notice Get total count of pool adapters with opened positions
   function getCountPositions() external view override returns (uint) {
@@ -370,11 +370,11 @@ contract DebtMonitor is IDebtMonitor {
 
 
 
-///////////////////////////////////////////////////////
+//-----------------------------------------------------
 ///     Features for NEXT versions of the app
 ///         Detect not-optimal positions
 ///         Check too healthy factor
-///////////////////////////////////////////////////////
+//-----------------------------------------------------
 
 //  function checkAdditionalBorrow(
 //    uint startIndex0,

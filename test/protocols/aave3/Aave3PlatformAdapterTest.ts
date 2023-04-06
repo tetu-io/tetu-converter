@@ -1043,8 +1043,6 @@ describe("Aave3PlatformAdapterTest", () => {
         collateralHolders: string[],
         part10000: number
       ) : Promise<{br: BigNumber, brPredicted: BigNumber}> {
-        const templateAdapterEModeStub = ethers.Wallet.createRandom();
-        const templateAdapterNormalStub = ethers.Wallet.createRandom();
         const dp = await Aave3Helper.getAaveProtocolDataProvider(deployer);
         const aavePool = await Aave3Helper.getAavePool(deployer);
 
@@ -1056,13 +1054,7 @@ describe("Aave3PlatformAdapterTest", () => {
             collateralAsset,
             borrowAsset
           ),
-          async controller => AdaptersHelper.createAave3PlatformAdapter(
-            deployer,
-            controller.address,
-            aavePool.address,
-            templateAdapterNormalStub.address,
-            templateAdapterEModeStub.address
-          ),
+          "aave3",
           collateralAsset,
           borrowAsset,
           collateralHolders,

@@ -155,6 +155,7 @@ interface IMakeRepayResults {
   userAccountData: IAave3UserAccountDataResults;
   repayResultsCollateralAmountOut: BigNumber;
   repayResultsReturnedBorrowAmountOut?: BigNumber;
+  gasUsed: BigNumber;
 }
 //endregion Data types
 
@@ -377,10 +378,7 @@ export class Aave3TestUtils {
     if (amountToRepay) {
       // partial repay
       const tetuConverter = await d.controller.tetuConverter();
-      const poolAdapterAsCaller = IPoolAdapter__factory.connect(
-        d.aavePoolAdapterAsTC.address,
-        await DeployerUtils.startImpersonate(tetuConverter)
-      );
+      const poolAdapterAsCaller = d.aavePoolAdapterAsTC.connect(await DeployerUtils.startImpersonate(tetuConverter));
 
       await transferAndApprove(
         d.borrowToken.address,
@@ -402,28 +400,28 @@ export class Aave3TestUtils {
         d.userContract.address,
         closePosition === undefined ? false : closePosition
       );
-      await payer.repay(
+      const tx = await payer.repay(
         amountToRepay,
         d.userContract.address,
         closePosition === undefined ? false : closePosition
       );
+      const gasUsed = (await tx.wait()).gasUsed;
       return {
         userAccountData: await d.aavePool.getUserAccountData(d.aavePoolAdapterAsTC.address),
         repayResultsCollateralAmountOut,
+        gasUsed
       }
     } else {
       // make full repayment
       console.log("makeRepayComplete...");
-      await d.userContract.makeRepayComplete(
-        d.collateralToken.address,
-        d.borrowToken.address,
-        d.userContract.address
-      );
+      const tx = await d.userContract.makeRepayComplete(d.collateralToken.address, d.borrowToken.address, d.userContract.address);
+      const gasUsed = (await tx.wait()).gasUsed;
       const repayResults = await d.userContract.repayResults();
       return {
         userAccountData: await d.aavePool.getUserAccountData(d.aavePoolAdapterAsTC.address),
         repayResultsCollateralAmountOut: repayResults.collateralAmountOut,
-        repayResultsReturnedBorrowAmountOut: repayResults.returnedBorrowAmountOut
+        repayResultsReturnedBorrowAmountOut: repayResults.returnedBorrowAmountOut,
+        gasUsed
       }
     }
   }

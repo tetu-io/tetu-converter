@@ -8,9 +8,9 @@ import "../interfaces/IChangePriceForTests.sol";
 contract HfPriceOracleMock is IChangePriceForTests {
   mapping(address => uint) public prices;
 
-  /////////////////////////////////////////////////////////////////
+  //-----------------------------------------------------//////////
   ///                 IChangePriceForTests
-  /////////////////////////////////////////////////////////////////
+  //-----------------------------------------------------//////////
 
   /// @notice Take exist price of the asset and multiple it on (multiplier100_/100)
   function changePrice(address asset_, uint multiplier100_) external {
@@ -18,9 +18,9 @@ contract HfPriceOracleMock is IChangePriceForTests {
     console.log("HFPriceOracleMock changePrice", asset_, prices[asset_], multiplier100_);
   }
 
-  /////////////////////////////////////////////////////////////////
+  //-----------------------------------------------------//////////
   ///    Same set of functions as in the original Hundred Finance oracle
-  /////////////////////////////////////////////////////////////////
+  //-----------------------------------------------------//////////
 
   function setUnderlyingPrice(address cToken_, uint price_) external {
     console.log("HfPriceOracleMock.setUnderlyingPrice");

@@ -8,21 +8,23 @@ import "../interfaces/IConverterController.sol";
 /// @notice Keep and provide addresses of all application contracts
 contract ConverterController is IConverterController, Initializable {
 
-  ///////////////////////////////////////////////////////
-  ///        Constants and immutable vars
-  ///////////////////////////////////////////////////////
+  //-----------------------------------------------------
+  //        Constants and immutable vars
+  //-----------------------------------------------------
   uint16 constant MIN_ALLOWED_MIN_HEALTH_FACTOR = 100;
+  /// @notice Denominator for {debtGap}
+  uint constant DEBT_GAP_DENOMINATOR = 100_000;
 
   /// @notice Allow to swap assets
   address public immutable override tetuLiquidator;
   /// @notice Price oracle, required by SwapManager
   address public immutable override priceOracle;
 
-  ///////////////////////////////////////////////////////
-  ///               Variables
-  ///   We cannot use immutable variables for the below contracts,
-  ///   because each contract requires address of the controller as a parameter of the constructor
-  ///////////////////////////////////////////////////////
+  //-----------------------------------------------------
+  //               Variables
+  //   We cannot use immutable variables for the below contracts,
+  //   because each contract requires address of the controller as a parameter of the constructor
+  //-----------------------------------------------------
 
   /// @notice Main application contract, strategy works only with it
   address public override tetuConverter;
@@ -73,9 +75,12 @@ contract ConverterController is IConverterController, Initializable {
   /// @notice users who are allowed to make borrow using the TetuConverter
   mapping (address => bool) public whitelist;
 
-  ///////////////////////////////////////////////////////
-  ///               Events
-  ///////////////////////////////////////////////////////
+  /// @inheritdoc IConverterController
+  uint public override debtGap;
+
+  //-----------------------------------------------------
+  //               Events
+  //-----------------------------------------------------
   event OnSetBlocksPerDay(uint blocksPerDay, bool enableAutoUpdate);
   event OnAutoUpdateBlocksPerDay(uint blocksPerDay);
   event OnSetMinHealthFactor2(uint16 value);
@@ -83,18 +88,16 @@ contract ConverterController is IConverterController, Initializable {
   event OnSetMaxHealthFactor2(uint16 value);
   event OnSetGovernance(address newGovernance);
   event OnAcceptGovernance(address pendingGovernance);
+  event OnSetDebtGap(uint debtGap);
 
-  ///////////////////////////////////////////////////////
-  ///        Constructor and Initialization
-  ///////////////////////////////////////////////////////
+  //-----------------------------------------------------
+  //        Constructor and Initialization
+  //-----------------------------------------------------
 
   /// @dev Constructor is used to assign immutable addresses only (these contracts don't depend on controller).
   ///      All other addresses are initialized in initialize()
   ///      because the corresponded contracts require controller's address in their constructors.
-  constructor(
-    address tetuLiquidator_,
-    address priceOracle_
-  ) {
+  constructor(address tetuLiquidator_, address priceOracle_) {
     require(
       tetuLiquidator_ != address(0)
       && priceOracle_ != address(0),
@@ -115,7 +118,8 @@ contract ConverterController is IConverterController, Initializable {
     address borrowManager_,
     address debtMonitor_,
     address keeper_,
-    address swapManager_
+    address swapManager_,
+    uint debtGap_
   ) external initializer {
     require(blocksPerDay_ != 0, AppErrors.INCORRECT_VALUE);
     require(minHealthFactor_ >= MIN_ALLOWED_MIN_HEALTH_FACTOR, AppErrors.WRONG_HEALTH_FACTOR);
@@ -144,15 +148,17 @@ contract ConverterController is IConverterController, Initializable {
     minHealthFactor2 = minHealthFactor_;
     maxHealthFactor2 = maxHealthFactor_;
     targetHealthFactor2 = targetHealthFactor_;
+
+    debtGap = debtGap_;
   }
 
   function _onlyGovernance() internal view {
     require (msg.sender == governance, AppErrors.GOVERNANCE_ONLY);
   }
 
-  ///////////////////////////////////////////////////////
-  ///               Blocks per day
-  ///////////////////////////////////////////////////////
+  //-----------------------------------------------------
+  //               Blocks per day
+  //-----------------------------------------------------
 
   /// @notice Manually set value of blocksPerDay and enable/disable its auto-update
   ///         If the update is enabled, the first update will happen in BLOCKS_PER_DAY_AUTO_UPDATE_PERIOD_SECS seconds
@@ -198,10 +204,10 @@ contract ConverterController is IConverterController, Initializable {
     emit OnAutoUpdateBlocksPerDay(blocksPerDay);
   }
 
-  ///////////////////////////////////////////////////////
-  ///             Set up health factors
-  ///  min/max thresholds and a target value for reconversion
-  ///////////////////////////////////////////////////////
+  //-----------------------------------------------------
+  //             Set up health factors
+  //  min/max thresholds and a target value for reconversion
+  //-----------------------------------------------------
 
   /// @notice min allowed health factor with decimals 2
   function setMinHealthFactor2(uint16 value_) external override {
@@ -231,9 +237,9 @@ contract ConverterController is IConverterController, Initializable {
     emit OnSetMaxHealthFactor2(value_);
   }
 
-  ///////////////////////////////////////////////////////
-  ///               Governance
-  ///////////////////////////////////////////////////////
+  //-----------------------------------------------------
+  //               Governance
+  //-----------------------------------------------------
 
   /// @notice Suggest to change governance
   function setGovernance(address newGovernance_) external {
@@ -253,9 +259,9 @@ contract ConverterController is IConverterController, Initializable {
     emit OnAcceptGovernance(pendingGovernance);
   }
 
-  ///////////////////////////////////////////////////////
-  ///               Paused
-  ///////////////////////////////////////////////////////
+  //-----------------------------------------------------
+  //               Paused
+  //-----------------------------------------------------
   function paused() external view override returns (bool) {
     return _paused;
   }
@@ -264,9 +270,9 @@ contract ConverterController is IConverterController, Initializable {
     _paused = paused_;
   }
 
-  ///////////////////////////////////////////////////////
-  ///               Whitelist
-  ///////////////////////////////////////////////////////
+  //-----------------------------------------------------
+  //               Whitelist
+  //-----------------------------------------------------
   function isWhitelisted(address user_) external view override returns (bool) {
     return whitelist[user_];
   }
@@ -276,5 +282,18 @@ contract ConverterController is IConverterController, Initializable {
     for (uint i; i < len; ++i) {
       whitelist[users_[i]] = isWhite;
     }
+  }
+
+  //-----------------------------------------------------
+  //               Debt gap
+  //-----------------------------------------------------
+
+  /// @notice Set up debt gap value
+  /// @dev If pool adapter's getStatus returns debtGapRequired = true
+  ///      user should reppay debt-amount * (debtGap_ + 100_000) / 100_000
+  /// @param debtGap_ Debt gap value, any value >= 0 is suitable
+  function setDebtGap(uint debtGap_) external {
+    _onlyGovernance();
+    debtGap = debtGap_;
   }
 }

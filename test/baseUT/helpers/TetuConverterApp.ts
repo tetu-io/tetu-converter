@@ -42,6 +42,7 @@ export interface ICreateControllerParams {
   countBlocksPerDay?: number;
   tetuLiquidatorAddress?: string;
   blocksPerDayAutoUpdatePeriodSecs?: number;
+  debtGap?: number;
 }
 
 export interface IBuildAppResults {
@@ -96,6 +97,8 @@ export class TetuConverterApp {
       p?.targetHealthFactor2 || 200,
       p?.maxHealthFactor2 || 400,
       p?.countBlocksPerDay || COUNT_BLOCKS_PER_DAY,
+      p?.debtGap || 1_000
+
     );
   }
 

@@ -9,9 +9,9 @@ import "../interfaces/IChangePriceForTests.sol";
 contract DForcePriceOracleMock is IChangePriceForTests {
   mapping(address => uint) public prices;
 
-  /////////////////////////////////////////////////////////////////
+  //-----------------------------------------------------//////////
   ///                 IChangePriceForTests
-  /////////////////////////////////////////////////////////////////
+  //-----------------------------------------------------//////////
 
   /// @notice Take exist price of the asset and multiple it on (multiplier100_/100)
   function changePrice(address asset_, uint multiplier100_) external {
@@ -19,9 +19,9 @@ contract DForcePriceOracleMock is IChangePriceForTests {
     console.log("DForcePriceOracleMock changePrice", asset_, prices[asset_], multiplier100_);
   }
 
-  /////////////////////////////////////////////////////////////////
+  //-----------------------------------------------------//////////
   ///    Same set of functions as in the original DForce oracle
-  /////////////////////////////////////////////////////////////////
+  //-----------------------------------------------------//////////
 
   function setUnderlyingPrice(address iToken_, uint price_) external {
     console.log("setUnderlyingPrice", iToken_, price_);

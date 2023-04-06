@@ -46,7 +46,7 @@ contract PoolAdapterMock is IPoolAdapter {
   }
   mapping(address => RewardsForUser) public rewardsForUsers;
 
-  ///////////////////////////////////////////////////////
+  //-----------------------------------------------------
   struct BorrowParamsLog {
     uint collateralAmount;
     uint borrowAmount;
@@ -56,9 +56,9 @@ contract PoolAdapterMock is IPoolAdapter {
 
 
 
-  ///////////////////////////////////////////////////////
+  //-----------------------------------------------------
   ///           Setup mock behavior
-  ///////////////////////////////////////////////////////
+  //-----------------------------------------------------
   function setPassedBlocks(uint countPassedBlocks_) external {
     console.log("PoolAdapterMock.setPassedBlocks", _passedBlocks, countPassedBlocks_);
     _passedBlocks = countPassedBlocks_;
@@ -88,11 +88,11 @@ contract PoolAdapterMock is IPoolAdapter {
     );
   }
 
-  ///////////////////////////////////////////////////////
+  //-----------------------------------------------------
   ///           Initialization
   ///  Constructor is not applicable, because this contract
   ///  is created using minimal-proxy pattern
-  ///////////////////////////////////////////////////////
+  //-----------------------------------------------------
 
   function initialize(
     address controller_,
@@ -120,9 +120,10 @@ contract PoolAdapterMock is IPoolAdapter {
     originConverter = originConverter_;
   }
 
-  ///////////////////////////////////////////////////////
-  ///           Getters
-  ///////////////////////////////////////////////////////
+  //-----------------------------------------------------
+  //           Getters
+  //-----------------------------------------------------
+
   function getConfig() external view override returns (
     address origin,
     address user,
@@ -137,7 +138,8 @@ contract PoolAdapterMock is IPoolAdapter {
     uint amountToPay,
     uint healthFactor18,
     bool opened,
-    uint collateralAmountLiquidated
+    uint collateralAmountLiquidated,
+    bool debtGapRequired
   ) {
     return _getStatus();
   }
@@ -147,7 +149,8 @@ contract PoolAdapterMock is IPoolAdapter {
     uint amountToPay,
     uint healthFactor18,
     bool opened,
-    uint collateralAmountLiquidated
+    uint collateralAmountLiquidated,
+    bool debtGapRequired
   ) {
     uint priceCollateral = getPrice18(_collateralAsset);
     uint priceBorrowedUSD = getPrice18(_borrowAsset);
@@ -177,7 +180,8 @@ contract PoolAdapterMock is IPoolAdapter {
       amountToPay,
       healthFactor18,
       collateralAmount != 0 || amountToPay != 0,
-      0 // !TODO
+      0, // !TODO
+      false // TODO
     );
   }
 
@@ -189,9 +193,9 @@ contract PoolAdapterMock is IPoolAdapter {
     //_accumulateDebt(_getAmountToRepay() - _borrowedAmounts);
   }
 
-  ///////////////////////////////////////////////////////
+  //-----------------------------------------------------
   ///           Borrow emulation
-  ///////////////////////////////////////////////////////
+  //-----------------------------------------------------
 
   function borrow(
     uint collateralAmount_,
@@ -254,7 +258,7 @@ contract PoolAdapterMock is IPoolAdapter {
     _addBorrow(borrowAmount_);
 
     // ensure that result health factor exceeds min allowed value
-    (,, resultHealthFactor18,,) = _getStatus();
+    (,, resultHealthFactor18,,,) = _getStatus();
     uint minAllowedHealthFactor18 = uint(IConverterController(controller).minHealthFactor2()) * 10**(18-2);
     require(minAllowedHealthFactor18 < resultHealthFactor18, AppErrors.WRONG_HEALTH_FACTOR);
 
@@ -276,9 +280,9 @@ contract PoolAdapterMock is IPoolAdapter {
     _passedBlocks = 0;
   }
 
-  ///////////////////////////////////////////////////////
+  //-----------------------------------------------------
   ///           Repay emulation
-  ///////////////////////////////////////////////////////
+  //-----------------------------------------------------
 
   function repay(
     uint amountToRepay_,
@@ -351,7 +355,7 @@ contract PoolAdapterMock is IPoolAdapter {
       _borrowedAmounts -= amount_;
     }
 
-    (,,uint healthFactor18,,) = _getStatus();
+    (,,uint healthFactor18,,,) = _getStatus();
     return healthFactor18;
   }
 
@@ -363,9 +367,9 @@ contract PoolAdapterMock is IPoolAdapter {
       : collateralBalance * amountToRepay_ / _borrowedAmounts;
   }
 
-  ///////////////////////////////////////////////////////
+  //-----------------------------------------------------
   ///           Get-state functions
-  ///////////////////////////////////////////////////////
+  //-----------------------------------------------------
 
   function _getAmountToRepay() internal view returns (uint) {
     console.log("_getAmountToRepay _borrowedAmounts=%d _borrowRates=%d _passedBlocks=%d", _borrowedAmounts, borrowRate, _passedBlocks);
@@ -373,9 +377,9 @@ contract PoolAdapterMock is IPoolAdapter {
   }
 
 
-  ///////////////////////////////////////////////////////
+  //-----------------------------------------------------
   ///           Utils
-  ///////////////////////////////////////////////////////
+  //-----------------------------------------------------
 
   function getPrice18(address asset) internal view returns (uint) {
     console.log("getPrice18");
@@ -394,9 +398,9 @@ contract PoolAdapterMock is IPoolAdapter {
 //    return int(borrowRate * 10**18 / IERC20Metadata(_borrowAsset).decimals());
 //  }
 
-  ///////////////////////////////////////////////////////
+  //-----------------------------------------------------
   ///                 Rewards
-  ///////////////////////////////////////////////////////
+  //-----------------------------------------------------
   function claimRewards(address receiver_) external override returns (
     address rewardTokenOut,
     uint amountOut

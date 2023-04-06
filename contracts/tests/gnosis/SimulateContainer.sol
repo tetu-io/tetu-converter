@@ -112,9 +112,9 @@ contract SimulateContainer {
     }
   }
 
-  ////////////////////////////////////////////////////////////////
+  //-----------------------------------------------------/////////
   ///  Simulate real swap using try/catch()
-  ////////////////////////////////////////////////////////////////
+  //-----------------------------------------------------/////////
   function callTryCatchSwapUsingTetuLiquidator(
     address simulateTester_,
     address tetuLiquidator,
