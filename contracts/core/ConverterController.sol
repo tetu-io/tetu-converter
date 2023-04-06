@@ -12,6 +12,7 @@ contract ConverterController is IConverterController, Initializable {
   //        Constants and immutable vars
   //-----------------------------------------------------
   uint16 constant MIN_ALLOWED_MIN_HEALTH_FACTOR = 100;
+  /// @notice Denominator for {debtGap}
   uint constant DEBT_GAP_DENOMINATOR = 100_000;
 
   /// @notice Allow to swap assets
