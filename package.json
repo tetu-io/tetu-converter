@@ -1,5 +1,5 @@
 {
-  "name": "tetu_converter",
+  "name": "@tetu_io/tetu-converter",
   "version": "0.0.4",
   "description": "Convert assets in optimal way",
   "main": "hardhat.config.js",
@@ -16,7 +16,8 @@
     "slither": "npm run build && slither .",
     "lint": "tslint -p tsconfig.json",
     "lint:sol": "solhint -f table **/*.sol",
-    "lint-fix": "tslint --fix -p tsconfig.json"
+    "lint-fix": "tslint --fix -p tsconfig.json",
+    "publish-npm": "npm publish --access public"
   },
   "repository": {
     "type": "git",

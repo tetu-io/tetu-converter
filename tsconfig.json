@@ -16,6 +16,5 @@
   ],
   "files": [
     "./hardhat.config.ts",
-    "./addresses.ts"
   ]
 }
