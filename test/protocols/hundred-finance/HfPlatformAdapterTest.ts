@@ -973,18 +973,11 @@ describe.skip("Hundred finance, platform adapter", () => {
         const borrowToken = IHfCToken__factory.connect(borrowCToken, deployer);
         const collateralToken = IHfCToken__factory.connect(collateralCToken, deployer);
         const comptroller = await HundredFinanceHelper.getComptroller(deployer);
-        const templateAdapterNormalStub = ethers.Wallet.createRandom();
 
         return PredictBrUsesCase.makeTest(
           deployer,
           new HfPlatformActor(borrowToken, collateralToken, comptroller),
-          async controller => AdaptersHelper.createHundredFinancePlatformAdapter(
-            deployer,
-            controller.address,
-            comptroller.address,
-            templateAdapterNormalStub.address,
-            [collateralCToken, borrowCToken],
-          ),
+          "hundred-finance",
           collateralAsset,
           borrowAsset,
           collateralHolders,
