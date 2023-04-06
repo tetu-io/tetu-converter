@@ -26,9 +26,9 @@ contract SwapManagerMock is ISwapManager, ISwapConverter {
 
   uint public lastSwapResultTargetAmount;
 
-  //////////////////////////////////////////////////////////////////
+  //-----------------------------------------------------///////////
   // Setup the mock
-  //////////////////////////////////////////////////////////////////
+  //-----------------------------------------------------///////////
   function setupGetConverter(
     address converter_,
     uint maxTargetAmount_,
@@ -43,9 +43,9 @@ contract SwapManagerMock is ISwapManager, ISwapConverter {
     targetAmountAfterSwap = targetAmountAfterSwap_;
   }
 
-  //////////////////////////////////////////////////////////////////
+  //-----------------------------------------------------///////////
   // ISwapManager, ISwapConverter
-  //////////////////////////////////////////////////////////////////
+  //-----------------------------------------------------///////////
 
   function getConverter(
     address sourceAmountApprover_,

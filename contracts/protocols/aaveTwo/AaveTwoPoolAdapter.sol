@@ -45,9 +45,9 @@ contract AaveTwoPoolAdapter is IPoolAdapter, IPoolAdapterInitializer, Initializa
   /// @notice Total amount of all supplied and withdrawn amounts of collateral in A-tokens
   uint public collateralBalanceATokens;
 
-  ///////////////////////////////////////////////////////
-  ///                Events
-  ///////////////////////////////////////////////////////
+  //-----------------------------------------------------
+  //                Events
+  //-----------------------------------------------------
   event OnInitialized(
     address controller,
     address pool,
@@ -61,9 +61,9 @@ contract AaveTwoPoolAdapter is IPoolAdapter, IPoolAdapterInitializer, Initializa
   event OnRepay(uint amountToRepay, address receiver, bool closePosition, uint resultHealthFactor18, uint collateralBalanceATokens);
   event OnRepayToRebalance(uint amount, bool isCollateral, uint resultHealthFactor18, uint collateralBalanceATokens);
 
-  ///////////////////////////////////////////////////////
-  ///                Initialization
-  ///////////////////////////////////////////////////////
+  //-----------------------------------------------------
+  //                Initialization
+  //-----------------------------------------------------
 
   function initialize(
     address controller_,
@@ -103,9 +103,9 @@ contract AaveTwoPoolAdapter is IPoolAdapter, IPoolAdapterInitializer, Initializa
     emit OnInitialized(controller_, pool_, user_, collateralAsset_, borrowAsset_, originConverter_);
   }
 
-  ///////////////////////////////////////////////////////
-  ///                 Restrictions
-  ///////////////////////////////////////////////////////
+  //-----------------------------------------------------
+  //                 Restrictions
+  //-----------------------------------------------------
 
   /// @notice Ensure that the caller is TetuConverter
   function _onlyTetuConverter(IConverterController controller_) internal view {
@@ -115,9 +115,9 @@ contract AaveTwoPoolAdapter is IPoolAdapter, IPoolAdapterInitializer, Initializa
   function updateStatus() external override {
     // nothing to do; getStatus always return actual amounts in AAVE
   }
-  ///////////////////////////////////////////////////////
+  //-----------------------------------------------------
   ///                 Borrow logic
-  ///////////////////////////////////////////////////////
+  //-----------------------------------------------------
 
   /// @notice Supply collateral to the pool and borrow specified amount
   /// @dev No re-balancing here; Collateral amount must be approved to the pool adapter before the call of this function
@@ -251,9 +251,9 @@ contract AaveTwoPoolAdapter is IPoolAdapter, IPoolAdapterInitializer, Initializa
     return (resultHealthFactor18, borrowAmount_);
   }
 
-  ///////////////////////////////////////////////////////
-  ///                 Repay logic
-  ///////////////////////////////////////////////////////
+  //-----------------------------------------------------
+  //                 Repay logic
+  //-----------------------------------------------------
 
   /// @notice Repay borrowed amount, return collateral to the user
   /// @param amountToRepay_ Exact amount of borrow asset that should be repaid
@@ -319,6 +319,10 @@ contract AaveTwoPoolAdapter is IPoolAdapter, IPoolAdapterInitializer, Initializa
       uint borrowBalance = IERC20(assetBorrow).balanceOf(address(this));
       if (borrowBalance != 0) {
         IERC20(assetBorrow).safeTransfer(receiver_, borrowBalance);
+        // adjust amountToRepay_ to returned amount to send correct amount to OnRepay event
+        if (amountToRepay_ > borrowBalance) {
+          amountToRepay_ -= borrowBalance;
+        }
       }
     }
 
@@ -478,14 +482,15 @@ contract AaveTwoPoolAdapter is IPoolAdapter, IPoolAdapterInitializer, Initializa
     return healthFactor;
   }
 
-  ///////////////////////////////////////////////////////
-  ///         View current status
-  ///////////////////////////////////////////////////////
+  //-----------------------------------------------------
+  //         View current status
+  //-----------------------------------------------------
 
   function getConversionKind() external pure override returns (AppDataTypes.ConversionKind) {
     return AppDataTypes.ConversionKind.BORROW_2;
   }
 
+  /// @inheritdoc IPoolAdapter
   function getConfig() external view override returns (
     address origin,
     address outUser,
@@ -495,20 +500,14 @@ contract AaveTwoPoolAdapter is IPoolAdapter, IPoolAdapterInitializer, Initializa
     return (originConverter, user, collateralAsset, borrowAsset);
   }
 
-  /// @notice Get current status of the borrow position
-  /// @dev It returns STORED status. To get current status it's necessary to call updateStatus
-  ///      at first to update interest and recalculate status.
-  /// @return collateralAmount Total amount of provided collateral, collateral currency
-  /// @return amountToPay Total amount of borrowed debt in [borrow asset]. 0 - for closed borrow positions.
-  /// @return healthFactor18 Current health factor, decimals 18
-  /// @return opened The position is opened (there is not empty collateral/borrow balance)
-  /// @return collateralAmountLiquidated How much collateral was liquidated
+  /// @inheritdoc IPoolAdapter
   function getStatus() external view override returns (
     uint collateralAmount,
     uint amountToPay,
     uint healthFactor18,
     bool opened,
-    uint collateralAmountLiquidated
+    uint collateralAmountLiquidated,
+    bool debtGapRequired
   ) {
     IAaveTwoPool pool = _pool;
 
@@ -531,25 +530,25 @@ contract AaveTwoPoolAdapter is IPoolAdapter, IPoolAdapterInitializer, Initializa
     DataTypes.ReserveData memory rc = pool.getReserveData(assetCollateral);
     uint aTokensBalance = IERC20(rc.aTokenAddress).balanceOf(address(this));
 
-    uint targetDecimals = (10 ** pool.getConfiguration(assetBorrow).getDecimals());
     return (
     // Total amount of provided collateral in [collateral asset]
       totalCollateralBase * (10 ** pool.getConfiguration(assetCollateral).getDecimals()) / collateralPrice,
     // Total amount of borrowed debt in [borrow asset]. 0 - for closed borrow positions.
       totalDebtBase == 0
         ? 0
-        // We ask to pay slightly higher amount than current borrowed amount to exclude dust tokens problem.
-        // See https://docs.aave.com/developers/core-contracts/pool#repay
-        // base currency is WETH, all prices are in WETH
-        // we assume here, that 0.1% of debt should cover all possible dust
-        // and give us a possibility to pass type(uint).max to repay function
-        : totalDebtBase * targetDecimals * 1001 / 1000 / borrowPrice, // todo allow to configure this value for each asset individually
+        : totalDebtBase * (10 ** pool.getConfiguration(assetBorrow).getDecimals()) / borrowPrice,
     // Current health factor, decimals 18
       hf18,
       totalCollateralBase != 0 || totalDebtBase != 0,
       aTokensBalance > collateralBalanceATokens
         ? 0
-        : (collateralBalanceATokens - aTokensBalance)
+        : (collateralBalanceATokens - aTokensBalance),
+    // Debt gap should be used to pay the debt to workaround dust tokens problem.
+    // It means that the user should pay slightly higher amount than the current totalDebtBase.
+    // It give us a possibility to pass type(uint).max to repay function.
+    // see https://docs.aave.com/developers/core-contracts/pool#repay
+    // and "Aave_Protocol_Whitepaper_v1_0.pdf", section 3.8.1 "It’s impossible to transfer the whole balance at once"
+      true
     );
   }
 
@@ -560,9 +559,9 @@ contract AaveTwoPoolAdapter is IPoolAdapter, IPoolAdapterInitializer, Initializa
 //    return int(uint(rb.currentVariableBorrowRate) * 10**18 * 100 / 10**27);
 //  }
 
-  ///////////////////////////////////////////////////////
-  ///                 Rewards
-  ///////////////////////////////////////////////////////
+  //-----------------------------------------------------
+  //                 Rewards
+  //-----------------------------------------------------
   function claimRewards(address receiver_) external pure override returns (
     address rewardToken,
     uint amount
@@ -573,9 +572,9 @@ contract AaveTwoPoolAdapter is IPoolAdapter, IPoolAdapterInitializer, Initializa
   }
 
 
-  ///////////////////////////////////////////////////////
-  ///               Utils to inline
-  ///////////////////////////////////////////////////////
+  //-----------------------------------------------------
+  //               Utils to inline
+  //-----------------------------------------------------
 
   function _validateHealthFactor(IConverterController controller_, uint hf18) internal view {
     require(hf18 >= uint(controller_.minHealthFactor2())*10**(18-2), AppErrors.WRONG_HEALTH_FACTOR);

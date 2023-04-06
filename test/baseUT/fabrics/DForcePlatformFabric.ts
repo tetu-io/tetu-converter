@@ -4,7 +4,6 @@ import {
   IBorrowManager__factory,
   IConverterController,
   IDForceController,
-  IERC20,
   IERC20__factory
 } from "../../../typechain";
 import {ILendingPlatformFabric, ILendingPlatformPoolInfo} from "./ILendingPlatformFabric";

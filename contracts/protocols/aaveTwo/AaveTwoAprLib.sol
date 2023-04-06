@@ -9,15 +9,22 @@ import "../../integrations/aaveTwo/IAaveTwoPool.sol";
 import "../../integrations/aaveTwo/AaveTwoReserveConfiguration.sol";
 import "../../integrations/aaveTwo/IAaveTwoAToken.sol";
 import "../../integrations/aaveTwo/IAaveTwoStableDebtToken.sol";
+import "../../integrations/aaveTwo/IAaveTwoProtocolDataProvider.sol";
+import "../../integrations/aaveTwo/IAaveTwoLendingPoolAddressesProvider.sol";
 
 /// @notice Library for AAVE v2 to calculate APR: borrow APR and supply APR
 library AaveTwoAprLib {
   using AaveTwoReserveConfiguration for DataTypes.ReserveConfigurationMap;
 
-  //////////////////////////////////////////////////////////////////////////
-  /// Calculate borrow and liquidity rate in advance
-  /// in same way as in AAVE v2 protocol
-  //////////////////////////////////////////////////////////////////////////
+  /// @notice https://docs.aave.com/developers/v/2.0/the-core-protocol/protocol-data-provider
+  ///        Each market has a separate Protocol Data Provider.
+  ///        To get the address for a particular market, call getAddress() using the value 0x1.
+  uint internal constant ID_DATA_PROVIDER = 0x1000000000000000000000000000000000000000000000000000000000000000;
+
+  //-----------------------------------------------------
+  // Calculate borrow and liquidity rate in advance
+  // in same way as in AAVE v2 protocol
+  //-----------------------------------------------------
 
   /// @notice Calculate estimate variable borrow rate after borrowing {amountToBorrow_}
   /// @dev See explanations in Aave3AprLib.sol
@@ -78,5 +85,27 @@ library AaveTwoAprLib {
       );
 
     return liquidityRateRays;
+  }
+
+  /// @notice Estimate value of variable borrow rate after borrowing {amountToBorrow_}
+  function getBorrowRateAfterBorrow(
+    address pool_,
+    address borrowAsset_,
+    uint amountToBorrow_
+  ) internal view returns (uint) {
+    IAaveTwoPool pool = IAaveTwoPool(pool_);
+    DataTypes.ReserveData memory rb = pool.getReserveData(borrowAsset_);
+
+    (, uint totalStableDebt, uint totalVariableDebt,,,,,,,) = IAaveTwoProtocolDataProvider(
+      IAaveTwoLendingPoolAddressesProvider(pool.getAddressesProvider()).getAddress(bytes32(ID_DATA_PROVIDER))
+    ).getReserveData(borrowAsset_);
+
+    return AaveTwoAprLib.getVariableBorrowRateRays(
+      rb,
+      borrowAsset_,
+      amountToBorrow_,
+      totalStableDebt,
+      totalVariableDebt
+    );
   }
 }

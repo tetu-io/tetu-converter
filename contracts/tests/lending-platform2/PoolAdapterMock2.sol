@@ -44,9 +44,9 @@ contract PoolAdapterMock2 is IPoolAdapter {
   }
 
 
-  //////////////////////////////////////////////////////////////////////////////////////////////////////
+  //-----------------------------------------------------///////////////////////////////////////////////
   // get config
-  //////////////////////////////////////////////////////////////////////////////////////////////////////
+  //-----------------------------------------------------///////////////////////////////////////////////
   struct RepayParams {
     address collateralAsset;
     address borrowAsset;
@@ -103,9 +103,9 @@ contract PoolAdapterMock2 is IPoolAdapter {
     return collateralAmountOut;
   }
 
-  //////////////////////////////////////////////////////////////////////////////////////////////////////
+  //-----------------------------------------------------///////////////////////////////////////////////
   // get config
-  //////////////////////////////////////////////////////////////////////////////////////////////////////
+  //-----------------------------------------------------///////////////////////////////////////////////
 
   struct ConfigParams {
     address originConverter;
@@ -121,10 +121,10 @@ contract PoolAdapterMock2 is IPoolAdapter {
     address borrowAsset
   ) external {
     configParams = ConfigParams({
-    originConverter: originConverter,
-    user: user,
-    collateralAsset: collateralAsset,
-    borrowAsset: borrowAsset
+      originConverter: originConverter,
+      user: user,
+      collateralAsset: collateralAsset,
+      borrowAsset: borrowAsset
     });
   }
   function getConfig() external view override returns (
@@ -143,15 +143,16 @@ contract PoolAdapterMock2 is IPoolAdapter {
   }
 
 
-  //////////////////////////////////////////////////////////////////////////////////////////////////////
+  //-----------------------------------------------------///////////////////////////////////////////////
   // get status
-  //////////////////////////////////////////////////////////////////////////////////////////////////////
+  //-----------------------------------------------------///////////////////////////////////////////////
   struct StatusParams {
     uint collateralAmount;
     uint amountToPay;
     uint healthFactor18;
     bool opened;
     uint collateralAmountLiquidated;
+    bool debtGapRequired;
   }
   StatusParams internal statusParams;
   function setStatus(
@@ -159,14 +160,16 @@ contract PoolAdapterMock2 is IPoolAdapter {
     uint amountToPay,
     uint healthFactor18,
     bool opened,
-    uint collateralAmountLiquidated
+    uint collateralAmountLiquidated,
+    bool debtGapRequired
   ) external {
     statusParams = StatusParams({
-    collateralAmount: collateralAmount,
-    amountToPay: amountToPay,
-    healthFactor18: healthFactor18,
-    opened: opened,
-    collateralAmountLiquidated: collateralAmountLiquidated
+      collateralAmount: collateralAmount,
+      amountToPay: amountToPay,
+      healthFactor18: healthFactor18,
+      opened: opened,
+      collateralAmountLiquidated: collateralAmountLiquidated,
+      debtGapRequired: debtGapRequired
     });
   }
   function getStatus() external view override returns (
@@ -174,7 +177,8 @@ contract PoolAdapterMock2 is IPoolAdapter {
     uint amountToPay,
     uint healthFactor18,
     bool opened,
-    uint collateralAmountLiquidated
+    uint collateralAmountLiquidated,
+    bool debtGapRequired
   ) {
     console.log("PooladapterMock2.getStatus", statusParams.collateralAmount);
     return (
@@ -182,7 +186,8 @@ contract PoolAdapterMock2 is IPoolAdapter {
       statusParams.amountToPay,
       statusParams.healthFactor18,
       statusParams.opened,
-      statusParams.collateralAmountLiquidated
+      statusParams.collateralAmountLiquidated,
+      statusParams.debtGapRequired
     );
   }
 
@@ -192,14 +197,16 @@ contract PoolAdapterMock2 is IPoolAdapter {
     uint amountToPay,
     uint healthFactor18,
     bool opened,
-    uint collateralAmountLiquidated
+    uint collateralAmountLiquidated,
+    bool debtGapRequired
   ) external {
     updateStatusParams = StatusParams({
-    collateralAmount: collateralAmount,
-    amountToPay: amountToPay,
-    healthFactor18: healthFactor18,
-    opened: opened,
-    collateralAmountLiquidated: collateralAmountLiquidated
+      collateralAmount: collateralAmount,
+      amountToPay: amountToPay,
+      healthFactor18: healthFactor18,
+      opened: opened,
+      collateralAmountLiquidated: collateralAmountLiquidated,
+      debtGapRequired: debtGapRequired
     });
   }
   function updateStatus() external {
@@ -210,9 +217,9 @@ contract PoolAdapterMock2 is IPoolAdapter {
   }
 
 
-  //////////////////////////////////////////////////////////////////////////////////////////////////////
+  //-----------------------------------------------------///////////////////////////////////////////////
   // others
-  //////////////////////////////////////////////////////////////////////////////////////////////////////
+  //-----------------------------------------------------///////////////////////////////////////////////
   function claimRewards(address receiver_) external pure override returns (address rewardToken, uint amount) {
     receiver_;
     return (rewardToken, amount);

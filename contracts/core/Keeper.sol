@@ -32,14 +32,14 @@ contract Keeper is OpsReady, IHealthKeeperCallback, IResolver {
   uint256 public override nextIndexToCheck0;
   IConverterController immutable public controller;
 
-  ///////////////////////////////////////////////////////
+  //-----------------------------------------------------
   ///               Events
-  ///////////////////////////////////////////////////////
+  //-----------------------------------------------------
   event OnFixHealth(uint nextIndexToCheck0, address[] poolAdapters, uint[] amountBorrowAsset, uint[] amountCollateralAsset);
 
-  ///////////////////////////////////////////////////////////////////
+  //-----------------------------------------------------////////////
   ///              Initialization and configuration
-  ///////////////////////////////////////////////////////////////////
+  //-----------------------------------------------------////////////
   constructor(
     address controller_,
     address payable ops_,
@@ -50,9 +50,9 @@ contract Keeper is OpsReady, IHealthKeeperCallback, IResolver {
     blocksPerDayAutoUpdatePeriodSecs = blocksPerDayAutoUpdatePeriodSecs_;
   }
 
-  ///////////////////////////////////////////////////////////////////
+  //-----------------------------------------------------////////////
   ///              Read-only gelato-resolver
-  ///////////////////////////////////////////////////////////////////
+  //-----------------------------------------------------////////////
 
   /// @notice Check health of opened positions starting from nth-position, where n = nextIndexToCheck0
   /// @dev Read-only checker function called by Gelato.
@@ -106,9 +106,9 @@ contract Keeper is OpsReady, IHealthKeeperCallback, IResolver {
     );
   }
 
-  ///////////////////////////////////////////////////////////////////
+  //-----------------------------------------------------////////////
   ///            Executor to fix unhealthy pool adapters
-  ///////////////////////////////////////////////////////////////////
+  //-----------------------------------------------------////////////
 
   /// @notice Make rebalancing of the given unhealthy positions (a position == pool adapter)
   ///         Call TetuConverter.requireRepay for each position

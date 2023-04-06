@@ -63,9 +63,9 @@ contract HfComptrollerMock is IHfComptroller {
     IERC20(borrowAsset_).safeApprove(borrowCToken_, type(uint).max);
   }
 
-  /////////////////////////////////////////////////////////////////
+  //-----------------------------------------------------//////////
   ///       Config the mock
-  /////////////////////////////////////////////////////////////////
+  //-----------------------------------------------------//////////
   function setIgnoreBorrow() external {
     console.log("Set ignoreBorrow=true");
     ignoreBorrow = true;
@@ -107,11 +107,11 @@ contract HfComptrollerMock is IHfComptroller {
     returnBorrowBalance1 = true;
   }
 
-  /////////////////////////////////////////////////////////////////
+  //-----------------------------------------------------//////////
   ///        Calls from HfCTokenMock
   ///        delegated to real CTokens
   ///        (this contract must be the message sender)
-  /////////////////////////////////////////////////////////////////
+  //-----------------------------------------------------//////////
   function balanceOf(IHfCToken cToken, address owner) external view returns (uint256) {
     console.log("HfComptrollerMock.balanceOf", owner);
     uint balance = cToken.balanceOf(address(this));
@@ -239,11 +239,11 @@ contract HfComptrollerMock is IHfComptroller {
     return (isListed, collateralFactorMantissa, isComped);
   }
 
-  /////////////////////////////////////////////////////////////////
+  //-----------------------------------------------------//////////
   ///       IHfComptroller facade
   ///       All functions required by HfPoolAdapter
   ///       Replace mocked-cTokens by real one on the fly
-  /////////////////////////////////////////////////////////////////
+  //-----------------------------------------------------//////////
 
   function getAccountLiquidity(address account) external override view returns (
     uint256 error, uint256 liquidity, uint256 shortfall
@@ -265,7 +265,7 @@ contract HfComptrollerMock is IHfComptroller {
 
 
 
-  /////////////////////////////////////////////////////////////////
+  //-----------------------------------------------------//////////
   ///       IHfComptroller facade
   ///       All other functions
   ///
@@ -275,7 +275,7 @@ contract HfComptrollerMock is IHfComptroller {
   //        move them in the above section
   //        and correctly replace params on the fly
   //        (cTokens addresses and user account address)
-  /////////////////////////////////////////////////////////////////
+  //-----------------------------------------------------//////////
   function accountAssets(address a, uint256 b) external override view returns (address) {
     return comptroller.accountAssets(a, b);
   }

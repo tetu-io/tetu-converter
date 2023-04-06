@@ -24,14 +24,14 @@ contract DForcePlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
   using SafeERC20 for IERC20;
   using AppUtils for uint;
 
-  ///////////////////////////////////////////////////////
+  //-----------------------------------------------------
   ///   Constants
-  ///////////////////////////////////////////////////////
-  string public constant override PLATFORM_ADAPTER_VERSION = "1.0.0";
+  //-----------------------------------------------------
+  string public constant override PLATFORM_ADAPTER_VERSION = "1.0.1";
 
-  ///////////////////////////////////////////////////////
+  //-----------------------------------------------------
   ///   Data types
-  ///////////////////////////////////////////////////////
+  //-----------------------------------------------------
 
   /// @notice Local vars inside getConversionPlan - to avoid stack too deep
   struct LocalsGetConversionPlan {
@@ -41,9 +41,9 @@ contract DForcePlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
     uint entryKind;
   }
 
-  ///////////////////////////////////////////////////////
+  //-----------------------------------------------------
   ///   Variables
-  ///////////////////////////////////////////////////////
+  //-----------------------------------------------------
   IConverterController immutable public controller;
   IDForceController immutable public comptroller;
   /// @notice Template of pool adapter
@@ -58,9 +58,9 @@ contract DForcePlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
   /// @notice True if the platform is frozen and new borrowing is not possible (at this moment)
   bool public override frozen;
 
-  ///////////////////////////////////////////////////////
+  //-----------------------------------------------------
   ///               Events
-  ///////////////////////////////////////////////////////
+  //-----------------------------------------------------
   event OnPoolAdapterInitialized(
     address converter,
     address poolAdapter,
@@ -70,9 +70,9 @@ contract DForcePlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
   );
   event OnRegisterCTokens(address[] cTokens);
 
-  ///////////////////////////////////////////////////////
+  //-----------------------------------------------------
   ///       Constructor and initialization
-  ///////////////////////////////////////////////////////
+  //-----------------------------------------------------
   constructor (
     address controller_,
     address borrowManager_,
@@ -143,9 +143,9 @@ contract DForcePlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
     }
   }
 
-  ///////////////////////////////////////////////////////
+  //-----------------------------------------------------
   ///                  Access
-  ///////////////////////////////////////////////////////
+  //-----------------------------------------------------
 
   /// @notice Ensure that the caller is governance
   function _onlyGovernance() internal view {
@@ -153,9 +153,9 @@ contract DForcePlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
   }
 
 
-  ///////////////////////////////////////////////////////
+  //-----------------------------------------------------
   ///                     View
-  ///////////////////////////////////////////////////////
+  //-----------------------------------------------------
 
   function converters() external view override returns (address[] memory) {
     address[] memory dest = new address[](1);
@@ -169,9 +169,9 @@ contract DForcePlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
     return (activeAssets[token1_], activeAssets[token2_]);
   }
 
-  ///////////////////////////////////////////////////////
+  //-----------------------------------------------------
   ///            Get conversion plan
-  ///////////////////////////////////////////////////////
+  //-----------------------------------------------------
 
   function getConversionPlan (
     AppDataTypes.InputConversionParams memory p_,
@@ -326,26 +326,9 @@ contract DForcePlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
     }
   }
 
-  ///////////////////////////////////////////////////////
-  ///  Calculate borrow rate after borrowing in advance
-  ///////////////////////////////////////////////////////
-
-  /// @notice Estimate value of variable borrow rate after borrowing {amountToBorrow_}
-  function getBorrowRateAfterBorrow(
-    address borrowAsset_,
-    uint amountToBorrow_
-  ) external view override returns (uint) {
-    IDForceCToken borrowCToken = IDForceCToken(activeAssets[borrowAsset_]);
-    return DForceAprLib.getEstimatedBorrowRate(
-      IDForceInterestRateModel(borrowCToken.interestRateModel()),
-      borrowCToken,
-      amountToBorrow_
-    );
-  }
-
-  ///////////////////////////////////////////////////////
+  //-----------------------------------------------------
   ///                    Utils
-  ///////////////////////////////////////////////////////
+  //-----------------------------------------------------
 
   /// @dev See LendingContractsV2, ConverterController.sol, calcAccountEquityWithEffect
   /// @return collateralFactorMantissa Multiplier representing the most one can borrow against their collateral in

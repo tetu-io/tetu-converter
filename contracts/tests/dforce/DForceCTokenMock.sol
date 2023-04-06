@@ -27,11 +27,11 @@ contract DForceCTokenMock is IDForceCToken {
     IERC20(underlying_).safeApprove(mockedComptroller_, type(uint).max);
   }
 
-  /////////////////////////////////////////////////////////////////
+  //-----------------------------------------------------//////////
   ///       IDForceCToken facade
   ///       All functions required by DForcePoolAdapter
   ///       Replace mocked-cTokens by real one on the fly
-  /////////////////////////////////////////////////////////////////
+  //-----------------------------------------------------//////////
   function mint(address _recipient, uint256 _mintAmount) external override {
     console.log("DForceCTokenMock.mint", address(this), _mintAmount);
     IERC20(underlyingAsset).safeTransferFrom(msg.sender, address(this), _mintAmount);
@@ -68,7 +68,7 @@ contract DForceCTokenMock is IDForceCToken {
     return mockedComptroller.borrowBalanceCurrent(cToken, _account);
   }
 
-  /////////////////////////////////////////////////////////////////
+  //-----------------------------------------------------//////////
   ///       IDForceCToken facade
   ///       All other functions
   ///
@@ -77,7 +77,7 @@ contract DForceCTokenMock is IDForceCToken {
   //        If you need any of following function
   //        move them into the above section
   //        and delegate their calls to DForceControllerMock
-  /////////////////////////////////////////////////////////////////
+  //-----------------------------------------------------//////////
   function accrualBlockNumber() external override view returns (uint256) {
     return cToken.accrualBlockNumber();
   }

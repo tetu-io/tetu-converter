@@ -6,21 +6,21 @@ pragma solidity 0.8.17;
 interface IConverterController {
   function governance() external view returns (address);
 
-  /// ********************* Health factor explanation  ****************
-  /// For example, a landing platform has: liquidity threshold = 0.85, LTV=0.8, LTV / LT = 1.0625
-  /// For collateral $100 we can borrow $80. A liquidation happens if the cost of collateral will reduce below $85.
-  /// We set min-health-factor = 1.1, target-health-factor = 1.3
-  /// For collateral 100 we will borrow 100/1.3 = 76.92
-  ///
-  /// Collateral value   100        77            assume that collateral value is decreased at 100/77=1.3 times
-  /// Collateral * LT    85         65.45
-  /// Borrow value       65.38      65.38         but borrow value is the same as before
-  /// Health factor      1.3        1.001         liquidation almost happens here (!)
-  ///
+  // ********************* Health factor explanation  ****************
+  // For example, a landing platform has: liquidity threshold = 0.85, LTV=0.8, LTV / LT = 1.0625
+  // For collateral $100 we can borrow $80. A liquidation happens if the cost of collateral will reduce below $85.
+  // We set min-health-factor = 1.1, target-health-factor = 1.3
+  // For collateral 100 we will borrow 100/1.3 = 76.92
+  //
+  // Collateral value   100        77            assume that collateral value is decreased at 100/77=1.3 times
+  // Collateral * LT    85         65.45
+  // Borrow value       65.38      65.38         but borrow value is the same as before
+  // Health factor      1.3        1.001         liquidation almost happens here (!)
+  //
   /// So, if we have target factor 1.3, it means, that if collateral amount will decreases at 1.3 times
-  /// and the borrow value won't change at the same time, the liquidation happens at that point.
-  /// Min health factor marks the point at which a rebalancing must be made asap.
-  /// *****************************************************************
+  // and the borrow value won't change at the same time, the liquidation happens at that point.
+  // Min health factor marks the point at which a rebalancing must be made asap.
+  // *****************************************************************
 
   /// @notice min allowed health factor with decimals 2, must be >= 1e2
   function minHealthFactor2() external view returns (uint16);
@@ -55,9 +55,14 @@ interface IConverterController {
   /// @notice the given user is whitelisted and is allowed to make borrow/swap using TetuConverter
   function isWhitelisted(address user_) external view returns (bool);
 
-  ///////////////////////////////////////////////////////
+  /// @notice The size of the gap by which the debt should be increased upon repayment
+  ///         Such gaps are required by AAVE pool adapters to workaround dust tokens problem
+  ///         and be able to make full repayment.
+  function debtGap() external view returns (uint);
+
+  //-----------------------------------------------------
   ///        Core application contracts
-  ///////////////////////////////////////////////////////
+  //-----------------------------------------------------
 
   function tetuConverter() external view returns (address);
   function borrowManager() external view returns (address);
@@ -66,9 +71,9 @@ interface IConverterController {
   function swapManager() external view returns (address);
   function priceOracle() external view returns (address);
 
-  ///////////////////////////////////////////////////////
+  //-----------------------------------------------------
   ///        External contracts
-  ///////////////////////////////////////////////////////
+  //-----------------------------------------------------
   /// @notice A keeper to control health and efficiency of the borrows
   function keeper() external view returns (address);
 

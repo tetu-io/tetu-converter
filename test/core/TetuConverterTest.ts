@@ -25,8 +25,7 @@ import {
   IPoolAdapter,
   DebtMonitorMock__factory,
   SwapManagerMock__factory,
-  PriceOracleMock__factory, PoolAdapterMock2__factory, TetuConverterCallbackMock,
-  IConverterController__factory, IERC20Metadata__factory
+  PriceOracleMock__factory, PoolAdapterMock2__factory, IConverterController__factory, IERC20Metadata__factory
 } from "../../typechain";
 import {
   IBorrowInputParams,
@@ -1408,7 +1407,8 @@ describe("TetuConverterTest", () => {
             params?.setPoolAdaptersStatus.amountToPay,
             params?.setPoolAdaptersStatus.healthFactor18,
             params?.setPoolAdaptersStatus.opened,
-            params?.setPoolAdaptersStatus.collateralAmountLiquidated
+            params?.setPoolAdaptersStatus.collateralAmountLiquidated,
+            true
           )
         }
       }
@@ -2178,7 +2178,8 @@ describe("TetuConverterTest", () => {
       const {totalDebtAmountOut, totalCollateralAmountOut} = await tcAsUc.getDebtAmountStored(
         await tcAsUc.signer.getAddress(),
         init.sourceToken.address,
-        init.targetToken.address
+        init.targetToken.address,
+        false
       );
 
       return {
@@ -2812,7 +2813,8 @@ describe("TetuConverterTest", () => {
       } = await tcAsUc.getDebtAmountStored(
         await tcAsUc.signer.getAddress(),
         init.sourceToken.address,
-        init.targetToken.address
+        init.targetToken.address,
+        false
       );
 
       return {
@@ -3086,7 +3088,8 @@ describe("TetuConverterTest", () => {
         } =(await tcAsUc.getDebtAmountStored(
           await tcAsUc.signer.getAddress(),
           pr.sourceToken.address,
-          pr.targetToken.address
+          pr.targetToken.address,
+          false
         ));
 
         const sret = [
@@ -3155,7 +3158,8 @@ describe("TetuConverterTest", () => {
         } = (await tcAsUc.callStatic.getDebtAmountCurrent(
           await tcAsUc.signer.getAddress(),
           pr.sourceToken.address,
-          pr.targetToken.address
+          pr.targetToken.address,
+          false
         ));
 
         const sret = [
@@ -3831,6 +3835,7 @@ describe("TetuConverterTest", () => {
             parseUnits("0.1"), // < 1
             true,
             parseUnits("1000", await init.sourceToken.decimals()),
+            false,
           );
 
           await expect(
@@ -4450,7 +4455,8 @@ describe("TetuConverterTest", () => {
         parseUnits(p.statusParams.amountToPay, decimalsBorrow),
         parseUnits(p.statusParams.healthFactor18, 18),
         p.statusParams.opened,
-        parseUnits(p.statusParams.collateralAmountLiquidated, decimalsCollateral)
+        parseUnits(p.statusParams.collateralAmountLiquidated, decimalsCollateral),
+        false
       );
       if (p.updateStatusParams) {
         await pa.setUpdateStatus(
@@ -4458,7 +4464,8 @@ describe("TetuConverterTest", () => {
           parseUnits(p.updateStatusParams.amountToPay, decimalsBorrow),
           parseUnits(p.updateStatusParams.healthFactor18, 18),
           p.updateStatusParams.opened,
-          parseUnits(p.updateStatusParams.collateralAmountLiquidated, decimalsCollateral)
+          parseUnits(p.updateStatusParams.collateralAmountLiquidated, decimalsCollateral),
+          false
         );
       }
       await pa.setRepay(

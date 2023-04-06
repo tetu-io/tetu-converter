@@ -32,9 +32,9 @@ contract Aave3PoolMock is IAavePool {
     console.log("Aave3PoolMock is used instead of real aave pool", address(this), aavePool_);
   }
 
-  /////////////////////////////////////////////////////////////////
+  //-----------------------------------------------------//////////
   ///       Config the mock
-  /////////////////////////////////////////////////////////////////
+  //-----------------------------------------------------//////////
   function setIgnoreSupply() external {
     ignoreSupply = true;
   }
@@ -54,10 +54,10 @@ contract Aave3PoolMock is IAavePool {
     grabAllBorrowAssetFromSenderOnRepay = true;
   }
 
-  /////////////////////////////////////////////////////////////////
+  //-----------------------------------------------------//////////
   ///       IAavePool facade
   ///       All functions required by Aave3PoolAdapterBase
-  /////////////////////////////////////////////////////////////////
+  //-----------------------------------------------------//////////
 
   function ADDRESSES_PROVIDER() external view override returns (address) {
     return aavePool.ADDRESSES_PROVIDER();
@@ -221,9 +221,9 @@ contract Aave3PoolMock is IAavePool {
     return 0;
   }
 
-  /////////////////////////////////////////////////////////////////
+  //-----------------------------------------------------//////////
   ///       IAavePool - all other functions
-  /////////////////////////////////////////////////////////////////
+  //-----------------------------------------------------//////////
   function BRIDGE_PROTOCOL_FEE() external view override returns (uint256) {
     return aavePool.BRIDGE_PROTOCOL_FEE();
   }

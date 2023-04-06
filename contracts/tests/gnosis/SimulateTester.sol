@@ -11,9 +11,9 @@ contract SimulateTester is ISimulateTester {
   using SafeERC20 for IERC20;
   uint public swapResult;
 
-  ////////////////////////////////////////////////////////////////
+  //-----------------------------------------------------/////////
   ///  Simulate call of makeSwap function using simulate()
-  ////////////////////////////////////////////////////////////////
+  //-----------------------------------------------------/////////
   function makeSwapStub(uint inputValue) external returns (uint) {
     swapResult = 77;
     return swapResult + inputValue;
@@ -33,9 +33,9 @@ contract SimulateTester is ISimulateTester {
     return response;
   }
 
-  ////////////////////////////////////////////////////////////////
+  //-----------------------------------------------------/////////
   ///  Simulate real swap using simulate() - two contracts
-  ////////////////////////////////////////////////////////////////
+  //-----------------------------------------------------/////////
   function makeSwapUsingTetuLiquidator(
     address tetuLiquidatorAddress,
     address sourceToken_,
@@ -87,9 +87,9 @@ contract SimulateTester is ISimulateTester {
     return response;
   }
 
-  ////////////////////////////////////////////////////////////////
+  //-----------------------------------------------------/////////
   ///  Make real swap and revert with a custom error
-  ////////////////////////////////////////////////////////////////
+  //-----------------------------------------------------/////////
 
   function makeSwapUsingTetuLiquidatorWithRevert(
     address tetuLiquidatorAddress,
@@ -117,9 +117,9 @@ contract SimulateTester is ISimulateTester {
   }
 
 
-  ////////////////////////////////////////////////////////////////
+  //-----------------------------------------------------/////////
   ///  Simulate real swap using simulate() - try to use single contract
-  ////////////////////////////////////////////////////////////////
+  //-----------------------------------------------------/////////
   function callSimulateMakeSwapUsingTetuLiquidatorSingleContract(
     address tetuLiquidator,
     address sourceAsset,
@@ -145,9 +145,9 @@ contract SimulateTester is ISimulateTester {
     return response;
   }
 
-  ////////////////////////////////////////////////////////////////
+  //-----------------------------------------------------/////////
   ///  simulate() for callSimulateMakeSwapUsingTetuLiquidatorSingleContract impl
-  ////////////////////////////////////////////////////////////////
+  //-----------------------------------------------------/////////
 
   /// Source: https://github.com/gnosis/util-contracts/blob/main/contracts/storage/StorageSimulation.sol
   ///

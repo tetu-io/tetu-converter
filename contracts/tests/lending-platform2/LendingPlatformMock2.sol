@@ -11,9 +11,9 @@ contract LendingPlatformMock2 is IPlatformAdapter {
   using AppUtils for uint;
   string public constant override PLATFORM_ADAPTER_VERSION = "1.0.0";
 
-  ////////////////////////////////////////////////////////////////////////////////////////////////
-  /// getConversionPlan
-  ////////////////////////////////////////////////////////////////////////////////////////////////
+  //-----------------------------------------------------
+  // getConversionPlan
+  //-----------------------------------------------------
 
   struct ConversionPlanParams {
     AppDataTypes.InputConversionParams params;
@@ -45,9 +45,9 @@ contract LendingPlatformMock2 is IPlatformAdapter {
     return plan;
   }
 
-  ////////////////////////////////////////////////////////////////////////////////////////////////
-  /// converters
-  ////////////////////////////////////////////////////////////////////////////////////////////////
+  //-----------------------------------------------------
+  // converters
+  //-----------------------------------------------------
   struct ConvertersParams {
     address[] converters;
   }
@@ -63,9 +63,9 @@ contract LendingPlatformMock2 is IPlatformAdapter {
     return convertersParams.converters;
   }
 
-  ////////////////////////////////////////////////////////////////////////////////////////////////
-  /// initializePoolAdapter
-  ////////////////////////////////////////////////////////////////////////////////////////////////
+  //-----------------------------------------------------
+  // initializePoolAdapter
+  //-----------------------------------------------------
   /// @notice Initialize {poolAdapter_} created from {converter_} using minimal proxy pattern
   function initializePoolAdapter(
     address converter_,
@@ -81,28 +81,18 @@ contract LendingPlatformMock2 is IPlatformAdapter {
     borrowAsset_;
   }
 
-  ////////////////////////////////////////////////////////////////////////////////////////////////
-  /// getBorrowRateAfterBorrow
-  ////////////////////////////////////////////////////////////////////////////////////////////////
-  /// @notice Estimate value of variable borrow rate after borrowing {amountToBorrow_}
-  function getBorrowRateAfterBorrow(address borrowAsset_, uint amountToBorrow_) external pure returns (uint) {
-    borrowAsset_;
-    amountToBorrow_;
-    return 0; // todo
-  }
-
-  ////////////////////////////////////////////////////////////////////////////////////////////////
-  /// frozen
-  ////////////////////////////////////////////////////////////////////////////////////////////////
+  //-----------------------------------------------------
+  // frozen
+  //-----------------------------------------------------
   /// @notice True if the platform is frozen and new borrowing is not possible (at this moment)
   bool internal _frozen;
   function frozen() external view returns (bool) {
     return _frozen;
   }
 
-  ////////////////////////////////////////////////////////////////////////////////////////////////
-  /// setFrozen
-  ////////////////////////////////////////////////////////////////////////////////////////////////
+  //-----------------------------------------------------
+  // setFrozen
+  //-----------------------------------------------------
   /// @notice Set platform to frozen/unfrozen state. In frozen state any new borrowing is forbidden.
   function setFrozen(bool frozen_) external {
     _frozen = frozen_;

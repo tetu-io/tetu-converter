@@ -18,6 +18,7 @@ export interface IControllerSetupParams {
   targetHealthFactor2: number;
   maxHealthFactor2: number;
   blocksPerDay: number; // i.e. 41142
+  debtGap: number;
 }
 
 export interface IBorrowManagerSetupParams {
@@ -90,7 +91,8 @@ export class DeploySolutionUtils {
       blocksPerDay: 41142,
       minHealthFactor2: 105,
       targetHealthFactor2: 200,
-      maxHealthFactor2: 400
+      maxHealthFactor2: 400,
+      debtGap: 1_000
     };
     const borrowManagerSetupParams: IBorrowManagerSetupParams = {
       rewardsFactor: Misc.WEI.div(2) // 0.5e18
@@ -349,6 +351,7 @@ export class DeploySolutionUtils {
         debtMonitor,
         keeper,
         swapManager,
+        controllerSetupParams.debtGap,
         {gasLimit: GAS_DEPLOY_LIMIT}
       )
     );

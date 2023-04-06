@@ -55,9 +55,9 @@ contract LendingPlatformMock is IPlatformAdapter {
       cTokens[assets_[i]] = cTokens_[i];
     }
   }
-  ///////////////////////////////////////////////////////////////////////////////
+  //-----------------------------------------------------////////////////////////
   ///  initialization
-  ///////////////////////////////////////////////////////////////////////////////
+  //-----------------------------------------------------////////////////////////
 
   function setBorrowRates(address[] memory assets_, uint[] memory borrowRates_) external {
     for (uint i = 0; i < assets_.length; ++i) {
@@ -100,9 +100,9 @@ contract LendingPlatformMock is IPlatformAdapter {
     require(msg.sender == IConverterController(_controller).governance(), AppErrors.GOVERNANCE_ONLY);
     frozen = frozen_;
   }
-  ///////////////////////////////////////////////////////////////////////////////
+  //-----------------------------------------------------////////////////////////
   ///  get conversion plan
-  ///////////////////////////////////////////////////////////////////////////////
+  //-----------------------------------------------------////////////////////////
 
   function getConversionPlan (
     AppDataTypes.InputConversionParams memory p_,
@@ -200,12 +200,5 @@ contract LendingPlatformMock is IPlatformAdapter {
       borrowRates[borrowAsset_],
       _priceOracle
     );
-  }
-
-  function getBorrowRateAfterBorrow(address borrowAsset_, uint amountToBorrow_) external pure override returns (uint) {
-    borrowAsset_;
-    amountToBorrow_;
-
-    return 0;
   }
 }

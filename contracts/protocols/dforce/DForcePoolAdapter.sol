@@ -45,9 +45,9 @@ contract DForcePoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP, Initi
   /// @notice Total amount of all supplied and withdrawn amounts of collateral in collateral tokens
   uint public collateralTokensBalance;
 
-  ///////////////////////////////////////////////////////
+  //-----------------------------------------------------
   ///                Events
-  ///////////////////////////////////////////////////////
+  //-----------------------------------------------------
   event OnInitialized(
     address controller,
     address cTokenAddressProvider,
@@ -64,9 +64,9 @@ contract DForcePoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP, Initi
   /// @notice On claim not empty {amount} of reward tokens
   event OnClaimRewards(address rewardToken, uint amount, address receiver);
 
-  ///////////////////////////////////////////////////////
+  //-----------------------------------------------------
   ///                Initialization
-  ///////////////////////////////////////////////////////
+  //-----------------------------------------------------
 
   function initialize(
     address controller_,
@@ -118,18 +118,18 @@ contract DForcePoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP, Initi
     emit OnInitialized(controller_, cTokenAddressProvider_, comptroller_, user_, collateralAsset_, borrowAsset_, originConverter_);
   }
 
-  ///////////////////////////////////////////////////////
+  //-----------------------------------------------------
   ///                 Restrictions
-  ///////////////////////////////////////////////////////
+  //-----------------------------------------------------
 
   /// @notice Ensure that the caller is TetuConverter
   function _onlyTetuConverter(IConverterController controller_) internal view {
     require(controller_.tetuConverter() == msg.sender, AppErrors.TETU_CONVERTER_ONLY);
   }
 
-  ///////////////////////////////////////////////////////
+  //-----------------------------------------------------
   ///                 Borrow logic
-  ///////////////////////////////////////////////////////
+  //-----------------------------------------------------
   function updateStatus() external override {
     // no restrictions, anybody can call this function
 
@@ -289,9 +289,9 @@ contract DForcePoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP, Initi
     return (resultHealthFactor18, borrowAmount_);
   }
 
-  ///////////////////////////////////////////////////////
+  //-----------------------------------------------------
   ///                 Repay logic
-  ///////////////////////////////////////////////////////
+  //-----------------------------------------------------
 
   /// @notice Repay borrowed amount, return collateral to the user
   /// @param amountToRepay_ Exact amount of borrow asset that should be repaid
@@ -474,9 +474,9 @@ contract DForcePoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP, Initi
     return tokensToReturn * IDForceCToken(cTokenCollateral).exchangeRateStored() / 10**18;
   }
 
-  ///////////////////////////////////////////////////////
+  //-----------------------------------------------------
   ///                 Rewards
-  ///////////////////////////////////////////////////////
+  //-----------------------------------------------------
 
   /// @notice Check if any reward tokens exist on the balance of the pool adapter, transfer reward tokens to {receiver_}
   /// @return rewardTokenOut Address of the transferred reward token
@@ -514,10 +514,11 @@ contract DForcePoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP, Initi
     return (rewardTokenOut, amountOut);
   }
 
-  ///////////////////////////////////////////////////////
+  //-----------------------------------------------------
   ///         View current status
-  ///////////////////////////////////////////////////////
+  //-----------------------------------------------------
 
+  /// @inheritdoc IPoolAdapter
   function getConfig() external view override returns (
     address origin,
     address outUser,
@@ -527,20 +528,14 @@ contract DForcePoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP, Initi
     return (originConverter, user, collateralAsset, borrowAsset);
   }
 
-  /// @notice Get current status of the borrow position
-  /// @dev It returns STORED status. To get current status it's necessary to call updateStatus
-  ///      at first to update interest and recalculate status.
-  /// @return collateralAmount Total amount of provided collateral, collateral currency
-  /// @return amountToPay Total amount of borrowed debt in [borrow asset]. 0 - for closed borrow positions.
-  /// @return healthFactor18 Current health factor, decimals 18
-  /// @return opened The position is opened (there is not empty collateral/borrow balance)
-  /// @return collateralAmountLiquidated How much collateral was liquidated
+  /// @inheritdoc IPoolAdapter
   function getStatus() external view override returns (
     uint collateralAmount,
     uint amountToPay,
     uint healthFactor18,
     bool opened,
-    uint collateralAmountLiquidated
+    uint collateralAmountLiquidated,
+    bool debtGapRequired
   ) {
     address cTokenBorrow = borrowCToken;
     address cTokenCollateral = collateralCToken;
@@ -568,7 +563,8 @@ contract DForcePoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP, Initi
       healthFactor18,
       collateralTokens != 0 || borrowBalance != 0,
     // Amount of liquidated collateral == amount of lost
-      collateralAmountLiquidatedBase36 / collateralPrice
+      collateralAmountLiquidatedBase36 / collateralPrice,
+    false
     );
   }
 
@@ -629,9 +625,9 @@ contract DForcePoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP, Initi
 //    return int(IDForceCToken(borrowCToken).borrowRatePerBlock() * controller.blocksPerDay() * 365 * 100);
 //  }
 
-  ///////////////////////////////////////////////////////
+  //-----------------------------------------------------
   ///                     Utils
-  ///////////////////////////////////////////////////////
+  //-----------------------------------------------------
   function _getHealthFactor(address cTokenCollateral_, uint sumCollateralBase36_, uint sumBorrowBase36_)
   internal view returns (
     uint sumCollateralSafe36,
@@ -651,9 +647,9 @@ contract DForcePoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP, Initi
     require(hf18 > uint(controller_.minHealthFactor2())*10**(18-2), AppErrors.WRONG_HEALTH_FACTOR);
   }
 
-  ///////////////////////////////////////////////////////
+  //-----------------------------------------------------
   ///                Native tokens
-  ///////////////////////////////////////////////////////
+  //-----------------------------------------------------
 
   function _isMatic(address asset_) internal pure returns (bool) {
     return asset_ == WMATIC;

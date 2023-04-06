@@ -13,9 +13,9 @@ contract PriceOracleMock is IPriceOracle {
   constructor(address[] memory assets, uint[] memory pricesInUSD) {
     _changePrices(assets, pricesInUSD);
   }
-  ///////////////////////////////////////////////////////
+  //-----------------------------------------------------
   ///           Set up
-  ///////////////////////////////////////////////////////
+  //-----------------------------------------------------
   function changePrices(address[] memory assets, uint[] memory pricesInUSD) external {
     _changePrices(assets, pricesInUSD);
   }
@@ -28,9 +28,9 @@ contract PriceOracleMock is IPriceOracle {
     }
   }
 
-  ///////////////////////////////////////////////////////
+  //-----------------------------------------------------
   ///           IPriceOracle
-  ///////////////////////////////////////////////////////
+  //-----------------------------------------------------
 
   /// @notice Return asset price in USD, decimals 18
   function getAssetPrice(address asset) external view override returns (uint256) {

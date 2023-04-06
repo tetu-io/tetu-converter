@@ -17,9 +17,9 @@ library HfAprLib {
   address internal constant WMATIC = address(0x0d500B1d8E8eF31E21C99d1Db9A6444d3ADf1270);
   address internal constant hMATIC = address(0xEbd7f3349AbA8bB15b897e03D6c1a4Ba95B55e31);
 
-  ///////////////////////////////////////////////////////
+  //-----------------------------------------------------
   //                  Data type
-  ///////////////////////////////////////////////////////
+  //-----------------------------------------------------
   struct HfCore {
     IHfCToken cTokenCollateral;
     IHfCToken cTokenBorrow;
@@ -27,9 +27,9 @@ library HfAprLib {
     address borrowAsset;
   }
 
-  ///////////////////////////////////////////////////////
+  //-----------------------------------------------------
   //                  Addresses
-  ///////////////////////////////////////////////////////
+  //-----------------------------------------------------
 
   /// @notice Get core address of DForce
   function getCore(
@@ -44,9 +44,9 @@ library HfAprLib {
     });
   }
 
-  ///////////////////////////////////////////////////////
+  //-----------------------------------------------------
   //                  Estimate APR
-  ///////////////////////////////////////////////////////
+  //-----------------------------------------------------
 
   /// @notice Calculate cost and incomes, take into account borrow rate and supply rate.
   /// @return borrowCost36 Estimated borrow cost for the period, borrow tokens, decimals 36
@@ -126,9 +126,9 @@ library HfAprLib {
       / borrow10PowDecimals;
   }
 
-  ///////////////////////////////////////////////////////
+  //-----------------------------------------------------
   //         Estimate borrow rate
-  ///////////////////////////////////////////////////////
+  //-----------------------------------------------------
 
   /// @notice Estimate value of variable borrow rate after borrowing {amountToBorrow_}
   /// @dev repeats compound-protocol, CToken.sol, borrowRatePerBlock() impl
@@ -144,9 +144,9 @@ library HfAprLib {
     );
   }
 
-  ///////////////////////////////////////////////////////
+  //-----------------------------------------------------
   //         Estimate supply rate
-  ///////////////////////////////////////////////////////
+  //-----------------------------------------------------
 
   /// @dev repeats compound-protocol, CToken.sol, supplyRatePerBlock() impl
   function getEstimatedSupplyRate(
@@ -164,9 +164,9 @@ library HfAprLib {
     );
   }
 
-  ///////////////////////////////////////////////////////
+  //-----------------------------------------------------
   ///                 Utils to inline
-  ///////////////////////////////////////////////////////
+  //-----------------------------------------------------
   function getPrice(IHfPriceOracle priceOracle, address token) internal view returns (uint) {
     uint price = priceOracle.getUnderlyingPrice(token);
     require(price != 0, AppErrors.ZERO_PRICE);

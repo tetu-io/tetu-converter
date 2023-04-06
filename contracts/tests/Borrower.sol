@@ -27,7 +27,7 @@ contract Borrower is ITetuConverterCallback {
   uint public totalAmountBorrowAssetRepaid;
   uint private _borrowPeriodInBlocks;
 
-  ////////////////////////////////////////////////////////////////////
+  //-----------------------------------------------------/////////////
   // Last results passed to onTransferBorrowedAmount
   uint public onTransferAmountsLength;
   address[] public onTransferAmountsAssets;
@@ -71,9 +71,9 @@ contract Borrower is ITetuConverterCallback {
     _borrowPeriodInBlocks = borrowPeriodInBlocks_;
   }
 
-  ///////////////////////////////////////////////////////
+  //-----------------------------------------------------
   ///               Borrow
-  ///////////////////////////////////////////////////////
+  //-----------------------------------------------------
   /// @notice Borrow MAX allowed amount
   function borrowMaxAmount(
     bytes memory entryData_,
@@ -208,30 +208,26 @@ contract Borrower is ITetuConverterCallback {
     totalBorrowedAmount += amountToBorrow_;
   }
 
-  ///////////////////////////////////////////////////////
+  //-----------------------------------------------------
   ///               Repay
-  ///////////////////////////////////////////////////////
+  //-----------------------------------------------------
   /// @notice Complete repay, see US1.2 in the project scope
-  function makeRepayComplete(
-    address collateralAsset_,
-    address borrowedAsset_,
-    address receiver_
-  ) external returns (
+  function makeRepayComplete(address collateralAsset_, address borrowedAsset_, address receiver_) external returns (
     uint collateralAmountOut,
     uint returnedBorrowAmountOut,
     uint swappedLeftoverCollateralOut,
     uint swappedLeftoverBorrowOut
   ) {
     console.log("makeRepayComplete started gasleft", gasleft());
-    // test quoteRepay prediction
-
-    (uint amountToPay,) = _tc().getDebtAmountCurrent(address(this), collateralAsset_, borrowedAsset_);
 
     uint borrowBalanceBeforeRepay = IERC20(borrowedAsset_).balanceOf(address(this));
+
+    // test quoteRepay prediction
+    lastQuoteRepayGasConsumption = gasleft();
+    // for quoteRepay we need pure debts without debt-gap
+    (uint amountToPay,) = _tc().getDebtAmountCurrent(address(this), collateralAsset_, borrowedAsset_, false);
     console.log("makeRepayComplete amountToPay", amountToPay);
     console.log("makeRepayComplete borrowed asset balance before repay", borrowBalanceBeforeRepay);
-
-    lastQuoteRepayGasConsumption = gasleft();
     lastQuoteRepayResultCollateralAmount = _tc().quoteRepay(
       address(this),
       collateralAsset_,
@@ -241,6 +237,8 @@ contract Borrower is ITetuConverterCallback {
     lastQuoteRepayGasConsumption -= gasleft();
     console.log("makeRepayComplete.quoteRepay", lastQuoteRepayResultCollateralAmount, lastQuoteRepayGasConsumption);
 
+    // for repay we need debts with debt-gap
+    (amountToPay,) = _tc().getDebtAmountCurrent(address(this), collateralAsset_, borrowedAsset_, true);
     IERC20(borrowedAsset_).safeTransfer(address(_tc()), amountToPay);
 
     console.log("makeRepayComplete repay - start");
@@ -308,11 +306,11 @@ contract Borrower is ITetuConverterCallback {
     repayResults.swappedLeftoverBorrowOut = swappedLeftoverBorrowOut;
   }
 
-  ///////////////////////////////////////////////////////
+  //-----------------------------------------------------
   ///  Direct repay for unit tests only
   ///  The contract uses interface IPoolAdapter directly,
   ///  real strategy never does it
-  ///////////////////////////////////////////////////////
+  //-----------------------------------------------------
 
   function makeRepayComplete_firstPositionOnly(
     address collateralAsset_,
@@ -329,7 +327,7 @@ contract Borrower is ITetuConverterCallback {
     if (lenPoolAdapters != 0) {
       IPoolAdapter pa = IPoolAdapter(poolAdapters[0]);
       pa.updateStatus();
-      (uint collateralAmount, uint amountToPay,,,) = pa.getStatus();
+      (uint collateralAmount, uint amountToPay,,,,) = pa.getStatus();
       if (amountToPay != 0) {
         console.log("makeRepayUC1.2: repay", amountToPay, collateralAmount);
         // transfer borrowed amount to Pool Adapter
@@ -348,9 +346,9 @@ contract Borrower is ITetuConverterCallback {
     return collateralAmountOut;
   }
 
-  ///////////////////////////////////////////////////////
+  //-----------------------------------------------------
   ///                   IBorrower impl
-  ///////////////////////////////////////////////////////
+  //-----------------------------------------------------
 
   /// @notice Set up behavior of requireAmountBack()
   function setUpRequireAmountBack(uint amount_) external {
@@ -461,9 +459,9 @@ contract Borrower is ITetuConverterCallback {
 //    return Status.DONE_1;
 //  }
 
-  ///////////////////////////////////////////////////////
+  //-----------------------------------------------------
   ///                   View status
-  ///////////////////////////////////////////////////////
+  //-----------------------------------------------------
 
   function getBorrows(
     address collateralAsset_,
@@ -476,9 +474,9 @@ contract Borrower is ITetuConverterCallback {
     console.log("getBorrows end gasleft", gasleft());
   }
 
-  ///////////////////////////////////////////////////////
+  //-----------------------------------------------------
   ///       Inline utils
-  ///////////////////////////////////////////////////////
+  //-----------------------------------------------------
   function _tc() internal view returns (ITetuConverter) {
     return ITetuConverter(_controller.tetuConverter());
   }

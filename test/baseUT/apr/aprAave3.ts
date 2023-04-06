@@ -28,6 +28,7 @@ import {
 } from "./aprDataTypes";
 import {Misc} from "../../../scripts/utils/Misc";
 import {getDifference} from "../utils/CommonUtils";
+import {MocksHelper} from "../helpers/MocksHelper";
 
 //region Data types
 export interface IAaveReserveData {
@@ -304,7 +305,7 @@ export class AprAave3 {
     console.log("priceBorrow", priceBorrow);
 
     // predict APR
-    const libFacade = await DeployUtils.deployContract(deployer, "Aave3AprLibFacade") as Aave3AprLibFacade;
+    const libFacade = await MocksHelper.getAave3AprLibFacade(deployer);
 
     // start point: we estimate APR in this point before borrow and supply
     const before = await getAave3StateInfo(deployer, aavePool, dp, p.collateral.asset, p.borrow.asset);

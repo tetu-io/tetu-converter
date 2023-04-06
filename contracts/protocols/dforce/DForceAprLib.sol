@@ -18,9 +18,9 @@ library DForceAprLib {
   address internal constant WMATIC = address(0x0d500B1d8E8eF31E21C99d1Db9A6444d3ADf1270);
   address internal constant iMATIC = address(0x6A3fE5342a4Bd09efcd44AC5B9387475A0678c74);
 
-  ///////////////////////////////////////////////////////
+  //-----------------------------------------------------
   //                  Data type
-  ///////////////////////////////////////////////////////
+  //-----------------------------------------------------
   struct DForceCore {
     IDForceCToken cTokenCollateral;
     IDForceCToken cTokenBorrow;
@@ -56,9 +56,9 @@ library DForceAprLib {
     IDForcePriceOracle priceOracle;
   }
 
-  ///////////////////////////////////////////////////////
+  //-----------------------------------------------------
   //                  Addresses
-  ///////////////////////////////////////////////////////
+  //-----------------------------------------------------
 
   /// @notice Get core address of DForce
   function getCore(
@@ -73,9 +73,9 @@ library DForceAprLib {
     });
   }
 
-  ///////////////////////////////////////////////////////
+  //-----------------------------------------------------
   //                  Estimate APR
-  ///////////////////////////////////////////////////////
+  //-----------------------------------------------------
 
   /// @notice Calculate costs and incomes, take into account all borrow rate, supply rate, borrow and supply tokens.
   /// @return borrowCost36 Estimated borrow APR for the period, borrow tokens, decimals 36
@@ -169,9 +169,9 @@ library DForceAprLib {
       / borrow10PowDecimals;
   }
 
-  ///////////////////////////////////////////////////////
+  //-----------------------------------------------------
   //         Estimate borrow rate
-  ///////////////////////////////////////////////////////
+  //-----------------------------------------------------
 
   /// @notice Estimate value of variable borrow rate after borrowing {amountToBorrow_}
   ///         Rewards are not taken into account
@@ -190,9 +190,20 @@ library DForceAprLib {
     );
   }
 
-  ///////////////////////////////////////////////////////
+  /// @notice Estimate value of variable borrow rate after borrowing {amountToBorrow_}
+  function getBorrowRateAfterBorrow(address borrowCToken_, uint amountToBorrow_) internal view returns (uint) {
+    IDForceCToken borrowCToken = IDForceCToken(borrowCToken_);
+    return DForceAprLib.getEstimatedBorrowRate(
+      IDForceInterestRateModel(borrowCToken.interestRateModel()),
+      borrowCToken,
+      amountToBorrow_
+    );
+  }
+
+
+  //-----------------------------------------------------
   //         Estimate supply rate
-  ///////////////////////////////////////////////////////
+  //-----------------------------------------------------
 
   function getEstimatedSupplyRate(
     IDForceCToken cTokenCollateral_,
@@ -262,9 +273,9 @@ library DForceAprLib {
       : rdiv(cash_ + totalBorrows_ - totalReserves_, totalSupply_);
   }
 
-  ///////////////////////////////////////////////////////
-  ///       Calculate supply and borrow rewards
-  ///////////////////////////////////////////////////////
+  //-----------------------------------------------------
+  //       Calculate supply and borrow rewards
+  //-----------------------------------------------------
 
   /// @notice Calculate total amount of rewards (supply rewards + borrow rewards) in terms of borrow asset
   function getRewardAmountInBorrowAsset(
@@ -440,35 +451,35 @@ library DForceAprLib {
     );
   }
 
-  ///////////////////////////////////////////////////////
-  ///  Rewards pre-calculations. The algo repeats the code from
-  ///     LendingContractsV2, RewardsDistributorV3.sol, updateDistributionState, updateReward
-  ///
-  ///  RA(x) = rmul(AB, (SI + rdiv(DS * x, TT)) - AI);
-  ///
-  /// where:
-  ///  RA(x) - reward amount
-  ///  x - count of blocks
-  ///  AB - account balance (cToken.balance OR rdiv(borrow balance stored, borrow index)
-  ///  SI - state index (distribution supply state OR distribution borrow state)
-  ///  DS - distribution speed
-  ///  TT - total tokens (total supply OR rdiv(total borrow, borrow index)
-  ///  TD - total distributed = mul(DS, x)
-  ///  DT - distributed per token = rdiv(TD, TT);
-  ///  TI - token index, TI = SI + DT = SI + rdiv(DS * x, TT)
-  ///  AI - account index (distribution supplier index OR distribution borrower index)
-  ///  rmul(x, y): x * y / 1e18
-  ///  rdiv(x, y): x * 1e18 / y
-  ///
-  ///  Total amount of rewards = RA_supply + RA_borrow
-  ///
-  ///  Earned amount EA per block:
-  ///       EA(x) = ( RA_supply(x) + RA_borrow(x) ) * PriceRewardToken / PriceUnderlying
-  ///
-  ///  borrowIndex is calculated according to Base.sol, _updateInterest() algo
-  ///     simpleInterestFactor = borrowRate * blockDelta
-  ///     newBorrowIndex = simpleInterestFactor * borrowIndex + borrowIndex
-  ///////////////////////////////////////////////////////
+  //-----------------------------------------------------
+  //  Rewards pre-calculations. The algo repeats the code from
+  //     LendingContractsV2, RewardsDistributorV3.sol, updateDistributionState, updateReward
+  //
+  //  RA(x) = rmul(AB, (SI + rdiv(DS * x, TT)) - AI);
+  //
+  // where:
+  //  RA(x) - reward amount
+  //  x - count of blocks
+  //  AB - account balance (cToken.balance OR rdiv(borrow balance stored, borrow index)
+  //  SI - state index (distribution supply state OR distribution borrow state)
+  //  DS - distribution speed
+  //  TT - total tokens (total supply OR rdiv(total borrow, borrow index)
+  //  TD - total distributed = mul(DS, x)
+  //  DT - distributed per token = rdiv(TD, TT);
+  //  TI - token index, TI = SI + DT = SI + rdiv(DS * x, TT)
+  //  AI - account index (distribution supplier index OR distribution borrower index)
+  //  rmul(x, y): x * y / 1e18
+  //  rdiv(x, y): x * 1e18 / y
+  //
+  //  Total amount of rewards = RA_supply + RA_borrow
+  //
+  //  Earned amount EA per block:
+  //       EA(x) = ( RA_supply(x) + RA_borrow(x) ) * PriceRewardToken / PriceUnderlying
+  //
+  //  borrowIndex is calculated according to Base.sol, _updateInterest() algo
+  //     simpleInterestFactor = borrowRate * blockDelta
+  //     newBorrowIndex = simpleInterestFactor * borrowIndex + borrowIndex
+  //-----------------------------------------------------
 
   function getRewardAmount(
     uint accountBalance_,
@@ -486,9 +497,9 @@ library DForceAprLib {
     return rmul(accountBalance_, ti - accountIndex_);
   }
 
-  ///////////////////////////////////////////////////////
-  ///                 Utils to inline
-  ///////////////////////////////////////////////////////
+  //-----------------------------------------------------
+  //                 Utils to inline
+  //-----------------------------------------------------
   function getPrice(IDForcePriceOracle priceOracle, address token) internal view returns (uint) {
     (uint price, bool isPriceValid) = priceOracle.getUnderlyingPriceAndStatus(token);
     require(price != 0 && isPriceValid, AppErrors.ZERO_PRICE);
@@ -501,9 +512,9 @@ library DForceAprLib {
       : IDForceCToken(token).underlying();
   }
 
-///////////////////////////////////////////////////////
-  ///  Math utils, see LendingContractsV2, SafeRatioMath.sol
-  ///////////////////////////////////////////////////////
+  //-----------------------------------------------------
+  //  Math utils, see LendingContractsV2, SafeRatioMath.sol
+  //-----------------------------------------------------
 
   function rmul(uint x, uint y) internal pure returns (uint) {
     return x * y / 10**18;
