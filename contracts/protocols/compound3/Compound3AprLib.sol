@@ -53,4 +53,13 @@ library Compound3AprLib {
     (,int answer,,,) = IPriceFeed(oracle).latestRoundData();
     return uint(answer);
   }
+
+  /// @notice Estimate value of variable borrow rate after borrowing {amountToBorrow_}
+  function getBorrowRateAfterBorrow(address cometAddress, uint amountToBorrow_) external view returns (uint) {
+    if (cometAddress != address(0)) {
+      return Compound3AprLib.getBorrowRate(IComet(cometAddress), amountToBorrow_);
+    }
+    return 0;
+  }
+
 }

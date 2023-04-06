@@ -11,4 +11,8 @@ contract Compound3AprLibFacade {
   function getBorrowCost36(IComet comet, uint borrowAmount, uint blocks, uint blocksPerDay, uint borrowAssetDecimals) external view returns(uint) {
     return Compound3AprLib.getBorrowCost36(comet, borrowAmount, blocks, blocksPerDay, borrowAssetDecimals);
   }
+
+  function getBorrowRateAfterBorrow(address cometAddress, uint amountToBorrow_) external view returns (uint) {
+    return Compound3AprLib.getBorrowRateAfterBorrow(cometAddress, amountToBorrow_);
+  }
 }

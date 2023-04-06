@@ -267,15 +267,6 @@ contract Compound3PlatformAdapter is IPlatformAdapter {
     return address(0);
   }
 
-  /// @notice Estimate value of variable borrow rate after borrowing {amountToBorrow_}
-  function getBorrowRateAfterBorrow(address borrowAsset_, uint amountToBorrow_) external view returns (uint) {
-    address cometAddress = getCometForBorrowAsset(borrowAsset_);
-    if (cometAddress != address(0)) {
-      return Compound3AprLib.getBorrowRate(IComet(cometAddress), amountToBorrow_);
-    }
-    return 0;
-  }
-
   function cometsLength() external view returns (uint) {
     return comets.length;
   }

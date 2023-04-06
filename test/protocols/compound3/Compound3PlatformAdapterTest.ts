@@ -32,6 +32,7 @@ import {DeployerUtils} from "../../../scripts/utils/DeployerUtils";
 import {Compound3ChangePriceUtils} from "../../baseUT/protocols/compound3/Compound3ChangePriceUtils";
 import {IPlatformActor, PredictBrUsesCase} from "../../baseUT/uses-cases/PredictBrUsesCase";
 import {AppConstants} from "../../baseUT/AppConstants";
+import {MocksHelper} from "../../baseUT/helpers/MocksHelper";
 
 
 describe("Compound3PlatformAdapterTest", () => {
@@ -111,13 +112,7 @@ describe("Compound3PlatformAdapterTest", () => {
     return PredictBrUsesCase.makeTest(
       deployer,
       new Compound3PlatformActor(comet, collateralAsset),
-      async controller => AdaptersHelper.createCompound3PlatformAdapter(
-        deployer,
-        controller.address,
-        ethers.Wallet.createRandom().address,
-        [comet.address],
-        cometRewards
-      ),
+      "compound3",
       collateralAsset,
       await comet.baseToken(),
       collateralHolders,
@@ -243,7 +238,7 @@ describe("Compound3PlatformAdapterTest", () => {
     badPathsParams?: IGetConversionPlanBadPaths
   ): Promise<{ plan: IConversionPlan, expectedPlan: IConversionPlan }> {
     // console.log("makeTestComparePlanWithDirectCalculations collateralAmount", collateralAmount.toString());
-    const libFacade = await DeployUtils.deployContract(deployer, "Compound3AprLibFacade") as Compound3AprLibFacade
+    const libFacade = await MocksHelper.getCompound3AprLibFacade(deployer);
 
     const d = await preparePlan(
       controller,
@@ -773,15 +768,9 @@ describe("Compound3PlatformAdapterTest", () => {
           deployer,
           {tetuLiquidatorAddress: MaticAddresses.TETU_LIQUIDATOR}
         );
-        const platformAdapter = await AdaptersHelper.createCompound3PlatformAdapter(
-          deployer,
-          controller.address,
-          ethers.Wallet.createRandom().address,
-          [MaticAddresses.COMPOUND3_COMET_USDC],
-          MaticAddresses.COMPOUND3_COMET_REWARDS
-        )
+        const libFacade = await MocksHelper.getCompound3AprLibFacade(deployer);
 
-        expect(await platformAdapter.getBorrowRateAfterBorrow(MaticAddresses.WETH, parseUnits('1'))).eq(0)
+        expect(await libFacade.getBorrowRateAfterBorrow(Misc.ZERO_ADDRESS, parseUnits('1'))).eq(0);
       })
     })
   })

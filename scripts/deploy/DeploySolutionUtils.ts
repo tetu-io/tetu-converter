@@ -57,7 +57,7 @@ export interface IPlatformAdapterResult {
   lendingPlatformTitle: string;
   platformAdapterAddress: string;
   converters: string[];
-  /* All cTokens (actual for DForce and HundredFinance only) */
+  /* All cTokens (actual for DForce, HundredFinance only and comets for Compound3) */
   cTokensActive?: string[];
   /* We need to manually set priceOracle for HundredFinance only */
   priceOracle?: string;
@@ -192,6 +192,20 @@ export class DeploySolutionUtils {
       MaticAddresses.WBTC,
     ]);
 
+
+    const deployCompound3 = true;
+    const compound3Comptroller = "TODO";
+    const compound3Rewards = MaticAddresses.COMPOUND3_COMET_REWARDS;
+    const compound3Comets = [
+      MaticAddresses.COMPOUND3_COMET_USDC,
+    ];
+    const compound3Pairs = DeploySolutionUtils.generateAssetPairs([
+      MaticAddresses.USDC,
+      MaticAddresses.WMATIC,
+      MaticAddresses.WETH,
+      MaticAddresses.WBTC,
+    ]);
+
     ///////////////////////////////////////////////////////////////////////////////////////////////////
 
 
@@ -275,6 +289,26 @@ export class DeploySolutionUtils {
         borrowManager,
         platformAdapterHundredFinance.platformAdapterAddress,
         hundredFinancePairs
+      );
+    }
+
+
+    const platformAdapterCompound3 = deployCompound3
+      ? await DeploySolutionUtils.createPlatformAdapterCompound3(
+        signer,
+        deployCoreResults.controller,
+        compound3Comets,
+        compound3Rewards,
+        borrowManager
+      )
+      : undefined;
+    if (platformAdapterCompound3) {
+      console.log("Register platform adapter Compound3");
+      deployedPlatformAdapters.push(platformAdapterCompound3);
+      await DeploySolutionUtils.registerPlatformAdapter(
+        borrowManager,
+        platformAdapterCompound3.platformAdapterAddress,
+        compound3Pairs
       );
     }
 
@@ -458,6 +492,31 @@ export class DeploySolutionUtils {
       converters: [converterNormal.address],
       platformAdapterAddress: platformAdapter.address,
       cTokensActive,
+    }
+  }
+
+  static async createPlatformAdapterCompound3(
+    deployer: SignerWithAddress,
+    controller: string,
+    comets: string[],
+    cometRewards: string,
+    borrowManager: string
+  ) : Promise<IPlatformAdapterResult> {
+    const converterNormal = await AdaptersHelper.createCompound3PoolAdapter(deployer);
+    const platformAdapter = await AdaptersHelper.createCompound3PlatformAdapter(
+      deployer,
+      controller,
+      converterNormal.address,
+      comets,
+      cometRewards,
+      borrowManager,
+    );
+
+    return {
+      lendingPlatformTitle: "Compound3",
+      converters: [converterNormal.address],
+      platformAdapterAddress: platformAdapter.address,
+      cTokensActive: comets,
     }
   }
 //endregion Platform adapters
