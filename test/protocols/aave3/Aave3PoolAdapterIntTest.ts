@@ -19,7 +19,7 @@ import {
   AaveMakeBorrowAndRepayUtils, IBorrowAndRepayBadParams,
   IMakeBorrowAndRepayResults
 } from "../../baseUT/protocols/aaveShared/aaveBorrowAndRepayUtils";
-import {AaveBorrowUtils} from "../../baseUT/protocols/aaveShared/aaveBorrowUtils";
+import {AaveBorrowUtils, IMakeBorrowTestResults} from "../../baseUT/protocols/aaveShared/aaveBorrowUtils";
 import {transferAndApprove} from "../../baseUT/utils/transferUtils";
 import {
   Aave3TestUtils,
@@ -27,6 +27,7 @@ import {
 } from "../../baseUT/protocols/aave3/Aave3TestUtils";
 import {formatUnits, parseUnits} from "ethers/lib/utils";
 import {areAlmostEqual} from "../../baseUT/utils/CommonUtils";
+import {loadFixture} from "@nomicfoundation/hardhat-network-helpers";
 
 describe("Aave3PoolAdapterIntTest", () => {
 //region Global vars for all tests
@@ -49,22 +50,13 @@ describe("Aave3PoolAdapterIntTest", () => {
 
 //region Unit tests
   describe("borrow", () => {
-    let snapshotForEach: string;
-    beforeEach(async function () {
-      snapshotForEach = await TimeUtils.snapshot();
-    });
-
-    afterEach(async function () {
-      await TimeUtils.rollback(snapshotForEach);
-    });
-
     async function makeBorrowTest(
       collateralToken: TokenDataTypes,
       collateralHolder: string,
       collateralAmountRequired: BigNumber | undefined,
       borrowToken: TokenDataTypes,
       borrowAmountRequired: BigNumber | undefined
-    ): Promise<{ sret: string, sexpected: string }> {
+    ): Promise<IMakeBorrowTestResults> {
       const d = await Aave3TestUtils.prepareToBorrow(
         deployer,
         collateralToken,
@@ -74,165 +66,447 @@ describe("Aave3PoolAdapterIntTest", () => {
         false
       );
       const ret = await Aave3TestUtils.makeBorrow(deployer, d, borrowAmountRequired);
+      return {
+        borrowedAmount: ret.borrowedAmount,
+        priceBorrow: d.priceBorrow,
+        borrowAssetDecimals: borrowToken.decimals,
 
-      const sret = [
-        await borrowToken.token.balanceOf(d.userContract.address),
-        await IERC20Metadata__factory.connect(ret.collateralData.data.aTokenAddress, deployer)
-          .balanceOf(d.aavePoolAdapterAsTC.address),
-        ret.accountDataAfterBorrow.totalCollateralBase,
+        collateralAmount: d.collateralAmount,
+        priceCollateral: d.priceCollateral,
+        collateraAssetDecimals: collateralToken.decimals,
 
-        // Not exact equal. npm run test can produce small differences in results sometime, i.e.
-        // 56879332146581 vs 56879332146481 (WBTC-8 : Tether-6, big amounts)
-        // 886499999 vs 886500000 (DAI-18 : matic-18, small amounts)
-        areAlmostEqual(
-          ret.accountDataAfterBorrow.totalDebtBase,
-          ret.borrowedAmount.mul(d.priceBorrow) // registered debt in the pool
-            .div(parseUnits("1", borrowToken.decimals)),
-          5
-        )
-      ].map(x => BalanceUtils.toString(x)).join("\n");
-
-      const sexpected = [
-        ret.borrowedAmount, // borrowed amount on user's balance
-        d.collateralAmount, // amount of collateral tokens on pool-adapter's balance
-        d.collateralAmount.mul(d.priceCollateral)  // registered collateral in the pool
-          .div(parseUnits("1", collateralToken.decimals)),
-        true
-      ].map(x => BalanceUtils.toString(x)).join("\n");
-
-      return {sret, sexpected};
+        userBalanceBorrowedAsset: await borrowToken.token.balanceOf(d.userContract.address),
+        poolAdapterBalanceCollateralAsset: await IERC20Metadata__factory.connect(
+            ret.collateralData.data.aTokenAddress,
+            deployer
+          ).balanceOf(d.aavePoolAdapterAsTC.address),
+        totalCollateralBase: ret.accountDataAfterBorrow.totalCollateralBase,
+        totalDebtBase: ret.accountDataAfterBorrow.totalDebtBase,
+      }
     }
 
     describe("Good paths", () => {
       describe("Borrow fixed small amount", () => {
         describe("DAI-18 : matic-18", () => {
-          it("should return expected balances", async () => {
+          let snapshotLocal: string;
+          before(async function () {
+            snapshotLocal = await TimeUtils.snapshot();
+          });
+          after(async function () {
+            await TimeUtils.rollback(snapshotLocal);
+          });
+          async function testMakeBorrowDaiWMatic() : Promise<IMakeBorrowTestResults> {
+            return AaveBorrowUtils.daiWMatic(deployer, makeBorrowTest, 100_000, 10);
+          }
+          it("should send borrowed amount to user", async () => {
             if (!await isPolygonForkInUse()) return;
-            const r = await AaveBorrowUtils.daiWMatic(
-              deployer,
-              makeBorrowTest,
-              100_000,
-              10
-            );
-            expect(r.ret).eq(r.expected);
+            const r = await loadFixture(testMakeBorrowDaiWMatic);
+            expect(r.userBalanceBorrowedAsset.eq(r.borrowedAmount)).eq(true)
+          });
+          it("should send collateral to pool adapter", async () => {
+            if (!await isPolygonForkInUse()) return;
+            const r = await loadFixture(testMakeBorrowDaiWMatic);
+            // almost equal, because of: 100000000000000000000001 instead 100000000000000000000000 happens in tests
+            expect(areAlmostEqual(r.poolAdapterBalanceCollateralAsset, r.collateralAmount)).eq(true);
+          });
+          it("should set expected totalDebtBase value", async () => {
+            if (!await isPolygonForkInUse()) return;
+            const r = await loadFixture(testMakeBorrowDaiWMatic);
+            // Not exact equal. npm run test can produce small differences in results sometime, i.e.
+            // 56879332146581 vs 56879332146481 (WBTC-8 : Tether-6, big amounts)
+            // 886499999 vs 886500000 (DAI-18 : matic-18, small amounts)
+            expect(areAlmostEqual(
+              r.totalDebtBase,
+              r.borrowedAmount.mul(r.priceBorrow).div(parseUnits("1", r.borrowAssetDecimals))
+            )).eq(true);
+          });
+          it("should set expected totalCollateralBase", async () => {
+            if (!await isPolygonForkInUse()) return;
+            const r = await loadFixture(testMakeBorrowDaiWMatic);
+            expect(areAlmostEqual(
+              r.totalCollateralBase,
+              r.collateralAmount.mul(r.priceCollateral).div(parseUnits("1", r.collateraAssetDecimals))
+            ));
           });
         });
         describe("DAI-18 : USDC-6", () => {
-          it("should return expected balances", async () => {
+          let snapshotLocal: string;
+          before(async function () {
+            snapshotLocal = await TimeUtils.snapshot();
+          });
+          after(async function () {
+            await TimeUtils.rollback(snapshotLocal);
+          });
+          async function testMakeBorrowDaiUsdc() : Promise<IMakeBorrowTestResults> {
+            return AaveBorrowUtils.daiUsdc(deployer, makeBorrowTest, 100_000, 10);
+          }
+          it("should send borrowed amount to user", async () => {
             if (!await isPolygonForkInUse()) return;
-
-            const r = await AaveBorrowUtils.daiUsdc(
-              deployer,
-              makeBorrowTest,
-              100_000,
-              10
-            );
-            expect(r.ret).eq(r.expected);
+            const r = await loadFixture(testMakeBorrowDaiUsdc);
+            expect(r.userBalanceBorrowedAsset.eq(r.borrowedAmount)).eq(true)
+          });
+          it("should send collateral to pool adapter", async () => {
+            if (!await isPolygonForkInUse()) return;
+            const r = await loadFixture(testMakeBorrowDaiUsdc);
+            // almost equal, because of: 100000000000000000000001 instead 100000000000000000000000 happens in tests
+            expect(areAlmostEqual(r.poolAdapterBalanceCollateralAsset, r.collateralAmount)).eq(true);
+          });
+          it("should set expected totalDebtBase value", async () => {
+            if (!await isPolygonForkInUse()) return;
+            const r = await loadFixture(testMakeBorrowDaiUsdc);
+            // Not exact equal. npm run test can produce small differences in results sometime, i.e.
+            // 56879332146581 vs 56879332146481 (WBTC-8 : Tether-6, big amounts)
+            // 886499999 vs 886500000 (DAI-18 : matic-18, small amounts)
+            expect(areAlmostEqual(
+              r.totalDebtBase,
+              r.borrowedAmount.mul(r.priceBorrow).div(parseUnits("1", r.borrowAssetDecimals))
+            )).eq(true);
+          });
+          it("should set expected totalCollateralBase", async () => {
+            if (!await isPolygonForkInUse()) return;
+            const r = await loadFixture(testMakeBorrowDaiUsdc);
+            expect(areAlmostEqual(
+              r.totalCollateralBase,
+              r.collateralAmount.mul(r.priceCollateral).div(parseUnits("1", r.collateraAssetDecimals))
+            ));
           });
         });
         describe("STASIS EURS-2 : Tether-6", () => {
-          it("should return expected balances", async () => {
+          let snapshotLocal: string;
+          before(async function () {
+            snapshotLocal = await TimeUtils.snapshot();
+          });
+          after(async function () {
+            await TimeUtils.rollback(snapshotLocal);
+          });
+          async function testMakeBorrowEursTether() : Promise<IMakeBorrowTestResults> {
+            return AaveBorrowUtils.eursTether(deployer, makeBorrowTest, 100_000, 10);
+          }
+          it("should send borrowed amount to user", async () => {
             if (!await isPolygonForkInUse()) return;
-
-            const r = await AaveBorrowUtils.eursTether(
-              deployer,
-              makeBorrowTest,
-              100_000,
-              10
-            );
-            expect(r.ret).eq(r.expected);
+            const r = await loadFixture(testMakeBorrowEursTether);
+            expect(r.userBalanceBorrowedAsset.eq(r.borrowedAmount)).eq(true)
+          });
+          it("should send collateral to pool adapter", async () => {
+            if (!await isPolygonForkInUse()) return;
+            const r = await loadFixture(testMakeBorrowEursTether);
+            // almost equal, because of: 100000000000000000000001 instead 100000000000000000000000 happens in tests
+            expect(areAlmostEqual(r.poolAdapterBalanceCollateralAsset, r.collateralAmount)).eq(true);
+          });
+          it("should set expected totalDebtBase value", async () => {
+            if (!await isPolygonForkInUse()) return;
+            const r = await loadFixture(testMakeBorrowEursTether);
+            // Not exact equal. npm run test can produce small differences in results sometime, i.e.
+            // 56879332146581 vs 56879332146481 (WBTC-8 : Tether-6, big amounts)
+            // 886499999 vs 886500000 (DAI-18 : matic-18, small amounts)
+            expect(areAlmostEqual(
+              r.totalDebtBase,
+              r.borrowedAmount.mul(r.priceBorrow).div(parseUnits("1", r.borrowAssetDecimals))
+            )).eq(true);
+          });
+          it("should set expected totalCollateralBase", async () => {
+            if (!await isPolygonForkInUse()) return;
+            const r = await loadFixture(testMakeBorrowEursTether);
+            expect(areAlmostEqual(
+              r.totalCollateralBase,
+              r.collateralAmount.mul(r.priceCollateral).div(parseUnits("1", r.collateraAssetDecimals))
+            ));
           });
         });
         describe("USDC-6 : DAI-18", () => {
-          it("should return expected balances", async () => {
+          let snapshotLocal: string;
+          before(async function () {
+            snapshotLocal = await TimeUtils.snapshot();
+          });
+          after(async function () {
+            await TimeUtils.rollback(snapshotLocal);
+          });
+          async function testMakeBorrowUsdcDai() : Promise<IMakeBorrowTestResults> {
+            return AaveBorrowUtils.usdcDai(deployer, makeBorrowTest, 100_000, 10);
+          }
+          it("should send borrowed amount to user", async () => {
             if (!await isPolygonForkInUse()) return;
-
-            const r = await AaveBorrowUtils.eursTether(
-              deployer,
-              makeBorrowTest,
-              100_000,
-              10
-            );
-            expect(r.ret).eq(r.expected);
+            const r = await loadFixture(testMakeBorrowUsdcDai);
+            expect(r.userBalanceBorrowedAsset.eq(r.borrowedAmount)).eq(true)
+          });
+          it("should send collateral to pool adapter", async () => {
+            if (!await isPolygonForkInUse()) return;
+            const r = await loadFixture(testMakeBorrowUsdcDai);
+            // almost equal, because of: 100000000000000000000001 instead 100000000000000000000000 happens in tests
+            expect(areAlmostEqual(r.poolAdapterBalanceCollateralAsset, r.collateralAmount)).eq(true);
+          });
+          it("should set expected totalDebtBase value", async () => {
+            if (!await isPolygonForkInUse()) return;
+            const r = await loadFixture(testMakeBorrowUsdcDai);
+            // Not exact equal. npm run test can produce small differences in results sometime, i.e.
+            // 56879332146581 vs 56879332146481 (WBTC-8 : Tether-6, big amounts)
+            // 886499999 vs 886500000 (DAI-18 : matic-18, small amounts)
+            expect(areAlmostEqual(
+              r.totalDebtBase,
+              r.borrowedAmount.mul(r.priceBorrow).div(parseUnits("1", r.borrowAssetDecimals))
+            )).eq(true);
+          });
+          it("should set expected totalCollateralBase", async () => {
+            if (!await isPolygonForkInUse()) return;
+            const r = await loadFixture(testMakeBorrowUsdcDai);
+            expect(areAlmostEqual(
+              r.totalCollateralBase,
+              r.collateralAmount.mul(r.priceCollateral).div(parseUnits("1", r.collateraAssetDecimals))
+            ));
           });
         });
         describe("WBTC-8 : Tether-6", () => {
-          it("should return expected balances", async () => {
+          let snapshotLocal: string;
+          before(async function () {
+            snapshotLocal = await TimeUtils.snapshot();
+          });
+          after(async function () {
+            await TimeUtils.rollback(snapshotLocal);
+          });
+          async function testMakeBorrowWbtcTether() : Promise<IMakeBorrowTestResults> {
+            return AaveBorrowUtils.wbtcTether(deployer, makeBorrowTest, 100_000, 10);
+          }
+          it("should send borrowed amount to user", async () => {
             if (!await isPolygonForkInUse()) return;
-
-            const r = await AaveBorrowUtils.wbtcTether(
-              deployer,
-              makeBorrowTest,
-              100,
-              10
-            );
-            expect(r.ret).eq(r.expected);
+            const r = await loadFixture(testMakeBorrowWbtcTether);
+            expect(r.userBalanceBorrowedAsset.eq(r.borrowedAmount)).eq(true)
+          });
+          it("should send collateral to pool adapter", async () => {
+            if (!await isPolygonForkInUse()) return;
+            const r = await loadFixture(testMakeBorrowWbtcTether);
+            // almost equal, because of: 100000000000000000000001 instead 100000000000000000000000 happens in tests
+            expect(areAlmostEqual(r.poolAdapterBalanceCollateralAsset, r.collateralAmount)).eq(true);
+          });
+          it("should set expected totalDebtBase value", async () => {
+            if (!await isPolygonForkInUse()) return;
+            const r = await loadFixture(testMakeBorrowWbtcTether);
+            // Not exact equal. npm run test can produce small differences in results sometime, i.e.
+            // 56879332146581 vs 56879332146481 (WBTC-8 : Tether-6, big amounts)
+            // 886499999 vs 886500000 (DAI-18 : matic-18, small amounts)
+            expect(areAlmostEqual(
+              r.totalDebtBase,
+              r.borrowedAmount.mul(r.priceBorrow).div(parseUnits("1", r.borrowAssetDecimals))
+            )).eq(true);
+          });
+          it("should set expected totalCollateralBase", async () => {
+            if (!await isPolygonForkInUse()) return;
+            const r = await loadFixture(testMakeBorrowWbtcTether);
+            expect(areAlmostEqual(
+              r.totalCollateralBase,
+              r.collateralAmount.mul(r.priceCollateral).div(parseUnits("1", r.collateraAssetDecimals))
+            ));
           });
         });
       });
       describe("Borrow max available amount using all available collateral", () => {
-        describe("DAI-18 : matic-18", () => {
-          it("should return expected balances", async () => {
+        describe("DAI-18 : USDC-6", () => {
+          let snapshotLocal: string;
+          before(async function () {
+            snapshotLocal = await TimeUtils.snapshot();
+          });
+          after(async function () {
+            await TimeUtils.rollback(snapshotLocal);
+          });
+          async function testMakeBorrowDaiUsdc() : Promise<IMakeBorrowTestResults> {
+            return AaveBorrowUtils.daiUsdc(deployer, makeBorrowTest, undefined, undefined);
+          }
+          it("should send borrowed amount to user", async () => {
             if (!await isPolygonForkInUse()) return;
-            const r = await AaveBorrowUtils.daiWMatic(
-              deployer,
-              makeBorrowTest,
-              undefined,
-              undefined
-            );
-            expect(r.ret).eq(r.expected);
+            const r = await loadFixture(testMakeBorrowDaiUsdc);
+            expect(r.userBalanceBorrowedAsset.eq(r.borrowedAmount)).eq(true)
+          });
+          it("should send collateral to pool adapter", async () => {
+            if (!await isPolygonForkInUse()) return;
+            const r = await loadFixture(testMakeBorrowDaiUsdc);
+            // almost equal, because of: 100000000000000000000001 instead 100000000000000000000000 happens in tests
+            expect(areAlmostEqual(r.poolAdapterBalanceCollateralAsset, r.collateralAmount)).eq(true);
+          });
+          it("should set expected totalDebtBase value", async () => {
+            if (!await isPolygonForkInUse()) return;
+            const r = await loadFixture(testMakeBorrowDaiUsdc);
+            // Not exact equal. npm run test can produce small differences in results sometime, i.e.
+            // 56879332146581 vs 56879332146481 (WBTC-8 : Tether-6, big amounts)
+            // 886499999 vs 886500000 (DAI-18 : matic-18, small amounts)
+            expect(areAlmostEqual(
+              r.totalDebtBase,
+              r.borrowedAmount.mul(r.priceBorrow).div(parseUnits("1", r.borrowAssetDecimals))
+            )).eq(true);
+          });
+          it("should set expected totalCollateralBase", async () => {
+            if (!await isPolygonForkInUse()) return;
+            const r = await loadFixture(testMakeBorrowDaiUsdc);
+            expect(areAlmostEqual(
+              r.totalCollateralBase,
+              r.collateralAmount.mul(r.priceCollateral).div(parseUnits("1", r.collateraAssetDecimals))
+            ));
           });
         });
-        describe("DAI-18 : USDC-6", () => {
-          it("should return expected balances", async () => {
+        describe("DAI-18 : matic-18", () => {
+          let snapshotLocal: string;
+          before(async function () {
+            snapshotLocal = await TimeUtils.snapshot();
+          });
+          after(async function () {
+            await TimeUtils.rollback(snapshotLocal);
+          });
+          async function testMakeBorrowDaiWMatic() : Promise<IMakeBorrowTestResults> {
+            return AaveBorrowUtils.daiWMatic(deployer, makeBorrowTest, undefined, undefined);
+          }
+          it("should send borrowed amount to user", async () => {
             if (!await isPolygonForkInUse()) return;
-
-            const r = await AaveBorrowUtils.daiUsdc(
-              deployer,
-              makeBorrowTest,
-              undefined,
-              undefined
-            );
-            expect(r.ret).eq(r.expected);
+            const r = await loadFixture(testMakeBorrowDaiWMatic);
+            expect(r.userBalanceBorrowedAsset.eq(r.borrowedAmount)).eq(true)
+          });
+          it("should send collateral to pool adapter", async () => {
+            if (!await isPolygonForkInUse()) return;
+            const r = await loadFixture(testMakeBorrowDaiWMatic);
+            // almost equal, because of: 100000000000000000000001 instead 100000000000000000000000 happens in tests
+            expect(areAlmostEqual(r.poolAdapterBalanceCollateralAsset, r.collateralAmount)).eq(true);
+          });
+          it("should set expected totalDebtBase value", async () => {
+            if (!await isPolygonForkInUse()) return;
+            const r = await loadFixture(testMakeBorrowDaiWMatic);
+            // Not exact equal. npm run test can produce small differences in results sometime, i.e.
+            // 56879332146581 vs 56879332146481 (WBTC-8 : Tether-6, big amounts)
+            // 886499999 vs 886500000 (DAI-18 : matic-18, small amounts)
+            expect(areAlmostEqual(
+              r.totalDebtBase,
+              r.borrowedAmount.mul(r.priceBorrow).div(parseUnits("1", r.borrowAssetDecimals))
+            )).eq(true);
+          });
+          it("should set expected totalCollateralBase", async () => {
+            if (!await isPolygonForkInUse()) return;
+            const r = await loadFixture(testMakeBorrowDaiWMatic);
+            expect(areAlmostEqual(
+              r.totalCollateralBase,
+              r.collateralAmount.mul(r.priceCollateral).div(parseUnits("1", r.collateraAssetDecimals))
+            ));
           });
         });
         describe("STASIS EURS-2 : Tether-6", () => {
-          it("should return expected balances", async () => {
+          let snapshotLocal: string;
+          before(async function () {
+            snapshotLocal = await TimeUtils.snapshot();
+          });
+          after(async function () {
+            await TimeUtils.rollback(snapshotLocal);
+          });
+          async function testMakeBorrowEursTether() : Promise<IMakeBorrowTestResults> {
+            return AaveBorrowUtils.eursTether(deployer, makeBorrowTest, undefined, undefined);
+          }
+          it("should send borrowed amount to user", async () => {
             if (!await isPolygonForkInUse()) return;
-
-            const r = await AaveBorrowUtils.eursTether(
-              deployer,
-              makeBorrowTest,
-              undefined,
-              undefined
-            );
-            expect(r.ret).eq(r.expected);
+            const r = await loadFixture(testMakeBorrowEursTether);
+            expect(r.userBalanceBorrowedAsset.eq(r.borrowedAmount)).eq(true)
+          });
+          it("should send collateral to pool adapter", async () => {
+            if (!await isPolygonForkInUse()) return;
+            const r = await loadFixture(testMakeBorrowEursTether);
+            // almost equal, because of: 100000000000000000000001 instead 100000000000000000000000 happens in tests
+            expect(areAlmostEqual(r.poolAdapterBalanceCollateralAsset, r.collateralAmount)).eq(true);
+          });
+          it("should set expected totalDebtBase value", async () => {
+            if (!await isPolygonForkInUse()) return;
+            const r = await loadFixture(testMakeBorrowEursTether);
+            // Not exact equal. npm run test can produce small differences in results sometime, i.e.
+            // 56879332146581 vs 56879332146481 (WBTC-8 : Tether-6, big amounts)
+            // 886499999 vs 886500000 (DAI-18 : matic-18, small amounts)
+            expect(areAlmostEqual(
+              r.totalDebtBase,
+              r.borrowedAmount.mul(r.priceBorrow).div(parseUnits("1", r.borrowAssetDecimals))
+            )).eq(true);
+          });
+          it("should set expected totalCollateralBase", async () => {
+            if (!await isPolygonForkInUse()) return;
+            const r = await loadFixture(testMakeBorrowEursTether);
+            expect(areAlmostEqual(
+              r.totalCollateralBase,
+              r.collateralAmount.mul(r.priceCollateral).div(parseUnits("1", r.collateraAssetDecimals))
+            ));
           });
         });
         describe("USDC-6 : DAI-18", () => {
-          it("should return expected balances", async () => {
+          let snapshotLocal: string;
+          before(async function () {
+            snapshotLocal = await TimeUtils.snapshot();
+          });
+          after(async function () {
+            await TimeUtils.rollback(snapshotLocal);
+          });
+          async function testMakeBorrowUsdcDai() : Promise<IMakeBorrowTestResults> {
+            return AaveBorrowUtils.usdcDai(deployer, makeBorrowTest, undefined, undefined);
+          }
+          it("should send borrowed amount to user", async () => {
             if (!await isPolygonForkInUse()) return;
-
-            const r = await AaveBorrowUtils.eursTether(
-              deployer,
-              makeBorrowTest,
-              undefined,
-              undefined
-            );
-            expect(r.ret).eq(r.expected);
+            const r = await loadFixture(testMakeBorrowUsdcDai);
+            expect(r.userBalanceBorrowedAsset.eq(r.borrowedAmount)).eq(true)
+          });
+          it("should send collateral to pool adapter", async () => {
+            if (!await isPolygonForkInUse()) return;
+            const r = await loadFixture(testMakeBorrowUsdcDai);
+            // almost equal, because of: 100000000000000000000001 instead 100000000000000000000000 happens in tests
+            expect(areAlmostEqual(r.poolAdapterBalanceCollateralAsset, r.collateralAmount)).eq(true);
+          });
+          it("should set expected totalDebtBase value", async () => {
+            if (!await isPolygonForkInUse()) return;
+            const r = await loadFixture(testMakeBorrowUsdcDai);
+            // Not exact equal. npm run test can produce small differences in results sometime, i.e.
+            // 56879332146581 vs 56879332146481 (WBTC-8 : Tether-6, big amounts)
+            // 886499999 vs 886500000 (DAI-18 : matic-18, small amounts)
+            expect(areAlmostEqual(
+              r.totalDebtBase,
+              r.borrowedAmount.mul(r.priceBorrow).div(parseUnits("1", r.borrowAssetDecimals))
+            )).eq(true);
+          });
+          it("should set expected totalCollateralBase", async () => {
+            if (!await isPolygonForkInUse()) return;
+            const r = await loadFixture(testMakeBorrowUsdcDai);
+            expect(areAlmostEqual(
+              r.totalCollateralBase,
+              r.collateralAmount.mul(r.priceCollateral).div(parseUnits("1", r.collateraAssetDecimals))
+            ));
           });
         });
         describe("WBTC-8 : Tether-6", () => {
-          it("should return expected balances", async () => {
+          let snapshotLocal: string;
+          before(async function () {
+            snapshotLocal = await TimeUtils.snapshot();
+          });
+          after(async function () {
+            await TimeUtils.rollback(snapshotLocal);
+          });
+          async function testMakeBorrowWbtcTether() : Promise<IMakeBorrowTestResults> {
+            return AaveBorrowUtils.wbtcTether(deployer, makeBorrowTest, undefined, undefined);
+          }
+          it("should send borrowed amount to user", async () => {
             if (!await isPolygonForkInUse()) return;
-
-            const r = await AaveBorrowUtils.wbtcTether(
-              deployer,
-              makeBorrowTest,
-              undefined,
-              undefined
-            );
-            expect(r.ret).eq(r.expected);
+            const r = await loadFixture(testMakeBorrowWbtcTether);
+            expect(r.userBalanceBorrowedAsset.eq(r.borrowedAmount)).eq(true)
+          });
+          it("should send collateral to pool adapter", async () => {
+            if (!await isPolygonForkInUse()) return;
+            const r = await loadFixture(testMakeBorrowWbtcTether);
+            // almost equal, because of: 100000000000000000000001 instead 100000000000000000000000 happens in tests
+            expect(areAlmostEqual(r.poolAdapterBalanceCollateralAsset, r.collateralAmount)).eq(true);
+          });
+          it("should set expected totalDebtBase value", async () => {
+            if (!await isPolygonForkInUse()) return;
+            const r = await loadFixture(testMakeBorrowWbtcTether);
+            // Not exact equal. npm run test can produce small differences in results sometime, i.e.
+            // 56879332146581 vs 56879332146481 (WBTC-8 : Tether-6, big amounts)
+            // 886499999 vs 886500000 (DAI-18 : matic-18, small amounts)
+            expect(areAlmostEqual(
+              r.totalDebtBase,
+              r.borrowedAmount.mul(r.priceBorrow).div(parseUnits("1", r.borrowAssetDecimals))
+            )).eq(true);
+          });
+          it("should set expected totalCollateralBase", async () => {
+            if (!await isPolygonForkInUse()) return;
+            const r = await loadFixture(testMakeBorrowWbtcTether);
+            expect(areAlmostEqual(
+              r.totalCollateralBase,
+              r.collateralAmount.mul(r.priceCollateral).div(parseUnits("1", r.collateraAssetDecimals))
+            ));
           });
         });
       });

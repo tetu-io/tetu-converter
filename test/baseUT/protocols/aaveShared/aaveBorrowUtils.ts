@@ -10,7 +10,22 @@ type MakeBorrowFixedAmountFunc = (
   collateralAmountRequired: BigNumber | undefined,
   borrowToken: TokenDataTypes,
   borrowAmountRequired: BigNumber | undefined
-) => Promise<{ sret: string, sexpected: string }>;
+) => Promise<IMakeBorrowTestResults>;
+
+export interface IMakeBorrowTestResults {
+  borrowedAmount: BigNumber;
+  priceBorrow: BigNumber;
+  borrowAssetDecimals: number;
+
+  collateralAmount: BigNumber;
+  priceCollateral: BigNumber;
+  collateraAssetDecimals: number;
+
+  userBalanceBorrowedAsset: BigNumber;
+  poolAdapterBalanceCollateralAsset: BigNumber;
+  totalCollateralBase: BigNumber;
+  totalDebtBase: BigNumber;
+}
 
 export class AaveBorrowUtils {
   static async daiWMatic(
@@ -18,7 +33,7 @@ export class AaveBorrowUtils {
     makeBorrowFunc : MakeBorrowFixedAmountFunc,
     collateralAmountNum: number | undefined,
     borrowAmountNum: number | undefined
-  ) : Promise<{ret: string, expected: string}> {
+  ) : Promise<IMakeBorrowTestResults> {
     const collateralAsset = MaticAddresses.DAI;
     const collateralHolder = MaticAddresses.HOLDER_DAI;
     const borrowAsset = MaticAddresses.WMATIC;
@@ -33,15 +48,7 @@ export class AaveBorrowUtils {
       ? getBigNumberFrom(borrowAmountNum, borrowToken.decimals)
       : undefined;
 
-    const r = await makeBorrowFunc(
-      collateralToken,
-      collateralHolder,
-      collateralAmount,
-      borrowToken,
-      borrowAmount,
-    );
-
-    return {ret: r.sret, expected: r.sexpected};
+    return makeBorrowFunc(collateralToken, collateralHolder, collateralAmount, borrowToken, borrowAmount);
   }
 
   static async daiUsdc(
@@ -49,7 +56,7 @@ export class AaveBorrowUtils {
     makeBorrowFunc : MakeBorrowFixedAmountFunc,
     collateralAmountNum: number | undefined,
     borrowAmountNum: number | undefined
-  ) : Promise<{ret: string, expected: string}> {
+  ) : Promise<IMakeBorrowTestResults> {
     const collateralAsset = MaticAddresses.DAI;
     const collateralHolder = MaticAddresses.HOLDER_DAI;
     const borrowAsset = MaticAddresses.USDC;
@@ -64,14 +71,7 @@ export class AaveBorrowUtils {
       ? getBigNumberFrom(borrowAmountNum, borrowToken.decimals)
       : undefined;
 
-    const r = await makeBorrowFunc(
-      collateralToken
-      , collateralHolder
-      , collateralAmount
-      , borrowToken
-      , borrowAmount
-    );
-    return {ret: r.sret, expected: r.sexpected};
+    return makeBorrowFunc(collateralToken, collateralHolder, collateralAmount, borrowToken, borrowAmount);
   }
 
   static async eursTether(
@@ -79,7 +79,7 @@ export class AaveBorrowUtils {
     makeBorrowFunc: MakeBorrowFixedAmountFunc,
     collateralAmountNum: number | undefined,
     borrowAmountNum: number | undefined
-  ) : Promise<{ret: string, expected: string}> {
+  ) : Promise<IMakeBorrowTestResults> {
     const collateralAsset = MaticAddresses.EURS;
     const collateralHolder = MaticAddresses.HOLDER_EURS;
     const borrowAsset = MaticAddresses.USDT;
@@ -94,14 +94,7 @@ export class AaveBorrowUtils {
       ? getBigNumberFrom(borrowAmountNum, borrowToken.decimals)
       : undefined;
 
-    const r = await makeBorrowFunc(
-      collateralToken
-      , collateralHolder
-      , collateralAmount
-      , borrowToken
-      , borrowAmount
-    );
-    return {ret: r.sret, expected: r.sexpected};
+    return makeBorrowFunc(collateralToken, collateralHolder, collateralAmount, borrowToken, borrowAmount);
   }
 
   static async usdcDai(
@@ -109,7 +102,7 @@ export class AaveBorrowUtils {
     makeBorrowFunc: MakeBorrowFixedAmountFunc,
     collateralAmountNum: number | undefined,
     borrowAmountNum: number | undefined
-  ) : Promise<{ret: string, expected: string}> {
+  ) : Promise<IMakeBorrowTestResults> {
     const collateralAsset = MaticAddresses.USDC;
     const collateralHolder = MaticAddresses.HOLDER_USDC;
     const borrowAsset = MaticAddresses.DAI;
@@ -124,15 +117,7 @@ export class AaveBorrowUtils {
       ? getBigNumberFrom(borrowAmountNum, borrowToken.decimals)
       : undefined;
 
-    const r = await makeBorrowFunc(
-      collateralToken,
-      collateralHolder,
-      collateralAmount,
-      borrowToken,
-      borrowAmount,
-    );
-
-    return {ret: r.sret, expected: r.sexpected};
+    return makeBorrowFunc(collateralToken, collateralHolder, collateralAmount, borrowToken, borrowAmount);
   }
 
   static async wbtcTether(
@@ -140,7 +125,7 @@ export class AaveBorrowUtils {
     makeBorrowFunc: MakeBorrowFixedAmountFunc,
     collateralAmountNum: number | undefined,
     borrowAmountNum: number | undefined
-  ) : Promise<{ret: string, expected: string}> {
+  ) : Promise<IMakeBorrowTestResults> {
     const collateralAsset = MaticAddresses.WBTC;
     const collateralHolder = MaticAddresses.HOLDER_WBTC;
     const borrowAsset = MaticAddresses.USDT;
@@ -155,13 +140,6 @@ export class AaveBorrowUtils {
       ? getBigNumberFrom(borrowAmountNum, borrowToken.decimals)
       : undefined;
 
-    const r = await makeBorrowFunc(
-      collateralToken,
-      collateralHolder,
-      collateralAmount,
-      borrowToken,
-      borrowAmount
-    );
-    return {ret: r.sret, expected: r.sexpected};
+    return makeBorrowFunc(collateralToken, collateralHolder, collateralAmount, borrowToken, borrowAmount);
   }
 }

@@ -308,6 +308,13 @@ describe("Aave3PoolAdapterUnitTest", () => {
     }
 
     describe("Good paths", () => {
+      let snapshotLocal: string;
+      before(async function () {
+        snapshotLocal = await TimeUtils.snapshot();
+      });
+      after(async function () {
+        await TimeUtils.rollback(snapshotLocal);
+      });
       it("should get expected status", async () => {
         if (!await isPolygonForkInUse()) return;
 
@@ -622,8 +629,15 @@ describe("Aave3PoolAdapterUnitTest", () => {
     describe("Good paths", () => {
       describe("Repay using borrow asset", () => {
         describe("Dai:WMatic", () => {
+          let snapshotLocal: string;
+          before(async function () {
+            snapshotLocal = await TimeUtils.snapshot();
+          });
+          after(async function () {
+            await TimeUtils.rollback(snapshotLocal);
+          });
           async function makeDaiWMaticTest(): Promise<IAaveMakeRepayToRebalanceResults> {
-            return await AaveRepayToRebalanceUtils.daiWMatic(
+            return AaveRepayToRebalanceUtils.daiWMatic(
               deployer,
               makeRepayToRebalance,
               targetHealthFactorInitial2,
@@ -652,8 +666,15 @@ describe("Aave3PoolAdapterUnitTest", () => {
           });
         });
         describe("USDC:USDT", () => {
+          let snapshotLocal: string;
+          before(async function () {
+            snapshotLocal = await TimeUtils.snapshot();
+          });
+          after(async function () {
+            await TimeUtils.rollback(snapshotLocal);
+          });
           async function makeUsdcUsdtTest(): Promise<IAaveMakeRepayToRebalanceResults> {
-            return await AaveRepayToRebalanceUtils.usdcUsdt(
+            return AaveRepayToRebalanceUtils.usdcUsdt(
               deployer,
               async (p) => makeRepayToRebalance(p, true),
               targetHealthFactorInitial2,
@@ -684,8 +705,15 @@ describe("Aave3PoolAdapterUnitTest", () => {
       });
       describe("Repay using collateral asset", () => {
         describe("Dai:WMatic", () => {
+          let snapshotLocal: string;
+          before(async function () {
+            snapshotLocal = await TimeUtils.snapshot();
+          });
+          after(async function () {
+            await TimeUtils.rollback(snapshotLocal);
+          });
           async function makeDaiWMaticTest(): Promise<IAaveMakeRepayToRebalanceResults> {
-            return await AaveRepayToRebalanceUtils.daiWMatic(
+            return AaveRepayToRebalanceUtils.daiWMatic(
               deployer,
               makeRepayToRebalance,
               targetHealthFactorInitial2,
@@ -714,8 +742,15 @@ describe("Aave3PoolAdapterUnitTest", () => {
           });
         });
         describe("USDC:USDT", () => {
+          let snapshotLocal: string;
+          before(async function () {
+            snapshotLocal = await TimeUtils.snapshot();
+          });
+          after(async function () {
+            await TimeUtils.rollback(snapshotLocal);
+          });
           async function makeUsdcUsdtTest(): Promise<IAaveMakeRepayToRebalanceResults> {
-            return await AaveRepayToRebalanceUtils.usdcUsdt(
+            return AaveRepayToRebalanceUtils.usdcUsdt(
               deployer,
               async (p) => makeRepayToRebalance(p, true),
               targetHealthFactorInitial2,
@@ -1447,6 +1482,13 @@ describe("Aave3PoolAdapterUnitTest", () => {
   describe("getStatus", () => {
     describe("Good paths", () => {
       describe("User has a borrow", () => {
+        let snapshotLocal: string;
+        before(async function () {
+          snapshotLocal = await TimeUtils.snapshot();
+        });
+        after(async function () {
+          await TimeUtils.rollback(snapshotLocal);
+        });
         interface IStatusTestResults {
           results: IMakeBorrowTestResults;
           status: IPoolAdapterStatus;
@@ -1500,6 +1542,13 @@ describe("Aave3PoolAdapterUnitTest", () => {
         });
       });
       describe("User has not made a borrow", () => {
+        let snapshotLocal: string;
+        before(async function () {
+          snapshotLocal = await TimeUtils.snapshot();
+        });
+        after(async function () {
+          await TimeUtils.rollback(snapshotLocal);
+        });
         async function setupUserHasBorrowTest() : Promise<IPoolAdapterStatus> {
           const collateralAsset = MaticAddresses.DAI;
           const collateralHolder = MaticAddresses.HOLDER_DAI;
@@ -1622,12 +1671,20 @@ describe("Aave3PoolAdapterUnitTest", () => {
   });
 
   describe("getCollateralAmountToReturn", () => {
+    let snapshotLocal: string;
+    before(async function () {
+      snapshotLocal = await TimeUtils.snapshot();
+    });
+    after(async function () {
+      await TimeUtils.rollback(snapshotLocal);
+    });
+
     const collateralAsset = MaticAddresses.DAI;
     const collateralHolder = MaticAddresses.HOLDER_DAI;
     const borrowAsset = MaticAddresses.WMATIC;
 
     async function setupBorrowForTest() : Promise<IMakeBorrowTestResults> {
-      return await makeBorrowTest(collateralAsset, collateralHolder, borrowAsset, "1999");
+      return makeBorrowTest(collateralAsset, collateralHolder, borrowAsset, "1999");
     }
 
     describe("Good paths", () => {
@@ -1676,6 +1733,14 @@ describe("Aave3PoolAdapterUnitTest", () => {
         });
       });
       describe("Partial repay 5%", () => {
+        let snapshotForEach: string;
+        beforeEach(async function () {
+          snapshotForEach = await TimeUtils.snapshot();
+        });
+
+        afterEach(async function () {
+          await TimeUtils.rollback(snapshotForEach);
+        });
         it("should return expected values", async () => {
           if (!await isPolygonForkInUse()) return;
 
