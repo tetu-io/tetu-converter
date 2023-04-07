@@ -164,7 +164,7 @@ contract Compound3PlatformAdapter is IPlatformAdapter {
     require(healthFactor2_ >= controller.minHealthFactor2(), AppErrors.WRONG_HEALTH_FACTOR);
 
     if (!frozen && !controller.paused()) {
-      address cometAddress = getCometForBorrowAsset(p_.borrowAsset);
+      address cometAddress = _getCometForBorrowAsset(p_.borrowAsset);
       if (cometAddress != address(0)) {
         // comet was found
         IComet _comet = IComet(cometAddress);
@@ -181,7 +181,10 @@ contract Compound3PlatformAdapter is IPlatformAdapter {
               pd.priceBorrow = Compound3AprLib.getPrice(_comet.baseTokenPriceFeed());
 
               plan.maxAmountToBorrow = IERC20(p_.borrowAsset).balanceOf(address(_comet));
-              plan.maxAmountToSupply = assetInfo.supplyCap - IERC20(p_.collateralAsset).balanceOf(address(_comet));
+              uint b = IERC20(p_.collateralAsset).balanceOf(address(_comet));
+              if (b < assetInfo.supplyCap) {
+                plan.maxAmountToSupply = assetInfo.supplyCap - b;
+              }
 
               if (plan.maxAmountToBorrow > 0 && plan.maxAmountToSupply > 0) {
                 plan.converter = converter;
@@ -256,7 +259,7 @@ contract Compound3PlatformAdapter is IPlatformAdapter {
     }
   }
 
-  function getCometForBorrowAsset(address borrowAsset) internal view returns(address) {
+  function _getCometForBorrowAsset(address borrowAsset) internal view returns(address) {
     uint length = comets.length;
     for (uint i; i < length; ++i) {
       IComet _comet = IComet(comets[i]);

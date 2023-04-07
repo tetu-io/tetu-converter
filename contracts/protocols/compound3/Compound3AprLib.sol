@@ -7,7 +7,7 @@ import "../../integrations/compound3/ICometRewards.sol";
 import "../../integrations/compound3/IPriceFeed.sol";
 import "../../interfaces/IConverterController.sol";
 import "../../integrations/tetu/ITetuLiquidator.sol";
-import "hardhat/console.sol";
+import "../../libs/AppErrors.sol";
 
 library Compound3AprLib {
   struct GetRewardsParamsLocal {
@@ -49,8 +49,10 @@ library Compound3AprLib {
     return uint(comet.getBorrowRate(utilization));
   }
 
+  /// @notice Price of asset served by oracle in terms of USD, decimals 8
   function getPrice(address oracle) internal view returns (uint) {
     (,int answer,,,) = IPriceFeed(oracle).latestRoundData();
+    require(answer != 0, AppErrors.ZERO_PRICE);
     return uint(answer);
   }
 

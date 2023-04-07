@@ -366,7 +366,26 @@ describe("Compound3PoolAdapterIntTest", () => {
               expect(r.userBalancesAfterRepay.collateral).eq(parseUnits('1', 8))
             })
           })
-        })
+        });
+        describe("Repay more then borrowed amount", () => {
+          it("adapter should return extra amount to user", async () => {
+            if (!await isPolygonForkInUse()) return;
+
+            const r = await makeBorrowAndRepay(
+              MaticAddresses.WETH,
+              MaticAddresses.HOLDER_WETH,
+              parseUnits('1'),
+              MaticAddresses.USDC,
+              parseUnits('100', 6),
+              parseUnits('150', 6),
+              parseUnits('50', 6),
+              MaticAddresses.HOLDER_USDC
+            )
+
+            expect(areAlmostEqual(r.userBalancesAfterRepay.borrow, parseUnits('50', 6), 4)).eq(true)
+            expect(r.userBalancesAfterRepay.collateral).eq(parseUnits('1'))
+          });
+        });
       });
     });
     describe("Bad paths", () => {
