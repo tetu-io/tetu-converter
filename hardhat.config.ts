@@ -98,7 +98,8 @@ export default {
         mnemonic: "test test test test test test test test test test test junk",
         path: "m/44'/60'/0'/0",
         accountsBalance: "100000000000000000000000000000"
-      }
+      },
+      // loggingEnabled: true,
     },
     matic: {
       url: argv.maticRpcUrl || '',

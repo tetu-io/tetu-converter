@@ -9,6 +9,8 @@ export class MaticAddresses {
 //region TETU
   /* https://github.com/tetu-io/tetu-liquidator */
   public static TETU_LIQUIDATOR = "0xC737eaB847Ae6A92028862fE38b828db41314772"; // 0x67e14A8Ebe89639945e4209CE3fE19e721633AC3
+  public static TETU_LIQUIDATOR_CONTROLLER_GOVERNANCE = "0xbbbbb8C4364eC2ce52c59D2Ed3E56F307E529a94";
+  public static TETU_LIQUIDATOR_UNIV2_SWAPPER = "0x0089539BeCB82Ab51bc5C76F93Aa61281540fF33";
 //endregion TETU
 
 //region Assets
@@ -37,6 +39,9 @@ export class MaticAddresses {
   public static FRAX = "0x45c32fa6df82ead1e2ef74d17b76547eddfaff89";
 // DForce
   public static dForce_USD = "0xCf66EB3D546F0415b368d98A95EAF56DeD7aA752";
+
+// Compound
+  public static COMP = "0x8505b9d2254A7Ae468c0E9dd10Ccea3A837aef5c";
 //endregion Assets
 
 //region Asset biggest holders
@@ -181,4 +186,13 @@ export class MaticAddresses {
   public static dForce_iMATIC = "0x6A3fE5342a4Bd09efcd44AC5B9387475A0678c74";
 
 //endregion dForce
+
+//region Compound3
+  public static COMPOUND3_COMET_USDC = "0xF25212E676D1F7F89Cd72fFEe66158f541246445";
+  public static COMPOUND3_COMET_REWARDS = "0x45939657d1CA34A8FA39A924B71D28Fe8431e581";
+//endregion Compound3
+
+//region liquidity pools
+  public static SUSHI_WETH_COMP = "0x9021A31062A1D9C9C35d632Ed54a9d923e46809F";
+//endregion liquidity
 }

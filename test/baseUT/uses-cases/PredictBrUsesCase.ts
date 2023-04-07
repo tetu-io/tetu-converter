@@ -6,6 +6,7 @@ import {TetuConverterApp} from "../helpers/TetuConverterApp";
 import {MocksHelper} from "../helpers/MocksHelper";
 import {MaticAddresses} from "../../../scripts/addresses/MaticAddresses";
 import {DForceUtils} from "../utils/DForceUtils";
+import {Compound3Utils} from "../utils/Compound3Utils";
 
 export interface IPlatformActor {
   getAvailableLiquidity: () => Promise<BigNumber>,
@@ -42,6 +43,9 @@ export class PredictBrUsesCase {
     } else if (platformAdapterName === "dforce") {
       const libFacade = await MocksHelper.getDForceAprLibFacade(signer);
       return libFacade.getBorrowRateAfterBorrow(DForceUtils.getCTokenAddressForAsset(borrowAsset), amountToBorrow);
+    } else if (platformAdapterName === "compound3") {
+      const libFacade = await MocksHelper.getCompound3AprLibFacade(signer);
+      return libFacade.getBorrowRateAfterBorrow(Compound3Utils.getCometAddressForAsset(borrowAsset), amountToBorrow);
     }
 
     throw new Error(`PredictBrUsesCase.getBorrowRateAfterBorrow not implemented: ${platformAdapterName}`)
@@ -56,8 +60,6 @@ export class PredictBrUsesCase {
     part10000: number
   ) : Promise<{br: BigNumber, brPredicted: BigNumber}> {
     console.log(`collateral ${collateralAsset} borrow ${borrowAsset}`);
-
-    const controller = await TetuConverterApp.createController(deployer);
 
     // get available liquidity
     // we are going to borrow given part of the liquidity
