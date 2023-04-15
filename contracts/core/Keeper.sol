@@ -24,7 +24,7 @@ contract Keeper is OpsReady, IHealthKeeperCallback, IResolver {
 
   /// @notice Period of auto-update of the blocksPerDay-value in seconds
   ///         0 - auto-update checking is disabled
-  uint public immutable blocksPerDayAutoUpdatePeriodSecs; // i.e. 2 * 7 * 24 * 60 * 60 for 2 weeks
+  uint public blocksPerDayAutoUpdatePeriodSecs; // i.e. 2 * 7 * 24 * 60 * 60 for 2 weeks
 
 
   /// @notice Start index of pool adapter for next checkHealth-request

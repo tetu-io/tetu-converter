@@ -1536,7 +1536,8 @@ describe("TetuConverterTest", () => {
                     healthFactor18: parseUnits("10"),
                     collateralAmount: parseUnits("1"),
                     amountToPay: parseUnits("1"),
-                    opened: true
+                    opened: true,
+                    debtGapRequired: false
                   }
                 }
               );
@@ -1572,7 +1573,8 @@ describe("TetuConverterTest", () => {
                       healthFactor18: parseUnits("119", 16), // (!) unhealthy, less then minHealthFactor
                       collateralAmount: parseUnits("1"),
                       amountToPay: parseUnits("1"),
-                      opened: true
+                      opened: true,
+                      debtGapRequired: false
                     }
                   }
                 )
@@ -1592,7 +1594,8 @@ describe("TetuConverterTest", () => {
                     healthFactor18: parseUnits("0.5"), // (!) liquidation has happened
                     collateralAmount: parseUnits("1"),
                     amountToPay: parseUnits("1"),
-                    opened: true
+                    opened: true,
+                    debtGapRequired: false
                   }
                 }
               );
@@ -3956,6 +3959,7 @@ describe("TetuConverterTest", () => {
     interface IQuoteRepayResults {
       init: ISetupResults;
       collateralAmountOutNum: number;
+      swappedAmountOutNum: number;
       gasUsed: BigNumber;
     }
     async function makeQuoteRepayTest(
@@ -3997,7 +4001,7 @@ describe("TetuConverterTest", () => {
         await DeployerUtils.startImpersonate(init.userContract.address)
       );
 
-      const collateralAmountOut = await tcAsUc.callStatic.quoteRepay(
+      const qouteRepayResults = await tcAsUc.callStatic.quoteRepay(
         await tcAsUc.signer.getAddress(),
         init.sourceToken.address,
         init.targetToken.address,
@@ -4012,7 +4016,8 @@ describe("TetuConverterTest", () => {
 
       return {
         init,
-        collateralAmountOutNum: Number(formatUnits(collateralAmountOut, sourceTokenDecimals)),
+        collateralAmountOutNum: Number(formatUnits(qouteRepayResults.collateralAmountOut, sourceTokenDecimals)),
+        swappedAmountOutNum: Number(formatUnits(qouteRepayResults.swappedAmountOut, sourceTokenDecimals)),
         gasUsed
       }
     }
@@ -4032,7 +4037,7 @@ describe("TetuConverterTest", () => {
           const ret = await makeQuoteRepayTest([105, 200, 300], [10, 20, 30], 30);
           expect(ret.collateralAmountOutNum).eq(305);
         });
-        it("should return all collateral", async () => {
+        it("should return all collaterals", async () => {
           const ret = await makeQuoteRepayTest([105, 200, 300], [10, 20, 30], 60);
           expect(ret.collateralAmountOutNum).eq(605);
         });
@@ -4049,6 +4054,7 @@ describe("TetuConverterTest", () => {
             }
           );
           expect(ret.collateralAmountOutNum).eq(605 + 20);
+          expect(ret.swappedAmountOutNum).eq(20);
         });
       });
     });
