@@ -536,6 +536,52 @@ describe("KeeperTest", () => {
     });
   });
 
+  describe("setBlocksPerDayAutoUpdatePeriodSecs", () => {
+    describe("Good paths", () => {
+      it("should set expected value if new period is not zero", async () => {
+        const governance = deployer;
+        const controller = await TetuConverterApp.createController(
+          governance,
+          {blocksPerDayAutoUpdatePeriodSecs: 1}
+        );
+        const keeper = Keeper__factory.connect(await controller.keeper(), controller.signer);
+        const before = await keeper.blocksPerDayAutoUpdatePeriodSecs();
+
+        await keeper.connect(governance).setBlocksPerDayAutoUpdatePeriodSecs(2);
+        const after = await keeper.blocksPerDayAutoUpdatePeriodSecs();
+
+        expect([before, after].join()).eq([1, 2].join());
+      });
+      it("should set expected value if new period is zero", async () => {
+        const governance = deployer;
+        const controller = await TetuConverterApp.createController(
+          governance,
+          {blocksPerDayAutoUpdatePeriodSecs: 1}
+        );
+        const keeper = Keeper__factory.connect(await controller.keeper(), controller.signer);
+        const before = await keeper.blocksPerDayAutoUpdatePeriodSecs();
+
+        await keeper.connect(governance).setBlocksPerDayAutoUpdatePeriodSecs(0);
+        const after = await keeper.blocksPerDayAutoUpdatePeriodSecs();
+
+        expect([before, after].join()).eq([1, 0].join());
+      });
+    });
+    describe("Bad paths", () => {
+      it("should revert if not governance", async () => {
+        const governance = deployer;
+        const controller = await TetuConverterApp.createController(governance);
+        const keeper = Keeper__factory.connect(await controller.keeper(), controller.signer);
+
+        await expect(
+          keeper.connect(
+            await Misc.impersonate(ethers.Wallet.createRandom().address)
+          ).setBlocksPerDayAutoUpdatePeriodSecs(1)
+        ).revertedWith("TC-9 governance only"); // GOVERNANCE_ONLY
+      });
+    });
+  });
+
   describe("events", () => {
     it("should emit expected events", async () => {
       const startIndexToCheck = 7;

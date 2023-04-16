@@ -24,7 +24,7 @@ contract Keeper is OpsReady, IHealthKeeperCallback, IResolver {
 
   /// @notice Period of auto-update of the blocksPerDay-value in seconds
   ///         0 - auto-update checking is disabled
-  uint public immutable blocksPerDayAutoUpdatePeriodSecs; // i.e. 2 * 7 * 24 * 60 * 60 for 2 weeks
+  uint public blocksPerDayAutoUpdatePeriodSecs; // i.e. 2 * 7 * 24 * 60 * 60 for 2 weeks
 
 
   /// @notice Start index of pool adapter for next checkHealth-request
@@ -50,6 +50,14 @@ contract Keeper is OpsReady, IHealthKeeperCallback, IResolver {
     blocksPerDayAutoUpdatePeriodSecs = blocksPerDayAutoUpdatePeriodSecs_;
   }
 
+  /// @notice Set period of auto-update of the blocksPerDay-value in seconds, 0 - auto-update checking is disabled
+  function setBlocksPerDayAutoUpdatePeriodSecs(uint periodSeconds) external {
+    require(controller.governance() == msg.sender, AppErrors.GOVERNANCE_ONLY);
+
+    blocksPerDayAutoUpdatePeriodSecs = periodSeconds;
+  }
+
+
   //-----------------------------------------------------
   //              Read-only gelato-resolver
   //-----------------------------------------------------
@@ -58,11 +66,7 @@ contract Keeper is OpsReady, IHealthKeeperCallback, IResolver {
   /// @dev Read-only checker function called by Gelato.
   /// @return canExecOut True if it's necessary to call rebalancing write-function
   /// @return execPayloadOut Wrapped call of the rebalancing function (it will be called by Gelato)
-  function checker()
-  external
-  view
-  override
-  returns (
+  function checker() external view override returns (
     bool canExecOut,
     bytes memory execPayloadOut
   ) {

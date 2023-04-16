@@ -270,4 +270,11 @@ interface ITetuConverter {
     uint collateralAmountOut,
     uint repaidAmountOut
   );
+
+  /// @notice Get active borrows of the user with given collateral/borrowToken
+  /// @dev Simple access to IDebtMonitor.getPositions
+  /// @return poolAdaptersOut The instances of IPoolAdapter
+  function getPositions(address user_, address collateralToken_, address borrowedToken_) external view returns (
+    address[] memory poolAdaptersOut
+  );
 }

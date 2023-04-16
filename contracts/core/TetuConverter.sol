@@ -760,6 +760,13 @@ contract TetuConverter is ITetuConverter, IKeeperCallback, IRequireAmountBySwapM
     return (borrowAssetAmount, collateralAmountRemained);
   }
 
+  /// @inheritdoc ITetuConverter
+  function getPositions(address user_, address collateralToken_, address borrowedToken_) external view returns (
+    address[] memory poolAdaptersOut
+  ) {
+    return IDebtMonitor(controller.debtMonitor()).getPositions(user_, collateralToken_, borrowedToken_);
+  }
+
   //-----------------------------------------------------
   //       Check and claim rewards
   //-----------------------------------------------------
