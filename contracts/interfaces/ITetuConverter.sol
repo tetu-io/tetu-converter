@@ -158,13 +158,15 @@ interface ITetuConverter {
   ///        This amount should be calculated without possible debt gap.
   ///        In this way it's differ from {repay}
   /// @return collateralAmountOut Total collateral amount to be returned after repay in exchange of {amountToRepay_}
+  /// @return swappedAmountOut A part of {collateralAmountOut} that were received by direct swap
   function quoteRepay(
     address user_,
     address collateralAsset_,
     address borrowAsset_,
     uint amountToRepay_
   ) external returns (
-    uint collateralAmountOut
+    uint collateralAmountOut,
+    uint swappedAmountOut
   );
 
   /// @notice Update status in all opened positions

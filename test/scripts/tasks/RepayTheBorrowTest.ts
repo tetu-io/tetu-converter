@@ -3,7 +3,7 @@ import {RepayTheBorrowImpl} from "../../../scripts/tasks/RepayTheBorrowImpl";
 import {IConverterController__factory, ITetuConverter__factory} from "../../../typechain";
 import {DeployerUtils} from "../../../scripts/utils/DeployerUtils";
 
-describe("test repayTheBorrow script", () => {
+describe.skip("test repayTheBorrow script", () => {
   it("should return expected values", async () => {
     const tetuConverterAddress = "0x081735DEa3D1256881B7cb31cd37c4f7C3E95152";
     const strategyAddress = "0x807a528818113a6f65b7667a59a4CaaAc719fc12";

@@ -35,6 +35,7 @@ contract Borrower is ITetuConverterCallback {
   uint public onTransferBorrowedAmountLastResultAmountBorrowAssetSentToBorrower;
 
   uint public lastQuoteRepayResultCollateralAmount;
+  uint public lastQuoteRepayResultSwappedAmount;
   uint public lastQuoteRepayGasConsumption;
   /// @notice Call quoteRepay for amountToRepay + additional amount
   uint public additionalAmountForQuoteRepay;
@@ -228,14 +229,14 @@ contract Borrower is ITetuConverterCallback {
     (uint amountToPay,) = _tc().getDebtAmountCurrent(address(this), collateralAsset_, borrowedAsset_, false);
     console.log("makeRepayComplete amountToPay", amountToPay);
     console.log("makeRepayComplete borrowed asset balance before repay", borrowBalanceBeforeRepay);
-    lastQuoteRepayResultCollateralAmount = _tc().quoteRepay(
+    (lastQuoteRepayResultCollateralAmount, lastQuoteRepayResultSwappedAmount) = _tc().quoteRepay(
       address(this),
       collateralAsset_,
       borrowedAsset_,
       amountToPay + additionalAmountForQuoteRepay
     );
     lastQuoteRepayGasConsumption -= gasleft();
-    console.log("makeRepayComplete.quoteRepay", lastQuoteRepayResultCollateralAmount, lastQuoteRepayGasConsumption);
+    console.log("makeRepayComplete.quoteRepay", lastQuoteRepayResultCollateralAmount, lastQuoteRepayResultSwappedAmount, lastQuoteRepayGasConsumption);
 
     // for repay we need debts with debt-gap
     (amountToPay,) = _tc().getDebtAmountCurrent(address(this), collateralAsset_, borrowedAsset_, true);
@@ -281,14 +282,14 @@ contract Borrower is ITetuConverterCallback {
     console.log("makeRepayPartial started - partial pay gasleft", gasleft());
 
     lastQuoteRepayGasConsumption = gasleft();
-    lastQuoteRepayResultCollateralAmount = _tc().quoteRepay(
+    (lastQuoteRepayResultCollateralAmount, lastQuoteRepayResultSwappedAmount) = _tc().quoteRepay(
       address(this),
       collateralAsset_,
       borrowedAsset_,
       amountToPay_ + additionalAmountForQuoteRepay
     );
     lastQuoteRepayGasConsumption -= gasleft();
-    console.log("makeRepayPartial.quoteRepay", lastQuoteRepayResultCollateralAmount, lastQuoteRepayGasConsumption);
+    console.log("makeRepayPartial.quoteRepay", lastQuoteRepayResultCollateralAmount, lastQuoteRepayResultSwappedAmount, lastQuoteRepayGasConsumption);
 
     IERC20(borrowedAsset_).safeTransfer(address(_tc()), amountToPay_);
     (collateralAmountOut,
