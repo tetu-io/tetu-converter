@@ -2103,15 +2103,15 @@ describe("DForcePoolAdapterUnitTest", () => {
             await results.init.controller.tetuConverter(),
             await DeployerUtils.startImpersonate(results.init.userContract.address)
           );
-          const collateralAmountOut = await tetuConverterAsUser.callStatic.quoteRepay(
+          const quoteRepayResults = await tetuConverterAsUser.callStatic.quoteRepay(
             await tetuConverterAsUser.signer.getAddress(),
             results.init.collateralToken.address,
             results.init.borrowToken.address,
             status.amountToPay
           );
 
-          const ret = collateralAmountOut.gte(status.collateralAmount);
-          console.log("ret", collateralAmountOut, status.collateralAmount);
+          const ret = quoteRepayResults.collateralAmountOut.gte(status.collateralAmount);
+          console.log("ret", quoteRepayResults.collateralAmountOut, status.collateralAmount);
           expect(ret).eq(true);
         });
       });
@@ -2124,15 +2124,15 @@ describe("DForcePoolAdapterUnitTest", () => {
             await results.init.controller.tetuConverter(),
             await DeployerUtils.startImpersonate(results.init.userContract.address)
           );
-          const collateralAmountOut = await tetuConverterAsUser.callStatic.quoteRepay(
+          const quoteRepayResults = await tetuConverterAsUser.callStatic.quoteRepay(
             await tetuConverterAsUser.signer.getAddress(),
             results.init.collateralToken.address,
             results.init.borrowToken.address,
             status.amountToPay.div(2) // 50%
           );
 
-          const ret = areAlmostEqual(collateralAmountOut.mul(2), status.collateralAmount, 5);
-          console.log("ret", collateralAmountOut.mul(2), status.collateralAmount);
+          const ret = areAlmostEqual(quoteRepayResults.collateralAmountOut.mul(2), status.collateralAmount, 5);
+          console.log("ret", quoteRepayResults.collateralAmountOut.mul(2), status.collateralAmount);
           expect(ret).eq(true);
         });
       });
@@ -2145,15 +2145,15 @@ describe("DForcePoolAdapterUnitTest", () => {
             await results.init.controller.tetuConverter(),
             await DeployerUtils.startImpersonate(results.init.userContract.address)
           );
-          const collateralAmountOut = await tetuConverterAsUser.callStatic.quoteRepay(
+          const quoteRepayResults = await tetuConverterAsUser.callStatic.quoteRepay(
             await tetuConverterAsUser.signer.getAddress(),
             results.init.collateralToken.address,
             results.init.borrowToken.address,
             status.amountToPay.div(20) // 5%
           );
 
-          const ret = areAlmostEqual(collateralAmountOut.mul(20), status.collateralAmount, 5);
-          console.log("ret", collateralAmountOut.mul(20), status.collateralAmount);
+          const ret = areAlmostEqual(quoteRepayResults.collateralAmountOut.mul(20), status.collateralAmount, 5);
+          console.log("ret", quoteRepayResults.collateralAmountOut.mul(20), status.collateralAmount);
           expect(ret).eq(true);
         });
       });

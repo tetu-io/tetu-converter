@@ -125,14 +125,14 @@ export class DeploySolutionUtils {
       MaticAddresses.USDC,
       MaticAddresses.USDT,
       MaticAddresses.DAI,
-      MaticAddresses.EURS,
-      MaticAddresses.jEUR,
+      // MaticAddresses.EURS,
+      // MaticAddresses.jEUR,
       MaticAddresses.WETH,
       MaticAddresses.WMATIC,
       MaticAddresses.WBTC,
-      // MaticAddresses.MaticX,
-      // MaticAddresses.stMATIC,
-      // MaticAddresses.miMATIC
+      MaticAddresses.MaticX,
+      MaticAddresses.stMATIC,
+      MaticAddresses.miMATIC
     ]);
 
     const deployAaveTwo = true;
@@ -221,7 +221,7 @@ export class DeploySolutionUtils {
     );
 
     console.log("Deploy platform adapters");
-    const borrowManager = IBorrowManager__factory.connect(deployCoreResults.borrowManager, signer);
+    const borrowManager: IBorrowManager = IBorrowManager__factory.connect(deployCoreResults.borrowManager, signer);
     const deployedPlatformAdapters: IPlatformAdapterResult[] = [];
 
     // Deploy all Platform adapters and pool adapters
@@ -299,7 +299,7 @@ export class DeploySolutionUtils {
         deployCoreResults.controller,
         compound3Comets,
         compound3Rewards,
-        borrowManager
+        borrowManager.address
       )
       : undefined;
     if (platformAdapterCompound3) {

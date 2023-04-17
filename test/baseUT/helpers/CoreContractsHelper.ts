@@ -164,7 +164,7 @@ export class CoreContractsHelper {
     signer: SignerWithAddress,
     controller: string,
     gelatoOpsAddress: string,
-    blocksPerDayAutoUpdatePeriodSecs: number = 2 * 7 * 24 * 60 * 60 // 2 weeks by default
+    blocksPerDayAutoUpdatePeriodSecs: number = 3 * 24 * 60 * 60 // 3 days by default
   ): Promise<Keeper> {
     return (await DeployUtils.deployContract(
       signer,
