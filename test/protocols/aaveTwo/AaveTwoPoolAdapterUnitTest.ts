@@ -47,7 +47,8 @@ import {areAlmostEqual} from "../../baseUT/utils/CommonUtils";
 import {IPoolAdapterStatus} from "../../baseUT/types/BorrowRepayDataTypes";
 import {AaveTwoChangePricesUtils} from "../../baseUT/protocols/aaveTwo/AaveTwoChangePricesUtils";
 import {loadFixture} from "@nomicfoundation/hardhat-network-helpers";
-import {Aave3ChangePricesUtils} from "../../baseUT/protocols/aave3/Aave3ChangePricesUtils";
+import {IMakeRepayBadPathsParams} from "../../baseUT/protocols/aaveShared/aaveBorrowUtils";
+import {RepayUtils} from "../../baseUT/protocols/shared/repayUtils";
 
 describe("AaveTwoPoolAdapterUnitTest", () => {
 //region Global vars for all tests
@@ -113,7 +114,6 @@ describe("AaveTwoPoolAdapterUnitTest", () => {
     beforeEach(async function () {
       snapshotForEach = await TimeUtils.snapshot();
     });
-
     afterEach(async function () {
       await TimeUtils.rollback(snapshotForEach);
     });
@@ -220,21 +220,13 @@ describe("AaveTwoPoolAdapterUnitTest", () => {
   });
 
   describe("full repay", () => {
-    let snapshotForEach: string;
-    beforeEach(async function () {
-      snapshotForEach = await TimeUtils.snapshot();
-    });
-
-    afterEach(async function () {
-      await TimeUtils.rollback(snapshotForEach);
-    });
-
     interface IMakeFullRepayTestResults {
       init: IPrepareToBorrowResults;
       borrowResults: IBorrowResults;
       collateralToken: TokenDataTypes;
       borrowToken: TokenDataTypes;
       statusBeforeRepay: IPoolAdapterStatus;
+      statusAfterRepay: IPoolAdapterStatus;
       repayResults: IAaveTwoUserAccountDataResults;
       userBorrowAssetBalanceBeforeRepay: BigNumber;
       userBorrowAssetBalanceAfterRepay: BigNumber;
@@ -243,24 +235,22 @@ describe("AaveTwoPoolAdapterUnitTest", () => {
       repayResultsReturnedBorrowAmountOut?: BigNumber;
     }
 
-    interface IMakeRepayBadPathsParams {
-      amountToRepayStr?: string;
-      makeRepayAsNotTc?: boolean;
-      closePosition?: boolean;
-      useAaveTwoPoolMock?: boolean;
-      grabAllBorrowAssetFromSenderOnRepay?: boolean;
-      collateralPriceIsZero?: boolean;
-      ignoreRepay?: boolean;
-      ignoreWithdraw?: boolean;
+    interface IMakeFullRepayTestParams extends IMakeRepayBadPathsParams{
+      /**
+       * Amount of debt is X
+       * Debt gap is delta.
+       * We should pay: X < X + delta * payDebtGapPercent / 100 < X + delta
+       */
+      payDebtGapPercent?: number;
     }
 
-    async function makeFullRepayTest(
+    async function makeFullRepay(
       collateralAsset: string,
       collateralHolder: string,
       borrowAsset: string,
       borrowHolder: string,
       collateralAmountStr: string,
-      badPathsParams?: IMakeRepayBadPathsParams
+      params?: IMakeFullRepayTestParams
     ): Promise<IMakeFullRepayTestResults> {
       const collateralToken = await TokenDataTypes.Build(deployer, collateralAsset);
       const borrowToken = await TokenDataTypes.Build(deployer, borrowAsset);
@@ -273,33 +263,36 @@ describe("AaveTwoPoolAdapterUnitTest", () => {
         borrowToken,
         {
           targetHealthFactor2: 200,
-          useAaveTwoPoolMock: badPathsParams?.useAaveTwoPoolMock,
-          useMockedAavePriceOracle: badPathsParams?.collateralPriceIsZero
+          useAaveTwoPoolMock: params?.usePoolMock,
+          useMockedAavePriceOracle: params?.collateralPriceIsZero
         }
       );
-      if (badPathsParams?.useAaveTwoPoolMock) {
-        if (badPathsParams?.grabAllBorrowAssetFromSenderOnRepay) {
+      if (params?.usePoolMock) {
+        if (params?.grabAllBorrowAssetFromSenderOnRepay) {
           await AaveTwoPoolMock__factory.connect(init.aavePool.address, deployer).setGrabAllBorrowAssetFromSenderOnRepay();
         }
-        if (badPathsParams?.ignoreRepay) {
+        if (params?.ignoreRepay) {
           await AaveTwoPoolMock__factory.connect(init.aavePool.address, deployer).setIgnoreRepay();
         }
-        if (badPathsParams?.ignoreWithdraw) {
+        if (params?.ignoreWithdraw) {
           await AaveTwoPoolMock__factory.connect(init.aavePool.address, deployer).setIgnoreWithdraw();
         }
       }
       const borrowResults = await AaveTwoTestUtils.makeBorrow(deployer, init, undefined);
-      await TimeUtils.advanceNBlocks(10000);
+      await TimeUtils.advanceNBlocks(1000);
 
-      const amountToRepay = badPathsParams?.amountToRepayStr
-        ? parseUnits(badPathsParams?.amountToRepayStr, borrowToken.decimals)
-        : undefined;
+      const statusBeforeRepay: IPoolAdapterStatus = await init.aavePoolAdapterAsTC.getStatus();
+
+      const amountToRepay = params?.amountToRepayStr
+        ? parseUnits(params?.amountToRepayStr, borrowToken.decimals)
+        : params?.payDebtGapPercent
+          ? RepayUtils.calcAmountToRepay(statusBeforeRepay.amountToPay, await init.controller.debtGap(), params.payDebtGapPercent)
+          : undefined;
       await AaveTwoTestUtils.putDoubleBorrowAmountOnUserBalance(init, borrowHolder);
 
       const userBorrowAssetBalanceBeforeRepay = await init.borrowToken.token.balanceOf(init.userContract.address);
-      const statusBeforeRepay: IPoolAdapterStatus = await init.aavePoolAdapterAsTC.getStatus();
 
-      if (badPathsParams?.collateralPriceIsZero) {
+      if (params?.collateralPriceIsZero) {
         await AaveTwoChangePricesUtils.setAssetPrice(deployer, init.collateralToken.address, BigNumber.from(0));
         console.log("Collateral price was set to 0");
       }
@@ -307,9 +300,9 @@ describe("AaveTwoPoolAdapterUnitTest", () => {
       const makeRepayResults = await AaveTwoTestUtils.makeRepay(
         init,
         amountToRepay,
-        badPathsParams?.closePosition,
+        params?.closePosition,
         {
-          makeOperationAsNotTc: badPathsParams?.makeRepayAsNotTc
+          makeOperationAsNotTc: params?.makeRepayAsNotTc
         }
       );
       const userBorrowAssetBalanceAfterRepay = await init.borrowToken.token.balanceOf(init.userContract.address);
@@ -324,231 +317,417 @@ describe("AaveTwoPoolAdapterUnitTest", () => {
         userBorrowAssetBalanceBeforeRepay,
         userBorrowAssetBalanceAfterRepay,
         repayResultsCollateralAmountOut: makeRepayResults.repayResultsCollateralAmountOut,
-        repayResultsReturnedBorrowAmountOut: makeRepayResults.repayResultsReturnedBorrowAmountOut
+        repayResultsReturnedBorrowAmountOut: makeRepayResults.repayResultsReturnedBorrowAmountOut,
+        statusAfterRepay: await init.aavePoolAdapterAsTC.getStatus()
       }
     }
 
     describe("Good paths", () => {
-      describe("DAI:WMATIC - middle amount", () => {
+      describe("closePosition is correctly set to true", () => {
+        describe("DAI:WMATIC - middle amount", () => {
+          const collateralAsset = MaticAddresses.DAI;
+          const collateralHolder = MaticAddresses.HOLDER_DAI;
+          const borrowAsset = MaticAddresses.WMATIC;
+          const borrowHolder = MaticAddresses.HOLDER_WMATIC;
+          const collateralAmountStr = "1999";
+
+          async function makeFullRepayTest() : Promise<IMakeFullRepayTestResults> {
+            return makeFullRepay(collateralAsset, collateralHolder, borrowAsset, borrowHolder, collateralAmountStr);
+          }
+
+          let snapshotLocal: string;
+          before(async function () {snapshotLocal = await TimeUtils.snapshot();});
+          after(async function () {await TimeUtils.rollback(snapshotLocal);});
+          it("should get expected status", async () => {
+            if (!await isPolygonForkInUse()) return;
+
+            const results = await loadFixture(makeFullRepayTest);
+            const status = await results.init.aavePoolAdapterAsTC.getStatus();
+            console.log("userBorrowAssetBalanceAfterRepay", results.userBorrowAssetBalanceAfterRepay);
+            console.log("userBorrowAssetBalanceBeforeRepay", results.userBorrowAssetBalanceBeforeRepay);
+            console.log("results.statusBeforeRepay", results.statusBeforeRepay);
+            const ret = [
+              status.healthFactor18.gt(parseUnits("1", 77)),
+              areAlmostEqual(
+                results.userBorrowAssetBalanceBeforeRepay.sub(results.userBorrowAssetBalanceAfterRepay),
+                results.statusBeforeRepay.amountToPay,
+                4
+              ),
+              status.collateralAmountLiquidated.eq(0),
+              status.collateralAmount.eq(0)
+            ].join();
+            const expected = [true, true, true, true].join();
+            expect(ret).eq(expected);
+          });
+          it("should close position after full repay", async () => {
+            if (!await isPolygonForkInUse()) return;
+
+            const results = await loadFixture(makeFullRepayTest);
+            const ret = await DebtMonitor__factory.connect(
+              await results.init.controller.debtMonitor(),
+              await DeployerUtils.startImpersonate(results.init.aavePoolAdapterAsTC.address)
+            ).isPositionOpened();
+            expect(ret).eq(false);
+          });
+          it("should assign expected value to collateralBalanceATokens", async () => {
+            if (!await isPolygonForkInUse()) return;
+
+            const results = await loadFixture(makeFullRepayTest);
+            const collateralBalanceATokens = await results.init.aavePoolAdapterAsTC.collateralBalanceATokens();
+            const aaveTokensBalance = await IERC20Metadata__factory.connect(
+              results.init.collateralReserveInfo.aTokenAddress,
+              deployer
+            ).balanceOf(results.init.aavePoolAdapterAsTC.address);
+            expect(collateralBalanceATokens.eq(aaveTokensBalance)).eq(true);
+
+          });
+          it("should withdraw expected collateral amount", async () => {
+            if (!await isPolygonForkInUse()) return;
+            const results = await loadFixture(makeFullRepayTest);
+
+            const receivedCollateralAmount = +formatUnits(
+              await results.collateralToken.token.balanceOf(results.init.userContract.address),
+              results.init.collateralToken.decimals
+            );
+            const collateralAmount = +formatUnits(results.init.collateralAmount, results.init.collateralToken.decimals);
+
+            // Typical values: 1999.0153115049545, 1999
+            expect(receivedCollateralAmount).gte(collateralAmount);
+            expect(receivedCollateralAmount).lte(collateralAmount + 0.1);
+          });
+          it("should return expected collateral amount", async () => {
+            if (!await isPolygonForkInUse()) return;
+            const results = await loadFixture(makeFullRepayTest);
+
+            const receivedAmount = +formatUnits(results.repayResultsCollateralAmountOut, results.init.collateralToken.decimals);
+            const collateralAmount = +formatUnits(results.init.collateralAmount, results.init.collateralToken.decimals);
+
+            // Typical values: 1999.0153115049545, 1999
+            expect(receivedAmount).gte(collateralAmount);
+            expect(receivedAmount).lte(collateralAmount + 0.1);
+          });
+          it("should left zero amount of borrow asset on balance of the pool adapter", async () => {
+            if (!await isPolygonForkInUse()) return;
+            const results = await loadFixture(makeFullRepayTest);
+
+            const leftover = +formatUnits(
+              await results.init.borrowToken.token.balanceOf(results.init.aavePoolAdapterAsTC.address),
+              results.init.borrowToken.decimals
+            );
+            expect(leftover).eq(0);
+          });
+        });
+        describe("DAI:USDC - large amount", () => {
+          const collateralAsset = MaticAddresses.DAI;
+          const collateralHolder = MaticAddresses.HOLDER_DAI;
+          const borrowAsset = MaticAddresses.USDC;
+          const borrowHolder = MaticAddresses.HOLDER_USDC;
+          const collateralAmountStr = "5000000";
+
+          async function makeFullRepayTest() : Promise<IMakeFullRepayTestResults> {
+            return makeFullRepay(collateralAsset, collateralHolder, borrowAsset, borrowHolder, collateralAmountStr);
+          }
+
+          let snapshotLocal: string;
+          before(async function () {snapshotLocal = await TimeUtils.snapshot();});
+          after(async function () {await TimeUtils.rollback(snapshotLocal);});
+
+          it("should get expected status", async () => {
+            if (!await isPolygonForkInUse()) return;
+
+            const results = await loadFixture(makeFullRepayTest);
+            const status = await results.init.aavePoolAdapterAsTC.getStatus();
+            console.log("userBorrowAssetBalanceAfterRepay", results.userBorrowAssetBalanceAfterRepay);
+            console.log("userBorrowAssetBalanceBeforeRepay", results.userBorrowAssetBalanceBeforeRepay);
+            console.log("results.statusBeforeRepay", results.statusBeforeRepay);
+            const ret = [
+              status.healthFactor18.gt(parseUnits("1", 77)),
+              areAlmostEqual(
+                results.userBorrowAssetBalanceBeforeRepay.sub(results.userBorrowAssetBalanceAfterRepay),
+                results.statusBeforeRepay.amountToPay,
+                4
+              ),
+              status.collateralAmountLiquidated.eq(0),
+              status.collateralAmount.eq(0)
+            ].join();
+            const expected = [true, true, true, true].join();
+            expect(ret).eq(expected);
+          });
+          it("should close position after full repay", async () => {
+            if (!await isPolygonForkInUse()) return;
+
+            const results = await loadFixture(makeFullRepayTest);
+            const ret = await DebtMonitor__factory.connect(
+              await results.init.controller.debtMonitor(),
+              await DeployerUtils.startImpersonate(results.init.aavePoolAdapterAsTC.address)
+            ).isPositionOpened();
+            expect(ret).eq(false);
+          });
+          it("should assign expected value to collateralBalanceATokens", async () => {
+            if (!await isPolygonForkInUse()) return;
+
+            const results = await loadFixture(makeFullRepayTest);
+            const collateralBalanceATokens = await results.init.aavePoolAdapterAsTC.collateralBalanceATokens();
+            const aaveTokensBalance = await IERC20Metadata__factory.connect(
+              results.init.collateralReserveInfo.aTokenAddress,
+              deployer
+            ).balanceOf(results.init.aavePoolAdapterAsTC.address);
+            expect(collateralBalanceATokens.eq(aaveTokensBalance)).eq(true);
+
+          });
+          it("should withdraw expected collateral amount", async () => {
+            if (!await isPolygonForkInUse()) return;
+            const results = await loadFixture(makeFullRepayTest);
+
+            const receivedCollateralAmount = +formatUnits(
+              await results.collateralToken.token.balanceOf(results.init.userContract.address),
+              results.init.collateralToken.decimals
+            );
+            const collateralAmount = +formatUnits(results.init.collateralAmount, results.init.collateralToken.decimals);
+
+            expect(receivedCollateralAmount).gte(collateralAmount);
+            // expect(receivedCollateralAmount).lte(collateralAmount + 1);
+          });
+          it("should return expected collateral amount", async () => {
+            if (!await isPolygonForkInUse()) return;
+            const results = await loadFixture(makeFullRepayTest);
+
+            const receivedAmount = +formatUnits(results.repayResultsCollateralAmountOut, results.init.collateralToken.decimals);
+            const collateralAmount = +formatUnits(results.init.collateralAmount, results.init.collateralToken.decimals);
+
+            expect(receivedAmount).gte(collateralAmount);
+            // expect(receivedAmount).lte(collateralAmount + 1);
+          });
+          it("should left zero amount of borrow asset on balance of the pool adapter", async () => {
+            if (!await isPolygonForkInUse()) return;
+            const results = await loadFixture(makeFullRepayTest);
+
+            const leftover = +formatUnits(
+              await results.init.borrowToken.token.balanceOf(results.init.aavePoolAdapterAsTC.address),
+              results.init.borrowToken.decimals
+            );
+            expect(leftover).eq(0);
+          });
+        });
+        describe("WETH:WMATIC - large amount", () => {
+          const collateralAsset = MaticAddresses.WETH;
+          const collateralHolder = MaticAddresses.HOLDER_WETH;
+          const borrowAsset = MaticAddresses.WMATIC;
+          const borrowHolder = MaticAddresses.HOLDER_WMATIC;
+          const collateralAmountStr = "1000000";
+
+          async function makeFullRepayTest() : Promise<IMakeFullRepayTestResults> {
+            return makeFullRepay(collateralAsset, collateralHolder, borrowAsset, borrowHolder, collateralAmountStr);
+          }
+
+          let snapshotLocal: string;
+          before(async function () {snapshotLocal = await TimeUtils.snapshot();});
+          after(async function () {await TimeUtils.rollback(snapshotLocal);});
+
+          it("should get expected status", async () => {
+            if (!await isPolygonForkInUse()) return;
+
+            const results = await loadFixture(makeFullRepayTest);
+            const status = await results.init.aavePoolAdapterAsTC.getStatus();
+            console.log("userBorrowAssetBalanceAfterRepay", results.userBorrowAssetBalanceAfterRepay);
+            console.log("userBorrowAssetBalanceBeforeRepay", results.userBorrowAssetBalanceBeforeRepay);
+            console.log("results.statusBeforeRepay", results.statusBeforeRepay);
+            const ret = [
+              status.healthFactor18.gt(parseUnits("1", 77)),
+              areAlmostEqual(
+                results.userBorrowAssetBalanceBeforeRepay.sub(results.userBorrowAssetBalanceAfterRepay),
+                results.statusBeforeRepay.amountToPay,
+                4
+              ),
+              status.collateralAmountLiquidated.eq(0),
+              status.collateralAmount.eq(0)
+            ].join();
+            const expected = [true, true, true, true].join();
+            expect(ret).eq(expected);
+          });
+          it("should close position after full repay", async () => {
+            if (!await isPolygonForkInUse()) return;
+
+            const results = await loadFixture(makeFullRepayTest);
+            const ret = await DebtMonitor__factory.connect(
+              await results.init.controller.debtMonitor(),
+              await DeployerUtils.startImpersonate(results.init.aavePoolAdapterAsTC.address)
+            ).isPositionOpened();
+            expect(ret).eq(false);
+          });
+          it("should assign expected value to collateralBalanceATokens", async () => {
+            if (!await isPolygonForkInUse()) return;
+
+            const results = await loadFixture(makeFullRepayTest);
+            const collateralBalanceATokens = await results.init.aavePoolAdapterAsTC.collateralBalanceATokens();
+            const aaveTokensBalance = await IERC20Metadata__factory.connect(
+              results.init.collateralReserveInfo.aTokenAddress,
+              deployer
+            ).balanceOf(results.init.aavePoolAdapterAsTC.address);
+            expect(collateralBalanceATokens.eq(aaveTokensBalance)).eq(true);
+
+          });
+          it("should withdraw expected collateral amount", async () => {
+            if (!await isPolygonForkInUse()) return;
+            const results = await loadFixture(makeFullRepayTest);
+
+            const receivedCollateralAmount = +formatUnits(
+              await results.collateralToken.token.balanceOf(results.init.userContract.address),
+              results.init.collateralToken.decimals
+            );
+            const collateralAmount = +formatUnits(results.init.collateralAmount, results.init.collateralToken.decimals);
+
+            expect(receivedCollateralAmount).gte(collateralAmount);
+            expect(receivedCollateralAmount).lte(collateralAmount + 0.1);
+          });
+          it("should return expected collateral amount", async () => {
+            if (!await isPolygonForkInUse()) return;
+            const results = await loadFixture(makeFullRepayTest);
+
+            const receivedAmount = +formatUnits(results.repayResultsCollateralAmountOut, results.init.collateralToken.decimals);
+            const collateralAmount = +formatUnits(results.init.collateralAmount, results.init.collateralToken.decimals);
+
+            expect(receivedAmount).gte(collateralAmount);
+            expect(receivedAmount).lte(collateralAmount + 0.1);
+          });
+          it("should left zero amount of borrow asset on balance of the pool adapter", async () => {
+            if (!await isPolygonForkInUse()) return;
+            const results = await loadFixture(makeFullRepayTest);
+
+            const leftover = +formatUnits(
+              await results.init.borrowToken.token.balanceOf(results.init.aavePoolAdapterAsTC.address),
+              results.init.borrowToken.decimals
+            );
+            expect(leftover).eq(0);
+          });
+        });
+      });
+      /**
+       * The situation is following:
+       * - pool adapter has debt = X
+       * - debt gap is required, so user should pay X + gap
+       * - but user has only X + delta, where delta < gap
+       * - user calls repay(X + delta, closePosition = false)
+       * - In this case pool adapter should check if the debt is paid completely;
+       * - if there is no more debt, the position must be closed
+       * - the leftover must be returned back to the receiver in any case
+       */
+      describe("closePosition is false, but actually full debt is paid", () => {
         const collateralAsset = MaticAddresses.DAI;
         const collateralHolder = MaticAddresses.HOLDER_DAI;
         const borrowAsset = MaticAddresses.WMATIC;
         const borrowHolder = MaticAddresses.HOLDER_WMATIC;
-        const collateralAmountStr = "1999"
+        const collateralAmountStr = "1000";
 
-        let results: IMakeFullRepayTestResults;
         let snapshotLocal: string;
-        before(async function () {
-          if (!await isPolygonForkInUse()) return;
-          snapshotLocal = await TimeUtils.snapshot();
-          results = await makeFullRepayTest(
+        before(async function () {snapshotLocal = await TimeUtils.snapshot();});
+        after(async function () {await TimeUtils.rollback(snapshotLocal);});
+
+        async function makeFullRepayTest() : Promise<IMakeFullRepayTestResults> {
+          // debt-gap is 1%, so we need to pay 1000 + 1% = 1010
+          // we have only 1009, so we pay 1009 and use closePosition = false
+          return makeFullRepay(
             collateralAsset,
             collateralHolder,
             borrowAsset,
             borrowHolder,
-            collateralAmountStr
+            collateralAmountStr,
+            {
+              payDebtGapPercent: 80,
+              closePosition: false
+            }
           );
-        });
-        after(async function () {
-          await TimeUtils.rollback(snapshotLocal);
-        });
-        it("should get expected status", async () => {
+        }
+
+        it("should close the position", async () => {
           if (!await isPolygonForkInUse()) return;
-          const status = await results.init.aavePoolAdapterAsTC.getStatus();
-          console.log("userBorrowAssetBalanceAfterRepay", results.userBorrowAssetBalanceAfterRepay);
-          console.log("userBorrowAssetBalanceBeforeRepay", results.userBorrowAssetBalanceBeforeRepay);
-          console.log("results.statusBeforeRepay", results.statusBeforeRepay);
-          const ret = [
-            status.healthFactor18.gt(parseUnits("1", 77)),
-            areAlmostEqual(
-              results.userBorrowAssetBalanceBeforeRepay.sub(results.userBorrowAssetBalanceAfterRepay),
-              results.statusBeforeRepay.amountToPay,
-              4
-            ),
-            status.collateralAmountLiquidated.eq(0),
-            status.collateralAmount.eq(0)
-          ].join();
-          const expected = [true, true, true, true].join();
-          expect(ret).eq(expected);
+          const results = await loadFixture(makeFullRepayTest);
+          expect(results.statusAfterRepay.opened).eq(false);
+        });
+        it("should return the unused amount to receiver", async () => {
+          if (!await isPolygonForkInUse()) return;
+          const results = await loadFixture(makeFullRepayTest);
+
+          const amountUsed = +formatUnits(
+            results.userBorrowAssetBalanceBeforeRepay.sub(results.userBorrowAssetBalanceAfterRepay),
+            results.init.borrowToken.decimals
+          );
+          const debtAmount = +formatUnits(
+            results.statusBeforeRepay.amountToPay,
+            results.init.borrowToken.decimals
+          );
+
+          // Typical case:
+          // Expected :359.50693634483997
+          // Actual   :359.50694079216674
+          // The difference happens because of borrow rate
+          expect(Math.round(amountUsed*100)).eq(Math.round(debtAmount*100));
+        });
+        it("should withdraw all leftovers to receiver", async () => {
+          if (!await isPolygonForkInUse()) return;
+          const results = await loadFixture(makeFullRepayTest);
+
+          const leftover = +formatUnits(
+            await results.init.borrowToken.token.balanceOf(results.init.aavePoolAdapterAsTC.address),
+            results.init.borrowToken.decimals
+          );
+          expect(leftover).eq(0);
+        });
+
+        it("should return zero collateralAmount", async () => {
+          if (!await isPolygonForkInUse()) return;
+          const results = await loadFixture(makeFullRepayTest);
+          expect(results.statusAfterRepay.collateralAmount.eq(0)).eq(true);
+        });
+        it("should return zero debt", async () => {
+          if (!await isPolygonForkInUse()) return;
+          const results = await loadFixture(makeFullRepayTest);
+          expect(results.statusAfterRepay.amountToPay.eq(0)).eq(true);
+        });
+        it("should return very high health factor", async () => {
+          if (!await isPolygonForkInUse()) return;
+          const results = await loadFixture(makeFullRepayTest);
+          expect(results.statusAfterRepay.healthFactor18.gt(parseUnits("1", 77))).eq(true);
         });
         it("should close position after full repay", async () => {
           if (!await isPolygonForkInUse()) return;
-          const ret = await DebtMonitor__factory.connect(
+
+          const results = await loadFixture(makeFullRepayTest);
+          const isPositionOpened = await DebtMonitor__factory.connect(
             await results.init.controller.debtMonitor(),
             await DeployerUtils.startImpersonate(results.init.aavePoolAdapterAsTC.address)
           ).isPositionOpened();
-          expect(ret).eq(false);
+          expect(isPositionOpened).eq(false);
         });
-        it("should assign expected value to collateralBalanceATokens", async () => {
+        it("should set collateralBalanceATokens to zero", async () => {
           if (!await isPolygonForkInUse()) return;
-          const collateralBalanceATokens = await results.init.aavePoolAdapterAsTC.collateralBalanceATokens();
-          const aaveTokensBalance = await IERC20Metadata__factory.connect(
-            results.init.collateralReserveInfo.aTokenAddress,
-            deployer
-          ).balanceOf(results.init.aavePoolAdapterAsTC.address);
-          expect(collateralBalanceATokens.eq(aaveTokensBalance)).eq(true);
 
+          const results = await loadFixture(makeFullRepayTest);
+          const collateralBalanceATokens = await results.init.aavePoolAdapterAsTC.collateralBalanceATokens();
+          expect(collateralBalanceATokens.eq(0)).eq(true);
         });
         it("should withdraw expected collateral amount", async () => {
           if (!await isPolygonForkInUse()) return;
-          const receivedCollateralAmount = await results.collateralToken.token.balanceOf(results.init.userContract.address);
-          console.log("receivedCollateralAmount", receivedCollateralAmount.toString());
-          console.log("results.init.collateralAmount", results.init.collateralAmount.toString());
-          expect(receivedCollateralAmount.gte(results.init.collateralAmount)).eq(true);
-        });
-        it("should return expected collateral amount", async () => {
-          if (!await isPolygonForkInUse()) return;
-          console.log("results.repayResultsCollateralAmountOut", results.repayResultsCollateralAmountOut.toString());
-          console.log("results.init.collateralAmount", results.init.collateralAmount.toString());
-          expect(results.repayResultsCollateralAmountOut.gte(results.init.collateralAmount)).eq(true);
-        });
-      });
-      describe("DAI:USDC - large amount", () => {
-        const collateralAsset = MaticAddresses.DAI;
-        const collateralHolder = MaticAddresses.HOLDER_DAI;
-        const borrowAsset = MaticAddresses.USDC;
-        const borrowHolder = MaticAddresses.HOLDER_USDC;
-        const collateralAmountStr = "5000000";
+          const results = await loadFixture(makeFullRepayTest);
 
-        let results: IMakeFullRepayTestResults;
-        let snapshotLocal: string;
-        before(async function () {
-          if (!await isPolygonForkInUse()) return;
-          snapshotLocal = await TimeUtils.snapshot();
-          results = await makeFullRepayTest(
-            collateralAsset,
-            collateralHolder,
-            borrowAsset,
-            borrowHolder,
-            collateralAmountStr
+          const receivedCollateralAmount = +formatUnits(
+            await results.collateralToken.token.balanceOf(results.init.userContract.address),
+            results.init.collateralToken.decimals
           );
-        });
-        after(async function () {
-          await TimeUtils.rollback(snapshotLocal);
-        });
-        it("should get expected status", async () => {
-          if (!await isPolygonForkInUse()) return;
-          const status = await results.init.aavePoolAdapterAsTC.getStatus();
-          console.log("userBorrowAssetBalanceAfterRepay", results.userBorrowAssetBalanceAfterRepay);
-          console.log("userBorrowAssetBalanceBeforeRepay", results.userBorrowAssetBalanceBeforeRepay);
-          console.log("results.statusBeforeRepay", results.statusBeforeRepay);
-          const ret = [
-            status.healthFactor18.gt(parseUnits("1", 77)),
-            areAlmostEqual(
-              results.userBorrowAssetBalanceBeforeRepay.sub(results.userBorrowAssetBalanceAfterRepay),
-              results.statusBeforeRepay.amountToPay,
-              4
-            ),
-            status.collateralAmountLiquidated.eq(0),
-            status.collateralAmount.eq(0)
-          ].join();
-          const expected = [true, true, true, true].join();
-          expect(ret).eq(expected);
-        });
-        it("should close position after full repay", async () => {
-          if (!await isPolygonForkInUse()) return;
-          const ret = await DebtMonitor__factory.connect(
-            await results.init.controller.debtMonitor(),
-            await DeployerUtils.startImpersonate(results.init.aavePoolAdapterAsTC.address)
-          ).isPositionOpened();
-          expect(ret).eq(false);
-        });
-        it("should assign expected value to collateralBalanceATokens", async () => {
-          if (!await isPolygonForkInUse()) return;
-          const collateralBalanceATokens = await results.init.aavePoolAdapterAsTC.collateralBalanceATokens();
-          const aaveTokensBalance = await IERC20Metadata__factory.connect(
-            results.init.collateralReserveInfo.aTokenAddress,
-            deployer
-          ).balanceOf(results.init.aavePoolAdapterAsTC.address);
-          expect(collateralBalanceATokens.eq(aaveTokensBalance)).eq(true);
+          const collateralAmount = +formatUnits(results.init.collateralAmount, results.init.collateralToken.decimals);
 
-        });
-        it("should withdraw expected collateral amount", async () => {
-          if (!await isPolygonForkInUse()) return;
-          const receivedCollateralAmount = await results.collateralToken.token.balanceOf(results.init.userContract.address);
-          console.log("receivedCollateralAmount", receivedCollateralAmount.toString());
-          console.log("results.init.collateralAmount", results.init.collateralAmount.toString());
-          expect(receivedCollateralAmount.gte(results.init.collateralAmount)).eq(true);
+          expect(receivedCollateralAmount).gte(collateralAmount);
+          expect(receivedCollateralAmount).lte(collateralAmount + 0.1);
         });
         it("should return expected collateral amount", async () => {
           if (!await isPolygonForkInUse()) return;
-          console.log("results.repayResultsCollateralAmountOut", results.repayResultsCollateralAmountOut.toString());
-          console.log("results.init.collateralAmount", results.init.collateralAmount.toString());
-          expect(results.repayResultsCollateralAmountOut.gte(results.init.collateralAmount)).eq(true);
-        });
-      });
-      describe("WETH:WMATIC - large amount", () => {
-        const collateralAsset = MaticAddresses.WETH;
-        const collateralHolder = MaticAddresses.HOLDER_WETH;
-        const borrowAsset = MaticAddresses.WMATIC;
-        const borrowHolder = MaticAddresses.HOLDER_WMATIC;
-        const collateralAmountStr = "1000000";
+          const results = await loadFixture(makeFullRepayTest);
 
-        let results: IMakeFullRepayTestResults;
-        let snapshotLocal: string;
-        before(async function () {
-          if (!await isPolygonForkInUse()) return;
-          snapshotLocal = await TimeUtils.snapshot();
-          results = await makeFullRepayTest(
-            collateralAsset,
-            collateralHolder,
-            borrowAsset,
-            borrowHolder,
-            collateralAmountStr
-          );
-        });
-        after(async function () {
-          await TimeUtils.rollback(snapshotLocal);
-        });
-        it("should get expected status", async () => {
-          if (!await isPolygonForkInUse()) return;
-          const status = await results.init.aavePoolAdapterAsTC.getStatus();
-          console.log("userBorrowAssetBalanceAfterRepay", results.userBorrowAssetBalanceAfterRepay);
-          console.log("userBorrowAssetBalanceBeforeRepay", results.userBorrowAssetBalanceBeforeRepay);
-          console.log("results.statusBeforeRepay", results.statusBeforeRepay);
-          const ret = [
-            status.healthFactor18.gt(parseUnits("1", 77)),
-            areAlmostEqual(
-              results.userBorrowAssetBalanceBeforeRepay.sub(results.userBorrowAssetBalanceAfterRepay),
-              results.statusBeforeRepay.amountToPay,
-              4
-            ),
-            status.collateralAmountLiquidated.eq(0),
-            status.collateralAmount.eq(0)
-          ].join();
-          const expected = [true, true, true, true].join();
-          expect(ret).eq(expected);
-        });
-        it("should close position after full repay", async () => {
-          if (!await isPolygonForkInUse()) return;
-          const ret = await DebtMonitor__factory.connect(
-            await results.init.controller.debtMonitor(),
-            await DeployerUtils.startImpersonate(results.init.aavePoolAdapterAsTC.address)
-          ).isPositionOpened();
-          expect(ret).eq(false);
-        });
-        it("should assign expected value to collateralBalanceATokens", async () => {
-          if (!await isPolygonForkInUse()) return;
-          const collateralBalanceATokens = await results.init.aavePoolAdapterAsTC.collateralBalanceATokens();
-          const aaveTokensBalance = await IERC20Metadata__factory.connect(
-            results.init.collateralReserveInfo.aTokenAddress,
-            deployer
-          ).balanceOf(results.init.aavePoolAdapterAsTC.address);
-          expect(collateralBalanceATokens.eq(aaveTokensBalance)).eq(true);
+          const receivedAmount = +formatUnits(results.repayResultsCollateralAmountOut, results.init.collateralToken.decimals);
+          const collateralAmount = +formatUnits(results.init.collateralAmount, results.init.collateralToken.decimals);
 
-        });
-        it("should withdraw expected collateral amount", async () => {
-          if (!await isPolygonForkInUse()) return;
-          const receivedCollateralAmount = await results.collateralToken.token.balanceOf(results.init.userContract.address);
-          console.log("receivedCollateralAmount", receivedCollateralAmount.toString());
-          console.log("results.init.collateralAmount", results.init.collateralAmount.toString());
-          expect(receivedCollateralAmount.gte(results.init.collateralAmount)).eq(true);
-        });
-        it("should return expected collateral amount", async () => {
-          if (!await isPolygonForkInUse()) return;
-          console.log("results.repayResultsCollateralAmountOut", results.repayResultsCollateralAmountOut.toString());
-          console.log("results.init.collateralAmount", results.init.collateralAmount.toString());
-          expect(results.repayResultsCollateralAmountOut.gte(results.init.collateralAmount)).eq(true);
+          expect(receivedAmount).gte(collateralAmount);
+          expect(receivedAmount).lte(collateralAmount + 0.1);
         });
       });
     });
@@ -558,9 +737,13 @@ describe("AaveTwoPoolAdapterUnitTest", () => {
       const borrowAsset = MaticAddresses.WMATIC;
       const borrowHolder = MaticAddresses.HOLDER_WMATIC;
 
+      let snapshotForEach: string;
+      beforeEach(async function () {snapshotForEach = await TimeUtils.snapshot();});
+      afterEach(async function () {await TimeUtils.rollback(snapshotForEach);});
+
       it("should return exceeded amount if user tries to pay too much", async () => {
         if (!await isPolygonForkInUse()) return;
-        const results = await makeFullRepayTest(
+        const results = await makeFullRepay(
           collateralAsset,
           collateralHolder,
           borrowAsset,
@@ -581,7 +764,7 @@ describe("AaveTwoPoolAdapterUnitTest", () => {
       it("should revert if not tetu converter", async () => {
         if (!await isPolygonForkInUse()) return;
         await expect(
-          makeFullRepayTest(
+          makeFullRepay(
             collateralAsset,
             collateralHolder,
             borrowAsset,
@@ -597,7 +780,7 @@ describe("AaveTwoPoolAdapterUnitTest", () => {
       it("should fail if pay too small amount and try to close the position", async () => {
         if (!await isPolygonForkInUse()) return;
         await expect(
-          makeFullRepayTest(
+          makeFullRepay(
             collateralAsset,
             collateralHolder,
             borrowAsset,
@@ -610,14 +793,14 @@ describe("AaveTwoPoolAdapterUnitTest", () => {
       it("should fail if the debt was completely paid but amount of the debt is still not zero in the pool", async () => {
         if (!await isPolygonForkInUse()) return;
         await expect(
-          makeFullRepayTest(
+          makeFullRepay(
             collateralAsset,
             collateralHolder,
             borrowAsset,
             borrowHolder,
             "1999",
             {
-              useAaveTwoPoolMock: true,
+              usePoolMock: true,
               ignoreWithdraw: true,
               ignoreRepay: true
             }
@@ -626,13 +809,13 @@ describe("AaveTwoPoolAdapterUnitTest", () => {
       });
       it("should NOT revert if pool has used all amount-to-repay and hasn't sent anything back", async () => {
         if (!await isPolygonForkInUse()) return;
-        const r = await makeFullRepayTest(
+        const r = await makeFullRepay(
           collateralAsset,
           collateralHolder,
           borrowAsset,
           borrowHolder,
           "1999",
-          {useAaveTwoPoolMock: true, grabAllBorrowAssetFromSenderOnRepay: true}
+          {usePoolMock: true, grabAllBorrowAssetFromSenderOnRepay: true}
         );
 
         // We emulate a situation
@@ -644,7 +827,7 @@ describe("AaveTwoPoolAdapterUnitTest", () => {
       it("should fail if collateral price is zero", async () => {
         if (!await isPolygonForkInUse()) return;
         await expect(
-          makeFullRepayTest(
+          makeFullRepay(
             collateralAsset,
             collateralHolder,
             borrowAsset,
@@ -1811,15 +1994,15 @@ describe("AaveTwoPoolAdapterUnitTest", () => {
             await results.init.controller.tetuConverter(),
             await DeployerUtils.startImpersonate(results.init.userContract.address)
           );
-          const collateralAmountOut = await tetuConverterAsUser.callStatic.quoteRepay(
+          const quoteRepayResults = await tetuConverterAsUser.callStatic.quoteRepay(
             await tetuConverterAsUser.signer.getAddress(),
             results.init.collateralToken.address,
             results.init.borrowToken.address,
             status.amountToPay
           );
 
-          const ret = collateralAmountOut.gte(status.collateralAmount);
-          console.log("ret", collateralAmountOut, status.collateralAmount);
+          const ret = quoteRepayResults.collateralAmountOut.gte(status.collateralAmount);
+          console.log("ret", quoteRepayResults.collateralAmountOut, status.collateralAmount);
           expect(ret).eq(true);
         });
       });
@@ -1833,15 +2016,15 @@ describe("AaveTwoPoolAdapterUnitTest", () => {
             await results.init.controller.tetuConverter(),
             await DeployerUtils.startImpersonate(results.init.userContract.address)
           );
-          const collateralAmountOut = await tetuConverterAsUser.callStatic.quoteRepay(
+          const quoteRepayResults = await tetuConverterAsUser.callStatic.quoteRepay(
             await tetuConverterAsUser.signer.getAddress(),
             results.init.collateralToken.address,
             results.init.borrowToken.address,
             status.amountToPay.div(2) // 50%
           );
 
-          const ret = areAlmostEqual(collateralAmountOut.mul(2), status.collateralAmount, 4);
-          console.log("ret", collateralAmountOut.mul(2), status.collateralAmount);
+          const ret = areAlmostEqual(quoteRepayResults.collateralAmountOut.mul(2), status.collateralAmount, 4);
+          console.log("ret", quoteRepayResults.collateralAmountOut.mul(2), status.collateralAmount);
           expect(ret).eq(true);
         });
       });
@@ -1855,15 +2038,15 @@ describe("AaveTwoPoolAdapterUnitTest", () => {
             await results.init.controller.tetuConverter(),
             await DeployerUtils.startImpersonate(results.init.userContract.address)
           );
-          const collateralAmountOut = await tetuConverterAsUser.callStatic.quoteRepay(
+          const quoteRepayResults = await tetuConverterAsUser.callStatic.quoteRepay(
             await tetuConverterAsUser.signer.getAddress(),
             results.init.collateralToken.address,
             results.init.borrowToken.address,
             status.amountToPay.div(20) // 5%
           );
 
-          const ret = areAlmostEqual(collateralAmountOut.mul(20), status.collateralAmount, 4);
-          console.log("ret", collateralAmountOut.mul(20), status.collateralAmount);
+          const ret = areAlmostEqual(quoteRepayResults.collateralAmountOut.mul(20), status.collateralAmount, 4);
+          console.log("ret", quoteRepayResults.collateralAmountOut.mul(20), status.collateralAmount);
           expect(ret).eq(true);
         });
       });

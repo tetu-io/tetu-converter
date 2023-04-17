@@ -509,7 +509,8 @@ contract TetuConverter is ITetuConverter, IKeeperCallback, IRequireAmountBySwapM
     address borrowAsset_,
     uint amountToRepay_
   ) external override returns (
-    uint collateralAmountOut
+    uint collateralAmountOut,
+    uint swappedAmountOut
   ) {
     address[] memory poolAdapters = debtMonitor.getPositions(user_, collateralAsset_, borrowAsset_);
     uint len = poolAdapters.length;
@@ -537,14 +538,14 @@ contract TetuConverter is ITetuConverter, IKeeperCallback, IRequireAmountBySwapM
       uint priceCollateralAsset = priceOracle.getAssetPrice(collateralAsset_);
       require(priceCollateralAsset != 0 && priceBorrowAsset != 0, AppErrors.ZERO_PRICE);
 
-      collateralAmountOut += amountToRepay_
+      swappedAmountOut = amountToRepay_
         * 10**IERC20Metadata(collateralAsset_).decimals()
         * priceBorrowAsset
         / priceCollateralAsset
         / 10**IERC20Metadata(borrowAsset_).decimals();
     }
 
-    return collateralAmountOut;
+    return (collateralAmountOut + swappedAmountOut, swappedAmountOut);
   }
 
   //-----------------------------------------------------
@@ -758,6 +759,13 @@ contract TetuConverter is ITetuConverter, IKeeperCallback, IRequireAmountBySwapM
     }
 
     return (borrowAssetAmount, collateralAmountRemained);
+  }
+
+  /// @inheritdoc ITetuConverter
+  function getPositions(address user_, address collateralToken_, address borrowedToken_) external view returns (
+    address[] memory poolAdaptersOut
+  ) {
+    return IDebtMonitor(controller.debtMonitor()).getPositions(user_, collateralToken_, borrowedToken_);
   }
 
   //-----------------------------------------------------

@@ -312,17 +312,6 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer,
       amountCollateralToWithdraw = balanceUserCollateralAfter < balanceUserCollateralBefore
         ? 0
         : balanceUserCollateralAfter - balanceUserCollateralBefore;
-
-      // user has transferred a little bigger amount than actually need to close position
-      // because of the dust-tokens problem. Let's return remain amount back to the user
-      uint borrowBalance = IERC20(assetBorrow).balanceOf(address(this));
-      if (borrowBalance != 0) {
-        IERC20(assetBorrow).safeTransfer(receiver_, borrowBalance);
-        // adjust amountToRepay_ to returned amount to send correct amount to OnRepay event
-        if (amountToRepay_ > borrowBalance) {
-          amountToRepay_ -= borrowBalance;
-        }
-      }
     } else {
       pool.withdraw(assetCollateral, amountCollateralToWithdraw, receiver_);
     }
@@ -338,6 +327,20 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer,
       } else {
         require(!closePosition_, AppErrors.CLOSE_POSITION_FAILED);
         _validateHealthFactor(c, healthFactor);
+      }
+    }
+
+    {
+      // user has transferred a little bigger amount than actually need to close position
+      // because of the dust-tokens problem. Let's return remain amount back to the user
+      uint borrowBalance = IERC20(assetBorrow).balanceOf(address(this));
+      if (borrowBalance != 0) {
+        // we assume here that the pool adapter has balance of 0 in normal case, any leftover should be send to
+        IERC20(assetBorrow).safeTransfer(receiver_, borrowBalance);
+        // adjust amountToRepay_ to returned amount to send correct amount to OnRepay event
+        if (amountToRepay_ > borrowBalance) {
+          amountToRepay_ -= borrowBalance;
+        }
       }
     }
 

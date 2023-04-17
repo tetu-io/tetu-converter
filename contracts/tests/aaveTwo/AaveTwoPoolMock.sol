@@ -108,9 +108,9 @@ contract AaveTwoPoolMock is IAaveTwoPool {
     uint256 healthFactor
   ) {
     return aavePool.getUserAccountData(
-      user == msg.sender
-      ? address(this)
-      : user
+        user == msg.sender
+        ? address(this)
+        : user
     );
   }
   function getUserConfiguration(address user) external view override returns (DataTypes.ReserveConfigurationMap memory) {
@@ -177,9 +177,9 @@ contract AaveTwoPoolMock is IAaveTwoPool {
       aavePool.deposit(
         asset,
         amount * 2,
-        onBehalfOf == msg.sender
-        ? address(this)
-        : onBehalfOf,
+          onBehalfOf == msg.sender
+          ? address(this)
+          : onBehalfOf,
         referralCode);
       console.log("Balance after deposit", IERC20(asset).balanceOf(address(this)) );
 

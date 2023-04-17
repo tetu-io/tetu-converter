@@ -44,7 +44,7 @@ import {
   PoolAdapterMock2,
   TetuConverterCallbackMock,
   LendingPlatformMock2,
-  AaveSharedLibFacade, Aave3AprLibFacade, AaveTwoAprLibFacade, DForceAprLibFacade
+  AaveSharedLibFacade, Aave3AprLibFacade, AaveTwoAprLibFacade, DForceAprLibFacade, Compound3AprLibFacade
 } from "../../../typechain";
 import {IPoolInfo} from "./BorrowManagerHelper";
 import {getBigNumberFrom} from "../../../scripts/utils/NumberUtils";
@@ -611,6 +611,10 @@ export class MocksHelper {
   public static async getDForceAprLibFacade(deployer: SignerWithAddress) : Promise<DForceAprLibFacade> {
     return await DeployUtils.deployContract(deployer, "DForceAprLibFacade") as DForceAprLibFacade;
   }
+  public static async getCompound3AprLibFacade(deployer: SignerWithAddress) : Promise<Compound3AprLibFacade> {
+    return await DeployUtils.deployContract(deployer, "Compound3AprLibFacade") as Compound3AprLibFacade;
+  }
+
 //endregion Library facades
 
 

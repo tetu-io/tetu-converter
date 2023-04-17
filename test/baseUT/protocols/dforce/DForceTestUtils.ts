@@ -86,6 +86,7 @@ export interface ILiquidationResults {
 export interface IMakeBorrowOrRepayBadPathsParams {
   makeOperationAsNotTc?: boolean;
   useDForceControllerMock?: DForceControllerMock;
+  receiver?: string;
 }
 
 export interface IDForcePoolAdapterState {
@@ -417,13 +418,13 @@ export class DForceTestUtils {
 
       const repayResultsCollateralAmountOut = await payer.callStatic.repay(
         amountToRepay,
-        d.userContract.address,
+        badPathsParams?.receiver || d.userContract.address,
         closePosition === undefined ? false : closePosition
       );
 
       await payer.repay(
         amountToRepay,
-        d.userContract.address,
+        badPathsParams?.receiver || d.userContract.address,
         closePosition === undefined ? false : closePosition
       );
 

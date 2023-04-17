@@ -25,8 +25,8 @@ async function main() {
     });
   }
 
-  const controller = "0xc1066543fB1FF7B584E64E6833E7C1a8FD998B40";
-  const strategy = "0x807a528818113a6f65b7667a59a4CaaAc719fc12";
+  const controller = "0x4c2FC0b0D5086f91e80128B498Fb14Eb989740D0";
+  const strategy = "0xAe9842896507ba6D926E38BD1E560c3874B9a80c"; // "0x807a528818113a6f65b7667a59a4CaaAc719fc12";
 
   // const signer = localHardhatIsInUse
   //   ? await DeployerUtils.startImpersonate("TODO governance")

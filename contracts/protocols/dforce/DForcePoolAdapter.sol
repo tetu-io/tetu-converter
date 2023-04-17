@@ -20,7 +20,6 @@ import "../../integrations/IWmatic.sol";
 import "../../integrations/dforce/IDForceInterestRateModel.sol";
 import "../../integrations/dforce/IDForceRewardDistributor.sol";
 
-
 /// @notice Implementation of IPoolAdapter for dForce-protocol, see https://developers.dforce.network/
 /// @dev Instances of this contract are created using proxy-minimal pattern, so no constructor
 contract DForcePoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP, Initializable {
@@ -314,12 +313,20 @@ contract DForcePoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP, Initi
       address cTokenBorrow = borrowCToken;
       address cTokenCollateral = collateralCToken;
 
+      {
+        // Update borrowBalance to actual value, we must do it before calculation of collateral to withdraw
+        uint debt = IDForceCToken(cTokenBorrow).borrowBalanceCurrent(address(this));
+        if (amountToRepay_ > debt) {
+          // all amount exceeded the debt should be directly sent to the {receiver_}
+          IERC20(assetBorrow).safeTransferFrom(msg.sender, receiver_, amountToRepay_ - debt);
+          amountToRepay_ = debt;
+        }
+      }
+
       IERC20(assetBorrow).safeTransferFrom(msg.sender, address(this), amountToRepay_);
       // we don't need following check after successful safeTransferFrom
       //    require(IERC20(assetBorrow).balanceOf(address(this)) >= amountToRepay_, AppErrors.MINT_FAILED);
 
-      // Update borrowBalance to actual value, we must do it before calculation of collateral to withdraw
-      IDForceCToken(cTokenBorrow).borrowBalanceCurrent(address(this));
       // how much collateral we are going to return
       (uint collateralTokensToWithdraw, uint tokenBalanceBefore) = _getCollateralTokensToRedeem(
         cTokenCollateral,
