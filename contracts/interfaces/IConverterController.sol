@@ -58,6 +58,7 @@ interface IConverterController {
   /// @notice The size of the gap by which the debt should be increased upon repayment
   ///         Such gaps are required by AAVE pool adapters to workaround dust tokens problem
   ///         and be able to make full repayment.
+  /// @dev Debt gap is applied as following: toPay = debt * (DEBT_GAP_DENOMINATOR + debtGap) / DEBT_GAP_DENOMINATOR
   function debtGap() external view returns (uint);
 
   //-----------------------------------------------------

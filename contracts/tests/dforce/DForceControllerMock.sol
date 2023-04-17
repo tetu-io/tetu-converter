@@ -33,6 +33,7 @@ contract DForceControllerMock is IDForceController {
   uint public returnNotZeroBorrowBalanceStoredAfterRedeem;
   /// @notice 0 - disabled, 1 - return increased borrow, N > 1: decrease this value with each call of borrowBalanceCurrent
   uint public borrowBalance1AfterCallingBorrowBalanceCurrent;
+  uint public borrowBalanceCurrentValue;
 
   constructor (
     address comptroller_,
@@ -59,9 +60,9 @@ contract DForceControllerMock is IDForceController {
     IERC20(borrowAsset_).safeApprove(borrowCToken_, type(uint).max);
   }
 
-  //-----------------------------------------------------//////////
-  ///       Config the mock
-  //-----------------------------------------------------//////////
+  //-----------------------------------------------------
+  //       Config the mock
+  //-----------------------------------------------------
   function setIgnoreBorrow() external {
     console.log("Set ignoreBorrow=true");
     ignoreBorrow = true;
@@ -82,12 +83,16 @@ contract DForceControllerMock is IDForceController {
     console.log("Set setBorrowBalance1AfterCallingBorrowBalanceCurrent", initialValue);
     borrowBalance1AfterCallingBorrowBalanceCurrent = initialValue;
   }
+  function setBorrowBalanceCurrentValue(uint value) external {
+    console.log("Set setBorrowBalanceCurrentValue", value);
+    borrowBalanceCurrentValue = value;
+  }
 
-  //-----------------------------------------------------//////////
-  ///        Calls from DForceCTokenMock
-  ///        delegated to real CTokens
-  ///        (this contract must be the message sender)
-  //-----------------------------------------------------//////////
+  //-----------------------------------------------------
+  //        Calls from DForceCTokenMock
+  //        delegated to real CTokens
+  //        (this contract must be the message sender)
+  //-----------------------------------------------------
   function mint(IDForceCToken cToken, address _recipient, uint256 _mintAmount) external {
     console.log("DForceControllerMock.mint", address(cToken), _mintAmount, _recipient);
     console.log("Balance of ctoken", msg.sender, IERC20(assetCollateral).balanceOf(msg.sender));
@@ -161,6 +166,12 @@ contract DForceControllerMock is IDForceController {
     console.log("DForceControllerMock.repayBorrow", _repayAmount);
     IERC20(cToken.underlying()).safeTransferFrom(msg.sender, address(this), _repayAmount);
     console.log("DForceControllerMock.balance", address(this), IERC20(cToken.underlying()).balanceOf(address(this)));
+    console.log("DForceControllerMock.borrowBalanceCurrentValue", borrowBalanceCurrentValue);
+    console.log("DForceControllerMock._repayAmount", _repayAmount);
+    if (borrowBalanceCurrentValue >= _repayAmount) {
+      borrowBalanceCurrentValue -= _repayAmount;
+    }
+    console.log("DForceControllerMock.borrowBalanceCurrentValue", borrowBalanceCurrentValue);
     return cToken.repayBorrow(_repayAmount);
   }
   function borrowBalanceCurrent(IDForceCToken cToken, address _account) external returns (uint256) {
@@ -169,13 +180,18 @@ contract DForceControllerMock is IDForceController {
       borrowBalance1AfterCallingBorrowBalanceCurrent -= 1;
       console.log("setBorrowBalance1AfterCallingBorrowBalanceCurrent", borrowBalance1AfterCallingBorrowBalanceCurrent);
     }
-    return cToken.borrowBalanceCurrent(_account);
+    
+    uint ret = borrowBalanceCurrentValue == 0
+      ? cToken.borrowBalanceCurrent(_account)
+      : borrowBalanceCurrentValue;
+    console.log("DForceControllerMock.borrowBalanceCurrent.ret", ret);
+    return ret;
   }
-  //-----------------------------------------------------//////////
-  ///       IDForceController facade
-  ///       All functions required by DForcePoolAdapter
-  ///       Replace mocked-cTokens by real one on the fly
-  //-----------------------------------------------------//////////
+  //-----------------------------------------------------
+  //       IDForceController facade
+  //       All functions required by DForcePoolAdapter
+  //       Replace mocked-cTokens by real one on the fly
+  //-----------------------------------------------------
   function enterMarkets(address[] memory _iTokens) external override returns (bool[] memory _results) {
     console.log("enterMarkets");
     address[] memory tokens = new address[](_iTokens.length);
@@ -234,17 +250,17 @@ contract DForceControllerMock is IDForceController {
     return comptroller.markets(target);
   }
 
-  //-----------------------------------------------------//////////
-  ///       IDForceController facade
-  ///       All other functions
-  ///
-  ///       ATTENTION
-  ///
+  //-----------------------------------------------------
+  //       IDForceController facade
+  //       All other functions
+  //
+  //       ATTENTION
+  //
   //        If you need any of following function
   //        move them in the above section
   //        and correctly replace params on the fly
   //        (cTokens addresses and user account address)
-  //-----------------------------------------------------//////////
+  //-----------------------------------------------------
   function afterBorrow(address _iToken, address _borrower, uint256 _borrowedAmount) external override {
     return comptroller.afterBorrow(_iToken, _borrower, _borrowedAmount);
   }

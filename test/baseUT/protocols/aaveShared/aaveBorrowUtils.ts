@@ -27,6 +27,17 @@ export interface IMakeBorrowTestResults {
   totalDebtBase: BigNumber;
 }
 
+export interface IMakeRepayBadPathsParams {
+  amountToRepayStr?: string;
+  makeRepayAsNotTc?: boolean;
+  closePosition?: boolean;
+  usePoolMock?: boolean;
+  grabAllBorrowAssetFromSenderOnRepay?: boolean;
+  collateralPriceIsZero?: boolean;
+  ignoreRepay?: boolean;
+  ignoreWithdraw?: boolean;
+}
+
 export class AaveBorrowUtils {
   static async daiWMatic(
     deployer: SignerWithAddress,

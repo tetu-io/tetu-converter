@@ -23,7 +23,6 @@ import {IPoolAdapterStatus} from "../../types/BorrowRepayDataTypes";
 import {getBigNumberFrom} from "../../../../scripts/utils/NumberUtils";
 import {TetuConverterApp} from "../../helpers/TetuConverterApp";
 import {Misc} from "../../../../scripts/utils/Misc";
-import {IAaveTwoUserAccountDataResults} from "../../apr/aprAaveTwo";
 import {parseUnits} from "ethers/lib/utils";
 
 //region Data types
@@ -123,17 +122,6 @@ export interface IMakeBorrowOrRepayBadPathsParams {
   ignoreBorrow?: boolean;
   skipSendingATokens?: boolean;
   useMockedAavePriceOracle?: boolean;
-}
-
-export interface IMakeRepayBadPathsParams {
-  amountToRepayStr?: string;
-  makeRepayAsNotTc?: boolean;
-  closePosition?: boolean;
-  useAave3PoolMock?: boolean;
-  grabAllBorrowAssetFromSenderOnRepay?: boolean;
-  collateralPriceIsZero?: boolean;
-  ignoreRepay?: boolean;
-  ignoreWithdraw?: boolean;
 }
 
 export interface IAave3PoolAdapterState {
