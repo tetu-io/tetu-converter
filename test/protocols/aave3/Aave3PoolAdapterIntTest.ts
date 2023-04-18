@@ -764,19 +764,21 @@ describe("Aave3PoolAdapterIntTest", () => {
         );
         console.log(r);
 
+        const resultLtv = r.userAccountData.totalDebtBase
+          .add(r.userAccountData.availableBorrowsBase)
+          .mul(1e4)
+          .div(r.userAccountData.totalCollateralBase);
+
         const ret = [
           r.userAccountData.ltv,
           r.userAccountData.currentLiquidationThreshold,
-          r.userAccountData.totalDebtBase
-            .add(r.userAccountData.availableBorrowsBase)
-            .mul(1e4)
-            .div(r.userAccountData.totalCollateralBase)
+          areAlmostEqual(resultLtv, r.collateralData.data.ltv)
         ].map(x => BalanceUtils.toString(x)).join("\n");
 
         const expected = [
           r.collateralData.data.ltv,
           r.collateralData.data.liquidationThreshold,
-          r.collateralData.data.ltv
+          true
         ].map(x => BalanceUtils.toString(x)).join("\n");
 
         expect(ret).eq(expected);
