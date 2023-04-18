@@ -118,6 +118,7 @@ export class AaveTwoTestUtils {
    */
   public static async prepareToBorrow(
     deployer: SignerWithAddress,
+    controller: ConverterController,
     collateralToken: TokenDataTypes,
     collateralHolder: string,
     collateralAmountRequired: BigNumber | undefined,
@@ -135,8 +136,6 @@ export class AaveTwoTestUtils {
     const dataProvider = await AaveTwoHelper.getAaveProtocolDataProvider(deployer);
     const aavePrices = await AaveTwoHelper.getAavePriceOracle(deployer);
 
-    // controller: we need TC (as a caller) and DM (to register borrow position)
-    const controller = await TetuConverterApp.createController(deployer);
     const userContract = await MocksHelper.deployBorrower(deployer.address, controller, periodInBlocks);
     await controller.connect(await DeployerUtils.startImpersonate(await controller.governance())).setWhitelistValues([userContract.address], true);
 
@@ -148,10 +147,7 @@ export class AaveTwoTestUtils {
       converterNormal.address
     );
 
-    const borrowManager = BorrowManager__factory.connect(
-      await controller.borrowManager(),
-      deployer
-    );
+    const borrowManager = BorrowManager__factory.connect(await controller.borrowManager(), deployer);
     await borrowManager.addAssetPairs(
       aavePlatformAdapter.address,
       [collateralToken.address],
@@ -357,6 +353,7 @@ export class AaveTwoTestUtils {
 
   public static async prepareToLiquidation(
     deployer: SignerWithAddress,
+    controller: ConverterController,
     collateralAsset: string,
     collateralHolder: string,
     collateralAmountNum: number,
@@ -368,7 +365,9 @@ export class AaveTwoTestUtils {
 
     const collateralAmount = getBigNumberFrom(collateralAmountNum, collateralToken.decimals);
 
-    const d = await AaveTwoTestUtils.prepareToBorrow(deployer,
+    const d = await AaveTwoTestUtils.prepareToBorrow(
+      deployer,
+      controller,
       collateralToken,
       collateralHolder,
       collateralAmount,

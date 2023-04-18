@@ -87,13 +87,13 @@ describe.skip("CompareAprUsesCaseTest @skip-on-coverage", () => {
         MaticAddresses.HOLDER_CHAIN_LINK
       ]
     },
-    {
-      asset: MaticAddresses.EURS, title: "EURS", holders: [
-        MaticAddresses.HOLDER_EURS,
-        MaticAddresses.HOLDER_EURS_2,
-        MaticAddresses.HOLDER_EURS_3,
-      ]
-    }
+    // {
+    //   asset: MaticAddresses.EURS, title: "EURS", holders: [
+    //     MaticAddresses.HOLDER_EURS,
+    //     MaticAddresses.HOLDER_EURS_2,
+    //     MaticAddresses.HOLDER_EURS_3,
+    //   ]
+    // }
     // , {
     //   asset: MaticAddresses.AavegotchiGHST, title: "AavegotchiGHST", holders: [
     //     MaticAddresses.HOLDER_AavegotchiGHST

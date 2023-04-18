@@ -47,6 +47,7 @@ describe("DForcePoolAdapterUnitTest", () => {
   let snapshot: string;
   let snapshotForEach: string;
   let deployer: SignerWithAddress;
+  let controllerInstance: ConverterController;
 //endregion Global vars for all tests
 
 //region before, after
@@ -55,6 +56,7 @@ describe("DForcePoolAdapterUnitTest", () => {
     snapshot = await TimeUtils.snapshot();
     const signers = await ethers.getSigners();
     deployer = signers[1];
+    controllerInstance = await TetuConverterApp.createController(deployer);
   });
 
   after(async function () {
@@ -91,6 +93,7 @@ describe("DForcePoolAdapterUnitTest", () => {
 
     const init = await DForceTestUtils.prepareToBorrow(
       deployer,
+      controllerInstance,
       collateralToken,
       collateralHolder,
       collateralCToken,
@@ -531,6 +534,7 @@ describe("DForcePoolAdapterUnitTest", () => {
 
       const init = await DForceTestUtils.prepareToBorrow(
         deployer,
+        controllerInstance,
         collateralToken,
         collateralHolder,
         collateralCToken,
@@ -1031,6 +1035,7 @@ describe("DForcePoolAdapterUnitTest", () => {
     ) : Promise<IMakeBorrowToRebalanceResults>{
       const d = await DForceTestUtils.prepareToBorrow(
         deployer,
+        controllerInstance,
         collateralToken,
         collateralHolder,
         collateralCTokenAddress,
@@ -1323,6 +1328,7 @@ describe("DForcePoolAdapterUnitTest", () => {
     ) : Promise<IMakeRepayToRebalanceResults>{
       const d = await DForceTestUtils.prepareToBorrow(
         deployer,
+        controllerInstance,
         p.collateralToken,
         p.collateralHolder,
         p.collateralCTokenAddress,
@@ -1868,6 +1874,7 @@ describe("DForcePoolAdapterUnitTest", () => {
         if (!await isPolygonForkInUse()) return;
         const d = await DForceTestUtils.prepareToBorrow(
           deployer,
+          controllerInstance,
           await TokenDataTypes.Build(deployer, MaticAddresses.DAI),
           MaticAddresses.HOLDER_DAI,
           MaticAddresses.dForce_iDAI,
@@ -1887,6 +1894,7 @@ describe("DForcePoolAdapterUnitTest", () => {
         if (!await isPolygonForkInUse()) return;
         const d = await DForceTestUtils.prepareToBorrow(
           deployer,
+          controllerInstance,
           await TokenDataTypes.Build(deployer, MaticAddresses.DAI),
           MaticAddresses.HOLDER_DAI,
           MaticAddresses.dForce_iDAI,
@@ -1960,6 +1968,7 @@ describe("DForcePoolAdapterUnitTest", () => {
       // we only prepare to borrow, but don't make a borrow
       const init = await DForceTestUtils.prepareToBorrow(
         deployer,
+        controllerInstance,
         collateralToken,
         collateralHolder,
         collateralCToken,

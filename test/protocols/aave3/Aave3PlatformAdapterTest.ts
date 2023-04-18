@@ -539,13 +539,17 @@ describe("Aave3PlatformAdapterTest", () => {
         });
       });
       describe("Isolation mode is enabled for collateral, borrow token is borrowable in isolation mode", () => {
-        describe("STASIS EURS-2 : Tether USD", () => {
+        /**
+         * Currently vars.rcDebtCeiling < vars.rc.isolationModeTotalDebt,
+         * so new borrows are not possible
+         */
+        describe.skip("STASIS EURS-2 : Tether USD", () => {
           it("should return expected values", async () =>{
             if (!await isPolygonForkInUse()) return;
 
             const collateralAsset = MaticAddresses.EURS;
             const borrowAsset = MaticAddresses.USDT;
-            const collateralAmount = getBigNumberFrom(1000, 2); // 2000 Euro
+            const collateralAmount = parseUnits("1000", 2); // 1000 Euro
 
             const r = await makeGetConversionPlanTest(
               collateralAsset,
@@ -565,7 +569,7 @@ describe("Aave3PlatformAdapterTest", () => {
 
           const collateralAsset = MaticAddresses.DAI;
           const borrowAsset = MaticAddresses.USDC;
-          const collateralAmount = getBigNumberFrom(1000, 18); // 1000 Dai
+          const collateralAmount = parseUnits("1000", 18); // 1000 Dai
 
           const r = await makeGetConversionPlanTest(
             collateralAsset,

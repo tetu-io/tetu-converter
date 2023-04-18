@@ -11,6 +11,8 @@ import {SharedRepayToRebalanceUtils} from "../../baseUT/protocols/shared/sharedR
 import {areAlmostEqual} from "../../baseUT/utils/CommonUtils";
 import {AaveTwoTestUtils, IInitialBorrowResults} from "../../baseUT/protocols/aaveTwo/AaveTwoTestUtils";
 import {AaveTwoChangePricesUtils} from "../../baseUT/protocols/aaveTwo/AaveTwoChangePricesUtils";
+import {ConverterController} from "../../../typechain";
+import {TetuConverterApp} from "../../baseUT/helpers/TetuConverterApp";
 
 describe("AaveTwoCollateralBalanceTest", () => {
 //region Constants
@@ -27,6 +29,7 @@ describe("AaveTwoCollateralBalanceTest", () => {
   let snapshotForEach: string;
   let deployer: SignerWithAddress;
   let init: IInitialBorrowResults;
+  let controllerInstance: ConverterController;
 //endregion Global vars for all tests
 
 //region before, after
@@ -37,6 +40,7 @@ describe("AaveTwoCollateralBalanceTest", () => {
     deployer = signers[0];
 
     if (!await isPolygonForkInUse()) return;
+    controllerInstance = await TetuConverterApp.createController(deployer);
     init = await makeInitialBorrow();
   });
 
@@ -60,7 +64,9 @@ describe("AaveTwoCollateralBalanceTest", () => {
 
     const collateralAmount = getBigNumberFrom(collateralAmountNum, collateralToken.decimals);
 
-    const d = await AaveTwoTestUtils.prepareToBorrow(deployer,
+    const d = await AaveTwoTestUtils.prepareToBorrow(
+      deployer,
+      controllerInstance,
       collateralToken,
       collateralHolder,
       collateralAmount,

@@ -12,6 +12,9 @@ import {MaticAddresses} from "../../../scripts/addresses/MaticAddresses";
 import {BalanceUtils} from "../../baseUT/utils/BalanceUtils";
 import {SharedRepayToRebalanceUtils} from "../../baseUT/protocols/shared/sharedRepayToRebalanceUtils";
 import {Misc} from "../../../scripts/utils/Misc";
+import {loadFixture} from "@nomicfoundation/hardhat-network-helpers";
+import {ConverterController} from "../../../typechain";
+import {TetuConverterApp} from "../../baseUT/helpers/TetuConverterApp";
 
 /**
  * These tests allow to play with liquidation and see how the app works if a liquidation happens
@@ -47,13 +50,25 @@ describe.skip("Aave3LiquidationTest - simulate liquidation", () => {
   });
 //endregion before, after
 
+//region Initial fixtures
+  /**
+   * Create TetuConverter app instance with default configuration,
+   * no platform adapters and no assets are registered.
+   */
+  async function createControllerDefaultFixture() : Promise<ConverterController> {
+    return  TetuConverterApp.createController(deployer);
+  }
+//endregion Initial fixtures
+
 //region Unit tests
   describe("Full liquidation: make borrow, change prices, make health factor < 1", () => {
     let init: IPrepareToLiquidationResults;
     before(async function () {
       if (!await isPolygonForkInUse()) return;
+      const converter = await loadFixture(createControllerDefaultFixture);
       init = await Aave3TestUtils.prepareToLiquidation(
         deployer,
+        converter,
         collateralAsset,
         collateralHolder,
         collateralAmountNum,
@@ -176,8 +191,10 @@ describe.skip("Aave3LiquidationTest - simulate liquidation", () => {
     let init: IPrepareToLiquidationResults;
     before(async function () {
       if (!await isPolygonForkInUse()) return;
+      const converter = await loadFixture(createControllerDefaultFixture);
       init = await Aave3TestUtils.prepareToLiquidation(
         deployer,
+        converter,
         collateralAsset,
         collateralHolder,
         collateralAmountNum,

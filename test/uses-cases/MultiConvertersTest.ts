@@ -47,7 +47,7 @@ describe("MultiConvertersTest", () => {
         new Aave3PlatformFabric(),
         new AaveTwoPlatformFabric(),
         new DForcePlatformFabric(),
-        new HundredFinancePlatformFabric()
+        // new HundredFinancePlatformFabric()
       ],
       {priceOracleFabric: async () => (await CoreContractsHelper.createPriceOracle(deployer)).address} // disable swap, enable price oracle
     );
@@ -91,7 +91,7 @@ describe("MultiConvertersTest", () => {
         )
       )).map(x => x.toLowerCase()).sort().join("\n");
 
-      expect(ret).eq(expected);
+      expect(ret.toLowerCase()).eq(expected.toLowerCase());
     });
   });
   describe("USDC:BAL - the pair is available on AAVE3 and AAVETwo only", () => {

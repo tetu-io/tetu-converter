@@ -10,6 +10,7 @@ import {
 } from "../shared/sharedDataTypes";
 import {parseUnits} from "ethers/lib/utils";
 import {areAlmostEqual} from "../../utils/CommonUtils";
+import {ConverterController} from "../../../../typechain";
 
 /**
  * Unification for both
@@ -41,7 +42,7 @@ export interface IMakeRepayToRebalanceResults {
  * Implementations depend on the version of AAVE protocol,
  */
 // eslint-disable-next-line no-unused-vars
-type MakeRepayToRebalanceFunc = (p: IMakeRepayToRebalanceInputParams) => Promise<IMakeRepayToRebalanceResults>;
+type MakeRepayToRebalanceFunc = (controller: ConverterController, p: IMakeRepayToRebalanceInputParams) => Promise<IMakeRepayToRebalanceResults>;
 
 export interface IAaveMakeRepayToRebalanceResults {
   healthFactorAfterBorrow18: BigNumber;
@@ -67,6 +68,7 @@ export class AaveRepayToRebalanceUtils {
   static async makeRepayToRebalanceTest(
     assets: IAssetsInputParams,
     deployer: SignerWithAddress,
+    controller: ConverterController,
     makeRepayToRebalanceFunc: MakeRepayToRebalanceFunc,
     targetHealthFactorInitial2: number,
     targetHealthFactorUpdated2: number,
@@ -82,15 +84,18 @@ export class AaveRepayToRebalanceUtils {
     const collateralAmount = parseUnits(assets.collateralAmountStr, collateralToken.decimals);
     console.log(collateralAmount, collateralAmount);
 
-    const r = await makeRepayToRebalanceFunc({
-      collateralToken,
-      collateralHolder: assets.collateralHolder,
-      collateralAmount,
-      borrowToken,
-      borrowHolder: assets.borrowHolder,
-      badPathsParams,
-      useCollateralAssetToRepay
-    });
+    const r = await makeRepayToRebalanceFunc(
+      controller,
+      {
+        collateralToken,
+        collateralHolder: assets.collateralHolder,
+        collateralAmount,
+        borrowToken,
+        borrowHolder: assets.borrowHolder,
+        badPathsParams,
+        useCollateralAssetToRepay
+      }
+    );
 
     console.log(r);
 
@@ -113,33 +118,11 @@ export class AaveRepayToRebalanceUtils {
         expected: expectedBalanceCollateralAsset
       }
     }
-
-    // const ret = [
-    //   Math.round(r.afterBorrow.healthFactor.div(
-    //     // eslint-disable-next-line @typescript-eslint/no-loss-of-precision
-    //     getBigNumberFrom(1, 15)).toNumber() / 10.
-    //   ),
-    //   Math.round(r.afterBorrowToRebalance.healthFactor.div(
-    //     // eslint-disable-next-line @typescript-eslint/no-loss-of-precision
-    //     getBigNumberFrom(1, 15)).toNumber() / 10.
-    //   ),
-    //   areAlmostEqual(realBalanceBorrowAsset, expectedBalanceBorrowAsset),
-    //   areAlmostEqual(realBalanceCollateralAsset, expectedBalanceCollateralAsset)
-    // ].join("\n");
-    // const expected = [
-    //   targetHealthFactorInitial2,
-    //   targetHealthFactorUpdated2,
-    //   true,
-    //   true
-    // ].join("\n");
-    // console.log("ret", ret);
-    // console.log("expected", expected);
-    //
-    // return {ret, expected};
   }
 
   static async daiWMatic(
     deployer: SignerWithAddress,
+    controller: ConverterController,
     makeRepayToRebalanceFunc: MakeRepayToRebalanceFunc,
     targetHealthFactorInitial2: number,
     targetHealthFactorUpdated2: number,
@@ -160,6 +143,7 @@ export class AaveRepayToRebalanceUtils {
         collateralAmountStr: "100000",
       },
       deployer,
+      controller,
       makeRepayToRebalanceFunc,
       targetHealthFactorInitial2,
       targetHealthFactorUpdated2,
@@ -170,6 +154,7 @@ export class AaveRepayToRebalanceUtils {
 
   static async usdcUsdt(
     deployer: SignerWithAddress,
+    controller: ConverterController,
     makeRepayToRebalanceFunc: MakeRepayToRebalanceFunc,
     targetHealthFactorInitial2: number,
     targetHealthFactorUpdated2: number,
@@ -190,6 +175,7 @@ export class AaveRepayToRebalanceUtils {
         collateralAmountStr: "100000",
       },
       deployer,
+      controller,
       makeRepayToRebalanceFunc,
       targetHealthFactorInitial2,
       targetHealthFactorUpdated2,

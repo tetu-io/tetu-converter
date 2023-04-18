@@ -2,6 +2,7 @@ import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import {ethers} from "hardhat";
 import {TimeUtils} from "../../../scripts/utils/TimeUtils";
 import {
+  ConverterController,
   IDForceCToken__factory,
   IERC20Metadata__factory,
   IPoolAdapter__factory,
@@ -20,6 +21,7 @@ import {transferAndApprove} from "../../baseUT/utils/transferUtils";
 import {DForceTestUtils, IPrepareToBorrowResults} from "../../baseUT/protocols/dforce/DForceTestUtils";
 import {formatUnits, parseUnits} from "ethers/lib/utils";
 import {DForceHelper} from "../../../scripts/integration/helpers/DForceHelper";
+import {TetuConverterApp} from "../../baseUT/helpers/TetuConverterApp";
 
 
 describe("DForcePoolAdapterIntTest", () => {
@@ -27,6 +29,7 @@ describe("DForcePoolAdapterIntTest", () => {
   let snapshot: string;
   let snapshotForEach: string;
   let deployer: SignerWithAddress;
+  let controllerInstance: ConverterController;
 //endregion Global vars for all tests
 
 //region before, after
@@ -38,6 +41,7 @@ describe("DForcePoolAdapterIntTest", () => {
     // if signers[0] is used than newly created TetuConverter contract has not-zero USDC balance
     // and some tests don't pass
     deployer = signers[1];
+    controllerInstance = await TetuConverterApp.createController(deployer);
   });
 
   after(async function () {
@@ -65,6 +69,7 @@ describe("DForcePoolAdapterIntTest", () => {
   ) : Promise<{sret: string, sexpected: string, prepareResults: IPrepareToBorrowResults}>{
     const d = await DForceTestUtils.prepareToBorrow(
       deployer,
+      controllerInstance,
       collateralToken,
       collateralHolder,
       collateralCToken.address,
@@ -266,6 +271,7 @@ describe("DForcePoolAdapterIntTest", () => {
 
       const d = await DForceTestUtils.prepareToBorrow(
         deployer,
+        controllerInstance,
         collateralToken,
         collateralHolder,
         collateralCToken,
@@ -427,6 +433,7 @@ describe("DForcePoolAdapterIntTest", () => {
     ) : Promise<IBorrowAndRepayResults>{
       const d = await DForceTestUtils.prepareToBorrow(
         deployer,
+        controllerInstance,
         collateralToken,
         collateralHolder,
         collateralCToken.address,
