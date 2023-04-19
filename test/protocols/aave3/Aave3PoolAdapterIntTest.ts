@@ -757,12 +757,11 @@ describe("Aave3PoolAdapterIntTest", () => {
         const collateralAmount = getBigNumberFrom(100_000, collateralToken.decimals);
 
         const r = await makeTestBorrowMaxAmount(
-          collateralToken
-          , collateralHolder
-          , collateralAmount
-          , borrowToken
+          collateralToken,
+          collateralHolder,
+          collateralAmount,
+          borrowToken,
         );
-        console.log(r);
 
         const resultLtv = r.userAccountData.totalDebtBase
           .add(r.userAccountData.availableBorrowsBase)
@@ -772,16 +771,17 @@ describe("Aave3PoolAdapterIntTest", () => {
         const ret = [
           r.userAccountData.ltv,
           r.userAccountData.currentLiquidationThreshold,
-          areAlmostEqual(resultLtv, r.collateralData.data.ltv)
         ].map(x => BalanceUtils.toString(x)).join("\n");
 
         const expected = [
           r.collateralData.data.ltv,
           r.collateralData.data.liquidationThreshold,
-          true
         ].map(x => BalanceUtils.toString(x)).join("\n");
 
         expect(ret).eq(expected);
+        console.log("resultLtv", resultLtv);
+        console.log("r.collateralData.data.ltv", r.collateralData.data.ltv);
+        expect(resultLtv).approximately(r.collateralData.data.ltv, 100);
       });
     });
   });
