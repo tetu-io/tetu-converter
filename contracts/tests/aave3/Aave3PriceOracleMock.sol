@@ -77,7 +77,7 @@ contract Aave3PriceOracleMock is IAavePriceOracle, IChangePriceForTests {
    * @return The price of the asset
    **/
   function getAssetPrice(address asset) external view override returns (uint256) {
-    console.log("Mocked getAssetPrice");
+    // console.log("Mocked getAssetPrice", _prices[asset]);
     return _prices[asset];
   }
   /**
