@@ -32,7 +32,7 @@ contract TetuConverter is ITetuConverter, IKeeperCallback, IRequireAmountBySwapM
 
   /// @notice After additional borrow result health factor should be near to target value, the difference is limited.
   uint constant public ADDITIONAL_BORROW_DELTA_DENOMINATOR = 1;
-  uint constant DEBT_GAP_DENOMINATOR = 100_000;
+  uint constant internal DEBT_GAP_DENOMINATOR = 100_000;
 
   //-----------------------------------------------------
   //                Data types
@@ -44,6 +44,18 @@ contract TetuConverter is ITetuConverter, IKeeperCallback, IRequireAmountBySwapM
     IPoolAdapter pa;
     uint totalDebtForPoolAdapter;
     bool debtGapRequired;
+  }
+
+  /// @notice Local vars for {findConversionStrategy}
+  struct FindConversionStrategyLocal {
+    address[] borrowConverters;
+    uint[] borrowSourceAmounts;
+    uint[] borrowTargetAmounts;
+    int[] borrowAprs18;
+    address swapConverter;
+    uint swapSourceAmount;
+    uint swapTargetAmount;
+    int swapApr18;
   }
 
   //-----------------------------------------------------
@@ -58,23 +70,6 @@ contract TetuConverter is ITetuConverter, IKeeperCallback, IRequireAmountBySwapM
   ISwapManager public immutable swapManager;
   address public immutable keeper;
   IPriceOracle public immutable priceOracle;
-
-
-  //-----------------------------------------------------
-  //                Data types
-  //-----------------------------------------------------
-
-  /// @notice Local vars for {findConversionStrategy}
-  struct FindConversionStrategyLocal {
-    address[] borrowConverters;
-    uint[] borrowSourceAmounts;
-    uint[] borrowTargetAmounts;
-    int[] borrowAprs18;
-    address swapConverter;
-    uint swapSourceAmount;
-    uint swapTargetAmount;
-    int swapApr18;
-  }
 
   //-----------------------------------------------------
   //               Events
