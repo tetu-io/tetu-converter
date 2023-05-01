@@ -16,6 +16,9 @@ import "../integrations/gelato/OpsReady.sol";
 contract Keeper is OpsReady, IHealthKeeperCallback, IResolver {
   using AppUtils for uint;
 
+  //-----------------------------------------------------
+  //region Members
+  //-----------------------------------------------------
   /// @notice Max count of opened positions to be checked in single request
   uint constant public maxCountToCheck = 500;
 
@@ -31,14 +34,16 @@ contract Keeper is OpsReady, IHealthKeeperCallback, IResolver {
   ///         We store here result of previous call of IDebtMonitor.checkHealth
   uint256 public override nextIndexToCheck0;
   IConverterController immutable public controller;
+  //endregion Members
 
   //-----------------------------------------------------
-  //               Events
+  //region Events
   //-----------------------------------------------------
   event OnFixHealth(uint nextIndexToCheck0, address[] poolAdapters, uint[] amountBorrowAsset, uint[] amountCollateralAsset);
+  //endregion Events
 
   //-----------------------------------------------------
-  //              Initialization and configuration
+  //region Initialization and configuration
   //-----------------------------------------------------
   constructor(
     address controller_,
@@ -56,10 +61,10 @@ contract Keeper is OpsReady, IHealthKeeperCallback, IResolver {
 
     blocksPerDayAutoUpdatePeriodSecs = periodSeconds;
   }
-
+  //endregion Initialization and configuration
 
   //-----------------------------------------------------
-  //              Read-only gelato-resolver
+  //region Read-only gelato-resolver
   //-----------------------------------------------------
 
   /// @notice Check health of opened positions starting from nth-position, where n = nextIndexToCheck0
@@ -110,8 +115,10 @@ contract Keeper is OpsReady, IHealthKeeperCallback, IResolver {
     );
   }
 
+  //endregion Read-only gelato-resolver
+
   //-----------------------------------------------------
-  //            Executor to fix unhealthy pool adapters
+  //region Executor to fix unhealthy pool adapters
   //-----------------------------------------------------
 
   /// @notice Make rebalancing of the given unhealthy positions (a position == pool adapter)
@@ -155,4 +162,6 @@ contract Keeper is OpsReady, IHealthKeeperCallback, IResolver {
       amountCollateralAsset_
     );
   }
+
+  //endregion Executor to fix unhealthy pool adapters
 }

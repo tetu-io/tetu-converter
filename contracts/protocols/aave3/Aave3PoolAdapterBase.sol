@@ -25,6 +25,9 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer,
   using Aave3ReserveConfiguration for Aave3DataTypes.ReserveConfigurationMap;
   using SafeRatioMath for uint;
 
+  //-----------------------------------------------------
+  //region Members and constants
+  //-----------------------------------------------------
   /// @notice We allow to receive less atokens then provided collateral on following value
   /// @dev Sometime, we provide collateral=1000000000000000000000 and receive atokens=999999999999999999999
   uint constant public ATOKEN_MAX_DELTA = 10;
@@ -44,9 +47,10 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer,
 
   /// @notice Total amount of all supplied and withdrawn amounts of collateral in ATokens
   uint public collateralBalanceATokens;
+  //endregion Members and constants
 
   //-----------------------------------------------------
-  ///                Events
+  //region Events
   //-----------------------------------------------------
   event OnInitialized(address controller, address pool, address user, address collateralAsset, address borrowAsset, address originConverter);
   event OnBorrow(uint collateralAmount, uint borrowAmount, address receiver, uint resultHealthFactor18,
@@ -55,9 +59,10 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer,
   event OnRepay(uint amountToRepay, address receiver, bool closePosition, uint resultHealthFactor18,
     uint collateralBalanceATokens);
   event OnRepayToRebalance(uint amount, bool isCollateral, uint resultHealthFactor18, uint collateralBalanceATokens);
+  //endregion Events
 
   //-----------------------------------------------------
-  ///                Initialization
+  //region Initialization
   //-----------------------------------------------------
 
   function initialize(
@@ -97,9 +102,10 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer,
 
     emit OnInitialized(controller_, pool_, user_, collateralAsset_, borrowAsset_, originConverter_);
   }
+  //endregion Initialization
 
   //-----------------------------------------------------
-  ///               Restrictions
+  //region Restrictions
   //-----------------------------------------------------
 
   /// @notice Ensure that the caller is TetuConverter
@@ -112,17 +118,18 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer,
     // actually, there is reserve.updateStatus function, i.e. see SupplyLogic.sol, executeWithdraw
     // but this function is internal
   }
+  //endregion Restrictions
 
   //-----------------------------------------------------
-  ///             Adapter customization
+  //region Adapter customization
   //-----------------------------------------------------
 
   /// @notice Enter to E-mode if necessary
   function prepareToBorrow() internal virtual;
-
+  //endregion Adapter customization
 
   //-----------------------------------------------------
-  ///                 Borrow logic
+  //region Borrow logic
   //-----------------------------------------------------
 
   /// @notice Supply collateral to the pool and borrow specified amount
@@ -261,9 +268,10 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer,
     emit OnBorrowToRebalance(borrowAmount_, receiver_, resultHealthFactor18);
     return (resultHealthFactor18, borrowAmount_);
   }
+  //endregion Borrow logic
 
   //-----------------------------------------------------
-  //                 Repay logic
+  //region Repay logic
   //-----------------------------------------------------
 
   /// @notice Repay borrowed amount, return collateral to the user
@@ -479,9 +487,10 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer,
       );
     }
   }
+  //endregion Repay logic
 
   //-----------------------------------------------------
-  //                 Rewards
+  //region Rewards
   //-----------------------------------------------------
   function claimRewards(address receiver_) external pure override returns (
     address rewardToken,
@@ -491,9 +500,10 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer,
     receiver_; // hide warning
     return (rewardToken, amount);
   }
+  //endregion Rewards
 
   //-----------------------------------------------------
-  //         View current status
+  //region View current status
   //-----------------------------------------------------
 
   function getConversionKind() external pure override returns (AppDataTypes.ConversionKind) {
@@ -561,21 +571,15 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer,
       true
     );
   }
-
-//  /// @notice Compute current cost of the money
-//  function getAPR18() external view override returns (int) {
-//    Aave3DataTypes.ReserveData memory rb = _pool.getReserveData(borrowAsset);
-//    return int(uint(rb.currentVariableBorrowRate) * 10**18 * 100 / 10**27);
-//  }
-
+  //endregion View current status
 
   //-----------------------------------------------------
-  //                    Utils
+  //region Utils
   //-----------------------------------------------------
 
   function _validateHealthFactor(IConverterController controller_, uint hf18) internal view {
     require(hf18 >= uint(controller_.minHealthFactor2())*10**(18-2), AppErrors.WRONG_HEALTH_FACTOR);
   }
-
+  //endregion Utils
 
 }

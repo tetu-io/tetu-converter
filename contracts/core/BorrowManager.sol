@@ -34,7 +34,7 @@ contract BorrowManager is IBorrowManager {
   IConverterController public immutable controller;
 
   //-----------------------------------------------------
-  ///                Structs and enums
+  //region Structs and enums
   //-----------------------------------------------------
 
   /// @notice Pair of two assets. Asset 1 can be converted to asset 2 and vice versa.
@@ -43,9 +43,10 @@ contract BorrowManager is IBorrowManager {
     address assetLeft;
     address assetRight;
   }
+  //endregion Structs and enums
 
   //-----------------------------------------------------
-  ///                    Members
+  //region Members
   //-----------------------------------------------------
 
   /// @notice Reward APR is taken into account with given factor
@@ -85,9 +86,10 @@ contract BorrowManager is IBorrowManager {
   /// @notice List of addresses of all ever created pool adapters (both for not-dirty and dirty ones).
   /// @dev Allow to get full list of the pool adapter and then filter it by any criteria (asset, user, state, etc)
   address[] public listPoolAdapters;
+  //endregion Members
 
   //-----------------------------------------------------
-  ///               Events
+  //region Events
   //-----------------------------------------------------
   event OnSetTargetHealthFactors(address[] assets, uint16[] healthFactors2);
   event OnSetRewardsFactor(uint rewardsFactor);
@@ -96,9 +98,10 @@ contract BorrowManager is IBorrowManager {
   event OnUnregisterPlatformAdapter(address platformAdapter);
   event OnRegisterPoolAdapter(address poolAdapter, address converter, address user, address collateralAsset, address borrowAsset);
   event OnMarkPoolAdapterAsDirty(address poolAdapter);
+  //endregion Events
 
   //-----------------------------------------------------
-  ///               Initialization
+  //region Initialization
   //-----------------------------------------------------
 
   constructor (address controller_, uint rewardsFactor_) {
@@ -109,9 +112,10 @@ contract BorrowManager is IBorrowManager {
     require(rewardsFactor_ < REWARDS_FACTOR_DENOMINATOR_18, AppErrors.INCORRECT_VALUE);
     rewardsFactor = rewardsFactor_;
   }
+  //endregion Initialization
 
   //-----------------------------------------------------
-  ///               Access rights
+  //region Access rights
   //-----------------------------------------------------
 
   /// @notice Ensure that msg.sender is registered pool adapter
@@ -127,9 +131,10 @@ contract BorrowManager is IBorrowManager {
   function _onlyGovernance() internal view {
     require(msg.sender == controller.governance(), AppErrors.GOVERNANCE_ONLY);
   }
+  //endregion Access rights
 
   //-----------------------------------------------------
-  ///               Configuration
+  //region Configuration
   //-----------------------------------------------------
 
   /// @notice Set target health factors for the assets.
@@ -243,9 +248,10 @@ contract BorrowManager is IBorrowManager {
 
     emit OnRemoveAssetPairs(platformAdapter_, leftAssets_, rightAssets_);
   }
+  //endregion Configuration
 
   //-----------------------------------------------------
-  ///           Find best pool for borrowing
+  //region Find best pool for borrowing
   //-----------------------------------------------------
 
   /// @notice Find lending pool capable of providing {targetAmount} and having best normalized borrow rate
@@ -388,9 +394,10 @@ contract BorrowManager is IBorrowManager {
 
     return (converters, collateralAmountsOut, amountsToBorrowOut, aprs18, countFoundItems);
   }
+  //endregion Find best pool for borrowing
 
   //-----------------------------------------------------
-  ///         Minimal proxy creation
+  //region Minimal proxy creation
   //-----------------------------------------------------
 
   /// @notice Register a pool adapter for (pool, user, collateral) if the adapter wasn't created before
@@ -453,9 +460,10 @@ contract BorrowManager is IBorrowManager {
 
     emit OnMarkPoolAdapterAsDirty(poolAdapter);
   }
+  //endregion Minimal proxy creation
 
   //-----------------------------------------------------
-  ///         Getters - pool adapters
+  //region Getters - pool adapters
   //-----------------------------------------------------
 
   /// @dev Returns true for NORMAL pool adapters and for active DIRTY pool adapters (=== borrow position is opened).
@@ -473,9 +481,10 @@ contract BorrowManager is IBorrowManager {
     (bool found, address dest) = _poolAdapters[user_].tryGet(getPoolAdapterKey(converter_, collateral_, borrowToken_));
     return found ? dest : address(0);
   }
+  //endregion Getters - pool adapters
 
   //-----------------------------------------------------
-  ///         Getters - platform adapters
+  //region Getters - platform adapters
   //-----------------------------------------------------
 
   /// @notice Get platformAdapter to which the converter belongs
@@ -484,9 +493,10 @@ contract BorrowManager is IBorrowManager {
     require(platformAdapter != address(0), AppErrors.PLATFORM_ADAPTER_NOT_FOUND);
     return platformAdapter;
   }
+  //endregion Getters - platform adapters
 
   //-----------------------------------------------------
-  ///         Getters - health factor
+  //region Getters - health factor
   //-----------------------------------------------------
 
   /// @notice Return target health factor with decimals 2 for the asset
@@ -497,9 +507,10 @@ contract BorrowManager is IBorrowManager {
       ? controller.targetHealthFactor2()
       : dest;
   }
+  //endregion Getters - health factor
 
   //-----------------------------------------------------
-  ///                 keccak256 keys
+  //region keccak256 keys
   //-----------------------------------------------------
 
   function getPoolAdapterKey(address converter_,
@@ -514,9 +525,10 @@ contract BorrowManager is IBorrowManager {
       ? uint(keccak256(abi.encodePacked(assetLeft_, assetRight_)))
       : uint(keccak256(abi.encodePacked(assetRight_, assetLeft_)));
   }
+  //endregion keccak256 keys
 
   //-----------------------------------------------------
-  ///                 Access to arrays
+  //region Access to arrays
   //-----------------------------------------------------
 
   function platformAdaptersLength() public view returns (uint) {
@@ -546,4 +558,5 @@ contract BorrowManager is IBorrowManager {
   function listPoolAdaptersLength() public view returns (uint) {
     return listPoolAdapters.length;
   }
+  //endregion Access to arrays
 }

@@ -25,7 +25,7 @@ contract Aave3PlatformAdapter is IPlatformAdapter {
   using Aave3ReserveConfiguration for Aave3DataTypes.ReserveConfigurationMap;
 
   //-----------------------------------------------------
-  ///   Constants
+  //region Constants
   //-----------------------------------------------------
   uint256 internal constant RAY = 1e27;
   uint256 internal constant HALF_RAY = 0.5e27;
@@ -34,9 +34,10 @@ contract Aave3PlatformAdapter is IPlatformAdapter {
   uint public constant MAX_BORROW_AMOUNT_FACTOR = 90;
   uint constant public MAX_BORROW_AMOUNT_FACTOR_DENOMINATOR = 100;
   string public constant override PLATFORM_ADAPTER_VERSION = "1.0.1";
+  //endregion Constants
 
   //-----------------------------------------------------
-  ///   Data types
+  //region Data types
   //-----------------------------------------------------
   /// @notice Local vars inside _getConversionPlan - to avoid stack too deep
   struct LocalsGetConversionPlan {
@@ -57,9 +58,10 @@ contract Aave3PlatformAdapter is IPlatformAdapter {
     uint healthFactor18;
     uint entryKind;
   }
+  //endregion Data types
 
   //-----------------------------------------------------
-  ///   Variables
+  //region Variables
   //-----------------------------------------------------
   IConverterController immutable public controller;
   IAavePool immutable public pool;
@@ -71,9 +73,10 @@ contract Aave3PlatformAdapter is IPlatformAdapter {
 
   /// @notice True if the platform is frozen and new borrowing is not possible (at this moment)
   bool public override frozen;
+  //endregion Variables
 
   //-----------------------------------------------------
-  ///               Events
+  //region Events
   //-----------------------------------------------------
   event OnPoolAdapterInitialized(
     address converter,
@@ -82,9 +85,10 @@ contract Aave3PlatformAdapter is IPlatformAdapter {
     address collateralAsset,
     address borrowAsset
   );
+  //endregion Events
 
   //-----------------------------------------------------
-  ///       Constructor and initialization
+  //region Constructor and initialization
   //-----------------------------------------------------
 
   constructor (
@@ -139,9 +143,10 @@ contract Aave3PlatformAdapter is IPlatformAdapter {
     require(msg.sender == controller.governance(), AppErrors.GOVERNANCE_ONLY);
     frozen = frozen_;
   }
+  //endregion Constructor and initialization
 
   //-----------------------------------------------------
-  ///                    View
+  //region View
   //-----------------------------------------------------
 
   function converters() external view override returns (address[] memory) {
@@ -150,9 +155,10 @@ contract Aave3PlatformAdapter is IPlatformAdapter {
     dest[1] = converterEMode;
     return dest;
   }
+  //endregion View
 
   //-----------------------------------------------------
-  ///             Get conversion plan
+  //region Get conversion plan
   //-----------------------------------------------------
   function getConversionPlan (
     AppDataTypes.InputConversionParams memory params,
@@ -405,9 +411,10 @@ contract Aave3PlatformAdapter is IPlatformAdapter {
       return plan;
     }
   }
+  //endregion Get conversion plan
 
   //-----------------------------------------------------
-  //                    Utils
+  //region Utils
   //-----------------------------------------------------
 
   /// @notice Check if the asset can be used as a collateral
@@ -429,4 +436,5 @@ contract Aave3PlatformAdapter is IPlatformAdapter {
   function _isUsableInIsolationMode(Aave3DataTypes.ReserveConfigurationMap memory borrowData) internal pure returns (bool) {
     return borrowData.getBorrowableInIsolation();
   }
+  //endregion Utils
 }

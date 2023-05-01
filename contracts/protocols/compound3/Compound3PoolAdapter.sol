@@ -17,7 +17,7 @@ contract Compound3PoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithReward
   using SafeERC20 for IERC20;
 
   ///////////////////////////////////////////////////////
-  ///                Variables
+  //region Variables
   ///////////////////////////////////////////////////////
 
   address public collateralAsset;
@@ -28,9 +28,10 @@ contract Compound3PoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithReward
   IConverterController public controller;
   address public originConverter;
   uint public collateralTokensBalance;
+  //endregion Variables
 
   ///////////////////////////////////////////////////////
-  ///                Events
+  //region Events
   ///////////////////////////////////////////////////////
 
   event OnInitialized(address controller, address pool, address user, address collateralAsset, address borrowAsset, address originConverter);
@@ -39,9 +40,10 @@ contract Compound3PoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithReward
   event OnRepay(uint amountToRepay, address receiver, bool closePosition, uint resultHealthFactor18);
   event OnRepayToRebalance(uint amount, bool isCollateral, uint resultHealthFactor18);
   event OnClaimRewards(address rewardToken, uint amount, address receiver);
+  //endregion Events
 
   //-----------------------------------------------------
-  //                  Data type
+  //region Data type
   //-----------------------------------------------------
   struct RepayLocalVars {
     IConverterController c;
@@ -49,9 +51,10 @@ contract Compound3PoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithReward
     address assetBorrow;
     address assetCollateral;
   }
+  //endregion Data type
 
   ///////////////////////////////////////////////////////
-  ///                Initialization
+  //region Initialization
   ///////////////////////////////////////////////////////
 
   function initialize(
@@ -90,18 +93,20 @@ contract Compound3PoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithReward
 
     emit OnInitialized(controller_, comet_, user_, collateralAsset_, borrowAsset_, originConverter_);
   }
+  //endregion Initialization
 
   ///////////////////////////////////////////////////////
-  ///                Modifiers
+  //region Modifiers
   ///////////////////////////////////////////////////////
 
   /// @notice Ensure that the caller is TetuConverter
   function _onlyTetuConverter(IConverterController controller_) internal view {
     require(controller_.tetuConverter() == msg.sender, AppErrors.TETU_CONVERTER_ONLY);
   }
+  //endregion Modifiers
 
   ///////////////////////////////////////////////////////
-  ///                Views
+  //region Views
   ///////////////////////////////////////////////////////
 
   function getConfig() external view returns (
@@ -149,9 +154,10 @@ contract Compound3PoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithReward
   function getConversionKind() external pure returns (AppDataTypes.ConversionKind) {
     return AppDataTypes.ConversionKind.BORROW_2;
   }
+  //endregion Views
 
   ///////////////////////////////////////////////////////
-  ///                External logic
+  //region External logic
   ///////////////////////////////////////////////////////
 
   function updateStatus() external {
@@ -323,9 +329,10 @@ contract Compound3PoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithReward
       emit OnClaimRewards(rewardToken, amount, receiver_);
     }
   }
+  //endregion External logic
 
   ///////////////////////////////////////////////////////
-  ///                Internal logic
+  //region Internal logic
   ///////////////////////////////////////////////////////
 
   /// @notice Supply collateral to Compound3
@@ -423,4 +430,5 @@ contract Compound3PoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithReward
 
     return (collateralBalance * amountToRepay_ / borrowBalance, collateralBalance);
   }
+  //endregion Internal logic
 }

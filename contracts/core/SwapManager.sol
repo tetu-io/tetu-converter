@@ -31,7 +31,7 @@ contract SwapManager is ISwapManager, ISwapConverter, ISimulateProvider, ISwapSi
   ITetuLiquidator public immutable tetuLiquidator;
 
   //-----------------------------------------------------
-  ///               Constants
+  //region Constants
   //-----------------------------------------------------
 
   int public constant APR_NUMERATOR = 10**18;
@@ -42,9 +42,10 @@ contract SwapManager is ISwapManager, ISwapConverter, ISimulateProvider, ISwapSi
   /// @notice Optional price impact tolerance for assets. If not set, PRICE_IMPACT_TOLERANCE_DEFAULT is used.
   ///         asset => price impact tolerance (decimals are set by PRICE_IMPACT_NUMERATOR)
   mapping (address => uint) public priceImpactTolerances;
+  //endregion Constants
 
   //-----------------------------------------------------
-  ///               Events
+  //region Events
   //-----------------------------------------------------
   event OnSwap(address sourceToken,
     uint sourceAmount,
@@ -52,9 +53,10 @@ contract SwapManager is ISwapManager, ISwapConverter, ISimulateProvider, ISwapSi
     address receiver,
     uint outputAmount
   );
+  //endregion Events
 
   //-----------------------------------------------------
-  ///               Initialization
+  //region Initialization
   //-----------------------------------------------------
 
   constructor (
@@ -82,9 +84,10 @@ contract SwapManager is ISwapManager, ISwapConverter, ISimulateProvider, ISwapSi
 
     priceImpactTolerances[asset_] = priceImpactTolerance;
   }
+  //endregion Initialization
 
   //-----------------------------------------------------
-  ///           Return best amount for swap
+  //region Return best amount for swap
   //-----------------------------------------------------
 
   /// @notice Find a way to convert collateral asset to borrow asset in most efficient way
@@ -136,9 +139,10 @@ contract SwapManager is ISwapManager, ISwapConverter, ISimulateProvider, ISwapSi
       ? (address(0), 0)
       : (address(this), maxTargetAmount);
   }
+  //endregion Return best amount for swap
 
   //-----------------------------------------------------
-  ///           ISwapConverter Implementation
+  //region ISwapConverter Implementation
   //-----------------------------------------------------
 
   function getConversionKind() override external pure returns (AppDataTypes.ConversionKind) {
@@ -240,9 +244,10 @@ contract SwapManager is ISwapManager, ISwapConverter, ISimulateProvider, ISwapSi
   function getPriceImpactTolerance(address asset_) external view override returns (uint priceImpactTolerance) {
     return _getPriceImpactTolerance(asset_);
   }
+  //endregion ISwapConverter Implementation
 
   //-----------------------------------------------------///////////////////////
-  ///           View functions
+  //region View functions
   //-----------------------------------------------------///////////////////////
   /// @notice Return custom or default price impact tolerance for the asset
   function _getPriceImpactTolerance(address asset_) internal view returns (uint priceImpactTolerance) {
@@ -251,12 +256,14 @@ contract SwapManager is ISwapManager, ISwapConverter, ISimulateProvider, ISwapSi
       priceImpactTolerance = PRICE_IMPACT_TOLERANCE_DEFAULT;
     }
   }
+  //endregion View functions
 
   //-----------------------------------------------------///////////////////////
-  ///           Simulate real swap
-  ///           using gnosis simulate() and simulateAndRevert() functions
-  ///           They are slightly more efficient than try/catch approach
-  ///           see SimulateTesterTest.ts
+  //region Swap simulation
+  //           Simulate real swap
+  //           using gnosis simulate() and simulateAndRevert() functions
+  //           They are slightly more efficient than try/catch approach
+  //           see SimulateTesterTest.ts
   //-----------------------------------------------------//////////////////////
 
   /// Source: https://github.com/gnosis/util-contracts/blob/main/contracts/storage/StorageSimulation.sol
@@ -363,4 +370,5 @@ contract SwapManager is ISwapManager, ISwapConverter, ISimulateProvider, ISwapSi
       }
     }
   }
+  //endregion Swap simulation
 }

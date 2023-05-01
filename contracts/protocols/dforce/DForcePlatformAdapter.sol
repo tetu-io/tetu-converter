@@ -25,12 +25,13 @@ contract DForcePlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
   using AppUtils for uint;
 
   //-----------------------------------------------------
-  ///   Constants
+  //region Constants
   //-----------------------------------------------------
   string public constant override PLATFORM_ADAPTER_VERSION = "1.0.1";
+  //endregion Constants
 
   //-----------------------------------------------------
-  ///   Data types
+  //region Data types
   //-----------------------------------------------------
 
   /// @notice Local vars inside getConversionPlan - to avoid stack too deep
@@ -40,9 +41,10 @@ contract DForcePlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
     uint healthFactor18;
     uint entryKind;
   }
+  //endregion Data types
 
   //-----------------------------------------------------
-  ///   Variables
+  //region Variables
   //-----------------------------------------------------
   IConverterController immutable public controller;
   IDForceController immutable public comptroller;
@@ -57,9 +59,10 @@ contract DForcePlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
 
   /// @notice True if the platform is frozen and new borrowing is not possible (at this moment)
   bool public override frozen;
+  //endregion Variables
 
   //-----------------------------------------------------
-  ///               Events
+  //region Events
   //-----------------------------------------------------
   event OnPoolAdapterInitialized(
     address converter,
@@ -69,9 +72,10 @@ contract DForcePlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
     address borrowAsset
   );
   event OnRegisterCTokens(address[] cTokens);
+  //endregion Events
 
   //-----------------------------------------------------
-  ///       Constructor and initialization
+  //region Constructor and initialization
   //-----------------------------------------------------
   constructor (
     address controller_,
@@ -142,19 +146,21 @@ contract DForcePlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
       activeAssets[DForceAprLib.getUnderlying(cTokens_[i])] = cTokens_[i];
     }
   }
+  //endregion Constructor and initialization
 
   //-----------------------------------------------------
-  ///                  Access
+  //region Access
   //-----------------------------------------------------
 
   /// @notice Ensure that the caller is governance
   function _onlyGovernance() internal view {
     require(controller.governance() == msg.sender, AppErrors.GOVERNANCE_ONLY);
   }
+  //endregion Access
 
 
   //-----------------------------------------------------
-  ///                     View
+  //region View
   //-----------------------------------------------------
 
   function converters() external view override returns (address[] memory) {
@@ -168,9 +174,10 @@ contract DForcePlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
   returns (address cToken1, address cToken2) {
     return (activeAssets[token1_], activeAssets[token2_]);
   }
+  //endregion View
 
   //-----------------------------------------------------
-  ///            Get conversion plan
+  //region Get conversion plan
   //-----------------------------------------------------
 
   function getConversionPlan (
@@ -325,9 +332,10 @@ contract DForcePlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
       return plan;
     }
   }
+  //endregion Get conversion plan
 
   //-----------------------------------------------------
-  ///                    Utils
+  //region Utils
   //-----------------------------------------------------
 
   /// @dev See LendingContractsV2, ConverterController.sol, calcAccountEquityWithEffect
@@ -359,34 +367,5 @@ contract DForcePlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
       ? (0, 0)
       : (borrowFactorMantissa0, borrowCapacity0);
   }
-
-  // Currently we don't need this function, it can be helpful in next versions
-  //  function getRewardAmounts(
-  //    address collateralCToken_,
-  //    uint collateralAmount_,
-  //    address borrowCToken_,
-  //    uint borrowAmount_,
-  //    uint countBlocks_,
-  //    uint delayBlocks_
-  //  ) external view returns (
-  //    uint rewardAmountSupply,
-  //    uint rewardAmountBorrow,
-  //    uint totalRewardsBT
-  //  ) {
-  //    DForceAprLib.DForceCore memory core = DForceAprLib.getCore(comptroller, collateralCToken_, borrowCToken_);
-  //
-  //    (uint priceBorrow, bool isPriceValid) = core.priceOracle.getUnderlyingPriceAndStatus(address(core.cTokenBorrow));
-  //    require(priceBorrow != 0 && isPriceValid, AppErrors.ZERO_PRICE);
-  //
-  //    return DForceAprLib.getRewardAmountInBorrowAsset(core,
-  //      DForceAprLib.RewardsAmountInput({
-  //        collateralAmount: collateralAmount_,
-  //        borrowAmount: borrowAmount_,
-  //        countBlocks: countBlocks_,
-  //        delayBlocks: delayBlocks_,
-  //        priceBorrow36: priceBorrow * 10**core.cRewardsToken.decimals()
-  //      })
-  //    );
-  //  }
-
+  //endregion Utils
 }

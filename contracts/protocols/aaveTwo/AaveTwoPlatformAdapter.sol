@@ -24,13 +24,13 @@ contract AaveTwoPlatformAdapter is IPlatformAdapter {
   using AaveTwoReserveConfiguration for DataTypes.ReserveConfigurationMap;
 
   //-----------------------------------------------------
-  //   Constants
+  //region Constants
   //-----------------------------------------------------
-
   string public constant override PLATFORM_ADAPTER_VERSION = "1.0.1";
+  //endregion Constants
 
   //-----------------------------------------------------
-  //   Data types
+  //region Data types
   //-----------------------------------------------------
 
   /// @notice Local vars inside getConversionPlan - to avoid stack too deep
@@ -49,9 +49,10 @@ contract AaveTwoPlatformAdapter is IPlatformAdapter {
     uint healthFactor18;
     uint entryKind;
   }
+  //endregion Data types
 
   //-----------------------------------------------------
-  //         Variables
+  //region Variables
   //-----------------------------------------------------
 
   IConverterController immutable public controller;
@@ -63,9 +64,10 @@ contract AaveTwoPlatformAdapter is IPlatformAdapter {
 
   /// @notice True if the platform is frozen and new borrowing is not possible (at this moment)
   bool public override frozen;
+  //endregion Variables
 
   //-----------------------------------------------------
-  //               Events
+  //region Events
   //-----------------------------------------------------
   event OnPoolAdapterInitialized(
     address converter,
@@ -74,9 +76,10 @@ contract AaveTwoPlatformAdapter is IPlatformAdapter {
     address collateralAsset,
     address borrowAsset
   );
+  //endregion Events
 
   //-----------------------------------------------------
-  //       Constructor and initialization
+  //region Constructor and initialization
   //-----------------------------------------------------
 
   constructor (
@@ -126,9 +129,10 @@ contract AaveTwoPlatformAdapter is IPlatformAdapter {
     require(msg.sender == controller.governance(), AppErrors.GOVERNANCE_ONLY);
     frozen = frozen_;
   }
+  //endregion Constructor and initialization
 
   //-----------------------------------------------------
-  //              View
+  //region View
   //-----------------------------------------------------
 
   function converters() external view override returns (address[] memory) {
@@ -136,9 +140,10 @@ contract AaveTwoPlatformAdapter is IPlatformAdapter {
     dest[0] = converter;
     return dest;
   }
+  //endregion View
 
   //-----------------------------------------------------
-  //           Get conversion plan
+  //region Get conversion plan
   //-----------------------------------------------------
 
   function getConversionPlan (
@@ -317,9 +322,10 @@ contract AaveTwoPlatformAdapter is IPlatformAdapter {
       return plan;
     }
   }
+  //endregion Get conversion plan
 
   //-----------------------------------------------------
-  ///                    Utils
+  //region Utils
   //-----------------------------------------------------
 
   /// @notice Check if the asset can be used as a collateral
@@ -335,4 +341,5 @@ contract AaveTwoPlatformAdapter is IPlatformAdapter {
   function _isUsable(DataTypes.ReserveConfigurationMap memory data) internal pure returns (bool) {
     return data.getActive() && ! data.getFrozen();
   }
+  //endregion Utils
 }

@@ -9,7 +9,7 @@ import "../interfaces/IConverterController.sol";
 contract ConverterController is IConverterController, Initializable {
 
   //-----------------------------------------------------
-  //        Constants and immutable vars
+  //region Constants and immutable vars
   //-----------------------------------------------------
   uint16 constant MIN_ALLOWED_MIN_HEALTH_FACTOR = 100;
   /// @notice Denominator for {debtGap}
@@ -19,9 +19,10 @@ contract ConverterController is IConverterController, Initializable {
   address public immutable override tetuLiquidator;
   /// @notice Price oracle, required by SwapManager
   address public immutable override priceOracle;
+  //endregion Constants and immutable vars
 
   //-----------------------------------------------------
-  //               Variables
+  //region Variables
   //   We cannot use immutable variables for the below contracts,
   //   because each contract requires address of the controller as a parameter of the constructor
   //-----------------------------------------------------
@@ -77,9 +78,10 @@ contract ConverterController is IConverterController, Initializable {
 
   /// @inheritdoc IConverterController
   uint public override debtGap;
+  //endregion Variables
 
   //-----------------------------------------------------
-  //               Events
+  //region Events
   //-----------------------------------------------------
   event OnSetBlocksPerDay(uint blocksPerDay, bool enableAutoUpdate);
   event OnAutoUpdateBlocksPerDay(uint blocksPerDay);
@@ -89,9 +91,10 @@ contract ConverterController is IConverterController, Initializable {
   event OnSetGovernance(address newGovernance);
   event OnAcceptGovernance(address pendingGovernance);
   event OnSetDebtGap(uint debtGap);
+  //endregion Events
 
   //-----------------------------------------------------
-  //        Constructor and Initialization
+  //region Constructor and Initialization
   //-----------------------------------------------------
 
   /// @dev Constructor is used to assign immutable addresses only (these contracts don't depend on controller).
@@ -155,9 +158,10 @@ contract ConverterController is IConverterController, Initializable {
   function _onlyGovernance() internal view {
     require (msg.sender == governance, AppErrors.GOVERNANCE_ONLY);
   }
+  //endregion Constructor and Initialization
 
   //-----------------------------------------------------
-  //               Blocks per day
+  //region Blocks per day
   //-----------------------------------------------------
 
   /// @notice Manually set value of blocksPerDay and enable/disable its auto-update
@@ -203,10 +207,10 @@ contract ConverterController is IConverterController, Initializable {
 
     emit OnAutoUpdateBlocksPerDay(blocksPerDay);
   }
+  //endregion Blocks per day
 
   //-----------------------------------------------------
-  //             Set up health factors
-  //  min/max thresholds and a target value for reconversion
+  //region Set up health factors, min/max thresholds and a target value for reconversion
   //-----------------------------------------------------
 
   /// @notice min allowed health factor with decimals 2
@@ -236,9 +240,10 @@ contract ConverterController is IConverterController, Initializable {
     maxHealthFactor2 = value_;
     emit OnSetMaxHealthFactor2(value_);
   }
+  //endregion Set up health factors, min/max thresholds and a target value for reconversion
 
   //-----------------------------------------------------
-  //               Governance
+  //region Governance
   //-----------------------------------------------------
 
   /// @notice Suggest to change governance
@@ -258,9 +263,10 @@ contract ConverterController is IConverterController, Initializable {
     governance = pendingGovernance;
     emit OnAcceptGovernance(pendingGovernance);
   }
+  //endregion Governance
 
   //-----------------------------------------------------
-  //               Paused
+  //region Paused
   //-----------------------------------------------------
   function paused() external view override returns (bool) {
     return _paused;
@@ -269,9 +275,10 @@ contract ConverterController is IConverterController, Initializable {
     _onlyGovernance();
     _paused = paused_;
   }
+  //endregion Paused
 
   //-----------------------------------------------------
-  //               Whitelist
+  //region Whitelist
   //-----------------------------------------------------
   function isWhitelisted(address user_) external view override returns (bool) {
     return whitelist[user_];
@@ -283,9 +290,10 @@ contract ConverterController is IConverterController, Initializable {
       whitelist[users_[i]] = isWhite;
     }
   }
+  //endregion Whitelist
 
   //-----------------------------------------------------
-  //               Debt gap
+  //region Debt gap
   //-----------------------------------------------------
 
   /// @notice Set up debt gap value
@@ -296,4 +304,5 @@ contract ConverterController is IConverterController, Initializable {
     _onlyGovernance();
     debtGap = debtGap_;
   }
+  //endregion Debt gap
 }

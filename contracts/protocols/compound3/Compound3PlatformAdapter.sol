@@ -15,13 +15,14 @@ import "./Compound3AprLib.sol";
 
 contract Compound3PlatformAdapter is IPlatformAdapter {
   ///////////////////////////////////////////////////////
-  ///                Constants
+  //region Constants
   ///////////////////////////////////////////////////////
 
   string public constant override PLATFORM_ADAPTER_VERSION = "1.0.0";
+  //endregion Constants
 
   ///////////////////////////////////////////////////////
-  ///                Variables
+  //region Variables
   ///////////////////////////////////////////////////////
 
   IConverterController immutable public controller;
@@ -38,9 +39,10 @@ contract Compound3PlatformAdapter is IPlatformAdapter {
   address[] public comets;
 
   address public cometRewards;
+  //endregion Variables
 
   ///////////////////////////////////////////////////////
-  ///                Events
+  //region Events
   ///////////////////////////////////////////////////////
 
   event OnPoolAdapterInitialized(
@@ -50,9 +52,10 @@ contract Compound3PlatformAdapter is IPlatformAdapter {
     address collateralAsset,
     address borrowAsset
   );
+  //endregion Events
 
   ///////////////////////////////////////////////////////
-  ///                Initialization
+  //region Initialization
   ///////////////////////////////////////////////////////
 
   constructor(
@@ -77,18 +80,20 @@ contract Compound3PlatformAdapter is IPlatformAdapter {
     comets = comets_;
     cometRewards = cometRewards_;
   }
+  //endregion Initialization
 
   ///////////////////////////////////////////////////////
-  ///                Modifiers
+  //region Modifiers
   ///////////////////////////////////////////////////////
 
   /// @notice Ensure that the caller is governance
   function _onlyGovernance() internal view {
     require(controller.governance() == msg.sender, AppErrors.GOVERNANCE_ONLY);
   }
+  //endregion Modifiers
 
   ///////////////////////////////////////////////////////
-  ///                Gov actions
+  //region Gov actions
   ///////////////////////////////////////////////////////
 
   /// @notice Initialize {poolAdapter_} created from {converter_} using minimal proxy pattern
@@ -139,9 +144,10 @@ contract Compound3PlatformAdapter is IPlatformAdapter {
     _onlyGovernance();
     frozen = frozen_;
   }
+  //endregion Gov actions
 
   ///////////////////////////////////////////////////////
-  ///                Views
+  //region Views
   ///////////////////////////////////////////////////////
 
   function converters() external view override returns (address[] memory) {
@@ -273,5 +279,5 @@ contract Compound3PlatformAdapter is IPlatformAdapter {
   function cometsLength() external view returns (uint) {
     return comets.length;
   }
-
+  //endregion Views
 }
