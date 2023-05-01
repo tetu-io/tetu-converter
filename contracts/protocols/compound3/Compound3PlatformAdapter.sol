@@ -156,6 +156,11 @@ contract Compound3PlatformAdapter is IPlatformAdapter {
     return dest;
   }
 
+  function platformKind() external pure returns (AppDataTypes.LendingPlatformKinds) {
+    return AppDataTypes.LendingPlatformKinds.COMPOUND3_5;
+  }
+
+
   /// @notice Get pool data required to select best lending pool
   /// @param healthFactor2_ Health factor (decimals 2) to be able to calculate max borrow amount
   ///                       See IConverterController for explanation of health factors.

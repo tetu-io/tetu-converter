@@ -155,6 +155,10 @@ contract Aave3PlatformAdapter is IPlatformAdapter {
     dest[1] = converterEMode;
     return dest;
   }
+
+  function platformKind() external pure returns (AppDataTypes.LendingPlatformKinds) {
+    return AppDataTypes.LendingPlatformKinds.AAVE3_3;
+  }
   //endregion View
 
   //-----------------------------------------------------

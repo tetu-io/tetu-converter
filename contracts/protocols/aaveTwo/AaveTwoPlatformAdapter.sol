@@ -140,6 +140,11 @@ contract AaveTwoPlatformAdapter is IPlatformAdapter {
     dest[0] = converter;
     return dest;
   }
+
+  function platformKind() external pure returns (AppDataTypes.LendingPlatformKinds) {
+    return AppDataTypes.LendingPlatformKinds.AAVE2_2;
+  }
+
   //endregion View
 
   //-----------------------------------------------------

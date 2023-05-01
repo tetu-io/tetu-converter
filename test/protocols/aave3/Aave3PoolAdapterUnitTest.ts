@@ -771,8 +771,6 @@ describe("Aave3PoolAdapterUnitTest", () => {
         ).revertedWith("TC-4 zero price"); // ZERO_PRICE
       });
     });
-//endregion Unit tests
-
   });
 
   describe("repayToRebalance", () => {

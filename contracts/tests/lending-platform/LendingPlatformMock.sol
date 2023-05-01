@@ -201,4 +201,9 @@ contract LendingPlatformMock is IPlatformAdapter {
       _priceOracle
     );
   }
+
+  function platformKind() external pure returns (AppDataTypes.LendingPlatformKinds) {
+    return AppDataTypes.LendingPlatformKinds.UNKNOWN_0;
+  }
+
 }

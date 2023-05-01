@@ -174,6 +174,11 @@ contract DForcePlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
   returns (address cToken1, address cToken2) {
     return (activeAssets[token1_], activeAssets[token2_]);
   }
+
+  function platformKind() external pure returns (AppDataTypes.LendingPlatformKinds) {
+    return AppDataTypes.LendingPlatformKinds.DFORCE_1;
+  }
+
   //endregion View
 
   //-----------------------------------------------------

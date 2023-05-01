@@ -944,4 +944,20 @@ describe("Compound3PlatformAdapterTest", () => {
       expect(await platformAdapter.cometsLength()).eq(1)
     })
   })
+
+  describe("platformKind", () => {
+    it("should return expected values", async () => {
+      if (!await isPolygonForkInUse()) return;
+
+      const controller = await TetuConverterApp.createController(deployer);
+      const pa = await AdaptersHelper.createCompound3PlatformAdapter(
+        deployer,
+        controller.address,
+        ethers.Wallet.createRandom().address,
+        [MaticAddresses.COMPOUND3_COMET_USDC],
+        MaticAddresses.COMPOUND3_COMET_REWARDS
+      )
+      expect( (await pa.platformKind())).eq(5); // LendingPlatformKinds.COMPOUND3_5
+    });
+  });
 })

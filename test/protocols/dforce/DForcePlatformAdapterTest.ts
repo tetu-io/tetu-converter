@@ -1531,6 +1531,8 @@ describe("DForcePlatformAdapterTest", () => {
 
   describe("setFrozen", () => {
     it("should assign expected value to frozen", async () => {
+      if (!await isPolygonForkInUse()) return;
+
       const controller = await TetuConverterApp.createController(deployer,
         {tetuLiquidatorAddress: MaticAddresses.TETU_LIQUIDATOR}
       );
@@ -1554,6 +1556,24 @@ describe("DForcePlatformAdapterTest", () => {
       const expected = [false, true, false].join();
 
       expect(ret).eq(expected);
+    });
+  });
+
+  describe("platformKind", () => {
+    it("should return expected values", async () => {
+      if (!await isPolygonForkInUse()) return;
+
+      const controller = await TetuConverterApp.createController(deployer);
+
+      const comptroller = await DForceHelper.getController(deployer);
+      const pa = await AdaptersHelper.createDForcePlatformAdapter(
+        deployer,
+        controller.address,
+        comptroller.address,
+        ethers.Wallet.createRandom().address,
+        [MaticAddresses.dForce_iDAI, MaticAddresses.dForce_iUSDC],
+      );
+      expect( (await pa.platformKind())).eq(1); // LendingPlatformKinds.DFORCE_1
     });
   });
 //endregion Unit tests

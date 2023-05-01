@@ -1275,6 +1275,8 @@ describe("Aave3PlatformAdapterTest", () => {
 
   describe("setFrozen", () => {
     it("should assign expected value to frozen", async () => {
+      if (!await isPolygonForkInUse()) return;
+
       const controller = await TetuConverterApp.createController(deployer,
         {tetuLiquidatorAddress: MaticAddresses.TETU_LIQUIDATOR}
       );
@@ -1298,6 +1300,24 @@ describe("Aave3PlatformAdapterTest", () => {
       const expected = [false, true, false].join();
 
       expect(ret).eq(expected);
+    });
+  });
+
+  describe("platformKind", () => {
+    it("should return expected values", async () => {
+      if (!await isPolygonForkInUse()) return;
+
+      const controller = await TetuConverterApp.createController(deployer);
+
+      const pa = await AdaptersHelper.createAave3PlatformAdapter(
+        deployer,
+        controller.address,
+        MaticAddresses.AAVE_V3_POOL,
+        ethers.Wallet.createRandom().address,
+        ethers.Wallet.createRandom().address,
+        await controller.borrowManager()
+      );
+      expect( (await pa.platformKind())).eq(3); // LendingPlatformKinds.AAVE3_3
     });
   });
 //endregion Unit tests

@@ -97,4 +97,9 @@ contract LendingPlatformMock2 is IPlatformAdapter {
   function setFrozen(bool frozen_) external {
     _frozen = frozen_;
   }
+
+  function platformKind() external pure returns (AppDataTypes.LendingPlatformKinds) {
+    return AppDataTypes.LendingPlatformKinds.UNKNOWN_0;
+  }
+
 }
