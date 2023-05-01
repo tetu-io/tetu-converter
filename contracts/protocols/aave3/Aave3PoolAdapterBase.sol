@@ -330,6 +330,7 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer,
       uint totalCollateralBase;
       uint totalDebtBase;
       (totalCollateralBase, totalDebtBase,,,, healthFactor) = pool.getUserAccountData(address(this));
+
       if (totalCollateralBase == 0 && totalDebtBase == 0) {
         IDebtMonitor(c.debtMonitor()).onClosePosition();
       } else {

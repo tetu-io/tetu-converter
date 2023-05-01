@@ -753,6 +753,30 @@ describe("AaveTwoPoolAdapterUnitTest", () => {
           expect(receivedAmount).lte(collateralAmount + 0.1);
         });
       });
+
+      /**
+       *  F.e. if we need to repay $0.000049, debt gap = 1%, amount-to-pay = 0.00004949 == 0.000049 because decimals = 6
+       *       in such case MIN_DEBT_GAP_ADDON should be used
+       *       we need to add 10 tokens, so amount-to-repay = $0.000059
+       */
+      describe("Repay very small amount with tiny debt-gap amount", async () => {
+        const collateralAsset = MaticAddresses.USDC;
+        const collateralHolder = MaticAddresses.HOLDER_USDC;
+        const borrowAsset = MaticAddresses.USDT;
+        const borrowHolder = MaticAddresses.HOLDER_USDT;
+
+        let snapshotLocal: string;
+        before(async function () {snapshotLocal = await TimeUtils.snapshot();});
+        after(async function () {await TimeUtils.rollback(snapshotLocal);});
+
+        it("Should repay expected amount + tiny debt gap (at most several tokens)", async () => {
+          const r = await makeFullRepay(collateralAsset, collateralHolder, borrowAsset, borrowHolder, "0.00006");
+          expect(r.statusAfterRepay.opened).eq(false);
+          const paid = r.userBorrowAssetBalanceBeforeRepay.sub(r.userBorrowAssetBalanceAfterRepay);
+          const expected = r.statusBeforeRepay.amountToPay;
+          expect(paid.lt(expected.add(2))).eq(true);
+        });
+      });
     });
     describe("Bad paths", () => {
       const collateralAsset = MaticAddresses.DAI;

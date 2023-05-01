@@ -10,6 +10,7 @@ import "../openzeppelin/IERC20Metadata.sol";
 import "../openzeppelin/SafeERC20.sol";
 import "../openzeppelin/IERC20.sol";
 import "../openzeppelin/ReentrancyGuard.sol";
+import "../openzeppelin/Math.sol";
 import "../interfaces/IBorrowManager.sol";
 import "../interfaces/ISwapManager.sol";
 import "../interfaces/ITetuConverter.sol";
@@ -33,6 +34,9 @@ contract TetuConverter is ITetuConverter, IKeeperCallback, IRequireAmountBySwapM
   /// @notice After additional borrow result health factor should be near to target value, the difference is limited.
   uint constant public ADDITIONAL_BORROW_DELTA_DENOMINATOR = 1;
   uint constant internal DEBT_GAP_DENOMINATOR = 100_000;
+  /// @dev Absolute value of debt-gap-addon for any token
+  /// @notice A value of the debt gap, calculate using debt-gap percent, cannot be less than the following
+  uint internal constant MIN_DEBT_GAP_ADDON = 10;
 
   //-----------------------------------------------------
   //region Data types
@@ -465,7 +469,7 @@ contract TetuConverter is ITetuConverter, IKeeperCallback, IRequireAmountBySwapM
 
       if (v.debtGapRequired) {
         // we assume here, that amountToRepay_ includes all required dept-gaps
-        v.totalDebtForPoolAdapter = v.totalDebtForPoolAdapter * (DEBT_GAP_DENOMINATOR + v.debtGap) / DEBT_GAP_DENOMINATOR;
+        v.totalDebtForPoolAdapter = getAmountWithDebtGap(v.totalDebtForPoolAdapter, v.debtGap);
       }
       uint amountToPayToPoolAdapter = amountToRepay_ >= v.totalDebtForPoolAdapter
         ? v.totalDebtForPoolAdapter
@@ -622,7 +626,7 @@ contract TetuConverter is ITetuConverter, IKeeperCallback, IRequireAmountBySwapM
     bool debtGapRequired;
     (collateralAmountOut, repaidAmountOut,,,,debtGapRequired) = pa.getStatus();
     if (debtGapRequired) {
-      repaidAmountOut = repaidAmountOut * (DEBT_GAP_DENOMINATOR + controller.debtGap()) / DEBT_GAP_DENOMINATOR;
+      repaidAmountOut = getAmountWithDebtGap(repaidAmountOut, controller.debtGap());
     }
 
     require(collateralAmountOut != 0 && repaidAmountOut != 0, AppErrors.REPAY_FAILED);
@@ -693,7 +697,7 @@ contract TetuConverter is ITetuConverter, IKeeperCallback, IRequireAmountBySwapM
       pa.updateStatus();
       (uint collateralAmount, uint totalDebtForPoolAdapter,,,, bool debtGapRequired) = pa.getStatus();
       totalDebtAmountOut += useDebtGap_ && debtGapRequired
-        ? totalDebtForPoolAdapter * (DEBT_GAP_DENOMINATOR + debtGap) / DEBT_GAP_DENOMINATOR
+        ? getAmountWithDebtGap(totalDebtForPoolAdapter, debtGap)
         : totalDebtForPoolAdapter;
       totalCollateralAmountOut += collateralAmount;
     }
@@ -722,7 +726,7 @@ contract TetuConverter is ITetuConverter, IKeeperCallback, IRequireAmountBySwapM
       IPoolAdapter pa = IPoolAdapter(poolAdapters[i]);
       (uint collateralAmount, uint totalDebtForPoolAdapter,,,, bool debtGapRequired) = pa.getStatus();
       totalDebtAmountOut += useDebtGap_ && debtGapRequired
-        ? totalDebtForPoolAdapter * (DEBT_GAP_DENOMINATOR + debtGap) / DEBT_GAP_DENOMINATOR
+        ? getAmountWithDebtGap(totalDebtForPoolAdapter, debtGap)
         : totalDebtForPoolAdapter;
       totalCollateralAmountOut += collateralAmount;
     }
@@ -753,7 +757,7 @@ contract TetuConverter is ITetuConverter, IKeeperCallback, IRequireAmountBySwapM
       IPoolAdapter pa = IPoolAdapter(poolAdapters[i]);
       (uint collateralAmount, uint borrowedAmount,,,,bool debtGapRequired) = pa.getStatus();
       if (debtGapRequired) {
-        borrowedAmount = borrowedAmount * (DEBT_GAP_DENOMINATOR + debtGap) / DEBT_GAP_DENOMINATOR;
+        borrowedAmount = getAmountWithDebtGap(borrowedAmount, debtGap);
       }
 
       if (collateralAmountRemained >= collateralAmount) {
@@ -886,4 +890,18 @@ contract TetuConverter is ITetuConverter, IKeeperCallback, IRequireAmountBySwapM
     );
   }
   //endregion Liquidate with checking
+
+  //-----------------------------------------------------
+  //region Utils
+  //-----------------------------------------------------
+  /// @notice Add {debtGap} to the {amount}
+  /// @param debtGap debt-gap percent [0..1), decimals DEBT_GAP_DENOMINATOR
+  function getAmountWithDebtGap(uint amount, uint debtGap) public pure returns (uint) {
+    // Real value of debt gap in AAVE can be very low but it's greater than zero
+    // so, even if the amount is very low, the result debt gap addon must be greater than zero
+    // we assume here, that it should be not less than MIN_DEBT_GAP_ADDON
+    return Math.max(amount * (DEBT_GAP_DENOMINATOR + debtGap) / DEBT_GAP_DENOMINATOR, amount + MIN_DEBT_GAP_ADDON);
+  }
+  //endregion Utils
 }
+
