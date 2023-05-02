@@ -902,25 +902,42 @@ describe("Compound3PlatformAdapterTest", () => {
   })
 
   describe("setFrozen", () => {
-    it("should assign expected value to frozen", async () => {
-      const controller = await TetuConverterApp.createController(
-        deployer,
-        {tetuLiquidatorAddress: MaticAddresses.TETU_LIQUIDATOR}
-      );
-      const platformAdapter = await AdaptersHelper.createCompound3PlatformAdapter(
-        deployer,
-        controller.address,
-        ethers.Wallet.createRandom().address,
-        [MaticAddresses.COMPOUND3_COMET_USDC],
-        MaticAddresses.COMPOUND3_COMET_REWARDS
-      )
+    describe("Good paths", () => {
+      it("should assign expected value to frozen", async () => {
+        const controller = await TetuConverterApp.createController(
+          deployer,
+          {tetuLiquidatorAddress: MaticAddresses.TETU_LIQUIDATOR}
+        );
+        const platformAdapter = await AdaptersHelper.createCompound3PlatformAdapter(
+          deployer,
+          controller.address,
+          ethers.Wallet.createRandom().address,
+          [MaticAddresses.COMPOUND3_COMET_USDC],
+          MaticAddresses.COMPOUND3_COMET_REWARDS
+        )
 
-      expect(await platformAdapter.frozen()).eq(false)
-      await platformAdapter.setFrozen(true)
-      expect(await platformAdapter.frozen()).eq(true)
-      await platformAdapter.setFrozen(false)
-      expect(await platformAdapter.frozen()).eq(false)
-    })
+        expect(await platformAdapter.frozen()).eq(false)
+        await platformAdapter.setFrozen(true)
+        expect(await platformAdapter.frozen()).eq(true)
+        await platformAdapter.setFrozen(false)
+        expect(await platformAdapter.frozen()).eq(false)
+      })
+    });
+    describe("Bad paths", () => {
+      it("should assign expected value to frozen", async () => {
+        const platformAdapter = await AdaptersHelper.createCompound3PlatformAdapter(
+          deployer,
+          (await TetuConverterApp.createController(deployer)).address,
+          ethers.Wallet.createRandom().address,
+          [MaticAddresses.COMPOUND3_COMET_USDC],
+          MaticAddresses.COMPOUND3_COMET_REWARDS
+        )
+
+        await expect(
+          platformAdapter.connect(await Misc.impersonate(ethers.Wallet.createRandom().address)).setFrozen(true)
+        ).revertedWith("TC-9 governance only"); // AppErrors.GOVERNANCE_ONLY
+      })
+    });
   })
 
   describe("manage comets", () => {

@@ -1530,32 +1530,52 @@ describe("DForcePlatformAdapterTest", () => {
   });
 
   describe("setFrozen", () => {
-    it("should assign expected value to frozen", async () => {
-      if (!await isPolygonForkInUse()) return;
+    describe("Good paths", () => {
+      it("should assign expected value to frozen", async () => {
+        if (!await isPolygonForkInUse()) return;
 
-      const controller = await TetuConverterApp.createController(deployer,
-        {tetuLiquidatorAddress: MaticAddresses.TETU_LIQUIDATOR}
-      );
+        const controller = await TetuConverterApp.createController(deployer,
+          {tetuLiquidatorAddress: MaticAddresses.TETU_LIQUIDATOR}
+        );
 
-      const comptroller = await DForceHelper.getController(deployer);
-      const dForcePlatformAdapter = await AdaptersHelper.createDForcePlatformAdapter(
-        deployer,
-        controller.address,
-        comptroller.address,
-        ethers.Wallet.createRandom().address,
-        [MaticAddresses.dForce_iDAI, MaticAddresses.dForce_iUSDC],
-      );
+        const comptroller = await DForceHelper.getController(deployer);
+        const dForcePlatformAdapter = await AdaptersHelper.createDForcePlatformAdapter(
+          deployer,
+          controller.address,
+          comptroller.address,
+          ethers.Wallet.createRandom().address,
+          [MaticAddresses.dForce_iDAI, MaticAddresses.dForce_iUSDC],
+        );
 
-      const before = await dForcePlatformAdapter.frozen();
-      await dForcePlatformAdapter.setFrozen(true);
-      const middle = await dForcePlatformAdapter.frozen();
-      await dForcePlatformAdapter.setFrozen(false);
-      const after = await dForcePlatformAdapter.frozen();
+        const before = await dForcePlatformAdapter.frozen();
+        await dForcePlatformAdapter.setFrozen(true);
+        const middle = await dForcePlatformAdapter.frozen();
+        await dForcePlatformAdapter.setFrozen(false);
+        const after = await dForcePlatformAdapter.frozen();
 
-      const ret = [before, middle, after].join();
-      const expected = [false, true, false].join();
+        const ret = [before, middle, after].join();
+        const expected = [false, true, false].join();
 
-      expect(ret).eq(expected);
+        expect(ret).eq(expected);
+      });
+    });
+    describe("Bad paths", () => {
+      it("should assign expected value to frozen", async () => {
+        if (!await isPolygonForkInUse()) return;
+
+        const comptroller = await DForceHelper.getController(deployer);
+        const dForcePlatformAdapter = await AdaptersHelper.createDForcePlatformAdapter(
+          deployer,
+          (await TetuConverterApp.createController(deployer)).address,
+          comptroller.address,
+          ethers.Wallet.createRandom().address,
+          [MaticAddresses.dForce_iDAI, MaticAddresses.dForce_iUSDC],
+        );
+
+        await expect(
+          dForcePlatformAdapter.connect(await Misc.impersonate(ethers.Wallet.createRandom().address)).setFrozen(true)
+        ).revertedWith("TC-9 governance only"); // AppErrors.GOVERNANCE_ONLY
+      });
     });
   });
 

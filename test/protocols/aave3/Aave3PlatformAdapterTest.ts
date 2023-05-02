@@ -1274,33 +1274,52 @@ describe("Aave3PlatformAdapterTest", () => {
   });
 
   describe("setFrozen", () => {
-    it("should assign expected value to frozen", async () => {
-      if (!await isPolygonForkInUse()) return;
+    describe("Good paths", () => {
+      it("should assign expected value to frozen", async () => {
+        if (!await isPolygonForkInUse()) return;
 
-      const controller = await TetuConverterApp.createController(deployer,
-        {tetuLiquidatorAddress: MaticAddresses.TETU_LIQUIDATOR}
-      );
+        const controller = await TetuConverterApp.createController(deployer,
+          {tetuLiquidatorAddress: MaticAddresses.TETU_LIQUIDATOR}
+        );
 
-      const aavePool = await Aave3Helper.getAavePool(deployer);
-      const aavePlatformAdapter = await AdaptersHelper.createAave3PlatformAdapter(
-        deployer,
-        controller.address,
-        aavePool.address,
-        ethers.Wallet.createRandom().address,
-        ethers.Wallet.createRandom().address
-      );
+        const aavePool = await Aave3Helper.getAavePool(deployer);
+        const aavePlatformAdapter = await AdaptersHelper.createAave3PlatformAdapter(
+          deployer,
+          controller.address,
+          aavePool.address,
+          ethers.Wallet.createRandom().address,
+          ethers.Wallet.createRandom().address
+        );
 
-      const before = await aavePlatformAdapter.frozen();
-      await aavePlatformAdapter.setFrozen(true);
-      const middle = await aavePlatformAdapter.frozen();
-      await aavePlatformAdapter.setFrozen(false);
-      const after = await aavePlatformAdapter.frozen();
+        const before = await aavePlatformAdapter.frozen();
+        await aavePlatformAdapter.setFrozen(true);
+        const middle = await aavePlatformAdapter.frozen();
+        await aavePlatformAdapter.setFrozen(false);
+        const after = await aavePlatformAdapter.frozen();
 
-      const ret = [before, middle, after].join();
-      const expected = [false, true, false].join();
+        const ret = [before, middle, after].join();
+        const expected = [false, true, false].join();
 
-      expect(ret).eq(expected);
+        expect(ret).eq(expected);
+      });
     });
+    describe("Bad paths", () => {
+      it("should assign expected value to frozen", async () => {
+        if (!await isPolygonForkInUse()) return;
+
+        const aavePlatformAdapter = await AdaptersHelper.createAave3PlatformAdapter(
+          deployer,
+          (await TetuConverterApp.createController(deployer)).address,
+          (await Aave3Helper.getAavePool(deployer)).address,
+          ethers.Wallet.createRandom().address,
+          ethers.Wallet.createRandom().address
+        );
+
+        await expect(
+          aavePlatformAdapter.connect(await Misc.impersonate(ethers.Wallet.createRandom().address)).setFrozen(true)
+        ).revertedWith("TC-9 governance only"); // AppErrors.GOVERNANCE_ONLY
+      });
+    })
   });
 
   describe("platformKind", () => {
