@@ -64,3 +64,8 @@ export function getRatioMul100(bn1?: BigNumber, bn2?: BigNumber) : BigNumber | u
   }
   return undefined;
 }
+
+
+export function getSum(bn: BigNumber[]) : BigNumber {
+  return bn.reduce((a, b) => a.add(b), BigNumber.from(0));
+}

@@ -49,6 +49,8 @@ import {
   GAS_FIND_SWAP_STRATEGY, GAS_TC_BORROW, GAS_TC_QUOTE_REPAY, GAS_TC_REPAY, GAS_TC_SAFE_LIQUIDATE,
 } from "../baseUT/GasLimit";
 import {ICreateControllerParams, TetuConverterApp} from "../baseUT/helpers/TetuConverterApp";
+import {getSum} from "../baseUT/utils/CommonUtils";
+import { loadFixture } from "@nomicfoundation/hardhat-network-helpers";
 
 describe("TetuConverterTest", () => {
 //region Constants
@@ -71,14 +73,6 @@ describe("TetuConverterTest", () => {
 
   after(async function () {
     await TimeUtils.rollback(snapshot);
-  });
-
-  beforeEach(async function () {
-    snapshotForEach = await TimeUtils.snapshot();
-  });
-
-  afterEach(async function () {
-    await TimeUtils.rollback(snapshotForEach);
   });
 //endregion before, after
 
@@ -247,6 +241,11 @@ describe("TetuConverterTest", () => {
       cToken: r.cToken
     }
   }
+
+  async function buildCoreContracts() : Promise<CoreContracts> {
+    return CoreContracts.build(await TetuConverterApp.createController(deployer));
+  }
+
 //endregion Initialization
 
 //region Prepare borrows
@@ -267,6 +266,7 @@ describe("TetuConverterTest", () => {
     badPathParamManualConverter?: string;
     transferAmountMultiplier18?: BigNumber;
     entryData?: string;
+    debtGapRequired?: boolean;
   }
 
   interface ICallBorrowerBorrowInputParams {
@@ -327,7 +327,7 @@ describe("TetuConverterTest", () => {
     collateralAmounts: number[],
     bestBorrowRateInBorrowAsset: BigNumber,
     ordinalBorrowRateInBorrowAsset: BigNumber,
-    params?: IMakeBorrowInputParams
+    p?: IMakeBorrowInputParams
   ) : Promise<IBorrowStatus[]> {
     const dest: IBorrowStatus[] = [];
     const sourceTokenDecimals = await pp.sourceToken.decimals();
@@ -355,21 +355,25 @@ describe("TetuConverterTest", () => {
 
           await platformAdapter.changeBorrowRate(pp.targetToken.address, borrowRate);
           await poolAdapter.changeBorrowRate(borrowRate);
+
+          if (p?.debtGapRequired) {
+            await poolAdapter.setDebtGapRequired(p?.debtGapRequired);
+          }
         }
       }
 
       // emulate on-chain call to get borrowedAmountOut
       const borrowResult = await callBorrowerBorrow(
         pp,
-        params?.receiver || pp.userContract.address,
-        params?.exactBorrowAmounts ? params?.exactBorrowAmounts[i] : undefined,
+        p?.receiver || pp.userContract.address,
+        p?.exactBorrowAmounts ? p?.exactBorrowAmounts[i] : undefined,
         collateralAmount,
         {
-          badPathParamManualConverter: params?.transferAmountMultiplier18
+          badPathParamManualConverter: p?.transferAmountMultiplier18
             ? pp.poolInstances[i].converter
-            : params?.badPathParamManualConverter,
-          badPathTransferAmountMultiplier18: params?.transferAmountMultiplier18,
-          entryData: params?.entryData
+            : p?.badPathParamManualConverter,
+          badPathTransferAmountMultiplier18: p?.transferAmountMultiplier18,
+          entryData: p?.entryData
         }
       );
       borrowResults.push(borrowResult)
@@ -397,12 +401,6 @@ describe("TetuConverterTest", () => {
 //endregion Prepare borrows
 
 //region Predict conversion results
-  interface IFindConversionStrategyMulti {
-    converters: string[];
-    collateralAmountsOut: BigNumber[];
-    amountsToBorrowOut: BigNumber[];
-    aprs18: BigNumber[];
-  }
   interface IFindConversionStrategySingle {
     converter: string;
     collateralAmountOut: BigNumber;
@@ -743,6 +741,7 @@ describe("TetuConverterTest", () => {
    * Set up test for findConversionStrategy
    * @param sourceAmountNum
    * @param swapConfig Swap manager config; undefined if there is no DEX
+   * @param setConverterToPauseState
    */
   async function makeFindSwapStrategy(
     sourceAmountNum: number,
@@ -821,6 +820,13 @@ describe("TetuConverterTest", () => {
 
 //region Unit tests
   describe("constructor", () => {
+    beforeEach(async function () {
+      snapshotForEach = await TimeUtils.snapshot();
+    });
+    afterEach(async function () {
+      await TimeUtils.rollback(snapshotForEach);
+    });
+
     interface IMakeConstructorTestParams {
       useZeroController?: boolean;
       useZeroBorrowManager?: boolean;
@@ -922,6 +928,13 @@ describe("TetuConverterTest", () => {
   });
 
   describe("findConversionStrategy", () => {
+    beforeEach(async function () {
+      snapshotForEach = await TimeUtils.snapshot();
+    });
+    afterEach(async function () {
+      await TimeUtils.rollback(snapshotForEach);
+    });
+
     describe("Good paths", () => {
       describe("Check output converter value", () => {
         describe("Neither borrowing no swap are available", () => {
@@ -1125,6 +1138,13 @@ describe("TetuConverterTest", () => {
   });
 
   describe("findBorrowStrategies", () => {
+    beforeEach(async function () {
+      snapshotForEach = await TimeUtils.snapshot();
+    });
+    afterEach(async function () {
+      await TimeUtils.rollback(snapshotForEach);
+    });
+
     describe("Good paths", () => {
       it("should return expected values", async () => {
         const period = BLOCKS_PER_DAY * 31;
@@ -1228,6 +1248,13 @@ describe("TetuConverterTest", () => {
   });
 
   describe("findSwapStrategy", () => {
+    beforeEach(async function () {
+      snapshotForEach = await TimeUtils.snapshot();
+    });
+    afterEach(async function () {
+      await TimeUtils.rollback(snapshotForEach);
+    });
+
     describe("Good paths", () => {
       it("should return expected values if conversion exists", async () => {
         const sourceAmount = 10_000;
@@ -1341,6 +1368,13 @@ describe("TetuConverterTest", () => {
   });
 
   describe("borrow", () => {
+    beforeEach(async function () {
+      snapshotForEach = await TimeUtils.snapshot();
+    });
+    afterEach(async function () {
+      await TimeUtils.rollback(snapshotForEach);
+    });
+
 //region Test impl
     interface IMakeConversionUsingBorrowingResults {
       init: ISetupResults;
@@ -1839,6 +1873,13 @@ describe("TetuConverterTest", () => {
    * All borrow/repay operations are made using Borrower-functions
    */
   describe("Check balances", () => {
+    beforeEach(async function () {
+      snapshotForEach = await TimeUtils.snapshot();
+    });
+    afterEach(async function () {
+      await TimeUtils.rollback(snapshotForEach);
+    });
+
     describe("Good paths", () => {
       interface IMakeConversionUsingBorrowingResults {
         init: ISetupResults;
@@ -2077,6 +2118,13 @@ describe("TetuConverterTest", () => {
   });
 
   describe("repay", () => {
+    beforeEach(async function () {
+      snapshotForEach = await TimeUtils.snapshot();
+    });
+    afterEach(async function () {
+      await TimeUtils.rollback(snapshotForEach);
+    });
+
     interface IRepayBadPathParams {
       receiverIsNull?: boolean;
       userSendsNotEnoughAmountToTetuConverter?: boolean;
@@ -2702,6 +2750,12 @@ describe("TetuConverterTest", () => {
   });
 
   describe("requireRepay", () => {
+    beforeEach(async function () {
+      snapshotForEach = await TimeUtils.snapshot();
+    });
+    afterEach(async function () {
+      await TimeUtils.rollback(snapshotForEach);
+    });
 
     interface IRequireRepayBadPathParams {
       notKeeper?: boolean;
@@ -3068,146 +3122,248 @@ describe("TetuConverterTest", () => {
   });
 
   describe("getDebtAmountStored", () => {
-    describe("Good paths", () => {
-      async function makeGetDebtAmountTest(collateralAmounts: number[]) : Promise<{sret: string, sexpected: string}> {
-        const core = await CoreContracts.build(await TetuConverterApp.createController(deployer));
-        const pr = await prepareTetuAppWithMultipleLendingPlatforms(core, collateralAmounts.length);
-        const sourceTokenDecimals = await pr.sourceToken.decimals();
-        const borrows: IBorrowStatus[] = await makeBorrow(
-          pr,
-          collateralAmounts,
-          BigNumber.from(100),
-          BigNumber.from(100_000)
-        );
+    interface IGetDebtAmountCurrentResults {
+      // getDebtAmountCurrent
+      totalDebtAmountOut: number;
+      totalCollateralAmountOut: number;
 
-        const tcAsUc = ITetuConverter__factory.connect(
-          pr.core.tc.address,
-          await DeployerUtils.startImpersonate(pr.userContract.address)
-        );
+      // makeBorrow results
+      sumDebts: number;
+      sumCollaterals: number;
+      collateralAmounts: number[];
+      expectedSumCollaterals: number;
+    }
+    interface IGetDebtAmountCurrentParams {
+      gapDebtRequired?: boolean;
+      useDebtGap?: boolean;
+    }
+    async function makeGetDebtAmountTest(
+      core: CoreContracts,
+      collateralAmounts: number[],
+      p?: IGetDebtAmountCurrentParams
+    ) : Promise<IGetDebtAmountCurrentResults> {
+      const pr = await prepareTetuAppWithMultipleLendingPlatforms(core, collateralAmounts.length);
+      const sourceTokenDecimals = await pr.sourceToken.decimals();
+      const borrowTokenDecimals = await pr.targetToken.decimals();
+      const borrows: IBorrowStatus[] = await makeBorrow(
+        pr,
+        collateralAmounts,
+        BigNumber.from(100),
+        BigNumber.from(100_000),
+        {debtGapRequired: p?.gapDebtRequired ?? false}
+      );
 
-        const {
-          totalDebtAmountOut,
-          totalCollateralAmountOut
-        } =(await tcAsUc.getDebtAmountStored(
-          await tcAsUc.signer.getAddress(),
-          pr.sourceToken.address,
-          pr.targetToken.address,
-          false
-        ));
+      const tcAsUc = ITetuConverter__factory.connect(
+        pr.core.tc.address,
+        await DeployerUtils.startImpersonate(pr.userContract.address)
+      );
 
-        const sret = [
-          totalDebtAmountOut,
-          totalCollateralAmountOut,
-          ...borrows.map(x => x.status?.collateralAmount || 0)
-        ].map(x => BalanceUtils.toString(x)).join("\n");
-        const sexpected = [
-          borrows.reduce(
-            (prev, cur) => prev.add(cur.status?.amountToPay || 0),
-            BigNumber.from(0)
-          ),
-          collateralAmounts.reduce(
-            (prev, cur) => prev.add(
-              getBigNumberFrom(cur, sourceTokenDecimals)
-            ),
-            BigNumber.from(0)
-          ),
-          ...collateralAmounts.map(a => getBigNumberFrom(a, sourceTokenDecimals))
-        ].map(x => BalanceUtils.toString(x)).join("\n");
-
-        return {sret, sexpected};
+      const r = (await tcAsUc.getDebtAmountStored(
+        await tcAsUc.signer.getAddress(),
+        pr.sourceToken.address,
+        pr.targetToken.address,
+        p?.useDebtGap ?? false
+      ));
+      return {
+        totalDebtAmountOut: +formatUnits(r.totalDebtAmountOut, borrowTokenDecimals),
+        totalCollateralAmountOut: +formatUnits(r.totalCollateralAmountOut, sourceTokenDecimals),
+        sumDebts: +formatUnits(getSum(borrows.map(x => x.status?.amountToPay || BigNumber.from(0))), borrowTokenDecimals),
+        sumCollaterals: +formatUnits(getSum(borrows.map(x => x.status?.collateralAmount || BigNumber.from(0))), sourceTokenDecimals),
+        collateralAmounts: borrows.map(x => +formatUnits(x.status?.collateralAmount || BigNumber.from(0), sourceTokenDecimals)),
+        expectedSumCollaterals: collateralAmounts.reduce((prev, cur) => prev + cur, 0),
       }
-      describe("No opened positions", () => {
-        it("should return zero", async () => {
-          const ret = await makeGetDebtAmountTest([]);
-          expect(ret.sret).eq(ret.sexpected);
+    }
+    describe("No opened positions", () => {
+      it("should return zero", async () => {
+        const core = await loadFixture(buildCoreContracts);
+        const r = await makeGetDebtAmountTest(core, []);
+        expect(r.totalDebtAmountOut).eq(0);
+        expect(r.totalCollateralAmountOut).eq(0);
+        expect(r.sumDebts).eq(0);
+        expect(r.sumCollaterals).eq(0);
+        expect(r.collateralAmounts.join()).eq("");
+      });
+    });
+    describe("Single opened position", () => {
+      it("should return expected values for the opened position", async () => {
+        const core = await loadFixture(buildCoreContracts);
+        const r = await makeGetDebtAmountTest(core, [1000],{gapDebtRequired: false, useDebtGap: false});
+        expect(r.totalDebtAmountOut).eq(r.sumDebts);
+        expect(r.totalCollateralAmountOut).eq(r.sumCollaterals);
+        expect(r.collateralAmounts.join()).eq([1000].join());
+      });
+    });
+    describe("Multiple opened positions", () => {
+      describe("No gap debt", () => {
+        describe("debt gap is not required", () => {
+          it("should return sum of debts of all opened positions", async () => {
+            const core = await loadFixture(buildCoreContracts);
+            const r = await makeGetDebtAmountTest(core, [1000, 2000, 50],{gapDebtRequired: false, useDebtGap: false});
+            expect(r.totalDebtAmountOut).eq(r.sumDebts);
+            expect(r.totalCollateralAmountOut).eq(r.sumCollaterals);
+            expect(r.collateralAmounts.join()).eq([1000, 2000, 50].join());
+          });
+        });
+        describe("debt gap is required", () => {
+          it("should return sum of debts of all opened positions", async () => {
+            const core = await loadFixture(buildCoreContracts);
+            const r = await makeGetDebtAmountTest(core, [1000, 2000, 50],{gapDebtRequired: false, useDebtGap: true});
+            expect(r.totalDebtAmountOut).eq(r.sumDebts);
+            expect(r.totalCollateralAmountOut).eq(r.sumCollaterals);
+            expect(r.collateralAmounts.join()).eq([1000, 2000, 50].join());
+          });
         });
       });
-      describe("Single opened position", () => {
-        it("should return the debt of the opened position", async () => {
-          const ret = await makeGetDebtAmountTest([1000]);
-          expect(ret.sret).eq(ret.sexpected);
+      describe("With debt gap", () => {
+        describe("debt gap is not required", () => {
+          it("should return sum of debts of all opened positions", async () => {
+            const core = await loadFixture(buildCoreContracts);
+            const r = await makeGetDebtAmountTest(core, [1000, 2000, 50],{gapDebtRequired: true, useDebtGap: false});
+            expect(r.totalDebtAmountOut).eq(r.sumDebts);
+            expect(r.totalCollateralAmountOut).eq(r.sumCollaterals);
+            expect(r.collateralAmounts.join()).eq([1000, 2000, 50].join());
+          });
         });
-      });
-      describe("Multiple opened positions", () => {
-        it("should return sum of debts of all opened positions", async () => {
-          const ret = await makeGetDebtAmountTest([1000, 2000, 3000, 50]);
-          expect(ret.sret).eq(ret.sexpected);
+        describe("debt gap is required", () => {
+          it("should return sum of debts of all opened positions with debt gap", async () => {
+            const core = await loadFixture(buildCoreContracts);
+            const r = await makeGetDebtAmountTest(core, [1000, 2000, 50],{gapDebtRequired: true, useDebtGap: true});
+            expect(r.totalDebtAmountOut).eq(r.sumDebts * 1.01); // debt gap is 1%
+            expect(r.totalCollateralAmountOut).eq(r.sumCollaterals);
+            expect(r.collateralAmounts.join()).eq([1000, 2000, 50].join());
+          });
         });
       });
     });
   });
 
   describe("getDebtAmountCurrent", () => {
-    describe("Good paths", () => {
-      async function makeGetDebtAmountTest(collateralAmounts: number[]) : Promise<{sret: string, sexpected: string}> {
-        const core = await CoreContracts.build(await TetuConverterApp.createController(deployer));
-        const pr = await prepareTetuAppWithMultipleLendingPlatforms(core, collateralAmounts.length);
-        const sourceTokenDecimals = await pr.sourceToken.decimals();
-        const borrows: IBorrowStatus[] = await makeBorrow(
-          pr,
-          collateralAmounts,
-          BigNumber.from(100),
-          BigNumber.from(100_000)
-        );
+    interface IGetDebtAmountCurrentResults {
+      // getDebtAmountCurrent
+      totalDebtAmountOut: number;
+      totalCollateralAmountOut: number;
 
-        const tcAsUc = ITetuConverter__factory.connect(
-          pr.core.tc.address,
-          await DeployerUtils.startImpersonate(pr.userContract.address)
-        );
+      // makeBorrow results
+      sumDebts: number;
+      sumCollaterals: number;
+      collateralAmounts: number[];
+      expectedSumCollaterals: number;
+    }
+    interface IGetDebtAmountCurrentParams {
+      gapDebtRequired?: boolean;
+      useDebtGap?: boolean;
+    }
 
-        const {
-          totalDebtAmountOut,
-          totalCollateralAmountOut
-        } = (await tcAsUc.callStatic.getDebtAmountCurrent(
-          await tcAsUc.signer.getAddress(),
-          pr.sourceToken.address,
-          pr.targetToken.address,
-          false
-        ));
+    async function makeGetDebtAmountTest(
+      core: CoreContracts,
+      collateralAmounts: number[],
+      p?: IGetDebtAmountCurrentParams
+    ) : Promise<IGetDebtAmountCurrentResults> {
+      const pr = await prepareTetuAppWithMultipleLendingPlatforms(core, collateralAmounts.length);
+      const sourceTokenDecimals = await pr.sourceToken.decimals();
+      const borrowTokenDecimals = await pr.targetToken.decimals();
+      const borrows: IBorrowStatus[] = await makeBorrow(
+        pr,
+        collateralAmounts,
+        BigNumber.from(100),
+        BigNumber.from(100_000),
+        { debtGapRequired: p?.gapDebtRequired }
+      );
 
-        const sret = [
-          totalDebtAmountOut,
-          totalCollateralAmountOut,
-          ...borrows.map(x => x.status?.collateralAmount || 0)
-        ].map(x => BalanceUtils.toString(x)).join("\n");
-        const sexpected = [
-          borrows.reduce(
-            (prev, cur) => prev.add(cur.status?.amountToPay || 0),
-            BigNumber.from(0)
-          ),
-          collateralAmounts.reduce(
-            (prev, cur) => prev.add(
-              getBigNumberFrom(cur, sourceTokenDecimals)
-            ),
-            BigNumber.from(0)
-          ),
-          ...collateralAmounts.map(a => getBigNumberFrom(a, sourceTokenDecimals))
-        ].map(x => BalanceUtils.toString(x)).join("\n");
+      const tcAsUc = ITetuConverter__factory.connect(
+        pr.core.tc.address,
+        await DeployerUtils.startImpersonate(pr.userContract.address)
+      );
 
-        return {sret, sexpected};
+      const r = (await tcAsUc.callStatic.getDebtAmountCurrent(
+        await tcAsUc.signer.getAddress(),
+        pr.sourceToken.address,
+        pr.targetToken.address,
+        p?.useDebtGap || false,
+      ));
+
+      return {
+        totalDebtAmountOut: +formatUnits(r.totalDebtAmountOut, borrowTokenDecimals),
+        totalCollateralAmountOut: +formatUnits(r.totalCollateralAmountOut, sourceTokenDecimals),
+        sumDebts: +formatUnits(getSum(borrows.map(x => x.status?.amountToPay || BigNumber.from(0))), borrowTokenDecimals),
+        sumCollaterals: +formatUnits(getSum(borrows.map(x => x.status?.collateralAmount || BigNumber.from(0))), sourceTokenDecimals),
+        collateralAmounts: borrows.map(x => +formatUnits(x.status?.collateralAmount || BigNumber.from(0), sourceTokenDecimals)),
+        expectedSumCollaterals: collateralAmounts.reduce((prev, cur) => prev + cur, 0),
       }
-      describe("No opened positions", () => {
-        it("should return zero", async () => {
-          const ret = await makeGetDebtAmountTest([]);
-          expect(ret.sret).eq(ret.sexpected);
+    }
+
+    describe("No opened positions", () => {
+      it("should return zero", async () => {
+        const core = await loadFixture(buildCoreContracts);
+        const r = await makeGetDebtAmountTest(core, []);
+        expect(r.totalDebtAmountOut).eq(0);
+        expect(r.totalCollateralAmountOut).eq(0);
+        expect(r.sumDebts).eq(0);
+        expect(r.sumCollaterals).eq(0);
+        expect(r.collateralAmounts.join()).eq("");
+      });
+    });
+    describe("Single opened position", () => {
+      it("should return expected values for the opened position", async () => {
+        const core = await loadFixture(buildCoreContracts);
+        const r = await makeGetDebtAmountTest(core, [1000],{gapDebtRequired: false, useDebtGap: false});
+        expect(r.totalDebtAmountOut).eq(r.sumDebts);
+        expect(r.totalCollateralAmountOut).eq(r.sumCollaterals);
+        expect(r.collateralAmounts.join()).eq([1000].join());
+      });
+    });
+    describe("Multiple opened positions", () => {
+      describe("No gap debt", () => {
+        describe("debt gap is not required", () => {
+          it("should return sum of debts of all opened positions", async () => {
+            const core = await loadFixture(buildCoreContracts);
+            const r = await makeGetDebtAmountTest(core, [1000, 2000, 50],{gapDebtRequired: false, useDebtGap: false});
+            expect(r.totalDebtAmountOut).eq(r.sumDebts);
+            expect(r.totalCollateralAmountOut).eq(r.sumCollaterals);
+            expect(r.collateralAmounts.join()).eq([1000, 2000, 50].join());
+          });
+        });
+        describe("debt gap is required", () => {
+          it("should return sum of debts of all opened positions", async () => {
+            const core = await loadFixture(buildCoreContracts);
+            const r = await makeGetDebtAmountTest(core, [1000, 2000, 50],{gapDebtRequired: false, useDebtGap: true});
+            expect(r.totalDebtAmountOut).eq(r.sumDebts);
+            expect(r.totalCollateralAmountOut).eq(r.sumCollaterals);
+            expect(r.collateralAmounts.join()).eq([1000, 2000, 50].join());
+          });
         });
       });
-      describe("Single opened position", () => {
-        it("should return the debt of the opened position", async () => {
-          const ret = await makeGetDebtAmountTest([1000]);
-          expect(ret.sret).eq(ret.sexpected);
+      describe("With debt gap", () => {
+        describe("debt gap is not required", () => {
+          it("should return sum of debts of all opened positions", async () => {
+            const core = await loadFixture(buildCoreContracts);
+            const r = await makeGetDebtAmountTest(core, [1000, 2000, 50],{gapDebtRequired: true, useDebtGap: false});
+            expect(r.totalDebtAmountOut).eq(r.sumDebts);
+            expect(r.totalCollateralAmountOut).eq(r.sumCollaterals);
+            expect(r.collateralAmounts.join()).eq([1000, 2000, 50].join());
+          });
         });
-      });
-      describe("Multiple opened positions", () => {
-        it("should return sum of debts of all opened positions", async () => {
-          const ret = await makeGetDebtAmountTest([1000, 2000, 3000, 50]);
-          expect(ret.sret).eq(ret.sexpected);
+        describe("debt gap is required", () => {
+          it("should return sum of debts of all opened positions with debt gap", async () => {
+            const core = await loadFixture(buildCoreContracts);
+            const r = await makeGetDebtAmountTest(core, [1000, 2000, 50],{gapDebtRequired: true, useDebtGap: true});
+            expect(r.totalDebtAmountOut).eq(r.sumDebts * 1.01); // debt gap is 1%
+            expect(r.totalCollateralAmountOut).eq(r.sumCollaterals);
+            expect(r.collateralAmounts.join()).eq([1000, 2000, 50].join());
+          });
         });
       });
     });
   });
 
   describe("estimateRepay", () => {
+    beforeEach(async function () {
+      snapshotForEach = await TimeUtils.snapshot();
+    });
+    afterEach(async function () {
+      await TimeUtils.rollback(snapshotForEach);
+    });
+
     /* Make N borrows, ask to return given amount of collateral.
     * Return borrowed amount that should be return
     * and amount of unobtainable collateral (not zero if we ask too much)
@@ -3392,6 +3548,13 @@ describe("TetuConverterTest", () => {
   });
 
   describe("claimRewards", () => {
+    beforeEach(async function () {
+      snapshotForEach = await TimeUtils.snapshot();
+    });
+    afterEach(async function () {
+      await TimeUtils.rollback(snapshotForEach);
+    });
+
     interface ISetupClaimRewards {
       receiver: string;
       user: string;
@@ -3609,6 +3772,13 @@ describe("TetuConverterTest", () => {
   });
 
   describe("events", () => {
+    beforeEach(async function () {
+      snapshotForEach = await TimeUtils.snapshot();
+    });
+    afterEach(async function () {
+      await TimeUtils.rollback(snapshotForEach);
+    });
+
     describe("Borrow, partial repay", () => {
       it("should emit expected events", async () => {
         const core = await CoreContracts.build(await TetuConverterApp.createController(deployer));
@@ -3794,11 +3964,6 @@ describe("TetuConverterTest", () => {
             parseUnits("250", await init.targetToken.decimals())
           );
 
-          const tcAsKeeper = TetuConverter__factory.connect(
-            init.core.tc.address,
-            await DeployerUtils.startImpersonate(await core.controller.keeper())
-          );
-
           await init.userContract.setUpRequireAmountBack(
             parseUnits("1", await init.targetToken.decimals()),
           );
@@ -3893,6 +4058,13 @@ describe("TetuConverterTest", () => {
   });
 
   describe("onRequireAmountBySwapManager", () => {
+    beforeEach(async function () {
+      snapshotForEach = await TimeUtils.snapshot();
+    });
+    afterEach(async function () {
+      await TimeUtils.rollback(snapshotForEach);
+    });
+
     async function makeTestOnRequireAmountBySwapManager(
       init: ISetupResults,
       approver: string,
@@ -3952,6 +4124,13 @@ describe("TetuConverterTest", () => {
   });
 
   describe("quoteRepay", () => {
+    beforeEach(async function () {
+      snapshotForEach = await TimeUtils.snapshot();
+    });
+    afterEach(async function () {
+      await TimeUtils.rollback(snapshotForEach);
+    });
+
     interface IQuoteRepayParams {
       collateralPrice?: string;
       borrowPrice?: string;
@@ -4097,6 +4276,13 @@ describe("TetuConverterTest", () => {
   });
 
   describe("safeLiquidate", () => {
+    beforeEach(async function () {
+      snapshotForEach = await TimeUtils.snapshot();
+    });
+    afterEach(async function () {
+      await TimeUtils.rollback(snapshotForEach);
+    });
+
     interface ISafeLiquidateTestInputParams {
       amountInNum: string;
       receiver: string;
@@ -4353,6 +4539,13 @@ describe("TetuConverterTest", () => {
   });
 
   describe("isConversionValid", () => {
+    beforeEach(async function () {
+      snapshotForEach = await TimeUtils.snapshot();
+    });
+    afterEach(async function () {
+      await TimeUtils.rollback(snapshotForEach);
+    });
+
     // isConversionValid is tested in SwapLibTest, so there is only simple test here
     describe("Good paths", () => {
       it("should return expected values", async () => {
@@ -4387,6 +4580,13 @@ describe("TetuConverterTest", () => {
   });
 
   describe("repayTheBorrow", () => {
+    beforeEach(async function () {
+      snapshotForEach = await TimeUtils.snapshot();
+    });
+    afterEach(async function () {
+      await TimeUtils.rollback(snapshotForEach);
+    });
+
     interface IRepayTheBorrowParams {
       collateralAsset: MockERC20;
       borrowAsset: MockERC20;
@@ -4705,7 +4905,7 @@ describe("TetuConverterTest", () => {
           ].join();
           const expected = [
             100,
-            40,
+            40 - 5,
             100,
             5
           ].join();
@@ -4948,6 +5148,13 @@ describe("TetuConverterTest", () => {
   });
 
   describe("getPositions", () => {
+    beforeEach(async function () {
+      snapshotForEach = await TimeUtils.snapshot();
+    });
+    afterEach(async function () {
+      await TimeUtils.rollback(snapshotForEach);
+    });
+
     it("should return single open position after borrowing", async () => {
       const core = await CoreContracts.build(await TetuConverterApp.createController(deployer));
       const init = await prepareTetuAppWithMultipleLendingPlatforms(core,1);
