@@ -101,37 +101,41 @@ describe("TetuConverterTest", () => {
     initialCollateralAmount: BigNumber;
   }
 
+  interface IPrepareContractsParams {
+    usePoolAdapterStub?: boolean;
+    /**
+     *  true: use PoolAdapterStub to implement pool adapters
+     *  false: use PoolAdapterMock to implement pool adapters.
+     */
+    usePoolAdapterMock2?: boolean;
+    skipWhitelistUser?: boolean;
+    tetuAppSetupParams?: IPrepareContractsSetupParams,
+  }
+
   /**
    * Deploy BorrowerMock. Create TetuConverter-app and pre-register all pool adapters (implemented by PoolAdapterMock).
-   * @param core
-   * @param tt
-   * @param tetuAppSetupParams
-   * @param usePoolAdapterStub
-   *      true: use PoolAdapterStub to implement pool adapters
-   *      false: use PoolAdapterMock to implement pool adapters.
-   * @param usePoolAdapterMock2
    */
   async function prepareContracts(
     core: CoreContracts,
     tt: IBorrowInputParams,
-    tetuAppSetupParams?: IPrepareContractsSetupParams,
-    usePoolAdapterStub = false,
-    usePoolAdapterMock2 = false
+    p?: IPrepareContractsParams
   ) : Promise<IPrepareResults>{
     const periodInBlocks = 117;
     const {sourceToken, targetToken, poolsInfo} = await BorrowManagerHelper.initAppPoolsWithTwoAssets(
       core,
       deployer,
       tt,
-      async () => usePoolAdapterStub
+      async () => p?.usePoolAdapterStub
         ? (await MocksHelper.createPoolAdapterStub(deployer, parseUnits("0.5"))).address
-        : usePoolAdapterMock2
+        : p?.usePoolAdapterMock2
           ? (await MocksHelper.createPoolAdapterMock2(deployer)).address
           : (await MocksHelper.createPoolAdapterMock(deployer)).address,
-      tetuAppSetupParams
+      p?.tetuAppSetupParams
     );
     const userContract = await MocksHelper.deployBorrower(deployer.address, core.controller, periodInBlocks);
-    await core.controller.setWhitelistValues([userContract.address], true);
+    if (! p?.skipWhitelistUser) {
+      await core.controller.setWhitelistValues([userContract.address], true);
+    }
     const bmAsTc = BorrowManager__factory.connect(core.bm.address,
       await DeployerUtils.startImpersonate(core.tc.address)
     );
@@ -143,7 +147,7 @@ describe("TetuConverterTest", () => {
         cToken = pi.asset2cTokens.get(sourceToken.address) || "";
       }
 
-      if (!tetuAppSetupParams?.skipPreregistrationOfPoolAdapters) {
+      if (!p?.tetuAppSetupParams?.skipPreregistrationOfPoolAdapters) {
         // we need to set up a pool adapter
         await bmAsTc.registerPoolAdapter(
           pi.converter,
@@ -193,9 +197,7 @@ describe("TetuConverterTest", () => {
   async function prepareTetuAppWithMultipleLendingPlatforms(
     core: CoreContracts,
     countPlatforms: number,
-    tetuAppSetupParams?: IPrepareContractsSetupParams,
-    usePoolAdapterStub = false,
-    usePoolAdapterMock2 = false
+    p?: IPrepareContractsParams
   ) : Promise<ISetupResults> {
     const targetDecimals = 6;
     const sourceDecimals = 17;
@@ -215,10 +217,10 @@ describe("TetuConverterTest", () => {
       )
     };
 
-    const initialCollateralAmount = getBigNumberFrom(sourceAmountNumber, sourceDecimals);
-    const availableBorrowLiquidityPerPool = getBigNumberFrom(availableBorrowLiquidityNumber, targetDecimals);
+    const initialCollateralAmount = parseUnits(sourceAmountNumber.toString(), sourceDecimals);
+    const availableBorrowLiquidityPerPool = parseUnits(availableBorrowLiquidityNumber.toString(), targetDecimals);
 
-    const r = await prepareContracts(core, tt, tetuAppSetupParams, usePoolAdapterStub, usePoolAdapterMock2);
+    const r = await prepareContracts(core, tt, p);
 
     // put a lot of collateral asset on user's balance
     await MockERC20__factory.connect(r.sourceToken.address, deployer).mint(
@@ -539,7 +541,7 @@ describe("TetuConverterTest", () => {
     );
     const init = await prepareTetuAppWithMultipleLendingPlatforms(core,
       params?.borrowRateNum ? 1: 0,
-      params?.swapConfig
+      {tetuAppSetupParams: params?.swapConfig}
     );
     if (params?.setConverterToPauseState) {
       await core.controller.connect(
@@ -752,7 +754,7 @@ describe("TetuConverterTest", () => {
         priceOracleFabric: async () => (await MocksHelper.getPriceOracleMock(deployer, [], [])).address
       })
     );
-    const init = await prepareTetuAppWithMultipleLendingPlatforms(core, 0, swapConfig);
+    const init = await prepareTetuAppWithMultipleLendingPlatforms(core, 0, {tetuAppSetupParams: swapConfig});
     await PriceOracleMock__factory.connect(await core.controller.priceOracle(), deployer).changePrices(
       [init.sourceToken.address, init.targetToken.address],
       [parseUnits("1"), parseUnits("1")] // prices are set to 1 for simplicity
@@ -1356,6 +1358,7 @@ describe("TetuConverterTest", () => {
       usePoolAdapterStub?: boolean;
       setPoolAdaptersStatus?: IPoolAdapterStatus;
       minHealthFactor2?: number;
+      skipWhitelistUser?: boolean;
     }
 
     interface IMakeConversionUsingSwap {
@@ -1389,15 +1392,16 @@ describe("TetuConverterTest", () => {
       const core = await CoreContracts.build(await TetuConverterApp.createController(
         deployer,
         {
-          minHealthFactor2: params?.minHealthFactor2
+          minHealthFactor2: params?.minHealthFactor2,
         }
       ));
       const init = await prepareTetuAppWithMultipleLendingPlatforms(core,
         collateralAmounts.length,
         {
-          skipPreregistrationOfPoolAdapters: params?.skipPreregistrationOfPoolAdapters
+          tetuAppSetupParams: { skipPreregistrationOfPoolAdapters: params?.skipPreregistrationOfPoolAdapters},
+          usePoolAdapterStub: params?.usePoolAdapterStub,
+          skipWhitelistUser: params?.skipWhitelistUser
         },
-        params?.usePoolAdapterStub
       );
 
       if (params?.setPoolAdaptersStatus && params?.usePoolAdapterStub) {
@@ -1459,10 +1463,8 @@ describe("TetuConverterTest", () => {
       );
       const init = await prepareTetuAppWithMultipleLendingPlatforms(core,
         0,
-        {
-          setupTetuLiquidatorToSwapBorrowToCollateral: true
-        }
-      );
+        {tetuAppSetupParams: {setupTetuLiquidatorToSwapBorrowToCollateral: true}
+      });
       // let's replace real swap manager by mocked one
       const swapManagerMock = SwapManagerMock__factory.connect(await core.controller.swapManager(), deployer);
       await swapManagerMock.setupSwap(
@@ -1775,17 +1777,27 @@ describe("TetuConverterTest", () => {
           ).revertedWithPanic(0x11); // Arithmetic operation underflowed or overflowed outside of an unchecked block
         });
       });
+      describe("Not white listed", () => {
+        it("should revert if user is not whitelisted", async () => {
+          const amountToBorrowNum = 100;
+          await expect(
+            makeConversionUsingBorrowing(
+              [100_000],
+              [amountToBorrowNum],
+              {skipWhitelistUser: true}
+            )
+          ).revertedWith("TC-57 whitelist"); // AppErrors.OUT_OF_WHITE_LIST
+        });
+      });
     });
     describe("Gas estimation @skip-on-coverage", () => {
       it("should not exceed gas threshold", async () => {
         const receiver = ethers.Wallet.createRandom().address;
 
         const core = await CoreContracts.build(await TetuConverterApp.createController(deployer));
-        const init = await prepareTetuAppWithMultipleLendingPlatforms(core, 1,
-          {
-            skipPreregistrationOfPoolAdapters: true
-          }
-        );
+        const init = await prepareTetuAppWithMultipleLendingPlatforms(core, 1, {
+          tetuAppSetupParams: {skipPreregistrationOfPoolAdapters: true}
+        });
 
         const sourceAmount = parseUnits("1000", await init.sourceToken.decimals());
 
@@ -1847,9 +1859,7 @@ describe("TetuConverterTest", () => {
         const core = await CoreContracts.build(await TetuConverterApp.createController(deployer));
         const init = await prepareTetuAppWithMultipleLendingPlatforms(core,
           collateralAmounts.length,
-          {
-            setupTetuLiquidatorToSwapBorrowToCollateral
-          }
+          {tetuAppSetupParams: { setupTetuLiquidatorToSwapBorrowToCollateral}}
         );
 
         const contractsToInvestigate: IContractToInvestigate[] = [
@@ -2104,10 +2114,7 @@ describe("TetuConverterTest", () => {
       );
       const init = await prepareTetuAppWithMultipleLendingPlatforms(core,
         collateralAmounts.length,
-        {
-          setupTetuLiquidatorToSwapBorrowToCollateral,
-          priceImpact
-        }
+        {tetuAppSetupParams: {setupTetuLiquidatorToSwapBorrowToCollateral, priceImpact}}
       );
       await PriceOracleMock__factory.connect(await core.controller.priceOracle(), deployer).changePrices(
         [init.sourceToken.address, init.targetToken.address],
@@ -2643,11 +2650,9 @@ describe("TetuConverterTest", () => {
         const receiver = ethers.Wallet.createRandom().address;
 
         const core = await CoreContracts.build(await TetuConverterApp.createController(deployer));
-        const init = await prepareTetuAppWithMultipleLendingPlatforms(core, 1,
-          {
-            skipPreregistrationOfPoolAdapters: true
-          }
-        );
+        const init = await prepareTetuAppWithMultipleLendingPlatforms(core, 1, {
+          tetuAppSetupParams: {skipPreregistrationOfPoolAdapters: true}
+        });
 
         const sourceAmount = parseUnits("1000", await init.sourceToken.decimals());
 
@@ -2925,12 +2930,7 @@ describe("TetuConverterTest", () => {
               }
             )
           );
-          const init = await prepareTetuAppWithMultipleLendingPlatforms(
-            core,
-            1,
-            undefined,
-            true
-          );
+          const init = await prepareTetuAppWithMultipleLendingPlatforms(core, 1, {usePoolAdapterStub: true});
           const poolAdapter = PoolAdapterStub__factory.connect(init.poolAdapters[0], deployer);
 
           const tcAsKeeper = TetuConverter__factory.connect(
@@ -3825,7 +3825,7 @@ describe("TetuConverterTest", () => {
       describe("Close liquidated position", () => {
         it("should emit expected events", async () => {
           const core = await CoreContracts.build(await TetuConverterApp.createController(deployer));
-          const init = await prepareTetuAppWithMultipleLendingPlatforms(core, 1, undefined, true);
+          const init = await prepareTetuAppWithMultipleLendingPlatforms(core, 1,  {usePoolAdapterStub: true});
 
           const tcAsKeeper = TetuConverter__factory.connect(
             init.core.tc.address,
@@ -4417,6 +4417,7 @@ describe("TetuConverterTest", () => {
         collateralAmountLiquidated: string;
       }
       tetuConverterExecutor?: string; // governance by default
+      debtGap?: boolean;
     }
     interface IRepayTheBorrowResults {
       gasUsed: BigNumber;
@@ -4462,7 +4463,7 @@ describe("TetuConverterTest", () => {
         parseUnits(p.statusParams.healthFactor18, 18),
         p.statusParams.opened,
         parseUnits(p.statusParams.collateralAmountLiquidated, decimalsCollateral),
-        false
+        !!p?.debtGap
       );
       if (p.updateStatusParams) {
         await pa.setUpdateStatus(
@@ -4471,7 +4472,7 @@ describe("TetuConverterTest", () => {
           parseUnits(p.updateStatusParams.healthFactor18, 18),
           p.updateStatusParams.opened,
           parseUnits(p.updateStatusParams.collateralAmountLiquidated, decimalsCollateral),
-          false
+          !!p?.debtGap
         );
       }
       await pa.setRepay(
@@ -4785,6 +4786,53 @@ describe("TetuConverterTest", () => {
           expect(ret).eq(expected);
         });
       });
+      describe('Debt gap is required', () => {
+        it("should return expected values", async () => {
+          const collateralAsset = await MocksHelper.createMockedCToken(deployer, 8);
+          const borrowAsset = await MocksHelper.createMockedCToken(deployer, 11);
+
+          const r = await makeRepayTheBorrowTest({
+            collateralAsset,
+            borrowAsset,
+            tetuConverterCallback: {
+              amount: "50.5",
+              amountOut: "50.5",
+              amountToSend: "50.5"
+            },
+            repayParams: {
+              // amount-to-repay is 50
+              // default debt gap is 1%
+              // so, user should send us 50 + 0.5 = 50.5
+              // let's return back 0.3
+              closePosition: true,
+              borrowAmountSendToReceiver: "0.3",
+              collateralAmountSendToReceiver: "100",
+              amountToRepay: "50.5"
+            },
+            statusParams: {
+              collateralAmount: "100",
+              amountToPay: "50",
+              opened: true,
+              collateralAmountLiquidated: "0",
+              healthFactor18: "2"
+            },
+            debtGap: true
+          });
+          const ret = [
+            r.collateralAmountOut,
+            r.repaidAmountOut,
+            r.balanceUserAfterRepay.collateral,
+            r.balanceUserAfterRepay.borrow
+          ].join();
+          const expected = [
+            100,
+            50.2, // 50.5 - 0.3 = 50.2
+            100,
+            0.3
+          ].join();
+          expect(ret).eq(expected);
+        });
+      });
     });
     describe("Bad paths", () => {
       it("should revert if try to close position with not enough amount", async () => {
@@ -4897,390 +4945,17 @@ describe("TetuConverterTest", () => {
         })).revertedWith("TC-27 repay failed"); // REPAY_FAILED
       });
     });
-    describe("Gas estimation @skip-on-coverage", () => {
-    });
   });
 
-// //region Make reconversion
-//   interface IMakeReconversionResults {
-//     balancesInitial: Map<string, (BigNumber | string)[]>;
-//     balancesAfterBorrow: Map<string, (BigNumber | string)[]>;
-//     balancesAfterReconversion: Map<string, (BigNumber | string)[]>;
-//     poolInstances: IPoolInstanceInfo[];
-//     poolAdapters: string[];
-//     borrowsAfterBorrow: string[];
-//     borrowsAfterReconversion: string[];
-//   }
-//   /**
-//    * 1. Create N pools
-//    * 2. Set initial BR for each pool
-//    * 3. Make borrow using pool with the lowest BR
-//    * 2. Chang BR to different values. Now different pool has the lowest BR
-//    * 5. Call reconvert
-//    * Borrow should be reconverted to expected pool
-//    */
-//   async function makeReconversion(
-//     tt: IBorrowInputParams,
-//     sourceAmountNumber: number,
-//     availableBorrowLiquidityNumber: number,
-//     mapOldNewBR: Map<string, BigNumber>
-//   ) : Promise<IMakeReconversionResults> {
-//     const sourceAmount = getBigNumberFrom(sourceAmountNumber, tt.sourceDecimals);
-//     const availableBorrowLiquidity = getBigNumberFrom(availableBorrowLiquidityNumber, tt.targetDecimals);
-//
-//     const core = await CoreContracts.build(await TetuConverterApp.createController(deployer));
-//     const {poolInstances, cToken, userContract, sourceToken, targetToken, poolAdapters} =
-//       await prepareContracts(core, tt);
-//
-//     console.log("cToken is", cToken);
-//     console.log("Pool adapters:", poolAdapters.join("\n"));
-//     console.log("Pools:", poolInstances.join("\n"));
-//
-//     const contractsToInvestigate: IContractToInvestigate[] = [
-//       {name: "userContract", contract: userContract.address},
-//       {name: "tc", contract: core.tc.address},
-//       ...poolInstances.map((x, index) => ({name: `pool ${index}`, contract: x.pool})),
-//       ...poolAdapters.map((x, index) => ({name: `PA ${index}`, contract: x})),
-//     ];
-//     const tokensToInvestigate = [sourceToken.address, targetToken.address, cToken];
-//
-//     // initialize balances
-//     await MockERC20__factory.connect(sourceToken.address, deployer).mint(userContract.address, sourceAmount);
-//     for (const pi of poolInstances) {
-//       await MockERC20__factory.connect(targetToken.address, deployer).mint(pi.pool, availableBorrowLiquidity);
-//     }
-//     // we need to put some amount on user balance - to be able to return debts
-//     await MockERC20__factory.connect(targetToken.address, deployer).mint(userContract.address, availableBorrowLiquidity);
-//
-//     // get balances before start
-//     const balancesInitial = await BalanceUtils.getBalancesObj(deployer, contractsToInvestigate, tokensToInvestigate);
-//     console.log("before", before);
-//
-//     // borrow
-//     await userContract.borrowMaxAmount(
-//       sourceToken.address,
-//       sourceAmount,
-//       targetToken.address,
-//       userContract.address
-//     );
-//
-//     // get result balances
-//     const balancesAfterBorrow = await BalanceUtils.getBalancesObj(deployer, contractsToInvestigate, tokensToInvestigate);
-//
-//     // get address of PA where the borrow was made
-//     const borrowsAfterBorrow = await userContract.getBorrows(sourceToken.address, targetToken.address);
-//     console.log("borrowsAfterBorrow", borrowsAfterBorrow);
-//
-//     // change borrow rates
-//     for (let i = 0; i < poolAdapters.length; ++i) {
-//       // we need to change borrow rate in platform adapter (to select strategy correctly)
-//       // and in the already created pool adapters (to make new borrow correctly)
-//       // Probably it worth to move borrow rate to pool stub to avoid possibility of br-unsync
-//       const platformAdapter = await LendingPlatformMock__factory.connect(poolInstances[i].platformAdapter, deployer);
-//       const brOld = await platformAdapter.borrowRates(targetToken.address);
-//       const brNewValue = mapOldNewBR.get(brOld.toString()) || brOld;
-//
-//       await PoolAdapterMock__factory.connect(poolAdapters[i], deployer).changeBorrowRate(brNewValue);
-//       await platformAdapter.changeBorrowRate(targetToken.address, brNewValue);
-//     }
-//
-//     // reconvert the borrow
-//     // return borrowed amount to userContract (there are no debts in the mock, so the borrowed amount is enough)
-//     const status = await PoolAdapterMock__factory.connect(borrowsAfterBorrow[0], deployer).getStatus();
-//     const borrowTokenAsUser = IERC20__factory.connect(targetToken.address
-//       , await DeployerUtils.startImpersonate(userContract.address));
-//     await borrowTokenAsUser.transfer(userContract.address, status.amountToPay);
-//     console.log(`Borrow token, balance of user contract=${borrowTokenAsUser.balanceOf(userContract.address)}`);
-//     console.log(`Amount to pay=${(await status).amountToPay}`);
-//
-//     // TODO: await userContract.requireReconversion(borrowsAfterBorrow[0]);
-//
-//     // get address of PA where the new borrow was made
-//     const borrowsAfterReconversion = await userContract.getBorrows(sourceToken.address, targetToken.address);
-//     console.log("borrowsAfterReconversion", borrowsAfterReconversion);
-//
-//     // get result balances
-//     const balancesAfterReconversion = await BalanceUtils.getBalancesObj(deployer
-//       , contractsToInvestigate
-//       , tokensToInvestigate
-//     );
-//
-//     return {
-//       balancesInitial,
-//       balancesAfterBorrow,
-//       balancesAfterReconversion,
-//       poolAdapters,
-//       poolInstances,
-//       borrowsAfterBorrow,
-//       borrowsAfterReconversion,
-//     }
-//   }
-// //endregion Make reconversion
-//   describe("TODO:requireReconversion", () => {
-//     describe("Good paths", () => {
-//       it("should return expected values", async () => {
-//         expect.fail("TODO");
-//       });
-//     });
-//     describe("Bad paths", () => {
-//       it("should revert", async () => {
-//         expect.fail("TODO");
-//       });
-//     });
-//   });
-
-
-// describe.skip("TODO: reconvert", () => {
-//   describe("Good paths", () => {
-//     it("should make reconversion", async () => {
-//       const sourceAmountNumber = 100_000;
-//       const availableBorrowLiquidityNumber = 200_000_000;
-//
-//       const bn0 = BigNumber.from(0);
-//       const targetDecimals = 12;
-//       const sourceDecimals = 24;
-//       // initial borrow rates
-//       const brPA1 = getBigNumberFrom(3, targetDecimals - 6); // 3e-6 (lower)
-//       const brPA2 = getBigNumberFrom(5, targetDecimals - 6); // 5e-6 (higher)
-//       // changed borrow rates
-//       const brPA1new = getBigNumberFrom(7, targetDecimals - 6); // 7e-6 (higher)
-//       const brPA2new = getBigNumberFrom(2, targetDecimals - 6); // 2e-6 (lower)
-//
-//       const tt: IBorrowInputParams = {
-//         collateralFactor: 0.8,
-//         priceSourceUSD: 0.1,
-//         priceTargetUSD: 4,
-//         sourceDecimals,
-//         targetDecimals,
-//         availablePools: [
-//           // POOL 1
-//           {   // source, target
-//             borrowRateInTokens: [bn0, brPA1],
-//             availableLiquidityInTokens: [0, availableBorrowLiquidityNumber]
-//           },
-//           // POOL 2
-//           {   // source, target
-//             borrowRateInTokens: [bn0, brPA2],
-//             availableLiquidityInTokens: [0, availableBorrowLiquidityNumber]
-//           },
-//         ]
-//       };
-//       const mapOldNewBr = new Map<string, BigNumber>();
-//       mapOldNewBr.set(brPA1.toString(), brPA1new);
-//       mapOldNewBr.set(brPA2.toString(), brPA2new);
-//
-//       const ret = await makeReconversion(
-//         tt,
-//         sourceAmountNumber,
-//         availableBorrowLiquidityNumber,
-//         mapOldNewBr
-//       );
-//
-//       const INDEX_BORROW_TOKEN = 1;
-//
-//       const sret = [
-//         ret.borrowsAfterBorrow[0] === ret.poolAdapters[0],
-//         ret.borrowsAfterReconversion[0] === ret.poolAdapters[1],
-//
-//         // user balance of borrow token
-//         ret.balancesAfterBorrow.get("userContract")![INDEX_BORROW_TOKEN].toString(),
-//         ret.balancesAfterReconversion?.get("userContract")![INDEX_BORROW_TOKEN].toString(),
-//       ].join("\n");
-//
-//       console.log(ret);
-//
-//       const borrowedAmount = ret.balancesInitial.get("pool 0")![INDEX_BORROW_TOKEN]
-//         .sub(ret.balancesAfterBorrow.get("pool 0")![INDEX_BORROW_TOKEN]);
-//       const initialUserBalance = BigNumber.from(ret.balancesInitial.get("userContract")![INDEX_BORROW_TOKEN]);
-//
-//       const sexpected = [
-//         true,
-//         true,
-//
-//         initialUserBalance.add(borrowedAmount).toString(),
-//         initialUserBalance.add(borrowedAmount).toString()
-//       ].join("\n");
-//
-//       expect(sret).eq(sexpected);
-//     });
-//   });
-//   describe("Bad paths", () => {
-//
-//   });
-// });
-
-// describe("requireAdditionalBorrow", () => {
-//   interface ITestResults {
-//     userContract: Borrower;
-//     borrowedAmount: BigNumber;
-//     expectedBorrowAmount: BigNumber;
-//     poolAdapter: string;
-//     targetHealthFactor2: number;
-//     userContractBalanceBorrowAssetAfterBorrow: BigNumber;
-//     userContractFinalBalanceBorrowAsset: BigNumber;
-//   }
-//   /**
-//    * Make borrow, reduce all health factors twice, make additional borrow of the same amount
-//    */
-//   async function makeTest(amountTestCorrectionFactor: number = 1) : Promise<ITestResults> {
-//     // prepare app
-//     const targetDecimals = 6;
-//
-//     const collateralFactor = 0.5;
-//     const sourceAmountNumber = 100_000;
-//     const minHealthFactorInitial2 = 1000;
-//     const targetHealthFactorInitial2 = 2000;
-//     const maxHealthFactorInitial2 = 4000;
-//     const minHealthFactorUpdated2 = 500;
-//     const targetHealthFactorUpdated2 = 1000;
-//     const maxHealthFactorUpdated2 = 2000;
-//
-//     const expectedBorrowAmount = getBigNumberFrom(
-//       sourceAmountNumber * collateralFactor * 100 / targetHealthFactorInitial2, // == 2500
-//       targetDecimals
-//     );
-//
-//     const availableBorrowLiquidityNumber = 200_000_000;
-//     const tt: IBorrowInputParams = {
-//       collateralFactor,
-//       priceSourceUSD: 1,
-//       priceTargetUSD: 1,
-//       sourceDecimals: 18,
-//       targetDecimals,
-//       availablePools: [{   // source, target
-//         borrowRateInTokens: [BigNumber.from(0), BigNumber.from(0)],
-//         availableLiquidityInTokens: [0, availableBorrowLiquidityNumber]
-//       }]
-//     };
-//     const collateralAmount = getBigNumberFrom(sourceAmountNumber, tt.sourceDecimals);
-//     const availableBorrowLiquidity = getBigNumberFrom(availableBorrowLiquidityNumber, targetDecimals);
-//
-//     const {core, poolInstances, userContract, sourceToken, targetToken, poolAdapters} = await prepareContracts(tt);
-//     const poolInstance = poolInstances[0];
-//     const poolAdapter = poolAdapters[0];
-//
-//     // initialize balances
-//     await MockERC20__factory.connect(sourceToken.address, deployer).mint(userContract.address, collateralAmount);
-//     await MockERC20__factory.connect(targetToken.address, deployer).mint(poolInstance.pool, availableBorrowLiquidity);
-//
-//     // setup high values for all health factors
-//     await core.controller.setMaxHealthFactor2(maxHealthFactorInitial2);
-//     await core.controller.setTargetHealthFactor2(targetHealthFactorInitial2);
-//     await core.controller.setMinHealthFactor2(minHealthFactorInitial2);
-//
-//     // make borrow
-//     await userContract.borrowMaxAmount(
-//       sourceToken.address,
-//       collateralAmount,
-//       targetToken.address,
-//       userContract.address // receiver
-//     );
-//     const borrowedAmount = await userContract.totalBorrowedAmount();
-//     const userContractBalanceBorrowAssetAfterBorrow = await targetToken.balanceOf(userContract.address);
-//
-//     // reduce all health factors down on 2 times to have possibility for additional borrow
-//     await core.controller.setMinHealthFactor2(minHealthFactorUpdated2);
-//     await core.controller.setTargetHealthFactor2(targetHealthFactorUpdated2);
-//     await core.controller.setMaxHealthFactor2(maxHealthFactorUpdated2);
-//
-//     // make additional borrow
-//     // health factors were reduced twice, so we should be able to borrow same amount as before
-//     const tcAsKeeper = TetuConverter__factory.connect(
-//       core.tc.address,
-//       await DeployerUtils.startImpersonate(await core.controller.keeper())
-//     );
-//     await tcAsKeeper.requireAdditionalBorrow(
-//       borrowedAmount.mul(100 * amountTestCorrectionFactor).div(100),
-//       poolAdapter
-//     );
-//
-//     return {
-//       poolAdapter,
-//       borrowedAmount,
-//       expectedBorrowAmount,
-//       userContract,
-//       targetHealthFactor2: targetHealthFactorUpdated2,
-//       userContractBalanceBorrowAssetAfterBorrow,
-//       userContractFinalBalanceBorrowAsset: await targetToken.balanceOf(userContract.address)
-//     }
-//   }
-//   describe("Good paths", () => {
-//     describe("Borrow exact expected amount", () => {
-//       let testResults: ITestResults;
-//       before(async function () {
-//         testResults = await makeTest();
-//       })
-//       describe("Make borrow, change health factors, make additional borrow", async () => {
-//         it("should return expected borrowed amount", async () => {
-//           const ret = testResults.borrowedAmount.eq(testResults.expectedBorrowAmount);
-//           expect(ret).eq(true);
-//         });
-//         it("pool adapter should have expected health factor", async () => {
-//           const poolAdapter = IPoolAdapter__factory.connect(testResults.poolAdapter, deployer);
-//           const poolAdapterStatus = await poolAdapter.getStatus();
-//           const ret = poolAdapterStatus.healthFactor18.div(getBigNumberFrom(1, 16)).toNumber();
-//           const expected = testResults.targetHealthFactor2;
-//           expect(ret).eq(expected);
-//         });
-//         it("should send notification to user-contract", async () => {
-//           const config = await IPoolAdapter__factory.connect(testResults.poolAdapter, deployer).getConfig();
-//           const ret = [
-//             (await testResults.userContract.onTransferBorrowedAmountLastResultBorrowAsset()).toString(),
-//             (await testResults.userContract.onTransferBorrowedAmountLastResultCollateralAsset()).toString(),
-//             (await testResults.userContract.onTransferBorrowedAmountLastResultAmountBorrowAssetSentToBorrower()).toString(),
-//           ].join();
-//           const expected = [
-//             config.borrowAsset,
-//             config.collateralAsset,
-//             testResults.expectedBorrowAmount.toString()
-//           ].join();
-//           expect(ret).eq(expected);
-//         });
-//         it("should send expected amount on balance of the user-contract", async () => {
-//           const ret = [
-//             (await testResults.userContractBalanceBorrowAssetAfterBorrow).toString(),
-//             (await testResults.userContractFinalBalanceBorrowAsset).toString(),
-//           ].join();
-//           const expected = [
-//             testResults.expectedBorrowAmount.toString(),
-//             testResults.expectedBorrowAmount.mul(2).toString()
-//           ].join();
-//           expect(ret).eq(expected);
-//         });
-//       });
-//     });
-//     describe('Borrow approx amount, difference is allowed', function () {
-//       it('should not revert', async () => {
-//         await makeTest(0.99);
-//         expect(true).eq(true); // no exception above
-//       });
-//       it('should not revert', async () => {
-//         await makeTest(1.01);
-//         expect(true).eq(true); // no exception above
-//       });
-//     });
-//   });
-//   describe("Bad paths", () => {
-//     describe("Rebalancing put health factor down too much", () => {
-//       it("should revert", async () => {
-//         await expect(
-//           makeTest(
-//             5 // we try to borrow too big additional amount = 5 * borrowedAmount (!)
-//           )
-//         ).revertedWith("TC-3 wrong health factor");
-//       });
-//     });
-//     describe("Rebalancing put health factor down not enough", () => {
-//       it("should revert", async () => {
-//         await expect(
-//           makeTest(
-//             0.1 // we try to borrow too small additional amount = 0.1 * borrowedAmount (!)
-//           )
-//         ).revertedWith("");
-//       });
-//     });
-//   });
-// });
+  describe("getPositions", () => {
+    it("should return single open position after borrowing", async () => {
+      const core = await CoreContracts.build(await TetuConverterApp.createController(deployer));
+      const init = await prepareTetuAppWithMultipleLendingPlatforms(core,1);
+      await makeBorrow(init, [100], BigNumber.from(100), BigNumber.from(100_000));
+      const r = await core.tc.getPositions(init.userContract.address, init.sourceToken.address, init.targetToken.address);
+      expect(r.length).eq(1);
+    });
+  });
 
 //endregion Unit tests
 });

@@ -235,22 +235,14 @@ contract DebtMonitor is IDebtMonitor {
 
       (,,, address borrowAsset) = pa.getConfig();
       uint healthFactorTarget18 = uint(borrowManager.getTargetHealthFactor2(borrowAsset)) * 10**(18-2);
-      if (
-        (p.healthFactorThreshold18 < healthFactorTarget18 && healthFactor18 < p.healthFactorThreshold18) // unhealthy
-        || (!(p.healthFactorThreshold18 < healthFactorTarget18) && healthFactor18 > p.healthFactorThreshold18) // too healthy
-      ) {
+      if (p.healthFactorThreshold18 < healthFactorTarget18 && healthFactor18 < p.healthFactorThreshold18) { // unhealthy
         outPoolAdapters[countFoundItems] = positions[p.startIndex0 + i];
-        // Health Factor = Collateral Factor * CollateralAmount * Price_collateral
-        //                 -------------------------------------------------
-        //                               BorrowAmount * Price_borrow
+        // Health Factor = Collateral Factor * CollateralAmount * Price_collateral / (BorrowAmount * Price_borrow)
         // => requiredAmountBorrowAsset = BorrowAmount * (HealthFactorCurrent/HealthFactorTarget - 1)
         // => requiredAmountCollateralAsset = CollateralAmount * (HealthFactorTarget/HealthFactorCurrent - 1)
-        outAmountBorrowAsset[countFoundItems] = p.healthFactorThreshold18 < healthFactorTarget18
-            ? (amountToPay - amountToPay * healthFactor18 / healthFactorTarget18) // unhealthy
-            : (amountToPay * healthFactor18 / healthFactorTarget18 - amountToPay); // too healthy
-        outAmountCollateralAsset[countFoundItems] = p.healthFactorThreshold18 < healthFactorTarget18
-            ? (collateralAmount * healthFactorTarget18 / healthFactor18 - collateralAmount) // unhealthy
-            : (collateralAmount - collateralAmount * healthFactorTarget18 / healthFactor18); // too healthy
+        outAmountBorrowAsset[countFoundItems] = (amountToPay - amountToPay * healthFactor18 / healthFactorTarget18);
+        outAmountCollateralAsset[countFoundItems] = (collateralAmount * healthFactorTarget18 / healthFactor18 - collateralAmount);
+
         countFoundItems += 1;
 
         if (countFoundItems == p.maxCountToReturn) {

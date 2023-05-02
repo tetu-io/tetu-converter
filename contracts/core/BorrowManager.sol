@@ -121,8 +121,8 @@ contract BorrowManager is IBorrowManager {
   /// @notice Ensure that msg.sender is registered pool adapter
   function _onlyTetuConverterOrUser(address user_) internal view {
     require(
-      msg.sender == controller.tetuConverter()
-      || msg.sender == user_, // second condition is required by tests; it looks safe enough for the production
+      msg.sender == controller.tetuConverter(),
+      // || msg.sender == user_, // todo try to remove: second condition is required by tests; it looks safe enough for the production
       AppErrors.TETU_CONVERTER_ONLY
     );
   }

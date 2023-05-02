@@ -43,7 +43,6 @@ contract PoolAdapterMock2 is IPoolAdapter {
     return AppDataTypes.ConversionKind.UNKNOWN_0;
   }
 
-
   //-----------------------------------------------------///////////////////////////////////////////////
   // get config
   //-----------------------------------------------------///////////////////////////////////////////////
@@ -57,6 +56,7 @@ contract PoolAdapterMock2 is IPoolAdapter {
     uint collateralAmountSendToReceiver;
     uint borrowAmountSendToReceiver;
   }
+
   RepayParams internal repayParams;
 
   function setRepay(
@@ -70,16 +70,17 @@ contract PoolAdapterMock2 is IPoolAdapter {
     uint borrowAmountSendToReceiver
   ) external {
     repayParams = RepayParams({
-    collateralAsset: collateralAsset,
-    borrowAsset: borrowAsset,
+      collateralAsset: collateralAsset,
+      borrowAsset: borrowAsset,
 
-    amountToRepay: amountToRepay,
-    closePosition: closePosition,
+      amountToRepay: amountToRepay,
+      closePosition: closePosition,
 
-    collateralAmountSendToReceiver: collateralAmountSendToReceiver,
-    borrowAmountSendToReceiver: borrowAmountSendToReceiver
+      collateralAmountSendToReceiver: collateralAmountSendToReceiver,
+      borrowAmountSendToReceiver: borrowAmountSendToReceiver
     });
   }
+
   function repay(uint amountToRepay_, address receiver_, bool closePosition_) external override returns (
     uint collateralAmountOut
   ) {
@@ -88,12 +89,12 @@ contract PoolAdapterMock2 is IPoolAdapter {
     if (repayParams.amountToRepay == amountToRepay_ && repayParams.closePosition == closePosition_) {
       console.log("PooladapterMock2.repay.2 amountToRepay_, borrowAmountSendToReceiver", amountToRepay_, repayParams.borrowAmountSendToReceiver);
       IERC20(repayParams.borrowAsset).safeTransferFrom(msg.sender, address(this), amountToRepay_);
-      console.log("PooladapterMock2.repay.2.1", IERC20(repayParams.borrowAsset).balanceOf(address(this)) );
+      console.log("PooladapterMock2.repay.2.1", IERC20(repayParams.borrowAsset).balanceOf(address(this)));
       if (repayParams.borrowAmountSendToReceiver != 0) {
         IERC20(repayParams.borrowAsset).safeTransfer(receiver_, repayParams.borrowAmountSendToReceiver);
         console.log("PooladapterMock2.repay.2.2");
       }
-      console.log("PooladapterMock2.repay.2.3", repayParams.collateralAmountSendToReceiver, IERC20(repayParams.collateralAsset).balanceOf(address(this)) );
+      console.log("PooladapterMock2.repay.2.3", repayParams.collateralAmountSendToReceiver, IERC20(repayParams.collateralAsset).balanceOf(address(this)));
       IERC20(repayParams.collateralAsset).safeTransfer(receiver_, repayParams.collateralAmountSendToReceiver);
       console.log("PooladapterMock2.repay.3");
       collateralAmountOut = repayParams.collateralAmountSendToReceiver;
@@ -113,7 +114,9 @@ contract PoolAdapterMock2 is IPoolAdapter {
     address collateralAsset;
     address borrowAsset;
   }
+
   ConfigParams internal configParams;
+
   function setConfig(
     address originConverter,
     address user,
@@ -127,6 +130,7 @@ contract PoolAdapterMock2 is IPoolAdapter {
       borrowAsset: borrowAsset
     });
   }
+
   function getConfig() external view override returns (
     address originConverter,
     address user,
@@ -142,7 +146,6 @@ contract PoolAdapterMock2 is IPoolAdapter {
     );
   }
 
-
   //-----------------------------------------------------///////////////////////////////////////////////
   // get status
   //-----------------------------------------------------///////////////////////////////////////////////
@@ -154,7 +157,9 @@ contract PoolAdapterMock2 is IPoolAdapter {
     uint collateralAmountLiquidated;
     bool debtGapRequired;
   }
+
   StatusParams internal statusParams;
+
   function setStatus(
     uint collateralAmount,
     uint amountToPay,
@@ -172,6 +177,7 @@ contract PoolAdapterMock2 is IPoolAdapter {
       debtGapRequired: debtGapRequired
     });
   }
+
   function getStatus() external view override returns (
     uint collateralAmount,
     uint amountToPay,
@@ -192,6 +198,7 @@ contract PoolAdapterMock2 is IPoolAdapter {
   }
 
   StatusParams internal updateStatusParams;
+
   function setUpdateStatus(
     uint collateralAmount,
     uint amountToPay,
@@ -209,13 +216,13 @@ contract PoolAdapterMock2 is IPoolAdapter {
       debtGapRequired: debtGapRequired
     });
   }
+
   function updateStatus() external {
     // not implemented
     if (updateStatusParams.collateralAmount != 0) {
       statusParams = updateStatusParams;
     }
   }
-
 
   //-----------------------------------------------------///////////////////////////////////////////////
   // others

@@ -204,15 +204,15 @@ contract TetuConverter is ITetuConverter, IKeeperCallback, IRequireAmountBySwapM
     FindConversionStrategyLocal memory p;
     if (!controller.paused()) {
       (p.borrowConverters,
-       p.borrowSourceAmounts,
-       p.borrowTargetAmounts,
-       p.borrowAprs18
+        p.borrowSourceAmounts,
+        p.borrowTargetAmounts,
+        p.borrowAprs18
       ) = borrowManager.findConverter(entryData_, sourceToken_, targetToken_, amountIn_, periodInBlocks_);
 
       (p.swapConverter,
-       p.swapSourceAmount,
-       p.swapTargetAmount,
-       p.swapApr18) = _findSwapStrategy(entryData_, sourceToken_, amountIn_, targetToken_);
+        p.swapSourceAmount,
+        p.swapTargetAmount,
+        p.swapApr18) = _findSwapStrategy(entryData_, sourceToken_, amountIn_, targetToken_);
     }
 
     if (p.borrowConverters.length == 0) {
@@ -365,7 +365,7 @@ contract TetuConverter is ITetuConverter, IKeeperCallback, IRequireAmountBySwapM
           // the pool adapter is unhealthy, we should mark it as dirty and create new pool adapter for the borrow
           borrowManager.markPoolAdapterAsDirty(converter_, msg.sender, collateralAsset_, borrowAsset_);
           poolAdapter = address(0);
-        } else if (healthFactor18 <= (uint(controller.minHealthFactor2()) * 10**(18-2))) {
+        } else if (healthFactor18 <= (uint(controller.minHealthFactor2()) * 10 ** (18 - 2))) {
           // this is not normal situation
           // keeper doesn't work? it's too risky to make new borrow
           revert(AppErrors.REBALANCING_IS_REQUIRED);
@@ -383,8 +383,8 @@ contract TetuConverter is ITetuConverter, IKeeperCallback, IRequireAmountBySwapM
 
         // TetuConverter doesn't keep assets on its balance, so it's safe to use infinity approve
         // All approves replaced by infinity-approve were commented in the code below
-        IERC20(collateralAsset_).safeApprove(poolAdapter, 2**255); // 2*255 is more gas-efficient than type(uint).max
-        IERC20(borrowAsset_).safeApprove(poolAdapter, 2**255); // 2*255 is more gas-efficient than type(uint).max
+        IERC20(collateralAsset_).safeApprove(poolAdapter, 2 ** 255); // 2*255 is more gas-efficient than type(uint).max
+        IERC20(borrowAsset_).safeApprove(poolAdapter, 2 ** 255); // 2*255 is more gas-efficient than type(uint).max
       }
 
       // replaced by infinity approve: IERC20(collateralAsset_).safeApprove(poolAdapter, collateralAmount_);
@@ -547,10 +547,10 @@ contract TetuConverter is ITetuConverter, IKeeperCallback, IRequireAmountBySwapM
       require(priceCollateralAsset != 0 && priceBorrowAsset != 0, AppErrors.ZERO_PRICE);
 
       swappedAmountOut = amountToRepay_
-        * 10**IERC20Metadata(collateralAsset_).decimals()
+        * 10 ** IERC20Metadata(collateralAsset_).decimals()
         * priceBorrowAsset
         / priceCollateralAsset
-        / 10**IERC20Metadata(borrowAsset_).decimals();
+        / 10 ** IERC20Metadata(borrowAsset_).decimals();
     }
 
     return (collateralAmountOut + swappedAmountOut, swappedAmountOut);
@@ -611,61 +611,57 @@ contract TetuConverter is ITetuConverter, IKeeperCallback, IRequireAmountBySwapM
   //-----------------------------------------------------
   //region Close borrow forcibly by governance
   //-----------------------------------------------------
-  
+
   /// @inheritdoc ITetuConverter
-  function repayTheBorrow(address poolAdapter_, bool closePosition) external returns (
-    uint collateralAmountOut,
-    uint repaidAmountOut
-  ) {
+  function repayTheBorrow(address poolAdapter_, bool closePosition) external returns (uint collateralAmountOut, uint repaidAmountOut) {
     require(msg.sender == controller.governance(), AppErrors.GOVERNANCE_ONLY);
 
     // update internal debts and get actual amount to repay
     IPoolAdapter pa = IPoolAdapter(poolAdapter_);
     (,address user, address collateralAsset, address borrowAsset) = pa.getConfig();
     pa.updateStatus();
+
+    // add debt gap if necessary
     bool debtGapRequired;
-    (collateralAmountOut, repaidAmountOut,,,,debtGapRequired) = pa.getStatus();
+    (collateralAmountOut, repaidAmountOut,,,, debtGapRequired) = pa.getStatus();
     if (debtGapRequired) {
       repaidAmountOut = getAmountWithDebtGap(repaidAmountOut, controller.debtGap());
     }
-
     require(collateralAmountOut != 0 && repaidAmountOut != 0, AppErrors.REPAY_FAILED);
 
-    // ask the user for the amount-to-repay
+    // ask the user for the amount-to-repay; use exist balance for safety, normally it should be 0
     uint balanceBefore = IERC20(borrowAsset).balanceOf(address(this));
-    ITetuConverterCallback(user).requirePayAmountBack(borrowAsset, repaidAmountOut);
+    ITetuConverterCallback(user).requirePayAmountBack(borrowAsset, repaidAmountOut - balanceBefore);
     uint balanceAfter = IERC20(borrowAsset).balanceOf(address(this));
 
-    // ensure that we have received full required amount
+    // ensure that we have received required amount fully or partially
     if (closePosition) {
-      require(balanceAfter == balanceBefore + repaidAmountOut, AppErrors.WRONG_AMOUNT_RECEIVED);
+      require(balanceAfter >= balanceBefore + repaidAmountOut, AppErrors.WRONG_AMOUNT_RECEIVED);
     } else {
-      require(
-        balanceAfter > balanceBefore && balanceAfter - balanceBefore <= repaidAmountOut,
-        AppErrors.ZERO_BALANCE
-      );
+      require(balanceAfter > balanceBefore, AppErrors.ZERO_BALANCE);
       repaidAmountOut = balanceAfter - balanceBefore;
     }
 
     // make full repay and close the position
-    // repay is able to return small amount of borrow-asset back to the user, we should pass it to onTransferAmounts
     balanceBefore = IERC20(borrowAsset).balanceOf(user);
-    // replaced by infinity approve: IERC20(borrowAsset).safeApprove(address(pa), repaidAmountOut);
     collateralAmountOut = pa.repay(repaidAmountOut, user, closePosition);
     emit OnRepayTheBorrow(poolAdapter_, collateralAmountOut, repaidAmountOut);
     balanceAfter = IERC20(borrowAsset).balanceOf(user);
 
-    if (collateralAmountOut != 0) {
-      address[] memory assets = new address[](2);
-      assets[0] = borrowAsset;
-      assets[1] = collateralAsset;
-      uint[] memory amounts = new uint[](2);
-      amounts[0] = balanceAfter > balanceBefore
-        ? balanceAfter - balanceBefore
-        : 0; // for simplicity, we send zero amount to user too.. the user will just ignore it ;
-      amounts[1] = collateralAmountOut;
-      ITetuConverterCallback(user).onTransferAmounts(assets, amounts);
-    }
+    address[] memory assets = new address[](2);
+    assets[0] = borrowAsset;
+    assets[1] = collateralAsset;
+
+    uint[] memory amounts = new uint[](2);
+    // repay is able to return small amount of borrow-asset back to the user, we should pass it to onTransferAmounts
+    amounts[0] = balanceAfter > balanceBefore ? balanceAfter - balanceBefore : 0;
+    if (amounts[0] > 0) { // exclude returned part of the debt gap from repaidAmountOut
+      repaidAmountOut = repaidAmountOut > amounts[0]
+        ? repaidAmountOut - amounts[0]
+        : 0;
+      }
+    amounts[1] = collateralAmountOut;
+    ITetuConverterCallback(user).onTransferAmounts(assets, amounts);
 
     return (collateralAmountOut, repaidAmountOut);
   }

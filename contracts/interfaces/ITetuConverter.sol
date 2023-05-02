@@ -267,7 +267,7 @@ interface ITetuConverter {
   ///        false can be used if user doesn't have enough amount to pay full debt
   ///              and we are trying to pay "as much as possible"
   /// @return collateralAmountOut Amount of collateral returned to the user
-  /// @return repaidAmountOut Amount of borrow asset repaid to the lending platform
+  /// @return repaidAmountOut Amount of borrow asset paid to the lending platform
   function repayTheBorrow(address poolAdapter_, bool closePosition) external returns (
     uint collateralAmountOut,
     uint repaidAmountOut
