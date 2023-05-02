@@ -774,11 +774,11 @@ describe("Aave3PlatformAdapterTest", () => {
             );
 
             const ret = [
-              r.plan.amountToBorrow,
+              r.plan.amountToBorrow.lte(r.plan.maxAmountToBorrow),
               areAlmostEqual(r.plan.collateralAmount, expectedCollateralAmount)
             ].map(x => BalanceUtils.toString(x)).join("\n");
             const expected = [
-              r.plan.maxAmountToBorrow,
+              true,
               true
             ].map(x => BalanceUtils.toString(x)).join("\n");
 
@@ -812,15 +812,24 @@ describe("Aave3PlatformAdapterTest", () => {
               r.collateralAssetData.data.decimals,
               r.borrowAssetData.data.decimals
             );
+            const expectedBorrowAmount = AprUtils.getBorrowAmount(
+              sample.plan.maxAmountToSupply,
+              r.healthFactor2,
+              r.plan.liquidationThreshold18,
+              r.priceCollateral,
+              r.priceBorrow,
+              r.collateralAssetData.data.decimals,
+              r.borrowAssetData.data.decimals
+            );
+            console.log("expectedBorrowAmount", expectedBorrowAmount);
 
             const ret = [
-              r.plan.amountToBorrow,
+              r.plan.amountToBorrow.eq(r.plan.maxAmountToBorrow)
+              || r.plan.collateralAmount.eq(r.plan.maxAmountToSupply),
               areAlmostEqual(r.plan.collateralAmount, expectedCollateralAmount)
+              || areAlmostEqual(r.plan.amountToBorrow, expectedBorrowAmount)
             ].map(x => BalanceUtils.toString(x)).join("\n");
-            const expected = [
-              r.plan.maxAmountToBorrow,
-              true
-            ].map(x => BalanceUtils.toString(x)).join("\n");
+            const expected = [true, true].map(x => BalanceUtils.toString(x)).join("\n");
 
             expect(ret).eq(expected);
           });

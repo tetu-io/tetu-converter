@@ -959,8 +959,61 @@ describe("Compound3PlatformAdapterTest", () => {
       expect(await platformAdapter.cometsLength()).eq(2)
       await platformAdapter.removeComet(1)
       expect(await platformAdapter.cometsLength()).eq(1)
-    })
-  })
+    });
+  });
+  describe("remove comet", () => {
+    it("should throw if the index is out of range", async () => {
+      const controller = await TetuConverterApp.createController(
+        deployer,
+        {tetuLiquidatorAddress: MaticAddresses.TETU_LIQUIDATOR}
+      );
+      const platformAdapter = await AdaptersHelper.createCompound3PlatformAdapter(
+        deployer,
+        controller.address,
+        ethers.Wallet.createRandom().address,
+        [MaticAddresses.COMPOUND3_COMET_USDC],
+        MaticAddresses.COMPOUND3_COMET_REWARDS
+      );
+      await expect(platformAdapter.removeComet(7)).revertedWith("TC-29 incorrect value"); // AppErrors.INCORRECT_VALUE
+    });
+    it("should throw if not governance", async () => {
+      const controller = await TetuConverterApp.createController(
+        deployer,
+        {tetuLiquidatorAddress: MaticAddresses.TETU_LIQUIDATOR}
+      );
+      const platformAdapter = await AdaptersHelper.createCompound3PlatformAdapter(
+        deployer,
+        controller.address,
+        ethers.Wallet.createRandom().address,
+        [MaticAddresses.COMPOUND3_COMET_USDC],
+        MaticAddresses.COMPOUND3_COMET_REWARDS
+      );
+      const newComet = ethers.Wallet.createRandom().address;
+      await platformAdapter.addComet(newComet);
+      await expect(
+        platformAdapter.connect(await Misc.impersonate(ethers.Wallet.createRandom().address)).removeComet(0)
+      ).revertedWith("TC-9 governance only"); // AppErrors.GOVERNANCE_ONLY
+    });
+  });
+  describe("add comet", () => {
+    it("should throw if not governance", async () => {
+      const controller = await TetuConverterApp.createController(
+        deployer,
+        {tetuLiquidatorAddress: MaticAddresses.TETU_LIQUIDATOR}
+      );
+      const platformAdapter = await AdaptersHelper.createCompound3PlatformAdapter(
+        deployer,
+        controller.address,
+        ethers.Wallet.createRandom().address,
+        [MaticAddresses.COMPOUND3_COMET_USDC],
+        MaticAddresses.COMPOUND3_COMET_REWARDS
+      );
+      const newComet = ethers.Wallet.createRandom().address;
+      await expect(
+        platformAdapter.connect(await Misc.impersonate(ethers.Wallet.createRandom().address)).addComet(newComet)
+      ).revertedWith("TC-9 governance only"); // AppErrors.GOVERNANCE_ONLY
+    });
+  });
 
   describe("platformKind", () => {
     it("should return expected values", async () => {

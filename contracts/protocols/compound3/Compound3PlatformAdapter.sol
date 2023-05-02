@@ -134,7 +134,7 @@ contract Compound3PlatformAdapter is IPlatformAdapter {
 
   function removeComet(uint index) external {
     _onlyGovernance();
-    require(index < comets.length);
+    require(index < comets.length, AppErrors.INCORRECT_VALUE);
     comets[index] = comets[comets.length - 1];
     comets.pop();
   }
