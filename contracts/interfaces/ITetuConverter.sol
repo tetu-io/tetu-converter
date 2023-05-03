@@ -279,4 +279,8 @@ interface ITetuConverter {
   function getPositions(address user_, address collateralToken_, address borrowedToken_) external view returns (
     address[] memory poolAdaptersOut
   );
+
+  /// @notice Save token from TC-balance to {receiver}
+  /// @dev Normally TetuConverter doesn't have any tokens on balance, they can appear there accidentally only
+  function salvage(address token, uint amount, address receiver) external;
 }

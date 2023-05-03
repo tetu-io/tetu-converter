@@ -707,6 +707,13 @@ contract TetuConverter is ITetuConverter, IKeeperCallback, IRequireAmountBySwapM
 
     return (rewardTokensOut, amountsOut);
   }
+
+  /// @inheritdoc ITetuConverter
+  function salvage(address token, uint amount, address receiver) external {
+    require(msg.sender == controller.governance(), AppErrors.GOVERNANCE_ONLY);
+    IERC20(token).safeTransfer(receiver, amount);
+  }
+
   //endregion Check and claim rewards
 
   //-----------------------------------------------------
