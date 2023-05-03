@@ -1099,6 +1099,27 @@ describe("DForcePlatformAdapterTest", () => {
           expect((await tryGetConversionPlan({setBorrowPaused: true})).converter).eq(Misc.ZERO_ADDRESS);
         });
       });
+
+      describe("Use unsupported entry kind 999", () => {
+        it("should return zero plan", async () => {
+          if (!await isPolygonForkInUse()) return;
+
+          const r = await preparePlan(
+            controller,
+            MaticAddresses.DAI,
+            parseUnits("1", 18),
+            MaticAddresses.WMATIC,
+            MaticAddresses.dForce_iDAI,
+            MaticAddresses.dForce_iMATIC,
+            undefined,
+            defaultAbiCoder.encode(["uint256"], [999]) // (!) unsupported entry kind
+          );
+
+          expect(r.plan.converter).eq(Misc.ZERO_ADDRESS);
+          expect(r.plan.collateralAmount.eq(0)).eq(true);
+          expect(r.plan.amountToBorrow.eq(0)).eq(true);
+        });
+      });
     });
     describe("Check gas limit @skip-on-coverage", () => {
       it("should not exceed gas limits", async () => {
@@ -1593,7 +1614,7 @@ describe("DForcePlatformAdapterTest", () => {
         ethers.Wallet.createRandom().address,
         [MaticAddresses.dForce_iDAI, MaticAddresses.dForce_iUSDC],
       );
-      expect( (await pa.platformKind())).eq(1); // LendingPlatformKinds.DFORCE_1
+      expect((await pa.platformKind())).eq(1); // LendingPlatformKinds.DFORCE_1
     });
   });
 //endregion Unit tests

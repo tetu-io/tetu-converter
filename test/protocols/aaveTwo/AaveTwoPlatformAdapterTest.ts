@@ -793,6 +793,28 @@ describe("AaveTwoPlatformAdapterTest", () => {
           expect((await tryGetConversionPlan({}, MaticAddresses.USDT)).converter).eq(Misc.ZERO_ADDRESS);
         });
       });
+
+      describe("Use unsupported entry kind 999", () => {
+        it("should return zero plan", async () => {
+          if (!await isPolygonForkInUse()) return;
+
+          const collateralAsset = MaticAddresses.DAI;
+          const borrowAsset = MaticAddresses.WMATIC;
+          const collateralAmount = parseUnits("1000", 18);
+
+          const r = await preparePlan(
+            collateralAsset,
+            collateralAmount,
+            borrowAsset,
+            10,
+            undefined,
+            defaultAbiCoder.encode(["uint256"], [999]) // (!) unknown entry kind
+          );
+          expect(r.plan.converter).eq(Misc.ZERO_ADDRESS);
+          expect(r.plan.collateralAmount.eq(0)).eq(true);
+          expect(r.plan.amountToBorrow.eq(0)).eq(true);
+        });
+      });
     });
     describe("Check gas limit @skip-on-coverage", () => {
       it("should not exceed gas limits", async () => {
@@ -1096,7 +1118,7 @@ describe("AaveTwoPlatformAdapterTest", () => {
         ethers.Wallet.createRandom().address,
         await controller.borrowManager()
       );
-      expect( (await pa.platformKind())).eq(2); // LendingPlatformKinds.AAVE2_2
+      expect((await pa.platformKind())).eq(2); // LendingPlatformKinds.AAVE2_2
     });
   });
 //endregion Unit tests

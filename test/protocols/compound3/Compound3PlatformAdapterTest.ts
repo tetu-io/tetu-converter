@@ -714,6 +714,23 @@ describe("Compound3PlatformAdapterTest", () => {
           expect((await tryGetConversionPlan({setWithdrawPaused: true})).converter).eq(Misc.ZERO_ADDRESS);
         });
       });
+      describe("Use unsupported entry kind 999", () => {
+        it("should return zero plan", async () => {
+          if (!await isPolygonForkInUse()) return;
+
+          const r = await preparePlan(
+            controller,
+            MaticAddresses.WMATIC,
+            parseUnits("1000"),
+            MaticAddresses.USDC,
+            undefined,
+            defaultAbiCoder.encode(["uint256"], [999]) // (unknown entry kind)
+          )
+          expect(r.plan.converter).eq(Misc.ZERO_ADDRESS);
+          expect(r.plan.collateralAmount.eq(0)).eq(true);
+          expect(r.plan.amountToBorrow.eq(0)).eq(true);
+        });
+      });
     })
   })
 

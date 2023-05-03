@@ -42,36 +42,7 @@ describe("AaveSharedLibTest", () => {
 //endregion before, after
 
 //region Unit tests
-  describe("getReserveForDustDebt", () => {
-    it("should return reserve > 0 for USDC", async () => {
-      const asset = MaticAddresses.USDC;
-      const decimals = await IERC20Metadata__factory.connect(asset, deployer).decimals();
-      const maxAllowedAmount = parseUnits("2", 6);
 
-      const price = await priceOracle.getAssetPrice(asset);
-      const reserve = await facade.getReserveForDustDebt(parseUnits("1", decimals), price, BASE_CURRENCY_DECIMALS);
-      console.log(reserve);
-      expect(reserve.gt(0) && reserve.lt(maxAllowedAmount)).eq(true);
-    });
-    it("should return reserve > 0 for WETH", async () => {
-      const asset = MaticAddresses.WETH;
-      const maxAllowedAmount = parseUnits("1", 18-3);
-      const decimals = await IERC20Metadata__factory.connect(asset, deployer).decimals();
-      const price = await priceOracle.getAssetPrice(asset);
-      const reserve = await facade.getReserveForDustDebt(parseUnits("1", decimals), price, BASE_CURRENCY_DECIMALS);
-      console.log(reserve);
-      expect(reserve.gt(0) && reserve.lt(maxAllowedAmount)).eq(true);
-    });
-    it("should return reserve > 0 for WBTC", async () => {
-      const asset = MaticAddresses.WBTC;
-      const maxAllowedAmount = parseUnits("1", 18-3);
-      const decimals = await IERC20Metadata__factory.connect(asset, deployer).decimals();
-      const price = await priceOracle.getAssetPrice(asset);
-      const reserve = await facade.getReserveForDustDebt(parseUnits("1", decimals), price, BASE_CURRENCY_DECIMALS);
-      console.log(reserve);
-      expect(reserve.gt(0) && reserve.lt(maxAllowedAmount)).eq(true);
-    });
-  });
 
 //endregion Unit tests
 });

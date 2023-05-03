@@ -677,7 +677,7 @@ describe("Aave3PoolAdapterUnitTest", () => {
        *       in such case MIN_DEBT_GAP_ADDON should be used
        *       we need to add 10 tokens, so amount-to-repay = $0.000059
        */
-      describe("Repay very small amount with tiny debt-gap amount", async () => {
+      describe("Repay very small amount with tiny debt-gap amount", () => {
         const collateralAsset = MaticAddresses.USDC;
         const collateralHolder = MaticAddresses.HOLDER_USDC;
         const borrowAsset = MaticAddresses.USDT;

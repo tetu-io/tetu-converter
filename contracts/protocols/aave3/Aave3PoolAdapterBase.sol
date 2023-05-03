@@ -43,7 +43,7 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer,
   IConverterController public controller;
   IAavePool internal _pool;
   /// @notice Address of original PoolAdapter contract that was cloned to make the instance of the pool adapter
-  address originConverter;
+  address internal originConverter;
 
   /// @notice Total amount of all supplied and withdrawn amounts of collateral in ATokens
   uint public collateralBalanceATokens;
@@ -53,16 +53,14 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer,
   //region Events
   //-----------------------------------------------------
   event OnInitialized(address controller, address pool, address user, address collateralAsset, address borrowAsset, address originConverter);
-  event OnBorrow(uint collateralAmount, uint borrowAmount, address receiver, uint resultHealthFactor18,
-    uint collateralBalanceATokens);
+  event OnBorrow(uint collateralAmount, uint borrowAmount, address receiver, uint resultHealthFactor18, uint collateralBalanceATokens);
   event OnBorrowToRebalance(uint borrowAmount, address receiver, uint resultHealthFactor18);
-  event OnRepay(uint amountToRepay, address receiver, bool closePosition, uint resultHealthFactor18,
-    uint collateralBalanceATokens);
+  event OnRepay(uint amountToRepay, address receiver, bool closePosition, uint resultHealthFactor18, uint collateralBalanceATokens);
   event OnRepayToRebalance(uint amount, bool isCollateral, uint resultHealthFactor18, uint collateralBalanceATokens);
   //endregion Events
 
   //-----------------------------------------------------
-  //region Initialization
+  //region Initialization and customization
   //-----------------------------------------------------
 
   function initialize(
@@ -102,7 +100,10 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer,
 
     emit OnInitialized(controller_, pool_, user_, collateralAsset_, borrowAsset_, originConverter_);
   }
-  //endregion Initialization
+
+  /// @notice Enter to E-mode if necessary
+  function prepareToBorrow() internal virtual;
+  //endregion Initialization and customization
 
   //-----------------------------------------------------
   //region Restrictions
@@ -115,18 +116,9 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer,
 
   function updateStatus() external override {
     // nothing to do; getStatus always return actual amounts in AAVE
-    // actually, there is reserve.updateStatus function, i.e. see SupplyLogic.sol, executeWithdraw
-    // but this function is internal
+    // there is reserve.updateStatus function, i.e. see SupplyLogic.sol, executeWithdraw but it is internal
   }
   //endregion Restrictions
-
-  //-----------------------------------------------------
-  //region Adapter customization
-  //-----------------------------------------------------
-
-  /// @notice Enter to E-mode if necessary
-  function prepareToBorrow() internal virtual;
-  //endregion Adapter customization
 
   //-----------------------------------------------------
   //region Borrow logic
@@ -138,11 +130,7 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer,
   /// @param borrowAmount_ Amount that should be borrowed in result
   /// @param receiver_ Receiver of the borrowed amount
   /// @return Result borrowed amount sent to the {receiver_}
-  function borrow(
-    uint collateralAmount_,
-    uint borrowAmount_,
-    address receiver_
-  ) external override returns (uint) {
+  function borrow(uint collateralAmount_, uint borrowAmount_, address receiver_) external override returns (uint) {
     IConverterController c = controller;
     _onlyTetuConverter(c);
 
@@ -158,14 +146,7 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer,
     // make borrow, send borrowed amount to the receiver
     // we cannot transfer borrowed amount directly to receiver because the debt is incurred by amount receiver
     uint balanceBorrowAsset0 = IERC20(assetBorrow).balanceOf(address(this));
-
-    pool.borrow(
-      assetBorrow,
-      borrowAmount_,
-      RATE_MODE,
-      0, // no referral code
-      address(this)
-    );
+    pool.borrow(assetBorrow, borrowAmount_, RATE_MODE, 0, address(this));
 
     // ensure that we have received required borrowed amount, send the amount to the receiver
     require(
@@ -187,12 +168,7 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer,
 
   /// @notice Supply collateral to AAVE-pool
   /// @return Amount of received A-tokens
-  function _supply(
-    IAavePool pool_,
-    address assetCollateral_,
-    uint collateralAmount_
-  ) internal returns (uint) {
-    //a-tokens
+  function _supply(IAavePool pool_, address assetCollateral_, uint collateralAmount_) internal returns (uint) {
     Aave3DataTypes.ReserveData memory rc = pool_.getReserveData(assetCollateral_);
     uint aTokensBalanceBeforeSupply = IERC20(rc.aTokenAddress).balanceOf(address(this));
 
@@ -202,13 +178,9 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer,
     // E.g. User supplies 100 USDC and gets in return 100 aUSDC
 
     // replaced by infinity approve: IERC20(assetCollateral_).safeApprove(address(pool_), collateralAmount_);
-    pool_.supply(
-      assetCollateral_,
-      collateralAmount_,
-      address(this),
-      0 // no referral code
-    );
+    pool_.supply(assetCollateral_, collateralAmount_, address(this), 0);
     pool_.setUserUseReserveAsCollateral(assetCollateral_, true);
+
     // ensure that we received a-tokens; don't transfer them anywhere
     uint aTokensBalanceAfterSupply = IERC20(rc.aTokenAddress).balanceOf(address(this));
     require(aTokensBalanceAfterSupply >= aTokensBalanceBeforeSupply, AppErrors.WEIRD_OVERFLOW);
@@ -223,10 +195,7 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer,
   /// @dev Re-balance: too big health factor => target health factor
   /// @return resultHealthFactor18 Result health factor after borrow
   /// @return borrowedAmountOut Exact amount sent to the borrower
-  function borrowToRebalance (
-    uint borrowAmount_,
-    address receiver_
-  ) external override returns (
+  function borrowToRebalance(uint borrowAmount_, address receiver_) external override returns (
     uint resultHealthFactor18,
     uint borrowedAmountOut
   ) {
@@ -246,13 +215,7 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer,
     // make borrow, send borrowed amount to the receiver
     // we cannot transfer borrowed amount directly to receiver because the debt is incurred by amount receiver
     uint balanceBorrowAsset0 = IERC20(assetBorrow).balanceOf(address(this));
-    pool.borrow(
-      assetBorrow,
-      borrowAmount_,
-      RATE_MODE,
-      0, // no referral code
-      address(this)
-    );
+    pool.borrow(assetBorrow, borrowAmount_, RATE_MODE, 0, address(this));
 
     // ensure that we have received required borrowed amount, send the amount to the receiver
     require(
@@ -420,10 +383,7 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer,
   ///                The amount should be approved for the pool adapter before the call.
   /// @param isCollateral_ true/false indicates that {amount_} is the amount of collateral/borrow asset
   /// @return resultHealthFactor18 Result health factor after repay, decimals 18
-  function repayToRebalance(
-    uint amount_,
-    bool isCollateral_
-  ) external override returns ( // TODO: nonReentrant?
+  function repayToRebalance(uint amount_, bool isCollateral_) external override returns (
     uint resultHealthFactor18
   ) {
     _onlyTetuConverter(controller);
@@ -466,16 +426,14 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer,
     IAavePool pool = _pool;
     IAavePriceOracle priceOracle = IAavePriceOracle(IAaveAddressesProvider(IAavePool(pool).ADDRESSES_PROVIDER()).getPriceOracle());
 
-    if (closePosition_) {
-      // full repay
+    if (closePosition_) { // full repay
       (uint256 totalCollateralBase,,,,,) = pool.getUserAccountData(address(this));
 
       uint collateralPrice = priceOracle.getAssetPrice(assetCollateral);
       require(collateralPrice != 0, AppErrors.ZERO_PRICE);
 
       return totalCollateralBase * (10 ** pool.getConfiguration(assetCollateral).getDecimals()) / collateralPrice;
-    } else {
-      // partial repay
+    } else { // partial repay
       Aave3DataTypes.ReserveData memory rc = pool.getReserveData(assetCollateral);
       return _getCollateralAmountToReturn(
         pool,
@@ -490,34 +448,21 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer,
   }
   //endregion Repay logic
 
-  //-----------------------------------------------------
   //region Rewards
-  //-----------------------------------------------------
-  function claimRewards(address receiver_) external pure override returns (
-    address rewardToken,
-    uint amount
-  ) {
+  function claimRewards(address receiver_) external pure override returns (address rewardToken, uint amount) {
     //nothing to do, AAVE3 doesn't have rewards on polygon
     receiver_; // hide warning
     return (rewardToken, amount);
   }
   //endregion Rewards
 
-  //-----------------------------------------------------
   //region View current status
-  //-----------------------------------------------------
-
   function getConversionKind() external pure override returns (AppDataTypes.ConversionKind) {
     return AppDataTypes.ConversionKind.BORROW_2;
   }
 
   /// @inheritdoc IPoolAdapter
-  function getConfig() external view override returns (
-    address origin,
-    address outUser,
-    address outCollateralAsset,
-    address outBorrowAsset
-  ) {
+  function getConfig() external view override returns (address origin, address outUser, address outCollateralAsset, address outBorrowAsset) {
     return (originConverter, user, collateralAsset, borrowAsset);
   }
 
@@ -574,10 +519,7 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer,
   }
   //endregion View current status
 
-  //-----------------------------------------------------
   //region Utils
-  //-----------------------------------------------------
-
   function _validateHealthFactor(IConverterController controller_, uint hf18) internal view {
     require(hf18 >= uint(controller_.minHealthFactor2())*10**(18-2), AppErrors.WRONG_HEALTH_FACTOR);
   }
