@@ -52,18 +52,13 @@ contract AaveTwoPoolAdapter is IPoolAdapter, IPoolAdapterInitializer, Initializa
   //-----------------------------------------------------
   //region Events
   //-----------------------------------------------------
-  event OnInitialized(
-    address controller,
-    address pool,
-    address user,
-    address collateralAsset,
-    address borrowAsset,
-    address originConverter
-  );
+  event OnInitialized(address controller, address pool, address user, address collateralAsset, address borrowAsset, address originConverter);
   event OnBorrow(uint collateralAmount, uint borrowAmount, address receiver, uint resultHealthFactor18, uint collateralBalanceATokens);
   event OnBorrowToRebalance(uint borrowAmount, address receiver, uint resultHealthFactor18);
   event OnRepay(uint amountToRepay, address receiver, bool closePosition, uint resultHealthFactor18, uint collateralBalanceATokens);
   event OnRepayToRebalance(uint amount, bool isCollateral, uint resultHealthFactor18, uint collateralBalanceATokens);
+  event OnSalvage(address receiver, address token, uint amount);
+
   //endregion Events
 
   //-----------------------------------------------------
@@ -107,6 +102,20 @@ contract AaveTwoPoolAdapter is IPoolAdapter, IPoolAdapterInitializer, Initializa
 
     emit OnInitialized(controller_, pool_, user_, collateralAsset_, borrowAsset_, originConverter_);
   }
+
+  /// @notice Save any not aToken from balance to {receiver}
+  /// @dev Normally this contract doesn't have any tokens on balance except aTokens
+  function salvage(address receiver, address token, uint amount) external {
+    require(msg.sender == controller.governance(), AppErrors.GOVERNANCE_ONLY);
+    IAaveTwoPool __pool = _pool;
+    DataTypes.ReserveData memory rc = __pool.getReserveData(collateralAsset);
+    DataTypes.ReserveData memory rb = __pool.getReserveData(borrowAsset);
+    require(token != rc.aTokenAddress && token != rb.aTokenAddress, AppErrors.UNSALVAGEABLE);
+
+    IERC20(token).safeTransfer(receiver, amount);
+    emit OnSalvage(receiver, token, amount);
+  }
+
   //endregion Initialization
 
   //-----------------------------------------------------

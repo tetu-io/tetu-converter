@@ -139,6 +139,11 @@ export class MaticAddresses {
   public static Aave3_Polygon_EURS = "0x38d693cE1dF5AaDF7bC62595A37D667aD57922e5";
   public static Aave3_Polygon_JEUR = "0x6533afac2E7BCCB20dca161449A13A32D391fb00";
   public static Aave3_Polygon_AGEUR = "0x8437d7C167dFB82ED4Cb79CD44B7a32A1dd95c77";
+
+  public static AAVE3_ATOKEN_USDC = "0x625E7708f30cA75bfd92586e17077590C60eb4cD";
+  public static AAVE3_ATOKEN_USDC_HOLDER = "0xe52f5349153b8eb3b89675af45ac7502c4997e6a";
+  public static AAVE3_ATOKEN_USDT = "0x6ab707Aca953eDAeFBc4fD23bA73294241490620";
+  public static AAVE3_ATOKEN_USDT_HOLDER = "0x3e059f977670eeba3460005f20572f991637614e";
 //endregion AAVE-v3
 
 //region AAVE-v3
@@ -148,6 +153,11 @@ export class MaticAddresses {
   public static AAVE_TWO_POOL_OWNER = "0xdc9a35b16db4e126cfedc41322b3a36454b1f772";
   // https://polygonscan.com/address/0xd05e3e715d945b59290df0ae8ef85c1bdb684744#readContract
   public static AAVE_TWO_LENDING_POOL_CONFIGURATOR_POOL_ADMIN = "0xdc9a35b16db4e126cfedc41322b3a36454b1f772";
+
+  public static AAVE_TWO_ATOKEN_USDC = "0x1a13F4Ca1d028320A707D99520AbFefca3998b7F";
+  public static AAVE_TWO_ATOKEN_USDC_HOLDER = "0xe52f5349153b8eb3b89675af45ac7502c4997e6a";
+  public static AAVE_TWO_ATOKEN_USDT = "0x60D55F02A771d515e077c9C2403a1ef324885CeC";
+  public static AAVE_TWO_ATOKEN_USDT_HOLDER = "0x510d0e4def20c6bfd84f080bc424bac5c66941f4";
 
 //endregion AAVE-v3
 
@@ -184,6 +194,9 @@ export class MaticAddresses {
   public static dForce_iCRV = "0x7D86eE431fbAf60E86b5D3133233E478aF691B68";
   public static dForce_iDF = "0xcB5D9b6A9BA8eA6FA82660fAA9cC130586F939B2";
   public static dForce_iMATIC = "0x6A3fE5342a4Bd09efcd44AC5B9387475A0678c74";
+
+  public static HOLDER_DFORCE_IUSDC = "0xce4c3e4abb8a3bc23b828327c363e1dcc748d6a5";
+  public static HOLDER_DFORCE_IUSDT = "0xce4c3e4abb8a3bc23b828327c363e1dcc748d6a5";
 
 //endregion dForce
 

@@ -5408,8 +5408,8 @@ describe("TetuConverterTest", () => {
 
         await sourceToken.mint(core.tc.address, 1000);
         await targetToken.mint(core.tc.address, 2000);
-        await core.tc.connect(await Misc.impersonate(governance)).salvage(sourceToken.address, 800, receiver);
-        await core.tc.connect(await Misc.impersonate(governance)).salvage(targetToken.address, 2000, receiver);
+        await core.tc.connect(await Misc.impersonate(governance)).salvage(receiver, sourceToken.address, 800);
+        await core.tc.connect(await Misc.impersonate(governance)).salvage(receiver, targetToken.address, 2000);
         expect((await sourceToken.balanceOf(receiver)).toNumber()).eq(800);
         expect((await targetToken.balanceOf(receiver)).toNumber()).eq(2000);
       });
@@ -5424,7 +5424,7 @@ describe("TetuConverterTest", () => {
         }));
 
         await expect(
-          core.tc.connect(await Misc.impersonate(receiver)).salvage(sourceToken.address, 800, receiver)
+          core.tc.connect(await Misc.impersonate(receiver)).salvage(receiver, sourceToken.address, 800)
         ).revertedWith("TC-9 governance only"); // GOVERNANCE_ONLY
       });
     });

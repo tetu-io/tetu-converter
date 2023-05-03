@@ -282,5 +282,5 @@ interface ITetuConverter {
 
   /// @notice Save token from TC-balance to {receiver}
   /// @dev Normally TetuConverter doesn't have any tokens on balance, they can appear there accidentally only
-  function salvage(address token, uint amount, address receiver) external;
+  function salvage(address receiver, address token, uint amount) external;
 }

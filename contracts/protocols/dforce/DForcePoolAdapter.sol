@@ -52,21 +52,14 @@ contract DForcePoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP, Initi
   //-----------------------------------------------------
   //region Events
   //-----------------------------------------------------
-  event OnInitialized(
-    address controller,
-    address cTokenAddressProvider,
-    address comptroller,
-    address user,
-    address collateralAsset,
-    address borrowAsset,
-    address originConverter
-  );
+  event OnInitialized(address controller, address cTokenAddressProvider, address comptroller, address user, address collateralAsset, address borrowAsset, address originConverter);
   event OnBorrow(uint collateralAmount, uint borrowAmount, address receiver, uint resultHealthFactor18);
   event OnBorrowToRebalance(uint borrowAmount, address receiver, uint resultHealthFactor18);
   event OnRepay(uint amountToRepay, address receiver, bool closePosition, uint resultHealthFactor18);
   event OnRepayToRebalance(uint amount, bool isCollateral, uint resultHealthFactor18);
   /// @notice On claim not empty {amount} of reward tokens
   event OnClaimRewards(address rewardToken, uint amount, address receiver);
+  event OnSalvage(address receiver, address token, uint amount);
   //endregion Events
 
   //-----------------------------------------------------
@@ -121,6 +114,16 @@ contract DForcePoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP, Initi
     IERC20(borrowAsset_).safeApprove(cTokenBorrow, 2**255); // 2*255 is more gas-efficient than type(uint).max
 
     emit OnInitialized(controller_, cTokenAddressProvider_, comptroller_, user_, collateralAsset_, borrowAsset_, originConverter_);
+  }
+
+  /// @notice Save any not cToken  from balance to {receiver}
+  /// @dev Normally this contract doesn't have any tokens on balance except cTokens
+  function salvage(address receiver, address token, uint amount) external {
+    require(msg.sender == controller.governance(), AppErrors.GOVERNANCE_ONLY);
+    require(token != collateralCToken && token != borrowCToken, AppErrors.UNSALVAGEABLE);
+
+    IERC20(token).safeTransfer(receiver, amount);
+    emit OnSalvage(receiver, token, amount);
   }
   //endregion Initialization
 

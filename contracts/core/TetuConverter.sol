@@ -81,72 +81,19 @@ contract TetuConverter is ITetuConverter, IKeeperCallback, IRequireAmountBySwapM
   //-----------------------------------------------------
   //region Events
   //-----------------------------------------------------
-  event OnSwap(
-    address signer,
-    address converter,
-    address sourceAsset,
-    uint sourceAmount,
-    address targetAsset,
-    address receiver,
-    uint targetAmountOut
-  );
-
-  event OnBorrow(
-    address poolAdapter,
-    uint collateralAmount,
-    uint amountToBorrow,
-    address receiver,
-    uint borrowedAmountOut
-  );
-
-  event OnRepayBorrow(
-    address poolAdapter,
-    uint amountToRepay,
-    address receiver,
-    bool closePosition
-  );
+  event OnSwap(address signer, address converter, address sourceAsset, uint sourceAmount, address targetAsset, address receiver, uint targetAmountOut);
+  event OnBorrow(address poolAdapter, uint collateralAmount, uint amountToBorrow, address receiver, uint borrowedAmountOut);
+  event OnRepayBorrow(address poolAdapter, uint amountToRepay, address receiver, bool closePosition);
 
   /// @notice A part of target amount cannot be repaid or swapped
   ///         so it was just returned back to receiver as is
-  event OnRepayReturn(
-    address asset,
-    address receiver,
-    uint amount
-  );
-
-  event OnRequireRepayCloseLiquidatedPosition(
-    address poolAdapter,
-    uint statusAmountToPay
-  );
-
-  event OnRequireRepayRebalancing(
-    address poolAdapter,
-    uint amount,
-    bool isCollateral,
-    uint statusAmountToPay,
-    uint healthFactorAfterRepay18
-  );
-
-  event OnClaimRewards(
-    address poolAdapter,
-    address rewardsToken,
-    uint amount,
-    address receiver
-  );
-
-  event OnSafeLiquidate(
-    address sourceToken,
-    uint sourceAmount,
-    address targetToken,
-    address receiver,
-    uint outputAmount
-  );
-
-  event OnRepayTheBorrow(
-    address poolAdapter,
-    uint collateralOut,
-    uint repaidAmountOut
-  );
+  event OnRepayReturn(address asset, address receiver, uint amount);
+  event OnRequireRepayCloseLiquidatedPosition(address poolAdapter, uint statusAmountToPay);
+  event OnRequireRepayRebalancing(address poolAdapter, uint amount, bool isCollateral, uint statusAmountToPay, uint healthFactorAfterRepay18);
+  event OnClaimRewards(address poolAdapter, address rewardsToken, uint amount, address receiver);
+  event OnSafeLiquidate(address sourceToken, uint sourceAmount, address targetToken, address receiver, uint outputAmount);
+  event OnRepayTheBorrow(address poolAdapter, uint collateralOut, uint repaidAmountOut);
+  event OnSalvage(address receiver, address token, uint amount);
   //endregion Events
 
   //-----------------------------------------------------
@@ -709,9 +656,11 @@ contract TetuConverter is ITetuConverter, IKeeperCallback, IRequireAmountBySwapM
   }
 
   /// @inheritdoc ITetuConverter
-  function salvage(address token, uint amount, address receiver) external {
+  function salvage(address receiver, address token, uint amount) external {
     require(msg.sender == controller.governance(), AppErrors.GOVERNANCE_ONLY);
+
     IERC20(token).safeTransfer(receiver, amount);
+    emit OnSalvage(receiver, token, amount);
   }
 
   //endregion Check and claim rewards

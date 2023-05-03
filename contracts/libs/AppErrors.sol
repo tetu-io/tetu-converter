@@ -122,4 +122,6 @@ library AppErrors {
   string public constant OUT_OF_WHITE_LIST = "TC-57 whitelist";
 
   string public constant INCORRECT_BORROW_ASSET = "TC-58 incorrect borrow asset";
+
+  string public constant UNSALVAGEABLE = "TC-59: unsalvageable";
 }

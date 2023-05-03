@@ -49,6 +49,7 @@ import {AaveTwoChangePricesUtils} from "../../baseUT/protocols/aaveTwo/AaveTwoCh
 import {loadFixture} from "@nomicfoundation/hardhat-network-helpers";
 import {IMakeRepayBadPathsParams} from "../../baseUT/protocols/aaveShared/aaveBorrowUtils";
 import {RepayUtils} from "../../baseUT/protocols/shared/repayUtils";
+import {Aave3TestUtils} from "../../baseUT/protocols/aave3/Aave3TestUtils";
 
 describe("AaveTwoPoolAdapterUnitTest", () => {
 //region Global vars for all tests
@@ -2148,6 +2149,75 @@ describe("AaveTwoPoolAdapterUnitTest", () => {
             parseUnits("1000") // full repay, close position
           )
         ).revertedWith("TC-4 zero price"); // ZERO_PRICE
+      });
+    });
+  });
+
+  describe("salvage", () => {
+    const receiver = ethers.Wallet.createRandom().address;
+    let snapshotLocal: string;
+    before(async function () {
+      snapshotLocal = await TimeUtils.snapshot();
+    });
+    after(async function () {
+      await TimeUtils.rollback(snapshotLocal);
+    });
+
+    interface IPrepareResults {
+      init: IPrepareToBorrowResults;
+      governance: string;
+    }
+    async function prepare() : Promise<IPrepareResults> {
+      const controller = await loadFixture(createControllerDefaultFixture);
+      const collateralToken = await TokenDataTypes.Build(deployer, MaticAddresses.USDC);
+      const borrowToken = await TokenDataTypes.Build(deployer, MaticAddresses.USDT);
+      const init = await AaveTwoTestUtils.prepareToBorrow(
+        deployer,
+        controller,
+        collateralToken,
+        MaticAddresses.HOLDER_USDC,
+        parseUnits("1", collateralToken.decimals),
+        borrowToken,
+      );
+      const governance = await init.controller.governance();
+      return {init, governance};
+    }
+    async function salvageToken(
+      p: IPrepareResults,
+      tokenAddress: string,
+      holder: string,
+      amountNum: string,
+      caller?: string
+    ) : Promise<number>{
+      const token = await IERC20Metadata__factory.connect(tokenAddress, deployer);
+      const decimals = await token.decimals();
+      const amount = parseUnits(amountNum, decimals);
+      await BalanceUtils.getRequiredAmountFromHolders(amount, token,[holder], p.init.aavePoolAdapterAsTC.address);
+      await p.init.aavePoolAdapterAsTC.connect(await Misc.impersonate(caller || p.governance)).salvage(receiver, tokenAddress, amount);
+      return +formatUnits(await token.balanceOf(receiver), decimals);
+    }
+    describe("Good paths", () => {
+      it("should salvage collateral asset", async () => {
+        const p = await loadFixture(prepare);
+        expect(await salvageToken(p, MaticAddresses.USDC, MaticAddresses.HOLDER_USDC, "800")).eq(800);
+      });
+      it("should salvage borrow asset", async () => {
+        const p = await loadFixture(prepare);
+        expect(await salvageToken(p, MaticAddresses.USDT, MaticAddresses.HOLDER_USDT, "800")).eq(800);
+      });
+    });
+    describe("Bad paths", () => {
+      it("should revert on attempt to salvage collateral aToken", async () => {
+        const p = await loadFixture(prepare);
+        await expect(salvageToken(p, MaticAddresses.AAVE_TWO_ATOKEN_USDC, MaticAddresses.AAVE_TWO_ATOKEN_USDC_HOLDER, "800")).revertedWith("TC-59: unsalvageable"); // UNSALVAGEABLE
+      });
+      it("should revert on attempt to salvage borrow stable aToken", async () => {
+        const p = await loadFixture(prepare);
+        await expect(salvageToken(p, MaticAddresses.AAVE_TWO_ATOKEN_USDT, MaticAddresses.AAVE_TWO_ATOKEN_USDT_HOLDER, "800")).revertedWith("TC-59: unsalvageable"); // UNSALVAGEABLE
+      });
+      it("should revert if not governance", async () => {
+        const p = await loadFixture(prepare);
+        await expect(salvageToken(p, MaticAddresses.USDC, MaticAddresses.HOLDER_USDC, "800", receiver)).revertedWith("TC-9 governance only"); // GOVERNANCE_ONLY
       });
     });
   });

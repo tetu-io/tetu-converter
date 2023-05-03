@@ -57,6 +57,8 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer,
   event OnBorrowToRebalance(uint borrowAmount, address receiver, uint resultHealthFactor18);
   event OnRepay(uint amountToRepay, address receiver, bool closePosition, uint resultHealthFactor18, uint collateralBalanceATokens);
   event OnRepayToRebalance(uint amount, bool isCollateral, uint resultHealthFactor18, uint collateralBalanceATokens);
+  event OnSalvage(address receiver, address token, uint amount);
+
   //endregion Events
 
   //-----------------------------------------------------
@@ -103,6 +105,19 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer,
 
   /// @notice Enter to E-mode if necessary
   function prepareToBorrow() internal virtual;
+
+  /// @notice Save any not aToken from balance to {receiver}
+  /// @dev Normally this contract doesn't have any tokens on balance except aTokens
+  function salvage(address receiver, address token, uint amount) external {
+    require(msg.sender == controller.governance(), AppErrors.GOVERNANCE_ONLY);
+    IAavePool __pool = _pool;
+    Aave3DataTypes.ReserveData memory rc = __pool.getReserveData(collateralAsset);
+    Aave3DataTypes.ReserveData memory rb = __pool.getReserveData(borrowAsset);
+    require(token != rc.aTokenAddress && token != rb.aTokenAddress, AppErrors.UNSALVAGEABLE);
+
+    IERC20(token).safeTransfer(receiver, amount);
+    emit OnSalvage(receiver, token, amount);
+  }
   //endregion Initialization and customization
 
   //-----------------------------------------------------

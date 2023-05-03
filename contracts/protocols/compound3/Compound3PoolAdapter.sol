@@ -40,6 +40,7 @@ contract Compound3PoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithReward
   event OnRepay(uint amountToRepay, address receiver, bool closePosition, uint resultHealthFactor18);
   event OnRepayToRebalance(uint amount, bool isCollateral, uint resultHealthFactor18);
   event OnClaimRewards(address rewardToken, uint amount, address receiver);
+  event OnSalvage(address receiver, address token, uint amount);
   //endregion Events
 
   //-----------------------------------------------------
@@ -54,7 +55,7 @@ contract Compound3PoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithReward
   //endregion Data type
 
   ///////////////////////////////////////////////////////
-  //region Initialization
+  //region Initialization and salvage
   ///////////////////////////////////////////////////////
 
   function initialize(
@@ -93,7 +94,16 @@ contract Compound3PoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithReward
 
     emit OnInitialized(controller_, comet_, user_, collateralAsset_, borrowAsset_, originConverter_);
   }
-  //endregion Initialization
+
+  /// @notice Save any token from balance to {receiver}
+  /// @dev Normally this contract doesn't have any tokens on balance
+  function salvage(address receiver, address token, uint amount) external {
+    require(msg.sender == controller.governance(), AppErrors.GOVERNANCE_ONLY);
+
+    IERC20(token).safeTransfer(receiver, amount);
+    emit OnSalvage(receiver, token, amount);
+  }
+  //endregion Initialization and salvage
 
   ///////////////////////////////////////////////////////
   //region Modifiers
