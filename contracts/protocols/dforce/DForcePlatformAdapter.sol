@@ -27,7 +27,7 @@ contract DForcePlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
   //-----------------------------------------------------
   //region Constants
   //-----------------------------------------------------
-  string public constant override PLATFORM_ADAPTER_VERSION = "1.0.1";
+  string public constant override PLATFORM_ADAPTER_VERSION = "1.0.2";
   //endregion Constants
 
   //-----------------------------------------------------
@@ -64,26 +64,14 @@ contract DForcePlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
   //-----------------------------------------------------
   //region Events
   //-----------------------------------------------------
-  event OnPoolAdapterInitialized(
-    address converter,
-    address poolAdapter,
-    address user,
-    address collateralAsset,
-    address borrowAsset
-  );
+  event OnPoolAdapterInitialized(address converter, address poolAdapter, address user, address collateralAsset, address borrowAsset);
   event OnRegisterCTokens(address[] cTokens);
   //endregion Events
 
   //-----------------------------------------------------
   //region Constructor and initialization
   //-----------------------------------------------------
-  constructor (
-    address controller_,
-    address borrowManager_,
-    address comptroller_,
-    address templatePoolAdapter_,
-    address[] memory activeCTokens_
-  ) {
+  constructor(address controller_, address borrowManager_, address comptroller_, address templatePoolAdapter_, address[] memory activeCTokens_) {
     require(
       comptroller_ != address(0)
       && borrowManager_ != address(0)
@@ -101,13 +89,7 @@ contract DForcePlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
   }
 
   /// @notice Initialize {poolAdapter_} created from {converter_} using minimal proxy pattern
-  function initializePoolAdapter(
-    address converter_,
-    address poolAdapter_,
-    address user_,
-    address collateralAsset_,
-    address borrowAsset_
-  ) external override {
+  function initializePoolAdapter(address converter_, address poolAdapter_, address user_, address collateralAsset_, address borrowAsset_) external override {
     require(msg.sender == controller.borrowManager(), AppErrors.BORROW_MANAGER_ONLY);
     require(converter == converter_, AppErrors.CONVERTER_NOT_FOUND);
 
@@ -158,20 +140,19 @@ contract DForcePlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
   }
   //endregion Access
 
-
   //-----------------------------------------------------
   //region View
   //-----------------------------------------------------
-
   function converters() external view override returns (address[] memory) {
     address[] memory dest = new address[](1);
     dest[0] = converter;
     return dest;
   }
 
-  function getCTokenByUnderlying(address token1_, address token2_)
-  external view override
-  returns (address cToken1, address cToken2) {
+  function getCTokenByUnderlying(address token1_, address token2_) external view override returns (
+    address cToken1,
+    address cToken2
+  ) {
     return (activeAssets[token1_], activeAssets[token2_]);
   }
 
@@ -185,10 +166,7 @@ contract DForcePlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
   //region Get conversion plan
   //-----------------------------------------------------
 
-  function getConversionPlan (
-    AppDataTypes.InputConversionParams memory p_,
-    uint16 healthFactor2_
-  ) external override view returns (
+  function getConversionPlan(AppDataTypes.InputConversionParams memory p_, uint16 healthFactor2_) external override view returns (
     AppDataTypes.ConversionPlan memory plan
   ) {
     require(p_.collateralAsset != address(0) && p_.borrowAsset != address(0), AppErrors.ZERO_ADDRESS);
@@ -351,8 +329,7 @@ contract DForcePlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
     uint collateralFactorMantissa,
     uint supplyCapacity
   ) {
-    (uint256 collateralFactorMantissa0,,, uint256 supplyCapacity0, bool mintPaused,,) = comptroller_
-      .markets(cTokenCollateral_);
+    (uint256 collateralFactorMantissa0,,, uint256 supplyCapacity0, bool mintPaused,,) = comptroller_.markets(cTokenCollateral_);
     return mintPaused || supplyCapacity0 == 0
       ? (0, 0)
       : (collateralFactorMantissa0, supplyCapacity0);
@@ -366,8 +343,7 @@ contract DForcePlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
     uint borrowFactorMantissa,
     uint borrowCapacity
   ) {
-    (, uint256 borrowFactorMantissa0, uint256 borrowCapacity0,,, bool redeemPaused, bool borrowPaused) = comptroller_
-      .markets(cTokenBorrow_);
+    (, uint256 borrowFactorMantissa0, uint256 borrowCapacity0,,, bool redeemPaused, bool borrowPaused) = comptroller_.markets(cTokenBorrow_);
     return (redeemPaused || borrowPaused || borrowCapacity0 == 0)
       ? (0, 0)
       : (borrowFactorMantissa0, borrowCapacity0);

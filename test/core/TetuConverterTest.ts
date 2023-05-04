@@ -55,6 +55,7 @@ import {
 import {ICreateControllerParams, TetuConverterApp} from "../baseUT/helpers/TetuConverterApp";
 import {getSum} from "../baseUT/utils/CommonUtils";
 import {loadFixture} from "@nomicfoundation/hardhat-network-helpers";
+import {boolean} from "hardhat/internal/core/params/argumentTypes";
 
 describe("TetuConverterTest", () => {
 //region Constants
@@ -3534,30 +3535,34 @@ describe("TetuConverterTest", () => {
       await TimeUtils.rollback(snapshotForEach);
     });
 
+    interface IMakeEstimateRepayResults {
+      borrowAssetAmount: BigNumber,
+      unobtainableCollateralAssetAmount: BigNumber,
+      init: ISetupResults
+    }
+    interface IMakeEstimateRepayParams {
+      collateralAmounts: number[];
+      exactBorrowAmounts: number[];
+      collateralAmountToRedeem: number;
+      debtGapRequired?: boolean;
+    }
     /* Make N borrows, ask to return given amount of collateral.
     * Return borrowed amount that should be return
     * and amount of unobtainable collateral (not zero if we ask too much)
     * */
-    async function makeEstimateRepay(
-      collateralAmounts: number[],
-      exactBorrowAmounts: number[],
-      collateralAmountToRedeem: number
-    ): Promise<{
-      borrowAssetAmount: BigNumber,
-      unobtainableCollateralAssetAmount: BigNumber,
-      init: ISetupResults
-    }> {
+    async function makeEstimateRepay(p: IMakeEstimateRepayParams): Promise<IMakeEstimateRepayResults> {
       const core = await CoreContracts.build(await TetuConverterApp.createController(deployer));
-      const init = await prepareTetuAppWithMultipleLendingPlatforms(core, collateralAmounts.length);
+      const init = await prepareTetuAppWithMultipleLendingPlatforms(core, p.collateralAmounts.length);
       const collateralTokenDecimals = await init.sourceToken.decimals();
 
       await makeBorrow(
         init,
-        collateralAmounts,
+        p.collateralAmounts,
         BigNumber.from(100),
         BigNumber.from(100_000),
         {
-          exactBorrowAmounts
+          exactBorrowAmounts: p.exactBorrowAmounts,
+          debtGapRequired: p.debtGapRequired
         }
       );
 
@@ -3569,7 +3574,7 @@ describe("TetuConverterTest", () => {
       const {borrowAssetAmount, unobtainableCollateralAssetAmount} = await tcAsUser.estimateRepay(
         await tcAsUser.signer.getAddress(),
         init.sourceToken.address,
-        getBigNumberFrom(collateralAmountToRedeem, collateralTokenDecimals),
+        getBigNumberFrom(p.collateralAmountToRedeem, collateralTokenDecimals),
         init.targetToken.address
       );
 
@@ -3585,13 +3590,15 @@ describe("TetuConverterTest", () => {
       borrowedAmounts: number[],
       collateralAmountToRedeem: number,
       borrowedAmountToRepay: number,
-      unobtainableCollateralAssetAmount?: number
+      unobtainableCollateralAssetAmount?: number,
+      debtGapRequired?: boolean
     ): Promise<{ ret: string, expected: string }> {
-      const r = await makeEstimateRepay(
+      const r = await makeEstimateRepay({
         collateralAmounts,
-        borrowedAmounts,
-        collateralAmountToRedeem
-      );
+        exactBorrowAmounts: borrowedAmounts,
+        collateralAmountToRedeem,
+        debtGapRequired
+      });
       const ret = [
         r.borrowAssetAmount,
         r.unobtainableCollateralAssetAmount
@@ -3713,6 +3720,23 @@ describe("TetuConverterTest", () => {
             );
             expect(r.ret).eq(r.expected);
           });
+        });
+      });
+      describe("Debt gap is required", () => {
+        it("should return expected values", async () => {
+          const collateralAmounts = [100_000, 200_000, 300_000];
+          const borrowedAmounts = [25_000, 40_000, 20_000];
+          const collateralAmountToRedeem = 600_000;
+          const borrowedAmountToRepay = 85_000;
+          const r = await makeEstimateRepayTest(
+            collateralAmounts,
+            borrowedAmounts,
+            collateralAmountToRedeem,
+            borrowedAmountToRepay * 101/100, // +1% of debt gap
+            undefined,
+            true // debt gap is required
+          );
+          expect(r.ret).eq(r.expected);
         });
       });
     });

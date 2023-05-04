@@ -33,7 +33,7 @@ contract Aave3PlatformAdapter is IPlatformAdapter {
   /// @notice We allow to borrow only 90% of max allowed amount, see the code below for explanation
   uint public constant MAX_BORROW_AMOUNT_FACTOR = 90;
   uint constant public MAX_BORROW_AMOUNT_FACTOR_DENOMINATOR = 100;
-  string public constant override PLATFORM_ADAPTER_VERSION = "1.0.1";
+  string public constant override PLATFORM_ADAPTER_VERSION = "1.0.2";
   //endregion Constants
 
   //-----------------------------------------------------
@@ -78,26 +78,14 @@ contract Aave3PlatformAdapter is IPlatformAdapter {
   //-----------------------------------------------------
   //region Events
   //-----------------------------------------------------
-  event OnPoolAdapterInitialized(
-    address converter,
-    address poolAdapter,
-    address user,
-    address collateralAsset,
-    address borrowAsset
-  );
+  event OnPoolAdapterInitialized(address converter, address poolAdapter, address user, address collateralAsset, address borrowAsset);
   //endregion Events
 
   //-----------------------------------------------------
   //region Constructor and initialization
   //-----------------------------------------------------
 
-  constructor (
-    address controller_,
-    address borrowManager_,
-    address poolAave_,
-    address templateAdapterNormal_,
-    address templateAdapterEMode_
-  ) {
+  constructor(address controller_, address borrowManager_, address poolAave_, address templateAdapterNormal_, address templateAdapterEMode_) {
     require(
       poolAave_ != address(0)
       && borrowManager_ != address(0)
@@ -115,13 +103,7 @@ contract Aave3PlatformAdapter is IPlatformAdapter {
     converterEMode = templateAdapterEMode_;
   }
 
-  function initializePoolAdapter(
-    address converter_,
-    address poolAdapter_,
-    address user_,
-    address collateralAsset_,
-    address borrowAsset_
-  ) external override {
+  function initializePoolAdapter(address converter_, address poolAdapter_, address user_, address collateralAsset_, address borrowAsset_) external override {
     require(msg.sender == borrowManager, AppErrors.BORROW_MANAGER_ONLY);
     require(converterNormal == converter_ || converterEMode == converter_, AppErrors.CONVERTER_NOT_FOUND);
 
@@ -164,10 +146,7 @@ contract Aave3PlatformAdapter is IPlatformAdapter {
   //-----------------------------------------------------
   //region Get conversion plan
   //-----------------------------------------------------
-  function getConversionPlan (
-    AppDataTypes.InputConversionParams memory params,
-    uint16 healthFactor2_
-  ) external view override returns (
+  function getConversionPlan (AppDataTypes.InputConversionParams memory params, uint16 healthFactor2_) external view override returns (
     AppDataTypes.ConversionPlan memory plan
   ) {
     if (! frozen) {

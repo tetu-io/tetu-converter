@@ -26,7 +26,7 @@ contract AaveTwoPlatformAdapter is IPlatformAdapter {
   //-----------------------------------------------------
   //region Constants
   //-----------------------------------------------------
-  string public constant override PLATFORM_ADAPTER_VERSION = "1.0.1";
+  string public constant override PLATFORM_ADAPTER_VERSION = "1.0.2";
   //endregion Constants
 
   //-----------------------------------------------------
@@ -69,25 +69,14 @@ contract AaveTwoPlatformAdapter is IPlatformAdapter {
   //-----------------------------------------------------
   //region Events
   //-----------------------------------------------------
-  event OnPoolAdapterInitialized(
-    address converter,
-    address poolAdapter,
-    address user,
-    address collateralAsset,
-    address borrowAsset
-  );
+  event OnPoolAdapterInitialized(address converter, address poolAdapter, address user, address collateralAsset, address borrowAsset);
   //endregion Events
 
   //-----------------------------------------------------
   //region Constructor and initialization
   //-----------------------------------------------------
 
-  constructor (
-    address controller_,
-    address borrowManager_,
-    address poolAave_,
-    address templateAdapterNormal_
-  ) {
+  constructor (address controller_, address borrowManager_, address poolAave_, address templateAdapterNormal_) {
     require(
       poolAave_ != address(0)
       && borrowManager_ != address(0)
@@ -101,13 +90,7 @@ contract AaveTwoPlatformAdapter is IPlatformAdapter {
     borrowManager = borrowManager_;
   }
 
-  function initializePoolAdapter(
-    address converter_,
-    address poolAdapter_,
-    address user_,
-    address collateralAsset_,
-    address borrowAsset_
-  ) external override {
+  function initializePoolAdapter(address converter_, address poolAdapter_, address user_, address collateralAsset_, address borrowAsset_) external override {
     require(msg.sender == borrowManager, AppErrors.BORROW_MANAGER_ONLY);
     require(converter == converter_, AppErrors.CONVERTER_NOT_FOUND);
 
@@ -151,10 +134,7 @@ contract AaveTwoPlatformAdapter is IPlatformAdapter {
   //region Get conversion plan
   //-----------------------------------------------------
 
-  function getConversionPlan (
-    AppDataTypes.InputConversionParams memory params,
-    uint16 healthFactor2_
-  ) external view override returns (
+  function getConversionPlan (AppDataTypes.InputConversionParams memory params, uint16 healthFactor2_) external view override returns (
     AppDataTypes.ConversionPlan memory plan
   ) {
     if (! frozen) {
@@ -183,9 +163,6 @@ contract AaveTwoPlatformAdapter is IPlatformAdapter {
 
           plan.maxAmountToSupply = type(uint).max; // unlimited; fix validation below after changing this value
           plan.maxAmountToBorrow = vars.availableLiquidity;
-          if (plan.amountToBorrow > plan.maxAmountToBorrow) {
-            plan.amountToBorrow = plan.maxAmountToBorrow;
-          }
 
           if (/* plan.maxAmountToSupply != 0 &&*/ plan.maxAmountToBorrow != 0) {
             pd.rc10powDec = 10**vars.rc.configuration.getDecimals();
