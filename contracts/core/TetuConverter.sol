@@ -74,7 +74,6 @@ contract TetuConverter is ITetuConverter, IKeeperCallback, IRequireAmountBySwapM
   IDebtMonitor public immutable debtMonitor;
   ISwapManager public immutable swapManager;
   address public immutable keeper;
-  IPriceOracle public immutable priceOracle;
 
   //endregion Members
 
@@ -100,14 +99,13 @@ contract TetuConverter is ITetuConverter, IKeeperCallback, IRequireAmountBySwapM
   //region Initialization
   //-----------------------------------------------------
 
-  constructor(address controller_, address borrowManager_, address debtMonitor_, address swapManager_, address keeper_, address priceOracle_) {
+  constructor(address controller_, address borrowManager_, address debtMonitor_, address swapManager_, address keeper_) {
     require(
       controller_ != address(0)
       && borrowManager_ != address(0)
       && debtMonitor_ != address(0)
       && swapManager_ != address(0)
-      && keeper_ != address(0)
-      && priceOracle_ != address(0),
+      && keeper_ != address(0),
       AppErrors.ZERO_ADDRESS
     );
 
@@ -116,7 +114,6 @@ contract TetuConverter is ITetuConverter, IKeeperCallback, IRequireAmountBySwapM
     debtMonitor = IDebtMonitor(debtMonitor_);
     swapManager = ISwapManager(swapManager_);
     keeper = keeper_;
-    priceOracle = IPriceOracle(priceOracle_);
   }
   //endregion Initialization
 
@@ -410,6 +407,7 @@ contract TetuConverter is ITetuConverter, IKeeperCallback, IRequireAmountBySwapM
     }
 
     if (amountToRepay_ > 0) {
+      IPriceOracle priceOracle = IPriceOracle(controller.priceOracle());
       uint priceBorrowAsset = priceOracle.getAssetPrice(borrowAsset_);
       uint priceCollateralAsset = priceOracle.getAssetPrice(collateralAsset_);
       require(priceCollateralAsset != 0 && priceBorrowAsset != 0, AppErrors.ZERO_PRICE);
@@ -706,7 +704,7 @@ contract TetuConverter is ITetuConverter, IKeeperCallback, IRequireAmountBySwapM
     IERC20(assetOut_).safeTransfer(receiver_, amountOut);
     // The result amount shouldn't be too different from the value calculated directly using price oracle prices
     require(
-      SwapLib.isConversionValid(priceOracle, assetIn_, amountIn_, assetOut_, amountOut, priceImpactToleranceTarget_),
+      SwapLib.isConversionValid(IPriceOracle(controller.priceOracle()), assetIn_, amountIn_, assetOut_, amountOut, priceImpactToleranceTarget_),
       AppErrors.TOO_HIGH_PRICE_IMPACT
     );
     emit OnSafeLiquidate(assetIn_, amountIn_, assetOut_, receiver_, amountOut);
@@ -720,7 +718,7 @@ contract TetuConverter is ITetuConverter, IKeeperCallback, IRequireAmountBySwapM
     uint amountOut_,
     uint priceImpactTolerance_
   ) external override view returns (bool) {
-    return SwapLib.isConversionValid(priceOracle, assetIn_, amountIn_, assetOut_, amountOut_, priceImpactTolerance_);
+    return SwapLib.isConversionValid(IPriceOracle(controller.priceOracle()), assetIn_, amountIn_, assetOut_, amountOut_, priceImpactTolerance_);
   }
   //endregion Liquidate with checking
 

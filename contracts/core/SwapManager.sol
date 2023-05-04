@@ -23,9 +23,6 @@ contract SwapManager is ISwapManager, ISwapConverter, ISimulateProvider, ISwapSi
   using SafeERC20 for IERC20;
 
   IConverterController public immutable controller;
-  /// @notice Same as controller.priceOracle()
-  /// @dev Cached for the gas optimization
-  IPriceOracle public immutable priceOracle;
   /// @notice Same as controller.tetuLiquidator()
   /// @dev Cached for the gas optimization
   ITetuLiquidator public immutable tetuLiquidator;
@@ -47,32 +44,17 @@ contract SwapManager is ISwapManager, ISwapConverter, ISimulateProvider, ISwapSi
   //-----------------------------------------------------
   //region Events
   //-----------------------------------------------------
-  event OnSwap(address sourceToken,
-    uint sourceAmount,
-    address targetToken,
-    address receiver,
-    uint outputAmount
-  );
+  event OnSwap(address sourceToken, uint sourceAmount, address targetToken, address receiver, uint outputAmount);
   //endregion Events
 
   //-----------------------------------------------------
   //region Initialization
   //-----------------------------------------------------
 
-  constructor (
-    address controller_,
-    address tetuLiquidator_,
-    address priceOracle_
-  ) {
-    require(
-      controller_ != address(0)
-      && tetuLiquidator_ != address(0)
-      && priceOracle_ != address(0),
-      AppErrors.ZERO_ADDRESS
-    );
+  constructor(address controller_, address tetuLiquidator_) {
+    require(controller_ != address(0) && tetuLiquidator_ != address(0), AppErrors.ZERO_ADDRESS);
     controller = IConverterController(controller_);
     tetuLiquidator = ITetuLiquidator(tetuLiquidator_);
-    priceOracle = IPriceOracle(priceOracle_);
   }
 
   /// @notice Set custom price impact tolerance for the asset
@@ -176,7 +158,7 @@ contract SwapManager is ISwapManager, ISwapConverter, ISimulateProvider, ISwapSi
     // The result amount cannot be too different from the value calculated directly using price oracle prices
     require(
       SwapLib.isConversionValid(
-        priceOracle,
+        IPriceOracle(controller.priceOracle()),
         sourceToken_,
         amountIn_,
         targetToken_,
@@ -229,7 +211,7 @@ contract SwapManager is ISwapManager, ISwapConverter, ISimulateProvider, ISwapSi
     uint targetAmount_
   ) external view override returns (int) {
     uint targetAmountInSourceTokens = SwapLib.convertUsingPriceOracle(
-      priceOracle,
+      IPriceOracle(controller.priceOracle()),
       targetToken_,
       targetAmount_,
       sourceToken_
