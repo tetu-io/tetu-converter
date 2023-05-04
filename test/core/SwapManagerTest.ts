@@ -139,12 +139,10 @@ describe("SwapManager", () => {
           swapManagerFabric: async (
             c,
             tetuLiquidator,
-            priceOracle
           ) => (await CoreContractsHelper.createSwapManager(
             deployer,
             params?.useZeroController ? Misc.ZERO_ADDRESS : c.address,
             params?.useZeroTetuLiquidator ? Misc.ZERO_ADDRESS : tetuLiquidator,
-            params?.useZeroPriceOracle ? Misc.ZERO_ADDRESS : priceOracle
           )).address,
           tetuLiquidatorAddress: ethers.Wallet.createRandom().address
         }
@@ -159,11 +157,6 @@ describe("SwapManager", () => {
     it("Revert on zero tetuLiquidator", async () => {
       await expect(
         makeConstructorTest({useZeroTetuLiquidator: true})
-      ).revertedWith("TC-1 zero address"); // ZERO_ADDRESS
-    });
-    it("Revert on zero priceOracle", async () => {
-      await expect(
-        makeConstructorTest({useZeroPriceOracle: true})
       ).revertedWith("TC-1 zero address"); // ZERO_ADDRESS
     });
   });
@@ -602,12 +595,11 @@ describe("SwapManager", () => {
           debtMonitorFabric: async () => ethers.Wallet.createRandom().address,
           keeperFabric: async () => ethers.Wallet.createRandom().address,
           swapManagerFabric: async (
-            c, tetuLiquidatorLocal, priceOracle
+            c, tetuLiquidatorLocal
           ) => (await CoreContractsHelper.createSwapManager(
             deployer,
             c.address,
             tetuLiquidatorLocal,
-            priceOracle
           )).address,
           tetuLiquidatorAddress: tetuLiquidator,
           priceOracleFabric: async () => (await MocksHelper.getPriceOracleMock(

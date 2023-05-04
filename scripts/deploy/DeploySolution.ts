@@ -40,7 +40,11 @@ async function main() {
 
   console.log("signer", signer.address);
 
-  await DeploySolutionUtils.runMain(signer, gelatoOpsReady);
+  await DeploySolutionUtils.runMain(
+    signer,
+    gelatoOpsReady,
+    // already deployed if necessary
+  );
 
   // // let's try to find a way to borrow DAI for USDC
   // const tetuConverter = ITetuConverter__factory.connect(deployCoreResults.tetuConverter, signer);

@@ -23,10 +23,10 @@ export const GAS_TC_REPAY = 310_000;
 export const GAS_TC_QUOTE_REPAY = 33_000;
 export const GAS_TC_SAFE_LIQUIDATE = 174_000;
 
-export const GAS_FIND_SWAP_STRATEGY = 242_000;
+export const GAS_FIND_SWAP_STRATEGY = 246_000;
 export const GAS_SWAP_SIMULATE = 212_000;
-export const GAS_SWAP = 211_000;
-export const GAS_SWAP_APR18 = 43_400;
+export const GAS_SWAP = 217_000;
+export const GAS_SWAP_APR18 = 49_400;
 
 export const GAS_SWAP_LIB_CONVERT_USING_PRICE_ORACLE = 43_000;
 export const GAS_SWAP_LIB_IS_CONVERSION_VALID = 44_000;

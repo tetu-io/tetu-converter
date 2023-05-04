@@ -311,7 +311,7 @@ contract BorrowManager is IBorrowManager {
       (converters, collateralAmounts, amountsToBorrow, aprs18, countFoundItems) = _findPool(
         pas,
         p_,
-        getTargetHealthFactor2(p_.borrowAsset)
+        getTargetHealthFactor2(p_.collateralAsset)
       );
     }
 

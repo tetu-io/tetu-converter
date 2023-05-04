@@ -20,10 +20,10 @@ contract Keeper is OpsReady, IHealthKeeperCallback, IResolver {
   //region Members
   //-----------------------------------------------------
   /// @notice Max count of opened positions to be checked in single request
-  uint constant public maxCountToCheck = 500;
+  uint constant public MAX_COUNT_TO_CHECK = 50;
 
   /// @notice Max count of unhealthy positions to be returned in single request
-  uint constant public maxCountToReturn = 1;
+  uint constant public MAX_COUNT_TO_RETURN = 1;
 
   /// @notice Period of auto-update of the blocksPerDay-value in seconds
   ///         0 - auto-update checking is disabled
@@ -89,8 +89,8 @@ contract Keeper is OpsReady, IHealthKeeperCallback, IResolver {
       uint[] memory outAmountCollateralAsset
     ) = debtMonitor.checkHealth(
       startIndex,
-      maxCountToCheck,
-      maxCountToReturn
+      MAX_COUNT_TO_CHECK,
+      MAX_COUNT_TO_RETURN
     );
 
     // it's necessary to run writable fixHealth() ...

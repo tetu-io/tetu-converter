@@ -80,7 +80,8 @@ export class DeploySolutionUtils {
 //region Main script
   static async runMain(
     signer: SignerWithAddress,
-    gelatoOpsReady: string
+    gelatoOpsReady: string,
+    alreadyDeployed?: IDeployedContracts
   ) : Promise<IDeployCoreResults> {
 
     ///////////////////////////////////////////////////////////////////////////////////////////////////
@@ -218,10 +219,7 @@ export class DeploySolutionUtils {
       tetuLiquidatorAddress,
       controllerSetupParams,
       borrowManagerSetupParams,
-      {
-        priceOracle: "0x999D2574d2C61C07368d03E30Ba77636753906A7",
-        controller: "0xCF5250DE862bd46677517edA018Fda055ED1D7Bc"
-      }
+      alreadyDeployed
     );
 
     console.log("Deploy platform adapters");
@@ -365,7 +363,7 @@ export class DeploySolutionUtils {
     const debtMonitor = alreadyDeployed?.debtMonitor
       || (await CoreContractsHelper.createDebtMonitor(deployer, controller, borrowManager)).address;
     const swapManager = alreadyDeployed?.swapManager
-      || (await CoreContractsHelper.createSwapManager(deployer, controller, tetuLiquidator, priceOracle)).address;
+      || (await CoreContractsHelper.createSwapManager(deployer, controller, tetuLiquidator)).address;
     const tetuConverter = alreadyDeployed?.tetuConverter
       || (await CoreContractsHelper.createTetuConverter(
         deployer,
@@ -374,7 +372,6 @@ export class DeploySolutionUtils {
         debtMonitor,
         swapManager,
         keeper,
-        priceOracle
       )).address;
 
     await RunHelper.runAndWait(
@@ -390,6 +387,7 @@ export class DeploySolutionUtils {
         keeper,
         swapManager,
         controllerSetupParams.debtGap,
+        priceOracle,
         {gasLimit: GAS_DEPLOY_LIMIT}
       )
     );

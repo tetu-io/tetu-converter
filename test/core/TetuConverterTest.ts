@@ -851,7 +851,7 @@ describe("TetuConverterTest", () => {
       const controller = await TetuConverterApp.createController(
         deployer,
         {
-          tetuConverterFabric: (async (c, borrowManager, debtMonitor, swapManager, keeper, priceOracle) => (
+          tetuConverterFabric: (async (c, borrowManager, debtMonitor, swapManager, keeper) => (
               await CoreContractsHelper.createTetuConverter(
                 deployer,
                 params?.useZeroController ? Misc.ZERO_ADDRESS : c.address,
@@ -859,7 +859,6 @@ describe("TetuConverterTest", () => {
                 params?.useZeroDebtMonitor ? Misc.ZERO_ADDRESS : debtMonitor,
                 params?.useZeroSwapManager ? Misc.ZERO_ADDRESS : swapManager,
                 params?.useZeroKeeper ? Misc.ZERO_ADDRESS : keeper,
-                params?.useZeroPriceOracle ? Misc.ZERO_ADDRESS : priceOracle
               )).address
           ),
           borrowManagerFabric: async () => ethers.Wallet.createRandom().address,
@@ -891,14 +890,12 @@ describe("TetuConverterTest", () => {
           await tetuConverter.debtMonitor(),
           await tetuConverter.swapManager(),
           await tetuConverter.keeper(),
-          await tetuConverter.priceOracle()
         ].join();
         const expected = [
           await controller.borrowManager(),
           await controller.debtMonitor(),
           await controller.swapManager(),
           await controller.keeper(),
-          await controller.priceOracle()
         ].join();
 
         expect(ret).eq(expected);
@@ -928,11 +925,6 @@ describe("TetuConverterTest", () => {
       it("should revert if keeper is zero", async () => {
         await expect(
           makeConstructorTest({useZeroKeeper: true})
-        ).revertedWith("TC-1 zero address"); // ZERO_ADDRESS
-      });
-      it("should revert if priceOracle is zero", async () => {
-        await expect(
-          makeConstructorTest({useZeroPriceOracle: true})
         ).revertedWith("TC-1 zero address"); // ZERO_ADDRESS
       });
     });
