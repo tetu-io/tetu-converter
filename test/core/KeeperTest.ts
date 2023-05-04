@@ -367,8 +367,8 @@ describe("KeeperTest", () => {
           const collateralAssetAmountToRepay = 2;
 
           const app = await setupMockedApp(deployer);
-          const maxCountToCheck = (await app.keeper.maxCountToCheck()).toNumber();
-          const maxCountToReturn = (await app.keeper.maxCountToReturn()).toNumber();
+          const maxCountToCheck = (await app.keeper.MAX_COUNT_TO_CHECK()).toNumber();
+          const maxCountToReturn = (await app.keeper.MAX_COUNT_TO_RETURN()).toNumber();
 
           // assume, that the whole list of positions is greater than maxCountToCheck
           // than first call of checkHealth will return nextIndexToCheck0 = maxCountToCheck
@@ -607,6 +607,12 @@ describe("KeeperTest", () => {
         [1, 14],
         [2, 39]
       );
+    });
+  });
+
+  describe("50 opened positions, gas estimation @skip-on-coverage", () => {
+    it("should return expected values", async () => {
+
     });
   });
 //endregion Unit tests

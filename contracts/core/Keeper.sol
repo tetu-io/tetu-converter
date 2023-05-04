@@ -20,7 +20,7 @@ contract Keeper is OpsReady, IHealthKeeperCallback, IResolver {
   //region Members
   //-----------------------------------------------------
   /// @notice Max count of opened positions to be checked in single request
-  uint constant public MAX_COUNT_TO_CHECK = 50;
+  uint constant public MAX_COUNT_TO_CHECK = 80;
 
   /// @notice Max count of unhealthy positions to be returned in single request
   uint constant public MAX_COUNT_TO_RETURN = 1;
@@ -82,16 +82,11 @@ contract Keeper is OpsReady, IHealthKeeperCallback, IResolver {
     IHealthKeeperCallback keeper = IHealthKeeperCallback(controller.keeper());
     uint startIndex = keeper.nextIndexToCheck0();
 
-    (
-      uint newNextIndexToCheck0,
+    (uint newNextIndexToCheck0,
       address[] memory outPoolAdapters,
       uint[] memory outAmountBorrowAsset,
       uint[] memory outAmountCollateralAsset
-    ) = debtMonitor.checkHealth(
-      startIndex,
-      MAX_COUNT_TO_CHECK,
-      MAX_COUNT_TO_RETURN
-    );
+    ) = debtMonitor.checkHealth(startIndex, MAX_COUNT_TO_CHECK, MAX_COUNT_TO_RETURN);
 
     // it's necessary to run writable fixHealth() ...
     canExecOut =
@@ -155,12 +150,7 @@ contract Keeper is OpsReady, IHealthKeeperCallback, IResolver {
       controller.updateBlocksPerDay(blocksPerDayAutoUpdatePeriodSecs);
     }
 
-    emit OnFixHealth(
-      nextIndexToCheck0_,
-      poolAdapters_,
-      amountBorrowAsset_,
-      amountCollateralAsset_
-    );
+    emit OnFixHealth(nextIndexToCheck0_, poolAdapters_, amountBorrowAsset_, amountCollateralAsset_);
   }
 
   //endregion Executor to fix unhealthy pool adapters

@@ -106,7 +106,7 @@ describe("BorrowManager", () => {
       {
         borrowManagerFabric: async c => (await CoreContractsHelper.createBorrowManager(signer, c.address)).address,
         tetuConverterFabric: async (
-          c, borrowManager, debtMonitor, swapManager, keeper, priceOracle
+          c, borrowManager, debtMonitor, swapManager, keeper
         ) => (await CoreContractsHelper.createTetuConverter(
           signer,
           c.address,
@@ -114,7 +114,6 @@ describe("BorrowManager", () => {
           debtMonitor,
           swapManager,
           keeper,
-          priceOracle
         )).address,
         debtMonitorFabric: async () => (await MocksHelper.createDebtsMonitorStub(signer, valueIsConverterInUse)).address,
         keeperFabric: async () => ethers.Wallet.createRandom().address,
