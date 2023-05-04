@@ -108,7 +108,7 @@ describe("Controller", () => {
   async function createTestController(
     a: IControllerMembers,
   ) : Promise<{controller: ConverterController, gasUsed: BigNumber}> {
-    const controller = await CoreContractsHelper.deployController(deployer, a.tetuLiquidator, a.priceOracle);
+    const controller = await CoreContractsHelper.deployController(deployer, a.tetuLiquidator);
 
     const gasUsed = await getGasUsed(
       controller.initialize(
@@ -122,7 +122,8 @@ describe("Controller", () => {
         a.debtMonitor,
         a.keeper,
         a.swapManager,
-        a.debtGap
+        a.debtGap,
+        a.priceOracle
       )
     );
 
@@ -276,7 +277,8 @@ describe("Controller", () => {
             a.debtMonitor,
             a.keeper,
             a.swapManager,
-            a.debtGap
+            a.debtGap,
+            a.priceOracle
           )
         ).revertedWith("Initializable: contract is already initialized");
       });
@@ -903,6 +905,33 @@ describe("Controller", () => {
         await expect(
           controller.connect(await DeployerUtils.startImpersonate(ethers.Wallet.createRandom().address)).setDebtGap(debtGap)
         ).revertedWith("TC-9 governance only"); // GOVERNANCE_ONLY
+      });
+    });
+  });
+
+  describe("setPriceOracle", () => {
+    describe("Good paths", () => {
+      it("should update price oracle", async () => {
+        const newPriceOracle = ethers.Wallet.createRandom().address;
+        const {controller} = await createTestController(getRandomMembersValues());
+        await controller.connect(await DeployerUtils.startImpersonate(await controller.governance())).setPriceOracle(newPriceOracle);
+
+        const priceOracle = await controller.priceOracle();
+        expect(priceOracle).eq(newPriceOracle);
+      });
+    });
+    describe("Bad paths", () => {
+      it("should revert if not governance", async () => {
+        const {controller} = await createTestController(getRandomMembersValues());
+        await expect(
+          controller.connect(await DeployerUtils.startImpersonate(ethers.Wallet.createRandom().address)).setPriceOracle(ethers.Wallet.createRandom().address)
+        ).revertedWith("TC-9 governance only"); // GOVERNANCE_ONLY
+      });
+      it("should revert if zero address", async () => {
+        const {controller} = await createTestController(getRandomMembersValues());
+        await expect(
+          controller.connect(await DeployerUtils.startImpersonate(await controller.governance())).setPriceOracle(Misc.ZERO_ADDRESS)
+        ).revertedWith("TC-1 zero address"); // AppErrors.ZERO_ADDRESS
       });
     });
   });

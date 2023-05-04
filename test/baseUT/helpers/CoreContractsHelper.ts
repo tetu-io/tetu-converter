@@ -15,17 +15,8 @@ import {parseUnits} from "ethers/lib/utils";
 import {MaticAddresses} from "../../../scripts/addresses/MaticAddresses";
 
 export class CoreContractsHelper {
-  static async deployController(
-    deployer: SignerWithAddress,
-    tetuLiquidator: string,
-    priceOracle: string
-  ): Promise<ConverterController> {
-    return (await DeployUtils.deployContract(
-      deployer,
-      "ConverterController",
-      tetuLiquidator,
-      priceOracle
-    )) as ConverterController;
+  static async deployController(deployer: SignerWithAddress, tetuLiquidator: string): Promise<ConverterController> {
+    return (await DeployUtils.deployContract(deployer, "ConverterController", tetuLiquidator)) as ConverterController;
   }
 
   static async createController(
@@ -60,7 +51,7 @@ export class CoreContractsHelper {
     const tetuLiquidator = await tetuLiquidatorFabric();
     const priceOracle = await priceOracleFabric();
 
-    const controller = await this.deployController(deployer, tetuLiquidator, priceOracle);
+    const controller = await this.deployController(deployer, tetuLiquidator);
     const borrowManager = await borrowManagerFabric(controller);
     const keeper = await keeperFabric(controller);
 
@@ -87,7 +78,8 @@ export class CoreContractsHelper {
       debtMonitor,
       keeper,
       swapManager,
-      debtGap
+      debtGap,
+      priceOracle
     );
     return controller;
   }

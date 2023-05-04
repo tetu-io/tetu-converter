@@ -217,7 +217,11 @@ export class DeploySolutionUtils {
       gelatoOpsReady,
       tetuLiquidatorAddress,
       controllerSetupParams,
-      borrowManagerSetupParams
+      borrowManagerSetupParams,
+      {
+        priceOracle: "0x999D2574d2C61C07368d03E30Ba77636753906A7",
+        controller: "0xCF5250DE862bd46677517edA018Fda055ED1D7Bc"
+      }
     );
 
     console.log("Deploy platform adapters");
@@ -348,7 +352,7 @@ export class DeploySolutionUtils {
     const priceOracle = alreadyDeployed?.priceOracle
       || (await CoreContractsHelper.createPriceOracle(deployer)).address;
     const controller = alreadyDeployed?.controller
-      || (await CoreContractsHelper.deployController(deployer, tetuLiquidator, priceOracle)).address;
+      || (await CoreContractsHelper.deployController(deployer, tetuLiquidator)).address;
 
     const borrowManager = alreadyDeployed?.borrowManager || (await CoreContractsHelper.createBorrowManager(
       deployer,

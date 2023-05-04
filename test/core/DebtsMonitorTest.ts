@@ -638,7 +638,6 @@ describe("DebtsMonitor", () => {
       const controller = await CoreContractsHelper.deployController(
         deployer,
         ethers.Wallet.createRandom().address,
-        ethers.Wallet.createRandom().address,
       );
       const borrowManager = await CoreContractsHelper.createBorrowManager(deployer, controller.address);
       const debtMonitor = await CoreContractsHelper.createDebtMonitor(

@@ -8,17 +8,13 @@ import "../interfaces/IConverterController.sol";
 /// @notice Keep and provide addresses of all application contracts
 contract ConverterController is IConverterController, Initializable {
 
-  //-----------------------------------------------------
   //region Constants and immutable vars
-  //-----------------------------------------------------
   uint16 constant MIN_ALLOWED_MIN_HEALTH_FACTOR = 100;
   /// @notice Denominator for {debtGap}
   uint constant DEBT_GAP_DENOMINATOR = 100_000;
 
   /// @notice Allow to swap assets
   address public immutable override tetuLiquidator;
-  /// @notice Price oracle, required by SwapManager
-  address public immutable override priceOracle;
   //endregion Constants and immutable vars
 
   //-----------------------------------------------------
@@ -78,11 +74,11 @@ contract ConverterController is IConverterController, Initializable {
 
   /// @inheritdoc IConverterController
   uint public override debtGap;
+
+  address public override priceOracle;
   //endregion Variables
 
-  //-----------------------------------------------------
   //region Events
-  //-----------------------------------------------------
   event OnSetBlocksPerDay(uint blocksPerDay, bool enableAutoUpdate);
   event OnAutoUpdateBlocksPerDay(uint blocksPerDay);
   event OnSetMinHealthFactor2(uint16 value);
@@ -91,24 +87,18 @@ contract ConverterController is IConverterController, Initializable {
   event OnSetGovernance(address newGovernance);
   event OnAcceptGovernance(address pendingGovernance);
   event OnSetDebtGap(uint debtGap);
+  event OnSetPriceOracle(address priceOracle);
   //endregion Events
 
-  //-----------------------------------------------------
   //region Constructor and Initialization
-  //-----------------------------------------------------
 
   /// @dev Constructor is used to assign immutable addresses only (these contracts don't depend on controller).
   ///      All other addresses are initialized in initialize()
   ///      because the corresponded contracts require controller's address in their constructors.
-  constructor(address tetuLiquidator_, address priceOracle_) {
-    require(
-      tetuLiquidator_ != address(0)
-      && priceOracle_ != address(0),
-      AppErrors.ZERO_ADDRESS
-    );
+  constructor(address tetuLiquidator_) {
+    require(tetuLiquidator_ != address(0), AppErrors.ZERO_ADDRESS);
 
     tetuLiquidator = tetuLiquidator_;
-    priceOracle = priceOracle_;
   }
 
   function initialize(
@@ -122,7 +112,8 @@ contract ConverterController is IConverterController, Initializable {
     address debtMonitor_,
     address keeper_,
     address swapManager_,
-    uint debtGap_
+    uint debtGap_,
+    address priceOracle_
   ) external initializer {
     require(blocksPerDay_ != 0, AppErrors.INCORRECT_VALUE);
     require(minHealthFactor_ >= MIN_ALLOWED_MIN_HEALTH_FACTOR, AppErrors.WRONG_HEALTH_FACTOR);
@@ -134,7 +125,8 @@ contract ConverterController is IConverterController, Initializable {
       && borrowManager_ != address(0)
       && debtMonitor_ != address(0)
       && keeper_ != address(0)
-      && swapManager_ != address(0),
+      && swapManager_ != address(0)
+      && priceOracle_ != address(0),
       AppErrors.ZERO_ADDRESS
     );
     governance = governance_;
@@ -143,6 +135,7 @@ contract ConverterController is IConverterController, Initializable {
     debtMonitor = debtMonitor_;
     keeper = keeper_;
     swapManager = swapManager_;
+    priceOracle = priceOracle_;
 
     blocksPerDay = blocksPerDay_;
     // by default auto-update of blocksPerDay is disabled
@@ -160,9 +153,7 @@ contract ConverterController is IConverterController, Initializable {
   }
   //endregion Constructor and Initialization
 
-  //-----------------------------------------------------
   //region Blocks per day
-  //-----------------------------------------------------
 
   /// @notice Manually set value of blocksPerDay and enable/disable its auto-update
   ///         If the update is enabled, the first update will happen in BLOCKS_PER_DAY_AUTO_UPDATE_PERIOD_SECS seconds
@@ -209,9 +200,7 @@ contract ConverterController is IConverterController, Initializable {
   }
   //endregion Blocks per day
 
-  //-----------------------------------------------------
   //region Set up health factors, min/max thresholds and a target value for reconversion
-  //-----------------------------------------------------
 
   /// @notice min allowed health factor with decimals 2
   function setMinHealthFactor2(uint16 value_) external override {
@@ -242,9 +231,7 @@ contract ConverterController is IConverterController, Initializable {
   }
   //endregion Set up health factors, min/max thresholds and a target value for reconversion
 
-  //-----------------------------------------------------
   //region Governance
-  //-----------------------------------------------------
 
   /// @notice Suggest to change governance
   function setGovernance(address newGovernance_) external {
@@ -265,9 +252,7 @@ contract ConverterController is IConverterController, Initializable {
   }
   //endregion Governance
 
-  //-----------------------------------------------------
   //region Paused
-  //-----------------------------------------------------
   function paused() external view override returns (bool) {
     return _paused;
   }
@@ -277,9 +262,7 @@ contract ConverterController is IConverterController, Initializable {
   }
   //endregion Paused
 
-  //-----------------------------------------------------
   //region Whitelist
-  //-----------------------------------------------------
   function isWhitelisted(address user_) external view override returns (bool) {
     return whitelist[user_];
   }
@@ -292,9 +275,7 @@ contract ConverterController is IConverterController, Initializable {
   }
   //endregion Whitelist
 
-  //-----------------------------------------------------
-  //region Debt gap
-  //-----------------------------------------------------
+  //region Setup debt gap and price oracle
 
   /// @notice Set up debt gap value
   /// @dev If pool adapter's getStatus returns debtGapRequired = true
@@ -304,5 +285,15 @@ contract ConverterController is IConverterController, Initializable {
     _onlyGovernance();
     debtGap = debtGap_;
   }
-  //endregion Debt gap
+
+  /// @notice Set up new price oracle
+  function setPriceOracle(address priceOracle_) external {
+    _onlyGovernance();
+    require(priceOracle_ != address(0), AppErrors.ZERO_ADDRESS);
+
+    priceOracle = priceOracle_;
+    emit OnSetPriceOracle(priceOracle);
+  }
+
+  //endregion Setup debt gap and price oracle
 }

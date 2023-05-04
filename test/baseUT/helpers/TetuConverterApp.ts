@@ -21,19 +21,23 @@ export interface ICreateControllerParams {
   ) => Promise<string>;
   // eslint-disable-next-line no-unused-vars
   borrowManagerFabric?: (controller: ConverterController) => Promise<string>;
+
   // eslint-disable-next-line no-unused-vars
   debtMonitorFabric?: (
     controller: ConverterController,
     borrowManager: string
   ) => Promise<string>;
+
   // eslint-disable-next-line no-unused-vars
   keeperFabric?: (controller: ConverterController) => Promise<string>;
+
   // eslint-disable-next-line no-unused-vars
   swapManagerFabric?: (
     controller: ConverterController,
     tetuLiquidator: string,
     priceOracle: string
   ) => Promise<string>;
+
   // eslint-disable-next-line no-unused-vars
   priceOracleFabric?: () => Promise<string>;
   minHealthFactor2?: number;
@@ -98,7 +102,6 @@ export class TetuConverterApp {
       p?.maxHealthFactor2 || 400,
       p?.countBlocksPerDay || COUNT_BLOCKS_PER_DAY,
       p?.debtGap || 1_000
-
     );
   }
 
