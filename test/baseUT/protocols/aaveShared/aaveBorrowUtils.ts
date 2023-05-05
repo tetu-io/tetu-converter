@@ -3,8 +3,10 @@ import {TokenDataTypes} from "../../types/TokenDataTypes";
 import {getBigNumberFrom} from "../../../../scripts/utils/NumberUtils";
 import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import {BigNumber} from "ethers";
+import {ConverterController} from "../../../../typechain";
 
 type MakeBorrowFixedAmountFunc = (
+  converter: ConverterController,
   collateralToken: TokenDataTypes,
   collateralHolder: string,
   collateralAmountRequired: BigNumber | undefined,
@@ -41,6 +43,7 @@ export interface IMakeRepayBadPathsParams {
 export class AaveBorrowUtils {
   static async daiWMatic(
     deployer: SignerWithAddress,
+    converter: ConverterController,
     makeBorrowFunc : MakeBorrowFixedAmountFunc,
     collateralAmountNum: number | undefined,
     borrowAmountNum: number | undefined
@@ -59,11 +62,12 @@ export class AaveBorrowUtils {
       ? getBigNumberFrom(borrowAmountNum, borrowToken.decimals)
       : undefined;
 
-    return makeBorrowFunc(collateralToken, collateralHolder, collateralAmount, borrowToken, borrowAmount);
+    return makeBorrowFunc(converter, collateralToken, collateralHolder, collateralAmount, borrowToken, borrowAmount);
   }
 
   static async daiUsdc(
     deployer: SignerWithAddress,
+    converter: ConverterController,
     makeBorrowFunc : MakeBorrowFixedAmountFunc,
     collateralAmountNum: number | undefined,
     borrowAmountNum: number | undefined
@@ -82,11 +86,12 @@ export class AaveBorrowUtils {
       ? getBigNumberFrom(borrowAmountNum, borrowToken.decimals)
       : undefined;
 
-    return makeBorrowFunc(collateralToken, collateralHolder, collateralAmount, borrowToken, borrowAmount);
+    return makeBorrowFunc(converter, collateralToken, collateralHolder, collateralAmount, borrowToken, borrowAmount);
   }
 
   static async eursTether(
     deployer: SignerWithAddress,
+    converter: ConverterController,
     makeBorrowFunc: MakeBorrowFixedAmountFunc,
     collateralAmountNum: number | undefined,
     borrowAmountNum: number | undefined
@@ -105,11 +110,12 @@ export class AaveBorrowUtils {
       ? getBigNumberFrom(borrowAmountNum, borrowToken.decimals)
       : undefined;
 
-    return makeBorrowFunc(collateralToken, collateralHolder, collateralAmount, borrowToken, borrowAmount);
+    return makeBorrowFunc(converter, collateralToken, collateralHolder, collateralAmount, borrowToken, borrowAmount);
   }
 
   static async usdcDai(
     deployer: SignerWithAddress,
+    converter: ConverterController,
     makeBorrowFunc: MakeBorrowFixedAmountFunc,
     collateralAmountNum: number | undefined,
     borrowAmountNum: number | undefined
@@ -128,11 +134,12 @@ export class AaveBorrowUtils {
       ? getBigNumberFrom(borrowAmountNum, borrowToken.decimals)
       : undefined;
 
-    return makeBorrowFunc(collateralToken, collateralHolder, collateralAmount, borrowToken, borrowAmount);
+    return makeBorrowFunc(converter, collateralToken, collateralHolder, collateralAmount, borrowToken, borrowAmount);
   }
 
   static async wbtcTether(
     deployer: SignerWithAddress,
+    converter: ConverterController,
     makeBorrowFunc: MakeBorrowFixedAmountFunc,
     collateralAmountNum: number | undefined,
     borrowAmountNum: number | undefined
@@ -151,6 +158,6 @@ export class AaveBorrowUtils {
       ? getBigNumberFrom(borrowAmountNum, borrowToken.decimals)
       : undefined;
 
-    return makeBorrowFunc(collateralToken, collateralHolder, collateralAmount, borrowToken, borrowAmount);
+    return makeBorrowFunc(converter, collateralToken, collateralHolder, collateralAmount, borrowToken, borrowAmount);
   }
 }

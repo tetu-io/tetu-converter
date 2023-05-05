@@ -15,17 +15,8 @@ import {parseUnits} from "ethers/lib/utils";
 import {MaticAddresses} from "../../../scripts/addresses/MaticAddresses";
 
 export class CoreContractsHelper {
-  static async deployController(
-    deployer: SignerWithAddress,
-    tetuLiquidator: string,
-    priceOracle: string
-  ): Promise<ConverterController> {
-    return (await DeployUtils.deployContract(
-      deployer,
-      "ConverterController",
-      tetuLiquidator,
-      priceOracle
-    )) as ConverterController;
+  static async deployController(deployer: SignerWithAddress, tetuLiquidator: string): Promise<ConverterController> {
+    return (await DeployUtils.deployContract(deployer, "ConverterController", tetuLiquidator)) as ConverterController;
   }
 
   static async createController(
@@ -60,7 +51,7 @@ export class CoreContractsHelper {
     const tetuLiquidator = await tetuLiquidatorFabric();
     const priceOracle = await priceOracleFabric();
 
-    const controller = await this.deployController(deployer, tetuLiquidator, priceOracle);
+    const controller = await this.deployController(deployer, tetuLiquidator);
     const borrowManager = await borrowManagerFabric(controller);
     const keeper = await keeperFabric(controller);
 
@@ -87,7 +78,8 @@ export class CoreContractsHelper {
       debtMonitor,
       keeper,
       swapManager,
-      debtGap
+      debtGap,
+      priceOracle
     );
     return controller;
   }
@@ -116,7 +108,6 @@ export class CoreContractsHelper {
     debtMonitor: string,
     swapManager: string,
     keeper: string,
-    priceOracle: string
   ): Promise<TetuConverter> {
     return (await DeployUtils.deployContract(
       signer,
@@ -126,7 +117,6 @@ export class CoreContractsHelper {
       debtMonitor,
       swapManager,
       keeper,
-      priceOracle
     )) as TetuConverter;
   }
 
@@ -145,19 +135,8 @@ export class CoreContractsHelper {
   }
 
   /** Create SwapManager */
-  public static async createSwapManager(
-    signer: SignerWithAddress,
-    controller: string,
-    tetuLiquidator: string,
-    priceOracle: string
-  ): Promise<SwapManager> {
-    return (await DeployUtils.deployContract(
-      signer,
-      "SwapManager",
-      controller,
-      tetuLiquidator,
-      priceOracle
-    )) as SwapManager;
+  public static async createSwapManager(signer: SignerWithAddress, controller: string, tetuLiquidator: string): Promise<SwapManager> {
+    return (await DeployUtils.deployContract(signer, "SwapManager", controller, tetuLiquidator)) as SwapManager;
   }
 
   public static async createKeeper(
@@ -175,10 +154,7 @@ export class CoreContractsHelper {
     )) as Keeper;
   }
 
-  public static async createPriceOracle(
-    signer: SignerWithAddress,
-    priceOracleAave3?: string
-  ): Promise<PriceOracle> {
+  public static async createPriceOracle(signer: SignerWithAddress, priceOracleAave3?: string): Promise<PriceOracle> {
     return (await DeployUtils.deployContract(
       signer,
       "PriceOracle",

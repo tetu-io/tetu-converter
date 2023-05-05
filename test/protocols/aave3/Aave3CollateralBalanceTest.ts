@@ -13,6 +13,8 @@ import {getBigNumberFrom} from "../../../scripts/utils/NumberUtils";
 import {SharedRepayToRebalanceUtils} from "../../baseUT/protocols/shared/sharedRepayToRebalanceUtils";
 import {areAlmostEqual} from "../../baseUT/utils/CommonUtils";
 import {Aave3ChangePricesUtils} from "../../baseUT/protocols/aave3/Aave3ChangePricesUtils";
+import {ConverterController} from "../../../typechain";
+import {TetuConverterApp} from "../../baseUT/helpers/TetuConverterApp";
 
 describe("Aave3CollateralBalanceTest", () => {
 //region Constants
@@ -29,6 +31,7 @@ describe("Aave3CollateralBalanceTest", () => {
   let snapshotForEach: string;
   let deployer: SignerWithAddress;
   let init: IInitialBorrowResults;
+  let controllerInstance: ConverterController;
 //endregion Global vars for all tests
 
 //region before, after
@@ -37,6 +40,7 @@ describe("Aave3CollateralBalanceTest", () => {
     snapshot = await TimeUtils.snapshot();
     const signers = await ethers.getSigners();
     deployer = signers[0];
+    controllerInstance = await TetuConverterApp.createController(deployer);
 
     if (!await isPolygonForkInUse()) return;
     init = await makeInitialBorrow();
@@ -62,7 +66,9 @@ describe("Aave3CollateralBalanceTest", () => {
 
     const collateralAmount = getBigNumberFrom(collateralAmountNum, collateralToken.decimals);
 
-    const d = await Aave3TestUtils.prepareToBorrow(deployer,
+    const d = await Aave3TestUtils.prepareToBorrow(
+      deployer,
+      controllerInstance,
       collateralToken,
       [collateralHolder],
       collateralAmount,

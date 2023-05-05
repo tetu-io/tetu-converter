@@ -25,6 +25,9 @@ contract AaveTwoPoolAdapter is IPoolAdapter, IPoolAdapterInitializer, Initializa
   using AaveTwoReserveConfiguration for DataTypes.ReserveConfigurationMap;
   using SafeRatioMath for uint;
 
+  //-----------------------------------------------------
+  //region Members and constants
+  //-----------------------------------------------------
   /// @notice We allow to receive less atokens then provided collateral on following value
   /// @dev Sometime, we provide collateral=1000000000000000000000 and receive atokens=999999999999999999999
   uint constant public ATOKEN_MAX_DELTA = 10;
@@ -44,25 +47,22 @@ contract AaveTwoPoolAdapter is IPoolAdapter, IPoolAdapterInitializer, Initializa
 
   /// @notice Total amount of all supplied and withdrawn amounts of collateral in A-tokens
   uint public collateralBalanceATokens;
+  //endregion Members and constants
 
   //-----------------------------------------------------
-  //                Events
+  //region Events
   //-----------------------------------------------------
-  event OnInitialized(
-    address controller,
-    address pool,
-    address user,
-    address collateralAsset,
-    address borrowAsset,
-    address originConverter
-  );
+  event OnInitialized(address controller, address pool, address user, address collateralAsset, address borrowAsset, address originConverter);
   event OnBorrow(uint collateralAmount, uint borrowAmount, address receiver, uint resultHealthFactor18, uint collateralBalanceATokens);
   event OnBorrowToRebalance(uint borrowAmount, address receiver, uint resultHealthFactor18);
   event OnRepay(uint amountToRepay, address receiver, bool closePosition, uint resultHealthFactor18, uint collateralBalanceATokens);
   event OnRepayToRebalance(uint amount, bool isCollateral, uint resultHealthFactor18, uint collateralBalanceATokens);
+  event OnSalvage(address receiver, address token, uint amount);
+
+  //endregion Events
 
   //-----------------------------------------------------
-  //                Initialization
+  //region Initialization
   //-----------------------------------------------------
 
   function initialize(
@@ -103,8 +103,23 @@ contract AaveTwoPoolAdapter is IPoolAdapter, IPoolAdapterInitializer, Initializa
     emit OnInitialized(controller_, pool_, user_, collateralAsset_, borrowAsset_, originConverter_);
   }
 
+  /// @notice Save any not aToken from balance to {receiver}
+  /// @dev Normally this contract doesn't have any tokens on balance except aTokens
+  function salvage(address receiver, address token, uint amount) external {
+    require(msg.sender == controller.governance(), AppErrors.GOVERNANCE_ONLY);
+    IAaveTwoPool __pool = _pool;
+    DataTypes.ReserveData memory rc = __pool.getReserveData(collateralAsset);
+    DataTypes.ReserveData memory rb = __pool.getReserveData(borrowAsset);
+    require(token != rc.aTokenAddress && token != rb.aTokenAddress, AppErrors.UNSALVAGEABLE);
+
+    IERC20(token).safeTransfer(receiver, amount);
+    emit OnSalvage(receiver, token, amount);
+  }
+
+  //endregion Initialization
+
   //-----------------------------------------------------
-  //                 Restrictions
+  //region Restrictions
   //-----------------------------------------------------
 
   /// @notice Ensure that the caller is TetuConverter
@@ -115,8 +130,10 @@ contract AaveTwoPoolAdapter is IPoolAdapter, IPoolAdapterInitializer, Initializa
   function updateStatus() external override {
     // nothing to do; getStatus always return actual amounts in AAVE
   }
+  //endregion Restrictions
+
   //-----------------------------------------------------
-  ///                 Borrow logic
+  //region Borrow logic
   //-----------------------------------------------------
 
   /// @notice Supply collateral to the pool and borrow specified amount
@@ -250,9 +267,10 @@ contract AaveTwoPoolAdapter is IPoolAdapter, IPoolAdapterInitializer, Initializa
     emit OnBorrowToRebalance(borrowAmount_, receiver_, resultHealthFactor18);
     return (resultHealthFactor18, borrowAmount_);
   }
+  //endregion Borrow logic
 
   //-----------------------------------------------------
-  //                 Repay logic
+  //region Repay logic
   //-----------------------------------------------------
 
   /// @notice Repay borrowed amount, return collateral to the user
@@ -482,9 +500,10 @@ contract AaveTwoPoolAdapter is IPoolAdapter, IPoolAdapterInitializer, Initializa
     emit OnRepayToRebalance(amount_, isCollateral_, healthFactor, newCollateralBalanceATokens);
     return healthFactor;
   }
+  //endregion Repay logic
 
   //-----------------------------------------------------
-  //         View current status
+  //region View current status
   //-----------------------------------------------------
 
   function getConversionKind() external pure override returns (AppDataTypes.ConversionKind) {
@@ -552,16 +571,10 @@ contract AaveTwoPoolAdapter is IPoolAdapter, IPoolAdapterInitializer, Initializa
       true
     );
   }
-
-
-//  /// @notice Compute current cost of the money
-//  function getAPR18() external view override returns (int) {
-//    DataTypes.ReserveData memory rb = _pool.getReserveData(borrowAsset);
-//    return int(uint(rb.currentVariableBorrowRate) * 10**18 * 100 / 10**27);
-//  }
+  //endregion View current status
 
   //-----------------------------------------------------
-  //                 Rewards
+  //region Rewards
   //-----------------------------------------------------
   function claimRewards(address receiver_) external pure override returns (
     address rewardToken,
@@ -571,14 +584,15 @@ contract AaveTwoPoolAdapter is IPoolAdapter, IPoolAdapterInitializer, Initializa
     receiver_; // hide warning
     return (rewardToken, amount);
   }
-
+  //endregion Rewards
 
   //-----------------------------------------------------
-  //               Utils to inline
+  //region Utils to inline
   //-----------------------------------------------------
 
   function _validateHealthFactor(IConverterController controller_, uint hf18) internal view {
     require(hf18 >= uint(controller_.minHealthFactor2())*10**(18-2), AppErrors.WRONG_HEALTH_FACTOR);
   }
+  //endregion Utils to inline
 
 }

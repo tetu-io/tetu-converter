@@ -267,7 +267,7 @@ interface ITetuConverter {
   ///        false can be used if user doesn't have enough amount to pay full debt
   ///              and we are trying to pay "as much as possible"
   /// @return collateralAmountOut Amount of collateral returned to the user
-  /// @return repaidAmountOut Amount of borrow asset repaid to the lending platform
+  /// @return repaidAmountOut Amount of borrow asset paid to the lending platform
   function repayTheBorrow(address poolAdapter_, bool closePosition) external returns (
     uint collateralAmountOut,
     uint repaidAmountOut
@@ -279,4 +279,8 @@ interface ITetuConverter {
   function getPositions(address user_, address collateralToken_, address borrowedToken_) external view returns (
     address[] memory poolAdaptersOut
   );
+
+  /// @notice Save token from TC-balance to {receiver}
+  /// @dev Normally TetuConverter doesn't have any tokens on balance, they can appear there accidentally only
+  function salvage(address receiver, address token, uint amount) external;
 }

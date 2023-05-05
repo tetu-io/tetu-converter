@@ -5,6 +5,7 @@ import {TokenDataTypes} from "../../types/TokenDataTypes";
 import {getBigNumberFrom} from "../../../../scripts/utils/NumberUtils";
 import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import {toStringWithRound} from "../../utils/CommonUtils";
+import {ConverterController} from "../../../../typechain";
 
 export interface IMakeBorrowToRebalanceResults {
   afterBorrow: IUserAccountDataResults;
@@ -23,6 +24,7 @@ export interface IMakeBorrowToRebalanceBadPathParams {
 }
 
 type MakeBorrowToRebalanceFunc = (
+  controller: ConverterController,
   collateralToken: TokenDataTypes,
   collateralHolder: string,
   collateralAmount: BigNumber,
@@ -34,6 +36,7 @@ type MakeBorrowToRebalanceFunc = (
 export class AaveBorrowToRebalanceUtils {
   static async testDaiWMatic(
     deployer: SignerWithAddress,
+    controller: ConverterController,
     makeBorrowToRebalanceFunc: MakeBorrowToRebalanceFunc,
     targetHealthFactorInitial2: number,
     targetHealthFactorUpdated2: number,
@@ -53,12 +56,13 @@ export class AaveBorrowToRebalanceUtils {
     console.log(collateralAmount, collateralAmount);
 
     const r = await makeBorrowToRebalanceFunc(
-      collateralToken
-      , collateralHolder
-      , collateralAmount
-      , borrowToken
-      , borrowHolder
-      , badPathParams
+      controller,
+      collateralToken,
+      collateralHolder,
+      collateralAmount,
+      borrowToken,
+      borrowHolder,
+      badPathParams,
     );
 
     console.log(r);

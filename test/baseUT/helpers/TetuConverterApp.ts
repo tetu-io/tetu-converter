@@ -16,24 +16,23 @@ export interface ICreateControllerParams {
     borrowManager: string,
     debtMonitor: string,
     swapManager: string,
-    keeper: string,
-    priceOracle: string
+    keeper: string
   ) => Promise<string>;
   // eslint-disable-next-line no-unused-vars
   borrowManagerFabric?: (controller: ConverterController) => Promise<string>;
+
   // eslint-disable-next-line no-unused-vars
   debtMonitorFabric?: (
     controller: ConverterController,
     borrowManager: string
   ) => Promise<string>;
+
   // eslint-disable-next-line no-unused-vars
   keeperFabric?: (controller: ConverterController) => Promise<string>;
+
   // eslint-disable-next-line no-unused-vars
-  swapManagerFabric?: (
-    controller: ConverterController,
-    tetuLiquidator: string,
-    priceOracle: string
-  ) => Promise<string>;
+  swapManagerFabric?: (controller: ConverterController, tetuLiquidator: string) => Promise<string>;
+
   // eslint-disable-next-line no-unused-vars
   priceOracleFabric?: () => Promise<string>;
   minHealthFactor2?: number;
@@ -57,8 +56,8 @@ export class TetuConverterApp {
     p?: ICreateControllerParams
   ) : Promise<ConverterController> {
     const tetuConverterFabric = p?.tetuConverterFabric
-      || (async (c, borrowManager, debtMonitor, swapManager, keeper, priceOracle) => (
-          await CoreContractsHelper.createTetuConverter(deployer, c.address, borrowManager, debtMonitor, swapManager, keeper, priceOracle)).address
+      || (async (c, borrowManager, debtMonitor, swapManager, keeper) => (
+          await CoreContractsHelper.createTetuConverter(deployer, c.address, borrowManager, debtMonitor, swapManager, keeper)).address
       );
     const borrowManagerFabric = p?.borrowManagerFabric
         || (async c => (await CoreContractsHelper.createBorrowManager(deployer, c.address)).address);
@@ -77,8 +76,8 @@ export class TetuConverterApp {
     const tetuLiquidatorFabric = async () => p?.tetuLiquidatorAddress
         || (await MocksHelper.createTetuLiquidatorMock(deployer, [], [])).address;
     const swapManagerFabric = p?.swapManagerFabric
-      || (async (c, tetuLiquidator, priceOracle) => (
-          await CoreContractsHelper.createSwapManager(deployer, c.address, tetuLiquidator, priceOracle)).address
+      || (async (c, tetuLiquidator) => (
+          await CoreContractsHelper.createSwapManager(deployer, c.address, tetuLiquidator)).address
       );
     const priceOracleFabric = p?.priceOracleFabric
         || (async () => (await CoreContractsHelper.createPriceOracle(deployer)).address
@@ -98,7 +97,6 @@ export class TetuConverterApp {
       p?.maxHealthFactor2 || 400,
       p?.countBlocksPerDay || COUNT_BLOCKS_PER_DAY,
       p?.debtGap || 1_000
-
     );
   }
 

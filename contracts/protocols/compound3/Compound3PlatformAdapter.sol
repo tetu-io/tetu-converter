@@ -15,13 +15,14 @@ import "./Compound3AprLib.sol";
 
 contract Compound3PlatformAdapter is IPlatformAdapter {
   ///////////////////////////////////////////////////////
-  ///                Constants
+  //region Constants
   ///////////////////////////////////////////////////////
 
-  string public constant override PLATFORM_ADAPTER_VERSION = "1.0.0";
+  string public constant override PLATFORM_ADAPTER_VERSION = "1.0.2";
+  //endregion Constants
 
   ///////////////////////////////////////////////////////
-  ///                Variables
+  //region Variables
   ///////////////////////////////////////////////////////
 
   IConverterController immutable public controller;
@@ -38,30 +39,20 @@ contract Compound3PlatformAdapter is IPlatformAdapter {
   address[] public comets;
 
   address public cometRewards;
+  //endregion Variables
 
   ///////////////////////////////////////////////////////
-  ///                Events
+  //region Events
   ///////////////////////////////////////////////////////
 
-  event OnPoolAdapterInitialized(
-    address converter,
-    address poolAdapter,
-    address user,
-    address collateralAsset,
-    address borrowAsset
-  );
+  event OnPoolAdapterInitialized(address converter, address poolAdapter, address user, address collateralAsset, address borrowAsset);
+  //endregion Events
 
   ///////////////////////////////////////////////////////
-  ///                Initialization
+  //region Initialization
   ///////////////////////////////////////////////////////
 
-  constructor(
-    address controller_,
-    address borrowManager_,
-    address templatePoolAdapter_,
-    address[] memory comets_,
-    address cometRewards_
-  ) {
+  constructor(address controller_, address borrowManager_, address templatePoolAdapter_, address[] memory comets_, address cometRewards_) {
     require(
       borrowManager_ != address(0)
       && templatePoolAdapter_ != address(0)
@@ -77,28 +68,24 @@ contract Compound3PlatformAdapter is IPlatformAdapter {
     comets = comets_;
     cometRewards = cometRewards_;
   }
+  //endregion Initialization
 
   ///////////////////////////////////////////////////////
-  ///                Modifiers
+  //region Modifiers
   ///////////////////////////////////////////////////////
 
   /// @notice Ensure that the caller is governance
   function _onlyGovernance() internal view {
     require(controller.governance() == msg.sender, AppErrors.GOVERNANCE_ONLY);
   }
+  //endregion Modifiers
 
   ///////////////////////////////////////////////////////
-  ///                Gov actions
+  //region Gov actions
   ///////////////////////////////////////////////////////
 
   /// @notice Initialize {poolAdapter_} created from {converter_} using minimal proxy pattern
-  function initializePoolAdapter(
-    address converter_,
-    address poolAdapter_,
-    address user_,
-    address collateralAsset_,
-    address borrowAsset_
-  ) external override {
+  function initializePoolAdapter(address converter_, address poolAdapter_, address user_, address collateralAsset_, address borrowAsset_) external override {
     require(msg.sender == borrowManager, AppErrors.BORROW_MANAGER_ONLY);
     require(converter == converter_, AppErrors.CONVERTER_NOT_FOUND);
 
@@ -129,7 +116,7 @@ contract Compound3PlatformAdapter is IPlatformAdapter {
 
   function removeComet(uint index) external {
     _onlyGovernance();
-    require(index < comets.length);
+    require(index < comets.length, AppErrors.INCORRECT_VALUE);
     comets[index] = comets[comets.length - 1];
     comets.pop();
   }
@@ -139,9 +126,10 @@ contract Compound3PlatformAdapter is IPlatformAdapter {
     _onlyGovernance();
     frozen = frozen_;
   }
+  //endregion Gov actions
 
   ///////////////////////////////////////////////////////
-  ///                Views
+  //region Views
   ///////////////////////////////////////////////////////
 
   function converters() external view override returns (address[] memory) {
@@ -150,13 +138,15 @@ contract Compound3PlatformAdapter is IPlatformAdapter {
     return dest;
   }
 
+  function platformKind() external pure returns (AppDataTypes.LendingPlatformKinds) {
+    return AppDataTypes.LendingPlatformKinds.COMPOUND3_5;
+  }
+
+
   /// @notice Get pool data required to select best lending pool
   /// @param healthFactor2_ Health factor (decimals 2) to be able to calculate max borrow amount
   ///                       See IConverterController for explanation of health factors.
-  function getConversionPlan(
-    AppDataTypes.InputConversionParams memory p_,
-    uint16 healthFactor2_
-  ) external view returns (
+  function getConversionPlan(AppDataTypes.InputConversionParams memory p_, uint16 healthFactor2_) external view returns (
     AppDataTypes.ConversionPlan memory plan
   ) {
     require(p_.collateralAsset != address(0) && p_.borrowAsset != address(0), AppErrors.ZERO_ADDRESS);
@@ -273,5 +263,5 @@ contract Compound3PlatformAdapter is IPlatformAdapter {
   function cometsLength() external view returns (uint) {
     return comets.length;
   }
-
+  //endregion Views
 }

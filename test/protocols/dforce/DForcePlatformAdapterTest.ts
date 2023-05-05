@@ -1099,6 +1099,27 @@ describe("DForcePlatformAdapterTest", () => {
           expect((await tryGetConversionPlan({setBorrowPaused: true})).converter).eq(Misc.ZERO_ADDRESS);
         });
       });
+
+      describe("Use unsupported entry kind 999", () => {
+        it("should return zero plan", async () => {
+          if (!await isPolygonForkInUse()) return;
+
+          const r = await preparePlan(
+            controller,
+            MaticAddresses.DAI,
+            parseUnits("1", 18),
+            MaticAddresses.WMATIC,
+            MaticAddresses.dForce_iDAI,
+            MaticAddresses.dForce_iMATIC,
+            undefined,
+            defaultAbiCoder.encode(["uint256"], [999]) // (!) unsupported entry kind
+          );
+
+          expect(r.plan.converter).eq(Misc.ZERO_ADDRESS);
+          expect(r.plan.collateralAmount.eq(0)).eq(true);
+          expect(r.plan.amountToBorrow.eq(0)).eq(true);
+        });
+      });
     });
     describe("Check gas limit @skip-on-coverage", () => {
       it("should not exceed gas limits", async () => {
@@ -1530,30 +1551,70 @@ describe("DForcePlatformAdapterTest", () => {
   });
 
   describe("setFrozen", () => {
-    it("should assign expected value to frozen", async () => {
-      const controller = await TetuConverterApp.createController(deployer,
-        {tetuLiquidatorAddress: MaticAddresses.TETU_LIQUIDATOR}
-      );
+    describe("Good paths", () => {
+      it("should assign expected value to frozen", async () => {
+        if (!await isPolygonForkInUse()) return;
+
+        const controller = await TetuConverterApp.createController(deployer,
+          {tetuLiquidatorAddress: MaticAddresses.TETU_LIQUIDATOR}
+        );
+
+        const comptroller = await DForceHelper.getController(deployer);
+        const dForcePlatformAdapter = await AdaptersHelper.createDForcePlatformAdapter(
+          deployer,
+          controller.address,
+          comptroller.address,
+          ethers.Wallet.createRandom().address,
+          [MaticAddresses.dForce_iDAI, MaticAddresses.dForce_iUSDC],
+        );
+
+        const before = await dForcePlatformAdapter.frozen();
+        await dForcePlatformAdapter.setFrozen(true);
+        const middle = await dForcePlatformAdapter.frozen();
+        await dForcePlatformAdapter.setFrozen(false);
+        const after = await dForcePlatformAdapter.frozen();
+
+        const ret = [before, middle, after].join();
+        const expected = [false, true, false].join();
+
+        expect(ret).eq(expected);
+      });
+    });
+    describe("Bad paths", () => {
+      it("should assign expected value to frozen", async () => {
+        if (!await isPolygonForkInUse()) return;
+
+        const comptroller = await DForceHelper.getController(deployer);
+        const dForcePlatformAdapter = await AdaptersHelper.createDForcePlatformAdapter(
+          deployer,
+          (await TetuConverterApp.createController(deployer)).address,
+          comptroller.address,
+          ethers.Wallet.createRandom().address,
+          [MaticAddresses.dForce_iDAI, MaticAddresses.dForce_iUSDC],
+        );
+
+        await expect(
+          dForcePlatformAdapter.connect(await Misc.impersonate(ethers.Wallet.createRandom().address)).setFrozen(true)
+        ).revertedWith("TC-9 governance only"); // AppErrors.GOVERNANCE_ONLY
+      });
+    });
+  });
+
+  describe("platformKind", () => {
+    it("should return expected values", async () => {
+      if (!await isPolygonForkInUse()) return;
+
+      const controller = await TetuConverterApp.createController(deployer);
 
       const comptroller = await DForceHelper.getController(deployer);
-      const dForcePlatformAdapter = await AdaptersHelper.createDForcePlatformAdapter(
+      const pa = await AdaptersHelper.createDForcePlatformAdapter(
         deployer,
         controller.address,
         comptroller.address,
         ethers.Wallet.createRandom().address,
         [MaticAddresses.dForce_iDAI, MaticAddresses.dForce_iUSDC],
       );
-
-      const before = await dForcePlatformAdapter.frozen();
-      await dForcePlatformAdapter.setFrozen(true);
-      const middle = await dForcePlatformAdapter.frozen();
-      await dForcePlatformAdapter.setFrozen(false);
-      const after = await dForcePlatformAdapter.frozen();
-
-      const ret = [before, middle, after].join();
-      const expected = [false, true, false].join();
-
-      expect(ret).eq(expected);
+      expect((await pa.platformKind())).eq(1); // LendingPlatformKinds.DFORCE_1
     });
   });
 //endregion Unit tests

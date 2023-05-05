@@ -41,12 +41,18 @@ import {AdaptersHelper} from "../../baseUT/helpers/AdaptersHelper";
 import {TetuConverterApp} from "../../baseUT/helpers/TetuConverterApp";
 import {formatUnits, parseUnits} from "ethers/lib/utils";
 import {MocksHelper} from "../../baseUT/helpers/MocksHelper";
+import {CoreContracts} from "../../baseUT/types/CoreContracts";
+import {BalanceUtils} from "../../baseUT/utils/BalanceUtils";
+import {core} from "../../../typechain/contracts";
+import {AST} from "eslint";
+import Token = AST.Token;
 
 describe("DForcePoolAdapterUnitTest", () => {
 //region Global vars for all tests
   let snapshot: string;
   let snapshotForEach: string;
   let deployer: SignerWithAddress;
+  let controllerInstance: ConverterController;
 //endregion Global vars for all tests
 
 //region before, after
@@ -55,6 +61,7 @@ describe("DForcePoolAdapterUnitTest", () => {
     snapshot = await TimeUtils.snapshot();
     const signers = await ethers.getSigners();
     deployer = signers[1];
+    controllerInstance = await TetuConverterApp.createController(deployer);
   });
 
   after(async function () {
@@ -91,6 +98,7 @@ describe("DForcePoolAdapterUnitTest", () => {
 
     const init = await DForceTestUtils.prepareToBorrow(
       deployer,
+      controllerInstance,
       collateralToken,
       collateralHolder,
       collateralCToken,
@@ -531,6 +539,7 @@ describe("DForcePoolAdapterUnitTest", () => {
 
       const init = await DForceTestUtils.prepareToBorrow(
         deployer,
+        controllerInstance,
         collateralToken,
         collateralHolder,
         collateralCToken,
@@ -1031,6 +1040,7 @@ describe("DForcePoolAdapterUnitTest", () => {
     ) : Promise<IMakeBorrowToRebalanceResults>{
       const d = await DForceTestUtils.prepareToBorrow(
         deployer,
+        controllerInstance,
         collateralToken,
         collateralHolder,
         collateralCTokenAddress,
@@ -1323,6 +1333,7 @@ describe("DForcePoolAdapterUnitTest", () => {
     ) : Promise<IMakeRepayToRebalanceResults>{
       const d = await DForceTestUtils.prepareToBorrow(
         deployer,
+        controllerInstance,
         p.collateralToken,
         p.collateralHolder,
         p.collateralCTokenAddress,
@@ -1868,6 +1879,7 @@ describe("DForcePoolAdapterUnitTest", () => {
         if (!await isPolygonForkInUse()) return;
         const d = await DForceTestUtils.prepareToBorrow(
           deployer,
+          controllerInstance,
           await TokenDataTypes.Build(deployer, MaticAddresses.DAI),
           MaticAddresses.HOLDER_DAI,
           MaticAddresses.dForce_iDAI,
@@ -1887,6 +1899,7 @@ describe("DForcePoolAdapterUnitTest", () => {
         if (!await isPolygonForkInUse()) return;
         const d = await DForceTestUtils.prepareToBorrow(
           deployer,
+          controllerInstance,
           await TokenDataTypes.Build(deployer, MaticAddresses.DAI),
           MaticAddresses.HOLDER_DAI,
           MaticAddresses.dForce_iDAI,
@@ -1960,6 +1973,7 @@ describe("DForcePoolAdapterUnitTest", () => {
       // we only prepare to borrow, but don't make a borrow
       const init = await DForceTestUtils.prepareToBorrow(
         deployer,
+        controllerInstance,
         collateralToken,
         collateralHolder,
         collateralCToken,
@@ -2156,6 +2170,64 @@ describe("DForcePoolAdapterUnitTest", () => {
           console.log("ret", quoteRepayResults.collateralAmountOut.mul(20), status.collateralAmount);
           expect(ret).eq(true);
         });
+      });
+    });
+  });
+
+  describe("salvage", () => {
+    const receiver = ethers.Wallet.createRandom().address;
+
+    let snapshotLocal: string;
+    let collateralToken: TokenDataTypes;
+    let borrowToken: TokenDataTypes;
+    let init: IPrepareToBorrowResults;
+    let governance: string;
+
+    before(async function () {
+      snapshotLocal = await TimeUtils.snapshot();
+      collateralToken = await TokenDataTypes.Build(deployer, MaticAddresses.USDC);
+      borrowToken = await TokenDataTypes.Build(deployer, MaticAddresses.USDT);
+
+      init = await DForceTestUtils.prepareToBorrow(
+        deployer,
+        controllerInstance,
+        collateralToken,
+        MaticAddresses.HOLDER_USDC,
+        MaticAddresses.dForce_iUSDC,
+        parseUnits("1", collateralToken.decimals),
+        borrowToken,
+        MaticAddresses.dForce_iUSDT,
+      );
+      governance = await init.controller.governance();
+    });
+    after(async function () {
+      await TimeUtils.rollback(snapshotLocal);
+    });
+    async function salvageToken(tokenAddress: string, holder: string, amountNum: string, caller?: string) : Promise<number>{
+      const token = await IERC20Metadata__factory.connect(tokenAddress, deployer);
+      const decimals = await token.decimals();
+      const amount = parseUnits(amountNum, decimals);
+      await BalanceUtils.getRequiredAmountFromHolders(amount, token,[holder], init.dfPoolAdapterTC.address);
+      await init.dfPoolAdapterTC.connect(await Misc.impersonate(caller || governance)).salvage(receiver, tokenAddress, amount);
+      return +formatUnits(await token.balanceOf(receiver), decimals);
+    }
+    describe("Good paths", () => {
+      it("should salvage collateral asset", async () => {
+        expect(await salvageToken(MaticAddresses.USDC, MaticAddresses.HOLDER_USDC, "800")).eq(800);
+      });
+      it("should salvage borrow asset", async () => {
+        expect(await salvageToken(MaticAddresses.USDT, MaticAddresses.HOLDER_USDT, "800")).eq(800);
+      });
+    });
+    describe("Bad paths", () => {
+      it("should revert on attempt to salvage collateral cToken", async () => {
+        await expect(salvageToken(MaticAddresses.dForce_iUSDC, MaticAddresses.HOLDER_DFORCE_IUSDC, "800")).revertedWith("TC-59: unsalvageable"); // UNSALVAGEABLE
+      });
+      it("should revert on attempt to salvage borrow cToken", async () => {
+        await expect(salvageToken(MaticAddresses.dForce_iUSDT, MaticAddresses.HOLDER_DFORCE_IUSDT, "800")).revertedWith("TC-59: unsalvageable"); // UNSALVAGEABLE
+      });
+      it("should revert if not governance", async () => {
+        await expect(salvageToken(MaticAddresses.USDC, MaticAddresses.HOLDER_USDC, "800", receiver)).revertedWith("TC-9 governance only"); // GOVERNANCE_ONLY
       });
     });
   });

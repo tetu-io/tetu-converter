@@ -124,6 +124,7 @@ export class DForceTestUtils {
    */
   public static async prepareToBorrow(
     deployer: SignerWithAddress,
+    controller: ConverterController,
     collateralToken: TokenDataTypes,
     collateralHolder: string,
     collateralCTokenAddress: string,
@@ -134,8 +135,6 @@ export class DForceTestUtils {
   ) : Promise<IPrepareToBorrowResults> {
     const periodInBlocks = 1000;
 
-    // controller, dm, bm
-    const controller = await TetuConverterApp.createController(deployer);
     const userContract = await MocksHelper.deployBorrower(deployer.address, controller, periodInBlocks);
     await controller.connect(await DeployerUtils.startImpersonate(await controller.governance())).setWhitelistValues([userContract.address], true);
 
@@ -450,6 +449,7 @@ export class DForceTestUtils {
 
   public static async prepareToLiquidation(
     deployer: SignerWithAddress,
+    controller: ConverterController,
     collateralAsset: string,
     collateralHolder: string,
     collateralCTokenAddress: string,
@@ -470,7 +470,9 @@ export class DForceTestUtils {
     const priceOracleMock = await DForceChangePriceUtils.setupPriceOracleMock(deployer);
     console.log("priceOracleMock", priceOracleMock.address);
 
-    const d = await DForceTestUtils.prepareToBorrow(deployer,
+    const d = await DForceTestUtils.prepareToBorrow(
+      deployer,
+      controller,
       collateralToken,
       collateralHolder,
       collateralCTokenAddress,

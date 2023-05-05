@@ -227,7 +227,7 @@ contract Borrower is ITetuConverterCallback {
     lastQuoteRepayGasConsumption = gasleft();
     // for quoteRepay we need pure debts without debt-gap
     (uint amountToPay,) = _tc().getDebtAmountCurrent(address(this), collateralAsset_, borrowedAsset_, false);
-    console.log("makeRepayComplete amountToPay", amountToPay);
+    console.log("makeRepayComplete amountToPay (no debt gap)", amountToPay);
     console.log("makeRepayComplete borrowed asset balance before repay", borrowBalanceBeforeRepay);
     (lastQuoteRepayResultCollateralAmount, lastQuoteRepayResultSwappedAmount) = _tc().quoteRepay(
       address(this),
@@ -240,6 +240,7 @@ contract Borrower is ITetuConverterCallback {
 
     // for repay we need debts with debt-gap
     (amountToPay,) = _tc().getDebtAmountCurrent(address(this), collateralAsset_, borrowedAsset_, true);
+    console.log("makeRepayComplete amountToPay (with debt gap)", amountToPay);
     IERC20(borrowedAsset_).safeTransfer(address(_tc()), amountToPay);
 
     console.log("makeRepayComplete repay - start");

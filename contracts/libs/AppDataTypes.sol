@@ -4,6 +4,15 @@ pragma solidity 0.8.17;
 
 library AppDataTypes {
 
+  enum LendingPlatformKinds {
+    UNKNOWN_0,
+    DFORCE_1,
+    AAVE2_2,
+    AAVE3_3,
+    HUNDRED_FINANCE_4,
+    COMPOUND3_5
+  }
+
   enum ConversionKind {
     UNKNOWN_0,
     SWAP_1,

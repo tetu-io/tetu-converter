@@ -63,35 +63,4 @@ interface IDebtMonitor {
 
   /// @notice Return true if there is a least once active pool adapter created on the base of the {converter_}
   function isConverterInUse(address converter_) external view returns (bool);
-
-// TODO for next versions of the application
-//  /// @notice Enumerate {maxCountToCheck} pool adapters starting from {index0} and return all pool-adapters
-//  ///         with health factor exceeds max allowed value. In other words, it's safe to make additional borrow.
-//  /// @return nextIndexToCheck0 Index of next pool-adapter to check; 0: all pool-adapters were checked
-//  /// @return outPoolAdapters List of pool adapters that should be reconverted
-//  /// @return outAmountsToBorrow What amount can be additionally borrowed using exist collateral
-//  function checkAdditionalBorrow(
-//    uint startIndex0,
-//    uint maxCountToCheck,
-//    uint maxCountToReturn
-//  ) external view returns (
-//    uint nextIndexToCheck0,
-//    address[] memory outPoolAdapters,
-//    uint[] memory outAmountsToBorrow
-//  );
-
-// TODO for next versions of the application
-//  /// @notice Enumerate {maxCountToCheck} pool adapters starting from {index0} and return not-optimal pool-adapters
-//  /// @param periodInBlocks Period in blocks that should be used in rebalancing
-//  /// @return nextIndexToCheck0 Index of next pool-adapter to check; 0: all pool-adapters were checked
-//  /// @return poolAdapters List of pool adapters that should be reconverted
-//  function checkBetterBorrowExists(
-//    uint startIndex0,
-//    uint maxCountToCheck,
-//    uint maxCountToReturn,
-//    uint periodInBlocks
-//  ) external view returns (
-//    uint nextIndexToCheck0,
-//    address[] memory poolAdapters
-//  );
 }

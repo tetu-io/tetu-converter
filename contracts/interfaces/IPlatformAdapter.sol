@@ -24,6 +24,8 @@ interface IPlatformAdapter {
   /// @notice Full list of supported converters
   function converters() external view returns (address[] memory);
 
+  function platformKind() external pure returns (AppDataTypes.LendingPlatformKinds);
+
   /// @notice Initialize {poolAdapter_} created from {converter_} using minimal proxy pattern
   function initializePoolAdapter(
     address converter_,

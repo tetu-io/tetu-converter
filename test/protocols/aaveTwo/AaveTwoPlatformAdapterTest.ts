@@ -793,6 +793,28 @@ describe("AaveTwoPlatformAdapterTest", () => {
           expect((await tryGetConversionPlan({}, MaticAddresses.USDT)).converter).eq(Misc.ZERO_ADDRESS);
         });
       });
+
+      describe("Use unsupported entry kind 999", () => {
+        it("should return zero plan", async () => {
+          if (!await isPolygonForkInUse()) return;
+
+          const collateralAsset = MaticAddresses.DAI;
+          const borrowAsset = MaticAddresses.WMATIC;
+          const collateralAmount = parseUnits("1000", 18);
+
+          const r = await preparePlan(
+            collateralAsset,
+            collateralAmount,
+            borrowAsset,
+            10,
+            undefined,
+            defaultAbiCoder.encode(["uint256"], [999]) // (!) unknown entry kind
+          );
+          expect(r.plan.converter).eq(Misc.ZERO_ADDRESS);
+          expect(r.plan.collateralAmount.eq(0)).eq(true);
+          expect(r.plan.amountToBorrow.eq(0)).eq(true);
+        });
+      });
     });
     describe("Check gas limit @skip-on-coverage", () => {
       it("should not exceed gas limits", async () => {
@@ -1038,29 +1060,65 @@ describe("AaveTwoPlatformAdapterTest", () => {
   });
 
   describe("setFrozen", () => {
-    it("should assign expected value to frozen", async () => {
-      const controller = await TetuConverterApp.createController(deployer,
-        {tetuLiquidatorAddress: MaticAddresses.TETU_LIQUIDATOR}
-      );
+    describe("Good paths", () => {
+      it("should assign expected value to frozen", async () => {
+        if (!await isPolygonForkInUse()) return;
 
-      const aavePool = await AaveTwoHelper.getAavePool(deployer);
-      const aavePlatformAdapter = await AdaptersHelper.createAaveTwoPlatformAdapter(
+        const controller = await TetuConverterApp.createController(deployer,
+          {tetuLiquidatorAddress: MaticAddresses.TETU_LIQUIDATOR}
+        );
+
+        const aavePool = await AaveTwoHelper.getAavePool(deployer);
+        const aavePlatformAdapter = await AdaptersHelper.createAaveTwoPlatformAdapter(
+          deployer,
+          controller.address,
+          aavePool.address,
+          ethers.Wallet.createRandom().address,
+        );
+
+        const before = await aavePlatformAdapter.frozen();
+        await aavePlatformAdapter.setFrozen(true);
+        const middle = await aavePlatformAdapter.frozen();
+        await aavePlatformAdapter.setFrozen(false);
+        const after = await aavePlatformAdapter.frozen();
+
+        const ret = [before, middle, after].join();
+        const expected = [false, true, false].join();
+
+        expect(ret).eq(expected);
+      });
+    });
+    describe("Bad paths", () => {
+      it("should assign expected value to frozen", async () => {
+        if (!await isPolygonForkInUse()) return;
+        const aavePlatformAdapter = await AdaptersHelper.createAaveTwoPlatformAdapter(
+          deployer,
+          (await TetuConverterApp.createController(deployer)).address,
+          (await AaveTwoHelper.getAavePool(deployer)).address,
+          ethers.Wallet.createRandom().address,
+        );
+
+        await expect(
+          aavePlatformAdapter.connect(await Misc.impersonate(ethers.Wallet.createRandom().address)).setFrozen(true)
+        ).revertedWith("TC-9 governance only"); // AppErrors.GOVERNANCE_ONLY
+      });
+    });
+  });
+
+  describe("platformKind", () => {
+    it("should return expected values", async () => {
+      if (!await isPolygonForkInUse()) return;
+
+      const controller = await TetuConverterApp.createController(deployer);
+
+      const pa = await AdaptersHelper.createAaveTwoPlatformAdapter(
         deployer,
         controller.address,
-        aavePool.address,
+        MaticAddresses.AAVE_V3_POOL,
         ethers.Wallet.createRandom().address,
+        await controller.borrowManager()
       );
-
-      const before = await aavePlatformAdapter.frozen();
-      await aavePlatformAdapter.setFrozen(true);
-      const middle = await aavePlatformAdapter.frozen();
-      await aavePlatformAdapter.setFrozen(false);
-      const after = await aavePlatformAdapter.frozen();
-
-      const ret = [before, middle, after].join();
-      const expected = [false, true, false].join();
-
-      expect(ret).eq(expected);
+      expect((await pa.platformKind())).eq(2); // LendingPlatformKinds.AAVE2_2
     });
   });
 //endregion Unit tests

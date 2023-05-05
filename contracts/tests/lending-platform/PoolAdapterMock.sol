@@ -40,6 +40,8 @@ contract PoolAdapterMock is IPoolAdapter {
 
   address public originConverter;
 
+  bool internal _debtGapRequired;
+
   struct RewardsForUser {
     address rewardToken;
     uint rewardAmount;
@@ -86,6 +88,11 @@ contract PoolAdapterMock is IPoolAdapter {
       IERC20(rewardToken_).balanceOf(address(this)) == amount_,
       "Reward token wasn't transferred to pool-adapter-mock"
     );
+  }
+
+  function setDebtGapRequired(bool debtGapRequired_) external {
+    console.log("setDebtGapRequired", debtGapRequired_);
+    _debtGapRequired = debtGapRequired_;
   }
 
   //-----------------------------------------------------
@@ -150,7 +157,7 @@ contract PoolAdapterMock is IPoolAdapter {
     uint healthFactor18,
     bool opened,
     uint collateralAmountLiquidated,
-    bool debtGapRequired
+    bool debtGapRequired_
   ) {
     uint priceCollateral = getPrice18(_collateralAsset);
     uint priceBorrowedUSD = getPrice18(_borrowAsset);
@@ -181,7 +188,7 @@ contract PoolAdapterMock is IPoolAdapter {
       healthFactor18,
       collateralAmount != 0 || amountToPay != 0,
       0, // !TODO
-      false // TODO
+      _debtGapRequired
     );
   }
 

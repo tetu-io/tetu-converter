@@ -25,8 +25,8 @@ async function main() {
     });
   }
 
-  const controller = "0x4c2FC0b0D5086f91e80128B498Fb14Eb989740D0";
-  const strategy = "0xAe9842896507ba6D926E38BD1E560c3874B9a80c"; // "0x807a528818113a6f65b7667a59a4CaaAc719fc12";
+  const controller = "0x63f007c13969352B35d2f2B099F2F0E1d860276a";
+  const strategies = ["0x98Ac07aA456B9C2A50BBba9606d80fEaeaEB3843", "0xA14Dea6E48B3187c5e637C88b84d5Dfc701edeB7"]; //"0xAe9842896507ba6D926E38BD1E560c3874B9a80c"; // "0x807a528818113a6f65b7667a59a4CaaAc719fc12";
 
   // const signer = localHardhatIsInUse
   //   ? await DeployerUtils.startImpersonate("TODO governance")
@@ -35,13 +35,17 @@ async function main() {
 
   console.log("signer", signer.address);
 
-  console.log("before", await ConverterController__factory.connect(controller, signer).whitelist(strategy));
+  for (const strategy of strategies) {
+    console.log("before", await ConverterController__factory.connect(controller, signer).whitelist(strategy));
+  }
 
   await RunHelper.runAndWait(
-    () => ConverterController__factory.connect(controller, signer).setWhitelistValues([strategy], true)
+    () => ConverterController__factory.connect(controller, signer).setWhitelistValues(strategies, true)
   );
 
-  console.log("after", await IConverterController__factory.connect(controller, signer).isWhitelisted(strategy));
+  for (const strategy of strategies) {
+    console.log("after", await ConverterController__factory.connect(controller, signer).whitelist(strategy));
+  }
 }
 
 main()

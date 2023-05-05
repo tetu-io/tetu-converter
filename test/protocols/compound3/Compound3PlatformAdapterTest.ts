@@ -714,6 +714,23 @@ describe("Compound3PlatformAdapterTest", () => {
           expect((await tryGetConversionPlan({setWithdrawPaused: true})).converter).eq(Misc.ZERO_ADDRESS);
         });
       });
+      describe("Use unsupported entry kind 999", () => {
+        it("should return zero plan", async () => {
+          if (!await isPolygonForkInUse()) return;
+
+          const r = await preparePlan(
+            controller,
+            MaticAddresses.WMATIC,
+            parseUnits("1000"),
+            MaticAddresses.USDC,
+            undefined,
+            defaultAbiCoder.encode(["uint256"], [999]) // (unknown entry kind)
+          )
+          expect(r.plan.converter).eq(Misc.ZERO_ADDRESS);
+          expect(r.plan.collateralAmount.eq(0)).eq(true);
+          expect(r.plan.amountToBorrow.eq(0)).eq(true);
+        });
+      });
     })
   })
 
@@ -902,25 +919,42 @@ describe("Compound3PlatformAdapterTest", () => {
   })
 
   describe("setFrozen", () => {
-    it("should assign expected value to frozen", async () => {
-      const controller = await TetuConverterApp.createController(
-        deployer,
-        {tetuLiquidatorAddress: MaticAddresses.TETU_LIQUIDATOR}
-      );
-      const platformAdapter = await AdaptersHelper.createCompound3PlatformAdapter(
-        deployer,
-        controller.address,
-        ethers.Wallet.createRandom().address,
-        [MaticAddresses.COMPOUND3_COMET_USDC],
-        MaticAddresses.COMPOUND3_COMET_REWARDS
-      )
+    describe("Good paths", () => {
+      it("should assign expected value to frozen", async () => {
+        const controller = await TetuConverterApp.createController(
+          deployer,
+          {tetuLiquidatorAddress: MaticAddresses.TETU_LIQUIDATOR}
+        );
+        const platformAdapter = await AdaptersHelper.createCompound3PlatformAdapter(
+          deployer,
+          controller.address,
+          ethers.Wallet.createRandom().address,
+          [MaticAddresses.COMPOUND3_COMET_USDC],
+          MaticAddresses.COMPOUND3_COMET_REWARDS
+        )
 
-      expect(await platformAdapter.frozen()).eq(false)
-      await platformAdapter.setFrozen(true)
-      expect(await platformAdapter.frozen()).eq(true)
-      await platformAdapter.setFrozen(false)
-      expect(await platformAdapter.frozen()).eq(false)
-    })
+        expect(await platformAdapter.frozen()).eq(false)
+        await platformAdapter.setFrozen(true)
+        expect(await platformAdapter.frozen()).eq(true)
+        await platformAdapter.setFrozen(false)
+        expect(await platformAdapter.frozen()).eq(false)
+      })
+    });
+    describe("Bad paths", () => {
+      it("should assign expected value to frozen", async () => {
+        const platformAdapter = await AdaptersHelper.createCompound3PlatformAdapter(
+          deployer,
+          (await TetuConverterApp.createController(deployer)).address,
+          ethers.Wallet.createRandom().address,
+          [MaticAddresses.COMPOUND3_COMET_USDC],
+          MaticAddresses.COMPOUND3_COMET_REWARDS
+        )
+
+        await expect(
+          platformAdapter.connect(await Misc.impersonate(ethers.Wallet.createRandom().address)).setFrozen(true)
+        ).revertedWith("TC-9 governance only"); // AppErrors.GOVERNANCE_ONLY
+      })
+    });
   })
 
   describe("manage comets", () => {
@@ -942,6 +976,75 @@ describe("Compound3PlatformAdapterTest", () => {
       expect(await platformAdapter.cometsLength()).eq(2)
       await platformAdapter.removeComet(1)
       expect(await platformAdapter.cometsLength()).eq(1)
-    })
-  })
+    });
+  });
+  describe("remove comet", () => {
+    it("should throw if the index is out of range", async () => {
+      const controller = await TetuConverterApp.createController(
+        deployer,
+        {tetuLiquidatorAddress: MaticAddresses.TETU_LIQUIDATOR}
+      );
+      const platformAdapter = await AdaptersHelper.createCompound3PlatformAdapter(
+        deployer,
+        controller.address,
+        ethers.Wallet.createRandom().address,
+        [MaticAddresses.COMPOUND3_COMET_USDC],
+        MaticAddresses.COMPOUND3_COMET_REWARDS
+      );
+      await expect(platformAdapter.removeComet(7)).revertedWith("TC-29 incorrect value"); // AppErrors.INCORRECT_VALUE
+    });
+    it("should throw if not governance", async () => {
+      const controller = await TetuConverterApp.createController(
+        deployer,
+        {tetuLiquidatorAddress: MaticAddresses.TETU_LIQUIDATOR}
+      );
+      const platformAdapter = await AdaptersHelper.createCompound3PlatformAdapter(
+        deployer,
+        controller.address,
+        ethers.Wallet.createRandom().address,
+        [MaticAddresses.COMPOUND3_COMET_USDC],
+        MaticAddresses.COMPOUND3_COMET_REWARDS
+      );
+      const newComet = ethers.Wallet.createRandom().address;
+      await platformAdapter.addComet(newComet);
+      await expect(
+        platformAdapter.connect(await Misc.impersonate(ethers.Wallet.createRandom().address)).removeComet(0)
+      ).revertedWith("TC-9 governance only"); // AppErrors.GOVERNANCE_ONLY
+    });
+  });
+  describe("add comet", () => {
+    it("should throw if not governance", async () => {
+      const controller = await TetuConverterApp.createController(
+        deployer,
+        {tetuLiquidatorAddress: MaticAddresses.TETU_LIQUIDATOR}
+      );
+      const platformAdapter = await AdaptersHelper.createCompound3PlatformAdapter(
+        deployer,
+        controller.address,
+        ethers.Wallet.createRandom().address,
+        [MaticAddresses.COMPOUND3_COMET_USDC],
+        MaticAddresses.COMPOUND3_COMET_REWARDS
+      );
+      const newComet = ethers.Wallet.createRandom().address;
+      await expect(
+        platformAdapter.connect(await Misc.impersonate(ethers.Wallet.createRandom().address)).addComet(newComet)
+      ).revertedWith("TC-9 governance only"); // AppErrors.GOVERNANCE_ONLY
+    });
+  });
+
+  describe("platformKind", () => {
+    it("should return expected values", async () => {
+      if (!await isPolygonForkInUse()) return;
+
+      const controller = await TetuConverterApp.createController(deployer);
+      const pa = await AdaptersHelper.createCompound3PlatformAdapter(
+        deployer,
+        controller.address,
+        ethers.Wallet.createRandom().address,
+        [MaticAddresses.COMPOUND3_COMET_USDC],
+        MaticAddresses.COMPOUND3_COMET_REWARDS
+      )
+      expect( (await pa.platformKind())).eq(5); // LendingPlatformKinds.COMPOUND3_5
+    });
+  });
 })

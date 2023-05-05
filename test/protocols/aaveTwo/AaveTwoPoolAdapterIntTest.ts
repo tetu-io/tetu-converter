@@ -2,6 +2,7 @@ import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import {ethers} from "hardhat";
 import {TimeUtils} from "../../../scripts/utils/TimeUtils";
 import {
+  ConverterController,
   IERC20Metadata__factory,
   IPoolAdapter__factory
 } from "../../../typechain";
@@ -26,12 +27,14 @@ import {areAlmostEqual} from "../../baseUT/utils/CommonUtils";
 import {formatUnits, parseUnits} from "ethers/lib/utils";
 import {Misc} from "../../../scripts/utils/Misc";
 import {loadFixture} from "@nomicfoundation/hardhat-network-helpers";
+import {TetuConverterApp} from "../../baseUT/helpers/TetuConverterApp";
 
 describe("AaveTwoPoolAdapterIntTest", () => {
 //region Global vars for all tests
   let snapshot: string;
   let snapshotForEach: string;
   let deployer: SignerWithAddress;
+  let controllerInstance: ConverterController;
 //endregion Global vars for all tests
 
 //region before, after
@@ -40,6 +43,7 @@ describe("AaveTwoPoolAdapterIntTest", () => {
     snapshot = await TimeUtils.snapshot();
     const signers = await ethers.getSigners();
     deployer = signers[0];
+    controllerInstance = await TetuConverterApp.createController(deployer);
   });
 
   after(async function () {
@@ -50,6 +54,7 @@ describe("AaveTwoPoolAdapterIntTest", () => {
 //region Unit tests
   describe("borrow", () => {
     async function makeBorrowTest(
+      controller: ConverterController,
       collateralToken: TokenDataTypes,
       collateralHolder: string,
       collateralAmountRequired: BigNumber | undefined,
@@ -60,6 +65,7 @@ describe("AaveTwoPoolAdapterIntTest", () => {
     ) : Promise<IMakeBorrowTestResults>{
       const d = await AaveTwoTestUtils.prepareToBorrow(
         deployer,
+        controller,
         collateralToken,
         collateralHolder,
         collateralAmountRequired,
@@ -109,7 +115,7 @@ describe("AaveTwoPoolAdapterIntTest", () => {
             await TimeUtils.rollback(snapshotLocal);
           });
           async function testMakeBorrowDaiWMatic() : Promise<IMakeBorrowTestResults> {
-            return AaveBorrowUtils.daiWMatic(deployer, makeBorrowTest, 100_000, 10);
+            return AaveBorrowUtils.daiWMatic(deployer, controllerInstance, makeBorrowTest, 100_000, 10);
           }
           it("should send borrowed amount to user", async () => {
             if (!await isPolygonForkInUse()) return;
@@ -151,7 +157,7 @@ describe("AaveTwoPoolAdapterIntTest", () => {
             await TimeUtils.rollback(snapshotLocal);
           });
           async function testMakeBorrowDaiUsdc() : Promise<IMakeBorrowTestResults> {
-            return AaveBorrowUtils.daiUsdc(deployer, makeBorrowTest, 100_000, 10);
+            return AaveBorrowUtils.daiUsdc(deployer, controllerInstance, makeBorrowTest, 100_000, 10);
           }
           it("should send borrowed amount to user", async () => {
             if (!await isPolygonForkInUse()) return;
@@ -193,7 +199,7 @@ describe("AaveTwoPoolAdapterIntTest", () => {
             await TimeUtils.rollback(snapshotLocal);
           });
           async function testMakeBorrowUsdcDai() : Promise<IMakeBorrowTestResults> {
-            return AaveBorrowUtils.usdcDai(deployer, makeBorrowTest, 100_000, 10);
+            return AaveBorrowUtils.usdcDai(deployer, controllerInstance, makeBorrowTest, 100_000, 10);
           }
           it("should send borrowed amount to user", async () => {
             if (!await isPolygonForkInUse()) return;
@@ -235,7 +241,7 @@ describe("AaveTwoPoolAdapterIntTest", () => {
             await TimeUtils.rollback(snapshotLocal);
           });
           async function testMakeBorrowWbtcTether() : Promise<IMakeBorrowTestResults> {
-            return AaveBorrowUtils.wbtcTether(deployer, makeBorrowTest, 100_000, 10);
+            return AaveBorrowUtils.wbtcTether(deployer, controllerInstance, makeBorrowTest, 100_000, 10);
           }
           it("should send borrowed amount to user", async () => {
             if (!await isPolygonForkInUse()) return;
@@ -280,7 +286,7 @@ describe("AaveTwoPoolAdapterIntTest", () => {
             await TimeUtils.rollback(snapshotLocal);
           });
           async function testMakeBorrowDaiUsdc() : Promise<IMakeBorrowTestResults> {
-            return AaveBorrowUtils.daiUsdc(deployer, makeBorrowTest, undefined, undefined);
+            return AaveBorrowUtils.daiUsdc(deployer, controllerInstance, makeBorrowTest, undefined, undefined);
           }
           it("should send borrowed amount to user", async () => {
             if (!await isPolygonForkInUse()) return;
@@ -322,7 +328,7 @@ describe("AaveTwoPoolAdapterIntTest", () => {
             await TimeUtils.rollback(snapshotLocal);
           });
           async function testMakeBorrowDaiWMatic() : Promise<IMakeBorrowTestResults> {
-            return AaveBorrowUtils.daiWMatic(deployer, makeBorrowTest, undefined, undefined);
+            return AaveBorrowUtils.daiWMatic(deployer, controllerInstance, makeBorrowTest, undefined, undefined);
           }
           it("should send borrowed amount to user", async () => {
             if (!await isPolygonForkInUse()) return;
@@ -364,7 +370,7 @@ describe("AaveTwoPoolAdapterIntTest", () => {
             await TimeUtils.rollback(snapshotLocal);
           });
           async function testMakeBorrowUsdcDai() : Promise<IMakeBorrowTestResults> {
-            return AaveBorrowUtils.usdcDai(deployer, makeBorrowTest, undefined, undefined);
+            return AaveBorrowUtils.usdcDai(deployer, controllerInstance, makeBorrowTest, undefined, undefined);
           }
           it("should send borrowed amount to user", async () => {
             if (!await isPolygonForkInUse()) return;
@@ -406,7 +412,7 @@ describe("AaveTwoPoolAdapterIntTest", () => {
             await TimeUtils.rollback(snapshotLocal);
           });
           async function testMakeBorrowWbtcTether() : Promise<IMakeBorrowTestResults> {
-            return AaveBorrowUtils.wbtcTether(deployer, makeBorrowTest, undefined, undefined);
+            return AaveBorrowUtils.wbtcTether(deployer, controllerInstance, makeBorrowTest, undefined, undefined);
           }
           it("should send borrowed amount to user", async () => {
             if (!await isPolygonForkInUse()) return;
@@ -470,6 +476,7 @@ describe("AaveTwoPoolAdapterIntTest", () => {
 
       const d = await AaveTwoTestUtils.prepareToBorrow(
         deployer,
+        controllerInstance,
         collateralToken,
         collateralHolder,
         collateralAmount,
@@ -595,6 +602,7 @@ describe("AaveTwoPoolAdapterIntTest", () => {
       const targetHealthFactor2 = 202;
       const d = await AaveTwoTestUtils.prepareToBorrow(
         deployer,
+        controllerInstance,
         collateralToken,
         collateralHolder,
         collateralAmount,
@@ -713,6 +721,7 @@ describe("AaveTwoPoolAdapterIntTest", () => {
     ) : Promise<IMakeBorrowAndRepayResults>{
       const d = await AaveTwoTestUtils.prepareToBorrow(
         deployer,
+        controllerInstance,
         collateralToken,
         collateralHolder,
         collateralAmountRequired,
@@ -874,7 +883,7 @@ describe("AaveTwoPoolAdapterIntTest", () => {
           describe("DAI => WMATIC", () => {
             it("should return expected balances", async () => {
               if (!await isPolygonForkInUse()) return;
-              const initialBorrowAmountOnUserBalance = 6000;
+              const initialBorrowAmountOnUserBalance = 20_000;
               const r = await AaveMakeBorrowAndRepayUtils.daiWmatic(
                 deployer,
                 makeBorrowAndRepay,
@@ -888,7 +897,7 @@ describe("AaveTwoPoolAdapterIntTest", () => {
           describe("WMATIC => DAI", () => {
             it("should return expected balances", async () => {
               if (!await isPolygonForkInUse()) return;
-              const initialBorrowAmountOnUserBalance = 6000;
+              const initialBorrowAmountOnUserBalance = 20_000;
               const r = await AaveMakeBorrowAndRepayUtils.daiWmatic(
                 deployer,
                 makeBorrowAndRepay,

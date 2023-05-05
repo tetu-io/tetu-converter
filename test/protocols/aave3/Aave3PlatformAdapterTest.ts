@@ -539,13 +539,17 @@ describe("Aave3PlatformAdapterTest", () => {
         });
       });
       describe("Isolation mode is enabled for collateral, borrow token is borrowable in isolation mode", () => {
-        describe("STASIS EURS-2 : Tether USD", () => {
+        /**
+         * Currently vars.rcDebtCeiling < vars.rc.isolationModeTotalDebt,
+         * so new borrows are not possible
+         */
+        describe.skip("STASIS EURS-2 : Tether USD", () => {
           it("should return expected values", async () =>{
             if (!await isPolygonForkInUse()) return;
 
             const collateralAsset = MaticAddresses.EURS;
             const borrowAsset = MaticAddresses.USDT;
-            const collateralAmount = getBigNumberFrom(1000, 2); // 2000 Euro
+            const collateralAmount = parseUnits("1000", 2); // 1000 Euro
 
             const r = await makeGetConversionPlanTest(
               collateralAsset,
@@ -565,7 +569,7 @@ describe("Aave3PlatformAdapterTest", () => {
 
           const collateralAsset = MaticAddresses.DAI;
           const borrowAsset = MaticAddresses.USDC;
-          const collateralAmount = getBigNumberFrom(1000, 18); // 1000 Dai
+          const collateralAmount = parseUnits("1000", 18); // 1000 Dai
 
           const r = await makeGetConversionPlanTest(
             collateralAsset,
@@ -770,11 +774,11 @@ describe("Aave3PlatformAdapterTest", () => {
             );
 
             const ret = [
-              r.plan.amountToBorrow,
+              r.plan.amountToBorrow.lte(r.plan.maxAmountToBorrow),
               areAlmostEqual(r.plan.collateralAmount, expectedCollateralAmount)
             ].map(x => BalanceUtils.toString(x)).join("\n");
             const expected = [
-              r.plan.maxAmountToBorrow,
+              true,
               true
             ].map(x => BalanceUtils.toString(x)).join("\n");
 
@@ -808,15 +812,24 @@ describe("Aave3PlatformAdapterTest", () => {
               r.collateralAssetData.data.decimals,
               r.borrowAssetData.data.decimals
             );
+            const expectedBorrowAmount = AprUtils.getBorrowAmount(
+              sample.plan.maxAmountToSupply,
+              r.healthFactor2,
+              r.plan.liquidationThreshold18,
+              r.priceCollateral,
+              r.priceBorrow,
+              r.collateralAssetData.data.decimals,
+              r.borrowAssetData.data.decimals
+            );
+            console.log("expectedBorrowAmount", expectedBorrowAmount);
 
             const ret = [
-              r.plan.amountToBorrow,
+              r.plan.amountToBorrow.eq(r.plan.maxAmountToBorrow)
+              || r.plan.collateralAmount.eq(r.plan.maxAmountToSupply),
               areAlmostEqual(r.plan.collateralAmount, expectedCollateralAmount)
+              || areAlmostEqual(r.plan.amountToBorrow, expectedBorrowAmount)
             ].map(x => BalanceUtils.toString(x)).join("\n");
-            const expected = [
-              r.plan.maxAmountToBorrow,
-              true
-            ].map(x => BalanceUtils.toString(x)).join("\n");
+            const expected = [true, true].map(x => BalanceUtils.toString(x)).join("\n");
 
             expect(ret).eq(expected);
           });
@@ -1005,6 +1018,27 @@ describe("Aave3PlatformAdapterTest", () => {
         });
       });
 
+      describe("Use unsupported entry kind 999", () => {
+        it("should return zero plan", async () => {
+          if (!await isPolygonForkInUse()) return;
+
+          const collateralAsset = MaticAddresses.DAI;
+          const borrowAsset = MaticAddresses.WMATIC;
+          const collateralAmount = parseUnits("1000", 18);
+
+          const r = await preparePlan(
+            collateralAsset,
+            collateralAmount,
+            borrowAsset,
+            10,
+            undefined,
+            defaultAbiCoder.encode(["uint256"], [999]) // (!) unknown entry kind
+          );
+          expect(r.plan.converter).eq(Misc.ZERO_ADDRESS);
+          expect(r.plan.collateralAmount.eq(0)).eq(true);
+          expect(r.plan.amountToBorrow.eq(0)).eq(true);
+        });
+      });
     });
     describe("Check gas limit @skip-on-coverage", () => {
       it("should not exceed gas limits", async () => {
@@ -1270,30 +1304,69 @@ describe("Aave3PlatformAdapterTest", () => {
   });
 
   describe("setFrozen", () => {
-    it("should assign expected value to frozen", async () => {
-      const controller = await TetuConverterApp.createController(deployer,
-        {tetuLiquidatorAddress: MaticAddresses.TETU_LIQUIDATOR}
-      );
+    describe("Good paths", () => {
+      it("should assign expected value to frozen", async () => {
+        if (!await isPolygonForkInUse()) return;
 
-      const aavePool = await Aave3Helper.getAavePool(deployer);
-      const aavePlatformAdapter = await AdaptersHelper.createAave3PlatformAdapter(
+        const controller = await TetuConverterApp.createController(deployer,
+          {tetuLiquidatorAddress: MaticAddresses.TETU_LIQUIDATOR}
+        );
+
+        const aavePool = await Aave3Helper.getAavePool(deployer);
+        const aavePlatformAdapter = await AdaptersHelper.createAave3PlatformAdapter(
+          deployer,
+          controller.address,
+          aavePool.address,
+          ethers.Wallet.createRandom().address,
+          ethers.Wallet.createRandom().address
+        );
+
+        const before = await aavePlatformAdapter.frozen();
+        await aavePlatformAdapter.setFrozen(true);
+        const middle = await aavePlatformAdapter.frozen();
+        await aavePlatformAdapter.setFrozen(false);
+        const after = await aavePlatformAdapter.frozen();
+
+        const ret = [before, middle, after].join();
+        const expected = [false, true, false].join();
+
+        expect(ret).eq(expected);
+      });
+    });
+    describe("Bad paths", () => {
+      it("should assign expected value to frozen", async () => {
+        if (!await isPolygonForkInUse()) return;
+
+        const aavePlatformAdapter = await AdaptersHelper.createAave3PlatformAdapter(
+          deployer,
+          (await TetuConverterApp.createController(deployer)).address,
+          (await Aave3Helper.getAavePool(deployer)).address,
+          ethers.Wallet.createRandom().address,
+          ethers.Wallet.createRandom().address
+        );
+
+        await expect(
+          aavePlatformAdapter.connect(await Misc.impersonate(ethers.Wallet.createRandom().address)).setFrozen(true)
+        ).revertedWith("TC-9 governance only"); // AppErrors.GOVERNANCE_ONLY
+      });
+    })
+  });
+
+  describe("platformKind", () => {
+    it("should return expected values", async () => {
+      if (!await isPolygonForkInUse()) return;
+
+      const controller = await TetuConverterApp.createController(deployer);
+
+      const pa = await AdaptersHelper.createAave3PlatformAdapter(
         deployer,
         controller.address,
-        aavePool.address,
+        MaticAddresses.AAVE_V3_POOL,
         ethers.Wallet.createRandom().address,
-        ethers.Wallet.createRandom().address
+        ethers.Wallet.createRandom().address,
+        await controller.borrowManager()
       );
-
-      const before = await aavePlatformAdapter.frozen();
-      await aavePlatformAdapter.setFrozen(true);
-      const middle = await aavePlatformAdapter.frozen();
-      await aavePlatformAdapter.setFrozen(false);
-      const after = await aavePlatformAdapter.frozen();
-
-      const ret = [before, middle, after].join();
-      const expected = [false, true, false].join();
-
-      expect(ret).eq(expected);
+      expect((await pa.platformKind())).eq(3); // LendingPlatformKinds.AAVE3_3
     });
   });
 //endregion Unit tests

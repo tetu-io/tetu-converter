@@ -24,13 +24,13 @@ contract AaveTwoPlatformAdapter is IPlatformAdapter {
   using AaveTwoReserveConfiguration for DataTypes.ReserveConfigurationMap;
 
   //-----------------------------------------------------
-  //   Constants
+  //region Constants
   //-----------------------------------------------------
-
-  string public constant override PLATFORM_ADAPTER_VERSION = "1.0.1";
+  string public constant override PLATFORM_ADAPTER_VERSION = "1.0.2";
+  //endregion Constants
 
   //-----------------------------------------------------
-  //   Data types
+  //region Data types
   //-----------------------------------------------------
 
   /// @notice Local vars inside getConversionPlan - to avoid stack too deep
@@ -49,9 +49,10 @@ contract AaveTwoPlatformAdapter is IPlatformAdapter {
     uint healthFactor18;
     uint entryKind;
   }
+  //endregion Data types
 
   //-----------------------------------------------------
-  //         Variables
+  //region Variables
   //-----------------------------------------------------
 
   IConverterController immutable public controller;
@@ -63,28 +64,19 @@ contract AaveTwoPlatformAdapter is IPlatformAdapter {
 
   /// @notice True if the platform is frozen and new borrowing is not possible (at this moment)
   bool public override frozen;
+  //endregion Variables
 
   //-----------------------------------------------------
-  //               Events
+  //region Events
   //-----------------------------------------------------
-  event OnPoolAdapterInitialized(
-    address converter,
-    address poolAdapter,
-    address user,
-    address collateralAsset,
-    address borrowAsset
-  );
+  event OnPoolAdapterInitialized(address converter, address poolAdapter, address user, address collateralAsset, address borrowAsset);
+  //endregion Events
 
   //-----------------------------------------------------
-  //       Constructor and initialization
+  //region Constructor and initialization
   //-----------------------------------------------------
 
-  constructor (
-    address controller_,
-    address borrowManager_,
-    address poolAave_,
-    address templateAdapterNormal_
-  ) {
+  constructor (address controller_, address borrowManager_, address poolAave_, address templateAdapterNormal_) {
     require(
       poolAave_ != address(0)
       && borrowManager_ != address(0)
@@ -98,13 +90,7 @@ contract AaveTwoPlatformAdapter is IPlatformAdapter {
     borrowManager = borrowManager_;
   }
 
-  function initializePoolAdapter(
-    address converter_,
-    address poolAdapter_,
-    address user_,
-    address collateralAsset_,
-    address borrowAsset_
-  ) external override {
+  function initializePoolAdapter(address converter_, address poolAdapter_, address user_, address collateralAsset_, address borrowAsset_) external override {
     require(msg.sender == borrowManager, AppErrors.BORROW_MANAGER_ONLY);
     require(converter == converter_, AppErrors.CONVERTER_NOT_FOUND);
 
@@ -126,9 +112,10 @@ contract AaveTwoPlatformAdapter is IPlatformAdapter {
     require(msg.sender == controller.governance(), AppErrors.GOVERNANCE_ONLY);
     frozen = frozen_;
   }
+  //endregion Constructor and initialization
 
   //-----------------------------------------------------
-  //              View
+  //region View
   //-----------------------------------------------------
 
   function converters() external view override returns (address[] memory) {
@@ -137,14 +124,17 @@ contract AaveTwoPlatformAdapter is IPlatformAdapter {
     return dest;
   }
 
+  function platformKind() external pure returns (AppDataTypes.LendingPlatformKinds) {
+    return AppDataTypes.LendingPlatformKinds.AAVE2_2;
+  }
+
+  //endregion View
+
   //-----------------------------------------------------
-  //           Get conversion plan
+  //region Get conversion plan
   //-----------------------------------------------------
 
-  function getConversionPlan (
-    AppDataTypes.InputConversionParams memory params,
-    uint16 healthFactor2_
-  ) external view override returns (
+  function getConversionPlan (AppDataTypes.InputConversionParams memory params, uint16 healthFactor2_) external view override returns (
     AppDataTypes.ConversionPlan memory plan
   ) {
     if (! frozen) {
@@ -173,9 +163,6 @@ contract AaveTwoPlatformAdapter is IPlatformAdapter {
 
           plan.maxAmountToSupply = type(uint).max; // unlimited; fix validation below after changing this value
           plan.maxAmountToBorrow = vars.availableLiquidity;
-          if (plan.amountToBorrow > plan.maxAmountToBorrow) {
-            plan.amountToBorrow = plan.maxAmountToBorrow;
-          }
 
           if (/* plan.maxAmountToSupply != 0 &&*/ plan.maxAmountToBorrow != 0) {
             pd.rc10powDec = 10**vars.rc.configuration.getDecimals();
@@ -317,9 +304,10 @@ contract AaveTwoPlatformAdapter is IPlatformAdapter {
       return plan;
     }
   }
+  //endregion Get conversion plan
 
   //-----------------------------------------------------
-  ///                    Utils
+  //region Utils
   //-----------------------------------------------------
 
   /// @notice Check if the asset can be used as a collateral
@@ -335,4 +323,5 @@ contract AaveTwoPlatformAdapter is IPlatformAdapter {
   function _isUsable(DataTypes.ReserveConfigurationMap memory data) internal pure returns (bool) {
     return data.getActive() && ! data.getFrozen();
   }
+  //endregion Utils
 }

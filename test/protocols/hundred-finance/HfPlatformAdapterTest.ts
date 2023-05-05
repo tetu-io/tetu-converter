@@ -34,6 +34,7 @@ import {
   GAS_LIMIT_HUNDRED_FINANCE_GET_CONVERSION_PLAN
 } from "../../baseUT/GasLimit";
 import {AppConstants} from "../../baseUT/AppConstants";
+import {DForceHelper} from "../../../scripts/integration/helpers/DForceHelper";
 
 describe.skip("Hundred finance, platform adapter", () => {
 //region Global vars for all tests
@@ -1323,6 +1324,8 @@ describe.skip("Hundred finance, platform adapter", () => {
 
   describe("setFrozen", () => {
     it("should assign expected value to frozen", async () => {
+      if (!await isPolygonForkInUse()) return;
+
       const controller = await TetuConverterApp.createController(deployer,
         {tetuLiquidatorAddress: MaticAddresses.TETU_LIQUIDATOR}
       );
@@ -1346,6 +1349,23 @@ describe.skip("Hundred finance, platform adapter", () => {
       const expected = [false, true, false].join();
 
       expect(ret).eq(expected);
+    });
+  });
+
+  describe("platformKind", () => {
+    it("should return expected values", async () => {
+      if (!await isPolygonForkInUse()) return;
+
+      const controller = await TetuConverterApp.createController(deployer);
+      const converterNormal = await AdaptersHelper.createHundredFinancePoolAdapter(deployer);
+      const pa = await AdaptersHelper.createHundredFinancePlatformAdapter(
+        deployer,
+        controller.address,
+        MaticAddresses.HUNDRED_FINANCE_COMPTROLLER,
+        converterNormal.address,
+        [MaticAddresses.hDAI, MaticAddresses.hUSDC]
+      );
+      expect( (await pa.platformKind())).eq(1); // LendingPlatformKinds.DFORCE_1
     });
   });
 //endregion Unit tests

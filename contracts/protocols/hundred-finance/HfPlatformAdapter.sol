@@ -170,6 +170,11 @@ contract HfPlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
     return (activeAssets[token1_], activeAssets[token2_]);
   }
 
+  function platformKind() external pure returns (AppDataTypes.LendingPlatformKinds) {
+    return AppDataTypes.LendingPlatformKinds.HUNDRED_FINANCE_4;
+  }
+
+
   //-----------------------------------------------------
   ///       Get conversion plan
   //-----------------------------------------------------

@@ -10,10 +10,13 @@ import {
 import {TokenDataTypes} from "../../baseUT/types/TokenDataTypes";
 import {MaticAddresses} from "../../../scripts/addresses/MaticAddresses";
 import {isPolygonForkInUse} from "../../baseUT/utils/NetworkUtils";
-import {parseUnits} from "ethers/lib/utils";
-import {ICometRewards__factory, IERC20__factory} from "../../../typechain";
+import {formatUnits, parseUnits} from "ethers/lib/utils";
+import {ICometRewards__factory, IERC20__factory, IERC20Metadata__factory} from "../../../typechain";
 import {expect} from "chai";
 import {areAlmostEqual} from "../../baseUT/utils/CommonUtils";
+import {DForceTestUtils} from "../../baseUT/protocols/dforce/DForceTestUtils";
+import {BalanceUtils} from "../../baseUT/utils/BalanceUtils";
+import {Misc} from "../../../scripts/utils/Misc";
 
 
 describe("Compound3PoolAdapterUnitTest", () => {
@@ -165,4 +168,55 @@ describe("Compound3PoolAdapterUnitTest", () => {
     })
 
   })
+
+  describe("salvage", () => {
+    const receiver = ethers.Wallet.createRandom().address;
+
+    let snapshotLocal: string;
+    let collateralToken: TokenDataTypes;
+    let borrowToken: TokenDataTypes;
+    let init: IPrepareToBorrowResults;
+    let governance: string;
+
+    before(async function () {
+      snapshotLocal = await TimeUtils.snapshot();
+      collateralToken = await TokenDataTypes.Build(deployer, MaticAddresses.WETH);
+      borrowToken = await TokenDataTypes.Build(deployer, MaticAddresses.USDC);
+
+      init = await Compound3TestUtils.prepareToBorrow(
+        deployer,
+        await TokenDataTypes.Build(deployer, MaticAddresses.WETH),
+        MaticAddresses.HOLDER_WETH,
+        undefined,
+        await TokenDataTypes.Build(deployer, MaticAddresses.USDC),
+        [MaticAddresses.COMPOUND3_COMET_USDC],
+        MaticAddresses.COMPOUND3_COMET_REWARDS,
+      );
+      governance = await init.controller.governance();
+    });
+    after(async function () {
+      await TimeUtils.rollback(snapshotLocal);
+    });
+    async function salvageToken(tokenAddress: string, holder: string, amountNum: string, caller?: string) : Promise<number>{
+      const token = await IERC20Metadata__factory.connect(tokenAddress, deployer);
+      const decimals = await token.decimals();
+      const amount = parseUnits(amountNum, decimals);
+      await BalanceUtils.getRequiredAmountFromHolders(amount, token,[holder], init.poolAdapter.address);
+      await init.poolAdapter.connect(await Misc.impersonate(caller || governance)).salvage(receiver, tokenAddress, amount);
+      return +formatUnits(await token.balanceOf(receiver), decimals);
+    }
+    describe("Good paths", () => {
+      it("should salvage collateral asset", async () => {
+        expect(await salvageToken(MaticAddresses.WETH, MaticAddresses.HOLDER_WETH, "8")).eq(8);
+      });
+      it("should salvage borrow asset", async () => {
+        expect(await salvageToken(MaticAddresses.USDC, MaticAddresses.HOLDER_USDC, "8")).eq(8);
+      });
+    });
+    describe("Bad paths", () => {
+      it("should revert if not governance", async () => {
+        await expect(salvageToken(MaticAddresses.USDC, MaticAddresses.HOLDER_USDC, "8", receiver)).revertedWith("TC-9 governance only"); // GOVERNANCE_ONLY
+      });
+    });
+  });
 })

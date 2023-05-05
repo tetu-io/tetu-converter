@@ -11,6 +11,8 @@ import {SharedRepayToRebalanceUtils} from "../../baseUT/protocols/shared/sharedR
 import {areAlmostEqual} from "../../baseUT/utils/CommonUtils";
 import {DForceTestUtils, IInitialBorrowResults} from "../../baseUT/protocols/dforce/DForceTestUtils";
 import {DForceChangePriceUtils} from "../../baseUT/protocols/dforce/DForceChangePriceUtils";
+import {ConverterController} from "../../../typechain";
+import {TetuConverterApp} from "../../baseUT/helpers/TetuConverterApp";
 
 describe("DForceCollateralBalanceTest", () => {
 //region Constants
@@ -29,6 +31,8 @@ describe("DForceCollateralBalanceTest", () => {
   let snapshotForEach: string;
   let deployer: SignerWithAddress;
   let init: IInitialBorrowResults;
+  let controllerInstance: ConverterController;
+
 //endregion Global vars for all tests
 
 //region before, after
@@ -37,6 +41,7 @@ describe("DForceCollateralBalanceTest", () => {
     snapshot = await TimeUtils.snapshot();
     const signers = await ethers.getSigners();
     deployer = signers[0];
+    controllerInstance = await TetuConverterApp.createController(deployer);
 
     if (!await isPolygonForkInUse()) return;
     init = await makeInitialBorrow();
@@ -64,7 +69,9 @@ describe("DForceCollateralBalanceTest", () => {
 
     const collateralAmount = getBigNumberFrom(collateralAmountNum, collateralToken.decimals);
 
-    const d = await DForceTestUtils.prepareToBorrow(deployer,
+    const d = await DForceTestUtils.prepareToBorrow(
+      deployer,
+      controllerInstance,
       collateralToken,
       collateralHolder,
       collateralCTokenAddress,

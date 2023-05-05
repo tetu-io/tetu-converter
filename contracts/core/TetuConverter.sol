@@ -10,6 +10,7 @@ import "../openzeppelin/IERC20Metadata.sol";
 import "../openzeppelin/SafeERC20.sol";
 import "../openzeppelin/IERC20.sol";
 import "../openzeppelin/ReentrancyGuard.sol";
+import "../openzeppelin/Math.sol";
 import "../interfaces/IBorrowManager.sol";
 import "../interfaces/ISwapManager.sol";
 import "../interfaces/ITetuConverter.sol";
@@ -32,10 +33,13 @@ contract TetuConverter is ITetuConverter, IKeeperCallback, IRequireAmountBySwapM
 
   /// @notice After additional borrow result health factor should be near to target value, the difference is limited.
   uint constant public ADDITIONAL_BORROW_DELTA_DENOMINATOR = 1;
-  uint constant DEBT_GAP_DENOMINATOR = 100_000;
+  uint constant internal DEBT_GAP_DENOMINATOR = 100_000;
+  /// @dev Absolute value of debt-gap-addon for any token
+  /// @notice A value of the debt gap, calculate using debt-gap percent, cannot be less than the following
+  uint internal constant MIN_DEBT_GAP_ADDON = 10;
 
   //-----------------------------------------------------
-  //                Data types
+  //region Data types
   //-----------------------------------------------------
   struct RepayLocal {
     address[] poolAdapters;
@@ -45,24 +49,6 @@ contract TetuConverter is ITetuConverter, IKeeperCallback, IRequireAmountBySwapM
     uint totalDebtForPoolAdapter;
     bool debtGapRequired;
   }
-
-  //-----------------------------------------------------
-  //                Members
-  //-----------------------------------------------------
-
-  IConverterController public immutable override controller;
-
-  /// We cache immutable addresses here to avoid exceed calls to the controller
-  IBorrowManager public immutable borrowManager;
-  IDebtMonitor public immutable debtMonitor;
-  ISwapManager public immutable swapManager;
-  address public immutable keeper;
-  IPriceOracle public immutable priceOracle;
-
-
-  //-----------------------------------------------------
-  //                Data types
-  //-----------------------------------------------------
 
   /// @notice Local vars for {findConversionStrategy}
   struct FindConversionStrategyLocal {
@@ -75,96 +61,51 @@ contract TetuConverter is ITetuConverter, IKeeperCallback, IRequireAmountBySwapM
     uint swapTargetAmount;
     int swapApr18;
   }
+  //endregion Data types
 
   //-----------------------------------------------------
-  //               Events
+  //region Members
   //-----------------------------------------------------
-  event OnSwap(
-    address signer,
-    address converter,
-    address sourceAsset,
-    uint sourceAmount,
-    address targetAsset,
-    address receiver,
-    uint targetAmountOut
-  );
 
-  event OnBorrow(
-    address poolAdapter,
-    uint collateralAmount,
-    uint amountToBorrow,
-    address receiver,
-    uint borrowedAmountOut
-  );
+  IConverterController public immutable override controller;
 
-  event OnRepayBorrow(
-    address poolAdapter,
-    uint amountToRepay,
-    address receiver,
-    bool closePosition
-  );
+  /// We cache immutable addresses here to avoid exceed calls to the controller
+  IBorrowManager public immutable borrowManager;
+  IDebtMonitor public immutable debtMonitor;
+  ISwapManager public immutable swapManager;
+  address public immutable keeper;
+
+  //endregion Members
+
+  //-----------------------------------------------------
+  //region Events
+  //-----------------------------------------------------
+  event OnSwap(address signer, address converter, address sourceAsset, uint sourceAmount, address targetAsset, address receiver, uint targetAmountOut);
+  event OnBorrow(address poolAdapter, uint collateralAmount, uint amountToBorrow, address receiver, uint borrowedAmountOut);
+  event OnRepayBorrow(address poolAdapter, uint amountToRepay, address receiver, bool closePosition);
 
   /// @notice A part of target amount cannot be repaid or swapped
   ///         so it was just returned back to receiver as is
-  event OnRepayReturn(
-    address asset,
-    address receiver,
-    uint amount
-  );
-
-  event OnRequireRepayCloseLiquidatedPosition(
-    address poolAdapter,
-    uint statusAmountToPay
-  );
-
-  event OnRequireRepayRebalancing(
-    address poolAdapter,
-    uint amount,
-    bool isCollateral,
-    uint statusAmountToPay,
-    uint healthFactorAfterRepay18
-  );
-
-  event OnClaimRewards(
-    address poolAdapter,
-    address rewardsToken,
-    uint amount,
-    address receiver
-  );
-
-  event OnSafeLiquidate(
-    address sourceToken,
-    uint sourceAmount,
-    address targetToken,
-    address receiver,
-    uint outputAmount
-  );
-
-  event OnRepayTheBorrow(
-    address poolAdapter,
-    uint collateralOut,
-    uint repaidAmountOut
-  );
+  event OnRepayReturn(address asset, address receiver, uint amount);
+  event OnRequireRepayCloseLiquidatedPosition(address poolAdapter, uint statusAmountToPay);
+  event OnRequireRepayRebalancing(address poolAdapter, uint amount, bool isCollateral, uint statusAmountToPay, uint healthFactorAfterRepay18);
+  event OnClaimRewards(address poolAdapter, address rewardsToken, uint amount, address receiver);
+  event OnSafeLiquidate(address sourceToken, uint sourceAmount, address targetToken, address receiver, uint outputAmount);
+  event OnRepayTheBorrow(address poolAdapter, uint collateralOut, uint repaidAmountOut);
+  event OnSalvage(address receiver, address token, uint amount);
+  //endregion Events
 
   //-----------------------------------------------------
-  //                Initialization
+  //region Initialization
   //-----------------------------------------------------
 
-  constructor(
-    address controller_,
-    address borrowManager_,
-    address debtMonitor_,
-    address swapManager_,
-    address keeper_,
-    address priceOracle_
-  ) {
+  constructor(address controller_, address borrowManager_, address debtMonitor_, address swapManager_, address keeper_) {
     require(
       controller_ != address(0)
       && borrowManager_ != address(0)
       && debtMonitor_ != address(0)
       && swapManager_ != address(0)
-      && keeper_ != address(0)
-      && priceOracle_ != address(0),
+      && keeper_ != address(0),
       AppErrors.ZERO_ADDRESS
     );
 
@@ -173,11 +114,11 @@ contract TetuConverter is ITetuConverter, IKeeperCallback, IRequireAmountBySwapM
     debtMonitor = IDebtMonitor(debtMonitor_);
     swapManager = ISwapManager(swapManager_);
     keeper = keeper_;
-    priceOracle = IPriceOracle(priceOracle_);
   }
+  //endregion Initialization
 
   //-----------------------------------------------------
-  //       Find best strategy for conversion
+  //region Find best strategy for conversion
   //-----------------------------------------------------
 
   /// @inheritdoc ITetuConverter
@@ -199,15 +140,15 @@ contract TetuConverter is ITetuConverter, IKeeperCallback, IRequireAmountBySwapM
     FindConversionStrategyLocal memory p;
     if (!controller.paused()) {
       (p.borrowConverters,
-       p.borrowSourceAmounts,
-       p.borrowTargetAmounts,
-       p.borrowAprs18
+        p.borrowSourceAmounts,
+        p.borrowTargetAmounts,
+        p.borrowAprs18
       ) = borrowManager.findConverter(entryData_, sourceToken_, targetToken_, amountIn_, periodInBlocks_);
 
       (p.swapConverter,
-       p.swapSourceAmount,
-       p.swapTargetAmount,
-       p.swapApr18) = _findSwapStrategy(entryData_, sourceToken_, amountIn_, targetToken_);
+        p.swapSourceAmount,
+        p.swapTargetAmount,
+        p.swapApr18) = _findSwapStrategy(entryData_, sourceToken_, amountIn_, targetToken_);
     }
 
     if (p.borrowConverters.length == 0) {
@@ -247,12 +188,7 @@ contract TetuConverter is ITetuConverter, IKeeperCallback, IRequireAmountBySwapM
   }
 
   /// @inheritdoc ITetuConverter
-  function findSwapStrategy(
-    bytes memory entryData_,
-    address sourceToken_,
-    uint amountIn_,
-    address targetToken_
-  ) external override returns (
+  function findSwapStrategy(bytes memory entryData_, address sourceToken_, uint amountIn_, address targetToken_) external override returns (
     address converter,
     uint sourceAmountOut,
     uint targetAmountOut,
@@ -266,12 +202,7 @@ contract TetuConverter is ITetuConverter, IKeeperCallback, IRequireAmountBySwapM
   }
 
   /// @notice Calculate amount to swap according to the given {entryData_} and estimate result amount of {targetToken_}
-  function _findSwapStrategy(
-    bytes memory entryData_,
-    address sourceToken_,
-    uint amountIn_,
-    address targetToken_
-  ) internal returns (
+  function _findSwapStrategy(bytes memory entryData_, address sourceToken_, uint amountIn_, address targetToken_) internal returns (
     address converter,
     uint sourceAmountOut,
     uint targetAmountOut,
@@ -288,21 +219,17 @@ contract TetuConverter is ITetuConverter, IKeeperCallback, IRequireAmountBySwapM
       sourceAmountOut = amountIn_;
     }
 
-    (converter, targetAmountOut) = swapManager.getConverter(
-      msg.sender,
-      sourceToken_,
-      sourceAmountOut,
-      targetToken_
-    );
+    (converter, targetAmountOut) = swapManager.getConverter(msg.sender, sourceToken_, sourceAmountOut, targetToken_);
     if (converter != address(0)) {
       apr18 = swapManager.getApr18(sourceToken_, sourceAmountOut, targetToken_, targetAmountOut);
     }
 
     return (converter, sourceAmountOut, targetAmountOut, apr18);
   }
+  //endregion Find best strategy for conversion
 
   //-----------------------------------------------------
-  //       Make conversion, open position
+  //region Make conversion, open position
   //-----------------------------------------------------
 
   /// @inheritdoc ITetuConverter
@@ -317,49 +244,33 @@ contract TetuConverter is ITetuConverter, IKeeperCallback, IRequireAmountBySwapM
     uint borrowedAmountOut
   ) {
     require(controller.isWhitelisted(msg.sender), AppErrors.OUT_OF_WHITE_LIST);
-    return _convert(
-      converter_,
-      collateralAsset_,
-      collateralAmount_,
-      borrowAsset_,
-      amountToBorrow_,
-      receiver_
-    );
+    return _convert(converter_, collateralAsset_, collateralAmount_, borrowAsset_, amountToBorrow_, receiver_);
   }
 
-  function _convert(
-    address converter_,
-    address collateralAsset_,
-    uint collateralAmount_,
-    address borrowAsset_,
-    uint amountToBorrow_,
-    address receiver_
-  ) internal returns (
+  function _convert(address converter_, address collateralAsset, uint amountIn, address borrowAsset, uint amountOut, address receiver) internal returns (
     uint borrowedAmountOut
   ) {
-    require(receiver_ != address(0) && converter_ != address(0), AppErrors.ZERO_ADDRESS);
-    require(collateralAmount_ != 0 && amountToBorrow_ != 0, AppErrors.ZERO_AMOUNT);
+    require(receiver != address(0) && converter_ != address(0), AppErrors.ZERO_ADDRESS);
+    require(amountIn != 0 && amountOut != 0, AppErrors.ZERO_AMOUNT);
 
-    IERC20(collateralAsset_).safeTransferFrom(msg.sender, address(this), collateralAmount_);
+    IERC20(collateralAsset).safeTransferFrom(msg.sender, address(this), amountIn);
 
     AppDataTypes.ConversionKind conversionKind = IConverter(converter_).getConversionKind();
     if (conversionKind == AppDataTypes.ConversionKind.BORROW_2) {
-      // make borrow
       // get exist or register new pool adapter
-      address poolAdapter = borrowManager.getPoolAdapter(converter_, msg.sender, collateralAsset_, borrowAsset_);
+      address poolAdapter = borrowManager.getPoolAdapter(converter_, msg.sender, collateralAsset, borrowAsset);
 
       if (poolAdapter != address(0)) {
         // the pool adapter can have three possible states:
         // - healthy (normal), it's ok to make new borrow using the pool adapter
         // - unhealthy, health factor is less 1. It means that liquidation happens and the pool adapter is not usable.
-        // - unhealthy, health factor is greater 1 but it's less min-allowed-value.
-        //              It means, that because of some reasons keeper doesn't make rebalance
+        // - unhealthy, health factor is greater 1 but it's less min-allowed-value. It means, that rebalance wasn't made
         (,, uint healthFactor18,,,) = IPoolAdapter(poolAdapter).getStatus();
         if (healthFactor18 < 1e18) {
           // the pool adapter is unhealthy, we should mark it as dirty and create new pool adapter for the borrow
-          borrowManager.markPoolAdapterAsDirty(converter_, msg.sender, collateralAsset_, borrowAsset_);
+          borrowManager.markPoolAdapterAsDirty(converter_, msg.sender, collateralAsset, borrowAsset);
           poolAdapter = address(0);
-        } else if (healthFactor18 <= (uint(controller.minHealthFactor2()) * 10**(18-2))) {
+        } else if (healthFactor18 <= (uint(controller.minHealthFactor2()) * 10 ** (18 - 2))) {
           // this is not normal situation
           // keeper doesn't work? it's too risky to make new borrow
           revert(AppErrors.REBALANCING_IS_REQUIRED);
@@ -368,68 +279,40 @@ contract TetuConverter is ITetuConverter, IKeeperCallback, IRequireAmountBySwapM
 
       // create new pool adapter if we don't have ready-to-borrow one
       if (poolAdapter == address(0)) {
-        poolAdapter = borrowManager.registerPoolAdapter(
-          converter_,
-          msg.sender,
-          collateralAsset_,
-          borrowAsset_
-        );
+        poolAdapter = borrowManager.registerPoolAdapter(converter_, msg.sender, collateralAsset, borrowAsset);
 
         // TetuConverter doesn't keep assets on its balance, so it's safe to use infinity approve
-        // All approves replaced by infinity-approve were commented in the code below
-        IERC20(collateralAsset_).safeApprove(poolAdapter, 2**255); // 2*255 is more gas-efficient than type(uint).max
-        IERC20(borrowAsset_).safeApprove(poolAdapter, 2**255); // 2*255 is more gas-efficient than type(uint).max
+        IERC20(collateralAsset).safeApprove(poolAdapter, 2 ** 255); // 2*255 is more gas-efficient than type(uint).max
+        IERC20(borrowAsset).safeApprove(poolAdapter, 2 ** 255); // 2*255 is more gas-efficient than type(uint).max
       }
 
-      // replaced by infinity approve: IERC20(collateralAsset_).safeApprove(poolAdapter, collateralAmount_);
-
-      // borrow target-amount and transfer borrowed amount to the receiver
-      borrowedAmountOut = IPoolAdapter(poolAdapter).borrow(collateralAmount_, amountToBorrow_, receiver_);
-      emit OnBorrow(poolAdapter, collateralAmount_, amountToBorrow_, receiver_, borrowedAmountOut);
+      // borrow target-amount and transfer borrowed amount to the receiver, infinity approve is assumed
+      borrowedAmountOut = IPoolAdapter(poolAdapter).borrow(amountIn, amountOut, receiver);
+      emit OnBorrow(poolAdapter, amountIn, amountOut, receiver, borrowedAmountOut);
     } else if (conversionKind == AppDataTypes.ConversionKind.SWAP_1) {
       require(converter_ == address(swapManager), AppErrors.INCORRECT_CONVERTER_TO_SWAP);
-      borrowedAmountOut = _makeSwap(
-        converter_,
-        collateralAsset_,
-        collateralAmount_,
-        borrowAsset_,
-        receiver_
-      );
+      borrowedAmountOut = _makeSwap(converter_, collateralAsset, amountIn, borrowAsset, receiver);
     } else {
       revert(AppErrors.UNSUPPORTED_CONVERSION_KIND);
     }
   }
 
   /// @notice Transfer {sourceAmount_} to swap-converter, make swap, return result target amount
-  function _makeSwap(
-    address swapConverter_,
-    address sourceAsset_,
-    uint sourceAmount_,
-    address targetAsset_,
-    address receiver_
-  ) internal returns (uint amountOut) {
-    IERC20(sourceAsset_).safeTransfer(swapConverter_, sourceAmount_);
-    amountOut = ISwapConverter(swapConverter_).swap(
-      sourceAsset_,
-      sourceAmount_,
-      targetAsset_,
-      receiver_
-    );
-
-    emit OnSwap(msg.sender, swapConverter_, sourceAsset_, sourceAmount_, targetAsset_, receiver_, amountOut);
+  function _makeSwap(address swapConverter, address sourceAsset_, uint amountIn, address targetAsset_, address receiver_) internal returns (
+    uint amountOut
+  ) {
+    IERC20(sourceAsset_).safeTransfer(swapConverter, amountIn);
+    amountOut = ISwapConverter(swapConverter).swap(sourceAsset_, amountIn, targetAsset_, receiver_);
+    emit OnSwap(msg.sender, swapConverter, sourceAsset_, amountIn, targetAsset_, receiver_, amountOut);
   }
+  //endregion Make conversion, open position
 
   //-----------------------------------------------------
-  //       Make repay, close position
+  //region Make repay, close position
   //-----------------------------------------------------
 
   /// @inheritdoc ITetuConverter
-  function repay(
-    address collateralAsset_,
-    address borrowAsset_,
-    uint amountToRepay_,
-    address receiver_
-  ) external override nonReentrant returns (
+  function repay(address collateralAsset_, address borrowAsset_, uint amountToRepay_, address receiver_) external override nonReentrant returns (
     uint collateralAmountOut,
     uint returnedBorrowAmountOut,
     uint swappedLeftoverCollateralOut,
@@ -451,9 +334,7 @@ contract TetuConverter is ITetuConverter, IKeeperCallback, IRequireAmountBySwapM
 
     // at first repay debts for any opened positions, repay don't make any rebalancing here
     for (uint i = 0; i < v.len; i = i.uncheckedInc()) {
-      if (amountToRepay_ == 0) {
-        break;
-      }
+      if (amountToRepay_ == 0) break;
       v.pa = IPoolAdapter(v.poolAdapters[i]);
       v.pa.updateStatus();
 
@@ -461,15 +342,13 @@ contract TetuConverter is ITetuConverter, IKeeperCallback, IRequireAmountBySwapM
 
       if (v.debtGapRequired) {
         // we assume here, that amountToRepay_ includes all required dept-gaps
-        v.totalDebtForPoolAdapter = v.totalDebtForPoolAdapter * (DEBT_GAP_DENOMINATOR + v.debtGap) / DEBT_GAP_DENOMINATOR;
+        v.totalDebtForPoolAdapter = getAmountWithDebtGap(v.totalDebtForPoolAdapter, v.debtGap);
       }
       uint amountToPayToPoolAdapter = amountToRepay_ >= v.totalDebtForPoolAdapter
         ? v.totalDebtForPoolAdapter
         : amountToRepay_;
 
-      // replaced by infinity approve: IERC20(borrowAsset_).safeApprove(address(pa), amountToPayToPoolAdapter);
-
-      // make repayment
+      // make repayment, assume infinity approve: IERC20(borrowAsset_).safeApprove(address(pa), amountToPayToPoolAdapter);
       bool closePosition = amountToPayToPoolAdapter == v.totalDebtForPoolAdapter;
       collateralAmountOut += v.pa.repay(amountToPayToPoolAdapter, receiver_, closePosition);
       amountToRepay_ -= amountToPayToPoolAdapter;
@@ -490,8 +369,7 @@ contract TetuConverter is ITetuConverter, IKeeperCallback, IRequireAmountBySwapM
         IERC20(borrowAsset_).safeTransfer(receiver_, amountToRepay_);
         emit OnRepayReturn(borrowAsset_, receiver_, amountToRepay_);
       } else {
-        // conversion strategy is found
-        // let's convert all remaining {amountToPay} to {collateralAsset}
+        // conversion strategy is found, let's convert all remaining {amountToPay} to {collateralAsset}
         swappedLeftoverCollateralOut = _makeSwap(converter, borrowAsset_, amountToRepay_, collateralAsset_, receiver_);
         swappedLeftoverBorrowOut = amountToRepay_;
 
@@ -503,12 +381,7 @@ contract TetuConverter is ITetuConverter, IKeeperCallback, IRequireAmountBySwapM
   }
 
   /// @inheritdoc ITetuConverter
-  function quoteRepay(
-    address user_,
-    address collateralAsset_,
-    address borrowAsset_,
-    uint amountToRepay_
-  ) external override returns (
+  function quoteRepay(address user_, address collateralAsset_, address borrowAsset_, uint amountToRepay_) external override returns (
     uint collateralAmountOut,
     uint swappedAmountOut
   ) {
@@ -534,22 +407,24 @@ contract TetuConverter is ITetuConverter, IKeeperCallback, IRequireAmountBySwapM
     }
 
     if (amountToRepay_ > 0) {
+      IPriceOracle priceOracle = IPriceOracle(controller.priceOracle());
       uint priceBorrowAsset = priceOracle.getAssetPrice(borrowAsset_);
       uint priceCollateralAsset = priceOracle.getAssetPrice(collateralAsset_);
       require(priceCollateralAsset != 0 && priceBorrowAsset != 0, AppErrors.ZERO_PRICE);
 
       swappedAmountOut = amountToRepay_
-        * 10**IERC20Metadata(collateralAsset_).decimals()
+        * 10 ** IERC20Metadata(collateralAsset_).decimals()
         * priceBorrowAsset
         / priceCollateralAsset
-        / 10**IERC20Metadata(borrowAsset_).decimals();
+        / 10 ** IERC20Metadata(borrowAsset_).decimals();
     }
 
     return (collateralAmountOut + swappedAmountOut, swappedAmountOut);
   }
+  //endregion Make repay, close position
 
   //-----------------------------------------------------
-  //       IKeeperCallback
+  //region IKeeperCallback
   //-----------------------------------------------------
 
   /// @inheritdoc IKeeperCallback
@@ -597,96 +472,87 @@ contract TetuConverter is ITetuConverter, IKeeperCallback, IRequireAmountBySwapM
       emit OnRequireRepayRebalancing(address(pa), amount, true, amountToPay, resultHealthFactor18);
     }
   }
+  //endregion IKeeperCallback
 
   //-----------------------------------------------------
-  //       Close borrow forcibly by governance
+  //region Close borrow forcibly by governance
   //-----------------------------------------------------
-  
+
   /// @inheritdoc ITetuConverter
-  function repayTheBorrow(address poolAdapter_, bool closePosition) external returns (
-    uint collateralAmountOut,
-    uint repaidAmountOut
-  ) {
+  function repayTheBorrow(address poolAdapter_, bool closePosition) external returns (uint collateralAmountOut, uint repaidAmountOut) {
     require(msg.sender == controller.governance(), AppErrors.GOVERNANCE_ONLY);
 
     // update internal debts and get actual amount to repay
     IPoolAdapter pa = IPoolAdapter(poolAdapter_);
     (,address user, address collateralAsset, address borrowAsset) = pa.getConfig();
     pa.updateStatus();
-    bool debtGapRequired;
-    (collateralAmountOut, repaidAmountOut,,,,debtGapRequired) = pa.getStatus();
-    if (debtGapRequired) {
-      repaidAmountOut = repaidAmountOut * (DEBT_GAP_DENOMINATOR + controller.debtGap()) / DEBT_GAP_DENOMINATOR;
-    }
 
+    // add debt gap if necessary
+    bool debtGapRequired;
+    (collateralAmountOut, repaidAmountOut,,,, debtGapRequired) = pa.getStatus();
+    if (debtGapRequired) {
+      repaidAmountOut = getAmountWithDebtGap(repaidAmountOut, controller.debtGap());
+    }
     require(collateralAmountOut != 0 && repaidAmountOut != 0, AppErrors.REPAY_FAILED);
 
-    // ask the user for the amount-to-repay
+    // ask the user for the amount-to-repay; use exist balance for safety, normally it should be 0
     uint balanceBefore = IERC20(borrowAsset).balanceOf(address(this));
-    ITetuConverterCallback(user).requirePayAmountBack(borrowAsset, repaidAmountOut);
+    ITetuConverterCallback(user).requirePayAmountBack(borrowAsset, repaidAmountOut - balanceBefore);
     uint balanceAfter = IERC20(borrowAsset).balanceOf(address(this));
 
-    // ensure that we have received full required amount
+    // ensure that we have received required amount fully or partially
     if (closePosition) {
-      require(balanceAfter == balanceBefore + repaidAmountOut, AppErrors.WRONG_AMOUNT_RECEIVED);
+      require(balanceAfter >= balanceBefore + repaidAmountOut, AppErrors.WRONG_AMOUNT_RECEIVED);
     } else {
-      require(
-        balanceAfter > balanceBefore && balanceAfter - balanceBefore <= repaidAmountOut,
-        AppErrors.ZERO_BALANCE
-      );
+      require(balanceAfter > balanceBefore, AppErrors.ZERO_BALANCE);
       repaidAmountOut = balanceAfter - balanceBefore;
     }
 
     // make full repay and close the position
-    // repay is able to return small amount of borrow-asset back to the user, we should pass it to onTransferAmounts
     balanceBefore = IERC20(borrowAsset).balanceOf(user);
-    // replaced by infinity approve: IERC20(borrowAsset).safeApprove(address(pa), repaidAmountOut);
     collateralAmountOut = pa.repay(repaidAmountOut, user, closePosition);
     emit OnRepayTheBorrow(poolAdapter_, collateralAmountOut, repaidAmountOut);
     balanceAfter = IERC20(borrowAsset).balanceOf(user);
 
-    if (collateralAmountOut != 0) {
-      address[] memory assets = new address[](2);
-      assets[0] = borrowAsset;
-      assets[1] = collateralAsset;
-      uint[] memory amounts = new uint[](2);
-      amounts[0] = balanceAfter > balanceBefore
-        ? balanceAfter - balanceBefore
-        : 0; // for simplicity, we send zero amount to user too.. the user will just ignore it ;
-      amounts[1] = collateralAmountOut;
-      ITetuConverterCallback(user).onTransferAmounts(assets, amounts);
+    address[] memory assets = new address[](2);
+    assets[0] = borrowAsset;
+    assets[1] = collateralAsset;
+
+    uint[] memory amounts = new uint[](2);
+    // repay is able to return small amount of borrow-asset back to the user, we should pass it to onTransferAmounts
+    amounts[0] = balanceAfter > balanceBefore ? balanceAfter - balanceBefore : 0;
+    if (amounts[0] > 0) { // exclude returned part of the debt gap from repaidAmountOut
+      repaidAmountOut = repaidAmountOut > amounts[0]
+        ? repaidAmountOut - amounts[0]
+        : 0;
     }
+    amounts[1] = collateralAmountOut;
+    ITetuConverterCallback(user).onTransferAmounts(assets, amounts);
 
     return (collateralAmountOut, repaidAmountOut);
   }
+  //endregion Close borrow forcibly by governance
 
   //-----------------------------------------------------
-  //       Get debt/repay info
+  //region Get debt/repay info
   //-----------------------------------------------------
 
   /// @inheritdoc ITetuConverter
-  function getDebtAmountCurrent(
-    address user_,
-    address collateralAsset_,
-    address borrowAsset_,
-    bool useDebtGap_
-  ) external override nonReentrant returns (
+  function getDebtAmountCurrent(address user_, address collateralAsset_, address borrowAsset_, bool useDebtGap_) external override nonReentrant returns (
     uint totalDebtAmountOut,
     uint totalCollateralAmountOut
   ) {
     address[] memory poolAdapters = debtMonitor.getPositions(user_, collateralAsset_, borrowAsset_);
-    uint lenPoolAdapters = poolAdapters.length;
+    uint len = poolAdapters.length;
 
-    uint debtGap = useDebtGap_
-      ? controller.debtGap()
-      : 0;
+    uint debtGap = useDebtGap_ ? controller.debtGap() : 0;
 
-    for (uint i; i < lenPoolAdapters; i = i.uncheckedInc()) {
+    for (uint i; i < len; i = i.uncheckedInc()) {
       IPoolAdapter pa = IPoolAdapter(poolAdapters[i]);
       pa.updateStatus();
       (uint collateralAmount, uint totalDebtForPoolAdapter,,,, bool debtGapRequired) = pa.getStatus();
       totalDebtAmountOut += useDebtGap_ && debtGapRequired
-        ? totalDebtForPoolAdapter * (DEBT_GAP_DENOMINATOR + debtGap) / DEBT_GAP_DENOMINATOR
+        ? getAmountWithDebtGap(totalDebtForPoolAdapter, debtGap)
         : totalDebtForPoolAdapter;
       totalCollateralAmountOut += collateralAmount;
     }
@@ -695,27 +561,18 @@ contract TetuConverter is ITetuConverter, IKeeperCallback, IRequireAmountBySwapM
   }
 
   /// @inheritdoc ITetuConverter
-  function getDebtAmountStored(
-    address user_,
-    address collateralAsset_,
-    address borrowAsset_,
-    bool useDebtGap_
-  ) external view override returns (
+  function getDebtAmountStored(address user_, address collateralAsset_, address borrowAsset_, bool useDebtGap_) external view override returns (
     uint totalDebtAmountOut,
     uint totalCollateralAmountOut
   ) {
     address[] memory poolAdapters = debtMonitor.getPositions(user_, collateralAsset_, borrowAsset_);
-    uint lenPoolAdapters = poolAdapters.length;
+    uint len = poolAdapters.length;
 
-    uint debtGap = useDebtGap_
-      ? controller.debtGap()
-      : 0;
-
-    for (uint i; i < lenPoolAdapters; i = i.uncheckedInc()) {
+    for (uint i; i < len; i = i.uncheckedInc()) {
       IPoolAdapter pa = IPoolAdapter(poolAdapters[i]);
       (uint collateralAmount, uint totalDebtForPoolAdapter,,,, bool debtGapRequired) = pa.getStatus();
       totalDebtAmountOut += useDebtGap_ && debtGapRequired
-        ? totalDebtForPoolAdapter * (DEBT_GAP_DENOMINATOR + debtGap) / DEBT_GAP_DENOMINATOR
+        ? getAmountWithDebtGap(totalDebtForPoolAdapter, useDebtGap_ ? controller.debtGap() : 0)
         : totalDebtForPoolAdapter;
       totalCollateralAmountOut += collateralAmount;
     }
@@ -724,21 +581,15 @@ contract TetuConverter is ITetuConverter, IKeeperCallback, IRequireAmountBySwapM
   }
 
   /// @inheritdoc ITetuConverter
-  function estimateRepay(
-    address user_,
-    address collateralAsset_,
-    uint collateralAmountToRedeem_,
-    address borrowAsset_
-  ) external view override returns (
+  function estimateRepay(address user_, address collateralAsset_, uint collateralAmountToRedeem_, address borrowAsset_) external view override returns (
     uint borrowAssetAmount,
     uint unobtainableCollateralAssetAmount
   ) {
     address[] memory poolAdapters = debtMonitor.getPositions(user_, collateralAsset_, borrowAsset_);
     uint len = poolAdapters.length;
-    uint debtGap = controller.debtGap();
 
     uint collateralAmountRemained = collateralAmountToRedeem_;
-    for (uint i = 0; i < len; i = i.uncheckedInc()) {
+    for (uint i; i < len; i = i.uncheckedInc()) {
       if (collateralAmountRemained == 0) {
         break;
       }
@@ -746,7 +597,7 @@ contract TetuConverter is ITetuConverter, IKeeperCallback, IRequireAmountBySwapM
       IPoolAdapter pa = IPoolAdapter(poolAdapters[i]);
       (uint collateralAmount, uint borrowedAmount,,,,bool debtGapRequired) = pa.getStatus();
       if (debtGapRequired) {
-        borrowedAmount = borrowedAmount * (DEBT_GAP_DENOMINATOR + debtGap) / DEBT_GAP_DENOMINATOR;
+        borrowedAmount = getAmountWithDebtGap(borrowedAmount, controller.debtGap());
       }
 
       if (collateralAmountRemained >= collateralAmount) {
@@ -767,9 +618,10 @@ contract TetuConverter is ITetuConverter, IKeeperCallback, IRequireAmountBySwapM
   ) {
     return IDebtMonitor(controller.debtMonitor()).getPositions(user_, collateralToken_, borrowedToken_);
   }
+  //endregion Get debt/repay info
 
   //-----------------------------------------------------
-  //       Check and claim rewards
+  //region Check and claim rewards
   //-----------------------------------------------------
 
   /// @inheritdoc ITetuConverter
@@ -801,27 +653,34 @@ contract TetuConverter is ITetuConverter, IKeeperCallback, IRequireAmountBySwapM
     return (rewardTokensOut, amountsOut);
   }
 
-  //-----------------------------------------------------
-  //       Simulate swap
-  //-----------------------------------------------------
+  /// @inheritdoc ITetuConverter
+  function salvage(address receiver, address token, uint amount) external {
+    require(msg.sender == controller.governance(), AppErrors.GOVERNANCE_ONLY);
 
-  /// @notice Transfer {sourceAmount_} approved by {sourceAmountApprover_} to swap manager
-  function onRequireAmountBySwapManager(
-    address sourceAmountApprover_,
-    address sourceToken_,
-    uint sourceAmount_
-  ) external override {
-    require(address(swapManager) == msg.sender, AppErrors.ONLY_SWAP_MANAGER);
-
-    if (sourceAmountApprover_ == address(this)) {
-      IERC20(sourceToken_).safeTransfer(address(swapManager), sourceAmount_);
-    } else {
-      IERC20(sourceToken_).safeTransferFrom(sourceAmountApprover_, address(swapManager), sourceAmount_);
-    }
+    IERC20(token).safeTransfer(receiver, amount);
+    emit OnSalvage(receiver, token, amount);
   }
 
+  //endregion Check and claim rewards
+
   //-----------------------------------------------------
-  //       Liquidate with checking
+  //region Simulate swap
+  //-----------------------------------------------------
+
+  /// @notice Transfer {sourceAmount_} approved by {approver_} to swap manager
+  function onRequireAmountBySwapManager(address approver_, address sourceToken_, uint sourceAmount_) external override {
+    require(address(swapManager) == msg.sender, AppErrors.ONLY_SWAP_MANAGER);
+
+    if (approver_ == address(this)) {
+      IERC20(sourceToken_).safeTransfer(address(swapManager), sourceAmount_);
+    } else {
+      IERC20(sourceToken_).safeTransferFrom(approver_, address(swapManager), sourceAmount_);
+    }
+  }
+  //endregion Simulate swap
+
+  //-----------------------------------------------------
+  //region Liquidate with checking
   //-----------------------------------------------------
 
   /// @inheritdoc ITetuConverter
@@ -845,14 +704,7 @@ contract TetuConverter is ITetuConverter, IKeeperCallback, IRequireAmountBySwapM
     IERC20(assetOut_).safeTransfer(receiver_, amountOut);
     // The result amount shouldn't be too different from the value calculated directly using price oracle prices
     require(
-      SwapLib.isConversionValid(
-        priceOracle,
-        assetIn_,
-        amountIn_,
-        assetOut_,
-        amountOut,
-        priceImpactToleranceTarget_
-      ),
+      SwapLib.isConversionValid(IPriceOracle(controller.priceOracle()), assetIn_, amountIn_, assetOut_, amountOut, priceImpactToleranceTarget_),
       AppErrors.TOO_HIGH_PRICE_IMPACT
     );
     emit OnSafeLiquidate(assetIn_, amountIn_, assetOut_, receiver_, amountOut);
@@ -866,90 +718,21 @@ contract TetuConverter is ITetuConverter, IKeeperCallback, IRequireAmountBySwapM
     uint amountOut_,
     uint priceImpactTolerance_
   ) external override view returns (bool) {
-    return SwapLib.isConversionValid(
-      priceOracle,
-      assetIn_,
-      amountIn_,
-      assetOut_,
-      amountOut_,
-      priceImpactTolerance_
-    );
+    return SwapLib.isConversionValid(IPriceOracle(controller.priceOracle()), assetIn_, amountIn_, assetOut_, amountOut_, priceImpactTolerance_);
   }
+  //endregion Liquidate with checking
 
   //-----------------------------------------------------
-  ///       Next version features
+  //region Utils
   //-----------------------------------------------------
-//  function requireAdditionalBorrow(
-//    uint amountToBorrow_,
-//    address poolAdapter_
-//  ) external override {
-//    onlyKeeper();
-//
-//    IPoolAdapter pa = IPoolAdapter(poolAdapter_);
-//
-//    (, address user, address collateralAsset, address borrowAsset) = pa.getConfig();
-//
-//    // make rebalancing
-//    (uint resultHealthFactor18, uint borrowedAmountOut) = pa.borrowToRebalance(amountToBorrow_, user);
-//    _ensureApproxSameToTargetHealthFactor(borrowAsset, resultHealthFactor18);
-//
-//    // notify the borrower about new available borrowed amount
-//    ITetuConverterCallback(user).onTransferBorrowedAmount(collateralAsset, borrowAsset, borrowedAmountOut);
-//  }
-//
-//  function requireReconversion(
-//    address poolAdapter_,
-//    uint periodInBlocks_
-//  ) external override {
-//    onlyKeeper();
-//
-//    //TODO: draft (not tested) implementation
-//
-//    IPoolAdapter pa = IPoolAdapter(poolAdapter_);
-//    (address originConverter, address user, address collateralAsset, address borrowAsset) = pa.getConfig();
-//    (,uint amountToPay,,) = pa.getStatus();
-//
-//    // require borrowed amount back
-//    uint balanceBorrowedAsset = IERC20(borrowAsset).balanceOf(address(this));
-//    ITetuConverterCallback(user).requireAmountBack(
-//      collateralAsset,
-//      borrowAsset,
-//      amountToPay,
-//      0 // TODO if we allow to pass 0 as collateral amount it means that borrow amount MUST be returned
-//    // TODO but currently it's not implemented
-//    );
-//    require(
-//      IERC20(borrowAsset).balanceOf(address(this)) - balanceBorrowedAsset == amountToPay,
-//      AppErrors.WRONG_AMOUNT_RECEIVED
-//    );
-//
-//    //make repay and close position
-//    uint balanceCollateralAsset = IERC20(collateralAsset).balanceOf(address(this));
-//    pa.syncBalance(false, false);
-//    IERC20(borrowAsset).safeTransfer(poolAdapter_, amountToPay);
-//    pa.repay(amountToPay, address(this), true);
-//    uint collateralAmount = IERC20(collateralAsset).balanceOf(address(this)) - balanceCollateralAsset;
-//
-//    // find new plan
-//    (address converter, uint maxTargetAmount,) = _findConversionStrategy(
-//      collateralAsset,
-//      collateralAmount,
-//      borrowAsset,
-//      periodInBlocks_,
-//      ITetuConverter.ConversionMode.AUTO_0
-//    );
-//    require(converter != originConverter, AppErrors.RECONVERSION_WITH_SAME_CONVERTER_FORBIDDEN);
-//    require(converter != address(0), AppErrors.CONVERTER_NOT_FOUND);
-//
-//    // make conversion using new pool adapter, transfer borrowed amount back to user
-//    uint newBorrowedAmount = _convert(
-//      converter,
-//      collateralAsset,
-//      collateralAmount,
-//      borrowAsset,
-//      maxTargetAmount,
-//      user
-//    );
-//    ITetuConverterCallback(user).onTransferBorrowedAmount(collateralAsset, borrowAsset, newBorrowedAmount);
-//  }
+  /// @notice Add {debtGap} to the {amount}
+  /// @param debtGap debt-gap percent [0..1), decimals DEBT_GAP_DENOMINATOR
+  function getAmountWithDebtGap(uint amount, uint debtGap) public pure returns (uint) {
+    // Real value of debt gap in AAVE can be very low but it's greater than zero
+    // so, even if the amount is very low, the result debt gap addon must be greater than zero
+    // we assume here, that it should be not less than MIN_DEBT_GAP_ADDON
+    return Math.max(amount * (DEBT_GAP_DENOMINATOR + debtGap) / DEBT_GAP_DENOMINATOR, amount + MIN_DEBT_GAP_ADDON);
+  }
+  //endregion Utils
 }
+
