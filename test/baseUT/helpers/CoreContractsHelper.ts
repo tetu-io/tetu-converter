@@ -13,6 +13,7 @@ import {DeployUtils} from "../../../scripts/utils/DeployUtils";
 import {COUNT_BLOCKS_PER_DAY} from "../utils/aprUtils";
 import {parseUnits} from "ethers/lib/utils";
 import {MaticAddresses} from "../../../scripts/addresses/MaticAddresses";
+import {Misc} from "../../../scripts/utils/Misc";
 
 export class CoreContractsHelper {
   static async deployController(deployer: SignerWithAddress, tetuLiquidator: string): Promise<ConverterController> {
@@ -72,7 +73,6 @@ export class CoreContractsHelper {
       countBlocksPerDay,
       minHealthFactor2,
       targetHealthFactor2,
-      maxHealthFactor2,
       tetuConverter,
       borrowManager,
       debtMonitor,
@@ -81,6 +81,10 @@ export class CoreContractsHelper {
       debtGap,
       priceOracle
     );
+
+    // maxHealthFactor2 was removed from initialize in ver.13
+    await controller.connect(await Misc.impersonate(await controller.governance())).setMaxHealthFactor2(maxHealthFactor2);
+
     return controller;
   }
 

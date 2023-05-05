@@ -16,7 +16,6 @@ import {MaticAddresses} from "../addresses/MaticAddresses";
 export interface IControllerSetupParams {
   minHealthFactor2: number;
   targetHealthFactor2: number;
-  maxHealthFactor2: number;
   blocksPerDay: number; // i.e. 41142
   debtGap: number;
 }
@@ -92,7 +91,6 @@ export class DeploySolutionUtils {
       blocksPerDay: 41142,
       minHealthFactor2: 105,
       targetHealthFactor2: 200,
-      maxHealthFactor2: 400,
       debtGap: 1_000
     };
     const borrowManagerSetupParams: IBorrowManagerSetupParams = {
@@ -380,7 +378,6 @@ export class DeploySolutionUtils {
         controllerSetupParams.blocksPerDay,
         controllerSetupParams.minHealthFactor2,
         controllerSetupParams.targetHealthFactor2,
-        controllerSetupParams.maxHealthFactor2,
         tetuConverter,
         borrowManager,
         debtMonitor,

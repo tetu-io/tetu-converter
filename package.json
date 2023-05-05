@@ -1,6 +1,6 @@
 {
   "name": "@tetu_io/tetu-converter",
-  "version": "1.0.12",
+  "version": "1.0.13",
   "description": "Convert assets in optimal way",
   "main": "hardhat.config.js",
   "directories": {
