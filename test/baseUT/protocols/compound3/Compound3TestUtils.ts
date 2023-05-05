@@ -16,6 +16,7 @@ import {makeInfinityApprove, transferAndApprove} from "../../utils/transferUtils
 import {ethers} from "hardhat";
 import {BalanceUtils, IUserBalances} from "../../utils/BalanceUtils";
 import {IPoolAdapterStatus} from "../../types/BorrowRepayDataTypes";
+import {GAS_LIMIT} from "../../GasLimit";
 
 
 export interface IPrepareToBorrowResults {
@@ -166,6 +167,7 @@ export class Compound3TestUtils {
         entryData: "0x"
       },
       badPathsParams?.targetHealthFactor2 || await controller.targetHealthFactor2(),
+      {gasLimit: GAS_LIMIT}
     )
 
     // collateral asset
@@ -210,11 +212,7 @@ export class Compound3TestUtils {
       ? Compound3PoolAdapter__factory.connect(d.poolAdapter.address, await DeployerUtils.startImpersonate(ethers.Wallet.createRandom().address))
       : d.poolAdapter
 
-    await borrower.borrow(
-      d.collateralAmount,
-      borrowAmount,
-      d.userContract.address
-    );
+    await borrower.borrow(d.collateralAmount, borrowAmount, d.userContract.address, {gasLimit: GAS_LIMIT});
     console.log(`borrow: success`);
 
     const userBalanceBorrowAsset = await d.borrowToken.token.balanceOf(d.userContract.address);
@@ -249,12 +247,14 @@ export class Compound3TestUtils {
       const repayResultsCollateralAmountOut = await payer.callStatic.repay(
         amountToRepay,
         d.userContract.address,
-        closePosition === undefined ? false : closePosition
+        closePosition === undefined ? false : closePosition,
+        {gasLimit: GAS_LIMIT}
       );
       await payer.repay(
         amountToRepay,
         d.userContract.address,
-        closePosition === undefined ? false : closePosition
+        closePosition === undefined ? false : closePosition,
+        {gasLimit: GAS_LIMIT}
       );
 
       return {

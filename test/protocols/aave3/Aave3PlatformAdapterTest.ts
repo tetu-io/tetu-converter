@@ -28,7 +28,7 @@ import {IConversionPlan} from "../../baseUT/apr/aprDataTypes";
 import {defaultAbiCoder, formatUnits, parseUnits} from "ethers/lib/utils";
 import {Aave3ChangePricesUtils} from "../../baseUT/protocols/aave3/Aave3ChangePricesUtils";
 import {controlGasLimitsEx} from "../../../scripts/utils/hardhatUtils";
-import {GAS_LIMIT_AAVE_3_GET_CONVERSION_PLAN} from "../../baseUT/GasLimit";
+import {GAS_LIMIT, GAS_LIMIT_AAVE_3_GET_CONVERSION_PLAN} from "../../baseUT/GasLimit";
 import {AppConstants} from "../../baseUT/AppConstants";
 
 describe("Aave3PlatformAdapterTest", () => {
@@ -103,7 +103,7 @@ describe("Aave3PlatformAdapterTest", () => {
     }
     async borrow(borrowAmount: BigNumber): Promise<void> {
       console.log(`borrow ${this.borrowAsset} amount ${borrowAmount}`);
-      await this.pool.borrow(this.borrowAsset, borrowAmount, 2, 0, deployer.address);
+      await this.pool.borrow(this.borrowAsset, borrowAmount, 2, 0, deployer.address, {gasLimit: GAS_LIMIT});
 
     }
   }
@@ -307,6 +307,7 @@ describe("Aave3PlatformAdapterTest", () => {
           entryData: entryData || "0x"
         },
         healthFactor2,
+        {gasLimit: GAS_LIMIT}
       );
 
       const prices = await (await Aave3Helper.getAavePriceOracle(deployer)).getAssetsPrices([collateralAsset, borrowAsset]);
@@ -1060,6 +1061,7 @@ describe("Aave3PlatformAdapterTest", () => {
             entryData: "0x"
           },
           200,
+          {gasLimit: GAS_LIMIT}
         );
         console.log("Aave3PlatformAdapter.getConversionPlan.gas", gasUsed.toString());
         controlGasLimitsEx(gasUsed, GAS_LIMIT_AAVE_3_GET_CONVERSION_PLAN, (u, t) => {

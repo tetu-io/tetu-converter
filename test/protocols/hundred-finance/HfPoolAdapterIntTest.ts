@@ -21,6 +21,7 @@ import {
   IPrepareToBorrowResults
 } from "../../baseUT/protocols/hundred-finance/HundredFinanceTestUtils";
 import {formatUnits, parseUnits} from "ethers/lib/utils";
+import {GAS_LIMIT} from "../../baseUT/GasLimit";
 
 describe.skip("HfPoolAdapterIntTest", () => {
 
@@ -417,7 +418,8 @@ describe.skip("HfPoolAdapterIntTest", () => {
         await poolAdapterAsCaller.repay(
           amountToRepay,
           d.userContract.address,
-          badParams?.forceToClosePosition || false
+          badParams?.forceToClosePosition || false,
+          {gasLimit: GAS_LIMIT}
         );
       } else {
         console.log("user balance borrow asset before repay", await borrowTokenAsUser.balanceOf(d.userContract.address));

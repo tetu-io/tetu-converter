@@ -13,6 +13,7 @@ import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import {DeployerUtils} from "../../scripts/utils/DeployerUtils";
 import {TetuConverterApp} from "../baseUT/helpers/TetuConverterApp";
 import {Aave3PlatformFabric} from "../baseUT/fabrics/Aave3PlatformFabric";
+import {GAS_LIMIT} from "../baseUT/GasLimit";
 
 interface IFindBorrowStrategyInput {
   collateralAsset: string;
@@ -106,7 +107,8 @@ describe.skip("issue230310 (problem happens if mine interval > 1", () => {
           convertStrategies.collateralAmountsOut[0],
           borrow.borrowAsset,
           convertStrategies.amountToBorrowsOut[0],
-          signer.address
+          signer.address,
+          {gasLimit: GAS_LIMIT}
         );
         console.log("borrow.done");
         await TimeUtils.advanceNBlocks(20_000);
@@ -184,7 +186,8 @@ describe.skip("issue230310 (problem happens if mine interval > 1", () => {
           convertStrategies.collateralAmountsOut[0],
           borrow.borrowAsset,
           convertStrategies.amountToBorrowsOut[0],
-          signer.address
+          signer.address,
+          {gasLimit: GAS_LIMIT}
         );
         console.log("borrow.done");
         await TimeUtils.advanceNBlocks(20_000);

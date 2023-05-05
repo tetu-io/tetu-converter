@@ -24,6 +24,7 @@ import {getBigNumberFrom} from "../../../../scripts/utils/NumberUtils";
 import {TetuConverterApp} from "../../helpers/TetuConverterApp";
 import {Misc} from "../../../../scripts/utils/Misc";
 import {parseUnits} from "ethers/lib/utils";
+import {GAS_LIMIT} from "../../GasLimit";
 
 //region Data types
 export interface IPrepareToBorrowResults {
@@ -192,19 +193,9 @@ export class Aave3TestUtils {
       converterEMode.address
     );
 
-    const borrowManager = BorrowManager__factory.connect(
-      await controller.borrowManager(),
-      deployer
-    );
-    await borrowManager.addAssetPairs(
-      aavePlatformAdapter.address,
-      [collateralToken.address],
-      [borrowToken.address]
-    );
-    const bmAsTc = BorrowManager__factory.connect(
-      await controller.borrowManager(),
-      await DeployerUtils.startImpersonate(await controller.tetuConverter())
-    );
+    const borrowManager = BorrowManager__factory.connect(await controller.borrowManager(), deployer);
+    await borrowManager.addAssetPairs(aavePlatformAdapter.address,[collateralToken.address], [borrowToken.address]);
+    const bmAsTc = borrowManager.connect(await DeployerUtils.startImpersonate(await controller.tetuConverter()));
     await bmAsTc.registerPoolAdapter(
       useEMode ? converterEMode.address : converterNormal.address,
       userContract.address,
@@ -247,6 +238,7 @@ export class Aave3TestUtils {
           entryData: "0x"
         },
         additionalParams?.targetHealthFactor2 || await controller.targetHealthFactor2(),
+        {gasLimit: GAS_LIMIT}
       );
       await supplyEnoughBorrowAssetToAavePool(
         aavePool.address,
@@ -279,6 +271,7 @@ export class Aave3TestUtils {
         entryData: "0x"
       },
       additionalParams?.targetHealthFactor2 || await controller.targetHealthFactor2(),
+      {gasLimit: GAS_LIMIT}
     );
     console.log("plan", plan);
 
@@ -343,11 +336,7 @@ export class Aave3TestUtils {
       }
     }
 
-    await borrower.borrow(
-      d.collateralAmount,
-      borrowAmount,
-      d.userContract.address
-    );
+    await borrower.borrow(d.collateralAmount, borrowAmount, d.userContract.address, {gasLimit: GAS_LIMIT});
 
     return {
       collateralData,
@@ -385,12 +374,14 @@ export class Aave3TestUtils {
       const repayResultsCollateralAmountOut = await payer.callStatic.repay(
         amountToRepay,
         d.userContract.address,
-        closePosition === undefined ? false : closePosition
+        closePosition === undefined ? false : closePosition,
+        {gasLimit: GAS_LIMIT}
       );
       const tx = await payer.repay(
         amountToRepay,
         d.userContract.address,
-        closePosition === undefined ? false : closePosition
+        closePosition === undefined ? false : closePosition,
+        {gasLimit: GAS_LIMIT}
       );
       const gasUsed = (await tx.wait()).gasUsed;
       return {

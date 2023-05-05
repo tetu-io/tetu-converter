@@ -4,6 +4,7 @@ import {IERC20__factory, Borrower, ConverterController, ITetuConverter__factory}
 import {IUserBalancesWithGas} from "../utils/BalanceUtils";
 import {DeployerUtils} from "../../../scripts/utils/DeployerUtils";
 import {TokenDataTypes} from "../types/TokenDataTypes";
+import {GAS_LIMIT} from "../GasLimit";
 
 export interface IRepayActionOptionalParams {
   countBlocksToSkipAfterAction?: number,
@@ -46,12 +47,7 @@ export class RepayActionUsingSwap implements IRepayAction {
     const tx = await ITetuConverter__factory.connect(
       await this.controller.tetuConverter(),
       await DeployerUtils.startImpersonate(user.address)
-    ).repay(
-      this.collateralToken.address,
-      this.borrowToken.address,
-      amountToPay,
-      user.address
-    );
+    ).repay(this.collateralToken.address, this.borrowToken.address, amountToPay, user.address, {gasLimit: GAS_LIMIT});
     gasUsed = (await tx.wait()).gasUsed;
 
     const collateral = await IERC20__factory.connect(

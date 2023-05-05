@@ -18,6 +18,7 @@ import {BigNumber} from "ethers";
 import {Misc} from "../../../scripts/utils/Misc";
 import {DeployerUtils} from "../../../scripts/utils/DeployerUtils";
 import {BalanceUtils} from "../utils/BalanceUtils";
+import {GAS_LIMIT} from "../GasLimit";
 
 //region Data types
 interface IInputParams {
@@ -304,21 +305,27 @@ export class CompareAprUsesCase {
       try {
         console.log("makePossibleBorrowsOnPlatform.collateralAmount", task.collateralAmount);
 
-        const planSingleBlock = await platformAdapter.getConversionPlan(
-          task.collateralAsset.asset,
-          task.collateralAmount,
-          task.borrowAsset.asset,
+        const planSingleBlock = await platformAdapter.getConversionPlan({
+            collateralAsset: task.collateralAsset.asset,
+            amountIn: task.collateralAmount,
+            borrowAsset: task.borrowAsset.asset,
+            entryData: "0x",
+            countBlocks: 1 // we need 1 block for next/last; countBlocks are used as additional-points
+          },
           healthFactor2,
-          1 // we need 1 block for next/last; countBlocks are used as additional-points
+          {gasLimit: GAS_LIMIT}
         );
         console.log("planSingleBlock", planSingleBlock);
 
-        const planFullPeriod = await platformAdapter.getConversionPlan(
-          task.collateralAsset.asset,
-          task.collateralAmount,
-          task.borrowAsset.asset,
+        const planFullPeriod = await platformAdapter.getConversionPlan({
+            collateralAsset: task.collateralAsset.asset,
+            amountIn: task.collateralAmount,
+            borrowAsset: task.borrowAsset.asset,
+            entryData: "0x",
+            countBlocks: 1 // we need 1 block for next/last; countBlocks are used as additional-points
+          },
           healthFactor2,
-          countBlocks,
+          {gasLimit: GAS_LIMIT}
         );
         console.log("planFullPeriod", planFullPeriod);
 

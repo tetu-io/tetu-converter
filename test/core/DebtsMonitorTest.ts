@@ -35,7 +35,7 @@ import {Misc} from "../../scripts/utils/Misc";
 import {ICreateControllerParams, TetuConverterApp} from "../baseUT/helpers/TetuConverterApp";
 import {parseUnits} from "ethers/lib/utils";
 import {controlGasLimitsEx} from "../../scripts/utils/hardhatUtils";
-import {GAS_LIMIT_DM_ON_CLOSE_POSITION, GAS_LIMIT_DM_ON_OPEN_POSITION} from "../baseUT/GasLimit";
+import {GAS_LIMIT, GAS_LIMIT_DM_ON_CLOSE_POSITION, GAS_LIMIT_DM_ON_OPEN_POSITION} from "../baseUT/GasLimit";
 
 describe("DebtsMonitor", () => {
 //region Global vars for all tests
@@ -199,7 +199,7 @@ describe("DebtsMonitor", () => {
       .approve(pa.address, amountCollateral);
 
     // borrow
-    await pa.borrow(amountCollateral, amountToBorrow, userTC);
+    await pa.borrow(amountCollateral, amountToBorrow, userTC, {gasLimit: GAS_LIMIT});
   }
 
   interface IPrepareSinglePoolAdapterHealthTestResults {

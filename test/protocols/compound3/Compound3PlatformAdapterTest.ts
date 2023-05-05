@@ -33,6 +33,7 @@ import {Compound3ChangePriceUtils} from "../../baseUT/protocols/compound3/Compou
 import {IPlatformActor, PredictBrUsesCase} from "../../baseUT/uses-cases/PredictBrUsesCase";
 import {AppConstants} from "../../baseUT/AppConstants";
 import {MocksHelper} from "../../baseUT/helpers/MocksHelper";
+import {GAS_LIMIT} from "../../baseUT/GasLimit";
 
 
 describe("Compound3PlatformAdapterTest", () => {
@@ -211,6 +212,7 @@ describe("Compound3PlatformAdapterTest", () => {
         entryData: entryData || "0x"
       },
       badPathsParams?.incorrectHealthFactor2 || healthFactor2,
+      {gasLimit: GAS_LIMIT},
     )
 
     return {

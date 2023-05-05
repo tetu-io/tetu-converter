@@ -23,6 +23,7 @@ import {DForceChangePriceUtils} from "./DForceChangePriceUtils";
 import {IPoolAdapterStatus} from "../../types/BorrowRepayDataTypes";
 import {TetuConverterApp} from "../../helpers/TetuConverterApp";
 import {IAaveTwoUserAccountDataResults} from "../../apr/aprAaveTwo";
+import {GAS_LIMIT} from "../../GasLimit";
 
 //region Data types
 export interface IPrepareToBorrowResults {
@@ -168,20 +169,14 @@ export class DForceTestUtils {
       [collateralCTokenAddress, borrowCTokenAddress],
     );
 
-    const borrowManager = BorrowManager__factory.connect(
-      await controller.borrowManager(),
-      deployer
-    );
+    const borrowManager = BorrowManager__factory.connect(await controller.borrowManager(), deployer);
     await borrowManager.addAssetPairs(
       dfPlatformAdapter.address,
       [collateralToken.address],
       [borrowToken.address]
     );
 
-    const bmAsTc = BorrowManager__factory.connect(
-      borrowManager.address,
-      await DeployerUtils.startImpersonate(await controller.tetuConverter())
-    );
+    const bmAsTc = borrowManager.connect(await DeployerUtils.startImpersonate(await controller.tetuConverter()));
     await bmAsTc.registerPoolAdapter(
       converterNormal.address,
       userContract.address,
@@ -223,6 +218,7 @@ export class DForceTestUtils {
         entryData: "0x"
       },
       badPathsParams?.targetHealthFactor2 || await controller.targetHealthFactor2(),
+      {gasLimit: GAS_LIMIT}
     );
     console.log("plan", plan);
 
@@ -273,11 +269,7 @@ export class DForceTestUtils {
       )
       : d.dfPoolAdapterTC;
 
-    await borrower.borrow(
-      d.collateralAmount,
-      borrowAmount,
-      d.userContract.address
-    );
+    await borrower.borrow(d.collateralAmount, borrowAmount, d.userContract.address, {gasLimit: GAS_LIMIT});
     console.log(`borrow: success`);
 
     // get market's info afer borrowing
@@ -418,13 +410,15 @@ export class DForceTestUtils {
       const repayResultsCollateralAmountOut = await payer.callStatic.repay(
         amountToRepay,
         badPathsParams?.receiver || d.userContract.address,
-        closePosition === undefined ? false : closePosition
+        closePosition === undefined ? false : closePosition,
+        {gasLimit: GAS_LIMIT}
       );
 
       await payer.repay(
         amountToRepay,
         badPathsParams?.receiver || d.userContract.address,
-        closePosition === undefined ? false : closePosition
+        closePosition === undefined ? false : closePosition,
+        {gasLimit: GAS_LIMIT}
       );
 
       return {

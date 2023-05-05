@@ -22,6 +22,7 @@ import {DForceTestUtils, IPrepareToBorrowResults} from "../../baseUT/protocols/d
 import {formatUnits, parseUnits} from "ethers/lib/utils";
 import {DForceHelper} from "../../../scripts/integration/helpers/DForceHelper";
 import {TetuConverterApp} from "../../baseUT/helpers/TetuConverterApp";
+import {GAS_LIMIT} from "../../baseUT/GasLimit";
 
 
 describe("DForcePoolAdapterIntTest", () => {
@@ -469,11 +470,7 @@ describe("DForcePoolAdapterIntTest", () => {
           d.collateralAmount,
           d.dfPoolAdapterTC.address
         );
-        await d.dfPoolAdapterTC.borrow(
-          d.collateralAmount,
-          borrowAmount,
-          d.userContract.address
-        );
+        await d.dfPoolAdapterTC.borrow(d.collateralAmount, borrowAmount, d.userContract.address, {gasLimit: GAS_LIMIT});
       }
       const statusAfterBorrow = await d.dfPoolAdapterTC.getStatus();
       console.log("statusAfterBorrow", statusAfterBorrow);
@@ -514,7 +511,8 @@ describe("DForcePoolAdapterIntTest", () => {
         await poolAdapterAsCaller.repay(
           amountToRepay,
           d.userContract.address,
-          badParams?.forceToClosePosition || false
+          badParams?.forceToClosePosition || false,
+          {gasLimit: GAS_LIMIT}
         );
       } else {
         console.log("user balance borrow asset before repay", await borrowTokenAsUser.balanceOf(d.userContract.address));

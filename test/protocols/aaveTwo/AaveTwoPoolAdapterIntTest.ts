@@ -28,6 +28,7 @@ import {formatUnits, parseUnits} from "ethers/lib/utils";
 import {Misc} from "../../../scripts/utils/Misc";
 import {loadFixture} from "@nomicfoundation/hardhat-network-helpers";
 import {TetuConverterApp} from "../../baseUT/helpers/TetuConverterApp";
+import {GAS_LIMIT} from "../../baseUT/GasLimit";
 
 describe("AaveTwoPoolAdapterIntTest", () => {
 //region Global vars for all tests
@@ -644,11 +645,7 @@ describe("AaveTwoPoolAdapterIntTest", () => {
         d.collateralAmount,
         d.aavePoolAdapterAsTC.address
       );
-      await d.aavePoolAdapterAsTC.borrow(
-        collateralAmount,
-        maxAllowedAmountToBorrow,
-        d.userContract.address
-      );
+      await d.aavePoolAdapterAsTC.borrow(collateralAmount, maxAllowedAmountToBorrow, d.userContract.address, {gasLimit: GAS_LIMIT});
       console.log("amountToBorrow", maxAllowedAmountToBorrow);
 
       // check results
@@ -757,11 +754,7 @@ describe("AaveTwoPoolAdapterIntTest", () => {
           d.collateralAmount,
           d.aavePoolAdapterAsTC.address
         );
-        await d.aavePoolAdapterAsTC.borrow(
-          d.collateralAmount,
-          borrowAmount,
-          d.userContract.address
-        );
+        await d.aavePoolAdapterAsTC.borrow(d.collateralAmount, borrowAmount, d.userContract.address, {gasLimit: GAS_LIMIT});
       }
 
       const afterBorrow: IUserBalances = {
@@ -802,7 +795,8 @@ describe("AaveTwoPoolAdapterIntTest", () => {
           d.userContract.address,
           // normally we don't close position here
           // but in bad paths we need to emulate attempts to close the position
-          badParams?.forceToClosePosition || false
+          badParams?.forceToClosePosition || false,
+          {gasLimit: GAS_LIMIT}
         );
       } else {
         console.log("user balance borrow asset before repay", await borrowTokenAsUser.balanceOf(d.userContract.address));
