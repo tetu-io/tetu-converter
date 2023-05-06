@@ -18,6 +18,7 @@ import {IBorrowAndRepayBadParams} from "../../baseUT/protocols/aaveShared/aaveBo
 import {IERC20Metadata__factory, IPoolAdapter__factory} from "../../../typechain";
 import {DeployerUtils} from "../../../scripts/utils/DeployerUtils";
 import {transferAndApprove} from "../../baseUT/utils/transferUtils";
+import {GAS_LIMIT} from "../../baseUT/GasLimit";
 
 describe("Compound3PoolAdapterIntTest", () => {
 //region Global vars for all tests
@@ -158,7 +159,8 @@ describe("Compound3PoolAdapterIntTest", () => {
         prepareResults.userContract.address,
         // normally we don't close position here
         // but in bad paths we need to emulate attempts to close the position
-        badParams?.forceToClosePosition || false
+        badParams?.forceToClosePosition || false,
+        {gasLimit: GAS_LIMIT}
       );
     } else {
       console.log("user balance borrow asset before repay", await borrowTokenAsUser.balanceOf(prepareResults.userContract.address));

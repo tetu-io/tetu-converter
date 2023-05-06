@@ -32,7 +32,7 @@ import {IConversionPlan} from "../../baseUT/apr/aprDataTypes";
 import {DForceChangePriceUtils} from "../../baseUT/protocols/dforce/DForceChangePriceUtils";
 import {defaultAbiCoder, formatUnits, parseUnits} from "ethers/lib/utils";
 import {controlGasLimitsEx} from "../../../scripts/utils/hardhatUtils";
-import {GAS_LIMIT_DFORCE_GET_CONVERSION_PLAN} from "../../baseUT/GasLimit";
+import {GAS_LIMIT, GAS_LIMIT_DFORCE_GET_CONVERSION_PLAN} from "../../baseUT/GasLimit";
 import {AppConstants} from "../../baseUT/AppConstants";
 
 describe("DForcePlatformAdapterTest", () => {
@@ -277,6 +277,7 @@ describe("DForcePlatformAdapterTest", () => {
         entryData: entryData|| "0x"
       },
       badPathsParams?.incorrectHealthFactor2 || healthFactor2,
+      {gasLimit: GAS_LIMIT},
     );
 
     return {
@@ -1143,6 +1144,7 @@ describe("DForcePlatformAdapterTest", () => {
             entryData: "0x"
           },
           200,
+          {gasLimit: GAS_LIMIT},
         );
         console.log("DForcePlatformAdapter.getConversionPlan.gas", gasUsed.toString());
         controlGasLimitsEx(gasUsed, GAS_LIMIT_DFORCE_GET_CONVERSION_PLAN, (u, t) => {

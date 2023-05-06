@@ -50,7 +50,7 @@ import {defaultAbiCoder, formatUnits, parseUnits} from "ethers/lib/utils";
 import {controlGasLimitsEx} from "../../scripts/utils/hardhatUtils";
 import {
   GAS_FIND_CONVERSION_STRATEGY_ONLY_BORROW_AVAILABLE,
-  GAS_FIND_SWAP_STRATEGY, GAS_TC_BORROW, GAS_TC_QUOTE_REPAY, GAS_TC_REPAY, GAS_TC_SAFE_LIQUIDATE,
+  GAS_FIND_SWAP_STRATEGY, GAS_LIMIT, GAS_TC_BORROW, GAS_TC_QUOTE_REPAY, GAS_TC_REPAY, GAS_TC_SAFE_LIQUIDATE,
 } from "../baseUT/GasLimit";
 import {ICreateControllerParams, TetuConverterApp} from "../baseUT/helpers/TetuConverterApp";
 import {getSum} from "../baseUT/utils/CommonUtils";
@@ -1953,7 +1953,8 @@ describe("TetuConverterTest", () => {
           plan.collateralAmountOut,
           init.targetToken.address,
           plan.amountToBorrowOut,
-          receiver
+          receiver,
+          {gasLimit: GAS_LIMIT}
         );
 
         controlGasLimitsEx(gasUsed, GAS_TC_BORROW, (u, t) => {
@@ -2322,13 +2323,15 @@ describe("TetuConverterTest", () => {
         init.sourceToken.address,
         init.targetToken.address,
         amountToRepay,
-        receiver
+        receiver,
+        {gasLimit: GAS_LIMIT}
       );
       await tcAsUc.repay(
         init.sourceToken.address,
         init.targetToken.address,
         amountToRepay,
-        receiver
+        receiver,
+        {gasLimit: GAS_LIMIT}
       );
       console.log("Repay results", repayOutput);
 
@@ -2855,7 +2858,8 @@ describe("TetuConverterTest", () => {
           plan.collateralAmountOut,
           init.targetToken.address,
           plan.amountToBorrowOut,
-          receiver
+          receiver,
+          {gasLimit: GAS_LIMIT}
         );
         console.log("Collateral used", plan.collateralAmountOut.toString());
         console.log("Borrowed amount", plan.amountToBorrowOut.toString());
@@ -2867,7 +2871,8 @@ describe("TetuConverterTest", () => {
           init.sourceToken.address,
           init.targetToken.address,
           plan.amountToBorrowOut,
-          receiver
+          receiver,
+          {gasLimit: GAS_LIMIT}
         );
 
         controlGasLimitsEx(gasUsed, GAS_TC_REPAY, (u, t) => {
@@ -4003,7 +4008,8 @@ describe("TetuConverterTest", () => {
             init.sourceToken.address,
             init.targetToken.address,
             amountToRepay,
-            init.userContract.address
+            init.userContract.address,
+            {gasLimit: GAS_LIMIT}
           )
         ).to.emit(core.tc, "OnRepayBorrow").withArgs(
           init.poolAdapters[0],
@@ -4050,7 +4056,8 @@ describe("TetuConverterTest", () => {
               init.sourceToken.address,
               init.targetToken.address,
               amountToRepay,
-              init.userContract.address
+              init.userContract.address,
+              {gasLimit: GAS_LIMIT}
             )
           ).to.emit(core.tc, "OnRepayBorrow").withArgs(
             init.poolAdapters[0],
@@ -4122,7 +4129,8 @@ describe("TetuConverterTest", () => {
               init.sourceToken.address,
               init.targetToken.address,
               amountToRepay,
-              init.userContract.address
+              init.userContract.address,
+              {gasLimit: GAS_LIMIT}
             )
           ).to.emit(core.tc, "OnRepayBorrow").withArgs(
             init.poolAdapters[0],

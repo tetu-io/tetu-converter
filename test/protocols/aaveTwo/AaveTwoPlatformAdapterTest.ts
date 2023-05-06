@@ -29,7 +29,7 @@ import {IConversionPlan} from "../../baseUT/apr/aprDataTypes";
 import {defaultAbiCoder, formatUnits, parseUnits} from "ethers/lib/utils";
 import {AaveTwoChangePricesUtils} from "../../baseUT/protocols/aaveTwo/AaveTwoChangePricesUtils";
 import {controlGasLimitsEx} from "../../../scripts/utils/hardhatUtils";
-import {GAS_LIMIT_AAVE_TWO_GET_CONVERSION_PLAN} from "../../baseUT/GasLimit";
+import {GAS_LIMIT, GAS_LIMIT_AAVE_TWO_GET_CONVERSION_PLAN} from "../../baseUT/GasLimit";
 import {AppConstants} from "../../baseUT/AppConstants";
 
 describe("AaveTwoPlatformAdapterTest", () => {
@@ -98,7 +98,7 @@ describe("AaveTwoPlatformAdapterTest", () => {
     }
     async borrow(borrowAmount: BigNumber): Promise<void> {
       console.log(`borrow ${this.borrowAsset} amount ${borrowAmount}`);
-      await this.pool.borrow(this.borrowAsset, borrowAmount, 2, 0, deployer.address);
+      await this.pool.borrow(this.borrowAsset, borrowAmount, 2, 0, deployer.address, {gasLimit: GAS_LIMIT});
     }
   }
 //endregion IPlatformActor impl
@@ -269,6 +269,7 @@ describe("AaveTwoPlatformAdapterTest", () => {
           entryData: entryData || "0x"
         },
         badPathsParams?.incorrectHealthFactor2 || healthFactor2,
+        {gasLimit: GAS_LIMIT},
       );
       return {
         before,
@@ -836,6 +837,7 @@ describe("AaveTwoPlatformAdapterTest", () => {
             entryData: "0x"
           },
           200,
+          {gasLimit: GAS_LIMIT},
         );
         console.log("AaveTwoPlatformAdapter.getConversionPlan.gas", gasUsed.toString());
         controlGasLimitsEx(gasUsed, GAS_LIMIT_AAVE_TWO_GET_CONVERSION_PLAN, (u, t) => {

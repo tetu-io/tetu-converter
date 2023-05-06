@@ -52,7 +52,7 @@ import {IPoolAdapterStatus} from "../../baseUT/types/BorrowRepayDataTypes";
 import {Aave3ChangePricesUtils} from "../../baseUT/protocols/aave3/Aave3ChangePricesUtils";
 import {loadFixture} from "@nomicfoundation/hardhat-network-helpers";
 import {controlGasLimitsEx} from "../../../scripts/utils/hardhatUtils";
-import {GAS_FULL_REPAY} from "../../baseUT/GasLimit";
+import {GAS_FULL_REPAY, GAS_LIMIT} from "../../baseUT/GasLimit";
 import {IMakeRepayBadPathsParams} from "../../baseUT/protocols/aaveShared/aaveBorrowUtils";
 import {RepayUtils} from "../../baseUT/protocols/shared/repayUtils";
 import {convertUnits} from "../../baseUT/apr/aprUtils";
@@ -828,11 +828,7 @@ describe("Aave3PoolAdapterUnitTest", () => {
           d.aavePoolAdapterAsTC.address
         );
 
-        await d.aavePoolAdapterAsTC.borrow(
-          d.collateralAmount,
-          d.amountToBorrow,
-          d.userContract.address // receiver
-        );
+        await d.aavePoolAdapterAsTC.borrow(d.collateralAmount, d.amountToBorrow, d.userContract.address, {gasLimit: GAS_LIMIT});
       }
 
       const afterBorrow: IAave3UserAccountDataResults = await d.aavePool.getUserAccountData(
@@ -1223,11 +1219,7 @@ describe("Aave3PoolAdapterUnitTest", () => {
           d.aavePoolAdapterAsTC.address
         );
 
-        await d.aavePoolAdapterAsTC.borrow(
-          collateralAmount,
-          amountToBorrow,
-          d.userContract.address // receiver
-        );
+        await d.aavePoolAdapterAsTC.borrow(collateralAmount, amountToBorrow, d.userContract.address, {gasLimit: GAS_LIMIT});
       }
       const afterBorrow: IAave3UserAccountDataResults = await d.aavePool.getUserAccountData(d.aavePoolAdapterAsTC.address);
       const userBalanceAfterBorrow = await borrowToken.token.balanceOf(d.userContract.address);
@@ -1756,12 +1748,13 @@ describe("Aave3PoolAdapterUnitTest", () => {
             countBlocks: 1,
             entryData: "0x"
           },
-          targetHealthFactor2
+          targetHealthFactor2,
+          {gasLimit: GAS_LIMIT}
         );
         await transferAndApprove(collateralAsset, userContract.address, tetuConverterSigner.address, collateralAmount, aavePoolAdapterAsTC.address);
 
         await expect(
-          aavePoolAdapterAsTC.borrow(collateralAmount, plan.amountToBorrow, userContract.address)
+          aavePoolAdapterAsTC.borrow(collateralAmount, plan.amountToBorrow, userContract.address, {gasLimit: GAS_LIMIT})
         ).to.emit(aavePoolAdapterAsTC, "OnBorrow").withArgs(
           collateralAmount,
           plan.amountToBorrow,

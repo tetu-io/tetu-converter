@@ -9,6 +9,7 @@ import {TokenDataTypes} from "../../baseUT/types/TokenDataTypes";
 import {transferAndApprove} from "../../baseUT/utils/transferUtils";
 import {AaveTwoTestUtils} from "../../baseUT/protocols/aaveTwo/AaveTwoTestUtils";
 import {parseUnits} from "ethers/lib/utils";
+import {GAS_LIMIT} from "../../baseUT/GasLimit";
 
 describe.skip("AaveTwoPoolAdapterIntDustTokensTest (study)", () => {
 //region Global vars for all tests
@@ -95,7 +96,7 @@ describe.skip("AaveTwoPoolAdapterIntDustTokensTest (study)", () => {
         d.collateralAmount,
         d.aavePoolAdapterAsTC.address
       );
-      await d.aavePoolAdapterAsTC.borrow(d.collateralAmount, borrowAmount, d.userContract.address);
+      await d.aavePoolAdapterAsTC.borrow(d.collateralAmount, borrowAmount, d.userContract.address, {gasLimit: GAS_LIMIT});
       console.log("borrowAmount", borrowAmount.toString());
 
       await TimeUtils.advanceNBlocks(params.borrowRepayDistanceInBlocks || 0);
@@ -118,7 +119,7 @@ describe.skip("AaveTwoPoolAdapterIntDustTokensTest (study)", () => {
           params.amountToRepay,
           d.aavePoolAdapterAsTC.address
         );
-        await poolAdapterAsCaller.repay(params.amountToRepay, d.userContract.address, false);
+        await poolAdapterAsCaller.repay(params.amountToRepay, d.userContract.address, false, {gasLimit: GAS_LIMIT});
       } else {
         fullRepayResult = await d.userContract.callStatic.makeRepayComplete(
           collateralToken.address, borrowToken.address, d.userContract.address

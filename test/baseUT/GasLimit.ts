@@ -1,3 +1,5 @@
+export const GAS_LIMIT = 9_000_000;
+
 /**
  * Approx up-limits by gas for various operations under test
  */

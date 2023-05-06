@@ -46,6 +46,7 @@ import {BalanceUtils} from "../../baseUT/utils/BalanceUtils";
 import {core} from "../../../typechain/contracts";
 import {AST} from "eslint";
 import Token = AST.Token;
+import {GAS_LIMIT} from "../../baseUT/GasLimit";
 
 describe("DForcePoolAdapterUnitTest", () => {
 //region Global vars for all tests
@@ -1067,11 +1068,7 @@ describe("DForcePoolAdapterUnitTest", () => {
           d.collateralAmount,
           d.dfPoolAdapterTC.address
         );
-        await d.dfPoolAdapterTC.borrow(
-          d.collateralAmount,
-          amountToBorrow,
-          d.userContract.address // receiver
-        );
+        await d.dfPoolAdapterTC.borrow(d.collateralAmount, amountToBorrow, d.userContract.address, {gasLimit: GAS_LIMIT});
       }
       const afterBorrow = await d.comptroller.calcAccountEquity(d.dfPoolAdapterTC.address);
       const statusAfterBorrow = await d.dfPoolAdapterTC.getStatus();
@@ -1376,11 +1373,7 @@ describe("DForcePoolAdapterUnitTest", () => {
           d.collateralAmount,
           d.dfPoolAdapterTC.address
         );
-        await d.dfPoolAdapterTC.borrow(
-          p.collateralAmount,
-          amountToBorrow,
-          d.userContract.address // receiver
-        );
+        await d.dfPoolAdapterTC.borrow(p.collateralAmount, amountToBorrow, d.userContract.address, {gasLimit: GAS_LIMIT});
       }
 
       const afterBorrow: IDForceCalcAccountEquityResults = await d.comptroller.calcAccountEquity(d.dfPoolAdapterTC.address);

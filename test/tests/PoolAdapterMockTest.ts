@@ -17,6 +17,7 @@ import {BalanceUtils, IContractToInvestigate} from "../baseUT/utils/BalanceUtils
 import {CoreContracts} from "../baseUT/types/CoreContracts";
 import {TetuConverterApp} from "../baseUT/helpers/TetuConverterApp";
 import {makeInfinityApprove} from "../baseUT/utils/transferUtils";
+import {GAS_LIMIT} from "../baseUT/GasLimit";
 
 describe("PoolAdapterMock", () => {
 //region Global vars for all tests
@@ -165,7 +166,7 @@ describe("PoolAdapterMock", () => {
           await MockERC20__factory.connect(targetToken.address, await DeployerUtils.startImpersonate(user))
             .approve(pa.address, amountToRepay); // user transfers collateral to pool adapter
           console.log("Transfer borrowed token to PA", amountToRepay);
-          await pa.repay(amountToRepay, user, false);
+          await pa.repay(amountToRepay, user, false, {gasLimit: GAS_LIMIT});
 
           const afterRepay = await BalanceUtils.getBalances(deployer
             , contractsToInvestigate, tokensToInvestigate);

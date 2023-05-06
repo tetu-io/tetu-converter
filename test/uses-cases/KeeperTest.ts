@@ -13,6 +13,7 @@ import {DeployerUtils} from "../../scripts/utils/DeployerUtils";
 import {BalanceUtils} from "../baseUT/utils/BalanceUtils";
 import {parseUnits} from "ethers/lib/utils";
 import {Misc} from "../../scripts/utils/Misc";
+import {GAS_LIMIT} from "../baseUT/GasLimit";
 
 describe("Keeper test for reconversion @skip-on-coverage", () => {
 //region Global vars for all tests
@@ -91,7 +92,8 @@ describe("Keeper test for reconversion @skip-on-coverage", () => {
           plan.collateralAmountOut,
           MaticAddresses.USDT,
           plan.amountToBorrowOut,
-          userContract.address
+          userContract.address,
+          {gasLimit: GAS_LIMIT}
         );
       }
 

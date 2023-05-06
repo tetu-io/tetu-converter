@@ -116,7 +116,6 @@ describe("Controller", () => {
         a.blocksPerDay,
         a.minHealthFactor2,
         a.targetHealthFactor2,
-        a.maxHealthFactor2,
         a.tetuConverter,
         a.borrowManager,
         a.debtMonitor,
@@ -126,6 +125,9 @@ describe("Controller", () => {
         a.priceOracle
       )
     );
+
+    // maxHealthFactor2 was removed from initialize in ver.13
+    await controller.connect(await Misc.impersonate(a.governance)).setMaxHealthFactor2(a.maxHealthFactor2);
 
     return {controller, gasUsed};
   }
@@ -271,7 +273,6 @@ describe("Controller", () => {
             a.blocksPerDay,
             a.minHealthFactor2,
             a.targetHealthFactor2,
-            a.maxHealthFactor2,
             a.tetuConverter,
             a.borrowManager,
             a.debtMonitor,

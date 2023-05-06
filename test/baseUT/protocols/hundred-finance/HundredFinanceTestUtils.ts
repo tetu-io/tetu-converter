@@ -33,6 +33,7 @@ import {IPoolAdapterStatus} from "../../types/BorrowRepayDataTypes";
 import {getBigNumberFrom} from "../../../../scripts/utils/NumberUtils";
 import {TetuConverterApp} from "../../helpers/TetuConverterApp";
 import {IConversionPlan} from "../../apr/aprDataTypes";
+import {GAS_LIMIT} from "../../GasLimit";
 
 //region Data types
 export interface IPrepareToBorrowResults {
@@ -233,6 +234,7 @@ export class HundredFinanceTestUtils {
         entryData: "0x"
       },
       badPathsParams?.targetHealthFactor2 || await controller.targetHealthFactor2(),
+      {gasLimit: GAS_LIMIT}
     );
     console.log("plan", plan);
 
@@ -338,11 +340,7 @@ export class HundredFinanceTestUtils {
         await DeployerUtils.startImpersonate(ethers.Wallet.createRandom().address)
       )
       : d.hfPoolAdapterTC;
-    await borrower.borrow(
-      d.collateralAmount,
-      borrowAmount,
-      d.userContract.address
-    );
+    await borrower.borrow(d.collateralAmount, borrowAmount, d.userContract.address, {gasLimit: GAS_LIMIT});
     console.log(`borrow: success`);
 
     const marketsInfo = await HundredFinanceTestUtils.getMarketsInfo(deployer,
@@ -415,12 +413,14 @@ export class HundredFinanceTestUtils {
       const repayResultsCollateralAmountOut = await payer.callStatic.repay(
         amountToRepay,
         d.userContract.address,
-        closePosition === undefined ? false : closePosition
+        closePosition === undefined ? false : closePosition,
+        {gasLimit: GAS_LIMIT}
       );
       await payer.repay(
         amountToRepay,
         d.userContract.address,
-        closePosition === undefined ? false : closePosition
+        closePosition === undefined ? false : closePosition,
+        {gasLimit: GAS_LIMIT}
       );
       return {
         userAccountData: await d.comptroller.getAccountLiquidity(d.userContract.address),

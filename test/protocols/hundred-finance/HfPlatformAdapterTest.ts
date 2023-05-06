@@ -31,6 +31,7 @@ import {HundredFinanceChangePriceUtils} from "../../baseUT/protocols/hundred-fin
 import {defaultAbiCoder, formatUnits, parseUnits} from "ethers/lib/utils";
 import {controlGasLimitsEx} from "../../../scripts/utils/hardhatUtils";
 import {
+  GAS_LIMIT,
   GAS_LIMIT_HUNDRED_FINANCE_GET_CONVERSION_PLAN
 } from "../../baseUT/GasLimit";
 import {AppConstants} from "../../baseUT/AppConstants";
@@ -212,6 +213,7 @@ describe.skip("Hundred finance, platform adapter", () => {
         entryData: entryData || "0x"
       },
       badPathsParams?.incorrectHealthFactor2 || healthFactor2,
+      {gasLimit: GAS_LIMIT},
     );
     console.log("PLAN", plan);
 
@@ -952,6 +954,7 @@ describe.skip("Hundred finance, platform adapter", () => {
             entryData: "0x"
           },
           200,
+          {gasLimit: GAS_LIMIT},
         );
         console.log("DForcePlatformAdapter.getConversionPlan.gas", gasUsed.toString());
         controlGasLimitsEx(gasUsed, GAS_LIMIT_HUNDRED_FINANCE_GET_CONVERSION_PLAN, (u, t) => {

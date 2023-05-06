@@ -106,7 +106,6 @@ contract ConverterController is IConverterController, Initializable {
     uint blocksPerDay_,
     uint16 minHealthFactor_,
     uint16 targetHealthFactor_,
-    uint16 maxHealthFactor_,
     address tetuConverter_,
     address borrowManager_,
     address debtMonitor_,
@@ -114,11 +113,11 @@ contract ConverterController is IConverterController, Initializable {
     address swapManager_,
     uint debtGap_,
     address priceOracle_
+  // we cannot have additional parameters here because strategy will have stack too deep on coverage
   ) external initializer {
     require(blocksPerDay_ != 0, AppErrors.INCORRECT_VALUE);
     require(minHealthFactor_ >= MIN_ALLOWED_MIN_HEALTH_FACTOR, AppErrors.WRONG_HEALTH_FACTOR);
     require(minHealthFactor_ < targetHealthFactor_, AppErrors.WRONG_HEALTH_FACTOR_CONFIG);
-    require(targetHealthFactor_ < maxHealthFactor_, AppErrors.WRONG_HEALTH_FACTOR_CONFIG);
     require(
       governance_ != address(0)
       && tetuConverter_ != address(0)
@@ -142,8 +141,11 @@ contract ConverterController is IConverterController, Initializable {
     // it's necessary to call setBlocksPerDay to enable it
 
     minHealthFactor2 = minHealthFactor_;
-    maxHealthFactor2 = maxHealthFactor_;
     targetHealthFactor2 = targetHealthFactor_;
+
+    // current version of converter doesn't use maxHealthFactor2, it's for future versions
+    // you can always change this limit using setMaxHealthFactor
+    maxHealthFactor2 = targetHealthFactor_ * 10;
 
     debtGap = debtGap_;
   }

@@ -25,6 +25,7 @@ import {getBigNumberFrom} from "../../../../scripts/utils/NumberUtils";
 import {IPoolAdapterStatus} from "../../types/BorrowRepayDataTypes";
 import {TetuConverterApp} from "../../helpers/TetuConverterApp";
 import {Misc} from "../../../../scripts/utils/Misc";
+import {GAS_LIMIT} from "../../GasLimit";
 
 //region Data types
 export interface IPrepareToBorrowResults {
@@ -211,7 +212,8 @@ export class AaveTwoTestUtils {
         countBlocks,
         entryData: "0x"
       },
-       additionalParams?.targetHealthFactor2 || await controller.targetHealthFactor2(),
+      additionalParams?.targetHealthFactor2 || await controller.targetHealthFactor2(),
+      {gasLimit: GAS_LIMIT}
     );
     console.log("plan", plan);
 
@@ -276,11 +278,7 @@ export class AaveTwoTestUtils {
       }
     }
 
-    await borrower.borrow(
-      d.collateralAmount,
-      borrowAmount,
-      d.userContract.address
-    );
+    await borrower.borrow(d.collateralAmount, borrowAmount, d.userContract.address, {gasLimit: GAS_LIMIT});
 
     // check results
     const accountDataAfterBorrow = await d.aavePool.getUserAccountData(d.aavePoolAdapterAsTC.address);
@@ -323,13 +321,15 @@ export class AaveTwoTestUtils {
       const repayResultsCollateralAmountOut = await payer.callStatic.repay(
         amountToRepay,
         d.userContract.address,
-        closePosition === undefined ? false : closePosition
+        closePosition === undefined ? false : closePosition,
+        {gasLimit: GAS_LIMIT}
       );
 
       await payer.repay(
         amountToRepay,
         d.userContract.address,
-        closePosition === undefined ? false : closePosition
+        closePosition === undefined ? false : closePosition,
+        {gasLimit: GAS_LIMIT}
       );
       return {
         userAccountData: await d.aavePool.getUserAccountData(d.aavePoolAdapterAsTC.address),
