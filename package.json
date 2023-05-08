@@ -40,7 +40,6 @@
     "@openzeppelin/contracts": "^4.8.3",
     "@rari-capital/solmate": "^6.2.0",
     "@tenderly/hardhat-tenderly": "^1.7.2",
-    "@tetu_io/tetu-contracts-v2": "2.0.9",
     "@typechain/ethers-v5": "^10.2.1",
     "@typechain/hardhat": "^6.1.6",
     "@types/chai": "^4.3.5",

@@ -82,9 +82,9 @@ interface IBorrowManager {
   function getPlatformAdapter(address converter_) external view returns (address);
 
   /// @notice Count of available platform adapters
-  function platformAdaptersLength() public view returns (uint);
+  function platformAdaptersLength() external view returns (uint);
 
   /// @notice Get platform adapter at the given index
   /// @param index [0.. platformAdaptersLength)
-  function platformAdaptersAt(uint index) public view returns (address);
+  function platformAdaptersAt(uint index) external view returns (address);
 }
