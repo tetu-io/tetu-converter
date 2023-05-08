@@ -9,49 +9,39 @@ import "../interfaces/IDebtMonitor.sol";
 import "../interfaces/IKeeperCallback.sol";
 import "../integrations/gelato/IResolver.sol";
 import "../integrations/gelato/OpsReady.sol";
+import "../proxy/ControllableV3.sol";
 
 /// @notice Executor + Resolver for Gelato
 ///         to check health of opened positions and call requireRepay for unhealthy pool adapters
 ///         Same keeper is also responsible for updating block-per-day value in controller.
-contract Keeper is OpsReady, IHealthKeeperCallback, IResolver {
+contract Keeper is OpsReady, IHealthKeeperCallback, IResolver, ControllableV3 {
   using AppUtils for uint;
 
-  //-----------------------------------------------------
-  //region Members
-  //-----------------------------------------------------
+  //region ----------------------------------------------------- Constants
   /// @notice Max count of opened positions to be checked in single request
   uint constant public MAX_COUNT_TO_CHECK = 80;
 
   /// @notice Max count of unhealthy positions to be returned in single request
   uint constant public MAX_COUNT_TO_RETURN = 1;
+  //endregion ----------------------------------------------------- Constants
 
+  //region ----------------------------------------------------- Variables. Don't change names or ordering!
   /// @notice Period of auto-update of the blocksPerDay-value in seconds
   ///         0 - auto-update checking is disabled
   uint public blocksPerDayAutoUpdatePeriodSecs; // i.e. 2 * 7 * 24 * 60 * 60 for 2 weeks
 
-
   /// @notice Start index of pool adapter for next checkHealth-request
   ///         We store here result of previous call of IDebtMonitor.checkHealth
   uint256 public override nextIndexToCheck0;
-  IConverterController immutable public controller;
-  //endregion Members
+  //endregion ----------------------------------------------------- Variables. Don't change names or ordering!
 
-  //-----------------------------------------------------
-  //region Events
-  //-----------------------------------------------------
+  //region ----------------------------------------------------- Events
   event OnFixHealth(uint nextIndexToCheck0, address[] poolAdapters, uint[] amountBorrowAsset, uint[] amountCollateralAsset);
-  //endregion Events
+  //endregion ----------------------------------------------------- Events
 
-  //-----------------------------------------------------
-  //region Initialization and configuration
-  //-----------------------------------------------------
-  constructor(
-    address controller_,
-    address payable ops_,
-    uint blocksPerDayAutoUpdatePeriodSecs_
-  ) OpsReady(ops_) {
-    require(controller_ != address(0), AppErrors.ZERO_ADDRESS);
-    controller = IConverterController(controller_);
+  //region ----------------------------------------------------- Initialization
+  function init(address controller_, address payable ops_, uint blocksPerDayAutoUpdatePeriodSecs_) OpsReady(ops_) external initializer {
+    __Controllable_init(controller_);
     blocksPerDayAutoUpdatePeriodSecs = blocksPerDayAutoUpdatePeriodSecs_;
   }
 
@@ -61,11 +51,9 @@ contract Keeper is OpsReady, IHealthKeeperCallback, IResolver {
 
     blocksPerDayAutoUpdatePeriodSecs = periodSeconds;
   }
-  //endregion Initialization and configuration
+  //endregion ----------------------------------------------------- Initialization
 
-  //-----------------------------------------------------
-  //region Read-only gelato-resolver
-  //-----------------------------------------------------
+  //region ----------------------------------------------------- Read-only gelato-resolver
 
   /// @notice Check health of opened positions starting from nth-position, where n = nextIndexToCheck0
   /// @dev Read-only checker function called by Gelato.
@@ -110,11 +98,9 @@ contract Keeper is OpsReady, IHealthKeeperCallback, IResolver {
     );
   }
 
-  //endregion Read-only gelato-resolver
+  //endregion ----------------------------------------------------- Read-only gelato-resolver
 
-  //-----------------------------------------------------
-  //region Executor to fix unhealthy pool adapters
-  //-----------------------------------------------------
+  //region ----------------------------------------------------- Executor to fix unhealthy pool adapters
 
   /// @notice Make rebalancing of the given unhealthy positions (a position == pool adapter)
   ///         Call TetuConverter.requireRepay for each position
@@ -153,5 +139,5 @@ contract Keeper is OpsReady, IHealthKeeperCallback, IResolver {
     emit OnFixHealth(nextIndexToCheck0_, poolAdapters_, amountBorrowAsset_, amountCollateralAsset_);
   }
 
-  //endregion Executor to fix unhealthy pool adapters
+  //endregion ----------------------------------------------------- Executor to fix unhealthy pool adapters
 }

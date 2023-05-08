@@ -3,17 +3,16 @@
 pragma solidity 0.8.17;
 
 import "../openzeppelin/Initializable.sol";
-import "../interfaces/IControllable.sol";
-import "../interfaces/IController.sol";
 import "../libs/SlotsLib.sol";
-import "../libs/InterfaceIds.sol";
-import "../integrations/tetu/TetuERC165.sol";
+import "../libs/AppErrors.sol";
+import "../interfaces/IConverterControllable.sol";
+import "../interfaces/IConverterController.sol";
 
 /// @title Implement basic functionality for any contract that require strict control
 /// @dev Can be used with upgradeable pattern.
 ///      Require call __Controllable_init() in any case.
 /// @author belbix
-abstract contract ControllableV3 is Initializable, TetuERC165, IControllable {
+abstract contract ControllableV3 is Initializable, IConverterControllable {
   using SlotsLib for bytes32;
 
   /// @notice Version of the contract
@@ -29,19 +28,13 @@ abstract contract ControllableV3 is Initializable, TetuERC165, IControllable {
   event ContractInitialized(address controller, uint ts, uint block);
   event RevisionIncreased(uint value, address oldLogic);
 
-  /// @dev Prevent implementation init
-  constructor() {
-    _disableInitializers();
-  }
-
   /// @notice Initialize contract after setup it as proxy implementation
   ///         Save block.timestamp in the "created" variable
   /// @dev Use it only once after first logic setup
   /// @param controller_ Controller address
-  function __Controllable_init(address controller_) internal onlyInitializing {
-    require(controller_ != address(0), "Zero controller");
-    _requireInterface(controller_, InterfaceIds.I_CONTROLLER);
-    require(IController(controller_).governance() != address(0), "Zero governance");
+  function __Controllable_init(address controller_) public onlyInitializing {
+    require(controller_ != address(0), AppErrors.ZERO_ADDRESS);
+    require(IConverterController(controller_).governance() != address(0), "Zero governance");
     _CONTROLLER_SLOT.set(controller_);
     _CREATED_SLOT.set(block.timestamp);
     _CREATED_BLOCK_SLOT.set(block.number);
@@ -52,10 +45,14 @@ abstract contract ControllableV3 is Initializable, TetuERC165, IControllable {
   function isController(address _value) public override view returns (bool) {
     return _value == controller();
   }
+  /// @dev Return true if given address is controller of tetu-contracts-v2
+  function isControllerTetuV2(address _value) public override view returns (bool) {
+    return IConverterController(controller()).controllerTetuV2() == _value;
+  }
 
-  /// @notice Return true if given address is setup as governance in Controller
+  /// @notice Return true if given address is setup as governance in ConverterController
   function isGovernance(address _value) public override view returns (bool) {
-    return IController(controller()).governance() == _value;
+    return IConverterController(controller()).governance() == _value;
   }
 
   /// @dev Contract upgrade counter
@@ -68,14 +65,9 @@ abstract contract ControllableV3 is Initializable, TetuERC165, IControllable {
     return _PREVIOUS_LOGIC_SLOT.getAddress();
   }
 
-  /// @dev See {IERC165-supportsInterface}.
-  function supportsInterface(bytes4 interfaceId) public view virtual override returns (bool) {
-    return interfaceId == InterfaceIds.I_CONTROLLABLE || super.supportsInterface(interfaceId);
-  }
-
   // ************* SETTERS/GETTERS *******************
 
-  /// @notice Return controller address saved in the contract slot
+  /// @notice Return ConverterController address saved in the contract slot
   function controller() public view override returns (address) {
     return _CONTROLLER_SLOT.getAddress();
   }
