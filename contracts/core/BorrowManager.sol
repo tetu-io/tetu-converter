@@ -530,11 +530,11 @@ contract BorrowManager is IBorrowManager {
   //region Access to arrays
   //-----------------------------------------------------
 
-  function platformAdaptersLength() public view returns (uint) {
+  function platformAdaptersLength() public view override returns (uint) {
     return _platformAdapters.length();
   }
 
-  function platformAdaptersAt(uint index) public view returns (address) {
+  function platformAdaptersAt(uint index) public view override returns (address) {
     return _platformAdapters.at(index);
   }
 
@@ -554,7 +554,7 @@ contract BorrowManager is IBorrowManager {
     return _assetPairs[_platformAdapterPairs[platformAdapter_].at(index)];
   }
 
-  function listPoolAdaptersLength() public view returns (uint) {
+  function listPoolAdaptersLength() public view override returns (uint) {
     return listPoolAdapters.length;
   }
   //endregion Access to arrays

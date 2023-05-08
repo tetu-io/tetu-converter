@@ -15,20 +15,10 @@ interface IBorrowManager {
   /// @notice Register a pool adapter for (pool, user, collateral) if the adapter wasn't created before
   /// @param user_ Address of the caller contract who requires access to the pool adapter
   /// @return Address of registered pool adapter
-  function registerPoolAdapter(
-    address converter_,
-    address user_,
-    address collateral_,
-    address borrowToken_
-  ) external returns (address);
+  function registerPoolAdapter(address converter_, address user_, address collateral_, address borrowToken_) external returns (address);
 
   /// @notice Get pool adapter or 0 if the pool adapter is not registered
-  function getPoolAdapter(
-    address converter_,
-    address user_,
-    address collateral_,
-    address borrowToken_
-  ) external view returns (address);
+  function getPoolAdapter(address converter_, address user_, address collateral_, address borrowToken_) external view returns (address);
 
   /// @dev Returns true for NORMAL pool adapters and for active DIRTY pool adapters (=== borrow position is opened).
   function isPoolAdapter(address poolAdapter_) external view returns (bool);
@@ -36,31 +26,18 @@ interface IBorrowManager {
   /// @notice Notify borrow manager that the pool adapter with the given params is "dirty".
   ///         The pool adapter should be excluded from the list of ready-to-borrow pool adapters.
   /// @dev "Dirty" means that a liquidation happens inside. The borrow position should be closed during health checking.
-  function markPoolAdapterAsDirty (
-    address converter_,
-    address user_,
-    address collateral_,
-    address borrowToken_
-  ) external;
+  function markPoolAdapterAsDirty(address converter_, address user_, address collateral_, address borrowToken_) external;
 
   /// @notice Register new lending platform with available pairs of assets
   ///         OR add new pairs of assets to the exist lending platform
   /// @param platformAdapter_ Implementation of IPlatformAdapter attached to the specified pool
   /// @param leftAssets_  Supported pairs of assets. The pairs are set using two arrays: left and right
   /// @param rightAssets_  Supported pairs of assets. The pairs are set using two arrays: left and right
-  function addAssetPairs(
-    address platformAdapter_,
-    address[] calldata leftAssets_,
-    address[] calldata rightAssets_
-  ) external;
+  function addAssetPairs(address platformAdapter_, address[] calldata leftAssets_, address[] calldata rightAssets_) external;
 
   /// @notice Remove available pairs of asset from the platform adapter.
   ///         The platform adapter will be unregistered after removing last supported pair of assets
-  function removeAssetPairs(
-    address platformAdapter_,
-    address[] calldata leftAssets_,
-    address[] calldata rightAssets_
-  ) external;
+  function removeAssetPairs(address platformAdapter_, address[] calldata leftAssets_, address[] calldata rightAssets_) external;
 
   /// @notice Set target health factors for the assets.
   ///         If target health factor is not assigned to the asset, target-health-factor from controller is used.
@@ -103,4 +80,11 @@ interface IBorrowManager {
 
   /// @notice Get platformAdapter to which the converter belongs
   function getPlatformAdapter(address converter_) external view returns (address);
+
+  /// @notice Count of available platform adapters
+  function platformAdaptersLength() public view returns (uint);
+
+  /// @notice Get platform adapter at the given index
+  /// @param index [0.. platformAdaptersLength)
+  function platformAdaptersAt(uint index) public view returns (address);
 }
