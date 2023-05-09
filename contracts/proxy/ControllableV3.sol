@@ -45,9 +45,9 @@ abstract contract ControllableV3 is Initializable, IConverterControllable {
   function isController(address _value) public override view returns (bool) {
     return _value == controller();
   }
-  /// @dev Return true if given address is controller of tetu-contracts-v2
-  function isControllerTetuV2(address _value) public override view returns (bool) {
-    return IConverterController(controller()).controllerTetuV2() == _value;
+  /// @dev Return true if given address is controller of tetu-contracts-v2 that is allowed to update proxy contracts
+  function isProxyUpdater(address _value) public override view returns (bool) {
+    return IConverterController(controller()).proxyUpdater() == _value;
   }
 
   /// @notice Return true if given address is setup as governance in ConverterController

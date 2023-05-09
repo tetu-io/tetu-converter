@@ -19,6 +19,7 @@ contract Keeper is IHealthKeeperCallback, IResolver, ControllableV3 {
   using AppUtils for uint;
 
   //region ----------------------------------------------------- Constants
+  string public constant KEEPER_VERSION = "1.0.0";
   address public constant ETH = 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE;
 
   /// @notice Max count of opened positions to be checked in single request

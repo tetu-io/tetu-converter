@@ -24,6 +24,7 @@ contract SwapManager is ControllableV3, ISwapManager, ISwapConverter, ISimulateP
   using SafeERC20 for IERC20;
 
   //region ----------------------------------------------------- Constants
+  string public constant SWAP_MANAGER_VERSION = "1.0.0";
   int public constant APR_NUMERATOR = 10 ** 18;
 
   uint public constant PRICE_IMPACT_NUMERATOR = SwapLib.PRICE_IMPACT_NUMERATOR;

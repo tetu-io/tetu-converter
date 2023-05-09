@@ -28,11 +28,14 @@ contract BorrowManager is IBorrowManager, ControllableV3 {
   using EnumerableSet for EnumerableSet.UintSet;
   using EnumerableMap for EnumerableMap.UintToAddressMap;
 
+  //region ----------------------------------------------------- Constants
+  string public constant BORROW_MANAGER_VERSION = "1.0.0";
   /// @notice Reward APR is taken into account with given factor
   ///         Result APR = borrow-apr - supply-apr - Factor/Denominator * rewards-APR
   uint constant public REWARDS_FACTOR_DENOMINATOR_18 = 1e18;
+  //endregion ----------------------------------------------------- Constants
 
-  //region ----------------------------------------------------- Structs and enums
+  //region ----------------------------------------------------- Data types
 
   /// @notice Pair of two assets. Asset 1 can be converted to asset 2 and vice versa.
   /// @dev There are no restrictions for {assetLeft} and {assertRight}. Each can be smaller than the other.
@@ -40,7 +43,7 @@ contract BorrowManager is IBorrowManager, ControllableV3 {
     address assetLeft;
     address assetRight;
   }
-  //endregion ----------------------------------------------------- Structs and enums
+  //endregion ----------------------------------------------------- Data types
 
   //region ----------------------------------------------------- Variables. Don't change names or ordering!
 

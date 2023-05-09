@@ -77,6 +77,6 @@ interface IConverterController {
   //-----------------------------------------------------
   /// @notice A keeper to control health and efficiency of the borrows
   function keeper() external view returns (address);
-  /// @notice Controller of tetu-contracts-v2
-  function controllerTetuV2() external view returns (address);
+  /// @notice Controller of tetu-contracts-v2, that is allowed to update proxy contracts
+  function proxyUpdater() external view returns (address);
 }

@@ -33,6 +33,7 @@ contract TetuConverter is ControllableV3, ITetuConverter, IKeeperCallback, IRequ
   using AppUtils for uint;
 
   //region ----------------------------------------------------- Constants
+  string public constant TETU_CONVERTER_VERSION = "1.0.0";
   /// @notice After additional borrow result health factor should be near to target value, the difference is limited.
   uint constant public ADDITIONAL_BORROW_DELTA_DENOMINATOR = 1;
   uint constant internal DEBT_GAP_DENOMINATOR = 100_000;
@@ -220,23 +221,17 @@ contract TetuConverter is ControllableV3, ITetuConverter, IKeeperCallback, IRequ
     uint borrowedAmountOut
   ) {
     require(IConverterController(controller()).isWhitelisted(msg.sender), AppErrors.OUT_OF_WHITE_LIST);
-    return _convert(converter_, collateralAsset_, collateralAmount_, borrowAsset_, amountToBorrow_, receiver_);
-  }
+    require(receiver_ != address(0) && converter_ != address(0), AppErrors.ZERO_ADDRESS);
+    require(collateralAmount_ != 0 && amountToBorrow_ != 0, AppErrors.ZERO_AMOUNT);
 
-  function _convert(address converter_, address collateralAsset, uint amountIn, address borrowAsset, uint amountOut, address receiver) internal returns (
-    uint borrowedAmountOut
-  ) {
-    require(receiver != address(0) && converter_ != address(0), AppErrors.ZERO_ADDRESS);
-    require(amountIn != 0 && amountOut != 0, AppErrors.ZERO_AMOUNT);
-
-    IERC20(collateralAsset).safeTransferFrom(msg.sender, address(this), amountIn);
+    IERC20(collateralAsset_).safeTransferFrom(msg.sender, address(this), collateralAmount_);
     IConverterController _controller = IConverterController(controller());
     IBorrowManager borrowManager = IBorrowManager(_controller.borrowManager());
 
     AppDataTypes.ConversionKind conversionKind = IConverter(converter_).getConversionKind();
     if (conversionKind == AppDataTypes.ConversionKind.BORROW_2) {
       // get exist or register new pool adapter
-      address poolAdapter = borrowManager.getPoolAdapter(converter_, msg.sender, collateralAsset, borrowAsset);
+      address poolAdapter = borrowManager.getPoolAdapter(converter_, msg.sender, collateralAsset_, borrowAsset_);
 
       if (poolAdapter != address(0)) {
         // the pool adapter can have three possible states:
@@ -246,7 +241,7 @@ contract TetuConverter is ControllableV3, ITetuConverter, IKeeperCallback, IRequ
         (,, uint healthFactor18,,,) = IPoolAdapter(poolAdapter).getStatus();
         if (healthFactor18 < 1e18) {
           // the pool adapter is unhealthy, we should mark it as dirty and create new pool adapter for the borrow
-          borrowManager.markPoolAdapterAsDirty(converter_, msg.sender, collateralAsset, borrowAsset);
+          borrowManager.markPoolAdapterAsDirty(converter_, msg.sender, collateralAsset_, borrowAsset_);
           poolAdapter = address(0);
         } else if (healthFactor18 <= (uint(_controller.minHealthFactor2()) * 10 ** (18 - 2))) {
           // this is not normal situation
@@ -257,19 +252,19 @@ contract TetuConverter is ControllableV3, ITetuConverter, IKeeperCallback, IRequ
 
       // create new pool adapter if we don't have ready-to-borrow one
       if (poolAdapter == address(0)) {
-        poolAdapter = borrowManager.registerPoolAdapter(converter_, msg.sender, collateralAsset, borrowAsset);
+        poolAdapter = borrowManager.registerPoolAdapter(converter_, msg.sender, collateralAsset_, borrowAsset_);
 
         // TetuConverter doesn't keep assets on its balance, so it's safe to use infinity approve
-        IERC20(collateralAsset).safeApprove(poolAdapter, 2 ** 255); // 2*255 is more gas-efficient than type(uint).max
-        IERC20(borrowAsset).safeApprove(poolAdapter, 2 ** 255); // 2*255 is more gas-efficient than type(uint).max
+        IERC20(collateralAsset_).safeApprove(poolAdapter, 2 ** 255); // 2*255 is more gas-efficient than type(uint).max
+        IERC20(borrowAsset_).safeApprove(poolAdapter, 2 ** 255); // 2*255 is more gas-efficient than type(uint).max
       }
 
       // borrow target-amount and transfer borrowed amount to the receiver, infinity approve is assumed
-      borrowedAmountOut = IPoolAdapter(poolAdapter).borrow(amountIn, amountOut, receiver);
-      emit OnBorrow(poolAdapter, amountIn, amountOut, receiver, borrowedAmountOut);
+      borrowedAmountOut = IPoolAdapter(poolAdapter).borrow(collateralAmount_, amountToBorrow_, receiver_);
+      emit OnBorrow(poolAdapter, collateralAmount_, amountToBorrow_, receiver_, borrowedAmountOut);
     } else if (conversionKind == AppDataTypes.ConversionKind.SWAP_1) {
       require(converter_ == _controller.swapManager(), AppErrors.INCORRECT_CONVERTER_TO_SWAP);
-      borrowedAmountOut = _makeSwap(converter_, collateralAsset, amountIn, borrowAsset, receiver);
+      borrowedAmountOut = _makeSwap(converter_, collateralAsset_, collateralAmount_, borrowAsset_, receiver_);
     } else {
       revert(AppErrors.UNSUPPORTED_CONVERSION_KIND);
     }
@@ -310,7 +305,7 @@ contract TetuConverter is ControllableV3, ITetuConverter, IKeeperCallback, IRequ
     v.debtGap = v.controller.debtGap();
 
     // at first repay debts for any opened positions, repay don't make any rebalancing here
-    for (uint i = 0; i < v.len; i = i.uncheckedInc()) {
+    for (uint i; i < v.len; i = i.uncheckedInc()) {
       if (amountToRepay_ == 0) break;
       v.pa = IPoolAdapter(v.poolAdapters[i]);
       v.pa.updateStatus();
@@ -365,7 +360,7 @@ contract TetuConverter is ControllableV3, ITetuConverter, IKeeperCallback, IRequ
     IConverterController _controller = IConverterController(controller());
     address[] memory poolAdapters = IDebtMonitor(_controller.debtMonitor()).getPositions(user_, collateralAsset_, borrowAsset_);
     uint len = poolAdapters.length;
-    for (uint i = 0; i < len; i = i.uncheckedInc()) {
+    for (uint i; i < len; i = i.uncheckedInc()) {
       if (amountToRepay_ == 0) break;
 
       IPoolAdapter pa = IPoolAdapter(poolAdapters[i]);
@@ -618,7 +613,7 @@ contract TetuConverter is ControllableV3, ITetuConverter, IKeeperCallback, IRequ
     address[] memory rewardTokens = new address[](len);
     uint[] memory amounts = new uint[](len);
     uint countPositions = 0;
-    for (uint i = 0; i < len; i = i.uncheckedInc()) {
+    for (uint i; i < len; i = i.uncheckedInc()) {
       IPoolAdapter pa = IPoolAdapter(poolAdapters[i]);
       (rewardTokens[countPositions], amounts[countPositions]) = pa.claimRewards(receiver_);
       if (amounts[countPositions] != 0) {

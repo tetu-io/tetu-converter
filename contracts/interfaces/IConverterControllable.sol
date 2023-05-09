@@ -8,7 +8,7 @@ interface IConverterControllable is IConverterControllerProvider {
 
   function isController(address _contract) external view returns (bool);
 
-  function isControllerTetuV2(address _contract) external view returns (bool);
+  function isProxyUpdater(address _contract) external view returns (bool);
 
   function isGovernance(address _contract) external view returns (bool);
 

@@ -11,6 +11,7 @@ import "../proxy/ControllableV3.sol";
 contract ConverterController is IConverterController, ControllableV3 {
 
   //region ------------------------------------- Constants
+  string public constant CONVERTER_CONTROLLER_VERSION = "1.0.0";
   uint16 constant MIN_ALLOWED_MIN_HEALTH_FACTOR = 100;
   /// @notice Denominator for {debtGap}
   uint constant DEBT_GAP_DENOMINATOR = 100_000;
@@ -18,8 +19,8 @@ contract ConverterController is IConverterController, ControllableV3 {
 
   //region ------------------------------------- Variables. Don't change names or ordering!
 
-  /// @notice Controller of tetu-contracts-v2
-  address public override controllerTetuV2;
+  /// @notice Controller of tetu-contracts-v2 that is allowed to update proxy contracts
+  address public override proxyUpdater;
 
   /// @notice Allow to swap assets
   address public override tetuLiquidator;
@@ -93,8 +94,9 @@ contract ConverterController is IConverterController, ControllableV3 {
 
   //region ------------------------------------- Initialization
 
-  function initialize(
-    address controllerTetuV2_,
+  function init(
+    address proxyUpdater_,
+    address governance_,
     address tetuConverter_,
     address borrowManager_,
     address debtMonitor_,
@@ -107,16 +109,19 @@ contract ConverterController is IConverterController, ControllableV3 {
   ) external initializer {
     require(blocksPerDay_ != 0, AppErrors.INCORRECT_VALUE);
     require(
-      controllerTetuV2_ != address(0)
+      proxyUpdater_ != address(0)
       && tetuConverter_ != address(0)
       && borrowManager_ != address(0)
       && debtMonitor_ != address(0)
       && keeper_ != address(0)
       && swapManager_ != address(0)
       && tetuLiquidator_ != address(0)
+      && governance_ != address(0)
       && priceOracle_ != address(0),
       AppErrors.ZERO_ADDRESS
     );
+
+    governance = governance_;
     __Controllable_init(address(this));
 
     tetuConverter = tetuConverter_;
@@ -125,7 +130,7 @@ contract ConverterController is IConverterController, ControllableV3 {
     keeper = keeper_;
     swapManager = swapManager_;
     priceOracle = priceOracle_;
-    controllerTetuV2 = controllerTetuV2_;
+    proxyUpdater = proxyUpdater_;
     tetuLiquidator = tetuLiquidator_;
 
     // by default auto-update of blocksPerDay is disabled, it's necessary to call setBlocksPerDay to enable it

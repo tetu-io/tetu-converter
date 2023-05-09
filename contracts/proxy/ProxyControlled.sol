@@ -27,11 +27,11 @@ contract ProxyControlled is UpgradeableProxy, IProxyControlled {
   /// @dev Upgrade allowed only for Controller of tetu-contracts-v2 and should be done only after time-lock period
   /// @param _newImplementation Implementation address
   function upgrade(address _newImplementation) external override {
-    require(IConverterControllable(address(this)).isControllerTetuV2(msg.sender), "Proxy: Forbidden");
+    require(IConverterControllable(address(this)).isProxyUpdater(msg.sender), "Proxy: Forbidden");
     IConverterControllable(address(this)).increaseRevision(_implementation());
     _upgradeTo(_newImplementation);
     // the new contract must have the same ABI and you must have the power to change it again
-    require(IConverterControllable(address(this)).isControllerTetuV2(msg.sender), "Proxy: Wrong implementation");
+    require(IConverterControllable(address(this)).isProxyUpdater(msg.sender), "Proxy: Wrong implementation");
   }
 
   /// @notice Return current logic implementation

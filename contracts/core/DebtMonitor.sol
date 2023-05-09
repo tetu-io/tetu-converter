@@ -26,6 +26,10 @@ contract DebtMonitor is IDebtMonitor, ControllableV3 {
     uint healthFactorThreshold18;
   }
 
+  //region ---------------------------------------------- Constants
+  string public constant DEBT_MONITOR_VERSION = "1.0.0";
+  //endregion ---------------------------------------------- Constants
+
   //region ---------------------------------------------- Variables. Don't change names or ordering!
   /// @notice Pool adapters with active borrow positions
   /// @dev All these pool adapters should be enumerated during health-checking

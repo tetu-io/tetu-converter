@@ -1,6 +1,5 @@
 import {
   ConverterController,
-  IERC20,
   ITetuConverter, TetuConverter__factory,
 } from "../../../typechain";
 import {CoreContractsHelper} from "./CoreContractsHelper";
@@ -8,33 +7,31 @@ import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import {COUNT_BLOCKS_PER_DAY} from "../utils/aprUtils";
 import {ILendingPlatformFabric, ILendingPlatformPoolInfo} from "../fabrics/ILendingPlatformFabric";
 import {MocksHelper} from "./MocksHelper";
+import {ethers} from "hardhat";
+
+export interface IDeployInitFabricsSet {
+  deploy: (controller: ConverterController) => Promise<string>,
+  init: (deployedInstance: string) => Promise<void>,
+}
+
+export interface ICoreContractFabrics {
+  tetuConverterFabric: IDeployInitFabricsSet;
+  borrowManagerFabric: IDeployInitFabricsSet;
+  debtMonitorFabric: IDeployInitFabricsSet;
+  keeperFabric: IDeployInitFabricsSet;
+  swapManagerFabric: IDeployInitFabricsSet;
+  priceOracleFabric: () => Promise<string>;
+  tetuLiquidatorFabric: () => Promise<string>;
+}
 
 export interface ICreateControllerParams {
-  // eslint-disable-next-line no-unused-vars
-  tetuConverterFabric?: (
-    controller: ConverterController,
-    borrowManager: string,
-    debtMonitor: string,
-    swapManager: string,
-    keeper: string
-  ) => Promise<string>;
-  // eslint-disable-next-line no-unused-vars
-  borrowManagerFabric?: (controller: ConverterController) => Promise<string>;
-
-  // eslint-disable-next-line no-unused-vars
-  debtMonitorFabric?: (
-    controller: ConverterController,
-    borrowManager: string
-  ) => Promise<string>;
-
-  // eslint-disable-next-line no-unused-vars
-  keeperFabric?: (controller: ConverterController) => Promise<string>;
-
-  // eslint-disable-next-line no-unused-vars
-  swapManagerFabric?: (controller: ConverterController, tetuLiquidator: string) => Promise<string>;
-
-  // eslint-disable-next-line no-unused-vars
+  tetuConverterFabric?: IDeployInitFabricsSet;
+  borrowManagerFabric?: IDeployInitFabricsSet;
+  debtMonitorFabric?: IDeployInitFabricsSet;
+  keeperFabric?: IDeployInitFabricsSet;
+  swapManagerFabric?: IDeployInitFabricsSet;
   priceOracleFabric?: () => Promise<string>;
+
   minHealthFactor2?: number;
   targetHealthFactor2?: number;
   maxHealthFactor2?: number;
@@ -42,6 +39,7 @@ export interface ICreateControllerParams {
   tetuLiquidatorAddress?: string;
   blocksPerDayAutoUpdatePeriodSecs?: number;
   debtGap?: number;
+  proxyUpdater?: string;
 }
 
 export interface IBuildAppResults {
@@ -51,19 +49,16 @@ export interface IBuildAppResults {
 }
 
 export class TetuConverterApp {
-  static async createController(
-    deployer: SignerWithAddress,
-    p?: ICreateControllerParams
-  ) : Promise<ConverterController> {
+  static async createController(deployer: SignerWithAddress, p?: ICreateControllerParams) : Promise<ConverterController> {
     const tetuConverterFabric = p?.tetuConverterFabric
-      || (async (c, borrowManager, debtMonitor, swapManager, keeper) => (
-          await CoreContractsHelper.createTetuConverter(deployer, c.address, borrowManager, debtMonitor, swapManager, keeper)).address
+      || (async (c) => (
+          await CoreContractsHelper.createTetuConverter(deployer, c.address)).address
       );
     const borrowManagerFabric = p?.borrowManagerFabric
         || (async c => (await CoreContractsHelper.createBorrowManager(deployer, c.address)).address);
     const debtMonitorFabric = p?.debtMonitorFabric
-      || (async (c, borrowManager) => (
-          await CoreContractsHelper.createDebtMonitor(deployer, c.address, borrowManager)).address
+      || (async (c) => (
+          await CoreContractsHelper.createDebtMonitor(deployer, c.address)).address
       );
     const keeperFabric = p?.keeperFabric
       || (async c => (await CoreContractsHelper.createKeeper(
@@ -85,6 +80,7 @@ export class TetuConverterApp {
 
     return CoreContractsHelper.createController(
       deployer,
+      p?.proxyUpdater || ethers.Wallet.createRandom().address,
       tetuConverterFabric,
       borrowManagerFabric,
       debtMonitorFabric,
