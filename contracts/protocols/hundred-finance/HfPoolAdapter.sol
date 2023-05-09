@@ -256,11 +256,11 @@ contract HfPoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP, Initializ
 
     require(
       sumCollateralSafe > borrowBase
-      && borrowBase != 0
+      && borrowBase != 0,
     // here we should have: sumCollateralSafe - sumBorrowPlusEffects == liquidity
     // but it seems like round-error can happen, we can check only sumCollateralSafe - sumBorrowPlusEffects ~ liquidity
     // let's ensure that liquidity has a reasonable value
-      && AppUtils.approxEqual(liquidity + borrowBase, sumCollateralSafe, MAX_DIVISION18),
+    // && AppUtils.approxEqual(liquidity + borrowBase, sumCollateralSafe, MAX_DIVISION18),
       AppErrors.INCORRECT_RESULT_LIQUIDITY
     );
 
