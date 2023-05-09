@@ -421,13 +421,8 @@ contract BorrowManager is IBorrowManager, ControllableV3 {
   /// @notice Notify borrow manager that the pool adapter with the given params is "dirty".
   ///         The pool adapter should be excluded from the list of ready-to-borrow pool adapters.
   /// @dev "Dirty" means that a liquidation happens inside. The borrow position should be closed during health checking.
-  function markPoolAdapterAsDirty(
-    address converter_,
-    address user_,
-    address collateral_,
-    address borrowToken_
-  ) external override {
-    IController _controller = controller(); // gas saving
+  function markPoolAdapterAsDirty(address converter_, address user_, address collateral_, address borrowToken_) external override {
+    IConverterController _controller = IConverterController(controller()); // gas saving
     require(
       msg.sender == _controller.tetuConverter() || msg.sender == _controller.debtMonitor(),
       AppErrors.ACCESS_DENIED

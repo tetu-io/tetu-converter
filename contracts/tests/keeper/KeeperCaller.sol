@@ -3,7 +3,7 @@ pragma solidity 0.8.17;
 
 import "../../integrations/gelato/IResolver.sol";
 import "hardhat/console.sol";
-import "../../integrations/gelato/OpsReady.sol";
+import "../../integrations/gelato/IOps.sol";
 
 contract KeeperCaller is IOps {
   enum LastCallResults {

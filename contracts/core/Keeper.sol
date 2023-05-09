@@ -8,16 +8,19 @@ import "../interfaces/IConverterController.sol";
 import "../interfaces/IDebtMonitor.sol";
 import "../interfaces/IKeeperCallback.sol";
 import "../integrations/gelato/IResolver.sol";
-import "../integrations/gelato/OpsReady.sol";
+import "../integrations/gelato/IOps.sol";
+import "../openzeppelin/SafeERC20.sol";
 import "../proxy/ControllableV3.sol";
 
 /// @notice Executor + Resolver for Gelato
 ///         to check health of opened positions and call requireRepay for unhealthy pool adapters
 ///         Same keeper is also responsible for updating block-per-day value in controller.
-contract Keeper is OpsReady, IHealthKeeperCallback, IResolver, ControllableV3 {
+contract Keeper is IHealthKeeperCallback, IResolver, ControllableV3 {
   using AppUtils for uint;
 
   //region ----------------------------------------------------- Constants
+  address public constant ETH = 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE;
+
   /// @notice Max count of opened positions to be checked in single request
   uint constant public MAX_COUNT_TO_CHECK = 80;
 
@@ -26,9 +29,12 @@ contract Keeper is OpsReady, IHealthKeeperCallback, IResolver, ControllableV3 {
   //endregion ----------------------------------------------------- Constants
 
   //region ----------------------------------------------------- Variables. Don't change names or ordering!
+  address public ops;
+  address payable public gelato;
+
   /// @notice Period of auto-update of the blocksPerDay-value in seconds
   ///         0 - auto-update checking is disabled
-  uint public blocksPerDayAutoUpdatePeriodSecs; // i.e. 2 * 7 * 24 * 60 * 60 for 2 weeks
+  uint public blocksPerDayAutoUpdatePeriodSec; // i.e. 2 * 7 * 24 * 60 * 60 for 2 weeks
 
   /// @notice Start index of pool adapter for next checkHealth-request
   ///         We store here result of previous call of IDebtMonitor.checkHealth
@@ -40,18 +46,31 @@ contract Keeper is OpsReady, IHealthKeeperCallback, IResolver, ControllableV3 {
   //endregion ----------------------------------------------------- Events
 
   //region ----------------------------------------------------- Initialization
-  function init(address controller_, address payable ops_, uint blocksPerDayAutoUpdatePeriodSecs_) OpsReady(ops_) external initializer {
+  function init(address controller_, address payable ops_, uint blocksPerDayAutoUpdatePeriodSec_) external initializer {
     __Controllable_init(controller_);
-    blocksPerDayAutoUpdatePeriodSecs = blocksPerDayAutoUpdatePeriodSecs_;
+    ops = ops_;
+    gelato = IOps(ops_).gelato();
+    blocksPerDayAutoUpdatePeriodSec = blocksPerDayAutoUpdatePeriodSec_;
   }
 
   /// @notice Set period of auto-update of the blocksPerDay-value in seconds, 0 - auto-update checking is disabled
   function setBlocksPerDayAutoUpdatePeriodSecs(uint periodSeconds) external {
-    require(controller.governance() == msg.sender, AppErrors.GOVERNANCE_ONLY);
+    require(IConverterController(controller()).governance() == msg.sender, AppErrors.GOVERNANCE_ONLY);
 
-    blocksPerDayAutoUpdatePeriodSecs = periodSeconds;
+    blocksPerDayAutoUpdatePeriodSec = periodSeconds;
   }
   //endregion ----------------------------------------------------- Initialization
+
+  //region ----------------------------------------------------- OpsReady
+  function _transfer(uint256 _amount, address _paymentToken) internal {
+    if (_paymentToken == ETH) {
+      (bool success,) = gelato.call{value: _amount}("");
+      require(success, AppErrors.GELATO_ETH_TRANSFER_FAILED);
+    } else {
+      SafeERC20.safeTransfer(IERC20(_paymentToken), gelato, _amount);
+    }
+  }
+  //endregion ----------------------------------------------------- OpsReady
 
   //region ----------------------------------------------------- Read-only gelato-resolver
 
@@ -63,31 +82,32 @@ contract Keeper is OpsReady, IHealthKeeperCallback, IResolver, ControllableV3 {
     bool canExecOut,
     bytes memory execPayloadOut
   ) {
-    IDebtMonitor debtMonitor = IDebtMonitor(controller.debtMonitor());
+    IConverterController _controller = IConverterController(controller());
+    IDebtMonitor debtMonitor = IDebtMonitor(_controller.debtMonitor());
 
     // IHealthKeeperCallback is implemented inside this class
     // but we access it through controller to be able to split checker and executor in unit tests
-    IHealthKeeperCallback keeper = IHealthKeeperCallback(controller.keeper());
+    IHealthKeeperCallback keeper = IHealthKeeperCallback(_controller.keeper());
     uint startIndex = keeper.nextIndexToCheck0();
 
     (uint newNextIndexToCheck0,
-      address[] memory outPoolAdapters,
-      uint[] memory outAmountBorrowAsset,
-      uint[] memory outAmountCollateralAsset
+    address[] memory outPoolAdapters,
+    uint[] memory outAmountBorrowAsset,
+    uint[] memory outAmountCollateralAsset
     ) = debtMonitor.checkHealth(startIndex, MAX_COUNT_TO_CHECK, MAX_COUNT_TO_RETURN);
 
     // it's necessary to run writable fixHealth() ...
     canExecOut =
-      // ... if there is unhealthy pool adapter
-      outPoolAdapters.length != 0
+    // ... if there is unhealthy pool adapter
+    outPoolAdapters.length != 0
 
-      // ... if we cannot check all adapters in one pass; we've checked a one portion, now we need to check the other portions
-      || newNextIndexToCheck0 != startIndex
+    // ... if we cannot check all adapters in one pass; we've checked a one portion, now we need to check the other portions
+    || newNextIndexToCheck0 != startIndex
 
-      /// ... if it's the time to recalculate blocksPerDay value
-      || (blocksPerDayAutoUpdatePeriodSecs != 0
-          && controller.isBlocksPerDayAutoUpdateRequired(blocksPerDayAutoUpdatePeriodSecs)
-         );
+    /// ... if it's the time to recalculate blocksPerDay value
+    || (blocksPerDayAutoUpdatePeriodSec != 0
+      && _controller.isBlocksPerDayAutoUpdateRequired(blocksPerDayAutoUpdatePeriodSec)
+    );
 
     execPayloadOut = abi.encodeWithSelector(
       IHealthKeeperCallback.fixHealth.selector,
@@ -109,7 +129,11 @@ contract Keeper is OpsReady, IHealthKeeperCallback, IResolver, ControllableV3 {
     address[] calldata poolAdapters_,
     uint[] calldata amountBorrowAsset_,
     uint[] calldata amountCollateralAsset_
-  ) external override onlyOps {
+  ) external override {
+    require(msg.sender == ops, AppErrors.GELATO_ONLY_OPS);
+
+    IConverterController _controller = IConverterController(controller());
+
     uint countPoolAdapters = poolAdapters_.length;
     require(
       countPoolAdapters == amountBorrowAsset_.length
@@ -120,20 +144,16 @@ contract Keeper is OpsReady, IHealthKeeperCallback, IResolver, ControllableV3 {
     nextIndexToCheck0 = nextIndexToCheck0_;
 
     if (countPoolAdapters != 0) {
-      IKeeperCallback keeperCallback = IKeeperCallback(controller.tetuConverter());
+      IKeeperCallback keeperCallback = IKeeperCallback(_controller.tetuConverter());
       for (uint i = 0; i < countPoolAdapters; i = i.uncheckedInc()) {
-        keeperCallback.requireRepay(
-          amountBorrowAsset_[i],
-          amountCollateralAsset_[i],
-          poolAdapters_[i]
-        );
+        keeperCallback.requireRepay(amountBorrowAsset_[i], amountCollateralAsset_[i], poolAdapters_[i]);
       }
     }
 
-    if (blocksPerDayAutoUpdatePeriodSecs != 0
-        && controller.isBlocksPerDayAutoUpdateRequired(blocksPerDayAutoUpdatePeriodSecs)
+    if (blocksPerDayAutoUpdatePeriodSec != 0
+      && _controller.isBlocksPerDayAutoUpdateRequired(blocksPerDayAutoUpdatePeriodSec)
     ) {
-      controller.updateBlocksPerDay(blocksPerDayAutoUpdatePeriodSecs);
+      _controller.updateBlocksPerDay(blocksPerDayAutoUpdatePeriodSec);
     }
 
     emit OnFixHealth(nextIndexToCheck0_, poolAdapters_, amountBorrowAsset_, amountCollateralAsset_);

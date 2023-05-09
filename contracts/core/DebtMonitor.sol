@@ -79,9 +79,9 @@ contract DebtMonitor is IDebtMonitor, ControllableV3 {
       positions.push(msg.sender);
 
       (address origin,
-       address user,
-       address collateralAsset,
-       address borrowAsset
+      address user,
+      address collateralAsset,
+      address borrowAsset
       ) = IPoolAdapter(msg.sender).getConfig();
 
       poolAdapters[getPoolAdapterKey(user, collateralAsset, borrowAsset)].push(msg.sender);
@@ -135,7 +135,7 @@ contract DebtMonitor is IDebtMonitor, ControllableV3 {
   /// @notice Pool adapter has opened borrow, but full liquidation happens and we've lost all collateral
   ///         Close position without paying the debt and never use the pool adapter again.
   function closeLiquidatedPosition(address poolAdapter_) external override {
-    require(msg.sender == controller.tetuConverter(), AppErrors.TETU_CONVERTER_ONLY);
+    require(msg.sender == IConverterController(controller()).tetuConverter(), AppErrors.TETU_CONVERTER_ONLY);
 
     (uint collateralAmount, uint amountToPay,,,,) = IPoolAdapter(poolAdapter_).getStatus();
     require(collateralAmount == 0, AppErrors.CANNOT_CLOSE_LIVE_POSITION);
@@ -173,12 +173,12 @@ contract DebtMonitor is IDebtMonitor, ControllableV3 {
         startIndex0: startIndex0,
         maxCountToCheck: maxCountToCheck,
         maxCountToReturn: maxCountToReturn,
-        healthFactorThreshold18: uint(controller.minHealthFactor2()) * 10**(18-2)
+        healthFactorThreshold18: uint(IConverterController(controller()).minHealthFactor2()) * 10 ** (18 - 2)
       })
     );
   }
 
-  function _checkHealthFactor (
+  function _checkHealthFactor(
     CheckHealthFactorInputParams memory p
   ) internal view returns (
     uint nextIndexToCheck0,
@@ -212,8 +212,8 @@ contract DebtMonitor is IDebtMonitor, ControllableV3 {
       // We should call a IKeeperCallback in the same way as for rebalancing, but with requiredAmountCollateralAsset=0
 
       (,,address collateralAsset,) = pa.getConfig();
-      uint healthFactorTarget18 = uint(borrowManager.getTargetHealthFactor2(collateralAsset)) * 10**(18-2);
-      if (p.healthFactorThreshold18 < healthFactorTarget18 && healthFactor18 < p.healthFactorThreshold18) { // unhealthy
+      uint healthFactorTarget18 = uint(borrowManager.getTargetHealthFactor2(collateralAsset)) * 10 ** (18 - 2);
+      if (p.healthFactorThreshold18 < healthFactorTarget18 && healthFactor18 < p.healthFactorThreshold18) {// unhealthy
         outPoolAdapters[countFoundItems] = positions[p.startIndex0 + i];
         // Health Factor = Collateral Factor * CollateralAmount * Price_collateral / (BorrowAmount * Price_borrow)
         // => requiredAmountBorrowAsset = BorrowAmount * (HealthFactorCurrent/HealthFactorTarget - 1)
@@ -252,7 +252,7 @@ contract DebtMonitor is IDebtMonitor, ControllableV3 {
 
   /// @notice Get active borrows of the user with given collateral/borrowToken
   /// @return poolAdaptersOut The instances of IPoolAdapter
-  function getPositions (
+  function getPositions(
     address user_,
     address collateralToken_,
     address borrowedToken_
@@ -273,7 +273,7 @@ contract DebtMonitor is IDebtMonitor, ControllableV3 {
 
   /// @notice Get active borrows of the given user
   /// @return poolAdaptersOut The instances of IPoolAdapter
-  function getPositionsForUser(address user_) external view override returns(
+  function getPositionsForUser(address user_) external view override returns (
     address[] memory poolAdaptersOut
   ) {
     EnumerableSet.AddressSet storage set = _poolAdaptersForUser[user_];
