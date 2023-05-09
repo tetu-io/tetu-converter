@@ -24,16 +24,11 @@ contract DForcePlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
   using SafeERC20 for IERC20;
   using AppUtils for uint;
 
-  //-----------------------------------------------------
-  //region Constants
-  //-----------------------------------------------------
+  //region ----------------------------------------------------- Constants
   string public constant override PLATFORM_ADAPTER_VERSION = "1.0.2";
-  //endregion Constants
+  //endregion ----------------------------------------------------- Constants
 
-  //-----------------------------------------------------
-  //region Data types
-  //-----------------------------------------------------
-
+  //region ----------------------------------------------------- Data types
   /// @notice Local vars inside getConversionPlan - to avoid stack too deep
   struct LocalsGetConversionPlan {
     IDForceController comptroller;
@@ -41,11 +36,9 @@ contract DForcePlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
     uint healthFactor18;
     uint entryKind;
   }
-  //endregion Data types
+  //endregion ----------------------------------------------------- Data types
 
-  //-----------------------------------------------------
-  //region Variables
-  //-----------------------------------------------------
+  //region ----------------------------------------------------- Variables
   IConverterController immutable public controller;
   IDForceController immutable public comptroller;
   /// @notice Template of pool adapter
@@ -59,18 +52,14 @@ contract DForcePlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
 
   /// @notice True if the platform is frozen and new borrowing is not possible (at this moment)
   bool public override frozen;
-  //endregion Variables
+  //endregion ----------------------------------------------------- Variables
 
-  //-----------------------------------------------------
-  //region Events
-  //-----------------------------------------------------
+  //region ----------------------------------------------------- Events
   event OnPoolAdapterInitialized(address converter, address poolAdapter, address user, address collateralAsset, address borrowAsset);
   event OnRegisterCTokens(address[] cTokens);
-  //endregion Events
+  //endregion ----------------------------------------------------- Events
 
-  //-----------------------------------------------------
-  //region Constructor and initialization
-  //-----------------------------------------------------
+  //region ----------------------------------------------------- Constructor and initialization
   constructor(address controller_, address borrowManager_, address comptroller_, address templatePoolAdapter_, address[] memory activeCTokens_) {
     require(
       comptroller_ != address(0)
@@ -128,21 +117,17 @@ contract DForcePlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
       activeAssets[DForceAprLib.getUnderlying(cTokens_[i])] = cTokens_[i];
     }
   }
-  //endregion Constructor and initialization
+  //endregion ----------------------------------------------------- Constructor and initialization
 
-  //-----------------------------------------------------
-  //region Access
-  //-----------------------------------------------------
+  //region ----------------------------------------------------- Access
 
   /// @notice Ensure that the caller is governance
   function _onlyGovernance() internal view {
     require(controller.governance() == msg.sender, AppErrors.GOVERNANCE_ONLY);
   }
-  //endregion Access
+  //endregion ----------------------------------------------------- Access
 
-  //-----------------------------------------------------
-  //region View
-  //-----------------------------------------------------
+  //region ----------------------------------------------------- View
   function converters() external view override returns (address[] memory) {
     address[] memory dest = new address[](1);
     dest[0] = converter;
@@ -160,11 +145,9 @@ contract DForcePlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
     return AppDataTypes.LendingPlatformKinds.DFORCE_1;
   }
 
-  //endregion View
+  //endregion ----------------------------------------------------- View
 
-  //-----------------------------------------------------
-  //region Get conversion plan
-  //-----------------------------------------------------
+  //region ----------------------------------------------------- Get conversion plan
 
   function getConversionPlan(AppDataTypes.InputConversionParams memory p_, uint16 healthFactor2_) external override view returns (
     AppDataTypes.ConversionPlan memory plan
@@ -315,11 +298,9 @@ contract DForcePlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
       return plan;
     }
   }
-  //endregion Get conversion plan
+  //endregion ----------------------------------------------------- Get conversion plan
 
-  //-----------------------------------------------------
-  //region Utils
-  //-----------------------------------------------------
+  //region ----------------------------------------------------- Utils
 
   /// @dev See LendingContractsV2, ConverterController.sol, calcAccountEquityWithEffect
   /// @return collateralFactorMantissa Multiplier representing the most one can borrow against their collateral in
@@ -348,5 +329,5 @@ contract DForcePlatformAdapter is IPlatformAdapter, ITokenAddressProvider {
       ? (0, 0)
       : (borrowFactorMantissa0, borrowCapacity0);
   }
-  //endregion Utils
+  //endregion ----------------------------------------------------- Utils
 }

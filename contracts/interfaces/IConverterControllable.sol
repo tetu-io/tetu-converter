@@ -2,7 +2,9 @@
 
 pragma solidity 0.8.17;
 
-interface IConverterControllable {
+import "./IConverterControllerProvider.sol";
+
+interface IConverterControllable is IConverterControllerProvider {
 
   function isController(address _contract) external view returns (bool);
 
@@ -13,8 +15,6 @@ interface IConverterControllable {
   function created() external view returns (uint256);
 
   function createdBlock() external view returns (uint256);
-
-  function controller() external view returns (address);
 
   function increaseRevision(address oldLogic) external;
 
