@@ -131,7 +131,7 @@ contract DForcePoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP, Initi
 
   //region ----------------------------------------------------- Borrow logic
   function updateStatus() external override {
-    // no restrictions, anybody can call this function
+    // no restrictions, anybody can call this function // todo restrictions
 
     // Update borrowBalance to actual value
     IDForceCToken(borrowCToken).borrowBalanceCurrent(address(this));
@@ -659,6 +659,6 @@ contract DForcePoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP, Initi
       : IERC20(asset).balanceOf(address(this));
   }
 
-  receive() external payable {} // this is needed for the native token unwrapping
+  receive() external payable {} // this is needed for the native token unwrapping  // todo restrictions
   //endregion ----------------------------------------------------- Native tokens
 }

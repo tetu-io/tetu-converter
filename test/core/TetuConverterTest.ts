@@ -29,7 +29,7 @@ import {
   PoolAdapterMock2__factory,
   IConverterController__factory,
   IERC20Metadata__factory,
-  CTokenMock
+  CTokenMock, SwapManager__factory
 } from "../../typechain";
 import {
   IBorrowInputParams,
@@ -838,10 +838,11 @@ describe("TetuConverterTest", () => {
 
     interface IMakeConstructorTestParams {
       useZeroController?: boolean;
+      useSecondInitialization?: boolean;
     }
 
     async function makeConstructorTest(p?: IMakeConstructorTestParams): Promise<ConverterController> {
-      return await TetuConverterApp.createController(
+      const controller = await TetuConverterApp.createController(
         deployer,
         {
           tetuConverterFabric: {
@@ -859,6 +860,10 @@ describe("TetuConverterTest", () => {
           tetuLiquidatorAddress: ethers.Wallet.createRandom().address
         }
       );
+      if (p?.useSecondInitialization) {
+        await TetuConverter__factory.connect(await controller.tetuConverter(), deployer).init(controller.address);
+      }
+      return controller;
     }
 
     describe("Good paths", () => {
@@ -882,6 +887,11 @@ describe("TetuConverterTest", () => {
         await expect(
           makeConstructorTest({useZeroController: true})
         ).revertedWith("TC-1 zero address"); // ZERO_ADDRESS
+      });
+      it("should revert on second initialization", async () => {
+        await expect(
+          makeConstructorTest({useSecondInitialization: true})
+        ).revertedWith("Initializable: contract is already initialized");
       });
     });
   });

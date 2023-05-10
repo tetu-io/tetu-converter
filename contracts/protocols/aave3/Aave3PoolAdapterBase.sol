@@ -124,6 +124,7 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer,
   function updateStatus() external override {
     // nothing to do; getStatus always return actual amounts in AAVE
     // there is reserve.updateStatus function, i.e. see SupplyLogic.sol, executeWithdraw but it is internal
+    // todo restrictions
   }
   //endregion ----------------------------------------------------- Restrictions
 

@@ -2,8 +2,7 @@ import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import {ethers} from "hardhat";
 import {TimeUtils} from "../../scripts/utils/TimeUtils";
 import {
-  BorrowManager, BorrowManager__factory,
-  ConverterController, ConverterController__factory,
+  ConverterController, ConverterController__factory, DebtMonitor__factory,
   DebtMonitorCheckHealthMock, DebtMonitorCheckHealthMock__factory,
   Keeper, Keeper__factory,
   KeeperCallbackMock, KeeperCallbackMock__factory,
@@ -12,10 +11,8 @@ import {
 import {CoreContractsHelper} from "../baseUT/helpers/CoreContractsHelper";
 import {MocksHelper} from "../baseUT/helpers/MocksHelper";
 import {Misc} from "../../scripts/utils/Misc";
-import {DeployUtils} from "../../scripts/utils/DeployUtils";
 import {TetuConverterApp} from "../baseUT/helpers/TetuConverterApp";
 import {expect} from "chai";
-import {BigNumber} from "ethers";
 
 describe("KeeperTest", () => {
 //region Constants
@@ -496,15 +493,14 @@ describe("KeeperTest", () => {
     });
   });
 
-  describe("Initialization", () => {
+  describe("Init", () => {
     interface IMakeConstructorTestParams {
       useZeroController?: boolean;
       useZeroOps?: boolean;
       blocksPerDayAutoUpdatePeriodSec?: number;
+      useSecondInitialization?: boolean;
     }
-    async function makeInitTest(
-      params?: IMakeConstructorTestParams
-    ) : Promise<Keeper> {
+    async function makeInitTest(p?: IMakeConstructorTestParams) : Promise<Keeper> {
       const controller = await TetuConverterApp.createController(
         deployer,
         {
@@ -512,10 +508,10 @@ describe("KeeperTest", () => {
             deploy: async () => CoreContractsHelper.deployKeeper(deployer),
             init: async (controller, instance) => CoreContractsHelper.initializeKeeper(
               deployer,
-              params?.useZeroController ? Misc.ZERO_ADDRESS : controller,
+              p?.useZeroController ? Misc.ZERO_ADDRESS : controller,
               instance,
-              params?.useZeroOps ? Misc.ZERO_ADDRESS : (await MocksHelper.createKeeperCaller(deployer)).address,
-              params?.blocksPerDayAutoUpdatePeriodSec || 0
+              p?.useZeroOps ? Misc.ZERO_ADDRESS : (await MocksHelper.createKeeperCaller(deployer)).address,
+              p?.blocksPerDayAutoUpdatePeriodSec || 0
             ),
           },
           tetuConverterFabric: TetuConverterApp.getRandomSet(),
@@ -523,9 +519,18 @@ describe("KeeperTest", () => {
           borrowManagerFabric: TetuConverterApp.getRandomSet(),
           swapManagerFabric: TetuConverterApp.getRandomSet(),
           tetuLiquidatorAddress: ethers.Wallet.createRandom().address,
-          blocksPerDayAutoUpdatePeriodSec: params?.blocksPerDayAutoUpdatePeriodSec
+          blocksPerDayAutoUpdatePeriodSec: p?.blocksPerDayAutoUpdatePeriodSec
         }
       );
+      if (p?.useSecondInitialization) {
+        const keeper = await Keeper__factory.connect(await controller.keeper(), deployer);
+        await Keeper__factory.connect(await controller.keeper(), deployer).init(
+          controller.address,
+          await keeper.ops(),
+          await keeper.blocksPerDayAutoUpdatePeriodSec()
+        );
+      }
+
       return Keeper__factory.connect(await controller.keeper(), deployer);
     }
 
@@ -569,6 +574,9 @@ describe("KeeperTest", () => {
         });
         it("should revert if ops is zero", async () => {
           await expect(makeInitTest({useZeroOps: true})).revertedWith("TC-1 zero address"); // ZERO_ADDRESS
+        });
+        it("should revert on second initialization", async () => {
+          await expect(makeInitTest({useSecondInitialization: true})).revertedWith("Initializable: contract is already initialized");
         });
       });
     });

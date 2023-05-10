@@ -79,7 +79,7 @@ contract SwapManager is ControllableV3, ISwapManager, ISwapConverter, ISimulateP
     address converter,
     uint maxTargetAmount
   ) {
-    // there are no restrictions for the msg.sender
+    // there are no restrictions for the msg.sender  // todo restrictions
 
     // Simulate real swap of source amount to max target amount
     // We call SwapManager.simulateSwap() here as an external call
@@ -119,7 +119,7 @@ contract SwapManager is ControllableV3, ISwapManager, ISwapConverter, ISimulateP
   function swap(address sourceToken_, uint amountIn_, address targetToken_, address receiver_) override external returns (
     uint amountOut
   ) {
-    // there are no restrictions for the msg.sender
+    // there are no restrictions for the msg.sender // todo restrictions
     IConverterController _controller = IConverterController(controller());
     ITetuLiquidator tetuLiquidator = ITetuLiquidator(_controller.tetuLiquidator());
     uint targetTokenBalanceBefore = IERC20(targetToken_).balanceOf(address(this));

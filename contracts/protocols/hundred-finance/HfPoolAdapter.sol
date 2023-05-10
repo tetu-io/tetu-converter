@@ -142,7 +142,7 @@ contract HfPoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP, Initializ
   ///                 Borrow logic
   //-----------------------------------------------------
   function updateStatus() external override {
-    // Update borrowBalance to actual value
+    // Update borrowBalance to actual value // todo restrictions
     IHfCToken(borrowCToken).borrowBalanceCurrent(address(this));
     IHfCToken(collateralCToken).exchangeRateCurrent();
   }
@@ -668,5 +668,5 @@ contract HfPoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP, Initializ
     : IERC20(asset).balanceOf(address(this));
   }
 
-  receive() external payable {} // this is needed for the native token unwrapping
+  receive() external payable {} // this is needed for the native token unwrapping // todo restrictions
 }

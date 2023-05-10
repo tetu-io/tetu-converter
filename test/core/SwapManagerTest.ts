@@ -2,7 +2,7 @@ import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import {ethers} from "hardhat";
 import {expect} from "chai";
 import {
-  ConverterController, IMockERC20__factory,
+  ConverterController, IMockERC20__factory, Keeper__factory,
   MockERC20, MockERC20__factory, PriceOracleMock__factory, SwapManager, SwapManager__factory, TetuLiquidatorMock,
 } from "../../typechain";
 import {TimeUtils} from "../../scripts/utils/TimeUtils";
@@ -125,9 +125,10 @@ describe("SwapManager", () => {
       useZeroController?: boolean;
       useZeroTetuLiquidator?: boolean;
       useZeroPriceOracle?: boolean;
+      useSecondInitialization?: boolean;
     }
     async function makeConstructorTest(
-      params?: IMakeConstructorTestParams
+      p?: IMakeConstructorTestParams
     ) : Promise<SwapManager> {
       const controllerLocal = await TetuConverterApp.createController(
         deployer,
@@ -141,14 +142,17 @@ describe("SwapManager", () => {
             init: async (c, instance) => {
               await CoreContractsHelper.initializeSwapManager(
                 deployer,
-                params?.useZeroController ? Misc.ZERO_ADDRESS : c,
+                p?.useZeroController ? Misc.ZERO_ADDRESS : c,
                 instance
               )
             }
           },
-          tetuLiquidatorAddress: params?.useZeroTetuLiquidator ? Misc.ZERO_ADDRESS : ethers.Wallet.createRandom().address
+          tetuLiquidatorAddress: p?.useZeroTetuLiquidator ? Misc.ZERO_ADDRESS : ethers.Wallet.createRandom().address
         }
       );
+      if (p?.useSecondInitialization) {
+        await SwapManager__factory.connect(await controller.swapManager(), deployer).init(controller.address);
+      }
       return SwapManager__factory.connect(await controllerLocal.swapManager(), deployer);
     }
     it("Revert on zero controller", async () => {
@@ -160,6 +164,11 @@ describe("SwapManager", () => {
       await expect(
         makeConstructorTest({useZeroTetuLiquidator: true})
       ).revertedWith("TC-1 zero address"); // ZERO_ADDRESS
+    });
+    it("Revert on second initialization", async () => {
+      await expect(
+        makeConstructorTest({useSecondInitialization: true})
+      ).revertedWith("Initializable: contract is already initialized");
     });
   });
 

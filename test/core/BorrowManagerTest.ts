@@ -511,9 +511,10 @@ describe("BorrowManager", () => {
     interface IMakeConstructorTestParams {
       rewardFactor?: BigNumber;
       useZeroController?: boolean;
+      useSecondInitialization?: boolean;
     }
     async function makeInitTest(
-      params?: IMakeConstructorTestParams
+      p?: IMakeConstructorTestParams
     ) : Promise<BorrowManager> {
       const controller = await TetuConverterApp.createController(
         signer,
@@ -522,9 +523,9 @@ describe("BorrowManager", () => {
             deploy: async () => CoreContractsHelper.deployBorrowManager(signer),
             init: async (controller, instance) => CoreContractsHelper.initializeBorrowManager(
               signer,
-              params?.useZeroController ? Misc.ZERO_ADDRESS : controller,
+              p?.useZeroController ? Misc.ZERO_ADDRESS : controller,
               instance,
-              params?.rewardFactor
+              p?.rewardFactor
             ),
           },
           tetuConverterFabric: TetuConverterApp.getRandomSet(),
@@ -534,6 +535,20 @@ describe("BorrowManager", () => {
           tetuLiquidatorAddress: ethers.Wallet.createRandom().address
         }
       );
+      if (p?.useSecondInitialization) {
+        await controller.init(
+          await controller.proxyUpdater(),
+          await controller.governance(),
+          await controller.tetuConverter(),
+          await controller.borrowManager(),
+          await controller.debtMonitor(),
+          await controller.keeper(),
+          await controller.swapManager(),
+          await controller.priceOracle(),
+          await controller.tetuLiquidator(),
+          await controller.blocksPerDay()
+        );
+      }
       return BorrowManager__factory.connect(await controller.borrowManager(), signer);
     }
     describe("Good paths", () => {
@@ -559,6 +574,11 @@ describe("BorrowManager", () => {
         await expect(
           makeInitTest({rewardFactor: tooLargeRewardFactor})
         ).revertedWith("TC-29 incorrect value"); // INCORRECT_VALUE
+      });
+      it("should revert on second initialization", async () => {
+        await expect(
+          makeInitTest({useSecondInitialization: true})
+        ).revertedWith("Initializable: contract is already initialized");
       });
     });
   });

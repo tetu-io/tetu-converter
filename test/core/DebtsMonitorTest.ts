@@ -628,19 +628,23 @@ describe("DebtsMonitor", () => {
   describe("init", () => {
     interface IMakeConstructorTestParams {
       useZeroController?: boolean;
+      useSecondInitialization?: boolean;
     }
-    async function makeConstructorTest(params?: IMakeConstructorTestParams): Promise<{ret: string, expected: string}> {
+    async function makeConstructorTest(p?: IMakeConstructorTestParams): Promise<{ret: string, expected: string}> {
       const controller = await TetuConverterApp.createController(
         deployer, {
           debtMonitorFabric: {
             deploy: async () => CoreContractsHelper.deployDebtMonitor(deployer),
             init: async (controller, instance) => CoreContractsHelper.initializeDebtMonitor(
               deployer,
-              params?.useZeroController ? Misc.ZERO_ADDRESS : controller,
+              p?.useZeroController ? Misc.ZERO_ADDRESS : controller,
               instance,
             ),
           },
         });
+      if (p?.useSecondInitialization) {
+        await DebtMonitor__factory.connect(await controller.debtMonitor(), deployer).init(controller.address);
+      }
       const ret = await DebtMonitor__factory.connect(await controller.debtMonitor(), deployer).controller();
       const expected = controller.address;
 
@@ -661,6 +665,15 @@ describe("DebtsMonitor", () => {
             }
           )
         ).revertedWith("TC-1 zero address"); // ZERO_ADDRESS
+      });
+      it("should revert if already initialized", async () => {
+        await expect(
+          makeConstructorTest(
+            {
+              useSecondInitialization: true
+            }
+          )
+        ).revertedWith("Initializable: contract is already initialized");
       });
     });
   });

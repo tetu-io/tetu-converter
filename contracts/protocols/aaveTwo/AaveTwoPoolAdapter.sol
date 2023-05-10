@@ -121,6 +121,7 @@ contract AaveTwoPoolAdapter is IPoolAdapter, IPoolAdapterInitializer, Initializa
 
   function updateStatus() external override {
     // nothing to do; getStatus always return actual amounts in AAVE
+    // todo restrictions
   }
   //endregion ----------------------------------------------------- Restrictions
 

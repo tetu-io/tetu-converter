@@ -102,7 +102,7 @@ contract TetuConverter is ControllableV3, ITetuConverter, IKeeperCallback, IRequ
     uint collateralAmountOut,
     uint amountToBorrowOut,
     int apr18
-  ) {
+  ) { // todo restrictions
     require(amountIn_ != 0, AppErrors.ZERO_AMOUNT);
     require(periodInBlocks_ != 0, AppErrors.INCORRECT_VALUE);
 
@@ -288,7 +288,7 @@ contract TetuConverter is ControllableV3, ITetuConverter, IKeeperCallback, IRequ
     uint returnedBorrowAmountOut,
     uint swappedLeftoverCollateralOut,
     uint swappedLeftoverBorrowOut
-  ) {
+  ) { // todo restrictions
     RepayLocal memory v;
     require(receiver_ != address(0), AppErrors.ZERO_ADDRESS);
 
@@ -356,7 +356,7 @@ contract TetuConverter is ControllableV3, ITetuConverter, IKeeperCallback, IRequ
   function quoteRepay(address user_, address collateralAsset_, address borrowAsset_, uint amountToRepay_) external override returns (
     uint collateralAmountOut,
     uint swappedAmountOut
-  ) {
+  ) { // todo restrictions
     IConverterController _controller = IConverterController(controller());
     address[] memory poolAdapters = IDebtMonitor(_controller.debtMonitor()).getPositions(user_, collateralAsset_, borrowAsset_);
     uint len = poolAdapters.length;
@@ -507,7 +507,7 @@ contract TetuConverter is ControllableV3, ITetuConverter, IKeeperCallback, IRequ
   function getDebtAmountCurrent(address user_, address collateralAsset_, address borrowAsset_, bool useDebtGap_) external override nonReentrant returns (
     uint totalDebtAmountOut,
     uint totalCollateralAmountOut
-  ) {
+  ) { // todo restrictions
     IConverterController _controller = IConverterController(controller());
 
     address[] memory poolAdapters = IDebtMonitor(_controller.debtMonitor()).getPositions(user_, collateralAsset_, borrowAsset_);
