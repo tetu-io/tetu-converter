@@ -11,7 +11,7 @@ import {ethers} from "hardhat";
 
 export interface IDeployInitFabricsSet {
   deploy: () => Promise<string>,
-  init: (controller: string, deployedInstance: string) => Promise<void>,
+  init?: (controller: string, deployedInstance: string) => Promise<void>,
 }
 
 export interface ICoreContractFabrics {
@@ -37,7 +37,7 @@ export interface ICreateControllerParams {
   maxHealthFactor2?: number;
   countBlocksPerDay?: number;
   tetuLiquidatorAddress?: string;
-  blocksPerDayAutoUpdatePeriodSecs?: number;
+  blocksPerDayAutoUpdatePeriodSec?: number;
   debtGap?: number;
   proxyUpdater?: string;
 }
@@ -52,37 +52,37 @@ export class TetuConverterApp {
   static async createController(deployer: SignerWithAddress, p?: ICreateControllerParams) : Promise<ConverterController> {
     const tetuConverterFabric = p?.tetuConverterFabric
       || {
-      deploy: async () => (await CoreContractsHelper.deployTetuConverter(deployer)),
-        init: async (controller, instance) => {await CoreContractsHelper.initializeTetuConverter(deployer, controller, instance)}
+      deploy: async () => CoreContractsHelper.deployTetuConverter(deployer),
+      init: async (controller, instance) => {await CoreContractsHelper.initializeTetuConverter(deployer, controller, instance)}
       };
 
     const borrowManagerFabric = p?.borrowManagerFabric
         || {
-        deploy: async () => (await CoreContractsHelper.deployBorrowManager(deployer)),
+        deploy: async () => CoreContractsHelper.deployBorrowManager(deployer),
         init: async (controller, instance) => {await CoreContractsHelper.initializeBorrowManager(deployer, controller, instance)}
       };
 
     const debtMonitorFabric = p?.debtMonitorFabric
       || {
-        deploy: async () => (await CoreContractsHelper.deployDebtMonitor(deployer)),
+        deploy: async () => CoreContractsHelper.deployDebtMonitor(deployer),
         init: async (controller, instance) => {await CoreContractsHelper.initializeDebtMonitor(deployer, controller, instance)}
       };
 
     const keeperFabric = p?.keeperFabric
       || {
-        deploy: async () => (await CoreContractsHelper.deployKeeper(deployer)),
+        deploy: async () => CoreContractsHelper.deployKeeper(deployer),
         init: async (controller, instance) => {await CoreContractsHelper.initializeKeeper(
           deployer,
           controller,
           instance,
           (await MocksHelper.createKeeperCaller(deployer)).address, // default keeper caller
-          p?.blocksPerDayAutoUpdatePeriodSecs
+          p?.blocksPerDayAutoUpdatePeriodSec
         )}
       };
 
     const swapManagerFabric = p?.swapManagerFabric
       || {
-        deploy: async () => (await CoreContractsHelper.deploySwapManager(deployer)),
+        deploy: async () => (CoreContractsHelper.deploySwapManager(deployer)),
         init: async (controller, instance) => {await CoreContractsHelper.initializeSwapManager(deployer, controller, instance)}
       };
 
@@ -132,5 +132,12 @@ export class TetuConverterApp {
       controller,
       pools
     };
+  }
+
+  static getRandomSet(): IDeployInitFabricsSet {
+    return {
+      deploy: async () => ethers.Wallet.createRandom().address,
+      init: async (controller: string, instance: string) => {}
+    }
   }
 }

@@ -120,7 +120,7 @@ describe("SwapManager", () => {
 
   });
 
-  describe("constructor", () => {
+  describe("init", () => {
     interface IMakeConstructorTestParams {
       useZeroController?: boolean;
       useZeroTetuLiquidator?: boolean;
@@ -132,19 +132,21 @@ describe("SwapManager", () => {
       const controllerLocal = await TetuConverterApp.createController(
         deployer,
         {
-          borrowManagerFabric: async () => ethers.Wallet.createRandom().address,
-          tetuConverterFabric: async () => ethers.Wallet.createRandom().address,
-          debtMonitorFabric: async () => ethers.Wallet.createRandom().address,
-          keeperFabric: async () => ethers.Wallet.createRandom().address,
-          swapManagerFabric: async (
-            c,
-            tetuLiquidator,
-          ) => (await CoreContractsHelper.createSwapManager(
-            deployer,
-            params?.useZeroController ? Misc.ZERO_ADDRESS : c.address,
-            params?.useZeroTetuLiquidator ? Misc.ZERO_ADDRESS : tetuLiquidator,
-          )).address,
-          tetuLiquidatorAddress: ethers.Wallet.createRandom().address
+          borrowManagerFabric: TetuConverterApp.getRandomSet(),
+          tetuConverterFabric: TetuConverterApp.getRandomSet(),
+          debtMonitorFabric: TetuConverterApp.getRandomSet(),
+          keeperFabric: TetuConverterApp.getRandomSet(),
+          swapManagerFabric: {
+            deploy: async () => CoreContractsHelper.deploySwapManager(deployer),
+            init: async (c, instance) => {
+              await CoreContractsHelper.initializeSwapManager(
+                deployer,
+                params?.useZeroController ? Misc.ZERO_ADDRESS : c,
+                instance
+              )
+            }
+          },
+          tetuLiquidatorAddress: params?.useZeroTetuLiquidator ? Misc.ZERO_ADDRESS : ethers.Wallet.createRandom().address
         }
       );
       return SwapManager__factory.connect(await controllerLocal.swapManager(), deployer);
@@ -590,17 +592,16 @@ describe("SwapManager", () => {
       )).address;
       const localController = await TetuConverterApp.createController(
         deployer, {
-          borrowManagerFabric: async () => ethers.Wallet.createRandom().address,
-          tetuConverterFabric: async () => ethers.Wallet.createRandom().address,
-          debtMonitorFabric: async () => ethers.Wallet.createRandom().address,
-          keeperFabric: async () => ethers.Wallet.createRandom().address,
-          swapManagerFabric: async (
-            c, tetuLiquidatorLocal
-          ) => (await CoreContractsHelper.createSwapManager(
-            deployer,
-            c.address,
-            tetuLiquidatorLocal,
-          )).address,
+          borrowManagerFabric: TetuConverterApp.getRandomSet(),
+          tetuConverterFabric: TetuConverterApp.getRandomSet(),
+          debtMonitorFabric: TetuConverterApp.getRandomSet(),
+          keeperFabric: TetuConverterApp.getRandomSet(),
+          swapManagerFabric: {
+            deploy: async () => CoreContractsHelper.deploySwapManager(deployer),
+            init: async (c, instance) => {
+              await CoreContractsHelper.initializeSwapManager(deployer, c, instance)
+            }
+          },
           tetuLiquidatorAddress: tetuLiquidator,
           priceOracleFabric: async () => (await MocksHelper.getPriceOracleMock(
               deployer,

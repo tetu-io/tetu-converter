@@ -48,6 +48,8 @@ contract Keeper is IHealthKeeperCallback, IResolver, ControllableV3 {
 
   //region ----------------------------------------------------- Initialization
   function init(address controller_, address payable ops_, uint blocksPerDayAutoUpdatePeriodSec_) external initializer {
+    require(ops_ != address(0), AppErrors.ZERO_ADDRESS);
+
     __Controllable_init(controller_);
     ops = ops_;
     gelato = IOps(ops_).gelato();

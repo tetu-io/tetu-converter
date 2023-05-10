@@ -1834,14 +1834,10 @@ describe("DebtsMonitor", () => {
 
   describe("events", () => {
     it("should emit expected events", async () => {
-      const randomSet: IDeployInitFabricsSet = {
-        deploy: async () => ethers.Wallet.createRandom().address,
-        init: async (controller, instance) => {}
-      }
       const controller = await TetuConverterApp.createController(
         deployer, {
-          borrowManagerFabric: randomSet,
-          tetuConverterFabric: randomSet,
+          borrowManagerFabric: {deploy: async () => (await MocksHelper.createBorrowManagerStub(deployer, true)).address},
+          tetuConverterFabric: TetuConverterApp.getRandomSet(),
           debtMonitorFabric: {
             deploy: async () => CoreContractsHelper.deployDebtMonitor(deployer),
             init: async (controller, instance) => CoreContractsHelper.initializeDebtMonitor(
@@ -1850,8 +1846,8 @@ describe("DebtsMonitor", () => {
               instance,
             ),
           },
-          keeperFabric: randomSet,
-          swapManagerFabric: randomSet,
+          keeperFabric: TetuConverterApp.getRandomSet(),
+          swapManagerFabric: TetuConverterApp.getRandomSet(),
           tetuLiquidatorAddress: ethers.Wallet.createRandom().address
         });
 

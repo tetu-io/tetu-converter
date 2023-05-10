@@ -53,11 +53,21 @@ export class CoreContractsHelper {
     );
 
     // initialize all core contracts
-    await fabrics.borrowManagerFabric.init(controller, borrowManager);
-    await fabrics.keeperFabric.init(controller, keeper);
-    await fabrics.swapManagerFabric.init(controller, swapManager);
-    await fabrics.debtMonitorFabric.init(controller, debtMonitor);
-    await fabrics.tetuConverterFabric.init(controller, tetuConverter);
+    if (fabrics.borrowManagerFabric.init) {
+      await fabrics.borrowManagerFabric.init(controller, borrowManager);
+    }
+    if (fabrics.keeperFabric.init) {
+      await fabrics.keeperFabric.init(controller, keeper);
+    }
+    if (fabrics.swapManagerFabric.init) {
+      await fabrics.swapManagerFabric.init(controller, swapManager);
+    }
+    if (fabrics.debtMonitorFabric.init) {
+      await fabrics.debtMonitorFabric.init(controller, debtMonitor);
+    }
+    if (fabrics.tetuConverterFabric.init) {
+      await fabrics.tetuConverterFabric.init(controller, tetuConverter);
+    }
 
     // change default values of controller to the required values
     const controllerAsGov = await ConverterController__factory.connect(controller, deployer);
