@@ -1,7 +1,7 @@
 import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import hre, {ethers} from "hardhat";
 import {expect} from "chai";
-import {ConverterController, ConverterController__factory} from "../../typechain";
+import {ConverterController, ConverterController__factory, IConverterController__factory} from "../../typechain";
 import {TimeUtils} from "../../scripts/utils/TimeUtils";
 import {BigNumber} from "ethers";
 import {controlGasLimitsEx, getGasUsed} from "../../scripts/utils/hardhatUtils";
@@ -43,6 +43,7 @@ describe("Controller", () => {
 
 //region Utils
   interface IControllerMembers {
+    proxyUpdater: string;
     governance: string;
     tetuConverter: string;
     borrowManager: string;
@@ -108,32 +109,35 @@ describe("Controller", () => {
   async function createTestController(
     a: IControllerMembers,
   ) : Promise<{controller: ConverterController, gasUsed: BigNumber}> {
-    const controller = await CoreContractsHelper.deployController(deployer, a.tetuLiquidator);
+    const controller = ConverterController__factory.connect(await CoreContractsHelper.deployController(deployer), deployer);
 
     const gasUsed = await getGasUsed(
-      controller.initialize(
+      controller.init(
+        a.proxyUpdater,
         a.governance,
-        a.blocksPerDay,
-        a.minHealthFactor2,
-        a.targetHealthFactor2,
         a.tetuConverter,
         a.borrowManager,
         a.debtMonitor,
         a.keeper,
         a.swapManager,
-        a.debtGap,
-        a.priceOracle
+        a.priceOracle,
+        a.tetuLiquidator,
+        a.blocksPerDay
       )
     );
 
     // maxHealthFactor2 was removed from initialize in ver.13
     await controller.connect(await Misc.impersonate(a.governance)).setMaxHealthFactor2(a.maxHealthFactor2);
+    await controller.connect(await Misc.impersonate(a.governance)).setMinHealthFactor2(a.minHealthFactor2);
+    await controller.connect(await Misc.impersonate(a.governance)).setTargetHealthFactor2(a.targetHealthFactor2);
+    await controller.connect(await Misc.impersonate(a.governance)).setDebtGap(a.debtGap);
 
     return {controller, gasUsed};
   }
 
   function getRandomMembersValues() : IControllerMembers {
     return {
+      proxyUpdater: ethers.Wallet.createRandom().address,
       governance: ethers.Wallet.createRandom().address,
 
       tetuConverter: ethers.Wallet.createRandom().address,
@@ -162,7 +166,7 @@ describe("Controller", () => {
 //endregion Utils
 
 //region Unit tests
-  describe ("initialize", () => {
+  describe ("init", () => {
     describe ("Good paths", () => {
       it("should initialize values correctly", async () => {
         const a = getRandomMembersValues();
@@ -225,9 +229,16 @@ describe("Controller", () => {
         });
       });
 
-      it("zero governance should revert", async () => {
+      it("should revert if zero governance", async () => {
         const a = getRandomMembersValues();
         a.governance = Misc.ZERO_ADDRESS;
+        await expect(
+          createTestController(a)
+        ).revertedWith("TC-1 zero address");
+      });
+      it("should revert if zero proxyUpdater", async () => {
+        const a = getRandomMembersValues();
+        a.proxyUpdater = Misc.ZERO_ADDRESS;
         await expect(
           createTestController(a)
         ).revertedWith("TC-1 zero address");
@@ -268,18 +279,17 @@ describe("Controller", () => {
         const a = getRandomMembersValues();
         const {controller} = await createTestController(a);
         await expect(
-          controller.initialize(
+          controller.init(
+            a.proxyUpdater,
             a.governance,
-            a.blocksPerDay,
-            a.minHealthFactor2,
-            a.targetHealthFactor2,
             a.tetuConverter,
             a.borrowManager,
             a.debtMonitor,
             a.keeper,
             a.swapManager,
-            a.debtGap,
-            a.priceOracle
+            a.priceOracle,
+            a.tetuLiquidator,
+            a.blocksPerDay,
           )
         ).revertedWith("Initializable: contract is already initialized");
       });

@@ -32,7 +32,7 @@ import {BalanceUtils} from "../baseUT/utils/BalanceUtils";
 import {areAlmostEqual} from "../baseUT/utils/CommonUtils";
 import {CoreContractsHelper} from "../baseUT/helpers/CoreContractsHelper";
 import {Misc} from "../../scripts/utils/Misc";
-import {ICreateControllerParams, TetuConverterApp} from "../baseUT/helpers/TetuConverterApp";
+import {ICreateControllerParams, IDeployInitFabricsSet, TetuConverterApp} from "../baseUT/helpers/TetuConverterApp";
 import {parseUnits} from "ethers/lib/utils";
 import {controlGasLimitsEx} from "../../scripts/utils/hardhatUtils";
 import {GAS_LIMIT, GAS_LIMIT_DM_ON_CLOSE_POSITION, GAS_LIMIT_DM_ON_OPEN_POSITION} from "../baseUT/GasLimit";
@@ -625,38 +625,25 @@ describe("DebtsMonitor", () => {
 //endregion Close position test
 
 //region Unit tests
-  describe("constructor", () => {
+  describe("init", () => {
     interface IMakeConstructorTestParams {
       useZeroController?: boolean;
-      useZeroBorrowManager?: boolean;
     }
-    async function makeConstructorTest(
-      params?: IMakeConstructorTestParams
-      // thresholdAPR: number,
-      // thresholdCountBlocks: number,
-    ): Promise<{ret: string, expected: string}> {
-      const controller = await CoreContractsHelper.deployController(
-        deployer,
-        ethers.Wallet.createRandom().address,
-      );
-      const borrowManager = await CoreContractsHelper.createBorrowManager(deployer, controller.address);
-      const debtMonitor = await CoreContractsHelper.createDebtMonitor(
-        deployer,
-        params?.useZeroController ? Misc.ZERO_ADDRESS : controller.address,
-        params?.useZeroBorrowManager ? Misc.ZERO_ADDRESS: borrowManager.address
-        // thresholdAPR,
-        // thresholdCountBlocks
-      );
-      const ret = [
-        await debtMonitor.controller()
-        // await debtMonitor.thresholdAPR(),
-        // await debtMonitor.thresholdCountBlocks()
-      ].map(x => BalanceUtils.toString(x)).join("\n");
-      const expected = [
-        controller.address,
-        // thresholdAPR,
-        // thresholdCountBlocks
-      ].map(x => BalanceUtils.toString(x)).join("\n");
+    async function makeConstructorTest(params?: IMakeConstructorTestParams): Promise<{ret: string, expected: string}> {
+      const controller = await TetuConverterApp.createController(
+        deployer, {
+          debtMonitorFabric: {
+            deploy: async () => CoreContractsHelper.deployDebtMonitor(deployer),
+            init: async (controller, instance) => CoreContractsHelper.initializeDebtMonitor(
+              deployer,
+              params?.useZeroController ? Misc.ZERO_ADDRESS : controller,
+              instance,
+            ),
+          },
+        });
+      const ret = await DebtMonitor__factory.connect(await controller.debtMonitor(), deployer).controller();
+      const expected = controller.address;
+
       return {ret, expected};
     }
     describe("Good paths", () => {
@@ -664,42 +651,13 @@ describe("DebtsMonitor", () => {
         const r = await makeConstructorTest();
         expect(r.ret).eq(r.expected);
       });
-      // it("should enable both thresholds", async () => {
-      //   const r = await makeConstructorTest(20, 7000);
-      //   expect(r.ret).eq(r.expected);
-      // });
-      // it("should disable both thresholds", async () => {
-      //   const r = await makeConstructorTest(0, 0);
-      //   expect(r.ret).eq(r.expected);
-      // });
     });
     describe("Bad paths", () => {
-      // it("should revert on too big thresholdAPR", async () => {
-      //   await expect(
-      //     makeConstructorTest(
-      //       100, // (!) it must be less 100
-      //       0
-      //     )
-      //   ).revertedWith("TC-29 incorrect value"); // INCORRECT_VALUE
-      // });
       it("should revert if controller is zero", async () => {
         await expect(
           makeConstructorTest(
             {
               useZeroController: true // (!) controller is zero
-              // 0,
-              // 0,
-            }
-          )
-        ).revertedWith("TC-1 zero address"); // ZERO_ADDRESS
-      });
-      it("should revert if borrowManager is zero", async () => {
-        await expect(
-          makeConstructorTest(
-            {
-              useZeroBorrowManager: true // (!) controller is zero
-              // 0,
-              // 0,
             }
           )
         ).revertedWith("TC-1 zero address"); // ZERO_ADDRESS
@@ -1876,57 +1834,33 @@ describe("DebtsMonitor", () => {
 
   describe("events", () => {
     it("should emit expected events", async () => {
-      const p: ICreateControllerParams = {
-        borrowManagerFabric: async () => (await MocksHelper.createBorrowManagerStub(deployer, true)).address,
-        tetuConverterFabric: async () => ethers.Wallet.createRandom().address,
-        keeperFabric: async () => ethers.Wallet.createRandom().address,
-        swapManagerFabric: async () => ethers.Wallet.createRandom().address,
-        tetuLiquidatorAddress: ethers.Wallet.createRandom().address,
-        debtMonitorFabric: (async (c, borrowManager) => (await CoreContractsHelper.createDebtMonitor(deployer,
-          c.address,
-          borrowManager
-          // 1,
-          // 1
-        )).address),
-      };
-      const controller = await TetuConverterApp.createController(deployer, p);
-      // const debtMonitorAsGov = DebtMonitor__factory.connect(
-      //   await controller.debtMonitor(),
-      //   await DeployerUtils.startImpersonate(await controller.governance())
-      // );
+      const randomSet: IDeployInitFabricsSet = {
+        deploy: async () => ethers.Wallet.createRandom().address,
+        init: async (controller, instance) => {}
+      }
+      const controller = await TetuConverterApp.createController(
+        deployer, {
+          borrowManagerFabric: randomSet,
+          tetuConverterFabric: randomSet,
+          debtMonitorFabric: {
+            deploy: async () => CoreContractsHelper.deployDebtMonitor(deployer),
+            init: async (controller, instance) => CoreContractsHelper.initializeDebtMonitor(
+              deployer,
+              controller,
+              instance,
+            ),
+          },
+          keeperFabric: randomSet,
+          swapManagerFabric: randomSet,
+          tetuLiquidatorAddress: ethers.Wallet.createRandom().address
+        });
+
       const debtMonitorAsTetuConverter = DebtMonitor__factory.connect(
         await controller.debtMonitor(),
         await DeployerUtils.startImpersonate(await controller.tetuConverter())
       );
-      // const borrowManager = BorrowManagerStub__factory.connect(
-      //   await controller.borrowManager(),
-      //   await DeployerUtils.startImpersonate(await controller.borrowManager())
-      // );
-
-      // await expect(
-      //   debtMonitorAsGov.setThresholdAPR(14)
-      // ).to.emit(debtMonitorAsGov, "OnSetThresholdAPR").withArgs(14);
-      //
-      // await expect(
-      //   debtMonitorAsGov.setThresholdCountBlocks(141)
-      // ).to.emit(debtMonitorAsGov, "OnSetThresholdCountBlocks").withArgs(141);
 
       const poolAdapter = await MocksHelper.createPoolAdapterStub(deployer, parseUnits("0.5"));
-      // const collateralAsset = ethers.Wallet.createRandom().address;
-      // const borrowAsset = ethers.Wallet.createRandom().address;
-      // const converter = ethers.Wallet.createRandom().address;
-      // await poolAdapter.initialize(
-      //   controller.address,
-      //   ethers.Wallet.createRandom().address,
-      //   ethers.Wallet.createRandom().address,
-      //   collateralAsset,
-      //   borrowAsset,
-      //   converter,
-      //   ethers.Wallet.createRandom().address,
-      //   parseUnits("0.5"),
-      //   parseUnits("0.5"),
-      //   ethers.Wallet.createRandom().address
-      // );
 
       const debtMonitorAsPoolAdapter = DebtMonitor__factory.connect(
         await controller.debtMonitor(),
