@@ -14,7 +14,6 @@ import {formatUnits, parseUnits} from "ethers/lib/utils";
 import {ICometRewards__factory, IERC20__factory, IERC20Metadata__factory} from "../../../typechain";
 import {expect} from "chai";
 import {areAlmostEqual} from "../../baseUT/utils/CommonUtils";
-import {DForceTestUtils} from "../../baseUT/protocols/dforce/DForceTestUtils";
 import {BalanceUtils} from "../../baseUT/utils/BalanceUtils";
 import {Misc} from "../../../scripts/utils/Misc";
 

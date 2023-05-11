@@ -125,11 +125,9 @@ describe("TetuLiquidatorSwapTest", () => {
 
         const sourceAmount = parseUnits("1", 18);
         await BalanceUtils.getAmountFromHolder(MaticAddresses.DAI, MaticAddresses.HOLDER_DAI, signer.address, sourceAmount);
-        await IERC20__factory.connect(MaticAddresses.DAI, signer).approve(
-          await controller.tetuConverter(),
-          sourceAmount
-        );
-        const r = await swapManager.callStatic.getConverter(
+        await IERC20__factory.connect(MaticAddresses.DAI, signer).approve(await controller.tetuConverter(), sourceAmount);
+        const swapManagerAsTetuConverter = await swapManager.connect(await Misc.impersonate(await controller.tetuConverter()));
+        const r = await swapManagerAsTetuConverter.callStatic.getConverter(
           signer.address,
           MaticAddresses.DAI,
           sourceAmount,
@@ -147,11 +145,9 @@ describe("TetuLiquidatorSwapTest", () => {
 
         const sourceAmount = parseUnits("1", 18);
         await BalanceUtils.getAmountFromHolder(MaticAddresses.DAI, MaticAddresses.HOLDER_DAI, signer.address, sourceAmount);
-        await IERC20__factory.connect(MaticAddresses.DAI, signer).approve(
-          await controller.tetuConverter(),
-          sourceAmount
-        );
-        const gas = await swapManager.estimateGas.getConverter(
+        await IERC20__factory.connect(MaticAddresses.DAI, signer).approve(await controller.tetuConverter(), sourceAmount);
+        const swapManagerAsTetuConverter = await swapManager.connect(await Misc.impersonate(await controller.tetuConverter()));
+        const gas = await swapManagerAsTetuConverter.estimateGas.getConverter(
           signer.address,
           MaticAddresses.DAI,
           sourceAmount,
@@ -169,15 +165,13 @@ describe("TetuLiquidatorSwapTest", () => {
 
         const sourceAmount = parseUnits("1", 18);
         await BalanceUtils.getAmountFromHolder(MaticAddresses.WETH, MaticAddresses.HOLDER_WETH_4, signer.address, sourceAmount);
-        await IERC20__factory.connect(MaticAddresses.WETH, signer).approve(
-          await controller.tetuConverter(),
-          sourceAmount
-        );
+        await IERC20__factory.connect(MaticAddresses.WETH, signer).approve(await controller.tetuConverter(), sourceAmount);
         const tetuLiquidator = await ITetuLiquidator__factory.connect(MaticAddresses.TETU_LIQUIDATOR, signer);
         const price = await tetuLiquidator.getPrice(MaticAddresses.WETH, MaticAddresses.WBTC, sourceAmount);
         console.log("price", price);
 
-        const r = await swapManager.callStatic.getConverter(
+        const swapManagerAsTetuConverter = await swapManager.connect(await Misc.impersonate(await controller.tetuConverter()));
+        const r = await swapManagerAsTetuConverter.callStatic.getConverter(
           signer.address,
           MaticAddresses.WETH,
           sourceAmount,
@@ -198,11 +192,9 @@ describe("TetuLiquidatorSwapTest", () => {
 
         const sourceAmount = parseUnits("1", 18);
         await BalanceUtils.getAmountFromHolder(MaticAddresses.DAI, MaticAddresses.HOLDER_DAI, signer.address, sourceAmount);
-        await IERC20__factory.connect(MaticAddresses.DAI, signer).approve(
-          await controller.tetuConverter(),
-          sourceAmount
-        );
-        const r = await swapManager.callStatic.getConverter(
+        await IERC20__factory.connect(MaticAddresses.DAI, signer).approve(await controller.tetuConverter(), sourceAmount);
+        const swapManagerAsTetuConverter = await swapManager.connect(await Misc.impersonate(await controller.tetuConverter()));
+        const r = await swapManagerAsTetuConverter.callStatic.getConverter(
           signer.address,
           MaticAddresses.DAI,
           sourceAmount,
@@ -224,7 +216,8 @@ describe("TetuLiquidatorSwapTest", () => {
           await controller.tetuConverter(),
           sourceAmount
         );
-        const gas = await swapManager.estimateGas.getConverter(
+        const swapManagerAsTetuConverter = await swapManager.connect(await Misc.impersonate(await controller.tetuConverter()));
+        const gas = await swapManagerAsTetuConverter.estimateGas.getConverter(
           signer.address,
           MaticAddresses.DAI,
           sourceAmount,
@@ -242,11 +235,9 @@ describe("TetuLiquidatorSwapTest", () => {
 
         const sourceAmount = parseUnits("0.01", 8);
         await BalanceUtils.getAmountFromHolder(MaticAddresses.WBTC, MaticAddresses.HOLDER_WBTC, signer.address, sourceAmount);
-        await IERC20__factory.connect(MaticAddresses.WBTC, signer).approve(
-          await controller.tetuConverter(),
-          sourceAmount
-        );
-        const r = await swapManager.callStatic.getConverter(
+        await IERC20__factory.connect(MaticAddresses.WBTC, signer).approve(await controller.tetuConverter(), sourceAmount);
+        const swapManagerAsTetuConverter = await swapManager.connect(await Misc.impersonate(await controller.tetuConverter()));
+        const r = await swapManagerAsTetuConverter.callStatic.getConverter(
           signer.address,
           MaticAddresses.WBTC,
           sourceAmount,
@@ -264,11 +255,9 @@ describe("TetuLiquidatorSwapTest", () => {
 
         const sourceAmount = parseUnits("0.01", 18);
         await BalanceUtils.getAmountFromHolder(MaticAddresses.WBTC, MaticAddresses.HOLDER_WBTC, signer.address, sourceAmount);
-        await IERC20__factory.connect(MaticAddresses.WBTC, signer).approve(
-          await controller.tetuConverter(),
-          sourceAmount
-        );
-        const gas = await swapManager.estimateGas.getConverter(
+        await IERC20__factory.connect(MaticAddresses.WBTC, signer).approve(await controller.tetuConverter(), sourceAmount);
+        const swapManagerAsTetuConverter = await swapManager.connect(await Misc.impersonate(await controller.tetuConverter()));
+        const gas = await swapManagerAsTetuConverter.estimateGas.getConverter(
           signer.address,
           MaticAddresses.WBTC,
           sourceAmount,

@@ -1985,36 +1985,61 @@ describe("DForcePoolAdapterUnitTest", () => {
   });
 
   describe("updateBalance", () => {
-    it("should change stored balance", async () => {
-      if (!await isPolygonForkInUse()) return;
+    describe("Good paths", () => {
+      it("should change stored balance", async () => {
+        if (!await isPolygonForkInUse()) return;
 
-      const collateralAsset = MaticAddresses.DAI;
-      const collateralCToken = MaticAddresses.dForce_iDAI;
-      const collateralHolder = MaticAddresses.HOLDER_DAI;
-      const borrowAsset = MaticAddresses.USDC;
-      const borrowCToken = MaticAddresses.dForce_iUSDC;
+        const collateralAsset = MaticAddresses.DAI;
+        const collateralCToken = MaticAddresses.dForce_iDAI;
+        const collateralHolder = MaticAddresses.HOLDER_DAI;
+        const borrowAsset = MaticAddresses.USDC;
+        const borrowCToken = MaticAddresses.dForce_iUSDC;
 
-      const results = await makeBorrowTest(
-        collateralAsset,
-        collateralCToken,
-        collateralHolder,
-        borrowAsset,
-        borrowCToken,
-        "1999"
-      );
-      const status0 = await results.init.dfPoolAdapterTC.getStatus();
-      await TimeUtils.advanceNBlocks(100);
-      const status1 = await results.init.dfPoolAdapterTC.getStatus();
+        const results = await makeBorrowTest(
+          collateralAsset,
+          collateralCToken,
+          collateralHolder,
+          borrowAsset,
+          borrowCToken,
+          "1999"
+        );
+        const status0 = await results.init.dfPoolAdapterTC.getStatus();
+        await TimeUtils.advanceNBlocks(100);
+        const status1 = await results.init.dfPoolAdapterTC.getStatus();
 
-      await results.init.dfPoolAdapterTC.updateStatus();
-      const status2 = await results.init.dfPoolAdapterTC.getStatus();
+        await results.init.dfPoolAdapterTC.updateStatus();
+        const status2 = await results.init.dfPoolAdapterTC.getStatus();
 
-      const ret = [
-        status1.amountToPay.eq(status0.amountToPay),
-        status2.amountToPay.gt(status1.amountToPay)
-      ].join();
-      const expected = [true, true].join();
-      expect(ret).eq(expected);
+        const ret = [
+          status1.amountToPay.eq(status0.amountToPay),
+          status2.amountToPay.gt(status1.amountToPay)
+        ].join();
+        const expected = [true, true].join();
+        expect(ret).eq(expected);
+      });
+    });
+    describe("Bad paths", () => {
+      it("should revert if caller is not TetuConverter", async () => {
+        if (!await isPolygonForkInUse()) return;
+
+        const collateralAsset = MaticAddresses.DAI;
+        const collateralCToken = MaticAddresses.dForce_iDAI;
+        const collateralHolder = MaticAddresses.HOLDER_DAI;
+        const borrowAsset = MaticAddresses.USDC;
+        const borrowCToken = MaticAddresses.dForce_iUSDC;
+
+        const results = await makeBorrowTest(
+          collateralAsset,
+          collateralCToken,
+          collateralHolder,
+          borrowAsset,
+          borrowCToken,
+          "1999"
+        );
+        await expect(
+          results.init.dfPoolAdapterTC.connect(await Misc.impersonate(ethers.Wallet.createRandom().address)).updateStatus()
+        ).revertedWith("TC-8 tetu converter only"); // TETU_CONVERTER_ONLY
+      });
     });
   });
 

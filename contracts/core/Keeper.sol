@@ -64,17 +64,6 @@ contract Keeper is IHealthKeeperCallback, IResolver, ControllableV3 {
   }
   //endregion ----------------------------------------------------- Initialization
 
-  //region ----------------------------------------------------- OpsReady
-  function _transfer(uint256 _amount, address _paymentToken) internal {
-    if (_paymentToken == ETH) {
-      (bool success,) = gelato.call{value: _amount}("");
-      require(success, AppErrors.GELATO_ETH_TRANSFER_FAILED);
-    } else {
-      SafeERC20.safeTransfer(IERC20(_paymentToken), gelato, _amount);
-    }
-  }
-  //endregion ----------------------------------------------------- OpsReady
-
   //region ----------------------------------------------------- Read-only gelato-resolver
 
   /// @notice Check health of opened positions starting from nth-position, where n = nextIndexToCheck0

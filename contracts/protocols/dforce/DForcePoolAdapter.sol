@@ -20,8 +20,6 @@ import "../../integrations/IWmatic.sol";
 import "../../integrations/dforce/IDForceInterestRateModel.sol";
 import "../../integrations/dforce/IDForceRewardDistributor.sol";
 
-import "hardhat/console.sol";
-
 /// @notice Implementation of IPoolAdapter for dForce-protocol, see https://developers.dforce.network/
 /// @dev Instances of this contract are created using proxy-minimal pattern, so no constructor
 contract DForcePoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP, Initializable {
@@ -269,18 +267,11 @@ contract DForcePoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP, Initi
 
     // make borrow
     uint balanceBorrowAsset0 = _getBalance(assetBorrow);
-    console.log("borrowToRebalance.cTokenBorrow", cTokenBorrow);
-    console.log("borrowToRebalance.cTokenCollateral", collateralCToken);
-    console.log("borrowToRebalance.comptroller", address(_comptroller));
-    console.log("borrowToRebalance.this", address(this));
     IDForceCToken(cTokenBorrow).borrow(borrowAmount_);
-    console.log("borrowToRebalance.borrow.done");
 
     // ensure that we have received required borrowed amount, send the amount to the receiver
     if (_isMatic(assetBorrow)) {
-      console.log("borrowToRebalance.1");
       IWmatic(WMATIC).deposit{value: borrowAmount_}();
-      console.log("borrowToRebalance.2");
     }
     require(
       borrowAmount_ + balanceBorrowAsset0 == IERC20(assetBorrow).balanceOf(address(this)),

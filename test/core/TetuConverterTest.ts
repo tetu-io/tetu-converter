@@ -518,11 +518,13 @@ describe("TetuConverterTest", () => {
     swapConfig?: IPrepareContractsSetupParams;
     entryData?: string;
     setConverterToPauseState?: boolean;
+    notWhitelisted?: boolean;
   }
 
   interface IFindConversionStrategyBadParams {
     zeroSourceAmount?: boolean;
     zeroPeriod?: boolean;
+    notWhitelisted?: boolean;
   }
 
   interface IMakeFindConversionStrategySwapAndBorrowResults {
@@ -537,7 +539,7 @@ describe("TetuConverterTest", () => {
   async function makeFindConversionStrategy(
     sourceAmountNum: number,
     periodInBlocks: number,
-    params?: IFindConversionStrategyInputParams
+    p?: IFindConversionStrategyInputParams
   ): Promise<IMakeFindConversionStrategyResults> {
     const core = await CoreContracts.build(
       await TetuConverterApp.createController(deployer, {
@@ -545,10 +547,10 @@ describe("TetuConverterTest", () => {
       })
     );
     const init = await prepareTetuAppWithMultipleLendingPlatforms(core,
-      params?.borrowRateNum ? 1 : 0,
-      {tetuAppSetupParams: params?.swapConfig}
+      p?.borrowRateNum ? 1 : 0,
+      {tetuAppSetupParams: p?.swapConfig}
     );
-    if (params?.setConverterToPauseState) {
+    if (p?.setConverterToPauseState) {
       await core.controller.connect(
         await DeployerUtils.startImpersonate(await core.controller.governance())
       ).setPaused(true)
@@ -559,32 +561,36 @@ describe("TetuConverterTest", () => {
       [parseUnits("1"), parseUnits("1")] // prices are set to 1 for simplicity
     );
 
-    if (params?.borrowRateNum) {
+    if (p?.borrowRateNum) {
       await PoolAdapterMock__factory.connect(
         init.poolAdapters[0],
         deployer
-      ).changeBorrowRate(params?.borrowRateNum);
+      ).changeBorrowRate(p?.borrowRateNum);
       await LendingPlatformMock__factory.connect(
         init.poolInstances[0].platformAdapter,
         deployer
-      ).changeBorrowRate(init.targetToken.address, params?.borrowRateNum);
+      ).changeBorrowRate(init.targetToken.address, p?.borrowRateNum);
     }
 
     // source amount must be approved to TetuConverter before calling findConversionStrategy
     const sourceAmount = parseUnits(sourceAmountNum.toString(), await init.sourceToken.decimals());
-    const signer = await init.core.tc.signer.getAddress();
-    await MockERC20__factory.connect(init.sourceToken.address, init.core.tc.signer).mint(signer, sourceAmount);
-    await MockERC20__factory.connect(init.sourceToken.address, init.core.tc.signer).approve(core.tc.address, sourceAmount);
+    const user = await Misc.impersonate(init.userContract.address);
+    await MockERC20__factory.connect(init.sourceToken.address, user).mint(user.address, sourceAmount);
+    await MockERC20__factory.connect(init.sourceToken.address, user).approve(core.tc.address, sourceAmount);
 
-    const results = await init.core.tc.callStatic.findConversionStrategy(
-      params?.entryData || "0x",
+    const tcAsCaller = p?.notWhitelisted
+      ? init.core.tc.connect(await Misc.impersonate(ethers.Wallet.createRandom().address))
+      : init.core.tc.connect(user);
+
+    const results = await tcAsCaller.callStatic.findConversionStrategy(
+      p?.entryData || "0x",
       init.sourceToken.address,
       sourceAmount,
       init.targetToken.address,
       periodInBlocks
     );
-    const tx = await init.core.tc.findConversionStrategy(
-      params?.entryData || "0x",
+    const tx = await tcAsCaller.findConversionStrategy(
+      p?.entryData || "0x",
       init.sourceToken.address,
       sourceAmount,
       init.targetToken.address,
@@ -612,11 +618,11 @@ describe("TetuConverterTest", () => {
   async function makeFindConversionStrategyTest(
     useLendingPool: boolean,
     useDexPool: boolean,
-    badPathsParams?: IFindConversionStrategyBadParams
+    p?: IFindConversionStrategyBadParams
   ): Promise<IMakeFindConversionStrategyResults> {
     return makeFindConversionStrategy(
-      badPathsParams?.zeroSourceAmount ? 0 : 1000,
-      badPathsParams?.zeroPeriod ? 0 : 100,
+      p?.zeroSourceAmount ? 0 : 1000,
+      p?.zeroPeriod ? 0 : 100,
       {
         borrowRateNum: useLendingPool ? 1000 : undefined,
         swapConfig: useDexPool
@@ -624,7 +630,8 @@ describe("TetuConverterTest", () => {
             priceImpact: 1_000,
             setupTetuLiquidatorToSwapBorrowToCollateral: true,
           }
-          : undefined
+          : undefined,
+        notWhitelisted: p?.notWhitelisted
       }
     );
   }
@@ -745,16 +752,20 @@ describe("TetuConverterTest", () => {
 //endregion findBorrowStrategies test impl
 
 //region findSwapStrategy test impl
+  interface IMakeFindSwapStrategyParams {
+    setConverterToPauseState?: boolean;
+    notWhitelisted?: boolean;
+  }
   /**
    * Set up test for findConversionStrategy
    * @param sourceAmountNum
    * @param swapConfig Swap manager config; undefined if there is no DEX
-   * @param setConverterToPauseState
+   * @param p
    */
   async function makeFindSwapStrategy(
     sourceAmountNum: number,
     swapConfig: IPrepareContractsSetupParams,
-    setConverterToPauseState?: boolean
+    p?: IMakeFindSwapStrategyParams
   ): Promise<IMakeFindConversionStrategyResults> {
     const core = await CoreContracts.build(
       await TetuConverterApp.createController(deployer, {
@@ -767,7 +778,7 @@ describe("TetuConverterTest", () => {
       [parseUnits("1"), parseUnits("1")] // prices are set to 1 for simplicity
     );
 
-    if (setConverterToPauseState) {
+    if (p?.setConverterToPauseState) {
       await core.controller.connect(
         await DeployerUtils.startImpersonate(await core.controller.governance())
       ).setPaused(true)
@@ -775,17 +786,20 @@ describe("TetuConverterTest", () => {
 
     // source amount must be approved to TetuConverter before calling findConversionStrategy
     const sourceAmount = parseUnits(sourceAmountNum.toString(), await init.sourceToken.decimals());
-    const signer = await init.core.tc.signer.getAddress();
-    await MockERC20__factory.connect(init.sourceToken.address, init.core.tc.signer).mint(signer, sourceAmount);
-    await MockERC20__factory.connect(init.sourceToken.address, init.core.tc.signer).approve(core.tc.address, sourceAmount);
+    const user = await Misc.impersonate(init.userContract.address);
+    await MockERC20__factory.connect(init.sourceToken.address, user).mint(user.address, sourceAmount);
+    await MockERC20__factory.connect(init.sourceToken.address, user).approve(core.tc.address, sourceAmount);
 
-    const results = await init.core.tc.callStatic.findSwapStrategy(
+    const tcAsCaller = p?.notWhitelisted
+      ? init.core.tc.connect(await Misc.impersonate(ethers.Wallet.createRandom().address))
+      : init.core.tc.connect(user);
+    const results = await tcAsCaller.callStatic.findSwapStrategy(
       swapConfig.entryData || "0x",
       init.sourceToken.address,
       sourceAmount,
       init.targetToken.address,
     );
-    const tx = await init.core.tc.findSwapStrategy(
+    const tx = await tcAsCaller.findSwapStrategy(
       swapConfig.entryData || "0x",
       init.sourceToken.address,
       sourceAmount,
@@ -1091,6 +1105,19 @@ describe("TetuConverterTest", () => {
           ).revertedWith("TC-29 incorrect value"); // INCORRECT_VALUE
         });
       });
+      describe("Not whitelisted", () => {
+        it("should revert", async () => {
+          await expect(
+            makeFindConversionStrategyTest(
+              false,
+              false,
+              {
+                notWhitelisted: true
+              }
+            )
+          ).revertedWith("TC-57 whitelist"); // OUT_OF_WHITE_LIST
+        });
+      });
     });
     describe("Gas estimation @skip-on-coverage", () => {
       it("should return expected values", async () => {
@@ -1311,7 +1338,7 @@ describe("TetuConverterTest", () => {
               setupTetuLiquidatorToSwapBorrowToCollateral: true,
               entryData: "0x",
             },
-            true // setConverterToPauseState
+            {setConverterToPauseState: true}
           );
           expect(r.results.converter === Misc.ZERO_ADDRESS).eq(true);
         });
@@ -1325,6 +1352,22 @@ describe("TetuConverterTest", () => {
           ).revertedWith("TC-43 zero amount"); // ZERO_AMOUNT
         });
       });
+      describe("Not whitelisted", () => {
+        it("should revert", async () => {
+          await expect(
+            makeFindSwapStrategy(
+              1000,
+              {
+                priceImpact: 1_000,
+                setupTetuLiquidatorToSwapBorrowToCollateral: true,
+                entryData: "0x",
+              },
+              {notWhitelisted: true}
+            )
+          ).revertedWith("TC-57 whitelist"); // OUT_OF_WHITE_LIST
+        });
+      });
+
     });
     describe("Gas estimation @skip-on-coverage", () => {
       it("should return expected values", async () => {
@@ -2195,6 +2238,7 @@ describe("TetuConverterTest", () => {
       hackSendBorrowAssetAmountToBalance?: string;
       initialConverterBalanceBorrowAsset?: string;
       initialConverterBalanceCollateral?: string;
+      notWhitelisted?: boolean;
     }
 
     interface IRepayOutputValues {
@@ -2287,14 +2331,18 @@ describe("TetuConverterTest", () => {
         );
       }
 
-      const repayOutput = await tcAsUc.callStatic.repay(
+      const tcAsCaller = p?.notWhitelisted
+        ? tcAsUc.connect(await Misc.impersonate(ethers.Wallet.createRandom().address))
+        : tcAsUc;
+
+      const repayOutput = await tcAsCaller.callStatic.repay(
         init.sourceToken.address,
         init.targetToken.address,
         amountToRepay,
         receiver,
         {gasLimit: GAS_LIMIT}
       );
-      await tcAsUc.repay(
+      await tcAsCaller.repay(
         init.sourceToken.address,
         init.targetToken.address,
         amountToRepay,
@@ -2789,6 +2837,21 @@ describe("TetuConverterTest", () => {
           expect(r.totalDebtAmountOut).eq(+formatUnits((exactBorrowAmount - amountToRepay).toString(), await r.init.targetToken.decimals()));
           expect(+formatUnits(await r.init.targetToken.balanceOf(r.init.core.tc.address), await r.init.targetToken.decimals())).eq(200_000);
           expect(+formatUnits(await r.init.sourceToken.balanceOf(r.init.core.tc.address), await r.init.sourceToken.decimals())).eq(500_000);
+        });
+      });
+      describe("Not whitelisted", () => {
+        it("should revert", async () => {
+          const exactBorrowAmount = 120;
+          const amountToRepay = exactBorrowAmount + 1; // (!)
+          await expect(
+            makeRepayTest(
+              [1_000_000],
+              [exactBorrowAmount],
+              amountToRepay,
+              false,
+              {notWhitelisted: true}
+            )
+          ).revertedWith("TC-57 whitelist"); // OUT_OF_WHITE_LIST
         });
       });
     });
@@ -3388,6 +3451,7 @@ describe("TetuConverterTest", () => {
     interface IGetDebtAmountCurrentParams {
       gapDebtRequired?: boolean;
       useDebtGap?: boolean;
+      notWhitelisted?: boolean;
     }
 
     async function makeGetDebtAmountTest(
@@ -3410,9 +3474,12 @@ describe("TetuConverterTest", () => {
         pr.core.tc.address,
         await DeployerUtils.startImpersonate(pr.userContract.address)
       );
+      const tcAsCaller = p?.notWhitelisted
+        ? tcAsUc.connect(await Misc.impersonate(ethers.Wallet.createRandom().address))
+        : tcAsUc;
 
-      const r = (await tcAsUc.callStatic.getDebtAmountCurrent(
-        await tcAsUc.signer.getAddress(),
+      const r = (await tcAsCaller.callStatic.getDebtAmountCurrent(
+        await tcAsCaller.signer.getAddress(),
         pr.sourceToken.address,
         pr.targetToken.address,
         p?.useDebtGap || false,
@@ -3428,68 +3495,81 @@ describe("TetuConverterTest", () => {
       }
     }
 
-    describe("No opened positions", () => {
-      it("should return zero", async () => {
+    describe("Good paths", () => {
+      describe("No opened positions", () => {
+        it("should return zero", async () => {
+          const core = await loadFixture(buildCoreContracts);
+          const r = await makeGetDebtAmountTest(core, []);
+          expect(r.totalDebtAmountOut).eq(0);
+          expect(r.totalCollateralAmountOut).eq(0);
+          expect(r.sumDebts).eq(0);
+          expect(r.sumCollaterals).eq(0);
+          expect(r.collateralAmounts.join()).eq("");
+        });
+      });
+      describe("Single opened position", () => {
+        it("should return expected values for the opened position", async () => {
+          const core = await loadFixture(buildCoreContracts);
+          const r = await makeGetDebtAmountTest(core, [1000], {gapDebtRequired: false, useDebtGap: false});
+          expect(r.totalDebtAmountOut).eq(r.sumDebts);
+          expect(r.totalCollateralAmountOut).eq(r.sumCollaterals);
+          expect(r.collateralAmounts.join()).eq([1000].join());
+        });
+      });
+      describe("Multiple opened positions", () => {
+        describe("No gap debt", () => {
+          describe("debt gap is not required", () => {
+            it("should return sum of debts of all opened positions", async () => {
+              const core = await loadFixture(buildCoreContracts);
+              const r = await makeGetDebtAmountTest(core, [1000, 2000, 50], {
+                gapDebtRequired: false,
+                useDebtGap: false
+              });
+              expect(r.totalDebtAmountOut).eq(r.sumDebts);
+              expect(r.totalCollateralAmountOut).eq(r.sumCollaterals);
+              expect(r.collateralAmounts.join()).eq([1000, 2000, 50].join());
+            });
+          });
+          describe("debt gap is required", () => {
+            it("should return sum of debts of all opened positions", async () => {
+              const core = await loadFixture(buildCoreContracts);
+              const r = await makeGetDebtAmountTest(core, [1000, 2000, 50], {gapDebtRequired: false, useDebtGap: true});
+              expect(r.totalDebtAmountOut).eq(r.sumDebts);
+              expect(r.totalCollateralAmountOut).eq(r.sumCollaterals);
+              expect(r.collateralAmounts.join()).eq([1000, 2000, 50].join());
+            });
+          });
+        });
+        describe("With debt gap", () => {
+          describe("debt gap is not required", () => {
+            it("should return sum of debts of all opened positions", async () => {
+              const core = await loadFixture(buildCoreContracts);
+              const r = await makeGetDebtAmountTest(core, [1000, 2000, 50], {gapDebtRequired: true, useDebtGap: false});
+              expect(r.totalDebtAmountOut).eq(r.sumDebts);
+              expect(r.totalCollateralAmountOut).eq(r.sumCollaterals);
+              expect(r.collateralAmounts.join()).eq([1000, 2000, 50].join());
+            });
+          });
+          describe("debt gap is required", () => {
+            it("should return sum of debts of all opened positions with debt gap", async () => {
+              const core = await loadFixture(buildCoreContracts);
+              const r = await makeGetDebtAmountTest(core, [1000, 2000, 50], {gapDebtRequired: true, useDebtGap: true});
+              expect(r.totalDebtAmountOut).eq(r.sumDebts * 1.01); // debt gap is 1%
+              expect(r.totalCollateralAmountOut).eq(r.sumCollaterals);
+              expect(r.collateralAmounts.join()).eq([1000, 2000, 50].join());
+            });
+          });
+        });
+      });
+    });
+    describe("Bad paths", () => {
+      it("should revert if not whitelisted", async () => {
         const core = await loadFixture(buildCoreContracts);
-        const r = await makeGetDebtAmountTest(core, []);
-        expect(r.totalDebtAmountOut).eq(0);
-        expect(r.totalCollateralAmountOut).eq(0);
-        expect(r.sumDebts).eq(0);
-        expect(r.sumCollaterals).eq(0);
-        expect(r.collateralAmounts.join()).eq("");
+        await expect(
+          makeGetDebtAmountTest(core, [], {notWhitelisted: true})
+        ).revertedWith("TC-57 whitelist"); // OUT_OF_WHITE_LIST
       });
-    });
-    describe("Single opened position", () => {
-      it("should return expected values for the opened position", async () => {
-        const core = await loadFixture(buildCoreContracts);
-        const r = await makeGetDebtAmountTest(core, [1000], {gapDebtRequired: false, useDebtGap: false});
-        expect(r.totalDebtAmountOut).eq(r.sumDebts);
-        expect(r.totalCollateralAmountOut).eq(r.sumCollaterals);
-        expect(r.collateralAmounts.join()).eq([1000].join());
-      });
-    });
-    describe("Multiple opened positions", () => {
-      describe("No gap debt", () => {
-        describe("debt gap is not required", () => {
-          it("should return sum of debts of all opened positions", async () => {
-            const core = await loadFixture(buildCoreContracts);
-            const r = await makeGetDebtAmountTest(core, [1000, 2000, 50], {gapDebtRequired: false, useDebtGap: false});
-            expect(r.totalDebtAmountOut).eq(r.sumDebts);
-            expect(r.totalCollateralAmountOut).eq(r.sumCollaterals);
-            expect(r.collateralAmounts.join()).eq([1000, 2000, 50].join());
-          });
-        });
-        describe("debt gap is required", () => {
-          it("should return sum of debts of all opened positions", async () => {
-            const core = await loadFixture(buildCoreContracts);
-            const r = await makeGetDebtAmountTest(core, [1000, 2000, 50], {gapDebtRequired: false, useDebtGap: true});
-            expect(r.totalDebtAmountOut).eq(r.sumDebts);
-            expect(r.totalCollateralAmountOut).eq(r.sumCollaterals);
-            expect(r.collateralAmounts.join()).eq([1000, 2000, 50].join());
-          });
-        });
-      });
-      describe("With debt gap", () => {
-        describe("debt gap is not required", () => {
-          it("should return sum of debts of all opened positions", async () => {
-            const core = await loadFixture(buildCoreContracts);
-            const r = await makeGetDebtAmountTest(core, [1000, 2000, 50], {gapDebtRequired: true, useDebtGap: false});
-            expect(r.totalDebtAmountOut).eq(r.sumDebts);
-            expect(r.totalCollateralAmountOut).eq(r.sumCollaterals);
-            expect(r.collateralAmounts.join()).eq([1000, 2000, 50].join());
-          });
-        });
-        describe("debt gap is required", () => {
-          it("should return sum of debts of all opened positions with debt gap", async () => {
-            const core = await loadFixture(buildCoreContracts);
-            const r = await makeGetDebtAmountTest(core, [1000, 2000, 50], {gapDebtRequired: true, useDebtGap: true});
-            expect(r.totalDebtAmountOut).eq(r.sumDebts * 1.01); // debt gap is 1%
-            expect(r.totalCollateralAmountOut).eq(r.sumCollaterals);
-            expect(r.collateralAmounts.join()).eq([1000, 2000, 50].join());
-          });
-        });
-      });
-    });
+    })
   });
 
   describe("estimateRepay", () => {
@@ -4301,6 +4381,7 @@ describe("TetuConverterTest", () => {
     interface IQuoteRepayParams {
       collateralPrice?: string;
       borrowPrice?: string;
+      notWhitelisted?: boolean;
     }
 
     interface IQuoteRepayResults {
@@ -4314,7 +4395,7 @@ describe("TetuConverterTest", () => {
       collateralAmounts: number[],
       exactBorrowAmounts: number[],
       amountToRepayNum: number,
-      params?: IQuoteRepayParams
+      p?: IQuoteRepayParams
     ): Promise<IQuoteRepayResults> {
       const core = await CoreContracts.build(
         await TetuConverterApp.createController(deployer, {
@@ -4325,8 +4406,8 @@ describe("TetuConverterTest", () => {
       await PriceOracleMock__factory.connect(await core.controller.priceOracle(), deployer).changePrices(
         [init.sourceToken.address, init.targetToken.address],
         [
-          parseUnits(params?.collateralPrice || "1"),
-          parseUnits(params?.borrowPrice || "1")
+          parseUnits(p?.collateralPrice || "1"),
+          parseUnits(p?.borrowPrice || "1")
         ]
       );
       const targetTokenDecimals = await init.targetToken.decimals();
@@ -4348,15 +4429,18 @@ describe("TetuConverterTest", () => {
         init.core.tc.address,
         await DeployerUtils.startImpersonate(init.userContract.address)
       );
+      const tcAsCaller = p?.notWhitelisted
+        ? tcAsUc.connect(await Misc.impersonate(ethers.Wallet.createRandom().address))
+        : tcAsUc;
 
-      const qouteRepayResults = await tcAsUc.callStatic.quoteRepay(
-        await tcAsUc.signer.getAddress(),
+      const qouteRepayResults = await tcAsCaller.callStatic.quoteRepay(
+        await tcAsCaller.signer.getAddress(),
         init.sourceToken.address,
         init.targetToken.address,
         parseUnits(amountToRepayNum.toString(), targetTokenDecimals)
       );
-      const gasUsed = await tcAsUc.estimateGas.quoteRepay(
-        await tcAsUc.signer.getAddress(),
+      const gasUsed = await tcAsCaller.estimateGas.quoteRepay(
+        await tcAsCaller.signer.getAddress(),
         init.sourceToken.address,
         init.targetToken.address,
         parseUnits(amountToRepayNum.toString(), targetTokenDecimals)
@@ -4434,6 +4518,16 @@ describe("TetuConverterTest", () => {
           )
         ).revertedWith("TC-4 zero price"); // ZERO_PRICE
       });
+      it("should revert if not whitelisted", async () => {
+        await expect(
+          makeQuoteRepayTest(
+            [105, 200, 300],
+            [10, 20, 30],
+            100,
+            { notWhitelisted: true }
+          )
+        ).revertedWith("TC-57 whitelist"); // OUT_OF_WHITE_LIST
+      });
     });
     describe("Gas estimation @skip-on-coverage", () => {
       it("should not exceed gas threshold", async () => {
@@ -4467,6 +4561,7 @@ describe("TetuConverterTest", () => {
       targetDecimals: number;
       initialConverterBalanceBorrowAsset?: string;
       initialConverterBalanceCollateral?: string;
+      notWhitelisted?: boolean;
     }
 
     interface ISafeLiquidateTestResults {
@@ -4515,7 +4610,13 @@ describe("TetuConverterTest", () => {
 
       const amountIn = parseUnits(p.amountInNum, await sourceToken.decimals());
       await sourceToken.mint(core.tc.address, amountIn);
-      const amountOut = await core.tc.callStatic.safeLiquidate(
+      const tcAsCaller = p?.notWhitelisted
+        ? core.tc.connect(await Misc.impersonate(ethers.Wallet.createRandom().address))
+        : core.tc;
+      if (!p?.notWhitelisted) {
+        await core.controller.setWhitelistValues([await tcAsCaller.signer.getAddress()], true);
+      }
+      const amountOut = await tcAsCaller.callStatic.safeLiquidate(
         sourceToken.address,
         amountIn,
         targetToken.address,
@@ -4523,7 +4624,7 @@ describe("TetuConverterTest", () => {
         p.priceImpactToleranceSource,
         p.priceImpactToleranceTarget
       );
-      const tx = await core.tc.safeLiquidate(
+      const tx = await tcAsCaller.safeLiquidate(
         sourceToken.address,
         parseUnits(p.amountInNum, await sourceToken.decimals()),
         targetToken.address,
@@ -4649,6 +4750,34 @@ describe("TetuConverterTest", () => {
       });
     });
     describe("Bad paths", () => {
+      it("should revert if not whitelisted", async () => {
+        const params: ISafeLiquidateTestInputParams = {
+          receiver: ethers.Wallet.createRandom().address,
+          sourceDecimals: 6,
+          targetDecimals: 17,
+
+          // we have 1000 usdc
+          amountInNum: "1000",
+
+          // liquidator: 1000 usdc => 900 dai
+          priceImpact: 10_000,
+          priceImpactToleranceSource: 10_000,
+          liquidatorSourcePrice: parseUnits("1", 18),
+          liquidatorTargetPrice: parseUnits("1", 18),
+
+          // expected output amount according price oracle: 1000 usdc => 1100 dai
+          priceOracleSourcePrice: parseUnits("11", 18),
+          priceOracleTargetPrice: parseUnits("10", 18),
+
+          // we have lost 20%, but only 19% are allowed
+          priceImpactToleranceTarget: 18_100, // 1100/100000*18100 = 199.1 < 200
+
+          notWhitelisted: true // (!)
+        }
+        await expect(
+          makeSafeLiquidateTest(params)
+        ).revertedWith("TC-57 whitelist"); // OUT_OF_WHITE_LIST
+      });
       it("should revert on price-impact-target too high", async () => {
         const params: ISafeLiquidateTestInputParams = {
           receiver: ethers.Wallet.createRandom().address,
