@@ -102,11 +102,13 @@ contract TetuConverter is ControllableV3, ITetuConverter, IKeeperCallback, IRequ
     uint collateralAmountOut,
     uint amountToBorrowOut,
     int apr18
-  ) { // todo restrictions
+  ) {
     require(amountIn_ != 0, AppErrors.ZERO_AMOUNT);
     require(periodInBlocks_ != 0, AppErrors.INCORRECT_VALUE);
 
     IConverterController _controller = IConverterController(controller());
+    require(_controller.isWhitelisted(msg.sender), AppErrors.OUT_OF_WHITE_LIST);
+
     FindConversionStrategyLocal memory p;
     if (!_controller.paused()) {
       (p.borrowConverters,
@@ -220,12 +222,12 @@ contract TetuConverter is ControllableV3, ITetuConverter, IKeeperCallback, IRequ
   ) external override nonReentrant returns (
     uint borrowedAmountOut
   ) {
-    require(IConverterController(controller()).isWhitelisted(msg.sender), AppErrors.OUT_OF_WHITE_LIST);
+    IConverterController _controller = IConverterController(controller());
+    require(_controller.isWhitelisted(msg.sender), AppErrors.OUT_OF_WHITE_LIST);
     require(receiver_ != address(0) && converter_ != address(0), AppErrors.ZERO_ADDRESS);
     require(collateralAmount_ != 0 && amountToBorrow_ != 0, AppErrors.ZERO_AMOUNT);
 
     IERC20(collateralAsset_).safeTransferFrom(msg.sender, address(this), collateralAmount_);
-    IConverterController _controller = IConverterController(controller());
     IBorrowManager borrowManager = IBorrowManager(_controller.borrowManager());
 
     AppDataTypes.ConversionKind conversionKind = IConverter(converter_).getConversionKind();
@@ -288,8 +290,11 @@ contract TetuConverter is ControllableV3, ITetuConverter, IKeeperCallback, IRequ
     uint returnedBorrowAmountOut,
     uint swappedLeftoverCollateralOut,
     uint swappedLeftoverBorrowOut
-  ) { // todo restrictions
+  ) {
     RepayLocal memory v;
+
+    v.controller = IConverterController(controller());
+    require(v.controller.isWhitelisted(msg.sender), AppErrors.OUT_OF_WHITE_LIST);
     require(receiver_ != address(0), AppErrors.ZERO_ADDRESS);
 
     // ensure that we have received required amount
@@ -299,7 +304,6 @@ contract TetuConverter is ControllableV3, ITetuConverter, IKeeperCallback, IRequ
     // it shows how much is left to convert from borrow asset to collateral asset
 
     // we need to repay exact amount using any pool adapters; simplest strategy: use first available pool adapter
-    v.controller = IConverterController(controller());
     v.poolAdapters = IDebtMonitor(v.controller.debtMonitor()).getPositions(msg.sender, collateralAsset_, borrowAsset_);
     v.len = v.poolAdapters.length;
     v.debtGap = v.controller.debtGap();
@@ -356,8 +360,10 @@ contract TetuConverter is ControllableV3, ITetuConverter, IKeeperCallback, IRequ
   function quoteRepay(address user_, address collateralAsset_, address borrowAsset_, uint amountToRepay_) external override returns (
     uint collateralAmountOut,
     uint swappedAmountOut
-  ) { // todo restrictions
+  ) {
     IConverterController _controller = IConverterController(controller());
+    require(_controller.isWhitelisted(msg.sender), AppErrors.OUT_OF_WHITE_LIST);
+
     address[] memory poolAdapters = IDebtMonitor(_controller.debtMonitor()).getPositions(user_, collateralAsset_, borrowAsset_);
     uint len = poolAdapters.length;
     for (uint i; i < len; i = i.uncheckedInc()) {
@@ -507,8 +513,9 @@ contract TetuConverter is ControllableV3, ITetuConverter, IKeeperCallback, IRequ
   function getDebtAmountCurrent(address user_, address collateralAsset_, address borrowAsset_, bool useDebtGap_) external override nonReentrant returns (
     uint totalDebtAmountOut,
     uint totalCollateralAmountOut
-  ) { // todo restrictions
+  ) {
     IConverterController _controller = IConverterController(controller());
+    require(_controller.isWhitelisted(msg.sender), AppErrors.OUT_OF_WHITE_LIST);
 
     address[] memory poolAdapters = IDebtMonitor(_controller.debtMonitor()).getPositions(user_, collateralAsset_, borrowAsset_);
     uint len = poolAdapters.length;
@@ -668,8 +675,8 @@ contract TetuConverter is ControllableV3, ITetuConverter, IKeeperCallback, IRequ
   ) override external returns (
     uint amountOut
   ) {
-    // there are no restrictions for the msg.sender, anybody can make liquidation // todo whitelist only
     IConverterController _controller = IConverterController(controller());
+    require(_controller.isWhitelisted(msg.sender), AppErrors.OUT_OF_WHITE_LIST);
 
     ITetuLiquidator tetuLiquidator = ITetuLiquidator(_controller.tetuLiquidator());
     uint targetTokenBalanceBefore = IERC20(assetOut_).balanceOf(address(this));

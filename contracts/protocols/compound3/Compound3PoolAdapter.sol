@@ -157,7 +157,7 @@ contract Compound3PoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithReward
   //region ----------------------------------------------------- External logic
 
   function updateStatus() external {
-    // todo restrictions
+    require(controller.isWhitelisted(msg.sender), AppErrors.OUT_OF_WHITE_LIST);
     comet.accrueAccount(address(this));
   }
 
