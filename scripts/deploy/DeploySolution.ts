@@ -32,6 +32,7 @@ async function main() {
   // https://docs.gelato.network/developer-services/automate/contract-addresses#polygon-matic
   // Polygon / Matic, Automate
   const gelatoOpsReady = "0x527a819db1eb0e34426297b03bae11F2f8B3A19E";
+  const proxyUpdater = "0x33b27e0a2506a4a2fbc213a01c51d0451745343a"; // tetu-contracts-v2 controller
 
   const signer = localHardhatIsInUse
     ? await DeployerUtils.startImpersonate(
@@ -43,6 +44,7 @@ async function main() {
   await DeploySolutionUtils.runMain(
     signer,
     gelatoOpsReady,
+    proxyUpdater
     // already deployed if necessary
   );
 

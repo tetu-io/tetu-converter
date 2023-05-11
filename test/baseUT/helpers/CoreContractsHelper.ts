@@ -8,7 +8,7 @@ import {
   SwapManager, SwapManager__factory,
   TetuConverter, TetuConverter__factory,
 } from "../../../typechain";
-import {BigNumber} from "ethers";
+import {BigNumber, ContractTransaction} from "ethers";
 import {DeployUtils} from "../../../scripts/utils/DeployUtils";
 import {COUNT_BLOCKS_PER_DAY} from "../utils/aprUtils";
 import {parseUnits} from "ethers/lib/utils";
@@ -108,8 +108,8 @@ export class CoreContractsHelper {
 //endregion Deploy core contracts (no init calls)
 
 //region Initialize core contracts
-  public static async initializeTetuConverter(signer: SignerWithAddress, controller: string, instance: string) {
-    await TetuConverter__factory.connect(instance, signer).init(controller);
+  public static async initializeTetuConverter(signer: SignerWithAddress, controller: string, instance: string): Promise<ContractTransaction> {
+    return TetuConverter__factory.connect(instance, signer).init(controller);
   }
 
   /** Create BorrowManager with mock as adapter */
@@ -118,12 +118,12 @@ export class CoreContractsHelper {
     controller: string,
     instance: string,
     rewardsFactor: BigNumber = parseUnits("0.9") // rewardsFactor must be less 1
-  ) {
-    await BorrowManager__factory.connect(instance, signer).init(controller, rewardsFactor);
+  ): Promise<ContractTransaction> {
+    return BorrowManager__factory.connect(instance, signer).init(controller, rewardsFactor);
   }
 
-  public static async initializeDebtMonitor(signer: SignerWithAddress, controller: string, instance: string) {
-    await DebtMonitor__factory.connect(instance, signer).init(controller);
+  public static async initializeDebtMonitor(signer: SignerWithAddress, controller: string, instance: string): Promise<ContractTransaction> {
+    return DebtMonitor__factory.connect(instance, signer).init(controller);
   }
 
   public static async initializeKeeper(
@@ -131,13 +131,13 @@ export class CoreContractsHelper {
     controller: string,
     instance: string,
     gelatoOpsAddress: string,
-    blocksPerDayAutoUpdatePeriodSecs: number = 3 * 24 * 60 * 60 // 3 days by default
-  ) {
-    await Keeper__factory.connect(instance, signer).init(controller, gelatoOpsAddress, blocksPerDayAutoUpdatePeriodSecs);
+    blocksPerDayAutoUpdatePeriodSec: number = 3 * 24 * 60 * 60 // 3 days by default
+  ): Promise<ContractTransaction> {
+    return Keeper__factory.connect(instance, signer).init(controller, gelatoOpsAddress, blocksPerDayAutoUpdatePeriodSec);
   }
 
-  public static async initializeSwapManager(signer: SignerWithAddress, controller: string, instance: string) {
-    await SwapManager__factory.connect(instance, signer).init(controller);
+  public static async initializeSwapManager(signer: SignerWithAddress, controller: string, instance: string): Promise<ContractTransaction> {
+    return SwapManager__factory.connect(instance, signer).init(controller);
   }
 //endregion Initialize core contracts
 
