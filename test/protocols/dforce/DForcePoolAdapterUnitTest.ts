@@ -41,11 +41,7 @@ import {AdaptersHelper} from "../../baseUT/helpers/AdaptersHelper";
 import {TetuConverterApp} from "../../baseUT/helpers/TetuConverterApp";
 import {formatUnits, parseUnits} from "ethers/lib/utils";
 import {MocksHelper} from "../../baseUT/helpers/MocksHelper";
-import {CoreContracts} from "../../baseUT/types/CoreContracts";
 import {BalanceUtils} from "../../baseUT/utils/BalanceUtils";
-import {core} from "../../../typechain/contracts";
-import {AST} from "eslint";
-import Token = AST.Token;
 import {GAS_LIMIT} from "../../baseUT/GasLimit";
 
 describe("DForcePoolAdapterUnitTest", () => {

@@ -88,6 +88,17 @@ contract TetuConverter is ControllableV3, ITetuConverter, IKeeperCallback, IRequ
   }
   //endregion ----------------------------------------------------- Initialization
 
+  //region ----------------------------------------------------- Access
+  function _getControllerWhitelistedOnly() internal view returns (IConverterController controllerOut) {
+    controllerOut = IConverterController(controller());
+    require(controllerOut.isWhitelisted(msg.sender), AppErrors.OUT_OF_WHITE_LIST);
+  }
+  function _getControllerGovernanceOnly() internal view returns (IConverterController controllerOut) {
+    controllerOut = IConverterController(controller());
+    require(msg.sender == controllerOut.governance(), AppErrors.GOVERNANCE_ONLY);
+  }
+  //endregion ----------------------------------------------------- Access
+
   //region ----------------------------------------------------- Find best strategy for conversion
 
   /// @inheritdoc ITetuConverter
@@ -106,8 +117,7 @@ contract TetuConverter is ControllableV3, ITetuConverter, IKeeperCallback, IRequ
     require(amountIn_ != 0, AppErrors.ZERO_AMOUNT);
     require(periodInBlocks_ != 0, AppErrors.INCORRECT_VALUE);
 
-    IConverterController _controller = IConverterController(controller());
-    require(_controller.isWhitelisted(msg.sender), AppErrors.OUT_OF_WHITE_LIST);
+    IConverterController _controller = _getControllerWhitelistedOnly();
 
     FindConversionStrategyLocal memory p;
     if (!_controller.paused()) {
@@ -169,7 +179,7 @@ contract TetuConverter is ControllableV3, ITetuConverter, IKeeperCallback, IRequ
   ) {
     require(amountIn_ != 0, AppErrors.ZERO_AMOUNT);
 
-    IConverterController _controller = IConverterController(controller());
+    IConverterController _controller = _getControllerWhitelistedOnly();
     return _controller.paused()
       ? (converter, sourceAmountOut, targetAmountOut, apr18) // no conversion is available
       : _findSwapStrategy(_controller, entryData_, sourceToken_, amountIn_, targetToken_);
@@ -222,8 +232,7 @@ contract TetuConverter is ControllableV3, ITetuConverter, IKeeperCallback, IRequ
   ) external override nonReentrant returns (
     uint borrowedAmountOut
   ) {
-    IConverterController _controller = IConverterController(controller());
-    require(_controller.isWhitelisted(msg.sender), AppErrors.OUT_OF_WHITE_LIST);
+    IConverterController _controller = _getControllerWhitelistedOnly();
     require(receiver_ != address(0) && converter_ != address(0), AppErrors.ZERO_ADDRESS);
     require(collateralAmount_ != 0 && amountToBorrow_ != 0, AppErrors.ZERO_AMOUNT);
 
@@ -293,8 +302,7 @@ contract TetuConverter is ControllableV3, ITetuConverter, IKeeperCallback, IRequ
   ) {
     RepayLocal memory v;
 
-    v.controller = IConverterController(controller());
-    require(v.controller.isWhitelisted(msg.sender), AppErrors.OUT_OF_WHITE_LIST);
+    v.controller = _getControllerWhitelistedOnly();
     require(receiver_ != address(0), AppErrors.ZERO_ADDRESS);
 
     // ensure that we have received required amount
@@ -361,8 +369,7 @@ contract TetuConverter is ControllableV3, ITetuConverter, IKeeperCallback, IRequ
     uint collateralAmountOut,
     uint swappedAmountOut
   ) {
-    IConverterController _controller = IConverterController(controller());
-    require(_controller.isWhitelisted(msg.sender), AppErrors.OUT_OF_WHITE_LIST);
+    IConverterController _controller = _getControllerWhitelistedOnly();
 
     address[] memory poolAdapters = IDebtMonitor(_controller.debtMonitor()).getPositions(user_, collateralAsset_, borrowAsset_);
     uint len = poolAdapters.length;
@@ -453,8 +460,7 @@ contract TetuConverter is ControllableV3, ITetuConverter, IKeeperCallback, IRequ
 
   /// @inheritdoc ITetuConverter
   function repayTheBorrow(address poolAdapter_, bool closePosition) external returns (uint collateralAmountOut, uint repaidAmountOut) {
-    IConverterController _controller = IConverterController(controller());
-    require(msg.sender == _controller.governance(), AppErrors.GOVERNANCE_ONLY);
+    IConverterController _controller = _getControllerGovernanceOnly();
 
     // update internal debts and get actual amount to repay
     IPoolAdapter pa = IPoolAdapter(poolAdapter_);
@@ -514,8 +520,7 @@ contract TetuConverter is ControllableV3, ITetuConverter, IKeeperCallback, IRequ
     uint totalDebtAmountOut,
     uint totalCollateralAmountOut
   ) {
-    IConverterController _controller = IConverterController(controller());
-    require(_controller.isWhitelisted(msg.sender), AppErrors.OUT_OF_WHITE_LIST);
+    IConverterController _controller = _getControllerWhitelistedOnly();
 
     address[] memory poolAdapters = IDebtMonitor(_controller.debtMonitor()).getPositions(user_, collateralAsset_, borrowAsset_);
     uint len = poolAdapters.length;
@@ -639,7 +644,7 @@ contract TetuConverter is ControllableV3, ITetuConverter, IKeeperCallback, IRequ
 
   /// @inheritdoc ITetuConverter
   function salvage(address receiver, address token, uint amount) external {
-    require(msg.sender == IConverterController(controller()).governance(), AppErrors.GOVERNANCE_ONLY);
+    _getControllerGovernanceOnly();
 
     IERC20(token).safeTransfer(receiver, amount);
     emit OnSalvage(receiver, token, amount);
@@ -675,8 +680,7 @@ contract TetuConverter is ControllableV3, ITetuConverter, IKeeperCallback, IRequ
   ) override external returns (
     uint amountOut
   ) {
-    IConverterController _controller = IConverterController(controller());
-    require(_controller.isWhitelisted(msg.sender), AppErrors.OUT_OF_WHITE_LIST);
+    IConverterController _controller = _getControllerWhitelistedOnly();
 
     ITetuLiquidator tetuLiquidator = ITetuLiquidator(_controller.tetuLiquidator());
     uint targetTokenBalanceBefore = IERC20(assetOut_).balanceOf(address(this));

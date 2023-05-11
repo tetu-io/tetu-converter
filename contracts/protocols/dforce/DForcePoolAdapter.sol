@@ -133,7 +133,7 @@ contract DForcePoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP, Initi
 
   //region ----------------------------------------------------- Borrow logic
   function updateStatus() external override {
-    require(controller.isWhitelisted(msg.sender), AppErrors.OUT_OF_WHITE_LIST);
+    _onlyTetuConverter(controller);
 
     // Update borrowBalance to actual value
     IDForceCToken(borrowCToken).borrowBalanceCurrent(address(this));
@@ -255,10 +255,7 @@ contract DForcePoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP, Initi
   /// @dev Re-balance: too big health factor => target health factor
   /// @return resultHealthFactor18 Result health factor after borrow
   /// @return borrowedAmountOut Exact amount sent to the borrower
-  function borrowToRebalance(
-    uint borrowAmount_,
-    address receiver_
-  ) external override returns (
+  function borrowToRebalance(uint borrowAmount_, address receiver_) external override returns (
     uint resultHealthFactor18,
     uint borrowedAmountOut
   ) {
@@ -272,11 +269,18 @@ contract DForcePoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP, Initi
 
     // make borrow
     uint balanceBorrowAsset0 = _getBalance(assetBorrow);
+    console.log("borrowToRebalance.cTokenBorrow", cTokenBorrow);
+    console.log("borrowToRebalance.cTokenCollateral", collateralCToken);
+    console.log("borrowToRebalance.comptroller", address(_comptroller));
+    console.log("borrowToRebalance.this", address(this));
     IDForceCToken(cTokenBorrow).borrow(borrowAmount_);
+    console.log("borrowToRebalance.borrow.done");
 
     // ensure that we have received required borrowed amount, send the amount to the receiver
     if (_isMatic(assetBorrow)) {
+      console.log("borrowToRebalance.1");
       IWmatic(WMATIC).deposit{value: borrowAmount_}();
+      console.log("borrowToRebalance.2");
     }
     require(
       borrowAmount_ + balanceBorrowAsset0 == IERC20(assetBorrow).balanceOf(address(this)),
@@ -663,12 +667,11 @@ contract DForcePoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP, Initi
 
   /// @notice this is needed for the native token unwrapping
   receive() external payable {
-    console.log("receive!", msg.sender);
     require(
-      msg.sender == address(_comptroller)
-      || msg.sender == WMATIC
+      msg.sender == WMATIC
       || msg.sender == collateralCToken
-      || msg.sender == borrowCToken, AppErrors.ACCESS_DENIED);
+      || msg.sender == borrowCToken, AppErrors.ACCESS_DENIED
+    );
   }
   //endregion ----------------------------------------------------- Native tokens
 }

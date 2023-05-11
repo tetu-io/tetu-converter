@@ -143,7 +143,7 @@ contract HfPoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP, Initializ
   //-----------------------------------------------------
   function updateStatus() external override {
     // Update borrowBalance to actual value
-    require(controller.isWhitelisted(msg.sender), AppErrors.OUT_OF_WHITE_LIST);
+    _onlyTetuConverter(controller);
     IHfCToken(borrowCToken).borrowBalanceCurrent(address(this));
     IHfCToken(collateralCToken).exchangeRateCurrent();
   }
@@ -668,5 +668,8 @@ contract HfPoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP, Initializ
       : IERC20(asset).balanceOf(address(this));
   }
 
-  receive() external payable {} // this is needed for the native token unwrapping, empty function, no restrictions
+  receive() external payable {
+    // this is needed for the native token unwrapping
+    // no restrictions because this adpater is not used in production, it's for tests only
+  }
 }
