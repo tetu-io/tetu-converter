@@ -367,13 +367,13 @@ export class DeploySolutionUtils {
   ) : Promise<IDeployCoreResults> {
     const priceOracle = alreadyDeployed?.priceOracle || (await CoreContractsHelper.createPriceOracle(deployer)).address;
 
-    const controllerAddress = await CoreContractsHelper.deployController(deployer);
+    const controllerAddress = alreadyDeployed?.controller || await CoreContractsHelper.deployController(deployer);
 
-    const borrowManager = await CoreContractsHelper.deployBorrowManager(deployer);
-    const keeper = await CoreContractsHelper.deployKeeper(deployer);
-    const swapManager = await CoreContractsHelper.deploySwapManager(deployer);
-    const debtMonitor = await CoreContractsHelper.deployDebtMonitor(deployer);
-    const tetuConverter = await CoreContractsHelper.deployTetuConverter(deployer);
+    const borrowManager = alreadyDeployed?.borrowManager || await CoreContractsHelper.deployBorrowManager(deployer);
+    const keeper = alreadyDeployed?.keeper || await CoreContractsHelper.deployKeeper(deployer);
+    const swapManager = alreadyDeployed?.swapManager || await CoreContractsHelper.deploySwapManager(deployer);
+    const debtMonitor = alreadyDeployed?.debtMonitor || await CoreContractsHelper.deployDebtMonitor(deployer);
+    const tetuConverter = alreadyDeployed?.tetuConverter || await CoreContractsHelper.deployTetuConverter(deployer);
 
     await RunHelper.runAndWait(
       () => ConverterController__factory.connect(controllerAddress, deployer).init(

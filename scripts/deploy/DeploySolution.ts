@@ -44,7 +44,7 @@ async function main() {
   await DeploySolutionUtils.runMain(
     signer,
     gelatoOpsReady,
-    proxyUpdater
+    proxyUpdater,
     // already deployed if necessary
   );
 
