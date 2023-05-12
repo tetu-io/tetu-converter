@@ -2165,12 +2165,15 @@ describe("Aave3PoolAdapterUnitTest", () => {
       after(async function () {
         await TimeUtils.rollback(snapshotLocal);
       });
+      async function prepareFixture() {
+        return prepare();
+      }
       it("should salvage collateral asset", async () => {
-        const p = await loadFixture(prepare);
+        const p = await loadFixture(prepareFixture);
         expect(await salvageToken(p, MaticAddresses.USDC, MaticAddresses.HOLDER_USDC, "800")).eq(800);
       });
       it("should salvage borrow asset", async () => {
-        const p = await loadFixture(prepare);
+        const p = await loadFixture(prepareFixture);
         expect(await salvageToken(p, MaticAddresses.USDT, MaticAddresses.HOLDER_USDT, "800")).eq(800);
       });
     });
@@ -2182,16 +2185,19 @@ describe("Aave3PoolAdapterUnitTest", () => {
       after(async function () {
         await TimeUtils.rollback(snapshotLocal);
       });
+      async function prepareFixture() {
+        return prepare();
+      }
       it("should revert on attempt to salvage collateral aToken", async () => {
-        const p = await loadFixture(prepare);
+        const p = await loadFixture(prepareFixture);
         await expect(salvageToken(p, MaticAddresses.AAVE3_ATOKEN_USDC, MaticAddresses.AAVE3_ATOKEN_USDC_HOLDER, "800")).revertedWith("TC-59: unsalvageable"); // UNSALVAGEABLE
       });
       it("should revert on attempt to salvage borrow stable aToken", async () => {
-        const p = await loadFixture(prepare);
+        const p = await loadFixture(prepareFixture);
         await expect(salvageToken(p, MaticAddresses.AAVE3_ATOKEN_USDT, MaticAddresses.AAVE3_ATOKEN_USDT_HOLDER, "800")).revertedWith("TC-59: unsalvageable"); // UNSALVAGEABLE
       });
       it("should revert if not governance", async () => {
-        const p = await loadFixture(prepare);
+        const p = await loadFixture(prepareFixture);
         await expect(salvageToken(p, MaticAddresses.USDC, MaticAddresses.HOLDER_USDC, "800", receiver)).revertedWith("TC-9 governance only"); // GOVERNANCE_ONLY
       });
     });
