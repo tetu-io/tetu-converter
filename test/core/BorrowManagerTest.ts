@@ -106,23 +106,17 @@ describe("BorrowManager", () => {
       {
         borrowManagerFabric: {
           deploy: async () => CoreContractsHelper.deployBorrowManager(signer),
-          init: async (controller, instance) => CoreContractsHelper.initializeBorrowManager(
-            signer,
-            controller,
-            instance,
-          ),
+          init: async (c, instance) => {
+            await CoreContractsHelper.initializeBorrowManager(signer, c, instance);},
         },
         tetuConverterFabric: {
           deploy: async () => CoreContractsHelper.deployTetuConverter(signer),
-          init: async (controller, instance) => CoreContractsHelper.initializeTetuConverter(
-            signer,
-            controller,
-            instance,
-          ),
+          init: async (c, instance) => {
+            await CoreContractsHelper.initializeTetuConverter(signer, c, instance);},
         },
         debtMonitorFabric: {
           deploy: async () => (await MocksHelper.createDebtsMonitorStub(signer, valueIsConverterInUse)).address,
-          init: async (controller, instance) => {},
+          init: async () => {},
         },
         keeperFabric: TetuConverterApp.getRandomSet(),
         swapManagerFabric: TetuConverterApp.getRandomSet(),
@@ -521,12 +515,12 @@ describe("BorrowManager", () => {
         {
           borrowManagerFabric: {
             deploy: async () => CoreContractsHelper.deployBorrowManager(signer),
-            init: async (controller, instance) => CoreContractsHelper.initializeBorrowManager(
+            init: async (c, instance) => {await CoreContractsHelper.initializeBorrowManager(
               signer,
-              p?.useZeroController ? Misc.ZERO_ADDRESS : controller,
+              p?.useZeroController ? Misc.ZERO_ADDRESS : c,
               instance,
               p?.rewardFactor
-            ),
+            );},
           },
           tetuConverterFabric: TetuConverterApp.getRandomSet(),
           debtMonitorFabric: TetuConverterApp.getRandomSet(),
@@ -1973,11 +1967,8 @@ describe("BorrowManager", () => {
         signer, {
           borrowManagerFabric: {
             deploy: async () => CoreContractsHelper.deployBorrowManager(signer),
-            init: async (controller, instance) => CoreContractsHelper.initializeBorrowManager(
-              signer,
-              controller,
-              instance,
-            ),
+            init: async (c, instance) => {
+              await CoreContractsHelper.initializeBorrowManager(signer, c, instance)},
           },
           tetuConverterFabric: TetuConverterApp.getRandomSet(),
           debtMonitorFabric: TetuConverterApp.getRandomSet(),
@@ -2031,20 +2022,16 @@ describe("BorrowManager", () => {
         signer, {
           borrowManagerFabric: {
             deploy: async () => CoreContractsHelper.deployBorrowManager(signer),
-            init: async (controller, instance) => CoreContractsHelper.initializeBorrowManager(
-              signer,
-              controller,
-              instance,
-            ),
+            init: async (c, instance) => {
+              await CoreContractsHelper.initializeBorrowManager(signer, c, instance);
+            },
           },
           tetuConverterFabric: TetuConverterApp.getRandomSet(),
           debtMonitorFabric: {
             deploy: async () => CoreContractsHelper.deployDebtMonitor(signer),
-            init: async (controller, instance) => CoreContractsHelper.initializeDebtMonitor(
-              signer,
-              controller,
-              instance,
-            ),
+            init: async (c, instance) => {
+              await CoreContractsHelper.initializeDebtMonitor(signer, c, instance);
+            }
           },
           keeperFabric: TetuConverterApp.getRandomSet(),
           swapManagerFabric: TetuConverterApp.getRandomSet(),

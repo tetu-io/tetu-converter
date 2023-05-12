@@ -861,9 +861,9 @@ describe("TetuConverterTest", () => {
         {
           tetuConverterFabric: {
             deploy: async () => CoreContractsHelper.deployTetuConverter(deployer),
-            init: async (controller, instance) => {await CoreContractsHelper.initializeTetuConverter(
+            init: async (c, instance) => {await CoreContractsHelper.initializeTetuConverter(
               deployer,
-              p?.useZeroController ? Misc.ZERO_ADDRESS : controller,
+              p?.useZeroController ? Misc.ZERO_ADDRESS : c,
               instance
             );}
           },
@@ -874,6 +874,7 @@ describe("TetuConverterTest", () => {
           tetuLiquidatorAddress: ethers.Wallet.createRandom().address
         }
       );
+
       if (p?.useSecondInitialization) {
         await TetuConverter__factory.connect(await controller.tetuConverter(), deployer).init(controller.address);
       }

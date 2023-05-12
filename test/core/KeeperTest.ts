@@ -75,20 +75,20 @@ describe("KeeperTest", () => {
             deploy: async () => {
               return (await MocksHelper.createKeeperMock(deployer)).address;
             },
-            init: async (controller: string, instance: string) => {
+            init: async (c: string, instance: string) => {
               // Create real keeper and wrap it by mocked keeper
               const realKeeper = await CoreContractsHelper.deployKeeper(signer);
-              await CoreContractsHelper.initializeKeeper(signer, controller, realKeeper, keeperCaller.address, blocksPerDayAutoUpdatePeriodSec);
+              await CoreContractsHelper.initializeKeeper(signer, c, realKeeper, keeperCaller.address, blocksPerDayAutoUpdatePeriodSec);
               await KeeperMock__factory.connect(
-                await ConverterController__factory.connect(controller, signer).keeper(),
+                await ConverterController__factory.connect(c, signer).keeper(),
                 signer
               ).init(realKeeper);
             }
           }
           : {
             deploy: async () => CoreContractsHelper.deployKeeper(signer),
-            init: async (controller, instance) => {
-              await CoreContractsHelper.initializeKeeper(signer, controller, instance, keeperCaller.address, blocksPerDayAutoUpdatePeriodSec);
+            init: async (c, instance) => {
+              await CoreContractsHelper.initializeKeeper(signer, c, instance, keeperCaller.address, blocksPerDayAutoUpdatePeriodSec);
             }
           },
         swapManagerFabric: TetuConverterApp.getRandomSet(),
@@ -506,13 +506,13 @@ describe("KeeperTest", () => {
         {
           keeperFabric: {
             deploy: async () => CoreContractsHelper.deployKeeper(deployer),
-            init: async (controller, instance) => CoreContractsHelper.initializeKeeper(
+            init: async (c, instance) => {await CoreContractsHelper.initializeKeeper(
               deployer,
-              p?.useZeroController ? Misc.ZERO_ADDRESS : controller,
+              p?.useZeroController ? Misc.ZERO_ADDRESS : c,
               instance,
               p?.useZeroOps ? Misc.ZERO_ADDRESS : (await MocksHelper.createKeeperCaller(deployer)).address,
               p?.blocksPerDayAutoUpdatePeriodSec || 0
-            ),
+            );},
           },
           tetuConverterFabric: TetuConverterApp.getRandomSet(),
           debtMonitorFabric: TetuConverterApp.getRandomSet(),

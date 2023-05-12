@@ -635,11 +635,13 @@ describe("DebtsMonitor", () => {
         deployer, {
           debtMonitorFabric: {
             deploy: async () => CoreContractsHelper.deployDebtMonitor(deployer),
-            init: async (controller, instance) => CoreContractsHelper.initializeDebtMonitor(
-              deployer,
-              p?.useZeroController ? Misc.ZERO_ADDRESS : controller,
-              instance,
-            ),
+            init: async (c, instance) => {
+              await CoreContractsHelper.initializeDebtMonitor(
+                deployer,
+                p?.useZeroController ? Misc.ZERO_ADDRESS : c,
+                instance
+              );
+            }
           },
         });
       if (p?.useSecondInitialization) {
@@ -1853,11 +1855,9 @@ describe("DebtsMonitor", () => {
           tetuConverterFabric: TetuConverterApp.getRandomSet(),
           debtMonitorFabric: {
             deploy: async () => CoreContractsHelper.deployDebtMonitor(deployer),
-            init: async (controller, instance) => CoreContractsHelper.initializeDebtMonitor(
-              deployer,
-              controller,
-              instance,
-            ),
+            init: async (c, instance) => {
+              await CoreContractsHelper.initializeDebtMonitor(deployer, c, instance);
+            }
           },
           keeperFabric: TetuConverterApp.getRandomSet(),
           swapManagerFabric: TetuConverterApp.getRandomSet(),
