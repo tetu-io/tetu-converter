@@ -273,6 +273,7 @@ describe("ProxyTest", () => {
   describe("implementation", () => {
     it("should return expected values", async () => {
       const controller = await loadFixture(createController);
+      const proxyUpdater = await controller.proxyUpdater();
       const proxyControlled = ProxyControlled__factory.connect(controller.address, await Misc.impersonate(proxyUpdater));
       expect(await proxyControlled.implementation()).not.eq(Misc.ZERO_ADDRESS);
     });

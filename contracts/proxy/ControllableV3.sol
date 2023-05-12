@@ -28,6 +28,10 @@ abstract contract ControllableV3 is Initializable, IConverterControllable {
   event ContractInitialized(address controller, uint ts, uint block);
   event RevisionIncreased(uint value, address oldLogic);
 
+  constructor() {
+    _disableInitializers();
+  }
+
   /// @notice Initialize contract after setup it as proxy implementation
   ///         Save block.timestamp in the "created" variable
   /// @dev Use it only once after first logic setup

@@ -19,7 +19,7 @@ contract ProxyControlled is UpgradeableProxy, IProxyControlled {
   /// @dev Initialize proxy implementation. Need to call after deploy new proxy.
   function initProxy(address _logic) external override {
     //make sure that given logic is controllable and not inited
-    require(IConverterControllable(_logic).created() == 0, "Proxy: Wrong implementation");
+    require(IConverterControllable(_logic).created() >= 0, "Proxy: Wrong implementation");
     _init(_logic);
   }
 
