@@ -436,12 +436,8 @@ export class MocksHelper {
 //endregion TetuLiquidator and SwapManager
 
 //region Keeper helpers
-  public static async createKeeperMock(
-    deployer: SignerWithAddress,
-    realKeeper: string,
-    nextIndexToCheck0?: number,
-  ) : Promise<KeeperMock> {
-    return await DeployUtils.deployContract(deployer, "KeeperMock", nextIndexToCheck0 || 0, realKeeper) as KeeperMock;
+  public static async createKeeperMock(deployer: SignerWithAddress, nextIndexToCheck0?: number) : Promise<KeeperMock> {
+    return await DeployUtils.deployContract(deployer, "KeeperMock", nextIndexToCheck0 || 0) as KeeperMock;
   }
 
   public static async createKeeperCaller(

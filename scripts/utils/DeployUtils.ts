@@ -8,6 +8,8 @@ import {config as dotEnvConfig} from "dotenv";
 import {Misc} from "./Misc";
 import {VerifyUtils} from "./VerifyUtils";
 import {formatUnits} from "ethers/lib/utils";
+import {RunHelper} from "./RunHelper";
+import {ProxyControlled} from "../../typechain";
 
 const log: Logger<unknown> = new Logger(logSettings);
 
@@ -91,5 +93,12 @@ export class DeployUtils {
     return _factory.attach(receipt.contractAddress);
   }
 
+
+  public static async deployProxy(signer: SignerWithAddress, contract: string) {
+    const logic = await DeployUtils.deployContract(signer, contract);
+    const proxy = await DeployUtils.deployContract(signer, 'ProxyControlled') as ProxyControlled;
+    await RunHelper.runAndWait(() => proxy.initProxy(logic.address));
+    return proxy.address;
+  }
 //endregion Contract connection
 }

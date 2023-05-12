@@ -13,13 +13,14 @@ import "../openzeppelin/IERC20Metadata.sol";
 import "../interfaces/IPlatformAdapter.sol";
 import "../interfaces/IBorrowManager.sol";
 import "../interfaces/IPriceOracle.sol";
-import "../interfaces/IConverterController.sol";
+import "../interfaces/IController.sol";
 import "../interfaces/IDebtMonitor.sol";
 import "../interfaces/ITetuConverter.sol";
 import "../integrations/market/ICErc20.sol";
+import "../proxy/ControllableV3.sol";
 
 /// @notice Contains list of lending pools. Allow to select most efficient pool for the given collateral/borrow pair
-contract BorrowManager is IBorrowManager {
+contract BorrowManager is IBorrowManager, ControllableV3 {
   using SafeERC20 for IERC20;
   using AppUtils for uint;
   using Clones for address;
@@ -27,15 +28,14 @@ contract BorrowManager is IBorrowManager {
   using EnumerableSet for EnumerableSet.UintSet;
   using EnumerableMap for EnumerableMap.UintToAddressMap;
 
+  //region ----------------------------------------------------- Constants
+  string public constant BORROW_MANAGER_VERSION = "1.0.0";
   /// @notice Reward APR is taken into account with given factor
   ///         Result APR = borrow-apr - supply-apr - Factor/Denominator * rewards-APR
   uint constant public REWARDS_FACTOR_DENOMINATOR_18 = 1e18;
+  //endregion ----------------------------------------------------- Constants
 
-  IConverterController public immutable controller;
-
-  //-----------------------------------------------------
-  //region Structs and enums
-  //-----------------------------------------------------
+  //region ----------------------------------------------------- Data types
 
   /// @notice Pair of two assets. Asset 1 can be converted to asset 2 and vice versa.
   /// @dev There are no restrictions for {assetLeft} and {assertRight}. Each can be smaller than the other.
@@ -43,11 +43,9 @@ contract BorrowManager is IBorrowManager {
     address assetLeft;
     address assetRight;
   }
-  //endregion Structs and enums
+  //endregion ----------------------------------------------------- Data types
 
-  //-----------------------------------------------------
-  //region Members
-  //-----------------------------------------------------
+  //region ----------------------------------------------------- Variables. Don't change names or ordering!
 
   /// @notice Reward APR is taken into account with given factor
   /// @dev decimals 18. The value is divided on {REWARDS_FACTOR_DENOMINATOR_18}
@@ -86,11 +84,9 @@ contract BorrowManager is IBorrowManager {
   /// @notice List of addresses of all ever created pool adapters (both for not-dirty and dirty ones).
   /// @dev Allow to get full list of the pool adapter and then filter it by any criteria (asset, user, state, etc)
   address[] public listPoolAdapters;
-  //endregion Members
+  //endregion ----------------------------------------------------- Variables. Don't change names or ordering!
 
-  //-----------------------------------------------------
-  //region Events
-  //-----------------------------------------------------
+  //region ----------------------------------------------------- Events
   event OnSetTargetHealthFactors(address[] assets, uint16[] healthFactors2);
   event OnSetRewardsFactor(uint rewardsFactor);
   event OnAddAssetPairs(address platformAdapter, address[] leftAssets, address[] rightAssets);
@@ -98,43 +94,36 @@ contract BorrowManager is IBorrowManager {
   event OnUnregisterPlatformAdapter(address platformAdapter);
   event OnRegisterPoolAdapter(address poolAdapter, address converter, address user, address collateralAsset, address borrowAsset);
   event OnMarkPoolAdapterAsDirty(address poolAdapter);
-  //endregion Events
+  //endregion ----------------------------------------------------- Events
 
-  //-----------------------------------------------------
-  //region Initialization
-  //-----------------------------------------------------
+  //region ----------------------------------------------------- Initialization
 
-  constructor (address controller_, uint rewardsFactor_) {
-    require(controller_ != address(0), AppErrors.ZERO_ADDRESS);
-    controller = IConverterController(controller_);
+  function init(address controller_, uint rewardsFactor_) external initializer {
+    __Controllable_init(controller_);
 
     // we assume rewards amount should be downgraded in calcs coz liquidation gaps
     require(rewardsFactor_ < REWARDS_FACTOR_DENOMINATOR_18, AppErrors.INCORRECT_VALUE);
     rewardsFactor = rewardsFactor_;
   }
-  //endregion Initialization
+  //endregion ----------------------------------------------------- Initialization
 
-  //-----------------------------------------------------
-  //region Access rights
-  //-----------------------------------------------------
+  //region ----------------------------------------------------- Access rights
 
   /// @notice Ensure that msg.sender is registered pool adapter
   function _onlyTetuConverter() internal view {
     require(
-      msg.sender == controller.tetuConverter(),
+      msg.sender == IConverterController(controller()).tetuConverter(),
       AppErrors.TETU_CONVERTER_ONLY
     );
   }
 
   /// @notice Ensure that msg.sender is registered pool adapter
   function _onlyGovernance() internal view {
-    require(msg.sender == controller.governance(), AppErrors.GOVERNANCE_ONLY);
+    require(msg.sender == IConverterController(controller()).governance(), AppErrors.GOVERNANCE_ONLY);
   }
-  //endregion Access rights
+  //endregion ----------------------------------------------------- Access rights
 
-  //-----------------------------------------------------
-  //region Configuration
-  //-----------------------------------------------------
+  //region ----------------------------------------------------- Configuration
 
   /// @notice Set target health factors for the assets.
   ///         If target health factor is not assigned to the asset, target-health-factor from controller is used.
@@ -145,7 +134,7 @@ contract BorrowManager is IBorrowManager {
     require(countItems == healthFactors2_.length, AppErrors.WRONG_LENGTHS);
 
     for (uint i = 0; i < countItems; i = i.uncheckedInc()) {
-      require(healthFactors2_[i] >= controller.minHealthFactor2(), AppErrors.WRONG_HEALTH_FACTOR);
+      require(healthFactors2_[i] >= IConverterController(controller()).minHealthFactor2(), AppErrors.WRONG_HEALTH_FACTOR);
       targetHealthFactorsForAssets[assets_[i]] = healthFactors2_[i];
     }
 
@@ -220,10 +209,10 @@ contract BorrowManager is IBorrowManager {
     uint lenAssets = rightAssets_.length;
     require(leftAssets_.length == lenAssets, AppErrors.WRONG_LENGTHS);
     require(_platformAdapters.contains(platformAdapter_), AppErrors.PLATFORM_ADAPTER_NOT_FOUND);
-    IDebtMonitor debtMonitor = IDebtMonitor(controller.debtMonitor());
+    IDebtMonitor debtMonitor = IDebtMonitor(IConverterController(controller()).debtMonitor());
 
     // unregister the asset pairs
-    for (uint i = 0; i < lenAssets; i = i.uncheckedInc()) {
+    for (uint i; i < lenAssets; i = i.uncheckedInc()) {
       uint assetPairKey = getAssetPairKey(leftAssets_[i], rightAssets_[i]);
       _pairsList[assetPairKey].remove(platformAdapter_);
       _platformAdapterPairs[platformAdapter_].remove(assetPairKey);
@@ -234,7 +223,7 @@ contract BorrowManager is IBorrowManager {
       // unregister all template pool adapters
       address[] memory paConverters = IPlatformAdapter(platformAdapter_).converters();
       uint lenConverters = paConverters.length;
-      for (uint i = 0; i < lenConverters; i = i.uncheckedInc()) {
+      for (uint i; i < lenConverters; i = i.uncheckedInc()) {
         // If there is active pool adapter for the platform adapter, we cannot unregister the platform adapter
         require(!debtMonitor.isConverterInUse(paConverters[i]), AppErrors.PLATFORM_ADAPTER_IS_IN_USE);
         converterToPlatformAdapter[paConverters[i]] = address(0);
@@ -247,11 +236,9 @@ contract BorrowManager is IBorrowManager {
 
     emit OnRemoveAssetPairs(platformAdapter_, leftAssets_, rightAssets_);
   }
-  //endregion Configuration
+  //endregion ----------------------------------------------------- Configuration
 
-  //-----------------------------------------------------
-  //region Find best pool for borrowing
-  //-----------------------------------------------------
+  //region ----------------------------------------------------- Find best pool for borrowing
 
   /// @notice Find lending pool capable of providing {targetAmount} and having best normalized borrow rate
   ///         Results are ordered in ascending order of APR, so the best available converter is first one.
@@ -393,11 +380,9 @@ contract BorrowManager is IBorrowManager {
 
     return (converters, collateralAmountsOut, amountsToBorrowOut, aprs18, countFoundItems);
   }
-  //endregion Find best pool for borrowing
+  //endregion ----------------------------------------------------- Find best pool for borrowing
 
-  //-----------------------------------------------------
-  //region Minimal proxy creation
-  //-----------------------------------------------------
+  //region ----------------------------------------------------- Minimal proxy creation
 
   /// @notice Register a pool adapter for (pool, user, collateral) if the adapter wasn't created before
   /// @param user_ Address of the caller contract who requires access to the pool adapter
@@ -439,14 +424,10 @@ contract BorrowManager is IBorrowManager {
   /// @notice Notify borrow manager that the pool adapter with the given params is "dirty".
   ///         The pool adapter should be excluded from the list of ready-to-borrow pool adapters.
   /// @dev "Dirty" means that a liquidation happens inside. The borrow position should be closed during health checking.
-  function markPoolAdapterAsDirty(
-    address converter_,
-    address user_,
-    address collateral_,
-    address borrowToken_
-  ) external override {
+  function markPoolAdapterAsDirty(address converter_, address user_, address collateral_, address borrowToken_) external override {
+    IConverterController _controller = IConverterController(controller()); // gas saving
     require(
-      msg.sender == controller.tetuConverter() || msg.sender == controller.debtMonitor(),
+      msg.sender == _controller.tetuConverter() || msg.sender == _controller.debtMonitor(),
       AppErrors.ACCESS_DENIED
     );
     uint key = getPoolAdapterKey(converter_, collateral_, borrowToken_);
@@ -459,11 +440,9 @@ contract BorrowManager is IBorrowManager {
 
     emit OnMarkPoolAdapterAsDirty(poolAdapter);
   }
-  //endregion Minimal proxy creation
+  //endregion ----------------------------------------------------- Minimal proxy creation
 
-  //-----------------------------------------------------
-  //region Getters - pool adapters
-  //-----------------------------------------------------
+  //region ----------------------------------------------------- Getters - pool adapters
 
   /// @dev Returns true for NORMAL pool adapters and for active DIRTY pool adapters (=== borrow position is opened).
   function isPoolAdapter(address poolAdapter_) external view override returns (bool) {
@@ -480,11 +459,9 @@ contract BorrowManager is IBorrowManager {
     (bool found, address dest) = _poolAdapters[user_].tryGet(getPoolAdapterKey(converter_, collateral_, borrowToken_));
     return found ? dest : address(0);
   }
-  //endregion Getters - pool adapters
+  //endregion ----------------------------------------------------- Getters - pool adapters
 
-  //-----------------------------------------------------
-  //region Getters - platform adapters
-  //-----------------------------------------------------
+  //region ----------------------------------------------------- Getters - platform adapters
 
   /// @notice Get platformAdapter to which the converter belongs
   function getPlatformAdapter(address converter_) public view override returns (address) {
@@ -492,25 +469,21 @@ contract BorrowManager is IBorrowManager {
     require(platformAdapter != address(0), AppErrors.PLATFORM_ADAPTER_NOT_FOUND);
     return platformAdapter;
   }
-  //endregion Getters - platform adapters
+  //endregion ----------------------------------------------------- Getters - platform adapters
 
-  //-----------------------------------------------------
-  //region Getters - health factor
-  //-----------------------------------------------------
+  //region ----------------------------------------------------- Getters - health factor
 
   /// @notice Return target health factor with decimals 2 for the asset
   ///         If there is no custom value for asset, target health factor from the controller should be used
   function getTargetHealthFactor2(address asset_) public view override returns (uint16) {
     uint16 dest = targetHealthFactorsForAssets[asset_];
     return dest == 0
-      ? controller.targetHealthFactor2()
+      ? IConverterController(controller()).targetHealthFactor2()
       : dest;
   }
-  //endregion Getters - health factor
+  //endregion ----------------------------------------------------- Getters - health factor
 
-  //-----------------------------------------------------
-  //region keccak256 keys
-  //-----------------------------------------------------
+  //region ----------------------------------------------------- keccak256 keys
 
   function getPoolAdapterKey(address converter_,
     address collateral_,
@@ -524,17 +497,15 @@ contract BorrowManager is IBorrowManager {
       ? uint(keccak256(abi.encodePacked(assetLeft_, assetRight_)))
       : uint(keccak256(abi.encodePacked(assetRight_, assetLeft_)));
   }
-  //endregion keccak256 keys
+  //endregion ----------------------------------------------------- keccak256 keys
 
-  //-----------------------------------------------------
-  //region Access to arrays
-  //-----------------------------------------------------
+  //region ----------------------------------------------------- Access to arrays
 
-  function platformAdaptersLength() public view returns (uint) {
+  function platformAdaptersLength() public view override returns (uint) {
     return _platformAdapters.length();
   }
 
-  function platformAdaptersAt(uint index) public view returns (address) {
+  function platformAdaptersAt(uint index) public view override returns (address) {
     return _platformAdapters.at(index);
   }
 
@@ -557,5 +528,5 @@ contract BorrowManager is IBorrowManager {
   function listPoolAdaptersLength() public view returns (uint) {
     return listPoolAdapters.length;
   }
-  //endregion Access to arrays
+  //endregion ----------------------------------------------------- Access to arrays
 }

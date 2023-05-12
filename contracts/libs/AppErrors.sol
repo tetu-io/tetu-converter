@@ -124,4 +124,7 @@ library AppErrors {
   string public constant INCORRECT_BORROW_ASSET = "TC-58 incorrect borrow asset";
 
   string public constant UNSALVAGEABLE = "TC-59: unsalvageable";
+
+  string public constant GELATO_ONLY_OPS = "TC-60: onlyOps";
+  string public constant GELATO_ETH_TRANSFER_FAILED = "TC-61: _transfer: ETH transfer failed";
 }

@@ -1,163 +1,147 @@
 import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import {
-  BorrowManager,
-  ConverterController,
-  DebtMonitor,
-  Keeper,
+  BorrowManager, BorrowManager__factory,
+  ConverterController, ConverterController__factory,
+  DebtMonitor, DebtMonitor__factory, IDebtMonitor__factory, ITetuConverter__factory,
+  Keeper, Keeper__factory,
   PriceOracle,
-  SwapManager,
-  TetuConverter,
+  SwapManager, SwapManager__factory,
+  TetuConverter, TetuConverter__factory,
 } from "../../../typechain";
-import {BigNumber} from "ethers";
+import {BigNumber, ContractTransaction} from "ethers";
 import {DeployUtils} from "../../../scripts/utils/DeployUtils";
 import {COUNT_BLOCKS_PER_DAY} from "../utils/aprUtils";
 import {parseUnits} from "ethers/lib/utils";
 import {MaticAddresses} from "../../../scripts/addresses/MaticAddresses";
 import {Misc} from "../../../scripts/utils/Misc";
+import {ICoreContractFabrics} from "./TetuConverterApp";
 
 export class CoreContractsHelper {
-  static async deployController(deployer: SignerWithAddress, tetuLiquidator: string): Promise<ConverterController> {
-    return (await DeployUtils.deployContract(deployer, "ConverterController", tetuLiquidator)) as ConverterController;
-  }
-
   static async createController(
     deployer: SignerWithAddress,
-    tetuConverterFabric: (
-      controller: ConverterController,
-      borrowManager: string,
-      debtMonitor: string,
-      swapManager: string,
-      keeper: string,
-      priceOracle: string
-    ) => Promise<string>,
-    borrowManagerFabric: (controller: ConverterController) => Promise<string>,
-    debtMonitorFabric: (
-      controller: ConverterController,
-      borrowManager: string
-    ) => Promise<string>,
-    keeperFabric: (controller: ConverterController) => Promise<string>,
-    tetuLiquidatorFabric: () => Promise<string>,
-    swapManagerFabric: (
-      controller: ConverterController,
-      tetuLiquidator: string,
-      priceOracle: string
-    ) => Promise<string>,
-    priceOracleFabric: () => Promise<string>,
+    proxyUpdater: string,
+    fabrics: ICoreContractFabrics,
     minHealthFactor2: number = 101,
     targetHealthFactor2: number = 200,
     maxHealthFactor2: number = 400,
     countBlocksPerDay: number = COUNT_BLOCKS_PER_DAY,
     debtGap: number = 1_000
   ): Promise<ConverterController> {
-    const tetuLiquidator = await tetuLiquidatorFabric();
-    const priceOracle = await priceOracleFabric();
+    const tetuLiquidator = await fabrics.tetuLiquidatorFabric();
+    const priceOracle = await fabrics.priceOracleFabric();
 
-    const controller = await this.deployController(deployer, tetuLiquidator);
-    const borrowManager = await borrowManagerFabric(controller);
-    const keeper = await keeperFabric(controller);
+    // deploy contracts but don't initialize them - we need to set up governance in controller at first
+    const controller = await this.deployController(deployer);
 
-    const swapManager = await swapManagerFabric(controller, tetuLiquidator, priceOracle);
-    const debtMonitor = await debtMonitorFabric(controller, borrowManager);
+    const borrowManager = await fabrics.borrowManagerFabric.deploy();
+    const keeper = await fabrics.keeperFabric.deploy();
+    const swapManager = await fabrics.swapManagerFabric.deploy();
+    const debtMonitor = await fabrics.debtMonitorFabric.deploy();
+    const tetuConverter = await fabrics.tetuConverterFabric.deploy();
 
-    const tetuConverter = await tetuConverterFabric(
-      controller,
-      borrowManager,
-      debtMonitor,
-      swapManager,
-      keeper,
-      priceOracle
-    );
-
-    await controller.initialize(
+    await ConverterController__factory.connect(controller, deployer).init(
+      proxyUpdater,
       deployer.address,
-      countBlocksPerDay,
-      minHealthFactor2,
-      targetHealthFactor2,
       tetuConverter,
       borrowManager,
       debtMonitor,
       keeper,
       swapManager,
-      debtGap,
-      priceOracle
+      priceOracle,
+      tetuLiquidator,
+      countBlocksPerDay
     );
 
+    // initialize all core contracts
+    if (fabrics.borrowManagerFabric.init) {
+      await fabrics.borrowManagerFabric.init(controller, borrowManager);
+    }
+    if (fabrics.keeperFabric.init) {
+      await fabrics.keeperFabric.init(controller, keeper);
+    }
+    if (fabrics.swapManagerFabric.init) {
+      await fabrics.swapManagerFabric.init(controller, swapManager);
+    }
+    if (fabrics.debtMonitorFabric.init) {
+      await fabrics.debtMonitorFabric.init(controller, debtMonitor);
+    }
+    if (fabrics.tetuConverterFabric.init) {
+      await fabrics.tetuConverterFabric.init(controller, tetuConverter);
+    }
+
+    // change default values of controller to the required values
+    const controllerAsGov = await ConverterController__factory.connect(controller, deployer);
     // maxHealthFactor2 was removed from initialize in ver.13
-    await controller.connect(await Misc.impersonate(await controller.governance())).setMaxHealthFactor2(maxHealthFactor2);
+    await controllerAsGov.setMaxHealthFactor2(maxHealthFactor2);
+    await controllerAsGov.setMinHealthFactor2(minHealthFactor2);
+    await controllerAsGov.setTargetHealthFactor2(targetHealthFactor2);
+    await controllerAsGov.setDebtGap(debtGap);
 
-    return controller;
+    return controllerAsGov;
   }
 
-  public static async createDebtMonitor(
-    signer: SignerWithAddress,
-    controllerAddress: string,
-    borrowManager: string
-    // thresholdAPR: number = 0,
-    // thresholdCountBlocks: number = 0
-  ): Promise<DebtMonitor> {
-    return (await DeployUtils.deployContract(
-      signer,
-      "DebtMonitor",
-      controllerAddress,
-      borrowManager,
-      // thresholdAPR,
-      // thresholdCountBlocks
-    )) as DebtMonitor;
+//region Deploy core contracts (no init calls)
+  static async deployController(signer: SignerWithAddress): Promise<string> {
+    return (ConverterController__factory.connect(await DeployUtils.deployProxy(signer, "ConverterController"), signer)).address;
+  }
+  public static async deployDebtMonitor(signer: SignerWithAddress): Promise<string> {
+    return (DebtMonitor__factory.connect(await DeployUtils.deployProxy(signer, "DebtMonitor"), signer)).address;
   }
 
-  public static async createTetuConverter(
-    signer: SignerWithAddress,
-    controller: string,
-    borrowManager: string,
-    debtMonitor: string,
-    swapManager: string,
-    keeper: string,
-  ): Promise<TetuConverter> {
-    return (await DeployUtils.deployContract(
-      signer,
-      "TetuConverter",
-      controller,
-      borrowManager,
-      debtMonitor,
-      swapManager,
-      keeper,
-    )) as TetuConverter;
+  public static async deployTetuConverter(signer: SignerWithAddress): Promise<string> {
+    return (TetuConverter__factory.connect(await DeployUtils.deployProxy(signer, "TetuConverter"), signer)).address;
   }
 
   /** Create BorrowManager with mock as adapter */
-  public static async createBorrowManager(
-    signer: SignerWithAddress,
-    controller: string,
-    rewardsFactor: BigNumber = parseUnits("0.9") // rewardsFactor must be less 1
-  ): Promise<BorrowManager> {
-    return (await DeployUtils.deployContract(
-      signer,
-      "BorrowManager",
-      controller,
-      rewardsFactor
-    )) as BorrowManager;
+  public static async deployBorrowManager(signer: SignerWithAddress): Promise<string> {
+    return (BorrowManager__factory.connect(await DeployUtils.deployProxy(signer, "BorrowManager"), signer)).address;
   }
 
   /** Create SwapManager */
-  public static async createSwapManager(signer: SignerWithAddress, controller: string, tetuLiquidator: string): Promise<SwapManager> {
-    return (await DeployUtils.deployContract(signer, "SwapManager", controller, tetuLiquidator)) as SwapManager;
+  public static async deploySwapManager(signer: SignerWithAddress): Promise<string> {
+    return (SwapManager__factory.connect(await DeployUtils.deployProxy(signer, "SwapManager"), signer)).address;
   }
 
-  public static async createKeeper(
+  public static async deployKeeper(signer: SignerWithAddress): Promise<string> {
+    return (Keeper__factory.connect(await DeployUtils.deployProxy(signer,"Keeper"), signer)).address;
+  }
+//endregion Deploy core contracts (no init calls)
+
+//region Initialize core contracts
+  public static async initializeTetuConverter(signer: SignerWithAddress, controller: string, instance: string): Promise<ContractTransaction> {
+    return TetuConverter__factory.connect(instance, signer).init(controller);
+  }
+
+  /** Create BorrowManager with mock as adapter */
+  public static async initializeBorrowManager(
     signer: SignerWithAddress,
     controller: string,
-    gelatoOpsAddress: string,
-    blocksPerDayAutoUpdatePeriodSecs: number = 3 * 24 * 60 * 60 // 3 days by default
-  ): Promise<Keeper> {
-    return (await DeployUtils.deployContract(
-      signer,
-      "Keeper",
-      controller,
-      gelatoOpsAddress,
-      blocksPerDayAutoUpdatePeriodSecs
-    )) as Keeper;
+    instance: string,
+    rewardsFactor: BigNumber = parseUnits("0.9") // rewardsFactor must be less 1
+  ): Promise<ContractTransaction> {
+    return BorrowManager__factory.connect(instance, signer).init(controller, rewardsFactor);
   }
 
+  public static async initializeDebtMonitor(signer: SignerWithAddress, controller: string, instance: string): Promise<ContractTransaction> {
+    return DebtMonitor__factory.connect(instance, signer).init(controller);
+  }
+
+  public static async initializeKeeper(
+    signer: SignerWithAddress,
+    controller: string,
+    instance: string,
+    gelatoOpsAddress: string,
+    blocksPerDayAutoUpdatePeriodSec: number = 3 * 24 * 60 * 60 // 3 days by default
+  ): Promise<ContractTransaction> {
+    return Keeper__factory.connect(instance, signer).init(controller, gelatoOpsAddress, blocksPerDayAutoUpdatePeriodSec);
+  }
+
+  public static async initializeSwapManager(signer: SignerWithAddress, controller: string, instance: string): Promise<ContractTransaction> {
+    return SwapManager__factory.connect(instance, signer).init(controller);
+  }
+//endregion Initialize core contracts
+
+//region Create core contracts
   public static async createPriceOracle(signer: SignerWithAddress, priceOracleAave3?: string): Promise<PriceOracle> {
     return (await DeployUtils.deployContract(
       signer,
@@ -165,4 +149,5 @@ export class CoreContractsHelper {
       priceOracleAave3 || MaticAddresses.AAVE_V3_PRICE_ORACLE
     )) as PriceOracle;
   }
+//endregion Create core contracts
 }

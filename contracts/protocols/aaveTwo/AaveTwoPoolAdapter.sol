@@ -25,9 +25,7 @@ contract AaveTwoPoolAdapter is IPoolAdapter, IPoolAdapterInitializer, Initializa
   using AaveTwoReserveConfiguration for DataTypes.ReserveConfigurationMap;
   using SafeRatioMath for uint;
 
-  //-----------------------------------------------------
-  //region Members and constants
-  //-----------------------------------------------------
+  //region ----------------------------------------------------- Members and constants
   /// @notice We allow to receive less atokens then provided collateral on following value
   /// @dev Sometime, we provide collateral=1000000000000000000000 and receive atokens=999999999999999999999
   uint constant public ATOKEN_MAX_DELTA = 10;
@@ -47,11 +45,9 @@ contract AaveTwoPoolAdapter is IPoolAdapter, IPoolAdapterInitializer, Initializa
 
   /// @notice Total amount of all supplied and withdrawn amounts of collateral in A-tokens
   uint public collateralBalanceATokens;
-  //endregion Members and constants
+  //endregion ----------------------------------------------------- Members and constants
 
-  //-----------------------------------------------------
-  //region Events
-  //-----------------------------------------------------
+  //region ----------------------------------------------------- Events
   event OnInitialized(address controller, address pool, address user, address collateralAsset, address borrowAsset, address originConverter);
   event OnBorrow(uint collateralAmount, uint borrowAmount, address receiver, uint resultHealthFactor18, uint collateralBalanceATokens);
   event OnBorrowToRebalance(uint borrowAmount, address receiver, uint resultHealthFactor18);
@@ -59,11 +55,9 @@ contract AaveTwoPoolAdapter is IPoolAdapter, IPoolAdapterInitializer, Initializa
   event OnRepayToRebalance(uint amount, bool isCollateral, uint resultHealthFactor18, uint collateralBalanceATokens);
   event OnSalvage(address receiver, address token, uint amount);
 
-  //endregion Events
+  //endregion ----------------------------------------------------- Events
 
-  //-----------------------------------------------------
-  //region Initialization
-  //-----------------------------------------------------
+  //region ----------------------------------------------------- Initialization
 
   function initialize(
     address controller_,
@@ -116,11 +110,9 @@ contract AaveTwoPoolAdapter is IPoolAdapter, IPoolAdapterInitializer, Initializa
     emit OnSalvage(receiver, token, amount);
   }
 
-  //endregion Initialization
+  //endregion ----------------------------------------------------- Initialization
 
-  //-----------------------------------------------------
-  //region Restrictions
-  //-----------------------------------------------------
+  //region ----------------------------------------------------- Restrictions
 
   /// @notice Ensure that the caller is TetuConverter
   function _onlyTetuConverter(IConverterController controller_) internal view {
@@ -128,13 +120,12 @@ contract AaveTwoPoolAdapter is IPoolAdapter, IPoolAdapterInitializer, Initializa
   }
 
   function updateStatus() external override {
+    // empty function, no restrictions
     // nothing to do; getStatus always return actual amounts in AAVE
   }
-  //endregion Restrictions
+  //endregion ----------------------------------------------------- Restrictions
 
-  //-----------------------------------------------------
-  //region Borrow logic
-  //-----------------------------------------------------
+  //region ----------------------------------------------------- Borrow logic
 
   /// @notice Supply collateral to the pool and borrow specified amount
   /// @dev No re-balancing here; Collateral amount must be approved to the pool adapter before the call of this function
@@ -267,11 +258,9 @@ contract AaveTwoPoolAdapter is IPoolAdapter, IPoolAdapterInitializer, Initializa
     emit OnBorrowToRebalance(borrowAmount_, receiver_, resultHealthFactor18);
     return (resultHealthFactor18, borrowAmount_);
   }
-  //endregion Borrow logic
+  //endregion ----------------------------------------------------- Borrow logic
 
-  //-----------------------------------------------------
-  //region Repay logic
-  //-----------------------------------------------------
+  //region ----------------------------------------------------- Repay logic
 
   /// @notice Repay borrowed amount, return collateral to the user
   /// @param amountToRepay_ Exact amount of borrow asset that should be repaid
@@ -500,11 +489,9 @@ contract AaveTwoPoolAdapter is IPoolAdapter, IPoolAdapterInitializer, Initializa
     emit OnRepayToRebalance(amount_, isCollateral_, healthFactor, newCollateralBalanceATokens);
     return healthFactor;
   }
-  //endregion Repay logic
+  //endregion ----------------------------------------------------- Repay logic
 
-  //-----------------------------------------------------
-  //region View current status
-  //-----------------------------------------------------
+  //region ----------------------------------------------------- View current status
 
   function getConversionKind() external pure override returns (AppDataTypes.ConversionKind) {
     return AppDataTypes.ConversionKind.BORROW_2;
@@ -571,11 +558,9 @@ contract AaveTwoPoolAdapter is IPoolAdapter, IPoolAdapterInitializer, Initializa
       true
     );
   }
-  //endregion View current status
+  //endregion ----------------------------------------------------- View current status
 
-  //-----------------------------------------------------
-  //region Rewards
-  //-----------------------------------------------------
+  //region ----------------------------------------------------- Rewards
   function claimRewards(address receiver_) external pure override returns (
     address rewardToken,
     uint amount
@@ -584,15 +569,13 @@ contract AaveTwoPoolAdapter is IPoolAdapter, IPoolAdapterInitializer, Initializa
     receiver_; // hide warning
     return (rewardToken, amount);
   }
-  //endregion Rewards
+  //endregion ----------------------------------------------------- Rewards
 
-  //-----------------------------------------------------
-  //region Utils to inline
-  //-----------------------------------------------------
+  //region ----------------------------------------------------- Utils to inline
 
   function _validateHealthFactor(IConverterController controller_, uint hf18) internal view {
     require(hf18 >= uint(controller_.minHealthFactor2())*10**(18-2), AppErrors.WRONG_HEALTH_FACTOR);
   }
-  //endregion Utils to inline
+  //endregion ----------------------------------------------------- Utils to inline
 
 }

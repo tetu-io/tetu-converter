@@ -12,9 +12,10 @@ import "../interfaces/IDebtMonitor.sol";
 import "../interfaces/IPriceOracle.sol";
 import "../interfaces/IBorrowManager.sol";
 import "../interfaces/ITetuConverter.sol";
+import "../proxy/ControllableV3.sol";
 
 /// @notice Manage list of open borrow positions
-contract DebtMonitor is IDebtMonitor {
+contract DebtMonitor is IDebtMonitor, ControllableV3 {
   using AppUtils for uint;
   using EnumerableSet for EnumerableSet.AddressSet;
 
@@ -25,14 +26,11 @@ contract DebtMonitor is IDebtMonitor {
     uint healthFactorThreshold18;
   }
 
-  //-----------------------------------------------------
-  //region Members
-  //-----------------------------------------------------
-  IConverterController public immutable controller;
-  /// @notice Same as controller.borrowManager()
-  /// @dev Cached for the gas optimization
-  IBorrowManager public immutable borrowManager;
+  //region ---------------------------------------------- Constants
+  string public constant DEBT_MONITOR_VERSION = "1.0.0";
+  //endregion ---------------------------------------------- Constants
 
+  //region ---------------------------------------------- Variables. Don't change names or ordering!
   /// @notice Pool adapters with active borrow positions
   /// @dev All these pool adapters should be enumerated during health-checking
   address[] public positions;
@@ -52,39 +50,22 @@ contract DebtMonitor is IDebtMonitor {
   /// @dev We need it to prevent removing a pool from the borrow manager when the pool is in use
   mapping(address => EnumerableSet.AddressSet) private _poolAdaptersForConverters;
 
-  //endregion Members
+  //endregion ---------------------------------------------- Variables. Don't change names or ordering!
 
-  //-----------------------------------------------------
-  //region Events
-  //-----------------------------------------------------
+  //region ---------------------------------------------- Events
   event OnOpenPosition(address poolAdapter);
   event OnClosePosition(address poolAdapter);
   event OnCloseLiquidatedPosition(address poolAdapter, uint amountToPay);
-  //endregion Events
+  //endregion ---------------------------------------------- Events
 
-  //-----------------------------------------------------
-  //region Constructor and initialization
-  //-----------------------------------------------------
+  //region ---------------------------------------------- Initialization
 
-  constructor(
-    address controller_,
-    address borrowManager_
-//    uint thresholdAPR_,
-//    uint thresholdCountBlocks_
-  ) {
-    require(
-      controller_ != address(0)
-      && borrowManager_ != address(0),
-      AppErrors.ZERO_ADDRESS
-    );
-    controller = IConverterController(controller_);
-    borrowManager = IBorrowManager(borrowManager_);
+  function init(address controller_) external initializer {
+    __Controllable_init(controller_);
   }
-  //endregion Constructor and initialization
+  //endregion ---------------------------------------------- Initialization
 
-  //-----------------------------------------------------
-  //region Operations with positions
-  //-----------------------------------------------------
+  //region ---------------------------------------------- Operations with positions
 
   /// @notice Check if the pool-adapter-caller has an opened position
   function isPositionOpened() external override view returns (bool) {
@@ -94,6 +75,7 @@ contract DebtMonitor is IDebtMonitor {
   /// @notice Register new borrow position if it's not yet registered
   /// @dev This function is called from a pool adapter after any borrow
   function onOpenPosition() external override {
+    IBorrowManager borrowManager = IBorrowManager(IConverterController(controller()).borrowManager());
     require(borrowManager.isPoolAdapter(msg.sender), AppErrors.POOL_ADAPTER_ONLY);
 
     if (positionLastAccess[msg.sender] == 0) {
@@ -101,9 +83,9 @@ contract DebtMonitor is IDebtMonitor {
       positions.push(msg.sender);
 
       (address origin,
-       address user,
-       address collateralAsset,
-       address borrowAsset
+      address user,
+      address collateralAsset,
+      address borrowAsset
       ) = IPoolAdapter(msg.sender).getConfig();
 
       poolAdapters[getPoolAdapterKey(user, collateralAsset, borrowAsset)].push(msg.sender);
@@ -145,6 +127,7 @@ contract DebtMonitor is IDebtMonitor {
     _poolAdaptersForConverters[origin].remove(poolAdapter_);
 
     if (markAsDirty_) {
+      IBorrowManager borrowManager = IBorrowManager(IConverterController(controller()).borrowManager());
       // We have dropped away the pool adapter. It cannot be used any more for new borrows
       // Mark the pool adapter as dirty in borrow manager to exclude the pool adapter from any new borrows
       if (poolAdapter_ == borrowManager.getPoolAdapter(origin, user, collateralAsset, borrowAsset)) {
@@ -156,7 +139,7 @@ contract DebtMonitor is IDebtMonitor {
   /// @notice Pool adapter has opened borrow, but full liquidation happens and we've lost all collateral
   ///         Close position without paying the debt and never use the pool adapter again.
   function closeLiquidatedPosition(address poolAdapter_) external override {
-    require(msg.sender == controller.tetuConverter(), AppErrors.TETU_CONVERTER_ONLY);
+    require(msg.sender == IConverterController(controller()).tetuConverter(), AppErrors.TETU_CONVERTER_ONLY);
 
     (uint collateralAmount, uint amountToPay,,,,) = IPoolAdapter(poolAdapter_).getStatus();
     require(collateralAmount == 0, AppErrors.CANNOT_CLOSE_LIVE_POSITION);
@@ -164,11 +147,9 @@ contract DebtMonitor is IDebtMonitor {
 
     emit OnCloseLiquidatedPosition(poolAdapter_, amountToPay);
   }
-  //endregion Operations with positions
+  //endregion ---------------------------------------------- Operations with positions
 
-  //-----------------------------------------------------
-  //region Detect unhealthy positions
-  //-----------------------------------------------------
+  //region ---------------------------------------------- Detect unhealthy positions
 
   /// @notice Enumerate {maxCountToCheck} pool adapters starting from {index0} and return unhealthy pool-adapters
   ///         i.e. adapters with health factor below min allowed value
@@ -196,12 +177,12 @@ contract DebtMonitor is IDebtMonitor {
         startIndex0: startIndex0,
         maxCountToCheck: maxCountToCheck,
         maxCountToReturn: maxCountToReturn,
-        healthFactorThreshold18: uint(controller.minHealthFactor2()) * 10**(18-2)
+        healthFactorThreshold18: uint(IConverterController(controller()).minHealthFactor2()) * 10 ** (18 - 2)
       })
     );
   }
 
-  function _checkHealthFactor (
+  function _checkHealthFactor(
     CheckHealthFactorInputParams memory p
   ) internal view returns (
     uint nextIndexToCheck0,
@@ -209,6 +190,7 @@ contract DebtMonitor is IDebtMonitor {
     uint[] memory outAmountBorrowAsset,
     uint[] memory outAmountCollateralAsset
   ) {
+    IBorrowManager borrowManager = IBorrowManager(IConverterController(controller()).borrowManager());
     uint countFoundItems = 0;
     nextIndexToCheck0 = p.startIndex0;
 
@@ -234,8 +216,8 @@ contract DebtMonitor is IDebtMonitor {
       // We should call a IKeeperCallback in the same way as for rebalancing, but with requiredAmountCollateralAsset=0
 
       (,,address collateralAsset,) = pa.getConfig();
-      uint healthFactorTarget18 = uint(borrowManager.getTargetHealthFactor2(collateralAsset)) * 10**(18-2);
-      if (p.healthFactorThreshold18 < healthFactorTarget18 && healthFactor18 < p.healthFactorThreshold18) { // unhealthy
+      uint healthFactorTarget18 = uint(borrowManager.getTargetHealthFactor2(collateralAsset)) * 10 ** (18 - 2);
+      if (p.healthFactorThreshold18 < healthFactorTarget18 && healthFactor18 < p.healthFactorThreshold18) {// unhealthy
         outPoolAdapters[countFoundItems] = positions[p.startIndex0 + i];
         // Health Factor = Collateral Factor * CollateralAmount * Price_collateral / (BorrowAmount * Price_borrow)
         // => requiredAmountBorrowAsset = BorrowAmount * (HealthFactorCurrent/HealthFactorTarget - 1)
@@ -268,15 +250,13 @@ contract DebtMonitor is IDebtMonitor {
         : AppUtils.removeLastItems(outAmountCollateralAsset, countFoundItems)
     );
   }
-  //endregion Detect unhealthy positions
+  //endregion ---------------------------------------------- Detect unhealthy positions
 
-  //-----------------------------------------------------
-  //region Views
-  //-----------------------------------------------------
+  //region ---------------------------------------------- Views
 
   /// @notice Get active borrows of the user with given collateral/borrowToken
   /// @return poolAdaptersOut The instances of IPoolAdapter
-  function getPositions (
+  function getPositions(
     address user_,
     address collateralToken_,
     address borrowedToken_
@@ -297,7 +277,7 @@ contract DebtMonitor is IDebtMonitor {
 
   /// @notice Get active borrows of the given user
   /// @return poolAdaptersOut The instances of IPoolAdapter
-  function getPositionsForUser(address user_) external view override returns(
+  function getPositionsForUser(address user_) external view override returns (
     address[] memory poolAdaptersOut
   ) {
     EnumerableSet.AddressSet storage set = _poolAdaptersForUser[user_];
@@ -316,11 +296,9 @@ contract DebtMonitor is IDebtMonitor {
   function isConverterInUse(address converter_) external view override returns (bool) {
     return _poolAdaptersForConverters[converter_].length() != 0;
   }
-  //endregion Views
+  //endregion ---------------------------------------------- Views
 
-  //-----------------------------------------------------
-  //region Utils
-  //-----------------------------------------------------
+  //region ---------------------------------------------- Utils
   function getPoolAdapterKey(
     address user_,
     address collateral_,
@@ -328,11 +306,9 @@ contract DebtMonitor is IDebtMonitor {
   ) public pure returns (uint){
     return uint(keccak256(abi.encodePacked(user_, collateral_, borrowToken_)));
   }
-  //endregion Utils
+  //endregion ---------------------------------------------- Utils
 
-  //-----------------------------------------------------
-  //region Access to arrays
-  //-----------------------------------------------------
+  //region ---------------------------------------------- Access to arrays
 
   /// @notice Get total count of pool adapters with opened positions
   function getCountPositions() external view override returns (uint) {

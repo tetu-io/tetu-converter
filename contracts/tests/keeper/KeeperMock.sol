@@ -19,8 +19,10 @@ contract KeeperMock is IHealthKeeperCallback, IResolver {
   uint256 public override nextIndexToCheck0;
   address private _checker;
 
-  constructor(uint nextIndexToCheck0_, address checker_) {
+  constructor(uint nextIndexToCheck0_) {
     nextIndexToCheck0 = nextIndexToCheck0_;
+  }
+  function init(address checker_) external {
     _checker = checker_;
   }
 

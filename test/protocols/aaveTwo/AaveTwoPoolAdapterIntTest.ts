@@ -677,22 +677,16 @@ describe("AaveTwoPoolAdapterIntTest", () => {
         );
         console.log(r);
 
-        const ret = [
-          r.userAccountData.ltv,
-          r.userAccountData.currentLiquidationThreshold,
-          r.userAccountData.totalDebtETH
-            .add(r.userAccountData.availableBorrowsETH)
-            .mul(1e4)
-            .div(r.userAccountData.totalCollateralETH)
-        ].map(x => BalanceUtils.toString(x)).join("\n");
-
-        const expected = [
-          r.collateralData.data.ltv,
-          r.collateralData.data.liquidationThreshold,
-          r.collateralData.data.ltv
-        ].map(x => BalanceUtils.toString(x)).join("\n");
+        const ret = [r.userAccountData.ltv, r.userAccountData.currentLiquidationThreshold].map(x => BalanceUtils.toString(x)).join("\n");
+        const expected = [r.collateralData.data.ltv, r.collateralData.data.liquidationThreshold].map(x => BalanceUtils.toString(x)).join("\n");
 
         expect(ret).eq(expected);
+        expect(
+          r.userAccountData.totalDebtETH
+          .add(r.userAccountData.availableBorrowsETH)
+          .mul(1e4)
+          .div(r.userAccountData.totalCollateralETH)
+        ).approximately(r.collateralData.data.ltv, 1); //7500 ~ 7499
       });
     });
   });

@@ -28,10 +28,9 @@ contract DForcePoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP, Initi
   /// @notice Max allowed difference for sumCollateralSafe - sumBorrowPlusEffects == liquidity
   uint private constant DELTA = 100;
   address private constant WMATIC = address(0x0d500B1d8E8eF31E21C99d1Db9A6444d3ADf1270);
+  address private constant DFORCE_MATIC = address(0x6A3fE5342a4Bd09efcd44AC5B9387475A0678c74);
 
-  //-----------------------------------------------------
-  //region Members and constants
-  //-----------------------------------------------------
+  //region -----------------------------------------------------  Members and constants
 
   address public collateralAsset;
   address public borrowAsset;
@@ -47,11 +46,9 @@ contract DForcePoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP, Initi
 
   /// @notice Total amount of all supplied and withdrawn amounts of collateral in collateral tokens
   uint public collateralTokensBalance;
-  //endregion Members and constants
+  //endregion ----------------------------------------------------- Members and constants
 
-  //-----------------------------------------------------
-  //region Events
-  //-----------------------------------------------------
+  //region ----------------------------------------------------- Events
   event OnInitialized(address controller, address cTokenAddressProvider, address comptroller, address user, address collateralAsset, address borrowAsset, address originConverter);
   event OnBorrow(uint collateralAmount, uint borrowAmount, address receiver, uint resultHealthFactor18);
   event OnBorrowToRebalance(uint borrowAmount, address receiver, uint resultHealthFactor18);
@@ -60,11 +57,10 @@ contract DForcePoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP, Initi
   /// @notice On claim not empty {amount} of reward tokens
   event OnClaimRewards(address rewardToken, uint amount, address receiver);
   event OnSalvage(address receiver, address token, uint amount);
-  //endregion Events
+  event ValueReceived(address user, uint amount);
+  //endregion ----------------------------------------------------- Events
 
-  //-----------------------------------------------------
-  //region Initialization
-  //-----------------------------------------------------
+  //region ----------------------------------------------------- Initialization
 
   function initialize(
     address controller_,
@@ -97,7 +93,7 @@ contract DForcePoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP, Initi
     originConverter = originConverter_;
 
     (address cTokenCollateral,
-     address cTokenBorrow
+      address cTokenBorrow
     ) = ITokenAddressProvider(cTokenAddressProvider_).getCTokenByUnderlying(collateralAsset_, borrowAsset_);
 
     require(cTokenCollateral != address(0), AppErrors.C_TOKEN_NOT_FOUND);
@@ -110,8 +106,8 @@ contract DForcePoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP, Initi
 
     // The pool adapter doesn't keep assets on its balance, so it's safe to use infinity approve
     // All approves replaced by infinity-approve were commented in the code below
-    IERC20(collateralAsset_).safeApprove(cTokenCollateral, 2**255); // 2*255 is more gas-efficient than type(uint).max
-    IERC20(borrowAsset_).safeApprove(cTokenBorrow, 2**255); // 2*255 is more gas-efficient than type(uint).max
+    IERC20(collateralAsset_).safeApprove(cTokenCollateral, 2 ** 255); // 2*255 is more gas-efficient than type(uint).max
+    IERC20(borrowAsset_).safeApprove(cTokenBorrow, 2 ** 255); // 2*255 is more gas-efficient than type(uint).max
 
     emit OnInitialized(controller_, cTokenAddressProvider_, comptroller_, user_, collateralAsset_, borrowAsset_, originConverter_);
   }
@@ -125,23 +121,19 @@ contract DForcePoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP, Initi
     IERC20(token).safeTransfer(receiver, amount);
     emit OnSalvage(receiver, token, amount);
   }
-  //endregion Initialization
+  //endregion ----------------------------------------------------- Initialization
 
-  //-----------------------------------------------------
-  //region Restrictions
-  //-----------------------------------------------------
+  //region ----------------------------------------------------- Restrictions
 
   /// @notice Ensure that the caller is TetuConverter
   function _onlyTetuConverter(IConverterController controller_) internal view {
     require(controller_.tetuConverter() == msg.sender, AppErrors.TETU_CONVERTER_ONLY);
   }
-  //endregion Restrictions
+  //endregion ----------------------------------------------------- Restrictions
 
-  //-----------------------------------------------------
-  //region Borrow logic
-  //-----------------------------------------------------
+  //region ----------------------------------------------------- Borrow logic
   function updateStatus() external override {
-    // no restrictions, anybody can call this function
+    _onlyTetuConverter(controller);
 
     // Update borrowBalance to actual value
     IDForceCToken(borrowCToken).borrowBalanceCurrent(address(this));
@@ -183,7 +175,7 @@ contract DForcePoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP, Initi
 
     // ensure that we have received required borrowed amount, send the amount to the receiver
     if (_isMatic(assetBorrow)) {
-      IWmatic(WMATIC).deposit{value : borrowAmount_}();
+      IWmatic(WMATIC).deposit{value: borrowAmount_}();
     }
     require(
       borrowAmount_ + balanceBorrowAsset0 == IERC20(assetBorrow).balanceOf(address(this)),
@@ -220,7 +212,7 @@ contract DForcePoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP, Initi
     // supply collateral
     if (_isMatic(assetCollateral_)) {
       IWmatic(WMATIC).withdraw(collateralAmount_);
-      IDForceCTokenMatic(cTokenCollateral_).mint{value : collateralAmount_}(address(this));
+      IDForceCTokenMatic(cTokenCollateral_).mint{value: collateralAmount_}(address(this));
     } else {
       // replaced by infinity approve: IERC20(assetCollateral_).safeApprove(cTokenCollateral_, collateralAmount_);
       IDForceCToken(cTokenCollateral_).mint(address(this), collateralAmount_);
@@ -235,12 +227,12 @@ contract DForcePoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP, Initi
     address cTokenBorrow_
   ) internal view returns (uint, uint) {
     (uint tokenBalance,,
-     uint collateralBase36,
-     uint borrowBase36,,
+      uint collateralBase36,
+      uint borrowBase36,,
     ) = _getStatus(cTokenCollateral_, cTokenBorrow_);
 
     (uint sumCollateralSafe36,
-     uint healthFactor18
+      uint healthFactor18
     ) = _getHealthFactor(cTokenCollateral_, collateralBase36, borrowBase36);
 
     // USD with 36 integer precision
@@ -250,7 +242,7 @@ contract DForcePoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP, Initi
     require(
       sumCollateralSafe36 > borrowBase36
       && borrowBase36 != 0
-    // here we should have: sumCollateralSafe - sumBorrowPlusEffects == liquidity
+      // here we should have: sumCollateralSafe - sumBorrowPlusEffects == liquidity
       && liquidity36 + DELTA + borrowBase36 >= sumCollateralSafe36,
       AppErrors.INCORRECT_RESULT_LIQUIDITY
     );
@@ -263,10 +255,7 @@ contract DForcePoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP, Initi
   /// @dev Re-balance: too big health factor => target health factor
   /// @return resultHealthFactor18 Result health factor after borrow
   /// @return borrowedAmountOut Exact amount sent to the borrower
-  function borrowToRebalance(
-    uint borrowAmount_,
-    address receiver_
-  ) external override returns (
+  function borrowToRebalance(uint borrowAmount_, address receiver_) external override returns (
     uint resultHealthFactor18,
     uint borrowedAmountOut
   ) {
@@ -284,7 +273,7 @@ contract DForcePoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP, Initi
 
     // ensure that we have received required borrowed amount, send the amount to the receiver
     if (_isMatic(assetBorrow)) {
-      IWmatic(WMATIC).deposit{value : borrowAmount_}();
+      IWmatic(WMATIC).deposit{value: borrowAmount_}();
     }
     require(
       borrowAmount_ + balanceBorrowAsset0 == IERC20(assetBorrow).balanceOf(address(this)),
@@ -298,11 +287,9 @@ contract DForcePoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP, Initi
     emit OnBorrowToRebalance(borrowAmount_, receiver_, resultHealthFactor18);
     return (resultHealthFactor18, borrowAmount_);
   }
-  //endregion Borrow logic
+  //endregion ----------------------------------------------------- Borrow logic
 
-  //-----------------------------------------------------
-  //region Repay logic
-  //-----------------------------------------------------
+  //region ----------------------------------------------------- Repay logic
 
   /// @notice Repay borrowed amount, return collateral to the user
   /// @param amountToRepay_ Exact amount of borrow asset that should be repaid
@@ -350,7 +337,7 @@ contract DForcePoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP, Initi
       // transfer borrow amount back to the pool
       if (_isMatic(address(assetBorrow))) {
         IWmatic(WMATIC).withdraw(amountToRepay_);
-        IDForceCTokenMatic(cTokenBorrow).repayBorrow{value : amountToRepay_}();
+        IDForceCTokenMatic(cTokenBorrow).repayBorrow{value: amountToRepay_}();
       } else {
         // replaced by infinity approve: IERC20(assetBorrow).safeApprove(cTokenBorrow, amountToRepay_);
         IDForceCToken(cTokenBorrow).repayBorrow(amountToRepay_);
@@ -365,15 +352,15 @@ contract DForcePoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP, Initi
       require(balanceCollateralAssetAfterRedeem >= balanceCollateralAsset, AppErrors.WEIRD_OVERFLOW); // overflow is not possible below
       collateralAmountToReturn = balanceCollateralAssetAfterRedeem - balanceCollateralAsset;
       if (_isMatic(assetCollateral)) {
-        IWmatic(WMATIC).deposit{value : collateralAmountToReturn}();
+        IWmatic(WMATIC).deposit{value: collateralAmountToReturn}();
       }
       IERC20(assetCollateral).safeTransfer(receiver_, collateralAmountToReturn);
 
       // validate result status
       (uint tokenBalanceAfter,
-       uint borrowBalance,
-       uint collateralBase,
-       uint sumBorrowPlusEffects,,
+        uint borrowBalance,
+        uint collateralBase,
+        uint sumBorrowPlusEffects,,
       ) = _getStatus(cTokenCollateral, cTokenBorrow);
 
 
@@ -463,7 +450,7 @@ contract DForcePoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP, Initi
       // transfer borrow amount back to the pool
       if (_isMatic(assetBorrow)) {
         IWmatic(WMATIC).withdraw(amount_);
-        IDForceCTokenMatic(cTokenBorrow).repayBorrow{value : amount_}();
+        IDForceCTokenMatic(cTokenBorrow).repayBorrow{value: amount_}();
       } else {
         // replaced by infinity approve in constructor: IERC20(assetBorrow).safeApprove(cTokenBorrow, amount_);
         IDForceCToken(cTokenBorrow).repayBorrow(amount_);
@@ -471,8 +458,8 @@ contract DForcePoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP, Initi
     }
     // validate result status
     (uint tokenBalanceAfter,,
-     uint collateralBase,
-     uint sumBorrowPlusEffects,,
+      uint collateralBase,
+      uint sumBorrowPlusEffects,,
     ) = _getStatus(cTokenCollateral, cTokenBorrow);
 
     (, uint healthFactor18) = _getHealthFactor(cTokenCollateral, collateralBase, sumBorrowPlusEffects);
@@ -490,13 +477,11 @@ contract DForcePoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP, Initi
     address cTokenCollateral = collateralCToken;
 
     (uint tokensToReturn,) = _getCollateralTokensToRedeem(cTokenCollateral, borrowCToken, closePosition_, amountToRepay_);
-    return tokensToReturn * IDForceCToken(cTokenCollateral).exchangeRateStored() / 10**18;
+    return tokensToReturn * IDForceCToken(cTokenCollateral).exchangeRateStored() / 10 ** 18;
   }
-  //endregion Repay logic
+  //endregion ----------------------------------------------------- Repay logic
 
-  //-----------------------------------------------------
-  //region Rewards
-  //-----------------------------------------------------
+  //region ----------------------------------------------------- Rewards
 
   /// @notice Check if any reward tokens exist on the balance of the pool adapter, transfer reward tokens to {receiver_}
   /// @return rewardTokenOut Address of the transferred reward token
@@ -533,11 +518,9 @@ contract DForcePoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP, Initi
 
     return (rewardTokenOut, amountOut);
   }
-  //endregion Rewards
+  //endregion ----------------------------------------------------- Rewards
 
-  //-----------------------------------------------------
-  //region View current status
-  //-----------------------------------------------------
+  //region ----------------------------------------------------- View current status
 
   /// @inheritdoc IPoolAdapter
   function getConfig() external view override returns (
@@ -561,7 +544,7 @@ contract DForcePoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP, Initi
     address cTokenBorrow = borrowCToken;
     address cTokenCollateral = collateralCToken;
 
-    ( uint collateralTokens,
+    (uint collateralTokens,
       uint borrowBalance,
       uint collateralBase36,
       uint borrowBase36,
@@ -585,7 +568,7 @@ contract DForcePoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP, Initi
       collateralTokens != 0 || borrowBalance != 0,
     // Amount of liquidated collateral == amount of lost
       collateralAmountLiquidatedBase36 / collateralPrice,
-    false
+      false
     );
   }
 
@@ -612,10 +595,10 @@ contract DForcePoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP, Initi
 
     {
       uint exchangeRateMantissa = IDForceCToken(cTokenCollateral_).exchangeRateStored();
-      collateralAmountBase36 = tokenBalanceOut * collateralPrice * exchangeRateMantissa / 10**18;
-      collateralAmountLiquidatedBase36 =  tokenBalanceOut > collateralTokensBalance
+      collateralAmountBase36 = tokenBalanceOut * collateralPrice * exchangeRateMantissa / 10 ** 18;
+      collateralAmountLiquidatedBase36 = tokenBalanceOut > collateralTokensBalance
         ? 0
-        : (collateralTokensBalance - tokenBalanceOut) * collateralPrice * exchangeRateMantissa / 10**18;
+        : (collateralTokensBalance - tokenBalanceOut) * collateralPrice * exchangeRateMantissa / 10 ** 18;
     }
 
     // Calculate all borrowed value, see ControllerV2.calcAccountEquityWithEffect
@@ -640,11 +623,9 @@ contract DForcePoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP, Initi
   function getConversionKind() external pure override returns (AppDataTypes.ConversionKind) {
     return AppDataTypes.ConversionKind.BORROW_2;
   }
-  //endregion View current status
+  //endregion ----------------------------------------------------- View current status
 
-  //-----------------------------------------------------
-  //region Utils
-  //-----------------------------------------------------
+  //region ----------------------------------------------------- Utils
   function _getHealthFactor(address cTokenCollateral_, uint sumCollateralBase36_, uint sumBorrowBase36_)
   internal view returns (
     uint sumCollateralSafe36,
@@ -652,22 +633,20 @@ contract DForcePoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP, Initi
   ) {
     (uint collateralFactorMantissa,,,,,,) = _comptroller.markets(cTokenCollateral_);
 
-    sumCollateralSafe36 = collateralFactorMantissa * sumCollateralBase36_ / 10**18;
+    sumCollateralSafe36 = collateralFactorMantissa * sumCollateralBase36_ / 10 ** 18;
 
     healthFactor18 = sumBorrowBase36_ == 0
       ? type(uint).max
-      : sumCollateralSafe36 * 10**18 / sumBorrowBase36_;
+      : sumCollateralSafe36 * 10 ** 18 / sumBorrowBase36_;
     return (sumCollateralSafe36, healthFactor18);
   }
 
   function _validateHealthFactor(IConverterController controller_, uint hf18) internal view {
-    require(hf18 > uint(controller_.minHealthFactor2())*10**(18-2), AppErrors.WRONG_HEALTH_FACTOR);
+    require(hf18 > uint(controller_.minHealthFactor2()) * 10 ** (18 - 2), AppErrors.WRONG_HEALTH_FACTOR);
   }
-  //endregion Utils
+  //endregion ----------------------------------------------------- Utils
 
-  //-----------------------------------------------------
-  //region Native tokens
-  //-----------------------------------------------------
+  //region ----------------------------------------------------- Native tokens
 
   function _isMatic(address asset_) internal pure returns (bool) {
     return asset_ == WMATIC;
@@ -679,6 +658,10 @@ contract DForcePoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP, Initi
       : IERC20(asset).balanceOf(address(this));
   }
 
-  receive() external payable {} // this is needed for the native token unwrapping
-  //endregion Native tokens
+  /// @notice this is needed for the native token unwrapping
+  receive() external payable {
+    emit ValueReceived(msg.sender, msg.value);
+    require(msg.sender == WMATIC || msg.sender == DFORCE_MATIC, AppErrors.ACCESS_DENIED);
+  }
+  //endregion ----------------------------------------------------- Native tokens
 }

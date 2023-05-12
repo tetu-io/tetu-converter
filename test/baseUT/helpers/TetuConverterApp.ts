@@ -1,6 +1,5 @@
 import {
   ConverterController,
-  IERC20,
   ITetuConverter, TetuConverter__factory,
 } from "../../../typechain";
 import {CoreContractsHelper} from "./CoreContractsHelper";
@@ -8,40 +7,39 @@ import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import {COUNT_BLOCKS_PER_DAY} from "../utils/aprUtils";
 import {ILendingPlatformFabric, ILendingPlatformPoolInfo} from "../fabrics/ILendingPlatformFabric";
 import {MocksHelper} from "./MocksHelper";
+import {ethers} from "hardhat";
+
+export interface IDeployInitFabricsSet {
+  deploy: () => Promise<string>,
+  init?: (controller: string, deployedInstance: string) => Promise<void>,
+}
+
+export interface ICoreContractFabrics {
+  tetuConverterFabric: IDeployInitFabricsSet;
+  borrowManagerFabric: IDeployInitFabricsSet;
+  debtMonitorFabric: IDeployInitFabricsSet;
+  keeperFabric: IDeployInitFabricsSet;
+  swapManagerFabric: IDeployInitFabricsSet;
+  priceOracleFabric: () => Promise<string>;
+  tetuLiquidatorFabric: () => Promise<string>;
+}
 
 export interface ICreateControllerParams {
-  // eslint-disable-next-line no-unused-vars
-  tetuConverterFabric?: (
-    controller: ConverterController,
-    borrowManager: string,
-    debtMonitor: string,
-    swapManager: string,
-    keeper: string
-  ) => Promise<string>;
-  // eslint-disable-next-line no-unused-vars
-  borrowManagerFabric?: (controller: ConverterController) => Promise<string>;
-
-  // eslint-disable-next-line no-unused-vars
-  debtMonitorFabric?: (
-    controller: ConverterController,
-    borrowManager: string
-  ) => Promise<string>;
-
-  // eslint-disable-next-line no-unused-vars
-  keeperFabric?: (controller: ConverterController) => Promise<string>;
-
-  // eslint-disable-next-line no-unused-vars
-  swapManagerFabric?: (controller: ConverterController, tetuLiquidator: string) => Promise<string>;
-
-  // eslint-disable-next-line no-unused-vars
+  tetuConverterFabric?: IDeployInitFabricsSet;
+  borrowManagerFabric?: IDeployInitFabricsSet;
+  debtMonitorFabric?: IDeployInitFabricsSet;
+  keeperFabric?: IDeployInitFabricsSet;
+  swapManagerFabric?: IDeployInitFabricsSet;
   priceOracleFabric?: () => Promise<string>;
+
   minHealthFactor2?: number;
   targetHealthFactor2?: number;
   maxHealthFactor2?: number;
   countBlocksPerDay?: number;
   tetuLiquidatorAddress?: string;
-  blocksPerDayAutoUpdatePeriodSecs?: number;
+  blocksPerDayAutoUpdatePeriodSec?: number;
   debtGap?: number;
+  proxyUpdater?: string;
 }
 
 export interface IBuildAppResults {
@@ -51,47 +49,61 @@ export interface IBuildAppResults {
 }
 
 export class TetuConverterApp {
-  static async createController(
-    deployer: SignerWithAddress,
-    p?: ICreateControllerParams
-  ) : Promise<ConverterController> {
+  static async createController(deployer: SignerWithAddress, p?: ICreateControllerParams) : Promise<ConverterController> {
     const tetuConverterFabric = p?.tetuConverterFabric
-      || (async (c, borrowManager, debtMonitor, swapManager, keeper) => (
-          await CoreContractsHelper.createTetuConverter(deployer, c.address, borrowManager, debtMonitor, swapManager, keeper)).address
-      );
+      || {
+      deploy: async () => CoreContractsHelper.deployTetuConverter(deployer),
+      init: async (controller, instance) => {await CoreContractsHelper.initializeTetuConverter(deployer, controller, instance)}
+      };
+
     const borrowManagerFabric = p?.borrowManagerFabric
-        || (async c => (await CoreContractsHelper.createBorrowManager(deployer, c.address)).address);
+        || {
+        deploy: async () => CoreContractsHelper.deployBorrowManager(deployer),
+        init: async (controller, instance) => {await CoreContractsHelper.initializeBorrowManager(deployer, controller, instance)}
+      };
+
     const debtMonitorFabric = p?.debtMonitorFabric
-      || (async (c, borrowManager) => (
-          await CoreContractsHelper.createDebtMonitor(deployer, c.address, borrowManager)).address
-      );
+      || {
+        deploy: async () => CoreContractsHelper.deployDebtMonitor(deployer),
+        init: async (controller, instance) => {await CoreContractsHelper.initializeDebtMonitor(deployer, controller, instance)}
+      };
+
     const keeperFabric = p?.keeperFabric
-      || (async c => (await CoreContractsHelper.createKeeper(
+      || {
+        deploy: async () => CoreContractsHelper.deployKeeper(deployer),
+        init: async (controller, instance) => {await CoreContractsHelper.initializeKeeper(
           deployer,
-          c.address,
+          controller,
+          instance,
           (await MocksHelper.createKeeperCaller(deployer)).address, // default keeper caller
-          p?.blocksPerDayAutoUpdatePeriodSecs
-        )).address
-      );
+          p?.blocksPerDayAutoUpdatePeriodSec
+        )}
+      };
+
+    const swapManagerFabric = p?.swapManagerFabric
+      || {
+        deploy: async () => (CoreContractsHelper.deploySwapManager(deployer)),
+        init: async (controller, instance) => {await CoreContractsHelper.initializeSwapManager(deployer, controller, instance)}
+      };
+
     const tetuLiquidatorFabric = async () => p?.tetuLiquidatorAddress
         || (await MocksHelper.createTetuLiquidatorMock(deployer, [], [])).address;
-    const swapManagerFabric = p?.swapManagerFabric
-      || (async (c, tetuLiquidator) => (
-          await CoreContractsHelper.createSwapManager(deployer, c.address, tetuLiquidator)).address
-      );
     const priceOracleFabric = p?.priceOracleFabric
         || (async () => (await CoreContractsHelper.createPriceOracle(deployer)).address
       );
 
     return CoreContractsHelper.createController(
       deployer,
-      tetuConverterFabric,
-      borrowManagerFabric,
-      debtMonitorFabric,
-      keeperFabric,
-      tetuLiquidatorFabric,
-      swapManagerFabric,
-      priceOracleFabric,
+      p?.proxyUpdater || ethers.Wallet.createRandom().address,
+      {
+        tetuConverterFabric,
+        borrowManagerFabric,
+        debtMonitorFabric,
+        keeperFabric,
+        tetuLiquidatorFabric,
+        swapManagerFabric,
+        priceOracleFabric
+      },
       p?.minHealthFactor2 || 101,
       p?.targetHealthFactor2 || 200,
       p?.maxHealthFactor2 || 400,
@@ -120,5 +132,12 @@ export class TetuConverterApp {
       controller,
       pools
     };
+  }
+
+  static getRandomSet(): IDeployInitFabricsSet {
+    return {
+      deploy: async () => ethers.Wallet.createRandom().address,
+      init: async (controller: string, instance: string) => {}
+    }
   }
 }

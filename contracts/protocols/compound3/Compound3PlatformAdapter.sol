@@ -14,17 +14,11 @@ import "../../integrations/compound3/ICometRewards.sol";
 import "./Compound3AprLib.sol";
 
 contract Compound3PlatformAdapter is IPlatformAdapter {
-  ///////////////////////////////////////////////////////
-  //region Constants
-  ///////////////////////////////////////////////////////
-
+  //region ----------------------------------------------------- Constants
   string public constant override PLATFORM_ADAPTER_VERSION = "1.0.2";
-  //endregion Constants
+  //endregion ----------------------------------------------------- Constants
 
-  ///////////////////////////////////////////////////////
-  //region Variables
-  ///////////////////////////////////////////////////////
-
+  //region ----------------------------------------------------- Variables
   IConverterController immutable public controller;
 
   /// @notice Template of pool adapter
@@ -39,19 +33,13 @@ contract Compound3PlatformAdapter is IPlatformAdapter {
   address[] public comets;
 
   address public cometRewards;
-  //endregion Variables
+  //endregion ----------------------------------------------------- Variables
 
-  ///////////////////////////////////////////////////////
-  //region Events
-  ///////////////////////////////////////////////////////
-
+  //region ----------------------------------------------------- Events
   event OnPoolAdapterInitialized(address converter, address poolAdapter, address user, address collateralAsset, address borrowAsset);
-  //endregion Events
+  //endregion ----------------------------------------------------- Events
 
-  ///////////////////////////////////////////////////////
-  //region Initialization
-  ///////////////////////////////////////////////////////
-
+  //region ----------------------------------------------------- Initialization
   constructor(address controller_, address borrowManager_, address templatePoolAdapter_, address[] memory comets_, address cometRewards_) {
     require(
       borrowManager_ != address(0)
@@ -68,22 +56,16 @@ contract Compound3PlatformAdapter is IPlatformAdapter {
     comets = comets_;
     cometRewards = cometRewards_;
   }
-  //endregion Initialization
+  //endregion ----------------------------------------------------- Initialization
 
-  ///////////////////////////////////////////////////////
-  //region Modifiers
-  ///////////////////////////////////////////////////////
-
+  //region ----------------------------------------------------- Modifiers
   /// @notice Ensure that the caller is governance
   function _onlyGovernance() internal view {
     require(controller.governance() == msg.sender, AppErrors.GOVERNANCE_ONLY);
   }
-  //endregion Modifiers
+  //endregion ----------------------------------------------------- Modifiers
 
-  ///////////////////////////////////////////////////////
-  //region Gov actions
-  ///////////////////////////////////////////////////////
-
+  //region ----------------------------------------------------- Gov actions
   /// @notice Initialize {poolAdapter_} created from {converter_} using minimal proxy pattern
   function initializePoolAdapter(address converter_, address poolAdapter_, address user_, address collateralAsset_, address borrowAsset_) external override {
     require(msg.sender == borrowManager, AppErrors.BORROW_MANAGER_ONLY);
@@ -126,12 +108,9 @@ contract Compound3PlatformAdapter is IPlatformAdapter {
     _onlyGovernance();
     frozen = frozen_;
   }
-  //endregion Gov actions
+  //endregion ----------------------------------------------------- Gov actions
 
-  ///////////////////////////////////////////////////////
-  //region Views
-  ///////////////////////////////////////////////////////
-
+  //region ----------------------------------------------------- Views
   function converters() external view override returns (address[] memory) {
     address[] memory dest = new address[](1);
     dest[0] = converter;
@@ -263,5 +242,5 @@ contract Compound3PlatformAdapter is IPlatformAdapter {
   function cometsLength() external view returns (uint) {
     return comets.length;
   }
-  //endregion Views
+  //endregion ----------------------------------------------------- Views
 }

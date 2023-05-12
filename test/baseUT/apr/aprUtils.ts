@@ -14,6 +14,7 @@ import {IPointResults} from "./aprDataTypes";
 import {Misc} from "../../../scripts/utils/Misc";
 import {MaticAddresses} from "../../../scripts/addresses/MaticAddresses";
 import {DeployerUtils} from "../../../scripts/utils/DeployerUtils";
+import {CoreContractsHelper} from "../helpers/CoreContractsHelper";
 
 //region Make borrow
 /**
@@ -37,7 +38,10 @@ export async function makeBorrow (
     deployer,
     [fabric],
     {
-      swapManagerFabric: async () => (await MocksHelper.createSwapManagerMock(deployer)).address,
+      swapManagerFabric: {
+        deploy: async () => (await MocksHelper.createSwapManagerMock(deployer)).address,
+        init: async (controller, instance) => {},
+      },
       tetuLiquidatorAddress: MaticAddresses.TETU_LIQUIDATOR
     }
   );

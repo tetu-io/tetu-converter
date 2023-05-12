@@ -752,7 +752,13 @@ describe("Compound3PlatformAdapterTest", () => {
               MaticAddresses.HOLDER_WETH_3,
               MaticAddresses.HOLDER_WETH_4,
             ],
-            1
+
+            // Compound III implements a minimum borrow position size which can be found as baseBorrowMin in the protocol configuration.
+            // A withdraw transaction to borrow that results in the account’s borrow size being less than the baseBorrowMin will revert.
+            // https://docs.compound.finance/collateral-and-borrowing/#collateral--borrowing
+            // Following amount should exceed that limit
+
+            5
           )
 
           expect(areAlmostEqual(r.br, r.brPredicted, 4)).eq(true)
