@@ -17,6 +17,7 @@ import {appendFileSync} from "fs";
 import {ethers, network} from "hardhat";
 import {Misc} from "../utils/Misc";
 import {MaticAddresses} from "../addresses/MaticAddresses";
+import {writeFileSyncRestoreFolder} from "../../test/baseUT/utils/FileUtils";
 
 //region Data types
 export interface IControllerSetupParams {
@@ -580,7 +581,7 @@ export class DeploySolutionUtils {
     targetHealthFactorsAssets: string[],
     targetHealthFactorsValues: number[]
   ) {
-    appendFileSync(destPathTxt, '\n-----------\n', 'utf8');
+    writeFileSyncRestoreFolder(destPathTxt, '\n-----------\n', { encoding: 'utf8', flag: 'a' });
     appendFileSync(destPathTxt, `${new Date().toISOString()}\n`, 'utf8');
     appendFileSync(destPathTxt, `${network.name}\n`, 'utf8');
     appendFileSync(destPathTxt, `${(await ethers.provider.getNetwork()).name}\n`, 'utf8');

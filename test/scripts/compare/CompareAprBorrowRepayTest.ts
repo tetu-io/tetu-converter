@@ -19,6 +19,7 @@ import {existsSync, writeFileSync} from "fs";
 import {DForceChangePriceUtils} from "../../baseUT/protocols/dforce/DForceChangePriceUtils";
 import {Aave3Helper} from "../../../scripts/integration/helpers/Aave3Helper";
 import {isPolygonForkInUse} from "../../baseUT/utils/NetworkUtils";
+import {writeFileSyncRestoreFolder} from "../../baseUT/utils/FileUtils";
 
 describe.skip("CompareAprBorrowRepayTest @skip-on-coverage", () => {
 //region Constants
@@ -272,6 +273,8 @@ describe.skip("CompareAprBorrowRepayTest @skip-on-coverage", () => {
   describe("Compare APR", () => {
     async function generateCompareApr(useMaxAvailableCollateralAmounts: boolean) {
       const pathOut = "tmp/compareApr.csv";
+      writeFileSyncRestoreFolder(pathOut, "", { encoding: 'utf8', flag: 'a' });
+
       const assets = [
         dai,
         usdc,

@@ -523,7 +523,7 @@ describe("SwapManager", () => {
         await MockERC20__factory.connect(tokenIn.address, user).approve(controller.tetuConverter(), sourceAmount);
 
         await tokenIn.mint(swapManager.address, sourceAmount);
-        const swapManagerAsTetuConverter = await swapManager.connect(await Misc.impersonate(tetuConverter));
+        const swapManagerAsTetuConverter = await swapManager.connect(await Misc.impersonate(await controller.tetuConverter()));
         const gasUsed = await swapManagerAsTetuConverter.estimateGas.swap(tokenIn.address, sourceAmount, tokenOut.address, user.address);
 
         controlGasLimitsEx(gasUsed, GAS_SWAP, (u, t) => {
