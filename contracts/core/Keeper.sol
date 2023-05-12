@@ -90,14 +90,14 @@ contract Keeper is IHealthKeeperCallback, IResolver, ControllableV3 {
 
     // it's necessary to run writable fixHealth() ...
     canExecOut =
-    // ... if there is unhealthy pool adapter
-    outPoolAdapters.length != 0
+      // ... if there is unhealthy pool adapter
+      outPoolAdapters.length != 0
 
-    // ... if we cannot check all adapters in one pass; we've checked a one portion, now we need to check the other portions
-    || newNextIndexToCheck0 != startIndex
+      // ... if we cannot check all adapters in one pass; we've checked a one portion, now we need to check the other portions
+      || newNextIndexToCheck0 != startIndex
 
-    /// ... if it's the time to recalculate blocksPerDay value
-    || (blocksPerDayAutoUpdatePeriodSec != 0
+      /// ... if it's the time to recalculate blocksPerDay value
+      || (blocksPerDayAutoUpdatePeriodSec != 0
       && _controller.isBlocksPerDayAutoUpdateRequired(blocksPerDayAutoUpdatePeriodSec)
     );
 
