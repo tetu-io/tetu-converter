@@ -18,6 +18,7 @@ import {DeployUtils} from "../../scripts/utils/DeployUtils";
 import {MaticAddresses} from "../../scripts/addresses/MaticAddresses";
 import {loadFixture} from "@nomicfoundation/hardhat-network-helpers";
 import {CoreContractsHelper} from "../baseUT/helpers/CoreContractsHelper";
+import {proxy} from "../../typechain/contracts";
 
 /**
  * Most proxy contracts are proxy-contracts, that can be updated by proxy-updater only.
@@ -206,7 +207,7 @@ describe("ProxyTest", () => {
   describe("isController", () => {
     it("should return expected values", async () => {
       const controller = await loadFixture(createController);
-      expect(await controller.controller()).eq(controller.address);
+      expect(await controller.isController(await controller.controller())).eq(true);
     });
   });
 
@@ -257,6 +258,23 @@ describe("ProxyTest", () => {
     it("should return not zero", async () => {
       const controller = await loadFixture(createController);
       expect((await controller.createdBlock()).toNumber()).not.eq(0);
+    });
+  });
+
+  describe("increaseRevision", () => {
+    it("should return not zero", async () => {
+      const controller = await loadFixture(createController);
+      await expect(
+        controller.increaseRevision(Misc.ZERO_ADDRESS)
+      ).revertedWith("Increase revision forbidden");
+    });
+  });
+
+  describe("implementation", () => {
+    it("should return expected values", async () => {
+      const controller = await loadFixture(createController);
+      const proxyControlled = ProxyControlled__factory.connect(controller.address, await Misc.impersonate(proxyUpdater));
+      expect(await proxyControlled.implementation()).not.eq(Misc.ZERO_ADDRESS);
     });
   });
 //endregion Unit tests
