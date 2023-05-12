@@ -1,6 +1,6 @@
 import {DeploySolutionUtils} from "../../../scripts/deploy/DeploySolutionUtils";
 import {ethers} from "hardhat";
-import {IConverterController__factory, IOps__factory} from "../../../typechain";
+import {IOps__factory} from "../../../typechain";
 
 // depends on network
 describe("Run DeploySolution script under debugger @skip-on-coverage", () => {

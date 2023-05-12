@@ -46,6 +46,8 @@ async function main() {
     gelatoOpsReady,
     proxyUpdater,
     // already deployed if necessary
+    {
+    }
   );
 
   // // let's try to find a way to borrow DAI for USDC

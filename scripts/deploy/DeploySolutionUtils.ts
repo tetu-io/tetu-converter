@@ -366,14 +366,21 @@ export class DeploySolutionUtils {
     alreadyDeployed?: IDeployedContracts
   ) : Promise<IDeployCoreResults> {
     const priceOracle = alreadyDeployed?.priceOracle || (await CoreContractsHelper.createPriceOracle(deployer)).address;
+    console.log("Result PriceOracle: ", priceOracle);
 
     const controllerAddress = alreadyDeployed?.controller || await CoreContractsHelper.deployController(deployer);
+    console.log("Result controller", controllerAddress);
 
     const borrowManager = alreadyDeployed?.borrowManager || await CoreContractsHelper.deployBorrowManager(deployer);
+    console.log("Result borrowManager", borrowManager);
     const keeper = alreadyDeployed?.keeper || await CoreContractsHelper.deployKeeper(deployer);
+    console.log("Result keeper", keeper);
     const swapManager = alreadyDeployed?.swapManager || await CoreContractsHelper.deploySwapManager(deployer);
+    console.log("Result swapManager", swapManager);
     const debtMonitor = alreadyDeployed?.debtMonitor || await CoreContractsHelper.deployDebtMonitor(deployer);
+    console.log("Result debtMonitor", debtMonitor);
     const tetuConverter = alreadyDeployed?.tetuConverter || await CoreContractsHelper.deployTetuConverter(deployer);
+    console.log("Result tetuConverter", tetuConverter);
 
     await RunHelper.runAndWait(
       () => ConverterController__factory.connect(controllerAddress, deployer).init(
@@ -395,22 +402,28 @@ export class DeploySolutionUtils {
     await RunHelper.runAndWait(() => controller.setMinHealthFactor2(controllerSetupParams.minHealthFactor2));
     await RunHelper.runAndWait(() => controller.setTargetHealthFactor2(controllerSetupParams.targetHealthFactor2));
     await RunHelper.runAndWait(() => controller.setDebtGap(controllerSetupParams.debtGap));
+    console.log("Controller was initialized");
 
     await RunHelper.runAndWait(
       () => CoreContractsHelper.initializeBorrowManager(deployer, controllerAddress, borrowManager, borrowManagerSetupParams.rewardsFactor)
     );
+    console.log("borrowManager was initialized");
     await RunHelper.runAndWait(
       () => CoreContractsHelper.initializeKeeper(deployer, controllerAddress, keeper, gelatoOpsReady, keeperSetupParams?.blocksPerDayAutoUpdatePeriodSec)
     );
+    console.log("keeper was initialized");
     await RunHelper.runAndWait(
       () => CoreContractsHelper.initializeTetuConverter(deployer, controllerAddress, tetuConverter)
     );
+    console.log("tetuConverter was initialized");
     await RunHelper.runAndWait(
       () => CoreContractsHelper.initializeDebtMonitor(deployer, controllerAddress, debtMonitor)
     );
+    console.log("debtMonitor was initialized");
     await RunHelper.runAndWait(
       () => CoreContractsHelper.initializeSwapManager(deployer, controllerAddress, swapManager)
     );
+    console.log("swapManager was initialized");
 
     return {
       controller: controllerAddress,
