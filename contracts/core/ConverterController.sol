@@ -4,24 +4,26 @@ pragma solidity 0.8.17;
 import "../libs/AppErrors.sol";
 import "../openzeppelin/Initializable.sol";
 import "../interfaces/IConverterController.sol";
+import "../interfaces/IController.sol";
+import "../proxy/ControllableV3.sol";
 
 /// @notice Keep and provide addresses of all application contracts
-contract ConverterController is IConverterController, Initializable {
+contract ConverterController is IConverterController, ControllableV3 {
 
-  //region Constants and immutable vars
+  //region ------------------------------------- Constants
+  string public constant CONVERTER_CONTROLLER_VERSION = "1.0.0";
   uint16 constant MIN_ALLOWED_MIN_HEALTH_FACTOR = 100;
   /// @notice Denominator for {debtGap}
   uint constant DEBT_GAP_DENOMINATOR = 100_000;
+  //endregion ------------------------------------- Constants
+
+  //region ------------------------------------- Variables. Don't change names or ordering!
+
+  /// @notice Controller of tetu-contracts-v2 that is allowed to update proxy contracts
+  address public override proxyUpdater;
 
   /// @notice Allow to swap assets
-  address public immutable override tetuLiquidator;
-  //endregion Constants and immutable vars
-
-  //-----------------------------------------------------
-  //region Variables
-  //   We cannot use immutable variables for the below contracts,
-  //   because each contract requires address of the controller as a parameter of the constructor
-  //-----------------------------------------------------
+  address public override tetuLiquidator;
 
   /// @notice Main application contract, strategy works only with it
   address public override tetuConverter;
@@ -40,6 +42,9 @@ contract ConverterController is IConverterController, Initializable {
 
   /// @notice Current governance. It can be changed by offer/accept scheme
   address public override governance;
+
+  address public override priceOracle;
+
   /// @notice New governance suggested by exist governance
   address public pendingGovernance;
 
@@ -53,9 +58,8 @@ contract ConverterController is IConverterController, Initializable {
   ///      or additional borrow and restore the health factor to the given target value
   uint16 public override targetHealthFactor2;
 
-  /// @notice max allowed health factor with decimals 2
-  /// @dev If a health factor is above given value, we CAN make additional borrow
-  ///      using exist collateral
+  /// @notice max allowed health factor with decimals 2 (this value is not used in the current version)
+  /// @dev If a health factor is above given value, we CAN make additional borrow using exist collateral
   uint16 public override maxHealthFactor2;
 
   /// @notice Count of blocks per day, updatable
@@ -74,11 +78,9 @@ contract ConverterController is IConverterController, Initializable {
 
   /// @inheritdoc IConverterController
   uint public override debtGap;
+  //endregion ------------------------------------- Variables
 
-  address public override priceOracle;
-  //endregion Variables
-
-  //region Events
+  //region ------------------------------------- Events
   event OnSetBlocksPerDay(uint blocksPerDay, bool enableAutoUpdate);
   event OnAutoUpdateBlocksPerDay(uint blocksPerDay);
   event OnSetMinHealthFactor2(uint16 value);
@@ -88,74 +90,70 @@ contract ConverterController is IConverterController, Initializable {
   event OnAcceptGovernance(address pendingGovernance);
   event OnSetDebtGap(uint debtGap);
   event OnSetPriceOracle(address priceOracle);
-  //endregion Events
+  //endregion ------------------------------------- Events
 
-  //region Constructor and Initialization
+  //region ------------------------------------- Initialization
 
-  /// @dev Constructor is used to assign immutable addresses only (these contracts don't depend on controller).
-  ///      All other addresses are initialized in initialize()
-  ///      because the corresponded contracts require controller's address in their constructors.
-  constructor(address tetuLiquidator_) {
-    require(tetuLiquidator_ != address(0), AppErrors.ZERO_ADDRESS);
-
-    tetuLiquidator = tetuLiquidator_;
-  }
-
-  function initialize(
+  function init(
+    address proxyUpdater_,
     address governance_,
-    uint blocksPerDay_,
-    uint16 minHealthFactor_,
-    uint16 targetHealthFactor_,
     address tetuConverter_,
     address borrowManager_,
     address debtMonitor_,
     address keeper_,
     address swapManager_,
-    uint debtGap_,
-    address priceOracle_
+    address priceOracle_,
+    address tetuLiquidator_,
+    uint blocksPerDay_
   // we cannot have additional parameters here because strategy will have stack too deep on coverage
   ) external initializer {
     require(blocksPerDay_ != 0, AppErrors.INCORRECT_VALUE);
-    require(minHealthFactor_ >= MIN_ALLOWED_MIN_HEALTH_FACTOR, AppErrors.WRONG_HEALTH_FACTOR);
-    require(minHealthFactor_ < targetHealthFactor_, AppErrors.WRONG_HEALTH_FACTOR_CONFIG);
     require(
-      governance_ != address(0)
+      proxyUpdater_ != address(0)
       && tetuConverter_ != address(0)
       && borrowManager_ != address(0)
       && debtMonitor_ != address(0)
       && keeper_ != address(0)
       && swapManager_ != address(0)
+      && tetuLiquidator_ != address(0)
+      && governance_ != address(0)
       && priceOracle_ != address(0),
       AppErrors.ZERO_ADDRESS
     );
+
     governance = governance_;
+    __Controllable_init(address(this));
+
     tetuConverter = tetuConverter_;
     borrowManager = borrowManager_;
     debtMonitor = debtMonitor_;
     keeper = keeper_;
     swapManager = swapManager_;
     priceOracle = priceOracle_;
+    proxyUpdater = proxyUpdater_;
+    tetuLiquidator = tetuLiquidator_;
 
+    // by default auto-update of blocksPerDay is disabled, it's necessary to call setBlocksPerDay to enable it
     blocksPerDay = blocksPerDay_;
-    // by default auto-update of blocksPerDay is disabled
-    // it's necessary to call setBlocksPerDay to enable it
 
-    minHealthFactor2 = minHealthFactor_;
-    targetHealthFactor2 = targetHealthFactor_;
+    // Other params are initialized by default values to reduce number of input parameters
+    // We can always modify these values using setters
+    debtGap = 1000;
+    minHealthFactor2 = 105;
+    targetHealthFactor2 = 200;
 
     // current version of converter doesn't use maxHealthFactor2, it's for future versions
     // you can always change this limit using setMaxHealthFactor
-    maxHealthFactor2 = targetHealthFactor_ * 10;
+    maxHealthFactor2 = 5000;
 
-    debtGap = debtGap_;
   }
 
   function _onlyGovernance() internal view {
     require (msg.sender == governance, AppErrors.GOVERNANCE_ONLY);
   }
-  //endregion Constructor and Initialization
+  //endregion ------------------------------------- Initialization
 
-  //region Blocks per day
+  //region ------------------------------------- Blocks per day
 
   /// @notice Manually set value of blocksPerDay and enable/disable its auto-update
   ///         If the update is enabled, the first update will happen in BLOCKS_PER_DAY_AUTO_UPDATE_PERIOD_SECS seconds
@@ -200,9 +198,9 @@ contract ConverterController is IConverterController, Initializable {
 
     emit OnAutoUpdateBlocksPerDay(blocksPerDay);
   }
-  //endregion Blocks per day
+  //endregion ------------------------------------- Blocks per day
 
-  //region Set up health factors, min/max thresholds and a target value for reconversion
+  //region ------------------------------------- Setters
 
   /// @notice min allowed health factor with decimals 2
   function setMinHealthFactor2(uint16 value_) external override {
@@ -231,53 +229,6 @@ contract ConverterController is IConverterController, Initializable {
     maxHealthFactor2 = value_;
     emit OnSetMaxHealthFactor2(value_);
   }
-  //endregion Set up health factors, min/max thresholds and a target value for reconversion
-
-  //region Governance
-
-  /// @notice Suggest to change governance
-  function setGovernance(address newGovernance_) external {
-    _onlyGovernance();
-    require(newGovernance_ != address(0), AppErrors.ZERO_ADDRESS);
-
-    pendingGovernance = newGovernance_;
-    emit OnSetGovernance(newGovernance_);
-  }
-
-  /// @notice Old governance has suggested to change governance.
-  ///         Newly suggested governance must accept the change to actually change the governance.
-  function acceptGovernance() external {
-    require(pendingGovernance == msg.sender, AppErrors.NOT_PENDING_GOVERNANCE);
-
-    governance = pendingGovernance;
-    emit OnAcceptGovernance(pendingGovernance);
-  }
-  //endregion Governance
-
-  //region Paused
-  function paused() external view override returns (bool) {
-    return _paused;
-  }
-  function setPaused(bool paused_) external {
-    _onlyGovernance();
-    _paused = paused_;
-  }
-  //endregion Paused
-
-  //region Whitelist
-  function isWhitelisted(address user_) external view override returns (bool) {
-    return whitelist[user_];
-  }
-  function setWhitelistValues(address[] memory users_, bool isWhite) external {
-    _onlyGovernance();
-    uint len = users_.length;
-    for (uint i; i < len; ++i) {
-      whitelist[users_[i]] = isWhite;
-    }
-  }
-  //endregion Whitelist
-
-  //region Setup debt gap and price oracle
 
   /// @notice Set up debt gap value
   /// @dev If pool adapter's getStatus returns debtGapRequired = true
@@ -297,5 +248,49 @@ contract ConverterController is IConverterController, Initializable {
     emit OnSetPriceOracle(priceOracle);
   }
 
-  //endregion Setup debt gap and price oracle
+  //endregion ------------------------------------- Setters
+
+  //region ------------------------------------- Governance
+
+  /// @notice Suggest to change governance
+  function setGovernance(address newGovernance_) external {
+    _onlyGovernance();
+    require(newGovernance_ != address(0), AppErrors.ZERO_ADDRESS);
+
+    pendingGovernance = newGovernance_;
+    emit OnSetGovernance(newGovernance_);
+  }
+
+  /// @notice Old governance has suggested to change governance.
+  ///         Newly suggested governance must accept the change to actually change the governance.
+  function acceptGovernance() external {
+    require(pendingGovernance == msg.sender, AppErrors.NOT_PENDING_GOVERNANCE);
+
+    governance = pendingGovernance;
+    emit OnAcceptGovernance(pendingGovernance);
+  }
+  //endregion ------------------------------------- Governance
+
+  //region ------------------------------------- Paused
+  function paused() external view override returns (bool) {
+    return _paused;
+  }
+  function setPaused(bool paused_) external {
+    _onlyGovernance();
+    _paused = paused_;
+  }
+  //endregion ------------------------------------- Paused
+
+  //region ------------------------------------- Whitelist
+  function isWhitelisted(address user_) external view override returns (bool) {
+    return whitelist[user_];
+  }
+  function setWhitelistValues(address[] memory users_, bool isWhite) external {
+    _onlyGovernance();
+    uint len = users_.length;
+    for (uint i; i < len; ++i) {
+      whitelist[users_[i]] = isWhite;
+    }
+  }
+  //endregion ------------------------------------- Whitelist
 }

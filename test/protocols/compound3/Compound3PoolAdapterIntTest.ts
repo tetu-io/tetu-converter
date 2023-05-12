@@ -213,13 +213,18 @@ describe("Compound3PoolAdapterIntTest", () => {
             const r = await makeBorrow(
               MaticAddresses.WMATIC,
               MaticAddresses.HOLDER_WMATIC,
-              parseUnits('1000'),
+              parseUnits('2000'),
               MaticAddresses.USDC,
+
+              // Compound III implements a minimum borrow position size which can be found as baseBorrowMin in the protocol configuration.
+              // A withdraw transaction to borrow that results in the account’s borrow size being less than the baseBorrowMin will revert.
+              // https://docs.compound.finance/collateral-and-borrowing/#collateral--borrowing
+              // Following amount should exceed that limit (platform adapter takes this situation into account)
               parseUnits('300', 6)
             )
 
-            expect(r.borrowResults.userBalanceBorrowAsset).eq(r.borrowResults.borrowedAmount)
-            expect(r.borrowResults.borrowedAmount).lte(r.prepareResults.amountToBorrow)
+            expect(r.borrowResults.userBalanceBorrowAsset).eq(r.borrowResults.borrowedAmount);
+            expect(r.borrowResults.borrowedAmount).lte(r.prepareResults.amountToBorrow);
           })
         })
       })

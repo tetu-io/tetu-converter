@@ -164,18 +164,12 @@ describe("Aave3PoolAdapterIntTest", () => {
             // Not exact equal. npm run test can produce small differences in results sometime, i.e.
             // 56879332146581 vs 56879332146481 (WBTC-8 : Tether-6, big amounts)
             // 886499999 vs 886500000 (DAI-18 : matic-18, small amounts)
-            expect(areAlmostEqual(
-              r.totalDebtBase,
-              r.borrowedAmount.mul(r.priceBorrow).div(parseUnits("1", r.borrowAssetDecimals))
-            )).eq(true);
+            expect(r.totalDebtBase).approximately(r.borrowedAmount.mul(r.priceBorrow).div(parseUnits("1", r.borrowAssetDecimals)), 1e4);
           });
           it("should set expected totalCollateralBase", async () => {
             if (!await isPolygonForkInUse()) return;
             const r = await loadFixture(testMakeBorrowDaiUsdc);
-            expect(areAlmostEqual(
-              r.totalCollateralBase,
-              r.collateralAmount.mul(r.priceCollateral).div(parseUnits("1", r.collateraAssetDecimals))
-            ));
+            expect(r.totalCollateralBase).approximately(r.collateralAmount.mul(r.priceCollateral).div(parseUnits("1", r.collateraAssetDecimals)), 1e4);
           });
         });
         /**
@@ -294,10 +288,10 @@ describe("Aave3PoolAdapterIntTest", () => {
             // Not exact equal. npm run test can produce small differences in results sometime, i.e.
             // 56879332146581 vs 56879332146481 (WBTC-8 : Tether-6, big amounts)
             // 886499999 vs 886500000 (DAI-18 : matic-18, small amounts)
-            expect(areAlmostEqual(
-              r.totalDebtBase,
-              r.borrowedAmount.mul(r.priceBorrow).div(parseUnits("1", r.borrowAssetDecimals))
-            )).eq(true);
+            expect(r.totalDebtBase).approximately(
+              r.borrowedAmount.mul(r.priceBorrow).div(parseUnits("1", r.borrowAssetDecimals)),
+              1000
+            );
           });
           it("should set expected totalCollateralBase", async () => {
             if (!await isPolygonForkInUse()) return;

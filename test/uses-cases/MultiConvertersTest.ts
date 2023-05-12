@@ -13,6 +13,7 @@ import {IPlatformAdapter, IPlatformAdapter__factory, ITetuConverter} from "../..
 import {MaticAddresses} from "../../scripts/addresses/MaticAddresses";
 import {parseUnits} from "ethers/lib/utils";
 import {expect} from "chai";
+import {GAS_LIMIT} from "../baseUT/GasLimit";
 
 describe("MultiConvertersTest", () => {
 //region Global vars for all tests
@@ -76,7 +77,8 @@ describe("MultiConvertersTest", () => {
         MaticAddresses.USDC,
         parseUnits("1", 6),
         MaticAddresses.DAI,
-        1
+        1,
+        {gasLimit: GAS_LIMIT}
       );
       console.log(r);
 
@@ -101,7 +103,8 @@ describe("MultiConvertersTest", () => {
         MaticAddresses.USDC,
         parseUnits("1", 6),
         MaticAddresses.BALANCER,
-        1
+        1,
+        {gasLimit: GAS_LIMIT}
       );
       console.log(r);
 

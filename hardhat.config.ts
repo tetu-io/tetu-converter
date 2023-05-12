@@ -57,6 +57,7 @@ const argv = require('yargs/yargs')()
       },
       maticForkBlock: {
         type: "number",
+				default: 42608717,
       },
       mumbaiForkBlock: {
         type: "number",
@@ -69,8 +70,12 @@ const argv = require('yargs/yargs')()
       },
       networkScanKeyAvalanche: {
         type: "string",
+      },
+      hardhatLogsEnabled: {
+        type: 'boolean',
+        default: false,
       }
-    }).argv;
+	  }).argv;
 
 export default {
   defaultNetwork: "hardhat",
@@ -99,7 +104,7 @@ export default {
         path: "m/44'/60'/0'/0",
         accountsBalance: "100000000000000000000000000000"
       },
-      // loggingEnabled: true,
+      loggingEnabled: argv.hardhatLogsEnabled,
     },
     matic: {
       url: argv.maticRpcUrl || '',

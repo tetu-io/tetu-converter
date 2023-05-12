@@ -15,63 +15,48 @@ import "../interfaces/ISimulateProvider.sol";
 import "../interfaces/ISwapSimulator.sol";
 import "../interfaces/IRequireAmountBySwapManagerCallback.sol";
 import "../integrations/tetu/ITetuLiquidator.sol";
+import "../proxy/ControllableV3.sol";
 
 /// @title Contract to find the best swap and make the swap
 /// @notice Combines Manager and Converter
 /// @author bogdoslav
-contract SwapManager is ISwapManager, ISwapConverter, ISimulateProvider, ISwapSimulator {
+contract SwapManager is ControllableV3, ISwapManager, ISwapConverter, ISimulateProvider, ISwapSimulator {
   using SafeERC20 for IERC20;
 
-  IConverterController public immutable controller;
-  /// @notice Same as controller.tetuLiquidator()
-  /// @dev Cached for the gas optimization
-  ITetuLiquidator public immutable tetuLiquidator;
-
-  //-----------------------------------------------------
-  //region Constants
-  //-----------------------------------------------------
-
-  int public constant APR_NUMERATOR = 10**18;
+  //region ----------------------------------------------------- Constants
+  string public constant SWAP_MANAGER_VERSION = "1.0.0";
+  int public constant APR_NUMERATOR = 10 ** 18;
 
   uint public constant PRICE_IMPACT_NUMERATOR = SwapLib.PRICE_IMPACT_NUMERATOR;
   uint public constant PRICE_IMPACT_TOLERANCE_DEFAULT = SwapLib.PRICE_IMPACT_TOLERANCE_DEFAULT;
 
   /// @notice Optional price impact tolerance for assets. If not set, PRICE_IMPACT_TOLERANCE_DEFAULT is used.
   ///         asset => price impact tolerance (decimals are set by PRICE_IMPACT_NUMERATOR)
-  mapping (address => uint) public priceImpactTolerances;
-  //endregion Constants
+  mapping(address => uint) public priceImpactTolerances;
+  //endregion ----------------------------------------------------- Constants
 
-  //-----------------------------------------------------
-  //region Events
-  //-----------------------------------------------------
+  //region ----------------------------------------------------- Events
   event OnSwap(address sourceToken, uint sourceAmount, address targetToken, address receiver, uint outputAmount);
-  //endregion Events
+  //endregion ----------------------------------------------------- Events
 
-  //-----------------------------------------------------
-  //region Initialization
-  //-----------------------------------------------------
-
-  constructor(address controller_, address tetuLiquidator_) {
-    require(controller_ != address(0) && tetuLiquidator_ != address(0), AppErrors.ZERO_ADDRESS);
-    controller = IConverterController(controller_);
-    tetuLiquidator = ITetuLiquidator(tetuLiquidator_);
+  //region ----------------------------------------------------- Initialization and setup
+  function init(address controller_) external initializer {
+    __Controllable_init(controller_);
   }
 
   /// @notice Set custom price impact tolerance for the asset
   /// @param priceImpactTolerance Set 0 to use default price impact tolerance for the {asset}.
   ///                             Decimals = PRICE_IMPACT_NUMERATOR
   function setPriceImpactTolerance(address asset_, uint priceImpactTolerance) external {
-    require(msg.sender == controller.governance(), AppErrors.GOVERNANCE_ONLY);
+    IConverterController _controller = IConverterController(controller());
+    require(msg.sender == _controller.governance(), AppErrors.GOVERNANCE_ONLY);
     require(priceImpactTolerance <= PRICE_IMPACT_NUMERATOR, AppErrors.INCORRECT_VALUE);
 
     priceImpactTolerances[asset_] = priceImpactTolerance;
   }
-  //endregion Initialization
+  //endregion ----------------------------------------------------- Initialization and setup
 
-  //-----------------------------------------------------
-  //region Return best amount for swap
-  //-----------------------------------------------------
-
+  //region ----------------------------------------------------- Return best amount for swap
   /// @notice Find a way to convert collateral asset to borrow asset in most efficient way
   ///         The algo to convert source amount S1:
   ///         - make real swap in static-call, get result max-target-amount
@@ -94,7 +79,8 @@ contract SwapManager is ISwapManager, ISwapConverter, ISimulateProvider, ISwapSi
     address converter,
     uint maxTargetAmount
   ) {
-    // there are no restrictions for the msg.sender
+    IConverterController _controller = IConverterController(controller());
+    require(msg.sender == _controller.tetuConverter(), AppErrors.TETU_CONVERTER_ONLY);
 
     // Simulate real swap of source amount to max target amount
     // We call SwapManager.simulateSwap() here as an external call
@@ -121,12 +107,9 @@ contract SwapManager is ISwapManager, ISwapConverter, ISimulateProvider, ISwapSi
       ? (address(0), 0)
       : (address(this), maxTargetAmount);
   }
-  //endregion Return best amount for swap
+  //endregion ----------------------------------------------------- Return best amount for swap
 
-  //-----------------------------------------------------
-  //region ISwapConverter Implementation
-  //-----------------------------------------------------
-
+  //region ----------------------------------------------------- ISwapConverter Implementation
   function getConversionKind() override external pure returns (AppDataTypes.ConversionKind) {
     return AppDataTypes.ConversionKind.SWAP_1;
   }
@@ -134,13 +117,13 @@ contract SwapManager is ISwapManager, ISwapConverter, ISimulateProvider, ISwapSi
   /// @notice Swap {amountIn_} of {sourceToken_} to {targetToken_} and send result amount to {receiver_}
   ///         The swapping is made using TetuLiquidator.
   /// @return amountOut The amount that has been sent to the receiver
-  function swap(
-    address sourceToken_,
-    uint amountIn_,
-    address targetToken_,
-    address receiver_
-  ) override external returns (uint amountOut) {
-    // there are no restrictions for the msg.sender
+  function swap(address sourceToken_, uint amountIn_, address targetToken_, address receiver_) override external returns (
+    uint amountOut
+  ) {
+    IConverterController _controller = IConverterController(controller());
+    require(msg.sender == _controller.tetuConverter(), AppErrors.TETU_CONVERTER_ONLY);
+
+    ITetuLiquidator tetuLiquidator = ITetuLiquidator(_controller.tetuLiquidator());
     uint targetTokenBalanceBefore = IERC20(targetToken_).balanceOf(address(this));
 
     IERC20(sourceToken_).safeApprove(address(tetuLiquidator), amountIn_);
@@ -158,7 +141,7 @@ contract SwapManager is ISwapManager, ISwapConverter, ISimulateProvider, ISwapSi
     // The result amount cannot be too different from the value calculated directly using price oracle prices
     require(
       SwapLib.isConversionValid(
-        IPriceOracle(controller.priceOracle()),
+        IPriceOracle(_controller.priceOracle()),
         sourceToken_,
         amountIn_,
         targetToken_,
@@ -184,9 +167,10 @@ contract SwapManager is ISwapManager, ISwapConverter, ISimulateProvider, ISwapSi
     uint sourceAmount_,
     address targetToken_
   ) external override returns (uint) {
-    require(msg.sender == controller.swapManager(), AppErrors.ONLY_SWAP_MANAGER);
+    IConverterController _controller = IConverterController(controller());
+    require(msg.sender == _controller.swapManager(), AppErrors.ONLY_SWAP_MANAGER);
 
-    IRequireAmountBySwapManagerCallback(controller.tetuConverter()).onRequireAmountBySwapManager(
+    IRequireAmountBySwapManagerCallback(_controller.tetuConverter()).onRequireAmountBySwapManager(
       sourceAmountApprover_,
       sourceToken_,
       sourceAmount_
@@ -194,6 +178,7 @@ contract SwapManager is ISwapManager, ISwapConverter, ISimulateProvider, ISwapSi
 
     uint targetTokenBalanceBefore = IERC20(targetToken_).balanceOf(address(this));
 
+    ITetuLiquidator tetuLiquidator = ITetuLiquidator(_controller.tetuLiquidator());
     IERC20(sourceToken_).safeApprove(address(tetuLiquidator), sourceAmount_);
     tetuLiquidator.liquidate(sourceToken_, targetToken_, sourceAmount_, _getPriceImpactTolerance(sourceToken_));
     return IERC20(targetToken_).balanceOf(address(this)) - targetTokenBalanceBefore;
@@ -211,7 +196,7 @@ contract SwapManager is ISwapManager, ISwapConverter, ISimulateProvider, ISwapSi
     uint targetAmount_
   ) external view override returns (int) {
     uint targetAmountInSourceTokens = SwapLib.convertUsingPriceOracle(
-      IPriceOracle(controller.priceOracle()),
+      IPriceOracle(IConverterController(controller()).priceOracle()),
       targetToken_,
       targetAmount_,
       sourceToken_
@@ -226,11 +211,9 @@ contract SwapManager is ISwapManager, ISwapConverter, ISimulateProvider, ISwapSi
   function getPriceImpactTolerance(address asset_) external view override returns (uint priceImpactTolerance) {
     return _getPriceImpactTolerance(asset_);
   }
-  //endregion ISwapConverter Implementation
+  //endregion ----------------------------------------------------- ISwapConverter Implementation
 
-  //-----------------------------------------------------///////////////////////
-  //region View functions
-  //-----------------------------------------------------///////////////////////
+  //region ----------------------------------------------------- View functions
   /// @notice Return custom or default price impact tolerance for the asset
   function _getPriceImpactTolerance(address asset_) internal view returns (uint priceImpactTolerance) {
     priceImpactTolerance = priceImpactTolerances[asset_];
@@ -238,15 +221,13 @@ contract SwapManager is ISwapManager, ISwapConverter, ISimulateProvider, ISwapSi
       priceImpactTolerance = PRICE_IMPACT_TOLERANCE_DEFAULT;
     }
   }
-  //endregion View functions
+  //endregion ----------------------------------------------------- View functions
 
-  //-----------------------------------------------------///////////////////////
-  //region Swap simulation
+  //region ----------------------------------------------------- Swap simulation
   //           Simulate real swap
   //           using gnosis simulate() and simulateAndRevert() functions
   //           They are slightly more efficient than try/catch approach
   //           see SimulateTesterTest.ts
-  //-----------------------------------------------------//////////////////////
 
   /// Source: https://github.com/gnosis/util-contracts/blob/main/contracts/storage/StorageSimulation.sol
   ///
@@ -267,12 +248,12 @@ contract SwapManager is ISwapManager, ISwapConverter, ISimulateProvider, ISwapSi
 
     assembly {
       let success := delegatecall(
-        gas(),
-        targetContract,
-        add(calldataPayload, 0x20),
-        mload(calldataPayload),
-        0,
-        0
+      gas(),
+      targetContract,
+      add(calldataPayload, 0x20),
+      mload(calldataPayload),
+      0,
+      0
       )
 
       mstore(0x00, success)
@@ -312,9 +293,9 @@ contract SwapManager is ISwapManager, ISwapConverter, ISimulateProvider, ISwapSi
     // 250 bytes of code and 300 gas at runtime over the
     // `abi.encodeWithSelector` builtin.
       calldatacopy(
-        add(internalCalldata, 0x04),
-        0x04,
-        sub(calldatasize(), 0x04)
+      add(internalCalldata, 0x04),
+      0x04,
+      sub(calldatasize(), 0x04)
       )
 
     // `pop` is required here by the compiler, as top level expressions
@@ -322,18 +303,18 @@ contract SwapManager is ISwapManager, ISwapConverter, ISimulateProvider, ISwapSi
     // returns a 0 or 1 value indicated whether or not it reverted, but
     // since we know it will always revert, we can safely ignore it.
       pop(call(
-        gas(),
-        address(),
-        0,
-        internalCalldata,
-        calldatasize(),
-        // The `simulateAndRevert` call always reverts, and instead
-        // encodes whether or not it was successful in the return data.
-        // The first 32-byte word of the return data contains the
-        // `success` value, so write it to memory address 0x00 (which is
-        // reserved Solidity scratch space and OK to use).
-        0x00,
-        0x20
+      gas(),
+      address(),
+      0,
+      internalCalldata,
+      calldatasize(),
+      // The `simulateAndRevert` call always reverts, and instead
+      // encodes whether or not it was successful in the return data.
+      // The first 32-byte word of the return data contains the
+      // `success` value, so write it to memory address 0x00 (which is
+      // reserved Solidity scratch space and OK to use).
+      0x00,
+      0x20
       ))
 
 
@@ -352,5 +333,5 @@ contract SwapManager is ISwapManager, ISwapConverter, ISimulateProvider, ISwapSi
       }
     }
   }
-  //endregion Swap simulation
+  //endregion ----------------------------------------------------- Swap simulation
 }

@@ -166,10 +166,14 @@ describe("AaveTwoPoolAdapterUnitTest", () => {
           areAlmostEqual(parseUnits(collateralTargetHealthFactor2.toString(), 16), status.healthFactor18),
           areAlmostEqual(results.borrowResults.borrowedAmount, status.amountToPay, 4),
           status.collateralAmountLiquidated.eq(0),
-          status.collateralAmount.eq(parseUnits("1999", results.init.collateralToken.decimals))
         ].join();
-        const expected = [true, true, true, true].join();
+        const expected = [true, true, true].join();
         expect(ret).eq(expected);
+      });
+      it("should return expected collateral in the status", async () => {
+        if (!await isPolygonForkInUse()) return;
+        const status = await results.init.aavePoolAdapterAsTC.getStatus();
+        expect(status.collateralAmount).approximately(parseUnits("1999", results.init.collateralToken.decimals), 1);
       });
       it("should open position in debt monitor", async () => {
         if (!await isPolygonForkInUse()) return;
@@ -761,7 +765,7 @@ describe("AaveTwoPoolAdapterUnitTest", () => {
        *       in such case MIN_DEBT_GAP_ADDON should be used
        *       we need to add 10 tokens, so amount-to-repay = $0.000059
        */
-      describe("Repay very small amount with tiny debt-gap amount", async () => {
+      describe("Repay very small amount with tiny debt-gap amount", () => {
         const collateralAsset = MaticAddresses.USDC;
         const collateralHolder = MaticAddresses.HOLDER_USDC;
         const borrowAsset = MaticAddresses.USDT;

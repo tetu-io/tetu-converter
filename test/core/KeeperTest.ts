@@ -2,7 +2,7 @@ import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import {ethers} from "hardhat";
 import {TimeUtils} from "../../scripts/utils/TimeUtils";
 import {
-  ConverterController,
+  ConverterController, ConverterController__factory, DebtMonitor__factory,
   DebtMonitorCheckHealthMock, DebtMonitorCheckHealthMock__factory,
   Keeper, Keeper__factory,
   KeeperCallbackMock, KeeperCallbackMock__factory,
@@ -11,7 +11,6 @@ import {
 import {CoreContractsHelper} from "../baseUT/helpers/CoreContractsHelper";
 import {MocksHelper} from "../baseUT/helpers/MocksHelper";
 import {Misc} from "../../scripts/utils/Misc";
-import {DeployUtils} from "../../scripts/utils/DeployUtils";
 import {TetuConverterApp} from "../baseUT/helpers/TetuConverterApp";
 import {expect} from "chai";
 
@@ -59,32 +58,42 @@ describe("KeeperTest", () => {
   async function setupMockedApp(
     signer: SignerWithAddress,
     wrapKeeper: boolean = false,
-    blocksPerDayAutoUpdatePeriodSecs?: number
+    blocksPerDayAutoUpdatePeriodSec?: number
   ) : Promise<ISetupMockedAppResults> {
     const keeperCaller = await MocksHelper.createKeeperCaller(signer);
     const controller: ConverterController = await TetuConverterApp.createController(
       signer,
       {
-        borrowManagerFabric: async c => (await CoreContractsHelper.createBorrowManager(signer, c.address)).address,
-        tetuConverterFabric: async () => (await MocksHelper.createKeeperCallbackMock(signer)).address,
-        debtMonitorFabric: async () => (await MocksHelper.createDebtMonitorCheckHealthMock(signer)).address,
+        tetuConverterFabric: {
+          deploy: async () => (await MocksHelper.createKeeperCallbackMock(signer)).address,
+        },
+        debtMonitorFabric: {
+          deploy: async () => (await MocksHelper.createDebtMonitorCheckHealthMock(signer)).address,
+        },
         keeperFabric: wrapKeeper
-          ? (async c => {
-            const realKeeper = await CoreContractsHelper.createKeeper(signer,
-              c.address,
-              keeperCaller.address,
-              blocksPerDayAutoUpdatePeriodSecs
-            );
-            return (await MocksHelper.createKeeperMock(deployer, realKeeper.address)).address;
-          })
-          : (async c => (await CoreContractsHelper.createKeeper(signer,
-            c.address,
-            keeperCaller.address,
-            blocksPerDayAutoUpdatePeriodSecs
-          )).address),
-        swapManagerFabric: async () => ethers.Wallet.createRandom().address,
+          ? {
+            deploy: async () => {
+              return (await MocksHelper.createKeeperMock(deployer)).address;
+            },
+            init: async (c: string, instance: string) => {
+              // Create real keeper and wrap it by mocked keeper
+              const realKeeper = await CoreContractsHelper.deployKeeper(signer);
+              await CoreContractsHelper.initializeKeeper(signer, c, realKeeper, keeperCaller.address, blocksPerDayAutoUpdatePeriodSec);
+              await KeeperMock__factory.connect(
+                await ConverterController__factory.connect(c, signer).keeper(),
+                signer
+              ).init(realKeeper);
+            }
+          }
+          : {
+            deploy: async () => CoreContractsHelper.deployKeeper(signer),
+            init: async (c, instance) => {
+              await CoreContractsHelper.initializeKeeper(signer, c, instance, keeperCaller.address, blocksPerDayAutoUpdatePeriodSec);
+            }
+          },
+        swapManagerFabric: TetuConverterApp.getRandomSet(),
         tetuLiquidatorAddress: ethers.Wallet.createRandom().address,
-        blocksPerDayAutoUpdatePeriodSecs
+        blocksPerDayAutoUpdatePeriodSec
       }
     );
 
@@ -266,8 +275,8 @@ describe("KeeperTest", () => {
           await app.debtMonitorMock.setReturnValues(
             newNextIndexToCheck,
             [unhealthyPoolAdapter],
-            [borrowAssetAmountToRepay]
-            , [collateralAssetAmountToRepay]
+            [borrowAssetAmountToRepay],
+            [collateralAssetAmountToRepay]
           );
 
           await app.keeperCaller.setupKeeper(app.keeper.address, app.keeper.address);
@@ -458,7 +467,7 @@ describe("KeeperTest", () => {
 
           await expect(
             app.keeper.fixHealth(0, [], [], [])
-          ).revertedWith("OpsReady: onlyOps");
+          ).revertedWith("TC-60: onlyOps");
         });
       });
       describe("Wrong lengths", () => {
@@ -471,8 +480,8 @@ describe("KeeperTest", () => {
           await app.debtMonitorMock.setReturnValues(
             newNextIndexToCheck,
             [],
-            [1] // (!)
-            , [2, 3] // (!)
+            [1], // (!)
+            [2, 3] // (!)
           );
 
           await app.keeperCaller.setupKeeper(app.keeper.address, app.keeper.address);
@@ -484,7 +493,47 @@ describe("KeeperTest", () => {
     });
   });
 
-  describe("Initialization", () => {
+  describe("Init", () => {
+    interface IMakeConstructorTestParams {
+      useZeroController?: boolean;
+      useZeroOps?: boolean;
+      blocksPerDayAutoUpdatePeriodSec?: number;
+      useSecondInitialization?: boolean;
+    }
+    async function makeInitTest(p?: IMakeConstructorTestParams) : Promise<Keeper> {
+      const controller = await TetuConverterApp.createController(
+        deployer,
+        {
+          keeperFabric: {
+            deploy: async () => CoreContractsHelper.deployKeeper(deployer),
+            init: async (c, instance) => {await CoreContractsHelper.initializeKeeper(
+              deployer,
+              p?.useZeroController ? Misc.ZERO_ADDRESS : c,
+              instance,
+              p?.useZeroOps ? Misc.ZERO_ADDRESS : (await MocksHelper.createKeeperCaller(deployer)).address,
+              p?.blocksPerDayAutoUpdatePeriodSec || 0
+            );},
+          },
+          tetuConverterFabric: TetuConverterApp.getRandomSet(),
+          debtMonitorFabric: TetuConverterApp.getRandomSet(),
+          borrowManagerFabric: TetuConverterApp.getRandomSet(),
+          swapManagerFabric: TetuConverterApp.getRandomSet(),
+          tetuLiquidatorAddress: ethers.Wallet.createRandom().address,
+          blocksPerDayAutoUpdatePeriodSec: p?.blocksPerDayAutoUpdatePeriodSec
+        }
+      );
+      if (p?.useSecondInitialization) {
+        const keeper = await Keeper__factory.connect(await controller.keeper(), deployer);
+        await Keeper__factory.connect(await controller.keeper(), deployer).init(
+          controller.address,
+          await keeper.ops(),
+          await keeper.blocksPerDayAutoUpdatePeriodSec()
+        );
+      }
+
+      return Keeper__factory.connect(await controller.keeper(), deployer);
+    }
+
     describe("Good paths", () => {
       it("should create keeper successfully", async () => {
         const controller = await TetuConverterApp.createController(deployer);
@@ -497,40 +546,37 @@ describe("KeeperTest", () => {
         it("should set zero period (auto-update checking is disabled)", async () => {
           const controller = await TetuConverterApp.createController(
             deployer, {
-              blocksPerDayAutoUpdatePeriodSecs: 0 // auto-update checking is disabled
+              blocksPerDayAutoUpdatePeriodSec: 0 // auto-update checking is disabled
             }
           );
           const keeper = Keeper__factory.connect(await controller.keeper(), controller.signer);
 
-          const ret = await keeper.blocksPerDayAutoUpdatePeriodSecs();
+          const ret = await keeper.blocksPerDayAutoUpdatePeriodSec();
           expect(ret).eq(0);
         });
         it("should set not zero period (auto-update checking is disabled)", async () => {
           const controller = await TetuConverterApp.createController(
             deployer, {
-              blocksPerDayAutoUpdatePeriodSecs: 7 * 24 * 60 * 60 // 1 week
+              blocksPerDayAutoUpdatePeriodSec: 7 * 24 * 60 * 60 // 1 week
             }
           );
           const keeper = Keeper__factory.connect(await controller.keeper(), controller.signer);
 
-          const ret = await keeper.blocksPerDayAutoUpdatePeriodSecs();
+          const ret = await keeper.blocksPerDayAutoUpdatePeriodSec();
           expect(ret).eq(7 * 24 * 60 * 60);
         });
       });
     });
     describe("Bad paths", () => {
       describe("Zero address", () => {
-        it("should revert", async () => {
-          const keeperCaller = await MocksHelper.createKeeperCaller(deployer);
-          await expect(
-            DeployUtils.deployContract(
-              deployer,
-              "Keeper",
-              Misc.ZERO_ADDRESS, // (!)
-              keeperCaller.address,
-              2 * 24 * 60 * 60 // 2 weeks
-            )
-          ).revertedWith("TC-1 zero address"); // ZERO_ADDRESS
+        it("should revert if controller is zero", async () => {
+          await expect(makeInitTest({useZeroController: true})).revertedWith("TC-1 zero address"); // ZERO_ADDRESS
+        });
+        it("should revert if ops is zero", async () => {
+          await expect(makeInitTest({useZeroOps: true})).revertedWith("TC-1 zero address"); // ZERO_ADDRESS
+        });
+        it("should revert on second initialization", async () => {
+          await expect(makeInitTest({useSecondInitialization: true})).revertedWith("Initializable: contract is already initialized");
         });
       });
     });
@@ -542,13 +588,13 @@ describe("KeeperTest", () => {
         const governance = deployer;
         const controller = await TetuConverterApp.createController(
           governance,
-          {blocksPerDayAutoUpdatePeriodSecs: 1}
+          {blocksPerDayAutoUpdatePeriodSec: 1}
         );
         const keeper = Keeper__factory.connect(await controller.keeper(), controller.signer);
-        const before = await keeper.blocksPerDayAutoUpdatePeriodSecs();
+        const before = await keeper.blocksPerDayAutoUpdatePeriodSec();
 
         await keeper.connect(governance).setBlocksPerDayAutoUpdatePeriodSecs(2);
-        const after = await keeper.blocksPerDayAutoUpdatePeriodSecs();
+        const after = await keeper.blocksPerDayAutoUpdatePeriodSec();
 
         expect([before, after].join()).eq([1, 2].join());
       });
@@ -556,21 +602,20 @@ describe("KeeperTest", () => {
         const governance = deployer;
         const controller = await TetuConverterApp.createController(
           governance,
-          {blocksPerDayAutoUpdatePeriodSecs: 1}
+          {blocksPerDayAutoUpdatePeriodSec: 1}
         );
         const keeper = Keeper__factory.connect(await controller.keeper(), controller.signer);
-        const before = await keeper.blocksPerDayAutoUpdatePeriodSecs();
+        const before = await keeper.blocksPerDayAutoUpdatePeriodSec();
 
         await keeper.connect(governance).setBlocksPerDayAutoUpdatePeriodSecs(0);
-        const after = await keeper.blocksPerDayAutoUpdatePeriodSecs();
+        const after = await keeper.blocksPerDayAutoUpdatePeriodSec();
 
         expect([before, after].join()).eq([1, 0].join());
       });
     });
     describe("Bad paths", () => {
       it("should revert if not governance", async () => {
-        const governance = deployer;
-        const controller = await TetuConverterApp.createController(governance);
+        const controller = await TetuConverterApp.createController(deployer);
         const keeper = Keeper__factory.connect(await controller.keeper(), controller.signer);
 
         await expect(
@@ -607,12 +652,6 @@ describe("KeeperTest", () => {
         [1, 14],
         [2, 39]
       );
-    });
-  });
-
-  describe("50 opened positions, gas estimation @skip-on-coverage", () => {
-    it("should return expected values", async () => {
-
     });
   });
 //endregion Unit tests

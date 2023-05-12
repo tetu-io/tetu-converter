@@ -7,11 +7,13 @@ import {
   DebtMonitor__factory,
   DForceControllerMock, DForceCTokenMock,
   DForcePoolAdapter, IDForceRewardDistributor__factory, IERC20__factory,
+  DForcePoolAdapter__factory,
   IERC20Metadata__factory,
   IPoolAdapter__factory, ITetuConverter__factory,
   ITokenAddressProvider,
   TokenAddressProviderMock,
 } from "../../../typechain";
+import { ValueReceivedEventObject } from '../../../typechain/contracts/protocols/dforce/DForcePoolAdapter';
 import {expect} from "chai";
 import {BigNumber} from "ethers";
 import {getBigNumberFrom} from "../../../scripts/utils/NumberUtils";
@@ -41,11 +43,7 @@ import {AdaptersHelper} from "../../baseUT/helpers/AdaptersHelper";
 import {TetuConverterApp} from "../../baseUT/helpers/TetuConverterApp";
 import {formatUnits, parseUnits} from "ethers/lib/utils";
 import {MocksHelper} from "../../baseUT/helpers/MocksHelper";
-import {CoreContracts} from "../../baseUT/types/CoreContracts";
 import {BalanceUtils} from "../../baseUT/utils/BalanceUtils";
-import {core} from "../../../typechain/contracts";
-import {AST} from "eslint";
-import Token = AST.Token;
 import {GAS_LIMIT} from "../../baseUT/GasLimit";
 
 describe("DForcePoolAdapterUnitTest", () => {
@@ -1091,10 +1089,23 @@ describe("DForcePoolAdapterUnitTest", () => {
       const poolAdapterSigner = badPathsParams?.makeBorrowToRebalanceAsDeployer
         ? IPoolAdapter__factory.connect(d.dfPoolAdapterTC.address, deployer)
         : d.dfPoolAdapterTC;
-      await poolAdapterSigner.borrowToRebalance(
+
+      const tx = await poolAdapterSigner.borrowToRebalance(
         expectedAdditionalBorrowAmount,
         d.userContract.address // receiver
       );
+      const cr = await tx.wait();
+      const dfi = DForcePoolAdapter__factory.createInterface();
+      for (const event of (cr.events ?? [])) {
+        if (event.topics[0].toLowerCase() === dfi.getEventTopic('ValueReceived').toLowerCase()) {
+          const log = (dfi.decodeEventLog(
+            dfi.getEvent('ValueReceived'),
+            event.data,
+            event.topics,
+          ) as unknown) as ValueReceivedEventObject;
+          console.log('ValueReceived', log.user, log.amount);
+        }
+      }
 
       const afterBorrowToRebalance = await d.comptroller.calcAccountEquity(d.dfPoolAdapterTC.address);
       const statusAfterBorrowToRebalance = await d.dfPoolAdapterTC.getStatus();
@@ -1989,36 +2000,61 @@ describe("DForcePoolAdapterUnitTest", () => {
   });
 
   describe("updateBalance", () => {
-    it("should change stored balance", async () => {
-      if (!await isPolygonForkInUse()) return;
+    describe("Good paths", () => {
+      it("should change stored balance", async () => {
+        if (!await isPolygonForkInUse()) return;
 
-      const collateralAsset = MaticAddresses.DAI;
-      const collateralCToken = MaticAddresses.dForce_iDAI;
-      const collateralHolder = MaticAddresses.HOLDER_DAI;
-      const borrowAsset = MaticAddresses.USDC;
-      const borrowCToken = MaticAddresses.dForce_iUSDC;
+        const collateralAsset = MaticAddresses.DAI;
+        const collateralCToken = MaticAddresses.dForce_iDAI;
+        const collateralHolder = MaticAddresses.HOLDER_DAI;
+        const borrowAsset = MaticAddresses.USDC;
+        const borrowCToken = MaticAddresses.dForce_iUSDC;
 
-      const results = await makeBorrowTest(
-        collateralAsset,
-        collateralCToken,
-        collateralHolder,
-        borrowAsset,
-        borrowCToken,
-        "1999"
-      );
-      const status0 = await results.init.dfPoolAdapterTC.getStatus();
-      await TimeUtils.advanceNBlocks(100);
-      const status1 = await results.init.dfPoolAdapterTC.getStatus();
+        const results = await makeBorrowTest(
+          collateralAsset,
+          collateralCToken,
+          collateralHolder,
+          borrowAsset,
+          borrowCToken,
+          "1999"
+        );
+        const status0 = await results.init.dfPoolAdapterTC.getStatus();
+        await TimeUtils.advanceNBlocks(100);
+        const status1 = await results.init.dfPoolAdapterTC.getStatus();
 
-      await results.init.dfPoolAdapterTC.updateStatus();
-      const status2 = await results.init.dfPoolAdapterTC.getStatus();
+        await results.init.dfPoolAdapterTC.updateStatus();
+        const status2 = await results.init.dfPoolAdapterTC.getStatus();
 
-      const ret = [
-        status1.amountToPay.eq(status0.amountToPay),
-        status2.amountToPay.gt(status1.amountToPay)
-      ].join();
-      const expected = [true, true].join();
-      expect(ret).eq(expected);
+        const ret = [
+          status1.amountToPay.eq(status0.amountToPay),
+          status2.amountToPay.gt(status1.amountToPay)
+        ].join();
+        const expected = [true, true].join();
+        expect(ret).eq(expected);
+      });
+    });
+    describe("Bad paths", () => {
+      it("should revert if caller is not TetuConverter", async () => {
+        if (!await isPolygonForkInUse()) return;
+
+        const collateralAsset = MaticAddresses.DAI;
+        const collateralCToken = MaticAddresses.dForce_iDAI;
+        const collateralHolder = MaticAddresses.HOLDER_DAI;
+        const borrowAsset = MaticAddresses.USDC;
+        const borrowCToken = MaticAddresses.dForce_iUSDC;
+
+        const results = await makeBorrowTest(
+          collateralAsset,
+          collateralCToken,
+          collateralHolder,
+          borrowAsset,
+          borrowCToken,
+          "1999"
+        );
+        await expect(
+          results.init.dfPoolAdapterTC.connect(await Misc.impersonate(ethers.Wallet.createRandom().address)).updateStatus()
+        ).revertedWith("TC-8 tetu converter only"); // TETU_CONVERTER_ONLY
+      });
     });
   });
 

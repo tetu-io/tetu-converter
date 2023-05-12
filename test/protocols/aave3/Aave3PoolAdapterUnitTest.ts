@@ -55,8 +55,6 @@ import {controlGasLimitsEx} from "../../../scripts/utils/hardhatUtils";
 import {GAS_FULL_REPAY, GAS_LIMIT} from "../../baseUT/GasLimit";
 import {IMakeRepayBadPathsParams} from "../../baseUT/protocols/aaveShared/aaveBorrowUtils";
 import {RepayUtils} from "../../baseUT/protocols/shared/repayUtils";
-import {convertUnits} from "../../baseUT/apr/aprUtils";
-import {DForceTestUtils} from "../../baseUT/protocols/dforce/DForceTestUtils";
 
 describe("Aave3PoolAdapterUnitTest", () => {
 //region Global vars for all tests

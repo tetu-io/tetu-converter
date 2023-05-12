@@ -16,9 +16,7 @@ import "./Compound3AprLib.sol";
 contract Compound3PoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithRewards, Initializable {
   using SafeERC20 for IERC20;
 
-  ///////////////////////////////////////////////////////
-  //region Variables
-  ///////////////////////////////////////////////////////
+  //region ----------------------------------------------------- Variables
 
   address public collateralAsset;
   address public borrowAsset;
@@ -28,11 +26,9 @@ contract Compound3PoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithReward
   IConverterController public controller;
   address public originConverter;
   uint public collateralTokensBalance;
-  //endregion Variables
+  //endregion ----------------------------------------------------- Variables
 
-  ///////////////////////////////////////////////////////
-  //region Events
-  ///////////////////////////////////////////////////////
+  //region ----------------------------------------------------- Events
 
   event OnInitialized(address controller, address pool, address user, address collateralAsset, address borrowAsset, address originConverter);
   event OnBorrow(uint collateralAmount, uint borrowAmount, address receiver, uint resultHealthFactor18);
@@ -41,22 +37,18 @@ contract Compound3PoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithReward
   event OnRepayToRebalance(uint amount, bool isCollateral, uint resultHealthFactor18);
   event OnClaimRewards(address rewardToken, uint amount, address receiver);
   event OnSalvage(address receiver, address token, uint amount);
-  //endregion Events
+  //endregion ----------------------------------------------------- Events
 
-  //-----------------------------------------------------
-  //region Data type
-  //-----------------------------------------------------
+  //region ----------------------------------------------------- Data type
   struct RepayLocalVars {
     IConverterController c;
     IComet comet;
     address assetBorrow;
     address assetCollateral;
   }
-  //endregion Data type
+  //endregion ----------------------------------------------------- Data type
 
-  ///////////////////////////////////////////////////////
-  //region Initialization and salvage
-  ///////////////////////////////////////////////////////
+  //region ----------------------------------------------------- Initialization and salvage
 
   function initialize(
     address controller_,
@@ -103,21 +95,17 @@ contract Compound3PoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithReward
     IERC20(token).safeTransfer(receiver, amount);
     emit OnSalvage(receiver, token, amount);
   }
-  //endregion Initialization and salvage
+  //endregion ----------------------------------------------------- Initialization and salvage
 
-  ///////////////////////////////////////////////////////
-  //region Modifiers
-  ///////////////////////////////////////////////////////
+  //region ----------------------------------------------------- Modifiers
 
   /// @notice Ensure that the caller is TetuConverter
   function _onlyTetuConverter(IConverterController controller_) internal view {
     require(controller_.tetuConverter() == msg.sender, AppErrors.TETU_CONVERTER_ONLY);
   }
-  //endregion Modifiers
+  //endregion ----------------------------------------------------- Modifiers
 
-  ///////////////////////////////////////////////////////
-  //region Views
-  ///////////////////////////////////////////////////////
+  //region ----------------------------------------------------- Views
 
   function getConfig() external view returns (
     address originConverter_,
@@ -164,13 +152,12 @@ contract Compound3PoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithReward
   function getConversionKind() external pure returns (AppDataTypes.ConversionKind) {
     return AppDataTypes.ConversionKind.BORROW_2;
   }
-  //endregion Views
+  //endregion ----------------------------------------------------- Views
 
-  ///////////////////////////////////////////////////////
-  //region External logic
-  ///////////////////////////////////////////////////////
+  //region ----------------------------------------------------- External logic
 
   function updateStatus() external {
+    _onlyTetuConverter(controller);
     comet.accrueAccount(address(this));
   }
 
@@ -339,11 +326,9 @@ contract Compound3PoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithReward
       emit OnClaimRewards(rewardToken, amount, receiver_);
     }
   }
-  //endregion External logic
+  //endregion ----------------------------------------------------- External logic
 
-  ///////////////////////////////////////////////////////
-  //region Internal logic
-  ///////////////////////////////////////////////////////
+  //region ----------------------------------------------------- Internal logic
 
   /// @notice Supply collateral to Compound3
   /// @return Collateral token balance before supply
@@ -440,5 +425,5 @@ contract Compound3PoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithReward
 
     return (collateralBalance * amountToRepay_ / borrowBalance, collateralBalance);
   }
-  //endregion Internal logic
+  //endregion ----------------------------------------------------- Internal logic
 }

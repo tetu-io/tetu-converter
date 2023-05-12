@@ -25,9 +25,7 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer,
   using Aave3ReserveConfiguration for Aave3DataTypes.ReserveConfigurationMap;
   using SafeRatioMath for uint;
 
-  //-----------------------------------------------------
-  //region Members and constants
-  //-----------------------------------------------------
+  //region ----------------------------------------------------- Members and constants
   /// @notice We allow to receive less atokens then provided collateral on following value
   /// @dev Sometime, we provide collateral=1000000000000000000000 and receive atokens=999999999999999999999
   uint constant public ATOKEN_MAX_DELTA = 10;
@@ -47,11 +45,9 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer,
 
   /// @notice Total amount of all supplied and withdrawn amounts of collateral in ATokens
   uint public collateralBalanceATokens;
-  //endregion Members and constants
+  //endregion ----------------------------------------------------- Members and constants
 
-  //-----------------------------------------------------
-  //region Events
-  //-----------------------------------------------------
+  //region ----------------------------------------------------- Events
   event OnInitialized(address controller, address pool, address user, address collateralAsset, address borrowAsset, address originConverter);
   event OnBorrow(uint collateralAmount, uint borrowAmount, address receiver, uint resultHealthFactor18, uint collateralBalanceATokens);
   event OnBorrowToRebalance(uint borrowAmount, address receiver, uint resultHealthFactor18);
@@ -59,11 +55,9 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer,
   event OnRepayToRebalance(uint amount, bool isCollateral, uint resultHealthFactor18, uint collateralBalanceATokens);
   event OnSalvage(address receiver, address token, uint amount);
 
-  //endregion Events
+  //endregion ----------------------------------------------------- Events
 
-  //-----------------------------------------------------
-  //region Initialization and customization
-  //-----------------------------------------------------
+  //region ----------------------------------------------------- Initialization and customization
 
   function initialize(
     address controller_,
@@ -118,11 +112,9 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer,
     IERC20(token).safeTransfer(receiver, amount);
     emit OnSalvage(receiver, token, amount);
   }
-  //endregion Initialization and customization
+  //endregion ----------------------------------------------------- Initialization and customization
 
-  //-----------------------------------------------------
-  //region Restrictions
-  //-----------------------------------------------------
+  //region ----------------------------------------------------- Restrictions
 
   /// @notice Ensure that the caller is TetuConverter
   function _onlyTetuConverter(IConverterController controller_) internal view {
@@ -130,14 +122,13 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer,
   }
 
   function updateStatus() external override {
+    // empty function, no restrictions
     // nothing to do; getStatus always return actual amounts in AAVE
     // there is reserve.updateStatus function, i.e. see SupplyLogic.sol, executeWithdraw but it is internal
   }
-  //endregion Restrictions
+  //endregion ----------------------------------------------------- Restrictions
 
-  //-----------------------------------------------------
-  //region Borrow logic
-  //-----------------------------------------------------
+  //region ----------------------------------------------------- Borrow logic
 
   /// @notice Supply collateral to the pool and borrow specified amount
   /// @dev No re-balancing here; Collateral amount must be approved to the pool adapter before the call of this function
@@ -246,11 +237,9 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer,
     emit OnBorrowToRebalance(borrowAmount_, receiver_, resultHealthFactor18);
     return (resultHealthFactor18, borrowAmount_);
   }
-  //endregion Borrow logic
+  //endregion ----------------------------------------------------- Borrow logic
 
-  //-----------------------------------------------------
-  //region Repay logic
-  //-----------------------------------------------------
+  //region ----------------------------------------------------- Repay logic
 
   /// @notice Repay borrowed amount, return collateral to the user
   /// @param amountToRepay_ Exact amount of borrow asset that should be repaid
@@ -461,17 +450,17 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer,
       );
     }
   }
-  //endregion Repay logic
+  //endregion ----------------------------------------------------- Repay logic
 
-  //region Rewards
+  //region ----------------------------------------------------- Rewards
   function claimRewards(address receiver_) external pure override returns (address rewardToken, uint amount) {
     //nothing to do, AAVE3 doesn't have rewards on polygon
     receiver_; // hide warning
     return (rewardToken, amount);
   }
-  //endregion Rewards
+  //endregion ----------------------------------------------------- Rewards
 
-  //region View current status
+  //region ----------------------------------------------------- View current status
   function getConversionKind() external pure override returns (AppDataTypes.ConversionKind) {
     return AppDataTypes.ConversionKind.BORROW_2;
   }
@@ -532,12 +521,12 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer,
       true
     );
   }
-  //endregion View current status
+  //endregion ----------------------------------------------------- View current status
 
-  //region Utils
+  //region ----------------------------------------------------- Utils
   function _validateHealthFactor(IConverterController controller_, uint hf18) internal view {
     require(hf18 >= uint(controller_.minHealthFactor2())*10**(18-2), AppErrors.WRONG_HEALTH_FACTOR);
   }
-  //endregion Utils
+  //endregion ----------------------------------------------------- Utils
 
 }

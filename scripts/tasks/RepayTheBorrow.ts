@@ -26,6 +26,7 @@ async function main() {
   const tetuConverterAddress = "0x081735DEa3D1256881B7cb31cd37c4f7C3E95152";
   const strategyAddress = "0x807a528818113a6f65b7667a59a4CaaAc719fc12";
   const poolAdapterAddress = "0xa20F9638C027cD40549C918972062690f6D095bD";
+  const borrowManagerAddress = "0xB8D18aBEA83eaF336aEe55E58490f785d629baAE";
 
   // const signer = localHardhatIsInUse
   //   ? await DeployerUtils.startImpersonate("TODO governance")
@@ -37,7 +38,8 @@ async function main() {
     signer,
     tetuConverterAddress,
     strategyAddress,
-    poolAdapterAddress
+    poolAdapterAddress,
+    borrowManagerAddress
   );
 }
 

@@ -87,7 +87,8 @@ export class AprSwap {
       swapResults,
       strategyToConvert: {
         converter: strategyToSwap.converter,
-        maxTargetAmount: strategyToSwap.maxTargetAmount,
+        amountToBorrowOut: strategyToSwap.maxTargetAmount,
+        collateralAmountOut: collateralAmount,
         apr18
       },
       swapManagerAddress: swapManager.address,

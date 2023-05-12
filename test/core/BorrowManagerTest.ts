@@ -23,7 +23,7 @@ import {generateAssetPairs, getAssetPair, IAssetPair} from "../baseUT/utils/Asse
 import {Misc} from "../../scripts/utils/Misc";
 import {DeployerUtils} from "../../scripts/utils/DeployerUtils";
 import {getExpectedApr18} from "../baseUT/apr/aprUtils";
-import {TetuConverterApp} from "../baseUT/helpers/TetuConverterApp";
+import {IDeployInitFabricsSet, TetuConverterApp} from "../baseUT/helpers/TetuConverterApp";
 import {CoreContracts} from "../baseUT/types/CoreContracts";
 import {parseUnits} from "ethers/lib/utils";
 import {BalanceUtils} from "../baseUT/utils/BalanceUtils";
@@ -104,20 +104,22 @@ describe("BorrowManager", () => {
     return TetuConverterApp.createController(
       signer,
       {
-        borrowManagerFabric: async c => (await CoreContractsHelper.createBorrowManager(signer, c.address)).address,
-        tetuConverterFabric: async (
-          c, borrowManager, debtMonitor, swapManager, keeper
-        ) => (await CoreContractsHelper.createTetuConverter(
-          signer,
-          c.address,
-          borrowManager,
-          debtMonitor,
-          swapManager,
-          keeper,
-        )).address,
-        debtMonitorFabric: async () => (await MocksHelper.createDebtsMonitorStub(signer, valueIsConverterInUse)).address,
-        keeperFabric: async () => ethers.Wallet.createRandom().address,
-        swapManagerFabric: async () => ethers.Wallet.createRandom().address,
+        borrowManagerFabric: {
+          deploy: async () => CoreContractsHelper.deployBorrowManager(signer),
+          init: async (c, instance) => {
+            await CoreContractsHelper.initializeBorrowManager(signer, c, instance);},
+        },
+        tetuConverterFabric: {
+          deploy: async () => CoreContractsHelper.deployTetuConverter(signer),
+          init: async (c, instance) => {
+            await CoreContractsHelper.initializeTetuConverter(signer, c, instance);},
+        },
+        debtMonitorFabric: {
+          deploy: async () => (await MocksHelper.createDebtsMonitorStub(signer, valueIsConverterInUse)).address,
+          init: async () => {},
+        },
+        keeperFabric: TetuConverterApp.getRandomSet(),
+        swapManagerFabric: TetuConverterApp.getRandomSet(),
         tetuLiquidatorAddress: ethers.Wallet.createRandom().address
       }
     );
@@ -499,29 +501,48 @@ describe("BorrowManager", () => {
 //endregion registerPoolAdapter utils
 
 //region Unit tests
-  describe("constructor", () => {
+  describe("init", () => {
     interface IMakeConstructorTestParams {
       rewardFactor?: BigNumber;
       useZeroController?: boolean;
+      useSecondInitialization?: boolean;
     }
-    async function makeConstructorTest(
-      params?: IMakeConstructorTestParams
+    async function makeInitTest(
+      p?: IMakeConstructorTestParams
     ) : Promise<BorrowManager> {
       const controller = await TetuConverterApp.createController(
         signer,
         {
-          borrowManagerFabric: async c => (await CoreContractsHelper.createBorrowManager(
-            signer,
-            params?.useZeroController ? Misc.ZERO_ADDRESS : c.address,
-            params?.rewardFactor
-          )).address,
-          tetuConverterFabric: async () => ethers.Wallet.createRandom().address,
-          debtMonitorFabric: async () => ethers.Wallet.createRandom().address,
-          keeperFabric: async () => ethers.Wallet.createRandom().address,
-          swapManagerFabric: async () => ethers.Wallet.createRandom().address,
+          borrowManagerFabric: {
+            deploy: async () => CoreContractsHelper.deployBorrowManager(signer),
+            init: async (c, instance) => {await CoreContractsHelper.initializeBorrowManager(
+              signer,
+              p?.useZeroController ? Misc.ZERO_ADDRESS : c,
+              instance,
+              p?.rewardFactor
+            );},
+          },
+          tetuConverterFabric: TetuConverterApp.getRandomSet(),
+          debtMonitorFabric: TetuConverterApp.getRandomSet(),
+          keeperFabric: TetuConverterApp.getRandomSet(),
+          swapManagerFabric: TetuConverterApp.getRandomSet(),
           tetuLiquidatorAddress: ethers.Wallet.createRandom().address
         }
       );
+      if (p?.useSecondInitialization) {
+        await controller.init(
+          await controller.proxyUpdater(),
+          await controller.governance(),
+          await controller.tetuConverter(),
+          await controller.borrowManager(),
+          await controller.debtMonitor(),
+          await controller.keeper(),
+          await controller.swapManager(),
+          await controller.priceOracle(),
+          await controller.tetuLiquidator(),
+          await controller.blocksPerDay()
+        );
+      }
       return BorrowManager__factory.connect(await controller.borrowManager(), signer);
     }
     describe("Good paths", () => {
@@ -530,7 +551,7 @@ describe("BorrowManager", () => {
         // let's check it using rewardFactor()
 
         const rewardFactor = parseUnits("0.5");
-        const borrowManager = await makeConstructorTest({rewardFactor});
+        const borrowManager = await makeInitTest({rewardFactor});
         const ret = await borrowManager.rewardsFactor();
 
         expect(ret.eq(rewardFactor)).eq(true);
@@ -539,14 +560,19 @@ describe("BorrowManager", () => {
     describe("Bad paths", () => {
       it("should revert if controller is zero", async () => {
         await expect(
-          makeConstructorTest({useZeroController: true})
+          makeInitTest({useZeroController: true})
         ).revertedWith("TC-1 zero address"); // ZERO_ADDRESS
       });
       it("should revert if reward factor is too large", async () => {
         const tooLargeRewardFactor = parseUnits("1"); // BorrowManager.REWARDS_FACTOR_DENOMINATOR_18
         await expect(
-          makeConstructorTest({rewardFactor: tooLargeRewardFactor})
+          makeInitTest({rewardFactor: tooLargeRewardFactor})
         ).revertedWith("TC-29 incorrect value"); // INCORRECT_VALUE
+      });
+      it("should revert on second initialization", async () => {
+        await expect(
+          makeInitTest({useSecondInitialization: true})
+        ).revertedWith("Initializable: contract is already initialized");
       });
     });
   });
@@ -555,7 +581,7 @@ describe("BorrowManager", () => {
     async function prepareBorrowManagerWithGivenHealthFactor(minHealthFactor2: number) : Promise<BorrowManager> {
       const controller = await createController();
       await controller.setMinHealthFactor2(minHealthFactor2);
-      return CoreContractsHelper.createBorrowManager(signer, controller.address);
+      return BorrowManager__factory.connect(await controller.borrowManager(), controller.signer);
     }
     describe("Good paths", () => {
       describe("Set health factor for a single asset", () => {
@@ -1939,11 +1965,15 @@ describe("BorrowManager", () => {
     it("should emit expected events (check all except OnRemoveAssetPairs)", async () => {
       const controller = await TetuConverterApp.createController(
         signer, {
-          borrowManagerFabric: async c => (await CoreContractsHelper.createBorrowManager(signer, c.address)).address,
-          tetuConverterFabric: async () => ethers.Wallet.createRandom().address,
-          debtMonitorFabric: async () => ethers.Wallet.createRandom().address,
-          keeperFabric: async () => ethers.Wallet.createRandom().address,
-          swapManagerFabric: async () => ethers.Wallet.createRandom().address,
+          borrowManagerFabric: {
+            deploy: async () => CoreContractsHelper.deployBorrowManager(signer),
+            init: async (c, instance) => {
+              await CoreContractsHelper.initializeBorrowManager(signer, c, instance)},
+          },
+          tetuConverterFabric: TetuConverterApp.getRandomSet(),
+          debtMonitorFabric: TetuConverterApp.getRandomSet(),
+          keeperFabric: TetuConverterApp.getRandomSet(),
+          swapManagerFabric: TetuConverterApp.getRandomSet(),
           tetuLiquidatorAddress: ethers.Wallet.createRandom().address
       });
       const borrowManagerAdGov = BorrowManager__factory.connect(
@@ -1990,11 +2020,21 @@ describe("BorrowManager", () => {
     it("should emit expected events", async () => {
       const controller = await TetuConverterApp.createController(
         signer, {
-          borrowManagerFabric: async c => (await CoreContractsHelper.createBorrowManager(signer, c.address)).address,
-          tetuConverterFabric: async () => ethers.Wallet.createRandom().address,
-          debtMonitorFabric: async () => (await MocksHelper.createDebtsMonitorStub(signer, false)).address,
-          keeperFabric: async () => ethers.Wallet.createRandom().address,
-          swapManagerFabric: async () => ethers.Wallet.createRandom().address,
+          borrowManagerFabric: {
+            deploy: async () => CoreContractsHelper.deployBorrowManager(signer),
+            init: async (c, instance) => {
+              await CoreContractsHelper.initializeBorrowManager(signer, c, instance);
+            },
+          },
+          tetuConverterFabric: TetuConverterApp.getRandomSet(),
+          debtMonitorFabric: {
+            deploy: async () => CoreContractsHelper.deployDebtMonitor(signer),
+            init: async (c, instance) => {
+              await CoreContractsHelper.initializeDebtMonitor(signer, c, instance);
+            }
+          },
+          keeperFabric: TetuConverterApp.getRandomSet(),
+          swapManagerFabric: TetuConverterApp.getRandomSet(),
           tetuLiquidatorAddress: ethers.Wallet.createRandom().address
         });
       const borrowManagerAdGov = BorrowManager__factory.connect(
