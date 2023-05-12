@@ -378,7 +378,9 @@ describe("SwapManager", () => {
               await MockERC20__factory.connect(sourceToken, user).approve(tetuConverter, sourceAmount);
               console.log(`User ${user.address} has approved ${sourceAmount.toString()} to ${tetuConverter}`);
 
-              const r = await swapManager.callStatic.getConverter(
+              const swapManagerAsTetuConverter = await swapManager.connect(await Misc.impersonate(tetuConverter));
+
+              const r = await swapManagerAsTetuConverter.callStatic.getConverter(
                 user.address,
                 sourceToken,
                 sourceAmount,
@@ -521,7 +523,8 @@ describe("SwapManager", () => {
         await MockERC20__factory.connect(tokenIn.address, user).approve(controller.tetuConverter(), sourceAmount);
 
         await tokenIn.mint(swapManager.address, sourceAmount);
-        const gasUsed = await swapManager.estimateGas.swap(tokenIn.address, sourceAmount, tokenOut.address, user.address);
+        const swapManagerAsTetuConverter = await swapManager.connect(await Misc.impersonate(tetuConverter));
+        const gasUsed = await swapManagerAsTetuConverter.estimateGas.swap(tokenIn.address, sourceAmount, tokenOut.address, user.address);
 
         controlGasLimitsEx(gasUsed, GAS_SWAP, (u, t) => {
           expect(u).to.be.below(t);

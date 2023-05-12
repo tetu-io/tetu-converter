@@ -28,6 +28,7 @@ contract DForcePoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP, Initi
   /// @notice Max allowed difference for sumCollateralSafe - sumBorrowPlusEffects == liquidity
   uint private constant DELTA = 100;
   address private constant WMATIC = address(0x0d500B1d8E8eF31E21C99d1Db9A6444d3ADf1270);
+  address private constant DFORCE_MATIC = address(0x6A3fE5342a4Bd09efcd44AC5B9387475A0678c74);
 
   //region -----------------------------------------------------  Members and constants
 
@@ -56,6 +57,7 @@ contract DForcePoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP, Initi
   /// @notice On claim not empty {amount} of reward tokens
   event OnClaimRewards(address rewardToken, uint amount, address receiver);
   event OnSalvage(address receiver, address token, uint amount);
+  event ValueReceived(address user, uint amount);
   //endregion ----------------------------------------------------- Events
 
   //region ----------------------------------------------------- Initialization
@@ -658,10 +660,13 @@ contract DForcePoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP, Initi
 
   /// @notice this is needed for the native token unwrapping
   receive() external payable {
+    emit ValueReceived(msg.sender, msg.value);
     require(
       msg.sender == WMATIC
+      || msg.sender == DFORCE_MATIC
       || msg.sender == collateralCToken
-      || msg.sender == borrowCToken, AppErrors.ACCESS_DENIED
+      || msg.sender == borrowCToken,
+      AppErrors.ACCESS_DENIED
     );
   }
   //endregion ----------------------------------------------------- Native tokens

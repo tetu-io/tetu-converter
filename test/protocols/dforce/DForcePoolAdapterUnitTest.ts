@@ -7,11 +7,13 @@ import {
   DebtMonitor__factory,
   DForceControllerMock, DForceCTokenMock,
   DForcePoolAdapter, IDForceRewardDistributor__factory, IERC20__factory,
+  DForcePoolAdapter__factory,
   IERC20Metadata__factory,
   IPoolAdapter__factory, ITetuConverter__factory,
   ITokenAddressProvider,
   TokenAddressProviderMock,
 } from "../../../typechain";
+import { ValueReceivedEventObject } from '../../../typechain/contracts/protocols/dforce/DForcePoolAdapter';
 import {expect} from "chai";
 import {BigNumber} from "ethers";
 import {getBigNumberFrom} from "../../../scripts/utils/NumberUtils";
@@ -1087,10 +1089,23 @@ describe("DForcePoolAdapterUnitTest", () => {
       const poolAdapterSigner = badPathsParams?.makeBorrowToRebalanceAsDeployer
         ? IPoolAdapter__factory.connect(d.dfPoolAdapterTC.address, deployer)
         : d.dfPoolAdapterTC;
-      await poolAdapterSigner.borrowToRebalance(
+
+      const tx = await poolAdapterSigner.borrowToRebalance(
         expectedAdditionalBorrowAmount,
         d.userContract.address // receiver
       );
+      const cr = await tx.wait();
+      const dfi = DForcePoolAdapter__factory.createInterface();
+      for (const event of (cr.events ?? [])) {
+        if (event.topics[0].toLowerCase() === dfi.getEventTopic('ValueReceived').toLowerCase()) {
+          const log = (dfi.decodeEventLog(
+            dfi.getEvent('ValueReceived'),
+            event.data,
+            event.topics,
+          ) as unknown) as ValueReceivedEventObject;
+          console.log('ValueReceived', log.user, log.amount);
+        }
+      }
 
       const afterBorrowToRebalance = await d.comptroller.calcAccountEquity(d.dfPoolAdapterTC.address);
       const statusAfterBorrowToRebalance = await d.dfPoolAdapterTC.getStatus();
