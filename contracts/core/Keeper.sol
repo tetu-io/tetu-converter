@@ -11,6 +11,7 @@ import "../integrations/gelato/IResolver.sol";
 import "../integrations/gelato/IOps.sol";
 import "../openzeppelin/SafeERC20.sol";
 import "../proxy/ControllableV3.sol";
+import "hardhat/console.sol";
 
 /// @notice Executor + Resolver for Gelato
 ///         to check health of opened positions and call requireRepay for unhealthy pool adapters
@@ -84,6 +85,7 @@ contract Keeper is IHealthKeeperCallback, IResolver, ControllableV3 {
     bool canExecOut,
     bytes memory execPayloadOut
   ) {
+    console.log("checker.1");
     IConverterController _controller = IConverterController(controller());
     IDebtMonitor debtMonitor = IDebtMonitor(_controller.debtMonitor());
 
