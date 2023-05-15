@@ -2,8 +2,7 @@ import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import {ethers} from "hardhat";
 import {TimeUtils} from "../../scripts/utils/TimeUtils";
 import {
-  ConverterController, ConverterController__factory, DebtMonitor__factory,
-  DebtMonitorCheckHealthMock, DebtMonitorCheckHealthMock__factory,
+  ConverterController, ConverterController__factory, DebtMonitorCheckHealthMock, DebtMonitorCheckHealthMock__factory,
   Keeper, Keeper__factory,
   KeeperCallbackMock, KeeperCallbackMock__factory,
   KeeperCaller, KeeperMock__factory
@@ -252,6 +251,7 @@ describe("KeeperTest", () => {
 
             const before = (await app.keeper.nextIndexToCheck0()).toNumber();
             await app.keeperCaller.setupKeeper(app.keeper.address, app.keeper.address);
+            await app.keeper.connect(deployer).changeOperatorStatus(app.keeperCaller.address, true);
             await app.keeperCaller.callChecker();
             const after = (await app.keeper.nextIndexToCheck0()).toNumber();
 
@@ -280,6 +280,7 @@ describe("KeeperTest", () => {
           );
 
           await app.keeperCaller.setupKeeper(app.keeper.address, app.keeper.address);
+          await app.keeper.connect(deployer).changeOperatorStatus(app.keeperCaller.address, true);
           await app.keeperCaller.callChecker();
 
           const r = await app.tetuConverterMock.requireRepayCalls(unhealthyPoolAdapter);
@@ -325,6 +326,7 @@ describe("KeeperTest", () => {
             );
 
             await app.keeperCaller.setupKeeper(app.keeper.address, app.keeper.address);
+            await app.keeper.connect(deployer).changeOperatorStatus(app.keeperCaller.address, true);
             await app.keeperCaller.callChecker();
 
             const r1 = await app.tetuConverterMock.requireRepayCalls(unhealthyPoolAdapter1);
@@ -389,6 +391,7 @@ describe("KeeperTest", () => {
           );
 
           await app.keeperCaller.setupKeeper(app.keeper.address, app.keeper.address);
+          await app.keeper.connect(deployer).changeOperatorStatus(app.keeperCaller.address, true);
           await app.keeperCaller.callChecker();
           const nextIndexToCheck0AfterFirstCall = (await app.keeper.nextIndexToCheck0()).toNumber();
 
@@ -447,6 +450,7 @@ describe("KeeperTest", () => {
 
           const before = (await app.controller.blocksPerDay()).toNumber();
           await app.keeperCaller.setupKeeper(app.keeper.address, app.keeper.address);
+          await app.keeper.connect(deployer).changeOperatorStatus(app.keeperCaller.address, true);
 
           await TimeUtils.advanceNBlocks(100); // we assume here, that 100 blocks > 1 second
 
@@ -461,10 +465,9 @@ describe("KeeperTest", () => {
       });
     });
     describe("Bad paths", () => {
-      describe("Called by not Gelato", () => {
+      describe("Called by not operator", () => {
         it("should revert", async () => {
           const app = await setupMockedApp(deployer);
-
           await expect(
             app.keeper.fixHealth(0, [], [], [])
           ).revertedWith("TC-60: onlyOps");
@@ -485,6 +488,7 @@ describe("KeeperTest", () => {
           );
 
           await app.keeperCaller.setupKeeper(app.keeper.address, app.keeper.address);
+          await app.keeper.connect(deployer).changeOperatorStatus(app.keeperCaller.address, true);
           await app.keeperCaller.callChecker();
           const ret = await app.keeperCaller.lastCallResults();
           expect(ret).eq(FAILED_2);  // WRONG_LENGTHS
@@ -635,6 +639,7 @@ describe("KeeperTest", () => {
 
       const app = await setupMockedApp(deployer, false);
       await app.keeperCaller.setupKeeper(app.keeper.address, app.keeper.address);
+      await app.keeper.connect(deployer).changeOperatorStatus(app.keeperCaller.address, true);
 
       // all pool adapters are healthy
       await app.debtMonitorMock.setReturnValues(
@@ -652,6 +657,38 @@ describe("KeeperTest", () => {
         [1, 14],
         [2, 39]
       );
+    });
+  });
+
+  describe("changeOperatorStatus", () => {
+    describe("Good paths", () => {
+      it("should return expected values", async () => {
+        const operator = ethers.Wallet.createRandom().address;
+        const governance = deployer;
+        const controller = await TetuConverterApp.createController(
+          governance,
+          {blocksPerDayAutoUpdatePeriodSec: 1}
+        );
+        const keeper = Keeper__factory.connect(await controller.keeper(), controller.signer);
+        const before = await keeper.operators(operator);
+        await keeper.connect(governance).changeOperatorStatus(operator, true);
+        const after = await keeper.operators(operator);
+
+        expect([before, after].join()).eq([false, true].join());
+      });
+    });
+    describe("Bad paths", () => {
+      it("should revert if not governance", async () => {
+        const operator = ethers.Wallet.createRandom().address;
+        const controller = await TetuConverterApp.createController(
+          deployer,
+          {blocksPerDayAutoUpdatePeriodSec: 1}
+        );
+        const keeper = Keeper__factory.connect(await controller.keeper(), controller.signer);
+        await expect(
+          keeper.connect(await Misc.impersonate(operator)).changeOperatorStatus(operator, true)
+        ).revertedWith("TC-9 governance only"); // GOVERNANCE_ONLY
+      });
     });
   });
 //endregion Unit tests
