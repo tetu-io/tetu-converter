@@ -102,50 +102,51 @@ export default {
       polygon: argv.networkScanKeyMatic || argv.networkScanKey,
     },
   },
+  verify: {
+    etherscan: {
+      apiKey: argv.networkScanKey
+    }
+  },
   solidity: {
     compilers: [
       {
-        version: "0.8.17",
+        version: '0.8.17',
         settings: {
           optimizer: {
             enabled: true,
-            runs: 200,
-          }
-        }
+            runs: 150,
+          },
+        },
       },
-    ]
+    ],
   },
   paths: {
-    sources: "./contracts",
-    tests: "./test",
-    cache: "./cache",
-    artifacts: "./artifacts"
+    sources: './contracts',
+    tests: './test',
+    cache: './cache',
+    artifacts: './artifacts',
   },
   mocha: {
-    timeout: 9999999999
+    timeout: 9999999999,
   },
   contractSizer: {
     alphaSort: false,
-    disambiguatePaths: false,
     runOnCompile: false,
-    strict: true,
-    only: [
-    ]
+    disambiguatePaths: false,
   },
   gasReporter: {
     enabled: false,
     currency: 'USD',
     gasPrice: 21,
-    outputFile: "./gasreport.txt",
-    noColors: true
   },
   typechain: {
-    outDir: "typechain",
+    outDir: 'typechain',
   },
   abiExporter: {
     path: './artifacts/abi',
     runOnCompile: false,
     spacing: 2,
-    pretty: false,
+    pretty: true,
   },
+  namedAccounts: deployAddresses,
 };
