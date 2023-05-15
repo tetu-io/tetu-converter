@@ -132,8 +132,8 @@ describe("Aave3PoolAdapterUnitTest", () => {
     }
     describe("Good paths", () => {
       it("should salvage collateral asset", async () => {
-        const token = IERC20Metadata__factory.connect(MaticAddresses.USDC, deployer);
-        const decimals = await token.decimals();
+        // const token = IERC20Metadata__factory.connect(MaticAddresses.USDC, deployer);
+        // const decimals = await token.decimals();
 
         const token2 = IERC20Metadata__factory.connect(MaticAddresses.USDT, deployer);
         const decimals2 = await token2.decimals();
