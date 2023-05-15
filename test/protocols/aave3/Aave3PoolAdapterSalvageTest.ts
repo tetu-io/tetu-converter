@@ -132,7 +132,13 @@ describe("Aave3PoolAdapterUnitTest", () => {
     }
     describe("Good paths", () => {
       it("should salvage collateral asset", async () => {
-        const controller = await TetuConverterApp.createController(deployer);
+        const token = IERC20Metadata__factory.connect(MaticAddresses.USDC, deployer);
+        const decimals = await token.decimals();
+
+        const token2 = IERC20Metadata__factory.connect(MaticAddresses.USDT, deployer);
+        const decimals2 = await token2.decimals();
+
+        // const controller = await TetuConverterApp.createController(deployer);
         // const collateralToken = await TokenDataTypes.Build(deployer, MaticAddresses.USDC);
         // const borrowToken = await TokenDataTypes.Build(deployer, MaticAddresses.USDT);
         // const init = await Aave3TestUtils.prepareToBorrow(
