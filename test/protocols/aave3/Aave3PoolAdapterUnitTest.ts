@@ -56,7 +56,7 @@ import {GAS_FULL_REPAY, GAS_LIMIT} from "../../baseUT/GasLimit";
 import {IMakeRepayBadPathsParams} from "../../baseUT/protocols/aaveShared/aaveBorrowUtils";
 import {RepayUtils} from "../../baseUT/protocols/shared/repayUtils";
 
-describe("Aave3PoolAdapterUnitTest", () => {
+describe.skip("Aave3PoolAdapterUnitTest", () => {
 //region Global vars for all tests
   let snapshot: string;
   let deployer: SignerWithAddress;

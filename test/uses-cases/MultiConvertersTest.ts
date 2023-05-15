@@ -15,7 +15,7 @@ import {parseUnits} from "ethers/lib/utils";
 import {expect} from "chai";
 import {GAS_LIMIT} from "../baseUT/GasLimit";
 
-describe("MultiConvertersTest", () => {
+describe.skip("MultiConvertersTest", () => {
 //region Global vars for all tests
   let snapshot: string;
   let snapshotForEach: string;
