@@ -78,25 +78,29 @@ export default {
       chainId: 137,
       gas: 12_000_000,
       // gasPrice: 50_000_000_000,
-      // gasMultiplier: 1.3,    
-		},
+      // gasMultiplier: 1.3,
+      accounts: [argv.privateKey],
+    },
     eth: {
       url: argv.ethRpcUrl || '',
       chainId: 1,
       accounts: [argv.privateKey],
     },
-    localhost: {
-      timeout: 99999,
+    sepolia: {
+      url: argv.sepoliaRpcUrl || '',
+      chainId: 11155111,
+      // gas: 50_000_000_000,
+      accounts: [argv.privateKey],
     },
   },
   etherscan: {
+    //  https://hardhat.org/plugins/nomiclabs-hardhat-etherscan.html#multiple-api-keys-and-alternative-block-explorers
     apiKey: {
       mainnet: argv.networkScanKey,
       goerli: argv.networkScanKey,
       sepolia: argv.networkScanKey,
       polygon: argv.networkScanKeyMatic || argv.networkScanKey,
     },
-
   },
   solidity: {
     compilers: [
