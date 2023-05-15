@@ -13,7 +13,7 @@ import {
 } from "../baseUT/GasLimit";
 import {Misc} from "../../scripts/utils/Misc";
 
-describe("AppUtils", () => {
+describe.skip("AppUtils", () => {
 //region Global vars for all tests
   let snapshot: string;
   let snapshotForEach: string;

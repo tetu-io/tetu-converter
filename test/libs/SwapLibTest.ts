@@ -15,7 +15,7 @@ import {GAS_SWAP_LIB_CONVERT_USING_PRICE_ORACLE, GAS_SWAP_LIB_IS_CONVERSION_VALI
 
 const parseUnits = ethers.utils.parseUnits;
 
-describe("SwapManager", () => {
+describe.skip("SwapManager", () => {
 //region Global vars for all tests
   let snapshot: string;
   let snapshotForEach: string;

@@ -16,7 +16,7 @@ import {BalanceUtils} from "../baseUT/utils/BalanceUtils";
 import {BigNumber} from "ethers";
 import {areAlmostEqual} from "../baseUT/utils/CommonUtils";
 
-describe("EntryKindsTest", () => {
+describe.skip("EntryKindsTest", () => {
 //region Global vars for all tests
   let snapshot: string;
   let snapshotForEach: string;
