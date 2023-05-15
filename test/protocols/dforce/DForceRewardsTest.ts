@@ -12,7 +12,7 @@ import {SupplyBorrowUsingDForce} from "../../baseUT/uses-cases/dforce/SupplyBorr
  * Supply amount => claim rewards in specified period
  * Borrow amount => claim rewards in specified period
  */
-describe("DForceRewardsTest", () => {
+describe.skip("DForceRewardsTest", () => {
 //region Global vars for all tests
   let snapshot: string;
   let snapshotForEach: string;

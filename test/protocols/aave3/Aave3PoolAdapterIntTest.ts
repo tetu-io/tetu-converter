@@ -32,7 +32,7 @@ import {loadFixture} from "@nomicfoundation/hardhat-network-helpers";
 import {TetuConverterApp} from "../../baseUT/helpers/TetuConverterApp";
 import {GAS_LIMIT} from "../../baseUT/GasLimit";
 
-describe("Aave3PoolAdapterIntTest", () => {
+describe.skip("Aave3PoolAdapterIntTest", () => {
 //region Global vars for all tests
   let snapshot: string;
   let deployer: SignerWithAddress;

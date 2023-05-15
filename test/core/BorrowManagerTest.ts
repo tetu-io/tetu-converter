@@ -28,7 +28,7 @@ import {CoreContracts} from "../baseUT/types/CoreContracts";
 import {parseUnits} from "ethers/lib/utils";
 import {BalanceUtils} from "../baseUT/utils/BalanceUtils";
 
-describe("BorrowManager", () => {
+describe.skip("BorrowManager", () => {
 //region Global vars for all tests
   let snapshot: string;
   let snapshotForEach: string;

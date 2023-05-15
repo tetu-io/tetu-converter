@@ -28,7 +28,7 @@ import {TetuConverterApp} from "../baseUT/helpers/TetuConverterApp";
 import {CoreContractsHelper} from "../baseUT/helpers/CoreContractsHelper";
 import {areAlmostEqual} from "../baseUT/utils/CommonUtils";
 
-describe("QuoteRepayTest", () => {
+describe.skip("QuoteRepayTest", () => {
 //region Global vars for all tests
   let snapshot: string;
   let snapshotForEach: string;

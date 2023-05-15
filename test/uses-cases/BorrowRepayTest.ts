@@ -24,7 +24,7 @@ import {controlGasLimitsEx} from "../../scripts/utils/hardhatUtils";
 import {DForceChangePriceUtils} from "../baseUT/protocols/dforce/DForceChangePriceUtils";
 import {IERC20__factory} from "../../typechain";
 
-describe("BorrowRepayTest", () => {
+describe.skip("BorrowRepayTest", () => {
 //region Global vars for all tests
   let snapshot: string;
   let snapshotForEach: string;

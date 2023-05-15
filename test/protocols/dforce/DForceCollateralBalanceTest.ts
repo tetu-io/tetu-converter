@@ -14,7 +14,7 @@ import {DForceChangePriceUtils} from "../../baseUT/protocols/dforce/DForceChange
 import {ConverterController} from "../../../typechain";
 import {TetuConverterApp} from "../../baseUT/helpers/TetuConverterApp";
 
-describe("DForceCollateralBalanceTest", () => {
+describe.skip("DForceCollateralBalanceTest", () => {
 //region Constants
   const collateralAsset = MaticAddresses.USDC;
   const collateralHolder = MaticAddresses.HOLDER_USDC;

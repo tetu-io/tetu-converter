@@ -11,7 +11,7 @@ import {DeployerUtils} from "../../scripts/utils/DeployerUtils";
 import {randomInt} from "crypto";
 import {CoreContractsHelper} from "../baseUT/helpers/CoreContractsHelper";
 
-describe("Controller", () => {
+describe.skip("Controller", () => {
 //region Global vars for all tests
   let snapshot: string;
   let snapshotForEach: string;

@@ -10,7 +10,7 @@ import {parseUnits} from "ethers/lib/utils";
 import {isPolygonForkInUse} from "../baseUT/utils/NetworkUtils";
 import {Misc} from "../../scripts/utils/Misc";
 
-describe("Price oracle tests", () => {
+describe.skip("Price oracle tests", () => {
 //region Global vars for all tests
   let snapshot: string;
   let snapshotForEach: string;

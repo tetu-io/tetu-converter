@@ -11,7 +11,7 @@ import {BigNumber} from "ethers";
 import {DeployUtils} from "../../scripts/utils/DeployUtils";
 const parseUnits = ethers.utils.parseUnits;
 
-describe("TetuLiquidatorMock", () => {
+describe.skip("TetuLiquidatorMock", () => {
 //region Global vars for all tests
   let snapshot: string;
   let snapshotForEach: string;

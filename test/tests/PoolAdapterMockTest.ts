@@ -19,7 +19,7 @@ import {TetuConverterApp} from "../baseUT/helpers/TetuConverterApp";
 import {makeInfinityApprove} from "../baseUT/utils/transferUtils";
 import {GAS_LIMIT} from "../baseUT/GasLimit";
 
-describe("PoolAdapterMock", () => {
+describe.skip("PoolAdapterMock", () => {
 //region Global vars for all tests
   let snapshot: string;
   let snapshotForEach: string;

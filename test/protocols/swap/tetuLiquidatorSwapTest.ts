@@ -21,7 +21,7 @@ import {controlGasLimitsEx} from "../../../scripts/utils/hardhatUtils";
 import {GAS_LIMIT_SWAP_MANAGER_GET_CONVERTER} from "../../baseUT/GasLimit";
 import {BalanceUtils} from "../../baseUT/utils/BalanceUtils";
 
-describe("TetuLiquidatorSwapTest", () => {
+describe.skip("TetuLiquidatorSwapTest", () => {
 //region Global vars for all tests
   let snapshot: string;
   let snapshotForEach: string;

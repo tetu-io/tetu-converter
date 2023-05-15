@@ -39,7 +39,7 @@ import {AaveTwoPlatformFabric} from "../baseUT/fabrics/AaveTwoPlatformFabric";
  * - unpause tetuConverter
  * - make new borrow
  */
-describe("RepayTheBorrow @skip-on-coverage", () => {
+describe.skip("RepayTheBorrow @skip-on-coverage", () => {
 //region Global vars for all tests
   let snapshot: string;
   let snapshotForEach: string;

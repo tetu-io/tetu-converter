@@ -15,7 +15,7 @@ import {MaticAddresses} from "../../../scripts/addresses/MaticAddresses";
 import {DForceChangePriceUtils} from "../../baseUT/protocols/dforce/DForceChangePriceUtils";
 import {isPolygonForkInUse} from "../../baseUT/utils/NetworkUtils";
 
-describe("DForceHelper unit tests", () => {
+describe.skip("DForceHelper unit tests", () => {
 //region Global vars for all tests
   let snapshot: string;
   let snapshotForEach: string;

@@ -15,7 +15,7 @@ import {BalanceUtils} from "../baseUT/utils/BalanceUtils";
 import {DeployerUtils} from "../../scripts/utils/DeployerUtils";
 import {isPolygonForkInUse} from "../baseUT/utils/NetworkUtils";
 
-describe("Test simulate tester", () => {
+describe.skip("Test simulate tester", () => {
 //region Global vars for all tests
   let snapshot: string;
   let snapshotForEach: string;

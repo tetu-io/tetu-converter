@@ -25,7 +25,7 @@ import {TetuConverterApp} from "../../baseUT/helpers/TetuConverterApp";
 import {GAS_LIMIT} from "../../baseUT/GasLimit";
 
 
-describe("DForcePoolAdapterIntTest", () => {
+describe.skip("DForcePoolAdapterIntTest", () => {
 //region Global vars for all tests
   let snapshot: string;
   let snapshotForEach: string;

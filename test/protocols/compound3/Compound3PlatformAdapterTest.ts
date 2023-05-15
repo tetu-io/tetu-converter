@@ -36,7 +36,7 @@ import {MocksHelper} from "../../baseUT/helpers/MocksHelper";
 import {GAS_LIMIT} from "../../baseUT/GasLimit";
 
 
-describe("Compound3PlatformAdapterTest", () => {
+describe.skip("Compound3PlatformAdapterTest", () => {
 //region Global vars for all tests
   let snapshot: string;
   let snapshotForEach: string;

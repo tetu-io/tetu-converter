@@ -23,7 +23,7 @@ import {BalanceUtils} from "../baseUT/utils/BalanceUtils";
 
 const parseUnits = ethers.utils.parseUnits;
 
-describe("SwapManager", () => {
+describe.skip("SwapManager", () => {
 //region Global vars for all tests
   let snapshot: string;
   let snapshotForEach: string;

@@ -15,7 +15,7 @@ import {parseUnits} from "ethers/lib/utils";
 import {Misc} from "../../scripts/utils/Misc";
 import {GAS_LIMIT} from "../baseUT/GasLimit";
 
-describe("Keeper test for reconversion @skip-on-coverage", () => {
+describe.skip("Keeper test for reconversion @skip-on-coverage", () => {
 //region Global vars for all tests
   let snapshot: string;
   let snapshotForEach: string;

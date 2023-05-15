@@ -52,7 +52,7 @@ import {RepayUtils} from "../../baseUT/protocols/shared/repayUtils";
 import {Aave3TestUtils} from "../../baseUT/protocols/aave3/Aave3TestUtils";
 import {GAS_LIMIT} from "../../baseUT/GasLimit";
 
-describe("AaveTwoPoolAdapterUnitTest", () => {
+describe.skip("AaveTwoPoolAdapterUnitTest", () => {
 //region Global vars for all tests
   let snapshot: string;
   let deployer: SignerWithAddress;

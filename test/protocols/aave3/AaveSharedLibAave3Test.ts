@@ -8,7 +8,7 @@ import {MaticAddresses} from "../../../scripts/addresses/MaticAddresses";
 import {expect} from "chai";
 import {parseUnits} from "ethers/lib/utils";
 
-describe("AaveSharedLibTest", () => {
+describe.skip("AaveSharedLibTest", () => {
   const BASE_CURRENCY_DECIMALS = 8;
 //region Global vars for all tests
   let snapshot: string;

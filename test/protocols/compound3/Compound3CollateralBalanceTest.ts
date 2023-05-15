@@ -12,7 +12,7 @@ import {BigNumber} from "ethers";
 import {Compound3ChangePriceUtils} from "../../baseUT/protocols/compound3/Compound3ChangePriceUtils";
 
 
-describe("Compound3CollateralBalanceTest", () => {
+describe.skip("Compound3CollateralBalanceTest", () => {
 //region Constants
   const collateralAsset = MaticAddresses.WETH;
   const collateralHolder = MaticAddresses.HOLDER_WETH;

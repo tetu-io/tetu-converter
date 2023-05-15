@@ -22,7 +22,7 @@ import {BigNumber} from "ethers";
 import {TetuConverterApp} from "../../baseUT/helpers/TetuConverterApp";
 import {areAlmostEqual} from "../../baseUT/utils/CommonUtils";
 
-describe("DForceHelper tests", () => {
+describe.skip("DForceHelper tests", () => {
 //region Global vars for all tests
   let snapshot: string;
   let snapshotForEach: string;

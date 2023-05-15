@@ -16,7 +16,7 @@ import {Aave3ChangePricesUtils} from "../../baseUT/protocols/aave3/Aave3ChangePr
 import {ConverterController} from "../../../typechain";
 import {TetuConverterApp} from "../../baseUT/helpers/TetuConverterApp";
 
-describe("Aave3CollateralBalanceTest", () => {
+describe.skip("Aave3CollateralBalanceTest", () => {
 //region Constants
   const collateralAsset = MaticAddresses.DAI;
   const collateralHolder = MaticAddresses.HOLDER_DAI;

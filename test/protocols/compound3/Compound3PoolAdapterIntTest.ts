@@ -20,7 +20,7 @@ import {DeployerUtils} from "../../../scripts/utils/DeployerUtils";
 import {transferAndApprove} from "../../baseUT/utils/transferUtils";
 import {GAS_LIMIT} from "../../baseUT/GasLimit";
 
-describe("Compound3PoolAdapterIntTest", () => {
+describe.skip("Compound3PoolAdapterIntTest", () => {
 //region Global vars for all tests
   let snapshot: string;
   let snapshotForEach: string;

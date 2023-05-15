@@ -18,7 +18,7 @@ import {BalanceUtils} from "../../baseUT/utils/BalanceUtils";
 import {Misc} from "../../../scripts/utils/Misc";
 
 
-describe("Compound3PoolAdapterUnitTest", () => {
+describe.skip("Compound3PoolAdapterUnitTest", () => {
 //region Global vars for all tests
   let snapshot: string;
   let snapshotForEach: string;

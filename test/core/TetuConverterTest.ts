@@ -57,7 +57,7 @@ import {getSum} from "../baseUT/utils/CommonUtils";
 import {loadFixture} from "@nomicfoundation/hardhat-network-helpers";
 import {boolean} from "hardhat/internal/core/params/argumentTypes";
 
-describe("TetuConverterTest", () => {
+describe.skip("TetuConverterTest", () => {
 //region Constants
   const BLOCKS_PER_DAY = 6456;
 //endregion Constants

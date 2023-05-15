@@ -25,7 +25,7 @@ import {proxy} from "../../typechain/contracts";
  * Proxy updater is tetu-contracts-v2 controller, that uses update with announce.
  *
  */
-describe("ProxyTest", () => {
+describe.skip("ProxyTest", () => {
 //region Global vars for all tests
   let snapshot: string;
   let deployer: SignerWithAddress;

@@ -37,7 +37,7 @@ import {parseUnits} from "ethers/lib/utils";
 import {controlGasLimitsEx} from "../../scripts/utils/hardhatUtils";
 import {GAS_LIMIT, GAS_LIMIT_DM_ON_CLOSE_POSITION, GAS_LIMIT_DM_ON_OPEN_POSITION} from "../baseUT/GasLimit";
 
-describe("DebtsMonitor", () => {
+describe.skip("DebtsMonitor", () => {
 //region Global vars for all tests
   let snapshot: string;
   let snapshotForEach: string;

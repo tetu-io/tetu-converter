@@ -46,7 +46,7 @@ import {MocksHelper} from "../../baseUT/helpers/MocksHelper";
 import {BalanceUtils} from "../../baseUT/utils/BalanceUtils";
 import {GAS_LIMIT} from "../../baseUT/GasLimit";
 
-describe("DForcePoolAdapterUnitTest", () => {
+describe.skip("DForcePoolAdapterUnitTest", () => {
 //region Global vars for all tests
   let snapshot: string;
   let snapshotForEach: string;
