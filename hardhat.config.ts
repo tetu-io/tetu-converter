@@ -1,8 +1,8 @@
 import {config as dotEnvConfig} from "dotenv";
-import '@nomicfoundation/hardhat-chai-matchers';
-import '@nomiclabs/hardhat-ethers';
-import '@nomiclabs/hardhat-etherscan';
-import '@nomiclabs/hardhat-web3';
+import "@nomicfoundation/hardhat-chai-matchers";
+import "@nomiclabs/hardhat-ethers";
+import "@nomiclabs/hardhat-etherscan";
+import "@nomiclabs/hardhat-web3";
 import "@nomiclabs/hardhat-solhint";
 // import '@openzeppelin/hardhat-upgrades';
 import "@typechain/hardhat";
@@ -15,29 +15,34 @@ import "solidity-coverage"
 import "hardhat-abi-exporter"
 
 dotEnvConfig();
+
 // tslint:disable-next-line:no-var-requires
 const argv = require('yargs/yargs')()
-  .env('TETU')
-  .options({
+    .env('TETU')
+    .options({
     hardhatChainId: {
-      type: "number",
-      default: 137
+      type: 'number',
+      default: 137,
     },
     maticRpcUrl: {
-      type: "string",
+      type: 'string',
     },
     networkScanKey: {
-      type: "string",
+      type: 'string',
     },
     privateKey: {
-      type: "string",
-      default: "85bb5fa78d5c4ed1fde856e9d0d1fe19973d7a79ce9ed6c0358ee06a4550504e" // random account
+      type: 'string',
+      default: '85bb5fa78d5c4ed1fde856e9d0d1fe19973d7a79ce9ed6c0358ee06a4550504e', // random account
     },
     maticForkBlock: {
-      type: "number",
-      default: 42725699
+      type: 'number',
+      default: 42618407,
     },
-  }).argv;
+    hardhatLogsEnabled: {
+      type: 'boolean',
+      default: false,
+    },
+}).argv;
 
 export default {
   defaultNetwork: "hardhat",
@@ -46,61 +51,83 @@ export default {
       allowUnlimitedContractSize: true,
       chainId: argv.hardhatChainId,
       timeout: 99999999,
-      gas: argv.hardhatChainId === 137 ? 19_000_000 : 9_000_000,
-      forking: {
-        url: argv.hardhatChainId === 137 ? argv.maticRpcUrl : undefined,
-        blockNumber: argv.hardhatChainId === 137 ? argv.maticForkBlock !== 0 ? argv.maticForkBlock : undefined : undefined
-      },
+      blockGasLimit: 0x1fffffffffffff,
+      gas: argv.hardhatChainId === 1 ? 19_000_000 :
+        argv.hardhatChainId === 137 ? 19_000_000 :
+          9_000_000,
+      forking: argv.hardhatChainId !== 31337 ? {
+        url:
+          argv.hardhatChainId === 1 ? argv.ethRpcUrl :
+            argv.hardhatChainId === 137 ? argv.maticRpcUrl :
+              undefined,
+        blockNumber:
+          argv.hardhatChainId === 1 ? argv.ethForkBlock !== 0 ? argv.ethForkBlock : undefined :
+            argv.hardhatChainId === 137 ? argv.maticForkBlock !== 0 ? argv.maticForkBlock : undefined :
+              undefined,
+      } : undefined,
       accounts: {
-        mnemonic: "test test test test test test test test test test test junk",
-        path: "m/44'/60'/0'/0",
-        accountsBalance: "100000000000000000000000000000"
+        mnemonic: 'test test test test test test test test test test test junk',
+        path: 'm/44\'/60\'/0\'/0',
+        accountsBalance: '100000000000000000000000000000',
       },
-      // loggingEnabled: true,
+      loggingEnabled: argv.hardhatLogsEnabled,
     },
     matic: {
-      url: argv.maticRpcUrl,
+      url: argv.maticRpcUrl || '',
       timeout: 99999,
       chainId: 137,
-      // gas: 12_000_000,
+      gas: 12_000_000,
       // gasPrice: 50_000_000_000,
       // gasMultiplier: 1.3,
+      accounts: [argv.privateKey],
+    },
+    eth: {
+      url: argv.ethRpcUrl || '',
+      chainId: 1,
+      accounts: [argv.privateKey],
+    },
+    sepolia: {
+      url: argv.sepoliaRpcUrl || '',
+      chainId: 11155111,
+      // gas: 50_000_000_000,
       accounts: [argv.privateKey],
     },
   },
   etherscan: {
     //  https://hardhat.org/plugins/nomiclabs-hardhat-etherscan.html#multiple-api-keys-and-alternative-block-explorers
     apiKey: {
-      polygon: argv.networkScanKey,
+      mainnet: argv.networkScanKey,
+      goerli: argv.networkScanKey,
+      sepolia: argv.networkScanKey,
+      polygon: argv.networkScanKeyMatic || argv.networkScanKey,
     },
+  },
+  verify: {
+    etherscan: {
+      apiKey: argv.networkScanKey
+    }
   },
   solidity: {
     compilers: [
       {
-        version: "0.8.4",
+        version: '0.8.17',
         settings: {
           optimizer: {
             enabled: true,
             runs: 150,
-          }
-        }
+          },
+        },
       },
-    ]
+    ],
   },
   paths: {
-    sources: "./contracts",
-    tests: "./test",
-    cache: "./cache",
-    artifacts: "./artifacts"
+    sources: './contracts',
+    tests: './test',
+    cache: './cache',
+    artifacts: './artifacts',
   },
   mocha: {
-    timeout: 9999999999
-  },
-  docgen: {
-    path: './docs',
-    clear: true,
-    runOnCompile: false,
-    except: ['contracts/third_party', 'contracts/test']
+    timeout: 9999999999,
   },
   contractSizer: {
     alphaSort: false,
@@ -110,10 +137,10 @@ export default {
   gasReporter: {
     enabled: false,
     currency: 'USD',
-    gasPrice: 21
+    gasPrice: 21,
   },
   typechain: {
-    outDir: "typechain",
+    outDir: 'typechain',
   },
   abiExporter: {
     path: './artifacts/abi',
