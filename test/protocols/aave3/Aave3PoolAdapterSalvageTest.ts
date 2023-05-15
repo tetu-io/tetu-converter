@@ -133,8 +133,8 @@ describe("Aave3PoolAdapterUnitTest", () => {
     describe("Good paths", () => {
       it("should salvage collateral asset", async () => {
         const controller = await TetuConverterApp.createController(deployer);
-        const collateralToken = await TokenDataTypes.Build(deployer, MaticAddresses.USDC);
-        const borrowToken = await TokenDataTypes.Build(deployer, MaticAddresses.USDT);
+        // const collateralToken = await TokenDataTypes.Build(deployer, MaticAddresses.USDC);
+        // const borrowToken = await TokenDataTypes.Build(deployer, MaticAddresses.USDT);
         // const init = await Aave3TestUtils.prepareToBorrow(
         //   deployer,
         //   controller,
