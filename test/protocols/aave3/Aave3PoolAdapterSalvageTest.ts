@@ -135,15 +135,15 @@ describe("Aave3PoolAdapterUnitTest", () => {
         const controller = await loadFixture(createControllerDefaultFixture);
         const collateralToken = await TokenDataTypes.Build(deployer, MaticAddresses.USDC);
         const borrowToken = await TokenDataTypes.Build(deployer, MaticAddresses.USDT);
-        const init = await Aave3TestUtils.prepareToBorrow(
-          deployer,
-          controller,
-          collateralToken,
-          [MaticAddresses.HOLDER_USDC],
-          parseUnits("1", collateralToken.decimals),
-          borrowToken,
-          false,
-        );
+        // const init = await Aave3TestUtils.prepareToBorrow(
+        //   deployer,
+        //   controller,
+        //   collateralToken,
+        //   [MaticAddresses.HOLDER_USDC],
+        //   parseUnits("1", collateralToken.decimals),
+        //   borrowToken,
+        //   false,
+        // );
         // expect(await salvageToken(p, MaticAddresses.USDC, MaticAddresses.HOLDER_USDC, "800")).eq(800);
       });
       it.skip("should salvage borrow asset", async () => {
