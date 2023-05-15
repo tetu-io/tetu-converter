@@ -147,6 +147,5 @@ export default {
     runOnCompile: false,
     spacing: 2,
     pretty: true,
-  },
-  namedAccounts: deployAddresses,
+  }
 };
