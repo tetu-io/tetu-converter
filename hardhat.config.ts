@@ -20,89 +20,55 @@ dotEnvConfig();
 const argv = require('yargs/yargs')()
     .env('APP')
     .options({
-      hardhatChainId: {
-        type: "number",
-        default: 137
-      },
-      maticRpcUrl: {
-        type: "string",
-        default: ''
-      },
-      mumbaiRpcUrl: {
-        type: "string",
-        default: ''
-      },
-      ethRpcUrl: {
-        type: "string",
-        default: ''
-      },
-      ftmRpcUrl: {
-        type: "string",
-        default: ''
-      },
-      fujiRpcUrl: {
-        type: "string",
-        default: 'https://api.avax-test.network/ext/bc/C/rpc'
-      },
-      networkScanKey: {
-        type: "string",
-        default: ''
-      },
-      networkScanKeyRinkeby: {
-        type: "string",
-      },
-      privateKey: {
-        type: "string",
-        default: "b55c9fcc2c60993e5c539f37ffd27d2058e7f77014823b461323db5eba817518" // random account
-      },
-      maticForkBlock: {
-        type: "number",
-				default: 42637749,
-      },
-      mumbaiForkBlock: {
-        type: "number",
-      },
-      ftmForkBlock: {
-        type: "number",
-      },
-      rinkebyForkBlock: {
-        type: "number",
-      },
-      networkScanKeyAvalanche: {
-        type: "string",
-      },
-      hardhatLogsEnabled: {
-        type: 'boolean',
-        default: false,
-      }
-	  }).argv;
+    hardhatChainId: {
+      type: 'number',
+      default: 137,
+    },
+    maticRpcUrl: {
+      type: 'string',
+    },
+    networkScanKey: {
+      type: 'string',
+    },
+    privateKey: {
+      type: 'string',
+      default: '85bb5fa78d5c4ed1fde856e9d0d1fe19973d7a79ce9ed6c0358ee06a4550504e', // random account
+    },
+    maticForkBlock: {
+      type: 'number',
+      default: 42618407,
+    },
+    hardhatLogsEnabled: {
+      type: 'boolean',
+      default: false,
+    },
+}).argv;
 
 export default {
   defaultNetwork: "hardhat",
   networks: {
     hardhat: {
       allowUnlimitedContractSize: true,
-      chainId: !!argv.hardhatChainId ? argv.hardhatChainId : undefined,
-      timeout: 99999 * 2,
-      gas: argv.hardhatChainId === 137 ? 19_000_000 :
-          argv.hardhatChainId === 80001 ? 19_000_000 :
-              undefined,
-      forking: argv.hardhatChainId !== 31337 && argv.hardhatChainId !== 1337  ? {
+      chainId: argv.hardhatChainId,
+      timeout: 99999999,
+      blockGasLimit: 0x1fffffffffffff,
+      gas: argv.hardhatChainId === 1 ? 19_000_000 :
+        argv.hardhatChainId === 137 ? 19_000_000 :
+          9_000_000,
+      forking: argv.hardhatChainId !== 31337 ? {
         url:
           argv.hardhatChainId === 1 ? argv.ethRpcUrl :
             argv.hardhatChainId === 137 ? argv.maticRpcUrl :
-              argv.hardhatChainId === 250 ? argv.ftmRpcUrl :
-                undefined,
+              undefined,
         blockNumber:
           argv.hardhatChainId === 1 ? argv.ethForkBlock !== 0 ? argv.ethForkBlock : undefined :
             argv.hardhatChainId === 137 ? argv.maticForkBlock !== 0 ? argv.maticForkBlock : undefined :
-              argv.hardhatChainId === 250 ? argv.ftmForkBlock !== 0 ? argv.ftmForkBlock : undefined :
-                undefined
+              undefined,
       } : undefined,
       accounts: {
-        mnemonic: "test test test test test test test test test test test junk",
-        path: "m/44'/60'/0'/0",
-        accountsBalance: "100000000000000000000000000000"
+        mnemonic: 'test test test test test test test test test test test junk',
+        path: 'm/44\'/60\'/0\'/0',
+        accountsBalance: '100000000000000000000000000000',
       },
       loggingEnabled: argv.hardhatLogsEnabled,
     },
@@ -110,34 +76,13 @@ export default {
       url: argv.maticRpcUrl || '',
       timeout: 99999,
       chainId: 137,
-      // gas: 19_000_000,
-      // gasPrice: 100_000_000_000,
-      gasMultiplier: 1.3,
-      accounts: [argv.privateKey],
-    },
-    mumbai: {
-      url: argv.mumbaiRpcUrl || '',
-      chainId: 80001,
-      timeout: 99999,
-      // gasPrice: 100_000_000_000,
-      accounts: [argv.privateKey],
-    },
-    ftm: {
-      url: argv.ftmRpcUrl || '',
-      chainId: 250,
-      timeout: 99999,
-      accounts: [argv.privateKey],
-    },
-    rinkeby: {
-      url: argv.rinkebyRpcUrl || '',
-      timeout: 99999,
-      chainId: 4,
-      accounts: [argv.privateKey],
-    },
-    fuji: { // Avalanche FUJI C-Chain, see https://docs.avax.network/dapps/launch-your-ethereum-dapp
-      url: argv.fujiRpcUrl || '',
-      // timeout: 99999,
-      chainId: 43113,
+      gas: 12_000_000,
+      // gasPrice: 50_000_000_000,
+      // gasMultiplier: 1.3,    
+		},
+    eth: {
+      url: argv.ethRpcUrl || '',
+      chainId: 1,
       accounts: [argv.privateKey],
     },
     localhost: {
@@ -147,9 +92,9 @@ export default {
   etherscan: {
     apiKey: {
       mainnet: argv.networkScanKey,
+      goerli: argv.networkScanKey,
+      sepolia: argv.networkScanKey,
       polygon: argv.networkScanKeyMatic || argv.networkScanKey,
-      rinkeby: argv.networkScanKeyRinkeby || argv.networkScanKey,
-      avalancheFujiTestnet: argv.networkScanKeyFuji || argv.networkScanKey
     },
 
   },
@@ -176,7 +121,7 @@ export default {
     timeout: 9999999999
   },
   contractSizer: {
-    alphaSort: true,
+    alphaSort: false,
     disambiguatePaths: false,
     runOnCompile: false,
     strict: true,
@@ -184,7 +129,7 @@ export default {
     ]
   },
   gasReporter: {
-    enabled: true,
+    enabled: false,
     currency: 'USD',
     gasPrice: 21,
     outputFile: "./gasreport.txt",
