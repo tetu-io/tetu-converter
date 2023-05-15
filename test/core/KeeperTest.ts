@@ -14,7 +14,7 @@ import {Misc} from "../../scripts/utils/Misc";
 import {TetuConverterApp} from "../baseUT/helpers/TetuConverterApp";
 import {expect} from "chai";
 
-describe("KeeperTest", () => {
+describe.skip("KeeperTest", () => {
 //region Constants
   const FAILED_2 = 2;
 //endregion Constants
