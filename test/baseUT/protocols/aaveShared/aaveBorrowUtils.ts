@@ -36,6 +36,7 @@ export interface IMakeRepayBadPathsParams {
   usePoolMock?: boolean;
   grabAllBorrowAssetFromSenderOnRepay?: boolean;
   collateralPriceIsZero?: boolean;
+  borrowPriceIsZero?: boolean;
   ignoreRepay?: boolean;
   ignoreWithdraw?: boolean;
 }
