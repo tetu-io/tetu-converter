@@ -3,9 +3,16 @@ import {anyValue } from "@nomicfoundation/hardhat-chai-matchers/withArgs";
 import {ethers} from "hardhat";
 import {expect} from "chai";
 import {
-  BorrowManager, BorrowManager__factory, ConverterController, ConverterController__factory, IBorrowManager__factory,
+  BorrowManager,
+  BorrowManager__factory,
+  ConverterController,
+  ConverterController__factory,
+  DebtMonitor__factory,
+  IBorrowManager__factory,
   IPoolAdapter,
-  IPoolAdapter__factory, ITetuConverter__factory, LendingPlatformMock__factory
+  IPoolAdapter__factory,
+  ITetuConverter__factory,
+  LendingPlatformMock__factory
 } from "../../typechain";
 import {TimeUtils} from "../../scripts/utils/TimeUtils";
 import {BigNumber} from "ethers";
@@ -23,7 +30,7 @@ import {generateAssetPairs, getAssetPair, IAssetPair} from "../baseUT/utils/Asse
 import {Misc} from "../../scripts/utils/Misc";
 import {DeployerUtils} from "../../scripts/utils/DeployerUtils";
 import {getExpectedApr18} from "../baseUT/apr/aprUtils";
-import {IDeployInitFabricsSet, TetuConverterApp} from "../baseUT/helpers/TetuConverterApp";
+import {TetuConverterApp} from "../baseUT/helpers/TetuConverterApp";
 import {CoreContracts} from "../baseUT/types/CoreContracts";
 import {parseUnits} from "ethers/lib/utils";
 import {BalanceUtils} from "../baseUT/utils/BalanceUtils";
@@ -530,17 +537,9 @@ describe("BorrowManager", () => {
         }
       );
       if (p?.useSecondInitialization) {
-        await controller.init(
-          await controller.proxyUpdater(),
-          await controller.governance(),
-          await controller.tetuConverter(),
-          await controller.borrowManager(),
-          await controller.debtMonitor(),
-          await controller.keeper(),
-          await controller.swapManager(),
-          await controller.priceOracle(),
-          await controller.tetuLiquidator(),
-          await controller.blocksPerDay()
+        await BorrowManager__factory.connect(await controller.debtMonitor(), signer).init(
+          controller.address,
+          p?.rewardFactor || parseUnits("0.9")
         );
       }
       return BorrowManager__factory.connect(await controller.borrowManager(), signer);
