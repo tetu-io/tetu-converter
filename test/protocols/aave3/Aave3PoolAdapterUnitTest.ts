@@ -280,6 +280,15 @@ describe("Aave3PoolAdapterUnitTest", () => {
       setPriceOracleMock?: boolean;
 
       poolAdapterBorrowBalance?: string;
+
+      setUserAccountData?: {
+        totalCollateralBase: BigNumber;
+        totalDebtBase: BigNumber;
+        availableBorrowsBase: BigNumber;
+        currentLiquidationThreshold: BigNumber;
+        ltv: BigNumber;
+        healthFactor: BigNumber;
+      }
     }
 
     async function makeRepay(
@@ -329,6 +338,16 @@ describe("Aave3PoolAdapterUnitTest", () => {
         }
         if (p?.ignoreWithdraw) {
           await Aave3PoolMock__factory.connect(init.aavePool.address, deployer).setIgnoreWithdraw();
+        }
+        if (p?.setUserAccountData) {
+          await Aave3PoolMock__factory.connect(init.aavePool.address, deployer).setUserAccountData(
+            p.setUserAccountData.totalCollateralBase,
+            p.setUserAccountData.totalDebtBase,
+            p.setUserAccountData.availableBorrowsBase,
+            p.setUserAccountData.currentLiquidationThreshold,
+            p.setUserAccountData.ltv,
+            p.setUserAccountData.healthFactor
+          )
         }
       }
       const borrowResults = await Aave3TestUtils.makeBorrow(deployer, init, undefined);
@@ -840,7 +859,15 @@ describe("Aave3PoolAdapterUnitTest", () => {
             usePoolMock: true,
             setPriceOracleMock: true,
             borrowPriceIsZero: true,
-            amountToRepayStr: "1" // we need partial-repay mode in this test to avoid calling getStatus in makeRepayComplete
+            amountToRepayStr: "1", // we need partial-repay mode in this test to avoid calling getStatus in makeRepayComplete
+            setUserAccountData: {
+              totalCollateralBase: parseUnits("2", 18),
+              totalDebtBase: parseUnits("2", 18),
+              currentLiquidationThreshold: parseUnits("2", 4),
+              ltv: parseUnits("2", 4),
+              healthFactor: parseUnits("2", 18),
+              availableBorrowsBase: parseUnits("2", 18),
+            }
           })
         ).revertedWith("TC-4 zero price"); // ZERO_PRICE
       });

@@ -537,7 +537,7 @@ describe("BorrowManager", () => {
         }
       );
       if (p?.useSecondInitialization) {
-        await BorrowManager__factory.connect(await controller.debtMonitor(), signer).init(
+        await BorrowManager__factory.connect(await controller.borrowManager(), signer).init(
           controller.address,
           p?.rewardFactor || parseUnits("0.9")
         );
