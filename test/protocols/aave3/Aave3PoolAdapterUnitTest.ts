@@ -304,7 +304,7 @@ describe("Aave3PoolAdapterUnitTest", () => {
       }
       const collateralToken = await TokenDataTypes.Build(deployer, collateralAsset);
       const borrowToken = await TokenDataTypes.Build(deployer, borrowAsset);
-      const controller = await loadFixture(createControllerDefaultFixture);
+      const controller = await createControllerDefaultFixture();
 
       const init = await Aave3TestUtils.prepareToBorrow(
         deployer,
