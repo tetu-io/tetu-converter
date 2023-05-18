@@ -13,6 +13,16 @@ import "hardhat/console.sol";
 contract Aave3PoolMock is IAavePool {
   using SafeERC20 for IERC20;
 
+  struct UserAccountData {
+    bool initialized;
+    uint256 totalCollateralBase;
+    uint256 totalDebtBase;
+    uint256 availableBorrowsBase;
+    uint256 currentLiquidationThreshold;
+    uint256 ltv;
+    uint256 healthFactor;
+  }
+
   IAavePool public aavePool;
   bool public ignoreSupply;
   bool public ignoreRepay;
@@ -20,6 +30,8 @@ contract Aave3PoolMock is IAavePool {
   bool public ignoreBorrow;
   bool public skipSendingATokens;
   bool public grabAllBorrowAssetFromSenderOnRepay;
+  UserAccountData internal userAccountData;
+
 
   constructor (
     address aavePool_,
@@ -52,6 +64,24 @@ contract Aave3PoolMock is IAavePool {
   }
   function setGrabAllBorrowAssetFromSenderOnRepay() external {
     grabAllBorrowAssetFromSenderOnRepay = true;
+  }
+  function setUserAccountData(
+    uint256 totalCollateralBase,
+    uint256 totalDebtBase,
+    uint256 availableBorrowsBase,
+    uint256 currentLiquidationThreshold,
+    uint256 ltv,
+    uint256 healthFactor
+  ) external {
+    userAccountData = UserAccountData({
+      initialized: true,
+      totalCollateralBase: totalCollateralBase,
+      totalDebtBase: totalDebtBase,
+      availableBorrowsBase: availableBorrowsBase,
+      currentLiquidationThreshold: currentLiquidationThreshold,
+      ltv: ltv,
+      healthFactor: healthFactor
+    });
   }
 
   //-----------------------------------------------------//////////
@@ -113,11 +143,22 @@ contract Aave3PoolMock is IAavePool {
     uint256 ltv,
     uint256 healthFactor
   ) {
-    return aavePool.getUserAccountData(
-      user == msg.sender
-        ? address(this)
-        : user
-    );
+    if (userAccountData.initialized) {
+      return (
+        userAccountData.totalCollateralBase,
+        userAccountData.totalDebtBase,
+        userAccountData.availableBorrowsBase,
+        userAccountData.currentLiquidationThreshold,
+        userAccountData.ltv,
+        userAccountData.healthFactor
+      );
+    } else {
+      return aavePool.getUserAccountData(
+        user == msg.sender
+          ? address(this)
+          : user
+      );
+    }
   }
 
   function getUserConfiguration(address user) external view override returns (Aave3DataTypes.ReserveConfigurationMap memory) {

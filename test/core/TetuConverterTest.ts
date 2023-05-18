@@ -5384,6 +5384,56 @@ describe("TetuConverterTest", () => {
           expect(ret).eq(expected);
         });
       });
+      describe("Full repaid amount is returned back to user as unused debt gap", () => {
+        /**
+         * This tests is going to improve coverage of repayTheBorrow.
+         * It covers following branch:
+         *
+         *  repaidAmountOut = repaidAmountOut > amounts[0]
+         *    ? repaidAmountOut - amounts[0]
+         *    : 0 // (!) this one
+         */
+        it("should return expected values", async () => {
+          const collateralAsset = await MocksHelper.createMockedCToken(deployer, 8);
+          const borrowAsset = await MocksHelper.createMockedCToken(deployer, 11);
+
+          const r = await makeRepayTheBorrowTest({
+            collateralAsset,
+            borrowAsset,
+            tetuConverterCallback: {
+              amount: "50",
+              amountOut: "50",
+              amountToSend: "50"
+            },
+            repayParams: {
+              closePosition: true,
+              borrowAmountSendToReceiver: "50",
+              collateralAmountSendToReceiver: "0",
+              amountToRepay: "50"
+            },
+            statusParams: {
+              collateralAmount: "100",
+              amountToPay: "50",
+              opened: true,
+              collateralAmountLiquidated: "0",
+              healthFactor18: "2"
+            }
+          });
+          const ret = [
+            r.collateralAmountOut,
+            r.repaidAmountOut,
+            r.balanceUserAfterRepay.collateral,
+            r.balanceUserAfterRepay.borrow
+          ].join();
+          const expected = [
+            0,
+            0,
+            0,
+            50
+          ].join();
+          expect(ret).eq(expected);
+        });
+      });
     });
     describe("Bad paths", () => {
       it("should revert if try to close position with not enough amount", async () => {

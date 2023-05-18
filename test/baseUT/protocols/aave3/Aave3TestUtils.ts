@@ -226,7 +226,6 @@ export class Aave3TestUtils {
       userContract.address
     );
     console.log(`Put collateral=${collateralAmount} on user balance`);
-
     if (additionalParams?.borrowHolders) {
       // get max allowed amount to supply
       const reversePlan: IConversionPlan = await aavePlatformAdapter.getConversionPlan(
@@ -352,6 +351,7 @@ export class Aave3TestUtils {
     badPathsParams?: IMakeBorrowOrRepayBadPathsParams
   ) : Promise<IMakeRepayResults>{
     if (amountToRepay) {
+      console.log("Make partial repay");
       // partial repay
       const tetuConverter = await d.controller.tetuConverter();
       const poolAdapterAsCaller = d.aavePoolAdapterAsTC.connect(await DeployerUtils.startImpersonate(tetuConverter));
