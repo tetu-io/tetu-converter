@@ -1,21 +1,18 @@
 import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
 import {TimeUtils} from "../../../scripts/utils/TimeUtils";
 import {ethers} from "hardhat";
-import {AaveSharedLibFacade, IAavePriceOracle, IERC20__factory, IERC20Metadata__factory} from "../../../typechain";
-import {MocksHelper} from "../../baseUT/helpers/MocksHelper";
+import {Aave3AprLibFacade, IAavePriceOracle} from "../../../typechain";
 import {Aave3Helper} from "../../../scripts/integration/helpers/Aave3Helper";
-import {MaticAddresses} from "../../../scripts/addresses/MaticAddresses";
+import {MocksHelper} from "../../baseUT/helpers/MocksHelper";
+import {Misc} from "../../../scripts/utils/Misc";
 import {expect} from "chai";
-import {parseUnits} from "ethers/lib/utils";
 
-describe.skip("AaveSharedLibTest", () => {
-  const BASE_CURRENCY_DECIMALS = 8;
+describe("AaveSharedLibTest", () => {
 //region Global vars for all tests
   let snapshot: string;
   let snapshotForEach: string;
   let deployer: SignerWithAddress;
-  let facade: AaveSharedLibFacade;
-  let priceOracle: IAavePriceOracle;
+  let facade: Aave3AprLibFacade;
 //endregion Global vars for all tests
 
 //region before, after
@@ -24,8 +21,7 @@ describe.skip("AaveSharedLibTest", () => {
     snapshot = await TimeUtils.snapshot();
     const signers = await ethers.getSigners();
     deployer = signers[0];
-    // facade = await MocksHelper.getAaveSharedLibFacade(deployer);
-    priceOracle = await Aave3Helper.getAavePriceOracle(deployer);
+    facade = await MocksHelper.getAave3AprLibFacade(deployer);
   });
 
   after(async function () {
@@ -42,7 +38,22 @@ describe.skip("AaveSharedLibTest", () => {
 //endregion before, after
 
 //region Unit tests
-
+  describe("getCostForPeriodAfter", () => {
+    describe("Bad paths", () => {
+      it("reserveNormalizedAfterPeriod < reserveNormalized (edge case, improve coverage)", async () => {
+        const cost = await facade.getCostForPeriodAfter(
+          1,
+          Misc.MAX_UINT, // > 1
+          0,
+          0,
+          1,
+          1,
+          0
+        );
+        expect(cost.eq(0)).eq(true);
+      });
+    });
+  });
 
 //endregion Unit tests
 });
