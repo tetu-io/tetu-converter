@@ -31,6 +31,7 @@ import {AaveTwoChangePricesUtils} from "../../baseUT/protocols/aaveTwo/AaveTwoCh
 import {controlGasLimitsEx} from "../../../scripts/utils/hardhatUtils";
 import {GAS_LIMIT, GAS_LIMIT_AAVE_TWO_GET_CONVERSION_PLAN} from "../../baseUT/GasLimit";
 import {AppConstants} from "../../baseUT/AppConstants";
+import {AaveTwoTestUtils} from "../../baseUT/protocols/aaveTwo/AaveTwoTestUtils";
 
 describe("AaveTwoPlatformAdapterTest", () => {
 //region Global vars for all tests
@@ -814,6 +815,95 @@ describe("AaveTwoPlatformAdapterTest", () => {
           expect(r.plan.converter).eq(Misc.ZERO_ADDRESS);
           expect(r.plan.collateralAmount.eq(0)).eq(true);
           expect(r.plan.amountToBorrow.eq(0)).eq(true);
+        });
+      });
+
+      describe("Result collateralAmount == 0, amountToBorrow != 0 (edge case, improve coverage)", () => {
+        it("should return zero plan", async () => {
+          if (!await isPolygonForkInUse()) return;
+
+          const collateralAsset = MaticAddresses.USDC;
+          const borrowAsset = MaticAddresses.USDT;
+          const collateralAmount = parseUnits("1", 6);
+
+          const r0 = await preparePlan(
+            collateralAsset,
+            collateralAmount,
+            borrowAsset,
+            10,
+            undefined,
+            defaultAbiCoder.encode(["uint256"], [2])
+          );
+
+          // change prices: make priceCollateral very high, priceBorrow very low
+          // as result, exactBorrowOutForMinCollateralIn will return amountToCollateralOut = 0,
+          // and we should hit second condition in borrow-validation section:
+          //    plan.amountToBorrow == 0 || plan.collateralAmount == 0
+
+          const priceOracle = await AaveTwoChangePricesUtils.setupPriceOracleMock(deployer);
+          await priceOracle.setPrices(
+            [MaticAddresses.USDC, MaticAddresses.USDT],
+            [parseUnits("1", 15), parseUnits("1", 5)]
+          );
+
+          const r1 = await preparePlan(
+            collateralAsset,
+            collateralAmount,
+            borrowAsset,
+            10,
+            undefined,
+            defaultAbiCoder.encode(["uint256"], [2])
+          );
+
+          // first plan is successful
+          expect(r0.plan.converter).not.eq(Misc.ZERO_ADDRESS);
+          expect(r0.plan.collateralAmount.eq(0)).not.eq(true);
+          expect(r0.plan.amountToBorrow.eq(0)).not.eq(true);
+
+          // the plan created after changing the prices is not successful
+          expect(r1.plan.converter).eq(Misc.ZERO_ADDRESS);
+          expect(r1.plan.collateralAmount.eq(0)).eq(true);
+          expect(r1.plan.amountToBorrow.eq(0)).eq(true);
+        });
+      });
+
+      describe.skip("TODO: Zero available liquidity (edge case, improve coverage)", () => {
+        it("should return zero plan", async () => {
+          if (!await isPolygonForkInUse()) return;
+
+          const collateralAsset = MaticAddresses.USDC;
+          const borrowAsset = MaticAddresses.USDT;
+          const collateralAmount = parseUnits("1", 6);
+
+          // how much we should borrow to move available liquidity to zero
+          const r0 = await preparePlan(
+            collateralAsset,
+            Misc.MAX_UINT,
+            borrowAsset,
+            10,
+            undefined,
+            defaultAbiCoder.encode(["uint256"], [2])
+          );
+
+          // todo
+          const r1 = await preparePlan(
+            collateralAsset,
+            collateralAmount,
+            borrowAsset,
+            10,
+            undefined,
+            defaultAbiCoder.encode(["uint256"], [2])
+          );
+
+          // first plan is successful
+          expect(r0.plan.converter).not.eq(Misc.ZERO_ADDRESS);
+          expect(r0.plan.collateralAmount.eq(0)).not.eq(true);
+          expect(r0.plan.amountToBorrow.eq(0)).not.eq(true);
+
+          // the plan created after changing the prices is not successful
+          expect(r1.plan.converter).eq(Misc.ZERO_ADDRESS);
+          expect(r1.plan.collateralAmount.eq(0)).eq(true);
+          expect(r1.plan.amountToBorrow.eq(0)).eq(true);
         });
       });
     });

@@ -1040,6 +1040,96 @@ describe("Aave3PlatformAdapterTest", () => {
           expect(r.plan.amountToBorrow.eq(0)).eq(true);
         });
       });
+
+      describe("Result collateralAmount == 0, amountToBorrow != 0 (edge case, improve coverage)", () => {
+        it("should return zero plan", async () => {
+          if (!await isPolygonForkInUse()) return;
+
+          const collateralAsset = MaticAddresses.USDC;
+          const borrowAsset = MaticAddresses.USDT;
+          const collateralAmount = parseUnits("1", 6);
+
+          const r0 = await preparePlan(
+            collateralAsset,
+            collateralAmount,
+            borrowAsset,
+            10,
+            undefined,
+            defaultAbiCoder.encode(["uint256"], [2])
+          );
+
+          // change prices: make priceCollateral very high, priceBorrow very low
+          // as result, exactBorrowOutForMinCollateralIn will return amountToCollateralOut = 0,
+          // and we should hit second condition in borrow-validation section:
+          //    plan.amountToBorrow == 0 || plan.collateralAmount == 0
+
+          const priceOracle = await Aave3ChangePricesUtils.setupPriceOracleMock(deployer);
+          await priceOracle.setPrices(
+            [MaticAddresses.USDC, MaticAddresses.USDT],
+            [parseUnits("1", 15), parseUnits("1", 5)]
+          );
+
+          const r1 = await preparePlan(
+            collateralAsset,
+            collateralAmount,
+            borrowAsset,
+            10,
+            undefined,
+            defaultAbiCoder.encode(["uint256"], [2])
+          );
+
+          // first plan is successful
+          expect(r0.plan.converter).not.eq(Misc.ZERO_ADDRESS);
+          expect(r0.plan.collateralAmount.eq(0)).not.eq(true);
+          expect(r0.plan.amountToBorrow.eq(0)).not.eq(true);
+
+          // the plan created after changing the prices is not successful
+          expect(r1.plan.converter).eq(Misc.ZERO_ADDRESS);
+          expect(r1.plan.collateralAmount.eq(0)).eq(true);
+          expect(r1.plan.amountToBorrow.eq(0)).eq(true);
+        });
+      });
+
+      describe("supplyCap < totalSupply (edge case, improve coverage)", () => {
+        it("should return zero plan", async () => {
+          if (!await isPolygonForkInUse()) return;
+
+          const collateralAsset = MaticAddresses.USDC;
+          const borrowAsset = MaticAddresses.USDT;
+          const collateralAmount = parseUnits("1", 6);
+
+          const r0 = await preparePlan(
+            collateralAsset,
+            collateralAmount,
+            borrowAsset,
+            10,
+            undefined,
+            defaultAbiCoder.encode(["uint256"], [2])
+          );
+
+          // set very small supplyCap
+          await Aave3ChangePricesUtils.setSupplyCap(deployer, MaticAddresses.USDC, parseUnits("1", 6));
+
+          const r1 = await preparePlan(
+            collateralAsset,
+            collateralAmount,
+            borrowAsset,
+            10,
+            undefined,
+            defaultAbiCoder.encode(["uint256"], [2])
+          );
+
+          // first plan is successful
+          expect(r0.plan.converter).not.eq(Misc.ZERO_ADDRESS);
+          expect(r0.plan.collateralAmount.eq(0)).not.eq(true);
+          expect(r0.plan.amountToBorrow.eq(0)).not.eq(true);
+
+          // the plan created after changing the prices is not successful
+          expect(r1.plan.converter).eq(Misc.ZERO_ADDRESS);
+          expect(r1.plan.collateralAmount.eq(0)).eq(true);
+          expect(r1.plan.amountToBorrow.eq(0)).eq(true);
+        });
+      });
     });
     describe("Check gas limit @skip-on-coverage", () => {
       it("should not exceed gas limits", async () => {
