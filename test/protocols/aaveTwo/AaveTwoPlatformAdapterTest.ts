@@ -14,7 +14,7 @@ import {
   AaveTwoPlatformAdapter,
   AaveTwoPlatformAdapter__factory, ConverterController,
   IAaveTwoPool,
-  IAaveTwoProtocolDataProvider,
+  IAaveTwoProtocolDataProvider, IERC20__factory,
   IERC20Metadata__factory
 } from "../../../typechain";
 import {areAlmostEqual} from "../../baseUT/utils/CommonUtils";
@@ -31,7 +31,6 @@ import {AaveTwoChangePricesUtils} from "../../baseUT/protocols/aaveTwo/AaveTwoCh
 import {controlGasLimitsEx} from "../../../scripts/utils/hardhatUtils";
 import {GAS_LIMIT, GAS_LIMIT_AAVE_TWO_GET_CONVERSION_PLAN} from "../../baseUT/GasLimit";
 import {AppConstants} from "../../baseUT/AppConstants";
-import {AaveTwoTestUtils} from "../../baseUT/protocols/aaveTwo/AaveTwoTestUtils";
 
 describe("AaveTwoPlatformAdapterTest", () => {
 //region Global vars for all tests
@@ -867,7 +866,7 @@ describe("AaveTwoPlatformAdapterTest", () => {
         });
       });
 
-      describe.skip("TODO: Zero available liquidity (edge case, improve coverage)", () => {
+      describe("Zero available liquidity (edge case, improve coverage)", () => {
         it("should return zero plan", async () => {
           if (!await isPolygonForkInUse()) return;
 
@@ -878,14 +877,25 @@ describe("AaveTwoPlatformAdapterTest", () => {
           // how much we should borrow to move available liquidity to zero
           const r0 = await preparePlan(
             collateralAsset,
-            Misc.MAX_UINT,
+            parseUnits("1", 6),
             borrowAsset,
             10,
             undefined,
-            defaultAbiCoder.encode(["uint256"], [2])
+            "0x"
           );
 
-          // todo
+          // available liquidity is calculated as IERC20(borrowToken).balanceOf(atoken)
+          // let's take away all balance of atoken
+          const aavePool = await AaveTwoHelper.getAavePool(deployer);
+          const dataProvider = await AaveTwoHelper.getAaveProtocolDataProvider(deployer);
+          const rb = await AaveTwoHelper.getReserveInfo(deployer, aavePool, dataProvider, MaticAddresses.USDT);
+          const usdtAsToken = IERC20__factory.connect(
+            MaticAddresses.USDT,
+            await Misc.impersonate(rb.aTokenAddress)
+          );
+          const balance = usdtAsToken.balanceOf(rb.aTokenAddress);
+          await usdtAsToken.transfer(ethers.Wallet.createRandom().address, balance);
+
           const r1 = await preparePlan(
             collateralAsset,
             collateralAmount,

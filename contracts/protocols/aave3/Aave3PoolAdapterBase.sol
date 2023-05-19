@@ -17,7 +17,6 @@ import "../../integrations/aave3/IAaveAddressesProvider.sol";
 import "../../integrations/aave3/Aave3ReserveConfiguration.sol";
 import "../../integrations/aave3/IAaveToken.sol";
 import "../../integrations/dforce/SafeRatioMath.sol";
-import "hardhat/console.sol";
 
 /// @notice Implementation of IPoolAdapter for AAVE-v3-protocol, see https://docs.aave.com/hub/
 /// @dev Instances of this contract are created using proxy-minimal pattern, so no constructor
@@ -353,7 +352,6 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer,
     require(totalDebtBase != 0, AppErrors.ZERO_BALANCE);
 
     uint borrowPrice =  priceOracle_.getAssetPrice(assetBorrow_);
-    console.log("AAVE3._getCollateralAmountToReturn.borrowPrice", borrowPrice);
     require(borrowPrice != 0, AppErrors.ZERO_PRICE);
 
     uint amountToRepayBase = amountToRepay_ * borrowPrice / (10 ** IERC20Metadata(assetBorrow_).decimals());
@@ -365,7 +363,6 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer,
     } else {
       // the assets prices in the base currency
       uint collateralPrice = priceOracle_.getAssetPrice(assetCollateral_);
-      console.log("AAVE3._getCollateralAmountToReturn.collateralPrice", collateralPrice);
       require(collateralPrice != 0, AppErrors.ZERO_PRICE);
 
       uint part = amountToRepayBase >= totalDebtBase
@@ -437,7 +434,6 @@ abstract contract Aave3PoolAdapterBase is IPoolAdapter, IPoolAdapterInitializer,
       (uint256 totalCollateralBase,,,,,) = pool.getUserAccountData(address(this));
 
       uint collateralPrice = priceOracle.getAssetPrice(assetCollateral);
-      console.log("AAVE3.getCollateralAmountToReturn.collateralPrice", collateralPrice);
       require(collateralPrice != 0, AppErrors.ZERO_PRICE);
 
       return totalCollateralBase * (10 ** pool.getConfiguration(assetCollateral).getDecimals()) / collateralPrice;
