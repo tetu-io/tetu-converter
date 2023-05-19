@@ -11,11 +11,20 @@ import {TokenDataTypes} from "../../baseUT/types/TokenDataTypes";
 import {MaticAddresses} from "../../../scripts/addresses/MaticAddresses";
 import {isPolygonForkInUse} from "../../baseUT/utils/NetworkUtils";
 import {formatUnits, parseUnits} from "ethers/lib/utils";
-import {ICometRewards__factory, IERC20__factory, IERC20Metadata__factory} from "../../../typechain";
+import {
+  Compound3PoolAdapter,
+  ConverterController,
+  ICometRewards__factory,
+  IERC20__factory,
+  IERC20Metadata__factory
+} from "../../../typechain";
 import {expect} from "chai";
 import {areAlmostEqual} from "../../baseUT/utils/CommonUtils";
 import {BalanceUtils} from "../../baseUT/utils/BalanceUtils";
 import {Misc} from "../../../scripts/utils/Misc";
+import {MocksHelper} from "../../baseUT/helpers/MocksHelper";
+import {TetuConverterApp} from "../../baseUT/helpers/TetuConverterApp";
+import {AdaptersHelper} from "../../baseUT/helpers/AdaptersHelper";
 
 
 describe("Compound3PoolAdapterUnitTest", () => {
@@ -76,6 +85,169 @@ describe("Compound3PoolAdapterUnitTest", () => {
     }
   }
 //endregion Test impl
+  describe("initialize", () => {
+    interface IInitializePoolAdapterBadPaths {
+      zeroController?: boolean;
+      zeroUser?: boolean;
+      zeroCollateralAsset?: boolean;
+      zeroBorrowAsset?: boolean;
+      zeroConverter?: boolean;
+      zeroComet?: boolean;
+      zeroCometRewards?: boolean;
+    }
+    interface IMakeInitializePoolAdapterResults {
+      user: string;
+      converter: string;
+      collateralAsset: string;
+      borrowAsset: string;
+      controller: ConverterController;
+      poolAdapter: Compound3PoolAdapter;
+    }
+    async function makeInitializePoolAdapter(p?: IInitializePoolAdapterBadPaths) : Promise<IMakeInitializePoolAdapterResults> {
+      const user = ethers.Wallet.createRandom().address;
+      const collateralAsset = (await MocksHelper.createMockedCToken(deployer)).address;
+      const borrowAsset = (await MocksHelper.createMockedCToken(deployer)).address;
+      const converter = ethers.Wallet.createRandom().address;
+
+      const controller = await TetuConverterApp.createController(
+        deployer,
+        {tetuLiquidatorAddress: MaticAddresses.TETU_LIQUIDATOR}
+      );
+      const poolAdapter = await AdaptersHelper.createCompound3PoolAdapter(deployer);
+
+      await poolAdapter.initialize(
+        p?.zeroController ? Misc.ZERO_ADDRESS : controller.address,
+        p?.zeroComet ? Misc.ZERO_ADDRESS : MaticAddresses.COMPOUND3_COMET_USDC,
+        p?.zeroCometRewards ? Misc.ZERO_ADDRESS : MaticAddresses.COMPOUND3_COMET_REWARDS,
+        p?.zeroUser ? Misc.ZERO_ADDRESS : user,
+        p?.zeroCollateralAsset ? Misc.ZERO_ADDRESS : collateralAsset,
+        p?.zeroBorrowAsset ? Misc.ZERO_ADDRESS : borrowAsset,
+        p?.zeroConverter ? Misc.ZERO_ADDRESS : converter
+      );
+
+      return {
+        user,
+        poolAdapter,
+        borrowAsset,
+        converter,
+        collateralAsset,
+        controller
+      }
+    }
+    async function makeInitializePoolAdapterTest(
+      useEMode: boolean,
+      p?: IInitializePoolAdapterBadPaths
+    ) : Promise<{ret: string, expected: string}> {
+      const d = await makeInitializePoolAdapter(p);
+      const poolAdapterConfigAfter = await d.poolAdapter.getConfig();
+      const ret = [
+        poolAdapterConfigAfter.originConverter_,
+        poolAdapterConfigAfter.user_,
+        poolAdapterConfigAfter.collateralAsset_,
+        poolAdapterConfigAfter.borrowAsset_
+      ].join();
+      const expected = [
+        d.converter,
+        d.user,
+        d.collateralAsset,
+        d.borrowAsset
+      ].join();
+      return {ret, expected};
+    }
+
+    describe("Good paths", () => {
+      it("Normal mode: should return expected values", async () => {
+        if (!await isPolygonForkInUse()) return;
+        const r = await makeInitializePoolAdapterTest(false);
+        expect(r.ret).eq(r.expected);
+      });
+      it("EMode: should return expected values", async () => {
+        if (!await isPolygonForkInUse()) return;
+        const r = await makeInitializePoolAdapterTest(false);
+        expect(r.ret).eq(r.expected);
+      });
+    });
+    describe("Bad paths", () => {
+      it("should revert on zero controller", async () => {
+        if (!await isPolygonForkInUse()) return;
+        await expect(
+          makeInitializePoolAdapterTest(
+            false,
+            {zeroController: true}
+          )
+        ).revertedWith("TC-1 zero address"); // ZERO_ADDRESS
+      });
+      it("should revert on zero user", async () => {
+        if (!await isPolygonForkInUse()) return;
+        await expect(
+          makeInitializePoolAdapterTest(
+            false,
+            {zeroUser: true}
+          )
+        ).revertedWith("TC-1 zero address"); // ZERO_ADDRESS
+      });
+      it("should revert on zero comet", async () => {
+        if (!await isPolygonForkInUse()) return;
+        await expect(
+          makeInitializePoolAdapterTest(
+            false,
+            {zeroComet: true}
+          )
+        ).revertedWith("TC-1 zero address"); // ZERO_ADDRESS
+      });
+      it("should revert on zero comet rewards", async () => {
+        if (!await isPolygonForkInUse()) return;
+        await expect(
+          makeInitializePoolAdapterTest(
+            false,
+            {zeroCometRewards: true}
+          )
+        ).revertedWith("TC-1 zero address"); // ZERO_ADDRESS
+      });
+      it("should revert on zero converter", async () => {
+        if (!await isPolygonForkInUse()) return;
+        await expect(
+          makeInitializePoolAdapterTest(
+            false,
+            {zeroConverter: true}
+          )
+        ).revertedWith("TC-1 zero address"); // ZERO_ADDRESS
+      });
+      it("should revert on zero collateral asset", async () => {
+        if (!await isPolygonForkInUse()) return;
+        await expect(
+          makeInitializePoolAdapterTest(
+            false,
+            {zeroCollateralAsset: true}
+          )
+        ).revertedWith("TC-1 zero address"); // ZERO_ADDRESS
+      });
+      it("should revert on zero borrow asset", async () => {
+        if (!await isPolygonForkInUse()) return;
+        await expect(
+          makeInitializePoolAdapterTest(
+            false,
+            {zeroBorrowAsset: true}
+          )
+        ).revertedWith("TC-1 zero address"); // ZERO_ADDRESS
+      });
+      it("should revert on second initialization", async () => {
+        if (!await isPolygonForkInUse()) return;
+        const d = await makeInitializePoolAdapter();
+        await expect(
+          d.poolAdapter.initialize(
+            d.controller.address,
+            MaticAddresses.COMPOUND3_COMET_USDC,
+            MaticAddresses.COMPOUND3_COMET_REWARDS,
+            d.user,
+            d.collateralAsset,
+            d.borrowAsset,
+            d.converter
+          )
+        ).revertedWith("Initializable: contract is already initialized");
+      });
+    });
+  });
 
   describe("getConversionKind", () => {
     describe("Good paths", () => {

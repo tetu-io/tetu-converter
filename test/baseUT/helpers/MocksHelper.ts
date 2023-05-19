@@ -44,7 +44,12 @@ import {
   PoolAdapterMock2,
   TetuConverterCallbackMock,
   LendingPlatformMock2,
-  Aave3AprLibFacade, AaveTwoAprLibFacade, DForceAprLibFacade, Compound3AprLibFacade, Aave3AggregatorInterfaceMock
+  Aave3AprLibFacade,
+  AaveTwoAprLibFacade,
+  DForceAprLibFacade,
+  Compound3AprLibFacade,
+  Aave3AggregatorInterfaceMock,
+  CometMock, PriceFeedMock
 } from "../../../typechain";
 import {IPoolInfo} from "./BorrowManagerHelper";
 import {getBigNumberFrom} from "../../../scripts/utils/NumberUtils";
@@ -584,6 +589,17 @@ export class MocksHelper {
   ) : Promise<PriceOracleMock> {
     return await DeployUtils.deployContract(deployer, "PriceOracleMock", assets, prices) as PriceOracleMock;
   }
+
+  public static async createAave3AggregatorInterfaceMock(
+    signer: SignerWithAddress,
+    price: BigNumber,
+  ): Promise<Aave3AggregatorInterfaceMock> {
+    return (await DeployUtils.deployContract(
+      signer,
+      'Aave3AggregatorInterfaceMock',
+      price,
+    )) as Aave3AggregatorInterfaceMock;
+  }
 //endregion PriceOracle mock
 
 //region Library facades
@@ -609,15 +625,13 @@ export class MocksHelper {
   }
 //endregion Library facades
 
-  public static async createAave3AggregatorInterfaceMock(
-    signer: SignerWithAddress,
-    price: BigNumber,
-  ): Promise<Aave3AggregatorInterfaceMock> {
-    return (await DeployUtils.deployContract(
-      signer,
-      'Aave3AggregatorInterfaceMock',
-      price,
-    )) as Aave3AggregatorInterfaceMock;
+//region Compound3 mocks
+  public static async createCometMock(signer: SignerWithAddress): Promise<CometMock> {
+    return (await DeployUtils.deployContract(signer, 'CometMock', )) as CometMock;
   }
 
+  public static async createPriceFeed(signer: SignerWithAddress): Promise<PriceFeedMock> {
+    return (await DeployUtils.deployContract(signer, 'PriceFeedMock', )) as PriceFeedMock;
+  }
+//endregion Compound3 mocks
 }

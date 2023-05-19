@@ -11,14 +11,15 @@ import {
 } from "../../baseUT/protocols/compound3/Compound3TestUtils";
 import {MaticAddresses} from "../../../scripts/addresses/MaticAddresses";
 import {isPolygonForkInUse} from "../../baseUT/utils/NetworkUtils";
-import {parseUnits} from "ethers/lib/utils";
+import {formatUnits, parseUnits} from "ethers/lib/utils";
 import {areAlmostEqual} from "../../baseUT/utils/CommonUtils";
 import {IUserBalances} from "../../baseUT/utils/BalanceUtils";
 import {IBorrowAndRepayBadParams} from "../../baseUT/protocols/aaveShared/aaveBorrowAndRepayUtils";
-import {IERC20Metadata__factory, IPoolAdapter__factory} from "../../../typechain";
+import {IComet__factory, IERC20Metadata__factory, IPoolAdapter__factory} from "../../../typechain";
 import {DeployerUtils} from "../../../scripts/utils/DeployerUtils";
 import {transferAndApprove} from "../../baseUT/utils/transferUtils";
 import {GAS_LIMIT} from "../../baseUT/GasLimit";
+import {Misc} from "../../../scripts/utils/Misc";
 
 describe("Compound3PoolAdapterIntTest", () => {
 //region Global vars for all tests
@@ -267,6 +268,34 @@ describe("Compound3PoolAdapterIntTest", () => {
 
   describe("Borrow using small health factors", () => {
     describe("health factor is greater than liquidationThreshold18/LTV", () => {
+      it("health factor is less than liquidationThreshold18/LTV", async () => {
+        if (!await isPolygonForkInUse()) return;
+
+        const targetHealthFactor2 = 103;
+        const minHealthFactor2 = 101;
+
+        const r = await makeBorrow(
+          MaticAddresses.WETH,
+          MaticAddresses.HOLDER_WETH,
+          parseUnits('1'),
+          MaticAddresses.USDC,
+          undefined,
+          targetHealthFactor2,
+          minHealthFactor2
+        )
+
+        const status = await r.prepareResults.poolAdapter.getStatus();
+        console.log("status", status);
+
+        const comet = IComet__factory.connect(MaticAddresses.COMPOUND3_COMET_USDC, deployer);
+        const assetInfo = await comet.getAssetInfoByAddress(MaticAddresses.WETH);
+        console.log(assetInfo);
+
+        const minHealthFactorAllowedByPlatform = assetInfo.liquidateCollateralFactor.mul(Misc.WEI).div(assetInfo.borrowCollateralFactor);
+        console.log(minHealthFactorAllowedByPlatform);
+
+        expect(status.healthFactor18).approximately(minHealthFactorAllowedByPlatform, 1e9);
+      })
       it("should borrow with specified health factor", async () => {
         if (!await isPolygonForkInUse()) return;
 

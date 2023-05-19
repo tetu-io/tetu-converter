@@ -64,6 +64,8 @@ export class MaticAddresses {
   public static HOLDER_WMATIC_3 = "0x0aff6665bb45bf349489b20e225a6c5d78e2280f";
   public static HOLDER_WMATIC_2 = "0x6e7a5fafcec6bb1e78bae2a1f0b612012bf14827";
   public static HOLDER_WMATIC = "0xadbf1854e5883eb8aa7baf50705338739e558e5b";
+  public static HOLDER_WMATIC_4 = "0xa374094527e1673a86de625aa59517c5de346d32";
+  public static HOLDER_WMATIC_5 = "0x167384319b41f7094e62f7506409eb38079abff8";
 
   public static HOLDER_EURS = "0x6de2865067b65d4571c17f6b9eeb8dbdd5e36584";
   public static HOLDER_EURS_2 = "0x1bee4f735062cd00841d6997964f187f5f5f5ac9";
@@ -200,9 +202,10 @@ export class MaticAddresses {
 
 //endregion dForce
 
-//region Compound3
+//region Compound3, see https://docs.compound.finance/#networks
   public static COMPOUND3_COMET_USDC = "0xF25212E676D1F7F89Cd72fFEe66158f541246445";
   public static COMPOUND3_COMET_REWARDS = "0x45939657d1CA34A8FA39A924B71D28Fe8431e581";
+  public static COMPOUND3_CONFIGURATOR = "0x83E0F742cAcBE66349E3701B171eE2487a26e738";
 //endregion Compound3
 
 //region liquidity pools
