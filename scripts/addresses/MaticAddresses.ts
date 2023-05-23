@@ -27,6 +27,8 @@ export class MaticAddresses {
   public static miMATIC = "0xa3Fa99A148fA48D14Ed51d610c367C61876997F1";
   public static stMATIC = "0x3A58a54C066FdC0f2D55FC9C89F0415C92eBf3C4";
   public static MaticX = "0xfa68FB4628DFF1028CFEc22b4162FCcd0d45efb6";
+  public static wstETH = "0x03b54A6e9a984069379fae1a4fC4dBAE93B3bCCD";
+
 // AAVE
   public static agEUR = "0xE0B52e49357Fd4DAf2c15e02058DCE6BC0057db4";
   public static EURS = "0xe111178a87a3bff0c8d18decba5798827539ae99";

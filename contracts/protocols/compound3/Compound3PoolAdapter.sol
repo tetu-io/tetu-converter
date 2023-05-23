@@ -12,6 +12,7 @@ import "../../interfaces/IDebtMonitor.sol";
 import "../../integrations/compound3/IComet.sol";
 import "../../integrations/compound3/ICometRewards.sol";
 import "./Compound3AprLib.sol";
+import "hardhat/console.sol";
 
 contract Compound3PoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithRewards, Initializable {
   using SafeERC20 for IERC20;
@@ -353,11 +354,15 @@ contract Compound3PoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithReward
       uint borrowBase,,,
       uint liquidateCollateralFactor
     ) = _getStatus();
+    console.log("_validateHealthStatusAfterBorrow.tokenBalance", tokenBalance);
+    console.log("_validateHealthStatusAfterBorrow.collateralBase", collateralBase);
+    console.log("_validateHealthStatusAfterBorrow.borrowBase", borrowBase);
 
     (
       uint sumCollateralSafe,
       uint healthFactor18
     ) = _getHealthFactor(liquidateCollateralFactor, collateralBase, borrowBase);
+    console.log("_validateHealthStatusAfterBorrow.sumCollateralSafe", sumCollateralSafe);
 
     require(sumCollateralSafe > borrowBase && borrowBase != 0, AppErrors.INCORRECT_RESULT_LIQUIDITY);
 

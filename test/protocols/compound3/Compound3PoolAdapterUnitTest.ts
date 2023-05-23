@@ -4,7 +4,7 @@ import {ethers} from "hardhat";
 import {BigNumber} from "ethers";
 import {
   Compound3TestUtils,
-  IBorrowResults,
+  IBorrowResults, IPrepareBorrowBadPathsParams,
   IPrepareToBorrowResults
 } from "../../baseUT/protocols/compound3/Compound3TestUtils";
 import {TokenDataTypes} from "../../baseUT/types/TokenDataTypes";
@@ -61,8 +61,7 @@ describe("Compound3PoolAdapterUnitTest", () => {
     collateralHolder: string,
     collateralAmount: BigNumber,
     borrowAsset: string,
-    targetHealthFactor2?: number,
-    minHealthFactor2?: number
+    p?: IPrepareBorrowBadPathsParams
   ) : Promise<{borrowResults: IBorrowResults, prepareResults: IPrepareToBorrowResults}> {
     const collateralToken = await TokenDataTypes.Build(deployer, collateralAsset);
     const borrowToken = await TokenDataTypes.Build(deployer, borrowAsset);
@@ -72,9 +71,9 @@ describe("Compound3PoolAdapterUnitTest", () => {
       collateralHolder,
       collateralAmount,
       borrowToken,
-      [MaticAddresses.COMPOUND3_COMET_USDC],
-      MaticAddresses.COMPOUND3_COMET_REWARDS,
-      {targetHealthFactor2, minHealthFactor2,}
+      [p?.comet || MaticAddresses.COMPOUND3_COMET_USDC],
+      p?.cometRewards || MaticAddresses.COMPOUND3_COMET_REWARDS,
+      p
     )
 
     const borrowResults = await Compound3TestUtils.makeBorrow(deployer, prepareResults, undefined)
@@ -309,35 +308,74 @@ describe("Compound3PoolAdapterUnitTest", () => {
   })
 
   describe("borrowToRebalance", () => {
-    it("should return expected values", async () => {
-      if (!await isPolygonForkInUse()) return;
+    describe("Good paths", () => {
+      it("should return expected values", async () => {
+        if (!await isPolygonForkInUse()) return;
 
-      const r = await makeBorrow(
-        MaticAddresses.WETH,
-        MaticAddresses.HOLDER_WETH,
-        parseUnits('10'),
-        MaticAddresses.USDC
-      )
+        const r = await makeBorrow(
+          MaticAddresses.WETH,
+          MaticAddresses.HOLDER_WETH,
+          parseUnits('10'),
+          MaticAddresses.USDC
+        )
 
-      const statusAfterBorrow = await r.prepareResults.poolAdapter.getStatus()
-      // console.log('Borrowed amount', statusAfterBorrow.amountToPay.toString())
-      // console.log('HF after borrow', statusAfterBorrow.healthFactor18.toString())
+        const statusAfterBorrow = await r.prepareResults.poolAdapter.getStatus()
+        // console.log('Borrowed amount', statusAfterBorrow.amountToPay.toString())
+        // console.log('HF after borrow', statusAfterBorrow.healthFactor18.toString())
 
-      await r.prepareResults.controller.setTargetHealthFactor2(150);
+        await r.prepareResults.controller.setTargetHealthFactor2(150);
 
-      const amountToAdditionalBorrow = statusAfterBorrow.amountToPay.div(5)
-      const [resultHealthFactor18,] = await r.prepareResults.poolAdapter.callStatic.borrowToRebalance(amountToAdditionalBorrow, r.prepareResults.userContract.address)
-      await r.prepareResults.poolAdapter.borrowToRebalance(amountToAdditionalBorrow, r.prepareResults.userContract.address)
+        const amountToAdditionalBorrow = statusAfterBorrow.amountToPay.div(5)
+        const [resultHealthFactor18,] = await r.prepareResults.poolAdapter.callStatic.borrowToRebalance(amountToAdditionalBorrow, r.prepareResults.userContract.address)
+        await r.prepareResults.poolAdapter.borrowToRebalance(amountToAdditionalBorrow, r.prepareResults.userContract.address)
 
-      const statusAfterBorrowToRebalance = await r.prepareResults.poolAdapter.getStatus()
-      // console.log('Borrowed amount', statusAfterBorrowToRebalance.amountToPay.toString())
-      // console.log('HF after borrow', statusAfterBorrowToRebalance.healthFactor18.toString())
-      // console.log('Result HF', resultHealthFactor18.toString())
-      expect(statusAfterBorrowToRebalance.healthFactor18).lt(statusAfterBorrow.healthFactor18)
-      expect(areAlmostEqual(statusAfterBorrowToRebalance.amountToPay, statusAfterBorrow.amountToPay.add(amountToAdditionalBorrow))).eq(true)
-      expect(areAlmostEqual(resultHealthFactor18, statusAfterBorrowToRebalance.healthFactor18)).eq(true)
-    })
+        const statusAfterBorrowToRebalance = await r.prepareResults.poolAdapter.getStatus()
+        // console.log('Borrowed amount', statusAfterBorrowToRebalance.amountToPay.toString())
+        // console.log('HF after borrow', statusAfterBorrowToRebalance.healthFactor18.toString())
+        // console.log('Result HF', resultHealthFactor18.toString())
+        expect(statusAfterBorrowToRebalance.healthFactor18).lt(statusAfterBorrow.healthFactor18)
+        expect(areAlmostEqual(statusAfterBorrowToRebalance.amountToPay, statusAfterBorrow.amountToPay.add(amountToAdditionalBorrow))).eq(true)
+        expect(areAlmostEqual(resultHealthFactor18, statusAfterBorrowToRebalance.healthFactor18)).eq(true)
+      })
+    });
+    describe("Bad paths", () => {
+      it("should revert of wrong borrowed balances", async () => {
+        if (!await isPolygonForkInUse()) return;
 
+        const cometMock2= await MocksHelper.createCometMock2(deployer, MaticAddresses.COMPOUND3_COMET_USDC);
+
+        const cometRewardsMock = await MocksHelper.createCometRewardsMock(
+          deployer,
+          MaticAddresses.COMPOUND3_COMET_USDC,
+          MaticAddresses.COMPOUND3_COMET_REWARDS
+        );
+
+        await BalanceUtils.getAmountFromHolder(
+          MaticAddresses.USDC,
+          MaticAddresses.HOLDER_USDC,
+          cometMock2.address,
+          parseUnits("1000", 6)
+        );
+
+        const r = await makeBorrow(
+          MaticAddresses.WETH,
+          MaticAddresses.HOLDER_WETH,
+          parseUnits('10', 18),
+          MaticAddresses.USDC,
+          {
+            comet: cometMock2.address,
+            cometRewards: cometRewardsMock.address
+          }
+        );
+
+        await cometMock2.disableTransferInWithdraw();
+
+
+        await expect(
+          r.prepareResults.poolAdapter.borrowToRebalance(parseUnits('1', 6), r.prepareResults.userContract.address)
+        ).revertedWith("TC-15 wrong borrow balance"); // WRONG_BORROWED_BALANCE
+      });
+    });
   })
 
   describe("salvage", () => {

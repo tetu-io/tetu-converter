@@ -8,12 +8,18 @@ import "hardhat/console.sol";
 
 /// @notice Full implementation of IComet. Some functions required for testing are configurable.
 ///         Other function calls are just delegated to original pool
-contract CometMock2 is IComet {
+contract CometMock2 /*is IComet*/ { // some view functions are not view here
   using SafeERC20 for IERC20;
 
   IComet private comet;
 
   bool internal _disableTransferInWithdraw;
+  /// @notice 0 - not used, 1 - return value immediately, 2 - return value after call of withdraw()
+  uint internal _borrowBalanceState12;
+  uint internal _borrowBalanceValue;
+  /// @notice 0 - not used, 1 - return value immediately, 2 - return value after call of withdraw()
+  uint internal _tokensBalanceState12;
+  uint internal _tokensBalanceValue;
 
   constructor(address comet_) {
     comet = IComet(comet_);
@@ -23,10 +29,40 @@ contract CometMock2 is IComet {
   function disableTransferInWithdraw() external {
     _disableTransferInWithdraw = true;
   }
+
+  function setBorrowBalance(uint state12, uint value) external {
+    _borrowBalanceState12 = state12;
+    _borrowBalanceValue = value;
+  }
+
+  function setTokensBalance(uint state12, uint value) external {
+    _tokensBalanceState12 = state12;
+    _tokensBalanceValue = value;
+  }
   //endregion -------------------------------------------- Set up
 
   //region -------------------------------------------- Overloaded functions
-// todo
+  function borrowBalanceOf(address /*account*/) external view returns (uint) {
+    console.log("CometMock2.borrowBalanceOf");
+    if (_borrowBalanceState12 == 1) {
+      console.log("CometMock2.borrowBalanceOf is zero");
+      return _borrowBalanceValue;
+    } else {
+      return comet.borrowBalanceOf(address(this));
+    }
+  }
+
+
+  function userCollateral(address /*user*/, address asset) external view returns (IComet.UserCollateral memory ret) {
+    console.log("CometMock2.userCollateral._tokensBalanceZero", _tokensBalanceState12);
+    ret = comet.userCollateral(address(this), asset);
+    console.log("CometMock2.userCollateral.ret", ret.balance);
+    if (_tokensBalanceState12 == 1) {
+      ret.balance = uint128(_tokensBalanceValue);
+    }
+    console.log("CometMock2.userCollateral.return", ret.balance);
+    return ret;
+  }
   //endregion -------------------------------------------- Overloaded functions
 
 
@@ -39,13 +75,15 @@ contract CometMock2 is IComet {
   }
 
   function withdraw(address asset, uint amount) external {
-
     console.log("CometMock2.withdraw", asset, amount);
     comet.withdraw(asset, amount);
     console.log("CometMock2.withdraw.balance", IERC20(asset).balanceOf(address(this)));
     if (! _disableTransferInWithdraw) {
-      IERC20(asset).safeTransfer(msg.sender, IERC20(asset).balanceOf(address(this)) );
+      IERC20(asset).safeTransfer(msg.sender, amount);
+      console.log("CometMock2.withdraw.after transfer", IERC20(asset).balanceOf(address(this)));
     }
+    if (_tokensBalanceState12 == 2) _tokensBalanceState12 = 1;
+    if (_borrowBalanceState12 == 2) _borrowBalanceState12 = 1;
   }
   //endregion -------------------------------------------- Replacements
 
@@ -60,12 +98,12 @@ contract CometMock2 is IComet {
     return comet.numAssets();
   }
 
-  function getAssetInfo(uint8 i) external view returns (AssetInfo memory) {
+  function getAssetInfo(uint8 i) external view returns (IComet.AssetInfo memory) {
     console.log("CometMock2.getAssetInfo");
     return comet.getAssetInfo(i);
   }
 
-  function getAssetInfoByAddress(address asset) external view returns (AssetInfo memory) {
+  function getAssetInfoByAddress(address asset) external view returns (IComet.AssetInfo memory) {
     console.log("CometMock2.getAssetInfoByAddress");
     return comet.getAssetInfoByAddress(asset);
   }
@@ -76,7 +114,7 @@ contract CometMock2 is IComet {
   }
 
   function balanceOf(address account) external view returns (uint) {
-    console.log("CometMock2.account");
+    console.log("CometMock2.balanceOf");
     return comet.balanceOf(account);
   }
 
@@ -138,16 +176,6 @@ contract CometMock2 is IComet {
   function pauseGuardian() external view returns (address) {
     console.log("CometMock2.pauseGuardian");
     return comet.pauseGuardian();
-  }
-
-  function userCollateral(address /*user*/, address asset) external view returns (UserCollateral memory) {
-    console.log("CometMock2.userCollateral");
-    return comet.userCollateral(address(this), asset);
-  }
-
-  function borrowBalanceOf(address /*account*/) external view returns (uint) {
-    console.log("CometMock2.borrowBalanceOf");
-    return comet.borrowBalanceOf(address(this));
   }
 
   function absorb(address absorber, address[] calldata accounts) external {

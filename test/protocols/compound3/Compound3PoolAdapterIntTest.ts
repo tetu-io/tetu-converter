@@ -60,9 +60,10 @@ describe("Compound3PoolAdapterIntTest", () => {
     collateralAmountRequired: BigNumber | undefined,
     borrowAsset: string,
     borrowAmountRequired: BigNumber | undefined,
-    comet: string = MaticAddresses.COMPOUND3_COMET_USDC,
     p?: IPrepareBorrowBadPathsParams
   ) : Promise<{borrowResults: IBorrowResults, prepareResults: IPrepareToBorrowResults}> {
+    const comet = p?.comet || MaticAddresses.COMPOUND3_COMET_USDC;
+    const cometRewards = p?.cometRewards || MaticAddresses.COMPOUND3_COMET_REWARDS;
     const collateralToken = await TokenDataTypes.Build(deployer, collateralAsset);
     const borrowToken = await TokenDataTypes.Build(deployer, borrowAsset);
     const prepareResults = await Compound3TestUtils.prepareToBorrow(
@@ -72,7 +73,7 @@ describe("Compound3PoolAdapterIntTest", () => {
       collateralAmountRequired,
       borrowToken,
       [comet],
-      MaticAddresses.COMPOUND3_COMET_REWARDS,
+      cometRewards,
       p
     )
 
@@ -272,6 +273,12 @@ describe("Compound3PoolAdapterIntTest", () => {
         const cometMock2= await MocksHelper.createCometMock2(deployer, MaticAddresses.COMPOUND3_COMET_USDC);
         await cometMock2.disableTransferInWithdraw();
 
+        const cometRewardsMock = await MocksHelper.createCometRewardsMock(
+          deployer,
+          MaticAddresses.COMPOUND3_COMET_USDC,
+          MaticAddresses.COMPOUND3_COMET_REWARDS
+        );
+
         await BalanceUtils.getAmountFromHolder(
           MaticAddresses.USDC,
           MaticAddresses.HOLDER_USDC,
@@ -279,17 +286,54 @@ describe("Compound3PoolAdapterIntTest", () => {
           parseUnits("1000", 6)
         );
 
-//        await expect(
-          await makeBorrow(
+        await expect(
+          makeBorrow(
             MaticAddresses.WMATIC,
             MaticAddresses.HOLDER_WMATIC,
             parseUnits('2000'),
             MaticAddresses.USDC,
             parseUnits('300', 6),
-            cometMock2.address,
-            {}
+            {
+              comet: cometMock2.address,
+              cometRewards: cometRewardsMock.address
+            }
           )
-  //      ).revertedWith("TC-15 wrong borrow balance"); // WRONG_BORROWED_BALANCE
+        ).revertedWith("TC-15 wrong borrow balance"); // WRONG_BORROWED_BALANCE
+      });
+      it("should revert if sumCollateralSafe <= borrowBase", async () => {
+        if (!await isPolygonForkInUse()) return;
+
+        const cometMock2= await MocksHelper.createCometMock2(deployer, MaticAddresses.COMPOUND3_COMET_USDC);
+        // we try to set collateralBase = small value in getStatus
+        // as result, we follow condition will fail: sumCollateralSafe > borrowBase with INCORRECT_RESULT_LIQUIDITY
+        await cometMock2.setTokensBalance(2, 0);
+
+        const cometRewardsMock = await MocksHelper.createCometRewardsMock(
+          deployer,
+          MaticAddresses.COMPOUND3_COMET_USDC,
+          MaticAddresses.COMPOUND3_COMET_REWARDS
+        );
+
+        await BalanceUtils.getAmountFromHolder(
+          MaticAddresses.USDC,
+          MaticAddresses.HOLDER_USDC,
+          cometMock2.address,
+          parseUnits("1000", 6)
+        );
+
+        await expect(
+          makeBorrow(
+            MaticAddresses.WMATIC,
+            MaticAddresses.HOLDER_WMATIC,
+            parseUnits('2000'),
+            MaticAddresses.USDC,
+            parseUnits('300', 6),
+            {
+              comet: cometMock2.address,
+              cometRewards: cometRewardsMock.address
+            }
+          )
+        ).revertedWith("TC-23 incorrect liquidity"); // INCORRECT_RESULT_LIQUIDITY
       });
     })
   })
@@ -308,7 +352,6 @@ describe("Compound3PoolAdapterIntTest", () => {
           parseUnits('1'),
           MaticAddresses.USDC,
           undefined,
-          MaticAddresses.COMPOUND3_COMET_USDC,
           {
             targetHealthFactor2,
             minHealthFactor2
@@ -339,7 +382,6 @@ describe("Compound3PoolAdapterIntTest", () => {
           parseUnits('1'),
           MaticAddresses.USDC,
           undefined,
-          MaticAddresses.COMPOUND3_COMET_USDC,
           {
             targetHealthFactor2,
             minHealthFactor2

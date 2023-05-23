@@ -36,6 +36,8 @@ export interface IPrepareToBorrowResults {
 export interface IPrepareBorrowBadPathsParams {
   targetHealthFactor2?: number;
   minHealthFactor2?: number;
+  comet?: string;
+  cometRewards?: string;
 }
 
 export interface IBorrowResults {
