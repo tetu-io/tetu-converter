@@ -89,14 +89,14 @@ export class Compound3TestUtils {
     borrowToken: TokenDataTypes,
     comets: string[],
     cometRewards: string,
-    badPathsParams?: IPrepareBorrowBadPathsParams
+    p?: IPrepareBorrowBadPathsParams
   ) : Promise<IPrepareToBorrowResults> {
     const periodInBlocks = 1000;
 
     // controller, dm, bm
     const controller = await TetuConverterApp.createController(deployer, {
-      minHealthFactor2: badPathsParams?.minHealthFactor2,
-      targetHealthFactor2: badPathsParams?.targetHealthFactor2,
+      minHealthFactor2: p?.minHealthFactor2,
+      targetHealthFactor2: p?.targetHealthFactor2,
     });
     const userContract = await MocksHelper.deployBorrower(deployer.address, controller, periodInBlocks);
     await controller.connect(await DeployerUtils.startImpersonate(await controller.governance())).setWhitelistValues([userContract.address], true);
@@ -166,9 +166,10 @@ export class Compound3TestUtils {
         countBlocks,
         entryData: "0x"
       },
-      badPathsParams?.targetHealthFactor2 || await controller.targetHealthFactor2(),
+      p?.targetHealthFactor2 || await controller.targetHealthFactor2(),
       {gasLimit: GAS_LIMIT}
     )
+    console.log("plan", plan);
 
     // collateral asset
     await collateralToken.token

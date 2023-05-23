@@ -6,20 +6,21 @@ import {TokenDataTypes} from "../../baseUT/types/TokenDataTypes";
 import {BigNumber} from "ethers";
 import {
   Compound3TestUtils,
-  IBorrowResults, IMakeBorrowAndRepayResults,
+  IBorrowResults, IMakeBorrowAndRepayResults, IPrepareBorrowBadPathsParams,
   IPrepareToBorrowResults
 } from "../../baseUT/protocols/compound3/Compound3TestUtils";
 import {MaticAddresses} from "../../../scripts/addresses/MaticAddresses";
 import {isPolygonForkInUse} from "../../baseUT/utils/NetworkUtils";
-import {formatUnits, parseUnits} from "ethers/lib/utils";
+import {parseUnits} from "ethers/lib/utils";
 import {areAlmostEqual} from "../../baseUT/utils/CommonUtils";
-import {IUserBalances} from "../../baseUT/utils/BalanceUtils";
+import {BalanceUtils, IUserBalances} from "../../baseUT/utils/BalanceUtils";
 import {IBorrowAndRepayBadParams} from "../../baseUT/protocols/aaveShared/aaveBorrowAndRepayUtils";
 import {IComet__factory, IERC20Metadata__factory, IPoolAdapter__factory} from "../../../typechain";
 import {DeployerUtils} from "../../../scripts/utils/DeployerUtils";
 import {transferAndApprove} from "../../baseUT/utils/transferUtils";
 import {GAS_LIMIT} from "../../baseUT/GasLimit";
 import {Misc} from "../../../scripts/utils/Misc";
+import {MocksHelper} from "../../baseUT/helpers/MocksHelper";
 
 describe("Compound3PoolAdapterIntTest", () => {
 //region Global vars for all tests
@@ -59,8 +60,8 @@ describe("Compound3PoolAdapterIntTest", () => {
     collateralAmountRequired: BigNumber | undefined,
     borrowAsset: string,
     borrowAmountRequired: BigNumber | undefined,
-    targetHealthFactor2?: number,
-    minHealthFactor2?: number
+    comet: string = MaticAddresses.COMPOUND3_COMET_USDC,
+    p?: IPrepareBorrowBadPathsParams
   ) : Promise<{borrowResults: IBorrowResults, prepareResults: IPrepareToBorrowResults}> {
     const collateralToken = await TokenDataTypes.Build(deployer, collateralAsset);
     const borrowToken = await TokenDataTypes.Build(deployer, borrowAsset);
@@ -70,9 +71,9 @@ describe("Compound3PoolAdapterIntTest", () => {
       collateralHolder,
       collateralAmountRequired,
       borrowToken,
-      [MaticAddresses.COMPOUND3_COMET_USDC],
+      [comet],
       MaticAddresses.COMPOUND3_COMET_REWARDS,
-      {targetHealthFactor2, minHealthFactor2,}
+      p
     )
 
     const borrowResults = await Compound3TestUtils.makeBorrow(deployer, prepareResults, borrowAmountRequired)
@@ -264,6 +265,33 @@ describe("Compound3PoolAdapterIntTest", () => {
         })
       })
     })
+    describe("Bad paths", () => {
+      it("should revert of wrong borrowed balances", async () => {
+        if (!await isPolygonForkInUse()) return;
+
+        const cometMock2= await MocksHelper.createCometMock2(deployer, MaticAddresses.COMPOUND3_COMET_USDC);
+        await cometMock2.disableTransferInWithdraw();
+
+        await BalanceUtils.getAmountFromHolder(
+          MaticAddresses.USDC,
+          MaticAddresses.HOLDER_USDC,
+          cometMock2.address,
+          parseUnits("1000", 6)
+        );
+
+//        await expect(
+          await makeBorrow(
+            MaticAddresses.WMATIC,
+            MaticAddresses.HOLDER_WMATIC,
+            parseUnits('2000'),
+            MaticAddresses.USDC,
+            parseUnits('300', 6),
+            cometMock2.address,
+            {}
+          )
+  //      ).revertedWith("TC-15 wrong borrow balance"); // WRONG_BORROWED_BALANCE
+      });
+    })
   })
 
   describe("Borrow using small health factors", () => {
@@ -280,8 +308,11 @@ describe("Compound3PoolAdapterIntTest", () => {
           parseUnits('1'),
           MaticAddresses.USDC,
           undefined,
-          targetHealthFactor2,
-          minHealthFactor2
+          MaticAddresses.COMPOUND3_COMET_USDC,
+          {
+            targetHealthFactor2,
+            minHealthFactor2
+          }
         )
 
         const status = await r.prepareResults.poolAdapter.getStatus();
@@ -308,8 +339,11 @@ describe("Compound3PoolAdapterIntTest", () => {
           parseUnits('1'),
           MaticAddresses.USDC,
           undefined,
-          targetHealthFactor2,
-          minHealthFactor2
+          MaticAddresses.COMPOUND3_COMET_USDC,
+          {
+            targetHealthFactor2,
+            minHealthFactor2
+          }
         )
 
         const status = await r.prepareResults.poolAdapter.getStatus()

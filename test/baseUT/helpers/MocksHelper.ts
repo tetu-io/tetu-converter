@@ -49,7 +49,7 @@ import {
   DForceAprLibFacade,
   Compound3AprLibFacade,
   Aave3AggregatorInterfaceMock,
-  CometMock, PriceFeedMock
+  CometMock, PriceFeedMock, CometMock2
 } from "../../../typechain";
 import {IPoolInfo} from "./BorrowManagerHelper";
 import {getBigNumberFrom} from "../../../scripts/utils/NumberUtils";
@@ -627,7 +627,10 @@ export class MocksHelper {
 
 //region Compound3 mocks
   public static async createCometMock(signer: SignerWithAddress): Promise<CometMock> {
-    return (await DeployUtils.deployContract(signer, 'CometMock', )) as CometMock;
+    return (await DeployUtils.deployContract(signer, 'CometMock')) as CometMock;
+  }
+  public static async createCometMock2(signer: SignerWithAddress, comet: string): Promise<CometMock2> {
+    return (await DeployUtils.deployContract(signer, 'CometMock2', comet)) as CometMock2;
   }
 
   public static async createPriceFeed(signer: SignerWithAddress): Promise<PriceFeedMock> {

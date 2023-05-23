@@ -390,4 +390,23 @@ describe("Compound3PoolAdapterUnitTest", () => {
       });
     });
   });
+
+  describe("updateStatus", () => {
+    describe("Bad paths", () => {
+      it("should revert if not TetuConverter", async () => {
+        const d = await Compound3TestUtils.prepareToBorrow(
+          deployer,
+          await TokenDataTypes.Build(deployer, MaticAddresses.WETH),
+          MaticAddresses.HOLDER_WETH,
+          undefined,
+          await TokenDataTypes.Build(deployer, MaticAddresses.USDC),
+          [MaticAddresses.COMPOUND3_COMET_USDC],
+          MaticAddresses.COMPOUND3_COMET_REWARDS,
+        );
+        await expect(
+          d.poolAdapter.connect(await Misc.impersonate(ethers.Wallet.createRandom().address)).updateStatus()
+        ).revertedWith("TC-8 tetu converter only"); // TETU_CONVERTER_ONLY
+      });
+    });
+  });
 })
