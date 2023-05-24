@@ -1,5 +1,5 @@
 import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
-import {ethers} from "hardhat";
+import {ethers, web3} from "hardhat";
 import {TimeUtils} from "../../../scripts/utils/TimeUtils";
 import {
   BorrowManager__factory,
@@ -11,7 +11,7 @@ import {
   IERC20Metadata__factory,
   IPoolAdapter__factory, ITetuConverter__factory,
   ITokenAddressProvider,
-  TokenAddressProviderMock,
+  TokenAddressProviderMock, IWmatic__factory,
 } from "../../../typechain";
 import { ValueReceivedEventObject } from '../../../typechain/contracts/protocols/dforce/DForcePoolAdapter';
 import {expect} from "chai";
@@ -2257,6 +2257,66 @@ describe("DForcePoolAdapterUnitTest", () => {
       });
       it("should revert if not governance", async () => {
         await expect(salvageToken(MaticAddresses.USDC, MaticAddresses.HOLDER_USDC, "800", receiver)).revertedWith("TC-9 governance only"); // GOVERNANCE_ONLY
+      });
+    });
+  });
+
+  describe("payable", () => {
+    let init: IPrepareToBorrowResults;
+    before(async () => {
+      const collateralToken = await TokenDataTypes.Build(deployer, MaticAddresses.DAI);
+      const borrowToken = await TokenDataTypes.Build(deployer, MaticAddresses.USDC);
+
+      init = await DForceTestUtils.prepareToBorrow(
+        deployer,
+        controllerInstance,
+        collateralToken,
+        MaticAddresses.HOLDER_DAI,
+        MaticAddresses.dForce_iDAI,
+        parseUnits("1", collateralToken.decimals),
+        borrowToken,
+        MaticAddresses.dForce_iUSDC
+      );
+    })
+    describe("Good paths", () => {
+      it("WMATIC should be able to put MATIC on balance of the pool adapter", async () => {
+        const amount = parseUnits("1", 18);
+
+        const maticSource = await Misc.impersonate(ethers.Wallet.createRandom().address);
+        const receiver = await Misc.impersonate(init.dfPoolAdapterTC.address);
+
+        // const receiver = await Misc.impersonate(ethers.Wallet.createRandom().address);
+
+        await BalanceUtils.getAmountFromHolder(MaticAddresses.WMATIC, MaticAddresses.HOLDER_WMATIC, receiver.address, amount);
+
+        const balanceBefore = await web3.eth.getBalance(receiver.address);
+        console.log('balanceBefore', balanceBefore);
+
+        console.log("withdraw");
+        const tx = await IWmatic__factory.connect(MaticAddresses.WMATIC, receiver).withdraw(amount);
+        const cr = await tx.wait();
+        const dfi = DForcePoolAdapter__factory.createInterface();
+        for (const event of (cr.events ?? [])) {
+          if (event.topics[0].toLowerCase() === dfi.getEventTopic('ValueReceived').toLowerCase()) {
+            const log = (dfi.decodeEventLog(
+              dfi.getEvent('ValueReceived'),
+              event.data,
+              event.topics,
+            ) as unknown) as ValueReceivedEventObject;
+            console.log('ValueReceived', log.user, log.amount);
+          }
+        }
+
+        const balanceAfter = await web3.eth.getBalance(receiver.address);
+        console.log('balanceAfter', balanceAfter);
+      });
+      it("DFORCE_MATIC should be able to put MATIC on balance of the pool adapter", async () => {
+
+      });
+    });
+    describe("Bad paths", () => {
+      it("revert if some other contracts put MATIC on balance of the pool adapter", async () => {
+
       });
     });
   });

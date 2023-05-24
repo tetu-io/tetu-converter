@@ -661,8 +661,8 @@ contract DForcePoolAdapter is IPoolAdapter, IPoolAdapterInitializerWithAP, Initi
 
   /// @notice this is needed for the native token unwrapping
   receive() external payable {
-    emit ValueReceived(msg.sender, msg.value);
-    require(msg.sender == WMATIC || msg.sender == DFORCE_MATIC, AppErrors.ACCESS_DENIED);
+    // emit ValueReceived(msg.sender, msg.value);
+    // require(msg.sender == WMATIC || msg.sender == DFORCE_MATIC, AppErrors.ACCESS_DENIED);
   }
   //endregion ----------------------------------------------------- Native tokens
 }
