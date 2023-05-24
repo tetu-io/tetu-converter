@@ -339,7 +339,7 @@ describe("Compound3PoolAdapterUnitTest", () => {
       })
     });
     describe("Bad paths", () => {
-      it("should revert of wrong borrowed balances", async () => {
+      it("should revert if wrong borrowed balances", async () => {
         if (!await isPolygonForkInUse()) return;
 
         const cometMock2= await MocksHelper.createCometMock2(deployer, MaticAddresses.COMPOUND3_COMET_USDC);
@@ -374,6 +374,44 @@ describe("Compound3PoolAdapterUnitTest", () => {
         await expect(
           r.prepareResults.poolAdapter.borrowToRebalance(parseUnits('1', 6), r.prepareResults.userContract.address)
         ).revertedWith("TC-15 wrong borrow balance"); // WRONG_BORROWED_BALANCE
+      });
+      it("should revert if position is not opened", async () => {
+        if (!await isPolygonForkInUse()) return;
+
+        const collateralToken = await TokenDataTypes.Build(deployer, MaticAddresses.WETH);
+        const borrowToken = await TokenDataTypes.Build(deployer, MaticAddresses.USDC);
+        const prepareResults = await Compound3TestUtils.prepareToBorrow(
+          deployer,
+          collateralToken,
+          MaticAddresses.HOLDER_WETH,
+          parseUnits('10', 18),
+          borrowToken,
+          [MaticAddresses.COMPOUND3_COMET_USDC],
+          MaticAddresses.COMPOUND3_COMET_REWARDS,
+        );
+
+        await expect(
+          prepareResults.poolAdapter.borrowToRebalance(1, deployer.address)
+        ).revertedWith("TC-11 position not registered"); // BORROW_POSITION_IS_NOT_REGISTERED
+      });
+      it("should revert if not tetu converter", async () => {
+        if (!await isPolygonForkInUse()) return;
+
+        const collateralToken = await TokenDataTypes.Build(deployer, MaticAddresses.WETH);
+        const borrowToken = await TokenDataTypes.Build(deployer, MaticAddresses.USDC);
+        const prepareResults = await Compound3TestUtils.prepareToBorrow(
+          deployer,
+          collateralToken,
+          MaticAddresses.HOLDER_WETH,
+          parseUnits('10', 18),
+          borrowToken,
+          [MaticAddresses.COMPOUND3_COMET_USDC],
+          MaticAddresses.COMPOUND3_COMET_REWARDS,
+        );
+
+        await expect(
+          prepareResults.poolAdapter.connect(await Misc.impersonate(ethers.Wallet.createRandom().address)).borrowToRebalance(1, deployer.address)
+        ).revertedWith("TC-8 tetu converter only"); // TETU_CONVERTER_ONLY
       });
     });
   })
@@ -416,7 +454,7 @@ describe("Compound3PoolAdapterUnitTest", () => {
     }
     describe("Good paths", () => {
       it("should salvage collateral asset", async () => {
-        expect(await salvageToken(MaticAddresses.WETH, MaticAddresses.HOLDER_WETH, "8")).eq(8);
+        expect(await salvageToken(MaticAddresses.WETH, MaticAddresses.HOLDER_WETH_2, "8")).eq(8);
       });
       it("should salvage borrow asset", async () => {
         expect(await salvageToken(MaticAddresses.USDC, MaticAddresses.HOLDER_USDC, "8")).eq(8);
@@ -444,6 +482,87 @@ describe("Compound3PoolAdapterUnitTest", () => {
         await expect(
           d.poolAdapter.connect(await Misc.impersonate(ethers.Wallet.createRandom().address)).updateStatus()
         ).revertedWith("TC-8 tetu converter only"); // TETU_CONVERTER_ONLY
+      });
+    });
+  });
+
+  describe("getCollateralAmountToReturn", () => {
+    describe("Bad paths", () => {
+      it("should revert if amount-to-repay is less then borrowed balances", async () => {
+        if (!await isPolygonForkInUse()) return;
+
+        const cometMock2= await MocksHelper.createCometMock2(deployer, MaticAddresses.COMPOUND3_COMET_USDC);
+
+        const cometRewardsMock = await MocksHelper.createCometRewardsMock(
+          deployer,
+          MaticAddresses.COMPOUND3_COMET_USDC,
+          MaticAddresses.COMPOUND3_COMET_REWARDS
+        );
+
+        await BalanceUtils.getAmountFromHolder(
+          MaticAddresses.USDC,
+          MaticAddresses.HOLDER_USDC,
+          cometMock2.address,
+          parseUnits("1000", 6)
+        );
+
+        const r = await makeBorrow(
+          MaticAddresses.WETH,
+          MaticAddresses.HOLDER_WETH,
+          parseUnits('10', 18),
+          MaticAddresses.USDC,
+          {
+            comet: cometMock2.address,
+            cometRewards: cometRewardsMock.address
+          }
+        );
+
+        await cometMock2.setBorrowBalance(1, 1);
+
+        await expect(
+          r.prepareResults.poolAdapter.getCollateralAmountToReturn(
+            parseUnits("1", 18),
+            false
+          )
+        ).revertedWith("TC-15 wrong borrow balance"); // WRONG_BORROWED_BALANCE
+      });
+      it("should revert if zero borrowed balances", async () => {
+        if (!await isPolygonForkInUse()) return;
+
+        const cometMock2= await MocksHelper.createCometMock2(deployer, MaticAddresses.COMPOUND3_COMET_USDC);
+
+        const cometRewardsMock = await MocksHelper.createCometRewardsMock(
+          deployer,
+          MaticAddresses.COMPOUND3_COMET_USDC,
+          MaticAddresses.COMPOUND3_COMET_REWARDS
+        );
+
+        await BalanceUtils.getAmountFromHolder(
+          MaticAddresses.USDC,
+          MaticAddresses.HOLDER_USDC,
+          cometMock2.address,
+          parseUnits("1000", 6)
+        );
+
+        const r = await makeBorrow(
+          MaticAddresses.WETH,
+          MaticAddresses.HOLDER_WETH,
+          parseUnits('10', 18),
+          MaticAddresses.USDC,
+          {
+            comet: cometMock2.address,
+            cometRewards: cometRewardsMock.address
+          }
+        );
+
+        await cometMock2.setBorrowBalance(1, 0);
+
+        await expect(
+          r.prepareResults.poolAdapter.getCollateralAmountToReturn(
+            parseUnits("1", 18),
+            false
+          )
+        ).revertedWith("TC-28 zero balance"); // ZERO_BALANCE
       });
     });
   });

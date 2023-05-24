@@ -38,6 +38,7 @@ export interface IPrepareBorrowBadPathsParams {
   minHealthFactor2?: number;
   comet?: string;
   cometRewards?: string;
+  borrowAsNotTetuConverter?: boolean;
 }
 
 export interface IBorrowResults {

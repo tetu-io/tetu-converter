@@ -42,6 +42,9 @@ export interface IBorrowAndRepayBadParams {
   forceToClosePosition?: boolean;
 
   repayAsNotUserAndNotTC?: boolean;
+
+  comets?: string[];
+  cometRewards?: string;
 }
 
 /**

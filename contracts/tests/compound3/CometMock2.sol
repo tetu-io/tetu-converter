@@ -15,9 +15,11 @@ contract CometMock2 /*is IComet*/ { // some view functions are not view here
 
   bool internal _disableTransferInWithdraw;
   /// @notice 0 - not used, 1 - return value immediately, 2 - return value after call of withdraw()
+  ///         3 - return value after TWO calls of withdraw() and so on
   uint internal _borrowBalanceState12;
   uint internal _borrowBalanceValue;
   /// @notice 0 - not used, 1 - return value immediately, 2 - return value after call of withdraw()
+  ///         3 - return value after TWO calls of withdraw() and so on
   uint internal _tokensBalanceState12;
   uint internal _tokensBalanceValue;
 
@@ -45,7 +47,7 @@ contract CometMock2 /*is IComet*/ { // some view functions are not view here
   function borrowBalanceOf(address /*account*/) external view returns (uint) {
     console.log("CometMock2.borrowBalanceOf");
     if (_borrowBalanceState12 == 1) {
-      console.log("CometMock2.borrowBalanceOf is zero");
+      console.log("CometMock2.borrowBalanceOf is custom", _borrowBalanceValue);
       return _borrowBalanceValue;
     } else {
       return comet.borrowBalanceOf(address(this));
@@ -56,9 +58,9 @@ contract CometMock2 /*is IComet*/ { // some view functions are not view here
   function userCollateral(address /*user*/, address asset) external view returns (IComet.UserCollateral memory ret) {
     console.log("CometMock2.userCollateral._tokensBalanceZero", _tokensBalanceState12);
     ret = comet.userCollateral(address(this), asset);
-    console.log("CometMock2.userCollateral.ret", ret.balance);
     if (_tokensBalanceState12 == 1) {
       ret.balance = uint128(_tokensBalanceValue);
+      console.log("CometMock2.userCollateral.custom balance", ret.balance);
     }
     console.log("CometMock2.userCollateral.return", ret.balance);
     return ret;
@@ -82,8 +84,8 @@ contract CometMock2 /*is IComet*/ { // some view functions are not view here
       IERC20(asset).safeTransfer(msg.sender, amount);
       console.log("CometMock2.withdraw.after transfer", IERC20(asset).balanceOf(address(this)));
     }
-    if (_tokensBalanceState12 == 2) _tokensBalanceState12 = 1;
-    if (_borrowBalanceState12 == 2) _borrowBalanceState12 = 1;
+    if (_tokensBalanceState12 > 1) _tokensBalanceState12--;
+    if (_borrowBalanceState12 > 1) _borrowBalanceState12--;
   }
   //endregion -------------------------------------------- Replacements
 
