@@ -394,4 +394,7 @@ contract DForceControllerMock is IDForceController {
   function _setBorrowPaused(address _iToken, bool _paused) external override {
     comptroller._setBorrowPaused(_iToken, _paused);
   }
+  function _setBorrowFactor(address iToken_, uint256 newBorrowFactorMantissa_) external override {
+    comptroller._setBorrowFactor(iToken_, newBorrowFactorMantissa_);
+  }
 }
