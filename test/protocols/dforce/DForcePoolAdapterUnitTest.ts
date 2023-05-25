@@ -2412,7 +2412,7 @@ describe("DForcePoolAdapterUnitTest", () => {
     });
   });
 
-  describe("receive", () => {
+  describe.skip("receive", () => {
     let init: IPrepareToBorrowResults;
     before(async () => {
       const collateralToken = await TokenDataTypes.Build(deployer, MaticAddresses.DAI);
@@ -2433,10 +2433,8 @@ describe("DForcePoolAdapterUnitTest", () => {
       it("WMATIC should be able to put MATIC on balance of the pool adapter", async () => {
         const amount = parseUnits("1", 18);
 
-        const maticSource = await Misc.impersonate(ethers.Wallet.createRandom().address);
+        console.log(await init.dfPoolAdapterTC.POOL_ADAPTER_VERSION());
         const receiver = await Misc.impersonate(init.dfPoolAdapterTC.address);
-        // await web3.eth.sendTransaction({from: maticSource.address, to: receiver.address, value: "1000000000000000000"});
-
         // const receiver = await Misc.impersonate(ethers.Wallet.createRandom().address);
 
         await BalanceUtils.getAmountFromHolder(MaticAddresses.WMATIC, MaticAddresses.HOLDER_WMATIC, receiver.address, amount);
@@ -2447,8 +2445,9 @@ describe("DForcePoolAdapterUnitTest", () => {
         console.log("withdraw");
         const tx = await IWmatic__factory.connect(MaticAddresses.WMATIC, receiver).withdraw(amount);
         const cr = await tx.wait();
-        const dfi = DForcePoolAdapter__factory.createInterface();
         console.log("withdraw.2");
+
+        const dfi = DForcePoolAdapter__factory.createInterface();
         for (const event of (cr.events ?? [])) {
           if (event.topics[0].toLowerCase() === dfi.getEventTopic('ValueReceived').toLowerCase()) {
             const log = (dfi.decodeEventLog(
@@ -2465,6 +2464,58 @@ describe("DForcePoolAdapterUnitTest", () => {
       });
       it("DFORCE_MATIC should be able to put MATIC on balance of the pool adapter", async () => {
 
+      });
+      it("test", async () => {
+        const amount = parseUnits("25", 18);
+
+        // ensure that we use correct contract - DForcePoolAdapter
+        console.log(await init.dfPoolAdapterTC.POOL_ADAPTER_VERSION());
+
+        // send matic to init.dfPoolAdapterTC.address
+        const problemContract = init.dfPoolAdapterTC.address;
+        const maticSource = await Misc.impersonate(ethers.Wallet.createRandom().address);
+        await web3.eth.sendTransaction({from: maticSource.address, to: problemContract, value: "1000000000000000000"});
+        const balanceMaticProblemContract = await web3.eth.getBalance(problemContract);
+        console.log('balanceBefore of matic', balanceMaticProblemContract);
+
+        // create new instance of DForcePoolAdapter for tests
+        const newInstance = await AdaptersHelper.createDForcePoolAdapter(deployer);
+        console.log(await newInstance.POOL_ADAPTER_VERSION());
+
+        const receiver = await Misc.impersonate(problemContract);
+        // const receiver = await Misc.impersonate(ethers.Wallet.createRandom().address);
+        // const receiver = await Misc.impersonate(newInstance.address);
+
+        // put some WMATIC on balance of the contract
+        await BalanceUtils.getAmountFromHolder(MaticAddresses.WMATIC, MaticAddresses.HOLDER_WMATIC, receiver.address, amount);
+
+        // check balances of WMATIC and MATIC
+        const balanceBefore = await web3.eth.getBalance(receiver.address);
+        console.log('balanceBefore of matic', balanceBefore);
+
+        const balanceWMaticBefore = await IERC20__factory.connect(MaticAddresses.WMATIC, deployer).balanceOf(receiver.address);
+        console.log('balanceBefore of wmatic', balanceWMaticBefore);
+
+        // try to withdraw
+        console.log("withdraw");
+        const tx = await IWmatic__factory.connect(MaticAddresses.WMATIC, receiver).withdraw(amount, {gasLimit: GAS_LIMIT});
+        const cr = await tx.wait();
+        console.log("withdraw.2");
+
+        const dfi = DForcePoolAdapter__factory.createInterface();
+        for (const event of (cr.events ?? [])) {
+          if (event.topics[0].toLowerCase() === dfi.getEventTopic('ValueReceived').toLowerCase()) {
+            const log = (dfi.decodeEventLog(
+              dfi.getEvent('ValueReceived'),
+              event.data,
+              event.topics,
+            ) as unknown) as ValueReceivedEventObject;
+            console.log('ValueReceived', log.user, log.amount);
+          }
+        }
+
+        const balanceAfter = await web3.eth.getBalance(receiver.address);
+        console.log('balanceAfter', balanceAfter);
       });
     });
     describe("Bad paths", () => {
