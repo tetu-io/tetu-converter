@@ -49,7 +49,7 @@ import {
   DForceAprLibFacade,
   Compound3AprLibFacade,
   Aave3AggregatorInterfaceMock,
-  CometMock, PriceFeedMock, CometMock2, CometRewardsMock
+  CometMock, PriceFeedMock, CometMock2, CometRewardsMock, DForceRewardDistributorMock
 } from "../../../typechain";
 import {IPoolInfo} from "./BorrowManagerHelper";
 import {getBigNumberFrom} from "../../../scripts/utils/NumberUtils";
@@ -356,13 +356,17 @@ export class MocksHelper {
     borrowRate2: BigNumber
   ) : Promise<DForceInterestRateModelMock> {
     return await DeployUtils.deployContract(
-      signer
-      , "DForceInterestRateModelMock"
-      , cash1
-      , borrowRate1
-      , cash2
-      , borrowRate2
+      signer,
+      "DForceInterestRateModelMock",
+      cash1,
+      borrowRate1,
+      cash2,
+      borrowRate2,
     ) as DForceInterestRateModelMock;
+  }
+
+  public static async createDForceRewardDistributorMock(signer: SignerWithAddress, rewardsDistributor: string) : Promise<DForceRewardDistributorMock> {
+    return await DeployUtils.deployContract(signer,"DForceRewardDistributorMock", rewardsDistributor) as DForceRewardDistributorMock;
   }
 
 //endregion DForce mocks
