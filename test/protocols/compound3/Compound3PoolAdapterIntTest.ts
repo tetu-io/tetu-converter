@@ -372,7 +372,7 @@ describe("Compound3PoolAdapterIntTest", () => {
         const r = await makeBorrow(
           MaticAddresses.WETH,
           MaticAddresses.HOLDER_WETH,
-          parseUnits('1'),
+          parseUnits('5'),
           MaticAddresses.USDC,
           undefined,
           {
@@ -402,7 +402,7 @@ describe("Compound3PoolAdapterIntTest", () => {
         const r = await makeBorrow(
           MaticAddresses.WETH,
           MaticAddresses.HOLDER_WETH,
-          parseUnits('1'),
+          parseUnits('5'),
           MaticAddresses.USDC,
           undefined,
           {

@@ -49,7 +49,13 @@ import {
   DForceAprLibFacade,
   Compound3AprLibFacade,
   Aave3AggregatorInterfaceMock,
-  CometMock, PriceFeedMock, CometMock2, CometRewardsMock, DForceRewardDistributorMock
+  CometMock,
+  PriceFeedMock,
+  CometMock2,
+  CometRewardsMock,
+  DForceRewardDistributorMock,
+  UpgradeableProxyFacade,
+  ControllableV3Facade
 } from "../../../typechain";
 import {IPoolInfo} from "./BorrowManagerHelper";
 import {getBigNumberFrom} from "../../../scripts/utils/NumberUtils";
@@ -644,4 +650,13 @@ export class MocksHelper {
     return (await DeployUtils.deployContract(signer, 'PriceFeedMock', )) as PriceFeedMock;
   }
 //endregion Compound3 mocks
+
+//region Proxy
+  public static async createUpgradeableProxyFacade(signer: SignerWithAddress): Promise<UpgradeableProxyFacade> {
+    return (await DeployUtils.deployContract(signer, 'UpgradeableProxyFacade', )) as UpgradeableProxyFacade;
+  }
+  public static async createControllableV3Facade(signer: SignerWithAddress): Promise<ControllableV3Facade> {
+    return (await DeployUtils.deployContract(signer, 'ControllableV3Facade', )) as ControllableV3Facade;
+  }
+//endregion Proxy
 }
