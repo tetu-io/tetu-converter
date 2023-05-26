@@ -1,5 +1,5 @@
 import {SignerWithAddress} from "@nomiclabs/hardhat-ethers/signers";
-import hre, {ethers, web3} from "hardhat";
+import {ethers} from "hardhat";
 import {TimeUtils} from "../../../scripts/utils/TimeUtils";
 import {
   BorrowManager__factory,
@@ -2440,7 +2440,6 @@ describe("DForcePoolAdapterUnitTest", () => {
        */
       describe.skip("Use DForce-pool-adapter created inside the app", () => {
         it("WMATIC should be able to put MATIC on balance of the pool adapter", async () => {
-          hre.tracer.enabled = true
           const amount = parseUnits("1", 18);
 
           console.log(await init.dfPoolAdapterTC.POOL_ADAPTER_VERSION());
@@ -2449,7 +2448,7 @@ describe("DForcePoolAdapterUnitTest", () => {
 
           await BalanceUtils.getAmountFromHolder(MaticAddresses.WMATIC, MaticAddresses.HOLDER_WMATIC, receiver.address, amount);
 
-          const balanceBefore = await web3.eth.getBalance(receiver.address);
+          const balanceBefore = await receiver.getBalance();
           console.log('balanceBefore', balanceBefore);
 
           console.log("withdraw");
@@ -2472,7 +2471,7 @@ describe("DForcePoolAdapterUnitTest", () => {
             }
           }
 
-          const balanceAfter = await web3.eth.getBalance(receiver.address);
+          const balanceAfter = await receiver.getBalance();
           console.log('balanceAfter', balanceAfter);
         });
       })
@@ -2490,7 +2489,7 @@ describe("DForcePoolAdapterUnitTest", () => {
           await BalanceUtils.getAmountFromHolder(MaticAddresses.WMATIC, MaticAddresses.HOLDER_WMATIC, receiver.address, amount);
 
           // check balances of WMATIC and MATIC
-          const balanceBefore = await web3.eth.getBalance(receiver.address);
+          const balanceBefore = await receiver.getBalance();
           console.log('balanceBefore of matic', balanceBefore);
 
           const balanceWMaticBefore = await IERC20__factory.connect(MaticAddresses.WMATIC, deployer).balanceOf(receiver.address);
@@ -2514,7 +2513,7 @@ describe("DForcePoolAdapterUnitTest", () => {
             }
           }
 
-          const balanceAfter = await web3.eth.getBalance(receiver.address);
+          const balanceAfter = await receiver.getBalance();
           console.log('balanceAfter', balanceAfter);
         });
         /**
@@ -2538,7 +2537,7 @@ describe("DForcePoolAdapterUnitTest", () => {
           // await web3.eth.sendTransaction({from: maticSource.address, to: MaticAddresses.dForce_iMATIC, value: "100000000000000000000"});
 
           // check balances of WMATIC and MATIC
-          const balanceBefore = await web3.eth.getBalance(receiver.address);
+          const balanceBefore = await receiver.getBalance();
           console.log('balanceBefore of matic', balanceBefore);
 
           const balanceWMaticBefore = await IERC20__factory.connect(MaticAddresses.dForce_iMATIC, deployer).balanceOf(receiver.address);
@@ -2562,7 +2561,7 @@ describe("DForcePoolAdapterUnitTest", () => {
             }
           }
 
-          const balanceAfter = await web3.eth.getBalance(receiver.address);
+          const balanceAfter = await receiver.getBalance();
           console.log('balanceAfter', balanceAfter);
         });
       })
@@ -2575,9 +2574,9 @@ describe("DForcePoolAdapterUnitTest", () => {
         // send matic to init.dfPoolAdapterTC.address
         const problemContract = init.dfPoolAdapterTC.address;
         const maticSource = await Misc.impersonate(ethers.Wallet.createRandom().address);
-        await web3.eth.sendTransaction({from: maticSource.address, to: problemContract, value: "1000000000000000000"});
-        await web3.eth.sendTransaction({from: MaticAddresses.WMATIC, to: problemContract, value: "1000000000000000000"});
-        const balanceMaticProblemContract = await web3.eth.getBalance(problemContract);
+        await maticSource.sendTransaction({to: problemContract, value: "1000000000000000000"});
+        await (await Misc.impersonate(MaticAddresses.WMATIC)).sendTransaction({to: problemContract, value: "1000000000000000000"});
+        const balanceMaticProblemContract = (await Misc.impersonate(problemContract)).getBalance(problemContract);
         console.log('balanceBefore of matic', balanceMaticProblemContract);
 
         // create new instance of DForcePoolAdapter for tests
@@ -2592,7 +2591,7 @@ describe("DForcePoolAdapterUnitTest", () => {
         await BalanceUtils.getAmountFromHolder(MaticAddresses.WMATIC, MaticAddresses.HOLDER_WMATIC, receiver.address, amount);
 
         // check balances of WMATIC and MATIC
-        const balanceBefore = await web3.eth.getBalance(receiver.address);
+        const balanceBefore = await receiver.getBalance();
         console.log('balanceBefore of matic', balanceBefore);
 
         const balanceWMaticBefore = await IERC20__factory.connect(MaticAddresses.WMATIC, deployer).balanceOf(receiver.address);
@@ -2616,7 +2615,7 @@ describe("DForcePoolAdapterUnitTest", () => {
           }
         }
 
-        const balanceAfter = await web3.eth.getBalance(receiver.address);
+        const balanceAfter = await receiver.getBalance();
         console.log('balanceAfter', balanceAfter);
       });
     });
@@ -2624,7 +2623,7 @@ describe("DForcePoolAdapterUnitTest", () => {
       it("revert if some other contracts (not WMATIC or DFORCE_MATIC put some MATIC on balance", async () => {
         const maticSource = await Misc.impersonate(ethers.Wallet.createRandom().address);
         await expect(
-          web3.eth.sendTransaction({from: maticSource.address, to: init.dfPoolAdapterTC.address, value: "1000000000000000000"})
+          maticSource.sendTransaction({to: init.dfPoolAdapterTC.address, value: "1000000000000000000"})
         ).revertedWith("TC-48 access denied"); // ACCESS_DENIED
 
       });
